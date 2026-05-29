@@ -65,6 +65,7 @@ import {
   buildAsmPreSpec, buildAsmSpec,
   buildIverilogCheckSpec, buildIverilogBuildSpec,
   buildVvpHeaderSpec, buildVvpRunSpec,
+  buildCocotbRunSpec,
   buildVerilatorBuildSpec, buildVerilatorHeaderSpec, buildVerilatorRunSpec,
   buildVerilatorJsonSpec, buildVerilatorTbBuildSpec, buildVerilatorTbRunSpec,
   buildFst2VcdSpec, buildGtkwaveSpec,
@@ -75,6 +76,37 @@ import {
   parseSaphoTestbench, generateVerilatorProcTb,
 } from './verilator_tb.js';
 import * as CommandSpec from './command_spec.js';
+
+function basenameOfPath(filePath) {
+    return String(filePath || '').split(/[\\/]/).pop();
+}
+
+function moduleStemFromPath(filePath) {
+    return basenameOfPath(filePath).replace(/\.[^.]+$/i, '');
+}
+
+function isPythonFile(filePath) {
+    return /\.py$/i.test(String(filePath || ''));
+}
+
+function isVerilogLikeFile(filePath) {
+    return /\.(v|sv|vh)$/i.test(String(filePath || ''));
+}
+
+function assertPythonModuleName(filePath) {
+    const stem = moduleStemFromPath(filePath);
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(stem)) {
+        throw new Error(`cocotb testbench file name must be a valid Python module name: ${basenameOfPath(filePath)}`);
+    }
+    return stem;
+}
+
+function safeNamePart(name) {
+    return String(name || 'cocotb')
+        .replace(/[^A-Za-z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, '') || 'cocotb';
+}
+
 
 // i18n shim — falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -229,7 +261,7 @@ async generateProjectHierarchy() {
             const topLevelFilePath = this.projectConfig.topLevelFile;
             if (!topLevelFilePath) throw new Error("'topLevelFile' not found in .spf");
 
-            const designTopModule = topLevelFilePath.split(/[\\\\/]/).pop().replace(/\.v$/i, '');
+            const designTopModule = moduleStemFromPath(topLevelFilePath);
             const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
             const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
@@ -646,7 +678,7 @@ async loadConfig() {
         if (testbenchFilePath && testbenchFilePath !== 'standard') {
             tbFile = testbenchFilePath;
             const tbFileName = testbenchFilePath.split(/[\\\\/]/).pop();
-            tbModule = tbFileName.replace(/\.v$/i, '');
+            tbModule = moduleStemFromPath(tbFileName);
         } else {
             tbModule = `${cmmBaseName}_tb`;
             const simulationPath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Simulation');
@@ -1094,15 +1126,16 @@ async syntaxCheck() {
             return { success: false, message: msg };
         }
 
-        const topLevelModuleName = config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-        const simTopModule = config.testbenchFile
-            ? config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '')
+        const topLevelModuleName = moduleStemFromPath(config.topLevelFile);
+        const hasVerilogTestbench = config.testbenchFile && !isPythonFile(config.testbenchFile);
+        const simTopModule = hasVerilogTestbench
+            ? moduleStemFromPath(config.testbenchFile)
             : topLevelModuleName;
 
         // Whole design: synth files + testbench (raw, no auto-instrumentation
         // — we want iverilog to evaluate exactly what the user wrote).
         const fileSet = new Set(config.synthesizableFiles);
-        if (config.testbenchFile) fileSet.add(config.testbenchFile);
+        if (hasVerilogTestbench) fileSet.add(config.testbenchFile);
 
         // -y points iverilog at components/HDL pra resolver os modulos
         // da biblioteca SAPHO (processor.v, addr_dec.v, instr_dec.v,
@@ -1196,7 +1229,7 @@ async syntaxCheck() {
  * }>}
  */
 async _resolveWaveSelection({ config, simTopModule, filePaths }) {
-    const tbKey = config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+    const tbKey = moduleStemFromPath(config.testbenchFile);
 
     // 1a visita: snapshot do estado original do testbench. Idempotente
     // — re-chamadas nao mudam o flag.
@@ -1746,25 +1779,33 @@ async runGtkWave() {
         const config = this.validateForWave();
 
         const tools = await this._waveResolveToolchain();
-        const simTopModule = this._waveDeriveSimTopModule(config);
+        let simTopModule = this._waveDeriveSimTopModule(config);
+        let vcdFile = null;
 
-        // Branch no simulador escolhido. iverilog e default; verilator e
-        // opt-in via Wave Config (localStorage flag aurora.waveSimulator).
-        // Ambos os caminhos convergem em _waveResolveVcdFile — o arquivo
-        // de saida (.fst ou .vcd-com-FST) e descoberto la, sem branch.
-        const simulator = getSimulator();
-        if (simulator === 'verilator') {
-            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorSimulator'), 'tips');
-            const vTools = await this._waveResolveVerilatorTools();
-            const fullTools = { ...tools, ...vTools };
-            const { exePath } = await this._waveBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
-            await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
+        if (isPythonFile(config.testbenchFile)) {
+            const cocotbCtx = this._waveValidateCocotbConfig(config);
+            simTopModule = cocotbCtx.hdlTopModule;
+            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator'), 'tips');
+            vcdFile = await this._waveRunCocotbSimulation(cocotbCtx, tools, config);
         } else {
-            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.iverilogSimulator'), 'tips');
-            await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
-            await this._waveRunVvpSimulation(simTopModule, tools);
+            // Branch no simulador escolhido. iverilog e default; verilator e
+            // opt-in via Wave Config (localStorage flag aurora.waveSimulator).
+            // Ambos os caminhos convergem em _waveResolveVcdFile — o arquivo
+            // de saida (.fst ou .vcd-com-FST) e descoberto la, sem branch.
+            const simulator = getSimulator();
+            if (simulator === 'verilator') {
+                this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorSimulator'), 'tips');
+                const vTools = await this._waveResolveVerilatorTools();
+                const fullTools = { ...tools, ...vTools };
+                const { exePath } = await this._waveBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
+                await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
+            } else {
+                this.terminalManager.appendToTerminal('twave', tr('terminal.wave.iverilogSimulator'), 'tips');
+                await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
+                await this._waveRunVvpSimulation(simTopModule, tools);
+            }
+            vcdFile = await this._waveResolveVcdFile(simTopModule, tools.tempBaseDir);
         }
-        const vcdFile = await this._waveResolveVcdFile(simTopModule, tools.tempBaseDir);
         const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
         await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
     } catch (error) {
@@ -1813,12 +1854,312 @@ async _waveResolveToolchain() {
  */
 _waveDeriveSimTopModule(config) {
     if (config.testbenchFile) {
-        return config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+        return moduleStemFromPath(config.testbenchFile);
     }
     // Fallback inalcancavel pelo Wave (runGtkWave ja exige testbench),
     // mas o helper fica geral: se um dia for chamado sem tb, exige top.
     if (!config.topLevelFile) return null;
-    return config.topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
+    return moduleStemFromPath(config.topLevelFile);
+}
+
+_waveValidateCocotbConfig(config) {
+    if (!config.topLevelFile) {
+        throw new Error(tr('error.compilation.cocotbRequiresTop'));
+    }
+    if (!/\.(v|sv)$/i.test(config.topLevelFile)) {
+        throw new Error(tr('error.compilation.cocotbRequiresTop'));
+    }
+    if (!config.testbenchFile || !isPythonFile(config.testbenchFile)) {
+        throw new Error(tr('error.compilation.cocotbRequiresPythonTb'));
+    }
+
+    return {
+        hdlTopFile: config.topLevelFile,
+        hdlTopModule: moduleStemFromPath(config.topLevelFile),
+        testbenchFile: config.testbenchFile,
+        testModule: assertPythonModuleName(config.testbenchFile),
+        tbKey: moduleStemFromPath(config.testbenchFile),
+    };
+}
+
+async _writeCocotbRunnerScript(tempBaseDir) {
+    const scriptPath = await window.electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
+    const source = [
+        'import json',
+        'import os',
+        'import sys',
+        'from pathlib import Path',
+        '',
+        'try:',
+        '    from cocotb_tools.runner import get_runner',
+        'except ModuleNotFoundError:',
+        '    from cocotb.runner import get_runner',
+        '',
+        'def _json_env(name, default):',
+        '    try:',
+        '        return json.loads(os.environ.get(name, default))',
+        '    except Exception as exc:',
+        '        raise SystemExit(f"Invalid {name}: {exc}") from exc',
+        '',
+        'def main():',
+        '    sources = _json_env("AURORA_COCOTB_SOURCES_JSON", "[]")',
+        '    build_args = _json_env("AURORA_COCOTB_BUILD_ARGS_JSON", "[]")',
+        '    test_args = _json_env("AURORA_COCOTB_TEST_ARGS_JSON", "[]")',
+        '    top = os.environ["AURORA_COCOTB_TOP"]',
+        '    test_module = os.environ["AURORA_COCOTB_TEST_MODULE"]',
+        '    build_dir = os.environ["AURORA_COCOTB_BUILD_DIR"]',
+        '    test_dir = os.environ.get("AURORA_COCOTB_TEST_DIR", build_dir)',
+        '',
+        '    for entry in os.environ.get("AURORA_COCOTB_PYTHONPATH", "").split(os.pathsep):',
+        '        if entry and entry not in sys.path:',
+        '            sys.path.insert(0, entry)',
+        '',
+        '    Path(build_dir).mkdir(parents=True, exist_ok=True)',
+        '    os.environ.setdefault("SIM", "icarus")',
+        '    os.environ.setdefault("TOPLEVEL_LANG", "verilog")',
+        '    os.environ.setdefault("WAVES", "1")',
+        '',
+        '    runner = get_runner("icarus")',
+        '    runner.build(',
+        '        sources=sources,',
+        '        hdl_toplevel=top,',
+        '        build_dir=build_dir,',
+        '        build_args=build_args,',
+        '        timescale=("1ns", "1ps"),',
+        '        always=True,',
+        '        waves=True,',
+        '    )',
+        '    runner.test(',
+        '        hdl_toplevel=top,',
+        '        test_module=test_module,',
+        '        build_dir=build_dir,',
+        '        test_dir=test_dir,',
+        '        test_args=test_args,',
+        '        waves=True,',
+        '        results_xml=str(Path(build_dir) / "results.xml"),',
+        '    )',
+        '',
+        'if __name__ == "__main__":',
+        '    main()',
+        '',
+    ].join('\n');
+    await window.electronAPI.writeFile(scriptPath, source);
+    return scriptPath;
+}
+
+async _collectCocotbSources(config) {
+    const fileSet = new Set();
+    for (const path of config.synthesizableFiles || []) {
+        if (isVerilogLikeFile(path)) fileSet.add(path);
+    }
+    if (config.topLevelFile && isVerilogLikeFile(config.topLevelFile)) {
+        fileSet.add(config.topLevelFile);
+    }
+
+    try {
+        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+        const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+        if (Array.isArray(hdlEntries)) {
+            for (const name of hdlEntries) {
+                if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
+                    fileSet.add(await window.electronAPI.joinPath(hdlPath, name));
+                }
+            }
+        }
+    } catch (_e) { /* optional bundled HDL library */ }
+
+    return [...fileSet];
+}
+
+async _stageProcessorMemoryFilesForCocotb(tempBaseDir, buildDir) {
+    await this._stageProcessorMemoryFiles(tempBaseDir);
+    let entries = [];
+    try {
+        entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
+    } catch (_e) {
+        return;
+    }
+    for (const name of entries || []) {
+        if (typeof name !== 'string') continue;
+        if (!name.startsWith('pc_') || !name.endsWith('_mem.txt')) continue;
+        try {
+            await window.electronAPI.copyFile(
+                await window.electronAPI.joinPath(tempBaseDir, name),
+                await window.electronAPI.joinPath(buildDir, name),
+            );
+        } catch (_copyErr) { /* best effort: simulator reports the missing file */ }
+    }
+}
+
+async _resolveCocotbWaveSelection(ctx, config, sources) {
+    await WaveStore.ensureRegistered(this.projectPath, ctx.tbKey, {
+        tbPath: ctx.testbenchFile,
+        tbModule: ctx.testModule,
+        hadOriginalDumpvars: false,
+    });
+
+    const state = await WaveStore.read(this.projectPath, ctx.tbKey);
+    const savedSignals = Array.isArray(state.waveSignals) ? state.waveSignals : [];
+    const validSignals = savedSignals.length > 0
+        ? await this._validateWaveSelection(savedSignals, sources, ctx.hdlTopModule, ctx.tbKey)
+        : [];
+
+    this._validatedWaveSelection = validSignals;
+
+    if (validSignals.length > 0) {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.waveSource', {
+                label: tr('terminal.wave.sourceLabelWc', { count: validSignals.length }),
+            }), 'info');
+    }
+
+    return validSignals;
+}
+
+async _findWaveCandidateInDir(dir, topModule) {
+    let entries = [];
+    try {
+        entries = await window.electronAPI.listFilesInDirectory(dir);
+    } catch (_e) {
+        return null;
+    }
+    const waves = (entries || [])
+        .filter((name) => typeof name === 'string' && /\.(fst|vcd)$/i.test(name) && name !== 'fix.vcd');
+    if (waves.length === 0) return null;
+
+    const preferred = [
+        `${topModule}.fst`,
+        `${topModule}.vcd`,
+        'dump.fst',
+        'dump.vcd',
+    ];
+    const lowerToName = new Map(waves.map((name) => [name.toLowerCase(), name]));
+    for (const name of preferred) {
+        const found = lowerToName.get(name.toLowerCase());
+        if (found) return await window.electronAPI.joinPath(dir, found);
+    }
+    if (waves.length === 1) {
+        return await window.electronAPI.joinPath(dir, waves[0]);
+    }
+    return null;
+}
+
+async _adoptCocotbWaveform(ctx, tools, buildDir) {
+    const candidate = await this._findWaveCandidateInDir(buildDir, ctx.hdlTopModule);
+    if (!candidate) {
+        throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
+    }
+
+    const targetVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.vcd`);
+    if (/\.fst$/i.test(candidate)) {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbFstConvert'), 'info');
+        const spec = buildFst2VcdSpec({
+            fst2vcdBin: tools.fst2vcdBin,
+            inputFile: candidate,
+            outputFile: targetVcd,
+            cwd: tools.tempBaseDir,
+        });
+        const result = await runSpec(spec, { consumeEphemeral: true });
+        if (result.code !== 0 && result.code !== null) {
+            throw new Error(tr('error.compilation.cocotbFst2vcdFailed', { code: result.code }));
+        }
+    } else {
+        await window.electronAPI.copyFile(candidate, targetVcd);
+    }
+
+    if (!await window.electronAPI.fileExists(targetVcd)) {
+        throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
+    }
+    this.terminalManager.appendToTerminal('twave',
+        tr('terminal.wave.cocotbVcd', { name: basenameOfPath(targetVcd) }), 'info');
+    return targetVcd;
+}
+
+async _waveRunCocotbSimulation(ctx, tools, config) {
+    if (!await window.electronAPI.fileExists(tools.iverilogBin)) {
+        throw new Error(tr('error.toolchain.iverilogNotFound', { path: tools.iverilogBin }));
+    }
+    await TabManager.saveAllFiles();
+    await window.electronAPI.mkdir(tools.tempBaseDir);
+
+    const pyStatus = await window.electronAPI.getPythonStatus();
+    if (!pyStatus?.ok) {
+        throw new Error(tr('error.compilation.cocotbPythonMissing'));
+    }
+    if (!pyStatus.isBundled) {
+        throw new Error(tr('error.compilation.cocotbBundledPythonRequired'));
+    }
+    if (!pyStatus.hasCocotb) {
+        throw new Error(tr('error.compilation.cocotbPackageMissing', { path: pyStatus.pythonPath || 'python' }));
+    }
+    const expectedCocotbVersion = pyStatus.expectedCocotbVersion || '2.0.1';
+    if (pyStatus.cocotbVersion !== expectedCocotbVersion) {
+        throw new Error(tr('error.compilation.cocotbVersionMismatch', {
+            found: pyStatus.cocotbVersion || 'not installed',
+            expected: expectedCocotbVersion,
+        }));
+    }
+
+    const buildDir = await window.electronAPI.joinPath(
+        tools.tempBaseDir,
+        `cocotb_${safeNamePart(ctx.tbKey)}`,
+    );
+    await window.electronAPI.mkdir(buildDir);
+    await this._stageProcessorMemoryFilesForCocotb(tools.tempBaseDir, buildDir);
+
+    const sources = await this._collectCocotbSources(config);
+    await this._resolveCocotbWaveSelection(ctx, config, sources);
+    const tbDir = await window.electronAPI.dirname(ctx.testbenchFile);
+    const runnerScript = await this._writeCocotbRunnerScript(tools.tempBaseDir);
+    const pythonPathSep = ';';
+    const env = {
+        AURORA_COCOTB_SOURCES_JSON: JSON.stringify(sources),
+        AURORA_COCOTB_TOP: ctx.hdlTopModule,
+        AURORA_COCOTB_TEST_MODULE: ctx.testModule,
+        AURORA_COCOTB_BUILD_DIR: buildDir,
+        AURORA_COCOTB_TEST_DIR: tbDir,
+        AURORA_COCOTB_PYTHONPATH: [tbDir, this.projectPath, buildDir].filter(Boolean).join(pythonPathSep),
+        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(['-g2012']),
+        AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),
+        SIM: 'icarus',
+        TOPLEVEL_LANG: 'verilog',
+        WAVES: '1',
+    };
+
+    const spec = buildCocotbRunSpec({
+        pythonPath: pyStatus.pythonPath,
+        runnerScript,
+        cwd: buildDir,
+        env,
+        prependPath: [tools.iverilogBinDir, tools.gtkwaveBinDir],
+    });
+
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb'), 'info');
+    this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
+
+    let unsubscribe = null;
+    if (typeof window.electronAPI.onExecSpecStream === 'function') {
+        unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+            if (!payload || !payload.data) return;
+            for (const line of payload.data.split(/\r?\n/)) {
+                if (!line.trim()) continue;
+                this.terminalManager.appendToTerminal('twave', line, 'raw');
+            }
+        });
+    }
+
+    let code;
+    try {
+        const result = await runSpecStreamed(spec, { consumeEphemeral: true });
+        code = result.code;
+    } finally {
+        if (unsubscribe) unsubscribe();
+    }
+    if (code !== 0) {
+        throw new Error(tr('error.compilation.cocotbFailed', { code }));
+    }
+
+    return this._adoptCocotbWaveform(ctx, tools, buildDir);
 }
 
 /**
@@ -2398,7 +2739,7 @@ _resolveProcessorTarget() {
         .filter((p) => p && p.name);
     if (procs.length === 0) return null;
     if (procs.length === 1) return procs[0];
-    const topBase = (this.projectConfig?.topLevelFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    const topBase = moduleStemFromPath(this.projectConfig?.topLevelFile || '');
     const match = procs.find((p) => p.name === topBase);
     if (match) return match;
     this.terminalManager.appendToTerminal('twave',
@@ -2805,7 +3146,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
     // lista (gtkwFiles isolados por tb), entao a resolucao aqui depende
     // do `testbenchFile` corrente.
     const tbKey = (this.projectConfig.testbenchFile || '')
-        .split(/[\\/]/).pop().replace(/\.v$/i, '');
+        .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
     if (tbKey) {
         const state = await WaveStore.get(this.projectPath, tbKey);
         const files = state?.gtkwFiles;
@@ -2931,7 +3272,10 @@ async _parseProjectSources() {
         const tbFile = this.projectConfig?.testbenchFile;
         const tbFiles = (this.projectConfig?.testbenchFiles ?? [])
             .map((f) => f && f.path).filter(Boolean);
-        const paths = new Set([...synthFiles, ...(tbFile ? [tbFile] : []), ...tbFiles]);
+        const paths = new Set(
+            [...synthFiles, ...(tbFile ? [tbFile] : []), ...tbFiles]
+                .filter((p) => p && isVerilogLikeFile(p)),
+        );
 
         // components/HDL/*.v — biblioteca SAPHO. Inclui pra que
         // buildSignedSet/resolveScopeModules conhecam modulos como
@@ -3100,9 +3444,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
             throw new Error(`No top-level module specified in project configuration`);
         }
 
-        const topLevelModule = topLevelFile.split(/[\\\\/]/)
-            .pop()
-            .replace(/\.v$/i, '');
+        const topLevelModule = moduleStemFromPath(topLevelFile);
 
         const jsonOutputPath = await window.electronAPI.joinPath(tempBaseDir, `${topLevelModule}.json`);
 

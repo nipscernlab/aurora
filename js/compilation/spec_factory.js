@@ -20,10 +20,19 @@ import {
   buildAsmPreSpec, buildAsmSpec,
   buildIverilogCheckSpec, buildIverilogBuildSpec,
   buildVvpHeaderSpec, buildVvpRunSpec,
+  buildCocotbRunSpec,
   buildVerilatorBuildSpec, buildVerilatorHeaderSpec, buildVerilatorRunSpec,
   buildFst2VcdSpec, buildGtkwaveSpec,
   buildYosysHierarchySpec,
 } from './builders/index.js';
+
+function moduleStem(filePath) {
+  return String(filePath || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+}
+
+function isPythonFile(filePath) {
+  return /\.py$/i.test(String(filePath || ''));
+}
 
 /** Best-effort lookup of a processor's config from the open project. */
 async function findProcessor(processorName) {
@@ -157,23 +166,65 @@ export async function buildSpecForStep(step, processorName) {
     || (structure.testbenchFiles && structure.testbenchFiles[0]?.path)
     || null;
   const topLevelFile = structure.topLevelFile || null;
-  const topLevelModuleName = topLevelFile ? topLevelFile.split(/[\\/]/).pop().replace(/\.v$/i, '') : null;
+  const topLevelModuleName = topLevelFile ? moduleStem(topLevelFile) : null;
+  const tbIsPython = isPythonFile(tb);
   const simTopModule = tb
-    ? tb.split(/[\\/]/).pop().replace(/\.v$/i, '')
+    ? moduleStem(tb)
     : topLevelModuleName;
   const fileSet = new Set(synth);
-  if (tb) fileSet.add(tb);
+  if (tb && !tbIsPython) fileSet.add(tb);
   const sources = [...fileSet];
+
+  if (step === 'cocotb-run') {
+    if (!tb || !tbIsPython) throw new Error('cocotb-run needs a Python .py testbench');
+    if (!topLevelFile || !topLevelModuleName) throw new Error('cocotb-run needs a Verilog top-level set');
+    const pyStatus = await window.electronAPI.getPythonStatus();
+    if (!pyStatus?.ok) throw new Error('Python was not found');
+    if (!pyStatus.isBundled) throw new Error('cocotb-run requires Aurora bundled Python');
+    if (!pyStatus.hasCocotb) throw new Error('Aurora bundled Python is missing cocotb');
+    const expectedCocotbVersion = pyStatus.expectedCocotbVersion || '2.0.1';
+    if (pyStatus.cocotbVersion !== expectedCocotbVersion) {
+      throw new Error(`Aurora bundled Python has cocotb ${pyStatus.cocotbVersion || 'not installed'}, expected ${expectedCocotbVersion}`);
+    }
+    const runnerScript = await window.electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
+    const buildDir = await window.electronAPI.joinPath(tempBaseDir, `cocotb_${simTopModule || 'test'}`);
+    const tbDir = await window.electronAPI.dirname(tb);
+    return buildCocotbRunSpec({
+      pythonPath: pyStatus.pythonPath,
+      runnerScript,
+      cwd: buildDir,
+      env: {
+        AURORA_COCOTB_SOURCES_JSON: JSON.stringify(sources),
+        AURORA_COCOTB_TOP: topLevelModuleName,
+        AURORA_COCOTB_TEST_MODULE: moduleStem(tb),
+        AURORA_COCOTB_BUILD_DIR: buildDir,
+        AURORA_COCOTB_TEST_DIR: tbDir,
+        AURORA_COCOTB_PYTHONPATH: [tbDir, projectPath, buildDir].filter(Boolean).join(';'),
+        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(['-g2012']),
+        AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),
+        SIM: 'icarus',
+        TOPLEVEL_LANG: 'verilog',
+        WAVES: '1',
+      },
+      prependPath: [
+        await window.electronAPI.dirname(iveriCompPath),
+        await window.electronAPI.dirname(gtkwaveBin),
+      ],
+    });
+  }
+
+  const verilogSimTopModule = tb && !tbIsPython ? simTopModule : topLevelModuleName;
 
   if (step === 'iverilog-check') {
     return buildIverilogCheckSpec({
       iveriCompPath, hdlPath,
-      simTopModule: simTopModule || topLevelModuleName || 'top',
+      simTopModule: verilogSimTopModule || 'top',
       sourceFiles: sources, cwd: projectPath,
     });
   }
 
   if (step === 'iverilog-build') {
+    if (tbIsPython) throw new Error('iverilog-build cannot use a Python testbench; use cocotb-run');
     if (!simTopModule) throw new Error('iverilog-build needs a testbench or top-level set');
     const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     return buildIverilogBuildSpec({
@@ -183,6 +234,7 @@ export async function buildSpecForStep(step, processorName) {
   }
 
   if (step === 'vvp-header' || step === 'vvp-run') {
+    if (tbIsPython) throw new Error(`${step} cannot use a Python testbench; use cocotb-run`);
     if (!simTopModule) throw new Error(`${step} needs a testbench`);
     const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     return step === 'vvp-header'

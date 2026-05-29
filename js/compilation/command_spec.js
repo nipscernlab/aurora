@@ -20,7 +20,7 @@
  * @typedef {(
  *   'cmm'|'asm-pre'|'asm'|
  *   'iverilog-check'|'iverilog-build'|
- *   'vvp-header'|'vvp-run'|
+ *   'vvp-header'|'vvp-run'|'cocotb-run'|
  *   'verilator-build'|'verilator-header'|'verilator-run'|
  *   'verilator-json'|'verilator-tb-build'|'verilator-tb-run'|
  *   'fst2vcd'|'gtkwave'|
@@ -55,6 +55,7 @@ export const STEP_IDS = Object.freeze([
   'cmm', 'asm-pre', 'asm',
   'iverilog-check', 'iverilog-build',
   'vvp-header', 'vvp-run',
+  'cocotb-run',
   'verilator-build', 'verilator-header', 'verilator-run',
   'verilator-json', 'verilator-tb-build', 'verilator-tb-run',
   'fst2vcd', 'gtkwave',
@@ -69,6 +70,7 @@ export const STEP_DESCRIPTIONS = Object.freeze({
   'iverilog-build':   'Icarus Verilog build (iverilog -o) — produces .vvp consumed by vvp',
   'vvp-header':       'vvp pass-1 — runs instrumented testbench with +AURORA_HEADER_ONLY, produces VCD header only',
   'vvp-run':          'vvp pass-2 — full simulation with -fst, produces FST waveform',
+  'cocotb-run':       'cocotb Python runner — builds Verilog with Icarus and runs Python tests',
   'verilator-build':  'Verilator build — Verilog → C++ → native .exe',
   'verilator-header': 'Verilator pass-1 — runs .exe with +AURORA_HEADER_ONLY for header capture',
   'verilator-run':    'Verilator pass-2 — full simulation, native .exe',

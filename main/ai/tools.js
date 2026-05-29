@@ -465,7 +465,7 @@ const TOOL_MANIFEST = [
   },
   {
     name: 'import_file',
-    description: 'Register an existing .v / .sv / .vh file as a synthesizable or testbench file in the current project SPF. Copies the file into the project root if it lives elsewhere.',
+    description: 'Register an existing .v / .sv / .vh / .py file as a synthesizable or testbench file in the current project SPF. Copies the file into the project root if it lives elsewhere. Python .py files are treated as cocotb testbenches.',
     access: 'write',
     api: ['project', 'importFile'],
     argStyle: 'object',
@@ -595,7 +595,7 @@ const TOOL_MANIFEST = [
   {
     name: 'set_testbench_top',
     description:
-      'Mark a Verilog file as the project\'s Testbench Top module (the simulation entry point). ' +
+      'Mark a Verilog or cocotb Python file as the project\'s Testbench Top module (the simulation entry point). ' +
       'Registers the file in the project if it is not yet tracked, and refreshes the file tree. ' +
       'Call this after create_file and before compiling. ' +
       'Do NOT use on the auto-generated <proc>_tb.v inside <proc>/Simulation/ — that file is managed by SAPHO.',
@@ -606,7 +606,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        filePath: { type: 'string', description: 'Absolute or project-relative path to the testbench .v file' },
+        filePath: { type: 'string', description: 'Absolute or project-relative path to the testbench .v/.sv/.py file' },
       },
       required: ['filePath'],
     },

@@ -74,7 +74,7 @@ class ProjectTreeManager {
         // don't belong in the same list as Verilog sources, so
         // dropping one here is rejected with the same notification a
         // .txt would get.
-        this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh'];
+        this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh', '.py'];
         // Extensoes "software" — moram em <proc>/Software/, nao em
         // Hardware/. Aparecem na arvore agrupadas com o processador,
         // mas nao recebem toggle synth/tb, delete, nem entram no
@@ -467,6 +467,21 @@ class ProjectTreeManager {
         let changed = false;
         for (const file of this.verilogFiles) {
             if (file.isSoftware) continue;
+            // .py files (cocotb testbenches) sao sempre testbench — nao
+            // ha conteudo Verilog pra classificar.
+            if (this.getFileExtension(file.name || file.path || '') === '.py') {
+                if (file.category !== 'testbench') {
+                    file.category = 'testbench';
+                    file.isTopLevel = false;
+                    changed = true;
+                }
+                continue;
+            }
+            // isTopLevel is an explicit user choice (set via context menu or AI tool).
+            // Auto-classification must not override it — that would silently undo the
+            // user's intent every time the tree refreshes. Category is locked to
+            // whatever the user chose when they marked the file.
+            if (file.isTopLevel) continue;
             let content;
             try {
                 content = await window.electronAPI.readFile(file.path);

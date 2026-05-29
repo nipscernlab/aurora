@@ -24,6 +24,7 @@
 
 const path = require('path');
 const { componentsPath } = require('../paths');
+const { getBundledPythonPath, isBundledPythonPath } = require('./python_locator');
 
 /**
  * Each entry: [basename, [allowed-subdirs-under-components]].
@@ -80,6 +81,14 @@ function isAllowed(binaryPath) {
   const baseName = path.basename(normalized);
   const dir = path.posix.dirname(normalized);
 
+  if (/^python(3)?(\.exe)?$/i.test(baseName) || /^py(\.exe)?$/i.test(baseName)) {
+    if (isBundledPythonPath(binaryPath)) return { ok: true };
+    return {
+      ok: false,
+      error: `python interpreter must be Aurora's bundled runtime: ${binaryPath}`,
+    };
+  }
+
   // Verilator-generated V<top>.exe under components/Temp/obj_dir_*/.
   if (
     normalized.startsWith(VERILATOR_GENERATED_PREFIX) &&
@@ -114,10 +123,16 @@ function isAllowed(binaryPath) {
 
 /** Read-only snapshot for diagnostics + AI listing tool. */
 function listAllowedBinaries() {
-  return RAW_ALLOWLIST.map(([name, dirs]) => ({
+  const staticRows = RAW_ALLOWLIST.map(([name, dirs]) => ({
     binary: name,
     allowedDirs: dirs.map((d) => path.posix.join(toPosix(componentsPath), d)),
   }));
+  const bundledPython = getBundledPythonPath();
+  const pythonRows = [{
+    binary: path.basename(bundledPython),
+    allowedDirs: [path.dirname(bundledPython)],
+  }];
+  return staticRows.concat(pythonRows);
 }
 
 module.exports = { isAllowed, listAllowedBinaries };

@@ -217,6 +217,10 @@ export const ActionsMixin = {
         // os objetos LOCAIS (validFiles) — refreshs concorrentes nao
         // alcancam estes flags.
         for (const f of validFiles) {
+            if (/\.py$/i.test(f.name)) {
+                f.category = 'testbench';
+                continue;
+            }
             try {
                 const content = await window.electronAPI.readFile(f.path);
                 f.category = classifyVerilogContent(content, f.name);
@@ -343,6 +347,89 @@ export const ActionsMixin = {
             }
         } catch (error) {
             console.error('Error creating file:', error);
+            this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000);
+        }
+    },
+
+    async createNewCocotbFile() {
+        const targetSpfPath = ProjectStore.getSpfPath();
+        if (!targetSpfPath) {
+            this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000);
+            return;
+        }
+
+        try {
+            const projectPath = ProjectStore.getProjectPath();
+            let suggested = 'test_dut';
+            let finalPath = null;
+            while (finalPath === null) {
+                const defaultPath = projectPath
+                    ? await window.electronAPI.joinPath(projectPath, `${suggested}.py`)
+                    : `${suggested}.py`;
+
+                const result = await window.electronAPI.showSaveDialog({
+                    title: tr('contextMenu.saveNewCocotb'),
+                    defaultPath,
+                    filters: [
+                        { name: 'Python cocotb Testbenches', extensions: ['py'] },
+                    ],
+                    properties: ['createDirectory', 'showOverwriteConfirmation'],
+                });
+
+                if (result.canceled || !result.filePath) return;
+
+                const filePath = result.filePath;
+                const candidatePath = filePath.endsWith('.py') ? filePath : filePath + '.py';
+                const candidateBase = basenameOf(candidatePath).replace(/\.py$/i, '');
+
+                if (isValidPythonModuleName(candidateBase)) {
+                    finalPath = candidatePath;
+                } else {
+                    suggested = sanitizePythonModuleName(candidateBase);
+                    this.showNotification(
+                        tr('notification.tree.invalidName', { name: basenameOf(candidatePath), suggestion: `${suggested}.py` }),
+                        'warning',
+                        4000,
+                    );
+                }
+            }
+
+            const finalFileName = basenameOf(finalPath);
+            const template = `import cocotb
+from cocotb.triggers import Timer
+
+
+@cocotb.test()
+async def basic_test(dut):
+    dut._log.info("Starting cocotb test")
+    await Timer(1, unit="ns")
+`;
+
+            await window.electronAPI.writeFile(finalPath, template);
+
+            await SpfStore.update(targetSpfPath, (cfg) => {
+                const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+                const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
+                const targetKey = this._normalizePath(finalPath);
+                const synthIdx = synthFiles.findIndex((f) => this._normalizePath(f.path) === targetKey);
+                if (synthIdx >= 0) synthFiles.splice(synthIdx, 1);
+                if (!tbFiles.some((f) => this._normalizePath(f.path) === targetKey)) {
+                    tbFiles.push({ name: finalFileName, path: finalPath, isTopLevel: false });
+                }
+                cfg.synthesizableFiles = synthFiles;
+                cfg.testbenchFiles = tbFiles;
+            });
+
+            this.showNotification(tr('notification.tree.created', { name: finalFileName }), 'success', 2000);
+
+            try {
+                const content = await window.electronAPI.readFile(finalPath);
+                TabManager.addTab(finalPath, content);
+            } catch (error) {
+                console.error('Error opening new cocotb file:', error);
+            }
+        } catch (error) {
+            console.error('Error creating cocotb file:', error);
             this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000);
         }
     },
@@ -550,16 +637,18 @@ export const ActionsMixin = {
 
         const ext = this.getFileExtension(file.name || '');
         const isVerilog = ext === '.v' || ext === '.sv';
+        const isPython = ext === '.py';
+        const canBeTestbench = isVerilog || isPython;
 
         // isTopLevel is relative to the file's current category.
         // A synthesizable file with isTopLevel=true is the synth top;
         // a testbench file with isTopLevel=true is the testbench top.
         const isSynthTop = isVerilog && file.category !== 'testbench' && !!file.isTopLevel;
-        const isTbTop    = isVerilog && file.category === 'testbench'  && !!file.isTopLevel;
+        const isTbTop    = canBeTestbench && file.category === 'testbench'  && !!file.isTopLevel;
 
         let menuItems = '';
 
-        if (isVerilog) {
+        if (canBeTestbench) {
             if (file.category === 'testbench') {
                 // Testbench file — only the testbench-top toggle is relevant.
                 menuItems += `
@@ -569,7 +658,7 @@ export const ActionsMixin = {
                     </div>
                     <div class="context-menu-divider"></div>
                 `;
-            } else {
+            } else if (isVerilog) {
                 // Synthesizable file — only the top-level toggle is relevant.
                 menuItems += `
                     <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
@@ -669,6 +758,10 @@ export const ActionsMixin = {
                 <i class="fa-solid fa-file-code"></i>
                 <span>${tr('contextMenu.newVerilog')}</span>
             </div>
+            <div class="create-menu-item" data-action="create-cocotb">
+                <i class="fa-brands fa-python"></i>
+                <span>${tr('contextMenu.newCocotb')}</span>
+            </div>
         `;
 
         menu.style.left = event.pageX + 'px';
@@ -694,6 +787,8 @@ export const ActionsMixin = {
             const action = item.getAttribute('data-action');
             if (action === 'create-file') {
                 await this.createNewFile();
+            } else if (action === 'create-cocotb') {
+                await this.createNewCocotbFile();
             }
             this.closeCreateMenu();
         });
@@ -814,6 +909,7 @@ function basenameOf(filePath) {
 // do iverilog/yanc, acentos quebram em alguns toolchains, e simbolos
 // como `(` `)` `&` precisariam de escape no shell.
 const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
+const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 function isValidVerilogFileName(baseName) {
     return VALID_VERILOG_FILENAME_RE.test(baseName);
@@ -823,12 +919,27 @@ function sanitizeVerilogFileName(baseName) {
     // U+0300..U+036F = Combining Diacritical Marks. NFD separa
     // "ção" em "c" + "~" + "a" + "~" + "o"; removendo o range tira
     // o acento mas mantem o caractere base.
-    const cleaned = baseName
-        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    const cleaned = String(baseName || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-zA-Z0-9_-]+/g, '_')
         .replace(/_+/g, '_')
         .replace(/^[_-]+|[_-]+$/g, '');
     return cleaned || 'untitled';
+}
+
+function isValidPythonModuleName(baseName) {
+    return VALID_PYTHON_MODULE_RE.test(baseName);
+}
+
+function sanitizePythonModuleName(baseName) {
+    let cleaned = String(baseName || 'test_dut')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    if (!cleaned) cleaned = 'test_dut';
+    if (!/^[a-zA-Z_]/.test(cleaned)) cleaned = `test_${cleaned}`;
+    return cleaned;
 }
 
 /**

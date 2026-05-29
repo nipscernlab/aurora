@@ -31,7 +31,11 @@ export default defineConfig([
     // JavaScript (e.g. terminfo files), so linting the whole repo choked on
     // them. components/Scripts is our own code and is linted via the block
     // below. node_modules/dist are ignored by eslint's defaults.
-    ignores: ["components/**", "!components/Scripts/**"],
+    ignores: [
+      "components/**/*",
+      "!components/Scripts/",
+      "!components/Scripts/**",
+    ],
   },
   {
     files: ["**/*.{js,mjs,cjs}"],

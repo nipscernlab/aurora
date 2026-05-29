@@ -68,6 +68,15 @@
     cursor: pointer;
 }
 
+.wave-tree-filter.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.wave-tree-filter.is-disabled input[type="checkbox"] {
+    cursor: not-allowed;
+}
+
 /* display:inline-flex acima sobrepoe o atributo [hidden]; reforca aqui
    pra que esconder o filtro "processor only" (projeto sem processador)
    realmente o remova do layout. */

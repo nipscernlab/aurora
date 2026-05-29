@@ -1018,17 +1018,19 @@ const projectNs = {
   },
 
   /**
-   * Import an existing Verilog file (.v / .sv / .vh) into the open
+   * Import an existing Verilog/cocotb file (.v / .sv / .vh / .py) into the open
    * project: copies it to the project root if it lives elsewhere and
    * registers it in the SPF (synthesizable / testbench list).
    */
-  async importFile({ filePath, kind = 'synthesizable' } = {}) {
+  async importFile({ filePath, kind = null } = {}) {
     if (!filePath) return err('filePath required');
     const spfPath = window.ProjectStore?.getSpfPath?.();
     if (!spfPath || !window.SpfStore) return err('No project open');
     const projectRoot = window.currentProjectPath || null;
     if (!projectRoot) return err('Project root unavailable');
-    const targetList = kind === 'testbench' ? 'testbenchFiles' : 'synthesizableFiles';
+    const nameHint = filePath.split(/[\\/]/).pop() || '';
+    const normalizedKind = kind || (/\.py$/i.test(nameHint) ? 'testbench' : 'synthesizable');
+    const targetList = normalizedKind === 'testbench' ? 'testbenchFiles' : 'synthesizableFiles';
     try {
       // Copy into the project if the source lives outside the project root.
       const sep = projectRoot.includes('\\') ? '\\' : '/';
@@ -1049,8 +1051,8 @@ const projectNs = {
         cfg[targetList] = arr;
       });
       await refreshTree();
-      emit('project:file-imported', { filePath: finalPath, kind });
-      return ok({ filePath: finalPath, kind });
+      emit('project:file-imported', { filePath: finalPath, kind: normalizedKind });
+      return ok({ filePath: finalPath, kind: normalizedKind });
     } catch (e) {
       return err(e?.message || 'importFile failed');
     }
@@ -1544,8 +1546,8 @@ const waveNs = {
     const spfPath     = window.ProjectStore?.getSpfPath?.();
     if (!projectPath || !spfPath) return err('No project open');
     const cfg = await window.SpfStore.read(spfPath);
-    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
-    if (!tbKey) return err('No testbench top set — mark a .v as testbench top first');
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    if (!tbKey) return err('No testbench top set — mark a testbench top first');
     const ws = await window.WaveStore?.read(projectPath, tbKey);
     const files = Array.isArray(ws?.gtkwFiles) ? ws.gtkwFiles : [];
     return ok({
@@ -1570,8 +1572,8 @@ const waveNs = {
     const spfPath     = window.ProjectStore?.getSpfPath?.();
     if (!projectPath || !spfPath) return err('No project open');
     const cfg = await window.SpfStore.read(spfPath);
-    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
-    if (!tbKey) return err('No testbench top set — mark a .v as testbench top first');
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    if (!tbKey) return err('No testbench top set — mark a testbench top first');
     // Resolve to an absolute path inside the project; verify the file exists.
     const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
     const abs = isAbs ? filePath : `${projectPath}\\${filePath.replace(/^[\\/]+/, '')}`;
@@ -1608,7 +1610,7 @@ const waveNs = {
     const spfPath     = window.ProjectStore?.getSpfPath?.();
     if (!projectPath || !spfPath) return err('No project open');
     const cfg = await window.SpfStore.read(spfPath);
-    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
     if (!tbKey) return err('No testbench top set');
     let foundEntry = !filePath;
     try {
@@ -1634,7 +1636,7 @@ const waveNs = {
     const spfPath     = window.ProjectStore?.getSpfPath?.();
     if (!projectPath || !spfPath) return err('No project open');
     const cfg = await window.SpfStore.read(spfPath);
-    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.v$/i, '');
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
     if (!tbKey) return err('No testbench top set');
     let removed = 0;
     try {

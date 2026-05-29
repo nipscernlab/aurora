@@ -87,7 +87,7 @@ export const RenderMixin = {
                     <i class="fa-solid fa-folder-open verilog-empty-icon"></i>
                     <div class="verilog-empty-text">
                         No synthesizable files<br>
-                        <strong>Drag and drop .v files here</strong>
+                        <strong>Drag and drop .v or .py files here</strong>
                     </div>
                 `;
                 container.appendChild(emptyState);
@@ -415,9 +415,9 @@ export const RenderMixin = {
                 : 'This file is set as the project\'s Top Level module';
         }
         const ext = this.getFileExtension(file?.name || '');
-        if (ext === '.v' || ext === '.sv') {
+        if (ext === '.v' || ext === '.sv' || ext === '.py') {
             return file?.category === 'testbench'
-                ? 'Detected as a testbench'
+                ? (ext === '.py' ? 'Python cocotb testbench' : 'Detected as a testbench')
                 : 'Detected as synthesizable';
         }
         return '';
@@ -442,6 +442,8 @@ export const RenderMixin = {
                 return isTestbench ? 'fa-solid fa-vial' : 'fa-solid fa-flag';
             }
             return isTestbench ? 'fa-solid fa-flask' : 'fa-solid fa-microchip';
+        } else if (ext === '.py') {
+            return fileObj.isTopLevel ? 'fa-solid fa-vial' : 'fa-brands fa-python';
         } else if (ext === '.cmm') {
             return 'fa-solid fa-file-code';
         } else if (ext === '.txt') {

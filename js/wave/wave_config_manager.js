@@ -25,7 +25,11 @@ import { getSimulator, setSimulator } from './simulator_preference.js';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
-    return tbPath.split(/[\\/]/).pop().replace(/\.v$/i, '');
+    return tbPath.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+}
+
+function isCocotbTestbench(tbPath) {
+    return /\.py$/i.test(String(tbPath || ''));
 }
 
 class WaveConfigManager {
@@ -345,6 +349,7 @@ class WaveConfigManager {
     async open() {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
+        let modalConfig = null;
 
         if (projectPath && spfPath) {
             const compiler = new CompilationModule(projectPath);
@@ -358,10 +363,14 @@ class WaveConfigManager {
             // notification (twave) and the WaveStore write happen
             // inside _validateWaveSelection.
             const cfg = await SpfStore.read(spfPath);
+            modalConfig = cfg;
+            const cocotb = isCocotbTestbench(cfg.testbenchFile);
             const filePaths = [
                 ...(cfg.synthesizableFiles || []).map((f) => f?.path),
-                cfg.testbenchFile,
-                ...(cfg.testbenchFiles || []).map((f) => f?.path),
+                cocotb ? null : cfg.testbenchFile,
+                ...(cfg.testbenchFiles || [])
+                    .filter((f) => !cocotb || !/\.py$/i.test(f?.path || ''))
+                    .map((f) => f?.path),
             ].filter(Boolean);
             // Include components/HDL/*.v (SAPHO library: core, ula, addr_dec,
             // instr_dec, myFIFO, ...). Without these, _validateWaveSelection
@@ -382,8 +391,8 @@ class WaveConfigManager {
                     }
                 }
             } catch (_e) { /* HDL unavailable — validate proceeds without it */ }
-            const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.v$/i, '');
-            const tbModule = moduleNameFromPath(cfg.testbenchFile)
+            const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+            const tbModule = (cocotb ? moduleNameFromPath(cfg.topLevelFile) : moduleNameFromPath(cfg.testbenchFile))
                 || moduleNameFromPath(cfg.topLevelFile);
             // waveSignals vive no WaveStore per-testbench. Le do tb atual.
             const tbKey = tbKeyFromPath(cfg.testbenchFile);
@@ -406,10 +415,12 @@ class WaveConfigManager {
             // limpar, as mensagens das aberturas anteriores se acumulam e o
             // usuario nao distingue o resultado atual do anterior.
             compiler.terminalManager?.clearTerminalImmediate?.('tveri');
-            if (typeof window.switchTerminal === 'function') {
-                window.switchTerminal('terminal-tveri');
+            if (!cocotb) {
+                if (typeof window.switchTerminal === 'function') {
+                    window.switchTerminal('terminal-tveri');
+                }
+                await compiler.syntaxCheck();
             }
-            await compiler.syntaxCheck();
         }
 
         // O filtro "processor only" e UI-only e nao persiste — comeca
@@ -425,6 +436,7 @@ class WaveConfigManager {
         for (const radio of (this.elements.simulatorRadios || [])) {
             radio.checked = (radio.value === currentSim);
         }
+        this._syncBackendToggles(modalConfig);
         // Find widget: also UI-only, also reset on each open(). Toggles
         // (case/regex) reset too — fresh slate every time the user
         // re-enters the modal.
@@ -456,6 +468,18 @@ class WaveConfigManager {
         this.modal?.classList.remove('show');
     }
 
+    _syncBackendToggles(config = null) {
+        const cocotb = isCocotbTestbench(config?.testbenchFile);
+        if (cocotb && getSimulator() !== 'iverilog') {
+            setSimulator('iverilog');
+        }
+        if (this.elements.useVerilatorCb) {
+            this.elements.useVerilatorCb.disabled = cocotb;
+            this.elements.useVerilatorCb.checked = !cocotb && getSimulator() === 'verilator';
+            this.elements.useVerilatorCb.closest('.wave-tree-filter')?.classList.toggle('is-disabled', cocotb);
+        }
+    }
+
     // ------------- data refresh ----------------
 
     async refresh() {
@@ -473,10 +497,14 @@ class WaveConfigManager {
         }
 
         const config = await SpfStore.read(spfPath);
+        this._syncBackendToggles(config);
+        const cocotb = isCocotbTestbench(config.testbenchFile);
         const filePaths = new Set();
         (config.synthesizableFiles || []).forEach((f) => f?.path && filePaths.add(f.path));
-        if (config.testbenchFile) filePaths.add(config.testbenchFile);
-        (config.testbenchFiles || []).forEach((f) => f?.path && filePaths.add(f.path));
+        if (!cocotb && config.testbenchFile) filePaths.add(config.testbenchFile);
+        (config.testbenchFiles || [])
+            .filter((f) => !cocotb || !/\.py$/i.test(f?.path || ''))
+            .forEach((f) => f?.path && filePaths.add(f.path));
 
         // components/HDL/*.v — biblioteca SAPHO (core.v, myFIFO.v,
         // processor.v, ula.v, etc). Esses modulos sao instanciados
@@ -524,9 +552,9 @@ class WaveConfigManager {
 
         // The simulation top is the testbench module. Fall back to the
         // synthesizable top if no testbench is set (rare in practice).
-        const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.v$/i, '');
+        const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
         const topModule =
-            moduleNameFromPath(config.testbenchFile)
+            (cocotb ? moduleNameFromPath(config.topLevelFile) : moduleNameFromPath(config.testbenchFile))
             || moduleNameFromPath(config.topLevelFile);
 
         if (!topModule || !modules.has(topModule)) {

@@ -58,6 +58,14 @@ const RULES = {
   'vvp-run': {
     literalArgs: ['-fst'],
   },
+  'cocotb-run': {
+    envKeys: [
+      'AURORA_COCOTB_SOURCES_JSON',
+      'AURORA_COCOTB_TOP',
+      'AURORA_COCOTB_TEST_MODULE',
+      'AURORA_COCOTB_BUILD_DIR',
+    ],
+  },
   'verilator-build': {
     literalArgs: ['--binary', '--main', '--trace-fst'],
     flagWithValue: ['-Mdir', '--top-module', '-y'],

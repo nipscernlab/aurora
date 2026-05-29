@@ -34,7 +34,7 @@ const ADD_VALUE = '__add__';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
-    return tbPath.split(/[\\/]/).pop().replace(/\.v$/i, '');
+    return tbPath.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
 }
 
 class GtkwPickerManager {

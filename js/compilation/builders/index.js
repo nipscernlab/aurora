@@ -11,6 +11,7 @@ export * from './cmm.js';
 export * from './asm.js';
 export * from './iverilog.js';
 export * from './vvp.js';
+export * from './cocotb.js';
 export * from './verilator.js';
 export * from './wave_tools.js';
 export * from './yosys.js';

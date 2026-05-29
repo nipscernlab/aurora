@@ -1344,6 +1344,17 @@ class VVPProgressManager {
         this._doHide();
     }
 
+    /**
+     * Tear the bar down immediately, regardless of completion. Used on
+     * cancel: the underlying process was killed, so it will never reach
+     * 100% — the normal `hide()` would otherwise leave the bar pinned
+     * waiting for a completion that never comes.
+     */
+    forceHide() {
+        this.isComplete = true; // satisfy _doHide's guard chain
+        this._doHide();
+    }
+
     _doHide() {
         if (!this.isVisible) return;
         this.isVisible = false;
@@ -1659,8 +1670,14 @@ function hideVVPProgress(delay = 4000) {
     }, delay);
 }
 
+/** Immediate teardown for cancellation — no delay, no wait for 100%. */
+function forceHideVVPProgress() {
+    vvpProgressManager.forceHide();
+}
+
 export {
     TerminalManager,
     showVVPProgress,
-    hideVVPProgress
+    hideVVPProgress,
+    forceHideVVPProgress
 };

@@ -245,6 +245,8 @@
             "verilog": "Verilog",
             "wave":    "Waveform",
             "prism":   "PRISM",
+            "verilator": "Verilator",
+            "verilator-proc": "Verilator (processor)",
             "all":     "All components"
         },
         "inProgress":       "{{name}} compilation in progress...",
@@ -254,7 +256,8 @@
         "cancelRequested":  "Cancellation requested — stopping running processes...",
         "cancelInProgress": "Cancellation already in progress, please wait...",
         "cancelledByUser":  "Compilation cancelled by user.",
-        "nothingToCancel":  "Nothing to cancel — no compilation or simulation is running."
+        "nothingToCancel":  "Nothing to cancel — no compilation or simulation is running.",
+        "cancelled":        "Compilation cancelled"
     },
     "editor": {
         "lineCol": "Ln {{line}}, Col {{col}}"

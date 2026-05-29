@@ -104,6 +104,14 @@ function register() {
    *                   re-runs the protected-flags check
    *   - displayCommand : optional pre-formatted command line for logs;
    *                      executor logs this verbatim
+   *
+   * Like the streamed handler, the child is parked in
+   * state.currentVvpProcess so `cancel-vvp-process` can kill it. The
+   * pipeline runs steps sequentially (only one child alive at a time),
+   * so a single slot is enough — and without this, one-shot steps like
+   * the Verilator build/run (perl/verilator/g++/make + the harness exe)
+   * are uncancellable: cancel kills currentVvpProcess + vvp/gtkwave by
+   * name, none of which match those processes.
    */
   ipcMain.handle('exec-spec', async (_event, payload) => {
     const spec = payload?.spec;
@@ -123,12 +131,28 @@ function register() {
         shell: false,
       });
 
+      state.currentVvpProcess = child;
+      state.vvpProcessPid = child.pid;
+
+      // Only clear the shared slot if it still points at *this* child —
+      // a faster sequential step could already have claimed it.
+      const releaseSlot = () => {
+        if (state.currentVvpProcess === child) {
+          state.currentVvpProcess = null;
+          state.vvpProcessPid = null;
+        }
+      };
+
       let stdout = '';
       let stderr = '';
       child.stdout?.on('data', (d) => (stdout += d.toString()));
       child.stderr?.on('data', (d) => (stderr += d.toString()));
-      child.on('close', (code) => resolve({ code, stdout, stderr, pid: child.pid }));
+      child.on('close', (code) => {
+        releaseSlot();
+        resolve({ code, stdout, stderr, pid: child.pid });
+      });
       child.on('error', (err) => {
+        releaseSlot();
         resolve({ code: -1, stdout, stderr: stderr + (err?.message || String(err)), error: err?.message || String(err) });
       });
     });

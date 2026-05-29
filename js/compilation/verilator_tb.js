@@ -129,14 +129,18 @@ export function parseSaphoTestbench(src) {
     .map((k) => ({ port: k, reqValue: inReq[k], file: inFile[k] }))
     .sort((a, b) => a.reqValue - b.reqValue);
 
-  // saidas: data_out_K = $fopen("...output_K.txt","w") + (proc_out_en == V) -> out_sig_K
+  // saidas: data_out_K = $fopen("...output_K.txt","w") + out_en_K = proc_out_en == V
+  // (asmcomp v4.2+ emite "out_en_K = proc_out_en == N" fora do ifdef ICARUS;
+  // o formato antigo "if (proc_out_en == N) out_sig_K <= ..." fica so dentro
+  // do ICARUS ifdef e nao e visivel ao Verilator. Esse parser tem que casar
+  // com o pattern fora-do-ifdef pra reconhecer outputs.)
   const outFile = {};
   for (const m of s.matchAll(/data_out_(\d+)\s*=\s*\$fopen\("([^"]+)"\s*,\s*"w"/g)) {
     outFile[m[1]] = basename(m[2]);
   }
   const outEn = {};
-  for (const m of s.matchAll(/proc_out_en\s*==\s*(\d+)\s*\)\s*out_sig_(\d+)/g)) {
-    outEn[m[2]] = parseInt(m[1], 10);
+  for (const m of s.matchAll(/out_en_(\d+)\s*=\s*proc_out_en\s*==\s*(\d+)/g)) {
+    outEn[m[1]] = parseInt(m[2], 10);
   }
   const outputs = Object.keys(outFile)
     .filter((k) => k in outEn)

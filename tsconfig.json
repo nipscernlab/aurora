@@ -8,7 +8,6 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "removeComments": false,
-    "newLine": "lf",
     "rootDir": ".",
     "outDir": "."
   },

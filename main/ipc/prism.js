@@ -248,9 +248,18 @@ async function runYosysCompilationWithPaths(
     } catch (_e) { /* JSON parse fail tolerado */ }
   }
 
+  // Resolve paths relativos contra basePath (formato novo do .spf — ver
+  // js/project/spf_store.js). SpfStore do renderer expande na leitura,
+  // mas aqui em main lemos .spf raw via fse.readJson e precisamos
+  // expandir por conta propria. Paths absolutos passam direto.
+  const spfBaseDir = spfStructure?.basePath || (spfPath ? path.dirname(spfPath) : '');
+  const isAbs = (p) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
+  const resolveSpf = (p) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
+
   if (spfStructure && Array.isArray(spfStructure.synthesizableFiles)) {
     for (const f of spfStructure.synthesizableFiles) {
-      const p = typeof f === 'string' ? f : f?.path;
+      const rawP = typeof f === 'string' ? f : f?.path;
+      const p = resolveSpf(rawP);
       if (p && p.toLowerCase().endsWith('.v')) fileSet.add(p);
     }
   }

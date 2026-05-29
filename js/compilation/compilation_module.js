@@ -859,70 +859,98 @@ async loadConfig() {
 
 
 /**
- * Valida config minima pro pipeline iverilog: synthesizableFiles
- * presente, um top-level marcado.
+ * Helper privado: monta a "shape canonica" do config —
+ *   { topLevelFile, testbenchFile, synthesizableFiles }
+ * — a partir de this.projectConfig. NAO valida nada e NAO joga.
+ * Retorna null se projectConfig nao foi carregado.
  *
- * `requireTopLevel` e default-true porque os botoes Verilog/PRISM/
- * Syntax Check realmente precisam — eles invocam iverilog com `-s
- * <top>` direto contra o design. O botao Wave passa
- * `requireTopLevel: false` porque um testbench presente vira o `-s`
- * em `_waveDeriveSimTopModule`; o top-level so seria fallback pro
- * caminho "sem testbench", que `runGtkWave` ja bloqueia upstream com
- * mensagem propria. Antes, exigir top-level aqui produzia o erro
- * errado ("mark a file as top-level") em vez do real ("add a
- * testbench") quando o usuario clicava Wave sem ter nada marcado.
- *
- * Testbench e opcional aqui pelas mesmas razoes: Verilog/PRISM nao
- * usam, e o caller que precisa (Wave) ja faz a checagem propria.
+ * Usado pelos 3 validators publicos (validateForVerilog,
+ * validateForWave, loadConfigUnsafe). Cada validator decide quais
+ * campos sao obrigatorios.
  */
-validateConfig({ requireTopLevel = true } = {}) {
-    if (!this.projectConfig) {
-        throw new Error('Project configuration not loaded');
-    }
+_buildConfigShape() {
+    if (!this.projectConfig) return null;
 
-    if (!this.projectConfig.synthesizableFiles || this.projectConfig.synthesizableFiles.length === 0) {
-        throw new Error(tr('error.config.noSynth'));
-    }
+    const synth = this.projectConfig.synthesizableFiles || [];
+    const topEntry = this._pickSingleTop(synth, 'synthesizable');
 
-    const topLevelFile = this._pickSingleTop(
-        this.projectConfig.synthesizableFiles,
-        'synthesizable',
-    );
-    if (requireTopLevel && !topLevelFile) {
-        throw new Error(tr('error.config.noTopLevel'));
-    }
-
-    // Testbench e opcional pros botoes Verilog e PRISM (que usam -s
-    // top-level e nao precisam de stimuli). Pro botao Wave e obrigatorio,
-    // mas o handler de Wave checa separadamente. Quando absent, iverilog
-    // usa o synthesizable top-level como -s.
-    let foundTestbenchPath = null;
-
-    if (this.projectConfig.testbenchFile && this.projectConfig.testbenchFile.trim() !== "") {
-        foundTestbenchPath = this.projectConfig.testbenchFile;
-    }
-
-    if (!foundTestbenchPath && this.projectConfig.testbenchFiles && this.projectConfig.testbenchFiles.length > 0) {
-        const starred = this._pickSingleTop(
-            this.projectConfig.testbenchFiles.filter((f) => f.path && f.path.trim() !== ""),
-            'testbench',
-        );
+    // testbenchFile (legacy single field) vence sobre testbenchFiles[]
+    // (lista nova). Se nenhum, procura starred entry; ultimo recurso:
+    // primeira entry valida.
+    let foundTb = null;
+    if (this.projectConfig.testbenchFile && this.projectConfig.testbenchFile.trim() !== '') {
+        foundTb = this.projectConfig.testbenchFile;
+    } else if (Array.isArray(this.projectConfig.testbenchFiles) && this.projectConfig.testbenchFiles.length > 0) {
+        const tbs = this.projectConfig.testbenchFiles.filter((f) => f.path && f.path.trim() !== '');
+        const starred = this._pickSingleTop(tbs, 'testbench');
         if (starred) {
-            foundTestbenchPath = starred.path;
-        } else {
-            const validEntry = this.projectConfig.testbenchFiles.find((f) => f.path && f.path.trim() !== "");
-            if (validEntry) foundTestbenchPath = validEntry.path;
+            foundTb = starred.path;
+        } else if (tbs.length > 0) {
+            foundTb = tbs[0].path;
         }
     }
 
     return {
-        // null no caminho requireTopLevel:false sem top marcado.
-        // Consumers que so usam top como fallback (Wave quando ha
-        // testbench) podem ignorar.
-        topLevelFile: topLevelFile ? topLevelFile.path : null,
-        testbenchFile: foundTestbenchPath, // may be null
-        synthesizableFiles: this.projectConfig.synthesizableFiles.map(f => f.path)
+        topLevelFile:       topEntry ? topEntry.path : null,
+        testbenchFile:      foundTb, // may be null
+        synthesizableFiles: synth.map((f) => f.path),
     };
+}
+
+/**
+ * Validacao pro botao Verilog / PRISM / Syntax Check: compile-check
+ * do design sintetizavel. Exige projectConfig carregado, pelo menos
+ * 1 synth file, e um top-level marcado (iverilog precisa do `-s <top>`).
+ * Testbench e opcional (esses fluxos nao usam stimuli).
+ *
+ * Throws com mensagem amigavel em cada falha.
+ */
+validateForVerilog() {
+    if (!this.projectConfig) {
+        throw new Error('Project configuration not loaded');
+    }
+    if (!this.projectConfig.synthesizableFiles || this.projectConfig.synthesizableFiles.length === 0) {
+        throw new Error(tr('error.config.noSynth'));
+    }
+    const shape = this._buildConfigShape();
+    if (!shape.topLevelFile) {
+        throw new Error(tr('error.config.noTopLevel'));
+    }
+    return shape;
+}
+
+/**
+ * Validacao pro botao Wave: simulacao precisa de um testbench
+ * (que vira o `-s` do iverilog e fornece os estimulos). synth files
+ * e top-level sao OPCIONAIS — um tb standalone que define tudo
+ * inline (incluindo o DUT) e valido.
+ *
+ * Throws so se projectConfig ausente ou sem testbench.
+ */
+validateForWave() {
+    if (!this.projectConfig) {
+        throw new Error('Project configuration not loaded');
+    }
+    const shape = this._buildConfigShape();
+    if (!shape.testbenchFile) {
+        throw new Error(tr('error.config.noTestbench'));
+    }
+    return shape;
+}
+
+/**
+ * Re-entry helper pra fases internas que ja foram validadas upstream
+ * (ex: _waveRunVvpSimulation so precisa consultar config.testbenchFile).
+ * NAO valida design requirements — supoe que o caller publico ja jogou
+ * pelos validators acima.
+ *
+ * Throws so se projectConfig nao foi carregado.
+ */
+loadConfigUnsafe() {
+    if (!this.projectConfig) {
+        throw new Error('Project configuration not loaded');
+    }
+    return this._buildConfigShape();
 }
 
 /**
@@ -1054,7 +1082,7 @@ async syntaxCheck() {
         await this.initializeComponentsPath();
     }
     try {
-        const config = this.validateConfig();
+        const config = this.validateForVerilog();
 
         const iveriCompPath = await window.electronAPI.joinPath(
             this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe',
@@ -1435,11 +1463,12 @@ async iverilogCompile({ buildVvp = false } = {}) {
     statusUpdater.startCompilation('verilog');
 
     try {
-        // Syntax-check / Verilog button (buildVvp:false): top-level e
-        // o `-s` do iverilog, obrigatorio. Wave button (buildVvp:true):
-        // o `-s` vem do testbench (que runGtkWave ja exigiu upstream),
-        // top-level vira opcional.
-        const config = this.validateConfig({ requireTopLevel: !buildVvp });
+        // Syntax-check / Verilog button (buildVvp:false): valida design
+        // (synth + top obrigatorios) — iverilog usa `-s <top>`.
+        // Wave button (buildVvp:true): valida testbench (que runGtkWave
+        // ja exigiu upstream — redundante mas safe) — iverilog usa
+        // `-s <testbench>` que vem do tb. Synth e top sao opcionais.
+        const config = buildVvp ? this.validateForWave() : this.validateForVerilog();
 
         // 'tips' = blue/info badge. These lines are contextual info
         // about what's about to be compiled, not a success outcome —
@@ -1659,20 +1688,12 @@ async runGtkWave() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.bannerSim'), 'info');
 
     try {
-        // Wave nao precisa de top-level marcado: quando ha testbench
-        // (caso normal), o `-s` do iverilog vem do nome do testbench.
-        // O top-level so seria fallback pro caso "sem testbench" — que
-        // bloqueamos uma linha abaixo com mensagem propria. Exigir
-        // top-level aqui produzia o erro errado pro usuario.
-        const config = this.validateConfig({ requireTopLevel: false });
-
-        // No testbench → vvp has nothing to dump and no $finish to
-        // hit, so simulation can't produce a VCD. Bail early with a
-        // readable message instead of letting the user hit the
-        // generic "VCD not generated" error from _waveResolveVcdFile.
-        if (!config.testbenchFile) {
-            throw new Error(tr('error.config.noTestbench'));
-        }
+        // validateForWave exige testbench (sem ele, vvp nao tem o que
+        // simular). Synth e top-level sao opcionais — um tb standalone
+        // pode definir DUT inline. Esse validator substituiu o
+        // validateConfig({requireTopLevel:false}) + check separado de
+        // testbench que vivia aqui.
+        const config = this.validateForWave();
 
         const tools = await this._waveResolveToolchain();
         const simTopModule = this._waveDeriveSimTopModule(config);
@@ -1803,10 +1824,12 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // source do testbench atras dessas chamadas e copiamos cada
     // arquivo da pasta do testbench pra tempBaseDir.
     //
-    // requireTopLevel:false pq aqui so consultamos testbenchFile —
-    // se exigissemos top, este reentry validate quebraria o Wave
-    // mesmo apos o filtro top-level do runGtkWave acima.
-    const config = this.validateConfig({ requireTopLevel: false });
+    // Re-entry: runGtkWave ja validou pra Wave upstream; aqui so
+    // precisamos consultar config.testbenchFile pra fazer staging
+    // dos arquivos de dado referenciados pelo tb. loadConfigUnsafe
+    // pega o config sem re-validar (evita throws fantasmas no meio
+    // da execucao).
+    const config = this.loadConfigUnsafe();
     if (config.testbenchFile) {
         await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
     }
@@ -2185,7 +2208,8 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
 async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     await this._stageProcessorMemoryFiles(tools.tempBaseDir);
 
-    const config = this.validateConfig({ requireTopLevel: false });
+    // Re-entry: runGtkWave ja validou; aqui so consultamos testbenchFile.
+    const config = this.loadConfigUnsafe();
     if (config.testbenchFile) {
         await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
     }

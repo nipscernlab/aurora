@@ -35,9 +35,21 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 let compilationCanceled = false;
 
+const CANCELLED_TOKEN = Symbol.for('aurora.cancelled');
+
+function makeCancellationError() {
+    const err = new Error(tr('error.user.cancelled'));
+    err[CANCELLED_TOKEN] = true;
+    return err;
+}
+
+function isCancellationError(error) {
+    return !!(error && error[CANCELLED_TOKEN]);
+}
+
 function checkCancellation() {
     if (compilationCanceled) {
-        throw new Error(tr('error.user.cancelled'));
+        throw makeCancellationError();
     }
 }
 
@@ -118,6 +130,16 @@ function endCompilation() {
 }
 
 function logFatalError(terminalId, error) {
+    // User-triggered cancel is not a failure: render it as a friendly
+    // info card (no "Erro Fatal:" prefix, no red error styling).
+    if (isCancellationError(error)) {
+        window.terminalManager?.appendToTerminal?.(
+            terminalId,
+            tr('compilation.cancelledByUser'),
+            'tips',
+        );
+        return;
+    }
     window.terminalManager?.appendToTerminal?.(
         terminalId, `Erro Fatal: ${error.message}`, 'error',
     );
@@ -694,6 +716,13 @@ class CompilationFlowManager {
             await runProjectPipeline(compiler);
         } catch (error) {
             console.error('Compilation error:', error);
+            // Without this, a Cancel during Full Build leaves no card in
+            // the terminal — the inner step that threw was past its own
+            // try/catch by the time cancellation bubbled. Route through
+            // logFatalError so cancellations render as the friendly
+            // info card (and real errors as Erro Fatal).
+            const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
+            logFatalError(activeId ? `terminal-${activeId}` : 'twave', error);
         } finally {
             endCompilation();
         }
@@ -717,8 +746,46 @@ class CompilationFlowManager {
     }
 
     cancelAll() {
+        const tm = window.terminalManager;
+        const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
+        const activeTerminalId = activeId ? `terminal-${activeId}` : 'tcmm';
+
+        // Already cancelling — surface the same "ack" message instead of
+        // silently doing nothing on a second click. Without this, the user
+        // clicks Cancel, nothing visible happens (the cancellation hasn't
+        // propagated yet), they click again — and the second click looks
+        // like a dead button.
+        if (compilationCanceled) {
+            tm?.appendToTerminal?.(
+                activeTerminalId, tr('compilation.cancelInProgress'), 'tips',
+            );
+            return;
+        }
         compilationCanceled = true;
+
+        // Brief ack in the currently visible terminal so the user has
+        // immediate visual confirmation the click took effect, even if
+        // the killed process takes a moment to exit and surface the
+        // "cancelled" card via logFatalError.
+        tm?.appendToTerminal?.(
+            activeTerminalId, tr('compilation.cancelRequested'), 'tips',
+        );
+
         window.electronAPI.cancelVvpProcess()
+            .then((result) => {
+                // Main reports "no compilation process running" when the
+                // user clicked Cancel while idle. Surface that as an info
+                // card and reset the flag so a subsequent build doesn't
+                // self-cancel immediately. (startCompilation also resets
+                // the flag, but a stray `checkCancellation()` between
+                // cancelAll and the next build would otherwise still throw.)
+                if (result && result.success === false) {
+                    compilationCanceled = false;
+                    tm?.appendToTerminal?.(
+                        activeTerminalId, tr('compilation.nothingToCancel'), 'tips',
+                    );
+                }
+            })
             .catch(err => console.warn('cancelVvpProcess failed:', err?.message ?? err));
     }
 }

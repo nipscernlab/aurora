@@ -247,7 +247,11 @@
         "inProgress":       "{{name}} compilation in progress...",
         "success":          "{{name}} compilation successful",
         "failed":           "{{name}} compilation failed",
-        "failedWithError":  "{{name}} compilation failed: {{error}}"
+        "failedWithError":  "{{name}} compilation failed: {{error}}",
+        "cancelRequested":  "Cancellation requested — stopping running processes...",
+        "cancelInProgress": "Cancellation already in progress, please wait...",
+        "cancelledByUser":  "Compilation cancelled by user.",
+        "nothingToCancel":  "Nothing to cancel — no compilation or simulation is running."
     },
     "editor": {
         "lineCol": "Ln {{line}}, Col {{col}}"

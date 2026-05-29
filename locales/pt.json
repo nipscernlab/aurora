@@ -247,7 +247,11 @@
         "inProgress":       "Compilação {{name}} em andamento...",
         "success":          "Compilação {{name}} bem-sucedida",
         "failed":           "Compilação {{name}} falhou",
-        "failedWithError":  "Compilação {{name}} falhou: {{error}}"
+        "failedWithError":  "Compilação {{name}} falhou: {{error}}",
+        "cancelRequested":  "Cancelamento solicitado — encerrando processos em execução...",
+        "cancelInProgress": "Cancelamento já em andamento, aguarde...",
+        "cancelledByUser":  "Compilação cancelada pelo usuário.",
+        "nothingToCancel":  "Nada a cancelar — nenhuma compilação ou simulação está em execução."
     },
     "editor": {
         "lineCol": "Ln {{line}}, Col {{col}}"

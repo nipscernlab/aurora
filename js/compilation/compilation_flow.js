@@ -19,8 +19,8 @@
  *   pra projetos verilog puro — array vazio = loop vazio). Nao ha
  *   branches `if (hasProcessor)` no pipeline.
  *
- * Pra entender o lado do CompilationModule (iverilogCompile,
- * runGtkWave, e as 8 fases _wave*), ver compilation_module.js.
+ * Pra entender o lado do CompilationModule (verilogSyntaxCheck,
+ * waveBuildVvp, runGtkWave, e as 8 fases _wave*), ver compilation_module.js.
  */
 
 import { CompilationModule } from './compilation_module.js';
@@ -427,7 +427,7 @@ async function handleAsmStep() {
         switchTerminal('terminal-tasm');
         await precompileAsmOnly(compiler, 'tasm');
         switchTerminal('terminal-tveri');
-        await compiler.iverilogCompile();
+        await compiler.verilogSyntaxCheck();
     } catch (error) {
         console.error('Erro na etapa asm:', error);
         logFatalError('tasm', error);
@@ -448,7 +448,7 @@ async function handleVerilogStep() {
         await compiler.loadConfig();
         await precompileAllProcessors(compiler, 'tveri');
         switchTerminal('terminal-tveri');
-        await compiler.iverilogCompile();
+        await compiler.verilogSyntaxCheck();
     } catch (error) {
         console.error('Erro na etapa verilog:', error);
         logFatalError('tveri', error);
@@ -517,7 +517,7 @@ async function handlePrismStep() {
         await compiler.loadConfig();
         await precompileAllProcessors(compiler, 'tveri');
         switchTerminal('terminal-tveri');
-        await compiler.iverilogCompile();
+        await compiler.verilogSyntaxCheck();
 
         // AI command overrides para a etapa prism-yosys: o spawn real
         // vive em main/ipc/prism.js, entao consultamos o store aqui e

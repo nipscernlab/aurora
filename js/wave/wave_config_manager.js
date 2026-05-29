@@ -366,7 +366,7 @@ class WaveConfigManager {
             // "Data Stack Max", "Rounding Error") and would auto-prune
             // them as "stale" — the WaveStore loses the user's selection
             // every time the modal opens. Mirrors the same widening done
-            // for the compile-time path in iverilogCompile.
+            // for the compile-time path in waveBuildVvp.
             try {
                 const componentsPath = await window.electronAPI.getComponentsPath();
                 const hdlDir = await window.electronAPI.joinPath(componentsPath, 'HDL');

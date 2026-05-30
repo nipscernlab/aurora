@@ -200,6 +200,15 @@ class SplitPane {
         // preview tab — typing means commitment, italics make no sense
         // on something the user is actively changing.
         editor.onDidChangeModelContent(() => {
+            if (TabManager.isUntitledPath?.(filePath)) {
+                if (TabManager.expandUntitledSnippet?.(filePath, editor)) {
+                    TabManager.markFileAsModified(filePath);
+                    return;
+                }
+                TabManager.updateUntitledDocumentType?.(filePath, editor.getValue());
+                TabManager.markFileAsModified(filePath);
+                return;
+            }
             if (SharedModelRegistry.isDirty(filePath)) {
                 TabManager.markFileAsModified(filePath);
                 if (this.previewTab === filePath) {
@@ -252,7 +261,7 @@ class SplitPane {
 
     _addTabElement(filePath, options = {}) {
         const tabsBar  = this.element.querySelector('.split-pane-tabs');
-        const fileName = filePath.split(/[\\/]/).pop();
+        const fileName = TabManager.getDisplayName?.(filePath) ?? filePath.split(/[\\/]/).pop();
         const iconClass = TabManager.getFileIcon?.(fileName) ?? 'fas fa-file';
 
         const tab = document.createElement('div');
@@ -365,15 +374,21 @@ class SplitPane {
         const isLastInstance = TabManager.getInstanceCount(filePath) <= 1;
         const isDirty = SharedModelRegistry.isDirty(filePath);
         if (isLastInstance && isDirty) {
-            const fileName = filePath.split(/[\\/]/).pop();
+            const fileName = TabManager.getDisplayName?.(filePath) ?? filePath.split(/[\\/]/).pop();
             const result = await showUnsavedChangesDialog(fileName);
             if (result === 'cancel') return;
             if (result === 'save') {
                 try {
-                    const content = SharedModelRegistry.getModel(filePath)?.getValue() ?? '';
-                    await window.electronAPI.writeFile(filePath, content);
-                    SharedModelRegistry.markSaved(filePath);
-                    TabManager.markFileAsSaved(filePath);
+                    if (TabManager.isUntitledPath?.(filePath)) {
+                        const saved = await TabManager.saveUntitledFile(filePath);
+                        if (saved === false) return;
+                        return;
+                    } else {
+                        const content = SharedModelRegistry.getModel(filePath)?.getValue() ?? '';
+                        await window.electronAPI.writeFile(filePath, content);
+                        SharedModelRegistry.markSaved(filePath);
+                        TabManager.markFileAsSaved(filePath);
+                    }
                 } catch (err) {
                     console.error('Failed to save before close:', err);
                 }
@@ -398,6 +413,9 @@ class SplitPane {
         // hold a stale entry.
         if (!SharedModelRegistry.has(filePath)) {
             TabManager.unsavedChanges.delete(filePath);
+            if (TabManager.isUntitledPath?.(filePath)) {
+                TabManager.untitledDocuments?.delete?.(filePath);
+            }
         }
 
         if (this.tabs.size === 0) {

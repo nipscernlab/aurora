@@ -9,6 +9,7 @@
     // (Ctrl+Shift+C) sairam quando os botoes correspondentes (allcomp,
     // settings) viraram dead UI.
     const defaultShortcuts = {
+        'newFile': { ctrlKey: true, shiftKey: false, altKey: false, key: 'N' },
         'closeTab': { ctrlKey: true, shiftKey: false, altKey: false, key: 'W' },
         'reopenTab': { ctrlKey: true, shiftKey: true, altKey: false, key: 'T' },
         'saveFile': { ctrlKey: true, shiftKey: false, altKey: false, key: 'S' },
@@ -23,6 +24,7 @@
     // initAuroraAPI() runs — the user can't fire a shortcut that early,
     // but the guard keeps the module test-safe.
     const actions = {
+        newFile:      () => window.AuroraAPI?.editor.newFile(),
         closeTab:     () => window.AuroraAPI?.editor.closeTab(),
         reopenTab:    () => window.AuroraAPI?.editor.reopenLastTab(),
         saveFile:     () => window.AuroraAPI?.editor.save(),
@@ -31,7 +33,11 @@
     
     function loadShortcuts() {
         const stored = localStorage.getItem(SHORTCUTS_STORAGE_KEY);
-        activeShortcuts = stored ? JSON.parse(stored) : JSON.parse(JSON.stringify(defaultShortcuts));
+        const parsed = stored ? JSON.parse(stored) : {};
+        activeShortcuts = {
+            ...JSON.parse(JSON.stringify(defaultShortcuts)),
+            ...parsed,
+        };
     }
 
     function handleKeyDown(e) {

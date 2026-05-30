@@ -3,6 +3,124 @@ import { showCardNotification } from '../ui/notification.js';
 import { tabViewers } from './tab_viewers.js';
 import { tabDrag } from './tab_drag.js';
 import { tabWatchers } from './tab_watchers.js';
+import { showDialog } from '../ui/dialog_manager.js';
+import {
+    detectDocumentType,
+    getDefaultBaseNameForDocumentType,
+    getExtensionForDocumentType,
+    getLanguageForDocumentType,
+    getSaveDialogFilters,
+} from '../editor/document_type_detector.js';
+import { ProjectStore } from '../project/project_store.js';
+import { SpfStore } from '../project/spf_store.js';
+import { classifyVerilogContent } from '../project/verilog_classifier.js';
+import { addAvailableProcessor } from '../project/processor_list.js';
+
+const UNTITLED_PREFIX = 'Untitled-';
+const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
+const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const VALID_PROCESSOR_NAME_RE = /^[a-zA-Z0-9_-]+$/;
+const CMM_SNIPPET_TRIGGER = '$cmm';
+const CMM_DEFAULTS = Object.freeze({
+    nBits: 23,
+    dataStackSize: 5,
+    instructionStackSize: 5,
+    inputPorts: 1,
+    outputPorts: 1,
+    nbMantissa: 16,
+    nbExponent: 6,
+    gain: 128,
+});
+
+function basenameOf(filePath) {
+    return String(filePath || '').split(/[\\/]/).pop();
+}
+
+function withoutExtension(fileName) {
+    return String(fileName || '').replace(/\.[^.\\/]+$/, '');
+}
+
+function extensionOf(filePath) {
+    const match = String(filePath || '').match(/\.([^.\\/]+)$/);
+    return match ? match[1].toLowerCase() : '';
+}
+
+function normalizeKey(filePath) {
+    return String(filePath || '').replace(/\\/g, '/').toLowerCase();
+}
+
+function sanitizeVerilogFileName(baseName) {
+    const cleaned = String(baseName || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^[_-]+|[_-]+$/g, '');
+    return cleaned || 'untitled';
+}
+
+function sanitizePythonModuleName(baseName) {
+    let cleaned = String(baseName || 'test_dut')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    if (!cleaned) cleaned = 'test_dut';
+    if (!/^[a-zA-Z_]/.test(cleaned)) cleaned = `test_${cleaned}`;
+    return cleaned;
+}
+
+function sanitizeProcessorName(baseName) {
+    const cleaned = String(baseName || 'processor')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^[_-]+|[_-]+$/g, '');
+    return cleaned || 'processor';
+}
+
+function createCmmTemplate(processorName = 'processor') {
+    return `#PRNAME ${processorName}
+#NUBITS ${CMM_DEFAULTS.nBits}
+#NDSTAC ${CMM_DEFAULTS.dataStackSize}
+#SDEPTH ${CMM_DEFAULTS.instructionStackSize}
+#NUIOIN ${CMM_DEFAULTS.inputPorts}
+#NUIOOU ${CMM_DEFAULTS.outputPorts}
+#NBMANT ${CMM_DEFAULTS.nbMantissa}
+#NBEXPO ${CMM_DEFAULTS.nbExponent}
+#NUGAIN ${CMM_DEFAULTS.gain}
+
+void main()
+{
+    // Write your CMM code here
+}
+`;
+}
+
+function ensureCmmPrname(content, processorName) {
+    const source = String(content || '').trim()
+        ? String(content)
+        : createCmmTemplate(processorName);
+    if (/^#PRNAME\s+.+$/mi.test(source)) {
+        return source.replace(/^#PRNAME\s+.+$/mi, `#PRNAME ${processorName}`);
+    }
+    return `#PRNAME ${processorName}\n${source.replace(/^\s+/, '')}`;
+}
+
+function typeFromExtension(filePath) {
+    const ext = extensionOf(filePath);
+    if (ext === 'py') return 'python';
+    if (ext === 'v') return 'verilog';
+    if (ext === 'cmm') return 'cmm';
+    return null;
+}
+
+function showNotification(message, type = 'info', duration = 3000) {
+    if (typeof window.showNotification === 'function') {
+        window.showNotification(message, type, duration);
+    } else if (typeof showCardNotification === 'function') {
+        showCardNotification(message, type, duration);
+    }
+}
 
 export class TabManager {
     static tabs = new Map();
@@ -18,6 +136,9 @@ export class TabManager {
     static isCheckingFiles = false;
     static viewerInstances = new Map();
     static pdfViewerStates = new Map();
+    static untitledCounter = 0;
+    static untitledDocuments = new Map();
+    static applyingSnippet = new Set();
     // filePath -> setInterval id for the PDF state-tracking poll. Tracked so
     // closing a PDF tab can clear it; otherwise each opened PDF left a 2s
     // interval running forever against a detached iframe.
@@ -59,6 +180,459 @@ export class TabManager {
             overlay.classList.remove('hidden');
         }
     }
+
+    static isUntitledPath(filePath) {
+        return this.untitledDocuments.has(filePath);
+    }
+
+    static getDisplayName(filePath) {
+        if (this.isUntitledPath(filePath)) {
+            const meta = this.untitledDocuments.get(filePath);
+            const ext = getExtensionForDocumentType(meta?.detectedType);
+            return ext ? `${filePath}.${ext}` : filePath;
+        }
+        return basenameOf(filePath);
+    }
+
+    static createNewFile() {
+        let filePath;
+        do {
+            this.untitledCounter += 1;
+            filePath = `${UNTITLED_PREFIX}${this.untitledCounter}`;
+        } while (this.tabs.has(filePath) || this.untitledDocuments.has(filePath));
+
+        this.untitledDocuments.set(filePath, { detectedType: null });
+        window.SplitEditorManager?.setFocus?.(0);
+        this.addTab(filePath, '');
+        this.markFileAsModified(filePath);
+        return filePath;
+    }
+
+    static updateUntitledDocumentType(filePath, content) {
+        if (!this.isUntitledPath(filePath) || !window.monaco) return null;
+
+        const meta = this.untitledDocuments.get(filePath);
+        const detectedType = detectDocumentType(content);
+        if (meta.detectedType === detectedType) return detectedType;
+
+        meta.detectedType = detectedType;
+        this.untitledDocuments.set(filePath, meta);
+
+        const model = window.SharedModelRegistry?.getModel?.(filePath)
+            ?? EditorManager.getEditorForFile(filePath)?.getModel();
+        if (model) {
+            monaco.editor.setModelLanguage(model, getLanguageForDocumentType(detectedType));
+        }
+
+        this.updateUntitledTabPresentation(filePath);
+        return detectedType;
+    }
+
+    static expandUntitledSnippet(filePath, editor) {
+        if (!this.isUntitledPath(filePath) || !editor || this.applyingSnippet.has(filePath)) {
+            return false;
+        }
+
+        const meta = this.untitledDocuments.get(filePath);
+        if (meta?.snippetApplied) return false;
+
+        const value = editor.getValue();
+        if (value.trim() !== CMM_SNIPPET_TRIGGER) return false;
+
+        this.applyingSnippet.add(filePath);
+        try {
+            editor.setValue(createCmmTemplate('processor'));
+            const nextMeta = {
+                ...(this.untitledDocuments.get(filePath) || {}),
+                detectedType: 'cmm',
+                snippetApplied: true,
+            };
+            this.untitledDocuments.set(filePath, nextMeta);
+            const model = editor.getModel();
+            if (model && window.monaco) {
+                monaco.editor.setModelLanguage(model, 'cmm');
+            }
+            this.updateUntitledTabPresentation(filePath);
+            editor.setPosition({ lineNumber: 13, column: 5 });
+            editor.focus();
+        } finally {
+            this.applyingSnippet.delete(filePath);
+        }
+        return true;
+    }
+
+    static updateUntitledTabPresentation(filePath) {
+        const displayName = this.getDisplayName(filePath);
+        const iconClass = this.getFileIcon(displayName);
+        document
+            .querySelectorAll(`.tab[data-path="${CSS.escape(filePath)}"]`)
+            .forEach((tab) => {
+                tab.title = displayName;
+                const icon = tab.querySelector('i');
+                if (icon) icon.className = iconClass;
+                const name = tab.querySelector('.tab-name');
+                if (name) name.textContent = displayName;
+            });
+
+        if (this.activeTab === filePath || this.getEditingFilePath() === filePath) {
+            this.updateContextPath(filePath);
+        }
+    }
+
+    static appendDefaultExtension(filePath, documentType) {
+        if (/\.(?:py|v|cmm)$/i.test(filePath)) return filePath;
+        const extension = getExtensionForDocumentType(documentType) || 'v';
+        return `${filePath}.${extension}`;
+    }
+
+    static validateSaveName(filePath) {
+        const ext = extensionOf(filePath);
+        const baseName = withoutExtension(basenameOf(filePath));
+        if (ext === 'py' && !VALID_PYTHON_MODULE_RE.test(baseName)) {
+            return {
+                ok: false,
+                suggestion: `${sanitizePythonModuleName(baseName)}.py`,
+            };
+        }
+        if (ext === 'v' && !VALID_VERILOG_FILENAME_RE.test(baseName)) {
+            return {
+                ok: false,
+                suggestion: `${sanitizeVerilogFileName(baseName)}.v`,
+            };
+        }
+        if (ext === 'cmm' && !VALID_PROCESSOR_NAME_RE.test(baseName)) {
+            return {
+                ok: false,
+                suggestion: `${sanitizeProcessorName(baseName)}.cmm`,
+            };
+        }
+        return { ok: true };
+    }
+
+    static async confirmOverwrite(filePath) {
+        try {
+            const exists = await window.electronAPI.fileExists(filePath);
+            if (!exists) return true;
+        } catch (_) {
+            return true;
+        }
+
+        const fileName = basenameOf(filePath);
+        const tr = (k, p) => (window.t ? window.t(k, p) : k);
+        const action = await showDialog({
+            title: tr('dialog.overwriteFile.title'),
+            message: tr('dialog.overwriteFile.message', { name: fileName }),
+            variant: 'warning',
+            buttons: [
+                { label: tr('dialog.common.cancel'), action: 'cancel', type: 'cancel' },
+                { label: tr('dialog.overwriteFile.overwrite'), action: 'overwrite', type: 'save' },
+            ],
+        });
+        return action === 'overwrite';
+    }
+
+    static async getProcessorCmmTarget(selectedPath) {
+        const projectPath = ProjectStore.getProjectPath();
+        const processorName = sanitizeProcessorName(withoutExtension(basenameOf(selectedPath)));
+        if (!projectPath) {
+            return { processorName, cmmPath: selectedPath, projectPath: null };
+        }
+
+        const processorPath = await window.electronAPI.joinPath(projectPath, processorName);
+        const softwarePath = await window.electronAPI.joinPath(processorPath, 'Software');
+        const hardwarePath = await window.electronAPI.joinPath(processorPath, 'Hardware');
+        const simulationPath = await window.electronAPI.joinPath(processorPath, 'Simulation');
+        const cmmPath = await window.electronAPI.joinPath(softwarePath, `${processorName}.cmm`);
+        return { processorName, processorPath, softwarePath, hardwarePath, simulationPath, cmmPath, projectPath };
+    }
+
+    static async choosePathForUntitledFile(filePath, content) {
+        const detectedType = this.updateUntitledDocumentType(filePath, content)
+            || detectDocumentType(content);
+        let suggestedBase = getDefaultBaseNameForDocumentType(detectedType);
+        const suggestedExt = getExtensionForDocumentType(detectedType) || 'v';
+
+        while (true) {
+            const projectPath = ProjectStore.getProjectPath();
+            const defaultFileName = `${suggestedBase}.${suggestedExt}`;
+            const defaultPath = projectPath
+                ? await window.electronAPI.joinPath(projectPath, defaultFileName)
+                : defaultFileName;
+
+            const result = await window.electronAPI.showSaveDialog({
+                title: window.t ? window.t('contextMenu.saveNewFile') : 'Save New File',
+                defaultPath,
+                filters: getSaveDialogFilters(detectedType),
+                properties: ['createDirectory', 'showOverwriteConfirmation'],
+            });
+
+            if (result.canceled || !result.filePath) return null;
+
+            const finalPath = this.appendDefaultExtension(result.filePath, detectedType);
+            const validation = this.validateSaveName(finalPath);
+            if (validation.ok) return finalPath;
+
+            suggestedBase = withoutExtension(validation.suggestion);
+            showNotification(
+                window.t
+                    ? window.t('notification.tree.invalidName', {
+                        name: basenameOf(finalPath),
+                        suggestion: validation.suggestion,
+                    })
+                    : `"${basenameOf(finalPath)}" has invalid characters. Suggestion: ${validation.suggestion}`,
+                'warning',
+                4000,
+            );
+        }
+    }
+
+    static async registerSavedProjectFile(filePath, content) {
+        const ext = extensionOf(filePath);
+        if (ext !== 'py' && ext !== 'v') return;
+
+        const spfPath = ProjectStore.getSpfPath();
+        if (!spfPath) {
+            return;
+        }
+
+        const name = basenameOf(filePath);
+        const targetKey = normalizeKey(filePath);
+        await SpfStore.update(spfPath, (cfg) => {
+            const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
+            const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
+
+            const nextSynth = synthFiles.filter((f) => normalizeKey(f?.path) !== targetKey);
+            const nextTb = tbFiles.filter((f) => normalizeKey(f?.path) !== targetKey);
+            const entry = { name, path: filePath, isTopLevel: false };
+
+            if (ext === 'py' || classifyVerilogContent(content, name) === 'testbench') {
+                nextTb.push(entry);
+            } else {
+                nextSynth.push(entry);
+            }
+
+            cfg.synthesizableFiles = nextSynth;
+            cfg.testbenchFiles = nextTb;
+        });
+    }
+
+    static async registerProcessor(processorName) {
+        const spfPath = ProjectStore.getSpfPath();
+        if (!spfPath || !processorName) return;
+
+        await SpfStore.update(spfPath, (cfg) => {
+            const processors = Array.isArray(cfg.processors) ? cfg.processors : [];
+            const targetLower = processorName.toLowerCase();
+            const already = processors.some((p) => {
+                const name = typeof p === 'string' ? p : p?.name;
+                return typeof name === 'string' && name.toLowerCase() === targetLower;
+            });
+            if (!already) processors.push({ name: processorName });
+            cfg.processors = processors;
+        });
+
+        addAvailableProcessor(processorName);
+        window.statusBarManager?.refresh?.();
+    }
+
+    static async saveCmmProcessorFile(selectedPath, content) {
+        const target = await this.getProcessorCmmTarget(selectedPath);
+        const finalContent = ensureCmmPrname(content, target.processorName);
+
+        if (!target.projectPath) {
+            const finalPath = this.appendDefaultExtension(selectedPath, 'cmm');
+            if (!await this.confirmOverwrite(finalPath)) return null;
+            await window.electronAPI.writeFile(finalPath, finalContent);
+            return { filePath: finalPath, content: finalContent, processorName: target.processorName };
+        }
+
+        await window.electronAPI.mkdir(target.softwarePath);
+        await window.electronAPI.mkdir(target.hardwarePath);
+        await window.electronAPI.mkdir(target.simulationPath);
+
+        if (!await this.confirmOverwrite(target.cmmPath)) return null;
+
+        await window.electronAPI.writeFile(target.cmmPath, finalContent);
+        await this.registerProcessor(target.processorName);
+        return { filePath: target.cmmPath, content: finalContent, processorName: target.processorName };
+    }
+
+    static async replaceUntitledWithSavedFile(untitledPath, savedPath, content) {
+        const hadMainTab = this.tabs.has(untitledPath);
+        const savedModel = window.SharedModelRegistry?.getModel?.(savedPath);
+        if (savedModel) {
+            savedModel.setValue(content);
+            window.SharedModelRegistry?.markSaved?.(savedPath);
+            this.tabs.set(savedPath, content);
+            this.markFileAsSaved(savedPath);
+        }
+
+        const split = window.SplitEditorManager;
+        if (split && Array.isArray(split.panes)) {
+            for (const pane of split.panes) {
+                if (!pane?.tabs?.has?.(untitledPath)) continue;
+                await pane.openFile(savedPath, content);
+            }
+        }
+
+        if (hadMainTab) {
+            const tab = document.querySelector(`.tab[data-path="${CSS.escape(untitledPath)}"]`);
+            if (tab) tab.remove();
+            EditorManager.closeEditor(untitledPath);
+            this.tabs.delete(untitledPath);
+            this.unsavedChanges.delete(untitledPath);
+            this.editorStates.delete(untitledPath);
+            this.stopWatchingFile(untitledPath);
+            if (this.previewTab === untitledPath) this.previewTab = null;
+        }
+
+        if (split && Array.isArray(split.panes)) {
+            for (const pane of split.panes) {
+                const info = pane?.tabs?.get?.(untitledPath);
+                if (!info) continue;
+                const wasActive = pane.activeFile === untitledPath;
+                try { info.editor.dispose(); } catch (_) { /* ignore */ }
+                info.editorDiv?.remove?.();
+                window.SharedModelRegistry?.release?.(untitledPath);
+                pane.tabs.delete(untitledPath);
+                pane.element
+                    ?.querySelector(`.split-tab[data-path="${CSS.escape(untitledPath)}"]`)
+                    ?.remove();
+                if (wasActive && pane.tabs.has(savedPath)) pane._activateFile(savedPath);
+            }
+        }
+
+        if (!window.SharedModelRegistry?.has?.(untitledPath)) {
+            this.untitledDocuments.delete(untitledPath);
+        }
+
+        if (hadMainTab) {
+            if (!this.tabs.has(savedPath)) {
+                this.addTab(savedPath, content);
+            } else {
+                this.activateTab(savedPath);
+            }
+        }
+
+        this.updateTabsContainerVisibility();
+    }
+
+    static async saveUntitledFile(filePath) {
+        const model = window.SharedModelRegistry?.getModel?.(filePath)
+            ?? EditorManager.getEditorForFile(filePath)?.getModel();
+        if (!model) return false;
+
+        const content = model.getValue();
+        const finalPath = await this.choosePathForUntitledFile(filePath, content);
+        if (!finalPath) return false;
+
+        let savedPath = finalPath;
+        let savedContent = content;
+        if (extensionOf(finalPath) === 'cmm') {
+            const saved = await this.saveCmmProcessorFile(finalPath, content);
+            if (!saved) return false;
+            savedPath = saved.filePath;
+            savedContent = saved.content;
+        } else {
+            await window.electronAPI.writeFile(finalPath, content);
+            await this.registerSavedProjectFile(finalPath, content);
+        }
+        await this.replaceUntitledWithSavedFile(filePath, savedPath, savedContent);
+
+        try {
+            const stats = await window.electronAPI.getFileStats(savedPath);
+            this.lastModifiedTimes.set(savedPath, stats.mtime);
+        } catch (_) { /* stats errors are non-fatal */ }
+
+        if (ProjectStore.getProjectPath()) {
+            try { await window.electronAPI.triggerFileTreeRefresh?.(); }
+            catch (_) { /* tree refresh is best-effort */ }
+        }
+        return true;
+    }
+
+    static initialContentForType(type, filePath) {
+        const baseName = withoutExtension(basenameOf(filePath));
+        if (type === 'cmm') return createCmmTemplate(sanitizeProcessorName(baseName));
+        if (type === 'python') {
+            return `import cocotb
+from cocotb.triggers import Timer
+
+
+@cocotb.test()
+async def basic_test(dut):
+    dut._log.info("Starting cocotb test")
+    await Timer(1, unit="ns")
+`;
+        }
+        if (type === 'verilog') return '// New Verilog file\n';
+        return '';
+    }
+
+    static async createNewFileFromDialog() {
+        const projectPath = ProjectStore.getProjectPath();
+        const defaultPath = projectPath
+            ? await window.electronAPI.joinPath(projectPath, 'untitled.v')
+            : 'untitled.v';
+        const result = await window.electronAPI.showSaveDialog({
+            title: window.t ? window.t('contextMenu.saveNewFile') : 'Save New File',
+            defaultPath,
+            filters: getSaveDialogFilters(null, { includeCmmFallback: true }),
+            properties: ['createDirectory', 'showOverwriteConfirmation'],
+        });
+
+        if (result.canceled || !result.filePath) return false;
+
+        let requestedPath = result.filePath;
+        let type = typeFromExtension(requestedPath);
+        if (!type) {
+            type = 'verilog';
+            requestedPath = this.appendDefaultExtension(requestedPath, type);
+        }
+
+        const validation = this.validateSaveName(requestedPath);
+        if (!validation.ok) {
+            showNotification(
+                window.t
+                    ? window.t('notification.tree.invalidName', {
+                        name: basenameOf(requestedPath),
+                        suggestion: validation.suggestion,
+                    })
+                    : `"${basenameOf(requestedPath)}" has invalid characters. Suggestion: ${validation.suggestion}`,
+                'warning',
+                4000,
+            );
+            return false;
+        }
+
+        const content = this.initialContentForType(type, requestedPath);
+        let savedPath = requestedPath;
+        let savedContent = content;
+        if (type === 'cmm') {
+            const saved = await this.saveCmmProcessorFile(requestedPath, content);
+            if (!saved) return false;
+            savedPath = saved.filePath;
+            savedContent = saved.content;
+        } else {
+            await window.electronAPI.writeFile(requestedPath, content);
+            await this.registerSavedProjectFile(requestedPath, content);
+        }
+
+        if (ProjectStore.getProjectPath()) {
+            try { await window.electronAPI.triggerFileTreeRefresh?.(); }
+            catch (_) { /* tree refresh is best-effort */ }
+        }
+        this.addTab(savedPath, savedContent);
+        showNotification(
+            window.t
+                ? window.t('notification.tree.created', { name: basenameOf(savedPath) })
+                : `Created "${basenameOf(savedPath)}" successfully`,
+            'success',
+            2000,
+        );
+        return true;
+    }
+
     // Utility method to check if file is an image
     static isImageFile(filePath) {
         const extension = filePath.split('.')
@@ -208,7 +782,8 @@ export class TabManager {
         contextContainer.className = 'context-path-container';
 
         const segments = filePath.split(/[\\/]/);
-        const fileName = segments.pop();
+        segments.pop();
+        const fileName = this.getDisplayName(filePath);
 
         let html = '<i class="fas fa-folder-open"></i>';
 
@@ -497,7 +1072,7 @@ export class TabManager {
         tab.classList.add('tab');
         tab.setAttribute('data-path', filePath);
         tab.setAttribute('draggable', 'true');
-        tab.setAttribute('title', filePath);
+        tab.setAttribute('title', this.isUntitledPath(filePath) ? this.getDisplayName(filePath) : filePath);
 
         // Add binary file indicator
         const isBinary = this.isBinaryFile(filePath);
@@ -505,10 +1080,22 @@ export class TabManager {
             tab.classList.add('binary-file');
         }
 
+<<<<<<< C:/Users/chrys/AppData/Local/Temp/o.js
         tab.innerHTML = `
       <i class="${this.getFileIcon(filePath.split(/[\\/]/).pop())}"></i>
       <span class="tab-name">${filePath.split(/[\\/]/).pop()}</span>
       <button class="close-tab">×</button>
+=======
+        // data-i18n-title pra que o applyDOM atualize o tooltip em
+        // locale changes — sem ele, um tab criado em EN ficaria
+        // preso em EN apos o toggle pra PT.
+        const closeTitle = window.t ? window.t('tabs.close') : 'Close';
+        const displayName = this.getDisplayName(filePath);
+        tab.innerHTML = `
+      <i class="${this.getFileIcon(displayName)}"></i>
+      <span class="tab-name">${displayName}</span>
+      <button class="close-tab" title="${closeTitle}" data-i18n-title="tabs.close">×</button>
+>>>>>>> C:/Users/chrys/AppData/Local/Temp/t.js
     `;
 
         // Mark as preview if needed
@@ -732,10 +1319,14 @@ export class TabManager {
         if (!currentPath) return;
         if (this.isBinaryFile(currentPath)) return;
 
+        if (this.isUntitledPath(currentPath)) {
+            return this.saveUntitledFile(currentPath);
+        }
+
         try {
             const model = window.SharedModelRegistry?.getModel?.(currentPath)
                 ?? EditorManager.getEditorForFile(currentPath)?.getModel();
-            if (!model) return;
+            if (!model) return false;
 
             const content = model.getValue();
 
@@ -757,7 +1348,9 @@ export class TabManager {
 
         } catch (error) {
             console.error('Error saving file:', error);
+            return false;
         }
+        return true;
     }
 
     // Enhanced saveAllFiles method with undo history preservation. Walks
@@ -779,6 +1372,12 @@ export class TabManager {
 
         for (const filePath of paths) {
             if (this.isBinaryFile(filePath)) continue;
+            if (this.isUntitledPath(filePath)) {
+                if (registry.isDirty(filePath) || this.unsavedChanges.has(filePath)) {
+                    await this.saveUntitledFile(filePath);
+                }
+                continue;
+            }
             if (!registry.isDirty(filePath)) continue;
 
             const model = registry.getModel(filePath)
@@ -814,6 +1413,9 @@ export class TabManager {
         }
         this.tabs.delete(filePath);
         this.unsavedChanges.delete(filePath);
+        if (this.isUntitledPath(filePath) && !window.SharedModelRegistry?.has?.(filePath)) {
+            this.untitledDocuments.delete(filePath);
+        }
         this.editorStates.delete(filePath);
         this.stopWatchingFile(filePath);
         this.previewTab = null;
@@ -843,6 +1445,18 @@ export class TabManager {
     // and clears the dot, exactly like VS Code.
     static setupContentChangeListener(filePath, editor) {
         editor.onDidChangeModelContent(() => {
+            if (this.isUntitledPath(filePath)) {
+                if (this.expandUntitledSnippet(filePath, editor)) {
+                    this.markFileAsModified(filePath);
+                    return;
+                }
+                this.updateUntitledDocumentType(filePath, editor.getValue());
+                this.markFileAsModified(filePath);
+                if (this.previewTab === filePath) {
+                    this.promotePreviewToPermanent(filePath);
+                }
+                return;
+            }
             const dirty = window.SharedModelRegistry?.isDirty?.(filePath) ?? false;
             if (dirty) {
                 this.markFileAsModified(filePath);
@@ -867,6 +1481,7 @@ export class TabManager {
         this.isClosingTab = true;
 
         try {
+            const wasUntitled = this.isUntitledPath(filePath);
             // Handle unsaved changes for text files — but only when THIS is
             // the final instance. If the file is also open in a split pane,
             // the shared model (and the user's edits) will outlive this view,
@@ -880,14 +1495,14 @@ export class TabManager {
                 && !this.isBinaryFile(filePath)
                 && this.unsavedChanges.has(filePath)
             ) {
-                const fileName = filePath.split(/[\\/]/)
-                    .pop();
+                const fileName = this.getDisplayName(filePath);
                 const result = await showUnsavedChangesDialog(fileName);
 
                 switch (result) {
                 case 'save':
                     try {
-                        await this.saveFile(filePath);
+                        const saved = await this.saveFile(filePath);
+                        if (saved === false) return;
                     } catch (error) {
                         console.error('Failed to save file:', error);
                     }
@@ -915,15 +1530,17 @@ export class TabManager {
             }
 
             // Add to closed tabs stack
-            const currentContent = this.tabs.get(filePath);
-            this.closedTabsStack.push({
-                filePath: filePath,
-                content: currentContent,
-                timestamp: Date.now()
-            });
+            if (!wasUntitled) {
+                const currentContent = this.tabs.get(filePath);
+                this.closedTabsStack.push({
+                    filePath: filePath,
+                    content: currentContent,
+                    timestamp: Date.now()
+                });
 
-            if (this.closedTabsStack.length > 10) {
-                this.closedTabsStack.shift();
+                if (this.closedTabsStack.length > 10) {
+                    this.closedTabsStack.shift();
+                }
             }
 
             // Remove tab from UI
@@ -952,6 +1569,9 @@ export class TabManager {
             const survivesDirty = registry?.has?.(filePath) && registry?.isDirty?.(filePath);
             if (!survivesDirty) {
                 this.unsavedChanges.delete(filePath);
+            }
+            if (wasUntitled && !registry?.has?.(filePath)) {
+                this.untitledDocuments.delete(filePath);
             }
             this.editorStates.delete(filePath);
             if (this.previewTab === filePath) this.previewTab = null;
@@ -1016,15 +1636,14 @@ export class TabManager {
 
     // Handling unsaved changes with dialog
     static async handleUnsavedChanges(filePath) {
-        const fileName = filePath.split(/[\\/]/)
-            .pop();
+        const fileName = this.getDisplayName(filePath);
         const result = await showUnsavedChangesDialog(fileName);
 
         switch (result) {
         case 'save':
             try {
-                await this.saveFile(filePath);
-                return true;
+                const saved = await this.saveFile(filePath);
+                return saved !== false;
             } catch (error) {
                 console.error('Error saving file:', error);
                 return true; // Continue closing even if save failed
@@ -1041,10 +1660,14 @@ export class TabManager {
     // Enhanced saveFile method with undo history preservation
     static async saveFile(filePath = null) {
         const currentPath = filePath || this.getEditingFilePath();
-        if (!currentPath) return;
+        if (!currentPath) return false;
 
         // Don't save binary files
-        if (this.isBinaryFile(currentPath)) return;
+        if (this.isBinaryFile(currentPath)) return true;
+
+        if (this.isUntitledPath(currentPath)) {
+            return this.saveUntitledFile(currentPath);
+        }
 
         try {
             const model = window.SharedModelRegistry?.getModel?.(currentPath)
@@ -1063,6 +1686,7 @@ export class TabManager {
             await window.electronAPI.writeFile(currentPath, content);
 
             // Mark as saved
+            window.SharedModelRegistry?.markSaved?.(currentPath);
             this.markFileAsSaved(currentPath);
 
             // Update the last modified time to prevent false external change detection
@@ -1089,6 +1713,7 @@ export class TabManager {
             console.error('Error saving file:', error);
             throw error;
         }
+        return true;
     }
 
     // Optional: Method to manually create undo stops when needed
@@ -1308,9 +1933,16 @@ window.addEventListener('load', () => {
 });
 
 document.addEventListener('keydown', (e) => {
+    if (e.defaultPrevented) return;
+
     // Prevent default browser shortcuts that might interfere
     if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
+        case 'n':
+            e.preventDefault();
+            TabManager.createNewFile();
+            break;
+
         case 'w':
             e.preventDefault();
             if (TabManager.activeTab) {

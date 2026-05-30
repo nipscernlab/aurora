@@ -168,6 +168,7 @@
     "shortcuts": {
         "notSet":       "Não definido",
         "recording":    "Gravando...",
+        "newFile":      "Novo Arquivo",
         "compileAll":   "Compilar Tudo",
         "closeTab":     "Fechar Aba Ativa",
         "reopenTab":    "Reabrir Última Aba Fechada",
@@ -228,6 +229,11 @@
             "useDisk":         "Usar Versão do Disco",
             "saveAndReload":   "Salvar e Recarregar"
         },
+        "overwriteFile": {
+            "title":           "Sobrescrever Arquivo",
+            "message":         "O arquivo \"<strong>{{name}}</strong>\" ja existe. Deseja sobrescreve-lo?",
+            "overwrite":       "Sobrescrever"
+        },
         "deleteFile": {
             "title":           "Excluir Arquivo",
             "message":         "Tem certeza que deseja excluir \"<strong>{{name}}</strong>\"? Esta ação não pode ser desfeita.",
@@ -278,8 +284,10 @@
         "setTopLevel":     "Definir como Top Level",
         "unmarkTestbench": "Desmarcar como Testbench",
         "markTestbench":   "Marcar como Testbench",
+        "newFile":         "Novo arquivo...",
         "newVerilog":      "Novo arquivo Verilog (.v)",
         "newCocotb":       "Novo testbench cocotb (.py)",
+        "saveNewFile":     "Salvar novo arquivo",
         "saveNewVerilog":  "Salvar novo arquivo Verilog",
         "saveNewCocotb":   "Salvar novo testbench cocotb"
     },

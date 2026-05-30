@@ -167,6 +167,7 @@
     "shortcuts": {
         "notSet":       "Not Set",
         "recording":    "Recording...",
+        "newFile":      "New File",
         "compileAll":   "Compile All",
         "closeTab":     "Close Active Tab",
         "reopenTab":    "Reopen Last Closed Tab",
@@ -227,6 +228,11 @@
             "useDisk":         "Use Disk Version",
             "saveAndReload":   "Save & Reload"
         },
+        "overwriteFile": {
+            "title":           "Overwrite File",
+            "message":         "The file \"<strong>{{name}}</strong>\" already exists. Do you want to overwrite it?",
+            "overwrite":       "Overwrite"
+        },
         "deleteFile": {
             "title":           "Delete File",
             "message":         "Are you sure you want to delete \"<strong>{{name}}</strong>\"? This action cannot be undone.",
@@ -277,8 +283,10 @@
         "setTopLevel":     "Set as Top Level",
         "unmarkTestbench": "Unmark Testbench",
         "markTestbench":   "Mark as Testbench",
+        "newFile":         "New File...",
         "newVerilog":      "New Verilog File (.v)",
         "newCocotb":       "New cocotb Testbench (.py)",
+        "saveNewFile":     "Save New File",
         "saveNewVerilog":  "Save New Verilog File",
         "saveNewCocotb":   "Save New cocotb Testbench"
     },

@@ -271,6 +271,19 @@ const editorNs = {
     return ok(model.getLanguageId?.() ?? null);
   },
 
+  async newFile() {
+    if (typeof TabManager?.createNewFile !== 'function') {
+      return err('newFile unavailable');
+    }
+    try {
+      const filePath = TabManager.createNewFile();
+      emit('editor:new-file', { filePath });
+      return ok({ filePath });
+    } catch (e) {
+      return err(e?.message || 'newFile failed');
+    }
+  },
+
   async save() {
     const path = TabManager?.activeTab;
     if (!path) return err('No active file');
@@ -2030,6 +2043,7 @@ const NAMESPACES = Object.freeze({
     getCursor:         'Current cursor line/column',
     setCursor:         'Move the cursor and reveal it',
     getLanguage:       'Monaco language id of the focused file',
+    newFile:           'Create a new untitled editor buffer',
     save:              'Save the focused file',
     saveAll:           'Save every open file',
     closeTab:          'Close a tab (the active one by default)',
@@ -2123,7 +2137,7 @@ const metaNs = Object.freeze({
       namespaces: NAMESPACES,
       events: {
         // Emitted directly by AuroraAPI methods.
-        emitted: ['compile:started', 'compile:cancelled', 'editor:saved'],
+        emitted: ['compile:started', 'compile:cancelled', 'editor:new-file', 'editor:saved'],
         // Legacy window CustomEvents re-broadcast on the bus.
         bridged: { ...WINDOW_EVENT_BRIDGE },
       },

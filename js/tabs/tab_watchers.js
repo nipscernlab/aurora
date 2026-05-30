@@ -67,6 +67,7 @@ export const tabWatchers = {
     async checkSingleFileForChanges(filePath) {
         try {
             if (!this.tabs.has(filePath)) return;
+            if (this.isUntitledPath?.(filePath)) return;
 
             const stats = await window.electronAPI.getFileStats(filePath);
             const lastKnownTime = this.lastModifiedTimes.get(filePath);
@@ -102,6 +103,7 @@ export const tabWatchers = {
     async restartFileWatcher(filePath) {
         try {
             if (!this.tabs.has(filePath)) return;
+            if (this.isUntitledPath?.(filePath)) return;
 
             await this.stopWatchingFile(filePath);
             await this.startWatchingFile(filePath);
@@ -111,6 +113,7 @@ export const tabWatchers = {
     },
 
     async startWatchingFile(filePath) {
+        if (this.isUntitledPath?.(filePath)) return;
         if (this.fileWatchers.has(filePath)) return;
 
         try {

@@ -91,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // it doesn't need to be wired through every constructor.
     window.globalTerminalManager = window.initializeGlobalTerminalManager();
 
+<<<<<<< HEAD
     // "New File" button — opens the same Verilog / Python (cocotb) picker
     // as right-clicking empty space in the file tree, anchored just below
     // the button. projectTreeManager owns the file tree, so the menu and
@@ -106,6 +107,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const rect = newVerilogBtn.getBoundingClientRect();
             mgr.showCreateMenu(rect.left, rect.bottom + 4);
+=======
+    // Generic new file button. TabManager owns the mixed flow here because
+    // Ctrl+N untitled buffers and toolbar-created files now share detection,
+    // templates and CMM processor folder creation.
+    const newFileBtn = document.getElementById('new-file') || document.getElementById('new-verilog-file');
+    if (newFileBtn) {
+        newFileBtn.addEventListener('click', () => {
+            window.TabManager?.createNewFileFromDialog?.();
+>>>>>>> 5fae385 (feat: add smart new file creation)
         });
     }
 

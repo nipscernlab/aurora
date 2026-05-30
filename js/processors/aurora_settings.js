@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // not stored here, so locale switches update the UI without touching
     // localStorage-persisted shortcuts.
     const defaultShortcuts = {
+        'newFile':      { ctrlKey: true,  shiftKey: false, altKey: false, key: 'N' },
         'compileAll':   { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'B' },
         'closeTab':     { ctrlKey: true,  shiftKey: false, altKey: false, key: 'W' },
         'reopenTab':    { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'T' },
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const SHORTCUT_LABEL_KEYS = {
+        'newFile':      'shortcuts.newFile',
         'compileAll':   'shortcuts.compileAll',
         'closeTab':     'shortcuts.closeTab',
         'reopenTab':    'shortcuts.reopenTab',
@@ -259,8 +261,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ---- Modal open/close and persistence ----
     const openModal = () => {
-        currentShortcuts = JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) ||
-                          JSON.parse(JSON.stringify(defaultShortcuts));
+        currentShortcuts = {
+            ...JSON.parse(JSON.stringify(defaultShortcuts)),
+            ...(JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) || {}),
+        };
         loadSettings();
         renderShortcuts();
         // Always land on General when re-opening — the previous pane is

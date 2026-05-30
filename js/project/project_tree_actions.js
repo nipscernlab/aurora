@@ -768,7 +768,7 @@ async def basic_test(dut):
         menu.innerHTML = `
             <div class="create-menu-item" data-action="create-file">
                 <i class="fa-solid fa-file-code"></i>
-                <span>${tr('contextMenu.newVerilog')}</span>
+                <span>${tr('contextMenu.newFile')}</span>
             </div>
             <div class="create-menu-item" data-action="create-cocotb">
                 <i class="fa-brands fa-python"></i>
@@ -798,7 +798,7 @@ async def basic_test(dut):
 
             const action = item.getAttribute('data-action');
             if (action === 'create-file') {
-                await this.createNewFile();
+                await TabManager.createNewFileFromDialog();
             } else if (action === 'create-cocotb') {
                 await this.createNewCocotbFile();
             }

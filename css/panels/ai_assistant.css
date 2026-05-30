@@ -1768,7 +1768,8 @@ body.ai-assistant-open {
  * ========================================================================= */
 .ai-scroll-resume {
   position: absolute;
-  right: 16px;
+  /* Centered above the composer (was pinned hard to the right edge). */
+  left: 50%;
   bottom: 108px;
   display: inline-flex;
   align-items: center;
@@ -1782,16 +1783,26 @@ body.ai-assistant-open {
   cursor: pointer;
   z-index: 4;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
-  animation: aiResumeIn 160ms ease-out;
+  /* Hidden by default; `.visible` fades it in. Both in AND out animate via
+     this single transition so it never pops out abruptly. */
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px);
+  transition: opacity 200ms var(--ease-out-quart, ease-out),
+              transform 200ms var(--ease-out-quart, ease-out);
+}
+.ai-scroll-resume.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
 }
 .ai-scroll-resume:hover {
   background: var(--bg-elev-4, #2a2a30);
   border-color: var(--accent);
   color: var(--accent);
 }
-@keyframes aiResumeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .ai-scroll-resume { transition: opacity 120ms linear; }
 }
 
 /* ===========================================================================

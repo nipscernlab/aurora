@@ -1418,22 +1418,38 @@ class AIAssistantManager {
     }, { passive: true });
   }
 
-  /** Floating "Jump to latest" pill shown while the user is reading above. */
+  /**
+   * Floating "Jump to latest" pill, shown while the user is reading above
+   * the live edge. The element is created once and kept in the DOM; we just
+   * toggle `.visible`, so it fades both in and out via CSS (instant
+   * `.remove()` used to make it pop out abruptly). Clicking it jumps to the
+   * bottom AND hides it immediately — relying on the scroll handler to hide
+   * it failed because `scrollToBottom(true)` had already set
+   * `stickToBottom = true`, so the handler's `stickToBottom !== atBottom`
+   * guard short-circuited and the pill stayed up.
+   */
   _toggleResumeScrollHint(show) {
     if (!this.container) return;
     let pill = this.container.querySelector('.ai-scroll-resume');
     if (show) {
-      if (pill) return;
-      pill = document.createElement('button');
-      pill.type = 'button';
-      pill.className = 'ai-scroll-resume';
-      pill.innerHTML = '<i class="ph ph-arrow-down"></i><span>Jump to latest</span>';
-      pill.addEventListener('click', () => this.scrollToBottom(true));
-      // Anchor inside .ai-assistant-content so it floats above the
-      // messages but below the composer.
-      this.messagesEl.parentElement.appendChild(pill);
+      if (!pill) {
+        pill = document.createElement('button');
+        pill.type = 'button';
+        pill.className = 'ai-scroll-resume';
+        pill.innerHTML = '<i class="ph ph-arrow-down"></i><span>Jump to latest</span>';
+        pill.addEventListener('click', () => {
+          this.scrollToBottom(true);
+          this._toggleResumeScrollHint(false);
+        });
+        // Anchor inside .ai-assistant-content so it floats above the
+        // messages but below the composer.
+        this.messagesEl.parentElement.appendChild(pill);
+        // Force a reflow so adding `.visible` on the same tick animates.
+        void pill.offsetWidth;
+      }
+      pill.classList.add('visible');
     } else if (pill) {
-      pill.remove();
+      pill.classList.remove('visible');
     }
   }
 

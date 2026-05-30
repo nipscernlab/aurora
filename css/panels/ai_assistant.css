@@ -469,38 +469,26 @@ body.ai-assistant-open {
 }
 
 /* Sine-wave divider — used for the model-switch marker. Instead of flat
-   hairlines, each side draws a gently flowing sine wave in the aurora
-   accent, tapering toward the outer edge so it reads as a soft ripple
-   emanating from the label. */
+   hairlines, each side draws a static, higher-frequency sine wave in a
+   muted grey (no accent, no animation), tapering toward the outer edge so
+   it reads as a quiet ripple — not a highlight. */
 .ai-divider-wave::before,
 .ai-divider-wave::after {
   background: none;
-  height: 10px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='10' viewBox='0 0 36 10'%3E%3Cpath d='M0 5 Q 9 0 18 5 T 36 5' fill='none' stroke='%238E83E8' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
+  height: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='8' viewBox='0 0 16 8'%3E%3Cpath d='M0 4 Q 4 0.6 8 4 T 16 4' fill='none' stroke='%237A7F8B' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: repeat-x;
   background-position: 0 center;
-  background-size: 36px 10px;
-  opacity: 0.7;
-  animation: ai-divider-wave-flow 3.4s linear infinite;
+  background-size: 16px 8px;
+  opacity: 0.55;
 }
 .ai-divider-wave::before {
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 85%);
           mask-image: linear-gradient(90deg, transparent 0%, #000 85%);
 }
 .ai-divider-wave::after {
-  animation-direction: reverse;
   -webkit-mask-image: linear-gradient(90deg, #000 15%, transparent 100%);
           mask-image: linear-gradient(90deg, #000 15%, transparent 100%);
-}
-.ai-divider-wave .ai-divider-text {
-  color: var(--accent, #8E83E8);
-}
-@keyframes ai-divider-wave-flow {
-  to { background-position-x: 36px; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ai-divider-wave::before,
-  .ai-divider-wave::after { animation: none; }
 }
 
 /* Markdown elements inside a bubble. We undo .modal-body-style margins

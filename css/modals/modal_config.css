@@ -259,6 +259,69 @@
 
 .info-tip i { font-size: var(--icon-xs); }
 
+/* Forced, CSS-only tooltip for the ? help pills.
+ *
+ * These must ALWAYS appear on hover (and keyboard focus) — even when the
+ * global custom-tooltip system is switched off in Settings. The JS tooltip
+ * honors that toggle; a pure-CSS bubble driven straight off `data-tooltip`
+ * does not, so the explanation is never hidden. (The spans carry
+ * `data-no-tooltip` so the JS system skips them and there is no double
+ * bubble when tooltips are enabled.) `data-tooltip` is kept in sync with
+ * the active locale by i18n.applyDOM, so the text is always translated. */
+.info-tip[data-tooltip] {
+  position: relative;
+}
+.info-tip[data-tooltip]::after,
+.info-tip[data-tooltip]::before {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), visibility var(--transition-fast);
+  z-index: var(--z-50, 1000);
+}
+.info-tip[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  /* Below the icon: the ? pills live in the first section, and the modal
+     body clips overflow, so dropping the bubble downward (over the input
+     rows) keeps it fully visible — above could be cut off at the body's
+     top edge. */
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 240px;
+  white-space: normal;
+  text-align: center;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1a1d27);
+  color: var(--text, #e8ecf3);
+  border: 1px solid var(--border, #1f2532);
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.45));
+  font-size: var(--text-xs);
+  font-weight: var(--font-normal, 400);
+  line-height: var(--leading-snug, 1.4);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.info-tip[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: var(--border, #1f2532);
+}
+.info-tip[data-tooltip]:hover::after,
+.info-tip[data-tooltip]:hover::before,
+.info-tip[data-tooltip]:focus-visible::after,
+.info-tip[data-tooltip]:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
 /* Form label that hosts an info-tip — distribute name and tip nicely */
 .form-label:has(.info-tip) {
   display: inline-flex;

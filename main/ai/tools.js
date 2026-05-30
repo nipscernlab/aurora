@@ -422,6 +422,28 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'rename_project',
+    description:
+      'Rename the CURRENTLY OPEN SAPHO project everywhere: the project root folder ' +
+      '(<location>/<old> → <location>/<new>), the <old>.spf project file, the .spf ' +
+      'metadata (projectName/projectPath/basePath) and EVERY absolute path stored in ' +
+      'the .spf (synthesizable + testbench file lists, top-level/testbench pointers, ' +
+      'persisted command-override cwd/env). Processor folders move with the root, so ' +
+      'their #PRNAME directives are untouched (use rename_processor for a processor). ' +
+      'The project is reopened at its new path automatically. The name may contain only ' +
+      'letters, numbers, underscore or hyphen.',
+    access: 'write',
+    api: ['project', 'renameProject'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        newName: { type: 'string', description: 'New project name (letters, digits, _ or -)' },
+      },
+      required: ['newName'],
+    },
+  },
+  {
     name: 'open_project',
     description: 'Open an existing SAPHO project by its .spf file path.',
     access: 'write',

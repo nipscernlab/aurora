@@ -93,6 +93,93 @@ function remapProcessorPath(p, projectDir, oldName, newName) {
   return out === native && swapped === base ? out : path.join(dir, swapped);
 }
 
+/**
+ * Rewrite an absolute path that lived under `oldRoot` to sit under
+ * `newRoot` instead. Case-insensitive prefix match (Windows). Anything
+ * outside `oldRoot` is returned verbatim. Used when a whole project folder
+ * is renamed.
+ */
+function remapRootPath(p, oldRoot, newRoot) {
+  if (!p || typeof p !== 'string') return p;
+  const native = p.replace(/\//g, path.sep);
+  const oldN = oldRoot.replace(/\//g, path.sep);
+  const lower = native.toLowerCase();
+  const oldLower = oldN.toLowerCase();
+  if (lower === oldLower) return newRoot;
+  if (lower.startsWith(oldLower + path.sep.toLowerCase())) {
+    return newRoot + native.slice(oldN.length);
+  }
+  return p;
+}
+
+/**
+ * Deep-walk an object and remap every string value that points inside
+ * `oldRoot` to `newRoot`. Catches every persisted absolute path in the
+ * .spf (file lists, command-override cwd/env, …) so a project rename
+ * leaves no stale path behind — "em todos os lugares necessários".
+ */
+function deepRemapPaths(obj, oldRoot, newRoot) {
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      if (typeof obj[i] === 'string') obj[i] = remapRootPath(obj[i], oldRoot, newRoot);
+      else deepRemapPaths(obj[i], oldRoot, newRoot);
+    }
+  } else if (obj && typeof obj === 'object') {
+    for (const k of Object.keys(obj)) {
+      if (typeof obj[k] === 'string') obj[k] = remapRootPath(obj[k], oldRoot, newRoot);
+      else deepRemapPaths(obj[k], oldRoot, newRoot);
+    }
+  }
+}
+
+/**
+ * Close every chokidar watcher (directory + per-file) rooted inside
+ * `rootDir` so the OS doesn't keep a handle on the folder we're about to
+ * rename. Without this, a directory rename fails with EPERM/EBUSY on
+ * Windows. The renderer re-establishes its watchers when it reopens the
+ * project at the new path.
+ */
+async function releaseWatchersUnder(rootDir) {
+  const sep = path.sep.toLowerCase();
+  const r = rootDir.replace(/\//g, path.sep).toLowerCase();
+  const under = (p) => {
+    const n = String(p || '').replace(/\//g, path.sep).toLowerCase();
+    return n === r || n.startsWith(r + sep);
+  };
+  for (const [dirPath, info] of [...state.activeDirectoryWatchers.entries()]) {
+    if (under(dirPath)) {
+      try { await info.watcher.close(); } catch (_) { /* already gone */ }
+      state.activeDirectoryWatchers.delete(dirPath);
+      state.directoryStatsCache.delete(dirPath);
+    }
+  }
+  for (const [filePath, info] of [...state.activeWatchers.entries()]) {
+    if (under(info.filePath || filePath)) {
+      try { await info.watcher.close(); } catch (_) { /* already gone */ }
+      state.activeWatchers.delete(filePath);
+    }
+  }
+}
+
+/** fse.move with a few quick retries — Windows AV/indexer can briefly lock. */
+async function moveWithRetry(from, to, options = {}) {
+  let lastErr;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await fse.move(from, to, options);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (err && (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'ENOTEMPTY')) {
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
+}
+
 function register() {
   // ---- project lifecycle ----
 
@@ -663,6 +750,124 @@ void main()
       return { success: true, oldName: currentName, newName: newNm, oldDir, newDir };
     } catch (error) {
       log.error('Error renaming processor:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Rename the currently open project. This renames BOTH the project root
+   * folder (<location>/<old> → <location>/<new>) and the project file
+   * (<old>.spf → <new>.spf), updates the .spf metadata (projectName,
+   * projectPath, basePath) and deep-remaps every absolute path stored in
+   * the .spf (synth/testbench file lists, top-level/testbench pointers,
+   * command-override cwd/env, …) from the old root to the new one.
+   *
+   * Open chokidar watchers under the old root are released first so the
+   * folder rename can't fail with EPERM/EBUSY on Windows. Main-process
+   * state + the recents/jumplist are updated to the new .spf path; the
+   * renderer reopens the project there.
+   *
+   * Processor folders are subdirectories of the root, so they move with it
+   * — their #PRNAME directives and per-processor names are unaffected by a
+   * project rename (use rename_processor for those).
+   */
+  ipcMain.handle('rename-project', async (_event, newName) => {
+    try {
+      if (!state.currentOpenProjectPath) throw new Error('No open project');
+
+      const newNm = String(newName || '').trim();
+      if (!newNm) throw new Error('New project name is required');
+      if (!/^[A-Za-z0-9_-]+$/.test(newNm)) {
+        throw new Error('Project name may contain only letters, numbers, underscore or hyphen');
+      }
+
+      const oldSpfPath = state.currentOpenProjectPath;
+      const oldRoot = path.dirname(oldSpfPath);
+      const parent = path.dirname(oldRoot);
+      const oldFolderName = path.basename(oldRoot);
+      const oldSpfBase = path.basename(oldSpfPath);
+
+      const spfData = JSON.parse(await fse.readFile(oldSpfPath, 'utf8'));
+      const oldName = spfData.metadata?.projectName
+        || path.basename(oldSpfPath, '.spf');
+
+      const newRoot = path.join(parent, newNm);
+      const folderCaseOnly = oldFolderName.toLowerCase() === newNm.toLowerCase();
+      const needFolderMove = oldFolderName !== newNm;
+
+      if (needFolderMove && !folderCaseOnly && (await fse.pathExists(newRoot))) {
+        throw new Error(`A folder named "${newNm}" already exists at ${parent}`);
+      }
+
+      // 1. Release watchers so the folder isn't locked during the move.
+      await releaseWatchersUnder(oldRoot);
+
+      // 2. Rename the project root folder (temp hop for a case-only change).
+      let movedRoot = oldRoot;
+      if (needFolderMove) {
+        if (folderCaseOnly) {
+          const tmp = path.join(parent, `__aurora_rename_${Date.now()}__`);
+          await moveWithRetry(oldRoot, tmp);
+          await moveWithRetry(tmp, newRoot);
+        } else {
+          await moveWithRetry(oldRoot, newRoot);
+        }
+        movedRoot = newRoot;
+      }
+
+      // 3. Rename the .spf inside the (possibly moved) root.
+      const currentSpfInRoot = path.join(movedRoot, oldSpfBase);
+      const newSpfPath = path.join(movedRoot, `${newNm}.spf`);
+      if (currentSpfInRoot.toLowerCase() !== newSpfPath.toLowerCase()) {
+        if (await fse.pathExists(currentSpfInRoot)) {
+          await moveWithRetry(currentSpfInRoot, newSpfPath, { overwrite: false });
+        }
+      } else if (currentSpfInRoot !== newSpfPath) {
+        const tmp = path.join(movedRoot, `__aurora_rename_${Date.now()}__.spf`);
+        await moveWithRetry(currentSpfInRoot, tmp);
+        await moveWithRetry(tmp, newSpfPath);
+      }
+
+      // 4. Update metadata + deep-remap every absolute path old → new.
+      spfData.metadata = spfData.metadata || {};
+      spfData.metadata.projectName = newNm;
+      spfData.metadata.projectPath = movedRoot;
+      spfData.metadata.lastModified = new Date().toISOString();
+      spfData.structure = spfData.structure || {};
+      spfData.structure.basePath = movedRoot;
+      deepRemapPaths(spfData.structure, oldRoot, movedRoot);
+
+      await fse.writeFile(newSpfPath, JSON.stringify(spfData, null, 2));
+
+      // 5. Re-sync main-process state + recents/jumplist to the new path.
+      state.currentOpenProjectPath = newSpfPath;
+      global.currentProjectPath = movedRoot;
+      if (!global.currentProject) global.currentProject = {};
+      global.currentProject.path = movedRoot;
+      try {
+        if (process.platform === 'win32') {
+          if (typeof app.addRecentDocument === 'function') app.addRecentDocument(newSpfPath);
+          const recents = require('../recents');
+          recents.push(newSpfPath);
+          recents.prune();
+          const { rebuildJumpList } = require('../windows');
+          rebuildJumpList();
+        }
+      } catch (e) {
+        log.warn('jumplist refresh (rename-project) failed:', e);
+      }
+
+      return {
+        success: true,
+        oldName,
+        newName: newNm,
+        oldRoot,
+        newRoot: movedRoot,
+        oldSpfPath,
+        newSpfPath,
+      };
+    } catch (error) {
+      log.error('Error renaming project:', error);
       throw error;
     }
   });

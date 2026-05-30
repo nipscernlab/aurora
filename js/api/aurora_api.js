@@ -875,6 +875,58 @@ const projectNs = {
   },
 
   /**
+   * Rename the currently open project — both the project root folder and
+   * the .spf file, plus every absolute path the .spf stores. The main
+   * process does the on-disk move + .spf rewrite (see the `rename-project`
+   * IPC); here we save open files, then reopen the project at its new .spf
+   * path so the tree, watchers, name label and ProjectStore all re-sync.
+   *
+   * Processor folders move with the root — a project rename never touches
+   * #PRNAME or per-processor names (use rename_processor for those).
+   */
+  async renameProject({ newName } = {}) {
+    const newNm = String(newName || '').trim();
+    if (!newNm) return err('newName required');
+    if (/[^A-Za-z0-9_-]/.test(newNm)) {
+      return err('newName may only contain letters, numbers, _ and -');
+    }
+    const spfPath = window.ProjectStore?.getSpfPath?.() || window.currentSpfPath || null;
+    if (!spfPath) return err('No project open');
+    if (typeof window.electronAPI?.renameProject !== 'function') {
+      return err('rename-project IPC unavailable');
+    }
+
+    // Persist edits and drop tabs — every file under the root is about to
+    // move, so no tab (main or split) should keep pointing at a
+    // soon-to-be-invalid path.
+    try { await TabManager.saveAllFiles(); } catch (_) { /* best-effort */ }
+    const sem = window.SplitEditorManager;
+    if (sem && Array.isArray(sem.panes) && sem.panes.length) {
+      for (const pane of [...sem.panes]) {
+        try { sem.closePane(pane.paneIndex); } catch (_) { /* best-effort */ }
+      }
+    }
+    try { await TabManager.closeAllTabs(); } catch (_) { /* best-effort */ }
+
+    let r;
+    try { r = await window.electronAPI.renameProject(newNm); }
+    catch (e) { return err(e?.message || 'renameProject failed'); }
+    if (r && r.success === false) return err(r.error || 'renameProject failed');
+
+    const newSpfPath = r?.newSpfPath || null;
+    try {
+      if (newSpfPath && window.projectManager?.loadProject) {
+        await window.projectManager.loadProject(newSpfPath);
+      } else if (newSpfPath) {
+        await window.electronAPI.openProject(newSpfPath);
+      }
+    } catch (e) { return err(e?.message || 'project reload failed'); }
+
+    emit('project:renamed', { oldName: r?.oldName, newName: r?.newName, spfPath: newSpfPath });
+    return ok({ oldName: r?.oldName, newName: r?.newName, spfPath: newSpfPath });
+  },
+
+  /**
    * Mark a synthesizable Verilog file as the project's Top Level module.
    * Adds the file to synthesizableFiles if not yet tracked. The flag is
    * exclusive — any previous top-level loses the mark automatically.
@@ -1990,6 +2042,7 @@ const NAMESPACES = Object.freeze({
     createProcessor:    'Generate a processor in the open project',
     renameProcessor:    'Rename a processor (dir, .cmm, #PRNAME, .spf, artifacts)',
     createProject:      'Create a new SAPHO project and open it',
+    renameProject:      'Rename the open project (folder + .spf + every stored path)',
     openProject:        'Open an existing project by its .spf file',
     getProcessorConfig: 'Read clk/numClocks/simTime for one (or all) processors',
     setProcessorConfig: 'Update clk/numClocks/showArrays for one processor',

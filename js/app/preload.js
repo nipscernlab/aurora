@@ -71,6 +71,7 @@ const fileWatchingOperations = {
 const projectOperations = {
   openProject:    (p) => ipcRenderer.invoke('project:open', p),
   closeProject:   () => ipcRenderer.invoke('project:close'),
+  renameProject:  (newName) => ipcRenderer.invoke('rename-project', newName),
   createProjectStructure: (projectPath, spfPath) =>
     ipcRenderer.invoke('project:createStructure', projectPath, spfPath),
 

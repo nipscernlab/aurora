@@ -664,6 +664,34 @@ Creates a new SAPHO project and opens it.
 
 ---
 
+### `rename_project`
+Renames the **currently open** project everywhere it appears.
+
+**Arguments:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `newName` | string | Yes | New project name (letters, digits, `_`, `-`) |
+
+What it changes:
+- the project root folder `<location>/<old>` → `<location>/<new>`
+- the project file `<old>.spf` → `<new>.spf`
+- the `.spf` metadata: `projectName`, `projectPath`, `basePath`
+- **every** absolute path stored in the `.spf` — synthesizable + testbench file lists, top-level / testbench pointers, persisted command-override `cwd`/`env`
+
+Open chokidar watchers under the old root are released first so the folder rename can't fail with a lock error on Windows, and the project is reopened at its new path automatically (tree, watchers, name label and the recents/jumplist all re-sync).
+
+```jsonc
+// input:
+{ "newName": "fft_radix2" }
+// output:
+{ "ok": true, "oldName": "fft", "newName": "fft_radix2", "spfPath": "C:/Projects/fft_radix2/fft_radix2.spf" }
+```
+
+> Processor folders are subdirectories of the root, so they move with it — a project rename never touches `#PRNAME` or per-processor names. Use `rename_processor` for those.
+
+---
+
 ### `open_project`
 Opens an existing SAPHO project.
 

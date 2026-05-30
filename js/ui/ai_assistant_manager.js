@@ -2571,12 +2571,23 @@ class AIAssistantManager {
         'Descombobulating', 'Reticulating splines', 'Calibrating flux',
         'Summoning quarks', 'Consulting the oracle', 'Defragmenting neurons',
         'Reverse-engineering vibes', 'Untangling spaghetti', 'Overclocking brain cells',
-        'Pondering the imponderables',
+        'Pondering the imponderables', 'Aligning the qubits', 'Polishing the silicon',
+        'Sweet-talking the compiler', 'Negotiating with yanc', 'Routing the nets',
+        'Charging the flux capacitor', 'Counting to NUBITS', 'Folding the bitstream',
+        'Tuning the oscillators', 'Herding the electrons', 'Waxing the waveforms',
+        'Compiling confidence', 'Synthesizing brilliance', 'Asking the rubber duck',
+        'Dividing by NUGAIN', 'Probing the testbench', 'Warming up the ALU',
+        'Annealing the lattice', 'Sampling the aurora', 'Buffering inspiration',
+        'Convincing the linter', 'Greasing the pipeline',
       ];
       const word = words[Math.floor(Math.random() * words.length)];
       const el = document.createElement('div');
       el.className = 'ai-thinking-wrap';
-      el.innerHTML = `<div class="ai-thinking"><div class="ai-thinking-dots"><span></span><span></span><span></span></div></div><em class="ai-thinking-word">${word}…</em>`;
+      // The funny word and the three loading dots share one line; the dots
+      // read as the trailing ellipsis (so no literal "…" is appended).
+      el.innerHTML =
+        `<em class="ai-thinking-word">${word}</em>` +
+        '<span class="ai-thinking-dots"><span></span><span></span><span></span></span>';
       this.messagesEl.appendChild(el);
       this.scrollToBottom();
       this.thinkingEl = el;

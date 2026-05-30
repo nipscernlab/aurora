@@ -840,35 +840,44 @@ body.ai-assistant-open {
  * ------------------------------------------------------------------------- */
 
 /* Outer wrapper: dots box on top, witty word below */
+/* Funny word + three loading dots, sharing one line. No bordered pill —
+   the dots sit inline, the same height as the text, and carry the same
+   foil/sheen sweep as the word. */
 .ai-thinking-wrap {
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-self: flex-start;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-/* The bordered pill that contains only the three dots */
-.ai-thinking {
-  display: inline-flex;
   align-items: center;
-  padding: var(--space-2) var(--space-3);
-  background: var(--bg-elev);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  gap: 7px;
 }
 
 .ai-thinking-dots {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
+/* Foil-metal sheen shared by the word and the dots: a tight bright band
+   sweeps across a cool-grey base for a polished, reflective look. */
 .ai-thinking-dots span {
-  width: 6px;
-  height: 6px;
+  /* Roughly the cap-height of the funny message so they read as one line. */
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--text-muted);
-  animation: ai-think 1.2s ease-in-out infinite;
+  /* Same foil sweep as the word (applied to the fill, not clipped to text)
+     plus the gentle bounce. */
+  background: linear-gradient(
+    100deg,
+    #70757f 0%,
+    #9aa0ad 30%,
+    #ffffff 47%,
+    #ffffff 53%,
+    #9aa0ad 70%,
+    #70757f 100%
+  );
+  background-size: 300% auto;
+  animation: ai-shine 2.4s linear infinite,
+             ai-think 1.2s ease-in-out infinite;
 }
 
 .ai-thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
@@ -879,14 +888,15 @@ body.ai-assistant-open {
   font-style: normal;
   letter-spacing: var(--tracking-tight);
   background: linear-gradient(
-    90deg,
-    #707070 0%,
-    #c0c0c0 30%,
-    #f0f0f0 50%,
-    #c0c0c0 70%,
-    #707070 100%
+    100deg,
+    #70757f 0%,
+    #9aa0ad 30%,
+    #ffffff 47%,
+    #ffffff 53%,
+    #9aa0ad 70%,
+    #70757f 100%
   );
-  background-size: 250% auto;
+  background-size: 300% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -905,8 +915,13 @@ body.ai-assistant-open {
 }
 
 @keyframes ai-think {
-  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
-  40%           { opacity: 1;    transform: translateY(-3px); }
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40%           { opacity: 1;   transform: translateY(-3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-thinking-word,
+  .ai-thinking-dots span { animation-duration: 1ms, 1ms; }
 }
 
 /* ---------------------------------------------------------------------------

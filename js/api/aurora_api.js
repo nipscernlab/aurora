@@ -130,6 +130,40 @@ function flashLines(ed, startLine, endLine) {
   setTimeout(() => ed.deltaDecorations(ids, []), 750);
 }
 
+/**
+ * Magic-wand reveal for whole-file AI edits. Two layers, both soft purple:
+ *   1. a shimmer band that sweeps up the editor (.ai-wand-overlay), and
+ *   2. a fading purple tint over every freshly-written line
+ *      (.aurora-edit-reveal) so the new text reads as being *revealed*
+ *      over the old rather than abruptly swapped.
+ * Purely cosmetic — guarded so it can never break the underlying write.
+ */
+function magicWandReveal(ed) {
+  if (!ed) return;
+  try {
+    const editorDom = ed.getDomNode?.();
+    const container = editorDom?.closest(
+      '.split-pane-editor-area, .editor-container, #monaco-editor',
+    ) || editorDom?.parentElement;
+    if (container) {
+      const wand = document.createElement('div');
+      wand.className = 'ai-wand-overlay';
+      container.style.position = 'relative';
+      container.appendChild(wand);
+      wand.addEventListener('animationend', () => wand.remove(), { once: true });
+    }
+    const model = ed.getModel?.();
+    if (model && window.monaco) {
+      const lineCount = model.getLineCount();
+      const ids = ed.deltaDecorations([], [{
+        range: new window.monaco.Range(1, 1, lineCount, Number.MAX_SAFE_INTEGER),
+        options: { isWholeLine: true, className: 'aurora-edit-reveal' },
+      }]);
+      setTimeout(() => { try { ed.deltaDecorations(ids, []); } catch (_) { /* disposed */ } }, 760);
+    }
+  } catch (_) { /* cosmetic only */ }
+}
+
 const editorNs = {
   async getActiveFilePath() {
     return ok(TabManager?.activeTab || null);
@@ -162,18 +196,7 @@ const editorNs = {
     const model = ed.getModel();
     if (!model) return err('No active editor');
     model.setValue(String(text ?? ''));
-    // Magic-wand sweep: a shimmer band rises bottom→top across the editor.
-    const editorDom = ed.getDomNode?.();
-    const container = editorDom?.closest(
-      '.split-pane-editor-area, .editor-container, #monaco-editor',
-    ) || editorDom?.parentElement;
-    if (container) {
-      const wand = document.createElement('div');
-      wand.className = 'ai-wand-overlay';
-      container.style.position = 'relative';
-      container.appendChild(wand);
-      wand.addEventListener('animationend', () => wand.remove(), { once: true });
-    }
+    magicWandReveal(ed);
     return ok();
   },
 
@@ -743,17 +766,7 @@ const projectNs = {
         const uri = model?.uri?.fsPath || model?.uri?.path || '';
         if (model && uri && uri.replace(/\\/g, '/').toLowerCase() === norm) {
           model.setValue(String(content ?? ''));
-          const editorDom = ed.getDomNode?.();
-          const container = editorDom?.closest(
-            '.split-pane-editor-area, .editor-container, #monaco-editor',
-          ) || editorDom?.parentElement;
-          if (container) {
-            const wand = document.createElement('div');
-            wand.className = 'ai-wand-overlay';
-            container.style.position = 'relative';
-            container.appendChild(wand);
-            wand.addEventListener('animationend', () => wand.remove(), { once: true });
-          }
+          magicWandReveal(ed);
         }
       } catch (_) { /* wand is cosmetic — never let it block the write */ }
 

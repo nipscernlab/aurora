@@ -1810,25 +1810,22 @@ body.ai-assistant-open {
  *  and file edits. Words appear in soft light-purple, then fade to the
  *  normal text colour after the highlight passes.
  * ========================================================================= */
-@keyframes auroraFadeReveal {
-  0%   { opacity: 0; color: #c4a8ff; transform: translateY(2px); filter: blur(0.4px); }
-  60%  { opacity: 1; color: #c4a8ff; transform: translateY(0);   filter: blur(0); }
-  100% { opacity: 1; color: inherit; }
-}
-.ai-fade-reveal {
-  display: inline-block;
-  animation: auroraFadeReveal 380ms ease-out both;
-  text-shadow: 0 0 8px rgba(196, 168, 255, 0.45);
-}
-/* The highlight glow fades out at the end of the animation so the
-   long-running text doesn't keep a permanent glow. */
-.ai-fade-reveal {
-  animation-name: auroraFadeRevealText;
-}
+/* Soft-purple fade reveal for freshly-streamed text. The newest run of
+   characters eases in from a gentle purple glow to the normal colour, so a
+   batched stream reads as a continuous, smooth reveal rather than text
+   snapping in. The glow fully fades by the end so long answers don't keep a
+   permanent halo. */
 @keyframes auroraFadeRevealText {
-  0%   { opacity: 0; color: #c4a8ff; text-shadow: 0 0 10px rgba(196, 168, 255, 0.6); }
-  55%  { opacity: 1; color: #c4a8ff; text-shadow: 0 0 6px rgba(196, 168, 255, 0.35); }
-  100% { opacity: 1; color: inherit; text-shadow: none; }
+  0%   { opacity: 0;   color: #c4a8ff; text-shadow: 0 0 10px rgba(196, 168, 255, 0.6); }
+  55%  { opacity: 1;   color: #c4a8ff; text-shadow: 0 0 6px rgba(196, 168, 255, 0.32); }
+  100% { opacity: 1;   color: inherit; text-shadow: none; }
+}
+.ai-fade-reveal {
+  display: inline;
+  animation: auroraFadeRevealText 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-fade-reveal { animation-duration: 1ms; }
 }
 
 /* Monaco / editor fade-reveal — applied as a decoration. The wand sweep

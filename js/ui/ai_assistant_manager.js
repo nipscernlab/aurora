@@ -2256,6 +2256,26 @@ class AIAssistantManager {
     }
     this.segmentBuffer += delta;
     this.turnText += delta;
+    // Coalesce every delta that lands in the same animation frame into ONE
+    // DOM render. Re-rendering the whole markdown bubble on every token was
+    // the source of the choppy stream — dozens of reflows a second, each
+    // restarting the fade-reveal on a tiny new chunk. One render per frame
+    // makes the reveal continuous and smooth.
+    this._scheduleStreamRender();
+  }
+
+  /** Queue a streaming re-render on the next frame (idempotent per frame). */
+  _scheduleStreamRender() {
+    if (this._streamRenderRaf) return;
+    this._streamRenderRaf = requestAnimationFrame(() => {
+      this._streamRenderRaf = null;
+      this._renderStreamingBubble();
+    });
+  }
+
+  /** Render the accumulated stream buffer with the fade-reveal suffix. */
+  _renderStreamingBubble() {
+    if (!this.currentAssistantContentEl) return;
     // Strip tool-call artefacts that some models (Llama/Qwen) emit as inline
     // text. This covers XML blocks, Qwen-style JSON+</tool_call> lines, and
     // orphan closing tags. Only complete patterns are stripped while streaming
@@ -2273,11 +2293,11 @@ class AIAssistantManager {
       /"name"\s*:/.test(this.segmentBuffer);
     const sourceText = looksLikeToolArtifact ? '' : (displayText || this.segmentBuffer);
 
-    // Magic-wand fade reveal: re-render the bubble, then wrap any
-    // characters that weren't visible last time in <span.ai-fade-reveal>
-    // so they animate from light purple → normal. We do this by marking
-    // the boundary in the source text BEFORE markdown rendering so the
-    // span surrounds whole tokens, not partial HTML tags.
+    // Fade reveal: re-render the bubble, then wrap any characters that
+    // weren't visible last frame in <span.ai-fade-reveal> so they animate
+    // from soft purple → normal. We mark the boundary in the source text
+    // BEFORE markdown rendering so the span surrounds whole tokens, not
+    // partial HTML tags.
     this.currentAssistantContentEl.innerHTML = this._renderWithReveal(sourceText, this._revealLength || 0);
     this._revealLength = sourceText.length;
     this.scrollToBottom();
@@ -2315,6 +2335,13 @@ class AIAssistantManager {
   }
 
   commitTurn() {
+    // Flush any frame-batched stream render so the bubble shows the full
+    // final text before we highlight code blocks.
+    if (this._streamRenderRaf) {
+      cancelAnimationFrame(this._streamRenderRaf);
+      this._streamRenderRaf = null;
+      this._renderStreamingBubble();
+    }
     // The whole turn's text is persisted as one assistant message so
     // the next turn carries context. Strip XML tool-call artifacts before
     // storing — they confuse models on subsequent turns.
@@ -2368,6 +2395,10 @@ class AIAssistantManager {
   }
 
   resetTurnState() {
+    if (this._streamRenderRaf) {
+      cancelAnimationFrame(this._streamRenderRaf);
+      this._streamRenderRaf = null;
+    }
     this.currentAssistantContentEl = null;
     this.segmentBuffer = '';
     this.turnText = '';

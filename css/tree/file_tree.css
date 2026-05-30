@@ -93,7 +93,11 @@
 
 #file-tree {
   flex: 1 1 0;
-  padding: 4px 0;
+  /* Generous trailing space so there is always empty, right-clickable
+     area below the last row — even with many processors/files and the
+     list scrolled to the bottom — to reach the "New File" context menu
+     (VS Code does the same). */
+  padding: 4px 0 56px;
   overflow-x: hidden;
 }
 

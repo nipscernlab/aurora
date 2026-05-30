@@ -526,7 +526,12 @@ const SplitEditorManager = {
     },
 
     canSplit() {
-        if (this.panes.length >= 2) return false;
+        // Pane budget is 3 panes side-by-side. The main pane only counts
+        // when it actually has content — so after the user empties the main
+        // pane (it gets hidden), the freed slot lets them split again
+        // instead of being stuck at "max panes reached" with a blank main.
+        const mainCount = this._mainHasContent() ? 1 : 0;
+        if (mainCount + this.panes.length >= 3) return false;
         // Match createSplit's source resolution: from the main pane the source
         // is TabManager.activeTab; from a focused split it's that pane's
         // activeFile. Gating only on TabManager.activeTab used to wrongly
@@ -636,7 +641,10 @@ const SplitEditorManager = {
 
         const content = editor.getValue();
 
-        const newIndex = this.panes.length + 1; // 1 or 2
+        // Unique index = max existing + 1. Using `panes.length + 1` collided
+        // after a middle pane was closed (e.g. close pane 2 of [1,2] → next
+        // split would also pick index 2, clashing with the surviving pane).
+        const newIndex = this.panes.reduce((m, p) => Math.max(m, p.paneIndex), 0) + 1;
         const newPane  = new SplitPane(newIndex);
         this.panes.push(newPane);
 
@@ -722,16 +730,53 @@ const SplitEditorManager = {
         // mirrors the original (pre-split) behaviour where the welcome
         // screen is the empty-editor state, regardless of whether a project
         // is loaded — closing the last file should always bring it back.
+        //
+        // State model (editor.css): the overlay ALWAYS keeps `visible`;
+        // `hidden` toggles the welcome off. We must NOT remove `visible`
+        // here — doing so left it in a `hidden`-without-`visible` limbo that
+        // showed neither the welcome nor an editor (the grey-screen bug).
         const overlay = document.getElementById('editor-overlay');
         if (overlay) {
-            if (anyContent) {
-                overlay.classList.add('hidden');
-                overlay.classList.remove('visible');
-            } else {
-                overlay.classList.remove('hidden');
-                overlay.classList.add('visible');
+            overlay.classList.add('visible');
+            overlay.classList.toggle('hidden', anyContent);
+        }
+
+        // If the focused pane is no longer visible (e.g. the main pane was
+        // just emptied and hidden), hand focus to a visible pane. Otherwise
+        // every remaining pane stays dimmed (focus points at a hidden pane)
+        // and canSplit() reads the wrong source — the "everything's buggy
+        // after closing the original instance" state.
+        const focusedVisible =
+            (this.focusedPane === 0 && this.mainShell.style.display !== 'none' && mainHasContent) ||
+            this.panes.some((p) => p.paneIndex === this.focusedPane
+                && p.element.style.display !== 'none' && p.tabs.size > 0);
+        if (!focusedVisible) {
+            if (mainHasContent && this.mainShell.style.display !== 'none') {
+                this.setFocus(0);
+            } else if (splitsWithContent.length > 0) {
+                this.setFocus(splitsWithContent[0].paneIndex);
             }
         }
+
+        // Monaco needs an explicit layout() when its container's size or
+        // visibility changes (display:none → block, flex resize). Without
+        // this, panes that were just shown/resized render blank until the
+        // next user interaction — the "tabs ficam sem conteúdo" bug.
+        this._relayoutVisibleEditors();
+    },
+
+    /** Re-measure every currently-visible Monaco editor (main + splits). */
+    _relayoutVisibleEditors() {
+        requestAnimationFrame(() => {
+            if (this.mainShell && this.mainShell.style.display !== 'none') {
+                try { EditorManager.activeEditor?.layout?.(); } catch (_) { /* ignore */ }
+            }
+            for (const p of this.panes) {
+                if (p.element.style.display === 'none') continue;
+                const info = p.activeFile ? p.tabs.get(p.activeFile) : null;
+                try { info?.editor?.layout?.(); } catch (_) { /* ignore */ }
+            }
+        });
     },
 
     _mainHasContent() {

@@ -15,13 +15,24 @@ class EditorManager {
 
     static updateOverlayVisibility() {
         const overlay = document.getElementById('editor-overlay');
-        if (this.editors.size === 0) {
-            overlay?.classList.add('visible');
-            this.toggleEditorReadOnly(true);
-        } else {
-            overlay?.classList.remove('visible');
-            this.toggleEditorReadOnly(false);
+        // Account for split panes too: the welcome must stay suppressed
+        // while ANY pane (main or split) is showing a file.
+        const splitMgr = window.SplitEditorManager;
+        const splitsHaveContent = !!(splitMgr && Array.isArray(splitMgr.panes)
+            && splitMgr.panes.some((p) => p?.tabs?.size > 0));
+        const hasContent = this.editors.size > 0 || splitsHaveContent;
+
+        // State model (see editor.css): the overlay ALWAYS keeps `visible`;
+        // `hidden` is what toggles the welcome off when a file is open. The
+        // old code removed `visible` here instead — which left the overlay
+        // in a `hidden`-without-`visible` limbo that showed neither the
+        // welcome NOR an editor: the "everything went grey" bug after
+        // closing an (AI-)opened file.
+        if (overlay) {
+            overlay.classList.add('visible');
+            overlay.classList.toggle('hidden', hasContent);
         }
+        this.toggleEditorReadOnly(this.editors.size === 0);
     }
 
     static setupCursorListener(editor) {
@@ -700,11 +711,19 @@ class EditorManager {
     static closeEditor(filePath) {
         const editorData = this.editors.get(filePath);
         if (editorData) {
+            // Clear the dangling active-editor pointer BEFORE disposing, so
+            // nothing (e.g. TabManager's "no tabs left" cleanup) ends up
+            // calling setValue()/layout() on a disposed instance — which
+            // throws and aborts the close mid-way, leaving the editor area
+            // grey.
+            if (this.activeEditor === editorData.editor) this.activeEditor = null;
             // Dispose the editor view but NOT the model — that's the
             // registry's job. If a split pane is still showing this file,
             // the model has to outlive the main editor.
             editorData.editor.dispose();
-            this.editorContainer.removeChild(editorData.container);
+            if (editorData.container?.parentNode === this.editorContainer) {
+                this.editorContainer.removeChild(editorData.container);
+            }
             this.editors.delete(filePath);
             this.findStates.delete(filePath);
             this.decorationCollections.delete(filePath);

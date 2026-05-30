@@ -125,9 +125,12 @@ export function hasUserDumpCalls(src) {
 // original (mantem o early-finish funcional).
 //
 // LIMITACOES:
-//   - Verilator perde o early-finish: pass-1 e pass-2 rodam o cycle
-//     budget completo do .spf (numClocks), mesmo que o programa do
-//     processador acabe antes. Em sims longas, tempo perdido.
+//   - Verilator perde o early-finish de fim-de-programa: a pass-2 (sim
+//     completa) roda o cycle budget inteiro do .spf (numClocks), mesmo
+//     que o programa do processador acabe antes. Em sims longas, tempo
+//     perdido. A pass-1 NAO e afetada — ela e cortada cedo pela guarda
+//     `+AURORA_HEADER_ONLY` (bloco initial separado, nao casado por este
+//     strip), entao encerra rapido tanto no iverilog quanto no Verilator.
 //   - Fragil: regex casa o padrao EXATO do asmcomp atual. Se yanc
 //     mudar o handler, o strip nao casa e Verilator volta a falhar
 //     (com erro claro, entao a gente descobre rapido).

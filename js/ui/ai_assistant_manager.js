@@ -1603,10 +1603,30 @@ class AIAssistantManager {
     const meta = PROVIDER_META[this.currentProvider] || {};
     const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
     const label = meta.label || this.currentProvider || 'Model';
-    const model = entry?.model && entry.model !== 'default'
-      ? shortModelName(entry.model) || entry.model
-      : '';
-    this.appendDivider(model ? `Modelo: ${label} · ${model}` : `Modelo: ${label}`);
+    const model = this._faithfulModelName(entry);
+    const el = this.appendDivider(model ? `Modelo: ${label} · ${model}` : `Modelo: ${label}`);
+    // Render this marker with a flowing sine wave instead of flat rules.
+    el?.classList.add('ai-divider-wave');
+  }
+
+  /**
+   * The model name to show in the switch marker — faithful to what the
+   * user actually picked. For the subscription CLIs that means the chosen
+   * preset label (Default / Sonnet / Opus / Haiku); for API providers it's
+   * the real model id (lightly shortened), falling back to the provider's
+   * default model so the marker is never blank.
+   */
+  _faithfulModelName(entry) {
+    const model = entry?.model || '';
+    const sm = SUB_META[this.currentProvider];
+    if (sm) {
+      const preset = sm.models.find((m) => m.id === (model || 'default'));
+      return preset ? preset.label : (model || 'Default');
+    }
+    if (model && model !== 'default') return shortModelName(model) || model;
+    const fallback = entry?.defaultModel && entry.defaultModel !== 'default'
+      ? entry.defaultModel : '';
+    return fallback ? (shortModelName(fallback) || fallback) : '';
   }
 
   /** Model picker: free-text input for API providers, presets for the CLIs. */

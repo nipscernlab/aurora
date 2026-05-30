@@ -25,7 +25,6 @@ class TerminalManager {
 
         this.setupTerminalTabs();
         this.setupAutoScroll();
-        this.setupGoDownButton();
         this.setupTerminalLogListener();
         this.updatableCards = {};
 
@@ -803,75 +802,6 @@ createLogEntry(terminal, text, type, timestamp) {
         }
 
         return logEntry;
-    }
-
-    setupGoDownButton() {
-        // Bind once — see setupTerminalTabs. Without the guard every
-        // `new TerminalManager()` re-added the scroll-button handlers AND
-        // four document-level listeners (mouseup/touchend/mouseleave/
-        // touchcancel) that were never removed, accumulating on `document`.
-        if (TerminalManager.goDownButtonInitialized) return;
-        const goDownButton = document.getElementById('godown-terminal');
-        const goUpButton = document.getElementById('goup-terminal');
-
-        if (!goDownButton && !goUpButton) return;
-        TerminalManager.goDownButtonInitialized = true;
-
-        let isScrolling = false;
-        let animationFrameId = null;
-        const STEP = 200;
-
-        const startScrolling = (direction, e) => {
-            if (e.type === 'touchstart') e.preventDefault();
-            if (isScrolling) return;
-            isScrolling = true;
-
-            const activeTab = document.querySelector('.terminal-tabs .tab.active');
-            if (!activeTab) return;
-            const termId = activeTab.getAttribute('data-terminal');
-            const terminal = this.terminals[termId];
-            if (!terminal) return;
-
-            const scrollLoop = () => {
-                if (!isScrolling) return;
-
-                const maxScroll = terminal.scrollHeight - terminal.clientHeight;
-                let next = terminal.scrollTop + direction;
-                next = Math.max(0, Math.min(next, maxScroll));
-                terminal.scrollTop = next;
-
-                if ((direction > 0 && next < maxScroll) || (direction < 0 && next > 0)) {
-                    animationFrameId = requestAnimationFrame(scrollLoop);
-                } else {
-                    isScrolling = false;
-                }
-            };
-
-            animationFrameId = requestAnimationFrame(scrollLoop);
-        };
-
-        const stopScrolling = () => {
-            cancelAnimationFrame(animationFrameId);
-            isScrolling = false;
-        };
-
-        if (goDownButton) {
-            goDownButton.addEventListener('mousedown', e => startScrolling(+STEP, e));
-            goDownButton.addEventListener('touchstart', e => startScrolling(+STEP, e), {
-                passive: false
-            });
-        }
-        if (goUpButton) {
-            goUpButton.addEventListener('mousedown', e => startScrolling(-STEP, e));
-            goUpButton.addEventListener('touchstart', e => startScrolling(-STEP, e), {
-                passive: false
-            });
-        }
-
-        document.addEventListener('mouseup', stopScrolling);
-        document.addEventListener('touchend', stopScrolling);
-        document.addEventListener('mouseleave', stopScrolling);
-        document.addEventListener('touchcancel', stopScrolling);
     }
 
     /**

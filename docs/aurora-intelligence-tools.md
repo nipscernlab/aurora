@@ -622,6 +622,36 @@ Generates a processor scaffold in the open project (creates the directory struct
 
 ---
 
+### `rename_processor`
+Renames an existing processor across **every** SAPHO/Aurora surface in one call.
+
+**Arguments:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `processorName` | string | Yes | Current processor name |
+| `newName` | string | Yes | New name (letters, digits, `_`, `-`) |
+
+What it changes:
+- the processor working directory `<root>/<old>` → `<root>/<new>`
+- the source file `Software/<old>.cmm` → `Software/<new>.cmm`
+- the `#PRNAME` **directive** inside that `.cmm` (the directive line only — user comments and code are untouched)
+- the auto-generated build artifacts (`<old>.asm`, `Hardware/<old>.v`, `Simulation/<old>_tb.v`) so no stale-named files linger; they regenerate on the next compile
+- the `.spf`: the `processors[]` entry (its `clk` / `numClocks` / `showArrays` config is preserved) and any path reference (`topLevelFile`, `testbenchFile`, `synthesizableFiles`, `testbenchFiles`) that pointed inside the folder
+
+Open editor tabs under the old folder are closed and the renamed `.cmm` is re-opened automatically.
+
+```jsonc
+// input:
+{ "processorName": "sqrt", "newName": "sqrt_newton" }
+// output:
+{ "ok": true, "oldName": "sqrt", "newName": "sqrt_newton" }
+```
+
+> Custom user toplevels / testbenches that live at the project **root** are NOT renamed — rename those explicitly with `rename_file`.
+
+---
+
 ### `create_project`
 Creates a new SAPHO project and opens it.
 

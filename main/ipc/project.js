@@ -58,6 +58,41 @@ function updateProjectState(window, projectPath, spfPath) {
   }
 }
 
+/**
+ * Remap a single absolute path that lived under a processor's working
+ * directory when that processor is renamed `oldName` → `newName`.
+ *
+ * Only paths *inside* `<projectDir>/<oldName>/` are touched. The directory
+ * prefix is rewritten, and the basename is swapped only when it is one of
+ * SAPHO's processor-named build artifacts (`<old>.cmm`, `<old>.asm`,
+ * `<old>.v`, `<old>_tb.v`). User-named files inside the folder keep their
+ * basename — they just follow the folder to its new location. Paths outside
+ * the processor folder are returned unchanged.
+ */
+function remapProcessorPath(p, projectDir, oldName, newName) {
+  if (!p || typeof p !== 'string') return p;
+  const toNative = (s) => s.replace(/\//g, path.sep);
+  const native = toNative(p);
+  const oldDir = toNative(path.join(projectDir, oldName));
+  const lower = native.toLowerCase();
+  const oldLower = oldDir.toLowerCase();
+  const inside = lower === oldLower || lower.startsWith(oldLower + path.sep.toLowerCase());
+  if (!inside) return p;
+
+  const rest = native.slice(oldDir.length); // '' or '\Hardware\old.v'
+  let out = path.join(projectDir, newName) + rest;
+
+  // Swap the proc-named SAPHO artifacts in the basename only.
+  const dir = path.dirname(out);
+  const base = path.basename(out);
+  const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const swapped = base.replace(
+    new RegExp(`^${escaped}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm)$`, 'i'),
+    (_m, tb, ext) => `${newName}${tb || ''}${ext}`,
+  );
+  return out === native && swapped === base ? out : path.join(dir, swapped);
+}
+
 function register() {
   // ---- project lifecycle ----
 
@@ -490,6 +525,144 @@ void main()
       return { success: true };
     } catch (error) {
       log.error('Error deleting processor:', error);
+      throw error;
+    }
+  });
+
+  /**
+   * Rename a processor across every SAPHO-internal surface:
+   *   - the processor working directory  <root>/<old>  →  <root>/<new>
+   *   - the source file  Software/<old>.cmm  →  Software/<new>.cmm
+   *   - the `#PRNAME` directive inside that .cmm (directive line ONLY —
+   *     user comments and code are never touched)
+   *   - the auto-generated build artifacts (asm / Hardware .v / Simulation
+   *     _tb.v) so stale-named files don't linger; they regenerate on the
+   *     next compile anyway
+   *   - the .spf: the processors[] entry (clk/numClocks/showArrays config is
+   *     preserved) and any path reference (topLevelFile / testbenchFile /
+   *     synthesizableFiles / testbenchFiles) that pointed inside the folder.
+   *
+   * Custom user toplevels / testbenches that live at the project root are
+   * intentionally left alone — the user renames those explicitly.
+   */
+  ipcMain.handle('rename-processor', async (_event, oldName, newName) => {
+    try {
+      if (!state.currentOpenProjectPath) throw new Error('No open project');
+
+      const oldNm = String(oldName || '').trim();
+      const newNm = String(newName || '').trim();
+      if (!oldNm) throw new Error('Current processor name is required');
+      if (!newNm) throw new Error('New processor name is required');
+      if (!/^[A-Za-z0-9_-]+$/.test(newNm)) {
+        throw new Error('Processor name may contain only letters, numbers, underscore or hyphen');
+      }
+
+      const spfData = JSON.parse(await fse.readFile(state.currentOpenProjectPath, 'utf8'));
+      const projectDir = spfData.structure.basePath;
+      const procs = Array.isArray(spfData.structure.processors)
+        ? spfData.structure.processors : [];
+
+      const nameOf = (p) => (typeof p === 'string' ? p : p?.name);
+      const idx = procs.findIndex((p) => nameOf(p)?.toLowerCase() === oldNm.toLowerCase());
+      if (idx === -1) throw new Error(`Processor "${oldNm}" not found in this project`);
+
+      // Canonical current casing (the .spf entry, not what the caller typed).
+      const currentName = nameOf(procs[idx]);
+      const caseOnly = currentName.toLowerCase() === newNm.toLowerCase();
+
+      if (!caseOnly) {
+        const clash = procs.some(
+          (p, i) => i !== idx && nameOf(p)?.toLowerCase() === newNm.toLowerCase(),
+        );
+        if (clash) throw new Error(`A processor named "${newNm}" already exists`);
+      }
+
+      const oldDir = path.join(projectDir, currentName);
+      const newDir = path.join(projectDir, newNm);
+
+      if (!(await fse.pathExists(oldDir))) {
+        throw new Error(`Processor folder not found: ${oldDir}`);
+      }
+      if (!caseOnly && (await fse.pathExists(newDir))) {
+        throw new Error(`A folder named "${newNm}" already exists in the project`);
+      }
+
+      // 1. Move the processor directory. A case-only rename on a
+      //    case-insensitive FS (Windows) needs a temp hop so the OS
+      //    actually re-cases the folder.
+      if (caseOnly) {
+        const tmpDir = path.join(projectDir, `__rename_${Date.now()}__`);
+        await fse.move(oldDir, tmpDir, { overwrite: false });
+        await fse.move(tmpDir, newDir, { overwrite: false });
+      } else {
+        await fse.move(oldDir, newDir, { overwrite: false });
+      }
+
+      // 2. Rename the SAPHO-managed files that carry the processor name.
+      const artifactRenames = [
+        ['Software',   `${currentName}.cmm`,   `${newNm}.cmm`],
+        ['Software',   `${currentName}.asm`,   `${newNm}.asm`],
+        ['Hardware',   `${currentName}.v`,     `${newNm}.v`],
+        ['Simulation', `${currentName}_tb.v`,  `${newNm}_tb.v`],
+      ];
+      for (const [sub, fromF, toF] of artifactRenames) {
+        if (fromF === toF) continue;
+        const fromP = path.join(newDir, sub, fromF);
+        const toP = path.join(newDir, sub, toF);
+        if (await fse.pathExists(fromP)) {
+          await fse.move(fromP, toP, { overwrite: true });
+        }
+      }
+
+      // 3. Patch the #PRNAME directive in the .cmm — directive line ONLY.
+      const cmmPath = path.join(newDir, 'Software', `${newNm}.cmm`);
+      if (await fse.pathExists(cmmPath)) {
+        const raw = await fse.readFile(cmmPath, 'utf8');
+        const patched = raw.replace(/^([ \t]*#PRNAME[ \t]+)\S+/m, `$1${newNm}`);
+        if (patched !== raw) await fse.writeFile(cmmPath, patched, 'utf8');
+      }
+
+      // 4. Update the processors[] entry, preserving per-processor config.
+      procs[idx] = typeof procs[idx] === 'string'
+        ? { name: newNm }
+        : { ...procs[idx], name: newNm };
+      spfData.structure.processors = procs;
+
+      // 5. Remap any .spf path reference that lived under the old folder.
+      spfData.structure.topLevelFile =
+        remapProcessorPath(spfData.structure.topLevelFile, projectDir, currentName, newNm);
+      spfData.structure.testbenchFile =
+        remapProcessorPath(spfData.structure.testbenchFile, projectDir, currentName, newNm);
+      for (const key of ['synthesizableFiles', 'testbenchFiles']) {
+        const arr = Array.isArray(spfData.structure[key]) ? spfData.structure[key] : [];
+        for (const f of arr) {
+          if (f && typeof f === 'object' && f.path) {
+            const np = remapProcessorPath(f.path, projectDir, currentName, newNm);
+            if (np !== f.path) {
+              f.path = np;
+              f.name = path.basename(np);
+            }
+          }
+        }
+      }
+
+      if (spfData.metadata) spfData.metadata.lastModified = new Date().toISOString();
+      await fse.writeFile(state.currentOpenProjectPath, JSON.stringify(spfData, null, 2));
+
+      const focusedWindow = BrowserWindow.getFocusedWindow();
+      if (focusedWindow) {
+        focusedWindow.webContents.send('project:processors', {
+          processors: spfData.structure.processors.map((p) => p.name),
+          projectPath: projectDir,
+        });
+        focusedWindow.webContents.send('processor:renamed', {
+          oldName: currentName, newName: newNm, projectPath: projectDir, oldDir, newDir,
+        });
+      }
+
+      return { success: true, oldName: currentName, newName: newNm, oldDir, newDir };
+    } catch (error) {
+      log.error('Error renaming processor:', error);
       throw error;
     }
   });

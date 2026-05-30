@@ -82,12 +82,15 @@ const projectOperations = {
   getAvailableProcessors: (projectPath) =>
     ipcRenderer.invoke('get-available-processors', projectPath),
   deleteProcessor: (name) => ipcRenderer.invoke('delete-processor', name),
+  renameProcessor: (oldName, newName) =>
+    ipcRenderer.invoke('rename-processor', oldName, newName),
 
   createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
   listRecentProjects: () => ipcRenderer.invoke('list-recent-projects'),
 
   // Listeners
   onProcessorCreated:   (cb) => ipcRenderer.on('processor:created', (_, data) => cb(data)),
+  onProcessorRenamed:   (cb) => ipcRenderer.on('processor:renamed', (_, data) => cb(data)),
   onProcessorHubState:  (cb) => ipcRenderer.on('project:processorHubState', cb),
   onProcessorsUpdated:  (cb) => ipcRenderer.on('project:processors', (_, data) => cb(data)),
   onSimulateOpenProject:(cb) => ipcRenderer.on('open-spf-file', (_, result) => cb(result)),

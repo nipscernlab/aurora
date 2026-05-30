@@ -464,6 +464,30 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'rename_processor',
+    description:
+      'Rename an existing processor everywhere SAPHO/Aurora cares: the processor ' +
+      'working directory (<old> to <new>), the Software/<old>.cmm source file, the ' +
+      '#PRNAME directive inside it, the auto-generated build artifacts (.asm, ' +
+      'Hardware/<old>.v, Simulation/<old>_tb.v) and every reference in the .spf ' +
+      '(the processors[] entry — clk/numClocks/showArrays are preserved — plus the ' +
+      'top-level, testbench and synthesizable/testbench file path lists). User comments ' +
+      'and code inside the .cmm are NOT touched, only the #PRNAME directive. Open editor ' +
+      'tabs are re-pointed automatically. Custom user toplevels/testbenches at the project ' +
+      'root are NOT renamed — use rename_file for those.',
+    access: 'write',
+    api: ['project', 'renameProcessor'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        processorName: { type: 'string', description: 'Current processor name' },
+        newName: { type: 'string', description: 'New name (letters, digits, _ or -)' },
+      },
+      required: ['processorName', 'newName'],
+    },
+  },
+  {
     name: 'import_file',
     description: 'Register an existing .v / .sv / .vh / .py file as a synthesizable or testbench file in the current project SPF. Copies the file into the project root if it lives elsewhere. Python .py files are treated as cocotb testbenches.',
     access: 'write',

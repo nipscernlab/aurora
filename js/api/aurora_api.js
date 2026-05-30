@@ -443,6 +443,28 @@ async function refreshTree() {
   catch (_) { /* tree refresh is best-effort */ }
 }
 
+/**
+ * Close `filePath` in every pane that shows it — the main TabManager pane
+ * and any split panes. Used when a file's on-disk path changes underneath
+ * the editor (e.g. a processor rename) so no tab is left pointing at a
+ * path that no longer exists.
+ */
+async function closeFileEverywhere(filePath) {
+  try {
+    if (TabManager?.tabs?.has?.(filePath)) await TabManager.closeTab(filePath);
+  } catch (_) { /* ignore */ }
+  const sem = window.SplitEditorManager;
+  if (sem?.panes) {
+    for (const pane of [...sem.panes]) {
+      try {
+        if (pane?.tabs?.has?.(filePath) && typeof pane._closeFile === 'function') {
+          await pane._closeFile(filePath);
+        }
+      } catch (_) { /* ignore */ }
+    }
+  }
+}
+
 const projectNs = {
   async getCurrent() {
     const path = window.currentProjectPath || window.currentOpenProjectPath || null;
@@ -1015,6 +1037,82 @@ const projectNs = {
     } catch (e) {
       return err(e?.message || 'deleteProcessor failed');
     }
+  },
+
+  /**
+   * Rename a processor everywhere it matters: the working directory, the
+   * .cmm file, the `#PRNAME` directive, the auto-generated build artifacts
+   * and every .spf reference. The main process does the on-disk + .spf work
+   * (see the `rename-processor` IPC); here we additionally re-point any open
+   * editor tabs that lived under the old folder so the user never ends up
+   * staring at a tab whose file just moved.
+   *
+   * Only SAPHO-internal files are renamed. Custom user toplevels/testbenches
+   * at the project root are left untouched — rename those with rename_file.
+   */
+  async renameProcessor({ processorName, newName } = {}) {
+    const oldNm = String(processorName || '').trim();
+    const newNm = String(newName || '').trim();
+    if (!oldNm) return err('processorName required');
+    if (!newNm) return err('newName required');
+    if (/[^A-Za-z0-9_-]/.test(newNm)) {
+      return err('newName may only contain letters, numbers, _ and -');
+    }
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    if (typeof window.electronAPI?.renameProcessor !== 'function') {
+      return err('rename-processor IPC unavailable');
+    }
+
+    const sep = root.includes('\\') ? '\\' : '/';
+    const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    const oldDirNorm = norm(`${root}${sep}${oldNm}`);
+    const isUnderOld = (p) => {
+      const n = norm(p);
+      return n === oldDirNorm || n.startsWith(oldDirNorm + '/');
+    };
+
+    // Persist unsaved edits in files that are about to move so the rename
+    // doesn't strand them on a path that no longer exists.
+    try { await TabManager.saveAllFiles(); } catch (_) { /* best-effort */ }
+
+    // Snapshot which open files live under the old processor folder.
+    const openResp = await editorNs.getOpenFiles();
+    const openUnderOld = (openResp.ok && Array.isArray(openResp.data))
+      ? openResp.data.filter(isUnderOld) : [];
+
+    let r;
+    try { r = await window.electronAPI.renameProcessor(oldNm, newNm); }
+    catch (e) { return err(e?.message || 'renameProcessor failed'); }
+    if (r && r.success === false) return err(r.error || 'renameProcessor failed');
+
+    const realOld = r?.oldName || oldNm;
+    const realNew = r?.newName || newNm;
+    const oldDir = r?.oldDir || `${root}${sep}${realOld}`;
+    const newDir = r?.newDir || `${root}${sep}${realNew}`;
+    const escOld = realOld.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const artifactRe = new RegExp(`([\\\\/])${escOld}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm)$`, 'i');
+    const remap = (p) => {
+      const np = newDir + p.slice(oldDir.length);
+      return np.replace(artifactRe, (_m, slash, tb, ext) => `${slash}${realNew}${tb || ''}${ext}`);
+    };
+
+    // Re-point open tabs: the old paths no longer exist on disk.
+    let reopenCmm = null;
+    for (const oldPath of openUnderOld) {
+      if (/\.cmm$/i.test(oldPath)) reopenCmm = remap(oldPath);
+      await closeFileEverywhere(oldPath);
+    }
+    if (reopenCmm) {
+      try {
+        const content = await window.electronAPI.readFile(reopenCmm);
+        TabManager.addTab(reopenCmm, content);
+      } catch (_) { /* the .cmm may not exist; leave it */ }
+    }
+
+    await refreshTree();
+    emit('project:processor-renamed', { oldName: realOld, newName: realNew });
+    return ok({ oldName: realOld, newName: realNew });
   },
 
   /**
@@ -1890,6 +1988,7 @@ const NAMESPACES = Object.freeze({
     renameFile:         'Rename or move a file',
     listProcessors:     'Processors of the open project + their config',
     createProcessor:    'Generate a processor in the open project',
+    renameProcessor:    'Rename a processor (dir, .cmm, #PRNAME, .spf, artifacts)',
     createProject:      'Create a new SAPHO project and open it',
     openProject:        'Open an existing project by its .spf file',
     getProcessorConfig: 'Read clk/numClocks/simTime for one (or all) processors',

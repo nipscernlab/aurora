@@ -26,6 +26,7 @@
         "ai":            { "tooltip": "Assistente IA" },
         "treeHierarchy": { "tooltip": "Alternar visão hierárquica" },
         "newVerilog":    { "tooltip": "Novo arquivo Verilog" },
+        "newFile":       { "tooltip": "Novo arquivo" },
         "backupProject": { "tooltip": "Backup do projeto" },
         "termTab": {
             "cmm":  "Terminal C±",

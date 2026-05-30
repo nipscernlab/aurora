@@ -91,16 +91,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // it doesn't need to be wired through every constructor.
     window.globalTerminalManager = window.initializeGlobalTerminalManager();
 
-    // New Verilog file button — delega pro projectTreeManager, que e o
-    // unico dono da file tree. Uma implementacao paralela aqui (writeFile
-    // + window.refreshFileTree) gravava o arquivo no disco mas nunca no
-    // .spf nem em verilogFiles, entao o arquivo novo nunca aparecia na
-    // arvore. createNewFile faz o fluxo completo: dialog → write → push
-    // → classifica → persiste no .spf → re-renderiza → abre na aba.
+    // "New File" button — opens the same Verilog / Python (cocotb) picker
+    // as right-clicking empty space in the file tree, anchored just below
+    // the button. projectTreeManager owns the file tree, so the menu and
+    // its create flows (dialog → write → push → classify → persist in .spf
+    // → re-render → open tab) live there; this just positions and shows it.
     const newVerilogBtn = document.getElementById('new-verilog-file');
     if (newVerilogBtn) {
         newVerilogBtn.addEventListener('click', () => {
-            window.projectTreeManager?.createNewFile?.();
+            const mgr = window.projectTreeManager;
+            if (!mgr?.showCreateMenu) {
+                mgr?.createNewFile?.();   // fallback if the picker isn't available
+                return;
+            }
+            const rect = newVerilogBtn.getBoundingClientRect();
+            mgr.showCreateMenu(rect.left, rect.bottom + 4);
         });
     }
 

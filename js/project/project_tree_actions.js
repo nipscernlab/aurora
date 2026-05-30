@@ -743,10 +743,22 @@ async def basic_test(dut):
             return;
         }
 
-        // Right-click em area vazia → "New Verilog File" menu.
+        // Right-click em area vazia → menu "New File" (Verilog / Python).
         event.preventDefault();
         if (event.target.closest('button')) return;
 
+        this.showCreateMenu(event.pageX, event.pageY);
+    },
+
+    /**
+     * "New File" picker — the Verilog / Python (cocotb) chooser. Shared by
+     * the empty-area right-click on the tree and the toolbar "New File"
+     * button, so both entry points offer the exact same two options.
+     *
+     * `x`/`y` are viewport coordinates for the menu's top-left corner; the
+     * menu flips back on-screen if it would overflow the right/bottom edge.
+     */
+    showCreateMenu(x, y) {
         this.closeCreateMenu();
 
         const menu = document.createElement('div');
@@ -764,18 +776,18 @@ async def basic_test(dut):
             </div>
         `;
 
-        menu.style.left = event.pageX + 'px';
-        menu.style.top = event.pageY + 'px';
+        menu.style.left = x + 'px';
+        menu.style.top = y + 'px';
 
         document.body.appendChild(menu);
 
         setTimeout(() => {
             const rect = menu.getBoundingClientRect();
             if (rect.right > window.innerWidth) {
-                menu.style.left = (event.pageX - rect.width) + 'px';
+                menu.style.left = (x - rect.width) + 'px';
             }
             if (rect.bottom > window.innerHeight) {
-                menu.style.top = (event.pageY - rect.height) + 'px';
+                menu.style.top = (y - rect.height) + 'px';
             }
             menu.classList.add('show');
         }, 10);

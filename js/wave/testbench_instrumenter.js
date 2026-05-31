@@ -171,18 +171,36 @@ export function instrumentTestbenchSource({
     // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
     // the plusarg — the gate is false, the #1/$dumpflush/$finish are
     // skipped, simulation runs to its normal $finish.
-    // Periodic $fflush so $display lines from the user's testbench
-    // reach Aurora's terminal live during the simulation. vvp uses
-    // block-buffered stdout when connected to a pipe (~4-8 KB chunks)
-    // and only emits them when the buffer fills or when the process
-    // exits. Without this, long runs print nothing until $finish.
-    // The flush block runs in parallel to the user testbench and
-    // stops naturally when $finish hits.
-    // $dumpflush mora no mesmo loop pra que o .fst/.vcd em disco
-    // cresca incrementalmente — libfst bufferiza blocos em memoria
-    // e sem flush explicito o arquivo so ganha bytes no $finish.
-    // O overlay de progresso le o tamanho do arquivo a cada 1s; sem
-    // este flush o "FST Size:" so atualizaria no comeco e no fim.
+    // Dois flushes periodicos com periodos DIFERENTES, em unidades do
+    // timescale do tb (os dois rodam em paralelo ao tb e param no $finish):
+    //
+    //   $fflush  — BARATO (stdout). vvp/Verilator bufferizam stdout em
+    //     blocos quando ligados a um pipe (~4-8 KB); sem flush um run longo
+    //     nao imprime nada ate o $finish. Roga frequente pra manter os
+    //     $display do usuario chegando ao vivo no terminal do Aurora.
+    //   $dumpflush — CARO (forca o libfst/VCD a escrever em disco). Sem ele
+    //     o libfst bufferiza tudo em memoria e o arquivo so cresce no
+    //     $finish (o overlay "FST Size:" ficaria parado). MAS chamar a
+    //     cada poucos ticks serializa I/O de disco: numa sim de ~M ns isso
+    //     vira dezenas de milhares de escritas forcadas e deixa o run bem
+    //     mais lento que um run sem flush (era #100 no mesmo loop do
+    //     $fflush). Entao roda com periodo MUITO maior — frequente o
+    //     bastante pro overlay mostrar crescimento, raro o bastante pra
+    //     deixar o libfst escrever em blocos grandes.
+    const STDOUT_FLUSH_PERIOD = 5000;   // $display ao vivo (barato)
+    const DUMP_FLUSH_PERIOD   = 500000; // crescimento do FST no overlay (caro)
+    // Pass-1 hook of the two-pass dump strategy. The `#1` + $dumpflush
+    // before $finish are critical: $dumpvars at time 0 only *registers*
+    // the scopes; vvp flushes the full VCD header (every $var line plus
+    // $enddefinitions) once the simulator either advances past time 0
+    // OR sees an explicit $dumpflush. A bare $finish at time 0 exits
+    // before the header is committed and the resulting .vcd has scopes
+    // but no $var lines.
+    //
+    // Pass 1: `vvp foo.vvp +AURORA_HEADER_ONLY` → runs initial block,
+    // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
+    // the plusarg — the gate is false, the #1/$dumpflush/$finish are
+    // skipped, simulation runs to its normal $finish.
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
 // ${headerComment} ${note}
@@ -195,12 +213,20 @@ initial begin
         $finish;
     end
 end
-// Live-output hook: keep flushing stdout so the IDE terminal sees
-// each $display in real time instead of one lump at the final $finish.
+// Live-output hook: cheap stdout flush so the IDE terminal sees each
+// $display in real time instead of one lump at the final $finish.
 initial begin
     forever begin
-        #100;
+        #${STDOUT_FLUSH_PERIOD};
         $fflush;
+    end
+end
+// FST growth hook: expensive on-disk flush, kept rare so the periodic
+// dump doesn't serialize disk I/O and slow the whole run (the overlay
+// reads the file size to show progress).
+initial begin
+    forever begin
+        #${DUMP_FLUSH_PERIOD};
         $dumpflush;
     end
 end

@@ -84,37 +84,6 @@
     display: none;
 }
 
-/* Radiogroup com as 2 opcoes de simulador (iverilog default vs verilator).
-   Empilha as duas labels verticalmente, sem margem-top entre elas — o
-   container .wave-tree-filters ja providencia gap. */
-.wave-simulator-picker {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-}
-
-.wave-simulator-picker .wave-simulator-option {
-    margin-top: 0;
-}
-
-.wave-simulator-picker input[type="radio"] {
-    margin: 0;
-    cursor: pointer;
-    accent-color: var(--accent, var(--text-primary));
-}
-
-/* Icones bem pequenos dos toolchains. 14px e bom o suficiente pra
-   reconhecer o logo sem dominar a label. object-fit:contain preserva
-   aspect ratio dos dois PNGs (Icarus e Verilator tem dimensoes
-   diferentes). */
-.wave-simulator-icon {
-    width: 14px;
-    height: 14px;
-    object-fit: contain;
-    flex-shrink: 0;
-    vertical-align: middle;
-}
-
 .wave-tree {
     border: 1px solid var(--border);
     border-radius: var(--radius-md);

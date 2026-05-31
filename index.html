@@ -134,6 +134,13 @@
 
       <!-- Group: waves -->
       <div class="toolbar-group">
+          <!-- Simulator toggle: flips iverilog ↔ verilator for the next Wave
+               run. Icon shows the ACTIVE simulator; tooltip is set dynamically
+               by js/wave/simulator_toggle.js (state- and locale-dependent, so
+               no data-i18n-tooltip here). -->
+          <button id="simulatorToggle" class="toolbar-button icon-only simulator-toggle" type="button" data-tooltip="Toggle simulator (Icarus Verilog / Verilator)">
+              <img src="assets/icons/Icarus_Verilog_logo.png" alt="Icarus Verilog" class="simulator-toggle-icon" aria-hidden="true">
+          </button>
           <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)" data-i18n-tooltip="toolbar.waveAnalyse.tooltip">
               <span class="glyph glyph-wave" aria-hidden="true">
                 <svg viewBox="0 0 16 16">
@@ -633,19 +640,6 @@
                         <input type="checkbox" id="waveConfigProcessorOnly">
                         <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
                     </label>
-
-                    <div class="wave-simulator-picker" role="radiogroup" data-i18n-aria-label="modal.waveConfig.simulatorPickerAria" aria-label="Simulator selection">
-                        <label class="wave-tree-filter wave-simulator-option" title="Icarus Verilog (vvp): the default Aurora toolchain — full signal visibility, including SAPHO processor internals." data-i18n-title="modal.waveConfig.useIverilogTitle">
-                            <input type="radio" name="waveConfigSimulator" id="waveConfigSimIverilog" value="iverilog" checked>
-                            <img src="assets/icons/Icarus_Verilog_logo.png" alt="" class="wave-simulator-icon" aria-hidden="true">
-                            <span data-i18n="modal.waveConfig.useIverilog">Icarus Verilog (default, full signal visibility)</span>
-                        </label>
-                        <label class="wave-tree-filter wave-simulator-option" title="Verilator: typically 5-10x faster than vvp but optimizes away SAPHO internal signals." data-i18n-title="modal.waveConfig.useVerilatorTitle">
-                            <input type="radio" name="waveConfigSimulator" id="waveConfigSimVerilator" value="verilator">
-                            <img src="assets/icons/Verilator_logo.png" alt="" class="wave-simulator-icon" aria-hidden="true">
-                            <span data-i18n="modal.waveConfig.useVerilator">Verilator (faster, no processor-internal signals)</span>
-                        </label>
-                    </div>
                 </div>
             </section>
         </main>
@@ -1311,6 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/processors/processor_hub.js" type="module"></script>
 <script src="./js/tree/file_tree_toggler.js" type="module"></script>
 <script src="./js/wave/wave_config_manager.js" type="module"></script>
+<script src="./js/wave/simulator_toggle.js" type="module"></script>
 <script src="./js/wave/gtkw_picker.js" type="module"></script>
 <script src="./js/app/app_initializer.js" type="module"></script>
 </body>

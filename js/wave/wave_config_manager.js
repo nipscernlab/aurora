@@ -21,7 +21,6 @@ import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
-import { getSimulator, setSimulator } from './simulator_preference.js';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
@@ -101,7 +100,6 @@ class WaveConfigManager {
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
             processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
             processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest('.wave-tree-filter'),
-            simulatorRadios:   Array.from(document.querySelectorAll('input[name="waveConfigSimulator"]')),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
             filterInput:       document.getElementById('waveConfigFilterInput'),
@@ -135,15 +133,6 @@ class WaveConfigManager {
             }
             this.renderTree();
         });
-
-        // Simulator switch: persistido em localStorage (global). Sem
-        // re-render — o toggle so afeta o proximo clique no Wave.
-        // Radio group: 'iverilog' (default) ou 'verilator'.
-        for (const radio of (this.elements.simulatorRadios || [])) {
-            radio.addEventListener('change', (e) => {
-                if (e.target.checked) setSimulator(e.target.value);
-            });
-        }
 
         // Toolbar button — primary entry point for the modal. Also
         // wired up here (rather than in renderer.js / compilation_flow)
@@ -349,7 +338,6 @@ class WaveConfigManager {
     async open() {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
-        let modalConfig = null;
 
         if (projectPath && spfPath) {
             const compiler = new CompilationModule(projectPath);
@@ -363,7 +351,6 @@ class WaveConfigManager {
             // notification (twave) and the WaveStore write happen
             // inside _validateWaveSelection.
             const cfg = await SpfStore.read(spfPath);
-            modalConfig = cfg;
             const cocotb = isCocotbTestbench(cfg.testbenchFile);
             const filePaths = [
                 ...(cfg.synthesizableFiles || []).map((f) => f?.path),
@@ -430,13 +417,6 @@ class WaveConfigManager {
         if (this.elements.processorOnlyCb) {
             this.elements.processorOnlyCb.checked = false;
         }
-        // Simulator preference: persiste entre sessoes (localStorage),
-        // entao o radio reflete o estado salvo, nao reseta a cada open.
-        const currentSim = getSimulator();
-        for (const radio of (this.elements.simulatorRadios || [])) {
-            radio.checked = (radio.value === currentSim);
-        }
-        this._syncBackendToggles(modalConfig);
         // Find widget: also UI-only, also reset on each open(). Toggles
         // (case/regex) reset too — fresh slate every time the user
         // re-enters the modal.
@@ -468,18 +448,6 @@ class WaveConfigManager {
         this.modal?.classList.remove('show');
     }
 
-    _syncBackendToggles(config = null) {
-        const cocotb = isCocotbTestbench(config?.testbenchFile);
-        if (cocotb && getSimulator() !== 'iverilog') {
-            setSimulator('iverilog');
-        }
-        if (this.elements.useVerilatorCb) {
-            this.elements.useVerilatorCb.disabled = cocotb;
-            this.elements.useVerilatorCb.checked = !cocotb && getSimulator() === 'verilator';
-            this.elements.useVerilatorCb.closest('.wave-tree-filter')?.classList.toggle('is-disabled', cocotb);
-        }
-    }
-
     // ------------- data refresh ----------------
 
     async refresh() {
@@ -497,7 +465,6 @@ class WaveConfigManager {
         }
 
         const config = await SpfStore.read(spfPath);
-        this._syncBackendToggles(config);
         const cocotb = isCocotbTestbench(config.testbenchFile);
         const filePaths = new Set();
         (config.synthesizableFiles || []).forEach((f) => f?.path && filePaths.add(f.path));

@@ -279,6 +279,16 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   min-width: var(--h-button);
 }
 
+/* Simulator toggle: the active toolchain's logo (Icarus / Verilator).
+   object-fit:contain preserves each PNG's aspect ratio (the two logos
+   have different dimensions); the JS swaps the src on click. */
+.simulator-toggle-icon {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  pointer-events: none;
+}
+
 /* ============================================================
  * Custom GTKWave picker dropdown.
  *

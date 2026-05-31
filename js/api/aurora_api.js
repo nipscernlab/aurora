@@ -1701,14 +1701,10 @@ const waveNs = {
     }
     const applied = setWaveSimulator(simulator);
     emit('wave:simulator-changed', { simulator: applied });
-    // Keep the Wave Config modal's simulator radio group in sync if
-    // it happens to be open — saves the user from a stale UI tick.
+    // Nudge the toolbar simulator toggle (and any other DOM listener) so
+    // its icon/tooltip refresh to the new choice without further action.
     try {
-      const wc = window.waveConfigManager;
-      const radios = wc && wc.elements && wc.elements.simulatorRadios;
-      if (Array.isArray(radios)) {
-        for (const r of radios) r.checked = (r.value === applied);
-      }
+      window.dispatchEvent(new CustomEvent('aurora:wave-simulator-changed', { detail: { simulator: applied } }));
     } catch (_) { /* best-effort UI nudge */ }
     return ok({ simulator: applied });
   },

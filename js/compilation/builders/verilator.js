@@ -61,6 +61,13 @@ export function buildVerilatorBuildSpec(ctx) {
     '+define+YANC_TRACE',
     '-CFLAGS', '-O3',
     '-CFLAGS', '-fstrict-aliasing',
+    // Silencia o ruido de g++ vindo dos headers DPI do proprio Verilator
+    // (vltstd/svdpi.h, verilated_dpi.cpp): eles declaram as funcoes svDpi*
+    // com __declspec(dllimport) (forma MSVC), e o g++/MinGW do bundle as
+    // compila estatico -> dezenas de "'dllimport' attribute ignored
+    // [-Wattributes]". Benigno (link estatico funciona); nao ha codigo de
+    // projeto pra corrigir, entao silenciamos no compilador C++.
+    '-CFLAGS', '-Wno-attributes',
     '--top-module', ctx.simTopModule,
     '-Mdir', ctx.objDir,
     '-y', ctx.hdlPath,
@@ -198,6 +205,10 @@ export function buildVerilatorTbBuildSpec(ctx) {
       '--timing',
       '--x-assign', 'fast',
       '-CFLAGS', '-O2',
+      // Mesma supressao do fluxo Wave: os headers DPI do Verilator usam
+      // __declspec(dllimport) e o g++/MinGW (link estatico) ignora ->
+      // ruido -Wattributes inofensivo. Ver buildVerilatorBuildSpec.
+      '-CFLAGS', '-Wno-attributes',
       '--top-module', ctx.topModule,
       '-Mdir', ctx.objDir,
       '-y', ctx.hdlPath,

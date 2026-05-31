@@ -59,7 +59,14 @@ export function buildVerilatorBuildSpec(ctx) {
     // funciona — e por isso o strip workaround foi removido. Verilator-only:
     // o fluxo Icarus NAO recebe (ja liga via __ICARUS__ predefinido).
     '+define+YANC_TRACE',
+    // Build runtime-first: as sims SAPHO sao de processador embarcado e podem
+    // rodar muito tempo, entao priorizamos a velocidade do .exe mesmo as custas
+    // de build mais lento. -O3 + -march=native (compila pras instrucoes EXATAS
+    // da CPU host — seguro porque o Aurora compila e roda na mesma maquina e
+    // descarta o .exe). NAO usamos -ffast-math/-Ofast: alteram semantica de
+    // ponto flutuante, e o SAPHO tem float.
     '-CFLAGS', '-O3',
+    '-CFLAGS', '-march=native',
     '-CFLAGS', '-fstrict-aliasing',
     // Silencia o ruido de g++ vindo dos headers DPI do proprio Verilator
     // (vltstd/svdpi.h, verilated_dpi.cpp): eles declaram as funcoes svDpi*
@@ -204,7 +211,10 @@ export function buildVerilatorTbBuildSpec(ctx) {
       ...warnings,
       '--timing',
       '--x-assign', 'fast',
-      '-CFLAGS', '-O2',
+      // Runtime-first, igual ao fluxo Wave (sims de processador sao longas):
+      // -O3 + -march=native pra maximizar a velocidade do .exe. Subiu de -O2.
+      '-CFLAGS', '-O3',
+      '-CFLAGS', '-march=native',
       // Mesma supressao do fluxo Wave: os headers DPI do Verilator usam
       // __declspec(dllimport) e o g++/MinGW (link estatico) ignora ->
       // ruido -Wattributes inofensivo. Ver buildVerilatorBuildSpec.

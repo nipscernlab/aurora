@@ -43,7 +43,7 @@ const { execSync } = require('child_process');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const YANC_TAG      = 'v4.2';
+const YANC_TAG      = 'v4.3';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';

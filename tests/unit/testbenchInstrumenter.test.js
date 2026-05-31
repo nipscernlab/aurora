@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
     instrumentTestbenchSource,
-    stripVerilatorIncompatibleLines,
 } from '../../js/wave/testbench_instrumenter.js';
 
 const TB_WITH_DUMP = `
@@ -106,57 +105,5 @@ describe('instrumentTestbenchSource', () => {
         expect(r.needsWrite).toBe(false);
         expect(r.reason).toBe('malformed');
         expect(r.content).toBe('module tb;\n    reg x;\n');
-    });
-});
-
-// Replica do bloco que o asmcomp do yanc emite no _tb.v
-// (hdl.c:697-701). Manter EXATO — se yanc mudar o handler, o regex
-// nao casa e Verilator volta a falhar.
-const ASMCOMP_VALR10_BLOCK =
-`always @ (posedge clk) if (proc.valr10 == 123) begin
-    $display("Info: end of program!");
-    $fclose(progress);
-    $finish;
-end
-`;
-
-describe('stripVerilatorIncompatibleLines', () => {
-    it('remove o handler proc.valr10 gerado pelo asmcomp', () => {
-        const src = `module tb;\n${ASMCOMP_VALR10_BLOCK}\nendmodule\n`;
-        const out = stripVerilatorIncompatibleLines(src);
-        // O bloco always inteiro tem que sair (a string "proc.valr10"
-        // ainda aparece dentro do comentario de substituicao — checamos
-        // pela ausencia do CODIGO, nao da string solta).
-        expect(out).not.toMatch(/always\s*@\s*\(\s*posedge\s+clk\s*\)\s*if\s*\(\s*proc\.valr10/);
-        expect(out).not.toContain('$fclose(progress)');
-        // Comentario de Aurora marca o local da remocao.
-        expect(out).toContain('Aurora workaround');
-    });
-
-    it('NAO trunca o bloco no "end" dentro da string "end of program"', () => {
-        // Bug que motivou o teste: o regex antigo `\\bend\\b` casava com a
-        // palavra "end" dentro do $display("Info: end of program!"),
-        // cortando o match no meio e quebrando o source.
-        const src = `module tb;\n${ASMCOMP_VALR10_BLOCK}\nendmodule\n`;
-        const out = stripVerilatorIncompatibleLines(src);
-        // Resto do source intacto (o `endmodule` que vinha DEPOIS do
-        // bloco tem que estar presente).
-        expect(out).toContain('endmodule');
-        // E o $fclose, $finish — que ficavam orfaos com o bug — somem
-        // junto com o bloco.
-        expect(out).not.toContain('$fclose');
-        expect(out).not.toContain('$finish');
-    });
-
-    it('e idempotente (chamar 2x = chamar 1x)', () => {
-        const src = `module tb;\n${ASMCOMP_VALR10_BLOCK}\nendmodule\n`;
-        const once = stripVerilatorIncompatibleLines(src);
-        const twice = stripVerilatorIncompatibleLines(once);
-        expect(twice).toBe(once);
-    });
-
-    it('deixa testbench sem o bloco inalterado', () => {
-        const src = `module tb;\n    reg clk = 0;\n    initial #10 $finish;\nendmodule\n`;
-        expect(stripVerilatorIncompatibleLines(src)).toBe(src);
     });
 });

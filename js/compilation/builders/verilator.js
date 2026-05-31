@@ -51,6 +51,14 @@ export function buildVerilatorBuildSpec(ctx) {
     '--timing',
     '--x-assign', 'fast',
     '--no-trace-top',
+    // YANC v4.3: liga o bloco de sim-visibility do harness (variaveis/arrays,
+    // PC->C± line table, opcode tap, I/O mirrors) sob Verilator. O guard do
+    // <proc>.v gerado e `ifdef YANC_SIM_VIS`, ativado por __ICARUS__ (Icarus)
+    // OU por este define. Cada decl mirrored e /* verilator public_flat */,
+    // entao proc.valr10 resolve hierarquicamente e o $finish de fim-de-programa
+    // funciona — e por isso o strip workaround foi removido. Verilator-only:
+    // o fluxo Icarus NAO recebe (ja liga via __ICARUS__ predefinido).
+    '+define+YANC_TRACE',
     '-CFLAGS', '-O3',
     '-CFLAGS', '-fstrict-aliasing',
     '--top-module', ctx.simTopModule,

@@ -53,7 +53,6 @@ import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
 import {
   instrumentTestbenchSource, hasUserDumpCalls,
-  stripVerilatorIncompatibleLines,
 } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
@@ -1364,40 +1363,6 @@ async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals 
 }
 
 /**
- * WORKAROUND Verilator: le o tb (ja instrumentado), strip blocos que
- * Verilator nao consegue elaborar (ex: hierarchical ref a regs internos
- * otimizados fora pelo DCE), e escreve uma copia <verilator_basename>
- * em tempBaseDir. Retorna o path da copia (ou o path original se nada
- * foi alterado).
- *
- * Iverilog NAO chama esta funcao — usa o tb original.
- *
- * Doc completa do workaround + lista de melhorias futuras em
- * stripVerilatorIncompatibleLines (testbench_instrumenter.js).
- */
-async _rewriteTbForVerilator(tbPath, tempBaseDir) {
-    const content = await window.electronAPI.readFile(tbPath, { encoding: 'utf8' });
-    const stripped = stripVerilatorIncompatibleLines(content);
-    if (stripped === content) return tbPath; // nada a strip — economiza I/O
-
-    const basename = tbPath.split(/[\\/]/).pop();
-    const verilatorPath = await window.electronAPI.joinPath(tempBaseDir, `verilator_${basename}`);
-
-    // Idempotencia de mtime (mesma logica do instrumentTestbench): so
-    // escreve se o conteudo realmente mudou, pra nao forcar rebuild do
-    // make do Verilator a cada clique no Wave.
-    if (await window.electronAPI.fileExists(verilatorPath)) {
-        try {
-            const existing = await window.electronAPI.readFile(verilatorPath, { encoding: 'utf8' });
-            if (existing === stripped) return verilatorPath;
-        } catch (_e) { /* race ou disco; segue e escreve */ }
-    }
-
-    await window.electronAPI.writeFile(verilatorPath, stripped);
-    return verilatorPath;
-}
-
-/**
  * Pre-flight do botao Wave compartilhado entre iverilog e verilator:
  * resolve a selecao de signals, instrumenta o testbench e monta o
  * conjunto de fontes (synth + tb instrumentado).
@@ -2513,35 +2478,23 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
         '-Wno-DECLFILENAME',
         '-Wno-STMTDLY',
     ];
-    // Preservacao de signals: deliberadamente DEIXADA NO DEFAULT do
-    // Verilator. Verilator agressivamente elimina signals nao-observaveis
-    // (constant-fold, dead-code, inline) — diferente de iverilog. Em
-    // SAPHO isso esconde signals internos do processador (wires geradas
-    // pelo asmcomp como me1_f_global_v_..., in_sim_*, out_sig_*).
+    // Visibilidade de signals sob Verilator (YANC v4.3): o harness agora
+    // compila sob Verilator via +define+YANC_TRACE (ver buildVerilatorBuildSpec).
+    // O <proc>.v gerado espelha cada variavel/array do usuario, a PC->C±
+    // line table, o opcode tap e os I/O ports em signals de sim-visibility
+    // taggeados /* verilator public_flat */ — entao essas variaveis curadas
+    // aparecem no FST igual ao iverilog, e proc.valr10 resolve
+    // hierarquicamente (por isso o strip workaround foi removido — o $finish
+    // de fim-de-programa funciona).
     //
-    // Tentamos preservar via:
-    //   - `.vlt` com `public_flat_rw` selectivo: nao funciona, Verilator
-    //     elimina antes da diretiva poder agir (generate blocks + inline)
-    //   - `--public-flat-rw` global: funciona mas tripla o tamanho do FST
-    //
-    // Decisao: aceitar a limitacao. Se o usuario precisa ver signals
-    // internos do processador SAPHO, usa iverilog (Wave Configuration
-    // → desmarca "Use Verilator"). Verilator fica como modo "rapido
-    // pra signals top-level do testbench".
-    //
-    // Workaround testbench: o asmcomp emite um handler de early-finish
-    // que usa hierarchical reference (proc.valr10). Verilator otimiza
-    // isso fora e nao consegue resolver -> "Can't find definition".
-    // stripVerilatorIncompatibleLines escreve uma copia do tb sem o
-    // bloco e usamos essa copia no build. Iverilog continua com o
-    // tb original (mantem o early-finish). Ver doc completa em
-    // testbench_instrumenter.js.
-    const tbForVerilator = await this._rewriteTbForVerilator(
-        prep.instrumentedTbPath, tempBaseDir,
-    );
-    const buildSources = [...prep.fileSet].map((p) =>
-        p === prep.instrumentedTbPath ? tbForVerilator : p,
-    );
+    // O que continua NAO-visivel sob Verilator: os CPU internals e wires de
+    // plumbing (me1_f_global_v_..., raw `comp` halves, valr5, PC-delay
+    // intermediates) — o <proc>.v os cerca com /* verilator tracing_off */
+    // (no-op pro iverilog). Sob Verilator a fence vence mesmo que o
+    // $dumpvars do picker nomeie um deles; sob iverilog tudo e dumpavel.
+    // Expor um signal cercado sob Verilator exigiria um .vlt per-proc do
+    // lado do yanc.
+    const buildSources = [...prep.fileSet];
     // Builder monta tokens individuais (sem aspas, sem shell). Executor
     // em main faz spawn(perlExe, args, { shell:false }) — cada token vai
     // direto pro child sem reparse. -CFLAGS aparece duas vezes (O3 +

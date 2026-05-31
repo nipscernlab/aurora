@@ -2,6 +2,21 @@
 // Main multiplexer ***********************************************************
 // ****************************************************************************
 
+// Simulation-visibility guard: the rounding-error block at the bottom of this
+// file (real-valued ULA taps + delta_int/delta_float) is waveform-only. Compile
+// it for Icarus (predefines __ICARUS__) and for Verilator with +define+YANC_TRACE,
+// never for synthesis. Verilog `ifdef has no OR, so fold both into YANC_SIM_VIS.
+`ifdef __ICARUS__
+ `ifndef YANC_SIM_VIS
+  `define YANC_SIM_VIS
+ `endif
+`endif
+`ifdef YANC_TRACE
+ `ifndef YANC_SIM_VIS
+  `define YANC_SIM_VIS
+ `endif
+`endif
+
 // selects which operation goes to the output ---------------------------------
 
 module ula_mux
@@ -1282,7 +1297,7 @@ ula_mux #(NUBITS) ula_mux (.op (op ),
 // flags (simulation) ---------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-`ifdef __ICARUS__ // ----------------------------------------------------------
+`ifdef YANC_SIM_VIS // --------------------------------------------------------
 
 // get the signed mantissa for inputs and output ------------------------------
 

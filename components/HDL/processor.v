@@ -2,6 +2,22 @@
 // Helper circuits ************************************************************
 // ****************************************************************************
 
+// Simulation-visibility guard: the mem/PC taps used for waveform viewing are
+// compiled for Icarus (predefines __ICARUS__) and for Verilator when the user
+// passes +define+YANC_TRACE, but never for synthesis. Verilog `ifdef has no OR,
+// so fold both triggers into a single YANC_SIM_VIS macro (the `ifndef avoids a
+// redefinition warning when several .v files share the compilation unit).
+`ifdef __ICARUS__
+ `ifndef YANC_SIM_VIS
+  `define YANC_SIM_VIS
+ `endif
+`endif
+`ifdef YANC_TRACE
+ `ifndef YANC_SIM_VIS
+  `define YANC_SIM_VIS
+ `endif
+`endif
+
 // instruction memory ---------------------------------------------------------
 
 module mem_instr
@@ -271,7 +287,7 @@ module processor
 	input               itr,
 	output              cheguei
 
-`ifdef __ICARUS__ // ----------------------------------------------------------
+`ifdef YANC_SIM_VIS // --------------------------------------------------------
 
 	, output              mem_wr,
 	  output [MDATAW-1:0] mem_addr_wr,
@@ -419,7 +435,7 @@ core #(.NBOPCO ( NBOPCO ),
                                 mem_wr, mem_addr_rd, mem_addr_wr, mem_data_in, mem_data_out,
                                 io_in, addr_in, addr_out, req_in, out_en, itr, cheguei
 
-`ifdef __ICARUS__ // ----------------------------------------------------------
+`ifdef YANC_SIM_VIS // --------------------------------------------------------
 
                              , pc_sim_val
 

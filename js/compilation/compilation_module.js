@@ -1792,19 +1792,34 @@ async runGtkWave() {
  * Temp / Scripts directories.
  *
  * Inputs:  this.componentsPath
- * Returns: { tempBaseDir, gtkwaveBin, vvpBin } — all absolute
+ * Returns: { tempBaseDir, gtkwaveBin, vvpBin, iverilogBin,
+ *            iverilogBinDir, gtkwaveBinDir, fst2vcdBin } — all absolute
  * Throws:  never (joinPath is total)
  * Side-effects: none
+ *
+ * The iverilog / gtkwaveBinDir / fst2vcd fields exist so the cocotb
+ * (Python testbench) flow can find the Icarus binary, put it on PATH,
+ * and convert the FST it produces — that path uses the base tools object
+ * directly (unlike Verilator, which merges in _waveResolveVerilatorTools()).
  */
 async _waveResolveToolchain() {
     const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
     const gtkwaveBin = await window.electronAPI.joinPath(
         this.componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe',
     );
-    const vvpBin = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'iverilog', 'bin', 'vvp.exe',
+    const iverilogBinDir = await window.electronAPI.joinPath(
+        this.componentsPath, 'Packages', 'iverilog', 'bin',
     );
-    return { tempBaseDir, gtkwaveBin, vvpBin };
+    const iverilogBin = await window.electronAPI.joinPath(iverilogBinDir, 'iverilog.exe');
+    const vvpBin = await window.electronAPI.joinPath(iverilogBinDir, 'vvp.exe');
+    const gtkwaveBinDir = await window.electronAPI.joinPath(
+        this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin',
+    );
+    const fst2vcdBin = await window.electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
+    return {
+        tempBaseDir, gtkwaveBin, vvpBin,
+        iverilogBin, iverilogBinDir, gtkwaveBinDir, fst2vcdBin,
+    };
 }
 
 /**

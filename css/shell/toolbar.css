@@ -279,10 +279,58 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   min-width: var(--h-button);
 }
 
-/* Simulator toggle: the active toolchain's logo (Icarus / Verilator).
-   object-fit:contain preserves each PNG's aspect ratio (the two logos
-   have different dimensions); the JS swaps the src on click. */
-.simulator-toggle-icon {
+/* Simulator switch: segmented control choosing the Wave sim engine
+   (Icarus Verilog vs Verilator). Both logos always visible; the active
+   segment is highlighted (accent bg, full-color logo), the inactive one
+   is dimmed + desaturated. simulator_toggle.js syncs the .active class. */
+.simulator-switch {
+  display: inline-flex;
+  align-items: stretch;
+  height: var(--h-button);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-elev);
+}
+
+.sim-seg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.4;
+  filter: grayscale(0.6);
+  transition: opacity var(--transition-fast),
+              background-color var(--transition-fast),
+              filter var(--transition-fast);
+}
+
+.sim-seg + .sim-seg {
+  border-left: 1px solid var(--border);
+}
+
+.sim-seg:hover {
+  opacity: 0.75;
+  filter: grayscale(0.2);
+  background-color: var(--overlay-hover);
+}
+
+.sim-seg.active {
+  opacity: 1;
+  filter: none;
+  background-color: var(--accent-strong);
+}
+
+.sim-seg:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sim-seg-icon {
   width: 18px;
   height: 18px;
   object-fit: contain;

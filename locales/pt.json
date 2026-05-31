@@ -9,7 +9,11 @@
         "verilogSynth":    { "tooltip": "Sintetizar Verilog" },
         "prism":           { "tooltip": "Abrir PRISM" },
         "waveAnalyse":     { "tooltip": "Analisar Verilog (forma de onda)" },
-        "simulatorToggle": { "tooltip": "Simulador: {{active}} — clique para usar {{other}}" },
+        "simulatorSwitch": {
+            "aria":      "Motor de simulação",
+            "iverilog":  "Simular com Icarus Verilog — todos os sinais visíveis",
+            "verilator": "Simular com Verilator — mais rápido"
+        },
         "verilatorProc":   { "tooltip": "Rodar Verilator no processador gerado pelo C± (fiação automática input_N/output_N)" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },
         "gtkwPicker": {

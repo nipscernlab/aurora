@@ -9,7 +9,11 @@
         "verilogSynth":    { "tooltip": "Synthesize Verilog" },
         "prism":           { "tooltip": "Open PRISM" },
         "waveAnalyse":     { "tooltip": "Analyse Verilog (waveform)" },
-        "simulatorToggle": { "tooltip": "Simulator: {{active}} — click to use {{other}}" },
+        "simulatorSwitch": {
+            "aria":      "Simulation engine",
+            "iverilog":  "Simulate with Icarus Verilog — all signals visible",
+            "verilator": "Simulate with Verilator — faster"
+        },
         "verilatorProc":   { "tooltip": "Run Verilator on the C±-generated processor (auto-wired input_N/output_N)" },
         "waveConfig":      { "tooltip": "Wave Configuration — pick signals to dump" },
         "gtkwPicker": {

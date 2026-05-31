@@ -134,13 +134,18 @@
 
       <!-- Group: waves -->
       <div class="toolbar-group">
-          <!-- Simulator toggle: flips iverilog ↔ verilator for the next Wave
-               run. Icon shows the ACTIVE simulator; tooltip is set dynamically
-               by js/wave/simulator_toggle.js (state- and locale-dependent, so
-               no data-i18n-tooltip here). -->
-          <button id="simulatorToggle" class="toolbar-button icon-only simulator-toggle" type="button" data-tooltip="Toggle simulator (Icarus Verilog / Verilator)">
-              <img src="assets/icons/Icarus_Verilog_logo.png" alt="Icarus Verilog" class="simulator-toggle-icon" aria-hidden="true">
-          </button>
+          <!-- Simulator switch: segmented control picking the Wave sim engine
+               (Icarus Verilog vs Verilator). Both logos are shown; the active
+               one is highlighted, the inactive one dimmed. Click a segment to
+               select it. Active highlight is synced by simulator_toggle.js. -->
+          <div id="simulatorSwitch" class="simulator-switch" role="group" aria-label="Simulation engine" data-i18n-aria-label="toolbar.simulatorSwitch.aria">
+              <button type="button" class="sim-seg" data-sim="iverilog" aria-pressed="true" data-tooltip="Icarus Verilog — all signals visible" data-i18n-tooltip="toolbar.simulatorSwitch.iverilog">
+                  <img src="assets/icons/Icarus_Verilog_logo.png" alt="Icarus Verilog" class="sim-seg-icon" aria-hidden="true">
+              </button>
+              <button type="button" class="sim-seg" data-sim="verilator" aria-pressed="false" data-tooltip="Verilator — faster" data-i18n-tooltip="toolbar.simulatorSwitch.verilator">
+                  <img src="assets/icons/Verilator_logo.png" alt="Verilator" class="sim-seg-icon" aria-hidden="true">
+              </button>
+          </div>
           <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)" data-i18n-tooltip="toolbar.waveAnalyse.tooltip">
               <span class="glyph glyph-wave" aria-hidden="true">
                 <svg viewBox="0 0 16 16">

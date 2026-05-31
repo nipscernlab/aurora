@@ -182,6 +182,17 @@ class SplitPane {
             cursorBlinking: 'smooth',
         });
 
+        // Font ligatures per language (see monaco_editor.js): kill them in
+        // Verilog so the `<=` non-blocking assignment isn't rendered as '≤',
+        // keep them everywhere else. Re-applied on model/language change.
+        const syncLigatures = () => {
+            const lang = editor.getModel()?.getLanguageId();
+            editor.updateOptions({ fontLigatures: lang !== 'verilog' });
+        };
+        editor.onDidChangeModel(syncLigatures);
+        editor.onDidChangeModelLanguage(syncLigatures);
+        syncLigatures();
+
         // Cursor in this editor → activate this pane's tab + take pane focus.
         editor.onDidFocusEditorWidget(() => {
             SplitEditorManager.setFocus(this.paneIndex);

@@ -281,6 +281,20 @@ class EditorManager {
         this.updateOverlayVisibility();
         this.setupCursorListener(editor);
 
+        // Font ligatures per language. Verilog uses `<=` as a non-blocking
+        // assignment, but the JetBrains Mono ligature renders it as '≤' — and a
+        // ligature is purely visual, so it can't tell assignment from the `<=`
+        // comparison. We disable ligatures while editing Verilog (where `<=` is
+        // mostly assignment) and keep them on for every other language.
+        // Re-applied whenever the active model or its language changes.
+        const syncLigatures = () => {
+            const lang = editor.getModel()?.getLanguageId();
+            editor.updateOptions({ fontLigatures: lang !== 'verilog' });
+        };
+        editor.onDidChangeModel(syncLigatures);
+        editor.onDidChangeModelLanguage(syncLigatures);
+        syncLigatures();
+
         // Debounce bra-ket re-decoration: it scans the whole model with a
         // regex, so running it on every keystroke stutters typing in large
         // Verilog files. 150 ms feels live but avoids per-character scans.

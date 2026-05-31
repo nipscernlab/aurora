@@ -1080,12 +1080,6 @@ async def basic_test(dut):
             tab.classList.add('binary-file');
         }
 
-<<<<<<< C:/Users/chrys/AppData/Local/Temp/o.js
-        tab.innerHTML = `
-      <i class="${this.getFileIcon(filePath.split(/[\\/]/).pop())}"></i>
-      <span class="tab-name">${filePath.split(/[\\/]/).pop()}</span>
-      <button class="close-tab">×</button>
-=======
         // data-i18n-title pra que o applyDOM atualize o tooltip em
         // locale changes — sem ele, um tab criado em EN ficaria
         // preso em EN apos o toggle pra PT.
@@ -1095,7 +1089,6 @@ async def basic_test(dut):
       <i class="${this.getFileIcon(displayName)}"></i>
       <span class="tab-name">${displayName}</span>
       <button class="close-tab" title="${closeTitle}" data-i18n-title="tabs.close">×</button>
->>>>>>> C:/Users/chrys/AppData/Local/Temp/t.js
     `;
 
         // Mark as preview if needed

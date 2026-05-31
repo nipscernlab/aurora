@@ -171,24 +171,6 @@ export function instrumentTestbenchSource({
     // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
     // the plusarg — the gate is false, the #1/$dumpflush/$finish are
     // skipped, simulation runs to its normal $finish.
-    // Dois flushes periodicos com periodos DIFERENTES, em unidades do
-    // timescale do tb (os dois rodam em paralelo ao tb e param no $finish):
-    //
-    //   $fflush  — BARATO (stdout). vvp/Verilator bufferizam stdout em
-    //     blocos quando ligados a um pipe (~4-8 KB); sem flush um run longo
-    //     nao imprime nada ate o $finish. Roga frequente pra manter os
-    //     $display do usuario chegando ao vivo no terminal do Aurora.
-    //   $dumpflush — CARO (forca o libfst/VCD a escrever em disco). Sem ele
-    //     o libfst bufferiza tudo em memoria e o arquivo so cresce no
-    //     $finish (o overlay "FST Size:" ficaria parado). MAS chamar a
-    //     cada poucos ticks serializa I/O de disco: numa sim de ~M ns isso
-    //     vira dezenas de milhares de escritas forcadas e deixa o run bem
-    //     mais lento que um run sem flush (era #100 no mesmo loop do
-    //     $fflush). Entao roda com periodo MUITO maior — frequente o
-    //     bastante pro overlay mostrar crescimento, raro o bastante pra
-    //     deixar o libfst escrever em blocos grandes.
-    const STDOUT_FLUSH_PERIOD = 5000;   // $display ao vivo (barato)
-    const DUMP_FLUSH_PERIOD   = 500000; // crescimento do FST no overlay (caro)
     // Pass-1 hook of the two-pass dump strategy. The `#1` + $dumpflush
     // before $finish are critical: $dumpvars at time 0 only *registers*
     // the scopes; vvp flushes the full VCD header (every $var line plus
@@ -201,6 +183,11 @@ export function instrumentTestbenchSource({
     // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
     // the plusarg — the gate is false, the #1/$dumpflush/$finish are
     // skipped, simulation runs to its normal $finish.
+    //
+    // Sem flush periodico: o tb roda livre ate o $finish e o libfst/VCD
+    // escreve em blocos grandes (mais rapido). Os $display do usuario
+    // saem em bloco quando a sim termina (sem o $fflush ao vivo) — trade
+    // deliberado por velocidade, junto com a remocao do overlay de progresso.
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
 // ${headerComment} ${note}
@@ -211,23 +198,6 @@ initial begin
         #1;
         $dumpflush;
         $finish;
-    end
-end
-// Live-output hook: cheap stdout flush so the IDE terminal sees each
-// $display in real time instead of one lump at the final $finish.
-initial begin
-    forever begin
-        #${STDOUT_FLUSH_PERIOD};
-        $fflush;
-    end
-end
-// FST growth hook: expensive on-disk flush, kept rare so the periodic
-// dump doesn't serialize disk I/O and slow the whole run (the overlay
-// reads the file size to show progress).
-initial begin
-    forever begin
-        #${DUMP_FLUSH_PERIOD};
-        $dumpflush;
     end
 end
 // --------------------------------------------------

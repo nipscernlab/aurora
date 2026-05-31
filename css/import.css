@@ -32,7 +32,6 @@
 
 /* 5. terminal */
 @import url("./terminal/terminal.css");
-@import url("./terminal/vvp_progress.css");
 
 /* 6. modals */
 @import url("./modals/modal_config.css");

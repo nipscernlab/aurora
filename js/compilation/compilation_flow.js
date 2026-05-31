@@ -24,7 +24,6 @@
  */
 
 import { CompilationModule } from './compilation_module.js';
-import { forceHideVVPProgress } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 
@@ -799,9 +798,6 @@ class CompilationFlowManager {
             activeTerminalId, tr('compilation.cancelRequested'), 'tips',
         );
 
-        // The killed process will never reach 100%, so tear the progress
-        // bar down immediately instead of leaving it pinned waiting.
-        forceHideVVPProgress();
         window.statusUpdater?.cancelRun?.();
         window.electronAPI.cancelVvpProcess()
             .then((result) => {

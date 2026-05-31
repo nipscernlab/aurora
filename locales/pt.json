@@ -400,8 +400,6 @@
             "procBuilding":          "Compilando o harness do processador (--cc --exe --build)...",
             "procRunning":           "Rodando \"{{name}}\" por {{clocks}} clocks...",
             "procDone":              "--- Concluído. Saídas escritas em {{dir}}: {{outputs}} ---",
-            "procProgressTitle":     "Verilator — {{name}}",
-            "procReadsLabel":        "Leituras de entrada",
             "noMemFiles":            "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador — rode C± pelo menos uma vez para cada processador antes de simular.",
             "couldNotList":          "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
             "copyMemFailed":         "Aviso: falha ao copiar {{name}} de {{path}}",

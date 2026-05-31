@@ -45,7 +45,7 @@
  */
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
-import { TerminalManager, showVVPProgress, hideVVPProgress } from '../terminal/terminal_module.js';
+import { TerminalManager } from '../terminal/terminal_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
@@ -2291,14 +2291,6 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             this.terminalManager.appendToTerminal('twave', line, 'raw');
         }
     });
-    // VVP progress overlay: o testbench gerado pelo asmcomp escreve
-    // progress.txt em 10-100% (loop chrys). VVPProgressManager faz
-    // poll do arquivo e atualiza a barra. Show antes do vvp rodar,
-    // hide depois. So mostra se o testbench REALMENTE escreve
-    // progress.txt — testbenches escritos a mao nao tem essa
-    // instrumentacao e a barra ficaria parada em 0%.
-    const showProgress = await this._testbenchWritesProgress(config.testbenchFile);
-    if (showProgress) showVVPProgress(simTopModule);
     let code;
     try {
         const vvpRunSpec = buildVvpRunSpec({
@@ -2310,29 +2302,9 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         code = r.code;
     } finally {
         unsubscribe();
-        if (showProgress) hideVVPProgress();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));
-    }
-}
-
-/**
- * Detecta se o testbench escreve `progress.txt` — padrao usado pelo
- * asmcomp do SAPHO pra reportar progresso da simulacao em chunks de
- * 10%. Testbenches escritos a mao nao tem essa instrumentacao; mostrar
- * a barra de progresso neles ficaria parado em 0% pra sempre.
- *
- * Heuristica: busca string literal "progress.txt" no source (case-
- * insensitive). Tolerante a leitura falhar — retorna false.
- */
-async _testbenchWritesProgress(testbenchPath) {
-    if (!testbenchPath) return false;
-    try {
-        const content = await window.electronAPI.readFile(testbenchPath);
-        return /progress\.txt/i.test(content);
-    } catch (_e) {
-        return false;
     }
 }
 
@@ -2633,10 +2605,6 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             }
         });
     }
-    // Progress bar so se o testbench escreve progress.txt (SAPHO asmcomp
-    // pattern). Hand-written testbenches nao tem isso — barra ficaria em 0%.
-    const showProgress = await this._testbenchWritesProgress(config.testbenchFile);
-    if (showProgress) showVVPProgress(simTopModule);
     let code;
     try {
         // PATH precisa incluir bundle mingw64+usr bin: o .exe gerado pelo
@@ -2654,7 +2622,6 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         code = r.code;
     } finally {
         if (unsubscribe) unsubscribe();
-        if (showProgress) hideVVPProgress();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.verilatorRunFailed', { code }));
@@ -2794,26 +2761,17 @@ async verilatorProcessorRun() {
         exePath = fallback;
     }
 
-    // ---- Passo 5: roda numClocks no Simulation/ (barra de progresso) ----
+    // ---- Passo 5: roda numClocks no Simulation/ ----
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.procRunning', { name: procName, clocks: numClocks }), 'info');
-    showVVPProgress(procName, {
-        title: tr('terminal.wave.procProgressTitle', { name: procName }),
-        readsLabel: tr('terminal.wave.procReadsLabel'),
-        hideFst: true,
+    const runProcSpec = buildVerilatorTbRunSpec({
+        exePath, cwd: simDir,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        cycles: numClocks,
     });
-    try {
-        const runProcSpec = buildVerilatorTbRunSpec({
-            exePath, cwd: simDir,
-            mingwBin: tools.mingwBin, usrBin: tools.usrBin,
-            cycles: numClocks,
-        });
-        this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(runProcSpec), 'info', { internal: true });
-        const runResult = await runSpec(runProcSpec, { consumeEphemeral: true });
-        this.terminalManager.processExecutableOutput('twave', runResult);
-        if (runResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbRunFailed', { code: runResult.code }));
-    } finally {
-        hideVVPProgress(0);
-    }
+    this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(runProcSpec), 'info', { internal: true });
+    const runResult = await runSpec(runProcSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput('twave', runResult);
+    if (runResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbRunFailed', { code: runResult.code }));
 
     this.terminalManager.appendToTerminal('twave',
         tr('terminal.wave.procDone', {

@@ -1760,6 +1760,11 @@ async runGtkWave() {
             const simulator = getSimulator();
             if (simulator === 'verilator') {
                 this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorSimulator'), 'tips');
+                // O build do Verilator (verilation + g++, pesado) e a sim nao
+                // passam pelo statusUpdater por step, entao a barra ficava presa
+                // no ultimo step do pipeline ('asm'/Assembly). Marca 'verilator'
+                // aqui pra a barra refletir a etapa real durante build + sim.
+                statusUpdater.startCompilation('verilator');
                 const vTools = await this._waveResolveVerilatorTools();
                 const fullTools = { ...tools, ...vTools };
                 const { exePath } = await this._waveBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);

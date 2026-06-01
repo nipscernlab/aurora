@@ -50,6 +50,7 @@
         "label":     "ÁRVORE DE ARQUIVOS",
         "noProject": "Nenhum projeto aberto",
         "loading":   "Carregando…",
+        "toggleAll": "Recolher / expandir tudo",
         "empty": {
             "noProjectTitle":     "Nenhum projeto aberto",
             "noProjectCta":       "Clique aqui para criar um novo projeto"

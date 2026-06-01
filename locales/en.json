@@ -50,6 +50,7 @@
         "label":     "FILE TREE",
         "noProject": "No project open",
         "loading":   "Loading…",
+        "toggleAll": "Collapse / expand all",
         "empty": {
             "noProjectTitle":     "No project open",
             "noProjectCta":       "Click here to create a new project"

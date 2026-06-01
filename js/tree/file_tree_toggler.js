@@ -20,10 +20,12 @@ class FileTreeController {
       return;
     }
 
-    // Add click event listener for the collapse button
+    // Add click event listener for the collapse/expand toggle button
     if (this.collapseButton) {
-      this.collapseButton.addEventListener('click', () => this.collapseAll());
+      this.collapseButton.addEventListener('click', () => this.toggleTree());
       this.updateCollapseButtonState();
+      // Tooltip text comes from window.t — re-apply on locale change.
+      window.addEventListener('aurora:locale-changed', () => this.updateCollapseButtonState());
     }
 
     // Add click event listener for the backup button
@@ -80,26 +82,55 @@ class FileTreeController {
 }
 
   /**
-   * Collapses all expanded nodes in the hierarchy view (the only file
-   * view with collapsible nodes — the verilog picker is flat). Every
-   * `.hierarchy-children` collapses and every `.hierarchy-toggle` drops
-   * its `expanded` flag so the curved markers in h_tree.css redraw as
-   * hollow rings.
-   *
-   * (Pre-2026-05 this also swept the standard tree's `.folder-content`
-   * /`.file-item-icon` classes and reset a FileTreeState model — both
-   * gone with the standard view.)
+   * Smart collapse/expand-all toggle for the two views that have a
+   * collapsible tree: the toplevel module hierarchy and the standard
+   * folder tree (the verilog picker is flat — no-op there). If anything
+   * is currently expanded we collapse everything; otherwise we expand
+   * everything. The action is decided from live state each click, so it
+   * always does the right thing regardless of manual node toggles.
    */
-  collapseAll() {
-    this.fileTreeContainer.querySelectorAll('.hierarchy-children')
-      .forEach(children => {
-        children.classList.remove('expanded');
-        children.classList.add('collapsed');
-      });
-    this.fileTreeContainer.querySelectorAll('.hierarchy-toggle')
-      .forEach(toggle => toggle.classList.remove('expanded'));
+  async toggleTree() {
+    const view = window.fileTreeViewController?.getActiveView?.() ?? 'verilog';
+
+    if (view === 'hierarchy') {
+      this._setHierarchyExpanded(!this._anythingExpanded());
+    } else if (view === 'standard') {
+      const r = window.standardTreeRenderer;
+      if (!r) return;
+      if (r.hasExpanded()) r.collapseAll();
+      else await r.expandAll();
+    } else {
+      return; // flat verilog picker — nothing to collapse/expand
+    }
 
     this.showCollapseEffect();
+  }
+
+  /** True if the active view currently has any expanded node. */
+  _anythingExpanded() {
+    const view = window.fileTreeViewController?.getActiveView?.() ?? 'verilog';
+    if (view === 'hierarchy') {
+      return !!this.fileTreeContainer.querySelector('.hierarchy-children.expanded');
+    }
+    if (view === 'standard') {
+      return !!window.standardTreeRenderer?.hasExpanded?.();
+    }
+    return false;
+  }
+
+  /**
+   * Expand or collapse every node in the toplevel hierarchy view. Drives
+   * both `.hierarchy-children` (.expanded/.collapsed) and the
+   * `.hierarchy-toggle` flag the curved markers in h_tree.css key off.
+   */
+  _setHierarchyExpanded(expand) {
+    this.fileTreeContainer.querySelectorAll('.hierarchy-children')
+      .forEach(children => {
+        children.classList.toggle('expanded', expand);
+        children.classList.toggle('collapsed', !expand);
+      });
+    this.fileTreeContainer.querySelectorAll('.hierarchy-toggle')
+      .forEach(toggle => toggle.classList.toggle('expanded', expand));
   }
 
   /**
@@ -124,11 +155,16 @@ class FileTreeController {
   updateCollapseButtonState() {
     if (!this.collapseButton) return;
     const icon = this.collapseButton.querySelector('i');
-    if (icon) {
-      icon.className = 'ph ph-rows';
-      this.collapseButton.title = 'Collapse All';
-      this.collapseButton.setAttribute('data-i18n-title', 'ui.fileTree.collapse');
-    }
+    if (icon) icon.className = 'ph ph-rows';
+    // Single smart toggle now (collapses or expands depending on state),
+    // so the tooltip names both actions. data-tooltip drives Aurora's
+    // custom tooltip (see js/ui/tooltip.js); window.t falls back to the
+    // English string when i18n isn't ready.
+    const tr = (k, fb) => {
+      const v = window.t ? window.t(k) : null;
+      return (v && v !== k) ? v : fb;
+    };
+    this.collapseButton.dataset.tooltip = tr('fileTree.toggleAll', 'Collapse / expand all');
   }
 
   /**

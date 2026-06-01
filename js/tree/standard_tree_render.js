@@ -57,6 +57,46 @@ class StandardTreeRenderer {
     }
 
     isExpanded(path) { return this._expanded.has(path); }
+    hasExpanded() { return this._expanded.size > 0; }
+
+    /**
+     * Collapse every folder. Clears the expanded set and flips the DOM
+     * (chevrons, folder icons, child boxes) without re-reading the disk —
+     * the already-rendered children stay in the DOM, just hidden.
+     */
+    collapseAll() {
+        this._expanded.clear();
+        const container = treeView.getContainer('standard');
+        if (!container) return;
+        container.querySelectorAll('.folder-content').forEach((fc) => fc.classList.add('hidden'));
+        container.querySelectorAll('.folder-toggle-icon').forEach((t) => t.classList.add('collapsed'));
+        container.querySelectorAll('.file-item-icon.ph-folder-open').forEach((i) => {
+            i.classList.remove('ph-folder-open');
+            i.classList.add('ph-folder');
+        });
+    }
+
+    /**
+     * Expand every folder under the root. Walks the tree reading each
+     * directory (lazy reads mean nested folders aren't in memory yet),
+     * marks them all expanded, then re-renders fully open.
+     */
+    async expandAll() {
+        const root = window.currentProjectPath;
+        if (!root) return;
+        await this._collectAllFolders(root, this._expanded);
+        await this.render();
+    }
+
+    async _collectAllFolders(dirPath, acc) {
+        const entries = await this._read(dirPath);
+        for (const entry of entries) {
+            if (entry.isDirectory) {
+                acc.add(entry.path);
+                await this._collectAllFolders(entry.path, acc);
+            }
+        }
+    }
 
     /**
      * Full (re)render of the standard view from the project root. Safe

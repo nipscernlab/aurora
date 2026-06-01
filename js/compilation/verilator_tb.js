@@ -163,8 +163,7 @@ function findPort(ports, name) {
  * - rst: pulso de 1 ciclo (alto so no 1o posedge).
  * - itr: dirigido a 0 SO se a porta existir (alguns procs nao tem).
  * - I/O: decimal COM SINAL (mesmo formato %d/%0d do tb iverilog).
- * - Roda numClocks fixos; escreve progresso "<pct> <leituras>" em
- *   progressPath (a barra existente faz polling desse arquivo).
+ * - Roda numClocks fixos.
  *
  * @param {object} opts
  * @param {string} opts.topModule
@@ -172,10 +171,9 @@ function findPort(ports, name) {
  * @param {Array}  opts.inputs       parseSaphoTestbench().inputs
  * @param {Array}  opts.outputs      parseSaphoTestbench().outputs
  * @param {number} opts.numClocks    nº de clocks (config de sim do processador)
- * @param {string} opts.progressPath caminho absoluto (forward-slash) do progress.txt
  * @returns {{ source:string, hasItr:boolean, inputs:Array, outputs:Array }}
  */
-export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, numClocks = 2000, progressPath }) {
+export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, numClocks = 2000 }) {
   const clk = findPort(ports, 'clk') || ports.find((p) => p.direction === 'input' && p.width === 1 && isClockName(p.name));
   const rst = findPort(ports, 'rst') || findPort(ports, 'reset');
   const itr = findPort(ports, 'itr');
@@ -238,11 +236,6 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   L.push(`// Proximo inteiro decimal (com sinal) do arquivo. false no EOF.`);
   L.push(`static bool next_dec(std::ifstream& f, long long& v){ return (bool)(f >> v); }`);
   L.push('');
-  L.push(`static void write_progress(const char* path, int pct, unsigned long long reads){`);
-  L.push(`  std::ofstream p(path, std::ios::trunc);`);
-  L.push(`  if(p) p << pct << " " << reads << "\\n";`);
-  L.push(`}`);
-  L.push('');
   L.push(`int main(int argc, char** argv){`);
   L.push(`  Verilated::commandArgs(argc, argv);`);
   L.push(`  unsigned nclk = NUM_CLOCKS;`);
@@ -253,8 +246,6 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   for (const p of outputs) L.push(`  std::ofstream o_out_${p.port}("${p.file}");`);
   L.push('');
   L.push(`  unsigned long long reads = 0;`);
-  L.push(`  unsigned step = nclk/100; if(step==0) step=1;`);
-  L.push(`  const char* PROG = "${progressPath}";`);
   L.push('');
   L.push(`  for(unsigned cyc=0; cyc<nclk; cyc++){`);
   L.push(`    top->${rst ? rst.name : 'rst'} = (cyc==0) ? 1 : 0;`);
@@ -276,9 +267,7 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   for (const p of inputs) {
     L.push(`    if(top->${reqBus.name} == ${p.reqValue}u) { long long v; if(next_dec(f_in_${p.port}, v)){ top->${inBus.name} = (uint64_t)v; reads++; } }`);
   }
-  L.push(`    if((cyc % step)==0) write_progress(PROG, (int)(((unsigned long long)(cyc+1)*100)/nclk), reads);`);
   L.push(`  }`);
-  L.push(`  write_progress(PROG, 100, reads);`);
   L.push(`  printf("Aurora: %u clocks simulados, %llu leitura(s) de entrada.\\n", nclk, reads);`);
   L.push(`  top->final();`);
   L.push(`  delete top;`);

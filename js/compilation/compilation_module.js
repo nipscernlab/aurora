@@ -46,7 +46,6 @@
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
-import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
@@ -481,6 +480,21 @@ async generateProjectHierarchy() {
         // of CompilationModule.
         const hierarchyData = this.hierarchyData ?? window.fileTreeViewController?.getHierarchyData?.();
         if (!hierarchyData) return;
+
+        // Preserve expand/collapse state across view switches. The
+        // controller re-invokes this renderer every time the hierarchy
+        // view becomes active (it's the 'hierarchy' renderer in the
+        // toggle cycle); a full rebuild would reset every node back to
+        // the default "only top level expanded" layout — exactly the
+        // "it collapses when I come back" bug. So if the DOM already
+        // reflects this exact hierarchy data object, leave it alone.
+        // Only a new compile (new parsed object → different reference)
+        // forces a rebuild.
+        if (hostContainer.__auroraHierarchyData === hierarchyData
+            && hostContainer.querySelector('.hierarchy-container')) {
+            return;
+        }
+        hostContainer.__auroraHierarchyData = hierarchyData;
 
         hostContainer.innerHTML = '';
 
@@ -2677,10 +2691,9 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
 //   4. --cc --exe --build             -> V<proc>.exe
 //   5. roda numClocks fixos no <proc>/Simulation/ (mesmos arquivos do iverilog)
 //
-// Barra de progresso existente mostra % de clocks + nº de leituras de
-// entrada (o exe escreve "<pct> <reads>" no Temp/progress.txt; a barra faz
-// polling). Diferente do botao top-level generico, NAO ha templates nem
-// diretivas `# @gate` — a fiacao vem do tb.
+// O exe imprime no fim "N clocks simulados, M leitura(s) de entrada" no
+// terminal twave. Diferente do botao top-level generico, NAO ha templates
+// nem diretivas `# @gate` — a fiacao vem do tb.
 
 /**
  * Resolve o processador-alvo do botao. Prefere o que casa com o
@@ -2756,11 +2769,10 @@ async verilatorProcessorRun() {
     }
 
     // ---- Passo 3: gera o harness ----
-    const progressPath = toForwardSlashes(await window.electronAPI.joinPath(tempBaseDir, 'progress.txt'));
     const gen = generateVerilatorProcTb({
         topModule: procName, ports,
         inputs: wiring.inputs, outputs: wiring.outputs,
-        numClocks, progressPath,
+        numClocks,
     });
     const cppPath = await window.electronAPI.joinPath(tempBaseDir, `tl_proc_${procName}.cpp`);
     await window.electronAPI.writeFile(cppPath, gen.source);
@@ -2920,7 +2932,7 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
 
     // Coletar so arquivos que o testbench LE — sao os que precisam
     // ser stageados em tempBaseDir antes do vvp rodar. Arquivos
-    // abertos pra ESCRITA (ex: progress.txt via $fopen("...", "w"))
+    // abertos pra ESCRITA (ex: um dump.txt via $fopen("...", "w"))
     // sao output do testbench e nao existem antes da simulacao;
     // stageamos quebraria com um warning falso "not found".
     //

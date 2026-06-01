@@ -209,7 +209,12 @@ export function buildVerilatorTbBuildSpec(ctx) {
       '--build',
       '-j', '0',
       ...warnings,
-      '--timing',
+      // SEM --timing aqui (diferente do fluxo Wave). O clock e dirigido a
+      // mao pelo harness C++ e o que compilamos — <proc>.v + libs HDL — e
+      // RTL 100% sintetizavel (zero #delay/wait/fork). Pedir --timing so faz
+      // o Verilator gerar o escalonador de timing (corrotinas) que nunca
+      // roda: peso morto no build e em cada eval(). O fluxo Wave mantem
+      // --timing porque la o testbench .v usa #delays pra gerar o clock.
       '--x-assign', 'fast',
       // Runtime-first, igual ao fluxo Wave (sims de processador sao longas):
       // -O3 + -march=native pra maximizar a velocidade do .exe. Subiu de -O2.

@@ -387,7 +387,7 @@
             "runningVerilator":      "Running Verilator binary...",
             "verilatorHeaderOk":     "FST header captured (pass 1).",
             "verilatorFstConvert":   "Converting FST header → VCD (fst2vcd) for the picker.",
-            "verilatorSimulator":    "Using simulator: Verilator (experimental).",
+            "verilatorSimulator":    "Using simulator: Verilator.",
             "iverilogSimulator":     "Using simulator: Icarus Verilog (vvp).",
             "cocotbSimulator":       "Using testbench: cocotb Python + Icarus.",
             "runningCocotb":         "Running cocotb testbench with Icarus...",

@@ -2415,12 +2415,12 @@ async _waveResolveVerilatorTools() {
  * Throws se Verilator falhar OU se o .exe nao for produzido.
  */
 async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.buildingVerilator'), 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.buildingVerilator'), 'plain');
 
     const prep = await this._prepareWaveBuildInputs(config, simTopModule, tempBaseDir);
     if (prep.instrumentedTbPath !== config.testbenchFile) {
         this.terminalManager.appendToTerminal('twave',
-            tr('terminal.veri.autoInstrTb', { name: prep.instrumentedTbPath.split(/[\\/]/).pop() }), 'info');
+            tr('terminal.veri.autoInstrTb', { name: prep.instrumentedTbPath.split(/[\\/]/).pop() }), 'plain');
     }
 
     const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
@@ -2553,7 +2553,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
     }
 
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'plain');
 
     // Pass 1: header capture. PATH inclui bundle mingw + usr bin pro
     // .exe achar libstdc++-6.dll / libwinpthread-1.dll / msys DLLs em
@@ -2571,7 +2571,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             `Note: header-only pass exited with code ${headerResult.code}; auto-gtkw may fall back to a generic layout.`,
             'tips');
     } else {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorHeaderOk'), 'info');
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorHeaderOk'), 'plain');
     }
 
     // Converte pass-1 FST → texto VCD pro picker (wave_config_manager,
@@ -2581,7 +2581,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     const headerVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.header.vcd`);
     if (await window.electronAPI.fileExists(pass1File)) {
         if (await window.electronAPI.fileExists(tools.fst2vcdBin)) {
-            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorFstConvert'), 'info');
+            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorFstConvert'), 'plain');
             // fst2vcd exige `-f <input>` explicito (positional argument
             // imprime pra stdout em vez de honrar o `-o`).
             const fst2vcdSpec = buildFst2VcdSpec({
@@ -2613,6 +2613,19 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             || t.includes('$stop called at')
         );
     };
+    // Banner/relatorio do PROPRIO Verilator (prefixados "- ": "Simulation
+    // Report", "Verilator: walltime/cpu", "...Verilog $finish") = toolchain
+    // noise. Marca 'plain' (verbose-only) pra sumir com verbose off; os
+    // $display do testbench (sem esse prefixo) seguem 'raw' (sempre visivel).
+    const isVerilatorReport = (line) => {
+        const t = (line || '').trim();
+        if (!t.startsWith('-')) return false;
+        const low = t.toLowerCase();
+        return low.includes('verilator')
+            || low.includes('$finish')
+            || low.includes('$stop')
+            || low.replace(/\s/g, '').includes('simulationreport');
+    };
 
     let unsubscribe = null;
     if (typeof window.electronAPI.onExecSpecStream === 'function') {
@@ -2621,7 +2634,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
                 if (isVvpNoise(line)) continue;
-                this.terminalManager.appendToTerminal('twave', line, 'raw');
+                this.terminalManager.appendToTerminal('twave', line, isVerilatorReport(line) ? 'plain' : 'raw');
             }
         });
     }

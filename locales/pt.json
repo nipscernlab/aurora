@@ -248,7 +248,8 @@
         "startCompilation":      "Iniciar Compilação",
         "noTopLevel":            "Sem top-level",
         "noTestbench":           "Sem testbench",
-        "noTopLevelOrTestbench": "Sem top-level ou testbench ainda"
+        "noTopLevelOrTestbench": "Sem top-level ou testbench ainda",
+        "simulatorEngineTooltip": "Motor de simulação"
     },
     "compilation": {
         "type": {

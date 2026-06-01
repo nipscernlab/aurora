@@ -33,12 +33,17 @@
  *     subscribers do ProjectStore.
  */
 
+// Nomes de exibicao dos motores de simulacao (nomes proprios — nao
+// traduzidos). A chave casa com getWaveSimulator() / simulator_preference.
+const ENGINE_LABELS = { iverilog: 'Icarus Verilog', verilator: 'Verilator' };
+
 class StatusBarManager {
     constructor() {
         this.topEl = null;
         this.tbEl = null;
         this.emptyEl = null;
         this.activeProcEl = null;
+        this.engineEl = null;
         // _refreshSeq guarda a ultima refresh disparada. Se uma segunda
         // refresh chega enquanto a primeira esta no await SpfStore.read,
         // a primeira nao pode mais pintar — ficaria stale. Comparar
@@ -57,6 +62,7 @@ class StatusBarManager {
         this.tbEl = document.getElementById('testbenchStatus');
         this.emptyEl = document.getElementById('designEmptyStatus');
         this.activeProcEl = document.getElementById('activeProcessorStatus');
+        this.engineEl = document.getElementById('simulatorEngineStatus');
         if (!this.topEl || !this.tbEl || !this.emptyEl || !this.activeProcEl) {
             console.warn('StatusBarManager: status bar elements not found');
             return;
@@ -77,6 +83,8 @@ class StatusBarManager {
         // SPF structure changed (top-level/testbench set, files added/removed).
         // ProjectStore.subscribe won't fire because the spfPath itself didn't change.
         window.addEventListener('aurora:spf-changed', () => this.refresh());
+        // Simulator engine flipped on the toolbar switch (or via AuroraAPI).
+        window.addEventListener('aurora:wave-simulator-changed', () => this.refresh());
         // Pintura inicial — caso o app abra direto num projeto (auto-
         // reopen) o setProject pode ja ter rodado antes do nosso init.
         this.refresh();
@@ -116,6 +124,30 @@ class StatusBarManager {
             this._setSlot(this.topEl, topPath, tr('statusBar.noTopLevel'),  /\.v$/i);
             this._setSlot(this.tbEl,  tbPath,  tr('statusBar.noTestbench'), /\.v$/i);
         }
+        this._renderSimulatorEngine(tbPath);
+    }
+
+    /**
+     * Mostra o motor que vai simular o testbench (Icarus Verilog /
+     * Verilator), logo apos o slot do testbench. So aparece quando ha um
+     * testbench configurado — sem testbench nao ha o que simular. A
+     * Para testbench .v: usa a preferencia global (window.getWaveSimulator,
+     * de simulator_preference) — espelha o switch da toolbar. Para testbench
+     * cocotb (.py): mostra SEMPRE Icarus Verilog, porque o backend
+     * (runGtkWave) desvia o fluxo Python pro iverilog independente do
+     * switch — mostrar a preferencia aqui enganaria o usuario.
+     */
+    _renderSimulatorEngine(tbPath) {
+        if (!this.engineEl) return;
+        const show = !!tbPath;
+        this._toggle(this.engineEl, show);
+        if (!show) return;
+        const isCocotb = /\.py$/i.test(tbPath);
+        const sim = isCocotb
+            ? 'iverilog'
+            : ((typeof window.getWaveSimulator === 'function') ? window.getWaveSimulator() : 'iverilog');
+        const text = this.engineEl.querySelector('span');
+        if (text) text.textContent = ENGINE_LABELS[sim] || ENGINE_LABELS.iverilog;
     }
 
     _renderActiveProcessor(processors) {

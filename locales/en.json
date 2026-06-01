@@ -247,7 +247,8 @@
         "startCompilation":      "Start Compilation",
         "noTopLevel":            "No top-level",
         "noTestbench":           "No testbench",
-        "noTopLevelOrTestbench": "No top-level or testbench yet"
+        "noTopLevelOrTestbench": "No top-level or testbench yet",
+        "simulatorEngineTooltip": "Simulation engine"
     },
     "compilation": {
         "type": {

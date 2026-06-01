@@ -536,6 +536,13 @@
             <i class="ph ph-x status-icon-error"></i>
             <span data-i18n="statusBar.noTestbench">No testbench</span>
         </div>
+        <!-- Simulation engine for the testbench (Icarus Verilog / Verilator).
+             Populated by status_bar.js from the global getWaveSimulator();
+             only shown when a testbench is set. Mirrors the toolbar switch. -->
+        <div class="status-item hidden" id="simulatorEngineStatus" data-tooltip="Simulation engine" data-i18n-tooltip="statusBar.simulatorEngineTooltip">
+            <i class="ph ph-cpu"></i>
+            <span>Icarus Verilog</span>
+        </div>
         <div class="status-item" id="designEmptyStatus">
             <i class="ph ph-x status-icon-error"></i>
             <span data-i18n="statusBar.noTopLevelOrTestbench">No top-level or testbench yet</span>

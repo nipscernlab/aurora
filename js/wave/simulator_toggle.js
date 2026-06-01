@@ -31,8 +31,11 @@ function init() {
 
     for (const seg of segments) {
         seg.addEventListener('click', () => {
-            setSimulator(seg.dataset.sim);
-            render(segments);
+            const applied = setSimulator(seg.dataset.sim);
+            render(segments); // immediate feedback
+            // Broadcast so other surfaces (status bar, etc.) follow. The
+            // listener below re-renders us too — idempotent.
+            window.dispatchEvent(new CustomEvent('aurora:wave-simulator-changed', { detail: { simulator: applied } }));
         });
     }
 

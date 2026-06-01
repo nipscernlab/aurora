@@ -45,3 +45,10 @@ export function setSimulator(value) {
     } catch (_e) { /* storage cheio / private mode — ignora */ }
     return normalized;
 }
+
+// Exposto em window pra consumidores que NAO sao modulos ES (ex:
+// status_bar.js, carregado como <script> classico). Single source of
+// truth — evita duplicar STORAGE_KEY/validacao fora deste arquivo.
+if (typeof window !== 'undefined') {
+    window.getWaveSimulator = getSimulator;
+}

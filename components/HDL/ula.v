@@ -1301,15 +1301,20 @@ ula_mux #(NUBITS) ula_mux (.op (op ),
 
 // get the signed mantissa for inputs and output ------------------------------
 
-integer sm_in1; always @ (*) sm_in1 = (in1[NBMANT+NBEXPO]) ? -in1[NBMANT-1:0] : in1[NBMANT-1:0]; // signed mantissa of in1
-integer sm_in2; always @ (*) sm_in2 = (in2[NBMANT+NBEXPO]) ? -in2[NBMANT-1:0] : in2[NBMANT-1:0]; // signed mantissa of in2
-integer sm_out; always @ (*) sm_out = (out[NBMANT+NBEXPO]) ? -out[NBMANT-1:0] : out[NBMANT-1:0]; // signed mantissa of out
+// signed mantissa = +/- the NBMANT-bit magnitude. Width is NBMANT+1 (sign +
+// magnitude) so the assign is symmetric -- a 32-bit integer here would make the
+// RHS narrower than the LHS and Verilator flags WIDTHEXPAND.
+reg signed [NBMANT:0] sm_in1; always @ (*) sm_in1 = (in1[NBMANT+NBEXPO]) ? -$signed({1'b0, in1[NBMANT-1:0]}) : $signed({1'b0, in1[NBMANT-1:0]}); // signed mantissa of in1
+reg signed [NBMANT:0] sm_in2; always @ (*) sm_in2 = (in2[NBMANT+NBEXPO]) ? -$signed({1'b0, in2[NBMANT-1:0]}) : $signed({1'b0, in2[NBMANT-1:0]}); // signed mantissa of in2
+reg signed [NBMANT:0] sm_out; always @ (*) sm_out = (out[NBMANT+NBEXPO]) ? -$signed({1'b0, out[NBMANT-1:0]}) : $signed({1'b0, out[NBMANT-1:0]}); // signed mantissa of out
 
 // get the exponent of inputs and output --------------------------------------
 
-integer e_in1; always @ (*) e_in1 = $signed(in1[NBMANT+NBEXPO-1:NBMANT]); // exponent of in1
-integer e_in2; always @ (*) e_in2 = $signed(in2[NBMANT+NBEXPO-1:NBMANT]); // exponent of in2
-integer e_ouu; always @ (*) e_ouu = $signed(out[NBMANT+NBEXPO-1:NBMANT]); // exponent of out
+// exponent = NBEXPO-bit signed field; size the reg to match so the assign is
+// symmetric (a 32-bit integer would be wider than the RHS -> WIDTHEXPAND).
+reg signed [NBEXPO-1:0] e_in1; always @ (*) e_in1 = $signed(in1[NBMANT+NBEXPO-1:NBMANT]); // exponent of in1
+reg signed [NBEXPO-1:0] e_in2; always @ (*) e_in2 = $signed(in2[NBMANT+NBEXPO-1:NBMANT]); // exponent of in2
+reg signed [NBEXPO-1:0] e_ouu; always @ (*) e_ouu = $signed(out[NBMANT+NBEXPO-1:NBMANT]); // exponent of out
 
 // get the real values of inputs and output -----------------------------------
 
@@ -1340,7 +1345,10 @@ real in2r; always @ (*) in2r = in2;
 real val_add; always @ (*) val_add = in1r + in2r;
 real val_mlt; always @ (*) val_mlt = in1r * in2r;
 real val_div; always @ (*) val_div = in1r / in2r;
-real val_mod; always @ (*) val_mod = in1r % in2r;
+// integer remainder: compute it on the integer inputs (same value as the real
+// modulo for integer operands) -- a real `%` makes Verilator implicitly convert
+// real->int (REALCVT) and is non-standard Verilog anyway.
+real val_mod; always @ (*) val_mod = in1 % in2;
 
 real delta_int;
 

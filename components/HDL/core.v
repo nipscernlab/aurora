@@ -177,7 +177,9 @@ assign                     out = mem[pmenoum];
 
 reg             fl_full = 0;
 reg [NADDR-1:0] fl_max  = 0; // pointer high-water mark
-integer         pointeri;
+reg [NADDR-1:0] pointeri;    // NADDR-wide (matches pointer) -- a 32-bit integer
+                             // here would make `pointeri = pointer` a width-
+                             // mismatched assign that Verilator flags WIDTHEXPAND.
 
 // pointeri is a pure combinational copy of the pointer -- no self-reference,
 // so it is fine under Verilator.

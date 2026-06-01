@@ -409,6 +409,7 @@
             "usingGtkwFile":         "Usando arquivo GTKWave save: {{name}}",
             "staleVcdSignalOne":     "Nota: {{preview}} estava marcado na Configuração de Ondas mas não está no VCD gerado; omitido do layout .gtkw.",
             "staleVcdSignalMany":    "Nota: {{count}} sinais marcados na Configuração de Ondas não estão no VCD gerado e foram omitidos do layout .gtkw: {{preview}}{{more}}.",
+            "verilatorNoProcSignals": "Verilator não expõe os sinais internos de monitoramento do processador {{proc}} (stack/ULA) — use Icarus Verilog para vê-los.",
             "autoGtkwLayout":        "Layout GTKWave gerado automaticamente ({{detail}})",
             "autoGtkwError":         "Aviso: não foi possível gerar .gtkw automaticamente — {{message}}",
             "parseSourcesNote":      "Nota: não foi possível parsear as fontes do projeto ({{message}}); caindo para heurísticas baseadas em nome de escopo para detecção de processadores.",

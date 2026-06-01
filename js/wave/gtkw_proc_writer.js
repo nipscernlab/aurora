@@ -577,13 +577,10 @@ function emitVariablesSection(lines, scopes, instancePath, paths, counter, filte
 
 function emitFlagsSection(lines, scopes, corePath, filter) {
     // Sem corePath (caso comum quando o $dumpvars nao desceu ate o
-    // p_<X>.core do processador) nao ha como emitir os groups de
-    // Stack/ULA — pula a secao inteira pra nao deixar um comentario
-    // "Flags ***" orfao.
+    // p_<X>.core do processador) nao ha onde achar Stack/ULA.
     if (!corePath) return;
 
-    emitComment(lines, 'Flags **************');
-
+    // Resolve os sinais ANTES de emitir o comentario "Flags ***".
     // Stack: data stack (sp) + instruction stack (isp). Cada um tem
     // pointeri (analog step + signed dec), fl_max (decimal), fl_full
     // (binary). Flags conferidos contra .gtkw salvo pelo GTKWave.
@@ -598,16 +595,22 @@ function emitFlagsSection(lines, scopes, corePath, filter) {
     const stackResolved = stackEntries
         .map((e) => ({ ...e, sig: findSignal(scopes, e.path, e.name) }))
         .filter((e) => e.sig);
+    // ULA: delta_int + delta_float renderizados como analog step + hex
+    // (GTKWave default pra reals).
+    const deltaInt = findSignal(scopes, `${corePath}.ula`, 'delta_int');
+    const deltaFloat = findSignal(scopes, `${corePath}.ula`, 'delta_float');
+
+    // Nenhum sinal de Stack/ULA presente (ex: sob Verilator esses sinais
+    // internos do processador ficam fenced fora do trace) — pula a secao
+    // inteira, sem emitir o comentario "Flags ***" orfao.
+    if (stackResolved.length === 0 && !deltaInt && !deltaFloat) return;
+
+    emitComment(lines, 'Flags **************');
     if (stackResolved.length > 0) {
         emitGroupBegin(lines, 'Stack');
         for (const e of stackResolved) emitSignal(lines, e.sig, e.fmt, COLOR_NORMAL, e.alias, { filter });
         emitGroupEnd(lines, 'Stack');
     }
-
-    // ULA: delta_int + delta_float renderizados como analog step + hex
-    // (GTKWave default pra reals).
-    const deltaInt = findSignal(scopes, `${corePath}.ula`, 'delta_int');
-    const deltaFloat = findSignal(scopes, `${corePath}.ula`, 'delta_float');
     if (deltaInt || deltaFloat) {
         emitGroupBegin(lines, 'ULA');
         if (deltaInt)   emitSignal(lines, deltaInt,   FMT_ANALOG_HEX, COLOR_NORMAL, 'Rounding Error (int)',   { filter });

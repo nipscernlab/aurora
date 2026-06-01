@@ -408,6 +408,7 @@
             "usingGtkwFile":         "Using GTKWave save file: {{name}}",
             "staleVcdSignalOne":     "Note: {{preview}} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.",
             "staleVcdSignalMany":    "Note: {{count}} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: {{preview}}{{more}}.",
+            "verilatorNoProcSignals": "Verilator doesn't expose processor {{proc}}'s internal monitoring signals (stack/ULA) — switch to Icarus Verilog to see them.",
             "autoGtkwLayout":        "Auto-generated GTKWave layout ({{detail}})",
             "autoGtkwError":         "Warning: could not auto-generate .gtkw — {{message}}",
             "parseSourcesNote":      "Note: could not parse project sources ({{message}}); falling back to scope-name heuristics for processor detection.",

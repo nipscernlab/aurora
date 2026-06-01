@@ -50,7 +50,7 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
-import { buildAuroraGtkw } from '../wave/gtkw_proc_writer.js';
+import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
 import {
   instrumentTestbenchSource, hasUserDumpCalls,
 } from '../wave/testbench_instrumenter.js';
@@ -3135,12 +3135,37 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
             }
             const dropped = selected.filter((s) => !inVcd.has(s));
             if (dropped.length > 0) {
-                const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
-                const more = dropped.length > 5 ? ` (+${dropped.length - 5} more)` : '';
-                const msg = dropped.length === 1
-                    ? tr('terminal.wave.staleVcdSignalOne', { preview })
-                    : tr('terminal.wave.staleVcdSignalMany', { count: dropped.length, preview, more });
-                this.terminalManager.appendToTerminal('twave', msg, 'warning');
+                // Sob Verilator os sinais internos de monitoramento do
+                // processador (stack/ULA, dentro do `.core`) ficam fenced fora
+                // do trace — entao sinais selecionados que vivem ali nao chegam
+                // no VCD. Isso e ESPERADO (limitacao conhecida do Verilator,
+                // nao um erro): em vez de listar cada sinal omitido, mostra uma
+                // info amigavel por processador afetado. Os demais dropped
+                // (renomeados, dump parcial, ...) seguem com o aviso generico.
+                const procs = getSimulator() === 'verilator' ? detectProcessors(scopes) : [];
+                const affectedProcs = new Map(); // nome do proc -> true (preserva ordem)
+                const others = [];
+                for (const s of dropped) {
+                    const proc = /\.core\./.test(s)
+                        && procs.find((p) => s.startsWith(`${p.instancePath}.`));
+                    if (proc) {
+                        affectedProcs.set(proc.procType || proc.instanceName, true);
+                    } else {
+                        others.push(s);
+                    }
+                }
+                for (const procName of affectedProcs.keys()) {
+                    this.terminalManager.appendToTerminal('twave',
+                        tr('terminal.wave.verilatorNoProcSignals', { proc: procName }), 'tips');
+                }
+                if (others.length > 0) {
+                    const preview = others.slice(0, 5).map((s) => `"${s}"`).join(', ');
+                    const more = others.length > 5 ? ` (+${others.length - 5} more)` : '';
+                    const msg = others.length === 1
+                        ? tr('terminal.wave.staleVcdSignalOne', { preview })
+                        : tr('terminal.wave.staleVcdSignalMany', { count: others.length, preview, more });
+                    this.terminalManager.appendToTerminal('twave', msg, 'warning');
+                }
             }
         }
 

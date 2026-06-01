@@ -401,6 +401,19 @@ describe('detectProcessors with scopeModules', () => {
         expect(content).toContain('Rounding Error (int)');
         expect(content).toContain('Rounding Error (float)');
     });
+
+    it('NAO emite o comentario "Flags" quando nao ha sinais de Stack/ULA (ex: Verilator)', () => {
+        // Sob Verilator os sinais internos (sp/isp/ula) ficam fenced fora do
+        // trace, entao o proc aparece (valr2/linetabs) mas sem .core.sp/.ula.
+        // A secao Flags inteira deve ser pulada — nada de comentario orfao.
+        const scopes = [
+            scope('tb.proc', [
+                { name: 'valr2' }, { name: 'linetabs' },
+            ]),
+        ];
+        const { content } = buildAuroraGtkw({ vcdPath: 'a', gtkwPath: 'b', scopes });
+        expect(content).not.toContain('Flags **************');
+    });
 });
 
 describe('buildSignedSet', () => {

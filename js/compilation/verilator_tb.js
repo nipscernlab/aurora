@@ -223,8 +223,6 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   L.push(`#include <cstdio>`);
   L.push(`#include <cstring>`);
   L.push(`#include <cstdlib>`);
-  L.push(`#include <string>`);
-  L.push(`#include <fstream>`);
   L.push('');
   L.push(`static uint64_t main_time = 0;`);
   L.push(`double sc_time_stamp() { return (double)main_time; }`);
@@ -234,7 +232,10 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   L.push(`#endif`);
   L.push('');
   L.push(`// Proximo inteiro decimal (com sinal) do arquivo. false no EOF.`);
-  L.push(`static bool next_dec(std::ifstream& f, long long& v){ return (bool)(f >> v); }`);
+  L.push(`// C stdio (fscanf) em vez de iostream: o operator>> carrega sentry`);
+  L.push(`// + facetas de locale a cada extracao; em sim I/O-bound longa isso`);
+  L.push(`// pesa. fscanf("%lld") faz o mesmo parse decimal-com-sinal mais rapido.`);
+  L.push(`static bool next_dec(FILE* f, long long& v){ return f && fscanf(f, "%lld", &v) == 1; }`);
   L.push('');
   L.push(`int main(int argc, char** argv){`);
   L.push(`  Verilated::commandArgs(argc, argv);`);
@@ -242,14 +243,17 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   L.push(`  for(int i=1;i<argc;i++){ if(strncmp(argv[i],"+cycles=",8)==0) nclk=(unsigned)strtoul(argv[i]+8,nullptr,10); }`);
   L.push(`  V${topModule}* top = new V${topModule};`);
   L.push('');
-  for (const p of inputs) L.push(`  std::ifstream f_in_${p.port}("${p.file}");`);
-  for (const p of outputs) L.push(`  std::ofstream o_out_${p.port}("${p.file}");`);
+  for (const p of inputs) L.push(`  FILE* f_in_${p.port} = fopen("${p.file}", "r");`);
+  for (const p of outputs) L.push(`  FILE* o_out_${p.port} = fopen("${p.file}", "w");`);
   L.push('');
   L.push(`  unsigned long long reads = 0;`);
+  // itr (linha de interrupcao) fica baixa a simulacao toda — escrever 0
+  // uma vez antes do loop em vez de a cada ciclo. Nao muda nada no modelo
+  // e tira um store do caminho quente.
+  if (itr) L.push(`  top->${itr.name} = 0;`);
   L.push('');
   L.push(`  for(unsigned cyc=0; cyc<nclk; cyc++){`);
   L.push(`    top->${rst ? rst.name : 'rst'} = (cyc==0) ? 1 : 0;`);
-  if (itr) L.push(`    top->${itr.name} = 0;`);
   L.push(`    // --- borda de subida: processador computa; req_in/out_en/out validos ---`);
   L.push(`    top->${clk.name} = 1; top->eval(); main_time++;`);
   // escreve saidas (out_en one-hot), decimal com sinal-extensao da largura
@@ -259,7 +263,7 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
     if (outW < 64) {
       L.push(`      { long long m = 1LL << ${outW - 1}; v = (v ^ m) - m; } // sinal-extensao ${outW} bits`);
     }
-    L.push(`      o_out_${p.port} << v << "\\n";`);
+    L.push(`      fprintf(o_out_${p.port}, "%lld\\n", v);`);
     L.push(`    }`);
   }
   L.push(`    // --- borda de descida: le a entrada que o processador pediu ---`);
@@ -268,6 +272,10 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
     L.push(`    if(top->${reqBus.name} == ${p.reqValue}u) { long long v; if(next_dec(f_in_${p.port}, v)){ top->${inBus.name} = (uint64_t)v; reads++; } }`);
   }
   L.push(`  }`);
+  // FILE* nao tem destrutor — fechar explicitamente pra dar flush das saidas
+  // bufferizadas antes do processo terminar.
+  for (const p of inputs) L.push(`  if(f_in_${p.port}) fclose(f_in_${p.port});`);
+  for (const p of outputs) L.push(`  if(o_out_${p.port}) fclose(o_out_${p.port});`);
   L.push(`  printf("Aurora: %u clocks simulados, %llu leitura(s) de entrada.\\n", nclk, reads);`);
   L.push(`  top->final();`);
   L.push(`  delete top;`);

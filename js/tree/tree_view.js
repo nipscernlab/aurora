@@ -7,11 +7,14 @@
  *                   the project file view (also hosts the empty-state
  *                   cards when there is no project / no processors)
  *   - 'hierarchy' — module instance tree from Yosys
+ *   - 'standard'  — plain folder/file tree rooted at the project (.spf)
+ *                   directory; lazy-reads children on expand
  *
- * A third view, 'standard' (a generic folder/file listing), was removed
- * in 2026-05: it was a fossil of the old IDE-mode toggle, no longer
- * shown to the user, and it carried a duplicate file-open handler that
- * was a recurring source of bugs.
+ * 'standard' was removed in 2026-05 (fossil of the old IDE-mode toggle,
+ * with a duplicate file-open handler that caused bugs) and reintroduced
+ * in 2026-06 as a deliberate third view in the toggle cycle. This time
+ * it is owned by a single renderer (standard_tree_render.js) with one
+ * file-open path, so the old divergent-routing bug class can't return.
  *
  * Pre-2026-05, all views rendered into the same `#file-tree` element
  * and competed via a class-based lock (`verilog-mode-active`). That
@@ -40,7 +43,7 @@
  * div. To switch views, `treeView.setActive(name)`. Done.
  */
 
-const VIEW_NAMES = Object.freeze(['verilog', 'hierarchy']);
+const VIEW_NAMES = Object.freeze(['verilog', 'hierarchy', 'standard']);
 
 class TreeViewController {
     constructor() {

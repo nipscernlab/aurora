@@ -305,9 +305,15 @@
         </div>
 
         <div class="overlay-title">
-            <button id="alternate-tree-toggle" class="tree-toggle-btn disabled" data-tooltip="Toggle hierarchy view" data-i18n-tooltip="toolbar.treeHierarchy.tooltip" disabled>
-                <i class="ph ph-tree-structure"></i>
-                <span class="toggle-text">Hierarchical</span>
+            <!-- Cycles the file-tree view: Files (flat) → Hierarchy (Yosys
+                 modules) → Folders (.spf dir tree). Icon/label/tooltip are
+                 set per active view in file_tree_view_controller.js (uses
+                 data-tooltip, Aurora's custom tooltip; no data-i18n-tooltip —
+                 the controller owns the text and re-applies it on
+                 aurora:locale-changed). -->
+            <button id="alternate-tree-toggle" class="tree-toggle-btn disabled" data-tooltip="Open a project to browse files" disabled>
+                <i class="ph ph-list-bullets"></i>
+                <span class="toggle-text">Files</span>
             </button>
 
             <span id="new-file" class="tree-action tree-action-new" data-tooltip="New file" data-i18n-tooltip="toolbar.newFile.tooltip">

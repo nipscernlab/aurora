@@ -30,6 +30,7 @@
         "splitEditor": { "tooltipDisabled": "Abra um arquivo primeiro para habilitar a divisão", "tooltipEnabled": "Dividir editor — abre o arquivo atual em um novo painel", "tooltipMax": "Máximo de 3 painéis atingido" },
         "ai":            { "tooltip": "Assistente IA" },
         "treeHierarchy": { "tooltip": "Alternar visão hierárquica" },
+        "treeView":      { "files": "Arquivos", "hierarchy": "Hierarquia", "folders": "Pastas", "cycleTooltip": "Visão da árvore: {{mode}} — clique para alternar", "disabledTooltip": "Abra um projeto para navegar pelos arquivos" },
         "newVerilog":    { "tooltip": "Novo arquivo Verilog" },
         "newFile":       { "tooltip": "Novo arquivo" },
         "backupProject": { "tooltip": "Backup do projeto" },

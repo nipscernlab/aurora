@@ -9,6 +9,9 @@ import { CompilationModule } from '../compilation/compilation_module.js';
 import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { treeView } from '../tree/tree_view.js';
 import { fileTreeViewController } from '../tree/file_tree_view_controller.js';
+// Side-effect import: registers window.standardTreeRenderer, which the
+// controller's 'standard' view renderer looks up at call time.
+import '../tree/standard_tree_render.js';
 // Make sure the view subcontainers exist before any renderer runs.
 treeView.initialize();
 fileTreeViewController.initialize();

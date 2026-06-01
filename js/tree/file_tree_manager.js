@@ -195,6 +195,10 @@ class FileTreeManager {
 
         document.getElementById('refresh-button')?.addEventListener('click', () => {
             if (TreeViewState.isHierarchical) return;
+            if (window.fileTreeViewController?.isShowingStandard?.()) {
+                window.standardTreeRenderer?.render?.();
+                return;
+            }
             window.projectTreeManager?.refreshTree();
         });
 
@@ -206,7 +210,14 @@ class FileTreeManager {
         window.electronAPI.onDirectoryChanged((dir, _files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
             if (TreeViewState.isHierarchical) return;
-            // Re-le o .spf pra pegar processor creation/
+            // Standard (folder) view mirrors the disk — re-render it so
+            // created/deleted files show up; the renderer restores the
+            // currently-expanded folders.
+            if (window.fileTreeViewController?.isShowingStandard?.()) {
+                window.standardTreeRenderer?.render?.();
+                return;
+            }
+            // Verilog view: re-le o .spf pra pegar processor creation/
             // deletion que reescreve o arquivo.
             window.projectTreeManager?.refreshTree?.();
         });

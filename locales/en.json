@@ -30,6 +30,7 @@
         "splitEditor": { "tooltipDisabled": "Open a file first to enable split", "tooltipEnabled": "Split editor — open current file in a new pane", "tooltipMax": "Maximum of 3 panes reached" },
         "ai":            { "tooltip": "AI assistant" },
         "treeHierarchy": { "tooltip": "Toggle hierarchy view" },
+        "treeView":      { "files": "Files", "hierarchy": "Hierarchy", "folders": "Folders", "cycleTooltip": "File tree view: {{mode}} — click to switch", "disabledTooltip": "Open a project to browse files" },
         "newVerilog":    { "tooltip": "New Verilog file" },
         "newFile":       { "tooltip": "New file" },
         "backupProject": { "tooltip": "Backup project" },

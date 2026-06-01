@@ -19,12 +19,14 @@
  *  Only the one matching [data-active-view] on the parent is shown.
  *  Each slot is owned by exactly one renderer, so they can't collide.
  *  See js/tree/tree_view.js for the rationale (replacing the old
- *  class-based ownership lock that proved too fragile). The generic
- *  'standard' view was removed in 2026-05.
+ *  class-based ownership lock that proved too fragile). The 'standard'
+ *  view (plain folder tree) was removed in 2026-05 and reintroduced in
+ *  2026-06 as a deliberate third mode in the toggle cycle.
  * ------------------------------------------------------------------------- */
 #file-tree > .tree-view { display: none; }
 #file-tree[data-active-view="verilog"]   > .tree-view-verilog,
-#file-tree[data-active-view="hierarchy"] > .tree-view-hierarchy {
+#file-tree[data-active-view="hierarchy"] > .tree-view-hierarchy,
+#file-tree[data-active-view="standard"]  > .tree-view-standard {
   display: block;
 }
 
@@ -104,6 +106,134 @@
 #refresh-button.spinning i { animation: spin 1s linear infinite; }
 
 /* Hierarchy-tree styles live in css/tree/h_tree.css now. */
+
+
+/* ===========================================================================
+ *  Standard (folder) view — plain VSCode-style file/folder tree rooted at
+ *  the .spf directory. Rendered by js/tree/standard_tree_render.js into the
+ *  .tree-view-standard slot. Reintroduced 2026-06.
+ *
+ *  Layout per row (single line, 22px):
+ *      [chevron-or-spacer | icon | name]
+ *  Each wrapper carries --depth; padding-left = 8px + depth*8px (VSCode step).
+ * ========================================================================= */
+.file-tree-item {
+  position: relative;
+  width: 100%;
+  --depth: 0;
+}
+
+/* The clickable row */
+.file-item {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  margin: 0;
+  padding: 0 var(--space-2) 0 calc(8px + var(--depth, 0) * 8px);
+  cursor: pointer;
+  transition: background-color 100ms linear, color 100ms linear;
+  white-space: nowrap;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+  letter-spacing: var(--tracking-tight);
+  position: relative;
+}
+
+/* Inner row keeps icon + name flowing in a single line */
+.file-item-row {
+  display: inline-flex;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.file-item:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+}
+
+/* ---------------------------------------------------------------------------
+ *  Chevron / spacer — 16px wide so files align with folder names (VSCode).
+ * ------------------------------------------------------------------------- */
+.folder-toggle-icon,
+.folder-toggle-spacer {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 22px;
+  flex-shrink: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 140ms ease;
+}
+
+.folder-toggle-icon.collapsed { transform: rotate(-90deg); }
+
+.file-tree-item:hover .folder-toggle-icon { color: var(--text-secondary); }
+
+/* ---------------------------------------------------------------------------
+ *  File icon — 16px, sits between chevron and name
+ * ------------------------------------------------------------------------- */
+.file-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 22px;
+  flex-shrink: 0;
+  margin: 0 4px 0 2px;
+  font-size: var(--text-base);
+  color: var(--text-muted);
+}
+
+.file-item-icon.ph-folder,
+.file-item-icon.ph-folder-open,
+.file-item-icon.fa-folder,
+.file-item-icon.fa-folder-open {
+  color: var(--aurora-cyan);
+}
+
+/* Type-aware coloring */
+.file-tree-item[data-ext="cmm"]   .file-item-icon { color: var(--aurora-cyan); }
+.file-tree-item[data-ext="asm"]   .file-item-icon { color: var(--aurora-purple); }
+.file-tree-item[data-ext="v"]     .file-item-icon { color: var(--aurora-pink); }
+.file-tree-item[data-ext="vh"]    .file-item-icon { color: var(--aurora-pink); }
+.file-tree-item[data-ext="sv"]    .file-item-icon { color: var(--aurora-pink); }
+.file-tree-item[data-ext="gtkw"]  .file-item-icon { color: var(--aurora-mint); }
+.file-tree-item[data-ext="vcd"]   .file-item-icon { color: var(--aurora-mint); }
+.file-tree-item[data-ext="mif"]   .file-item-icon { color: var(--text-secondary); }
+.file-tree-item[data-ext="txt"]   .file-item-icon { color: var(--text-muted); }
+.file-tree-item[data-ext="md"]    .file-item-icon { color: var(--text-secondary); }
+.file-tree-item[data-ext="json"]  .file-item-icon { color: var(--status-warning); }
+
+/* ---------------------------------------------------------------------------
+ *  Name
+ * ------------------------------------------------------------------------- */
+.file-item-name {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+ *  Folder content container — children carry their own indent via --depth.
+ * ------------------------------------------------------------------------- */
+.folder-content {
+  position: relative;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.folder-content.hidden { display: none; }
 
 
 /* ---------------------------------------------------------------------------

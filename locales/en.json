@@ -11,8 +11,8 @@
         "waveAnalyse":     { "tooltip": "Analyse Verilog (waveform)" },
         "simulatorSwitch": {
             "aria":      "Simulation engine",
-            "iverilog":  "Simulate with Icarus Verilog — all signals visible",
-            "verilator": "Simulate with Verilator — faster"
+            "iverilog":  "Simulate with Icarus Verilog — short simulations",
+            "verilator": "Simulate with Verilator — long simulations"
         },
         "verilatorProc":   { "tooltip": "Run Verilator on the C±-generated processor (auto-wired input_N/output_N)" },
         "waveConfig":      { "tooltip": "Wave Configuration — pick signals to dump" },

@@ -11,8 +11,8 @@
         "waveAnalyse":     { "tooltip": "Analisar Verilog (forma de onda)" },
         "simulatorSwitch": {
             "aria":      "Motor de simulação",
-            "iverilog":  "Simular com Icarus Verilog — todos os sinais visíveis",
-            "verilator": "Simular com Verilator — mais rápido"
+            "iverilog":  "Simular com Icarus Verilog — simulações curtas",
+            "verilator": "Simular com Verilator — simulações longas"
         },
         "verilatorProc":   { "tooltip": "Rodar Verilator no processador gerado pelo C± (fiação automática input_N/output_N)" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },

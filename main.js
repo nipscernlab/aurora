@@ -20,18 +20,20 @@ configureLogger(); // before anything else so all subsequent log calls use it
 //   • gpu-rasterization + zero-copy: rasterize tiles on the GPU and upload
 //     them without a CPU copy. Cheap, broadly safe, and the biggest win for
 //     scroll/paint-heavy panels (terminal, editor, wave config).
-//   • disable-frame-rate-limit: lifts Chromium's internal BeginFrame cap so
-//     the compositor can present at the display's full refresh (120 Hz+)
-//     instead of the conservative default. This is the switch that actually
-//     unlocks >60 FPS. If a machine ever shows tearing or runs hot, this is
-//     the first one to remove.
+//
+// We deliberately do NOT set `disable-frame-rate-limit`. It removes Chromium's
+// vsync pacing, which let the splash's per-frame requestAnimationFrame loops
+// (the starfield canvas + the progress-bar easing in html/splash.html, both
+// frame-count based) run unbounded on a transparent window — that saturated the
+// GPU process and froze the splash and its handoff to the main window. Normal
+// vsync already presents at the display's native refresh (120 Hz+), so we keep
+// the high-refresh target without the hazard.
 //
 // Hardware acceleration itself is left ON (Electron's default) — we never call
 // app.disableHardwareAcceleration(). backgroundThrottling also stays at its
 // default so a minimized window doesn't keep the GPU busy.
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('disable-frame-rate-limit');
 
 // AppUserModelID must be registered as early as possible — before any
 // BrowserWindow exists. Windows uses it to associate the running

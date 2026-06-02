@@ -100,9 +100,17 @@ class StandardTreeRenderer {
 
     /**
      * Full (re)render of the standard view from the project root. Safe
-     * to call repeatedly; restores previously-expanded folders.
+     * to call repeatedly; restores previously-expanded folders. Returns
+     * the in-flight promise when a render is already running, so callers
+     * (e.g. revealFolder) can await actual completion instead of racing.
      */
-    async render() {
+    render() {
+        if (this._rendering) return this._renderPromise;
+        this._renderPromise = this._doRender();
+        return this._renderPromise;
+    }
+
+    async _doRender() {
         const container = treeView.getContainer('standard');
         if (!container) return;
 
@@ -112,7 +120,6 @@ class StandardTreeRenderer {
             return;
         }
 
-        if (this._rendering) return;
         this._rendering = true;
         try {
             const entries = await this._read(root);
@@ -125,6 +132,46 @@ class StandardTreeRenderer {
             console.error('StandardTreeRenderer.render failed:', err);
         } finally {
             this._rendering = false;
+        }
+    }
+
+    /**
+     * Switch to the folder view and reveal `folderPath`: expand every
+     * ancestor from the project root down to it (so it's visible and open),
+     * then scroll it into view with a brief highlight. Walks via
+     * getFolderFiles so the expanded keys match exactly what the renderer
+     * compares against (same separators/casing). No-op outside the project.
+     */
+    async revealFolder(folderPath) {
+        const root = window.currentProjectPath;
+        if (!root || !folderPath) return;
+
+        const norm = (p) => String(p || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+        const rootN = norm(root);
+        const targetN = norm(folderPath);
+        if (targetN !== rootN && !targetN.startsWith(rootN + '/')) return;
+
+        // Expand each ancestor dir (root → … → target), inclusive, so the
+        // target itself renders open (showing its files).
+        let dir = root;
+        while (norm(dir) !== targetN) {
+            const entries = await this._read(dir);
+            const next = entries.find((e) => e.isDirectory &&
+                (norm(e.path) === targetN || targetN.startsWith(norm(e.path) + '/')));
+            if (!next) break;
+            this._expanded.add(next.path);
+            dir = next.path;
+        }
+
+        window.fileTreeViewController?.showStandardMode?.();
+        await this.render();
+
+        const container = treeView.getContainer('standard');
+        const el = container?.querySelector(`.file-tree-item[data-path="${(window.CSS?.escape ? CSS.escape(folderPath) : folderPath)}"]`);
+        if (el) {
+            el.scrollIntoView({ block: 'center' });
+            el.classList.add('reveal-flash');
+            setTimeout(() => el.classList.remove('reveal-flash'), 1400);
         }
     }
 

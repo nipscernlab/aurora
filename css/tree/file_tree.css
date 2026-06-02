@@ -235,6 +235,17 @@
 
 .folder-content.hidden { display: none; }
 
+/* Highlight breve quando uma pasta e revelada por um link externo (ex: o
+   link do diretorio de saida no terminal THTEST). Pulsa o fundo accent e
+   desvanece — chama atencao sem ser permanente. */
+@keyframes reveal-flash-fade {
+  from { background-color: var(--accent-soft); }
+  to   { background-color: transparent; }
+}
+.file-tree-item.reveal-flash > .file-item {
+  animation: reveal-flash-fade 1.4s ease-out;
+}
+
 
 /* ---------------------------------------------------------------------------
  *  Empty-state card

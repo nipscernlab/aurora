@@ -156,6 +156,7 @@
 .terminal-tabs .tab[data-terminal="tasm"] .glyph    { color: var(--color-asm); }
 .terminal-tabs .tab[data-terminal="tveri"] .glyph   { color: #E25C5C; }
 .terminal-tabs .tab[data-terminal="twave"] .glyph   { color: var(--color-wave); }
+.terminal-tabs .tab[data-terminal="thtest"] .glyph  { color: var(--aurora-mint, #4ec9b0); }
 
 .terminal-tabs .tab:hover {
   background-color: var(--overlay-hover);
@@ -569,4 +570,40 @@
   font-size: var(--text-sm);
   outline: none;
   caret-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+ *  THTEST inline progress bar (renderHardwareProgress).
+ *
+ *  Not a .log-entry — it's a standalone updatable line so the verbose filter
+ *  and counters ignore it and it stays visible regardless of verbose mode.
+ *  The █/░ blocks are drawn with the terminal mono font; the accent color
+ *  carries the "live" feel, flipping to mint on completion (.done).
+ * ------------------------------------------------------------------------- */
+.hw-progress-line {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  padding: 2px var(--space-2);
+  white-space: pre;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+.hw-progress-line.done {
+  color: var(--aurora-mint, #4ec9b0);
+}
+
+/* Clicavel: diretorio de saida na mensagem final do THTEST. Clicar abre a
+   view de pastas e revela a pasta (standardTreeRenderer.revealFolder). */
+.message-content .folder-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.message-content .folder-link:hover {
+  color: var(--accent-hover);
+  background: var(--accent-soft);
 }

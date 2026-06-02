@@ -110,8 +110,32 @@ class StatusBarManager {
             }
         }
         if (seq !== this._refreshSeq) return;
+        // Cache da ultima lista de processadores do .spf — getActiveProcessorName()
+        // recalcula contra o arquivo em foco ATUAL usando esta lista (sincrono),
+        // sem precisar reler o .spf. Atualizada nos mesmos eventos que pintam a
+        // status bar (spf/processor/projeto).
+        this._lastProcessors = processors;
         this._renderDesign(topPath, tbPath);
         this._renderActiveProcessor(processors);
+    }
+
+    /**
+     * Nome do processador ATIVO — exatamente o que a status bar mostra: o
+     * .cmm em foco cruzado com a lista de processadores do projeto.
+     * Recalcula a cada chamada a partir do arquivo em foco atual (sincrono),
+     * usando a ultima lista lida do .spf. Retorna null quando nao ha
+     * processador ativo (nenhum .cmm de processador em foco). Fonte unica
+     * usada tambem pelo gate e pelo alvo do botao Verilator (processador).
+     */
+    getActiveProcessorName() {
+        const editingPath = window.TabManager?.getEditingFilePath?.() || '';
+        // Prefere a lista lida do .spf; cai pra window.availableProcessors
+        // (mesmo conjunto de nomes) enquanto a 1a refresh ainda nao rodou,
+        // pra nao reportar "sem ativo" so por ordem de inicializacao.
+        const procs = (this._lastProcessors && this._lastProcessors.length)
+            ? this._lastProcessors
+            : (Array.isArray(window.availableProcessors) ? window.availableProcessors : []);
+        return this._matchProcessorFromPath(editingPath, procs);
     }
 
     _renderDesign(topPath, tbPath) {

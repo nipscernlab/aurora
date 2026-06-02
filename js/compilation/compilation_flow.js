@@ -83,8 +83,9 @@ const STEP_TERMINALS = Object.freeze({
     // ele pode achar que o erro veio do Wave.
     wave:    ['twave', 'tveri'],
     prism:   ['tveri'],
-    // Verilator processador CMM: loga em twave (usa a barra de progresso).
-    'verilator-proc': ['twave'],
+    // Verilator processador CMM: loga no THTEST (Terminal Hardware Test) —
+    // etapas de pipeline + barra de progresso ASCII inline da execucao.
+    'verilator-proc': ['thtest'],
 });
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 
@@ -95,7 +96,7 @@ const ERROR_TERMINAL = Object.freeze({
     verilog: 'tveri',
     wave:    'twave',
     prism:   'tveri',
-    'verilator-proc': 'twave',
+    'verilator-proc': 'thtest',
 });
 
 function switchTerminal(targetId) {
@@ -521,11 +522,16 @@ async function handleVerilatorProcStep() {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
         await precompileAllProcessors(compiler, 'tcmm');
-        switchTerminal('terminal-twave');
+        switchTerminal('terminal-thtest');
+        // O precompile (cmm+asm) deixou a barra de status em "Assembly".
+        // O build do Verilator (--json/--cc/--build/g++) e a execucao nao
+        // passam pelo statusUpdater por step, entao sem isso a barra ficava
+        // presa em "Assembly". Marca a etapa real aqui.
+        window.statusUpdater?.startCompilation?.('verilator-proc');
         await compiler.verilatorProcessorRun();
     } catch (error) {
         console.error('Erro na etapa verilator (processador):', error);
-        logFatalError('twave', error);
+        logFatalError('thtest', error);
     } finally {
         endCompilation();
     }
@@ -641,21 +647,24 @@ async function syncToolbarEnabledState() {
 
     let hasTop = false;
     let hasTb = false;
-    let hasProc = false;
     const spfPath = window.currentSpfPath || window.ProjectStore?.getSpfPath?.();
     if (spfPath && window.SpfStore) {
         try {
             const s = await window.SpfStore.read(spfPath);
             hasTop = !!s.topLevelFile;
             hasTb = !!s.testbenchFile;
-            hasProc = Array.isArray(s.processors)
-                && s.processors.some((p) => (typeof p === 'string' ? p.trim() : p?.name));
         } catch (_e) { /* sem projeto / leitura falhou → tudo desabilitado */ }
     }
 
+    // O botao Verilator (processador) age sobre o PROCESSADOR ATIVO mostrado
+    // na status bar (o .cmm em foco). Sem processador ativo → desabilitado.
+    // Mesma fonte do alvo em _resolveProcessorTarget, entao gate e alvo nunca
+    // divergem.
+    const hasActiveProc = !!window.statusBarManager?.getActiveProcessorName?.();
+
     setEnabled('vericomp', hasTop);
     setEnabled('prismcomp', hasTop);
-    setEnabled('verilatorproc', hasProc);
+    setEnabled('verilatorproc', hasActiveProc);
     setEnabled('wavecomp', hasTb);
     setEnabled('waveConfigBtn', hasTb);
     // A lista .gtkw gerencia seu proprio disabled (gtkw_picker.refresh le
@@ -689,8 +698,13 @@ class CompilationFlowManager {
 
         // C± so faz sentido com .cmm em foco — atualiza disabled toda
         // vez que o arquivo em evidencia muda (TabManager.activateTab
-        // / SplitEditorManager.setFocus disparam o evento).
-        document.addEventListener('aurora:editing-file-changed', () => syncCmmcompEnabled());
+        // / SplitEditorManager.setFocus disparam o evento). O botao
+        // Verilator (processador) tambem depende do .cmm em foco (age sobre
+        // o processador ativo), entao re-sincroniza junto.
+        document.addEventListener('aurora:editing-file-changed', () => {
+            syncCmmcompEnabled();
+            syncToolbarEnabledState();
+        });
 
         // Gating por design: re-sincroniza quando o .spf muda (top-level/
         // testbench marcados, etc.), quando abre/fecha projeto, e quando

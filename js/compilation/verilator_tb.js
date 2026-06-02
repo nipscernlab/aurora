@@ -2,8 +2,8 @@
  * verilator_tb.js — Verilator harness generator pro modo processador CMM.
  *
  * Tudo aqui e PURO (sem I/O, sem window): parseVerilatorPorts le o AST
- * JSON do `--json-only`, parseSaphoTestbench extrai a fiacao do
- * <proc>_tb.v gerado pelo asmcomp, e generateVerilatorProcTb monta o
+ * JSON do `--json-only`, parseProcessorIO extrai a fiacao de I/O direto
+ * do <proc>.v (bloco YANC_SIM_VIS), e generateVerilatorProcTb monta o
  * C++ do harness. A orquestracao vive em
  * CompilationModule.verilatorProcessorRun.
  */
@@ -92,60 +92,47 @@ export function parseVerilatorPorts(tree) {
 //
 // O .v gerado pelo asmcomp tem interface previsivel (modulo processor):
 //   clk, rst, in[NUBITS], out[NUBITS], req_in[NBIOIN], out_en[NBIOOU], itr
-// e o asmcomp ja gera um <proc>_tb.v com a "fiacao" — qual input_<N>.txt
-// alimenta `in` em qual valor one-hot de req_in, e qual output_<N>.txt
-// recebe `out` em qual valor one-hot de out_en. Em vez de adivinhar,
-// PARSEAMOS esse tb e replicamos a fiacao no harness C++ do Verilator,
-// reusando os MESMOS arquivos input_/output_ (compat com o sim iverilog).
+// req_in/out_en sao buses ONE-HOT (addr_dec decodifica o strobe + endereco
+// internos -> 1<<addr). E o PROPRIO <proc>.v, no bloco YANC_SIM_VIS, ja
+// declara a fiacao dispositivo<->valor:
+//   req_in_sim_<K> = req_in == <V>;   // input_<K>.txt  alimenta `in` quando req_in==V
+//   out_en_sim_<K> = out_en == <V>;   // output_<K>.txt recebe `out` quando out_en==V
+// parseProcessorIO le ESSAS linhas direto do <proc>.v (fonte canonica) —
+// NADA de testbench. O harness C++ replica a fiacao reusando os MESMOS
+// input_<K>.txt / output_<K>.txt (compat com o sim iverilog).
 //
 // Bloco de debug do .v (pc_sim_val, mem_addr_wr, $readmemb relativo) fica
 // sob `ifdef __ICARUS__` — Verilator nao ve, entao so os .mif (caminhos
 // absolutos de IFILE/DFILE) carregam. Sem staging.
 
-const basename = (p) => String(p || '').split(/[\\/]/).pop();
-
 /**
- * Extrai a fiacao porta<->arquivo<->valor one-hot do <proc>_tb.v gerado
- * pelo asmcomp.
+ * Extrai a fiacao dispositivo<->arquivo<->valor one-hot direto do
+ * <proc>.v (bloco YANC_SIM_VIS gerado pelo asmcomp). Le como TEXTO, entao
+ * os `ifdef nao importam — as linhas estao sempre presentes na fonte. O
+ * indice K do sinal e tambem o numero do arquivo (input_<K>.txt /
+ * output_<K>.txt), e <V> e o valor one-hot que o harness compara.
  *
- * @param {string} src  conteudo do <proc>_tb.v
+ *   req_in_sim_<K> = req_in == <V>   ->  le input_<K>.txt quando req_in==V
+ *   out_en_sim_<K> = out_en == <V>   ->  escreve output_<K>.txt quando out_en==V
+ *
+ * @param {string} src  conteudo do <proc>.v
  * @returns {{ inputs: Array<{port:string, reqValue:number, file:string}>,
  *            outputs: Array<{port:string, enValue:number, file:string}> }}
  */
-export function parseSaphoTestbench(src) {
+export function parseProcessorIO(src) {
   const s = String(src || '');
 
-  // entradas: data_in_K = $fopen("...input_K.txt") + (proc_req_in == V) -> in_K
-  const inFile = {};
-  for (const m of s.matchAll(/data_in_(\d+)\s*=\s*\$fopen\("([^"]+)"/g)) {
-    inFile[m[1]] = basename(m[2]);
+  const inputs = [];
+  for (const m of s.matchAll(/req_in_sim_(\d+)\s*=\s*req_in\s*==\s*(\d+)/g)) {
+    inputs.push({ port: m[1], reqValue: parseInt(m[2], 10), file: `input_${m[1]}.txt` });
   }
-  const inReq = {};
-  for (const m of s.matchAll(/proc_req_in\s*==\s*(\d+)\s*\)\s*proc_io_in\s*=\s*in_(\d+)/g)) {
-    inReq[m[2]] = parseInt(m[1], 10);
-  }
-  const inputs = Object.keys(inFile)
-    .filter((k) => k in inReq)
-    .map((k) => ({ port: k, reqValue: inReq[k], file: inFile[k] }))
-    .sort((a, b) => a.reqValue - b.reqValue);
+  inputs.sort((a, b) => a.reqValue - b.reqValue);
 
-  // saidas: data_out_K = $fopen("...output_K.txt","w") + out_en_K = proc_out_en == V
-  // (asmcomp v4.2+ emite "out_en_K = proc_out_en == N" fora do ifdef ICARUS;
-  // o formato antigo "if (proc_out_en == N) out_sig_K <= ..." fica so dentro
-  // do ICARUS ifdef e nao e visivel ao Verilator. Esse parser tem que casar
-  // com o pattern fora-do-ifdef pra reconhecer outputs.)
-  const outFile = {};
-  for (const m of s.matchAll(/data_out_(\d+)\s*=\s*\$fopen\("([^"]+)"\s*,\s*"w"/g)) {
-    outFile[m[1]] = basename(m[2]);
+  const outputs = [];
+  for (const m of s.matchAll(/out_en_sim_(\d+)\s*=\s*out_en\s*==\s*(\d+)/g)) {
+    outputs.push({ port: m[1], enValue: parseInt(m[2], 10), file: `output_${m[1]}.txt` });
   }
-  const outEn = {};
-  for (const m of s.matchAll(/out_en_(\d+)\s*=\s*proc_out_en\s*==\s*(\d+)/g)) {
-    outEn[m[1]] = parseInt(m[2], 10);
-  }
-  const outputs = Object.keys(outFile)
-    .filter((k) => k in outEn)
-    .map((k) => ({ port: k, enValue: outEn[k], file: outFile[k] }))
-    .sort((a, b) => a.enValue - b.enValue);
+  outputs.sort((a, b) => a.enValue - b.enValue);
 
   return { inputs, outputs };
 }
@@ -156,20 +143,20 @@ function findPort(ports, name) {
 }
 
 /**
- * Gera o harness C++ do processador SAPHO, replicando a fiacao do
- * <proc>_tb.v com o timing do testbench (entrada lida na borda de
- * descida, saida escrita na borda de subida; req_in/out_en one-hot).
+ * Gera o harness C++ do processador SAPHO, replicando a fiacao lida do
+ * <proc>.v (entrada lida na borda de descida, saida escrita na borda de
+ * subida; req_in/out_en one-hot).
  *
  * - rst: pulso de 1 ciclo (alto so no 1o posedge).
  * - itr: dirigido a 0 SO se a porta existir (alguns procs nao tem).
- * - I/O: decimal COM SINAL (mesmo formato %d/%0d do tb iverilog).
+ * - I/O: decimal COM SINAL (mesmo formato dos input_/output_ do iverilog).
  * - Roda numClocks fixos.
  *
  * @param {object} opts
  * @param {string} opts.topModule
  * @param {Array}  opts.ports        parseVerilatorPorts(V<top>.tree.json)
- * @param {Array}  opts.inputs       parseSaphoTestbench().inputs
- * @param {Array}  opts.outputs      parseSaphoTestbench().outputs
+ * @param {Array}  opts.inputs       parseProcessorIO().inputs
+ * @param {Array}  opts.outputs      parseProcessorIO().outputs
  * @param {number} opts.numClocks    nº de clocks (config de sim do processador)
  * @returns {{ source:string, hasItr:boolean, inputs:Array, outputs:Array }}
  */
@@ -247,6 +234,13 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   for (const p of outputs) L.push(`  FILE* o_out_${p.port} = fopen("${p.file}", "w");`);
   L.push('');
   L.push(`  unsigned long long reads = 0;`);
+  // Marcador de progresso pro terminal THTEST do Aurora: imprime
+  // "@@AURORA_PROG <cyc> <nclk> <reads>" no stdout a cada ~1% dos clocks.
+  // Aurora consome essas linhas (nao as ecoa) pra mover a barra ASCII.
+  // step = no minimo 1 pra nclk pequeno. fflush a cada marcador porque o
+  // stdout do exe e bloco-bufferizado quando vai pra um pipe — sem flush a
+  // barra so apareceria no fim. ~100 flushes na sim toda: custo desprezivel.
+  L.push(`  unsigned step = nclk/100; if(step==0) step=1;`);
   // itr (linha de interrupcao) fica baixa a simulacao toda — escrever 0
   // uma vez antes do loop em vez de a cada ciclo. Nao muda nada no modelo
   // e tira um store do caminho quente.
@@ -271,7 +265,9 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   for (const p of inputs) {
     L.push(`    if(top->${reqBus.name} == ${p.reqValue}u) { long long v; if(next_dec(f_in_${p.port}, v)){ top->${inBus.name} = (uint64_t)v; reads++; } }`);
   }
+  L.push(`    if((cyc % step) == 0){ printf("@@AURORA_PROG %u %u %llu\\n", cyc+1, nclk, reads); fflush(stdout); }`);
   L.push(`  }`);
+  L.push(`  printf("@@AURORA_PROG %u %u %llu\\n", nclk, nclk, reads); fflush(stdout);`);
   // FILE* nao tem destrutor — fechar explicitamente pra dar flush das saidas
   // bufferizadas antes do processo terminar.
   for (const p of inputs) L.push(`  if(f_in_${p.port}) fclose(f_in_${p.port});`);

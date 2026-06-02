@@ -55,6 +55,13 @@ function buildChildEnv(spec) {
     OMP_THREAD_LIMIT: cpuCount.toString(),
     ...(spec.env || {}),
   };
+  // Cache the Verilator model's object compiles when ccache is installed.
+  // Only the verilator build steps spawn g++/make, so scope it there; a
+  // spec-supplied OBJCACHE (spec.env) always wins.
+  if (!env.OBJCACHE && typeof spec.step === 'string' &&
+      spec.step.startsWith('verilator') && hasCcache()) {
+    env.OBJCACHE = 'ccache';
+  }
   if (Array.isArray(spec.prependPath) && spec.prependPath.length) {
     const sep = process.platform === 'win32' ? ';' : ':';
     env.PATH = spec.prependPath.join(sep) + sep + (env.PATH || '');
@@ -73,7 +80,45 @@ function buildChildEnv(spec) {
 // V<top>.exe simulation run — often the longest step) and the build
 // coordinators. The g++ workers that `make` fans out under Verilator stay at
 // NORMAL; their parallelism already comes from `verilator -j 0`.
-const TOOLCHAIN_PRIORITY = os.constants.priority.PRIORITY_ABOVE_NORMAL;
+// Default ABOVE_NORMAL (safe). Override via env AURORA_TOOLCHAIN_PRIORITY =
+// normal | above | high | realtime for a dedicated build box. HIGH/REALTIME
+// give the compiler still more CPU but can stutter the desktop and Aurora's
+// own renderer, so they stay strictly opt-in.
+const PRIORITY_BY_NAME = {
+  normal:   os.constants.priority.PRIORITY_NORMAL,
+  above:    os.constants.priority.PRIORITY_ABOVE_NORMAL,
+  high:     os.constants.priority.PRIORITY_HIGH,
+  realtime: os.constants.priority.PRIORITY_HIGHEST,
+};
+const TOOLCHAIN_PRIORITY =
+  PRIORITY_BY_NAME[String(process.env.AURORA_TOOLCHAIN_PRIORITY || '').toLowerCase()] ??
+  os.constants.priority.PRIORITY_ABOVE_NORMAL;
+
+// ccache, detected once and lazily. When present, Verilator's generated
+// Makefile honours OBJCACHE to cache the model's g++ object compiles across
+// builds → near-instant rebuilds when only the .cmm/testbench changed. We only
+// set OBJCACHE when ccache actually resolves, so make never tries to invoke a
+// missing binary on machines without it.
+let _ccacheChecked = false;
+let _ccacheAvailable = false;
+function hasCcache() {
+  if (_ccacheChecked) return _ccacheAvailable;
+  _ccacheChecked = true;
+  try {
+    // shell:true so Windows PATH + PATHEXT (.exe) resolution works for the
+    // bare name. Command is a constant — no injection surface.
+    const r = require('child_process').spawnSync('ccache --version', {
+      shell: true,
+      windowsHide: true,
+      timeout: 4000,
+    });
+    _ccacheAvailable = !r.error && r.status === 0;
+  } catch {
+    _ccacheAvailable = false;
+  }
+  if (_ccacheAvailable) log.info('[exec] ccache detected — Verilator object compiles will be cached');
+  return _ccacheAvailable;
+}
 
 /** Best-effort priority bump for a freshly-spawned toolchain child. */
 function boostPriority(pid) {

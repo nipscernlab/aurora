@@ -15,6 +15,24 @@
  * obj_dir_* directories, which the allowlist accepts).
  */
 
+// ── Verilator perf knobs (one place to tune; safe defaults) ─────────────────
+// Build parallelism for BOTH Verilator's own work and the g++ model compile.
+// '0' = one job per CPU core ("use everything"). This is the build-speed lever.
+const VERILATOR_BUILD_JOBS = '0';
+// g++ optimization level for the generated model. -O3 builds slower but the
+// .exe runs faster — the right trade for long SAPHO processor sims. Drop to
+// '-O2' here for quicker builds at some runtime cost.
+const VERILATOR_OPT_LEVEL = '-O3';
+// Multithreaded SIMULATION (NOT the build). 0 = single-thread. SAPHO processor
+// sims are mostly sequential, so N>1 usually loses to thread-sync overhead and
+// is left OFF by default. Set to a small N (2–4) only for large, parallelizable
+// designs — and measure, because it can be slower. Wired, ready, opt-in.
+const VERILATOR_SIM_THREADS = 0;
+
+/** `['--threads', N]` when multithreaded sim is enabled, else `[]`. */
+const verilatorThreadsArgs = () =>
+  VERILATOR_SIM_THREADS > 0 ? ['--threads', String(VERILATOR_SIM_THREADS)] : [];
+
 /**
  * @typedef {Object} VerilatorBuildBuilderCtx
  * @property {string}   perlExe
@@ -46,10 +64,11 @@ export function buildVerilatorBuildSpec(ctx) {
     '--binary',
     '--main',
     '--trace-fst',
-    '-j', '0',
+    '-j', VERILATOR_BUILD_JOBS,
     ...warnings,
     '--timing',
     '--x-assign', 'fast',
+    ...verilatorThreadsArgs(),
     '--no-trace-top',
     // YANC v4.3: liga o bloco de sim-visibility do harness (variaveis/arrays,
     // PC->C± line table, opcode tap, I/O mirrors) sob Verilator. O guard do
@@ -65,9 +84,13 @@ export function buildVerilatorBuildSpec(ctx) {
     // da CPU host — seguro porque o Aurora compila e roda na mesma maquina e
     // descarta o .exe). NAO usamos -ffast-math/-Ofast: alteram semantica de
     // ponto flutuante, e o SAPHO tem float.
-    '-CFLAGS', '-O3',
+    '-CFLAGS', VERILATOR_OPT_LEVEL,
     '-CFLAGS', '-march=native',
     '-CFLAGS', '-fstrict-aliasing',
+    // -pipe: g++ passa os estagios da compilacao por pipes em vez de arquivos
+    // temporarios em disco. Em Windows (I/O de arquivo caro) economiza alguns
+    // round-trips de temp por unidade de traducao. Seguro, sem efeito no codigo.
+    '-CFLAGS', '-pipe',
     // Silencia o ruido de g++ vindo dos headers DPI do proprio Verilator
     // (vltstd/svdpi.h, verilated_dpi.cpp): eles declaram as funcoes svDpi*
     // com __declspec(dllimport) (forma MSVC), e o g++/MinGW do bundle as
@@ -207,7 +230,7 @@ export function buildVerilatorTbBuildSpec(ctx) {
       '--cc',
       '--exe',
       '--build',
-      '-j', '0',
+      '-j', VERILATOR_BUILD_JOBS,
       ...warnings,
       // SEM --timing aqui (diferente do fluxo Wave). O clock e dirigido a
       // mao pelo harness C++ e o que compilamos — <proc>.v + libs HDL — e
@@ -216,10 +239,14 @@ export function buildVerilatorTbBuildSpec(ctx) {
       // roda: peso morto no build e em cada eval(). O fluxo Wave mantem
       // --timing porque la o testbench .v usa #delays pra gerar o clock.
       '--x-assign', 'fast',
+      ...verilatorThreadsArgs(),
       // Runtime-first, igual ao fluxo Wave (sims de processador sao longas):
       // -O3 + -march=native pra maximizar a velocidade do .exe. Subiu de -O2.
-      '-CFLAGS', '-O3',
+      '-CFLAGS', VERILATOR_OPT_LEVEL,
       '-CFLAGS', '-march=native',
+      // -pipe: estagios do g++ por pipe em vez de temporarios em disco (ver
+      // buildVerilatorBuildSpec). Ganho de I/O em Windows, sem efeito no codigo.
+      '-CFLAGS', '-pipe',
       // Mesma supressao do fluxo Wave: os headers DPI do Verilator usam
       // __declspec(dllimport) e o g++/MinGW (link estatico) ignora ->
       // ruido -Wattributes inofensivo. Ver buildVerilatorBuildSpec.

@@ -12,6 +12,24 @@
  * locale changes; this module only keeps the active highlight in sync.
  */
 import { getSimulator, setSimulator } from './simulator_preference.js';
+import { showCardNotification } from '../ui/notification.js';
+
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
+
+// Last engine we announced. Guards the feedback toast against no-op events
+// (clicking the already-active segment, or a redundant broadcast) so we only
+// surface a message on a REAL change. Seeded to the persisted choice so the
+// first render on boot never fires a spurious toast.
+let lastAnnounced = getSimulator();
+
+/** Toast announcing the engine change — fired for both toolbar and AI changes. */
+function announceSimulatorChange(sim) {
+    if (sim === lastAnnounced) return;
+    lastAnnounced = sim;
+    const key = sim === 'verilator' ? 'notification.simulator.verilator'
+                                     : 'notification.simulator.iverilog';
+    showCardNotification(tr(key), 'info', 4000, tr('notification.simulator.title'));
+}
 
 function render(segments) {
     const sim = getSimulator();
@@ -40,8 +58,14 @@ function init() {
     }
 
     // The preference can also change from outside (Aurora Intelligence via
-    // AuroraAPI.setSimulator) — reflect it here too.
-    window.addEventListener('aurora:wave-simulator-changed', () => render(segments));
+    // AuroraAPI.setSimulator) — reflect it here too. Both that path and the
+    // segment click above dispatch this same event, so announcing here is the
+    // single point that covers every change source (the no-op guard inside
+    // announceSimulatorChange keeps it to one toast per real switch).
+    window.addEventListener('aurora:wave-simulator-changed', (e) => {
+        render(segments);
+        announceSimulatorChange(e?.detail?.simulator || getSimulator());
+    });
 }
 
 if (document.readyState === 'loading') {

@@ -295,6 +295,11 @@
         "saveNewCocotb":   "Salvar novo testbench cocotb"
     },
     "notification": {
+        "simulator": {
+            "title":     "Simulador alterado",
+            "iverilog":  "Agora usando <strong>Icarus Verilog</strong> (vvp) — ideal para simulações curtas; expõe os sinais internos do processador.",
+            "verilator": "Agora usando <strong>Verilator</strong> — compila um binário nativo (~5–10× mais rápido em sims longas); apenas sinais de topo da testbench ficam visíveis."
+        },
         "tree": {
             "noFilesDropped":     "Nenhum arquivo arrastado",
             "cannotGetPath":      "Não foi possível obter o caminho de \"{{name}}\".",

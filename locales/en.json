@@ -294,6 +294,11 @@
         "saveNewCocotb":   "Save New cocotb Testbench"
     },
     "notification": {
+        "simulator": {
+            "title":     "Simulator switched",
+            "iverilog":  "Now using <strong>Icarus Verilog</strong> (vvp) — best for short sims; exposes the processor's internal signals.",
+            "verilator": "Now using <strong>Verilator</strong> — builds a native binary (~5–10× faster on long sims); only top-level testbench signals are visible."
+        },
         "tree": {
             "noFilesDropped":     "No files dropped",
             "cannotGetPath":      "Cannot get path for \"{{name}}\".",

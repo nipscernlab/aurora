@@ -117,10 +117,13 @@ body.window-maximized {
               box-shadow var(--transition-fast);
 }
 
+/* The full-height vertical resizer lights only on DIRECT interaction (hover or
+   its own drag). It is deliberately NOT lit by the corner handle: doing so shot
+   a tall accent bar up the whole editor the moment the cursor grazed the
+   bottom-left junction. The corner's discovery cue is the short horizontal
+   resizer below (which still lights on corner-hovering / resizing-corner). */
 .resizer-vertical:hover::after,
-body.resizing-vertical .resizer-vertical::after,
-body.corner-hovering  .resizer-vertical::after,
-body.resizing-corner  .resizer-vertical::after {
+body.resizing-vertical .resizer-vertical::after {
   background: var(--accent);
   box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
 }

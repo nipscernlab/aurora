@@ -1640,8 +1640,9 @@ body.ai-assistant-open {
  *  lights BOTH the AI panel's width handle and the terminal's horizontal
  *  resizer — the same accent glow the left corner gives its two resizers.
  * ------------------------------------------------------------------------- */
-body.ai-corner-hovering .ai-resize-handle::after,
-body.resizing-ai-corner .ai-resize-handle::after,
+/* Only the short horizontal terminal resizer lights as the corner cue — never
+   the full-height AI width handle, which would shoot a tall accent bar up the
+   editor exactly like the file-tree corner used to (see styles.css). */
 body.ai-corner-hovering .resizer-horizontal::after,
 body.resizing-ai-corner .resizer-horizontal::after {
   background: var(--accent);

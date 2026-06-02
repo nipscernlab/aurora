@@ -307,6 +307,17 @@ function register() {
       const oldBasePath = projectData.structure.basePath;
       const expectedBasePath = path.dirname(spfPath);
       if (oldBasePath !== expectedBasePath) {
+        // Relocate every absolute path the .spf still pins to the OLD root so a
+        // copied/backed-up project keeps working. The file lists are stored
+        // relative (untouched here), but command overrides keep freeform
+        // absolutes — appendArgs/prependArgs tokens, envSet values — that the
+        // relative-on-disk scheme can't safely round-trip (it can't tell a path
+        // from `-O2` or `2`). A root prefix-swap can: remapRootPath only rewrites
+        // strings genuinely under oldRoot, leaving flags and out-of-project paths
+        // alone. Same transform the rename flow applies, run here on move/copy.
+        if (oldBasePath && path.isAbsolute(oldBasePath)) {
+          deepRemapPaths(projectData.structure, oldBasePath, expectedBasePath);
+        }
         projectData.metadata.projectPath = expectedBasePath;
         projectData.structure.basePath = expectedBasePath;
       }

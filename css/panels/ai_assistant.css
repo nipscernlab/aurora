@@ -1634,6 +1634,35 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
+ *  AI ↔ terminal corner resizer — the right-side mirror of the file-tree↔
+ *  terminal corner. JS (setupTerminalCorner) toggles `ai-corner-hovering` on
+ *  hover and `resizing-ai-corner` while dragging. Hovering/dragging the corner
+ *  lights BOTH the AI panel's width handle and the terminal's horizontal
+ *  resizer — the same accent glow the left corner gives its two resizers.
+ * ------------------------------------------------------------------------- */
+body.ai-corner-hovering .ai-resize-handle::after,
+body.resizing-ai-corner .ai-resize-handle::after,
+body.ai-corner-hovering .resizer-horizontal::after,
+body.resizing-ai-corner .resizer-horizontal::after {
+  background: var(--accent);
+  box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
+}
+
+/* Suspend both panels' open/close easing during the drag so they track the
+   cursor (same as body.resizing-corner does for the file-tree side). */
+body.resizing-ai-corner .ai-assistant-container,
+body.resizing-ai-corner .terminal-container {
+  transition: none !important;
+}
+
+/* all-scroll cursor + no text selection while dragging the corner. */
+body.resizing-ai-corner,
+body.resizing-ai-corner * {
+  cursor: all-scroll !important;
+  user-select: none !important;
+}
+
+/* ---------------------------------------------------------------------------
  *  Responsive
  * ------------------------------------------------------------------------- */
 @media (max-width: 640px) {

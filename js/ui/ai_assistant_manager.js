@@ -15,6 +15,7 @@
  */
 
 import { showConfirm } from './dialog_manager.js';
+import { constrainTerminalHeight } from '../utils/resize.js';
 
 const PROVIDER_META = {
   // Subscription-backed: runs through the Claude Code / Claude Agent SDK,
@@ -1274,6 +1275,7 @@ class AIAssistantManager {
     this.buildPermissionOptions();
     this.attachListeners();
     this.setupResize(this.container.querySelector('.ai-resize-handle'), this.container);
+    this.setupTerminalCorner();
 
     // v3 layout: width = 0 means closed, width > 0 means open. CSS
     // initial value is 0; nothing to set here for the closed case.
@@ -2960,6 +2962,114 @@ class AIAssistantManager {
       document.addEventListener('mousemove', onMove);
       document.addEventListener('mouseup', onUp);
     });
+  }
+
+  /**
+   * Corner handle at the junction where the AI panel's LEFT edge meets the
+   * terminal's TOP edge — the right-side mirror of the file-tree↔terminal
+   * corner in resize.js. Dragging it resizes the AI panel width and the
+   * terminal height at once. Only live while the panel is open.
+   */
+  setupTerminalCorner() {
+    const aiContainer = this.container;
+    const terminalContainer = document.querySelector('.terminal-container');
+    if (!aiContainer || !terminalContainer) return;
+
+    const corner = document.createElement('div');
+    corner.id = 'ai-terminal-corner-handle';
+    // Generous invisible hit area; visual cue comes from the resizers it sits
+    // on. Sits above the width-only handle so the junction grabs both axes.
+    Object.assign(corner.style, {
+      position: 'fixed', width: '22px', height: '22px',
+      background: 'transparent', cursor: 'all-scroll', zIndex: '100',
+      display: 'none',
+    });
+    document.body.appendChild(corner);
+
+    // Hover discovery: lighting up BOTH the AI width handle and the terminal's
+    // horizontal resizer is the cue the junction is grabbable — exactly the
+    // file-tree↔terminal corner's behaviour (see styles.css / ai_assistant.css).
+    corner.addEventListener('mouseenter', () => {
+      if (isOpen()) document.body.classList.add('ai-corner-hovering');
+    });
+    corner.addEventListener('mouseleave', () => {
+      document.body.classList.remove('ai-corner-hovering');
+    });
+
+    const MIN_AI_W = 320; // matches setupResize / _applyOpenWidth
+    const constrainAiWidth = (w) => Math.max(MIN_AI_W, Math.min(w, window.innerWidth * 0.7));
+    const isOpen = () => parseInt(aiContainer.style.width, 10) > 0;
+
+    let posRaf = null, lastL = null, lastT = null;
+    const position = () => {
+      if (!isOpen()) { corner.style.display = 'none'; lastL = lastT = null; return; }
+      const aiRect = aiContainer.getBoundingClientRect();
+      const termRect = terminalContainer.getBoundingClientRect();
+      const half = (corner.offsetWidth || 22) / 2;
+      const left = aiRect.left - half;   // AI panel's left edge
+      const top  = termRect.top  - half; // terminal's top edge
+      if (left === lastL && top === lastT && corner.style.display === 'block') return;
+      lastL = left; lastT = top;
+      corner.style.left = left + 'px';
+      corner.style.top  = top + 'px';
+      corner.style.display = 'block';
+    };
+    const schedulePosition = () => {
+      if (posRaf) return;
+      posRaf = requestAnimationFrame(() => { posRaf = null; position(); });
+    };
+
+    let active = false, startX = 0, startY = 0, startW = 0, startH = 0, dragRaf = null;
+    corner.addEventListener('mousedown', (e) => {
+      if (!isOpen()) return;
+      e.preventDefault();
+      active = true;
+      startX = e.clientX; startY = e.clientY;
+      startW = aiContainer.offsetWidth;
+      startH = terminalContainer.offsetHeight;
+      // Dedicated class (not the file-tree's resizing-vertical/corner) so the
+      // far-left file-tree resizers don't light up when dragging on the right.
+      // The CSS for it suspends both panels' transitions, sets the all-scroll
+      // cursor, and lights the AI handle + terminal resizer (ai_assistant.css).
+      document.body.classList.add('resizing-ai-corner');
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+
+    const onMove = (e) => {
+      if (!active) return;
+      if (dragRaf) cancelAnimationFrame(dragRaf);
+      dragRaf = requestAnimationFrame(() => {
+        // AI panel is on the right: dragging left (smaller X) grows it.
+        const w = constrainAiWidth(startW + (startX - e.clientX));
+        const h = constrainTerminalHeight(startH - (e.clientY - startY));
+        aiContainer.style.width = w + 'px';
+        terminalContainer.style.height = h + 'px';
+        position();
+      });
+    };
+
+    const onUp = () => {
+      if (!active) return;
+      active = false;
+      document.body.classList.remove('resizing-ai-corner');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      if (dragRaf) cancelAnimationFrame(dragRaf);
+      try {
+        const w = parseInt(aiContainer.style.width, 10);
+        if (w >= MIN_AI_W) localStorage.setItem('aurora-ai-panel-width', String(w));
+        localStorage.setItem('terminalHeight', String(terminalContainer.offsetHeight));
+      } catch (_) { /* storage full / private mode — ignore */ }
+    };
+
+    // Keep the handle glued to the junction as either dimension (or the open
+    // state) changes. Coalesced to one reflow per frame.
+    const obs = new MutationObserver(schedulePosition);
+    obs.observe(aiContainer, { attributes: true, attributeFilter: ['style', 'class'] });
+    obs.observe(terminalContainer, { attributes: true, attributeFilter: ['style', 'class'] });
+    window.addEventListener('resize', schedulePosition);
+    position();
   }
 }
 

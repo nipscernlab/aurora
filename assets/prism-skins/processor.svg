@@ -3,7 +3,7 @@
   PRISM custom skin: SAPHO Processor
   Verilog: components/HDL/processor.v
   Ports: clk, rst, io_in, itr (left)  /  io_out, addr_in, addr_out,
-         req_in, out_en (right)
+         req_in, out_en, cheguei (right)
 
   Identity = the SAPHO emblem itself, embedded as a low-opacity
   watermark behind the cell body. Pin-1 marker in the upper-left
@@ -76,6 +76,7 @@
     <text x="135" y="60" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">addr_out</text>
     <text x="135" y="85" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">req_in</text>
     <text x="135" y="100" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">out_en</text>
+    <text x="135" y="112" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">cheguei</text>
 
     <!-- Port anchors -->
     <g s:x="0"   s:y="20"  s:pid="clk"/>
@@ -88,6 +89,7 @@
     <g s:x="140" s:y="58"  s:pid="addr_out"/>
     <g s:x="140" s:y="83"  s:pid="req_in"/>
     <g s:x="140" s:y="98"  s:pid="out_en"/>
+    <g s:x="140" s:y="110" s:pid="cheguei"/>
   </g>
 
 </svg>

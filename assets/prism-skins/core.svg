@@ -10,12 +10,12 @@
 <svg xmlns="http://www.w3.org/2000/svg"
      xmlns:s="https://github.com/nturley/netlistsvg">
 
-  <g s:type="core" transform="translate(0, 0)" s:width="140" s:height="170">
+  <g s:type="core" transform="translate(0, 0)" s:width="140" s:height="180">
     <s:alias val="core"/>
 
     <!-- Body -->
-    <path d="M 6,0 L 134,0 Q 140,0 140,6 L 140,164 Q 140,170 134,170
-             L 6,170 Q 0,170 0,164 L 0,6 Q 0,0 6,0 Z"
+    <path d="M 6,0 L 134,0 Q 140,0 140,6 L 140,174 Q 140,180 134,180
+             L 6,180 Q 0,180 0,174 L 0,6 Q 0,0 6,0 Z"
           class="$cell_id"
           style="fill: var(--prism-module-fill);" />
 
@@ -59,6 +59,7 @@
     <text x="135" y="130" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">addr_out</text>
     <text x="135" y="148" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">req_in</text>
     <text x="135" y="162" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">out_en</text>
+    <text x="135" y="174" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">cheguei</text>
 
     <!-- Port anchors -->
     <g s:x="0"   s:y="20"  s:pid="clk"/>
@@ -77,6 +78,7 @@
     <g s:x="140" s:y="128" s:pid="addr_out"/>
     <g s:x="140" s:y="146" s:pid="req_in"/>
     <g s:x="140" s:y="160" s:pid="out_en"/>
+    <g s:x="140" s:y="172" s:pid="cheguei"/>
   </g>
 
 </svg>

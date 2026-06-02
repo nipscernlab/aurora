@@ -3,7 +3,8 @@
   PRISM custom skin: instr_dec (Instruction Decoder)
   Verilog: components/HDL/instr_dec.v
   Ports (in): clk, rst, opcode
-  Ports (out): push, pop, ula_op, mem_wr, req_in, out_en, ldi, sti, fft
+  Ports (out): push, pop, ula_op, mem_wr, req_in, out_en, ldi, sti, fft,
+               lda, sta
 
   Minimal decoder block: body + clock-edge triangle + 3 faint stripes
   inside (the canonical ROM-lookup hint, kept because it COMMUNICATES
@@ -12,12 +13,12 @@
 <svg xmlns="http://www.w3.org/2000/svg"
      xmlns:s="https://github.com/nturley/netlistsvg">
 
-  <g s:type="instr_dec" transform="translate(0, 0)" s:width="110" s:height="120">
+  <g s:type="instr_dec" transform="translate(0, 0)" s:width="110" s:height="140">
     <s:alias val="instr_dec"/>
 
     <!-- Body -->
-    <path d="M 4,0 L 106,0 Q 110,0 110,4 L 110,116 Q 110,120 106,120
-             L 4,120 Q 0,120 0,116 L 0,4 Q 0,0 4,0 Z"
+    <path d="M 4,0 L 106,0 Q 110,0 110,4 L 110,136 Q 110,140 106,140
+             L 4,140 Q 0,140 0,136 L 0,4 Q 0,0 4,0 Z"
           class="$cell_id"
           style="fill: var(--prism-module-fill);" />
 
@@ -59,6 +60,8 @@
     <text x="105" y="96"  class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">ldi</text>
     <text x="105" y="106" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">sti</text>
     <text x="105" y="116" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">fft</text>
+    <text x="105" y="126" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">lda</text>
+    <text x="105" y="136" class="$cell_id" s:attribute="" style="text-anchor: end; font-size: 5px; fill: var(--text-muted);">sta</text>
 
     <!-- Port anchors -->
     <g s:x="0"   s:y="20"  s:pid="clk"/>
@@ -74,6 +77,8 @@
     <g s:x="110" s:y="94"  s:pid="ldi"/>
     <g s:x="110" s:y="104" s:pid="sti"/>
     <g s:x="110" s:y="114" s:pid="fft"/>
+    <g s:x="110" s:y="124" s:pid="lda"/>
+    <g s:x="110" s:y="134" s:pid="sta"/>
   </g>
 
 </svg>

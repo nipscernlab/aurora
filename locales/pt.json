@@ -14,7 +14,7 @@
             "iverilog":  "Simular com Icarus Verilog — simulações curtas",
             "verilator": "Simular com Verilator — simulações longas"
         },
-        "verilatorProc":   { "tooltip": "Rodar Verilator no processador gerado pelo C± (fiação automática input_N/output_N)" },
+        "verilatorProc":   { "tooltip": "Teste do processador sintetizado (somente I/O)" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },
         "gtkwPicker": {
             "tooltip":         "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",

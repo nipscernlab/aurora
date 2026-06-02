@@ -13,6 +13,26 @@ const { app } = require('electron');
 const { configureLogger } = require('./main/logger');
 configureLogger(); // before anything else so all subsequent log calls use it
 
+// ── GPU / compositor tuning ────────────────────────────────────────────────
+// Command-line switches MUST be appended before the app is ready (the GPU
+// process reads them at launch). These target a smooth, high-refresh UI:
+//
+//   • gpu-rasterization + zero-copy: rasterize tiles on the GPU and upload
+//     them without a CPU copy. Cheap, broadly safe, and the biggest win for
+//     scroll/paint-heavy panels (terminal, editor, wave config).
+//   • disable-frame-rate-limit: lifts Chromium's internal BeginFrame cap so
+//     the compositor can present at the display's full refresh (120 Hz+)
+//     instead of the conservative default. This is the switch that actually
+//     unlocks >60 FPS. If a machine ever shows tearing or runs hot, this is
+//     the first one to remove.
+//
+// Hardware acceleration itself is left ON (Electron's default) — we never call
+// app.disableHardwareAcceleration(). backgroundThrottling also stays at its
+// default so a minimized window doesn't keep the GPU busy.
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-frame-rate-limit');
+
 // AppUserModelID must be registered as early as possible — before any
 // BrowserWindow exists. Windows uses it to associate the running
 // process with a stable jumplist identity, so setting it later (as we

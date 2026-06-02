@@ -2280,11 +2280,20 @@ class AIAssistantManager {
     // text. This covers XML blocks, Qwen-style JSON+</tool_call> lines, and
     // orphan closing tags. Only complete patterns are stripped while streaming
     // so partial tags don't permanently corrupt the buffer.
-    const displayText = this.segmentBuffer
-      .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
-      .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
-      .replace(/<\/tool_call>/g, '')
-      .trim();
+    // These three passes each scan the whole buffer every streaming frame.
+    // Skip them when no tool-call marker is present (the common case — Claude
+    // and most models never emit these artefacts), so a long well-behaved
+    // response doesn't pay three full-buffer regex scans per frame. The result
+    // is identical: with no markers the regexes were already no-ops.
+    const buf = this.segmentBuffer;
+    const mayHaveArtifacts = buf.indexOf('<') !== -1 || buf.indexOf('{"name"') !== -1;
+    const displayText = (mayHaveArtifacts
+      ? buf
+        .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
+        .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
+        .replace(/<\/tool_call>/g, '')
+      : buf
+    ).trim();
     // If stripping removes everything and the buffer looks like a tool-call
     // JSON being streamed token-by-token, render empty rather than flashing
     // raw JSON at the user (the tool chip will appear shortly).

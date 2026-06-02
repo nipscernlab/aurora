@@ -26,7 +26,10 @@ export const tabWatchers = {
             clearInterval(this.periodicCheckInterval);
         }
 
-        // Every 2s — fast enough to feel live, light enough not to thrash disk.
+        // chokidar (push) is the primary change signal; this stat poll is only
+        // a fallback for the Windows race where OS events lag. 4s keeps that
+        // safety net while halving the disk churn the old 2s cadence caused
+        // when many tabs are open.
         this.periodicCheckInterval = setInterval(async () => {
             if (this.isCheckingFiles || this.tabs.size === 0) return;
 
@@ -38,7 +41,7 @@ export const tabWatchers = {
             } finally {
                 this.isCheckingFiles = false;
             }
-        }, 2000);
+        }, 4000);
     },
 
     stopPeriodicFileCheck() {

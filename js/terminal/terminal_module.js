@@ -2,6 +2,14 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
 
+// Hard cap on retained `.log-entry` nodes per terminal body. A streaming
+// compile (Verilator/iverilog dumping thousands of lines) appends one node
+// per line with no upper bound — the DOM grows without limit, memory climbs,
+// and every recount / filter / scroll pass gets slower until the panel janks.
+// We keep the most-recent N entries and drop the oldest from the top. Counts
+// (recountMessages) run from DOM truth after trimming, so the badges reflect
+// the retained window — the right semantics for a live scrollback console.
+const MAX_TERMINAL_ENTRIES = 5000;
 
 class TerminalManager {
     constructor() {
@@ -221,9 +229,7 @@ class TerminalManager {
         // landed multiple sub-messages via different code paths. A single
         // recount over .log-entry / .grouped-message is the only honest
         // source of "how many of each type are visible right now".
-        this.recountMessages(terminalId);
-        this.applyFilter(terminalId);
-        this.scrollToBottom(terminalId);
+        this._scheduleTerminalRefresh(terminalId);
     }
 
     processStreamedLine(terminalId, line) {
@@ -242,10 +248,10 @@ class TerminalManager {
         }
 
         // See processExecutableOutput — recount per batch beats the
-        // double-counting from interleaved increment sites.
-        this.recountMessages(terminalId);
-        this.applyFilter(terminalId);
-        this.scrollToBottom(terminalId);
+        // double-counting from interleaved increment sites. Coalesced: a
+        // streaming compile calls this once per line, so the O(n) recount +
+        // filter + scroll must batch to one pass per frame, not per line.
+        this._scheduleTerminalRefresh(terminalId);
     }
 
     appendToTerminal(terminalId, content, type = 'info', options = {}) {
@@ -300,10 +306,9 @@ class TerminalManager {
         });
 
         // Single-source-of-truth recount once per batch (see
-        // processExecutableOutput for the rationale).
-        this.recountMessages(terminalId);
-        this.applyFilter(terminalId);
-        this.scrollToBottom(terminalId);
+        // processExecutableOutput for the rationale). Coalesced to one pass
+        // per frame so back-to-back wrapper messages don't each walk the DOM.
+        this._scheduleTerminalRefresh(terminalId);
     }
 
     /**
@@ -1005,16 +1010,54 @@ createLogEntry(terminal, text, type, timestamp) {
         TerminalManager.autoScrollInitialized = true;
     }
 
+    // Drop the oldest entries once a terminal body exceeds the cap. Keeps the
+    // DOM (and therefore recount/filter/scroll cost) bounded no matter how long
+    // a build runs. See MAX_TERMINAL_ENTRIES.
+    trimTerminal(terminal) {
+        if (!terminal) return;
+        let excess = terminal.childElementCount - MAX_TERMINAL_ENTRIES;
+        while (excess-- > 0 && terminal.firstElementChild) {
+            terminal.removeChild(terminal.firstElementChild);
+        }
+    }
+
+    // Coalesce the post-append bookkeeping (trim + recount + filter + scroll)
+    // into a single pass per animation frame per terminal. Streaming compiles
+    // call processStreamedLine once per line; running these O(n) DOM walks per
+    // line is O(n²) over the build and forced a reflow each time — the terminal
+    // freeze on large builds. The line's DOM is appended immediately (output
+    // stays live); only the expensive bookkeeping is batched.
+    _scheduleTerminalRefresh(terminalId) {
+        const pending = this._refreshPending || (this._refreshPending = new Set());
+        if (pending.has(terminalId)) return;
+        pending.add(terminalId);
+        requestAnimationFrame(() => {
+            pending.delete(terminalId);
+            const terminal = this.terminals[terminalId];
+            if (!terminal) return;
+            this.trimTerminal(terminal);
+            this.recountMessages(terminalId);
+            this.applyFilter(terminalId);
+            terminal.scrollTop = terminal.scrollHeight;
+        });
+    }
+
     scrollToBottom(terminalId) {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
 
+        // Coalesce bursts of scroll requests (the autoscroll MutationObserver
+        // fires one per appended node) into a single rAF per terminal. The old
+        // version also queued a setTimeout(…,100) re-scroll on every call, so a
+        // fast stream left hundreds of pending timers each reading scrollHeight
+        // (a forced layout). The observer already re-fires on any late height
+        // change, so one coalesced scroll per frame is both cheaper and correct.
+        const pending = this._scrollPending || (this._scrollPending = new Set());
+        if (pending.has(terminalId)) return;
+        pending.add(terminalId);
         requestAnimationFrame(() => {
+            pending.delete(terminalId);
             terminal.scrollTop = terminal.scrollHeight;
-
-            setTimeout(() => {
-                terminal.scrollTop = terminal.scrollHeight;
-            }, 100);
         });
     }
 

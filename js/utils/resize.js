@@ -189,14 +189,36 @@ function setupCornerHandle() {
   corner.id = 'resize-corner-handle';
   document.body.appendChild(corner);
 
+  let cornerRaf = null, lastLeft = null, lastTop = null;
+
   function positionCorner() {
     const ftRect   = fileTreeContainer.getBoundingClientRect();
     const termRect = terminalContainer.getBoundingClientRect();
     // Center the (now larger) handle on the resizer junction.
     const size = corner.offsetWidth || 22;
     const half = size / 2;
-    corner.style.left = (ftRect.right - half) + 'px';
-    corner.style.top  = (termRect.top   - half) + 'px';
+    const left = ftRect.right - half;
+    const top  = termRect.top  - half;
+    // Idempotent: skip the style writes when the junction hasn't moved. The
+    // MutationObserver below fires on every width/height change during ANY
+    // drag — without this guard each vertical/horizontal resize frame paid a
+    // pointless corner reflow.
+    if (left === lastLeft && top === lastTop) return;
+    lastLeft = left;
+    lastTop  = top;
+    corner.style.left = left + 'px';
+    corner.style.top  = top  + 'px';
+  }
+
+  // Coalesce observer/resize-driven repositioning into one reflow per frame.
+  // (The corner's own drag handler calls positionCorner directly so the handle
+  // tracks the cursor without a frame of lag.)
+  function schedulePositionCorner() {
+    if (cornerRaf) return;
+    cornerRaf = requestAnimationFrame(() => {
+      cornerRaf = null;
+      positionCorner();
+    });
   }
 
   // Hover discovery: lighting up both resizers when the user grazes the
@@ -248,10 +270,10 @@ function setupCornerHandle() {
     if (raf) cancelAnimationFrame(raf);
   }
 
-  const observer = new MutationObserver(positionCorner);
+  const observer = new MutationObserver(schedulePositionCorner);
   if (fileTreeContainer) observer.observe(fileTreeContainer, { attributes: true, attributeFilter: ['style'] });
   if (terminalContainer) observer.observe(terminalContainer, { attributes: true, attributeFilter: ['style'] });
-  window.addEventListener('resize', positionCorner);
+  window.addEventListener('resize', schedulePositionCorner);
   positionCorner();
 }
 

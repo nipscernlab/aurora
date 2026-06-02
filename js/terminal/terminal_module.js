@@ -10,6 +10,9 @@ class TerminalManager {
             tasm: document.querySelector('#terminal-tasm .terminal-body'),
             tveri: document.querySelector('#terminal-tveri .terminal-body'),
             twave: document.querySelector('#terminal-twave .terminal-body'),
+            // THTEST — Terminal Hardware Test: etapas + barra de progresso do
+            // botao Verilator (processador CMM). Ver renderHardwareProgress.
+            thtest: document.querySelector('#terminal-thtest .terminal-body'),
             tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
         };
 
@@ -802,6 +805,97 @@ createLogEntry(terminal, text, type, timestamp) {
         }
 
         return logEntry;
+    }
+
+    /**
+     * Barra de progresso ASCII inline para o fluxo de hardware-test (THTEST).
+     * UM unico elemento que se atualiza no lugar: criado na primeira chamada,
+     * mutado depois. NAO e um .log-entry — entao o filtro de verbose e os
+     * contadores o ignoram e ele fica sempre visivel. Movido pro fim do
+     * terminal a cada update pra acompanhar a ultima saida streamada.
+     *
+     * @param {string} terminalId
+     * @param {{pct:number, cyc:number, total:number, reads?:number,
+     *          label:string, done?:boolean}} p
+     */
+    renderHardwareProgress(terminalId, p) {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
+
+        this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
+        let el = this.updatableCards[terminalId].hwProgress;
+        if (!el || !el.isConnected) {
+            el = document.createElement('div');
+            el.className = 'hw-progress-line';
+            terminal.appendChild(el);
+            this.updatableCards[terminalId].hwProgress = el;
+        } else {
+            // Re-anexar move o no pro fim — mantem a barra colada embaixo
+            // mesmo se linhas plain (verbose) chegarem entre os updates.
+            terminal.appendChild(el);
+        }
+
+        const W = 24;
+        const pct = Math.max(0, Math.min(100, Math.round(p.pct || 0)));
+        const filled = Math.round((pct / 100) * W);
+        const bar = '█'.repeat(filled) + '░'.repeat(W - filled);
+        const tail = (p.reads != null) ? ` · ${p.reads}` : '';
+        el.textContent = `${p.label} ▕${bar}▏ ${pct}%  (${p.cyc}/${p.total})${tail}`;
+        el.classList.toggle('done', !!p.done);
+
+        this.scrollToBottom(terminalId);
+    }
+
+    /**
+     * Log entry com um trecho clicavel (link de pasta). `message` e a string
+     * ja traduzida; `folderPath` e a substring exata a virar link. Ao clicar,
+     * a file tree alterna pra view de pastas e revela/expande a pasta-alvo
+     * (standardTreeRenderer.revealFolder). Construido com textContent — sem
+     * innerHTML, sem risco de injecao.
+     *
+     * @param {string} terminalId
+     * @param {string} message
+     * @param {string} folderPath
+     * @param {string} [type='success']
+     */
+    appendFolderLink(terminalId, message, folderPath, type = 'success') {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
+
+        const ts = new Date().toLocaleString('pt-BR', { hour12: false });
+        const entry = document.createElement('div');
+        entry.classList.add('log-entry', type);
+
+        const tsEl = document.createElement('span');
+        tsEl.className = 'timestamp';
+        tsEl.textContent = `[${ts}]`;
+
+        const content = document.createElement('div');
+        content.className = 'message-content';
+
+        const idx = (folderPath && message) ? message.indexOf(folderPath) : -1;
+        if (idx >= 0) {
+            content.appendChild(document.createTextNode(message.slice(0, idx)));
+            const link = document.createElement('span');
+            link.className = 'folder-link';
+            link.textContent = folderPath;
+            link.title = window.t ? window.t('terminal.htest.openFolder') : 'Open in folder view';
+            link.addEventListener('click', () => {
+                window.standardTreeRenderer?.revealFolder?.(folderPath);
+            });
+            content.appendChild(link);
+            content.appendChild(document.createTextNode(message.slice(idx + folderPath.length)));
+        } else {
+            content.textContent = message;
+        }
+
+        entry.appendChild(tsEl);
+        entry.appendChild(content);
+        terminal.appendChild(entry);
+
+        this.recountMessages(terminalId);
+        this.applyFilter(terminalId);
+        this.scrollToBottom(terminalId);
     }
 
     /**

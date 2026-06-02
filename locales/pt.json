@@ -38,7 +38,8 @@
             "cmm":  "Terminal C±",
             "asm":  "Terminal ASM",
             "veri": "Terminal Verilog",
-            "wave": "Terminal Wave"
+            "wave": "Terminal Wave",
+            "thtest": "Terminal de teste de hardware"
         }
     },
     "windowControls": {
@@ -261,7 +262,7 @@
             "wave":    "Forma de Onda",
             "prism":   "PRISM",
             "verilator": "Verilator",
-            "verilator-proc": "Verilator (processador)",
+            "verilator-proc": "Verilator",
             "all":     "Todos os componentes"
         },
         "inProgress":       "Compilação {{name}} em andamento...",
@@ -369,6 +370,12 @@
             "switchedHierarchical": "Alternado para visão hierárquica de módulos",
             "noHierarchyData":      "Sem dados de hierarquia. Compile o Verilog primeiro."
         },
+        "htest": {
+            "start":  "=== Teste de hardware: \"{{name}}\" — iniciando ({{clocks}} clocks) ===",
+            "genCpp": "Gerando o harness C++ de \"{{name}}\"...",
+            "exec":   "Executando",
+            "openFolder": "Abrir esta pasta na file tree (visão de pastas)"
+        },
         "wave": {
             "gtkwaveClosed":         "GTKWave fechado - restaurando árvore de arquivos padrão...",
             "staleSignalOne":        "Nota: {{preview}} estava marcado na Configuração de Ondas mas não existe mais no design; ignorado (não adicionado ao $dumpvars).",
@@ -398,8 +405,8 @@
             "cocotbVcd":             "VCD do cocotb gerado: {{name}}",
             "procPicked":            "Vários processadores ({{count}}); usando \"{{name}}\". Defina o top-level pra escolher outro.",
             "procPorts":             "--- Verilator (processador CMM) — descobrindo pinos de \"{{name}}\" (--json-only) ---",
-            "procNoPorts":           "Aviso: o testbench não declara portas de I/O — o processador só vai dar clock (sem leitura/escrita de arquivo).",
-            "procWiring":            "Fiação (do _tb.v) → entradas: {{inputs}} | saídas: {{outputs}} | {{itr}}",
+            "procNoPorts":           "Aviso: o processador não declara portas de I/O — só vai dar clock (sem leitura/escrita de arquivo).",
+            "procWiring":            "Fiação de I/O → entradas: {{inputs}} | saídas: {{outputs}} | {{itr}}",
             "procBuilding":          "Compilando o harness do processador (--cc --exe --build)...",
             "procRunning":           "Rodando \"{{name}}\" por {{clocks}} clocks...",
             "procDone":              "--- Concluído. Saídas escritas em {{dir}}: {{outputs}} ---",
@@ -467,6 +474,7 @@
             "verilatorTbBuildFailed":"Build do harness Verilator falhou com código {{code}}.",
             "verilatorTbRunFailed":"Execução do harness Verilator falhou com código {{code}}.",
             "noProcessor":         "Nenhum processador no projeto. O botão Verilator (processador) precisa de um processador com .cmm.",
+            "noActiveProcessor":   "Nenhum processador ativo. Abra o .cmm de um processador no editor (o nome aparece na barra de status) e clique em Verilator de novo.",
             "procVMissing":        "Top-level do processador não encontrado: {{path}}. Rode C± primeiro para gerar o .v.",
             "procTbMissing":       "Testbench do processador não encontrado: {{path}}. Rode C± primeiro para gerar o _tb.v."
         },
@@ -539,7 +547,8 @@
         "tcmm":  "Bem-vindo ao terminal TCMM!",
         "tasm":  "Bem-vindo ao terminal TASM!",
         "tveri": "Bem-vindo ao terminal TVERI!",
-        "twave": "Bem-vindo ao terminal TWAVE!"
+        "twave": "Bem-vindo ao terminal TWAVE!",
+        "thtest": "Bem-vindo ao terminal THTEST (Teste de Hardware)!"
     },
     "locale": {
         "compilerMessages": {

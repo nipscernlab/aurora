@@ -302,7 +302,8 @@
         },
         "ai": {
             "fileNotFound":  "File not found in project: {{name}}",
-            "fileOpenError": "Could not open {{name}}"
+            "fileOpenError": "Could not open {{name}}",
+            "openInEditor":  "Open in editor"
         },
         "tree": {
             "noFilesDropped":     "No files dropped",

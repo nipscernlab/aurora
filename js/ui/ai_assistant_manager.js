@@ -180,9 +180,10 @@ const SYSTEM_PROMPT = [
   "undergraduate Chrysthofer Arthur Amaro Afonso (UFJF) in partnership with Prof. Luciano. " +
   "Be concise and precise. Use Markdown. Use fenced ```cmm blocks for CMM snippets, ```verilog for " +
   "Verilog/VHDL snippets, and $...$ / $$...$$ for LaTeX math. When you point the user to a spot in a " +
-  "project file, write the reference as `filename.ext:line` (e.g. `my_proc.cmm:25` or `core.v:42`) — " +
-  "the IDE turns it into a clickable link that opens that file at that line. Use a bare `filename.ext` " +
-  "when you mean the whole file. ALWAYS reply in the same language " +
+  "project file, write the reference in backticks as `filename.ext:line` (e.g. `my_proc.cmm:25` or " +
+  "`core.v:42`), or a bare `filename.ext` — optionally a project-relative path like `src/core.v` — for " +
+  "the whole file. The IDE turns it into a clickable link that opens that file at that line. " +
+  "ALWAYS reply in the same language " +
   "the user writes in (Portuguese or English).",
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
@@ -777,32 +778,97 @@ function renderInline(s) {
   return s;
 }
 
-// Project-file reference + optional :line suffix. Conservative: the name must
-// start alphanumeric and carry a real known extension, so prose like "v.1" or
-// "Fig.2" isn't mistaken for a file. Kept in sync with the file types the tree
-// tracks (Verilog + Python imports, plus .cmm/.asm and a few sidecars).
-const AI_FILE_REF_RE =
-  /\b[A-Za-z0-9][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*\.(?:cmm|v|sv|vh|py|asm|spf|vcd|gtkw|mem|txt|json)(?::\d+)?\b/g;
-const AI_FILE_REF_TEST = new RegExp(AI_FILE_REF_RE.source);
-const AI_FILE_SKIP_TAGS = new Set(['CODE', 'PRE', 'A', 'SCRIPT', 'STYLE', 'BUTTON']);
+// Extensions we recognise in *prose* (un-backticked) references, so a bare
+// `core.v` or `sim.vcd` mid-sentence still linkifies without turning English
+// ("etc.", "i.e.") or method chains (`obj.value`) into links. Backticked refs
+// and any path- or `:line`-bearing form bypass this list, so ANY extension a
+// project file actually uses still works.
+const AI_KNOWN_EXTS = new Set([
+  'cmm', 'asm', 's', 'v', 'sv', 'vh', 'svh', 'vhd', 'vhdl',
+  'py', 'c', 'h', 'cpp', 'hpp', 'cc', 'rs', 'go', 'java',
+  'js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs', 'json', 'md', 'txt',
+  'spf', 'vcd', 'gtkw', 'gtkwave', 'mem', 'hex', 'bin', 'do',
+  'cfg', 'ini', 'yaml', 'yml', 'xml', 'csv', 'tcl', 'sdc', 'xdc',
+  'sh', 'bat', 'ps1', 'mk', 'cmake',
+]);
+
+// A standalone file token: optional drive (C:\) / ./ ../ root, any project
+// path segments, a basename with a dot-extension, and an optional :line.
+// Anchored — used to decide whether an inline `code` span is *entirely* a
+// file reference. The `:` in a `C:\` drive prefix is never the line colon.
+const AI_FILE_TOKEN_RE =
+  /^(?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|[\\/])?(?:[\w.-]+[\\/])*[\w.-]+\.[A-Za-z0-9]{1,12}(?::\d+)?$/;
+// Scans running prose for basename-style references (paths arrive backticked
+// and are handled as code spans, so this stays separator-free and tame).
+const AI_FILE_SCAN_RE =
+  /\b[A-Za-z0-9][\w-]*(?:\.[\w-]+)*\.[A-Za-z0-9]{1,12}(?::\d+)?\b/g;
+const AI_FILE_SKIP_TAGS = new Set(['PRE', 'A', 'SCRIPT', 'STYLE', 'BUTTON']);
+
+/** Split `path/file.ext:42` into { file, line }. A trailing `:<digits>` is the
+ *  line number; a `C:\` drive colon (not followed by digits) is left alone. */
+function splitFileRef(token) {
+  const m = /:(\d+)$/.exec(token);
+  return m
+    ? { file: token.slice(0, m.index), line: parseInt(m[1], 10) }
+    : { file: token, line: null };
+}
+
+/** True when `token` is a clickable file reference. A path- or `:line`-bearing
+ *  token passes with ANY extension; a bare basename must carry a known
+ *  extension so ordinary prose isn't linkified. */
+function isFileRefToken(token) {
+  if (!AI_FILE_TOKEN_RE.test(token)) return false;
+  const { file, line } = splitFileRef(token);
+  if (/[\\/]/.test(file) || line != null) return true;
+  const ext = (/\.([A-Za-z0-9]{1,12})$/.exec(file) || [])[1];
+  return !!ext && AI_KNOWN_EXTS.has(ext.toLowerCase());
+}
+
+/** Build the clickable `.ai-file-ref` span for a file-reference `token`. */
+function makeFileRefSpan(token) {
+  const { file, line } = splitFileRef(token);
+  const span = document.createElement('span');
+  span.className = 'ai-file-ref';
+  span.dataset.file = file;
+  if (line != null) span.dataset.line = String(line);
+  span.textContent = token;
+  span.title = (window.t && window.t('notification.ai.openInEditor')) || 'Open in editor';
+  return span;
+}
 
 /**
  * Turn project-file references in a rendered message — `core.v`,
- * `my_proc.cmm:25` — into clickable `.ai-file-ref` spans. Runs on the FINAL
- * (committed / static) message DOM, never per streaming frame, and skips text
- * inside code/links so snippets and URLs are left untouched.
+ * `my_proc.cmm:25`, `src/alu.sv:88` — into clickable `.ai-file-ref` spans.
+ * Two passes: (1) inline `code` spans that are *entirely* a reference (the
+ * form the model is told to emit), and (2) bare references in running prose.
+ * Runs on the FINAL (committed / static) message DOM, never per streaming
+ * frame; fenced snippets (`pre`), links and existing refs are left untouched.
  */
 function linkifyFileRefs(root) {
   if (!root) return;
+
+  // Pass 1 — inline `code` spans like `my_proc.cmm:25` (skip fenced blocks
+  // and any code carrying child markup, e.g. syntax-highlighted snippets).
+  root.querySelectorAll('code').forEach((codeEl) => {
+    if (codeEl.closest('pre') || codeEl.querySelector('*')) return;
+    const token = codeEl.textContent;
+    if (!isFileRefToken(token)) return;
+    codeEl.replaceWith(makeFileRefSpan(token));
+  });
+
+  // Pass 2 — bare references in prose text nodes.
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       for (let p = node.parentNode; p && p !== root; p = p.parentNode) {
         if (p.nodeType === 1 &&
-            (AI_FILE_SKIP_TAGS.has(p.tagName) || p.classList.contains('ai-file-ref'))) {
+            (AI_FILE_SKIP_TAGS.has(p.tagName) || p.tagName === 'CODE' ||
+             p.classList.contains('ai-file-ref'))) {
           return NodeFilter.FILTER_REJECT;
         }
       }
-      return AI_FILE_REF_TEST.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      AI_FILE_SCAN_RE.lastIndex = 0;
+      return AI_FILE_SCAN_RE.test(node.nodeValue)
+        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     },
   });
   const targets = [];
@@ -811,21 +877,15 @@ function linkifyFileRefs(root) {
     const text = textNode.nodeValue;
     const frag = document.createDocumentFragment();
     let last = 0, m;
-    AI_FILE_REF_RE.lastIndex = 0;
-    while ((m = AI_FILE_REF_RE.exec(text))) {
+    AI_FILE_SCAN_RE.lastIndex = 0;
+    while ((m = AI_FILE_SCAN_RE.exec(text))) {
       const token = m[0];
-      const colon = token.lastIndexOf(':');
-      const hasLine = colon !== -1 && /^\d+$/.test(token.slice(colon + 1));
+      if (!isFileRefToken(token)) continue;   // prose that only looks file-ish
       if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
-      const span = document.createElement('span');
-      span.className = 'ai-file-ref';
-      span.dataset.file = hasLine ? token.slice(0, colon) : token;
-      if (hasLine) span.dataset.line = token.slice(colon + 1);
-      span.textContent = token;
-      span.title = 'Open in editor';
-      frag.appendChild(span);
+      frag.appendChild(makeFileRefSpan(token));
       last = m.index + token.length;
     }
+    if (last === 0) continue;                 // nothing survived the filter
     if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
     textNode.parentNode.replaceChild(frag, textNode);
   }
@@ -3151,7 +3211,7 @@ class AIAssistantManager {
    * each processor's .cmm). Matched by basename, case-insensitive. Returns
    * null when the open project has no file by that name.
    */
-  _resolveProjectFile(fileName) {
+  _resolveTrackedFile(fileName) {
     if (!fileName) return null;
     const base = String(fileName).split(/[\\/]/).pop().toLowerCase();
     const files = window.projectTreeManager?.verilogFiles;
@@ -3160,10 +3220,40 @@ class AIAssistantManager {
     return hit ? hit.path : null;
   }
 
+  /**
+   * Ordered list of candidate paths to try for a reference, kept inside the
+   * project sandbox: a tracked file matched by basename (handles any nesting,
+   * plus absolute refs that point back into the tree), then the ref resolved
+   * relative to the project root. Absolute paths and `..` segments that would
+   * climb out of the project are never resolved as such — existence is checked
+   * in openFileRef(), so only files that genuinely live under the project open.
+   */
+  _fileRefCandidates(ref) {
+    const raw = String(ref || '').trim().replace(/^[("'<]+|[)"'>]+$/g, '');
+    if (!raw) return [];
+    const out = [];
+    const push = (p) => { if (p && !out.includes(p)) out.push(p); };
+
+    push(this._resolveTrackedFile(raw));
+
+    const root = window.currentProjectPath;
+    const isAbs = /^[A-Za-z]:[\\/]/.test(raw) || raw.startsWith('\\\\') || raw.startsWith('/');
+    if (root && !isAbs) {
+      const rel = raw.replace(/\\/g, '/');
+      if (!rel.split('/').includes('..')) push(`${root}/${rel}`);
+    }
+    return out;
+  }
+
   /** Open a referenced project file in the editor, jumping to `line` if given. */
   async openFileRef(fileName, line) {
     const tr = (k, p) => (window.t ? window.t(k, p) : null);
-    const filePath = this._resolveProjectFile(fileName);
+    let filePath = null;
+    for (const cand of this._fileRefCandidates(fileName)) {
+      try {
+        if (await window.electronAPI.fileExists(cand)) { filePath = cand; break; }
+      } catch (_) { /* try the next candidate */ }
+    }
     if (!filePath) {
       showCardNotification(
         tr('notification.ai.fileNotFound', { name: fileName }) || `File not in project: ${fileName}`,

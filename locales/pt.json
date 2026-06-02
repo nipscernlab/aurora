@@ -303,7 +303,8 @@
         },
         "ai": {
             "fileNotFound":  "Arquivo não encontrado no projeto: {{name}}",
-            "fileOpenError": "Não foi possível abrir {{name}}"
+            "fileOpenError": "Não foi possível abrir {{name}}",
+            "openInEditor":  "Abrir no editor"
         },
         "tree": {
             "noFilesDropped":     "Nenhum arquivo arrastado",

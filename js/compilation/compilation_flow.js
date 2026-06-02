@@ -521,6 +521,10 @@ async function handleVerilatorProcStep() {
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
+        // Instrumenta o .cmm do processador ATIVO com #TOAQUI (pino `cheguei`
+        // no fim do programa) — feito dentro do cmmCompilation, depois do
+        // saveAllFiles. So o processador-alvo do botao e' tocado.
+        compiler._chegueiInstrumentProc = window.statusBarManager?.getActiveProcessorName?.() || null;
         await precompileAllProcessors(compiler, 'tcmm');
         switchTerminal('terminal-thtest');
         // O precompile (cmm+asm) deixou a barra de status em "Assembly".

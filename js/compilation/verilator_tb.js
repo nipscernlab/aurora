@@ -198,10 +198,15 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // outW so e usado dentro do for de outputs — se outputs.length === 0,
   // outBus pode ser null e este valor nao e lido.
   const outW = outBus ? outBus.width : 0;
+  // Pino de fim-de-programa: o #TOAQUI no .cmm faz o asmcomp expor `cheguei`
+  // como porta top-level de saida do <proc>.v. Quando presente, o harness
+  // encerra o loop assim que ela pulsa (programa acabou) em vez de rodar o
+  // teto fixo de clocks. Pode nao existir (cmm sem #TOAQUI) — entao null.
+  const cheguei = findPort(ports, 'cheguei');
   const L = [];
 
   L.push(`// Auto-gerado por Aurora — harness Verilator do processador "${topModule}".`);
-  L.push(`// Fiacao extraida do ${topModule}_tb.v; I/O decimal com sinal,`);
+  L.push(`// Fiacao de I/O lida do <proc>.v; I/O decimal com sinal,`);
   L.push(`// reusando os mesmos input_<N>.txt / output_<N>.txt do sim iverilog.`);
   L.push(`// Roda ${numClocks} clocks (config de simulacao do processador).`);
   L.push(`#include "V${topModule}.h"`);
@@ -245,6 +250,8 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // uma vez antes do loop em vez de a cada ciclo. Nao muda nada no modelo
   // e tira um store do caminho quente.
   if (itr) L.push(`  top->${itr.name} = 0;`);
+  // Quantos clocks realmente rodaram (pode ser < nclk se `cheguei` encerrar).
+  L.push(`  unsigned ran = nclk;`);
   L.push('');
   L.push(`  for(unsigned cyc=0; cyc<nclk; cyc++){`);
   L.push(`    top->${rst ? rst.name : 'rst'} = (cyc==0) ? 1 : 0;`);
@@ -260,6 +267,11 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
     L.push(`      fprintf(o_out_${p.port}, "%lld\\n", v);`);
     L.push(`    }`);
   }
+  if (cheguei) {
+    L.push(`    // #TOAQUI pulsou 'cheguei' -> programa terminou; encerra a sim agora`);
+    L.push(`    // e sinaliza o clock do fim (@@AURORA_CHEGUEI) pra Aurora avisar.`);
+    L.push(`    if(top->${cheguei.name}){ ran = cyc + 1; printf("@@AURORA_CHEGUEI %u\\n", ran); fflush(stdout); break; }`);
+  }
   L.push(`    // --- borda de descida: le a entrada que o processador pediu ---`);
   L.push(`    top->${clk.name} = 0; top->eval(); main_time++;`);
   for (const p of inputs) {
@@ -267,12 +279,14 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   }
   L.push(`    if((cyc % step) == 0){ printf("@@AURORA_PROG %u %u %llu\\n", cyc+1, nclk, reads); fflush(stdout); }`);
   L.push(`  }`);
-  L.push(`  printf("@@AURORA_PROG %u %u %llu\\n", nclk, nclk, reads); fflush(stdout);`);
+  // Marcador final = clocks REALMENTE rodados (ran). Em run completo ran==nclk
+  // (100%); se 'cheguei' encerrou antes, reflete o clock de parada (ex: 1224).
+  L.push(`  printf("@@AURORA_PROG %u %u %llu\\n", ran, nclk, reads); fflush(stdout);`);
   // FILE* nao tem destrutor — fechar explicitamente pra dar flush das saidas
   // bufferizadas antes do processo terminar.
   for (const p of inputs) L.push(`  if(f_in_${p.port}) fclose(f_in_${p.port});`);
   for (const p of outputs) L.push(`  if(o_out_${p.port}) fclose(o_out_${p.port});`);
-  L.push(`  printf("Aurora: %u clocks simulados, %llu leitura(s) de entrada.\\n", nclk, reads);`);
+  L.push(`  printf("Aurora: %u clocks simulados, %llu leitura(s) de entrada.\\n", ran, reads);`);
   L.push(`  top->final();`);
   L.push(`  delete top;`);
   L.push(`  return 0;`);

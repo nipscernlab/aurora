@@ -383,7 +383,12 @@
             "start":  "=== Teste de hardware: \"{{name}}\" — iniciando ({{clocks}} clocks) ===",
             "genCpp": "Gerando o harness C++ de \"{{name}}\"...",
             "exec":   "Executando",
-            "openFolder": "Abrir esta pasta na file tree (visão de pastas)"
+            "reads":  "leituras",
+            "openFolder": "Abrir esta pasta na file tree (visão de pastas)",
+            "toaquiAdded":   "Adicionei #TOAQUI antes do } que fecha o main() em {{file}} — o pino 'cheguei' agora pulsa no fim do programa, então a simulação encerra assim que o programa termina.",
+            "toaquiPresent": "{{file}} já tem um #TOAQUI — mantido como está.",
+            "toaquiNoMain":  "Não encontrei o } que fecha o main() em {{file}} — #TOAQUI não adicionado; a simulação vai rodar o teto de clocks inteiro.",
+            "chegueiEnd":    "Fim do programa alcançado no clock {{clock}} (pino cheguei) — simulação encerrada antes do teto."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave fechado - restaurando árvore de arquivos padrão...",

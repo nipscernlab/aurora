@@ -87,6 +87,41 @@ function isPythonFile(filePath) {
     return /\.py$/i.test(String(filePath || ''));
 }
 
+// Insere a diretiva `#TOAQUI` logo antes do `}` que fecha a funcao main()
+// de um fonte C±. O #TOAQUI faz o compilador pulsar o pino `cheguei` no fim
+// do programa — usado pelo harness do botao Verilator pra encerrar a sim
+// assim que o programa termina. Acha o `}` casando chaves a partir de
+// `main(`, ignorando `//` e `/* */`. Retorna o texto original inalterado se
+// nao achar o main ou se as chaves nao fecharem (nao instrumenta as cegas).
+function insertChegueiToaqui(src) {
+    const s = String(src || '');
+    // Definicao de main (nao uma chamada num comentario): tipo de retorno
+    // explicito antes de `main(`.
+    const m = /\b(?:void|int)\s+main\s*\([^)]*\)\s*\{/.exec(s);
+    if (!m) return s;
+    let i = m.index + m[0].length; // logo apos o `{` de abertura
+    let depth = 1;
+    while (i < s.length && depth > 0) {
+        const c = s[i];
+        const n = s[i + 1];
+        if (c === '/' && n === '/') {            // comentario de linha
+            const nl = s.indexOf('\n', i);
+            i = nl === -1 ? s.length : nl;
+            continue;
+        }
+        if (c === '/' && n === '*') {            // comentario de bloco
+            const end = s.indexOf('*/', i + 2);
+            i = end === -1 ? s.length : end + 2;
+            continue;
+        }
+        if (c === '{') depth++;
+        else if (c === '}') { depth--; if (depth === 0) break; }
+        i++;
+    }
+    if (depth !== 0) return s;                   // chaves desbalanceadas — desiste
+    return `${s.slice(0, i)}\n    #TOAQUI\n${s.slice(i)}`;
+}
+
 function isVerilogLikeFile(filePath) {
     return /\.(v|sv|vh)$/i.test(String(filePath || ''));
 }
@@ -704,6 +739,50 @@ async loadConfig() {
         };
     }
 
+    /**
+     * Garante que o .cmm tenha #TOAQUI antes do `}` de main() — sem isso o
+     * pino `cheguei` nao vira porta do <proc>.v e o harness do botao Verilator
+     * nao consegue detectar o fim do programa. Idempotente: se ja houver
+     * #TOAQUI em qualquer lugar do arquivo, nao mexe. Roda DEPOIS do
+     * saveAllFiles (sem corrida) e sincroniza o buffer do editor aberto pra
+     * que um save manual posterior nao derrube a instrumentacao.
+     *
+     * @param {string} softwarePath  <proj>/<proc>/Software
+     * @param {string} cmmFile       nome do .cmm (ex: ProcDTW.cmm)
+     */
+    async _ensureChegueiToaqui(softwarePath, cmmFile) {
+        const cmmPath = await window.electronAPI.joinPath(softwarePath, cmmFile);
+        let src;
+        try {
+            src = await window.electronAPI.readFile(cmmPath, { encoding: 'utf8' });
+        } catch (_e) {
+            return; // sem .cmm — o proprio cmmcomp vai reclamar adiante
+        }
+
+        if (/#TOAQUI\b/.test(src)) {
+            this.terminalManager.appendToTerminal('thtest',
+                tr('terminal.htest.toaquiPresent', { file: cmmFile }), 'plain', { internal: true });
+            return;
+        }
+
+        const out = insertChegueiToaqui(src);
+        if (out === src) {
+            this.terminalManager.appendToTerminal('thtest',
+                tr('terminal.htest.toaquiNoMain', { file: cmmFile }), 'warning');
+            return;
+        }
+
+        await window.electronAPI.writeFile(cmmPath, out);
+        // Mantem o editor em sincronia com o disco (se o .cmm estiver aberto),
+        // pra que um Ctrl+S posterior nao reescreva sem o #TOAQUI.
+        const model = window.SharedModelRegistry?.getModel?.(cmmPath)
+            ?? window.EditorManager?.getEditorForFile?.(cmmPath)?.getModel?.();
+        if (model && model.getValue() !== out) model.setValue(out);
+
+        this.terminalManager.appendToTerminal('thtest',
+            tr('terminal.htest.toaquiAdded', { file: cmmFile }), 'info');
+    }
+
     async cmmCompilation(processor) {
         const { name, showArrays } = processor;
         await this.terminalManager.clearTerminal('tcmm');
@@ -730,6 +809,16 @@ async loadConfig() {
             const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
 
             await TabManager.saveAllFiles();
+
+            // Botao Verilator: instrumenta o .cmm do processador-alvo com
+            // #TOAQUI (pino `cheguei` no fim do programa) ANTES do cmmcomp.exe
+            // ler o arquivo. Aqui — depois do saveAllFiles — pra que o save
+            // nao sobrescreva a instrumentacao com o buffer do editor. Idem-
+            // potente: pula se ja houver #TOAQUI em qualquer lugar.
+            if (this._chegueiInstrumentProc === name) {
+                await this._ensureChegueiToaqui(softwarePath, selectedCmmFile);
+            }
+
             statusUpdater.startCompilation('cmm');
 
             // yanc v4 usa named options (CMMComp/Sources/args.c):
@@ -2824,8 +2913,15 @@ async verilatorProcessorRun() {
     // cada ~1% dos clocks (com fflush). A gente consome essas linhas pra
     // mover a barra ASCII inline e NAO as ecoa; o resto do stdout (relatorio
     // do Verilator, etc) vai como plain (so no verbose).
+    // @@AURORA_PROG move a barra; @@AURORA_CHEGUEI <clock> sinaliza que o
+    // pino `cheguei` (#TOAQUI) encerrou a sim — guardamos o clock pra avisar
+    // o usuario. Ambos sao consumidos (nao ecoados); o resto do stdout vai
+    // como plain (so no verbose).
     const PROG_RE = /^@@AURORA_PROG\s+(\d+)\s+(\d+)\s+(\d+)/;
+    const CHEGUEI_RE = /^@@AURORA_CHEGUEI\s+(\d+)/;
     const execLabel = tr('terminal.htest.exec');
+    let chegueiClock = null;
+    let lastReads = null;
     let unsub = null;
     if (typeof window.electronAPI.onExecSpecStream === 'function') {
         unsub = window.electronAPI.onExecSpecStream((payload) => {
@@ -2836,10 +2932,13 @@ async verilatorProcessorRun() {
                     const cyc = +m[1];
                     const total = +m[2] || numClocks;
                     const reads = +m[3];
+                    lastReads = reads;
                     const pct = total ? Math.round((cyc / total) * 100) : 0;
                     this.terminalManager.renderHardwareProgress?.(T, { pct, cyc, total, reads, label: execLabel });
                     continue;
                 }
+                const ch = line.match(CHEGUEI_RE);
+                if (ch) { chegueiClock = +ch[1]; continue; }
                 if (!line.trim()) continue;
                 this.terminalManager.processStreamedLine(T, line.trim());
             }
@@ -2854,10 +2953,20 @@ async verilatorProcessorRun() {
     }
     if (runCode !== 0) throw new Error(tr('error.compilation.verilatorTbRunFailed', { code: runCode }));
 
-    // Fecha a barra em 100% (caso o ultimo marcador nao tenha chegado exato).
+    // Fecha a barra no clock REAL de parada: o teto (numClocks) num run
+    // completo, ou o clock do `cheguei` se o programa terminou antes — assim
+    // a barra para em "1224/2000", nao forca "2000/2000".
+    const endCyc = chegueiClock != null ? chegueiClock : numClocks;
+    const endPct = numClocks ? Math.min(100, Math.round((endCyc / numClocks) * 100)) : 100;
     this.terminalManager.renderHardwareProgress?.(T, {
-        pct: 100, cyc: numClocks, total: numClocks, label: execLabel, done: true,
+        pct: endPct, cyc: endCyc, total: numClocks, reads: lastReads, label: execLabel, done: true,
     });
+
+    // Encerrou pelo pino `cheguei` (programa terminou antes do teto de clocks).
+    if (chegueiClock != null) {
+        this.terminalManager.appendToTerminal(T,
+            tr('terminal.htest.chegueiEnd', { clock: chegueiClock }), 'success');
+    }
 
     // Mensagem final com o diretorio de saida como LINK: clicar abre a
     // view de pastas da file tree e revela essa pasta (aberta).

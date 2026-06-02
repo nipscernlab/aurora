@@ -382,7 +382,12 @@
             "start":  "=== Hardware test: \"{{name}}\" — starting ({{clocks}} clocks) ===",
             "genCpp": "Generating the C++ harness for \"{{name}}\"...",
             "exec":   "Running",
-            "openFolder": "Open this folder in the file tree (folder view)"
+            "reads":  "reads",
+            "openFolder": "Open this folder in the file tree (folder view)",
+            "toaquiAdded":   "Added #TOAQUI before main()'s closing brace in {{file}} — the 'cheguei' pin now pulses at program end, so the sim stops as soon as the program finishes.",
+            "toaquiPresent": "{{file}} already has a #TOAQUI — leaving it as is.",
+            "toaquiNoMain":  "Could not find main()'s closing brace in {{file}} — #TOAQUI not added; the sim will run the full clock budget.",
+            "chegueiEnd":    "Program end reached at clock {{clock}} (cheguei pin) — simulation stopped early."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",

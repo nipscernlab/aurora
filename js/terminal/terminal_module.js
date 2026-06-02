@@ -844,7 +844,11 @@ createLogEntry(terminal, text, type, timestamp) {
         const pct = Math.max(0, Math.min(100, Math.round(p.pct || 0)));
         const filled = Math.round((pct / 100) * W);
         const bar = '█'.repeat(filled) + '░'.repeat(W - filled);
-        const tail = (p.reads != null) ? ` · ${p.reads}` : '';
+        // `reads` e o TOTAL de leituras de entrada (somando todos os input_<N>),
+        // entao o rotulo agregado "leituras" cabe mesmo com varias entradas.
+        const readsWord = (typeof window !== 'undefined' && window.t)
+            ? window.t('terminal.htest.reads') : 'reads';
+        const tail = (p.reads != null) ? ` · ${p.reads} ${readsWord}` : '';
         el.textContent = `${p.label} ▕${bar}▏ ${pct}%  (${p.cyc}/${p.total})${tail}`;
         el.classList.toggle('done', !!p.done);
 

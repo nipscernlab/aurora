@@ -1649,6 +1649,29 @@ body.resizing-ai-corner .resizer-horizontal::after {
   box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Clickable file references inside assistant messages (core.v, proc.cmm:25).
+ *  linkifyFileRefs() wraps them in .ai-file-ref; clicking opens the file (at
+ *  the cited line) in the editor.
+ * ------------------------------------------------------------------------- */
+.ai-file-ref {
+  color: var(--accent-hover);
+  cursor: pointer;
+  border-bottom: 1px dotted rgba(168, 158, 240, 0.5);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  padding: 0 1px;
+  transition: color var(--transition-fast),
+              border-color var(--transition-fast),
+              background-color var(--transition-fast);
+}
+.ai-file-ref:hover {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 3px;
+}
+
 /* Suspend both panels' open/close easing during the drag so they track the
    cursor (same as body.resizing-corner does for the file-tree side). */
 body.resizing-ai-corner .ai-assistant-container,

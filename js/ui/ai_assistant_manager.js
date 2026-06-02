@@ -15,7 +15,9 @@
  */
 
 import { showConfirm } from './dialog_manager.js';
+import { showCardNotification } from './notification.js';
 import { constrainTerminalHeight } from '../utils/resize.js';
+import { TabManager } from '../tabs/tab_manager.js';
 
 const PROVIDER_META = {
   // Subscription-backed: runs through the Claude Code / Claude Agent SDK,
@@ -177,7 +179,10 @@ const SYSTEM_PROMPT = [
   "for the SAPHO processor (Scalable Architecture for Hardware Optimization) were built by the " +
   "undergraduate Chrysthofer Arthur Amaro Afonso (UFJF) in partnership with Prof. Luciano. " +
   "Be concise and precise. Use Markdown. Use fenced ```cmm blocks for CMM snippets, ```verilog for " +
-  "Verilog/VHDL snippets, and $...$ / $$...$$ for LaTeX math. ALWAYS reply in the same language " +
+  "Verilog/VHDL snippets, and $...$ / $$...$$ for LaTeX math. When you point the user to a spot in a " +
+  "project file, write the reference as `filename.ext:line` (e.g. `my_proc.cmm:25` or `core.v:42`) — " +
+  "the IDE turns it into a clickable link that opens that file at that line. Use a bare `filename.ext` " +
+  "when you mean the whole file. ALWAYS reply in the same language " +
   "the user writes in (Portuguese or English).",
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
@@ -772,6 +777,60 @@ function renderInline(s) {
   return s;
 }
 
+// Project-file reference + optional :line suffix. Conservative: the name must
+// start alphanumeric and carry a real known extension, so prose like "v.1" or
+// "Fig.2" isn't mistaken for a file. Kept in sync with the file types the tree
+// tracks (Verilog + Python imports, plus .cmm/.asm and a few sidecars).
+const AI_FILE_REF_RE =
+  /\b[A-Za-z0-9][A-Za-z0-9_-]*(?:\.[A-Za-z0-9_-]+)*\.(?:cmm|v|sv|vh|py|asm|spf|vcd|gtkw|mem|txt|json)(?::\d+)?\b/g;
+const AI_FILE_REF_TEST = new RegExp(AI_FILE_REF_RE.source);
+const AI_FILE_SKIP_TAGS = new Set(['CODE', 'PRE', 'A', 'SCRIPT', 'STYLE', 'BUTTON']);
+
+/**
+ * Turn project-file references in a rendered message — `core.v`,
+ * `my_proc.cmm:25` — into clickable `.ai-file-ref` spans. Runs on the FINAL
+ * (committed / static) message DOM, never per streaming frame, and skips text
+ * inside code/links so snippets and URLs are left untouched.
+ */
+function linkifyFileRefs(root) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      for (let p = node.parentNode; p && p !== root; p = p.parentNode) {
+        if (p.nodeType === 1 &&
+            (AI_FILE_SKIP_TAGS.has(p.tagName) || p.classList.contains('ai-file-ref'))) {
+          return NodeFilter.FILTER_REJECT;
+        }
+      }
+      return AI_FILE_REF_TEST.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    },
+  });
+  const targets = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) targets.push(n);
+  for (const textNode of targets) {
+    const text = textNode.nodeValue;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    AI_FILE_REF_RE.lastIndex = 0;
+    while ((m = AI_FILE_REF_RE.exec(text))) {
+      const token = m[0];
+      const colon = token.lastIndexOf(':');
+      const hasLine = colon !== -1 && /^\d+$/.test(token.slice(colon + 1));
+      if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const span = document.createElement('span');
+      span.className = 'ai-file-ref';
+      span.dataset.file = hasLine ? token.slice(0, colon) : token;
+      if (hasLine) span.dataset.line = token.slice(colon + 1);
+      span.textContent = token;
+      span.title = 'Open in editor';
+      frag.appendChild(span);
+      last = m.index + token.length;
+    }
+    if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    textNode.parentNode.replaceChild(frag, textNode);
+  }
+}
+
 /** Parse a single GFM-style table row. Strips the leading/trailing pipe. */
 function _splitTableRow(line) {
   let s = line.trim();
@@ -1240,6 +1299,14 @@ class AIAssistantManager {
 
     this.providerIcon  = this.container.querySelector('#ai-provider-icon');
     this.messagesEl    = this.container.querySelector('#ai-messages');
+    // Delegated: clicking a linkified file reference (`core.v`, `proc.cmm:25`)
+    // opens that project file in the editor, jumping to the line when given.
+    this.messagesEl?.addEventListener('click', (e) => {
+      const ref = e.target.closest?.('.ai-file-ref');
+      if (!ref) return;
+      e.preventDefault();
+      this.openFileRef(ref.dataset.file, ref.dataset.line ? parseInt(ref.dataset.line, 10) : null);
+    });
     this.emptyStateEl  = this.container.querySelector('#ai-empty-state');
     this.inputEl       = this.container.querySelector('#ai-input');
     this.composerEl    = this.container.querySelector('#ai-composer');
@@ -2364,7 +2431,10 @@ class AIAssistantManager {
     if (cleanText) {
       this.messages.push({ role: 'assistant', content: cleanText });
     }
-    if (this.currentAssistantContentEl) highlightCodeBlocks(this.currentAssistantContentEl);
+    if (this.currentAssistantContentEl) {
+      highlightCodeBlocks(this.currentAssistantContentEl);
+      linkifyFileRefs(this.currentAssistantContentEl);
+    }
 
     // If the model called tools but never generated a text explanation
     // (common with some Ollama models), show a prompt so the user knows
@@ -2668,6 +2738,7 @@ class AIAssistantManager {
     } else if (content) {
       contentEl.innerHTML = renderMarkdown(content);
       highlightCodeBlocks(contentEl);
+      linkifyFileRefs(contentEl);
     }
     this.messagesEl.appendChild(el);
     // The user just sent a message: force-stick to the bottom even if
@@ -3070,6 +3141,48 @@ class AIAssistantManager {
     obs.observe(terminalContainer, { attributes: true, attributeFilter: ['style', 'class'] });
     window.addEventListener('resize', schedulePosition);
     position();
+  }
+
+  /* ---------------- clickable file references ---------------- */
+
+  /**
+   * Resolve a referenced filename to an absolute path using the project's
+   * tracked files (the file tree's verilogFiles: Verilog + Python imports +
+   * each processor's .cmm). Matched by basename, case-insensitive. Returns
+   * null when the open project has no file by that name.
+   */
+  _resolveProjectFile(fileName) {
+    if (!fileName) return null;
+    const base = String(fileName).split(/[\\/]/).pop().toLowerCase();
+    const files = window.projectTreeManager?.verilogFiles;
+    if (!Array.isArray(files)) return null;
+    const hit = files.find((f) => (f.name || '').toLowerCase() === base);
+    return hit ? hit.path : null;
+  }
+
+  /** Open a referenced project file in the editor, jumping to `line` if given. */
+  async openFileRef(fileName, line) {
+    const tr = (k, p) => (window.t ? window.t(k, p) : null);
+    const filePath = this._resolveProjectFile(fileName);
+    if (!filePath) {
+      showCardNotification(
+        tr('notification.ai.fileNotFound', { name: fileName }) || `File not in project: ${fileName}`,
+        'warning', 3000,
+      );
+      return;
+    }
+    try {
+      const content = await window.electronAPI.readFile(filePath);
+      const opts = (Number.isFinite(line) && line > 0)
+        ? { revealPosition: { line, column: 1 } }
+        : {};
+      TabManager.addTab(filePath, content, opts);
+    } catch (_e) {
+      showCardNotification(
+        tr('notification.ai.fileOpenError', { name: fileName }) || `Could not open ${fileName}`,
+        'error', 3000,
+      );
+    }
   }
 }
 

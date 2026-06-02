@@ -240,7 +240,7 @@ class PRISMViewer {
         await this._loadSVG(result.svgPath, moduleName);
         this.backBtn.disabled = false;
       } else {
-        this._showStatus(`Module not found: ${moduleName}`, true);
+        this._showStatus(result.message || `Module not found: ${moduleName}`, true);
         setTimeout(() => this._hideStatus(), 3000);
       }
     } catch (err) {

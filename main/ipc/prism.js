@@ -537,6 +537,49 @@ function injectCellTypesIntoSvg(svgString, instanceTypeMap) {
   );
 }
 
+// Mapa tipo-de-cell -> Set de portas (s:pid) que a skin custom desenha.
+// Uma skin custom tem um conjunto FIXO de portas; netlistsvg so cria a
+// shape das portas que a skin declara.
+function buildSkinPortMap(skinData) {
+  const map = new Map();
+  for (const block of extractTopLevelGBlocks(skinData)) {
+    if (!block.type) continue;
+    const pids = new Set();
+    for (const m of block.content.matchAll(/\bs:pid="([^"]+)"/g)) pids.add(m[1]);
+    map.set(block.type, pids);
+  }
+  return map;
+}
+
+// Remove de cada cell as conexoes cujo port NAO existe na skin custom do
+// seu tipo. Sem isso, uma porta presente no RTL mas ausente da skin (ex:
+// o core ganhou `cheguei` mas core.svg nao tem o anchor) faz o netlistsvg
+// gerar uma ARESTA pra uma shape de porta que ele nunca desenhou — e o ELK
+// aborta com "Referenced shape does not exist: <cell>.<port>", derrubando
+// TODO o render do modulo. Podar alinha o JSON ao que a skin sabe desenhar:
+// a porta extra apenas nao aparece (com aviso), em vez de quebrar a tela.
+// Cells de tipo generico (sem skin) nao sao tocadas — la o netlistsvg cria
+// as portas a partir das proprias conexoes, entao nunca ficam penduradas.
+function pruneNetlistToSkinPorts(netlistJson, skinPortMap) {
+  if (!netlistJson?.modules) return;
+  for (const moduleData of Object.values(netlistJson.modules)) {
+    for (const [cellName, cell] of Object.entries(moduleData.cells || {})) {
+      const allowed = skinPortMap.get(cell.type);
+      if (!allowed || !cell.connections) continue;
+      for (const port of Object.keys(cell.connections)) {
+        if (allowed.has(port)) continue;
+        delete cell.connections[port];
+        if (cell.port_directions) delete cell.port_directions[port];
+        log.warn(
+          `[PRISM] cell "${cellName}" (${cell.type}): porta "${port}" nao esta na skin ` +
+          `assets/prism-skins/${cell.type}.svg — omitida do esquematico ` +
+          `(adicione um <g s:pid="${port}"/> na skin pra desenha-la).`,
+        );
+      }
+    }
+  }
+}
+
 async function generateModuleSVGWithPaths(moduleName, tempDir) {
   const cleanName = sanitizeFileName(moduleName);
   const inputJsonPath = path.join(tempDir, `${cleanName}.json`);
@@ -551,6 +594,11 @@ async function generateModuleSVGWithPaths(moduleName, tempDir) {
     fse.readJson(inputJsonPath),
   ]);
 
+  // Alinha o netlist ao que as skins custom conseguem desenhar (ver
+  // pruneNetlistToSkinPorts) ANTES de renderizar — evita o abort do ELK
+  // "Referenced shape does not exist" quando o RTL tem porta que a skin nao.
+  pruneNetlistToSkinPorts(netlistJson, buildSkinPortMap(skinData));
+
   // lib.render usa callback (err, svgString) — wrap em Promise. Sem spawn
   // de processo, sem .exe externo: fica tudo in-process.
   const rawSvg = await new Promise((resolve, reject) => {
@@ -559,6 +607,13 @@ async function generateModuleSVGWithPaths(moduleName, tempDir) {
       else resolve(svg);
     });
   });
+
+  // Defensivo: se o layout falhar de outra forma e devolver vazio, falha
+  // com mensagem clara em vez de estourar um TypeError no inject (.replace
+  // de undefined) — esse era o sintoma "clicar no modulo nao faz nada".
+  if (typeof rawSvg !== 'string' || !rawSvg) {
+    throw new Error(`netlistsvg nao produziu SVG para o modulo "${moduleName}" (falha de layout)`);
+  }
 
   const svgString = injectCellTypesIntoSvg(rawSvg, buildInstanceTypeMap(netlistJson));
   await fse.writeFile(outputSvgPath, svgString, 'utf-8');

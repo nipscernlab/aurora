@@ -245,6 +245,14 @@ async function loadProject(spfPath) {
         // window.currentSpfPath for the dozens of existing read sites.
         ProjectStore.setProject(spfPath, basePath);
 
+        // Clean slate BEFORE the new tree loads. A direct project→project
+        // switch (e.g. clicking another project in the recents list / welcome
+        // screen) doesn't pass through close_project, so the previous project's
+        // in-memory file list and its rendered rows would otherwise still be
+        // present while the new .spf loads — surfacing the old project's
+        // imported files in the new one. reset() wipes both.
+        window.projectTreeManager?.reset?.();
+
         // Seed the global processor list from the IPC payload BEFORE the file
         // tree renders. Without this, processor folders render as plain
         // directories and only pick up their per-processor color/trash icon

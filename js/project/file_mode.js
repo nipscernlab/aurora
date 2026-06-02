@@ -519,8 +519,21 @@ class ProjectTreeManager {
     reset() {
         this.isTreeActive = false;
         this.verilogFiles = [];
-        // Tree DOM is already cleared by clearProjectInterface in
-        // close_project.js; nothing to do here.
+        this.missingFiles = [];
+        // Drop any rows/separators/notices the previous project rendered.
+        // close_project.js clears the DOM via clearProjectInterface, but a
+        // DIRECT project→project switch (open B while A is open, e.g. from the
+        // recents list / welcome screen) never goes through close — so without
+        // this the previous project's imported files stayed painted until the
+        // new tree finished loading (and lingered entirely if anything raced
+        // the reconciler). Clearing here guarantees a clean slate the moment a
+        // new project starts loading.
+        const container = window.treeView?.getContainer?.('verilog');
+        if (container) {
+            container
+                .querySelectorAll('.verilog-file-item, .verilog-processor-separator, .verilog-missing-notice')
+                .forEach((el) => el.remove());
+        }
     }
 
     /**

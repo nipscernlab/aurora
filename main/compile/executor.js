@@ -29,6 +29,7 @@
 
 'use strict';
 
+const os = require('os');
 const { ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const log = require('electron-log');
@@ -59,6 +60,29 @@ function buildChildEnv(spec) {
     env.PATH = spec.prependPath.join(sep) + sep + (env.PATH || '');
   }
   return env;
+}
+
+// Toolchain children get more CPU than the rest of the desktop's normal-
+// priority work WITHOUT starving the UI. ABOVE_NORMAL is the safe step: HIGH /
+// REALTIME can make the whole desktop — and Aurora's own renderer — stutter,
+// which would undo the FPS work. Best-effort only; os.setPriority can throw
+// EPERM on locked-down systems, never fatal.
+//
+// Windows note: a process's priority class is NOT inherited by grandchildren,
+// so this directly speeds the single-process tools (iverilog, vvp, yosys, the
+// V<top>.exe simulation run — often the longest step) and the build
+// coordinators. The g++ workers that `make` fans out under Verilator stay at
+// NORMAL; their parallelism already comes from `verilator -j 0`.
+const TOOLCHAIN_PRIORITY = os.constants.priority.PRIORITY_ABOVE_NORMAL;
+
+/** Best-effort priority bump for a freshly-spawned toolchain child. */
+function boostPriority(pid) {
+  if (pid == null) return;
+  try {
+    os.setPriority(pid, TOOLCHAIN_PRIORITY);
+  } catch (err) {
+    log.debug('[exec] could not raise process priority:', err?.message || err);
+  }
 }
 
 /**
@@ -133,6 +157,7 @@ function register() {
 
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid;
+      boostPriority(child.pid);
 
       // Only clear the shared slot if it still points at *this* child —
       // a faster sequential step could already have claimed it.
@@ -188,6 +213,7 @@ function register() {
 
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid;
+      boostPriority(child.pid);
 
       child.stdout?.on('data', (data) => {
         event.sender.send('exec-spec-stream', { type: 'stdout', data: data.toString() });

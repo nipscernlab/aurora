@@ -476,6 +476,8 @@
             "cocotbBundledPythonRequired":"cocotb mode requires Aurora's bundled Python runtime to keep the version encapsulated. Run npm run bootstrap or reinstall Aurora to restore components/Packages/python.",
             "cocotbPackageMissing": "Python was found at {{path}}, but cocotb is not installed in that runtime. Run npm run bootstrap to restore Aurora's bundled Python.",
             "cocotbVersionMismatch":"Aurora's bundled Python found cocotb {{found}}, but the expected version is {{expected}}. Run npm run bootstrap to restore the encapsulated version.",
+            "cocotbVerilatorPythonMissing":"The Verilator bundle's Python was not found at {{path}}. Run `npm run bootstrap` to download the Verilator bundle, or switch the Wave simulator back to Icarus.",
+            "cocotbVerilatorPackageMissing":"The Verilator bundle's Python at {{path}} does not have cocotb installed. The bundle predates cocotb support — re-download the latest Verilator bundle (npm run bootstrap), or switch the Wave simulator back to Icarus.",
             "cocotbFailed":         "cocotb simulation failed with exit code {{code}}.",
             "cocotbNoWave":         "cocotb finished but no .fst/.vcd waveform was found in {{path}}.",
             "cocotbFst2vcdFailed":  "fst2vcd failed with exit code {{code}} while converting the cocotb waveform.",

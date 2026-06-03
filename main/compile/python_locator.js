@@ -28,6 +28,21 @@ function getBundledPythonPath() {
   return path.join(componentsPath, 'Packages', 'python', process.platform === 'win32' ? 'python.exe' : 'python3');
 }
 
+/**
+ * The cocotb+Verilator flow uses the Python that ships INSIDE the
+ * Verilator bundle (components/Packages/verilator/mingw64/bin/python.exe),
+ * not the standalone Packages/python runtime the Icarus flow uses. That
+ * one was built against the bundle's mingw toolchain and carries the
+ * statically-linked libcocotbvpi_verilator.a — see the cocotb-verilator
+ * packaging recipe in docs/package-cocotb-into-bundle.sh.
+ */
+function getVerilatorBundlePythonPath() {
+  return path.join(
+    componentsPath, 'Packages', 'verilator', 'mingw64', 'bin',
+    process.platform === 'win32' ? 'python.exe' : 'python3',
+  );
+}
+
 function samePath(a, b) {
   return norm(a).toLowerCase() === norm(b).toLowerCase();
 }
@@ -210,6 +225,40 @@ function isBundledPythonPath(binaryPath) {
   return samePath(binaryPath, getBundledPythonPath());
 }
 
+function isVerilatorBundlePythonPath(binaryPath) {
+  return samePath(binaryPath, getVerilatorBundlePythonPath());
+}
+
+/**
+ * Probe the Verilator bundle's Python for cocotb (the verilator runner).
+ * Unlike getPythonStatus, there's no candidate search — the path is
+ * fixed inside the bundle. Returns {ok:false, exists:false} when the
+ * bundle isn't installed so the renderer can show a bootstrap hint.
+ */
+async function getVerilatorPythonStatus() {
+  const pythonPath = getVerilatorBundlePythonPath();
+  if (!fs.existsSync(pythonPath)) {
+    return {
+      ok: false,
+      exists: false,
+      pythonPath,
+      hasCocotb: false,
+      isVerilatorBundle: true,
+      expectedCocotbVersion: EXPECTED_COCOTB_VERSION,
+      isPinnedCocotb: false,
+      error: 'Verilator bundle Python not found.',
+    };
+  }
+  const status = await runPythonProbe(pythonPath);
+  return {
+    ...status,
+    exists: true,
+    isVerilatorBundle: true,
+    expectedCocotbVersion: EXPECTED_COCOTB_VERSION,
+    isPinnedCocotb: status.cocotbVersion === EXPECTED_COCOTB_VERSION,
+  };
+}
+
 function isKnownPythonPath(binaryPath) {
   if (!binaryPath) return false;
   const target = norm(binaryPath).toLowerCase();
@@ -219,8 +268,11 @@ function isKnownPythonPath(binaryPath) {
 module.exports = {
   EXPECTED_COCOTB_VERSION,
   getBundledPythonPath,
+  getVerilatorBundlePythonPath,
   getPythonStatus,
+  getVerilatorPythonStatus,
   isBundledPythonPath,
+  isVerilatorBundlePythonPath,
   isKnownPythonPath,
   listPythonCandidatesSync,
 };

@@ -18,8 +18,12 @@ const { execSync } = require('child_process');
 
 const TOOLCHAIN_TAG      = 'toolchain-v2';
 const TOOLCHAIN_FILENAME = 'aurora-toolchain-v2.zip';
-const VERILATOR_TAG      = 'verilator-v1';
-const VERILATOR_FILENAME = 'aurora-verilator-v1.zip';
+// verilator-v2 bakes cocotb (+ the static libcocotbvpi_verilator.a) into the
+// bundle's Python so the Wave button's cocotb flow can target Verilator, not
+// just Icarus. v1 had no cocotb — installs carrying it are upgraded in place
+// (see verilatorCocotbInstalled below).
+const VERILATOR_TAG      = 'verilator-v2';
+const VERILATOR_FILENAME = 'aurora-verilator-v2.zip';
 const GITHUB_OWNER       = 'nipscernlab';
 const GITHUB_REPO        = 'Aurora';
 
@@ -44,6 +48,26 @@ function alreadyInstalled(sentinelPath = SENTINEL_FILE) {
 
 function verilatorAlreadyInstalled() {
     return fs.existsSync(VERILATOR_SENTINEL);
+}
+
+// cocotb-on-Verilator marker: the static VPI lib baked into the bundle's
+// Python. Lives under mingw64/lib/python3.<minor>/site-packages — scan for
+// any python3.* so this survives a future Python minor bump. A v1 bundle
+// (verilator present, this absent) triggers an in-place upgrade to v2.
+function verilatorCocotbInstalled() {
+    const libBase = path.join(PACKAGES_DIR, 'verilator', 'mingw64', 'lib');
+    let entries;
+    try {
+        entries = fs.readdirSync(libBase);
+    } catch (_e) {
+        return false;
+    }
+    return entries.some((name) =>
+        /^python3\./i.test(name) &&
+        fs.existsSync(path.join(
+            libBase, name, 'site-packages', 'cocotb', 'libs', 'libcocotbvpi_verilator.a',
+        )),
+    );
 }
 
 function downloadFile(url, dest) {
@@ -136,11 +160,15 @@ function extractZip(zipPath, destDir) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function downloadVerilatorBundle(force) {
-    if (verilatorAlreadyInstalled() && !force) {
-        log('Verilator bundle already present — skipping.');
+    const haveBundle = verilatorAlreadyInstalled();
+    const haveCocotb = verilatorCocotbInstalled();
+    if (haveBundle && haveCocotb && !force) {
+        log('Verilator bundle (with cocotb) already present — skipping.');
         return;
     }
-    if (!verilatorAlreadyInstalled()) {
+    if (haveBundle && !haveCocotb) {
+        log('Verilator bundle present but missing cocotb support — upgrading to verilator-v2.');
+    } else if (!haveBundle) {
         log('Verilator bundle not found in components/Packages/verilator.');
     }
     try {
@@ -148,6 +176,10 @@ async function downloadVerilatorBundle(force) {
         extractZip(VERILATOR_TMP_ZIP, PACKAGES_DIR);
         fs.unlinkSync(VERILATOR_TMP_ZIP);
         log('Verilator bundle installed successfully.');
+        if (!verilatorCocotbInstalled()) {
+            err('Verilator bundle extracted but cocotb support is still missing.');
+            err('cocotb-on-Verilator will be unavailable; the Verilator zip may predate v2.');
+        }
         if (!verilatorAlreadyInstalled()) {
             err(`Verilator sentinel not found after extraction: ${VERILATOR_SENTINEL}`);
             err('The Verilator zip may have an unexpected internal layout.');
@@ -211,6 +243,7 @@ if (require.main === module) {
 module.exports = {
     alreadyInstalled,
     verilatorAlreadyInstalled,
+    verilatorCocotbInstalled,
     downloadFile,
     extractZip,
     DOWNLOAD_URL,

@@ -24,7 +24,11 @@
 
 const path = require('path');
 const { componentsPath } = require('../paths');
-const { getBundledPythonPath, isBundledPythonPath } = require('./python_locator');
+const {
+  getBundledPythonPath,
+  isBundledPythonPath,
+  isVerilatorBundlePythonPath,
+} = require('./python_locator');
 
 /**
  * Each entry: [basename, [allowed-subdirs-under-components]].
@@ -82,7 +86,10 @@ function isAllowed(binaryPath) {
   const dir = path.posix.dirname(normalized);
 
   if (/^python(3)?(\.exe)?$/i.test(baseName) || /^py(\.exe)?$/i.test(baseName)) {
+    // Two legal Pythons: the standalone Packages/python runtime (Icarus
+    // cocotb) and the one inside the Verilator bundle (Verilator cocotb).
     if (isBundledPythonPath(binaryPath)) return { ok: true };
+    if (isVerilatorBundlePythonPath(binaryPath)) return { ok: true };
     return {
       ok: false,
       error: `python interpreter must be Aurora's bundled runtime: ${binaryPath}`,

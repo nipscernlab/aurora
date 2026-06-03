@@ -477,6 +477,8 @@
             "cocotbBundledPythonRequired":"O modo cocotb usa obrigatoriamente o Python interno da AURORA para manter a versao encapsulada. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/python.",
             "cocotbPackageMissing": "Python foi encontrado em {{path}}, mas o pacote cocotb nao esta instalado no runtime usado. Execute npm run bootstrap para restaurar o Python interno da AURORA.",
             "cocotbVersionMismatch":"O Python interno da AURORA encontrou cocotb {{found}}, mas a versao esperada e {{expected}}. Execute npm run bootstrap para restaurar a versao encapsulada.",
+            "cocotbVerilatorPythonMissing":"O Python do bundle Verilator nao foi encontrado em {{path}}. Execute `npm run bootstrap` para baixar o bundle Verilator, ou volte o simulador do Wave para o Icarus.",
+            "cocotbVerilatorPackageMissing":"O Python do bundle Verilator em {{path}} nao tem o cocotb instalado. O bundle e anterior ao suporte a cocotb — rebaixe o bundle Verilator mais recente (npm run bootstrap), ou volte o simulador do Wave para o Icarus.",
             "cocotbFailed":         "Simulacao cocotb falhou com codigo {{code}}.",
             "cocotbNoWave":         "cocotb terminou, mas nenhum waveform .fst/.vcd foi encontrado em {{path}}.",
             "cocotbFst2vcdFailed":  "fst2vcd falhou com codigo {{code}} ao converter o waveform do cocotb.",

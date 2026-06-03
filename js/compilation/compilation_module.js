@@ -2006,8 +2006,9 @@ async _writeCocotbRunnerScript(tempBaseDir) {
         '    os.environ.setdefault("SIM", "icarus")',
         '    os.environ.setdefault("TOPLEVEL_LANG", "verilog")',
         '    os.environ.setdefault("WAVES", "1")',
+        '    sim = os.environ["SIM"]',
         '',
-        '    runner = get_runner("icarus")',
+        '    runner = get_runner(sim)',
         '    runner.build(',
         '        sources=sources,',
         '        hdl_toplevel=top,',
@@ -2163,13 +2164,49 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
     return targetVcd;
 }
 
-async _waveRunCocotbSimulation(ctx, tools, config) {
+/**
+ * Resolve the simulator-specific half of the cocotb run: which Python
+ * to drive (and therefore which `get_runner` backend), what to prepend
+ * onto PATH, the per-simulator build args, and any extra env.
+ *
+ * cocotb has TWO Pythons in Aurora:
+ *   - Icarus    → components/Packages/python (standalone bundled runtime)
+ *   - Verilator → components/Packages/verilator/mingw64/bin/python.exe
+ *                 (built against the bundle's mingw toolchain; ships the
+ *                 static libcocotbvpi_verilator.a — see
+ *                 docs/package-cocotb-into-bundle.sh)
+ *
+ * The Verilator runner spawns verilator/perl/g++/make as subprocesses,
+ * so its mingw64/bin + usr/bin must be on PATH and PYTHONHOME must point
+ * at the bundle's mingw64 (otherwise the bundle Python warns it can't
+ * find its platform libs).
+ */
+async _resolveCocotbSimProfile(tools) {
+    if (getSimulator() === 'verilator') {
+        const vTools = await this._waveResolveVerilatorTools();
+        const pythonPath = await window.electronAPI.joinPath(vTools.mingwBin, 'python.exe');
+        if (!await window.electronAPI.fileExists(pythonPath)) {
+            throw new Error(tr('error.compilation.cocotbVerilatorPythonMissing', { path: pythonPath }));
+        }
+        const status = await window.electronAPI.getVerilatorPythonStatus();
+        if (!status?.ok || !status.hasCocotb) {
+            throw new Error(tr('error.compilation.cocotbVerilatorPackageMissing', { path: pythonPath }));
+        }
+        // <bundle>/mingw64/bin → <bundle>/mingw64 (PYTHONHOME).
+        const pythonHome = await window.electronAPI.dirname(vTools.mingwBin);
+        return {
+            sim: 'verilator',
+            pythonPath,
+            prependPath: [vTools.mingwBin, vTools.usrBin],
+            buildArgs: [],                  // -g2012 is Icarus-only; Verilator infers
+            extraEnv: { PYTHONHOME: pythonHome },
+        };
+    }
+
+    // Icarus (default).
     if (!await window.electronAPI.fileExists(tools.iverilogBin)) {
         throw new Error(tr('error.toolchain.iverilogNotFound', { path: tools.iverilogBin }));
     }
-    await TabManager.saveAllFiles();
-    await window.electronAPI.mkdir(tools.tempBaseDir);
-
     const pyStatus = await window.electronAPI.getPythonStatus();
     if (!pyStatus?.ok) {
         throw new Error(tr('error.compilation.cocotbPythonMissing'));
@@ -2187,6 +2224,20 @@ async _waveRunCocotbSimulation(ctx, tools, config) {
             expected: expectedCocotbVersion,
         }));
     }
+    return {
+        sim: 'icarus',
+        pythonPath: pyStatus.pythonPath,
+        prependPath: [tools.iverilogBinDir, tools.gtkwaveBinDir],
+        buildArgs: ['-g2012'],
+        extraEnv: {},
+    };
+}
+
+async _waveRunCocotbSimulation(ctx, tools, config) {
+    await TabManager.saveAllFiles();
+    await window.electronAPI.mkdir(tools.tempBaseDir);
+
+    const profile = await this._resolveCocotbSimProfile(tools);
 
     const buildDir = await window.electronAPI.joinPath(
         tools.tempBaseDir,
@@ -2207,19 +2258,20 @@ async _waveRunCocotbSimulation(ctx, tools, config) {
         AURORA_COCOTB_BUILD_DIR: buildDir,
         AURORA_COCOTB_TEST_DIR: tbDir,
         AURORA_COCOTB_PYTHONPATH: [tbDir, this.projectPath, buildDir].filter(Boolean).join(pythonPathSep),
-        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(['-g2012']),
+        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(profile.buildArgs),
         AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),
-        SIM: 'icarus',
+        SIM: profile.sim,
         TOPLEVEL_LANG: 'verilog',
         WAVES: '1',
+        ...profile.extraEnv,
     };
 
     const spec = buildCocotbRunSpec({
-        pythonPath: pyStatus.pythonPath,
+        pythonPath: profile.pythonPath,
         runnerScript,
         cwd: buildDir,
         env,
-        prependPath: [tools.iverilogBinDir, tools.gtkwaveBinDir],
+        prependPath: profile.prependPath,
     });
 
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb'), 'info');

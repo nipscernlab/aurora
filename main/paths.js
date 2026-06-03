@@ -17,14 +17,11 @@ const componentsPath = isDev
   ? path.join(appRoot, 'components')
   : path.join(path.dirname(app.getPath('exe')), 'components');
 
-const sevenZipPath = '7z';
-
 const rootPath = path.join(appRoot, '..', '..');
 
 module.exports = {
   isDev,
   appRoot,
   componentsPath,
-  sevenZipPath,
   rootPath,
 };

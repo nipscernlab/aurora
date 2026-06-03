@@ -40,8 +40,6 @@ const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'gtkwave-nip
 const SENTINEL_FILE = path.join(INSTALL_DIR, 'gtkwave.exe');
 const TMP_ZIP       = path.join(ROOT_DIR, GTKWAVE_FILENAME);
 
-const PACKAGED_7ZIP = path.join(ROOT_DIR, 'components', 'Packages', '7-Zip', '7z.exe');
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function log(msg) { console.log(`[gtkwave-nipscern] ${msg}`); }
@@ -111,11 +109,7 @@ function extractZip(zipPath, destDir) {
     log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
     fs.mkdirSync(destDir, { recursive: true });
 
-    if (fs.existsSync(PACKAGED_7ZIP)) {
-        execSync(`"${PACKAGED_7ZIP}" x "${zipPath}" -o"${destDir}" -y`, { stdio: 'inherit' });
-        return;
-    }
-
+    // PowerShell Expand-Archive (ships on every Win 10+).
     execSync(
         `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
         { stdio: 'inherit' }

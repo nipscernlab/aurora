@@ -20,7 +20,7 @@
  * do copy-components.
  *
  * Padrao seguido do download-toolchain.js — mesma logica de download
- * com retry de redirect, fallback PowerShell -> 7-Zip, e exit 0 em
+ * com retry de redirect, extracao via PowerShell, e exit 0 em
  * falha pra nao bloquear `npm start` (devs offline ainda conseguem
  * iniciar a IDE).
  *
@@ -61,10 +61,6 @@ const SENTINEL_FILE = path.join(BIN_DIR, 'cppcomp.exe');
 // HDL library.
 const HDL_SENTINEL  = path.join(ROOT_DIR, 'components', 'HDL', 'core.v');
 const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
-
-// Aurora ja baixa um toolchain principal e se beneficia do 7-Zip que
-// veio com ele — usar o mesmo binario aqui se ja esta presente.
-const PACKAGED_7ZIP = path.join(ROOT_DIR, 'components', 'Packages', '7-Zip', '7z.exe');
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -132,13 +128,8 @@ function extractZip(zipPath, destDir) {
     log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
     fs.mkdirSync(destDir, { recursive: true });
 
-    if (fs.existsSync(PACKAGED_7ZIP)) {
-        execSync(`"${PACKAGED_7ZIP}" x "${zipPath}" -o"${destDir}" -y`, { stdio: 'inherit' });
-        return;
-    }
-
-    // Fallback: PowerShell Expand-Archive. ErrorActionPreference=Stop pra
-    // que falha de cmdlet propague exit code != 0 (sem isso, execSync
+    // PowerShell Expand-Archive (ships on every Win 10+). ErrorActionPreference
+    // =Stop pra que falha de cmdlet propague exit code != 0 (sem isso, execSync
     // pensa que deu certo e a gente apaga o zip antes do sentinel check).
     execSync(
         `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,

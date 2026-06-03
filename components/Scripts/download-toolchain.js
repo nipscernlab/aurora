@@ -131,7 +131,7 @@ function downloadFile(url, dest) {
 
 function extractZip(zipPath, destDir) {
     // Preflight: o zip precisa existir. Sem essa checagem, um zipPath
-    // invalido entra no subprocess (7-Zip OU PowerShell) que so ai
+    // invalido entra no subprocess PowerShell que so ai
     // emite o erro. Custa muito tempo no CI (Windows runner: ~2s so
     // pra spinar powershell.exe, e Expand-Archive num arquivo inexistente
     // estourava o timeout de 5s do vitest) e produz mensagem opaca
@@ -143,14 +143,7 @@ function extractZip(zipPath, destDir) {
     log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
     fs.mkdirSync(destDir, { recursive: true });
 
-    // Use 7-Zip if a copy happens to be present (much faster on the ~300 MB
-    // bundle); otherwise fall back to PowerShell, which ships on every Win 10+.
-    const sevenZip = path.join(PACKAGES_DIR, '7-Zip', '7z.exe');
-    if (fs.existsSync(sevenZip)) {
-        execSync(`"${sevenZip}" x "${zipPath}" -o"${destDir}" -y`, { stdio: 'inherit' });
-        return;
-    }
-
+    // Extract with PowerShell Expand-Archive (ships on every Win 10+).
     // $ErrorActionPreference = 'Stop' so a cmdlet failure propagates as a
     // non-zero exit code (otherwise execSync sees success and we delete the
     // zip + falsely log "installed" before the sentinel check trips).

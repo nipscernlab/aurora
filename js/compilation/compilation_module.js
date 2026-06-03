@@ -2206,12 +2206,17 @@ async _resolveCocotbSimProfile() {
     // normalization) trips warnings like UNOPTFLAT that Icarus tolerates.
     // Mirror the non-cocotb Verilator flow's -Wno set so warnings don't abort
     // the build (-Wno-fatal is the key one).
-    const VERILATOR_WNO = [
+    const VERILATOR_BUILD = [
         '-Wno-fatal', '-Wno-TIMESCALEMOD', '-Wno-DECLFILENAME',
         '-Wno-STMTDLY', '-Wno-WIDTHTRUNC', '-Wno-WIDTHEXPAND',
+        // Activate the YANC_SIM_VIS block in the generated <proc>.v so the
+        // processor's mirrored variables/arrays (marked /* verilator public_flat */)
+        // are visible in the waveform — same as the non-cocotb Verilator flow.
+        // (Icarus gets this for free via the predefined __ICARUS__.)
+        '+define+YANC_TRACE',
     ];
     return getSimulator() === 'verilator'
-        ? { ...base, sim: 'verilator', buildArgs: VERILATOR_WNO }
+        ? { ...base, sim: 'verilator', buildArgs: VERILATOR_BUILD }
         : { ...base, sim: 'icarus', buildArgs: ['-g2012'] };
 }
 

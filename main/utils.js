@@ -222,9 +222,8 @@ function getExecutablePath(executableName, appRoot) {
   if (executableName === 'yosys') {
     return path.join(appRoot, 'components', 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
   }
-  if (executableName === 'netlistsvg') {
-    return path.join(appRoot, 'components', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');
-  }
+  // netlistsvg is no longer a bundled .exe — it runs in-process from
+  // @silimate/netlistsvg (node_modules), so there is no path to resolve.
   return executableName;
 }
 

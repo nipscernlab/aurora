@@ -1,54 +1,56 @@
 # Releases & toolchain bundle
 
-AURORA's source tree intentionally **does not** ship the SAPHO toolchain
-(Icarus Verilog, GTKWave, Yosys, netlistsvg, 7-Zip, etc.). Those binaries
-live in GitHub Releases. This keeps the repo clone fast (a few MB instead
-of half a gigabyte) and the git history small.
+AURORA's source tree intentionally **does not** ship the SAPHO toolchain.
+Those binaries live in GitHub Releases. This keeps the repo clone fast (a few
+MB instead of ~1 GB) and the git history small.
+
+The FOSS toolchain is consolidated into **one** pinned MSYS2/mingw64 bundle:
+`components/Packages/msys/` carries iverilog, yosys, verilator, gcc15, perl,
+make, ccache and a Python 3.12 whose cocotb ships **both** VPIs (Icarus +
+Verilator). Pinned: gcc 15 and Python 3.12 (newer breaks the cocotb build);
+everything else tracks the latest MSYS2 package. netlistsvg runs in-process
+from `@silimate/netlistsvg` (npm). gtkwave-nipscern (the display fork, with
+`fst2vcd`) and the YANC compilers are separate downloads.
 
 ## What lives where
 
-| Artefact                        | Location                       |
-|---------------------------------|--------------------------------|
-| Renderer / main process source  | This repo (`js/`, `main/`, …)  |
-| Bundled toolchain binaries      | GitHub Release `toolchain-vX`  |
-| End-user installer (`.exe`)     | GitHub Release per app version |
-| `latest.yml` for auto-updater   | GitHub Release per app version |
-
-The `electron-builder` configuration in `package.json` already publishes
-the installer and the `latest.yml` manifest on tag push (see
-`.github/workflows/release.yml`).
+| Artefact                        | Location                            |
+|---------------------------------|-------------------------------------|
+| Renderer / main process source  | This repo (`js/`, `main/`, …)       |
+| Unified mingw toolchain bundle   | GitHub Release `msys-vX` (Aurora)   |
+| gtkwave-nipscern fork            | Release in `nipscernlab/gtkwave-nipscern` |
+| YANC compilers (cmmcomp, …)      | Release in `nipscernlab/yanc`       |
+| End-user installer (`.exe`)      | GitHub Release per app version      |
+| `latest.yml` for auto-updater    | GitHub Release per app version      |
 
 ## End-user flow
 
-End users do not interact with the toolchain bundle directly. They:
-
-1. Download `AuroraIDE-Setup-vX.Y.Z.exe` from
-   [Releases](https://github.com/nipscernlab/Aurora/releases/latest).
-2. Run the installer.
-3. On first launch, AURORA verifies that `components/Packages/` is
-   present. If it is missing or out of date, the IDE downloads the
-   matching `aurora-toolchain-vX.zip` from the pinned release and
-   extracts it next to the executable.
-
-The toolchain version pin lives in `package.json` under `aurora.toolchain`
-so the IDE can refuse to start with a mismatched bundle.
+End users do not interact with the bundle directly. They download
+`sapho-aurora-Setup-vX.Y.Z.exe` from Releases and run it; the installer ships
+the toolchain (baked in at build time by `npm run bootstrap`). A source clone
+runs `npm run bootstrap`, which downloads the `msys-vX` bundle (re-fetched if
+the cocotb sentinel `…/cocotb/libs/libcocotbvpi_verilator.a` is missing),
+gtkwave-nipscern and the YANC compilers.
 
 ## Maintainer flow
 
-### One-time: cut a toolchain release
+### One-time: cut the unified toolchain (msys) bundle
 
 ```powershell
-# From a clean checkout where components/Packages/ is populated correctly
-$ver = "v1"
-Compress-Archive -Path components/Packages/* `
-                 -DestinationPath aurora-toolchain-$ver.zip -Force
+# From a checkout where components/Packages/msys/ is populated correctly
+# (pinned gcc15 + python3.12 mingw snapshot with cocotb baked in — see
+# docs/build-cocotb-verilator.sh + docs/package-cocotb-into-bundle.sh).
+cd components/Packages
+7z a -tzip -mx=5 ..\..\aurora-msys-v1.zip msys   # layout: msys\... at the zip root
 
-gh release create "toolchain-$ver" aurora-toolchain-$ver.zip `
-   --title "AURORA toolchain $ver" `
-   --notes "Bundled SAPHO toolchain (iverilog, gtkwave, yosys, netlistsvg, ...)."
+gh release create "msys-v1" ..\..\aurora-msys-v1.zip `
+   --repo nipscernlab/Aurora --prerelease `
+   --title "AURORA unified mingw bundle v1" `
+   --notes "iverilog 13 + yosys + verilator 5.048 + gcc15 + python3.12 (cocotb, both VPIs)."
 ```
 
-Bump `aurora.toolchain` in `package.json` to `"v1"`.
+Bump `MSYS_TAG` / `MSYS_FILENAME` in `components/Scripts/download-toolchain.js`
+when cutting a new version.
 
 ### Cut an app release
 

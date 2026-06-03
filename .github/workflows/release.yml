@@ -4,25 +4,20 @@ name: Release
 # The auto-updater (electron-updater) reads `latest.yml` + the .exe directly
 # from these release assets — see `main/updater.js`.
 #
-# Trigger: `workflow_dispatch` (manual) for now. The workflow needs the
-# bundled SAPHO toolchain (iverilog, gtkwave, yosys, netlistsvg) to exist
-# under `components/Packages/`, which we now ship as a separate
-# `toolchain-vN` GitHub Release rather than committing to the source tree.
-# The download step below pulls and extracts that bundle before building.
+# Trigger: `workflow_dispatch` (manual) for now. The build needs the bundled
+# SAPHO toolchain under `components/`, which is NOT committed to the source
+# tree — `npm run bootstrap` downloads it: the unified mingw bundle
+# (iverilog/yosys/verilator/python+cocotb) from the `msys-vN` Release, plus the
+# gtkwave-nipscern fork and the YANC compilers from their own Releases.
+# netlistsvg rides in via `npm ci` (@silimate/netlistsvg, in-process).
 #
 # To cut a release:
 #   1. `npm version patch` (or minor / major) — generates a tagged commit.
 #   2. `git push --follow-tags`.
-#   3. Open the Actions tab → "Release" workflow → "Run workflow" with the
-#      tag and the toolchain version you want bundled.
+#   3. Open the Actions tab → "Release" workflow → "Run workflow".
 
 on:
   workflow_dispatch:
-    inputs:
-      toolchain_release:
-        description: 'Toolchain release tag (e.g. toolchain-v2)'
-        required: true
-        default: 'toolchain-v2'
 
 jobs:
   release:
@@ -45,19 +40,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Download toolchain bundle
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $tag = "${{ github.event.inputs.toolchain_release }}"
-          Write-Output "Fetching toolchain bundle from release '$tag'..."
-          gh release download $tag --pattern '*.zip' --dir _toolchain
-          $zip = Get-ChildItem _toolchain\*.zip | Select-Object -First 1
-          Write-Output "Extracting $($zip.FullName) -> components/Packages/"
-          New-Item -ItemType Directory -Force -Path components/Packages | Out-Null
-          Expand-Archive -Path $zip.FullName -DestinationPath components/Packages -Force
-          Get-ChildItem components/Packages | Select-Object Name | Format-Table
+      - name: Bootstrap toolchain bundle
+        # Downloads the unified msys bundle + gtkwave-nipscern + YANC compilers
+        # and copies components into place. Pulls from public Releases (no token).
+        run: npm run bootstrap
 
       - name: Build & publish
         run: npx electron-builder --win --x64 --publish always

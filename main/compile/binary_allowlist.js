@@ -39,19 +39,22 @@ const RAW_ALLOWLIST = [
   ['appcomp.exe',   ['bin']],
   ['asmcomp.exe',   ['bin']],
 
-  ['iverilog.exe',  ['Packages/iverilog/bin']],
-  ['vvp.exe',       ['Packages/iverilog/bin']],
+  // Unified mingw bundle: iverilog, vvp, verilator, perl, g++, make, yosys
+  // (+ python, handled by the python branch in isAllowed) all live in
+  // Packages/msys/mingw64/bin.
+  ['iverilog.exe',  ['Packages/msys/mingw64/bin']],
+  ['vvp.exe',       ['Packages/msys/mingw64/bin']],
+  ['verilator',     ['Packages/msys/mingw64/bin']],
+  ['verilator.exe', ['Packages/msys/mingw64/bin']],
+  ['perl.exe',      ['Packages/msys/mingw64/bin']],
+  ['g++.exe',       ['Packages/msys/mingw64/bin']],
+  ['make.exe',      ['Packages/msys/mingw64/bin']],
+  ['yosys.exe',     ['Packages/msys/mingw64/bin']],
 
-  ['gtkwave.exe',   ['Packages/iverilog/gtkwave/bin']],
-  ['fst2vcd.exe',   ['Packages/iverilog/gtkwave/bin']],
+  // fst2vcd (and the display GTKWave) ship in the gtkwave-nipscern fork.
+  ['gtkwave.exe',   ['Packages/gtkwave-nipscern']],
+  ['fst2vcd.exe',   ['Packages/gtkwave-nipscern']],
 
-  ['verilator',     ['Packages/verilator/mingw64/bin']],
-  ['verilator.exe', ['Packages/verilator/mingw64/bin']],
-  ['perl.exe',      ['Packages/verilator/mingw64/bin']],
-  ['g++.exe',       ['Packages/verilator/mingw64/bin']],
-  ['make.exe',      ['Packages/verilator/mingw64/bin']],
-
-  ['yosys.exe',     ['Packages/PRISM/yosys']],
   ['netlistsvg.exe',['Packages/PRISM/netlistsvg']],
 ];
 

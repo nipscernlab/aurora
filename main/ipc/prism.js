@@ -715,7 +715,7 @@ function register() {
         componentsPath,
         hdlPath: path.join(componentsPath, 'HDL'),
         tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
-        yosysPath: path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
+        yosysPath: path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe'),
         // netlistsvg agora vem do node_modules (@silimate/netlistsvg) e
         // roda in-process — nao precisa mais expor binario pro renderer.
         spfPath: state.currentOpenProjectPath || '',

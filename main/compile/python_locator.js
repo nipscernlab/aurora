@@ -1,9 +1,9 @@
 // @ts-check
 /**
- * Locate a Python interpreter suitable for the optional cocotb flow.
+ * Locate a Python interpreter suitable for the cocotb flow.
  *
  * Preference order:
- *   1. components/Packages/python/python.exe (bundled runtime)
+ *   1. components/Packages/msys/mingw64/bin/python.exe (unified bundle)
  *   2. AURORA_PYTHON / PYTHON environment variable
  *   3. Active Conda prefix
  *   4. Python discovered on PATH
@@ -24,23 +24,24 @@ function norm(p) {
   return path.normalize(String(p || ''));
 }
 
-function getBundledPythonPath() {
-  return path.join(componentsPath, 'Packages', 'python', process.platform === 'win32' ? 'python.exe' : 'python3');
-}
-
 /**
- * The cocotb+Verilator flow uses the Python that ships INSIDE the
- * Verilator bundle (components/Packages/verilator/mingw64/bin/python.exe),
- * not the standalone Packages/python runtime the Icarus flow uses. That
- * one was built against the bundle's mingw toolchain and carries the
- * statically-linked libcocotbvpi_verilator.a — see the cocotb-verilator
- * packaging recipe in docs/package-cocotb-into-bundle.sh.
+ * Both cocotb flows (Icarus and Verilator) run on the ONE Python inside
+ * the unified mingw bundle (components/Packages/msys/mingw64/bin/python.exe).
+ * Its cocotb carries BOTH VPIs (libcocotbvpi_icarus.vpl + the static
+ * libcocotbvpi_verilator.a) — see docs/package-cocotb-into-bundle.sh. The
+ * old standalone Packages/python (native MSVC) runtime is gone.
  */
-function getVerilatorBundlePythonPath() {
+function getBundledPythonPath() {
   return path.join(
-    componentsPath, 'Packages', 'verilator', 'mingw64', 'bin',
+    componentsPath, 'Packages', 'msys', 'mingw64', 'bin',
     process.platform === 'win32' ? 'python.exe' : 'python3',
   );
+}
+
+// Kept as an alias: the Verilator flow used to have its own Python; now it
+// shares the unified bundle Python with Icarus.
+function getVerilatorBundlePythonPath() {
+  return getBundledPythonPath();
 }
 
 function samePath(a, b) {
@@ -217,7 +218,7 @@ async function getPythonStatus() {
     isPinnedCocotb: false,
     error: candidates.length
       ? 'No discovered Python interpreter could execute a probe script.'
-      : 'No Python interpreter was found on PATH or in components/Packages/python.',
+      : 'No Python interpreter was found on PATH or in components/Packages/msys.',
   };
 }
 

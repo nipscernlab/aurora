@@ -295,7 +295,7 @@ async generateProjectHierarchy() {
             if (!topLevelFilePath) throw new Error("'topLevelFile' not found in .spf");
 
             const designTopModule = moduleStemFromPath(topLevelFilePath);
-            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
             const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
             // components/HDL/ tem a biblioteca SAPHO (myFIFO, processor,
@@ -1557,7 +1557,7 @@ async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
 async _resolveIverilogTools() {
     const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
     const iveriCompPath = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe',
+        this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe',
     );
     if (!await window.electronAPI.fileExists(iveriCompPath)) {
         throw new Error(tr('error.toolchain.iverilogNotFound', { path: iveriCompPath }));
@@ -1915,13 +1915,16 @@ async _waveResolveToolchain() {
     const gtkwaveBin = await window.electronAPI.joinPath(
         this.componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe',
     );
+    // Unified mingw bundle: iverilog + vvp live in Packages/msys/mingw64/bin.
     const iverilogBinDir = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'iverilog', 'bin',
+        this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin',
     );
     const iverilogBin = await window.electronAPI.joinPath(iverilogBinDir, 'iverilog.exe');
     const vvpBin = await window.electronAPI.joinPath(iverilogBinDir, 'vvp.exe');
+    // fst2vcd is the only GTKWave CLI tool Aurora needs; it ships in the
+    // gtkwave-nipscern fork (no separate Icarus GTKWave bundle anymore).
     const gtkwaveBinDir = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin',
+        this.componentsPath, 'Packages', 'gtkwave-nipscern',
     );
     const fst2vcdBin = await window.electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
     return {
@@ -2165,79 +2168,42 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
 }
 
 /**
- * Resolve the simulator-specific half of the cocotb run: which Python
- * to drive (and therefore which `get_runner` backend), what to prepend
- * onto PATH, the per-simulator build args, and any extra env.
+ * Resolve the simulator-specific half of the cocotb run.
  *
- * cocotb has TWO Pythons in Aurora:
- *   - Icarus    → components/Packages/python (standalone bundled runtime)
- *   - Verilator → components/Packages/verilator/mingw64/bin/python.exe
- *                 (built against the bundle's mingw toolchain; ships the
- *                 static libcocotbvpi_verilator.a — see
- *                 docs/package-cocotb-into-bundle.sh)
- *
- * The Verilator runner spawns verilator/perl/g++/make as subprocesses,
- * so its mingw64/bin + usr/bin must be on PATH and PYTHONHOME must point
- * at the bundle's mingw64 (otherwise the bundle Python warns it can't
- * find its platform libs).
+ * Both flows run on the ONE Python inside the unified mingw bundle
+ * (components/Packages/msys/mingw64/bin/python.exe), whose cocotb carries
+ * BOTH VPIs (libcocotbvpi_icarus.vpl + the static libcocotbvpi_verilator.a).
+ * That Python needs PYTHONHOME at the bundle's mingw64 and its bin on PATH
+ * (for its own DLLs + the iverilog/verilator/g++ it spawns). The only
+ * per-simulator differences are SIM and the build args (-g2012 is Icarus-only).
  */
-async _resolveCocotbSimProfile(tools) {
-    if (getSimulator() === 'verilator') {
-        const vTools = await this._waveResolveVerilatorTools();
-        const pythonPath = await window.electronAPI.joinPath(vTools.mingwBin, 'python.exe');
-        if (!await window.electronAPI.fileExists(pythonPath)) {
-            throw new Error(tr('error.compilation.cocotbVerilatorPythonMissing', { path: pythonPath }));
-        }
-        const status = await window.electronAPI.getVerilatorPythonStatus();
-        if (!status?.ok || !status.hasCocotb) {
-            throw new Error(tr('error.compilation.cocotbVerilatorPackageMissing', { path: pythonPath }));
-        }
-        // <bundle>/mingw64/bin → <bundle>/mingw64 (PYTHONHOME).
-        const pythonHome = await window.electronAPI.dirname(vTools.mingwBin);
-        return {
-            sim: 'verilator',
-            pythonPath,
-            prependPath: [vTools.mingwBin, vTools.usrBin],
-            buildArgs: [],                  // -g2012 is Icarus-only; Verilator infers
-            extraEnv: { PYTHONHOME: pythonHome },
-        };
+async _resolveCocotbSimProfile() {
+    const vTools = await this._waveResolveVerilatorTools();
+    const pythonPath = await window.electronAPI.joinPath(vTools.mingwBin, 'python.exe');
+    if (!await window.electronAPI.fileExists(pythonPath)) {
+        throw new Error(tr('error.compilation.cocotbVerilatorPythonMissing', { path: pythonPath }));
     }
-
-    // Icarus (default).
-    if (!await window.electronAPI.fileExists(tools.iverilogBin)) {
-        throw new Error(tr('error.toolchain.iverilogNotFound', { path: tools.iverilogBin }));
+    const status = await window.electronAPI.getVerilatorPythonStatus();
+    if (!status?.ok || !status.hasCocotb) {
+        throw new Error(tr('error.compilation.cocotbVerilatorPackageMissing', { path: pythonPath }));
     }
-    const pyStatus = await window.electronAPI.getPythonStatus();
-    if (!pyStatus?.ok) {
-        throw new Error(tr('error.compilation.cocotbPythonMissing'));
-    }
-    if (!pyStatus.isBundled) {
-        throw new Error(tr('error.compilation.cocotbBundledPythonRequired'));
-    }
-    if (!pyStatus.hasCocotb) {
-        throw new Error(tr('error.compilation.cocotbPackageMissing', { path: pyStatus.pythonPath || 'python' }));
-    }
-    const expectedCocotbVersion = pyStatus.expectedCocotbVersion || '2.0.1';
-    if (pyStatus.cocotbVersion !== expectedCocotbVersion) {
-        throw new Error(tr('error.compilation.cocotbVersionMismatch', {
-            found: pyStatus.cocotbVersion || 'not installed',
-            expected: expectedCocotbVersion,
-        }));
-    }
-    return {
-        sim: 'icarus',
-        pythonPath: pyStatus.pythonPath,
-        prependPath: [tools.iverilogBinDir, tools.gtkwaveBinDir],
-        buildArgs: ['-g2012'],
-        extraEnv: {},
+    // <bundle>/mingw64/bin → <bundle>/mingw64 (PYTHONHOME).
+    const pythonHome = await window.electronAPI.dirname(vTools.mingwBin);
+    const base = {
+        pythonPath,
+        prependPath: [vTools.mingwBin, vTools.usrBin],
+        extraEnv: { PYTHONHOME: pythonHome },
     };
+    return getSimulator() === 'verilator'
+        ? { ...base, sim: 'verilator', buildArgs: [] }      // Verilator infers timescale
+        : { ...base, sim: 'icarus', buildArgs: ['-g2012'] };
 }
 
 async _waveRunCocotbSimulation(ctx, tools, config) {
     await TabManager.saveAllFiles();
     await window.electronAPI.mkdir(tools.tempBaseDir);
 
-    const profile = await this._resolveCocotbSimProfile(tools);
+    const profile = await this._resolveCocotbSimProfile();
 
     const buildDir = await window.electronAPI.joinPath(
         tools.tempBaseDir,
@@ -2515,7 +2481,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
  * Throws com instrucao de bootstrap se o bundle nao estiver presente.
  */
 async _waveResolveVerilatorTools() {
-    const bundleRoot = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'verilator');
+    const bundleRoot = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'msys');
     const mingwBin = await window.electronAPI.joinPath(bundleRoot, 'mingw64', 'bin');
     const usrBin   = await window.electronAPI.joinPath(bundleRoot, 'usr', 'bin');
     const verilatorScript = await window.electronAPI.joinPath(mingwBin, 'verilator');
@@ -2529,13 +2495,13 @@ async _waveResolveVerilatorTools() {
     }
     if (!await window.electronAPI.fileExists(perlExe)) {
         throw new Error(tr('error.toolchain.verilatorNotFound', {
-            paths: `  ${perlExe}\n  (bundle corrompido — apague components/Packages/verilator/ e rode "npm run bootstrap")`,
+            paths: `  ${perlExe}\n  (bundle corrompido — apague components/Packages/msys/ e rode "npm run bootstrap")`,
         }));
     }
 
-    // fst2vcd vem do bundle iverilog/gtkwave (compartilhado).
+    // fst2vcd vem do gtkwave-nipscern (a unica CLI de GTKWave que o Aurora usa).
     const fst2vcdBin = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'iverilog', 'gtkwave', 'bin', 'fst2vcd.exe',
+        this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe',
     );
 
     // PATH em runtime: bundle/mingw64/bin (verilator, perl, g++, make,

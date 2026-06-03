@@ -155,8 +155,8 @@ export async function buildSpecForStep(step, processorName) {
     });
   }
 
-  const iveriCompPath = await joinComponents('Packages', 'iverilog', 'bin', 'iverilog.exe');
-  const vvpBin        = await joinComponents('Packages', 'iverilog', 'bin', 'vvp.exe');
+  const iveriCompPath = await joinComponents('Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe');
+  const vvpBin        = await joinComponents('Packages', 'msys', 'mingw64', 'bin', 'vvp.exe');
   const gtkwaveBin    = await joinComponents('Packages', 'gtkwave-nipscern', 'gtkwave.exe');
   const fst2vcdBin    = await joinComponents('Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
 
@@ -189,6 +189,11 @@ export async function buildSpecForStep(step, processorName) {
     const runnerScript = await window.electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
     const buildDir = await window.electronAPI.joinPath(tempBaseDir, `cocotb_${simTopModule || 'test'}`);
     const tbDir = await window.electronAPI.dirname(tb);
+    // The bundle Python is mingw: point PYTHONHOME at <bundle>/mingw64 so it
+    // finds its stdlib/platform libs (pythonPath = .../msys/mingw64/bin/python.exe).
+    const pythonHome = await window.electronAPI.dirname(
+      await window.electronAPI.dirname(pyStatus.pythonPath),
+    );
     return buildCocotbRunSpec({
       pythonPath: pyStatus.pythonPath,
       runnerScript,
@@ -205,6 +210,7 @@ export async function buildSpecForStep(step, processorName) {
         SIM: 'icarus',
         TOPLEVEL_LANG: 'verilog',
         WAVES: '1',
+        PYTHONHOME: pythonHome,
       },
       prependPath: [
         await window.electronAPI.dirname(iveriCompPath),
@@ -243,8 +249,8 @@ export async function buildSpecForStep(step, processorName) {
   }
 
   if (step === 'verilator-build' || step === 'verilator-header' || step === 'verilator-run') {
-    const mingwBin = await joinComponents('Packages', 'verilator', 'mingw64', 'bin');
-    const usrBin   = await joinComponents('Packages', 'verilator', 'usr', 'bin');
+    const mingwBin = await joinComponents('Packages', 'msys', 'mingw64', 'bin');
+    const usrBin   = await joinComponents('Packages', 'msys', 'usr', 'bin');
     const perlExe  = await window.electronAPI.joinPath(mingwBin, 'perl.exe');
     const verilatorScript = await window.electronAPI.joinPath(mingwBin, 'verilator');
     if (step === 'verilator-build') {
@@ -277,7 +283,7 @@ export async function buildSpecForStep(step, processorName) {
   }
 
   if (step === 'yosys-hierarchy' || step === 'prism-yosys') {
-    const yosysPath = await joinComponents('Packages', 'PRISM', 'yosys', 'yosys.exe');
+    const yosysPath = await joinComponents('Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
     // Preview uses a placeholder script path — the real path is built
     // by the runtime invoker since the script is freshly emitted per run.
     const scriptPath = await window.electronAPI.joinPath(tempBaseDir, step === 'prism-yosys' ? 'yosys_script.ys' : 'hierarchy_gen.ys');

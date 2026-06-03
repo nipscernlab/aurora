@@ -41,6 +41,12 @@ saphoComponents/Packages/
 # toolchain bundle above.
 components/bin/
 
+# SAPHO HDL library (core.v, ula.v, processor.v, instr_dec.v, ...). This
+# ships INSIDE the yanc release (yanc-bin-vX.zip carries bin/ + HDL/) so it
+# stays version-matched with the compilers that emit code against it.
+# download-yanc.js extracts it; do NOT commit a copy that can drift stale.
+components/HDL/
+
 # --- Test scratch ---
 coverage/
 .nyc_output/

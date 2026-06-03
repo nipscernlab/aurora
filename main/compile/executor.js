@@ -98,13 +98,13 @@ const TOOLCHAIN_PRIORITY =
   PRIORITY_BY_NAME[String(process.env.AURORA_TOOLCHAIN_PRIORITY || '').toLowerCase()] ??
   os.constants.priority.PRIORITY_ABOVE_NORMAL;
 
-// ccache lives next to g++/make inside the bundled toolchain (the verilator
-// mingw64/bin that rides in on spec.prependPath), placed there by
-// download-ccache.js. We look for it on the SAME dirs the child gets prepended
-// onto PATH, so a hit means `ccache` will resolve for the child too — and we
-// only set OBJCACHE when the file is actually there, so make never tries to
-// invoke a missing binary on installs without the ccache bundle. Detection per
-// dir is memoized: the toolchain path is constant for a session.
+// ccache lives next to g++/make inside the unified mingw bundle (the
+// Packages/msys/mingw64/bin that rides in on spec.prependPath). We look for it
+// on the SAME dirs the child gets prepended onto PATH, so a hit means `ccache`
+// will resolve for the child too — and we only set OBJCACHE when the file is
+// actually there, so make never tries to invoke a missing binary on installs
+// without it. Detection per dir is memoized: the toolchain path is constant
+// for a session.
 const _ccacheByDir = new Map();
 function ccacheOnPaths(dirs) {
   for (const dir of dirs) {

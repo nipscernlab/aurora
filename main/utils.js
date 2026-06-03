@@ -220,7 +220,7 @@ function formatTimestamp(now = new Date()) {
 
 function getExecutablePath(executableName, appRoot) {
   if (executableName === 'yosys') {
-    return path.join(appRoot, 'components', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+    return path.join(appRoot, 'components', 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
   }
   if (executableName === 'netlistsvg') {
     return path.join(appRoot, 'components', 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe');

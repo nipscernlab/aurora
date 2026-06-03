@@ -593,7 +593,7 @@ async function buildPrismCompilationPaths(projectPath) {
         componentsPath:            toForwardSlashes(rawComponentsPath),
         hdlPath:                   toForwardSlashes(await join(rawComponentsPath, 'HDL')),
         tempPath:                  toForwardSlashes(await join(rawComponentsPath, 'Temp', 'PRISM')),
-        yosysPath:                 toForwardSlashes(await join(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+        yosysPath:                 toForwardSlashes(await join(rawComponentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe')),
         netlistsvgPath:            toForwardSlashes(await join(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
         spfPath:                   toForwardSlashes(window.currentSpfPath || ''),
         topLevelPath:              toForwardSlashes(await join(projectPath, 'TopLevel')),

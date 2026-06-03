@@ -17,11 +17,11 @@ import { execSync } from 'node:child_process';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  alreadyInstalled,
+  bundleInstalled,
   extractZip,
-  DOWNLOAD_URL,
-  TOOLCHAIN_TAG,
-  TOOLCHAIN_FILENAME,
+  MSYS_DOWNLOAD_URL,
+  MSYS_TAG,
+  MSYS_FILENAME,
 } from '../../components/Scripts/download-toolchain.js';
 
 // Per-test scratch dir under the OS tmp; cleaned up after each test so
@@ -36,46 +36,45 @@ afterEach(() => {
   }
 });
 
-describe('alreadyInstalled', () => {
+describe('bundleInstalled', () => {
   it('returns false when the sentinel does not exist', () => {
-    const fakeSentinel = path.join(scratch, 'iverilog', 'bin', 'iverilog.exe');
-    expect(alreadyInstalled(fakeSentinel)).toBe(false);
+    const fakeSentinel = path.join(scratch, 'msys', 'mingw64', 'bin', 'verilator_bin.exe');
+    expect(bundleInstalled(fakeSentinel)).toBe(false);
   });
 
   it('returns true when the sentinel exists', () => {
-    const sentinel = path.join(scratch, 'iverilog', 'bin', 'iverilog.exe');
+    const sentinel = path.join(scratch, 'msys', 'mingw64', 'bin', 'verilator_bin.exe');
     fs.mkdirSync(path.dirname(sentinel), { recursive: true });
     fs.writeFileSync(sentinel, 'fake binary');
-    expect(alreadyInstalled(sentinel)).toBe(true);
+    expect(bundleInstalled(sentinel)).toBe(true);
   });
 
   it('returns false when the parent dir exists but the sentinel does not', () => {
-    const sentinel = path.join(scratch, 'iverilog', 'bin', 'iverilog.exe');
+    const sentinel = path.join(scratch, 'msys', 'mingw64', 'bin', 'verilator_bin.exe');
     fs.mkdirSync(path.dirname(sentinel), { recursive: true });
-    expect(alreadyInstalled(sentinel)).toBe(false);
+    expect(bundleInstalled(sentinel)).toBe(false);
   });
 });
 
-describe('DOWNLOAD_URL', () => {
+describe('MSYS_DOWNLOAD_URL', () => {
   it('is an HTTPS URL', () => {
-    expect(DOWNLOAD_URL.startsWith('https://')).toBe(true);
+    expect(MSYS_DOWNLOAD_URL.startsWith('https://')).toBe(true);
   });
 
   it('points at the GitHub release for the pinned tag', () => {
-    expect(DOWNLOAD_URL).toContain(`/releases/download/${TOOLCHAIN_TAG}/${TOOLCHAIN_FILENAME}`);
+    expect(MSYS_DOWNLOAD_URL).toContain(`/releases/download/${MSYS_TAG}/${MSYS_FILENAME}`);
   });
 
   it('targets the official nipscernlab/Aurora repo', () => {
-    expect(DOWNLOAD_URL).toContain('github.com/nipscernlab/Aurora/');
+    expect(MSYS_DOWNLOAD_URL).toContain('github.com/nipscernlab/Aurora/');
   });
 
-  it('pinned tag matches the v2 bundle that includes PRISM', () => {
-    // toolchain-v1 was missing PRISM; we cut v2 to fix that. Asserting the
-    // tag here is a guardrail against accidentally reverting in this file
-    // without simultaneously updating .github/workflows/release.yml's
-    // default toolchain_release input.
-    expect(TOOLCHAIN_TAG).toBe('toolchain-v2');
-    expect(TOOLCHAIN_FILENAME).toBe('aurora-toolchain-v2.zip');
+  it('pinned tag matches the unified mingw bundle', () => {
+    // The unified msys bundle replaces the old toolchain-v2 + verilator-v2
+    // split. Asserting the tag here is a guardrail against reverting this file
+    // without updating .github/workflows/release.yml's bundle download step.
+    expect(MSYS_TAG).toBe('msys-v1');
+    expect(MSYS_FILENAME).toBe('aurora-msys-v1.zip');
   });
 });
 

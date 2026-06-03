@@ -2,11 +2,27 @@
 /**
  * Aurora IDE - Toolchain bootstrap
  *
- * Downloads aurora-toolchain-v2.zip from GitHub Releases and extracts it
- * into components/Packages/ if the toolchain is not already present.
+ * Downloads the unified mingw toolchain bundle (aurora-msys-v1.zip) from
+ * GitHub Releases and extracts it into components/Packages/ if not already
+ * present. The bundle is a pinned MSYS2/mingw64 snapshot carrying the whole
+ * FOSS toolchain in ONE place:
+ *
+ *   components/Packages/msys/
+ *     mingw64/bin/   iverilog, vvp, yosys, verilator, perl, g++, make,
+ *                    ccache, python + shared DLLs
+ *     mingw64/lib/   ivl/ (iverilog backends), python3.12/ (+ cocotb with
+ *                    both VPIs: libcocotbvpi_icarus.vpl + the static
+ *                    libcocotbvpi_verilator.a), gcc/
+ *     mingw64/share/ verilator/, yosys/
+ *     usr/bin/       bash + coreutils (verilated.mk)
+ *
+ * This replaces the old split (toolchain-v2 = iverilog/7-Zip/PRISM, plus a
+ * separate verilator-v2). iverilog/yosys/verilator/python all live here now;
+ * netlistsvg runs in-process from node_modules (@silimate/netlistsvg);
+ * gtkwave-nipscern and the YANC compilers are separate downloads.
  *
  * Usage:  node components/scripts/download-toolchain.js [--force]
- *   --force   re-download even if the toolchain is already present
+ *   --force   re-download even if the bundle is already present
  */
 
 const https = require('https');
@@ -16,46 +32,34 @@ const { execSync } = require('child_process');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const TOOLCHAIN_TAG      = 'toolchain-v2';
-const TOOLCHAIN_FILENAME = 'aurora-toolchain-v2.zip';
-// verilator-v2 bakes cocotb (+ the static libcocotbvpi_verilator.a) into the
-// bundle's Python so the Wave button's cocotb flow can target Verilator, not
-// just Icarus. v1 had no cocotb — installs carrying it are upgraded in place
-// (see verilatorCocotbInstalled below).
-const VERILATOR_TAG      = 'verilator-v2';
-const VERILATOR_FILENAME = 'aurora-verilator-v2.zip';
-const GITHUB_OWNER       = 'nipscernlab';
-const GITHUB_REPO        = 'Aurora';
+const MSYS_TAG      = 'msys-v1';
+const MSYS_FILENAME = 'aurora-msys-v1.zip';
+const GITHUB_OWNER  = 'nipscernlab';
+const GITHUB_REPO   = 'Aurora';
 
-const DOWNLOAD_URL           = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${TOOLCHAIN_TAG}/${TOOLCHAIN_FILENAME}`;
-const VERILATOR_DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${VERILATOR_TAG}/${VERILATOR_FILENAME}`;
+const MSYS_DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${MSYS_TAG}/${MSYS_FILENAME}`;
 
-const ROOT_DIR             = path.join(__dirname, '..', '..');
-const PACKAGES_DIR         = path.join(ROOT_DIR, 'components', 'Packages');
-const SENTINEL_FILE        = path.join(PACKAGES_DIR, 'iverilog', 'bin', 'iverilog.exe');
-const VERILATOR_SENTINEL   = path.join(PACKAGES_DIR, 'verilator', 'mingw64', 'bin', 'verilator_bin.exe');
-const TMP_ZIP              = path.join(ROOT_DIR, TOOLCHAIN_FILENAME);
-const VERILATOR_TMP_ZIP    = path.join(ROOT_DIR, VERILATOR_FILENAME);
+const ROOT_DIR     = path.join(__dirname, '..', '..');
+const PACKAGES_DIR = path.join(ROOT_DIR, 'components', 'Packages');
+// Sentinel: a binary deep in the bundle, proving a full extraction.
+const MSYS_SENTINEL = path.join(PACKAGES_DIR, 'msys', 'mingw64', 'bin', 'verilator_bin.exe');
+const TMP_ZIP       = path.join(ROOT_DIR, MSYS_FILENAME);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function log(msg) { console.log(`[toolchain] ${msg}`); }
 function err(msg) { console.error(`[toolchain] ERROR: ${msg}`); }
 
-function alreadyInstalled(sentinelPath = SENTINEL_FILE) {
+function bundleInstalled(sentinelPath = MSYS_SENTINEL) {
     return fs.existsSync(sentinelPath);
 }
 
-function verilatorAlreadyInstalled() {
-    return fs.existsSync(VERILATOR_SENTINEL);
-}
-
-// cocotb-on-Verilator marker: the static VPI lib baked into the bundle's
-// Python. Lives under mingw64/lib/python3.<minor>/site-packages — scan for
-// any python3.* so this survives a future Python minor bump. A v1 bundle
-// (verilator present, this absent) triggers an in-place upgrade to v2.
-function verilatorCocotbInstalled() {
-    const libBase = path.join(PACKAGES_DIR, 'verilator', 'mingw64', 'lib');
+// cocotb marker: the static Verilator VPI baked into the bundle's Python.
+// Lives under msys/mingw64/lib/python3.<minor>/site-packages — scan for any
+// python3.* so this survives a future Python minor bump. A bundle missing it
+// (e.g. an older snapshot) triggers a re-download to upgrade in place.
+function cocotbInstalled() {
+    const libBase = path.join(PACKAGES_DIR, 'msys', 'mingw64', 'lib');
     let entries;
     try {
         entries = fs.readdirSync(libBase);
@@ -136,21 +140,20 @@ function extractZip(zipPath, destDir) {
         throw new Error(`Zip file not found: ${zipPath}`);
     }
 
-    // Try PowerShell Expand-Archive (always available on Win 10+)
     log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
     fs.mkdirSync(destDir, { recursive: true });
 
-    // First try 7-Zip if already present (faster)
+    // Use 7-Zip if a copy happens to be present (much faster on the ~300 MB
+    // bundle); otherwise fall back to PowerShell, which ships on every Win 10+.
     const sevenZip = path.join(PACKAGES_DIR, '7-Zip', '7z.exe');
     if (fs.existsSync(sevenZip)) {
         execSync(`"${sevenZip}" x "${zipPath}" -o"${destDir}" -y`, { stdio: 'inherit' });
         return;
     }
 
-    // Fall back to PowerShell. Use $ErrorActionPreference = 'Stop' so a
-    // cmdlet failure propagates as a non-zero exit code from powershell.exe
-    // (otherwise execSync sees success and we delete the zip + falsely log
-    // "installed successfully" before the sentinel check trips).
+    // $ErrorActionPreference = 'Stop' so a cmdlet failure propagates as a
+    // non-zero exit code (otherwise execSync sees success and we delete the
+    // zip + falsely log "installed" before the sentinel check trips).
     execSync(
         `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
         { stdio: 'inherit' }
@@ -159,79 +162,45 @@ function extractZip(zipPath, destDir) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
-async function downloadVerilatorBundle(force) {
-    const haveBundle = verilatorAlreadyInstalled();
-    const haveCocotb = verilatorCocotbInstalled();
-    if (haveBundle && haveCocotb && !force) {
-        log('Verilator bundle (with cocotb) already present — skipping.');
-        return;
-    }
-    if (haveBundle && !haveCocotb) {
-        log('Verilator bundle present but missing cocotb support — upgrading to verilator-v2.');
-    } else if (!haveBundle) {
-        log('Verilator bundle not found in components/Packages/verilator.');
-    }
-    try {
-        await downloadFile(VERILATOR_DOWNLOAD_URL, VERILATOR_TMP_ZIP);
-        extractZip(VERILATOR_TMP_ZIP, PACKAGES_DIR);
-        fs.unlinkSync(VERILATOR_TMP_ZIP);
-        log('Verilator bundle installed successfully.');
-        if (!verilatorCocotbInstalled()) {
-            err('Verilator bundle extracted but cocotb support is still missing.');
-            err('cocotb-on-Verilator will be unavailable; the Verilator zip may predate v2.');
-        }
-        if (!verilatorAlreadyInstalled()) {
-            err(`Verilator sentinel not found after extraction: ${VERILATOR_SENTINEL}`);
-            err('The Verilator zip may have an unexpected internal layout.');
-            // Nao fatal — iverilog mode continua funcional
-        }
-    } catch (e) {
-        err(`Verilator bundle download failed: ${e.message}`);
-        err('Aurora continuara funcionando com iverilog. Pra usar Verilator,');
-        err(`baixe manualmente de:  ${VERILATOR_DOWNLOAD_URL}`);
-        err('E extraia em:  components/Packages/');
-        // Nao bloqueia npm start — Verilator e modo opt-in.
-    }
-}
-
 async function main() {
     const force = process.argv.includes('--force');
 
-    // ── Toolchain principal (iverilog + gtkwave + yosys) ───────────────
-    if (alreadyInstalled() && !force) {
-        log('Toolchain already present — skipping download.');
-    } else {
-        if (!alreadyInstalled()) {
-            log('Toolchain not found in components/Packages/.');
-        }
-        try {
-            await downloadFile(DOWNLOAD_URL, TMP_ZIP);
-            extractZip(TMP_ZIP, PACKAGES_DIR);
-            fs.unlinkSync(TMP_ZIP);
-            log('Toolchain installed successfully.');
-            if (!alreadyInstalled()) {
-                err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);
-                err('The ZIP may have a different internal structure. Check components/Packages/ manually.');
-                process.exit(1);
-            }
-        } catch (e) {
-            err(e.message);
-            err(`\nCould not download toolchain automatically.`);
-            err(`Please download manually from:`);
-            err(`  ${DOWNLOAD_URL}`);
-            err(`Extract the ZIP contents into:  components/Packages/`);
-            process.exit(0);
-        }
+    const haveBundle = bundleInstalled();
+    const haveCocotb = cocotbInstalled();
+    if (haveBundle && haveCocotb && !force) {
+        log('Toolchain bundle (with cocotb) already present — skipping download.');
+        log('(Run with --force to re-download.)');
+        return;
+    }
+    if (haveBundle && !haveCocotb) {
+        log('Toolchain bundle present but missing cocotb support — upgrading.');
+    } else if (!haveBundle) {
+        log('Toolchain bundle not found in components/Packages/msys.');
     }
 
-    // ── Verilator bundle (opt-in, opcional) ────────────────────────────
-    // Falhas aqui sao nao-fatais — Aurora funciona com iverilog mesmo
-    // sem o bundle Verilator. Usuario que quiser Verilator precisa que
-    // o bundle esteja la, mas mesmo erro 404 do release nao bloqueia
-    // `npm start` (so o checkbox "Use Verilator" vira no-op).
-    await downloadVerilatorBundle(force);
-
-    log('(Run with --force to re-download.)');
+    try {
+        await downloadFile(MSYS_DOWNLOAD_URL, TMP_ZIP);
+        extractZip(TMP_ZIP, PACKAGES_DIR);
+        fs.unlinkSync(TMP_ZIP);
+        log('Toolchain bundle installed successfully.');
+        if (!bundleInstalled()) {
+            err(`Sentinel not found after extraction: ${MSYS_SENTINEL}`);
+            err('The ZIP may have an unexpected internal layout. Check components/Packages/msys/ manually.');
+            process.exit(1);
+        }
+        if (!cocotbInstalled()) {
+            err('Bundle extracted but cocotb support is missing — the cocotb Wave flow will be unavailable.');
+        }
+    } catch (e) {
+        err(e.message);
+        err('\nCould not download the toolchain bundle automatically.');
+        err('Please download manually from:');
+        err(`  ${MSYS_DOWNLOAD_URL}`);
+        err('Extract the ZIP contents into:  components/Packages/');
+        // Non-fatal: don't hard-block `npm start`. The IDE surfaces a clear
+        // "run npm run bootstrap" error when a tool is actually invoked.
+        process.exit(0);
+    }
 }
 
 // Only run main when invoked directly (`node download-toolchain.js`).
@@ -241,17 +210,12 @@ if (require.main === module) {
 }
 
 module.exports = {
-    alreadyInstalled,
-    verilatorAlreadyInstalled,
-    verilatorCocotbInstalled,
+    bundleInstalled,
+    cocotbInstalled,
     downloadFile,
     extractZip,
-    DOWNLOAD_URL,
-    TOOLCHAIN_TAG,
-    TOOLCHAIN_FILENAME,
-    SENTINEL_FILE,
-    VERILATOR_DOWNLOAD_URL,
-    VERILATOR_TAG,
-    VERILATOR_FILENAME,
-    VERILATOR_SENTINEL,
+    MSYS_DOWNLOAD_URL,
+    MSYS_TAG,
+    MSYS_FILENAME,
+    MSYS_SENTINEL,
 };

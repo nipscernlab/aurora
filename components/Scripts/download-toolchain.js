@@ -35,7 +35,10 @@ const { execSync } = require('child_process');
 const MSYS_TAG      = 'msys-v1';
 const MSYS_FILENAME = 'aurora-msys-v1.zip';
 const GITHUB_OWNER  = 'nipscernlab';
-const GITHUB_REPO   = 'Aurora';
+// The bundle is built + published by the dedicated, reproducible pipeline in
+// nipscernlab/aurora-toolchain (CI: pinned MSYS2 → cocotb VPI → assemble → trim
+// → 4-flow smoke → release). To evolve it, bump manifest.txt there and re-run.
+const GITHUB_REPO   = 'aurora-toolchain';
 
 const MSYS_DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${MSYS_TAG}/${MSYS_FILENAME}`;
 

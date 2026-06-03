@@ -65,8 +65,10 @@ describe('MSYS_DOWNLOAD_URL', () => {
     expect(MSYS_DOWNLOAD_URL).toContain(`/releases/download/${MSYS_TAG}/${MSYS_FILENAME}`);
   });
 
-  it('targets the official nipscernlab/Aurora repo', () => {
-    expect(MSYS_DOWNLOAD_URL).toContain('github.com/nipscernlab/Aurora/');
+  it('targets the dedicated nipscernlab/aurora-toolchain repo', () => {
+    // The bundle is built + published by the reproducible pipeline in
+    // nipscernlab/aurora-toolchain, not the Aurora app repo.
+    expect(MSYS_DOWNLOAD_URL).toContain('github.com/nipscernlab/aurora-toolchain/');
   });
 
   it('pinned tag matches the unified mingw bundle', () => {

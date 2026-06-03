@@ -2139,7 +2139,13 @@ async _findWaveCandidateInDir(dir, topModule) {
 }
 
 async _adoptCocotbWaveform(ctx, tools, buildDir) {
-    const candidate = await this._findWaveCandidateInDir(buildDir, ctx.hdlTopModule);
+    // cocotb runs the sim with cwd = the test dir, so Verilator's dump.vcd can
+    // land next to the .py (the project dir) instead of in buildDir. Search the
+    // build dir first, then the testbench's dir.
+    const testDir = await window.electronAPI.dirname(ctx.testbenchFile);
+    const candidate =
+        await this._findWaveCandidateInDir(buildDir, ctx.hdlTopModule) ||
+        await this._findWaveCandidateInDir(testDir, ctx.hdlTopModule);
     if (!candidate) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }

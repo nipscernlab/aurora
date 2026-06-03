@@ -1853,7 +1853,9 @@ async runGtkWave() {
         if (isPythonFile(config.testbenchFile)) {
             const cocotbCtx = this._waveValidateCocotbConfig(config);
             simTopModule = cocotbCtx.hdlTopModule;
-            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator'), 'tips');
+            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator', {
+                sim: getSimulator() === 'verilator' ? 'Verilator' : 'Icarus',
+            }), 'tips');
             vcdFile = await this._waveRunCocotbSimulation(cocotbCtx, tools, config);
         } else {
             // Branch no simulador escolhido. iverilog e default; verilator e
@@ -2194,8 +2196,16 @@ async _resolveCocotbSimProfile() {
         prependPath: [vTools.mingwBin, vTools.usrBin],
         extraEnv: { PYTHONHOME: pythonHome },
     };
+    // Verilator is stricter than Icarus: the SAPHO HDL (e.g. ula.v's float
+    // normalization) trips warnings like UNOPTFLAT that Icarus tolerates.
+    // Mirror the non-cocotb Verilator flow's -Wno set so warnings don't abort
+    // the build (-Wno-fatal is the key one).
+    const VERILATOR_WNO = [
+        '-Wno-fatal', '-Wno-TIMESCALEMOD', '-Wno-DECLFILENAME',
+        '-Wno-STMTDLY', '-Wno-WIDTHTRUNC', '-Wno-WIDTHEXPAND',
+    ];
     return getSimulator() === 'verilator'
-        ? { ...base, sim: 'verilator', buildArgs: [] }      // Verilator infers timescale
+        ? { ...base, sim: 'verilator', buildArgs: VERILATOR_WNO }
         : { ...base, sim: 'icarus', buildArgs: ['-g2012'] };
 }
 
@@ -2240,7 +2250,9 @@ async _waveRunCocotbSimulation(ctx, tools, config) {
         prependPath: profile.prependPath,
     });
 
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb'), 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb', {
+        sim: profile.sim === 'verilator' ? 'Verilator' : 'Icarus',
+    }), 'info');
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
     let unsubscribe = null;

@@ -53,6 +53,13 @@ const DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const BIN_DIR       = path.join(ROOT_DIR, 'components', 'bin');
 const SENTINEL_FILE = path.join(BIN_DIR, 'cppcomp.exe');
+// The yanc release ships bin/ AND HDL/ (the SAPHO Verilog library, version-
+// matched with the compilers). HDL/ is no longer committed to the Aurora repo,
+// so a dev who pulls the commit that untracked it ends up with bin/ present
+// (gitignored, persists) but HDL/ deleted. Gate "already installed" on BOTH so
+// that case re-downloads instead of silently leaving the toolchain without its
+// HDL library.
+const HDL_SENTINEL  = path.join(ROOT_DIR, 'components', 'HDL', 'core.v');
 const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
 
 // Aurora ja baixa um toolchain principal e se beneficia do 7-Zip que
@@ -65,7 +72,7 @@ function log(msg) { console.log(`[yanc] ${msg}`); }
 function err(msg) { console.error(`[yanc] ERROR: ${msg}`); }
 
 function alreadyInstalled() {
-    return fs.existsSync(SENTINEL_FILE);
+    return fs.existsSync(SENTINEL_FILE) && fs.existsSync(HDL_SENTINEL);
 }
 
 function downloadFile(url, dest) {

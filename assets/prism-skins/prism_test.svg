@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PRISM visual test skin.
+
+  Purpose: establish a sober component language for PRISM skins.
+  It is intentionally not a logo plate: minimal text, restrained colour,
+  crisp geometry, and visible port logic.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg"
+     width="480"
+     height="300"
+     viewBox="-10 -10 116 84">
+
+  <!-- Preview-only matte. The PRISM skin merger extracts <g s:type> blocks,
+       so this background is not part of the runtime symbol. -->
+  <rect x="-10" y="-10" width="116" height="84" fill="#11151B"/>
+
+  <g s:type="prism_test" transform="translate(0, 0)" s:width="96" s:height="64">
+    <s:alias val="prism_test"/>
+
+    <!-- Body: IC block with a single prism-cut output side. -->
+    <path d="M 6,0 H 74 L 96,32 L 74,64 H 6 Q 0,64 0,58 V 6 Q 0,0 6,0 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(18, 25, 32, 0.96));
+                 stroke: var(--prism-module-stroke, #76D8C0);
+                 stroke-width: 1.2;"/>
+
+    <!-- Low-contrast construction lines: readable as circuitry, not ornament. -->
+    <path d="M 19,16 H 66 M 19,32 H 78 M 19,48 H 66"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-accent, #76D8C0);
+                 stroke-width: 0.65;
+                 opacity: 0.38;"/>
+
+    <!-- Prism facet: one geometric cue for the product name. -->
+    <path d="M 66,16 L 78,32 L 66,48 M 66,16 L 55,32 L 66,48"
+          class="$cell_id"
+          style="fill: none;
+                 stroke: var(--prism-module-accent, #76D8C0);
+                 stroke-width: 0.75;
+                 opacity: 0.46;"/>
+
+    <!-- Spectral output ticks: tiny, controlled, and only on the output side. -->
+    <path d="M 82,24 H 91"
+          class="$cell_id"
+          style="fill: none; stroke: var(--prism-wire-hi, #76D8C0); stroke-width: 1; opacity: 0.80;"/>
+    <path d="M 82,32 H 91"
+          class="$cell_id"
+          style="fill: none; stroke: var(--accent-hover, #7FB7FF); stroke-width: 1; opacity: 0.66;"/>
+    <path d="M 82,40 H 91"
+          class="$cell_id"
+          style="fill: none; stroke: var(--accent, #B59CFF); stroke-width: 1; opacity: 0.56;"/>
+
+    <!-- Pin-1 marker: useful orientation language for larger components. -->
+    <circle cx="8" cy="8" r="1.5"
+            class="$cell_id"
+            style="fill: var(--prism-module-accent, #76D8C0);
+                   stroke: none;
+                   opacity: 0.78;"/>
+
+    <!-- Compact type mark. No large decorative title. -->
+    <text x="13" y="55"
+          class="$cell_id"
+          s:attribute=""
+          style="font-family: Inter, Segoe UI, Arial, sans-serif;
+                 text-anchor: start;
+                 font-weight: 700;
+                 font-size: 6px;
+                 letter-spacing: 0;
+                 fill: var(--prism-module-glyph, rgba(232, 238, 244, 0.84));">PRISM</text>
+
+    <!-- Instance reference, kept outside the body and deliberately quiet. -->
+    <text x="48" y="-3"
+          class="$cell_id"
+          s:attribute="ref"
+          style="font-family: Inter, Segoe UI, Arial, sans-serif;
+                 text-anchor: middle;
+                 font-size: 5.5px;
+                 font-style: normal;
+                 fill: var(--text-muted, rgba(176, 190, 204, 0.66));">u_prism</text>
+
+    <!-- Port anchors only. Real skins should add labels sparingly. -->
+    <g s:x="0"  s:y="16" s:pid="clk"/>
+    <g s:x="0"  s:y="32" s:pid="in"/>
+    <g s:x="0"  s:y="48" s:pid="ctrl"/>
+    <g s:x="96" s:y="32" s:pid="out"/>
+  </g>
+
+</svg>

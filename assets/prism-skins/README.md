@@ -1,249 +1,335 @@
 # PRISM custom skins
 
-Esta pasta é onde você coloca **símbolos SVG customizados** para o PRISM (o
-visualizador RTL do Aurora). Cada arquivo `.svg` aqui é fundido em runtime
-com a skin padrão do `@silimate/netlistsvg`, substituindo (ou adicionando)
-símbolos sem precisar tocar em `node_modules/`.
+Esta pasta contém os símbolos SVG customizados usados pelo PRISM, o visualizador
+RTL do Aurora. Cada arquivo `.svg` define uma ou mais skins para células do
+`@silimate/netlistsvg`.
 
-Como o merge acontece em [main/ipc/prism.js](../../main/ipc/prism.js)
-(`getDefaultSkinData`), **`npm install` não apaga suas customizações**.
+O merge com a skin padrão acontece em `main/ipc/prism.js`, dentro de
+`getDefaultSkinData`. Isso significa que as skins desta pasta sobrevivem a
+`npm install` e são recarregadas a cada recompilação do PRISM.
 
----
+## Ideia Central
 
-## TL;DR — como criar um símbolo novo
+Um SVG de skin não é uma ilustração isolada. Ele é um símbolo técnico que precisa
+ser bonito, legível e roteável.
 
-1. Copie [`_template.svg`](_template.svg) para `<nome-do-modulo>.svg`
-   (o nome do arquivo é só pra você se organizar — o que importa pro PRISM
-   é o atributo `s:type` lá dentro).
-2. Troque `MYMODULE` pelo nome exato do módulo Verilog (e.g. `ula`,
-   `processor`, `core`).
-3. Ajuste `s:width` / `s:height` pro tamanho do seu símbolo.
-4. Desenhe a forma com qualquer primitivo SVG (`<rect>`, `<path>`,
-   `<circle>`, `<polygon>`, `<image>`, etc.).
-5. Liste **uma `<g s:pid="...">`** por porta do Verilog, posicionada
-   na borda do retângulo `s:width × s:height`.
-6. Clique **Recompile** (`Ctrl+R`) no PRISM. Pronto.
+Cada bloco principal deve responder a quatro perguntas:
 
-> A skin é re-lida do disco a cada compilação — não precisa reiniciar o app.
+1. Qual célula ele representa? Use `s:type`.
+2. Quais nomes alternativos ele cobre? Use `<s:alias>`.
+3. Qual espaço lógico ele ocupa no layout? Use `s:width` e `s:height`.
+4. Onde os fios conectam? Use uma âncora `<g s:pid="...">` por porta.
 
----
-
-## Anatomia de um arquivo
+## Anatomia Mínima
 
 ```xml
-<g s:type="ula"                  <!-- 1. tipo (= nome do .v) -->
-   transform="translate(0, 0)"
-   s:width="60" s:height="60">   <!-- 2. bounding box -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
 
-  <s:alias val="ula"/>            <!-- 3. (opcional) tipos extras que casam -->
+  <g s:type="ula" transform="translate(0, 0)" s:width="70" s:height="60">
+    <s:alias val="ula"/>
 
-  <path d="M0,0 L40,0 L60,18 ..." <!-- 4. forma visível -->
-        class="$cell_id"/>
+    <path d="M 0,0 L 48,0 L 70,30 L 48,60 L 0,60 L 14,30 Z"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill);
+                 stroke: var(--prism-module-stroke);
+                 stroke-width: 1;"/>
 
-  <text x="32" y="34"             <!-- 5. label do tipo -->
-        class="nodelabel $cell_id"
-        s:attribute="">ULA</text>
+    <text x="38" y="35"
+          class="nodelabel $cell_id"
+          s:attribute=""
+          style="text-anchor: middle;
+                 font-weight: 700;
+                 font-size: 12px;
+                 fill: var(--prism-module-glyph);">ULA</text>
 
-  <text x="30" y="-4"             <!-- 6. label da instância -->
-        class="nodelabel $cell_id"
-        s:attribute="ref">u_inst</text>
+    <text x="35" y="-4"
+          class="$cell_id"
+          s:attribute="ref"
+          style="text-anchor: middle;
+                 font-size: 7px;
+                 font-style: italic;
+                 fill: var(--prism-module-accent);
+                 opacity: 0.75;">u</text>
 
-  <g s:x="18" s:y="0"  s:pid="op"/>  <!-- 7. uma <g s:pid> por porta -->
-  <g s:x="0"  s:y="22" s:pid="in1"/>
-  <g s:x="0"  s:y="38" s:pid="in2"/>
-  <g s:x="60" s:y="30" s:pid="out"/>
-</g>
+    <g s:x="18" s:y="0"  s:pid="op"/>
+    <g s:x="0"  s:y="22" s:pid="in1"/>
+    <g s:x="0"  s:y="42" s:pid="in2"/>
+    <g s:x="70" s:y="30" s:pid="out"/>
+  </g>
+
+</svg>
 ```
 
-### Os 7 elementos numerados acima
+## Regras do PRISM
 
-| # | Atributo | Obrigatório? | O que faz |
-|---|---|---|---|
-| 1 | `s:type` | **sim** | Chave de match. Qualquer célula no JSON do Yosys cujo `type` (depois de `cleanModuleName`) seja igual a esse valor usa esta skin. |
-| 2 | `s:width` / `s:height` | **sim** | Bounding box lógico (em unidades SVG). O ELK usa pra roteamento — _não confunda com a viewBox do SVG_. |
-| 3 | `<s:alias val="..."/>` | não | Casa tipos adicionais (ex.: `$dff`, `$_DFF_P_`). Útil pra cobrir variantes do Yosys. |
-| 4 | Forma | **sim** | Qualquer primitivo SVG. Coordenadas relativas ao bounding box (`0,0` = canto sup-esq, `s:width,s:height` = canto inf-dir). |
-| 5 | Label literal | não | `s:attribute=""` mantém o texto da tag (`ULA`, `+`, `mux`…). |
-| 6 | Label de instância | não | `s:attribute="ref"` substitui o texto pelo nome da instância (`u1`, `meu_alu`…). |
-| 7 | Portas | **sim, uma por porta** | Posição onde o fio se conecta. `s:pid` **deve casar exatamente** com o nome da porta Verilog. |
+### `s:type`
 
----
+`s:type` é a chave de match. Ele deve casar com o tipo gerado pelo Yosys ou com
+o nome do módulo Verilog depois da normalização feita pelo PRISM.
 
-## Restrições
+Exemplos:
 
-### Bounding box e coordenadas
-- Origem em `(0, 0)` no canto superior-esquerdo. `+x` direita, `+y` baixo.
-- A forma pode ir **levemente além** dos limites declarados (ex.: bolhas de
-  inversão em `-3,12`), mas o ELK considera só o retângulo `s:width × s:height`
-  pra layout. Saídas muito fora podem causar overlap com fios.
+```xml
+<g s:type="ula">
+<g s:type="processor">
+<g s:type="and">
+<g s:type="dff">
+```
 
-### Portas (`<g s:pid="...">`)
-- **Uma por porta do módulo.** Se faltar uma, ELK ignora o fio e o
-  netlistsvg pode quebrar silenciosamente.
-- **`s:pid` é case-sensitive** e tem que bater 1:1 com o nome do port no
-  Verilog (`input op` → `s:pid="op"`, não `"OP"` nem `"op_i"`).
-- Posicione `s:x` em `0` (lado esquerdo) ou `s:width` (lado direito) pra
-  entradas/saídas horizontais; `s:y` em `0` (topo) ou `s:height` (base) pra
-  sinais verticais (ex.: clock, op).
-- `s:x` / `s:y` levemente fora do bounding box (e.g. `-1`) são tolerados e
-  comuns pra empurrar o ponto de conexão pra fora da borda.
+### `s:alias`
 
-### Largura e altura recomendadas
-- **Gates primitivos** (AND, OR, NOT…): 25-30 × 20-25
-- **MUX / adders pequenos**: 20-25 × 30-40
-- **Módulos com muitas portas** (ULA, processador, FIFO): 60-100 × 60-120
-- **Mantenha proporções comparáveis às primitivas** (~30-60 unidades) — o
-  layout do ELK reserva espaço proporcional à área declarada e desproporção
-  forte produz layouts feios.
+Use aliases para cobrir variantes do Yosys ou nomes equivalentes.
 
-### Classes e estilos
-- `class="$cell_id"` em qualquer elemento pinta-o com `cell_<instanceName>`
-  em runtime. Útil pra hover/highlight via CSS de [html/prism/prism.css](../../html/prism/prism.css).
-- `class="nodelabel"` em `<text>` pra label centralizado (CSS aplica
-  `text-anchor:middle`).
-- `class="inputPortLabel"` em `<text>` próximo a uma entrada (right-aligned).
-- **Use variáveis CSS** (`var(--prism-module-fill)`, `var(--accent)`,
-  `var(--text)`, etc.) em vez de cores hard-coded sempre que possível, pra
-  que o símbolo siga o tema Aurora.
+```xml
+<s:alias val="$and"/>
+<s:alias val="$logic_and"/>
+<s:alias val="$_AND_"/>
+<s:alias val="$reduce_and"/>
+```
 
-### Como o CSS interage com o seu SVG inline
+### `s:width` e `s:height`
 
-`html/prism/prism.css` foi ajustado pra **não usar `!important`** em
-`font-size`, `fill` e `stroke` (de texto e do path do corpo de uma célula).
-Isso significa que `style="font-size: 11px"` ou `style="fill: var(--accent)"`
-inline **vencem** o CSS global. Use isso pra criar hierarquia visual
-(label do tipo grande e bold, hints de porta pequenos e mutados).
+Esses valores definem a caixa lógica usada pelo roteador. Eles não são apenas
+aparência. Um símbolo visualmente pequeno com `s:width` enorme cria espaços
+vazios no diagrama; um símbolo grande com caixa pequena causa sobreposição.
 
-**Baseline automático:** qualquer `<g>` que recebe `data-cell-type=<tipo>`
-(injetado por `main/ipc/prism.js`) ganha por padrão `stroke:
-var(--prism-module-stroke)` e `opacity: 1` no `<path>` direto-filho. Se
-sua skin não declarar stroke inline, ela já sai com o stroke mint do tema
-e separa visualmente da cor de fios (`--prism-wire`).
+Tamanhos recomendados:
 
-**Regras que continuam com `!important` (não tente sobrescrever inline):**
-- `font-family: var(--font-sans)` em texto — sempre Aurora sans
-- `rect { stroke-width: 1.5 }` — pra retângulos de células default
-- `path[class*="net_"] / line[class*="net_"] { stroke: var(--prism-wire) }`
-  — esses são fios entre células, mantém uniforme
-- `text[class*="busLabel_"] { font-size: 8px; fill: var(--accent-hover) }`
-  — labels de bus mantêm tamanho/cor fixos
-- `circle { stroke: var(--accent-hover); stroke-width: 1.5 }` —
-  bolhas de inversão (NAND/NOR) etc.
+| Categoria | Tamanho típico |
+|---|---:|
+| Gates simples | `30 x 25` |
+| Operadores aritméticos | `25 x 25` a `35 x 30` |
+| Comparadores | `32 x 26` |
+| MUX/DEMUX | `35 x 45` |
+| DFF/latch | `45 x 35` |
+| ULA | `70 x 60` |
+| FIFO/core | `100 x 80` |
+| Processor | `140 x 120` |
 
-### O que NÃO fazer
-- ❌ Não use `id="..."` fixo nos filhos — várias instâncias do mesmo símbolo
-  no diagrama gerariam IDs duplicados. Use `class="$cell_id"`.
-- ❌ Não importe fontes externas; o renderer já carrega a stack do Aurora.
-- ❌ Não embuta PNGs gigantes via `<image href data:...>` — funcionam, mas
-  inflam o SVG e o roteamento ELK ignora a imagem (só vê o bounding box).
-- ❌ Não use `viewBox` no `<svg>` raiz deste arquivo — o conteúdo é
-  extraído por blocos `<g s:type=...>` e a viewBox do arquivo é descartada.
-- ❌ Não use nomes de arquivo começando com `_` — são ignorados pelo merger
-  (`_template.svg` fica de fora).
+### Portas
 
----
+Cada porta Verilog precisa ter exatamente uma âncora:
 
-## Componentes que você pode customizar
+```xml
+<g s:x="0"  s:y="10" s:pid="in1"/>
+<g s:x="42" s:y="16" s:pid="out"/>
+```
 
-### Da biblioteca SAPHO (Verilog em [components/HDL/](../../components/HDL))
-Todos esses caem hoje na skin `generic` (retângulo cinza com labels).
-Crie `<nome>.svg` aqui pra dar visual próprio:
+`s:pid` é case-sensitive. Se o Verilog usa `io_in`, não use `IO_IN`, `input` ou
+`in`.
 
-| `s:type` | Arquivo Verilog | Portas (top-level) |
-|---|---|---|
-| `ula` | [ula.v](../../components/HDL/ula.v) | `op`, `in1`, `in2`, `out` |
-| `processor` | [processor.v](../../components/HDL/processor.v) | ver módulo (clk, rst, IO…) |
-| `core` | [core.v](../../components/HDL/core.v) | ver módulo |
-| `addr_dec` | [addr_dec.v](../../components/HDL/addr_dec.v) | `valid_in`, `index`, `valid_out` |
-| `instr_dec` | [instr_dec.v](../../components/HDL/instr_dec.v) | ver módulo |
-| `myFIFO` | [myFIFO.v](../../components/HDL/myFIFO.v) | `clk`, `data`, `rdreq`, `sclr`, `wrreq`, `almost_empty`, `empty`, `full`, `q`, `usedw` |
+Convenção recomendada:
 
-> Submódulos da ULA (`ula_mux`, `ula_add`, `ula_fadd`, `ula_norm`, etc.)
-> também são clicáveis e por enquanto caem no `generic` — você pode criar
-> skins próprias pra eles do mesmo jeito.
-
-### Primitivas do Yosys (já têm skin padrão; você pode sobrescrever)
-Estão definidas em [`node_modules/@silimate/netlistsvg/lib/default.svg`](../../node_modules/@silimate/netlistsvg/lib/default.svg).
-Coloque um `<g s:type="<nome>">` aqui pra substituir.
-
-| Categoria | `s:type` |
+| Tipo de sinal | Posição |
 |---|---|
-| MUX | `mux`, `mux-bus` |
-| Lógica | `and`, `nand`, `andnot`, `or`, `reduce_nor`, `ornot`, `reduce_xor`, `reduce_nxor`, `not`, `buf`, `tribuf` |
-| Aritmética | `add`, `sub`, `mul`, `div`, `mod`, `pow`, `pos`, `neg` |
-| Comparadores | `eq`, `ne`, `lt`, `le`, `gt`, `ge` |
-| Shifts | `shr`, `shl`, `sshr`, `sshl` |
-| Flip-flops | `dff`, `dff-bus`, `dffn`, `dffn-bus` |
-| Latches | `dlatch`, `dlatch-bus`, `dlatchn`, `dlatchn-bus` |
-| AOI/OAI | `_AOI3_`, `_OAI3_`, `_AOI4_`, `_OAI4_` |
-| Externos | `inputExt`, `constant`, `outputExt`, `split`, `join` |
-| Fallback genérico | `generic` |
+| Entradas de dados | esquerda |
+| Saídas de dados | direita |
+| Clock | esquerda superior ou topo |
+| Reset/clear | esquerda superior, perto do clock |
+| Select/opcode/control | topo ou base |
+| Status/flags | direita inferior |
 
-> Os tipos do Yosys vêm com prefixo `$` (e.g. `$add`). A skin casa via
-> `<s:alias val="$add"/>` — veja o `default.svg` pra mapeamentos completos.
+## Linguagem Visual
 
----
+O PRISM deve parecer um instrumento técnico, não uma coleção de logos. O símbolo
+ideal é discreto quando visto no diagrama inteiro e reconhecível quando o usuário
+aproxima o zoom.
 
-## Como o merge funciona (resumo técnico)
+Prioridade visual:
 
-1. `main/ipc/prism.js` (função `getDefaultSkinData`) lê o `default.svg`
-   do `node_modules`.
-2. Lista todo `*.svg` em `assets/prism-skins/` (ignora arquivos `_*.svg`).
-3. Pra cada arquivo, extrai TODO bloco `<g s:type="X">…</g>` no topo de
-   nível (contagem de profundidade — blocos aninhados são preservados).
-4. Pra cada bloco extraído:
-   - Se já existe um `<g s:type="X">` no `default.svg`, ele é **removido**.
-   - O bloco customizado é inserido antes de `</svg>`.
-5. O SVG resultante é entregue ao `netlistsvg.render()`.
+1. Silhueta do componente.
+2. Posição e direção das portas.
+3. Glifo funcional pequeno, quando necessário.
+4. Detalhes internos sutis.
+5. Nome do componente somente quando a forma não bastar.
 
-A skin é re-construída a cada chamada (sem cache), então editar um arquivo
-e clicar **Recompile** já mostra a alteração.
+A paleta atual vem de `html/prism/prism.css`:
 
----
+```css
+--prism-wire:          var(--accent);
+--prism-wire-hover:    var(--accent-hover);
+--prism-wire-hi:       var(--aurora-mint);
+--prism-module-fill:   rgba(95, 224, 176, 0.08);
+--prism-module-stroke: var(--aurora-mint);
+--prism-module-accent: var(--aurora-mint);
+--prism-module-glyph:  rgba(255, 255, 255, 0.82);
+```
 
-## Skins já incluídas (starter pack)
+Isso cria uma separação importante:
 
-Você já tem 26 arquivos prontos como ponto de partida. **Cada um é só um
-rascunho** — abra, mude o que quiser (tamanho, forma, label, cor) e
-recompile. Os blocos `s:alias` cobrem todas as variantes do Yosys que
-casam com cada tipo (e.g. `and` cobre `$and`, `$logic_and`, `$_AND_`,
-`$reduce_and`).
+- Fios usam o acento principal do Aurora.
+- Módulos usam mint com preenchimento fraco.
+- Glifos usam branco suave.
+- Detalhes internos usam mint com baixa opacidade.
 
-### SAPHO (6)
-- [`ula.svg`](ula.svg) — ALU clássica (pentágono com entalhe em V)
-- [`processor.svg`](processor.svg) — chip IC com pin-1
-- [`core.svg`](core.svg) — CPU core (datapath + control)
-- [`addr_dec.svg`](addr_dec.svg) — DEMUX trapezoidal
-- [`instr_dec.svg`](instr_dec.svg) — decoder com striped lookup
-- [`myFIFO.svg`](myFIFO.svg) — fila com cells visuais + seta de fluxo
+Essa escolha evita que o diagrama vire uma massa de uma cor só. Ainda assim, a
+skin não deve depender de cor forte para funcionar: se remover a cor, a forma
+precisa continuar comunicando a função.
 
-### Gates lógicos (8)
-- [`and.svg`](and.svg), [`nand.svg`](nand.svg) — D-shape, com/sem bolha
-- [`or.svg`](or.svg), [`nor.svg`](nor.svg) — shield curvo, com/sem bolha
-- [`xor.svg`](xor.svg), [`xnor.svg`](xnor.svg) — OR com curva extra
-- [`not.svg`](not.svg) — triângulo + bolha
-- [`buf.svg`](buf.svg) — triângulo simples
+### Regra anti-slop
 
-### MUX + sequenciais (4)
-- [`mux.svg`](mux.svg) — trapezóide com `0/1` (cobre mux + mux-bus)
-- [`dff.svg`](dff.svg) — D-FF positive-edge (single + bus)
-- [`dffn.svg`](dffn.svg) — D-FF negative-edge (bolha no CLK)
-- [`dlatch.svg`](dlatch.svg) — D-latch (level-sensitive, sem triângulo)
+Evite qualquer coisa que pareça uma peça promocional:
 
-### Aritmética (6)
-- [`add.svg`](add.svg), [`sub.svg`](sub.svg), [`mul.svg`](mul.svg),
-  [`div.svg`](div.svg), [`mod.svg`](mod.svg) — círculos com operador
-- [`neg.svg`](neg.svg) — negação unária
+- Texto grande no centro do componente.
+- Nome do projeto como decoração recorrente.
+- Glow, gradiente pesado ou sombra dramática.
+- Paleta neon em área grande.
+- Detalhes internos com o mesmo peso do contorno.
+- Labels de porta em todo componente pequeno.
+- Formas genéricas sem relação com a função.
 
-### Comparadores (1 arquivo, 6 blocos)
-- [`comparators.svg`](comparators.svg) — `eq`, `ne`, `lt`, `le`, `gt`, `ge`
-  em hexágonos com o glifo correspondente
+O padrão PRISM deve ser mais próximo de instrumentação, CAD e esquemático
+profissional: baixo ruído, alta leitura, poucos acentos.
 
-### Shifts (1 arquivo, 4 blocos)
-- [`shifts.svg`](shifts.svg) — `shl`, `shr`, `sshl`, `sshr`
+## Padrões por Categoria
 
-### Ainda em `generic` (default.svg) — você pode adicionar quando quiser:
-`pos`, `pow`, `tribuf`, `andnot`, `ornot`, `dlatchn`, `_AOI3_`, `_OAI3_`,
-`_AOI4_`, `_OAI4_`, `inputExt`, `outputExt`, `constant`, `split`, `join`,
-+ todos os submódulos da ULA (`ula_mux`, `ula_add`, `ula_fadd`, etc.) e
-quaisquer módulos próprios do seu projeto.
+### Gates lógicos
+
+Use formas clássicas:
+
+- `and`: D-shape.
+- `or`: forma curva de OR.
+- `xor`: OR com curva extra na entrada.
+- `not`: triângulo.
+- `nand`, `nor`, `xnor`: mesma forma + bolha de inversão.
+
+Labels devem ser opcionais e discretos. A silhueta precisa comunicar a função.
+Em gates pequenos, prefira nenhum texto ou um glifo mínimo.
+
+### Aritmética
+
+Use formas compactas e glifos fortes, mas pequenos:
+
+- `add`: `+`
+- `sub` / `neg`: `-`
+- `mul`: `x`
+- `div`: `/` ou `÷`
+- `mod`: `%`
+
+Operadores binários normalmente têm `A`, `B` à esquerda e `Y` à direita.
+Operadores unários têm uma entrada central à esquerda e uma saída central à
+direita.
+
+### Comparadores
+
+Hexágonos funcionam bem porque parecem operadores de decisão.
+
+Use glifos:
+
+- `=`
+- `!=`
+- `<`
+- `<=`
+- `>`
+- `>=`
+
+### Sequenciais
+
+Registradores e latches devem parecer elementos de estado:
+
+- Corpo retangular.
+- `D` à esquerda.
+- `Q` à direita.
+- Clock marcado por triângulo.
+- Bolha para clock negativo.
+- Reset/clear perto do topo.
+
+### Módulos grandes
+
+Módulos como `processor`, `core`, `instr_dec`, `addr_dec`, `myFIFO` e `ula`
+podem ter mais personalidade, mas ainda devem obedecer à mesma gramática. Eles
+podem carregar uma assinatura visual, não uma ilustração.
+
+Boas ideias:
+
+- `processor`: chip com pinos, pin-1 marker e marca SAPHO/PRISM sutil.
+- `core`: bloco de controle/datapath com divisões internas finas.
+- `ula`: silhueta clássica de ALU.
+- `myFIFO`: células internas e seta de fluxo.
+- `instr_dec`: lookup/decoder com linhas internas.
+- `addr_dec`: demux/decoder trapezoidal.
+
+## Como Personalizar um Componente
+
+1. Abra o Verilog e liste as portas do módulo.
+2. Decida a categoria visual do símbolo.
+3. Escolha `s:width` e `s:height`.
+4. Desenhe a silhueta principal.
+5. Posicione as portas na borda da caixa lógica.
+6. Adicione um glifo ou label interno.
+7. Adicione `s:attribute="ref"` para o nome da instância.
+8. Recompile no PRISM e veja o símbolo com fios reais.
+9. Ajuste espaçamento e legibilidade.
+
+## Checklist de Qualidade
+
+Antes de considerar uma skin pronta:
+
+```txt
+[ ] O arquivo usa UTF-8.
+[ ] O SVG raiz declara xmlns:s.
+[ ] Cada bloco principal tem s:type.
+[ ] Cada bloco tem s:width e s:height coerentes.
+[ ] Aliases importantes foram incluídos.
+[ ] Cada porta Verilog aparece como um s:pid.
+[ ] Entradas e saídas seguem lados previsíveis.
+[ ] Elementos visuais usam class="$cell_id".
+[ ] Não há id fixo em elementos internos.
+[ ] Cores vêm de variáveis CSS.
+[ ] Textos cabem no corpo do símbolo.
+[ ] O símbolo funciona pequeno.
+[ ] O símbolo fica bom no diagrama real após Recompile.
+```
+
+## O Que Evitar
+
+- Não use `id="..."` fixo dentro dos símbolos.
+- Não use PNG/base64 embutido para ícones comuns.
+- Não dependa de fontes externas.
+- Não use uma cor hard-coded sem motivo.
+- Não use texto grande como identidade principal.
+- Não transforme componentes em logos.
+- Não coloque detalhes tão fortes quanto o contorno principal.
+- Não posicione portas longe da caixa lógica.
+- Não crie símbolos muito maiores que seus vizinhos sem necessidade.
+- Não use `viewBox` como parte do contrato; o merge extrai os blocos `<g>`.
+
+## Arquivo de Teste
+
+`prism_test.svg` é um símbolo experimental para estudar o padrão visual. Ele não
+substitui nenhum componente real, porque usa `s:type="prism_test"`. O retângulo
+de fundo existe só para o preview do editor; o merger do PRISM extrai apenas o
+bloco `<g s:type="prism_test">`.
+
+Esse arquivo serve como referência de:
+
+- Paleta.
+- Hierarquia de stroke/fill/texto.
+- Portas em lados previsíveis.
+- Marca visual PRISM sem virar logo.
+- Detalhes internos discretos.
+
+## Componentes Atuais
+
+SAPHO / projeto:
+
+- `ula.svg`
+- `processor.svg`
+- `core.svg`
+- `addr_dec.svg`
+- `instr_dec.svg`
+- `myFIFO.svg`
+
+Primitivas:
+
+- `and.svg`, `nand.svg`, `or.svg`, `nor.svg`, `xor.svg`, `xnor.svg`
+- `not.svg`, `buf.svg`
+- `mux.svg`
+- `dff.svg`, `dffn.svg`, `dlatch.svg`
+- `add.svg`, `sub.svg`, `mul.svg`, `div.svg`, `mod.svg`, `neg.svg`
+- `comparators.svg`
+- `shifts.svg`
+
+O próximo passo natural é usar `prism_test.svg` para fechar a linguagem visual e
+depois refazer os SVGs por categoria, começando pelas primitivas mais frequentes.

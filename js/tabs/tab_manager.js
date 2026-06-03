@@ -91,7 +91,7 @@ function createCmmTemplate(processorName = 'processor') {
 
 void main()
 {
-    // Write your CMM code here
+    // Øk. Você criou um processador em C±, mas e agora?
 }
 `;
 }

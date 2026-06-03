@@ -2239,6 +2239,11 @@ async _waveRunCocotbSimulation(ctx, tools, config) {
         SIM: profile.sim,
         TOPLEVEL_LANG: 'verilog',
         WAVES: '1',
+        // Force UTF-8 stdio so cocotb's logs (and the user's prints/docstrings)
+        // with non-ASCII — arrows, pt-BR accents, emoji — don't crash the bundle
+        // Python's logging on the Windows cp1252 codepage (UnicodeEncodeError).
+        PYTHONUTF8: '1',
+        PYTHONIOENCODING: 'utf-8',
         ...profile.extraEnv,
     };
 

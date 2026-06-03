@@ -211,6 +211,8 @@ export async function buildSpecForStep(step, processorName) {
         TOPLEVEL_LANG: 'verilog',
         WAVES: '1',
         PYTHONHOME: pythonHome,
+        PYTHONUTF8: '1',
+        PYTHONIOENCODING: 'utf-8',
       },
       prependPath: [
         await window.electronAPI.dirname(iveriCompPath),

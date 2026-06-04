@@ -2687,8 +2687,13 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     //  - `--x-assign fast`: assume X = 0 (em vez de gerar codigo de
     //    tracking de X-state). Ganho substancial em design com regs
     //    inicializados implicitamente.
-    //  - `--no-trace-top`: nao tracker signals nivel raiz (TOP scope nao
-    //    interessa pro picker; reduz overhead do tracing).
+    //  - `--no-trace-top`: suprime APENAS o wrapper sintetico que o Verilator
+    //    gera ACIMA do top module (o escopo $root/TOP artificial) — NAO os
+    //    sinais do proprio top module. O testbench (top) e seus sinais
+    //    continuam tracados normalmente e aparecem no picker. Como o dump
+    //    enraiza no top via $dumpvars(0/1, <tb>), o nivel sintetico nem entra,
+    //    entao na pratica isto e quase um no-op (verificado: FST identico com e
+    //    sem o flag). Mantido como limpeza barata do wrapper redundante.
     //  - `-CFLAGS '-O3 -fstrict-aliasing'`: g++ usa -O3 em vez do -Os
     //    default do Verilator (que otimiza tamanho, nao velocidade).
     //    Tecnica: g++ recebe -Os primeiro (do OPT_FAST) e -O3 depois (do

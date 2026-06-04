@@ -22,11 +22,10 @@ SVGs by hand.
    below) so the same shape always means the same thing.
 2. **It's a chip.** The body is a **dark card** (`--prism-card`) so labels always
    read with contrast regardless of the host background — like an IC on a board.
-3. **PRISM identity = a faint watermark.** A faint, single-tone logo watermark
-   sits in the body's open area — quiet branding, never decoration that competes
-   with the ports. Default is the PRISM dispersion mark
-   (`assets/icons/aurora_prism.svg`); the `processor` top cell uses the **SAPHO**
-   "S" (`assets/icons/sapho_aurora_icon.svg`). No header motif, no colour strip.
+3. **Branding is restrained.** Only the `processor` top cell carries a faint,
+   single-tone watermark — the **SAPHO** "S" (`assets/icons/sapho_aurora_icon.svg`)
+   in its open area. Other cells carry no watermark (the PRISM dispersion mark
+   read as a smudge in the smaller cells). No header motif, no colour strip.
 4. **Flow left → right; control enters north.** Data inputs sit west (`s:x=0`),
    the result leaves east (`s:x=width`), the select/enable enters from the **top**
    in the **control accent (violet)** — control is always visually separate from

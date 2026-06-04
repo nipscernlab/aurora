@@ -20,8 +20,8 @@ const BUTTON_TO_STEPS = {
   vericomp:  ['iverilog-check', 'iverilog-build'],
   wavecomp:  [
     'iverilog-build',
-    'vvp-header', 'vvp-run',
-    'verilator-build', 'verilator-header', 'verilator-run',
+    'vvp-run',
+    'verilator-build', 'verilator-run',
     'fst2vcd', 'gtkwave',
   ],
   prismcomp: ['iverilog-check', 'prism-yosys', 'yosys-hierarchy'],

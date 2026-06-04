@@ -1,13 +1,12 @@
 /**
- * builders/vvp.js — CommandSpec builders for the two-pass vvp
- * simulation Aurora runs during the Wave flow.
+ * builders/vvp.js — CommandSpec builder for the vvp simulation Aurora
+ * runs during the Wave flow.
  *
- *   vvp-header : "<vvpBin>" <vvpFile> +AURORA_HEADER_ONLY
- *                The auto-instrumented testbench $finishes immediately
- *                after $dumpvars, producing a header-only VCD that
- *                Aurora parses to populate the Wave Config picker.
- *   vvp-run    : "<vvpBin>" <vvpFile> -fst
- *                The actual long simulation, FST output.
+ *   vvp-run : "<vvpBin>" <vvpFile> -fst
+ *             A single full simulation, FST output. The VCD header is no
+ *             longer captured by a separate header-only pass — it is pulled
+ *             straight from the finished FST (_extractFstHeaderVcd), so one
+ *             run produces everything the Wave Config picker + auto-gtkw need.
  *
  * No shell needed: cwd handles the relative-path resolution for
  * $readmemb / $fopen that the old `cd && vvp` idiom relied on.
@@ -21,23 +20,12 @@
  */
 
 /** @param {VvpBuilderCtx} ctx */
-export function buildVvpHeaderSpec(ctx) {
-  return {
-    step: 'vvp-header',
-    binary: ctx.vvpBin,
-    args: [ctx.vvpFile, '+AURORA_HEADER_ONLY'],
-    cwd: ctx.cwd,
-    label: 'vvp pass-1 (header capture)',
-  };
-}
-
-/** @param {VvpBuilderCtx} ctx */
 export function buildVvpRunSpec(ctx) {
   return {
     step: 'vvp-run',
     binary: ctx.vvpBin,
     args: [ctx.vvpFile, '-fst'],
     cwd: ctx.cwd,
-    label: 'vvp pass-2 (full FST)',
+    label: 'vvp (full FST)',
   };
 }

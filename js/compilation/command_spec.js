@@ -20,8 +20,8 @@
  * @typedef {(
  *   'cmm'|'asm-pre'|'asm'|
  *   'iverilog-check'|'iverilog-build'|
- *   'vvp-header'|'vvp-run'|'cocotb-run'|
- *   'verilator-build'|'verilator-header'|'verilator-run'|
+ *   'vvp-run'|'cocotb-run'|
+ *   'verilator-build'|'verilator-run'|
  *   'verilator-json'|'verilator-tb-build'|'verilator-tb-run'|
  *   'fst2vcd'|'gtkwave'|
  *   'yosys-hierarchy'|'prism-yosys'
@@ -54,9 +54,9 @@
 export const STEP_IDS = Object.freeze([
   'cmm', 'asm-pre', 'asm',
   'iverilog-check', 'iverilog-build',
-  'vvp-header', 'vvp-run',
+  'vvp-run',
   'cocotb-run',
-  'verilator-build', 'verilator-header', 'verilator-run',
+  'verilator-build', 'verilator-run',
   'verilator-json', 'verilator-tb-build', 'verilator-tb-run',
   'fst2vcd', 'gtkwave',
   'yosys-hierarchy', 'prism-yosys',
@@ -68,16 +68,14 @@ export const STEP_DESCRIPTIONS = Object.freeze({
   'asm':              'Assembly compiler (asmcomp.exe) — .asm → Hardware/<proc>.v + pc_*_mem.txt + Simulation/<proc>_tb.v',
   'iverilog-check':   'Icarus Verilog syntax/elab check (iverilog -tnull) — Verilog button + Wave-Config gate',
   'iverilog-build':   'Icarus Verilog build (iverilog -o) — produces .vvp consumed by vvp',
-  'vvp-header':       'vvp pass-1 — runs instrumented testbench with +AURORA_HEADER_ONLY, produces VCD header only',
-  'vvp-run':          'vvp pass-2 — full simulation with -fst, produces FST waveform',
+  'vvp-run':          'vvp — full simulation with -fst, produces FST waveform (header pulled from the FST)',
   'cocotb-run':       'cocotb Python runner — builds Verilog with Icarus and runs Python tests',
   'verilator-build':  'Verilator build — Verilog → C++ → native .exe',
-  'verilator-header': 'Verilator pass-1 — runs .exe with +AURORA_HEADER_ONLY for header capture',
-  'verilator-run':    'Verilator pass-2 — full simulation, native .exe',
+  'verilator-run':    'Verilator — full simulation, native .exe (header pulled from the FST)',
   'verilator-json':   'Verilator --json-only — dump processor port AST (V<proc>.tree.json)',
   'verilator-tb-build':'Verilator --cc --exe --build with the SAPHO processor C++ harness (clock loop + req_in/out_en one-hot wiring)',
   'verilator-tb-run': 'Run V<proc>.exe (CMM-processor harness) — reads input_<N>.txt, writes output_<N>.txt',
-  'fst2vcd':          'fst2vcd conversion (used after Verilator pass-1)',
+  'fst2vcd':          'fst2vcd conversion (FST → text VCD)',
   'gtkwave':          'GTKWave launch (--dark, --rcvar, -a, --script)',
   'yosys-hierarchy':  'Yosys design hierarchy emission (write_json)',
   'prism-yosys':      'PRISM Yosys synthesis (RTL schematic for netlistsvg)',

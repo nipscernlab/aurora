@@ -19,9 +19,9 @@ import {
   buildCmmSpec,
   buildAsmPreSpec, buildAsmSpec,
   buildIverilogCheckSpec, buildIverilogBuildSpec,
-  buildVvpHeaderSpec, buildVvpRunSpec,
+  buildVvpRunSpec,
   buildCocotbRunSpec,
-  buildVerilatorBuildSpec, buildVerilatorHeaderSpec, buildVerilatorRunSpec,
+  buildVerilatorBuildSpec, buildVerilatorRunSpec,
   buildFst2VcdSpec, buildGtkwaveSpec,
   buildYosysHierarchySpec,
 } from './builders/index.js';
@@ -241,16 +241,14 @@ export async function buildSpecForStep(step, processorName) {
     });
   }
 
-  if (step === 'vvp-header' || step === 'vvp-run') {
+  if (step === 'vvp-run') {
     if (tbIsPython) throw new Error(`${step} cannot use a Python testbench; use cocotb-run`);
     if (!simTopModule) throw new Error(`${step} needs a testbench`);
     const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
-    return step === 'vvp-header'
-      ? buildVvpHeaderSpec({ vvpBin, vvpFile, cwd: tempBaseDir })
-      : buildVvpRunSpec({ vvpBin, vvpFile, cwd: tempBaseDir });
+    return buildVvpRunSpec({ vvpBin, vvpFile, cwd: tempBaseDir });
   }
 
-  if (step === 'verilator-build' || step === 'verilator-header' || step === 'verilator-run') {
+  if (step === 'verilator-build' || step === 'verilator-run') {
     const mingwBin = await joinComponents('Packages', 'msys', 'mingw64', 'bin');
     const usrBin   = await joinComponents('Packages', 'msys', 'usr', 'bin');
     const perlExe  = await window.electronAPI.joinPath(mingwBin, 'perl.exe');
@@ -266,9 +264,7 @@ export async function buildSpecForStep(step, processorName) {
     if (!simTopModule) throw new Error(`${step} needs a testbench`);
     const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
     const exePath = await window.electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
-    return step === 'verilator-header'
-      ? buildVerilatorHeaderSpec({ exePath, cwd: tempBaseDir, mingwBin, usrBin })
-      : buildVerilatorRunSpec({ exePath, cwd: tempBaseDir, mingwBin, usrBin });
+    return buildVerilatorRunSpec({ exePath, cwd: tempBaseDir, mingwBin, usrBin });
   }
 
   if (step === 'fst2vcd') {

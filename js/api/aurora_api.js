@@ -1497,8 +1497,8 @@ const compileNs = {
 
   // -----------------------------------------------------------------
   // Aurora-Intelligence-driven command overrides. Each toolchain step
-  // (cmm, asm, iverilog-check, iverilog-build, vvp-header, vvp-run,
-  // verilator-build/header/run, fst2vcd, gtkwave, yosys-hierarchy,
+  // (cmm, asm, iverilog-check, iverilog-build, vvp-run,
+  // verilator-build/run, fst2vcd, gtkwave, yosys-hierarchy,
   // prism-yosys) can have an override that appends/prepends/removes
   // args and tweaks env. See command_overrides.js + protected_flags.js.
   // -----------------------------------------------------------------

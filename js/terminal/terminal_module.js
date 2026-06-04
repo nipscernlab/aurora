@@ -198,12 +198,37 @@ class TerminalManager {
     }
 
 
+    /**
+     * Bring `terminalId`'s tab to the front so the user always sees the
+     * terminal that is actively receiving compiler output. Wired only into
+     * the streamed/executable output paths — those carry real command
+     * output, so following them never yanks focus for a stray info/AI card.
+     *
+     * Fixes the "always one terminal ahead (empty)" complaint: a build runs
+     * cmm → asm → verilog/wave, each writing to its own tab, but the view
+     * used to sit on the destination tab while the work happened (invisibly)
+     * in the earlier ones. Now the view tracks wherever output is landing.
+     *
+     * No-op when that tab is already active (cheap guard — a streaming step
+     * calls this once per line, so only the first line of a new terminal
+     * actually moves the DOM).
+     */
+    revealActiveOutputTerminal(terminalId) {
+        const tab = document.querySelector(`.terminal-tabs .tab[data-terminal="${terminalId}"]`);
+        if (!tab || tab.classList.contains('active')) return;
+        document.querySelectorAll('.terminal-content').forEach((c) => c.classList.add('hidden'));
+        document.querySelectorAll('.terminal-tabs .tab').forEach((t) => t.classList.remove('active'));
+        document.getElementById(`terminal-${terminalId}`)?.classList.remove('hidden');
+        tab.classList.add('active');
+    }
+
     processExecutableOutput(terminalId, result) {
         const terminal = this.terminals[terminalId];
         if (!terminal || (!result.stdout && !result.stderr)) {
             return;
         }
 
+        this.revealActiveOutputTerminal(terminalId);
         this.resetSessionCards(terminalId);
 
         const output = (result.stdout || '') + (result.stderr || '');
@@ -238,6 +263,8 @@ class TerminalManager {
     processStreamedLine(terminalId, line) {
         const terminal = this.terminals[terminalId];
         if (!terminal || !line) return;
+
+        this.revealActiveOutputTerminal(terminalId);
 
         const messageType = this.detectMessageType(line);
 

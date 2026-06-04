@@ -117,13 +117,13 @@ body.window-maximized {
               box-shadow var(--transition-fast);
 }
 
-/* The full-height vertical resizer lights only on DIRECT interaction (hover or
-   its own drag). It is deliberately NOT lit by the corner handle: doing so shot
-   a tall accent bar up the whole editor the moment the cursor grazed the
-   bottom-left junction. The corner's discovery cue is the short horizontal
-   resizer below (which still lights on corner-hovering / resizing-corner). */
+/* The vertical (file-tree) resizer lights on direct interaction AND when the
+   corner handle is grabbed/dragged — so the file-tree↔terminal corner frames
+   BOTH of its edges in purple, exactly like the AI↔terminal corner does. */
 .resizer-vertical:hover::after,
-body.resizing-vertical .resizer-vertical::after {
+body.resizing-vertical .resizer-vertical::after,
+body.corner-hovering   .resizer-vertical::after,
+body.resizing-corner   .resizer-vertical::after {
   background: var(--accent);
   box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
 }
@@ -185,6 +185,11 @@ body.resizing-horizontal .terminal-container,
 body.resizing-corner .terminal-container {
   transition: none !important;
 }
+
+/* While dragging the corner, thicken both lit edges so they read as a clear
+   purple border (parity with the AI↔terminal corner). */
+body.resizing-corner .resizer-vertical::after   { width: 2px; }
+body.resizing-corner .resizer-horizontal::after { height: 2px; }
 
 /* ---------------------------------------------------------------------------
  *  Context menu

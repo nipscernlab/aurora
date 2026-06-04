@@ -12,6 +12,7 @@ const PRISM_STRINGS = {
     compiling:   'Compiling RTL design…',
     back:        'Back',
     fit:         'Fit',
+    download:    'Download',
     recompile:   'Recompile',
     fitToScreen: 'Fit to Screen',
     resetZoom:   'Reset Zoom',
@@ -25,6 +26,7 @@ const PRISM_STRINGS = {
     compiling:   'Compilando design RTL…',
     back:        'Voltar',
     fit:         'Ajustar',
+    download:    'Baixar',
     recompile:   'Recompilar',
     fitToScreen: 'Ajustar à Tela',
     resetZoom:   'Resetar Zoom',
@@ -55,6 +57,7 @@ const _setText = (id, txt) => { const el = document.getElementById(id); if (el) 
 _setText('t-title',     T.title);
 _setText('t-back',      T.back);
 _setText('t-fit',       T.fit);
+_setText('t-download',  T.download);
 _setText('t-recompile', T.recompile);
 _setText('t-compiling', T.compiling);
 _setText('currentModule', T.loading);
@@ -99,6 +102,7 @@ class PRISMViewer {
     this.backBtn         = document.getElementById('backBtn');
     this.compileBtn      = document.getElementById('compileBtn');
     this.fitBtn          = document.getElementById('fitBtn');
+    this.downloadBtn     = document.getElementById('downloadBtn');
     this.zoomInBtn       = document.getElementById('zoomInBtn');
     this.zoomOutBtn      = document.getElementById('zoomOutBtn');
     this.resetZoomBtn    = document.getElementById('resetZoomBtn');
@@ -123,6 +127,7 @@ class PRISMViewer {
     this.backBtn.addEventListener('click',     () => this.navigateBack());
     this.compileBtn.addEventListener('click',  () => this.recompile());
     this.fitBtn.addEventListener('click',      () => this.fitToScreen());
+    this.downloadBtn?.addEventListener('click',() => this.downloadSVG());
     this.zoomInBtn.addEventListener('click',   () => this.zoom(1.2));
     this.zoomOutBtn.addEventListener('click',  () => this.zoom(0.8));
     this.resetZoomBtn.addEventListener('click',() => this.resetView());
@@ -211,6 +216,10 @@ class PRISMViewer {
       this._adjustBusLabels();
       this._hideStatus();
 
+      // An SVG is now on screen — allow downloading it. Enabled on every
+      // load so the button works at any navigation level, not just the top.
+      if (this.downloadBtn) this.downloadBtn.disabled = false;
+
       setTimeout(() => this.fitToScreen(), 100);
     } catch (err) {
       console.error('[PRISM] Failed to load SVG:', err);
@@ -225,6 +234,45 @@ class PRISMViewer {
       const rect = label.previousElementSibling;
       if (rect && rect.tagName.toLowerCase() === 'rect') rect.setAttribute('width', '20');
     });
+  }
+
+  // -------------------------------------------------------------------------
+  //  SVG download
+  // -------------------------------------------------------------------------
+  /**
+   * Save the diagram currently on screen as a standalone .svg file. Reads
+   * whatever module is loaded right now, so it works at any navigation
+   * level (top-level or a drilled-into submodule). The file is named after
+   * the active module. Uses a Blob + <a download>; Electron surfaces its
+   * native Save dialog with no extra IPC.
+   */
+  downloadSVG() {
+    const svg = this.svgContent.querySelector('svg');
+    if (!svg) return;
+
+    // Clone so the namespace tweaks below never touch the live, interactive
+    // SVG (highlights, listeners) the user is still viewing.
+    const clone = /** @type {SVGElement} */ (svg.cloneNode(true));
+    if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    if (!clone.getAttribute('xmlns:xlink')) clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const serialized = new XMLSerializer().serializeToString(clone);
+    const source = '<?xml version="1.0" encoding="UTF-8"?>\n' + serialized;
+    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${this._safeFileName(this.currentModule || 'diagram')}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  /** Strip characters that can't live in a filename, keeping the module name readable. */
+  _safeFileName(name) {
+    return String(name).replace(/[^a-zA-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '') || 'diagram';
   }
 
   // -------------------------------------------------------------------------

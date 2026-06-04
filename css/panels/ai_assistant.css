@@ -1682,6 +1682,88 @@ body.resizing-ai-corner .ai-resize-handle::after {
 }
 
 /* ---------------------------------------------------------------------------
+ *  Tool-call group — a collapsible batch of consecutive tool chips so a busy
+ *  turn doesn't flood the chat. JS (_ensureToolGroup / _closeToolGroup) wraps
+ *  the chips; multi-step batches auto-collapse to a "N actions" summary on
+ *  completion, click the header to expand.
+ * ------------------------------------------------------------------------- */
+.ai-tool-group {
+  margin: 4px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+.ai-tool-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.ai-tool-group-head:hover { background: var(--overlay-hover); color: var(--text); }
+.ai-tool-group-caret {
+  font-size: 10px;
+  transition: transform 160ms ease;
+}
+.ai-tool-group.collapsed .ai-tool-group-caret { transform: rotate(-90deg); }
+.ai-tool-group-icon { font-size: 11px; color: var(--accent); }
+.ai-tool-group-summary { flex: 1 1 auto; min-width: 0; }
+.ai-tool-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 6px 6px;
+}
+.ai-tool-group.collapsed .ai-tool-group-body { display: none; }
+
+/* ---------------------------------------------------------------------------
+ *  Autonomous turn marker — a subtle "↻ background task finished" note that
+ *  precedes a turn the assistant started on its own (Phase E). Distinct from a
+ *  normal user bubble so the user can see why a new turn appeared.
+ * ------------------------------------------------------------------------- */
+.ai-auto-note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 8px 0 2px;
+  padding: 3px 8px;
+  align-self: flex-start;
+  border: 1px dashed var(--accent-border);
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-size: var(--text-xs);
+}
+.ai-auto-note i { font-size: 12px; }
+
+/* Background-task status chip (started / done) shown inline in the stream. */
+.ai-bgtask {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 4px 0;
+  padding: 4px 10px;
+  border: 1px solid var(--accent-border);
+  border-left-width: 3px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+.ai-bgtask .ai-bgtask-icon { color: var(--accent); font-size: 13px; }
+.ai-bgtask.done .ai-bgtask-icon { color: var(--status-success); }
+.ai-bgtask.failed .ai-bgtask-icon { color: var(--status-error); }
+
+/* ---------------------------------------------------------------------------
  *  Clickable file references inside assistant messages (core.v, proc.cmm:25).
  *  linkifyFileRefs() wraps them in .ai-file-ref; clicking opens the file (at
  *  the cited line) in the editor.

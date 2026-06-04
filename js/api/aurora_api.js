@@ -2059,6 +2059,23 @@ const aiNs = {
       return err(e?.message || 'askAboutSelection failed');
     }
   },
+
+  /**
+   * Start a long task in the background and return IMMEDIATELY so the current
+   * turn can end. When the task finishes, the assistant auto-continues the
+   * conversation with the result — i.e. it runs the work "under the hood",
+   * lets the chat finish, then posts a follow-up message on its own.
+   *
+   * @param {{task:'compile_all'|'compile_step', step?:string, note?:string}} p
+   */
+  async runInBackground(p = {}) {
+    const mgr = window.aiAssistantManager;
+    if (!mgr || typeof mgr.runInBackground !== 'function') {
+      return err('AI panel is not available');
+    }
+    const r = mgr.runInBackground(p || {});
+    return (r && r.ok) ? ok(r.data) : err((r && r.error) || 'runInBackground failed');
+  },
 };
 
 /* ============================================================
@@ -2217,6 +2234,7 @@ const NAMESPACES = Object.freeze({
   ai: {
     open:              'Open the Aurora Intelligence chat panel',
     askAboutSelection: 'Open the chat seeded with a selected code snippet (Explain/Fix/Improve/Comment)',
+    runInBackground:   'Run a compile task in the background; the assistant auto-reports when it finishes',
   },
   events: {
     on:   'Subscribe to a bus event; returns an unsubscribe fn',

@@ -107,7 +107,7 @@ function buildMcpServer() {
     })),
   }));
 
-  srv.setRequestHandler(CallToolRequestSchema, async (req) => {
+  srv.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const name = req?.params?.name;
     const args = req?.params?.arguments || {};
     const def = tools.TOOL_MANIFEST.find((t) => t.name === name);
@@ -124,6 +124,25 @@ function buildMcpServer() {
         isError: true,
       };
     }
+
+    // Keep-alive heartbeat. Some tools block on a deliberate human answer
+    // (ask_user_question's inline card) for minutes; the CLI's MCP client
+    // would otherwise time the request out and the answer would never get
+    // back, which is why ask_user_question "always failed". If the client
+    // attached a progressToken, drip `notifications/progress` every ~10s so
+    // it resets its read timeout until the tool actually resolves.
+    const progressToken = req?.params?._meta?.progressToken;
+    let heartbeat = null;
+    if (progressToken != null && extra && typeof extra.sendNotification === 'function') {
+      let ticks = 0;
+      heartbeat = setInterval(() => {
+        extra.sendNotification({
+          method: 'notifications/progress',
+          params: { progressToken, progress: ++ticks, message: `Aurora: ${name} still running…` },
+        }).catch(() => { /* client went away; the close handler tears down */ });
+      }, 10_000);
+    }
+
     try {
       // Same one-way trip the SDK chat loop uses: ask-before-write,
       // audit logging, and final AuroraAPI dispatch all live in the
@@ -139,6 +158,8 @@ function buildMcpServer() {
         content: [{ type: 'text', text: JSON.stringify({ ok: false, error: e?.message || String(e) }) }],
         isError: true,
       };
+    } finally {
+      if (heartbeat) clearInterval(heartbeat);
     }
   });
 

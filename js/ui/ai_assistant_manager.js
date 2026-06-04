@@ -110,6 +110,12 @@ function isSubProvider(name) {
   return !!SUB_META[name];
 }
 
+// Anti-freeze watchdog: if a streaming turn goes this long with NO chat event
+// AND nothing pending (no in-flight tool, no open ask/confirm card), it's
+// treated as wedged and the UI self-heals back to idle. Generous so a slow
+// model or a long single tool never trips it falsely.
+const STREAM_STALL_MS = 180000;
+
 /** Strip vendor prefixes / date suffixes so a model id fits on the chip. */
 function shortModelName(model) {
   if (!model) return '';
@@ -598,7 +604,13 @@ const SYSTEM_PROMPT = [
   "  4. Never emit JSON or XML tool-call syntax as visible text — always use the actual\n" +
   "     function-calling mechanism provided by the SDK.\n" +
   "  5. Be creative and dynamic — prefer doing things autonomously over asking the user\n" +
-  "     for confirmation on every step. Only ask when genuinely ambiguous.\n",
+  "     for confirmation on every step. Only ask when genuinely ambiguous.\n" +
+  "  6. LONG-RUNNING WORK — for a slow compile or simulation that the user shouldn't have to\n" +
+  "     wait on, call `run_in_background({task:'compile_all'|'compile_step', step, note})`. It\n" +
+  "     returns immediately; tell the user you've started it and will report back, then END your\n" +
+  "     turn. Aurora runs it under the hood and AUTOMATICALLY re-invokes you with the result as a\n" +
+  "     fresh turn — at which point you read the terminals and report the outcome. Do NOT block\n" +
+  "     the chat waiting; that is exactly what run_in_background is for.\n",
 
 ].join('');
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2126,14 +2138,20 @@ class AIAssistantManager {
 
     this.usageBars.innerHTML = rows.join('');
 
-    const hint = this.mpUsage.querySelector('.ai-usage-hint');
+    let hint = this.mpUsage.querySelector('.ai-usage-hint');
     if (!windows.length) {
+      // Codex's CLI exposes only a session token tally, never rate-limit
+      // windows — so the "appears after your first message" copy was wrong
+      // there forever. Tell each provider the truth.
+      const text = this.currentProvider === 'chatgpt'
+        ? 'The Codex CLI reports only this session’s token tally, not ChatGPT plan limits.'
+        : 'Plan limits appear here after your first message.';
       if (!hint) {
-        const h = document.createElement('p');
-        h.className = 'ai-usage-hint';
-        h.textContent = 'Plan limits appear here after your first message.';
-        this.mpUsage.appendChild(h);
+        hint = document.createElement('p');
+        hint.className = 'ai-usage-hint';
+        this.mpUsage.appendChild(hint);
       }
+      hint.textContent = text;
     } else if (hint) {
       hint.remove();
     }
@@ -2364,7 +2382,19 @@ class AIAssistantManager {
 
     this.appendBubble('user', text);
     this.messages.push({ role: 'user', content: text });
+    // A real user message breaks any autonomous follow-up chain.
+    this._autoChainCount = 0;
 
+    await this._dispatchTurn();
+  }
+
+  /**
+   * Shared turn dispatcher used by send() (a real user message) and
+   * autoContinue() (an autonomous follow-up). The caller pushes its message
+   * into this.messages FIRST; this resets the streaming state, (re)subscribes
+   * to chat events, opens a session and calls startChat.
+   */
+  async _dispatchTurn() {
     // Assistant output is built lazily: text segments and tool chips
     // append in arrival order, so a turn reads top-to-bottom even when
     // the model interleaves "explain → call a tool → explain".
@@ -2372,6 +2402,7 @@ class AIAssistantManager {
     this.segmentBuffer = '';
     this.currentAssistantContentEl = null;
     this.runningChips = [];
+    this._toolGroup = null;
     this.showThinking(true);
 
     // Subscribe lazily so we never miss the first packet — startChat
@@ -2427,14 +2458,195 @@ class AIAssistantManager {
     }
   }
 
+  /* ---------------- autonomous turns (Phase E) ---------------- */
+
+  /**
+   * Start a turn the assistant triggered itself (not the user) — e.g. a
+   * background task finished and the model should report back. `content` is
+   * the synthetic user message handed to the model; a subtle "↻" note marks
+   * the turn in the stream so the user sees why it appeared.
+   *
+   * If a turn is already streaming, the request is queued and drained when
+   * that turn ends (see setStreaming → _drainAutoQueue). A safety cap stops
+   * runaway self-chaining.
+   */
+  autoContinue(content, { label = 'Autonomous follow-up' } = {}) {
+    if (!content || !this.currentProvider || !this.currentChatId) return;
+    if (!this._autoQueue) this._autoQueue = [];
+    this._autoQueue.push({ content, label });
+    if (!this._isStreaming) this._drainAutoQueue();
+  }
+
+  _drainAutoQueue() {
+    if (this._isStreaming) return;                 // wait for the live turn
+    if (!this._autoQueue || !this._autoQueue.length) return;
+    // Runaway guard: never let the assistant self-chain more than a handful of
+    // turns without a human in the loop.
+    this._autoChainCount = (this._autoChainCount || 0) + 1;
+    if (this._autoChainCount > 5) {
+      this._autoQueue = [];
+      this.appendBubble('assistant',
+        '_Paused autonomous follow-ups (chain limit reached). Send a message to continue._',
+        { error: true });
+      return;
+    }
+    const { content, label } = this._autoQueue.shift();
+    // Subtle marker bubble (not a normal user message visually).
+    if (this.chatEmptyHint) this.chatEmptyHint.classList.add('hidden');
+    const note = document.createElement('div');
+    note.className = 'ai-auto-note';
+    note.innerHTML = '<i class="ph ph-arrows-clockwise" aria-hidden="true"></i><span></span>';
+    note.querySelector('span').textContent = label;
+    this.messagesEl.appendChild(note);
+    // The synthetic message goes into the model context as a user turn.
+    this.messages.push({ role: 'user', content });
+    this._dispatchTurn();
+  }
+
+  /**
+   * Kick off a long task in the background and return immediately, so the
+   * current turn can end. When the task finishes, the assistant auto-continues
+   * with the result (autoContinue). Backs window.AuroraAPI.ai.runInBackground.
+   *
+   * @param {{task:'compile_all'|'compile_step', step?:string, note?:string}} p
+   * @returns {{ok:boolean, data?:object, error?:string}}
+   */
+  runInBackground({ task, step, note } = {}) {
+    const api = window.AuroraAPI;
+    if (!api || !api.compile) return { ok: false, error: 'AuroraAPI.compile unavailable' };
+    let job;
+    if (task === 'compile_all') job = api.compile.compileAll();
+    else if (task === 'compile_step') {
+      if (!step) return { ok: false, error: 'compile_step requires a step' };
+      job = api.compile.compileStep(step);
+    } else {
+      return { ok: false, error: `unknown background task: ${task}` };
+    }
+
+    const taskId = `bg-${Date.now().toString(36)}`;
+    const label = task === 'compile_step' ? `compile ${step}` : 'compile all';
+    // Pin the conversation this task belongs to — if the user switches chats
+    // before it finishes, we must NOT inject the follow-up into the new one.
+    const originChatId = this.currentChatId;
+    this._renderBgTask(taskId, `Running ${label} in the background…`, 'running');
+
+    const stillSameChat = () => this.currentChatId === originChatId;
+
+    Promise.resolve(job).then(async (res) => {
+      const okJob = !(res && res.ok === false);
+      if (!stillSameChat()) return;   // user moved on — drop the auto-continue
+      // Pull the compiler terminals for context so the follow-up turn can
+      // actually report what happened.
+      let terminals = '';
+      try {
+        const t = await api.terminal?.getAll?.();
+        if (t && t.ok && t.data) terminals = JSON.stringify(t.data).slice(0, 4000);
+      } catch (_) { /* terminals are best-effort context */ }
+      this._renderBgTask(taskId, `${label} ${okJob ? 'finished' : 'failed'}`, okJob ? 'done' : 'failed');
+      const status = okJob ? 'completed' : `failed: ${res?.error?.message || res?.error || 'unknown error'}`;
+      this.autoContinue(
+        `[AUTONOMOUS BACKGROUND TASK] "${label}" (${taskId}) ${status}.\n\n` +
+        (note ? `Original intent: ${note}\n\n` : '') +
+        `Relevant terminal output (truncated):\n${terminals || '(none captured)'}\n\n` +
+        `Summarise the outcome for the user concisely, and decide whether any follow-up action is warranted.`,
+        { label: `Background task: ${label} ${okJob ? 'finished' : 'failed'}` },
+      );
+    }).catch((e) => {
+      if (!stillSameChat()) return;
+      this._renderBgTask(taskId, `${label} errored`, 'failed');
+      this.autoContinue(
+        `[AUTONOMOUS BACKGROUND TASK] "${label}" (${taskId}) threw: ${e?.message || e}. Report this to the user.`,
+        { label: `Background task: ${label} errored` },
+      );
+    });
+
+    return { ok: true, data: { taskId, status: 'started', task: label } };
+  }
+
+  /** Render (or update) the inline status chip for a background task. */
+  _renderBgTask(taskId, text, state) {
+    let el = this.messagesEl.querySelector(`.ai-bgtask[data-task-id="${taskId}"]`);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'ai-bgtask';
+      el.dataset.taskId = taskId;
+      el.innerHTML = '<i class="ph ai-bgtask-icon" aria-hidden="true"></i><span class="ai-bgtask-text"></span>';
+      this.messagesEl.appendChild(el);
+    }
+    el.classList.remove('running', 'done', 'failed');
+    el.classList.add(state);
+    const icon = el.querySelector('.ai-bgtask-icon');
+    if (icon) icon.className = `ph ai-bgtask-icon ${state === 'done' ? 'ph-check-circle' : state === 'failed' ? 'ph-x-circle' : 'ph-circle-notch ai-tool-spin'}`;
+    el.querySelector('.ai-bgtask-text').textContent = text;
+    this.scrollToBottom();
+  }
+
   async stop() {
     if (!this.currentSessionId || !window.aiAPI) return;
-    try { await window.aiAPI.abortChat(this.currentSessionId); }
+    const sid = this.currentSessionId;
+    try { await window.aiAPI.abortChat(sid); }
     catch (_) { /* the stream side reports back via 'aborted' */ }
+    // Safety net: if the backend never delivers a terminal event (a wedged
+    // CLI process), force the UI back to idle so the composer is never stuck
+    // spinning. Guarded on sid so we don't clobber a turn the user restarted.
+    setTimeout(() => {
+      if (this._isStreaming && this.currentSessionId === sid) {
+        this.showThinking(false);
+        this._closeToolGroup();
+        this.resetTurnState();
+        this.setStreaming(false);
+      }
+    }, 2000);
+  }
+
+  /* ---------------- stream watchdog (anti-freeze) ---------------- */
+
+  _armStreamWatchdog() {
+    this._disarmStreamWatchdog();
+    this._lastEventAt = Date.now();
+    this._streamWatchdog = setInterval(() => {
+      if (!this._isStreaming) return;
+      // Never reap a turn that is legitimately waiting on a human (an
+      // ask-user / confirm card) or on an in-flight tool — those can take
+      // minutes by design.
+      if (this.runningChips.length) return;
+      if (this.pendingAskUserQuestions && this.pendingAskUserQuestions.size) return;
+      if (this.pendingConfirms && this.pendingConfirms.size) return;
+      if (Date.now() - (this._lastEventAt || 0) > STREAM_STALL_MS) {
+        this._recoverFromStall();
+      }
+    }, 15000);
+  }
+
+  _disarmStreamWatchdog() {
+    if (this._streamWatchdog) {
+      clearInterval(this._streamWatchdog);
+      this._streamWatchdog = null;
+    }
+  }
+
+  /**
+   * Self-heal a turn that went silent with nothing pending — the "a conversa
+   * trava" symptom. Aborts the backend, drops the spinner, and returns the
+   * composer to idle so the user is never stranded. The notice is display-only
+   * (not persisted into the model context).
+   */
+  _recoverFromStall() {
+    const sid = this.currentSessionId;
+    try { if (sid) window.aiAPI?.abortChat?.(sid); } catch (_) { /* best-effort */ }
+    this.showThinking(false);
+    this._closeToolGroup();
+    this.appendBubble('assistant',
+      '_The assistant stopped responding, so the turn was reset. Send another message to continue._',
+      { error: true });
+    this.resetTurnState();
+    this.setStreaming(false);
   }
 
   handleChatEvent(ev) {
     if (!ev || ev.sessionId !== this.currentSessionId) return;
+    // Watchdog liveness: any packet from the active turn proves it's alive.
+    this._lastEventAt = Date.now();
     switch (ev.type) {
       case 'text-delta':
         this.showThinking(false);
@@ -2478,6 +2690,8 @@ class AIAssistantManager {
 
   appendDelta(delta) {
     if (!delta) return;
+    // Text resuming after a run of tools closes that batch (tidy summary).
+    this._closeToolGroup();
     if (!this.currentAssistantContentEl) {
       const bubble = this.appendBubble('assistant', '');
       this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
@@ -2574,6 +2788,8 @@ class AIAssistantManager {
   }
 
   commitTurn() {
+    // Collapse the final tool batch so a finished turn reads clean.
+    this._closeToolGroup();
     // Flush any frame-batched stream render so the bubble shows the full
     // final text before we highlight code blocks.
     if (this._streamRenderRaf) {
@@ -2611,6 +2827,7 @@ class AIAssistantManager {
 
   failTurn(message) {
     this.showThinking(false);
+    this._closeToolGroup();
     this.appendBubble('assistant', `Error: ${message}`, { error: true });
     // Mark in-flight chips as failed in DOM and persist them — args
     // are kept so the saved transcript still shows what was attempted.
@@ -2647,6 +2864,7 @@ class AIAssistantManager {
     this._revealLength = 0;
     this.currentSessionId = null;
     this.runningChips = [];
+    this._toolGroup = null;
     this.hadToolCalls = false;
     // Auto-deny any confirmation cards still open when the turn ends
     // (e.g. the user hit Stop while a card was waiting).
@@ -2663,6 +2881,60 @@ class AIAssistantManager {
   }
 
   /* ---------------- tool chips ---------------- */
+
+  /**
+   * A run of consecutive tool calls is wrapped in one collapsible group so a
+   * busy turn doesn't flood the chat with chips ("poluído de informações").
+   * The group is created lazily on the first chip of a batch; a text segment
+   * or the turn ending closes it (and collapses multi-step batches to a tidy
+   * "N actions" summary the user can expand).
+   */
+  _ensureToolGroup() {
+    if (this._toolGroup && this._toolGroup.el.isConnected) return this._toolGroup;
+    const el = document.createElement('div');
+    el.className = 'ai-tool-group';
+    el.innerHTML = `
+      <button class="ai-tool-group-head" type="button" aria-expanded="true">
+        <i class="ph ph-caret-down ai-tool-group-caret" aria-hidden="true"></i>
+        <i class="ph ph-wrench ai-tool-group-icon" aria-hidden="true"></i>
+        <span class="ai-tool-group-summary">Working…</span>
+      </button>
+      <div class="ai-tool-group-body"></div>`;
+    const head = el.querySelector('.ai-tool-group-head');
+    head.addEventListener('click', () => {
+      const collapsed = el.classList.toggle('collapsed');
+      head.setAttribute('aria-expanded', String(!collapsed));
+    });
+    this.messagesEl.appendChild(el);
+    this._toolGroup = {
+      el,
+      body: el.querySelector('.ai-tool-group-body'),
+      summaryEl: el.querySelector('.ai-tool-group-summary'),
+      total: 0,
+    };
+    return this._toolGroup;
+  }
+
+  /** Live header: "Running N actions…" while any chip spins, else "N actions". */
+  _refreshToolGroupSummary() {
+    const g = this._toolGroup;
+    if (!g) return;
+    const running = this.runningChips.some((c) => g.body.contains(c.el));
+    const noun = `action${g.total === 1 ? '' : 's'}`;
+    g.summaryEl.textContent = running ? `Running ${g.total} ${noun}…` : `${g.total} ${noun}`;
+  }
+
+  /** Finalise the current batch; collapse it if it ran more than one tool. */
+  _closeToolGroup() {
+    const g = this._toolGroup;
+    if (!g) return;
+    g.summaryEl.textContent = `${g.total} action${g.total === 1 ? '' : 's'}`;
+    if (g.total >= 2) {
+      g.el.classList.add('collapsed');
+      g.el.querySelector('.ai-tool-group-head')?.setAttribute('aria-expanded', 'false');
+    }
+    this._toolGroup = null;
+  }
 
   startToolChip(toolName, args, toolUseId) {
     const name = toolName || 'tool';
@@ -2681,9 +2953,12 @@ class AIAssistantManager {
       const argText = this._formatArgsForTitle(args);
       if (argText) chip.title = argText;
     }
-    this.messagesEl.appendChild(chip);
+    const group = this._ensureToolGroup();
+    group.body.appendChild(chip);
+    group.total += 1;
     this.scrollToBottom();
     this.runningChips.push({ toolUseId: toolUseId || null, toolName: name, args, el: chip });
+    this._refreshToolGroupSummary();
   }
 
   finishToolChip(toolName, result, toolUseId) {
@@ -2729,6 +3004,7 @@ class AIAssistantManager {
     };
     if (!ok && result?.error) entry.error = result.error;
     this.messages.push(entry);
+    this._refreshToolGroupSummary();
   }
 
   /** Compact, hover-friendly representation of tool args. */
@@ -2879,6 +3155,12 @@ class AIAssistantManager {
     // Keep textarea enabled so the user can compose their next message
     // while generation is running; Enter-to-send is blocked by _isStreaming.
     this.clearBtn.disabled = streaming;
+    if (streaming) this._armStreamWatchdog();
+    else {
+      this._disarmStreamWatchdog();
+      // A turn just ended — drain any autonomous follow-up queued while it ran.
+      this._drainAutoQueue();
+    }
   }
 
   /* ---------------- bubbles / clear ---------------- */
@@ -2949,6 +3231,9 @@ class AIAssistantManager {
     this.cumulativeTokens = 0;
     this.updateTokenCounter();
     this.runningChips = [];
+    this._toolGroup = null;
+    this._autoQueue = [];
+    this._autoChainCount = 0;
     this.thinkingEl = null;
     this.currentChatId = null;
     this.currentChatTitle = '';

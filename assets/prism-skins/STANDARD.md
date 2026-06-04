@@ -78,6 +78,22 @@ SVGs by hand.
 | decoder / control | rounded card, control north, fanned outputs east | `instr_dec`, `addr_dec`, `io_ctrl` |
 | FIFO / buffer | rounded card with flow chevrons | `myFIFO` |
 
+## Primitives (hand-authored, not generated)
+
+A few skins are netlistsvg **primitives**, not SAPHO HDL modules, so they're
+hand-written here (the generator never touches them):
+
+- [`constant.svg`](constant.svg) — overrides the stock box-with-a-number with a
+  **classic ground (GND)** symbol (stem + three decreasing rungs). The constant's
+  value still shows faintly above, so a non-zero tie (`1`) stays readable; a `0`
+  tie reads as textbook ground. Keep `s:type="constant"` + the `$_constant_` alias.
+
+`html/prism/prism.css` hides netlistsvg's **bus-width tags** (`busLabel_<n>`, the
+"/N/" boxes) by request — the wires already imply the bus. It also scopes the
+generic-module rect/text rules to `g.module` only (NOT `g[class*="module"]`),
+because prism.js tags clickable cells `module-clickable` and a substring match
+would repaint our custom chips' pins/labels (and flip them purple on hover).
+
 ## Hard rules (don't break these)
 
 - **`s:pid` MUST equal the Verilog port name exactly** — it's what ELK routes to.

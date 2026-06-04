@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PRISM symbol: constant — a classic GROUND (GND) symbol for a tied constant.
+     Hand-authored (not generated): `constant` is a netlistsvg primitive, like the
+     gate shapes, not a SAPHO HDL module. Overrides the stock box-with-a-number so
+     a tie-low reads as a real ground at a glance. The constant's value is still
+     shown faintly above (so a non-zero tie like `1` stays readable).
+     Keep s:type="constant" + the $_constant_ alias + the Y port. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="https://github.com/nturley/netlistsvg">
+  <g s:type="constant" transform="translate(0, 0)" s:width="28" s:height="26">
+    <s:alias val="$_constant_"/>
+
+    <!-- constant value, faint, above the stem (textbook GND when it reads "0") -->
+    <text x="14" y="4" class="nodelabel $cell_id" s:attribute="ref" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: middle; font-size: 4.8px; letter-spacing: 0.3px; fill: var(--text-secondary, #9CA1AE);">0</text>
+
+    <!-- lead in from the right (toward the load) + vertical stem -->
+    <path d="M 28,7 H 14 V 13" fill="none" style="stroke: var(--prism-port-label, #AEB6C4); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round;"/>
+    <!-- three decreasing ground rungs -->
+    <line x1="6"    y1="13" x2="22"   y2="13" style="stroke: var(--prism-port-label, #AEB6C4); stroke-width: 1.4; stroke-linecap: round;"/>
+    <line x1="9"    y1="17" x2="19"   y2="17" style="stroke: var(--prism-port-label, #AEB6C4); stroke-width: 1.4; stroke-linecap: round;"/>
+    <line x1="11.5" y1="21" x2="16.5" y2="21" style="stroke: var(--prism-port-label, #AEB6C4); stroke-width: 1.4; stroke-linecap: round;"/>
+
+    <g s:x="28" s:y="7" s:pid="Y"/>
+  </g>
+</svg>

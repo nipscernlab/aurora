@@ -513,28 +513,31 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   stroke-width: 1.5 !important;
 }
 
-/* Bus labels */
-.svg-content svg text[class*="busLabel_"] {
-  font-size: 8px !important;
-  fill: var(--accent-hover) !important;
-}
+/* Bus-width tags (the "/32/" boxes netlistsvg drops on every bus). Hidden by
+ * request — they read as clutter and the wires already imply the bus. Both the
+ * box <rect> and the "/N/" <text> carry a busLabel_<n> class, so one rule
+ * removes the whole tag. Re-enable by deleting this rule. */
+.svg-content svg [class*="busLabel_"] { display: none; }
 
-/* Module cells */
-.svg-content svg g.module rect,
-.svg-content svg g[class*="module"] rect {
+/* Generic netlistsvg module cells (the stock box-and-label, no custom skin).
+ *
+ * IMPORTANT: do NOT use a `g[class*="module"]` selector here. prism.js tags every
+ * clickable cell with class `module-clickable`, so `[class*="module"]` would also
+ * match our custom-skin chips and repaint their pins/labels (and flip them purple
+ * on hover), fighting the inline styling the skins set on purpose. Custom chips
+ * get their hover affordance from `g[data-cell-type]:hover > path` above instead. */
+.svg-content svg g.module rect {
   fill: var(--prism-module-fill);
   stroke: var(--prism-module-stroke);
   stroke-width: 1;
 }
 
-.svg-content svg g.module:hover rect,
-.svg-content svg g[class*="module"]:hover rect {
+.svg-content svg g.module:hover rect {
   fill: var(--accent);
   stroke: var(--accent-hover);
 }
 
-.svg-content svg g.module text,
-.svg-content svg g[class*="module"] text {
+.svg-content svg g.module text {
   fill: var(--text) !important;
   font-weight: var(--font-medium) !important;
 }

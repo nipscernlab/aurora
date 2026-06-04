@@ -806,7 +806,7 @@ async function initMonaco() {
                     { token: 'keyword.function.stdlib.cmm',      foreground: '5BB8E8', fontStyle: 'bold' },
                     { token: 'string',                           foreground: 'E68FB8' },
                     { token: 'number',                           foreground: '5FE0B0' },
-                    { token: 'number.complex.imaginary.cmm',     foreground: 'E26C6C', fontStyle: 'bold' },
+                    { token: 'number.complex.imaginary.cmm',     foreground: 'BD93F9', fontStyle: 'bold' },
                     { token: 'operator',                         foreground: '9CA1AE' },
                     { token: 'operator.shift.arithmetic',        foreground: 'A89EF0', fontStyle: 'bold' },
                     { token: 'delimiter',                        foreground: '9CA1AE' },
@@ -879,7 +879,7 @@ async function initMonaco() {
                     { token: 'keyword.function.stdlib.cmm',      foreground: '2A7AB0', fontStyle: 'bold' },
                     { token: 'string',                           foreground: 'B8568C' },
                     { token: 'number',                           foreground: '3A9D6E' },
-                    { token: 'number.complex.imaginary.cmm',     foreground: 'C5453F', fontStyle: 'bold' },
+                    { token: 'number.complex.imaginary.cmm',     foreground: '7C3AED', fontStyle: 'bold' },
                     { token: 'operator',                         foreground: '545A6B' },
                     { token: 'operator.shift.arithmetic',        foreground: '6E63C8', fontStyle: 'bold' },
                     { token: 'delimiter',                        foreground: '545A6B' },
@@ -1132,11 +1132,22 @@ function setupCMMLanguage() {
                 [/[⟨⟩]/, 'dirac.bracket'],
                 [/\|/, 'dirac.bar'],
 
-                [/(\[\s*\d+\s*\])\s*("[^"]*")/, ['delimiter.square', 'string']],
+                // Array-from-file: nome[TAM] "arquivo.txt". O TAM precisa
+                // sair com cor de numero (igual a `[112]` numa declaracao
+                // comum) — englobar `[7168]` inteiro como delimiter deixava
+                // o tamanho cinza/"sem cor", visivel nos blocos de pesos.
+                [/(\[\s*)(\d+)(\s*\])(\s*)("[^"]*")/, ['delimiter.square', 'number', 'delimiter.square', 'white', 'string']],
                 [/\[\s*\w+\s*\)/, 'delimiter.square.inverted'],
 
-                // Complex numbers - imaginary unit
-                [/(\d*\.?\d+)(i)\b/, ['number', 'number.complex.imaginary.cmm']],
+                // Numeros complexos — sufixo imaginario `im`. A parte
+                // imaginaria e <magnitude>im: aceita inteiro (8im), decimal
+                // (9.234im) ou a parte imaginaria sozinha (4im em `9 + 4im`).
+                // A magnitude fica com cor de numero; o `im` recebe o roxo
+                // dedicado (number.complex.imaginary.cmm). O \b final impede
+                // casar `im` colado num identificador maior (4import).
+                // `im8` NAO casa (exige digitos ANTES do `im`), entao cai como
+                // identificador comum — comportamento pedido por enquanto.
+                [/(\d*\.?\d+)(im)\b/, ['number', 'number.complex.imaginary.cmm']],
 
                 [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
                 [/0[xX][0-9a-fA-F]+/, 'number.hex'],

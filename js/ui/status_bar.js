@@ -154,22 +154,20 @@ class StatusBarManager {
     /**
      * Mostra o motor que vai simular o testbench (Icarus Verilog /
      * Verilator), logo apos o slot do testbench. So aparece quando ha um
-     * testbench configurado — sem testbench nao ha o que simular. A
-     * Para testbench .v: usa a preferencia global (window.getWaveSimulator,
-     * de simulator_preference) — espelha o switch da toolbar. Para testbench
-     * cocotb (.py): mostra SEMPRE Icarus Verilog, porque o backend
-     * (runGtkWave) desvia o fluxo Python pro iverilog independente do
-     * switch — mostrar a preferencia aqui enganaria o usuario.
+     * testbench configurado — sem testbench nao ha o que simular. Usa a
+     * preferencia global (window.getWaveSimulator, de simulator_preference) —
+     * espelha o switch da toolbar. Vale tanto para testbench .v quanto cocotb
+     * (.py): desde que cocotb passou a rodar no simulador escolhido (icarus OU
+     * verilator), o motor mostrado segue o switch nos dois casos.
      */
     _renderSimulatorEngine(tbPath) {
         if (!this.engineEl) return;
         const show = !!tbPath;
         this._toggle(this.engineEl, show);
         if (!show) return;
-        const isCocotb = /\.py$/i.test(tbPath);
-        const sim = isCocotb
-            ? 'iverilog'
-            : ((typeof window.getWaveSimulator === 'function') ? window.getWaveSimulator() : 'iverilog');
+        const sim = (typeof window.getWaveSimulator === 'function')
+            ? window.getWaveSimulator()
+            : 'iverilog';
         const text = this.engineEl.querySelector('span');
         if (text) text.textContent = ENGINE_LABELS[sim] || ENGINE_LABELS.iverilog;
     }

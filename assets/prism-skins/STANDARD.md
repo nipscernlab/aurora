@@ -22,10 +22,11 @@ SVGs by hand.
    below) so the same shape always means the same thing.
 2. **It's a chip.** The body is a **dark card** (`--prism-card`) so labels always
    read with contrast regardless of the host background — like an IC on a board.
-3. **PRISM identity = a faint watermark.** A faint, single-tone watermark of the
-   real PRISM logo (the Newton-prism dispersion mark, from
-   `assets/icons/aurora_prism.svg`) sits in the body's open area — quiet branding,
-   never decoration that competes with the ports. No header motif, no colour strip.
+3. **PRISM identity = a faint watermark.** A faint, single-tone logo watermark
+   sits in the body's open area — quiet branding, never decoration that competes
+   with the ports. Default is the PRISM dispersion mark
+   (`assets/icons/aurora_prism.svg`); the `processor` top cell uses the **SAPHO**
+   "S" (`assets/icons/sapho_aurora_icon.svg`). No header motif, no colour strip.
 4. **Flow left → right; control enters north.** Data inputs sit west (`s:x=0`),
    the result leaves east (`s:x=width`), the select/enable enters from the **top**
    in the **control accent (violet)** — control is always visually separate from
@@ -89,14 +90,21 @@ SVGs by hand.
 
 ## Authoring / rolling out
 
-Describe a module as a spec (families of `{name, bus}` + select + output) and
-call `renderSymbol(spec)`; the same routine draws them all, so the whole datapath
-stays one consistent family.
+`scripts/prism-skin-standard.js` parses every `components/HDL/*.v` module and
+renders it — selectors (`ula_mux`, `norm_mux`) as the pentagon, everything else
+as a clean chip card — so the whole datapath is one consistent family. It picks
+the class accent + watermark automatically from the module name.
 
 ```sh
-node scripts/prism-skin-standard.js            # (re)write the flagship ula_mux.svg
-node scripts/prism-skin-standard.js --print    # dump to stdout
+node scripts/prism-skin-standard.js            # regenerate EVERY SAPHO module skin
+node scripts/prism-skin-standard.js --only pc  # just one
+node scripts/prism-skin-standard.js --print pc # dump one to stdout
 ```
+
+> PRISM CSS (`html/prism/prism.css`) backs the look: it defines `--prism-card`
+> and `--prism-port-label`, and crucially does NOT `!important` the text
+> `font-family` (so the skins' inline mono port labels win) and never strokes a
+> `<circle>` for our pins (we use small `<rect>`s on purpose).
 
 **Preview** a skin on the PRISM dark theme by wrapping it in an HTML page that
 defines the `--prism-*` / `--aurora-*` vars and giving the `<svg>` a `viewBox`,

@@ -23,7 +23,11 @@
   --prism-module-fill:   rgba(95, 224, 176, 0.08);
   --prism-module-stroke: var(--aurora-mint);
   --prism-module-accent: var(--aurora-mint);
-  --prism-module-glyph:  rgba(255, 255, 255, 0.82);
+  --prism-module-glyph:  rgba(255, 255, 255, 0.88);
+  /* Aurora-IDE custom skins (assets/prism-skins/) draw each cell as a dark
+     "chip" card with mono port labels — these back that design. */
+  --prism-card:          #0E1320;
+  --prism-port-label:    #AEB6C4;
 }
 
 /* ---------------------------------------------------------------------------
@@ -425,7 +429,11 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
  * --------------------------------------------------------------------------- */
 .svg-content svg text {
   fill: var(--text);
-  font-family: var(--font-sans) !important;
+  /* Sans is the DEFAULT (so netlistsvg's font-family-less primitives don't fall
+     back to serif), but NOT !important — the Aurora custom skins set their own
+     font-family inline (sans for UI text, mono for port identifiers) and must
+     win. */
+  font-family: var(--font-sans);
   font-size: 7px;
   font-weight: var(--font-medium);
 }
@@ -476,6 +484,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .svg-content svg g[data-cell-type] > path {
   stroke: var(--prism-module-stroke, var(--accent-border));
   opacity: 1;
+}
+
+/* Gentle hover on a custom-skin chip: lift the card stroke + a soft mint glow
+   so the cell you're about to click reads as live. */
+.svg-content svg g[data-cell-type]:hover > path {
+  stroke-width: 1.9;
+  filter: drop-shadow(0 0 5px rgba(95, 224, 176, 0.35));
 }
 
 .svg-content svg path[stroke="#000000"],

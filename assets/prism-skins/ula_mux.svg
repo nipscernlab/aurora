@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AUTO-GENERATED baseline skin (gen-prism-skins.js).
+     Module "ula_mux" — 43 input(s), 1 output(s).
+     Baseline scaffold: correct ports, neutral look. Redesign the body freely;
+     KEEP the s:type / s:alias / s:pid names so PRISM keeps routing. -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="ula_mux" transform="translate(0, 0)" s:width="88" s:height="802">
+    <s:alias val="ula_mux"/>
+
+    <rect width="88" height="802" rx="4" ry="4"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.14));
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1.4;"/>
+
+    <text x="44" y="405"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 700; font-size: 11px;
+                 fill: var(--prism-module-glyph, #e6e9f0);">ula_mux</text>
+
+    <text x="44" y="-4"
+          class="nodelabel $cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 8px; font-style: italic;
+                 fill: var(--prism-module-accent, #5FE0B0); opacity: 0.8;">u</text>
+
+    <text x="5" y="19" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">op</text>
+    <text x="5" y="37" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">in1</text>
+    <text x="5" y="55" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">in2</text>
+    <text x="5" y="73" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">add</text>
+    <text x="5" y="91" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">mlt</text>
+    <text x="5" y="109" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">div</text>
+    <text x="5" y="127" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">mod</text>
+    <text x="5" y="145" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">sgn</text>
+    <text x="5" y="163" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fsgn</text>
+    <text x="5" y="181" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">neg</text>
+    <text x="5" y="199" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">negm</text>
+    <text x="5" y="217" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fneg</text>
+    <text x="5" y="235" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fnegm</text>
+    <text x="5" y="253" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">abs</text>
+    <text x="5" y="271" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">absm</text>
+    <text x="5" y="289" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fabs</text>
+    <text x="5" y="307" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fabsm</text>
+    <text x="5" y="325" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">pst</text>
+    <text x="5" y="343" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">pstm</text>
+    <text x="5" y="361" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fpst</text>
+    <text x="5" y="379" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fpstm</text>
+    <text x="5" y="397" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">nrm</text>
+    <text x="5" y="415" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">nrmm</text>
+    <text x="5" y="433" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">f2i</text>
+    <text x="5" y="451" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">f2im</text>
+    <text x="5" y="469" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">ann</text>
+    <text x="5" y="487" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">orr</text>
+    <text x="5" y="505" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">cor</text>
+    <text x="5" y="523" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">inv</text>
+    <text x="5" y="541" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">invm</text>
+    <text x="5" y="559" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">lan</text>
+    <text x="5" y="577" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">lor</text>
+    <text x="5" y="595" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">lin</text>
+    <text x="5" y="613" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">linm</text>
+    <text x="5" y="631" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">les</text>
+    <text x="5" y="649" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fles</text>
+    <text x="5" y="667" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">gre</text>
+    <text x="5" y="685" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">fgre</text>
+    <text x="5" y="703" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">equ</text>
+    <text x="5" y="721" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">shl</text>
+    <text x="5" y="739" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">shr</text>
+    <text x="5" y="757" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">srs</text>
+    <text x="5" y="775" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">smx</text>
+    <text x="83" y="19" class="$cell_id" style="text-anchor:end; font-size:7px; fill: var(--prism-port-label, #8a93a6);">out</text>
+
+    <g s:x="0" s:y="16" s:pid="op"/>
+    <g s:x="0" s:y="34" s:pid="in1"/>
+    <g s:x="0" s:y="52" s:pid="in2"/>
+    <g s:x="0" s:y="70" s:pid="add"/>
+    <g s:x="0" s:y="88" s:pid="mlt"/>
+    <g s:x="0" s:y="106" s:pid="div"/>
+    <g s:x="0" s:y="124" s:pid="mod"/>
+    <g s:x="0" s:y="142" s:pid="sgn"/>
+    <g s:x="0" s:y="160" s:pid="fsgn"/>
+    <g s:x="0" s:y="178" s:pid="neg"/>
+    <g s:x="0" s:y="196" s:pid="negm"/>
+    <g s:x="0" s:y="214" s:pid="fneg"/>
+    <g s:x="0" s:y="232" s:pid="fnegm"/>
+    <g s:x="0" s:y="250" s:pid="abs"/>
+    <g s:x="0" s:y="268" s:pid="absm"/>
+    <g s:x="0" s:y="286" s:pid="fabs"/>
+    <g s:x="0" s:y="304" s:pid="fabsm"/>
+    <g s:x="0" s:y="322" s:pid="pst"/>
+    <g s:x="0" s:y="340" s:pid="pstm"/>
+    <g s:x="0" s:y="358" s:pid="fpst"/>
+    <g s:x="0" s:y="376" s:pid="fpstm"/>
+    <g s:x="0" s:y="394" s:pid="nrm"/>
+    <g s:x="0" s:y="412" s:pid="nrmm"/>
+    <g s:x="0" s:y="430" s:pid="f2i"/>
+    <g s:x="0" s:y="448" s:pid="f2im"/>
+    <g s:x="0" s:y="466" s:pid="ann"/>
+    <g s:x="0" s:y="484" s:pid="orr"/>
+    <g s:x="0" s:y="502" s:pid="cor"/>
+    <g s:x="0" s:y="520" s:pid="inv"/>
+    <g s:x="0" s:y="538" s:pid="invm"/>
+    <g s:x="0" s:y="556" s:pid="lan"/>
+    <g s:x="0" s:y="574" s:pid="lor"/>
+    <g s:x="0" s:y="592" s:pid="lin"/>
+    <g s:x="0" s:y="610" s:pid="linm"/>
+    <g s:x="0" s:y="628" s:pid="les"/>
+    <g s:x="0" s:y="646" s:pid="fles"/>
+    <g s:x="0" s:y="664" s:pid="gre"/>
+    <g s:x="0" s:y="682" s:pid="fgre"/>
+    <g s:x="0" s:y="700" s:pid="equ"/>
+    <g s:x="0" s:y="718" s:pid="shl"/>
+    <g s:x="0" s:y="736" s:pid="shr"/>
+    <g s:x="0" s:y="754" s:pid="srs"/>
+    <g s:x="0" s:y="772" s:pid="smx"/>
+    <g s:x="88" s:y="16" s:pid="out"/>
+  </g>
+
+</svg>

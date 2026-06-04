@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AUTO-GENERATED baseline skin (gen-prism-skins.js).
+     Module "ula_sgn" — 2 input(s), 1 output(s).
+     Baseline scaffold: correct ports, neutral look. Redesign the body freely;
+     KEEP the s:type / s:alias / s:pid names so PRISM keeps routing. -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:s="https://github.com/nturley/netlistsvg">
+
+  <g s:type="ula_sgn" transform="translate(0, 0)" s:width="88" s:height="64">
+    <s:alias val="ula_sgn"/>
+
+    <rect width="88" height="64" rx="4" ry="4"
+          class="$cell_id"
+          style="fill: var(--prism-module-fill, rgba(95,224,176,0.14));
+                 stroke: var(--prism-module-stroke, #5FE0B0);
+                 stroke-width: 1.4;"/>
+
+    <text x="44" y="36"
+          class="nodelabel $cell_id" s:attribute=""
+          style="text-anchor: middle; font-weight: 700; font-size: 11px;
+                 fill: var(--prism-module-glyph, #e6e9f0);">ula_sgn</text>
+
+    <text x="44" y="-4"
+          class="nodelabel $cell_id" s:attribute="ref"
+          style="text-anchor: middle; font-size: 8px; font-style: italic;
+                 fill: var(--prism-module-accent, #5FE0B0); opacity: 0.8;">u</text>
+
+    <text x="5" y="19" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">in1</text>
+    <text x="5" y="37" class="$cell_id" style="font-size:7px; fill: var(--prism-port-label, #8a93a6);">in2</text>
+    <text x="83" y="19" class="$cell_id" style="text-anchor:end; font-size:7px; fill: var(--prism-port-label, #8a93a6);">out</text>
+
+    <g s:x="0" s:y="16" s:pid="in1"/>
+    <g s:x="0" s:y="34" s:pid="in2"/>
+    <g s:x="88" s:y="16" s:pid="out"/>
+  </g>
+
+</svg>

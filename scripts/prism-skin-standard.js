@@ -282,7 +282,9 @@ function renderRectish(mod, info, opts = {}) {
   push('');
   if (opts.decorate) { opts.decorate(bodyW, bodyH); push(''); }
   const wmSize = Math.min(bodyW * 0.42, (bodyH - TOP - HEADER) * 0.95, 64);
-  if (info.wm && wmSize > 18) { push(watermark(info.wm, bodyW * 0.56, TOP + HEADER + (bodyH - TOP - HEADER) * 0.55, wmSize)); push(''); }
+  // Centre the mark in the open band BELOW the header divider (0.46, not 0.55) so
+  // the tall SAPHO "S" keeps a bottom margin instead of clipping the card edge.
+  if (info.wm && wmSize > 18) { push(watermark(info.wm, bodyW * 0.56, TOP + HEADER + (bodyH - TOP - HEADER) * 0.46, wmSize)); push(''); }
   header(11, bodyW - 22, mod.name, `${CLASS[info.cls].tag} · ${ins.length}in ${outs.length}out`, accent);
   push('');
   push('    <!-- inputs (west) -->');

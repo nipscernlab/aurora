@@ -87,6 +87,18 @@ function isPythonFile(filePath) {
     return /\.py$/i.test(String(filePath || ''));
 }
 
+// Reads an optional `# aurora-toplevel: <module>` directive from a cocotb .py.
+// It tells Aurora which Verilog module is the DUT (cocotb's hdl_toplevel) so a
+// test can target ANY module without re-marking the project top-level in the
+// .spf. Crucially it's a plain COMMENT — pytest, a Makefile or bare cocotb
+// running the same .py outside Aurora ignore it entirely. Accepts ':' or '='
+// and is case-insensitive; the value must be a valid identifier. Returns the
+// module name, or null when the directive is absent.
+function parseCocotbToplevelDirective(pySource) {
+    const m = /^[ \t]*#[ \t]*aurora-toplevel[ \t]*[:=][ \t]*([A-Za-z_]\w*)/im.exec(String(pySource || ''));
+    return m ? m[1] : null;
+}
+
 // Insere a diretiva `#TOAQUI` logo antes do `}` que fecha a funcao main()
 // de um fonte C±. O #TOAQUI faz o compilador pulsar o pino `cheguei` no fim
 // do programa — usado pelo harness do botao Verilator pra encerrar a sim
@@ -1851,8 +1863,21 @@ async runGtkWave() {
         let vcdFile = null;
 
         if (isPythonFile(config.testbenchFile)) {
-            const cocotbCtx = this._waveValidateCocotbConfig(config);
+            const cocotbCtx = await this._waveValidateCocotbConfig(config);
             simTopModule = cocotbCtx.hdlTopModule;
+            // Surface where the DUT came from: the .py directive (explicit), or
+            // the .spf top-level fallback (warn so a forgotten directive doesn't
+            // silently test the wrong module).
+            if (cocotbCtx.toplevelSource === 'directive') {
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.cocotbToplevelDirective', { module: cocotbCtx.hdlTopModule }), 'tips');
+            } else {
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.cocotbToplevelFallback', {
+                        file: basenameOfPath(config.testbenchFile),
+                        module: cocotbCtx.hdlTopModule,
+                    }), 'warning');
+            }
             this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator', {
                 sim: getSimulator() === 'verilator' ? 'Verilator' : 'Icarus',
             }), 'tips');
@@ -1974,23 +1999,49 @@ _waveDeriveSimTopModule(config) {
     return moduleStemFromPath(config.topLevelFile);
 }
 
-_waveValidateCocotbConfig(config) {
-    if (!config.topLevelFile) {
-        throw new Error(tr('error.compilation.cocotbRequiresTop'));
-    }
-    if (!/\.(v|sv)$/i.test(config.topLevelFile)) {
-        throw new Error(tr('error.compilation.cocotbRequiresTop'));
-    }
+async _waveValidateCocotbConfig(config) {
     if (!config.testbenchFile || !isPythonFile(config.testbenchFile)) {
         throw new Error(tr('error.compilation.cocotbRequiresPythonTb'));
     }
 
+    // The cocotb DUT — the Verilog module cocotb elaborates and binds `dut` to.
+    // It is NOT inherently the project top-level: a .py can unit-test any
+    // module. Resolution order:
+    //   1. an explicit `# aurora-toplevel: <module>` directive in the .py
+    //      (lets the test target any module; inert outside Aurora);
+    //   2. else the .spf top-level (with a warning, surfaced by the caller).
+    // The chosen module must still be among the compiled sources
+    // (_collectCocotbSources gathers synthesizableFiles + the .spf top-level +
+    // the bundled HDL), or the simulator won't find it.
+    let pySource = '';
+    try {
+        pySource = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    } catch { /* unreadable here — fall back to the .spf top-level below */ }
+    const directiveTop = parseCocotbToplevelDirective(pySource);
+
+    let hdlTopModule;
+    let hdlTopFile;
+    let toplevelSource;
+    if (directiveTop) {
+        hdlTopModule = directiveTop;
+        hdlTopFile = config.topLevelFile || '';   // optional when the directive drives the DUT
+        toplevelSource = 'directive';
+    } else {
+        if (!config.topLevelFile || !/\.(v|sv)$/i.test(config.topLevelFile)) {
+            throw new Error(tr('error.compilation.cocotbRequiresTop'));
+        }
+        hdlTopModule = moduleStemFromPath(config.topLevelFile);
+        hdlTopFile = config.topLevelFile;
+        toplevelSource = 'spf';
+    }
+
     return {
-        hdlTopFile: config.topLevelFile,
-        hdlTopModule: moduleStemFromPath(config.topLevelFile),
+        hdlTopFile,
+        hdlTopModule,
         testbenchFile: config.testbenchFile,
         testModule: assertPythonModuleName(config.testbenchFile),
         tbKey: moduleStemFromPath(config.testbenchFile),
+        toplevelSource,
     };
 }
 

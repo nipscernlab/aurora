@@ -22,10 +22,10 @@ SVGs by hand.
    below) so the same shape always means the same thing.
 2. **It's a chip.** The body is a **dark card** (`--prism-card`) so labels always
    read with contrast regardless of the host background — like an IC on a board.
-3. **PRISM identity.** A refraction motif heads the card — a white ray entering a
-   triangular prism and fanning out as a spectrum — echoed by a **spectrum strip**
-   whose colours *are* the port-family palette. The viewer is called PRISM; the
-   symbol should feel like it.
+3. **PRISM identity = a faint watermark.** A faint, single-tone watermark of the
+   real PRISM logo (the Newton-prism dispersion mark, from
+   `assets/icons/aurora_prism.svg`) sits in the body's open area — quiet branding,
+   never decoration that competes with the ports. No header motif, no colour strip.
 4. **Flow left → right; control enters north.** Data inputs sit west (`s:x=0`),
    the result leaves east (`s:x=width`), the select/enable enters from the **top**
    in the **control accent (violet)** — control is always visually separate from

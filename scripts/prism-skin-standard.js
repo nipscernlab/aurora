@@ -14,16 +14,15 @@
  *     on the flat left → one output apex on the right): "many in, one out".
  *  2. IT'S A CHIP. The body is a dark card so labels always read with contrast,
  *     regardless of the host background — like an IC on a board.
- *  3. PRISM IDENTITY. A refraction motif (white ray → prism → spectrum) heads the
- *     card, echoed by a spectrum strip whose colours ARE the port-family palette.
+ *  3. PRISM IDENTITY = a FAINT watermark of the real PRISM logo (the Newton-prism
+ *     dispersion mark) in the body's open area. Quiet branding, not decoration.
  *  4. FLOW left→right; CONTROL enters north (the `op` select, in violet).
- *  5. PORTS GROUPED BY FAMILY, colour-coded, each cluster bracketed + headed.
+ *  5. PORTS GROUPED BY FAMILY, colour-coded headers, each cluster bracketed.
  *  6. TYPOGRAPHY: one sans family for all UI text (title/headers/labels), mono
  *     ONLY for port identifiers. A clear size/weight hierarchy. (No serif — that
  *     was the bug: text with no font-family fell back to Times.)
  *  7. THEME-DRIVEN COLOUR via CSS vars + hex fallbacks. NO gradients/external
- *     <defs>: PRISM merges only the <g s:type> block, so anything in a root
- *     <defs> is dropped. The spectrum is built from solid segments instead.
+ *     <defs>: PRISM merges only the <g s:type> block, so a root <defs> is dropped.
  *  8. CRISP GEOMETRY: integer grid, 1.4px stroke, 7px row pitch, round joins.
  *
  * Roll out by describing each module as a SPEC (families of {name,bus} + select
@@ -44,7 +43,7 @@ const T = {
   taper: 56,        // right-side taper to the output apex
   apexH: 20,        // half-height of the flat output edge
   topEdge: 18,      // body top (room above for op + ref)
-  headerH: 44,      // header band: prism motif + title + subtitle + spectrum
+  headerH: 34,      // header band: ref + wordmark + subtitle + divider
   rowPitch: 7,      // input pin spacing
   groupH: 12,       // a family header's vertical space
   groupGap: 5,      // extra gap between families
@@ -62,7 +61,6 @@ const C = {
   control: 'var(--accent, #8E83E8)',                     // select = violet
   label:   'var(--prism-port-label, #AEB6C4)',
   caption: 'var(--text-secondary, #9CA1AE)',
-  ray:     '#EAF2EE',                                    // incoming white light
 };
 
 // Operation-family colours. Colour encodes family — consistently, everywhere.
@@ -75,8 +73,21 @@ const FAMILY = {
   shift:       'var(--aurora-pink, #E68FB8)',
   normalize:   'var(--status-warning, #E8B86C)',
 };
-// The header spectrum strip — the refracted spectrum, in spectral order.
-const SPECTRUM = ['#5BB8E8', '#4FD3C2', '#5FE0B0', '#E8B86C', '#E68FB8', '#B98AE0', '#8E83E8'];
+// The real PRISM logo (assets/icons/aurora_prism.svg), path data only, used as a
+// faint single-tone watermark. viewBox is 703×373; content bbox ≈ (16,50)-(680,344).
+const WM = {
+  paths: [
+    'm209.91321 224.15445l-193.85022 -133.60327l14.607443 51.116684l165.14786 117.025894z',
+    'm327.53452 297.88818l-5.7504272 16.688568l365.17203 -108.40233l-30.44159 -26.969238z',
+    'm318.43182 286.348l-11.223328 22.280762l351.7826 -126.497665l-26.929504 -26.335007z',
+    'm304.62537 286.30695l-11.207367 14.449921l340.4418 -141.6302l-39.911743 -40.151627z',
+    'm264.4577 272.8916l20.995453 27.348694l314.02628 -177.67105l-58.80481 -54.30976z',
+    'm275.2167 277.6664l12.479584 16.278748l270.61615 -207.41946l-38.113586 -36.82104z',
+    'm270.3765 270.99115l11.347015 11.56308l239.784 -233.43181l-39.289124 -33.94025z',
+    'm146.4552 342.84518l107.22885 -207.15404l105.570465 208.96922z',
+  ],
+  cx: 348, cy: 197,   // logo content centre, for placement
+};
 
 /* ── Flagship spec: ula_mux, grouped as components/HDL/ula.v ─────────────── */
 const ULA_MUX = {
@@ -146,20 +157,21 @@ function renderSymbol(spec) {
   push(`          style="fill: ${C.card}; stroke: ${C.stroke}; stroke-width: 1.4; stroke-linejoin: round;"/>`);
   push('');
 
-  // ── Header band: prism motif + wordmark + spectrum strip ──
-  const hy = T.topEdge + 16;          // motif / title vertical centre
-  push('    <!-- header: prism refraction motif -->');
-  push(prismMotif(14, hy));
-  // instance ref (replaced by netlistsvg with the instance name)
-  push(`    <text x="54" y="${T.topEdge + 4}" class="$cell_id" s:attribute="ref"`);
+  // ── Faint PRISM-logo watermark in the body's open area ──
+  push('    <!-- faint PRISM watermark -->');
+  push(watermark(116, cy + 4, 0.155));
+
+  // ── Header band: instance ref + wordmark + subtitle + divider ──
+  const hy = T.topEdge + 16;
+  push('    <!-- header -->');
+  push(`    <text x="12" y="${T.topEdge + 4}" class="$cell_id" s:attribute="ref"`);
   push(`          style="font-family: ${FONT}; text-anchor: start; font-size: 7px; font-style: italic; fill: ${C.accent}; opacity: 0.8;">u</text>`);
-  // wordmark + subtitle
-  push(`    <text x="54" y="${hy}" class="nodelabel $cell_id" s:attribute=""`);
+  push(`    <text x="12" y="${hy}" class="nodelabel $cell_id" s:attribute=""`);
   push(`          style="font-family: ${FONT}; text-anchor: start; font-weight: 700; font-size: 12px; letter-spacing: 0.2px; fill: ${C.glyph};">${esc(spec.title)}</text>`);
-  push(`    <text x="55" y="${hy + 9}" class="$cell_id" s:attribute=""`);
+  push(`    <text x="13" y="${hy + 9}" class="$cell_id" s:attribute=""`);
   push(`          style="font-family: ${FONT}; text-anchor: start; font-size: 5.5px; letter-spacing: 0.3px; fill: ${C.caption};">${inputCount} → 1 selector</text>`);
-  // spectrum strip (the family palette, in spectral order)
-  push(spectrumStrip(12, T.topEdge + T.headerH - 6, flatRight - 24));
+  push(`    <line x1="11" y1="${T.topEdge + T.headerH - 5}" x2="${flatRight - 6}" y2="${T.topEdge + T.headerH - 5}"`);
+  push(`          stroke="${C.stroke}" stroke-width="0.7" opacity="0.28"/>`);
   push('');
 
   // ── Select (op) — north control ──
@@ -200,32 +212,18 @@ function renderSymbol(spec) {
   return P.join('\n') + '\n';
 }
 
-/** Prism refraction glyph: white ray → triangular prism → fanned spectrum. */
-function prismMotif(x, y) {
-  const out = [];
-  const px = x + 14;                                  // prism apex x
-  out.push(`    <g class="$cell_id">`);
-  // incoming white ray
-  out.push(`      <line x1="${x - 6}" y1="${y + 2}" x2="${px - 4}" y2="${y + 1}" stroke="${C.ray}" stroke-width="1.1" stroke-linecap="round"/>`);
-  // prism (triangle, apex up)
-  out.push(`      <path d="M ${px},${y - 9} L ${px - 8},${y + 6} L ${px + 8},${y + 6} Z" fill="none" stroke="${C.stroke}" stroke-width="1.1" stroke-linejoin="round"/>`);
-  // refracted spectrum fanning from the right face
-  const rays = ['#5BB8E8', '#5FE0B0', '#E8B86C', '#E68FB8', '#8E83E8'];
-  rays.forEach((col, i) => {
-    const dy = (i - 2) * 3.4;
-    out.push(`      <line x1="${px + 4}" y1="${y + 2}" x2="${px + 18}" y2="${y + 2 + dy}" stroke="${col}" stroke-width="1" stroke-linecap="round"/>`);
-  });
-  out.push('    </g>');
-  return out.join('\n');
-}
-
-/** Spectrum strip: the family palette as adjacent rounded segments. */
-function spectrumStrip(x, y, w) {
-  const out = [`    <g class="$cell_id">`];
-  const seg = w / SPECTRUM.length;
-  SPECTRUM.forEach((col, i) => {
-    out.push(`      <rect x="${(x + i * seg).toFixed(1)}" y="${y}" width="${(seg - 1).toFixed(1)}" height="2.4" rx="1.1" fill="${col}" opacity="0.92"/>`);
-  });
+/**
+ * Faint single-tone watermark of the real PRISM logo, centred on (cxT, cyT) at
+ * scale `s`. All paths share one tone at low opacity so it reads as quiet
+ * branding behind the content, never as decoration competing with the ports.
+ */
+function watermark(cxT, cyT, s) {
+  const tx = (cxT - WM.cx * s).toFixed(2);
+  const ty = (cyT - WM.cy * s).toFixed(2);
+  // Drop the first path (the incoming white ray) — on its own it reads as a
+  // stray arrow. The prism + its dispersed beams carry the identity cleanly.
+  const out = [`    <g class="$cell_id" transform="translate(${tx}, ${ty}) scale(${s})" fill="${C.stroke}" opacity="0.055">`];
+  for (const d of WM.paths.slice(1)) out.push(`      <path d="${d}"/>`);
   out.push('    </g>');
   return out.join('\n');
 }

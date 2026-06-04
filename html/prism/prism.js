@@ -75,6 +75,9 @@ window.gotosrc = () => {};
 class PRISMViewer {
   constructor() {
     this.currentScale = 1;
+    this.targetScale = 1;       // smooth-zoom goal; currentScale eases toward it
+    this._zoomRAF = null;
+    this._zoomAnchor = null;
     this.currentX = 0;
     this.currentY = 0;
     this.isDragging = false;
@@ -115,7 +118,7 @@ class PRISMViewer {
     this.svgContainer.addEventListener('mousemove', this._onMouseMove.bind(this));
     this.svgContainer.addEventListener('mouseup',   this._onMouseUp.bind(this));
     this.svgContainer.addEventListener('mouseleave',this._onMouseUp.bind(this));
-    this.svgContainer.addEventListener('wheel',     this._onWheel.bind(this));
+    this.svgContainer.addEventListener('wheel',     this._onWheel.bind(this), { passive: false });
 
     // Touch gestures
     this.svgContainer.addEventListener('touchstart',  this._onTouchStart.bind(this), { passive: false });
@@ -128,8 +131,8 @@ class PRISMViewer {
     this.compileBtn.addEventListener('click',  () => this.recompile());
     this.fitBtn.addEventListener('click',      () => this.fitToScreen());
     this.downloadBtn?.addEventListener('click',() => this.downloadSVG());
-    this.zoomInBtn.addEventListener('click',   () => this.zoom(1.2));
-    this.zoomOutBtn.addEventListener('click',  () => this.zoom(0.8));
+    this.zoomInBtn.addEventListener('click',   () => this._zoomButton(1.25));
+    this.zoomOutBtn.addEventListener('click',  () => this._zoomButton(0.8));
     this.resetZoomBtn.addEventListener('click',() => this.resetView());
 
     // IPC — compilation complete
@@ -167,9 +170,13 @@ class PRISMViewer {
     // Context menu
     document.addEventListener('contextmenu', this._onContextMenu.bind(this));
 
-    // Ctrl+wheel zoom (global)
+    // Ctrl+wheel anywhere: block the browser's page-zoom and zoom the canvas.
+    // Over the container the element-level wheel handler already runs, so only
+    // act here when the cursor is OUTSIDE it (avoids a double zoom step).
     document.addEventListener('wheel', (e) => {
-      if (e.ctrlKey) { e.preventDefault(); this._onWheel(e); }
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      if (!this.svgContainer.contains(e.target)) this._onWheel(e);
     }, { passive: false });
 
     // Window resize → re-fit
@@ -521,13 +528,61 @@ class PRISMViewer {
 
   _onWheel(e) {
     e.preventDefault();
-    if (e.ctrlKey) {
-      this.zoom(Math.exp(-e.deltaY * 0.004), e.clientX, e.clientY);
-    } else {
-      this.currentX -= e.deltaX;
-      this.currentY -= e.deltaY;
+    // Plain mouse wheel = zoom (no Ctrl needed), anchored under the cursor.
+    // Shift+wheel still pans horizontally for trackpad-less users.
+    if (e.shiftKey) {
+      this.currentX -= (e.deltaY || e.deltaX);
       this._applyTransform();
+      return;
     }
+    const factor = Math.exp(-e.deltaY * 0.0016);   // gentle per-notch step
+    this._zoomTo((this.targetScale || this.currentScale) * factor, e.clientX, e.clientY);
+  }
+
+  /**
+   * Smooth zoom: set a target scale + cursor anchor and ease `currentScale`
+   * toward it each frame. Scrolling fast pushes the target ahead (accelerates);
+   * the ease catches up and settles (decelerates) — a gentle, "levelled" feel.
+   */
+  _zoomTo(target, cx, cy) {
+    this.targetScale = Math.max(0.1, Math.min(5, target));
+    this._zoomAnchor = { x: cx, y: cy };
+    if (!this._zoomRAF) this._zoomRAF = requestAnimationFrame(() => this._zoomStep());
+  }
+
+  _zoomStep() {
+    const diff = this.targetScale - this.currentScale;
+    if (Math.abs(diff) < 0.0006) {
+      this._applyScaleAnchored(this.targetScale);
+      this._zoomRAF = null;
+      return;
+    }
+    this._applyScaleAnchored(this.currentScale + diff * 0.18);
+    this._zoomRAF = requestAnimationFrame(() => this._zoomStep());
+  }
+
+  _applyScaleAnchored(newScale) {
+    const a = this._zoomAnchor;
+    if (a) {
+      const rect = this.svgContainer.getBoundingClientRect();
+      const rx = a.x - rect.left, ry = a.y - rect.top;
+      const sf = newScale / this.currentScale;
+      this.currentX = rx - (rx - this.currentX) * sf;
+      this.currentY = ry - (ry - this.currentY) * sf;
+    }
+    this.currentScale = newScale;
+    this._applyTransform();
+  }
+
+  _cancelZoomAnim() {
+    if (this._zoomRAF) { cancelAnimationFrame(this._zoomRAF); this._zoomRAF = null; }
+    this.targetScale = this.currentScale;
+  }
+
+  /** Smooth zoom from the +/- buttons, anchored on the canvas centre. */
+  _zoomButton(factor) {
+    const r = this.svgContainer.getBoundingClientRect();
+    this._zoomTo((this.targetScale || this.currentScale) * factor, r.left + r.width / 2, r.top + r.height / 2);
   }
 
   // Touch
@@ -573,6 +628,7 @@ class PRISMViewer {
       this.currentY = ry - (ry - this.currentY) * sf;
     }
     this.currentScale = newScale;
+    this.targetScale = newScale;   // keep the smooth-zoom goal in sync
     this._applyTransform();
   }
 
@@ -585,6 +641,7 @@ class PRISMViewer {
     this.currentScale = Math.min(scaleX, scaleY, 1);
     this.currentX = 0;
     this.currentY = 0;
+    this._cancelZoomAnim();
     this._applyTransform();
   }
 
@@ -592,6 +649,7 @@ class PRISMViewer {
     this.currentScale = 1;
     this.currentX = 0;
     this.currentY = 0;
+    this._cancelZoomAnim();
     this._applyTransform();
   }
 

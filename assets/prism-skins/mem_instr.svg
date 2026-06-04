@@ -7,15 +7,6 @@
 
     <path d="M 6,18 H 144 A 6,6 0 0 1 150,24 V 78 A 6,6 0 0 1 144,84 H 6 A 6,6 0 0 1 0,78 V 24 A 6,6 0 0 1 6,18 Z" class="$cell_id" style="fill: var(--prism-card, #0E1320); stroke: var(--prism-module-stroke, #5FE0B0); stroke-width: 1.4; stroke-linejoin: round;"/>
 
-    <g class="$cell_id" transform="translate(59.48, 56.98) scale(0.05981)" fill="var(--prism-module-stroke, #5FE0B0)" opacity="0.085">
-      <path d="m327.53452 297.88818l-5.7504272 16.688568l365.17203 -108.40233l-30.44159 -26.969238z"/>
-      <path d="m318.43182 286.348l-11.223328 22.280762l351.7826 -126.497665l-26.929504 -26.335007z"/>
-      <path d="m304.62537 286.30695l-11.207367 14.449921l340.4418 -141.6302l-39.911743 -40.151627z"/>
-      <path d="m264.4577 272.8916l20.995453 27.348694l314.02628 -177.67105l-58.80481 -54.30976z"/>
-      <path d="m275.2167 277.6664l12.479584 16.278748l270.61615 -207.41946l-38.113586 -36.82104z"/>
-      <path d="m270.3765 270.99115l11.347015 11.56308l239.784 -233.43181l-39.289124 -33.94025z"/>
-      <path d="m146.4552 342.84518l107.22885 -207.15404l105.570465 208.96922z"/>
-    </g>
 
     <text x="11" y="22" class="$cell_id" s:attribute="ref" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 7px; font-style: italic; fill: var(--aurora-cyan, #5BB8E8); opacity: 0.85;">u</text>
     <text x="11" y="34" class="nodelabel $cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-weight: 700; font-size: 12px; letter-spacing: 0.2px; fill: var(--prism-module-glyph, #EAF2EE);">mem_instr</text>

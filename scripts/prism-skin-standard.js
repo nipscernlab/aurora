@@ -156,14 +156,16 @@ function allModules() {
 
 /* ── Classification ─────────────────────────────────────────────────────── */
 function classify(name) {
-  if (name === 'ula_mux' || name === 'norm_mux') return { cls: 'selector', shape: 'selector', wm: 'prism' };
+  // Watermark only on the `processor` top cell (the SAPHO "S"). The PRISM
+  // dispersion mark read as a smudge inside the smaller cells, so it's dropped.
+  if (name === 'ula_mux' || name === 'norm_mux') return { cls: 'selector', shape: 'selector', wm: null };
   if (name === 'processor') return { cls: 'processor', shape: 'block', wm: 'sapho' };
-  if (name === 'core') return { cls: 'core', shape: 'block', wm: 'prism' };
-  if (name === 'myFIFO') return { cls: 'fifo', shape: 'block', wm: 'prism' };
-  if (/^mem/.test(name)) return { cls: 'memory', shape: 'block', wm: 'prism' };
-  if (/^ula_/.test(name)) return { cls: 'arithmetic', shape: 'block', wm: 'prism' };
-  if (/(_ctrl|_dec|_fetch|prefetch|^pc$|^stack$|rel_addr|^addr_dec$)/.test(name)) return { cls: 'control', shape: 'block', wm: 'prism' };
-  return { cls: 'control', shape: 'block', wm: 'prism' };
+  if (name === 'core') return { cls: 'core', shape: 'block', wm: null };
+  if (name === 'myFIFO') return { cls: 'fifo', shape: 'block', wm: null };
+  if (/^mem/.test(name)) return { cls: 'memory', shape: 'block', wm: null };
+  if (/^ula_/.test(name)) return { cls: 'arithmetic', shape: 'block', wm: null };
+  if (/(_ctrl|_dec|_fetch|prefetch|^pc$|^stack$|rel_addr|^addr_dec$)/.test(name)) return { cls: 'control', shape: 'block', wm: null };
+  return { cls: 'control', shape: 'block', wm: null };
 }
 
 /* ── Drawing helpers ────────────────────────────────────────────────────── */
@@ -230,7 +232,7 @@ function renderBlock(mod, info) {
   push('');
   // watermark in the lower-centre open band
   const wmSize = Math.min(bodyW * 0.42, (bodyH - TOP - HEADER) * 0.95, 64);
-  if (wmSize > 18) push(watermark(info.wm, bodyW * 0.56, TOP + HEADER + (bodyH - TOP - HEADER) * 0.55, wmSize));
+  if (info.wm && wmSize > 18) push(watermark(info.wm, bodyW * 0.56, TOP + HEADER + (bodyH - TOP - HEADER) * 0.55, wmSize));
   push('');
   header(11, bodyW - 22, mod.name, `${CLASS[info.cls].tag} · ${ins.length}in ${outs.length}out`, accent);
   push('');
@@ -301,8 +303,7 @@ function renderSelector(mod, info) {
   push('');
   push(`    <path d="${body}" class="$cell_id" style="fill: ${C.card}; stroke: ${C.stroke}; stroke-width: 1.4; stroke-linejoin: round;"/>`);
   push('');
-  push(watermark(info.wm, 116, cy + 4, 58));
-  push('');
+  if (info.wm) { push(watermark(info.wm, 116, cy + 4, 58)); push(''); }
   header(12, flatRight - 12, mod.name, `${rows.length} → 1 selector`, accent);
   push('');
   // select (north)

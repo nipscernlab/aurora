@@ -159,30 +159,13 @@ export function instrumentTestbenchSource({
         ? 'Aurora override: testbench had hand-written $dumpfile/$dumpvars but the user customized the Wave Configuration, so the originals were commented out and replaced.'
         : '$dumpfile / $dumpvars added because the testbench did not declare any.';
 
-    // Pass-1 hook of the two-pass dump strategy. The `#1` + $dumpflush
-    // before $finish are critical: $dumpvars at time 0 only *registers*
-    // the scopes; vvp flushes the full VCD header (every $var line plus
-    // $enddefinitions) once the simulator either advances past time 0
-    // OR sees an explicit $dumpflush. A bare $finish at time 0 exits
-    // before the header is committed and the resulting .vcd has scopes
-    // but no $var lines.
-    //
-    // Pass 1: `vvp foo.vvp +AURORA_HEADER_ONLY` → runs initial block,
-    // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
-    // the plusarg — the gate is false, the #1/$dumpflush/$finish are
-    // skipped, simulation runs to its normal $finish.
-    // Pass-1 hook of the two-pass dump strategy. The `#1` + $dumpflush
-    // before $finish are critical: $dumpvars at time 0 only *registers*
-    // the scopes; vvp flushes the full VCD header (every $var line plus
-    // $enddefinitions) once the simulator either advances past time 0
-    // OR sees an explicit $dumpflush. A bare $finish at time 0 exits
-    // before the header is committed and the resulting .vcd has scopes
-    // but no $var lines.
-    //
-    // Pass 1: `vvp foo.vvp +AURORA_HEADER_ONLY` → runs initial block,
-    // advances 1 tick, flushes header, exits. Pass 2: same .vvp without
-    // the plusarg — the gate is false, the #1/$dumpflush/$finish are
-    // skipped, simulation runs to its normal $finish.
+    // Single full-run dump. We only register the dump target + scopes here;
+    // the simulator writes the FST as it runs to its own $finish. There is NO
+    // header-only pass anymore — the VCD header (scopes/signals for the Wave
+    // Config picker and the auto-gtkw) is pulled straight from the finished FST
+    // by _extractFstHeaderVcd (streams fst2vcd, stops at $enddefinitions). So
+    // the testbench no longer needs the +AURORA_HEADER_ONLY $finish gate, and
+    // the simulation runs exactly once for all four wave paths.
     //
     // Sem flush periodico: o tb roda livre ate o $finish e o libfst/VCD
     // escreve em blocos grandes (mais rapido). Os $display do usuario
@@ -194,11 +177,6 @@ export function instrumentTestbenchSource({
 initial begin
     $dumpfile("${tbModule}.vcd");
     $dumpvars(${dumpvarsArgs});
-    if ($test$plusargs("AURORA_HEADER_ONLY")) begin
-        #1;
-        $dumpflush;
-        $finish;
-    end
 end
 // --------------------------------------------------
 `;

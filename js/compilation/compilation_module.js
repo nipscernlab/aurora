@@ -62,9 +62,9 @@ import {
   buildCmmSpec,
   buildAsmPreSpec, buildAsmSpec,
   buildIverilogCheckSpec, buildIverilogBuildSpec,
-  buildVvpHeaderSpec, buildVvpRunSpec,
+  buildVvpRunSpec,
   buildCocotbRunSpec,
-  buildVerilatorBuildSpec, buildVerilatorHeaderSpec, buildVerilatorRunSpec,
+  buildVerilatorBuildSpec, buildVerilatorRunSpec,
   buildVerilatorJsonSpec, buildVerilatorTbBuildSpec, buildVerilatorTbRunSpec,
   buildFst2VcdSpec, buildGtkwaveSpec,
   buildYosysHierarchySpec,
@@ -1683,9 +1683,9 @@ async verilogSyntaxCheck() {
  *   1. Resolve a selecao de signals (.gtkw ativo > Wave Config > tb com
  *      $dumpvars hand-written > default $dumpvars(1, tb)).
  *   2. Instrumenta o testbench (escreve cópia em
- *      components/Temp/instr_<tb>.v com o $dumpvars escolhido e o hook
- *      do AURORA_HEADER_ONLY pra pass-1 rapido). O .v original NUNCA
- *      e tocado — Aurora escreve uma cópia em Temp/.
+ *      components/Temp/instr_<tb>.v só com o $dumpfile/$dumpvars escolhido —
+ *      sem hook de header-pass; o header sai do FST depois). O .v original
+ *      NUNCA e tocado — Aurora escreve uma cópia em Temp/.
  *
  * Apos sucesso, NAO regenera hierarquia (essa e tarefa do botao Verilog).
  *
@@ -1889,6 +1889,17 @@ async runGtkWave() {
             }
             vcdFile = await this._waveResolveVcdFile(simTopModule, tools.tempBaseDir);
         }
+        // Unified header capture — ONE extraction for all four wave paths
+        // (iverilog, Verilator, cocotb+iverilog, cocotb+Verilator). Replaces the
+        // old per-flow two-pass: the non-cocotb flows used to run a throwaway
+        // +AURORA_HEADER_ONLY simulation just to flush the VCD header, and the
+        // cocotb flow converted the whole FST to text. Now the sim runs exactly
+        // once (→ FST) and the header (scopes/signals for the picker + auto-gtkw)
+        // is pulled straight from that FST. fst2vcd magic-detects the FST
+        // regardless of the file extension; for a genuine text VCD it reports no
+        // FST and we skip — the VCD is its own header source, parsed downstream.
+        const headerVcd = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
+        await this._extractFstHeaderVcd(vcdFile, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
         const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
         await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
     } catch (error) {
@@ -2158,48 +2169,60 @@ async _findWaveCandidateInDir(dir, topModule) {
  * not be captured (caller falls back to a full conversion).
  */
 async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
-    if (typeof window.electronAPI.onExecSpecStream !== 'function'
-        || typeof window.electronAPI.cancelVvpProcess !== 'function') {
-        return false;
-    }
-    // No -o → fst2vcd emits the VCD to stdout (per its --help). We read the
-    // header off the stream instead of writing a file.
-    const spec = {
-        step: 'fst2vcd',
-        binary: fst2vcdBin,
-        args: ['-f', fstPath],
-        cwd,
-        label: 'fst2vcd (header only — cancelled at $enddefinitions)',
-    };
-    const ENDDEFS = /\$enddefinitions\s+\$end/;
-    let acc = '';
-    let header = null;
-    const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
-        if (header !== null || !payload || payload.type !== 'stdout' || !payload.data) return;
-        acc += payload.data;
-        const m = ENDDEFS.exec(acc);
-        if (m) {
-            header = `${acc.slice(0, m.index + m[0].length)}\n`;
-            // We have the whole hierarchy — stop fst2vcd before it streams the body.
-            window.electronAPI.cancelVvpProcess();
+    // Fast path: stream fst2vcd (no -o → it emits the VCD to stdout) and kill it
+    // the instant $enddefinitions appears, so it iterates only the FST geometry
+    // plus the first buffered block — never the multi-hundred-MB body.
+    if (typeof window.electronAPI.onExecSpecStream === 'function'
+        && typeof window.electronAPI.cancelVvpProcess === 'function') {
+        const spec = {
+            step: 'fst2vcd',
+            binary: fst2vcdBin,
+            args: ['-f', fstPath],
+            cwd,
+            label: 'fst2vcd (header only — cancelled at $enddefinitions)',
+        };
+        const ENDDEFS = /\$enddefinitions\s+\$end/;
+        let acc = '';
+        let header = null;
+        const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+            if (header !== null || !payload || payload.type !== 'stdout' || !payload.data) return;
+            acc += payload.data;
+            const m = ENDDEFS.exec(acc);
+            if (m) {
+                header = `${acc.slice(0, m.index + m[0].length)}\n`;
+                // We have the whole hierarchy — stop fst2vcd before it streams the body.
+                window.electronAPI.cancelVvpProcess();
+            }
+        });
+        try {
+            await runSpecStreamed(spec, { consumeEphemeral: true });
+        } catch {
+            // fall through — header may still have been captured before the throw
+        } finally {
+            unsubscribe();
         }
-    });
-    try {
-        await runSpecStreamed(spec, { consumeEphemeral: true });
-    } catch {
-        // fall through — header may still have been captured before the throw
-    } finally {
-        unsubscribe();
+        // The boundary can also land exactly as the process closes (tiny design
+        // that fully emitted before a chunk carried $enddefinitions) — re-check.
+        if (header === null) {
+            const m = ENDDEFS.exec(acc);
+            if (m) header = `${acc.slice(0, m.index + m[0].length)}\n`;
+        }
+        if (header && header.length > 0) {
+            await window.electronAPI.writeFile(headerVcdPath, header);
+            return true;
+        }
     }
-    // The boundary can also land exactly as the process closes (tiny design that
-    // fully emitted before a chunk carried $enddefinitions) — re-check the tail.
-    if (header === null) {
-        const m = ENDDEFS.exec(acc);
-        if (m) header = `${acc.slice(0, m.index + m[0].length)}\n`;
-    }
-    if (header === null || header.length === 0) return false;
-    await window.electronAPI.writeFile(headerVcdPath, header);
-    return true;
+
+    // Fallback: full fst2vcd conversion. Correct but materializes the whole text
+    // VCD — only reached when streaming is unavailable or the header never
+    // surfaced. A real sim FST converts fine; a non-FST input (e.g. a dump that
+    // is already a text VCD) fails the magic check, so we return false and the
+    // caller leaves that VCD to be parsed directly downstream.
+    const result = await runSpec(
+        buildFst2VcdSpec({ fst2vcdBin, inputFile: fstPath, outputFile: headerVcdPath, cwd }),
+        { consumeEphemeral: true });
+    return (result.code === 0 || result.code === null)
+        && await window.electronAPI.fileExists(headerVcdPath);
 }
 
 async _adoptCocotbWaveform(ctx, tools, buildDir) {
@@ -2214,59 +2237,22 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }
 
-    // Mirror the non-cocotb flow: hand GTKWave the FST (small, native) and stash
-    // a header-only `.header.vcd` sibling for the auto-gtkw step to parse. We do
-    // NOT convert the whole FST to a text VCD — that produced a 100+MB file (slow
-    // to write, heavy on disk) purely to read its header. _extractFstHeaderVcd
-    // pulls only the $scope/$var hierarchy (killing fst2vcd at $enddefinitions),
-    // which is all _waveResolveGtkwSaveFile needs to filter to the Wave-Config
-    // selection. Full conversion stays as a fallback if the header capture fails.
-    if (/\.fst$/i.test(candidate)) {
-        const targetFst = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.fst`);
-        if (candidate.toLowerCase() !== targetFst.toLowerCase()) {
-            await window.electronAPI.copyFile(candidate, targetFst);
-        }
-        const headerVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.header.vcd`);
-        const gotHeader = await this._extractFstHeaderVcd(
-            targetFst, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
-        if (gotHeader) {
-            this.terminalManager.appendToTerminal('twave',
-                tr('terminal.wave.cocotbVcd', { name: basenameOfPath(targetFst) }), 'info');
-            return targetFst;
-        }
-        // Header capture unavailable/failed — fall back to the full text VCD.
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbFstConvert'), 'info');
-        const targetVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.vcd`);
-        const spec = buildFst2VcdSpec({
-            fst2vcdBin: tools.fst2vcdBin,
-            inputFile: candidate,
-            outputFile: targetVcd,
-            cwd: tools.tempBaseDir,
-        });
-        const result = await runSpec(spec, { consumeEphemeral: true });
-        if (result.code !== 0 && result.code !== null) {
-            throw new Error(tr('error.compilation.cocotbFst2vcdFailed', { code: result.code }));
-        }
-        if (!await window.electronAPI.fileExists(targetVcd)) {
-            throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
-        }
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.cocotbVcd', { name: basenameOfPath(targetVcd) }), 'info');
-        return targetVcd;
+    // Normalize the dump into the temp dir under the canonical name and hand it
+    // back. GTKWave opens the FST directly; the VCD header is pulled from it by
+    // the unified _extractFstHeaderVcd in runGtkWave — the SAME post-sim step
+    // every wave path now uses. (A rare direct text-VCD dump is just copied
+    // through; it is its own parseable header source.)
+    const ext = /\.fst$/i.test(candidate) ? 'fst' : 'vcd';
+    const target = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.${ext}`);
+    if (candidate.toLowerCase() !== target.toLowerCase()) {
+        await window.electronAPI.copyFile(candidate, target);
     }
-
-    // Candidate is already a text VCD (rare — cocotb dumped VCD directly). It is
-    // its own parseable source, so just normalize it into the temp dir.
-    const targetVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.vcd`);
-    if (candidate.toLowerCase() !== targetVcd.toLowerCase()) {
-        await window.electronAPI.copyFile(candidate, targetVcd);
-    }
-    if (!await window.electronAPI.fileExists(targetVcd)) {
+    if (!await window.electronAPI.fileExists(target)) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }
     this.terminalManager.appendToTerminal('twave',
-        tr('terminal.wave.cocotbVcd', { name: basenameOfPath(targetVcd) }), 'info');
-    return targetVcd;
+        tr('terminal.wave.cocotbVcd', { name: basenameOfPath(target) }), 'info');
+    return target;
 }
 
 /**
@@ -2472,67 +2458,15 @@ async _waveRunVvpSimulation(simTopModule, tools) {
 
     const vvpFile = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
 
-    // Two-pass strategy:
-    //
-    //   Pass 1: run vvp with +AURORA_HEADER_ONLY. The auto-instrumented
-    //   testbench (testbench_instrumenter.js) injects
-    //
-    //       if ($test$plusargs("AURORA_HEADER_ONLY")) $finish;
-    //
-    //   after the $dumpvars call. Simulation runs only the initial
-    //   block — $dumpvars flushes the complete VCD header (every scope
-    //   and signal name), then $finish exits cleanly. The resulting
-    //   ${simTopModule}.vcd has a parseable header but no value-change
-    //   section, which is exactly what Aurora needs for the Wave
-    //   Configuration picker and the SAPHO-decorated auto-gtkw.
-    //
-    //   Pass 2: run vvp -fst (no plusarg) to completion. Result:
-    //   ${simTopModule}.fst, 10-100x smaller than the equivalent VCD,
-    //   opened by GTKWave at the end of the pipeline. The pass-1 .vcd
-    //   stays on disk for downstream parsing; never opened by GTKWave.
-    //
-    // For testbenches with hand-written $dumpvars where Aurora ceded
-    // control (no auto-instrumentation), the +AURORA_HEADER_ONLY
-    // plusarg is a no-op and pass 1 runs the full simulation. That
-    // costs the user-defined-dumpvars edge case extra runtime, but
-    // the common path (Aurora-instrumented testbench) is fast.
+    // Single full simulation with vvp -fst → ${simTopModule}.vcd (FST binary
+    // written under the $dumpfile name). No header-only pass anymore: the VCD
+    // header is pulled from this FST by the unified _extractFstHeaderVcd in
+    // runGtkWave. This also fixes the old hand-written-$dumpvars edge case,
+    // where the +AURORA_HEADER_ONLY plusarg was a no-op and pass 1 ran the FULL
+    // simulation twice.
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
 
-    const vvpHeaderSpec = buildVvpHeaderSpec({
-        vvpBin: tools.vvpBin,
-        vvpFile,
-        cwd: tools.tempBaseDir,
-    });
-    const headerResult = await runSpec(vvpHeaderSpec, { consumeEphemeral: true });
-    // Pass 1 stdout/stderr are intentionally suppressed — the $finish
-    // injected by the instrumenter produces a "$finish at simulation
-    // time 0" line that's just noise. Errors surface via pass 2 anyway.
-    if (headerResult.code !== 0 && headerResult.code !== null) {
-        // Non-fatal: pass 2 may still succeed. Log a tip so the user
-        // knows the auto-gtkw header capture failed.
-        this.terminalManager.appendToTerminal('twave',
-            `Note: header-only pass exited with code ${headerResult.code}; auto-gtkw may fall back to a generic layout.`,
-            'tips');
-    }
-
-    // Stash the pass-1 text VCD under a separate name before pass 2
-    // overwrites the original. vvp -fst keeps the $dumpfile() name
-    // ("...vcd") but writes FST binary into it — without this copy
-    // the pass-1 header is destroyed and the downstream parse sees
-    // binary garbage where it expects $var/$scope lines.
-    const pass1Vcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vcd`);
-    const headerVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.header.vcd`);
-    try {
-        if (await window.electronAPI.fileExists(pass1Vcd)) {
-            await window.electronAPI.copyFile(pass1Vcd, headerVcd);
-        }
-    } catch (e) {
-        this.terminalManager.appendToTerminal('twave',
-            `Note: could not stash pass-1 header (${e.message}); auto-gtkw may fall back to a generic layout.`,
-            'tips');
-    }
-
-    // Stream pass-2 output to twave live so $display lines from the
+    // Stream sim output to twave live so $display lines from the
     // testbench show up as the simulation progresses. User $display
     // lines get tagged 'raw' (no card, always visible). Lines that
     // are clearly vvp/iverilog system noise — dump-format announce,
@@ -2784,19 +2718,11 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
 }
 
 /**
- * Roda o .exe do Verilator em duas passadas, espelhando a estrategia
- * do _waveRunVvpSimulation:
- *
- *   Pass 1: +AURORA_HEADER_ONLY → o testbench instrumentado faz $finish
- *           logo apos $dumpvars. Produz <simTop>.vcd contendo FST data
- *           header-only (Verilator com --trace-fst escreve formato FST
- *           no arquivo que $dumpfile nomeou, sem trocar extensao).
- *
- *   Convert: fst2vcd <simTop>.vcd → <simTop>.header.vcd (texto VCD,
- *            consumido pelo wave_config_manager + gtkw_proc_writer).
- *
- *   Pass 2: sem plusarg → sobrescreve <simTop>.vcd com FST completo.
- *           GTKWave abre esse arquivo direto (autodetecta FST).
+ * Roda o .exe do Verilator UMA vez (sim completa), escrevendo <simTop>.vcd
+ * com FST binário (Verilator com --trace-fst honra o nome do $dumpfile sem
+ * trocar a extensão). GTKWave abre esse arquivo direto (autodetecta FST). O
+ * header do VCD (pro picker + auto-gtkw) é extraído desse FST pelo
+ * _extractFstHeaderVcd unificado em runGtkWave — não há mais pass-1 de header.
  *
  * Cwd do .exe = tempBaseDir, pelos mesmos motivos do vvp ($readmemb
  * relativo, $fopen do testbench relativo).
@@ -2812,55 +2738,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
 
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'plain');
 
-    // Pass 1: header capture. PATH inclui bundle mingw + usr bin pro
-    // .exe achar libstdc++-6.dll / libwinpthread-1.dll / msys DLLs em
-    // runtime (Verilator-generated binary linka contra mingw64 runtime).
-    const verilatorHeaderSpec = buildVerilatorHeaderSpec({
-        exePath,
-        cwd: tools.tempBaseDir,
-        mingwBin: tools.mingwBin,
-        usrBin: tools.usrBin,
-    });
-    const headerResult = await runSpec(verilatorHeaderSpec, { consumeEphemeral: true });
-    if (headerResult.code !== 0 && headerResult.code !== null) {
-        // Nao fatal — pass 2 ainda pode resolver. Log curto.
-        this.terminalManager.appendToTerminal('twave',
-            `Note: header-only pass exited with code ${headerResult.code}; auto-gtkw may fall back to a generic layout.`,
-            'tips');
-    } else {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorHeaderOk'), 'plain');
-    }
-
-    // Converte pass-1 FST → texto VCD pro picker (wave_config_manager,
-    // gtkw_proc_writer). fst2vcd detecta formato por magic, entao
-    // extensao .vcd no arquivo de entrada (que contem FST) e OK.
-    const pass1File = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vcd`);
-    const headerVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.header.vcd`);
-    if (await window.electronAPI.fileExists(pass1File)) {
-        if (await window.electronAPI.fileExists(tools.fst2vcdBin)) {
-            this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorFstConvert'), 'plain');
-            // fst2vcd exige `-f <input>` explicito (positional argument
-            // imprime pra stdout em vez de honrar o `-o`).
-            const fst2vcdSpec = buildFst2VcdSpec({
-                fst2vcdBin: tools.fst2vcdBin,
-                inputFile: pass1File,
-                outputFile: headerVcd,
-                cwd: tools.tempBaseDir,
-            });
-            const convertResult = await runSpec(fst2vcdSpec, { consumeEphemeral: true });
-            if (convertResult.code !== 0 && convertResult.code !== null) {
-                this.terminalManager.appendToTerminal('twave',
-                    tr('error.compilation.fst2vcdFailed', { code: convertResult.code }), 'warning');
-            }
-        } else {
-            // Sem fst2vcd? Tenta copiar o FST como header.vcd e deixa o
-            // parser do picker tentar — vai falhar mas com mensagem
-            // melhor que silencio.
-            try { await window.electronAPI.copyFile(pass1File, headerVcd); } catch (_e) { /* */ }
-        }
-    }
-
-    // Pass 2: full sim. Stream output pro twave live (igual vvp pass 2).
+    // Full sim. Stream output pro twave live (igual vvp).
     const isVvpNoise = (line) => {
         const t = (line || '').toLowerCase();
         return (

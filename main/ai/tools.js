@@ -888,8 +888,8 @@ const TOOL_MANIFEST = [
     name: 'list_compile_steps',
     description:
       'Enumerate every toolchain step whose command line Aurora Intelligence can override ' +
-      '(cmm, asm, iverilog-check, iverilog-build, vvp-header, vvp-run, verilator-build, ' +
-      'verilator-header, verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys). ' +
+      '(cmm, asm, iverilog-check, iverilog-build, vvp-run, verilator-build, ' +
+      'verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys). ' +
       'Each entry includes a short description of when the step runs.',
     access: 'read',
     api: ['compile', 'listSteps'],
@@ -910,7 +910,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        step: { type: 'string', description: 'One of: cmm, asm-pre, asm, iverilog-check, iverilog-build, vvp-header, vvp-run, verilator-build, verilator-header, verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys' },
+        step: { type: 'string', description: 'One of: cmm, asm-pre, asm, iverilog-check, iverilog-build, vvp-run, verilator-build, verilator-run, fst2vcd, gtkwave, yosys-hierarchy, prism-yosys' },
         processorName: { type: 'string', description: 'For per-processor steps (cmm, asm-pre, asm). Omit for global steps.' },
       },
       required: ['step'],

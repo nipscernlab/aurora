@@ -21,7 +21,7 @@
  * Flag matching is exact-token. For flag-and-value pairs (-o file,
  * -y dir, -s tb), we check the FLAG NAME only — the value can move
  * (Aurora regenerates these per-run anyway). For standalone tokens
- * (--binary, --main, +AURORA_HEADER_ONLY), we check the literal.
+ * (--binary, --main, -fst), we check the literal.
  */
 
 'use strict';
@@ -52,9 +52,6 @@ const RULES = {
     literalArgs: [],
     flagWithValue: ['-s', '-y', '-o'],
   },
-  'vvp-header': {
-    literalArgs: ['+AURORA_HEADER_ONLY'],
-  },
   'vvp-run': {
     literalArgs: ['-fst'],
   },
@@ -69,9 +66,6 @@ const RULES = {
   'verilator-build': {
     literalArgs: ['--binary', '--main', '--trace-fst'],
     flagWithValue: ['-Mdir', '--top-module', '-y'],
-  },
-  'verilator-header': {
-    literalArgs: ['+AURORA_HEADER_ONLY'],
   },
   'verilator-run': {
     literalArgs: [],

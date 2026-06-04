@@ -126,19 +126,11 @@ export function buildVerilatorBuildSpec(ctx) {
  * @property {string}   usrBin
  */
 
-/** @param {VerilatorRunBuilderCtx} ctx */
-export function buildVerilatorHeaderSpec(ctx) {
-  return {
-    step: 'verilator-header',
-    binary: ctx.exePath,
-    args: ['+AURORA_HEADER_ONLY'],
-    cwd: ctx.cwd,
-    prependPath: [ctx.mingwBin, ctx.usrBin],
-    label: 'V<top>.exe pass-1 (header capture)',
-  };
-}
-
-/** @param {VerilatorRunBuilderCtx} ctx */
+/**
+ * @param {VerilatorRunBuilderCtx} ctx
+ * Single full-simulation run. The VCD header is pulled from the finished FST
+ * (_extractFstHeaderVcd) rather than from a separate header-only pass.
+ */
 export function buildVerilatorRunSpec(ctx) {
   return {
     step: 'verilator-run',
@@ -146,7 +138,7 @@ export function buildVerilatorRunSpec(ctx) {
     args: [],
     cwd: ctx.cwd,
     prependPath: [ctx.mingwBin, ctx.usrBin],
-    label: 'V<top>.exe pass-2 (full FST)',
+    label: 'V<top>.exe (full FST)',
   };
 }
 

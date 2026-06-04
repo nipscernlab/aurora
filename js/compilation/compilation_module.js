@@ -2146,10 +2146,66 @@ async _findWaveCandidateInDir(dir, topModule) {
     return null;
 }
 
+/**
+ * Pull ONLY the VCD header (the $scope/$var hierarchy, up to $enddefinitions)
+ * out of an FST — WITHOUT materializing the full text VCD. fst2vcd streams VCD
+ * to stdout header-first; we accumulate stdout and, the instant we see
+ * $enddefinitions, kill fst2vcd (cancelVvpProcess). So it iterates only the FST
+ * geometry plus the first buffered block, never the whole multi-hundred-MB body.
+ * The header alone is what _waveResolveGtkwSaveFile / _waveValidateUserGtkwAgainstVcd
+ * parse to build the auto-gtkw and cross-check user .gtkw files; GTKWave then
+ * opens the .fst directly. Returns true on success, false if the header could
+ * not be captured (caller falls back to a full conversion).
+ */
+async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
+    if (typeof window.electronAPI.onExecSpecStream !== 'function'
+        || typeof window.electronAPI.cancelVvpProcess !== 'function') {
+        return false;
+    }
+    // No -o → fst2vcd emits the VCD to stdout (per its --help). We read the
+    // header off the stream instead of writing a file.
+    const spec = {
+        step: 'fst2vcd',
+        binary: fst2vcdBin,
+        args: ['-f', fstPath],
+        cwd,
+        label: 'fst2vcd (header only — cancelled at $enddefinitions)',
+    };
+    const ENDDEFS = /\$enddefinitions\s+\$end/;
+    let acc = '';
+    let header = null;
+    const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+        if (header !== null || !payload || payload.type !== 'stdout' || !payload.data) return;
+        acc += payload.data;
+        const m = ENDDEFS.exec(acc);
+        if (m) {
+            header = `${acc.slice(0, m.index + m[0].length)}\n`;
+            // We have the whole hierarchy — stop fst2vcd before it streams the body.
+            window.electronAPI.cancelVvpProcess();
+        }
+    });
+    try {
+        await runSpecStreamed(spec, { consumeEphemeral: true });
+    } catch {
+        // fall through — header may still have been captured before the throw
+    } finally {
+        unsubscribe();
+    }
+    // The boundary can also land exactly as the process closes (tiny design that
+    // fully emitted before a chunk carried $enddefinitions) — re-check the tail.
+    if (header === null) {
+        const m = ENDDEFS.exec(acc);
+        if (m) header = `${acc.slice(0, m.index + m[0].length)}\n`;
+    }
+    if (header === null || header.length === 0) return false;
+    await window.electronAPI.writeFile(headerVcdPath, header);
+    return true;
+}
+
 async _adoptCocotbWaveform(ctx, tools, buildDir) {
-    // cocotb runs the sim with cwd = the test dir, so Verilator's dump.vcd can
-    // land next to the .py (the project dir) instead of in buildDir. Search the
-    // build dir first, then the testbench's dir.
+    // cocotb runs the sim with cwd = the test dir, so the dump can land next to
+    // the .py (the project dir) instead of in buildDir. Search the build dir
+    // first, then the testbench's dir.
     const testDir = await window.electronAPI.dirname(ctx.testbenchFile);
     const candidate =
         await this._findWaveCandidateInDir(buildDir, ctx.hdlTopModule) ||
@@ -2158,17 +2214,29 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }
 
-    // Convert to a full text VCD (do NOT just hand GTKWave the .fst). The
-    // auto-gtkw step (_waveResolveGtkwSaveFile) parses the dump's header to know
-    // which signals exist, and it can only parse TEXT — it returns null for a
-    // bare .fst. The non-cocotb flow gets away with FST because it also stashes a
-    // .header.vcd sibling to parse; cocotb has no such sibling, so the full VCD
-    // here IS the parseable source that drives the Wave-Config signal filtering.
-    // The conversion is post-sim and one-time — the heavy per-cycle dump already
-    // ran as FST (--trace-fst), so this is cheap. Don't "optimize" it away.
-    const targetVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.vcd`);
+    // Mirror the non-cocotb flow: hand GTKWave the FST (small, native) and stash
+    // a header-only `.header.vcd` sibling for the auto-gtkw step to parse. We do
+    // NOT convert the whole FST to a text VCD — that produced a 100+MB file (slow
+    // to write, heavy on disk) purely to read its header. _extractFstHeaderVcd
+    // pulls only the $scope/$var hierarchy (killing fst2vcd at $enddefinitions),
+    // which is all _waveResolveGtkwSaveFile needs to filter to the Wave-Config
+    // selection. Full conversion stays as a fallback if the header capture fails.
     if (/\.fst$/i.test(candidate)) {
+        const targetFst = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.fst`);
+        if (candidate.toLowerCase() !== targetFst.toLowerCase()) {
+            await window.electronAPI.copyFile(candidate, targetFst);
+        }
+        const headerVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.header.vcd`);
+        const gotHeader = await this._extractFstHeaderVcd(
+            targetFst, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
+        if (gotHeader) {
+            this.terminalManager.appendToTerminal('twave',
+                tr('terminal.wave.cocotbVcd', { name: basenameOfPath(targetFst) }), 'info');
+            return targetFst;
+        }
+        // Header capture unavailable/failed — fall back to the full text VCD.
         this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbFstConvert'), 'info');
+        const targetVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.vcd`);
         const spec = buildFst2VcdSpec({
             fst2vcdBin: tools.fst2vcdBin,
             inputFile: candidate,
@@ -2179,10 +2247,20 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
         if (result.code !== 0 && result.code !== null) {
             throw new Error(tr('error.compilation.cocotbFst2vcdFailed', { code: result.code }));
         }
-    } else {
-        await window.electronAPI.copyFile(candidate, targetVcd);
+        if (!await window.electronAPI.fileExists(targetVcd)) {
+            throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
+        }
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.cocotbVcd', { name: basenameOfPath(targetVcd) }), 'info');
+        return targetVcd;
     }
 
+    // Candidate is already a text VCD (rare — cocotb dumped VCD directly). It is
+    // its own parseable source, so just normalize it into the temp dir.
+    const targetVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.vcd`);
+    if (candidate.toLowerCase() !== targetVcd.toLowerCase()) {
+        await window.electronAPI.copyFile(candidate, targetVcd);
+    }
     if (!await window.electronAPI.fileExists(targetVcd)) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }

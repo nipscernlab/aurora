@@ -161,6 +161,26 @@ function register() {
       return { success: false, message: `Error occurred while canceling processes: ${error.message}` };
     }
   });
+
+  // Targeted stop: kill ONLY the currently parked streamed child (state.
+  // currentVvpProcess) and nothing else. Unlike cancel-vvp-process this does
+  // NOT sweep-and-kill vvp.exe/gtkwave.exe by name — that broad sweep would
+  // race with, and kill, a GTKWave that the wave flow launches moments later.
+  // Used by _extractFstHeaderVcd to stop fst2vcd once the header is captured.
+  ipcMain.handle('kill-current-spec-process', async () => {
+    const child = state.currentVvpProcess;
+    if (!child || child.killed) return { success: false };
+    try {
+      await killProcessSilently(child.pid);
+      return { success: true };
+    } catch (error) {
+      log.error('Error killing current spec process:', error);
+      return { success: false, message: error.message };
+    } finally {
+      state.currentVvpProcess = null;
+      state.vvpProcessPid = null;
+    }
+  });
 }
 
 module.exports = { register };

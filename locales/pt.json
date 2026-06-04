@@ -415,6 +415,8 @@
             "verilatorSimulator":    "Usando simulador: Verilator.",
             "iverilogSimulator":     "Usando simulador: Icarus Verilog (vvp).",
             "cocotbSimulator":       "Usando testbench: cocotb Python + {{sim}}.",
+            "cocotbToplevelDirective": "DUT do cocotb via '# aurora-toplevel': {{module}}.",
+            "cocotbToplevelFallback": "Sem diretiva '# aurora-toplevel: <modulo>' em {{file}} — usando o top-level do projeto '{{module}}' como DUT do cocotb. Adicione esse comentario no .py para mirar um modulo especifico.",
             "runningCocotb":         "Executando testbench cocotb com {{sim}}...",
             "cocotbFstConvert":      "Convertendo FST do cocotb para VCD (fst2vcd).",
             "cocotbVcd":             "VCD do cocotb gerado: {{name}}",

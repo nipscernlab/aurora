@@ -87,6 +87,18 @@ function isPythonFile(filePath) {
     return /\.py$/i.test(String(filePath || ''));
 }
 
+// Reads an optional `# aurora-toplevel: <module>` directive from a cocotb .py.
+// It tells Aurora which Verilog module is the DUT (cocotb's hdl_toplevel) so a
+// test can target ANY module without re-marking the project top-level in the
+// .spf. Crucially it's a plain COMMENT — pytest, a Makefile or bare cocotb
+// running the same .py outside Aurora ignore it entirely. Accepts ':' or '='
+// and is case-insensitive; the value must be a valid identifier. Returns the
+// module name, or null when the directive is absent.
+function parseCocotbToplevelDirective(pySource) {
+    const m = /^[ \t]*#[ \t]*aurora-toplevel[ \t]*[:=][ \t]*([A-Za-z_]\w*)/im.exec(String(pySource || ''));
+    return m ? m[1] : null;
+}
+
 // Insere a diretiva `#TOAQUI` logo antes do `}` que fecha a funcao main()
 // de um fonte C±. O #TOAQUI faz o compilador pulsar o pino `cheguei` no fim
 // do programa — usado pelo harness do botao Verilator pra encerrar a sim
@@ -1851,8 +1863,21 @@ async runGtkWave() {
         let vcdFile = null;
 
         if (isPythonFile(config.testbenchFile)) {
-            const cocotbCtx = this._waveValidateCocotbConfig(config);
+            const cocotbCtx = await this._waveValidateCocotbConfig(config);
             simTopModule = cocotbCtx.hdlTopModule;
+            // Surface where the DUT came from: the .py directive (explicit), or
+            // the .spf top-level fallback (warn so a forgotten directive doesn't
+            // silently test the wrong module).
+            if (cocotbCtx.toplevelSource === 'directive') {
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.cocotbToplevelDirective', { module: cocotbCtx.hdlTopModule }), 'tips');
+            } else {
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.cocotbToplevelFallback', {
+                        file: basenameOfPath(config.testbenchFile),
+                        module: cocotbCtx.hdlTopModule,
+                    }), 'warning');
+            }
             this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator', {
                 sim: getSimulator() === 'verilator' ? 'Verilator' : 'Icarus',
             }), 'tips');
@@ -1974,23 +1999,49 @@ _waveDeriveSimTopModule(config) {
     return moduleStemFromPath(config.topLevelFile);
 }
 
-_waveValidateCocotbConfig(config) {
-    if (!config.topLevelFile) {
-        throw new Error(tr('error.compilation.cocotbRequiresTop'));
-    }
-    if (!/\.(v|sv)$/i.test(config.topLevelFile)) {
-        throw new Error(tr('error.compilation.cocotbRequiresTop'));
-    }
+async _waveValidateCocotbConfig(config) {
     if (!config.testbenchFile || !isPythonFile(config.testbenchFile)) {
         throw new Error(tr('error.compilation.cocotbRequiresPythonTb'));
     }
 
+    // The cocotb DUT — the Verilog module cocotb elaborates and binds `dut` to.
+    // It is NOT inherently the project top-level: a .py can unit-test any
+    // module. Resolution order:
+    //   1. an explicit `# aurora-toplevel: <module>` directive in the .py
+    //      (lets the test target any module; inert outside Aurora);
+    //   2. else the .spf top-level (with a warning, surfaced by the caller).
+    // The chosen module must still be among the compiled sources
+    // (_collectCocotbSources gathers synthesizableFiles + the .spf top-level +
+    // the bundled HDL), or the simulator won't find it.
+    let pySource = '';
+    try {
+        pySource = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    } catch { /* unreadable here — fall back to the .spf top-level below */ }
+    const directiveTop = parseCocotbToplevelDirective(pySource);
+
+    let hdlTopModule;
+    let hdlTopFile;
+    let toplevelSource;
+    if (directiveTop) {
+        hdlTopModule = directiveTop;
+        hdlTopFile = config.topLevelFile || '';   // optional when the directive drives the DUT
+        toplevelSource = 'directive';
+    } else {
+        if (!config.topLevelFile || !/\.(v|sv)$/i.test(config.topLevelFile)) {
+            throw new Error(tr('error.compilation.cocotbRequiresTop'));
+        }
+        hdlTopModule = moduleStemFromPath(config.topLevelFile);
+        hdlTopFile = config.topLevelFile;
+        toplevelSource = 'spf';
+    }
+
     return {
-        hdlTopFile: config.topLevelFile,
-        hdlTopModule: moduleStemFromPath(config.topLevelFile),
+        hdlTopFile,
+        hdlTopModule,
         testbenchFile: config.testbenchFile,
         testModule: assertPythonModuleName(config.testbenchFile),
         tbKey: moduleStemFromPath(config.testbenchFile),
+        toplevelSource,
     };
 }
 
@@ -2173,7 +2224,7 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
     // the instant $enddefinitions appears, so it iterates only the FST geometry
     // plus the first buffered block — never the multi-hundred-MB body.
     if (typeof window.electronAPI.onExecSpecStream === 'function'
-        && typeof window.electronAPI.cancelVvpProcess === 'function') {
+        && typeof window.electronAPI.killCurrentSpecProcess === 'function') {
         const spec = {
             step: 'fst2vcd',
             binary: fst2vcdBin,
@@ -2184,14 +2235,18 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         const ENDDEFS = /\$enddefinitions\s+\$end/;
         let acc = '';
         let header = null;
+        let killPromise = null;
         const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
             if (header !== null || !payload || payload.type !== 'stdout' || !payload.data) return;
             acc += payload.data;
             const m = ENDDEFS.exec(acc);
             if (m) {
                 header = `${acc.slice(0, m.index + m[0].length)}\n`;
-                // We have the whole hierarchy — stop fst2vcd before it streams the body.
-                window.electronAPI.cancelVvpProcess();
+                // We have the whole hierarchy — stop fst2vcd before it streams the
+                // body. Targeted kill of the parked child ONLY (NOT cancelVvpProcess,
+                // whose by-name vvp/gtkwave sweep would race with and kill the
+                // GTKWave this same wave flow launches moments later).
+                killPromise = window.electronAPI.killCurrentSpecProcess();
             }
         });
         try {
@@ -2201,6 +2256,8 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         } finally {
             unsubscribe();
         }
+        // Ensure the kill fully settled before returning (defensive ordering).
+        if (killPromise) { try { await killPromise; } catch { /* best-effort */ } }
         // The boundary can also land exactly as the process closes (tiny design
         // that fully emitted before a chunk carried $enddefinitions) — re-check.
         if (header === null) {
@@ -2305,8 +2362,9 @@ async _resolveCocotbSimProfile() {
         // comes after it in the command, so it wins (VM_TRACE_FST=1) and cocotb's
         // verilator.cpp wrapper writes dump.fst. FST is ~10x smaller than the raw
         // VCD, so the trace I/O during the (long) sim is far cheaper — the main
-        // reason cocotb was slower than the native flow. _adoptCocotbWaveform
-        // already converts the .fst to .vcd via fst2vcd for GTKWave.
+        // reason cocotb was slower than the native flow. GTKWave opens the .fst
+        // directly; the header for the auto-gtkw is pulled from it by the unified
+        // _extractFstHeaderVcd in runGtkWave (no full-VCD conversion anymore).
         '--trace-fst',
     ];
     return getSimulator() === 'verilator'

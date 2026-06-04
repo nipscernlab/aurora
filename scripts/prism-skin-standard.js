@@ -11,8 +11,10 @@
  *     node scripts/prism-skin-standard.js --print pc # dump one to stdout
  *
  * ── THE STANDARD ────────────────────────────────────────────────────────────
- *  1. SILHOUETTE = MEANING. A selector/mux is a right-pointing pentagon (many
- *     in → one out); everything else is a clean rounded "chip" card.
+ *  1. SILHOUETTE = MEANING. Each class is drawn as its textbook symbol: mux =
+ *     right-pointing pentagon, ALU = notched chevron, decoder = fan-out
+ *     trapezoid, register = sharp card + clock ▸, memory = array grid, FIFO =
+ *     flow chevrons; hierarchical/control blocks stay a clean rounded chip card.
  *  2. IT'S A CHIP. Dark card body so labels read with contrast anywhere.
  *  3. PRISM IDENTITY = a FAINT logo watermark in the body's open area: the PRISM
  *     dispersion mark, or the SAPHO "S" for the `processor` top cell.
@@ -54,7 +56,10 @@ const C = {
 const CLASS = {
   selector:   { color: 'var(--aurora-pink, #E68FB8)',     tag: 'selector' },
   arithmetic: { color: 'var(--aurora-mint, #5FE0B0)',     tag: 'datapath op' },
+  alu:        { color: 'var(--aurora-mint, #5FE0B0)',     tag: 'ALU' },
   control:    { color: 'var(--aurora-violet, #8E83E8)',   tag: 'control' },
+  decoder:    { color: 'var(--aurora-violet, #8E83E8)',   tag: 'decoder' },
+  register:   { color: 'var(--aurora-purple, #B98AE0)',   tag: 'register' },
   memory:     { color: 'var(--aurora-cyan, #5BB8E8)',     tag: 'memory' },
   fifo:       { color: 'var(--aurora-teal, #4FD3C2)',     tag: 'FIFO' },
   core:       { color: 'var(--aurora-mint, #5FE0B0)',     tag: 'processor core' },
@@ -156,16 +161,20 @@ function allModules() {
 
 /* ── Classification ─────────────────────────────────────────────────────── */
 function classify(name) {
-  // Watermark only on the `processor` top cell (the SAPHO "S"). The PRISM
-  // dispersion mark read as a smudge inside the smaller cells, so it's dropped.
+  // Silhouette = meaning: each class gets the textbook shape for its function.
+  // Watermark only on the `processor` top cell (the SAPHO "S").
   if (name === 'ula_mux' || name === 'norm_mux') return { cls: 'selector', shape: 'selector', wm: null };
-  if (name === 'processor') return { cls: 'processor', shape: 'block', wm: 'sapho' };
-  if (name === 'core') return { cls: 'core', shape: 'block', wm: null };
-  if (name === 'myFIFO') return { cls: 'fifo', shape: 'block', wm: null };
-  if (/^mem/.test(name)) return { cls: 'memory', shape: 'block', wm: null };
-  if (/^ula_/.test(name)) return { cls: 'arithmetic', shape: 'block', wm: null };
-  if (/(_ctrl|_dec|_fetch|prefetch|^pc$|^stack$|rel_addr|^addr_dec$)/.test(name)) return { cls: 'control', shape: 'block', wm: null };
-  return { cls: 'control', shape: 'block', wm: null };
+  if (name === 'processor') return { cls: 'processor', shape: 'chip', wm: 'sapho' };
+  if (name === 'core') return { cls: 'core', shape: 'chip', wm: null };
+  if (name === 'myFIFO') return { cls: 'fifo', shape: 'fifo', wm: null };
+  if (name === 'mem_data' || name === 'mem_instr') return { cls: 'memory', shape: 'memory', wm: null };
+  if (name === 'instr_dec') return { cls: 'decoder', shape: 'decoder', wm: null };
+  if (name === 'pc' || name === 'stack') return { cls: 'register', shape: 'register', wm: null };
+  if (name === 'ula') return { cls: 'alu', shape: 'alu', wm: null };
+  if (/^ula_/.test(name)) return { cls: 'arithmetic', shape: 'alu', wm: null };
+  // Everything else (core/processor handled above, plus *_ctrl / *_fetch /
+  // prefetch / addr_dec / io_ctrl / rel_addr) is an honest hierarchical chip.
+  return { cls: 'control', shape: 'chip', wm: null };
 }
 
 /* ── Drawing helpers ────────────────────────────────────────────────────── */
@@ -195,32 +204,39 @@ const pin = (x, y, col) => `    <rect x="${(x - 1.3).toFixed(1)}" y="${(y - 1.3)
 const anchor = (x, y, name) => `    <g s:x="${x}" s:y="${y}" s:pid="${name}"/>`;
 
 function header(x, w, title, subtitle, accent) {
-  push(`    <text x="${x}" y="${TOP + 4}" class="$cell_id" s:attribute="ref" style="font-family: ${FONT}; text-anchor: start; font-size: 7px; font-style: italic; fill: ${accent}; opacity: 0.85;">u</text>`);
-  push(`    <text x="${x}" y="${TOP + 16}" class="nodelabel $cell_id" s:attribute="" style="font-family: ${FONT}; text-anchor: start; font-weight: 700; font-size: 12px; letter-spacing: 0.2px; fill: ${C.glyph};">${esc(title)}</text>`);
-  push(`    <text x="${x + 1}" y="${TOP + 25}" class="$cell_id" s:attribute="" style="font-family: ${FONT}; text-anchor: start; font-size: 5.5px; letter-spacing: 0.4px; fill: ${C.caption};">${esc(subtitle)}</text>`);
-  push(`    <line x1="${x - 1}" y1="${TOP + HEADER - 4}" x2="${x + w}" y2="${TOP + HEADER - 4}" stroke="${accent}" stroke-width="0.7" opacity="0.35"/>`);
+  // The instance ref sits a clear ~11px below the top edge so it never clips
+  // (it used to ride the border and get cut). Title + subtitle + hairline follow.
+  push(`    <text x="${x}" y="${TOP + 11}" class="$cell_id" s:attribute="ref" style="font-family: ${FONT}; text-anchor: start; font-size: 7px; font-style: italic; fill: ${accent}; opacity: 0.85;">u</text>`);
+  push(`    <text x="${x}" y="${TOP + 23}" class="nodelabel $cell_id" s:attribute="" style="font-family: ${FONT}; text-anchor: start; font-weight: 700; font-size: 12px; letter-spacing: 0.2px; fill: ${C.glyph};">${esc(title)}</text>`);
+  push(`    <text x="${x + 1}" y="${TOP + 32}" class="$cell_id" s:attribute="" style="font-family: ${FONT}; text-anchor: start; font-size: 5.5px; letter-spacing: 0.4px; fill: ${C.caption};">${esc(subtitle)}</text>`);
+  push(`    <line x1="${x - 1}" y1="${TOP + HEADER - 5}" x2="${x + w}" y2="${TOP + HEADER - 5}" stroke="${accent}" stroke-width="0.7" opacity="0.35"/>`);
 }
 
-const TOP = 18, HEADER = 32;
+// TOP = empty strip above the card; HEADER = title band height. Bumped so the
+// instance ref clears the top edge and the cells read a touch larger.
+const TOP = 18, HEADER = 40;
 
-/* ── Block renderer (registers, ALU ops, memory, decoders, core, processor) ─ */
-function renderBlock(mod, info) {
-  P = [];
-  const accent = CLASS[info.cls].color;
-  const ctrl = mod.ports.filter((p) => p.dir !== 'output' && CONTROL.has(p.name));
-  const data = mod.ports.filter((p) => p.dir !== 'output' && !CONTROL.has(p.name));
-  const ins = [...ctrl, ...data];
-  const outs = mod.ports.filter((p) => p.dir === 'output');
+/* ── Shared port rows + scaffolding ─────────────────────────────────────── */
+const clkTri = (x, y) =>
+  `    <path d="M ${x + 3},${(y - 2.4).toFixed(1)} L ${x + 6},${y} L ${x + 3},${(y + 2.4).toFixed(1)} Z" fill="${C.control}"/>`;
 
-  const rowPitch = 9;
-  const rows = Math.max(ins.length, outs.length, 1);
-  const maxInW = Math.max(0, ...ins.map((p) => labW(p.name)));
-  const maxOutW = Math.max(0, ...outs.map((p) => labW(p.name)));
-  const titleW = labW(mod.name) * 1.6;
-  const bodyW = Math.round(Math.max(150, 22 + maxInW + 46 + maxOutW + 8, 30 + titleW));
-  const bodyH = TOP + HEADER + 8 + rows * rowPitch + 8;
-  const height = bodyH + 4;
+// One west input row: pin + (edge ▸ for clk) + mono label + anchor.
+function inputRow(p, x, y, accent) {
+  const isC = CONTROL.has(p.name);
+  push(pin(x, y, isC ? C.control : accent));
+  if (p.name === 'clk') push(clkTri(x, y));
+  push(`    <text x="${x + (p.name === 'clk' ? 9 : 7)}" y="${(y + 2.1).toFixed(1)}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: start; font-size: 5.5px; fill: ${isC ? C.control : C.label};">${esc(p.name)}</text>`);
+  push(anchor(x, y, p.name));
+}
 
+// One east output row: pin + right-aligned mono label + anchor.
+function outputRow(p, xRight, y) {
+  push(pin(xRight, y, C.stroke));
+  push(`    <text x="${xRight - 7}" y="${(y + 2.1).toFixed(1)}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: end; font-size: 5.5px; fill: ${C.label};">${esc(p.name)}</text>`);
+  push(anchor(xRight, y, p.name));
+}
+
+function svgOpen(mod, info, bodyW, height) {
   push('<?xml version="1.0" encoding="UTF-8"?>');
   push(`<!-- PRISM symbol: ${mod.name} (${CLASS[info.cls].tag}) — generated by scripts/prism-skin-standard.js`);
   push('     Edit the standard there, not this file. Keep s:type / s:alias / every s:pid. -->');
@@ -228,35 +244,172 @@ function renderBlock(mod, info) {
   push(`  <g s:type="${mod.name}" transform="translate(0, 0)" s:width="${bodyW}" s:height="${height}">`);
   push(`    <s:alias val="${mod.name}"/>`);
   push('');
-  push(`    <path d="${roundRect(0, TOP, bodyW, bodyH - TOP, 6)}" class="$cell_id" style="fill: ${C.card}; stroke: ${C.stroke}; stroke-width: 1.4; stroke-linejoin: round;"/>`);
+}
+
+// control-first input order (so clk/rst sit at the top), data, outputs.
+function splitPorts(mod) {
+  const ctrl = mod.ports.filter((p) => p.dir !== 'output' && CONTROL.has(p.name));
+  const data = mod.ports.filter((p) => p.dir !== 'output' && !CONTROL.has(p.name));
+  const outs = mod.ports.filter((p) => p.dir === 'output');
+  return { ins: [...ctrl, ...data], data, outs };
+}
+
+function bodyWidth(mod, ins, outs, extra = 46) {
+  const maxInW = Math.max(0, ...ins.map((p) => labW(p.name)));
+  const maxOutW = Math.max(0, ...outs.map((p) => labW(p.name)));
+  const titleW = labW(mod.name) * 1.6;
+  return Math.round(Math.max(150, 22 + maxInW + extra + maxOutW + 8, 30 + titleW));
+}
+
+const cardStyle = `fill: ${C.card}; stroke: ${C.stroke}; stroke-width: 1.4; stroke-linejoin: round;`;
+
+/* ── Rectangular family: chip / register / memory / FIFO ─────────────────── */
+// All four share the chip layout; they differ only in corner radius and an
+// optional interior motif (decorate). One code path → identical port geometry.
+function renderRectish(mod, info, opts = {}) {
+  P = [];
+  const corner = opts.corner != null ? opts.corner : 6;
+  const accent = CLASS[info.cls].color;
+  const { ins, outs } = splitPorts(mod);
+  const rowPitch = 9;
+  const rows = Math.max(ins.length, outs.length, 1);
+  const bodyW = bodyWidth(mod, ins, outs);
+  const bodyH = TOP + HEADER + 8 + rows * rowPitch + 8;
+  const height = bodyH + 4;
+
+  svgOpen(mod, info, bodyW, height);
+  push(`    <path d="${roundRect(0, TOP, bodyW, bodyH - TOP, corner)}" class="$cell_id" style="${cardStyle}"/>`);
   push('');
-  // watermark in the lower-centre open band
+  if (opts.decorate) { opts.decorate(bodyW, bodyH); push(''); }
   const wmSize = Math.min(bodyW * 0.42, (bodyH - TOP - HEADER) * 0.95, 64);
-  if (info.wm && wmSize > 18) push(watermark(info.wm, bodyW * 0.56, TOP + HEADER + (bodyH - TOP - HEADER) * 0.55, wmSize));
+  if (info.wm && wmSize > 18) { push(watermark(info.wm, bodyW * 0.56, TOP + HEADER + (bodyH - TOP - HEADER) * 0.55, wmSize)); push(''); }
+  header(11, bodyW - 22, mod.name, `${CLASS[info.cls].tag} · ${ins.length}in ${outs.length}out`, accent);
+  push('');
+  push('    <!-- inputs (west) -->');
+  let y = TOP + HEADER + 8;
+  for (const p of ins) { inputRow(p, 0, y, accent); y += rowPitch; }
+  push('    <!-- outputs (east) -->');
+  y = TOP + HEADER + 8;
+  for (const p of outs) { outputRow(p, bodyW, y); y += rowPitch; }
+  push('  </g>');
+  push('</svg>');
+  return P.join('\n') + '\n';
+}
+
+// chip: hierarchical / control block (rounded card).
+const renderBlock = (mod, info) => renderRectish(mod, info);
+// register: sharp corners + the clk edge ▸ (drawn by inputRow) say "clocked state".
+const renderRegister = (mod, info) => renderRectish(mod, info, { corner: 1.5 });
+
+// memory: a faint array grid in a centre band reads as stored rows × cells.
+function renderMemory(mod, info) {
+  return renderRectish(mod, info, {
+    corner: 6,
+    decorate: (bodyW, bodyH) => {
+      const x0 = Math.round(bodyW * 0.34), x1 = Math.round(bodyW * 0.66);
+      const top = TOP + HEADER + 6, bot = bodyH - 9;
+      const col = 'var(--aurora-cyan, #5BB8E8)';
+      for (let i = 1; i <= 4; i++) {
+        const yy = (top + (bot - top) * i / 5).toFixed(1);
+        push(`    <line x1="${x0}" y1="${yy}" x2="${x1}" y2="${yy}" stroke="${col}" stroke-width="0.6" opacity="0.22"/>`);
+      }
+      for (let j = 0; j <= 3; j++) {
+        const xx = (x0 + (x1 - x0) * j / 3).toFixed(1);
+        push(`    <line x1="${xx}" y1="${top.toFixed(1)}" x2="${xx}" y2="${bot.toFixed(1)}" stroke="${col}" stroke-width="0.6" opacity="0.16"/>`);
+      }
+    },
+  });
+}
+
+// FIFO: three flow chevrons through the body say "data streams in → out".
+function renderFIFO(mod, info) {
+  return renderRectish(mod, info, {
+    corner: 6,
+    decorate: (bodyW, bodyH) => {
+      const cy = (TOP + HEADER + bodyH) / 2;
+      const cx = bodyW * 0.5;
+      const col = 'var(--aurora-teal, #4FD3C2)';
+      for (let i = 0; i < 3; i++) {
+        const x = cx - 11 + i * 9;
+        push(`    <path d="M ${x.toFixed(1)},${(cy - 6).toFixed(1)} L ${(x + 6).toFixed(1)},${cy.toFixed(1)} L ${x.toFixed(1)},${(cy + 6).toFixed(1)}" fill="none" stroke="${col}" stroke-width="1.2" opacity="0.30" stroke-linecap="round" stroke-linejoin="round"/>`);
+      }
+    },
+  });
+}
+
+/* ── ALU: the textbook function unit — flat top, tapered result edge, and a
+ *    V-notch bitten into the operand (west) side when there are ≥2 operands. ─ */
+function renderALU(mod, info) {
+  P = [];
+  const accent = CLASS[info.cls].color;
+  const { ins, data, outs } = splitPorts(mod);
+  const rowPitch = 9;
+  const bodyW = bodyWidth(mod, ins, outs, 52);
+  const hasNotch = data.length >= 2;
+
+  // operands split into an upper and lower bank, leaving the notch between them
+  const topPortY = TOP + HEADER + 8;
+  const n = ins.length;
+  const topN = Math.ceil(n / 2), botN = n - topN;
+  const groupGap = (hasNotch && botN > 0) ? 8 : 0;
+  const rowY = [];
+  let yy = topPortY;
+  for (let i = 0; i < topN; i++) { rowY.push(yy); yy += rowPitch; }
+  yy += groupGap;
+  const firstBotY = yy;
+  for (let i = 0; i < botN; i++) { rowY.push(yy); yy += rowPitch; }
+  const inputsBottom = (rowY.length ? rowY[rowY.length - 1] : topPortY) + rowPitch;
+  const midY = (hasNotch && botN > 0) ? (rowY[topN - 1] + firstBotY) / 2 : (topPortY + inputsBottom) / 2;
+
+  const BOT = Math.max(inputsBottom + 4, topPortY + outs.length * rowPitch + 4, topPortY + 2 * rowPitch + 4);
+  const Hh = BOT - TOP;
+  const cut = Math.max(6, Math.round(Hh * 0.13));
+  const x86 = Math.round(bodyW * 0.86);
+  const notchH = +(rowPitch * 0.6).toFixed(1), notchD = 8;
+  const height = BOT + 4;
+
+  svgOpen(mod, info, bodyW, height);
+  let body = `M 0,${TOP} L ${x86},${TOP} L ${bodyW},${TOP + cut} L ${bodyW},${BOT - cut} L ${x86},${BOT} L 0,${BOT}`;
+  if (hasNotch) body += ` L 0,${(midY + notchH).toFixed(1)} L ${notchD},${midY.toFixed(1)} L 0,${(midY - notchH).toFixed(1)}`;
+  body += ' Z';
+  push(`    <path d="${body}" class="$cell_id" style="${cardStyle}"/>`);
+  push('');
+  header(11, x86 - 22, mod.name, `${CLASS[info.cls].tag} · ${ins.length}in ${outs.length}out`, accent);
+  push('');
+  push('    <!-- operands / control (west) -->');
+  for (let i = 0; i < ins.length; i++) inputRow(ins[i], 0, rowY[i], accent);
+  push('    <!-- result (east) -->');
+  const outStart = (topPortY + (BOT - 4)) / 2 - (outs.length - 1) * rowPitch / 2;
+  for (let i = 0; i < outs.length; i++) outputRow(outs[i], bodyW, Math.round(outStart + i * rowPitch));
+  push('  </g>');
+  push('</svg>');
+  return P.join('\n') + '\n';
+}
+
+/* ── Decoder: few-in → many-out. Flat top (header), vertical right edge for the
+ *    fanned outputs, sloped bottom up to a shorter input (west) edge. ──────── */
+function renderDecoder(mod, info) {
+  P = [];
+  const accent = CLASS[info.cls].color;
+  const { ins, outs } = splitPorts(mod);
+  const rowPitch = 9;
+  const bodyW = bodyWidth(mod, ins, outs);
+  const inTop = TOP + HEADER + 8;
+  const botL = Math.max(inTop + ins.length * rowPitch + 4, TOP + HEADER + 8 + rowPitch);
+  const botR = Math.max(inTop + outs.length * rowPitch + 4, botL);
+  const height = botR + 4;
+
+  svgOpen(mod, info, bodyW, height);
+  push(`    <path d="M 0,${TOP} L ${bodyW},${TOP} L ${bodyW},${botR} L 0,${botL} Z" class="$cell_id" style="${cardStyle}"/>`);
   push('');
   header(11, bodyW - 22, mod.name, `${CLASS[info.cls].tag} · ${ins.length}in ${outs.length}out`, accent);
   push('');
-  // inputs (west)
-  let y = TOP + HEADER + 8;
   push('    <!-- inputs (west) -->');
-  for (const p of ins) {
-    const isC = CONTROL.has(p.name);
-    const col = isC ? C.control : accent;
-    push(pin(0, y, col));
-    if (p.name === 'clk') push(`    <path d="M 3,${y - 2.4} L 6,${y} L 3,${y + 2.4} Z" fill="${C.control}"/>`);
-    push(`    <text x="${p.name === 'clk' ? 9 : 7}" y="${y + 2.1}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: start; font-size: 5.5px; fill: ${isC ? C.control : C.label};">${esc(p.name)}</text>`);
-    push(anchor(0, y, p.name));
-    y += rowPitch;
-  }
-  // outputs (east)
+  let y = inTop;
+  for (const p of ins) { inputRow(p, 0, y, accent); y += rowPitch; }
   push('    <!-- outputs (east) -->');
-  y = TOP + HEADER + 8;
-  for (const p of outs) {
-    push(pin(bodyW, y, C.stroke));
-    push(`    <text x="${bodyW - 7}" y="${y + 2.1}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: end; font-size: 5.5px; fill: ${C.label};">${esc(p.name)}</text>`);
-    push(anchor(bodyW, y, p.name));
-    y += rowPitch;
-  }
+  y = inTop;
+  for (const p of outs) { outputRow(p, bodyW, y); y += rowPitch; }
   push('  </g>');
   push('</svg>');
   return P.join('\n') + '\n';
@@ -338,7 +491,15 @@ function renderSelector(mod, info) {
 
 function renderModule(mod) {
   const info = classify(mod.name);
-  return info.shape === 'selector' ? renderSelector(mod, info) : renderBlock(mod, info);
+  switch (info.shape) {
+    case 'selector': return renderSelector(mod, info);
+    case 'alu':      return renderALU(mod, info);
+    case 'decoder':  return renderDecoder(mod, info);
+    case 'register': return renderRegister(mod, info);
+    case 'memory':   return renderMemory(mod, info);
+    case 'fifo':     return renderFIFO(mod, info);
+    default:         return renderBlock(mod, info);
+  }
 }
 
 /* ── Main ───────────────────────────────────────────────────────────────── */

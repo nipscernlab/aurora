@@ -69,14 +69,23 @@ SVGs by hand.
 
 ## Silhouette library (body shape per element class)
 
+Each class is drawn as its textbook symbol (all implemented in
+`scripts/prism-skin-standard.js`):
+
 | class | shape | examples |
 | ----- | ----- | -------- |
-| selector / mux | right-pointing pentagon + select notch | `ula_mux`, `norm_mux`, `mux` |
-| ALU / datapath op | pentagon with operand V-notch + result arrow | `ula`, `ula_add`, `ula_fmlt` |
-| register / latch | rounded card with a clock-edge triangle on `clk` | `pc`, `stack`, `dff` |
-| memory | rounded card with a stacked-plates edge | `mem_data`, `mem_instr` |
-| decoder / control | rounded card, control north, fanned outputs east | `instr_dec`, `addr_dec`, `io_ctrl` |
-| FIFO / buffer | rounded card with flow chevrons | `myFIFO` |
+| selector / mux | right-pointing pentagon + select notch (`renderSelector`) | `ula_mux`, `norm_mux` |
+| ALU / datapath op | flat top, tapered result edge, operand **V-notch** on the west side when ≥2 operands (`renderALU`) | `ula`, `ula_add`, `ula_abs` |
+| register | **sharp-cornered** card + clock-edge ▸ on `clk` (`renderRegister`) | `pc`, `stack` |
+| memory | rounded card with a faint **array grid** centre motif (`renderMemory`) | `mem_data`, `mem_instr` |
+| decoder | **fan-out trapezoid**: few-in (short west edge) → many-out (tall east edge) (`renderDecoder`) | `instr_dec` |
+| FIFO / buffer | rounded card with **flow chevrons** (`renderFIFO`) | `myFIFO` |
+| chip (hierarchical / control) | rounded card (`renderBlock`) | `core`, `processor`, `instr_fetch`, `io_ctrl`, `addr_dec`, `rel_addr`, `mem_ctrl` |
+
+`renderModule` dispatches on the `shape` returned by `classify(name)`. The
+rectangular shapes (chip/register/memory/FIFO) share one layout path
+(`renderRectish`) so their port geometry is identical — they differ only in
+corner radius + an interior motif.
 
 ## Primitives (hand-authored, not generated)
 

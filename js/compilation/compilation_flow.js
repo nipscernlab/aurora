@@ -669,6 +669,10 @@ async function syncToolbarEnabledState() {
     setEnabled('prismcomp', hasTop);
     setEnabled('verilatorproc', hasActiveProc);
     setEnabled('wavecomp', hasTb);
+    // Cancelar a simulacao segue a MESMA regra do Wave: sem testbench
+    // nao da pra iniciar uma simulacao, entao o botao de cancelar (par
+    // visual do Wave, a direita dele na toolbar) fica desabilitado junto.
+    setEnabled('cancel-everything', hasTb);
     setEnabled('waveConfigBtn', hasTb);
     // A lista .gtkw gerencia seu proprio disabled (gtkw_picker.refresh le
     // o testbench); so pedimos pra re-sincronizar.

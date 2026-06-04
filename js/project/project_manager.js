@@ -169,9 +169,11 @@ function enableCompileButtons() {
     // compilation_flow.js. Forcar disabled=false aqui o deixaria
     // erroneamente clicavel ate o proximo aurora:editing-file-changed.
     // Botoes nao-gated: sempre habilitados com projeto aberto. Os
-    // gated (vericomp/wavecomp/prismcomp/verilatorproc e a Wave Config)
-    // seguem o estado do design via syncToolbarEnabledState.
-    const buttons = ['allcomp', 'cancel-everything', 'fractalcomp', 'backupFolderBtn', 'projectInfo'];
+    // gated (vericomp/wavecomp/prismcomp/verilatorproc, a Wave Config e o
+    // cancelar-simulacao) seguem o estado do design via
+    // syncToolbarEnabledState — por isso cancel-everything NAO entra aqui:
+    // ele acompanha o botao Wave (so habilita com testbench definido).
+    const buttons = ['allcomp', 'fractalcomp', 'backupFolderBtn', 'projectInfo'];
 
     buttons.forEach(id => {
 

@@ -699,7 +699,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 #sidebarMenu i,
 #newProjectBtn i,
 #openProjectBtn i,
-#split-editor-btn i,
 .btn-ai i {
   color: var(--text-secondary);
   transition: color var(--transition-fast),

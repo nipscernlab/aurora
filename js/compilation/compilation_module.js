@@ -2173,7 +2173,7 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
     // the instant $enddefinitions appears, so it iterates only the FST geometry
     // plus the first buffered block — never the multi-hundred-MB body.
     if (typeof window.electronAPI.onExecSpecStream === 'function'
-        && typeof window.electronAPI.cancelVvpProcess === 'function') {
+        && typeof window.electronAPI.killCurrentSpecProcess === 'function') {
         const spec = {
             step: 'fst2vcd',
             binary: fst2vcdBin,
@@ -2184,14 +2184,18 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         const ENDDEFS = /\$enddefinitions\s+\$end/;
         let acc = '';
         let header = null;
+        let killPromise = null;
         const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
             if (header !== null || !payload || payload.type !== 'stdout' || !payload.data) return;
             acc += payload.data;
             const m = ENDDEFS.exec(acc);
             if (m) {
                 header = `${acc.slice(0, m.index + m[0].length)}\n`;
-                // We have the whole hierarchy — stop fst2vcd before it streams the body.
-                window.electronAPI.cancelVvpProcess();
+                // We have the whole hierarchy — stop fst2vcd before it streams the
+                // body. Targeted kill of the parked child ONLY (NOT cancelVvpProcess,
+                // whose by-name vvp/gtkwave sweep would race with and kill the
+                // GTKWave this same wave flow launches moments later).
+                killPromise = window.electronAPI.killCurrentSpecProcess();
             }
         });
         try {
@@ -2201,6 +2205,8 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         } finally {
             unsubscribe();
         }
+        // Ensure the kill fully settled before returning (defensive ordering).
+        if (killPromise) { try { await killPromise; } catch { /* best-effort */ } }
         // The boundary can also land exactly as the process closes (tiny design
         // that fully emitted before a chunk carried $enddefinitions) — re-check.
         if (header === null) {

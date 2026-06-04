@@ -2158,6 +2158,14 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }
 
+    // Convert to a full text VCD (do NOT just hand GTKWave the .fst). The
+    // auto-gtkw step (_waveResolveGtkwSaveFile) parses the dump's header to know
+    // which signals exist, and it can only parse TEXT — it returns null for a
+    // bare .fst. The non-cocotb flow gets away with FST because it also stashes a
+    // .header.vcd sibling to parse; cocotb has no such sibling, so the full VCD
+    // here IS the parseable source that drives the Wave-Config signal filtering.
+    // The conversion is post-sim and one-time — the heavy per-cycle dump already
+    // ran as FST (--trace-fst), so this is cheap. Don't "optimize" it away.
     const targetVcd = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.vcd`);
     if (/\.fst$/i.test(candidate)) {
         this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbFstConvert'), 'info');

@@ -1856,6 +1856,10 @@ async runGtkWave() {
             this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator', {
                 sim: getSimulator() === 'verilator' ? 'Verilator' : 'Icarus',
             }), 'tips');
+            // The cocotb build + run doesn't go through the statusUpdater per
+            // step, so without this the bar stays stuck on 'asm'. Reflect the
+            // actual engine (verilator OR the iverilog/Verilog flow).
+            statusUpdater.startCompilation(getSimulator() === 'verilator' ? 'verilator' : 'verilog');
             vcdFile = await this._waveRunCocotbSimulation(cocotbCtx, tools, config);
         } else {
             // Branch no simulador escolhido. iverilog e default; verilator e
@@ -1876,6 +1880,10 @@ async runGtkWave() {
                 await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
             } else {
                 this.terminalManager.appendToTerminal('twave', tr('terminal.wave.iverilogSimulator'), 'tips');
+                // Same as Verilator above: the iverilog build/run doesn't touch
+                // the statusUpdater per step, so mark 'verilog' here or the bar
+                // stays on 'asm' through the whole Wave.
+                statusUpdater.startCompilation('verilog');
                 await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
                 await this._waveRunVvpSimulation(simTopModule, tools);
             }

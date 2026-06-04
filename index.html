@@ -203,9 +203,9 @@
           <!-- Aurora locale toggle (PT/EN) lives in Aurora Settings now —
                see the "Language" section in #settings-modal. It still
                controls both UI strings and the yanc -pt/-en flag. -->
-          <button id="split-editor-btn" class="toolbar-button icon-only" disabled data-tooltip="Open a file first to enable split" data-i18n-tooltip="toolbar.splitEditor.tooltipDisabled">
-              <i class="ph ph-columns"></i>
-          </button>
+          <!-- The split-editor control now floats inside the focused Monaco
+               pane (see SplitEditorManager._updateButton) instead of living
+               here, so it always rides with the instance that has focus. -->
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
           </button>

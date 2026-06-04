@@ -222,6 +222,48 @@
 
 .split-editor-instance { position: absolute; inset: 0; }
 
+/*
+ * Floating "split editor" button. Sits in the top-right corner of the focused
+ * pane (over the tab bar) so the control always rides with the instance that
+ * has focus, instead of a single fixed spot in the top toolbar. Re-parented by
+ * SplitEditorManager._updateButton on every focus/layout change.
+ */
+.split-float-btn {
+  position: absolute;
+  top: 8px;
+  right: 14px;
+  z-index: 7;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(4px);
+  color: var(--text);
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.split-float-btn:hover:not(:disabled) {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.split-float-btn:disabled {
+  opacity: 0.22;
+  cursor: default;
+}
+
+.split-float-btn.hidden { display: none; }
+
+.split-float-btn i { font-size: 16px; line-height: 1; }
+
 .split-tab {
   display: flex;
   align-items: center;

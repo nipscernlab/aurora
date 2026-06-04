@@ -233,7 +233,8 @@ function createMainWindow(opts = {}) {
  *   1. splash loads → create main window hidden (`deferShow`)
  *   2. main window's webContents events drive `splash:progress`
  *   3. renderer signals `app:renderer-ready` once Monaco/UI booted
- *   4. coordinator fades the splash, then shows the main window
+ *   4. once the bar visually fills, coordinator waits 2s, then shows the
+ *      main window and closes the splash outright (no fade)
  *
  * A 15s safety cap forces the handoff if some milestone never fires.
  */
@@ -272,31 +273,24 @@ function createSplashScreen() {
   let revealed = false;
 
   /**
-   * Reveal the main window and dismiss the splash. `graceful` plays the
-   * splash fade-out first; the safety-net path skips it.
-   * @param {boolean} graceful
+   * Reveal the main window and dismiss the splash. No fade-out: AURORA is
+   * shown and the splash is closed outright, back to back, so there is no
+   * empty-desktop flash between them.
    */
-  const reveal = (graceful) => {
+  const reveal = () => {
     if (revealed) return;
     revealed = true;
-    if (graceful && splashWindow && !splashWindow.isDestroyed()) {
-      splashWindow.webContents.send('splash:complete');
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.maximize();
+      mainWindow.show();
     }
-    setTimeout(() => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.maximize();
-        mainWindow.show();
-      }
-      setTimeout(() => {
-        if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
-        state.splashWindow = null;
-      }, 200);
-    }, graceful ? 440 : 0);
+    if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+    state.splashWindow = null;
   };
 
   // `handoff` only drives the bar to 100% — the main window must NOT
   // appear until the splash bar has *visually* filled. The splash
-  // reports back via `splash:filled`; only then do we wait 1s and reveal.
+  // reports back via `splash:filled`; only then do we wait 2s and reveal.
   const handoff = () => {
     if (handedOff) return;
     handedOff = true;
@@ -304,7 +298,7 @@ function createSplashScreen() {
   };
 
   ipcMain.once('splash:filled', () => {
-    setTimeout(() => reveal(true), 1000);
+    setTimeout(reveal, 2000);
   });
 
   // Renderer reports it finished booting (Monaco + UI). `.once` so a
@@ -336,7 +330,7 @@ function createSplashScreen() {
   // signal never fires, force the reveal so the user is never stuck.
   setTimeout(() => {
     handoff();
-    reveal(false);
+    reveal();
   }, 15000);
 
   splashWindow.loadFile(path.join(app.getAppPath(), 'html', 'splash.html'));

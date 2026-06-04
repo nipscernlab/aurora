@@ -100,13 +100,14 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     await counter.click();
     await window.waitForSelector('.tab[data-path]', { timeout: 5_000 });
 
-    // 2. Click the split button
+    // 2. Click the split button — it now floats inside the focused Monaco
+    //    pane (see SplitEditorManager._updateButton) rather than the toolbar.
     const splitBtnState = await window.evaluate(() => {
-      const btn = document.getElementById('split-editor-btn');
+      const btn = document.getElementById('split-editor-float-btn');
       return { exists: !!btn, disabled: btn?.disabled, canSplit: window.SplitEditorManager?.canSplit?.() };
     });
     console.log('[split-pane] split btn:', JSON.stringify(splitBtnState));
-    await window.click('#split-editor-btn');
+    await window.click('#split-editor-float-btn');
     await new Promise((r) => setTimeout(r, 400));
 
     const afterSplit = await window.evaluate(() => ({

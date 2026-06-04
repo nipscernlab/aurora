@@ -474,6 +474,10 @@ const SplitEditorManager = {
     focusedPane: 0,
     wrapper: null,
     mainShell: null,
+    // The split control floats inside the focused pane's editor area rather
+    // than living in the top toolbar — one shared button, re-parented to
+    // whichever instance currently has focus. Created lazily by _updateButton.
+    splitFloatBtn: null,
     // Cross-pane tab drag state. Set at dragstart (by main tab_drag.js and by
     // split tabs here), read by pane drop targets so they only accept Aurora's
     // own tab drags and know which pane the tab came from (for move semantics).
@@ -525,9 +529,9 @@ const SplitEditorManager = {
             this.moveFileToPane(filePath, 0);
         });
 
-        // Wire up the fixed split button in the toolbar
-        const btn = document.getElementById('split-editor-btn');
-        if (btn) btn.addEventListener('click', () => this.createSplit());
+        // The split button is no longer a fixed toolbar element — _updateButton
+        // (called below + on every focus/tab change) creates the floating
+        // in-pane button and keeps it parked in the focused instance.
 
         // Expose globally so tab_manager (which already imports us indirectly
         // via monaco_editor) can call refreshLayout without a hard import cycle.
@@ -839,9 +843,49 @@ const SplitEditorManager = {
         return pane?.activeFile ?? TabManager.activeTab;
     },
 
+    /** Lazily build the single floating split button (icon only). */
+    _ensureSplitFloatBtn() {
+        if (this.splitFloatBtn) return this.splitFloatBtn;
+        const btn = document.createElement('button');
+        btn.id = 'split-editor-float-btn';
+        btn.type = 'button';
+        btn.className = 'split-float-btn toolbar-button icon-only';
+        btn.innerHTML = '<i class="ph ph-columns"></i>';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.createSplit();
+        });
+        this.splitFloatBtn = btn;
+        return btn;
+    },
+
+    /** Root element of the currently focused pane (the floating button's host).
+     *  Both the main shell and a split pane are `.split-pane` (position:
+     *  relative, overflow: hidden), so the absolutely-positioned button lands
+     *  in the same top-right corner of whichever instance has focus. */
+    _focusedPaneEl() {
+        if (this.focusedPane === 0) return this.mainShell || null;
+        const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
+        return pane?.element || null;
+    },
+
     _updateButton() {
-        const btn = document.getElementById('split-editor-btn');
-        if (!btn) return;
+        const btn = this._ensureSplitFloatBtn();
+
+        // Park the button in the focused pane so the control always rides with
+        // the instance that has focus. No host (e.g. mid teardown) → detach it
+        // for now; the next focus/layout pass re-homes it.
+        const host = this._focusedPaneEl();
+        if (!host) { btn.remove(); return; }
+        if (btn.parentElement !== host) host.appendChild(btn);
+
+        // Hide entirely when the focused pane holds no file — there is nothing
+        // to split, and the welcome overlay owns the empty-editor state.
+        const hasFile = this.focusedPane === 0
+            ? TabManager.activeTab !== null
+            : !!this.panes.find(p => p.paneIndex === this.focusedPane)?.activeFile;
+        btn.classList.toggle('hidden', !hasFile);
+
         const canSplit = this.canSplit();
         btn.disabled = !canSplit;
 

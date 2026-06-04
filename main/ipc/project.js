@@ -246,7 +246,7 @@ function register() {
     }
   });
 
-  ipcMain.handle('project:open', async (_event, spfPath) => {
+  ipcMain.handle('project:open', async (event, spfPath) => {
     try {
       if (typeof spfPath !== 'string' || !spfPath.trim()) {
         return { success: false, message: 'No project path provided.' };
@@ -345,18 +345,27 @@ function register() {
         path: path.join(projectData.structure.basePath, file.name),
       }));
 
-      const focusedWindow = BrowserWindow.getFocusedWindow();
-      if (!focusedWindow) {
-        log.warn('open-spf-project: no focused window to send IPC events to');
-        return projectData;
+      // Prefer the window that actually sent the request. During a startup
+      // auto-open the main window isn't focused yet — the splash is still on
+      // top and the main window is created hidden (deferShow) — so
+      // getFocusedWindow() returns null. Falling back to the sender keeps the
+      // processor list flowing AND, crucially, keeps the return shape
+      // consistent: the renderer reads result.projectData.structure.processors
+      // to group the file tree by processor. The old `return projectData`
+      // early-exit returned a different shape, so on auto-open the renderer
+      // saw no processors and rendered every file in one flat, ungrouped list.
+      const targetWindow = BrowserWindow.fromWebContents(event.sender)
+        || BrowserWindow.getFocusedWindow();
+      if (targetWindow && !targetWindow.isDestroyed()) {
+        updateProjectState(targetWindow, projectData.structure.basePath, spfPath);
+        targetWindow.webContents.send('project:processorHubState', { enabled: true });
+        targetWindow.webContents.send('project:processors', {
+          processors: projectData.structure.processors.map((p) => p.name),
+          projectPath: projectData.structure.basePath,
+        });
+      } else {
+        log.warn('open-spf-project: no window to send IPC events to');
       }
-      updateProjectState(focusedWindow, projectData.structure.basePath, spfPath);
-
-      focusedWindow.webContents.send('project:processorHubState', { enabled: true });
-      focusedWindow.webContents.send('project:processors', {
-        processors: projectData.structure.processors.map((p) => p.name),
-        projectPath: projectData.structure.basePath,
-      });
 
       return { projectData, files: fileList, spfPath };
     } catch (error) {

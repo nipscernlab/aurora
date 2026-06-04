@@ -1736,6 +1736,9 @@ class AIAssistantManager {
     this.currentProvider = name;
     this.applyProviderState();
     this.logModelChange();
+    // Choosing an AI is the last thing the user wants from the popover —
+    // close it so they land straight back on the composer.
+    this.toggleModelPopover(false);
   }
 
   /**

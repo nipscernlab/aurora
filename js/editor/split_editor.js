@@ -9,6 +9,7 @@
 import { TabManager, showUnsavedChangesDialog } from '../tabs/tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
 import { SharedModelRegistry } from './shared_models.js';
+import { attachAiSelectionWidget } from './ai_selection_widget.js';
 
 const MIN_PANE_WIDTH = 120;
 
@@ -192,6 +193,9 @@ class SplitPane {
         editor.onDidChangeModel(syncLigatures);
         editor.onDidChangeModelLanguage(syncLigatures);
         syncLigatures();
+
+        // AI "ask about this" star — same selection widget the main pane uses.
+        attachAiSelectionWidget(editor, { getFilePath: () => filePath });
 
         // Cursor in this editor → activate this pane's tab + take pane focus.
         editor.onDidFocusEditorWidget(() => {

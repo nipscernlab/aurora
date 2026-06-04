@@ -419,6 +419,16 @@ function registerWindowControls() {
   ipcMain.on('window:maximize-toggle', (event) => {
     const w = senderWin(event) || state.mainWindow;
     if (!w || w.isDestroyed()) return;
+    // If the window is in fullscreen (e.g. toggled via F11), the maximize
+    // button must first drop out of fullscreen — otherwise it would toggle
+    // the maximized state *underneath* the fullscreen overlay, which looks
+    // like the button "does nothing". Leaving fullscreen restores the
+    // previous (maximized/normal) chrome, which is what the user expects.
+    // Routes by sender, so this covers both the main window and PRISM.
+    if (w.isFullScreen()) {
+      w.setFullScreen(false);
+      return;
+    }
     if (w.isMaximized()) w.unmaximize();
     else w.maximize();
   });

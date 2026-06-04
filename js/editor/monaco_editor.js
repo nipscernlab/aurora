@@ -3,6 +3,7 @@
 // require is the AMD loader from monaco-editor/min/vs/loader.js
 
 import { SharedModelRegistry } from './shared_models.js';
+import { attachAiSelectionWidget } from './ai_selection_widget.js';
 
 class EditorManager {
     static editors = new Map();
@@ -260,6 +261,9 @@ class EditorManager {
 
         // INITIALIZE ENHANCED FEATURES
         this.setupEnhancedFeatures(editor);
+
+        // AI "ask about this" star — appears on any non-empty selection.
+        attachAiSelectionWidget(editor, { getFilePath: () => filePath });
 
         this.editors.set(filePath, {
             editor: editor,

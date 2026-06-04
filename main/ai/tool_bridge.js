@@ -28,6 +28,12 @@ let seq = 0;
 // doesn't pin the SDK's tool loop forever.
 const TOOL_TIMEOUT_MS = 120_000;
 
+// Tools that block on a deliberate human answer (the inline question card)
+// need a far longer leash — 2 minutes routinely lapses while the user reads
+// the options and types, which is why ask_user_question "always failed".
+const INTERACTIVE_TOOLS = new Set(['ask_user_question']);
+const INTERACTIVE_TIMEOUT_MS = 10 * 60_000;
+
 /**
  * Dispatch `toolName(args)` to the renderer and resolve with whatever
  * the tool_runner reports. Never rejects — failures resolve as
@@ -46,13 +52,14 @@ function runTool(webContents, toolName, args) {
       return;
     }
     const requestId = `tool-${Date.now()}-${++seq}`;
+    const timeoutMs = INTERACTIVE_TOOLS.has(toolName) ? INTERACTIVE_TIMEOUT_MS : TOOL_TIMEOUT_MS;
     const timer = setTimeout(() => {
       if (pending.has(requestId)) {
         pending.delete(requestId);
         log.warn(`[ai.tool_bridge] ${toolName} (${requestId}) timed out`);
         resolve({ ok: false, error: 'tool execution timed out' });
       }
-    }, TOOL_TIMEOUT_MS);
+    }, timeoutMs);
     pending.set(requestId, { resolve, timer });
     webContents.send('ai:tool-exec', { requestId, toolName, args });
   });

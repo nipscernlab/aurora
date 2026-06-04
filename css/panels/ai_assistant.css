@@ -1516,6 +1516,25 @@ body.ai-assistant-open {
 .ai-history-item:hover { background: var(--overlay-hover); }
 .ai-history-item.active { background: var(--accent-soft); }
 
+/* Smooth removal: collapse the row's height + spacing while fading/sliding it
+   out, so deleting a chat doesn't snap the rest of the list upward. The card
+   is removed from the DOM once the height/opacity transition ends (deleteChat
+   sets an explicit pixel height first so `height: 0` actually animates). */
+.ai-history-item.removing {
+  height: 0 !important;
+  min-height: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  opacity: 0;
+  transform: translateX(16px);
+  overflow: hidden;
+  pointer-events: none;
+  transition: height 240ms ease,
+              padding 240ms ease,
+              opacity 170ms ease,
+              transform 220ms ease;
+}
+
 .ai-history-item-icon,
 .ai-history-item-icon-spacer {
   width: 18px;
@@ -1640,13 +1659,26 @@ body.ai-assistant-open {
  *  lights BOTH the AI panel's width handle and the terminal's horizontal
  *  resizer — the same accent glow the left corner gives its two resizers.
  * ------------------------------------------------------------------------- */
-/* Only the short horizontal terminal resizer lights as the corner cue — never
-   the full-height AI width handle, which would shoot a tall accent bar up the
-   editor exactly like the file-tree corner used to (see styles.css). */
+/* The corner cue lights BOTH edges that meet at the junction: the terminal's
+   top (horizontal resizer) and the AI panel's LEFT edge (its width handle).
+   The purple border on the AI panel's left side is the explicit ask — so,
+   unlike the file-tree corner, we DO light the full-height handle here. The
+   pair of accent lines reads as an L-shaped purple border framing the corner. */
 body.ai-corner-hovering .resizer-horizontal::after,
-body.resizing-ai-corner .resizer-horizontal::after {
+body.resizing-ai-corner .resizer-horizontal::after,
+body.ai-corner-hovering .ai-resize-handle::after,
+body.resizing-ai-corner .ai-resize-handle::after {
   background: var(--accent);
   box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
+}
+
+/* While actively dragging, thicken the two edges so they clearly read as a
+   purple border (not just a hairline hover cue). */
+body.resizing-ai-corner .resizer-horizontal::after {
+  height: 2px;
+}
+body.resizing-ai-corner .ai-resize-handle::after {
+  width: 2px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1684,6 +1716,17 @@ body.resizing-ai-corner,
 body.resizing-ai-corner * {
   cursor: all-scroll !important;
   user-select: none !important;
+}
+
+/* Block pointer-events on everything during the drag so the terminal (xterm)
+   and any AI webview (e.g. the embedded ChatGPT frame) can't swallow the
+   mousemove/mouseup — the document-level drag listeners still fire. This is
+   exactly what body.resizing-corner does for the file-tree side, and it's what
+   makes that corner feel rock-solid instead of stuttering over those panels.
+   The corner handle drives the drag from document listeners, so disabling its
+   own pointer-events here is harmless. */
+body.resizing-ai-corner * {
+  pointer-events: none !important;
 }
 
 /* ---------------------------------------------------------------------------

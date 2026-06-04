@@ -153,6 +153,9 @@
 .file-item:hover {
   background-color: var(--overlay-hover);
   color: var(--text);
+  /* A 2px accent bar on the left makes rows feel interactive without
+     shifting the indent (box-shadow, not border). */
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 /* ---------------------------------------------------------------------------
@@ -197,19 +200,96 @@
 .file-item-icon.fa-folder-open {
   color: var(--aurora-cyan);
 }
+/* Open folders glow a touch brighter (teal) so the expanded state reads
+   instantly without changing the icon's footprint. */
+.file-item-icon.ph-folder-open,
+.file-item-icon.fa-folder-open {
+  color: var(--aurora-teal);
+}
 
-/* Type-aware coloring */
-.file-tree-item[data-ext="cmm"]   .file-item-icon { color: var(--aurora-cyan); }
-.file-tree-item[data-ext="asm"]   .file-item-icon { color: var(--aurora-purple); }
-.file-tree-item[data-ext="v"]     .file-item-icon { color: var(--aurora-pink); }
-.file-tree-item[data-ext="vh"]    .file-item-icon { color: var(--aurora-pink); }
-.file-tree-item[data-ext="sv"]    .file-item-icon { color: var(--aurora-pink); }
-.file-tree-item[data-ext="gtkw"]  .file-item-icon { color: var(--aurora-mint); }
-.file-tree-item[data-ext="vcd"]   .file-item-icon { color: var(--aurora-mint); }
-.file-tree-item[data-ext="mif"]   .file-item-icon { color: var(--text-secondary); }
-.file-tree-item[data-ext="txt"]   .file-item-icon { color: var(--text-muted); }
-.file-tree-item[data-ext="md"]    .file-item-icon { color: var(--text-secondary); }
-.file-tree-item[data-ext="json"]  .file-item-icon { color: var(--status-warning); }
+/* ---------------------------------------------------------------------------
+ *  Type-aware icon colours. The standard renderer stamps data-ext on each
+ *  file row. Grouped by family so related types read as a set at a glance.
+ * ------------------------------------------------------------------------- */
+/* SAPHO / hardware toolchain — same hues the compile buttons use. */
+.file-tree-item[data-ext="cmm"]  .file-item-icon { color: var(--color-cmm); }
+.file-tree-item[data-ext="asm"]  .file-item-icon { color: var(--color-asm); }
+.file-tree-item[data-ext="v"]    .file-item-icon,
+.file-tree-item[data-ext="sv"]   .file-item-icon,
+.file-tree-item[data-ext="vh"]   .file-item-icon { color: var(--color-veri); }
+.file-tree-item[data-ext="gtkw"] .file-item-icon,
+.file-tree-item[data-ext="vcd"]  .file-item-icon,
+.file-tree-item[data-ext="fst"]  .file-item-icon { color: var(--color-wave); }
+.file-tree-item[data-ext="mif"]  .file-item-icon { color: var(--aurora-teal); }
+.file-tree-item[data-ext="spf"]  .file-item-icon { color: var(--aurora-violet); }
+
+/* Python (cocotb testbenches & scripts). */
+.file-tree-item[data-ext="py"]   .file-item-icon { color: #6FB7E8; }
+
+/* JS / TS family. */
+.file-tree-item[data-ext="js"]   .file-item-icon,
+.file-tree-item[data-ext="mjs"]  .file-item-icon,
+.file-tree-item[data-ext="jsx"]  .file-item-icon { color: var(--status-warning); }
+.file-tree-item[data-ext="ts"]   .file-item-icon,
+.file-tree-item[data-ext="tsx"]  .file-item-icon { color: var(--aurora-cyan); }
+.file-tree-item[data-ext="vue"]  .file-item-icon { color: var(--aurora-mint); }
+
+/* Web. */
+.file-tree-item[data-ext="html"] .file-item-icon,
+.file-tree-item[data-ext="htm"]  .file-item-icon { color: #E8865C; }
+.file-tree-item[data-ext="css"]  .file-item-icon,
+.file-tree-item[data-ext="scss"] .file-item-icon,
+.file-tree-item[data-ext="sass"] .file-item-icon,
+.file-tree-item[data-ext="less"] .file-item-icon { color: var(--aurora-cyan); }
+
+/* Data / config. */
+.file-tree-item[data-ext="json"] .file-item-icon { color: var(--status-warning); }
+.file-tree-item[data-ext="xml"]  .file-item-icon { color: var(--aurora-pink); }
+.file-tree-item[data-ext="yaml"] .file-item-icon,
+.file-tree-item[data-ext="yml"]  .file-item-icon,
+.file-tree-item[data-ext="toml"] .file-item-icon { color: var(--aurora-teal); }
+.file-tree-item[data-ext="ini"]  .file-item-icon,
+.file-tree-item[data-ext="conf"] .file-item-icon,
+.file-tree-item[data-ext="config"] .file-item-icon,
+.file-tree-item[data-ext="env"]  .file-item-icon { color: var(--text-secondary); }
+
+/* C / C++ family. */
+.file-tree-item[data-ext="c"]    .file-item-icon { color: var(--aurora-cyan); }
+.file-tree-item[data-ext="cpp"]  .file-item-icon,
+.file-tree-item[data-ext="cc"]   .file-item-icon,
+.file-tree-item[data-ext="cxx"]  .file-item-icon { color: var(--aurora-violet); }
+.file-tree-item[data-ext="h"]    .file-item-icon,
+.file-tree-item[data-ext="hpp"]  .file-item-icon { color: var(--aurora-purple); }
+
+/* Docs. */
+.file-tree-item[data-ext="md"]       .file-item-icon,
+.file-tree-item[data-ext="markdown"] .file-item-icon { color: var(--aurora-cyan); }
+.file-tree-item[data-ext="txt"]  .file-item-icon,
+.file-tree-item[data-ext="rtf"]  .file-item-icon { color: var(--text-muted); }
+.file-tree-item[data-ext="pdf"]  .file-item-icon { color: var(--status-error); }
+
+/* Shell / scripts. */
+.file-tree-item[data-ext="sh"]   .file-item-icon,
+.file-tree-item[data-ext="bash"] .file-item-icon,
+.file-tree-item[data-ext="zsh"]  .file-item-icon,
+.file-tree-item[data-ext="ps1"]  .file-item-icon,
+.file-tree-item[data-ext="bat"]  .file-item-icon,
+.file-tree-item[data-ext="cmd"]  .file-item-icon { color: var(--aurora-mint); }
+
+/* Media. */
+.file-tree-item[data-ext="svg"]  .file-item-icon { color: var(--status-warning); }
+.file-tree-item[data-ext="png"]  .file-item-icon,
+.file-tree-item[data-ext="jpg"]  .file-item-icon,
+.file-tree-item[data-ext="jpeg"] .file-item-icon,
+.file-tree-item[data-ext="gif"]  .file-item-icon,
+.file-tree-item[data-ext="webp"] .file-item-icon { color: var(--aurora-purple); }
+
+/* Archives. */
+.file-tree-item[data-ext="zip"]  .file-item-icon,
+.file-tree-item[data-ext="rar"]  .file-item-icon,
+.file-tree-item[data-ext="7z"]   .file-item-icon,
+.file-tree-item[data-ext="tar"]  .file-item-icon,
+.file-tree-item[data-ext="gz"]   .file-item-icon { color: var(--status-warning); }
 
 /* ---------------------------------------------------------------------------
  *  Name

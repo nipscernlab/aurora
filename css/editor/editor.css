@@ -409,3 +409,74 @@
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ===================================================================================
+ *  AI "ask about this" selection star (js/editor/ai_selection_widget.js)
+ *  A Monaco content widget that floats over the top-left of a non-empty
+ *  selection in any pane; clicking it opens the quick-action menu below.
+ * =================================================================================== */
+.ai-selection-star {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-top: -2px;
+  border-radius: var(--radius-full);
+  color: #fff;
+  background: var(--gradient-accent, var(--accent));
+  background-color: var(--accent);
+  border: 1px solid var(--accent-border);
+  box-shadow: var(--shadow-sm), var(--shadow-glow);
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.92;
+  transition: transform var(--transition-fast), opacity var(--transition-fast),
+              box-shadow var(--transition-fast);
+  animation: editorFadeIn 0.14s ease;
+}
+.ai-selection-star:hover {
+  opacity: 1;
+  transform: scale(1.12);
+  box-shadow: var(--shadow-md), var(--shadow-glow);
+}
+.ai-selection-star svg { display: block; pointer-events: none; }
+
+.ai-selection-menu {
+  position: fixed;
+  z-index: var(--z-modal, 1000);
+  min-width: 178px;
+  padding: var(--space-1);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  animation: editorFadeIn 0.12s ease;
+}
+.ai-selection-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.ai-selection-menu-item:hover {
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.ai-selection-menu-item i {
+  font-size: var(--text-md);
+  width: 16px;
+  text-align: center;
+  color: var(--accent);
+}
+.ai-selection-menu-item:hover i { color: var(--accent-hover); }

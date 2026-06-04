@@ -929,14 +929,17 @@ async def basic_test(dut):
         if (extension === 'pdf') return 'ph ph-file-pdf';
 
         const iconMap = {
-            // SAPHO/AURORA file types
-            'cmm':       'ph ph-file-code',
-            'asm':       'ph ph-file-code',
-            'v':         'ph ph-file-code',
-            'vh':        'ph ph-file-code',
-            'sv':        'ph ph-file-code',
+            // SAPHO/AURORA file types — distinctive icons per family so the
+            // hardware toolchain reads at a glance (Verilog = a chip, C± = a
+            // C file, assembly = binary, waveforms = a waveform).
+            'cmm':       'ph ph-file-c',
+            'asm':       'ph ph-binary',
+            'v':         'ph ph-cpu',
+            'vh':        'ph ph-cpu',
+            'sv':        'ph ph-cpu',
             'gtkw':      'ph ph-waveform',
             'vcd':       'ph ph-waveform',
+            'fst':       'ph ph-waveform',
             'mif':       'ph ph-database',
             'spf':       'ph ph-package',
 

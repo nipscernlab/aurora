@@ -1221,6 +1221,60 @@ class AIAssistantManager {
     this.container.style.width = target + 'px';
   }
 
+  /** Bring the panel up if it isn't already open (idempotent). */
+  ensureOpen() {
+    if (!this.container) this.initialize();
+    if (!this.container.classList.contains('open')) this.toggle();
+  }
+
+  /**
+   * Public entry for the Monaco selection "star": open the panel and seed the
+   * composer with a snippet the user highlighted, so they can ask the AI about
+   * that exact passage. With a concrete `intent` ('explain'|'fix'|'improve'|
+   * 'comment'|'doc') and `send:true`, the message is dispatched immediately;
+   * otherwise the composer is just pre-filled and focused for the user to type.
+   *
+   * Reached via window.AuroraAPI.ai.askAboutSelection(...).
+   */
+  askAboutSelection({ code = '', language = '', filePath = '', lineStart = 0, lineEnd = 0, intent = '', send = false } = {}) {
+    const snippet = String(code || '').replace(/\s+$/, '');
+    if (!snippet) return;
+    this.ensureOpen();
+    if (!this.inputEl) return;
+
+    const fileName = filePath ? String(filePath).split(/[\\/]/).pop() : '';
+    const lineRef = lineStart && lineEnd
+      ? (lineStart === lineEnd ? `line ${lineStart}` : `lines ${lineStart}–${lineEnd}`)
+      : '';
+    const where = fileName
+      ? `\`${fileName}\`${lineRef ? ` (${lineRef})` : ''}`
+      : (lineRef || 'the selection');
+
+    const INTENT_LEAD = {
+      explain: 'Explain what this code does',
+      fix: 'Find and fix any bugs in this code',
+      improve: 'Improve and refactor this code',
+      comment: 'Add clear, concise comments to this code',
+      doc: 'Write documentation for this code',
+    };
+    const lead = INTENT_LEAD[intent] || '';
+    const fence = '```' + (language || '');
+    const body = `${lead ? lead + ' ' : ''}from ${where}:\n\n${fence}\n${snippet}\n\`\`\`\n`;
+
+    // Don't clobber a half-typed message the user already has in the composer.
+    const existing = this.inputEl.value;
+    this.inputEl.value = existing && !send ? `${existing.replace(/\s*$/, '')}\n\n${body}` : body;
+    this.autoGrowInput?.();
+    this.inputEl.focus();
+    if (lead && send && !this._isStreaming) {
+      this.send();
+    } else if (!lead) {
+      // Free-form "Ask…": leave the cursor at the very start so the user types
+      // their question above the quoted snippet.
+      try { this.inputEl.setSelectionRange(0, 0); } catch (_) { /* not focusable yet */ }
+    }
+  }
+
   initialize() {
     this.container = document.createElement('div');
     this.container.className = 'ai-assistant-container';
@@ -2364,11 +2418,17 @@ class AIAssistantManager {
         this.commitTurn();
         this.applyUsage(ev.usage);
         this.setStreaming(false);
+        // Pull the CLI's authoritative usage snapshot at the END of every
+        // turn (not just when the model popover happens to be open) so the
+        // Subscription usage bars and plan limits reflect reality the next
+        // time the user looks — this is what fixes "usage never updates".
+        if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
       case 'aborted':
         this.showThinking(false);
         this.commitTurn();
         this.setStreaming(false);
+        if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
       case 'error':
         this.failTurn(ev.message || 'Unknown error');
@@ -2959,8 +3019,28 @@ class AIAssistantManager {
   }
 
   async deleteChat(id) {
+    // Smoothly animate the deleted card out instead of a full re-render — the
+    // History popover stays open the whole time. We drop the row from the
+    // in-memory list (and DOM) locally rather than calling refreshChatList(),
+    // which would re-fetch and rebuild the whole list (the abrupt snap).
+    const cardEl = this.historyList
+      ? Array.from(this.historyList.querySelectorAll('.ai-history-item'))
+          .find((n) => n.dataset.chatId === id)
+      : null;
+
+    const dropFromList = () => {
+      this.chatList = (this.chatList || []).filter((c) => c.id !== id);
+      if (this.historyList && !this.chatList.length) {
+        this.historyList.innerHTML = '<p class="ai-history-empty">No saved chats yet.</p>';
+      }
+    };
+
+    if (cardEl) this._animateHistoryItemOut(cardEl, dropFromList);
+    else dropFromList();
+
     try { await window.aiAPI.deleteConversation(id); }
-    catch (_) { /* refresh below will reveal a failure */ }
+    catch (_) { /* the card is already animating out; a later open reveals failure */ }
+
     if (id === this.currentChatId) {
       // The visible chat was deleted — reset to a fresh state.
       this.currentChatId = null;
@@ -2975,7 +3055,28 @@ class AIAssistantManager {
       this.cumulativeTokens = 0;
       this.updateTokenCounter();
     }
-    this.refreshChatList();
+  }
+
+  /**
+   * Collapse + fade a history row out, then remove it from the DOM and run
+   * `onDone`. Pins an explicit pixel height first so the CSS `height: 0`
+   * transition actually animates (you can't transition from `auto`).
+   */
+  _animateHistoryItemOut(el, onDone) {
+    el.style.height = el.offsetHeight + 'px';
+    void el.offsetHeight; // commit the start height before collapsing
+    el.classList.add('removing');
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      el.remove();
+      if (typeof onDone === 'function') onDone();
+    };
+    el.addEventListener('transitionend', (e) => {
+      if (e.propertyName === 'height' || e.propertyName === 'opacity') finish();
+    });
+    setTimeout(finish, 450); // fallback if transitionend never fires
   }
 
   async loadChat(id) {

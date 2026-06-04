@@ -537,7 +537,7 @@ async def basic_test(dut):
 
     /** Context menu displayed when the user right-clicks a processor separator. */
     showProcessorContextMenu(event, procName) {
-        this.closeContextMenu();
+        this.closeAllTreeMenus();
 
         const menu = document.createElement('div');
         menu.className = 'verilog-context-menu';
@@ -623,13 +623,25 @@ async def basic_test(dut):
     },
 
     /**
+     * Card unico: fecha AMBOS os menus (row context + create) antes de abrir
+     * qualquer um. Sem isso os dois coexistem — eles abrem no evento
+     * `contextmenu` (botao direito), que nao dispara os handlers de
+     * fechar-no-click (botao esquerdo), entao um right-click numa row com o
+     * menu "New File" aberto deixava os dois cards na tela ao mesmo tempo.
+     */
+    closeAllTreeMenus() {
+        this.closeContextMenu();
+        this.closeCreateMenu();
+    },
+
+    /**
      * Monta e exibe o context menu de uma row (right-click num arquivo).
      * Para arquivos .v/.sv, ambas as opcoes (Top Level e Testbench Top)
      * sao sempre exibidas — o usuario pode setar qualquer .v como
      * qualquer dos dois sem ficar preso na categoria auto-detectada.
      */
     showContextMenu(event, file, index) {
-        this.closeContextMenu();
+        this.closeAllTreeMenus();
 
         const menu = document.createElement('div');
         menu.className = 'verilog-context-menu';
@@ -759,7 +771,7 @@ async def basic_test(dut):
      * menu flips back on-screen if it would overflow the right/bottom edge.
      */
     showCreateMenu(x, y) {
-        this.closeCreateMenu();
+        this.closeAllTreeMenus();
 
         const menu = document.createElement('div');
         menu.className = 'verilog-create-menu';

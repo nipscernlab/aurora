@@ -745,6 +745,42 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'find_gtkw_files',
+    description:
+      'Find .gtkw save files anywhere inside the open project by name. The user only needs to ' +
+      'give the file name — this resolves the full path. Pass a name fragment to filter, or omit ' +
+      'it to list every .gtkw in the project. Returns project-relative and absolute paths.',
+    access: 'read',
+    api: ['wave', 'findGtkwFiles'],
+    argStyle: 'positional',
+    argNames: ['query'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Name or name fragment of the .gtkw to find (optional)' },
+      },
+    },
+  },
+  {
+    name: 'use_gtkw_file',
+    description:
+      'Given just a .gtkw file NAME (with or without the .gtkw extension), locate it in the ' +
+      'project, register it for the active testbench, and mark it active — all in one step, so ' +
+      'the next "wave" run loads it. If the name matches several files the candidates are ' +
+      'reported so you can pick a more specific one. This is the easiest way to set the .gtkw.',
+    access: 'write',
+    api: ['wave', 'useGtkwByName'],
+    argStyle: 'positional',
+    argNames: ['name'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'The .gtkw file name, e.g. "mylayout" or "mylayout.gtkw"' },
+      },
+      required: ['name'],
+    },
+  },
+  {
     name: 'add_gtkw_file',
     description:
       'Register a .gtkw save file from anywhere inside the project tree for the active testbench. ' +

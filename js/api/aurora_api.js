@@ -1733,6 +1733,58 @@ const waveNs = {
   },
 
   /**
+   * Find every .gtkw save file inside the open project folder, optionally
+   * filtered by a name fragment. The user only has to say the file's name —
+   * this resolves the absolute path for them (and for the AI). Returns each
+   * match with both project-relative and absolute paths.
+   */
+  async findGtkwFiles(query = '') {
+    const root = window.currentProjectPath || window.ProjectStore?.getProjectPath?.() || null;
+    if (!root) return err('No project open');
+    const treeRes = await projectNs.getTree(root);
+    if (!treeRes.ok) return treeRes;
+    const rel = Array.isArray(treeRes.data) ? treeRes.data : [];
+    const needle = String(query || '').trim().toLowerCase().replace(/\.gtkw$/i, '');
+    const files = rel
+      .filter((p) => /\.gtkw$/i.test(p))
+      .filter((p) => !needle || p.toLowerCase().includes(needle))
+      .map((p) => ({
+        name: p.split('/').pop(),
+        relPath: p,
+        path: `${root}\\${p.replace(/\//g, '\\')}`,
+      }));
+    return ok({ query: query || null, count: files.length, files });
+  },
+
+  /**
+   * One-shot: the user names a .gtkw (with or without the extension, or a
+   * path fragment) and Aurora locates it in the project, registers it for the
+   * active testbench, and marks it active — so the next Wave run loads it.
+   * If the name is ambiguous (several .gtkw match) the candidates are reported
+   * instead of guessing.
+   */
+  async useGtkwByName(name) {
+    const q = String(name || '').trim();
+    if (!q) return err('name required (the .gtkw file name)');
+    const found = await waveNs.findGtkwFiles(q);
+    if (!found.ok) return found;
+    const files = found.data.files || [];
+    if (!files.length) return err(`no .gtkw matching "${q}" found in the project`);
+    // Prefer an exact basename match (e.g. "foo" or "foo.gtkw" → foo.gtkw).
+    const wanted = q.toLowerCase().replace(/\.gtkw$/i, '');
+    const exact = files.filter((f) => f.name.toLowerCase().replace(/\.gtkw$/i, '') === wanted);
+    const pick = exact.length ? exact : files;
+    if (pick.length > 1) {
+      const names = pick.map((f) => f.relPath).join(', ');
+      return err(`"${q}" matches ${pick.length} .gtkw files (${names}). Re-run with a more specific name, or add the exact path.`, 'AMBIGUOUS');
+    }
+    const target = pick[0];
+    const reg = await waveNs.addGtkwFile({ filePath: target.path, setActive: true });
+    if (!reg.ok) return reg;
+    return ok({ name: target.name, path: target.path, relPath: target.relPath, active: true });
+  },
+
+  /**
    * Register a .gtkw file from anywhere in the project tree as available
    * for the active testbench. The file must exist on disk and end in
    * .gtkw. If `setActive:true` (default) it is also marked active.
@@ -1967,6 +2019,49 @@ const uiNs = {
 };
 
 /* ============================================================
+ *  ai — drive the Aurora Intelligence chat panel
+ * ========================================================== */
+
+const aiNs = {
+  /** Open the AI assistant panel (idempotent). */
+  async open() {
+    const mgr = window.aiAssistantManager;
+    if (!mgr) return err('AI panel is not available');
+    mgr.ensureOpen();
+    return ok();
+  },
+
+  /**
+   * Open the panel and seed the composer with a code snippet the user
+   * selected in the editor — the backing call for the Monaco selection
+   * "star" widget. With a concrete `intent` and `send:true` the message is
+   * dispatched immediately; otherwise the composer is just pre-filled.
+   *
+   * @param {object} p
+   * @param {string} p.code        the selected source text (required)
+   * @param {string} [p.language]  monaco language id (verilog, cmm, python…)
+   * @param {string} [p.filePath]  absolute path of the file
+   * @param {number} [p.lineStart] 1-based first selected line
+   * @param {number} [p.lineEnd]   1-based last selected line
+   * @param {string} [p.intent]    'explain'|'fix'|'improve'|'comment'|'doc'|''
+   * @param {boolean}[p.send]      send immediately (only with an intent)
+   */
+  async askAboutSelection(p = {}) {
+    if (!p || !String(p.code || '').trim()) return err('code (a non-empty selection) required');
+    const mgr = window.aiAssistantManager;
+    if (!mgr || typeof mgr.askAboutSelection !== 'function') {
+      return err('AI panel is not available');
+    }
+    try {
+      mgr.askAboutSelection(p);
+      return ok();
+    } catch (e) {
+      return err(e?.message || 'askAboutSelection failed');
+    }
+  },
+};
+
+/* ============================================================
  *  settings — read/update the user-facing IDE settings
  * ========================================================== */
 
@@ -2092,6 +2187,8 @@ const NAMESPACES = Object.freeze({
     setSignals:         'Choose which signals are dumped into GTKWave',
     openConfig:         'Open the Wave Configuration modal',
     listGtkwFiles:      'List .gtkw save files registered for the active testbench',
+    findGtkwFiles:      'Find .gtkw files in the project by name (resolves the path for you)',
+    useGtkwByName:      'Locate a .gtkw by name and set it active for the testbench in one step',
     addGtkwFile:        'Register a .gtkw file from the project for the active testbench',
     setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
@@ -2116,6 +2213,10 @@ const NAMESPACES = Object.freeze({
     openSettings:     'Open the Settings modal',
     getLocale:        'The active UI locale',
     setLocale:        'Switch the UI locale',
+  },
+  ai: {
+    open:              'Open the Aurora Intelligence chat panel',
+    askAboutSelection: 'Open the chat seeded with a selected code snippet (Explain/Fix/Improve/Comment)',
   },
   events: {
     on:   'Subscribe to a bus event; returns an unsubscribe fn',
@@ -2159,6 +2260,7 @@ export function initAuroraAPI() {
     rules:    Object.freeze(rulesNs),
     settings: Object.freeze(settingsNs),
     ui:       Object.freeze(uiNs),
+    ai:       Object.freeze(aiNs),
     events:   Object.freeze({ on, off, emit }),
     _meta:    metaNs,
   });

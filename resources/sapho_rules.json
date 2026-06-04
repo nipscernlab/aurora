@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-05-28T18:14:17.119Z",
+  "generatedAt": "2026-06-04T13:37:58.940Z",
   "source": {
-    "yancPath": "C:/nipscern/yanc",
-    "yancCommit": "82f6b25ed35c"
+    "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
+    "yancCommit": "d4d9f069e257"
   },
   "language": {
     "keywords": [
@@ -316,6 +316,13 @@
       "category": "general errors (parser/main/limits)",
       "pt": "Erro: cadê a função main()?\n",
       "en": "Error: yo, where's the main() function?\n"
+    },
+    {
+      "code": "MSG_ERR_CANT_OPEN_FILE",
+      "severity": "error",
+      "category": "general errors (parser/main/limits)",
+      "pt": "Erro: não rolou de abrir o arquivo '%s'!!\n",
+      "en": "Error: couldn't open the file '%s' for the life of me!!\n"
     },
     {
       "code": "MSG_ERR_RESERVED_I",

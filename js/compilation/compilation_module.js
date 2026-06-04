@@ -2214,6 +2214,20 @@ async _resolveCocotbSimProfile() {
         // are visible in the waveform — same as the non-cocotb Verilator flow.
         // (Icarus gets this for free via the predefined __ICARUS__.)
         '+define+YANC_TRACE',
+        // cocotb's runner builds the model with -Os (size). SAPHO sims are
+        // embedded-processor and can run long, so optimize the C++ for speed
+        // like the non-cocotb flow: -O3 + -march=native (Aurora builds and runs
+        // on the same host and discards the exe, so native is safe). The last -O
+        // on the g++ line wins, so this overrides cocotb's -Os.
+        '-CFLAGS', '-O3',
+        '-CFLAGS', '-march=native',
+        // Dump FST instead of VCD: cocotb forces --trace (VCD); --trace-fst
+        // comes after it in the command, so it wins (VM_TRACE_FST=1) and cocotb's
+        // verilator.cpp wrapper writes dump.fst. FST is ~10x smaller than the raw
+        // VCD, so the trace I/O during the (long) sim is far cheaper — the main
+        // reason cocotb was slower than the native flow. _adoptCocotbWaveform
+        // already converts the .fst to .vcd via fst2vcd for GTKWave.
+        '--trace-fst',
     ];
     return getSimulator() === 'verilator'
         ? { ...base, sim: 'verilator', buildArgs: VERILATOR_BUILD }

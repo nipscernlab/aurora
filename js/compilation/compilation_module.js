@@ -2311,8 +2311,9 @@ async _resolveCocotbSimProfile() {
         // comes after it in the command, so it wins (VM_TRACE_FST=1) and cocotb's
         // verilator.cpp wrapper writes dump.fst. FST is ~10x smaller than the raw
         // VCD, so the trace I/O during the (long) sim is far cheaper — the main
-        // reason cocotb was slower than the native flow. _adoptCocotbWaveform
-        // already converts the .fst to .vcd via fst2vcd for GTKWave.
+        // reason cocotb was slower than the native flow. GTKWave opens the .fst
+        // directly; the header for the auto-gtkw is pulled from it by the unified
+        // _extractFstHeaderVcd in runGtkWave (no full-VCD conversion anymore).
         '--trace-fst',
     ];
     return getSimulator() === 'verilator'

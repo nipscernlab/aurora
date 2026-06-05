@@ -394,7 +394,11 @@
             "aiStart":   "=== AI harness test: \"{{name}}\" (Verilator, no timing/wave) ===",
             "aiPorts":   "DUT ports — in: {{ins}} | out: {{outs}}",
             "aiRunning": "Running the harness for \"{{name}}\"...",
-            "aiDone":    "AI harness test finished: {{name}}."
+            "aiDone":    "AI harness test finished: {{name}}.",
+            "aiValidating":  "Validating against the gold testbench (--timing) — building + running it once...",
+            "aiValidateSkip":"Validation skipped: {{reason}}.",
+            "aiCertified":   "Harness CERTIFIED — all {{count}} output(s) match the gold testbench.",
+            "aiMismatch":    "Harness does NOT match the gold testbench ({{count}} differing output(s)): {{preview}}. Not certified."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",
@@ -502,6 +506,7 @@
             "verilatorTbBuildFailed":"Verilator harness build failed with exit code {{code}}.",
             "aiHarnessMissing":     "C++ harness not found at {{path}}. (Step 1 of the roadmap: write it by hand to test the pipeline; AI generation comes next.)",
             "aiHarnessRunFailed":   "AI harness run failed with exit code {{code}}.",
+            "aiHarnessNeedsVerilogTb":"AI harness needs a Verilog (.v) testbench — it converts Verilog and validates against it. A .py (cocotb) testbench goes through the Wave button.",
             "verilatorTbRunFailed":"Verilator harness run failed with exit code {{code}}.",
             "noProcessor":         "No processor in the project. The Verilator (processor) button needs a processor with a .cmm.",
             "noActiveProcessor":   "No active processor. Open a processor's .cmm in the editor (the name shows in the status bar) and click Verilator again.",

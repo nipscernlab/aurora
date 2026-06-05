@@ -395,7 +395,11 @@
             "aiStart":   "=== Teste com harness IA: \"{{name}}\" (Verilator, sem timing/onda) ===",
             "aiPorts":   "Portas do DUT — in: {{ins}} | out: {{outs}}",
             "aiRunning": "Rodando o harness de \"{{name}}\"...",
-            "aiDone":    "Teste com harness IA concluído: {{name}}."
+            "aiDone":    "Teste com harness IA concluído: {{name}}.",
+            "aiValidating":  "Validando contra o testbench gabarito (--timing) — buildando + rodando uma vez...",
+            "aiValidateSkip":"Validação pulada: {{reason}}.",
+            "aiCertified":   "Harness CERTIFICADO — todas as {{count}} saída(s) batem com o gabarito.",
+            "aiMismatch":    "Harness NÃO bate com o gabarito ({{count}} saída(s) divergentes): {{preview}}. Não certificado."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave fechado - restaurando árvore de arquivos padrão...",
@@ -503,6 +507,7 @@
             "verilatorTbBuildFailed":"Build do harness Verilator falhou com código {{code}}.",
             "aiHarnessMissing":     "Harness C++ não encontrado em {{path}}. (Passo 1 do roadmap: escreva à mão pra testar o pipeline; a geração pela IA vem depois.)",
             "aiHarnessRunFailed":   "Execução do harness IA falhou com código {{code}}.",
+            "aiHarnessNeedsVerilogTb":"O harness IA precisa de um testbench Verilog (.v) — ele converte Verilog e valida contra ele. Testbench .py (cocotb) vai pelo botão Wave.",
             "verilatorTbRunFailed":"Execução do harness Verilator falhou com código {{code}}.",
             "noProcessor":         "Nenhum processador no projeto. O botão Verilator (processador) precisa de um processador com .cmm.",
             "noActiveProcessor":   "Nenhum processador ativo. Abra o .cmm de um processador no editor (o nome aparece na barra de status) e clique em Verilator de novo.",

@@ -726,9 +726,10 @@ async function syncToolbarEnabledState() {
     setEnabled('prismcomp', hasTop);
     setEnabled('verilatorproc', hasActiveProc);
     // Harness IA: teste de sintese de top-level generico via Verilator. Exige
-    // top-level (DUT) + testbench (a IA converte o estimulo). Sempre-Verilator
-    // (nao depende do toggle, igual ao verilator-proc).
-    setEnabled('aiharness', hasTop && hasTb);
+    // top-level (DUT) + testbench VERILOG (a IA converte Verilog, e o gabarito
+    // da validacao e' esse .v; .py vai pelo Wave). Sempre-Verilator (nao depende
+    // do toggle, igual ao verilator-proc).
+    setEnabled('aiharness', hasTop && hasTb && !isPyTb);
     setEnabled('wavecomp', hasTb);
     // Fast Sim (headless, sem onda) tem dois caminhos:
     //  - testbench .v  -> Verilator binario, exige o toggle em Verilator

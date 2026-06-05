@@ -53,6 +53,9 @@ import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
 import {
   instrumentTestbenchSource, hasUserDumpCalls, commentOutDumpCalls,
 } from '../wave/testbench_instrumenter.js';
+import {
+  instrumentGoldTestbench, compareKvDumps,
+} from '../wave/gold_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
@@ -3285,6 +3288,11 @@ async aiHarnessRun() {
     if (!this.projectConfig) throw new Error(tr('error.config.notLoaded'));
     const config = this.validateForWave();
     if (!config.topLevelFile) throw new Error(tr('error.compilation.noTopLevel'));
+    // O harness IA converte um testbench Verilog (e o gabarito da validacao e'
+    // esse mesmo .v com --timing). .py (cocotb) nao se aplica — vai pelo Wave.
+    if (isPythonFile(config.testbenchFile)) {
+        throw new Error(tr('error.compilation.aiHarnessNeedsVerilogTb'));
+    }
 
     const topModule = moduleStemFromPath(config.topLevelFile);
     const synthFiles = Array.isArray(config.synthesizableFiles) ? config.synthesizableFiles : [];
@@ -3363,7 +3371,85 @@ async aiHarnessRun() {
     this.terminalManager.processExecutableOutput(T, runRes);
     if (runRes.code !== 0) throw new Error(tr('error.compilation.aiHarnessRunFailed', { code: runRes.code }));
 
+    // ---- Passo 5: validacao por $fwrite contra o gabarito (testbench .v) ----
+    await this._aiValidateAgainstGold({
+        config, topModule, ports, runCwd,
+        tools, hdlPath, synthFiles, tempBaseDir, T,
+    });
+
     this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiDone', { name: topModule }), 'success');
+}
+
+/**
+ * Valida o harness contra o gabarito: instrumenta o testbench .v com um dump
+ * do estado final das saidas top-level ($fwrite via gold_instrumenter), compila
+ * com --timing (sem onda) e roda, depois compara aurora_gold.txt (gabarito) com
+ * harness_final.txt (harness) por nome. Certifica se baterem; avisa + diff se
+ * nao. Best-effort: se instrumentacao/gabarito falhar, faz skip com aviso (nao
+ * derruba o run do harness, que ja terminou). O cache por hash e' passo futuro.
+ */
+async _aiValidateAgainstGold({ config, topModule, ports, runCwd, tools, hdlPath, synthFiles, tempBaseDir, T }) {
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiValidating'), 'info');
+    const skip = (reason) =>
+        this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiValidateSkip', { reason }), 'warning');
+
+    const outPorts = ports.filter((p) => p.direction === 'output').map((p) => p.name);
+    let gold;
+    try {
+        const tbSrc = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+        gold = instrumentGoldTestbench({ src: tbSrc, topModule, outPorts, goldFile: 'aurora_gold.txt' });
+    } catch (e) { return skip(e.message); }
+
+    const tbStem = moduleStemFromPath(config.testbenchFile);
+    const goldPath = await window.electronAPI.joinPath(tempBaseDir, `gold_${tbStem}.v`);
+    await window.electronAPI.writeFile(goldPath, gold.content);
+    const goldObjDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_gold_${tbStem}`);
+    await window.electronAPI.mkdir(goldObjDir);
+
+    const goldSpec = buildVerilatorBuildSpec({
+        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        hdlPath, simTopModule: tbStem, objDir: goldObjDir,
+        sourceFiles: [...synthFiles, goldPath], cwd: tempBaseDir,
+        extraWarnings: ['-Wno-fatal', '-Wno-TIMESCALEMOD', '-Wno-DECLFILENAME',
+            '-Wno-STMTDLY', '-Wno-WIDTHTRUNC', '-Wno-WIDTHEXPAND'],
+        trace: false, // sem onda; --timing fica (o tb usa #delay)
+    });
+    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(goldSpec), 'info', { internal: true });
+    const goldBuild = await runSpec(goldSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput(T, goldBuild);
+    if (goldBuild.code !== 0) return skip(`gold build code ${goldBuild.code}`);
+
+    let goldExe = await window.electronAPI.joinPath(goldObjDir, `V${tbStem}.exe`);
+    if (!await window.electronAPI.fileExists(goldExe)) {
+        const fb = await window.electronAPI.joinPath(goldObjDir, `V${tbStem}`);
+        if (!await window.electronAPI.fileExists(fb)) return skip('gold exe missing');
+        goldExe = fb;
+    }
+    const goldRun = await runSpec(buildVerilatorRunSpec({
+        exePath: goldExe, cwd: runCwd, mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+    }), { consumeEphemeral: true });
+    if (goldRun.code !== 0) return skip(`gold run code ${goldRun.code}`);
+
+    const goldOut = await window.electronAPI.joinPath(runCwd, 'aurora_gold.txt');
+    const harnessOut = await window.electronAPI.joinPath(runCwd, 'harness_final.txt');
+    if (!await window.electronAPI.fileExists(goldOut) || !await window.electronAPI.fileExists(harnessOut)) {
+        return skip('dump file(s) missing — does the harness write harness_final.txt?');
+    }
+    const cmp = compareKvDumps(
+        await window.electronAPI.readFile(goldOut, { encoding: 'utf8' }),
+        await window.electronAPI.readFile(harnessOut, { encoding: 'utf8' }),
+    );
+    if (cmp.ok) {
+        this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiCertified', { count: cmp.common }), 'success');
+    } else if (cmp.common === 0) {
+        skip('no comparable outputs (harness/gold dumps share no port names)');
+    } else {
+        const preview = cmp.diffs.slice(0, 4)
+            .map((d) => `${d.name}: gold=${d.ref} harness=${d.got}`).join('; ');
+        this.terminalManager.appendToTerminal(T,
+            tr('terminal.htest.aiMismatch', { count: cmp.diffs.length, preview }), 'error');
+    }
 }
 
 /**

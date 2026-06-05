@@ -620,4 +620,68 @@ function forgetConversation(conversationId) {
   if (conversationId) convSessions.delete(conversationId);
 }
 
-module.exports = { detect, getUsage, start, abort, killAll, forgetConversation };
+/**
+ * One-shot text generation via the Claude Code CLI (subscription) in print
+ * mode — no streaming, no Aurora MCP/tool bridge, no session. Lets the AI
+ * harness generator use the subscription instead of requiring an API key.
+ * The prompt rides on stdin (it can be large). Same shape as
+ * provider.generateOneshot: { ok, text, finishReason } or { ok:false, error }.
+ *
+ * @param {{ system?:string, prompt:string, model?:string }} opts
+ */
+async function generateOneshot({ system, prompt, model } = {}) {
+  const bin = resolveBinary();
+  if (!bin) return { ok: false, error: 'Claude Code CLI not found. Install it, or pick an API provider.' };
+  if (!readCredentials()) return { ok: false, error: 'Claude Code is not signed in. Run `claude login` in a terminal.' };
+
+  const args = ['-p', '--output-format', 'text'];
+  if (model && model !== 'default') args.push('--model', model);
+  if (system) args.push('--append-system-prompt', system);
+
+  // .cmd shim needs cmd.exe on Windows (same as execFileText/start).
+  let cmd = bin.exe;
+  let finalArgs = args;
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin.exe)) {
+    cmd = 'cmd.exe';
+    finalArgs = ['/d', '/s', '/c', bin.exe, ...args];
+  }
+
+  return new Promise((resolve) => {
+    let out = '';
+    let err = '';
+    let done = false;
+    const finish = (r) => { if (!done) { done = true; resolve(r); } };
+    let proc;
+    try {
+      proc = spawn(cmd, finalArgs, { windowsHide: true });
+    } catch (e) {
+      finish({ ok: false, error: e?.message || String(e) });
+      return;
+    }
+    // The CLI in text mode is slow (it returns only after the whole answer is
+    // generated — measured ~4 min for a harness). Generous timeout so a real
+    // hang doesn't wait forever, without cutting a legitimate generation.
+    const TIMEOUT_MS = 420000; // 7 min
+    const timer = setTimeout(() => {
+      try { proc.kill(); } catch (_) { /* already gone */ }
+      finish({ ok: false, error: 'Claude Code timed out (no answer in 7 min). It is much slower than an API provider — try gemini/openai for faster iteration.' });
+    }, TIMEOUT_MS);
+    proc.stdout.on('data', (c) => { out += c.toString(); });
+    proc.stderr.on('data', (c) => { err += c.toString(); });
+    proc.on('error', (e) => { clearTimeout(timer); finish({ ok: false, error: e?.message || String(e) }); });
+    proc.on('close', (code) => {
+      clearTimeout(timer);
+      if (code === 0) finish({ ok: true, text: out, finishReason: 'stop' });
+      else finish({ ok: false, error: `claude CLI exited ${code}: ${(err || out).slice(-500)}` });
+    });
+    try {
+      proc.stdin.write(String(prompt || ''));
+      proc.stdin.end();
+    } catch (e) {
+      clearTimeout(timer);
+      finish({ ok: false, error: e?.message || String(e) });
+    }
+  });
+}
+
+module.exports = { detect, getUsage, start, abort, killAll, forgetConversation, generateOneshot };

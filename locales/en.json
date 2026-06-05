@@ -414,7 +414,8 @@
             "aiHarnessSaved":   "AI-generated harness saved to {{name}}.",
             "aiGenerating":     "Generating the harness with AI ({{provider}}) — attempt {{attempt}}/{{max}}...",
             "aiGenCompiled":    "AI harness compiled on attempt {{attempt}}.",
-            "aiGenRetry":       "AI harness did not compile (attempt {{attempt}}/{{max}}); sending the error back to the model to fix..."
+            "aiGenRetry":       "AI harness did not compile (attempt {{attempt}}/{{max}}); sending the error back to the model to fix...",
+            "aiClaudeSlow":     "Heads up: Claude Code (subscription) generates slowly — an attempt can take a few minutes (no streaming). It is NOT stuck. API providers (gemini/openai) are much faster."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",
@@ -523,7 +524,7 @@
             "aiHarnessMissing":     "C++ harness not found at {{path}}. (Step 1 of the roadmap: write it by hand to test the pipeline; AI generation comes next.)",
             "aiHarnessRunFailed":   "AI harness run failed with exit code {{code}}.",
             "aiHarnessNeedsVerilogTb":"AI harness needs a Verilog (.v) testbench — it converts Verilog and validates against it. A .py (cocotb) testbench goes through the Wave button.",
-            "aiHarnessNoProvider":  "AI harness generation needs an API provider (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) selected in the AI panel — the claude-code/chatgpt CLI bridges aren't supported here. Configure a key and pick a provider, or write the harness .cpp by hand.",
+            "aiHarnessNoProvider":  "No AI provider selected. Pick one in the AI panel — an API provider (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) with a key, or Claude Code (subscription, signed in). Or write the harness .cpp by hand.",
             "aiHarnessGenFailed":   "AI generation failed: {{error}}.",
             "aiHarnessNoCompile":   "The AI harness did not compile after {{attempts}} attempts. Last build error: {{error}}",
             "verilatorTbRunFailed":"Verilator harness run failed with exit code {{code}}.",

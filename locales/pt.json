@@ -415,7 +415,8 @@
             "aiHarnessSaved":   "Harness gerado pela IA salvo em {{name}}.",
             "aiGenerating":     "Gerando o harness com IA ({{provider}}) — tentativa {{attempt}}/{{max}}...",
             "aiGenCompiled":    "Harness IA compilou na tentativa {{attempt}}.",
-            "aiGenRetry":       "Harness IA não compilou (tentativa {{attempt}}/{{max}}); devolvendo o erro pro modelo corrigir..."
+            "aiGenRetry":       "Harness IA não compilou (tentativa {{attempt}}/{{max}}); devolvendo o erro pro modelo corrigir...",
+            "aiClaudeSlow":     "Aviso: o Claude Code (assinatura) gera devagar — uma tentativa pode levar alguns minutos (sem streaming). NÃO está travado. Providers de API (gemini/openai) são bem mais rápidos."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave fechado - restaurando árvore de arquivos padrão...",
@@ -524,7 +525,7 @@
             "aiHarnessMissing":     "Harness C++ não encontrado em {{path}}. (Passo 1 do roadmap: escreva à mão pra testar o pipeline; a geração pela IA vem depois.)",
             "aiHarnessRunFailed":   "Execução do harness IA falhou com código {{code}}.",
             "aiHarnessNeedsVerilogTb":"O harness IA precisa de um testbench Verilog (.v) — ele converte Verilog e valida contra ele. Testbench .py (cocotb) vai pelo botão Wave.",
-            "aiHarnessNoProvider":  "A geração do harness IA precisa de um provider de API (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) selecionado no painel de IA — os bridges CLI claude-code/chatgpt não são suportados aqui. Configure uma chave e escolha um provider, ou escreva o harness .cpp à mão.",
+            "aiHarnessNoProvider":  "Nenhum provider de IA selecionado. Escolha um no painel de IA — um provider de API (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) com chave, ou Claude Code (assinatura, logado). Ou escreva o harness .cpp à mão.",
             "aiHarnessGenFailed":   "Geração pela IA falhou: {{error}}.",
             "aiHarnessNoCompile":   "O harness IA não compilou após {{attempts}} tentativas. Último erro de build: {{error}}",
             "verilatorTbRunFailed":"Execução do harness Verilator falhou com código {{code}}.",

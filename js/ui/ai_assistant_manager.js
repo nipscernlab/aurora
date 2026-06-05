@@ -2756,7 +2756,14 @@ class AIAssistantManager {
     const looksLikeToolArtifact = !displayText &&
       /^\s*[⺀-鿿]*\s*\{/.test(this.segmentBuffer) &&
       /"name"\s*:/.test(this.segmentBuffer);
-    const sourceText = looksLikeToolArtifact ? '' : (displayText || this.segmentBuffer);
+    // Use the cleaned + trimmed text only. The old `|| this.segmentBuffer`
+    // fallback meant a segment that trimmed to empty (whitespace, or a fully
+    // stripped tool-call artifact) still rendered the raw buffer — creating an
+    // empty assistant bubble whose top/bottom borders showed as a pair of
+    // faint hairlines ("várias linhas" between real answers). With displayText
+    // alone, such segments yield '' and the block below drops the bubble.
+    // Real prose (even containing "<" or "{") always survives in displayText.
+    const sourceText = looksLikeToolArtifact ? '' : displayText;
 
     if (!sourceText) {
       // Nothing visible yet (segment is pure tool-call artifact / whitespace,
@@ -2852,9 +2859,29 @@ class AIAssistantManager {
       this.appendBubble('assistant', '_All actions completed. Ask a follow-up if you want details._');
     }
 
+    // Backstop: drop any assistant bubble that ended up with no visible
+    // content, so a stray empty segment never lingers as the faint pair of
+    // top/bottom-border hairlines between real answers.
+    this._pruneEmptyBubbles();
+
     this.resetTurnState();
     // Auto-save the conversation after every turn.
     this.persistCurrentChat();
+  }
+
+  /**
+   * Remove assistant bubbles whose content is visually empty (no text and no
+   * element children — so image/code-only bubbles are preserved). Defensive
+   * cleanup against empty "hairline" bars; the lazy creation in
+   * _renderStreamingBubble already avoids creating them in the common case.
+   */
+  _pruneEmptyBubbles() {
+    if (!this.messagesEl) return;
+    for (const content of this.messagesEl.querySelectorAll('.ai-msg-assistant .ai-msg-content')) {
+      if (!content.firstElementChild && !content.textContent.trim()) {
+        content.closest('.ai-message')?.remove();
+      }
+    }
   }
 
   failTurn(message) {

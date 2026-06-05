@@ -37,6 +37,7 @@ const { spawn } = require('child_process');
 const log = require('electron-log');
 
 const state = require('../state');
+const { trackChild } = require('../process_registry');
 const { getCPUCount } = require('../utils');
 const { isAllowed } = require('./binary_allowlist');
 const protectedFlags = require('./protected_flags');
@@ -200,6 +201,10 @@ function register() {
         shell: false,
       });
 
+      // Register in the central toolchain registry so closing the main
+      // window (or quitting) tree-kills this step AND any tools it fans out
+      // (Verilator → make/g++/ccache, cocotb → python), not just its PID.
+      trackChild(child);
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid;
       boostPriority(child.pid);
@@ -256,6 +261,10 @@ function register() {
         shell: false,
       });
 
+      // Register in the central toolchain registry so closing the main
+      // window (or quitting) tree-kills this step AND any tools it fans out
+      // (Verilator → make/g++/ccache, cocotb → python), not just its PID.
+      trackChild(child);
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid;
       boostPriority(child.pid);

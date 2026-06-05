@@ -13,6 +13,7 @@ const log = require('electron-log');
 const state = require('./state');
 const { componentsPath } = require('./paths');
 const recents = require('./recents');
+const { stopAllToolchain } = require('./process_registry');
 
 /**
  * (Re)build the Windows taskbar jumplist for SAPHO.
@@ -190,8 +191,23 @@ function createMainWindow(opts = {}) {
     rebuildJumpList();
   }
 
-  mainWindow.on('close', async (_event) => {
+  // Closing the main interface must tear down everything Aurora launched in
+  // the background. When this is the LAST main window, stop every toolchain
+  // child (compiles, simulations, yosys/PRISM, gtkwave, cocotb) plus any
+  // in-flight AI (gemini) stream, then close the auxiliary PRISM window so the
+  // app actually proceeds to quit — window-all-closed → before-quit then runs
+  // the awaited, authoritative cleanup. Without this, PRISM (or a running
+  // yosys/compile) keeps the process — and itself — alive after the user
+  // closed the IDE.
+  mainWindow.on('close', () => {
     if (state.isQuitting) return;
+    const aux = new Set([state.prismWindow, state.splashWindow, state.updateWindow]);
+    const anotherInterfaceOpen = BrowserWindow.getAllWindows().some(
+      (w) => w !== mainWindow && !w.isDestroyed() && !aux.has(w),
+    );
+    if (anotherInterfaceOpen) return; // another main window is still working — leave its jobs alone
+    stopAllToolchain().catch(() => { /* best-effort; before-quit re-runs it */ });
+    if (state.prismWindow && !state.prismWindow.isDestroyed()) state.prismWindow.close();
   });
 
   // Wipe Temp on quit — handlers in lifecycle.js do the comprehensive cleanup,

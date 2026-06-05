@@ -11,7 +11,7 @@ const log = require('electron-log');
 
 const state = require('./state');
 const { componentsPath } = require('./paths');
-const { killProcessSilently, killProcessesByName, killProcessesByPathPrefix } = require('./utils');
+const { stopAllToolchain } = require('./process_registry');
 
 function register() {
   // Detect a .spf passed on the command line; the main window will pick it
@@ -115,32 +115,12 @@ function register() {
       })(),
     );
 
-    releasePromises.push(
-      (async () => {
-        const killPromises = [];
-        if (state.currentVvpProcess && !state.currentVvpProcess.killed) {
-          killPromises.push(killProcessSilently(state.currentVvpProcess.pid));
-        }
-        killPromises.push(killProcessesByName('vvp.exe'));
-        killPromises.push(killProcessesByName('gtkwave.exe'));
-        // Verilator emits a per-testbench native binary `V<top>.exe` inside
-        // components/Temp/obj_dir_<top>/. Its name varies, so we can't kill
-        // by name — kill anything still running under the scratch tree
-        // instead. Otherwise an orphan from the previous run holds Temp/
-        // open and the phase-2 rmdir below (and copy-components.js on the
-        // next launch) hit EBUSY on Windows.
-        killPromises.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
-
-        // AI agent CLIs (Claude Code / Codex): kill any in-flight session so
-        // their subprocess trees (taskkill /T) aren't orphaned past exit.
-        // abort() only ever fired per renderer request; nothing covered quit.
-        try { require('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
-        try { require('./ai/codex_cli').killAll(); } catch (_) { /* not loaded */ }
-
-        await Promise.all(killPromises);
-        state.currentGtkwaveProcesses.clear();
-      })(),
-    );
+    // Every toolchain child (compiles, simulations, yosys/PRISM, gtkwave,
+    // cocotb) + the Verilator scratch-tree sweep + the AI agent CLIs + any
+    // in-flight AI (gemini) stream. Centralised in process_registry so this
+    // quit path and the main-window close path tear everything down the same
+    // way — releasing the Temp/ handles before the phase-2 rmdir below.
+    releasePromises.push(stopAllToolchain());
 
     // Close the Aurora MCP bridge (the localhost HTTP server that hands
     // Claude Code our tool surface). It holds no Temp/ handle, but

@@ -351,4 +351,18 @@ function abort(sessionId) {
   return true;
 }
 
-module.exports = { start, abort };
+/**
+ * Abort EVERY in-flight session. Called on teardown (main window close /
+ * app quit) so a long AI generation — e.g. a gemini stream — stops the
+ * instant the interface closes instead of running on detached. Returns the
+ * number of sessions aborted.
+ */
+function abortAll() {
+  let n = 0;
+  for (const s of sessions.values()) {
+    try { s.abort.abort(); n++; } catch (_) { /* already settled */ }
+  }
+  return n;
+}
+
+module.exports = { start, abort, abortAll };

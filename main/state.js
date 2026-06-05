@@ -28,6 +28,7 @@
  * @property {ChildProcess | ChildProcessIO | null} currentVvpProcess
  * @property {number | null} vvpProcessPid
  * @property {Set<ChildProcess | ChildProcessIO>} currentGtkwaveProcesses
+ * @property {Set<ChildProcess | ChildProcessIO>} childProcesses - Every live toolchain child (compilers, simulators, yosys, gtkwave, cocotb). Tree-killed on window close / quit.
  * @property {Map<string, { id: string, watcher: import('chokidar').FSWatcher, filePath: string, lastCheck: number }>} activeWatchers
  * @property {Map<string, unknown>} fileStatsCache
  * @property {Map<string, { id: string, watcher: import('chokidar').FSWatcher, path: string }>} activeDirectoryWatchers
@@ -58,6 +59,9 @@ const state = {
   currentVvpProcess: null,
   vvpProcessPid: null,
   currentGtkwaveProcesses: new Set(),
+  // Central registry of EVERY toolchain child Aurora spawns, so closing the
+  // main interface can tree-kill all of them (see main/process_registry.js).
+  childProcesses: new Set(),
 
   // File / directory watchers
   activeWatchers: new Map(),

@@ -18,6 +18,7 @@ const netlistsvgLib = require('@silimate/netlistsvg');
 const state = require('../state');
 const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
+const { trackChild } = require('../process_registry');
 
 // ---------- helpers ----------
 
@@ -362,6 +363,10 @@ write_json "${hierarchyJsonPath}"
       env: childEnv,
       windowsHide: true,
     });
+    // Track so closing the main window kills an in-flight PRISM synthesis —
+    // yosys runs from the bundled mingw64/bin (not Temp/), so the path-prefix
+    // sweep never caught it before.
+    trackChild(yosysProcess);
 
     let stderr = '';
     yosysProcess.stdout.on('data', (_data) => {});

@@ -21,6 +21,7 @@ const {
   killProcessesByName,
   checkProcessRunning,
 } = require('../utils');
+const { trackChild } = require('../process_registry');
 
 function register() {
   ipcMain.handle('exec-command', (_event, command, options = {}) => {
@@ -37,6 +38,9 @@ function register() {
       };
 
       const child = exec(command, performanceOptions);
+      // Track legacy exec-command children too, so a compile launched on this
+      // path is force-stopped when the main interface closes.
+      trackChild(child);
       let stdout = '';
       let stderr = '';
       child.stdout.on('data', (data) => (stdout += data.toString()));
@@ -87,6 +91,10 @@ function register() {
           windowsHide: false,
           shell: false,
         });
+        // Track the detached GTKWave so closing the main interface tears it
+        // down too — it's unref'd to outlive a single run, but must not
+        // outlive the IDE itself.
+        trackChild(gtkwaveProcess);
 
         // An 'error' EventEmitter with no listener would throw; keep one so a
         // spawn failure (e.g. ENOENT) is reported instead of crashing main.

@@ -676,12 +676,16 @@ async function syncToolbarEnabledState() {
 
     let hasTop = false;
     let hasTb = false;
+    let isPyTb = false;
     const spfPath = window.currentSpfPath || window.ProjectStore?.getSpfPath?.();
     if (spfPath && window.SpfStore) {
         try {
             const s = await window.SpfStore.read(spfPath);
             hasTop = !!s.topLevelFile;
             hasTb = !!s.testbenchFile;
+            // .py = testbench cocotb (Python). O Fast Sim e Verilator-binary e
+            // compila o tb como Verilog, entao .py nao se aplica (vai pelo Wave).
+            isPyTb = /\.py$/i.test(s.testbenchFile || '');
         } catch (_e) { /* sem projeto / leitura falhou → tudo desabilitado */ }
     }
 
@@ -696,9 +700,10 @@ async function syncToolbarEnabledState() {
     setEnabled('verilatorproc', hasActiveProc);
     setEnabled('wavecomp', hasTb);
     // Fast Sim e Verilator-only: alem do testbench, exige o toggle de
-    // simulador em Verilator (iverilog nao tem o caminho binario headless).
-    // Re-sincronizado no evento aurora:wave-simulator-changed (initialize()).
-    setEnabled('fastsim', hasTb && getSimulator() === 'verilator');
+    // simulador em Verilator (iverilog nao tem o caminho binario headless) e
+    // um testbench Verilog (.py/cocotb vai pelo Wave). Re-sincronizado no
+    // evento aurora:wave-simulator-changed (initialize()).
+    setEnabled('fastsim', hasTb && !isPyTb && getSimulator() === 'verilator');
     // Cancelar a simulacao segue a MESMA regra do Wave: sem testbench
     // nao da pra iniciar uma simulacao, entao o botao de cancelar (par
     // visual do Wave, a direita dele na toolbar) fica desabilitado junto.

@@ -2974,6 +2974,14 @@ async runFastSim() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastBanner'), 'info');
     try {
         const config = this.validateForWave();
+        // Fast Sim e o caminho Verilator-binary, que compila o testbench como
+        // Verilog. Um testbench .py (cocotb) e Python dirigindo o DUT via VPI —
+        // outro paradigma. O botao ja fica desabilitado pra .py; esta guarda e
+        // a rede de seguranca pra chamada via AuroraAPI (IA). Use o Wave, que
+        // roteia cocotb.
+        if (isPythonFile(config.testbenchFile)) {
+            throw new Error(tr('error.compilation.fastSimNoPython'));
+        }
         const tools = await this._waveResolveToolchain();
         const simTopModule = this._waveDeriveSimTopModule(config);
 

@@ -2081,6 +2081,7 @@ async _writeCocotbRunnerScript(tempBaseDir) {
         '    os.environ.setdefault("SIM", "icarus")',
         '    os.environ.setdefault("TOPLEVEL_LANG", "verilog")',
         '    os.environ.setdefault("WAVES", "1")',
+        '    wav = os.environ.get("WAVES", "1") == "1"',
         '    sim = os.environ["SIM"]',
         '',
         '    runner = get_runner(sim)',
@@ -2091,7 +2092,7 @@ async _writeCocotbRunnerScript(tempBaseDir) {
         '        build_args=build_args,',
         '        timescale=("1ns", "1ps"),',
         '        always=True,',
-        '        waves=True,',
+        '        waves=wav,',
         '    )',
         '    runner.test(',
         '        hdl_toplevel=top,',
@@ -2099,7 +2100,7 @@ async _writeCocotbRunnerScript(tempBaseDir) {
         '        build_dir=build_dir,',
         '        test_dir=test_dir,',
         '        test_args=test_args,',
-        '        waves=True,',
+        '        waves=wav,',
         '        results_xml=str(Path(build_dir) / "results.xml"),',
         '    )',
         '',
@@ -2334,8 +2335,11 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
  * That Python needs PYTHONHOME at the bundle's mingw64 and its bin on PATH
  * (for its own DLLs + the iverilog/verilator/g++ it spawns). The only
  * per-simulator differences are SIM and the build args (-g2012 is Icarus-only).
+ *
+ * @param {boolean} [wave] default true. false (Fast Sim) = sem --trace-fst:
+ *        a sim cocotb so verifica (asserts Python), sem gerar onda.
  */
-async _resolveCocotbSimProfile() {
+async _resolveCocotbSimProfile(wave = true) {
     const vTools = await this._waveResolveVerilatorTools();
     const pythonPath = await window.electronAPI.joinPath(vTools.mingwBin, 'python.exe');
     if (!await window.electronAPI.fileExists(pythonPath)) {
@@ -2379,18 +2383,23 @@ async _resolveCocotbSimProfile() {
         // reason cocotb was slower than the native flow. GTKWave opens the .fst
         // directly; the header for the auto-gtkw is pulled from it by the unified
         // _extractFstHeaderVcd in runGtkWave (no full-VCD conversion anymore).
-        '--trace-fst',
+        // No Fast Sim (wave=false) isto sai: sem trace nenhum, a sim so roda os
+        // testes (asserts no Python) — o ganho do cocotb headless.
+        ...(wave ? ['--trace-fst'] : []),
     ];
     return getSimulator() === 'verilator'
         ? { ...base, sim: 'verilator', buildArgs: VERILATOR_BUILD }
         : { ...base, sim: 'icarus', buildArgs: ['-g2012'] };
 }
 
-async _waveRunCocotbSimulation(ctx, tools, config) {
+async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
+    // wave=false (Fast Sim): roda os testes cocotb SEM onda — sem --trace-fst
+    // no build, WAVES=0 no runner, e nao adota/abre waveform no fim.
+    const wave = opts.wave !== false;
     await TabManager.saveAllFiles();
     await window.electronAPI.mkdir(tools.tempBaseDir);
 
-    const profile = await this._resolveCocotbSimProfile();
+    const profile = await this._resolveCocotbSimProfile(wave);
 
     const buildDir = await window.electronAPI.joinPath(
         tools.tempBaseDir,
@@ -2415,7 +2424,7 @@ async _waveRunCocotbSimulation(ctx, tools, config) {
         AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),
         SIM: profile.sim,
         TOPLEVEL_LANG: 'verilog',
-        WAVES: '1',
+        WAVES: wave ? '1' : '0',
         // Force UTF-8 stdio so cocotb's logs (and the user's prints/docstrings)
         // with non-ASCII — arrows, pt-BR accents, emoji — don't crash the bundle
         // Python's logging on the Windows cp1252 codepage (UnicodeEncodeError).
@@ -2467,7 +2476,8 @@ async _waveRunCocotbSimulation(ctx, tools, config) {
         throw new Error(tr('error.compilation.cocotbFailed', { code }));
     }
 
-    return this._adoptCocotbWaveform(ctx, tools, buildDir);
+    // Fast Sim nao tem onda pra adotar nem abrir — so o resultado dos testes.
+    return wave ? this._adoptCocotbWaveform(ctx, tools, buildDir) : null;
 }
 
 /**
@@ -2974,31 +2984,65 @@ async runFastSim() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastBanner'), 'info');
     try {
         const config = this.validateForWave();
-        // Fast Sim e o caminho Verilator-binary, que compila o testbench como
-        // Verilog. Um testbench .py (cocotb) e Python dirigindo o DUT via VPI —
-        // outro paradigma. O botao ja fica desabilitado pra .py; esta guarda e
-        // a rede de seguranca pra chamada via AuroraAPI (IA). Use o Wave, que
-        // roteia cocotb.
+        // Duas naturezas de testbench, dois caminhos — ambos SEM onda:
+        //  - .py  -> cocotb headless (testes Python, qualquer engine);
+        //  - .v   -> Verilator binario sem trace.
         if (isPythonFile(config.testbenchFile)) {
-            throw new Error(tr('error.compilation.fastSimNoPython'));
+            await this._runFastCocotb(config);
+        } else {
+            await this._runFastVerilator(config);
         }
-        const tools = await this._waveResolveToolchain();
-        const simTopModule = this._waveDeriveSimTopModule(config);
-
-        statusUpdater.startCompilation('verilator');
-        const vTools = await this._waveResolveVerilatorTools();
-        const fullTools = { ...tools, ...vTools };
-
-        const exePath = await this._fastSimBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
-        await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
-
-        this.terminalManager.appendToTerminal('twave',
-            tr('terminal.wave.fastDone', { name: simTopModule }), 'success');
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
         console.error(error);
         throw error;
     }
+}
+
+/** Fast Sim, caminho Verilog: Verilator binario sem trace (sem onda). */
+async _runFastVerilator(config) {
+    const tools = await this._waveResolveToolchain();
+    const simTopModule = this._waveDeriveSimTopModule(config);
+
+    statusUpdater.startCompilation('verilator');
+    const vTools = await this._waveResolveVerilatorTools();
+    const fullTools = { ...tools, ...vTools };
+
+    const exePath = await this._fastSimBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
+    await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
+
+    this.terminalManager.appendToTerminal('twave',
+        tr('terminal.wave.fastDone', { name: simTopModule }), 'success');
+}
+
+/**
+ * Fast Sim, caminho cocotb (.py): roda os testes Python SEM gerar onda
+ * (WAVES=0, sem --trace-fst) e sem adotar/abrir waveform. Respeita o toggle
+ * de simulador — cocotb roda em iverilog OU Verilator. Espelha a branch
+ * cocotb do runGtkWave, menos o pos-processamento de onda.
+ */
+async _runFastCocotb(config) {
+    const tools = await this._waveResolveToolchain();
+    const cocotbCtx = await this._waveValidateCocotbConfig(config);
+
+    if (cocotbCtx.toplevelSource === 'directive') {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.cocotbToplevelDirective', { module: cocotbCtx.hdlTopModule }), 'tips');
+    } else {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.cocotbToplevelFallback', {
+                file: basenameOfPath(config.testbenchFile), module: cocotbCtx.hdlTopModule,
+            }), 'warning');
+    }
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbSimulator', {
+        sim: getSimulator() === 'verilator' ? 'Verilator' : 'Icarus',
+    }), 'tips');
+    statusUpdater.startCompilation(getSimulator() === 'verilator' ? 'verilator' : 'verilog');
+
+    await this._waveRunCocotbSimulation(cocotbCtx, tools, config, { wave: false });
+
+    this.terminalManager.appendToTerminal('twave',
+        tr('terminal.wave.fastDone', { name: cocotbCtx.hdlTopModule }), 'success');
 }
 
 // =====================================================================

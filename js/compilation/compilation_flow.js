@@ -699,11 +699,12 @@ async function syncToolbarEnabledState() {
     setEnabled('prismcomp', hasTop);
     setEnabled('verilatorproc', hasActiveProc);
     setEnabled('wavecomp', hasTb);
-    // Fast Sim e Verilator-only: alem do testbench, exige o toggle de
-    // simulador em Verilator (iverilog nao tem o caminho binario headless) e
-    // um testbench Verilog (.py/cocotb vai pelo Wave). Re-sincronizado no
-    // evento aurora:wave-simulator-changed (initialize()).
-    setEnabled('fastsim', hasTb && !isPyTb && getSimulator() === 'verilator');
+    // Fast Sim (headless, sem onda) tem dois caminhos:
+    //  - testbench .v  -> Verilator binario, exige o toggle em Verilator
+    //    (iverilog nao tem caminho binario headless);
+    //  - testbench .py -> cocotb headless, roda em qualquer engine.
+    // Re-sincronizado no evento aurora:wave-simulator-changed (initialize()).
+    setEnabled('fastsim', hasTb && (isPyTb || getSimulator() === 'verilator'));
     // Cancelar a simulacao segue a MESMA regra do Wave: sem testbench
     // nao da pra iniciar uma simulacao, entao o botao de cancelar (par
     // visual do Wave, a direita dele na toolbar) fica desabilitado junto.

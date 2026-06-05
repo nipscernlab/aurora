@@ -15,7 +15,7 @@
             "verilator": "Simular com Verilator — simulações longas"
         },
         "verilatorProc":   { "tooltip": "Teste do processador sintetizado (somente I/O)" },
-        "fastSim":         { "tooltip": "Execução rápida — Verilator, sem onda" },
+        "fastSim":         { "tooltip": "Execução rápida — sem onda (Verilator / cocotb)" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },
         "gtkwPicker": {
             "tooltip":         "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",
@@ -479,7 +479,6 @@
             "gtkwaveFailed":       "Falha ao abrir GTKWave: {{message}}",
             "pythonTbInVerilogMode":"Testbench Python selecionado. A simulacao Wave usa cocotb automaticamente; selecione um testbench Verilog para usar o fluxo VVP/Verilog.",
             "cocotbRequiresPythonTb":"O modo cocotb exige um testbench .py marcado como top-level de testbench.",
-            "fastSimNoPython":      "Fast Sim não suporta testbench Python (cocotb) — use o botão Wave, que roteia o cocotb.",
             "cocotbRequiresTop":    "O modo cocotb exige um arquivo Verilog top-level sintetizavel marcado como top-level.",
             "cocotbPythonMissing":  "Runtime Python interno da AURORA nao foi encontrado. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/python.",
             "cocotbBundledPythonRequired":"O modo cocotb usa obrigatoriamente o Python interno da AURORA para manter a versao encapsulada. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/python.",

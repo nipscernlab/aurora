@@ -2661,7 +2661,11 @@ class AIAssistantManager {
     this._lastEventAt = Date.now();
     switch (ev.type) {
       case 'text-delta':
-        this.showThinking(false);
+        // Do NOT hide the thinking dots here. A delta can be whitespace or a
+        // stripped tool-call artifact that produces no bubble yet, so hiding
+        // on the first raw delta left a blank gap (dots gone, no text). The
+        // dots are retired inside _renderStreamingBubble the instant real
+        // text actually lands on screen.
         this.appendDelta(ev.delta || '');
         break;
       case 'tool-call':
@@ -2778,6 +2782,11 @@ class AIAssistantManager {
       }
       return;
     }
+
+    // Real text is about to render — retire the "thinking…" dots NOW (not on
+    // the first raw delta in handleChatEvent), so the dots stay on screen
+    // continuously until the first words appear, with no blank gap between.
+    this.showThinking(false);
 
     // Create the segment bubble lazily — now that there is real text to show.
     if (!this.currentAssistantContentEl) {
@@ -2948,8 +2957,13 @@ class AIAssistantManager {
    * or the turn ending closes it (and collapses multi-step batches to a tidy
    * "N actions" summary the user can expand).
    */
-  _ensureToolGroup() {
-    if (this._toolGroup && this._toolGroup.el.isConnected) return this._toolGroup;
+  /**
+   * Build a tool-group shell — `{ el, body, summaryEl }` — with the
+   * expand/collapse header wired up. Shared by the live group
+   * (_ensureToolGroup) and the static group rebuilt when replaying a saved
+   * chat, so both render the identical "✓ N actions" collapsible bubble.
+   */
+  _createToolGroupEl() {
     const el = document.createElement('div');
     el.className = 'ai-tool-group';
     el.innerHTML = `
@@ -2964,31 +2978,59 @@ class AIAssistantManager {
       const collapsed = el.classList.toggle('collapsed');
       head.setAttribute('aria-expanded', String(!collapsed));
     });
-    this.messagesEl.appendChild(el);
-    this._toolGroup = {
+    return {
       el,
       body: el.querySelector('.ai-tool-group-body'),
       summaryEl: el.querySelector('.ai-tool-group-summary'),
-      total: 0,
     };
+  }
+
+  _ensureToolGroup() {
+    if (this._toolGroup && this._toolGroup.el.isConnected) return this._toolGroup;
+    const parts = this._createToolGroupEl();
+    this.messagesEl.appendChild(parts.el);
+    this._toolGroup = { ...parts, total: 0 };
     return this._toolGroup;
   }
 
-  /** Live header: "Running N actions…" while any chip spins, else "N actions". */
+  /** Human-friendly form of a tool name for the group header (chips keep the
+   *  raw mono name). "get_terminal_output" → "get terminal output". */
+  _prettyToolName(name) {
+    return String(name || 'tool').replace(/_/g, ' ');
+  }
+
+  /**
+   * Live header. While a chip is spinning it names WHAT is running so the
+   * user can see the current action at a glance — "Running get terminal
+   * output…" (or "Running N actions…" when several run in parallel). Idle →
+   * "N actions".
+   */
   _refreshToolGroupSummary() {
     const g = this._toolGroup;
     if (!g) return;
-    const running = this.runningChips.some((c) => g.body.contains(c.el));
-    const noun = `action${g.total === 1 ? '' : 's'}`;
-    g.summaryEl.textContent = running ? `Running ${g.total} ${noun}…` : `${g.total} ${noun}`;
+    const running = this.runningChips.filter((c) => g.body.contains(c.el));
+    if (running.length === 1) {
+      g.summaryEl.textContent = `Running ${this._prettyToolName(running[running.length - 1].toolName)}…`;
+    } else if (running.length > 1) {
+      g.summaryEl.textContent = `Running ${running.length} actions…`;
+    } else {
+      g.summaryEl.textContent = `${g.total} action${g.total === 1 ? '' : 's'}`;
+    }
   }
 
-  /** Finalise the current batch; collapse it if it ran more than one tool. */
+  /**
+   * Finalise the current batch: swap the wrench for a check and collapse the
+   * whole sequence into its own bubble — even a single action — so a finished
+   * turn reads as a tidy, modern "✓ N actions" pill the user can expand.
+   */
   _closeToolGroup() {
     const g = this._toolGroup;
     if (!g) return;
     g.summaryEl.textContent = `${g.total} action${g.total === 1 ? '' : 's'}`;
-    if (g.total >= 2) {
+    const icon = g.el.querySelector('.ai-tool-group-icon');
+    if (icon) icon.className = 'ph ph-check-circle ai-tool-group-icon';
+    g.el.classList.add('done');
+    if (g.total >= 1) {
       g.el.classList.add('collapsed');
       g.el.querySelector('.ai-tool-group-head')?.setAttribute('aria-expanded', 'false');
     }
@@ -3117,9 +3159,10 @@ class AIAssistantManager {
   }
 
   /**
-   * Renders a completed tool chip with no animation — used when replaying
+   * Builds a completed tool chip with no animation — used when replaying
    * saved conversations from history. The chip shows the final status
-   * (done / failed / denied) and a tooltip with args + result.
+   * (done / failed / denied) and a tooltip with args + result. Returns the
+   * element so the caller can drop it into the replay's collapsed group.
    */
   appendStaticToolChip(toolName, status, error, args, result) {
     const chip = document.createElement('div');
@@ -3137,7 +3180,7 @@ class AIAssistantManager {
     const tooltip = this._formatToolTooltip(args, result) ||
                     (error ? `error: ${error}` : '');
     if (tooltip) chip.title = tooltip;
-    this.messagesEl.appendChild(chip);
+    return chip;
   }
 
   /* ---------------- thinking indicator ---------------- */
@@ -3506,14 +3549,36 @@ class AIAssistantManager {
     this._lastMsgRole = null;
     if (this.chatEmptyHint) this.messagesEl.appendChild(this.chatEmptyHint);
     if (this.chatEmptyHint) this.chatEmptyHint.classList.toggle('hidden', this.messages.length > 0);
+    // Consecutive tool calls are rebuilt into one collapsed "✓ N actions"
+    // group, matching the live look so a reopened chat reads the same way.
+    let staticGroup = null;
+    const closeStaticGroup = () => {
+      if (!staticGroup) return;
+      staticGroup.summaryEl.textContent = `${staticGroup.total} action${staticGroup.total === 1 ? '' : 's'}`;
+      const icon = staticGroup.el.querySelector('.ai-tool-group-icon');
+      if (icon) icon.className = 'ph ph-check-circle ai-tool-group-icon';
+      staticGroup.el.classList.add('done', 'collapsed');
+      staticGroup.el.querySelector('.ai-tool-group-head')?.setAttribute('aria-expanded', 'false');
+      staticGroup = null;
+    };
     for (const msg of this.messages) {
       if (!msg || !msg.role) continue;
       if (msg.role === 'tool') {
-        this.appendStaticToolChip(msg.toolName, msg.status, msg.error, msg.args, msg.result);
+        if (!staticGroup) {
+          staticGroup = this._createToolGroupEl();
+          staticGroup.total = 0;
+          this.messagesEl.appendChild(staticGroup.el);
+        }
+        staticGroup.body.appendChild(
+          this.appendStaticToolChip(msg.toolName, msg.status, msg.error, msg.args, msg.result),
+        );
+        staticGroup.total += 1;
       } else if (typeof msg.content === 'string') {
+        closeStaticGroup();
         this.appendBubble(msg.role, msg.content);
       }
     }
+    closeStaticGroup();
     highlightCodeBlocks(this.messagesEl);
     this.refreshChatList();
   }

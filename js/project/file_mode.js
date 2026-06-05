@@ -93,6 +93,17 @@ class ProjectTreeManager {
         this.verilogFiles = [];
         this.isTreeActive = false;
 
+        // Monotonic counter bumped on every project switch (reset()).
+        // Async loads (loadConfiguration) capture it on entry and bail if
+        // it changed mid-flight. Without this, a loadConfiguration that
+        // started for project A — and is suspended on a disk-IO await when
+        // the user opens project B — would resume, repopulate verilogFiles
+        // with A's files AND persist them into B's .spf (saveConfiguration
+        // reads the *live* ProjectStore, which is already B). That's the
+        // "project A's files show up as Imported in project B, even after
+        // reload" bug: the leak gets written to B's .spf, so it survives.
+        this._projectEpoch = 0;
+
         // DOM element cache (populado em cacheElements pos-DOMReady).
         this.elements = {};
 
@@ -517,6 +528,11 @@ class ProjectTreeManager {
      * em vez do early-return branch com dados stale.
      */
     reset() {
+        // Bump the epoch FIRST: any loadConfiguration still in flight for
+        // the previous project will see the mismatch on its next await and
+        // bail before it can repopulate verilogFiles or persist into the
+        // newly-opened project's .spf.
+        this._projectEpoch++;
         this.isTreeActive = false;
         this.verilogFiles = [];
         this.missingFiles = [];
@@ -659,9 +675,14 @@ class ProjectTreeManager {
      *   e pura assignment; qualquer load/refresh em paralelo nao
      *   consegue backdate o dado que estamos prestes a persistir.
      */
-    async saveConfiguration() {
+    async saveConfiguration(spfPathArg) {
         try {
-            const spfPath = ProjectStore.getSpfPath();
+            // Persist to the CAPTURED path when the caller passes one
+            // (loadConfiguration captures it at entry). Falling back to the
+            // live ProjectStore here was the corruption vector: a load that
+            // started for project A would, on its trailing save, read the
+            // now-current spfPath (B) and write A's files into B's .spf.
+            const spfPath = spfPathArg || ProjectStore.getSpfPath();
             if (!spfPath) {
                 console.error('Spf path not available for sync');
                 return;
@@ -734,6 +755,12 @@ class ProjectTreeManager {
                 console.error('Spf path not available');
                 return;
             }
+
+            // Snapshot the project identity. Every disk-IO await below is a
+            // chance for the user to switch projects; if that happens, this
+            // load is stale and must NOT touch shared state (verilogFiles)
+            // or persist — the new project's own refresh will populate it.
+            const epoch = this._projectEpoch;
 
             const nextFiles = [];
             // Junta TODOS os paths que o .spf referencia mas o disco nao
@@ -808,6 +835,18 @@ class ProjectTreeManager {
 
             console.log('Loaded', nextFiles.length, 'files from configuration');
 
+            // Staleness gate. Reading the .spf + probing every file with
+            // fileExists is a long async stretch; if the user switched
+            // projects meanwhile, reset() bumped the epoch. Bail BEFORE
+            // assigning verilogFiles so the previous project's files never
+            // land in the new project's tree (nor get persisted below). The
+            // new project's own refresh — already queued via refreshTree's
+            // _refreshPending loop — populates the tree correctly.
+            if (epoch !== this._projectEpoch) {
+                console.log('⏭ loadConfiguration: project switched mid-load, discarding stale read of', spfPath);
+                return;
+            }
+
             // Dedup por path normalizado (cross-platform, case-insensitive)
             // ANTES de atribuir. Bug historico em saveConfiguration pode
             // ter escrito o mesmo arquivo em synthesizableFiles e
@@ -857,7 +896,15 @@ class ProjectTreeManager {
             // (o .spf tinha duplicates — escrever a versao limpa agora
             // para que proximas loads nao precisem dedup'ar de novo).
             if (addedPersist > 0 || reclassified || dedupRemoved > 0) {
-                await this.saveConfiguration();
+                // _discoverProcessorFiles + _classifyAll just awaited disk
+                // IO — re-check the epoch before persisting, and write to
+                // the CAPTURED spfPath. This is the line that, pre-fix,
+                // wrote project A's files into project B's .spf.
+                if (epoch !== this._projectEpoch) {
+                    console.log('⏭ loadConfiguration: project switched before save, skipping persist to', spfPath);
+                    return;
+                }
+                await this.saveConfiguration(spfPath);
             }
         } catch (error) {
             console.error('Error loading configuration:', error);

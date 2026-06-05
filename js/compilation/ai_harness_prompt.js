@@ -19,9 +19,18 @@ function detectClock(ports) {
   return p ? p.name : 'clk';
 }
 
-/** `(int32_t)`/`(int64_t)` conforme a largura (saidas sao lidas com sinal). */
-function signedCast(width) {
-  return width > 32 ? '(int64_t)' : '(int32_t)';
+/**
+ * Expressao C++ que le uma porta de saida como `long long`, respeitando
+ * signedness e largura. Uma porta SIGNED mais estreita que 64 bits precisa de
+ * sign-extension explicita — o cast de uint16/uint32 do Verilator NAO estende
+ * o sinal (ex: q signed [15:0] = -12790 sairia como 52746 sem isto).
+ */
+function dumpExpr(p) {
+  const name = `top->${p.name}`;
+  if (!p.signed) return `(long long)(unsigned long long)${name}`;
+  if (p.width >= 64) return `(long long)(int64_t)${name}`;
+  const shift = 64 - p.width;
+  return `(long long)((int64_t)((uint64_t)${name} << ${shift}) >> ${shift})`;
 }
 
 /**
@@ -40,7 +49,7 @@ export function buildHarnessPrompt({ topModule, ports, testbenchSource, feedback
   const portLines = ports.map(
     (p) => `  - ${p.name}: ${p.direction} [${p.width} bit${p.width > 1 ? 's' : ''}]`);
   const dumpLines = outs.map(
-    (p) => `     fprintf(fh, "${p.name}=%lld\\n", (long long)${signedCast(p.width)}top->${p.name});`);
+    (p) => `     fprintf(fh, "${p.name}=%lld\\n", ${dumpExpr(p)});`);
 
   const rules = [
     `1. #include "V${topModule}.h" and "verilated.h". Add: static uint64_t main_time=0; double sc_time_stamp(){return (double)main_time;}.`,

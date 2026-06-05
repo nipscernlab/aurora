@@ -57,7 +57,7 @@ import {
   instrumentGoldTestbench, compareKvDumps, hashInputs,
 } from '../wave/gold_instrumenter.js';
 import {
-  buildHarnessPrompt, extractCppFromResponse,
+  buildHarnessPrompt, extractCppFromResponse, reinjectDump,
 } from './ai_harness_prompt.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
@@ -3442,7 +3442,7 @@ async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles,
         if (!resp || !resp.ok) {
             throw new Error(tr('error.compilation.aiHarnessGenFailed', { error: resp?.error || 'unknown' }));
         }
-        const cpp = extractCppFromResponse(resp.text);
+        let cpp = extractCppFromResponse(resp.text);
         if (!cpp || resp.finishReason === 'length') {
             // Vazia, ou truncada por estourar o limite de tokens — re-gera do
             // zero (sem feedback de build, que nao se aplica a um corte).
@@ -3453,6 +3453,9 @@ async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles,
             this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiGenRetry', { attempt, max: MAX }), 'warning');
             continue;
         }
+        // Sobrescreve o bloco de dump com a versao canônica — o boilerplate de
+        // saida (sign-extension etc) nunca depende do modelo.
+        cpp = reinjectDump({ cpp, ports });
 
         await window.electronAPI.writeFile(cppPath, cpp);
         const buildSpec = buildVerilatorTbBuildSpec({

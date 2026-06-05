@@ -1,16 +1,23 @@
 /**
- * ai_harness_prompt.js — monta o prompt que pede a IA converter um testbench
- * Verilog num harness C++ Verilator SEM --timing, e extrai o C++ da resposta.
- * Puro (sem I/O): a chamada ao LLM e o loop compila-corrige vivem em
- * CompilationModule.aiHarnessRun. Ver project_fast_sim_roadmap (Fase 1, Passo 3).
+ * ai_harness_prompt.js — gera um SCAFFOLD C++ determinístico (includes, main,
+ * instanciação do DUT, loop de clock, dump das saídas) e pede a IA preencher
+ * SÓ os buracos de lógica de estímulo (@AURORA_FILL). Depois reinjectDump()
+ * sobrescreve o bloco de dump com a versão canônica — assim o boilerplate e o
+ * dump (onde mora o risco de sign-extension etc.) nunca dependem do modelo.
+ * Puro (sem I/O). Ver project_fast_sim_roadmap (Fase 2 — scaffold + fill).
  */
 
 export const HARNESS_SYSTEM_PROMPT =
-  'You are an expert in Verilator and C++. You convert a Verilog testbench into ' +
-  'a C++ harness that drives the DUT under Verilator WITHOUT --timing: the clock ' +
-  'is a plain for-loop and every #delay becomes an integer number of clock cycles. ' +
-  'You translate the testbench\'s own sequential logic (counters, reset pulses, ' +
-  'file reads) into C++. You output ONLY valid C++ source — no markdown, no prose.';
+  'You are an expert in Verilator and C++. You are given a C++ harness scaffold ' +
+  'with a few /* @AURORA_FILL ... */ holes and the Verilog testbench it must ' +
+  'reproduce. You fill ONLY the holes with C++ that drives the DUT under ' +
+  'Verilator WITHOUT --timing (the clock is the for-loop, every #delay becomes ' +
+  'an integer number of cycles), translating the testbench\'s own sequential ' +
+  'logic. You keep everything outside the holes byte-for-byte. You output ONLY ' +
+  'valid C++ — no markdown, no prose.';
+
+const DUMP_BEGIN = '// AURORA_DUMP_BEGIN -- deterministic, keep verbatim';
+const DUMP_END = '// AURORA_DUMP_END';
 
 /** Heuristica de clock: porta input 1-bit com nome tipo clk/clock. */
 function detectClock(ports) {
@@ -21,9 +28,9 @@ function detectClock(ports) {
 
 /**
  * Expressao C++ que le uma porta de saida como `long long`, respeitando
- * signedness e largura. Uma porta SIGNED mais estreita que 64 bits precisa de
+ * signedness e largura. SIGNED mais estreita que 64 bits precisa de
  * sign-extension explicita — o cast de uint16/uint32 do Verilator NAO estende
- * o sinal (ex: q signed [15:0] = -12790 sairia como 52746 sem isto).
+ * o sinal (ex: q signed [15:0] = -12790 sairia 52746 sem isto).
  */
 function dumpExpr(p) {
   const name = `top->${p.name}`;
@@ -34,57 +41,115 @@ function dumpExpr(p) {
 }
 
 /**
- * Monta { system, user } pro one-shot. `feedback` (opcional) injeta o erro do
- * build da tentativa anterior, pro loop compila-corrige.
+ * Bloco de dump determinístico (entre os marcadores AURORA_DUMP_*). Escreve
+ * uma linha "porta=valor" por saida em harness_final.txt. Reusado pelo scaffold
+ * e pela re-injecao — a unica fonte da verdade do dump.
+ */
+function dumpSection(ports) {
+  const outs = ports.filter((p) => p.direction === 'output');
+  const lines = outs.map((p) => `        fprintf(fh, "${p.name}=%lld\\n", ${dumpExpr(p)});`);
+  return [
+    `    ${DUMP_BEGIN}`,
+    '    {',
+    '        FILE* fh = fopen("harness_final.txt", "w");',
+    '        if (fh) {',
+    ...lines,
+    '            fclose(fh);',
+    '        }',
+    '    }',
+    `    ${DUMP_END}`,
+  ].join('\n');
+}
+
+/**
+ * Scaffold C++ determinístico: tudo fixo menos as 4 regiões @AURORA_FILL
+ * (setup, total_cycles, drive, advance). O clock e o dump já vêm prontos.
  *
  * @param {object} opts
  * @param {string} opts.topModule
- * @param {Array<{name,direction,width}>} opts.ports
- * @param {string} opts.testbenchSource
- * @param {{ previousCpp:string, buildError:string }} [opts.feedback]
+ * @param {Array<{name,direction,width,signed}>} opts.ports
+ */
+export function buildHarnessScaffold({ topModule, ports }) {
+  const clk = detectClock(ports);
+  return [
+    `#include "V${topModule}.h"`,
+    '#include "verilated.h"',
+    '#include <cstdint>',
+    '#include <cstdio>',
+    '#include <cstring>',
+    '#include <cstdlib>',
+    '',
+    'static uint64_t main_time = 0;',
+    'double sc_time_stamp() { return (double)main_time; }',
+    '',
+    'int main(int argc, char** argv) {',
+    '    Verilated::commandArgs(argc, argv);',
+    `    V${topModule}* top = new V${topModule};`,
+    '',
+    "    /* @AURORA_FILL setup: declare the testbench's own registers (counters,",
+    '       reset/strobe regs, last-driven data) as C++ locals initialised like the',
+    '       testbench, and fopen() each input data file the testbench reads. */',
+    '',
+    "    /* @AURORA_FILL total_cycles: from the testbench's #delays and $finish.",
+    '       Clock "always #N" => full period = 2*N; a "#M" delay = M/(2*N) cycles. */',
+    '    long long TOTAL_CYCLES = /* @AURORA_FILL: cycle count */ 0;',
+    '',
+    '    for (long long cyc = 0; cyc < TOTAL_CYCLES; cyc++) {',
+    '        /* @AURORA_FILL drive: set top->* inputs for THIS posedge — reset levels,',
+    '           strobes, and any file read the testbench does on this edge. Mask to width. */',
+    '',
+    `        top->${clk} = 1; top->eval(); main_time += 2;   // posedge: outputs valid here`,
+    `        top->${clk} = 0; top->eval(); main_time += 2;   // negedge`,
+    '',
+    "        /* @AURORA_FILL advance: update the testbench's own registers for the NEXT",
+    '           cycle, computed from their values BEFORE this posedge (non-blocking <=). */',
+    '    }',
+    '',
+    dumpSection(ports),
+    '',
+    '    top->final();',
+    '    delete top;',
+    '    return 0;',
+    '}',
+  ].join('\n');
+}
+
+/**
+ * Monta { system, user } pro one-shot: o scaffold + o testbench + as regras de
+ * preenchimento. `feedback` (opcional) injeta o erro de build da tentativa
+ * anterior (loop compila-corrige).
  */
 export function buildHarnessPrompt({ topModule, ports, testbenchSource, feedback }) {
-  const outs = ports.filter((p) => p.direction === 'output');
+  const scaffold = buildHarnessScaffold({ topModule, ports });
   const clk = detectClock(ports);
   const portLines = ports.map(
-    (p) => `  - ${p.name}: ${p.direction} [${p.width} bit${p.width > 1 ? 's' : ''}]`);
-  const dumpLines = outs.map(
-    (p) => `     fprintf(fh, "${p.name}=%lld\\n", ${dumpExpr(p)});`);
+    (p) => `  - ${p.name}: ${p.direction} [${p.width} bit${p.width > 1 ? 's' : ''}]${p.signed ? ' signed' : ''}`);
 
   const rules = [
-    `1. #include "V${topModule}.h" and "verilated.h". Add: static uint64_t main_time=0; double sc_time_stamp(){return (double)main_time;}.`,
-    `2. CYCLE COUNTING (this is the most common mistake — read carefully): the clock is "always #N clk = ~clk", so it FLIPS every N time units and ONE FULL CLOCK CYCLE lasts 2*N time units. To turn a "#M" delay into a cycle count, divide by the FULL period 2*N — NOT by N. Worked example: with "always #2 clk", N=2 so the full period = 4; a "#450000" delay = 450000/4 = 112500 cycles; an initial block that runs "#450000" ten times = 10 * 112500 = 1125000 cycles. Compute TOTAL_CYCLES this way from the testbench's $finish.`,
-    `3. Loop skeleton — exactly one full clock cycle per iteration, in this order:`,
-    `     for (long long cyc = 0; cyc < TOTAL_CYCLES; cyc++) {`,
-    `       // (a) drive the DUT inputs for THIS posedge: apply the testbench's signal`,
-    `       //     drives for this cycle; if the testbench reads a file on this edge,`,
-    `       //     read one value here and drive the corresponding input (masked to width).`,
-    `       top->${clk} = 1; top->eval(); main_time += 2;   // posedge: registers update, outputs valid`,
-    `       top->${clk} = 0; top->eval(); main_time += 2;   // negedge`,
-    `       // (b) advance the testbench's OWN registers for the NEXT cycle, computed`,
-    `       //     from their values BEFORE this posedge (non-blocking <= semantics).`,
-    `     }`,
-    `4. Reimplement the testbench's own sequential logic (counters, reset pulses, generated strobes, conditional file reads) in C++ using the non-blocking rule above — keep a "next_*" for each registered signal, compute it from pre-posedge values, and commit it in step (b). A reset like "#A sig=1; #B sig=0;" becomes: drive sig=1 while cyc is in [A/period, (A+B)/period), else 0.`,
-    `5. Read data files with the SAME names the testbench uses ($fscanf("%d") -> fscanf). Mask each driven input to its port width.`,
-    `6. MANDATORY for validation — after the loop, write a file named exactly "harness_final.txt", one "PORT=VALUE" line per OUTPUT port:`,
-    `     FILE* fh = fopen("harness_final.txt", "w");`,
-    ...dumpLines,
-    `     fclose(fh);`,
-    `   Use EXACTLY these output names: ${outs.map((p) => p.name).join(', ')}.`,
-    `7. No timing constructs in the C++ (no #delay, no @(posedge), no wait, no fork/join). End with top->final(); delete top; return 0;.`,
-    `Output ONLY the C++ source (no \`\`\` fences, no commentary).`,
+    `- CYCLE COUNTING (most common mistake): clock "always #N clk=~clk" FLIPS every N time units, so ONE FULL CYCLE = 2*N. Divide "#M" delays by the FULL period 2*N, not N. Worked example: "always #2" => period 4 => a "#450000" delay = 450000/4 = 112500 cycles; a loop running "#450000" ten times = 1125000 cycles. Set TOTAL_CYCLES that way.`,
+    `- NON-BLOCKING: for each of the testbench's own registers (counters, reset pulses, strobes) keep a next_* in the "drive" region computed from pre-posedge values, and commit it in the "advance" region.`,
+    `- A reset "#A sig=1; #B sig=0;" => drive that input = 1 while cyc is in [A/period, (A+B)/period), else 0.`,
+    `- Read files with the SAME names the testbench uses ($fscanf("%d",&x) -> fscanf). Mask each driven input to its width.`,
+    `- The clock "${clk}" is already toggled in the loop — do NOT toggle it in the fills.`,
+    'Output ONLY the complete C++ file (no ``` fences, no commentary).',
   ];
 
   let user = [
-    `Top-level module (DUT): ${topModule}. Verilator generates V${topModule}.h and class V${topModule}. Detected clock port: ${clk}.`,
+    `Top-level DUT: ${topModule} (Verilator class V${topModule}; detected clock port: ${clk}).`,
     '',
     'DUT ports:',
     ...portLines,
     '',
-    'Original Verilog testbench to translate:',
+    'SCAFFOLD — return this COMPLETE file with every /* @AURORA_FILL ... */ region replaced',
+    'by C++. Keep everything else byte-for-byte; the block between the AURORA_DUMP markers is',
+    'generated and must stay exactly as-is.',
+    '',
+    scaffold,
+    '',
+    'Verilog testbench to translate into the @AURORA_FILL regions:',
     testbenchSource,
     '',
-    'Write the C++ harness. Rules:',
+    'Rules:',
     ...rules,
   ].join('\n');
 
@@ -98,7 +163,7 @@ export function buildHarnessPrompt({ topModule, ports, testbenchSource, feedback
       'Verilator/g++ reported:',
       feedback.buildError,
       '',
-      'Fix the C++ so it compiles. Output ONLY the corrected C++ source.',
+      'Fix the C++ so it compiles. Output ONLY the corrected complete C++ source.',
     ].join('\n');
   }
 
@@ -106,12 +171,28 @@ export function buildHarnessPrompt({ topModule, ports, testbenchSource, feedback
 }
 
 /**
- * Extrai o C++ da resposta do LLM: pega o conteudo do primeiro bloco
- * ```cpp ... ``` se houver; senao usa o texto cru. Garante \n final.
+ * Extrai o C++ da resposta do LLM: conteudo do primeiro bloco ```...``` se
+ * houver; senao o texto cru. Garante \n final.
  */
 export function extractCppFromResponse(text) {
   const t = String(text || '');
   const fence = t.match(/```(?:cpp|c\+\+|c)?\s*\n([\s\S]*?)```/i);
   const body = (fence ? fence[1] : t).trim();
   return body ? `${body}\n` : '';
+}
+
+/**
+ * Sobrescreve o bloco de dump do C++ gerado com a versao canônica (a IA pode
+ * te-lo alterado apesar da instrucao). Se os marcadores sumiram, devolve o cpp
+ * intocado (o build/validacao pega o resto). Determinístico.
+ */
+export function reinjectDump({ cpp, ports }) {
+  const s = String(cpp || '');
+  const begin = s.indexOf(DUMP_BEGIN);
+  const endIdx = s.indexOf(DUMP_END);
+  if (begin === -1 || endIdx === -1 || endIdx < begin) return s;
+  // recua ate o inicio da linha do marcador begin (preserva indentacao)
+  const lineStart = s.lastIndexOf('\n', begin) + 1;
+  const end = endIdx + DUMP_END.length;
+  return s.slice(0, lineStart) + dumpSection(ports) + s.slice(end);
 }

@@ -855,7 +855,14 @@ void main()
       spfData.metadata.lastModified = new Date().toISOString();
       spfData.structure = spfData.structure || {};
       spfData.structure.basePath = movedRoot;
-      deepRemapPaths(spfData.structure, oldRoot, movedRoot);
+      // Remap the ENTIRE .spf — not just structure — so no absolute path
+      // anywhere is left pointing at the old root: the synth/testbench file
+      // lists, the top-level/testbench pointers, per-processor entries,
+      // persisted command-override cwd/env (structure.commandOverrides),
+      // gtkw save files, AND any future top-level field. metadata.projectName
+      // (a name, not a path) and the already-updated projectPath/basePath are
+      // safe: remapRootPath only rewrites strings that sit under oldRoot.
+      deepRemapPaths(spfData, oldRoot, movedRoot);
 
       await fse.writeFile(newSpfPath, JSON.stringify(spfData, null, 2));
 

@@ -3421,8 +3421,9 @@ async aiHarnessRun() {
  */
 async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles, objDir, tempBaseDir, T }) {
     const providerName = window.aiAssistantManager?.currentProvider || null;
+    // generateOneshot vive no namespace aiAPI (preload), NAO em electronAPI.
     if (!providerName || providerName === 'claude-code' || providerName === 'chatgpt'
-        || typeof window.electronAPI.generateOneshot !== 'function') {
+        || typeof window.aiAPI?.generateOneshot !== 'function') {
         throw new Error(tr('error.compilation.aiHarnessNoProvider'));
     }
     const testbenchSource = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
@@ -3435,7 +3436,7 @@ async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles,
         this.terminalManager.appendToTerminal(T,
             tr('terminal.htest.aiGenerating', { attempt, max: MAX, provider: providerName }), 'info');
         const { system, user } = buildHarnessPrompt({ topModule, ports, testbenchSource, feedback });
-        const resp = await window.electronAPI.generateOneshot({
+        const resp = await window.aiAPI.generateOneshot({
             provider: providerName, system, prompt: user, maxOutputTokens: 8000,
         });
         if (!resp || !resp.ok) {

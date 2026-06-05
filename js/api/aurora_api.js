@@ -991,6 +991,11 @@ const projectNs = {
       }
     } catch (e) { return err(e?.message || 'project reload failed'); }
 
+    // Drop the OLD project from the welcome-screen recents (localStorage).
+    // loadProject already added the new .spf; main's recents.json self-prunes
+    // the old path since it no longer exists on disk after the move.
+    try { window.recentProjectsManager?.removeProject?.(spfPath); } catch (_) { /* best-effort */ }
+
     emit('project:renamed', { oldName: r?.oldName, newName: r?.newName, spfPath: newSpfPath });
     return ok({ oldName: r?.oldName, newName: r?.newName, spfPath: newSpfPath });
   },
@@ -1230,6 +1235,13 @@ const projectNs = {
         TabManager.addTab(reopenCmm, content);
       } catch (_) { /* the .cmm may not exist; leave it */ }
     }
+
+    // The rename released the project's directory watcher so Windows would let
+    // the processor folder move. Re-establish it on the (unchanged) project
+    // root — main creates a fresh chokidar since releaseWatchersUnder dropped
+    // the entry — so file-system changes are detected again, no reopen needed.
+    try { await window.electronAPI.watchDirectory?.(window.currentProjectPath); }
+    catch (_) { /* best-effort; a project reopen would also restore it */ }
 
     await refreshTree();
     emit('project:processor-renamed', { oldName: realOld, newName: realNew });

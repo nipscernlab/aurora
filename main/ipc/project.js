@@ -146,16 +146,25 @@ async function releaseWatchersUnder(rootDir) {
     const n = String(p || '').replace(/\//g, path.sep).toLowerCase();
     return n === r || n.startsWith(r + sep);
   };
+  // chokidar's close() can hang on Windows while the watched tree is mid-change;
+  // if it wedges, a rename would stall until the IPC's 120 s tool timeout (the
+  // "renomeação excedeu o tempo limite" symptom). Bound each close so handle
+  // release is best-effort but never blocks the rename — moveWithRetry below
+  // absorbs a lock that wasn't quite released in time.
+  const closeBounded = (watcher) => Promise.race([
+    Promise.resolve().then(() => watcher.close()).catch(() => {}),
+    new Promise((resolve) => setTimeout(resolve, 1500)),
+  ]);
   for (const [dirPath, info] of [...state.activeDirectoryWatchers.entries()]) {
     if (under(dirPath)) {
-      try { await info.watcher.close(); } catch (_) { /* already gone */ }
+      await closeBounded(info.watcher);
       state.activeDirectoryWatchers.delete(dirPath);
       state.directoryStatsCache.delete(dirPath);
     }
   }
   for (const [filePath, info] of [...state.activeWatchers.entries()]) {
     if (under(info.filePath || filePath)) {
-      try { await info.watcher.close(); } catch (_) { /* already gone */ }
+      await closeBounded(info.watcher);
       state.activeWatchers.delete(filePath);
     }
   }
@@ -694,15 +703,23 @@ void main()
         throw new Error(`A folder named "${newNm}" already exists in the project`);
       }
 
+      // Release the project's file/dir watchers FIRST. chokidar
+      // (ReadDirectoryChangesW) keeps a handle on the watched tree, so moving
+      // a watched subfolder otherwise fails with EPERM ("operation not
+      // permitted") — exactly the processor-rename failure. The renderer
+      // re-establishes watching after the rename.
+      await releaseWatchersUnder(projectDir);
+
       // 1. Move the processor directory. A case-only rename on a
       //    case-insensitive FS (Windows) needs a temp hop so the OS
-      //    actually re-cases the folder.
+      //    actually re-cases the folder. moveWithRetry rides out a brief
+      //    residual lock (AV / indexer / a just-released watcher handle).
       if (caseOnly) {
         const tmpDir = path.join(projectDir, `__rename_${Date.now()}__`);
-        await fse.move(oldDir, tmpDir, { overwrite: false });
-        await fse.move(tmpDir, newDir, { overwrite: false });
+        await moveWithRetry(oldDir, tmpDir, { overwrite: false });
+        await moveWithRetry(tmpDir, newDir, { overwrite: false });
       } else {
-        await fse.move(oldDir, newDir, { overwrite: false });
+        await moveWithRetry(oldDir, newDir, { overwrite: false });
       }
 
       // 2. Rename the SAPHO-managed files that carry the processor name.

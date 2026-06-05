@@ -89,6 +89,9 @@ const STEP_TERMINALS = Object.freeze({
     'verilator-proc': ['thtest'],
     // Fast Sim (Verilator headless, sem onda): mesmo terminal do Wave.
     'verilator-fast': ['twave'],
+    // Harness IA (teste de sintese de top-level generico): THTEST, igual ao
+    // verilator-proc (e teste de hardware, nao simulacao/onda).
+    'ai-harness': ['thtest'],
 });
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 
@@ -101,6 +104,7 @@ const ERROR_TERMINAL = Object.freeze({
     prism:   'tveri',
     'verilator-proc': 'thtest',
     'verilator-fast': 'twave',
+    'ai-harness': 'thtest',
 });
 
 function switchTerminal(targetId) {
@@ -568,6 +572,29 @@ async function handleFastSimStep() {
 }
 
 /**
+ * Botao Harness IA (teste de sintese de top-level generico): roda o DUT
+ * top-level sob Verilator sem --timing e sem onda, dirigido por um harness
+ * C++ que substitui o testbench. Pre-compila cmm+asm caso o top instancie
+ * processadores SAPHO (no-op senao). Ver project_fast_sim_roadmap.
+ */
+async function handleAiHarnessStep() {
+    startCompilation(STEP_TERMINALS['ai-harness']);
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        await compiler.loadConfig();
+        await precompileAllProcessors(compiler, 'tcmm');
+        switchTerminal('terminal-thtest');
+        window.statusUpdater?.startCompilation?.('verilator-proc');
+        await compiler.aiHarnessRun();
+    } catch (error) {
+        console.error('Erro na etapa harness IA:', error);
+        logFatalError('thtest', error);
+    } finally {
+        endCompilation();
+    }
+}
+
+/**
  * Botao PRISM: cmm + asm + iverilog -tnull (top-level) — i.e., faz
  * tudo que o botao Verilog faz — e depois invoca yosys via IPC pra
  * analise estrutural. PRISM e um superset do Verilog.
@@ -698,6 +725,10 @@ async function syncToolbarEnabledState() {
     setEnabled('vericomp', hasTop);
     setEnabled('prismcomp', hasTop);
     setEnabled('verilatorproc', hasActiveProc);
+    // Harness IA: teste de sintese de top-level generico via Verilator. Exige
+    // top-level (DUT) + testbench (a IA converte o estimulo). Sempre-Verilator
+    // (nao depende do toggle, igual ao verilator-proc).
+    setEnabled('aiharness', hasTop && hasTb);
     setEnabled('wavecomp', hasTb);
     // Fast Sim (headless, sem onda) tem dois caminhos:
     //  - testbench .v  -> Verilator binario, exige o toggle em Verilator
@@ -737,6 +768,7 @@ class CompilationFlowManager {
         document.getElementById('prismcomp')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('prism'));
         document.getElementById('verilatorproc')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-proc'));
         document.getElementById('fastsim')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-fast'));
+        document.getElementById('aiharness')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('ai-harness'));
         document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
         document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
 
@@ -824,6 +856,7 @@ class CompilationFlowManager {
                 case 'prism':     await handlePrismStep(); break;
                 case 'verilator-proc': await handleVerilatorProcStep(); break;
                 case 'verilator-fast': await handleFastSimStep(); break;
+                case 'ai-harness': await handleAiHarnessStep(); break;
                 default:
                     console.warn(`Passo desconhecido: ${step}`);
                     logFatalError(

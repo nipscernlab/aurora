@@ -195,6 +195,17 @@
                 </svg>
               </span>
           </button>
+          <!-- Harness IA: teste de sintese de top-level generico. So habilita com
+               top-level + testbench (compilation_flow.syncToolbarEnabledState). -->
+          <button id="aiharness" class="toolbar-button compile-btn" data-tool="ai-harness" data-tooltip="Synthesized top-level test (AI harness)" data-i18n-tooltip="toolbar.aiHarness.tooltip">
+              <span class="glyph glyph-aiharness" aria-hidden="true">
+                <svg viewBox="0 0 16 16">
+                  <!-- Chip outline + AI sparkle: synthesized top-level test via AI harness -->
+                  <rect x="3.5" y="3.5" width="9" height="9" rx="1"/>
+                  <path d="M8 5 L8.8 7.2 L11 8 L8.8 8.8 L8 11 L7.2 8.8 L5 8 L7.2 7.2 Z"/>
+                </svg>
+              </span>
+          </button>
       </div>
     </div>
 

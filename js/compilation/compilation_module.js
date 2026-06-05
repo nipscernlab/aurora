@@ -3262,6 +3262,110 @@ async verilatorProcessorRun() {
     }
 }
 
+// =====================================================================
+// Botao "Synthesized top-level test (AI harness)" — Fase 1
+// =====================================================================
+//
+// Roda um TOP-LEVEL GENERICO sob Verilator no modo mais rapido (sem
+// --timing, sem onda), dirigido por um harness C++ que SUBSTITUI o
+// testbench. Reusa o pipeline do verilator-proc (json-only -> portas ->
+// --cc --exe --build -> run), so trocando a origem do harness.
+//
+// PASSO 1 do roadmap (atual): o harness e LIDO de
+// <projeto>/<top>_harness.cpp (escrito a mao, pra validar o pipeline
+// build->run end-to-end). Os passos seguintes plugam: (2) validacao por
+// $fwrite das saidas top-level contra o gabarito + cache por hash; (3)
+// geracao do harness pela IA. Ver project_fast_sim_roadmap.
+
+/**
+ * Pipeline do harness IA (Passo 1). Throws com mensagem clara em cada falha.
+ */
+async aiHarnessRun() {
+    await this.initializeComponentsPath();
+    if (!this.projectConfig) throw new Error(tr('error.config.notLoaded'));
+    const config = this.validateForWave();
+    if (!config.topLevelFile) throw new Error(tr('error.compilation.noTopLevel'));
+
+    const topModule = moduleStemFromPath(config.topLevelFile);
+    const synthFiles = Array.isArray(config.synthesizableFiles) ? config.synthesizableFiles : [];
+    const tools = await this._waveResolveVerilatorTools();
+    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_ai_${topModule}`);
+    await window.electronAPI.mkdir(objDir);
+    const T = 'thtest';
+
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiStart', { name: topModule }), 'info');
+
+    // ---- Passo 1: portas do DUT via --json-only (sem o testbench) ----
+    this.terminalManager.appendToTerminal(T, tr('terminal.wave.procPorts', { name: topModule }), 'info');
+    const jsonSpec = buildVerilatorJsonSpec({
+        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        hdlPath, topModule, objDir,
+        sourceFiles: synthFiles, cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(jsonSpec), 'info', { internal: true });
+    const jsonResult = await runSpec(jsonSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput(T, jsonResult);
+    if (jsonResult.code !== 0) throw new Error(tr('error.compilation.verilatorJsonFailed', { code: jsonResult.code }));
+    const jsonPath = await window.electronAPI.joinPath(objDir, `V${topModule}.tree.json`);
+    if (!await window.electronAPI.fileExists(jsonPath)) {
+        throw new Error(tr('error.compilation.verilatorJsonMissing', { path: jsonPath }));
+    }
+    const ports = parseVerilatorPorts(JSON.parse(await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' })));
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiPorts', {
+        ins: ports.filter((p) => p.direction === 'input').map((p) => p.name).join(', ') || '—',
+        outs: ports.filter((p) => p.direction === 'output').map((p) => p.name).join(', ') || '—',
+    }), 'info');
+
+    // ---- Passo 2: obtem o harness C++ (PASSO 1: lido de arquivo, a mao) ----
+    const harnessSrcPath = await window.electronAPI.joinPath(this.projectPath, `${topModule}_harness.cpp`);
+    if (!await window.electronAPI.fileExists(harnessSrcPath)) {
+        throw new Error(tr('error.compilation.aiHarnessMissing', { path: harnessSrcPath }));
+    }
+    const cppPath = await window.electronAPI.joinPath(tempBaseDir, `ai_${topModule}.cpp`);
+    await window.electronAPI.writeFile(cppPath, await window.electronAPI.readFile(harnessSrcPath, { encoding: 'utf8' }));
+
+    // ---- Passo 3: build (synth + harness, --cc --exe --build SEM --timing) ----
+    this.terminalManager.appendToTerminal(T, tr('terminal.wave.procBuilding', { name: topModule }), 'info');
+    const buildSpec = buildVerilatorTbBuildSpec({
+        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        hdlPath, topModule, objDir,
+        sourceFiles: [...synthFiles, cppPath], cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(buildSpec), 'info', { internal: true });
+    const buildResult = await runSpec(buildSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput(T, buildResult);
+    if (buildResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbBuildFailed', { code: buildResult.code }));
+
+    let exePath = await window.electronAPI.joinPath(objDir, `V${topModule}.exe`);
+    if (!await window.electronAPI.fileExists(exePath)) {
+        const fallback = await window.electronAPI.joinPath(objDir, `V${topModule}`);
+        if (!await window.electronAPI.fileExists(fallback)) {
+            throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
+        }
+        exePath = fallback;
+    }
+
+    // ---- Passo 4: roda no dir do testbench (onde os data files do tb vivem) ----
+    const runCwd = config.testbenchFile
+        ? await window.electronAPI.dirname(config.testbenchFile)
+        : this.projectPath;
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiRunning', { name: topModule }), 'info');
+    const runHarnessSpec = buildVerilatorTbRunSpec({
+        exePath, cwd: runCwd,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+    });
+    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(runHarnessSpec), 'info', { internal: true });
+    const runRes = await runSpec(runHarnessSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput(T, runRes);
+    if (runRes.code !== 0) throw new Error(tr('error.compilation.aiHarnessRunFailed', { code: runRes.code }));
+
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiDone', { name: topModule }), 'success');
+}
+
 /**
  * Varre subdirectorias de tempBaseDir procurando arquivos pc_*_mem.txt
  * (gerados pelo cmmcomp em cada Temp/<proc>/) e copia pro proprio

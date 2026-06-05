@@ -15,6 +15,7 @@
             "verilator": "Simular com Verilator — simulações longas"
         },
         "verilatorProc":   { "tooltip": "Teste do processador sintetizado (somente I/O)" },
+        "aiHarness":       { "tooltip": "Teste de síntese de top-level (harness IA)" },
         "fastSim":         { "tooltip": "Execução rápida — sem onda (Verilator / cocotb)" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },
         "gtkwPicker": {
@@ -390,7 +391,11 @@
             "toaquiAdded":   "Adicionei #TOAQUI antes do } que fecha o main() em {{file}} — o pino 'cheguei' agora pulsa no fim do programa, então a simulação encerra assim que o programa termina.",
             "toaquiPresent": "{{file}} já tem um #TOAQUI — mantido como está.",
             "toaquiNoMain":  "Não encontrei o } que fecha o main() em {{file}} — #TOAQUI não adicionado; a simulação vai rodar o teto de clocks inteiro.",
-            "chegueiEnd":    "Fim do programa alcançado no clock {{clock}} (pino cheguei) — simulação encerrada antes do teto."
+            "chegueiEnd":    "Fim do programa alcançado no clock {{clock}} (pino cheguei) — simulação encerrada antes do teto.",
+            "aiStart":   "=== Teste com harness IA: \"{{name}}\" (Verilator, sem timing/onda) ===",
+            "aiPorts":   "Portas do DUT — in: {{ins}} | out: {{outs}}",
+            "aiRunning": "Rodando o harness de \"{{name}}\"...",
+            "aiDone":    "Teste com harness IA concluído: {{name}}."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave fechado - restaurando árvore de arquivos padrão...",
@@ -496,6 +501,8 @@
             "verilatorJsonFailed": "Verilator --json-only falhou com código {{code}} ao descobrir os pinos do processador.",
             "verilatorJsonMissing":"O AST JSON do Verilator não foi gerado: {{path}}",
             "verilatorTbBuildFailed":"Build do harness Verilator falhou com código {{code}}.",
+            "aiHarnessMissing":     "Harness C++ não encontrado em {{path}}. (Passo 1 do roadmap: escreva à mão pra testar o pipeline; a geração pela IA vem depois.)",
+            "aiHarnessRunFailed":   "Execução do harness IA falhou com código {{code}}.",
             "verilatorTbRunFailed":"Execução do harness Verilator falhou com código {{code}}.",
             "noProcessor":         "Nenhum processador no projeto. O botão Verilator (processador) precisa de um processador com .cmm.",
             "noActiveProcessor":   "Nenhum processador ativo. Abra o .cmm de um processador no editor (o nome aparece na barra de status) e clique em Verilator de novo.",

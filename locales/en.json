@@ -15,6 +15,7 @@
             "verilator": "Simulate with Verilator — long simulations"
         },
         "verilatorProc":   { "tooltip": "Synthesized processor test (I/O only)" },
+        "aiHarness":       { "tooltip": "Synthesized top-level test (AI harness)" },
         "fastSim":         { "tooltip": "Fast run — no waveform (Verilator / cocotb)" },
         "waveConfig":      { "tooltip": "Wave Configuration — pick signals to dump" },
         "gtkwPicker": {
@@ -389,7 +390,11 @@
             "toaquiAdded":   "Added #TOAQUI before main()'s closing brace in {{file}} — the 'cheguei' pin now pulses at program end, so the sim stops as soon as the program finishes.",
             "toaquiPresent": "{{file}} already has a #TOAQUI — leaving it as is.",
             "toaquiNoMain":  "Could not find main()'s closing brace in {{file}} — #TOAQUI not added; the sim will run the full clock budget.",
-            "chegueiEnd":    "Program end reached at clock {{clock}} (cheguei pin) — simulation stopped early."
+            "chegueiEnd":    "Program end reached at clock {{clock}} (cheguei pin) — simulation stopped early.",
+            "aiStart":   "=== AI harness test: \"{{name}}\" (Verilator, no timing/wave) ===",
+            "aiPorts":   "DUT ports — in: {{ins}} | out: {{outs}}",
+            "aiRunning": "Running the harness for \"{{name}}\"...",
+            "aiDone":    "AI harness test finished: {{name}}."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",
@@ -495,6 +500,8 @@
             "verilatorJsonFailed": "Verilator --json-only failed with exit code {{code}} while discovering processor pins.",
             "verilatorJsonMissing":"Verilator JSON AST was not generated: {{path}}",
             "verilatorTbBuildFailed":"Verilator harness build failed with exit code {{code}}.",
+            "aiHarnessMissing":     "C++ harness not found at {{path}}. (Step 1 of the roadmap: write it by hand to test the pipeline; AI generation comes next.)",
+            "aiHarnessRunFailed":   "AI harness run failed with exit code {{code}}.",
             "verilatorTbRunFailed":"Verilator harness run failed with exit code {{code}}.",
             "noProcessor":         "No processor in the project. The Verilator (processor) button needs a processor with a .cmm.",
             "noActiveProcessor":   "No active processor. Open a processor's .cmm in the editor (the name shows in the status bar) and click Verilator again.",

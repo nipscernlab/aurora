@@ -61,7 +61,8 @@
         "missingFiles": {
             "headlineOne":   "1 arquivo listado no projeto está faltando no disco",
             "headlineOther": "{{count}} arquivos listados no projeto estão faltando no disco",
-            "notification":  "{{count}} arquivo(s) do projeto estão faltando no disco. Veja a lista no file tree."
+            "notification":  "{{count}} arquivo(s) do projeto estão faltando no disco. Veja a lista no file tree.",
+            "dismissTitle":  "Dispensar este aviso"
         }
     },
     "modal": {
@@ -244,6 +245,13 @@
             "message":         "Tem certeza que deseja excluir \"<strong>{{name}}</strong>\"? Esta ação não pode ser desfeita.",
             "fallbackPrompt":  "Excluir \"{{name}}\"? Esta ação não pode ser desfeita.",
             "delete":          "Excluir"
+        },
+        "dismissMissing": {
+            "title":           "Dispensar o aviso de arquivos faltantes?",
+            "message":         "{{count}} arquivo(s) referenciado(s) por este projeto não existem mais no disco. Dispensar remove essas referências do projeto (o .spf) — faça isso apenas se você apagou os arquivos de propósito. Os arquivos já não existem; isto só faz o Aurora parar de sinalizá-los. Esta ação não pode ser desfeita.",
+            "fallbackPrompt":  "Remover as referências de arquivos faltantes deste projeto? Esta ação não pode ser desfeita.",
+            "cancel":          "Manter aviso",
+            "confirm":         "Remover referências"
         }
     },
     "statusBar": {
@@ -320,6 +328,7 @@
             "alreadyExists":      "\"{{name}}\" já existe",
             "noValidFiles":       "Nenhum arquivo válido para importar",
             "added":              "Adicionados {{count}} arquivo(s) com sucesso",
+            "missingDismissed":   "Removida(s) {{count}} referência(s) a arquivos faltantes do projeto",
             "created":            "\"{{name}}\" criado com sucesso",
             "invalidName":        "\"{{name}}\" tem caracteres inválidos. Use apenas letras, números, '_' e '-'. Sugestão: {{suggestion}}",
             "errorCreating":      "Erro ao criar arquivo",

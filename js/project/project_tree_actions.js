@@ -533,6 +533,66 @@ async def basic_test(dut):
         });
     },
 
+    // ----- missing files notice ----------------------------------------
+
+    /**
+     * Prune EVERY dangling reference (this.missingFiles) from the .spf in a
+     * single transaction — the synth/testbench lists plus the top-level /
+     * testbench pointers when they point at a missing path. The on-disk files
+     * are already gone; this only cleans up the project's stale references so
+     * the warning stops reappearing on each load.
+     *
+     * No confirmation here — the caller owns that. The file-tree button calls
+     * confirmAndDismissMissingFiles() (which asks first); AuroraAPI's
+     * dismissMissingFiles() calls this directly (the AI acting on the user's
+     * explicit request). Returns the count pruned; no-op (0) when none.
+     */
+    async dismissMissingFiles() {
+        const spfPath = ProjectStore.getSpfPath();
+        const missing = Array.isArray(this.missingFiles) ? this.missingFiles : [];
+        if (!spfPath || missing.length === 0) return 0;
+        const keys = new Set(missing.map((f) => this._normalizePath(f.path)));
+        await SpfStore.update(spfPath, (cfg) => {
+            const filterOut = (arr) => (Array.isArray(arr) ? arr : []).filter(
+                (f) => !keys.has(this._normalizePath(f.path)),
+            );
+            cfg.synthesizableFiles = filterOut(cfg.synthesizableFiles);
+            cfg.testbenchFiles = filterOut(cfg.testbenchFiles);
+            if (typeof cfg.topLevelFile === 'string' && keys.has(this._normalizePath(cfg.topLevelFile))) {
+                cfg.topLevelFile = '';
+            }
+            if (typeof cfg.testbenchFile === 'string' && keys.has(this._normalizePath(cfg.testbenchFile))) {
+                cfg.testbenchFile = '';
+            }
+        });
+        const removed = missing.length;
+        // Clear + re-render now so the notice disappears instantly; the
+        // aurora:spf-changed fired by SpfStore.update will also refresh the
+        // tree from the freshly-pruned .spf (where these paths no longer exist,
+        // so missingFiles stays empty).
+        this.missingFiles = [];
+        this.renderTree?.();
+        return removed;
+    },
+
+    /**
+     * File-tree "dismiss" button entry point: explain the implications, and
+     * only prune if the user confirms. The AI path skips this (the user asked
+     * it directly) — see AuroraAPI.project.dismissMissingFiles.
+     */
+    async confirmAndDismissMissingFiles() {
+        const missing = Array.isArray(this.missingFiles) ? this.missingFiles : [];
+        if (missing.length === 0) return;
+        const confirmed = await showDismissMissingFilesDialog(missing.length);
+        if (!confirmed) return;
+        const removed = await this.dismissMissingFiles();
+        this.showNotification(
+            tr('notification.tree.missingDismissed', { count: removed }),
+            'success',
+            2500,
+        );
+    },
+
     // ----- context menus -----------------------------------------------
 
     /** Context menu displayed when the user right-clicks a processor separator. */
@@ -986,4 +1046,26 @@ function showDeleteConfirmDialog(fileName) {
             { label: tr('dialog.deleteFile.delete'), action: 'delete', type: 'danger' },
         ],
     }).then((action) => action === 'delete');
+}
+
+/**
+ * Confirm dialog for dismissing the missing-files warning. Spells out the
+ * implication: the dangling references are pruned from the project (.spf),
+ * which is the right move only if the user deleted those files on purpose.
+ * Same canonical dialog + window.confirm fallback as showDeleteConfirmDialog.
+ */
+function showDismissMissingFilesDialog(count) {
+    const dialog = window.AuroraUI?.dialog;
+    if (typeof dialog !== 'function') {
+        return Promise.resolve(window.confirm(tr('dialog.dismissMissing.fallbackPrompt')));
+    }
+    return dialog({
+        title: tr('dialog.dismissMissing.title'),
+        message: tr('dialog.dismissMissing.message', { count }),
+        variant: 'warning',
+        buttons: [
+            { label: tr('dialog.dismissMissing.cancel'),  action: 'cancel',  type: 'cancel' },
+            { label: tr('dialog.dismissMissing.confirm'), action: 'dismiss', type: 'danger' },
+        ],
+    }).then((action) => action === 'dismiss');
 }

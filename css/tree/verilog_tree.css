@@ -108,6 +108,29 @@
   font-size: var(--icon-sm, 14px);
 }
 
+/* Dismiss (×) button — pushed to the right of the warning headline. Pruning
+   the dangling .spf references is gated behind a confirm dialog (see
+   confirmAndDismissMissingFiles in project_tree_actions.js). */
+.verilog-missing-dismiss {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  color: var(--status-warning, #c9a227);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 120ms ease, background-color 120ms ease;
+}
+
+.verilog-missing-dismiss:hover {
+  opacity: 1;
+  background: rgba(201, 162, 39, 0.18);
+}
+
 .verilog-missing-list {
   margin: var(--space-2) 0 0;
   padding: 0;

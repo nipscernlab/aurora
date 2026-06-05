@@ -176,6 +176,19 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'get_missing_files',
+    description:
+      'List the project\'s MISSING files — paths the .spf still references but that no longer ' +
+      'exist on disk (moved, renamed, or deleted outside Aurora). Same list the file tree\'s ' +
+      'missing-files warning shows, always current. Returns { count, files:[{name, path, ' +
+      'category}] }; empty when nothing is missing. Use this to reason about a broken build or ' +
+      'before offering to clean up dangling references with dismiss_missing_files.',
+    access: 'read',
+    api: ['project', 'getMissingFiles'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'analyze_asm',
     description:
       'Parse a SAPHO assembly (.asm) file and return a structured summary: total instruction ' +
@@ -611,6 +624,19 @@ const TOOL_MANIFEST = [
       },
       required: ['filePath'],
     },
+  },
+  {
+    name: 'dismiss_missing_files',
+    description:
+      'Dismiss the missing-files warning by pruning every dangling reference from the .spf (the ' +
+      'synthesizable / testbench lists, plus the top-level / testbench pointers if they point at ' +
+      'a missing file). The files are already gone from disk — this only cleans up the project\'s ' +
+      'stale references, so the warning stops reappearing. Use only when the user has confirmed ' +
+      'they deleted those files on purpose. Returns { removed }.',
+    access: 'write',
+    api: ['project', 'dismissMissingFiles'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'ask_user_question',

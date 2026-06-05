@@ -230,6 +230,11 @@ export const RenderMixin = {
             <div class="verilog-missing-head">
                 <i class="ph ph-warning-circle"></i>
                 <span>${headline}</span>
+                <button class="verilog-missing-dismiss" type="button"
+                        title="${this._escapeHtml(tr('fileTree.missingFiles.dismissTitle'))}"
+                        aria-label="${this._escapeHtml(tr('fileTree.missingFiles.dismissTitle'))}">
+                    <i class="ph ph-x"></i>
+                </button>
             </div>
             <ul class="verilog-missing-list">${listItems}</ul>
         `;

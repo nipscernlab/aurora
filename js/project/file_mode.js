@@ -224,6 +224,14 @@ class ProjectTreeManager {
             // pode targetar a row errada.
             this.elements.fileTree.addEventListener('click', async (e) => {
                 if (!this.isTreeActive) return;
+                // Missing-files notice "dismiss" button — confirm the
+                // implications, then prune the dangling refs from the .spf.
+                if (e.target.closest('.verilog-missing-dismiss')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    await this.confirmAndDismissMissingFiles();
+                    return;
+                }
                 const row = e.target.closest('.verilog-file-item');
                 if (!row) return;
                 const path = row.dataset.filePath;

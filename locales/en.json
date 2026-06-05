@@ -61,7 +61,8 @@
         "missingFiles": {
             "headlineOne":   "1 file listed in the project is missing on disk",
             "headlineOther": "{{count}} files listed in the project are missing on disk",
-            "notification":  "{{count}} project file(s) are missing on disk. See the file tree for the list."
+            "notification":  "{{count}} project file(s) are missing on disk. See the file tree for the list.",
+            "dismissTitle":  "Dismiss this warning"
         }
     },
     "modal": {
@@ -243,6 +244,13 @@
             "message":         "Are you sure you want to delete \"<strong>{{name}}</strong>\"? This action cannot be undone.",
             "fallbackPrompt":  "Delete \"{{name}}\"? This action cannot be undone.",
             "delete":          "Delete"
+        },
+        "dismissMissing": {
+            "title":           "Dismiss missing-files warning?",
+            "message":         "{{count}} file(s) referenced by this project no longer exist on disk. Dismissing removes those references from the project (its .spf) — do this only if you deleted the files on purpose. The files are already gone; this just stops Aurora from flagging them. This cannot be undone.",
+            "fallbackPrompt":  "Remove the missing-file references from this project? This cannot be undone.",
+            "cancel":          "Keep warning",
+            "confirm":         "Remove references"
         }
     },
     "statusBar": {
@@ -319,6 +327,7 @@
             "alreadyExists":      "\"{{name}}\" already exists",
             "noValidFiles":       "No valid files to import",
             "added":              "Successfully added {{count}} file(s)",
+            "missingDismissed":   "Removed {{count}} missing-file reference(s) from the project",
             "created":            "Created \"{{name}}\" successfully",
             "invalidName":        "\"{{name}}\" has invalid characters. Only letters, digits, '_' and '-' are allowed. Suggestion: {{suggestion}}",
             "errorCreating":      "Error creating file",

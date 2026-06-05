@@ -855,6 +855,49 @@ const projectNs = {
   },
 
   /**
+   * The project's MISSING files — paths the .spf still references but that no
+   * longer exist on disk (moved, renamed, or deleted outside Aurora). This is
+   * the same list the file tree surfaces in its "missing files" warning, kept
+   * current by every project load / .spf change / disk-watch refresh. Returns
+   * { count, files:[{name, path, category}] }; empty when nothing is missing
+   * or no project is open.
+   */
+  async getMissingFiles() {
+    const mgr = window.projectTreeManager;
+    const missing = Array.isArray(mgr?.missingFiles) ? mgr.missingFiles : [];
+    return ok({
+      count: missing.length,
+      files: missing.map((f) => ({
+        name: f.name,
+        path: f.path,
+        category: f.category || null,
+      })),
+    });
+  },
+
+  /**
+   * Dismiss the missing-files warning by pruning every dangling reference
+   * from the .spf (the synthesizable / testbench lists, and the top-level /
+   * testbench pointers if they point at a missing file). The on-disk files are
+   * already gone — this only cleans up the project's references. No
+   * confirmation: the caller (the AI, on the user's explicit request) owns
+   * that decision. Returns { removed } — how many references were pruned.
+   */
+  async dismissMissingFiles() {
+    const mgr = window.projectTreeManager;
+    if (!mgr || typeof mgr.dismissMissingFiles !== 'function') {
+      return err('project tree not available');
+    }
+    try {
+      const removed = await mgr.dismissMissingFiles();
+      emit('project:missing-files-dismissed', { removed });
+      return ok({ removed });
+    } catch (e) {
+      return err(e?.message || 'dismissMissingFiles failed');
+    }
+  },
+
+  /**
    * Generate a processor in the open project.
    * `config`: { processorName, nBits, nbMantissa, nbExponent,
    *             dataStackSize, instructionStackSize, inputPorts,

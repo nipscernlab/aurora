@@ -195,6 +195,20 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
     throw new Error(`pinos esperados nao encontrados: ${missing.join(', ')}`);
   }
 
+  // Verilator expoe sinais > 64 bits como VlWide (array de uint32), que NAO
+  // converte pra uint64_t — o cast `(uint64_t)top->in/out` do harness viraria
+  // erro de g++ cru la no Passo 4 (--build). Falha cedo, aqui, com mensagem
+  // clara. So checamos o barramento que e REALMENTE referenciado: in/req_in so
+  // sao lidos se ha inputs; out/out_en so escritos se ha outputs.
+  const tooWide = [];
+  if (inputs.length > 0 && inBus && inBus.width > 64) tooWide.push(`in (${inBus.width} bits)`);
+  if (outputs.length > 0 && outBus && outBus.width > 64) tooWide.push(`out (${outBus.width} bits)`);
+  if (tooWide.length) {
+    throw new Error(
+      `barramento(s) de I/O > 64 bits nao suportado(s) pelo harness Verilator: ` +
+      `${tooWide.join(', ')}. Reduza NUBITS para <= 64 ou use o fluxo Wave (iverilog).`);
+  }
+
   // outW so e usado dentro do for de outputs — se outputs.length === 0,
   // outBus pode ser null e este valor nao e lido.
   const outW = outBus ? outBus.width : 0;
@@ -237,6 +251,20 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   L.push('');
   for (const p of inputs) L.push(`  FILE* f_in_${p.port} = fopen("${p.file}", "r");`);
   for (const p of outputs) L.push(`  FILE* o_out_${p.port} = fopen("${p.file}", "w");`);
+  // Aborta cedo se alguma SAIDA nao abriu pra escrita (dir read-only/lock):
+  // sem isso o fprintf(o_out_X, ...) do loop receberia NULL -> UB. Uma saida
+  // que nao da pra escrever torna a run inutil, entao falhamos com mensagem
+  // clara (return 1 -> verilatorTbRunFailed) em vez de crashar ou "terminar
+  // OK" sem gerar o arquivo.
+  for (const p of outputs) {
+    L.push(`  if(!o_out_${p.port}){ fprintf(stderr, "Aurora: nao consegui abrir ${p.file} pra escrita\\n"); return 1; }`);
+  }
+  // Entrada ausente NAO e fatal — next_dec(NULL,...) ja devolve false e a sim
+  // roda sem aquele estimulo — mas avisa, senao um input_<N>.txt faltando
+  // viraria "0 leituras" silencioso e dificil de diagnosticar.
+  for (const p of inputs) {
+    L.push(`  if(!f_in_${p.port}) fprintf(stderr, "Aurora: aviso — ${p.file} ausente; entrada nao sera alimentada\\n");`);
+  }
   L.push('');
   L.push(`  unsigned long long reads = 0;`);
   // Marcador de progresso pro terminal THTEST do Aurora: imprime

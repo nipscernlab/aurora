@@ -34,6 +34,14 @@ const TOOL_TIMEOUT_MS = 120_000;
 const INTERACTIVE_TOOLS = new Set(['ask_user_question']);
 const INTERACTIVE_TIMEOUT_MS = 10 * 60_000;
 
+// Renames touch the filesystem (release watchers → move the folder → rewrite
+// the .spf → reopen) and can run well past 2 minutes on a large project or a
+// busy machine. The renderer reopens in the background so it usually returns
+// in seconds, but give these a long leash so a slow disk never produces a
+// false "tool execution timed out" while the rename actually succeeds.
+const SLOW_TOOLS = new Set(['rename_project', 'rename_processor']);
+const SLOW_TIMEOUT_MS = 5 * 60_000;
+
 /**
  * Dispatch `toolName(args)` to the renderer and resolve with whatever
  * the tool_runner reports. Never rejects — failures resolve as
@@ -52,7 +60,9 @@ function runTool(webContents, toolName, args) {
       return;
     }
     const requestId = `tool-${Date.now()}-${++seq}`;
-    const timeoutMs = INTERACTIVE_TOOLS.has(toolName) ? INTERACTIVE_TIMEOUT_MS : TOOL_TIMEOUT_MS;
+    const timeoutMs = INTERACTIVE_TOOLS.has(toolName) ? INTERACTIVE_TIMEOUT_MS
+      : SLOW_TOOLS.has(toolName) ? SLOW_TIMEOUT_MS
+      : TOOL_TIMEOUT_MS;
     const timer = setTimeout(() => {
       if (pending.has(requestId)) {
         pending.delete(requestId);

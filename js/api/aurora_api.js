@@ -983,18 +983,27 @@ const projectNs = {
     if (r && r.success === false) return err(r.error || 'renameProject failed');
 
     const newSpfPath = r?.newSpfPath || null;
-    try {
-      if (newSpfPath && window.projectManager?.loadProject) {
-        await window.projectManager.loadProject(newSpfPath);
-      } else if (newSpfPath) {
-        await window.electronAPI.openProject(newSpfPath);
-      }
-    } catch (e) { return err(e?.message || 'project reload failed'); }
+    const newRoot = r?.newRoot || null;
 
-    // Drop the OLD project from the welcome-screen recents (localStorage).
-    // loadProject already added the new .spf; main's recents.json self-prunes
-    // the old path since it no longer exists on disk after the move.
-    try { window.recentProjectsManager?.removeProject?.(spfPath); } catch (_) { /* best-effort */ }
+    // The on-disk rename is DONE here. Reopening a large project (chokidar
+    // setup + a full tree scan) can take a long time, and doing it inline blew
+    // past the AI tool's 120 s timeout — so the model reported failure even
+    // though the rename had completed. Point the store at the new .spf
+    // synchronously (so any immediate follow-up tool targets the right
+    // project), then reopen in the BACKGROUND and return success right away.
+    if (newSpfPath && newRoot) {
+      try { window.ProjectStore?.setProject?.(newSpfPath, newRoot); } catch (_) { /* best-effort */ }
+    }
+    if (newSpfPath) {
+      Promise.resolve()
+        .then(() => (window.projectManager?.loadProject
+          ? window.projectManager.loadProject(newSpfPath)
+          : window.electronAPI.openProject(newSpfPath)))
+        // loadProject re-adds the new .spf to recents; drop the OLD entry from
+        // the welcome-screen list (main's recents.json self-prunes the gone path).
+        .then(() => { try { window.recentProjectsManager?.removeProject?.(spfPath); } catch (_) { /* best-effort */ } })
+        .catch((e) => console.warn('[rename] background reopen failed:', e));
+    }
 
     emit('project:renamed', { oldName: r?.oldName, newName: r?.newName, spfPath: newSpfPath });
     return ok({ oldName: r?.oldName, newName: r?.newName, spfPath: newSpfPath });

@@ -1185,6 +1185,7 @@ class AIAssistantManager {
     this.turnText = '';                     // full assistant text for the turn
     this.runningChips = [];                 // [{ toolName, el }] in-flight tools
     this.thinkingEl = null;                 // "thinking…" placeholder, or null
+    this._lastMsgRole = null;               // role of the last appended bubble (label de-dup)
     this.cumulativeTokens = 0;
 
     this.unsubChatEvent = null;
@@ -2411,6 +2412,9 @@ class AIAssistantManager {
     this.currentAssistantContentEl = null;
     this.runningChips = [];
     this._toolGroup = null;
+    // New turn → allow exactly one "Aurora Intelligence" label at the top of
+    // this turn's first assistant bubble (later segments in the turn collapse).
+    this._lastMsgRole = null;
     this.showThinking(true);
 
     // Subscribe lazily so we never miss the first packet — startChat
@@ -2667,6 +2671,7 @@ class AIAssistantManager {
         // Text after a tool call opens a fresh segment below the chip.
         this.currentAssistantContentEl = null;
         this.segmentBuffer = '';
+        this._revealLength = 0;
         break;
       case 'tool-result':
         this.finishToolChip(ev.toolName, ev.result, ev.toolUseId);
@@ -2700,12 +2705,12 @@ class AIAssistantManager {
     if (!delta) return;
     // Text resuming after a run of tools closes that batch (tidy summary).
     this._closeToolGroup();
-    if (!this.currentAssistantContentEl) {
-      const bubble = this.appendBubble('assistant', '');
-      this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
-      this.segmentBuffer = '';
-      this._revealLength = 0;     // chars already shown without animation
-    }
+    // The bubble is created LAZILY in _renderStreamingBubble, only once there
+    // is something visible to show. A segment that turns out to be just
+    // tool-call artefacts or whitespace therefore never leaves an empty
+    // "Aurora Intelligence" bar behind. segmentBuffer/_revealLength are reset
+    // at segment boundaries (turn start in resetTurnState, and on each
+    // tool-call), so here we only accumulate.
     this.segmentBuffer += delta;
     this.turnText += delta;
     // Coalesce every delta that lands in the same animation frame into ONE
@@ -2727,7 +2732,6 @@ class AIAssistantManager {
 
   /** Render the accumulated stream buffer with the fade-reveal suffix. */
   _renderStreamingBubble() {
-    if (!this.currentAssistantContentEl) return;
     // Strip tool-call artefacts that some models (Llama/Qwen) emit as inline
     // text. This covers XML blocks, Qwen-style JSON+</tool_call> lines, and
     // orphan closing tags. Only complete patterns are stripped while streaming
@@ -2753,6 +2757,26 @@ class AIAssistantManager {
       /^\s*[⺀-鿿]*\s*\{/.test(this.segmentBuffer) &&
       /"name"\s*:/.test(this.segmentBuffer);
     const sourceText = looksLikeToolArtifact ? '' : (displayText || this.segmentBuffer);
+
+    if (!sourceText) {
+      // Nothing visible yet (segment is pure tool-call artifact / whitespace,
+      // or it just stripped down to empty as a streamed <tool_call> block
+      // completed). Drop any bubble we optimistically created so no empty
+      // "Aurora Intelligence" bar is left behind; the tool chip carries the
+      // information instead.
+      if (this.currentAssistantContentEl) {
+        this.currentAssistantContentEl.closest('.ai-message')?.remove();
+        this.currentAssistantContentEl = null;
+        this._revealLength = 0;
+      }
+      return;
+    }
+
+    // Create the segment bubble lazily — now that there is real text to show.
+    if (!this.currentAssistantContentEl) {
+      const bubble = this.appendBubble('assistant', '');
+      this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
+    }
 
     // Fade reveal: re-render the bubble, then wrap any characters that
     // weren't visible last frame in <span.ai-fade-reveal> so they animate
@@ -3178,8 +3202,15 @@ class AIAssistantManager {
     const el = document.createElement('div');
     el.className = `ai-message ai-msg-${role}${error ? ' error' : ''}`;
     const label = role === 'user' ? 'You' : 'Aurora Intelligence';
+    // Collapse the role label across a run of consecutive assistant bubbles.
+    // A single turn streams as several segments split by tool calls, and a
+    // background-task chain adds more — labelling every one produced the wall
+    // of repeated "AURORA INTELLIGENCE" headers. Show it once per assistant
+    // group; user messages, dividers and background-task chips reset the run
+    // (they clear _lastMsgRole) so the label reappears for the next section.
+    const showLabel = !(role === 'assistant' && this._lastMsgRole === 'assistant');
     el.innerHTML = `
-      <div class="ai-msg-role">${label}</div>
+      ${showLabel ? `<div class="ai-msg-role">${label}</div>` : ''}
       <div class="ai-msg-content"></div>
     `;
     const contentEl = el.querySelector('.ai-msg-content');
@@ -3192,6 +3223,7 @@ class AIAssistantManager {
       linkifyFileRefs(contentEl);
     }
     this.messagesEl.appendChild(el);
+    this._lastMsgRole = role;
     // The user just sent a message: force-stick to the bottom even if
     // they had been reading scrollback. For an assistant bubble we only
     // follow if they're already at the bottom.
@@ -3217,6 +3249,9 @@ class AIAssistantManager {
     span.textContent = text;
     el.appendChild(span);
     this.messagesEl.appendChild(el);
+    // A divider is a visual section break — let the next assistant bubble
+    // re-show its label.
+    this._lastMsgRole = null;
     this.scrollToBottom();
     return el;
   }
@@ -3232,6 +3267,7 @@ class AIAssistantManager {
     await this.persistCurrentChat();
     this.messages = [];
     this.messagesEl.innerHTML = '';
+    this._lastMsgRole = null;
     if (this.chatEmptyHint) {
       this.messagesEl.appendChild(this.chatEmptyHint);
       this.chatEmptyHint.classList.remove('hidden');
@@ -3440,6 +3476,7 @@ class AIAssistantManager {
 
     // Replay every message into the bubble stream.
     this.messagesEl.innerHTML = '';
+    this._lastMsgRole = null;
     if (this.chatEmptyHint) this.messagesEl.appendChild(this.chatEmptyHint);
     if (this.chatEmptyHint) this.chatEmptyHint.classList.toggle('hidden', this.messages.length > 0);
     for (const msg of this.messages) {

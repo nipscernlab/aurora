@@ -398,7 +398,9 @@
             "aiValidating":  "Validating against the gold testbench (--timing) — building + running it once...",
             "aiValidateSkip":"Validation skipped: {{reason}}.",
             "aiCertified":   "Harness CERTIFIED — all {{count}} output(s) match the gold testbench.",
-            "aiMismatch":    "Harness does NOT match the gold testbench ({{count}} differing output(s)): {{preview}}. Not certified."
+            "aiMismatch":    "Harness does NOT match the gold testbench ({{count}} differing output(s)): {{preview}}. Not certified.",
+            "aiCachedCertified":"Harness already CERTIFIED (cached — inputs unchanged, all {{count}} output(s) matched); skipping the gold run.",
+            "aiCachedMismatch": "Harness was NOT certified last run (cached — inputs unchanged); skipping the gold run."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",

@@ -4,6 +4,7 @@ import {
     instrumentGoldTestbench,
     parseKvDump,
     compareKvDumps,
+    hashInputs,
 } from '../../js/wave/gold_instrumenter.js';
 
 // Espelha a forma do top_level_tb.v (teste345): saidas conectadas a wires de
@@ -108,5 +109,24 @@ describe('parseKvDump / compareKvDumps', () => {
 
     it('not ok when there are no common keys', () => {
         expect(compareKvDumps('a=1', 'b=2').ok).toBe(false);
+    });
+});
+
+describe('hashInputs', () => {
+    it('is deterministic and 8 hex chars', () => {
+        const a = hashInputs(['tb', 'harness', 'srcA']);
+        expect(a).toMatch(/^[0-9a-f]{8}$/);
+        expect(hashInputs(['tb', 'harness', 'srcA'])).toBe(a);
+    });
+
+    it('changes when any part changes', () => {
+        const base = hashInputs(['tb', 'harness', 'srcA']);
+        expect(hashInputs(['tb2', 'harness', 'srcA'])).not.toBe(base);
+        expect(hashInputs(['tb', 'harness2', 'srcA'])).not.toBe(base);
+        expect(hashInputs(['tb', 'harness', 'srcB'])).not.toBe(base);
+    });
+
+    it('is sensitive to part boundaries (length-prefixed)', () => {
+        expect(hashInputs(['ab', 'c'])).not.toBe(hashInputs(['a', 'bc']));
     });
 });

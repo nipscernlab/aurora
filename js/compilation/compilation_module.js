@@ -54,7 +54,7 @@ import {
   instrumentTestbenchSource, hasUserDumpCalls, commentOutDumpCalls,
 } from '../wave/testbench_instrumenter.js';
 import {
-  instrumentGoldTestbench, compareKvDumps,
+  instrumentGoldTestbench, compareKvDumps, hashInputs,
 } from '../wave/gold_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
@@ -3332,8 +3332,9 @@ async aiHarnessRun() {
     if (!await window.electronAPI.fileExists(harnessSrcPath)) {
         throw new Error(tr('error.compilation.aiHarnessMissing', { path: harnessSrcPath }));
     }
+    const harnessSrc = await window.electronAPI.readFile(harnessSrcPath, { encoding: 'utf8' });
     const cppPath = await window.electronAPI.joinPath(tempBaseDir, `ai_${topModule}.cpp`);
-    await window.electronAPI.writeFile(cppPath, await window.electronAPI.readFile(harnessSrcPath, { encoding: 'utf8' }));
+    await window.electronAPI.writeFile(cppPath, harnessSrc);
 
     // ---- Passo 3: build (synth + harness, --cc --exe --build SEM --timing) ----
     this.terminalManager.appendToTerminal(T, tr('terminal.wave.procBuilding', { name: topModule }), 'info');
@@ -3371,13 +3372,66 @@ async aiHarnessRun() {
     this.terminalManager.processExecutableOutput(T, runRes);
     if (runRes.code !== 0) throw new Error(tr('error.compilation.aiHarnessRunFailed', { code: runRes.code }));
 
-    // ---- Passo 5: validacao por $fwrite contra o gabarito (testbench .v) ----
-    await this._aiValidateAgainstGold({
-        config, topModule, ports, runCwd,
-        tools, hdlPath, synthFiles, tempBaseDir, T,
-    });
+    // ---- Passo 5: validacao por $fwrite contra o gabarito (com cache) ----
+    // O hash cobre testbench + harness + fontes; se nada mudou e ja estava
+    // certificado, pula a validacao (que roda o gabarito --timing, ~caro).
+    const testbenchSrc = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    const inputsHash = await this._aiHarnessInputsHash(testbenchSrc, harnessSrc, synthFiles);
+    const cache = await this._aiHarnessCacheRead(tempBaseDir);
+    const hit = cache[topModule];
+    if (hit && hit.hash === inputsHash) {
+        this.terminalManager.appendToTerminal(T, hit.certified
+            ? tr('terminal.htest.aiCachedCertified', { count: hit.common })
+            : tr('terminal.htest.aiCachedMismatch'), hit.certified ? 'success' : 'warning');
+    } else {
+        const result = await this._aiValidateAgainstGold({
+            config, topModule, ports, runCwd,
+            tools, hdlPath, synthFiles, tempBaseDir, T, testbenchSrc,
+        });
+        if (result) { // null = skip (nao conseguiu validar): nao cacheia
+            cache[topModule] = { hash: inputsHash, certified: result.certified, common: result.common };
+            await this._aiHarnessCacheWrite(tempBaseDir, cache);
+        }
+    }
 
     this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiDone', { name: topModule }), 'success');
+}
+
+/** Caminho do cache de certificacao (JSON no Temp). */
+async _aiHarnessCachePath(tempBaseDir) {
+    return window.electronAPI.joinPath(tempBaseDir, '.ai_harness_cache.json');
+}
+
+/** Le o cache de certificacao (objeto por topModule). {} se ausente/invalido. */
+async _aiHarnessCacheRead(tempBaseDir) {
+    try {
+        const p = await this._aiHarnessCachePath(tempBaseDir);
+        if (!await window.electronAPI.fileExists(p)) return {};
+        return JSON.parse(await window.electronAPI.readFile(p, { encoding: 'utf8' })) || {};
+    } catch { return {}; }
+}
+
+/** Grava o cache de certificacao. Best-effort (falha de I/O nao derruba o run). */
+async _aiHarnessCacheWrite(tempBaseDir, cache) {
+    try {
+        const p = await this._aiHarnessCachePath(tempBaseDir);
+        await window.electronAPI.writeFile(p, JSON.stringify(cache, null, 2));
+    } catch { /* best-effort */ }
+}
+
+/**
+ * Hash dos inputs que invalidam a certificacao: conteudo do testbench + do
+ * harness + resumo (path:mtime:size) de cada fonte synth (o DUT). Stat em vez
+ * de ler as fontes — detecta mudanca sem custo de leitura.
+ */
+async _aiHarnessInputsHash(testbenchSrc, harnessSrc, synthFiles) {
+    const parts = [testbenchSrc, harnessSrc];
+    for (const f of synthFiles) {
+        let st = null;
+        try { st = await window.electronAPI.getFileStats(f); } catch { /* ignore */ }
+        parts.push(`${f}:${st?.mtime ?? 0}:${st?.size ?? 0}`);
+    }
+    return hashInputs(parts);
 }
 
 /**
@@ -3388,16 +3442,17 @@ async aiHarnessRun() {
  * nao. Best-effort: se instrumentacao/gabarito falhar, faz skip com aviso (nao
  * derruba o run do harness, que ja terminou). O cache por hash e' passo futuro.
  */
-async _aiValidateAgainstGold({ config, topModule, ports, runCwd, tools, hdlPath, synthFiles, tempBaseDir, T }) {
+async _aiValidateAgainstGold({ config, topModule, ports, runCwd, tools, hdlPath, synthFiles, tempBaseDir, T, testbenchSrc }) {
     this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiValidating'), 'info');
-    const skip = (reason) =>
+    const skip = (reason) => {
         this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiValidateSkip', { reason }), 'warning');
+        return null; // null => caller nao cacheia (validacao nao conclusiva)
+    };
 
     const outPorts = ports.filter((p) => p.direction === 'output').map((p) => p.name);
     let gold;
     try {
-        const tbSrc = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
-        gold = instrumentGoldTestbench({ src: tbSrc, topModule, outPorts, goldFile: 'aurora_gold.txt' });
+        gold = instrumentGoldTestbench({ src: testbenchSrc, topModule, outPorts, goldFile: 'aurora_gold.txt' });
     } catch (e) { return skip(e.message); }
 
     const tbStem = moduleStemFromPath(config.testbenchFile);
@@ -3442,14 +3497,16 @@ async _aiValidateAgainstGold({ config, topModule, ports, runCwd, tools, hdlPath,
     );
     if (cmp.ok) {
         this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiCertified', { count: cmp.common }), 'success');
-    } else if (cmp.common === 0) {
-        skip('no comparable outputs (harness/gold dumps share no port names)');
-    } else {
-        const preview = cmp.diffs.slice(0, 4)
-            .map((d) => `${d.name}: gold=${d.ref} harness=${d.got}`).join('; ');
-        this.terminalManager.appendToTerminal(T,
-            tr('terminal.htest.aiMismatch', { count: cmp.diffs.length, preview }), 'error');
+        return { certified: true, common: cmp.common };
     }
+    if (cmp.common === 0) {
+        return skip('no comparable outputs (harness/gold dumps share no port names)');
+    }
+    const preview = cmp.diffs.slice(0, 4)
+        .map((d) => `${d.name}: gold=${d.ref} harness=${d.got}`).join('; ');
+    this.terminalManager.appendToTerminal(T,
+        tr('terminal.htest.aiMismatch', { count: cmp.diffs.length, preview }), 'error');
+    return { certified: false, common: cmp.common };
 }
 
 /**

@@ -19,9 +19,18 @@ function detectClock(ports) {
   return p ? p.name : 'clk';
 }
 
-/** `(int32_t)`/`(int64_t)` conforme a largura (saidas sao lidas com sinal). */
-function signedCast(width) {
-  return width > 32 ? '(int64_t)' : '(int32_t)';
+/**
+ * Expressao C++ que le uma porta de saida como `long long`, respeitando
+ * signedness e largura. Uma porta SIGNED mais estreita que 64 bits precisa de
+ * sign-extension explicita — o cast de uint16/uint32 do Verilator NAO estende
+ * o sinal (ex: q signed [15:0] = -12790 sairia como 52746 sem isto).
+ */
+function dumpExpr(p) {
+  const name = `top->${p.name}`;
+  if (!p.signed) return `(long long)(unsigned long long)${name}`;
+  if (p.width >= 64) return `(long long)(int64_t)${name}`;
+  const shift = 64 - p.width;
+  return `(long long)((int64_t)((uint64_t)${name} << ${shift}) >> ${shift})`;
 }
 
 /**
@@ -40,20 +49,29 @@ export function buildHarnessPrompt({ topModule, ports, testbenchSource, feedback
   const portLines = ports.map(
     (p) => `  - ${p.name}: ${p.direction} [${p.width} bit${p.width > 1 ? 's' : ''}]`);
   const dumpLines = outs.map(
-    (p) => `     fprintf(fh, "${p.name}=%lld\\n", (long long)${signedCast(p.width)}top->${p.name});`);
+    (p) => `     fprintf(fh, "${p.name}=%lld\\n", ${dumpExpr(p)});`);
 
   const rules = [
     `1. #include "V${topModule}.h" and "verilated.h". Add: static uint64_t main_time=0; double sc_time_stamp(){return (double)main_time;}.`,
-    `2. main(): Verilated::commandArgs(argc,argv); V${topModule}* top = new V${topModule};. Drive the clock in a for-loop over cycles — each cycle: top->${clk}=1; top->eval(); (read/handle outputs) top->${clk}=0; top->eval();.`,
-    `3. The testbench clock toggles with "always #N" (or "#N clk=~clk"), so ONE full period = 2*N time units. Convert every "#M" delay in the testbench to round(M / (2*N)) cycles. Run for (total simulated time until $finish) / period cycles.`,
-    `4. Reimplement the testbench's OWN sequential logic (counters, reset pulses, generated strobes, conditional file reads) in C++, mirroring non-blocking (<=) semantics: compute next-state from the values BEFORE the posedge, apply after eval().`,
-    `5. If the testbench reads data files ($fscanf/$readmemh/$fopen), read the SAME file names with C stdio (fopen/fscanf). Drive each input you set masked to its port width.`,
-    `6. MANDATORY for validation — at the very end (after the loop), write a file named exactly "harness_final.txt" with one "PORT=VALUE" line per OUTPUT port, like:`,
+    `2. CYCLE COUNTING (this is the most common mistake — read carefully): the clock is "always #N clk = ~clk", so it FLIPS every N time units and ONE FULL CLOCK CYCLE lasts 2*N time units. To turn a "#M" delay into a cycle count, divide by the FULL period 2*N — NOT by N. Worked example: with "always #2 clk", N=2 so the full period = 4; a "#450000" delay = 450000/4 = 112500 cycles; an initial block that runs "#450000" ten times = 10 * 112500 = 1125000 cycles. Compute TOTAL_CYCLES this way from the testbench's $finish.`,
+    `3. Loop skeleton — exactly one full clock cycle per iteration, in this order:`,
+    `     for (long long cyc = 0; cyc < TOTAL_CYCLES; cyc++) {`,
+    `       // (a) drive the DUT inputs for THIS posedge: apply the testbench's signal`,
+    `       //     drives for this cycle; if the testbench reads a file on this edge,`,
+    `       //     read one value here and drive the corresponding input (masked to width).`,
+    `       top->${clk} = 1; top->eval(); main_time += 2;   // posedge: registers update, outputs valid`,
+    `       top->${clk} = 0; top->eval(); main_time += 2;   // negedge`,
+    `       // (b) advance the testbench's OWN registers for the NEXT cycle, computed`,
+    `       //     from their values BEFORE this posedge (non-blocking <= semantics).`,
+    `     }`,
+    `4. Reimplement the testbench's own sequential logic (counters, reset pulses, generated strobes, conditional file reads) in C++ using the non-blocking rule above — keep a "next_*" for each registered signal, compute it from pre-posedge values, and commit it in step (b). A reset like "#A sig=1; #B sig=0;" becomes: drive sig=1 while cyc is in [A/period, (A+B)/period), else 0.`,
+    `5. Read data files with the SAME names the testbench uses ($fscanf("%d") -> fscanf). Mask each driven input to its port width.`,
+    `6. MANDATORY for validation — after the loop, write a file named exactly "harness_final.txt", one "PORT=VALUE" line per OUTPUT port:`,
     `     FILE* fh = fopen("harness_final.txt", "w");`,
     ...dumpLines,
     `     fclose(fh);`,
     `   Use EXACTLY these output names: ${outs.map((p) => p.name).join(', ')}.`,
-    `7. No timing constructs in the C++ (no #delay, no @(posedge), no wait, no fork/join) — translate everything into the cycle loop. End with top->final(); delete top; return 0;.`,
+    `7. No timing constructs in the C++ (no #delay, no @(posedge), no wait, no fork/join). End with top->final(); delete top; return 0;.`,
     `Output ONLY the C++ source (no \`\`\` fences, no commentary).`,
   ];
 

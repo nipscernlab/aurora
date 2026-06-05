@@ -62,6 +62,22 @@ export function parseVerilatorPorts(tree) {
     return 1;
   }
 
+  // Segue o dtypep ate o BASICDTYPE; true se a porta e' `signed` (o AST poe
+  // "signed":true no dtype). Usado pro dump fazer sign-extension correta de
+  // saidas signed mais estreitas que a palavra (ex: q signed [15:0]).
+  function signedOf(dtypeAddr) {
+    let addr = dtypeAddr;
+    for (let hops = 0; addr && hops < 8; hops++) {
+      const n = byAddr[addr];
+      if (!n) break;
+      if (n.signed === true) return true;
+      const next = n.dtypep;
+      if (!next || next === addr) break;
+      addr = next;
+    }
+    return false;
+  }
+
   const ports = [];
   const seen = new Set();
   (function collect(node) {
@@ -77,6 +93,7 @@ export function parseVerilatorPorts(tree) {
           direction: node.direction.toLowerCase(),
           width,
           words: Math.max(1, Math.ceil(width / 32)),
+          signed: signedOf(node.dtypep),
         });
       }
       for (const v of Object.values(node)) collect(v);

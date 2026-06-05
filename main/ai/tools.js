@@ -320,7 +320,7 @@ const TOOL_MANIFEST = [
       type: 'object',
       properties: {
         task: { type: 'string', enum: ['compile_all', 'compile_step'] },
-        step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc'], description: 'Required when task is compile_step' },
+        step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Required when task is compile_step' },
         note: { type: 'string', description: 'Short description of the goal, echoed back to you on completion' },
       },
       required: ['task'],
@@ -333,16 +333,51 @@ const TOOL_MANIFEST = [
       '"asm" SKIPS cmmcomp and runs asmcomp + iverilog -tnull (use this to test an .asm you ' +
       'hand-optimised — typically combined with a `set_command_override` on the asm step\'s ' +
       '-i flag pointing at <proc>/Software/_aurora_opt/<proc>.asm); "verilog" elaborates the ' +
-      'project Verilog; "wave" opens GTKWave; "prism" opens the PRISM RTL viewer.',
+      'project Verilog; "wave" opens GTKWave; "prism" opens the PRISM RTL viewer; ' +
+      '"verilator-proc" runs the ACTIVE processor\'s generated top-level under Verilator as a ' +
+      'hardware test; "verilator-fast" runs the testbench headless under Verilator (no waveform, ' +
+      'fastest). For the two Verilator simulations the dedicated run_verilator_proc / run_fast_sim ' +
+      'tools are equivalent and clearer.',
     access: 'write',
     api: ['compile', 'compileStep'],
     argStyle: 'positional',
     argNames: ['step'],
     inputSchema: {
       type: 'object',
-      properties: { step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism'] } },
+      properties: { step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'] } },
       required: ['step'],
     },
+  },
+  {
+    name: 'run_verilator_proc',
+    description:
+      'Run the ACTIVE SAPHO processor\'s generated top-level (<proc>.v) under Verilator as a ' +
+      'hardware test — the "Verilator (processor)" toolbar button (id: verilatorproc). Uses ' +
+      'SAPHO\'s predictable wiring (req_in/out_en one-hot, decimal input_<N>.txt/output_<N>.txt ' +
+      'in the processor\'s Simulation/ folder) and recompiles cmm+asm first so the .v/_tb.v/.mif ' +
+      'are fresh. Acts on the processor currently focused/shown in the status bar — fails if no ' +
+      'processor is active. Output lands in the hardware-test (thtest) terminal; read it with ' +
+      'get_terminal_output("thtest"). This can be slow — for long runs prefer ' +
+      'run_in_background({task:"compile_step", step:"verilator-proc"}).',
+    access: 'write',
+    api: ['compile', 'runVerilatorProc'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'run_fast_sim',
+    description:
+      'Run the project testbench headless via Verilator with NO waveform and NO GTKWave — the ' +
+      '"Fast Sim" toolbar button (id: fastsim), optimised purely for speed. Requires a testbench ' +
+      'to be set (set_testbench_top). A Verilog testbench requires the simulator to be Verilator ' +
+      '(set_simulator("verilator")); a Python cocotb (.py) testbench runs headless on any engine. ' +
+      'Recompiles cmm+asm first when the top-level instantiates SAPHO processors. Output lands in ' +
+      'the wave (twave) terminal; read it with get_terminal_output("twave"). For long runs prefer ' +
+      'run_in_background({task:"compile_step", step:"verilator-fast"}).',
+    access: 'write',
+    api: ['compile', 'runFastSim'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'cancel_compilation',

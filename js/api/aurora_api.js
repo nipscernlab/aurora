@@ -1490,6 +1490,36 @@ const compileNs = {
     catch (e) { return err(e?.message || 'compileStep failed'); }
   },
 
+  /**
+   * Run the ACTIVE SAPHO processor's generated top-level (`<proc>.v`) under
+   * Verilator as a hardware test — the `verilatorproc` toolbar button. Drives
+   * SAPHO's predictable wiring (req_in/out_en one-hot, decimal
+   * input_<N>.txt/output_<N>.txt under the processor's Simulation/ folder) and
+   * recompiles cmm+asm first so the .v/_tb.v/.mif are fresh. Acts on the
+   * processor currently shown in the status bar — fails if none is active.
+   * Thin wrapper over compileStep('verilator-proc') so validation + the
+   * compile:started event stay single-sourced. Calls through `compileNs`
+   * (not `this`): the AI tool_runner invokes namespace methods as bare
+   * `fn(...args)`, so `this` is undefined inside them.
+   */
+  async runVerilatorProc() {
+    return compileNs.compileStep('verilator-proc');
+  },
+
+  /**
+   * Run the project's testbench headless via Verilator — NO waveform, NO
+   * GTKWave — the `fastsim` toolbar button, optimised purely for speed.
+   * Needs a testbench set; a Verilog testbench requires the simulator to be
+   * Verilator (see wave.setSimulator), while a Python cocotb (.py) testbench
+   * runs headless on any engine. Recompiles cmm+asm first when the top-level
+   * instantiates SAPHO processors. Thin wrapper over
+   * compileStep('verilator-fast'). Calls through `compileNs` (not `this`):
+   * the AI tool_runner invokes namespace methods as bare `fn(...args)`.
+   */
+  async runFastSim() {
+    return compileNs.compileStep('verilator-fast');
+  },
+
   async cancel() {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');

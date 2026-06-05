@@ -568,7 +568,15 @@ const SYSTEM_PROMPT = [
   "  iverilog  (default) — preserves EVERY internal SAPHO signal; slower on long testbenches.\n" +
   "  verilator           — 5–10× faster, but only top-level user signals survive (the ULA rounding\n" +
   "                        taps and stack-monitor flags are intentionally omitted for speed).\n" +
-  "Pick iverilog when the user needs deep internal visibility; verilator for long/fast runs.\n",
+  "Pick iverilog when the user needs deep internal visibility; verilator for long/fast runs.\n" +
+  "VERILATOR-ONLY SIMULATIONS (headless, no GTKWave — fastest dev loop):\n" +
+  "  run_fast_sim         runs the project testbench headless under Verilator (no waveform). Needs a\n" +
+  "                       testbench set; a Verilog tb requires set_simulator('verilator'), a .py cocotb\n" +
+  "                       tb runs on any engine. Read results with get_terminal_output('twave').\n" +
+  "  run_verilator_proc   runs the ACTIVE processor's generated <proc>.v under Verilator as a hardware\n" +
+  "                       test (decimal input_<N>.txt / output_<N>.txt). Needs an active processor.\n" +
+  "                       Read results with get_terminal_output('thtest').\n" +
+  "  Both are slow on long runs — prefer run_in_background({task:'compile_step', step:'verilator-fast'|'verilator-proc'}).\n",
 
   // ── Reserved Files ────────────────────────────────────────────────────────
   "\n\nRESERVED SAPHO PATHS — auto-generated and OVERWRITTEN on every compile. NEVER create " +

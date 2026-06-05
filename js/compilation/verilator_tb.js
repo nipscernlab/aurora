@@ -209,9 +209,14 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
       `${tooWide.join(', ')}. Reduza NUBITS para <= 64 ou use o fluxo Wave (iverilog).`);
   }
 
-  // outW so e usado dentro do for de outputs — se outputs.length === 0,
-  // outBus pode ser null e este valor nao e lido.
+  // Larguras dos barramentos de dado. So sao lidas dentro dos respectivos
+  // loops (outW se ha outputs, inW se ha inputs), entao o barramento ausente
+  // fica 0 e nunca e referenciado. Usadas pra mascarar/estender o sinal a
+  // EXATAMENTE a largura da porta — Verilator armazena in/out num tipo C
+  // (CData/SData/IData/QData) que pode ser MAIS LARGO que a porta (ex: 18 bits
+  // num IData de 32), e nao garante os bits extras zerados.
   const outW = outBus ? outBus.width : 0;
+  const inW = inBus ? inBus.width : 0;
   // Pino de fim-de-programa: o #TOAQUI no .cmm faz o asmcomp expor `cheguei`
   // como porta top-level de saida do <proc>.v. Quando presente, o harness
   // encerra o loop assim que ela pulsa (programa acabou) em vez de rodar o
@@ -288,11 +293,18 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // escreve saidas (out_en one-hot), decimal com sinal-extensao da largura
   for (const p of outputs) {
     L.push(`    if(top->${enBus.name} == ${p.enValue}u) {`);
-    L.push(`      long long v = (long long)(uint64_t)top->${outBus.name};`);
     if (outW < 64) {
-      L.push(`      { long long m = 1LL << ${outW - 1}; v = (v ^ m) - m; } // sinal-extensao ${outW} bits`);
+      // Mascara os bits acima da largura ANTES de estender o sinal: top->out
+      // pode trazer lixo nos bits altos do tipo C (Verilator nao garante limpos)
+      // e sem a mascara o XOR de sinal-extensao propagaria esse lixo.
+      L.push(`      uint64_t raw = (uint64_t)top->${outBus.name} & ((1ULL << ${outW}) - 1);`);
+      L.push(`      long long m = 1LL << ${outW - 1};`);
+      L.push(`      long long v = ((long long)raw ^ m) - m; // sinal-extensao ${outW} bits`);
+      L.push(`      fprintf(o_out_${p.port}, "%lld\\n", v);`);
+    } else {
+      L.push(`      long long v = (long long)(uint64_t)top->${outBus.name};`);
+      L.push(`      fprintf(o_out_${p.port}, "%lld\\n", v);`);
     }
-    L.push(`      fprintf(o_out_${p.port}, "%lld\\n", v);`);
     L.push(`    }`);
   }
   if (cheguei) {
@@ -302,8 +314,14 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   }
   L.push(`    // --- borda de descida: le a entrada que o processador pediu ---`);
   L.push(`    top->${clk.name} = 0; top->eval(); main_time++;`);
+  // Trunca o valor lido a EXATAMENTE inW bits antes de escrever na porta. O
+  // arquivo traz decimais COM SINAL: um negativo vira (uint64_t) com todos os
+  // bits altos em 1, e se a porta e mais estreita que o tipo C (ex: 18 bits num
+  // IData de 32) esses bits vazariam pro modelo. iverilog ja trunca ao atribuir
+  // a reg[N]; a mascara replica isso e mantem paridade entre os dois sims.
+  const inMask = inW < 64 ? ` & ((1ULL << ${inW}) - 1)` : '';
   for (const p of inputs) {
-    L.push(`    if(top->${reqBus.name} == ${p.reqValue}u) { long long v; if(next_dec(f_in_${p.port}, v)){ top->${inBus.name} = (uint64_t)v; reads++; } }`);
+    L.push(`    if(top->${reqBus.name} == ${p.reqValue}u) { long long v; if(next_dec(f_in_${p.port}, v)){ top->${inBus.name} = (uint64_t)v${inMask}; reads++; } }`);
   }
   L.push(`    if((cyc % step) == 0){ printf("@@AURORA_PROG %u %u %llu\\n", cyc+1, nclk, reads); fflush(stdout); }`);
   L.push(`  }`);

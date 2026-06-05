@@ -81,9 +81,10 @@ export function buildVerilatorBuildSpec(ctx) {
     // Build runtime-first: as sims SAPHO sao de processador embarcado e podem
     // rodar muito tempo, entao priorizamos a velocidade do .exe mesmo as custas
     // de build mais lento. -O3 + -march=native (compila pras instrucoes EXATAS
-    // da CPU host — seguro porque o Aurora compila e roda na mesma maquina e
-    // descarta o .exe). NAO usamos -ffast-math/-Ofast: alteram semantica de
-    // ponto flutuante, e o SAPHO tem float.
+    // da CPU host — seguro porque o Aurora compila e executa o binario na MESMA
+    // maquina, host == target, e nunca o redistribui; o obj_dir fica em cache so
+    // pra build incremental local). NAO usamos -ffast-math/-Ofast: alteram
+    // semantica de ponto flutuante, e o SAPHO tem float.
     '-CFLAGS', VERILATOR_OPT_LEVEL,
     '-CFLAGS', '-march=native',
     '-CFLAGS', '-fstrict-aliasing',

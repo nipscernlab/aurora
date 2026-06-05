@@ -3437,13 +3437,22 @@ async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles,
             tr('terminal.htest.aiGenerating', { attempt, max: MAX, provider: providerName }), 'info');
         const { system, user } = buildHarnessPrompt({ topModule, ports, testbenchSource, feedback });
         const resp = await window.aiAPI.generateOneshot({
-            provider: providerName, system, prompt: user, maxOutputTokens: 8000,
+            provider: providerName, system, prompt: user, maxOutputTokens: 24000,
         });
         if (!resp || !resp.ok) {
             throw new Error(tr('error.compilation.aiHarnessGenFailed', { error: resp?.error || 'unknown' }));
         }
         const cpp = extractCppFromResponse(resp.text);
-        if (!cpp) { lastError = 'empty response'; feedback = null; continue; }
+        if (!cpp || resp.finishReason === 'length') {
+            // Vazia, ou truncada por estourar o limite de tokens — re-gera do
+            // zero (sem feedback de build, que nao se aplica a um corte).
+            lastError = resp.finishReason === 'length'
+                ? 'model response truncated (token limit) — generated C++ is incomplete'
+                : 'empty response';
+            feedback = null;
+            this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiGenRetry', { attempt, max: MAX }), 'warning');
+            continue;
+        }
 
         await window.electronAPI.writeFile(cppPath, cpp);
         const buildSpec = buildVerilatorTbBuildSpec({

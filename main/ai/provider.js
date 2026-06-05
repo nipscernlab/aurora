@@ -185,8 +185,18 @@ async function generateOneshot({ provider: name, model, system, prompt, maxOutpu
       ...(system ? { system } : {}),
       prompt,
       ...(maxOutputTokens ? { maxOutputTokens } : {}),
+      // Gemini 2.5 "thinking" spends the output budget on reasoning tokens,
+      // which truncated the generated code. Disable it so the whole budget
+      // goes to the answer. Other providers ignore the `google` key.
+      providerOptions: { google: { thinkingConfig: { thinkingBudget: 0 } } },
     });
-    return { ok: true, text: result.text || '', usage: result.usage || null, model: modelId };
+    return {
+      ok: true,
+      text: result.text || '',
+      finishReason: result.finishReason || null,
+      usage: result.usage || null,
+      model: modelId,
+    };
   } catch (e) {
     return { ok: false, error: e?.message || String(e) };
   }

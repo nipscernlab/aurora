@@ -3428,6 +3428,11 @@ async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles,
     if (!providerName || typeof window.aiAPI?.generateOneshot !== 'function') {
         throw new Error(tr('error.compilation.aiHarnessNoProvider'));
     }
+    // claude-code (assinatura, CLI sem streaming) gera devagar — ~minutos por
+    // tentativa. Avisa pra nao parecer travado; API providers sao bem mais rapidos.
+    if (providerName === 'claude-code') {
+        this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiClaudeSlow'), 'tips');
+    }
     const testbenchSource = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
     const cppPath = await window.electronAPI.joinPath(tempBaseDir, `ai_${topModule}.cpp`);
     const MAX = 3;

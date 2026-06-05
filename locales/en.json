@@ -405,7 +405,8 @@
             "aiHarnessSaved":   "AI-generated harness saved to {{name}}.",
             "aiGenerating":     "Generating the harness with AI ({{provider}}) — attempt {{attempt}}/{{max}}...",
             "aiGenCompiled":    "AI harness compiled on attempt {{attempt}}.",
-            "aiGenRetry":       "AI harness did not compile (attempt {{attempt}}/{{max}}); sending the error back to the model to fix..."
+            "aiGenRetry":       "AI harness did not compile (attempt {{attempt}}/{{max}}); sending the error back to the model to fix...",
+            "aiClaudeSlow":     "Heads up: Claude Code (subscription) generates slowly — an attempt can take a few minutes (no streaming). It is NOT stuck. API providers (gemini/openai) are much faster."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",

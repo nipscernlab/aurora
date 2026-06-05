@@ -649,25 +649,37 @@ async function generateOneshot({ system, prompt, model } = {}) {
   return new Promise((resolve) => {
     let out = '';
     let err = '';
+    let done = false;
+    const finish = (r) => { if (!done) { done = true; resolve(r); } };
     let proc;
     try {
       proc = spawn(cmd, finalArgs, { windowsHide: true });
     } catch (e) {
-      resolve({ ok: false, error: e?.message || String(e) });
+      finish({ ok: false, error: e?.message || String(e) });
       return;
     }
+    // The CLI in text mode is slow (it returns only after the whole answer is
+    // generated — measured ~4 min for a harness). Generous timeout so a real
+    // hang doesn't wait forever, without cutting a legitimate generation.
+    const TIMEOUT_MS = 420000; // 7 min
+    const timer = setTimeout(() => {
+      try { proc.kill(); } catch (_) { /* already gone */ }
+      finish({ ok: false, error: 'Claude Code timed out (no answer in 7 min). It is much slower than an API provider — try gemini/openai for faster iteration.' });
+    }, TIMEOUT_MS);
     proc.stdout.on('data', (c) => { out += c.toString(); });
     proc.stderr.on('data', (c) => { err += c.toString(); });
-    proc.on('error', (e) => resolve({ ok: false, error: e?.message || String(e) }));
+    proc.on('error', (e) => { clearTimeout(timer); finish({ ok: false, error: e?.message || String(e) }); });
     proc.on('close', (code) => {
-      if (code === 0) resolve({ ok: true, text: out, finishReason: 'stop' });
-      else resolve({ ok: false, error: `claude CLI exited ${code}: ${(err || out).slice(-500)}` });
+      clearTimeout(timer);
+      if (code === 0) finish({ ok: true, text: out, finishReason: 'stop' });
+      else finish({ ok: false, error: `claude CLI exited ${code}: ${(err || out).slice(-500)}` });
     });
     try {
       proc.stdin.write(String(prompt || ''));
       proc.stdin.end();
     } catch (e) {
-      resolve({ ok: false, error: e?.message || String(e) });
+      clearTimeout(timer);
+      finish({ ok: false, error: e?.message || String(e) });
     }
   });
 }

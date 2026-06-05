@@ -2274,12 +2274,25 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
     // VCD — only reached when streaming is unavailable or the header never
     // surfaced. A real sim FST converts fine; a non-FST input (e.g. a dump that
     // is already a text VCD) fails the magic check, so we return false and the
-    // caller leaves that VCD to be parsed directly downstream.
+    // caller leaves that VCD to be parsed directly downstream. Surface it: the
+    // fast path is the norm, so hitting this means a slower run the user should
+    // know about (otherwise the wait looks like an unexplained hang).
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.headerFallback'), 'tips');
     const result = await runSpec(
         buildFst2VcdSpec({ fst2vcdBin, inputFile: fstPath, outputFile: headerVcdPath, cwd }),
         { consumeEphemeral: true });
-    return (result.code === 0 || result.code === null)
-        && await window.electronAPI.fileExists(headerVcdPath);
+    if (result.code !== 0 && result.code !== null) return false;
+    if (!await window.electronAPI.fileExists(headerVcdPath)) return false;
+    // Um exit limpo pode ainda deixar um arquivo VAZIO (FST corrompido, entrada
+    // nao-FST que mesmo assim saiu com code 0). Sem este check o downstream
+    // parsearia 0 scopes e geraria um auto-gtkw vazio SEM nenhum aviso — o
+    // usuario veria o GTKWave abrir sem sinais e culparia a propria simulacao.
+    // Trata vazio como falha de captura (caller cai no comportamento sem-gtkw).
+    try {
+        const stats = await window.electronAPI.getFileStats(headerVcdPath);
+        if (!stats || stats.size === 0) return false;
+    } catch { /* sem stat -> fileExists ja confirmou presenca; deixa passar */ }
+    return true;
 }
 
 async _adoptCocotbWaveform(ctx, tools, buildDir) {
@@ -2353,9 +2366,10 @@ async _resolveCocotbSimProfile() {
         '+define+YANC_TRACE',
         // cocotb's runner builds the model with -Os (size). SAPHO sims are
         // embedded-processor and can run long, so optimize the C++ for speed
-        // like the non-cocotb flow: -O3 + -march=native (Aurora builds and runs
-        // on the same host and discards the exe, so native is safe). The last -O
-        // on the g++ line wins, so this overrides cocotb's -Os.
+        // like the non-cocotb flow: -O3 + -march=native (safe because Aurora
+        // builds and runs the binary on the SAME host, host == target, and never
+        // redistributes it). The last -O on the g++ line wins, so this overrides
+        // cocotb's -Os.
         '-CFLAGS', '-O3',
         '-CFLAGS', '-march=native',
         // Dump FST instead of VCD: cocotb forces --trace (VCD); --trace-fst
@@ -2552,22 +2566,27 @@ async _waveRunVvpSimulation(simTopModule, tools) {
             || t.includes('$stop called at')
         );
     };
-    const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
-        if (!payload || !payload.data) return;
-        // Split so each line can be classified independently; chunks
-        // from spawn can carry multiple newlines per data event.
-        for (const line of payload.data.split(/\r?\n/)) {
-            if (!line.trim()) continue;
-            // Hard-drop toolchain bookkeeping lines (FST/VCD info,
-            // $finish called at, …). They're useful only when
-            // debugging the simulator itself, and the user has
-            // electron-log + DevTools for that. Keeping them out
-            // of twave entirely avoids the verbose-mode toggle
-            // sync issue altogether.
-            if (isVvpNoise(line)) continue;
-            this.terminalManager.appendToTerminal('twave', line, 'raw');
-        }
-    });
+    // Guard a ausencia de onExecSpecStream (degrada sem streaming ao vivo)
+    // — consistente com os fluxos cocotb e Verilator, que ja checam.
+    let unsubscribe = null;
+    if (typeof window.electronAPI.onExecSpecStream === 'function') {
+        unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+            if (!payload || !payload.data) return;
+            // Split so each line can be classified independently; chunks
+            // from spawn can carry multiple newlines per data event.
+            for (const line of payload.data.split(/\r?\n/)) {
+                if (!line.trim()) continue;
+                // Hard-drop toolchain bookkeeping lines (FST/VCD info,
+                // $finish called at, …). They're useful only when
+                // debugging the simulator itself, and the user has
+                // electron-log + DevTools for that. Keeping them out
+                // of twave entirely avoids the verbose-mode toggle
+                // sync issue altogether.
+                if (isVvpNoise(line)) continue;
+                this.terminalManager.appendToTerminal('twave', line, 'raw');
+            }
+        });
+    }
     let code;
     try {
         const vvpRunSpec = buildVvpRunSpec({
@@ -2578,7 +2597,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         const r = await runSpecStreamed(vvpRunSpec, { consumeEphemeral: true });
         code = r.code;
     } finally {
-        unsubscribe();
+        if (unsubscribe) unsubscribe();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));

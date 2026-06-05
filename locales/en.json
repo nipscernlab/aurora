@@ -437,6 +437,7 @@
             "verilatorNoProcSignals": "Verilator doesn't expose processor {{proc}}'s internal monitoring signals (stack/ULA) — switch to Icarus Verilog to see them.",
             "autoGtkwLayout":        "Auto-generated GTKWave layout ({{detail}})",
             "autoGtkwError":         "Warning: could not auto-generate .gtkw — {{message}}",
+            "headerFallback":        "Note: streaming header capture unavailable; converting the full waveform to read its header (slower).",
             "parseSourcesNote":      "Note: could not parse project sources ({{message}}); falling back to scope-name heuristics for processor detection.",
             "gtkwStaleVcdOne":       "Note: {{preview}} is referenced by {{file}} but is not in the generated VCD; GTKWave will show an empty trace for it.",
             "gtkwStaleVcdMany":      "Note: {{count}} signals referenced by {{file}} are not in the generated VCD: {{preview}}{{more}}. GTKWave will show empty traces for these.",

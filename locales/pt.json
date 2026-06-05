@@ -438,6 +438,7 @@
             "verilatorNoProcSignals": "Verilator não expõe os sinais internos de monitoramento do processador {{proc}} (stack/ULA) — use Icarus Verilog para vê-los.",
             "autoGtkwLayout":        "Layout GTKWave gerado automaticamente ({{detail}})",
             "autoGtkwError":         "Aviso: não foi possível gerar .gtkw automaticamente — {{message}}",
+            "headerFallback":        "Nota: captura do header por streaming indisponível; convertendo a waveform inteira para ler o header (mais lento).",
             "parseSourcesNote":      "Nota: não foi possível parsear as fontes do projeto ({{message}}); caindo para heurísticas baseadas em nome de escopo para detecção de processadores.",
             "gtkwStaleVcdOne":       "Nota: {{preview}} é referenciado por {{file}} mas não está no VCD gerado; GTKWave mostrará um traço vazio.",
             "gtkwStaleVcdMany":      "Nota: {{count}} sinais referenciados por {{file}} não estão no VCD gerado: {{preview}}{{more}}. GTKWave mostrará traços vazios.",

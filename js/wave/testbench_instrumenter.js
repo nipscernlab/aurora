@@ -100,6 +100,51 @@ export function hasUserDumpCalls(src) {
     return /\$dumpfile/.test(stripped) || /\$dumpvars/.test(stripped);
 }
 
+/**
+ * Indice do ULTIMO `endmodule` que e um TOKEN de verdade — fora de
+ * comentario, fora de string, e delimitado por nao-identificadores (word
+ * boundary). -1 se nao houver.
+ *
+ * Um lastIndexOf('endmodule') cru casaria a palavra dentro de um comentario
+ * (`// fim do endmodule`), de uma string, ou de um identificador (`reg
+ * endmodule_done;`) — e a injecao do $dumpfile/$dumpvars iria pro lugar
+ * errado, jogando codigo pra FORA do modulo e gerando um erro de compilacao
+ * confuso. Espelha a maquina de estados de stripVerilogComments, mas em vez
+ * de reescrever o texto devolve o indice no source ORIGINAL (os indices do
+ * stripped nao corresponderiam ao original).
+ */
+export function lastEndmoduleIndex(src) {
+    const KW = 'endmodule';
+    const isWord = (ch) => ch !== undefined && /[A-Za-z0-9_$]/.test(ch);
+    let i = 0;
+    let last = -1;
+    while (i < src.length) {
+        const c = src[i];
+        const next = src[i + 1];
+        if (c === '"') {
+            // String literal — pula ate a proxima aspa nao-escapada.
+            i++;
+            while (i < src.length && src[i] !== '"') {
+                i += (src[i] === '\\' && i + 1 < src.length) ? 2 : 1;
+            }
+            i++; // consome a aspa de fechamento
+        } else if (c === '/' && next === '/') {
+            while (i < src.length && src[i] !== '\n') i++;
+        } else if (c === '/' && next === '*') {
+            i += 2;
+            while (i < src.length - 1 && !(src[i] === '*' && src[i + 1] === '/')) i++;
+            i += 2;
+        } else if (c === 'e' && src.startsWith(KW, i)
+            && !isWord(src[i - 1]) && !isWord(src[i + KW.length])) {
+            last = i;
+            i += KW.length;
+        } else {
+            i++;
+        }
+    }
+    return last;
+}
+
 // NOTA (YANC v4.3): antes existia aqui um workaround
 // (stripVerilatorIncompatibleLines) que removia do _tb.v, na copia
 // Verilator-only, o handler de early-finish `if (proc.valr10 == N) $finish`
@@ -134,7 +179,7 @@ export function instrumentTestbenchSource({
         return { needsWrite: false, content: originalContent, reason: 'user-defined' };
     }
 
-    const lastEndmodule = originalContent.lastIndexOf('endmodule');
+    const lastEndmodule = lastEndmoduleIndex(originalContent);
     if (lastEndmodule === -1) {
         // Malformed testbench — bail and let iverilog produce its own
         // syntax error rather than us silently corrupting the file.
@@ -146,7 +191,7 @@ export function instrumentTestbenchSource({
     const baseContent = hasUserDump ? commentOutDumpCalls(originalContent) : originalContent;
     // O endmodule index muda apos o replace porque o tamanho do
     // conteudo mudou. Recalcular.
-    const endmoduleIdx = baseContent.lastIndexOf('endmodule');
+    const endmoduleIdx = lastEndmoduleIndex(baseContent);
 
     const dumpvarsArgs = selectedSignals.length > 0
         ? `0, ${selectedSignals.join(', ')}`

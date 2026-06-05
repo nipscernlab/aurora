@@ -37,7 +37,7 @@
  * tira o efeito das chamadas. Lida com argumentos em multiplas
  * linhas via lazy match ate o `;`.
  */
-function commentOutDumpCalls(src) {
+export function commentOutDumpCalls(src) {
     return src.replace(
         /\$dump(file|vars)\s*\([^;]*?\)\s*;/g,
         (match) => `/* Aurora: overridden by Wave Configuration ─ ${match.replace(/\n/g, ' ')} */`,

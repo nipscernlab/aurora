@@ -154,6 +154,17 @@
                 </svg>
               </span>
           </button>
+          <!-- Fast Sim: Verilator headless (sem onda). So habilita com o toggle
+               de simulador em Verilator (compilation_flow.syncToolbarEnabledState). -->
+          <button id="fastsim" class="toolbar-button compile-btn" data-tool="verilator-fast" data-tooltip="Fast run — Verilator, no waveform" data-i18n-tooltip="toolbar.fastSim.tooltip">
+              <span class="glyph glyph-fastsim" aria-hidden="true">
+                <svg viewBox="0 0 16 16">
+                  <!-- Double chevron ">>" — fast-forward: run quick, no waveform -->
+                  <path d="M2 4 L6.5 8 L2 12"/>
+                  <path d="M8 4 L12.5 8 L8 12"/>
+                </svg>
+              </span>
+          </button>
           <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel compilation" data-i18n-tooltip="toolbar.cancel.tooltip">
               <i class="ph ph-stop-circle"></i>
           </button>

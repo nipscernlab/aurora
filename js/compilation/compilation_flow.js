@@ -26,6 +26,7 @@
 import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
+import { getSimulator } from '../wave/simulator_preference.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -86,6 +87,8 @@ const STEP_TERMINALS = Object.freeze({
     // Verilator processador CMM: loga no THTEST (Terminal Hardware Test) —
     // etapas de pipeline + barra de progresso ASCII inline da execucao.
     'verilator-proc': ['thtest'],
+    // Fast Sim (Verilator headless, sem onda): mesmo terminal do Wave.
+    'verilator-fast': ['twave'],
 });
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 
@@ -97,6 +100,7 @@ const ERROR_TERMINAL = Object.freeze({
     wave:    'twave',
     prism:   'tveri',
     'verilator-proc': 'thtest',
+    'verilator-fast': 'twave',
 });
 
 function switchTerminal(targetId) {
@@ -542,6 +546,28 @@ async function handleVerilatorProcStep() {
 }
 
 /**
+ * Botao Fast Sim: roda o testbench do projeto via Verilator binario SEM
+ * gerar onda nem abrir o GTKWave — so a velocidade. Verilator-only (o
+ * botao so habilita com o toggle de simulador em Verilator). Pre-compila
+ * cmm+asm caso o top-level instancie processadores SAPHO (no-op senao).
+ */
+async function handleFastSimStep() {
+    startCompilation(STEP_TERMINALS['verilator-fast']);
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        await compiler.loadConfig();
+        await precompileAllProcessors(compiler, 'twave');
+        switchTerminal('terminal-twave');
+        await compiler.runFastSim();
+    } catch (error) {
+        console.error('Erro na etapa fast sim:', error);
+        logFatalError('twave', error);
+    } finally {
+        endCompilation();
+    }
+}
+
+/**
  * Botao PRISM: cmm + asm + iverilog -tnull (top-level) — i.e., faz
  * tudo que o botao Verilog faz — e depois invoca yosys via IPC pra
  * analise estrutural. PRISM e um superset do Verilog.
@@ -669,6 +695,10 @@ async function syncToolbarEnabledState() {
     setEnabled('prismcomp', hasTop);
     setEnabled('verilatorproc', hasActiveProc);
     setEnabled('wavecomp', hasTb);
+    // Fast Sim e Verilator-only: alem do testbench, exige o toggle de
+    // simulador em Verilator (iverilog nao tem o caminho binario headless).
+    // Re-sincronizado no evento aurora:wave-simulator-changed (initialize()).
+    setEnabled('fastsim', hasTb && getSimulator() === 'verilator');
     // Cancelar a simulacao segue a MESMA regra do Wave: sem testbench
     // nao da pra iniciar uma simulacao, entao o botao de cancelar (par
     // visual do Wave, a direita dele na toolbar) fica desabilitado junto.
@@ -700,6 +730,7 @@ class CompilationFlowManager {
         document.getElementById('wavecomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('wave'));
         document.getElementById('prismcomp')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('prism'));
         document.getElementById('verilatorproc')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-proc'));
+        document.getElementById('fastsim')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-fast'));
         document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
         document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
 
@@ -710,6 +741,13 @@ class CompilationFlowManager {
         // o processador ativo), entao re-sincroniza junto.
         document.addEventListener('aurora:editing-file-changed', () => {
             syncCmmcompEnabled();
+            syncToolbarEnabledState();
+        });
+
+        // Fast Sim e Verilator-only, entao seu disabled depende do toggle de
+        // simulador — re-sincroniza quando o usuario (ou a IA) troca o engine.
+        // O evento e dispatchado em window por simulator_toggle.js.
+        window.addEventListener('aurora:wave-simulator-changed', () => {
             syncToolbarEnabledState();
         });
 
@@ -779,6 +817,7 @@ class CompilationFlowManager {
                 case 'wave':      await handleWaveStep(); break;
                 case 'prism':     await handlePrismStep(); break;
                 case 'verilator-proc': await handleVerilatorProcStep(); break;
+                case 'verilator-fast': await handleFastSimStep(); break;
                 default:
                     console.warn(`Passo desconhecido: ${step}`);
                     logFatalError(

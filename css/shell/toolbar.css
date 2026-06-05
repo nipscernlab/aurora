@@ -617,6 +617,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .glyph-verilatorproc svg { stroke-width: 1.3; }
 .glyph-verilatorproc svg rect:nth-of-type(2) { fill: currentColor; }
 
+/* Fast Sim — Verilator headless (sem onda). Chevron duplo ">>" ambar de
+   "fast-forward". fill/stroke explicitos: os paths sao abertos (linha), nunca
+   preenchidos. */
+#fastsim .glyph { color: #E0A45C; }
+.glyph-fastsim svg { stroke-width: 1.6; }
+.glyph-fastsim svg path { fill: none; stroke: currentColor; }
+
 /* Feather glyph uses slightly heavier strokes so the barbs stay legible
    at 16x16 / 14x14 (terminal-tab size). */
 .glyph-veri svg { stroke-width: 1.4; }

@@ -51,7 +51,7 @@ import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
 import {
-  instrumentTestbenchSource, hasUserDumpCalls,
+  instrumentTestbenchSource, hasUserDumpCalls, commentOutDumpCalls,
 } from '../wave/testbench_instrumenter.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
@@ -2883,6 +2883,113 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.verilatorRunFailed', { code }));
+    }
+}
+
+// =====================================================================
+// Botao "Fast Sim" — Verilator headless (sem onda)
+// =====================================================================
+//
+// Roda o MESMO testbench do botao Wave via Verilator binario, mas sem
+// gerar waveform e sem abrir o GTKWave — so a velocidade. Mantem --timing
+// (o testbench original dirige o clock por #delay) e tira --trace-fst. O
+// custo de I/O do dump (a maior fatia da sim) some. Verilator-only: o
+// botao so habilita com o toggle de simulador em Verilator.
+//
+// Diferente do fluxo Wave, NAO instrumenta o tb: usa o source cru com os
+// $dumpfile/$dumpvars comentados (sem trace, qualquer dump seria peso
+// morto, ou erro de "tracing not configured").
+
+/**
+ * Monta o source set do Fast Sim: synth files + testbench do usuario com os
+ * $dumpfile/$dumpvars NEUTRALIZADOS (commentOutDumpCalls). Escreve
+ * fast_<tb>.v em tempBaseDir. O -y HDL vai pelo builder, igual ao Wave.
+ *
+ * @returns {Promise<{ fileSet:Set<string>, fastTbPath:string }>}
+ */
+async _prepareFastSimInputs(config, simTopModule, tempBaseDir) {
+    const tbSrc = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    const fastTbPath = await window.electronAPI.joinPath(tempBaseDir, `fast_${simTopModule}.v`);
+    await window.electronAPI.writeFile(fastTbPath, commentOutDumpCalls(tbSrc));
+    const fileSet = new Set(config.synthesizableFiles);
+    fileSet.add(fastTbPath);
+    return { fileSet, fastTbPath };
+}
+
+/**
+ * Build do Fast Sim. Identico ao _waveBuildVerilator menos (a) NAO
+ * instrumenta o tb (usa _prepareFastSimInputs) e (b) passa trace:false ao
+ * builder (sem --trace-fst). Mantem --timing, -O3, warnings e -y HDL.
+ * objDir proprio (obj_dir_fast_*) pra nao colidir com o build do Wave.
+ *
+ * @returns {Promise<string>} path do V<top>.exe
+ */
+async _fastSimBuildVerilator(simTopModule, tempBaseDir, config, tools) {
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastBuilding'), 'plain');
+
+    const prep = await this._prepareFastSimInputs(config, simTopModule, tempBaseDir);
+    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_fast_${simTopModule}`);
+    await window.electronAPI.mkdir(objDir);
+
+    const verilatorSpec = buildVerilatorBuildSpec({
+        perlExe: tools.perlExe,
+        verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin,
+        usrBin: tools.usrBin,
+        hdlPath,
+        simTopModule,
+        objDir,
+        sourceFiles: [...prep.fileSet],
+        cwd: tempBaseDir,
+        extraWarnings: ['-Wno-fatal', '-Wno-TIMESCALEMOD', '-Wno-DECLFILENAME', '-Wno-STMTDLY'],
+        trace: false,
+    });
+
+    this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(verilatorSpec), 'info', { internal: true });
+    const result = await runSpec(verilatorSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput('twave', result);
+    if (result.code !== 0) {
+        throw new Error(tr('error.compilation.verilatorFailed', { code: result.code }));
+    }
+
+    let exePath = await window.electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
+    if (!await window.electronAPI.fileExists(exePath)) {
+        const fallback = await window.electronAPI.joinPath(objDir, `V${simTopModule}`);
+        if (!await window.electronAPI.fileExists(fallback)) {
+            throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
+        }
+        exePath = fallback;
+    }
+    return exePath;
+}
+
+/**
+ * Pipeline do Fast Sim. Build sem trace -> roda o .exe (reusa
+ * _waveRunVerilatorSimulation, que ja faz staging de memoria/data files,
+ * streama os $display e trata o PATH das DLLs do bundle). Fim: sem header,
+ * sem .gtkw, sem GTKWave.
+ */
+async runFastSim() {
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastBanner'), 'info');
+    try {
+        const config = this.validateForWave();
+        const tools = await this._waveResolveToolchain();
+        const simTopModule = this._waveDeriveSimTopModule(config);
+
+        statusUpdater.startCompilation('verilator');
+        const vTools = await this._waveResolveVerilatorTools();
+        const fullTools = { ...tools, ...vTools };
+
+        const exePath = await this._fastSimBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
+        await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
+
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.fastDone', { name: simTopModule }), 'success');
+    } catch (error) {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
+        console.error(error);
+        throw error;
     }
 }
 

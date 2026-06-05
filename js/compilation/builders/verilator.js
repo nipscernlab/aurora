@@ -45,6 +45,9 @@ const verilatorThreadsArgs = () =>
  * @property {string[]} sourceFiles
  * @property {string}   cwd
  * @property {string[]} [extraWarnings]    e.g. ['-Wno-fatal', '-Wno-TIMESCALEMOD']
+ * @property {boolean}  [trace]            default true (fluxo Wave). false =
+ *                                         sem --trace-fst/--no-trace-top, pro
+ *                                         Fast Sim (roda sem gerar onda).
  */
 
 /** @param {VerilatorBuildBuilderCtx} ctx */
@@ -55,6 +58,11 @@ export function buildVerilatorBuildSpec(ctx) {
     '-Wno-DECLFILENAME',
     '-Wno-STMTDLY',
   ];
+  // Trace ligado por padrao (fluxo Wave -> FST). O Fast Sim passa false: sem
+  // --trace-fst o runtime nao instrumenta dump nenhum (o maior custo de I/O da
+  // sim some) e --no-trace-top vira irrelevante. --timing FICA — o testbench
+  // original dirige o clock por #delay.
+  const trace = ctx.trace !== false;
 
   // -CFLAGS takes ONE token per occurrence — wrapping "-O3 -fstrict-
   // aliasing" in quotes is lost by cmd.exe and Verilator misreads
@@ -63,13 +71,13 @@ export function buildVerilatorBuildSpec(ctx) {
     ctx.verilatorScript,
     '--binary',
     '--main',
-    '--trace-fst',
+    ...(trace ? ['--trace-fst'] : []),
     '-j', VERILATOR_BUILD_JOBS,
     ...warnings,
     '--timing',
     '--x-assign', 'fast',
     ...verilatorThreadsArgs(),
-    '--no-trace-top',
+    ...(trace ? ['--no-trace-top'] : []),
     // YANC v4.3: liga o bloco de sim-visibility do harness (variaveis/arrays,
     // PC->C± line table, opcode tap, I/O mirrors) sob Verilator. O guard do
     // <proc>.v gerado e `ifdef YANC_SIM_VIS`, ativado por __ICARUS__ (Icarus)

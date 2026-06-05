@@ -15,6 +15,7 @@
             "verilator": "Simular com Verilator — simulações longas"
         },
         "verilatorProc":   { "tooltip": "Teste do processador sintetizado (somente I/O)" },
+        "fastSim":         { "tooltip": "Execução rápida — Verilator, sem onda" },
         "waveConfig":      { "tooltip": "Configuração de ondas — selecionar sinais para dump" },
         "gtkwPicker": {
             "tooltip":         "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",
@@ -410,6 +411,9 @@
             "runningVvp":            "Executando simulação VVP...",
             "buildingVerilator":     "Compilando design com Verilator (--binary --trace-fst)...",
             "runningVerilator":      "Executando binário Verilator...",
+            "fastBanner":            "Fast Sim — Verilator, sem onda.",
+            "fastBuilding":          "Compilando com Verilator (sem trace)...",
+            "fastDone":              "Fast Sim concluído: {{name}}.",
             "verilatorHeaderOk":     "Cabeçalho FST capturado (pass 1).",
             "verilatorFstConvert":   "Convertendo cabeçalho FST → VCD (fst2vcd) para o picker.",
             "verilatorSimulator":    "Usando simulador: Verilator.",

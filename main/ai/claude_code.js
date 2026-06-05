@@ -620,4 +620,56 @@ function forgetConversation(conversationId) {
   if (conversationId) convSessions.delete(conversationId);
 }
 
-module.exports = { detect, getUsage, start, abort, killAll, forgetConversation };
+/**
+ * One-shot text generation via the Claude Code CLI (subscription) in print
+ * mode — no streaming, no Aurora MCP/tool bridge, no session. Lets the AI
+ * harness generator use the subscription instead of requiring an API key.
+ * The prompt rides on stdin (it can be large). Same shape as
+ * provider.generateOneshot: { ok, text, finishReason } or { ok:false, error }.
+ *
+ * @param {{ system?:string, prompt:string, model?:string }} opts
+ */
+async function generateOneshot({ system, prompt, model } = {}) {
+  const bin = resolveBinary();
+  if (!bin) return { ok: false, error: 'Claude Code CLI not found. Install it, or pick an API provider.' };
+  if (!readCredentials()) return { ok: false, error: 'Claude Code is not signed in. Run `claude login` in a terminal.' };
+
+  const args = ['-p', '--output-format', 'text'];
+  if (model && model !== 'default') args.push('--model', model);
+  if (system) args.push('--append-system-prompt', system);
+
+  // .cmd shim needs cmd.exe on Windows (same as execFileText/start).
+  let cmd = bin.exe;
+  let finalArgs = args;
+  if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(bin.exe)) {
+    cmd = 'cmd.exe';
+    finalArgs = ['/d', '/s', '/c', bin.exe, ...args];
+  }
+
+  return new Promise((resolve) => {
+    let out = '';
+    let err = '';
+    let proc;
+    try {
+      proc = spawn(cmd, finalArgs, { windowsHide: true });
+    } catch (e) {
+      resolve({ ok: false, error: e?.message || String(e) });
+      return;
+    }
+    proc.stdout.on('data', (c) => { out += c.toString(); });
+    proc.stderr.on('data', (c) => { err += c.toString(); });
+    proc.on('error', (e) => resolve({ ok: false, error: e?.message || String(e) }));
+    proc.on('close', (code) => {
+      if (code === 0) resolve({ ok: true, text: out, finishReason: 'stop' });
+      else resolve({ ok: false, error: `claude CLI exited ${code}: ${(err || out).slice(-500)}` });
+    });
+    try {
+      proc.stdin.write(String(prompt || ''));
+      proc.stdin.end();
+    } catch (e) {
+      resolve({ ok: false, error: e?.message || String(e) });
+    }
+  });
+}
+
+module.exports = { detect, getUsage, start, abort, killAll, forgetConversation, generateOneshot };

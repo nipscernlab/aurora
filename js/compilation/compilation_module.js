@@ -3422,8 +3422,10 @@ async aiHarnessRun() {
 async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles, objDir, tempBaseDir, T }) {
     const providerName = window.aiAssistantManager?.currentProvider || null;
     // generateOneshot vive no namespace aiAPI (preload), NAO em electronAPI.
-    if (!providerName || providerName === 'claude-code' || providerName === 'chatgpt'
-        || typeof window.aiAPI?.generateOneshot !== 'function') {
+    // claude-code roteia pro CLI da assinatura; os de API vao pelo Vercel SDK;
+    // chatgpt ainda nao tem one-shot (o provider retorna erro claro). So
+    // barramos aqui a ausencia de provider selecionado ou da feature.
+    if (!providerName || typeof window.aiAPI?.generateOneshot !== 'function') {
         throw new Error(tr('error.compilation.aiHarnessNoProvider'));
     }
     const testbenchSource = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });

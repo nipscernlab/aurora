@@ -155,10 +155,48 @@ async function testConnection(providerName, modelId) {
   }
 }
 
+/**
+ * One-shot text generation (no tools, no streaming, no chat history) — for
+ * features that transform an input into an output in a single call, e.g. the
+ * AI harness generator. Returns a structured result instead of throwing so the
+ * IPC handler can pass it through. Only the Vercel-SDK API providers are
+ * supported here (the claude-code / chatgpt CLI bridges are chat-only).
+ *
+ * @param {object} opts
+ * @param {string}  opts.provider
+ * @param {string} [opts.model]
+ * @param {string} [opts.system]
+ * @param {string}  opts.prompt
+ * @param {number} [opts.maxOutputTokens]
+ */
+async function generateOneshot({ provider: name, model, system, prompt, maxOutputTokens } = {}) {
+  if (!generateText) {
+    return { ok: false, error: 'AI SDK ("ai" package) failed to load.' };
+  }
+  if (!name || !PROVIDER_FACTORIES[name] && name !== 'ollama') {
+    return { ok: false, error: `One-shot generation needs an API provider (got "${name || 'none'}"). Pick OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama in the AI panel.` };
+  }
+  const modelId = model || getModelFor(name);
+  if (!modelId) return { ok: false, error: `No model configured for "${name}"` };
+  try {
+    const prov = getProvider(name);
+    const result = await generateText({
+      model: prov(modelId),
+      ...(system ? { system } : {}),
+      prompt,
+      ...(maxOutputTokens ? { maxOutputTokens } : {}),
+    });
+    return { ok: true, text: result.text || '', usage: result.usage || null, model: modelId };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
+
 module.exports = {
   DEFAULT_MODELS,
   getProvider,
   getDefaultModel,
   getModelFor,
   testConnection,
+  generateOneshot,
 };

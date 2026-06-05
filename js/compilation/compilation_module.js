@@ -56,6 +56,9 @@ import {
 import {
   instrumentGoldTestbench, compareKvDumps, hashInputs,
 } from '../wave/gold_instrumenter.js';
+import {
+  buildHarnessPrompt, extractCppFromResponse,
+} from './ai_harness_prompt.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
@@ -3329,10 +3332,21 @@ async aiHarnessRun() {
 
     // ---- Passo 2: obtem o harness C++ (PASSO 1: lido de arquivo, a mao) ----
     const harnessSrcPath = await window.electronAPI.joinPath(this.projectPath, `${topModule}_harness.cpp`);
-    if (!await window.electronAPI.fileExists(harnessSrcPath)) {
-        throw new Error(tr('error.compilation.aiHarnessMissing', { path: harnessSrcPath }));
+    let harnessSrc;
+    if (await window.electronAPI.fileExists(harnessSrcPath)) {
+        // Cache simples: o .cpp existe -> reusa (apaga o arquivo pra regerar via IA).
+        this.terminalManager.appendToTerminal(T,
+            tr('terminal.htest.aiHarnessFromFile', { name: `${topModule}_harness.cpp` }), 'info');
+        harnessSrc = await window.electronAPI.readFile(harnessSrcPath, { encoding: 'utf8' });
+    } else {
+        // IA gera o harness a partir do testbench .v (loop compila-corrige).
+        harnessSrc = await this._aiGenerateHarness({
+            topModule, ports, config, tools, hdlPath, synthFiles, objDir, tempBaseDir, T,
+        });
+        await window.electronAPI.writeFile(harnessSrcPath, harnessSrc);
+        this.terminalManager.appendToTerminal(T,
+            tr('terminal.htest.aiHarnessSaved', { name: `${topModule}_harness.cpp` }), 'success');
     }
-    const harnessSrc = await window.electronAPI.readFile(harnessSrcPath, { encoding: 'utf8' });
     const cppPath = await window.electronAPI.joinPath(tempBaseDir, `ai_${topModule}.cpp`);
     await window.electronAPI.writeFile(cppPath, harnessSrc);
 
@@ -3395,6 +3409,58 @@ async aiHarnessRun() {
     }
 
     this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiDone', { name: topModule }), 'success');
+}
+
+/**
+ * Gera o harness C++ via IA a partir do testbench .v + portas, com loop
+ * compila-corrige: pede o C++, tenta compilar; se falha, devolve o erro do
+ * build pra IA corrigir, ate compilar ou esgotar as tentativas. Retorna o
+ * source que COMPILA. Throws (mensagem clara) se nao houver provider de API ou
+ * se nao compilar em N tentativas. NAO valida o RESULTADO — isso e' o Passo 5
+ * (que so avisa, nao auto-corrige, por escolha do usuario).
+ */
+async _aiGenerateHarness({ topModule, ports, config, tools, hdlPath, synthFiles, objDir, tempBaseDir, T }) {
+    const providerName = window.aiAssistantManager?.currentProvider || null;
+    if (!providerName || providerName === 'claude-code' || providerName === 'chatgpt'
+        || typeof window.electronAPI.generateOneshot !== 'function') {
+        throw new Error(tr('error.compilation.aiHarnessNoProvider'));
+    }
+    const testbenchSource = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    const cppPath = await window.electronAPI.joinPath(tempBaseDir, `ai_${topModule}.cpp`);
+    const MAX = 3;
+    let feedback = null;
+    let lastError = '';
+
+    for (let attempt = 1; attempt <= MAX; attempt++) {
+        this.terminalManager.appendToTerminal(T,
+            tr('terminal.htest.aiGenerating', { attempt, max: MAX, provider: providerName }), 'info');
+        const { system, user } = buildHarnessPrompt({ topModule, ports, testbenchSource, feedback });
+        const resp = await window.electronAPI.generateOneshot({
+            provider: providerName, system, prompt: user, maxOutputTokens: 8000,
+        });
+        if (!resp || !resp.ok) {
+            throw new Error(tr('error.compilation.aiHarnessGenFailed', { error: resp?.error || 'unknown' }));
+        }
+        const cpp = extractCppFromResponse(resp.text);
+        if (!cpp) { lastError = 'empty response'; feedback = null; continue; }
+
+        await window.electronAPI.writeFile(cppPath, cpp);
+        const buildSpec = buildVerilatorTbBuildSpec({
+            perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+            mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+            hdlPath, topModule, objDir,
+            sourceFiles: [...synthFiles, cppPath], cwd: tempBaseDir,
+        });
+        const buildRes = await runSpec(buildSpec, { consumeEphemeral: true });
+        if (buildRes.code === 0) {
+            this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiGenCompiled', { attempt }), 'success');
+            return cpp;
+        }
+        lastError = String(buildRes.stderr || buildRes.stdout || `exit ${buildRes.code}`).slice(-2000);
+        this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiGenRetry', { attempt, max: MAX }), 'warning');
+        feedback = { previousCpp: cpp, buildError: lastError };
+    }
+    throw new Error(tr('error.compilation.aiHarnessNoCompile', { attempts: MAX, error: lastError.slice(0, 400) }));
 }
 
 /** Caminho do cache de certificacao (JSON no Temp). */

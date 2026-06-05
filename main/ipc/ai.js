@@ -108,6 +108,16 @@ function register() {
     }
   });
 
+  // One-shot generation (prompt -> text, no tools/streaming). Used by the AI
+  // harness generator. provider.generateOneshot returns { ok, text|error }.
+  ipcMain.handle('ai:generate-oneshot', async (_event, payload) => {
+    try {
+      return await provider.generateOneshot(payload || {});
+    } catch (e) {
+      return fail(e?.message);
+    }
+  });
+
   /* ---- Claude Code (subscription) bridge ----
    * Probe the local `claude` CLI install + subscription login, and
    * surface live rate-limit / token usage for the panel's usage bars.

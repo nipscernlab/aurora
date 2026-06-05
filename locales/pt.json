@@ -401,7 +401,12 @@
             "aiCertified":   "Harness CERTIFICADO — todas as {{count}} saída(s) batem com o gabarito.",
             "aiMismatch":    "Harness NÃO bate com o gabarito ({{count}} saída(s) divergentes): {{preview}}. Não certificado.",
             "aiCachedCertified":"Harness já CERTIFICADO (cache — inputs inalterados, todas as {{count}} saída(s) bateram); pulando o gabarito.",
-            "aiCachedMismatch": "Harness NÃO foi certificado na última execução (cache — inputs inalterados); pulando o gabarito."
+            "aiCachedMismatch": "Harness NÃO foi certificado na última execução (cache — inputs inalterados); pulando o gabarito.",
+            "aiHarnessFromFile":"Usando o harness existente {{name}} (apague-o para regerar com IA).",
+            "aiHarnessSaved":   "Harness gerado pela IA salvo em {{name}}.",
+            "aiGenerating":     "Gerando o harness com IA ({{provider}}) — tentativa {{attempt}}/{{max}}...",
+            "aiGenCompiled":    "Harness IA compilou na tentativa {{attempt}}.",
+            "aiGenRetry":       "Harness IA não compilou (tentativa {{attempt}}/{{max}}); devolvendo o erro pro modelo corrigir..."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave fechado - restaurando árvore de arquivos padrão...",
@@ -510,6 +515,9 @@
             "aiHarnessMissing":     "Harness C++ não encontrado em {{path}}. (Passo 1 do roadmap: escreva à mão pra testar o pipeline; a geração pela IA vem depois.)",
             "aiHarnessRunFailed":   "Execução do harness IA falhou com código {{code}}.",
             "aiHarnessNeedsVerilogTb":"O harness IA precisa de um testbench Verilog (.v) — ele converte Verilog e valida contra ele. Testbench .py (cocotb) vai pelo botão Wave.",
+            "aiHarnessNoProvider":  "A geração do harness IA precisa de um provider de API (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) selecionado no painel de IA — os bridges CLI claude-code/chatgpt não são suportados aqui. Configure uma chave e escolha um provider, ou escreva o harness .cpp à mão.",
+            "aiHarnessGenFailed":   "Geração pela IA falhou: {{error}}.",
+            "aiHarnessNoCompile":   "O harness IA não compilou após {{attempts}} tentativas. Último erro de build: {{error}}",
             "verilatorTbRunFailed":"Execução do harness Verilator falhou com código {{code}}.",
             "noProcessor":         "Nenhum processador no projeto. O botão Verilator (processador) precisa de um processador com .cmm.",
             "noActiveProcessor":   "Nenhum processador ativo. Abra o .cmm de um processador no editor (o nome aparece na barra de status) e clique em Verilator de novo.",

@@ -259,6 +259,14 @@ const aiAPI = {
     ipcRenderer.invoke('ai:test-connection', { provider, modelId }),
 
   /**
+   * One-shot generation (prompt -> text, no tools/streaming). Resolves with
+   * `{ ok, text, usage, model }` or `{ ok:false, error }`. Only API providers
+   * (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) — not the CLI bridges.
+   */
+  generateOneshot: ({ provider, model, system, prompt, maxOutputTokens }) =>
+    ipcRenderer.invoke('ai:generate-oneshot', { provider, model, system, prompt, maxOutputTokens }),
+
+  /**
    * Kick off a streaming chat. The renderer must subscribe to chat
    * events via `onChatEvent` *before* calling startChat so it doesn't
    * miss early text-delta packets. Returns immediately with the

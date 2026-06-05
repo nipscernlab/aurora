@@ -400,7 +400,12 @@
             "aiCertified":   "Harness CERTIFIED — all {{count}} output(s) match the gold testbench.",
             "aiMismatch":    "Harness does NOT match the gold testbench ({{count}} differing output(s)): {{preview}}. Not certified.",
             "aiCachedCertified":"Harness already CERTIFIED (cached — inputs unchanged, all {{count}} output(s) matched); skipping the gold run.",
-            "aiCachedMismatch": "Harness was NOT certified last run (cached — inputs unchanged); skipping the gold run."
+            "aiCachedMismatch": "Harness was NOT certified last run (cached — inputs unchanged); skipping the gold run.",
+            "aiHarnessFromFile":"Using existing harness {{name}} (delete it to regenerate with AI).",
+            "aiHarnessSaved":   "AI-generated harness saved to {{name}}.",
+            "aiGenerating":     "Generating the harness with AI ({{provider}}) — attempt {{attempt}}/{{max}}...",
+            "aiGenCompiled":    "AI harness compiled on attempt {{attempt}}.",
+            "aiGenRetry":       "AI harness did not compile (attempt {{attempt}}/{{max}}); sending the error back to the model to fix..."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",
@@ -509,6 +514,9 @@
             "aiHarnessMissing":     "C++ harness not found at {{path}}. (Step 1 of the roadmap: write it by hand to test the pipeline; AI generation comes next.)",
             "aiHarnessRunFailed":   "AI harness run failed with exit code {{code}}.",
             "aiHarnessNeedsVerilogTb":"AI harness needs a Verilog (.v) testbench — it converts Verilog and validates against it. A .py (cocotb) testbench goes through the Wave button.",
+            "aiHarnessNoProvider":  "AI harness generation needs an API provider (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) selected in the AI panel — the claude-code/chatgpt CLI bridges aren't supported here. Configure a key and pick a provider, or write the harness .cpp by hand.",
+            "aiHarnessGenFailed":   "AI generation failed: {{error}}.",
+            "aiHarnessNoCompile":   "The AI harness did not compile after {{attempts}} attempts. Last build error: {{error}}",
             "verilatorTbRunFailed":"Verilator harness run failed with exit code {{code}}.",
             "noProcessor":         "No processor in the project. The Verilator (processor) button needs a processor with a .cmm.",
             "noActiveProcessor":   "No active processor. Open a processor's .cmm in the editor (the name shows in the status bar) and click Verilator again.",

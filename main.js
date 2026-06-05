@@ -77,6 +77,19 @@ if (acquiredLock) {
   updater.registerIpc();
 
   app.whenReady().then(() => {
+    // MSYS tools (bash/make under the Verilator build, and cocotb) resolve
+    // `/tmp` to <msysRoot>/tmp. A packaged build — or a freshly-copied
+    // components/ tree — may not carry that empty directory, so bash warns
+    // "could not find /tmp, please create" and temp-file-using steps can
+    // break. Create it once at startup; best-effort (absence only re-triggers
+    // the warning, never crashes boot).
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const { componentsPath } = require('./main/paths');
+      fs.mkdirSync(path.join(componentsPath, 'Packages', 'msys', 'tmp'), { recursive: true });
+    } catch (_) { /* best-effort */ }
+
     // Render the initial jumplist before the user has a chance to
     // right-click the taskbar icon. createMainWindow used to handle
     // this, but moving it here means the list is set even during the

@@ -73,6 +73,13 @@ export function buildVerilatorBuildSpec(ctx) {
     '--main',
     ...(trace ? ['--trace-fst'] : []),
     '-j', VERILATOR_BUILD_JOBS,
+    // Compile the C++ WITHOUT ccache. The bundled MSYS ccache can fail to
+    // exec the compiler ("The system cannot find the path specified." → make
+    // error 127), which aborts the whole Verilator build. `-MAKEFLAGS
+    // OBJCACHE=` passes `OBJCACHE=` to the generated Makefile's make call,
+    // overriding Verilator's configured OBJCACHE default (possibly `ccache`)
+    // so the recipe runs `g++ …` directly instead of `ccache g++ …`.
+    '-MAKEFLAGS', 'OBJCACHE=',
     ...warnings,
     '--timing',
     '--x-assign', 'fast',
@@ -232,6 +239,10 @@ export function buildVerilatorTbBuildSpec(ctx) {
       '--exe',
       '--build',
       '-j', VERILATOR_BUILD_JOBS,
+      // Compile WITHOUT ccache — the bundled MSYS ccache can fail to exec the
+      // compiler (make error 127), aborting the build. See the note in
+      // buildVerilatorBuildSpec; `-MAKEFLAGS OBJCACHE=` forces `g++ …` direct.
+      '-MAKEFLAGS', 'OBJCACHE=',
       ...warnings,
       // SEM --timing aqui (diferente do fluxo Wave). O clock e dirigido a
       // mao pelo harness C++ e o que compilamos — <proc>.v + libs HDL — e

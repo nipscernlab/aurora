@@ -30,8 +30,6 @@
 'use strict';
 
 const os = require('os');
-const fs = require('fs');
-const path = require('path');
 const { ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const log = require('electron-log');
@@ -58,15 +56,11 @@ function buildChildEnv(spec) {
     OMP_THREAD_LIMIT: cpuCount.toString(),
     ...(spec.env || {}),
   };
-  // Cache the Verilator model's object compiles when ccache is bundled. Only
-  // the verilator build steps spawn g++/make, so scope it there; a spec-supplied
-  // OBJCACHE (spec.env) always wins. The bare name resolves via the prepended
-  // PATH below (ccache.exe sits in the same mingw64/bin we're prepending).
-  if (!env.OBJCACHE && typeof spec.step === 'string' &&
-      spec.step.startsWith('verilator') && Array.isArray(spec.prependPath) &&
-      ccacheOnPaths(spec.prependPath)) {
-    env.OBJCACHE = 'ccache';
-  }
+  // NOTE: we intentionally do NOT enable ccache (OBJCACHE) for the Verilator
+  // build. The bundled MSYS ccache can fail to exec the compiler ("The system
+  // cannot find the path specified." → make error 127), which aborts the whole
+  // build. The Verilator builders pass `-MAKEFLAGS OBJCACHE=` to force the
+  // generated Makefile to call `g++ …` directly (see builders/verilator.js).
   if (Array.isArray(spec.prependPath) && spec.prependPath.length) {
     const sep = process.platform === 'win32' ? ';' : ':';
     env.PATH = spec.prependPath.join(sep) + sep + (env.PATH || '');
@@ -98,28 +92,6 @@ const PRIORITY_BY_NAME = {
 const TOOLCHAIN_PRIORITY =
   PRIORITY_BY_NAME[String(process.env.AURORA_TOOLCHAIN_PRIORITY || '').toLowerCase()] ??
   os.constants.priority.PRIORITY_ABOVE_NORMAL;
-
-// ccache lives next to g++/make inside the unified mingw bundle (the
-// Packages/msys/mingw64/bin that rides in on spec.prependPath). We look for it
-// on the SAME dirs the child gets prepended onto PATH, so a hit means `ccache`
-// will resolve for the child too — and we only set OBJCACHE when the file is
-// actually there, so make never tries to invoke a missing binary on installs
-// without it. Detection per dir is memoized: the toolchain path is constant
-// for a session.
-const _ccacheByDir = new Map();
-function ccacheOnPaths(dirs) {
-  for (const dir of dirs) {
-    if (typeof dir !== 'string') continue;
-    if (!_ccacheByDir.has(dir)) {
-      let found = false;
-      try { found = fs.existsSync(path.join(dir, 'ccache.exe')); } catch { found = false; }
-      _ccacheByDir.set(dir, found);
-      if (found) log.info('[exec] ccache present in toolchain — Verilator object compiles will be cached');
-    }
-    if (_ccacheByDir.get(dir)) return true;
-  }
-  return false;
-}
 
 /** Best-effort priority bump for a freshly-spawned toolchain child. */
 function boostPriority(pid) {

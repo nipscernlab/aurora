@@ -13,6 +13,18 @@
  */
 
 /**
+ * iverilog.exe and the modules it dlopens are MinGW-linked and depend on the
+ * runtime DLLs in mingw64/bin (where iverilog.exe itself lives). Returning
+ * `{ prependPath: [mingw64/bin] }` keeps that dir on the child's PATH so those
+ * loads resolve. Pure string op — no IO. Returns `{}` if the path is empty.
+ * @param {string} binaryPath
+ */
+function prependBinDir(binaryPath) {
+  const dir = String(binaryPath || '').replace(/[\\/][^\\/]*$/, '');
+  return dir ? { prependPath: [dir] } : {};
+}
+
+/**
  * @typedef {Object} IverilogCheckBuilderCtx
  * @property {string}   iveriCompPath
  * @property {string}   hdlPath
@@ -34,6 +46,9 @@ export function buildIverilogCheckSpec(ctx) {
     binary: ctx.iveriCompPath,
     args,
     cwd: ctx.cwd,
+    // mingw64/bin on PATH so iverilog's MinGW-linked target/preprocessor
+    // modules (and their runtime DLLs) load — same reason as vvp/system.vpi.
+    ...prependBinDir(ctx.iveriCompPath),
     label: `iverilog -tnull -s ${ctx.simTopModule}`,
   };
 }
@@ -61,6 +76,9 @@ export function buildIverilogBuildSpec(ctx) {
     binary: ctx.iveriCompPath,
     args,
     cwd: ctx.cwd,
+    // See buildIverilogCheckSpec: keep the MinGW bin dir on PATH for the
+    // target/preprocessor modules iverilog dlopens during a real build.
+    ...prependBinDir(ctx.iveriCompPath),
     label: `iverilog -o ${ctx.outputFile.split(/[\\/]/).pop()} -s ${ctx.simTopModule}`,
   };
 }

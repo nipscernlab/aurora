@@ -16,6 +16,7 @@
         },
         "verilatorProc":   { "tooltip": "Synthesized processor test (I/O only)" },
         "aiHarness":       { "tooltip": "Synthesized top-level test (AI harness)" },
+        "detHarness":      { "tooltip": "Synthesized top-level test (deterministic, no AI)" },
         "fastSim":         { "tooltip": "Fast run — no waveform (Verilator / cocotb)" },
         "waveConfig":      { "tooltip": "Wave Configuration — pick signals to dump" },
         "gtkwPicker": {
@@ -415,7 +416,11 @@
             "aiGenerating":     "Generating the harness with AI ({{provider}}) — attempt {{attempt}}/{{max}}...",
             "aiGenCompiled":    "AI harness compiled on attempt {{attempt}}.",
             "aiGenRetry":       "AI harness did not compile (attempt {{attempt}}/{{max}}); sending the error back to the model to fix...",
-            "aiClaudeSlow":     "Heads up: Claude Code (subscription) generates slowly — an attempt can take a few minutes (no streaming). It is NOT stuck. API providers (gemini/openai) are much faster."
+            "aiClaudeSlow":     "Heads up: Claude Code (subscription) generates slowly — an attempt can take a few minutes (no streaming). It is NOT stuck. API providers (gemini/openai) are much faster.",
+            "detStart":      "=== Deterministic synthesis test: \"{{name}}\" (Verilator, no AI / no timing / no wave) ===",
+            "detEligible":   "Eligible testbench → deterministic harness (no AI): clock \"{{clk}}\", {{cycles}} cycles, {{events}} events.",
+            "detIneligible": "Testbench is NOT eligible for the deterministic converter:\n{{reasons}}\nRewrite the stimulus as a temporal sequence in an initial block, or use the AI harness button (which handles embedded state logic).",
+            "detDone":       "Deterministic synthesis test finished: {{name}}."
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",

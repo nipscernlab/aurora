@@ -59,6 +59,9 @@ import {
 import {
   buildHarnessPrompt, extractCppFromResponse, reinjectDump,
 } from './ai_harness_prompt.js';
+import {
+  generateDeterministicHarness, DeterministicError,
+} from './deterministic_harness.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
@@ -3409,6 +3412,140 @@ async aiHarnessRun() {
     }
 
     this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiDone', { name: topModule }), 'success');
+}
+
+/**
+ * Botao "teste de sintese DETERMINISTICO": converte um testbench .v ELEGIVEL
+ * (so estimulos + 1 instancia do top-level, sem `always @(posedge)` de estado)
+ * num harness C++ Verilator sem --timing, por PARSING (deterministic_harness.js)
+ * — sem IA, instantaneo, reproduzivel. Reusa TODO o pipeline do harness IA
+ * (json-only -> build -> run -> validacao por $fwrite contra o gabarito com
+ * cache), so trocando a geracao por LLM pelo conversor. Se o tb NAO for elegivel,
+ * avisa com os motivos e sugere o botao de harness IA — sem erro fatal.
+ */
+async deterministicHarnessRun() {
+    await this.initializeComponentsPath();
+    if (!this.projectConfig) throw new Error(tr('error.config.notLoaded'));
+    const config = this.validateForWave();
+    if (!config.topLevelFile) throw new Error(tr('error.compilation.noTopLevel'));
+    // O conversor traduz um testbench Verilog; .py (cocotb) nao se aplica.
+    if (isPythonFile(config.testbenchFile)) {
+        throw new Error(tr('error.compilation.aiHarnessNeedsVerilogTb'));
+    }
+
+    const topModule = moduleStemFromPath(config.topLevelFile);
+    const synthFiles = Array.isArray(config.synthesizableFiles) ? config.synthesizableFiles : [];
+    const tools = await this._waveResolveVerilatorTools();
+    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_det_${topModule}`);
+    await window.electronAPI.mkdir(objDir);
+    const T = 'thtest';
+
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.detStart', { name: topModule }), 'info');
+
+    // ---- Passo 1: portas do DUT via --json-only (mesmo do harness IA) ----
+    this.terminalManager.appendToTerminal(T, tr('terminal.wave.procPorts', { name: topModule }), 'info');
+    const jsonSpec = buildVerilatorJsonSpec({
+        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        hdlPath, topModule, objDir,
+        sourceFiles: synthFiles, cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(jsonSpec), 'info', { internal: true });
+    const jsonResult = await runSpec(jsonSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput(T, jsonResult);
+    if (jsonResult.code !== 0) throw new Error(tr('error.compilation.verilatorJsonFailed', { code: jsonResult.code }));
+    const jsonPath = await window.electronAPI.joinPath(objDir, `V${topModule}.tree.json`);
+    if (!await window.electronAPI.fileExists(jsonPath)) {
+        throw new Error(tr('error.compilation.verilatorJsonMissing', { path: jsonPath }));
+    }
+    const ports = parseVerilatorPorts(JSON.parse(await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' })));
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiPorts', {
+        ins: ports.filter((p) => p.direction === 'input').map((p) => p.name).join(', ') || '—',
+        outs: ports.filter((p) => p.direction === 'output').map((p) => p.name).join(', ') || '—',
+    }), 'info');
+
+    // ---- Passo 2: gera o harness DETERMINISTICAMENTE (sem IA, por parsing) ----
+    const testbenchSrc = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    let det;
+    try {
+        det = generateDeterministicHarness({ topModule, ports, testbenchSource: testbenchSrc });
+    } catch (e) {
+        // Nao elegivel -> avisa com os motivos e sugere o harness IA. Sem erro
+        // fatal: o testbench so nao se encaixa na classe deterministica.
+        if (e instanceof DeterministicError) {
+            this.terminalManager.appendToTerminal(T,
+                tr('terminal.htest.detIneligible', { reasons: e.message.replace(/^[^:]*:\s*/, '') }), 'warning');
+            return;
+        }
+        throw e;
+    }
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.detEligible', {
+        clk: det.info.clock.name, cycles: det.info.totalCycles, events: det.info.eventCount,
+    }), 'success');
+    const harnessSrc = det.cpp;
+    const cppPath = await window.electronAPI.joinPath(tempBaseDir, `det_${topModule}.cpp`);
+    await window.electronAPI.writeFile(cppPath, harnessSrc);
+
+    // ---- Passo 3: build (--cc --exe --build SEM --timing) ----
+    this.terminalManager.appendToTerminal(T, tr('terminal.wave.procBuilding', { name: topModule }), 'info');
+    const buildSpec = buildVerilatorTbBuildSpec({
+        perlExe: tools.perlExe, verilatorScript: tools.verilatorScript,
+        mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+        hdlPath, topModule, objDir,
+        sourceFiles: [...synthFiles, cppPath], cwd: tempBaseDir,
+    });
+    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(buildSpec), 'info', { internal: true });
+    const buildResult = await runSpec(buildSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput(T, buildResult);
+    if (buildResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbBuildFailed', { code: buildResult.code }));
+
+    let exePath = await window.electronAPI.joinPath(objDir, `V${topModule}.exe`);
+    if (!await window.electronAPI.fileExists(exePath)) {
+        const fallback = await window.electronAPI.joinPath(objDir, `V${topModule}`);
+        if (!await window.electronAPI.fileExists(fallback)) {
+            throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
+        }
+        exePath = fallback;
+    }
+
+    // ---- Passo 4: roda no dir do testbench (onde vivem os data files) ----
+    const runCwd = config.testbenchFile
+        ? await window.electronAPI.dirname(config.testbenchFile)
+        : this.projectPath;
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.aiRunning', { name: topModule }), 'info');
+    const runHarnessSpec = buildVerilatorTbRunSpec({
+        exePath, cwd: runCwd, mingwBin: tools.mingwBin, usrBin: tools.usrBin,
+    });
+    this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(runHarnessSpec), 'info', { internal: true });
+    const runRes = await runSpec(runHarnessSpec, { consumeEphemeral: true });
+    this.terminalManager.processExecutableOutput(T, runRes);
+    if (runRes.code !== 0) throw new Error(tr('error.compilation.aiHarnessRunFailed', { code: runRes.code }));
+
+    // ---- Passo 5: validacao por $fwrite contra o gabarito (com cache) ----
+    // Cache em chave separada ("det:") pra nao colidir com a do harness IA no
+    // mesmo arquivo. O hash cobre testbench + harness + fontes synth.
+    const inputsHash = await this._aiHarnessInputsHash(testbenchSrc, harnessSrc, synthFiles);
+    const cache = await this._aiHarnessCacheRead(tempBaseDir);
+    const cacheKey = `det:${topModule}`;
+    const hit = cache[cacheKey];
+    if (hit && hit.hash === inputsHash) {
+        this.terminalManager.appendToTerminal(T, hit.certified
+            ? tr('terminal.htest.aiCachedCertified', { count: hit.common })
+            : tr('terminal.htest.aiCachedMismatch'), hit.certified ? 'success' : 'warning');
+    } else {
+        const result = await this._aiValidateAgainstGold({
+            config, topModule, ports, runCwd,
+            tools, hdlPath, synthFiles, tempBaseDir, T, testbenchSrc,
+        });
+        if (result) {
+            cache[cacheKey] = { hash: inputsHash, certified: result.certified, common: result.common };
+            await this._aiHarnessCacheWrite(tempBaseDir, cache);
+        }
+    }
+
+    this.terminalManager.appendToTerminal(T, tr('terminal.htest.detDone', { name: topModule }), 'success');
 }
 
 /**

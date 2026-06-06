@@ -27,6 +27,7 @@ import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
+import { analyzeTestbenchEligibility } from './deterministic_harness.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -92,6 +93,9 @@ const STEP_TERMINALS = Object.freeze({
     // Harness IA (teste de sintese de top-level generico): THTEST, igual ao
     // verilator-proc (e teste de hardware, nao simulacao/onda).
     'ai-harness': ['thtest'],
+    // Conversor DETERMINISTICO (teste de sintese sem IA): mesmo terminal THTEST
+    // que o harness IA — e o mesmo teste de sintese, so a geracao difere.
+    'det-harness': ['thtest'],
 });
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 
@@ -105,6 +109,7 @@ const ERROR_TERMINAL = Object.freeze({
     'verilator-proc': 'thtest',
     'verilator-fast': 'twave',
     'ai-harness': 'thtest',
+    'det-harness': 'thtest',
 });
 
 function switchTerminal(targetId) {
@@ -595,6 +600,29 @@ async function handleAiHarnessStep() {
 }
 
 /**
+ * Botao Teste de Sintese Determinístico (sem IA): converte um testbench .v
+ * ELEGIVEL num harness C++ Verilator sem --timing por parsing (instantaneo,
+ * grátis), builda, roda e valida contra o gabarito. Mesmo pipeline do harness
+ * IA, so a geracao difere. Pre-compila cmm+asm caso o top instancie SAPHO.
+ */
+async function handleDetHarnessStep() {
+    startCompilation(STEP_TERMINALS['det-harness']);
+    try {
+        const compiler = new CompilationModule(window.currentProjectPath);
+        await compiler.loadConfig();
+        await precompileAllProcessors(compiler, 'tcmm');
+        switchTerminal('terminal-thtest');
+        window.statusUpdater?.startCompilation?.('verilator-proc');
+        await compiler.deterministicHarnessRun();
+    } catch (error) {
+        console.error('Erro na etapa harness determinístico:', error);
+        logFatalError('thtest', error);
+    } finally {
+        endCompilation();
+    }
+}
+
+/**
  * Botao PRISM: cmm + asm + iverilog -tnull (top-level) — i.e., faz
  * tudo que o botao Verilog faz — e depois invoca yosys via IPC pra
  * analise estrutural. PRISM e um superset do Verilog.
@@ -704,6 +732,8 @@ async function syncToolbarEnabledState() {
     let hasTop = false;
     let hasTb = false;
     let isPyTb = false;
+    let tbAbsPath = null;
+    let topAbsPath = null;
     const spfPath = window.currentSpfPath || window.ProjectStore?.getSpfPath?.();
     if (spfPath && window.SpfStore) {
         try {
@@ -713,6 +743,10 @@ async function syncToolbarEnabledState() {
             // .py = testbench cocotb (Python). O Fast Sim e Verilator-binary e
             // compila o tb como Verilog, entao .py nao se aplica (vai pelo Wave).
             isPyTb = /\.py$/i.test(s.testbenchFile || '');
+            // SpfStore.read ja expande os paths pra absoluto — usados pelo probe
+            // de elegibilidade do conversor deterministico (abaixo).
+            tbAbsPath = s.testbenchFile || null;
+            topAbsPath = s.topLevelFile || null;
         } catch (_e) { /* sem projeto / leitura falhou → tudo desabilitado */ }
     }
 
@@ -730,6 +764,20 @@ async function syncToolbarEnabledState() {
     // da validacao e' esse .v; .py vai pelo Wave). Sempre-Verilator (nao depende
     // do toggle, igual ao verilator-proc).
     setEnabled('aiharness', hasTop && hasTb && !isPyTb);
+    // Teste de Sintese Determinístico (sem IA): so habilita quando o testbench .v
+    // e' ELEGIVEL pro conversor (clock gerado por "always #N clk=~clk", sem
+    // `always @(posedge)` de logica de estado, $finish presente, 1 instancia do
+    // DUT). Probe leve por TEXTO (sem rodar Verilator nem precisar das portas);
+    // a checagem completa (com portas) roda no clique. Leitura falhou -> desabilita.
+    let detEligible = false;
+    if (hasTop && hasTb && !isPyTb && tbAbsPath && topAbsPath) {
+        try {
+            const src = await window.electronAPI.readFile(tbAbsPath, { encoding: 'utf8' });
+            const topModule = (topAbsPath.split(/[\\/]/).pop() || '').replace(/\.[^.]+$/i, '');
+            detEligible = analyzeTestbenchEligibility({ src, topModule, ports: null }).eligible;
+        } catch (_e) { detEligible = false; }
+    }
+    setEnabled('detharness', detEligible);
     setEnabled('wavecomp', hasTb);
     // Fast Sim (headless, sem onda) tem dois caminhos:
     //  - testbench .v  -> Verilator binario, exige o toggle em Verilator
@@ -770,6 +818,7 @@ class CompilationFlowManager {
         document.getElementById('verilatorproc')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-proc'));
         document.getElementById('fastsim')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-fast'));
         document.getElementById('aiharness')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('ai-harness'));
+        document.getElementById('detharness')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('det-harness'));
         document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
         document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
 
@@ -858,6 +907,7 @@ class CompilationFlowManager {
                 case 'verilator-proc': await handleVerilatorProcStep(); break;
                 case 'verilator-fast': await handleFastSimStep(); break;
                 case 'ai-harness': await handleAiHarnessStep(); break;
+                case 'det-harness': await handleDetHarnessStep(); break;
                 default:
                     console.warn(`Passo desconhecido: ${step}`);
                     logFatalError(

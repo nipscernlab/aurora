@@ -42,10 +42,11 @@ function dumpExpr(p) {
 
 /**
  * Bloco de dump determinístico (entre os marcadores AURORA_DUMP_*). Escreve
- * uma linha "porta=valor" por saida em harness_final.txt. Reusado pelo scaffold
- * e pela re-injecao — a unica fonte da verdade do dump.
+ * uma linha "porta=valor" por saida em harness_final.txt. Reusado pelo scaffold,
+ * pela re-injecao E pelo conversor determinístico (deterministic_harness.js) —
+ * a unica fonte da verdade do dump (sign-extension de saidas signed estreitas).
  */
-function dumpSection(ports) {
+export function dumpSection(ports) {
   const outs = ports.filter((p) => p.direction === 'output');
   const lines = outs.map((p) => `        fprintf(fh, "${p.name}=%lld\\n", ${dumpExpr(p)});`);
   return [

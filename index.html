@@ -206,6 +206,19 @@
                 </svg>
               </span>
           </button>
+          <!-- Teste de Sintese Determinístico (sem IA): converte um testbench .v
+               ELEGIVEL (so estimulos + 1 instancia do top) num harness C++ por
+               parsing. So habilita quando o tb e' elegivel
+               (compilation_flow.syncToolbarEnabledState). -->
+          <button id="detharness" class="toolbar-button compile-btn" data-tool="det-harness" data-tooltip="Synthesized top-level test (deterministic, no AI)" data-i18n-tooltip="toolbar.detHarness.tooltip">
+              <span class="glyph glyph-detharness" aria-hidden="true">
+                <svg viewBox="0 0 16 16">
+                  <!-- Chip outline + "≡" (three bars): deterministic / exact, no AI -->
+                  <rect x="3.5" y="3.5" width="9" height="9" rx="1"/>
+                  <path d="M5.5 6.3 H10.5 M5.5 8 H10.5 M5.5 9.7 H10.5"/>
+                </svg>
+              </span>
+          </button>
       </div>
     </div>
 

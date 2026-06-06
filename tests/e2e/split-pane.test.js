@@ -98,7 +98,11 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     // 1. Open counter.v in main
     const counter = window.locator('.file-item, .verilog-file-item').filter({ hasText: 'counter.v' }).first();
     await counter.click();
-    await window.waitForSelector('.tab[data-path]', { timeout: 5_000 });
+    // 15s, not 5s: opening a file (click -> openFile -> Monaco mounts the tab)
+    // can exceed 5s under CI load (esp. the windows-2025 runners), and a miss
+    // here cascades into the next test (counter.v never reaches main). Aligns
+    // with the other waits in this file (15-45s).
+    await window.waitForSelector('.tab[data-path]', { timeout: 15_000 });
 
     // 2. Click the split button — it now floats inside the focused Monaco
     //    pane (see SplitEditorManager._updateButton) rather than the toolbar.

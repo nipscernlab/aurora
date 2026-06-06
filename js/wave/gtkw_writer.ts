@@ -13,6 +13,7 @@
  * Compilado por `tsc` (npm run build:ts) num gtkw_writer.js ao lado — é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
+
 /**
  * Extract dotted signal references from a .gtkw file. Used to detect
  * stale paths in a user-curated layout (signal renamed since the file
@@ -32,33 +33,28 @@
  *
  * @returns unique dotted paths referenced by the file
  */
-export function extractSignalRefs(gtkwContent) {
-    if (typeof gtkwContent !== 'string' || gtkwContent.length === 0)
-        return [];
-    const paths = new Set();
+export function extractSignalRefs(gtkwContent: string): string[] {
+    if (typeof gtkwContent !== 'string' || gtkwContent.length === 0) return [];
+    const paths = new Set<string>();
     for (const rawLine of gtkwContent.split(/\r?\n/)) {
         let line = rawLine.trim();
-        if (!line)
-            continue;
+        if (!line) continue;
         // Decoration / metadata: skip.
         if (line.startsWith('[') || line.startsWith('@') || line.startsWith('-')
             || line.startsWith('*') || line.startsWith('#')
-            || line.startsWith('^'))
-            continue;
+            || line.startsWith('^')) continue;
         // Alias-prefixed signal: `+{alias} <path>` — strip the prefix
         // and keep the path. buildAuroraGtkw emits these for any
         // signal with a human-friendly label (Stack, ULA, typed vars).
         if (line.startsWith('+')) {
             const m = line.match(/^\+\{[^}]*\}\s+(.+)$/);
-            if (!m)
-                continue;
+            if (!m) continue;
             line = m[1].trim();
         }
         // Signal candidate: must start with [a-zA-Z_], contain at least one
         // `.`, and use a dotted-identifier shape. Strip a trailing range.
         const noRange = line.replace(/\[[^\]]*\]\s*$/, '').trim();
-        if (!/^[A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)+$/.test(noRange))
-            continue;
+        if (!/^[A-Za-z_][\w$]*(?:\.[A-Za-z_][\w$]*)+$/.test(noRange)) continue;
         paths.add(noRange);
     }
     return [...paths];

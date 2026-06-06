@@ -19,7 +19,8 @@
     "js/wave/testbench_instrumenter.ts",
     "js/wave/vcd_parser.ts",
     "js/project/verilog_classifier.ts",
-    "js/editor/document_type_detector.ts"
+    "js/editor/document_type_detector.ts",
+    "js/wave/gtkw_writer.ts"
   ],
   "exclude": [
     "node_modules",

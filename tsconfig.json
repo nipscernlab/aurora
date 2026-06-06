@@ -12,7 +12,8 @@
     "outDir": "."
   },
   "include": [
-    "js/utils/path_utils.ts"
+    "js/utils/path_utils.ts",
+    "js/compilation/compilation_helpers.ts"
   ],
   "exclude": [
     "node_modules",

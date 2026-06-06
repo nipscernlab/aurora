@@ -617,16 +617,6 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .glyph-verilatorproc svg { stroke-width: 1.3; }
 .glyph-verilatorproc svg rect:nth-of-type(2) { fill: currentColor; }
 
-/* Harness IA — chip (stroke) + faisca de IA (preenchida). Roxo pra IA. */
-#aiharness .glyph { color: #C792EA; }
-.glyph-aiharness svg { stroke-width: 1.3; }
-.glyph-aiharness svg path { fill: currentColor; }
-
-/* Teste de Sintese Determinístico — chip (stroke) + "≡" (tres barras):
-   deterministico/exato, sem IA. Verde pra distinguir do roxo da IA. */
-#detharness .glyph { color: #7FD17F; }
-.glyph-detharness svg { stroke-width: 1.3; }
-
 /* Fast Sim — Verilator headless (sem onda). Chevron duplo ">>" ambar de
    "fast-forward". fill/stroke explicitos: os paths sao abertos (linha), nunca
    preenchidos. */

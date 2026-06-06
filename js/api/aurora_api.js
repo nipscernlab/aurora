@@ -1541,14 +1541,11 @@ const compileNs = {
    *               Intelligence to test a hand-optimised .asm without losing it)
    *   - 'verilog'/'wave'/'prism'/'verilator-proc': existing
    *   - 'verilator-fast': Verilator headless run (no waveform), Verilator-only
-   *   - 'ai-harness': synthesized top-level test via an AI-generated C++ harness
-   *   - 'det-harness': synthesized top-level test via a DETERMINISTIC (no-AI) C++
-   *                    harness — only for eligible (stimulus-only) testbenches
    */
   async compileStep(step) {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
-    if (!['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast', 'ai-harness', 'det-harness'].includes(step)) {
+    if (!['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'].includes(step)) {
       return err(`unknown compile step: ${step}`);
     }
     emit('compile:started', { scope: step });
@@ -2286,7 +2283,7 @@ const NAMESPACES = Object.freeze({
   },
   compile: {
     compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',
-    compileStep: 'Run one pipeline step (cmm|asm|verilog|wave|prism|verilator|verilator-proc|verilator-fast|ai-harness|det-harness)',
+    compileStep: 'Run one pipeline step (cmm|asm|verilog|wave|prism|verilator|verilator-proc|verilator-fast)',
     cancel:      'Cancel a running compilation or simulation',
     listSteps:           'List every toolchain step the override system knows about',
     inspectCommand:      'Show the CommandSpec (base + override-applied) for a step',

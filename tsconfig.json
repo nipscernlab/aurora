@@ -21,7 +21,8 @@
     "js/project/verilog_classifier.ts",
     "js/editor/document_type_detector.ts",
     "js/wave/gtkw_writer.ts",
-    "js/wave/gtkw_proc_writer.ts"
+    "js/wave/gtkw_proc_writer.ts",
+    "js/project/processor_list.ts"
   ],
   "exclude": [
     "node_modules",

@@ -24,43 +24,52 @@
  * Compilado por `tsc` (npm run build:ts) num processor_list.js ao lado — é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
-function normalizeName(item) {
+
+declare global {
+    interface Window {
+        availableProcessors?: string[];
+    }
+}
+
+/** An entry as it may arrive: a bare name, a `{name}` from the .spf, or junk. */
+type ProcessorEntry = string | { name?: string | null } | null | undefined;
+
+function normalizeName(item: ProcessorEntry): string | null | undefined {
     return typeof item === 'string' ? item : item?.name;
 }
-function dedup(list) {
-    const seen = new Set();
-    const out = [];
+
+function dedup(list: ProcessorEntry[]): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
     for (const item of list) {
         const name = normalizeName(item);
-        if (!name || typeof name !== 'string')
-            continue;
+        if (!name || typeof name !== 'string') continue;
         const key = name.toLowerCase();
-        if (seen.has(key))
-            continue;
+        if (seen.has(key)) continue;
         seen.add(key);
         out.push(name);
     }
     return out;
 }
+
 /**
  * Substitui `window.availableProcessors` pela lista deduplicada de
  * `list`. Aceita arrays de strings ou de `{name}` (formato do .spf).
  * Input null/undefined ou nao-array resulta em array vazio.
  */
-export function setAvailableProcessors(list) {
+export function setAvailableProcessors(list: unknown): void {
     window.availableProcessors = Array.isArray(list) ? dedup(list) : [];
 }
+
 /**
  * Acrescenta `name` em `window.availableProcessors` se ainda nao
  * estiver presente (match case-insensitive). No-op se `name` for
  * vazio ou nao-string.
  */
-export function addAvailableProcessor(name) {
-    if (!name || typeof name !== 'string')
-        return;
+export function addAvailableProcessor(name: unknown): void {
+    if (!name || typeof name !== 'string') return;
     const current = Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
     const target = name.toLowerCase();
-    if (current.some((p) => typeof p === 'string' && p.toLowerCase() === target))
-        return;
+    if (current.some((p) => typeof p === 'string' && p.toLowerCase() === target)) return;
     window.availableProcessors = [...current, name];
 }

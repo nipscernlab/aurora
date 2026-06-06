@@ -1,6 +1,7 @@
 #Requires -Version 5.1
 $ErrorActionPreference = 'Stop'
-$root = $PSScriptRoot
+# Script vive em scripts/; a raiz do projeto e' o diretorio-pai.
+$root = Split-Path $PSScriptRoot -Parent
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 

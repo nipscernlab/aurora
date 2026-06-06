@@ -14,7 +14,9 @@
   "include": [
     "js/utils/path_utils.ts",
     "js/compilation/compilation_helpers.ts",
-    "js/wave/signal_parser.ts"
+    "js/wave/signal_parser.ts",
+    "js/wave/selection_validator.ts",
+    "js/wave/testbench_instrumenter.ts"
   ],
   "exclude": [
     "node_modules",

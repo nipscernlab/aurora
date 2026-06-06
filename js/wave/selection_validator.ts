@@ -22,22 +22,30 @@
  * Compilado por `tsc` (npm run build:ts) num selection_validator.js ao lado —
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
+
+import type { HierarchyNode } from './signal_parser.js';
+
+/** A saved selection split against the current hierarchy. */
+export interface SelectionSplit {
+    valid: string[];
+    dropped: string[];
+}
+
 /**
  * Walk a hierarchy tree and collect every legal `{scopePath}.{signal}`.
  */
-function collectValidPaths(node) {
-    const out = new Set();
-    const walk = (n) => {
+function collectValidPaths(node: HierarchyNode | null): Set<string> {
+    const out = new Set<string>();
+    const walk = (n: HierarchyNode): void => {
         for (const sig of n.signals) {
             out.add(`${n.scopePath}.${sig.name}`);
         }
-        for (const child of n.children)
-            walk(child);
+        for (const child of n.children) walk(child);
     };
-    if (node)
-        walk(node);
+    if (node) walk(node);
     return out;
 }
+
 /**
  * Split a saved selection into still-valid and dropped subsets,
  * relative to the current hierarchy.
@@ -47,7 +55,10 @@ function collectValidPaths(node) {
  * selection as-is — better to let iverilog speak than to silently wipe
  * the user's choices.
  */
-export function validateSelection(selectedSignals, hierarchyTree) {
+export function validateSelection(
+    selectedSignals: string[],
+    hierarchyTree: HierarchyNode | null,
+): SelectionSplit {
     if (!Array.isArray(selectedSignals) || selectedSignals.length === 0) {
         return { valid: [], dropped: [] };
     }
@@ -55,13 +66,11 @@ export function validateSelection(selectedSignals, hierarchyTree) {
         return { valid: [...selectedSignals], dropped: [] };
     }
     const validPaths = collectValidPaths(hierarchyTree);
-    const valid = [];
-    const dropped = [];
+    const valid: string[] = [];
+    const dropped: string[] = [];
     for (const sig of selectedSignals) {
-        if (validPaths.has(sig))
-            valid.push(sig);
-        else
-            dropped.push(sig);
+        if (validPaths.has(sig)) valid.push(sig);
+        else dropped.push(sig);
     }
     return { valid, dropped };
 }

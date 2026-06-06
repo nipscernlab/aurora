@@ -25,10 +25,24 @@
  * Compilado por `tsc` (npm run build:ts) num vcd_parser.js ao lado — é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
+
+export interface VcdSignal {
+    name: string;
+    width: number;
+    range: string | null;
+    type: string;
+}
+
+export interface VcdScope {
+    name: string;
+    path: string;
+    signals: VcdSignal[];
+}
+
 /**
  * @param vcdHeader  Text up to (but not including) `$enddefinitions`.
  */
-export function parseVcdScopes(vcdHeader) {
+export function parseVcdScopes(vcdHeader: string): VcdScope[] {
     // Tokenise: keep `[a:b]` / `[N]` ranges as one token, everything
     // else whitespace-delimited.
     //
@@ -41,20 +55,22 @@ export function parseVcdScopes(vcdHeader) {
     // file todo, consumindo \$scope/\$upscope/etc no caminho —
     // resultava em paths com `top_level_tb.top_level_tb` ou pior.
     const tokens = vcdHeader.match(/\[[^\]\s]+\]|\S+/g) || [];
-    const stack = [];
-    const scopes = [];
+
+    const stack: (VcdScope | null)[] = [];
+    const scopes: VcdScope[] = [];
     // Indexed by path. VCDs gerados por iverilog quando o testbench tem
     // varios `$dumpvars` espalhados (caso do asmcomp) reentram o mesmo
     // escopo varias vezes — cada `$scope module X` reabre X em vez de
     // continuar acumulando. Sem deduplicar por path, terminamos com N
     // objetos VcdScope com `path === 'tb.proc'` cada um carregando UM
     // sinal, e consumers que fazem lookup-por-path so acham o primeiro.
-    const byPath = new Map();
-    const skipToEnd = (i) => {
-        while (i < tokens.length && tokens[i] !== '$end')
-            i++;
+    const byPath = new Map<string, VcdScope>();
+
+    const skipToEnd = (i: number): number => {
+        while (i < tokens.length && tokens[i] !== '$end') i++;
         return i;
     };
+
     for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i];
         if (token === '$scope') {
@@ -71,20 +87,17 @@ export function parseVcdScopes(vcdHeader) {
                     byPath.set(path, scope);
                 }
                 stack.push(scope);
-            }
-            else {
+            } else {
                 stack.push(null);
             }
-        }
-        else if (token === '$upscope') {
+        } else if (token === '$upscope') {
             i = skipToEnd(i);
             stack.pop();
-        }
-        else if (token === '$var') {
+        } else if (token === '$var') {
             const type = tokens[i + 1];
             const width = parseInt(tokens[i + 2], 10);
             const name = tokens[i + 4];
-            let range = null;
+            let range: string | null = null;
             if (tokens[i + 5] && tokens[i + 5].startsWith('[') && tokens[i + 5] !== '$end') {
                 range = tokens[i + 5].slice(1, -1);
             }
@@ -95,20 +108,19 @@ export function parseVcdScopes(vcdHeader) {
             // procedural construct, not to the module that contains the
             // task. The picker can't address task-locals anyway.
             const current = stack[stack.length - 1];
-            if (!current)
-                continue;
+            if (!current) continue;
             // Dedupe signals tambem: se o mesmo $var aparece em duas
             // reaberturas, mantemos o primeiro.
-            if (current.signals.some((s) => s.name === name))
-                continue;
+            if (current.signals.some((s) => s.name === name)) continue;
             current.signals.push({ name, width, range, type });
-        }
-        else if (token === '$enddefinitions') {
+        } else if (token === '$enddefinitions') {
             break;
         }
     }
+
     return scopes;
 }
+
 /**
  * Convenience wrapper that strips the value-change section before
  * parsing. Same shape as parseVcdScopes; safe to call on a full VCD
@@ -116,7 +128,7 @@ export function parseVcdScopes(vcdHeader) {
  *
  * @param vcdContent  Full VCD file contents.
  */
-export function parseVcdHeaderFromContent(vcdContent) {
+export function parseVcdHeaderFromContent(vcdContent: string): VcdScope[] {
     const enddef = vcdContent.indexOf('$enddefinitions');
     const header = enddef >= 0 ? vcdContent.slice(0, enddef) : vcdContent;
     return parseVcdScopes(header);

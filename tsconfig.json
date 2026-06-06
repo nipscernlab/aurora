@@ -16,7 +16,10 @@
     "js/compilation/compilation_helpers.ts",
     "js/wave/signal_parser.ts",
     "js/wave/selection_validator.ts",
-    "js/wave/testbench_instrumenter.ts"
+    "js/wave/testbench_instrumenter.ts",
+    "js/wave/vcd_parser.ts",
+    "js/project/verilog_classifier.ts",
+    "js/editor/document_type_detector.ts"
   ],
   "exclude": [
     "node_modules",

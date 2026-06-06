@@ -24,6 +24,8 @@ declare global {
     availableProcessors?: string[];
     /** Set by wave_state_store.ts for non-module callers. */
     WaveStore?: unknown;
+    /** Set by spf_store.ts for non-module callers. */
+    SpfStore?: unknown;
   }
 }
 

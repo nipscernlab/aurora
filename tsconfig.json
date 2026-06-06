@@ -12,6 +12,7 @@
     "outDir": "."
   },
   "include": [
+    "js/types/aurora-globals.d.ts",
     "js/utils/path_utils.ts",
     "js/compilation/compilation_helpers.ts",
     "js/wave/signal_parser.ts",
@@ -22,7 +23,8 @@
     "js/editor/document_type_detector.ts",
     "js/wave/gtkw_writer.ts",
     "js/wave/gtkw_proc_writer.ts",
-    "js/project/processor_list.ts"
+    "js/project/processor_list.ts",
+    "js/wave/wave_state_store.ts"
   ],
   "exclude": [
     "node_modules",

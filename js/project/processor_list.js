@@ -23,6 +23,8 @@
  *
  * Compilado por `tsc` (npm run build:ts) num processor_list.js ao lado — é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
+ *
+ * Window.availableProcessors é declarado em js/types/aurora-globals.d.ts.
  */
 function normalizeName(item) {
     return typeof item === 'string' ? item : item?.name;

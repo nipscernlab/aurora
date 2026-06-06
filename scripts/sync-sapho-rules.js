@@ -70,11 +70,14 @@ function gitCommit(yancPath) {
  * ========================================================== */
 
 const TYPE_KEYWORDS         = new Set(['int', 'float', 'comp', 'void']);
-const LANGUAGE_KEYWORDS     = new Set(['while', 'break', 'if', 'else', 'switch', 'case', 'default', 'return']);
+const LANGUAGE_KEYWORDS     = new Set([
+  'while', 'do', 'for', 'break', 'continue',
+  'if', 'else', 'switch', 'case', 'default', 'return',
+]);
 const IO_KEYWORDS           = new Set(['in', 'fin', 'out', 'fout']);
 const STDLIB_FUNCTIONS      = new Set([
   'norm', 'pset', 'abs', 'sign', 'copy',
-  'sqrt', 'atan', 'sin', 'cos',
+  'sqrt', 'atan', 'sin', 'cos', 'exp', 'log',
   'real', 'imag', 'fase', 'complex', 'mod2',
 ]);
 const MACRO_DIRECTIVES      = new Set(['#PRACA']);
@@ -125,6 +128,21 @@ function parseLexer(src) {
       result.diracTokens.push(entry);
     }
   }
+
+  // `#define` is handled by a lexer start-condition (`"#define" BEGIN(DEFNAME)`),
+  // not a `return TOKEN;` rule, so the ruleRe above never sees it. Detect it
+  // directly and record it as the object-like macro directive it is — the AI
+  // needs to know C± has `#define NAME body` (and only object-like, no
+  // function-like macros / #ifdef / #include — those live in the C++ front-end).
+  if (/^\s*"#define"/m.test(src)) {
+    result.macroDirectives.push({
+      symbol: '#define',
+      token: 'DEFINE',
+      kind: 'object-macro',
+      description: 'object-like macro: a later use of NAME is replaced by re-lexing body (no function-like macros, #ifdef or #include in C±)',
+    });
+  }
+
   return result;
 }
 

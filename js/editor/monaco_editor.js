@@ -808,6 +808,7 @@ async function initMonaco() {
                     { token: 'keyword',                          foreground: '8E83E8', fontStyle: 'bold' },
                     { token: 'keyword.directive.cmm',            foreground: 'B98AE0' },
                     { token: 'keyword.function.stdlib.cmm',      foreground: '5BB8E8', fontStyle: 'bold' },
+                    { token: 'constant.define.cmm',              foreground: 'E8B86C', fontStyle: 'bold' },
                     { token: 'string',                           foreground: 'E68FB8' },
                     { token: 'number',                           foreground: '5FE0B0' },
                     { token: 'number.complex.imaginary.cmm',     foreground: 'BD93F9', fontStyle: 'bold' },
@@ -881,6 +882,7 @@ async function initMonaco() {
                     { token: 'keyword',                          foreground: '6E63C8', fontStyle: 'bold' },
                     { token: 'keyword.directive.cmm',            foreground: '8B5CB8' },
                     { token: 'keyword.function.stdlib.cmm',      foreground: '2A7AB0', fontStyle: 'bold' },
+                    { token: 'constant.define.cmm',              foreground: 'B5791F', fontStyle: 'bold' },
                     { token: 'string',                           foreground: 'B8568C' },
                     { token: 'number',                           foreground: '3A9D6E' },
                     { token: 'number.complex.imaginary.cmm',     foreground: '7C3AED', fontStyle: 'bold' },
@@ -1084,12 +1086,23 @@ function setupASMLanguage() {
     });
 }
 
-function setupCMMLanguage() {
-    monaco.languages.register({ id: 'cmm' });
+// Names captured from `#define NAME ...` lines across the open .cmm models.
+// Baked into the Monarch tokenizer (the `defineConstants` attribute below) and
+// refreshed whenever a #define is added/removed, so every later use of NAME
+// lights up like a constant. We lean on Monarch for the hard part — this set is
+// ONLY consulted by the identifier rule inside `root`, so it never fires inside
+// a comment/string (those run in their own states) and reserved words / types /
+// stdlib functions are matched first, so a name can never override them.
+let cmmDefineConstants = [];
 
-    monaco.languages.setMonarchTokensProvider('cmm', {
+function buildCMMTokenizer(defineConstants) {
+    return {
         defaultToken: '',
         tokenPostfix: '.cmm',
+
+        // Live set of object-like #define names — consulted by the identifier
+        // rule's `@defineConstants` case (see root below).
+        defineConstants,
 
         keywords: [
             'if', 'else', 'for', 'while', 'do', 'struct', 'return', 'break', 'continue', 
@@ -1117,7 +1130,14 @@ function setupCMMLanguage() {
         tokenizer: {
             root: [
                 [/#(PRNAME|NUBITS|NBMANT|NBEXPO|NDSTAC|SDEPTH|NUIOIN|NUIOOU|NUGAIN|FFTSIZ|PRACA|TOAQUI)/, 'keyword.directive.cmm'],
-                [/\b(in|fin|out|fout|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+
+                // Object-like macro: `#define NAME body`. The directive + the
+                // name being defined are coloured here; every later use of NAME
+                // is picked up by the identifier rule's @defineConstants case.
+                [/(#define)(\s+)([a-zA-Z_]\w*)/, ['keyword.directive.cmm', 'white', 'constant.define.cmm']],
+                [/#define\b/, 'keyword.directive.cmm'],
+
+                [/\b(in|fin|out|fout|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|exp|log|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
                 
                 // Dirac notation patterns
                 [/(\w+)\s*(#)\s*([^⟨|⟩]+)?\s*(\|)([^⟨|⟩\s]+)(\|)\s*([^⟨|⟩\s]+)?\s*(⟩)/, ['identifier', 'operator', 'identifier', 'dirac.bar', 'identifier', 'dirac.bar', 'identifier', 'dirac.bracket']],
@@ -1161,6 +1181,7 @@ function setupCMMLanguage() {
                     cases: {
                         '@typeKeywords': 'keyword.type',
                         '@keywords': 'keyword',
+                        '@defineConstants': 'constant.define.cmm',
                         '@default': 'identifier'
                     }
                 }],
@@ -1200,7 +1221,62 @@ function setupCMMLanguage() {
                 [/\/\/.*$/, 'comment']
             ]
         }
-    });
+    };
+}
+
+// Scan every open .cmm model for object-like `#define NAME …` declarations and
+// return the unique set of NAMEs. The anchored regex only matches a #define at
+// the start of a line (leading whitespace allowed), so a `#define` written
+// inside a string or after code never registers a phantom constant.
+function collectCMMDefineNames() {
+    const names = new Set();
+    const re = /^[ \t]*#define[ \t]+([a-zA-Z_]\w*)/gm;
+    for (const model of monaco.editor.getModels()) {
+        if (model.getLanguageId() !== 'cmm') continue;
+        const text = model.getValue();
+        let m;
+        while ((m = re.exec(text))) names.add(m[1]);
+    }
+    return [...names];
+}
+
+// Re-bake the Monarch tokenizer only when the #define name set actually changed
+// (re-registering re-tokenizes every cmm model, so we avoid doing it on every
+// keystroke — it fires at most when a #define line is edited).
+function refreshCMMDefines() {
+    const names = collectCMMDefineNames();
+    const changed = names.length !== cmmDefineConstants.length
+        || names.some(n => !cmmDefineConstants.includes(n));
+    if (!changed) return;
+    cmmDefineConstants = names;
+    monaco.languages.setMonarchTokensProvider('cmm', buildCMMTokenizer(cmmDefineConstants));
+}
+
+function setupCMMLanguage() {
+    monaco.languages.register({ id: 'cmm' });
+    monaco.languages.setMonarchTokensProvider('cmm', buildCMMTokenizer(cmmDefineConstants));
+
+    // Keep the dynamic #define set in sync with the open .cmm buffers. A short
+    // debounce coalesces bursts of keystrokes; refreshCMMDefines() itself is a
+    // no-op unless the set of names changed.
+    let debounceTimer = null;
+    const scheduleRefresh = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(refreshCMMDefines, 300);
+    };
+
+    const watched = new WeakSet();
+    const watch = (model) => {
+        if (!model || watched.has(model) || model.getLanguageId() !== 'cmm') return;
+        watched.add(model);
+        model.onDidChangeContent(scheduleRefresh);
+        scheduleRefresh();
+    };
+
+    monaco.editor.getModels().forEach(watch);
+    monaco.editor.onDidCreateModel(watch);
+    // A buffer can be created as plaintext and only later flipped to cmm.
+    monaco.editor.onDidChangeModelLanguage(({ model }) => watch(model));
 }
 
 function updateCursorPosition(event) {

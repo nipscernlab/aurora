@@ -260,11 +260,14 @@ const SYSTEM_PROMPT = [
   "                        (those exist only in the C++ front-end, via the cpppp preprocessor).\n" +
 
   "\nCONTROL FLOW:\n" +
-  "  while (cond) { ... }          — the ONLY loop construct (no for, no do-while)\n" +
-  "  break;                        — exits a while loop\n" +
+  "  while (cond) { ... }          — top-tested loop\n" +
+  "  do { ... } while (cond);      — bottom-tested loop; the body always runs at least once\n" +
+  "  for (init; cond; step) { ... }— C-style counted loop; `continue` still runs `step`\n" +
+  "  break;                        — exits the innermost loop OR switch\n" +
+  "  continue;                     — jumps to the next iteration of the innermost LOOP (a switch does NOT catch it; continue inside a switch binds to the enclosing loop). In a for loop the step still runs.\n" +
   "  if (cond) { ... }\n" +
   "  if (cond) { ... } else { ... }\n" +
-  "  switch (exp) { case N: ... break; default: ... }\n" +
+  "  switch (exp) { case N: ... break; default: ... }  — real C fall-through (a case with no break falls into the next); switches may nest, each break binds to its own switch\n" +
   "  return exp;  /  return;       — function return\n" +
   "  #PRACA                        — marks the interrupt resume point (reset on itr pin)\n" +
   "  #TOAQUI                       — marks an address the hardware compares against (cheguei pin pulses when PC reaches it)\n" +
@@ -286,7 +289,6 @@ const SYSTEM_PROMPT = [
   "  x[i]   — standard index\n" +
   "  x[i)   — BIT-REVERSED index (used in FFT butterfly): bits of i are reversed\n" +
   "  No exponent literals: write 0.000001 instead of 1e-6.\n" +
-  "  No log() function — use hardcoded values (e.g. log(1006) ≈ 6.913737).\n" +
 
   "\nSTANDARD LIBRARY:\n" +
   "  I/O:\n" +
@@ -296,10 +298,12 @@ const SYSTEM_PROMPT = [
   "    fout(port, val)  — writes float val to output port N\n" +
   "    out(port, c|vec⟩) — outputs vector vec scaled by c to port (Dirac)\n" +
   "  Math:\n" +
-  "    sqrt(x)          — square root → float\n" +
+  "    sqrt(x)          — square root → float; also sqrt(z) on a comp = principal complex root\n" +
   "    atan(x)          — arctangent → float\n" +
   "    sin(x)           — sine → float\n" +
   "    cos(x)           — cosine → float\n" +
+  "    exp(x)           — e^x (natural exponential) → float\n" +
+  "    log(x)           — natural logarithm ln(x) → float (guarded: x ≤ 0 returns 0)\n" +
   "  Special:\n" +
   "    abs(x)           — absolute value (for comp: magnitude)\n" +
   "    sign(x, y)       — returns y with the sign of x\n" +
@@ -328,10 +332,8 @@ const SYSTEM_PROMPT = [
   "  Use ⟨ ⟩ Unicode characters — NOT < > ASCII angle brackets.\n" +
 
   "\nKNOWN LANGUAGE RESTRICTIONS (document in comments when relevant):\n" +
-  "  • No for loop — only while\n" +
   "  • No +=, -=, *= — use x = x + y;\n" +
   "  • No exponent literals (1e-6) — write 0.000001\n" +
-  "  • No log() — hardcode the value\n" +
   "  • Arrays cannot be function parameters — use global arrays\n" +
   "  • No dynamic allocation — all sizes must be compile-time constants\n" +
 
@@ -2176,6 +2178,16 @@ class AIAssistantManager {
   confirmToolCall(def, args) {
     const mode = this.permissionMode;
     if (mode === 'allow') return Promise.resolve(true);
+    // Project / processor renames are explicit (the user literally typed
+    // "rename to X"), reversible (rename back), and the inline confirm card
+    // here was the thing that made them "always time out": a subscription CLI
+    // (Codex) hard-times-out an MCP tool call at 120 s and ignores progress
+    // pings, so an un-clicked card silently fails the rename even though it
+    // then runs ("de repente muda de nome"). Pre-authorize so they fire at
+    // once and finish well inside that window.
+    if (def && (def.name === 'rename_project' || def.name === 'rename_processor')) {
+      return Promise.resolve(true);
+    }
     if (mode === 'writes' && def && def.access === 'read') return Promise.resolve(true);
     return this.showInlineConfirm(def, args);
   }
@@ -3026,15 +3038,30 @@ class AIAssistantManager {
   _closeToolGroup() {
     const g = this._toolGroup;
     if (!g) return;
-    g.summaryEl.textContent = `${g.total} action${g.total === 1 ? '' : 's'}`;
-    const icon = g.el.querySelector('.ai-tool-group-icon');
-    if (icon) icon.className = 'ph ph-check-circle ai-tool-group-icon';
-    g.el.classList.add('done');
-    if (g.total >= 1) {
-      g.el.classList.add('collapsed');
-      g.el.querySelector('.ai-tool-group-head')?.setAttribute('aria-expanded', 'false');
-    }
+    this._finalizeToolGroup(g.el, g.summaryEl, g.total);
     this._toolGroup = null;
+  }
+
+  /**
+   * Collapse a finished tool batch into its tidy "N actions" pill: set the
+   * summary, pick a green check or a red ✗ depending on whether any chip
+   * failed/was denied, and collapse it (even a single action). Shared by the
+   * live group (_closeToolGroup) and the static group rebuilt on chat replay
+   * so both look identical.
+   */
+  _finalizeToolGroup(el, summaryEl, total) {
+    if (summaryEl) summaryEl.textContent = `${total} action${total === 1 ? '' : 's'}`;
+    const failed = el.querySelector(
+      '.ai-tool-group-body .ai-tool-chip.failed, .ai-tool-group-body .ai-tool-chip.denied',
+    );
+    const icon = el.querySelector('.ai-tool-group-icon');
+    if (icon) icon.className = `ph ${failed ? 'ph-x-circle' : 'ph-check-circle'} ai-tool-group-icon`;
+    el.classList.add('done');
+    el.classList.toggle('has-failure', !!failed);
+    if (total >= 1) {
+      el.classList.add('collapsed');
+      el.querySelector('.ai-tool-group-head')?.setAttribute('aria-expanded', 'false');
+    }
   }
 
   startToolChip(toolName, args, toolUseId) {
@@ -3554,11 +3581,7 @@ class AIAssistantManager {
     let staticGroup = null;
     const closeStaticGroup = () => {
       if (!staticGroup) return;
-      staticGroup.summaryEl.textContent = `${staticGroup.total} action${staticGroup.total === 1 ? '' : 's'}`;
-      const icon = staticGroup.el.querySelector('.ai-tool-group-icon');
-      if (icon) icon.className = 'ph ph-check-circle ai-tool-group-icon';
-      staticGroup.el.classList.add('done', 'collapsed');
-      staticGroup.el.querySelector('.ai-tool-group-head')?.setAttribute('aria-expanded', 'false');
+      this._finalizeToolGroup(staticGroup.el, staticGroup.summaryEl, staticGroup.total);
       staticGroup = null;
     };
     for (const msg of this.messages) {

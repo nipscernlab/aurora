@@ -1,16 +1,19 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-04T13:37:58.940Z",
+  "generatedAt": "2026-06-06T22:08:20.534Z",
   "source": {
     "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
-    "yancCommit": "d4d9f069e257"
+    "yancCommit": "df7c29fb2de3"
   },
   "language": {
     "keywords": [
       "break",
       "case",
+      "continue",
       "default",
+      "do",
       "else",
+      "for",
       "if",
       "return",
       "switch",
@@ -34,8 +37,10 @@
       "complex",
       "copy",
       "cos",
+      "exp",
       "fase",
       "imag",
+      "log",
       "mod2",
       "norm",
       "pset",
@@ -88,10 +93,6 @@
     ],
     "diracTokens": [
       {
-        "symbol": "for",
-        "token": "FOR"
-      },
-      {
         "symbol": "⟩",
         "token": "BRA"
       },
@@ -112,6 +113,12 @@
       {
         "symbol": "#PRACA",
         "token": "ITRADD"
+      },
+      {
+        "symbol": "#define",
+        "token": "DEFINE",
+        "kind": "object-macro",
+        "description": "object-like macro: a later use of NAME is replaced by re-lexing body (no function-like macros, #ifdef or #include in C±)"
       }
     ]
   },
@@ -179,12 +186,15 @@
       "CASE",
       "CNUM",
       "COMP",
+      "CONTINUE",
       "COPY",
       "COS",
       "DEFAULT",
       "DIF",
+      "DO",
       "ELSE",
       "EQU",
+      "EXP",
       "EYE",
       "FASE",
       "FFTSIZ",
@@ -202,6 +212,7 @@
       "KET",
       "LAN",
       "LESEQ",
+      "LOG",
       "LOR",
       "MOD2",
       "NBEXPO",
@@ -236,15 +247,14 @@
     "productions": [
       "assignment",
       "break",
-      "case",
       "case_label",
-      "case_list",
-      "cases",
+      "continue",
       "declar",
-      "default",
       "default_label",
       "dire_inter",
       "direct",
+      "do_intro",
+      "do_while",
       "else_intro",
       "exp",
       "exp_list",
@@ -269,11 +279,13 @@
       "std_comp",
       "std_copy",
       "std_cos",
+      "std_exp",
       "std_fase",
       "std_fin",
       "std_fout",
       "std_imag",
       "std_in",
+      "std_log",
       "std_mod2",
       "std_nrm",
       "std_out",
@@ -283,9 +295,9 @@
       "std_sin",
       "std_sqrt",
       "std_vout",
-      "stmt_case",
       "stmt_full",
       "stmt_list",
+      "sw_body",
       "switch_case",
       "switch_intro",
       "terminal",
@@ -505,6 +517,20 @@
       "category": "stdlib errors and warnings (special functions)",
       "pt": "Erro na linha %d: não implementei raiz quadrada de número complexo ainda. Se vira!\n",
       "en": "Error on line %d: I haven't coded up complex square roots yet. You're on your own!\n"
+    },
+    {
+      "code": "MSG_ERR_EXP_COMPLEX",
+      "severity": "error",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Erro na linha %d: exp(.) de número complexo ainda não foi implementado!\n",
+      "en": "Error on line %d: exp(.) of a complex number isn't implemented yet!\n"
+    },
+    {
+      "code": "MSG_ERR_LOG_COMPLEX",
+      "severity": "error",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Erro na linha %d: log(.) de número complexo ainda não foi implementado!\n",
+      "en": "Error on line %d: log(.) of a complex number isn't implemented yet!\n"
     },
     {
       "code": "MSG_ERR_REAL_ARG_COMP",
@@ -906,11 +932,11 @@
       "en": "Error on line %d: that break is just hanging out lost!\n"
     },
     {
-      "code": "MSG_ERR_NESTED_SWITCH",
+      "code": "MSG_ERR_CONTINUE_LOST",
       "severity": "error",
       "category": "jump errors/warnings (saltos.c)",
-      "pt": "Erro na linha %d: um switch/case dentro de outro? Você é uma pessoa confusa!\n",
-      "en": "Error on line %d: a switch/case inside another one? You're a confused soul, aren't you!\n"
+      "pt": "Erro na linha %d: continue fora de um loop não vai a lugar nenhum!\n",
+      "en": "Error on line %d: a continue outside a loop goes nowhere!\n"
     },
     {
       "code": "MSG_WARN_CASE_FLOAT",
@@ -1051,6 +1077,20 @@
       "category": "info messages",
       "pt": "Info: adicionando macro assembly para cálculo de seno\n",
       "en": "Info: adding assembly macro for sin computation\n"
+    },
+    {
+      "code": "MSG_INFO_EXP_MACRO",
+      "severity": "info",
+      "category": "info messages",
+      "pt": "Info: adicionando macro assembly para cálculo de exponencial\n",
+      "en": "Info: adding assembly macro for exponential computation\n"
+    },
+    {
+      "code": "MSG_INFO_LOG_MACRO",
+      "severity": "info",
+      "category": "info messages",
+      "pt": "Info: adicionando macro assembly para cálculo de logaritmo natural\n",
+      "en": "Info: adding assembly macro for natural-logarithm computation\n"
     },
     {
       "code": "MSG_INFO_ARRAY_FILE_INIT",
@@ -2467,6 +2507,53 @@
         "family": "indirect",
         "variants": [],
         "description": "mem[stack_top] = acc, pop"
+      },
+      {
+        "mnemonic": "F_SCL",
+        "opcode": 104,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "F_SCL",
+        "family": "other",
+        "variants": [
+          "float"
+        ],
+        "description": "scale float by 2^k, k from memory"
+      },
+      {
+        "mnemonic": "SF_SCL",
+        "opcode": 105,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "SF_SCL",
+        "family": "other",
+        "variants": [
+          "stack",
+          "float"
+        ],
+        "description": "scale float by 2^k, k from stack"
+      },
+      {
+        "mnemonic": "XPO",
+        "opcode": 106,
+        "operandKind": "none",
+        "operandCode": 0,
+        "hdlName": "XPO",
+        "family": "other",
+        "variants": [],
+        "description": "base-2 exponent of float (acc) as int"
+      },
+      {
+        "mnemonic": "XPO_M",
+        "opcode": 107,
+        "operandKind": "memory",
+        "operandCode": 18,
+        "hdlName": "XPO_M",
+        "family": "other",
+        "variants": [
+          "mem_variant"
+        ],
+        "description": "base-2 exponent of float (memory) as int"
       }
     ]
   }

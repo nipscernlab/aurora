@@ -28,6 +28,57 @@
  *     instances at module scope).
  *   - SystemVerilog typedefs / packages / interfaces: not supported.
  */
+
+/** A single declared signal/port pulled from a module body. */
+export interface VerilogSignal {
+    name: string;
+    /** Primary kind keyword (input/output/reg/wire/...), by priority. */
+    kind: string;
+    isSigned: boolean;
+    /** Bit range text without brackets (e.g. "31:0"), or null if scalar. */
+    range: string | null;
+}
+
+/** A direct module instantiation found at module scope. */
+export interface ModuleInstance {
+    instanceName: string;
+    moduleType: string;
+}
+
+/** Everything the parser knows about one module. */
+export interface ModuleInfo {
+    file: string;
+    signals: VerilogSignal[];
+    instances: ModuleInstance[];
+}
+
+/** A soft parse error — collected, never thrown. */
+export interface ParseError {
+    file: string;
+    message: string;
+}
+
+/** Result of {@link parseVerilogModules}. */
+export interface ParseResult {
+    modules: Map<string, ModuleInfo>;
+    errors: ParseError[];
+}
+
+/** One node of the design hierarchy from {@link buildHierarchyTree}. */
+export interface HierarchyNode {
+    name: string;
+    instanceName: string | null;
+    scopePath: string;
+    signals: VerilogSignal[];
+    children: HierarchyNode[];
+}
+
+/** Input file pair fed to {@link parseVerilogModules}. */
+export interface VerilogFile {
+    path: string;
+    content: string;
+}
+
 // Tipos de declaracao de signal que queremos capturar. Note: `real`,
 // `integer`, `time` sao tipos non-synth mas aparecem no source gerado
 // pelo asmcomp pra variaveis C± float (real), int (integer/reg), etc.
@@ -37,13 +88,14 @@ const KIND_TOKENS = ['input', 'output', 'inout', 'wire', 'reg', 'logic',
     'signed', 'tri', 'tri0', 'tri1', 'wand', 'wor',
     'real', 'integer', 'time'];
 const KIND_RE_SOURCE = `(?:${KIND_TOKENS.join('|')})`;
-const PRIMARY_KIND_PRIORITY = {
+const PRIMARY_KIND_PRIORITY: Record<string, number> = {
     input: 4, output: 4, inout: 4,
     reg: 3, logic: 3, real: 3, integer: 3, time: 3,
     wire: 2, tri: 2, tri0: 2, tri1: 2, wand: 2, wor: 2,
     signed: 1,
 };
-const RESERVED_KEYWORDS = new Set([
+
+const RESERVED_KEYWORDS = new Set<string>([
     'always', 'assign', 'begin', 'case', 'casex', 'casez', 'else', 'end',
     'endcase', 'endfunction', 'endgenerate', 'endmodule', 'endspecify',
     'endtable', 'endtask', 'for', 'forever', 'function', 'generate',
@@ -55,24 +107,26 @@ const RESERVED_KEYWORDS = new Set([
     'tranif1', 'rtran', 'rtranif0', 'rtranif1',
     ...KIND_TOKENS,
 ]);
+
 /**
  * Strip /* ... *\/ and // ... line comments. Verilog doesn't put module
  * bodies inside string literals, so a string-naive replace is fine.
  */
-function stripComments(source) {
+function stripComments(source: string): string {
     return source
         .replace(/\/\*[\s\S]*?\*\//g, ' ')
         .replace(/\/\/[^\n]*/g, ' ');
 }
+
 /**
  * Find each `module <name> ... endmodule` body. Both the optional
  * parameter list `#(...)` and the optional port list `(...)` are
  * supported; modules that omit one or both (e.g. `module tb;`) parse.
  */
-function extractModules(stripped) {
-    const out = [];
+function extractModules(stripped: string): Array<{ name: string; body: string }> {
+    const out: Array<{ name: string; body: string }> = [];
     const re = /\bmodule\s+([A-Za-z_][\w$]*)\s*(?:#\s*\([\s\S]*?\)\s*)?(?:\(([\s\S]*?)\))?\s*;([\s\S]*?)\bendmodule\b/g;
-    let m;
+    let m: RegExpExecArray | null;
     while ((m = re.exec(stripped)) !== null) {
         const [, name, portHeader, bodyRaw] = m;
         // Treat the header port list as part of the body for signal
@@ -83,6 +137,7 @@ function extractModules(stripped) {
     }
     return out;
 }
+
 /**
  * Em Verilog ANSI, `input a, b, c` declara TRÊS ports do mesmo kind —
  * a vírgula separa nomes, não declarações. Split simples por `,` deixa
@@ -90,9 +145,8 @@ function extractModules(stripped) {
  * o último prefixo (kind + range) visto pras entradas seguintes que
  * não trazem o seu próprio.
  */
-function expandPortHeader(portHeader) {
-    if (!portHeader)
-        return '';
+function expandPortHeader(portHeader: string | undefined): string {
+    if (!portHeader) return '';
     const parts = portHeader.split(',').map((s) => s.trim()).filter(Boolean);
     const leadRe = new RegExp(`^((?:\\b${KIND_RE_SOURCE}\\b\\s+)+(?:\\[[^\\]]+\\]\\s*)?)`);
     let currentPrefix = '';
@@ -105,6 +159,7 @@ function expandPortHeader(portHeader) {
         return currentPrefix + p + ';';
     }).join('\n');
 }
+
 /**
  * Pull signal declarations out of a module body. A declaration looks
  * like (whitespace-flexible):
@@ -116,22 +171,27 @@ function expandPortHeader(portHeader) {
  * pick a primary by priority: direction (input/output/inout) wins over
  * net type (wire/reg/logic), and `signed` is always a modifier.
  */
-function extractSignals(body) {
+function extractSignals(body: string): VerilogSignal[] {
     const re = new RegExp(
-    // 1: one or more space-separated kind keywords
-    `((?:\\b${KIND_RE_SOURCE}\\b\\s+)+)` +
+        // 1: one or more space-separated kind keywords
+        `((?:\\b${KIND_RE_SOURCE}\\b\\s+)+)` +
         // 2: optional [range]
         `(?:(\\[[^\\]]+\\])\\s*)?` +
         // 3: comma-separated names, lazy so we stop at the terminator
         `([A-Za-z_][\\w$,\\s]*?)` +
         // terminator: ; or = (init), but NOT ( — that's a function/task
-        `\\s*(?=[;=])`, 'g');
-    const collected = [];
-    let m;
+        `\\s*(?=[;=])`,
+        'g',
+    );
+
+    const collected: VerilogSignal[] = [];
+    let m: RegExpExecArray | null;
     while ((m = re.exec(body)) !== null) {
         const [, kindBlob, range, namesPart] = m;
         const kinds = kindBlob.trim().split(/\s+/);
-        const primary = kinds.reduce((best, k) => (PRIMARY_KIND_PRIORITY[k] ?? 0) > (PRIMARY_KIND_PRIORITY[best] ?? 0) ? k : best, kinds[0]);
+        const primary = kinds.reduce((best, k) =>
+            (PRIMARY_KIND_PRIORITY[k] ?? 0) > (PRIMARY_KIND_PRIORITY[best] ?? 0) ? k : best,
+        kinds[0]);
         // `signed` e modificador independente do primary kind. Preserva
         // aparte porque consumers (e.g. .gtkw writer escolhendo entre
         // Decimal vs Signed Decimal) precisam disso, e o reduce acima
@@ -140,8 +200,7 @@ function extractSignals(body) {
         const names = namesPart.split(',').map((n) => n.trim()).filter(Boolean);
         for (const rawName of names) {
             const cleaned = rawName.replace(/=.*$/, '').trim();
-            if (!/^[A-Za-z_][\w$]*$/.test(cleaned))
-                continue;
+            if (!/^[A-Za-z_][\w$]*$/.test(cleaned)) continue;
             collected.push({
                 name: cleaned,
                 kind: primary,
@@ -150,10 +209,11 @@ function extractSignals(body) {
             });
         }
     }
+
     // De-dup: uma port pode ser re-declarada no body (non-ANSI) — manter
     // uma entry, preferindo o kind de maior prioridade. Se qualquer
     // declaracao for `signed`, propaga.
-    const dedup = new Map();
+    const dedup = new Map<string, VerilogSignal>();
     for (const s of collected) {
         const prev = dedup.get(s.name);
         if (!prev || (PRIMARY_KIND_PRIORITY[s.kind] ?? 0) > (PRIMARY_KIND_PRIORITY[prev.kind] ?? 0)) {
@@ -161,8 +221,7 @@ function extractSignals(body) {
                 ...s,
                 isSigned: s.isSigned || (prev ? prev.isSigned : false),
             });
-        }
-        else if (s.isSigned && !prev.isSigned) {
+        } else if (s.isSigned && !prev.isSigned) {
             // Mesma prioridade mas esta declaracao tem signed que a anterior
             // nao tinha → atualiza so o flag.
             dedup.set(s.name, { ...prev, isSigned: true });
@@ -170,6 +229,7 @@ function extractSignals(body) {
     }
     return [...dedup.values()];
 }
+
 /**
  * Remove diretivas de pre-processador (`\`ifdef X`, `\`else`,
  * `\`endif`, `\`define`, etc) substituindo por whitespace. Sem isso,
@@ -181,9 +241,10 @@ function extractSignals(body) {
  * as diretivas e mantem TODOS os ramos. Vira "both branches active"
  * no source virtual, e dedup-amos instances depois por nome.
  */
-function stripDirectives(body) {
+function stripDirectives(body: string): string {
     return body.replace(/`(ifdef|ifndef|elsif|else|endif|define|undef|include|timescale|resetall|celldefine|endcelldefine|default_nettype|line|nounconnected_drive|unconnected_drive|protect|endprotect)\b[^\n]*/g, ' ');
 }
+
 /**
  * Remove blocos `generate if (...)` e `generate case (...)` —
  * elaboracao Verilog so instancia esses corpos quando a condicao e
@@ -198,9 +259,10 @@ function stripDirectives(body) {
  * condicao (e.g. `generate for (...) ...`) sao preservados porque
  * elaboram sempre.
  */
-function stripConditionalGenerates(body) {
+function stripConditionalGenerates(body: string): string {
     return body.replace(/\bgenerate\s+(?:if|case)\b[\s\S]*?\bendgenerate\b/g, ' ');
 }
+
 /**
  * Substitui blocos `#(...)` por `#()` no source (parens balanceados,
  * string-literal aware). Necessario porque a parameter list de
@@ -215,7 +277,7 @@ function stripConditionalGenerates(body) {
  * Stripping #(...) antes do regex elimina o ambiguity — fica
  * `processor#() p_ProcDTW(...)`, regex captura sem confusao.
  */
-function stripParamLists(body) {
+function stripParamLists(body: string): string {
     let result = '';
     let i = 0;
     while (i < body.length) {
@@ -225,37 +287,34 @@ function stripParamLists(body) {
             let depth = 1;
             while (i < body.length && depth > 0) {
                 const c = body[i];
-                if (c === '(')
-                    depth++;
-                else if (c === ')')
-                    depth--;
+                if (c === '(') depth++;
+                else if (c === ')') depth--;
                 else if (c === '"') {
                     // String literal — pula ate fechar (com escape)
                     i++;
                     while (i < body.length && body[i] !== '"') {
-                        if (body[i] === '\\' && i + 1 < body.length)
-                            i++;
+                        if (body[i] === '\\' && i + 1 < body.length) i++;
                         i++;
                     }
                 }
                 i++;
             }
             // i ja avancou pra alem do `)` final do #(...).
-        }
-        else {
+        } else {
             result += body[i];
             i++;
         }
     }
     return result;
 }
+
 /**
  * Find module instantiations in the body: `<typeName> [#(...)] <instName> ( ... );`.
  * The typeName must match a known module from the first pass, otherwise
  * we'd flag every function call and behavioural construct as an instance.
  */
-function extractInstances(body, knownModuleNames) {
-    const seen = new Map(); // instanceName → moduleType, pra dedup
+function extractInstances(body: string, knownModuleNames: Set<string>): ModuleInstance[] {
+    const seen = new Map<string, string>();   // instanceName → moduleType, pra dedup
     // `body` ja vem stripado de diretivas e blocos generate-if (feito
     // em parseVerilogModules pra que signals/instances vejam a mesma
     // view). Aqui so resta stripar parameter lists com parens aninhados
@@ -263,34 +322,33 @@ function extractInstances(body, knownModuleNames) {
     // instancias adjacentes.
     const stripped = stripParamLists(body);
     const re = /\b([A-Za-z_][\w$]*)\s*(?:#\s*\(\)\s*)?([A-Za-z_][\w$]*)\s*\(/g;
-    let m;
+    let m: RegExpExecArray | null;
     while ((m = re.exec(stripped)) !== null) {
         const [, typeName, instName] = m;
-        if (!knownModuleNames.has(typeName))
-            continue;
-        if (RESERVED_KEYWORDS.has(typeName))
-            continue;
-        if (RESERVED_KEYWORDS.has(instName))
-            continue;
+        if (!knownModuleNames.has(typeName)) continue;
+        if (RESERVED_KEYWORDS.has(typeName)) continue;
+        if (RESERVED_KEYWORDS.has(instName)) continue;
         // Dedup: blocos `ifdef/`else duplicados podem gerar a mesma
         // instance duas vezes apos stripDirectives. Manter o primeiro
         // match e o suficiente — a hierarquia logica e a mesma.
-        if (!seen.has(instName))
-            seen.set(instName, typeName);
+        if (!seen.has(instName)) seen.set(instName, typeName);
     }
     return [...seen.entries()].map(([instanceName, moduleType]) => ({ instanceName, moduleType }));
 }
+
 /**
  * Parse a list of {path, content} files and return a module map plus
  * any soft errors. Soft errors don't abort.
  */
-export function parseVerilogModules(files) {
-    const modules = new Map();
-    const errors = [];
+export function parseVerilogModules(files: VerilogFile[]): ParseResult {
+    const modules = new Map<string, ModuleInfo>();
+    const errors: ParseError[] = [];
+
     const stripped = files.map(({ path, content }) => ({ path, src: stripComments(content) }));
+
     // First pass: collect module names so the instance scan can
     // distinguish module instantiations from function calls.
-    const knownModuleNames = new Set();
+    const knownModuleNames = new Set<string>();
     for (const { path, src } of stripped) {
         for (const block of extractModules(src)) {
             if (knownModuleNames.has(block.name)) {
@@ -299,6 +357,7 @@ export function parseVerilogModules(files) {
             knownModuleNames.add(block.name);
         }
     }
+
     // Second pass: extract signals + instances per module.
     for (const { path, src } of stripped) {
         for (const block of extractModules(src)) {
@@ -319,16 +378,23 @@ export function parseVerilogModules(files) {
             });
         }
     }
+
     return { modules, errors };
 }
+
 /**
  * Build a tree rooted at `topModuleName`, descending through each
  * instantiation. Cycles (illegal in real Verilog) are broken by tracking
  * a visited set — depth-first stops re-entering a module already on the
  * current path.
  */
-export function buildHierarchyTree(modules, topModuleName) {
-    const visit = (moduleType, instanceName, parentPath, ancestors) => {
+export function buildHierarchyTree(modules: Map<string, ModuleInfo>, topModuleName: string): HierarchyNode {
+    const visit = (
+        moduleType: string,
+        instanceName: string | null,
+        parentPath: string | null,
+        ancestors: Set<string>,
+    ): HierarchyNode => {
         const info = modules.get(moduleType);
         const scopePath = parentPath
             ? `${parentPath}.${instanceName}`
@@ -345,8 +411,11 @@ export function buildHierarchyTree(modules, topModuleName) {
             instanceName,
             scopePath,
             signals: info.signals,
-            children: info.instances.map((inst) => visit(inst.moduleType, inst.instanceName, scopePath, nextAncestors)),
+            children: info.instances.map((inst) =>
+                visit(inst.moduleType, inst.instanceName, scopePath, nextAncestors),
+            ),
         };
     };
+
     return visit(topModuleName, null, null, new Set());
 }

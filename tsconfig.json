@@ -13,7 +13,8 @@
   },
   "include": [
     "js/utils/path_utils.ts",
-    "js/compilation/compilation_helpers.ts"
+    "js/compilation/compilation_helpers.ts",
+    "js/wave/signal_parser.ts"
   ],
   "exclude": [
     "node_modules",

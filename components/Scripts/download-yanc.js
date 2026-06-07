@@ -53,6 +53,12 @@ const DOWNLOAD_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const BIN_DIR       = path.join(ROOT_DIR, 'components', 'bin');
 const SENTINEL_FILE = path.join(BIN_DIR, 'cppcomp.exe');
+// Marker of the installed tag. Without it, bumping YANC_TAG does NOT update a
+// dev who already has an older version: the sentinels (cppcomp.exe / core.v)
+// exist in EVERY version, so the existence check alone skips the download.
+// Written after a successful extract; compared against YANC_TAG to force a
+// re-download on a version bump (e.g. v5.0 → v5.1, same binaries, new stdlib).
+const VERSION_SENTINEL = path.join(BIN_DIR, '.yanc-version');
 // The yanc release ships bin/ AND HDL/ (the SAPHO Verilog library, version-
 // matched with the compilers). HDL/ is no longer committed to the Aurora repo,
 // so a dev who pulls the commit that untracked it ends up with bin/ present
@@ -67,8 +73,25 @@ const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
 function log(msg) { console.log(`[yanc] ${msg}`); }
 function err(msg) { console.error(`[yanc] ERROR: ${msg}`); }
 
-function alreadyInstalled() {
+function binariesPresent() {
     return fs.existsSync(SENTINEL_FILE) && fs.existsSync(HDL_SENTINEL);
+}
+
+// Tag recorded by the last successful install, or null when absent (installed
+// before this marker existed, or never installed).
+function installedTag() {
+    try {
+        return fs.readFileSync(VERSION_SENTINEL, 'utf8').trim() || null;
+    } catch (_) {
+        return null;
+    }
+}
+
+// "Installed AND at the pinned version." Skipping the download only when BOTH
+// hold is what makes a YANC_TAG bump actually reach devs who already had the
+// previous version.
+function alreadyInstalled() {
+    return binariesPresent() && installedTag() === YANC_TAG;
 }
 
 function downloadFile(url, dest) {
@@ -143,13 +166,18 @@ async function main() {
     const force = process.argv.includes('--force');
 
     if (alreadyInstalled() && !force) {
-        log(`YANC binaries already present in components/bin/ — skipping download.`);
+        log(`YANC ${YANC_TAG} already installed in components/bin/ — skipping download.`);
         log(`(Run with --force to re-download.)`);
         return;
     }
 
-    if (!alreadyInstalled()) {
+    if (!binariesPresent()) {
         log(`YANC binaries not found in components/bin/.`);
+    } else {
+        // Binaries are there but the version doesn't match (or has no marker) —
+        // a tag bump. Re-download so the new compilers/HDL actually land.
+        const have = installedTag() || 'unknown (pre-marker)';
+        log(`YANC ${have} installed but ${YANC_TAG} is pinned — re-downloading.`);
     }
 
     try {
@@ -160,13 +188,17 @@ async function main() {
         extractZip(TMP_ZIP, COMPONENTS_DIR);
 
         fs.unlinkSync(TMP_ZIP);
-        log(`YANC binaries installed successfully.`);
 
-        if (!alreadyInstalled()) {
+        if (!binariesPresent()) {
             err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);
             err(`The ZIP may have a different internal structure. Check components/bin/ manually.`);
             process.exit(1);
         }
+
+        // Record the installed tag ONLY after confirming the binaries — a
+        // corrupt/partial download must not leave a marker claiming "v5.1 ok".
+        fs.writeFileSync(VERSION_SENTINEL, YANC_TAG);
+        log(`YANC ${YANC_TAG} installed successfully.`);
     } catch (e) {
         err(e.message);
         err(`\nCould not download YANC binaries automatically.`);
@@ -187,10 +219,13 @@ if (require.main === module) {
 
 module.exports = {
     alreadyInstalled,
+    binariesPresent,
+    installedTag,
     downloadFile,
     extractZip,
     DOWNLOAD_URL,
     YANC_TAG,
     YANC_FILENAME,
     SENTINEL_FILE,
+    VERSION_SENTINEL,
 };

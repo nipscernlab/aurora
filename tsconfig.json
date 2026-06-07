@@ -38,7 +38,8 @@
     "js/compilation/builders/verilator.ts",
     "js/compilation/builders/index.ts",
     "js/compilation/command_overrides.ts",
-    "js/compilation/spec_runner.ts"
+    "js/compilation/spec_runner.ts",
+    "js/compilation/spec_factory.ts"
   ],
   "exclude": [
     "node_modules",

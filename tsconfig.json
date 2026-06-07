@@ -36,7 +36,8 @@
     "js/compilation/builders/wave_tools.ts",
     "js/compilation/builders/yosys.ts",
     "js/compilation/builders/verilator.ts",
-    "js/compilation/builders/index.ts"
+    "js/compilation/builders/index.ts",
+    "js/compilation/command_overrides.ts"
   ],
   "exclude": [
     "node_modules",

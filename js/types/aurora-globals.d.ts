@@ -20,8 +20,12 @@ interface AuroraElectronAPI {
 declare global {
   interface Window {
     electronAPI: AuroraElectronAPI;
+    /** Absolute path of the currently open .spf, set by the project lifecycle. */
+    currentSpfPath?: string | null;
     /** Owned by processor_list.ts. */
     availableProcessors?: string[];
+    /** Set by command_overrides.ts for non-module callers. */
+    CommandOverrides?: unknown;
     /** Set by wave_state_store.ts for non-module callers. */
     WaveStore?: unknown;
     /** Set by spf_store.ts for non-module callers. */

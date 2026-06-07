@@ -34,7 +34,9 @@
     "js/compilation/builders/iverilog.ts",
     "js/compilation/builders/vvp.ts",
     "js/compilation/builders/wave_tools.ts",
-    "js/compilation/builders/yosys.ts"
+    "js/compilation/builders/yosys.ts",
+    "js/compilation/builders/verilator.ts",
+    "js/compilation/builders/index.ts"
   ],
   "exclude": [
     "node_modules",

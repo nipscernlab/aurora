@@ -9,6 +9,7 @@
  * Compilado por `tsc` (npm run build:ts) num index.js ao lado — é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
+
 export * from './cmm.js';
 export * from './asm.js';
 export * from './iverilog.js';

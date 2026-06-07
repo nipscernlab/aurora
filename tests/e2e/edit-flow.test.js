@@ -240,8 +240,11 @@ describe('Aurora E2E — edit flow', () => {
     await fileItem.waitFor({ state: 'visible', timeout: 10_000 });
     await fileItem.click();
 
-    // Tab + editor instance for this file should appear.
-    await window.waitForSelector('.tab[data-path]', { timeout: 5_000 });
+    // Tab + editor instance for this file should appear. 15s, not 5s:
+    // opening a file (click -> openFile -> Monaco mounts the tab) can exceed
+    // 5s under CI load (the windows-2025 runners) — same de-flake as
+    // split-pane.test.js. The other waits here are already 10-45s.
+    await window.waitForSelector('.tab[data-path]', { timeout: 15_000 });
     await window.waitForFunction(() => {
       // The editor instance carries the filePath in its dataset (see
       // EditorManager.createEditorInstance). Wait for at least one to be
@@ -257,7 +260,7 @@ describe('Aurora E2E — edit flow', () => {
     // the most reliable way to do it — Monaco mounts a contenteditable
     // .inputarea that accepts keyboard events.
     const inputArea = window.locator('.editor-instance:visible .inputarea').first();
-    await inputArea.waitFor({ state: 'attached', timeout: 5_000 });
+    await inputArea.waitFor({ state: 'attached', timeout: 15_000 });
     await inputArea.focus();
 
     // Send a unique marker so we can distinguish our edit from the

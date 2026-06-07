@@ -77,7 +77,7 @@ const LANGUAGE_KEYWORDS     = new Set([
 const IO_KEYWORDS           = new Set(['in', 'fin', 'out', 'fout']);
 const STDLIB_FUNCTIONS      = new Set([
   'norm', 'pset', 'abs', 'sign', 'copy',
-  'sqrt', 'atan', 'sin', 'cos', 'exp', 'log',
+  'sqrt', 'atan', 'sin', 'cos', 'tan', 'exp', 'log', 'pow',
   'real', 'imag', 'fase', 'complex', 'mod2',
 ]);
 const MACRO_DIRECTIVES      = new Set(['#PRACA']);

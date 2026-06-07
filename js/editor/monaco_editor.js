@@ -1137,7 +1137,7 @@ function buildCMMTokenizer(defineConstants) {
                 [/(#define)(\s+)([a-zA-Z_]\w*)/, ['keyword.directive.cmm', 'white', 'constant.define.cmm']],
                 [/#define\b/, 'keyword.directive.cmm'],
 
-                [/\b(in|fin|out|fout|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|exp|log|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
+                [/\b(in|fin|out|fout|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|tan|exp|log|pow|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
                 
                 // Dirac notation patterns
                 [/(\w+)\s*(#)\s*([^⟨|⟩]+)?\s*(\|)([^⟨|⟩\s]+)(\|)\s*([^⟨|⟩\s]+)?\s*(⟩)/, ['identifier', 'operator', 'identifier', 'dirac.bar', 'identifier', 'dirac.bar', 'identifier', 'dirac.bracket']],

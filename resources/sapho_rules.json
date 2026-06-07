@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-06T22:08:20.534Z",
+  "generatedAt": "2026-06-07T01:45:17.059Z",
   "source": {
     "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
-    "yancCommit": "df7c29fb2de3"
+    "yancCommit": "6ecca53ba463"
   },
   "language": {
     "keywords": [
@@ -43,11 +43,13 @@
       "log",
       "mod2",
       "norm",
+      "pow",
       "pset",
       "real",
       "sign",
       "sin",
-      "sqrt"
+      "sqrt",
+      "tan"
     ],
     "operators": [
       {
@@ -224,6 +226,7 @@
       "NUIOIN",
       "NUIOOU",
       "OUT",
+      "POW",
       "PPLUS",
       "PRNAME",
       "PST",
@@ -238,6 +241,7 @@
       "SSHIFTR",
       "STRING",
       "SWITCH",
+      "TAN",
       "THEN",
       "TOAQUI",
       "TYPE",
@@ -289,11 +293,13 @@
       "std_mod2",
       "std_nrm",
       "std_out",
+      "std_pow",
       "std_pst",
       "std_real",
       "std_sign",
       "std_sin",
       "std_sqrt",
+      "std_tan",
       "std_vout",
       "stmt_full",
       "stmt_list",
@@ -531,6 +537,13 @@
       "category": "stdlib errors and warnings (special functions)",
       "pt": "Erro na linha %d: log(.) de número complexo ainda não foi implementado!\n",
       "en": "Error on line %d: log(.) of a complex number isn't implemented yet!\n"
+    },
+    {
+      "code": "MSG_ERR_POW_COMPLEX",
+      "severity": "error",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Erro na linha %d: elevar número complexo a uma potência? Tá viajando! Não fiz isso ainda, se vira!\n",
+      "en": "Error on line %d: a complex number raised to a power? Dream on! Didn't build that yet, you're on your own!\n"
     },
     {
       "code": "MSG_ERR_REAL_ARG_COMP",
@@ -1077,6 +1090,13 @@
       "category": "info messages",
       "pt": "Info: adicionando macro assembly para cálculo de seno\n",
       "en": "Info: adding assembly macro for sin computation\n"
+    },
+    {
+      "code": "MSG_INFO_TAN_MACRO",
+      "severity": "info",
+      "category": "info messages",
+      "pt": "Info: adicionando macro assembly para cálculo de tangente\n",
+      "en": "Info: adding assembly macro for tangent computation\n"
     },
     {
       "code": "MSG_INFO_EXP_MACRO",

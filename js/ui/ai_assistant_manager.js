@@ -302,8 +302,10 @@ const SYSTEM_PROMPT = [
   "    atan(x)          — arctangent → float\n" +
   "    sin(x)           — sine → float\n" +
   "    cos(x)           — cosine → float\n" +
+  "    tan(x)           — tangent → float (dedicated minimax macro, not sin/cos)\n" +
   "    exp(x)           — e^x (natural exponential) → float\n" +
   "    log(x)           — natural logarithm ln(x) → float (guarded: x ≤ 0 returns 0)\n" +
+  "    pow(x, y)        — x^y → float. Integer-literal y → exact square-and-multiply; fractional/float y → exp(y·ln x), so needs x > 0\n" +
   "  Special:\n" +
   "    abs(x)           — absolute value (for comp: magnitude)\n" +
   "    sign(x, y)       — returns y with the sign of x\n" +

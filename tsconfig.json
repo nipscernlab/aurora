@@ -27,7 +27,14 @@
     "js/wave/wave_state_store.ts",
     "js/project/spf_store.ts",
     "js/compilation/command_spec.ts",
-    "js/compilation/verilator_tb.ts"
+    "js/compilation/verilator_tb.ts",
+    "js/compilation/builders/cmm.ts",
+    "js/compilation/builders/asm.ts",
+    "js/compilation/builders/cocotb.ts",
+    "js/compilation/builders/iverilog.ts",
+    "js/compilation/builders/vvp.ts",
+    "js/compilation/builders/wave_tools.ts",
+    "js/compilation/builders/yosys.ts"
   ],
   "exclude": [
     "node_modules",

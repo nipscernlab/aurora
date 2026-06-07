@@ -37,7 +37,8 @@
     "js/compilation/builders/yosys.ts",
     "js/compilation/builders/verilator.ts",
     "js/compilation/builders/index.ts",
-    "js/compilation/command_overrides.ts"
+    "js/compilation/command_overrides.ts",
+    "js/compilation/spec_runner.ts"
   ],
   "exclude": [
     "node_modules",

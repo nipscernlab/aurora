@@ -15,9 +15,18 @@ interface AuroraElectronAPI {
   writeFile(path: string, content: string): Promise<void>;
   mkdir(path: string): Promise<void>;
   listFilesInDirectory(dir: string): Promise<string[]>;
+  execSpec(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
+  execSpecStreamed(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;
 }
 
 declare global {
+  /** Result of a CommandSpec execution in the main process. */
+  interface ExecSpecResult {
+    code: number;
+    stdout?: string;
+    stderr?: string;
+    pid?: number;
+  }
   interface Window {
     electronAPI: AuroraElectronAPI;
     /** Absolute path of the currently open .spf, set by the project lifecycle. */

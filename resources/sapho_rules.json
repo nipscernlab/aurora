@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-07T01:45:17.059Z",
+  "generatedAt": "2026-06-07T21:33:15.829Z",
   "source": {
-    "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
-    "yancCommit": "6ecca53ba463"
+    "yancPath": "C:/nipscern/yanc",
+    "yancCommit": "62b85c7a070e"
   },
   "language": {
     "keywords": [
@@ -94,6 +94,34 @@
       }
     ],
     "diracTokens": [
+      {
+        "symbol": "cosh",
+        "token": "COSH"
+      },
+      {
+        "symbol": "sinh",
+        "token": "SINH"
+      },
+      {
+        "symbol": "tanh",
+        "token": "TANH"
+      },
+      {
+        "symbol": "floor",
+        "token": "FLOOR"
+      },
+      {
+        "symbol": "ceil",
+        "token": "CEIL"
+      },
+      {
+        "symbol": "round",
+        "token": "ROUND"
+      },
+      {
+        "symbol": "conj",
+        "token": "CONJ"
+      },
       {
         "symbol": "⟩",
         "token": "BRA"
@@ -186,11 +214,14 @@
       "BRA",
       "BREAK",
       "CASE",
+      "CEIL",
       "CNUM",
       "COMP",
+      "CONJ",
       "CONTINUE",
       "COPY",
       "COS",
+      "COSH",
       "DEFAULT",
       "DIF",
       "DO",
@@ -201,6 +232,7 @@
       "FASE",
       "FFTSIZ",
       "FIN",
+      "FLOOR",
       "FNUM",
       "FOR",
       "FOUT",
@@ -232,16 +264,19 @@
       "PST",
       "REAL",
       "RET",
+      "ROUND",
       "SDEPTH",
       "SGN",
       "SHIFTL",
       "SHIFTR",
       "SIN",
+      "SINH",
       "SQRT",
       "SSHIFTR",
       "STRING",
       "SWITCH",
       "TAN",
+      "TANH",
       "THEN",
       "TOAQUI",
       "TYPE",
@@ -280,12 +315,16 @@
       "return_call",
       "std_abs",
       "std_atan",
+      "std_ceil",
       "std_comp",
+      "std_conj",
       "std_copy",
       "std_cos",
+      "std_cosh",
       "std_exp",
       "std_fase",
       "std_fin",
+      "std_floor",
       "std_fout",
       "std_imag",
       "std_in",
@@ -296,10 +335,13 @@
       "std_pow",
       "std_pst",
       "std_real",
+      "std_round",
       "std_sign",
       "std_sin",
+      "std_sinh",
       "std_sqrt",
       "std_tan",
+      "std_tanh",
       "std_vout",
       "stmt_full",
       "stmt_list",
@@ -544,6 +586,13 @@
       "category": "stdlib errors and warnings (special functions)",
       "pt": "Erro na linha %d: elevar número complexo a uma potência? Tá viajando! Não fiz isso ainda, se vira!\n",
       "en": "Error on line %d: a complex number raised to a power? Dream on! Didn't build that yet, you're on your own!\n"
+    },
+    {
+      "code": "MSG_WARN_CONJ_REAL",
+      "severity": "warning",
+      "category": "stdlib errors and warnings (special functions)",
+      "pt": "Atenção na linha %d: conj de número real? É ele mesmo com zero imaginário, mas tá valendo!\n",
+      "en": "Warning on line %d: conj of a real number? It's just itself with a zero imaginary part, but ok!\n"
     },
     {
       "code": "MSG_ERR_REAL_ARG_COMP",

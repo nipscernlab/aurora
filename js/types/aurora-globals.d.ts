@@ -26,6 +26,8 @@ declare global {
     WaveStore?: unknown;
     /** Set by spf_store.ts for non-module callers. */
     SpfStore?: unknown;
+    /** Set by command_spec.ts for non-module callers. */
+    CommandSpec?: unknown;
   }
 }
 

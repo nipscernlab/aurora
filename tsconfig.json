@@ -26,7 +26,8 @@
     "js/project/processor_list.ts",
     "js/wave/wave_state_store.ts",
     "js/project/spf_store.ts",
-    "js/compilation/command_spec.ts"
+    "js/compilation/command_spec.ts",
+    "js/compilation/verilator_tb.ts"
   ],
   "exclude": [
     "node_modules",

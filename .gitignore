@@ -41,11 +41,17 @@ saphoComponents/Packages/
 # toolchain bundle above.
 components/bin/
 
-# SAPHO HDL library (core.v, ula.v, processor.v, instr_dec.v, ...). This
-# ships INSIDE the yanc release (yanc-bin-vX.zip carries bin/ + HDL/) so it
-# stays version-matched with the compilers that emit code against it.
-# download-yanc.js extracts it; do NOT commit a copy that can drift stale.
+# SAPHO HDL library (core.v, ula.v, processor.v, instr_dec.v, ...), the C++
+# shim Headers (cmath, vector, ...) and the float-math Macros (float_sin.asm,
+# ...). All three ship INSIDE the yanc release (yanc-bin-vX.zip carries bin/ +
+# HDL/ + Header/ + Macros/) so they stay version-matched with the compilers
+# that emit code against them. download-yanc.js extracts them; do NOT commit a
+# copy that can drift stale or show up as a spurious diff after every yanc bump
+# (e.g. v5.1 swapped the LUT macros for minimax — committed copies would dirty
+# every dev's working tree on the next `npm start`).
 components/HDL/
+components/Header/
+components/Macros/
 
 # --- Test scratch ---
 coverage/

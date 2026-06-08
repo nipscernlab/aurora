@@ -43,7 +43,7 @@ const { execSync } = require('child_process');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-const YANC_TAG      = 'v5.1';
+const YANC_TAG      = 'v5.2';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
 const GITHUB_OWNER  = 'nipscernlab';
 const GITHUB_REPO   = 'yanc';
@@ -59,13 +59,16 @@ const SENTINEL_FILE = path.join(BIN_DIR, 'cppcomp.exe');
 // Written after a successful extract; compared against YANC_TAG to force a
 // re-download on a version bump (e.g. v5.0 → v5.1, same binaries, new stdlib).
 const VERSION_SENTINEL = path.join(BIN_DIR, '.yanc-version');
-// The yanc release ships bin/ AND HDL/ (the SAPHO Verilog library, version-
-// matched with the compilers). HDL/ is no longer committed to the Aurora repo,
-// so a dev who pulls the commit that untracked it ends up with bin/ present
-// (gitignored, persists) but HDL/ deleted. Gate "already installed" on BOTH so
-// that case re-downloads instead of silently leaving the toolchain without its
-// HDL library.
-const HDL_SENTINEL  = path.join(ROOT_DIR, 'components', 'HDL', 'core.v');
+// The yanc release ships bin/ AND HDL/ (Verilog lib) AND Header/ (C++ shims)
+// AND Macros/ (float-math .asm) — all version-matched with the compilers. None
+// of HDL/, Header/, Macros/ is committed to the Aurora repo anymore, so a dev
+// who pulls the commit that untracked them ends up with bin/ present (gitignored,
+// persists) but those folders deleted. Gate "already installed" on a sentinel
+// from EACH so that case re-downloads instead of silently leaving the toolchain
+// without its HDL library / C++ headers / float macros.
+const HDL_SENTINEL    = path.join(ROOT_DIR, 'components', 'HDL', 'core.v');
+const HEADER_SENTINEL = path.join(ROOT_DIR, 'components', 'Header', 'cmath');
+const MACROS_SENTINEL = path.join(ROOT_DIR, 'components', 'Macros', 'float_sin.asm');
 const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -74,7 +77,8 @@ function log(msg) { console.log(`[yanc] ${msg}`); }
 function err(msg) { console.error(`[yanc] ERROR: ${msg}`); }
 
 function binariesPresent() {
-    return fs.existsSync(SENTINEL_FILE) && fs.existsSync(HDL_SENTINEL);
+    return fs.existsSync(SENTINEL_FILE) && fs.existsSync(HDL_SENTINEL)
+        && fs.existsSync(HEADER_SENTINEL) && fs.existsSync(MACROS_SENTINEL);
 }
 
 // Tag recorded by the last successful install, or null when absent (installed

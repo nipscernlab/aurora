@@ -390,6 +390,22 @@ async function start(payload, webContents) {
   delete env.ANTHROPIC_API_KEY;
   delete env.ANTHROPIC_AUTH_TOKEN;
 
+  // MCP tool-call read timeout.
+  // ---------------------------
+  // The CLI's MCP client cuts a `tools/call` off after 120s by default and
+  // reports `timed out awaiting tools/call after 120s` to the model — which
+  // then marks the tool FAILED even when Aurora's side finished the work.
+  // That's the "rename_project failed but the project actually got renamed"
+  // bug: rename_project / rename_processor release watchers → move the folder
+  // → rewrite the .spf → reopen, and on a large project or busy disk that
+  // runs past 120s. tool_bridge already gives those tools a 5-min leash
+  // (SLOW_TIMEOUT_MS), so the renderer resolves correctly — the CLI was just
+  // hanging up first. Raise MCP_TOOL_TIMEOUT above that bridge ceiling so the
+  // CLI waits for tool_bridge to settle (success or its own timeout) instead
+  // of inventing a false failure. Respect an explicit user override if set.
+  if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = '600000'; // 10 min
+  if (!env.MCP_TIMEOUT) env.MCP_TIMEOUT = '30000';            // server startup
+
   let proc;
   try {
     // On Windows, npm installs the CLI as `claude.cmd` (a batch shim).

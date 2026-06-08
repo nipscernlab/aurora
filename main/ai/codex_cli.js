@@ -301,6 +301,17 @@ async function start(payload, webContents) {
   try {
     const url = await auroraMcp.ensureStarted();
     args.push('-c', `mcp_servers.aurora.url="${url}"`);
+    // MCP tool-call read timeout (Codex's counterpart of Claude Code's
+    // MCP_TOOL_TIMEOUT). Codex defaults `tool_timeout_sec` to 120, then
+    // reports `tool call failed … Caused by: timed out awaiting tools/call
+    // after 120s` and marks the tool FAILED — even when Aurora finished the
+    // work. rename_project / rename_processor (release watchers → move folder
+    // → rewrite .spf → reopen) can outrun 120s on a large project, so the
+    // rename really lands but Codex sees a failure. tool_bridge already awaits
+    // genuine completion (resolving on the renderer's reply, with a 5-min
+    // backstop), so raise Codex's ceiling above that and let the bridge be the
+    // single authority instead of Codex hanging up first. Seconds, not ms.
+    args.push('-c', 'mcp_servers.aurora.tool_timeout_sec=600'); // 10 min
     mcpReady = true;
   } catch (e) {
     log.warn('[ai.codex] Aurora MCP bridge unavailable:', e?.message || e);

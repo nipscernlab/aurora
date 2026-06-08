@@ -11,21 +11,28 @@
  * confirmation), and replies on `ai:tool-result` — which lands in
  * `resolveToolResult()` and settles the pending promise.
  *
- * A generous timeout guards against a renderer that never answers
- * (e.g. window closed mid-call) so the SDK's tool loop can't wedge.
+ * Completion is event-driven, not clock-driven: a call settles when the
+ * renderer actually replies on `ai:tool-result` (`resolveToolResult`), and
+ * a renderer that dies mid-call (window closed, render process gone) settles
+ * the call at once via webContents events — no waiting for a timer. The
+ * timeout below is therefore a pure last-resort backstop for the one case
+ * events can't catch: a renderer that is still ALIVE but wedged (a tool_runner
+ * deadlock that never replies and never crashes). That's why it can be
+ * generous without making slow-but-healthy tools (renames) falsely "fail".
  */
 
 'use strict';
 
 const log = require('electron-log');
 
-/** requestId → { resolve, timer } */
+/** requestId → { settle } — settle() clears the timer, detaches the death
+ *  listeners, removes the entry, and resolves the runTool promise exactly once. */
 const pending = new Map();
 let seq = 0;
 
-// Long enough for a human to read and answer an ask-before-write
-// confirmation without rushing; short enough that a dead renderer
-// doesn't pin the SDK's tool loop forever.
+// Backstop only (see header): long enough that a slow-but-healthy tool or a
+// human reading an ask-before-write card is never cut off, since a genuinely
+// dead renderer is now caught by events rather than by this timer.
 const TOOL_TIMEOUT_MS = 120_000;
 
 // Tools that block on a deliberate human answer (the inline question card)
@@ -63,14 +70,37 @@ function runTool(webContents, toolName, args) {
     const timeoutMs = INTERACTIVE_TOOLS.has(toolName) ? INTERACTIVE_TIMEOUT_MS
       : SLOW_TOOLS.has(toolName) ? SLOW_TIMEOUT_MS
       : TOOL_TIMEOUT_MS;
+
+    // Single settle point: whichever of the three outcomes fires first
+    // (renderer reply, renderer death, or the backstop timer) tears down the
+    // other two and resolves the promise once.
+    let done = false;
+    const settle = (result) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      try {
+        webContents.removeListener('destroyed', onGone);
+        webContents.removeListener('render-process-gone', onGone);
+      } catch (_) { /* webContents already gone */ }
+      pending.delete(requestId);
+      resolve(result);
+    };
+    // Event-driven failure: the renderer that owns this call vanished, so the
+    // reply will never come. Don't wait out the backstop — fail immediately.
+    const onGone = () => {
+      log.warn(`[ai.tool_bridge] ${toolName} (${requestId}) renderer gone before reply`);
+      settle({ ok: false, error: 'renderer closed before the tool finished' });
+    };
     const timer = setTimeout(() => {
-      if (pending.has(requestId)) {
-        pending.delete(requestId);
-        log.warn(`[ai.tool_bridge] ${toolName} (${requestId}) timed out`);
-        resolve({ ok: false, error: 'tool execution timed out' });
-      }
+      log.warn(`[ai.tool_bridge] ${toolName} (${requestId}) hit the ${timeoutMs}ms backstop`);
+      settle({ ok: false, error: 'tool execution timed out' });
     }, timeoutMs);
-    pending.set(requestId, { resolve, timer });
+
+    webContents.once('destroyed', onGone);
+    webContents.once('render-process-gone', onGone);
+
+    pending.set(requestId, { settle });
     webContents.send('ai:tool-exec', { requestId, toolName, args });
   });
 }
@@ -79,9 +109,7 @@ function runTool(webContents, toolName, args) {
 function resolveToolResult(requestId, result) {
   const entry = pending.get(requestId);
   if (!entry) return;
-  clearTimeout(entry.timer);
-  pending.delete(requestId);
-  entry.resolve(result === undefined ? { ok: true } : result);
+  entry.settle(result === undefined ? { ok: true } : result);
 }
 
 module.exports = { runTool, resolveToolResult };

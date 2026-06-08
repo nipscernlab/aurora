@@ -147,7 +147,7 @@ async function releaseWatchersUnder(rootDir) {
     return n === r || n.startsWith(r + sep);
   };
   // chokidar's close() can hang on Windows while the watched tree is mid-change;
-  // if it wedges, a rename would stall until the IPC's 120 s tool timeout (the
+  // if it wedges, a rename would stall until the IPC's tool timeout (the
   // "renomeação excedeu o tempo limite" symptom). Bound each close so handle
   // release is best-effort but never blocks the rename — moveWithRetry below
   // absorbs a lock that wasn't quite released in time.
@@ -155,19 +155,30 @@ async function releaseWatchersUnder(rootDir) {
     Promise.resolve().then(() => watcher.close()).catch(() => {}),
     new Promise((resolve) => setTimeout(resolve, 1500)),
   ]);
+  // Close ALL matching watchers concurrently. Awaiting them one-at-a-time
+  // serialized N watchers into N×1.5s of wedge time — on a project with many
+  // files that alone overran the tool timeout, so the rename only "finished"
+  // around the 120s mark and its success reply lost the race to the timer
+  // (the "spins forever / false timeout" symptom). Firing them together
+  // collapses the whole release to ~one 1.5s bound. Each map entry is deleted
+  // only after its own close settles, so the maps stay consistent.
+  const jobs = [];
   for (const [dirPath, info] of [...state.activeDirectoryWatchers.entries()]) {
     if (under(dirPath)) {
-      await closeBounded(info.watcher);
-      state.activeDirectoryWatchers.delete(dirPath);
-      state.directoryStatsCache.delete(dirPath);
+      jobs.push(closeBounded(info.watcher).then(() => {
+        state.activeDirectoryWatchers.delete(dirPath);
+        state.directoryStatsCache.delete(dirPath);
+      }));
     }
   }
   for (const [filePath, info] of [...state.activeWatchers.entries()]) {
     if (under(info.filePath || filePath)) {
-      await closeBounded(info.watcher);
-      state.activeWatchers.delete(filePath);
+      jobs.push(closeBounded(info.watcher).then(() => {
+        state.activeWatchers.delete(filePath);
+      }));
     }
   }
+  await Promise.all(jobs);
 }
 
 /** fse.move with a few quick retries — Windows AV/indexer can briefly lock. */

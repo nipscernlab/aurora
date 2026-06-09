@@ -34,7 +34,7 @@ const { execFileSync } = require('child_process');
  * Rewrite an `app.asar` path to its `app.asar.unpacked` sibling. No-op when
  * the path is not inside an asar archive (i.e. in development).
  */
-function toUnpacked(p) {
+function toUnpacked(/** @type {string} */ p) {
   if (!p) return p;
   const marker = `app.asar${path.sep}`;
   return p.includes(marker)
@@ -42,13 +42,13 @@ function toUnpacked(p) {
     : p;
 }
 
-function fileExists(p) {
+function fileExists(/** @type {string | null | undefined} */ p) {
   try { return !!p && fs.statSync(p).isFile(); }
   catch (_) { return false; }
 }
 
 /** First hit for `name` on PATH via `where`/`which`, or null. */
-function onPath(name) {
+function onPath(/** @type {string} */ name) {
   try {
     const finder = process.platform === 'win32' ? 'where' : 'which';
     const out = execFileSync(finder, [name], { encoding: 'utf-8' });
@@ -56,7 +56,7 @@ function onPath(name) {
     if (process.platform !== 'win32') return hits[0] || null;
     // On Windows `where` lists every match; a `.cmd`/`.exe` shim is
     // spawnable, the bare POSIX shell-script shim is not — rank accordingly.
-    const score = (p) => {
+    const score = (/** @type {string} */ p) => {
       const l = p.toLowerCase();
       if (l.endsWith('.exe')) return 4;
       if (l.endsWith('.cmd')) return 3;
@@ -94,6 +94,7 @@ function locateClaude() {
   //    binary into `bin/` (e.g. bin/claude.exe on Windows).
   try {
     const pkgJsonPath = require.resolve('@anthropic-ai/claude-code/package.json');
+    // @ts-ignore -- .json import; resolveJsonModule não está no tsconfig do projeto
     const pkg = require('@anthropic-ai/claude-code/package.json');
     const dir = path.dirname(pkgJsonPath);
     const candidates = [
@@ -145,7 +146,7 @@ function locateCodex() {
 
   // 1. Bundled platform package: <pkg>/vendor/<triple>/codex/codex(.exe)
   //    with ripgrep alongside at <pkg>/vendor/<triple>/path/.
-  const target = CODEX_TARGETS[`${process.platform}:${process.arch}`];
+  const target = CODEX_TARGETS[/** @type {keyof typeof CODEX_TARGETS} */ (`${process.platform}:${process.arch}`)];
   if (target) {
     try {
       const pkgJsonPath = require.resolve(`${target.pkg}/package.json`);

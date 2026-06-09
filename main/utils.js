@@ -7,9 +7,11 @@ const path = require('path');
 const os = require('os');
 const { exec } = require('child_process');
 
+/** @param {Function} func @param {number} wait */
 function debounce(func, wait) {
+  /** @type {NodeJS.Timeout | undefined} */
   let timeout;
-  return function executedFunction(...args) {
+  return function executedFunction(/** @type {any[]} */ ...args) {
     const later = () => {
       clearTimeout(timeout);
       func(...args);
@@ -22,7 +24,7 @@ function debounce(func, wait) {
 const getCPUCount = () => os.cpus().length;
 const getTotalMemory = () => Math.floor(os.totalmem() / (1024 * 1024 * 1024));
 
-function filterGtkWaveOutput(output) {
+function filterGtkWaveOutput(/** @type {string} */ output) {
   const noisePrefixes = [
     'GTKWave Analyzer',
     'FSTLOAD |',
@@ -40,7 +42,7 @@ function filterGtkWaveOutput(output) {
     .join('\n');
 }
 
-function killProcessSilently(pid, timeout = 5000) {
+function killProcessSilently(/** @type {number} */ pid, timeout = 5000) {
   return new Promise((resolve) => {
     const killCmd = `taskkill /F /T /PID ${pid}`;
     const killProcess = exec(killCmd, { windowsHide: true, timeout });
@@ -62,7 +64,7 @@ function killProcessSilently(pid, timeout = 5000) {
   });
 }
 
-function killProcessesByName(processName, timeout = 5000) {
+function killProcessesByName(/** @type {string} */ processName, timeout = 5000) {
   return new Promise((resolve) => {
     const killCmd = `taskkill /F /IM ${processName} 2>nul`;
     const killProcess = exec(killCmd, { windowsHide: true, timeout });
@@ -139,7 +141,7 @@ function killProcessesByPathPrefix(prefix, timeout = 5000) {
   });
 }
 
-function checkProcessRunning(processName) {
+function checkProcessRunning(/** @type {string} */ processName) {
   return new Promise((resolve) => {
     const checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /NH /FO CSV`;
     exec(checkCmd, { windowsHide: true, timeout: 3000 }, (error, stdout) => {
@@ -218,7 +220,7 @@ function formatTimestamp(now = new Date()) {
   );
 }
 
-function getExecutablePath(executableName, appRoot) {
+function getExecutablePath(/** @type {string} */ executableName, /** @type {string} */ appRoot) {
   if (executableName === 'yosys') {
     return path.join(appRoot, 'components', 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
   }

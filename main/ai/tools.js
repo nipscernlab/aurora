@@ -25,7 +25,8 @@
 // `ai` is loaded defensively so a broken install does not crash the main
 // process at module load. buildTools (which is the only function that
 // actually uses these) checks for null before doing anything.
-let tool, jsonSchema;
+/** @type {any} */ let tool;
+/** @type {any} */ let jsonSchema;
 try {
   ({ tool, jsonSchema } = require('ai'));
 } catch (_) {
@@ -1128,12 +1129,13 @@ const TOOL_MANIFEST = [
  */
 function buildTools(runToolFn) {
   if (!tool || !jsonSchema) return {};
+  /** @type {Record<string, any>} */
   const tools = {};
   for (const def of TOOL_MANIFEST) {
     tools[def.name] = tool({
       description: def.description,
       inputSchema: jsonSchema(def.inputSchema),
-      execute: async (args) => runToolFn(def.name, args || {}),
+      execute: async (/** @type {any} */ args) => runToolFn(def.name, args || {}),
     });
   }
   return tools;

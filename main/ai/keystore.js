@@ -42,12 +42,13 @@ function readVault() {
     const parsed = JSON.parse(raw);
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch (e) {
-    if (e && e.code !== 'ENOENT') log.warn('keystore: read failed:', e);
+    const err = /** @type {NodeJS.ErrnoException} */ (e);
+    if (err && err.code !== 'ENOENT') log.warn('keystore: read failed:', e);
     return {};
   }
 }
 
-function writeVault(vault) {
+function writeVault(/** @type {Record<string, string>} */ vault) {
   try {
     fs.mkdirSync(path.dirname(vaultPath()), { recursive: true });
     fs.writeFileSync(vaultPath(), JSON.stringify(vault, null, 2));
@@ -57,7 +58,7 @@ function writeVault(vault) {
   }
 }
 
-function assertSupported(provider) {
+function assertSupported(/** @type {string} */ provider) {
   if (!SUPPORTED_PROVIDERS.includes(provider)) {
     throw new Error(`Unknown provider: ${provider}`);
   }
@@ -73,6 +74,8 @@ function assertEncryptionAvailable() {
  * Persist `apiKey` for `provider`, encrypted via OS keychain. Throws
  * if the platform doesn't support `safeStorage` (we refuse to write
  * plaintext silently).
+ * @param {string} provider
+ * @param {string} apiKey
  */
 function setKey(provider, apiKey) {
   assertSupported(provider);
@@ -91,6 +94,7 @@ function setKey(provider, apiKey) {
  * is stored. Returns `null` (not throws) on decryption failure — a
  * mis-keychained vault is something the caller wants to surface to
  * the user, not crash on.
+ * @param {string} provider
  */
 function getKey(provider) {
   assertSupported(provider);
@@ -106,12 +110,12 @@ function getKey(provider) {
 }
 
 /** Cheap presence check that never touches the keychain. */
-function hasKey(provider) {
+function hasKey(/** @type {string} */ provider) {
   assertSupported(provider);
   return Object.prototype.hasOwnProperty.call(readVault(), provider);
 }
 
-function clearKey(provider) {
+function clearKey(/** @type {string} */ provider) {
   assertSupported(provider);
   const vault = readVault();
   if (!(provider in vault)) return false;

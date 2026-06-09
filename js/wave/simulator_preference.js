@@ -1,7 +1,7 @@
 /**
  * simulator_preference.js — Qual simulador roda no botao Wave.
  *
- * Default: iverilog (toolchain bundlada em components/Packages/iverilog).
+ * Default: iverilog (toolchain bundlada em components/Packages/msys).
  * Alternativa: verilator — transpila pra C++, builda com g++, executa
  * binario nativo. Tipicamente 10-100x mais rapido que vvp em testbenches
  * longos, ao custo de stricter linting e dependencia adicional

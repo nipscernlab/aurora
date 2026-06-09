@@ -20,7 +20,7 @@ const state = require('../state');
 // ---- ProjectFile schema ----
 
 class ProjectFile {
-  constructor(projectPath) {
+  constructor(/** @type {any} */ projectPath) {
     this.metadata = {
       projectName: path.basename(projectPath),
       createdAt: new Date().toISOString(),
@@ -48,7 +48,7 @@ class ProjectFile {
   }
 }
 
-function updateProjectState(window, projectPath, spfPath) {
+function updateProjectState(/** @type {any} */ window, /** @type {any} */ projectPath, /** @type {any} */ spfPath) {
   if (window && window.webContents) {
     window.webContents.send('project:stateUpdate', {
       projectPath,
@@ -69,9 +69,9 @@ function updateProjectState(window, projectPath, spfPath) {
  * basename — they just follow the folder to its new location. Paths outside
  * the processor folder are returned unchanged.
  */
-function remapProcessorPath(p, projectDir, oldName, newName) {
+function remapProcessorPath(/** @type {any} */ p, /** @type {any} */ projectDir, /** @type {any} */ oldName, /** @type {any} */ newName) {
   if (!p || typeof p !== 'string') return p;
-  const toNative = (s) => s.replace(/\//g, path.sep);
+  const toNative = (/** @type {any} */ s) => s.replace(/\//g, path.sep);
   const native = toNative(p);
   const oldDir = toNative(path.join(projectDir, oldName));
   const lower = native.toLowerCase();
@@ -99,7 +99,7 @@ function remapProcessorPath(p, projectDir, oldName, newName) {
  * outside `oldRoot` is returned verbatim. Used when a whole project folder
  * is renamed.
  */
-function remapRootPath(p, oldRoot, newRoot) {
+function remapRootPath(/** @type {any} */ p, /** @type {any} */ oldRoot, /** @type {any} */ newRoot) {
   if (!p || typeof p !== 'string') return p;
   const native = p.replace(/\//g, path.sep);
   const oldN = oldRoot.replace(/\//g, path.sep);
@@ -118,7 +118,7 @@ function remapRootPath(p, oldRoot, newRoot) {
  * .spf (file lists, command-override cwd/env, …) so a project rename
  * leaves no stale path behind — "em todos os lugares necessários".
  */
-function deepRemapPaths(obj, oldRoot, newRoot) {
+function deepRemapPaths(/** @type {any} */ obj, /** @type {any} */ oldRoot, /** @type {any} */ newRoot) {
   if (Array.isArray(obj)) {
     for (let i = 0; i < obj.length; i++) {
       if (typeof obj[i] === 'string') obj[i] = remapRootPath(obj[i], oldRoot, newRoot);
@@ -139,10 +139,10 @@ function deepRemapPaths(obj, oldRoot, newRoot) {
  * Windows. The renderer re-establishes its watchers when it reopens the
  * project at the new path.
  */
-async function releaseWatchersUnder(rootDir) {
+async function releaseWatchersUnder(/** @type {any} */ rootDir) {
   const sep = path.sep.toLowerCase();
   const r = rootDir.replace(/\//g, path.sep).toLowerCase();
-  const under = (p) => {
+  const under = (/** @type {any} */ p) => {
     const n = String(p || '').replace(/\//g, path.sep).toLowerCase();
     return n === r || n.startsWith(r + sep);
   };
@@ -151,7 +151,7 @@ async function releaseWatchersUnder(rootDir) {
   // "renomeação excedeu o tempo limite" symptom). Bound each close so handle
   // release is best-effort but never blocks the rename — moveWithRetry below
   // absorbs a lock that wasn't quite released in time.
-  const closeBounded = (watcher) => Promise.race([
+  const closeBounded = (/** @type {any} */ watcher) => Promise.race([
     Promise.resolve().then(() => watcher.close()).catch(() => {}),
     new Promise((resolve) => setTimeout(resolve, 1500)),
   ]);
@@ -182,7 +182,7 @@ async function releaseWatchersUnder(rootDir) {
 }
 
 /** fse.move with a few quick retries — Windows AV/indexer can briefly lock. */
-async function moveWithRetry(from, to, options = {}) {
+async function moveWithRetry(/** @type {any} */ from, /** @type {any} */ to, options = {}) {
   let lastErr;
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
@@ -190,7 +190,8 @@ async function moveWithRetry(from, to, options = {}) {
       return;
     } catch (err) {
       lastErr = err;
-      if (err && (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'ENOTEMPTY')) {
+      const ec = /** @type {NodeJS.ErrnoException} */ (err);
+      if (ec && (ec.code === 'EPERM' || ec.code === 'EBUSY' || ec.code === 'ENOTEMPTY')) {
         await new Promise((resolve) => setTimeout(resolve, 120));
         continue;
       }
@@ -279,7 +280,7 @@ function register() {
 
       state.currentOpenProjectPath = spfPath;
       const projectDirPath = path.dirname(spfPath);
-      global.currentProjectPath = projectDirPath;
+      /** @type {any} */ (global).currentProjectPath = projectDirPath;
 
       // Track in our own recents store + refresh the Windows jumplist.
       // We don't use Windows' shell-managed `frequent`/`recent` lists
@@ -302,8 +303,8 @@ function register() {
       } catch (e) {
         log.warn('jumplist refresh failed:', e);
       }
-      if (!global.currentProject) global.currentProject = {};
-      global.currentProject.path = projectDirPath;
+      if (!/** @type {any} */ (global).currentProject) /** @type {any} */ (global).currentProject = {};
+      /** @type {any} */ (global).currentProject.path = projectDirPath;
 
       const spfContent = await fse.readFile(spfPath, 'utf8');
       const projectData = JSON.parse(spfContent);
@@ -338,7 +339,7 @@ function register() {
 
       if (projectData.structure.processors) {
         projectData.structure.processors = await Promise.all(
-          projectData.structure.processors.map(async (processor) => {
+          projectData.structure.processors.map(async (/** @type {any} */ processor) => {
             const processorPath = path.join(projectData.structure.basePath, processor.name);
             const exists = await fse.pathExists(processorPath);
             return { ...processor, exists };
@@ -374,7 +375,7 @@ function register() {
         updateProjectState(targetWindow, projectData.structure.basePath, spfPath);
         targetWindow.webContents.send('project:processorHubState', { enabled: true });
         targetWindow.webContents.send('project:processors', {
-          processors: projectData.structure.processors.map((p) => p.name),
+          processors: projectData.structure.processors.map((/** @type {any} */ p) => p.name),
           projectPath: projectData.structure.basePath,
         });
       } else {
@@ -390,13 +391,13 @@ function register() {
 
   ipcMain.handle('project:close', async () => {
     try {
-      if (!state.currentOpenProjectPath && !global.currentProjectPath) {
+      if (!state.currentOpenProjectPath && !/** @type {any} */ (global).currentProjectPath) {
         return { success: true, message: 'No project to close' };
       }
 
       state.currentOpenProjectPath = null;
-      global.currentProjectPath = null;
-      if (global.currentProject) global.currentProject = {};
+      /** @type {any} */ (global).currentProjectPath = null;
+      if (/** @type {any} */ (global).currentProject) /** @type {any} */ (global).currentProject = {};
 
       const focusedWindow = BrowserWindow.getFocusedWindow();
       if (focusedWindow && !focusedWindow.isDestroyed()) {
@@ -413,7 +414,7 @@ function register() {
       return { success: true };
     } catch (error) {
       log.error('Error closing project:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -426,7 +427,7 @@ function register() {
         projectOpen: true,
         projectPath: projectData.structure.basePath,
         spfPath: state.currentOpenProjectPath,
-        processors: projectData.structure.processors.map((p) => p.name),
+        processors: projectData.structure.processors.map((/** @type {any} */ p) => p.name),
       };
     } catch (error) {
       log.error('Error getting current project:', error);
@@ -449,7 +450,7 @@ function register() {
         await fse.access(processorPath);
         throw new Error(`A processor with name "${formData.processorName}" already exists`);
       } catch (err) {
-        if (err.code !== 'ENOENT') throw err;
+        if (/** @type {NodeJS.ErrnoException} */ (err).code !== 'ENOENT') throw err;
 
         await fse.mkdir(processorPath, { recursive: true });
         await fse.mkdir(softwarePath, { recursive: true });
@@ -490,7 +491,7 @@ void main()
         }
         const targetLower = formData.processorName.toLowerCase();
         const already = spfData.structure.processors.some(
-          (p) => (typeof p === 'string' ? p : p?.name)?.toLowerCase() === targetLower
+          (/** @type {any} */ p) => (typeof p === 'string' ? p : p?.name)?.toLowerCase() === targetLower
         );
         if (!already) {
           spfData.structure.processors.push({
@@ -523,10 +524,11 @@ void main()
 
   ipcMain.handle('get-available-processors', async (_event, projectPath) => {
     // Parse #DIRECTIVE value lines from a .cmm file header.
-    async function parseCmmHeader(projectDir, procName) {
+    async function parseCmmHeader(/** @type {any} */ projectDir, /** @type {any} */ procName) {
       const cmmPath = path.join(projectDir, procName, 'Software', `${procName}.cmm`);
       try {
         const raw = await fse.readFile(cmmPath, 'utf8');
+        /** @type {Record<string, any>} */
         const header = {};
         for (const line of raw.split('\n')) {
           const m = line.match(/^#([A-Z_]+)\s+(.+)/);
@@ -539,8 +541,8 @@ void main()
     }
 
     // Enrich the raw SPF processors array with clk/numClocks and CMM directives.
-    async function enrichProcessors(procs, projectDir) {
-      return Promise.all(procs.map(async (p) => {
+    async function enrichProcessors(/** @type {any} */ procs, /** @type {any} */ projectDir) {
+      return Promise.all(procs.map(async (/** @type {any} */ p) => {
         const name = typeof p === 'string' ? p : p.name;
         const cfg  = typeof p === 'object' && p !== null ? p : {};
         const clk       = Number.isFinite(cfg.clk)       ? cfg.clk       : 100;
@@ -612,7 +614,7 @@ void main()
       const recents = require('../recents');
       return recents.prune();
     } catch (e) {
-      log.warn('list-recent-projects failed:', e?.message || e);
+      log.warn('list-recent-projects failed:', e instanceof Error ? e.message : e);
       return [];
     }
   });
@@ -630,7 +632,7 @@ void main()
 
       if (projectData.structure.processors) {
         projectData.structure.processors = projectData.structure.processors.filter(
-          (processor) => processor.name !== processorName,
+          (/** @type {any} */ processor) => processor.name !== processorName,
         );
         await fse.writeFile(state.currentOpenProjectPath, JSON.stringify(projectData, null, 2));
       }
@@ -638,7 +640,7 @@ void main()
       const focusedWindow = BrowserWindow.getFocusedWindow();
       if (focusedWindow) {
         focusedWindow.webContents.send('project:processors', {
-          processors: projectData.structure.processors.map((p) => p.name),
+          processors: projectData.structure.processors.map((/** @type {any} */ p) => p.name),
           projectPath: projectData.structure.basePath,
         });
       }
@@ -683,8 +685,8 @@ void main()
       const procs = Array.isArray(spfData.structure.processors)
         ? spfData.structure.processors : [];
 
-      const nameOf = (p) => (typeof p === 'string' ? p : p?.name);
-      const idx = procs.findIndex((p) => nameOf(p)?.toLowerCase() === oldNm.toLowerCase());
+      const nameOf = (/** @type {any} */ p) => (typeof p === 'string' ? p : p?.name);
+      const idx = procs.findIndex((/** @type {any} */ p) => nameOf(p)?.toLowerCase() === oldNm.toLowerCase());
       if (idx === -1) throw new Error(`Processor "${oldNm}" not found in this project`);
 
       // Canonical current casing (the .spf entry, not what the caller typed).
@@ -693,7 +695,7 @@ void main()
 
       if (!caseOnly) {
         const clash = procs.some(
-          (p, i) => i !== idx && nameOf(p)?.toLowerCase() === newNm.toLowerCase(),
+          (/** @type {any} */ p, /** @type {any} */ i) => i !== idx && nameOf(p)?.toLowerCase() === newNm.toLowerCase(),
         );
         if (clash) throw new Error(`A processor named "${newNm}" already exists`);
       }
@@ -781,7 +783,7 @@ void main()
       const focusedWindow = BrowserWindow.getFocusedWindow();
       if (focusedWindow) {
         focusedWindow.webContents.send('project:processors', {
-          processors: spfData.structure.processors.map((p) => p.name),
+          processors: spfData.structure.processors.map((/** @type {any} */ p) => p.name),
           projectPath: projectDir,
         });
         focusedWindow.webContents.send('processor:renamed', {
@@ -890,9 +892,9 @@ void main()
 
       // 5. Re-sync main-process state + recents/jumplist to the new path.
       state.currentOpenProjectPath = newSpfPath;
-      global.currentProjectPath = movedRoot;
-      if (!global.currentProject) global.currentProject = {};
-      global.currentProject.path = movedRoot;
+      /** @type {any} */ (global).currentProjectPath = movedRoot;
+      if (!/** @type {any} */ (global).currentProject) /** @type {any} */ (global).currentProject = {};
+      /** @type {any} */ (global).currentProject.path = movedRoot;
       try {
         if (process.platform === 'win32') {
           if (typeof app.addRecentDocument === 'function') app.addRecentDocument(newSpfPath);

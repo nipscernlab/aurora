@@ -33,7 +33,8 @@ const log = require('electron-log');
 // tryRequire so any module-level failure (missing package, mismatched
 // transitive dep like `zod/v4`, ESM/CJS interop bug) disables AI features
 // instead of crashing the main process during boot.
-function tryRequire(/** @type {string} */ pkg, /** @type {string | undefined} */ exportName) {
+/** @param {string} pkg @param {string} [exportName] */
+function tryRequire(pkg, exportName) {
   try {
     const mod = require(pkg);
     return exportName ? mod[exportName] : mod;

@@ -26,11 +26,13 @@ function read() {
     const parsed = JSON.parse(fs.readFileSync(prefsPath(), 'utf8'));
     return parsed && typeof parsed === 'object' ? parsed : {};
   } catch (e) {
-    if (e && e.code !== 'ENOENT') log.warn('ai prefs: read failed:', e);
+    const err = /** @type {NodeJS.ErrnoException} */ (e);
+    if (err && err.code !== 'ENOENT') log.warn('ai prefs: read failed:', e);
     return {};
   }
 }
 
+/** @param {Record<string, any>} prefs */
 function write(prefs) {
   try {
     fs.mkdirSync(path.dirname(prefsPath()), { recursive: true });
@@ -40,7 +42,10 @@ function write(prefs) {
   }
 }
 
-/** The user's chosen model for `provider`, or `null` to use the default. */
+/**
+ * The user's chosen model for `provider`, or `null` to use the default.
+ * @param {string} provider
+ */
 function getModel(provider) {
   const models = read().models;
   return models && typeof models[provider] === 'string' && models[provider]
@@ -48,7 +53,11 @@ function getModel(provider) {
     : null;
 }
 
-/** Set (or, with an empty value, clear) the model override for `provider`. */
+/**
+ * Set (or, with an empty value, clear) the model override for `provider`.
+ * @param {string} provider
+ * @param {string} model
+ */
 function setModel(provider, model) {
   const prefs = read();
   prefs.models = prefs.models || {};

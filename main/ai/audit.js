@@ -32,7 +32,7 @@ function append(entry) {
     const line = JSON.stringify({ ts: new Date().toISOString(), ...entry }) + '\n';
     fs.appendFileSync(logPath(), line);
   } catch (e) {
-    log.warn('[ai.audit] append failed:', e?.message || e);
+    log.warn('[ai.audit] append failed:', e instanceof Error ? e.message : e);
   }
 }
 

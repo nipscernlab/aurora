@@ -36,11 +36,13 @@ function read() {
     const parsed = JSON.parse(buf);
     return Array.isArray(parsed) ? parsed.filter((p) => typeof p === 'string') : [];
   } catch (e) {
-    if (e && e.code !== 'ENOENT') log.warn('recents read failed:', e);
+    const err = /** @type {NodeJS.ErrnoException} */ (e);
+    if (err && err.code !== 'ENOENT') log.warn('recents read failed:', e);
     return [];
   }
 }
 
+/** @param {string[]} list */
 function write(list) {
   try {
     fs.mkdirSync(path.dirname(storePath()), { recursive: true });
@@ -54,6 +56,7 @@ function write(list) {
  * Push `spfPath` to the top of the recents list (deduped, normalized).
  * Returns the resulting list so callers can chain straight into a
  * jumplist rebuild without doing a second read.
+ * @param {string} spfPath
  */
 function push(spfPath) {
   if (!spfPath || typeof spfPath !== 'string') return read();

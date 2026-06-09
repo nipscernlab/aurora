@@ -75,7 +75,7 @@ function runTool(webContents, toolName, args) {
     // (renderer reply, renderer death, or the backstop timer) tears down the
     // other two and resolves the promise once.
     let done = false;
-    const settle = (result) => {
+    const settle = (/** @type {any} */ result) => {
       if (done) return;
       done = true;
       clearTimeout(timer);
@@ -105,7 +105,11 @@ function runTool(webContents, toolName, args) {
   });
 }
 
-/** Settle a pending tool call with the renderer's result. */
+/**
+ * Settle a pending tool call with the renderer's result.
+ * @param {string} requestId
+ * @param {any} result
+ */
 function resolveToolResult(requestId, result) {
   const entry = pending.get(requestId);
   if (!entry) return;

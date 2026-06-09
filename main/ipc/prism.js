@@ -13,6 +13,7 @@ const fse = require('fs-extra');
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const { spawn } = require('child_process');
 const log = require('electron-log');
+// @ts-ignore -- @silimate/netlistsvg ships no type declarations
 const netlistsvgLib = require('@silimate/netlistsvg');
 
 const state = require('../state');
@@ -22,7 +23,7 @@ const { trackChild } = require('../process_registry');
 
 // ---------- helpers ----------
 
-function cleanModuleName(moduleName) {
+function cleanModuleName(/** @type {any} */ moduleName) {
   let cleanName = moduleName;
 
   if (cleanName.startsWith('$paramod')) {
@@ -49,7 +50,7 @@ function cleanModuleName(moduleName) {
   return cleanName;
 }
 
-function isClickableModule(moduleName) {
+function isClickableModule(/** @type {any} */ moduleName) {
   const skipPatterns = [
     /^\$_/, /^\$dff/, /^\$mux/, /^\$add/, /^\$sub/, /^\$mul/, /^\$div/, /^\$mod/,
     /^\$eq/, /^\$ne/, /^\$lt/, /^\$le/, /^\$gt/, /^\$ge/, /^\$and/, /^\$or/,
@@ -170,7 +171,7 @@ async function createPrismWindow(compilationData = null) {
       type: 'error',
       title: 'PRISM Load Error',
       message: 'Failed to load PRISM viewer',
-      detail: `Error: ${error.message}\nPath: ${prismHtmlPath}`,
+      detail: `Error: ${error instanceof Error ? error.message : String(error)}\nPath: ${prismHtmlPath}`,
     });
     if (state.prismWindow) {
       state.prismWindow.destroy();
@@ -206,9 +207,9 @@ async function createPrismWindow(compilationData = null) {
 // ---------- compilation pipeline ----------
 
 async function runYosysCompilationWithPaths(
-  compilationPaths,
-  topLevelModule,
-  tempDir,
+  /** @type {any} */ compilationPaths,
+  /** @type {any} */ topLevelModule,
+  /** @type {any} */ tempDir,
 ) {
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
   const hdlPath = compilationPaths.hdlPath;
@@ -254,8 +255,8 @@ async function runYosysCompilationWithPaths(
   // mas aqui em main lemos .spf raw via fse.readJson e precisamos
   // expandir por conta propria. Paths absolutos passam direto.
   const spfBaseDir = spfStructure?.basePath || (spfPath ? path.dirname(spfPath) : '');
-  const isAbs = (p) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
-  const resolveSpf = (p) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
+  const isAbs = (/** @type {any} */ p) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
+  const resolveSpf = (/** @type {any} */ p) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
 
   if (spfStructure && Array.isArray(spfStructure.synthesizableFiles)) {
     for (const f of spfStructure.synthesizableFiles) {
@@ -389,7 +390,7 @@ write_json "${hierarchyJsonPath}"
   });
 }
 
-async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
+async function splitHierarchyJson(/** @type {any} */ hierarchyJsonPath, /** @type {any} */ tempDir) {
   const hierarchyData = await fse.readJson(hierarchyJsonPath);
   if (!hierarchyData.modules) throw new Error('No modules found in hierarchy JSON');
 
@@ -403,6 +404,7 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
     const cleanModuleData = JSON.parse(JSON.stringify(moduleData));
 
     if (cleanModuleData.cells) {
+      /** @type {Record<string, any>} */
       const cleanedCells = {};
       for (const [cellName, cellData] of Object.entries(cleanModuleData.cells)) {
         const cleanCellName = cleanModuleName(cellName);
@@ -436,9 +438,10 @@ async function splitHierarchyJson(hierarchyJsonPath, tempDir) {
 // contagem de profundidade de tags `<g>` pra suportar `<g>` aninhados
 // dentro de portas/labels (sem isso uma regex non-greedy quebraria em
 // blocos como o `generic`, que tem `<g>...</g>` aninhados dentro).
-function extractTopLevelGBlocks(svgText) {
+function extractTopLevelGBlocks(/** @type {any} */ svgText) {
   const blocks = [];
   const tagRe = /<g\b[^>]*>|<\/g>/g;
+  /** @type {any[]} */
   const stack = []; // entradas: { type, startIdx }
   let m;
   while ((m = tagRe.exec(svgText)) !== null) {
@@ -461,7 +464,7 @@ function extractTopLevelGBlocks(svgText) {
   return blocks;
 }
 
-async function loadCustomSkinBlocks(customSkinDir) {
+async function loadCustomSkinBlocks(/** @type {any} */ customSkinDir) {
   if (!(await fse.pathExists(customSkinDir))) return [];
   const entries = (await fse.readdir(customSkinDir))
     .filter((f) => f.toLowerCase().endsWith('.svg') && !f.startsWith('_'))
@@ -475,7 +478,7 @@ async function loadCustomSkinBlocks(customSkinDir) {
         if (block.type) merged.set(block.type, block.content);
       }
     } catch (err) {
-      log.warn(`[PRISM] Skipping malformed custom skin ${file}:`, err.message);
+      log.warn(`[PRISM] Skipping malformed custom skin ${file}:`, err instanceof Error ? err.message : String(err));
     }
   }
   return [...merged.entries()];
@@ -506,7 +509,7 @@ async function getDefaultSkinData() {
 // o renderer nao consegue saber pra qual modulo navegar olhando so o
 // SVG. O fix e' injetar data-cell-type=<tipo> em cada <g id="cell_<inst>">
 // abaixo, antes de devolver o SVG.
-function buildInstanceTypeMap(netlistJson) {
+function buildInstanceTypeMap(/** @type {any} */ netlistJson) {
   const map = new Map();
   if (!netlistJson?.modules) return map;
   for (const moduleData of Object.values(netlistJson.modules)) {
@@ -520,7 +523,7 @@ function buildInstanceTypeMap(netlistJson) {
 
 // Escape minimo pra valor de atributo XML — basta cobrir `"`, `&` e `<`
 // (path/identificador yosys raramente tem esses, mas defensivo).
-function xmlAttrEscape(s) {
+function xmlAttrEscape(/** @type {any} */ s) {
   return String(s)
     .replace(/&/g, '&amp;')
     .replace(/"/g, '&quot;')
@@ -530,11 +533,11 @@ function xmlAttrEscape(s) {
 // Injeta data-cell-type=<tipo> em cada <g id="cell_<inst>"> do SVG.
 // Regex em vez de parse XML real porque (a) overkill, (b) a forma do
 // output do netlistsvg e' previsivel (id="cell_..." sempre em <g>).
-function injectCellTypesIntoSvg(svgString, instanceTypeMap) {
+function injectCellTypesIntoSvg(/** @type {any} */ svgString, /** @type {any} */ instanceTypeMap) {
   if (instanceTypeMap.size === 0) return svgString;
   return svgString.replace(
     /<g\b([^>]*?)\sid="cell_([^"]+)"([^>]*?)(\/?>)/g,
-    (match, before, instName, after, close) => {
+    (/** @type {any} */ match, /** @type {any} */ before, /** @type {any} */ instName, /** @type {any} */ after, /** @type {any} */ close) => {
       const type = instanceTypeMap.get(instName);
       if (!type) return match;
       return `<g${before} id="cell_${instName}"${after} data-cell-type="${xmlAttrEscape(type)}"${close}`;
@@ -545,7 +548,7 @@ function injectCellTypesIntoSvg(svgString, instanceTypeMap) {
 // Mapa tipo-de-cell -> Set de portas (s:pid) que a skin custom desenha.
 // Uma skin custom tem um conjunto FIXO de portas; netlistsvg so cria a
 // shape das portas que a skin declara.
-function buildSkinPortMap(skinData) {
+function buildSkinPortMap(/** @type {any} */ skinData) {
   const map = new Map();
   for (const block of extractTopLevelGBlocks(skinData)) {
     if (!block.type) continue;
@@ -565,7 +568,7 @@ function buildSkinPortMap(skinData) {
 // a porta extra apenas nao aparece (com aviso), em vez de quebrar a tela.
 // Cells de tipo generico (sem skin) nao sao tocadas — la o netlistsvg cria
 // as portas a partir das proprias conexoes, entao nunca ficam penduradas.
-function pruneNetlistToSkinPorts(netlistJson, skinPortMap) {
+function pruneNetlistToSkinPorts(/** @type {any} */ netlistJson, /** @type {any} */ skinPortMap) {
   if (!netlistJson?.modules) return;
   for (const moduleData of Object.values(netlistJson.modules)) {
     for (const [cellName, cell] of Object.entries(moduleData.cells || {})) {
@@ -585,7 +588,7 @@ function pruneNetlistToSkinPorts(netlistJson, skinPortMap) {
   }
 }
 
-async function generateModuleSVGWithPaths(moduleName, tempDir) {
+async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @type {any} */ tempDir) {
   const cleanName = sanitizeFileName(moduleName);
   const inputJsonPath = path.join(tempDir, `${cleanName}.json`);
   const outputSvgPath = path.join(tempDir, `${cleanName}.svg`);
@@ -607,7 +610,7 @@ async function generateModuleSVGWithPaths(moduleName, tempDir) {
   // lib.render usa callback (err, svgString) — wrap em Promise. Sem spawn
   // de processo, sem .exe externo: fica tudo in-process.
   const rawSvg = await new Promise((resolve, reject) => {
-    netlistsvgLib.render(skinData, netlistJson, (err, svg) => {
+    netlistsvgLib.render(skinData, netlistJson, (/** @type {any} */ err, /** @type {any} */ svg) => {
       if (err) reject(err);
       else resolve(svg);
     });
@@ -625,7 +628,7 @@ async function generateModuleSVGWithPaths(moduleName, tempDir) {
   return outputSvgPath;
 }
 
-async function performPrismCompilationWithPaths(compilationPaths) {
+async function performPrismCompilationWithPaths(/** @type {any} */ compilationPaths) {
   try {
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
       state.mainWindow.webContents.send('terminal-log', 'tveri', 'Starting PRISM compilation process', 'info');
@@ -670,9 +673,9 @@ async function performPrismCompilationWithPaths(compilationPaths) {
   } catch (error) {
     log.error('PRISM compilation error:', error);
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tveri', `Compilation failed: ${error.message}`, 'error');
+      state.mainWindow.webContents.send('terminal-log', 'tveri', `Compilation failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
     }
-    return { success: false, message: error.message };
+    return { success: false, message: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -687,7 +690,7 @@ function register() {
       return result;
     } catch (error) {
       log.error('Fatal error in prism-compile-with-paths:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -703,14 +706,14 @@ function register() {
       return { success: true, svgPath, moduleName, moduleJsonPath };
     } catch (error) {
       log.error('SVG generation from module click error:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   });
 
   ipcMain.handle('get-prism-compilation-paths', async () => {
     try {
-      let projectPath = global.currentProjectPath || state.currentOpenProjectPath;
-      if (state.currentOpenProjectPath && !global.currentProjectPath) {
+      let projectPath = /** @type {any} */ (global).currentProjectPath || state.currentOpenProjectPath;
+      if (state.currentOpenProjectPath && !(/** @type {any} */ (global).currentProjectPath)) {
         projectPath = path.dirname(state.currentOpenProjectPath);
       }
       if (!projectPath) throw new Error('No project path available');
@@ -757,7 +760,7 @@ function register() {
       return { success: true };
     } catch (error) {
       log.error('Failed to open source file from Prism:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -785,7 +788,7 @@ function register() {
       return compilationResult;
     } catch (error) {
       log.error('PRISM recompilation error:', error);
-      return { success: false, message: error.message };
+      return { success: false, message: error instanceof Error ? error.message : String(error) };
     }
   });
 }

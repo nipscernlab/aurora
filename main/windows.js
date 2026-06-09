@@ -48,7 +48,7 @@ function rebuildJumpList() {
     const appPath = app.getAppPath();
     // Quoted so spaces in the app path survive Windows arg parsing.
     const baseArgs = isPackaged ? '' : `"${appPath}"`;
-    const joinArgs = (...extra) => [baseArgs, ...extra].filter(Boolean).join(' ');
+    const joinArgs = (/** @type {string[]} */ ...extra) => [baseArgs, ...extra].filter(Boolean).join(' ');
 
     // Recent projects, pruned to entries that still exist on disk. Max
     // 5 so the jumplist stays scannable on a single glance — Windows
@@ -94,7 +94,7 @@ function rebuildJumpList() {
     // rejected. Surface that in the log so a future "my jumplist is
     // empty" debugging session lands on the actual reason instead of
     // a silent miss.
-    const status = app.setJumpList(categories);
+    const status = app.setJumpList(/** @type {Electron.JumpListCategory[]} */ (categories));
     log.info('jumplist set:', {
       status: status || 'ok',
       isPackaged,
@@ -419,7 +419,7 @@ function createUpdateWindow() {
 // which only tracks the most recently created window. Without this fix,
 // minimizing/closing the second window would have acted on the first.
 function registerWindowControls() {
-  const senderWin = (event) => {
+  const senderWin = (/** @type {any} */ event) => {
     try {
       return BrowserWindow.fromWebContents(event.sender);
     } catch (_) {
@@ -460,7 +460,7 @@ function registerWindowControls() {
     return { isMaximized: w.isMaximized(), isFullScreen: w.isFullScreen() };
   });
 
-  const handleZoom = (event, factorChange) => {
+  const handleZoom = (/** @type {any} */ event, /** @type {number} */ factorChange) => {
     const w = senderWin(event) || state.mainWindow;
     if (!w) return;
     const webContents = w.webContents;

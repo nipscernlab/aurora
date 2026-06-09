@@ -33,6 +33,7 @@ const {
  * Each entry: [basename, [allowed-subdirs-under-components]].
  * Subdir uses forward slashes; we normalize before comparing.
  */
+/** @type {Array<[string, string[]]>} */
 const RAW_ALLOWLIST = [
   ['cmmcomp.exe',   ['bin']],
   ['appcomp.exe',   ['bin']],
@@ -67,7 +68,7 @@ const RAW_ALLOWLIST = [
  */
 const VERILATOR_GENERATED_PREFIX = path.posix.join(toPosix(componentsPath), 'Temp/');
 
-function toPosix(p) {
+function toPosix(/** @type {string} */ p) {
   return String(p || '').replace(/\\/g, '/');
 }
 

@@ -144,8 +144,8 @@ function check(step, baseSpec, appliedSpec) {
   }
 
   if (Array.isArray(rule.envKeys)) {
-    const baseEnv = baseSpec?.env || {};
-    const appliedEnv = appliedSpec?.env || {};
+    const baseEnv = /** @type {Record<string, any>} */ (baseSpec?.env || {});
+    const appliedEnv = /** @type {Record<string, any>} */ (appliedSpec?.env || {});
     for (const key of rule.envKeys) {
       if (key in baseEnv && baseEnv[key] !== appliedEnv[key]) {
         return {
@@ -160,7 +160,7 @@ function check(step, baseSpec, appliedSpec) {
 }
 
 /** Snapshot for the AI's `list_allowed_flags` introspection tool. */
-function describe(step) {
+function describe(/** @type {string} */ step) {
   const rule = RULES[step];
   if (!rule) return { step, protectedLiteralArgs: [], protectedFlagWithValue: [], protectedEnv: [] };
   return {

@@ -18,9 +18,10 @@ const { componentsPath } = require('../paths');
 
 const EXPECTED_COCOTB_VERSION = '2.0.1';
 
+/** @type {string[] | null} */
 let cachedCandidates = null;
 
-function norm(p) {
+function norm(/** @type {any} */ p) {
   return path.normalize(String(p || ''));
 }
 
@@ -38,11 +39,11 @@ function getBundledPythonPath() {
   );
 }
 
-function samePath(a, b) {
+function samePath(/** @type {any} */ a, /** @type {any} */ b) {
   return norm(a).toLowerCase() === norm(b).toLowerCase();
 }
 
-function addCandidate(out, seen, p) {
+function addCandidate(/** @type {string[]} */ out, /** @type {Set<string>} */ seen, /** @type {any} */ p) {
   if (!p || typeof p !== 'string') return;
   const n = norm(p.replace(/^"|"$/g, ''));
   if (!n || seen.has(n.toLowerCase())) return;
@@ -51,7 +52,7 @@ function addCandidate(out, seen, p) {
   out.push(n);
 }
 
-function splitPathList(value) {
+function splitPathList(/** @type {any} */ value) {
   return String(value || '').split(path.delimiter).filter(Boolean);
 }
 
@@ -72,7 +73,7 @@ function findOnPathSync() {
   return out;
 }
 
-function addIfDirectoryPython(out, seen, dir) {
+function addIfDirectoryPython(/** @type {string[]} */ out, /** @type {Set<string>} */ seen, /** @type {string} */ dir) {
   if (!dir || !fs.existsSync(dir)) return;
   let entries = [];
   try {
@@ -88,7 +89,7 @@ function addIfDirectoryPython(out, seen, dir) {
   }
 }
 
-function addCommonWindowsCandidates(out, seen) {
+function addCommonWindowsCandidates(/** @type {string[]} */ out, /** @type {Set<string>} */ seen) {
   if (process.platform !== 'win32') return;
   const userProfile = process.env.USERPROFILE
     || (process.env.HOMEDRIVE && process.env.HOMEPATH
@@ -117,6 +118,7 @@ function addCommonWindowsCandidates(out, seen) {
 
 function listPythonCandidatesSync() {
   if (cachedCandidates) return cachedCandidates.slice();
+  /** @type {string[]} */
   const out = [];
   const seen = new Set();
 
@@ -137,7 +139,7 @@ function listPythonCandidatesSync() {
   return out.slice();
 }
 
-function runPythonProbe(pythonPath) {
+function runPythonProbe(/** @type {string} */ pythonPath) {
   const code = [
     'import importlib.util, json, sys',
     'try:',
@@ -168,13 +170,13 @@ function runPythonProbe(pythonPath) {
         const parsed = JSON.parse(String(stdout || '').trim());
         resolve({ ok: true, pythonPath, executable: parsed.executable || pythonPath, ...parsed });
       } catch (parseError) {
-        resolve({ ok: false, pythonPath, error: parseError.message || String(parseError) });
+        resolve({ ok: false, pythonPath, error: parseError instanceof Error ? parseError.message : String(parseError) });
       }
     });
   });
 }
 
-function enrichStatus(status, candidates) {
+function enrichStatus(/** @type {any} */ status, /** @type {any} */ candidates) {
   const bundledPath = getBundledPythonPath();
   const isBundled = samePath(status.pythonPath, bundledPath) || samePath(status.executable, bundledPath);
   return {
@@ -188,7 +190,7 @@ function enrichStatus(status, candidates) {
 
 async function getPythonStatus() {
   const candidates = listPythonCandidatesSync();
-  const bundledCandidate = candidates.find((candidate) => samePath(candidate, getBundledPythonPath()));
+  const bundledCandidate = candidates.find((/** @type {string} */ candidate) => samePath(candidate, getBundledPythonPath()));
   if (bundledCandidate) {
     return enrichStatus(await runPythonProbe(bundledCandidate), candidates);
   }
@@ -216,14 +218,14 @@ async function getPythonStatus() {
   };
 }
 
-function isBundledPythonPath(binaryPath) {
+function isBundledPythonPath(/** @type {string} */ binaryPath) {
   return samePath(binaryPath, getBundledPythonPath());
 }
 
-function isKnownPythonPath(binaryPath) {
+function isKnownPythonPath(/** @type {string} */ binaryPath) {
   if (!binaryPath) return false;
   const target = norm(binaryPath).toLowerCase();
-  return listPythonCandidatesSync().some((p) => norm(p).toLowerCase() === target);
+  return listPythonCandidatesSync().some((/** @type {string} */ p) => norm(p).toLowerCase() === target);
 }
 
 module.exports = {

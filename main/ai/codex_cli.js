@@ -87,7 +87,7 @@ function readCredentials() {
  * "free", …). Decoding is read-only base64 — no verification, purely to
  * label the panel's status row. Any failure just yields null.
  */
-function planFromIdToken(creds) {
+function planFromIdToken(/** @type {any} */ creds) {
   try {
     const idToken = creds && creds.tokens && creds.tokens.id_token;
     if (!idToken || typeof idToken !== 'string') return null;
@@ -102,7 +102,7 @@ function planFromIdToken(creds) {
   }
 }
 
-function execFileText(bin, args, timeoutMs = 6000) {
+function execFileText(/** @type {string} */ bin, /** @type {string[]} */ args, timeoutMs = 6000) {
   return new Promise((resolve, reject) => {
     execFile(bin, args, { timeout: timeoutMs, windowsHide: true }, (err, stdout) => {
       if (err) reject(err);
@@ -194,18 +194,18 @@ const MCP_TOOL_RULES = [
 //  Chat
 // ---------------------------------------------------------------------------
 
-function sendEvent(webContents, sessionId, type, data) {
+function sendEvent(/** @type {any} */ webContents, /** @type {string} */ sessionId, /** @type {string} */ type, /** @type {any} */ data) {
   if (!webContents || webContents.isDestroyed()) return;
   try {
     webContents.send('ai:chat-event', { sessionId, type, ...(data || {}) });
   } catch (e) {
-    log.warn('[ai.codex] send failed:', e?.message || e);
+    log.warn('[ai.codex] send failed:', e instanceof Error ? e.message : e);
   }
 }
 
 /** Directory the CLI should treat as the workspace (the open project). */
 function workspaceDir() {
-  const spf = state.currentOpenProjectPath || global.currentProjectPath;
+  const spf = state.currentOpenProjectPath || /** @type {any} */ (global).currentProjectPath;
   if (spf) {
     try {
       const stat = fs.statSync(spf);
@@ -216,7 +216,7 @@ function workspaceDir() {
 }
 
 /** Map a Codex model alias to a `-m` value, or null to use the CLI default. */
-function modelFlag(modelId) {
+function modelFlag(/** @type {string | undefined} */ modelId) {
   if (!modelId || modelId === 'default') return null;
   return modelId;
 }
@@ -314,7 +314,7 @@ async function start(payload, webContents) {
     args.push('-c', 'mcp_servers.aurora.tool_timeout_sec=600'); // 10 min
     mcpReady = true;
   } catch (e) {
-    log.warn('[ai.codex] Aurora MCP bridge unavailable:', e?.message || e);
+    log.warn('[ai.codex] Aurora MCP bridge unavailable:', e instanceof Error ? e.message : e);
   }
 
   // Codex has no `--append-system-prompt`; it reads instructions from the
@@ -349,7 +349,7 @@ async function start(payload, webContents) {
       proc = spawn(bin.exe, args, { cwd, env, windowsHide: true });
     }
   } catch (e) {
-    sendEvent(webContents, sessionId, 'error', { message: `Failed to launch Codex: ${e?.message || e}` });
+    sendEvent(webContents, sessionId, 'error', { message: `Failed to launch Codex: ${e instanceof Error ? e.message : e}` });
     return;
   }
 
@@ -369,7 +369,7 @@ async function start(payload, webContents) {
 
   // --- event translation ----------------------------------------------------
 
-  const handleObject = (obj) => {
+  const handleObject = (/** @type {any} */ obj) => {
     if (!obj || typeof obj !== 'object') return;
     switch (obj.type) {
       case 'thread.started':
@@ -429,7 +429,7 @@ async function start(payload, webContents) {
           let content = '';
           const blocks = item.result && Array.isArray(item.result.content)
             ? item.result.content : [];
-          content = blocks.map((b) => (b && b.type === 'text' ? b.text : '')).filter(Boolean).join('\n');
+          content = blocks.map((/** @type {any} */ b) => (b && b.type === 'text' ? b.text : '')).filter(Boolean).join('\n');
           sendEvent(webContents, sessionId, 'tool-result', {
             toolUseId: item.id,
             toolName: name,
@@ -529,7 +529,7 @@ async function start(payload, webContents) {
 }
 
 /** Abort an in-flight turn. Returns true if a process was killed. */
-function abort(sessionId) {
+function abort(/** @type {string} */ sessionId) {
   const s = sessions.get(sessionId);
   if (!s || !s.proc) return false;
   if (s.markAborted) s.markAborted();
@@ -562,7 +562,7 @@ function killAll() {
 }
 
 /** Drop the cached CLI-side thread for a conversation (e.g. on "new chat"). */
-function forgetConversation(conversationId) {
+function forgetConversation(/** @type {string} */ conversationId) {
   if (conversationId) convThreads.delete(conversationId);
 }
 

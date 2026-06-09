@@ -1159,10 +1159,10 @@ async syntaxCheck() {
         const config = this.validateForVerilog();
 
         const iveriCompPath = await window.electronAPI.joinPath(
-            this.componentsPath, 'Packages', 'iverilog', 'bin', 'iverilog.exe',
+            this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe',
         );
         if (!await window.electronAPI.fileExists(iveriCompPath)) {
-            const msg = tr('terminal.veri.iverilogNotFound', { path: iveriCompPath });
+            const msg = tr('error.toolchain.iverilogNotFound', { path: iveriCompPath });
             this.terminalManager.appendToTerminal('tveri', msg, 'error');
             return { success: false, message: msg };
         }

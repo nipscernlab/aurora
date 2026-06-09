@@ -151,11 +151,11 @@ function buildMcpServer() {
       const text = (() => { try { return JSON.stringify(result); } catch (_) { return String(result); } })();
       return {
         content: [{ type: 'text', text }],
-        isError: !!(result && typeof result === 'object' && result.ok === false),
+        isError: !!(result && typeof result === 'object' && /** @type {any} */ (result).ok === false),
       };
     } catch (e) {
       return {
-        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: e?.message || String(e) }) }],
+        content: [{ type: 'text', text: JSON.stringify({ ok: false, error: e instanceof Error ? e.message : String(e) }) }],
         isError: true,
       };
     } finally {
@@ -167,12 +167,12 @@ function buildMcpServer() {
 }
 
 /** Parse the JSON-RPC body of an MCP HTTP request. */
-function readRequestBody(req) {
+function readRequestBody(/** @type {any} */ req) {
   return new Promise((resolve, reject) => {
     let buf = '';
     let oversized = false;
     req.setEncoding('utf8');
-    req.on('data', (chunk) => {
+    req.on('data', (/** @type {any} */ chunk) => {
       if (oversized) return;
       buf += chunk;
       if (buf.length > 4_000_000) {
@@ -192,7 +192,7 @@ function readRequestBody(req) {
 }
 
 /** Serve one POST /mcp call. */
-async function handleMcpRequest(req, res) {
+async function handleMcpRequest(/** @type {any} */ req, /** @type {any} */ res) {
   let body;
   try {
     body = await readRequestBody(req);
@@ -200,7 +200,7 @@ async function handleMcpRequest(req, res) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       jsonrpc: '2.0',
-      error: { code: -32700, message: `parse error: ${e?.message || e}` },
+      error: { code: -32700, message: `parse error: ${e instanceof Error ? e.message : e}` },
       id: null,
     }));
     return;
@@ -221,12 +221,12 @@ async function handleMcpRequest(req, res) {
     await mcpServer.connect(transport);
     await transport.handleRequest(req, res, body);
   } catch (e) {
-    log.warn('[ai.aurora-mcp] request handler failed:', e?.message || e);
+    log.warn('[ai.aurora-mcp] request handler failed:', e instanceof Error ? e.message : e);
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         jsonrpc: '2.0',
-        error: { code: -32603, message: e?.message || 'internal error' },
+        error: { code: -32603, message: e instanceof Error ? e.message : 'internal error' },
         id: body?.id ?? null,
       }));
     }
@@ -314,7 +314,7 @@ async function stop() {
   const srv = httpServer;
   httpServer = null;
   serverUrl = null;
-  await new Promise((resolve) => {
+  await new Promise((/** @type {(value?: unknown) => void} */ resolve) => {
     try { srv.close(() => resolve()); }
     catch (_) { resolve(); }
   });

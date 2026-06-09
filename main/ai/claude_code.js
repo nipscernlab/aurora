@@ -75,7 +75,7 @@ function readCredentials() {
   }
 }
 
-function execFileText(binPath, args, timeoutMs = 6000) {
+function execFileText(/** @type {string} */ binPath, /** @type {string[]} */ args, timeoutMs = 6000) {
   // Same shim issue as spawn(): `.cmd` files require an explicit cmd.exe
   // invocation on Node >= 20.12. Without this, `claude --version` would
   // throw EINVAL even when the binary path exists. The bundled native
@@ -118,7 +118,7 @@ async function detect() {
     authed: !!(creds && creds.accessToken),
     plan: (creds && creds.subscriptionType) || null,
     rateLimitTier: (creds && creds.rateLimitTier) || null,
-    expiresAt: expiresAt || null,
+    expiresAt: /** @type {any} */ (expiresAt || null),
     expired: expiresAt ? Date.now() > expiresAt : false,
   };
 }
@@ -137,12 +137,12 @@ function getUsage() {
 //  Chat
 // ---------------------------------------------------------------------------
 
-function sendEvent(webContents, sessionId, type, data) {
+function sendEvent(/** @type {any} */ webContents, /** @type {string} */ sessionId, /** @type {string} */ type, /** @type {any} */ data) {
   if (!webContents || webContents.isDestroyed()) return;
   try {
     webContents.send('ai:chat-event', { sessionId, type, ...(data || {}) });
   } catch (e) {
-    log.warn('[ai.claude-code] send failed:', e?.message || e);
+    log.warn('[ai.claude-code] send failed:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -165,13 +165,13 @@ function sendEvent(webContents, sessionId, type, data) {
  * own permission UI doesn't fit in our headless flow anyway — let the
  * renderer's inline card be the single source of truth.
  */
-function permissionFlag(_mode) {
+function permissionFlag(/** @type {any} */ _mode) {
   return 'bypassPermissions';
 }
 
 /** Directory the CLI should treat as the workspace (the open project). */
 function workspaceDir() {
-  const spf = state.currentOpenProjectPath || global.currentProjectPath;
+  const spf = state.currentOpenProjectPath || /** @type {any} */ (global).currentProjectPath;
   if (spf) {
     try {
       const stat = fs.statSync(spf);
@@ -343,7 +343,7 @@ async function start(payload, webContents) {
     args.push('--disallowed-tools', DISALLOWED_CLI_TOOLS);
     mcpReady = true;
   } catch (e) {
-    log.warn('[ai.claude-code] Aurora MCP bridge unavailable — falling back to shell tools:', e?.message || e);
+    log.warn('[ai.claude-code] Aurora MCP bridge unavailable — falling back to shell tools:', e instanceof Error ? e.message : e);
   }
 
   // System prompt routing
@@ -425,7 +425,7 @@ async function start(payload, webContents) {
       proc = spawn(bin.exe, args, { cwd, env, windowsHide: true });
     }
   } catch (e) {
-    sendEvent(webContents, sessionId, 'error', { message: `Failed to launch Claude Code: ${e?.message || e}` });
+    sendEvent(webContents, sessionId, 'error', { message: `Failed to launch Claude Code: ${e instanceof Error ? e.message : e}` });
     return;
   }
 
@@ -447,7 +447,7 @@ async function start(payload, webContents) {
   try { proc.stdin.write(prompt); proc.stdin.end(); }
   catch (_) { /* the CLI may have exited already; close path handles it */ }
 
-  const handleObject = (obj) => {
+  const handleObject = (/** @type {any} */ obj) => {
     if (!obj || typeof obj !== 'object') return;
     switch (obj.type) {
       case 'system':
@@ -458,7 +458,7 @@ async function start(payload, webContents) {
 
       case 'rate_limit_event': {
         const info = obj.rate_limit_info;
-        if (info && info.rateLimitType) rateLimitWindows[info.rateLimitType] = info;
+        if (info && info.rateLimitType) /** @type {Record<string, any>} */ (rateLimitWindows)[info.rateLimitType] = info;
         break;
       }
 
@@ -511,7 +511,7 @@ async function start(payload, webContents) {
               resultText = b.content;
             } else if (Array.isArray(b.content)) {
               resultText = b.content
-                .map((c) => (c && c.type === 'text' ? c.text : ''))
+                .map((/** @type {any} */ c) => (c && c.type === 'text' ? c.text : ''))
                 .filter(Boolean).join('\n');
             }
             sendEvent(webContents, sessionId, 'tool-result', {
@@ -575,7 +575,7 @@ async function start(payload, webContents) {
   proc.on('error', (err) => {
     sessions.delete(sessionId);
     if (!finished) {
-      sendEvent(webContents, sessionId, 'error', { message: `Claude Code failed to start: ${err?.message || err}` });
+      sendEvent(webContents, sessionId, 'error', { message: `Claude Code failed to start: ${err instanceof Error ? err.message : err}` });
     }
   });
 
@@ -599,7 +599,7 @@ async function start(payload, webContents) {
 }
 
 /** Abort an in-flight turn. Returns true if a process was killed. */
-function abort(sessionId) {
+function abort(/** @type {string} */ sessionId) {
   const s = sessions.get(sessionId);
   if (!s || !s.proc) return false;
   if (s.markAborted) s.markAborted();
@@ -632,7 +632,7 @@ function killAll() {
 }
 
 /** Drop the cached CLI-side session for a conversation (e.g. on "new chat"). */
-function forgetConversation(conversationId) {
+function forgetConversation(/** @type {string} */ conversationId) {
   if (conversationId) convSessions.delete(conversationId);
 }
 
@@ -645,7 +645,7 @@ function forgetConversation(conversationId) {
  *
  * @param {{ system?:string, prompt:string, model?:string }} opts
  */
-async function generateOneshot({ system, prompt, model } = {}) {
+async function generateOneshot({ system, prompt, model } = /** @type {any} */ ({})) {
   const bin = resolveBinary();
   if (!bin) return { ok: false, error: 'Claude Code CLI not found. Install it, or pick an API provider.' };
   if (!readCredentials()) return { ok: false, error: 'Claude Code is not signed in. Run `claude login` in a terminal.' };
@@ -666,12 +666,12 @@ async function generateOneshot({ system, prompt, model } = {}) {
     let out = '';
     let err = '';
     let done = false;
-    const finish = (r) => { if (!done) { done = true; resolve(r); } };
+    const finish = (/** @type {any} */ r) => { if (!done) { done = true; resolve(r); } };
     let proc;
     try {
       proc = spawn(cmd, finalArgs, { windowsHide: true });
     } catch (e) {
-      finish({ ok: false, error: e?.message || String(e) });
+      finish({ ok: false, error: e instanceof Error ? e.message : String(e) });
       return;
     }
     // The CLI in text mode is slow (it returns only after the whole answer is
@@ -684,7 +684,7 @@ async function generateOneshot({ system, prompt, model } = {}) {
     }, TIMEOUT_MS);
     proc.stdout.on('data', (c) => { out += c.toString(); });
     proc.stderr.on('data', (c) => { err += c.toString(); });
-    proc.on('error', (e) => { clearTimeout(timer); finish({ ok: false, error: e?.message || String(e) }); });
+    proc.on('error', (e) => { clearTimeout(timer); finish({ ok: false, error: e instanceof Error ? e.message : String(e) }); });
     proc.on('close', (code) => {
       clearTimeout(timer);
       if (code === 0) finish({ ok: true, text: out, finishReason: 'stop' });
@@ -695,7 +695,7 @@ async function generateOneshot({ system, prompt, model } = {}) {
       proc.stdin.end();
     } catch (e) {
       clearTimeout(timer);
-      finish({ ok: false, error: e?.message || String(e) });
+      finish({ ok: false, error: e instanceof Error ? e.message : String(e) });
     }
   });
 }

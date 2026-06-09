@@ -35,9 +35,11 @@ const toolBridge = require('../ai/tool_bridge');
 const conversations = require('../ai/conversations');
 const audit = require('../ai/audit');
 
+/** @param {any} [data] */
 function ok(data) {
   return { ok: true, ...(data || {}) };
 }
+/** @param {any} [message] */
 function fail(message) {
   return { ok: false, error: String(message || 'Unknown error') };
 }
@@ -56,6 +58,7 @@ function register() {
   // Booleans only — the renderer doesn't get to learn which keys
   // actually decrypt cleanly, only that *something* is stored.
   ipcMain.handle('ai:get-key-status', () => {
+    /** @type {Record<string, boolean>} */
     const configured = {};
     for (const name of keystore.SUPPORTED_PROVIDERS) {
       configured[name] = keystore.hasKey(name);
@@ -70,7 +73,7 @@ function register() {
       log.info(`[ai] stored key for provider: ${name}`);
       return ok();
     } catch (e) {
-      return fail(e?.message);
+      return fail(e instanceof Error ? e.message : String(e));
     }
   });
 
@@ -81,7 +84,7 @@ function register() {
       if (removed) log.info(`[ai] cleared key for provider: ${name}`);
       return ok({ removed });
     } catch (e) {
-      return fail(e?.message);
+      return fail(e instanceof Error ? e.message : String(e));
     }
   });
 
@@ -93,7 +96,7 @@ function register() {
       prefs.setModel(name, model);
       return ok({ model: provider.getModelFor(name) });
     } catch (e) {
-      return fail(e?.message);
+      return fail(e instanceof Error ? e.message : String(e));
     }
   });
 
@@ -104,7 +107,7 @@ function register() {
     try {
       return await provider.testConnection(name, modelId);
     } catch (e) {
-      return fail(e?.message);
+      return fail(e instanceof Error ? e.message : String(e));
     }
   });
 
@@ -119,7 +122,7 @@ function register() {
       }
       return await provider.generateOneshot(payload || {});
     } catch (e) {
-      return fail(e?.message);
+      return fail(e instanceof Error ? e.message : String(e));
     }
   });
 
@@ -129,12 +132,12 @@ function register() {
    */
   ipcMain.handle('ai:claude-code-status', async () => {
     try { return ok({ status: await claudeCode.detect() }); }
-    catch (e) { return fail(e?.message); }
+    catch (e) { return fail(e instanceof Error ? e.message : String(e)); }
   });
 
   ipcMain.handle('ai:claude-code-usage', () => {
     try { return ok({ usage: claudeCode.getUsage() }); }
-    catch (e) { return fail(e?.message); }
+    catch (e) { return fail(e instanceof Error ? e.message : String(e)); }
   });
 
   /* ---- Codex / ChatGPT (subscription) bridge ----
@@ -143,12 +146,12 @@ function register() {
    */
   ipcMain.handle('ai:codex-status', async () => {
     try { return ok({ status: await codexCli.detect() }); }
-    catch (e) { return fail(e?.message); }
+    catch (e) { return fail(e instanceof Error ? e.message : String(e)); }
   });
 
   ipcMain.handle('ai:codex-usage', () => {
     try { return ok({ usage: codexCli.getUsage() }); }
-    catch (e) { return fail(e?.message); }
+    catch (e) { return fail(e instanceof Error ? e.message : String(e)); }
   });
 
   // Fire-and-forget: the actual streaming runs detached and pushes
@@ -158,15 +161,15 @@ function register() {
   // bridges; everything else goes through the Vercel-AI-SDK chat loop.
   ipcMain.handle('ai:chat-start', (event, payload) => {
     try {
-      let runner = chat;
+      /** @type {any} */ let runner = chat;
       if (payload?.provider === 'claude-code') runner = claudeCode;
       else if (payload?.provider === 'chatgpt') runner = codexCli;
-      runner.start(payload, event.sender).catch((e) => {
+      runner.start(payload, event.sender).catch((/** @type {any} */ e) => {
         log.warn('[ai] chat start crashed:', e?.message || e);
       });
       return ok({ sessionId: payload?.sessionId });
     } catch (e) {
-      return fail(e?.message);
+      return fail(e instanceof Error ? e.message : String(e));
     }
   });
 
@@ -214,7 +217,7 @@ function register() {
   ipcMain.handle('ai:conv-read', (_e, payload) => conversations.read(payload?.id));
   ipcMain.handle('ai:conv-save', (_e, payload) => {
     try { return { ok: true, chat: conversations.save(payload) }; }
-    catch (e) { return fail(e?.message); }
+    catch (e) { return fail(e instanceof Error ? e.message : String(e)); }
   });
   ipcMain.handle('ai:conv-delete', (_e, payload) => ({ ok: conversations.remove(payload?.id) }));
   ipcMain.handle('ai:conv-rename', (_e, payload) => {

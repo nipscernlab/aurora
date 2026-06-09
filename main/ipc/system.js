@@ -7,12 +7,11 @@ const path = require('path');
 const { app, ipcMain } = require('electron');
 
 const { componentsPath, rootPath } = require('../paths');
-const { getPythonStatus, getVerilatorPythonStatus } = require('../compile/python_locator');
+const { getPythonStatus } = require('../compile/python_locator');
 
 function register() {
   ipcMain.handle('get-components-path', () => componentsPath);
   ipcMain.handle('toolchain:python-status', () => getPythonStatus());
-  ipcMain.handle('toolchain:verilator-python-status', () => getVerilatorPythonStatus());
 
   ipcMain.handle('path-dirname', (_event, p) => {
     if (typeof p !== 'string' || !p) return '';

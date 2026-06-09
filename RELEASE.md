@@ -38,8 +38,8 @@ gtkwave-nipscern and the YANC compilers.
 
 ```powershell
 # From a checkout where components/Packages/msys/ is populated correctly
-# (pinned gcc15 + python3.12 mingw snapshot with cocotb baked in — see
-# docs/build-cocotb-verilator.sh + docs/package-cocotb-into-bundle.sh).
+# (pinned gcc15 + python3.12 mingw snapshot with cocotb baked in — built by
+# the nipscernlab/aurora-toolchain CI pipeline).
 cd components/Packages
 7z a -tzip -mx=5 ..\..\aurora-msys-v1.zip msys   # layout: msys\... at the zip root
 

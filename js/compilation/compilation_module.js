@@ -2270,11 +2270,11 @@ async _resolveCocotbSimProfile(wave = true) {
     const vTools = await this._waveResolveVerilatorTools();
     const pythonPath = await window.electronAPI.joinPath(vTools.mingwBin, 'python.exe');
     if (!await window.electronAPI.fileExists(pythonPath)) {
-        throw new Error(tr('error.compilation.cocotbVerilatorPythonMissing', { path: pythonPath }));
+        throw new Error(tr('error.compilation.cocotbPythonMissing'));
     }
-    const status = await window.electronAPI.getVerilatorPythonStatus();
+    const status = await window.electronAPI.getPythonStatus();
     if (!status?.ok || !status.hasCocotb) {
-        throw new Error(tr('error.compilation.cocotbVerilatorPackageMissing', { path: pythonPath }));
+        throw new Error(tr('error.compilation.cocotbPackageMissing', { path: pythonPath }));
     }
     // <bundle>/mingw64/bin → <bundle>/mingw64 (PYTHONHOME).
     const pythonHome = await window.electronAPI.dirname(vTools.mingwBin);
@@ -2557,11 +2557,11 @@ async _waveRunVvpSimulation(simTopModule, tools) {
 /**
  * Resolve os binarios necessarios pro pipeline do Verilator.
  *
- * Bundle Verilator autocontido em components/Packages/verilator/ —
- * preparado pelo scripts/build-verilator-bundle.js, baixado por
- * download-toolchain.js no `npm run bootstrap`. Layout:
+ * Bundle mingw unificado em components/Packages/msys/ — baixado por
+ * download-toolchain.js (repo nipscernlab/aurora-toolchain) no
+ * `npm run bootstrap`. Layout:
  *
- *   components/Packages/verilator/
+ *   components/Packages/msys/
  *     mingw64/bin/{verilator,perl.exe,g++.exe,make.exe,...} + DLLs
  *     mingw64/share/verilator/{include,bin}/      <- templates C++
  *     usr/bin/{bash.exe,coreutils...}             <- shell utils que o

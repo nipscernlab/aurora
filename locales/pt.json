@@ -489,12 +489,10 @@
             "pythonTbInVerilogMode":"Testbench Python selecionado. A simulacao Wave usa cocotb automaticamente; selecione um testbench Verilog para usar o fluxo VVP/Verilog.",
             "cocotbRequiresPythonTb":"O modo cocotb exige um testbench .py marcado como top-level de testbench.",
             "cocotbRequiresTop":    "O modo cocotb exige um arquivo Verilog top-level sintetizavel marcado como top-level.",
-            "cocotbPythonMissing":  "Runtime Python interno da AURORA nao foi encontrado. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/python.",
-            "cocotbBundledPythonRequired":"O modo cocotb usa obrigatoriamente o Python interno da AURORA para manter a versao encapsulada. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/python.",
+            "cocotbPythonMissing":  "Runtime Python interno da AURORA nao foi encontrado. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/msys.",
+            "cocotbBundledPythonRequired":"O modo cocotb usa obrigatoriamente o Python interno da AURORA para manter a versao encapsulada. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/msys.",
             "cocotbPackageMissing": "Python foi encontrado em {{path}}, mas o pacote cocotb nao esta instalado no runtime usado. Execute npm run bootstrap para restaurar o Python interno da AURORA.",
             "cocotbVersionMismatch":"O Python interno da AURORA encontrou cocotb {{found}}, mas a versao esperada e {{expected}}. Execute npm run bootstrap para restaurar a versao encapsulada.",
-            "cocotbVerilatorPythonMissing":"O Python do bundle Verilator nao foi encontrado em {{path}}. Execute `npm run bootstrap` para baixar o bundle Verilator, ou volte o simulador do Wave para o Icarus.",
-            "cocotbVerilatorPackageMissing":"O Python do bundle Verilator em {{path}} nao tem o cocotb instalado. O bundle e anterior ao suporte a cocotb — rebaixe o bundle Verilator mais recente (npm run bootstrap), ou volte o simulador do Wave para o Icarus.",
             "cocotbFailed":         "Simulacao cocotb falhou com codigo {{code}}.",
             "cocotbNoWave":         "cocotb terminou, mas nenhum waveform .fst/.vcd foi encontrado em {{path}}.",
             "cocotbFst2vcdFailed":  "fst2vcd falhou com codigo {{code}} ao converter o waveform do cocotb.",
@@ -512,8 +510,8 @@
             "procTbMissing":       "Testbench do processador não encontrado: {{path}}. Rode C± primeiro para gerar o _tb.v."
         },
         "toolchain": {
-            "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO pacote da toolchain (iverilog/gtkwave/yosys) não está instalado. Baixe \"aurora-toolchain-v2.zip\" das Releases do projeto no GitHub e extraia em components/Packages/, depois reinicie o app.",
-            "verilatorNotFound": "Bundle Verilator não encontrado:\n{{paths}}\n\nRode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-verilator-v1.zip ~240 MB)."
+            "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO bundle da toolchain não está instalado. Rode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-msys-v1.zip ~285 MB).",
+            "verilatorNotFound": "Bundle Verilator não encontrado:\n{{paths}}\n\nRode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-msys-v1.zip ~285 MB)."
         },
         "user": {
             "cancelled": "Compilação cancelada pelo usuário"

@@ -123,7 +123,6 @@ const compilationOperations = {
   listAllowedBinaries: () => ipcRenderer.invoke('exec-spec-allowed-binaries'),
   getProtectedFlags: (step) => ipcRenderer.invoke('exec-spec-protected-flags', step),
   getPythonStatus: () => ipcRenderer.invoke('toolchain:python-status'),
-  getVerilatorPythonStatus: () => ipcRenderer.invoke('toolchain:verilator-python-status'),
 
   cancelVvpProcess:    () => ipcRenderer.invoke('cancel-vvp-process'),
   killCurrentSpecProcess: () => ipcRenderer.invoke('kill-current-spec-process'),

@@ -40,23 +40,24 @@ function dirPath() {
 
 function ensureDir() {
   try { fs.mkdirSync(dirPath(), { recursive: true }); }
-  catch (e) { log.warn('[ai.conversations] dir create failed:', e?.message || e); }
+  catch (e) { log.warn('[ai.conversations] dir create failed:', e instanceof Error ? e.message : e); }
 }
 
-function safeId(id) {
+function safeId(/** @type {string} */ id) {
   return String(id || '').replace(/[^\w.-]/g, '');
 }
 
-function filePath(id) {
+function filePath(/** @type {string} */ id) {
   const clean = safeId(id);
   if (!clean) throw new Error('invalid conversation id');
   return path.join(dirPath(), `${clean}.json`);
 }
 
-function readSafe(p) {
+function readSafe(/** @type {string} */ p) {
   try { return JSON.parse(fs.readFileSync(p, 'utf8')); }
   catch (e) {
-    if (e && e.code !== 'ENOENT') log.warn('[ai.conversations] read failed:', e?.message || e);
+    const err = /** @type {NodeJS.ErrnoException} */ (e);
+    if (err && err.code !== 'ENOENT') log.warn('[ai.conversations] read failed:', err.message || e);
     return null;
   }
 }
@@ -76,7 +77,8 @@ function listAll() {
   let entries = [];
   try { entries = fs.readdirSync(dirPath()); }
   catch (e) {
-    if (e && e.code !== 'ENOENT') log.warn('[ai.conversations] list failed:', e?.message || e);
+    const err = /** @type {NodeJS.ErrnoException} */ (e);
+    if (err && err.code !== 'ENOENT') log.warn('[ai.conversations] list failed:', err.message || e);
     return [];
   }
   const out = [];
@@ -99,7 +101,7 @@ function listAll() {
 }
 
 /** Full document, including every message. `null` if the id is unknown. */
-function read(id) {
+function read(/** @type {string} */ id) {
   if (!safeId(id)) return null;
   return readSafe(filePath(id));
 }
@@ -108,7 +110,7 @@ function read(id) {
  * Upsert a conversation. Always stamps `updatedAt`. Seeds `createdAt`
  * on first save. Returns the persisted document.
  */
-function save(conv) {
+function save(/** @type {any} */ conv) {
   if (!conv || !safeId(conv.id)) throw new Error('id required');
   ensureDir();
   const now = Date.now();
@@ -126,16 +128,17 @@ function save(conv) {
   return data;
 }
 
-function remove(id) {
+function remove(/** @type {string} */ id) {
   if (!safeId(id)) return false;
   try { fs.unlinkSync(filePath(id)); return true; }
   catch (e) {
-    if (e && e.code !== 'ENOENT') log.warn('[ai.conversations] delete failed:', e?.message || e);
+    const err = /** @type {NodeJS.ErrnoException} */ (e);
+    if (err && err.code !== 'ENOENT') log.warn('[ai.conversations] delete failed:', err.message || e);
     return false;
   }
 }
 
-function rename(id, title) {
+function rename(/** @type {string} */ id, /** @type {string} */ title) {
   const data = read(id);
   if (!data) return null;
   data.title = (title || 'Untitled').toString().trim().slice(0, 200) || 'Untitled';

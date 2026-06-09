@@ -33,12 +33,13 @@ const log = require('electron-log');
 // tryRequire so any module-level failure (missing package, mismatched
 // transitive dep like `zod/v4`, ESM/CJS interop bug) disables AI features
 // instead of crashing the main process during boot.
-function tryRequire(pkg, exportName) {
+function tryRequire(/** @type {string} */ pkg, /** @type {string | undefined} */ exportName) {
   try {
     const mod = require(pkg);
     return exportName ? mod[exportName] : mod;
   } catch (err) {
-    log.warn(`[ai.provider] Failed to load "${pkg}" (${err?.code || err?.message}). AI features depending on this package will be disabled.`);
+    const e = /** @type {NodeJS.ErrnoException} */ (err);
+    log.warn(`[ai.provider] Failed to load "${pkg}" (${e?.code || e?.message}). AI features depending on this package will be disabled.`);
     return null;
   }
 }
@@ -95,7 +96,7 @@ function getProvider(name) {
     const ollamaFactory = createOpenAI({ baseURL, apiKey: 'ollama', compatibility: 'compatible' });
     // @ai-sdk/openai v2+ defaults to /v1/responses; Ollama only has /v1/chat/completions.
     // Wrap the factory so every prov(modelId) call goes to the chat completions endpoint.
-    return (modelId) => ollamaFactory.chat(modelId);
+    return (/** @type {string} */ modelId) => ollamaFactory.chat(modelId);
   }
   const factory = PROVIDER_FACTORIES[name];
   if (!factory) throw new Error(`Unknown provider: ${name}`);
@@ -105,13 +106,13 @@ function getProvider(name) {
 }
 
 /** The hard-coded fallback model for `provider`, or `null` if unknown. */
-function getDefaultModel(provider) {
-  return DEFAULT_MODELS[provider] || null;
+function getDefaultModel(/** @type {string} */ provider) {
+  return DEFAULT_MODELS[/** @type {keyof typeof DEFAULT_MODELS} */ (provider)] || null;
 }
 
 /** The model to actually use: the user's override, else the default. */
-function getModelFor(provider) {
-  return prefs.getModel(provider) || DEFAULT_MODELS[provider] || null;
+function getModelFor(/** @type {string} */ provider) {
+  return prefs.getModel(provider) || DEFAULT_MODELS[/** @type {keyof typeof DEFAULT_MODELS} */ (provider)] || null;
 }
 
 /**
@@ -122,7 +123,7 @@ function getModelFor(provider) {
  * Returns a structured result instead of throwing so the IPC handler
  * can hand it back to the renderer as-is.
  *
- * @param {keyof typeof PROVIDER_FACTORIES} providerName
+ * @param {string} providerName
  * @param {string} [modelId]
  */
 async function testConnection(providerName, modelId) {
@@ -149,7 +150,7 @@ async function testConnection(providerName, modelId) {
       usage: result.usage || null,
     };
   } catch (e) {
-    const message = e?.message || String(e);
+    const message = e instanceof Error ? e.message : String(e);
     log.warn(`[ai.provider] testConnection ${providerName} failed: ${message}`);
     return { ok: false, provider: providerName, model, error: message };
   }
@@ -169,7 +170,7 @@ async function testConnection(providerName, modelId) {
  * @param {string}  opts.prompt
  * @param {number} [opts.maxOutputTokens]
  */
-async function generateOneshot({ provider: name, model, system, prompt, maxOutputTokens } = {}) {
+async function generateOneshot({ provider: name, model, system, prompt, maxOutputTokens } = /** @type {any} */ ({})) {
   if (!generateText) {
     return { ok: false, error: 'AI SDK ("ai" package) failed to load.' };
   }
@@ -198,7 +199,7 @@ async function generateOneshot({ provider: name, model, system, prompt, maxOutpu
       model: modelId,
     };
   } catch (e) {
-    return { ok: false, error: e?.message || String(e) };
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 

@@ -18,7 +18,11 @@ const state = require('../state');
 const { debounce, safePath, formatTimestamp } = require('../utils');
 
 // Recursively scan a directory and return a tree of {name, path, type, children?}.
-async function scanDirectory(dirPath) {
+async function scanDirectory(/** @type {string} */ dirPath) {
+  /**
+   * @param {string} currentPath
+   * @returns {Promise<any[]>}
+   */
   async function buildTree(currentPath, _isRoot = false, depth = 0) {
     const MAX_DEPTH = 20;
     if (depth > MAX_DEPTH) {
@@ -78,7 +82,7 @@ async function scanDirectory(dirPath) {
 }
 
 // Restart a file watcher in place. Used when chokidar errors out.
-async function restartWatcher(filePath, event) {
+async function restartWatcher(/** @type {string} */ filePath, /** @type {any} */ event) {
   const existingWatcher = state.activeWatchers.get(filePath);
   if (existingWatcher) {
     try {
@@ -99,7 +103,7 @@ function register() {
     try {
       return await fs.readFile(filePath, 'utf8');
     } catch (error) {
-      log.error(`Error reading file: ${error.message}`);
+      log.error(`Error reading file: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   });
@@ -123,7 +127,7 @@ function register() {
       return { success: true };
     } catch (error) {
       log.error('Error writing file:', error);
-      throw new Error(`Failed to write file: ${error.message}`);
+      throw new Error(`Failed to write file: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
@@ -182,10 +186,11 @@ function register() {
       try {
         stats = await fs.stat(normalizedPath);
       } catch (statError) {
-        if (statError.code === 'ENOENT') {
+        const se = /** @type {NodeJS.ErrnoException} */ (statError);
+        if (se.code === 'ENOENT') {
           return { success: true, alreadyDeleted: true };
         }
-        throw new Error(`Cannot access path: ${statError.message}`);
+        throw new Error(`Cannot access path: ${se.message}`);
       }
 
       // fs.rm retenta automaticamente em EPERM/EBUSY/EMFILE/ENFILE/
@@ -205,7 +210,7 @@ function register() {
       return { success: true, path: normalizedPath };
     } catch (error) {
       log.error(`Error deleting ${filePath}:`, error);
-      throw new Error(`Failed to delete: ${error.message}`);
+      throw new Error(`Failed to delete: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
@@ -301,7 +306,7 @@ function register() {
       return { success: true };
     } catch (error) {
       log.error('Error opening folder:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -336,7 +341,7 @@ function register() {
       // outer `execFile` call already passes -Command as a single argv
       // entry, so we don't have to defend against the second-layer
       // shell-quoting that the old `exec(string)` form needed.
-      const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
+      const psQuote = (/** @type {any} */ s) => `'${String(s).replace(/'/g, "''")}'`;
       const psCommand =
         `Compress-Archive -Path ${psQuote(path.join(tempBackupFolderPath, '*'))} ` +
         `-DestinationPath ${psQuote(zipFilePath)} -Force`;
@@ -359,7 +364,7 @@ function register() {
             log.error('Error creating backup:', stderr || error.message);
             resolve({
               success: false,
-              message: `Could not create archive: ${error.message}`,
+              message: `Could not create archive: ${error instanceof Error ? error.message : String(error)}`,
             });
           } else {
             resolve({ success: true, message: `Backup created at: ${zipFilePath}` });
@@ -370,7 +375,7 @@ function register() {
       // Best-effort cleanup of the staging folder on any failure path.
       try { await fse.remove(tempBackupFolderPath); } catch (_) { /* ignore */ }
       log.error('Error creating backup:', error);
-      return { success: false, message: `Error creating backup: ${error.message}` };
+      return { success: false, message: `Error creating backup: ${error instanceof Error ? error.message : String(error)}` };
     }
   });
 
@@ -388,7 +393,7 @@ function register() {
           const files = await scanDirectory(directoryPath);
           event.sender.send('directory-changed', directoryPath, files);
         } catch (error) {
-          log.error(`Error getting directory structure: ${error.message}`);
+          log.error(`Error getting directory structure: ${error instanceof Error ? error.message : String(error)}`);
         }
       }, 500);
 
@@ -423,13 +428,13 @@ function register() {
 
       return watcherId;
     } catch (error) {
-      throw new Error(`Failed to watch directory: ${error.message}`);
+      throw new Error(`Failed to watch directory: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
   ipcMain.handle('trigger-file-tree-refresh', async () => {
     try {
-      let projectPath = global.currentProjectPath;
+      let projectPath = /** @type {any} */ (global).currentProjectPath;
       if (!projectPath && state.currentOpenProjectPath) {
         const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
         const projectData = JSON.parse(spfData);
@@ -473,7 +478,7 @@ function register() {
       state.fileStatsCache.set(filePath, result);
       return result;
     } catch (error) {
-      throw new Error(`Failed to get file stats: ${error.message}`);
+      throw new Error(`Failed to get file stats: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
@@ -489,7 +494,7 @@ function register() {
       const stats = await handle.stat();
       return stats.size;
     } catch (error) {
-      throw new Error(`Failed to get live file size: ${error.message}`);
+      throw new Error(`Failed to get live file size: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       if (handle) {
         try { await handle.close(); } catch (_closeErr) { /* ignore */ }
@@ -504,7 +509,7 @@ function register() {
         return existing.id;
       }
 
-      const debouncedChangeHandler = debounce((eventType) => {
+      const debouncedChangeHandler = debounce((/** @type {string} */ eventType) => {
         if (eventType === 'change') event.sender.send('file-changed', filePath);
       }, 150);
 
@@ -547,7 +552,7 @@ function register() {
 
       return watcherId;
     } catch (error) {
-      throw new Error(`Failed to start file watcher: ${error.message}`);
+      throw new Error(`Failed to start file watcher: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 

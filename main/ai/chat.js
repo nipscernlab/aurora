@@ -30,11 +30,14 @@ const log = require('electron-log');
 
 // `ai` is loaded defensively so a broken install (missing transitive dep
 // like `zod/v4`) disables AI features rather than crashing the main process.
-let streamText, generateText, stepCountIs;
+/** @type {any} */ let streamText;
+/** @type {any} */ let generateText;
+/** @type {any} */ let stepCountIs;
 try {
   ({ streamText, generateText, stepCountIs } = require('ai'));
 } catch (err) {
-  log.warn(`[ai.chat] Failed to load "ai" SDK (${err?.code || err?.message}). Chat features will be unavailable.`);
+  const e = /** @type {NodeJS.ErrnoException} */ (err);
+  log.warn(`[ai.chat] Failed to load "ai" SDK (${e?.code || e?.message}). Chat features will be unavailable.`);
 }
 
 const provider = require('./provider');
@@ -50,12 +53,12 @@ const sessions = new Map();
 // that calls tools is followed by another step to use the results.
 const MAX_STEPS = 24;
 
-function sendEvent(webContents, sessionId, type, data) {
+function sendEvent(/** @type {any} */ webContents, /** @type {string} */ sessionId, /** @type {string} */ type, /** @type {any} */ data) {
   if (!webContents || webContents.isDestroyed()) return;
   try {
     webContents.send('ai:chat-event', { sessionId, type, ...(data || {}) });
   } catch (e) {
-    log.warn('[ai.chat] send failed:', e?.message || e);
+    log.warn('[ai.chat] send failed:', e instanceof Error ? e.message : e);
   }
 }
 
@@ -112,8 +115,8 @@ async function start(payload, webContents) {
         sessionId,
         kind: 'tool-result',
         tool: toolName,
-        ok: !(result && result.ok === false),
-        error: result && result.ok === false ? result.error : undefined,
+        ok: !(result && /** @type {any} */ (result).ok === false),
+        error: result && /** @type {any} */ (result).ok === false ? /** @type {any} */ (result).error : undefined,
       });
       return result;
     });
@@ -127,7 +130,9 @@ async function start(payload, webContents) {
     // input tokens by ~90%. We only attach `cacheControl` for the
     // Anthropic provider; other SDKs ignore it.
     const useAnthropicCache = providerName === 'anthropic' && system && system.length > 1024;
-    let systemArg, messagesArg = messages;
+    let systemArg;
+    /** @type {any} */
+    let messagesArg = messages;
     if (useAnthropicCache) {
       systemArg = undefined;
       messagesArg = [
@@ -165,7 +170,7 @@ async function start(payload, webContents) {
     //   3. Orphan </tool_call> closing tags
     const TOOL_XML_RE  = /<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g;
     const TOOL_JSON_RE = /[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g;
-    const stripToolXml = (t) => t
+    const stripToolXml = (/** @type {any} */ t) => t
       .replace(TOOL_XML_RE, '')
       .replace(TOOL_JSON_RE, '')
       .replace(/<\/tool_call>/g, '')
@@ -176,7 +181,7 @@ async function start(payload, webContents) {
     // fallback for models that output {"name":"…","arguments":{…}} as plain
     // text instead of via the OpenAI tool_calls API field.
     // Handles empty args `{}` as well as single-level nested objects.
-    function extractTextToolCalls(text, knownTools) {
+    function extractTextToolCalls(/** @type {any} */ text, /** @type {any} */ knownTools) {
       const calls = [];
       const re = /[⺀-鿿]*\s*\{"name"\s*:\s*"([a-z_][a-z_0-9]*)"\s*,\s*"arguments"\s*:\s*(\{(?:[^{}]|\{[^{}]*\})*\})\s*\}/g;
       let m;
@@ -281,12 +286,12 @@ async function start(payload, webContents) {
           try {
             res = await toolBridge.runTool(webContents, call.name, call.args);
           } catch (e) {
-            res = { ok: false, error: e?.message || String(e) };
+            res = { ok: false, error: e instanceof Error ? e.message : String(e) };
           }
           audit.append({
             sessionId, kind: 'tool-result', tool: call.name,
-            ok: !(res && res.ok === false),
-            error: res?.ok === false ? res.error : undefined,
+            ok: !(res && /** @type {any} */ (res).ok === false),
+            error: /** @type {any} */ (res)?.ok === false ? /** @type {any} */ (res).error : undefined,
           });
           sendEvent(webContents, sessionId, 'tool-result', { toolName: call.name, result: res });
           toolResultMsgs.push({
@@ -314,7 +319,7 @@ async function start(payload, webContents) {
               fullText += '\n\n' + extra;
             }
           } catch (e) {
-            log.warn(`[ai.chat] text-tool follow-up failed: ${e?.message}`);
+            log.warn(`[ai.chat] text-tool follow-up failed: ${e instanceof Error ? e.message : e}`);
           }
         }
       }
@@ -331,10 +336,10 @@ async function start(payload, webContents) {
 
     sendEvent(webContents, sessionId, 'finish', { text: stripToolXml(fullText), usage });
   } catch (e) {
-    if (abort.signal.aborted || e?.name === 'AbortError') {
+    if (abort.signal.aborted || (e instanceof Error && e.name === 'AbortError')) {
       sendEvent(webContents, sessionId, 'aborted', { text: '' });
     } else {
-      const message = e?.message || String(e);
+      const message = e instanceof Error ? e.message : String(e);
       log.warn(`[ai.chat] session ${sessionId} failed: ${message}`);
       sendEvent(webContents, sessionId, 'error', { message });
     }
@@ -344,7 +349,7 @@ async function start(payload, webContents) {
 }
 
 /** Abort an in-flight session. Returns `true` if a session was stopped. */
-function abort(sessionId) {
+function abort(/** @type {string} */ sessionId) {
   const s = sessions.get(sessionId);
   if (!s) return false;
   s.abort.abort();

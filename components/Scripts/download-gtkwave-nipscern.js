@@ -42,14 +42,14 @@ const TMP_ZIP       = path.join(ROOT_DIR, GTKWAVE_FILENAME);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function log(msg) { console.log(`[gtkwave-nipscern] ${msg}`); }
-function err(msg) { console.error(`[gtkwave-nipscern] ERROR: ${msg}`); }
+function log(/** @type {string} */ msg) { console.log(`[gtkwave-nipscern] ${msg}`); }
+function err(/** @type {string} */ msg) { console.error(`[gtkwave-nipscern] ERROR: ${msg}`); }
 
 function alreadyInstalled() {
     return fs.existsSync(SENTINEL_FILE);
 }
 
-function downloadFile(url, dest) {
+function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     return new Promise((resolve, reject) => {
         log(`Downloading ${url}`);
 
@@ -57,7 +57,7 @@ function downloadFile(url, dest) {
         let total = 0;
         let received = 0;
 
-        function doRequest(requestUrl, redirectCount = 0) {
+        function doRequest(/** @type {any} */ requestUrl, redirectCount = 0) {
             if (redirectCount > 5) { reject(new Error('Too many redirects')); return; }
 
             const parsedUrl = new URL(requestUrl);
@@ -102,7 +102,7 @@ function downloadFile(url, dest) {
     });
 }
 
-function extractZip(zipPath, destDir) {
+function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
     if (!fs.existsSync(zipPath)) {
         throw new Error(`Zip file not found: ${zipPath}`);
     }
@@ -145,7 +145,7 @@ async function main() {
             process.exit(1);
         }
     } catch (e) {
-        err(e.message);
+        err(e instanceof Error ? e.message : String(e));
         err(`\nCould not download gtkwave-nipscern automatically.`);
         err(`Please download manually from:`);
         err(`  ${DOWNLOAD_URL}`);

@@ -73,8 +73,8 @@ const TMP_ZIP       = path.join(ROOT_DIR, YANC_FILENAME);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function log(msg) { console.log(`[yanc] ${msg}`); }
-function err(msg) { console.error(`[yanc] ERROR: ${msg}`); }
+function log(/** @type {string} */ msg) { console.log(`[yanc] ${msg}`); }
+function err(/** @type {string} */ msg) { console.error(`[yanc] ERROR: ${msg}`); }
 
 function binariesPresent() {
     return fs.existsSync(SENTINEL_FILE) && fs.existsSync(HDL_SENTINEL)
@@ -98,7 +98,7 @@ function alreadyInstalled() {
     return binariesPresent() && installedTag() === YANC_TAG;
 }
 
-function downloadFile(url, dest) {
+function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     return new Promise((resolve, reject) => {
         log(`Downloading ${url}`);
 
@@ -106,7 +106,7 @@ function downloadFile(url, dest) {
         let total = 0;
         let received = 0;
 
-        function doRequest(requestUrl, redirectCount = 0) {
+        function doRequest(/** @type {any} */ requestUrl, redirectCount = 0) {
             if (redirectCount > 5) { reject(new Error('Too many redirects')); return; }
 
             const parsedUrl = new URL(requestUrl);
@@ -151,7 +151,7 @@ function downloadFile(url, dest) {
     });
 }
 
-function extractZip(zipPath, destDir) {
+function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
     log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
     fs.mkdirSync(destDir, { recursive: true });
 
@@ -204,7 +204,7 @@ async function main() {
         fs.writeFileSync(VERSION_SENTINEL, YANC_TAG);
         log(`YANC ${YANC_TAG} installed successfully.`);
     } catch (e) {
-        err(e.message);
+        err(e instanceof Error ? e.message : String(e));
         err(`\nCould not download YANC binaries automatically.`);
         err(`Please download manually from:`);
         err(`  ${DOWNLOAD_URL}`);

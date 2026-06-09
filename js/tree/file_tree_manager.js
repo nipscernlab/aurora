@@ -222,6 +222,13 @@ class FileTreeManager {
             window.projectTreeManager?.refreshTree?.();
         });
 
+        // Directory watcher errors used to be emitted by main but never
+        // consumed (the renderer had no listener) — the error was silently
+        // lost. Mirror the file-watcher's handling: surface it to the console.
+        window.electronAPI.onDirectoryWatcherError?.((dir, error) => {
+            console.error(`Directory watcher error for ${dir}:`, error);
+        });
+
         // Initialize tree based on saved mode
         this.initializeTreeBasedOnMode();
     }

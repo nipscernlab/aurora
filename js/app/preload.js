@@ -63,6 +63,9 @@ const fileWatchingOperations = {
   onDirectoryChanged: (cb) => {
     ipcRenderer.on('directory-changed', (_e, directoryPath, files) => cb(directoryPath, files));
   },
+  onDirectoryWatcherError: (cb) => {
+    ipcRenderer.on('directory-watcher-error', (_e, directoryPath, error) => cb(directoryPath, error));
+  },
 };
 
 /* ============================================================================

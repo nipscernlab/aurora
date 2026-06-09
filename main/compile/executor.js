@@ -46,7 +46,7 @@ const protectedFlags = require('./protected_flags');
  * If `spec.prependPath` is set, those dirs are prefixed onto PATH
  * AFTER the merge so they always take precedence.
  *
- * @param {object} spec
+ * @param {any} spec
  */
 function buildChildEnv(spec) {
   const cpuCount = getCPUCount();
@@ -83,6 +83,7 @@ function buildChildEnv(spec) {
 // normal | above | high | realtime for a dedicated build box. HIGH/REALTIME
 // give the compiler still more CPU but can stutter the desktop and Aurora's
 // own renderer, so they stay strictly opt-in.
+/** @type {Record<string, number>} */
 const PRIORITY_BY_NAME = {
   normal:   os.constants.priority.PRIORITY_NORMAL,
   above:    os.constants.priority.PRIORITY_ABOVE_NORMAL,
@@ -94,17 +95,19 @@ const TOOLCHAIN_PRIORITY =
   os.constants.priority.PRIORITY_ABOVE_NORMAL;
 
 /** Best-effort priority bump for a freshly-spawned toolchain child. */
-function boostPriority(pid) {
+function boostPriority(/** @type {number | undefined} */ pid) {
   if (pid == null) return;
   try {
     os.setPriority(pid, TOOLCHAIN_PRIORITY);
   } catch (err) {
-    log.debug('[exec] could not raise process priority:', err?.message || err);
+    log.debug('[exec] could not raise process priority:', err instanceof Error ? err.message : err);
   }
 }
 
 /**
  * Common validation shared by both handlers.
+ * @param {any} spec
+ * @param {any} baseSpecForProtection
  * @returns {{ok:true} | {ok:false, error:string}}
  */
 function validateSpecForExec(spec, baseSpecForProtection) {
@@ -178,7 +181,7 @@ function register() {
       // (Verilator → make/g++/ccache, cocotb → python), not just its PID.
       trackChild(child);
       state.currentVvpProcess = child;
-      state.vvpProcessPid = child.pid;
+      state.vvpProcessPid = child.pid ?? null;
       boostPriority(child.pid);
 
       // Only clear the shared slot if it still points at *this* child —
@@ -238,7 +241,7 @@ function register() {
       // (Verilator → make/g++/ccache, cocotb → python), not just its PID.
       trackChild(child);
       state.currentVvpProcess = child;
-      state.vvpProcessPid = child.pid;
+      state.vvpProcessPid = child.pid ?? null;
       boostPriority(child.pid);
 
       child.stdout?.on('data', (data) => {
@@ -278,6 +281,7 @@ function register() {
   ipcMain.handle('exec-spec-protected-flags', async (_e, step) => {
     if (step) return protectedFlags.describe(step);
     // No step → list all.
+    /** @type {Record<string, any>} */
     const out = {};
     for (const stepId of Object.keys(protectedFlags.RULES || {})) {
       out[stepId] = protectedFlags.describe(stepId);

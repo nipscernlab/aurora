@@ -438,12 +438,6 @@ function register() {
       if (!projectPath) throw new Error('No project path available for refresh');
 
       const files = await scanDirectory(projectPath);
-      const windows = BrowserWindow.getAllWindows();
-      windows.forEach((window) => {
-        if (window && !window.isDestroyed()) {
-          window.webContents.send('file-tree-refreshed', { files, projectPath });
-        }
-      });
       return { success: true, files };
     } catch (error) {
       log.error('Error triggering file tree refresh:', error);

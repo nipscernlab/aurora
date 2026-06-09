@@ -231,12 +231,6 @@ function register() {
         path: path.join(projectPath, file.name),
       }));
 
-      const focusedWindow = BrowserWindow.getFocusedWindow();
-      focusedWindow?.webContents.send('simulateOpenProject', {
-        canceled: false,
-        filePaths: [projectPath],
-      });
-
       // Newly-created project lands in the jumplist's Recent Projects
       // category too. Same path the open IPC takes; sharing it here
       // keeps "I just made a project, it should be in recents now"

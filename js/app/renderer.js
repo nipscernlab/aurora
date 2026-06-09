@@ -41,20 +41,6 @@ window.initializeGlobalTerminalManager = function() {
     return globalTerminalManager;
 };
 
-window.toggleSidebar = function() {
-    const fileTreeContainer = document.querySelector('.file-tree-container');
-    if (!fileTreeContainer) return;
-    const isCollapsed = fileTreeContainer.classList.contains('sidebar-collapsed');
-    if (isCollapsed) {
-        fileTreeContainer.classList.remove('sidebar-collapsed');
-        const saved = localStorage.getItem('fileTreeWidth');
-        fileTreeContainer.style.width = saved ? saved + 'px' : '250px';
-    } else {
-        localStorage.setItem('fileTreeWidth', fileTreeContainer.offsetWidth);
-        fileTreeContainer.classList.add('sidebar-collapsed');
-    }
-};
-
 // --- Initialization on DOM Ready ---
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize core components first

@@ -48,16 +48,6 @@ class ProjectFile {
   }
 }
 
-function updateProjectState(/** @type {any} */ window, /** @type {any} */ projectPath, /** @type {any} */ spfPath) {
-  if (window && window.webContents) {
-    window.webContents.send('project:stateUpdate', {
-      projectPath,
-      spfPath,
-      isOpen: !!projectPath,
-    });
-  }
-}
-
 /**
  * Remap a single absolute path that lived under a processor's working
  * directory when that processor is renamed `oldName` → `newName`.
@@ -372,7 +362,6 @@ function register() {
       const targetWindow = BrowserWindow.fromWebContents(event.sender)
         || BrowserWindow.getFocusedWindow();
       if (targetWindow && !targetWindow.isDestroyed()) {
-        updateProjectState(targetWindow, projectData.structure.basePath, spfPath);
         targetWindow.webContents.send('project:processorHubState', { enabled: true });
         targetWindow.webContents.send('project:processors', {
           processors: projectData.structure.processors.map((/** @type {any} */ p) => p.name),
@@ -408,7 +397,6 @@ function register() {
           { channel: 'project:closed', data: { success: true } },
         ];
         notifications.forEach(({ channel, data }) => focusedWindow.webContents.send(channel, data));
-        updateProjectState(focusedWindow, null, null);
       }
 
       return { success: true };
@@ -925,4 +913,4 @@ void main()
 
 }
 
-module.exports = { register, ProjectFile, updateProjectState };
+module.exports = { register, ProjectFile };

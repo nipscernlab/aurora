@@ -439,11 +439,6 @@
         if (typeof percent === 'number') target = Math.max(target, percent);
         if (phase && T[phase]) phaseEl.textContent = T[phase];
       });
-      window.splashAPI.onComplete(() => {
-        // No fade-out: just drive the bar to 100%. The main process
-        // dismisses the splash outright once it has filled.
-        target = 100;
-      });
       window.splashAPI.getAppVersion()
         .then((v) => { if (v) versionEl.textContent = v.startsWith('v') ? v : 'v' + v; })
         .catch(() => {});

@@ -2140,7 +2140,7 @@ async _findWaveCandidateInDir(dir, topModule) {
  * Pull ONLY the VCD header (the $scope/$var hierarchy, up to $enddefinitions)
  * out of an FST — WITHOUT materializing the full text VCD. fst2vcd streams VCD
  * to stdout header-first; we accumulate stdout and, the instant we see
- * $enddefinitions, kill fst2vcd (cancelVvpProcess). So it iterates only the FST
+ * $enddefinitions, kill fst2vcd (killCurrentSpecProcess). So it iterates only the FST
  * geometry plus the first buffered block, never the whole multi-hundred-MB body.
  * The header alone is what _waveResolveGtkwSaveFile / _waveValidateUserGtkwAgainstVcd
  * parse to build the auto-gtkw and cross-check user .gtkw files; GTKWave then

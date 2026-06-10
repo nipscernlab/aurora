@@ -12,7 +12,7 @@
     "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/copy-components.js",
     "build:ts": "tsc",
     "prestart": "npm run bootstrap && npm run build:ts",
-    "start": "electron .",
+    "start": "node scripts/launch-electron.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "vitest run --config vitest.config.e2e.js",

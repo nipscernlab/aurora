@@ -27,6 +27,7 @@ import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
+import { switchTerminal } from '../terminal/terminal.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -102,13 +103,6 @@ const ERROR_TERMINAL = Object.freeze({
     'verilator-proc': 'thtest',
     'verilator-fast': 'twave',
 });
-
-function switchTerminal(targetId) {
-    document.querySelectorAll('.terminal-content').forEach(c => c.classList.add('hidden'));
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById(targetId)?.classList.remove('hidden');
-    document.querySelector(`.tab[data-terminal="${targetId.replace('terminal-', '')}"]`)?.classList.add('active');
-}
 
 // =====================================================================
 // Compilation lifecycle (start / end / cancel)

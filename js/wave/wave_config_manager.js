@@ -21,6 +21,7 @@ import { WaveStore } from './wave_state_store.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
+import { switchTerminal } from '../terminal/terminal.js';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
@@ -403,9 +404,7 @@ class WaveConfigManager {
             // usuario nao distingue o resultado atual do anterior.
             compiler.terminalManager?.clearTerminalImmediate?.('tveri');
             if (!cocotb) {
-                if (typeof window.switchTerminal === 'function') {
-                    window.switchTerminal('terminal-tveri');
-                }
+                switchTerminal('terminal-tveri');
                 await compiler.syntaxCheck();
             }
         }

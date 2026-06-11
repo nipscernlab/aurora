@@ -22,7 +22,7 @@ Last full audit against the code: 2026-06-11.
 The order matters in three groups:
 
 1. **Monaco loader** (the `node_modules/monaco-editor/min/vs/loader.js` script tag in [index.html](index.html)) — must come before any `type="module"` script that imports `monaco_editor.js`. Monaco's AMD loader (`require([...])`) is a global side-effect; without it, `initMonaco()` rejects.
-2. **Classic scripts** (`terminal.js`, `status_updater.js`, etc.) — define globals via `<script>` (no `type="module"`). They run synchronously, before module scripts.
+2. **Classic scripts** (`status_updater.js`, `tooltip.js`, etc.) — define globals via `<script>` (no `type="module"`). They run synchronously, before module scripts.
 3. **Module scripts** — deferred by spec; execute in source order **after** all classic scripts. The dependency graph for these is encoded in `import` statements, but module-level side-effects (like `window.appInitializer = ...`) still depend on file order.
 
 **Concrete dependencies:**

@@ -1324,7 +1324,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- Classic scripts (loaded synchronously, define globals) -->
 <script src="./js/ui/modal_system.js"></script>
 <script src="./js/processors/aurora_settings.js"></script>
-<script src="./js/utils/shortcut_manager.js"></script>
 <script src="./js/ui/status_updater.js"></script>
 <script src="./js/ui/status_bar.js"></script>
 <script src="./js/i18n/i18n.js" type="module"></script>
@@ -1332,10 +1331,11 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/processors/processor_config_panel.js"></script>
 <script src="./js/terminal/terminal.js"></script>
 <script src="./js/ui/tooltip.js"></script>
-<script src="./js/utils/zoom.js"></script>
 
 <!-- ES modules (defer by default, dependency-resolved) -->
 <script src="./js/app/renderer.js" type="module"></script>
+<script src="./js/utils/shortcut_manager.js" type="module"></script>
+<script src="./js/utils/zoom.js" type="module"></script>
 <script src="./js/ui/icon_aurora.js" type="module"></script>
 <script src="./js/ui/new_project_modal.js" type="module"></script>
 <script src="./js/project/recent_projects.js" type="module"></script>

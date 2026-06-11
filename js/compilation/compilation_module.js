@@ -1771,8 +1771,8 @@ async waveBuildVvp() {
  * concern. The orchestrator only changes when you add / remove a
  * phase or reorder them.
  *
- * See ARCHITECTURE.md §10 for the broader rationale (why VCD is the
- * ground truth, how the three .gtkw sources interact, etc.).
+ * See ARCHITECTURE.md §9 for the broader rationale (why the dump is the
+ * ground truth, how the dump/gtkw sources interact, etc.).
  */
 async runGtkWave() {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.bannerSim'), 'info');
@@ -1864,8 +1864,8 @@ async runGtkWave() {
 // ---------------------------------------------------------------------
 // Wave-flow phases — keep each method's contract block in sync with
 // what it actually does. The orchestrator above documents the order;
-// each phase below documents the local invariants. ARCHITECTURE.md §10
-// has the cross-cutting principles (VCD-as-truth, validation gates).
+// each phase below documents the local invariants. ARCHITECTURE.md §9
+// has the cross-cutting principles (dump-as-truth, validation gates).
 // ---------------------------------------------------------------------
 
 /**
@@ -3439,8 +3439,8 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
  * Decide o .gtkw save-file que o GTKWave vai abrir. Duas sources, em
  * ordem de prioridade:
  *
- *   1. User-curated .gtkw (`gtkwFiles[].isTopLevel === true`, marcado
- *      pelo dropdown gtkwPickerSelect na toolbar). Cross-check contra
+ *   1. User-curated .gtkw (`gtkwFiles[].isActive === true`, marcado
+ *      pelo dropdown do gtkw picker na toolbar). Cross-check contra
  *      o VCD pra avisar de paths stale. Retorna o path do usuario
  *      intocado.
  *   2. Auto-gerado pelo `buildAuroraGtkw`: secao "Top-level" com tudo

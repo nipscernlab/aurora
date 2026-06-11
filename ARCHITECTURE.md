@@ -4,7 +4,14 @@ This is **not** a project overview or onboarding doc. Read [README.md](README.md
 
 This file lists the implicit contracts the renderer process depends on but doesn't enforce. Every entry here was learned by something breaking in subtle ways. **Read this before refactoring anything in [js/app/](js/app/), [js/project/](js/project/), [js/tree/](js/tree/), [js/editor/](js/editor/), [js/tabs/](js/tabs/), [js/wave/](js/wave/), or the wave-flow paths in [js/compilation/](js/compilation/).**
 
-When you change something here, update this doc.
+Maintenance rules (the doc is only useful while it's trustworthy):
+
+1. **When you change something covered here, update this doc in the same commit.**
+2. **Reference symbols, not line numbers.** `tab_manager.js`, função `addTab` — never `tab_manager.js:565`. Line anchors rot silently; symbol names fail loudly (grep finds nothing).
+3. **Link the `.ts` source for migrated modules**, not the compiled `.js` sitting next to it (tsconfig compiles in-place). The `.ts` is what you edit.
+4. **In-source JSDoc is the authoritative contract** for any function mentioned here. This doc is the bird's-eye map; if it disagrees with the JSDoc, the JSDoc wins and this doc has a bug — fix it.
+
+Last full audit against the code: 2026-06-11.
 
 ---
 
@@ -14,7 +21,7 @@ When you change something here, update this doc.
 
 The order matters in three groups:
 
-1. **Monaco loader** ([index.html:1117](index.html#L1117)) — must come before any `type="module"` script that imports `monaco_editor.js`. Monaco's AMD loader (`require([...])`) is a global side-effect; without it, `initMonaco()` rejects.
+1. **Monaco loader** (the `node_modules/monaco-editor/min/vs/loader.js` script tag in [index.html](index.html)) — must come before any `type="module"` script that imports `monaco_editor.js`. Monaco's AMD loader (`require([...])`) is a global side-effect; without it, `initMonaco()` rejects.
 2. **Classic scripts** (`terminal.js`, `status_updater.js`, etc.) — define globals via `<script>` (no `type="module"`). They run synchronously, before module scripts.
 3. **Module scripts** — deferred by spec; execute in source order **after** all classic scripts. The dependency graph for these is encoded in `import` statements, but module-level side-effects (like `window.appInitializer = ...`) still depend on file order.
 
@@ -38,6 +45,7 @@ Drift between multiple "sources of truth" was responsible for several bugs in 20
 | Monaco editor instances (filePath → `{editor, container}`) | `EditorManager.editors` Map ([monaco_editor.js](js/editor/monaco_editor.js)) | `EditorManager.getEditorForFile(filePath)` |
 | Shared text models (filePath → `{model, refCount, savedAltVersionId}`) | `SharedModelRegistry` ([shared_models.js](js/editor/shared_models.js)) | `SharedModelRegistry.getModel(filePath)` |
 | Verilog tree state (`isTreeActive`, `verilogFiles`) | `ProjectTreeManager` ([file_mode.js](js/project/file_mode.js)) | Don't read from outside; call its methods |
+| Wave state per testbench (`gtkwFiles`, `waveSignals`, `wcCustomized`, `hadOriginalDumpvars`) | `WaveStore` ([wave_state_store.ts](js/wave/wave_state_store.ts)) | `WaveStore.read/get(projectPath, tbKey)` |
 
 **Rule:** if you find yourself caching one of these on `this.*` somewhere, you're recreating the bug. Read from the owner.
 
@@ -51,10 +59,10 @@ Some shared resources have a designated writer. Other call sites must not write 
 
 | Resource | Sole writer | Why |
 |---|---|---|
-| Monaco editor instances (creation) | `TabManager.addTab` IIFE ([tab_manager.js:565](js/tabs/tab_manager.js#L565)) | An auto-create fallback in `setActiveEditor` racing this path produced two stacked editor divs sharing a model. User saw artefacts and "can't type". Removed in `e2c82f8`. |
+| Monaco editor instances (creation) | The `await EditorManager.ready` IIFE inside `TabManager.addTab` ([tab_manager.js](js/tabs/tab_manager.js)) | An auto-create fallback in `setActiveEditor` racing this path produced two stacked editor divs sharing a model. User saw artefacts and "can't type". Removed in `e2c82f8`. |
 | `window.currentProjectPath` / `window.currentSpfPath` | `ProjectStore.setProject` / `clearProject` | Multiple writers drift; the cache vs. live state mismatch caused the "file outside folder disappears on reopen" bug. Migrated in `e01e406`. |
 
-**`.spf` writes from the renderer go through [SpfStore](js/project/spf_store.js).** O escritor canonico do renderer e `ProjectTreeManager` (file tree picker — synthesizableFiles, testbenchFiles, topLevelFile, testbenchFile). Chama `SpfStore.update(spfPath, mutator)` que serializa read-mutate-write por path e preserva `metadata`. Cada mutator so toca os campos que seu manager possui; defaults pro resto vem de `SpfStore.STRUCTURE_DEFAULTS` — campos desconhecidos que um futuro escritor adicione sobrevivem ao round trip. **Se voce adicionar um segundo escritor renderer-side, use `update()` — nao escreva o arquivo direto.** O main process tambem escreve o `.spf` em events de lifecycle (open/create-processor/delete-processor); race teorica com o renderer e aceitavel porque os dois sao acionados por interacao UI sequencial. Pre-2026-05 o estado de tree/picker vivia em `projectOriented.json` separado — consolidado no `.spf` pra ter uma fonte unica de config per-project.
+**`.spf` writes from the renderer go through [SpfStore](js/project/spf_store.ts).** O escritor canonico do renderer e `ProjectTreeManager` (file tree picker — synthesizableFiles, testbenchFiles, topLevelFile, testbenchFile). Chama `SpfStore.update(spfPath, mutator)` que serializa read-mutate-write por path e preserva `metadata`. Cada mutator so toca os campos que seu manager possui; defaults pro resto vem de `SpfStore.STRUCTURE_DEFAULTS` — campos desconhecidos que um futuro escritor adicione sobrevivem ao round trip. **Se voce adicionar um segundo escritor renderer-side, use `update()` — nao escreva o arquivo direto.** O main process tambem escreve o `.spf` em events de lifecycle (open/create-processor/delete-processor); race teorica com o renderer e aceitavel porque os dois sao acionados por interacao UI sequencial. Pre-2026-05 o estado de tree/picker vivia em `projectOriented.json` separado — consolidado no `.spf` pra ter uma fonte unica de config per-project.
 
 ---
 
@@ -64,7 +72,7 @@ This is so important it gets its own section.
 
 The contract: **only `TabManager.addTab` (text-file branch) calls `EditorManager.createEditorInstance`.** `setActiveEditor` switches between existing editors but does not create them.
 
-The IIFE in `addTab` ([tab_manager.js:565](js/tabs/tab_manager.js#L565)):
+The IIFE in `addTab` ([tab_manager.js](js/tabs/tab_manager.js)):
 
 ```js
 (async () => {
@@ -99,7 +107,7 @@ DOMContentLoaded
 │
 ├── renderer.js DOMContentLoaded handler
 │   ├── TabManager.initialize()         // restore tab order, listeners
-│   ├── fileTreeManager.initialize()    // schedules initializeTreeBasedOnMode +100ms
+│   ├── fileTreeManager.initialize()    // chama initializeTreeBasedOnMode
 │   ├── projectManager.initialize()     // wire Open Project buttons
 │   └── ...
 │
@@ -113,7 +121,7 @@ DOMContentLoaded
 
 **Gotchas:**
 
-- `initializeTreeBasedOnMode` em [`fileTreeManager.initialize`](js/tree/file_tree_manager.js) roda apos `setTimeout(100ms)` e tambem chama `activateTree`. A coalescencia interna (§6) garante que so um `loadConfiguration` roda mesmo se as duas chamadas batem no mesmo tick.
+- `initializeTreeBasedOnMode` ([`file_tree_manager.js`](js/tree/file_tree_manager.js)) aguarda `projectTreeManager.initPromise` — o sinal real de readiness (DOM cacheado + listeners) — antes de chamar `activateTree`. Historicamente era um `setTimeout(100ms)` chutado, que em cold start lento rodava antes do DOM da tree existir e bailava silenciosamente. **Nao volte pro sleep.** A coalescencia interna (§6) garante que so um `loadConfiguration` roda mesmo se essa chamada e a do `loadProject` batem no mesmo tick.
 - Monaco's AMD modules load asynchronously. A `TabManager.addTab` call before `EditorManager.ready` resolves will block on the IIFE's `await` — the tab DOM is created immediately, the editor isn't.
 
 ---
@@ -127,7 +135,7 @@ DOMContentLoaded
 Pelo menos tres paths podem chamar refreshTree no mesmo tick durante session-restore:
 
 1. `projectManager.loadProject` → `activateTree` → `refreshTree`
-2. `fileTreeManager.initializeTreeBasedOnMode` (`setTimeout(100ms)`) → `activateTree` → `refreshTree`
+2. `fileTreeManager.initializeTreeBasedOnMode` (apos `projectTreeManager.initPromise`) → `activateTree` → `refreshTree`
 3. fs watcher / `aurora:spf-changed` listener → `refreshTree`
 
 Pre-consolidation tinha LOCKS SEPARADOS (`_activatePromise` vs `_refreshPromise`) — activateTree chamava `loadConfiguration` direto, e refreshTree tambem. Os dois rodavam em paralelo — cada um fazia `verilogFiles = []` e aguardava I/O — entao o reset da chamada B limpava os pushes da chamada A em pleno meio de iteracao, duplicando entries (especialmente os auto-discovered `.cmm`/`.asm`). Consolidando num lock so eliminou essa classe de race.
@@ -182,73 +190,58 @@ These are areas where we have evidence things break in non-obvious ways. Touch w
 
 ---
 
-## 9. Wave flow — VCD is the ground truth
+## 9. Wave flow — o dump da simulação é a verdade
 
-The Wave button (Verilog-Only) goes through eight named phases. The orchestrator is `runVerilogOnlyGtkWave` in [compilation_module.js](js/compilation/compilation_module.js); each phase is a private `_wave*` method right below it. The orchestrator is intentionally short — it documents the order of operations, nothing else. **All wave-flow behaviour changes belong inside one phase.** If you find yourself touching two phases for one feature, you've found a missing abstraction; surface it before merging.
+Princípio único: **qualquer coisa que pedirmos pro GTKWave exibir tem que existir no dump (`.fst`/`.vcd`) que a simulação de fato produziu.** O usuário pode pedir sinais por mais de um caminho, mas o dump vence.
+
+O orquestrador do botão Wave é `runGtkWave` em [compilation_module.js](js/compilation/compilation_module.js). Valida via `validateForWave` (testbench obrigatório; synth e top-level opcionais — um tb standalone pode definir o DUT inline) e então roda fases privadas `_wave*`, cada uma com contrato próprio em JSDoc. O orquestrador é intencionalmente curto — documenta só a *ordem* das fases. **Mudança de comportamento pertence a uma fase.** Se você se pegar tocando duas fases pra uma feature, achou uma abstração faltando; exponha antes de mergear.
+
+O fluxo tem dois eixos de branch — linguagem do testbench (Verilog vs Python/cocotb) e simulador (Icarus default vs Verilator, opt-in via Wave Config, flag `aurora.waveSimulator` no localStorage). Os quatro caminhos convergem em `_waveResolveVcdFile`:
 
 ```
-Click "Wave" button (Verilog-Only)
-        │
-        ▼
-┌───────────────────────────────────────────────────────────────┐
-│ 0. validateVerilogOnlyConfig + bail-if-no-testbench            │
-│    (orchestrator body, not a separate phase)                   │
-├───────────────────────────────────────────────────────────────┤
-│ 1. _waveResolveToolchain                                       │
-│    → { tempBaseDir, scriptsPath, gtkwaveBin, vvpBin }          │
-├───────────────────────────────────────────────────────────────┤
-│ 2. _waveDeriveSimTopModule(config) → "tb_counter"              │
-├───────────────────────────────────────────────────────────────┤
-│ 3. _waveBuildAndVerifyVvp                                      │
-│    runs iverilog (Phase 2 selection-validation fires here)     │
-│    → ${tempBaseDir}/${simTop}.vvp on disk                      │
-├───────────────────────────────────────────────────────────────┤
-│ 4. _waveRunVvpSimulation                                       │
-│    cd tempBaseDir && vvp <vvpFile>                             │
-│    → some .vcd on disk in tempBaseDir                          │
-├───────────────────────────────────────────────────────────────┤
-│ 5. _waveResolveVcdFile                                         │
-│    expected name? ✅ done.                                     │
-│    not found? scan dir → exactly one .vcd? adopt it.           │
-│    zero or multiple? throw with concrete fix instructions.     │
-│    → absolute vcdFile path                                     │
-├───────────────────────────────────────────────────────────────┤
-│ 6. _waveResolveGtkwSaveFile                                    │
-│    user-curated .gtkw set? validate vs VCD, return its path.   │
-│    else: generateGtkwForVcd (uses _validatedWaveSelection      │
-│    cached by phase 3) → tempBaseDir/${simTop}.gtkw or null.    │
-│    → absolute .gtkw path or null                               │
-├───────────────────────────────────────────────────────────────┤
-│ 7. _waveLaunchGtkwave                                          │
-│    builds command line, execs gtkwave.exe, monitors PID        │
-└───────────────────────────────────────────────────────────────┘
+runGtkWave
+├── validateForWave(config)
+├── _waveResolveToolchain          → paths absolutos (vvp, gtkwave, fst2vcd, Temp/...)
+├── _waveDeriveSimTopModule        → nome do module top da simulacao
+├── SIMULACAO (1 dos 4 caminhos):
+│   ├── tb Verilog + Icarus:    _waveBuildAndVerifyVvp → _waveRunVvpSimulation
+│   ├── tb Verilog + Verilator: _waveResolveVerilatorTools → _waveBuildVerilator
+│   │                           → _waveRunVerilatorSimulation
+│   └── tb Python (cocotb):     _waveValidateCocotbConfig → _waveRunCocotbSimulation
+│                               (roda no simulador escolhido — Icarus ou Verilator)
+├── _waveResolveVcdFile            → acha o ${simTop}.fst (ou .vcd) produzido;
+│                                    1 candidato com outro nome? adota com warning;
+│                                    0 ou varios? throw com instrucao concreta
+├── _extractFstHeaderVcd           → header unico pros 4 caminhos (fst2vcd magic-detect;
+│                                    VCD texto puro e seu proprio header)
+├── _waveResolveGtkwSaveFile       → .gtkw do usuario, auto-gerado, ou null
+└── _waveLaunchGtkwave             → exec gtkwave.exe, monitora PID
 ```
 
-Each phase's JSDoc states inputs / returns / throws / side-effects. **Don't rely on documentation in this file alone — the in-source contracts are authoritative.** This section gives the bird's-eye view; refining a phase is a code-doc-then-code task.
+**Fontes de "o que dumpar", em ordem de precedência** — decidido por `_resolveWaveSelection` (JSDoc dele é a autoridade); estado per-testbench vive no `WaveStore` ([wave_state_store.ts](js/wave/wave_state_store.ts)):
 
-The Wave button (Verilog-Only) goes through three steps with a single guiding rule: anything we ask GTKWave to display must be present in the VCD that vvp actually produced. The user can request signals from three different places, but the VCD wins.
+1. **`.gtkw` ativo** (`state.gtkwFiles[].isActive`, marcado pelo dropdown custom do gtkw picker — elementos `gtkwPicker`/`gtkwPickerButton`/`gtkwPickerMenu`, gerenciados por [gtkw_picker.js](js/wave/gtkw_picker.js)). Aurora extrai os signal refs com `extractSignalRefs` ([gtkw_writer.ts](js/wave/gtkw_writer.ts)), valida contra a hierarquia parseada e usa esse conjunto. Refs que sumiram do source geram warning em `twave` + toast — o build segue sem eles.
+2. **Wave Configuration customizada** (`state.wcCustomized`) — `state.waveSignals` dita o `$dumpvars`, **inclusive sobrescrevendo um `$dumpvars` hand-written do usuário**. O WC é a fonte canônica quando customizado.
+3. **`$dumpvars` hand-written no testbench** (snapshot `hadOriginalDumpvars` tirado na 1ª visita ao tb) — nada é injetado; o testbench domina o que vai pro dump. Nesse caso o compile flow zera `_validatedWaveSelection` (reason `'user-defined'` de `instrumentTestbenchSource`), e o `.gtkw` auto-gerado cai pro default top-scope.
+4. **Default** — `$dumpvars(1, <tbModule>)`: todos os sinais no scope do testbench, sem descer no DUT.
 
-**Sources of truth, in priority order:**
+**Gates de validação, todos lendo o mesmo princípio dump-é-a-verdade:**
 
-1. **User-written `$dumpfile` / `$dumpvars` in the testbench** — if the source already has either, `instrumentTestbenchSource` ([testbench_instrumenter.js](js/wave/testbench_instrumenter.js)) leaves the file alone and returns `reason: 'user-defined'`. The compile flow ([compilation_module.js](js/compilation/compilation_module.js)) then forces the cached selection to `[]` so the .gtkw step falls through to the default top-scope. **The picker selection is intentionally ignored when the user has taken control** — anything else would emit traces for signals the user's `$dumpvars` never dumped.
-2. **Wave Configuration picker selection** (`projectConfig.waveSignals`) — fed verbatim into `$dumpvars(0, sig1, sig2, ...)` after validation (next bullet). The picker UI ([wave_config_manager.js](js/wave/wave_config_manager.js)) only ever shows signals that exist in the parsed hierarchy, so a stale dotted-path entry has no UI representation and can't be unchecked from the modal.
-3. **Default** — empty selection produces `$dumpvars(1, <tb>)`, which dumps every signal at the testbench-module scope. The .gtkw mirrors this: every top-scope signal in the VCD ends up as a trace.
+- `validateSelection` ([selection_validator.ts](js/wave/selection_validator.ts)) — roda contra a hierarquia regex-parseada ([signal_parser.ts](js/wave/signal_parser.ts)) tanto pros refs de `.gtkw` ativo quanto pra seleção do WC. Entradas stale (sinal renomeado, instância removida) são pruned com `Note: ... ignored` em `twave`. Dispara na abertura do modal WC e em compile time.
+- **Cross-check dump-vs-seleção em `_waveResolveGtkwSaveFile`** — depois da simulação produzir o dump, Aurora valida o `.gtkw` do usuário contra ele (`_waveValidateUserGtkwAgainstVcd`) ou filtra o auto-gerado por `_validatedWaveSelection`. Sinais ausentes geram `Note: ... omitted` em `twave`. Last-line-of-defense antes do GTKWave abrir; nunca lança (hiccups viram warnings).
+- `instrumentTestbenchSource` ([testbench_instrumenter.ts](js/wave/testbench_instrumenter.ts)) — lógica pura (unit-tested) de decidir injetar/comentar `$dumpfile`/`$dumpvars`; o método `instrumentTestbench` em compilation_module.js é a cola de I/O que escreve a cópia instrumentada em Temp/.
 
-**Three validation gates, all reading the same VCD-as-truth principle:**
+**Resolução do `.gtkw` save-file** (`_waveResolveGtkwSaveFile`), duas sources em prioridade: (1) `.gtkw` user-curated ativo, validado contra o dump e retornado intocado; (2) auto-gerado por `buildAuroraGtkw` ([gtkw_proc_writer.ts](js/wave/gtkw_proc_writer.ts)) — seção "Top-level" + uma seção SAPHO completa (cores/aliases/grupos) por processador detectado, filtrado pela seleção validada. Ambas falharam? `null`, e o GTKWave abre sem save-file.
 
-- `validateSelection` ([selection_validator.js](js/wave/selection_validator.js)) — runs against the regex-parsed hierarchy. Stale entries (renamed signal, removed instance) are auto-pruned out of `projectConfig.waveSignals` and a `Note: ... ignored (not added to $dumpvars)` is logged in `twave`. Fires both at WC modal open and at compile time, so the cleanup happens regardless of which path the user takes.
-- **VCD-vs-selection cross-check em `_waveResolveGtkwSaveFile`** ([compilation_module.js](js/compilation/compilation_module.js)) — depois do vvp produzir o VCD, Aurora compara cada item de `_validatedWaveSelection` contra os scope paths parseados do VCD. Sinais ausentes geram um aviso `Note: ... not in the generated VCD and were omitted from the .gtkw layout.` em `twave`. Cobre o gap "selection era valida contra sources mas o `$dumpvars` rodante dumpou menos sinais que o esperado". Last-line-of-defense antes do GTKWave abrir.
-- `instrumentTestbenchSource.reason` — the user-defined override. The compile-flow caller ([compilation_module.js](js/compilation/compilation_module.js)) reads this and zeroes the cached selection, which is what makes the .gtkw fall back to default top-scope when the user has hand-written `$dumpvars`.
-
-**Why the cache `_validatedWaveSelection`:** a validacao roda durante `iverilogCompile({buildVvp: true})`. A .gtkw e escrita depois, em `runGtkWave` apos vvp produzir o VCD. Os dois passos precisam da mesma selecao pruned-e-talvez-zerada, entao o passo de compile escreve em `this._validatedWaveSelection` pro passo de .gtkw ler. Sem o cache, ou voce re-roda (regex parse + WaveStore write) ou re-avisa o usuario sobre sinais ja pruned.
+**Why the cache `_validatedWaveSelection`:** a seleção é decidida durante o build (fase de instrumentação). A `.gtkw` é escrita depois, quando a simulação já produziu o dump. Os dois passos precisam da mesma seleção pruned-e-talvez-zerada, então o build escreve em `this._validatedWaveSelection` pro passo de `.gtkw` ler. Sem o cache, ou você re-roda o parse, ou re-avisa o usuário sobre sinais já pruned.
 
 **What you can't change without thinking:**
 
-- **Don't add a fourth source of "what to dump."** Se usuarios querem um layout curated, importam um `.gtkw` custom via toolbar dropdown (`gtkwPickerSelect`, gerenciado por `gtkw_picker.js`) — esse e o escape hatch existente e o wave-flow ja detecta (Source 1 do `_waveResolveGtkwSaveFile`). Adicionar uma quinta path significa mais uma decisao de prioridade e mais uma classe de silent-mismatch.
-- **Don't bypass `_validateWaveSelection` to inject `$dumpvars` directly.** If the path you write isn't in the parsed hierarchy, iverilog fails with `port "X" is not a port of dut` or similar — exactly the bug we hit when we shipped the picker without validation. Always go through the validator.
-- **The `reason: 'user-defined'` override is one-directional.** When the user has manual `$dumpvars`, the picker selection is ignored, but we don't proactively clear `waveSignals` from disk — the user might remove their `$dumpvars` later and want the picker back. Only `validateSelection` writes to `waveSignals`; `'user-defined'` just suppresses use of it.
-- **Don't inline phase logic back into the orchestrator.** The 8-phase structure exists so future "GTKWave doesn't open right" bug reports can be triaged to one phase at a time. Inlining trades that property for a few lines of locality and we lose more than we gain.
-- **Don't merge phases unless they share a real invariant.** "These two phases both touch tempBaseDir" is not a real invariant — most phases touch tempBaseDir. Real reasons to merge: shared in-flight state that doesn't belong on `this`, or a contract that only makes sense as a unit (e.g., "build vvp + run vvp" is two phases because building can fail without running, and the in-between has no meaningful state to pass).
+- **Don't add a fifth source of "what to dump."** As quatro acima já formam uma cadeia de precedência com regras de override documentadas no JSDoc de `_resolveWaveSelection`. Cada source nova significa mais uma decisão de prioridade e mais uma classe de silent-mismatch.
+- **Don't bypass `validateSelection` to inject `$dumpvars` directly.** If the path you write isn't in the parsed hierarchy, iverilog fails with `port "X" is not a port of dut` or similar — exactly the bug we hit when we shipped the picker without validation. Always go through `_resolveWaveSelection`.
+- **A precedência WC-sobre-testbench é intencional e one-directional.** WC customizado sobrescreve `$dumpvars` manual (source 2 > 3), mas um tb com `$dumpvars` manual e WC *não* customizado fica intocado, e nunca limpamos `waveSignals`/`wcCustomized` do disco proativamente — o usuário pode reverter a customização e querer o comportamento antigo de volta.
+- **Don't inline phase logic back into the orchestrator.** A estrutura por fases existe pra que futuros bug reports "GTKWave não abre direito" sejam triados uma fase por vez. Inlining troca essa propriedade por umas linhas de localidade e perde mais do que ganha.
+- **Don't merge phases unless they share a real invariant.** "These two phases both touch tempBaseDir" is not a real invariant — most phases touch tempBaseDir. Real reasons to merge: shared in-flight state that doesn't belong on `this`, or a contract that only makes sense as a unit.
 - **Phase JSDoc is the contract.** When you change behaviour, update the input/return/throws/side-effects block first, then the implementation. If the JSDoc doesn't change, the behaviour shouldn't have changed either — that's the audit trail.
 
 ---
@@ -264,7 +257,8 @@ Before merging any change to this layer, walk through:
 - [ ] Did you call `EditorManager.createEditorInstance` outside `TabManager.addTab`? See §4.
 - [ ] Did you re-introduzir modos diferentes? Aurora roda em modo unico desde 2026-05 — re-introduzir multimodos exige smoke-test manual open-close-reopen-edit; historicamente quebrou Monaco em sessoes restauradas.
 - [ ] Did you add a `DOMContentLoaded` listener? Verify it doesn't depend on later listeners having run.
-- [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §9 — if the path bypasses `validateSelection` or `pickSignalsToEmit`, you're recreating a class of bug we've already fixed.
+- [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §9 — if the path bypasses `_resolveWaveSelection` / `validateSelection`, you're recreating a class of bug we've already fixed.
+- [ ] Did you rename a symbol mentioned in this doc? Grep ARCHITECTURE.md for the old name and update it — and grep the codebase for `ARCHITECTURE.md §` to keep section cross-references in code comments honest.
 
 Smoke test (manual, ~2 min):
 1. Open Aurora. Last project should auto-load.

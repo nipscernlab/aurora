@@ -38,6 +38,7 @@
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SharedModelRegistry } from '../editor/shared_models.js';
+import { setTooltipsEnabled } from '../ui/tooltip.js';
 import {
   getSimulator as getWaveSimulator,
   setSimulator as setWaveSimulator,
@@ -2213,7 +2214,7 @@ const settingsNs = {
       catch (e) { return err(e?.message || 'could not persist setting'); }
       window.dispatchEvent(new CustomEvent('aurora-settings-updated', { detail: s }));
       if (key === 'tooltipsEnabled') {
-        window.auroraSettings?.updateTooltipsState?.(!!value);
+        setTooltipsEnabled(!!value);
       }
       return ok({ key, value: !!value });
     }

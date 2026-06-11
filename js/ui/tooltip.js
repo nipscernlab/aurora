@@ -1,4 +1,40 @@
 // tooltip.js - Enhanced universal tooltip system for AURORA IDE
+
+// Estado de habilitacao — era window.AURORA_TOOLTIPS_ENABLED. Default
+// true; quem dirige e setTooltipsEnabled (Settings modal via
+// aurora_settings.js, ou AuroraAPI settings.set('tooltipsEnabled')).
+let tooltipsOn = true;
+
+/**
+ * Liga/desliga os tooltips do app inteiro. Unico writer do estado.
+ *
+ * Alem do flag, marca elementos ja inicializados com data-no-tooltip e
+ * esconde o tooltip flutuante. Dispara 'aurora-tooltips-updated' — esse
+ * evento e superficie publica (bridged pro catalogo do AuroraAPI como
+ * 'settings:tooltips-updated'); o proprio listener deste modulo tambem
+ * o usa pra limpar timeout/estado pendente.
+ */
+export function setTooltipsEnabled(enabled) {
+    tooltipsOn = !!enabled;
+
+    const tooltipElements = document.querySelectorAll('[data-tooltip-initialized]');
+    tooltipElements.forEach(el => {
+        if (tooltipsOn) {
+            el.removeAttribute('data-no-tooltip');
+        } else {
+            el.setAttribute('data-no-tooltip', 'true');
+        }
+    });
+
+    const tooltipDiv = document.querySelector('.custom-tooltip');
+    if (tooltipDiv) {
+        tooltipDiv.style.display = tooltipsOn ? '' : 'none';
+        if (!tooltipsOn) tooltipDiv.classList.remove('visible');
+    }
+
+    window.dispatchEvent(new CustomEvent('aurora-tooltips-updated', { detail: { enabled: tooltipsOn } }));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Create tooltip element with arrow
     const tooltip = document.createElement('div');
@@ -21,11 +57,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeElement = null;
     let tooltipTimeout = null;
   
-    // Helper to know if tooltips are enabled. Default = true.
+    // Helper to know if tooltips are enabled (module state, default true).
     function tooltipsEnabled() {
-        return typeof window.AURORA_TOOLTIPS_ENABLED === 'boolean'
-            ? window.AURORA_TOOLTIPS_ENABLED
-            : true;
+        return tooltipsOn;
     }
 
     // When aurora-settings toggles tooltips, react here

@@ -1,4 +1,6 @@
 // aurora_settings.js
+import { setTooltipsEnabled } from '../ui/tooltip.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const settingsButton = document.getElementById('aurora-settings');
     const modalOverlay = document.getElementById('settings-modal');
@@ -58,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tooltipsToggle) tooltipsToggle.checked = !!currentSettings.tooltipsEnabled;
 
         // Aplica estado dos tooltips imediatamente
-        updateTooltipsState(!!currentSettings.tooltipsEnabled);
+        setTooltipsEnabled(!!currentSettings.tooltipsEnabled);
     };
 
     /**
@@ -72,39 +74,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.dispatchEvent(new CustomEvent('aurora-settings-updated', { detail: currentSettings }));
 
         // Notifica especificamente sobre tooltips
-        updateTooltipsState(currentSettings.tooltipsEnabled);
+        setTooltipsEnabled(currentSettings.tooltipsEnabled);
     };
-
-    function updateTooltipsState(enabled) {
-    window.AURORA_TOOLTIPS_ENABLED = !!enabled;
-
-    // Apenas adiciona um atributo para evitar inicialização futura do tooltip
-    const tooltipElements = document.querySelectorAll('[data-tooltip-initialized]');
-    tooltipElements.forEach(el => {
-        if (enabled) {
-            el.removeAttribute('data-no-tooltip');
-        } else {
-            el.setAttribute('data-no-tooltip', 'true');
-        }
-    });
-
-    // Esconde ou mostra o tooltip flutuante
-    const tooltipDiv = document.querySelector('.custom-tooltip');
-    if (tooltipDiv) {
-        tooltipDiv.style.display = enabled ? '' : 'none';
-        if (!enabled) tooltipDiv.classList.remove('visible');
-    }
-
-    // Evento global para outros módulos
-    window.dispatchEvent(new CustomEvent('aurora-tooltips-updated', { detail: { enabled: !!enabled } }));
-}
-
 
     // Listener para toggles com efeito imediato
     if (tooltipsToggle) {
         tooltipsToggle.addEventListener('change', () => {
-            const enabled = tooltipsToggle.checked;
-            updateTooltipsState(enabled);
+            setTooltipsEnabled(tooltipsToggle.checked);
         });
     }
 
@@ -334,9 +310,4 @@ document.addEventListener('DOMContentLoaded', () => {
             if (href) window.electronAPI?.openExternal?.(href);
         });
     });
-
-    // Expose a programmatic API to change tooltips from other modules if needed
-    window.auroraSettings = window.auroraSettings || {};
-    window.auroraSettings.updateTooltipsState = updateTooltipsState;
-    window.auroraSettings.getCurrentSettings = () => ({ ...currentSettings });
 });

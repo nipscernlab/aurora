@@ -10,10 +10,12 @@
  * The locale itself still controls BOTH UI strings (via i18n.js /
  * `aurora-locale`) AND the yanc compiler flag (-pt/-en), since the
  * preference is intentionally unified. This file is purely the visual
- * control: render the select value, call `window.setLocale`, react to
+ * control: render the select value, call `setLocale`, react to
  * `aurora:locale-changed` so the select stays in sync if the locale
  * flips from elsewhere.
  */
+
+import { setLocale, getLocale } from '../i18n/i18n.js';
 
 class LocaleToggle {
     constructor() {
@@ -34,10 +36,10 @@ class LocaleToggle {
             console.warn('LocaleToggle: #settings-language-select not found');
             return;
         }
-        this._render(window.getLocale ? window.getLocale() : 'pt');
+        this._render(getLocale());
         this.select.addEventListener('change', (e) => {
             const next = e.target.value === 'en' ? 'en' : 'pt';
-            if (window.setLocale) window.setLocale(next);
+            setLocale(next);
         });
         // Stay in sync if another component flips the locale.
         window.addEventListener('aurora:locale-changed', (e) => this._render(e.detail.locale));
@@ -51,5 +53,4 @@ class LocaleToggle {
     }
 }
 
-const localeToggle = new LocaleToggle();
-window.localeToggle = localeToggle;
+new LocaleToggle();

@@ -18,6 +18,10 @@
  * (entry sai, config some junto).
  */
 
+import { ProjectStore } from '../project/project_store.js';
+import { SpfStore } from '../project/spf_store.js';
+import { TabManager } from '../tabs/tab_manager.js';
+
 const DEFAULT_CONFIG = Object.freeze({
     clk: 100,
     numClocks: 2000,
@@ -97,7 +101,7 @@ class ProcessorConfigPanel {
 
         // Atualiza quando o projeto abre/fecha, o arquivo em foco
         // muda, ou processadores sao criados/deletados pelo main.
-        window.ProjectStore?.subscribe?.(() => this.refresh());
+        ProjectStore.subscribe(() => this.refresh());
         document.addEventListener('aurora:editing-file-changed', () => this.refresh());
         window.electronAPI?.onProcessorCreated?.(() => this.refresh());
         window.electronAPI?.onProcessorsUpdated?.(() => this.refresh());
@@ -109,10 +113,10 @@ class ProcessorConfigPanel {
         if (!this.anchor) return;
         const seq = ++this._refreshSeq;
         let processors = [];
-        const spfPath = window.ProjectStore?.getSpfPath?.();
-        if (spfPath && window.SpfStore) {
+        const spfPath = ProjectStore.getSpfPath();
+        if (spfPath) {
             try {
-                const structure = await window.SpfStore.read(spfPath);
+                const structure = await SpfStore.read(spfPath);
                 processors = (structure.processors || [])
                     .filter((p) => p && (typeof p === 'string' ? p : p.name));
             } catch (err) {
@@ -123,7 +127,7 @@ class ProcessorConfigPanel {
 
         this.processors = processors;
         const procNames = processors.map((p) => (typeof p === 'string' ? p : p.name));
-        const editingPath = window.TabManager?.getEditingFilePath?.() || '';
+        const editingPath = TabManager.getEditingFilePath?.() || '';
         this.activeProc = this._matchProcessorFromPath(editingPath, procNames);
 
         const enabled = !!this.activeProc;
@@ -215,10 +219,10 @@ class ProcessorConfigPanel {
 
     async _save(patch) {
         if (!this.activeProc) return;
-        const spfPath = window.ProjectStore?.getSpfPath?.();
-        if (!spfPath || !window.SpfStore) return;
+        const spfPath = ProjectStore.getSpfPath();
+        if (!spfPath) return;
         try {
-            await window.SpfStore.update(spfPath, (structure) => {
+            await SpfStore.update(spfPath, (structure) => {
                 // Normaliza entries string-only (ex: .spf com schema
                 // antigo). Cada entry vira `{ name, clk, numClocks,
                 // showArrays }` — sem perder o `name`.
@@ -326,5 +330,4 @@ class ProcessorConfigPanel {
     }
 }
 
-const processorConfigPanel = new ProcessorConfigPanel();
-window.processorConfigPanel = processorConfigPanel;
+export const processorConfigPanel = new ProcessorConfigPanel();

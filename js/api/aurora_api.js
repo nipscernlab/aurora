@@ -39,6 +39,7 @@ import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SharedModelRegistry } from '../editor/shared_models.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
+import { processorConfigPanel } from '../processors/processor_config_panel.js';
 import {
   getSimulator as getWaveSimulator,
   setSimulator as setWaveSimulator,
@@ -1459,7 +1460,7 @@ const projectNs = {
       });
       if (!foundProc) return err(`processor not in this project: ${processorName}`);
       // Refresh the panel popover so any open UI reflects the change.
-      window.processorConfigPanel?.refresh?.();
+      processorConfigPanel.refresh();
       emit('project:processor-config-changed', { processorName, ...patch });
       return ok(finalCfg);
     } catch (e) { return err(e?.message || 'setProcessorConfig failed'); }

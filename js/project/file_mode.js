@@ -732,10 +732,9 @@ class ProjectTreeManager {
             // — refresh pra repopular sem precisar recarregar o projeto.
             window.gtkwPickerManager?.refresh?.();
 
-            // Status bar (zona direita) reflete topLevelFile/testbenchFile.
-            // Mesmo spfPath, conteudo mudou — ProjectStore.subscribe nao
-            // dispara aqui, precisa de chamada explicita.
-            window.statusBarManager?.refresh?.();
+            // Status bar (zona direita) reflete topLevelFile/testbenchFile —
+            // atualiza via aurora:spf-changed, disparado pelo SpfStore.update
+            // acima quando o conteudo realmente mudou.
 
             console.log('Saved configuration with categories');
         } catch (error) {

@@ -432,7 +432,8 @@ export class TabManager {
         });
 
         addAvailableProcessor(processorName);
-        window.statusBarManager?.refresh?.();
+        // Status bar / config panel atualizam via aurora:spf-changed,
+        // disparado pelo SpfStore.update acima quando a lista mudou.
     }
 
     static async saveCmmProcessorFile(selectedPath, content) {

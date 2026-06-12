@@ -571,7 +571,7 @@
             <span data-i18n="statusBar.noTestbench">No testbench</span>
         </div>
         <!-- Simulation engine for the testbench (Icarus Verilog / Verilator).
-             Populated by status_bar.js from the global getWaveSimulator();
+             Populated by status_bar.js from simulator_preference's getSimulator();
              only shown when a testbench is set. Mirrors the toolbar switch. -->
         <div class="status-item hidden" id="simulatorEngineStatus" data-tooltip="Simulation engine" data-i18n-tooltip="statusBar.simulatorEngineTooltip">
             <i class="ph ph-cpu"></i>
@@ -1323,7 +1323,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- Classic scripts (loaded synchronously, define globals) -->
 <script src="./js/ui/status_updater.js"></script>
-<script src="./js/ui/status_bar.js"></script>
 <script src="./js/i18n/i18n.js" type="module"></script>
 
 <!-- ES modules (defer by default, dependency-resolved) -->
@@ -1336,6 +1335,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/processors/aurora_settings.js" type="module"></script>
 <script src="./js/ui/modal_system.js" type="module"></script>
 <script src="./js/processors/processor_config_panel.js" type="module"></script>
+<script src="./js/ui/status_bar.js" type="module"></script>
 <script src="./js/ui/icon_aurora.js" type="module"></script>
 <script src="./js/ui/new_project_modal.js" type="module"></script>
 <script src="./js/project/recent_projects.js" type="module"></script>

@@ -27,14 +27,24 @@
  *   - electronAPI.onProcessorCreated / onProcessorsUpdated — captura
  *     criar/deletar processadores em runtime (o .spf ja foi reescrito
  *     pelo main process quando esses chegam).
- *   - window.statusBarManager.refresh() — chamada explicita pelo
- *     ProjectTreeManager apos saveConfiguration; mudancas no conteudo
- *     do .spf nao alteram o spfPath e portanto nao disparam
- *     subscribers do ProjectStore.
+ *   - aurora:spf-changed — disparado por SpfStore.update apos cada
+ *     escrita com mudanca real (e sintetizado pelo project_manager no
+ *     load). Cobre saveConfiguration / registerProcessor / AuroraAPI —
+ *     ninguem precisa (nem deve) chamar refresh() direto.
+ *
+ * Observador puro: este modulo nao e importado por ninguem — toda
+ * atualizacao chega por evento ou subscribe. A logica de dominio
+ * "qual processador esta ativo" mora em project/active_processor.js;
+ * aqui so se renderiza o resultado.
  */
 
+import { ProjectStore } from '../project/project_store.js';
+import { SpfStore } from '../project/spf_store.js';
+import { getSimulator } from '../wave/simulator_preference.js';
+import { getActiveProcessorName } from '../project/active_processor.js';
+
 // Nomes de exibicao dos motores de simulacao (nomes proprios — nao
-// traduzidos). A chave casa com getWaveSimulator() / simulator_preference.
+// traduzidos). A chave casa com getSimulator() / simulator_preference.
 const ENGINE_LABELS = { iverilog: 'Icarus Verilog', verilator: 'Verilator' };
 
 class StatusBarManager {
@@ -68,7 +78,7 @@ class StatusBarManager {
             return;
         }
         // Auto-refresh quando o projeto e aberto/fechado.
-        window.ProjectStore?.subscribe?.(() => this.refresh());
+        ProjectStore.subscribe(() => this.refresh());
         // Mudanca do arquivo em foco no Monaco (mesmo evento que gate-ia
         // o botao C±).
         document.addEventListener('aurora:editing-file-changed', () => this.refresh());
@@ -96,10 +106,10 @@ class StatusBarManager {
         let topPath = '';
         let tbPath = '';
         let processors = [];
-        const spfPath = window.ProjectStore?.getSpfPath?.();
-        if (spfPath && window.SpfStore) {
+        const spfPath = ProjectStore.getSpfPath();
+        if (spfPath) {
             try {
-                const structure = await window.SpfStore.read(spfPath);
+                const structure = await SpfStore.read(spfPath);
                 topPath = structure.topLevelFile || '';
                 tbPath = structure.testbenchFile || '';
                 processors = (structure.processors || [])
@@ -110,32 +120,8 @@ class StatusBarManager {
             }
         }
         if (seq !== this._refreshSeq) return;
-        // Cache da ultima lista de processadores do .spf — getActiveProcessorName()
-        // recalcula contra o arquivo em foco ATUAL usando esta lista (sincrono),
-        // sem precisar reler o .spf. Atualizada nos mesmos eventos que pintam a
-        // status bar (spf/processor/projeto).
-        this._lastProcessors = processors;
         this._renderDesign(topPath, tbPath);
         this._renderActiveProcessor(processors);
-    }
-
-    /**
-     * Nome do processador ATIVO — exatamente o que a status bar mostra: o
-     * .cmm em foco cruzado com a lista de processadores do projeto.
-     * Recalcula a cada chamada a partir do arquivo em foco atual (sincrono),
-     * usando a ultima lista lida do .spf. Retorna null quando nao ha
-     * processador ativo (nenhum .cmm de processador em foco). Fonte unica
-     * usada tambem pelo gate e pelo alvo do botao Verilator (processador).
-     */
-    getActiveProcessorName() {
-        const editingPath = window.TabManager?.getEditingFilePath?.() || '';
-        // Prefere a lista lida do .spf; cai pra window.availableProcessors
-        // (mesmo conjunto de nomes) enquanto a 1a refresh ainda nao rodou,
-        // pra nao reportar "sem ativo" so por ordem de inicializacao.
-        const procs = (this._lastProcessors && this._lastProcessors.length)
-            ? this._lastProcessors
-            : (Array.isArray(window.availableProcessors) ? window.availableProcessors : []);
-        return this._matchProcessorFromPath(editingPath, procs);
     }
 
     _renderDesign(topPath, tbPath) {
@@ -155,7 +141,7 @@ class StatusBarManager {
      * Mostra o motor que vai simular o testbench (Icarus Verilog /
      * Verilator), logo apos o slot do testbench. So aparece quando ha um
      * testbench configurado — sem testbench nao ha o que simular. Usa a
-     * preferencia global (window.getWaveSimulator, de simulator_preference) —
+     * preferencia global (getSimulator, de simulator_preference) —
      * espelha o switch da toolbar. Vale tanto para testbench .v quanto cocotb
      * (.py): desde que cocotb passou a rodar no simulador escolhido (icarus OU
      * verilator), o motor mostrado segue o switch nos dois casos.
@@ -165,9 +151,7 @@ class StatusBarManager {
         const show = !!tbPath;
         this._toggle(this.engineEl, show);
         if (!show) return;
-        const sim = (typeof window.getWaveSimulator === 'function')
-            ? window.getWaveSimulator()
-            : 'iverilog';
+        const sim = getSimulator();
         const text = this.engineEl.querySelector('span');
         if (text) text.textContent = ENGINE_LABELS[sim] || ENGINE_LABELS.iverilog;
     }
@@ -181,8 +165,9 @@ class StatusBarManager {
         }
         this._toggle(this.activeProcEl, true);
 
-        const editingPath = window.TabManager?.getEditingFilePath?.() || '';
-        const activeName = this._matchProcessorFromPath(editingPath, processors);
+        // Passa a lista fresca recem-lida do .spf — mais atual que a
+        // sincrona do processor_list durante a 1a pintura.
+        const activeName = getActiveProcessorName(processors);
 
         const icon = this.activeProcEl.querySelector('i');
         const text = this.activeProcEl.querySelector('span');
@@ -194,26 +179,6 @@ class StatusBarManager {
             icon.className = 'ph ph-x-circle status-icon-error';
             text.textContent = window.t ? window.t('statusBar.noActiveProcessor') : 'No active processor';
         }
-    }
-
-    /**
-     * Determina o processador "ativo" a partir do .cmm em foco. Aceita
-     * o caminho convencional `<projectDir>/<procName>/Software/<x>.cmm`
-     * (prioriza o segmento de pasta — robusto a renames do .cmm) e cai
-     * pro basename como fallback. Retorna null se o arquivo em foco
-     * nao for .cmm ou nao casar com nenhum processador.
-     */
-    _matchProcessorFromPath(filePath, processors) {
-        if (!filePath || !filePath.toLowerCase().endsWith('.cmm')) return null;
-        const parts = filePath.split(/[\\/]/);
-        const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');
-        if (swIdx > 0) {
-            const candidate = parts[swIdx - 1];
-            if (processors.includes(candidate)) return candidate;
-        }
-        const base = parts[parts.length - 1].replace(/\.cmm$/i, '');
-        if (processors.includes(base)) return base;
-        return null;
     }
 
     _toggle(el, visible) {
@@ -237,5 +202,4 @@ class StatusBarManager {
     }
 }
 
-const statusBarManager = new StatusBarManager();
-window.statusBarManager = statusBarManager;
+export const statusBarManager = new StatusBarManager();

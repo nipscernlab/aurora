@@ -28,6 +28,7 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { switchTerminal } from '../terminal/terminal.js';
+import { getActiveProcessorName } from '../project/active_processor.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -522,7 +523,7 @@ async function handleVerilatorProcStep() {
         // Instrumenta o .cmm do processador ATIVO com #TOAQUI (pino `cheguei`
         // no fim do programa) — feito dentro do cmmCompilation, depois do
         // saveAllFiles. So o processador-alvo do botao e' tocado.
-        compiler._chegueiInstrumentProc = window.statusBarManager?.getActiveProcessorName?.() || null;
+        compiler._chegueiInstrumentProc = getActiveProcessorName() || null;
         await precompileAllProcessors(compiler, 'tcmm');
         switchTerminal('terminal-thtest');
         // O precompile (cmm+asm) deixou a barra de status em "Assembly".
@@ -687,7 +688,7 @@ async function syncToolbarEnabledState() {
     // na status bar (o .cmm em foco). Sem processador ativo → desabilitado.
     // Mesma fonte do alvo em _resolveProcessorTarget, entao gate e alvo nunca
     // divergem.
-    const hasActiveProc = !!window.statusBarManager?.getActiveProcessorName?.();
+    const hasActiveProc = !!getActiveProcessorName();
 
     setEnabled('vericomp', hasTop);
     setEnabled('prismcomp', hasTop);

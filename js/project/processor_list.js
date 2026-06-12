@@ -53,6 +53,14 @@ export function setAvailableProcessors(list) {
     window.availableProcessors = Array.isArray(list) ? dedup(list) : [];
 }
 /**
+ * Le a lista atual de nomes. Sempre retorna array (vazio quando nada
+ * foi semeado ainda). Preferir este getter ao read direto de
+ * `window.availableProcessors` em codigo novo.
+ */
+export function getAvailableProcessors() {
+    return Array.isArray(window.availableProcessors) ? window.availableProcessors : [];
+}
+/**
  * Acrescenta `name` em `window.availableProcessors` se ainda nao
  * estiver presente (match case-insensitive). No-op se `name` for
  * vazio ou nao-string.

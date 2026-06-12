@@ -20,7 +20,7 @@
 
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
-import { TabManager } from '../tabs/tab_manager.js';
+import { getActiveProcessorName } from '../project/active_processor.js';
 
 const DEFAULT_CONFIG = Object.freeze({
     clk: 100,
@@ -127,8 +127,7 @@ class ProcessorConfigPanel {
 
         this.processors = processors;
         const procNames = processors.map((p) => (typeof p === 'string' ? p : p.name));
-        const editingPath = TabManager.getEditingFilePath?.() || '';
-        this.activeProc = this._matchProcessorFromPath(editingPath, procNames);
+        this.activeProc = getActiveProcessorName(procNames);
 
         const enabled = !!this.activeProc;
         this.anchor.disabled = !enabled;
@@ -296,19 +295,6 @@ class ProcessorConfigPanel {
         // toolbar hairline) and the popover reads as a separate surface
         // floating beneath the gear button.
         this.panel.style.top = `${rect.bottom + 8}px`;
-    }
-
-    _matchProcessorFromPath(filePath, processors) {
-        if (!filePath || !filePath.toLowerCase().endsWith('.cmm')) return null;
-        const parts = filePath.split(/[\\/]/);
-        const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');
-        if (swIdx > 0) {
-            const candidate = parts[swIdx - 1];
-            if (processors.includes(candidate)) return candidate;
-        }
-        const base = parts[parts.length - 1].replace(/\.cmm$/i, '');
-        if (processors.includes(base)) return base;
-        return null;
     }
 
     _numericValue(input) {

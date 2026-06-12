@@ -57,6 +57,7 @@ import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
+import { getActiveProcessorName } from '../project/active_processor.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import {
   buildCmmSpec,
@@ -2995,13 +2996,13 @@ async _runFastCocotb(config) {
 /**
  * Resolve o processador-alvo do botao: o PROCESSADOR ATIVO mostrado na
  * status bar (o .cmm em foco no editor cruzado com a lista do projeto).
- * Fonte unica = window.statusBarManager.getActiveProcessorName(). Retorna
+ * Fonte unica = getActiveProcessorName() (project/active_processor). Retorna
  * o objeto do processador (com numClocks) ou null se nao ha ativo — caso
  * em que o botao ja deveria estar desabilitado; o run() trata o null com
  * uma mensagem clara como rede de seguranca (ex: chamada via AuroraAPI).
  */
 _resolveProcessorTarget() {
-    const activeName = window.statusBarManager?.getActiveProcessorName?.() || null;
+    const activeName = getActiveProcessorName() || null;
     if (!activeName) return null;
     const procs = (Array.isArray(this.projectConfig?.processors) ? this.projectConfig.processors : [])
         .map((p) => (typeof p === 'string' ? { name: p } : p))

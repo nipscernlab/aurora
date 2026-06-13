@@ -25,7 +25,7 @@
   line-height: 1.6;
   font-family: var(--font-mono);
   overflow: hidden;
-  z-index: 0;
+  z-index: var(--z-0);
   position: relative;
   transition: height 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }

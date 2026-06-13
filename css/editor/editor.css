@@ -25,7 +25,7 @@
 #monaco-editor {
   border-radius: 0;
   overflow: hidden;
-  z-index: 0;
+  z-index: var(--z-0);
 }
 
 /* AI edit flash — applied as a Monaco whole-line decoration on edited lines.
@@ -175,7 +175,7 @@
   background-color: var(--border);
   transition: background-color 0.15s ease;
   position: relative;
-  z-index: 10;
+  z-index: var(--z-10);
   user-select: none;
 }
 

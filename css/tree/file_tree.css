@@ -44,7 +44,7 @@
   user-select: none;
   overflow: hidden;
   border-right: 1px solid var(--border);
-  z-index: 1;
+  z-index: var(--z-1);
 }
 
 .file-tree-header {

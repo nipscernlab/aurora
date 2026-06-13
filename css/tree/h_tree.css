@@ -179,7 +179,7 @@
   justify-content: center;
   flex-shrink: 0;
   position: relative;
-  z-index: 1;            /* node sits above the trunk */
+  z-index: var(--z-1);            /* node sits above the trunk */
   transition: color 140ms ease;
 }
 

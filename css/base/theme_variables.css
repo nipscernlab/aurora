@@ -293,6 +293,15 @@
   --z-tooltip:      90;
   --z-notification: 95;
   --z-max:          100;
+  /* Overlay tier — context menus / dropdowns / the command palette that must
+     clear the in-app scale above. Same numeric values the literals used, named
+     so the stacking order is explicit (and ordered: dropdown < overlay <
+     popover < tooltip-top < command). */
+  --z-dropdown:     200;
+  --z-overlay:      1000;
+  --z-popover:      10000;
+  --z-tooltip-top:  10001;
+  --z-command:      10050;
 
   /* =========================================================================
    *  Retained tokens that are NOT simple aliases (real values still referenced).

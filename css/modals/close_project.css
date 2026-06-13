@@ -7,7 +7,7 @@
   border-radius: 0;
   color: white;
   font-weight: bold;
-  z-index: 1000;
+  z-index: var(--z-overlay);
   animation: slideIn 0.3s ease;
 }
 

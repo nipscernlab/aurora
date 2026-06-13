@@ -9,7 +9,7 @@
   position: fixed;
   inset: 0;
   /* Above modals/dropdowns while open (those use ~10000 literals). */
-  z-index: 10050;
+  z-index: var(--z-command);
   display: flex;
   justify-content: center;
   align-items: flex-start;

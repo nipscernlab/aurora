@@ -422,7 +422,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  z-index: 200;
+  z-index: var(--z-dropdown);
   min-width: 240px;
   max-width: 360px;
   max-height: 320px;
@@ -438,7 +438,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   position: fixed;
   top: 0;          /* JS sets the real top/left each open + on resize */
   left: 0;
-  z-index: 10000;
+  z-index: var(--z-popover);
 }
 
 .gtkw-picker-menu.hidden {

@@ -129,7 +129,7 @@
   text-align: left;
   cursor: pointer;
   position: relative;
-  z-index: 1;   /* keep label/icon above the sliding highlight pill */
+  z-index: var(--z-1);   /* keep label/icon above the sliding highlight pill */
   transition: background-color var(--transition-fast),
               color var(--transition-fast);
 }
@@ -156,7 +156,7 @@
   background: var(--accent-soft);
   opacity: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: var(--z-0);
   transition: transform 260ms var(--ease-aurora),
               height 260ms var(--ease-aurora);
 }

@@ -266,7 +266,7 @@ body.ai-assistant-open {
 .ai-aurora-glow {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: var(--z-0);
   pointer-events: none;
   background:
     /* pink plate, low-left */
@@ -303,7 +303,7 @@ body.ai-assistant-open {
 .ai-assistant-content > .ai-messages,
 .ai-assistant-content > .ai-input-area {
   position: relative;
-  z-index: 1;
+  z-index: var(--z-1);
 }
 
 /* ---------------------------------------------------------------------------

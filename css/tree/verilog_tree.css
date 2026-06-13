@@ -41,7 +41,7 @@
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-md);
   pointer-events: none;
-  z-index: 100;
+  z-index: var(--z-max);
 }
 
 /* ---------------------------------------------------------------------------
@@ -390,7 +390,7 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
   padding: var(--space-1);
   min-width: 180px;
-  z-index: 10000;
+  z-index: var(--z-popover);
   opacity: 0;
   transform: scale(0.97);
   transition: opacity 120ms var(--ease-out-quart),

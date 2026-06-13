@@ -273,11 +273,9 @@ class ProjectTreeManager {
             });
         }
 
-        this.elements.refreshButton?.addEventListener('click', () => {
-            if (this.isTreeActive) {
-                this.refreshTree();
-            }
-        });
+        // Refresh-button click is owned by file_tree_manager.js (which routes to
+        // the right renderer per active view). A second listener here fired
+        // refreshTree a second time on every click (P5) — removed.
 
         // Criacao/delete de processadores no main process — o .spf ja
         // foi reescrito quando esses eventos chegam aqui. Sem isso, a

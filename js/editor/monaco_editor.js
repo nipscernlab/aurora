@@ -802,8 +802,14 @@ async function ensureMonacoInitialized() {
 }
 
 // Enhanced Monaco initialization with custom themes
-async function initMonaco() {
-    return new Promise((resolve) => {
+let _monacoReady = null;
+function initMonaco() {
+    // Idempotent: both renderer.js and this module's own DOMContentLoaded
+    // bootstrap call initMonaco, so memoize the promise — Monaco's AMD modules
+    // load and the languages/theme register exactly once, and both awaiters
+    // share the single resolution (P5).
+    if (_monacoReady) return _monacoReady;
+    _monacoReady = new Promise((resolve) => {
         require(['vs/editor/editor.main'], function () {
             setupCMMLanguage();
             setupASMLanguage();
@@ -947,6 +953,7 @@ async function initMonaco() {
             resolve();
         });
     });
+    return _monacoReady;
 }
 
 function setupASMLanguage() {

@@ -1875,6 +1875,12 @@ async def basic_test(dut):
 
     // Initialize on script load
     static initialize() {
+        // Idempotent: this runs at module load (bottom of this file) AND from
+        // renderer.js on DOMContentLoaded. Without the guard every listener
+        // here — including onFileChanged — was registered twice, so an external
+        // change fired its handler (and a reload) twice (P5).
+        if (this._initialized) return;
+        this._initialized = true;
         this.initSortableTabs();
         this.restoreTabOrder();
         this.initFileChangeListeners();

@@ -436,27 +436,25 @@ export const RenderMixin = {
         const fileObj = (typeof file === 'string') ? { name: file } : (file || {});
         const ext = this.getFileExtension(fileObj.name || '');
 
+        // Phosphor icons (unified with the rest of the IDE; FontAwesome retired
+        // here). Category is read from the icon SHAPE: cpu = synthesizable,
+        // flask = testbench; top-level files get a flag / test-tube marker.
         if (ext === '.v' || ext === '.sv') {
             const isTestbench = fileObj.category === 'testbench';
-            // Arquivos marcados como "Top Level" (synth) ou "Testbench
-            // top" recebem icones proprios pra serem identificaveis na
-            // arvore sem precisar ler nada. Os demais recebem o icone
-            // da categoria auto-detectada — microchip pra sintetizavel,
-            // flask pra testbench (synth-vs-tb nao tem mais toggle).
             if (fileObj.isTopLevel) {
-                return isTestbench ? 'fa-solid fa-vial' : 'fa-solid fa-flag';
+                return isTestbench ? 'ph ph-test-tube' : 'ph ph-flag-pennant';
             }
-            return isTestbench ? 'fa-solid fa-flask' : 'fa-solid fa-microchip';
+            return isTestbench ? 'ph ph-flask' : 'ph ph-cpu';
         } else if (ext === '.py') {
-            return fileObj.isTopLevel ? 'fa-solid fa-vial' : 'fa-brands fa-python';
+            return fileObj.isTopLevel ? 'ph ph-test-tube' : 'ph ph-file-py';
         } else if (ext === '.cmm') {
-            return 'fa-solid fa-file-code';
+            return 'ph ph-file-code';
         } else if (ext === '.txt') {
-            return 'fa-solid fa-file-lines';
+            return 'ph ph-file-text';
         } else if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'].includes(ext)) {
-            return 'fa-solid fa-image';
+            return 'ph ph-image';
         }
 
-        return 'fa-solid fa-file';
+        return 'ph ph-file';
     },
 };

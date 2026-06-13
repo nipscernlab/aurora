@@ -79,15 +79,27 @@ vec4 aurora(vec3 ro, vec3 rd, float time){
 }
 
 void main(){
+  vec2 uv = gl_FragCoord.xy / uRes.xy;          // 0..1, y up
   // Aspect-correct, centre-origin sky coords.
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes.xy) / uRes.y;
   // Camera looking slightly up so the continuous sheet sweeps across the panel.
   vec3 ro = vec3(0.0, 0.0, -6.7);
-  vec3 rd = normalize(vec3(p.x, p.y * 0.5 + 0.13, 1.0));
+  vec3 rd = normalize(vec3(p.x, p.y * 0.5 + 0.10, 1.0));
 
   vec3 col = aurora(ro, rd, uTime * 0.5).rgb;
-  // Soft green horizon airglow so the lower edge never falls fully dark.
-  col += vec3(0.10, 0.32, 0.22) * smoothstep(0.30, -0.30, p.y) * 0.16;
+
+  // Richer palette: push the brighter UPPER reaches toward violet → magenta →
+  // pink (nitrogen pinks ride above the oxygen green of a real aurora), so the
+  // tips that rise up carry purple/pink while the base stays green/cyan.
+  float hi = smoothstep(0.18, 0.62, uv.y);
+  col = mix(col, col * vec3(1.55, 0.70, 1.75) + vec3(0.10, 0.0, 0.20) * length(col), hi * 0.55);
+
+  // Rise from the bottom: concentrate the sheet low and fade it out before the
+  // welcome content so it accents rather than fills/pollutes the screen.
+  col *= smoothstep(0.82, 0.04, uv.y);
+
+  // Soft green airglow hugging the very bottom edge.
+  col += vec3(0.10, 0.32, 0.22) * smoothstep(0.22, -0.05, uv.y) * 0.14;
 
   float lum = max(col.r, max(col.g, col.b));
   float alpha = clamp(lum * 1.7, 0.0, 1.0) * uIntensity;

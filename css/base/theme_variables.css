@@ -127,6 +127,17 @@
   --shadow-inset-line:  inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 
   /* =========================================================================
+   *  Light & focus — eleva por luz, não por sombra (DESIGN §4/§5)
+   * ======================================================================= */
+  --border-hairline:  var(--border-subtle);                  /* 1px quase invisível */
+  --border-luminous:  rgba(142, 131, 232, 0.45);             /* borda que brilha (modal/ativo) */
+  --elev-raised:      0 0 0 1px var(--border), var(--shadow-inset-line);          /* "subiu" por borda+luz */
+  --elev-overlay:     0 0 0 1px var(--border-luminous), 0 0 28px -10px var(--accent-glow);
+  /* O raio de foco vertical — o feixe luminoso da aurora (DESIGN §5) */
+  --ray:        linear-gradient(180deg, var(--aurora-mint) 0%, var(--aurora-teal) 35%, var(--aurora-cyan) 60%, var(--aurora-violet) 100%);
+  --ray-width:  2px;
+
+  /* =========================================================================
    *  Spacing — 4px scale
    * ======================================================================= */
   --space-0:  0;
@@ -234,15 +245,33 @@
   --h-tree-item:  24px;
 
   /* =========================================================================
-   *  Motion
+   *  Motion — "deriva de aurora" (ver docs/DESIGN.md §6)
+   *  A aurora escorre: fluxo contínuo e eased, NUNCA spring/bounce.
+   *  Regra: animar só transform/opacity (orçamento ~6ms/frame @165Hz).
    * ======================================================================= */
-  --transition-fast:   140ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-normal: 220ms cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow:   400ms cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-out-quart:    cubic-bezier(0.165, 0.84, 0.44, 1);
-  --ease-out-expo:     cubic-bezier(0.19, 1, 0.22, 1);
-  --ease-spring:       cubic-bezier(0.34, 1.56, 0.64, 1);
-  --transition-bounce: 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Easings — a curva da deriva */
+  --ease-aurora:    cubic-bezier(0.4, 0, 0.2, 1);      /* entrada/saída padrão */
+  --ease-reveal:    cubic-bezier(0.16, 1, 0.3, 1);     /* "cortina que clareia" — desacelera longo */
+  --ease-exit:      cubic-bezier(0.4, 0, 1, 1);        /* sai rápido, sem eco */
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --ease-out-expo:  cubic-bezier(0.19, 1, 0.22, 1);
+
+  /* Durações */
+  --dur-instant: 80ms;    /* feedback de toque */
+  --dur-quick:   140ms;   /* hover, foco, micro-troca */
+  --dur-flow:    260ms;   /* abrir painel, trocar aba, revelar */
+  --dur-curtain: 420ms;   /* modais, overlays, transição de tela */
+  --dur-ambient: 18s;     /* deriva de fundo do <aurora-canvas> */
+
+  /* Transitions compostas (duração + easing) */
+  --transition-fast:   var(--dur-quick) var(--ease-aurora);
+  --transition-normal: var(--dur-flow) var(--ease-aurora);
+  --transition-slow:   var(--dur-curtain) var(--ease-aurora);
+  --transition-reveal: var(--dur-flow) var(--ease-reveal);
+
+  /* DEPRECADO — aurora não salta. Repontado para curvas sem overshoot. */
+  --ease-spring:       var(--ease-reveal);
+  --transition-bounce: var(--transition-normal);
 
   /* =========================================================================
    *  Z-index

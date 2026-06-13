@@ -14,6 +14,7 @@
 
 /* 1. base */
 @import url("./base/theme_variables.css");
+@import url("./base/aurora_canvas.css");
 @import url("./base/styles.css");
 @import url("./base/layout.css");
 

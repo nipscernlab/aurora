@@ -1,0 +1,267 @@
+/**
+ * <aurora-canvas> — the signature ambient aurora (docs/DESIGN.md §7).
+ *
+ * A real aurora borealis rendered with a WebGL fragment shader: slow,
+ * continuous, drifting curtains in the brand spectrum (mint → teal → cyan →
+ * violet). It is the product's namesake done with restraint — used ONLY on
+ * non-blocking chrome (welcome screen, splash), never behind reading text.
+ *
+ * Design constraints honoured here:
+ *  - Drift, never pulse: a single slow noise field over `--dur-ambient` feel.
+ *  - Cheap: renders at a capped device-pixel-ratio (half-res) and upscales.
+ *  - Polite: pauses the rAF loop when off-screen (IntersectionObserver) or
+ *    when the window loses focus; stops entirely on prefers-reduced-motion or
+ *    when WebGL is unavailable, falling back to a static CSS gradient.
+ *
+ * Self-registering vanilla custom element — no framework dependency, so it
+ * loads under the current renderer architecture. Attributes:
+ *  - intensity : 0..1 overall brightness (default 0.85)
+ *  - speed     : drift multiplier (default 1)
+ *
+ * Usage:  <aurora-canvas intensity="0.8"></aurora-canvas>
+ */
+
+const VERT = `
+attribute vec2 aPos;
+void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+
+const FRAG = `
+precision highp float;
+uniform vec2  uRes;
+uniform float uTime;
+uniform float uIntensity;
+
+float hash(vec2 p){ p = fract(p * vec2(123.34, 345.45)); p += dot(p, p + 34.345); return fract(p.x * p.y); }
+float noise(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  float a = hash(i), b = hash(i + vec2(1.0, 0.0));
+  float c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+float fbm(vec2 p){
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.02; a *= 0.5; }
+  return v;
+}
+
+// The aurora ribbon — emission spectrum (oxygen green → nitrogen violet).
+vec3 ribbon(float t){
+  vec3 mint = vec3(0.373, 0.878, 0.690);
+  vec3 teal = vec3(0.310, 0.827, 0.761);
+  vec3 cyan = vec3(0.357, 0.722, 0.910);
+  vec3 viol = vec3(0.557, 0.514, 0.910);
+  vec3 c = mix(mint, teal, smoothstep(0.0, 0.34, t));
+  c = mix(c, cyan, smoothstep(0.34, 0.66, t));
+  c = mix(c, viol, smoothstep(0.66, 1.0, t));
+  return c;
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes.xy;
+  vec2 p  = vec2(uv.x * (uRes.x / uRes.y), uv.y);
+  float t = uTime * 0.05;
+
+  // Curtains: warp x by a slow field, then band it. Aurora undulates, not blinks.
+  float warp    = fbm(vec2(p.x * 1.5 + t, p.y * 0.6 - t * 0.3));
+  float curtain = fbm(vec2(p.x * 3.0 + warp * 1.2 + t * 0.6, p.y * 0.4));
+  float vfall   = smoothstep(1.10, 0.10, uv.y);   // brighter low on the sky
+  float bands   = pow(curtain, 1.7);
+  float glow    = bands * vfall;
+
+  float ct  = clamp(warp * 0.6 + uv.y * 0.5, 0.0, 1.0);
+  vec3  col = ribbon(ct) * glow;
+
+  // Faint vertical rays threading the curtains.
+  float rays = fbm(vec2(p.x * 8.0 + t * 0.4, t * 0.2));
+  col += ribbon(ct) * pow(rays, 3.0) * vfall * 0.5;
+
+  float alpha = clamp(glow * 1.2, 0.0, 1.0) * uIntensity;
+  gl_FragColor = vec4(col * uIntensity, alpha);
+}
+`;
+
+class AuroraCanvas extends HTMLElement {
+  constructor() {
+    super();
+    this._raf = 0;
+    this._gl = null;
+    this._program = null;
+    this._uniforms = null;
+    this._canvas = null;
+    this._start = 0;
+    this._last = 0;
+    this._running = false;
+    this._visible = true;
+    this._onResize = this._onResize.bind(this);
+    this._onVisibility = this._onVisibility.bind(this);
+    this._tick = this._tick.bind(this);
+  }
+
+  get intensity() {
+    const v = parseFloat(this.getAttribute('intensity'));
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.85;
+  }
+
+  get speed() {
+    const v = parseFloat(this.getAttribute('speed'));
+    return Number.isFinite(v) ? v : 1;
+  }
+
+  connectedCallback() {
+    // Honour reduced-motion and absent WebGL by leaving the CSS fallback (a
+    // static gradient set on the host via aurora_canvas.css) in place.
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) { this.setAttribute('data-fallback', 'static'); return; }
+
+    this._canvas = document.createElement('canvas');
+    this._canvas.className = 'aurora-canvas__gl';
+    this.appendChild(this._canvas);
+
+    if (!this._initGL()) {
+      this.setAttribute('data-fallback', 'static');
+      if (this._canvas) { this._canvas.remove(); this._canvas = null; }
+      return;
+    }
+
+    this.setAttribute('data-fallback', 'none');
+    this._observer = new IntersectionObserver((entries) => {
+      this._visible = entries.some((e) => e.isIntersecting);
+      this._visible ? this._play() : this._pause();
+    }, { threshold: 0.01 });
+    this._observer.observe(this);
+
+    window.addEventListener('resize', this._onResize, { passive: true });
+    window.addEventListener('blur', this._onVisibility);
+    window.addEventListener('focus', this._onVisibility);
+    document.addEventListener('visibilitychange', this._onVisibility);
+
+    this._onResize();
+    this._play();
+  }
+
+  disconnectedCallback() {
+    this._pause();
+    if (this._observer) { this._observer.disconnect(); this._observer = null; }
+    window.removeEventListener('resize', this._onResize);
+    window.removeEventListener('blur', this._onVisibility);
+    window.removeEventListener('focus', this._onVisibility);
+    document.removeEventListener('visibilitychange', this._onVisibility);
+    if (this._gl) {
+      const lose = this._gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+    }
+    this._gl = null;
+    this._program = null;
+  }
+
+  _initGL() {
+    const opts = { alpha: true, antialias: false, premultipliedAlpha: false, depth: false, powerPreference: 'low-power' };
+    const gl = this._canvas.getContext('webgl', opts) || this._canvas.getContext('experimental-webgl', opts);
+    if (!gl) return false;
+    this._gl = gl;
+
+    const vs = this._compile(gl.VERTEX_SHADER, VERT);
+    const fs = this._compile(gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) return false;
+
+    const program = gl.createProgram();
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return false;
+    this._program = program;
+    gl.useProgram(program);
+
+    // Full-screen triangle.
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(program, 'aPos');
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    this._uniforms = {
+      uRes: gl.getUniformLocation(program, 'uRes'),
+      uTime: gl.getUniformLocation(program, 'uTime'),
+      uIntensity: gl.getUniformLocation(program, 'uIntensity'),
+    };
+    return true;
+  }
+
+  _compile(type, src) {
+    const gl = this._gl;
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+      // Surface the reason in dev; the host keeps its CSS fallback.
+      console.warn('[aurora-canvas] shader compile failed:', gl.getShaderInfoLog(sh));
+      return null;
+    }
+    return sh;
+  }
+
+  _onResize() {
+    if (!this._gl || !this._canvas) return;
+    // Half-res render for cheap fill; CSS upscales. Cap DPR so a 4K panel
+    // doesn't pay full-res for an ambient effect.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * 0.6;
+    const w = Math.max(2, Math.floor(this.clientWidth * dpr));
+    const h = Math.max(2, Math.floor(this.clientHeight * dpr));
+    if (this._canvas.width !== w || this._canvas.height !== h) {
+      this._canvas.width = w;
+      this._canvas.height = h;
+    }
+    this._gl.viewport(0, 0, w, h);
+    if (!this._running) this._renderOnce();   // keep a fresh frame while paused
+  }
+
+  _onVisibility() {
+    const hidden = document.hidden || !document.hasFocus();
+    (hidden || !this._visible) ? this._pause() : this._play();
+  }
+
+  _play() {
+    if (this._running || !this._gl) return;
+    this._running = true;
+    if (!this._start) this._start = performance.now();
+    this._last = performance.now();
+    this._raf = requestAnimationFrame(this._tick);
+  }
+
+  _pause() {
+    this._running = false;
+    if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; }
+  }
+
+  _tick(now) {
+    if (!this._running) return;
+    this._render((now - this._start) / 1000);
+    this._raf = requestAnimationFrame(this._tick);
+  }
+
+  _renderOnce() {
+    this._render(this._start ? (performance.now() - this._start) / 1000 : 0);
+  }
+
+  _render(timeSec) {
+    const gl = this._gl;
+    if (!gl || !this._program) return;
+    gl.useProgram(this._program);
+    gl.uniform2f(this._uniforms.uRes, this._canvas.width, this._canvas.height);
+    gl.uniform1f(this._uniforms.uTime, timeSec * this.speed);
+    gl.uniform1f(this._uniforms.uIntensity, this.intensity);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+}
+
+if (!customElements.get('aurora-canvas')) {
+  customElements.define('aurora-canvas', AuroraCanvas);
+}
+
+export { AuroraCanvas };

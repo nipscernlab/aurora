@@ -21,12 +21,13 @@
   background: var(--bg);
   overflow-y: auto;
   position: relative;
-  animation: welcomeFadeIn 200ms var(--ease-out-quart) both;
+  /* "cortina que clareia" — reveal pelo sistema de movimento aurora (DESIGN §6) */
+  animation: welcomeFadeIn var(--dur-curtain) var(--ease-reveal) both;
 }
 
 @keyframes welcomeFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Watermark — large SAPHO logo, dimmed to act as a brand backdrop.
@@ -80,8 +81,13 @@
 .welcome-mark {
   font-size: var(--text-lg);
   font-weight: var(--font-semibold);
-  color: var(--text);
   letter-spacing: 0.18em;
+  /* The brand spectrum on the wordmark (DESIGN §2). */
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
 }
 
 .welcome-tagline {

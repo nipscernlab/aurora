@@ -1718,6 +1718,8 @@ body.resizing-ai-corner .ai-resize-handle::after {
 .ai-tool-group-icon { font-size: 11px; color: var(--accent); }
 /* Finished sequence: the wrench becomes a green check (set in _closeToolGroup). */
 .ai-tool-group.done .ai-tool-group-icon { color: var(--status-success, #5cc98a); }
+/* …but red if any action in the batch failed or was denied. */
+.ai-tool-group.done.has-failure .ai-tool-group-icon { color: var(--status-error, #e26c6c); }
 .ai-tool-group-summary { flex: 1 1 auto; min-width: 0; }
 .ai-tool-group-body {
   display: flex;

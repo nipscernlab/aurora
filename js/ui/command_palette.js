@@ -11,9 +11,9 @@
  * command does exactly what the button does (including being a no-op when the
  * button is disabled), with no duplicated logic.
  *
- * Shortcuts: Ctrl/Cmd+Shift+P always opens it; Ctrl/Cmd+K opens it too, but
- * never while a Monaco editor input is focused (so it can't shadow Monaco's
- * Ctrl+K chords). Esc closes; ↑/↓ move; Enter runs.
+ * Shortcuts: Ctrl/Cmd+Shift+K (primary) or Ctrl/Cmd+Shift+P open it. Plain
+ * Ctrl+K is reserved for the AI panel, so we don't bind it. Esc closes; ↑/↓
+ * move; Enter runs.
  */
 
 /** Click a toolbar button by id if it exists and isn't disabled. */
@@ -223,16 +223,17 @@ class CommandPalette {
   }
 
   _onKeydown(e) {
-    // Open shortcuts (global).
+    // Open shortcuts (global). Ctrl/Cmd+Shift+K (primary) or +P. Ctrl+K alone is
+    // reserved for the AI panel, so it's intentionally not bound here.
     if (!this._open) {
       const k = e.key.toLowerCase();
       const mod = e.ctrlKey || e.metaKey;
-      if (mod && e.shiftKey && k === 'p') { e.preventDefault(); this.open(); return; }
-      if (mod && !e.shiftKey && k === 'k') {
-        // Don't shadow Monaco's Ctrl+K chord while its editor input is focused.
-        const ae = document.activeElement;
-        if (ae?.classList?.contains('inputarea')) return;
+      if (mod && e.shiftKey && (k === 'k' || k === 'p')) {
+        // Capture-phase + stopPropagation so it opens even over a focused
+        // Monaco editor (which binds Ctrl+Shift+K to delete-line) without also
+        // firing that command.
         e.preventDefault();
+        e.stopPropagation();
         this.open();
       }
       return;

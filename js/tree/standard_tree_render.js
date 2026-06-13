@@ -56,7 +56,10 @@ class StandardTreeRenderer {
         this._rendering = false;
         // Keep the open-in-editor file highlighted in the folder tree too
         // (parity with the verilog tree), updating as the active file changes.
-        window.addEventListener('aurora:editing-file-changed', () => this.refreshFocusHighlight());
+        // The event is dispatched on `document` (and doesn't bubble to window),
+        // so we MUST listen on document — listening on window silently never
+        // fired, which is why the folder tree never showed the open file.
+        document.addEventListener('aurora:editing-file-changed', () => this.refreshFocusHighlight());
     }
 
     isExpanded(path) { return this._expanded.has(path); }

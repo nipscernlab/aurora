@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAPHO</title>
-    <!-- Phosphor Icons (canonical, used everywhere visible) -->
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
+    <!-- Phosphor Icons (canonical, used everywhere visible) — bundled locally
+         (node_modules) instead of a render-blocking unpkg CDN fetch, so the
+         first paint never waits on the network and icons work offline. -->
+    <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/regular/style.css">
+    <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/bold/style.css">
     <!-- FontAwesome (legacy fallback for JS-injected icons in 24 modules — gradually being replaced) -->
     <link rel="stylesheet" href="node_modules/@fortawesome/fontawesome-free/css/all.css">
     <link rel="stylesheet" href="./css/import.css">

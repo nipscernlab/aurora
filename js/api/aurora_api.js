@@ -129,7 +129,7 @@ function flashLines(ed, startLine, endLine) {
     range: new window.monaco.Range(startLine, 1, endLine, Number.MAX_SAFE_INTEGER),
     options: { isWholeLine: true, className: 'ai-edit-flash-line' },
   }]);
-  setTimeout(() => ed.deltaDecorations(ids, []), 750);
+  setTimeout(() => ed.deltaDecorations(ids, []), 950);
 }
 
 /**
@@ -161,7 +161,7 @@ function magicWandReveal(ed) {
         range: new window.monaco.Range(1, 1, lineCount, Number.MAX_SAFE_INTEGER),
         options: { isWholeLine: true, className: 'aurora-edit-reveal' },
       }]);
-      setTimeout(() => { try { ed.deltaDecorations(ids, []); } catch (_) { /* disposed */ } }, 760);
+      setTimeout(() => { try { ed.deltaDecorations(ids, []); } catch (_) { /* disposed */ } }, 950);
     }
   } catch (_) { /* cosmetic only */ }
 }

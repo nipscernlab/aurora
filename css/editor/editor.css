@@ -28,15 +28,17 @@
   z-index: 0;
 }
 
-/* AI edit flash — applied as a Monaco whole-line decoration */
+/* AI edit flash — applied as a Monaco whole-line decoration on edited lines.
+   A purple wash plus a bright glow bar down the left edge that fades, so the
+   touched lines read as freshly conjured. */
 @keyframes ai-edit-flash {
-  0%   { background-color: rgba(142, 131, 232, 0.22); }
-  60%  { background-color: rgba(142, 131, 232, 0.10); }
-  100% { background-color: transparent; }
+  0%   { background-color: rgba(142, 131, 232, 0.30); box-shadow: inset 3px 0 0 rgba(208, 188, 255, 0.95); }
+  55%  { background-color: rgba(142, 131, 232, 0.14); }
+  100% { background-color: transparent; box-shadow: inset 3px 0 0 transparent; }
 }
 
 .ai-edit-flash-line {
-  animation: ai-edit-flash 700ms ease-out forwards;
+  animation: ai-edit-flash 900ms ease-out forwards;
 }
 
 /* AI magic-wand sweep — overlaid on the editor container when the AI
@@ -54,19 +56,21 @@
   inset: 0;
   pointer-events: none;
   z-index: 6;
-  /* Light-purple wand sweep — consistent with the chat's fade-reveal so
-     edits in the editor and the AI's words feel like the same gesture. */
+  /* Magic-wand stroke: a soft purple aura around a bright core line, sweeping
+     up the editor. `screen` makes the purple GLOW additively over the code
+     (revealing it) instead of laying a flat film on top. */
+  mix-blend-mode: screen;
   background: linear-gradient(
     to bottom,
-    transparent             0%,
-    rgba(196, 168, 255, 0.08) 25%,
-    rgba(196, 168, 255, 0.32) 48%,
-    rgba(196, 168, 255, 0.45) 50%,
-    rgba(196, 168, 255, 0.32) 52%,
-    rgba(196, 168, 255, 0.08) 75%,
-    transparent             100%
+    transparent                0%,
+    rgba(168, 140, 255, 0.04)  38%,
+    rgba(196, 168, 255, 0.34)  47%,
+    rgba(228, 212, 255, 0.72)  50%,   /* bright core of the stroke */
+    rgba(196, 168, 255, 0.34)  53%,
+    rgba(168, 140, 255, 0.04)  62%,
+    transparent                100%
   );
-  animation: ai-wand-sweep 820ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: ai-wand-sweep 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 /* ===================================================================================

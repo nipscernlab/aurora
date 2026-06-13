@@ -1154,80 +1154,10 @@
 
 <!-- Inline scripts (modal wiring + interactions) -->
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const triggerToModal = {
-        newProjectBtn: 'newProjectModal',
-        processorHub: 'modalContainer',
-        newProjectBtnWelcome: 'newProjectModal',
-    };
-
-    const modalIds = Array.from(new Set(Object.values(triggerToModal)));
-    const modals = {};
-    modalIds.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            if (!el.hasAttribute('aria-hidden')) el.setAttribute('aria-hidden', 'true');
-            if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '-1');
-            modals[id] = el;
-        } else {
-            console.warn('Modal not found:', id);
-        }
-    });
-
-    function openModal(modalId) {
-        const modal = modals[modalId];
-        if (!modal) return console.error('openModal: modal not registered:', modalId);
-        modal.classList.remove('hidden');
-        modal.setAttribute('aria-hidden', 'false');
-        modal.classList.add('show');
-        document.body.style.overflow = 'hidden';
-        const focusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        (focusable || modal).focus();
-    }
-
-    function closeModal(modalId) {
-        const modal = modals[modalId];
-        if (!modal) return console.error('closeModal: modal not registered:', modalId);
-        modal.setAttribute('aria-hidden', 'true');
-        modal.classList.remove('show');
-        const anyOpen = Object.values(modals).some(m => m.getAttribute('aria-hidden') === 'false');
-        if (!anyOpen) document.body.style.overflow = '';
-    }
-
-    Object.entries(triggerToModal).forEach(([triggerId, modalId]) => {
-        const btn = document.getElementById(triggerId);
-        if (!btn) return;
-        btn.disabled = false;
-        btn.classList.remove('disabled');
-        btn.removeAttribute('disabled');
-        document.addEventListener('click', (e) => {
-            if (e.target === btn || btn.contains(e.target)) {
-                e.preventDefault();
-                e.stopPropagation();
-                btn.disabled = false;
-                openModal(modalId);
-            }
-        }, true);
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' || e.key === 'Esc') {
-            Object.keys(modals).forEach(id => {
-                if (modals[id].getAttribute('aria-hidden') === 'false') closeModal(id);
-            });
-        }
-    });
-
-    document.getElementById('cancelProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
-    document.getElementById('generateProjectBtn')?.addEventListener('click', () => closeModal('newProjectModal'));
-    document.getElementById('cancelProcessorHub')?.addEventListener('click', () => closeModal('modalContainer'));
-    document.getElementById('generateProcessor')?.addEventListener('click', () => closeModal('modalContainer'));
-
-    window.__modalHelpers = {
-        openModalById: openModal,
-        closeModalById: closeModal
-    };
-});
+// The New Project / Processor Hub modal opener + trigger wiring moved to
+// js/ui/modal_system.js (one unified modal system). See it for openModal,
+// the capture-phase triggers, the cancel/confirm close wiring, and the
+// window.__modalHelpers shim.
 
 document.getElementById('reload-everything-terminal')?.addEventListener('click', () => {
     if (window.electronAPI?.reloadApp) window.electronAPI.reloadApp();

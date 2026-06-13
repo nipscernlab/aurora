@@ -50,6 +50,25 @@ function closeTopModal() {
   closeModal(top);
 }
 
+/**
+ * Open a modal. Both the `.show` class and `aria-hidden="false"` drive
+ * visibility (modal_config.css), so we set both; we also lock body scroll,
+ * focus the first control, and push onto the stack so ESC / backdrop close it
+ * through the unified path below.
+ */
+function openModal(modal) {
+  if (!modal || isOpen(modal)) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  if (!openStack.includes(modal)) openStack.push(modal);
+  const focusable = modal.querySelector(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+  );
+  (focusable || modal).focus();
+}
+
 // Wire automatic backdrop dismiss
 document.addEventListener('click', (e) => {
   const overlay = e.target.closest(MODAL_OVERLAY_SELECTOR);
@@ -94,4 +113,58 @@ document.addEventListener('DOMContentLoaded', () => {
       openStack.push(modal);
     }
   });
+});
+
+/* ---------------------------------------------------------------------------
+ *  Opener + trigger wiring
+ *
+ *  Relocated here from a parallel modal script that used to live inline in
+ *  index.html — so there is now ONE modal system. The buttons that open the
+ *  New Project and Processor Hub modals open them authoritatively on the
+ *  capture phase (before any other click handler on the same button, e.g.
+ *  processor_hub.js), exactly as the old inline code did. ESC / backdrop now
+ *  close them through the unified stack above (the inline copy is gone).
+ * ------------------------------------------------------------------------- */
+const TRIGGER_TO_MODAL = {
+  newProjectBtn: 'newProjectModal',
+  newProjectBtnWelcome: 'newProjectModal',
+  processorHub: 'modalContainer',
+};
+// Buttons that close a modal on click, in addition to their own submit/cancel
+// handlers (mirrors the old explicit listeners).
+const CLOSE_TO_MODAL = {
+  cancelProjectBtn: 'newProjectModal',
+  generateProjectBtn: 'newProjectModal',
+  cancelProcessorHub: 'modalContainer',
+  generateProcessor: 'modalContainer',
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  for (const [triggerId, modalId] of Object.entries(TRIGGER_TO_MODAL)) {
+    const btn = document.getElementById(triggerId);
+    const modal = document.getElementById(modalId);
+    if (!btn || !modal) continue;
+    if (!modal.hasAttribute('tabindex')) modal.setAttribute('tabindex', '-1');
+    btn.disabled = false;
+    btn.classList.remove('disabled');
+    btn.removeAttribute('disabled');
+    document.addEventListener('click', (e) => {
+      if (e.target === btn || btn.contains(e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+        openModal(modal);
+      }
+    }, true);
+  }
+  for (const [btnId, modalId] of Object.entries(CLOSE_TO_MODAL)) {
+    document.getElementById(btnId)?.addEventListener('click', () => {
+      const modal = document.getElementById(modalId);
+      if (modal) closeModal(modal);
+    });
+  }
+  // Back-compat shim for any dynamic / onclick code that reached for these.
+  window.__modalHelpers = {
+    openModalById: (id) => openModal(document.getElementById(id)),
+    closeModalById: (id) => closeModal(document.getElementById(id)),
+  };
 });

@@ -1,6 +1,7 @@
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
+import { switchTerminal } from './terminal.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
 // compile (Verilator/iverilog dumping thousands of lines) appends one node
@@ -216,10 +217,11 @@ class TerminalManager {
     revealActiveOutputTerminal(terminalId) {
         const tab = document.querySelector(`.terminal-tabs .tab[data-terminal="${terminalId}"]`);
         if (!tab || tab.classList.contains('active')) return;
-        document.querySelectorAll('.terminal-content').forEach((c) => c.classList.add('hidden'));
-        document.querySelectorAll('.terminal-tabs .tab').forEach((t) => t.classList.remove('active'));
-        document.getElementById(`terminal-${terminalId}`)?.classList.remove('hidden');
-        tab.classList.add('active');
+        // Delegate to switchTerminal so the shared sliding indicator follows the
+        // output as a compilation moves between phases. (This used to set the
+        // .active class directly, which left the accent bar behind — the
+        // "the purple bar should move during compilations too" report.)
+        switchTerminal(`terminal-${terminalId}`);
     }
 
     processExecutableOutput(terminalId, result) {
@@ -290,6 +292,10 @@ class TerminalManager {
 
         let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
         if (!text.trim()) return;
+
+        // Wrapper messages (banners, phase notes) also pull focus to their
+        // terminal so the active tab + sliding bar follow the compilation.
+        this.revealActiveOutputTerminal(terminalId);
 
         // Anything that comes through appendToTerminal is, by definition,
         // an Aurora wrapper message (compiler output uses processStreamedLine /
@@ -853,6 +859,9 @@ createLogEntry(terminal, text, type, timestamp) {
     renderHardwareProgress(terminalId, p) {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
+
+        // The hardware test runs in THTEST — pull focus there so its bar is seen.
+        this.revealActiveOutputTerminal(terminalId);
 
         this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
         let el = this.updatableCards[terminalId].hwProgress;

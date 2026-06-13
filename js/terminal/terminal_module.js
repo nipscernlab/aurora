@@ -147,7 +147,7 @@ class TerminalManager {
     }
 
     recountMessages(terminalId) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         const counts = { error: 0, warning: 0, success: 0, tips: 0 };
@@ -224,8 +224,27 @@ class TerminalManager {
         switchTerminal(`terminal-${terminalId}`);
     }
 
+    /**
+     * Elemento .terminal-body vivo de um terminal, re-consultando o DOM se a
+     * referencia em cache for nula ou estiver destacada. `this.terminals` foi
+     * capturado uma unica vez no construtor (document.querySelector); se o
+     * singleton nasceu antes do DOM do terminal existir, a referencia ficava
+     * nula PRA SEMPRE e toda escrita era engolida pelo `if (!terminal) return`
+     * — o sintoma "a IA compila mas o terminal (vazio) nunca recebe nada".
+     * Re-consultar torna a escrita resiliente a ordem de init e a qualquer
+     * reconstrucao do painel.
+     */
+    _resolveTerminal(terminalId) {
+        let el = this.terminals[terminalId];
+        if (!el || !el.isConnected) {
+            el = document.querySelector(`#terminal-${terminalId} .terminal-body`);
+            if (el) this.terminals[terminalId] = el;
+        }
+        return el || null;
+    }
+
     processExecutableOutput(terminalId, result) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal || (!result.stdout && !result.stderr)) {
             return;
         }
@@ -263,7 +282,7 @@ class TerminalManager {
     }
 
     processStreamedLine(terminalId, line) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal || !line) return;
 
         this.revealActiveOutputTerminal(terminalId);
@@ -287,7 +306,7 @@ class TerminalManager {
     }
 
     appendToTerminal(terminalId, content, type = 'info', options = {}) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
@@ -366,7 +385,7 @@ class TerminalManager {
     }
 
     applyFilter(terminalId) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         const cards = terminal.querySelectorAll('.log-entry');
@@ -581,7 +600,7 @@ class TerminalManager {
     }
 
     addToSessionCard(terminalId, text, type) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         let card = this.currentSessionCards[terminalId][type];
@@ -857,7 +876,7 @@ createLogEntry(terminal, text, type, timestamp) {
      *          label:string, done?:boolean}} p
      */
     renderHardwareProgress(terminalId, p) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         // The hardware test runs in THTEST — pull focus there so its bar is seen.
@@ -919,7 +938,7 @@ createLogEntry(terminal, text, type, timestamp) {
      * @param {string} [type='success']
      */
     appendFolderLink(terminalId, message, folderPath, type = 'success') {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         const ts = new Date().toLocaleString('pt-BR', { hour12: false });
@@ -1186,7 +1205,7 @@ createLogEntry(terminal, text, type, timestamp) {
         pending.add(terminalId);
         requestAnimationFrame(() => {
             pending.delete(terminalId);
-            const terminal = this.terminals[terminalId];
+            const terminal = this._resolveTerminal(terminalId);
             if (!terminal) return;
             this.trimTerminal(terminal);
             this.recountMessages(terminalId);
@@ -1196,7 +1215,7 @@ createLogEntry(terminal, text, type, timestamp) {
     }
 
     scrollToBottom(terminalId) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         // Coalesce bursts of scroll requests (the autoscroll MutationObserver
@@ -1215,7 +1234,7 @@ createLogEntry(terminal, text, type, timestamp) {
     }
 
 async clearTerminal(terminalId) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
         // No pill here: clearTerminal is also called programmatically at the
@@ -1239,7 +1258,7 @@ async clearTerminal(terminalId) {
 
     /** Transient confirmation pill — fired by the manual clear button only. */
     _flashCleared(terminalId, message = 'Terminal cleared') {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
         terminal.querySelector(':scope > .terminal-cleared-pill')?.remove();
         const pill = document.createElement('div');
@@ -1270,7 +1289,7 @@ async clearTerminal(terminalId) {
      * run and erase its initial lines.
      */
     clearTerminalImmediate(terminalId) {
-        const terminal = this.terminals[terminalId];
+        const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
         terminal.classList.remove('faded-out');
         terminal.innerHTML = '';

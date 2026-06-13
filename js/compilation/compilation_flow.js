@@ -130,6 +130,53 @@ function endCompilation() {
        etc). Hoje no-op — toolbar buttons ficam sempre habilitados. */
 }
 
+/**
+ * Terminal manager vivo. Este arquivo costumava escrever no global
+ * `window.terminalManager`, que NAO existe mais (so window.globalTerminalManager
+ * e setado, em renderer.js) — todo `window.terminalManager?.appendToTerminal?.`
+ * era engolido pelo `?.`, entao banners/avisos da compilacao (inclusive os
+ * disparados pela Aurora Intelligence) nunca apareciam. Resolve o singleton
+ * real sob demanda. initializeGlobalTerminalManager() e idempotente.
+ */
+function getTM() {
+    return (typeof window !== 'undefined')
+        ? (window.globalTerminalManager
+            || window.initializeGlobalTerminalManager?.()
+            || window._latestCompilationModule?.terminalManager
+            || null)
+        : null;
+}
+
+// Ultimo processador que teve um .cmm em foco. A IA compila com o painel de
+// chat focado (nao um .cmm), entao getActiveProcessorName() — que e derivado
+// do foco — retorna null nesse instante. Guardamos o ultimo processador ativo
+// pra que um compile da IA mire o processador em que o usuario estava
+// trabalhando, em vez de no-op silencioso. Setado no listener de
+// aurora:editing-file-changed (toolbar setup) e consumido por handleCmmStep.
+let lastActiveProcessor = null;
+
+/**
+ * Resolve o .cmm canonico a compilar quando NENHUM .cmm esta em foco
+ * (caso tipico de um compile disparado pela Aurora Intelligence). Ordem:
+ *   1. o ultimo processador que esteve em foco (sticky), se ainda existe;
+ *   2. se o projeto tem exatamente um processador, esse.
+ * Retorna o path `<proj>/<proc>/Software/<proc>.cmm` ou null se nao da pra
+ * decidir com seguranca (varios processadores e nenhum foi focado ainda).
+ */
+async function resolveFallbackCmmPath() {
+    if (!window.currentProjectPath) return null;
+    const procs = collectProcessors().map((p) => p.name).filter(Boolean);
+    if (procs.length === 0) return null;
+    let proc = (lastActiveProcessor && procs.includes(lastActiveProcessor))
+        ? lastActiveProcessor
+        : null;
+    if (!proc && procs.length === 1) proc = procs[0];
+    if (!proc) return null;
+    return window.electronAPI?.joinPath
+        ? window.electronAPI.joinPath(window.currentProjectPath, proc, 'Software', `${proc}.cmm`)
+        : `${window.currentProjectPath}/${proc}/Software/${proc}.cmm`;
+}
+
 // Step do run em andamento — usado por logFatalError pra reportar a
 // falha ao status bar com o tipo certo. Os passos cmm/asm/verilog/prism
 // ja chamam statusUpdater.compilationError por dentro; este fallback
@@ -140,14 +187,14 @@ function logFatalError(terminalId, error) {
     // User-triggered cancel is not a failure: render it as a friendly
     // info card (no "Erro Fatal:" prefix, no red error styling).
     if (isCancellationError(error)) {
-        window.terminalManager?.appendToTerminal?.(
+        getTM()?.appendToTerminal?.(
             terminalId,
             tr('compilation.cancelledByUser'),
             'tips',
         );
         return;
     }
-    window.terminalManager?.appendToTerminal?.(
+    getTM()?.appendToTerminal?.(
         terminalId, `Erro Fatal: ${error.message}`, 'error',
     );
     // No-op se um passo interno ja mostrou o erro (isCompiling vira false).
@@ -263,7 +310,7 @@ async function precompileAllProcessors(compiler, terminalId) {
     // — que le this.componentsPath direto.
     await compiler.initializeComponentsPath();
 
-    const tm = window.terminalManager;
+    const tm = getTM();
     tm?.appendToTerminal?.(
         terminalId,
         `Info: pre-compiling ${procs.length} processor(s) (C± + ASM).`,
@@ -337,12 +384,20 @@ async function runProjectPipeline(compiler) {
  * Se o arquivo em foco nao for .cmm, no-op com mensagem.
  */
 async function handleCmmStep() {
-    const editingPath = TabManager.getEditingFilePath?.();
+    let editingPath = TabManager.getEditingFilePath?.();
+    // Quando nao ha .cmm em foco (compile disparado pela Aurora Intelligence
+    // com o chat focado), nao no-op: mira o processador em que o usuario
+    // estava trabalhando (resolveFallbackCmmPath), igual ao botao manual.
+    if (!editingPath || !editingPath.toLowerCase().endsWith('.cmm')) {
+        editingPath = await resolveFallbackCmmPath();
+    }
     if (!editingPath || !editingPath.toLowerCase().endsWith('.cmm')) {
         switchTerminal('terminal-tcmm');
-        window.terminalManager?.appendToTerminal?.(
+        getTM()?.appendToTerminal?.(
             'tcmm',
-            'No .cmm file is open in the editor. Open a .cmm and try again.',
+            window.currentProjectPath
+                ? 'Nenhum .cmm em foco e nao consegui inferir o processador (o projeto tem varios). Abra o .cmm do processador desejado e tente de novo.'
+                : 'No .cmm file is open in the editor. Open a .cmm and try again.',
             'tips',
         );
         return;
@@ -417,7 +472,7 @@ async function precompileAsmOnly(compiler, terminalId) {
 
     await compiler.initializeComponentsPath();
 
-    const tm = window.terminalManager;
+    const tm = getTM();
     tm?.appendToTerminal?.(
         terminalId,
         `Info: assembling ${procs.length} processor(s) without re-running cmmcomp.`,
@@ -744,6 +799,10 @@ class CompilationFlowManager {
         document.addEventListener('aurora:editing-file-changed', () => {
             syncCmmcompEnabled();
             syncToolbarEnabledState();
+            // Lembra o ultimo processador com .cmm em foco pra um compile da IA
+            // (chat focado, sem .cmm) poder mirar o processador certo.
+            const ap = getActiveProcessorName();
+            if (ap) lastActiveProcessor = ap;
         });
 
         // Fast Sim e Verilator-only, entao seu disabled depende do toggle de
@@ -835,7 +894,7 @@ class CompilationFlowManager {
     }
 
     cancelAll() {
-        const tm = window.terminalManager;
+        const tm = getTM();
         const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
         const activeTerminalId = activeId ? `terminal-${activeId}` : 'tcmm';
 

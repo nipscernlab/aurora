@@ -86,7 +86,7 @@ void main(){
   // and the loop's own rd.y gate fades it toward the top — so it rises from the
   // bottom AND stays bright, instead of being masked away (which nearly erased
   // it). Curtains reach UP into the content area, faded.
-  vec3 rd = normalize(vec3(p.x, -p.y * 0.65 + 0.42, 1.0));
+  vec3 rd = normalize(vec3(p.x, -p.y * 0.80 + 0.18, 1.0));
 
   vec3 col = aurora(ro, rd, uTime * 0.5).rgb;
 

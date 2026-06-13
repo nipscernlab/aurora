@@ -257,27 +257,44 @@ body.ai-assistant-open {
   min-height: 0;
 }
 
-/* Aurora gradient glow behind the panel content — intense at the TOP, fading
-   to nothing lower down, so it accents the chat without washing out messages.
-   A slow breathe keeps it alive; chat/composer ride above it on z-1. */
+/* Aurora gradient glow behind the panel content — colorful curtains hugging the
+   BOTTOM of the panel and fading to nothing by mid-height, like a real aurora
+   borealis (green/teal + violet/magenta + pink "plates"). Stacked radial
+   gradients, each centered at/below the bottom edge so brightness lives low and
+   never reaches the chat text. A slow breathe keeps it alive; chat/composer
+   ride above it on z-1. */
 .ai-aurora-glow {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(140% 70% at 50% -8%,
-      rgba(95, 224, 176, 0.20) 0%,
-      rgba(91, 184, 232, 0.14) 26%,
-      rgba(142, 131, 232, 0.11) 48%,
-      rgba(184, 138, 224, 0.06) 66%,
-      transparent 82%);
+    /* pink plate, low-left */
+    radial-gradient(80% 55% at 18% 112%,
+      rgba(232, 120, 180, 0.16) 0%,
+      rgba(232, 120, 180, 0.07) 34%,
+      transparent 62%),
+    /* magenta → violet plate, low-right */
+    radial-gradient(85% 60% at 74% 110%,
+      rgba(190, 90, 200, 0.15) 0%,
+      rgba(142, 131, 232, 0.10) 38%,
+      transparent 66%),
+    /* teal plate, center, tallest tip */
+    radial-gradient(95% 70% at 48% 116%,
+      rgba(56, 189, 168, 0.16) 0%,
+      rgba(56, 189, 168, 0.08) 40%,
+      transparent 70%),
+    /* mint airglow hugging the very bottom edge, the brightest band */
+    radial-gradient(120% 48% at 50% 122%,
+      rgba(95, 224, 176, 0.22) 0%,
+      rgba(95, 224, 176, 0.10) 30%,
+      transparent 58%);
   will-change: opacity, transform;
-  animation: aiAuroraGlow 14s ease-in-out infinite alternate;
+  animation: aiAuroraGlow 16s ease-in-out infinite alternate;
 }
 @keyframes aiAuroraGlow {
-  from { opacity: 0.8; transform: translateY(-2%) scale(1.0); }
-  to   { opacity: 1;   transform: translateY(2%)  scale(1.06); }
+  from { opacity: 0.85; transform: translateY(1.5%)  scale(1.0);  }
+  to   { opacity: 1;    transform: translateY(-1.5%) scale(1.05); }
 }
 @media (prefers-reduced-motion: reduce) {
   .ai-aurora-glow { animation: none; }

@@ -80,30 +80,27 @@ vec4 aurora(vec3 ro, vec3 rd, float time){
 
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes.xy;          // 0..1, y up
-  // Aspect-correct, centre-origin sky coords.
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes.xy) / uRes.y;
-  // Camera looking slightly up so the continuous sheet sweeps across the panel.
   vec3 ro = vec3(0.0, 0.0, -6.7);
-  vec3 rd = normalize(vec3(p.x, p.y * 0.5 + 0.10, 1.0));
+  // Flip Y: the bright body of the aurora now sits at the BOTTOM of the panel
+  // and the loop's own rd.y gate fades it toward the top — so it rises from the
+  // bottom AND stays bright, instead of being masked away (which nearly erased
+  // it). Curtains reach UP into the content area, faded.
+  vec3 rd = normalize(vec3(p.x, -p.y * 0.65 + 0.42, 1.0));
 
   vec3 col = aurora(ro, rd, uTime * 0.5).rgb;
 
-  // Richer palette: push the brighter UPPER reaches toward violet → magenta →
-  // pink (nitrogen pinks ride above the oxygen green of a real aurora), so the
-  // tips that rise up carry purple/pink while the base stays green/cyan.
-  float hi = smoothstep(0.18, 0.62, uv.y);
-  col = mix(col, col * vec3(1.55, 0.70, 1.75) + vec3(0.10, 0.0, 0.20) * length(col), hi * 0.55);
-
-  // Rise from the bottom: concentrate the sheet low and fade it out before the
-  // welcome content so it accents rather than fills/pollutes the screen.
-  col *= smoothstep(0.82, 0.04, uv.y);
+  // Richer palette: tint the visible (lower) curtains toward violet → magenta →
+  // pink so they carry warm colour alongside the oxygen green.
+  float warm = smoothstep(0.62, 0.06, uv.y);    // strongest low, where it's bright
+  col = mix(col, col * vec3(1.5, 0.72, 1.7) + vec3(0.08, 0.0, 0.16) * length(col), warm * 0.5);
 
   // Soft green airglow hugging the very bottom edge.
-  col += vec3(0.10, 0.32, 0.22) * smoothstep(0.22, -0.05, uv.y) * 0.14;
+  col += vec3(0.10, 0.32, 0.22) * smoothstep(0.26, -0.05, uv.y) * 0.16;
 
   float lum = max(col.r, max(col.g, col.b));
-  float alpha = clamp(lum * 1.7, 0.0, 1.0) * uIntensity;
-  gl_FragColor = vec4(col * uIntensity * 1.7, alpha);
+  float alpha = clamp(lum * 1.8, 0.0, 1.0) * uIntensity;
+  gl_FragColor = vec4(col * uIntensity * 1.85, alpha);
 }
 `;
 

@@ -47,17 +47,19 @@ float fbm(vec2 p){
 }
 
 // The aurora ribbon — green-dominant like the real thing (oxygen 557nm), with
-// teal/cyan mid-tones and the nitrogen violet→magenta tips up high.
+// teal/cyan mid-tones rising into nitrogen violet → magenta → pink at the tips.
 vec3 ribbon(float t){
   vec3 green = vec3(0.298, 0.886, 0.560);
   vec3 teal  = vec3(0.310, 0.827, 0.761);
   vec3 cyan  = vec3(0.357, 0.722, 0.910);
-  vec3 viol  = vec3(0.557, 0.514, 0.910);
-  vec3 mag   = vec3(0.808, 0.553, 0.847);
-  vec3 c = mix(green, teal, smoothstep(0.00, 0.30, t));
-  c = mix(c, cyan, smoothstep(0.30, 0.55, t));
-  c = mix(c, viol, smoothstep(0.55, 0.80, t));
-  c = mix(c, mag,  smoothstep(0.80, 1.00, t));
+  vec3 viol  = vec3(0.580, 0.470, 0.950);
+  vec3 mag   = vec3(0.820, 0.420, 0.880);
+  vec3 pink  = vec3(0.960, 0.500, 0.720);
+  vec3 c = mix(green, teal, smoothstep(0.00, 0.26, t));
+  c = mix(c, cyan, smoothstep(0.26, 0.48, t));
+  c = mix(c, viol, smoothstep(0.48, 0.70, t));
+  c = mix(c, mag,  smoothstep(0.70, 0.87, t));
+  c = mix(c, pink, smoothstep(0.87, 1.00, t));
   return c;
 }
 
@@ -67,19 +69,19 @@ void main(){
   // Mild horizontal stretch so the sheet spans the full width with broad
   // features (a full aspect stretch clustered everything into one side).
   float x = uv.x * aspect * 0.55;
-  float t = uTime * 0.05;
+  float t = uTime * 0.075;   // a touch faster / livelier than before
 
   // The whole sheet sways and breathes laterally.
-  float sway = fbm(vec2(x * 0.7 + t * 0.18, 0.7)) - 0.5;
+  float sway = fbm(vec2(x * 0.7 + t * 0.25, 0.7)) - 0.5;
 
   // Broad curtain density across x. Biased up (+0.22) and soft-curved (pow 1.4)
   // instead of a hard threshold, so density VARIES but no column ever dies —
   // that was the "aurora disappears from places" bug.
-  float dens = fbm(vec2(x * 1.5 + sway * 1.3 + t * 0.28, uv.y * 0.45 + t * 0.04));
+  float dens = fbm(vec2(x * 1.5 + sway * 1.4 + t * 0.40, uv.y * 0.45 + t * 0.06));
   dens = pow(clamp(dens + 0.22, 0.0, 1.0), 1.4);
 
   // Thin luminous vertical rays — the primary aurora structure (the "comb").
-  float rays = fbm(vec2(x * 7.0 + sway * 2.0 - t * 0.22, uv.y * 1.4 + t * 0.05));
+  float rays = fbm(vec2(x * 7.0 + sway * 2.2 - t * 0.32, uv.y * 1.4 + t * 0.08));
   rays = pow(rays, 2.0);
 
   // Streamers rooted at the bottom; tongues reach higher where density is
@@ -90,12 +92,18 @@ void main(){
 
   float glow = (rays * 0.9 + 0.25) * dens * env + ground * 0.35 * (0.5 + dens);
 
-  // Hue rises green → teal/cyan → violet, sway adding lateral colour variation.
-  float ct  = clamp(uv.y * 0.82 + sway * 0.28, 0.0, 1.0);
+  // Hue rises green → teal/cyan → violet → magenta/pink at the tips, with sway
+  // shifting the bands laterally so the colour isn't in flat horizontal stripes.
+  float ct  = clamp(uv.y * 0.92 + sway * 0.34, 0.0, 1.0);
   vec3  col = ribbon(ct) * glow;
 
-  float alpha = clamp(glow * 1.35, 0.0, 1.0) * uIntensity;
-  gl_FragColor = vec4(col * uIntensity * 1.15, alpha);
+  // Magenta/pink lower fringe (nitrogen) hugging the base of the curtains —
+  // the warm rim a real aurora shows where the green meets the horizon.
+  float fringe = smoothstep(0.30, 0.02, uv.y) * smoothstep(0.04, 0.18, glow);
+  col = mix(col, vec3(0.96, 0.45, 0.72), fringe * 0.45);
+
+  float alpha = clamp(glow * 1.4, 0.0, 1.0) * uIntensity;
+  gl_FragColor = vec4(col * uIntensity * 1.18, alpha);
 }
 `;
 

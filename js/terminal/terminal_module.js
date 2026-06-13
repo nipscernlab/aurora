@@ -1207,11 +1207,31 @@ createLogEntry(terminal, text, type, timestamp) {
             pending.delete(terminalId);
             const terminal = this._resolveTerminal(terminalId);
             if (!terminal) return;
+            // Cheap per-frame work: keep the DOM bounded and stay scrolled.
             this.trimTerminal(terminal);
+            terminal.scrollTop = terminal.scrollHeight;
+            // recount + filter walk the whole log (O(n)); throttle them so a
+            // fast stream re-walks ~8×/s instead of every frame (P10).
+            this._scheduleCountRefresh(terminalId);
+        });
+    }
+
+    // recountMessages + applyFilter both re-walk every .log-entry (~5k at cap),
+    // which is wasteful to do per frame while output streams. Coalesce them onto
+    // a trailing timer: the badges/filter settle ~8×/s, and because a final
+    // timer always fires after the last append the end state is exact. A type
+    // filter applied mid-stream lags new lines by <=120ms — an imperceptible
+    // settle, not a correctness loss.
+    _scheduleCountRefresh(terminalId) {
+        const timers = this._countTimers || (this._countTimers = new Map());
+        if (timers.has(terminalId)) return;
+        timers.set(terminalId, setTimeout(() => {
+            timers.delete(terminalId);
+            const terminal = this._resolveTerminal(terminalId);
+            if (!terminal) return;
             this.recountMessages(terminalId);
             this.applyFilter(terminalId);
-            terminal.scrollTop = terminal.scrollHeight;
-        });
+        }, 120));
     }
 
     scrollToBottom(terminalId) {

@@ -22,87 +22,59 @@ export const tabDrag = {
 
         let draggedTab = null;
         let draggedTabPath = null;
-        let dropIndicator = null;
         let dragStartX = 0;
-        let dragStartY = 0;
         let hasMovedEnough = false;
+        let rafPending = false;
 
-        const createDropIndicator = () => {
-            if (dropIndicator) return dropIndicator;
-            dropIndicator = document.createElement('div');
-            dropIndicator.className = 'drop-indicator';
-            tabsContainer.appendChild(dropIndicator);
-            return dropIndicator;
-        };
-
-        const removeDropIndicator = () => {
-            if (dropIndicator) {
-                dropIndicator.remove();
-                dropIndicator = null;
-            }
-        };
-
-        const getTabIndex = (tab) =>
-            Array.from(tabsContainer.children).indexOf(tab);
-
-        // Determines where the drop indicator should sit and which target tab
-        // we'd land relative to. Returns { index, side, tab }.
-        const getDropPosition = (x /*, y */) => {
-            const tabs = Array.from(tabsContainer.querySelectorAll('.tab:not(.dragging)'));
-
-            for (let i = 0; i < tabs.length; i++) {
-                const tab = tabs[i];
-                const rect = tab.getBoundingClientRect();
-                const midpoint = rect.left + rect.width / 2;
-
-                if (x < midpoint) {
-                    return { index: i, side: 'left', tab };
-                }
-            }
-
-            // Drop at the end
-            return {
-                index: tabs.length,
-                side: 'right',
-                tab: tabs[tabs.length - 1],
-            };
-        };
-
-        const updateDropIndicator = (dropPosition) => {
-            const indicator = createDropIndicator();
-
-            if (!dropPosition.tab) {
-                indicator.classList.remove('active');
-                return;
-            }
-
-            const rect = dropPosition.tab.getBoundingClientRect();
-            const containerRect = tabsContainer.getBoundingClientRect();
-
-            const left =
-                dropPosition.side === 'left'
-                    ? rect.left - containerRect.left - 1
-                    : rect.right - containerRect.left - 1;
-
-            indicator.style.left = `${left}px`;
-            indicator.classList.add('active');
-        };
-
-        const reorderTabs = (draggedPath, targetIndex) => {
+        // FLIP: remember each tab's position, mutate the DOM, then play every
+        // displaced tab from its old spot to the new one with a short transform
+        // transition — so neighbours GLIDE to make room instead of snapping.
+        const flip = (mutate) => {
             const tabs = Array.from(tabsContainer.querySelectorAll('.tab'));
-            const draggedTabElement = tabs.find(
-                (tab) => tab.getAttribute('data-path') === draggedPath,
-            );
-            if (!draggedTabElement) return;
+            const before = tabs.map((t) => t.getBoundingClientRect().left);
+            mutate();
+            tabs.forEach((t, i) => {
+                if (t === draggedTab) return;            // the dragged tab isn't slid
+                const dx = before[i] - t.getBoundingClientRect().left;
+                if (!dx) return;
+                t.style.transition = 'none';
+                t.style.transform = `translateX(${dx}px)`;
+                void t.offsetWidth;                      // commit the start frame
+                t.style.transition = 'transform 190ms var(--ease-aurora)';
+                t.style.transform = '';
+            });
+        };
 
-            draggedTabElement.remove();
+        const clearTabTransforms = () => {
+            tabsContainer.querySelectorAll('.tab').forEach((t) => {
+                t.style.transition = '';
+                t.style.transform = '';
+            });
+        };
 
-            if (targetIndex >= tabs.length - 1) {
-                tabsContainer.appendChild(draggedTabElement);
-            } else {
-                const referenceTab = tabs[targetIndex];
-                tabsContainer.insertBefore(draggedTabElement, referenceTab);
+        // The tab the cursor would insert BEFORE (null → append at the end).
+        const getReferenceTab = (x) => {
+            const tabs = Array.from(tabsContainer.querySelectorAll('.tab:not(.dragging)'));
+            for (const tab of tabs) {
+                const rect = tab.getBoundingClientRect();
+                if (x < rect.left + rect.width / 2) return tab;
             }
+            return null;
+        };
+
+        // Live reorder while dragging, animated via FLIP.
+        const liveReorder = (x) => {
+            if (!draggedTab) return;
+            const ref = getReferenceTab(x);
+            if (ref === draggedTab) return;
+            const already = ref
+                ? draggedTab.nextElementSibling === ref
+                : draggedTab === tabsContainer.querySelector('.tab:last-of-type');
+            if (already) return;
+            flip(() => {
+                if (ref) tabsContainer.insertBefore(draggedTab, ref);
+                else tabsContainer.appendChild(draggedTab);
+            });
         };
 
         const handleDragStart = (e) => {
@@ -112,7 +84,6 @@ export const tabDrag = {
             draggedTab = tab;
             draggedTabPath = tab.getAttribute('data-path');
             dragStartX = e.clientX;
-            dragStartY = e.clientY;
             hasMovedEnough = false;
 
             e.dataTransfer.effectAllowed = 'move';
@@ -130,8 +101,8 @@ export const tabDrag = {
                 window.SplitEditorManager._dragSourcePane = 0;
             }
 
-            // Suppress the native ghost image — our own .dragging style on
-            // the source plus the drop-indicator carry the visual feedback.
+            // Suppress the native ghost image — our own .dragging style on the
+            // source plus the live FLIP reorder carry the visual feedback.
             const dragImage = document.createElement('div');
             dragImage.style.opacity = '0';
             document.body.appendChild(dragImage);
@@ -150,20 +121,18 @@ export const tabDrag = {
 
         const handleDrag = (e) => {
             if (!draggedTab) return;
+            // The HTML5 drag event reports clientX 0 on the final event; ignore.
+            if (e.clientX === 0) return;
 
-            // Wait for ~10px of movement before showing the indicator so a
-            // simple click doesn't briefly flash one.
             if (!hasMovedEnough) {
-                const distance = Math.sqrt(
-                    Math.pow(e.clientX - dragStartX, 2) + Math.pow(e.clientY - dragStartY, 2),
-                );
-                if (distance > 10) hasMovedEnough = true;
+                if (Math.abs(e.clientX - dragStartX) > 8) hasMovedEnough = true;
             }
+            if (!hasMovedEnough || rafPending) return;
 
-            if (hasMovedEnough) {
-                const dropPosition = getDropPosition(e.clientX, e.clientY);
-                updateDropIndicator(dropPosition);
-            }
+            // Coalesce the (layout-reading) reorder to one per frame.
+            const x = e.clientX;
+            rafPending = true;
+            requestAnimationFrame(() => { rafPending = false; liveReorder(x); });
         };
 
         const handleDragEnd = () => {
@@ -177,11 +146,10 @@ export const tabDrag = {
             }
 
             tabsContainer.classList.remove('dragging-active');
-            removeDropIndicator();
+            clearTabTransforms();
 
-            tabsContainer.querySelectorAll('.tab').forEach((tab) => {
-                tab.classList.remove('drag-over', 'drag-over-right');
-            });
+            // The live reorder already produced the final order — persist it.
+            if (draggedTab) this.saveTabOrder();
 
             draggedTab = null;
             draggedTabPath = null;
@@ -195,21 +163,8 @@ export const tabDrag = {
 
         const handleDrop = (e) => {
             e.preventDefault();
-            if (!draggedTabPath) return;
-
-            const dropPosition = getDropPosition(e.clientX, e.clientY);
-
-            // Adjust the target index for the slot the dragged tab is leaving.
-            let targetIndex = dropPosition.index;
-            const currentIndex = getTabIndex(draggedTab);
-            if (currentIndex < targetIndex) targetIndex--;
-
-            if (targetIndex !== currentIndex) {
-                reorderTabs(draggedTabPath, targetIndex);
-                this.saveTabOrder();
-            }
-            e.dataTransfer.clearData();
-
+            // The live reorder already placed the tab; just clear + finish.
+            try { e.dataTransfer.clearData(); } catch (_) { /* ignore */ }
             handleDragEnd();
         };
 

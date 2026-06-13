@@ -11,26 +11,28 @@ Maintenance rules (the doc is only useful while it's trustworthy):
 3. **Link the `.ts` source for migrated modules**, not the compiled `.js` sitting next to it (tsconfig compiles in-place). The `.ts` is what you edit.
 4. **In-source JSDoc is the authoritative contract** for any function mentioned here. This doc is the bird's-eye map; if it disagrees with the JSDoc, the JSDoc wins and this doc has a bug — fix it.
 
-Last full audit against the code: 2026-06-11.
+Last full audit against the code: 2026-06-13.
 
 ---
 
-## 1. Script load order is part of the contract
+## 1. Script load order — now almost entirely import-driven
 
-[index.html](index.html) loads renderer scripts in a specific order. Some pieces (like `window.appInitializer`, `window.projectTreeManager`, `window.SharedModelRegistry`) are exposed via `window.*` for non-module callers and are referenced by name elsewhere. Loading them out of order produces silent `undefined` reads.
+**History (2026-06):** [index.html](index.html) used to load ~10 classic `<script>` tags (no `type="module"`) that shared state through `window.*` globals, and their tag order *was* a contract — reordering produced silent `undefined` reads. Those scripts were converted to ES modules one by one (commits from `zoom.js`/`shortcut_manager.js` through `status_updater.js`), each one replacing its `window.*` global with a real `import`. The classic-script block no longer exists.
 
-The order matters in three groups:
+What remains:
 
-1. **Monaco loader** (the `node_modules/monaco-editor/min/vs/loader.js` script tag in [index.html](index.html)) — must come before any `type="module"` script that imports `monaco_editor.js`. Monaco's AMD loader (`require([...])`) is a global side-effect; without it, `initMonaco()` rejects.
-2. **Classic scripts** (`status_updater.js`, `tooltip.js`, etc.) — define globals via `<script>` (no `type="module"`). They run synchronously, before module scripts.
-3. **Module scripts** — deferred by spec; execute in source order **after** all classic scripts. The dependency graph for these is encoded in `import` statements, but module-level side-effects (like `window.appInitializer = ...`) still depend on file order.
+1. **The Monaco AMD loader is the one ordering constraint that is still load-bearing.** The `node_modules/monaco-editor/min/vs/loader.js` tag (plus its inline `require.config`) is the only non-module script left, and it must precede every `type="module"` tag: it installs a global `require()` that [`monaco_editor.js`](js/editor/monaco_editor.js) calls at import time. Without it, `initMonaco()` rejects. Keep it first; never give it `type="module"`.
 
-**Concrete dependencies:**
+2. **Module imports resolve their own order.** For anything reached through an `import` statement, tag order is irrelevant — the graph is resolved by the bundler/spec. Most cross-file dependencies are now this kind.
 
-- [`file_mode.js`](js/project/file_mode.js) registers `DOMContentLoaded` listeners in its constructor and must load **before** [`app_initializer.js`](js/app/app_initializer.js). Ambos chamam `activateTree` no mesmo tick (loadProject + initializeTreeBasedOnMode), coalescido via §6.
-- [`monaco_editor.js`](js/editor/monaco_editor.js) must be initialized before any `TabManager.addTab` runs against a text file. The `EditorManager.ready` promise (see §7) gates this.
+**Residual tag-order dependencies (the only ones left — both narrow):**
 
-If you reorder these, things break in ways that don't always show up in dev.
+- **`DOMContentLoaded` listeners fire in registration order, which for sibling module tags is tag order.** [`file_mode.js`](js/project/file_mode.js) and [`app_initializer.js`](js/app/app_initializer.js) both register a `DOMContentLoaded` handler at module-eval time; `file_mode` must stay **before** `app_initializer` so its handler runs first (both touch `activateTree` on the same tick — coalesced via §6). This is not import-expressible, so the tag order still matters here.
+- **A few modules still publish to `window.*` at eval time** — `window.appInitializer` ([app_initializer.js](js/app/app_initializer.js)), `window.projectTreeManager` ([file_mode.js](js/project/file_mode.js)), `window.SharedModelRegistry` ([shared_models.js](js/editor/shared_models.js)) — for consumers that still read them by name rather than importing. As long as those reads happen at runtime (inside handlers), tag order is moot; if you add a *module-eval-time* read of one of these globals, you reintroduce a tag-order contract. Prefer converting the consumer to an `import` instead.
+
+- [`monaco_editor.js`](js/editor/monaco_editor.js) must be initialized before any `TabManager.addTab` runs against a text file — but that's gated by the `EditorManager.ready` promise (see §7), not by tag order.
+
+The bottom line flipped: load order used to be a broad, fragile contract; it is now down to "Monaco loader first, `file_mode` before `app_initializer`." Converting the three remaining `window.*` publishers to imports would retire even the second clause.
 
 ---
 

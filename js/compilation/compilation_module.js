@@ -1,5 +1,3 @@
-/* eslint-disable no-undef */
-// statusUpdater, checkCancellation, startCompilation, endCompilation are global
 /**
  * compilation_module.js — toolchain orchestrator (renderer side).
  *
@@ -58,6 +56,7 @@ import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.j
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
+import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import {
   buildCmmSpec,

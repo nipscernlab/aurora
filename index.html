@@ -1317,15 +1317,18 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<!-- Monaco's AMD loader. The ONLY script that must run before the ES
+     modules below: it installs a global require() that monaco_editor.js
+     depends on. Everything else is a module whose order is resolved by
+     its import graph, not by tag position. -->
 <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
 <script>
   require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
 </script>
-<!-- Classic scripts (loaded synchronously, define globals) -->
-<script src="./js/ui/status_updater.js"></script>
-<script src="./js/i18n/i18n.js" type="module"></script>
 
-<!-- ES modules (defer by default, dependency-resolved) -->
+<!-- ES modules (defer by default, dependency-resolved — order-independent) -->
+<script src="./js/i18n/i18n.js" type="module"></script>
+<script src="./js/ui/status_updater.js" type="module"></script>
 <script src="./js/app/renderer.js" type="module"></script>
 <script src="./js/utils/shortcut_manager.js" type="module"></script>
 <script src="./js/utils/zoom.js" type="module"></script>

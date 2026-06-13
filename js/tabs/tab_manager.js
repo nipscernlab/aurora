@@ -1460,21 +1460,23 @@ async def basic_test(dut):
     // undoing all the way back to the saved state crosses the snapshot
     // and clears the dot, exactly like VS Code.
     static setupContentChangeListener(filePath, editor) {
-        // Idempotent guard. createEditorInstance returns the SAME editor on
-        // reopen, and addTab re-calls this — so without the guard every reopen
-        // stacked another onDidChangeModelContent listener on the same editor:
-        // a listener leak AND a callback that fired N times per keystroke.
-        // Register exactly once per live editor; Monaco disposes the listener
-        // when the editor itself is disposed (closeEditor), so a fresh editor
-        // created after a close re-registers cleanly.
-        if (editor.__auroraContentDisposable) return;
-        editor.__auroraContentDisposable = editor.onDidChangeModelContent(() => {
+        // Dirty tracking lives on the MODEL, not the editor: the model is
+        // one-per-file (SharedModelRegistry), so the filePath captured here is
+        // always correct even when one editor switches between files via
+        // setModel (P1). Guarded once per model; Monaco disposes the listener
+        // when the model is disposed (SharedModelRegistry.release at the last
+        // close). `editor` is only needed for the untitled-snippet path, where
+        // the file is necessarily the one shown in the active editor.
+        const model = window.SharedModelRegistry?.getModel?.(filePath) ?? editor?.getModel?.();
+        if (!model || model.__auroraContentDisposable) return;
+        model.__auroraContentDisposable = model.onDidChangeContent(() => {
+            const ed = (window.EditorManager && window.EditorManager.activeEditor) || editor;
             if (this.isUntitledPath(filePath)) {
-                if (this.expandUntitledSnippet(filePath, editor)) {
+                if (ed && this.expandUntitledSnippet(filePath, ed)) {
                     this.markFileAsModified(filePath);
                     return;
                 }
-                this.updateUntitledDocumentType(filePath, editor.getValue());
+                if (ed) this.updateUntitledDocumentType(filePath, ed.getValue());
                 this.markFileAsModified(filePath);
                 if (this.previewTab === filePath) {
                     this.promotePreviewToPermanent(filePath);

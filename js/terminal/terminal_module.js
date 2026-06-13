@@ -1116,16 +1116,20 @@ createLogEntry(terminal, text, type, timestamp) {
         clearButton.removeEventListener('click', this.handleClearClick);
         clearButton.removeEventListener('contextmenu', this.handleClearContextMenu);
 
-        this.handleClearClick = (event) => {
+        this.handleClearClick = async (event) => {
             if (event.button !== 0) return;
-            if (this.clearMode === 'all') {
-                this.clearAllTerminals();
-                return;
-            }
             const activeTab = document.querySelector('.terminal-tabs .tab.active');
             const terminalId = activeTab?.getAttribute('data-terminal')
                 || Object.keys(this.terminals)[0];
-            if (terminalId) this.clearTerminal(terminalId);
+            if (this.clearMode === 'all') {
+                await this.clearAllTerminals();
+                if (terminalId) this._flashCleared(terminalId, 'Terminals cleared');
+                return;
+            }
+            if (terminalId) {
+                await this.clearTerminal(terminalId);
+                this._flashCleared(terminalId, 'Terminal cleared');
+            }
         };
 
         this.handleClearContextMenu = (event) => {
@@ -1214,8 +1218,11 @@ async clearTerminal(terminalId) {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
 
-        // Nothing to clear → just confirm with the pill.
-        if (!terminal.childElementCount) { this._flashCleared(terminalId); return; }
+        // No pill here: clearTerminal is also called programmatically at the
+        // start of compilation phases, so a pill would flash whenever new output
+        // begins. The confirmation pill is fired ONLY by the manual clear button
+        // (handleClearClick → _flashCleared).
+        if (!terminal.childElementCount) return;
 
         // 1. Animate the existing entries out (fade + slide), then wipe.
         terminal.classList.add('clearing');
@@ -1228,19 +1235,17 @@ async clearTerminal(terminalId) {
         terminal.innerHTML = '';
         terminal.classList.remove('clearing');
         this.recountMessages?.(terminalId);
-
-        // 3. Brief "Terminal cleared" confirmation.
-        this._flashCleared(terminalId);
     }
 
-    /** Transient "Terminal cleared" pill — visible feedback after a clear. */
-    _flashCleared(terminalId) {
+    /** Transient confirmation pill — fired by the manual clear button only. */
+    _flashCleared(terminalId, message = 'Terminal cleared') {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
         terminal.querySelector(':scope > .terminal-cleared-pill')?.remove();
         const pill = document.createElement('div');
         pill.className = 'terminal-cleared-pill';
-        pill.innerHTML = '<i class="ph ph-check-circle"></i><span>Terminal cleared</span>';
+        pill.innerHTML = '<i class="ph ph-check-circle"></i><span></span>';
+        pill.querySelector('span').textContent = message;
         terminal.appendChild(pill);
         requestAnimationFrame(() => pill.classList.add('visible'));
         setTimeout(() => {
@@ -1249,11 +1254,10 @@ async clearTerminal(terminalId) {
         }, 1100);
     }
 
-    clearAllTerminals() {
-        Object.keys(this.terminals)
-            .forEach(terminalId => {
-                this.clearTerminal(terminalId);
-            });
+    async clearAllTerminals() {
+        await Promise.all(
+            Object.keys(this.terminals).map((terminalId) => this.clearTerminal(terminalId)),
+        );
     }
 
     /**

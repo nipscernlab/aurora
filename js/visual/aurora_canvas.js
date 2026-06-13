@@ -32,72 +32,66 @@ uniform vec2  uRes;
 uniform float uTime;
 uniform float uIntensity;
 
-float hash(vec2 p){ p = fract(p * vec2(123.34, 345.45)); p += dot(p, p + 34.345); return fract(p.x * p.y); }
-float noise(vec2 p){
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  float a = hash(i), b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0)), d = hash(i + vec2(1.0, 1.0));
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-float fbm(vec2 p){
-  float v = 0.0, a = 0.5;
-  for (int i = 0; i < 6; i++) { v += a * noise(p); p = p * 2.03 + 11.1; a *= 0.5; }
-  return v;
+// Continuous flowing aurora — adapted from nimitz's "Auroras" (ShaderToy
+// XtGGRt). A tri-noise field is marched in depth and accumulated, so the
+// curtains read as ONE continuous, drifting sheet rather than discrete bands.
+mat2 mm2(in float a){ float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
+const mat2 m2 = mat2(0.95534, 0.29552, -0.29552, 0.95534);
+float tri(in float x){ return clamp(abs(fract(x) - 0.5), 0.01, 0.49); }
+vec2 tri2(in vec2 p){ return vec2(tri(p.x) + tri(p.y), tri(p.y + tri(p.x))); }
+float hash21(vec2 p){ p = fract(p * vec2(123.34, 345.45)); p += dot(p, p + 34.345); return fract(p.x * p.y); }
+
+float triNoise2d(in vec2 p, float spd, float time){
+  float z = 1.8, z2 = 2.5, rz = 0.0;
+  p *= mm2(p.x * 0.06);
+  vec2 bp = p;
+  for (int i = 0; i < 5; i++){
+    vec2 dg = tri2(bp * 1.85) * 0.75;
+    dg *= mm2(time * spd);
+    p -= dg / z2;
+    bp *= 1.3; z2 *= 0.45; z *= 0.42;
+    p *= 1.21 + (rz - 1.0) * 0.02;
+    rz += tri(p.x + tri(p.y)) * z;
+    p *= -m2;
+  }
+  return clamp(1.0 / pow(rz * 29.0, 1.3), 0.0, 0.55);
 }
 
-// The aurora ribbon — green-dominant like the real thing (oxygen 557nm), with
-// teal/cyan mid-tones rising into nitrogen violet → magenta → pink at the tips.
-vec3 ribbon(float t){
-  vec3 green = vec3(0.298, 0.886, 0.560);
-  vec3 teal  = vec3(0.310, 0.827, 0.761);
-  vec3 cyan  = vec3(0.357, 0.722, 0.910);
-  vec3 viol  = vec3(0.580, 0.470, 0.950);
-  vec3 mag   = vec3(0.820, 0.420, 0.880);
-  vec3 pink  = vec3(0.960, 0.500, 0.720);
-  vec3 c = mix(green, teal, smoothstep(0.00, 0.26, t));
-  c = mix(c, cyan, smoothstep(0.26, 0.48, t));
-  c = mix(c, viol, smoothstep(0.48, 0.70, t));
-  c = mix(c, mag,  smoothstep(0.70, 0.87, t));
-  c = mix(c, pink, smoothstep(0.87, 1.00, t));
-  return c;
-}
-
-// One flowing aurora curtain: a wavy horizontal ribbon whose centre drifts
-// sideways and undulates over time, threaded with soft vertical rays. Returns
-// the curtain's brightness at uv.
-float band(vec2 uv, float baseY, float t, float seed, float speed) {
-  float center = baseY
-    + 0.11 * sin(uv.x * 3.0 + t * speed + seed)
-    + 0.09 * (fbm(vec2(uv.x * 1.6 - t * 0.25 * speed, seed)) - 0.5);
-  float thick = 0.05 + 0.05 * fbm(vec2(uv.x * 2.2 + seed, t * 0.10));
-  float core  = smoothstep(thick, 0.0, abs(uv.y - center));
-  float rays  = mix(0.55, 1.25, fbm(vec2(uv.x * 9.0 + seed, uv.y * 2.0 + t * 0.12 * speed)));
-  return core * rays;
+vec4 aurora(vec3 ro, vec3 rd, float time){
+  vec4 col = vec4(0.0);
+  vec4 avgCol = vec4(0.0);
+  for (int i = 0; i < 36; i++){
+    float fi = float(i);
+    float of = 0.006 * hash21(gl_FragCoord.xy) * smoothstep(0.0, 15.0, fi);
+    float pt = ((0.8 + pow(fi, 1.4) * 0.002) - ro.y) / (rd.y * 2.0 + 0.4);
+    pt -= of;
+    vec3 bpos = ro + pt * rd;
+    vec2 p = bpos.zx;
+    float rzt = triNoise2d(p, 0.06, time);
+    vec4 col2 = vec4(0.0, 0.0, 0.0, rzt);
+    // Continuous green → cyan → violet → magenta sweep along the march.
+    col2.rgb = (sin(1.0 - vec3(2.15, -0.5, 1.2) + fi * 0.043) * 0.5 + 0.5) * rzt;
+    avgCol = mix(avgCol, col2, 0.5);
+    col += avgCol * exp2(-fi * 0.065 - 2.5) * smoothstep(0.0, 5.0, fi);
+  }
+  col *= clamp(rd.y * 15.0 + 0.4, 0.0, 1.0);
+  return col * 1.8;
 }
 
 void main(){
-  vec2 uv = gl_FragCoord.xy / uRes.xy;
-  float aspect = uRes.x / uRes.y;
-  // Gentle stretch so the waves span the width without clustering to one side.
-  vec2 p = vec2(uv.x * aspect * 0.5, uv.y);
-  float t = uTime * 0.08;
+  // Aspect-correct, centre-origin sky coords.
+  vec2 p = (gl_FragCoord.xy - 0.5 * uRes.xy) / uRes.y;
+  // Camera looking slightly up so the continuous sheet sweeps across the panel.
+  vec3 ro = vec3(0.0, 0.0, -6.7);
+  vec3 rd = normalize(vec3(p.x, p.y * 0.5 + 0.13, 1.0));
 
-  // Four flowing curtains at different heights, colours and speeds → a rich,
-  // multi-colour aurora that drifts and waves naturally instead of streaking.
-  vec3 col = vec3(0.0);
-  col += ribbon(0.12) * band(vec2(p.x, uv.y), 0.30, t,  0.0, 1.00);        // green
-  col += ribbon(0.42) * band(vec2(p.x, uv.y), 0.48, t, 12.0, 0.80);        // cyan
-  col += ribbon(0.72) * band(vec2(p.x, uv.y), 0.66, t, 27.0, 1.30);        // violet
-  col += ribbon(0.95) * band(vec2(p.x, uv.y), 0.84, t, 51.0, 0.60) * 0.7;  // pink wisp
+  vec3 col = aurora(ro, rd, uTime * 0.5).rgb;
+  // Soft green horizon airglow so the lower edge never falls fully dark.
+  col += vec3(0.10, 0.32, 0.22) * smoothstep(0.30, -0.30, p.y) * 0.16;
 
-  // Vertical envelope (fades up the sky) + a soft green airglow on the horizon.
-  col *= smoothstep(1.12, -0.06, uv.y);
-  col += ribbon(0.10) * smoothstep(0.42, 0.0, uv.y) * 0.16;
-
-  float lum   = max(col.r, max(col.g, col.b));
+  float lum = max(col.r, max(col.g, col.b));
   float alpha = clamp(lum * 1.7, 0.0, 1.0) * uIntensity;
-  gl_FragColor = vec4(col * uIntensity * 1.55, alpha);
+  gl_FragColor = vec4(col * uIntensity * 1.7, alpha);
 }
 `;
 

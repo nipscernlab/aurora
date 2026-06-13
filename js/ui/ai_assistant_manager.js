@@ -836,8 +836,23 @@ function renderInline(s) {
     }
     return text;
   });
+
+  // Bare absolute filesystem paths (C:\… or \\server\…) → clickable. The string
+  // is already escaped, and paths don't contain & < > " so the escaped form
+  // equals the raw path. Backtick-wrapped paths are handled in the code restore.
+  s = s.replace(/(^|[\s(>])((?:[A-Za-z]:\\|\\\\)[^\s<>"]*[^\s<>".,;:)\]])/g,
+    (_m, lead, p) => `${lead}<span class="ai-path" data-path="${p}" title="Open">${p}</span>`);
+
   const codeRe = new RegExp(`${CODE_SENTINEL_OPEN}(\\d+)${CODE_SENTINEL_CLOSE}`, 'g');
-  s = s.replace(codeRe, (_, i) => `<code>${escapeHtml(codes[+i])}</code>`);
+  s = s.replace(codeRe, (_, i) => {
+    const c = codes[+i];
+    // A backtick span that is purely an absolute path is clickable too.
+    if (/^(?:[A-Za-z]:\\|\\\\)[^\s<>"]+$/.test(c.trim())) {
+      const p = escapeHtml(c.trim());
+      return `<code class="ai-path" data-path="${p}" title="Open">${escapeHtml(c)}</code>`;
+    }
+    return `<code>${escapeHtml(c)}</code>`;
+  });
   const mathRe = new RegExp(`${MATH_SENTINEL_OPEN}(\\d+)${MATH_SENTINEL_CLOSE}`, 'g');
   s = s.replace(mathRe, (_, i) => {
     const m = maths[+i];
@@ -859,6 +874,19 @@ const AI_KNOWN_EXTS = new Set([
   'cfg', 'ini', 'yaml', 'yml', 'xml', 'csv', 'tcl', 'sdc', 'xdc',
   'sh', 'bat', 'ps1', 'mk', 'cmake',
 ]);
+
+// When an absolute filesystem path in chat is clicked and points at a FILE, we
+// open it inside Monaco if its extension is text/code; everything else (images,
+// video, audio, pdf, archives, …) is handed to the OS default app instead.
+const AI_TEXT_OPENABLE = new Set([
+  ...AI_KNOWN_EXTS,
+  'log', 'conf', 'config', 'env', 'lst', 'rpt', 'out', 'err', 'diff', 'patch',
+  'do', 'ucf', 'lds', 'map', 'make', 'in', 'toml', 'properties', 'gitignore',
+]);
+function aiPathIsText(p) {
+  const m = String(p).match(/\.([A-Za-z0-9]{1,12})$/);
+  return m ? AI_TEXT_OPENABLE.has(m[1].toLowerCase()) : false;
+}
 
 // A standalone file token: optional drive (C:\) / ./ ../ root, any project
 // path segments, a basename with a dot-extension, and an optional :line.
@@ -1676,6 +1704,15 @@ class AIAssistantManager {
       this._confirmExternalLink(a.getAttribute('data-href'));
     });
 
+    // Absolute filesystem paths in chat: directory → Explorer, text/code file →
+    // open in Monaco, any other file → OS default app.
+    this.messagesEl.addEventListener('click', (e) => {
+      const p = e.target.closest('.ai-path');
+      if (!p) return;
+      e.preventDefault();
+      this._openChatPath(p.getAttribute('data-path'));
+    });
+
     // Copy button on code blocks.
     this.messagesEl.addEventListener('click', (e) => {
       const btn = e.target.closest('.ai-code-copy');
@@ -2186,6 +2223,37 @@ class AIAssistantManager {
 
     document.body.appendChild(overlay);
     overlay.querySelector('.ai-link-warning-open').focus();
+  }
+
+  /**
+   * Route a clicked absolute filesystem path. We stat it in the main process
+   * (get-file-stats) and then: directory → open in the OS file manager
+   * (shell.openPath ⇒ Explorer on Windows); text/code file → open inside Monaco
+   * as a tab; any other file (image/video/audio/pdf/…) → OS default app.
+   */
+  async _openChatPath(rawPath) {
+    if (!rawPath) return;
+    let info = null;
+    try { info = await window.electronAPI?.getFileStats?.(rawPath); }
+    catch (_) { info = null; }
+    if (!info) {
+      try { window.showNotification?.(`Path not found: ${rawPath}`, 'warning'); } catch (_) { /* ignore */ }
+      return;
+    }
+    if (info.isDirectory) {
+      window.electronAPI?.openFolder?.(rawPath);           // shell.openPath → Explorer
+      return;
+    }
+    if (aiPathIsText(rawPath)) {
+      try {
+        const content = await window.electronAPI.readFile(rawPath);
+        window.TabManager?.addTab?.(rawPath, content ?? '', { preview: true });
+      } catch (_) {
+        window.electronAPI?.openFolder?.(rawPath);         // fallback: default app
+      }
+    } else {
+      window.electronAPI?.openFolder?.(rawPath);           // shell.openPath → default app
+    }
   }
 
   renderUsage() {

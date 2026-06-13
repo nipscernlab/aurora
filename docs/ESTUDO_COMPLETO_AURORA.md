@@ -430,5 +430,34 @@ produto maduro — alinhado ao [Design Manifesto](DESIGN.md).*
 ---
 
 *Documento enriquecido em 13/06/2026 por auditoria multi-agente com verificação adversarial
-(43 agentes; achados marcados ✔ foram confrontados com o código). Próximo passo: priorizar os itens
-do Sprint 1. O revamp visual segue o [DESIGN.md](DESIGN.md).*
+(43 agentes; achados marcados ✔ foram confrontados com o código). O revamp visual segue o
+[DESIGN.md](DESIGN.md).*
+
+---
+
+## 12. Implementação na branch `feature/aurora-revamp` (13/06/2026)
+
+Primeira leva de revamp visual + Sprint 1, em commits incrementais (todos com 208 testes unit
+passando e lint limpo). **Não rodados no app ainda** — precisam de verificação visual/runtime.
+
+**Feito:**
+| Commit | Conteúdo |
+|---|---|
+| `3deb486` | Tokens de movimento "deriva de aurora" (easings/durações, bounce neutralizado) + tokens de luz/foco; **`<aurora-canvas>`** (shader WebGL ambiente, half-res, pausa fora de foco, fallback CSS) atrás do welcome; wordmark em gradiente + reveal aurora. |
+| `c7b7541` | **Raio de foco** (feixe aurora na aba ativa) + **elevação por luz** no modal (borda luminosa + glow no lugar de sombra pesada). |
+| `be3cec6` | Segurança: **V1** (XSS LaTeX→RCE fechado), **V2** (exec-command removido), **V3** (webviewTag:false + lockdown de navegação), **V5** (traversal em create-processor), **V6** (openExternal http/mailto-only). |
+| `7d5b631` | **P12** (leak de listener / custo por-tecla), **P13** (ResizeObserver rAF + early-exit), **G2** (error boundary no renderer + crashReporter/handlers no main). |
+| `1d919e6` | **P4a**: Phosphor bundlado local (fim do unpkg CDN) em index + PRISM. |
+| `d224de9` | **P4b**: Inter/JetBrains/Mrs Saint Delafield vendados local (woff2 latin+latin-ext) via `scripts/fetch-fonts.js`; fim do Google Fonts CDN no app principal. |
+
+**Adiado (com motivo):**
+- **CSP** — precisa refatorar os ~180 linhas de `<script>` inline do index.html (+nonce) e validar no
+  app rodando; o V1 já fechou o sink real de XSS.
+- **z-index sweep** — mexer na ordem de empilhamento das 9 camadas sem rodar arrisca quebrar dropdowns.
+- **P6 `transition:width`→transform** — a correção certa é um restructure que pareia com **P1** (editor
+  por troca de model); fora de hot-path (só no toggle de sidebar).
+- **Concatenação do CSS** (os 22 `@imports`) — depende do bundler (Vite).
+- **focus-ray** em panes/árvore/inputs; **paletas** de splash/update + fonte Inter 800 do splash; **V8**
+  (gtkwave pela allowlist).
+- **Trilha principal do revamp** (Vite + componentização Lit do shell, command palette, PRISM no design
+  system) — projeto de médio prazo, conforme DESIGN.md §9–§12.

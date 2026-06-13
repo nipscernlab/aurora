@@ -47,7 +47,7 @@ export function attachAiSelectionWidget(editor, opts = {}) {
   node.setAttribute('role', 'button');
   // A single Phosphor sparkle — centres cleanly in the button (the old custom
   // 3-star SVG sat off-centre because its glyphs weren't centred in the viewBox).
-  node.innerHTML = '<i class="ph-fill ph-sparkle" aria-hidden="true"></i>';
+  node.innerHTML = '<i class="ph-bold ph-sparkle" aria-hidden="true"></i>';
   node.style.display = 'none';
 
   let currentSelection = null;

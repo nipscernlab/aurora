@@ -211,12 +211,9 @@
   background-color: var(--bg);
   align-items: flex-end;
   border-bottom: 1px solid var(--border);
-  scrollbar-width: thin;
+  /* Thin auto-hiding scrollbar is unified in tabs.css (same as the main strip)
+     so the main Monaco window's tab styling applies to every split too. */
 }
-
-.split-pane-tabs::-webkit-scrollbar { height: 2px; }
-.split-pane-tabs::-webkit-scrollbar-thumb { background: var(--accent); }
-.split-pane-tabs::-webkit-scrollbar-track { background: transparent; }
 
 .split-pane-editor-area {
   flex: 1 1 0;

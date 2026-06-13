@@ -33,7 +33,8 @@
    fell back to the global 10px scrollbar (the thick bar over the tab names). */
 .tabs-container,
 #tabs-container,
-.tabs {
+.tabs,
+.split-pane-tabs {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   transition: scrollbar-color var(--transition-fast);
@@ -41,31 +42,37 @@
 
 .tabs-container:hover,
 #tabs-container:hover,
-.tabs:hover {
+.tabs:hover,
+.split-pane-tabs:hover {
   scrollbar-color: var(--accent-border) transparent;
 }
 
 .tabs-container::-webkit-scrollbar,
 #tabs-container::-webkit-scrollbar,
-.tabs::-webkit-scrollbar       { height: 4px; }
+.tabs::-webkit-scrollbar,
+.split-pane-tabs::-webkit-scrollbar       { height: 4px; }
 .tabs-container::-webkit-scrollbar-track,
 #tabs-container::-webkit-scrollbar-track,
-.tabs::-webkit-scrollbar-track { background: transparent; }
+.tabs::-webkit-scrollbar-track,
+.split-pane-tabs::-webkit-scrollbar-track { background: transparent; }
 .tabs-container::-webkit-scrollbar-thumb,
 #tabs-container::-webkit-scrollbar-thumb,
-.tabs::-webkit-scrollbar-thumb {
+.tabs::-webkit-scrollbar-thumb,
+.split-pane-tabs::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 2px;
   transition: background var(--transition-fast);
 }
 .tabs-container:hover::-webkit-scrollbar-thumb,
 #tabs-container:hover::-webkit-scrollbar-thumb,
-.tabs:hover::-webkit-scrollbar-thumb {
+.tabs:hover::-webkit-scrollbar-thumb,
+.split-pane-tabs:hover::-webkit-scrollbar-thumb {
   background: rgba(142, 131, 232, 0.35);
 }
 .tabs-container::-webkit-scrollbar-thumb:hover,
 #tabs-container::-webkit-scrollbar-thumb:hover,
-.tabs::-webkit-scrollbar-thumb:hover {
+.tabs::-webkit-scrollbar-thumb:hover,
+.split-pane-tabs::-webkit-scrollbar-thumb:hover {
   background: rgba(142, 131, 232, 0.65);
 }
 

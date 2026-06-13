@@ -1297,16 +1297,14 @@ async def basic_test(dut):
                     viewer.style.display = 'none';
                 });
 
-                // Show and activate the appropriate editor instance
+                // One shared editor div now (P1) — show it and switch its model
+                // via setActiveEditor. (Keep dataset.filePath current for any
+                // DOM-based lookups.)
                 const editorInstances = editorContainer.querySelectorAll('.editor-instance');
                 editorInstances.forEach(el => {
-                    if (el.dataset.filePath === filePath) {
-                        el.style.display = 'block';
-                        el.classList.add('active');
-                    } else {
-                        el.style.display = 'none';
-                        el.classList.remove('active');
-                    }
+                    el.style.display = 'block';
+                    el.classList.add('active');
+                    el.dataset.filePath = filePath;
                 });
 
                 EditorManager.setActiveEditor(filePath);

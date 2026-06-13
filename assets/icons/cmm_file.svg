@@ -1,11 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
-  <!-- Custom C± (CMM) file glyph, Phosphor-regular style (outlined document
-       with a folded corner). Used as a CSS mask so it inherits currentColor;
-       shapes are opaque black so the alpha mask picks them up. -->
-  <path d="M148 28H72a12 12 0 0 0-12 12v176a12 12 0 0 0 12 12h112a12 12 0 0 0 12-12V76Z"
-        fill="none" stroke="#000" stroke-width="14" stroke-linejoin="round"/>
-  <path d="M148 28v48h48" fill="none" stroke="#000" stroke-width="14" stroke-linejoin="round"/>
-  <text x="120" y="182" text-anchor="middle"
-        font-family="'JetBrains Mono','Courier New',monospace"
-        font-size="86" font-weight="700" fill="#000">C±</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"
+     fill="none" stroke="#000" stroke-width="1.5"
+     stroke-linecap="round" stroke-linejoin="round">
+  <!-- Custom C± (CMM) file glyph, Phosphor-regular style. Drawn with stroke
+       paths only (no SVG label element) so it renders reliably when the file is
+       used as a CSS mask. A folded document with a C± mark in the lower half. -->
+  <path d="M13.5 2.75 H6.5 A1.25 1.25 0 0 0 5.25 4 V20 A1.25 1.25 0 0 0 6.5 21.25 H17.5 A1.25 1.25 0 0 0 18.75 20 V8 Z"/>
+  <path d="M13.5 2.75 V8 H18.75"/>
+  <!-- C arc, open to the right -->
+  <path d="M11.2 12.1 a2.55 2.55 0 1 0 0 4.8"/>
+  <!-- plus -->
+  <path d="M14.9 12.7 v2 M13.9 13.7 h2"/>
+  <!-- minus (the ± lower bar) -->
+  <path d="M13.9 16.3 h2"/>
 </svg>

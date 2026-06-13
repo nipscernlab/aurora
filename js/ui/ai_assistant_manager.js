@@ -767,7 +767,13 @@ const _OP_MAP = {
  * through as styled text so the user still reads something.
  */
 function _renderMath(src, display) {
-  let s = String(src || '');
+  // SECURITY: the math source is model-controlled and reaches the DOM via
+  // innerHTML, so it MUST be escaped before any macro runs. renderInline()
+  // stashes the raw `$…$`/`$$…$$` source to keep escapeHtml() from mangling
+  // the LaTeX, which means the escaping has to happen HERE. escapeHtml only
+  // touches & < > " ' — it leaves \ { } ^ _ intact, so the macros below still
+  // match. Without this, `$$<img src=x onerror=…>$$` is an XSS→RCE sink.
+  let s = escapeHtml(String(src || ''));
   // \frac{a}{b}
   s = s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,
     '<span class="ai-frac"><span class="num">$1</span><span class="den">$2</span></span>');

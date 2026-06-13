@@ -429,6 +429,14 @@ function register() {
     try {
       if (!formData.projectLocation) throw new Error('Project location is required');
 
+      // SECURITY: processorName goes straight into path.join below, so it must
+      // be confined to a single path segment — same allowlist the rename
+      // handlers use. Without this, "..\\.." would create the Software/Hardware/
+      // Simulation tree outside the project (path traversal).
+      if (!/^[A-Za-z0-9_-]+$/.test(formData.processorName || '')) {
+        throw new Error('Invalid processor name: use only letters, numbers, hyphen and underscore');
+      }
+
       const processorPath = path.join(formData.projectLocation, formData.processorName);
       const softwarePath = path.join(processorPath, 'Software');
       const hardwarePath = path.join(processorPath, 'Hardware');

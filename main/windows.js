@@ -136,12 +136,12 @@ function createMainWindow(opts = {}) {
       // Renderer must not have direct Node access. The preload script
       // exposes a curated `electronAPI` via contextBridge — that is the
       // only path the renderer can take to reach main-process capabilities.
-      // Important defense in depth because `webviewTag: true` lets the AI
-      // assistant load https://chatgpt.com inside a sub-frame.
       contextIsolation: true,
       nodeIntegration: false,
       nodeIntegrationInSubFrames: false,
-      webviewTag: true,
+      // The AI assistant no longer uses a <webview> sub-frame (it talks to
+      // providers over IPC), so the tag is disabled to shrink attack surface.
+      webviewTag: false,
       preload: path.join(app.getAppPath(), 'js', 'app', 'preload.js'),
       enableWebSQL: false,
       allowRunningInsecureContent: false,
@@ -154,6 +154,15 @@ function createMainWindow(opts = {}) {
   state.mainWindow = mainWindow;
 
   mainWindow.loadFile('index.html');
+
+  // Navigation lockdown. Aurora is a single-page file:// shell: the top frame
+  // is only ever index.html, and links that should open externally go through
+  // shell.openExternal (ipc 'open-external'). So deny window.open entirely and
+  // cancel any in-frame navigation — a stray <a target=_blank>, a dragged URL,
+  // or a compromised renderer trying to load remote content all get blocked.
+  // (programmatic loadFile/loadURL above does NOT trigger 'will-navigate'.)
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
 
   // Notify renderer of maximize/restore state so the [□] / [❐] icon updates.
   const sendWindowState = () => {

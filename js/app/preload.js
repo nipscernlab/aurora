@@ -108,8 +108,6 @@ const projectOperations = {
  *  COMPILATION & SIMULATION
  * ========================================================================= */
 const compilationOperations = {
-  execCommand: (cmd, options = {}) => ipcRenderer.invoke('exec-command', cmd, options),
-
   // Structured-spec executor. The renderer builds a CommandSpec
   // (js/compilation/command_spec.js + builders/*), the main process
   // validates {binary, args} against the toolchain allowlist and

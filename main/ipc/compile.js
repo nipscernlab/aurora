@@ -11,12 +11,11 @@
  */
 
 const { ipcMain } = require('electron');
-const { exec, execFile, spawn } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const log = require('electron-log');
 
 const state = require('../state');
 const {
-  getCPUCount,
   killProcessSilently,
   killProcessesByName,
   checkProcessRunning,
@@ -24,31 +23,11 @@ const {
 const { trackChild } = require('../process_registry');
 
 function register() {
-  ipcMain.handle('exec-command', (_event, command, options = {}) => {
-    return new Promise((resolve, reject) => {
-      const performanceOptions = {
-        maxBuffer: 1024 * 1024 * 50,
-        windowsHide: true,
-        env: {
-          ...process.env,
-          OMP_NUM_THREADS: getCPUCount().toString(),
-          OMP_THREAD_LIMIT: getCPUCount().toString(),
-          ...options.env,
-        },
-      };
-
-      const child = exec(command, performanceOptions);
-      // Track legacy exec-command children too, so a compile launched on this
-      // path is force-stopped when the main interface closes.
-      trackChild(child);
-      let stdout = '';
-      let stderr = '';
-      child.stdout.on('data', (data) => (stdout += data.toString()));
-      child.stderr.on('data', (data) => (stderr += data.toString()));
-      child.on('close', (code) => resolve({ code, stdout, stderr, pid: child.pid }));
-      child.on('error', (err) => reject(err));
-    });
-  });
+  // NOTE: the legacy 'exec-command' handler (raw shell string from the
+  // renderer via child_process.exec) was removed — it was a command-injection
+  // sink with no remaining callers. All toolchain execution now goes through
+  // the structured-spec executor (main/compile/executor.js), which validates
+  // against a binary allowlist and protected flags and spawns with shell:false.
 
   ipcMain.handle('check-process-running', async (_event, pid) => {
     // Coerce to integer: pid comes from the renderer; if it's not a clean

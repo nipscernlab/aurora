@@ -292,6 +292,14 @@ function register() {
 
   ipcMain.handle('open-external', async (_event, url) => {
     try {
+      // SECURITY: only hand http(s)/mailto URLs to the OS. shell.openExternal
+      // will happily launch file://, and other schemes can hit registered
+      // protocol handlers — both are foot-guns when `url` originates in the
+      // renderer (e.g. a link in an AI message). Anything else is rejected.
+      if (typeof url !== 'string' || !/^(https?:|mailto:)/i.test(url)) {
+        log.warn('Blocked open-external for non-web URL:', url);
+        return false;
+      }
       await shell.openExternal(url);
       return true;
     } catch (error) {

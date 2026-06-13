@@ -469,6 +469,36 @@
   color: var(--status-success);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Clear-terminal feedback — animate entries out, then a confirmation pill.
+ * ------------------------------------------------------------------------- */
+.clearing > .log-entry,
+.clearing > .hw-progress {
+  animation: terminalClearOut 200ms var(--ease-aurora) both;
+}
+@keyframes terminalClearOut {
+  to { opacity: 0; transform: translateX(-10px); }
+}
+.terminal-cleared-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: max-content;
+  margin: var(--space-3) auto;
+  padding: 5px 12px 5px 10px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-luminous);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  box-shadow: 0 4px 16px -4px var(--accent-glow);
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+.terminal-cleared-pill.visible { opacity: 1; transform: translateY(0) scale(1); }
+.terminal-cleared-pill .ph { color: var(--status-success); font-size: var(--icon-base); }
+
 /* Inside grouped cards */
 .log-entry .messages-container {
   display: flex;

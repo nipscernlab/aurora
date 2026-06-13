@@ -1096,32 +1096,32 @@ createLogEntry(terminal, text, type, timestamp) {
 
     setupClearButton() {
         const clearButton = document.getElementById('clear-terminal');
+        if (!clearButton) return;
+        // Mode lives in state, not the icon class. The old code branched on
+        // FontAwesome classes (fa-trash-can / fa-dumpster), but the button was
+        // migrated to Phosphor (ph-trash) — so neither branch ever matched and
+        // clicking did nothing. Left-click clears; right-click toggles
+        // current-tab ↔ all-terminals.
+        if (this.clearMode === undefined) this.clearMode = 'current';
 
         clearButton.removeEventListener('click', this.handleClearClick);
         clearButton.removeEventListener('contextmenu', this.handleClearContextMenu);
 
         this.handleClearClick = (event) => {
-            if (event.button === 0) {
-                const icon = clearButton.querySelector('i');
-                if (icon.classList.contains('fa-trash-can')) {
-                    const activeTab = document.querySelector('.terminal-tabs .tab.active');
-                    if (activeTab) {
-                        const terminalId = activeTab.getAttribute('data-terminal');
-                        this.clearTerminal(terminalId);
-                    }
-                } else if (icon.classList.contains('fa-dumpster')) {
-                    this.clearAllTerminals();
-                }
+            if (event.button !== 0) return;
+            if (this.clearMode === 'all') {
+                this.clearAllTerminals();
+                return;
             }
+            const activeTab = document.querySelector('.terminal-tabs .tab.active');
+            const terminalId = activeTab?.getAttribute('data-terminal')
+                || Object.keys(this.terminals)[0];
+            if (terminalId) this.clearTerminal(terminalId);
         };
 
         this.handleClearContextMenu = (event) => {
             event.preventDefault();
-            if (event.button === 2) {
-                setTimeout(() => {
-                    this.changeClearIcon(clearButton);
-                }, 50);
-            }
+            this.changeClearIcon(clearButton);
         };
 
         clearButton.addEventListener('click', this.handleClearClick);
@@ -1205,22 +1205,39 @@ async clearTerminal(terminalId) {
         const terminal = this.terminals[terminalId];
         if (!terminal) return;
 
-        // 1. Inicia o Fade Out do container inteiro
-        terminal.classList.add('faded-out');
+        // Nothing to clear → just confirm with the pill.
+        if (!terminal.childElementCount) { this._flashCleared(terminalId); return; }
 
-        // 2. Aguarda a animação CSS terminar (200ms definido no CSS)
-        // Damos uma pequena folga (250ms) para garantir fluidez
-        await new Promise(resolve => setTimeout(resolve, 250));
+        // 1. Animate the existing entries out (fade + slide), then wipe.
+        terminal.classList.add('clearing');
+        await new Promise(resolve => setTimeout(resolve, 200));
 
-        // 3. Limpa os dados lógicos
+        // 2. Reset logical state + DOM.
         this.currentSessionCards[terminalId] = {};
         this.updatableCards[terminalId] = {};
-        
-        // 4. Limpa o DOM (o usuário não vê isso acontecer pois opacity está 0)
+        this.messageCounts[terminalId] = { error: 0, warning: 0, success: 0, tips: 0 };
         terminal.innerHTML = '';
-        
-        // Mantemos a classe 'faded-out' aqui! 
-        // Ela só será removida quando novo conteúdo for adicionado.
+        terminal.classList.remove('clearing');
+        this.recountMessages?.(terminalId);
+
+        // 3. Brief "Terminal cleared" confirmation.
+        this._flashCleared(terminalId);
+    }
+
+    /** Transient "Terminal cleared" pill — visible feedback after a clear. */
+    _flashCleared(terminalId) {
+        const terminal = this.terminals[terminalId];
+        if (!terminal) return;
+        terminal.querySelector(':scope > .terminal-cleared-pill')?.remove();
+        const pill = document.createElement('div');
+        pill.className = 'terminal-cleared-pill';
+        pill.innerHTML = '<i class="ph ph-check-circle"></i><span>Terminal cleared</span>';
+        terminal.appendChild(pill);
+        requestAnimationFrame(() => pill.classList.add('visible'));
+        setTimeout(() => {
+            pill.classList.remove('visible');
+            setTimeout(() => pill.remove(), 250);
+        }, 1100);
     }
 
     clearAllTerminals() {
@@ -1265,14 +1282,14 @@ async clearTerminal(terminalId) {
 
     changeClearIcon(clearButton) {
         const icon = clearButton.querySelector('i');
-        if (icon.classList.contains('fa-trash-can')) {
-            icon.classList.remove('fa-trash-can');
-            icon.classList.add('fa-dumpster');
-            clearButton.setAttribute('titles', 'Clear All Terminals');
+        if (this.clearMode === 'current') {
+            this.clearMode = 'all';
+            if (icon) icon.className = 'ph ph-broom';
+            clearButton.setAttribute('data-tooltip', 'Clear all terminals (right-click: current only)');
         } else {
-            icon.classList.remove('fa-dumpster');
-            icon.classList.add('fa-trash-can');
-            clearButton.setAttribute('titles', 'Clear Terminal');
+            this.clearMode = 'current';
+            if (icon) icon.className = 'ph ph-trash';
+            clearButton.setAttribute('data-tooltip', 'Clear current terminal tab (right-click: all)');
         }
     }
 

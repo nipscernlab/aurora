@@ -22,6 +22,7 @@
 /* 2. shell */
 @import url("./shell/toolbar.css");
 @import url("./shell/status_updater.css");
+@import url("./shell/command_palette.css");
 
 /* 3. editor */
 @import url("./editor/editor.css");

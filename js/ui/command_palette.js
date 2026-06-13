@@ -1,0 +1,254 @@
+/**
+ * command_palette.js — Aurora command palette (Ctrl+K / Ctrl+Shift+P).
+ *
+ * A single, keyboard-first surface for the actions scattered across the
+ * toolbar and menus: compile steps, project actions, tree views, tools. Built
+ * vanilla (no framework) to match the current renderer; the registry is plain
+ * data so new commands are one entry.
+ *
+ * Wiring: commands prefer the public API (window.AuroraAPI / the file-tree view
+ * controller) and otherwise click the existing toolbar button by id — so a
+ * command does exactly what the button does (including being a no-op when the
+ * button is disabled), with no duplicated logic.
+ *
+ * Shortcuts: Ctrl/Cmd+Shift+P always opens it; Ctrl/Cmd+K opens it too, but
+ * never while a Monaco editor input is focused (so it can't shadow Monaco's
+ * Ctrl+K chords). Esc closes; ↑/↓ move; Enter runs.
+ */
+
+/** Click a toolbar button by id if it exists and isn't disabled. */
+function clickById(id) {
+  const el = document.getElementById(id);
+  if (el && !el.disabled && !el.classList.contains('disabled')) el.click();
+}
+/** Click the first existing/enabled button from a list of candidate ids. */
+function clickFirst(ids) {
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (el && !el.disabled && !el.classList.contains('disabled')) { el.click(); return; }
+  }
+}
+
+// Command registry. group orders the list; keywords widen fuzzy matches.
+const COMMANDS = [
+  // Compilation
+  { id: 'compile.cmm',     group: 'Compile', icon: 'ph ph-play-circle',   title: 'Compile C±',                    keywords: 'cmm build asm assemble', run: () => clickById('cmmcomp') },
+  { id: 'compile.verilog', group: 'Compile', icon: 'ph ph-cpu',           title: 'Synthesize Verilog',            keywords: 'veri synth hardware',    run: () => clickById('vericomp') },
+  { id: 'compile.wave',    group: 'Compile', icon: 'ph ph-waveform',      title: 'Analyse Verilog (waveform)',    keywords: 'wave gtkwave simulate',  run: () => clickById('wavecomp') },
+  { id: 'compile.fast',    group: 'Compile', icon: 'ph ph-lightning',     title: 'Fast run (Verilator)',          keywords: 'fast verilator simulate no waveform', run: () => clickById('fastsim') },
+  { id: 'compile.proc',    group: 'Compile', icon: 'ph ph-circuitry',     title: 'Synthesized processor test',    keywords: 'verilator proc io',      run: () => clickById('verilatorproc') },
+  { id: 'compile.all',     group: 'Compile', icon: 'ph ph-hammer',        title: 'Full build',                    keywords: 'all everything build run', run: () => clickById('allcomp') },
+  { id: 'compile.prism',   group: 'Compile', icon: 'ph ph-graph',         title: 'Open PRISM',                    keywords: 'prism netlist schematic diagram', run: () => clickById('prismcomp') },
+  { id: 'compile.cancel',  group: 'Compile', icon: 'ph ph-x-circle',      title: 'Cancel compilation',            keywords: 'stop abort kill',        run: () => clickById('cancel-everything') },
+
+  // Project
+  { id: 'project.new',     group: 'Project', icon: 'ph ph-folder-simple-plus', title: 'New Project…',            keywords: 'create',                 run: () => clickFirst(['newProjectBtn', 'newProjectBtnWelcome']) },
+  { id: 'project.open',    group: 'Project', icon: 'ph ph-folder-open',   title: 'Open Project…',                 keywords: 'load',                   run: () => clickFirst(['openProjectBtn', 'openProjectBtnWelcome']) },
+  { id: 'project.newFile', group: 'Project', icon: 'ph ph-file-plus',     title: 'New File',                      keywords: 'create add',             run: () => clickById('new-file') },
+  { id: 'project.backup',  group: 'Project', icon: 'ph ph-archive',       title: 'Backup Project',                keywords: 'save zip export',        run: () => clickById('backup-project') },
+
+  // View
+  { id: 'view.files',      group: 'View',    icon: 'ph ph-list-bullets',  title: 'Show Files tree',               keywords: 'verilog picker sidebar', run: () => window.fileTreeViewController?.showFileMode?.() },
+  { id: 'view.hierarchy',  group: 'View',    icon: 'ph ph-tree-structure', title: 'Show Hierarchy tree',          keywords: 'modules netlist sidebar', run: () => window.fileTreeViewController?.showHierarchyMode?.() },
+  { id: 'view.folders',    group: 'View',    icon: 'ph ph-folders',       title: 'Show Folders tree',             keywords: 'filesystem standard explorer sidebar', run: () => window.fileTreeViewController?.showStandardMode?.() },
+  { id: 'view.clearTerm',  group: 'View',    icon: 'ph ph-broom',         title: 'Clear terminal',                keywords: 'clean console output',   run: () => clickById('clear-terminal') },
+
+  // Tools
+  { id: 'tools.hub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
+  { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
+  { id: 'tools.settings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
+];
+
+const GROUP_ORDER = ['Compile', 'Project', 'View', 'Tools'];
+
+/** Subsequence score: every query term must appear in the haystack. Higher is
+ *  better; title hits beat keyword hits, prefix beats mid-string. -1 = no match. */
+function scoreCommand(cmd, query) {
+  const title = cmd.title.toLowerCase();
+  const hay = `${title} ${cmd.keywords} ${cmd.group}`.toLowerCase();
+  const terms = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length) return 0;
+  let score = 0;
+  for (const t of terms) {
+    const inTitle = title.indexOf(t);
+    if (inTitle === 0) { score += 100; continue; }            // title prefix
+    if (inTitle > 0)   { score += 60 - Math.min(inTitle, 30); continue; } // title contains
+    const inHay = hay.indexOf(t);
+    if (inHay >= 0)    { score += 20; continue; }             // keyword/group
+    return -1;                                                // term missing → drop
+  }
+  return score;
+}
+
+class CommandPalette {
+  constructor() {
+    this._open = false;
+    this._items = [];        // current filtered [{cmd, ...}]
+    this._sel = 0;
+    this._els = null;
+    this._onKeydown = this._onKeydown.bind(this);
+    window.addEventListener('keydown', this._onKeydown, true);
+  }
+
+  _build() {
+    if (this._els) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'cmdk-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <div class="cmdk-panel" role="document">
+        <div class="cmdk-input-row">
+          <i class="ph ph-magnifying-glass cmdk-input-icon" aria-hidden="true"></i>
+          <input class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Type a command…" aria-label="Command palette" />
+          <kbd class="cmdk-esc">esc</kbd>
+        </div>
+        <div class="cmdk-list" role="listbox"></div>
+        <div class="cmdk-empty" hidden>No matching commands</div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('.cmdk-input');
+    const list = overlay.querySelector('.cmdk-list');
+    const empty = overlay.querySelector('.cmdk-empty');
+
+    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) this.close(); });
+    input.addEventListener('input', () => this._refilter(input.value));
+    list.addEventListener('mousemove', (e) => {
+      const item = e.target.closest?.('.cmdk-item');
+      if (item) this._select(Number(item.dataset.idx));
+    });
+    list.addEventListener('click', (e) => {
+      const item = e.target.closest?.('.cmdk-item');
+      if (item) this._run(Number(item.dataset.idx));
+    });
+
+    this._els = { overlay, input, list, empty };
+  }
+
+  toggle() { this._open ? this.close() : this.open(); }
+
+  open() {
+    this._build();
+    const { overlay, input } = this._els;
+    overlay.hidden = false;
+    // Force reflow before adding the class so the enter transition runs.
+    void overlay.offsetWidth;
+    overlay.classList.add('visible');
+    this._open = true;
+    input.value = '';
+    this._refilter('');
+    input.focus();
+  }
+
+  close() {
+    if (!this._els) return;
+    const { overlay } = this._els;
+    overlay.classList.remove('visible');
+    this._open = false;
+    // Hide after the fade so it doesn't trap focus / catch clicks.
+    setTimeout(() => { if (!this._open) overlay.hidden = true; }, 160);
+  }
+
+  _refilter(query) {
+    const q = query || '';
+    let scored;
+    if (!q.trim()) {
+      scored = COMMANDS.map((cmd) => ({ cmd, score: 0 }));
+    } else {
+      scored = COMMANDS
+        .map((cmd) => ({ cmd, score: scoreCommand(cmd, q) }))
+        .filter((s) => s.score >= 0)
+        .sort((a, b) => b.score - a.score);
+    }
+    if (!q.trim()) {
+      scored.sort((a, b) => {
+        const g = GROUP_ORDER.indexOf(a.cmd.group) - GROUP_ORDER.indexOf(b.cmd.group);
+        return g !== 0 ? g : a.cmd.title.localeCompare(b.cmd.title);
+      });
+    }
+    this._items = scored;
+    this._sel = 0;
+    this._render();
+  }
+
+  _render() {
+    const { list, empty } = this._els;
+    if (!this._items.length) {
+      list.innerHTML = '';
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    let html = '';
+    let lastGroup = null;
+    this._items.forEach(({ cmd }, i) => {
+      if (cmd.group !== lastGroup) {
+        html += `<div class="cmdk-group">${cmd.group}</div>`;
+        lastGroup = cmd.group;
+      }
+      html += `
+        <div class="cmdk-item${i === this._sel ? ' selected' : ''}" data-idx="${i}" role="option">
+          <i class="${cmd.icon} cmdk-item-icon" aria-hidden="true"></i>
+          <span class="cmdk-item-title">${cmd.title}</span>
+        </div>`;
+    });
+    list.innerHTML = html;
+  }
+
+  _select(idx) {
+    if (idx < 0 || idx >= this._items.length || idx === this._sel) return;
+    const items = this._els.list.querySelectorAll('.cmdk-item');
+    items[this._sel]?.classList.remove('selected');
+    this._sel = idx;
+    const el = items[this._sel];
+    if (el) {
+      el.classList.add('selected');
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  _move(delta) {
+    if (!this._items.length) return;
+    const n = this._items.length;
+    this._select((this._sel + delta + n) % n);
+  }
+
+  _run(idx) {
+    const entry = this._items[idx];
+    this.close();
+    if (entry) { try { entry.cmd.run(); } catch (e) { console.warn('[cmdk] command failed:', e); } }
+  }
+
+  _onKeydown(e) {
+    // Open shortcuts (global).
+    if (!this._open) {
+      const k = e.key.toLowerCase();
+      const mod = e.ctrlKey || e.metaKey;
+      if (mod && e.shiftKey && k === 'p') { e.preventDefault(); this.open(); return; }
+      if (mod && !e.shiftKey && k === 'k') {
+        // Don't shadow Monaco's Ctrl+K chord while its editor input is focused.
+        const ae = document.activeElement;
+        if (ae?.classList?.contains('inputarea')) return;
+        e.preventDefault();
+        this.open();
+      }
+      return;
+    }
+    // While open.
+    switch (e.key) {
+      case 'Escape':    e.preventDefault(); this.close(); break;
+      case 'ArrowDown': e.preventDefault(); this._move(1); break;
+      case 'ArrowUp':   e.preventDefault(); this._move(-1); break;
+      case 'Enter':     e.preventDefault(); this._run(this._sel); break;
+      default: break;
+    }
+  }
+}
+
+const commandPalette = new CommandPalette();
+if (typeof window !== 'undefined') window.commandPalette = commandPalette;
+
+export { commandPalette, CommandPalette };

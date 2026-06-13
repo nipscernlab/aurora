@@ -299,19 +299,26 @@ class EditorManager {
         editor.onDidChangeModelLanguage(syncLigatures);
         syncLigatures();
 
-        // Debounce bra-ket re-decoration: it scans the whole model with a
-        // regex, so running it on every keystroke stutters typing in large
-        // Verilog files. 150 ms feels live but avoids per-character scans.
-        let braKetTimer = null;
-        editor.onDidChangeModelContent(() => {
-            if (braKetTimer) clearTimeout(braKetTimer);
-            braKetTimer = setTimeout(() => {
-                braKetTimer = null;
-                this.decorateBraKet(editor);
-            }, 150);
-        });
+        // Re-decorate bra-ket + vertical-bar on edits AND on scroll/layout —
+        // both now scan only the visible range (P11), so they must re-run when
+        // the visible range changes. Debounced so a burst of keystrokes or a
+        // scroll fling coalesces into one visible-range scan.
+        editor.onDidChangeModelContent(() => this._scheduleRedecorate(editor));
+        editor.onDidScrollChange(() => this._scheduleRedecorate(editor));
+        editor.onDidLayoutChange(() => this._scheduleRedecorate(editor));
 
         return editor;
+    }
+
+    // Debounced, per-editor re-decoration of both visible-range scans. Coalesces
+    // keystroke bursts and scroll flings into one pass (~120ms).
+    static _scheduleRedecorate(editor) {
+        if (editor.__redecorateTimer) clearTimeout(editor.__redecorateTimer);
+        editor.__redecorateTimer = setTimeout(() => {
+            editor.__redecorateTimer = null;
+            this.decorateBraKet(editor);
+            this.decorateVerticalBar(editor);
+        }, 120);
     }
 
     static decorateBraKet(editor) {
@@ -319,8 +326,12 @@ class EditorManager {
         if (!model) return;
 
         try {
-            // Find all occurrences of '⟩'
-            const matches = model.findMatches('⟩', false, false, false, null, true);
+            // Scan only the visible lines, not the whole model (P11) — re-run on
+            // scroll. Off-screen '⟩' decorations aren't visible anyway. Bail if
+            // the editor isn't laid out yet; the scroll/layout listener re-runs.
+            const ranges = editor.getVisibleRanges();
+            if (!ranges.length) return;
+            const matches = model.findMatches('⟩', ranges, false, false, null, true);
 
             // Build new decorations
             const newDecorations = matches.map(m => ({
@@ -352,8 +363,12 @@ class EditorManager {
         if (!model) return;
 
         try {
-            // Find all occurrences of '|'
-            const matches = model.findMatches('\\|', true, false, false, null, true);
+            // Scan only the visible lines, not the whole model (P11): '|' is
+            // everywhere in Verilog (OR), so a full-model scan applied hundreds
+            // of decorations on every pass. Re-run on scroll/layout.
+            const ranges = editor.getVisibleRanges();
+            if (!ranges.length) return;
+            const matches = model.findMatches('\\|', ranges, false, false, null, true);
 
             // Create inline decorations for each occurrence
             const newDecorations = matches.map(m => ({
@@ -473,16 +488,16 @@ class EditorManager {
             editor.addCommand(key, action);
         });
 
-        // Listen for find widget close events
+        // Detect the find widget being dismissed. Guard FIRST on our own tracked
+        // state so the DOM query (.find-widget) only runs while a find is open —
+        // the common case is closed, so this drops a per-keystroke querySelector
+        // from the hot typing path (P11).
         editor.onDidChangeModelContent(() => {
-            const activeFilePath = this.getActiveFilePath();
+            const state = this.findStates.get(this.getActiveFilePath());
+            if (!state || !state.isOpen) return;
             const findWidget = document.querySelector('.find-widget');
-
             if (findWidget && !findWidget.classList.contains('visible')) {
-                const state = this.findStates.get(activeFilePath);
-                if (state) {
-                    state.isOpen = false;
-                }
+                state.isOpen = false;
             }
         });
     }

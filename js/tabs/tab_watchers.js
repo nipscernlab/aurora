@@ -26,13 +26,8 @@ export const tabWatchers = {
             clearInterval(this.periodicCheckInterval);
         }
 
-        // chokidar (push) is the primary change signal; this stat poll is only
-        // a fallback for the Windows race where OS events lag. 4s keeps that
-        // safety net while halving the disk churn the old 2s cadence caused
-        // when many tabs are open.
-        this.periodicCheckInterval = setInterval(async () => {
+        const runCheck = async () => {
             if (this.isCheckingFiles || this.tabs.size === 0) return;
-
             this.isCheckingFiles = true;
             try {
                 await this.checkAllOpenFilesForChanges();
@@ -41,7 +36,26 @@ export const tabWatchers = {
             } finally {
                 this.isCheckingFiles = false;
             }
+        };
+
+        // chokidar (push) is the primary change signal; this stat poll is only a
+        // fallback for the Windows race where OS events lag (P15). It now runs
+        // ONLY while the window is focused — chokidar keeps pushing while you're
+        // away, so the poll's disk churn isn't needed in the background — and we
+        // do a single catch-up check the moment focus returns, so nothing edited
+        // externally while away is missed.
+        this.periodicCheckInterval = setInterval(() => {
+            if (document.hidden || !document.hasFocus()) return;
+            runCheck();
         }, 4000);
+
+        if (!this._fileCheckFocusBound) {
+            this._fileCheckFocusBound = true;
+            window.addEventListener('focus', runCheck);
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) runCheck();
+            });
+        }
     },
 
     stopPeriodicFileCheck() {

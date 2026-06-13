@@ -499,15 +499,31 @@ class ProjectTreeManager {
             // user's intent every time the tree refreshes. Category is locked to
             // whatever the user chose when they marked the file.
             if (file.isTopLevel) continue;
-            let content;
+            // Classification is content-derived, so cache it by mtime: a refresh
+            // that didn't touch the file reuses the result instead of re-reading
+            // the whole .v and re-running the regex (P3 — was N+1 full reads on
+            // every refresh). Only files whose mtime moved get read again.
+            const cache = this._classifyCache || (this._classifyCache = new Map());
+            let mtime = null;
             try {
-                content = await window.electronAPI.readFile(file.path);
-            } catch (error) {
-                console.warn(`Classifier: cannot read ${file.path}:`, error);
-                if (!file.category) file.category = 'synthesizable';
-                continue;
+                mtime = (await window.electronAPI.getFileStats(file.path))?.mtime ?? null;
+            } catch (_) { /* fall through to a full read */ }
+            const hit = mtime != null ? cache.get(file.path) : null;
+            let category;
+            if (hit && hit.mtime === mtime) {
+                category = hit.category;
+            } else {
+                let content;
+                try {
+                    content = await window.electronAPI.readFile(file.path);
+                } catch (error) {
+                    console.warn(`Classifier: cannot read ${file.path}:`, error);
+                    if (!file.category) file.category = 'synthesizable';
+                    continue;
+                }
+                category = classifyVerilogContent(content, file.name);
+                if (mtime != null) cache.set(file.path, { mtime, category });
             }
-            const category = classifyVerilogContent(content, file.name);
             // Regra atual: reclassifica TODOS (inclusive isTopLevel). Se
             // a categoria mudou — usuario editou o arquivo e a heuristica
             // virou de synth pra testbench ou vice-versa — a marca de

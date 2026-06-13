@@ -3001,9 +3001,26 @@ class AIAssistantManager {
     // from soft purple → normal. We mark the boundary in the source text
     // BEFORE markdown rendering so the span surrounds whole tokens, not
     // partial HTML tags.
-    this.currentAssistantContentEl.innerHTML = this._renderWithReveal(sourceText, this._revealLength || 0);
-    this._revealLength = sourceText.length;
+    // Typewriter reveal: advance a cursor toward the buffered text a fraction at
+    // a time, so a large provider chunk (CLI bridges deliver big blocks) flows
+    // in smoothly instead of dumping all at once. _revealLength doubles as the
+    // cursor (chars shown so far); the fade animates the slice revealed this
+    // frame. On finish, _streamFlush forces the whole thing to show at once.
+    const prevShown = Math.min(this._revealLength || 0, sourceText.length);
+    let shown;
+    if (this._streamFlush || prevShown >= sourceText.length) {
+      shown = sourceText.length;
+    } else {
+      const gap = sourceText.length - prevShown;
+      shown = Math.min(sourceText.length, prevShown + Math.max(2, Math.ceil(gap * 0.16)));
+    }
+    this._streamFlush = false;
+    this.currentAssistantContentEl.innerHTML = this._renderWithReveal(sourceText.slice(0, shown), prevShown);
+    this._revealLength = shown;
     this.scrollToBottom();
+    // Keep revealing the buffered tail on the next frames even if no new delta
+    // arrives, until the cursor catches up to everything received so far.
+    if (shown < sourceText.length) this._scheduleStreamRender();
   }
 
   /**
@@ -3041,12 +3058,15 @@ class AIAssistantManager {
     // Collapse the final tool batch so a finished turn reads clean.
     this._closeToolGroup();
     // Flush any frame-batched stream render so the bubble shows the full
-    // final text before we highlight code blocks.
+    // final text before we highlight code blocks — and bypass the typewriter
+    // on this closing frame so nothing is left half-revealed.
+    this._streamFlush = true;
     if (this._streamRenderRaf) {
       cancelAnimationFrame(this._streamRenderRaf);
       this._streamRenderRaf = null;
-      this._renderStreamingBubble();
     }
+    this._renderStreamingBubble();
+    this._streamFlush = false;
     // The whole turn's text is persisted as one assistant message so
     // the next turn carries context. Strip XML tool-call artifacts before
     // storing — they confuse models on subsequent turns.

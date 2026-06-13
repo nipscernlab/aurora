@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- Custom C± (CMM) file glyph, Phosphor-regular style (outlined document
+       with a folded corner). Used as a CSS mask so it inherits currentColor;
+       shapes are opaque black so the alpha mask picks them up. -->
+  <path d="M148 28H72a12 12 0 0 0-12 12v176a12 12 0 0 0 12 12h112a12 12 0 0 0 12-12V76Z"
+        fill="none" stroke="#000" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M148 28v48h48" fill="none" stroke="#000" stroke-width="14" stroke-linejoin="round"/>
+  <text x="120" y="182" text-anchor="middle"
+        font-family="'JetBrains Mono','Courier New',monospace"
+        font-size="86" font-weight="700" fill="#000">C±</text>
+</svg>

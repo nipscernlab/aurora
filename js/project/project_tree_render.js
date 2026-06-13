@@ -448,7 +448,7 @@ export const RenderMixin = {
         } else if (ext === '.py') {
             return fileObj.isTopLevel ? 'ph ph-test-tube' : 'ph ph-file-py';
         } else if (ext === '.cmm') {
-            return 'ph ph-file-code';
+            return 'aurora-icon-cmm';
         } else if (ext === '.txt') {
             return 'ph ph-file-text';
         } else if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'].includes(ext)) {

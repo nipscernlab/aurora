@@ -932,8 +932,8 @@ async def basic_test(dut):
         const iconMap = {
             // SAPHO/AURORA file types — distinctive icons per family so the
             // hardware toolchain reads at a glance (Verilog = a chip, C± = a
-            // C file, assembly = binary, waveforms = a waveform).
-            'cmm':       'ph ph-file-c',
+            // custom C±-lettered document, assembly = binary, waves = waveform).
+            'cmm':       'aurora-icon-cmm',
             'asm':       'ph ph-binary',
             'v':         'ph ph-cpu',
             'vh':        'ph ph-cpu',
@@ -980,8 +980,11 @@ async def basic_test(dut):
             'cpp':   'ph ph-file-cpp',
             'cc':    'ph ph-file-cpp',
             'cxx':   'ph ph-file-cpp',
-            'h':     'ph ph-file-h',
-            'hpp':   'ph ph-file-h',
+            // Phosphor has no ph-file-h — headers borrow the C/C++ document.
+            'h':     'ph ph-file-c',
+            'hpp':   'ph ph-file-cpp',
+            'hh':    'ph ph-file-cpp',
+            'hxx':   'ph ph-file-cpp',
             'cs':    'ph ph-file-c-sharp',
             'php':   'ph ph-file-code',
             'rb':    'ph ph-file-code',

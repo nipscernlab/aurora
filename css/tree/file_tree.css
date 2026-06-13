@@ -158,6 +158,18 @@
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+/* The file currently open in Monaco — parity with the verilog tree, so the
+   folder tree also shows which file is focused. Persistent accent bar +
+   stronger background + brighter name. */
+.file-item.editor-focused {
+  background-color: var(--overlay-active);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.file-item.editor-focused .file-item-name {
+  color: var(--text);
+  font-weight: var(--font-medium);
+}
+
 /* ---------------------------------------------------------------------------
  *  Chevron / spacer — 16px wide so files align with folder names (VSCode).
  * ------------------------------------------------------------------------- */

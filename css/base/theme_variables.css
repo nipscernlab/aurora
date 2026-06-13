@@ -546,6 +546,20 @@ body {
 
 .ph { font-weight: normal; }
 
+/* Custom C± / CMM file icon — a masked SVG so it inherits currentColor and
+   sits alongside the Phosphor icons in the tabs and file trees (the same icon
+   is used in both, since getFileIcon is the single source). */
+.aurora-icon-cmm {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: url('../../assets/icons/cmm_file.svg') center / contain no-repeat;
+  mask: url('../../assets/icons/cmm_file.svg') center / contain no-repeat;
+}
+
 /* ===========================================================================
  *  Custom Aurora Compile Glyphs
  *  Self-contained SVG marks used in toolbar / terminal tabs / status bar.

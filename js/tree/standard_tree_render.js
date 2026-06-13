@@ -54,9 +54,29 @@ class StandardTreeRenderer {
         this._expanded = new Set();
         // Guard against overlapping renders racing on the same container.
         this._rendering = false;
+        // Keep the open-in-editor file highlighted in the folder tree too
+        // (parity with the verilog tree), updating as the active file changes.
+        window.addEventListener('aurora:editing-file-changed', () => this.refreshFocusHighlight());
     }
 
     isExpanded(path) { return this._expanded.has(path); }
+
+    /**
+     * Mark the row of the file currently focused in Monaco with `.editor-focused`
+     * so the folder tree shows which file is open (same affordance as the
+     * verilog tree). Re-scans the rendered rows; cheap and idempotent.
+     */
+    refreshFocusHighlight() {
+        const container = treeView.getContainer('standard');
+        if (!container) return;
+        const norm = (p) => String(p || '').replace(/\\/g, '/').toLowerCase();
+        const target = norm(window.TabManager?.getEditingFilePath?.() || '');
+        container.querySelectorAll('.file-tree-item[data-path]').forEach((w) => {
+            const match = !!target && norm(w.getAttribute('data-path')) === target;
+            const row = w.querySelector(':scope > .file-item');
+            if (row) row.classList.toggle('editor-focused', match);
+        });
+    }
     hasExpanded() { return this._expanded.size > 0; }
 
     /**
@@ -128,6 +148,7 @@ class StandardTreeRenderer {
             this._pruneExpanded(root);
             container.innerHTML = '';
             await this._renderLevel(entries, container, 0);
+            this.refreshFocusHighlight();
         } catch (err) {
             console.error('StandardTreeRenderer.render failed:', err);
         } finally {

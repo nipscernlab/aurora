@@ -1431,13 +1431,10 @@ class AIAssistantManager {
               <div class="ai-mp-seg" id="ai-mp-effort"></div>
             </div>
 
-            <div class="ai-mp-section ai-mp-usage ai-mp-cc hidden" id="ai-mp-usage">
-              <div class="ai-mp-label">
-                <span>Subscription usage</span>
-                <span class="ai-usage-plan" id="ai-usage-plan"></span>
-              </div>
-              <div class="ai-usage-bars" id="ai-usage-bars"></div>
-            </div>
+            <!-- "Subscription usage" section removed: the CLIs only report an
+                 in-memory, per-run tally that resets each launch, so the bars
+                 never reflected real plan limits. Dropped rather than mislead.
+                 renderUsage() no-ops without #ai-usage-bars (guarded). -->
 
             <div class="ai-mp-section">
               <div class="ai-mp-label">Permissions</div>

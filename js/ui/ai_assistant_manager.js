@@ -837,6 +837,14 @@ function renderInline(s) {
     return text;
   });
 
+  // Bare URLs (https://… typed directly, not in [text](url) form) → clickable.
+  // Most model replies use bare URLs, so without this they rendered as plain,
+  // unclickable, un-highlighted text. The lookbehind skips URLs already inside
+  // an attribute (data-href=") or right after a tag's '>' (the visible text of
+  // a link just built above), so we never nest or break an existing anchor.
+  s = s.replace(/(?<!["'=>])(https?:\/\/[^\s<>"]+[^\s<>".,;:!?)\]])/g,
+    (url) => `<a href="#" class="ai-link" data-href="${url}">${url}</a>`);
+
   // Bare absolute filesystem paths (C:\… or \\server\…) → clickable. The string
   // is already escaped, and paths don't contain & < > " so the escaped form
   // equals the raw path. Backtick-wrapped paths are handled in the code restore.

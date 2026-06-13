@@ -257,6 +257,18 @@ body.ai-assistant-open {
   min-height: 0;
 }
 
+/* Ambient aurora behind the panel content (DESIGN §7). The canvas fills the
+   content; the chat/composer ride above it on z-1 so text stays crisp. */
+.ai-assistant-content > .ai-aurora-bg {
+  z-index: 0;
+}
+.ai-assistant-content > .ai-empty-state,
+.ai-assistant-content > .ai-messages,
+.ai-assistant-content > .ai-input-area {
+  position: relative;
+  z-index: 1;
+}
+
 /* ---------------------------------------------------------------------------
  *  Empty state — no provider configured
  * ------------------------------------------------------------------------- */

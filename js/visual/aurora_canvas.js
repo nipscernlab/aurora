@@ -63,33 +63,38 @@ vec3 ribbon(float t){
 
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes.xy;
-  vec2 p  = vec2(uv.x * (uRes.x / uRes.y), uv.y);
-  float t = uTime * 0.06;
+  float aspect = uRes.x / uRes.y;
+  // Mild horizontal stretch so the sheet spans the full width with broad
+  // features (a full aspect stretch clustered everything into one side).
+  float x = uv.x * aspect * 0.55;
+  float t = uTime * 0.05;
 
-  // Two-stage domain warp → organic, flowing curtains instead of static bands.
-  float w1 = fbm(vec2(p.x * 1.2 - t * 0.40, p.y * 0.8 + t * 0.15));
-  float w2 = fbm(vec2(p.x * 2.0 + w1 * 1.5 + t * 0.30, p.y * 0.5 - t * 0.10));
+  // The whole sheet sways and breathes laterally.
+  float sway = fbm(vec2(x * 0.7 + t * 0.18, 0.7)) - 0.5;
 
-  // Layered vertical curtains drifting at different rates.
-  float curtains = smoothstep(0.35, 0.95, fbm(vec2(p.x * 3.0 + w2 * 1.8 + t * 0.50, p.y * 0.35)));
-  curtains += 0.6 * smoothstep(0.40, 0.90, fbm(vec2(p.x * 5.0 - w1 * 1.2 - t * 0.35, p.y * 0.30 + 5.0)));
+  // Broad curtain density across x. Biased up (+0.22) and soft-curved (pow 1.4)
+  // instead of a hard threshold, so density VARIES but no column ever dies —
+  // that was the "aurora disappears from places" bug.
+  float dens = fbm(vec2(x * 1.5 + sway * 1.3 + t * 0.28, uv.y * 0.45 + t * 0.04));
+  dens = pow(clamp(dens + 0.22, 0.0, 1.0), 1.4);
 
-  // Bright near the horizon (bottom), trailing up the sky.
-  float vfall = smoothstep(1.15, 0.05, uv.y);
-  float glow  = curtains * vfall;
+  // Thin luminous vertical rays — the primary aurora structure (the "comb").
+  float rays = fbm(vec2(x * 7.0 + sway * 2.0 - t * 0.22, uv.y * 1.4 + t * 0.05));
+  rays = pow(rays, 2.0);
 
-  // Thin bright rays threading the curtains.
-  float rays = fbm(vec2(p.x * 12.0 + t * 0.5, uv.y * 1.5 + t * 0.1));
-  glow += pow(rays, 4.0) * vfall * 0.8;
+  // Streamers rooted at the bottom; tongues reach higher where density is
+  // strong, with soft fading tops. A full-width airglow base fills the floor.
+  float reach  = 0.40 + 0.55 * dens;
+  float env    = smoothstep(reach + 0.40, -0.05, uv.y);
+  float ground = smoothstep(0.45, -0.15, uv.y);
 
-  // Hue shifts as bands rise (height + warp drive the ribbon position).
-  float ct  = clamp(uv.y * 0.7 + w2 * 0.4, 0.0, 1.0);
+  float glow = (rays * 0.9 + 0.25) * dens * env + ground * 0.35 * (0.5 + dens);
+
+  // Hue rises green → teal/cyan → violet, sway adding lateral colour variation.
+  float ct  = clamp(uv.y * 0.82 + sway * 0.28, 0.0, 1.0);
   vec3  col = ribbon(ct) * glow;
 
-  // Faint green airglow hugging the very bottom.
-  col += ribbon(0.10) * smoothstep(0.5, 0.0, uv.y) * 0.12;
-
-  float alpha = clamp(glow * 1.4, 0.0, 1.0) * uIntensity;
+  float alpha = clamp(glow * 1.35, 0.0, 1.0) * uIntensity;
   gl_FragColor = vec4(col * uIntensity * 1.15, alpha);
 }
 `;

@@ -969,7 +969,7 @@ class WaveConfigManager {
         row.innerHTML = `
             <span class="wave-tree-chevron spacer"></span>
             <input type="checkbox" class="wave-tree-checkbox" tabindex="-1">
-            <span class="wave-tree-icon"><i class="ph ph-pulse"></i></span>
+            <span class="wave-tree-icon"><i class="ph ph-wave-sine"></i></span>
             <span class="wave-tree-name">
                 ${nameSpanHtml}
             </span>

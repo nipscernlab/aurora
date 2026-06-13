@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // UI Loading
             const originalButtonText = generateButton.innerHTML;
-            generateButton.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Generating...</span>';
+            generateButton.innerHTML = '<i class="ph ph-spinner animate-spin"></i> <span>Generating...</span>';
             generateButton.disabled = true;
 
             const formData = {

@@ -277,7 +277,7 @@ class SplitPane {
     _addTabElement(filePath, options = {}) {
         const tabsBar  = this.element.querySelector('.split-pane-tabs');
         const fileName = TabManager.getDisplayName?.(filePath) ?? filePath.split(/[\\/]/).pop();
-        const iconClass = TabManager.getFileIcon?.(fileName) ?? 'fas fa-file';
+        const iconClass = TabManager.getFileIcon?.(fileName) ?? 'ph ph-file';
 
         const tab = document.createElement('div');
         tab.className = 'tab split-tab';

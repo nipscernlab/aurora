@@ -48,7 +48,7 @@ class StatusUpdater {
     }
 
     _defaultHtml() {
-      return `<i class="fa-solid fa-bolt" style="color: #0066FF;"></i> ${tr('statusBar.startCompilation')}`;
+      return `<i class="ph ph-lightning" style="color: #0066FF;"></i> ${tr('statusBar.startCompilation')}`;
     }
 
     _clearReset() {
@@ -84,7 +84,7 @@ class StatusUpdater {
       const name = compName(type);
       this.isCompiling = true;
       this.statusItem.className = 'status-item status-compiling';
-      this.statusItem.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${tr('compilation.inProgress', { name })}`;
+      this.statusItem.innerHTML = `<i class="ph ph-spinner animate-spin"></i> ${tr('compilation.inProgress', { name })}`;
       this.startPulsing();
     }
 
@@ -97,7 +97,7 @@ class StatusUpdater {
       if (!this.statusItem) return;
       const name = compName(type);
       this.statusItem.className = 'status-item status-success';
-      this.statusItem.innerHTML = `<i class="fa-solid fa-check"></i> ${tr('compilation.success', { name })}`;
+      this.statusItem.innerHTML = `<i class="ph ph-check"></i> ${tr('compilation.success', { name })}`;
       this.isCompiling = false;
       this._scheduleReset(5000);
     }
@@ -108,7 +108,7 @@ class StatusUpdater {
       this.isCompiling = false;
       if (!this.statusItem) return;
       this.statusItem.className = 'status-item status-error';
-      this.statusItem.innerHTML = `<i class="fa-solid fa-ban"></i> ${tr('compilation.cancelled')}`;
+      this.statusItem.innerHTML = `<i class="ph ph-prohibit"></i> ${tr('compilation.cancelled')}`;
       this._scheduleReset(3000);
     }
 
@@ -119,7 +119,7 @@ class StatusUpdater {
       this._clearReset();
       this.isCompiling = true;
       this.statusItem.className = 'status-item status-compiling';
-      this.statusItem.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${tr('compilation.inProgress', { name })}`;
+      this.statusItem.innerHTML = `<i class="ph ph-spinner animate-spin"></i> ${tr('compilation.inProgress', { name })}`;
 
       // Start a gentle pulsing animation
       this.startPulsing();
@@ -133,7 +133,7 @@ class StatusUpdater {
       if (this.runActive) return;
       const name = compName(type);
       this.statusItem.className = 'status-item status-success';
-      this.statusItem.innerHTML = `<i class="fa-solid fa-check"></i> ${tr('compilation.success', { name })}`;
+      this.statusItem.innerHTML = `<i class="ph ph-check"></i> ${tr('compilation.success', { name })}`;
 
       // Reset after 5 seconds
       this._scheduleReset(5000);
@@ -151,9 +151,9 @@ class StatusUpdater {
       // Include error message if provided, otherwise just show generic failure
       if (errorMsg && errorMsg.length > 0) {
         const shortErrorMsg = errorMsg.length > 30 ? errorMsg.substring(0, 30) + '...' : errorMsg;
-        this.statusItem.innerHTML = `<i class="fa-solid fa-xmark"></i> ${tr('compilation.failedWithError', { name, error: shortErrorMsg })}`;
+        this.statusItem.innerHTML = `<i class="ph ph-x"></i> ${tr('compilation.failedWithError', { name, error: shortErrorMsg })}`;
       } else {
-        this.statusItem.innerHTML = `<i class="fa-solid fa-xmark"></i> ${tr('compilation.failed', { name })}`;
+        this.statusItem.innerHTML = `<i class="ph ph-x"></i> ${tr('compilation.failed', { name })}`;
       }
 
       // Reset after 8 seconds (longer for errors so user can read)

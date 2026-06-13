@@ -41,13 +41,13 @@ export const tabViewers = {
     <div class="image-viewer-toolbar">
       <div class="image-viewer-controls">
         <button class="image-control-btn" id="zoom-in-btn" title="Zoom In">
-          <i class="fas fa-search-plus"></i>
+          <i class="ph ph-magnifying-glass-plus"></i>
         </button>
         <button class="image-control-btn" id="zoom-out-btn" title="Zoom Out">
-          <i class="fas fa-search-minus"></i>
+          <i class="ph ph-magnifying-glass-minus"></i>
         </button>
         <button class="image-control-btn" id="zoom-reset-btn" title="Reset Zoom">
-          <i class="fas fa-expand-arrows-alt"></i>
+          <i class="ph ph-arrows-out"></i>
         </button>
         <span class="zoom-level" id="zoom-level">100%</span>
       </div>

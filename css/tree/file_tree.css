@@ -213,15 +213,12 @@
 }
 
 .file-item-icon.ph-folder,
-.file-item-icon.ph-folder-open,
-.file-item-icon.fa-folder,
-.file-item-icon.fa-folder-open {
+.file-item-icon.ph-folder-open {
   color: var(--aurora-cyan);
 }
 /* Open folders glow a touch brighter (teal) so the expanded state reads
    instantly without changing the icon's footprint. */
-.file-item-icon.ph-folder-open,
-.file-item-icon.fa-folder-open {
+.file-item-icon.ph-folder-open {
   color: var(--aurora-teal);
 }
 

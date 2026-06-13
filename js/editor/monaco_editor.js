@@ -1305,7 +1305,7 @@ function updateCursorPosition(event) {
         const lineColText = window.t
             ? window.t('editor.lineCol', { line: lineNumber, col: columnNumber })
             : `Ln ${lineNumber}, Col ${columnNumber}`;
-        statusElement.innerHTML = `<i class="fa-solid fa-align-left"></i> ${lineColText}`;
+        statusElement.innerHTML = `<i class="ph ph-text-align-left"></i> ${lineColText}`;
 
         setTimeout(() => {
             statusElement.classList.remove('updating');

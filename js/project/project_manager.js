@@ -206,7 +206,7 @@ function enableCompileButtons() {
         // 3. Troca o ícone imediatamente
         if (icon) {
             // Reseta as classes para garantir e aplica o novo ícone
-            icon.className = 'fa-solid fa-plug-circle-check';
+            icon.className = 'ph ph-plugs-connected';
         }
 
         // 4. Troca o texto imediatamente. Reapontamos data-i18n também

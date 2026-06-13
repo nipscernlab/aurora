@@ -158,7 +158,7 @@ class ZoomControlManager {
     // Create zoom icon button
     const zoomIconBtn = document.createElement('button');
     zoomIconBtn.className = 'zoom-icon-btn';
-    zoomIconBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+    zoomIconBtn.innerHTML = '<i class="ph ph-magnifying-glass"></i>';
     zoomIconBtn.setAttribute('aria-label', 'Zoom control');
     zoomIconBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -171,13 +171,13 @@ class ZoomControlManager {
     buttonsContainer.id = 'zoomButtonsContainer';
     buttonsContainer.innerHTML = `
       <button class="zoom-btn" data-action="decrease" aria-label="Decrease zoom">
-        <i class="fa-solid fa-minus"></i>
+        <i class="ph ph-minus"></i>
       </button>
       <button class="zoom-btn reset-btn" data-action="reset" aria-label="Reset zoom">
-         Reset <i class="fa-solid fa-rotate-left"></i>
+         Reset <i class="ph ph-arrow-counter-clockwise"></i>
       </button>
       <button class="zoom-btn" data-action="increase" aria-label="Increase zoom">
-        <i class="fa-solid fa-plus"></i>
+        <i class="ph ph-plus"></i>
       </button>
     `;
 

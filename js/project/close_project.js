@@ -40,8 +40,8 @@ function disableCompileButtons() {
         const statusText = document.getElementById('status-text');
 
         if (icon) {
-            icon.classList.remove('fa-plug-circle-check');
-            icon.classList.add('fa-plug-circle-xmark');
+            icon.classList.remove('ph-plugs-connected');
+            icon.classList.add('ph-plugs');
         }
         if (statusText) {
             statusText.setAttribute('data-i18n', 'statusBar.notReady');

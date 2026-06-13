@@ -786,7 +786,7 @@ async def basic_test(dut):
         segments.pop();
         const fileName = this.getDisplayName(filePath);
 
-        let html = '<i class="fas fa-folder-open"></i>';
+        let html = '<i class="ph ph-folder-open"></i>';
 
         if (segments.length > 0) {
             html += segments.map(segment =>

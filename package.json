@@ -130,7 +130,6 @@
     "@ai-sdk/groq": "^3.0.39",
     "@ai-sdk/openai": "^3.0.64",
     "@anthropic-ai/claude-code": "^2.1.144",
-    "@fortawesome/fontawesome-free": "^6.6.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@openai/codex": "^0.131.0",
     "@phosphor-icons/web": "^2.1.1",
@@ -141,6 +140,7 @@
     "electron-updater": "^6.6.2",
     "fs-extra": "^11.3.0",
     "katex": "^0.17.0",
+    "lit": "^3.3.3",
     "monaco-editor": "0.52.2",
     "zod": "^3.25.76"
   },

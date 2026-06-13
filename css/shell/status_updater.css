@@ -14,8 +14,7 @@
   animation: statusFadeIn 240ms var(--ease-out-quart);
 }
 
-.status-compiling .ph-spinner,
-.status-compiling .fa-spinner {
+.status-compiling .ph-spinner {
   animation: spin 1.4s linear infinite;
 }
 

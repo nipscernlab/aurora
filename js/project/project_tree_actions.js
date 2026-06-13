@@ -604,7 +604,7 @@ async def basic_test(dut):
         menu.id = 'verilog-context-menu';
         menu.innerHTML = `
             <div class="context-menu-item delete-item" data-action="delete-processor">
-                <i class="fa-solid fa-trash"></i>
+                <i class="ph ph-trash"></i>
                 <span>Delete processor</span>
             </div>
         `;
@@ -725,7 +725,7 @@ async def basic_test(dut):
                 // Testbench file — only the testbench-top toggle is relevant.
                 menuItems += `
                     <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
-                        <i class="fa-solid fa-flask"></i>
+                        <i class="ph ph-flask"></i>
                         <span>${isTbTop ? tr('contextMenu.unmarkTestbench') : tr('contextMenu.markTestbench')}</span>
                     </div>
                     <div class="context-menu-divider"></div>
@@ -734,7 +734,7 @@ async def basic_test(dut):
                 // Synthesizable file — only the top-level toggle is relevant.
                 menuItems += `
                     <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
-                        <i class="fa-solid fa-flag"></i>
+                        <i class="ph ph-flag"></i>
                         <span>${isSynthTop ? tr('contextMenu.removeTopLevel') : tr('contextMenu.setTopLevel')}</span>
                     </div>
                     <div class="context-menu-divider"></div>
@@ -746,7 +746,7 @@ async def basic_test(dut):
         menu.innerHTML = `
             ${menuItems}
             <div class="context-menu-item delete-item" data-action="delete">
-                <i class="fa-solid fa-trash"></i>
+                <i class="ph ph-trash"></i>
                 <span>Delete file</span>
             </div>
         `;
@@ -839,11 +839,11 @@ async def basic_test(dut):
 
         menu.innerHTML = `
             <div class="create-menu-item" data-action="create-file">
-                <i class="fa-solid fa-file-code"></i>
+                <i class="ph ph-file-code"></i>
                 <span>${tr('contextMenu.newFile')}</span>
             </div>
             <div class="create-menu-item" data-action="create-cocotb">
-                <i class="fa-brands fa-python"></i>
+                <i class="ph ph-file-py"></i>
                 <span>${tr('contextMenu.newCocotb')}</span>
             </div>
         `;

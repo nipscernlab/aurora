@@ -198,7 +198,7 @@
   --tracking-widest:  0.14em;
 
   /* =========================================================================
-   *  Semantic icon sizes — keep .ph/.fa-solid in toolbar/tree/etc consistent.
+   *  Semantic icon sizes — keep .ph in toolbar/tree/etc consistent.
    *  Pulled out so individual components don't have to remember magic numbers.
    * ======================================================================= */
   --icon-2xs:  10px;
@@ -491,11 +491,7 @@ body {
  * ========================================================================= */
 .ph,
 .ph-bold,
-.ph-fill,
-.fa-solid,
-.fa-regular,
-.fas,
-.far {
+.ph-fill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -505,44 +501,35 @@ body {
 }
 
 .toolbar-button > .ph,
-.toolbar-button > .ph-bold,
-.toolbar-button > .fa-solid,
-.toolbar-button > .fas {
+.toolbar-button > .ph-bold {
   font-size: var(--icon-lg);
 }
 
 .toolbar-button > .ph + .ph,
-.toolbar-button > .ph-bold + .ph-bold,
-.toolbar-button > .fa-solid + .fa-solid {
+.toolbar-button > .ph-bold + .ph-bold {
   margin-left: -3px;
 }
 
 .tree-action > .ph,
 .tree-action > .ph-bold,
-.overlay-title .tree-toggle-btn > .ph,
-.tree-action > .fa-solid {
+.overlay-title .tree-toggle-btn > .ph {
   font-size: var(--icon-base);
 }
 
 .status-item > .ph,
-.status-item > .ph-bold,
-.status-item > .fa-solid { font-size: var(--icon-sm); }
+.status-item > .ph-bold { font-size: var(--icon-sm); }
 
 .tab > .ph,
-.tab > .ph-bold,
-.tab > .fa-solid { font-size: var(--icon-md); }
+.tab > .ph-bold { font-size: var(--icon-md); }
 
 .modal-title > .ph,
-.modal-title > .ph-bold,
-.modal-title > .fa-solid { font-size: var(--icon-base); }
+.modal-title > .ph-bold { font-size: var(--icon-base); }
 
 .section-title > .ph,
-.section-title > .ph-bold,
-.section-title > .fa-solid { font-size: var(--icon-sm); }
+.section-title > .ph-bold { font-size: var(--icon-sm); }
 
 .form-label > .ph,
-.form-label > .ph-bold,
-.form-label > .fa-solid { font-size: var(--icon-xs); }
+.form-label > .ph-bold { font-size: var(--icon-xs); }
 
 .ph { font-weight: normal; }
 
@@ -560,47 +547,3 @@ body {
   mask: url('../../assets/icons/cmm_file.svg') center / contain no-repeat;
 }
 
-/* ===========================================================================
- *  Custom Aurora Compile Glyphs
- *  Self-contained SVG marks used in toolbar / terminal tabs / status bar.
- *  No FontAwesome dependency.
- * ========================================================================= */
-.aglyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1em;
-  height: 1em;
-  flex-shrink: 0;
-  color: currentColor;
-}
-
-.aglyph svg {
-  width: 100%;
-  height: 100%;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  display: block;
-}
-
-.aglyph-c svg circle,
-.aglyph-c svg path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-}
-
-/* C± composite — letter C followed by a stacked + / - WITHOUT divider bar */
-.aglyph-cpm {
-  width: 1.6em;
-  height: 1em;
-}
-
-.aglyph-cpm svg {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-}

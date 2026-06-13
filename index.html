@@ -1329,6 +1329,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- ES modules (defer by default, dependency-resolved — order-independent) -->
+<!-- Error boundary first, so it is armed before the rest of the graph runs. -->
+<script src="./js/app/error_boundary.js" type="module"></script>
 <script src="./js/i18n/i18n.js" type="module"></script>
 <script src="./js/visual/aurora_canvas.js" type="module"></script>
 <script src="./js/ui/status_updater.js" type="module"></script>

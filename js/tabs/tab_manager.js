@@ -1441,7 +1441,15 @@ async def basic_test(dut):
     // undoing all the way back to the saved state crosses the snapshot
     // and clears the dot, exactly like VS Code.
     static setupContentChangeListener(filePath, editor) {
-        editor.onDidChangeModelContent(() => {
+        // Idempotent guard. createEditorInstance returns the SAME editor on
+        // reopen, and addTab re-calls this — so without the guard every reopen
+        // stacked another onDidChangeModelContent listener on the same editor:
+        // a listener leak AND a callback that fired N times per keystroke.
+        // Register exactly once per live editor; Monaco disposes the listener
+        // when the editor itself is disposed (closeEditor), so a fresh editor
+        // created after a close re-registers cleanly.
+        if (editor.__auroraContentDisposable) return;
+        editor.__auroraContentDisposable = editor.onDidChangeModelContent(() => {
             if (this.isUntitledPath(filePath)) {
                 if (this.expandUntitledSnippet(filePath, editor)) {
                     this.markFileAsModified(filePath);

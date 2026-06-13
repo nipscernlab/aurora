@@ -541,7 +541,14 @@ class EditorManager {
     static setupResponsiveObserver() {
         if (!this.resizeObserver) {
             this.resizeObserver = new ResizeObserver(() => {
-                this.updateResponsiveSettings();
+                // Coalesce a burst of resize callbacks (one per frame of a window
+                // drag / panel animation) into a single update — without this,
+                // every frame iterated every editor calling updateOptions.
+                if (this._responsiveRaf) return;
+                this._responsiveRaf = requestAnimationFrame(() => {
+                    this._responsiveRaf = 0;
+                    this.updateResponsiveSettings();
+                });
             });
             this.resizeObserver.observe(document.body);
         }
@@ -550,6 +557,13 @@ class EditorManager {
     static updateResponsiveSettings() {
         const isMobile = window.innerWidth < 768;
         const isTablet = window.innerWidth < 1024;
+
+        // The options below only change when one of these thresholds is crossed.
+        // Skip the per-editor updateOptions entirely while the width stays in the
+        // same band — the common case during a resize is "nothing crossed".
+        const sig = [isMobile, isTablet, window.innerWidth > 1200, window.innerWidth < 480].join('|');
+        if (sig === this._responsiveSig) return;
+        this._responsiveSig = sig;
 
         this.editors.forEach(({ editor }) => {
             editor.updateOptions({

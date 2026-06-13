@@ -8,10 +8,21 @@
  * shows; only the IPC handlers are registered eagerly here.
  */
 
-const { app } = require('electron');
+const { app, crashReporter } = require('electron');
+const log = require('electron-log');
 
 const { configureLogger } = require('./main/logger');
 configureLogger(); // before anything else so all subsequent log calls use it
+
+// Main-process safety net. There was no crashReporter and no top-level handler,
+// so a throw outside an IPC callback could take the process down (or leave it
+// half-dead with toolchain children orphaned) with nothing logged. Collect
+// local minidumps and log anything that escapes a handler. All best-effort —
+// the safety net must never be what blocks boot.
+try { crashReporter.start({ uploadToServer: false }); }
+catch (_) { /* minidump collection is optional */ }
+process.on('uncaughtException', (err) => { log.error('[main] uncaughtException:', err); });
+process.on('unhandledRejection', (reason) => { log.error('[main] unhandledRejection:', reason); });
 
 // ── GPU / compositor tuning ────────────────────────────────────────────────
 // Command-line switches MUST be appended before the app is ready (the GPU

@@ -412,6 +412,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ...terminalOperations,
   ...updateOperations,
   ...utilityOperations,
+  // Diagnostics: the renderer error boundary forwards uncaught errors here so
+  // they land in the persistent electron-log file (one-way, fire-and-forget).
+  logRendererError: (payload) => ipcRenderer.send('renderer:error', payload),
 });
 
 contextBridge.exposeInMainWorld('terminalAPI', terminalAPI);

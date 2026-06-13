@@ -5,6 +5,7 @@
 
 const path = require('path');
 const { app, ipcMain } = require('electron');
+const log = require('electron-log');
 
 const { componentsPath, rootPath } = require('../paths');
 const { getPythonStatus } = require('../compile/python_locator');
@@ -31,6 +32,13 @@ function register() {
   ipcMain.on('app:reload', () => {
     app.relaunch();
     app.exit(0);
+  });
+
+  // Renderer error boundary forwards uncaught errors/rejections here so they
+  // persist in the main log alongside main-process errors. One-way, defensive.
+  ipcMain.on('renderer:error', (_event, payload) => {
+    const { kind, message, stack } = payload || {};
+    log.error(`[renderer] ${kind || 'error'}: ${message || 'unknown'}`, stack || '');
   });
 }
 

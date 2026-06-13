@@ -94,8 +94,21 @@
   font-weight: var(--font-medium);
 }
 
-/* No accent border on active tab — relies only on background contrast */
-.tab.active::before { content: none; }
+/* Active tab — a luminous aurora beam along the base (DESIGN §5 focus-ray).
+   Replaces the old flat accent border: the brand ribbon, faded at the edges. */
+.tab.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--ray-width);
+  background: var(--gradient-aurora);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  opacity: 0.9;
+  pointer-events: none;
+}
 
 /* Dirty marker */
 .tab.dirty::after {

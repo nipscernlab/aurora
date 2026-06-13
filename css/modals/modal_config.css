@@ -47,12 +47,14 @@
 .modal-container,
 .modal-content {
   background: var(--bg-elev-2);
-  border: 1px solid var(--border);
+  /* Elevation by light (DESIGN §4): luminous border + aurora glow ring instead
+     of a heavy flat drop-shadow. A little depth is kept for readability. */
+  border: 1px solid var(--border-luminous);
   border-radius: var(--radius-xl);
   box-shadow:
-    0 28px 60px rgba(0, 0, 0, 0.55),
-    0 0 0 1px rgba(255, 255, 255, 0.025) inset,
-    0 1px 0 rgba(255, 255, 255, 0.04) inset;
+    0 16px 50px -12px rgba(0, 0, 0, 0.60),
+    0 0 40px -12px var(--accent-glow),
+    var(--shadow-inset-line);
   width: 100%;
   max-width: 460px;
   max-height: 86vh;

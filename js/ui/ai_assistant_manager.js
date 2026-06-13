@@ -184,8 +184,11 @@ const SYSTEM_PROMPT = [
   "Prof. Dr. Luciano Manhães de Andrade Filho. The AURORA IDE and the surrounding infrastructure " +
   "for the SAPHO processor (Scalable Architecture for Hardware Optimization) were built by the " +
   "undergraduate Chrysthofer Arthur Amaro Afonso (UFJF) in partnership with Prof. Luciano. " +
-  "Be concise and precise. Use Markdown. Use fenced ```cmm blocks for CMM snippets, ```verilog for " +
-  "Verilog/VHDL snippets, and $...$ / $$...$$ for LaTeX math. When you point the user to a spot in a " +
+  "Be concise and precise. Use Markdown. ALWAYS wrap EVERY piece of code, file content, command, or " +
+  "console output in a fenced triple-backtick ``` block with a language tag on the opening fence — " +
+  "```cmm for CMM/C±, ```verilog for Verilog/VHDL, ```asm, ```python, ```bash, ```json, etc. — never " +
+  "present code inline or unfenced, so the IDE can syntax-highlight it. Use $...$ / $$...$$ for LaTeX " +
+  "math. When you point the user to a spot in a " +
   "project file, write the reference in backticks as `filename.ext:line` (e.g. `my_proc.cmm:25` or " +
   "`core.v:42`), or a bare `filename.ext` — optionally a project-relative path like `src/core.v` — for " +
   "the whole file. The IDE turns it into a clickable link that opens that file at that line. " +
@@ -1454,10 +1457,10 @@ class AIAssistantManager {
       </div>
 
       <div class="ai-assistant-content">
-        <!-- Ambient aurora, low intensity. The shader concentrates its glow at
-             the bottom, so it sits behind the composer rather than the chat
-             text, keeping messages readable (DESIGN §7). -->
-        <aurora-canvas class="ai-aurora-bg" intensity="0.26" speed="0.6" aria-hidden="true"></aurora-canvas>
+        <!-- Aurora gradient glow — concentrated at the TOP of the chat and
+             fading downward, so it accents the panel without washing out the
+             messages below (a soft, slowly breathing aurora wash). -->
+        <div class="ai-aurora-glow" aria-hidden="true"></div>
         <div class="ai-empty-state hidden" id="ai-empty-state">
           <i class="ph ph-sparkle ai-empty-icon" aria-hidden="true"></i>
           <h4>Aurora Intelligence is offline</h4>

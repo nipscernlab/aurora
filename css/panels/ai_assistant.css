@@ -257,10 +257,30 @@ body.ai-assistant-open {
   min-height: 0;
 }
 
-/* Ambient aurora behind the panel content (DESIGN §7). The canvas fills the
-   content; the chat/composer ride above it on z-1 so text stays crisp. */
-.ai-assistant-content > .ai-aurora-bg {
+/* Aurora gradient glow behind the panel content — intense at the TOP, fading
+   to nothing lower down, so it accents the chat without washing out messages.
+   A slow breathe keeps it alive; chat/composer ride above it on z-1. */
+.ai-aurora-glow {
+  position: absolute;
+  inset: 0;
   z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(140% 70% at 50% -8%,
+      rgba(95, 224, 176, 0.20) 0%,
+      rgba(91, 184, 232, 0.14) 26%,
+      rgba(142, 131, 232, 0.11) 48%,
+      rgba(184, 138, 224, 0.06) 66%,
+      transparent 82%);
+  will-change: opacity, transform;
+  animation: aiAuroraGlow 14s ease-in-out infinite alternate;
+}
+@keyframes aiAuroraGlow {
+  from { opacity: 0.8; transform: translateY(-2%) scale(1.0); }
+  to   { opacity: 1;   transform: translateY(2%)  scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-aurora-glow { animation: none; }
 }
 .ai-assistant-content > .ai-empty-state,
 .ai-assistant-content > .ai-messages,

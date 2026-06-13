@@ -16,6 +16,10 @@
    @import here — the UI keeps its typography offline and at first paint.
    Refresh with: node scripts/fetch-fonts.js */
 
+/* Brand palette lives in brand_tokens.css (single source of truth, shared with
+   the splash / update-notification windows). Must precede every rule below. */
+@import './brand_tokens.css';
+
 :root {
   /* =========================================================================
    *  Surface — night sky depths
@@ -37,14 +41,9 @@
   --text-muted:     #6A6F7C;
   --text-disabled:  #3F434E;
 
-  /* Aurora palette — calibrated for dark UI */
-  --aurora-mint:   #5FE0B0;   /* greenish white */
-  --aurora-teal:   #4FD3C2;   /* turquoise */
-  --aurora-cyan:   #5BB8E8;   /* electric blue */
-  --aurora-violet: #8E83E8;   /* primary aurora */
-  --aurora-purple: #B98AE0;   /* magenta corona */
-  --aurora-pink:   #E68FB8;   /* sub-storm pink */
-  --aurora-night:  #1E2440;   /* dawn glow */
+  /* Aurora palette — defined in brand_tokens.css (imported above), the single
+     source of truth shared with the splash / update-notification windows. */
+  --aurora-night:  #1E2440;   /* dawn glow (UI-only; not a brand accent) */
 
   /* Processor palette — 16 mid-saturation hues with good contrast against
    * --bg-elev (#0F131C) and against each other. Each processor folder in

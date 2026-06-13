@@ -1,0 +1,17 @@
+/* ===========================================================================
+ *  Brand tokens — the AURORA aurora-borealis palette.
+ *
+ *  Single source of truth for the brand colours, extracted so the standalone
+ *  windows (splash, update notification) can share the EXACT same palette as
+ *  the main app instead of each hardcoding its own divergent hex. Imported by
+ *  theme_variables.css and linked directly by the standalone HTML windows.
+ *  Colours only — no element rules — so it's safe to link anywhere.
+ * ========================================================================= */
+:root {
+  --aurora-mint:   #5FE0B0;   /* greenish white */
+  --aurora-teal:   #4FD3C2;   /* turquoise */
+  --aurora-cyan:   #5BB8E8;   /* electric blue */
+  --aurora-violet: #8E83E8;   /* primary aurora */
+  --aurora-purple: #B98AE0;   /* magenta corona */
+  --aurora-pink:   #E68FB8;   /* sub-storm pink */
+}

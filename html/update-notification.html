@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SAPHO — Update</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Local fonts + shared brand palette (offline; single source of truth). -->
+  <link rel="stylesheet" href="../css/base/fonts.css">
+  <link rel="stylesheet" href="../css/base/brand_tokens.css">
   <style>
     :root {
       --bg-0:      #060A14;
@@ -15,11 +16,12 @@
       --text:      #EAF0F8;
       --text-soft: #9AA6BC;
       --text-dim:  #5E6A80;
-      --green:     #45E0A0;
-      --teal:      #2FD9C3;
-      --cyan:      #4FC8F0;
-      --violet:    #8E83E8;
-      --purple:    #BC8AE6;
+      /* Brand accents alias the canonical palette (brand_tokens.css). */
+      --green:     var(--aurora-mint);
+      --teal:      var(--aurora-teal);
+      --cyan:      var(--aurora-cyan);
+      --violet:    var(--aurora-violet);
+      --purple:    var(--aurora-purple);
       --danger:    #FF6B8A;
       --border:    rgba(142,131,232,0.16);
       --font-sans: 'Inter', system-ui, -apple-system, sans-serif;

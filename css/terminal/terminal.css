@@ -395,6 +395,67 @@
   border-left-color: var(--border-subtle);
 }
 
+/* ---------------------------------------------------------------------------
+ *  Hardware-test progress bar (renderHardwareProgress) — a real bar with an
+ *  aurora-gradient fill that slides smoothly between updates.
+ * ------------------------------------------------------------------------- */
+.hw-progress {
+  margin: 6px 10px 8px 12px;
+  padding: 8px 12px 9px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-subtle);
+}
+.hw-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 7px;
+}
+.hw-progress-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-wide);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hw-progress-pct {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--aurora-mint);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.hw-progress-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-elev-3);
+  overflow: hidden;
+}
+.hw-progress-fill {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  border-radius: inherit;
+  background: var(--gradient-aurora);
+  transition: transform 300ms var(--ease-aurora);
+}
+.hw-progress-meta {
+  margin-top: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.hw-progress.done .hw-progress-pct {
+  color: var(--status-success);
+}
+
 /* Inside grouped cards */
 .log-entry .messages-container {
   display: flex;

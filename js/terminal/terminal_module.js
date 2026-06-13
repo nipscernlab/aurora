@@ -857,8 +857,23 @@ createLogEntry(terminal, text, type, timestamp) {
         this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
         let el = this.updatableCards[terminalId].hwProgress;
         if (!el || !el.isConnected) {
+            // Real DOM progress bar (replaces the old ASCII █░ string): a label
+            // row, an aurora-gradient fill on a track, and a meta line. The fill
+            // animates via a CSS transform transition, so it slides smoothly
+            // between updates instead of snapping.
             el = document.createElement('div');
-            el.className = 'hw-progress-line';
+            el.className = 'hw-progress';
+            el.innerHTML =
+                '<div class="hw-progress-head">' +
+                  '<span class="hw-progress-label"></span>' +
+                  '<span class="hw-progress-pct"></span>' +
+                '</div>' +
+                '<div class="hw-progress-track"><div class="hw-progress-fill"></div></div>' +
+                '<div class="hw-progress-meta"></div>';
+            el._label = el.querySelector('.hw-progress-label');
+            el._pct = el.querySelector('.hw-progress-pct');
+            el._fill = el.querySelector('.hw-progress-fill');
+            el._meta = el.querySelector('.hw-progress-meta');
             terminal.appendChild(el);
             this.updatableCards[terminalId].hwProgress = el;
         } else {
@@ -867,16 +882,16 @@ createLogEntry(terminal, text, type, timestamp) {
             terminal.appendChild(el);
         }
 
-        const W = 24;
         const pct = Math.max(0, Math.min(100, Math.round(p.pct || 0)));
-        const filled = Math.round((pct / 100) * W);
-        const bar = '█'.repeat(filled) + '░'.repeat(W - filled);
         // `reads` e o TOTAL de leituras de entrada (somando todos os input_<N>),
         // entao o rotulo agregado "leituras" cabe mesmo com varias entradas.
         const readsWord = (typeof window !== 'undefined' && window.t)
             ? window.t('terminal.htest.reads') : 'reads';
         const tail = (p.reads != null) ? ` · ${p.reads} ${readsWord}` : '';
-        el.textContent = `${p.label} ▕${bar}▏ ${pct}%  (${p.cyc}/${p.total})${tail}`;
+        el._label.textContent = p.label || '';
+        el._pct.textContent = `${pct}%`;
+        el._fill.style.transform = `scaleX(${pct / 100})`;
+        el._meta.textContent = `${p.cyc}/${p.total}${tail}`;
         el.classList.toggle('done', !!p.done);
 
         this.scrollToBottom(terminalId);

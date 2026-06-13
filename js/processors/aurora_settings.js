@@ -236,12 +236,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // active state lives on a class so transitions stay snappy.
     const navButtons = modalOverlay.querySelectorAll('.settings-nav-item');
     const panes = modalOverlay.querySelectorAll('.settings-pane');
+    const navContainer = modalOverlay.querySelector('.settings-nav');
+
+    // A single highlight pill that GLIDES to the active section (the same
+    // affordance as the terminal tab bar). Replaces the per-item .active::before
+    // accent bar so the highlight slides instead of popping between items.
+    const positionNavIndicator = (activeBtn, animate = true) => {
+        if (!navContainer || !activeBtn) return;
+        let ind = navContainer.querySelector(':scope > .settings-nav-indicator');
+        if (!ind) {
+            ind = document.createElement('div');
+            ind.className = 'settings-nav-indicator';
+            navContainer.insertBefore(ind, navContainer.firstChild);
+        }
+        if (!animate) ind.style.transition = 'none';
+        ind.style.height = `${activeBtn.offsetHeight}px`;
+        ind.style.transform = `translateY(${activeBtn.offsetTop}px)`;
+        ind.classList.add('visible');
+        if (!animate) {
+            // Re-enable the transition after the instant placement settles.
+            requestAnimationFrame(() => { ind.style.transition = ''; });
+        }
+    };
 
     const setActivePane = (name) => {
+        let activeBtn = null;
         navButtons.forEach((btn) => {
             const isActive = btn.dataset.pane === name;
             btn.classList.toggle('active', isActive);
             btn.setAttribute('aria-selected', String(isActive));
+            if (isActive) activeBtn = btn;
         });
         panes.forEach((pane) => {
             const isActive = pane.dataset.pane === name;
@@ -249,6 +273,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isActive) pane.removeAttribute('hidden');
             else pane.setAttribute('hidden', '');
         });
+        // Animate unless the modal isn't visible yet (first open → place instantly).
+        positionNavIndicator(activeBtn, modalOverlay.classList.contains('visible'));
     };
 
     navButtons.forEach((btn) => {

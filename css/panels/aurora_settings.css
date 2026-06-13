@@ -105,6 +105,7 @@
   padding: var(--space-4) var(--space-2);
   background: var(--bg);
   border-right: 1px solid var(--border-subtle);
+  position: relative;   /* anchors the sliding .settings-nav-indicator */
   /* min-height:0 lets the grid track shrink past content size so the
      internal overflow rule actually engages instead of inflating the
      row to fit. Mirrored on .settings-panes below for the same reason. */
@@ -128,6 +129,7 @@
   text-align: left;
   cursor: pointer;
   position: relative;
+  z-index: 1;   /* keep label/icon above the sliding highlight pill */
   transition: background-color var(--transition-fast),
               color var(--transition-fast);
 }
@@ -138,14 +140,28 @@
 }
 
 .settings-nav-item.active {
-  background: var(--accent-soft);
   color: var(--accent-hover);
 }
 
-/* Aurora accent bar on the active item — the same affordance the file
-   tree's active row uses, kept consistent so the user reads "selected
-   section" without thinking. */
-.settings-nav-item.active::before {
+/* Single highlight pill that GLIDES to the active section (positioned by
+   aurora_settings.js) — replaces the per-item accent bar so the highlight
+   slides smoothly between sections, like the terminal tab indicator. */
+.settings-nav-indicator {
+  position: absolute;
+  left: var(--space-2);
+  right: var(--space-2);
+  top: 0;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 260ms var(--ease-aurora),
+              height 260ms var(--ease-aurora);
+}
+.settings-nav-indicator.visible { opacity: 1; }
+.settings-nav-indicator::before {
   content: '';
   position: absolute;
   left: 0;

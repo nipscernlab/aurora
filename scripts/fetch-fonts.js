@@ -29,7 +29,6 @@ const KEEP_SUBSETS = new Set(['latin', 'latin-ext']);
 const FAMILIES = [
   { family: 'Inter', slug: 'inter', css: 'Inter:wght@400;500;600;700' },
   { family: 'JetBrains Mono', slug: 'jetbrains-mono', css: 'JetBrains+Mono:wght@400;500;600' },
-  { family: 'Mrs Saint Delafield', slug: 'mrs-saint-delafield', css: 'Mrs+Saint+Delafield' },
 ];
 
 function get(url, asBuffer) {

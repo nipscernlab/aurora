@@ -42,43 +42,55 @@ float noise(vec2 p){
 }
 float fbm(vec2 p){
   float v = 0.0, a = 0.5;
-  for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.02; a *= 0.5; }
+  for (int i = 0; i < 6; i++) { v += a * noise(p); p = p * 2.03 + 11.1; a *= 0.5; }
   return v;
 }
 
-// The aurora ribbon — emission spectrum (oxygen green → nitrogen violet).
+// The aurora ribbon — green-dominant like the real thing (oxygen 557nm), with
+// teal/cyan mid-tones and the nitrogen violet→magenta tips up high.
 vec3 ribbon(float t){
-  vec3 mint = vec3(0.373, 0.878, 0.690);
-  vec3 teal = vec3(0.310, 0.827, 0.761);
-  vec3 cyan = vec3(0.357, 0.722, 0.910);
-  vec3 viol = vec3(0.557, 0.514, 0.910);
-  vec3 c = mix(mint, teal, smoothstep(0.0, 0.34, t));
-  c = mix(c, cyan, smoothstep(0.34, 0.66, t));
-  c = mix(c, viol, smoothstep(0.66, 1.0, t));
+  vec3 green = vec3(0.298, 0.886, 0.560);
+  vec3 teal  = vec3(0.310, 0.827, 0.761);
+  vec3 cyan  = vec3(0.357, 0.722, 0.910);
+  vec3 viol  = vec3(0.557, 0.514, 0.910);
+  vec3 mag   = vec3(0.808, 0.553, 0.847);
+  vec3 c = mix(green, teal, smoothstep(0.00, 0.30, t));
+  c = mix(c, cyan, smoothstep(0.30, 0.55, t));
+  c = mix(c, viol, smoothstep(0.55, 0.80, t));
+  c = mix(c, mag,  smoothstep(0.80, 1.00, t));
   return c;
 }
 
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes.xy;
   vec2 p  = vec2(uv.x * (uRes.x / uRes.y), uv.y);
-  float t = uTime * 0.05;
+  float t = uTime * 0.06;
 
-  // Curtains: warp x by a slow field, then band it. Aurora undulates, not blinks.
-  float warp    = fbm(vec2(p.x * 1.5 + t, p.y * 0.6 - t * 0.3));
-  float curtain = fbm(vec2(p.x * 3.0 + warp * 1.2 + t * 0.6, p.y * 0.4));
-  float vfall   = smoothstep(1.10, 0.10, uv.y);   // brighter low on the sky
-  float bands   = pow(curtain, 1.7);
-  float glow    = bands * vfall;
+  // Two-stage domain warp → organic, flowing curtains instead of static bands.
+  float w1 = fbm(vec2(p.x * 1.2 - t * 0.40, p.y * 0.8 + t * 0.15));
+  float w2 = fbm(vec2(p.x * 2.0 + w1 * 1.5 + t * 0.30, p.y * 0.5 - t * 0.10));
 
-  float ct  = clamp(warp * 0.6 + uv.y * 0.5, 0.0, 1.0);
+  // Layered vertical curtains drifting at different rates.
+  float curtains = smoothstep(0.35, 0.95, fbm(vec2(p.x * 3.0 + w2 * 1.8 + t * 0.50, p.y * 0.35)));
+  curtains += 0.6 * smoothstep(0.40, 0.90, fbm(vec2(p.x * 5.0 - w1 * 1.2 - t * 0.35, p.y * 0.30 + 5.0)));
+
+  // Bright near the horizon (bottom), trailing up the sky.
+  float vfall = smoothstep(1.15, 0.05, uv.y);
+  float glow  = curtains * vfall;
+
+  // Thin bright rays threading the curtains.
+  float rays = fbm(vec2(p.x * 12.0 + t * 0.5, uv.y * 1.5 + t * 0.1));
+  glow += pow(rays, 4.0) * vfall * 0.8;
+
+  // Hue shifts as bands rise (height + warp drive the ribbon position).
+  float ct  = clamp(uv.y * 0.7 + w2 * 0.4, 0.0, 1.0);
   vec3  col = ribbon(ct) * glow;
 
-  // Faint vertical rays threading the curtains.
-  float rays = fbm(vec2(p.x * 8.0 + t * 0.4, t * 0.2));
-  col += ribbon(ct) * pow(rays, 3.0) * vfall * 0.5;
+  // Faint green airglow hugging the very bottom.
+  col += ribbon(0.10) * smoothstep(0.5, 0.0, uv.y) * 0.12;
 
-  float alpha = clamp(glow * 1.2, 0.0, 1.0) * uIntensity;
-  gl_FragColor = vec4(col * uIntensity, alpha);
+  float alpha = clamp(glow * 1.4, 0.0, 1.0) * uIntensity;
+  gl_FragColor = vec4(col * uIntensity * 1.15, alpha);
 }
 `;
 

@@ -371,39 +371,33 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* SAPHO & AURORA signature on the welcome footer.
+/* SAPHO · AURORA signature on the welcome footer.
  *
- * Plain ink. No gradient, no glow, no underline flourish — just a
- * narrow English-roundhand script (Mrs Saint Delafield) at low
- * opacity so it reads as a quiet autograph at the edge of the page.
- * Single muted color picks up the same `--text` token as the rest of
- * the footer so it never fights for attention.
+ * A quiet maker's mark, not a flourish: small tracked-out uppercase in the UI
+ * font, the lockup tinted with the aurora gradient and the middot separator
+ * dimmed. (Replaced the Mrs Saint Delafield script, which read as twee against
+ * a hardware IDE.) Reads as a deliberate brand stamp at the edge of the page.
  */
 .welcome-signature {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0;
-  font-family: 'Mrs Saint Delafield', 'Segoe Script', 'Brush Script MT',
-               'Lucida Handwriting', cursive;
-  font-size: 18px;
-  font-weight: 400;
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-semibold);
   line-height: 1;
-  letter-spacing: 0;
-  color: var(--text-muted);
-  opacity: 0.45;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--text-secondary);
   user-select: none;
   white-space: nowrap;
-  padding: 0;
-  transition: opacity var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
-.welcome-signature:hover { opacity: 0.75; }
+.welcome-signature:hover { color: var(--text); }
 
-.welcome-signature-amp {
-  margin: 0 2px;
-  font-family: inherit;
-  font-size: 20px;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: 0;
+.welcome-signature-sep {
+  margin: 0 6px;
+  color: var(--text-disabled);
+  font-weight: var(--font-normal);
 }

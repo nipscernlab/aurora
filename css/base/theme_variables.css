@@ -11,11 +11,10 @@
  * =====================================================================================
  */
 
-/* Fonts (Inter, JetBrains Mono, Mrs Saint Delafield) are now vendored locally
-   via css/base/fonts.css (imported first in import.css). No fonts.googleapis.com
+/* Fonts (Inter for UI, JetBrains Mono for code) are vendored locally via
+   css/base/fonts.css (imported first in import.css). No fonts.googleapis.com
    @import here — the UI keeps its typography offline and at first paint.
-   Mrs Saint Delafield is the signature face, used only for the SAPHO & AURORA
-   mark on the welcome footer. Refresh with: node scripts/fetch-fonts.js */
+   Refresh with: node scripts/fetch-fonts.js */
 
 :root {
   /* =========================================================================

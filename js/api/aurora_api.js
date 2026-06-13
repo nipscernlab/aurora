@@ -54,6 +54,55 @@ function err(message, code) {
   return { ok: false, error: { message: String(message || 'Unknown error'), code: code || null } };
 }
 
+/**
+ * Resolve a file the AI named to an absolute path inside the open project —
+ * even when it passes just a basename or a partial nested path, and even when
+ * casing differs (Windows is case-insensitive; a plain endsWith match is not).
+ * Strategy, in order:
+ *   1. the path as given (relative → joined to root; absolute → as-is) if it
+ *      exists on disk;
+ *   2. an exact relative-path match in the project tree (case-insensitive);
+ *   3. a path that ENDS WITH the requested partial path ("Software/foo.cmm");
+ *   4. a basename match anywhere in the tree (shortest path wins on ties).
+ * Returns the absolute path string, or null if the file is nowhere in the
+ * project. Shared by editor.openFile and project.readFile so both "find" a file
+ * instead of erroring the moment a literal path miss happens.
+ */
+async function resolveProjectFile(filePath, root) {
+  if (!filePath || !root) return null;
+  const isAbsolute = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+  const direct = isAbsolute
+    ? filePath
+    : `${root}\\${String(filePath).replace(/^[\\/]+/, '').replace(/\//g, '\\')}`;
+
+  // 1. Try the path as given first — cheapest, and the usual hit.
+  try {
+    await window.electronAPI.readFile(direct);
+    return direct;
+  } catch (_) { /* fall through to a project-wide search */ }
+
+  // An absolute path that doesn't exist has nothing to search against.
+  if (isAbsolute) return null;
+
+  // 2-4. Walk the whole project tree and match by name, case-insensitively.
+  let tree;
+  try { tree = await projectNs.getTree(root); } catch (_) { return null; }
+  if (!tree || !tree.ok || !Array.isArray(tree.data)) return null;
+  const paths = tree.data;                       // relative, forward-slash
+  const want = String(filePath).replace(/^[\\/]+/, '').replace(/\\/g, '/').toLowerCase();
+  const wantBase = want.split('/').pop();
+
+  let match = paths.find((p) => p.toLowerCase() === want)                       // exact rel path
+    || paths.find((p) => p.toLowerCase().endsWith(`/${want}`));                 // partial nested path
+  if (!match) {
+    const byBase = paths.filter((p) => p.toLowerCase().split('/').pop() === wantBase);
+    byBase.sort((a, b) => a.length - b.length);  // prefer the shallowest hit
+    match = byBase[0];
+  }
+  if (!match) return null;
+  return `${root}\\${match.replace(/\//g, '\\')}`;
+}
+
 /* ============================================================
  *  Event bus
  *
@@ -339,33 +388,17 @@ const editorNs = {
     if (!filePath) return err('filePath required');
     const root = window.currentProjectPath || '';
     if (!root) return err('No project open');
-    const isAbsolute = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
-    let absPath = isAbsolute ? filePath : `${root}\\${filePath.replace(/^[\\/]+/, '')}`;
+    // Find the file anywhere in the project (basename / partial path / casing),
+    // not just at the literal path the AI guessed.
+    const absPath = await resolveProjectFile(filePath, root);
+    if (!absPath) {
+      return err(`"${filePath}" not found anywhere in the project. Use get_project_tree to list available paths.`);
+    }
     let content;
     try {
       content = await window.electronAPI.readFile(absPath);
-    } catch (_) {
-      // Direct path failed — try fuzzy match: find any project file whose
-      // name matches the basename. Handles the common case where the AI
-      // passes just a filename without the processor subdirectory.
-      if (!isAbsolute) {
-        const base = filePath.split(/[\\/]/).pop();
-        try {
-          const tree = await projectNs.getTree(root);
-          if (tree.ok && Array.isArray(tree.value)) {
-            const match = tree.value.find(
-              (p) => p === base || p.endsWith(`/${base}`) || p.endsWith(`\\${base}`),
-            );
-            if (match) {
-              absPath = `${root}\\${match.replace(/\//g, '\\')}`;
-              content = await window.electronAPI.readFile(absPath);
-            }
-          }
-        } catch (_2) { /* fall through to error */ }
-      }
-      if (content === undefined) {
-        return err(`"${filePath}" not found. Use get_project_tree to list available paths.`);
-      }
+    } catch (e) {
+      return err(`Found "${absPath}" but could not read it: ${e?.message || e}`);
     }
     const sem = window.SplitEditorManager;
     try {
@@ -591,16 +624,23 @@ const projectNs = {
       return ok({ filePath: target, content: text, length: text.length, truncated: false, fromEditor: true });
     }
 
+    const MAX = 256 * 1024;
+    const readAt = async (abs) => {
+      const text = String(await window.electronAPI.readFile(abs) ?? '');
+      return text.length > MAX
+        ? ok({ filePath: abs, content: text.slice(0, MAX), length: text.length, truncated: true })
+        : ok({ filePath: abs, content: text, length: text.length, truncated: false });
+    };
     try {
-      const raw = await window.electronAPI.readFile(target);
-      const text = String(raw ?? '');
-      const MAX = 256 * 1024;
-      if (text.length > MAX) {
-        return ok({ filePath: target, content: text.slice(0, MAX), length: text.length, truncated: true });
-      }
-      return ok({ filePath: target, content: text, length: text.length, truncated: false });
+      return await readAt(target);
     } catch (e) {
-      return err(`File not found: "${target}". Use get_project_tree to list all available paths.`);
+      // Literal path missed — search the whole project by name / partial path
+      // / casing before giving up, so a file in a nested folder still opens.
+      const found = await resolveProjectFile(filePath, root);
+      if (found && found.toLowerCase() !== target.toLowerCase()) {
+        try { return await readAt(found); } catch (_) { /* fall through */ }
+      }
+      return err(`File not found: "${filePath}" anywhere in the project. Use get_project_tree to list all available paths.`);
     }
   },
 

@@ -78,6 +78,23 @@ vec4 aurora(vec3 ro, vec3 rd, float time){
   return col * 1.8;
 }
 
+// Filetes — thin vertical aurora rays threading the curtains, like the very
+// first welcome shader. Cheap 1D value-noise fbm in x with a slow time drift,
+// so the rays shimmer and slide sideways rather than blink.
+float vnoise(float x){
+  float i = floor(x), f = fract(x);
+  float u = f * f * (3.0 - 2.0 * f);
+  return mix(hash21(vec2(i, 1.7)), hash21(vec2(i + 1.0, 1.7)), u);
+}
+float vrays(float x, float time){
+  float v = 0.0, a = 0.5, fr = 1.0;
+  for (int i = 0; i < 4; i++){
+    v += a * vnoise(x * fr + time * (0.20 + 0.08 * float(i)));
+    fr *= 2.0; a *= 0.5;
+  }
+  return v;
+}
+
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes.xy;          // 0..1, y up
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes.xy) / uRes.y;
@@ -97,6 +114,14 @@ void main(){
 
   // Soft green airglow hugging the very bottom edge.
   col += vec3(0.10, 0.32, 0.22) * smoothstep(0.26, -0.05, uv.y) * 0.16;
+
+  // Filetes: thin vertical rays rising from the bottom in the brand palette,
+  // drifting slowly. Sharpened with pow() so they read as distinct threads and
+  // held low by vfall so they never climb into the content area.
+  float vfall = smoothstep(0.68, -0.05, uv.y);
+  float ray = pow(vrays(uv.x * 26.0, uTime * 0.30), 3.5);
+  vec3 rayCol = mix(vec3(0.42, 0.95, 0.78), vec3(0.85, 0.45, 1.0), warm);
+  col += rayCol * ray * vfall * 0.45;
 
   float lum = max(col.r, max(col.g, col.b));
   float alpha = clamp(lum * 1.8, 0.0, 1.0) * uIntensity;

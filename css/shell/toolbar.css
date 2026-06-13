@@ -495,7 +495,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   margin: 0;
   border: none;
   background: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   cursor: pointer;
   opacity: 0;
   transition: opacity var(--transition-fast),

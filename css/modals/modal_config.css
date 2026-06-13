@@ -297,7 +297,7 @@
   text-align: center;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md, 8px);
-  background: var(--bg-elevated, #1a1d27);
+  background: var(--bg-elev-2, #1a1d27);
   color: var(--text, #e8ecf3);
   border: 1px solid var(--border, #1f2532);
   box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.45));

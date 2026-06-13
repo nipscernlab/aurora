@@ -798,7 +798,7 @@ async def basic_test(dut):
         }
 
         const fileIcon = TabManager.getFileIcon(fileName);
-        html += `<i class="${fileIcon}" style="color: var(--icon-primary)"></i>`;
+        html += `<i class="${fileIcon}" style="color: var(--text)"></i>`;
         html += `<span class="context-path-filename">${fileName}</span>`;
 
         // Add file type indicator for binary files

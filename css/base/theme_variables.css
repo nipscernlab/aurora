@@ -295,60 +295,14 @@
   --z-max:          100;
 
   /* =========================================================================
-   *  LEGACY ALIASES — preserva compat com CSS antigos
+   *  Retained tokens that are NOT simple aliases (real values still referenced).
+   *  The ~40 pure var()-aliases that used to live here were pruned — every use
+   *  now references the canonical token directly, so there's one vocabulary.
    * ======================================================================= */
-  --bg-primary:     var(--bg);
-  --bg-secondary:   var(--bg-elev);
-  --bg-tertiary:    var(--bg-elev-2);
-  --bg-quaternary:  var(--bg-elev-3);
-  --bg-elevated:    var(--bg-elev-2);
-  --bg-hover:       var(--bg-elev-2);
-  --bg-active:      var(--bg-elev-3);
-  --background-color:        var(--bg-elev);
-  --background-lighter:      var(--bg-elev-2);
-  --background-lighter-hover: var(--border);
-  --hover-color:             var(--bg-elev-2);
-  --hover-overlay:           var(--overlay-hover);
-  --active-overlay:          var(--overlay-active);
-
-  --accent-primary:        var(--accent);
-  --accent-secondary:      var(--accent-active);
-  --accent-focus-ring:     var(--accent-hover);
-  --accent-subtle-bg:      var(--accent-soft);
-  --accent-subtle-border:  var(--accent-border);
-  --accent-muted:          var(--accent-active);
-  --accent-focus:          var(--accent-hover);
-  --primary:               var(--accent);
-
-  --text-primary:    var(--text);
-  --text-tertiary:   var(--text-muted);
   --text-on-accent:  #FFFFFF;
-  --text-link:       var(--accent-hover);
-  --text-link-hover: var(--accent-hover);
-  --text-color:               var(--text);
-  --text-color-secondary:     var(--text-secondary);
-  --icon-primary:    var(--text);
-  --icon-secondary:  var(--text-secondary);
-  --icon-muted:      var(--text-muted);
-
-  --border-primary:   var(--border);
-  --border-secondary: var(--border-subtle);
-  --border-divider:   var(--border);
-  --border-focus:     var(--accent);
-  --border-color:     var(--border);
-
-  --error:            var(--status-error);
-  --warning:          var(--status-warning);
-  --info:             var(--status-info);
-  --success:          var(--status-success);
-  --success-color:    var(--status-success);
   --overlay-disabled: rgba(8, 10, 14, 0.55);
-
-  --shadow-focus-outline: var(--shadow-focus);
   --shadow-glow-teal:     0 0 16px rgba(95, 224, 176, 0.30);
-  --gradient-primary:     var(--gradient-accent);
   --gradient-secondary:   linear-gradient(180deg, var(--bg-elev) 0%, var(--bg) 100%);
-  --gradient-accent-text: var(--gradient-text);
   --gradient-aurora-soft: linear-gradient(180deg,
       rgba(95, 224, 176, 0.05) 0%,
       rgba(142, 131, 232, 0.05) 50%,

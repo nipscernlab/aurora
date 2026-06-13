@@ -29,7 +29,7 @@ zoomStyles.textContent = `
   }
 
   .zoom-icon-btn:hover {
-    color: var(--accent-primary);
+    color: var(--accent);
     background: var(--overlay-hover);
   }
 
@@ -41,8 +41,8 @@ zoomStyles.textContent = `
     position: fixed;
     bottom: 40px;
     right: 20px;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-primary);
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: 8px;
     box-shadow: var(--shadow-xl);
@@ -67,8 +67,8 @@ zoomStyles.textContent = `
   }
 
   .zoom-btn {
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border-primary);
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
     color: var(--text-secondary);
     width: 32px;
     height: 32px;
@@ -86,9 +86,9 @@ zoomStyles.textContent = `
   }
 
   .zoom-btn:hover {
-    background: var(--accent-primary);
+    background: var(--accent);
     color: var(--text-on-accent);
-    border-color: var(--accent-primary);
+    border-color: var(--accent);
   }
 
   .zoom-btn:active {
@@ -105,7 +105,7 @@ zoomStyles.textContent = `
   .zoom-divider {
     width: 1px;
     height: 24px;
-    background: var(--border-primary);
+    background: var(--border);
   }
 
   /* Animation keyframe */

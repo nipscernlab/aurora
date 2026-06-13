@@ -47,9 +47,9 @@
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  background-color: var(--bg-elevated);
+  background-color: var(--bg-elev-2);
   border-radius: 0;
-  border: 1px solid var(--border-primary);
+  border: 1px solid var(--border);
   box-shadow: var(--shadow-xl);
   overflow: hidden;
 }
@@ -62,15 +62,15 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--border-primary);
-  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  background-color: var(--bg-elev);
   flex-shrink: 0;
 }
 
 .aurora-modal-title {
   font-size: var(--text-xl);
   font-weight: var(--font-semibold);
-  color: var(--text-primary);
+  color: var(--text);
   margin: 0;
 }
 
@@ -83,14 +83,14 @@
   border: none;
   border-radius: 0;
   background-color: transparent;
-  color: var(--text-tertiary);
+  color: var(--text-muted);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .aurora-modal-close:hover {
   background-color: var(--overlay-hover);
-  color: var(--text-primary);
+  color: var(--text);
   transform: rotate(90deg);
 }
 

@@ -114,7 +114,27 @@
   padding-left: var(--space-2);
   border-left: 1px solid var(--border);
   height: 22px;
+  position: relative;   /* anchors the sliding .terminal-tab-indicator */
 }
+
+/* Single shared active-tab indicator that glides between tabs (positioned by
+   terminal.js) — replaces the per-tab .active::after that popped on/off. */
+.terminal-tab-indicator {
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+  opacity: 0;
+  pointer-events: none;
+  will-change: transform, width;
+  transition: transform 280ms var(--ease-aurora),
+              width 280ms var(--ease-aurora),
+              opacity var(--transition-fast);
+}
+.terminal-tab-indicator.visible { opacity: 1; }
 
 /* Tab pills */
 .terminal-tabs .tab,
@@ -172,16 +192,9 @@
 
 .terminal-tabs .tab.active .glyph { opacity: 1; }
 
-.terminal-tabs .tab.active::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  bottom: -6px;
-  height: 2px;
-  background: var(--accent);
-  border-radius: 1px 1px 0 0;
-}
+/* The active-tab bar is now the shared .terminal-tab-indicator (slides between
+   tabs); the old per-tab ::after is retired. */
+.terminal-tabs .tab.active::after { content: none; }
 
 /* Action buttons inside terminal-tabs (smaller variant) */
 .terminal-tabs .toolbar-button {

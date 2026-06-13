@@ -5,6 +5,31 @@
  * importam daqui (havia uma copia local em compilation_flow e um
  * window.switchTerminal global; consolidado em 2026-06).
  */
+/**
+ * Slide the single shared active-tab indicator to `activeTab`.
+ *
+ * Replaces the per-tab `.active::after` bar (which just popped on/off between
+ * tabs) with one element that animates its position, so the accent bar glides
+ * from the old tab to the new one. The indicator lives inside the scrolling
+ * tab list, so it tracks the tabs as the strip scrolls for free.
+ */
+function positionTerminalIndicator(activeTab) {
+  const list = activeTab?.closest('.terminal-tabs-list');
+  if (!list || !activeTab) return;
+  let ind = list.querySelector(':scope > .terminal-tab-indicator');
+  if (!ind) {
+    ind = document.createElement('div');
+    ind.className = 'terminal-tab-indicator';
+    list.appendChild(ind);
+  }
+  // Match the old ::after inset (left:6 / right:6).
+  const left = activeTab.offsetLeft + 6;
+  const width = Math.max(0, activeTab.offsetWidth - 12);
+  ind.style.transform = `translateX(${left}px)`;
+  ind.style.width = `${width}px`;
+  ind.classList.add('visible');
+}
+
 export function switchTerminal(targetId) {
   const targetContent = document.getElementById(targetId);
 
@@ -31,8 +56,20 @@ export function switchTerminal(targetId) {
 
   if (activeTab) {
     activeTab.classList.add('active');
+    positionTerminalIndicator(activeTab);
   }
 }
+
+// Keep the sliding indicator aligned with the active terminal tab on first
+// paint and whenever the strip reflows (window resize).
+function syncTerminalIndicator() {
+  const active = document.querySelector('.terminal-tabs-list .tab.active');
+  if (active) positionTerminalIndicator(active);
+}
+window.addEventListener('resize', syncTerminalIndicator, { passive: true });
+// This module is deferred, so the DOM is already parsed when it runs; position
+// the indicator on the next frame (after layout) for the initial active tab.
+requestAnimationFrame(syncTerminalIndicator);
 
 // Compilation buttons focus the terminal their output lands in.
 document.getElementById('cmmcomp')?.addEventListener('click', () => {

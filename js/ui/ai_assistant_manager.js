@@ -3565,10 +3565,12 @@ class AIAssistantManager {
       <div class="ai-msg-content"></div>
     `;
     const contentEl = el.querySelector('.ai-msg-content');
-    if (role === 'user') {
-      // User text is verbatim, not rendered as markdown.
-      contentEl.textContent = content;
-    } else if (content) {
+    if (content) {
+      // Render markdown for BOTH roles. The user's own message goes through the
+      // same safe (HTML-escaped) renderer, so a fenced ```code``` block they
+      // paste shows as a real, syntax-highlighted code block — and inline
+      // `code`/file paths render — instead of raw backticks. Parity with the
+      // assistant bubble; the .ai-msg-user style still sets it apart visually.
       contentEl.innerHTML = renderMarkdown(content);
       highlightCodeBlocks(contentEl);
       linkifyFileRefs(contentEl);

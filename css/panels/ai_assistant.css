@@ -589,7 +589,9 @@ body.ai-assistant-open {
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-md);
   padding: var(--space-2) var(--space-3);
-  white-space: pre-wrap;
+  /* No pre-wrap: the user bubble now renders markdown (block elements), so
+     whitespace collapses like the assistant bubble. Fenced code keeps its own
+     pre-wrap via .ai-code-block, so pasted code still preserves line breaks. */
 }
 
 .ai-msg-assistant .ai-msg-content {

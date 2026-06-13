@@ -317,6 +317,13 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  /* Layout containment: a streaming compile/sim appends hundreds of log lines;
+     without this, each append's reflow crossed panel boundaries and recalc'd
+     the file tree / editor. The body already clips via overflow + position:
+     relative, and its only absolutely-positioned children (cleared pill, hw
+     progress) live inside it, so this is safe. (P7 — paint/content-visibility
+     left for runtime tuning.) */
+  contain: layout;
 }
 
 /* ---------------------------------------------------------------------------

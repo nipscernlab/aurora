@@ -1048,6 +1048,18 @@ async def basic_test(dut):
     // Enhanced addTab method with binary file support
     // options: { preview: false }  — preview=true opens as italic preview tab (VS Code style)
     static addTab(filePath, content = null, options = {}) {
+        // A new tab always lands in the focused split when one is focused — the
+        // "open in the focused split, necessarily" rule — no matter which open
+        // path (tree click, import, AI) called addTab. Safe from recursion:
+        // openInFocusedPane only re-enters addTab for the MAIN pane
+        // (focusedPane 0), which this guard doesn't re-route, and pane.openFile
+        // manages its own editors without calling back here.
+        const sem = window.SplitEditorManager;
+        if (sem && sem.focusedPane > 0 && !options._fromSplit) {
+            sem.openInFocusedPane(filePath, content ?? '', options);
+            return;
+        }
+
         const isPreview = options.preview === true;
 
         // Check if tab already exists

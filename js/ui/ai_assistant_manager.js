@@ -1253,6 +1253,38 @@ class AIAssistantManager {
     }
   }
 
+  /**
+   * Glide to the bottom with ease-in-out (accelerate then decelerate) — used by
+   * the "Jump to latest" pill so the jump feels deliberate, not a hard snap.
+   * Re-targets the bottom each frame so it still lands if the stream is growing.
+   * (The per-token auto-scroll stays instant via scrollToBottom — smoothing it
+   * would visibly lag behind the text.)
+   */
+  smoothScrollToBottom() {
+    const el = this.messagesEl;
+    if (!el) return;
+    this.stickToBottom = true;
+    if (this._scrollRaf) cancelAnimationFrame(this._scrollRaf);
+    const start = el.scrollTop;
+    const dist = (el.scrollHeight - el.clientHeight) - start;
+    if (dist <= 2) { el.scrollTop = el.scrollHeight; return; }
+    const dur = Math.min(560, Math.max(240, dist * 0.5));
+    const t0 = performance.now();
+    const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+    const step = (now) => {
+      const p = Math.min(1, (now - t0) / dur);
+      const target = el.scrollHeight - el.clientHeight;   // re-target growing content
+      el.scrollTop = start + (target - start) * ease(p);
+      if (p < 1) {
+        this._scrollRaf = requestAnimationFrame(step);
+      } else {
+        this._scrollRaf = null;
+        el.scrollTop = el.scrollHeight - el.clientHeight;
+      }
+    };
+    this._scrollRaf = requestAnimationFrame(step);
+  }
+
   toggle() {
     if (!this.container) this.initialize();
     const opening = !this.container.classList.contains('open');
@@ -1691,7 +1723,7 @@ class AIAssistantManager {
         pill.className = 'ai-scroll-resume';
         pill.innerHTML = '<i class="ph ph-arrow-down"></i><span>Jump to latest</span>';
         pill.addEventListener('click', () => {
-          this.scrollToBottom(true);
+          this.smoothScrollToBottom();
           this._toggleResumeScrollHint(false);
         });
         // Anchor inside .ai-assistant-content so it floats above the

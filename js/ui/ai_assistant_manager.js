@@ -1385,7 +1385,7 @@ class AIAssistantManager {
         <!-- Ambient aurora, low intensity. The shader concentrates its glow at
              the bottom, so it sits behind the composer rather than the chat
              text, keeping messages readable (DESIGN §7). -->
-        <aurora-canvas class="ai-aurora-bg" intensity="0.34" speed="0.6" aria-hidden="true"></aurora-canvas>
+        <aurora-canvas class="ai-aurora-bg" intensity="0.26" speed="0.6" aria-hidden="true"></aurora-canvas>
         <div class="ai-empty-state hidden" id="ai-empty-state">
           <i class="ph ph-sparkle ai-empty-icon" aria-hidden="true"></i>
           <h4>Aurora Intelligence is offline</h4>

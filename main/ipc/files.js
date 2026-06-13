@@ -587,8 +587,12 @@ function register() {
     }
   });
 
-  // Periodic health checks for watchers (every 30s).
-  setInterval(async () => {
+  // Periodic health check for file + directory watchers (every 30s). One timer
+  // for both maps; it does NOTHING while idle (no watchers), so it only works
+  // when there's something to check. unref()'d so it never keeps the process
+  // alive at quit (P16: was two always-on intervals that were never cleared).
+  const healthCheck = setInterval(async () => {
+    if (!state.activeWatchers.size && !state.activeDirectoryWatchers.size) return;
     for (const [filePath, watcherInfo] of state.activeWatchers.entries()) {
       try {
         await fs.access(filePath);
@@ -603,9 +607,6 @@ function register() {
         state.fileStatsCache.delete(filePath);
       }
     }
-  }, 30000);
-
-  setInterval(async () => {
     for (const [directoryPath, watcherInfo] of state.activeDirectoryWatchers.entries()) {
       try {
         await fs.access(directoryPath);
@@ -620,6 +621,7 @@ function register() {
       }
     }
   }, 30000);
+  healthCheck.unref?.();
 }
 
 module.exports = { register, scanDirectory };

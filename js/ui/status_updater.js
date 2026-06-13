@@ -1,9 +1,7 @@
 // statusUpdater.js - Manages compilation status in the status bar
 
-// Declared as a `function` (not `const`) so multiple classic scripts can each
-// define their own `tr` helper without colliding — classic-script top-level
-// const declarations share a lexical scope and would throw "Identifier
-// already declared" if another classic script does the same.
+// `tr` is a thin i18n shim; `window.t` is read lazily so a render before
+// i18n boots falls back to the raw key instead of throwing.
 function tr(key, params) { return window.t ? window.t(key, params) : key; }
 
 // Resolve a compilation type to its display name via i18n. Unknown
@@ -198,13 +196,5 @@ class StatusUpdater {
     }
   }
   
-  // Create global instance and expose on window so ES modules
-  // (compilation_module.js etc.) can reference it — classic-script
-  // top-level `const` is NOT visible from module scope.
-  const statusUpdater = new StatusUpdater();
-  window.statusUpdater = statusUpdater;
-
-  // Export for use in other modules
-  if (typeof module !== 'undefined') {
-    module.exports = statusUpdater;
-  }
+// Singleton: the status bar has exactly one compilation indicator.
+export const statusUpdater = new StatusUpdater();

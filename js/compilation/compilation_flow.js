@@ -29,6 +29,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
+import { statusUpdater } from '../ui/status_updater.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -150,7 +151,7 @@ function logFatalError(terminalId, error) {
         terminalId, `Erro Fatal: ${error.message}`, 'error',
     );
     // No-op se um passo interno ja mostrou o erro (isCompiling vira false).
-    window.statusUpdater?.compilationError?.(activeRunStep, error.message);
+    statusUpdater.compilationError(activeRunStep, error.message);
 }
 
 // =====================================================================
@@ -530,7 +531,7 @@ async function handleVerilatorProcStep() {
         // O build do Verilator (--json/--cc/--build/g++) e a execucao nao
         // passam pelo statusUpdater por step, entao sem isso a barra ficava
         // presa em "Assembly". Marca a etapa real aqui.
-        window.statusUpdater?.startCompilation?.('verilator-proc');
+        statusUpdater.startCompilation('verilator-proc');
         await compiler.verilatorProcessorRun();
     } catch (error) {
         console.error('Erro na etapa verilator (processador):', error);
@@ -779,7 +780,7 @@ class CompilationFlowManager {
     async runAll() {
         startCompilation(ALL_TERMINALS);
         activeRunStep = 'all';
-        window.statusUpdater?.beginRun?.('all');
+        statusUpdater.beginRun('all');
         try {
             const compiler = new CompilationModule(window.currentProjectPath);
             await compiler.loadConfig();
@@ -794,7 +795,7 @@ class CompilationFlowManager {
             const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
             logFatalError(activeId ? `terminal-${activeId}` : 'twave', error);
         } finally {
-            window.statusUpdater?.endRun?.('all');
+            statusUpdater.endRun('all');
             activeRunStep = null;
             endCompilation();
         }
@@ -805,7 +806,7 @@ class CompilationFlowManager {
         // do botao (varios passos), impedindo que um sucesso de passo
         // intermediario a reset pra "Iniciar Compilacao". endRun fecha.
         activeRunStep = step;
-        window.statusUpdater?.beginRun?.(step);
+        statusUpdater.beginRun(step);
         try {
             switch (step) {
                 // 'verilator' (top-level harness) intencionalmente fora —
@@ -828,7 +829,7 @@ class CompilationFlowManager {
             }
         } finally {
             // endRun e no-op se um passo ja reportou erro (runActive=false).
-            window.statusUpdater?.endRun?.(step);
+            statusUpdater.endRun(step);
             activeRunStep = null;
         }
     }
@@ -859,7 +860,7 @@ class CompilationFlowManager {
             activeTerminalId, tr('compilation.cancelRequested'), 'tips',
         );
 
-        window.statusUpdater?.cancelRun?.();
+        statusUpdater.cancelRun();
         window.electronAPI.cancelVvpProcess()
             .then((result) => {
                 // Main reports "no compilation process running" when the

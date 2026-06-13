@@ -2096,6 +2096,7 @@ body.resizing-ai-corner * {
 
 /* Math */
 .ai-math {
+  /* Serif + italic are ONLY for the Unicode-subset fallback (no KaTeX). */
   font-family: 'Cambria Math', 'STIX Two Math', 'Latin Modern Math', serif;
   font-style: italic;
 }
@@ -2106,6 +2107,10 @@ body.resizing-ai-corner * {
   font-size: 1.05em;
 }
 .ai-math sup, .ai-math sub { font-size: 0.75em; font-style: normal; }
+/* When KaTeX rendered, it owns its own fonts/italics — don't let the fallback
+   wrapper's serif italic leak in. KaTeX's display markup already centers. */
+.ai-math .katex { font-style: normal; }
+.ai-math-display .katex-display { margin: 0; }
 .ai-frac {
   display: inline-flex;
   flex-direction: column;

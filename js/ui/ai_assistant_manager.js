@@ -770,13 +770,34 @@ const _OP_MAP = {
  * through as styled text so the user still reads something.
  */
 function _renderMath(src, display) {
+  const raw = String(src || '');
+
+  // Prefer KaTeX when it's loaded (index.html bundles it locally): a real
+  // LaTeX engine renders \underbrace, \text, matrices, nested sub/superscripts,
+  // etc. that the Unicode subset below can't. KaTeX is XSS-safe by default
+  // (trust:false — no \href/\htmlData), and throwOnError:false renders any
+  // unparseable bit in red instead of throwing. Falls back to the subset when
+  // KaTeX is absent (e.g. jsdom in unit tests).
+  if (typeof window !== 'undefined' && window.katex) {
+    try {
+      const html = window.katex.renderToString(raw, {
+        displayMode: !!display,
+        throwOnError: false,
+        strict: false,
+      });
+      return display
+        ? `<div class="ai-math ai-math-display">${html}</div>`
+        : `<span class="ai-math">${html}</span>`;
+    } catch (_) { /* fall through to the Unicode subset */ }
+  }
+
   // SECURITY: the math source is model-controlled and reaches the DOM via
   // innerHTML, so it MUST be escaped before any macro runs. renderInline()
   // stashes the raw `$…$`/`$$…$$` source to keep escapeHtml() from mangling
   // the LaTeX, which means the escaping has to happen HERE. escapeHtml only
   // touches & < > " ' — it leaves \ { } ^ _ intact, so the macros below still
   // match. Without this, `$$<img src=x onerror=…>$$` is an XSS→RCE sink.
-  let s = escapeHtml(String(src || ''));
+  let s = escapeHtml(raw);
   // \frac{a}{b}
   s = s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,
     '<span class="ai-frac"><span class="num">$1</span><span class="den">$2</span></span>');

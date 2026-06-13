@@ -270,6 +270,100 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
+ *  External links in chat — clearly clickable, with a redirect warning.
+ * ------------------------------------------------------------------------- */
+.ai-message a.ai-link {
+  color: var(--accent-hover);
+  text-decoration: none;
+  border-bottom: 1px solid var(--accent-border);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.ai-message a.ai-link:hover {
+  color: var(--text);
+  border-bottom-color: var(--accent-hover);
+}
+.ai-message a.ai-link::after {
+  content: '↗';
+  margin-left: 2px;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
+.ai-link-warning {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-notification);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-overlay);
+  animation: fadeIn var(--dur-quick) var(--ease-aurora) both;
+}
+.ai-link-warning-card {
+  width: 100%;
+  max-width: 380px;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-luminous);
+  box-shadow: 0 16px 50px -12px rgba(0, 0, 0, 0.6), 0 0 40px -12px var(--accent-glow);
+}
+.ai-link-warning-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-semibold);
+  color: var(--text);
+}
+.ai-link-warning-head .ph { color: var(--accent-hover); }
+.ai-link-warning-text {
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+.ai-link-warning-url {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text);
+  word-break: break-all;
+  max-height: 96px;
+  overflow-y: auto;
+}
+.ai-link-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.ai-link-warning-actions button {
+  height: var(--h-button);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+.ai-link-warning-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.ai-link-warning-cancel:hover { background: var(--overlay-hover); color: var(--text); }
+.ai-link-warning-open {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+}
+.ai-link-warning-open:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+
+/* ---------------------------------------------------------------------------
  *  Empty state — no provider configured
  * ------------------------------------------------------------------------- */
 .ai-empty-state {

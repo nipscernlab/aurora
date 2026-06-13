@@ -832,7 +832,7 @@ function renderInline(s) {
   s = s.replace(/==([^\n=]+?)==/g, '<mark>$1</mark>');
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, text, url) => {
     if (/^https?:\/\//i.test(url)) {
-      return `<a href="#" data-href="${escapeHtml(url)}">${text}</a>`;
+      return `<a href="#" class="ai-link" data-href="${escapeHtml(url)}">${text}</a>`;
     }
     return text;
   });
@@ -1634,14 +1634,14 @@ class AIAssistantManager {
     // scroll). Runs on every input event.
     this.inputEl.addEventListener('input', () => this.autoGrowInput());
 
-    // External links in markdown bubbles: openExternal so the renderer
-    // window doesn't navigate. The anchor itself is just a sentinel —
-    // `data-href` carries the real URL.
+    // External links in markdown bubbles. The anchor is just a sentinel —
+    // `data-href` carries the real URL. The model controls these URLs, so we
+    // show a redirect warning before handing anything to the OS browser.
     this.messagesEl.addEventListener('click', (e) => {
       const a = e.target.closest('a[data-href]');
       if (!a) return;
       e.preventDefault();
-      window.electronAPI?.openExternal?.(a.getAttribute('data-href'));
+      this._confirmExternalLink(a.getAttribute('data-href'));
     });
 
     // Copy button on code blocks.
@@ -2111,6 +2111,49 @@ class AIAssistantManager {
     } catch (_) { /* leave usage null */ }
     this.subUsage[provider] = usage;
     if (this.currentProvider === provider) this.renderUsage();
+  }
+
+  /**
+   * Redirect warning before opening a model-supplied link in the OS browser.
+   * Shows the exact destination URL (as text — no injection) and only calls
+   * openExternal on explicit confirmation. openExternal itself also rejects
+   * non-http(s)/mailto schemes in the main process (defence in depth).
+   */
+  _confirmExternalLink(url) {
+    if (!url) return;
+    document.querySelector('.ai-link-warning')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'ai-link-warning';
+    overlay.innerHTML =
+      '<div class="ai-link-warning-card" role="dialog" aria-modal="true" aria-label="Open external link">' +
+        '<div class="ai-link-warning-head"><i class="ph ph-arrow-square-out"></i>' +
+          '<span>Open external link?</span></div>' +
+        '<p class="ai-link-warning-text">This leaves Aurora and opens in your default browser:</p>' +
+        '<div class="ai-link-warning-url"></div>' +
+        '<div class="ai-link-warning-actions">' +
+          '<button class="ai-link-warning-cancel" type="button">Cancel</button>' +
+          '<button class="ai-link-warning-open" type="button">Open link</button>' +
+        '</div>' +
+      '</div>';
+    // textContent, never innerHTML — the URL is untrusted model output.
+    overlay.querySelector('.ai-link-warning-url').textContent = url;
+
+    const close = () => {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+    };
+    const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
+    overlay.querySelector('.ai-link-warning-cancel').addEventListener('click', close);
+    overlay.querySelector('.ai-link-warning-open').addEventListener('click', () => {
+      window.electronAPI?.openExternal?.(url);
+      close();
+    });
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(overlay);
+    overlay.querySelector('.ai-link-warning-open').focus();
   }
 
   renderUsage() {

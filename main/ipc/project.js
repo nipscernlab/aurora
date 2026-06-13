@@ -196,9 +196,19 @@ function register() {
 
   ipcMain.handle('project:getInfo', async (_event, spfPath) => {
     if (!spfPath) throw new Error('No project file path provided');
-    const exists = await fse.pathExists(spfPath);
-    if (!exists) throw new Error(`Project file not found at: ${spfPath}`);
-    return fse.readJSON(spfPath);
+    const stat = await fse.stat(spfPath).catch(() => null);
+    if (!stat) throw new Error(`Project file not found at: ${spfPath}`);
+    let target = spfPath;
+    // Tolerate a project FOLDER being passed instead of its .spf — resolve to
+    // the .spf inside it. (The old code passed a directory straight to readJSON
+    // and crashed the handler with EISDIR.)
+    if (stat.isDirectory()) {
+      const entries = await fse.readdir(spfPath);
+      const spf = entries.find((n) => n.toLowerCase().endsWith('.spf'));
+      if (!spf) throw new Error(`No .spf project file found in directory: ${spfPath}`);
+      target = path.join(spfPath, spf);
+    }
+    return fse.readJSON(target);
   });
 
   ipcMain.handle('project:createStructure', async (_event, projectPath, spfPath) => {

@@ -195,9 +195,9 @@ body.resizing-corner .resizer-horizontal::after { height: 2px; }
  *  Context menu
  * ------------------------------------------------------------------------- */
 .context-menu {
+  /* bg-elev-2 is opaque, so a backdrop blur resampled the screen on every
+     right-click for nothing visible — dropped (P8b). */
   background-color: var(--bg-elev-2);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg), var(--shadow-inset-line);
   padding: var(--space-1);

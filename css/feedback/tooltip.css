@@ -20,8 +20,8 @@
     pointer-events: none;
     border: 1px solid var(--border);
     transition: opacity 160ms ease, transform 160ms ease;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    /* bg-elev-3 is opaque — the backdrop blur resampled the screen on every
+       hover for nothing visible. Dropped (P8b). */
     display: none;
     white-space: normal;
     overflow-wrap: break-word;

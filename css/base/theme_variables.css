@@ -219,6 +219,16 @@
   --color-veri:   var(--aurora-pink);    /* VERI — pink */
   --color-wave:   var(--aurora-mint);    /* WAVE — mint */
 
+  /* Code syntax highlighting (AI chat code blocks). A deliberately DISTINCT
+   * palette — the VS Code Dark+ family — so highlighted code reads like the
+   * Monaco editor, NOT like the aurora UI accents. Centralised here as tokens
+   * (was hardcoded hex in ai_assistant.css). */
+  --syntax-comment:  #6A9955;
+  --syntax-string:   #CE9178;
+  --syntax-number:   #B5CEA8;
+  --syntax-keyword:  #569CD6;
+  --syntax-function: #DCDCAA;
+
   /* Terminal log line colors — desaturated variants of the status palette
    * so a streaming log stays readable at length. */
   --term-error:   #F08585;

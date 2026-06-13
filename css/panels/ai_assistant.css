@@ -781,11 +781,11 @@ body.ai-assistant-open {
   white-space: pre;
 }
 
-.ai-msg-content pre code .hl-c { color: #6A9955; }
-.ai-msg-content pre code .hl-s { color: #CE9178; }
-.ai-msg-content pre code .hl-n { color: #B5CEA8; }
-.ai-msg-content pre code .hl-k { color: #569CD6; font-weight: 500; }
-.ai-msg-content pre code .hl-f { color: #DCDCAA; }
+.ai-msg-content pre code .hl-c { color: var(--syntax-comment); }
+.ai-msg-content pre code .hl-s { color: var(--syntax-string); }
+.ai-msg-content pre code .hl-n { color: var(--syntax-number); }
+.ai-msg-content pre code .hl-k { color: var(--syntax-keyword); font-weight: 500; }
+.ai-msg-content pre code .hl-f { color: var(--syntax-function); }
 
 .ai-msg-content a {
   color: var(--accent-hover);

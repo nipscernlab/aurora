@@ -352,6 +352,21 @@ body.ai-assistant-open {
   max-height: 96px;
   overflow-y: auto;
 }
+.ai-link-warning-trust {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.ai-link-warning-trust input {
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
 .ai-link-warning-actions {
   display: flex;
   justify-content: flex-end;

@@ -124,6 +124,8 @@
             "sectionGeneral":          "General",
             "tooltips":                "Enable Tooltips",
             "tooltipsDescription":     "Show tooltips on hover throughout the IDE.",
+            "trustLinks":              "Trust external links",
+            "trustLinksDescription":   "Open links from the AI chat in your browser without a confirmation prompt.",
             "sectionTerminal":         "Terminal",
             "verbose":                 "Verbose Mode",
             "verboseDescription":      "Show all compilation messages. Disable to filter (errors, warnings, success, info).",

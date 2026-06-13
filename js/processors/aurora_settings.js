@@ -12,9 +12,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortcutList = document.getElementById('shortcut-list');
     const shortcutWarning = document.getElementById('shortcut-warning');
     const tooltipsToggle = document.getElementById('tooltips-toggle');
+    const trustLinksToggle = document.getElementById('trust-links-toggle');
 
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
     const SETTINGS_STORAGE_KEY = 'aurora-settings';
+    // Shared with the AI chat's link-warning checkbox so the two stay linked.
+    const TRUST_LINKS_KEY = 'aurora-ai-trust-external-links';
 
     // i18n note: labels resolved at render time via SHORTCUT_LABEL_KEYS,
     // not stored here, so locale switches update the UI without touching
@@ -58,6 +61,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply to UI toggles (safely)
         if (tooltipsToggle) tooltipsToggle.checked = !!currentSettings.tooltipsEnabled;
+        // Trust-external-links lives on its own shared key (not the settings
+        // JSON) so the AI link-warning checkbox and this toggle are linked.
+        if (trustLinksToggle) trustLinksToggle.checked = localStorage.getItem(TRUST_LINKS_KEY) === '1';
 
         // Aplica estado dos tooltips imediatamente
         setTooltipsEnabled(!!currentSettings.tooltipsEnabled);
@@ -83,6 +89,20 @@ document.addEventListener('DOMContentLoaded', () => {
             setTooltipsEnabled(tooltipsToggle.checked);
         });
     }
+
+    // Trust-external-links: applies immediately (a bypass preference), writing
+    // the SAME key the AI link-warning checkbox uses and broadcasting so both
+    // stay in sync without a Save round-trip.
+    if (trustLinksToggle) {
+        trustLinksToggle.addEventListener('change', () => {
+            localStorage.setItem(TRUST_LINKS_KEY, trustLinksToggle.checked ? '1' : '0');
+            window.dispatchEvent(new CustomEvent('aurora:trust-external-links-changed',
+                { detail: { value: trustLinksToggle.checked } }));
+        });
+    }
+    window.addEventListener('aurora:trust-external-links-changed', (e) => {
+        if (trustLinksToggle) trustLinksToggle.checked = !!e.detail?.value;
+    });
 
     // ---- Shortcuts UI / gravação ----
     const formatShortcutText = ({ ctrlKey, shiftKey, altKey, key }) => {

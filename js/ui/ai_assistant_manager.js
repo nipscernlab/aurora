@@ -896,6 +896,10 @@ function aiPathIsText(p) {
   return m ? AI_TEXT_OPENABLE.has(m[1].toLowerCase()) : false;
 }
 
+// Persisted preference (shared by the link-warning checkbox and the Settings
+// toggle): when '1', external links open without the confirmation dialog.
+const TRUST_LINKS_KEY = 'aurora-ai-trust-external-links';
+
 // A standalone file token: optional drive (C:\) / ./ ../ root, any project
 // path segments, a basename with a dot-extension, and an optional :line.
 // Anchored — used to decide whether an inline `code` span is *entirely* a
@@ -2196,8 +2200,26 @@ class AIAssistantManager {
    * openExternal on explicit confirmation. openExternal itself also rejects
    * non-http(s)/mailto schemes in the main process (defence in depth).
    */
+  _getTrustExternalLinks() {
+    try { return localStorage.getItem(TRUST_LINKS_KEY) === '1'; } catch (_) { return false; }
+  }
+
+  _setTrustExternalLinks(v) {
+    try { localStorage.setItem(TRUST_LINKS_KEY, v ? '1' : '0'); } catch (_) { /* ignore */ }
+    // Keep any Settings toggle bound to the same preference in sync, live.
+    window.dispatchEvent(new CustomEvent('aurora:trust-external-links-changed', { detail: { value: !!v } }));
+  }
+
   _confirmExternalLink(url) {
     if (!url) return;
+
+    // Bypass the warning entirely when the user has chosen to trust external
+    // links (the dialog checkbox, mirrored by the Settings toggle).
+    if (this._getTrustExternalLinks()) {
+      window.electronAPI?.openExternal?.(url);
+      return;
+    }
+
     document.querySelector('.ai-link-warning')?.remove();
 
     const overlay = document.createElement('div');
@@ -2208,6 +2230,10 @@ class AIAssistantManager {
           '<span>Open external link?</span></div>' +
         '<p class="ai-link-warning-text">This leaves Aurora and opens in your default browser:</p>' +
         '<div class="ai-link-warning-url"></div>' +
+        '<label class="ai-link-warning-trust">' +
+          '<input type="checkbox" class="ai-link-warning-trust-cb">' +
+          '<span>Always open external links without asking</span>' +
+        '</label>' +
         '<div class="ai-link-warning-actions">' +
           '<button class="ai-link-warning-cancel" type="button">Cancel</button>' +
           '<button class="ai-link-warning-open" type="button">Open link</button>' +
@@ -2224,6 +2250,10 @@ class AIAssistantManager {
     overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
     overlay.querySelector('.ai-link-warning-cancel').addEventListener('click', close);
     overlay.querySelector('.ai-link-warning-open').addEventListener('click', () => {
+      // If "always" was ticked, persist the bypass before opening.
+      if (overlay.querySelector('.ai-link-warning-trust-cb')?.checked) {
+        this._setTrustExternalLinks(true);
+      }
       window.electronAPI?.openExternal?.(url);
       close();
     });

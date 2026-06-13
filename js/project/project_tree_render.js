@@ -84,7 +84,7 @@ export const RenderMixin = {
                 const emptyState = document.createElement('div');
                 emptyState.className = 'verilog-empty-state';
                 emptyState.innerHTML = `
-                    <i class="fa-solid fa-folder-open verilog-empty-icon"></i>
+                    <i class="ph ph-folder-open verilog-empty-icon"></i>
                     <div class="verilog-empty-text">
                         No synthesizable files<br>
                         <strong>Drag and drop .v or .py files here</strong>
@@ -370,7 +370,7 @@ export const RenderMixin = {
                 <div class="verilog-file-actions">
                     <button class="verilog-icon-btn delete-btn" data-action="delete"
                             title="Remove from tree">
-                        <i class="fa-solid fa-xmark"></i>
+                        <i class="ph ph-x"></i>
                     </button>
                 </div>
             `;

@@ -283,16 +283,15 @@
   color: var(--text-muted);
 }
 
-/* Top-level processor (microchip) → vivid accent purple, slight glow.
- * Module (cube) → aurora-mint so it reads distinctly from the processor.
- * Instance (cube) → aurora-cyan, the colder companion of mint.
- * Primitive → muted gray, intentionally low-emphasis. */
+/* Standardized with the verilog/standard trees: icons are neutral (muted) by
+ * default and the brand accent is reserved for the two states that matter —
+ * the top-level root and the currently-open file. Node ROLE is still carried by
+ * indentation + the tree connectors, not by an icon rainbow (less AI-slop). */
 .hierarchy-item[data-type="top-level"] .hierarchy-icon {
   color: var(--accent-hover);
-  filter: drop-shadow(0 0 3px rgba(142, 131, 232, 0.55));
 }
-.hierarchy-item[data-type="module"]    .hierarchy-icon { color: var(--aurora-mint); }
-.hierarchy-item[data-type="instance"]  .hierarchy-icon { color: var(--aurora-cyan); }
+.hierarchy-item[data-type="module"]    .hierarchy-icon { color: var(--text-muted); }
+.hierarchy-item[data-type="instance"]  .hierarchy-icon { color: var(--text-muted); }
 .hierarchy-item[data-type="primitive"] .hierarchy-icon { color: var(--text-muted); }
 
 .hierarchy-item.active .hierarchy-icon { color: var(--accent-hover); }

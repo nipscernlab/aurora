@@ -112,7 +112,36 @@ class CompilationModule {
         // new instance = new pin = freshest data.
         if (typeof window !== 'undefined') {
             window._latestCompilationModule = this;
+
+            // Highlight the open-in-editor file's row in the hierarchy tree
+            // (parity with the verilog/standard trees). Wire ONCE on document
+            // (the event doesn't bubble to window) and delegate to the latest
+            // instance — CompilationModule is rebuilt per compile, so an
+            // unguarded per-instance listener would stack one per compile.
+            if (!window.__hierarchyFocusWired) {
+                window.__hierarchyFocusWired = true;
+                document.addEventListener('aurora:editing-file-changed', () => {
+                    window._latestCompilationModule?.refreshHierarchyFocusHighlight?.();
+                });
+            }
         }
+    }
+
+    /**
+     * Marca a row do arquivo em foco no Monaco na hierarchy tree (toggle de
+     * `.active` em `.hierarchy-item[data-filepath]`, ja estilizado em
+     * h_tree.css). Um modulo pode aparecer varias vezes (mesma .v instanciada
+     * N vezes) — todas as ocorrencias acendem, que e o esperado. Idempotente.
+     */
+    refreshHierarchyFocusHighlight() {
+        const host = (typeof window !== 'undefined') && window.treeView?.getContainer?.('hierarchy');
+        if (!host) return;
+        const norm = (p) => String(p || '').replace(/\\/g, '/').toLowerCase();
+        const target = norm(window.TabManager?.getEditingFilePath?.() || '');
+        host.querySelectorAll('.hierarchy-item[data-filepath]').forEach((it) => {
+            const match = !!target && norm(it.getAttribute('data-filepath')) === target;
+            it.classList.toggle('active', match);
+        });
     }
 
     static extractFileInfoFromSource(sourceAttr) {
@@ -466,6 +495,7 @@ async generateProjectHierarchy() {
         // forces a rebuild.
         if (hostContainer.__auroraHierarchyData === hierarchyData
             && hostContainer.querySelector('.hierarchy-container')) {
+            this.refreshHierarchyFocusHighlight();
             return;
         }
         hostContainer.__auroraHierarchyData = hierarchyData;
@@ -481,7 +511,7 @@ async generateProjectHierarchy() {
             moduleDefinition: hierarchyData
         };
 
-        const topItem = this.createHierarchyItem(topLevelInstance, 'top-level', 'fa-solid fa-microchip', true);
+        const topItem = this.createHierarchyItem(topLevelInstance, 'top-level', 'ph ph-cpu', true);
 
         topItem.setAttribute('data-type', 'top-level');
 
@@ -490,6 +520,7 @@ async generateProjectHierarchy() {
         this.buildHierarchyTree(topItem, hierarchyData);
 
         hostContainer.appendChild(container);
+        this.refreshHierarchyFocusHighlight();
     }
 
     buildHierarchyTree(parentItem, moduleDefinition) {
@@ -507,7 +538,7 @@ async generateProjectHierarchy() {
         });
 
         for (const instanceNode of sortedInstances) {
-            const childItem = this.createHierarchyItem(instanceNode, 'module', 'fa-solid fa-cube');
+            const childItem = this.createHierarchyItem(instanceNode, 'module', 'ph ph-tree-structure');
 
             childItem.setAttribute('data-type', 'module');
 
@@ -550,8 +581,16 @@ async generateProjectHierarchy() {
             itemElement.appendChild(document.createElement('span')).className = 'hierarchy-spacer';
         }
 
+        // Icon = the file's tab icon when this module maps to a file, so the
+        // hierarchy reads with the SAME glyphs as the verilog/standard trees and
+        // the Monaco tabs; fall back to the passed Phosphor glyph for synthetic
+        // nodes with no filePath.
+        const fileBase = moduleDef.filePath ? moduleDef.filePath.split(/[\\/]/).pop() : '';
+        const resolvedIcon = (fileBase && window.TabManager?.getFileIcon)
+            ? window.TabManager.getFileIcon(fileBase)
+            : icon;
         itemElement.appendChild(document.createElement('span')).className = 'hierarchy-icon';
-        itemElement.querySelector('.hierarchy-icon').innerHTML = `<i class="${icon}"></i>`;
+        itemElement.querySelector('.hierarchy-icon').innerHTML = `<i class="${resolvedIcon}"></i>`;
 
         const label = document.createElement('span');
         label.className = 'hierarchy-label';
@@ -3895,12 +3934,12 @@ switchToHierarchicalView() {
         const text = toggleButton.querySelector('.toggle-text');
 
         if (isHierarchical) {
-            icon.className = 'fa-solid fa-list-ul';
+            icon.className = 'ph ph-list-bullets';
             text.textContent = 'Standard';
             toggleButton.classList.add('active');
             toggleButton.title = 'Switch to the default file tree';
         } else {
-            icon.className = 'fa-solid fa-sitemap';
+            icon.className = 'ph ph-tree-structure';
             text.textContent = 'Hierarchical';
             toggleButton.classList.remove('active');
             toggleButton.title = 'Switch to the hierarchical modules view';

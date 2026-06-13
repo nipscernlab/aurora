@@ -435,29 +435,56 @@ produto maduro — alinhado ao [Design Manifesto](DESIGN.md).*
 
 ---
 
-## 12. Implementação na branch `feature/aurora-revamp` (13/06/2026)
+## 12. Implementação na branch `feature/aurora-revamp` — checklist vivo
 
-Primeira leva de revamp visual + Sprint 1, em commits incrementais (todos com 208 testes unit
-passando e lint limpo). **Não rodados no app ainda** — precisam de verificação visual/runtime.
+> Status real (atualizado), não só a primeira leva. Todos os commits com 208 testes unit passando
+> e lint limpo. **Verificação visual/runtime é por conta do usuário** (os testes não exercitam o
+> carregamento do Electron).
 
-**Feito:**
-| Commit | Conteúdo |
-|---|---|
-| `3deb486` | Tokens de movimento "deriva de aurora" (easings/durações, bounce neutralizado) + tokens de luz/foco; **`<aurora-canvas>`** (shader WebGL ambiente, half-res, pausa fora de foco, fallback CSS) atrás do welcome; wordmark em gradiente + reveal aurora. |
-| `c7b7541` | **Raio de foco** (feixe aurora na aba ativa) + **elevação por luz** no modal (borda luminosa + glow no lugar de sombra pesada). |
-| `be3cec6` | Segurança: **V1** (XSS LaTeX→RCE fechado), **V2** (exec-command removido), **V3** (webviewTag:false + lockdown de navegação), **V5** (traversal em create-processor), **V6** (openExternal http/mailto-only). |
-| `7d5b631` | **P12** (leak de listener / custo por-tecla), **P13** (ResizeObserver rAF + early-exit), **G2** (error boundary no renderer + crashReporter/handlers no main). |
-| `1d919e6` | **P4a**: Phosphor bundlado local (fim do unpkg CDN) em index + PRISM. |
-| `d224de9` | **P4b**: Inter/JetBrains/Mrs Saint Delafield vendados local (woff2 latin+latin-ext) via `scripts/fetch-fonts.js`; fim do Google Fonts CDN no app principal. |
+### Decisão de escopo (13/06/2026)
+**Tema único canônico.** A AURORA mantém UM tema só (escuro, identidade aurora borealis). **Fora de
+escopo por decisão:** tema light, tema high-contrast (`aurora-contrast`), e qualquer mudança no tema
+da aurora. Itens de §6.2/G5 que pediam troca de tema estão **descartados**; consolidação de
+tokens/paleta segue valendo, servindo a um tema só.
 
-**Adiado (com motivo):**
-- **CSP** — precisa refatorar os ~180 linhas de `<script>` inline do index.html (+nonce) e validar no
-  app rodando; o V1 já fechou o sink real de XSS.
-- **z-index sweep** — mexer na ordem de empilhamento das 9 camadas sem rodar arrisca quebrar dropdowns.
-- **P6 `transition:width`→transform** — a correção certa é um restructure que pareia com **P1** (editor
-  por troca de model); fora de hot-path (só no toggle de sidebar).
-- **Concatenação do CSS** (os 22 `@imports`) — depende do bundler (Vite).
-- **focus-ray** em panes/árvore/inputs; **paletas** de splash/update + fonte Inter 800 do splash; **V8**
-  (gtkwave pela allowlist).
-- **Trilha principal do revamp** (Vite + componentização Lit do shell, command palette, PRISM no design
-  system) — projeto de médio prazo, conforme DESIGN.md §9–§12.
+### ✅ Feito
+**Segurança/robustez:** V1 (XSS LaTeX, depois trocado por **KaTeX** trust:false), V2 (exec-command),
+V3 (webviewTag+lockdown), V5 (traversal), V6 (openExternal); G2 (error boundary + crashReporter),
+P12 (leak de listener), P13 (ResizeObserver throttled).
+**Performance:** P4 (Phosphor + fontes locais, fim dos CDNs); P2 *parcial* (reparse de markdown
+por-frame eliminado — "espera e revela" por segmento).
+**Visual:** `<aurora-canvas>` (shader final + filetes + glow do chat), focus-ray na aba, elevação por
+luz nos modais; **as 3 file trees** padronizadas (foco, cores, Phosphor, ícone C± custom); **chat de
+IA** refeito (KaTeX, markdown do usuário, syntax highlight, reveal com fade, paths clicáveis, links,
+remoção do "subscription usage"); **terminal** (barra deslizante por compilação, progresso THTEST
+real, clear funcional); **tabs** (FLIP no drag, scrollbar fina); **settings** (pill deslizante);
+botão de IA na seleção; busca recursiva de arquivo pela IA; compile da IA chega ao terminal.
+
+### ⬜ Falta — VISUAL (fazer primeiro)
+- [ ] **Remover FontAwesome de vez** (= P14): ~29 `fa-` em 11 módulos JS → Phosphor; tirar o `<link>`
+      do FA do index + dependência; remover a duplicação `.glyph`/`.aglyph` do C± no DOM.
+- [ ] **Consolidar paletas:** `splash.html` + `update-notification.html` importam `theme_variables.css`
+      (3 fontes de verdade da marca → 1).
+- [ ] **Normalizar z-index** (escala tokenizada vs literais `10001/1000/200`) e **podar ~50 aliases
+      legados** de tokens.
+- [ ] **Tokens em camadas semânticas** (base → semantic → component) — servindo ao tema único.
+- [ ] **Command palette (Ctrl+K)** — superfície primária de ações/navegação.
+- [ ] **Extrair os 4 modais inline** do `index.html` + matar o sistema de modais paralelo.
+- [ ] **Consolidar `ai_assistant.css`** (21% de todo o CSS, paleta de syntax fora dos tokens).
+- [ ] 🔴 **Shell em Lit + painéis dockáveis** + redesenho de welcome/empty-states (4 skins → 1) +
+      densidade/hierarquia (referência Zed/Linear/Fleet). *(Pareia com o pivô Vite.)*
+- [ ] ~~Tema light / aurora-contrast~~ — **descartado** (tema único).
+
+### ⬜ Falta — PERFORMANCE (depois do visual)
+- [ ] Quick-wins 🟢: **P5** (init dupla), **P6** (transition:width→transform), **P7** (contain/
+      content-visibility), **P8b** (backdrop-filter→sólido), **P15** (polling de mtime), **P16**
+      (setInterval health-check nunca limpo).
+- [ ] Estruturais 🟡: **P3** (IPC da árvore em batch + cache mtime), **P9** (standard tree
+      reconciliada), **P10** (terminal: contadores incrementais + filtro por classe), **P11**
+      (decorations por range visível), **P2** (terminar: blocos fechados viram DOM estático).
+- [ ] 🔴 **P1** (um Monaco por pane com `setModel`) e **P17** (modais montados sob demanda + `contain`).
+- [ ] Medição: overlay de jank (p99), baseline de TTI, smoke de orçamento no CI (§4.4/G7).
+
+### ⬜ Falta — fora das 2 trilhas (parking lot)
+Segurança restante (V4/V7/V8/V9/V10–V12, CSP, sandbox); OSS (Surfer/Verible/ripgrep/…); build/DX
+(B1–B13); repo (§9, 18 itens). Retomar após visual + performance.

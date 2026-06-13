@@ -635,7 +635,6 @@ class EditorManager {
     static toggleEditorReadOnly(isReadOnly) {
         if (!this.sharedEditor) return;
         this.sharedEditor.updateOptions({ readOnly: isReadOnly });
-        if (isReadOnly) this.sharedEditor.blur();
     }
 
     static getLanguageFromPath(filePath) {

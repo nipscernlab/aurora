@@ -25,11 +25,6 @@ const MENU_ITEMS = [
   { intent: 'ask',     label: 'Ask…',           icon: 'ph ph-paper-plane-tilt', send: false },
 ];
 
-const STAR_SVG = `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
-  <path fill="currentColor" d="M12 2.3l1.95 4.92 4.92 1.95-4.92 1.95L12 16.04l-1.95-4.92L5.13 9.17l4.92-1.95L12 2.3z"/>
-  <path fill="currentColor" d="M18.7 13.6l.86 2.18 2.18.86-2.18.86-.86 2.18-.86-2.18-2.18-.86 2.18-.86.86-2.18z" opacity=".85"/>
-  <path fill="currentColor" d="M5.1 14.2l.66 1.66 1.66.66-1.66.66-.66 1.66-.66-1.66L2.78 16.5l1.66-.66.66-1.66z" opacity=".7"/>
-</svg>`;
 
 /**
  * @param {import('monaco-editor').editor.IStandaloneCodeEditor} editor
@@ -50,7 +45,9 @@ export function attachAiSelectionWidget(editor, opts = {}) {
   node.className = 'ai-selection-star';
   node.title = 'Ask Aurora Intelligence about this selection';
   node.setAttribute('role', 'button');
-  node.innerHTML = STAR_SVG;
+  // A single Phosphor sparkle — centres cleanly in the button (the old custom
+  // 3-star SVG sat off-centre because its glyphs weren't centred in the viewBox).
+  node.innerHTML = '<i class="ph-fill ph-sparkle" aria-hidden="true"></i>';
   node.style.display = 'none';
 
   let currentSelection = null;

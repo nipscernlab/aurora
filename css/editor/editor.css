@@ -446,7 +446,7 @@
   transform: scale(1.08);
   box-shadow: 0 4px 16px -3px var(--accent-glow);
 }
-.ai-selection-star svg { display: block; pointer-events: none; }
+.ai-selection-star .ph { font-size: 13px; line-height: 1; pointer-events: none; }
 
 .ai-selection-menu {
   position: fixed;

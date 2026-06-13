@@ -17,9 +17,17 @@
   background: rgba(3, 5, 12, 0.5);
   backdrop-filter: blur(2px);
   opacity: 0;
+  /* Only the open (.visible) state catches clicks. Without this the overlay —
+     still display:flex over the whole screen during the fade-out, and not
+     hidden because .cmdk-overlay's display beats [hidden] — would swallow every
+     click on the IDE behind it. */
+  pointer-events: none;
   transition: opacity 140ms var(--ease-out-quart, ease);
 }
-.cmdk-overlay.visible { opacity: 1; }
+.cmdk-overlay.visible { opacity: 1; pointer-events: auto; }
+/* [hidden] must truly remove it (our display:flex above otherwise overrides the
+   UA's [hidden]{display:none}). */
+.cmdk-overlay[hidden] { display: none; }
 
 .cmdk-panel {
   width: min(560px, 92vw);

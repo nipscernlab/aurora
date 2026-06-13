@@ -153,21 +153,27 @@
 .file-item:hover {
   background-color: var(--overlay-hover);
   color: var(--text);
-  /* A 2px accent bar on the left makes rows feel interactive without
-     shifting the indent (box-shadow, not border). */
-  box-shadow: inset 2px 0 0 var(--accent);
+  /* Neutral hover affordance: a faint 2px bar — deliberately NOT the accent
+     colour, so hover never gets mistaken for the open-file state below. */
+  box-shadow: inset 2px 0 0 var(--border);
 }
 
 /* The file currently open in Monaco — parity with the verilog tree, so the
-   folder tree also shows which file is focused. Persistent accent bar +
-   stronger background + brighter name. */
-.file-item.editor-focused {
-  background-color: var(--overlay-active);
+   folder tree also shows which file is focused. This is the one row that gets
+   the brand accent: a purple-tinted background, a solid accent bar, and an
+   accent-coloured icon + brighter name. Unmistakable against the neutral hover
+   above, so "this file is open" reads at a glance. */
+.file-item.editor-focused,
+.file-item.editor-focused:hover {
+  background-color: var(--accent-soft);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 .file-item.editor-focused .file-item-name {
   color: var(--text);
   font-weight: var(--font-medium);
+}
+.file-item.editor-focused .file-item-icon {
+  color: var(--accent-hover);
 }
 
 /* ---------------------------------------------------------------------------

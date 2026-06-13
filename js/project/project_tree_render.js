@@ -429,32 +429,27 @@ export const RenderMixin = {
     },
 
     /**
-     * Icone FontAwesome pra uma linha, baseado em extensao + flags.
+     * Icone de uma linha. Delega para TabManager.getFileIcon (a MESMA fonte de
+     * verdade das abas do Monaco) para que um arquivo mostre exatamente o mesmo
+     * icone na arvore e na aba — invariante pedido pelo usuario. Isso tambem
+     * herda os mapeamentos que faltavam aqui (.h -> ph-file-c, .hpp -> ph-file-
+     * cpp, .c/.cpp, .cmm -> C± customizado, etc.). A categoria synth/testbench
+     * ja e comunicada pelo agrupamento da arvore, nao pelo formato do icone.
      * Tolerante a chamadores antigos que passavam so o nome (string).
      */
     getFileIcon(file) {
         const fileObj = (typeof file === 'string') ? { name: file } : (file || {});
-        const ext = this.getFileExtension(fileObj.name || '');
+        const name = fileObj.name || '';
+        const fromTabs = window.TabManager?.getFileIcon?.(name);
+        if (fromTabs) return fromTabs;
 
-        // Phosphor icons (unified with the rest of the IDE; FontAwesome retired
-        // here). Category is read from the icon SHAPE: cpu = synthesizable,
-        // flask = testbench; top-level files get a flag / test-tube marker.
-        if (ext === '.v' || ext === '.sv') {
-            const isTestbench = fileObj.category === 'testbench';
-            if (fileObj.isTopLevel) {
-                return isTestbench ? 'ph ph-test-tube' : 'ph ph-flag-pennant';
-            }
-            return isTestbench ? 'ph ph-flask' : 'ph ph-cpu';
-        } else if (ext === '.py') {
-            return fileObj.isTopLevel ? 'ph ph-test-tube' : 'ph ph-file-py';
-        } else if (ext === '.cmm') {
-            return 'aurora-icon-cmm';
-        } else if (ext === '.txt') {
-            return 'ph ph-file-text';
-        } else if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'].includes(ext)) {
-            return 'ph ph-image';
-        }
-
+        // Fallback defensivo se TabManager ainda nao carregou.
+        const ext = this.getFileExtension(name);
+        if (ext === '.v' || ext === '.sv' || ext === '.vh') return 'ph ph-cpu';
+        if (ext === '.py') return 'ph ph-file-py';
+        if (ext === '.cmm') return 'aurora-icon-cmm';
+        if (ext === '.txt') return 'ph ph-file-text';
+        if (['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg'].includes(ext)) return 'ph ph-image';
         return 'ph ph-file';
     },
 };

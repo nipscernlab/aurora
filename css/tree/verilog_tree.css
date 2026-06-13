@@ -251,7 +251,7 @@
    por project_tree_render.js#refreshEditorFocusHighlight a cada
    aurora:editing-file-changed e no fim do render. */
 .verilog-file-item.editor-focused {
-  background-color: var(--overlay-active);
+  background-color: var(--accent-soft);
   border-left-color: var(--accent);
 }
 .verilog-file-item.editor-focused .verilog-file-name {
@@ -263,7 +263,7 @@
 }
 
 .verilog-file-item.editor-focused:hover {
-  background-color: var(--overlay-active);
+  background-color: var(--accent-soft);
 }
 
 .verilog-file-item.top-level-file.editor-focused {

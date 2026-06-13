@@ -27,28 +27,45 @@
 /* Thin, discreet horizontal scrollbar for the tabs strip. Firefox uses
    `scrollbar-width: thin` + `scrollbar-color`; Chromium uses the
    ::-webkit-scrollbar pseudo. The thumb only paints on hover so the bar
-   stays invisible at rest (no horizontal line under the tabs). */
-.tabs-container {
+   stays invisible at rest (no horizontal line under the tabs).
+   Targets the class AND the #tabs-container id AND the bare .tabs — the live
+   main strip is `id="tabs-container"`, which previously missed these rules and
+   fell back to the global 10px scrollbar (the thick bar over the tab names). */
+.tabs-container,
+#tabs-container,
+.tabs {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
   transition: scrollbar-color var(--transition-fast);
 }
 
-.tabs-container:hover {
+.tabs-container:hover,
+#tabs-container:hover,
+.tabs:hover {
   scrollbar-color: var(--accent-border) transparent;
 }
 
-.tabs-container::-webkit-scrollbar       { height: 4px; }
-.tabs-container::-webkit-scrollbar-track { background: transparent; }
-.tabs-container::-webkit-scrollbar-thumb {
+.tabs-container::-webkit-scrollbar,
+#tabs-container::-webkit-scrollbar,
+.tabs::-webkit-scrollbar       { height: 4px; }
+.tabs-container::-webkit-scrollbar-track,
+#tabs-container::-webkit-scrollbar-track,
+.tabs::-webkit-scrollbar-track { background: transparent; }
+.tabs-container::-webkit-scrollbar-thumb,
+#tabs-container::-webkit-scrollbar-thumb,
+.tabs::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 2px;
   transition: background var(--transition-fast);
 }
-.tabs-container:hover::-webkit-scrollbar-thumb {
+.tabs-container:hover::-webkit-scrollbar-thumb,
+#tabs-container:hover::-webkit-scrollbar-thumb,
+.tabs:hover::-webkit-scrollbar-thumb {
   background: rgba(142, 131, 232, 0.35);
 }
-.tabs-container::-webkit-scrollbar-thumb:hover {
+.tabs-container::-webkit-scrollbar-thumb:hover,
+#tabs-container::-webkit-scrollbar-thumb:hover,
+.tabs::-webkit-scrollbar-thumb:hover {
   background: rgba(142, 131, 232, 0.65);
 }
 

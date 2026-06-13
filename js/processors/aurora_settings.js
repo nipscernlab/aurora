@@ -289,12 +289,16 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         loadSettings();
         renderShortcuts();
+        // Display BEFORE picking the pane so the nav items have a real layout —
+        // otherwise the sliding pill measures offsetTop/Height on a display:none
+        // modal (both 0) and lands nowhere on first open.
+        modalOverlay.style.display = 'flex';
         // Always land on General when re-opening — the previous pane is
         // not worth persisting across sessions, and it avoids the
         // surprise of "I closed it on Shortcuts and now it opens on
-        // Shortcuts forever".
+        // Shortcuts forever". The pill is placed instantly here (modal not yet
+        // .visible) so it's already on General when the modal fades in.
         setActivePane('general');
-        modalOverlay.style.display = 'flex';
         setTimeout(() => modalOverlay.classList.add('visible'), 10);
     };
 

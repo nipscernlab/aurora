@@ -1222,10 +1222,14 @@ async def basic_test(dut):
 
     // Enhanced activateTab with better viewer management
     static activateTab(filePath) {
-        const tabs = document.querySelectorAll('.tab');
+        // Only the MAIN pane's tab bar — split panes own their .split-tab active
+        // state (SplitEditorManager._activateFile). Querying all `.tab` here used
+        // to strip the active class off split tabs, so a split's tab stopped
+        // following its own editor's focus.
+        const tabs = document.querySelectorAll('.tab:not(.split-tab)');
         tabs.forEach(tab => tab.classList.remove('active'));
 
-        const activeTab = document.querySelector(`.tab[data-path="${CSS.escape(filePath)}"]`);
+        const activeTab = document.querySelector(`.tab:not(.split-tab)[data-path="${CSS.escape(filePath)}"]`);
         if (activeTab) {
             activeTab.classList.add('active');
             this.activeTab = filePath;
@@ -1855,8 +1859,13 @@ async def basic_test(dut):
             if (!filePath) return;
 
             if (paneIndex === 0) {
-                // Main pane — promote preview if needed and activate.
-                if (this.activeTab !== filePath) {
+                // Main pane — promote preview if needed and activate. Re-activate
+                // not just when the active FILE differs, but also when the file
+                // is active yet its tab lost the visual `.active` class (a split
+                // pane's own activation, or the global activateTab, can strip it)
+                // — so focusing the editor ALWAYS leaves its tab highlighted.
+                const tabEl = document.querySelector(`.tab:not(.split-tab)[data-path="${CSS.escape(filePath)}"]`);
+                if (this.activeTab !== filePath || !tabEl?.classList.contains('active')) {
                     if (this.previewTab === filePath) {
                         this.promotePreviewToPermanent(filePath);
                     }

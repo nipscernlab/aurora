@@ -2871,10 +2871,12 @@ class AIAssistantManager {
         this.appendDelta(ev.delta || '');
         break;
       case 'tool-call':
+        // Reveal whatever text the model produced BEFORE this tool call, then
+        // start a fresh segment below the chip.
+        this._revealSegment();
         this.showThinking(false);
         this.hadToolCalls = true;
         this.startToolChip(ev.toolName, ev.args, ev.toolUseId);
-        // Text after a tool call opens a fresh segment below the chip.
         this.currentAssistantContentEl = null;
         this.segmentBuffer = '';
         this._revealLength = 0;
@@ -2911,20 +2913,62 @@ class AIAssistantManager {
     if (!delta) return;
     // Text resuming after a run of tools closes that batch (tidy summary).
     this._closeToolGroup();
-    // The bubble is created LAZILY in _renderStreamingBubble, only once there
-    // is something visible to show. A segment that turns out to be just
-    // tool-call artefacts or whitespace therefore never leaves an empty
-    // "Aurora Intelligence" bar behind. segmentBuffer/_revealLength are reset
-    // at segment boundaries (turn start in resetTurnState, and on each
-    // tool-call), so here we only accumulate.
+    // Wait-then-reveal: accumulate the segment silently with the thinking
+    // indicator up. The segment is rendered ONCE — with syntax highlight and a
+    // quick fade-in cascade — when it completes (at a tool call or at finish).
+    // Re-rendering markdown per token looked janky and left code blocks
+    // unhighlighted until the very end.
     this.segmentBuffer += delta;
     this.turnText += delta;
-    // Coalesce every delta that lands in the same animation frame into ONE
-    // DOM render. Re-rendering the whole markdown bubble on every token was
-    // the source of the choppy stream — dozens of reflows a second, each
-    // restarting the fade-reveal on a tiny new chunk. One render per frame
-    // makes the reveal continuous and smooth.
-    this._scheduleStreamRender();
+    this.showThinking(true);
+  }
+
+  /**
+   * Render the accumulated segment in full, once: strip tool-call artefacts,
+   * render markdown, syntax-highlight code, then play a quick staggered fade-in
+   * on the blocks. Called at each segment boundary (tool call / finish), so the
+   * user waits with the thinking dots and then the answer flows in cleanly.
+   */
+  _revealSegment() {
+    const buf = this.segmentBuffer || '';
+    const mayHaveArtifacts = buf.indexOf('<') !== -1 || buf.indexOf('{"name"') !== -1;
+    const displayText = (mayHaveArtifacts
+      ? buf
+        .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
+        .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
+        .replace(/<\/tool_call>/g, '')
+      : buf
+    ).trim();
+
+    if (!displayText) {
+      // Pure tool-call artifact / whitespace — never leave an empty bubble.
+      if (this.currentAssistantContentEl) {
+        this.currentAssistantContentEl.closest('.ai-message')?.remove();
+        this.currentAssistantContentEl = null;
+      }
+      return;
+    }
+
+    this.showThinking(false);
+    if (!this.currentAssistantContentEl) {
+      const bubble = this.appendBubble('assistant', '');
+      this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
+    }
+    this.currentAssistantContentEl.innerHTML = renderMarkdown(displayText);
+    highlightCodeBlocks(this.currentAssistantContentEl);
+    linkifyFileRefs(this.currentAssistantContentEl);
+    this._applyRevealCascade(this.currentAssistantContentEl);
+    this.scrollToBottom();
+  }
+
+  /** Quick staggered fade-in over the rendered blocks of a revealed segment. */
+  _applyRevealCascade(el) {
+    if (!el) return;
+    const kids = Array.from(el.children);
+    kids.forEach((k, i) => {
+      k.classList.add('ai-reveal-block');
+      k.style.animationDelay = `${Math.min(i * 45, 360)}ms`;
+    });
   }
 
   /** Queue a streaming re-render on the next frame (idempotent per frame). */
@@ -3057,16 +3101,13 @@ class AIAssistantManager {
   commitTurn() {
     // Collapse the final tool batch so a finished turn reads clean.
     this._closeToolGroup();
-    // Flush any frame-batched stream render so the bubble shows the full
-    // final text before we highlight code blocks — and bypass the typewriter
-    // on this closing frame so nothing is left half-revealed.
-    this._streamFlush = true;
+    // Reveal the final segment in full (markdown + syntax highlight + fade
+    // cascade). Any in-flight stream-render frame is cancelled first.
     if (this._streamRenderRaf) {
       cancelAnimationFrame(this._streamRenderRaf);
       this._streamRenderRaf = null;
     }
-    this._renderStreamingBubble();
-    this._streamFlush = false;
+    this._revealSegment();
     // The whole turn's text is persisted as one assistant message so
     // the next turn carries context. Strip XML tool-call artifacts before
     // storing — they confuse models on subsequent turns.

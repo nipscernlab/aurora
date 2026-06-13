@@ -531,6 +531,20 @@ body.ai-assistant-open {
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Wait-then-reveal: each block of a freshly-revealed assistant segment fades in
+   with a small stagger (delay set inline by _applyRevealCascade), so the answer
+   flows in quickly rather than dumping or typing out token by token. */
+.ai-msg-content > .ai-reveal-block {
+  animation: aiRevealBlock 320ms var(--ease-reveal) both;
+}
+@keyframes aiRevealBlock {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-msg-content > .ai-reveal-block { animation: none; }
+}
+
 .ai-msg-role {
   font-size: var(--text-2xs);
   font-weight: var(--font-bold);
@@ -1830,7 +1844,6 @@ body.resizing-ai-corner .ai-resize-handle::after {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-elev);
-  overflow: hidden;
 }
 .ai-tool-group-head {
   display: flex;

@@ -63,48 +63,41 @@ vec3 ribbon(float t){
   return c;
 }
 
+// One flowing aurora curtain: a wavy horizontal ribbon whose centre drifts
+// sideways and undulates over time, threaded with soft vertical rays. Returns
+// the curtain's brightness at uv.
+float band(vec2 uv, float baseY, float t, float seed, float speed) {
+  float center = baseY
+    + 0.11 * sin(uv.x * 3.0 + t * speed + seed)
+    + 0.09 * (fbm(vec2(uv.x * 1.6 - t * 0.25 * speed, seed)) - 0.5);
+  float thick = 0.05 + 0.05 * fbm(vec2(uv.x * 2.2 + seed, t * 0.10));
+  float core  = smoothstep(thick, 0.0, abs(uv.y - center));
+  float rays  = mix(0.55, 1.25, fbm(vec2(uv.x * 9.0 + seed, uv.y * 2.0 + t * 0.12 * speed)));
+  return core * rays;
+}
+
 void main(){
   vec2 uv = gl_FragCoord.xy / uRes.xy;
   float aspect = uRes.x / uRes.y;
-  // Mild horizontal stretch so the sheet spans the full width with broad
-  // features (a full aspect stretch clustered everything into one side).
-  float x = uv.x * aspect * 0.55;
-  float t = uTime * 0.07;
+  // Gentle stretch so the waves span the width without clustering to one side.
+  vec2 p = vec2(uv.x * aspect * 0.5, uv.y);
+  float t = uTime * 0.08;
 
-  // The whole sheet sways and breathes laterally.
-  float sway = fbm(vec2(x * 0.7 + t * 0.25, 0.7)) - 0.5;
+  // Four flowing curtains at different heights, colours and speeds → a rich,
+  // multi-colour aurora that drifts and waves naturally instead of streaking.
+  vec3 col = vec3(0.0);
+  col += ribbon(0.12) * band(vec2(p.x, uv.y), 0.30, t,  0.0, 1.00);        // green
+  col += ribbon(0.42) * band(vec2(p.x, uv.y), 0.48, t, 12.0, 0.80);        // cyan
+  col += ribbon(0.72) * band(vec2(p.x, uv.y), 0.66, t, 27.0, 1.30);        // violet
+  col += ribbon(0.95) * band(vec2(p.x, uv.y), 0.84, t, 51.0, 0.60) * 0.7;  // pink wisp
 
-  // Broad curtain density across x. Lower frequency + moderate bias so the
-  // sheet spreads evenly and naturally (not a bright concentrated clump) while
-  // still varying — and no column ever fully dies.
-  float dens = fbm(vec2(x * 1.25 + sway * 1.4 + t * 0.40, uv.y * 0.45 + t * 0.06));
-  dens = pow(clamp(dens + 0.28, 0.0, 1.0), 1.2);
+  // Vertical envelope (fades up the sky) + a soft green airglow on the horizon.
+  col *= smoothstep(1.12, -0.06, uv.y);
+  col += ribbon(0.10) * smoothstep(0.42, 0.0, uv.y) * 0.16;
 
-  // Vertical rays/streamers — the primary aurora structure (the "comb").
-  float rays = fbm(vec2(x * 6.0 + sway * 2.0 - t * 0.32, uv.y * 1.4 + t * 0.08));
-  rays = pow(rays, 1.6);
-
-  // Streamers rooted at the bottom; tongues reach higher where density is
-  // strong, with soft fading tops. A full-width airglow base fills the floor.
-  float reach  = 0.45 + 0.55 * dens;
-  float env    = smoothstep(reach + 0.45, -0.05, uv.y);
-  float ground = smoothstep(0.52, -0.15, uv.y);
-
-  float glow = (rays * 0.9 + 0.38) * dens * env + ground * 0.42 * (0.5 + dens);
-
-  // Hue rises green → teal/cyan → violet → magenta/pink at the tips, with sway
-  // shifting the bands laterally so the colour isn't in flat horizontal stripes.
-  float ct  = clamp(uv.y * 0.95 + sway * 0.34, 0.0, 1.0);
-  vec3  col = ribbon(ct) * glow;
-
-  // Magenta/pink lower fringe (nitrogen) hugging the base of the curtains —
-  // the warm rim a real aurora shows where the green meets the horizon.
-  float fringe = smoothstep(0.32, 0.02, uv.y) * smoothstep(0.05, 0.20, glow);
-  col = mix(col, vec3(0.96, 0.45, 0.72), fringe * 0.5);
-
-  // Balanced output — present and colourful, but not an intense clump.
-  float alpha = clamp(glow * 1.55, 0.0, 1.0) * uIntensity;
-  gl_FragColor = vec4(col * uIntensity * 1.4, alpha);
+  float lum   = max(col.r, max(col.g, col.b));
+  float alpha = clamp(lum * 1.7, 0.0, 1.0) * uIntensity;
+  gl_FragColor = vec4(col * uIntensity * 1.55, alpha);
 }
 `;
 

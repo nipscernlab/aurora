@@ -74,23 +74,23 @@ void main(){
   // The whole sheet sways and breathes laterally.
   float sway = fbm(vec2(x * 0.7 + t * 0.25, 0.7)) - 0.5;
 
-  // Broad curtain density across x. High bias + gentle curve so the sheet reads
-  // as a LUMINOUS green body (not a faint grey wash) while still varying —
-  // and no column ever fully dies (the old "disappears from places" bug).
-  float dens = fbm(vec2(x * 1.5 + sway * 1.4 + t * 0.40, uv.y * 0.45 + t * 0.06));
-  dens = pow(clamp(dens + 0.34, 0.0, 1.0), 1.1);
+  // Broad curtain density across x. Lower frequency + moderate bias so the
+  // sheet spreads evenly and naturally (not a bright concentrated clump) while
+  // still varying — and no column ever fully dies.
+  float dens = fbm(vec2(x * 1.25 + sway * 1.4 + t * 0.40, uv.y * 0.45 + t * 0.06));
+  dens = pow(clamp(dens + 0.28, 0.0, 1.0), 1.2);
 
-  // Bright vertical rays/streamers — the primary aurora structure (the "comb").
-  float rays = fbm(vec2(x * 7.0 + sway * 2.2 - t * 0.32, uv.y * 1.4 + t * 0.08));
-  rays = pow(rays, 1.5);
+  // Vertical rays/streamers — the primary aurora structure (the "comb").
+  float rays = fbm(vec2(x * 6.0 + sway * 2.0 - t * 0.32, uv.y * 1.4 + t * 0.08));
+  rays = pow(rays, 1.6);
 
   // Streamers rooted at the bottom; tongues reach higher where density is
   // strong, with soft fading tops. A full-width airglow base fills the floor.
   float reach  = 0.45 + 0.55 * dens;
   float env    = smoothstep(reach + 0.45, -0.05, uv.y);
-  float ground = smoothstep(0.55, -0.15, uv.y);
+  float ground = smoothstep(0.52, -0.15, uv.y);
 
-  float glow = (rays * 1.0 + 0.5) * dens * env + ground * 0.55 * (0.5 + dens);
+  float glow = (rays * 0.9 + 0.38) * dens * env + ground * 0.42 * (0.5 + dens);
 
   // Hue rises green → teal/cyan → violet → magenta/pink at the tips, with sway
   // shifting the bands laterally so the colour isn't in flat horizontal stripes.
@@ -102,9 +102,9 @@ void main(){
   float fringe = smoothstep(0.32, 0.02, uv.y) * smoothstep(0.05, 0.20, glow);
   col = mix(col, vec3(0.96, 0.45, 0.72), fringe * 0.5);
 
-  // Brighter output overall so the curtains have real colour and life.
-  float alpha = clamp(glow * 1.9, 0.0, 1.0) * uIntensity;
-  gl_FragColor = vec4(col * uIntensity * 1.7, alpha);
+  // Balanced output — present and colourful, but not an intense clump.
+  float alpha = clamp(glow * 1.55, 0.0, 1.0) * uIntensity;
+  gl_FragColor = vec4(col * uIntensity * 1.4, alpha);
 }
 `;
 

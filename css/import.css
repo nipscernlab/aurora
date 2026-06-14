@@ -15,6 +15,7 @@
 /* 1. base */
 @import url("./base/fonts.css");          /* local @font-face — must precede any use */
 @import url("./base/theme_variables.css");
+@import url("./base/semantic_tokens.css"); /* DESIGN §3 — aliases over the base, after it */
 @import url("./base/aurora_canvas.css");
 @import url("./base/styles.css");
 @import url("./base/layout.css");

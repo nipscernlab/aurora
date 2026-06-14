@@ -234,7 +234,7 @@
   background: var(--accent);
   pointer-events: none;
   opacity: 0;
-  z-index: 5;
+  z-index: var(--z-10);
   transition: left 80ms ease, opacity var(--transition-fast);
 }
 

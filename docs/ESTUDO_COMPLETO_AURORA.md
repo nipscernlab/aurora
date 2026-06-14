@@ -493,6 +493,9 @@ processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao 
   perdia traduções/ícones — não pegava no `dev`); (b) `cssMinify:false` (o minificador do esbuild fundia
   `@font-face` de woff2 byte-idênticos — paridade com o raw); (c) `knip.config.js` corrigido (pré-existente:
   `ignoreDependencies` listava o `@fortawesome` removido e faltavam `@phosphor`/`katex`).
+- **Fix `dev.js` (pós-boot do usuário):** spawnar o Vite **direto** (não `npx.cmd`+shell) — no Windows o
+  servidor caía no meio da sessão (connection-refused em worker do Monaco/lang Verilog/PRISM/fontes) e o
+  fechamento ficava lento; agora estável + fail-fast (derruba o Electron se o Vite morrer) + teardown limpo.
 - **Verde:** 208 unit + e2e (7/8) + ESLint + knip + `vite build` self-contained + dev-server (curl 200 nas 4
   páginas/vendors/recursos). Revisão adversarial multi-agente (packaging/asar, load-logic, config, CI) limpa.
   **Boot/visual do Electron a verificar pelo usuário.** Plano em `~/.claude/plans/ancient-snacking-wand.md`.
@@ -500,16 +503,28 @@ processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao 
   família são o mesmo arquivo (4 conteúdos p/ 14 faces). A IDE **não tem bold/medium reais**; provável bug no
   `scripts/fetch-fonts.js`. Corrigir à parte.
 
+**Camada semântica de tokens (DESIGN §3 — Fase A do Lit shell) ✅.** `css/base/semantic_tokens.css`
+(importado após `theme_variables.css`): aliases dos nomes do DESIGN §3 sobre a base — `--surface-*`,
+`--text-bright/default/faint`, `--state-*`, `--accent-veil`, `--focus-ray`, `--motion-*` — **puro aliasing,
+zero mudança de valor** (tema único intacto). `--text-muted` **não** re-aliasado (já existe na base; evita
+clobber de ~40 usos). 11 literais de z-index → escala `--z-*` (stacking preservado por análise de contexto;
+o `z-index:-1` "atrás do pai" do pdf-modal fica). É o vocabulário que o código novo/Lit usa; o codemod
+base→semantic dos ~600 usos existentes fica para a migração por-componente. 208 unit + lint + knip +
+`vite build` verdes; **paridade visual** (aliases). Próximo: **Fase B** (instalar Lit + `<aurora-statusbar>`
++ Design Lab).
+
 ### ⬜ Falta
 **Fundação (Vite — só o Stage 5 restante):**
 - [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
       de teste; tratar como esforço próprio).
 
-**Visual (só os 🔴 grandes — agora destravados pela fundação Vite):**
+**Visual (Lit shell — em andamento):**
+- [x] **Camada semântica de tokens (DESIGN §3)** — feita (Fase A, ver acima). Resta só a **adoção
+      por-componente** (codemod base→semantic, junto da migração Lit).
 - [ ] 🔴 **Shell em Lit + painéis dockáveis** + redesenho de welcome/empty-states (4 skins → 1) +
-      densidade/hierarquia (Zed/Linear/Fleet). Bundler (A1) **já no lugar**; pode começar.
-- [ ] **Tokens em camadas semânticas** (base → semantic → component) — `brand_tokens.css` já extraído;
-      falta a estratificação completa.
+      densidade/hierarquia (Zed/Linear/Fleet). **Fase B**: instalar Lit, `<aurora-statusbar>` (prova do
+      stack), `html/design-lab.html`. **Fase C+**: migração progressiva na ordem de isolação (titlebar →
+      … → `<aurora-editor>`, que dropa os 30 `!important` via Shadow DOM).
 - [ ] **Consolidar `ai_assistant.css`** (2.150 linhas; a paleta de syntax já saiu pros tokens, o resto
       do arquivo permanece). Baixa prioridade.
 - [ ] ~~Tema light / aurora-contrast~~ — **descartado** (tema único).

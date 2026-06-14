@@ -149,7 +149,7 @@
   border: 0;
   transition: background-color var(--transition-fast),
               color var(--transition-fast);
-  z-index: 2;
+  z-index: var(--z-1);
 }
 
 .notification-close:hover {

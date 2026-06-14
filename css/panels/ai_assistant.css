@@ -70,7 +70,7 @@ body.ai-assistant-open {
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   position: relative;
-  z-index: 35;
+  z-index: var(--z-40);
 }
 
 .ai-header-left {
@@ -86,7 +86,7 @@ body.ai-assistant-open {
   align-items: center;
   gap: var(--space-1);
   position: relative;
-  z-index: 36;
+  z-index: var(--z-1);
 }
 
 /* Prevent icon elements from consuming pointer events — clicks anywhere
@@ -2173,7 +2173,7 @@ body.resizing-ai-corner * {
   border-radius: 999px;
   font-size: var(--text-xs);
   cursor: pointer;
-  z-index: 4;
+  z-index: var(--z-10);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   /* Hidden by default; `.visible` fades it in. Both in AND out animate via
      this single transition so it never pops out abruptly. */

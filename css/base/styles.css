@@ -94,7 +94,7 @@ body.window-maximized {
      column-grip glyph that col-resize draws on Windows. */
   cursor: ew-resize;
   background: transparent;
-  z-index: 14;
+  z-index: var(--z-10);
   transition: background-color var(--transition-fast);
 }
 
@@ -136,7 +136,7 @@ body.resizing-corner   .resizer-vertical::after {
      row-grip glyph that row-resize draws on Windows. */
   cursor: ns-resize;
   background: transparent;
-  z-index: 14;
+  z-index: var(--z-10);
   transition: background-color var(--transition-fast);
 }
 

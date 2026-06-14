@@ -55,7 +55,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 6;
+  z-index: var(--z-1);
   /* Magic-wand stroke: a soft purple aura around a bright core line, sweeping
      up the editor. `screen` makes the purple GLOW additively over the code
      (revealing it) instead of laying a flat film on top. */
@@ -191,7 +191,7 @@
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s ease;
-  z-index: 5;
+  z-index: var(--z-1);
 }
 
 .split-pane-dimmed .split-pane-dim { opacity: 1; }
@@ -233,7 +233,7 @@
   position: absolute;
   top: 8px;
   right: 14px;
-  z-index: 7;
+  z-index: var(--z-10);
   width: 28px;
   height: 28px;
   padding: 0;

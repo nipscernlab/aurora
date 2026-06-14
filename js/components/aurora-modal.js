@@ -5,36 +5,62 @@ import { LitElement, html, css } from 'lit';
 const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.baseURI).href;
 
 /**
- * <aurora-modal> — the shared modal chrome (DESIGN §9), matching the app's
- * modal look (was modal_config.css): a blurred scrim, a luminous-bordered panel
- * with an aurora glow ring, a header with a close button, and a scale/opacity
- * enter.
+ * <aurora-modal> — the shared modal chrome (DESIGN §9), matching the app's modal
+ * look (was modal_config.css): a blurred scrim, a luminous-bordered glow panel,
+ * a header with a close button, and a scale/opacity enter.
  *
- * Chrome only — the modal's CONTENT stays in the LIGHT DOM via slots, so every
- * form field id, handler and data-i18n keeps working untouched:
+ * Drop-in for the old `.modal-overlay` div: it shows/hides PURELY from the same
+ * signals the existing code already toggles — `aria-hidden="false"` or the
+ * `.show` class — so modal_system.js AND every per-modal controller keep working
+ * untouched. The modal's CONTENT stays in the LIGHT DOM via slots, so every form
+ * id, handler and data-i18n is preserved:
  *   • slot="title"   — the heading (icon + text)
- *   • (default slot) — the body
+ *   • (default slot) — the body (e.g. <main class="modal-body">)
  *   • slot="footer"  — the action buttons
- * It self-manages dismissal (backdrop click + the ✕ button) by emitting
- * `aurora-modal-close`; modal_system.js owns the open stack + ESC and drives the
- * reflected `open` property. Closed, the host is pointer-events:none so it's
- * never an invisible click-wall over the app.
+ * Its backdrop + ✕ live in the shadow (the document-level backdrop delegation
+ * can't reach them), so it emits `aurora-modal-close` for modal_system to close
+ * it through the unified stack. Closed, the host is pointer-events:none — never
+ * an invisible click-wall over the app.
  *
- * Attributes: open (reflect) · size ('' | small | medium | large) ·
- * dismissable (default true; set dismissable="false" to disable backdrop close).
+ * Attributes: size ('' | small | medium | large) · dismissable (default true).
+ * `el.open = true/false` is sugar over `aria-hidden`.
  */
 class AuroraModal extends LitElement {
   static properties = {
-    open: { type: Boolean, reflect: true },
     size: { type: String },
     dismissable: { type: Boolean },
   };
 
   constructor() {
     super();
-    this.open = false;
     this.size = '';
     this.dismissable = true;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    if (!this.hasAttribute('aria-hidden') && !this.classList.contains('show')) {
+      this.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  /** Sugar so property-style callers (and the Design Lab) work; the canonical
+   *  signal is `aria-hidden` / `.show`, which the CSS reacts to. */
+  get open() {
+    return this.getAttribute('aria-hidden') === 'false' || this.classList.contains('show');
+  }
+
+  set open(v) {
+    const on = !!v;
+    this.setAttribute('aria-hidden', on ? 'false' : 'true');
+    if (on) {
+      this.updateComplete.then(() => {
+        const f = this.querySelector(
+          'input:not([type=hidden]), select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
+        );
+        if (f) f.focus();
+      });
+    }
   }
 
   static styles = css`
@@ -44,7 +70,8 @@ class AuroraModal extends LitElement {
       z-index: var(--z-modal, 1000);
       pointer-events: none;            /* closed: never a click-wall */
     }
-    :host([open]) { pointer-events: auto; }
+    :host([aria-hidden='false']),
+    :host(.show) { pointer-events: auto; }
 
     .overlay {
       position: absolute;
@@ -62,7 +89,8 @@ class AuroraModal extends LitElement {
       transition: opacity var(--motion-flow, 200ms) var(--ease-out-quart, ease),
         visibility 0s linear var(--motion-flow, 200ms);
     }
-    :host([open]) .overlay {
+    :host([aria-hidden='false']) .overlay,
+    :host(.show) .overlay {
       opacity: 1;
       visibility: visible;
       transition: opacity var(--motion-flow, 200ms) var(--ease-out-quart, ease);
@@ -88,7 +116,8 @@ class AuroraModal extends LitElement {
       transition: transform var(--motion-flow, 220ms) var(--ease-out-quart, ease),
         opacity var(--motion-quick, 160ms) var(--ease-out-quart, ease);
     }
-    :host([open]) .panel { transform: scale(1) translateY(0); opacity: 1; }
+    :host([aria-hidden='false']) .panel,
+    :host(.show) .panel { transform: scale(1) translateY(0); opacity: 1; }
     .panel.size-small  { max-width: 360px; }
     .panel.size-medium { max-width: 540px; }
     .panel.size-large  { max-width: 640px; }
@@ -110,7 +139,6 @@ class AuroraModal extends LitElement {
       color: var(--text-bright);
       letter-spacing: var(--tracking-tight);
     }
-    /* The slotted title carries the icon + text (with their own data-i18n). */
     ::slotted([slot='title']) {
       display: inline-flex;
       align-items: center;
@@ -136,10 +164,13 @@ class AuroraModal extends LitElement {
     .close:hover { background: var(--overlay-hover); color: var(--text-bright); }
     .close:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 
+    /* Passthrough flex column — the slotted body (e.g. .modal-body) keeps its own
+       padding + overflow, so we don't impose a second scroll region. */
     .body {
       flex: 1 1 auto;
       min-height: 0;
-      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -178,16 +209,6 @@ class AuroraModal extends LitElement {
 
   _close() {
     this.dispatchEvent(new CustomEvent('aurora-modal-close', { bubbles: true, composed: true }));
-  }
-
-  updated(changed) {
-    if (changed.has('open') && this.open) {
-      // Focus the first interactive control in the slotted body (light DOM).
-      const focusable = this.querySelector(
-        'input:not([type=hidden]), select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
-      );
-      if (focusable) focusable.focus();
-    }
   }
 }
 

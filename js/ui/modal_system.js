@@ -18,11 +18,17 @@
  * exporte uma função deste módulo em vez de recriar um global.
  */
 
+import '../components/aurora-modal.js';
+
 const MODAL_OVERLAY_SELECTOR = '.modal-overlay';
 
 // Track stack of open modals (ordered)
 const openStack = [];
 
+// <aurora-modal> is a drop-in for the legacy `.modal-overlay` div: it shows/hides
+// from the SAME `aria-hidden` / `.show` signals via its shadow CSS, so the
+// functions below work unchanged for both. The only extra wiring it needs is the
+// `aurora-modal-close` listener (its backdrop + ✕ live in a shadow root).
 function isOpen(modal) {
   return modal && (
     modal.getAttribute('aria-hidden') === 'false' ||
@@ -81,6 +87,12 @@ document.addEventListener('click', (e) => {
   if (overlay.getAttribute('data-dismiss-on-backdrop') === 'false') return;
 
   closeModal(overlay);
+});
+
+// <aurora-modal> self-manages its own backdrop + ✕ (its overlay lives in a shadow
+// root the delegation above can't reach) and emits this to request a close.
+document.addEventListener('aurora-modal-close', (e) => {
+  closeModal(e.target);
 });
 
 // Wire data-modal-close="modalId" or data-dismiss-modal

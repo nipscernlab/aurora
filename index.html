@@ -668,48 +668,44 @@
 </div>
 
 <!-- New Project Modal -->
-<div id="newProjectModal" class="modal-overlay" aria-hidden="true">
-    <div class="modal-container" role="dialog" aria-labelledby="new-project-title" aria-modal="true">
-        <header class="modal-header">
-            <h2 id="new-project-title" class="modal-title">
-                <i class="ph ph-folder-plus" aria-hidden="true"></i>
-                <span data-i18n="modal.newProject.title">Create New Project</span>
-            </h2>
-        </header>
+<aurora-modal id="newProjectModal">
+    <span slot="title" id="new-project-title" class="modal-title">
+        <i class="ph ph-folder-plus" aria-hidden="true"></i>
+        <span data-i18n="modal.newProject.title">Create New Project</span>
+    </span>
 
-        <main class="modal-body">
-            <form class="project-form" id="newProjectForm">
-                <div class="form-group">
-                    <label for="projectNameInput" class="form-label" data-i18n="modal.newProject.name">Project Name</label>
-                    <input type="text" id="projectNameInput" class="form-input" placeholder="Enter project name" data-i18n-placeholder="modal.newProject.namePlaceholder" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="projectLocationInput" class="form-label" data-i18n="modal.newProject.location">Project Location</label>
-                    <div class="input-with-action">
-                        <input type="text" id="projectLocationInput" class="form-input" placeholder="Select project location" data-i18n-placeholder="modal.newProject.locationPlaceholder" readonly required>
-                        <button type="button" id="browseBtn" class="btn btn-outline">
-                            <i class="ph ph-folder-open" aria-hidden="true"></i>
-                            <span data-i18n="modal.newProject.browse">Browse</span>
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </main>
-
-        <footer class="modal-footer">
-            <div class="footer-actions">
-                <button id="cancelProjectBtn" class="btn btn-secondary">
-                    <span data-i18n="modal.newProject.cancel">Cancel</span>
-                </button>
-                <button id="generateProjectBtn" class="btn btn-primary">
-                    <i class="ph ph-plus" aria-hidden="true"></i>
-                    <span data-i18n="modal.newProject.generate">Generate Project</span>
-                </button>
+    <main class="modal-body">
+        <form class="project-form" id="newProjectForm">
+            <div class="form-group">
+                <label for="projectNameInput" class="form-label" data-i18n="modal.newProject.name">Project Name</label>
+                <input type="text" id="projectNameInput" class="form-input" placeholder="Enter project name" data-i18n-placeholder="modal.newProject.namePlaceholder" required>
             </div>
-        </footer>
-    </div>
-</div>
+
+            <div class="form-group">
+                <label for="projectLocationInput" class="form-label" data-i18n="modal.newProject.location">Project Location</label>
+                <div class="input-with-action">
+                    <input type="text" id="projectLocationInput" class="form-input" placeholder="Select project location" data-i18n-placeholder="modal.newProject.locationPlaceholder" readonly required>
+                    <button type="button" id="browseBtn" class="btn btn-outline">
+                        <i class="ph ph-folder-open" aria-hidden="true"></i>
+                        <span data-i18n="modal.newProject.browse">Browse</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <footer slot="footer" class="modal-footer">
+        <div class="footer-actions">
+            <button id="cancelProjectBtn" class="btn btn-secondary">
+                <span data-i18n="modal.newProject.cancel">Cancel</span>
+            </button>
+            <button id="generateProjectBtn" class="btn btn-primary">
+                <i class="ph ph-plus" aria-hidden="true"></i>
+                <span data-i18n="modal.newProject.generate">Generate Project</span>
+            </button>
+        </div>
+    </footer>
+</aurora-modal>
 
 <!-- Processor Hub Modal -->
 <div id="modalContainer" class="modal-overlay">

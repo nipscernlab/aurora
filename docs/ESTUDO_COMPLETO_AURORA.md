@@ -606,10 +606,12 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] `<aurora-tabs>` — `tab_manager.js`. 🟡
 - [ ] `<aurora-editor>` — host do Monaco; **dropa os 30 `!important`** via Shadow DOM. 🔴 maior ganho.
 - [ ] `<aurora-terminal>` — `terminal_module.js` (otimizado no lugar; não xterm). 🟡
-- [~] `<aurora-modal>` + extrair os 4 modais inline (wave config, new project, processor hub, settings). **EM CURSO:**
-      base `<aurora-modal>` feita (chrome em Shadow DOM + tokens; título/corpo/footer SLOTADOS em light-DOM →
-      forms/IDs/i18n preservados; auto-gere backdrop+✕ via `aurora-modal-close`; `pointer-events:none` fechado).
-      Na Design Lab. Falta: religar o `modal_system.js` p/ dirigir `.open` + converter os 4 modais. 🟡
+- [x] `<aurora-modal>` + os 4 modais inline (new project, processor hub, wave config, settings) — **FEITO.**
+      Base `<aurora-modal>` (chrome em Shadow DOM + tokens; título/corpo/footer + ✕-próprio SLOTADOS em
+      light-DOM → forms/IDs/handlers/i18n preservados). É **drop-in**: reage a `aria-hidden`/`.show`/`.visible`
+      via CSS (os 3 mecanismos que `modal_system`/processor-hub/wave/settings já usam) → **nenhum controller
+      religado**; só o `aurora-modal-close` no `modal_system` (backdrop+✕ vivem no shadow). `noclose` mantém o
+      ✕-próprio (que faz limpeza); largura custom via `--aurora-modal-width` (settings = 880px). Na Design Lab.
 - [ ] `<aurora-statusbar>` **ao vivo** — religar os 7+ drivers (deixado pro fim por ser o mais acoplado). 🔴
 - [ ] `<aurora-panel>` **dockável** + layout dockável estilo Fleet/Zed + densidade/hierarquia revisadas. 🔴
 

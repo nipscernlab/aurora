@@ -108,7 +108,9 @@ class AuroraModal extends LitElement {
     .panel {
       position: relative;
       width: 100%;
-      max-width: 460px;
+      /* Per-size default; a host can override with --aurora-modal-width (e.g. the
+         wide Settings modal). */
+      max-width: var(--aurora-modal-width, 460px);
       max-height: 86vh;
       display: flex;
       flex-direction: column;

@@ -807,17 +807,14 @@
      toggles `.active` on both the button and the pane. The "Save"
      and "Reset" footer buttons act on whichever pane is visible:
      persistence happens at the modal level, not per-pane. -->
-<div id="settings-modal" class="modal-overlay">
-    <div class="modal-container settings-modal" role="dialog" aria-labelledby="settings-modal-title" aria-modal="true">
-        <header class="modal-header">
-            <h2 id="settings-modal-title" class="modal-title">
+<aurora-modal id="settings-modal" noclose style="--aurora-modal-width: min(880px, 92vw);">
+        <span slot="title" id="settings-modal-title" class="modal-title">
                 <i class="ph ph-sliders-horizontal" aria-hidden="true"></i>
                 <span data-i18n="modal.settings.title">Aurora Settings</span>
-            </h2>
-            <button id="close-modal-btn" class="modal-close-btn" aria-label="Close settings" data-i18n-aria-label="modal.settings.close">
+        </span>
+        <button slot="actions" id="close-modal-btn" class="modal-close-btn" aria-label="Close settings" data-i18n-aria-label="modal.settings.close">
                 <i class="ph ph-x" aria-hidden="true"></i>
-            </button>
-        </header>
+        </button>
 
         <main class="modal-body settings-body">
             <nav class="settings-nav" role="tablist" aria-label="Settings sections">
@@ -1086,14 +1083,13 @@
             </div>
         </main>
 
-        <footer class="modal-footer">
+        <footer slot="footer" class="modal-footer">
             <div class="footer-actions">
                 <button id="reset-settings-btn" class="btn btn-secondary" data-i18n="modal.settings.reset">Reset to Defaults</button>
                 <button id="save-settings-btn" class="btn btn-primary" data-i18n="modal.settings.save">Save Changes</button>
             </div>
         </footer>
-    </div>
-</div>
+</aurora-modal>
 
 <!-- Inline scripts (modal wiring + interactions) -->
 <script>

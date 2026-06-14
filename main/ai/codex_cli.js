@@ -50,6 +50,7 @@ const log = require('electron-log');
 const state = require('../state');
 const auroraMcp = require('./aurora_mcp_server');
 const { locateCodex } = require('./cli_locator');
+const attachments = require('./attachments');
 
 /** sessionId → { proc, markAborted } for in-flight turns. */
 const sessions = new Map();
@@ -264,6 +265,9 @@ async function start(payload, webContents) {
   const resumeId = conversationId ? convThreads.get(conversationId) : null;
   const last = messages[messages.length - 1];
   let prompt = (last && last.content) || '';
+  // Composer attachments: inline file text. Codex can't view images, so those
+  // degrade to a note (imagesAsFiles:false) suggesting Claude Code / an API key.
+  prompt += attachments.buildPromptSuffix(last && last.attachments, { imagesAsFiles: false });
 
   // No thread to resume but the renderer handed us history (user switched
   // to Codex mid-thread, or the app restarted): fold prior turns in.

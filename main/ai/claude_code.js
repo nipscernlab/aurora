@@ -36,6 +36,7 @@ const log = require('electron-log');
 const state = require('../state');
 const auroraMcp = require('./aurora_mcp_server');
 const { locateClaude } = require('./cli_locator');
+const attachments = require('./attachments');
 
 /** sessionId → { proc } for in-flight turns. */
 const sessions = new Map();
@@ -293,6 +294,9 @@ async function start(payload, webContents) {
   const resumeId = conversationId ? convSessions.get(conversationId) : null;
   const last = messages[messages.length - 1];
   let prompt = (last && last.content) || '';
+  // Composer attachments: inline file text; write images to temp files and
+  // reference their paths — Claude Code reads images natively with its Read tool.
+  prompt += attachments.buildPromptSuffix(last && last.attachments, { imagesAsFiles: true });
 
   // No CLI session to resume but the renderer handed us history (user
   // switched to Claude Code mid-thread, or the app restarted): fold the

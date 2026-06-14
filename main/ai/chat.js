@@ -63,6 +63,33 @@ function sendEvent(/** @type {any} */ webContents, /** @type {string} */ session
 }
 
 /**
+ * Expand a renderer message's `attachments` into AI-SDK multimodal content:
+ * the text, then each image as an `image` part (data URL), then each file as a
+ * fenced text block. Messages without attachments keep their string content.
+ * @param {{role:string, content:string, attachments?:any[]}} m
+ */
+function toSdkMessage(m) {
+  if (!m || !Array.isArray(m.attachments) || m.attachments.length === 0) {
+    return { role: m.role, content: m.content };
+  }
+  /** @type {any[]} */
+  const parts = [];
+  if (m.content) parts.push({ type: 'text', text: m.content });
+  for (const a of m.attachments) {
+    if (a.kind === 'image' && a.dataUrl) {
+      parts.push({ type: 'image', image: a.dataUrl });
+    } else if (a.kind === 'file' && a.text != null) {
+      parts.push({
+        type: 'text',
+        text: `\n\n[Attached file: ${a.name}${a.clipped ? ' (truncated)' : ''}]\n\`\`\`\n${a.text}\n\`\`\``,
+      });
+    }
+  }
+  if (parts.length === 0) parts.push({ type: 'text', text: m.content || '' });
+  return { role: m.role, content: parts };
+}
+
+/**
  * Start a streaming chat for `payload`. Resolves once the stream
  * finishes, errors, or is aborted — the IPC handler does not await
  * this, so callers fire-and-forget.
@@ -86,6 +113,9 @@ async function start(payload, webContents) {
     messages,
     system,
   } = payload || {};
+
+  // Expand any composer attachments (images / files) into SDK multimodal content.
+  const sdkMessages = (messages || []).map(toSdkMessage);
 
   if (!sessionId || typeof sessionId !== 'string') {
     throw new Error('sessionId is required');
@@ -132,7 +162,7 @@ async function start(payload, webContents) {
     const useAnthropicCache = providerName === 'anthropic' && system && system.length > 1024;
     let systemArg;
     /** @type {any} */
-    let messagesArg = messages;
+    let messagesArg = sdkMessages;
     if (useAnthropicCache) {
       systemArg = undefined;
       messagesArg = [
@@ -146,7 +176,7 @@ async function start(payload, webContents) {
             },
           ],
         },
-        ...messages,
+        ...sdkMessages,
       ];
     } else if (system) {
       systemArg = system;
@@ -305,7 +335,7 @@ async function start(payload, webContents) {
             const follow = await generateText({
               model,
               messages: [
-                ...messages,
+                ...sdkMessages,
                 { role: 'assistant', content: stripToolXml(fullText) },
                 ...toolResultMsgs,
               ],

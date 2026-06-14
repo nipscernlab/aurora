@@ -754,8 +754,10 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       do repo).
 
 ### K. Features / UX (novas capacidades pedidas)
-- [ ] **Anexos no chat da IA — imagens e arquivos.** Permitir anexar **imagens** (upload, drag-and-drop e
-      paste do clipboard) e **arquivos** (do projeto ou do disco) nos chats da IA (`js/ai/`,
-      `ai_assistant_manager.js` + painel de IA). Inclui: UI do anexo (chip/preview/remover), limites de
-      tamanho/tipo, e o **transporte multimodal** pro provider (Claude/Codex aceitam imagem? mandar como
-      base64 / referência de arquivo no payload). Pareia com o fluxo de IA transport-agnostic do §2.3. 🟡
+- [x] **Anexos no chat da IA — imagens e arquivos — FEITO** (validar o envio ao vivo com provider real).
+      UI: botão de clipe + drag-drop + paste no composer; chips de preview (thumb de imagem / ícone+nome+tam,
+      com ×) + faixa read-only na bolha enviada. Limites: imagem ≤8 MB (data URL), arquivo ≤256 KB de texto
+      (clipa), até 10/msg. Protocolo: `attachments` na msg do usuário → `apiMessages` → `startChat`. Transportes:
+      **SDK** (`chat.js`) monta content multimodal (image parts); **Claude Code** escreve imagem em temp +
+      referencia o path (Read tool nativo lê) + inlina texto de arquivo; **Codex** inlina texto, imagens
+      **degradam** com aviso ("use Claude Code ou provider com chave"). Helper `main/ai/attachments.js`.

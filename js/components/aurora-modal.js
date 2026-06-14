@@ -10,44 +10,50 @@ const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.
  * a header with a close button, and a scale/opacity enter.
  *
  * Drop-in for the old `.modal-overlay` div: it shows/hides PURELY from the same
- * signals the existing code already toggles — `aria-hidden="false"` or the
- * `.show` class — so modal_system.js AND every per-modal controller keep working
- * untouched. The modal's CONTENT stays in the LIGHT DOM via slots, so every form
- * id, handler and data-i18n is preserved:
+ * signals the existing code already toggles — `aria-hidden="false"`, the `.show`
+ * class (modal_system / processor-hub / wave-config) or the `.visible` class
+ * (aurora-settings) — so every existing controller keeps working untouched. The
+ * modal's CONTENT stays in the LIGHT DOM via slots, so every form id, handler and
+ * data-i18n is preserved:
  *   • slot="title"   — the heading (icon + text)
+ *   • slot="actions" — optional header buttons (e.g. a modal's own ✕, which may
+ *                      run extra cleanup); set `noclose` to hide the built-in ✕
  *   • (default slot) — the body (e.g. <main class="modal-body">)
  *   • slot="footer"  — the action buttons
- * Its backdrop + ✕ live in the shadow (the document-level backdrop delegation
- * can't reach them), so it emits `aurora-modal-close` for modal_system to close
- * it through the unified stack. Closed, the host is pointer-events:none — never
- * an invisible click-wall over the app.
+ * Its built-in backdrop + ✕ live in the shadow (the document-level backdrop
+ * delegation can't reach them), so it emits `aurora-modal-close` for modal_system
+ * to close it through the unified stack. Closed, the host is pointer-events:none.
  *
- * Attributes: size ('' | small | medium | large) · dismissable (default true).
- * `el.open = true/false` is sugar over `aria-hidden`.
+ * Attributes: size ('' | small | medium | large) · dismissable (default true) ·
+ * noclose (hide the built-in ✕). `el.open = true/false` is sugar over aria-hidden.
  */
 class AuroraModal extends LitElement {
   static properties = {
     size: { type: String },
     dismissable: { type: Boolean },
+    noclose: { type: Boolean },
   };
 
   constructor() {
     super();
     this.size = '';
     this.dismissable = true;
+    this.noclose = false;
   }
 
   connectedCallback() {
     super.connectedCallback();
-    if (!this.hasAttribute('aria-hidden') && !this.classList.contains('show')) {
+    if (!this.hasAttribute('aria-hidden') &&
+        !this.classList.contains('show') &&
+        !this.classList.contains('visible')) {
       this.setAttribute('aria-hidden', 'true');
     }
   }
 
-  /** Sugar so property-style callers (and the Design Lab) work; the canonical
-   *  signal is `aria-hidden` / `.show`, which the CSS reacts to. */
   get open() {
-    return this.getAttribute('aria-hidden') === 'false' || this.classList.contains('show');
+    return this.getAttribute('aria-hidden') === 'false' ||
+      this.classList.contains('show') ||
+      this.classList.contains('visible');
   }
 
   set open(v) {
@@ -71,7 +77,8 @@ class AuroraModal extends LitElement {
       pointer-events: none;            /* closed: never a click-wall */
     }
     :host([aria-hidden='false']),
-    :host(.show) { pointer-events: auto; }
+    :host(.show),
+    :host(.visible) { pointer-events: auto; }
 
     .overlay {
       position: absolute;
@@ -90,7 +97,8 @@ class AuroraModal extends LitElement {
         visibility 0s linear var(--motion-flow, 200ms);
     }
     :host([aria-hidden='false']) .overlay,
-    :host(.show) .overlay {
+    :host(.show) .overlay,
+    :host(.visible) .overlay {
       opacity: 1;
       visibility: visible;
       transition: opacity var(--motion-flow, 200ms) var(--ease-out-quart, ease);
@@ -117,7 +125,8 @@ class AuroraModal extends LitElement {
         opacity var(--motion-quick, 160ms) var(--ease-out-quart, ease);
     }
     :host([aria-hidden='false']) .panel,
-    :host(.show) .panel { transform: scale(1) translateY(0); opacity: 1; }
+    :host(.show) .panel,
+    :host(.visible) .panel { transform: scale(1) translateY(0); opacity: 1; }
     .panel.size-small  { max-width: 360px; }
     .panel.size-medium { max-width: 540px; }
     .panel.size-large  { max-width: 640px; }
@@ -190,9 +199,12 @@ class AuroraModal extends LitElement {
         >
           <header class="header">
             <div class="title"><slot name="title"></slot></div>
-            <button class="close" aria-label="Close" @click=${this._close}>
-              <i class="ph ph-x" aria-hidden="true"></i>
-            </button>
+            <slot name="actions"></slot>
+            ${this.noclose
+              ? ''
+              : html`<button class="close" aria-label="Close" @click=${this._close}>
+                  <i class="ph ph-x" aria-hidden="true"></i>
+                </button>`}
           </header>
           <div class="body"><slot></slot></div>
           <slot name="footer"></slot>

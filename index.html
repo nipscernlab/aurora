@@ -554,17 +554,14 @@
 
 
 <!-- Wave Configuration Modal -->
-<div id="modalWaveConfig" class="modal-overlay" aria-hidden="true">
-    <div class="modal-container medium" role="dialog" aria-labelledby="wave-config-title" aria-modal="true">
-        <header class="modal-header">
-            <h2 id="wave-config-title" class="modal-title">
-                <i class="ph ph-waveform" aria-hidden="true"></i>
-                <span data-i18n="modal.waveConfig.title">Wave Configuration</span>
-            </h2>
-            <button id="closeWaveConfigModal" class="modal-close-btn" aria-label="Close Modal" data-i18n-aria-label="modal.waveConfig.close">
-                <i class="ph ph-x" aria-hidden="true"></i>
-            </button>
-        </header>
+<aurora-modal id="modalWaveConfig" size="medium" noclose aria-hidden="true">
+        <span slot="title" id="wave-config-title" class="modal-title">
+            <i class="ph ph-waveform" aria-hidden="true"></i>
+            <span data-i18n="modal.waveConfig.title">Wave Configuration</span>
+        </span>
+        <button slot="actions" id="closeWaveConfigModal" class="modal-close-btn" aria-label="Close Modal" data-i18n-aria-label="modal.waveConfig.close">
+            <i class="ph ph-x" aria-hidden="true"></i>
+        </button>
 
         <main class="modal-body">
             <section class="config-section">
@@ -650,7 +647,7 @@
             </section>
         </main>
 
-        <footer class="modal-footer">
+        <footer slot="footer" class="modal-footer">
             <div class="footer-info">
                 <span id="waveConfigSelectedCount" class="footer-counter">0 signals selected</span>
             </div>
@@ -664,8 +661,7 @@
                 </button>
             </div>
         </footer>
-    </div>
-</div>
+</aurora-modal>
 
 <!-- New Project Modal -->
 <aurora-modal id="newProjectModal">
@@ -708,17 +704,14 @@
 </aurora-modal>
 
 <!-- Processor Hub Modal -->
-<div id="modalContainer" class="modal-overlay">
-  <div class="modal-container medium" role="dialog" aria-labelledby="processor-hub-title" aria-modal="true">
-    <header class="modal-header">
-      <h2 id="processor-hub-title" class="modal-title">
-        <i class="ph ph-graph" aria-hidden="true"></i>
-        <span data-i18n="modal.processorHub.title">Create Processor Hub</span>
-      </h2>
-      <button id="closeProcessorHub" class="modal-close-btn" aria-label="Close" data-i18n-aria-label="modal.processorHub.close">
-        <i class="ph ph-x" aria-hidden="true"></i>
-      </button>
-    </header>
+<aurora-modal id="modalContainer" size="medium" noclose>
+    <span slot="title" id="processor-hub-title" class="modal-title">
+      <i class="ph ph-graph" aria-hidden="true"></i>
+      <span data-i18n="modal.processorHub.title">Create Processor Hub</span>
+    </span>
+    <button slot="actions" id="closeProcessorHub" class="modal-close-btn" aria-label="Close" data-i18n-aria-label="modal.processorHub.close">
+      <i class="ph ph-x" aria-hidden="true"></i>
+    </button>
 
     <main class="modal-body">
       <form class="processor-form" id="processorHubForm" novalidate>
@@ -795,7 +788,7 @@
       </form>
     </main>
 
-    <footer class="modal-footer">
+    <footer slot="footer" class="modal-footer">
       <div class="footer-actions">
         <button type="button" id="cancelProcessorHub" class="btn btn-secondary">
           <span data-i18n="modal.processorHub.cancel">Cancel</span>
@@ -806,8 +799,7 @@
         </button>
       </div>
     </footer>
-  </div>
-</div>
+</aurora-modal>
 
 <!-- Aurora Settings Modal — sidebar nav (left) + pane content (right).
      Each .settings-nav-item maps 1:1 to a .settings-pane via data-pane.

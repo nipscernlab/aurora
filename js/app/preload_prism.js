@@ -51,12 +51,10 @@ try {
       ipcRenderer.on('compilation-complete', (_event, data) => callback(data));
       return () => ipcRenderer.removeAllListeners('compilation-complete');
     },
-
-    // Send messages to main process
-    send: (channel, data) => ipcRenderer.send(channel, data),
-
-    // Remove listeners (cleanup)
-    removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+    // NOTE: deliberately NO generic `send` / `removeAllListeners` here. Every
+    // channel the PRISM window uses has an explicit wrapper above, so the
+    // enumerated-channel allowlist stays intact — a generic passthrough would
+    // let this renderer reach ANY ipc channel (the escape this preload avoids).
   });
 
   // Forward terminal-log events to the page as postMessage.

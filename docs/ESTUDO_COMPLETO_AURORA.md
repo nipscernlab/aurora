@@ -221,8 +221,8 @@ startup com orçamento** no CI, senão cada otimização regride sem aviso.
 | A4 | 🟡 Moderado | **Estado duplicado** `global.currentProject*` vs `state.currentOpenProjectPath`. | Um único getter sobre `state`. |
 | A5 | 🟢 Leve | **Bugs reais achados no mapeamento:** (a) `getActiveFilePath` lê `dataset.file` mas as tabs gravam `data-path` → find-state nunca funciona por arquivo; (b) `editorNs.openFile` usa `tree.value` mas `getTree` retorna `{ok,data}` → fallback morto; (c) snapshot de estado do PDF lê `activeTab` já sobrescrito; (d) código morto com `ReferenceError` latente (`saveEditorState`/`formatCurrentFile`). | Corrigir os 4; são pequenos e de alto valor. |
 | A6 | ✅ **FEITO** | **`exec-command` legado REMOVIDO** (sink de command-injection, sem callers — tudo via executor estruturado em `main/compile/executor.js`; ver comentário em `main/ipc/compile.js:26`). | — |
-| A7 | 🟡 Moderado | **`preload_prism.js` genérico** (escape do modelo de canais enumerados). | Enumerar os canais da janela PRISM. |
-| A8 | 🟡 **(cuidado)** | código morto no fim de `compilation_module.js` (view de hierarquia pré-PRISM). **Armadilha:** `npm run deadcode` (knip `--include files,deps`) **não pega** dead-code in-file; e os nomes (`cleanModuleName`/`getModuleNumber`/`switchToHierarchical…`) **COLIDEM** com a feature de hierarquia **VIVA do PRISM** (`prism.js`, `file_tree_*`) → podar por grep de nome é arriscado. | Configurar knip p/ `exports` e podar **guiado** (não por nome). |
+| A7 | ✅ **FEITO** | **`preload_prism.js` endurecido** — removidos os `send`/`removeAllListeners` genéricos; os 14 canais da janela PRISM já têm wrappers nomeados (allowlist intacta). | — |
+| A8 | ✅ **FEITO** | **152 linhas de código morto removidas** (view de hierarquia pré-PRISM no fim do `compilation_module.js`). Confirmado por **refutação adversarial** (zero callers; chamava um `this.enableHierarchicalTreeToggle()` inexistente; toggle é do `file_tree_view_controller`). O `cleanModuleName` **vivo** do `prism.js` foi preservado. | — |
 
 ---
 
@@ -748,7 +748,13 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **A2** — decompor `compilation_module.js` (3.927), `ai_assistant_manager.js` (3.873), `aurora_api.js` (2.383) por responsabilidade.
 - [ ] **A3** — migrar leituras de globais (`window.electronAPI`×431 etc.) p/ imports ES. 🟡
 - [ ] **A4** — colapsar `global.currentProject*` p/ um getter sobre `state`. 🟡
-- [ ] **A7** — enumerar os canais do `preload_prism.js` (tirar `send/removeAllListeners` genéricos). 🟡
+- [x] **A7 — FEITO ✅** — removidos os `send`/`removeAllListeners` genéricos do `preload_prism.js` (os 14 canais
+      já têm wrappers nomeados; allowlist enumerada intacta — fim do escape de canais).
+- [x] **A8 — FEITO ✅** — 152 linhas de código morto (view de hierarquia pré-PRISM) removidas do
+      `compilation_module.js`, confirmadas por **refutação adversarial**; `cleanModuleName` vivo do `prism.js` preservado.
+- [x] **GC universal de temps — FEITO ✅** — novo `main/temp_gc.js` (best-effort, non-blocking no startup) limpa os
+      `aurora-mcp-<pid>.json` órfãos no tmpdir (vazavam — eram criados por turno e **nunca** limpos) + consolida a
+      limpeza dos anexos. Ligado no `main.js`. (`components/Temp` já é limpo no quit; o GC fecha o buraco do MCP.) 🟢
 - [ ] **A8** — `npm run deadcode` no CI + podar código morto. 🟢
 
 ### G. Segurança (parking lot)

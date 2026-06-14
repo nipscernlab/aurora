@@ -101,14 +101,11 @@ if (acquiredLock) {
       fs.mkdirSync(path.join(componentsPath, 'Packages', 'msys', 'tmp'), { recursive: true });
     } catch (_) { /* best-effort */ }
 
-    // Clear leftover AI image-attachment temp files from previous sessions. They
-    // are one-shot (a CLI reads the path once during its turn, never again), so
-    // anything on disk at startup is garbage. Per-write TTL pruning bounds it
-    // within a session; this clears the carry-over (was leaking before).
-    // Best-effort, at startup ONLY — NOT on quit: synchronous fs at shutdown
-    // would add to the close time. The per-write TTL keeps the dir bounded
-    // during the session; this clears any carry-over on the next launch.
-    try { require('./main/ai/attachments').cleanupTempImages(0); } catch (_) { /* best-effort */ }
+    // Universal startup temp hygiene (best-effort, non-blocking, startup ONLY —
+    // synchronous fs at quit would slow the close). Clears the AI image-attachment
+    // carry-over (one-shot per turn) AND the stale aurora-mcp-<pid>.json configs
+    // Claude Code writes, which were never cleaned and piled up. See main/temp_gc.js.
+    try { require('./main/temp_gc').runStartupGC(); } catch (_) { /* best-effort */ }
 
     // Render the initial jumplist before the user has a chance to
     // right-click the taskbar icon. createMainWindow used to handle

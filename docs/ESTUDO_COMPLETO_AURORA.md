@@ -673,6 +673,14 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **P17** — modais sob demanda + `contain`/`inert` (casa com a11y G5).
 - [ ] **P7 completo** — `content-visibility` + `contain-intrinsic-size` nas listas.
 - [ ] **Medição** — overlay de jank (p99) + baseline de TTI + smoke de orçamento no CI (§4.4/G7).
+- [ ] **Higiene de memória — limitar o que fica RETIDO nas superfícies-chave** (NÃO um "GC manual": o V8 já
+      coleta; chamar `global.gc()` só ajuda se houver referência presa — e o alvo real é justamente soltar
+      essas referências). Auditar + bound/limpar onde cresce sem teto ou vaza: histórico do chat de IA
+      (`this.messages` cresce sem limite; **soltar o base64 das imagens anexadas após enviar** — guardar só
+      nome/thumb), buffer de saída do terminal, decorations/markers do Monaco, nós DOM destacados, listeners
+      (já houve P12/P13/P16). Limpeza por **gatilho** (trocar de chat/projeto, fechar painel) costuma ser melhor
+      que timer periódico. Medir com heap snapshots antes/depois. Pareia com §4. 🟡 — *(motivado pela observação
+      do anexo que some ao reabrir o chat: é OK p/ memória; o ponto é não reter base64 grande à toa.)*
 - [x] ~~P9 (standard tree sem virtualização)~~ — **já feito** (DocumentFragment; fim do freeze ao expandir
       pasta grande — ver §12 ✅ Feito). Listado aqui só pra fechar a dúvida.
 - [ ] ~~P1 (um Monaco por pane)~~ — **adiado/revertido** (causou perda de dados nos commits da tentativa);

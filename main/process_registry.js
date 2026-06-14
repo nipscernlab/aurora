@@ -26,6 +26,20 @@ const {
   killProcessesByPathPrefix,
 } = require('./utils');
 
+// Did ANY toolchain child spawn this session? The name/path sweeps below are
+// backstops for grandchildren that outlived their parent's tree-kill — they can
+// only exist if a parent ran. Each sweep costs real time (a cold-started
+// taskkill, and a PowerShell `Get-CimInstance Win32_Process` that enumerates
+// EVERY process on the box — ~1-3 s), so when nothing ever ran we skip them and
+// an edit-only session closes instantly instead of paying for a teardown with
+// nothing to tear down. Set in trackChild, read in stopAllToolchain.
+let toolchainEverRan = false;
+
+// Memoize the teardown. The main-window 'close' handler fires it (best-effort),
+// then app before-quit fires it again (authoritative). Both must share ONE run
+// so the expensive sweeps don't execute twice on a single close.
+let stopPromise = null;
+
 /**
  * Register a freshly-spawned toolchain child so stopAllToolchain() can
  * force-kill it. Auto-unregisters when the child exits, so the set only ever
@@ -38,6 +52,7 @@ const {
  */
 function trackChild(child) {
   if (!child || typeof child.pid !== 'number') return child;
+  toolchainEverRan = true; // a real toolchain child ran → arm the close-time sweeps
   state.childProcesses.add(child);
   const drop = () => state.childProcesses.delete(child);
   child.once('exit', drop);
@@ -63,7 +78,12 @@ function trackChild(child) {
  *
  * @returns {Promise<void>}
  */
-async function stopAllToolchain() {
+function stopAllToolchain() {
+  if (!stopPromise) stopPromise = runStopAllToolchain();
+  return stopPromise;
+}
+
+async function runStopAllToolchain() {
   const tasks = [];
 
   // 1) Tracked children — precise tree-kill by PID.
@@ -79,15 +99,21 @@ async function stopAllToolchain() {
     tasks.push(killProcessSilently(state.currentVvpProcess.pid));
   }
 
-  // 3) Name sweeps — backstop for detached/re-spawned bundled tools.
-  tasks.push(killProcessesByName('vvp.exe'));
-  tasks.push(killProcessesByName('gtkwave.exe'));
-
-  // 4) Verilator emits V<top>.exe under components/Temp/obj_dir_*; its name
-  //    varies per testbench, so sweep the whole scratch tree by path prefix.
-  tasks.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
+  // 3+4) Expensive external-process sweeps — ONLY if a toolchain child actually
+  //   ran this session. These are backstops for detached/re-spawned bundled
+  //   tools (3, by name) and Verilator's per-testbench V<top>.exe under
+  //   components/Temp/ (4, by path prefix). Each one cold-starts a process and
+  //   (for 4) makes PowerShell enumerate EVERY process via WMI — the dominant
+  //   cost of closing the IDE. If nothing ever spawned, there are provably no
+  //   orphans, so we skip them and the close is instant.
+  if (toolchainEverRan) {
+    tasks.push(killProcessesByName('vvp.exe'));
+    tasks.push(killProcessesByName('gtkwave.exe'));
+    tasks.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
+  }
 
   // 5) AI agent CLIs (Claude Code / Codex) own their own subprocess trees.
+  //    Cheap — these kill only their OWN tracked PIDs (no global scan).
   try { require('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
   try { require('./ai/codex_cli').killAll(); } catch (_) { /* not loaded */ }
 

@@ -696,12 +696,18 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **e2e flaky** `split-pane > PRISM open-at-line` — timing do ambiente (corrida de 600ms).
 - [ ] **Viewer de imagem (Monaco) — pan quebrado no zoom.** Abrir uma imagem da file tree no editor e dar
       zoom **não** permite navegar com pan pra ver todos os cantos (não dá pra chegar nas bordas da imagem). 🟡
-- [ ] **Fechar a IDE está LENTO** (regressão percebida após a mudança de "fechar todas as janelas quando a
-      principal fecha"). O `before-quit` (`main/lifecycle.js`) bloqueia o quit: **fase 1** fecha watchers +
-      `stopAllToolchain()` + MCP num `Promise.race(timeout 5s)` (um hang adiciona até 5s), e **fase 2** faz
-      `fs.rm` **recursivo** da pasta `Temp/` (lento se acumulou scratch); `window-all-closed → app.quit()` dispara
-      isso ao fechar a principal. **Fix provável:** limpar `Temp/` no **START** (não no quit — mesmo padrão dos
-      temps de anexo; no start nada segura handle → sem EBUSY) + auditar/encurtar o timeout de 5s da fase 1. 🟡
+- [x] **Fechar a IDE estava LENTO — CORRIGIDO.** Causa raiz (regressão da mudança "fechar todas as janelas
+      quando a principal fecha"): o `mainWindow.on('close')` passou a chamar `stopAllToolchain()` em **todo**
+      fechamento, e a rotina rodava **incondicionalmente** — mesmo numa sessão que só editou arquivos — duas
+      `taskkill /F /IM` (vvp/gtkwave) **e** um `powershell.exe Get-CimInstance Win32_Process` que **enumera TODOS
+      os processos da máquina via WMI** (cold-start do PowerShell + scan = ~1-3 s). Pior: chamado **2×**
+      (`close` sem await + `before-quit`) e havia **dois** `before-quit` fazendo `fs.rm(Temp)` recursivo
+      **concorrente** na mesma pasta (race → `maxRetries` backoff). **Fix:** (a) varreduras caras só rodam se
+      algum filho de toolchain de fato rodou na sessão (`toolchainEverRan`, setado em `trackChild`); (b)
+      `stopAllToolchain()` **memoizado** (os dois caminhos compartilham 1 teardown); (c) removido o `before-quit`
+      duplicado de `windows.js` (o de `lifecycle.js` é o autoritativo). Sessão só-edição agora fecha na hora.
+      *(Verificação de runtime pelo usuário: abrir → editar → fechar = instantâneo; após compilar/simular o
+      teardown ainda mata os órfãos.)* ✅
 - [ ] **A5** — verificar/corrigir os 4 bugs do mapeamento (getActiveFilePath `dataset.file`↔`data-path`; `editorNs.openFile` `tree.value`; snapshot do PDF; código morto com `ReferenceError`). 🟢
 
 ### F. 🔴 Arquitetura (god-files)
@@ -804,3 +810,8 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       enorme; (e) o inline de anexos novo. Ideias: system mais enxuto + só o **delta** por-turno; **resumir/truncar**
       tool-results volumosos; estender o **Anthropic prompt-cache** (já existe no `chat.js`) e equivalentes nos CLIs;
       medir tokens antes/depois. Meta: **menos tokens/turno** mantendo a qualidade. 🟡 (valor: custo + velocidade)
+- [ ] **Welcome: hover num projeto recente → preview da lista completa de processadores do projeto.** Passar o
+      mouse por cima de um card de "projeto recente" na tela de welcome mostra (tooltip/popover) **todos os
+      processadores** definidos naquele projeto, sem precisar abri-lo. Fonte: ler o `.spf`/estrutura do projeto
+      (a lista de processadores já é conhecida pelo project store / parsing do projeto). Bom pra escolher o
+      projeto certo de relance. Pareia com o `<aurora-tooltip>` (já migrado) p/ o popover. 🟢 (UX, baixo risco)

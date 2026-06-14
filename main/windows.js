@@ -7,11 +7,9 @@
  */
 
 const path = require('path');
-const fs = require('fs').promises;
 const { app, BrowserWindow, ipcMain } = require('electron');
 const log = require('electron-log');
 const state = require('./state');
-const { componentsPath } = require('./paths');
 const recents = require('./recents');
 const { stopAllToolchain } = require('./process_registry');
 const { loadPage } = require('./render_loader');
@@ -224,18 +222,11 @@ function createMainWindow(opts = {}) {
     if (state.prismWindow && !state.prismWindow.isDestroyed()) state.prismWindow.close();
   });
 
-  // Wipe Temp on quit — handlers in lifecycle.js do the comprehensive cleanup,
-  // but this listener is here for completeness when the window itself triggers quit.
-  app.on('before-quit', async () => {
-    state.isQuitting = true;
-    try {
-      const tempFolderPath = path.join(componentsPath, 'Temp');
-      await fs.rm(tempFolderPath, { recursive: true, force: true });
-      await fs.mkdir(tempFolderPath, { recursive: true });
-    } catch (error) {
-      log.error('Failed to clear Temp folder on app exit:', error);
-    }
-  });
+  // NOTE: the authoritative Temp wipe + toolchain teardown live in
+  // lifecycle.js's single before-quit handler. A second before-quit here used
+  // to fs.rm the SAME Temp/ folder concurrently — two recursive deletes racing
+  // on one directory (EBUSY → maxRetries backoff), pure added close latency for
+  // no benefit. Removed; lifecycle.js owns it.
 
   mainWindow.once('ready-to-show', () => {
     // Under the splash flow the coordinator owns the maximize/show

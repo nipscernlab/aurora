@@ -761,3 +761,12 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       **SDK** (`chat.js`) monta content multimodal (image parts); **Claude Code** escreve imagem em temp +
       referencia o path (Read tool nativo lê) + inlina texto de arquivo; **Codex** inlina texto, imagens
       **degradam** com aviso ("use Claude Code ou provider com chave"). Helper `main/ai/attachments.js`.
+- [ ] **Rever COMPLETAMENTE o prompt injection — condensar p/ não queimar tokens.** Auditar tudo que é
+      injetado no `system`/prompt a cada turno e enxugar sem perder contexto útil. Pontos mapeados:
+      (a) **`SYSTEM_PROMPT`** (base SAPHO, grande) — concatenado em `_dispatchTurn` (`ai_assistant_manager.js`)
+      com (b) **`projectContext`** reconstruído **por-turno** (root/spf/instruções); (c) **`conversation_context`**
+      (fold das mensagens antigas no prompt dos CLIs — `claude_code.js`/`codex_cli.js`); (d) **tool-results**
+      injetados como `[Tool result for "x"]: ${JSON.stringify(res)}` (`chat.js`) — JSON **inteiro**, pode ser
+      enorme; (e) o inline de anexos novo. Ideias: system mais enxuto + só o **delta** por-turno; **resumir/truncar**
+      tool-results volumosos; estender o **Anthropic prompt-cache** (já existe no `chat.js`) e equivalentes nos CLIs;
+      medir tokens antes/depois. Meta: **menos tokens/turno** mantendo a qualidade. 🟡 (valor: custo + velocidade)

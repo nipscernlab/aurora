@@ -55,32 +55,44 @@ class EditorManager {
             return;
         }
 
-        // ONE editor for the whole main pane (P1): register the file + its
-        // shared model, then reuse the single editor — switching files happens
-        // via setModel in setActiveEditor, not by stacking an editor per file.
-        // Per-file view state (cursor/scroll) is kept in the map so switching
-        // away and back restores the caret.
-        const language = this.getLanguageFromPath(filePath);
-        const model = SharedModelRegistry.acquire(filePath, initialContent, language);
-        if (typeof initialContent === 'string' && initialContent !== '' && model.getValue() === '') {
-            model.setValue(initialContent);
+        // Idempotent: if an editor for this filePath already exists, reuse it.
+        // Without this, racing call sites (setActiveEditor's auto-create +
+        // TabManager.addTab's IIFE) end up with two editor-instance divs
+        // stacked in the same container, both bound to the same shared model
+        // — typing produces visual artefacts and the user can't tell which
+        // pane has focus. Seed the shared model from initialContent if it
+        // hasn't been seeded yet.
+        const existing = this.editors.get(filePath);
+        if (existing) {
+            if (typeof initialContent === 'string' && initialContent !== '') {
+                const model = existing.editor.getModel();
+                if (model && model.getValue() === '') {
+                    model.setValue(initialContent);
+                }
+            }
+            return existing.editor;
         }
-        if (!this.editors.has(filePath)) this.editors.set(filePath, { viewState: null });
-        if (this.sharedEditor) return this.sharedEditor;
 
         const editorDiv = document.createElement('div');
         editorDiv.className = 'editor-instance';
-        editorDiv.id = 'editor-main-pane';
+        editorDiv.id = `editor-${filePath.replace(/[^a-zA-Z0-9]/g, '-')}`;
         editorDiv.dataset.filePath = filePath;
         editorDiv.style.cssText = `
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            display: block;
+            display: none;
         `;
 
         this.editorContainer.appendChild(editorDiv);
 
+        const language = this.getLanguageFromPath(filePath);
         const theme = language === 'cmm' ? (this.currentTheme === 'cmm-dark' ? 'cmm-dark' : 'cmm-light') : this.currentTheme;
+
+        // Shared model: every editor showing this file (main pane + any split
+        // panes) attaches to the same `ITextModel`, so edits propagate
+        // automatically and the dirty marker fires once for the file rather
+        // than once per pane.
+        const model = SharedModelRegistry.acquire(filePath, initialContent, language);
 
         const editor = monaco.editor.create(editorDiv, {
             theme: theme,
@@ -250,30 +262,23 @@ class EditorManager {
         // INITIALIZE ENHANCED FEATURES
         this.setupEnhancedFeatures(editor);
 
-        // The single shared editor. activeEditor stays === sharedEditor; the
-        // file it currently shows is tracked in _activeFilePath (the listeners
-        // below read THAT, not a captured filePath, since the editor switches
-        // files via setModel).
-        this.sharedEditor = editor;
-        this.sharedContainer = editorDiv;
-        this.activeEditor = editor;
-        this._activeFilePath = filePath;
+        // AI "ask about this" star — appears on any non-empty selection.
+        attachAiSelectionWidget(editor, { getFilePath: () => filePath });
 
-        // AI "ask about this" star — reads the currently-shown file.
-        attachAiSelectionWidget(editor, { getFilePath: () => this._activeFilePath });
-
-        // Auto-activate the focused editor's tab (mouse or keyboard). Custom
-        // event to avoid importing TabManager (circular dep). Uses the file the
-        // editor currently shows.
-        editor.onDidFocusEditorWidget(() => {
-            document.dispatchEvent(new CustomEvent('aurora-editor-focused', {
-                detail: { filePath: this._activeFilePath, paneIndex: 0 },
-            }));
+        this.editors.set(filePath, {
+            editor: editor,
+            container: editorDiv
         });
 
-        // Re-decorate when the shown file changes (setModel), so bra-ket /
-        // vertical-bar decorations track the new buffer.
-        editor.onDidChangeModel(() => this._scheduleRedecorate(editor));
+        // Auto-activate the file's tab whenever the editor gains focus
+        // (mouse click *or* keyboard navigation). Dispatched as a custom
+        // event so this module doesn't have to import TabManager and risk
+        // a circular dependency.
+        editor.onDidFocusEditorWidget(() => {
+            document.dispatchEvent(new CustomEvent('aurora-editor-focused', {
+                detail: { filePath, paneIndex: 0 },
+            }));
+        });
 
         this.decorateVerticalBar(editor);
         this.setupResponsiveObserver();
@@ -391,9 +396,12 @@ class EditorManager {
     }
 
     static getEditorId(editor) {
-        // One shared editor → one decoration bucket. Decorations are re-applied
-        // per visible range on model switch / scroll, so a constant key is fine.
-        return (editor && editor === this.sharedEditor) ? '__main__' : null;
+        for (const [filePath, data] of this.editors.entries()) {
+            if (data.editor === editor) {
+                return filePath;
+            }
+        }
+        return null;
     }
 
     static setupEnhancedFeatures(editor) {
@@ -501,8 +509,9 @@ class EditorManager {
 
     static searchInAllFiles(searchTerm, options = {}) {
         const results = [];
-        this.editors.forEach((_state, filePath) => {
-            const model = SharedModelRegistry.getModel(filePath);
+        this.editors.forEach((editorData, filePath) => {
+            const { editor } = editorData;
+            const model = editor.getModel();
 
             if (model) {
                 try {
@@ -571,19 +580,21 @@ class EditorManager {
         if (sig === this._responsiveSig) return;
         this._responsiveSig = sig;
 
-        this.sharedEditor?.updateOptions({
-            wordWrap: isMobile ? 'on' : 'bounded',
-            minimap: {
-                enabled: !isTablet,
-                scale: window.innerWidth > 1200 ? 1 : 0.8
-            },
-            fontSize: isMobile ? 12 : 14,
-            lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
-            folding: !isMobile,
-            scrollbar: {
-                verticalScrollbarSize: isMobile ? 8 : 12,
-                horizontalScrollbarSize: isMobile ? 8 : 12
-            }
+        this.editors.forEach(({ editor }) => {
+            editor.updateOptions({
+                wordWrap: isMobile ? 'on' : 'bounded',
+                minimap: {
+                    enabled: !isTablet,
+                    scale: window.innerWidth > 1200 ? 1 : 0.8
+                },
+                fontSize: isMobile ? 12 : 14,
+                lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
+                folding: !isMobile,
+                scrollbar: {
+                    verticalScrollbarSize: isMobile ? 8 : 12,
+                    horizontalScrollbarSize: isMobile ? 8 : 12
+                }
+            });
         });
     }
 
@@ -593,25 +604,24 @@ class EditorManager {
         // Apply to body for global theme
         document.body.className = isDark ? 'theme-dark' : 'theme-light';
 
-        // One editor → theme the currently-shown file (re-themed on each switch
-        // in setActiveEditor).
-        this.applyThemeForActiveFile(isDark);
+        // Apply to all editors with specific theme based on language
+        this.editors.forEach(({ editor }, filePath) => {
+            const language = this.getLanguageFromPath(filePath);
+            let theme;
+
+            if (language === 'cmm') {
+                theme = isDark ? 'cmm-dark' : 'cmm-light';
+            } else if (language === 'asm') {
+                theme = isDark ? 'asm-dark' : 'asm-light';
+            } else {
+                theme = isDark ? 'vs-dark' : 'vs';
+            }
+
+            editor.updateOptions({ theme: theme });
+        });
 
         // Save theme preference
         localStorage.setItem('editorTheme', isDark ? 'dark' : 'light');
-    }
-
-    // Theme the single editor for whatever file it currently shows. Called on a
-    // global theme change AND on every file switch (setActiveEditor), since the
-    // theme is language-specific and one editor now serves all files.
-    static applyThemeForActiveFile(isDark = this.currentTheme !== 'cmm-light') {
-        if (!this.sharedEditor || !this._activeFilePath) return;
-        const language = this.getLanguageFromPath(this._activeFilePath);
-        let theme;
-        if (language === 'cmm') theme = isDark ? 'cmm-dark' : 'cmm-light';
-        else if (language === 'asm') theme = isDark ? 'asm-dark' : 'asm-light';
-        else theme = isDark ? 'vs-dark' : 'vs';
-        this.sharedEditor.updateOptions({ theme });
     }
 
     static cleanup() {
@@ -620,11 +630,10 @@ class EditorManager {
             this.resizeObserver = null;
         }
 
-        this.sharedEditor?.dispose();
-        this.sharedEditor = null;
-        this.sharedContainer = null;
-        this._activeFilePath = null;
-        this.editors.forEach((_state, filePath) => SharedModelRegistry.release(filePath));
+        this.editors.forEach(({ editor }, filePath) => {
+            editor.dispose();
+            SharedModelRegistry.release(filePath);
+        });
 
         this.editors.clear();
         this.findStates.clear();
@@ -633,9 +642,12 @@ class EditorManager {
     }
 
     static toggleEditorReadOnly(isReadOnly) {
-        if (!this.sharedEditor) return;
-        this.sharedEditor.updateOptions({ readOnly: isReadOnly });
-        if (isReadOnly) this.sharedEditor.blur();
+        this.editors.forEach(({ editor }) => {
+            editor.updateOptions({ readOnly: isReadOnly });
+            if (isReadOnly) {
+                editor.blur();
+            }
+        });
     }
 
     static getLanguageFromPath(filePath) {
@@ -677,45 +689,50 @@ class EditorManager {
             state.searchTerm = findInput ? findInput.value : '';
         }
 
-        // The file must be registered (TabManager.addTab → createEditorInstance
-        // does that). Bail quietly if not — the addTab IIFE calls us again once
-        // it is. With one editor we never auto-create here either.
-        const fileState = this.editors.get(filePath);
-        if (!fileState || !this.sharedEditor) {
-            return this.sharedEditor || null;
+        // Hide all editors
+        this.editors.forEach(({ container }) => {
+            container.style.display = 'none';
+        });
+
+        // No auto-create here. TabManager.addTab owns editor creation (with
+        // file content) via its EditorManager.ready-gated IIFE; if we forced
+        // a create here we'd race that path and end up with a duplicate
+        // empty editor stacked on top. Bail quietly — the IIFE will call us
+        // again once the editor is in the map.
+        const editorData = this.editors.get(filePath);
+        if (!editorData) {
+            return null;
         }
 
-        // Switch the single editor to this file's model (P1). Save the outgoing
-        // file's view state (cursor/scroll) so switching back restores the caret.
-        if (this._activeFilePath && this._activeFilePath !== filePath) {
-            const outgoing = this.editors.get(this._activeFilePath);
-            if (outgoing) outgoing.viewState = this.sharedEditor.saveViewState();
-        }
-        const model = SharedModelRegistry.getModel(filePath);
-        if (model && this.sharedEditor.getModel() !== model) {
-            this.sharedEditor.setModel(model);
-        }
-        this._activeFilePath = filePath;
-        this.activeEditor = this.sharedEditor;
-        this.applyThemeForActiveFile();
-        // A binary viewer may have hidden the editor div — show it again.
-        if (this.sharedContainer) this.sharedContainer.style.display = 'block';
+        // Show and activate this editor
+        editorData.container.style.display = 'block';
+        this.activeEditor = editorData.editor;
 
-        // Layout + restore state next frame (after display/model settle), with
-        // the same split-focus guard as before so a tree click doesn't steal
-        // focus into the main pane while the user works in a split.
+        // Layout and restore state. requestAnimationFrame fires after the
+        // browser has applied the display:block above and computed layout —
+        // exactly when editor.layout() can measure the container correctly.
+        // The old setTimeout(…, 50) was a guess: too early on a slow frame
+        // (mis-measured layout) and, worse, it opened a 50ms window in which
+        // the deferred focus() below could steal focus from a pane the user
+        // had since switched to (the "file always opens on the left" bug).
         requestAnimationFrame(() => {
-            if (!this.sharedEditor) return;
-            this.sharedEditor.layout();
-            if (fileState.viewState) this.sharedEditor.restoreViewState(fileState.viewState);
+            this.activeEditor.layout();
 
+            // Don't pull keyboard focus into the main pane while the user is
+            // working in a split. This deferred focus() fires
+            // onDidFocusEditorWidget → aurora-editor-focused (paneIndex 0),
+            // whose listener resets SplitEditorManager.focusedPane to 0. That
+            // reset is why a file-tree click would "always open on the left":
+            // the main editor silently stole focus a few ms after the last
+            // main-pane tab activation, so by click time focusedPane was 0.
             if (!(window.SplitEditorManager && window.SplitEditorManager.focusedPane > 0)) {
-                this.sharedEditor.focus();
+                this.activeEditor.focus();
             }
 
+            // Restore find widget state for this file
             const state = this.findStates.get(filePath);
             if (state && state.isOpen) {
-                const findAction = this.sharedEditor.getAction('actions.find');
+                const findAction = this.activeEditor.getAction('actions.find');
                 if (findAction) {
                     findAction.run().then(() => {
                         setTimeout(() => {
@@ -730,30 +747,34 @@ class EditorManager {
         });
 
         this.updateOverlayVisibility();
-        return this.sharedEditor;
+        return this.activeEditor;
     }
 
     static getEditorForFile(filePath) {
-        // One editor — it "shows" a file only when that file is the active one.
-        return (this._activeFilePath === filePath) ? this.sharedEditor : null;
+        const editorData = this.editors.get(filePath);
+        return editorData ? editorData.editor : null;
     }
 
     static closeEditor(filePath) {
-        if (!this.editors.has(filePath)) { this.updateOverlayVisibility(); return; }
-
-        this.editors.delete(filePath);
-        this.findStates.delete(filePath);
-        SharedModelRegistry.release(filePath);
-
-        // If the closed file was the one on screen, the caller (TabManager)
-        // activates another tab immediately, which setModels the editor onto it.
-        // If nothing is left, blank the single editor (don't dispose it — it's
-        // reused for the next file).
-        if (this._activeFilePath === filePath) {
-            this._activeFilePath = null;
-            if (this.sharedEditor && this.editors.size === 0) {
-                this.sharedEditor.setModel(null);
+        const editorData = this.editors.get(filePath);
+        if (editorData) {
+            // Clear the dangling active-editor pointer BEFORE disposing, so
+            // nothing (e.g. TabManager's "no tabs left" cleanup) ends up
+            // calling setValue()/layout() on a disposed instance — which
+            // throws and aborts the close mid-way, leaving the editor area
+            // grey.
+            if (this.activeEditor === editorData.editor) this.activeEditor = null;
+            // Dispose the editor view but NOT the model — that's the
+            // registry's job. If a split pane is still showing this file,
+            // the model has to outlive the main editor.
+            editorData.editor.dispose();
+            if (editorData.container?.parentNode === this.editorContainer) {
+                this.editorContainer.removeChild(editorData.container);
             }
+            this.editors.delete(filePath);
+            this.findStates.delete(filePath);
+            this.decorationCollections.delete(filePath);
+            SharedModelRegistry.release(filePath);
         }
         this.updateOverlayVisibility();
     }

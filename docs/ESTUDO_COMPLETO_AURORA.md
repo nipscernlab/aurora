@@ -595,6 +595,28 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
   misclassificadas). Identidade já estava correta. Condensação de tokens avaliada e **deferida** (system já
   cacheado: Anthropic ephemeral + auto-cache dos providers + `--resume` dos CLIs). §13.K.
 
+**Sessão 14/06/2026 (parte 3 — UX, limpeza, segurança, bugs) ✅.** Tudo com ESLint + `vite build` + smoke e2e
+(3/3); investigações/dead-code com **refutação adversarial** por workflow; verificação ao vivo pelo usuário.
+- **3 quick-wins de UX (§13.K):** syntax highlight do `.spf` (→ linguagem `json` built-in); **hover** num projeto
+  recente no welcome → **preview dos processadores** (popover no `document.body`, viewport-relative, escapa o
+  containing-block do `:host`); **fila de follow-up** no chat (estilo VSCode — enviar enquanto a IA responde
+  enfileira + drena na ordem, priorizando a msg do usuário).
+- **A5** (4 bugs do mapeamento: find-state `dataset.file`→`dataset.path`, snapshot do PDF lendo `activeTab`
+  sobrescrito, código morto `saveEditorState`/`restoreEditorState` com `ReferenceError`). **A6** confirmado
+  já-feito (`exec-command` removido). **A7** — `preload_prism.js` endurecido (removidos `send`/`removeAllListeners`
+  genéricos; allowlist enumerada). **A8** — 152 linhas de código morto (hierarquia pré-PRISM) removidas,
+  confirmadas por **refutação adversarial**; `cleanModuleName` vivo do `prism.js` preservado.
+- **GC universal de temps** (`main/temp_gc.js`, best-effort no startup) — limpa os `aurora-mcp-<pid>.json` órfãos
+  (vazavam — nunca eram limpos) + consolida a limpeza dos anexos.
+- **Bug Ctrl+W** — fechava **TODAS** as abas + `TypeError` (`reading 'layout'` null). Causa: auto-repeat não
+  ignorado (segurar a tecla fechava uma por repetição) + rAF de `layout()` num editor já disposto. Fix:
+  `e.repeat` guard + null-guard no rAF. (Ctrl+Shift+T reabre uma a uma — já estava wirado e agora se comporta.)
+- **Auditoria do `DESIGN.md` (workflow):** maioria implementada (tokens semânticos §3, focus-ray §5, motion §6,
+  shader §7, fontes locais §8, Phosphor, 6 componentes Lit, Design Lab, command palette, modais). **Gaps:**
+  tokens `--spectrum-*` (§2) → **descoped** (mantemos `--aurora-*`, travados p/ splash/update); redução de
+  box-shadow → glow (§4) e display font (§8) = refinamentos abertos; os componentes de shell restantes
+  (titlebar/activity-bar/tabs/tree/terminal) seguem **adiados** (maus alvos de Shadow DOM — ver §13.A).
+
 ### ⬜ Falta
 **Fundação (Vite — só o Stage 5 restante):**
 - [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
@@ -711,6 +733,11 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       retomar só sob pressão real de memória, com o checklist da memória. Por decisão, fora do backlog ativo.
 
 ### E. Bugs pré-existentes a corrigir
+- [x] **Ctrl+W fechava TODAS as abas + `TypeError` (`reading 'layout'` null) — CORRIGIDO.** Duas causas
+      acopladas: o dispatcher de atalhos não ignorava **auto-repeat** (segurar Ctrl+W fechava aba a aba até
+      zerar), e o `setActiveEditor` agendava um `rAF(() => activeEditor.layout())` que disparava depois do
+      `closeEditor` ter zerado `activeEditor` (close rápido). Fix: `if (e.repeat) return` no `shortcut_manager` +
+      null-guard no rAF do `monaco_editor`. Ctrl+Shift+T (reabrir uma a uma) já estava wirado e agora se comporta.
 - [x] **Fontes duplicadas → bold/medium reais** — FEITO. Inter/JetBrains são **variáveis**: o build antigo
       emitia 1 `@font-face` por peso (400/500/600/700) todos apontando pro MESMO woff2 variável (14 faces,
       4 conteúdos; lia como peso único + 10 duplicatas byte-idênticas). Agora **1 `@font-face` por subset com

@@ -499,9 +499,9 @@ processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao 
 - **Verde:** 208 unit + e2e (7/8) + ESLint + knip + `vite build` self-contained + dev-server (curl 200 nas 4
   páginas/vendors/recursos). Revisão adversarial multi-agente (packaging/asar, load-logic, config, CI) limpa.
   **Boot/visual do Electron a verificar pelo usuário.** Plano em `~/.claude/plans/ancient-snacking-wand.md`.
-- ⚠️ **Achado pré-existente (fora do Vite):** as woff2 commitadas estão **duplicadas** — todos os pesos de cada
-  família são o mesmo arquivo (4 conteúdos p/ 14 faces). A IDE **não tem bold/medium reais**; provável bug no
-  `scripts/fetch-fonts.js`. Corrigir à parte.
+- ✅ **Fontes duplicadas → bold/medium REAIS (corrigido nesta sessão):** as woff2 eram variáveis com 1 `@font-face`
+  por peso apontando pro mesmo arquivo (4 conteúdos p/ 14 faces, lia como peso único). Agora 1 face por subset com
+  `font-weight` em **faixa** sobre 1 arquivo variável + 10 duplicados removidos (~600 KB). Ver "Resto da Fase C" abaixo.
 
 **Camada semântica de tokens (DESIGN §3 — Fase A do Lit shell) ✅.** `css/base/semantic_tokens.css`
 (importado após `theme_variables.css`): aliases dos nomes do DESIGN §3 sobre a base — `--surface-*`,
@@ -535,6 +535,42 @@ carrega; o **fallback raw do index agora degrada** (import bare de `lit` não re
 documentada da Fase C (raw das janelas secundárias segue OK). **Smoke e2e: 3/3** confirma que o index bundled com
 Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
 
+**Resto da Fase C — sessão 14/06/2026 ✅.** Migração progressiva do shell + 2 quick-wins. Todos com `vite build`
++ **smoke e2e (3/3)** verdes (e 208 unit onde aplicável); verificação visual pelo usuário a cada peça (via prints).
+- **Componentes Lit ao vivo** (LitElement + Shadow DOM + tokens semânticos, todos na Design Lab):
+  - `<aurora-tooltip>` — `tooltip.js` (descoberta/timing/posição) dirige por `content`/`placement`/`--arrow-x`;
+    espera `updateComplete` antes de medir; sempre-no-topo.
+  - `<aurora-command-palette>` — `command_palette.js` mantém registry + scoring + teclado global e dirige por
+    `.items`/`.selected`/`.open`; Phosphor no shadow via `<link>`. **+3 fixes:** parede-invisível ao fechar
+    (`pointer-events:none` no `:host` fechado), removida a barra azul do topo, painel = chrome dos modais.
+  - `<aurora-welcome>` — o welcome inteiro; `#editor-overlay` fica **light-DOM** (TabManager + seletor irmão
+    intactos); `recent_projects.js` virou **dados+ações** e dirige o componente; botões New/Open **delegam** à
+    toolbar; i18n via `window.t` + `aurora:locale-changed`.
+  - `<aurora-modal>` + **os 4 modais inline** (new project · processor hub · wave config · settings) — **drop-in**
+    que reage a `aria-hidden`/`.show`/`.visible` via CSS (os 3 mecanismos existentes), então **nenhum controller
+    foi religado**; título/corpo/footer (+ o ✕ próprio, que faz limpeza) slotados em light-DOM; largura custom via
+    `--aurora-modal-width` (settings = 880px); auto-gere backdrop+✕ via `aurora-modal-close`.
+- **Aurora-borealis refeita (paisagem artística)** — o `<aurora-canvas>` virou cortinas **contínuas** ancoradas no
+  rodapé: paleta verde→teal→cyan→violeta→magenta→**rosa nas pontas**, montanhas de **alturas variadas** (cordilheira
+  de ruído), movimento orgânico (morph do nimitz, sem pan linear), **resolução-independente** (coords normalizadas
+  pela largura + ResizeObserver → **resize do terminal não espreme mais**) + fix do canvas dentro do Shadow DOM.
+  Iterado a olho com o usuário (brilho/densidade/altura/velocidade) até o ponto.
+- **3 fixes no caminho** (regra: bug encontrado é corrigido na hora): **worker do Monaco sob `file://`** (path
+  absoluto via `document.baseURI` — consertou "abrir arquivo" no app buildado); **resizers de canto** (ResizeObserver
+  → aparecem no 1º hover, sem precisar resize antes); **navegação X1/X2 do mouse no PRISM** (histórico de cliques).
+- **Quick-wins:** **CSS morto podado** (~685 linhas — `command_palette.css` + `tooltip.css` removidos inteiros,
+  `recent_projects.css` reduzido a `.empty-state`); **fontes bold/medium REAIS** — Inter/JetBrains são variáveis;
+  era 1 `@font-face` por peso todos no mesmo woff2 variável (lia como peso único + 10 duplicatas); agora 1
+  `@font-face` por subset com `font-weight` em **FAIXA** sobre 1 arquivo variável → o navegador interpola 400..700;
+  10 duplicados removidos (~600 KB); `fetch-fonts.js` corrigido.
+- **Decisão de escopo — titlebar/activity-bar/tabs/tree/terminal ADIADOS:** **maus alvos** p/ Shadow DOM. O sistema
+  de **tooltip** e o **i18n** varrem o document por `querySelectorAll` + listeners por elemento → não alcançam o
+  shadow; e os botões/tabs são referenciados por **ID/querySelector** + manipulados **imperativamente** pelos managers
+  (compile-flow, command-palette, `tab_manager`, etc.) → migrar quebra tudo isso por payoff **~zero** (essas barras
+  não têm os 30 `!important`). As peças que migraram limpo eram **overlays + welcome + modais** (dono único OU
+  drop-in por sinal de classe). Restam com ganho **distinto**: `<aurora-editor>` (mata os 30 `!important`; mas
+  Monaco-em-Shadow-DOM é arriscado) e `<aurora-panel>` dockável (capacidade nova).
+
 ### ⬜ Falta
 **Fundação (Vite — só o Stage 5 restante):**
 - [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
@@ -546,13 +582,11 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
 - [x] **Fundação Lit + Design Lab (Fase B)** — feita (ver acima): Lit 3, `<aurora-statusbar>` (molde),
       Design Lab + launcher. Aditivo, app ao vivo intacto.
 - [x] **1ª migração ao vivo — `<aurora-toast>` (Fase C)** — feita (ver acima): driver único, API intacta.
-- [ ] 🔴 **Shell em Lit (Fase C+ continua)** + painéis dockáveis + redesenho de welcome/empty-states +
-      densidade/hierarquia (Zed/Linear/Fleet). Próximos alvos por isolação/verificabilidade: tooltip ·
-      command palette (dono único) · welcome/empty-states · titlebar → activity-bar → file-tree (preservar as
-      3 subárvores) → tabs → `<aurora-editor>` (dropa os 30 `!important` via Shadow DOM) → terminal → modais.
-      **Status bar fica pro fim** (7+ drivers + `zoom.js` insere irmão — mau alvo). Cada peça: codemod
-      base→semantic + entrada na Design Lab. **Dívida:** limpar o CSS morto de `.notification-card` em
-      `notification.css`; decidir se o fallback raw do index é removido (degradado pós-Fase C).
+- [~] 🔴 **Shell em Lit (Fase C+).** FEITO: overlays (toast · tooltip · command-palette), welcome + redesenho da
+      aurora, e os **4 modais** (ver "Resto da Fase C" acima). **ADIADO** (mau alvo p/ Shadow DOM — tooltip+i18n
+      por `querySelectorAll`, managers imperativos por ID): titlebar, activity-bar, tabs, file-tree, terminal,
+      statusbar. **Restam com ganho distinto:** `<aurora-editor>` (dropa os 30 `!important`; Monaco-em-shadow
+      arriscado) e `<aurora-panel>` dockável (capacidade nova). Item-a-item na régua **§13.A**.
 - [ ] **Consolidar `ai_assistant.css`** (2.150 linhas; a paleta de syntax já saiu pros tokens, o resto
       do arquivo permanece). Baixa prioridade.
 - [ ] ~~Tema light / aurora-contrast~~ — **descartado** (tema único).

@@ -138,6 +138,10 @@ function createMainWindow(opts = {}) {
       // exposes a curated `electronAPI` via contextBridge — that is the
       // only path the renderer can take to reach main-process capabilities.
       contextIsolation: true,
+      // OS-level renderer sandbox. Free here: preload.js imports only 'electron'
+      // (contextBridge/ipcRenderer/webUtils — all available sandboxed); every
+      // fs/spawn/AI capability already lives in main behind IPC.
+      sandbox: true,
       nodeIntegration: false,
       nodeIntegrationInSubFrames: false,
       // The AI assistant no longer uses a <webview> sub-frame (it talks to
@@ -280,6 +284,8 @@ function createSplashScreen() {
     center: true,
     webPreferences: {
       contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
       preload: path.join(app.getAppPath(), 'js', 'app', 'preload_splash.js'),
     },
   });
@@ -389,6 +395,7 @@ function createUpdateWindow() {
     icon: path.join(app.getAppPath(), 'assets/icons/sapho_aurora_icon.ico'),
     webPreferences: {
       contextIsolation: true,
+      sandbox: true,
       nodeIntegration: false,
       preload: path.join(app.getAppPath(), 'js', 'app', 'preload_update.js'),
     },
@@ -444,7 +451,7 @@ function createDesignLabWindow() {
     title: 'Aurora Design Lab',
     backgroundColor: '#0A0D14',
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false },
   });
   designLabWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   loadPage(designLabWindow, 'html/design-lab.html');

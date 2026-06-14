@@ -8,7 +8,7 @@
  * shows; only the IPC handlers are registered eagerly here.
  */
 
-const { app, crashReporter } = require('electron');
+const { app, crashReporter, session } = require('electron');
 const log = require('electron-log');
 
 const { configureLogger } = require('./main/logger');
@@ -108,6 +108,57 @@ if (acquiredLock) {
     // very first taskbar interaction already shows our entries.
     try { windows.rebuildJumpList?.(); }
     catch (_) { /* jumplist is decorative on startup; rebuildJumpList logs internally */ }
+
+    // Content-Security-Policy — security hardening, audited per directive (§13.G).
+    // Delivered as a response header on the default session so it covers BOTH the
+    // packaged file:// load and the dev server. Every token is load-bearing:
+    //   unsafe-eval  → Monaco 0.52's AMD loader (new Function); the renderer has none.
+    //   unsafe-inline→ index.html inline <script> blocks + the onclick at :82, and
+    //                  Monaco/Lit/KaTeX runtime-generated styles + style= attrs
+    //                  (a nonce can't authorize on*= handlers or generated styles).
+    //   blob:(script/worker) → Monaco's blob web-worker under the file:// opaque origin.
+    //   data: → base64 chat-image attachments + two CSS svg backgrounds.
+    //   file:(font) → the packaged file:// woff2 (opaque origin doesn't match 'self').
+    //   connect-src → same-origin i18n/sapho_rules + the local Ollama detect only
+    //                 (cloud AI providers + MCP run in MAIN, not the renderer).
+    try {
+      const devUrl = process.env.AURORA_RENDERER_URL;
+      const connectSrc = ["'self'", 'http://localhost:11434', 'http://127.0.0.1:11434'];
+      if (!app.isPackaged && devUrl) {
+        try {
+          const host = new URL(devUrl).host;          // e.g. localhost:5273 (strictPort)
+          connectSrc.push(`ws://${host}`, `http://${host}`);
+        } catch (_) { /* malformed dev URL — packaged directives still apply */ }
+      }
+      const csp = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+        "style-src 'self' 'unsafe-inline' data:",
+        "img-src 'self' data: blob:",
+        "media-src 'self'",
+        "font-src 'self' file:",
+        `connect-src ${connectSrc.join(' ')}`,
+        "worker-src 'self' blob:",
+        "child-src 'self' blob:",
+        "frame-src 'self' blob: data:",
+        "object-src 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "frame-ancestors 'none'",
+      ].join('; ');
+      session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        const headers = { ...details.responseHeaders };
+        // Replace (don't append): drop any CSP a dev server set so ours is authoritative.
+        for (const k of Object.keys(headers)) {
+          if (k.toLowerCase() === 'content-security-policy') delete headers[k];
+        }
+        headers['Content-Security-Policy'] = [csp];
+        callback({ responseHeaders: headers });
+      });
+    } catch (e) {
+      log.warn('[csp] failed to install Content-Security-Policy:', e);
+    }
+
     windows.createSplashScreen(); // splash schedules createMainWindow itself
   });
 }

@@ -115,6 +115,7 @@ async function createPrismWindow(compilationData = null) {
     titleBarStyle: 'hidden',
     webPreferences: {
       contextIsolation: true,
+      sandbox: true,
       nodeIntegration: false,
       preload: preloadPath,
     },

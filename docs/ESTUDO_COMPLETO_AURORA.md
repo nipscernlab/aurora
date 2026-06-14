@@ -713,8 +713,16 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **V10** — tirar `exec(string)` com interpolação dos utils de kill/check. 🟢
 - [ ] **V11** — revisar superfície do `set_command_override` no modo `allow`. 🟢
 - [ ] **V12** — filtrar `spec.env`/`prependPath` antes do `spawn`. 🟢
-- [ ] **CSP** — adicionar (`<meta>` ou `onHeadersReceived`); fecha a maior classe de XSS. 🟢
-- [ ] **sandbox:true** por janela onde o preload não precisa de Node. 🟢
+- [x] **CSP — FEITO** (auditado por diretiva via workflow). Header no `main.js` whenReady via
+      `session.defaultSession.webRequest.onHeadersReceived` (cobre file:// + dev). Cada token é load-bearing:
+      `unsafe-eval` (loader AMD do Monaco), `unsafe-inline` (inline `<script>`+`onclick`:82 + estilos
+      runtime Monaco/Lit/KaTeX), `blob:` em script/worker (web-worker blob do Monaco sob file://), `data:`
+      (anexos base64 + svg do CSS), `file:` (fontes empacotadas), `connect-src` só same-origin + Ollama local
+      (providers cloud + MCP rodam no MAIN). `object-src 'none'` + `frame-ancestors 'none'`. Dev: + `ws/http`
+      do Vite (derivado de `AURORA_RENDERER_URL`). **Validar ao vivo** (abrir .cmm → tokenização do Monaco;
+      KaTeX + imagem data: no chat; fontes).
+- [x] **sandbox:true — FEITO** nas 5 janelas (main/splash/update/prism/design-lab). Grátis: todos os preloads
+      importam só `'electron'` (contextBridge/ipcRenderer/webUtils, disponíveis sandboxed); fs/spawn/IA já no MAIN.
 
 ### H. OSS a integrar (parking lot — resolver G8: default-on vs plugin sob demanda)
 - [ ] **O1 Surfer** — ondas embutidas (remove GTKWave externo). 🔴 maior alavanca.

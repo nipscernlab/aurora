@@ -41,6 +41,10 @@
     }
 
     function handleKeyDown(e) {
+        // Auto-repeat (a held key) must NOT re-fire these actions — holding
+        // Ctrl+W used to close every tab, one repeat at a time (and raced the
+        // editor teardown into a null-layout crash). One press = one action.
+        if (e.repeat) return;
         // Ignora atalhos enquanto um input, textarea, etc. estiver focado
         const activeEl = document.activeElement;
         if (activeEl && ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) || activeEl.isContentEditable) {

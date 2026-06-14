@@ -720,6 +720,10 @@ class EditorManager {
         // the deferred focus() below could steal focus from a pane the user
         // had since switched to (the "file always opens on the left" bug).
         requestAnimationFrame(() => {
+            // A rapid close (e.g. holding Ctrl+W) can dispose this editor and
+            // null activeEditor before this deferred frame runs — bail so we
+            // never call layout()/focus()/getAction() on null.
+            if (!this.activeEditor) return;
             this.activeEditor.layout();
 
             // Don't pull keyboard focus into the main pane while the user is

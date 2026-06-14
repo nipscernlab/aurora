@@ -104,19 +104,22 @@ void main(){
   vec3 col = vec3(0.0);
   float a = 0.0;
   if (rd.y > 0.0){
-    vec4 aur = smoothstep(0.0, 1.5, aurora(ro, rd, uTime * 0.5));
-    col = aur.rgb;
-    a = clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0);
+    // Less compression than nimitz's sky composite (1.5) + a lift, so the
+    // curtains read as vivid aurora against the dark welcome, not faint wisps.
+    vec4 aur = smoothstep(0.0, 1.05, aurora(ro, rd, uTime * 0.5));
+    col = aur.rgb * 1.30;
+    a = clamp(max(col.r, max(col.g, col.b)) * 1.6, 0.0, 1.0);
   }
 
   // Warm-green airglow hugging the horizon — a touch of landscape grounding.
-  float glow = smoothstep(0.30, 0.05, q.y) * smoothstep(0.01, 0.10, q.y);
-  col += vec3(0.10, 0.34, 0.24) * glow * 0.45;
-  a = max(a, glow * 0.45);
+  float glow = smoothstep(0.32, 0.04, q.y) * smoothstep(0.01, 0.10, q.y);
+  col += vec3(0.12, 0.40, 0.28) * glow * 0.6;
+  a = max(a, glow * 0.55);
 
-  // Content-protect: fade toward the TOP, where the Start/Recent text sits, so
-  // the bright band stays low-middle and the text reads over the deep-night bg.
-  float vfade = smoothstep(1.0, 0.46, q.y);
+  // Content-protect: only the VERY top (where the Start/Recent text sits) is
+  // dimmed; the aurora is free to climb most of the panel. Gentle so the mask
+  // no longer eats the curtains.
+  float vfade = smoothstep(1.08, 0.66, q.y);
   col *= vfade;
   a   *= vfade;
 

@@ -9,3 +9,4 @@
  */
 import './aurora-statusbar.js';
 import './aurora-toast.js';
+import './aurora-tooltip.js';

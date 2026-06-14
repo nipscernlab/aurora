@@ -60,6 +60,7 @@
     }
     .stage > aurora-statusbar { width: 100%; }
     .toast-grid { display: flex; flex-direction: column; gap: var(--space-2, 8px); max-width: 360px; }
+    .tip-grid { display: flex; flex-wrap: wrap; gap: var(--space-8, 32px); padding: var(--space-6, 24px) 0 var(--space-8, 32px); }
   </style>
 </head>
 <body>
@@ -115,6 +116,15 @@
       <aurora-toast type="error" heading="Error" message="Synthesis failed — see the terminal." duration="0"></aurora-toast>
       <aurora-toast type="warning" heading="Warning" message="No testbench set for this design." duration="0"></aurora-toast>
       <aurora-toast type="info" heading="Information" message='Opened <a href="#">my_top.v</a>.' duration="0"></aurora-toast>
+    </div>
+  </section>
+
+  <section>
+    <h2>&lt;aurora-tooltip&gt;</h2>
+    <span class="specimen-label">floats by the cursor in the app (placement flips above/below) — shown static here</span>
+    <div class="tip-grid">
+      <aurora-tooltip class="visible" placement="bottom" content="Compile the active C± file" style="position:static"></aurora-tooltip>
+      <aurora-tooltip class="visible" placement="top" content="Open PRISM — the RTL schematic viewer" style="position:static"></aurora-tooltip>
     </div>
   </section>
 

@@ -1,5 +1,7 @@
 // tooltip.js - Enhanced universal tooltip system for AURORA IDE
 
+import '../components/aurora-tooltip.js';
+
 // Estado de habilitacao — era window.AURORA_TOOLTIPS_ENABLED. Default
 // true; quem dirige e setTooltipsEnabled (Settings modal via
 // aurora_settings.js, ou AuroraAPI settings.set('tooltipsEnabled')).
@@ -26,7 +28,7 @@ export function setTooltipsEnabled(enabled) {
         }
     });
 
-    const tooltipDiv = document.querySelector('.custom-tooltip');
+    const tooltipDiv = document.querySelector('aurora-tooltip');
     if (tooltipDiv) {
         tooltipDiv.style.display = tooltipsOn ? '' : 'none';
         if (!tooltipsOn) tooltipDiv.classList.remove('visible');
@@ -36,14 +38,12 @@ export function setTooltipsEnabled(enabled) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Create tooltip element with arrow
-    const tooltip = document.createElement('div');
-    tooltip.className = 'custom-tooltip';
-    tooltip.innerHTML = '<div class="tooltip-content"></div><div class="tooltip-arrow"></div>';
+    // Aurora tooltip — the visual surface is the <aurora-tooltip> Lit component
+    // (Shadow DOM + semantic tokens). This controller (discovery, hover timing,
+    // enable/disable, positioning) drives it via `.content`, the `placement`
+    // attribute and the `--arrow-x` custom property.
+    const tooltip = document.createElement('aurora-tooltip');
     document.body.appendChild(tooltip);
-    
-    const tooltipContent = tooltip.querySelector('.tooltip-content');
-    const tooltipArrow = tooltip.querySelector('.tooltip-arrow');
   
     // Tooltip configuration
     const tooltipConfig = {
@@ -188,22 +188,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Position the tooltip arrow based on tooltip and mouse position
     function positionTooltipArrow(tooltipPos, mouseX) {
         const tooltipRect = tooltip.getBoundingClientRect();
-        const arrowHalfWidth = tooltipConfig.arrowSize;
-        
-        tooltipArrow.className = 'tooltip-arrow';
-
-        let arrowLeft = mouseX - tooltipRect.left - arrowHalfWidth;
-
-        arrowLeft = Math.max(arrowHalfWidth, arrowLeft);
-        arrowLeft = Math.min(tooltipRect.width - arrowHalfWidth * 2, arrowLeft);
-
-        if (tooltipPos.arrowDirection === 'top') {
-            tooltipArrow.classList.add('arrow-top');
-        } else {
-            tooltipArrow.classList.add('arrow-bottom');
-        }
-        
-        tooltipArrow.style.left = `${arrowLeft}px`;
+        // Arrow centre, relative to the tooltip's left edge, clamped so the
+        // (12px) arrow stays inside. The component reads --arrow-x + placement.
+        let cx = mouseX - tooltipRect.left;
+        cx = Math.max(12, Math.min(tooltipRect.width - 12, cx));
+        tooltip.setAttribute('placement', tooltipPos.arrowDirection === 'top' ? 'top' : 'bottom');
+        tooltip.style.setProperty('--arrow-x', `${cx}px`);
     }
 
     // Add event listeners to all relevant elements
@@ -243,12 +233,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            tooltipContent.textContent = tooltipText;
-            
-            positionTooltip(e, element);
-            
-            tooltip.classList.add('visible');
-            activeElement = element;
+            tooltip.content = tooltipText;
+            // Lit renders asynchronously — wait so the box is sized to the new
+            // text before we measure and place it (avoids a stale-size flash).
+            tooltip.updateComplete.then(() => {
+                if (!tooltipsEnabled()) return;
+                positionTooltip(e, element);
+                tooltip.classList.add('visible');
+                activeElement = element;
+            });
         }, tooltipConfig.delay);
     }
     

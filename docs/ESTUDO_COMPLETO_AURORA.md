@@ -583,7 +583,9 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
 Cada peça: LitElement + Shadow DOM + **só tokens semânticos** + codemod base→semantic daquela peça +
 entrada na Design Lab + checklist visual (anima só transform/opacity, respeita reduced-motion, raio de foco).
 - [x] `<aurora-toast>` — notificações (1ª migração ao vivo).
-- [ ] `<aurora-tooltip>` — substitui `tooltip.js` + `[data-tooltip]`. 🟢 isolado.
+- [x] `<aurora-tooltip>` — feito: `tooltip.js` (descoberta/timing/posição) dirige o `<aurora-tooltip>` por
+      `.content` + atributo `placement` + `--arrow-x`; espera `updateComplete` antes de medir; sempre-no-topo
+      (`--z-tooltip-top`); na Design Lab. (CSS morto `.custom-tooltip` em `tooltip.css` a podar depois.)
 - [ ] `<aurora-command-palette>` — `command_palette.js` é dono único. 🟡
 - [ ] **Welcome / empty-states** — 4 skins → 1; `#editor-overlay` + `recent_projects.js`. 🟡
 - [ ] `<aurora-titlebar>` — controles de janela + zonas da toolbar. 🟡

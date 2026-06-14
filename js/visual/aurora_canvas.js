@@ -107,31 +107,28 @@ void main(){
   // Slow, majestic morph — the aurora reshapes gently, it does not race.
   float dens = 0.0;
   if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.16);
-  dens = smoothstep(0.0, 0.92, dens);
+  // Slightly tighter remap = a touch more contrast, so the curtain's OWN
+  // vertical filaments read as filetes — coherent (it's the real structure).
+  dens = smoothstep(0.05, 0.86, dens);
 
   float ax = uv.x * (uRes.x / max(uRes.y, 1.0));
 
-  // More visible "filetes": a gentle vertical striation (1-D in x, slow drift)
-  // kept above a floor so it sharpens the columns WITHOUT breaking continuity.
-  float streak = 0.62 + 0.70 * fbm1(ax * 4.5 + uTime * 0.02);
-  dens *= streak;
-  dens = pow(dens, 1.18);                          // crisper cores
-
-  // Mountain ridge: a smooth, slowly-drifting skyline that varies the curtain
-  // HEIGHT across x — tall peaks and lower saddles, like mountains. LOW frequency
-  // so it rolls (not choppy); the continuous base below keeps it gap-free.
-  float ridge  = fbm1(ax * 1.05 - uTime * 0.012);
-  float capTop = mix(0.34, 0.74, ridge);           // taller + variable per column
-  float cap = smoothstep(capTop, capTop * 0.16, uv.y);
+  // Mountain ridge: ONE smooth, low-frequency, slowly-drifting skyline that
+  // varies the curtain top height — some stand taller, like rolling mountains.
+  // High min so the band never collapses: stays coherent + continuous (this is
+  // the only height modulation — the earlier striation/per-peak layers fought
+  // each other and read as incoherent blobs).
+  float ridge  = fbm1(ax * 0.9 - uTime * 0.012);
+  float capTop = mix(0.46, 0.84, ridge);
+  float cap = smoothstep(capTop, 0.12, uv.y);
   dens *= cap;
 
-  // Continuous green base hugging the bottom so the whole width is covered —
-  // no horizontal gaps; the ribbons rise out of it.
+  // Continuous green base hugging the bottom so the whole width is covered.
   float base = smoothstep(0.22, 0.0, uv.y);
 
-  // Emission relative to EACH column's peak, so every mountain peak gets a pink
-  // tip: green body -> teal -> magenta -> PINK at the tip.
-  float h = clamp(uv.y / max(capTop, 0.10), 0.0, 1.0);
+  // Emission by ABSOLUTE height (stable, coherent colour bands): green body ->
+  // teal -> magenta -> pink. Taller curtains naturally reach the pink tips.
+  float h = clamp(uv.y / 0.74, 0.0, 1.0);
   vec3 green   = vec3(0.26, 1.00, 0.52);
   vec3 teal    = vec3(0.32, 0.95, 0.82);
   vec3 magenta = vec3(0.92, 0.34, 0.90);

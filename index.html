@@ -152,6 +152,17 @@
                   <img src="assets/icons/Verilator_logo.png" alt="Verilator" class="sim-seg-icon" aria-hidden="true">
               </button>
           </div>
+          <!-- Waveform viewer switch: GTKWave (external window) vs Surfer (embedded,
+               waves inside the IDE). Mirrors the simulator switch; active highlight
+               synced by viewer_toggle.js, settable by Aurora Intelligence. -->
+          <div id="viewerSwitch" class="simulator-switch" role="group" aria-label="Waveform viewer">
+              <button type="button" class="viewer-seg sim-seg" data-viewer="gtkwave" aria-pressed="true" data-tooltip="GTKWave — external window">
+                  <i class="ph ph-wave-square" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="viewer-seg sim-seg" data-viewer="surfer" aria-pressed="false" data-tooltip="Surfer — embedded (waves inside the IDE)">
+                  <i class="ph ph-wave-sine" aria-hidden="true"></i>
+              </button>
+          </div>
           <button id="wavecomp" class="toolbar-button compile-btn" data-tool="wave" data-tooltip="Analyse Verilog (waveform)" data-i18n-tooltip="toolbar.waveAnalyse.tooltip">
               <span class="glyph glyph-wave" aria-hidden="true">
                 <svg viewBox="0 0 16 16">
@@ -1251,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/tree/file_tree_toggler.js" type="module"></script>
 <script src="./js/wave/wave_config_manager.js" type="module"></script>
 <script src="./js/wave/simulator_toggle.js" type="module"></script>
+<script src="./js/wave/viewer_toggle.js" type="module"></script>
 <script src="./js/wave/gtkw_picker.js" type="module"></script>
 <script src="./js/app/app_initializer.js" type="module"></script>
 </body>

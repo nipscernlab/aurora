@@ -942,6 +942,38 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'get_waveform_viewer',
+    description:
+      'Read which waveform viewer the Wave button opens. Returns "gtkwave" ' +
+      '(the bundled GTKWave fork — opens in an EXTERNAL window, the default) ' +
+      'or "surfer" (the embedded Surfer viewer — shows the waves INSIDE the ' +
+      'IDE). Both read the same VCD/FST; the viewer is independent of the ' +
+      'simulator choice.',
+    access: 'read',
+    api: ['wave', 'getViewer'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'set_waveform_viewer',
+    description:
+      'Switch which waveform viewer the Wave button opens. Use "surfer" for ' +
+      'the embedded viewer (waves inside the IDE, no external window); use ' +
+      '"gtkwave" for the bundled GTKWave external window (the default, with ' +
+      'the curated source/opcode/complex tracks). The choice persists across ' +
+      'app restarts; re-running Wave picks up the new viewer immediately.',
+    access: 'write',
+    api: ['wave', 'setViewer'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        viewer: { type: 'string', enum: ['gtkwave', 'surfer'] },
+      },
+      required: ['viewer'],
+    },
+  },
+  {
     name: 'open_file',
     description: 'Open a project file in the editor. Set inNewSplit:true to open it in a new split pane.',
     access: 'write',

@@ -175,3 +175,31 @@ ser provada em testbenches reais.
 **Arquivos-chave:** `js/wave/gtkw_proc_writer.ts` (irmão `buildSurferLayout`), `js/compilation/
 compilation_module.js` (`_waveResolveGtkwSaveFile`, `_waveLaunchGtkwave`, `monitorGtkwaveProcess`),
 `main/ipc/compile.js` (launch + kill). Pinar uma versão do Surfer. Incluir a LICENSE EUPL ao bundlar.
+
+---
+
+## 9. Implementação — MVP entregue (14/06/2026)
+
+O **toggle paralelo** (a recomendação §8) está implementado e validado (lint + build + 208 unit +
+e2e 7/8, com o flaky pré-existente do PRISM). O usuário já consegue **escolher** o Surfer e a IA já
+tem **API** pra trocar o viewer. Entregue:
+
+- **Preferência** `js/wave/viewer_preference.js` (`getViewer`/`setViewer`, localStorage
+  `aurora.waveViewer`, default `gtkwave`) — espelha `simulator_preference.js`.
+- **Toggle na toolbar** `js/wave/viewer_toggle.js` + `#viewerSwitch` no `index.html` (dois segmentos
+  Phosphor: `ph-wave-square` = GTKWave, `ph-wave-sine` = Surfer; CSS reusa `.sim-seg`).
+- **API da IA** `AuroraAPI.wave.getViewer/setViewer` (`js/api/aurora_api.js`) + tools
+  `get_waveform_viewer`/`set_waveform_viewer` (`main/ai/tools.js`, enum `gtkwave|surfer`).
+- **Branch de launch** em `_runWave` (`compilation_module.js:1895`): `getViewer()==='surfer'` →
+  `_waveLaunchSurfer`, senão o caminho GTKWave **intacto**. `_waveResolveToolchain` resolve
+  `surferBin` (`components/Packages/surfer/surfer.exe`).
+- **IPC** `launch-surfer` (`main/ipc/compile.js`): mesmo contrato detached do `launch-gtkwave-only`,
+  mas com `existsSync` → not-found limpo; `trackChild` garante teardown no fechamento da IDE.
+
+**Degradação graciosa:** o `surfer.exe` **ainda não é bundlado**, então hoje a escolha por Surfer
+abre o **VCD cru** no `surfer.exe` se ele existir, ou avisa no terminal e **cai pro GTKWave** (o botão
+Wave nunca fica sem viewer). Basta dropar o binário em `components/Packages/surfer/` pra ativar.
+
+**Deferido (follow-up):** Fase 1 plena — `buildSurferLayout()` emitindo o `.sucl` curado + mapping
+files dos `trad_*.txt` (hoje o MVP abre o VCD sem curadoria); embed por iframe WASM; e o pre-pass do
+`comp2gtkw` (Fase 3). A separação viewer-agnóstica deixa isso isolado em `_waveLaunchSurfer`.

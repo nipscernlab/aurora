@@ -44,6 +44,10 @@ import {
   getSimulator as getWaveSimulator,
   setSimulator as setWaveSimulator,
 } from '../wave/simulator_preference.js';
+import {
+  getViewer as getWaveViewer,
+  setViewer as setWaveViewer,
+} from '../wave/viewer_preference.js';
 
 /* ============================================================
  *  Result helpers
@@ -1847,6 +1851,36 @@ const waveNs = {
   },
 
   /**
+   * Which waveform viewer the Wave button opens. 'gtkwave' = the bundled
+   * GTKWave (external window, the default); 'surfer' = the embedded Surfer
+   * viewer (waves inside the IDE). Persists per-user (localStorage
+   * `aurora.waveViewer`).
+   */
+  async getViewer() {
+    return ok({ viewer: getWaveViewer() });
+  },
+
+  /**
+   * Choose which waveform viewer the Wave button opens. Accepts 'gtkwave'
+   * or 'surfer'; any other value is normalized to 'gtkwave'. Persisted
+   * across app restarts. Re-running Wave after this picks up the new
+   * choice without further action.
+   */
+  async setViewer({ viewer } = {}) {
+    if (viewer !== 'gtkwave' && viewer !== 'surfer') {
+      return err('viewer must be "gtkwave" or "surfer"');
+    }
+    const applied = setWaveViewer(viewer);
+    emit('wave:viewer-changed', { viewer: applied });
+    // Nudge the toolbar viewer toggle (and any other DOM listener) so its
+    // highlight/tooltip refresh to the new choice without further action.
+    try {
+      window.dispatchEvent(new CustomEvent('aurora:wave-viewer-changed', { detail: { viewer: applied } }));
+    } catch (_) { /* best-effort UI nudge */ }
+    return ok({ viewer: applied });
+  },
+
+  /**
    * List every .gtkw file currently registered for the active testbench
    * (one list per tb). Includes the active flag and absolute paths.
    */
@@ -2348,6 +2382,8 @@ const NAMESPACES = Object.freeze({
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
     getSimulator:       'Which simulator the Wave button runs (iverilog | verilator)',
     setSimulator:       'Switch the Wave-button simulator (iverilog | verilator)',
+    getViewer:          'Which waveform viewer the Wave button opens (gtkwave | surfer)',
+    setViewer:          'Switch the waveform viewer (gtkwave external window | surfer embedded)',
   },
   settings: {
     getAll: 'Snapshot of every user-facing IDE setting',

@@ -130,6 +130,7 @@ const compilationOperations = {
   isProcessRunning:    (pid) => ipcRenderer.invoke('check-process-running', pid),
 
   launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
+  launchSurfer: (opts) => ipcRenderer.invoke('launch-surfer', opts),
 };
 
 /* ============================================================================

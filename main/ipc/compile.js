@@ -11,6 +11,7 @@
  */
 
 const { ipcMain } = require('electron');
+const fs = require('fs');
 const { execFile, spawn } = require('child_process');
 const log = require('electron-log');
 
@@ -86,6 +87,57 @@ function register() {
         resolve({ success: true, gtkwavePid, message: 'GTKWave launched successfully' });
       } catch (error) {
         resolve({ success: false, message: `Failed to launch GTKWave: ${error.message}` });
+      }
+    });
+  });
+
+  // Surfer — the opt-in alternative viewer. Same detached-spawn contract as
+  // launch-gtkwave-only, but pre-checks the binary with existsSync so a missing
+  // Surfer (the default — it isn't bundled) returns a clean not-found the
+  // renderer degrades on, instead of the false-success the GUI-subsystem
+  // gtkwave path tolerates. Tracked via trackChild → torn down with the IDE.
+  ipcMain.handle('launch-surfer', async (_event, options) => {
+    const { surferBin, args, workingDir } = options;
+
+    return new Promise((resolve) => {
+      try {
+        if (!surferBin || !Array.isArray(args)) {
+          resolve({ success: false, message: 'launch-surfer requires { surferBin, args[] }' });
+          return;
+        }
+        if (!fs.existsSync(surferBin)) {
+          resolve({ success: false, message: `Surfer not found at ${surferBin}` });
+          return;
+        }
+
+        const surferProcess = spawn(surferBin, args, {
+          cwd: workingDir,
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+          shell: false,
+        });
+        trackChild(surferProcess);
+
+        // The GUI-subsystem race (pid set synchronously, ENOENT-style errors
+        // arriving async) is the same as gtkwave; the existsSync guard above
+        // already covers the realistic missing-binary case, and `settled`
+        // keeps a late spawn error from double-resolving.
+        let settled = false;
+        surferProcess.on('error', (error) => {
+          if (settled) return;
+          settled = true;
+          resolve({ success: false, message: `Surfer error: ${error.message}` });
+        });
+
+        const surferPid = surferProcess.pid;
+        surferProcess.unref();
+        if (!settled) {
+          settled = true;
+          resolve({ success: true, surferPid, message: 'Surfer launched successfully' });
+        }
+      } catch (error) {
+        resolve({ success: false, message: `Failed to launch Surfer: ${error.message}` });
       }
     });
   });

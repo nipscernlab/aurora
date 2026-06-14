@@ -55,6 +55,7 @@ import { validateSelection } from '../wave/selection_validator.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
+import { getViewer } from '../wave/viewer_preference.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -1892,7 +1893,14 @@ async runGtkWave() {
         const headerVcd = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
         await this._extractFstHeaderVcd(vcdFile, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
         const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
-        await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
+        // Branch on the user's viewer choice. Default 'gtkwave' → the existing
+        // path is untouched for current users; 'surfer' opens Surfer instead,
+        // degrading back to GTKWave if the binary isn't present.
+        if (getViewer() === 'surfer') {
+            await this._waveLaunchSurfer(vcdFile, gtkwSaveFile, tools);
+        } else {
+            await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
+        }
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
         console.error(error);
@@ -1939,9 +1947,16 @@ async _waveResolveToolchain() {
         this.componentsPath, 'Packages', 'gtkwave-nipscern',
     );
     const fst2vcdBin = await window.electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
+    // Surfer (optional, opt-in viewer): a standalone surfer.exe dropped under
+    // Packages/surfer/. NOT bundled by default — _waveLaunchSurfer degrades to
+    // GTKWave with a friendly message if it's absent, so resolving the path
+    // unconditionally here is harmless.
+    const surferBin = await window.electronAPI.joinPath(
+        this.componentsPath, 'Packages', 'surfer', 'surfer.exe',
+    );
     return {
         tempBaseDir, gtkwaveBin, vvpBin,
-        iverilogBin, iverilogBinDir, gtkwaveBinDir, fst2vcdBin,
+        iverilogBin, iverilogBinDir, gtkwaveBinDir, fst2vcdBin, surferBin,
     };
 }
 
@@ -3802,6 +3817,44 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     this.gtkwaveProcess = gtkwaveResult.gtkwavePid;
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
     this.monitorGtkwaveProcess();
+}
+
+/**
+ * Launch the Surfer viewer (opt-in alternative to GTKWave).
+ *
+ * Surfer (https://surfer-project.org/) is a Rust/egui waveform viewer that
+ * reads the same VCD/FST. Aurora treats it as an optional standalone
+ * surfer.exe under components/Packages/surfer/. For this MVP it opens as an
+ * external window on the raw VCD — the curated .sucl layout (mirroring the
+ * .gtkw source/opcode/complex tracks) is a tracked follow-up. If the binary
+ * is absent (the default — it isn't bundled yet) the launch reports a clean
+ * not-found and we degrade to GTKWave, so the Wave button always produces a
+ * viewer. The spawned process is tracked, so it's torn down with the IDE.
+ *
+ * Inputs:  vcdFile (absolute), gtkwSaveFile (for the GTKWave fallback), tools
+ * Returns: void
+ * Side-effects: spawns surfer.exe (stored on this.surferProcess), or calls
+ *               _waveLaunchGtkwave as a fallback.
+ */
+async _waveLaunchSurfer(vcdFile, gtkwSaveFile, tools) {
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
+    const result = await window.electronAPI.launchSurfer({
+        surferBin: tools.surferBin,
+        args: [vcdFile],
+        workingDir: tools.tempBaseDir,
+    });
+    if (!result.success) {
+        this.terminalManager.appendToTerminal(
+            'twave',
+            `Surfer unavailable (${result.message}) — opening GTKWave instead. ` +
+            'Drop surfer.exe in components/Packages/surfer/ to use Surfer.',
+            'tips',
+        );
+        await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
+        return;
+    }
+    this.surferProcess = result.surferPid;
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
 }
 
 

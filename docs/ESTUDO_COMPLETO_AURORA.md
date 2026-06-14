@@ -474,11 +474,24 @@ unificado** (abertura realocada pro `modal_system.js`); **foco no editor → aba
 splits); ícone de onda (senoide) no Wave Config.
 **IA/robustez:** busca recursiva de arquivo pela IA; compile da IA chega ao terminal (singleton real +
 processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao receber pasta).
+**Fundação (A1 — Vite, renderer-only, flag-gated):** Stages 0–2 no seguro. `vite.config.mjs` (`base:'./'`
+p/ carga `file://` do pacote; `vite-plugin-static-copy` vendoriza Monaco/KaTeX/Phosphor em `dist/vendor/*`
+via `rename.stripBase`, sem comitar 70 MB); `scripts/dev.js` (`npm run dev`: Vite na 5273 + Electron por
+`AURORA_RENDERER_URL`, com HMR); helper `loadRenderer()` no `windows.js` (dev-server → `dist/index.html` →
+fallback raw `index.html`); scripts `build:renderer`/`predev`/`prebuild` e `dist/**` empacotado. Monaco fica
+no loader AMD (só o path → `vendor/vs`); `tsc` in-place mantido (testes consomem os `.js`). **`npm start`
+raw-ESM intacto.** 208 testes + lint + `vite build` self-contained verdes; **boot do Electron a verificar
+pelo usuário**. Plano completo em `~/.claude/plans/ancient-snacking-wand.md`.
 
 ### ⬜ Falta
-**Visual (só os 🔴 grandes, pareiam com o bundler):**
+**Fundação (Vite — Stages restantes):**
+- [ ] **Stage 3:** flipar o default — renderer buildado vira o caminho primário; raw-ESM atrás de flag 1 release.
+- [ ] **Stage 4:** splash/update/prism como inputs extras do Rollup + repontar Phosphor do prism + `loadFile`→`dist/`.
+- [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts`.
+
+**Visual (só os 🔴 grandes — agora destravados pela fundação Vite):**
 - [ ] 🔴 **Shell em Lit + painéis dockáveis** + redesenho de welcome/empty-states (4 skins → 1) +
-      densidade/hierarquia (Zed/Linear/Fleet). Pareia com o pivô **Vite (A1)**.
+      densidade/hierarquia (Zed/Linear/Fleet). Bundler (A1) **já no lugar**; pode começar.
 - [ ] **Tokens em camadas semânticas** (base → semantic → component) — `brand_tokens.css` já extraído;
       falta a estratificação completa.
 - [ ] **Consolidar `ai_assistant.css`** (2.150 linhas; a paleta de syntax já saiu pros tokens, o resto

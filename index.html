@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAPHO</title>
-    <!-- Phosphor Icons (canonical, used everywhere visible) — bundled locally
-         (node_modules) instead of a render-blocking unpkg CDN fetch, so the
-         first paint never waits on the network and icons work offline. -->
-    <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/regular/style.css">
-    <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/bold/style.css">
+    <!-- Phosphor Icons (canonical, used everywhere visible) — vendored locally
+         under vendor/ by Vite (vite-plugin-static-copy) instead of a
+         render-blocking unpkg CDN fetch, so the first paint never waits on the
+         network and icons work offline. -->
+    <link rel="stylesheet" href="vendor/phosphor/src/regular/style.css">
+    <link rel="stylesheet" href="vendor/phosphor/src/bold/style.css">
     <!-- KaTeX — real LaTeX rendering for the AI chat (bundled locally, offline). -->
-    <link rel="stylesheet" href="node_modules/katex/dist/katex.min.css">
-    <script defer src="node_modules/katex/dist/katex.min.js"></script>
+    <link rel="stylesheet" href="vendor/katex/dist/katex.min.css">
+    <script defer src="vendor/katex/dist/katex.min.js"></script>
     <link rel="stylesheet" href="./css/import.css">
     <!-- Inline SVG sprite for compile glyphs (replaces FontAwesome) -->
     <style>
@@ -1268,9 +1269,9 @@ document.addEventListener('DOMContentLoaded', () => {
      modules below: it installs a global require() that monaco_editor.js
      depends on. Everything else is a module whose order is resolved by
      its import graph, not by tag position. -->
-<script src="node_modules/monaco-editor/min/vs/loader.js"></script>
+<script src="vendor/vs/loader.js"></script>
 <script>
-  require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
+  require.config({ paths: { vs: 'vendor/vs' } });
 </script>
 
 <!-- ES modules (defer by default, dependency-resolved — order-independent) -->

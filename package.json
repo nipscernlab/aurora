@@ -11,6 +11,9 @@
   "scripts": {
     "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/copy-components.js",
     "build:ts": "tsc",
+    "build:renderer": "vite build",
+    "predev": "npm run build:ts",
+    "dev": "node scripts/dev.js",
     "prestart": "npm run bootstrap && npm run build:ts",
     "start": "node scripts/launch-electron.js",
     "test": "vitest run",
@@ -19,7 +22,7 @@
     "deadcode": "knip --include files,dependencies --no-config-hints",
     "deadcode:all": "knip --no-config-hints",
     "rules:sync": "node scripts/sync-sapho-rules.js",
-    "prebuild": "npm run bootstrap && npm run build:ts",
+    "prebuild": "npm run bootstrap && npm run build:ts && npm run build:renderer",
     "build": "electron-builder",
     "prepare": "husky"
   },
@@ -79,6 +82,7 @@
     },
     "files": [
       "**/*",
+      "dist/**",
       "!components/**",
       "!tests/**",
       "!docs/**",
@@ -155,6 +159,8 @@
     "lint-staged": "^16.4.0",
     "playwright": "^1.59.1",
     "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vite-plugin-static-copy": "^4.1.1",
     "vitest": "^4.1.5"
   }
 }

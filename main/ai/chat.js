@@ -8,7 +8,7 @@
  * assistant bubble.
  *
  * Tools (sub-step 4c): the model can call the curated `AuroraAPI`
- * surface defined in `tools.js`. Each call round-trips to the renderer
+ * surface defined in `tools/` (main/ai/tools/). Each call round-trips to the renderer
  * via `tool_bridge` (which also runs the ask-before-write
  * confirmation) and is recorded in the `audit` log. We consume
  * `fullStream` rather than `textStream` so tool-call / tool-result

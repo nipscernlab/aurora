@@ -567,3 +567,113 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
 
 **Fora das 2 trilhas (parking lot):** segurança restante (V4/V7/V8/V9/V10–V12, CSP, sandbox); OSS
 (Surfer/Verible/ripgrep/…); build/DX (B1–B13); repo (§9, 18 itens).
+
+---
+
+## 13. TODO oficial — backlog completo do que falta (a régua)
+
+> **Esta é a lista que seguimos.** Consolida tudo que ainda falta de todas as seções (§3 segurança, §4
+> performance, §5 arquitetura, §6/§9 visual+Lit, §7 OSS, §8 build/DX) e os achados pré-existentes.
+> **Regra de ouro: qualquer bug encontrado no caminho é corrigido NA HORA** (não vira item de backlog).
+> Convenção de trabalho: ao concluir cada item → commit + pull (sem push) + marcar `[x]` aqui.
+> Tiers: 🔴 radical · 🟡 moderado · 🟢 leve. Sequência: o bloco **A (Lit shell)** é o trabalho ativo;
+> o resto (D em diante) é parking lot, atacado por decisão de prioridade.
+
+### A. 🔴 Lit shell — migração progressiva da casca (TRABALHO ATIVO)
+Cada peça: LitElement + Shadow DOM + **só tokens semânticos** + codemod base→semantic daquela peça +
+entrada na Design Lab + checklist visual (anima só transform/opacity, respeita reduced-motion, raio de foco).
+- [x] `<aurora-toast>` — notificações (1ª migração ao vivo).
+- [ ] `<aurora-tooltip>` — substitui `tooltip.js` + `[data-tooltip]`. 🟢 isolado.
+- [ ] `<aurora-command-palette>` — `command_palette.js` é dono único. 🟡
+- [ ] **Welcome / empty-states** — 4 skins → 1; `#editor-overlay` + `recent_projects.js`. 🟡
+- [ ] `<aurora-titlebar>` — controles de janela + zonas da toolbar. 🟡
+- [ ] `<aurora-activity-bar>` — botões de compilação / PRISM / waves (centro da toolbar). 🟡
+- [ ] `<aurora-tree>` (file-tree) — **preservar as 3 subárvores + reconciliação key-based** + `zoom`/views. 🔴
+- [ ] `<aurora-tabs>` — `tab_manager.js`. 🟡
+- [ ] `<aurora-editor>` — host do Monaco; **dropa os 30 `!important`** via Shadow DOM. 🔴 maior ganho.
+- [ ] `<aurora-terminal>` — `terminal_module.js` (otimizado no lugar; não xterm). 🟡
+- [ ] `<aurora-modal>` + extrair os 4 modais inline do `index.html` (wave config, new project, processor hub, settings). 🟡
+- [ ] `<aurora-statusbar>` **ao vivo** — religar os 7+ drivers (deixado pro fim por ser o mais acoplado). 🔴
+- [ ] `<aurora-panel>` **dockável** + layout dockável estilo Fleet/Zed + densidade/hierarquia revisadas. 🔴
+
+### B. 🟡 Tokens — terminar a estratificação
+- [ ] Codemod base→semantic dos ~600 usos existentes (feito por-componente junto de A).
+- [ ] Resolver o gap do nível "secondary" (#9CA1AE) — hoje sem nome semântico limpo (colisão `--text-muted`).
+- [ ] Consolidar `ai_assistant.css` (2.150 linhas) nos tokens. 🟢 baixa prioridade.
+
+### C. Fundação Vite + dívidas pequenas
+- [ ] **Stage 5 / B5** — deletar os `.js` in-place, migrar testes p/ importar `.ts`, gitignorar os gerados. 🟡
+- [ ] Limpar o CSS morto de `.notification-card` em `notification.css`. 🟢
+- [ ] Decidir o fallback raw do `index.html` (degradado pós-Lit) — remover ou aceitar. 🟢
+
+### D. 🟡 Performance (sobrou o arriscado / baixo-ROI)
+- [ ] **P6** — `transition:width`→`transform` no toggle de sidebar/IA.
+- [ ] **P17** — modais sob demanda + `contain`/`inert` (casa com a11y G5).
+- [ ] **P7 completo** — `content-visibility` + `contain-intrinsic-size` nas listas.
+- [ ] **Medição** — overlay de jank (p99) + baseline de TTI + smoke de orçamento no CI (§4.4/G7).
+- [x] ~~P9 (standard tree sem virtualização)~~ — **já feito** (DocumentFragment; fim do freeze ao expandir
+      pasta grande — ver §12 ✅ Feito). Listado aqui só pra fechar a dúvida.
+- [ ] ~~P1 (um Monaco por pane)~~ — **adiado/revertido** (causou perda de dados nos commits da tentativa);
+      retomar só sob pressão real de memória, com o checklist da memória. Por decisão, fora do backlog ativo.
+
+### E. Bugs pré-existentes a corrigir
+- [ ] **Fontes duplicadas** — `scripts/fetch-fonts.js` baixa o mesmo arquivo p/ todos os pesos (4 conteúdos p/ 14 faces); **a IDE não tem bold/medium reais**. 🟡 alto impacto visual.
+- [ ] **e2e flaky** `split-pane > PRISM open-at-line` — timing do ambiente (corrida de 600ms).
+- [ ] **A5** — verificar/corrigir os 4 bugs do mapeamento (getActiveFilePath `dataset.file`↔`data-path`; `editorNs.openFile` `tree.value`; snapshot do PDF; código morto com `ReferenceError`). 🟢
+
+### F. 🔴 Arquitetura (god-files)
+- [ ] **A2** — decompor `compilation_module.js` (3.927), `ai_assistant_manager.js` (3.873), `aurora_api.js` (2.383) por responsabilidade.
+- [ ] **A3** — migrar leituras de globais (`window.electronAPI`×431 etc.) p/ imports ES. 🟡
+- [ ] **A4** — colapsar `global.currentProject*` p/ um getter sobre `state`. 🟡
+- [ ] **A7** — enumerar os canais do `preload_prism.js` (tirar `send/removeAllListeners` genéricos). 🟡
+- [ ] **A8** — `npm run deadcode` no CI + podar código morto. 🟢
+
+### G. Segurança (parking lot)
+- [ ] **V4** — CLIs de IA com permissões abertas → allowlist + fechar tools nativas. 🟡
+- [ ] **V7** — token de sessão no MCP local (`Authorization`). 🟡
+- [ ] **V8** — `launch-gtkwave-only` pela `binary_allowlist`. 🟢
+- [ ] **V9** — renames (`rename_project`/`rename_processor`) passam pelo card Allow/Deny. 🟢
+- [ ] **V10** — tirar `exec(string)` com interpolação dos utils de kill/check. 🟢
+- [ ] **V11** — revisar superfície do `set_command_override` no modo `allow`. 🟢
+- [ ] **V12** — filtrar `spec.env`/`prependPath` antes do `spawn`. 🟢
+- [ ] **CSP** — adicionar (`<meta>` ou `onHeadersReceived`); fecha a maior classe de XSS. 🟢
+- [ ] **sandbox:true** por janela onde o preload não precisa de Node. 🟢
+
+### H. OSS a integrar (parking lot — resolver G8: default-on vs plugin sob demanda)
+- [ ] **O1 Surfer** — ondas embutidas (remove GTKWave externo). 🔴 maior alavanca.
+- [ ] **O2 Verible** — LSP de Verilog (diagnostics inline) via shim manual. 🟡
+- [ ] **O10 ripgrep** — find-in-files no projeto. 🟡 quick-win de UX.
+- [ ] **O3 Verilator** — feedback streamado no build + consolidar `waveBuild`. 🟡
+- [ ] **O8 cocotb** — fluxo de teste de 1ª classe (alinha com branch do Arthur). 🟡
+- [ ] **O5 YoWASP** — Yosys in-process (sem spawn). 🔴
+- [ ] **O7 tree-sitter** — grammar C±/ASM (folding/outline/símbolos). 🔴
+- [ ] **O9 DigitalJS** — simulação visual no PRISM. 🟡
+- [ ] **O11 slang-server** · **O12 simple-git** · **O14 WaveDrom (docs)**. 🟡/🟢
+
+### I. Build / DX (parking lot)
+- [ ] **B1** SHA256SUMS por release + validar no downloader. 🟡
+- [ ] **B2** code signing (SignPath/Azure) — fim do SmartScreen. 🟡
+- [ ] **B3** README/badges → canal de release `sapho`. 🟡
+- [ ] **B4** `tsc --noEmit` no CI + check de `.js` dessincronizado. 🟢
+- [ ] **B6/B13** `copy-components` incremental / junction (não recopiar ~1 GB a cada start). 🟢
+- [ ] **B7** validar sentinelas após bootstrap no `release.yml`. 🟢
+- [ ] **B8** escolher release-please como fluxo único; aposentar `build.ps1`. 🟢
+- [ ] **B9** limpar refs mortas (smoke.test, yanc-managed-files, bloco `win`, RELEASE.md). 🟢
+- [ ] **B10** cobertura de testes (ipc/compile/ai/updater) + Codecov. 🟡
+- [ ] **B11** cross-platform (Linux/macOS): allowlist por `process.platform`, libs node no lugar de `taskkill`/`Expand-Archive`. 🔴
+- [ ] **B12** CLIs de IA (~675 MB) como download opcional sob demanda. 🟡
+
+### J. Repositório / profissionalização (§9, parking lot)
+- [ ] Branch protection na `main` (PR + status check obrigatório).
+- [ ] release-please como fluxo único (PR v6.4.0 parado desde maio).
+- [ ] Decisão canônica de naming (SAPHO vs Aurora) alinhada nos 6 pontos.
+- [ ] Triagem de Dependabot + auto-merge de patch/minor.
+- [ ] `THIRD_PARTY_NOTICES.md` + `license`/`repository`/`bugs` no `package.json`.
+- [ ] README com mídia (screenshot hero + GIFs) + corrigir badges.
+- [ ] CodeQL + secret scanning (push protection).
+- [ ] Habilitar Discussions (link morto no CONTRIBUTING).
+- [ ] Metadados do repo (topics, homepage, social preview).
+- [ ] commitlint + hook `commit-msg`.
+- [ ] CODEOWNERS (roteamento de review p/ Arthur).
+- [ ] Limpar releases órfãs (5 drafts 2025 + prereleases de toolchain).
+- [ ] CITATION.cff + roadmap público (contexto acadêmico NIPSCERN/UFJF).

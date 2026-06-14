@@ -50,6 +50,10 @@ float tri(in float x){ return clamp(abs(fract(x) - 0.5), 0.01, 0.49); }
 vec2 tri2(in vec2 p){ return vec2(tri(p.x) + tri(p.y), tri(p.y + tri(p.x))); }
 float hash21(in vec2 n){ return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }
 
+// 1-D value-noise fbm — drives the ragged, per-column curtain heights (skyline).
+float vn1(float x){ float i = floor(x), f = fract(x); float u = f * f * (3.0 - 2.0 * f); return mix(hash21(vec2(i, 3.7)), hash21(vec2(i + 1.0, 3.7)), u); }
+float fbm1(float x){ float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ v += a * vn1(x); x *= 2.0; a *= 0.5; } return v; }
+
 float triNoise2d(in vec2 p, float spd, float time){
   float z  = 1.8;
   float z2 = 2.5;
@@ -98,31 +102,34 @@ void main(){
 
   // Camera over a LOW horizon. rd.y > 0 is the aurora sky: it begins at ~12% up
   // the panel and the curtains drape upward; below that is clear (no aurora).
-  // A thin aurora "filete" hugging the BOTTOM of the panel: the horizon sits at
-  // the very bottom (~5% up) and the curtains rise only a short way before a
-  // band window fades them out — the rest of the welcome stays clear.
-  // Tunables: BAND_TOP = where it fully fades out; BAND_SOLID = full below this.
-  const float BAND_TOP   = 0.36;
-  const float BAND_SOLID = 0.12;
-
+  // A DENSE band of aurora "filetes" hugging the BOTTOM of the panel. The
+  // horizon sits at the very bottom; curtains rise to RAGGED, per-column heights
+  // and the band fills the whole bottom edge (no empty gaps).
   vec3 ro = vec3(0.0, 0.0, -6.7);
-  vec3 rd = normalize(vec3(p.x, p.y * 0.50 + 0.225, 1.3));   // horizon ~q.y 0.05
+  // Wider x (p.x * 1.5) packs MORE curtains across the width -> denser filetes.
+  vec3 rd = normalize(vec3(p.x * 1.5, p.y * 0.50 + 0.225, 1.3));   // horizon ~q.y 0.05
 
   vec3 col = vec3(0.0);
   float a = 0.0;
   if (rd.y > 0.0){
-    vec4 aur = smoothstep(0.0, 1.0, aurora(ro, rd, uTime * 0.5));
-    col = aur.rgb * 1.45;
-    a = clamp(max(col.r, max(col.g, col.b)) * 1.7, 0.0, 1.0);
+    vec4 aur = smoothstep(0.0, 0.95, aurora(ro, rd, uTime * 0.5));
+    col = aur.rgb * 1.6;
+    a = clamp(max(col.r, max(col.g, col.b)) * 1.9, 0.0, 1.0);
   }
 
-  // Warm-green airglow on the horizon line at the very bottom.
-  float glow = smoothstep(0.16, 0.0, q.y);
-  col += vec3(0.12, 0.40, 0.28) * glow * 0.5;
+  // Continuous warm-green airglow along the very bottom edge — fills the base so
+  // the strip is never empty along the terminal border.
+  float glow = smoothstep(0.20, 0.0, q.y);
+  col += vec3(0.12, 0.42, 0.30) * glow * 0.55;
   a = max(a, glow * 0.5);
 
-  // Band window — the whole point: confine the aurora to the bottom strip.
-  float band = smoothstep(BAND_TOP, BAND_SOLID, q.y);
+  // Ragged skyline: each column fades out at its OWN height and the tops undulate
+  // slowly, so the curtains are NOT all the same height. Two noise octaves at
+  // different scales/speeds for a lively, irregular top edge.
+  float skyline = fbm1(q.x * 6.0 + uTime * 0.04) * 0.62
+                + fbm1(q.x * 15.0 - uTime * 0.05) * 0.38;
+  float bandTop = mix(0.16, 0.52, skyline);                 // per-column height
+  float band = smoothstep(bandTop, bandTop * 0.22, q.y);
   col *= band;
   a   *= band;
 

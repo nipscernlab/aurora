@@ -883,40 +883,9 @@ async def basic_test(dut):
         return count;
     }
 
-    // Add this method to save editor state
-    static saveEditorState(filePath) {
-        if (!editor || !filePath) return;
-
-        const state = {
-            selections: editor.getSelections(),
-            viewState: editor.saveViewState(),
-            scrollPosition: {
-                top: editor.getScrollTop(),
-                left: editor.getScrollLeft()
-            }
-        };
-
-        this.editorStates.set(filePath, state);
-    }
-
-
-    // Add this method to restore editor state
-    static restoreEditorState(filePath) {
-        if (!editor || !filePath) return;
-
-        const state = this.editorStates.get(filePath);
-        if (state) {
-            // Restore view state (includes scroll position and folded code sections)
-            if (state.viewState) {
-                editor.restoreViewState(state.viewState);
-            }
-
-            // Restore selections
-            if (state.selections && state.selections.length > 0) {
-                editor.setSelections(state.selections);
-            }
-        }
-    }
+    // (Removed dead saveEditorState/restoreEditorState: they were never called
+    // and referenced an undeclared `editor` — a latent ReferenceError. Per-model
+    // view state is owned by Monaco's model registry, not here.)
 
     // getFileIcon — returns Phosphor classes (no FA dependency)
     static getFileIcon(filename) {
@@ -1232,6 +1201,10 @@ async def basic_test(dut):
         const activeTab = document.querySelector(`.tab:not(.split-tab)[data-path="${CSS.escape(filePath)}"]`);
         if (activeTab) {
             activeTab.classList.add('active');
+            // Capture the OUTGOING tab before overwriting activeTab, so the
+            // PDF-state snapshot below saves the tab we're leaving — not the one
+            // we're switching to (it used to read the already-updated value).
+            const previousTab = this.activeTab;
             this.activeTab = filePath;
             // Notifica botoes gated-por-extensao (ex: C± so habilitado em
             // .cmm). Listeners em compilation_flow.js / outros consumers.
@@ -1247,9 +1220,9 @@ async def basic_test(dut):
 
             // Handle binary files
             if (this.isBinaryFile(filePath)) {
-                // Save current PDF state before switching
-                if (this.activeTab && this.isPdfFile(this.activeTab)) {
-                    this.savePdfViewerState(this.activeTab);
+                // Save the OUTGOING tab's PDF state before switching away.
+                if (previousTab && previousTab !== filePath && this.isPdfFile(previousTab)) {
+                    this.savePdfViewerState(previousTab);
                 }
 
                 // Hide ALL editor instances

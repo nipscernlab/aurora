@@ -504,7 +504,10 @@ class EditorManager {
 
     static getActiveFilePath() {
         const activeTab = document.querySelector('.tab.active');
-        return activeTab ? activeTab.dataset.file : null;
+        // Tabs store the path in `data-path` (dataset.path), not `data-file` —
+        // reading dataset.file always returned undefined, so the per-file find
+        // state (findStates) never keyed correctly.
+        return activeTab ? activeTab.dataset.path : null;
     }
 
     static searchInAllFiles(searchTerm, options = {}) {

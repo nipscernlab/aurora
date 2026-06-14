@@ -738,7 +738,11 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       duplicado de `windows.js` (o de `lifecycle.js` é o autoritativo). Sessão só-edição agora fecha na hora.
       *(Verificação de runtime pelo usuário: abrir → editar → fechar = instantâneo; após compilar/simular o
       teardown ainda mata os órfãos.)* ✅
-- [ ] **A5** — verificar/corrigir os 4 bugs do mapeamento (getActiveFilePath `dataset.file`↔`data-path`; `editorNs.openFile` `tree.value`; snapshot do PDF; código morto com `ReferenceError`). 🟢
+- [x] **A5 — FEITO ✅** (a) `getActiveFilePath` lia `dataset.file` → corrigido p/ `dataset.path` (o find-state
+      por arquivo volta a funcionar); (b) `tree.value` **já estava corrigido** (o `resolveProjectFile` usa
+      `tree.ok`/`tree.data`); (c) snapshot do PDF lia `this.activeTab` **já sobrescrito** → captura `previousTab`
+      antes de trocar; (d) `saveEditorState`/`restoreEditorState` (código morto, `ReferenceError` latente em
+      `editor` não-declarado, sem callers) → **removidos**. 🟢
 
 ### F. 🔴 Arquitetura (god-files)
 - [ ] **A2** — decompor `compilation_module.js` (3.927), `ai_assistant_manager.js` (3.873), `aurora_api.js` (2.383) por responsabilidade.

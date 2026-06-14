@@ -26,7 +26,6 @@ class AuroraWelcome extends LitElement {
   static properties = {
     projects: { attribute: false },
     version: { type: String },
-    _hover: { state: true },
   };
 
   constructor() {
@@ -34,7 +33,6 @@ class AuroraWelcome extends LitElement {
     this.projects = [];
     this.version = 'v6.3.2';
     this._removing = new Set();
-    this._hover = null;
     this._onLocale = () => this.requestUpdate();
   }
 
@@ -45,6 +43,7 @@ class AuroraWelcome extends LitElement {
 
   disconnectedCallback() {
     window.removeEventListener('aurora:locale-changed', this._onLocale);
+    if (this._procPopEl) { this._procPopEl.remove(); this._procPopEl = null; }
     super.disconnectedCallback();
   }
 
@@ -311,41 +310,6 @@ class AuroraWelcome extends LitElement {
     }
     .signature:hover { color: var(--text-default); }
     .signature-sep { margin: 0 6px; color: var(--text-disabled); font-weight: var(--font-normal); }
-
-    /* Processor preview — a fixed-position popover (so the recent-list's
-       overflow can't clip it) shown while a recent row is hovered. */
-    .proc-pop {
-      position: fixed;
-      z-index: var(--z-50, 1000);
-      max-width: 280px;
-      padding: var(--space-2) var(--space-3);
-      background: var(--surface-overlay);
-      border: 1px solid var(--border-luminous);
-      border-radius: var(--radius-md);
-      box-shadow: var(--elev-overlay);
-      pointer-events: none;
-      animation: procPopIn 120ms var(--ease-reveal, ease) both;
-    }
-    .proc-pop-title {
-      margin-bottom: var(--space-2);
-      font-size: var(--text-2xs);
-      font-weight: var(--font-semibold);
-      letter-spacing: var(--tracking-wide);
-      text-transform: uppercase;
-      color: var(--text-faint);
-    }
-    .proc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-    .proc-chip {
-      padding: 1px 8px;
-      border-radius: var(--radius-full);
-      background: var(--surface-raised);
-      border: 1px solid var(--border-subtle);
-      color: var(--accent-hover);
-      font-family: var(--font-mono);
-      font-size: var(--text-2xs);
-    }
-    @keyframes procPopIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
-    @media (prefers-reduced-motion: reduce) { .proc-pop { animation: none; } }
   `;
 
   render() {
@@ -395,7 +359,6 @@ class AuroraWelcome extends LitElement {
           <span class="version">${this.version}</span>
         </footer>
       </div>
-      ${this._renderProcPop()}
     `;
   }
 
@@ -410,7 +373,7 @@ class AuroraWelcome extends LitElement {
         style="animation-delay:${i * 50}ms"
         @click=${(e) => this._open(p.path, e)}
         @mouseenter=${(e) => this._onHover(p, e)}
-        @mouseleave=${() => { this._hover = null; }}
+        @mouseleave=${() => this._hideProcPop()}
       >
         <span class="project-name">${p.name}</span>
         <span class="project-path">${p.displayPath ?? p.path}</span>
@@ -445,39 +408,57 @@ class AuroraWelcome extends LitElement {
 
   // Show the processor-list popover for a hovered recent row. Fixed position,
   // anchored to the right of the row and clamped to the viewport.
-  _onHover(p, e) {
-    const procs = p.processors || [];
-    if (!procs.length) { this._hover = null; return; }
-    const r = e.currentTarget.getBoundingClientRect();
-    const top = Math.min(r.top, Math.max(8, window.innerHeight - 220));
-    // Show it to the LEFT of the row — anchor the popover's RIGHT edge just left
-    // of the row (independent of its width). On a narrow/stacked layout (no room
-    // on the left) drop it below the row instead.
-    if (r.left > 300) {
-      this._hover = { processors: procs, right: window.innerWidth - r.left + 12, top };
-    } else {
-      this._hover = {
-        processors: procs,
-        left: r.left,
-        top: Math.min(r.bottom + 6, Math.max(8, window.innerHeight - 200)),
-      };
+  // The processor preview lives at the document-body level (NOT in this shadow):
+  // the welcome's :host carries a transform (from its fade-in animation's `both`
+  // fill), which makes :host a containing block for position:fixed — so a popover
+  // in the shadow is positioned relative to the (AI-panel-shrunk) welcome box, not
+  // the viewport, and flies off-screen. A body-level fixed element is truly
+  // viewport-relative.
+  _ensureProcPop() {
+    if (!this._procPopEl) {
+      const el = document.createElement('div');
+      el.className = 'aurora-proc-pop';
+      el.style.cssText =
+        'position:fixed;z-index:10000;max-width:280px;padding:8px 12px;' +
+        'background:var(--surface-overlay,#1a1d2a);border:1px solid var(--border-luminous,#3a3f55);' +
+        'border-radius:8px;box-shadow:var(--elev-overlay,0 8px 24px rgba(0,0,0,.4));' +
+        'pointer-events:none;display:none;';
+      document.body.appendChild(el);
+      this._procPopEl = el;
     }
+    return this._procPopEl;
   }
 
-  _renderProcPop() {
-    if (!this._hover) return '';
-    const h = this._hover;
-    const pos = h.right != null ? `right:${h.right}px` : `left:${h.left}px`;
-    return html`
-      <div class="proc-pop" style="${pos}; top:${h.top}px">
-        <div class="proc-pop-title">
-          ${this._t('welcome.processors', 'Processors')} · ${h.processors.length}
-        </div>
-        <div class="proc-chips">
-          ${h.processors.map((n) => html`<span class="proc-chip">${n}</span>`)}
-        </div>
-      </div>
-    `;
+  _onHover(p, e) {
+    const procs = p.processors || [];
+    if (!procs.length) { this._hideProcPop(); return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const el = this._ensureProcPop();
+    el.innerHTML =
+      '<div style="margin-bottom:8px;font-size:10px;font-weight:600;letter-spacing:.06em;' +
+      'text-transform:uppercase;color:var(--text-faint,#8a90a8)">' +
+      `${esc(this._t('welcome.processors', 'Processors'))} · ${procs.length}</div>` +
+      '<div style="display:flex;flex-wrap:wrap;gap:4px">' +
+      procs.map((n) =>
+        '<span style="padding:1px 8px;border-radius:999px;background:var(--surface-raised,#22263a);' +
+        'border:1px solid var(--border-subtle,#333850);color:var(--accent-hover,#9aa6ff);' +
+        `font-family:var(--font-mono,monospace);font-size:10px">${esc(n)}</span>`).join('') +
+      '</div>';
+    // Measure, then place EXACTLY to the left of the row (fall back to the right
+    // if there's no room), clamped to the viewport. Viewport-relative now.
+    el.style.display = 'block';
+    const w = el.offsetWidth;
+    const ph = el.offsetHeight;
+    let left = r.left - w - 12;
+    if (left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
+    el.style.left = `${Math.max(8, left)}px`;
+    el.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - ph - 8))}px`;
+  }
+
+  _hideProcPop() {
+    if (this._procPopEl) this._procPopEl.style.display = 'none';
   }
 
   _openWebsite() {

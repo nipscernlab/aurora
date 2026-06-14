@@ -1273,7 +1273,13 @@ document.addEventListener('DOMContentLoaded', () => {
      its import graph, not by tag position. -->
 <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
 <script>
-  require.config({ paths: { vs: 'node_modules/monaco-editor/min/vs' } });
+  // Anchor the `vs` base to an ABSOLUTE URL (via document.baseURI), not a bare
+  // relative path. Monaco builds its web-worker URL from this and loads it via
+  // importScripts inside a worker; under file:// a relative 'vendor/vs' resolved
+  // against the filesystem root (file:///vendor/vs/…workerMain.js) and failed to
+  // open files. document.baseURI anchors it to the real document location —
+  // correct in dev (http://localhost) and in the built/packaged app (file://).
+  require.config({ paths: { vs: new URL('node_modules/monaco-editor/min/vs', document.baseURI).href } });
 </script>
 
 <!-- ES modules (defer by default, dependency-resolved — order-independent) -->

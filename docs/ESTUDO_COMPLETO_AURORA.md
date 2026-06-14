@@ -815,3 +815,27 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       processadores** definidos naquele projeto, sem precisar abri-lo. Fonte: ler o `.spf`/estrutura do projeto
       (a lista de processadores já é conhecida pelo project store / parsing do projeto). Bom pra escolher o
       projeto certo de relance. Pareia com o `<aurora-tooltip>` (já migrado) p/ o popover. 🟢 (UX, baixo risco)
+- [ ] **Syntax highlight para o arquivo `.spf`.** Hoje o `.spf` (que é **JSON** — config canônica do projeto:
+      `metadata` + `structure` com `processors[]`, listas de arquivos, `commandOverrides`) abre no Monaco como
+      **plaintext** (os dois mapas de extensão — `getLanguageFromPath` em `js/editor/monaco_editor.js` e
+      `_langFromPath` em `js/editor/split_editor.js` — caem no fallback `'plaintext'` p/ extensão desconhecida).
+      **Ganho fácil (recomendado):** mapear `.spf` → a linguagem **`json` built-in** do Monaco (uma linha em
+      **cada** um dos dois mapas, que precisam ficar em sync) → highlighting genérico (chaves/strings/números/
+      booleans), folding e bracket-matching **de graça**. **Ganho rico (opcional):** uma linguagem `spf` custom
+      (Monarch; molde = a linguagem ASM em `monaco_editor.js:974-1123`) que colore o **schema** semanticamente
+      (nomes de processador, chaves de `structure`, `commandOverrides`), reusando os theme tokens (defs
+      `cmm-dark`/`asm-dark` + base em `theme_variables.css`). Nota: o `.spf` é gerido atômico pelo `SpfStore`/main
+      → o highlight serve p/ **inspeção** (editar à mão arrisca corromper o projeto). 🟢 (começar pelo mapa→json)
+- [ ] **Mensagens follow-up no chat de IA (fila, estilo VSCode).** Enviar uma nova mensagem enquanto a anterior
+      ainda está sendo respondida — ela **entra numa fila** e dispara quando o turno atual termina. Importante: o
+      "estilo VSCode" é **fila sequencial**, NÃO turnos paralelos (o próprio VSCode enfileira). **Já temos meio
+      caminho:** o textarea **continua habilitado** durante o streaming (dá pra compor a próxima msg); só o
+      *dispatch* é bloqueado pelo flag `_isStreaming` (guard do Enter em `ai_assistant_manager.js:1770`; botão
+      send escondido / stop visível). E o **main já suporta turnos sequenciais** (cada turno gera um `sessionId`
+      novo; o anterior é limpo antes do próximo; os CLIs encadeiam via `--resume`/`convSessions`). Já existe até o
+      **precedente** `_autoQueue`/`_drainAutoQueue` (turnos autônomos) que drena no `setStreaming(false)` — a fila
+      de mensagens do usuário **espelha** isso. **Escopo pequeno (~Fase 1):** `this.messageQueue=[]`; `send()`
+      enfileira se `_isStreaming`; `setStreaming(false)` drena em sequência; `newChat()`/`stop()` decidem limpar a
+      fila; UI com chips das mensagens enfileiradas + cancelar uma. **FORA de escopo:** streaming **paralelo** de
+      verdade (o `currentSessionId`/`segmentBuffer`/`pendingConfirms` únicos exigiriam refactor por-sessão de
+      ~300+ LOC, e os `--resume` dos CLIs se atropelariam) — e não é o que o VSCode faz. 🟡 (alto valor de UX)

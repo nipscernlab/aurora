@@ -694,3 +694,10 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       Mono). Gerar de forma automatizável (a partir de package.json + manifesto do toolchain) e exibir
       offline. Pareia com o `THIRD_PARTY_NOTICES.md` acima (este é o canal **para o usuário**, aquele é o
       do repo).
+
+### K. Features / UX (novas capacidades pedidas)
+- [ ] **Anexos no chat da IA — imagens e arquivos.** Permitir anexar **imagens** (upload, drag-and-drop e
+      paste do clipboard) e **arquivos** (do projeto ou do disco) nos chats da IA (`js/ai/`,
+      `ai_assistant_manager.js` + painel de IA). Inclui: UI do anexo (chip/preview/remover), limites de
+      tamanho/tipo, e o **transporte multimodal** pro provider (Claude/Codex aceitam imagem? mandar como
+      base64 / referência de arquivo no payload). Pareia com o fluxo de IA transport-agnostic do §2.3. 🟡

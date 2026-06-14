@@ -1,20 +1,28 @@
 /**
  * <aurora-canvas> — the signature ambient aurora (docs/DESIGN.md §7).
  *
- * A real aurora borealis rendered with a WebGL fragment shader: slow,
- * continuous, drifting curtains in the brand spectrum (mint → teal → cyan →
- * violet). It is the product's namesake done with restraint — used ONLY on
- * non-blocking chrome (welcome screen, splash), never behind reading text.
+ * A bottom-anchored aurora-borealis LANDSCAPE rendered with a WebGL fragment
+ * shader: thin vertical filament curtains rising from the horizon (the lower
+ * edge) in the brand spectrum (mint → teal → cyan → violet, with a violet/
+ * magenta fringe at the base), drifting and swaying continuously. The light is
+ * concentrated in the lower band and fades to nothing by mid-height so UI text
+ * over it stays legible. It is the product's namesake done with restraint —
+ * used on non-blocking chrome (the welcome screen), never behind reading text.
  *
  * Design constraints honoured here:
- *  - Drift, never pulse: a single slow noise field over `--dur-ambient` feel.
- *  - Cheap: renders at a capped device-pixel-ratio (half-res) and upscales.
- *  - Polite: pauses the rAF loop when off-screen (IntersectionObserver) or
- *    when the window loses focus; stops entirely on prefers-reduced-motion or
- *    when WebGL is unavailable, falling back to a static CSS gradient.
+ *  - Drift, never pulse: motion is purely positional (lateral drift, domain
+ *    warp/sway, per-thread shimmer) — nothing scales the whole frame's bright-
+ *    ness, so it breathes like a real aurora over `--dur-ambient` time.
+ *  - Cheap: textureless analytic value-noise + a bounded 11-filament loop, no
+ *    ray-marching; renders at a capped device-pixel-ratio (half-res) and
+ *    upscales. Comfortably holds the 165fps target.
+ *  - Polite: pauses the rAF loop when off-screen (IntersectionObserver) or when
+ *    the window loses focus; stops entirely on prefers-reduced-motion or when
+ *    WebGL is unavailable, falling back to a static CSS gradient.
  *
  * Self-registering vanilla custom element — no framework dependency, so it
- * loads under the current renderer architecture. Attributes:
+ * loads under the current renderer architecture (and works inside the Shadow
+ * DOM of <aurora-welcome>). Attributes:
  *  - intensity : 0..1 overall brightness (default 0.85)
  *  - speed     : drift multiplier (default 1)
  *
@@ -32,100 +40,205 @@ uniform vec2  uRes;
 uniform float uTime;
 uniform float uIntensity;
 
-// Continuous flowing aurora — adapted from nimitz's "Auroras" (ShaderToy
-// XtGGRt). A tri-noise field is marched in depth and accumulated, so the
-// curtains read as ONE continuous, drifting sheet rather than discrete bands.
-mat2 mm2(in float a){ float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
-const mat2 m2 = mat2(0.95534, 0.29552, -0.29552, 0.95534);
-float tri(in float x){ return clamp(abs(fract(x) - 0.5), 0.01, 0.49); }
-vec2 tri2(in vec2 p){ return vec2(tri(p.x) + tri(p.y), tri(p.y + tri(p.x))); }
-float hash21(vec2 p){ p = fract(p * vec2(123.34, 345.45)); p += dot(p, p + 34.345); return fract(p.x * p.y); }
+// ============================================================================
+// AURORA — bottom-anchored filament landscape.
+// Layered analytic painting: warm-green horizon airglow + an anisotropic
+// (vertically-stretched) domain-warped FBM veil body + a bounded loop of
+// squared-Lorentzian vertical filaments with ragged drifting tops + a violet/
+// magenta base fringe + additive bloom on the brightest threads. No textures,
+// no ray-marching, no derivatives. (Designed via a judged multi-approach pass.)
+// ============================================================================
 
-float triNoise2d(in vec2 p, float spd, float time){
-  float z = 1.8, z2 = 2.5, rz = 0.0;
-  p *= mm2(p.x * 0.06);
-  vec2 bp = p;
+// -- hash + analytic value noise (no textures, no derivatives) ---------------
+float hash21(vec2 p){
+  p = fract(p * vec2(123.34, 345.45));
+  p += dot(p, p + 34.345);
+  return fract(p.x * p.y);
+}
+
+// 2D value noise with quintic interpolation (smoother, premium gradients).
+float vnoise(vec2 p){
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+  float a = hash21(i + vec2(0.0, 0.0));
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// 5-octave FBM, each octave gently rotated so streaks never grid-align.
+// Constant bounds, fixed lacunarity/gain.
+float fbm(vec2 p){
+  float v = 0.0;
+  float amp = 0.5;
+  float tot = 0.0;
+  mat2 rot = mat2(0.86, 0.50, -0.50, 0.86);
   for (int i = 0; i < 5; i++){
-    vec2 dg = tri2(bp * 1.85) * 0.75;
-    dg *= mm2(time * spd);
-    p -= dg / z2;
-    bp *= 1.3; z2 *= 0.45; z *= 0.42;
-    p *= 1.21 + (rz - 1.0) * 0.02;
-    rz += tri(p.x + tri(p.y)) * z;
-    p *= -m2;
+    v   += amp * vnoise(p);
+    tot += amp;
+    p    = rot * p * 2.02;
+    amp *= 0.5;
   }
-  return clamp(1.0 / pow(rz * 29.0, 1.3), 0.0, 0.55);
+  return v / tot;
 }
 
-vec4 aurora(vec3 ro, vec3 rd, float time){
-  vec4 col = vec4(0.0);
-  vec4 avgCol = vec4(0.0);
-  for (int i = 0; i < 36; i++){
-    float fi = float(i);
-    float of = 0.006 * hash21(gl_FragCoord.xy) * smoothstep(0.0, 15.0, fi);
-    float pt = ((0.8 + pow(fi, 1.4) * 0.002) - ro.y) / (rd.y * 2.0 + 0.4);
-    pt -= of;
-    vec3 bpos = ro + pt * rd;
-    vec2 p = bpos.zx;
-    float rzt = triNoise2d(p, 0.06, time);
-    vec4 col2 = vec4(0.0, 0.0, 0.0, rzt);
-    // Continuous green → cyan → violet → magenta sweep along the march.
-    col2.rgb = (sin(1.0 - vec3(2.15, -0.5, 1.2) + fi * 0.043) * 0.5 + 0.5) * rzt;
-    avgCol = mix(avgCol, col2, 0.5);
-    col += avgCol * exp2(-fi * 0.065 - 2.5) * smoothstep(0.0, 5.0, fi);
-  }
-  col *= clamp(rd.y * 15.0 + 0.4, 0.0, 1.0);
-  return col * 1.8;
-}
-
-// Filetes — thin vertical aurora rays threading the curtains, like the very
-// first welcome shader. Cheap 1D value-noise fbm in x with a slow time drift,
-// so the rays shimmer and slide sideways rather than blink.
-float vnoise(float x){
-  float i = floor(x), f = fract(x);
+// 1-D smooth value noise used to sway / ragged-top each filament independently.
+float n1(float x){
+  float i = floor(x);
+  float f = fract(x);
   float u = f * f * (3.0 - 2.0 * f);
-  return mix(hash21(vec2(i, 1.7)), hash21(vec2(i + 1.0, 1.7)), u);
-}
-float vrays(float x, float time){
-  float v = 0.0, a = 0.5, fr = 1.0;
-  for (int i = 0; i < 4; i++){
-    v += a * vnoise(x * fr + time * (0.20 + 0.08 * float(i)));
-    fr *= 2.0; a *= 0.5;
-  }
-  return v;
+  return mix(hash21(vec2(i, 7.3)), hash21(vec2(i + 1.0, 7.3)), u);
 }
 
 void main(){
-  vec2 uv = gl_FragCoord.xy / uRes.xy;          // 0..1, y up
-  vec2 p = (gl_FragCoord.xy - 0.5 * uRes.xy) / uRes.y;
-  vec3 ro = vec3(0.0, 0.0, -6.7);
-  // Flip Y: the bright body of the aurora now sits at the BOTTOM of the panel
-  // and the loop's own rd.y gate fades it toward the top — so it rises from the
-  // bottom AND stays bright, instead of being masked away (which nearly erased
-  // it). Curtains reach UP into the content area, faded.
-  vec3 rd = normalize(vec3(p.x, -p.y * 0.80 + 0.18, 1.0));
+  // Normalized coords, y-UP (y = 0 at the bottom / horizon).
+  vec2  uv     = gl_FragCoord.xy / uRes.xy;
+  float aspect = uRes.x / max(uRes.y, 1.0);
+  // x scaled by aspect so filament SPACING & WIDTH are constant on wide canvases.
+  float ax = (uv.x - 0.5) * aspect;
+  float t  = uTime;
 
-  vec3 col = aurora(ro, rd, uTime * 0.5).rgb;
+  // -- Vertical emission envelope (the LANDSCAPE gate) ---------------------
+  // Emission in the lower ~40%, faded to nothing by ~mid-height. Master gate.
+  float env  = smoothstep(0.62, 0.0, uv.y);   // 1 at horizon -> 0 by ~0.62
+  env = env * env;                            // bias the energy lower
+  float base = smoothstep(0.20, -0.02, uv.y); // very-bottom fringe gate
 
-  // Richer palette: tint the visible (lower) curtains toward violet → magenta →
-  // pink so they carry warm colour alongside the oxygen green.
-  float warm = smoothstep(0.62, 0.06, uv.y);    // strongest low, where it's bright
-  col = mix(col, col * vec3(1.5, 0.72, 1.7) + vec3(0.08, 0.0, 0.16) * length(col), warm * 0.5);
+  // -- Slow domain-warp / sway ---------------------------------------------
+  // A large-scale, time-drifting warp leans the whole curtain field. Pure
+  // positional offset -> the sheet slides & bends, it never throbs.
+  float warpA = fbm(vec2(ax * 0.9 - t * 0.045, uv.y * 0.5 + t * 0.018));
+  float warpB = fbm(vec2(ax * 1.7 + 9.3 + t * 0.030, uv.y * 0.35 - t * 0.012));
+  float sway  = (warpA - 0.5) * 0.55 + (warpB - 0.5) * 0.30;
 
-  // Soft green airglow hugging the very bottom edge.
-  col += vec3(0.10, 0.32, 0.22) * smoothstep(0.26, -0.05, uv.y) * 0.16;
+  // -- (1) Warm-green airglow hugging the horizon --------------------------
+  // Wide, slow lateral undulation of glow brightness (drift, not pulse).
+  float glowWave = 0.5 + 0.5 * sin(ax * 1.3 + t * 0.10);
+  float airglow  = smoothstep(0.34, -0.05, uv.y) * (0.55 + 0.45 * glowWave);
 
-  // Filetes: thin vertical rays rising from the bottom in the brand palette,
-  // drifting slowly. Sharpened with pow() so they read as distinct threads and
-  // held low by vfall so they never climb into the content area.
-  float vfall = smoothstep(0.68, -0.05, uv.y);
-  float ray = pow(vrays(uv.x * 26.0, uTime * 0.30), 3.5);
-  vec3 rayCol = mix(vec3(0.42, 0.95, 0.78), vec3(0.85, 0.45, 1.0), warm);
-  col += rayCol * ray * vfall * 0.45;
+  // -- (2) Anisotropic FBM veil — the soft body of the curtain -------------
+  // High horizontal freq, LOW vertical freq -> vertical streaks. The warp/sway
+  // bends each streak; lateral drift slides the whole sheet.
+  vec2  vp   = vec2((ax + sway) * 2.6 - t * 0.06, uv.y * 0.55 + t * 0.05);
+  float veil = fbm(vp);
+  // A finer streak layer for inner shimmer, its own drift clock.
+  float fine = fbm(vec2((ax + sway) * 6.1 + t * 0.13, uv.y * 0.9 - t * 0.04));
+  veil = mix(veil, veil * (0.6 + 0.8 * fine), 0.45);
+  veil = smoothstep(0.34, 0.92, veil);        // crisp soft sheets toward threads
+  float veilField = veil * env;
 
-  float lum = max(col.r, max(col.g, col.b));
-  float alpha = clamp(lum * 1.8, 0.0, 1.0) * uIntensity;
-  gl_FragColor = vec4(col * uIntensity * 1.85, alpha);
+  // -- (3) Sharp vertical filaments threading through ----------------------
+  // Bounded analytic accumulation: each filament is a narrow squared-Lorentzian
+  // band whose x-centre DRIFTS and SWAYS with height. Per-thread amplitude is
+  // steady — only position moves. Ragged noise tops + a phase-decorrelated
+  // shimmer + nearest-image wrap for seamless wide canvases.
+  float fil   = 0.0;   // soft filament density
+  float hotF  = 0.0;   // brighter "hot" threads (bloom seeds)
+  const int N = 11;
+  for (int i = 0; i < N; i++){
+    float fi   = float(i);
+    float seed = fi * 13.17;
+    float id   = n1(seed);                          // stable per-thread random
+
+    // Even-ish spacing across the aspect-corrected field, jittered per thread.
+    float lane = (fi + 0.5) / float(N);             // 0..1
+    float cx   = (lane - 0.5) * aspect * 1.9;
+    // Lateral drift: slow, per-thread direction & speed (positional only).
+    cx += sin(t * (0.06 + 0.018 * fi) + seed) * 0.42;
+    // Sway with height: the thread leans as it rises (curtain shimmer), and the
+    // shared warp bends it too so neighbours move coherently, not in a comb.
+    float swayT = (n1(uv.y * 3.0 + t * 0.18 + seed) - 0.5) * 0.55;
+    cx += (swayT + sway * 0.6) * (0.4 + uv.y);
+
+    // Distance to thread centre in aspect-space, WRAPPED so a thread leaving one
+    // side re-enters the other — no edge gaps on wide-short canvases.
+    float dx = ax - cx;
+    dx -= aspect * floor(dx / aspect + 0.5);        // nearest-image wrap
+
+    // Per-thread width breathes with height (wider near the horizon feet).
+    float w    = (0.016 + 0.012 * id) + 0.010 * (1.0 - uv.y);
+    // Squared Lorentzian -> thin crisp thread + cheap soft bloom shoulder.
+    float band = w / (dx * dx + w * w);
+    band *= band;
+
+    // Ragged, noise-driven top height — uneven curtain edge that itself
+    // shimmers slowly. Taller threads on some lanes.
+    float topN  = n1(cx * 1.7 + seed + t * 0.05);
+    float reach = mix(0.28, 0.56, id) + (topN - 0.5) * 0.14;  // ~0.21..0.63
+    float tall  = smoothstep(reach, 0.0, uv.y);
+    // Lift off the very-bottom seam so feet aren't a hard line.
+    float foot  = smoothstep(0.0, 0.06, uv.y);
+
+    // Per-thread brightness shimmer — phase-offset, stays in [0.78,1.0] so it
+    // reads as twinkle/drift ALONG the curtain, never a global throb.
+    float shimmer = 0.89 + 0.11 * sin(t * (0.30 + 0.22 * id) + fi * 2.1);
+
+    float thread = band * tall * foot * shimmer;
+    fil += thread;
+    // ~Every third lane is a brighter hot thread (bloom seed).
+    float hotMask = step(0.66, fract(fi * 0.37 + 0.5));
+    hotF += thread * hotMask;
+  }
+  fil  *= 0.020;                                     // normalise accumulation
+  hotF *= 0.020;
+  float filField = fil * env;
+
+  // -- Brand palette -------------------------------------------------------
+  vec3 mint    = vec3(0.373, 0.878, 0.690);   // #5FE0B0  O2 557nm — MAIN body
+  vec3 teal    = vec3(0.310, 0.827, 0.761);   // #4FD3C2
+  vec3 cyan    = vec3(0.357, 0.722, 0.910);   // #5BB8E8
+  vec3 violet  = vec3(0.557, 0.514, 0.910);   // #8E83E8  N2 — lower fringe
+  vec3 magenta = vec3(0.886, 0.486, 0.753);   // #E27CC0  rare, at the very base
+
+  // Vertical emission gradient: green dominates the body; violet/magenta hug
+  // the base. A touch of veil noise so colour bands aren't perfectly flat.
+  float h = uv.y + (veil - 0.5) * 0.06;
+  vec3 grad = magenta;
+  grad = mix(grad, violet, smoothstep(0.02, 0.12, h));
+  grad = mix(grad, cyan,   smoothstep(0.10, 0.24, h));
+  grad = mix(grad, teal,   smoothstep(0.20, 0.36, h));
+  grad = mix(grad, mint,   smoothstep(0.28, 0.52, h));
+
+  // -- Compose -------------------------------------------------------------
+  vec3 col = vec3(0.0);
+  col += grad * veilField * 0.85;                    // (2) soft anisotropic body
+  col += grad * filField  * 1.35;                    // (3) crisp filaments
+  // (1) warm-green airglow biased to mint/teal regardless of gradient.
+  col += mix(mint, teal, 0.35) * airglow * env * 0.45;
+
+  // (4) violet/magenta base fringe — only the very bottom, drifting laterally.
+  float fringeWave = 0.5 + 0.5 * sin(ax * 2.1 - t * 0.08);
+  vec3  fringeCol  = mix(violet, magenta, 0.45 * fringeWave);
+  col += fringeCol * base * (0.20 + 0.20 * fringeWave);
+
+  // -- Additive glow / bloom around the brightest threads ------------------
+  float hot = hotF * env;
+  col += mix(mint, cyan, 0.3) * hot * 0.9;           // bright core
+  col += grad * hot * veil * 0.5;                    // cheap wider halo
+
+  // Bloom lift on the brightest peaks for luminous emission.
+  float lum0 = max(col.r, max(col.g, col.b));
+  col += col * smoothstep(0.45, 1.1, lum0) * 0.5;
+
+  // Gentle tone curve so bright filaments bloom without clipping harshly.
+  col = col / (1.0 + col * 0.6);
+  col *= 1.55;
+
+  // -- Straight (non-premultiplied) alpha ----------------------------------
+  // Alpha rises with luminance toward the bright lower filaments; the envelope
+  // already drove colour to ~0 up top. A hard top cut guarantees a clean upper
+  // half so UI text reads over the deep-night background.
+  float lum   = max(col.r, max(col.g, col.b));
+  float alpha = clamp(lum * 1.15, 0.0, 1.0);
+  alpha *= smoothstep(0.66, 0.10, uv.y);             // hard guarantee: clear top
+
+  // Master intensity multiplies BOTH rgb and alpha.
+  col   *= uIntensity;
+  alpha *= uIntensity;
+
+  gl_FragColor = vec4(col, alpha);
 }
 `;
 

@@ -73,12 +73,36 @@ class AuroraWelcome extends LitElement {
       :host, .project-item { animation: none; }
     }
 
-    /* Ambient aurora canvas, behind everything. */
+    /* Ambient aurora canvas, behind everything. aurora_canvas.css styles the host
+       + upscales the half-res GL canvas, but those rules can't cross this shadow
+       boundary — so restate them here (without the fill rule the inner canvas
+       paints at its half-res buffer size, anchored top-left, "off-axis"). */
     .bg-canvas {
       position: absolute;
       inset: 0;
       z-index: var(--z-0, 0);
       pointer-events: none;
+      overflow: hidden;
+      /* Quiet static base the WebGL layer paints over — and the no-GL /
+         reduced-motion fallback look. */
+      background:
+        radial-gradient(120% 80% at 50% 108%,
+          rgba(95, 224, 176, 0.10) 0%, rgba(79, 211, 194, 0.07) 22%,
+          rgba(91, 184, 232, 0.05) 45%, rgba(142, 131, 232, 0.04) 70%, transparent 100%),
+        var(--surface-sky);
+    }
+    .bg-canvas canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .bg-canvas[data-fallback='static'] {
+      background:
+        linear-gradient(180deg, transparent 0%, rgba(142, 131, 232, 0.05) 55%,
+          rgba(91, 184, 232, 0.07) 78%, rgba(95, 224, 176, 0.10) 100%),
+        var(--surface-sky);
     }
 
     /* Watermark — large dimmed SAPHO logo as a brand backdrop, centred on both

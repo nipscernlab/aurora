@@ -270,9 +270,14 @@ function setupCornerHandle() {
     if (raf) cancelAnimationFrame(raf);
   }
 
-  const observer = new MutationObserver(schedulePositionCorner);
-  if (fileTreeContainer) observer.observe(fileTreeContainer, { attributes: true, attributeFilter: ['style'] });
-  if (terminalContainer) observer.observe(terminalContainer, { attributes: true, attributeFilter: ['style'] });
+  // ResizeObserver (not a style MutationObserver): it fires on the INITIAL
+  // layout pass too, so the handle lands on the junction from the start. The old
+  // style-observer only caught explicit inline-style writes, so on a fresh
+  // profile (no saved sizes) the handle stayed mispositioned — and therefore not
+  // hoverable — until the first manual resize.
+  const ro = new ResizeObserver(schedulePositionCorner);
+  if (fileTreeContainer) ro.observe(fileTreeContainer);
+  if (terminalContainer) ro.observe(terminalContainer);
   window.addEventListener('resize', schedulePositionCorner);
   positionCorner();
 }

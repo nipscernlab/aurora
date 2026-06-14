@@ -4060,9 +4060,13 @@ class AIAssistantManager {
 
     // Keep the handle glued to the junction as either dimension (or the open
     // state) changes. Coalesced to one reflow per frame.
-    const obs = new MutationObserver(schedulePosition);
-    obs.observe(aiContainer, { attributes: true, attributeFilter: ['style', 'class'] });
-    obs.observe(terminalContainer, { attributes: true, attributeFilter: ['style', 'class'] });
+    // ResizeObserver fires on the initial layout (and any size change), so the
+    // handle is placed on the junction from the start instead of only after the
+    // first resize. Opening/closing the panel changes the AI container's
+    // rendered width, which the observer also picks up.
+    const ro = new ResizeObserver(schedulePosition);
+    ro.observe(aiContainer);
+    ro.observe(terminalContainer);
     window.addEventListener('resize', schedulePosition);
     position();
   }

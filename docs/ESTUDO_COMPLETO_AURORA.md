@@ -623,6 +623,13 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 ### C. Fundação Vite + dívidas pequenas
 - [ ] **Stage 5 / B5** — deletar os `.js` in-place, migrar testes p/ importar `.ts`, gitignorar os gerados. 🟡
 - [ ] Limpar o CSS morto de `.notification-card` em `notification.css`. 🟢
+- [ ] **Podar o CSS morto acumulado das migrações Lit** (chrome que foi pro Shadow DOM): `.custom-tooltip`
+      (`tooltip.css`), `.cmdk-*` (`command_palette.css`), chrome do welcome (`recent_projects.css`),
+      chrome de modal (`modal_config.css`) — manter só o que ainda serve conteúdo light-DOM (ex.: `.empty-state`,
+      `.modal-body/.modal-footer/.modal-title`). 🟢
+- [ ] Silenciar (cosmético) o warning do Vite "can't be bundled without type=module" dos 2 scripts não-módulo
+      vendados (Monaco `loader.js` AMD + KaTeX UMD) — **benigno** (resolvidos em runtime via `vendor/`), só polui
+      o output do build. 🟢
 - [ ] Decidir o fallback raw do `index.html` (degradado pós-Lit) — remover ou aceitar. 🟢
 
 ### D. 🟡 Performance (sobrou o arriscado / baixo-ROI)

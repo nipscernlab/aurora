@@ -71,7 +71,8 @@ float triNoise2d(in vec2 p, float spd, float time){
 }
 
 // nimitz's curtain march, returning DENSITY only (we colour it by height).
-// A slow lateral pan (time on x) drifts the whole curtain sideways.
+// Motion is ONLY the tri-noise morph (organic, non-repeating) — no linear pan,
+// which read as a predictable sliding "gif".
 float auroraDensity(vec3 ro, vec3 rd, float time){
   float sum = 0.0;
   float avg = 0.0;
@@ -81,9 +82,7 @@ float auroraDensity(vec3 ro, vec3 rd, float time){
     float pt = ((0.8 + pow(fi, 1.4) * 0.002) - ro.y) / (rd.y * 2.0 + 0.4);
     pt -= of;
     vec3 bpos = ro + pt * rd;
-    vec2 sp = bpos.zx;
-    sp.x += time * 0.55;            // gentle continuous lateral drift
-    float rzt = triNoise2d(sp, 0.06, time);
+    float rzt = triNoise2d(bpos.zx, 0.06, time);
     avg = mix(avg, rzt, 0.5);
     sum += avg * exp2(-fi * 0.065 - 2.5) * smoothstep(0.0, 5.0, fi);
   }
@@ -100,8 +99,9 @@ void main(){
   vec3 ro = vec3(0.0, 0.0, -6.7);
   vec3 rd = normalize(vec3(p.x * 1.1, p.y * 0.48 + 0.22, 1.3));   // horizon ~uv.y 0.04
 
+  // Slow, majestic morph — the aurora reshapes gently, it does not race.
   float dens = 0.0;
-  if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.5);
+  if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.16);
   dens = smoothstep(0.0, 0.95, dens);
 
   // Vertical cap: cover the bottom, fade out a little past the middle. A single

@@ -3,12 +3,21 @@
  * dev.js — Vite dev server + Electron, wired together for HMR development.
  *
  * Boots the Vite dev server on a fixed port, waits for it to answer, then
- * spawns Electron pointed at it via AURORA_RENDERER_URL. main/windows.js reads
- * that env var (and `!app.isPackaged`) to loadURL the dev server instead of the
- * built dist/index.html — so editing renderer code hot-reloads in the live IDE.
+ * spawns Electron pointed at it via AURORA_RENDERER_URL. main/render_loader.js
+ * reads that env var (and `!app.isPackaged`) to loadURL the dev server instead
+ * of the built dist/ — so editing renderer code hot-reloads in the live IDE.
  *
- * This is ADDITIVE: `npm start` still runs the raw-ESM path unchanged. Only
- * `npm run dev` goes through Vite.
+ * This is ADDITIVE: `npm start` loads the built dist (file://) unchanged. Only
+ * `npm run dev` goes through the Vite server.
+ *
+ * We spawn Vite DIRECTLY under this Node process (its own bin script), NOT via
+ * `npx`/a shell. On Windows the old `spawn('npx.cmd', …, { shell: true })` chain
+ * (node → cmd.exe → npx → node → vite) left the real Vite server as an
+ * unmanaged grandchild: it could die mid-session — at which point every lazy
+ * renderer request 404→ERR_CONNECTION_REFUSED (Monaco editor workers, the
+ * SystemVerilog language def, fonts, the PRISM window) and the HMR socket
+ * retry-loops — and it never tore down cleanly on close (slow exit + orphaned
+ * port). A direct Node child is stable and kills cleanly.
  *
  * Like scripts/launch-electron.js, we delete ELECTRON_RUN_AS_NODE before
  * spawning Electron — some parent shells (VS Code terminal, Claude Code) export
@@ -16,22 +25,36 @@
  */
 const { spawn } = require('child_process');
 const http = require('http');
+const path = require('path');
 
 const PORT = 5273;
 const RENDERER_URL = `http://localhost:${PORT}/index.html`;
-const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+const viteBin = path.join(__dirname, '..', 'node_modules', 'vite', 'bin', 'vite.js');
 
-// Start Vite (strictPort so the URL we hand Electron matches the HMR socket).
-const vite = spawn(npxCmd, ['vite', '--port', String(PORT), '--strictPort'], {
+// Vite, as a direct Node child (stable + clean teardown). strictPort so the URL
+// we hand Electron always matches the HMR socket.
+const vite = spawn(process.execPath, [viteBin, '--port', String(PORT), '--strictPort'], {
   stdio: 'inherit',
-  shell: process.platform === 'win32', // npx.cmd needs a shell on Windows
 });
 
 let electron = null;
+let shuttingDown = false;
 function shutdown(code) {
-  try { vite.kill(); } catch (_) { /* already gone */ }
+  if (shuttingDown) return;
+  shuttingDown = true;
+  try { if (electron && !electron.killed) electron.kill(); } catch (_) { /* gone */ }
+  try { if (!vite.killed) vite.kill(); } catch (_) { /* gone */ }
   process.exit(code ?? 0);
 }
+
+// If Vite dies, the renderer is dead — bring Electron down too instead of
+// leaving a window pointed at a gone server (the failure mode this fixes).
+vite.on('exit', (code) => {
+  if (!shuttingDown) {
+    console.error(`[dev] Vite exited (code ${code}); shutting down.`);
+    shutdown(code ?? 1);
+  }
+});
 
 // Poll the dev server until it answers, then launch Electron.
 (function waitForServer(attempt = 0) {

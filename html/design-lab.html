@@ -61,6 +61,13 @@
     .stage > aurora-statusbar { width: 100%; }
     .toast-grid { display: flex; flex-direction: column; gap: var(--space-2, 8px); max-width: 360px; }
     .tip-grid { display: flex; flex-wrap: wrap; gap: var(--space-8, 32px); padding: var(--space-6, 24px) 0 var(--space-8, 32px); }
+    .lab-btn {
+      font-family: var(--font-sans); font-size: var(--text-sm, 13px);
+      color: var(--text-default); background: var(--surface-raised);
+      border: 1px solid var(--border-hairline); border-radius: var(--radius-md, 6px);
+      padding: var(--space-2, 8px) var(--space-4, 16px); cursor: pointer;
+    }
+    .lab-btn:hover { border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -126,6 +133,13 @@
       <aurora-tooltip class="visible" placement="bottom" content="Compile the active C± file" style="position:static"></aurora-tooltip>
       <aurora-tooltip class="visible" placement="top" content="Open PRISM — the RTL schematic viewer" style="position:static"></aurora-tooltip>
     </div>
+  </section>
+
+  <section>
+    <h2>&lt;aurora-command-palette&gt;</h2>
+    <span class="specimen-label">full-screen overlay (Ctrl+Shift+K in the app) — click to preview</span>
+    <div class="specimen"><button class="lab-btn" id="lab-open-cmdk">Open the palette</button></div>
+    <aurora-command-palette></aurora-command-palette>
   </section>
 
   <script type="module" src="../js/components/design-lab.js"></script>

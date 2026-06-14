@@ -1,12 +1,13 @@
 /**
- * command_palette.js — Aurora command palette (Ctrl+K / Ctrl+Shift+P).
+ * command_palette.js — Aurora command palette (Ctrl+Shift+K / Ctrl+Shift+P).
  *
- * A single, keyboard-first surface for the actions scattered across the
- * toolbar and menus: compile steps, project actions, tree views, tools. Built
- * vanilla (no framework) to match the current renderer; the registry is plain
- * data so new commands are one entry.
+ * A single, keyboard-first surface for the actions scattered across the toolbar
+ * and menus. The VIEW is the <aurora-command-palette> Lit component (Shadow DOM
+ * + semantic tokens); this module owns the registry (plain data), the fuzzy
+ * scoring, the global open/nav keyboard handling, and the run logic — it drives
+ * the component via .items/.selected/.open and reacts to its cmdk-* events.
  *
- * Wiring: commands prefer the public API (window.AuroraAPI / the file-tree view
+ * Commands prefer the public API (window.AuroraAPI / the file-tree view
  * controller) and otherwise click the existing toolbar button by id — so a
  * command does exactly what the button does (including being a no-op when the
  * button is disabled), with no duplicated logic.
@@ -15,6 +16,8 @@
  * Ctrl+K is reserved for the AI panel, so we don't bind it. Esc closes; ↑/↓
  * move; Enter runs.
  */
+
+import '../components/aurora-command-palette.js';
 
 /** Click a toolbar button by id if it exists and isn't disabled. */
 function clickById(id) {
@@ -84,73 +87,40 @@ function scoreCommand(cmd, query) {
 class CommandPalette {
   constructor() {
     this._open = false;
-    this._items = [];        // current filtered [{cmd, ...}]
+    this._items = [];        // current filtered [{cmd, score}]
     this._sel = 0;
-    this._els = null;
+    this._el = null;         // the <aurora-command-palette> view
     this._onKeydown = this._onKeydown.bind(this);
     window.addEventListener('keydown', this._onKeydown, true);
   }
 
   _build() {
-    if (this._els) return;
-    const overlay = document.createElement('div');
-    overlay.className = 'cmdk-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-modal', 'true');
-    overlay.hidden = true;
-    overlay.innerHTML = `
-      <div class="cmdk-panel" role="document">
-        <div class="cmdk-input-row">
-          <i class="ph ph-magnifying-glass cmdk-input-icon" aria-hidden="true"></i>
-          <input class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
-                 placeholder="Type a command…" aria-label="Command palette" />
-          <kbd class="cmdk-esc">esc</kbd>
-        </div>
-        <div class="cmdk-list" role="listbox"></div>
-        <div class="cmdk-empty" hidden>No matching commands</div>
-      </div>`;
-    document.body.appendChild(overlay);
-
-    const input = overlay.querySelector('.cmdk-input');
-    const list = overlay.querySelector('.cmdk-list');
-    const empty = overlay.querySelector('.cmdk-empty');
-
-    overlay.addEventListener('mousedown', (e) => { if (e.target === overlay) this.close(); });
-    input.addEventListener('input', () => this._refilter(input.value));
-    list.addEventListener('mousemove', (e) => {
-      const item = e.target.closest?.('.cmdk-item');
-      if (item) this._select(Number(item.dataset.idx));
-    });
-    list.addEventListener('click', (e) => {
-      const item = e.target.closest?.('.cmdk-item');
-      if (item) this._run(Number(item.dataset.idx));
-    });
-
-    this._els = { overlay, input, list, empty };
+    if (this._el) return;
+    const el = document.createElement('aurora-command-palette');
+    document.body.appendChild(el);
+    el.addEventListener('cmdk-input', (e) => this._refilter(e.detail));
+    el.addEventListener('cmdk-run',   (e) => this._run(e.detail));
+    el.addEventListener('cmdk-hover', (e) => this._select(e.detail));
+    el.addEventListener('cmdk-close', () => this.close());
+    this._el = el;
   }
 
   toggle() { this._open ? this.close() : this.open(); }
 
   open() {
     this._build();
-    const { overlay, input } = this._els;
-    overlay.hidden = false;
-    // Force reflow before adding the class so the enter transition runs.
-    void overlay.offsetWidth;
-    overlay.classList.add('visible');
+    // Force the closed (opacity:0) state to paint before flipping `open`, so the
+    // fade/scale-in transition actually runs on the first open too.
+    void this._el.offsetWidth;
     this._open = true;
-    input.value = '';
+    this._el.open = true;     // the component focuses + clears its input
     this._refilter('');
-    input.focus();
   }
 
   close() {
-    if (!this._els) return;
-    const { overlay } = this._els;
-    overlay.classList.remove('visible');
+    if (!this._el) return;
     this._open = false;
-    // Hide after the fade so it doesn't trap focus / catch clicks.
-    setTimeout(() => { if (!this._open) overlay.hidden = true; }, 160);
+    this._el.open = false;
   }
 
   _refilter(query) {
@@ -158,57 +128,32 @@ class CommandPalette {
     let scored;
     if (!q.trim()) {
       scored = COMMANDS.map((cmd) => ({ cmd, score: 0 }));
+      scored.sort((a, b) => {
+        const g = GROUP_ORDER.indexOf(a.cmd.group) - GROUP_ORDER.indexOf(b.cmd.group);
+        return g !== 0 ? g : a.cmd.title.localeCompare(b.cmd.title);
+      });
     } else {
       scored = COMMANDS
         .map((cmd) => ({ cmd, score: scoreCommand(cmd, q) }))
         .filter((s) => s.score >= 0)
         .sort((a, b) => b.score - a.score);
     }
-    if (!q.trim()) {
-      scored.sort((a, b) => {
-        const g = GROUP_ORDER.indexOf(a.cmd.group) - GROUP_ORDER.indexOf(b.cmd.group);
-        return g !== 0 ? g : a.cmd.title.localeCompare(b.cmd.title);
-      });
-    }
     this._items = scored;
     this._sel = 0;
-    this._render();
+    this._sync();
   }
 
-  _render() {
-    const { list, empty } = this._els;
-    if (!this._items.length) {
-      list.innerHTML = '';
-      empty.hidden = false;
-      return;
-    }
-    empty.hidden = true;
-    let html = '';
-    let lastGroup = null;
-    this._items.forEach(({ cmd }, i) => {
-      if (cmd.group !== lastGroup) {
-        html += `<div class="cmdk-group">${cmd.group}</div>`;
-        lastGroup = cmd.group;
-      }
-      html += `
-        <div class="cmdk-item${i === this._sel ? ' selected' : ''}" data-idx="${i}" role="option">
-          <i class="${cmd.icon} cmdk-item-icon" aria-hidden="true"></i>
-          <span class="cmdk-item-title">${cmd.title}</span>
-        </div>`;
-    });
-    list.innerHTML = html;
+  /** Push the current filtered list + selection to the view. */
+  _sync() {
+    if (!this._el) return;
+    this._el.items = this._items.map((s) => s.cmd);
+    this._el.selected = this._sel;
   }
 
   _select(idx) {
     if (idx < 0 || idx >= this._items.length || idx === this._sel) return;
-    const items = this._els.list.querySelectorAll('.cmdk-item');
-    items[this._sel]?.classList.remove('selected');
     this._sel = idx;
-    const el = items[this._sel];
-    if (el) {
-      el.classList.add('selected');
-      el.scrollIntoView({ block: 'nearest' });
-    }
+    if (this._el) this._el.selected = idx;
   }
 
   _move(delta) {

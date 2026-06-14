@@ -586,7 +586,9 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [x] `<aurora-tooltip>` — feito: `tooltip.js` (descoberta/timing/posição) dirige o `<aurora-tooltip>` por
       `.content` + atributo `placement` + `--arrow-x`; espera `updateComplete` antes de medir; sempre-no-topo
       (`--z-tooltip-top`); na Design Lab. (CSS morto `.custom-tooltip` em `tooltip.css` a podar depois.)
-- [ ] `<aurora-command-palette>` — `command_palette.js` é dono único. 🟡
+- [x] `<aurora-command-palette>` — feito: `command_palette.js` mantém registry + scoring + teclado global
+      e dirige o `<aurora-command-palette>` (Shadow DOM + tokens; Phosphor no shadow via `<link>`); na
+      Design Lab (botão abre o overlay). CSS morto `.cmdk-*` em `command_palette.css` a podar depois.
 - [ ] **Welcome / empty-states** — 4 skins → 1; `#editor-overlay` + `recent_projects.js`. 🟡
 - [ ] `<aurora-titlebar>` — controles de janela + zonas da toolbar. 🟡
 - [ ] `<aurora-activity-bar>` — botões de compilação / PRISM / waves (centro da toolbar). 🟡

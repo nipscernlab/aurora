@@ -26,6 +26,7 @@ class AuroraWelcome extends LitElement {
   static properties = {
     projects: { attribute: false },
     version: { type: String },
+    _hover: { state: true },
   };
 
   constructor() {
@@ -33,6 +34,7 @@ class AuroraWelcome extends LitElement {
     this.projects = [];
     this.version = 'v6.3.2';
     this._removing = new Set();
+    this._hover = null;
     this._onLocale = () => this.requestUpdate();
   }
 
@@ -309,6 +311,41 @@ class AuroraWelcome extends LitElement {
     }
     .signature:hover { color: var(--text-default); }
     .signature-sep { margin: 0 6px; color: var(--text-disabled); font-weight: var(--font-normal); }
+
+    /* Processor preview — a fixed-position popover (so the recent-list's
+       overflow can't clip it) shown while a recent row is hovered. */
+    .proc-pop {
+      position: fixed;
+      z-index: var(--z-50, 1000);
+      max-width: 280px;
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface-overlay);
+      border: 1px solid var(--border-luminous);
+      border-radius: var(--radius-md);
+      box-shadow: var(--elev-overlay);
+      pointer-events: none;
+      animation: procPopIn 120ms var(--ease-reveal, ease) both;
+    }
+    .proc-pop-title {
+      margin-bottom: var(--space-2);
+      font-size: var(--text-2xs);
+      font-weight: var(--font-semibold);
+      letter-spacing: var(--tracking-wide);
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+    .proc-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    .proc-chip {
+      padding: 1px 8px;
+      border-radius: var(--radius-full);
+      background: var(--surface-raised);
+      border: 1px solid var(--border-subtle);
+      color: var(--accent-hover);
+      font-family: var(--font-mono);
+      font-size: var(--text-2xs);
+    }
+    @keyframes procPopIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { .proc-pop { animation: none; } }
   `;
 
   render() {
@@ -358,6 +395,7 @@ class AuroraWelcome extends LitElement {
           <span class="version">${this.version}</span>
         </footer>
       </div>
+      ${this._renderProcPop()}
     `;
   }
 
@@ -371,6 +409,8 @@ class AuroraWelcome extends LitElement {
         title=${p.path}
         style="animation-delay:${i * 50}ms"
         @click=${(e) => this._open(p.path, e)}
+        @mouseenter=${(e) => this._onHover(p, e)}
+        @mouseleave=${() => { this._hover = null; }}
       >
         <span class="project-name">${p.name}</span>
         <span class="project-path">${p.displayPath ?? p.path}</span>
@@ -401,6 +441,31 @@ class AuroraWelcome extends LitElement {
     setTimeout(() => {
       this.dispatchEvent(new CustomEvent('project-remove', { detail: path, bubbles: true, composed: true }));
     }, 200);
+  }
+
+  // Show the processor-list popover for a hovered recent row. Fixed position,
+  // anchored to the right of the row and clamped to the viewport.
+  _onHover(p, e) {
+    const procs = p.processors || [];
+    if (!procs.length) { this._hover = null; return; }
+    const r = e.currentTarget.getBoundingClientRect();
+    const left = Math.min(r.right + 12, Math.max(8, window.innerWidth - 296));
+    const top = Math.min(r.top, Math.max(8, window.innerHeight - 220));
+    this._hover = { processors: procs, left, top };
+  }
+
+  _renderProcPop() {
+    if (!this._hover) return '';
+    return html`
+      <div class="proc-pop" style="left:${this._hover.left}px; top:${this._hover.top}px">
+        <div class="proc-pop-title">
+          ${this._t('welcome.processors', 'Processors')} · ${this._hover.processors.length}
+        </div>
+        <div class="proc-chips">
+          ${this._hover.processors.map((n) => html`<span class="proc-chip">${n}</span>`)}
+        </div>
+      </div>
+    `;
   }
 
   _openWebsite() {

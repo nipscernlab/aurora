@@ -1550,6 +1550,7 @@ class AIAssistantManager {
           </div>
 
           <div class="ai-attachments" id="ai-attachments" hidden></div>
+          <div class="ai-msg-queue" id="ai-msg-queue" hidden></div>
           <div class="ai-composer" id="ai-composer">
             <button class="ai-attach-btn" id="ai-attach-btn" type="button"
                     title="Attach files or images" aria-label="Attach files or images">
@@ -1616,6 +1617,8 @@ class AIAssistantManager {
     this.attachBtn     = this.container.querySelector('#ai-attach-btn');
     this.attachInput   = this.container.querySelector('#ai-attach-input');
     this.attachmentsEl = this.container.querySelector('#ai-attachments');
+    this.queueEl       = this.container.querySelector('#ai-msg-queue');
+    this._messageQueue = [];
     this.stopBtn       = this.container.querySelector('#ai-stop-btn');
     this.clearBtn      = this.container.querySelector('#ai-clear-btn');
     this.tokenCounter  = this.container.querySelector('#ai-token-counter');
@@ -2632,10 +2635,6 @@ class AIAssistantManager {
 
   async send() {
     if (!window.aiAPI || !this.currentProvider) return;
-    // A turn is already streaming. The send button is hidden and the Enter
-    // handler is guarded, but block here too so no path can double-dispatch a
-    // turn (which would orphan the first turn's session and wedge the UI).
-    if (this._isStreaming) return;
     const text = this.inputEl.value.trim();
     const atts = this.pendingAttachments.slice();
     if (!text && atts.length === 0) return;
@@ -2657,13 +2656,29 @@ class AIAssistantManager {
       }
     }
 
+    // Capture + clear the composer immediately so the user can keep typing.
     this.inputEl.value = '';
     this.pendingAttachments = [];
     this._renderAttachments();
     this.autoGrowInput();
 
-    // First message of a new chat — assign an id, derive a title from
-    // the user's text, and mark this as the conversation we'll persist.
+    // A turn is already streaming → QUEUE this message (VSCode-style follow-up);
+    // it dispatches automatically when the current turn ends. Sequential by
+    // design — the main process runs one turn at a time per session. Queuing
+    // (not dispatching) is also what prevents a double-dispatch mid-stream.
+    if (this._isStreaming) {
+      (this._messageQueue || (this._messageQueue = [])).push({ text, atts });
+      this._renderQueue();
+      return;
+    }
+    await this._submitUserMessage(text, atts);
+  }
+
+  /** Append the user bubble, record the message, and dispatch its turn. Shared
+   *  by an immediate send and by draining a queued follow-up. */
+  async _submitUserMessage(text, atts) {
+    // First message of a new chat — assign an id, derive a title from the
+    // user's text, and mark this as the conversation we'll persist.
     if (!this.currentChatId) {
       try {
         const r = await window.aiAPI.newConversationId?.();
@@ -2680,6 +2695,38 @@ class AIAssistantManager {
     this._autoChainCount = 0;
 
     await this._dispatchTurn();
+  }
+
+  /** Dispatch the next queued user follow-up, if any. Returns true if it did
+   *  (so the turn-end drain prefers a user message over an autonomous one). */
+  _drainMessageQueue() {
+    if (this._isStreaming) return false;
+    if (!this._messageQueue || !this._messageQueue.length) return false;
+    const { text, atts } = this._messageQueue.shift();
+    this._renderQueue();
+    this._submitUserMessage(text, atts); // async, fire-and-forget (sets streaming)
+    return true;
+  }
+
+  /** Render the queued-follow-up chips above the composer (each cancellable). */
+  _renderQueue() {
+    if (!this.queueEl) return;
+    const q = this._messageQueue || [];
+    this.queueEl.hidden = q.length === 0;
+    this.queueEl.innerHTML = q.map((m, i) => {
+      const preview = (m.text || (m.atts && m.atts.length ? `${m.atts.length} attachment(s)` : '')).slice(0, 80);
+      return `<span class="ai-queued-chip" title="Queued — sends after the current reply">` +
+        `<i class="ph ph-clock" aria-hidden="true"></i>` +
+        `<span class="ai-queued-text">${this._escAtt(preview)}</span>` +
+        `<button class="ai-queued-remove" data-i="${i}" type="button" aria-label="Cancel queued message">` +
+        `<i class="ph ph-x" aria-hidden="true"></i></button></span>`;
+    }).join('');
+    this.queueEl.querySelectorAll('.ai-queued-remove').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this._messageQueue.splice(parseInt(btn.dataset.i, 10), 1);
+        this._renderQueue();
+      });
+    });
   }
 
   /* ---------------- composer attachments (images + files) ---------------- */
@@ -3014,6 +3061,10 @@ class AIAssistantManager {
 
   async stop() {
     if (!this.currentSessionId || !window.aiAPI) return;
+    // An explicit stop cancels pending follow-ups too — otherwise the queue
+    // would auto-drain (dispatch the next) the moment the abort lands.
+    this._messageQueue = [];
+    this._renderQueue();
     const sid = this.currentSessionId;
     try { await window.aiAPI.abortChat(sid); }
     catch (_) { /* the stream side reports back via 'aborted' */ }
@@ -3764,8 +3815,9 @@ class AIAssistantManager {
     if (streaming) this._armStreamWatchdog();
     else {
       this._disarmStreamWatchdog();
-      // A turn just ended — drain any autonomous follow-up queued while it ran.
-      this._drainAutoQueue();
+      // A turn just ended — dispatch a queued USER follow-up first (explicit
+      // intent), else an autonomous one.
+      if (!this._drainMessageQueue()) this._drainAutoQueue();
     }
   }
 
@@ -3854,6 +3906,8 @@ class AIAssistantManager {
     this._toolGroup = null;
     this._autoQueue = [];
     this._autoChainCount = 0;
+    this._messageQueue = [];
+    this._renderQueue();
     this.thinkingEl = null;
     this.currentChatId = null;
     this.currentChatTitle = '';

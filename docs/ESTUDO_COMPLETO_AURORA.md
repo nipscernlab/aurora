@@ -863,12 +863,15 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
     CLIs, `Promise.race` de 5s no usage, watchdog com **teto-duro de 12 min**, guard `_isStreaming` no `send()`,
     cap nos tool-results. Revisado por workflow adversarial (2 achados HIGH corrigidos: Set em vez de contador).
     *(Verificação ao vivo do usuário: turnos longos/com tools não travam; freeze raro se recupera sozinho.)* ✅
-- [ ] **Welcome: hover num projeto recente → preview da lista completa de processadores do projeto.** Passar o
+- [x] **Welcome: hover num projeto recente → preview dos processadores — FEITO ✅** (popover `position:fixed`,
+      sem clipping da lista; processadores lidos do `.spf` e enriquecidos/cacheados em `recent_projects.js`,
+      exibidos pelo `<aurora-welcome>` no hover). Passar o
       mouse por cima de um card de "projeto recente" na tela de welcome mostra (tooltip/popover) **todos os
       processadores** definidos naquele projeto, sem precisar abri-lo. Fonte: ler o `.spf`/estrutura do projeto
       (a lista de processadores já é conhecida pelo project store / parsing do projeto). Bom pra escolher o
       projeto certo de relance. Pareia com o `<aurora-tooltip>` (já migrado) p/ o popover. 🟢 (UX, baixo risco)
-- [ ] **Syntax highlight para o arquivo `.spf`.** Hoje o `.spf` (que é **JSON** — config canônica do projeto:
+- [x] **Syntax highlight para o arquivo `.spf` — FEITO ✅** (mapeado → linguagem `json` built-in nos 2 mapas de
+      extensão: `monaco_editor.js` + `split_editor.js`). Hoje o `.spf` (que é **JSON** — config canônica do projeto:
       `metadata` + `structure` com `processors[]`, listas de arquivos, `commandOverrides`) abre no Monaco como
       **plaintext** (os dois mapas de extensão — `getLanguageFromPath` em `js/editor/monaco_editor.js` e
       `_langFromPath` em `js/editor/split_editor.js` — caem no fallback `'plaintext'` p/ extensão desconhecida).
@@ -879,7 +882,10 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       (nomes de processador, chaves de `structure`, `commandOverrides`), reusando os theme tokens (defs
       `cmm-dark`/`asm-dark` + base em `theme_variables.css`). Nota: o `.spf` é gerido atômico pelo `SpfStore`/main
       → o highlight serve p/ **inspeção** (editar à mão arrisca corromper o projeto). 🟢 (começar pelo mapa→json)
-- [ ] **Mensagens follow-up no chat de IA (fila, estilo VSCode).** Enviar uma nova mensagem enquanto a anterior
+- [x] **Mensagens follow-up no chat de IA (fila, estilo VSCode) — FEITO ✅** (`_messageQueue` no
+      `ai_assistant_manager.js`: `send()` enfileira se streaming; drena no `setStreaming(false)` priorizando a
+      msg do usuário sobre o auto-continue; chips canceláveis acima do composer; `stop()`/`newChat()` limpam).
+      Enviar uma nova mensagem enquanto a anterior
       ainda está sendo respondida — ela **entra numa fila** e dispara quando o turno atual termina. Importante: o
       "estilo VSCode" é **fila sequencial**, NÃO turnos paralelos (o próprio VSCode enfileira). **Já temos meio
       caminho:** o textarea **continua habilitado** durante o streaming (dá pra compor a próxima msg); só o

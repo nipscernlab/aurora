@@ -22,6 +22,27 @@ export class RecentProjectsManager {
 
     this.loadFromStorage();
     this.render();
+    this._enrichProcessors(); // async: read each .spf's processor list for the hover preview
+  }
+
+  // Read a project's processor names from its .spf (JSON) for the welcome hover
+  // preview. Best-effort, cached on the project object so it reads only once.
+  async _readProcessors(spfPath) {
+    try {
+      const content = await window.electronAPI?.readFile?.(spfPath);
+      if (!content) return [];
+      const procs = JSON.parse(content)?.structure?.processors;
+      return Array.isArray(procs) ? procs.map((p) => p && p.name).filter(Boolean) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  async _enrichProcessors() {
+    await Promise.all(this.projects.map(async (p) => {
+      if (p._procs === undefined) p._procs = await this._readProcessors(p.path);
+    }));
+    this.render();
   }
 
   // Load the recent-projects list from localStorage.
@@ -73,7 +94,8 @@ export class RecentProjectsManager {
       
       this.saveProjects();
       this.render();
-      
+      this._enrichProcessors();
+
       console.log('Added project to recent list:', projectName);
     } catch (error) {
       console.error('Error adding project to recent list:', error);
@@ -194,6 +216,7 @@ export class RecentProjectsManager {
       name: p.name,
       path: p.path,
       displayPath: this.truncatePath(p.path),
+      processors: p._procs || [],
     }));
   }
 

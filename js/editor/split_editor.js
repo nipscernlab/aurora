@@ -448,7 +448,7 @@ class SplitPane {
             v: 'verilog', sv: 'systemverilog', vh: 'verilog',
             js: 'javascript', ts: 'typescript', py: 'python',
             c: 'c', cpp: 'cpp', h: 'c', json: 'json',
-            md: 'markdown', txt: 'plaintext', asm: 'asm', cmm: 'cmm',
+            md: 'markdown', txt: 'plaintext', asm: 'asm', cmm: 'cmm', spf: 'json',
             css: 'css', html: 'html', xml: 'xml', yaml: 'yaml', yml: 'yaml',
         };
         return map[ext] || 'plaintext';

@@ -875,6 +875,38 @@ body.ai-assistant-open {
 }
 .ai-attachments[hidden] { display: none; }
 
+/* Queued follow-up messages (sent while a reply is still streaming). Dashed +
+   dimmed to read as "waiting", with a clock glyph and a cancel button. */
+.ai-msg-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 2px 8px;
+}
+.ai-msg-queue[hidden] { display: none; }
+.ai-queued-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 4px 4px 9px;
+  background: var(--bg-elev);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+.ai-queued-chip > i { color: var(--text-muted); font-size: var(--icon-xs); flex-shrink: 0; }
+.ai-queued-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ai-queued-remove {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; flex-shrink: 0;
+  background: transparent; border: none; border-radius: 6px;
+  color: var(--text-muted); cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.ai-queued-remove:hover { background: var(--bg-elev-3); color: var(--text); }
+
 .ai-att-chip {
   display: inline-flex;
   align-items: center;

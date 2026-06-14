@@ -668,7 +668,8 @@ class EditorManager {
             'hpp': 'cpp',
             'cmm': 'cmm',
             'asm': 'asm',
-            'v': 'verilog'
+            'v': 'verilog',
+            'spf': 'json'   // project file is JSON — gets keys/strings/numbers + folding for free
         };
         return languageMap[extension] || 'plaintext';
     }

@@ -2,25 +2,24 @@
  * <aurora-canvas> — the signature ambient aurora (docs/DESIGN.md §7).
  *
  * Realistic aurora-borealis curtains hugging the bottom of the panel: big
- * ribbon-like columns that rise from the bottom edge and fade out a little past
- * the middle, green in the body and shifting to magenta / pink at the tips,
- * drifting continuously. The continuous, flowing curtain DENSITY is nimitz's
- * tri-noise march ("Auroras", ShaderToy XtGGRt, 2017) — proven to read as one
- * continuous sheet (no patchy gaps); we discard nimitz's colour and paint the
- * density ourselves by height.
+ * ribbon-like columns that rise from the very bottom edge to varied,
+ * mountain-like heights, green in the body and shifting to magenta / pink at
+ * the tips, drifting continuously. The continuous, flowing curtain DENSITY is
+ * nimitz's tri-noise march ("Auroras", ShaderToy XtGGRt, 2017) — proven to read
+ * as one continuous sheet; we discard nimitz's colour and paint it by height.
  *
- *  - Drift, never pulse: motion is nimitz's time-rotated noise gradient plus a
- *    slow lateral pan; nothing scales the whole frame's brightness.
- *  - Cheap: renders at a capped device-pixel-ratio (half-res) and upscales;
- *    pauses the rAF loop off-screen / unfocused; falls back to a static CSS
- *    gradient on prefers-reduced-motion or when WebGL is unavailable.
+ *  - Resolution-independent: vertical position is measured in units of WIDTH and
+ *    anchored to the bottom, so resizing the panel HEIGHT (dragging the terminal)
+ *    does NOT squish the aurora — it keeps its size/shape and just reveals more
+ *    or less empty sky above.
+ *  - Drift, never pulse: motion is only nimitz's slow tri-noise morph.
+ *  - Cheap: half-res render, upscaled; rAF paused off-screen / unfocused; static
+ *    CSS-gradient fallback on prefers-reduced-motion or when WebGL is missing.
  *
  * Self-registering vanilla custom element (works inside the Shadow DOM of
  * <aurora-welcome>). Attributes:
  *  - intensity : 0..1 overall brightness (default 0.85)
  *  - speed     : drift multiplier (default 1)
- *
- * Usage:  <aurora-canvas intensity="0.8"></aurora-canvas>
  */
 
 const VERT = `
@@ -35,12 +34,10 @@ uniform float uTime;
 uniform float uIntensity;
 
 // ============================================================================
-// Realistic aurora-borealis curtains. The continuous, drifting curtain DENSITY
-// is nimitz's tri-noise march ("Auroras", ShaderToy XtGGRt, 2017) — proven to
-// read as one continuous flowing sheet (no patchy gaps). We discard nimitz's
-// colour and paint the density ourselves by HEIGHT: green body -> teal ->
-// magenta -> pink at the tips. The curtains hug the bottom and fade out a little
-// past the middle; a continuous green base fills the whole bottom edge.
+// Realistic aurora-borealis curtains. The continuous curtain DENSITY is nimitz's
+// tri-noise march ("Auroras", XtGGRt, 2017); we colour it ourselves by height
+// (green -> teal -> magenta -> pink tips). A smooth mountain ridge varies the
+// top height; everything is measured in WIDTH units, anchored to the bottom.
 // ============================================================================
 
 mat2 mm2(in float a){ float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
@@ -49,8 +46,7 @@ float tri(in float x){ return clamp(abs(fract(x) - 0.5), 0.01, 0.49); }
 vec2 tri2(in vec2 p){ return vec2(tri(p.x) + tri(p.y), tri(p.y + tri(p.x))); }
 float hash21(in vec2 n){ return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }
 
-// 1-D value-noise fbm — the smooth mountain ridge (varied heights) + the
-// vertical striation that makes the filetes more visible.
+// 1-D value-noise fbm — the smooth, low-frequency mountain ridge (varied tops).
 float vn1(float x){ float i = floor(x), f = fract(x); float u = f * f * (3.0 - 2.0 * f); return mix(hash21(vec2(i, 9.1)), hash21(vec2(i + 1.0, 9.1)), u); }
 float fbm1(float x){ float v = 0.0, a = 0.55; for (int i = 0; i < 4; i++){ v += a * vn1(x); x = x * 2.0 + 1.3; a *= 0.5; } return v; }
 
@@ -76,8 +72,6 @@ float triNoise2d(in vec2 p, float spd, float time){
 }
 
 // nimitz's curtain march, returning DENSITY only (we colour it by height).
-// Motion is ONLY the tri-noise morph (organic, non-repeating) — no linear pan,
-// which read as a predictable sliding "gif".
 float auroraDensity(vec3 ro, vec3 rd, float time){
   float sum = 0.0;
   float avg = 0.0;
@@ -96,49 +90,50 @@ float auroraDensity(vec3 ro, vec3 rd, float time){
 }
 
 void main(){
-  vec2 uv = gl_FragCoord.xy / uRes.xy;            // 0..1, y-up (0 = bottom)
-  vec2 p = uv - 0.5;
-  p.x *= uRes.x / max(uRes.y, 1.0);               // aspect
+  float W = max(uRes.x, 1.0);
+  // Width-normalized, BOTTOM-anchored coordinates. vx/vy are both in units of
+  // WIDTH, so resizing the panel HEIGHT (dragging the terminal) does NOT squish
+  // the aurora: it keeps its size + shape anchored to the bottom; you just see
+  // more / less empty sky above it.
+  float vx = (gl_FragCoord.x - 0.5 * uRes.x) / W;   // -0.5 .. 0.5
+  float vy = gl_FragCoord.y / W;                    // 0 at the very bottom edge
 
-  // Camera over a horizon at the very bottom; the curtains rise as big ribbons.
+  // Camera: horizon a touch BELOW the bottom edge so the curtains reach the very
+  // bottom and close the gap onto the terminal header (no detached strip).
   vec3 ro = vec3(0.0, 0.0, -6.7);
-  vec3 rd = normalize(vec3(p.x * 1.1, p.y * 0.48 + 0.22, 1.3));   // horizon ~uv.y 0.04
+  vec3 rd = normalize(vec3(vx * 2.1, vy * 0.95 + 0.05, 1.3));
 
-  // Slow, majestic morph — the aurora reshapes gently, it does not race.
   float dens = 0.0;
   if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.16);
-  // Slightly tighter remap = a touch more contrast, so the curtain's OWN
-  // vertical filaments read as filetes — coherent (it's the real structure).
-  dens = smoothstep(0.05, 0.86, dens);
+  // Low edge at 0 so the faint field shows too — subtly fills the holes between
+  // curtains with thin filaments (not intensely); high edge keeps bright cores.
+  dens = smoothstep(0.0, 0.82, dens);
 
-  float ax = uv.x * (uRes.x / max(uRes.y, 1.0));
-
-  // Mountain ridge: ONE smooth, low-frequency, slowly-drifting skyline that
-  // varies the curtain top height — some stand taller, like rolling mountains.
-  // High min so the band never collapses: stays coherent + continuous (this is
-  // the only height modulation — the earlier striation/per-peak layers fought
-  // each other and read as incoherent blobs).
-  float ridge  = fbm1(ax * 0.9 - uTime * 0.012);
-  float capTop = mix(0.46, 0.84, ridge);
-  float cap = smoothstep(capTop, 0.12, uv.y);
+  // Mountain ridge (width-units): smooth, low-frequency, slowly drifting tops —
+  // tall peaks and lower saddles. High min so it never collapses (stays coherent
+  // + continuous). This is the ONLY height modulation.
+  float ridge  = fbm1(vx * 2.6 - uTime * 0.012);
+  float capTop = mix(0.26, 0.46, ridge);
+  float cap = smoothstep(capTop, 0.05, vy);
   dens *= cap;
 
-  // Continuous green base hugging the bottom so the whole width is covered.
-  float base = smoothstep(0.22, 0.0, uv.y);
+  // Continuous green base hugging the very bottom edge — covers the full width
+  // and closes onto the terminal with no holes.
+  float base = smoothstep(0.13, 0.0, vy);
 
   // Emission by ABSOLUTE height (stable, coherent colour bands): green body ->
   // teal -> magenta -> pink. Taller curtains naturally reach the pink tips.
-  float h = clamp(uv.y / 0.74, 0.0, 1.0);
+  float h = clamp(vy / 0.42, 0.0, 1.0);
   vec3 green   = vec3(0.26, 1.00, 0.52);
   vec3 teal    = vec3(0.32, 0.95, 0.82);
   vec3 magenta = vec3(0.92, 0.34, 0.90);
   vec3 pink    = vec3(1.00, 0.58, 0.80);
   vec3 cc = mix(green, teal, smoothstep(0.00, 0.30, h));
-  cc = mix(cc, magenta, smoothstep(0.40, 0.74, h));
-  cc = mix(cc, pink,    smoothstep(0.68, 1.00, h));
+  cc = mix(cc, magenta, smoothstep(0.44, 0.78, h));
+  cc = mix(cc, pink,    smoothstep(0.72, 1.00, h));
 
   vec3 col = cc * dens * 1.7;
-  col += green * base * 0.42;                      // continuous base fill
+  col += green * base * 0.42;                        // continuous bottom fill
 
   // Soft bloom on the brightest ribbon cores (luminous emission).
   float lum0 = max(col.r, max(col.g, col.b));
@@ -205,6 +200,12 @@ class AuroraCanvas extends HTMLElement {
     window.addEventListener('blur', this._onVisibility);
     window.addEventListener('focus', this._onVisibility);
     document.addEventListener('visibilitychange', this._onVisibility);
+    // The panel can change size WITHOUT a window resize (e.g. dragging the
+    // terminal). Track our own box so the GL buffer follows and never squishes.
+    if (typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(this._onResize);
+      this._ro.observe(this);
+    }
 
     this._onResize();
     this._play();
@@ -213,6 +214,7 @@ class AuroraCanvas extends HTMLElement {
   disconnectedCallback() {
     this._pause();
     if (this._observer) { this._observer.disconnect(); this._observer = null; }
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
     window.removeEventListener('resize', this._onResize);
     window.removeEventListener('blur', this._onVisibility);
     window.removeEventListener('focus', this._onVisibility);

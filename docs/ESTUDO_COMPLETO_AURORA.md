@@ -220,9 +220,9 @@ startup com orçamento** no CI, senão cada otimização regride sem aviso.
 | A3 | 🟡 Moderado | **Acoplamento a globais:** 431 `window.electronAPI`, 105 `window.t`, 48 `window.currentProjectPath`, ~40 globais distintos. | Migrar leituras legadas para imports ES; manter espelhos só durante a transição. Testabilidade hoje é refém disso. |
 | A4 | 🟡 Moderado | **Estado duplicado** `global.currentProject*` vs `state.currentOpenProjectPath`. | Um único getter sobre `state`. |
 | A5 | 🟢 Leve | **Bugs reais achados no mapeamento:** (a) `getActiveFilePath` lê `dataset.file` mas as tabs gravam `data-path` → find-state nunca funciona por arquivo; (b) `editorNs.openFile` usa `tree.value` mas `getTree` retorna `{ok,data}` → fallback morto; (c) snapshot de estado do PDF lê `activeTab` já sobrescrito; (d) código morto com `ReferenceError` latente (`saveEditorState`/`formatCurrentFile`). | Corrigir os 4; são pequenos e de alto valor. |
-| A6 | 🟢 Leve | **`exec-command` legado** sem callers (também é V2 em segurança). | Remover. |
+| A6 | ✅ **FEITO** | **`exec-command` legado REMOVIDO** (sink de command-injection, sem callers — tudo via executor estruturado em `main/compile/executor.js`; ver comentário em `main/ipc/compile.js:26`). | — |
 | A7 | 🟡 Moderado | **`preload_prism.js` genérico** (escape do modelo de canais enumerados). | Enumerar os canais da janela PRISM. |
-| A8 | 🟢 Leve | ~150 linhas de **código morto** no fim de `compilation_module.js`; knip já configurado. | Rodar `npm run deadcode` no CI e podar. |
+| A8 | 🟡 **(cuidado)** | código morto no fim de `compilation_module.js` (view de hierarquia pré-PRISM). **Armadilha:** `npm run deadcode` (knip `--include files,deps`) **não pega** dead-code in-file; e os nomes (`cleanModuleName`/`getModuleNumber`/`switchToHierarchical…`) **COLIDEM** com a feature de hierarquia **VIVA do PRISM** (`prism.js`, `file_tree_*`) → podar por grep de nome é arriscado. | Configurar knip p/ `exports` e podar **guiado** (não por nome). |
 
 ---
 

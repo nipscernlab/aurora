@@ -204,7 +204,7 @@ const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable Architecture for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v5.0+, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v5.2, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — THREE compilers, two preprocessors, and helpers:\n" +
   "      - cmmcomp: C± source (.cmm) → SAPHO Assembly (.asm)\n" +
   "      - cppcomp: C++ source (.cpp) → SAPHO Assembly (.asm)   (runs after cpppp)\n" +
@@ -316,6 +316,9 @@ const SYSTEM_PROMPT = [
   "    exp(x)           — e^x (natural exponential) → float\n" +
   "    log(x)           — natural logarithm ln(x) → float (guarded: x ≤ 0 returns 0)\n" +
   "    pow(x, y)        — x^y → float. Integer-literal y → exact square-and-multiply; fractional/float y → exp(y·ln x), so needs x > 0\n" +
+  "    cosh(x)/sinh(x)/tanh(x) — hyperbolic functions → float\n" +
+  "    floor(x)/ceil(x)/round(x) — round toward −∞ / +∞ / nearest (ties away from 0) → float\n" +
+  "    (v5.1+: sqrt/sin/cos/tan/exp/log/atan also accept a comp argument)\n" +
   "  Special:\n" +
   "    abs(x)           — absolute value (for comp: magnitude)\n" +
   "    sign(x, y)       — returns y with the sign of x\n" +
@@ -328,6 +331,7 @@ const SYSTEM_PROMPT = [
   "    fase(c)          — phase angle of complex c\n" +
   "    mod2(c)          — squared magnitude of complex c\n" +
   "    complex(r, i)    — creates comp from two reals\n" +
+  "    conj(c)          — complex conjugate (a real x becomes x + 0i)\n" +
 
   "\nDIRAC NOTATION (linear algebra — SAPHO's unique feature):\n" +
   "  ⟨a|b⟩              inner product of vectors a and b → scalar\n" +
@@ -503,7 +507,7 @@ const SYSTEM_PROMPT = [
   "canonical .asm starts with NOP + the directive block from the .cmm, then a\n" +
   "linear stream of instructions, one per line, optionally prefixed by `@label`\n" +
   "tokens. Multiple labels can decorate the same line (e.g. `@main @L1 LOD 1`).\n" +
-  "\nThe ISA has 112 opcodes grouped into families. Use list_opcodes for the\n" +
+  "\nThe ISA has 116 opcodes grouped into families. Use list_opcodes for the\n" +
   "full table; the families below are the only ones you need to plan an\n" +
   "optimisation:\n" +
   "  • memory    — LOD/SET (acc↔mem), LDI/STI (indirect), ILI/ISI (bit-rev for FFT), LEA\n" +
@@ -519,7 +523,8 @@ const SYSTEM_PROMPT = [
   "  • control   — JMP, JIZ (jump-if-zero), CAL (subroutine), RET\n" +
   "  • io        — INN/F_INN (input port), OUT (output port)\n" +
   "  • indirect  — LDA (acc = mem[acc]), STA (mem[top of stack] = acc)\n" +
-  "  • special   — NOP, F_ROT (nearest power-of-2 sqrt)\n" +
+  "  • special   — NOP, F_ROT (nearest power-of-2 sqrt), F_SCL/SF_SCL (scale a float by 2^k),\n" +
+  "                XPO/XPO_M (extract a float's exponent as int) — v5.1 O(1) range reduction\n" +
   "\nPREFIX/SUFFIX CONVENTIONS — every base opcode has up to 6 variants:\n" +
   "  F_<X>    floating-point version of X         (e.g. F_ADD = float ADD)\n" +
   "  S_<X>    operand from data stack, not memory (e.g. S_ADD = ADD with stack)\n" +
@@ -592,13 +597,7 @@ const SYSTEM_PROMPT = [
   "                       Read results with get_terminal_output('thtest').\n" +
   "  Both are slow on long runs — prefer run_in_background({task:'compile_step', step:'verilator-fast'|'verilator-proc'}).\n",
 
-  // ── Reserved Files ────────────────────────────────────────────────────────
-  "\n\nRESERVED SAPHO PATHS — auto-generated and OVERWRITTEN on every compile. NEVER create " +
-  "files at these locations:\n" +
-  "  <proc>/Hardware/<proc>.v        synthesizable Verilog (asmcomp output)\n" +
-  "  <proc>/Simulation/<proc>_tb.v   auto-generated testbench\n" +
-  "  <proc>/Software/<proc>.asm      assembly from CMM\n" +
-  "Always use unique names at the project root: e.g. sqrt_newton_top.v, sqrt_newton_test.v\n",
+  // (Reserved-paths rule lives in HARD CONSTRAINTS #6 — not repeated here.)
 
   // ── Workflow Rules ─────────────────────────────────────────────────────────
   "\n\nWORKFLOW — Custom Verilog files (always follow this order):\n" +

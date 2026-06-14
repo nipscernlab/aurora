@@ -816,6 +816,15 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       enorme; (e) o inline de anexos novo. Ideias: system mais enxuto + só o **delta** por-turno; **resumir/truncar**
       tool-results volumosos; estender o **Anthropic prompt-cache** (já existe no `chat.js`) e equivalentes nos CLIs;
       medir tokens antes/depois. Meta: **menos tokens/turno** mantendo a qualidade. 🟡 (valor: custo + velocidade)
+  - **FEITO (refresh + parte do enxugamento):** reestudo completo do **YANC v5.2** (workflow de 4 scouts) →
+    SYSTEM_PROMPT atualizado (versão v5.0→**v5.2**, ISA **112→116 opcodes** + F_SCL/SF_SCL/XPO/XPO_M, stdlib
+    completa: cosh/sinh/tanh/floor/ceil/round/conj + nota de transcendentais-complexas) + **dedup** (RESERVED
+    standalone removido — já está no HARD CONSTRAINTS #6). `resources/sapho_rules.json` **regenerado** (sync
+    script; `STDLIB_FUNCTIONS` corrigido — as 7 funções novas estavam misclassificadas como tokens soltos; agora
+    116 opcodes + stdlib certo). **Identidade conferida correta** (ATLAS/AURORA-fem/NIPSCERN — não havia erro).
+    **Condensação de tokens (split do projectContext): avaliada e DEFERIDA** — o system grande **já é cacheado**
+    (Anthropic ephemeral no `chat.js` + auto-cache dos providers + `--resume` dos CLIs), então não é re-cobrado
+    por turno dentro da sessão; o split daria ganho só cross-sessão (marginal) e mexeria no laço recém-estabilizado.
   - **Investigar JUNTO (sintoma reportado):** a IA às vezes **demora demais / trava pra responder** e às vezes
     entra em **loop infinito na resposta**. Hipóteses a medir: (i) volume/forma do que é injetado por turno
     (prompt gigante, `tool-results` inteiros via `JSON.stringify`, re-fold do histórico nos CLIs) inflando o

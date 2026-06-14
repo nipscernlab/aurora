@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-06-07T21:33:15.829Z",
+  "generatedAt": "2026-06-14T21:30:22.747Z",
   "source": {
-    "yancPath": "C:/nipscern/yanc",
-    "yancCommit": "62b85c7a070e"
+    "yancPath": "C:/Users/chrys/Documents/GitHub/yanc",
+    "yancCommit": "37ca0392443b"
   },
   "language": {
     "keywords": [
@@ -34,11 +34,15 @@
     "stdlibFunctions": [
       "abs",
       "atan",
+      "ceil",
       "complex",
+      "conj",
       "copy",
       "cos",
+      "cosh",
       "exp",
       "fase",
+      "floor",
       "imag",
       "log",
       "mod2",
@@ -46,10 +50,13 @@
       "pow",
       "pset",
       "real",
+      "round",
       "sign",
       "sin",
+      "sinh",
       "sqrt",
-      "tan"
+      "tan",
+      "tanh"
     ],
     "operators": [
       {
@@ -94,34 +101,6 @@
       }
     ],
     "diracTokens": [
-      {
-        "symbol": "cosh",
-        "token": "COSH"
-      },
-      {
-        "symbol": "sinh",
-        "token": "SINH"
-      },
-      {
-        "symbol": "tanh",
-        "token": "TANH"
-      },
-      {
-        "symbol": "floor",
-        "token": "FLOOR"
-      },
-      {
-        "symbol": "ceil",
-        "token": "CEIL"
-      },
-      {
-        "symbol": "round",
-        "token": "ROUND"
-      },
-      {
-        "symbol": "conj",
-        "token": "CONJ"
-      },
       {
         "symbol": "⟩",
         "token": "BRA"

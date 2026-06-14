@@ -78,7 +78,8 @@ const IO_KEYWORDS           = new Set(['in', 'fin', 'out', 'fout']);
 const STDLIB_FUNCTIONS      = new Set([
   'norm', 'pset', 'abs', 'sign', 'copy',
   'sqrt', 'atan', 'sin', 'cos', 'tan', 'exp', 'log', 'pow',
-  'real', 'imag', 'fase', 'complex', 'mod2',
+  'cosh', 'sinh', 'tanh', 'floor', 'ceil', 'round',
+  'real', 'imag', 'fase', 'complex', 'mod2', 'conj',
 ]);
 const MACRO_DIRECTIVES      = new Set(['#PRACA']);
 // Single-character operators get caught by the {CARES} class in the

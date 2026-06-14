@@ -69,32 +69,60 @@ export const tabViewers = {
         const imageDisplay = imageViewer.querySelector('#image-display');
         const imageContent = imageViewer.querySelector('#image-content');
 
+        // Pan is applied via the transform itself (translate + scale), NOT via
+        // container scroll. `transform: scale()` doesn't grow the scroll box, so
+        // a scroll-based pan can never reach the edges of a zoomed image — and
+        // the flex-centering on the scroll container hides the top/left overflow
+        // on top of that. Translating the image directly sidesteps both.
         let currentZoom = 1;
+        let panX = 0;
+        let panY = 0;
         let isDragging = false;
         let startX = 0;
         let startY = 0;
-        let scrollLeft = 0;
-        let scrollTop = 0;
+        let startPanX = 0;
+        let startPanY = 0;
 
-        const updateZoom = (newZoom) => {
-            currentZoom = Math.max(0.1, Math.min(5, newZoom));
-            imageDisplay.style.transform = `scale(${currentZoom})`;
+        // The image sits centered at rest, so it can travel at most half its
+        // overflow in each axis before an edge meets the viewport. Clamp to that
+        // so every edge is reachable but the image can't be flung into the void.
+        const clampPan = () => {
+            const overflowX = imageDisplay.offsetWidth * currentZoom - imageContent.clientWidth;
+            const overflowY = imageDisplay.offsetHeight * currentZoom - imageContent.clientHeight;
+            const maxX = Math.max(0, overflowX / 2);
+            const maxY = Math.max(0, overflowY / 2);
+            panX = Math.max(-maxX, Math.min(maxX, panX));
+            panY = Math.max(-maxY, Math.min(maxY, panY));
+        };
+
+        // `animate` is for the discrete zoom buttons; drag/wheel pass false so
+        // the image tracks the cursor immediately (a transition would smear it).
+        const applyTransform = (animate) => {
+            clampPan();
+            imageDisplay.style.transition = animate ? 'transform 180ms ease' : 'none';
+            imageDisplay.style.transform = `translate(${panX}px, ${panY}px) scale(${currentZoom})`;
             zoomLevel.textContent = `${Math.round(currentZoom * 100)}%`;
+        };
+
+        const updateZoom = (newZoom, animate = true) => {
+            currentZoom = Math.max(0.1, Math.min(5, newZoom));
+            applyTransform(animate);
         };
 
         zoomInBtn.addEventListener('click', () => updateZoom(currentZoom * 1.2));
         zoomOutBtn.addEventListener('click', () => updateZoom(currentZoom / 1.2));
         zoomResetBtn.addEventListener('click', () => {
-            updateZoom(1);
-            imageContent.scrollLeft = 0;
-            imageContent.scrollTop = 0;
+            currentZoom = 1;
+            panX = 0;
+            panY = 0;
+            applyTransform(true);
         });
 
         imageContent.addEventListener('wheel', (e) => {
             if (e.ctrlKey) {
                 e.preventDefault();
                 const delta = e.deltaY > 0 ? 0.9 : 1.1;
-                updateZoom(currentZoom * delta);
+                updateZoom(currentZoom * delta, false);
             }
         });
 
@@ -102,48 +130,37 @@ export const tabViewers = {
             if (e.button === 0) {
                 isDragging = true;
                 imageContent.classList.add('dragging');
-                startX = e.pageX - imageContent.offsetLeft;
-                startY = e.pageY - imageContent.offsetTop;
-                scrollLeft = imageContent.scrollLeft;
-                scrollTop = imageContent.scrollTop;
+                startX = e.pageX;
+                startY = e.pageY;
+                startPanX = panX;
+                startPanY = panY;
                 e.preventDefault();
             }
         });
 
-        imageContent.addEventListener('mouseleave', () => {
+        const endDrag = () => {
             isDragging = false;
             imageContent.classList.remove('dragging');
-        });
-
-        imageContent.addEventListener('mouseup', () => {
-            isDragging = false;
-            imageContent.classList.remove('dragging');
-        });
+        };
+        imageContent.addEventListener('mouseleave', endDrag);
+        imageContent.addEventListener('mouseup', endDrag);
 
         imageContent.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
             e.preventDefault();
-            const x = e.pageX - imageContent.offsetLeft;
-            const y = e.pageY - imageContent.offsetTop;
-            const walkX = (x - startX) * 2;
-            const walkY = (y - startY) * 2;
-            imageContent.scrollLeft = scrollLeft - walkX;
-            imageContent.scrollTop = scrollTop - walkY;
+            panX = startPanX + (e.pageX - startX);
+            panY = startPanY + (e.pageY - startY);
+            applyTransform(false);
         });
 
-        // Touch support for mobile drag and pan
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let touchScrollLeft = 0;
-        let touchScrollTop = 0;
-
+        // Touch: one-finger drag to pan (same translate model as the mouse).
         imageContent.addEventListener('touchstart', (e) => {
             if (e.touches.length === 1) {
                 const touch = e.touches[0];
-                touchStartX = touch.pageX;
-                touchStartY = touch.pageY;
-                touchScrollLeft = imageContent.scrollLeft;
-                touchScrollTop = imageContent.scrollTop;
+                startX = touch.pageX;
+                startY = touch.pageY;
+                startPanX = panX;
+                startPanY = panY;
             }
         });
 
@@ -151,10 +168,9 @@ export const tabViewers = {
             if (e.touches.length === 1) {
                 e.preventDefault();
                 const touch = e.touches[0];
-                const walkX = touchStartX - touch.pageX;
-                const walkY = touchStartY - touch.pageY;
-                imageContent.scrollLeft = touchScrollLeft + walkX;
-                imageContent.scrollTop = touchScrollTop + walkY;
+                panX = startPanX + (touch.pageX - startX);
+                panY = startPanY + (touch.pageY - startY);
+                applyTransform(false);
             }
         });
 

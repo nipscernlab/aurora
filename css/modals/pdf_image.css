@@ -116,7 +116,10 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: auto;
+  /* hidden, not auto: panning is done by translating the image (see
+     tab_viewers.js), so a scrollbar here would be based on the unscaled
+     overflow and fight the transform. */
+  overflow: hidden;
   background: var(--bg-elev);
   position: relative;
   cursor: grab;
@@ -139,7 +142,9 @@
   max-width: none;
   max-height: none;
   object-fit: contain;
-  transition: transform var(--transition-normal);
+  /* transition is set inline per-interaction in JS (animated for the zoom
+     buttons, none for drag/wheel) so panning doesn't smear. */
+  transform-origin: center center;
   user-select: none;
   pointer-events: none;
 }

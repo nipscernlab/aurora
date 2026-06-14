@@ -694,8 +694,14 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       interpola 400..700 reais. 10 woff2 duplicados removidos (~600 KB); `fetch-fonts.js` corrigido (pede a
       faixa `wght@400..700`). **Validar bold/medium ao vivo.**
 - [ ] **e2e flaky** `split-pane > PRISM open-at-line` — timing do ambiente (corrida de 600ms).
-- [ ] **Viewer de imagem (Monaco) — pan quebrado no zoom.** Abrir uma imagem da file tree no editor e dar
-      zoom **não** permite navegar com pan pra ver todos os cantos (não dá pra chegar nas bordas da imagem). 🟡
+- [x] **Viewer de imagem — pan quebrado no zoom — CORRIGIDO.** Causa: o zoom usava `transform: scale()` mas o
+      pan era via `scrollLeft/scrollTop` — e `scale()` **não** cria overflow rolável, então o scroll só alcançava
+      o tamanho *natural* da imagem (mais o flex-centering do container, que esconde o overflow do topo/esquerda).
+      Bônus: a `transition: transform` na img borrava o arrasto. **Fix** (`js/tabs/tab_viewers.js` +
+      `css/modals/pdf_image.css`): panear pela própria transform (`translate(panX,panY) scale(zoom)`), com clamp
+      ±(tamanho-ampliado − viewport)/2 (toda borda alcançável, sem jogar a imagem pro vazio); `overflow: hidden`;
+      transição inline só nos botões de zoom (drag/wheel imediatos). *(Verificação visual pelo usuário: abrir
+      imagem → zoom → arrastar até os 4 cantos.)* ✅
 - [x] **Fechar a IDE estava LENTO — CORRIGIDO.** Causa raiz (regressão da mudança "fechar todas as janelas
       quando a principal fecha"): o `mainWindow.on('close')` passou a chamar `stopAllToolchain()` em **todo**
       fechamento, e a rotina rodava **incondicionalmente** — mesmo numa sessão que só editou arquivos — duas
@@ -810,7 +816,13 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       enorme; (e) o inline de anexos novo. Ideias: system mais enxuto + só o **delta** por-turno; **resumir/truncar**
       tool-results volumosos; estender o **Anthropic prompt-cache** (já existe no `chat.js`) e equivalentes nos CLIs;
       medir tokens antes/depois. Meta: **menos tokens/turno** mantendo a qualidade. 🟡 (valor: custo + velocidade)
-- [ ] **Welcome: hover num projeto recente → preview da lista completa de processadores do projeto.** Passar o
+  - **Investigar JUNTO (sintoma reportado):** a IA às vezes **demora demais / trava pra responder** e às vezes
+    entra em **loop infinito na resposta**. Hipóteses a medir: (i) volume/forma do que é injetado por turno
+    (prompt gigante, `tool-results` inteiros via `JSON.stringify`, re-fold do histórico nos CLIs) inflando o
+    tempo até o 1º token; (ii) **bug no laço de streaming/auto-continue** — o `_autoQueue`/`_drainAutoQueue` ou um
+    ciclo de tool-calls que **re-dispara o turno sem condição de parada** (o watchdog de `STREAM_STALL_MS` 180s só
+    mascara). Instrumentar onde o tempo vai (montar prompt vs. 1ª resposta vs. loop de tools) e checar se algum
+    caminho reentra sem guard. Pode ser causa-raiz separada da otimização de tokens, mas anda junto. 🟡🔴 → preview da lista completa de processadores do projeto.** Passar o
       mouse por cima de um card de "projeto recente" na tela de welcome mostra (tooltip/popover) **todos os
       processadores** definidos naquele projeto, sem precisar abri-lo. Fonte: ler o `.spf`/estrutura do projeto
       (a lista de processadores já é conhecida pelo project store / parsing do projeto). Bom pra escolher o

@@ -218,11 +218,19 @@ class StandardTreeRenderer {
     /**
      * Render one directory level's entries into `container`. Recurses
      * (awaiting child reads) only for folders the user has expanded.
+     *
+     * Rows are built into an off-DOM DocumentFragment and attached in ONE
+     * appendChild, so the whole level (and any expanded subtree, which fills
+     * the off-DOM child boxes first) costs a single reflow instead of one per
+     * row — that's the freeze on expanding a big folder / refreshing a deep
+     * tree (P9). `container` is the live container only at the top of the call
+     * chain; nested levels append into still-detached child boxes.
      */
     async _renderLevel(entries, container, level) {
+        const frag = document.createDocumentFragment();
         for (const entry of entries) {
             const wrapper = this._buildRow(entry, level);
-            container.appendChild(wrapper);
+            frag.appendChild(wrapper);
 
             if (entry.isDirectory && this.isExpanded(entry.path)) {
                 const childBox = wrapper.querySelector(':scope > .folder-content');
@@ -232,6 +240,7 @@ class StandardTreeRenderer {
                 }
             }
         }
+        container.appendChild(frag);
     }
 
     _buildRow(entry, level) {

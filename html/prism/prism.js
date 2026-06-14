@@ -85,6 +85,7 @@ class PRISMViewer {
     this.lastMouseX = 0;
     this.lastMouseY = 0;
     this.navigationHistory = [];
+    this.forwardHistory = [];
     this.currentModule = null;
     this.tempDir = null;
     this._lastTouchPoint = null;
@@ -164,6 +165,17 @@ class PRISMViewer {
     // Document-level: clear wire highlights on click outside SVG
     document.addEventListener('click', this._onDocumentClick.bind(this));
 
+    // Mouse side buttons walk the module click history like a browser:
+    // X1 (button 3) = back, X2 (button 4) = forward. preventDefault on mousedown
+    // suppresses Chromium's own page back/forward for these buttons.
+    window.addEventListener('mousedown', (e) => {
+      if (e.button === 3 || e.button === 4) e.preventDefault();
+    });
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 3) { e.preventDefault(); this.navigateBack(); }
+      else if (e.button === 4) { e.preventDefault(); this.navigateForward(); }
+    });
+
     // Keyboard shortcuts
     document.addEventListener('keydown', this._onKeyDown.bind(this));
 
@@ -197,6 +209,7 @@ class PRISMViewer {
     this.currentModule = data.topLevelModule;
     this.tempDir = data.tempDir;
     this.navigationHistory = [{ module: data.topLevelModule, svgPath: data.svgPath }];
+    this.forwardHistory = [];
     this._loadSVG(data.svgPath, data.topLevelModule);
   }
 
@@ -292,6 +305,7 @@ class PRISMViewer {
       const result = await window.electronAPI.generateSVGFromModule(moduleName, this.tempDir);
       if (result.success) {
         this.navigationHistory.push({ module: moduleName, svgPath: result.svgPath });
+        this.forwardHistory = []; // a new drill-in invalidates the forward stack
         await this._loadSVG(result.svgPath, moduleName);
         this.backBtn.disabled = false;
       } else {
@@ -306,14 +320,24 @@ class PRISMViewer {
 
   navigateBack() {
     if (this.navigationHistory.length <= 1) return;
-    this.navigationHistory.pop();
+    this.forwardHistory.push(this.navigationHistory.pop());
     const prev = this.navigationHistory[this.navigationHistory.length - 1];
     this._loadSVG(prev.svgPath, prev.module);
     this.backBtn.disabled = this.navigationHistory.length <= 1;
   }
 
+  // Re-enter a module the user backed out of (mouse forward / X2 button).
+  navigateForward() {
+    if (this.forwardHistory.length === 0) return;
+    const next = this.forwardHistory.pop();
+    this.navigationHistory.push(next);
+    this._loadSVG(next.svgPath, next.module);
+    this.backBtn.disabled = this.navigationHistory.length <= 1;
+  }
+
   async recompile() {
     this.navigationHistory = [];
+    this.forwardHistory = [];
     this.backBtn.disabled = true;
     this._showStatus('Recompiling RTL design…', false);
     try {
@@ -691,6 +715,7 @@ class PRISMViewer {
       if (i < this.navigationHistory.length - 1) {
         bc.addEventListener('click', () => {
           this.navigationHistory = this.navigationHistory.slice(0, i + 1);
+          this.forwardHistory = []; // a breadcrumb jump redefines the path
           this._loadSVG(item.svgPath, item.module);
           this.backBtn.disabled = this.navigationHistory.length <= 1;
         });

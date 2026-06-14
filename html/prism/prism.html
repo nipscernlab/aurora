@@ -117,7 +117,9 @@
   <!-- Shared tooltip -->
   <div class="prism-tooltip" id="tooltip"></div>
 
-  <!-- PRISM logic -->
-  <script src="prism.js"></script>
+  <!-- PRISM logic. ES module so Vite bundles it; it has no imports/exports and
+       is module-safe (no top-level `this`, only explicit window.* globals), and
+       Electron loads module scripts over file:// for the raw/built fallbacks. -->
+  <script type="module" src="./prism.js"></script>
 </body>
 </html>

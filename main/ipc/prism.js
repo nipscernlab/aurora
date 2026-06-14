@@ -20,6 +20,7 @@ const state = require('../state');
 const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
 const { trackChild } = require('../process_registry');
+const { loadPage } = require('../render_loader');
 
 // ---------- helpers ----------
 
@@ -138,17 +139,12 @@ async function createPrismWindow(compilationData = null) {
   prismWindow.on('leave-full-screen', sendPrismWindowState);
   prismWindow.webContents.on('did-finish-load', sendPrismWindowState);
 
-  const prismHtmlPath = path.join(app.getAppPath(), 'html', 'prism', 'prism.html');
-  if (!require('fs').existsSync(prismHtmlPath)) {
-    if (state.prismWindow) {
-      state.prismWindow.destroy();
-      state.prismWindow = null;
-    }
-    throw new Error(`PRISM HTML file not found: ${prismHtmlPath}`);
-  }
-
   try {
-    await prismWindow.loadFile(prismHtmlPath);
+    // loadPage resolves dev-server → built dist → raw source. The catch below
+    // plus the did-fail-load handler surface (and clean up) any real failure —
+    // no manual pre-check, which could only validate the raw artifact and would
+    // false-negative once dist is the canonical source.
+    await loadPage(prismWindow, 'html/prism/prism.html');
 
     prismWindow.maximize();
     prismWindow.show();
@@ -171,7 +167,7 @@ async function createPrismWindow(compilationData = null) {
       type: 'error',
       title: 'PRISM Load Error',
       message: 'Failed to load PRISM viewer',
-      detail: `Error: ${error instanceof Error ? error.message : String(error)}\nPath: ${prismHtmlPath}`,
+      detail: `Error: ${error instanceof Error ? error.message : String(error)}\nPage: html/prism/prism.html`,
     });
     if (state.prismWindow) {
       state.prismWindow.destroy();

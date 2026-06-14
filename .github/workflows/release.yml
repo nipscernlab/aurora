@@ -45,6 +45,19 @@ jobs:
         # and copies components into place. Pulls from public Releases (no token).
         run: npm run bootstrap
 
+      - name: Build main/preload (tsc)
+        # electron-builder runs directly below (not via `npm run build`), so the
+        # `prebuild` hook (bootstrap && build:ts && build:renderer) does NOT fire.
+        # Compile the in-place .ts -> .js so a release cut from a commit whose .js
+        # is out of sync with its .ts still ships fresh main/preload logic.
+        run: npm run build:ts
+
+      - name: Build renderer (Vite)
+        # Bundles the renderer into dist/. Same reason as above — without this the
+        # package would ship a stale/absent dist and fall back to the raw
+        # index.html inside the asar.
+        run: npm run build:renderer
+
       - name: Build & publish
         run: npx electron-builder --win --x64 --publish always
         env:

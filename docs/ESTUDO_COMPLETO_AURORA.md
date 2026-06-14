@@ -474,20 +474,36 @@ unificado** (abertura realocada pro `modal_system.js`); **foco no editor → aba
 splits); ícone de onda (senoide) no Wave Config.
 **IA/robustez:** busca recursiva de arquivo pela IA; compile da IA chega ao terminal (singleton real +
 processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao receber pasta).
-**Fundação (A1 — Vite, renderer-only, flag-gated):** Stages 0–2 no seguro. `vite.config.mjs` (`base:'./'`
-p/ carga `file://` do pacote; `vite-plugin-static-copy` vendoriza Monaco/KaTeX/Phosphor em `dist/vendor/*`
-via `rename.stripBase`, sem comitar 70 MB); `scripts/dev.js` (`npm run dev`: Vite na 5273 + Electron por
-`AURORA_RENDERER_URL`, com HMR); helper `loadRenderer()` no `windows.js` (dev-server → `dist/index.html` →
-fallback raw `index.html`); scripts `build:renderer`/`predev`/`prebuild` e `dist/**` empacotado. Monaco fica
-no loader AMD (só o path → `vendor/vs`); `tsc` in-place mantido (testes consomem os `.js`). **`npm start`
-raw-ESM intacto.** 208 testes + lint + `vite build` self-contained verdes; **boot do Electron a verificar
-pelo usuário**. Plano completo em `~/.claude/plans/ancient-snacking-wand.md`.
+**Fundação (A1 — Vite, renderer-only, flag-gated): Stages 0–4 ✅.**
+- **Stage 0–2** (main window): `vite.config.mjs` (`base:'./'` p/ `file://`; `vite-plugin-static-copy` vendoriza
+  Monaco/KaTeX/Phosphor em `dist/vendor/*` via `rename.stripBase`, sem comitar 70 MB); `scripts/dev.js`
+  (`npm run dev`: Vite 5273 + Electron por `AURORA_RENDERER_URL`, HMR); `dist/**` empacotado. Monaco no loader
+  AMD (path → `vendor/vs`); `tsc` in-place mantido. Source `index.html` mantém refs `node_modules/` (raw-safe
+  na raiz); plugin `transformIndexHtml` reescreve → `vendor/` só no servido/buildado.
+- **Stage 3** (flip): `prestart` e `pretest:e2e` rodam `build:renderer` → `npm start` e o e2e testam o renderer
+  **bundled** (não o `dist` velho do disco); `ci.yml`/`release.yml` ganham passo `build:renderer` explícito
+  (electron-builder é chamado direto, então o `prebuild` não dispara); `release.yml` também roda `build:ts`.
+  Raw-ESM segue como fallback. e2e contra o bundle: **7/8** (a 1 falha "PRISM open-at-line" é **pré-existente**
+  — falha idêntica no raw, alheia ao bundling).
+- **Stage 4** (janelas secundárias): splash/update/prism viram inputs multi-page; `main/render_loader.js`
+  (`loadPage`) centraliza dev→dist→raw nos 4 pontos; `prism.js` → `type=module` (bundla; é import-free,
+  module-safe); Phosphor do prism reescrito pelo transform.
+- **Fixes achados na validação:** (a) recursos buscados em **runtime** por path relativo (`./locales/*.json`,
+  `./resources/sapho_rules.json`, `./assets/icons/*`) agora copiados p/ `dist/` (senão o app empacotado
+  perdia traduções/ícones — não pegava no `dev`); (b) `cssMinify:false` (o minificador do esbuild fundia
+  `@font-face` de woff2 byte-idênticos — paridade com o raw); (c) `knip.config.js` corrigido (pré-existente:
+  `ignoreDependencies` listava o `@fortawesome` removido e faltavam `@phosphor`/`katex`).
+- **Verde:** 208 unit + e2e (7/8) + ESLint + knip + `vite build` self-contained + dev-server (curl 200 nas 4
+  páginas/vendors/recursos). Revisão adversarial multi-agente (packaging/asar, load-logic, config, CI) limpa.
+  **Boot/visual do Electron a verificar pelo usuário.** Plano em `~/.claude/plans/ancient-snacking-wand.md`.
+- ⚠️ **Achado pré-existente (fora do Vite):** as woff2 commitadas estão **duplicadas** — todos os pesos de cada
+  família são o mesmo arquivo (4 conteúdos p/ 14 faces). A IDE **não tem bold/medium reais**; provável bug no
+  `scripts/fetch-fonts.js`. Corrigir à parte.
 
 ### ⬜ Falta
-**Fundação (Vite — Stages restantes):**
-- [ ] **Stage 3:** flipar o default — renderer buildado vira o caminho primário; raw-ESM atrás de flag 1 release.
-- [ ] **Stage 4:** splash/update/prism como inputs extras do Rollup + repontar Phosphor do prism + `loadFile`→`dist/`.
-- [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts`.
+**Fundação (Vite — só o Stage 5 restante):**
+- [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
+      de teste; tratar como esforço próprio).
 
 **Visual (só os 🔴 grandes — agora destravados pela fundação Vite):**
 - [ ] 🔴 **Shell em Lit + painéis dockáveis** + redesenho de welcome/empty-states (4 skins → 1) +

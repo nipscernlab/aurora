@@ -45,6 +45,13 @@ jobs:
       - name: E2E tests (Electron smoke)
         run: npm run test:e2e
 
+      - name: Build renderer (Vite)
+        # electron-builder is invoked directly below (not via `npm run build`), so
+        # the `prebuild` hook does NOT fire. Build the renderer explicitly so the
+        # packaged smoke build validates the real Vite output (dist/) instead of a
+        # stale/absent dist silently falling back to the raw index.html in the asar.
+        run: npm run build:renderer
+
       - name: Build (no publish)
         run: npx electron-builder --win --x64 --publish never
         env:

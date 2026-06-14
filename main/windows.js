@@ -14,31 +14,7 @@ const state = require('./state');
 const { componentsPath } = require('./paths');
 const recents = require('./recents');
 const { stopAllToolchain } = require('./process_registry');
-
-/**
- * Load the main renderer into a window, choosing the source by environment:
- *
- *   • Dev (Vite): when AURORA_RENDERER_URL is set AND the app is not packaged,
- *     load it over http from the Vite dev server (HMR). `npm run dev` sets it.
- *   • Prod / built: load dist/index.html (the Vite build output) via file://.
- *   • Raw fallback: if no built dist exists yet, fall back to the original
- *     raw-ESM index.html at the repo root, so `npm start` keeps working before
- *     the renderer has ever been built. Keeps the migration reversible.
- *
- * loadFile/loadURL here do NOT trigger 'will-navigate', so the navigation
- * lockdown installed below does not block the dev URL.
- */
-function loadRenderer(win) {
-  const devUrl = process.env.AURORA_RENDERER_URL;
-  if (devUrl && !app.isPackaged) {
-    return win.loadURL(devUrl);
-  }
-  const distIndex = path.join(app.getAppPath(), 'dist', 'index.html');
-  if (require('fs').existsSync(distIndex)) {
-    return win.loadFile(distIndex);
-  }
-  return win.loadFile('index.html');
-}
+const { loadPage } = require('./render_loader');
 
 /**
  * (Re)build the Windows taskbar jumplist for SAPHO.
@@ -178,7 +154,7 @@ function createMainWindow(opts = {}) {
 
   state.mainWindow = mainWindow;
 
-  loadRenderer(mainWindow);
+  loadPage(mainWindow, 'index.html');
 
   // Navigation lockdown. Aurora is a single-page file:// shell: the top frame
   // is only ever index.html, and links that should open externally go through
@@ -383,7 +359,7 @@ function createSplashScreen() {
     reveal();
   }, 15000);
 
-  splashWindow.loadFile(path.join(app.getAppPath(), 'html', 'splash.html'));
+  loadPage(splashWindow, 'html/splash.html');
   return splashWindow;
 }
 
@@ -419,7 +395,7 @@ function createUpdateWindow() {
   });
   state.updateWindow = updateWindow;
 
-  updateWindow.loadFile(path.join(app.getAppPath(), 'html', 'update-notification.html'));
+  loadPage(updateWindow, 'html/update-notification.html');
 
   updateWindow.once('ready-to-show', () => {
     updateWindow.show();

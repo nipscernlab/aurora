@@ -30,11 +30,15 @@ export default defineConfig([
     // yosys, yanc…) — bundled third-party artifacts, some named *.js but not
     // JavaScript (e.g. terminfo files), so linting the whole repo choked on
     // them. components/Scripts is our own code and is linted via the block
-    // below. node_modules/dist are ignored by eslint's defaults.
+    // below. `dist/`/`release/` are build output (the Vite bundle and the
+    // electron-builder package) — generated, minified, not ours to lint; eslint
+    // only ignores node_modules/.git by default, so list them explicitly.
     ignores: [
       "components/**/*",
       "!components/Scripts/",
       "!components/Scripts/**",
+      "dist/**",
+      "release/**",
     ],
   },
   {

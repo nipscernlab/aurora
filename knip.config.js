@@ -50,6 +50,7 @@ module.exports = {
     '@ai-sdk/groq',
     '@ai-sdk/openai',
     '@openai/codex',                 // bundled CLI, spawned as a subprocess
-    '@fortawesome/fontawesome-free', // <link> straight to node_modules in index.html
+    '@phosphor-icons/web',           // <link> straight to node_modules in index.html (icons)
+    'katex',                         // <link> + <script> straight to node_modules (AI-chat math)
   ],
 };

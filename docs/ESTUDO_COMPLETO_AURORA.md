@@ -677,3 +677,11 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] CODEOWNERS (roteamento de review p/ Arthur).
 - [ ] Limpar releases órfãs (5 drafts 2025 + prereleases de toolchain).
 - [ ] CITATION.cff + roadmap público (contexto acadêmico NIPSCERN/UFJF).
+- [ ] **Disclosure de software de terceiros (user-facing) — profissionalização.** Tela in-app (About /
+      Settings) que informa ao usuário **TODO** o software de terceiros empacotado no bundle SAPHO, com
+      licenças: toolchain (iverilog · yosys + yosys-abc · verilator · gtkwave-nipscern · python+cocotb ·
+      msys2 · @silimate/netlistsvg · surfer/FFPGA quando entrar) · CLIs de IA (@anthropic-ai/claude-code ·
+      @openai/codex) · libs de runtime (Monaco 0.52.2 · KaTeX · Phosphor · Lit · fontes Inter + JetBrains
+      Mono). Gerar de forma automatizável (a partir de package.json + manifesto do toolchain) e exibir
+      offline. Pareia com o `THIRD_PARTY_NOTICES.md` acima (este é o canal **para o usuário**, aquele é o
+      do repo).

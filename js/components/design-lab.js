@@ -11,6 +11,7 @@ import './aurora-toast.js';
 import './aurora-tooltip.js';
 import './aurora-command-palette.js';
 import './aurora-welcome.js';
+import './aurora-modal.js';
 
 // The command palette is a full-screen overlay — show it on a button press
 // (the live app opens it with Ctrl+Shift+K via command_palette.js, which isn't
@@ -43,4 +44,12 @@ if (welcome) {
   welcome.addEventListener('project-remove', (e) => {
     welcome.projects = welcome.projects.filter((p) => p.path !== e.detail);
   });
+}
+
+// Modal — a button opens a sample; it self-manages dismissal (backdrop + ✕)
+// by emitting aurora-modal-close. Title/body/footer are slotted light DOM.
+const modal = document.querySelector('aurora-modal');
+if (modal) {
+  modal.addEventListener('aurora-modal-close', () => { modal.open = false; });
+  document.getElementById('lab-open-modal')?.addEventListener('click', () => { modal.open = true; });
 }

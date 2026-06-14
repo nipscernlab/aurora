@@ -154,6 +154,26 @@
     <div class="specimen welcome-stage"><aurora-welcome></aurora-welcome></div>
   </section>
 
+  <section>
+    <h2>&lt;aurora-modal&gt;</h2>
+    <span class="specimen-label">shared modal chrome — title / body / footer are slotted (light DOM, so forms keep their ids)</span>
+    <div class="specimen"><button class="lab-btn" id="lab-open-modal">Open a modal</button></div>
+    <aurora-modal size="medium">
+      <span slot="title"><i class="ph ph-folder-plus"></i><span>Create New Project</span></span>
+      <div style="padding: var(--space-5, 20px);">
+        <p style="margin: 0 0 var(--space-4, 16px); color: var(--text-muted); font-size: var(--text-sm, 13px);">
+          Body content slots in here — it stays in the light DOM, so every form field id, handler and
+          <code>data-i18n</code> keeps working untouched.
+        </p>
+        <input placeholder="Project name" style="width: 100%; box-sizing: border-box; padding: var(--space-2, 8px) var(--space-3, 12px); background: var(--surface-sunken); color: var(--text-default); border: 1px solid var(--border-hairline); border-radius: var(--radius-md, 6px); font-family: var(--font-sans); outline: none;">
+      </div>
+      <div slot="footer" style="display: flex; justify-content: flex-end; gap: var(--space-2, 8px); padding: var(--space-3, 12px) var(--space-4, 16px); border-top: 1px solid var(--border-hairline);">
+        <button class="lab-btn">Cancel</button>
+        <button class="lab-btn" style="border-color: var(--accent); color: var(--accent-hover);">Generate</button>
+      </div>
+    </aurora-modal>
+  </section>
+
   <script type="module" src="../js/components/design-lab.js"></script>
 </body>
 </html>

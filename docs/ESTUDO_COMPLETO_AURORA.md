@@ -595,13 +595,21 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       botões New/Open **delegam** à toolbar. CSS morto em `recent_projects.css` (chrome do welcome) a podar depois.
 - [ ] **Empty-states "4 skins → 1"** — falta unificar os OUTROS estados vazios (tree/AI/wave) num só.
       Subjetivo (redesenho) → fazer com prints do usuário. 🟡
-- [ ] `<aurora-titlebar>` — controles de janela + zonas da toolbar. 🟡
-- [ ] `<aurora-activity-bar>` — botões de compilação / PRISM / waves (centro da toolbar). 🟡
+- [~] `<aurora-titlebar>` — **ADIADO (mau alvo p/ Shadow DOM).** O sistema de tooltip e o i18n usam
+      `document.querySelectorAll` + listeners por elemento ([tooltip.js:116/211]) → não entram no shadow;
+      e os botões são referenciados por ID pelo compile-flow/command-palette/modal_system/delegação do welcome.
+      Migrar quebra tudo isso por payoff ~zero (não tem os 30 `!important`). Retomar só com reescrita transversal
+      (ensinar tooltip+i18n a varrer shadow roots) — fora do caminho ativo. 🟡
+- [~] `<aurora-activity-bar>` — **ADIADO (mesmo motivo, pior):** os botões de compilação são habilitados/
+      desabilitados e clicados por ID pelo fluxo de compilação. Idem titlebar. 🟡
 - [ ] `<aurora-tree>` (file-tree) — **preservar as 3 subárvores + reconciliação key-based** + `zoom`/views. 🔴
 - [ ] `<aurora-tabs>` — `tab_manager.js`. 🟡
 - [ ] `<aurora-editor>` — host do Monaco; **dropa os 30 `!important`** via Shadow DOM. 🔴 maior ganho.
 - [ ] `<aurora-terminal>` — `terminal_module.js` (otimizado no lugar; não xterm). 🟡
-- [ ] `<aurora-modal>` + extrair os 4 modais inline do `index.html` (wave config, new project, processor hub, settings). 🟡
+- [~] `<aurora-modal>` + extrair os 4 modais inline (wave config, new project, processor hub, settings). **EM CURSO:**
+      base `<aurora-modal>` feita (chrome em Shadow DOM + tokens; título/corpo/footer SLOTADOS em light-DOM →
+      forms/IDs/i18n preservados; auto-gere backdrop+✕ via `aurora-modal-close`; `pointer-events:none` fechado).
+      Na Design Lab. Falta: religar o `modal_system.js` p/ dirigir `.open` + converter os 4 modais. 🟡
 - [ ] `<aurora-statusbar>` **ao vivo** — religar os 7+ drivers (deixado pro fim por ser o mais acoplado). 🔴
 - [ ] `<aurora-panel>` **dockável** + layout dockável estilo Fleet/Zed + densidade/hierarquia revisadas. 🔴
 

@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="../css/base/fonts.css">
   <link rel="stylesheet" href="../css/base/theme_variables.css">
   <link rel="stylesheet" href="../css/base/semantic_tokens.css">
+  <!-- Phosphor (for component icon glyphs). Vite rewrites node_modules/ -> vendor/. -->
+  <link rel="stylesheet" href="../node_modules/@phosphor-icons/web/src/regular/style.css">
   <style>
     /* Lab chrome — dev tooling, but styled with the same semantic tokens. */
     *, *::before, *::after { box-sizing: border-box; }
@@ -57,6 +59,7 @@
       overflow: hidden;
     }
     .stage > aurora-statusbar { width: 100%; }
+    .toast-grid { display: flex; flex-direction: column; gap: var(--space-2, 8px); max-width: 360px; }
   </style>
 </head>
 <body>
@@ -101,6 +104,17 @@
           statuskind="error" statustext="Compilation failed"
           processor="sqrt_newton"></aurora-statusbar>
       </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>&lt;aurora-toast&gt;</h2>
+    <span class="specimen-label">sticky here (duration=0) · in the app they auto-dismiss with a progress bar and pause on hover</span>
+    <div class="toast-grid">
+      <aurora-toast type="success" heading="Success" message="Compilation finished in 1.2s." duration="0"></aurora-toast>
+      <aurora-toast type="error" heading="Error" message="Synthesis failed — see the terminal." duration="0"></aurora-toast>
+      <aurora-toast type="warning" heading="Warning" message="No testbench set for this design." duration="0"></aurora-toast>
+      <aurora-toast type="info" heading="Information" message='Opened <a href="#">my_top.v</a>.' duration="0"></aurora-toast>
     </div>
   </section>
 

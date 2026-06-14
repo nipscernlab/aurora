@@ -523,6 +523,18 @@ design-lab** — o `index.html` não importa nada de Lit, então o fallback raw 
 migração ao vivo, que retira o raw, é a Fase C). 208 unit + ESLint + knip + `vite build` + dev-server (200)
 verdes; aditivo, **zero mudança no app ao vivo**.
 
+**1ª migração ao vivo — `<aurora-toast>` (Fase C) ✅.** O sistema de notificações virou Lit:
+`js/components/aurora-toast.js` (Shadow DOM + tokens semânticos; **self-managing** — entrada/saída, progress
+bar de auto-dismiss, pause no hover, auto-remoção; glifo Phosphor por tipo via `--toast-glyph`). `notification.js`
+agora só cria o `<aurora-toast>` e seta props — **API pública intacta** (`showCardNotification`/`notify`/
+`window.showNotification`). **Escolha do alvo:** o status bar (plano original) acabou sendo o **pior** primeiro
+alvo (7+ drivers: `project_manager`/`close_project` no #ready, `status_updater`/`compilation_*` no centro,
+`monaco_editor`+`zoom.js` no #editorStatus — o zoom insere irmão), então pivotei pro toast (driver único). Isto
+**introduz Lit no `index.html`** (via `notification.js`): o Rollup hoista Lit num chunk compartilhado que o index
+carrega; o **fallback raw do index agora degrada** (import bare de `lit` não resolve sem bundler) — consequência
+documentada da Fase C (raw das janelas secundárias segue OK). **Smoke e2e: 3/3** confirma que o index bundled com
+Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
+
 ### ⬜ Falta
 **Fundação (Vite — só o Stage 5 restante):**
 - [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
@@ -533,11 +545,14 @@ verdes; aditivo, **zero mudança no app ao vivo**.
       por-componente** (codemod base→semantic, junto da migração Lit).
 - [x] **Fundação Lit + Design Lab (Fase B)** — feita (ver acima): Lit 3, `<aurora-statusbar>` (molde),
       Design Lab + launcher. Aditivo, app ao vivo intacto.
-- [ ] 🔴 **Shell em Lit (Fase C+)** + painéis dockáveis + redesenho de welcome/empty-states (4 skins → 1) +
-      densidade/hierarquia (Zed/Linear/Fleet). Migração progressiva na ordem de isolação: ligar o
-      `<aurora-statusbar>` ao vivo (`status_bar.js`) → titlebar → activity-bar → file-tree (preservar as 3
-      subárvores) → tabs → `<aurora-editor>` (dropa os 30 `!important` via Shadow DOM) → terminal → modais.
-      Cada peça: codemod base→semantic + entrada na Design Lab.
+- [x] **1ª migração ao vivo — `<aurora-toast>` (Fase C)** — feita (ver acima): driver único, API intacta.
+- [ ] 🔴 **Shell em Lit (Fase C+ continua)** + painéis dockáveis + redesenho de welcome/empty-states +
+      densidade/hierarquia (Zed/Linear/Fleet). Próximos alvos por isolação/verificabilidade: tooltip ·
+      command palette (dono único) · welcome/empty-states · titlebar → activity-bar → file-tree (preservar as
+      3 subárvores) → tabs → `<aurora-editor>` (dropa os 30 `!important` via Shadow DOM) → terminal → modais.
+      **Status bar fica pro fim** (7+ drivers + `zoom.js` insere irmão — mau alvo). Cada peça: codemod
+      base→semantic + entrada na Design Lab. **Dívida:** limpar o CSS morto de `.notification-card` em
+      `notification.css`; decidir se o fallback raw do index é removido (degradado pós-Fase C).
 - [ ] **Consolidar `ai_assistant.css`** (2.150 linhas; a paleta de syntax já saiu pros tokens, o resto
       do arquivo permanece). Baixa prioridade.
 - [ ] ~~Tema light / aurora-contrast~~ — **descartado** (tema único).

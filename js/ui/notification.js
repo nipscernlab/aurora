@@ -2,8 +2,15 @@
  * @file Toast notification system — bottom-right card stack.
  *       This is one of TWO canonical UI surfaces (the other is showDialog).
  *       All other ad-hoc inline-notifications, alert(), confirm() are forbidden.
+ *
+ *       Each card is an <aurora-toast> Lit component (Shadow DOM + semantic
+ *       tokens). This module owns the stack — the container and the cull — plus
+ *       the public API; the component owns a card's own lifecycle (entry/exit,
+ *       the auto-dismiss progress bar, hover-pause, and self-removal).
  * @module notification
  */
+
+import '../components/aurora-toast.js';
 
 let notificationContainer = null;
 const MAX_VISIBLE = 4;
@@ -20,9 +27,7 @@ function trimStack() {
     const cards = Array.from(notificationContainer.children);
     // Oldest = first child (because container is column-reverse). Cull beyond MAX.
     cards.slice(0, Math.max(0, cards.length - MAX_VISIBLE)).forEach(card => {
-        if (!card.dismissing) {
-            card.dismiss?.();
-        }
+        if (!card.dismissing) card.dismiss?.();
     });
 }
 
@@ -42,83 +47,16 @@ const TYPE_TITLES = {
  */
 export function showCardNotification(message, type = 'info', duration = 5000, title) {
     createContainer();
-
     const validType = TYPE_TITLES[type] ? type : 'info';
-    const titleText = title || TYPE_TITLES[validType];
 
-    const card = document.createElement('div');
-    card.className = `notification-card ${validType} enter-start`;
-    card.innerHTML = `
-        <div class="notification-sidebar"></div>
-        <div class="notification-content">
-            <div class="notification-text">
-                <div class="notification-title"></div>
-                <div class="notification-message"></div>
-            </div>
-        </div>
-        <button class="notification-close" aria-label="Dismiss"><i class="ph ph-x"></i></button>
-        <div class="notification-progress"></div>
-    `;
-
-    card.querySelector('.notification-title').textContent = titleText;
-    card.querySelector('.notification-message').innerHTML = message;
+    const card = document.createElement('aurora-toast');
+    card.type = validType;
+    card.heading = title || TYPE_TITLES[validType];
+    card.message = message;
+    card.duration = duration;
 
     notificationContainer.appendChild(card);
     trimStack();
-
-    // Trigger entry animation
-    requestAnimationFrame(() => card.classList.remove('enter-start'));
-
-    // Progress bar + auto-dismiss
-    const progressBar = card.querySelector('.notification-progress');
-    let timerId = null;
-    let startTime = Date.now();
-    let remainingTime = duration;
-    const isSticky = duration <= 0;
-
-    const dismiss = () => {
-        if (card.dismissing) return;
-        card.dismissing = true;
-        clearTimeout(timerId);
-        card.classList.add('exit');
-        card.addEventListener('transitionend', () => card.remove(), { once: true });
-        // Hard-fallback in case transitionend doesn't fire
-        setTimeout(() => card.remove(), 400);
-    };
-    card.dismiss = dismiss;
-
-    const resume = () => {
-        if (isSticky) {
-            progressBar.style.display = 'none';
-            return;
-        }
-        startTime = Date.now();
-        clearTimeout(timerId);
-        timerId = setTimeout(dismiss, remainingTime);
-        progressBar.style.transition = `width ${remainingTime}ms linear`;
-        progressBar.style.width = '0%';
-    };
-
-    const pause = () => {
-        if (isSticky) return;
-        clearTimeout(timerId);
-        remainingTime -= Date.now() - startTime;
-        const computedWidth = getComputedStyle(progressBar).width;
-        progressBar.style.transition = 'none';
-        progressBar.style.width = computedWidth;
-    };
-
-    card.querySelector('.notification-close').addEventListener('click', dismiss);
-    card.addEventListener('mouseenter', pause);
-    card.addEventListener('mouseleave', resume);
-
-    if (!isSticky) {
-        // Set initial width for the transition origin
-        progressBar.style.width = '100%';
-        requestAnimationFrame(resume);
-    } else {
-        progressBar.style.display = 'none';
-    }
 }
 
 /**

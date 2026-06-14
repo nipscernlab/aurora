@@ -441,50 +441,57 @@ produto maduro — alinhado ao [Design Manifesto](DESIGN.md).*
 > e lint limpo. **Verificação visual/runtime é por conta do usuário** (os testes não exercitam o
 > carregamento do Electron).
 
-### Decisão de escopo (13/06/2026)
-**Tema único canônico.** A AURORA mantém UM tema só (escuro, identidade aurora borealis). **Fora de
-escopo por decisão:** tema light, tema high-contrast (`aurora-contrast`), e qualquer mudança no tema
-da aurora. Itens de §6.2/G5 que pediam troca de tema estão **descartados**; consolidação de
-tokens/paleta segue valendo, servindo a um tema só.
+### Decisões de escopo (13/06/2026)
+- **Tema único canônico.** A AURORA mantém UM tema só (escuro, identidade aurora borealis). **Fora de
+  escopo por decisão:** tema light, tema high-contrast (`aurora-contrast`), e qualquer mudança no tema
+  da aurora. Itens de §6.2/G5 que pediam troca de tema estão **descartados**.
+- **P1 (um Monaco por pane) — tentado e REVERTIDO.** ROI modesto (o ganho de relayout quase não existe:
+  editores escondidos são `display:none` e não relayam; sobra memória/velocidade de abrir, só relevante
+  com muitas abas) **e** risco alto. A tentativa (3 commits) introduziu 4 bugs confirmados por revisão
+  adversarial, incl. **perda de dados** (Ctrl+S sobrescrevia edições externas em abas inativas).
+  Revertido. Checklist de armadilhas salvo na memória pra uma futura retomada bem-feita.
 
 ### ✅ Feito
-**Segurança/robustez:** V1 (XSS LaTeX, depois trocado por **KaTeX** trust:false), V2 (exec-command),
-V3 (webviewTag+lockdown), V5 (traversal), V6 (openExternal); G2 (error boundary + crashReporter),
-P12 (leak de listener), P13 (ResizeObserver throttled).
-**Performance:** P4 (Phosphor + fontes locais, fim dos CDNs); P2 *parcial* (reparse de markdown
-por-frame eliminado — "espera e revela" por segmento).
-**Visual:** `<aurora-canvas>` (shader final + filetes + glow do chat), focus-ray na aba, elevação por
-luz nos modais; **as 3 file trees** padronizadas (foco, cores, Phosphor, ícone C± custom); **chat de
-IA** refeito (KaTeX, markdown do usuário, syntax highlight, reveal com fade, paths clicáveis, links,
-remoção do "subscription usage"); **terminal** (barra deslizante por compilação, progresso THTEST
-real, clear funcional); **tabs** (FLIP no drag, scrollbar fina); **settings** (pill deslizante);
-botão de IA na seleção; busca recursiva de arquivo pela IA; compile da IA chega ao terminal.
+**Segurança/robustez:** V1 (XSS LaTeX → **KaTeX** trust:false), V2, V3, V5, V6; G2 (error boundary +
+crashReporter), P12 (leak de listener), P13 (ResizeObserver throttled).
+**Performance (trilha praticamente fechada no seguro):** P4 (Phosphor+fontes locais, fim dos CDNs);
+**P2** (sem reparse de markdown por-frame — "espera e revela"); **P3** (classificação verilog cacheada
+por mtime); **P5** (init idempotente: initMonaco memoizado, TabManager guard, refresh dedup); **P7**
+(`contain:layout` no corpo do terminal); **P8b** (backdrop-filter desperdiçado removido de tooltip/
+context-menu); **P10** (recount+filter do terminal throttled, 60→~8×/s); **P11** (decorations por range
+visível + find-widget sem query por tecla); **P15** (poll de mtime só com foco); **P16** (health-check
+de watchers = 1 timer idle-aware + unref); **P9** (standard tree em DocumentFragment — fim do freeze
+ao expandir pasta grande).
+**Visual (trilha fechada no seguro):** `<aurora-canvas>` (shader final + filetes + glow do chat),
+focus-ray, elevação por luz nos modais; **3 file trees** padronizadas (foco, cores, Phosphor, ícone C±
+custom; hierarchy com paridade); **chat de IA** (KaTeX, markdown do usuário, syntax highlight, reveal,
+paths clicáveis, links, sem "subscription usage"); **terminal** (barra deslizante, progresso THTEST,
+clear); **tabs** (FLIP, scrollbar fina); **settings** (pill); **FontAwesome removido por completo**
+(P14) + dedup `.aglyph`; **paletas unificadas** (`brand_tokens.css`; splash/update offline e on-palette);
+**z-index tokenizado** (tier de overlay, mesmos valores) + **~40 aliases legados podados** (codemod);
+**paleta de syntax tokenizada** (`--syntax-*`); **command palette** (Ctrl+Shift+K); **sistema de modais
+unificado** (abertura realocada pro `modal_system.js`); **foco no editor → aba sempre ativa** (incl.
+splits); ícone de onda (senoide) no Wave Config.
+**IA/robustez:** busca recursiva de arquivo pela IA; compile da IA chega ao terminal (singleton real +
+processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao receber pasta).
 
-### ⬜ Falta — VISUAL (fazer primeiro)
-- [ ] **Remover FontAwesome de vez** (= P14): ~29 `fa-` em 11 módulos JS → Phosphor; tirar o `<link>`
-      do FA do index + dependência; remover a duplicação `.glyph`/`.aglyph` do C± no DOM.
-- [ ] **Consolidar paletas:** `splash.html` + `update-notification.html` importam `theme_variables.css`
-      (3 fontes de verdade da marca → 1).
-- [ ] **Normalizar z-index** (escala tokenizada vs literais `10001/1000/200`) e **podar ~50 aliases
-      legados** de tokens.
-- [ ] **Tokens em camadas semânticas** (base → semantic → component) — servindo ao tema único.
-- [ ] **Command palette (Ctrl+K)** — superfície primária de ações/navegação.
-- [ ] **Extrair os 4 modais inline** do `index.html` + matar o sistema de modais paralelo.
-- [ ] **Consolidar `ai_assistant.css`** (21% de todo o CSS, paleta de syntax fora dos tokens).
+### ⬜ Falta
+**Visual (só os 🔴 grandes, pareiam com o bundler):**
 - [ ] 🔴 **Shell em Lit + painéis dockáveis** + redesenho de welcome/empty-states (4 skins → 1) +
-      densidade/hierarquia (referência Zed/Linear/Fleet). *(Pareia com o pivô Vite.)*
+      densidade/hierarquia (Zed/Linear/Fleet). Pareia com o pivô **Vite (A1)**.
+- [ ] **Tokens em camadas semânticas** (base → semantic → component) — `brand_tokens.css` já extraído;
+      falta a estratificação completa.
+- [ ] **Consolidar `ai_assistant.css`** (2.150 linhas; a paleta de syntax já saiu pros tokens, o resto
+      do arquivo permanece). Baixa prioridade.
 - [ ] ~~Tema light / aurora-contrast~~ — **descartado** (tema único).
 
-### ⬜ Falta — PERFORMANCE (depois do visual)
-- [ ] Quick-wins 🟢: **P5** (init dupla), **P6** (transition:width→transform), **P7** (contain/
-      content-visibility), **P8b** (backdrop-filter→sólido), **P15** (polling de mtime), **P16**
-      (setInterval health-check nunca limpo).
-- [ ] Estruturais 🟡: **P3** (IPC da árvore em batch + cache mtime), **P9** (standard tree
-      reconciliada), **P10** (terminal: contadores incrementais + filtro por classe), **P11**
-      (decorations por range visível), **P2** (terminar: blocos fechados viram DOM estático).
-- [ ] 🔴 **P1** (um Monaco por pane com `setModel`) e **P17** (modais montados sob demanda + `contain`).
+**Performance (sobrou o arriscado/de baixo ROI):**
+- [ ] **P6** (transition:width→transform no toggle de sidebar/IA) — fora de hot-path, baixo ROI.
+- [ ] **P17** (modais montados sob demanda + `contain`/`inert` — casa com a11y G5).
+- [ ] **P7 completo** (paint/content-visibility com `contain-intrinsic-size` nas listas).
+- [ ] 🔴 ~~**P1** (um Monaco por pane)~~ — **revertido** (ver decisão acima); retomar só sob pressão real
+      de memória com dezenas de abas, usando o checklist da memória.
 - [ ] Medição: overlay de jank (p99), baseline de TTI, smoke de orçamento no CI (§4.4/G7).
 
-### ⬜ Falta — fora das 2 trilhas (parking lot)
-Segurança restante (V4/V7/V8/V9/V10–V12, CSP, sandbox); OSS (Surfer/Verible/ripgrep/…); build/DX
-(B1–B13); repo (§9, 18 itens). Retomar após visual + performance.
+**Fora das 2 trilhas (parking lot):** segurança restante (V4/V7/V8/V9/V10–V12, CSP, sandbox); OSS
+(Surfer/Verible/ripgrep/…); build/DX (B1–B13); repo (§9, 18 itens).

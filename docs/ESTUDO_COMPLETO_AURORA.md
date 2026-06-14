@@ -589,7 +589,12 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [x] `<aurora-command-palette>` — feito: `command_palette.js` mantém registry + scoring + teclado global
       e dirige o `<aurora-command-palette>` (Shadow DOM + tokens; Phosphor no shadow via `<link>`); na
       Design Lab (botão abre o overlay). CSS morto `.cmdk-*` em `command_palette.css` a podar depois.
-- [ ] **Welcome / empty-states** — 4 skins → 1; `#editor-overlay` + `recent_projects.js`. 🟡
+- [x] **Welcome** — migrado p/ `<aurora-welcome>` (Shadow DOM + tokens semânticos; i18n via `window.t`
+      + `aurora:locale-changed`). `#editor-overlay` fica **light-DOM** (TabManager + seletor irmão intactos);
+      `recent_projects.js` virou **dados+ações** e dirige o componente (`projects` ↔ `project-open`/`project-remove`);
+      botões New/Open **delegam** à toolbar. CSS morto em `recent_projects.css` (chrome do welcome) a podar depois.
+- [ ] **Empty-states "4 skins → 1"** — falta unificar os OUTROS estados vazios (tree/AI/wave) num só.
+      Subjetivo (redesenho) → fazer com prints do usuário. 🟡
 - [ ] `<aurora-titlebar>` — controles de janela + zonas da toolbar. 🟡
 - [ ] `<aurora-activity-bar>` — botões de compilação / PRISM / waves (centro da toolbar). 🟡
 - [ ] `<aurora-tree>` (file-tree) — **preservar as 3 subárvores + reconciliação key-based** + `zoom`/views. 🔴

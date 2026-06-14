@@ -364,60 +364,12 @@
         <!-- Welcome overlay sits HERE (sibling of editor + terminal) so the
              horizontal resizer cannot affect its layout. -->
         <div id="editor-overlay" class="visible">
-            <div class="welcome-screen">
-                <!-- Signature ambient aurora (docs/DESIGN.md §7). Behind all content. -->
-                <aurora-canvas intensity="0.95" speed="1.0" aria-hidden="true"></aurora-canvas>
-                <img class="welcome-watermark"
-                     src="./assets/icons/sapho_aurora_icon.svg"
-                     alt=""
-                     aria-hidden="true">
-                <div class="welcome-content">
-                    <header class="welcome-topbar">
-                        <span class="welcome-mark">SAPHO</span>
-                        <span class="welcome-tagline" data-i18n="welcome.tagline">Scalable Architecture for Hardware Optimization</span>
-                    </header>
-
-                    <div class="welcome-grid">
-                        <section class="welcome-col">
-                            <h2 class="welcome-section-title" data-i18n="welcome.sectionStart">Start</h2>
-                            <ul class="welcome-link-list">
-                                <li>
-                                    <button class="welcome-link" id="newProjectBtnWelcome">
-                                        <i class="ph ph-folder-plus"></i>
-                                        <span><span data-i18n="welcome.newProject">New Project</span><span class="welcome-link-dim">...</span></span>
-                                    </button>
-                                </li>
-                                <li>
-                                    <button class="welcome-link" id="openProjectBtnWelcome">
-                                        <i class="ph ph-folder-open"></i>
-                                        <span><span data-i18n="welcome.openProject">Open Project</span><span class="welcome-link-dim">...</span></span>
-                                    </button>
-                                </li>
-                            </ul>
-                        </section>
-
-                        <section class="welcome-col">
-                            <h2 class="welcome-section-title">
-                                <span data-i18n="welcome.sectionRecent">Recent</span>
-                                <span class="recent-projects-count" id="projects-count"></span>
-                            </h2>
-                            <div class="recent-projects-list" id="recent-projects-list">
-                                <div class="empty-state" id="empty-state">
-                                    <p data-i18n="welcome.noRecent">No recent projects</p>
-                                </div>
-                            </div>
-                        </section>
-                    </div>
-
-                    <footer class="welcome-footer">
-                        <a href="#" class="footer-link" id="website-link">nipscern.com</a>
-                        <span class="footer-divider">·</span>
-                        <span class="welcome-signature" aria-hidden="true">SAPHO<span class="welcome-signature-sep">·</span>AURORA</span>
-                        <span class="footer-divider">·</span>
-                        <span class="footer-version">v6.3.2</span>
-                    </footer>
-                </div>
-            </div>
+            <!-- The welcome stage is the <aurora-welcome> Lit component (Shadow DOM +
+                 semantic tokens; DESIGN §6/§9). #editor-overlay stays in the light DOM:
+                 TabManager toggles `.visible` and a sibling selector hides the editor
+                 behind it. RecentProjectsManager drives the recent list via the
+                 component; the New/Open buttons delegate to the toolbar buttons. -->
+            <aurora-welcome></aurora-welcome>
         </div>
 
         <div class="editor-container">

@@ -68,6 +68,12 @@
       padding: var(--space-2, 8px) var(--space-4, 16px); cursor: pointer;
     }
     .lab-btn:hover { border-color: var(--accent); }
+    .welcome-stage {
+      height: 540px; max-width: 980px;
+      border: 1px solid var(--border-hairline); border-radius: var(--radius-lg, 8px);
+      overflow: hidden;
+    }
+    .welcome-stage aurora-welcome { width: 100%; height: 100%; }
   </style>
 </head>
 <body>
@@ -140,6 +146,12 @@
     <span class="specimen-label">full-screen overlay (Ctrl+Shift+K in the app) — click to preview</span>
     <div class="specimen"><button class="lab-btn" id="lab-open-cmdk">Open the palette</button></div>
     <aurora-command-palette></aurora-command-palette>
+  </section>
+
+  <section>
+    <h2>&lt;aurora-welcome&gt;</h2>
+    <span class="specimen-label">the empty-project stage — Start + Recent (lives inside #editor-overlay in the app)</span>
+    <div class="specimen welcome-stage"><aurora-welcome></aurora-welcome></div>
   </section>
 
   <script type="module" src="../js/components/design-lab.js"></script>

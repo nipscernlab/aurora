@@ -1,3 +1,5 @@
+import '../components/aurora-welcome.js';
+
 // ADDED: Export the class to make it importable
 export class RecentProjectsManager {
   constructor(loadProjectCallback, showErrorDialogCallback) {
@@ -9,9 +11,14 @@ export class RecentProjectsManager {
     this.projects = [];
     this.maxProjects = 10;
     this.storageKey = 'aurora-recent-projects';
-    this.listElement = document.getElementById('recent-projects-list');
-    this.countElement = document.getElementById('projects-count');
-    this.emptyState = document.getElementById('empty-state');
+    // View: the <aurora-welcome> Lit component renders the Start/Recent stage.
+    // We drive its `.projects` and react to the events it emits (a row opened /
+    // its × clicked). The New/Open buttons delegate to the toolbar themselves.
+    this.welcomeEl = document.querySelector('aurora-welcome');
+    if (this.welcomeEl) {
+      this.welcomeEl.addEventListener('project-open', (e) => this._handleOpenByPath(e.detail));
+      this.welcomeEl.addEventListener('project-remove', (e) => this.removeProject(e.detail));
+    }
 
     this.loadFromStorage();
     this.render();
@@ -154,45 +161,12 @@ export class RecentProjectsManager {
     }
   }
 
-  // Create project item element
-  createProjectItem(project) {
-    const item = document.createElement('div');
-    item.className = 'project-item';
-    item.title = project.path;
-
-    // VS Code-style: project name as primary link text, full path muted to
-    // its right. Date and icon dropped; the path itself is enough context.
-    item.innerHTML = `
-      <span class="project-name">${this.escapeHtml(project.name)}</span>
-      <span class="project-path">${this.escapeHtml(this.truncatePath(project.path))}</span>
-      <button class="project-remove" title="Remove from recent projects" aria-label="Remove from recent projects">
-        <i class="ph ph-x"></i>
-      </button>
-    `;
-
-    item.addEventListener('click', (e) => {
-      if (!e.target.closest('.project-remove')) {
-        this.handleProjectClick(project);
-      }
-    });
-
-    const removeBtn = item.querySelector('.project-remove');
-    removeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      item.classList.add('removing');
-      setTimeout(() => {
-        this.removeProject(project.path);
-      }, 200);
-    });
-
-    return item;
-  }
-
-  // Escape HTML to prevent XSS
-  escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+  // A recent row was clicked in the <aurora-welcome> view — open that project.
+  // (The view escapes its own text bindings and animates the rows; this manager
+  // keeps the data + the open/remove actions.)
+  _handleOpenByPath(path) {
+    const project = this.projects.find((p) => p.path === path);
+    if (project) this.handleProjectClick(project);
   }
 
   // Truncate path for display. Returns the parent directory of the .spf,
@@ -211,32 +185,16 @@ export class RecentProjectsManager {
     return display;
   }
 
-  // Render the projects list
+  // Drive the <aurora-welcome> view: it renders the count, the rows (with the
+  // open-stagger + remove animation) and the empty state from this data. The
+  // view re-renders itself on locale change, so we only push raw project data.
   render() {
-    if (!this.listElement || !this.countElement) {
-      return;
-    }
-
-    this.countElement.textContent = this.projects.length > 0 ? this.projects.length : '';
-    this.listElement.innerHTML = '';
-
-    if (this.projects.length === 0) {
-      const emptyState = document.createElement('div');
-      emptyState.className = 'empty-state';
-      // data-i18n on the inner <p> so a locale flip retranslates the
-      // string without re-rendering the whole recent list.
-      const tr = (k) => (window.t ? window.t(k) : k);
-      emptyState.innerHTML = `<p data-i18n="welcome.noRecent">${tr('welcome.noRecent')}</p>`;
-      this.listElement.appendChild(emptyState);
-    } else {
-      this.projects.forEach((project, index) => {
-        const item = this.createProjectItem(project);
-        this.listElement.appendChild(item);
-        setTimeout(() => {
-          item.classList.add('new-item');
-        }, index * 50);
-      });
-    }
+    if (!this.welcomeEl) return;
+    this.welcomeEl.projects = this.projects.map((p) => ({
+      name: p.name,
+      path: p.path,
+      displayPath: this.truncatePath(p.path),
+    }));
   }
 
   // Other methods (clearAll, getProjects, etc.) remain the same...

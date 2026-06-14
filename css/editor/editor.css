@@ -126,7 +126,7 @@
   pointer-events: all;
 }
 
-#editor-overlay.visible:not(.hidden) .welcome-screen {
+#editor-overlay.visible:not(.hidden) aurora-welcome {
   width: 100%;
   height: 100%;
   overflow-y: auto;

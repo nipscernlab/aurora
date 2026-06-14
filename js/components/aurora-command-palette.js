@@ -38,6 +38,13 @@ class AuroraCommandPalette extends LitElement {
       position: fixed;
       inset: 0;
       z-index: var(--z-command, 10050);
+      /* Closed, the host still spans the screen at a huge z-index — without this
+         it would be an invisible click-wall over the whole IDE. Only the open
+         state is interactive (and catches the backdrop click). */
+      pointer-events: none;
+    }
+    :host([open]) {
+      pointer-events: auto;
     }
     .overlay {
       position: absolute;
@@ -46,8 +53,9 @@ class AuroraCommandPalette extends LitElement {
       justify-content: center;
       align-items: flex-start;
       padding-top: 14vh;
-      background: rgba(3, 5, 12, 0.5);
-      backdrop-filter: blur(2px);
+      background: var(--bg-overlay);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
       opacity: 0;
       visibility: hidden;
       transition: opacity var(--motion-quick, 140ms) var(--ease-out-quart, ease),
@@ -59,35 +67,29 @@ class AuroraCommandPalette extends LitElement {
       transition: opacity var(--motion-quick, 140ms) var(--ease-out-quart, ease);
     }
 
+    /* Same surface as the app's modals (modal_config.css): luminous border +
+       aurora glow ring, no flat top bar. */
     .panel {
       position: relative;
       width: min(560px, 92vw);
       max-height: 70vh;
       display: flex;
       flex-direction: column;
-      background: var(--surface-raised);
-      border: 1px solid var(--border-hairline);
-      border-radius: var(--radius-lg, 12px);
-      box-shadow: 0 0 0 1px rgba(142, 131, 232, 0.1),
-        0 24px 60px -12px rgba(0, 0, 0, 0.55),
-        0 0 40px -8px var(--accent-glow);
+      background: var(--surface-overlay);
+      border: 1px solid var(--border-luminous);
+      border-radius: var(--radius-xl, 12px);
+      box-shadow: 0 16px 50px -12px rgba(0, 0, 0, 0.6),
+        0 0 40px -12px var(--accent-glow),
+        var(--shadow-inset-line);
       overflow: hidden;
-      transform: translateY(-8px) scale(0.985);
-      transition: transform var(--motion-flow, 160ms) var(--ease-out-quart, ease);
+      transform: scale(0.97) translateY(6px);
+      opacity: 0;
+      transition: transform var(--motion-flow, 220ms) var(--ease-out-quart, ease),
+        opacity var(--motion-quick, 160ms) var(--ease-out-quart, ease);
     }
     :host([open]) .panel {
-      transform: translateY(0) scale(1);
-    }
-    /* The aurora ray along the top edge ties it to the brand (DESIGN §5). */
-    .panel::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 0;
-      height: 2px;
-      background: var(--accent-veil);
-      opacity: 0.85;
+      transform: scale(1) translateY(0);
+      opacity: 1;
     }
 
     .input-row {

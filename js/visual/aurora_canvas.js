@@ -98,30 +98,33 @@ void main(){
 
   // Camera over a LOW horizon. rd.y > 0 is the aurora sky: it begins at ~12% up
   // the panel and the curtains drape upward; below that is clear (no aurora).
+  // A thin aurora "filete" hugging the BOTTOM of the panel: the horizon sits at
+  // the very bottom (~5% up) and the curtains rise only a short way before a
+  // band window fades them out — the rest of the welcome stays clear.
+  // Tunables: BAND_TOP = where it fully fades out; BAND_SOLID = full below this.
+  const float BAND_TOP   = 0.36;
+  const float BAND_SOLID = 0.12;
+
   vec3 ro = vec3(0.0, 0.0, -6.7);
-  vec3 rd = normalize(vec3(p.x, p.y * 0.45 + 0.17, 1.3));
+  vec3 rd = normalize(vec3(p.x, p.y * 0.50 + 0.225, 1.3));   // horizon ~q.y 0.05
 
   vec3 col = vec3(0.0);
   float a = 0.0;
   if (rd.y > 0.0){
-    // Less compression than nimitz's sky composite (1.5) + a lift, so the
-    // curtains read as vivid aurora against the dark welcome, not faint wisps.
-    vec4 aur = smoothstep(0.0, 1.05, aurora(ro, rd, uTime * 0.5));
-    col = aur.rgb * 1.30;
-    a = clamp(max(col.r, max(col.g, col.b)) * 1.6, 0.0, 1.0);
+    vec4 aur = smoothstep(0.0, 1.0, aurora(ro, rd, uTime * 0.5));
+    col = aur.rgb * 1.45;
+    a = clamp(max(col.r, max(col.g, col.b)) * 1.7, 0.0, 1.0);
   }
 
-  // Warm-green airglow hugging the horizon — a touch of landscape grounding.
-  float glow = smoothstep(0.32, 0.04, q.y) * smoothstep(0.01, 0.10, q.y);
-  col += vec3(0.12, 0.40, 0.28) * glow * 0.6;
-  a = max(a, glow * 0.55);
+  // Warm-green airglow on the horizon line at the very bottom.
+  float glow = smoothstep(0.16, 0.0, q.y);
+  col += vec3(0.12, 0.40, 0.28) * glow * 0.5;
+  a = max(a, glow * 0.5);
 
-  // Content-protect: only the VERY top (where the Start/Recent text sits) is
-  // dimmed; the aurora is free to climb most of the panel. Gentle so the mask
-  // no longer eats the curtains.
-  float vfade = smoothstep(1.08, 0.66, q.y);
-  col *= vfade;
-  a   *= vfade;
+  // Band window — the whole point: confine the aurora to the bottom strip.
+  float band = smoothstep(BAND_TOP, BAND_SOLID, q.y);
+  col *= band;
+  a   *= band;
 
   // Master intensity multiplies BOTH rgb and alpha.
   col *= uIntensity;

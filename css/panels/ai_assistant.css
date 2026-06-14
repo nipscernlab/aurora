@@ -843,6 +843,106 @@ body.ai-assistant-open {
   background: var(--bg-elev);
 }
 
+/* --- Composer attachments: paperclip, drag-over, preview chips ----------- */
+.ai-composer.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.ai-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.ai-attach-btn:hover { background: var(--overlay-hover); color: var(--text); }
+
+.ai-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 2px 8px;
+}
+.ai-attachments[hidden] { display: none; }
+
+.ai-att-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  height: 32px;
+  padding: 0 4px 0 7px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+.ai-att-chip.is-image { padding-left: 4px; }
+
+.ai-att-thumb {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border-radius: 5px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-subtle);
+}
+.ai-att-icon { font-size: 16px; color: var(--accent-hover); flex-shrink: 0; }
+
+.ai-att-body { display: inline-flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.ai-att-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.ai-att-meta { font-size: var(--text-2xs); color: var(--text-muted); }
+
+.ai-att-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.ai-att-remove:hover { background: var(--overlay-active); color: var(--danger, #e85d75); }
+
+/* Read-only attachments strip inside a sent user bubble. */
+.ai-msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.ai-att-thumb-lg {
+  width: auto;
+  max-width: 160px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
 /* Model / provider chip — opens the popover */
 .ai-model-chip {
   display: inline-flex;

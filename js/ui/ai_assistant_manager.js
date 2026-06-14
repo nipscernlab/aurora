@@ -1245,6 +1245,8 @@ class AIAssistantManager {
     this.emptyStateEl = null;
     this.inputEl = null;
     this.sendBtn = null;
+    /** Pending composer attachments: { id, kind:'image'|'file', name, mime, size, dataUrl?, text? }. */
+    this.pendingAttachments = [];
     this.stopBtn = null;
     this.clearBtn = null;
     this.tokenCounter = null;
@@ -1541,7 +1543,14 @@ class AIAssistantManager {
             </button>
           </div>
 
+          <div class="ai-attachments" id="ai-attachments" hidden></div>
           <div class="ai-composer" id="ai-composer">
+            <button class="ai-attach-btn" id="ai-attach-btn" type="button"
+                    title="Attach files or images" aria-label="Attach files or images">
+              <i class="ph ph-paperclip"></i>
+            </button>
+            <input type="file" id="ai-attach-input" multiple hidden
+                   accept="image/*,text/*,.v,.sv,.svh,.vh,.cmm,.asm,.tasm,.json,.md,.txt,.log,.gtkw,.spf">
             <button class="ai-model-chip" id="ai-model-chip" type="button"
                     title="Switch model or provider" aria-label="Model and provider">
               <img class="ai-model-chip-icon" id="ai-model-chip-icon"
@@ -1591,6 +1600,9 @@ class AIAssistantManager {
     this.inputEl       = this.container.querySelector('#ai-input');
     this.composerEl    = this.container.querySelector('#ai-composer');
     this.sendBtn       = this.container.querySelector('#ai-send-btn');
+    this.attachBtn     = this.container.querySelector('#ai-attach-btn');
+    this.attachInput   = this.container.querySelector('#ai-attach-input');
+    this.attachmentsEl = this.container.querySelector('#ai-attachments');
     this.stopBtn       = this.container.querySelector('#ai-stop-btn');
     this.clearBtn      = this.container.querySelector('#ai-clear-btn');
     this.tokenCounter  = this.container.querySelector('#ai-token-counter');
@@ -1714,6 +1726,32 @@ class AIAssistantManager {
     this.historyList.addEventListener('click', (e) => this.handleHistoryClick(e));
 
     this.sendBtn.addEventListener('click', () => this.send());
+
+    // --- Composer attachments: button → picker, drag-drop, clipboard paste --
+    this.attachBtn?.addEventListener('click', () => this.attachInput?.click());
+    this.attachInput?.addEventListener('change', () => {
+      this._addFiles(this.attachInput.files);
+      this.attachInput.value = '';   // let the same file be picked again
+    });
+    const stopDrag = (e) => { e.preventDefault(); e.stopPropagation(); };
+    ['dragenter', 'dragover'].forEach((t) => this.composerEl?.addEventListener(t, (e) => {
+      if (e.dataTransfer?.types?.includes('Files')) { stopDrag(e); this.composerEl.classList.add('drag-over'); }
+    }));
+    ['dragleave', 'dragend', 'drop'].forEach((t) => this.composerEl?.addEventListener(t, (e) => {
+      stopDrag(e); this.composerEl.classList.remove('drag-over');
+    }));
+    this.composerEl?.addEventListener('drop', (e) => {
+      if (e.dataTransfer?.files?.length) this._addFiles(e.dataTransfer.files);
+    });
+    this.inputEl.addEventListener('paste', (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files = [];
+      for (const it of items) {
+        if (it.kind === 'file') { const f = it.getAsFile(); if (f) files.push(f); }
+      }
+      if (files.length) { e.preventDefault(); this._addFiles(files); }
+    });
     this.stopBtn.addEventListener('click', () => this.stop());
     this.clearBtn.addEventListener('click', () => this.newChat());
 
@@ -2582,7 +2620,8 @@ class AIAssistantManager {
   async send() {
     if (!window.aiAPI || !this.currentProvider) return;
     const text = this.inputEl.value.trim();
-    if (!text) return;
+    const atts = this.pendingAttachments.slice();
+    if (!text && atts.length === 0) return;
 
     // Claude Code / ChatGPT talk to the user's subscription via a local
     // CLI. If it isn't installed / signed in, fail fast with a clear
@@ -2602,6 +2641,8 @@ class AIAssistantManager {
     }
 
     this.inputEl.value = '';
+    this.pendingAttachments = [];
+    this._renderAttachments();
     this.autoGrowInput();
 
     // First message of a new chat — assign an id, derive a title from
@@ -2615,12 +2656,118 @@ class AIAssistantManager {
       this.currentChatCreatedAt = Date.now();
     }
 
-    this.appendBubble('user', text);
-    this.messages.push({ role: 'user', content: text });
+    const userBubble = this.appendBubble('user', text);
+    if (atts.length) this._renderBubbleAttachments(userBubble, atts);
+    this.messages.push({ role: 'user', content: text, attachments: atts.length ? atts : undefined });
     // A real user message breaks any autonomous follow-up chain.
     this._autoChainCount = 0;
 
     await this._dispatchTurn();
+  }
+
+  /* ---------------- composer attachments (images + files) ---------------- */
+
+  /** Read dropped / picked / pasted files into pendingAttachments, then render. */
+  async _addFiles(fileList) {
+    const files = Array.from(fileList || []);
+    const MAX_IMAGE = 8 * 1024 * 1024;   // 8 MB per image
+    const MAX_TEXT = 256 * 1024;         // 256 KB of text context per file
+    for (const file of files) {
+      if (this.pendingAttachments.length >= 10) {
+        this.appendBubble('assistant', '_Up to 10 attachments per message._', false);
+        break;
+      }
+      const isImage = (file.type || '').startsWith('image/');
+      try {
+        if (isImage) {
+          if (file.size > MAX_IMAGE) {
+            this.appendBubble('assistant', `_"${file.name}" is too large (images max 8 MB)._`, false);
+            continue;
+          }
+          const dataUrl = await this._readAs(file, 'dataURL');
+          this.pendingAttachments.push({
+            id: this._attId(), kind: 'image', name: file.name || 'image.png',
+            mime: file.type || 'image/png', size: file.size, dataUrl,
+          });
+        } else {
+          const text = await this._readAs(file, 'text');
+          const clipped = text.length > MAX_TEXT;
+          this.pendingAttachments.push({
+            id: this._attId(), kind: 'file', name: file.name || 'file.txt',
+            mime: file.type || 'text/plain', size: file.size,
+            text: clipped ? text.slice(0, MAX_TEXT) : text, clipped,
+          });
+        }
+      } catch (_) {
+        this.appendBubble('assistant', `_Could not read "${file.name}"._`, false);
+      }
+    }
+    this._renderAttachments();
+  }
+
+  _readAs(file, how) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+      if (how === 'dataURL') r.readAsDataURL(file); else r.readAsText(file);
+    });
+  }
+
+  _attId() { return `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
+
+  _removeAttachment(id) {
+    this.pendingAttachments = this.pendingAttachments.filter((a) => a.id !== id);
+    this._renderAttachments();
+  }
+
+  _escAtt(s) {
+    const d = document.createElement('div');
+    d.textContent = String(s == null ? '' : s);
+    return d.innerHTML;
+  }
+
+  _fmtSize(n) {
+    if (n == null) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  /** Render the preview chips row above the composer. */
+  _renderAttachments() {
+    if (!this.attachmentsEl) return;
+    const list = this.pendingAttachments;
+    this.attachmentsEl.hidden = list.length === 0;
+    this.attachmentsEl.innerHTML = list.map((a) => {
+      const thumb = a.kind === 'image'
+        ? `<img class="ai-att-thumb" src="${a.dataUrl}" alt="">`
+        : `<i class="ph ph-file-text ai-att-icon" aria-hidden="true"></i>`;
+      const meta = a.kind === 'image'
+        ? ''
+        : `<span class="ai-att-meta">${this._fmtSize(a.size)}${a.clipped ? ' · clipped' : ''}</span>`;
+      return `<span class="ai-att-chip ${a.kind === 'image' ? 'is-image' : ''}" title="${this._escAtt(a.name)}">
+        ${thumb}
+        <span class="ai-att-body"><span class="ai-att-name">${this._escAtt(a.name)}</span>${meta}</span>
+        <button class="ai-att-remove" data-id="${a.id}" type="button" aria-label="Remove attachment"><i class="ph ph-x"></i></button>
+      </span>`;
+    }).join('');
+    this.attachmentsEl.querySelectorAll('.ai-att-remove').forEach((btn) => {
+      btn.addEventListener('click', () => this._removeAttachment(btn.dataset.id));
+    });
+  }
+
+  /** Render a read-only attachments strip inside a sent user bubble. */
+  _renderBubbleAttachments(bubble, atts) {
+    if (!bubble || !atts || !atts.length) return;
+    const strip = document.createElement('div');
+    strip.className = 'ai-msg-attachments';
+    strip.innerHTML = atts.map((a) => (a.kind === 'image'
+      ? `<img class="ai-att-thumb ai-att-thumb-lg" src="${a.dataUrl}" alt="${this._escAtt(a.name)}" title="${this._escAtt(a.name)}">`
+      : `<span class="ai-att-chip" title="${this._escAtt(a.name)}"><i class="ph ph-file-text ai-att-icon" aria-hidden="true"></i><span class="ai-att-body"><span class="ai-att-name">${this._escAtt(a.name)}</span><span class="ai-att-meta">${this._fmtSize(a.size)}</span></span></span>`
+    )).join('');
+    const content = bubble.querySelector('.ai-msg-content');
+    (content || bubble).appendChild(strip);
   }
 
   /**
@@ -2656,7 +2803,9 @@ class AIAssistantManager {
     // Tool-type entries are display-only records; filter them before sending to the model.
     const apiMessages = this.messages
       .filter((m) => m.role !== 'tool')
-      .map((m) => ({ role: m.role, content: m.content }));
+      .map((m) => (m.attachments && m.attachments.length
+        ? { role: m.role, content: m.content, attachments: m.attachments }
+        : { role: m.role, content: m.content }));
 
     const isSub = isSubProvider(this.currentProvider);
     const subEntry = this.providersAvailable.find((p) => p.name === this.currentProvider);

@@ -49,6 +49,11 @@ float tri(in float x){ return clamp(abs(fract(x) - 0.5), 0.01, 0.49); }
 vec2 tri2(in vec2 p){ return vec2(tri(p.x) + tri(p.y), tri(p.y + tri(p.x))); }
 float hash21(in vec2 n){ return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }
 
+// 1-D value-noise fbm — the smooth mountain ridge (varied heights) + the
+// vertical striation that makes the filetes more visible.
+float vn1(float x){ float i = floor(x), f = fract(x); float u = f * f * (3.0 - 2.0 * f); return mix(hash21(vec2(i, 9.1)), hash21(vec2(i + 1.0, 9.1)), u); }
+float fbm1(float x){ float v = 0.0, a = 0.55; for (int i = 0; i < 4; i++){ v += a * vn1(x); x = x * 2.0 + 1.3; a *= 0.5; } return v; }
+
 // nimitz tri-noise — a continuous, time-drifting curtain field.
 float triNoise2d(in vec2 p, float spd, float time){
   float z  = 1.8;
@@ -102,19 +107,31 @@ void main(){
   // Slow, majestic morph — the aurora reshapes gently, it does not race.
   float dens = 0.0;
   if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.16);
-  dens = smoothstep(0.0, 0.95, dens);
+  dens = smoothstep(0.0, 0.92, dens);
 
-  // Vertical cap: cover the bottom, fade out a little past the middle. A single
-  // smooth envelope (NO per-column cut) keeps the curtains CONTINUOUS.
-  float cap = smoothstep(0.62, 0.16, uv.y);       // full <=0.16, gone >=0.62
+  float ax = uv.x * (uRes.x / max(uRes.y, 1.0));
+
+  // More visible "filetes": a gentle vertical striation (1-D in x, slow drift)
+  // kept above a floor so it sharpens the columns WITHOUT breaking continuity.
+  float streak = 0.62 + 0.70 * fbm1(ax * 4.5 + uTime * 0.02);
+  dens *= streak;
+  dens = pow(dens, 1.18);                          // crisper cores
+
+  // Mountain ridge: a smooth, slowly-drifting skyline that varies the curtain
+  // HEIGHT across x — tall peaks and lower saddles, like mountains. LOW frequency
+  // so it rolls (not choppy); the continuous base below keeps it gap-free.
+  float ridge  = fbm1(ax * 1.05 - uTime * 0.012);
+  float capTop = mix(0.34, 0.74, ridge);           // taller + variable per column
+  float cap = smoothstep(capTop, capTop * 0.16, uv.y);
   dens *= cap;
 
   // Continuous green base hugging the bottom so the whole width is covered —
   // no horizontal gaps; the ribbons rise out of it.
-  float base = smoothstep(0.24, 0.0, uv.y);
+  float base = smoothstep(0.22, 0.0, uv.y);
 
-  // Height-based emission: green body -> teal -> magenta -> PINK at the tips.
-  float h = clamp(uv.y / 0.50, 0.0, 1.0);         // 0 base .. 1 near the middle
+  // Emission relative to EACH column's peak, so every mountain peak gets a pink
+  // tip: green body -> teal -> magenta -> PINK at the tip.
+  float h = clamp(uv.y / max(capTop, 0.10), 0.0, 1.0);
   vec3 green   = vec3(0.26, 1.00, 0.52);
   vec3 teal    = vec3(0.32, 0.95, 0.82);
   vec3 magenta = vec3(0.92, 0.34, 0.90);

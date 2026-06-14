@@ -1,20 +1,16 @@
 /**
  * <aurora-canvas> — the signature ambient aurora (docs/DESIGN.md §7).
  *
- * A faithful adaptation of nimitz's "Auroras" (ShaderToy XtGGRt, 2017) — the
- * proven, beautiful tri-noise curtain field, where the curtains are marched in
- * depth and accumulated so they read as ONE continuous, drifting sheet rather
- * than discrete bands. The brand spectrum (green → cyan → violet) is exactly
- * nimitz's emission sweep, which is the real physics of an aurora.
+ * Realistic aurora-borealis curtains hugging the bottom of the panel: big
+ * ribbon-like columns that rise from the bottom edge and fade out a little past
+ * the middle, green in the body and shifting to magenta / pink at the tips,
+ * drifting continuously. The continuous, flowing curtain DENSITY is nimitz's
+ * tri-noise march ("Auroras", ShaderToy XtGGRt, 2017) — proven to read as one
+ * continuous sheet (no patchy gaps); we discard nimitz's colour and paint the
+ * density ourselves by height.
  *
- * Adapted for the welcome screen:
- *  - Framed as an aurora over a LOW horizon: the bright band sits in the
- *    lower-middle and the curtains drape up, with the area below the horizon
- *    left clear. Output uses straight alpha so it composits over the dark
- *    welcome, and a vertical fade keeps the upper area clear for the
- *    Start/Recent text.
- *  - Drift, never pulse: motion comes from nimitz's time-rotated noise gradient
- *    (the curtains morph and flow); nothing scales the whole frame's brightness.
+ *  - Drift, never pulse: motion is nimitz's time-rotated noise gradient plus a
+ *    slow lateral pan; nothing scales the whole frame's brightness.
  *  - Cheap: renders at a capped device-pixel-ratio (half-res) and upscales;
  *    pauses the rAF loop off-screen / unfocused; falls back to a static CSS
  *    gradient on prefers-reduced-motion or when WebGL is unavailable.
@@ -39,9 +35,12 @@ uniform float uTime;
 uniform float uIntensity;
 
 // ============================================================================
-// Aurora curtain field — faithful port of nimitz's "Auroras" (ShaderToy
-// XtGGRt, 2017). triNoise2d + aurora() are nimitz's, unchanged; only the camera
-// framing, the compositing alpha and a content-protect fade are ours (below).
+// Realistic aurora-borealis curtains. The continuous, drifting curtain DENSITY
+// is nimitz's tri-noise march ("Auroras", ShaderToy XtGGRt, 2017) — proven to
+// read as one continuous flowing sheet (no patchy gaps). We discard nimitz's
+// colour and paint the density ourselves by HEIGHT: green body -> teal ->
+// magenta -> pink at the tips. The curtains hug the bottom and fade out a little
+// past the middle; a continuous green base fills the whole bottom edge.
 // ============================================================================
 
 mat2 mm2(in float a){ float c = cos(a), s = sin(a); return mat2(c, s, -s, c); }
@@ -50,10 +49,7 @@ float tri(in float x){ return clamp(abs(fract(x) - 0.5), 0.01, 0.49); }
 vec2 tri2(in vec2 p){ return vec2(tri(p.x) + tri(p.y), tri(p.y + tri(p.x))); }
 float hash21(in vec2 n){ return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }
 
-// 1-D value-noise fbm — drives the ragged, per-column curtain heights (skyline).
-float vn1(float x){ float i = floor(x), f = fract(x); float u = f * f * (3.0 - 2.0 * f); return mix(hash21(vec2(i, 3.7)), hash21(vec2(i + 1.0, 3.7)), u); }
-float fbm1(float x){ float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++){ v += a * vn1(x); x *= 2.0; a *= 0.5; } return v; }
-
+// nimitz tri-noise — a continuous, time-drifting curtain field.
 float triNoise2d(in vec2 p, float spd, float time){
   float z  = 1.8;
   float z2 = 2.5;
@@ -74,69 +70,70 @@ float triNoise2d(in vec2 p, float spd, float time){
   return clamp(1.0 / pow(rz * 29.0, 1.3), 0.0, 0.55);
 }
 
-vec4 aurora(vec3 ro, vec3 rd, float time){
-  vec4 col = vec4(0.0);
-  vec4 avgCol = vec4(0.0);
+// nimitz's curtain march, returning DENSITY only (we colour it by height).
+// A slow lateral pan (time on x) drifts the whole curtain sideways.
+float auroraDensity(vec3 ro, vec3 rd, float time){
+  float sum = 0.0;
+  float avg = 0.0;
   for (int i = 0; i < 40; i++){
     float fi = float(i);
     float of = 0.006 * hash21(gl_FragCoord.xy) * smoothstep(0.0, 15.0, fi);
     float pt = ((0.8 + pow(fi, 1.4) * 0.002) - ro.y) / (rd.y * 2.0 + 0.4);
     pt -= of;
     vec3 bpos = ro + pt * rd;
-    vec2 p = bpos.zx;
-    float rzt = triNoise2d(p, 0.06, time);
-    vec4 col2 = vec4(0.0, 0.0, 0.0, rzt);
-    // nimitz's emission sweep: vivid green -> cyan -> violet along the march.
-    col2.rgb = (sin(1.0 - vec3(2.15, -0.5, 1.2) + fi * 0.043) * 0.5 + 0.5) * rzt;
-    avgCol = mix(avgCol, col2, 0.5);
-    col += avgCol * exp2(-fi * 0.065 - 2.5) * smoothstep(0.0, 5.0, fi);
+    vec2 sp = bpos.zx;
+    sp.x += time * 0.55;            // gentle continuous lateral drift
+    float rzt = triNoise2d(sp, 0.06, time);
+    avg = mix(avg, rzt, 0.5);
+    sum += avg * exp2(-fi * 0.065 - 2.5) * smoothstep(0.0, 5.0, fi);
   }
-  col *= clamp(rd.y * 15.0 + 0.4, 0.0, 1.0);
-  return col * 1.8;
+  sum *= clamp(rd.y * 15.0 + 0.4, 0.0, 1.0);
+  return sum * 1.8;
 }
 
 void main(){
-  vec2 q = gl_FragCoord.xy / uRes.xy;             // 0..1, y-up (0 = bottom)
-  vec2 p = q - 0.5;
+  vec2 uv = gl_FragCoord.xy / uRes.xy;            // 0..1, y-up (0 = bottom)
+  vec2 p = uv - 0.5;
   p.x *= uRes.x / max(uRes.y, 1.0);               // aspect
 
-  // Camera over a LOW horizon. rd.y > 0 is the aurora sky: it begins at ~12% up
-  // the panel and the curtains drape upward; below that is clear (no aurora).
-  // A DENSE band of aurora "filetes" hugging the BOTTOM of the panel. The
-  // horizon sits at the very bottom; curtains rise to RAGGED, per-column heights
-  // and the band fills the whole bottom edge (no empty gaps).
+  // Camera over a horizon at the very bottom; the curtains rise as big ribbons.
   vec3 ro = vec3(0.0, 0.0, -6.7);
-  // Wider x (p.x * 1.5) packs MORE curtains across the width -> denser filetes.
-  vec3 rd = normalize(vec3(p.x * 1.5, p.y * 0.50 + 0.225, 1.3));   // horizon ~q.y 0.05
+  vec3 rd = normalize(vec3(p.x * 1.1, p.y * 0.48 + 0.22, 1.3));   // horizon ~uv.y 0.04
 
-  vec3 col = vec3(0.0);
-  float a = 0.0;
-  if (rd.y > 0.0){
-    vec4 aur = smoothstep(0.0, 0.95, aurora(ro, rd, uTime * 0.5));
-    col = aur.rgb * 1.6;
-    a = clamp(max(col.r, max(col.g, col.b)) * 1.9, 0.0, 1.0);
-  }
+  float dens = 0.0;
+  if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.5);
+  dens = smoothstep(0.0, 0.95, dens);
 
-  // Continuous warm-green airglow along the very bottom edge — fills the base so
-  // the strip is never empty along the terminal border.
-  float glow = smoothstep(0.20, 0.0, q.y);
-  col += vec3(0.12, 0.42, 0.30) * glow * 0.55;
-  a = max(a, glow * 0.5);
+  // Vertical cap: cover the bottom, fade out a little past the middle. A single
+  // smooth envelope (NO per-column cut) keeps the curtains CONTINUOUS.
+  float cap = smoothstep(0.62, 0.16, uv.y);       // full <=0.16, gone >=0.62
+  dens *= cap;
 
-  // Ragged skyline: each column fades out at its OWN height and the tops undulate
-  // slowly, so the curtains are NOT all the same height. Two noise octaves at
-  // different scales/speeds for a lively, irregular top edge.
-  float skyline = fbm1(q.x * 6.0 + uTime * 0.04) * 0.62
-                + fbm1(q.x * 15.0 - uTime * 0.05) * 0.38;
-  float bandTop = mix(0.16, 0.52, skyline);                 // per-column height
-  float band = smoothstep(bandTop, bandTop * 0.22, q.y);
-  col *= band;
-  a   *= band;
+  // Continuous green base hugging the bottom so the whole width is covered —
+  // no horizontal gaps; the ribbons rise out of it.
+  float base = smoothstep(0.24, 0.0, uv.y);
 
-  // Master intensity multiplies BOTH rgb and alpha.
+  // Height-based emission: green body -> teal -> magenta -> PINK at the tips.
+  float h = clamp(uv.y / 0.50, 0.0, 1.0);         // 0 base .. 1 near the middle
+  vec3 green   = vec3(0.26, 1.00, 0.52);
+  vec3 teal    = vec3(0.32, 0.95, 0.82);
+  vec3 magenta = vec3(0.92, 0.34, 0.90);
+  vec3 pink    = vec3(1.00, 0.58, 0.80);
+  vec3 cc = mix(green, teal, smoothstep(0.00, 0.30, h));
+  cc = mix(cc, magenta, smoothstep(0.40, 0.74, h));
+  cc = mix(cc, pink,    smoothstep(0.68, 1.00, h));
+
+  vec3 col = cc * dens * 1.7;
+  col += green * base * 0.42;                      // continuous base fill
+
+  // Soft bloom on the brightest ribbon cores (luminous emission).
+  float lum0 = max(col.r, max(col.g, col.b));
+  col += col * smoothstep(0.55, 1.30, lum0) * 0.45;
+
+  float a = clamp(max(col.r, max(col.g, col.b)) * 1.5, 0.0, 1.0);
   col *= uIntensity;
   a   *= uIntensity;
-  gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+  gl_FragColor = vec4(col, a);
 }
 `;
 

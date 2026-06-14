@@ -116,6 +116,13 @@ function isSubProvider(name) {
 // model or a long single tool never trips it falsely.
 const STREAM_STALL_MS = 180000;
 
+// Hard ceiling for the watchdog. A running tool chip normally blocks the stall
+// recovery (a real tool can run for minutes), but a chip can get STUCK (a
+// tool-result that never matched it) and would then suppress the rescue
+// forever. No legitimate tool runs longer than the tool_bridge backstops
+// (≤10 min), so past this ceiling we reap regardless of running chips.
+const STREAM_STALL_HARD_MS = 12 * 60 * 1000;
+
 /** Strip vendor prefixes / date suffixes so a model id fits on the chip. */
 function shortModelName(model) {
   if (!model) return '';
@@ -2626,6 +2633,10 @@ class AIAssistantManager {
 
   async send() {
     if (!window.aiAPI || !this.currentProvider) return;
+    // A turn is already streaming. The send button is hidden and the Enter
+    // handler is guarded, but block here too so no path can double-dispatch a
+    // turn (which would orphan the first turn's session and wedge the UI).
+    if (this._isStreaming) return;
     const text = this.inputEl.value.trim();
     const atts = this.pendingAttachments.slice();
     if (!text && atts.length === 0) return;
@@ -3027,13 +3038,16 @@ class AIAssistantManager {
     this._lastEventAt = Date.now();
     this._streamWatchdog = setInterval(() => {
       if (!this._isStreaming) return;
-      // Never reap a turn that is legitimately waiting on a human (an
-      // ask-user / confirm card) or on an in-flight tool — those can take
-      // minutes by design.
-      if (this.runningChips.length) return;
+      const idle = Date.now() - (this._lastEventAt || 0);
+      // Never reap while a human is mid-answer on an ask/confirm card — those
+      // are open for as long as the user takes.
       if (this.pendingAskUserQuestions && this.pendingAskUserQuestions.size) return;
       if (this.pendingConfirms && this.pendingConfirms.size) return;
-      if (Date.now() - (this._lastEventAt || 0) > STREAM_STALL_MS) {
+      // A running tool chip normally blocks recovery (a real tool can take
+      // minutes), but only up to the hard ceiling — past that the chip is stuck
+      // and must not be able to suppress the rescue forever.
+      if (this.runningChips.length && idle <= STREAM_STALL_HARD_MS) return;
+      if (idle > STREAM_STALL_MS) {
         this._recoverFromStall();
       }
     }, 15000);
@@ -3560,7 +3574,13 @@ class AIAssistantManager {
     if (idx < 0) {
       idx = this.runningChips.findIndex((c) => c.toolName === name);
     }
-    if (idx < 0) return;
+    if (idx < 0) {
+      // No chip matched (already finished, or an id/name mismatch). Nothing to
+      // close — but log it: an unmatched result is how a chip can be left
+      // spinning, which the watchdog hard-ceiling now reaps as a backstop.
+      console.warn('[ai] tool-result with no matching running chip:', name, toolUseId);
+      return;
+    }
     const running = this.runningChips.splice(idx, 1)[0];
     const { el, args } = running;
     const ok = !(result && result.ok === false);

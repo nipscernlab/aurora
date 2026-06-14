@@ -366,10 +366,37 @@ async function start(payload, webContents) {
   // of the tool/command its `item.started` opened.
   const itemTools = new Map();
 
+  // Anti-freeze: if the CLI goes silent for this long with NO tool call in
+  // flight, treat it as wedged and kill it so the renderer isn't left spinning.
+  // Shell/MCP tool runs populate pendingTools, so a long command or an open ask
+  // card (an outstanding tool) never trips it. A Set (keyed by item id), not a
+  // counter, so a duplicate item.started/completed can't desync it (which would
+  // pause the timer forever or fire it during a legit tool).
+  const INACTIVITY_MS = 120_000;
+  const pendingTools = new Set();
+  let stalled = false;
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  let inactivityTimer = null;
+  const armInactivity = () => {
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+    if (finished || aborted || pendingTools.size > 0) return;
+    const t = setTimeout(() => {
+      if (t !== inactivityTimer) return; // a newer arm (or cleanup) superseded us
+      stalled = true;
+      try {
+        if (process.platform === 'win32' && proc.pid) {
+          spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { windowsHide: true });
+        } else { proc.kill('SIGTERM'); }
+      } catch (_) { /* the close handler still fires */ }
+    }, INACTIVITY_MS);
+    inactivityTimer = t;
+  };
+
   sessions.set(sessionId, { proc, markAborted: () => { aborted = true; } });
 
   try { proc.stdin.write(prompt); proc.stdin.end(); }
   catch (_) { /* the CLI may have exited already; close path handles it */ }
+  armInactivity();
 
   // --- event translation ----------------------------------------------------
 
@@ -384,6 +411,7 @@ async function start(payload, webContents) {
         const item = obj.item || {};
         if (item.type === 'command_execution') {
           itemTools.set(item.id, 'shell');
+          pendingTools.add(item.id);
           sendEvent(webContents, sessionId, 'tool-call', {
             toolUseId: item.id,
             toolName: 'shell',
@@ -392,6 +420,7 @@ async function start(payload, webContents) {
         } else if (item.type === 'mcp_tool_call') {
           const name = item.tool || 'tool';
           itemTools.set(item.id, name);
+          pendingTools.add(item.id);
           sendEvent(webContents, sessionId, 'tool-call', {
             toolUseId: item.id,
             toolName: name,
@@ -425,6 +454,7 @@ async function start(payload, webContents) {
               ...(okExit ? {} : { error: `command exited with code ${item.exit_code}` }),
             },
           });
+          pendingTools.delete(item.id);
         } else if (item.type === 'mcp_tool_call') {
           const name = itemTools.get(item.id) || item.tool || 'tool';
           const isErr = item.status === 'failed' || !!item.error;
@@ -443,6 +473,7 @@ async function start(payload, webContents) {
               ...(isErr ? { error: (item.error && item.error.message) || 'tool reported an error' } : {}),
             },
           });
+          pendingTools.delete(item.id);
         }
         break;
       }
@@ -504,12 +535,14 @@ async function start(payload, webContents) {
       try { handleObject(JSON.parse(line)); }
       catch (_) { /* non-JSON noise — ignore */ }
     }
+    armInactivity();
   });
 
   proc.stderr.on('data', (chunk) => { stderrBuf += chunk.toString(); });
 
   proc.on('error', (err) => {
     sessions.delete(sessionId);
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
     if (!finished) {
       sendEvent(webContents, sessionId, 'error', { message: `Codex failed to start: ${err?.message || err}` });
     }
@@ -517,6 +550,11 @@ async function start(payload, webContents) {
 
   proc.on('close', (code) => {
     sessions.delete(sessionId);
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+    if (stalled) {
+      sendEvent(webContents, sessionId, 'error', { message: 'Codex stopped responding (no output). Please try again.' });
+      return;
+    }
     if (aborted) {
       sendEvent(webContents, sessionId, 'aborted', { text: fullText });
       return;

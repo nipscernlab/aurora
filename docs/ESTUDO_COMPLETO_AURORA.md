@@ -822,7 +822,15 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
     tempo até o 1º token; (ii) **bug no laço de streaming/auto-continue** — o `_autoQueue`/`_drainAutoQueue` ou um
     ciclo de tool-calls que **re-dispara o turno sem condição de parada** (o watchdog de `STREAM_STALL_MS` 180s só
     mascara). Instrumentar onde o tempo vai (montar prompt vs. 1ª resposta vs. loop de tools) e checar se algum
-    caminho reentra sem guard. Pode ser causa-raiz separada da otimização de tokens, mas anda junto. 🟡🔴 → preview da lista completa de processadores do projeto.** Passar o
+    caminho reentra sem guard. **DIAGNOSTICADO + CORRIGIDO:** não existe loop infinito real (auto-continuação é
+    capada em 5 — `_autoChainCount`; tool-loop em 24 — `stepCountIs(MAX_STEPS)`). O sintoma era **FREEZE**: o
+    backend às vezes não emitia evento terminal (SDK `fullStream` travado / CLI vivo-mas-travado / `await
+    totalUsage` travado), deixando o spinner até o watchdog de 3 min — que ainda podia ser **suprimido** por um
+    chip de tool preso. **Fix (A–E):** timeout de inatividade **tool-aware** (Set de ids) no `chat.js` + nos 2
+    CLIs, `Promise.race` de 5s no usage, watchdog com **teto-duro de 12 min**, guard `_isStreaming` no `send()`,
+    cap nos tool-results. Revisado por workflow adversarial (2 achados HIGH corrigidos: Set em vez de contador).
+    *(Verificação ao vivo do usuário: turnos longos/com tools não travam; freeze raro se recupera sozinho.)* ✅
+- [ ] **Welcome: hover num projeto recente → preview da lista completa de processadores do projeto.** Passar o
       mouse por cima de um card de "projeto recente" na tela de welcome mostra (tooltip/popover) **todos os
       processadores** definidos naquele projeto, sem precisar abri-lo. Fonte: ler o `.spf`/estrutura do projeto
       (a lista de processadores já é conhecida pelo project store / parsing do projeto). Bom pra escolher o

@@ -446,10 +446,38 @@ async function start(payload, webContents) {
   // we used to emit `toolName: 'tool'` (literal) on every result.
   const toolUseNames = new Map();
 
+  // Anti-freeze: if the CLI goes silent for this long with NO tool call in
+  // flight, treat it as wedged and kill it so the renderer isn't left spinning.
+  // The CLI's own tools and Aurora's MCP tools populate pendingTools, so a long
+  // compile or an open ask card (an outstanding tool) never trips it. A Set
+  // (keyed by tool-use id), not a counter, so a duplicate/out-of-order tool
+  // event can't desync it (which would pause the timer forever or fire it
+  // during a legit tool).
+  const INACTIVITY_MS = 120_000;
+  const pendingTools = new Set();
+  let stalled = false;
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  let inactivityTimer = null;
+  const armInactivity = () => {
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+    if (finished || aborted || pendingTools.size > 0) return;
+    const t = setTimeout(() => {
+      if (t !== inactivityTimer) return; // a newer arm (or cleanup) superseded us
+      stalled = true;
+      try {
+        if (process.platform === 'win32' && proc.pid) {
+          spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { windowsHide: true });
+        } else { proc.kill('SIGTERM'); }
+      } catch (_) { /* the close handler still fires */ }
+    }, INACTIVITY_MS);
+    inactivityTimer = t;
+  };
+
   sessions.set(sessionId, { proc, markAborted: () => { aborted = true; } });
 
   try { proc.stdin.write(prompt); proc.stdin.end(); }
   catch (_) { /* the CLI may have exited already; close path handles it */ }
+  armInactivity();
 
   const handleObject = (/** @type {any} */ obj) => {
     if (!obj || typeof obj !== 'object') return;
@@ -491,6 +519,7 @@ async function start(payload, webContents) {
               toolName,
               args: b.input || {},
             });
+            pendingTools.add(b.id);
           }
         }
         break;
@@ -527,6 +556,7 @@ async function start(payload, webContents) {
                 ...(b.is_error ? { error: resultText || 'tool reported an error' } : {}),
               },
             });
+            pendingTools.delete(id);
           }
         }
         break;
@@ -572,12 +602,14 @@ async function start(payload, webContents) {
       try { handleObject(JSON.parse(line)); }
       catch (_) { /* non-JSON noise — ignore */ }
     }
+    armInactivity();
   });
 
   proc.stderr.on('data', (chunk) => { stderrBuf += chunk.toString(); });
 
   proc.on('error', (err) => {
     sessions.delete(sessionId);
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
     if (!finished) {
       sendEvent(webContents, sessionId, 'error', { message: `Claude Code failed to start: ${err instanceof Error ? err.message : err}` });
     }
@@ -585,6 +617,11 @@ async function start(payload, webContents) {
 
   proc.on('close', (code) => {
     sessions.delete(sessionId);
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+    if (stalled) {
+      sendEvent(webContents, sessionId, 'error', { message: 'Claude Code stopped responding (no output). Please try again.' });
+      return;
+    }
     if (aborted) {
       sendEvent(webContents, sessionId, 'aborted', { text: fullText });
       return;

@@ -53,6 +53,13 @@ const sessions = new Map();
 // that calls tools is followed by another step to use the results.
 const MAX_STEPS = 24;
 
+// If the model stream goes silent for this long with NO tool round-trip in
+// flight, treat the provider connection as wedged and end the turn — otherwise
+// a hung stream leaves the renderer spinning until its 3-minute watchdog. Tool
+// execution is exempt (it has its own backstop in tool_bridge), so a slow
+// compile never trips this; only a model that stopped emitting does.
+const STREAM_INACTIVITY_MS = 120_000;
+
 function sendEvent(/** @type {any} */ webContents, /** @type {string} */ sessionId, /** @type {string} */ type, /** @type {any} */ data) {
   if (!webContents || webContents.isDestroyed()) return;
   try {
@@ -60,6 +67,16 @@ function sendEvent(/** @type {any} */ webContents, /** @type {string} */ session
   } catch (e) {
     log.warn('[ai.chat] send failed:', e instanceof Error ? e.message : e);
   }
+}
+
+// Bound a stringified tool result before it enters the model context: a
+// multi-MB blob would blow the context and block the event loop on JSON work.
+// The renderer already clips file reads, so this is a backstop with a generous
+// cap and an explicit marker.
+function capForModel(/** @type {any} */ s, max = 100_000) {
+  return (typeof s === 'string' && s.length > max)
+    ? `${s.slice(0, max)}\n…[truncated ${s.length - max} chars]`
+    : s;
 }
 
 /**
@@ -129,6 +146,12 @@ async function start(payload, webContents) {
 
   const abort = new AbortController();
   sessions.set(sessionId, { abort });
+
+  // Anti-freeze state — read in the catch/finally below, set by the stream
+  // inactivity timer armed inside the loop.
+  let stalled = false;
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  let inactivityTimer = null;
 
   try {
     const prov = provider.getProvider(providerName);
@@ -226,7 +249,31 @@ async function start(payload, webContents) {
     let fullText = '';
     let earlyExit = false;
     let nativeToolCallCount = 0;
+    // Tool IDs the model is currently awaiting a result for. A Set (not a
+    // counter) so a duplicate or out-of-order tool event can't desync it — an
+    // imbalance would either pause the timer forever or fire it during a legit
+    // tool. While it's non-empty the SDK is awaiting tool_bridge (which has its
+    // own backstop), so the model-silence timer stays paused.
+    const pendingTools = new Set();
+
+    // (Re)arm the inactivity timer. When it fires we abort — which unblocks the
+    // for-await — and flag `stalled` so the terminal event is an explicit
+    // "stopped responding" rather than a silent hang.
+    const armInactivity = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      inactivityTimer = null;
+      if (pendingTools.size > 0) return;
+      const t = setTimeout(() => {
+        if (t !== inactivityTimer) return; // a newer arm (or cleanup) superseded us
+        stalled = true;
+        try { abort.abort(); } catch (_) { /* abort unblocks the for-await */ }
+      }, STREAM_INACTIVITY_MS);
+      inactivityTimer = t;
+    };
+    armInactivity();
+
     for await (const part of result.fullStream) {
+      armInactivity(); // any stream activity pushes the deadline forward
       if (abort.signal.aborted || earlyExit) break;
       switch (part.type) {
         case 'text-delta': {
@@ -237,6 +284,8 @@ async function start(payload, webContents) {
         }
         case 'tool-call':
           nativeToolCallCount++;
+          pendingTools.add(part.toolCallId || part.id || null);
+          armInactivity(); // tool now in flight → pause the model-silence timer
           sendEvent(webContents, sessionId, 'tool-call', {
             toolUseId: part.toolCallId || part.id || null,
             toolName: part.toolName,
@@ -244,6 +293,8 @@ async function start(payload, webContents) {
           });
           break;
         case 'tool-result':
+          pendingTools.delete(part.toolCallId || part.id || null);
+          armInactivity(); // tool done → resume timing the model
           sendEvent(webContents, sessionId, 'tool-result', {
             toolUseId: part.toolCallId || part.id || null,
             toolName: part.toolName,
@@ -267,6 +318,15 @@ async function start(payload, webContents) {
           // step-start, step-finish, finish, reasoning, ... — ignored.
           break;
       }
+    }
+    if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+
+    if (stalled) {
+      log.warn(`[ai.chat] session ${sessionId} stalled — no model output for ${STREAM_INACTIVITY_MS}ms`);
+      sendEvent(webContents, sessionId, 'error', {
+        message: 'The model stopped responding (no output). Please try again.',
+      });
+      return;
     }
 
     if (abort.signal.aborted) {
@@ -326,7 +386,7 @@ async function start(payload, webContents) {
           sendEvent(webContents, sessionId, 'tool-result', { toolName: call.name, result: res });
           toolResultMsgs.push({
             role: 'user',
-            content: `[Tool result for "${call.name}"]: ${JSON.stringify(res)}`,
+            content: `[Tool result for "${call.name}"]: ${capForModel(JSON.stringify(res))}`,
           });
         }
 
@@ -355,18 +415,22 @@ async function start(payload, webContents) {
       }
     }
 
-    // `totalUsage` sums every step (tool turns included); fall back to
-    // the last-step `usage` if a provider doesn't surface the total.
-    let usage = null;
-    try { usage = await result.totalUsage; }
-    catch (_) {
-      try { usage = await result.usage; }
-      catch (_2) { /* usage is best-effort */ }
-    }
+    // `totalUsage` sums every step (tool turns included); fall back to the
+    // last-step `usage`. Race each against a short timer: the text is already
+    // in hand, so a usage promise that never settles must never withhold the
+    // terminal 'finish' event (that would freeze the renderer for 3 minutes).
+    const usageOrNull = (/** @type {any} */ p) => Promise.race([
+      Promise.resolve(p).catch(() => null),
+      new Promise((res) => setTimeout(() => res(null), 5000)),
+    ]);
+    let usage = await usageOrNull(result.totalUsage);
+    if (usage == null) usage = await usageOrNull(result.usage);
 
     sendEvent(webContents, sessionId, 'finish', { text: stripToolXml(fullText), usage });
   } catch (e) {
-    if (abort.signal.aborted || (e instanceof Error && e.name === 'AbortError')) {
+    if (stalled) {
+      sendEvent(webContents, sessionId, 'error', { message: 'The model stopped responding (no output). Please try again.' });
+    } else if (abort.signal.aborted || (e instanceof Error && e.name === 'AbortError')) {
       sendEvent(webContents, sessionId, 'aborted', { text: '' });
     } else {
       const message = e instanceof Error ? e.message : String(e);
@@ -374,6 +438,7 @@ async function start(payload, webContents) {
       sendEvent(webContents, sessionId, 'error', { message });
     }
   } finally {
+    if (inactivityTimer) clearTimeout(inactivityTimer);
     sessions.delete(sessionId);
   }
 }

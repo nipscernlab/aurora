@@ -449,20 +449,32 @@ class AuroraWelcome extends LitElement {
     const procs = p.processors || [];
     if (!procs.length) { this._hover = null; return; }
     const r = e.currentTarget.getBoundingClientRect();
-    const left = Math.min(r.right + 12, Math.max(8, window.innerWidth - 296));
     const top = Math.min(r.top, Math.max(8, window.innerHeight - 220));
-    this._hover = { processors: procs, left, top };
+    // Show it to the LEFT of the row — anchor the popover's RIGHT edge just left
+    // of the row (independent of its width). On a narrow/stacked layout (no room
+    // on the left) drop it below the row instead.
+    if (r.left > 300) {
+      this._hover = { processors: procs, right: window.innerWidth - r.left + 12, top };
+    } else {
+      this._hover = {
+        processors: procs,
+        left: r.left,
+        top: Math.min(r.bottom + 6, Math.max(8, window.innerHeight - 200)),
+      };
+    }
   }
 
   _renderProcPop() {
     if (!this._hover) return '';
+    const h = this._hover;
+    const pos = h.right != null ? `right:${h.right}px` : `left:${h.left}px`;
     return html`
-      <div class="proc-pop" style="left:${this._hover.left}px; top:${this._hover.top}px">
+      <div class="proc-pop" style="${pos}; top:${h.top}px">
         <div class="proc-pop-title">
-          ${this._t('welcome.processors', 'Processors')} · ${this._hover.processors.length}
+          ${this._t('welcome.processors', 'Processors')} · ${h.processors.length}
         </div>
         <div class="proc-chips">
-          ${this._hover.processors.map((n) => html`<span class="proc-chip">${n}</span>`)}
+          ${h.processors.map((n) => html`<span class="proc-chip">${n}</span>`)}
         </div>
       </div>
     `;

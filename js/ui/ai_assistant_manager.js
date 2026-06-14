@@ -1591,6 +1591,13 @@ class AIAssistantManager {
     // Delegated: clicking a linkified file reference (`core.v`, `proc.cmm:25`)
     // opens that project file in the editor, jumping to the line when given.
     this.messagesEl?.addEventListener('click', (e) => {
+      // Click an attached image in a sent bubble → open it full-size (lightbox).
+      const img = e.target.closest?.('.ai-att-thumb-lg');
+      if (img) {
+        e.preventDefault();
+        this._openImageLightbox(img.getAttribute('src'), img.getAttribute('alt'));
+        return;
+      }
       const ref = e.target.closest?.('.ai-file-ref');
       if (!ref) return;
       e.preventDefault();
@@ -2768,6 +2775,33 @@ class AIAssistantManager {
     )).join('');
     const content = bubble.querySelector('.ai-msg-content');
     (content || bubble).appendChild(strip);
+  }
+
+  /** Full-size image viewer for an attached chat image — dim backdrop with the
+   *  image fit to the screen; click the backdrop / × or press Esc to close. */
+  _openImageLightbox(src, alt) {
+    if (!src) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'ai-lightbox';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-label', 'Image preview');
+    overlay.innerHTML =
+      `<img class="ai-lightbox-img" src="${src}" alt="${this._escAtt(alt || '')}">` +
+      `<button class="ai-lightbox-close" type="button" aria-label="Close"><i class="ph ph-x"></i></button>`;
+    const close = () => {
+      overlay.classList.remove('open');
+      document.removeEventListener('keydown', onKey, true);
+      setTimeout(() => overlay.remove(), 160);
+    };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+    overlay.addEventListener('click', (e) => {
+      // Close on the backdrop or the × — but not when clicking the image itself.
+      if (e.target.closest('.ai-lightbox-img') && !e.target.closest('.ai-lightbox-close')) return;
+      close();
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('open'));
   }
 
   /**

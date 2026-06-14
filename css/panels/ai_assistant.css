@@ -941,7 +941,57 @@ body.ai-assistant-open {
   height: 96px;
   object-fit: cover;
   border-radius: 8px;
+  cursor: zoom-in;
+  transition: filter var(--transition-fast);
 }
+.ai-att-thumb-lg:hover { filter: brightness(1.08); }
+
+/* Full-size image viewer (lightbox) for attached chat images. */
+.ai-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10060;   /* topmost — above the command palette (--z-command 10050) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: rgba(3, 5, 12, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: zoom-out;
+  opacity: 0;
+  transition: opacity 160ms var(--ease-out-quart, ease);
+}
+.ai-lightbox.open { opacity: 1; }
+.ai-lightbox-img {
+  max-width: 94vw;
+  max-height: 94vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 24px 80px -12px rgba(0, 0, 0, 0.7);
+  cursor: default;
+  transform: scale(0.98);
+  transition: transform 160ms var(--ease-out-quart, ease);
+}
+.ai-lightbox.open .ai-lightbox-img { transform: scale(1); }
+.ai-lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 50%;
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.ai-lightbox-close:hover { background: var(--overlay-active); color: var(--text); }
 
 /* Model / provider chip — opens the popover */
 .ai-model-chip {

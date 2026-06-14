@@ -686,6 +686,8 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       interpola 400..700 reais. 10 woff2 duplicados removidos (~600 KB); `fetch-fonts.js` corrigido (pede a
       faixa `wght@400..700`). **Validar bold/medium ao vivo.**
 - [ ] **e2e flaky** `split-pane > PRISM open-at-line` — timing do ambiente (corrida de 600ms).
+- [ ] **Viewer de imagem (Monaco) — pan quebrado no zoom.** Abrir uma imagem da file tree no editor e dar
+      zoom **não** permite navegar com pan pra ver todos os cantos (não dá pra chegar nas bordas da imagem). 🟡
 - [ ] **A5** — verificar/corrigir os 4 bugs do mapeamento (getActiveFilePath `dataset.file`↔`data-path`; `editorNs.openFile` `tree.value`; snapshot do PDF; código morto com `ReferenceError`). 🟢
 
 ### F. 🔴 Arquitetura (god-files)

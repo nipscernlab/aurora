@@ -779,6 +779,11 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       **SDK** (`chat.js`) monta content multimodal (image parts); **Claude Code** escreve imagem em temp +
       referencia o path (Read tool nativo lê) + inlina texto de arquivo; **Codex** inlina texto, imagens
       **degradam** com aviso ("use Claude Code ou provider com chave"). Helper `main/ai/attachments.js`.
+      Vazamento dos temps **corrigido** (TTL >1h + limpa no start/quit). **Refinar se necessário:** o path temp
+      fica FORA do projeto → o modo de permissão do Claude Code pode pedir confirmação pra ler. Opções: passar
+      `--add-dir <tempdir>` ao `claude -p` (lê sem prompt) OU — mais elegante — servir a imagem como **MCP image
+      content** (sem arquivo temp, sem permissão, sem lixo). Também: apagar o temp **logo após o turno** (mais
+      preciso que TTL). Avaliar quando testar imagem com Claude Code. 🟢
 - [ ] **Rever COMPLETAMENTE o prompt injection — condensar p/ não queimar tokens.** Auditar tudo que é
       injetado no `system`/prompt a cada turno e enxugar sem perder contexto útil. Pontos mapeados:
       (a) **`SYSTEM_PROMPT`** (base SAPHO, grande) — concatenado em `_dispatchTurn` (`ai_assistant_manager.js`)

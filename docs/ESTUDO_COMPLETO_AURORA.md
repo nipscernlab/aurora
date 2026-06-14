@@ -696,6 +696,12 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **e2e flaky** `split-pane > PRISM open-at-line` — timing do ambiente (corrida de 600ms).
 - [ ] **Viewer de imagem (Monaco) — pan quebrado no zoom.** Abrir uma imagem da file tree no editor e dar
       zoom **não** permite navegar com pan pra ver todos os cantos (não dá pra chegar nas bordas da imagem). 🟡
+- [ ] **Fechar a IDE está LENTO** (regressão percebida após a mudança de "fechar todas as janelas quando a
+      principal fecha"). O `before-quit` (`main/lifecycle.js`) bloqueia o quit: **fase 1** fecha watchers +
+      `stopAllToolchain()` + MCP num `Promise.race(timeout 5s)` (um hang adiciona até 5s), e **fase 2** faz
+      `fs.rm` **recursivo** da pasta `Temp/` (lento se acumulou scratch); `window-all-closed → app.quit()` dispara
+      isso ao fechar a principal. **Fix provável:** limpar `Temp/` no **START** (não no quit — mesmo padrão dos
+      temps de anexo; no start nada segura handle → sem EBUSY) + auditar/encurtar o timeout de 5s da fase 1. 🟡
 - [ ] **A5** — verificar/corrigir os 4 bugs do mapeamento (getActiveFilePath `dataset.file`↔`data-path`; `editorNs.openFile` `tree.value`; snapshot do PDF; código morto com `ReferenceError`). 🟢
 
 ### F. 🔴 Arquitetura (god-files)
@@ -784,6 +790,11 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       `--add-dir <tempdir>` ao `claude -p` (lê sem prompt) OU — mais elegante — servir a imagem como **MCP image
       content** (sem arquivo temp, sem permissão, sem lixo). Também: apagar o temp **logo após o turno** (mais
       preciso que TTL). Avaliar quando testar imagem com Claude Code. 🟢
+  - **DECISÃO (imagens session-scoped) — feita:** imagens são referenciáveis DENTRO do chat ativo (o SDK reenvia
+    o histórico todo turno; o Claude Code lembra na sessão `--resume`), mas **não persistem após restart** — o
+    registro salvo em `conversations.js` é só `{role, content}` (sem base64) → **zero inchaço de storage**
+    (confirmado). Reabrir um chat antigo não tem contexto de imagem; é **intencional** (evita inchaço + custo de
+    token + complexidade do fold do CLI). Futuro (se pedirem): persistir + re-alimentar p/ referência cross-restart.
 - [ ] **Rever COMPLETAMENTE o prompt injection — condensar p/ não queimar tokens.** Auditar tudo que é
       injetado no `system`/prompt a cada turno e enxugar sem perder contexto útil. Pontos mapeados:
       (a) **`SYSTEM_PROMPT`** (base SAPHO, grande) — concatenado em `_dispatchTurn` (`ai_assistant_manager.js`)

@@ -105,11 +105,10 @@ if (acquiredLock) {
     // are one-shot (a CLI reads the path once during its turn, never again), so
     // anything on disk at startup is garbage. Per-write TTL pruning bounds it
     // within a session; this clears the carry-over (was leaking before).
-    try {
-      const att = require('./main/ai/attachments');
-      att.cleanupTempImages(0);                                            // clear carry-over now
-      app.on('will-quit', () => { try { att.cleanupTempImages(0); } catch (_) { /* best-effort */ } });
-    } catch (_) { /* best-effort */ }
+    // Best-effort, at startup ONLY — NOT on quit: synchronous fs at shutdown
+    // would add to the close time. The per-write TTL keeps the dir bounded
+    // during the session; this clears any carry-over on the next launch.
+    try { require('./main/ai/attachments').cleanupTempImages(0); } catch (_) { /* best-effort */ }
 
     // Render the initial jumplist before the user has a chance to
     // right-click the taskbar icon. createMainWindow used to handle

@@ -478,7 +478,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* Cell-body paths inside cells with a known type. `data-cell-type` is
- * injected at SVG-emit time by main/ipc/prism.js (injectCellTypesIntoSvg)
+ * injected at SVG-emit time by main/ipc/prism/svg.js (injectCellTypesIntoSvg)
  * for every cell that has a Yosys type. Direct-child `> path` keeps inner
  * wires/notches inside complex skins from getting this baseline. */
 .svg-content svg g[data-cell-type] > path {

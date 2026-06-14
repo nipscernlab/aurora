@@ -623,10 +623,12 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 ### C. Fundação Vite + dívidas pequenas
 - [ ] **Stage 5 / B5** — deletar os `.js` in-place, migrar testes p/ importar `.ts`, gitignorar os gerados. 🟡
 - [ ] Limpar o CSS morto de `.notification-card` em `notification.css`. 🟢
-- [ ] **Podar o CSS morto acumulado das migrações Lit** (chrome que foi pro Shadow DOM): `.custom-tooltip`
-      (`tooltip.css`), `.cmdk-*` (`command_palette.css`), chrome do welcome (`recent_projects.css`),
-      chrome de modal (`modal_config.css`) — manter só o que ainda serve conteúdo light-DOM (ex.: `.empty-state`,
-      `.modal-body/.modal-footer/.modal-title`). 🟢
+- [~] **Podar o CSS morto das migrações Lit.** FEITO: `command_palette.css` (`.cmdk-*`) e `tooltip.css`
+      (`.custom-tooltip`/`.tooltip-*`) removidos (arquivos inteiros + `@import`); `recent_projects.css` gutado
+      ao essencial (só `.empty-state`, ainda usado p/ outros estados vazios). FALTA: o card morto do toast em
+      `notification.css` (linhas ~19-208, misturado com `.confirm-modal` **vivo** em 210+ → prune parcial
+      delicado). `modal_config.css` **NÃO** é podável: `.modal-content`/`.modal-container` ainda em uso por
+      diálogos não migrados. 🟢
 - [ ] Silenciar (cosmético) o warning do Vite "can't be bundled without type=module" dos 2 scripts não-módulo
       vendados (Monaco `loader.js` AMD + KaTeX UMD) — **benigno** (resolvidos em runtime via `vendor/`), só polui
       o output do build. 🟢

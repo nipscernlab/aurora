@@ -104,7 +104,7 @@ void main(){
   vec3 rd = normalize(vec3(vx * 2.1, vy * 0.95 + 0.05, 1.3));
 
   float dens = 0.0;
-  if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.16);
+  if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.21);
   // Low edge at 0 so the faint field shows too — subtly fills the holes between
   // curtains with thin filaments (not intensely); high edge keeps bright cores.
   dens = smoothstep(0.05, 0.84, dens);

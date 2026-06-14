@@ -9,12 +9,38 @@
  *    each image to a temp file and reference its path. Providers without native
  *    image reading (Codex) get a one-line "can't view images" note instead.
  *
+ * The temp images are ONE-SHOT: the CLI reads the path during the turn it is sent
+ * in and never again (a resumed/restarted chat doesn't re-reference it), so any
+ * file left behind is garbage. To stop them piling up in the OS temp dir, we
+ * clear the directory at app start (cleanupTempImages(0), called from main.js)
+ * and TTL-prune (>1h) on every write.
+ *
  * The SDK transport (chat.js) does NOT use this — it sends real multimodal parts.
  */
 
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+
+const ATT_DIR = path.join(os.tmpdir(), 'aurora-ai-attachments');
+
+/**
+ * Best-effort prune of temp attachment files. Removes anything older than
+ * `maxAgeMs`; pass 0 to clear the whole directory (safe at app start — no chat
+ * references old files then).
+ * @param {number} [maxAgeMs]
+ */
+function cleanupTempImages(maxAgeMs = 60 * 60 * 1000) {
+  try {
+    const now = Date.now();
+    for (const name of fs.readdirSync(ATT_DIR)) {
+      const f = path.join(ATT_DIR, name);
+      try {
+        if (now - fs.statSync(f).mtimeMs >= maxAgeMs) fs.unlinkSync(f);
+      } catch (_) { /* skip a file we can't stat/remove */ }
+    }
+  } catch (_) { /* dir doesn't exist yet — nothing to clean */ }
+}
 
 /** Write an image attachment (a `data:…;base64,…` URL) to a temp file. */
 function writeTempImage(att) {
@@ -23,9 +49,9 @@ function writeTempImage(att) {
     if (!m) return null;
     let ext = (att.name && path.extname(att.name)) || '';
     if (!ext) ext = '.' + (((m[1] || '').split('/')[1] || 'png').replace(/[^a-z0-9]/gi, '') || 'png');
-    const dir = path.join(os.tmpdir(), 'aurora-ai-attachments');
-    fs.mkdirSync(dir, { recursive: true });
-    const file = path.join(dir, `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}${ext}`);
+    fs.mkdirSync(ATT_DIR, { recursive: true });
+    cleanupTempImages();   // TTL-prune stale files so the dir can't grow unbounded
+    const file = path.join(ATT_DIR, `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}${ext}`);
     fs.writeFileSync(file, Buffer.from(m[2], 'base64'));
     return file;
   } catch (_) {
@@ -62,4 +88,4 @@ function buildPromptSuffix(attachments, opts = {}) {
   return out.join('');
 }
 
-module.exports = { writeTempImage, buildPromptSuffix };
+module.exports = { writeTempImage, buildPromptSuffix, cleanupTempImages, ATT_DIR };

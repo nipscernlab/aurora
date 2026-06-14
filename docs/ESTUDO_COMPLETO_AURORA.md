@@ -571,6 +571,30 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
   drop-in por sinal de classe). Restam com ganho **distinto**: `<aurora-editor>` (mata os 30 `!important`; mas
   Monaco-em-Shadow-DOM é arriscado) e `<aurora-panel>` dockável (capacidade nova).
 
+**Sessão 14/06/2026 (parte 2 — IA, segurança, correções) ✅.** Tudo com `node --check` + ESLint + **smoke e2e
+(3/3)** verde; revisões adversariais por workflow onde o código é sensível; verificação ao vivo pelo usuário.
+- **Anexos no chat da IA (imagens + arquivos) + lightbox** — clipe/drag-drop/paste no composer, chips de preview,
+  envio aos 3 transportes (SDK multimodal · Claude Code via temp+Read · Codex inline/degrada imagem); clique-pra-
+  ampliar nas imagens; leak de temp corrigido (limpa no start, não no quit). Imagens **session-scoped** por decisão
+  (não persiste base64 → zero inchaço). Detalhes na régua §13.K.
+- **Segurança: CSP + sandbox** — CSP auditada **por-diretiva** (workflow de 9 agentes) via `onHeadersReceived`
+  (cobre `file://` empacotado + dev); `sandbox:true` nas **5 janelas**. §13.G. *(Verificação ao vivo do usuário
+  pendente: Monaco worker · KaTeX · imagem `data:` colada · fontes.)*
+- **Fechar a IDE lento — CORRIGIDO** — as varreduras `taskkill`/PowerShell-WMI (`Get-CimInstance`) rodavam em
+  TODO fechamento; agora só se algum toolchain rodou na sessão (`toolchainEverRan`), `stopAllToolchain` memoizado,
+  `before-quit` duplicado removido. Sessão só-edição fecha na hora. §13.E.
+- **Pan do viewer de imagem — CORRIGIDO** — pan virou `transform: translate` (não scroll), com clamp →
+  alcança as 4 bordas no zoom; sem borrão (transição só nos botões). §13.E.
+- **Freeze/loop/lentidão da IA — DIAGNOSTICADO (workflow) + CORRIGIDO (A–E)** — não era loop real (chain capada
+  em 5, tool-loop em 24); era **FREEZE** por falta de evento terminal do backend. Fix: timeout de inatividade
+  **tool-aware** (Set de ids) no SDK + 2 CLIs, `Promise.race` no usage, watchdog com **teto-duro de 12 min**,
+  guard no `send()`, cap em tool-results. Revisado adversarialmente (2 HIGH corrigidos). §13.K.
+- **Prompt + rules → YANC v5.2** — SYSTEM_PROMPT refrescado (v5.0→**v5.2**, ISA **112→116 opcodes** + F_SCL/
+  SF_SCL/XPO/XPO_M, stdlib completa: cosh/sinh/tanh/floor/ceil/round/conj) + dedup (RESERVED standalone);
+  `resources/sapho_rules.json` **regenerado** (sync script; `STDLIB_FUNCTIONS` corrigido — 7 funções estavam
+  misclassificadas). Identidade já estava correta. Condensação de tokens avaliada e **deferida** (system já
+  cacheado: Anthropic ephemeral + auto-cache dos providers + `--resume` dos CLIs). §13.K.
+
 ### ⬜ Falta
 **Fundação (Vite — só o Stage 5 restante):**
 - [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
@@ -599,8 +623,8 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
       de memória com dezenas de abas, usando o checklist da memória.
 - [ ] Medição: overlay de jank (p99), baseline de TTI, smoke de orçamento no CI (§4.4/G7).
 
-**Fora das 2 trilhas (parking lot):** segurança restante (V4/V7/V8/V9/V10–V12, CSP, sandbox); OSS
-(Surfer/Verible/ripgrep/…); build/DX (B1–B13); repo (§9, 18 itens).
+**Fora das 2 trilhas (parking lot):** segurança restante (V4/V7/V8/V9/V10–V12 — **CSP + sandbox FEITOS** nesta
+sessão, ver acima); OSS (Surfer/Verible/ripgrep/…); build/DX (B1–B13); repo (§9, 18 itens).
 
 ---
 

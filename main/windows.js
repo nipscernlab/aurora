@@ -428,6 +428,30 @@ function createUpdateWindow() {
 // it (BrowserWindow.fromWebContents), not the singleton `state.mainWindow`
 // which only tracks the most recently created window. Without this fix,
 // minimizing/closing the second window would have acted on the first.
+// Design Lab — the internal component gallery (DESIGN §11). Dev tooling, opened
+// from the command palette ("Open Design Lab"). A normal framed window (OS
+// controls) and a singleton so it never clutters. No preload: the gallery is a
+// static page that talks to nothing.
+let designLabWindow = null;
+function createDesignLabWindow() {
+  if (designLabWindow && !designLabWindow.isDestroyed()) {
+    designLabWindow.focus();
+    return designLabWindow;
+  }
+  designLabWindow = new BrowserWindow({
+    width: 1100,
+    height: 820,
+    title: 'Aurora Design Lab',
+    backgroundColor: '#0A0D14',
+    autoHideMenuBar: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  designLabWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  loadPage(designLabWindow, 'html/design-lab.html');
+  designLabWindow.on('closed', () => { designLabWindow = null; });
+  return designLabWindow;
+}
+
 function registerWindowControls() {
   const senderWin = (/** @type {any} */ event) => {
     try {
@@ -485,6 +509,8 @@ function registerWindowControls() {
     const w = senderWin(event) || state.mainWindow;
     if (w) w.webContents.setZoomFactor(1.0);
   });
+
+  ipcMain.handle('open-design-lab', () => { createDesignLabWindow(); });
 }
 
 module.exports = {

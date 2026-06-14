@@ -27,6 +27,7 @@ module.exports = {
     'main.js',                 // Electron main process (package.json "main")
     'js/app/preload*.js',      // 4 contextBridge preloads, loaded by path
     'html/prism/prism.js',     // PRISM window renderer (<script> in prism.html)
+    'js/components/design-lab.js', // Design Lab page entry (imports every Lit component)
     'scripts/*.js',            // npm-run build/release/bootstrap helpers
     'components/Scripts/*.js', // toolchain download/copy (npm run bootstrap)
     ...rendererEntriesFromIndexHtml(),

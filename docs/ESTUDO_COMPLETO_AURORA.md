@@ -513,6 +513,16 @@ base→semantic dos ~600 usos existentes fica para a migração por-componente. 
 `vite build` verdes; **paridade visual** (aliases). Próximo: **Fase B** (instalar Lit + `<aurora-statusbar>`
 + Design Lab).
 
+**Fundação Lit + Design Lab (Fase B) ✅.** **Lit 3** instalado. Primeiro componente
+`js/components/aurora-statusbar.js` (LitElement + **Shadow DOM** + só **tokens semânticos**, que atravessam o
+shadow do `:root`; status dot com glow por estado, raio de foco no chip de processador, reduced-motion). É o
+**molde** dos demais. **Design Lab** (`html/design-lab.html`, input multi-page Vite + `js/components/design-lab.js`):
+galeria que mostra o componente em todos os estados (idle/projeto/compilando/erro), aberta por **"Open Design
+Lab"** na command palette (IPC `open-design-lab` → janela nova via `loadPage`). Lit fica **isolado no chunk do
+design-lab** — o `index.html` não importa nada de Lit, então o fallback raw do app principal segue intacto (a
+migração ao vivo, que retira o raw, é a Fase C). 208 unit + ESLint + knip + `vite build` + dev-server (200)
+verdes; aditivo, **zero mudança no app ao vivo**.
+
 ### ⬜ Falta
 **Fundação (Vite — só o Stage 5 restante):**
 - [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
@@ -521,10 +531,13 @@ base→semantic dos ~600 usos existentes fica para a migração por-componente. 
 **Visual (Lit shell — em andamento):**
 - [x] **Camada semântica de tokens (DESIGN §3)** — feita (Fase A, ver acima). Resta só a **adoção
       por-componente** (codemod base→semantic, junto da migração Lit).
-- [ ] 🔴 **Shell em Lit + painéis dockáveis** + redesenho de welcome/empty-states (4 skins → 1) +
-      densidade/hierarquia (Zed/Linear/Fleet). **Fase B**: instalar Lit, `<aurora-statusbar>` (prova do
-      stack), `html/design-lab.html`. **Fase C+**: migração progressiva na ordem de isolação (titlebar →
-      … → `<aurora-editor>`, que dropa os 30 `!important` via Shadow DOM).
+- [x] **Fundação Lit + Design Lab (Fase B)** — feita (ver acima): Lit 3, `<aurora-statusbar>` (molde),
+      Design Lab + launcher. Aditivo, app ao vivo intacto.
+- [ ] 🔴 **Shell em Lit (Fase C+)** + painéis dockáveis + redesenho de welcome/empty-states (4 skins → 1) +
+      densidade/hierarquia (Zed/Linear/Fleet). Migração progressiva na ordem de isolação: ligar o
+      `<aurora-statusbar>` ao vivo (`status_bar.js`) → titlebar → activity-bar → file-tree (preservar as 3
+      subárvores) → tabs → `<aurora-editor>` (dropa os 30 `!important` via Shadow DOM) → terminal → modais.
+      Cada peça: codemod base→semantic + entrada na Design Lab.
 - [ ] **Consolidar `ai_assistant.css`** (2.150 linhas; a paleta de syntax já saiu pros tokens, o resto
       do arquivo permanece). Baixa prioridade.
 - [ ] ~~Tema light / aurora-contrast~~ — **descartado** (tema único).

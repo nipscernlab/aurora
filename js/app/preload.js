@@ -172,6 +172,7 @@ const uiOperations = {
   zoomOut:   () => ipcRenderer.send('zoom-out'),
   zoomReset: () => ipcRenderer.send('zoom-reset'),
   reloadApp: () => ipcRenderer.send('app:reload'),
+  openDesignLab: () => ipcRenderer.invoke('open-design-lab'), // DESIGN §11 component gallery
 
   // Custom title bar — frameless window controls
   windowMinimize:       () => ipcRenderer.send('window:minimize'),

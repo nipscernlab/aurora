@@ -57,6 +57,7 @@ const COMMANDS = [
   { id: 'tools.hub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
   { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
   { id: 'tools.settings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
+  { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => window.electronAPI?.openDesignLab?.() },
 ];
 
 const GROUP_ORDER = ['Compile', 'Project', 'View', 'Tools'];

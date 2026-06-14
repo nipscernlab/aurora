@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurora — Design Lab</title>
+  <!-- Base tokens only — the Lab and the components read the semantic layer
+       (DESIGN §3) from :root; it inherits across the components' Shadow DOM. -->
+  <link rel="stylesheet" href="../css/base/fonts.css">
+  <link rel="stylesheet" href="../css/base/theme_variables.css">
+  <link rel="stylesheet" href="../css/base/semantic_tokens.css">
+  <style>
+    /* Lab chrome — dev tooling, but styled with the same semantic tokens. */
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--surface-sky);
+      color: var(--text-default);
+      font-family: var(--font-sans);
+      font-size: var(--text-sm, 13px);
+      padding: var(--space-8, 32px);
+    }
+    header { margin-bottom: var(--space-8, 32px); }
+    h1 {
+      margin: 0 0 var(--space-1, 4px) 0;
+      font-size: var(--text-2xl, 24px);
+      font-weight: 600;
+      width: fit-content;
+      background: var(--accent-veil);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .subtitle { color: var(--text-muted); margin: 0; }
+    section { margin-bottom: var(--space-10, 40px); }
+    h2 {
+      font-family: var(--font-mono);
+      font-size: var(--text-base, 14px);
+      color: var(--text-bright);
+      margin: 0 0 var(--space-4, 16px) 0;
+      padding-bottom: var(--space-2, 8px);
+      border-bottom: 1px solid var(--border-hairline);
+    }
+    .specimen { margin-bottom: var(--space-5, 20px); max-width: 980px; }
+    .specimen-label {
+      display: block;
+      color: var(--text-faint);
+      font-size: var(--text-2xs, 10px);
+      text-transform: uppercase;
+      letter-spacing: var(--tracking-wide, 0.04em);
+      margin-bottom: var(--space-2, 8px);
+    }
+    .stage {
+      border: 1px solid var(--border-hairline);
+      border-radius: var(--radius-lg, 8px);
+      overflow: hidden;
+    }
+    .stage > aurora-statusbar { width: 100%; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Aurora Design Lab</h1>
+    <p class="subtitle">Every shell component, every state — measured against DESIGN.md.</p>
+  </header>
+
+  <section>
+    <h2>&lt;aurora-statusbar&gt;</h2>
+
+    <div class="specimen">
+      <span class="specimen-label">idle · no project</span>
+      <div class="stage">
+        <aurora-statusbar statuskind="idle" statustext="Ready"></aurora-statusbar>
+      </div>
+    </div>
+
+    <div class="specimen">
+      <span class="specimen-label">project open</span>
+      <div class="stage">
+        <aurora-statusbar
+          statuskind="ok" statustext="Ready" processor="sqrt_newton"
+          toplevel="my_top" testbench="my_tb" simulator="Verilator"
+          cursor="Ln 10, Col 16"></aurora-statusbar>
+      </div>
+    </div>
+
+    <div class="specimen">
+      <span class="specimen-label">compiling</span>
+      <div class="stage">
+        <aurora-statusbar
+          statuskind="info" statustext="Compiling…" processor="sqrt_newton"
+          toplevel="my_top" simulator="Icarus"></aurora-statusbar>
+      </div>
+    </div>
+
+    <div class="specimen">
+      <span class="specimen-label">error</span>
+      <div class="stage">
+        <aurora-statusbar
+          statuskind="error" statustext="Compilation failed"
+          processor="sqrt_newton"></aurora-statusbar>
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="../js/components/design-lab.js"></script>
+</body>
+</html>

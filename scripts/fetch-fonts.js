@@ -26,9 +26,15 @@ const OUT_CSS = path.join(__dirname, '..', 'css', 'base', 'fonts.css');
 const KEEP_SUBSETS = new Set(['latin', 'latin-ext']);
 
 /** @type {{family:string, slug:string, css:string}[]} */
+// Both are VARIABLE fonts. Request the weight RANGE (`wght@400..700`) so Google
+// serves ONE variable woff2 per subset covering the whole axis, and emit a single
+// @font-face per subset with a font-weight RANGE — real 400..700 from one file.
+// (Requesting discrete weights `wght@400;500;...` returns one @font-face per weight
+//  all pointing at the same variable file, which read as a single weight and
+//  shipped byte-identical duplicates.)
 const FAMILIES = [
-  { family: 'Inter', slug: 'inter', css: 'Inter:wght@400;500;600;700' },
-  { family: 'JetBrains Mono', slug: 'jetbrains-mono', css: 'JetBrains+Mono:wght@400;500;600' },
+  { family: 'Inter', slug: 'inter', css: 'Inter:wght@400..700' },
+  { family: 'JetBrains Mono', slug: 'jetbrains-mono', css: 'JetBrains+Mono:wght@400..600' },
 ];
 
 function get(url, asBuffer) {
@@ -61,12 +67,14 @@ async function main() {
       const block = parts[i + 1] || '';
       if (!KEEP_SUBSETS.has(subset)) continue;
 
-      const weight = (block.match(/font-weight:\s*(\d+)/) || [])[1] || '400';
+      // A range request yields `font-weight: 400 700` — keep the whole range.
+      const weight = ((block.match(/font-weight:\s*(\d+(?:\s+\d+)?)/) || [])[1] || '400').trim();
       const range = (block.match(/unicode-range:\s*([^;]+);/) || [])[1] || '';
       const woff2 = (block.match(/url\(([^)]+\.woff2)\)/) || [])[1];
       if (!woff2) continue;
 
-      const fileName = `${fam.slug}-${weight}-${subset}.woff2`;
+      // One variable file per subset — the weight axis lives inside the file.
+      const fileName = `${fam.slug}-${subset}.woff2`;
       const buf = /** @type {Buffer} */ (await get(woff2, true));
       fs.writeFileSync(path.join(OUT_FONTS, fileName), buf);
 

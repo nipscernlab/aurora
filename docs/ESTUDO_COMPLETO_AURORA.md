@@ -645,7 +645,12 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       retomar só sob pressão real de memória, com o checklist da memória. Por decisão, fora do backlog ativo.
 
 ### E. Bugs pré-existentes a corrigir
-- [ ] **Fontes duplicadas** — `scripts/fetch-fonts.js` baixa o mesmo arquivo p/ todos os pesos (4 conteúdos p/ 14 faces); **a IDE não tem bold/medium reais**. 🟡 alto impacto visual.
+- [x] **Fontes duplicadas → bold/medium reais** — FEITO. Inter/JetBrains são **variáveis**: o build antigo
+      emitia 1 `@font-face` por peso (400/500/600/700) todos apontando pro MESMO woff2 variável (14 faces,
+      4 conteúdos; lia como peso único + 10 duplicatas byte-idênticas). Agora **1 `@font-face` por subset com
+      `font-weight` em FAIXA** (`400 700` / `400 600`) sobre 1 arquivo variável por subset → o navegador
+      interpola 400..700 reais. 10 woff2 duplicados removidos (~600 KB); `fetch-fonts.js` corrigido (pede a
+      faixa `wght@400..700`). **Validar bold/medium ao vivo.**
 - [ ] **e2e flaky** `split-pane > PRISM open-at-line` — timing do ambiente (corrida de 600ms).
 - [ ] **A5** — verificar/corrigir os 4 bugs do mapeamento (getActiveFilePath `dataset.file`↔`data-path`; `editorNs.openFile` `tree.value`; snapshot do PDF; código morto com `ReferenceError`). 🟢
 

@@ -107,7 +107,7 @@ void main(){
   if (rd.y > 0.0) dens = auroraDensity(ro, rd, uTime * 0.16);
   // Low edge at 0 so the faint field shows too — subtly fills the holes between
   // curtains with thin filaments (not intensely); high edge keeps bright cores.
-  dens = smoothstep(0.0, 0.82, dens);
+  dens = smoothstep(0.05, 0.84, dens);
 
   // Mountain ridge (width-units): smooth, low-frequency, slowly drifting tops —
   // tall peaks and lower saddles. High min so it never collapses (stays coherent
@@ -121,25 +121,30 @@ void main(){
   // and closes onto the terminal with no holes.
   float base = smoothstep(0.13, 0.0, vy);
 
-  // Emission by ABSOLUTE height (stable, coherent colour bands): green body ->
-  // teal -> magenta -> pink. Taller curtains naturally reach the pink tips.
+  // Fuller spectrum up the height (stable, coherent bands): green body -> teal ->
+  // cyan -> violet -> magenta -> pink at the tips. More colour, still an aurora.
   float h = clamp(vy / 0.42, 0.0, 1.0);
   vec3 green   = vec3(0.26, 1.00, 0.52);
-  vec3 teal    = vec3(0.32, 0.95, 0.82);
-  vec3 magenta = vec3(0.92, 0.34, 0.90);
-  vec3 pink    = vec3(1.00, 0.58, 0.80);
-  vec3 cc = mix(green, teal, smoothstep(0.00, 0.30, h));
-  cc = mix(cc, magenta, smoothstep(0.44, 0.78, h));
-  cc = mix(cc, pink,    smoothstep(0.72, 1.00, h));
+  vec3 teal    = vec3(0.30, 0.96, 0.80);
+  vec3 cyan    = vec3(0.28, 0.78, 1.00);
+  vec3 violet  = vec3(0.60, 0.46, 1.00);
+  vec3 magenta = vec3(0.95, 0.36, 0.92);
+  vec3 pink    = vec3(1.00, 0.62, 0.84);
+  vec3 cc = mix(green, teal,    smoothstep(0.00, 0.22, h));
+  cc = mix(cc, cyan,    smoothstep(0.20, 0.42, h));
+  cc = mix(cc, violet,  smoothstep(0.40, 0.60, h));
+  cc = mix(cc, magenta, smoothstep(0.58, 0.80, h));
+  cc = mix(cc, pink,    smoothstep(0.78, 1.00, h));
 
-  vec3 col = cc * dens * 1.7;
-  col += green * base * 0.42;                        // continuous bottom fill
+  // Dimmer + a little less volume than before (it was too bright/full).
+  vec3 col = cc * dens * 1.2;
+  col += green * base * 0.30;                        // continuous bottom fill
 
-  // Soft bloom on the brightest ribbon cores (luminous emission).
+  // Soft bloom on the brightest ribbon cores (kept gentle).
   float lum0 = max(col.r, max(col.g, col.b));
-  col += col * smoothstep(0.55, 1.30, lum0) * 0.45;
+  col += col * smoothstep(0.60, 1.35, lum0) * 0.28;
 
-  float a = clamp(max(col.r, max(col.g, col.b)) * 1.5, 0.0, 1.0);
+  float a = clamp(max(col.r, max(col.g, col.b)) * 1.35, 0.0, 1.0);
   col *= uIntensity;
   a   *= uIntensity;
   gl_FragColor = vec4(col, a);

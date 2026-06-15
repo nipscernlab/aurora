@@ -26,6 +26,7 @@
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { WaveStore } from './wave_state_store.js';
+import { getViewer } from './viewer_preference.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -48,6 +49,10 @@ class GtkwPickerManager {
         this._currentTbKey = '';
         this._files = [];
         this._activePath = NONE_VALUE;
+        // Viewer-aware: 'gtkwave' → manages gtkwFiles[] (.gtkw); 'surfer' →
+        // surferFiles[] (.surf.ron/.sucl). Re-derived on every refresh().
+        this._field = 'gtkwFiles';
+        this._isSurfer = false;
     }
 
     initialize() {
@@ -94,12 +99,20 @@ class GtkwPickerManager {
         // up the new translations.
         window.addEventListener('aurora:locale-changed', () => this.refresh());
 
+        // Viewer change (GTKWave ↔ Surfer) swaps which list this picker
+        // shows — refresh so the menu + label track the active viewer.
+        window.addEventListener('aurora:wave-viewer-changed', () => this.refresh());
+
         this._initialized = true;
         this.refresh();
     }
 
     async refresh() {
         if (!this.root) return;
+        // Pick which list (and file kind) this refresh manages from the
+        // current viewer, so the one dropdown serves GTKWave and Surfer.
+        this._isSurfer = (typeof getViewer === 'function' ? getViewer() : 'gtkwave') === 'surfer';
+        this._field = this._isSurfer ? 'surferFiles' : 'gtkwFiles';
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
         if (!projectPath || !spfPath) {
@@ -123,7 +136,8 @@ class GtkwPickerManager {
             return;
         }
         const state = await WaveStore.read(projectPath, tbKey);
-        this._files = Array.isArray(state.gtkwFiles) ? state.gtkwFiles.filter((f) => f?.path) : [];
+        const list = state[this._field];
+        this._files = Array.isArray(list) ? list.filter((f) => f?.path) : [];
         const active = this._files.find((f) => f.isActive === true);
         this._activePath = active?.path || NONE_VALUE;
         this._updateLabelFromState();
@@ -173,11 +187,12 @@ class GtkwPickerManager {
             }));
         }
 
-        // + Add row — sentinel, opens dialog.
+        // + Add row — sentinel, opens dialog. Label tracks the viewer so it
+        // reads "Surfer layout" instead of ".gtkw" under Surfer.
         this.menu.appendChild(this._makeMenuRow({
             value: ADD_VALUE,
-            label: tr('toolbar.gtkwPicker.add'),
-            i18nKey: 'toolbar.gtkwPicker.add',
+            label: this._isSurfer ? '+ Add Surfer layout…' : tr('toolbar.gtkwPicker.add'),
+            i18nKey: this._isSurfer ? null : 'toolbar.gtkwPicker.add',
             removable: false,
             adder: true,
         }));
@@ -284,27 +299,32 @@ class GtkwPickerManager {
         // not offered because the wave flow can't consume anything
         // else and would fail at simulation time with a less obvious
         // error.
+        // Dialog filtered to the active viewer's layout kind — "All Files"
+        // intentionally not offered (the wave flow can't consume anything
+        // else and would fail later with a less obvious error).
+        const filters = this._isSurfer
+            ? [{ name: 'Surfer layout (*.surf.ron, *.sucl)', extensions: ['ron', 'sucl'] }]
+            : [{ name: 'GTKWave Save Files (*.gtkw)', extensions: ['gtkw'] }];
         const result = await window.electronAPI.showOpenDialogImport({
             properties: ['openFile'],
-            filters: [
-                { name: 'GTKWave Save Files (*.gtkw)', extensions: ['gtkw'] },
-            ],
+            filters,
         });
         if (!result || result.canceled || !result.filePaths?.length) return;
 
         const filePath = result.filePaths[0];
         const fileName = filePath.split(/[\\/]/).pop();
         const tbKey = this._currentTbKey;
+        const field = this._field;
 
         await WaveStore.update(projectPath, tbKey, (cfg) => {
-            const files = Array.isArray(cfg.gtkwFiles) ? cfg.gtkwFiles : [];
+            const files = Array.isArray(cfg[field]) ? cfg[field] : [];
             let existing = files.find((f) => f?.path === filePath);
             if (!existing) {
                 existing = { name: fileName, path: filePath, isActive: false };
                 files.push(existing);
             }
             for (const f of files) f.isActive = (f === existing);
-            cfg.gtkwFiles = files;
+            cfg[field] = files;
         });
         await this.refresh();
     }
@@ -312,12 +332,13 @@ class GtkwPickerManager {
     async _setActive(targetPath) {
         const projectPath = ProjectStore.getProjectPath();
         if (!projectPath || !this._currentTbKey) return;
+        const field = this._field;
         await WaveStore.update(projectPath, this._currentTbKey, (cfg) => {
-            const files = Array.isArray(cfg.gtkwFiles) ? cfg.gtkwFiles : [];
+            const files = Array.isArray(cfg[field]) ? cfg[field] : [];
             for (const f of files) {
                 f.isActive = (f?.path === targetPath);
             }
-            cfg.gtkwFiles = files;
+            cfg[field] = files;
         });
         await this.refresh();
     }
@@ -326,9 +347,10 @@ class GtkwPickerManager {
         const projectPath = ProjectStore.getProjectPath();
         if (!projectPath || !this._currentTbKey) return;
         if (!targetPath || targetPath === NONE_VALUE || targetPath === ADD_VALUE) return;
+        const field = this._field;
         await WaveStore.update(projectPath, this._currentTbKey, (cfg) => {
-            const files = Array.isArray(cfg.gtkwFiles) ? cfg.gtkwFiles : [];
-            cfg.gtkwFiles = files.filter((f) => f?.path !== targetPath);
+            const files = Array.isArray(cfg[field]) ? cfg[field] : [];
+            cfg[field] = files.filter((f) => f?.path !== targetPath);
         });
         await this.refresh();
         // Keep the menu open if it was open so the user can remove

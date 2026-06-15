@@ -910,6 +910,96 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'list_surfer_files',
+    description: 'List Surfer layout files (.surf.ron saved state / .sucl command file) registered for the active testbench, with their active flag. The Surfer counterpart of list_gtkw_files; used when the waveform viewer is Surfer.',
+    access: 'read',
+    api: ['wave', 'listSurferFiles'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'find_surfer_files',
+    description:
+      'Find Surfer layout files (.surf.ron saved state, or .sucl command files) anywhere inside the ' +
+      'open project by name. The user only needs to give the file name — this resolves the full path. ' +
+      'Pass a name fragment to filter, or omit it to list every Surfer layout. Returns project-relative ' +
+      'and absolute paths.',
+    access: 'read',
+    api: ['wave', 'findSurferFiles'],
+    argStyle: 'positional',
+    argNames: ['query'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Name or fragment of the Surfer layout to find (optional)' },
+      },
+    },
+  },
+  {
+    name: 'use_surfer_file',
+    description:
+      'Given just a Surfer layout file NAME (.surf.ron or .sucl, with or without the extension), locate ' +
+      'it in the project, register it for the active testbench, and mark it active — so the next "wave" ' +
+      'run opens Surfer with it. If the name matches several files the candidates are reported. This is ' +
+      'the easiest way to set the Surfer layout.',
+    access: 'write',
+    api: ['wave', 'useSurferByName'],
+    argStyle: 'positional',
+    argNames: ['name'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'The Surfer layout file name, e.g. "mylayout" or "mylayout.surf.ron"' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'add_surfer_file',
+    description:
+      'Register a Surfer layout from inside the project tree for the active testbench: a .surf.ron saved ' +
+      'state (loaded with -s) or a .sucl command file (loaded with -c). The file must exist. By default ' +
+      'the freshly added entry becomes the active one.',
+    access: 'write',
+    api: ['wave', 'addSurferFile'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath:  { type: 'string', description: 'Absolute or project-relative path to a .surf.ron / .sucl file' },
+        setActive: { type: 'boolean', description: 'Mark this layout active (default: true)' },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'set_active_surfer_file',
+    description:
+      'Pick which already-registered Surfer layout the Surfer viewer loads when "wave" is run. Omit ' +
+      'filePath to clear the selection (Surfer opens the raw VCD with no curated layout).',
+    access: 'write',
+    api: ['wave', 'setActiveSurferFile'],
+    argStyle: 'positional',
+    argNames: ['filePath'],
+    inputSchema: {
+      type: 'object',
+      properties: { filePath: { type: 'string' } },
+    },
+  },
+  {
+    name: 'remove_surfer_file',
+    description: 'Remove a Surfer layout entry from the active testbench list. Does not delete the file from disk.',
+    access: 'write',
+    api: ['wave', 'removeSurferFile'],
+    argStyle: 'positional',
+    argNames: ['filePath'],
+    inputSchema: {
+      type: 'object',
+      properties: { filePath: { type: 'string' } },
+      required: ['filePath'],
+    },
+  },
+  {
     name: 'get_simulator',
     description:
       'Read which Verilog simulator the Wave button runs. Returns "iverilog" ' +

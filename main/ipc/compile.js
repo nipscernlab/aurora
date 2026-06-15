@@ -10,8 +10,9 @@
  * main/compile/executor.js is the modern path; vvp now runs through it.)
  */
 
-const { ipcMain } = require('electron');
+const { ipcMain, app, screen } = require('electron');
 const fs = require('fs');
+const path = require('path');
 const { execFile, spawn } = require('child_process');
 const log = require('electron-log');
 
@@ -22,6 +23,41 @@ const {
   checkProcessRunning,
 } = require('../utils');
 const { trackChild } = require('../process_registry');
+
+// Surfer has no "maximize" CLI flag and its state file carries no window
+// geometry, so to avoid a tiny top-left window we write a CENTERED, screen-
+// adaptive geometry into Surfer's (global) config — the only place it reads
+// window size/pos (the cwd-local .surfer/ override is broken on Windows in
+// v0.7.0). We read the real primary-display work area (nothing hardcoded) and
+// size a centered ~85% rectangle; the user maximizes from there. A marker
+// guards a hand-authored config so it is never clobbered.
+function writeSurferCenteredWindowConfig() {
+  try {
+    const wa = screen.getPrimaryDisplay().workArea; // logical (DIP) units
+    const w = Math.max(800, Math.round(wa.width * 0.85));
+    const h = Math.max(600, Math.round(wa.height * 0.85));
+    const x = wa.x + Math.round((wa.width - w) / 2);
+    const y = wa.y + Math.round((wa.height - h) / 2);
+    const dir = path.join(app.getPath('appData'), 'surfer-project', 'surfer', 'config');
+    const file = path.join(dir, 'config.toml');
+    const MARKER = '# Managed by AURORA';
+    if (fs.existsSync(file) && !fs.readFileSync(file, 'utf8').includes(MARKER)) {
+      return; // respect a hand-authored Surfer config
+    }
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file,
+      `${MARKER} — Surfer opens centered on your screen; maximize it yourself.\n` +
+      '# Delete this file (or remove the line above) to manage the window yourself.\n' +
+      '[layout]\n' +
+      `window_width = ${w}\n` +
+      `window_height = ${h}\n` +
+      `window_x_position = ${x}\n` +
+      `window_y_position = ${y}\n`,
+      'utf8');
+  } catch (error) {
+    log.warn('Surfer window-config write skipped:', error?.message);
+  }
+}
 
 function register() {
   // NOTE: the legacy 'exec-command' handler (raw shell string from the
@@ -109,6 +145,9 @@ function register() {
           resolve({ success: false, message: `Surfer not found at ${surferBin}` });
           return;
         }
+
+        // Center Surfer on the user's screen (it has no true maximize).
+        writeSurferCenteredWindowConfig();
 
         const surferProcess = spawn(surferBin, args, {
           cwd: workingDir,

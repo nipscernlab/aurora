@@ -1892,13 +1892,14 @@ async runGtkWave() {
         // FST and we skip — the VCD is its own header source, parsed downstream.
         const headerVcd = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
         await this._extractFstHeaderVcd(vcdFile, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
-        const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
         // Branch on the user's viewer choice. Default 'gtkwave' → the existing
-        // path is untouched for current users; 'surfer' opens Surfer instead,
-        // degrading back to GTKWave if the binary isn't present.
+        // path is untouched for current users; 'surfer' opens Surfer with its
+        // own active layout (.surf.ron/.sucl), and no .gtkw is generated for it.
         if (getViewer() === 'surfer') {
-            await this._waveLaunchSurfer(vcdFile, gtkwSaveFile, tools);
+            const surferLayout = await this._waveResolveSurferSaveFile();
+            await this._waveLaunchSurfer(vcdFile, surferLayout, tools);
         } else {
+            const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
             await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
         }
     } catch (error) {
@@ -3824,23 +3825,34 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  *
  * Surfer (https://surfer-project.org/) is a Rust/egui waveform viewer that
  * reads the same VCD/FST. Aurora treats it as an optional standalone
- * surfer.exe under components/Packages/surfer/. For this MVP it opens as an
- * external window on the raw VCD — the curated .sucl layout (mirroring the
- * .gtkw source/opcode/complex tracks) is a tracked follow-up. If the binary
- * is absent (the default — it isn't bundled yet) the launch reports a clean
- * not-found and we degrade to GTKWave, so the Wave button always produces a
- * viewer. The spawned process is tracked, so it's torn down with the IDE.
+ * surfer.exe under components/Packages/surfer/. It opens as an external
+ * window on the VCD, loading the active Surfer layout when one is set: a
+ * .surf.ron saved state (via -s) or a .sucl command file (via -c). If the
+ * binary is absent (the default — it isn't bundled yet) the launch reports a
+ * clean not-found and we degrade to GTKWave, so the Wave button always
+ * produces a viewer. The spawned process is tracked, torn down with the IDE.
+ * (Auto-generating a curated .sucl from the picker selection is a follow-up;
+ * the curated layout today is a user/AI-supplied .surf.ron/.sucl.)
  *
- * Inputs:  vcdFile (absolute), gtkwSaveFile (for the GTKWave fallback), tools
+ * Inputs:  vcdFile (absolute), surferLayoutFile (.surf.ron/.sucl or null), tools
  * Returns: void
  * Side-effects: spawns surfer.exe (stored on this.surferProcess), or calls
  *               _waveLaunchGtkwave as a fallback.
  */
-async _waveLaunchSurfer(vcdFile, gtkwSaveFile, tools) {
+async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
+    // Load the active layout after the positional VCD: .surf.ron (saved
+    // state) via -s, .sucl (command file) via -c. The CLI VCD takes
+    // precedence over any path embedded in a state file, so a registered
+    // .surf.ron stays portable across re-runs (items re-bind by name).
+    const args = [vcdFile];
+    if (surferLayoutFile) {
+        const flag = /\.sucl$/i.test(surferLayoutFile) ? '-c' : '-s';
+        args.push(flag, surferLayoutFile);
+    }
     const result = await window.electronAPI.launchSurfer({
         surferBin: tools.surferBin,
-        args: [vcdFile],
+        args,
         workingDir: tools.tempBaseDir,
     });
     if (!result.success) {
@@ -3850,11 +3862,39 @@ async _waveLaunchSurfer(vcdFile, gtkwSaveFile, tools) {
             'Drop surfer.exe in components/Packages/surfer/ to use Surfer.',
             'tips',
         );
-        await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
+        await this._waveLaunchGtkwave(vcdFile, null, tools);
         return;
     }
     this.surferProcess = result.surferPid;
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
+}
+
+/**
+ * Resolve which Surfer layout file the Surfer viewer should load — the
+ * mirror of _waveResolveGtkwSaveFile's Source 1 (user-curated). Reads the
+ * per-testbench surferFiles[] from the WaveStore and returns the absolute
+ * path of the entry marked isActive (a .surf.ron saved state or a .sucl
+ * command file). Returns null when none is active, so Surfer opens the raw
+ * VCD. There is no Source-2 auto-generation yet (a curated .sucl writer is a
+ * tracked follow-up).
+ *
+ * Returns: absolute path | null.  Throws: never.
+ */
+async _waveResolveSurferSaveFile() {
+    const tbKey = (this.projectConfig.testbenchFile || '')
+        .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    if (!tbKey) return null;
+    const state = await WaveStore.get(this.projectPath, tbKey);
+    const files = state?.surferFiles;
+    if (Array.isArray(files) && files.length > 0) {
+        const active = files.find((f) => f && f.isActive === true);
+        if (active && active.path) {
+            this.terminalManager.appendToTerminal('twave',
+                `Surfer layout: ${active.path.split(/[\\/]/).pop()}`, 'info');
+            return active.path;
+        }
+    }
+    return null;
 }
 
 

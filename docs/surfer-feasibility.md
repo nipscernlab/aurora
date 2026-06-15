@@ -200,6 +200,29 @@ tem **API** pra trocar o viewer. Entregue:
 abre o **VCD cru** no `surfer.exe` se ele existir, ou avisa no terminal e **cai pro GTKWave** (o botão
 Wave nunca fica sem viewer). Basta dropar o binário em `components/Packages/surfer/` pra ativar.
 
-**Deferido (follow-up):** Fase 1 plena — `buildSurferLayout()` emitindo o `.sucl` curado + mapping
-files dos `trad_*.txt` (hoje o MVP abre o VCD sem curadoria); embed por iframe WASM; e o pre-pass do
-`comp2gtkw` (Fase 3). A separação viewer-agnóstica deixa isso isolado em `_waveLaunchSurfer`.
+## 10. Layout files + picker + janela (14/06/2026, parte 2)
+
+Verdade-de-campo do binário v0.7.0 (`surfer --help` + fonte): **não há flag de maximizar** nem
+`with_maximized`; o `-s`/state **não** guarda geometria de janela; o config local `.surfer/` é
+**quebrado no Windows** (walk-up com limite `/`). Geometria só pelo config global
+`%APPDATA%\surfer-project\surfer\config\config.toml` `[layout] window_*` (pontos lógicos). E
+`surfer <vcd> -s <state>`: o **VCD posicional tem precedência** sobre o `source` embutido no state, e
+os itens **re-resolvem por nome/caminho** (IDs `Wellen` são descartados) → um `.surf.ron` salvo é
+**portável** entre re-runs/paths. Entregue nesta parte:
+
+- **Escolher/registrar layout do Surfer como um `.gtkw`:** `WaveStore.surferFiles[]` (espelha
+  `gtkwFiles[]`, por testbench) + 6 AI-tools `list/find/use/add/set_active/remove_surfer_file`
+  (`aurora_api.js` + `tools.js`, aceitam `.surf.ron`/`.sucl`).
+- **Picker viewer-aware:** o mesmo dropdown da toolbar (`gtkw_picker.js`) lê `getViewer()` e alterna
+  entre `gtkwFiles`/`surferFiles` (e o filtro do dialog) — escuta `aurora:wave-viewer-changed`.
+- **Launch com layout:** `_waveResolveSurferSaveFile()` (Source 1, o entry `isActive`) →
+  `_waveLaunchSurfer(vcd, layout)` monta `surfer <vcd> -s <.surf.ron>` ou `-c <.sucl>`.
+- **Janela centralizada adaptativa:** `writeSurferCenteredWindowConfig()` (`main/ipc/compile.js`) lê
+  o work-area real (`screen`, nada hardcoded), escreve um retângulo centralizado a ~85% no config
+  global do Surfer (marker-guarded p/ não sobrescrever config do usuário); o usuário maximiza. Sem
+  "maximizar de verdade" porque o Surfer não suporta.
+
+**Deferido (follow-up):** `buildSurferLayout()` auto-gerando o `.sucl` curado da seleção do picker +
+mapping files dos `trad_*.txt` (hoje a curadoria vem de um `.surf.ron`/`.sucl` que o usuário/IA
+fornece); embed por iframe WASM; e o pre-pass do `comp2gtkw` (Fase 3). Tudo isolado em
+`_waveLaunchSurfer`/`_waveResolveSurferSaveFile`.

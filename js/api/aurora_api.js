@@ -2046,6 +2046,156 @@ const waveNs = {
     window.gtkwPickerManager?.refresh?.();
     return ok({ removed });
   },
+
+  // ---- Surfer layout files (mirror of the .gtkw handlers, viewer 'surfer') ----
+  // Surfer loads either a .surf.ron saved state (launched with -s) or a .sucl
+  // command file (launched with -c) the same way GTKWave loads a .gtkw. Same
+  // per-testbench list shape, stored separately in WaveStore.surferFiles so the
+  // two viewers never cross-contaminate. The toolbar picker is viewer-aware and
+  // shows whichever list matches the active viewer.
+
+  /** List every Surfer layout (.surf.ron/.sucl) registered for the active testbench. */
+  async listSurferFiles() {
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    if (!tbKey) return err('No testbench top set — mark a testbench top first');
+    const ws = await window.WaveStore?.read(projectPath, tbKey);
+    const files = Array.isArray(ws?.surferFiles) ? ws.surferFiles : [];
+    return ok({
+      testbench: tbKey,
+      files: files.map((f) => ({
+        name: f?.name || (f?.path || '').split(/[\\/]/).pop(),
+        path: f?.path || '',
+        isActive: !!f?.isActive,
+      })),
+    });
+  },
+
+  /** Find every Surfer layout file (.surf.ron/.sucl) in the project, optional name filter. */
+  async findSurferFiles(query = '') {
+    const root = window.currentProjectPath || window.ProjectStore?.getProjectPath?.() || null;
+    if (!root) return err('No project open');
+    const treeRes = await projectNs.getTree(root);
+    if (!treeRes.ok) return treeRes;
+    const rel = Array.isArray(treeRes.data) ? treeRes.data : [];
+    const needle = String(query || '').trim().toLowerCase().replace(/(\.surf\.ron|\.ron|\.sucl)$/i, '');
+    const files = rel
+      .filter((p) => /(\.ron|\.sucl)$/i.test(p))
+      .filter((p) => !needle || p.toLowerCase().includes(needle))
+      .map((p) => ({
+        name: p.split('/').pop(),
+        relPath: p,
+        path: `${root}\\${p.replace(/\//g, '\\')}`,
+      }));
+    return ok({ query: query || null, count: files.length, files });
+  },
+
+  /** One-shot: name a Surfer layout → locate, register, activate for the active tb. */
+  async useSurferByName(name) {
+    const q = String(name || '').trim();
+    if (!q) return err('name required (the Surfer layout file name)');
+    const found = await waveNs.findSurferFiles(q);
+    if (!found.ok) return found;
+    const files = found.data.files || [];
+    if (!files.length) return err(`no Surfer layout (.surf.ron/.sucl) matching "${q}" found in the project`);
+    const wanted = q.toLowerCase().replace(/(\.surf\.ron|\.ron|\.sucl)$/i, '');
+    const exact = files.filter((f) => f.name.toLowerCase().replace(/(\.surf\.ron|\.ron|\.sucl)$/i, '') === wanted);
+    const pick = exact.length ? exact : files;
+    if (pick.length > 1) {
+      const names = pick.map((f) => f.relPath).join(', ');
+      return err(`"${q}" matches ${pick.length} Surfer layouts (${names}). Re-run with a more specific name.`, 'AMBIGUOUS');
+    }
+    const target = pick[0];
+    const reg = await waveNs.addSurferFile({ filePath: target.path, setActive: true });
+    if (!reg.ok) return reg;
+    return ok({ name: target.name, path: target.path, relPath: target.relPath, active: true });
+  },
+
+  /** Register a Surfer layout (.surf.ron/.sucl) for the active testbench. */
+  async addSurferFile({ filePath, setActive = true } = {}) {
+    if (!filePath) return err('filePath required');
+    if (!/(\.ron|\.sucl)$/i.test(filePath)) return err('only .surf.ron / .sucl files are accepted');
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    if (!tbKey) return err('No testbench top set — mark a testbench top first');
+    const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
+    const abs = isAbs ? filePath : `${projectPath}\\${filePath.replace(/^[\\/]+/, '')}`;
+    try {
+      const exists = await window.electronAPI.fileExists(abs);
+      if (!exists) return err(`file not found: ${abs}`);
+    } catch (e) { return err(e?.message || 'fileExists failed'); }
+    const name = abs.split(/[\\/]/).pop();
+    try {
+      await window.WaveStore.update(projectPath, tbKey, (state) => {
+        const files = Array.isArray(state.surferFiles) ? state.surferFiles : [];
+        let existing = files.find((f) => f?.path === abs);
+        if (!existing) {
+          existing = { name, path: abs, isActive: false };
+          files.push(existing);
+        }
+        if (setActive) {
+          for (const f of files) f.isActive = (f === existing);
+        }
+        state.surferFiles = files;
+      });
+    } catch (e) { return err(e?.message || 'addSurferFile failed'); }
+    window.gtkwPickerManager?.refresh?.();
+    return ok({ path: abs, isActive: !!setActive });
+  },
+
+  /** Mark one registered Surfer layout active (or null to clear → raw VCD). */
+  async setActiveSurferFile(filePath) {
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    if (!tbKey) return err('No testbench top set');
+    let foundEntry = !filePath;
+    try {
+      await window.WaveStore.update(projectPath, tbKey, (state) => {
+        const files = Array.isArray(state.surferFiles) ? state.surferFiles : [];
+        for (const f of files) {
+          const match = filePath && f?.path === filePath;
+          if (match) foundEntry = true;
+          f.isActive = !!match;
+        }
+        state.surferFiles = files;
+      });
+    } catch (e) { return err(e?.message || 'setActiveSurferFile failed'); }
+    if (filePath && !foundEntry) return err(`Surfer layout not registered — call add_surfer_file first: ${filePath}`);
+    window.gtkwPickerManager?.refresh?.();
+    return ok({ active: filePath || null });
+  },
+
+  /** Drop one Surfer layout entry from the active testbench's list. */
+  async removeSurferFile(filePath) {
+    if (!filePath) return err('filePath required');
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    const spfPath     = window.ProjectStore?.getSpfPath?.();
+    if (!projectPath || !spfPath) return err('No project open');
+    const cfg = await window.SpfStore.read(spfPath);
+    const tbKey = (cfg.testbenchFile || '').split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    if (!tbKey) return err('No testbench top set');
+    let removed = 0;
+    try {
+      await window.WaveStore.update(projectPath, tbKey, (state) => {
+        const files = Array.isArray(state.surferFiles) ? state.surferFiles : [];
+        const before = files.length;
+        state.surferFiles = files.filter((f) => f?.path !== filePath);
+        removed = before - state.surferFiles.length;
+      });
+    } catch (e) { return err(e?.message || 'removeSurferFile failed'); }
+    if (!removed) return err(`Surfer layout not in list: ${filePath}`);
+    window.gtkwPickerManager?.refresh?.();
+    return ok({ removed });
+  },
 };
 
 /* ============================================================
@@ -2380,6 +2530,12 @@ const NAMESPACES = Object.freeze({
     addGtkwFile:        'Register a .gtkw file from the project for the active testbench',
     setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
+    listSurferFiles:    'List Surfer layouts (.surf.ron/.sucl) registered for the active testbench',
+    findSurferFiles:    'Find Surfer layout files (.surf.ron/.sucl) in the project by name',
+    useSurferByName:    'Locate a Surfer layout by name and set it active for the testbench in one step',
+    addSurferFile:      'Register a Surfer layout (.surf.ron/.sucl) for the active testbench',
+    setActiveSurferFile:'Pick which registered Surfer layout the Surfer viewer loads (null = raw VCD)',
+    removeSurferFile:   'Drop a Surfer layout from the active testbench list',
     getSimulator:       'Which simulator the Wave button runs (iverilog | verilator)',
     setSimulator:       'Switch the Wave-button simulator (iverilog | verilator)',
     getViewer:          'Which waveform viewer the Wave button opens (gtkwave | surfer)',

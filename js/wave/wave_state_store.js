@@ -41,6 +41,10 @@ const DEFAULTS = Object.freeze({
     // com `isActive: true` e o ativo — varredura pra extrair $dumpvars
     // sai dele.
     gtkwFiles: [],
+    // Layouts do Surfer (.surf.ron state / .sucl comandos) registrados pelo
+    // mesmo picker quando o viewer e 'surfer'. Mesma forma que gtkwFiles; o
+    // entry isActive vira o -s/-c no launch do Surfer.
+    surferFiles: [],
     // Selecao Wave Configuration. Paths dotted ("tb.dut.q"), validados
     // contra a hierarquia do source na hora de abrir o WC.
     waveSignals: [],

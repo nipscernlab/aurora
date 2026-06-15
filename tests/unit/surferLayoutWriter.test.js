@@ -104,7 +104,7 @@ describe('buildSurferLayout (camada de curadoria)', () => {
 
     it('emite banner do proc + secoes I/O / Instructions / Variables / Flags', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
-        expect(content).toContain('name: Some("proc")');
+        expect(content).toContain('name: "proc"'); // banner do proc = Group (name String, sem Some)
         expect(content).toContain('name: Some("I/O")');
         expect(content).toContain('name: Some("Instructions")');
         expect(content).toContain('name: Some("Variables")');
@@ -175,6 +175,38 @@ describe('buildSurferLayout (camada de curadoria)', () => {
 
     it('content null quando scopes vazio', () => {
         expect(buildSurferLayout({ vcdPath: 'x.vcd', scopes: [] }).content).toBeNull();
+    });
+
+    it('cada processador vira um Group colapsavel (name String, content vazio, is_open) com filhos em level 1', () => {
+        const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        // Group nativo do Surfer: name String (sem Some), content SEMPRE [], is_open true.
+        expect(content).toMatch(/Group\(\(\s*name: "proc",\s*color: Some\("Red"\),\s*background_color: None,\s*content: \[\],\s*is_open: true,/);
+        // O no do grupo (level 0) e seguido por filhos em level 1 no items_tree.
+        expect(content).toMatch(/level: 1,/);
+        // O Top-level NAO e agrupado (fica em level 0, fora de qualquer Group).
+        expect(content).toContain('name: Some("Top-level")');
+    });
+});
+
+describe('buildSurferLayout — grupos por processador (multi-proc)', () => {
+    const scopes = [
+        scope('tb', [{ name: 'clk' }]),
+        scope('tb.p1', [
+            { name: 'valr2', range: '31:0' }, { name: 'linetabs', range: '19:0' },
+        ]),
+        scope('tb.p2', [
+            { name: 'valr2', range: '31:0' }, { name: 'linetabs', range: '19:0' },
+        ]),
+    ];
+
+    it('dois processadores → dois Groups distintos, cada um com seus tracks', () => {
+        const { content, processorCount } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        expect(processorCount).toBe(2);
+        expect(content).toMatch(/Group\(\(\s*name: "p1",/);
+        expect(content).toMatch(/Group\(\(\s*name: "p2",/);
+        // Cada proc rotula o Assembly com o seu nome (procType = instanceName aqui).
+        expect(content).toContain('manual_name: Some("Assembly (p1)")');
+        expect(content).toContain('manual_name: Some("Assembly (p2)")');
     });
 });
 

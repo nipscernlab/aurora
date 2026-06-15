@@ -337,12 +337,9 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   pointer-events: none;
 }
 
-/* Waveform-viewer segments reuse the .sim-seg chrome but show a Phosphor glyph
-   (not an <img> logo). currentColor + the inherited opacity/grayscale dim the
-   inactive one; .active (accent-strong bg) gets the bright glyph. */
-.viewer-seg { color: var(--text-secondary); }
-.viewer-seg.active { color: var(--text-bright, #fff); }
-.viewer-seg i { font-size: 18px; pointer-events: none; }
+/* Waveform-viewer segments reuse the .sim-seg / .sim-seg-icon chrome with the
+   real GTKWave / Surfer logos (assets/icons/*_logo.svg) — same colored-when-
+   active, grayscale-and-dimmed-when-inactive behaviour as the simulator switch. */
 
 /* ============================================================
  * Custom GTKWave picker dropdown.

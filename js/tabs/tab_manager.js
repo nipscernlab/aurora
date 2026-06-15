@@ -1940,42 +1940,18 @@ window.addEventListener('load', () => {
     initTabs();
 });
 
-document.addEventListener('keydown', (e) => {
-    if (e.defaultPrevented) return;
-
-    // Prevent default browser shortcuts that might interfere
-    if (e.ctrlKey || e.metaKey) {
-        switch (e.key.toLowerCase()) {
-        case 'n':
-            e.preventDefault();
-            TabManager.createNewFile();
-            break;
-
-        case 'w':
-            e.preventDefault();
-            if (TabManager.activeTab) {
-                TabManager.closeTab(TabManager.activeTab);
-            }
-            break;
-
-        case 't':
-            if (e.shiftKey) {
-                e.preventDefault();
-                TabManager.reopenLastClosedTab();
-            }
-            break;
-
-        case 's':
-            e.preventDefault();
-            if (e.shiftKey) {
-                TabManager.saveAllFiles();
-            } else {
-                TabManager.saveCurrentFile();
-            }
-            break;
-        }
-    }
-});
+// NOTE: the editor shortcuts (Ctrl+N / Ctrl+W / Ctrl+S / Ctrl+Shift+T /
+// Ctrl+Shift+S) USED to live here as a SECOND document 'keydown' handler. It
+// duplicated shortcut_manager.js — the Phase-B unified entry that routes
+// through AuroraAPI, whose editor.closeTab()/reopenLastTab()/save()/saveAll()/
+// newFile() call the IDENTICAL TabManager methods (so the split-to-split close
+// behaviour is preserved). Having both meant Ctrl+W closed TWO tabs at once:
+// this handler had no input-focus guard, so outside the Monaco editor BOTH
+// handlers fired (the shortcut_manager skipped textareas, hence inside the
+// editor only this one ran → a single close, which is why the doubling only
+// showed up outside the editor). Removed — shortcut_manager.js is now the sole
+// owner of these shortcuts (Ctrl+W closes exactly one tab; Ctrl+Shift+W no
+// longer closes anything since shortcut_manager's closeTab requires shift:off).
 
 // Simple, reliable confirmation dialog. Exported so split_editor.js can
 // run the same VS Code-style "save / don't save / cancel" prompt before

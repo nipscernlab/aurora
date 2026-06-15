@@ -24,6 +24,7 @@
     "js/wave/gtkw_writer.ts",
     "js/wave/gtkw_proc_writer.ts",
     "js/wave/surfer_layout_writer.ts",
+    "js/wave/complex_decode.ts",
     "js/project/processor_list.ts",
     "js/wave/wave_state_store.ts",
     "js/project/spf_store.ts",

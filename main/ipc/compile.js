@@ -216,6 +216,38 @@ function register() {
     return { success: true };
   });
 
+  // Decode complex-number bit patterns via the canonical comp2gtkw.exe (same
+  // binary GTKWave pipes to as a process filter). The renderer extracts the
+  // DISTINCT complex values from the dump and sends them here; we feed them on
+  // stdin (one token per line — comp2gtkw reads whitespace-delimited tokens) and
+  // return the "re imi" strings in order, to bake into a Surfer mapping. This is
+  // the pre-pass that gives Surfer (which has no external process filter) the
+  // same complex decode GTKWave gets live. Best-effort: failure → no decode.
+  ipcMain.handle('decode-complex', async (_event, payload) => {
+    return new Promise((resolve) => {
+      try {
+        const { exePath, values } = payload || {};
+        if (!exePath || !Array.isArray(values) || values.length === 0 || !fs.existsSync(exePath)) {
+          resolve({ success: false, decoded: [] });
+          return;
+        }
+        const child = spawn(exePath, [], { stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true });
+        let out = '';
+        let settled = false;
+        const done = (success) => { if (!settled) { settled = true; resolve({ success, decoded: out.split(/\r?\n/).filter((l) => l.length > 0) }); } };
+        child.stdout.on('data', (d) => { out += d.toString(); });
+        child.on('error', () => done(false));
+        child.on('close', () => done(true));
+        child.stdin.on('error', () => { /* EPIPE if it exits early — close() still fires */ });
+        child.stdin.write(values.join('\n') + '\n');
+        child.stdin.end();
+      } catch (error) {
+        log.warn('decode-complex skipped:', error?.message);
+        resolve({ success: false, decoded: [] });
+      }
+    });
+  });
+
   ipcMain.handle('cancel-vvp-process', async () => {
     try {
       const results = [];

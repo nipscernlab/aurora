@@ -49,6 +49,7 @@ import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
 import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
+import { hasComplexSignals, ComplexVcdScanner, buildComplexMapping } from '../wave/complex_decode.js';
 import {
   instrumentTestbenchSource, hasUserDumpCalls, commentOutDumpCalls,
 } from '../wave/testbench_instrumenter.js';
@@ -3945,6 +3946,14 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
             };
         }
 
+        // Complex numbers (comp_me3_/comp_arr_me3_): Surfer has no external
+        // process filter like GTKWave's, so pre-decode the distinct complex
+        // values from the dump via comp2gtkw.exe and bake a mapping. Gated —
+        // projects without complex signals pay nothing (no fst2vcd full stream).
+        const complexMapping = hasComplexSignals(scopes)
+            ? await this._buildSurferComplexMapping(vcdFile, simTopModule, tempBaseDir)
+            : null;
+
         const { content, processorCount, mappings } = buildSurferLayout({
             vcdPath: vcdFile,
             scopes,
@@ -3953,6 +3962,7 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
             modules,
             tradByProcType,
             mappingNamespace: simTopModule,
+            complexMapping,
         });
         if (!content) return null;
         await window.electronAPI.writeFile(autoSurfer, content);
@@ -3976,6 +3986,67 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
     } catch (err) {
         this.terminalManager.appendToTerminal('twave',
             `Surfer auto-layout failed (${err.message}) — opening raw VCD.`, 'tips');
+        return null;
+    }
+}
+
+/**
+ * Pre-pass de decode dos numeros complexos pro Surfer (comp_me3_/comp_arr_me3_).
+ * O Surfer nao tem o process-filter externo do GTKWave, entao: stream do
+ * fst2vcd sobre o FST → coleta os valores DISTINTOS dos sinais complexos →
+ * decode canonico via comp2gtkw.exe → mapping translator compartilhado
+ * (bitpattern → "re imi"). Best-effort: qualquer falha retorna null e os
+ * complexos abrem em Binary cru. So e' chamado quando ha complexos no header
+ * (gate em _waveResolveSurferSaveFile), entao projetos sem complexo nao pagam o
+ * stream do corpo do FST.
+ */
+async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir) {
+    try {
+        if (typeof window.electronAPI.onExecSpecStream !== 'function') return null;
+        const fst2vcdBin = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
+        const scanner = new ComplexVcdScanner();
+        let killed = false;
+        const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+            if (!payload || payload.type !== 'stdout' || !payload.data) return;
+            scanner.feed(payload.data);
+            // Cap atingido → para o fst2vcd cedo (kill ALVO do filho parqueado,
+            // nao o sweep por-nome que mataria o viewer deste mesmo fluxo).
+            if (!killed && scanner.wasCapped() && typeof window.electronAPI.killCurrentSpecProcess === 'function') {
+                killed = true;
+                window.electronAPI.killCurrentSpecProcess();
+            }
+        });
+        try {
+            await runSpecStreamed({
+                step: 'fst2vcd',
+                binary: fst2vcdBin,
+                args: ['-f', fstPath],
+                cwd: tempBaseDir,
+                label: 'fst2vcd (complex decode — valores distintos)',
+            }, { consumeEphemeral: true });
+        } catch { /* best-effort — pode ter coletado antes do throw */ }
+        finally { unsubscribe(); }
+        scanner.end();
+
+        const values = scanner.distinctValues();
+        if (values.length === 0) return null;
+        const exePath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'comp2gtkw.exe');
+        const res = await window.electronAPI.decodeComplex({ exePath, values });
+        if (!res || !res.success || !Array.isArray(res.decoded)) return null;
+        const decodedByValue = new Map();
+        const n = Math.min(values.length, res.decoded.length);
+        for (let i = 0; i < n; i++) decodedByValue.set(values[i], res.decoded[i]);
+        const name = `aurora_cpx_${simTopModule}`.replace(/[^A-Za-z0-9_]/g, '_');
+        const mapping = buildComplexMapping(name, decodedByValue);
+        if (mapping) {
+            this.terminalManager.appendToTerminal('twave',
+                `Surfer complex decode: ${decodedByValue.size} valor${decodedByValue.size === 1 ? '' : 'es'}${scanner.wasCapped() ? ' (limitado)' : ''}.`, 'info');
+        }
+        return mapping;
+    } catch (err) {
+        this.terminalManager.appendToTerminal('twave',
+            `Surfer complex decode skipped (${err.message}) — complexos em Binary.`, 'tips');
         return null;
     }
 }

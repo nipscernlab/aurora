@@ -468,22 +468,25 @@ function emitIoSection(lines, scopes, instancePath, filter) {
             emitSignal(lines, outSigs[i], FMT_SIGNED_DEC, COLOR_YELLOW, `output ${i}`, { filter });
     }
 }
-function emitInstructionsSection(lines, scopes, instancePath, paths, counter, _filter) {
+function emitInstructionsSection(lines, scopes, instancePath, procName, paths, counter, _filter) {
     // Os tracks de instrucao (Assembly/valr2 + C+-/linetabs) sao a assinatura
     // curada do SAPHO e sao SEMPRE emitidos quando os sinais existem — NAO
     // passam pelo filtro do picker (paridade com o Surfer: "sempre que ha
     // processadores eles aparecem"). Por isso `filter` e omitido do emitSignal.
+    // O alias carrega o NOME DO PROCESSADOR (`procName`, ex.: "Assembly
+    // (cnn_features)") pra distinguir as instrucoes de cada proc em designs
+    // multi-processador — paridade com o Surfer (buildInstructions).
     emitComment(lines, 'Instructions *******');
     const valr2 = findSignal(scopes, instancePath, 'valr2');
     if (valr2) {
-        emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, 'Assembly', {
+        emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, `Assembly (${procName})`, {
             fileFilterPath: paths.tradOpcode,
             counter,
         });
     }
     const linetabs = findSignal(scopes, instancePath, 'linetabs');
     if (linetabs) {
-        emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, 'C+-', {
+        emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, `C+- (${procName})`, {
             fileFilterPath: paths.tradCmm,
             counter,
         });
@@ -853,7 +856,7 @@ export function buildAuroraGtkw({ vcdPath, gtkwPath, scopes, tbModule = null, te
         if (procItr)
             emitSignal(lines, procItr, FMT_BIN, COLOR_NORMAL, null, { filter });
         emitIoSection(lines, scopes, proc.instancePath, filter);
-        emitInstructionsSection(lines, scopes, proc.instancePath, paths, counter, filter);
+        emitInstructionsSection(lines, scopes, proc.instancePath, proc.procType, paths, counter, filter);
         emitVariablesSection(lines, scopes, proc.instancePath, paths, counter, filter);
         emitFlagsSection(lines, scopes, proc.corePath, filter);
     });

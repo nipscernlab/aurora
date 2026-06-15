@@ -117,8 +117,8 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
         expect(content).toContain('manual_name: Some("req_in 0")');
         expect(content).toContain('manual_name: Some("input  0")'); // DOIS espacos (igual ao writer .gtkw)
-        expect(content).toContain('manual_name: Some("Assembly")');
-        expect(content).toContain('manual_name: Some("C+-")');
+        expect(content).toContain('manual_name: Some("Assembly (proc)")'); // label por nome do processador
+        expect(content).toContain('manual_name: Some("C+- (proc)")');
         expect(content).toContain('manual_name: Some("int cont in global")');
         expect(content).toContain('manual_name: Some("float acc in soma()")');
         expect(content).toContain('manual_name: Some("Data Stack Pointer")');
@@ -131,6 +131,27 @@ describe('buildSurferLayout (camada de curadoria)', () => {
     it('recupera o analogico nos stack pointers / ULA (que o .sucl perdia)', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
         expect(content).toContain('render_style: Step');
+    });
+
+    it('TODOS os dividers curados saem coloridos (vermelho) pra destacar', () => {
+        const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        // O divider "Instructions" (e os demais) tem color: Some("Red").
+        expect(content).toMatch(/Divider\(\(\s*color: Some\("Red"\),\s*background_color: None,\s*name: Some\("Instructions"\)/);
+        expect(content).toMatch(/color: Some\("Red"\),\s*background_color: None,\s*name: Some\("Top-level"\)/);
+        // Nenhum divider fica sem cor.
+        expect(content).not.toMatch(/Divider\(\(\s*color: None/);
+    });
+
+    it('sem processador (nenhum scope com valr2+linetabs): nao emite Instructions/Assembly/C+-', () => {
+        const plain = [
+            scope('tb', [{ name: 'clk' }, { name: 'bus', width: 8, range: '7:0' }]),
+            scope('tb.dut', [{ name: 'state', range: '1:0' }]),
+        ];
+        const { content, processorCount } = buildSurferLayout({ vcdPath: 'x.vcd', scopes: plain, tbModule: 'tb' });
+        expect(processorCount).toBe(0);
+        expect(content).not.toContain('Instructions');
+        expect(content).not.toContain('Assembly');
+        expect(content).not.toContain('C+-');
     });
 
     it('o filtro de selecao vale pros sinais comuns', () => {
@@ -206,7 +227,7 @@ describe('buildSurferLayout — mapping translators (decode Assembly/C+-)', () =
     it('sem trad files: fallback decimal cru + mappings vazio', () => {
         const { content, mappings } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
         expect(mappings).toEqual([]);
-        expect(content).toContain('manual_name: Some("Assembly")');
+        expect(content).toContain('manual_name: Some("Assembly (proc)")');
         expect(content).toContain('format: Some("Unsigned")');
         expect(content).toContain('format: Some("Signed")');
     });

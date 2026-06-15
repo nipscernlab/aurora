@@ -222,7 +222,39 @@ os itens **re-resolvem por nome/caminho** (IDs `Wellen` são descartados) → um
   global do Surfer (marker-guarded p/ não sobrescrever config do usuário); o usuário maximiza. Sem
   "maximizar de verdade" porque o Surfer não suporta.
 
-**Deferido (follow-up):** `buildSurferLayout()` auto-gerando o `.sucl` curado da seleção do picker +
-mapping files dos `trad_*.txt` (hoje a curadoria vem de um `.surf.ron`/`.sucl` que o usuário/IA
-fornece); embed por iframe WASM; e o pre-pass do `comp2gtkw` (Fase 3). Tudo isolado em
+**Deferido (follow-up):** `buildSurferLayout()` auto-gerando o layout curado da seleção do picker —
+**entregue na §11**; embed por iframe WASM; e o pre-pass do `comp2gtkw` (Fase 3). Tudo isolado em
 `_waveLaunchSurfer`/`_waveResolveSurferSaveFile`.
+
+---
+
+## 11. Auto-geração do layout curado — `.surf.ron` (14/06/2026, parte 3)
+
+Pesquisa source-level (v0.7.0) + **verificação adversarial** mostraram que o command-file `.sucl` é
+**frágil/lossy** pra curadoria: `item_set_color/format` mira o item *focado* e `variable_add` não
+foca → exige `item_focus` por um índice **base-16 minúsculo zero-padded** (erra silencioso);
+`divider_add` aceita **só 1 palavra**; **não há** multi-seleção (grupos curados impossíveis); e
+**não há** format token analógico. Decisão: **gerar `.surf.ron` (state declarativo)**, não `.sucl`.
+
+Validado de campo: gerei um `.surf.ron` pelo emissor com **IDs `Wellen` propositalmente errados** e o
+usuário **carregou no Surfer** — sinais, cores, formatos, `manual_name`, `height_scaling_factor` e
+`analog` corretos. Confirma o formato **e** a re-resolução por nome.
+
+- **`js/wave/surfer_layout_writer.ts`** — duas camadas:
+  - `buildSurferState(items)` = camada de FORMATO: emite RON válido a partir de uma lista ordenada de
+    `{variable|divider|timeline}`. `items_tree` (ordem visual) + `displayed_items` (mapa por ref);
+    IDs `Wellen` placeholder. Casca externa = defaults estáveis do `UserState`.
+  - `buildSurferLayout(input)` = camada de CURADORIA: espelha `buildAuroraGtkw` (reusa
+    `detectProcessors`/`resolveScopeModules`/`buildSignedSet` **verbatim**), mesma ordem de seções e
+    seleção. Mapeia `FMT_*`→translator (`Binary`/`Unsigned`/`Signed`/`FP: 32-bit IEEE 754`/`Hexadecimal`),
+    cores (`Orange`/`Yellow`/`Violet`), aliases→`manual_name`, e **recupera o analógico** (`analog`)
+    nos stack pointers/ULA que o `.sucl` perdia.
+- **Source 2** em `_waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir)`: sem `.surf.ron`
+  ativo do usuário, auto-gera via `buildSurferLayout` (mesma seleção do picker / `_parseProjectSources`)
+  e escreve `<tempBaseDir>/<simTopModule>.surf.ron`. 14 unit tests novos.
+
+**Ainda deferido (v2):** os **mapping translators** das trilhas Assembly/linha-fonte
+(`trad_opcode.txt`/`trad_cmm.txt` → `.surfer/mappings/` no config dir, `format: <nome>`) — hoje `valr2`
+(`Assembly`) e `linetabs` (`C+-`) abrem em **decimal cru** (igual ao GTKWave sem os trad files). O
+decode de mnemônico/linha-fonte tem o risco de **descoberta do mapping no Windows** (config global vs
+`.surfer/` local quebrado) a validar em campo. Complexo (`comp2gtkw`) degrada pra `Binary`.

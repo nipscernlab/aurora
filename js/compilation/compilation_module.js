@@ -48,6 +48,7 @@ import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
+import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
 import {
   instrumentTestbenchSource, hasUserDumpCalls, commentOutDumpCalls,
 } from '../wave/testbench_instrumenter.js';
@@ -1896,7 +1897,7 @@ async runGtkWave() {
         // path is untouched for current users; 'surfer' opens Surfer with its
         // own active layout (.surf.ron/.sucl), and no .gtkw is generated for it.
         if (getViewer() === 'surfer') {
-            const surferLayout = await this._waveResolveSurferSaveFile();
+            const surferLayout = await this._waveResolveSurferSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
             await this._waveLaunchSurfer(vcdFile, surferLayout, tools);
         } else {
             const gtkwSaveFile = await this._waveResolveGtkwSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
@@ -3870,31 +3871,85 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
 }
 
 /**
- * Resolve which Surfer layout file the Surfer viewer should load — the
- * mirror of _waveResolveGtkwSaveFile's Source 1 (user-curated). Reads the
- * per-testbench surferFiles[] from the WaveStore and returns the absolute
- * path of the entry marked isActive (a .surf.ron saved state or a .sucl
- * command file). Returns null when none is active, so Surfer opens the raw
- * VCD. There is no Source-2 auto-generation yet (a curated .sucl writer is a
- * tracked follow-up).
+ * Resolve which Surfer layout file the Surfer viewer should load.
+ *   Source 1 (user-curated): the surferFiles[] entry marked isActive in the
+ *     WaveStore (a .surf.ron saved state or a .sucl command file).
+ *   Source 2 (auto): when no user file is active, auto-generate a curated
+ *     .surf.ron via buildSurferLayout — the declarative mirror of the .gtkw,
+ *     reusing the SAME picker selection + processor detection as GTKWave
+ *     (sections, colors, formats, analog, aliases). The Assembly/source-line
+ *     value→text decode (trad_*.txt mapping translators) + complex decode are
+ *     a tracked follow-up; those signals show raw values for now.
+ * Returns null only when neither yields a layout → Surfer opens the raw VCD.
  *
- * Returns: absolute path | null.  Throws: never.
+ * Inputs: simTopModule, vcdFile, tempBaseDir.  Returns: path | null.  Throws: never.
  */
-async _waveResolveSurferSaveFile() {
+async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
     const tbKey = (this.projectConfig.testbenchFile || '')
         .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
-    if (!tbKey) return null;
-    const state = await WaveStore.get(this.projectPath, tbKey);
-    const files = state?.surferFiles;
-    if (Array.isArray(files) && files.length > 0) {
-        const active = files.find((f) => f && f.isActive === true);
-        if (active && active.path) {
-            this.terminalManager.appendToTerminal('twave',
-                `Surfer layout: ${active.path.split(/[\\/]/).pop()}`, 'info');
-            return active.path;
+
+    // Source 1: user-curated .surf.ron/.sucl (active entry).
+    if (tbKey) {
+        const state = await WaveStore.get(this.projectPath, tbKey);
+        const files = state?.surferFiles;
+        if (Array.isArray(files) && files.length > 0) {
+            const active = files.find((f) => f && f.isActive === true);
+            if (active && active.path) {
+                this.terminalManager.appendToTerminal('twave',
+                    `Surfer layout: ${active.path.split(/[\\/]/).pop()}`, 'info');
+                return active.path;
+            }
         }
     }
-    return null;
+
+    // Source 2: auto-generated curated .surf.ron (declarative mirror of the
+    // auto-.gtkw — same selection + processor sections/colors/formats/analog).
+    const autoSurfer = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.surf.ron`);
+    let selected;
+    if (Array.isArray(this._validatedWaveSelection)) {
+        selected = this._validatedWaveSelection;
+    } else if (tbKey) {
+        const tbState = await WaveStore.get(this.projectPath, tbKey);
+        selected = Array.isArray(tbState?.waveSignals) ? tbState.waveSignals : [];
+    } else {
+        selected = [];
+    }
+    // Parse scopes from the text header (.header.vcd sibling preferred; the
+    // FST binary isn't text-parseable). Same guard as the auto-.gtkw path.
+    let parseSource = vcdFile;
+    const headerSibling = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
+    if (await window.electronAPI.fileExists(headerSibling)) {
+        parseSource = headerSibling;
+    } else if (vcdFile.toLowerCase().endsWith('.fst')) {
+        return null; // no parseable header → Surfer opens the raw VCD
+    }
+    try {
+        const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
+        const scopes = parseVcdHeaderFromContent(vcdContent);
+        const modules = await this._parseProjectSources();
+        const { content, processorCount } = buildSurferLayout({
+            vcdPath: vcdFile,
+            scopes,
+            tbModule: simTopModule,
+            selectedSignals: selected.length > 0 ? selected : null,
+            modules,
+        });
+        if (!content) return null;
+        await window.electronAPI.writeFile(autoSurfer, content);
+        const procPart = processorCount > 0
+            ? `${processorCount} processor${processorCount === 1 ? '' : 's'}`
+            : 'flat layout';
+        const selPart = selected.length > 0
+            ? `, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
+            : '';
+        this.terminalManager.appendToTerminal('twave',
+            `Surfer layout auto-generated (${procPart}${selPart}).`, 'info');
+        return autoSurfer;
+    } catch (err) {
+        this.terminalManager.appendToTerminal('twave',
+            `Surfer auto-layout failed (${err.message}) — opening raw VCD.`, 'tips');
+        return null;
+    }
 }
 
 

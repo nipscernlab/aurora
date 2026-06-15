@@ -527,14 +527,17 @@ function emitIoSection(lines: string[], scopes: ScopeLike[], instancePath: strin
     }
 }
 
-function emitInstructionsSection(lines: string[], scopes: ScopeLike[], instancePath: string, paths: ProcPaths, counter: FilterCounter, filter: Set<string> | null): void {
+function emitInstructionsSection(lines: string[], scopes: ScopeLike[], instancePath: string, paths: ProcPaths, counter: FilterCounter, _filter: Set<string> | null): void {
+    // Os tracks de instrucao (Assembly/valr2 + C+-/linetabs) sao a assinatura
+    // curada do SAPHO e sao SEMPRE emitidos quando os sinais existem — NAO
+    // passam pelo filtro do picker (paridade com o Surfer: "sempre que ha
+    // processadores eles aparecem"). Por isso `filter` e omitido do emitSignal.
     emitComment(lines, 'Instructions *******');
     const valr2 = findSignal(scopes, instancePath, 'valr2');
     if (valr2) {
         emitSignal(lines, valr2, FMT_DEC, COLOR_INDIGO, 'Assembly', {
             fileFilterPath: paths.tradOpcode,
             counter,
-            filter,
         });
     }
     const linetabs = findSignal(scopes, instancePath, 'linetabs');
@@ -542,7 +545,6 @@ function emitInstructionsSection(lines: string[], scopes: ScopeLike[], instanceP
         emitSignal(lines, linetabs, FMT_SIGNED_DEC, COLOR_VIOLET, 'C+-', {
             fileFilterPath: paths.tradCmm,
             counter,
-            filter,
         });
     }
 }

@@ -59,6 +59,32 @@ function writeSurferCenteredWindowConfig() {
   }
 }
 
+// Write the per-processor "mapping translator" files (Assembly/source-line
+// decode for valr2/linetabs) into Surfer's GLOBAL mappings dir — the only
+// place Surfer reliably discovers them on Windows (the cwd-local .surfer/
+// walk-up is broken in v0.7.0). Surfer reads these at launch and uses the
+// `Name =` header as the translator name the .surf.ron references via
+// `format`. Names are aurora_*-prefixed so user mappings are never touched;
+// each launch overwrites the active project's set (idempotent). Best-effort:
+// a failure here must not block opening the waveform.
+function writeSurferMappings(mappings) {
+  try {
+    if (!Array.isArray(mappings) || mappings.length === 0) return;
+    const dir = path.join(app.getPath('appData'), 'surfer-project', 'surfer', 'config', 'mappings');
+    fs.mkdirSync(dir, { recursive: true });
+    for (const m of mappings) {
+      if (!m || typeof m.name !== 'string' || typeof m.content !== 'string') continue;
+      // The name is already FS-safe (built by mappingName), but harden against
+      // path separators so a name can never escape the mappings dir.
+      const safe = m.name.replace(/[^A-Za-z0-9_.-]/g, '_');
+      if (!safe) continue;
+      fs.writeFileSync(path.join(dir, safe), m.content, 'utf8');
+    }
+  } catch (error) {
+    log.warn('Surfer mappings write skipped:', error?.message);
+  }
+}
+
 function register() {
   // NOTE: the legacy 'exec-command' handler (raw shell string from the
   // renderer via child_process.exec) was removed — it was a command-injection
@@ -179,6 +205,15 @@ function register() {
         resolve({ success: false, message: `Failed to launch Surfer: ${error.message}` });
       }
     });
+  });
+
+  // Write the Surfer mapping translators (Assembly/source-line decode) the
+  // auto-generated .surf.ron references. Called by the renderer right before a
+  // Surfer launch so the files exist when Surfer scans its config/mappings dir
+  // at startup. Best-effort (never rejects) — degrades to raw decimal tracks.
+  ipcMain.handle('write-surfer-mappings', (_event, mappings) => {
+    writeSurferMappings(mappings);
+    return { success: true };
   });
 
   ipcMain.handle('cancel-vvp-process', async () => {

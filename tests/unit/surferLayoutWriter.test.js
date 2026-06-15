@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSurferState, buildSurferLayout } from '../../js/wave/surfer_layout_writer.js';
+import { buildSurferState, buildSurferLayout, convertTradToSurferMapping } from '../../js/wave/surfer_layout_writer.js';
 
 /** Scope shape igual ao que o vcd_parser entrega (espelha o teste do gtkw). */
 function scope(path, signals) {
@@ -133,16 +133,98 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         expect(content).toContain('render_style: Step');
     });
 
-    it('respeita o filtro de selecao (so emite os escolhidos)', () => {
+    it('o filtro de selecao vale pros sinais comuns', () => {
         const { content } = buildSurferLayout({
             vcdPath: 'x.vcd', scopes, tbModule: 'tb',
-            selectedSignals: ['tb.proc.valr2'],
+            selectedSignals: ['tb.proc.valr2'], // 'bus' (top-level) fica de fora
+        });
+        expect(content).not.toContain('name: "bus"');
+    });
+
+    it('tracks de instrucao (Assembly/C+-) SEMPRE aparecem, fora do filtro do picker', () => {
+        // O usuario quer que "sempre que ha processadores eles aparecem": os
+        // tracks curados valr2/linetabs nao passam pelo filtro de selecao.
+        const { content } = buildSurferLayout({
+            vcdPath: 'x.vcd', scopes, tbModule: 'tb',
+            selectedSignals: ['tb.clk'], // nem valr2 nem linetabs selecionados
         });
         expect(content).toContain('name: "valr2"');
-        expect(content).not.toContain('name: "linetabs"');
+        expect(content).toContain('name: "linetabs"');
     });
 
     it('content null quando scopes vazio', () => {
         expect(buildSurferLayout({ vcdPath: 'x.vcd', scopes: [] }).content).toBeNull();
+    });
+});
+
+describe('convertTradToSurferMapping (trad → mapping translator do Surfer)', () => {
+    it('emite header Name/Bits e mapeia chave decimal → texto verbatim', () => {
+        const out = convertTradToSurferMapping('aurora_asm_x', 32, '0 NOP \n5 JMP main\n');
+        expect(out).toContain('Name = aurora_asm_x');
+        expect(out).toContain('Bits = 32');
+        expect(out).toContain('0 NOP\n');     // trailing space do trad e aparado
+        expect(out).toContain('5 JMP main');
+    });
+
+    it('PULA linhas de texto vazio (Surfer rejeita "Missing mapping" e da panic)', () => {
+        const out = convertTradToSurferMapping('m', 20, '10 \n11 foo\n');
+        expect(out).not.toMatch(/^10 *$/m);
+        expect(out).toContain('11 foo');
+    });
+
+    it('converte chaves NEGATIVAS para o padrao de bits unsigned na largura', () => {
+        const out = convertTradToSurferMapping('m', 20, '-1 INTERNAL\n-2 void main();\n-3 END\n');
+        expect(out).toContain('0xFFFFF INTERNAL');
+        expect(out).toContain('0xFFFFE void main();');
+        expect(out).toContain('0xFFFFD END');
+        expect(out).not.toContain('-1 INTERNAL');
+    });
+
+    it('preserva # no texto (nao e comentario inline no Surfer) e multi-palavra', () => {
+        const out = convertTradToSurferMapping('m', 20, '1 #PRNAME cnn\n14 float w[160] "w.txt";\n');
+        expect(out).toContain('1 #PRNAME cnn');
+        expect(out).toContain('14 float w[160] "w.txt";');
+    });
+
+    it('sem largura (bits=0): omite Bits e pula chave negativa (nao mapeavel)', () => {
+        const out = convertTradToSurferMapping('m', 0, '5 OK\n-1 NOPE\n');
+        expect(out).not.toContain('Bits =');
+        expect(out).toContain('5 OK');
+        expect(out).not.toContain('NOPE');
+    });
+});
+
+describe('buildSurferLayout — mapping translators (decode Assembly/C+-)', () => {
+    const scopes = [
+        scope('tb', [{ name: 'clk' }]),
+        scope('tb.proc', [
+            { name: 'valr2', range: '31:0' },
+            { name: 'linetabs', range: '19:0' },
+        ]),
+    ];
+
+    it('sem trad files: fallback decimal cru + mappings vazio', () => {
+        const { content, mappings } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        expect(mappings).toEqual([]);
+        expect(content).toContain('manual_name: Some("Assembly")');
+        expect(content).toContain('format: Some("Unsigned")');
+        expect(content).toContain('format: Some("Signed")');
+    });
+
+    it('com trad files: o format aponta pro mapping e os mappings sao retornados', () => {
+        const { content, mappings } = buildSurferLayout({
+            vcdPath: 'x.vcd', scopes, tbModule: 'tb',
+            mappingNamespace: 'tb',
+            tradByProcType: {
+                proc: { opcode: '0 NOP \n5 JMP main\n', cmm: '-1 INTERNAL\n3 x = 1;\n' },
+            },
+        });
+        expect(mappings.map((m) => m.name).sort())
+            .toEqual(['aurora_asm_tb_proc', 'aurora_src_tb_proc']);
+        expect(content).toContain('format: Some("aurora_asm_tb_proc")');
+        expect(content).toContain('format: Some("aurora_src_tb_proc")');
+        const src = mappings.find((m) => m.name === 'aurora_src_tb_proc');
+        expect(src.content).toContain('Bits = 20');         // largura do linetabs [19:0]
+        expect(src.content).toContain('0xFFFFF INTERNAL');  // negativo convertido
     });
 });

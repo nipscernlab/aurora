@@ -131,6 +131,7 @@ const compilationOperations = {
 
   launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
   launchSurfer: (opts) => ipcRenderer.invoke('launch-surfer', opts),
+  writeSurferMappings: (mappings) => ipcRenderer.invoke('write-surfer-mappings', mappings),
 };
 
 /* ============================================================================

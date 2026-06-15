@@ -47,7 +47,7 @@ import { TerminalManager } from '../terminal/terminal_module.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
-import { buildAuroraGtkw, detectProcessors } from '../wave/gtkw_proc_writer.js';
+import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
 import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
 import {
   instrumentTestbenchSource, hasUserDumpCalls, commentOutDumpCalls,
@@ -3927,23 +3927,51 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
         const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
         const modules = await this._parseProjectSources();
-        const { content, processorCount } = buildSurferLayout({
+
+        // Read the YANC trad files (Assembly opcode + source-line decode) per
+        // processor type so buildSurferLayout can wire them as Surfer "mapping
+        // translators". Same Temp/<procType>/ layout the GTKWave path resolves;
+        // a missing file just leaves that track in raw decimal (never fatal).
+        const scopeModules = modules ? resolveScopeModules(scopes, modules) : null;
+        const tradByProcType = {};
+        for (const p of detectProcessors(scopes, scopeModules)) {
+            if (!p || !p.procType || tradByProcType[p.procType]) continue;
+            const procDir = await window.electronAPI.joinPath(tempBaseDir, p.procType);
+            const opPath = await window.electronAPI.joinPath(procDir, 'trad_opcode.txt');
+            const cmPath = await window.electronAPI.joinPath(procDir, 'trad_cmm.txt');
+            tradByProcType[p.procType] = {
+                opcode: (await window.electronAPI.fileExists(opPath)) ? await window.electronAPI.readFile(opPath) : null,
+                cmm: (await window.electronAPI.fileExists(cmPath)) ? await window.electronAPI.readFile(cmPath) : null,
+            };
+        }
+
+        const { content, processorCount, mappings } = buildSurferLayout({
             vcdPath: vcdFile,
             scopes,
             tbModule: simTopModule,
             selectedSignals: selected.length > 0 ? selected : null,
             modules,
+            tradByProcType,
+            mappingNamespace: simTopModule,
         });
         if (!content) return null;
         await window.electronAPI.writeFile(autoSurfer, content);
+        // Surfer scans its global config/mappings dir at startup; write the
+        // decode maps now (before launch) so valr2/linetabs render decoded.
+        if (Array.isArray(mappings) && mappings.length > 0) {
+            await window.electronAPI.writeSurferMappings(mappings);
+        }
         const procPart = processorCount > 0
             ? `${processorCount} processor${processorCount === 1 ? '' : 's'}`
             : 'flat layout';
         const selPart = selected.length > 0
             ? `, ${selected.length} signal${selected.length === 1 ? '' : 's'} from picker`
             : '';
+        const decodePart = (Array.isArray(mappings) && mappings.length > 0)
+            ? `, ${mappings.length} decode map${mappings.length === 1 ? '' : 's'}`
+            : '';
         this.terminalManager.appendToTerminal('twave',
-            `Surfer layout auto-generated (${procPart}${selPart}).`, 'info');
+            `Surfer layout auto-generated (${procPart}${selPart}${decodePart}).`, 'info');
         return autoSurfer;
     } catch (err) {
         this.terminalManager.appendToTerminal('twave',

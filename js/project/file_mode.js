@@ -120,21 +120,30 @@ class ProjectTreeManager {
         this.deleteFile = this.deleteFile.bind(this);
         this.closeContextMenu = this.closeContextMenu.bind(this);
 
-        // Expose the init() promise so callers (app_initializer) can
-        // safely await DOM-element caching before asking us to render.
-        // Without this, a programmatic mode switch on cold start can
-        // race past cacheElements and silently bail out in renderTree
-        // (no fileTree element).
-        this.initPromise = this.init();
+        // Pure constructor: NO DOM, NO IPC here — only field setup and the
+        // pure binds above. The DOM caching + listener wiring lives in
+        // initialize(), gated on DOMContentLoaded by the bootstrap at the
+        // bottom of this module (same shape as GtkwPickerManager). This is
+        // the §8 "constructors do I/O" fragility, removed.
+        this._initialized = false;
     }
 
-    async init() {
+    /**
+     * Idempotent. Caches DOM elements and wires listeners. Safe to call
+     * from multiple paths (bootstrap, refreshTree, initializeTreeBasedOnMode)
+     * — only the first call does the work. Must run AFTER the DOM exists;
+     * the module bootstrap defers it to DOMContentLoaded when needed.
+     */
+    initialize() {
+        if (this._initialized) return;
+        // Marcado ANTES do trabalho (nao depois) de proposito:
+        // setupEventListeners() chama activateTree() -> refreshTree(), que
+        // por sua vez chama this.initialize() de novo. Com a flag setada no
+        // topo, essa reentrada retorna cedo em vez de re-cachear e re-attachar
+        // listeners (duplicacao). No design antigo o `await initPromise` em
+        // refreshTree quebrava esse ciclo; aqui a flag idempotente faz o mesmo.
+        this._initialized = true;
         try {
-            if (document.readyState === 'loading') {
-                await new Promise((resolve) => {
-                    document.addEventListener('DOMContentLoaded', resolve, { once: true });
-                });
-            }
             this.cacheElements();
             this.setupEventListeners();
             // Estilos vivem em css/tree/verilog_tree.css — antes eram
@@ -578,7 +587,7 @@ class ProjectTreeManager {
      *
      * Antes existia activateTree separada, mas seu corpo virou
      * essencialmente "setup once + refresh". Cada operacao do setup
-     * e idempotente (initPromise resolve uma vez; setar isTreeActive=
+     * e idempotente (initialize() roda uma vez; setar isTreeActive=
      * true duas vezes e no-op; showFileMode reaplica o mesmo
      * data-active-view). Como activateTree e refreshTree tinham
      * locks SEPARADOS (_activatePromise vs _refreshPromise), eles
@@ -595,11 +604,11 @@ class ProjectTreeManager {
 
         this._refreshPromise = (async () => {
             // ----- Setup idempotente -----
-            // Espera cacheElements() ter rodado. Apos a primeira
-            // resolucao, initPromise vira no-op.
-            if (this.initPromise) {
-                try { await this.initPromise; } catch (_) { /* init logs its own errors */ }
-            }
+            // Garante que cacheElements() rodou. initialize() e idempotente
+            // (no-op apos a primeira vez) e sincrono, entao isso forca o
+            // cache AGORA se o bootstrap ainda nao o fez — mais robusto que
+            // esperar um DOMContentLoaded que pode ja ter passado.
+            this.initialize();
 
             // Descobre o project path se loadProject ainda nao rodou
             // (raro — startup com restoreLastSession em voo). Skip
@@ -945,5 +954,17 @@ const projectTreeManager = new ProjectTreeManager();
 // Window-exposed pra non-module callers (project_manager,
 // close_project, file_tree_manager) que ainda lookam por nome.
 window.projectTreeManager = projectTreeManager;
+
+// Bootstrap: gate de DOMContentLoaded vive AQUI (nao no construtor). Em
+// producao, este module script (deferred) roda com readyState
+// 'interactive', entao initialize() roda inline — identico ao boot antigo.
+// O branch DOMContentLoaded so e tomado quando readyState e 'loading', o
+// que em producao nao acontece pra module scripts; ele existe pra que um
+// teste possa forcar readyState='loading' e importar sem disparar boot.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => projectTreeManager.initialize());
+} else {
+    projectTreeManager.initialize();
+}
 
 export { ProjectTreeManager, projectTreeManager };

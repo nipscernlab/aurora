@@ -2233,7 +2233,7 @@ const settingsNs = {
  *  runner to reason about what the IDE can do.
  *
  *  (The AI's *executable* tool schemas — JSON Schema for function
- *  calling — live separately in main/ai/tools.js, a curated subset
+ *  calling — live separately in main/ai/tools/, a curated subset
  *  with access levels. This `schema()` is the full developer view.)
  * ========================================================== */
 

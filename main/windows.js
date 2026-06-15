@@ -2,7 +2,7 @@
 /**
  * Window factories: main, splash, progress.
  *
- * The PRISM window has its own module under ipc/prism.js because it owns a
+ * The PRISM window has its own module under ipc/prism/ because it owns a
  * lot of compilation logic.
  */
 

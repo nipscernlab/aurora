@@ -258,3 +258,70 @@ usuário **carregou no Surfer** — sinais, cores, formatos, `manual_name`, `hei
 (`Assembly`) e `linetabs` (`C+-`) abrem em **decimal cru** (igual ao GTKWave sem os trad files). O
 decode de mnemônico/linha-fonte tem o risco de **descoberta do mapping no Windows** (config global vs
 `.surfer/` local quebrado) a validar em campo. Complexo (`comp2gtkw`) degrada pra `Binary`.
+
+---
+
+## 12. Estado atual + retomar daqui (fim de 14/06/2026)
+
+> Resumo auto-contido pra continuar de outro computador (só o repo). Branch
+> `feature/aurora-revamp` (remote `origin`).
+
+### Pronto e no repo (commits desta integração)
+| Commit | Entrega | Seção |
+|---|---|---|
+| `2a343ee` | Surfer como **viewer opt-in**: toggle na toolbar (`#viewerSwitch`), preferência (`viewer_preference.js`), API da IA (`get/set_waveform_viewer`), branch de launch (`_waveLaunchSurfer` + IPC `launch-surfer` + fallback GTKWave). | §9 |
+| `a9f3337` | **Layout files escolhíveis como `.gtkw`**: `WaveStore.surferFiles[]`, 6 AI-tools (`list/find/use/add/set_active/remove_surfer_file`), picker viewer-aware, launch `-s`/`-c`, **janela centralizada adaptativa**. | §10 |
+| `115c329` | **Auto-geração do layout curado `.surf.ron`** (`buildSurferLayout`), Source 2 em `_waveResolveSurferSaveFile`, 14 unit tests. | §11 |
+
+**Estado funcional:** com **Surfer** selecionado no toggle, o botão Wave abre **curado** (seções,
+cores, formatos, aliases, analógico). O binário não é bundlado — o usuário coloca
+`components/Packages/surfer/surfer.exe` (sem ele → fallback GTKWave). Já instalado/testado em campo.
+
+### Retomar daqui — v2 (próxima tarefa): mapping translators (decode Assembly / linha-fonte)
+Hoje `valr2` (alias "Assembly") e `linetabs` ("C+-") abrem em **decimal cru**. O decode mnemônico/
+linha-fonte usa o **mapping translator** do Surfer:
+1. `Temp/<procType>/trad_opcode.txt` e `trad_cmm.txt` **já** estão no formato `valor texto`
+   (decimal→string) que o Surfer aceita — só falta um header `Name = <nome>` no topo.
+2. Escrever cada um em `<config>/mappings/<nome>`. **RISCO a validar primeiro:** no Windows o
+   `.surfer/mappings/` local (cwd) é **quebrado** (walk-up com limite POSIX `/`), então provavelmente
+   vai no config global `%APPDATA%\surfer-project\surfer\config\mappings\`. **Validar igual ao formato**:
+   pôr um mapping lá na mão, abrir o Surfer, e confirmar que vira um translator selecionável.
+3. Em `buildSurferLayout` (`buildInstructions`), trocar `format:'Unsigned'`/`'Signed'` de valr2/linetabs
+   por `format:'<nome do mapping>'` (1 nome por procType). Retornar a lista `{name, srcPath}` e copiar
+   via um IPC novo (espelha `writeSurferCenteredWindowConfig` em `main/ipc/compile.js`).
+
+**Arquivos:** `js/wave/surfer_layout_writer.ts` (buildInstructions + retorno `mappings`),
+`js/compilation/compilation_module.js` (`_waveResolveSurferSaveFile`), `main/ipc/compile.js` (IPC de
+escrita dos mappings).
+
+### Depois (v3+)
+- **Complexo** (`comp_me3_*`/`comp_arr_me3_*`): `comp2gtkw.exe` não tem equivalente nativo no Surfer
+  (nenhum translator roda processo externo) → pre-pass reusando o `.exe` (fonte em
+  `yanc/Scripts/comp2gtkw.c`); hoje degrada pra `Binary`.
+- **Grupos colapsáveis reais** (arrays/Stack/ULA): o `.surf.ron` suporta via `items_tree` com
+  `level>0` + nó `Group`, mas o sample testado não tinha grupo — **falta confirmar a serialização**
+  (hoje usamos `divider` como cabeçalho de seção, sem fold).
+- **Embed WASM por iframe** (viewer dentro da IDE) — Fase grande, ver §6/§7.
+
+### Descobertas-chave (validadas no fonte v0.7.0 + em campo) — não re-derivar
+- `surfer <vcd> -s <state.surf.ron>`: o **VCD da CLI vence** o `source` embutido; itens **re-resolvem
+  por nome/caminho** (IDs `Wellen` = só dica) → state **portável**. CONFIRMADO em campo (gerado com IDs
+  errados de propósito, carregou certo).
+- `.sucl` (command file) é **frágil/lossy** pra curadoria → geramos `.surf.ron` declarativo (§11).
+- Surfer **não tem "maximizar"** — janela só via config global `[layout] window_width/height/x/y`
+  (pontos lógicos). Centralizamos a ~85% lendo a tela real (`screen`); o usuário maximiza.
+- Cores: `Green/Red/Yellow/Blue/Pink/Orange/Gray/Violet`. Formato = nome do translator
+  (`Hexadecimal/Unsigned/Signed/Binary/FP: 32-bit IEEE 754/ASCII/...`). Alias = `manual_name`.
+  Analógico = campo `analog: Some((settings: (render_style: Step|Interpolated, y_axis_scale: ...)))`.
+- **Binário:** baixar de
+  `https://gitlab.com/api/v4/projects/42073614/packages/generic/surfer/v0.7.0/surfer_win_v0.7.0.zip`,
+  extrair **`surfer.exe`** (≠ `surver.exe`, o helper) pra `components/Packages/surfer/`. Build do
+  fonte: `cargo install --git https://gitlab.com/surfer-project/surfer.git surfer` (Rust ≥1.92 + MSVC
+  Build Tools). EUPL-1.2: só obriga incluir a `LICENSE-EUPL-1.2.txt` ao **redistribuir** o binário
+  bundlado; `spawn` arm's-length **não contamina** a AURORA.
+
+### Como testar / verificação
+Toggle **Surfer** → **Wave** num projeto SAPHO (sem `.surf.ron` ativo no picker → auto-gera Source 2).
+Cadência da sessão: `npm run build:ts` · `npx eslint --max-warnings=0` · `npm run build:renderer` ·
+`npm test` (222 unit) · e2e `vitest run --config vitest.config.e2e.js` (7/8 — o flaky pré-existente
+`split-pane > PRISM open-at-line` não tem relação).

@@ -1878,8 +1878,16 @@ async def basic_test(dut):
 // mixins shadow each other or the core class methods.
 Object.assign(TabManager, tabViewers, tabDrag, tabWatchers);
 
-// Call initialization when the script loads
-TabManager.initialize();
+// Call initialization when the script loads. Guarded by readyState so the
+// module can be imported without firing initialize() (which touches the DOM
+// and electronAPI) — a test forcing readyState='loading' defers it. In
+// production this module script (deferred) runs with readyState
+// 'interactive', so initialize() runs inline, identical to before.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => TabManager.initialize());
+} else {
+    TabManager.initialize();
+}
 
 // Atualizar a função de inicialização do contexto
 // (currently disabled — see commented call below)

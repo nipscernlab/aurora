@@ -245,11 +245,13 @@ class FileTreeManager {
     async initializeTreeBasedOnMode() {
         const ptm = window.projectTreeManager;
         if (!ptm) return;
-        // Espera o sinal REAL de readiness (DOMContentLoaded + cacheElements
-        // + setupEventListeners, exposto como initPromise) em vez de chutar
-        // 100ms. O sleep curto deixava activateTree rodar antes do DOM da
-        // tree ser cacheado em cold start lento, e bailava silenciosamente.
-        if (ptm.initPromise) await ptm.initPromise;
+        // Garante o sinal REAL de readiness (cacheElements +
+        // setupEventListeners) em vez de chutar 100ms. initialize() e
+        // idempotente e sincrono, entao forca o cache AGORA se o bootstrap
+        // ainda nao rodou — o sleep curto deixava activateTree rodar antes
+        // do DOM da tree ser cacheado em cold start lento, e bailava
+        // silenciosamente.
+        ptm.initialize?.();
         await ptm.activateTree();
     }
 

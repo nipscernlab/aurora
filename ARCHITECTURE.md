@@ -235,6 +235,8 @@ runGtkWave
 
 **Resolução do `.gtkw` save-file** (`_waveResolveGtkwSaveFile`), duas sources em prioridade: (1) `.gtkw` user-curated ativo, validado contra o dump e retornado intocado; (2) auto-gerado por `buildAuroraGtkw` ([gtkw_proc_writer.ts](js/wave/gtkw_proc_writer.ts)) — seção "Top-level" + uma seção SAPHO completa (cores/aliases/grupos) por processador detectado, filtrado pela seleção validada. Ambas falharam? `null`, e o GTKWave abre sem save-file.
 
+**Contraparte Surfer** (`_waveResolveSurferSaveFile`, viewer opt-in) — espelha a mesma curadoria SAPHO num state-file declarativo `.surf.ron` via `buildSurferLayout` ([surfer_layout_writer.ts](js/wave/surfer_layout_writer.ts)): mesmos `detectProcessors`/cores/aliases/analógico, mas cada processador é um **`Group` colapsável** (não `divider`), os tracks Assembly/C+- decodificam via **mapping translators** (`convertTradToSurferMapping` a partir dos `trad_opcode.txt`/`trad_cmm.txt`), e números complexos via **pre-pass** `comp2gtkw.exe` (`complex_decode.ts` + IPC `decode-complex`). Mappings escritos em `%APPDATA%\surfer-project\surfer\config\mappings\`. Detalhes/decisões em [docs/surfer-feasibility.md](docs/surfer-feasibility.md) §13.
+
 **Why the cache `_validatedWaveSelection`:** a seleção é decidida durante o build (fase de instrumentação). A `.gtkw` é escrita depois, quando a simulação já produziu o dump. Os dois passos precisam da mesma seleção pruned-e-talvez-zerada, então o build escreve em `this._validatedWaveSelection` pro passo de `.gtkw` ler. Sem o cache, ou você re-roda o parse, ou re-avisa o usuário sobre sinais já pruned.
 
 **What you can't change without thinking:**

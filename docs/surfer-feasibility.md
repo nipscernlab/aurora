@@ -277,7 +277,9 @@ decode de mnemônico/linha-fonte tem o risco de **descoberta do mapping no Windo
 cores, formatos, aliases, analógico). O binário não é bundlado — o usuário coloca
 `components/Packages/surfer/surfer.exe` (sem ele → fallback GTKWave). Já instalado/testado em campo.
 
-### Retomar daqui — v2 (próxima tarefa): mapping translators (decode Assembly / linha-fonte)
+### ✅ v2 CONCLUÍDO (ver §13) — mapping translators: decode Assembly / linha-fonte
+> O plano abaixo foi executado em `25d258a`. Mantido como registro histórico.
+
 Hoje `valr2` (alias "Assembly") e `linetabs` ("C+-") abrem em **decimal cru**. O decode mnemônico/
 linha-fonte usa o **mapping translator** do Surfer:
 1. `Temp/<procType>/trad_opcode.txt` e `trad_cmm.txt` **já** estão no formato `valor texto`
@@ -295,12 +297,11 @@ linha-fonte usa o **mapping translator** do Surfer:
 escrita dos mappings).
 
 ### Depois (v3+)
-- **Complexo** (`comp_me3_*`/`comp_arr_me3_*`): `comp2gtkw.exe` não tem equivalente nativo no Surfer
-  (nenhum translator roda processo externo) → pre-pass reusando o `.exe` (fonte em
-  `yanc/Scripts/comp2gtkw.c`); hoje degrada pra `Binary`.
-- **Grupos colapsáveis reais** (arrays/Stack/ULA): o `.surf.ron` suporta via `items_tree` com
-  `level>0` + nó `Group`, mas o sample testado não tinha grupo — **falta confirmar a serialização**
-  (hoje usamos `divider` como cabeçalho de seção, sem fold).
+- ✅ **Complexo** (`comp_me3_*`/`comp_arr_me3_*`) — **FEITO em §13** (`e037184`): pre-pass reusando
+  `comp2gtkw.exe` (fonte em `yanc/Scripts/comp2gtkw.c`). (era: degradava pra `Binary`.)
+- ✅ **Grupos colapsáveis reais** — **FEITO em §13** (`1b1ba48`): serialização **CONFIRMADA** (via
+  `save_state_as` do próprio Surfer). Cada processador é um `Group` dobrável; o agrupamento vem dos
+  `level` do `items_tree`, não do `content` (que fica `[]`).
 - **Embed WASM por iframe** (viewer dentro da IDE) — Fase grande, ver §6/§7.
 
 ### Descobertas-chave (validadas no fonte v0.7.0 + em campo) — não re-derivar
@@ -325,3 +326,28 @@ Toggle **Surfer** → **Wave** num projeto SAPHO (sem `.surf.ron` ativo no picke
 Cadência da sessão: `npm run build:ts` · `npx eslint --max-warnings=0` · `npm run build:renderer` ·
 `npm test` (222 unit) · e2e `vitest run --config vitest.config.e2e.js` (7/8 — o flaky pré-existente
 `split-pane > PRISM open-at-line` não tem relação).
+
+## 13. v2/v3 concluídos — translators, complexo, labels, dividers, grupos (15/06/2026)
+
+> Tudo que §12 listava como "retomar (v2)" e "depois (v3+)" foi entregue na branch
+> `feature/aurora-revamp`. Paridade Surfer↔GTKWave mantida.
+
+### Entregue (commits)
+| Commit | Entrega |
+|---|---|
+| `25d258a` | **Mapping translators (decode Assembly / linha-fonte)** — `valr2`→"Assembly", `linetabs`→"C+-" decodificam via mapping translator. `convertTradToSurferMapping` converte os `Temp/<procType>/trad_opcode.txt`/`trad_cmm.txt`: chaves **negativas** do linetabs viram bits unsigned na largura do sinal; linhas de **texto vazio são puladas** (senão o Surfer rejeita "Missing mapping" e dá **panic** ao referenciar o translator). Mappings escritos em `%APPDATA%\surfer-project\surfer\config\mappings\` (IPC `write-surfer-mappings`). Os tracks de instrução são **sempre emitidos** (fora do filtro do picker) — "sempre que há processador, aparecem". |
+| `e037184` | **Decode de números complexos** (`comp_me3_*`/`comp_arr_me3_*`) — pre-pass: `ComplexVcdScanner` faz stream do `fst2vcd` e coleta os bit-values **distintos**, decodifica cada um via `comp2gtkw.exe` (IPC `decode-complex`, stdin/stdout) e monta um mapping `aurora_cpx_<tb>` (`0b<bits> <re imi>`). **Gated** em `hasComplexSignals` — projetos sem complexo não pagam o stream do FST. Fallback a `Binary` se faltar decode. |
+| `08edb3d` | **Labels por processador** + **dividers coloridos** — Assembly/C+- carregam o `procType` (ex.: `Assembly (cnn_features)` / `Assembly (cnn_head)`), distinguindo as instruções de cada proc em designs multi-processador. Todos os dividers curados saem em **vermelho** (`color: Some("Red")`), mantendo o itálico (vermelho não colide com I/O=Yellow / Variables=Orange / Instructions=Violet, e bate com os headers vermelhos do GTKWave). Labels por-proc também no GTKWave (`emitInstructionsSection`). |
+| `1b1ba48` | **Grupos colapsáveis por processador** — cada processador vira um `DisplayedItem::Group` dobrável (header = instanceName, vermelho) contendo toda a sua seção (clk/rst/itr, I/O, Instructions, Variables, Flags). Em multi-proc o usuário dobra os procs que não interessam. `buildSurferState` reescrito de lista-flat → travessia depth-first in-order (`visit` recursivo) com níveis. |
+
+### Descoberta-chave: serialização do `Group` (validada — **não re-derivar**)
+O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
+- `DisplayedItem::Group { name: String, color, background_color, content, is_open }` — `name` é **String** (sem `Some`), `content` fica **`[]` SEMPRE** (vestigial — não lista os filhos), `is_open` = estado dobrado persistido.
+- `items_tree`: nó do grupo em `level L`; filhos logo após em `level L+1`; a subárvore termina quando aparece um nó com `level ≤ L`. O `unfolded` do nó espelha `is_open`.
+- **Como derivamos (ground truth):** `surfer.exe <vcd> -c cmd.sucl` com `scope_add_as_group <scope>` + `save_state_as <path>` → o **próprio Surfer** serializou um grupo, e lemos o formato exato. **Round-trip confirmado:** o `.surf.ron` que NÓS geramos carrega, o Surfer reconstrói a árvore (level 0→1), mantém o header vermelho e re-salva idêntico.
+- **Comandos úteis do Surfer (`-c <file>`):** `scope_add_as_group[_recursive]`, `group_marked`, `group_fold/unfold_recursive`, `group_fold/unfold_all`, `group_dissolve`, `save_state` / `save_state_as <path>`, `variable_add`, `scope_add[_recursive]`.
+
+### Ainda em aberto (v4+)
+- Estender a tag `(procType)` às **variáveis** (hoje `float acc in global` repete entre procs; mitigado pelo grupo dobrável de cada um).
+- **Embed WASM por iframe** (viewer dentro da IDE) — Fase grande, ver §6/§7.
+- **Controle do Surfer pelo IDE via WCP** (flag `--wcp-initiate`, Waveform Control Protocol) — em investigação (adicionar sinais / mover cursor / zoom ao vivo a partir da AURORA).

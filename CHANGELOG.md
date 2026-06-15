@@ -18,6 +18,16 @@ and this project loosely follows [Semantic Versioning](https://semver.org).
   corresponding tab automatically.
 - `RELEASE.md`: bootstrap process for end users; toolchain binaries no
   longer live in the source tree.
+- Surfer waveform viewer — curated `.surf.ron` layout now decodes the
+  Assembly (`valr2`) and source-line (`linetabs`) instruction tracks via
+  Surfer mapping translators (built from the YANC `trad_opcode.txt` /
+  `trad_cmm.txt`), and decodes complex numbers (`comp_me3_*` /
+  `comp_arr_me3_*`) through a `comp2gtkw.exe` pre-pass. Instruction tracks
+  are always shown whenever a processor is present.
+- Surfer layout — per-processor labels on the Assembly/C+- tracks (e.g.
+  `Assembly (cnn_features)`), red-coloured section dividers (kept italic),
+  and a real collapsible `Group` per processor so multi-processor designs
+  fold cleanly. Per-processor instruction labels also applied to GTKWave.
 
 ### Changed
 - All file trees (standard, hierarchy, Verilog) now share a single

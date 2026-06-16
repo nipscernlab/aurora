@@ -3969,7 +3969,13 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
         // Surfer scans its global config/mappings dir at startup; write the
         // decode maps now (before launch) so valr2/linetabs render decoded.
         if (Array.isArray(mappings) && mappings.length > 0) {
-            await window.electronAPI.writeSurferMappings(mappings);
+            const wr = await window.electronAPI.writeSurferMappings(mappings);
+            // Visibilidade: se algum mapping nao foi escrito (permissao/IO), avisa —
+            // esses tracks abrem em decimal cru em vez de falhar mudo.
+            if (wr && Array.isArray(wr.failed) && wr.failed.length > 0) {
+                this.terminalManager.appendToTerminal('twave',
+                    `Surfer: ${wr.failed.length} mapping translator(s) nao escritos — esses tracks abrem em decimal cru.`, 'tips');
+            }
         }
         const procPart = processorCount > 0
             ? `${processorCount} processor${processorCount === 1 ? '' : 's'}`
@@ -4005,6 +4011,21 @@ async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir) {
         if (typeof window.electronAPI.onExecSpecStream !== 'function') return null;
         const fst2vcdBin = await window.electronAPI.joinPath(
             this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
+        const comp2gtkwExe = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'comp2gtkw.exe');
+        // Pre-check: sem o decoder (comp2gtkw) ou o streamer (fst2vcd) nao adianta
+        // varrer o FST inteiro — avisa UMA vez no terminal e cai pro fallback
+        // (complexos em Binary cru) em vez de degradar SILENCIOSAMENTE. Esse era o
+        // gap: o usuario abria o Surfer, via binario cru e nao sabia o porque.
+        if (!await window.electronAPI.fileExists(comp2gtkwExe)) {
+            this.terminalManager.appendToTerminal('twave',
+                'Surfer: comp2gtkw.exe nao encontrado em components/bin/ — numeros complexos abrem em Binary cru.', 'tips');
+            return null;
+        }
+        if (!await window.electronAPI.fileExists(fst2vcdBin)) {
+            this.terminalManager.appendToTerminal('twave',
+                'Surfer: fst2vcd.exe nao encontrado — decode de complexos pulado (Binary cru).', 'tips');
+            return null;
+        }
         const scanner = new ComplexVcdScanner();
         let killed = false;
         const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
@@ -4031,8 +4052,7 @@ async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir) {
 
         const values = scanner.distinctValues();
         if (values.length === 0) return null;
-        const exePath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'comp2gtkw.exe');
-        const res = await window.electronAPI.decodeComplex({ exePath, values });
+        const res = await window.electronAPI.decodeComplex({ exePath: comp2gtkwExe, values });
         if (!res || !res.success || !Array.isArray(res.decoded)) return null;
         const decodedByValue = new Map();
         const n = Math.min(values.length, res.decoded.length);

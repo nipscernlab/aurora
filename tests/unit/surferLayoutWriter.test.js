@@ -98,19 +98,20 @@ describe('buildSurferLayout (camada de curadoria)', () => {
 
     it('emite secao Top-level com Binary (1-bit) e Unsigned (barramento)', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
-        expect(content).toContain('name: Some("Top-level")');
+        expect(content).toContain('name: "Top-level"'); // Top-level = Group (name String, sem Some)
         expect(content).toContain('name: "bus"');
     });
 
-    it('emite banner do proc + secoes I/O / Instructions / Variables / Flags', () => {
+    it('emite banner do proc + secoes I/O / Instructions / Variables / Flags (todas Groups)', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
-        expect(content).toContain('name: "proc"'); // banner do proc = Group (name String, sem Some)
-        expect(content).toContain('name: Some("I/O")');
-        expect(content).toContain('name: Some("Instructions")');
-        expect(content).toContain('name: Some("Variables")');
-        expect(content).toContain('name: Some("Flags")');
-        expect(content).toContain('name: Some("Stack")');
-        expect(content).toContain('name: Some("ULA")');
+        // Banner do proc E cada secao agora sao Groups colapsaveis (name String, sem Some).
+        expect(content).toContain('name: "proc"');
+        expect(content).toContain('name: "I/O"');
+        expect(content).toContain('name: "Instructions"');
+        expect(content).toContain('name: "Variables"');
+        expect(content).toContain('name: "Flags"');
+        expect(content).toContain('name: "Stack"');
+        expect(content).toContain('name: "ULA"');
     });
 
     it('aplica os aliases e cores da curadoria SAPHO', () => {
@@ -133,13 +134,25 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         expect(content).toContain('render_style: Step');
     });
 
-    it('TODOS os dividers curados saem coloridos (vermelho) pra destacar', () => {
+    it('TODOS os grupos curados saem coloridos (vermelho) pra destacar', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
-        // O divider "Instructions" (e os demais) tem color: Some("Red").
-        expect(content).toMatch(/Divider\(\(\s*color: Some\("Red"\),\s*background_color: None,\s*name: Some\("Instructions"\)/);
-        expect(content).toMatch(/color: Some\("Red"\),\s*background_color: None,\s*name: Some\("Top-level"\)/);
-        // Nenhum divider fica sem cor.
-        expect(content).not.toMatch(/Divider\(\(\s*color: None/);
+        // Cada secao virou um Group com color: Some("Red") (header destacado).
+        expect(content).toMatch(/Group\(\(\s*name: "Instructions",\s*color: Some\("Red"\)/);
+        expect(content).toMatch(/Group\(\(\s*name: "Top-level",\s*color: Some\("Red"\)/);
+        // Nenhum grupo curado fica sem cor.
+        expect(content).not.toMatch(/Group\(\(\s*name: "[^"]*",\s*color: None/);
+    });
+
+    it('folding curado: secoes viram Groups aninhados; Flags fecha por padrao', () => {
+        const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        // I/O / Instructions / Variables / Flags / Top-level sao Groups (nao dividers).
+        expect(content).toMatch(/Group\(\(\s*name: "I\/O",/);
+        expect(content).toMatch(/Group\(\(\s*name: "Variables",/);
+        // Flags fecha por padrao (is_open: false) — debug secundario.
+        expect(content).toMatch(/Group\(\(\s*name: "Flags",\s*color: Some\("Red"\),\s*background_color: None,\s*content: \[\],\s*is_open: false/);
+        // Aninhamento profundo: proc(level 1) -> secao(level 2) -> sinal(level 3).
+        expect(content).toMatch(/level: 2,/);
+        expect(content).toMatch(/level: 3,/);
     });
 
     it('sem processador (nenhum scope com valr2+linetabs): nao emite Instructions/Assembly/C+-', () => {
@@ -183,8 +196,8 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         expect(content).toMatch(/Group\(\(\s*name: "proc",\s*color: Some\("Red"\),\s*background_color: None,\s*content: \[\],\s*is_open: true,/);
         // O no do grupo (level 0) e seguido por filhos em level 1 no items_tree.
         expect(content).toMatch(/level: 1,/);
-        // O Top-level NAO e agrupado (fica em level 0, fora de qualquer Group).
-        expect(content).toContain('name: Some("Top-level")');
+        // O Top-level tambem e um Group (name String, sem Some) — tudo dobravel.
+        expect(content).toContain('name: "Top-level"');
     });
 });
 

@@ -268,7 +268,7 @@ export function buildSurferState(input: BuildSurferStateInput): string {
     clock_highlight_type: None,
     hierarchy_style: None,
     autoload_sibling_state_files: None,
-    autoreload_files: None,
+    autoreload_files: Some(Always),
     waves: Some((
         source: File(${ronStr(input.vcdPath)}),
         format: ${fmt},
@@ -403,17 +403,21 @@ export interface BuildSurferLayoutInput {
 const ANALOG_STEP: SurferAnalog = { renderStyle: 'Step', yAxisScale: 'TypeLimits' };
 
 /**
- * Cor de TODOS os dividers curados (secoes + banner de processador). Vermelho
- * por escolha de contraste: I/O e Yellow, Variables e Orange, Instructions e
+ * Cor de TODOS os labels curados (grupos de secao + banner de processador).
+ * Vermelho por contraste: I/O e Yellow, Variables e Orange, Instructions e
  * Violet — vermelho nao colide com nenhuma trilha e bate com os headers
- * vermelhos do GTKWave. O Surfer ja renderiza divider em italico; a cor e
- * adicional. Trocar aqui (ex.: 'Yellow') muda todos de uma vez.
+ * vermelhos do GTKWave. O Surfer renderiza o header do grupo em italico; a cor
+ * e adicional. Trocar aqui (ex.: 'Yellow') muda todos de uma vez.
  */
-const DIVIDER_COLOR: SurferColor = 'Red';
+const SECTION_COLOR: SurferColor = 'Red';
 
-/** Cria um divider curado ja com a cor de destaque padrao. */
-function mkDivider(name: string): SurferDividerItem {
-  return { kind: 'divider', name, color: DIVIDER_COLOR };
+/**
+ * Cria um GRUPO colapsavel de secao (header vermelho). `isOpen` controla o fold
+ * inicial: secoes principais abertas, blocos volumosos (arrays/Flags) fechados.
+ * Substitui os antigos `divider` de cabecalho — agora cada secao DOBRA.
+ */
+function mkGroup(name: string, children: SurferItem[], isOpen = true): SurferGroupItem {
+  return { kind: 'group', name, color: SECTION_COLOR, isOpen, children };
 }
 
 type EnrichedSig = { name: string; range?: string | null; fullName: string };
@@ -517,11 +521,10 @@ function resolveProcMappings(
   return { asmFormat, srcFormat };
 }
 
-/** Empurra um divider + os itens da secao, mas SO se a secao tem itens. */
-function pushSection(items: SurferItem[], label: string, sectionItems: SurferItem[]): void {
+/** Empurra um GRUPO colapsavel da secao (header + filhos), mas SO se ha itens. */
+function pushSection(items: SurferItem[], label: string, sectionItems: SurferItem[], isOpen = true): void {
   if (sectionItems.length === 0) return;
-  items.push(mkDivider(label));
-  for (const it of sectionItems) items.push(it);
+  items.push(mkGroup(label, sectionItems, isOpen));
 }
 
 function passesFilter(filter: Set<string> | null, fullName: string): boolean {
@@ -636,8 +639,8 @@ function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string,
       i++;
     }
     if (elemItems.length > 0) {
-      out.push(mkDivider(groupLabel));
-      for (const it of elemItems) out.push(it);
+      // Array vira um grupo FECHADO por padrao (volumoso — N elementos).
+      out.push(mkGroup(groupLabel, elemItems, false));
     }
   }
 }
@@ -686,8 +689,8 @@ function buildFlags(scopes: VcdScope[], corePath: string | null, filter: Set<str
   pushUla('delta_float', 'Rounding Error (float)');
   if (stackItems.length === 0 && ulaItems.length === 0) return [];
   const out: SurferItem[] = [];
-  if (stackItems.length > 0) { out.push(mkDivider('Stack')); for (const it of stackItems) out.push(it); }
-  if (ulaItems.length > 0) { out.push(mkDivider('ULA')); for (const it of ulaItems) out.push(it); }
+  if (stackItems.length > 0) out.push(mkGroup('Stack', stackItems, true));
+  if (ulaItems.length > 0) out.push(mkGroup('ULA', ulaItems, true));
   return out;
 }
 
@@ -724,8 +727,8 @@ export function buildSurferLayout(input: BuildSurferLayoutInput): { content: str
     const { asmFormat, srcFormat } = resolveProcMappings(scopes, proc, tradByProcType, ns, mappings);
     pushSection(procItems, 'Instructions', buildInstructions(scopes, proc.instancePath, proc.procType, asmFormat, srcFormat));
     pushSection(procItems, 'Variables', buildVariables(scopes, proc.instancePath, filter, cpxFormat));
-    pushSection(procItems, 'Flags', buildFlags(scopes, proc.corePath, filter));
-    items.push({ kind: 'group', name: proc.instanceName, color: DIVIDER_COLOR, isOpen: true, children: procItems });
+    pushSection(procItems, 'Flags', buildFlags(scopes, proc.corePath, filter), false); // Flags fecha por padrao (debug secundario)
+    items.push(mkGroup(proc.instanceName, procItems, true));
   }
   if (complexMapping) mappings.push(complexMapping); // 1 mapping compartilhado por todos os complexos
 

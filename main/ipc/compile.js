@@ -68,8 +68,9 @@ function writeSurferCenteredWindowConfig() {
 // each launch overwrites the active project's set (idempotent). Best-effort:
 // a failure here must not block opening the waveform.
 function writeSurferMappings(mappings) {
+  const result = { written: 0, failed: [] };
   try {
-    if (!Array.isArray(mappings) || mappings.length === 0) return;
+    if (!Array.isArray(mappings) || mappings.length === 0) return result;
     const dir = path.join(app.getPath('appData'), 'surfer-project', 'surfer', 'config', 'mappings');
     fs.mkdirSync(dir, { recursive: true });
     for (const m of mappings) {
@@ -78,11 +79,20 @@ function writeSurferMappings(mappings) {
       // path separators so a name can never escape the mappings dir.
       const safe = m.name.replace(/[^A-Za-z0-9_.-]/g, '_');
       if (!safe) continue;
-      fs.writeFileSync(path.join(dir, safe), m.content, 'utf8');
+      try {
+        fs.writeFileSync(path.join(dir, safe), m.content, 'utf8');
+        result.written++;
+      } catch (e) {
+        // Per-mapping failure (permission/IO) — record so the renderer can warn
+        // the user that those tracks open as raw decimal, instead of silent.
+        result.failed.push({ name: m.name, error: e?.message || String(e) });
+      }
     }
   } catch (error) {
     log.warn('Surfer mappings write skipped:', error?.message);
+    result.failed.push({ name: '*', error: error?.message || String(error) });
   }
+  return result;
 }
 
 function register() {
@@ -212,8 +222,8 @@ function register() {
   // Surfer launch so the files exist when Surfer scans its config/mappings dir
   // at startup. Best-effort (never rejects) — degrades to raw decimal tracks.
   ipcMain.handle('write-surfer-mappings', (_event, mappings) => {
-    writeSurferMappings(mappings);
-    return { success: true };
+    const r = writeSurferMappings(mappings);
+    return { success: r.failed.length === 0, written: r.written, failed: r.failed };
   });
 
   // Decode complex-number bit patterns via the canonical comp2gtkw.exe (same

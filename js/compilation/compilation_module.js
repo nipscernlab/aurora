@@ -58,6 +58,7 @@ import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.j
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
+import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -3856,6 +3857,10 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
         surferBin: tools.surferBin,
         args,
         workingDir: tools.tempBaseDir,
+        // Preferencia do usuario (modal Wave Config): true = manter varias janelas
+        // abertas (comparar simulacoes); false (default) = uma janela so (o main
+        // fecha a anterior antes de abrir a nova).
+        multiWindow: getSurferMultiWindow(),
     });
     if (!result.success) {
         this.terminalManager.appendToTerminal(

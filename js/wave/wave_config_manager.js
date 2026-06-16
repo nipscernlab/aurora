@@ -22,6 +22,7 @@ import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 import { switchTerminal } from '../terminal/terminal.js';
+import { getSurferMultiWindow, setSurferMultiWindow } from './surfer_window_preference.js';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
@@ -101,6 +102,7 @@ class WaveConfigManager {
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
             processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
             processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest('.wave-tree-filter'),
+            surferMultiWindowCb: document.getElementById('waveConfigSurferMultiWindow'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
             filterInput:       document.getElementById('waveConfigFilterInput'),
@@ -118,6 +120,12 @@ class WaveConfigManager {
         this.elements.selectDefaultBtn?.addEventListener('click', () => this.selectDefault());
         this.elements.selectAllBtn?.addEventListener('click', () => this.selectAll());
         this.elements.selectNoneBtn?.addEventListener('click', () => this.selectNone());
+        // Preferencia GLOBAL persistida (localStorage), independente do Save/Cancel
+        // do modal — espelha o toggle de viewer. Off = uma janela do Surfer (fecha
+        // a anterior); On = varias janelas (comparar simulacoes lado a lado).
+        this.elements.surferMultiWindowCb?.addEventListener('change', (e) => {
+            setSurferMultiWindow(!!e.target.checked);
+        });
         this.elements.processorOnlyCb?.addEventListener('change', (e) => {
             this._processorOnly = !!e.target.checked;
             if (this._processorOnly) {
@@ -415,6 +423,11 @@ class WaveConfigManager {
         this._processorOnly = false;
         if (this.elements.processorOnlyCb) {
             this.elements.processorOnlyCb.checked = false;
+        }
+        // Multi-janela do Surfer: preferencia PERSISTIDA — reflete o valor salvo
+        // a cada open() (nao reseta como o filtro UI-only acima).
+        if (this.elements.surferMultiWindowCb) {
+            this.elements.surferMultiWindowCb.checked = getSurferMultiWindow();
         }
         // Find widget: also UI-only, also reset on each open(). Toggles
         // (case/regex) reset too — fresh slate every time the user

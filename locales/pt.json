@@ -84,6 +84,7 @@
             "clear":              "Limpar",
             "emptyState":         "Nenhum sinal descoberto. Verifique se o projeto tem um arquivo top-level sintetizável (e idealmente um testbench).",
             "showProcessorOnly":  "Mostrar apenas sinais do processador",
+            "surferMultiWindow":  "Surfer: manter janelas abertas para comparar simulações (várias janelas)",
             "selectedCountOne":   "1 sinal selecionado",
             "selectedCountOther": "{{count}} sinais selecionados",
             "cancel":             "Cancelar",

@@ -193,7 +193,10 @@ function register() {
     // vivo) para nao empilhar janelas a cada simulacao. So mata o NOSSO processo
     // rastreado (mesmo objeto ChildProcess, sem risco de PID reuse); janelas que
     // o usuario abriu por fora ficam intocadas. taskkill /F /T via killProcessSilently.
-    if (lastSurferChild && lastSurferChild.exitCode === null && !lastSurferChild.killed && lastSurferChild.pid) {
+    // Pulado quando o usuario liga "varias janelas" (modal Wave Config) p/ comparar
+    // simulacoes lado a lado — ai cada launch deixa a janela anterior aberta.
+    if (!options.multiWindow
+        && lastSurferChild && lastSurferChild.exitCode === null && !lastSurferChild.killed && lastSurferChild.pid) {
       try { await killProcessSilently(lastSurferChild.pid); } catch { /* best-effort */ }
       lastSurferChild = null;
     }

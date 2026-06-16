@@ -84,6 +84,7 @@
             "clear":              "Clear",
             "emptyState":         "No signals discovered. Make sure the project has a top-level synthesizable file (and ideally a testbench).",
             "showProcessorOnly":  "Show processor signals only",
+            "surferMultiWindow":  "Surfer: keep windows open to compare runs (multiple windows)",
             "selectedCountOne":   "1 signal selected",
             "selectedCountOther": "{{count}} signals selected",
             "cancel":             "Cancel",

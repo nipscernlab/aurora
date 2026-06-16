@@ -372,6 +372,16 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 - Folding com `level>1` (não só 0→1) carrega e preserva fold no v0.7.0 — confirmado por round-trip com `proc(0)→seção(1)→sinal(2)`.
 
 ### Backlog restante (priorizado pela análise)
-🔓 bundlar `surfer.exe` no instalador (desbloqueia usuários finais) · 🛡️ ~~anti-staleness (mtime), namespacing por projeto, escrita atômica~~ **FEITO (`d59b225`)**; falta e2e Windows do complexo · 🎨 cores por opcode, analog para floats, markers/cursor automáticos, `heightScale`/`field_formats` · 🚀 WCP ao vivo (editor↔waveform), embed WASM.
+✅ **FEITO:** bundlar `surfer.exe` (`ab87463`) · robustez (`d59b225`) · e2e do complexo sobre FST real (`1e3ae0c`) · analog p/ floats + `heightScale` (`f8b2e5b`) · toggle multi-janela (`43f315b`).
+⏳ **Resta:** 🎨 cores por opcode (DEFERIDO — sintaxe de cor no mapping incerta + risco de panic; precisa validação visual), markers/cursor automáticos, `field_formats` (bit-slicing), `display_name_type`/`active_scope` · 🚀 WCP ao vivo (editor↔waveform — única forma de reload-sem-perder-zoom), embed WASM.
+
+### §15 — Lote autônomo (16/06/2026)
+| Item | Commit | Nota |
+|---|---|---|
+| **Toggle multi-janela** | `43f315b` | Checkbox no modal Wave Config; OFF=1 janela (default), ON=várias (comparar). Preferência global (`surfer_window_preference.js`), flag → `launch-surfer` (kill condicional). |
+| **Analog p/ floats** | `f8b2e5b` | `me2_`/`arr_me2_` → curva (Step+Global) em vez de números; valor exato no cursor. clk/rst em meia-altura. DSP-only. |
+| **Bundle `surfer.exe`** | `ab87463` | `download-surfer.js` (GitLab generic, URL HEAD 200 ~17.5MB) no bootstrap; `extraResources` empacota; LICENSE EUPL-1.2. |
+| **e2e complexo (FST real)** | `1e3ae0c` | Validado em campo: `vcd2fst`→`fst2vcd -f`→scanner→`comp2gtkw` = `12.000 -1.000i`. A invocação `fst2vcd -f <fst>` está correta. Fixture do formato real travado em teste. |
+| **Cores por opcode** | — | **NÃO feito** (deferido): mapping malformado dá panic e não dá pra validar a cor headless. Precisa do usuário no loop. |
 
 **🛡️ Robustez (`d59b225`):** anti-staleness compara `mtime(trad) > mtime(FST)` (recompilou sem re-simular → avisa, não decodifica lixo); namespacing prefixa os mappings com FNV-1a do projectPath (field-test: nome de 42 chars carrega, sem truncar); escrita atômica via `.tmp`+`rename` (Surfer nunca lê mapping pela metade).

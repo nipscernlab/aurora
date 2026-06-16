@@ -36,6 +36,16 @@ and this project loosely follows [Semantic Versioning](https://semver.org).
   before the new launch) instead of stacking windows; and the launch terminal
   messages now say "Surfer" instead of "GTKWave". (Surfer's own file-watch
   auto-reload does not fire on Windows v0.7.0, so it is not used.)
+- Surfer is now bundled in the installer — `download-surfer.js` fetches
+  `surfer.exe` v0.7.0 during bootstrap (the `extraResources` step ships it),
+  so the Surfer viewer works out of the box instead of falling back to GTKWave.
+  Listed under EUPL-1.2 in the third-party attributions.
+- Surfer: a "keep windows open to compare runs" toggle in the Wave Configuration
+  modal — off by default (one window, the previous is closed on each launch),
+  on to keep multiple Surfer windows for side-by-side comparison.
+- Surfer: user float variables (`me2_`/`arr_me2_`) render as an analog curve
+  (Step, global Y-scale) instead of raw numbers — readable over long traces,
+  exact value still shown at the cursor; clk/rst/itr render at half height.
 - Surfer mapping robustness — translator files are now namespaced per project
   (FNV-1a tag of the project path) so two open projects with the same testbench
   top no longer overwrite each other in the shared global mappings dir; written

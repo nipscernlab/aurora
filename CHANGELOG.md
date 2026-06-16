@@ -34,6 +34,12 @@ and this project loosely follows [Semantic Versioning](https://semver.org).
   group (arrays/Flags closed by default); and the complex-decode path
   pre-checks `comp2gtkw.exe`/`fst2vcd.exe` and warns once in the terminal
   instead of degrading to raw binary silently.
+- Surfer mapping robustness — translator files are now namespaced per project
+  (FNV-1a tag of the project path) so two open projects with the same testbench
+  top no longer overwrite each other in the shared global mappings dir; written
+  atomically (temp + rename) so the viewer never reads a half-written file; and
+  the renderer warns when the decode tables are newer than the dump (recompiled
+  without re-simulating → the Assembly/source decode would be stale).
 
 ### Changed
 - All file trees (standard, hierarchy, Verilog) now share a single

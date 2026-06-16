@@ -369,4 +369,6 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 - Folding com `level>1` (não só 0→1) carrega e preserva fold no v0.7.0 — confirmado por round-trip com `proc(0)→seção(1)→sinal(2)`.
 
 ### Backlog restante (priorizado pela análise)
-🔓 bundlar `surfer.exe` no instalador (desbloqueia usuários finais) · 🛡️ hash anti-staleness dos mappings, namespacing por projeto, escrita atômica, e2e Windows do complexo · 🎨 cores por opcode, analog para floats, markers/cursor automáticos, `heightScale`/`field_formats` · 🚀 WCP ao vivo (editor↔waveform), embed WASM.
+🔓 bundlar `surfer.exe` no instalador (desbloqueia usuários finais) · 🛡️ ~~anti-staleness (mtime), namespacing por projeto, escrita atômica~~ **FEITO (`d59b225`)**; falta e2e Windows do complexo · 🎨 cores por opcode, analog para floats, markers/cursor automáticos, `heightScale`/`field_formats` · 🚀 WCP ao vivo (editor↔waveform), embed WASM.
+
+**🛡️ Robustez (`d59b225`):** anti-staleness compara `mtime(trad) > mtime(FST)` (recompilou sem re-simular → avisa, não decodifica lixo); namespacing prefixa os mappings com FNV-1a do projectPath (field-test: nome de 42 chars carrega, sem truncar); escrita atômica via `.tmp`+`rename` (Surfer nunca lê mapping pela metade).

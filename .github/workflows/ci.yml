@@ -30,6 +30,9 @@ jobs:
       - name: ESLint
         run: npx eslint . --max-warnings=0
 
+      - name: Typecheck (tsc --noEmit)
+        run: npx tsc --noEmit
+
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode
 

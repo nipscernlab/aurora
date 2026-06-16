@@ -38,6 +38,10 @@ class AppInitializer {
         try {
             await this.restoreLastSession();
             this.isInitialized = true;
+            // Baseline de TTI (time-to-interactive): o overlay de jank (Dev) le este
+            // mark via performance.getEntriesByName('aurora-interactive'); sem ele
+            // caia no fallback domInteractive (menos preciso). Non-critical.
+            try { performance.mark('aurora-interactive'); } catch { /* perf API ausente */ }
             console.log('✅ Aurora IDE initialized successfully');
         } catch (error) {
             console.error('❌ Failed to initialize Aurora IDE:', error);

@@ -211,6 +211,13 @@ function register() {
     return {};
   }));
 
+  // Merge another branch INTO the current one (--no-edit so no $EDITOR popup).
+  ipcMain.handle('git:merge', safe(async (/** @type {{branch:string}} */ opts) => {
+    if (!opts || !opts.branch) throw new Error('branch required');
+    const out = await gitForProject().raw(['merge', '--no-edit', opts.branch]);
+    return { summary: typeof out === 'string' ? out.trim() : '' };
+  }));
+
   // --- remote (needs credentials/token) -----------------------------------
   ipcMain.handle('git:fetch', safe(async () => {
     await remoteGit().fetch();

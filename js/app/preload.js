@@ -425,6 +425,7 @@ const gitOperations = {
   discard:   (files) => ipcRenderer.invoke('git:discard', files),
   commit:    (opts) => ipcRenderer.invoke('git:commit', opts),
   checkout:  (opts) => ipcRenderer.invoke('git:checkout', opts),
+  merge:     (opts) => ipcRenderer.invoke('git:merge', opts),
   fetch:     () => ipcRenderer.invoke('git:fetch'),
   pull:      () => ipcRenderer.invoke('git:pull'),
   push:      (opts) => ipcRenderer.invoke('git:push', opts),

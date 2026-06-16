@@ -167,13 +167,44 @@ function renderRepoHeader(st, info) {
   repo.innerHTML = `
     <div class="git-repo-left">
       <span class="git-repo-name" title="${esc(info.originUrl || info.name || '')}"><i class="ph ph-git-repository"></i> ${esc(info.name || '—')}</span>
-      <span class="git-branch-chip"><i class="ph ph-git-branch"></i> ${esc(st.branch || '—')}</span>
+      <div class="git-branch-wrap">
+        <button class="git-branch-chip" data-action="branch-menu"><i class="ph ph-git-branch"></i> ${esc(st.branch || '—')} <i class="ph ph-caret-down git-caret"></i></button>
+        <div class="git-branch-menu" id="git-branch-menu" hidden></div>
+      </div>
       ${ahead}${behind}
     </div>
     <div class="git-repo-actions">
       <button class="git-mini" data-action="refresh" title="Atualizar"><i class="ph ph-arrows-clockwise"></i></button>
       ${remoteBtns}
     </div>`;
+}
+
+async function toggleBranchMenu() {
+  const menu = $('git-branch-menu');
+  if (!menu) return;
+  if (!menu.hidden) { menu.hidden = true; return; }
+  const r = await api().branches();
+  if (!r.ok) { flash(`Branches: ${r.error}`, 'error'); return; }
+  renderBranchMenu(r.branches || [], r.current);
+}
+function renderBranchMenu(branches, current) {
+  const menu = $('git-branch-menu');
+  if (!menu) return;
+  menu.innerHTML = `
+    <div class="git-bm-head">Branches</div>
+    <ul class="git-bm-list">
+      ${branches.map((b) => `<li class="git-bm-item ${b === current ? 'current' : ''}">
+        <button class="git-bm-switch" data-action="checkout-branch" data-branch="${esc(b)}" ${b === current ? 'disabled' : ''}>
+          <i class="ph ${b === current ? 'ph-check' : 'ph-git-branch'}"></i> ${esc(b)}
+        </button>
+        ${b !== current ? `<button class="git-bm-merge" data-action="merge-branch" data-branch="${esc(b)}" title="Merge em ${esc(current)}"><i class="ph ph-git-merge"></i></button>` : ''}
+      </li>`).join('')}
+    </ul>
+    <div class="git-bm-new">
+      <input type="text" id="git-new-branch" class="git-pat-input" placeholder="nova branch" spellcheck="false" />
+      <button class="git-mini git-mini-primary" data-action="create-branch"><i class="ph ph-plus"></i> Criar</button>
+    </div>`;
+  menu.hidden = false;
 }
 
 function renderPublish(info) {
@@ -301,6 +332,9 @@ async function showDiff(file, staged) {
 
 // --- actions (event delegation) --------------------------------------------
 async function onClick(e) {
+  // Close the branch menu on any click outside it.
+  const bm = $('git-branch-menu');
+  if (bm && !bm.hidden && !e.target.closest('.git-branch-wrap')) bm.hidden = true;
   const actEl = e.target.closest('[data-action]');
   if (actEl) {
     const action = actEl.dataset.action;
@@ -330,7 +364,15 @@ async function onClick(e) {
         return loadHistory();
       }
       case 'connect':    return connect();
-      case 'disconnect': return run('Desconectar', async () => { await api().githubDisconnect(); notify('Conta desconectada.', 'info'); refresh(); });
+      case 'disconnect': return run('Desconectar', async () => { await api().githubDisconnect(); refresh(); return 'Conta desconectada'; });
+      case 'branch-menu': return toggleBranchMenu();
+      case 'checkout-branch': return run('Trocar branch', async () => { const r = await api().checkout({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Na branch ${actEl.dataset.branch}`; });
+      case 'merge-branch': return run('Merge', async () => { const r = await api().merge({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge de ${actEl.dataset.branch}`; });
+      case 'create-branch': {
+        const nb = $('git-new-branch')?.value?.trim();
+        if (!nb) { flash('Dê um nome à branch.', 'error'); return undefined; }
+        return run('Nova branch', async () => { const r = await api().checkout({ branch: nb, create: true }); if (!r.ok) throw new Error(r.error); refresh(); return `Branch ${nb} criada`; });
+      }
       default: return undefined;
     }
   }

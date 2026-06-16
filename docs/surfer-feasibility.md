@@ -351,3 +351,22 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 - Estender a tag `(procType)` às **variáveis** (hoje `float acc in global` repete entre procs; mitigado pelo grupo dobrável de cada um).
 - **Embed WASM por iframe** (viewer dentro da IDE) — Fase grande, ver §6/§7.
 - **Controle do Surfer pelo IDE via WCP** (flag `--wcp-initiate`, Waveform Control Protocol) — em investigação (adicionar sinais / mover cursor / zoom ao vivo a partir da AURORA).
+
+## 14. Trio de quick-wins — auto-reload, folding curado, pre-checks (16/06/2026)
+
+> Saiu de uma análise multi-agente do que mais melhorar (6 scanners → síntese, 16
+> oportunidades). Os 3 primeiros quick-wins (commit `7486e19`):
+
+### Entregue
+| Item | O quê |
+|---|---|
+| **Auto-reload** | `autoreload_files: Some(Always)` no skeleton do `.surf.ron` → o Surfer recarrega o waveform sozinho a cada re-simulação (paridade com o GTKWave; fecha o fecha-reabre manual do loop compilar→simular→ver). Tipo derivado da fonte v0.7.0 (`config::AutoLoad = Always\|Never\|Ask`). Carrega sem panic (validado). |
+| **Folding curado** | Cada seção (Top-level, I/O, Instructions, Variables, Flags) virou um **`Group` colapsável aninhado** em vez de `divider`. Arrays viram um Group **fechado** por padrão; Stack/ULA viram Groups dentro de **Flags** (também fechado). `pushSection`/`pushArrays`/`buildFlags` usam `mkGroup`; `DIVIDER_COLOR`→`SECTION_COLOR`. Aninhamento profundo (proc→seção→sinal = level 1/2/3) **validado por round-trip** (Surfer carrega, reconstrói a árvore, re-salva idêntico). |
+| **Pre-checks de toolchain** | `_buildSurferComplexMapping` confere `comp2gtkw.exe` **e** `fst2vcd.exe` **antes** do stream caro do FST; faltando, avisa uma vez no terminal (`twave`) e cai pro fallback (Binary cru) em vez de degradar **silenciosamente**. `writeSurferMappings` agora retorna `{ written, failed[] }` e o renderer avisa quando um mapping não é escrito. |
+
+### Descoberta: `AutoLoad` e folding profundo
+- `autoreload_files: Option<config::AutoLoad>`, enum `AutoLoad { Always, Never, Ask }` (só deriva `Deserialize` — o Surfer **lê** do state, pode não re-serializar; ok pro nosso fluxo write-only).
+- Folding com `level>1` (não só 0→1) carrega e preserva fold no v0.7.0 — confirmado por round-trip com `proc(0)→seção(1)→sinal(2)`.
+
+### Backlog restante (priorizado pela análise)
+🔓 bundlar `surfer.exe` no instalador (desbloqueia usuários finais) · 🛡️ hash anti-staleness dos mappings, namespacing por projeto, escrita atômica, e2e Windows do complexo · 🎨 cores por opcode, analog para floats, markers/cursor automáticos, `heightScale`/`field_formats` · 🚀 WCP ao vivo (editor↔waveform), embed WASM.

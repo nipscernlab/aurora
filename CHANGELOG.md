@@ -28,6 +28,12 @@ and this project loosely follows [Semantic Versioning](https://semver.org).
   `Assembly (cnn_features)`), red-coloured section dividers (kept italic),
   and a real collapsible `Group` per processor so multi-processor designs
   fold cleanly. Per-processor instruction labels also applied to GTKWave.
+- Surfer quick-wins — the `.surf.ron` now sets `autoreload_files: Always`
+  so the viewer reloads on every re-simulation; each section (I/O,
+  Instructions, Variables, Flags, arrays, Stack/ULA) is a nested collapsible
+  group (arrays/Flags closed by default); and the complex-decode path
+  pre-checks `comp2gtkw.exe`/`fst2vcd.exe` and warns once in the terminal
+  instead of degrading to raw binary silently.
 
 ### Changed
 - All file trees (standard, hierarchy, Verilog) now share a single

@@ -209,6 +209,14 @@ como **p99 de jank**, não FPS médio. Marcar o boot com `performance.mark/measu
 **baseline de time-to-interactive** (hoje inexistente — ver lacuna §10) e adicionar um **smoke de
 startup com orçamento** no CI, senão cada otimização regride sem aviso.
 
+**✅ Implementado (15/06/2026, commit `d4f7735`):** o overlay existe — `js/dev/jank_overlay.js`. HUD
+com FPS, **p99** de frame vs orçamento de 165 Hz (6,06 ms), **taxa de jank** (% de frames > 2× orçamento),
+contagem de **longtask** (`PerformanceObserver`) e **TTI** aproximado (mark `aurora-interactive` → fallback
+`navigation.domInteractive`). Buffer circular de 300 frames; **custo zero quando inativo** (o loop de rAF e
+o observer só rodam com o overlay visível). Aberto por **import dinâmico** na command palette (grupo "Dev"
+→ "Toggle Jank Overlay"). **Falta** ainda: setar o `performance.mark('aurora-interactive')` no fim do init
+(pra o TTI sair do fallback) e o **smoke de orçamento no CI** (pareia com B4 — `tsc --noEmit` no CI).
+
 ---
 
 ## 5. Arquitetura e melhorias estruturais
@@ -617,10 +625,40 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
   box-shadow → glow (§4) e display font (§8) = refinamentos abertos; os componentes de shell restantes
   (titlebar/activity-bar/tabs/tree/terminal) seguem **adiados** (maus alvos de Shadow DOM — ver §13.A).
 
+**Sessão 15/06/2026 (Opus — do mais rápido ao mais lento) ✅.** Continuação do backlog §13 na ordem
+fastest→slowest. Tudo com **243 unit** + ESLint (lint-staged) + `commit`+`pull` por item (sem push);
+**verificação adversarial multi-agente** do estado real (git + arquivos) antes de marcar feito aqui — os
+11 itens abaixo voltaram "committed, zero discrepâncias".
+- **Overlay de jank (§4.4/G7) ✅** — `js/dev/jank_overlay.js`: HUD dev (FPS · **p99** de frame vs orçamento
+  165 Hz de 6,06 ms · taxa de jank = % de frames > 2× orçamento · longtask via `PerformanceObserver` · TTI
+  aproximado). Buffer circular de 300 frames; **custo zero quando inativo**. Import dinâmico na command
+  palette (grupo novo **"Dev"** → "Toggle Jank Overlay"). Commit `d4f7735`.
+- **Stage 5 / B5 ✅** — os 14 testes que importavam os `.js` gerados passam a importar o `.ts` direto
+  (vitest resolve TS nativo via esbuild); os **29** `.js` de saída do `tsc` saíram do tracking (`git rm
+  --cached`) e entraram no `.gitignore` (seção "TypeScript compiler output"). Só o `.ts` é fonte daqui pra
+  frente; 243 unit verdes com os imports novos. Commit `29ebbab`. *(Ainda falta B4 — `tsc --noEmit` no CI
+  pra pegar drift; §13.I.)*
+- **3 shells semânticos em Lit (passo 1 — wrapper fino) ✅** — `<aurora-tabs>` (`fb0e943`),
+  `<aurora-terminal>` (`67306c8`), `<aurora-tree>` (`31287b7`): cada um é um LitElement cujo `render()`
+  devolve só um `<slot>` passthrough — **registra o custom element** e nada mais. Os filhos (`.tab`,
+  `.terminal-content`/`.log-entry`, `.file-tree-item`) seguem em **light DOM**, gerenciados imperativamente
+  pelos managers (`tab_manager`/`terminal_module`/`file_tree_manager`) **sem nenhuma mudança de lógica**; os
+  estilos vêm do CSS global pela classe no host. Reabre essas barras "ADIADAS" como **enhancement
+  progressivo**: o passo 2 (render declarativo + tokens no `::slotted` + virtual scroll) fica pra quando o
+  manager virar data-driven. `index.html`: `<div id=…>` → `<aurora-… id=…>` nos 3 pontos.
+- **Higiene de memória do chat IA (base64) ✅** — `ai_assistant_manager.js` solta o `dataUrl` base64 das
+  attachments de `this.messages` logo após `apiMessages` ser montado pro turn → imagens de até 8 MB **não**
+  são reenviadas a cada turno seguinte (mantém nome/mime/tam pra exibição). Commit `64b3ae7`. *(Era item de
+  §13.D escrito na sessão anterior mas que tinha ficado **sem commit** — capturado e commitado agora; daí o
+  valor da verificação adversarial antes de documentar.)*
+- **Empty-states / `<aurora-statusbar>` ao vivo — não mexidos (motivo registrado):** o "4 skins → 1" segue
+  🟡 subjetivo (precisa de prints do usuário); religar a statusbar segue **bloqueado** porque `zoom.js` faz
+  `editorStatus.parentNode.insertBefore` — quebraria se `#editorStatus` virasse Shadow DOM. Ambos seguem em §13.A.
+
 ### ⬜ Falta
-**Fundação (Vite — só o Stage 5 restante):**
-- [ ] **Stage 5 (B5):** deletar os `.js` in-place quando os testes migrarem para importar `.ts` (muda o contrato
-      de teste; tratar como esforço próprio).
+**Fundação (Vite — Stage 5 ✅ nesta sessão):**
+- [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados
+      (commit `29ebbab`). Falta só **B4** (`tsc --noEmit` no CI) pra travar o drift — item separado em §13.I.
 
 **Visual (Lit shell — em andamento):**
 - [x] **Camada semântica de tokens (DESIGN §3)** — feita (Fase A, ver acima). Resta só a **adoção
@@ -629,21 +667,27 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
       Design Lab + launcher. Aditivo, app ao vivo intacto.
 - [x] **1ª migração ao vivo — `<aurora-toast>` (Fase C)** — feita (ver acima): driver único, API intacta.
 - [~] 🔴 **Shell em Lit (Fase C+).** FEITO: overlays (toast · tooltip · command-palette), welcome + redesenho da
-      aurora, e os **4 modais** (ver "Resto da Fase C" acima). **ADIADO** (mau alvo p/ Shadow DOM — tooltip+i18n
-      por `querySelectorAll`, managers imperativos por ID): titlebar, activity-bar, tabs, file-tree, terminal,
-      statusbar. **Restam com ganho distinto:** `<aurora-editor>` (dropa os 30 `!important`; Monaco-em-shadow
-      arriscado) e `<aurora-panel>` dockável (capacidade nova). Item-a-item na régua **§13.A**.
+      aurora, e os **4 modais** (ver "Resto da Fase C" acima). **PASSO 1 (15/06):** `<aurora-tabs>`,
+      `<aurora-terminal>` e `<aurora-tree>` ganharam o **shell semântico** (custom element wrapper fino, `<slot>`
+      passthrough; filhos seguem em light DOM, managers intactos) — tira essas 3 do "adiado" e as deixa prontas
+      pro **passo 2** (render declarativo) quando o manager virar data-driven. **Ainda ADIADO/imperativo:** titlebar,
+      activity-bar, statusbar (esta bloqueada pelo `insertBefore` do `zoom.js`). **Restam com ganho distinto:**
+      `<aurora-editor>` (dropa os 30 `!important`; Monaco-em-shadow arriscado) e `<aurora-panel>` dockável (capacidade
+      nova). Item-a-item na régua **§13.A**.
 - [ ] **Consolidar `ai_assistant.css`** (2.150 linhas; a paleta de syntax já saiu pros tokens, o resto
       do arquivo permanece). Baixa prioridade.
 - [ ] ~~Tema light / aurora-contrast~~ — **descartado** (tema único).
 
 **Performance (sobrou o arriscado/de baixo ROI):**
-- [ ] **P6** (transition:width→transform no toggle de sidebar/IA) — fora de hot-path, baixo ROI.
-- [ ] **P17** (modais montados sob demanda + `contain`/`inert` — casa com a11y G5).
-- [ ] **P7 completo** (paint/content-visibility com `contain-intrinsic-size` nas listas).
+- [ ] **P6** (transition:width→transform no toggle de sidebar/IA) — fora de hot-path, baixo ROI. **Único P restante.**
+- [x] **P17** (`inert` nos modais + painel IA quando fechados — casa com a11y G5) — `aurora-modal.js`
+      (MutationObserver → `_syncInert`) + `ai_assistant_manager.js`. Commit `bd5271e`.
+- [x] **P7 completo** (`content-visibility:auto` + `contain-intrinsic-size` em `.log-entry` e `.file-tree-item`;
+      `contain:layout style paint` no `.terminal-body`). Commit `bd5271e`.
 - [ ] 🔴 ~~**P1** (um Monaco por pane)~~ — **revertido** (ver decisão acima); retomar só sob pressão real
       de memória com dezenas de abas, usando o checklist da memória.
-- [ ] Medição: overlay de jank (p99), baseline de TTI, smoke de orçamento no CI (§4.4/G7).
+- [~] Medição (§4.4/G7): **overlay de jank (p99) ✅** (`d4f7735`); falta o mark de **TTI** no fim do init e o
+      **smoke de orçamento no CI** (pareia com B4).
 
 **Fora das 2 trilhas (parking lot):** segurança restante (V4/V7/V8/V9/V10–V12 — **CSP + sandbox FEITOS** nesta
 sessão, ver acima); OSS (Surfer/Verible/ripgrep/…); build/DX (B1–B13); repo (§9, 18 itens).
@@ -682,51 +726,75 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       (ensinar tooltip+i18n a varrer shadow roots) — fora do caminho ativo. 🟡
 - [~] `<aurora-activity-bar>` — **ADIADO (mesmo motivo, pior):** os botões de compilação são habilitados/
       desabilitados e clicados por ID pelo fluxo de compilação. Idem titlebar. 🟡
-- [ ] `<aurora-tree>` (file-tree) — **preservar as 3 subárvores + reconciliação key-based** + `zoom`/views. 🔴
-- [ ] `<aurora-tabs>` — `tab_manager.js`. 🟡
+- [~] `<aurora-tree>` (file-tree) — **PASSO 1 ✅** (`31287b7`): `js/components/aurora-tree.js` (wrapper fino,
+      `<slot>`) registra o custom element; `#file-tree` virou `<aurora-tree>`; `file_tree_manager.js` importa.
+      Filhos em light DOM, lógica intacta. **Passo 2 (pendente):** render declarativo das **3 subárvores +
+      reconciliação key-based** + `zoom`/views. 🔴
+- [~] `<aurora-tabs>` — **PASSO 1 ✅** (`fb0e943`): `js/components/aurora-tabs.js` (wrapper fino); `#tabs-container`
+      virou `<aurora-tabs>`; `tab_manager.js` importa. **Passo 2 (pendente):** render declarativo data-driven
+      (mover `.tab` create/drag/preview do `tab_manager` pro componente). 🟡
 - [ ] `<aurora-editor>` — host do Monaco; **dropa os 30 `!important`** via Shadow DOM. 🔴 maior ganho.
-- [ ] `<aurora-terminal>` — `terminal_module.js` (otimizado no lugar; não xterm). 🟡
+- [~] `<aurora-terminal>` — **PASSO 1 ✅** (`67306c8`): `js/components/aurora-terminal.js` (wrapper fino);
+      `#terminal-container` virou `<aurora-terminal>`; `terminal_module.js` importa. **Passo 2 (pendente):**
+      `.terminal-body` data-driven com virtual scroll (otimizado no lugar; não xterm). 🟡
 - [x] `<aurora-modal>` + os 4 modais inline (new project, processor hub, wave config, settings) — **FEITO.**
       Base `<aurora-modal>` (chrome em Shadow DOM + tokens; título/corpo/footer + ✕-próprio SLOTADOS em
       light-DOM → forms/IDs/handlers/i18n preservados). É **drop-in**: reage a `aria-hidden`/`.show`/`.visible`
       via CSS (os 3 mecanismos que `modal_system`/processor-hub/wave/settings já usam) → **nenhum controller
       religado**; só o `aurora-modal-close` no `modal_system` (backdrop+✕ vivem no shadow). `noclose` mantém o
       ✕-próprio (que faz limpeza); largura custom via `--aurora-modal-width` (settings = 880px). Na Design Lab.
-- [ ] `<aurora-statusbar>` **ao vivo** — religar os 7+ drivers (deixado pro fim por ser o mais acoplado). 🔴
+- [ ] `<aurora-statusbar>` **ao vivo** — religar os 7+ drivers (deixado pro fim por ser o mais acoplado).
+      O componente `js/components/aurora-statusbar.js` **já existe** (LitElement completo, na Design Lab) — falta
+      só ligar os dados. **Bloqueio concreto (achado 15/06):** `js/utils/zoom.js` faz
+      `editorStatus.parentNode.insertBefore(zoomWrapper, editorStatus.nextSibling)` — injeta o controle de zoom
+      como **irmão** do `#editorStatus`; se a statusbar virar Shadow DOM, esse `insertBefore` (e os drivers que
+      fazem `getElementById('status-text'/'editorStatus'/...)` em `project_manager`/`close_project`/`status_updater`/
+      `monaco_editor`) não alcançam o shadow. Religar exige reescrever esses 7+ pontos pra dirigir o componente por
+      props/eventos primeiro. 🔴
 - [ ] `<aurora-panel>` **dockável** + layout dockável estilo Fleet/Zed + densidade/hierarquia revisadas. 🔴
 
 ### B. 🟡 Tokens — terminar a estratificação
 - [ ] Codemod base→semantic dos ~600 usos existentes (feito por-componente junto de A).
-- [ ] Resolver o gap do nível "secondary" (#9CA1AE) — hoje sem nome semântico limpo (colisão `--text-muted`).
+- [x] Resolver o gap do nível "secondary" (#9CA1AE) — **resolvido por decisão documentada** (`bd5271e`):
+      `semantic_tokens.css` registra a escala de 4 paradas (faint → muted → secondary → default/bright) e
+      explicita que `--text-secondary`/`--text-muted` **não** são re-aliasados (já são tokens-base canônicos;
+      re-aliasar clobraria os ~40 usos). Sem nome semântico novo de propósito.
 - [ ] Consolidar `ai_assistant.css` (2.150 linhas) nos tokens. 🟢 baixa prioridade.
 
 ### C. Fundação Vite + dívidas pequenas
-- [ ] **Stage 5 / B5** — deletar os `.js` in-place, migrar testes p/ importar `.ts`, gitignorar os gerados. 🟡
-- [ ] Limpar o CSS morto de `.notification-card` em `notification.css`. 🟢
-- [~] **Podar o CSS morto das migrações Lit.** FEITO: `command_palette.css` (`.cmdk-*`) e `tooltip.css`
+- [x] **Stage 5 / B5 — FEITO** (`29ebbab`): testes importam `.ts` direto (vitest resolve TS nativo), 29 `.js`
+      gerados saíram do `git` (`rm --cached`) + gitignorados. Só falta **B4** (`tsc --noEmit` no CI; §13.I). 🟡
+- [x] Limpar o CSS morto de `.notification-card` em `notification.css` — **FEITO** (`bd5271e`): 193 linhas do
+      sistema antigo de toast removidas; `.confirm-modal` (vivo) preservado; header reescrito p/ apontar o
+      `<aurora-toast>`. 🟢
+- [x] **Podar o CSS morto das migrações Lit — FEITO.** `command_palette.css` (`.cmdk-*`) e `tooltip.css`
       (`.custom-tooltip`/`.tooltip-*`) removidos (arquivos inteiros + `@import`); `recent_projects.css` gutado
-      ao essencial (só `.empty-state`, ainda usado p/ outros estados vazios). FALTA: o card morto do toast em
-      `notification.css` (linhas ~19-208, misturado com `.confirm-modal` **vivo** em 210+ → prune parcial
-      delicado). `modal_config.css` **NÃO** é podável: `.modal-content`/`.modal-container` ainda em uso por
-      diálogos não migrados. 🟢
-- [ ] Silenciar (cosmético) o warning do Vite "can't be bundled without type=module" dos 2 scripts não-módulo
-      vendados (Monaco `loader.js` AMD + KaTeX UMD) — **benigno** (resolvidos em runtime via `vendor/`), só polui
-      o output do build. 🟢
+      ao essencial (só `.empty-state`); e o card morto do toast em `notification.css` agora também podado
+      (`bd5271e` — ver acima). `modal_config.css` **NÃO** é podável: `.modal-content`/`.modal-container` ainda
+      em uso por diálogos não migrados. 🟢
+- [x] Silenciar (cosmético) o warning do Vite "can't be bundled without type=module" — **FEITO** (`bd5271e`):
+      `customLogger` (`createLogger`) em `vite.config.mjs` filtra a mensagem dos 2 scripts não-módulo vendados
+      (Monaco `loader.js` AMD + KaTeX UMD). Benigno (resolvidos em runtime via `vendor/`), só limpa o output. 🟢
 - [ ] Decidir o fallback raw do `index.html` (degradado pós-Lit) — remover ou aceitar. 🟢
 
 ### D. 🟡 Performance (sobrou o arriscado / baixo-ROI)
-- [ ] **P6** — `transition:width`→`transform` no toggle de sidebar/IA.
-- [ ] **P17** — modais sob demanda + `contain`/`inert` (casa com a11y G5).
-- [ ] **P7 completo** — `content-visibility` + `contain-intrinsic-size` nas listas.
-- [ ] **Medição** — overlay de jank (p99) + baseline de TTI + smoke de orçamento no CI (§4.4/G7).
-- [ ] **Higiene de memória — limitar o que fica RETIDO nas superfícies-chave** (NÃO um "GC manual": o V8 já
+- [ ] **P6** — `transition:width`→`transform` no toggle de sidebar/IA. **Único P aberto.**
+- [x] **P17 — FEITO** (`bd5271e`): atributo `inert` nos modais (`aurora-modal.js` via MutationObserver →
+      `_syncInert`) + no painel IA quando fechado (`ai_assistant_manager.js`). Tab + leitor de tela não
+      alcançam conteúdo escondido. (Modais sob demanda = parte do P17 ainda aberta, baixa prioridade.)
+- [x] **P7 completo — FEITO** (`bd5271e`): `content-visibility:auto` + `contain-intrinsic-size` em `.log-entry`
+      (terminal, `auto 36px`) e `.file-tree-item` (tree, `auto 22px`); `.terminal-body` subiu p/ `contain:layout
+      style paint`. Off-screen não pinta; altura lembrada → scrollbar estável.
+- [~] **Medição** (§4.4/G7) — **overlay de jank (p99) ✅** (`d4f7735`, `js/dev/jank_overlay.js`, command palette
+      grupo "Dev"). **Falta:** mark `performance.mark('aurora-interactive')` no fim do init (baseline de TTI sai do
+      fallback) + **smoke de orçamento no CI** (pareia com B4).
+- [~] **Higiene de memória — limitar o que fica RETIDO nas superfícies-chave** (NÃO um "GC manual": o V8 já
       coleta; chamar `global.gc()` só ajuda se houver referência presa — e o alvo real é justamente soltar
-      essas referências). Auditar + bound/limpar onde cresce sem teto ou vaza: histórico do chat de IA
-      (`this.messages` cresce sem limite; **soltar o base64 das imagens anexadas após enviar** — guardar só
-      nome/thumb), buffer de saída do terminal, decorations/markers do Monaco, nós DOM destacados, listeners
-      (já houve P12/P13/P16). Limpeza por **gatilho** (trocar de chat/projeto, fechar painel) costuma ser melhor
-      que timer periódico. Medir com heap snapshots antes/depois. Pareia com §4. 🟡 — *(motivado pela observação
-      do anexo que some ao reabrir o chat: é OK p/ memória; o ponto é não reter base64 grande à toa.)*
+      essas referências). **FEITO** (`64b3ae7`): o base64 das imagens anexadas é **solto de `this.messages` após
+      enviar** (mantém nome/mime/tam) → imagens de até 8 MB não reenviadas a cada turno. **FALTA auditar/bound:**
+      `this.messages` cresce sem limite (só o base64 sai), buffer de saída do terminal, decorations/markers do
+      Monaco, nós DOM destacados, listeners (já houve P12/P13/P16). Limpeza por **gatilho** (trocar de chat/
+      projeto, fechar painel) costuma ser melhor que timer periódico. Medir com heap snapshots antes/depois. 🟡
 - [x] ~~P9 (standard tree sem virtualização)~~ — **já feito** (DocumentFragment; fim do freeze ao expandir
       pasta grande — ver §12 ✅ Feito). Listado aqui só pra fechar a dúvida.
 - [ ] ~~P1 (um Monaco por pane)~~ — **adiado/revertido** (causou perda de dados nos commits da tentativa);

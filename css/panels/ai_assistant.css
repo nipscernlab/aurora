@@ -259,45 +259,82 @@ body.ai-assistant-open {
 
 /* Aurora gradient glow behind the panel content — colorful curtains hugging the
    BOTTOM of the panel and fading to nothing by mid-height, like a real aurora
-   borealis (green/teal + violet/magenta + pink "plates"). Stacked radial
-   gradients, each centered at/below the bottom edge so brightness lives low and
-   never reaches the chat text. A slow breathe keeps it alive; chat/composer
-   ride above it on z-1. */
+   borealis. Built in three decoupled layers so it reads as a slow WAVE, not a
+   pulse: a steady mint airglow on the base element (gentle brightness breathe),
+   plus two curtain layers (::before cool greens/teal, ::after warm violet/
+   magenta/pink) that drift sideways in OPPOSITE directions at DIFFERENT periods
+   (22s vs 27.5s) so the ribbons cross and never repeat exactly — organic, never
+   mechanical. Only transform/opacity animate (DESIGN §6 — fits the frame
+   budget). Chat/composer ride above on z-1. */
 .ai-aurora-glow {
   position: absolute;
   inset: 0;
   z-index: var(--z-0);
   pointer-events: none;
+  overflow: hidden;
+  /* Steady mint airglow on the very bottom edge — the brightest, stable band. */
   background:
-    /* pink plate, low-left */
-    radial-gradient(80% 55% at 18% 112%,
-      rgba(232, 120, 180, 0.16) 0%,
-      rgba(232, 120, 180, 0.07) 34%,
-      transparent 62%),
-    /* magenta → violet plate, low-right */
-    radial-gradient(85% 60% at 74% 110%,
-      rgba(190, 90, 200, 0.15) 0%,
-      rgba(142, 131, 232, 0.10) 38%,
-      transparent 66%),
-    /* teal plate, center, tallest tip */
-    radial-gradient(95% 70% at 48% 116%,
-      rgba(56, 189, 168, 0.16) 0%,
-      rgba(56, 189, 168, 0.08) 40%,
-      transparent 70%),
-    /* mint airglow hugging the very bottom edge, the brightest band */
-    radial-gradient(120% 48% at 50% 122%,
-      rgba(95, 224, 176, 0.22) 0%,
-      rgba(95, 224, 176, 0.10) 30%,
+    radial-gradient(120% 46% at 50% 122%,
+      rgba(95, 224, 176, 0.20) 0%,
+      rgba(95, 224, 176, 0.09) 30%,
       transparent 58%);
-  will-change: opacity, transform;
-  animation: aiAuroraGlow 16s ease-in-out infinite alternate;
+  will-change: opacity;
+  /* Very soft brightness breathe — period decoupled from the drifts below. */
+  animation: aiGlowPulse 9.5s ease-in-out infinite alternate;
 }
-@keyframes aiAuroraGlow {
-  from { opacity: 0.85; transform: translateY(1.5%)  scale(1.0);  }
-  to   { opacity: 1;    transform: translateY(-1.5%) scale(1.05); }
+/* Two drifting curtain layers, each wider than the panel (negative inset) so
+   the sideways sway never slides a hard gradient edge into view. */
+.ai-aurora-glow::before,
+.ai-aurora-glow::after {
+  content: "";
+  position: absolute;
+  inset: -10% -28% -14% -28%;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+.ai-aurora-glow::before {
+  /* cool curtains: teal + green/cyan tips, low */
+  background:
+    radial-gradient(70% 62% at 36% 116%,
+      rgba(56, 189, 168, 0.16) 0%,
+      rgba(56, 189, 168, 0.07) 40%,
+      transparent 70%),
+    radial-gradient(60% 54% at 64% 120%,
+      rgba(95, 224, 176, 0.13) 0%,
+      rgba(91, 184, 232, 0.07) 42%,
+      transparent 72%);
+  animation: aiGlowDriftA 22s ease-in-out infinite alternate;
+}
+.ai-aurora-glow::after {
+  /* warm fringe: violet → magenta → pink, the rarer high band */
+  background:
+    radial-gradient(64% 56% at 24% 118%,
+      rgba(142, 131, 232, 0.13) 0%,
+      rgba(142, 131, 232, 0.06) 40%,
+      transparent 70%),
+    radial-gradient(72% 58% at 80% 114%,
+      rgba(190, 90, 200, 0.12) 0%,
+      rgba(232, 120, 180, 0.07) 40%,
+      transparent 70%);
+  opacity: 0.92;
+  animation: aiGlowDriftB 27.5s ease-in-out infinite alternate;
+}
+@keyframes aiGlowPulse {
+  from { opacity: 0.9; }
+  to   { opacity: 1; }
+}
+@keyframes aiGlowDriftA {
+  from { transform: translate3d(-3.5%, 0.8%, 0) scale(1.02); }
+  to   { transform: translate3d(3.5%, -1.2%, 0) scale(1.06); }
+}
+@keyframes aiGlowDriftB {
+  from { transform: translate3d(4%, -0.6%, 0) scale(1.05); }
+  to   { transform: translate3d(-4%, 1%, 0) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ai-aurora-glow { animation: none; }
+  .ai-aurora-glow,
+  .ai-aurora-glow::before,
+  .ai-aurora-glow::after { animation: none; }
 }
 .ai-assistant-content > .ai-empty-state,
 .ai-assistant-content > .ai-messages,

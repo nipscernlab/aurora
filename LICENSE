@@ -27,6 +27,7 @@ This repository bundles or links against several third-party tools released
 under their own licenses, including but not limited to:
 
   * Icarus Verilog and GTKWave  — GNU GPL v2
+  * Surfer (waveform viewer)    — EUPL-1.2 (https://gitlab.com/surfer-project/surfer)
   * Yosys                       — ISC License
   * netlistsvg                  — MIT License
   * Monaco Editor               — MIT License

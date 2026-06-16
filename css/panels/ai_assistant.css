@@ -257,83 +257,69 @@ body.ai-assistant-open {
   min-height: 0;
 }
 
-/* Aurora glow behind the panel content — a defined LILAC (light-purple) curtain
-   that rises from the bottom PAST the middle of the chat. Three layers drift on
-   LONG, prime, SEAMLESS loops (no `alternate` ping-pong; periods 53/43/47s) so
-   the combined motion has a ~30h beat — it wanders naturally and never reads as
-   a short GIF loop. Each keyframe loop returns to its start (0% == 100%) and
-   passes through a 3-point path, so the drift is a slow wander, not a
-   back-and-forth. Only transform/opacity animate (DESIGN §6). Chat/composer ride
-   above on z-1. */
+/* Aurora glow — a concentrated LILAC light BUBBLE anchored to the bottom-centre
+   of the panel (not a full-width curtain). Three stacked layers: a soft wide
+   halo (base), the main bright bubble (::before), and a hotter inner core
+   (::after) that breathe + drift on different periods so it reads as a living
+   orb of light — more intense and more alive than the old curtain, still
+   organic (each loop is seamless 0%==100%; the differing periods 9/7/5.5s keep
+   it from looking like a short mechanical GIF). Only transform/opacity animate
+   (DESIGN §6). Chat/composer ride above on z-1. */
 .ai-aurora-glow {
   position: absolute;
   inset: 0;
   z-index: var(--z-0);
   pointer-events: none;
   overflow: hidden;
-  /* Base lilac airglow, reaching past mid-height. Centred just above the bottom
-     so the bright band clears the (opaque) input composer below it. */
+  /* Soft wide halo — the bubble's bloom into the surrounding dark. */
   background:
-    radial-gradient(150% 88% at 50% 104%,
-      rgba(190, 170, 255, 0.26) 0%,
-      rgba(176, 158, 252, 0.13) 42%,
-      transparent 78%);
-  will-change: transform, opacity;
-  animation: aiGlowBase 53s ease-in-out infinite;
+    radial-gradient(85% 46% at 50% 106%,
+      rgba(178, 158, 252, 0.20) 0%,
+      rgba(178, 158, 252, 0.08) 46%,
+      transparent 74%);
+  will-change: opacity;
+  animation: aiGlowHalo 11s ease-in-out infinite;
 }
-/* Two drifting curtain layers, wider than the panel (negative inset) so the
-   sideways wander never slides a hard gradient edge into view. */
 .ai-aurora-glow::before,
 .ai-aurora-glow::after {
   content: "";
   position: absolute;
-  inset: -16% -30% -16% -30%;
+  inset: 0;
   pointer-events: none;
   will-change: transform, opacity;
 }
+/* The main bubble — bright, concentrated, bottom-centre. */
 .ai-aurora-glow::before {
-  /* lavender curtain, tall — reaches well past mid-height */
   background:
-    radial-gradient(88% 98% at 34% 100%,
-      rgba(184, 162, 255, 0.22) 0%,
-      rgba(160, 146, 244, 0.11) 50%,
-      transparent 84%),
-    radial-gradient(74% 86% at 66% 104%,
-      rgba(205, 188, 255, 0.16) 0%,
-      rgba(168, 150, 248, 0.09) 52%,
-      transparent 86%);
-  animation: aiGlowDriftA 43s ease-in-out infinite;
+    radial-gradient(48% 42% at 50% 103%,
+      rgba(202, 184, 255, 0.46) 0%,
+      rgba(184, 162, 255, 0.24) 38%,
+      rgba(168, 150, 248, 0.08) 62%,
+      transparent 80%);
+  animation: aiGlowBubble 9s ease-in-out infinite;
 }
+/* Hotter inner core — smaller, brighter, pulses faster for extra life. */
 .ai-aurora-glow::after {
-  /* paler violet fringe, drifting the other way */
   background:
-    radial-gradient(80% 92% at 24% 102%,
-      rgba(168, 150, 248, 0.18) 0%,
-      rgba(150, 132, 236, 0.09) 50%,
-      transparent 84%),
-    radial-gradient(86% 90% at 80% 98%,
-      rgba(206, 186, 255, 0.15) 0%,
-      rgba(178, 160, 252, 0.08) 50%,
-      transparent 84%);
-  opacity: 0.96;
-  animation: aiGlowDriftB 47s ease-in-out infinite;
+    radial-gradient(28% 28% at 50% 101%,
+      rgba(216, 200, 255, 0.46) 0%,
+      rgba(198, 178, 255, 0.18) 44%,
+      transparent 70%);
+  animation: aiGlowCore 5.5s ease-in-out infinite;
 }
-@keyframes aiGlowBase {
-  0%   { transform: translate3d(0, 0, 0) scale(1.04); opacity: 0.9; }
-  50%  { transform: translate3d(-1.5%, -1.2%, 0) scale(1.07); opacity: 1; }
-  100% { transform: translate3d(0, 0, 0) scale(1.04); opacity: 0.9; }
+@keyframes aiGlowHalo {
+  0%, 100% { opacity: 0.8; }
+  50%      { opacity: 1; }
 }
-@keyframes aiGlowDriftA {
-  0%   { transform: translate3d(-4%, 1%, 0) scale(1.05); }
-  35%  { transform: translate3d(2.5%, -2%, 0) scale(1.09); }
-  70%  { transform: translate3d(5%, 0.5%, 0) scale(1.04); }
-  100% { transform: translate3d(-4%, 1%, 0) scale(1.05); }
+@keyframes aiGlowBubble {
+  0%   { transform: translate3d(-3%, 2%, 0) scale(1); }
+  50%  { transform: translate3d(3%, -3%, 0) scale(1.14); }
+  100% { transform: translate3d(-3%, 2%, 0) scale(1); }
 }
-@keyframes aiGlowDriftB {
-  0%   { transform: translate3d(4.5%, -0.5%, 0) scale(1.06); }
-  40%  { transform: translate3d(-3%, 1.5%, 0) scale(1.03); }
-  75%  { transform: translate3d(-5%, -1%, 0) scale(1.08); }
-  100% { transform: translate3d(4.5%, -0.5%, 0) scale(1.06); }
+@keyframes aiGlowCore {
+  0%   { transform: translate3d(2.5%, 1%, 0) scale(0.9);  opacity: 0.75; }
+  50%  { transform: translate3d(-2.5%, -3%, 0) scale(1.18); opacity: 1; }
+  100% { transform: translate3d(2.5%, 1%, 0) scale(0.9);  opacity: 0.75; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ai-aurora-glow,

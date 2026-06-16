@@ -227,8 +227,15 @@ const MCP_TOOL_RULES = [
   'improvise with PowerShell or raw filesystem calls for SAPHO work.',
 ].join('\n');
 
-/** Tool names removed from the CLI so it cannot run SAPHO compilers via a shell. */
-const DISALLOWED_CLI_TOOLS = 'Bash BashOutput KillShell KillBash';
+/**
+ * Tool names removed from the CLI:
+ *  - Bash/BashOutput/KillShell/KillBash → can't run SAPHO compilers via a shell.
+ *  - Edit/Write/MultiEdit/NotebookEdit (V4) → can't write files directly,
+ *    bypassing the renderer's Allow/Deny card. File writes must go through
+ *    mcp__aurora__create_file, which IS gated. (Read stays enabled — the image
+ *    attachment flow writes a temp file in main and the model reads it.)
+ */
+const DISALLOWED_CLI_TOOLS = 'Bash BashOutput KillShell KillBash Edit Write MultiEdit NotebookEdit';
 
 /**
  * Ensure the Aurora MCP server is up and (re)write the `--mcp-config`

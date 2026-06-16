@@ -23,6 +23,7 @@ const {
   checkProcessRunning,
 } = require('../utils');
 const { trackChild } = require('../process_registry');
+const { isAllowed } = require('../compile/binary_allowlist');
 
 // A ultima instancia do Surfer que a AURORA abriu. Fechamos ela antes de abrir
 // uma nova para que re-simular reaproveite UMA janela centralizada em vez de
@@ -142,6 +143,14 @@ function register() {
           resolve({ success: false, message: 'launch-gtkwave-only requires { gtkwaveBin, args[] }' });
           return;
         }
+        // V8: gate the renderer-provided binary through the toolchain allowlist
+        // (same trust boundary as exec-spec), so a compromised renderer can't
+        // spawn an arbitrary .exe under the guise of "launching GTKWave".
+        const gtkGate = isAllowed(gtkwaveBin);
+        if (!gtkGate.ok) {
+          resolve({ success: false, message: `Refused to launch: ${gtkGate.error}` });
+          return;
+        }
 
         // GTKWave is launched detached and outlives the run; nothing in the
         // renderer consumes its stdout/stderr, so ignore them outright — an
@@ -207,6 +216,12 @@ function register() {
           resolve({ success: false, message: 'launch-surfer requires { surferBin, args[] }' });
           return;
         }
+        // V8: gate the renderer-provided binary through the toolchain allowlist.
+        const surferGate = isAllowed(surferBin);
+        if (!surferGate.ok) {
+          resolve({ success: false, message: `Refused to launch: ${surferGate.error}` });
+          return;
+        }
         if (!fs.existsSync(surferBin)) {
           resolve({ success: false, message: `Surfer not found at ${surferBin}` });
           return;
@@ -269,6 +284,12 @@ function register() {
       try {
         const { exePath, values } = payload || {};
         if (!exePath || !Array.isArray(values) || values.length === 0 || !fs.existsSync(exePath)) {
+          resolve({ success: false, decoded: [] });
+          return;
+        }
+        // V8: only the canonical comp2gtkw.exe (components/bin) may be spawned.
+        if (!isAllowed(exePath).ok) {
+          log.warn('decode-complex refused: binary not on allowlist:', exePath);
           resolve({ success: false, decoded: [] });
           return;
         }

@@ -54,6 +54,12 @@ const RAW_ALLOWLIST = [
   // fst2vcd (and the display GTKWave) ship in the gtkwave-nipscern fork.
   ['gtkwave.exe',   ['Packages/gtkwave-nipscern']],
   ['fst2vcd.exe',   ['Packages/gtkwave-nipscern']],
+
+  // Surfer — the opt-in embedded waveform viewer (launch-surfer).
+  ['surfer.exe',    ['Packages/surfer']],
+  // comp2gtkw — the complex-number decoder pre-pass (decode-complex). Ships
+  // with the YANC compilers in components/bin.
+  ['comp2gtkw.exe', ['bin']],
   // (netlistsvg is no longer a bundled .exe — it runs in-process from
   //  @silimate/netlistsvg, so it needs no allowlist entry.)
 ];

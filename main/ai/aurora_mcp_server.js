@@ -36,14 +36,19 @@
  * --------
  * Bound to 127.0.0.1 on a random ephemeral port. The Host header is
  * re-checked on every request so a browser fetch from a malicious
- * page (DNS rebinding) can't reach the server. No auth beyond that —
- * the loopback bind + Host check is the trust boundary, consistent
- * with how the Claude Code CLI itself trusts localhost MCP servers.
+ * page (DNS rebinding) can't reach the server. On top of that (V7) a
+ * 256-bit per-session token is required: it lives in the endpoint PATH
+ * (`/mcp/<token>`) — and is also accepted as `Authorization: Bearer`.
+ * The path form works for ANY MCP client without custom-header support
+ * (both the Claude Code and Codex CLIs just consume the URL we hand
+ * them), while still defeating a DNS-rebinding web page, which can
+ * reach loopback but cannot guess the ephemeral port AND the token.
  */
 
 'use strict';
 
 const http = require('http');
+const crypto = require('crypto');
 const log = require('electron-log');
 
 const { Server } = require('@modelcontextprotocol/sdk/server/index.js');
@@ -58,6 +63,8 @@ const state = require('../state');
 let httpServer = null;
 /** @type {string | null} */
 let serverUrl = null;
+/** @type {string | null} */
+let sessionToken = null;
 /** @type {Promise<string> | null} */
 let starting = null;
 
@@ -245,6 +252,9 @@ function ensureStarted() {
   if (starting) return starting;
 
   starting = new Promise((resolve, reject) => {
+    // Per-session capability token (V7). Required on every request, either in
+    // the path (/mcp/<token>) or as `Authorization: Bearer <token>`.
+    sessionToken = crypto.randomBytes(32).toString('hex');
     const srv = http.createServer((req, res) => {
       // Loopback-only. The bind to 127.0.0.1 already restricts the
       // socket, but the Host header check defends against DNS
@@ -256,10 +266,15 @@ function ensureStarted() {
         res.end('forbidden');
         return;
       }
-      const url = String(req.url || '').split('?')[0];
-      if (url !== '/mcp') {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('not found');
+      const reqPath = String(req.url || '').split('?')[0];
+      // V7: require the session token (path form, or Authorization: Bearer).
+      const authHeader = String(req.headers['authorization'] || '');
+      const tokenOk =
+        reqPath === `/mcp/${sessionToken}` ||
+        (reqPath === '/mcp' && authHeader === `Bearer ${sessionToken}`);
+      if (!tokenOk) {
+        res.writeHead(401, { 'Content-Type': 'text/plain' });
+        res.end('unauthorized');
         return;
       }
       // SSE-back-channel (GET) is unsupported in stateless mode — and
@@ -297,7 +312,7 @@ function ensureStarted() {
         reject(new Error('MCP server failed to obtain a port'));
         return;
       }
-      serverUrl = `http://127.0.0.1:${port}/mcp`;
+      serverUrl = `http://127.0.0.1:${port}/mcp/${sessionToken}`;
       httpServer = srv;
       log.info('[ai.aurora-mcp] listening on', serverUrl);
       starting = null;
@@ -314,6 +329,7 @@ async function stop() {
   const srv = httpServer;
   httpServer = null;
   serverUrl = null;
+  sessionToken = null;
   await new Promise((/** @type {(value?: unknown) => void} */ resolve) => {
     try { srv.close(() => resolve()); }
     catch (_) { resolve(); }

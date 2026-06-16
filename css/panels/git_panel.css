@@ -202,3 +202,17 @@
 .git-commit-msg { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); color: var(--text); }
 .git-commit-meta { font-size: 10px; color: var(--text-faint, var(--text-muted)); white-space: nowrap; flex-shrink: 0; }
 .git-commit-empty { padding: var(--space-3); color: var(--text-muted); font-size: var(--text-xs); text-align: center; list-style: none; }
+
+/* ---- visibility toggle (private / public) ---- */
+.git-visibility { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; flex-shrink: 0; }
+.git-vis-opt {
+  display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 var(--space-2);
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: var(--text-xs); cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.git-vis-opt + .git-vis-opt { border-left: 1px solid var(--border); }
+.git-vis-opt:hover { color: var(--text); background: var(--overlay-hover); }
+.git-vis-opt.active { background: var(--accent); color: #fff; }
+.git-hint { font-size: var(--text-xs); color: var(--text-faint, var(--text-muted)); line-height: 1.5; }
+.git-hint code { font-family: var(--font-mono); color: var(--accent-hover, #5bb8e8); }

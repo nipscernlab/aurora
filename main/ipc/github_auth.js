@@ -112,8 +112,20 @@ async function createRepo(name, isPrivate) {
   const token = getToken();
   if (!token) throw new Error('Conecte sua conta GitHub primeiro.');
   if (!name || !/^[A-Za-z0-9._-]+$/.test(name)) throw new Error('Nome de repositório inválido.');
-  const repo = await apiPost('/user/repos', token, { name, private: !!isPrivate, auto_init: false });
-  return { fullName: repo.full_name, cloneUrl: repo.clone_url, htmlUrl: repo.html_url };
+  try {
+    const repo = await apiPost('/user/repos', token, { name, private: !!isPrivate, auto_init: false });
+    return { fullName: repo.full_name, cloneUrl: repo.clone_url, htmlUrl: repo.html_url };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    // Fine-grained tokens (and classic ones without `repo`) can't create repos.
+    if (/not accessible|forbidden|403/i.test(msg)) {
+      throw new Error('O token não pode criar repositórios. Use um token CLÁSSICO com o escopo "repo" — github.com/settings/tokens/new');
+    }
+    if (/already exists|name already/i.test(msg)) {
+      throw new Error(`Já existe um repositório "${name}" na sua conta.`);
+    }
+    throw new Error(msg);
+  }
 }
 
 /** Fetch an image URL and return it as a `data:` URL (so it passes the renderer
@@ -163,7 +175,9 @@ async function connect(token) {
   // Bake the avatar into a data: URL up front — the renderer CSP blocks remote
   // images, and this also makes it work offline after connecting.
   const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
-  const user = { login: me.login, name: me.name || me.login, avatarDataUrl };
+  // Keep the URL too: the CSP allows avatars.githubusercontent.com, so the panel
+  // can fall back to it if the data: bake ever fails.
+  const user = { login: me.login, name: me.name || me.login, avatarDataUrl, avatarUrl: me.avatar_url };
   writeVault({
     token: safeStorage.encryptString(token.trim()).toString('base64'),
     user,

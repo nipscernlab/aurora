@@ -144,7 +144,7 @@ if (acquiredLock) {
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
         "style-src 'self' 'unsafe-inline' data:",
-        "img-src 'self' data: blob:",
+        "img-src 'self' data: blob: https://avatars.githubusercontent.com",
         "media-src 'self'",
         "font-src 'self' file:",
         `connect-src ${connectSrc.join(' ')}`,

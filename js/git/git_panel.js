@@ -26,6 +26,7 @@ function relDate(iso) {
 let modal = null;
 let busy = false;
 let historyShown = false;
+let publishPrivate = true;
 
 // --- open / close ----------------------------------------------------------
 function open() {
@@ -152,9 +153,13 @@ function renderPublish(info) {
     <div class="git-publish-head"><i class="ph ph-cloud-arrow-up"></i> Sem remoto — publicar no GitHub</div>
     <div class="git-publish-form">
       <input type="text" id="git-repo-name" class="git-pat-input" value="${esc(info.folder || '')}" placeholder="nome do repositório" spellcheck="false" />
-      <label class="git-private"><input type="checkbox" id="git-repo-private" checked /> privado</label>
+      <div class="git-visibility" role="group" aria-label="Visibilidade">
+        <button class="git-vis-opt ${publishPrivate ? 'active' : ''}" data-action="set-private" data-private="true"><i class="ph ph-lock-simple"></i> Privado</button>
+        <button class="git-vis-opt ${!publishPrivate ? 'active' : ''}" data-action="set-private" data-private="false"><i class="ph ph-globe-hemisphere-west"></i> Público</button>
+      </div>
       <button class="git-mini git-mini-primary" data-action="publish"><i class="ph ph-github-logo"></i> Publicar</button>
-    </div>`;
+    </div>
+    <div class="git-hint">Para criar repositórios, o token precisa ser <b>clássico</b> com escopo <code>repo</code> — github.com/settings/tokens/new</div>`;
 }
 
 async function loadHistory() {
@@ -179,8 +184,9 @@ async function renderAccount() {
   let s;
   try { s = await api().githubStatus(); } catch (_) { s = { connected: false }; }
   if (s && s.connected && s.user) {
-    const avatar = s.user.avatarDataUrl
-      ? `<img class="git-avatar" src="${esc(s.user.avatarDataUrl)}" alt="" />`
+    const avatarSrc = s.user.avatarDataUrl || s.user.avatarUrl;
+    const avatar = avatarSrc
+      ? `<img class="git-avatar" src="${esc(avatarSrc)}" alt="" referrerpolicy="no-referrer" />`
       : `<i class="ph ph-github-logo git-avatar-icon"></i>`;
     el.innerHTML = `<span class="git-user">${avatar}<span class="git-user-name">@${esc(s.user.login)}</span>
         <span class="git-user-ok" title="conectado"><i class="ph ph-check-circle"></i></span></span>
@@ -277,6 +283,11 @@ async function onClick(e) {
       case 'pull':       return run('Pull', async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); notify('Pull concluído.', 'success'); refresh(); });
       case 'push':       return run('Push', async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); notify('Push concluído.', 'success'); refresh(); });
       case 'publish':    return publish();
+      case 'set-private': {
+        publishPrivate = actEl.dataset.private === 'true';
+        document.querySelectorAll('#git-publish .git-vis-opt').forEach((b) => b.classList.toggle('active', b.dataset.private === String(publishPrivate)));
+        return undefined;
+      }
       case 'toggle-history': {
         historyShown = !historyShown;
         const t = $('git-history-toggle');
@@ -313,7 +324,7 @@ async function discard(file) {
 
 async function publish() {
   const name = $('git-repo-name')?.value?.trim();
-  const priv = !!$('git-repo-private')?.checked;
+  const priv = publishPrivate;
   if (!name) { notify('Dê um nome ao repositório.', 'warning'); return; }
   const gh = await api().githubStatus();
   if (!gh || !gh.connected) { notify('Conecte sua conta GitHub primeiro.', 'warning'); return; }

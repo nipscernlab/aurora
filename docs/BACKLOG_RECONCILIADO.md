@@ -26,50 +26,50 @@
 
 ### Triviais (dificuldade 1–2)
 
-- [ ] 1. **B9** — limpar refs mortas (smoke.test:157, yanc-managed-files.txt, RELEASE.md). _leve/S_
-- [ ] 2. **Discussions** — habilitar + corrigir link/capitalização em CONTRIBUTING.md:107. _leve/S_
-- [ ] 3. **Metadados do repo** — topics, homepage, social preview (hoje vazios). _leve/S_
-- [ ] 4. **CODEOWNERS** — criar `.github/CODEOWNERS`. _leve/S_
-- [ ] 5. **B3** — README/badges → canal `sapho`. _moderado/S_
-- [ ] 6. **B7** — validar sentinelas pós-bootstrap no `release.yml`. _leve/S_
-- [ ] 7. **B8** — `release.yml` em `on:release:published`; aposentar `build.ps1`/`.bat`. _leve/S_
+- [x] 1. **B9** — refs mortas limpas (smoke.test, yanc-managed-files, RELEASE.md). _Wave B_
+- [x] 2. **Discussions** — link/capitalização corrigidos em CONTRIBUTING. _(toggle de settings = manual)_ _Wave A_
+- [~] 3. **Metadados do repo** — `homepage` no package.json; topics/social = toggle de settings (manual). _Wave A_
+- [x] 4. **CODEOWNERS** — `.github/CODEOWNERS` criado. _Wave A_
+- [x] 5. **B3** — README/badges → canal `sapho`. _Wave A_
+- [x] 6. **B7** — sentinelas validadas pós-bootstrap no `release.yml`. _Wave B_
+- [x] 7. **B8** — `release.yml` em `on:release:published`; `build.ps1`/`.bat` aposentados. _Wave B_
 - [ ] 8. **release-please** — manter como fluxo único (PR #12 v6.4.0: **merge é manual seu**, não mexo no remoto). _leve/S_
 - [x] ~~9. **Branch protection** na `main`~~ — **REMOVIDO do plano** (decisão do usuário: não complicar). 
-- [ ] 10. **CodeQL** — criar `codeql.yml` (in-repo). _Secret scanning/push protection = toggle de settings, manual._ _leve/S_
-- [ ] 11. **commitlint + hook commit-msg**. _leve/S_
+- [x] 10. **CodeQL** — `codeql.yml` criado. _Secret scanning/push protection = toggle de settings, manual._ _Wave A_
+- [x] 11. **commitlint + hook commit-msg** — instalado e testado. _Wave A_
 - [x] ~~12. **Limpar releases órfãs**~~ — **REMOVIDO do plano** (decisão do usuário: não deletar releases).
-- [ ] 13. **CITATION.cff + roadmap público**. _leve/S_
-- [ ] 14. **Vite C** — decidir fallback raw do index.html. _leve/S (decisão)_
-- [ ] 15. **V8** — `launch-gtkwave-only`/`launch-surfer`/`decode-complex` pela `binary_allowlist`. _leve/S_
+- [x] 13. **CITATION.cff + ROADMAP.md** criados (autores reais). _Wave A_
+- [x] 14. **Vite C** — fallback raw removido (erro claro se dist ausente). _Wave B_
+- [x] 15. **V8** — launches/decode-complex pela `binary_allowlist`. _Wave C_
 
 ### Fáceis (dificuldade 3)
 
-- [ ] 16. **O14 WaveDrom** — diagramas de timing só p/ docs/specs. _leve/S_
-- [ ] 17. **V9** — renames passam pelo card Allow/Deny (remover early-return). _leve/S_
-- [ ] 18. **V11** — revisar superfície do `set_command_override` no modo allow. _leve/S_
-- [ ] 19. **B6/B13** — `copy-components` incremental/junction. _leve/S_
-- [ ] 20. **README com mídia** + corrigir badge electron 38→39. _leve/M_
-- [ ] 21. **De-flake e2e** `split-pane > PRISM open-at-line`. _leve/S_
+- [ ] 16. **O14 WaveDrom** — diagramas de timing só p/ docs/specs. **DEFERIDO** (sem superfície de docs clara; 🟢 baixa prioridade).
+- [x] 17. **V9** — renames passam pelo card Allow/Deny. _Wave C_
+- [x] 18. **V11** — `set_command_override` sempre confirma (mesmo no allow). _Wave C_
+- [x] 19. **B6/B13** — `copy-components` por junction. _Wave B_
+- [x] 20. **README com mídia** (scaffold docs/media) + badge electron 39. _Wave A_
+- [x] 21. **De-flake e2e** `split-pane > PRISM open-at-line` (poll-until-settled). _Wave D_
 
 ### Médios (dificuldade 4–5)
 
-- [ ] 22. **B1** — SHA256SUMS por release + verificar hash nos 4 downloaders. _moderado/M_
-- [ ] 23. **Naming SAPHO vs Aurora** — alinhar os 6 pontos + URLs. _moderado/M (decisão)_
-- [ ] 24. **Dependabot** — triagem + auto-merge patch/minor. _moderado/M_
-- [ ] 25. **Disclosure de terceiros user-facing** — seção no About. _moderado/M_
-- [ ] 26. **A4** — colapsar `global.currentProject*` num getter sobre `state`. _moderado/M_
-- [ ] 27. **Higiene de memória** — bound em `this.messages` + auditar listeners/DOM. _moderado/M_
-- [ ] 28. **O3** — streamar o build longo do Verilator (`runSpec`→`runSpecStreamed`). _moderado/M_
-- [ ] 29. **Smoke de orçamento de startup no CI** (assert de TTI). _leve/M_
-- [ ] 30. **V7** — token de sessão / `Authorization` no MCP local. _moderado/M_
-- [ ] 31. **B2** — code signing (SignPath/Azure). _moderado/L (depende de aprovação externa)_
-- [ ] 32. **O10 ripgrep** — find-in-files no projeto. _moderado/M_
-- [ ] 33. **O12 simple-git** — painel de source-control. _moderado/M_
-- [ ] 34. **V4** — fechar tools nativas de escrita das CLIs (Edit/Write do Claude). _moderado/M_
-- [ ] 35. **Empty-states** — unificar (4 skins → 1). _moderado/M (redesenho subjetivo)_
-- [ ] 36. **Tokens B** — consolidar `ai_assistant.css` nos tokens. _moderado/M_
-- [ ] 37. **P6** — `transition:width`→`transform` no toggle sidebar/IA. _leve/M (ROI baixo)_
-- [ ] 38. **Condensar prompt injection** — truncar tool-results, instrumentar tokens. _moderado/M_
+- [x] 22. **B1** — SHA256SUMS verificado nos 4 downloaders (surfer pinado). _Wave B_
+- [x] 23. **Naming** — decisão SAPHO=suíte/Aurora-IDE=app; URLs corrigidas. _Wave A_
+- [~] 24. **Dependabot** — workflow de auto-merge criado; triagem dos PRs = manual (remoto). _Wave A_
+- [ ] 25. **Disclosure de terceiros user-facing** — seção no About. _moderado/M — Wave F (em andamento)_
+- [x] 26. **A4** — `global.currentProject*` colapsado no `state`. _Wave D_
+- [x] 27. **Higiene de memória** — `_capMessages()` (bound de 400) + base64 já saía. _Wave D_
+- [x] 28. **O3** — build do Verilator streamado. _Wave E_
+- [x] 29. **Smoke de orçamento de startup no CI** (assert de TTI). _Wave B_
+- [x] 30. **V7** — token de sessão no MCP local (path/Bearer). _Wave C_
+- [~] 31. **B2** — `docs/CODE_SIGNING.md` + nota no release.yml; assinatura real depende de cert externo. _Wave B_
+- [ ] 32. **O10 ripgrep** — find-in-files no projeto. _moderado/M — **a fazer (feature nova, precisa teste ao vivo)**_
+- [ ] 33. **O12 simple-git** — painel de source-control. _moderado/M — **a fazer (feature nova, precisa teste ao vivo)**_
+- [x] 34. **V4** — Edit/Write nativos do Claude bloqueados. _Wave C_
+- [ ] 35. **Empty-states** — unificar (4 skins → 1). **DEFERIDO** (redesenho subjetivo; precisa dos prints do usuário — o próprio doc diz isso).
+- [ ] 36. **Tokens B** — consolidar `ai_assistant.css`. **DEFERIDO** (🟢 baixa prioridade; ~109 trocas mecânicas com risco de regressão visual sem teste ao vivo).
+- [~] 37. **P6** — `transition:width`→`transform`. **DEFERIDO** (vira push→overlay, muda comportamento; menor ROI/maior risco — o doc já marca assim).
+- [~] 38. **Condensar prompt injection** — o cap de tool-results + prompt-cache já existem (chat.js); o resto ("deferido conscientemente" no §13.K) fica.
 
 ---
 

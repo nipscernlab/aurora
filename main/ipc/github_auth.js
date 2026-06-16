@@ -72,6 +72,50 @@ function apiGet(/** @type {string} */ apiPath, /** @type {string} */ token) {
   });
 }
 
+/** POST JSON to https://api.github.com<path> with a bearer token → parsed JSON. */
+function apiPost(apiPath, token, payload) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const req = https.request({
+      hostname: 'api.github.com',
+      path: apiPath,
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'User-Agent': 'aurora-ide',
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data),
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    }, (res) => {
+      let body = '';
+      res.on('data', (c) => { body += c; });
+      res.on('end', () => {
+        const sc = res.statusCode || 0;
+        if (sc >= 200 && sc < 300) { try { resolve(JSON.parse(body)); } catch (e) { reject(e); } }
+        else {
+          let msg = `GitHub API ${sc}`;
+          try { msg = JSON.parse(body).message || msg; } catch (_) { /* keep */ }
+          reject(new Error(msg));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+/** Create a repo under the connected account. Returns clone/html URLs. */
+async function createRepo(name, isPrivate) {
+  const token = getToken();
+  if (!token) throw new Error('Conecte sua conta GitHub primeiro.');
+  if (!name || !/^[A-Za-z0-9._-]+$/.test(name)) throw new Error('Nome de repositório inválido.');
+  const repo = await apiPost('/user/repos', token, { name, private: !!isPrivate, auto_init: false });
+  return { fullName: repo.full_name, cloneUrl: repo.clone_url, htmlUrl: repo.html_url };
+}
+
 /** Fetch an image URL and return it as a `data:` URL (so it passes the renderer
  *  CSP `img-src 'self' data:` without loosening the policy for github.com). */
 function fetchDataUrl(url, depth = 0) {
@@ -152,7 +196,15 @@ function register() {
     disconnect();
     return { ok: true };
   });
+  ipcMain.handle('github:create-repo', async (_event, opts) => {
+    try {
+      const r = await createRepo(opts && opts.name, opts && opts.private);
+      return { ok: true, ...r };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
   log.info('[ipc.github_auth] handlers registered');
 }
 
-module.exports = { register, getToken, getUser, connect, disconnect };
+module.exports = { register, getToken, getUser, connect, disconnect, createRepo };

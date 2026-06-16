@@ -731,6 +731,7 @@
     <main class="modal-body git-panel">
         <div class="git-account" id="git-account"></div>
         <div class="git-repo" id="git-repo"></div>
+        <div class="git-publish" id="git-publish" hidden></div>
         <div class="git-commitbox" id="git-commitbox">
             <textarea id="git-commit-msg" class="git-commit-input" rows="2"
                 placeholder="Mensagem do commit (vazio faz stage de tudo)"
@@ -747,6 +748,13 @@
                 <button class="git-mini" id="git-diff-close"><i class="ph ph-x"></i> Fechar</button>
             </div>
             <div class="git-diff-body" id="git-diff-body"></div>
+        </div>
+        <div class="git-history" id="git-history">
+            <div class="git-section-head">
+                <span><i class="ph ph-clock-counter-clockwise"></i> Histórico</span>
+                <button class="git-mini" data-action="toggle-history" id="git-history-toggle">Mostrar</button>
+            </div>
+            <ul class="git-history-list" id="git-history-list" hidden></ul>
         </div>
     </main>
 </aurora-modal>

@@ -268,13 +268,13 @@ body.ai-assistant-open {
   z-index: var(--z-0);
   pointer-events: none;
   overflow: hidden;
-  /* The arch: wide (130%) + shallow (24%) ellipse centred just below the bottom
-     edge, so only its curved top shows — a big, thin ray. */
+  /* The arch: WIDE + moderately tall ellipse centred just above the bottom so
+     its curved top clears the (opaque) composer and is actually visible. */
   background:
-    radial-gradient(135% 24% at 50% 112%,
-      rgba(190, 170, 255, 0.34) 0%,
-      rgba(176, 158, 252, 0.15) 46%,
-      transparent 76%);
+    radial-gradient(165% 56% at 50% 106%,
+      rgba(190, 170, 255, 0.30) 0%,
+      rgba(176, 158, 252, 0.14) 42%,
+      transparent 72%);
   will-change: transform, opacity;
   animation: aiArcBreathe 13s ease-in-out infinite;
 }
@@ -286,23 +286,23 @@ body.ai-assistant-open {
   pointer-events: none;
   will-change: transform, opacity;
 }
-/* Bright, even thinner core of the arc. */
+/* Brighter, slightly tighter core of the arch. */
 .ai-aurora-glow::before {
   background:
-    radial-gradient(95% 15% at 50% 110%,
-      rgba(214, 198, 255, 0.42) 0%,
-      rgba(196, 178, 255, 0.14) 52%,
-      transparent 80%);
+    radial-gradient(120% 46% at 50% 104%,
+      rgba(206, 188, 255, 0.40) 0%,
+      rgba(186, 164, 255, 0.18) 44%,
+      transparent 76%);
   animation: aiArcCore 9.5s ease-in-out infinite;
 }
-/* Travelling highlight — a bright spot that sweeps along the ray, left↔right. */
+/* Travelling highlight — a bright spot that sweeps along the arch, left↔right. */
 .ai-aurora-glow::after {
   background:
-    radial-gradient(30% 20% at 50% 113%,
+    radial-gradient(44% 42% at 50% 104%,
       rgba(222, 208, 255, 0.42) 0%,
-      rgba(200, 184, 255, 0.12) 55%,
-      transparent 72%);
-  animation: aiArcSweep 16s ease-in-out infinite;
+      rgba(200, 184, 255, 0.12) 56%,
+      transparent 68%);
+  animation: aiArcSweep 15s ease-in-out infinite;
 }
 @keyframes aiArcBreathe {
   0%, 100% { opacity: 0.85; transform: scaleX(1) translateY(0); }

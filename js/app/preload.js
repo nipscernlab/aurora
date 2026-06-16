@@ -416,6 +416,8 @@ const gitOperations = {
   log:       (opts) => ipcRenderer.invoke('git:log', opts),
   branches:  () => ipcRenderer.invoke('git:branches'),
   remotes:   () => ipcRenderer.invoke('git:remotes'),
+  info:      () => ipcRenderer.invoke('git:info'),
+  addRemote: (opts) => ipcRenderer.invoke('git:add-remote', opts),
   init:      () => ipcRenderer.invoke('git:init'),
   stage:     (files) => ipcRenderer.invoke('git:stage', files),
   stageAll:  () => ipcRenderer.invoke('git:stage-all'),
@@ -429,6 +431,7 @@ const gitOperations = {
   githubStatus:     () => ipcRenderer.invoke('github:status'),
   githubConnect:    (token) => ipcRenderer.invoke('github:connect', token),
   githubDisconnect: () => ipcRenderer.invoke('github:disconnect'),
+  githubCreateRepo: (opts) => ipcRenderer.invoke('github:create-repo', opts),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', {

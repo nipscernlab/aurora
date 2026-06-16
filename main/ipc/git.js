@@ -135,6 +135,32 @@ function register() {
     return { remotes: remotes.map((r) => ({ name: r.name, fetch: r.refs.fetch, push: r.refs.push })) };
   }));
 
+  // Display info: a repo name (owner/repo from origin, else the folder) + origin.
+  ipcMain.handle('git:info', safe(async () => {
+    const dir = projectDir();
+    const folder = dir ? path.basename(dir) : null;
+    let originUrl = null;
+    try {
+      const git = gitForProject();
+      if (await git.checkIsRepo()) {
+        const origin = (await git.getRemotes(true)).find((r) => r.name === 'origin');
+        originUrl = origin ? (origin.refs.push || origin.refs.fetch) : null;
+      }
+    } catch (_) { /* not a repo / no remote */ }
+    let name = folder;
+    if (originUrl) {
+      const m = originUrl.match(/[/:]([^/]+\/[^/]+?)(?:\.git)?$/);
+      if (m) name = m[1];
+    }
+    return { name, folder, originUrl, hasOrigin: !!originUrl };
+  }));
+
+  ipcMain.handle('git:add-remote', safe(async (/** @type {{name?:string, url:string}} */ opts) => {
+    if (!opts || !opts.url) throw new Error('remote url required');
+    await gitForProject().addRemote(opts.name || 'origin', opts.url);
+    return {};
+  }));
+
   // --- mutations ----------------------------------------------------------
   ipcMain.handle('git:init', safe(async () => {
     const git = gitForProject();

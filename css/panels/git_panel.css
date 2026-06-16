@@ -154,14 +154,16 @@
 .git-diff-body .d2h-code-line, .git-diff-body .d2h-code-side-line { font-family: var(--font-mono); }
 
 /* ---- toolbar badge (change count on the Git button) ---- */
-#gitButton { position: relative; }
+#gitButton { position: relative; overflow: visible; }
 .git-badge {
-  position: absolute; top: 1px; right: 1px;
-  min-width: 15px; height: 15px; padding: 0 3px;
+  position: absolute; top: -2px; right: -2px;
+  min-width: 14px; height: 14px; padding: 0 3px;
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--accent); color: #fff;
-  font-size: 9px; font-weight: var(--font-bold); line-height: 1;
-  border-radius: 8px; border: 1.5px solid var(--bg, #0a0d14); pointer-events: none;
+  font-size: 9px; font-weight: var(--font-semibold); line-height: 1;
+  border-radius: 999px; border: 1.5px solid var(--bg-titlebar, var(--bg, #0a0d14));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
 }
 
 /* ---- account + repo-header extras ---- */
@@ -173,3 +175,30 @@
 .git-behind { color: var(--status-warning, #e0b450); }
 .git-track { font-size: var(--text-xs); color: var(--text-faint, var(--text-muted)); font-family: var(--font-mono); }
 .git-track-none { font-style: italic; }
+
+/* ---- repo name ---- */
+.git-repo-name { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-sm); font-weight: var(--font-medium); color: var(--text); }
+.git-repo-name .ph { color: var(--text-muted); }
+
+/* ---- publish (create repo when there is no remote) ---- */
+.git-publish {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent-soft, var(--bg-elev-1, var(--bg-elev)));
+  border: 1px solid var(--accent-border, var(--border));
+  border-radius: var(--radius-md);
+}
+.git-publish-head { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-xs); color: var(--text-secondary, var(--text-muted)); }
+.git-publish-form { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.git-publish-form .git-pat-input { flex: 1 1 160px; }
+.git-private { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--text-muted); white-space: nowrap; cursor: pointer; }
+
+/* ---- commit history ---- */
+.git-history { display: flex; flex-direction: column; gap: var(--space-1); }
+.git-history-list { list-style: none; margin: 0; padding: 0; max-height: 26vh; overflow-y: auto; }
+.git-commit { display: flex; align-items: baseline; gap: var(--space-2); padding: 4px var(--space-2); border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.04)); }
+.git-commit:last-child { border-bottom: none; }
+.git-commit-hash { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--accent-hover, #5bb8e8); flex-shrink: 0; }
+.git-commit-msg { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); color: var(--text); }
+.git-commit-meta { font-size: 10px; color: var(--text-faint, var(--text-muted)); white-space: nowrap; flex-shrink: 0; }
+.git-commit-empty { padding: var(--space-3); color: var(--text-muted); font-size: var(--text-xs); text-align: center; list-style: none; }

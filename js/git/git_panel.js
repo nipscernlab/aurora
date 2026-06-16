@@ -12,9 +12,20 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
 ));
 const notify = (msg, type) => { try { window.showNotification?.(msg, type || 'info'); } catch (_) { /* noop */ } };
 const api = () => window.gitAPI;
+function relDate(iso) {
+  try {
+    const s = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (s < 60) return 'agora';
+    if (s < 3600) return `${Math.floor(s / 60)}min`;
+    if (s < 86400) return `${Math.floor(s / 3600)}h`;
+    if (s < 2592000) return `${Math.floor(s / 86400)}d`;
+    return new Date(iso).toLocaleDateString();
+  } catch (_) { return ''; }
+}
 
 let modal = null;
 let busy = false;
+let historyShown = false;
 
 // --- open / close ----------------------------------------------------------
 function open() {
@@ -109,23 +120,57 @@ function renderChanges(st) {
     </div>` : ''}`;
 }
 
-function renderRepoHeader(st) {
+function renderRepoHeader(st, info) {
   const repo = $('git-repo');
   if (!repo) return;
   const ahead = st.ahead ? `<span class="git-sync git-ahead" title="à frente do remoto">↑ ${st.ahead}</span>` : '';
   const behind = st.behind ? `<span class="git-sync git-behind" title="atrás do remoto">↓ ${st.behind}</span>` : '';
-  const tracking = st.tracking ? `<span class="git-track" title="upstream">${esc(st.tracking)}</span>` : '<span class="git-track git-track-none">sem upstream</span>';
+  // Remote actions only make sense once there's an origin (otherwise the Publish
+  // section below handles it).
+  const remoteBtns = info.hasOrigin ? `
+      <button class="git-mini" data-action="fetch" title="Fetch"><i class="ph ph-cloud-arrow-down"></i> Fetch</button>
+      <button class="git-mini" data-action="pull" title="Pull"><i class="ph ph-arrow-down"></i> Pull</button>
+      <button class="git-mini git-mini-primary" data-action="push" title="Push"><i class="ph ph-arrow-up"></i> Push</button>` : '';
   repo.innerHTML = `
     <div class="git-repo-left">
+      <span class="git-repo-name" title="${esc(info.originUrl || info.name || '')}"><i class="ph ph-git-repository"></i> ${esc(info.name || '—')}</span>
       <span class="git-branch-chip"><i class="ph ph-git-branch"></i> ${esc(st.branch || '—')}</span>
-      ${ahead}${behind}${tracking}
+      ${ahead}${behind}
     </div>
     <div class="git-repo-actions">
       <button class="git-mini" data-action="refresh" title="Atualizar"><i class="ph ph-arrows-clockwise"></i></button>
-      <button class="git-mini" data-action="fetch" title="Fetch"><i class="ph ph-cloud-arrow-down"></i> Fetch</button>
-      <button class="git-mini" data-action="pull" title="Pull"><i class="ph ph-arrow-down"></i> Pull</button>
-      <button class="git-mini git-mini-primary" data-action="push" title="Push"><i class="ph ph-arrow-up"></i> Push</button>
+      ${remoteBtns}
     </div>`;
+}
+
+function renderPublish(info) {
+  const el = $('git-publish');
+  if (!el) return;
+  if (info.hasOrigin) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `
+    <div class="git-publish-head"><i class="ph ph-cloud-arrow-up"></i> Sem remoto — publicar no GitHub</div>
+    <div class="git-publish-form">
+      <input type="text" id="git-repo-name" class="git-pat-input" value="${esc(info.folder || '')}" placeholder="nome do repositório" spellcheck="false" />
+      <label class="git-private"><input type="checkbox" id="git-repo-private" checked /> privado</label>
+      <button class="git-mini git-mini-primary" data-action="publish"><i class="ph ph-github-logo"></i> Publicar</button>
+    </div>`;
+}
+
+async function loadHistory() {
+  const list = $('git-history-list');
+  if (!list) return;
+  if (!historyShown) { list.hidden = true; return; }
+  const r = await api().log({ maxCount: 30 });
+  if (!r.ok) { list.innerHTML = `<li class="git-commit-empty">${esc(r.error)}</li>`; list.hidden = false; return; }
+  if (!r.commits.length) { list.innerHTML = `<li class="git-commit-empty">Nenhum commit ainda.</li>`; list.hidden = false; return; }
+  list.innerHTML = r.commits.map((c) => `
+    <li class="git-commit">
+      <span class="git-commit-hash">${esc(String(c.hash).slice(0, 7))}</span>
+      <span class="git-commit-msg" title="${esc(c.message)}">${esc(c.message)}</span>
+      <span class="git-commit-meta">${esc(c.author)} · ${esc(relDate(c.date))}</span>
+    </li>`).join('');
+  list.hidden = false;
 }
 
 async function renderAccount() {
@@ -154,6 +199,8 @@ async function refresh() {
   const repo = $('git-repo');
   const changes = $('git-changes');
   const commitbox = $('git-commitbox');
+  if ($('git-publish')) $('git-publish').hidden = true;
+  if ($('git-history')) $('git-history').hidden = true;
   let isRepo;
   try { isRepo = await api().isRepo(); } catch (e) { isRepo = { ok: false, error: e?.message }; }
   if (!isRepo || isRepo.ok === false) {
@@ -177,9 +224,14 @@ async function refresh() {
   const st = await api().status();
   if (!st.ok) { if (changes) changes.innerHTML = `<div class="git-empty">${esc(st.error)}</div>`; return; }
   if (commitbox) commitbox.hidden = false;
-  renderRepoHeader(st);
+  if ($('git-history')) $('git-history').hidden = false;
+  let info = { hasOrigin: false, name: null, folder: null };
+  try { const r = await api().info(); if (r && r.ok) info = r; } catch (_) { /* keep defaults */ }
+  renderRepoHeader(st, info);
+  renderPublish(info);
   renderChanges(st);
   hideDiff();
+  loadHistory();
   updateBadge();
 }
 
@@ -224,6 +276,13 @@ async function onClick(e) {
       case 'fetch':      return run('Fetch', async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); notify('Fetch concluído.', 'success'); refresh(); });
       case 'pull':       return run('Pull', async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); notify('Pull concluído.', 'success'); refresh(); });
       case 'push':       return run('Push', async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); notify('Push concluído.', 'success'); refresh(); });
+      case 'publish':    return publish();
+      case 'toggle-history': {
+        historyShown = !historyShown;
+        const t = $('git-history-toggle');
+        if (t) t.textContent = historyShown ? 'Ocultar' : 'Mostrar';
+        return loadHistory();
+      }
       case 'connect':    return connect();
       case 'disconnect': return run('Desconectar', async () => { await api().githubDisconnect(); notify('Conta desconectada.', 'info'); refresh(); });
       default: return undefined;
@@ -250,6 +309,26 @@ async function discard(file) {
   });
   if (action !== 'confirm') return;
   await run('Descartar', async () => { const r = await api().discard(file); if (!r.ok) throw new Error(r.error); refresh(); });
+}
+
+async function publish() {
+  const name = $('git-repo-name')?.value?.trim();
+  const priv = !!$('git-repo-private')?.checked;
+  if (!name) { notify('Dê um nome ao repositório.', 'warning'); return; }
+  const gh = await api().githubStatus();
+  if (!gh || !gh.connected) { notify('Conecte sua conta GitHub primeiro.', 'warning'); return; }
+  await run('Publicar', async () => {
+    const isRepo = await api().isRepo();
+    if (isRepo.ok && !isRepo.isRepo) { const ir = await api().init(); if (!ir.ok) throw new Error(ir.error); }
+    const r = await api().githubCreateRepo({ name, private: priv });
+    if (!r.ok) throw new Error(r.error);
+    const add = await api().addRemote({ name: 'origin', url: r.cloneUrl });
+    if (!add.ok) throw new Error(add.error);
+    const push = await api().push({ setUpstream: true });
+    if (!push.ok) { notify(`Repo ${r.fullName} criado, mas o push falhou (${push.error}). Faça um commit e use Push.`, 'warning'); refresh(); return; }
+    notify(`Publicado em ${r.fullName}.`, 'success');
+    refresh();
+  });
 }
 
 async function connect() {

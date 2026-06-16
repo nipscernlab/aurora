@@ -581,9 +581,11 @@ function pushClk(items: SurferItem[], filter: Set<string> | null, scopes: VcdSco
   if (!sig && tbModule) { sig = slFindSignal(scopes, tbModule, name); scopePath = tbModule; }
   if (!sig || !scopePath) return;
   if (!passesFilter(filter, sig.fullName)) return;
-  // clk/rst/itr sao 1-bit e aparecem em todo proc — meia-altura economiza espaco
-  // vertical e deixa os sinais de dado (variaveis/instrucoes) mais proeminentes.
-  items.push({ kind: 'variable', scope: scopePath.split('.'), name, format: 'Binary', heightScale: 0.5 });
+  // clk/rst/itr sao 1-bit e aparecem em todo proc — uma altura levemente
+  // reduzida deixa os sinais de dado (variaveis/instrucoes) mais proeminentes.
+  // NB: 0.5 era curto demais — o rotulo da linha nao cabia e "encavalava" com a
+  // linha vizinha (ilegivel). 0.8 mantem clk/rst um pouco menores, mas legiveis.
+  items.push({ kind: 'variable', scope: scopePath.split('.'), name, format: 'Binary', heightScale: 0.8 });
 }
 
 function buildIo(scopes: VcdScope[], instancePath: string, filter: Set<string> | null): SurferItem[] {

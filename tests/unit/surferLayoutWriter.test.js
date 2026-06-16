@@ -134,11 +134,13 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         expect(content).toContain('render_style: Step');
     });
 
-    it('floats (me2_) saem como analog Step/Global; clk/rst em meia-altura', () => {
+    it('floats (me2_) ficam como NUMERO (FP, sem analog); clk/rst em meia-altura', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
-        // O float "acc" tem analog com escala Global (curva de osciloscopio p/ DSP).
-        expect(content).toMatch(/manual_name: Some\("float acc in soma\(\)"\)[\s\S]*?render_style: Step,\s*y_axis_scale: Global/);
-        // clk com meia-altura (height_scaling_factor: Some(0.5)).
+        // float continua FP e legivel; NAO vira onda analog (uma constante float
+        // seria uma reta inutil e o usuario perderia o valor).
+        expect(content).toContain('manual_name: Some("float acc in soma()")');
+        expect(content).not.toContain('y_axis_scale: Global'); // ANALOG_FLOAT removido
+        // clk/rst seguem em meia-altura (independente, mantido).
         expect(content).toContain('height_scaling_factor: Some(0.5)');
     });
 

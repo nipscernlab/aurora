@@ -43,9 +43,9 @@ and this project loosely follows [Semantic Versioning](https://semver.org).
 - Surfer: a "keep windows open to compare runs" toggle in the Wave Configuration
   modal — off by default (one window, the previous is closed on each launch),
   on to keep multiple Surfer windows for side-by-side comparison.
-- Surfer: user float variables (`me2_`/`arr_me2_`) render as an analog curve
-  (Step, global Y-scale) instead of raw numbers — readable over long traces,
-  exact value still shown at the cursor; clk/rst/itr render at half height.
+- Surfer: clk/rst/itr render at half height so data signals stand out.
+  (Float variables stay as readable numbers — an analog curve was tried and
+  reverted, since a float constant would just be a useless flat line.)
 - Surfer mapping robustness — translator files are now namespaced per project
   (FNV-1a tag of the project path) so two open projects with the same testbench
   top no longer overwrite each other in the shared global mappings dir; written

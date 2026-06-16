@@ -2785,8 +2785,24 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
 
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(verilatorSpec), 'info', { internal: true });
 
-    const result = await runSpec(verilatorSpec, { consumeEphemeral: true });
-    this.terminalManager.processExecutableOutput('twave', result);
+    // O3: stream the Verilator BUILD (previously a ~10–60s silent runSpec) so the
+    // terminal shows progress instead of a frozen panel. Same wiring as the
+    // run-step below: append lines live, unsubscribe when the build resolves.
+    let buildUnsub = null;
+    if (typeof window.electronAPI.onExecSpecStream === 'function') {
+        buildUnsub = window.electronAPI.onExecSpecStream((payload) => {
+            if (!payload || !payload.data) return;
+            for (const line of payload.data.split(/\r?\n/)) {
+                if (line.trim()) this.terminalManager.appendToTerminal('twave', line, 'raw');
+            }
+        });
+    }
+    let result;
+    try {
+        result = await runSpecStreamed(verilatorSpec, { consumeEphemeral: true });
+    } finally {
+        if (buildUnsub) buildUnsub();
+    }
     if (result.code !== 0) {
         throw new Error(tr('error.compilation.verilatorFailed', { code: result.code }));
     }

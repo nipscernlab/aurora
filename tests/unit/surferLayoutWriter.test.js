@@ -200,6 +200,19 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         expect(buildSurferLayout({ vcdPath: 'x.vcd', scopes: [] }).content).toBeNull();
     });
 
+    it('eventMarkers cravam markers + abrem a janela de delta (latencia)', () => {
+        const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb', eventMarkers: [120, 6050] });
+        // Formato nativo: markers: { 0: (1, [t]) }, em ordem (entrada, saida).
+        expect(content).toMatch(/markers: \{\s*0: \(1, \[120\]\),\s*1: \(1, \[6050\]\),\s*\}/);
+        expect(content).toContain('show_cursor_window: true');
+    });
+
+    it('sem eventMarkers: markers vazio e janela de delta fechada (default)', () => {
+        const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        expect(content).toContain('markers: {}');
+        expect(content).toContain('show_cursor_window: false');
+    });
+
     it('cada processador vira um Group colapsavel (name String, content vazio, is_open) com filhos em level 1', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
         // Group nativo do Surfer: name String (sem Some), content SEMPRE [], is_open true.

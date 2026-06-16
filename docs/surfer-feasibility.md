@@ -373,7 +373,9 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 
 ### Backlog restante (priorizado pela análise)
 ✅ **FEITO:** bundlar `surfer.exe` (`ab87463`) · robustez (`d59b225`) · e2e do complexo sobre FST real (`1e3ae0c`) · `heightScale` clk/rst (`f8b2e5b`) · toggle multi-janela (`43f315b`).
-⏳ **Resta:** 🎨 cores por opcode (DEFERIDO — sintaxe de cor no mapping incerta + risco de panic; precisa validação visual), markers/cursor automáticos, `field_formats` (bit-slicing), `display_name_type`/`active_scope` · 🚀 WCP ao vivo (editor↔waveform — única forma de reload-sem-perder-zoom), embed WASM.
+⏳ **Resta:** 🎨 cores por opcode (DEFERIDO — sintaxe de cor no mapping incerta + risco de panic; precisa validação visual), `field_formats` (bit-slicing), `display_name_type`/`active_scope` · 🚀 WCP ao vivo (editor↔waveform — única forma de reload-sem-perder-zoom), embed WASM.
+
+**🎯 Markers de latência (FEITO):** `event_markers.ts` (`EventScanner`) streama o `fst2vcd` e acha o 1º `req_in_sim_*`=1 (entrada) e o 1º `out_en_sim_*`=1 (saída), parando cedo. Vira `markers: { 0:(1,[tEntr]), 1:(1,[tSaida]) }` + `show_cursor_window: true` (janela de delta) no `.surf.ron`. Formato derivado por ground-truth (`marker_set <id> <tempo-raw>` + `show_marker_window`→`show_cursor_window:true`); tempo = `#N` cru do dump; round-trip confirmado. Gated em `hasIoEventSignals`.
 
 ### §15 — Lote autônomo (16/06/2026)
 | Item | Commit | Nota |

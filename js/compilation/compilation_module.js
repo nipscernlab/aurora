@@ -50,6 +50,7 @@ import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
 import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
 import { hasComplexSignals, ComplexVcdScanner, buildComplexMapping } from '../wave/complex_decode.js';
+import { hasIoEventSignals, EventScanner } from '../wave/event_markers.js';
 import {
   instrumentTestbenchSource, hasUserDumpCalls, commentOutDumpCalls,
 } from '../wave/testbench_instrumenter.js';
@@ -3990,6 +3991,12 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
             ? await this._buildSurferComplexMapping(vcdFile, simTopModule, tempBaseDir, nsTag)
             : null;
 
+        // Markers automaticos de latencia (1o req_in / 1o out_en). Gated: so paga
+        // o stream do fst2vcd quando ha sinais de I/O; para cedo ao achar os dois.
+        const eventMarkers = hasIoEventSignals(scopes)
+            ? await this._buildSurferEventMarkers(vcdFile, tempBaseDir)
+            : null;
+
         const { content, processorCount, mappings } = buildSurferLayout({
             vcdPath: vcdFile,
             scopes,
@@ -3999,6 +4006,7 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
             tradByProcType,
             mappingNamespace: `${nsTag}_${simTopModule}`,
             complexMapping,
+            eventMarkers,
         });
         if (!content) return null;
         await window.electronAPI.writeFile(autoSurfer, content);
@@ -4104,6 +4112,58 @@ async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir, nsTag = '')
         this.terminalManager.appendToTerminal('twave',
             `Surfer complex decode skipped (${err.message}) — complexos em Binary.`, 'tips');
         return null;
+    }
+}
+
+/**
+ * Acha os TEMPOS dos eventos de I/O (primeiro req_in_sim_* e out_en_sim_* em
+ * alta) pra cravar markers automaticos no Surfer e abrir a janela de delta
+ * (latencia entrada->saida). Streama o fst2vcd e PARA CEDO assim que acha os
+ * dois (normalmente le so o comeco do dump). Best-effort: qualquer falha ->
+ * null (sem markers; nao e' erro). Gate em _waveResolveSurferSaveFile
+ * (hasIoEventSignals), entao projetos sem I/O nao pagam o stream.
+ *
+ * @returns {Promise<number[]|null>} tempos (= #N cru) ou null.
+ */
+async _buildSurferEventMarkers(fstPath, tempBaseDir) {
+    try {
+        if (typeof window.electronAPI.onExecSpecStream !== 'function') return null;
+        const fst2vcdBin = await window.electronAPI.joinPath(
+            this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
+        if (!await window.electronAPI.fileExists(fst2vcdBin)) return null;
+        const scanner = new EventScanner();
+        let killed = false;
+        const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+            if (!payload || payload.type !== 'stdout' || !payload.data) return;
+            scanner.feed(payload.data);
+            // Achou entrada + saida (ou cap) -> mata o fst2vcd CEDO.
+            if (!killed && (scanner.done() || scanner.capped()) && typeof window.electronAPI.killCurrentSpecProcess === 'function') {
+                killed = true;
+                window.electronAPI.killCurrentSpecProcess();
+            }
+        });
+        try {
+            await runSpecStreamed({
+                step: 'fst2vcd',
+                binary: fst2vcdBin,
+                args: ['-f', fstPath],
+                cwd: tempBaseDir,
+                label: 'fst2vcd (markers de latencia — eventos de I/O)',
+            }, { consumeEphemeral: true });
+        } catch { /* best-effort — pode ter achado antes do throw */ }
+        finally { unsubscribe(); }
+        scanner.end();
+
+        const markers = scanner.markers();
+        if (markers.length === 0) return null;
+        const times = markers.map((m) => m.time);
+        if (markers.length >= 2) {
+            this.terminalManager.appendToTerminal('twave',
+                `Surfer: markers de latencia — entrada @${times[0]}, saida @${times[1]} (Δ ${times[1] - times[0]}). Janela de delta aberta.`, 'info');
+        }
+        return times;
+    } catch {
+        return null; // sem markers nao e' erro
     }
 }
 

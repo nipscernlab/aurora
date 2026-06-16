@@ -43,6 +43,11 @@ and this project loosely follows [Semantic Versioning](https://semver.org).
 - Surfer: a "keep windows open to compare runs" toggle in the Wave Configuration
   modal — off by default (one window, the previous is closed on each launch),
   on to keep multiple Surfer windows for side-by-side comparison.
+- Surfer: automatic latency markers — the first `req_in_sim_*` (input arrives)
+  and first `out_en_sim_*` (output ready) get markers, and the cursor/delta
+  window opens, so input→output latency reads off directly. A bounded pre-pass
+  streams `fst2vcd` and stops as soon as both events are found (gated on the
+  project actually having I/O signals).
 - Surfer: clk/rst/itr render at half height so data signals stand out.
   (Float variables stay as readable numbers — an analog curve was tried and
   reverted, since a float constant would just be a useless flat line.)

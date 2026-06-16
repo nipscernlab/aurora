@@ -88,6 +88,14 @@ export interface BuildSurferStateInput {
   /** 'Vcd' | 'Fst' — o Surfer magic-detecta de qualquer jeito; default 'Vcd'. */
   sourceFormat?: 'Vcd' | 'Fst';
   items: SurferItem[];
+  /**
+   * Tempos (em unidades do timescale, = o `#N` cru do dump) onde cravar
+   * MARCADORES automaticos — ex.: [tEntrada, tSaida] pra medir latencia. Cada
+   * tempo vira `<id>: (1, [tempo])` no campo `markers`. Vazio/omit = sem markers.
+   */
+  markerTimes?: number[];
+  /** Abre a janela de cursor/delta do Surfer (mede o intervalo entre markers). */
+  showCursorWindow?: boolean;
 }
 
 // --- helpers de RON ---------------------------------------------------------
@@ -242,6 +250,15 @@ export function buildSurferState(input: BuildSurferStateInput): string {
   const displayed = entries.join('\n');
   const counter = nextRef;
 
+  // Markers automaticos (tempos de evento) + janela de delta. Formato nativo do
+  // Surfer v0.7.0 (derivado de marker_set + save_state): `markers: { <id>: (1,
+  // [<tempo>]) }`. O `1` interno e' fixo (id da fonte); o tempo e' o #N cru.
+  const mTimes = Array.isArray(input.markerTimes) ? input.markerTimes : [];
+  const markersRon = mTimes.length === 0
+    ? '{}'
+    : `{\n${mTimes.map((t, i) => `            ${i}: (1, [${Math.trunc(t)}]),`).join('\n')}\n        }`;
+  const cursorWindow = input.showCursorWindow ? 'true' : 'false';
+
   // Esqueleto externo = defaults estaveis do UserState (todos os toggles None,
   // frame_buffer/variable_filter nos defaults). So o bloco `waves` e derivado.
   return `(
@@ -293,7 +310,7 @@ ${displayed}
             ),
         ],
         cursor: None,
-        markers: {},
+        markers: ${markersRon},
         focused_item: None,
         focused_transaction: (None, None),
         default_variable_name_type: Unique,
@@ -314,7 +331,7 @@ ${displayed}
     show_license: false,
     show_performance: false,
     show_logs: false,
-    show_cursor_window: false,
+    show_cursor_window: ${cursorWindow},
     frame_buffer: {
         "pixels_per_row": 16,
         "square_pixels": true,
@@ -399,6 +416,13 @@ export interface BuildSurferLayoutInput {
    * decode (complexos abrem em Binary cru).
    */
   complexMapping?: { name: string; content: string } | null;
+  /**
+   * Tempos (= `#N` cru do dump) dos eventos de I/O pra cravar MARCADORES
+   * automaticos e medir latencia (ex.: [tEntrada, tSaida]). Pre-computado pelo
+   * renderer via EventScanner (event_markers.ts). Vazio/omit = sem markers (e a
+   * janela de delta nao abre).
+   */
+  eventMarkers?: number[] | null;
 }
 
 /** Display analogico equivalente ao "Analog Step" do GTKWave. */
@@ -708,7 +732,7 @@ function buildFlags(scopes: VcdScope[], corePath: string | null, filter: Set<str
  * @returns { content, processorCount } — content=null so quando scopes vazio.
  */
 export function buildSurferLayout(input: BuildSurferLayoutInput): { content: string | null; processorCount: number; mappings: Array<{ name: string; content: string }> } {
-  const { vcdPath, scopes, tbModule = null, selectedSignals = null, modules = null, tradByProcType = null, mappingNamespace = '', complexMapping = null } = input;
+  const { vcdPath, scopes, tbModule = null, selectedSignals = null, modules = null, tradByProcType = null, mappingNamespace = '', complexMapping = null, eventMarkers = null } = input;
   if (!Array.isArray(scopes) || scopes.length === 0) return { content: null, processorCount: 0, mappings: [] };
 
   const filter = (Array.isArray(selectedSignals) && selectedSignals.length > 0) ? new Set(selectedSignals) : null;
@@ -738,5 +762,14 @@ export function buildSurferLayout(input: BuildSurferLayoutInput): { content: str
   }
   if (complexMapping) mappings.push(complexMapping); // 1 mapping compartilhado por todos os complexos
 
-  return { content: buildSurferState({ vcdPath, sourceFormat: 'Vcd', items }), processorCount: procs.length, mappings };
+  const markerTimes = Array.isArray(eventMarkers) ? eventMarkers : [];
+  return {
+    content: buildSurferState({
+      vcdPath, sourceFormat: 'Vcd', items,
+      markerTimes,
+      showCursorWindow: markerTimes.length > 0, // janela de delta so quando ha markers
+    }),
+    processorCount: procs.length,
+    mappings,
+  };
 }

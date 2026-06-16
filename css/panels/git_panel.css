@@ -243,3 +243,5 @@
 /* fix: .git-publish sets display:flex, which overrode [hidden] (UA display:none)
    and left an empty bar when a remote already exists. */
 .git-publish[hidden] { display: none !important; }
+
+.git-commit-btn:disabled, .git-commit-btn[disabled] { opacity: 0.45; cursor: not-allowed; }

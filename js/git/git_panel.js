@@ -10,7 +10,8 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
-const notify = (msg, type) => { try { window.showNotification?.(msg, type || 'info'); } catch (_) { /* noop */ } };
+// Git feedback lives IN the panel status bar, NOT in corner toasts.
+const notify = (msg, type) => flash(msg, type === 'success' ? 'ok' : (type === 'warning' || type === 'error') ? 'error' : 'info');
 const api = () => window.gitAPI;
 function relDate(iso) {
   try {
@@ -62,18 +63,24 @@ function setBusy(on) {
   if (m) m.classList.toggle('git-busy', !!on);
 }
 
-// Every action runs through here: shows "…" + spinner while running, then a
-// result line (auto-clears on success, stays on error). One op at a time.
+// A one-off status line that auto-clears (for input warnings).
+function flash(msg, kind) {
+  setStatus(msg, kind || 'info');
+  statusTimer = setTimeout(() => setStatus('', null), 4500);
+}
+
+// Every action runs through here: shows "…" + spinner while running, then the
+// result IN-PANEL (no corner toasts). fn may return a string for a custom OK
+// line. One op at a time.
 async function run(label, fn) {
   if (busy) return;
   busy = true; setBusy(true); setStatus(`${label}…`, 'busy');
   try {
-    await fn();
-    setStatus(`${label} concluído`, 'ok');
-    statusTimer = setTimeout(() => setStatus('', null), 3000);
+    const msg = await fn();
+    setStatus(typeof msg === 'string' && msg ? msg : `${label} concluído`, 'ok');
+    statusTimer = setTimeout(() => setStatus('', null), 4000);
   } catch (e) {
     setStatus(`${label}: ${e?.message || e}`, 'error');
-    notify(`${label}: ${e?.message || e}`, 'error');
   } finally { busy = false; setBusy(false); }
 }
 
@@ -261,6 +268,9 @@ async function refresh() {
   renderRepoHeader(st, info);
   renderPublish(info);
   renderChanges(st);
+  // Commit is only meaningful when there's something to commit.
+  const commitBtn = $('git-commit-btn');
+  if (commitBtn) commitBtn.disabled = !st.files.length;
   hideDiff();
   loadHistory();
   updateBadge();

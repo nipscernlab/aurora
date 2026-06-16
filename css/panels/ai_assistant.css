@@ -257,11 +257,10 @@ body.ai-assistant-open {
   min-height: 0;
 }
 
-/* Aurora glow — a large, thin LILAC ARCHED RAY hugging the bottom of the panel
-   (a wide, shallow ellipse → its upper edge curves like an arch). A brighter
-   thin core rides on top, and a travelling highlight SWEEPS slowly along the arc
-   for a more interesting, alive motion. Only transform/opacity animate (DESIGN
-   §6). Chat/composer ride above on z-1. */
+/* Aurora glow — a large, thin LILAC ARCHED glow hugging the bottom of the panel
+   (a wide, shallow ellipse → its upper edge curves like an arch). CALM: it only
+   breathes in brightness, with NO moving highlight/ball. Chat/composer ride
+   above on z-1. */
 .ai-aurora-glow {
   position: absolute;
   inset: 0;
@@ -275,52 +274,34 @@ body.ai-assistant-open {
       rgba(190, 170, 255, 0.30) 0%,
       rgba(176, 158, 252, 0.14) 42%,
       transparent 72%);
-  will-change: transform, opacity;
-  animation: aiArcBreathe 13s ease-in-out infinite;
+  will-change: opacity;
+  animation: aiArcBreathe 14s ease-in-out infinite;
 }
-.ai-aurora-glow::before,
-.ai-aurora-glow::after {
+/* Brighter, slightly tighter core of the arch — static, breathes only. */
+.ai-aurora-glow::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  will-change: transform, opacity;
-}
-/* Brighter, slightly tighter core of the arch. */
-.ai-aurora-glow::before {
+  will-change: opacity;
   background:
     radial-gradient(120% 46% at 50% 104%,
       rgba(206, 188, 255, 0.40) 0%,
       rgba(186, 164, 255, 0.18) 44%,
       transparent 76%);
-  animation: aiArcCore 9.5s ease-in-out infinite;
-}
-/* Travelling highlight — a bright spot that sweeps along the arch, left↔right. */
-.ai-aurora-glow::after {
-  background:
-    radial-gradient(44% 42% at 50% 104%,
-      rgba(222, 208, 255, 0.42) 0%,
-      rgba(200, 184, 255, 0.12) 56%,
-      transparent 68%);
-  animation: aiArcSweep 15s ease-in-out infinite;
+  animation: aiArcCore 10s ease-in-out infinite;
 }
 @keyframes aiArcBreathe {
-  0%, 100% { opacity: 0.85; transform: scaleX(1) translateY(0); }
-  50%      { opacity: 1;    transform: scaleX(1.06) translateY(-3%); }
+  0%, 100% { opacity: 0.82; }
+  50%      { opacity: 1; }
 }
 @keyframes aiArcCore {
-  0%, 100% { opacity: 0.7; transform: scaleX(0.95); }
-  50%      { opacity: 1;   transform: scaleX(1.08); }
-}
-@keyframes aiArcSweep {
-  0%   { transform: translateX(-44%) scale(1); opacity: 0.7; }
-  50%  { transform: translateX(44%) scale(1.1); opacity: 1; }
-  100% { transform: translateX(-44%) scale(1); opacity: 0.7; }
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
   .ai-aurora-glow,
-  .ai-aurora-glow::before,
-  .ai-aurora-glow::after { animation: none; }
+  .ai-aurora-glow::before { animation: none; }
 }
 .ai-assistant-content > .ai-empty-state,
 .ai-assistant-content > .ai-messages,

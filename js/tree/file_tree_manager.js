@@ -1,3 +1,4 @@
+import '../components/aurora-tree.js';
 // file_tree_manager.js
 //
 // Owns the file-tree view bootstrap: the TreeViewState façade over the

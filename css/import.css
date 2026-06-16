@@ -48,6 +48,7 @@
 @import url("./panels/processor_config.css");
 @import url("./panels/aurora_settings.css");
 @import url("./panels/ai_assistant.css");
+@import url("./panels/git_panel.css");
 
 /* 8. feedback */
 @import url("./feedback/notification.css");

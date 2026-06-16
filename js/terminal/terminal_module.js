@@ -1,3 +1,4 @@
+import '../components/aurora-terminal.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';

@@ -29,8 +29,13 @@ const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
 const { execSync } = require('child_process');
+const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
+
+// Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
+// release). null = compute + log only (no enforcement yet).
+const EXPECTED_SHA256 = null;
 
 const MSYS_TAG      = 'msys-v1';
 const MSYS_FILENAME = 'aurora-msys-v1.zip';
@@ -176,6 +181,7 @@ async function main() {
 
     try {
         await downloadFile(MSYS_DOWNLOAD_URL, TMP_ZIP);
+        await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
         extractZip(TMP_ZIP, PACKAGES_DIR);
         fs.unlinkSync(TMP_ZIP);
         log('Toolchain bundle installed successfully.');

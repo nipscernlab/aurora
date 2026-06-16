@@ -17,7 +17,7 @@ from `@silimate/netlistsvg` (npm). gtkwave-nipscern (the display fork, with
 | Artefact                        | Location                            |
 |---------------------------------|-------------------------------------|
 | Renderer / main process source  | This repo (`js/`, `main/`, …)       |
-| Unified mingw toolchain bundle   | GitHub Release `msys-vX` (Aurora)   |
+| Unified mingw toolchain bundle   | GitHub Release `msys-vX` (`nipscernlab/aurora-toolchain`) |
 | gtkwave-nipscern fork            | Release in `nipscernlab/gtkwave-nipscern` |
 | YANC compilers (cmmcomp, …)      | Release in `nipscernlab/yanc`       |
 | End-user installer (`.exe`)      | GitHub Release per app version      |
@@ -44,7 +44,7 @@ cd components/Packages
 7z a -tzip -mx=5 ..\..\aurora-msys-v1.zip msys   # layout: msys\... at the zip root
 
 gh release create "msys-v1" ..\..\aurora-msys-v1.zip `
-   --repo nipscernlab/Aurora --prerelease `
+   --repo nipscernlab/aurora-toolchain --prerelease `
    --title "AURORA unified mingw bundle v1" `
    --notes "iverilog 13 + yosys + verilator 5.048 + gcc15 + python3.12 (cocotb, both VPIs)."
 ```
@@ -54,14 +54,20 @@ when cutting a new version.
 
 ### Cut an app release
 
+The single flow is **release-please** (`.github/workflows/release-please.yml`):
+every push to `main` keeps a release PR open that bumps the version + manifest
+and updates `CHANGELOG.md`. Merge that PR to publish the GitHub Release, which
+**triggers `release.yml`** (`on: release: published`) to build the installer and
+upload the `.exe` + `latest.yml`. The auto-updater takes it from there.
+
+Manual fallback: run the **Release** workflow via `workflow_dispatch`, or
+
 ```powershell
 npm version patch        # or minor / major — generates a tagged commit
 git push --follow-tags
 ```
 
-The `release.yml` workflow picks up the tag, builds the installer with
-`electron-builder`, and publishes the `.exe` + `latest.yml` to the GitHub
-Release. The auto-updater takes it from there.
+then publish a GitHub Release at that tag.
 
 ## Why not just commit the binaries?
 

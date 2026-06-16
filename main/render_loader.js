@@ -11,10 +11,13 @@
  *     The page path is appended to the dev server origin, so the multi-page
  *     dev server serves /html/splash.html, /html/prism/prism.html, etc.
  *   • Prod / built: load the bundled page from dist/ via file://.
- *   • Raw fallback: if no built dist page exists, load the raw source page at
- *     the repo root. The raw HTML keeps node_modules/ asset refs (which resolve
- *     standalone), so this remains a working safety net. Keeps the migration
- *     reversible.
+ *
+ * There is NO raw-source fallback. Post-Lit migration the raw index.html
+ * carries bare `lit` imports that only resolve through the bundler, so a
+ * missing dist/ is a build error — not a degraded-but-usable state. We surface
+ * it loudly (an explicit error page) instead of silently loading a broken UI.
+ * Every real flow builds dist/ first: `npm run dev` (Vite), `npm start`
+ * (prestart → build:renderer), the e2e harness (pretest:e2e), and packaging.
  *
  * loadFile/loadURL do NOT trigger 'will-navigate', so a window's navigation
  * lockdown does not block the dev URL.
@@ -40,7 +43,15 @@ function loadPage(win, relPath) {
   if (fs.existsSync(distPage)) {
     return win.loadFile(distPage);
   }
-  return win.loadFile(path.join(app.getAppPath(), ...segments));
+  // No raw fallback (see header): a missing bundle is a build error.
+  const msg = `Renderer bundle not found: ${distPage}. Build it with `
+    + '`npm run build:renderer` (or run `npm run dev`).';
+  console.error(`[render_loader] ${msg}`);
+  const errHtml = '<body style="background:#0A0D14;color:#e6e6e6;'
+    + 'font:14px system-ui,sans-serif;padding:2.5rem;line-height:1.6">'
+    + '<h2 style="color:#5FE0B0">AURORA — renderer bundle missing</h2>'
+    + `<p>${msg}</p></body>`;
+  return win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(errHtml));
 }
 
 module.exports = { loadPage };

@@ -154,9 +154,26 @@ describe('Aurora E2E — smoke', () => {
       throw new Error(
         `Monaco-init failure(s) detected:\n  ${hits.join('\n  ')}\n\n` +
         `Likely cause: monaco-editor drifted off the pinned 0.52.2.\n` +
-        `Run: node scripts/check-monaco-version.js`
+        `Run: node scripts/check-pinned-versions.js`
       );
     }
     expect(hits).toEqual([]);
+  });
+
+  it('reaches interactive within the startup budget', async () => {
+    // The renderer marks performance.mark('aurora-interactive') at the end of
+    // init (app_initializer.js). Its startTime is TTI relative to navigation.
+    // This is a regression GUARD, not a benchmark — the budget is deliberately
+    // generous so a cold CI runner doesn't flake; it only trips on gross
+    // regressions (a blocking await or sync I/O added to the boot path).
+    const STARTUP_BUDGET_MS = 30_000;
+    const tti = await window.evaluate(() => {
+      const entry = performance.getEntriesByName('aurora-interactive')[0];
+      return entry ? entry.startTime : null;
+    });
+    // The mark must exist (TTI instrumentation present) ...
+    expect(tti).not.toBeNull();
+    // ... and fire within budget.
+    expect(tti).toBeLessThan(STARTUP_BUDGET_MS);
   });
 });

@@ -23,8 +23,13 @@ const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
 const { execSync } = require('child_process');
+const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
+
+// Pinned SHA-256 of surfer_win_v0.7.0.zip (GitLab generic package, immutable
+// per tag). Verified before extraction; a mismatch aborts the install.
+const EXPECTED_SHA256 = '4fbb0ad93e1aa958f6944c036a8d01b36b267a96e7f904683317235cd041fc24';
 
 const SURFER_TAG      = 'v0.7.0';
 const SURFER_FILENAME = `surfer_win_${SURFER_TAG}.zip`;
@@ -145,6 +150,7 @@ async function main() {
 
     try {
         await downloadFile(DOWNLOAD_URL, TMP_ZIP);
+        await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
         extractZip(TMP_ZIP, INSTALL_DIR);
         flattenIfNested(INSTALL_DIR);
         fs.unlinkSync(TMP_ZIP);

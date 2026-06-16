@@ -40,8 +40,13 @@ const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
 const { execSync } = require('child_process');
+const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
+
+// Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
+// release). null = compute + log only (no enforcement yet).
+const EXPECTED_SHA256 = null;
 
 const YANC_TAG      = 'v5.2';
 const YANC_FILENAME = `yanc-bin-${YANC_TAG}.zip`;
@@ -186,6 +191,7 @@ async function main() {
 
     try {
         await downloadFile(DOWNLOAD_URL, TMP_ZIP);
+        await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
         // O zip empacota como bin/cmmcomp.exe etc. Extraindo em
         // components/ resulta em components/bin/cmmcomp.exe — perfeito.
         const COMPONENTS_DIR = path.join(ROOT_DIR, 'components');

@@ -4,19 +4,19 @@ name: Release
 # The auto-updater (electron-updater) reads `latest.yml` + the .exe directly
 # from these release assets — see `main/updater.js`.
 #
-# Trigger: `workflow_dispatch` (manual) for now. The build needs the bundled
-# SAPHO toolchain under `components/`, which is NOT committed to the source
-# tree — `npm run bootstrap` downloads it: the unified mingw bundle
-# (iverilog/yosys/verilator/python+cocotb) from the `msys-vN` Release, plus the
-# gtkwave-nipscern fork and the YANC compilers from their own Releases.
-# netlistsvg rides in via `npm ci` (@silimate/netlistsvg, in-process).
+# Trigger: fires automatically when a GitHub Release is *published* (the single
+# flow — release-please opens the release PR; merging it publishes the release,
+# which kicks off this build). `workflow_dispatch` stays as a manual fallback.
 #
-# To cut a release:
-#   1. `npm version patch` (or minor / major) — generates a tagged commit.
-#   2. `git push --follow-tags`.
-#   3. Open the Actions tab → "Release" workflow → "Run workflow".
+# The build needs the bundled SAPHO toolchain under `components/`, which is NOT
+# committed to the source tree — `npm run bootstrap` downloads it: the unified
+# mingw bundle (iverilog/yosys/verilator/python+cocotb) from the `msys-vN`
+# Release, plus the gtkwave-nipscern fork, the YANC compilers, and Surfer from
+# their own Releases. netlistsvg rides in via `npm ci` (in-process).
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -42,8 +42,27 @@ jobs:
 
       - name: Bootstrap toolchain bundle
         # Downloads the unified msys bundle + gtkwave-nipscern + YANC compilers
-        # and copies components into place. Pulls from public Releases (no token).
+        # + Surfer and copies components into place. Pulls from public Releases.
         run: npm run bootstrap
+
+      - name: Verify toolchain sentinels
+        # The downloaders exit 0 on failure (so a dev offline can still start the
+        # IDE). A *release* must NOT ship without the toolchain, so fail loudly
+        # if bootstrap left any sentinel missing.
+        shell: pwsh
+        run: |
+          $sentinels = @(
+            'components/Packages/msys/mingw64/bin/verilator_bin.exe',
+            'components/bin/cppcomp.exe',
+            'components/Packages/gtkwave-nipscern/gtkwave.exe',
+            'components/Packages/surfer/surfer.exe'
+          )
+          $missing = $sentinels | Where-Object { -not (Test-Path $_) }
+          if ($missing) {
+            Write-Error "Bootstrap left toolchain sentinels missing:`n  $($missing -join "`n  ")"
+            exit 1
+          }
+          Write-Host "All toolchain sentinels present."
 
       - name: Build main/preload (tsc)
         # electron-builder runs directly below (not via `npm run build`), so the
@@ -58,6 +77,10 @@ jobs:
         # index.html inside the asar.
         run: npm run build:renderer
 
+      # NOTE: the installer is currently unsigned (SmartScreen warns on first
+      # run). See docs/CODE_SIGNING.md to enable it — SignPath (free for OSS)
+      # or Azure Trusted Signing (set CSC_LINK/CSC_KEY_PASSWORD as env here and
+      # electron-builder signs the NSIS target inline).
       - name: Build & publish
         run: npx electron-builder --win --x64 --publish always
         env:

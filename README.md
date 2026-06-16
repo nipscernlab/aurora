@@ -202,9 +202,7 @@ node scripts/sync-sapho-rules.js --yanc D:\path\to\yanc
 
 The script writes a summary to stdout — keyword / directive / message
 counts plus the yanc commit hash. Commit the regenerated
-`resources/sapho_rules.json` so CI never has to reach yanc directly;
-[`build.ps1`](scripts/build.ps1) also invokes the sync step before packaging,
-warning (but not failing) when yanc isn't reachable.
+`resources/sapho_rules.json` so CI never has to reach yanc directly.
 
 ## SAPHO toolchain
 

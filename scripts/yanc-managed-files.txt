@@ -12,8 +12,6 @@ components/Header/cstdint
 components/Header/cstring
 components/Header/limits
 components/Header/vector
-components/Macros/Arctan_LUT.txt
-components/Macros/Sin_LUT.txt
 components/Macros/float_atan.asm
 components/Macros/float_sin.asm
 components/Macros/float_sqrt.asm

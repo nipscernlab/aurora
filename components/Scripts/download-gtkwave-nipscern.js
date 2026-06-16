@@ -25,8 +25,13 @@ const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
 const { execSync } = require('child_process');
+const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
+
+// Pin the artifact's SHA-256 to enforce integrity (publish a SHA256SUMS per
+// release). null = compute + log only (no enforcement yet).
+const EXPECTED_SHA256 = null;
 
 const GTKWAVE_TAG      = 'v0.1.2-nipscern';
 const GTKWAVE_FILENAME = `gtkwave-nipscern-v0.1.2-win-x64.zip`;
@@ -132,6 +137,7 @@ async function main() {
 
     try {
         await downloadFile(DOWNLOAD_URL, TMP_ZIP);
+        await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
         // Zip nao tem prefixo de pasta (gtkwave.exe esta na raiz),
         // entao extraimos direto no INSTALL_DIR e fica
         // components/Packages/gtkwave-nipscern/gtkwave.exe.

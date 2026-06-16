@@ -134,6 +134,14 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         expect(content).toContain('render_style: Step');
     });
 
+    it('floats (me2_) saem como analog Step/Global; clk/rst em meia-altura', () => {
+        const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        // O float "acc" tem analog com escala Global (curva de osciloscopio p/ DSP).
+        expect(content).toMatch(/manual_name: Some\("float acc in soma\(\)"\)[\s\S]*?render_style: Step,\s*y_axis_scale: Global/);
+        // clk com meia-altura (height_scaling_factor: Some(0.5)).
+        expect(content).toContain('height_scaling_factor: Some(0.5)');
+    });
+
     it('TODOS os grupos curados saem coloridos (vermelho) pra destacar', () => {
         const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
         // Cada secao virou um Group com color: Some("Red") (header destacado).

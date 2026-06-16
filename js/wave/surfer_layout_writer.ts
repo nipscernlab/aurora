@@ -405,6 +405,16 @@ export interface BuildSurferLayoutInput {
 const ANALOG_STEP: SurferAnalog = { renderStyle: 'Step', yAxisScale: 'TypeLimits' };
 
 /**
+ * Analog para variaveis FLOAT do usuario (me2_/arr_me2_) — saida de filtro,
+ * magnitude de FFT, etc. Renderiza como CURVA (osciloscopio) em vez de numeros
+ * pretos ilegiveis em 1M ciclos; o valor exato ainda aparece no cursor. Step
+ * (honesto, nao interpola amostras esparsas) + Global (escala pela faixa real
+ * do sinal no tempo, nao pelos limites do tipo). DSP-only; o GTKWave deixa
+ * floats como numeros (FMT_REAL) — aqui o Surfer ganha a leitura de curva.
+ */
+const ANALOG_FLOAT: SurferAnalog = { renderStyle: 'Step', yAxisScale: 'Global' };
+
+/**
  * Cor de TODOS os labels curados (grupos de secao + banner de processador).
  * Vermelho por contraste: I/O e Yellow, Variables e Orange, Instructions e
  * Violet — vermelho nao colide com nenhuma trilha e bate com os headers
@@ -557,7 +567,9 @@ function pushClk(items: SurferItem[], filter: Set<string> | null, scopes: VcdSco
   if (!sig && tbModule) { sig = slFindSignal(scopes, tbModule, name); scopePath = tbModule; }
   if (!sig || !scopePath) return;
   if (!passesFilter(filter, sig.fullName)) return;
-  items.push({ kind: 'variable', scope: scopePath.split('.'), name, format: 'Binary' });
+  // clk/rst/itr sao 1-bit e aparecem em todo proc — meia-altura economiza espaco
+  // vertical e deixa os sinais de dado (variaveis/instrucoes) mais proeminentes.
+  items.push({ kind: 'variable', scope: scopePath.split('.'), name, format: 'Binary', heightScale: 0.5 });
 }
 
 function buildIo(scopes: VcdScope[], instancePath: string, filter: Set<string> | null): SurferItem[] {
@@ -615,7 +627,7 @@ function findTypedVars(scopes: VcdScope[], instancePath: string, prefix: string)
   return out;
 }
 
-function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string, prefix: string, format: string, typeLabel: string, filter: Set<string> | null): void {
+function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string, prefix: string, format: string, typeLabel: string, filter: Set<string> | null, analog: SurferAnalog | null = null): void {
   const groups = new Map<string, Array<{ sig: EnrichedSig; idx: number }>>();
   for (const s of slListSignals(scopes, instancePath)) {
     if (!s.name.startsWith(prefix)) continue;
@@ -636,7 +648,7 @@ function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string,
     let i = 0;
     for (const { sig } of elems) {
       if (passesFilter(filter, sig.fullName)) {
-        elemItems.push({ kind: 'variable', scope: instancePath.split('.'), name: sig.name, format, color: 'Orange', manualName: `${vr} ${i}` });
+        elemItems.push({ kind: 'variable', scope: instancePath.split('.'), name: sig.name, format, color: 'Orange', manualName: `${vr} ${i}`, analog });
       }
       i++;
     }
@@ -650,17 +662,17 @@ function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string,
 function buildVariables(scopes: VcdScope[], instancePath: string, filter: Set<string> | null, complexFormat: string | null): SurferItem[] {
   const out: SurferItem[] = [];
   const cpx = complexFormat || 'Binary'; // mapping de decode complexo, ou Binary cru
-  const pushTyped = (list: Array<{ sig: EnrichedSig; varName: string; func: string }>, format: string, label: string): void => {
+  const pushTyped = (list: Array<{ sig: EnrichedSig; varName: string; func: string }>, format: string, label: string, analog: SurferAnalog | null = null): void => {
     for (const v of list) {
       if (!passesFilter(filter, v.sig.fullName)) continue;
-      out.push({ kind: 'variable', scope: instancePath.split('.'), name: v.sig.name, format, color: 'Orange', manualName: `${label} ${v.varName} in ${v.func}` });
+      out.push({ kind: 'variable', scope: instancePath.split('.'), name: v.sig.name, format, color: 'Orange', manualName: `${label} ${v.varName} in ${v.func}`, analog });
     }
   };
   pushTyped(findTypedVars(scopes, instancePath, 'me1_'), 'Signed', 'int');
-  pushTyped(findTypedVars(scopes, instancePath, 'me2_'), 'FP: 32-bit IEEE 754', 'float');
+  pushTyped(findTypedVars(scopes, instancePath, 'me2_'), 'FP: 32-bit IEEE 754', 'float', ANALOG_FLOAT);
   pushTyped(findTypedVars(scopes, instancePath, 'comp_me3_'), cpx, 'comp');
   pushArrays(out, scopes, instancePath, 'arr_me1_', 'Signed', 'int', filter);
-  pushArrays(out, scopes, instancePath, 'arr_me2_', 'FP: 32-bit IEEE 754', 'float', filter);
+  pushArrays(out, scopes, instancePath, 'arr_me2_', 'FP: 32-bit IEEE 754', 'float', filter, ANALOG_FLOAT);
   pushArrays(out, scopes, instancePath, 'comp_arr_me3_', cpx, 'comp', filter);
   return out;
 }

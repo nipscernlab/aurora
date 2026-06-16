@@ -43,13 +43,38 @@ function close() {
 }
 const isOpen = () => modal && modal.classList.contains('show');
 
-// --- busy guard ------------------------------------------------------------
+// --- live feedback: status bar + spinner + busy state ----------------------
+let statusTimer = null;
+function setStatus(msg, kind) {
+  const el = $('git-status');
+  if (!el) return;
+  if (statusTimer) { clearTimeout(statusTimer); statusTimer = null; }
+  if (!msg) { el.innerHTML = ''; el.dataset.kind = ''; return; }
+  const icon = kind === 'busy' ? '<span class="git-spinner" aria-hidden="true"></span>'
+    : kind === 'ok' ? '<i class="ph ph-check-circle" aria-hidden="true"></i>'
+    : kind === 'error' ? '<i class="ph ph-warning-circle" aria-hidden="true"></i>'
+    : '<i class="ph ph-info" aria-hidden="true"></i>';
+  el.dataset.kind = kind || 'info';
+  el.innerHTML = `${icon}<span>${esc(msg)}</span>`;
+}
+function setBusy(on) {
+  const m = $('gitModal');
+  if (m) m.classList.toggle('git-busy', !!on);
+}
+
+// Every action runs through here: shows "…" + spinner while running, then a
+// result line (auto-clears on success, stays on error). One op at a time.
 async function run(label, fn) {
   if (busy) return;
-  busy = true;
-  try { await fn(); }
-  catch (e) { notify(`${label}: ${e?.message || e}`, 'error'); }
-  finally { busy = false; }
+  busy = true; setBusy(true); setStatus(`${label}…`, 'busy');
+  try {
+    await fn();
+    setStatus(`${label} concluído`, 'ok');
+    statusTimer = setTimeout(() => setStatus('', null), 3000);
+  } catch (e) {
+    setStatus(`${label}: ${e?.message || e}`, 'error');
+    notify(`${label}: ${e?.message || e}`, 'error');
+  } finally { busy = false; setBusy(false); }
 }
 
 // --- toolbar badge (change count) ------------------------------------------

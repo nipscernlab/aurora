@@ -216,3 +216,30 @@
 .git-vis-opt.active { background: var(--accent); color: #fff; }
 .git-hint { font-size: var(--text-xs); color: var(--text-faint, var(--text-muted)); line-height: 1.5; }
 .git-hint code { font-family: var(--font-mono); color: var(--accent-hover, #5bb8e8); }
+
+/* ---- live status footer ---- */
+.git-footer { width: 100%; }
+.git-status {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-xs); color: var(--text-muted);
+}
+.git-status:empty { display: none; }
+.git-status[data-kind="ok"] { color: var(--status-success, #5fe0b0); }
+.git-status[data-kind="error"] { color: var(--status-error, #e06a6a); }
+.git-status[data-kind="busy"] { color: var(--text-secondary, var(--text)); }
+.git-spinner {
+  width: 12px; height: 12px; flex-shrink: 0;
+  border: 2px solid currentColor; border-top-color: transparent;
+  border-radius: 50%; display: inline-block; animation: git-spin 0.7s linear infinite;
+}
+@keyframes git-spin { to { transform: rotate(360deg); } }
+
+/* ---- busy state: dim + lock the action buttons while an op runs ---- */
+.git-busy .git-mini,
+.git-busy .git-act,
+.git-busy .git-commit-btn,
+.git-busy .git-vis-opt { pointer-events: none; opacity: 0.55; }
+
+/* fix: .git-publish sets display:flex, which overrode [hidden] (UA display:none)
+   and left an empty bar when a remote already exists. */
+.git-publish[hidden] { display: none !important; }

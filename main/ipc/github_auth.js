@@ -196,8 +196,28 @@ function disconnect() {
   return true;
 }
 
+/** One-time backfill: accounts connected before avatars existed have no photo
+ *  stored. On the next status check, fetch + persist it (no reconnect needed). */
+async function ensureUserAvatar() {
+  const vault = readVault();
+  if (!vault.token || !vault.user) return;
+  if (vault.user.avatarDataUrl || vault.user.avatarUrl) return;
+  const token = getToken();
+  if (!token) return;
+  try {
+    const me = await apiGet('/user', token);
+    const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
+    vault.user = { login: me.login, name: me.name || me.login, avatarDataUrl, avatarUrl: me.avatar_url };
+    writeVault(vault);
+  } catch (_) { /* keep what we have */ }
+}
+
 function register() {
-  ipcMain.handle('github:status', () => ({ connected: !!getUser(), user: getUser() }));
+  ipcMain.handle('github:status', async () => {
+    await ensureUserAvatar();
+    const user = getUser();
+    return { connected: !!user, user };
+  });
   ipcMain.handle('github:connect', async (_event, token) => {
     try {
       const user = await connect(token);

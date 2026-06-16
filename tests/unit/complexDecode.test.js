@@ -73,6 +73,35 @@ describe('ComplexVcdScanner — extracao de valores distintos', () => {
         sc.end();
         expect(sc.distinctValues()).toEqual([A]);
     });
+
+    // Fixture = saida REAL do fst2vcd.exe (gtkwave-nipscern) sobre um FST real,
+    // validada e2e em campo (vcd2fst -> fst2vcd -> scanner -> comp2gtkw): cabecalho
+    // $date/$version/$timescale com TABs, bloco $dumpvars..$end, e o sinal complexo
+    // com ID '$' (char especial). Trava a compatibilidade do scanner com o formato
+    // que o AURORA realmente streama (fst2vcd -f <fst>), sem depender do binario no CI.
+    it('parseia a saida REAL do fst2vcd ($dumpvars, headers com TAB, id "$")', () => {
+        const real = [
+            '$date', '\tTue Jun 16 11:14:10 2026', '$end',
+            '$version', '\tfstWriter', '$end',
+            '$timescale', '\t1ns', '$end',
+            '$scope module tb $end',
+            '$scope module proc $end',
+            '$var wire 1 ! clk $end',
+            '$var logic 32 " valr2 [31:0] $end',
+            '$var logic 20 # linetabs [19:0] $end',
+            '$var logic 32 $ comp_me3_f_global_v_z_e_ [31:0] $end',
+            '$upscope $end', '$upscope $end', '$enddefinitions $end',
+            '#0', '$dumpvars',
+            `b${B} $`, 'b00000000000000000000 #', 'b00000000000000000000000000000000 "', '0!',
+            '$end',
+            '#10', '0!', `b${A} $`,
+            '',
+        ].join('\n');
+        const sc = new ComplexVcdScanner();
+        sc.feed(real); sc.end();
+        // So o sinal complexo (id '$') vira valor — valr2/linetabs (id '"'/'#') sao ignorados.
+        expect(sc.distinctValues().sort()).toEqual([A, B].sort());
+    });
 });
 
 describe('buildComplexMapping', () => {

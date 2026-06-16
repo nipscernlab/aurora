@@ -258,6 +258,15 @@ export const ActionsMixin = {
             'success',
             2000,
         );
+
+        // Recomputa a arvore (e a lista `missingFiles`) SEMPRE, nao so via o
+        // evento aurora:spf-changed. Quando o usuario re-importa um arquivo que
+        // estava FALTANDO (path ja no .spf), o dedup acima pula a escrita -> o
+        // .spf nao muda -> aurora:spf-changed NAO dispara. Sem este refresh, o
+        // aviso "N files missing on disk" ficaria preso no count antigo. Como o
+        // arquivo agora existe no disco, loadConfiguration o tira de missingFiles
+        // e o banner atualiza (10 faltando -> importa 5 -> mostra 5).
+        await this.refreshTree();
     },
 
     /**

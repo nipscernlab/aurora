@@ -235,15 +235,29 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
 
     const res = await window.evaluate(async ({ p, content, target }) => {
       window.TabManager.addTab(p, content, { preview: false, revealPosition: { line: target, column: 1 } });
-      // Wait for the deferred editor creation + rAF reveal to settle.
-      await new Promise((r) => setTimeout(r, 600));
       // EditorManager isn't on window; find the editor via Monaco's registry,
       // matching the model URI for our file.
-      const editors = window.monaco.editor.getEditors();
-      const editor = editors.find((e) => {
+      const findEditor = () => window.monaco.editor.getEditors().find((e) => {
         const u = e.getModel && e.getModel() && e.getModel().uri;
         return u && String(u.path || u.fsPath || '').endsWith('jumptest.v');
       });
+      const isSettled = (editor) => {
+        if (!editor) return false;
+        const pos = editor.getPosition();
+        const ranges = editor.getVisibleRanges();
+        const vis = ranges.some((r) => r.startLineNumber <= target && target <= r.endLineNumber);
+        return vis && pos && pos.lineNumber === target;
+      };
+      // Poll until the deferred (Monaco-ready-gated) editor is created AND the
+      // rAF reveal has settled — instead of a fixed 600ms sleep that raced on
+      // slow CI runners. Generous cap so it never flakes; returns the moment
+      // it settles so the happy path stays fast.
+      const deadline = Date.now() + 12_000;
+      let editor = findEditor();
+      while (Date.now() < deadline && !isSettled(editor)) {
+        await new Promise((r) => setTimeout(r, 50));
+        editor = findEditor();
+      }
       if (!editor) return { exists: false };
       const pos = editor.getPosition();
       const ranges = editor.getVisibleRanges();

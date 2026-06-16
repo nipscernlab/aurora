@@ -709,10 +709,10 @@ function register() {
 
   ipcMain.handle('get-prism-compilation-paths', async () => {
     try {
-      let projectPath = /** @type {any} */ (global).currentProjectPath || state.currentOpenProjectPath;
-      if (state.currentOpenProjectPath && !(/** @type {any} */ (global).currentProjectPath)) {
-        projectPath = path.dirname(state.currentOpenProjectPath);
-      }
+      // A4: project dir derived from the open .spf (single source of truth).
+      const projectPath = state.currentOpenProjectPath
+        ? path.dirname(state.currentOpenProjectPath)
+        : null;
       if (!projectPath) throw new Error('No project path available');
 
       return {

@@ -278,9 +278,10 @@ function register() {
         }
       }
 
+      // A4: the open .spf in state is the SINGLE source of truth for "which
+      // project is open". The project DIRECTORY is derived from it on demand
+      // (path.dirname) — no duplicated global.currentProject* to keep in sync.
       state.currentOpenProjectPath = spfPath;
-      const projectDirPath = path.dirname(spfPath);
-      /** @type {any} */ (global).currentProjectPath = projectDirPath;
 
       // Track in our own recents store + refresh the Windows jumplist.
       // We don't use Windows' shell-managed `frequent`/`recent` lists
@@ -303,9 +304,6 @@ function register() {
       } catch (e) {
         log.warn('jumplist refresh failed:', e);
       }
-      if (!/** @type {any} */ (global).currentProject) /** @type {any} */ (global).currentProject = {};
-      /** @type {any} */ (global).currentProject.path = projectDirPath;
-
       const spfContent = await fse.readFile(spfPath, 'utf8');
       const projectData = JSON.parse(spfContent);
       projectData.metadata.lastOpened = new Date().toISOString();
@@ -390,13 +388,11 @@ function register() {
 
   ipcMain.handle('project:close', async () => {
     try {
-      if (!state.currentOpenProjectPath && !/** @type {any} */ (global).currentProjectPath) {
+      if (!state.currentOpenProjectPath) {
         return { success: true, message: 'No project to close' };
       }
 
       state.currentOpenProjectPath = null;
-      /** @type {any} */ (global).currentProjectPath = null;
-      if (/** @type {any} */ (global).currentProject) /** @type {any} */ (global).currentProject = {};
 
       const focusedWindow = BrowserWindow.getFocusedWindow();
       if (focusedWindow && !focusedWindow.isDestroyed()) {
@@ -898,9 +894,6 @@ void main()
 
       // 5. Re-sync main-process state + recents/jumplist to the new path.
       state.currentOpenProjectPath = newSpfPath;
-      /** @type {any} */ (global).currentProjectPath = movedRoot;
-      if (!/** @type {any} */ (global).currentProject) /** @type {any} */ (global).currentProject = {};
-      /** @type {any} */ (global).currentProject.path = movedRoot;
       try {
         if (process.platform === 'win32') {
           if (typeof app.addRecentDocument === 'function') app.addRecentDocument(newSpfPath);

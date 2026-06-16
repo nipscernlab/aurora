@@ -442,12 +442,10 @@ function register() {
 
   ipcMain.handle('trigger-file-tree-refresh', async () => {
     try {
-      let projectPath = /** @type {any} */ (global).currentProjectPath;
-      if (!projectPath && state.currentOpenProjectPath) {
-        const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
-        const projectData = JSON.parse(spfData);
-        projectPath = projectData.structure.basePath;
-      }
+      // A4: project dir derived from the open .spf (single source of truth).
+      const projectPath = state.currentOpenProjectPath
+        ? path.dirname(state.currentOpenProjectPath)
+        : null;
       if (!projectPath) throw new Error('No project path available for refresh');
 
       const files = await scanDirectory(projectPath);

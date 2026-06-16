@@ -2474,6 +2474,21 @@ class AIAssistantManager {
   }
 
   /**
+   * Runaway guard for memory hygiene: a single never-ending conversation must
+   * not grow `this.messages` without bound. Keep the most recent
+   * MAX_RETAINED_MESSAGES (a high cap normal chats never hit); switching/closing
+   * a chat already resets the array entirely (the common path). On the rare trim
+   * the very oldest turns drop from the locally-held history — acceptable at this
+   * size (the subscription CLIs keep their own context via --resume).
+   */
+  _capMessages() {
+    const MAX_RETAINED_MESSAGES = 400;
+    if (this.messages.length > MAX_RETAINED_MESSAGES) {
+      this.messages.splice(0, this.messages.length - MAX_RETAINED_MESSAGES);
+    }
+  }
+
+  /**
    * Render an inline Allow/Deny card in the message stream (not a
    * full-screen modal) and resolve with the user's choice. The card
    * removes itself once decided.
@@ -2696,6 +2711,7 @@ class AIAssistantManager {
     const userBubble = this.appendBubble('user', text);
     if (atts.length) this._renderBubbleAttachments(userBubble, atts);
     this.messages.push({ role: 'user', content: text, attachments: atts.length ? atts : undefined });
+    this._capMessages();
     // A real user message breaks any autonomous follow-up chain.
     this._autoChainCount = 0;
 
@@ -2993,6 +3009,7 @@ class AIAssistantManager {
     this.messagesEl.appendChild(note);
     // The synthetic message goes into the model context as a user turn.
     this.messages.push({ role: 'user', content });
+    this._capMessages();
     this._dispatchTurn();
   }
 

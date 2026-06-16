@@ -172,7 +172,7 @@ function permissionFlag(/** @type {any} */ _mode) {
 
 /** Directory the CLI should treat as the workspace (the open project). */
 function workspaceDir() {
-  const spf = state.currentOpenProjectPath || /** @type {any} */ (global).currentProjectPath;
+  const spf = state.currentOpenProjectPath;
   if (spf) {
     try {
       const stat = fs.statSync(spf);

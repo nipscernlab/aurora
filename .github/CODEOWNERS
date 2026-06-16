@@ -1,0 +1,19 @@
+# Code owners — auto-requests review when matching files change.
+# (Enforcement requires branch protection; routing works regardless.)
+# Order matters: the last matching pattern wins.
+
+# Default owner for everything.
+*                       @Chrysthofer
+
+# Aurora Intelligence / AI backend.
+/main/ai/               @Chrysthofer
+/js/ui/ai_assistant_manager.js  @Chrysthofer
+
+# Simulation / waveform / cocotb flow — Arthur co-maintains.
+/js/wave/               @ART3121 @Chrysthofer
+/js/compilation/        @ART3121 @Chrysthofer
+
+# Build, packaging and release plumbing.
+/.github/               @Chrysthofer
+/scripts/               @Chrysthofer
+/components/Scripts/    @Chrysthofer

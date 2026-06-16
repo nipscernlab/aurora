@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/nipscernlab/Aurora/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/nipscernlab/Aurora?style=flat-square"></a>
-  <a href="https://github.com/nipscernlab/Aurora/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/nipscernlab/Aurora/ci.yml?branch=main&style=flat-square"></a>
+  <a href="https://github.com/nipscernlab/sapho/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/nipscernlab/sapho?style=flat-square"></a>
+  <a href="https://github.com/nipscernlab/aurora/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/nipscernlab/aurora/ci.yml?branch=main&style=flat-square"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-windows-lightgrey?style=flat-square">
-  <img alt="Built with Electron" src="https://img.shields.io/badge/electron-38-47848F?style=flat-square&logo=electron&logoColor=white">
+  <img alt="Built with Electron" src="https://img.shields.io/badge/electron-39-47848F?style=flat-square&logo=electron&logoColor=white">
 </p>
 
 ---
@@ -22,6 +22,21 @@ AURORA is a desktop IDE that unifies every step of the **SAPHO** hardware-design
 workflow — writing C±, assembling, synthesising Verilog, simulating with Icarus
 Verilog, viewing waveforms in GTKWave, and inspecting RTL with PRISM — behind
 one consistent interface built on Electron and Monaco.
+
+## Screenshots
+
+<!--
+  TODO(maintainers): drop real assets into docs/media/ and uncomment.
+  See docs/media/README.md for the recommended shot list (hero + GIFs).
+
+  <p align="center"><img src="docs/media/hero.png" alt="AURORA editor" width="900"></p>
+
+  | Split editor | Compilation | PRISM / waveform |
+  |---|---|---|
+  | ![split](docs/media/split-editor.gif) | ![compile](docs/media/compile.gif) | ![prism](docs/media/prism.gif) |
+-->
+
+> Screenshots and demo GIFs are pending — see [docs/media/](docs/media/) for the shot list.
 
 ## Features
 
@@ -44,9 +59,14 @@ one consistent interface built on Electron and Monaco.
 
 ### Install (recommended for end users)
 
-Download the latest installer from the
-[Releases page](https://github.com/nipscernlab/Aurora/releases/latest)
-and run `AuroraIDE-Setup-vX.Y.Z.exe`.
+Stable installers ship from the **SAPHO** distribution repo (the suite =
+YANC + AURORA). Download the latest from the
+[SAPHO Releases page](https://github.com/nipscernlab/sapho/releases/latest)
+and run `sapho-aurora-Setup-vX.Y.Z.exe`.
+
+> **Two repos, on purpose.** `nipscernlab/aurora` is where the GUI is
+> *developed* (this repo); `nipscernlab/sapho` is the *release channel*
+> end users download. See [CONTRIBUTING.md](CONTRIBUTING.md) for the split.
 
 ### Build from source (Windows 10/11)
 
@@ -78,8 +98,8 @@ git  --version
 #### 2. Clone the repository
 
 ```powershell
-git clone https://github.com/nipscernlab/Aurora.git
-cd Aurora
+git clone https://github.com/nipscernlab/aurora.git
+cd aurora
 ```
 
 #### 3. Install npm dependencies
@@ -231,7 +251,7 @@ Compress-Archive -Path components/Packages/* `
 
 Then in the browser:
 
-1. Open <https://github.com/nipscernlab/Aurora/releases/new>
+1. Open <https://github.com/nipscernlab/aurora/releases/new>
 2. **Choose a tag:** type `toolchain-v2` → *Create new tag on publish*
 3. **Title:** `AURORA toolchain v2`
 4. **Description:** one-liner about which upstream versions are bundled
@@ -259,7 +279,7 @@ last release, bumps `package.json` + the manifest, and updates
 3. Open the **Actions** tab → **Release** workflow → **Run workflow**,
    passing the toolchain tag (e.g. `toolchain-v2`). The job builds the
    installer with `electron-builder --publish always` and uploads
-   `AuroraIDE-Setup-vX.Y.Z.exe`, the matching `.blockmap`, and
+   `sapho-aurora-Setup-vX.Y.Z.exe`, the matching `.blockmap`, and
    `latest.yml` onto the release the bot just created. The auto-updater
    takes it from there.
 
@@ -289,9 +309,9 @@ Then either:
 
 If CI isn't an option, build locally and upload through the browser:
 
-1. `npm run build` — produces `dist/AuroraIDE-Setup-vX.Y.Z.exe`,
-   `dist/AuroraIDE-Setup-vX.Y.Z.exe.blockmap`, and `dist/latest.yml`.
-2. Open <https://github.com/nipscernlab/Aurora/releases/new>
+1. `npm run build` — produces `dist/sapho-aurora-Setup-vX.Y.Z.exe`,
+   `dist/sapho-aurora-Setup-vX.Y.Z.exe.blockmap`, and `dist/latest.yml`.
+2. Open <https://github.com/nipscernlab/sapho/releases/new> (app releases ship from the SAPHO channel)
 3. **Choose a tag:** select the existing `vX.Y.Z` tag (or create one)
 4. **Title:** `AURORA IDE vX.Y.Z`
 5. **Description:** copy the relevant section from

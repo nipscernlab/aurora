@@ -104,5 +104,5 @@ they style.
 ## Questions
 
 For questions that aren't bug reports or feature requests, please open
-a [GitHub Discussion](https://github.com/nipscernlab/Aurora/discussions)
+a [GitHub Discussion](https://github.com/nipscernlab/aurora/discussions)
 rather than an issue.

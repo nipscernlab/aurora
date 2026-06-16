@@ -1,7 +1,7 @@
-// git_panel.js — the Source Control modal + toolbar badge, driven by
-// window.gitAPI (main/ipc/git.js → simple-git) and the GitHub account
-// connection. The on-disk truth is real `git`, so .gitignore, diffs and merges
-// behave exactly as on the command line. Diffs are rendered with diff2html.
+// git_panel.js — Source Control panel (GitHub-Desktop-style), driven by
+// window.gitAPI (main/ipc/git.js → simple-git) + GitHub account connection.
+// The on-disk truth is real `git`, so .gitignore, diffs and merges behave
+// exactly as on the command line. Diffs render with diff2html.
 
 import { html as renderDiff } from 'diff2html';
 import 'diff2html/bundles/css/diff2html.min.css';
@@ -10,8 +10,6 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
-// Git feedback lives IN the panel status bar, NOT in corner toasts.
-const notify = (msg, type) => flash(msg, type === 'success' ? 'ok' : (type === 'warning' || type === 'error') ? 'error' : 'info');
 const api = () => window.gitAPI;
 function relDate(iso) {
   try {
@@ -26,8 +24,8 @@ function relDate(iso) {
 
 let modal = null;
 let busy = false;
-let historyShown = false;
 let publishPrivate = true;
+let activeTab = 'changes';
 
 // --- open / close ----------------------------------------------------------
 function open() {
@@ -58,20 +56,11 @@ function setStatus(msg, kind) {
   el.dataset.kind = kind || 'info';
   el.innerHTML = `${icon}<span>${esc(msg)}</span>`;
 }
-function setBusy(on) {
-  const m = $('gitModal');
-  if (m) m.classList.toggle('git-busy', !!on);
-}
-
-// A one-off status line that auto-clears (for input warnings).
+function setBusy(on) { const m = $('gitModal'); if (m) m.classList.toggle('git-busy', !!on); }
 function flash(msg, kind) {
   setStatus(msg, kind || 'info');
   statusTimer = setTimeout(() => setStatus('', null), 4500);
 }
-
-// Every action runs through here: shows "…" + spinner while running, then the
-// result IN-PANEL (no corner toasts). fn may return a string for a custom OK
-// line. One op at a time.
 async function run(label, fn) {
   if (busy) return;
   busy = true; setBusy(true); setStatus(`${label}…`, 'busy');
@@ -86,8 +75,7 @@ async function run(label, fn) {
 
 // --- toolbar badge (change count) ------------------------------------------
 function changeCount(st) {
-  if (!st || !st.ok || !st.isRepo || !Array.isArray(st.files)) return 0;
-  return st.files.length;
+  return (st && st.ok && st.isRepo && Array.isArray(st.files)) ? st.files.length : 0;
 }
 async function updateBadge() {
   const badge = $('git-badge');
@@ -95,31 +83,27 @@ async function updateBadge() {
   try {
     const st = await api().status();
     const n = changeCount(st);
-    if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.hidden = false; }
+    if (n > 0) { badge.textContent = n > 99 ? '99+' : String(n); badge.hidden = false; badge.dataset.kind = 'changes'; }
+    else if (st && st.ok && st.ahead > 0) { badge.textContent = '↑'; badge.hidden = false; badge.dataset.kind = 'ahead'; }
     else { badge.hidden = true; }
   } catch (_) { badge.hidden = true; }
 }
 
-// --- status grouping (a file can be staged AND unstaged) -------------------
+// --- status grouping -------------------------------------------------------
 function partition(st) {
-  const staged = [];
-  const unstaged = [];
+  const staged = []; const unstaged = [];
   for (const f of st.files) {
-    const i = (f.index || '').trim();
-    const w = (f.working || '').trim();
+    const i = (f.index || '').trim(); const w = (f.working || '').trim();
     if (i && i !== '?') staged.push(f);
     if (w || i === '?') unstaged.push(f);
   }
   return { staged, unstaged };
 }
-
-const STATUS_LABEL = {
-  M: 'modificado', A: 'adicionado', D: 'deletado', R: 'renomeado',
-  C: 'copiado', U: 'conflito', '?': 'novo',
-};
+const STATUS_LABEL = { M: 'modificado', A: 'adicionado', D: 'deletado', R: 'renomeado', C: 'copiado', U: 'conflito', '?': 'novo' };
 
 function fileRow(f, group) {
-  const flag = group === 'staged' ? (f.index || '').trim() : ((f.working || '').trim() || (f.index === '?' ? '?' : '')) || (f.index || '').trim();
+  const flag = group === 'staged' ? (f.index || '').trim()
+    : ((f.working || '').trim() || (f.index === '?' ? '?' : '')) || (f.index || '').trim();
   const letter = flag || '?';
   const actions = group === 'staged'
     ? `<button class="git-act" data-action="unstage" data-file="${esc(f.path)}" title="Unstage"><i class="ph ph-minus"></i></button>`
@@ -131,11 +115,12 @@ function fileRow(f, group) {
     <span class="git-file-actions">${actions}</span>
   </li>`;
 }
-
 function renderChanges(st) {
   const wrap = $('git-changes');
   if (!wrap) return;
   const { staged, unstaged } = partition(st);
+  const count = $('git-tab-count');
+  if (count) { const n = st.files.length; count.textContent = String(n); count.hidden = !n; }
   if (!staged.length && !unstaged.length) {
     wrap.innerHTML = `<div class="git-clean"><i class="ph ph-check-circle"></i> Árvore limpa — nenhuma alteração.</div>`;
     return;
@@ -144,13 +129,11 @@ function renderChanges(st) {
     ${staged.length ? `<div class="git-section">
       <div class="git-section-head"><span>Staged · ${staged.length}</span>
         <button class="git-mini" data-action="unstage-all">Unstage all</button></div>
-      <ul class="git-file-list">${staged.map((f) => fileRow(f, 'staged')).join('')}</ul>
-    </div>` : ''}
+      <ul class="git-file-list">${staged.map((f) => fileRow(f, 'staged')).join('')}</ul></div>` : ''}
     ${unstaged.length ? `<div class="git-section">
       <div class="git-section-head"><span>Changes · ${unstaged.length}</span>
         <button class="git-mini" data-action="stage-all">Stage all</button></div>
-      <ul class="git-file-list">${unstaged.map((f) => fileRow(f, 'unstaged')).join('')}</ul>
-    </div>` : ''}`;
+      <ul class="git-file-list">${unstaged.map((f) => fileRow(f, 'unstaged')).join('')}</ul></div>` : ''}`;
 }
 
 function renderRepoHeader(st, info) {
@@ -158,8 +141,6 @@ function renderRepoHeader(st, info) {
   if (!repo) return;
   const ahead = st.ahead ? `<span class="git-sync git-ahead" title="à frente do remoto">↑ ${st.ahead}</span>` : '';
   const behind = st.behind ? `<span class="git-sync git-behind" title="atrás do remoto">↓ ${st.behind}</span>` : '';
-  // Remote actions only make sense once there's an origin (otherwise the Publish
-  // section below handles it).
   const remoteBtns = info.hasOrigin ? `
       <button class="git-mini" data-action="fetch" title="Fetch"><i class="ph ph-cloud-arrow-down"></i> Fetch</button>
       <button class="git-mini" data-action="pull" title="Pull"><i class="ph ph-arrow-down"></i> Pull</button>
@@ -225,22 +206,6 @@ function renderPublish(info) {
     <div class="git-hint">Para criar repositórios, o token precisa ser <b>clássico</b> com escopo <code>repo</code> — github.com/settings/tokens/new</div>`;
 }
 
-async function loadHistory() {
-  const list = $('git-history-list');
-  if (!list) return;
-  if (!historyShown) { list.hidden = true; return; }
-  const r = await api().log({ maxCount: 30 });
-  if (!r.ok) { list.innerHTML = `<li class="git-commit-empty">${esc(r.error)}</li>`; list.hidden = false; return; }
-  if (!r.commits.length) { list.innerHTML = `<li class="git-commit-empty">Nenhum commit ainda.</li>`; list.hidden = false; return; }
-  list.innerHTML = r.commits.map((c) => `
-    <li class="git-commit">
-      <span class="git-commit-hash">${esc(String(c.hash).slice(0, 7))}</span>
-      <span class="git-commit-msg" title="${esc(c.message)}">${esc(c.message)}</span>
-      <span class="git-commit-meta">${esc(c.author)} · ${esc(relDate(c.date))}</span>
-    </li>`).join('');
-  list.hidden = false;
-}
-
 async function renderAccount() {
   const el = $('git-account');
   if (!el) return;
@@ -253,28 +218,40 @@ async function renderAccount() {
       : `<i class="ph ph-github-logo git-avatar-icon"></i>`;
     el.innerHTML = `<span class="git-user">${avatar}<span class="git-user-name">@${esc(s.user.login)}</span>
         <span class="git-user-ok" title="conectado"><i class="ph ph-check-circle"></i></span></span>
-      <button class="git-mini" data-action="disconnect">Desconectar</button>`;
+      <span class="git-account-actions">
+        <button class="git-mini" data-action="clone-toggle"><i class="ph ph-download-simple"></i> Clonar</button>
+        <button class="git-mini" data-action="disconnect">Desconectar</button>
+      </span>`;
   } else {
     el.innerHTML = `
       <div class="git-connect">
-        <input type="password" id="git-pat" class="git-pat-input" placeholder="GitHub Personal Access Token (escopo repo)" autocomplete="off" spellcheck="false" />
+        <input type="password" id="git-pat" class="git-pat-input" placeholder="GitHub token clássico (escopo repo)" autocomplete="off" spellcheck="false" />
         <button class="git-mini git-mini-primary" data-action="connect"><i class="ph ph-github-logo"></i> Conectar</button>
       </div>`;
   }
 }
 
+// --- tabs ------------------------------------------------------------------
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('#git-tabs .git-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  const changes = $('git-pane-changes'); const history = $('git-pane-history');
+  if (changes) changes.hidden = tab !== 'changes';
+  if (history) history.hidden = tab !== 'history';
+  if (tab === 'history') loadHistory();
+}
+
 async function refresh() {
   await renderAccount();
-  const repo = $('git-repo');
-  const changes = $('git-changes');
-  const commitbox = $('git-commitbox');
+  const repo = $('git-repo'); const changes = $('git-changes'); const commitbox = $('git-commitbox');
+  const tabs = $('git-tabs');
   if ($('git-publish')) $('git-publish').hidden = true;
-  if ($('git-history')) $('git-history').hidden = true;
   let isRepo;
   try { isRepo = await api().isRepo(); } catch (e) { isRepo = { ok: false, error: e?.message }; }
   if (!isRepo || isRepo.ok === false) {
     if (repo) repo.innerHTML = '';
     if (commitbox) commitbox.hidden = true;
+    if (tabs) tabs.hidden = true;
     if (changes) changes.innerHTML = `<div class="git-empty"><i class="ph ph-folder-dashed"></i> Abra um projeto para usar o controle de versão.</div>`;
     hideDiff();
     return;
@@ -282,6 +259,7 @@ async function refresh() {
   if (!isRepo.isRepo) {
     if (repo) repo.innerHTML = '';
     if (commitbox) commitbox.hidden = true;
+    if (tabs) tabs.hidden = true;
     if (changes) changes.innerHTML = `<div class="git-empty">
       <i class="ph ph-git-merge"></i>
       <p>Este projeto ainda não é um repositório Git.</p>
@@ -293,46 +271,64 @@ async function refresh() {
   const st = await api().status();
   if (!st.ok) { if (changes) changes.innerHTML = `<div class="git-empty">${esc(st.error)}</div>`; return; }
   if (commitbox) commitbox.hidden = false;
-  if ($('git-history')) $('git-history').hidden = false;
+  if (tabs) tabs.hidden = false;
   let info = { hasOrigin: false, name: null, folder: null };
-  try { const r = await api().info(); if (r && r.ok) info = r; } catch (_) { /* keep defaults */ }
+  try { const r = await api().info(); if (r && r.ok) info = r; } catch (_) { /* keep */ }
   renderRepoHeader(st, info);
   renderPublish(info);
   renderChanges(st);
-  // Commit is only meaningful when there's something to commit.
   const commitBtn = $('git-commit-btn');
-  if (commitBtn) commitBtn.disabled = !st.files.length;
+  if (commitBtn) commitBtn.disabled = !st.files.length && !$('git-amend')?.checked;
   hideDiff();
-  loadHistory();
+  if (activeTab === 'history') loadHistory();
   updateBadge();
 }
 
 // --- diff (diff2html) ------------------------------------------------------
+function diffHtml(text) {
+  const start = text.indexOf('diff --git');
+  const body = start >= 0 ? text.slice(start) : text;
+  if (!body.trim()) return `<div class="git-diff-empty">Sem diferenças textuais.</div>`;
+  return renderDiff(body, { drawFileList: false, matching: 'words', outputFormat: 'line-by-line', colorScheme: 'dark' });
+}
 function hideDiff() { const d = $('git-diff'); if (d) d.hidden = true; }
 async function showDiff(file, staged) {
-  const d = $('git-diff');
-  const body = $('git-diff-body');
+  const d = $('git-diff'); const body = $('git-diff-body');
   if (!d || !body) return;
   const r = await api().diff({ file, staged });
-  if (!r.ok) { notify(`diff: ${r.error}`, 'error'); return; }
+  if (!r.ok) { flash(`diff: ${r.error}`, 'error'); return; }
   const text = (r.diff || '').trim();
-  if (!text) {
-    body.innerHTML = `<div class="git-diff-empty">Sem diferenças textuais (arquivo novo só aparece após o stage, ou é binário).</div>`;
-  } else {
-    body.innerHTML = renderDiff(text, {
-      drawFileList: false,
-      matching: 'words',
-      outputFormat: 'line-by-line',
-      colorScheme: 'dark',
-    });
-  }
+  body.innerHTML = text ? diffHtml(text)
+    : `<div class="git-diff-empty">Sem diferenças (arquivo novo aparece após o stage, ou é binário).</div>`;
   $('git-diff-title').textContent = `${file}${staged ? '  ·  staged' : ''}`;
   d.hidden = false;
 }
+async function showCommitDiff(hash, subject) {
+  const d = $('git-history-diff'); const body = $('git-history-diff-body');
+  if (!d || !body) return;
+  const r = await api().show({ hash });
+  if (!r.ok) { flash(`show: ${r.error}`, 'error'); return; }
+  body.innerHTML = diffHtml(r.diff || '');
+  $('git-history-diff-title').textContent = `${String(hash).slice(0, 7)} · ${subject || ''}`;
+  d.hidden = false;
+}
 
-// --- actions (event delegation) --------------------------------------------
+async function loadHistory() {
+  const list = $('git-history-list');
+  if (!list) return;
+  const r = await api().log({ maxCount: 50 });
+  if (!r.ok) { list.innerHTML = `<li class="git-commit-empty">${esc(r.error)}</li>`; return; }
+  if (!r.commits.length) { list.innerHTML = `<li class="git-commit-empty">Nenhum commit ainda.</li>`; return; }
+  list.innerHTML = r.commits.map((c) => `
+    <li class="git-commit" data-hash="${esc(c.hash)}" data-subject="${esc(c.message)}">
+      <span class="git-commit-hash">${esc(String(c.hash).slice(0, 7))}</span>
+      <span class="git-commit-msg" title="${esc(c.message)}">${esc(c.message)}</span>
+      <span class="git-commit-meta">${esc(c.author)} · ${esc(relDate(c.date))}</span>
+    </li>`).join('');
+}
+
+// --- actions ---------------------------------------------------------------
 async function onClick(e) {
-  // Close the branch menu on any click outside it.
   const bm = $('git-branch-menu');
   if (bm && !bm.hidden && !e.target.closest('.git-branch-wrap')) bm.hidden = true;
   const actEl = e.target.closest('[data-action]');
@@ -341,30 +337,28 @@ async function onClick(e) {
     const file = actEl.dataset.file;
     e.stopPropagation();
     switch (action) {
+      case 'tab':        return switchTab(actEl.dataset.tab);
       case 'refresh':    return refresh();
       case 'stage':      return run('Stage', async () => { await api().stage(file); refresh(); });
       case 'unstage':    return run('Unstage', async () => { await api().unstage(file); refresh(); });
       case 'stage-all':  return run('Stage all', async () => { await api().stageAll(); refresh(); });
       case 'unstage-all':return run('Unstage all', async () => { const st = await api().status(); await api().unstage(st.files.map((f) => f.path)); refresh(); });
       case 'discard':    return discard(file);
-      case 'init':       return run('Init', async () => { const r = await api().init(); if (!r.ok) throw new Error(r.error); notify('Repositório inicializado.', 'success'); refresh(); });
-      case 'fetch':      return run('Fetch', async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); notify('Fetch concluído.', 'success'); refresh(); });
-      case 'pull':       return run('Pull', async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); notify('Pull concluído.', 'success'); refresh(); });
-      case 'push':       return run('Push', async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); notify('Push concluído.', 'success'); refresh(); });
+      case 'undo':       return undoLast();
+      case 'init':       return run('Inicializar', async () => { const r = await api().init(); if (!r.ok) throw new Error(r.error); refresh(); return 'Repositório inicializado'; });
+      case 'fetch':      return run('Fetch', async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); refresh(); return 'Fetch concluído'; });
+      case 'pull':       return run('Pull', async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); refresh(); return 'Pull concluído'; });
+      case 'push':       return run('Push', async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); refresh(); return 'Push enviado'; });
       case 'publish':    return publish();
       case 'set-private': {
         publishPrivate = actEl.dataset.private === 'true';
         document.querySelectorAll('#git-publish .git-vis-opt').forEach((b) => b.classList.toggle('active', b.dataset.private === String(publishPrivate)));
         return undefined;
       }
-      case 'toggle-history': {
-        historyShown = !historyShown;
-        const t = $('git-history-toggle');
-        if (t) t.textContent = historyShown ? 'Ocultar' : 'Mostrar';
-        return loadHistory();
-      }
       case 'connect':    return connect();
       case 'disconnect': return run('Desconectar', async () => { await api().githubDisconnect(); refresh(); return 'Conta desconectada'; });
+      case 'clone-toggle': { const c = $('git-clone'); if (c) c.hidden = !c.hidden; return undefined; }
+      case 'clone':      return doClone();
       case 'branch-menu': return toggleBranchMenu();
       case 'checkout-branch': return run('Trocar branch', async () => { const r = await api().checkout({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Na branch ${actEl.dataset.branch}`; });
       case 'merge-branch': return run('Merge', async () => { const r = await api().merge({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge de ${actEl.dataset.branch}`; });
@@ -380,31 +374,68 @@ async function onClick(e) {
   if (row) {
     document.querySelectorAll('.git-file.selected').forEach((n) => n.classList.remove('selected'));
     row.classList.add('selected');
-    showDiff(row.dataset.file, row.dataset.staged === 'true');
+    return showDiff(row.dataset.file, row.dataset.staged === 'true');
   }
+  const commit = e.target.closest('.git-commit');
+  if (commit && commit.dataset.hash) {
+    document.querySelectorAll('.git-commit.selected').forEach((n) => n.classList.remove('selected'));
+    commit.classList.add('selected');
+    return showCommitDiff(commit.dataset.hash, commit.dataset.subject);
+  }
+  return undefined;
 }
 
 async function discard(file) {
-  // OUR dialog, never the native confirm() (which freezes the whole window).
   const action = await window.AuroraUI?.dialog?.({
     title: 'Descartar alterações',
     message: `Descartar as alterações de <strong>${esc(file)}</strong>? Isto não pode ser desfeito.`,
     variant: 'warning',
-    buttons: [
-      { label: 'Cancelar', action: 'cancel', type: 'cancel' },
-      { label: 'Descartar', action: 'confirm', type: 'danger' },
-    ],
+    buttons: [{ label: 'Cancelar', action: 'cancel', type: 'cancel' }, { label: 'Descartar', action: 'confirm', type: 'danger' }],
   });
   if (action !== 'confirm') return;
   await run('Descartar', async () => { const r = await api().discard(file); if (!r.ok) throw new Error(r.error); refresh(); });
 }
 
+async function undoLast() {
+  const action = await window.AuroraUI?.dialog?.({
+    title: 'Desfazer último commit',
+    message: 'Desfazer o último commit? As alterações voltam para a área de stage (soft reset).',
+    variant: 'warning',
+    buttons: [{ label: 'Cancelar', action: 'cancel', type: 'cancel' }, { label: 'Desfazer', action: 'confirm', type: 'danger' }],
+  });
+  if (action !== 'confirm') return;
+  await run('Desfazer commit', async () => { const r = await api().undoLastCommit(); if (!r.ok) throw new Error(r.error); refresh(); return 'Último commit desfeito'; });
+}
+
+async function doClone() {
+  const url = $('git-clone-url')?.value?.trim();
+  if (!url) { flash('Cole a URL do repositório.', 'error'); return; }
+  await run('Clonar', async () => {
+    const r = await api().clone({ url });
+    if (!r.ok) throw new Error(r.error);
+    if (r.canceled) return 'Clone cancelado';
+    const c = $('git-clone'); if (c) c.hidden = true;
+    return `Clonado em ${r.dest}`;
+  });
+}
+
+async function connect() {
+  const token = $('git-pat')?.value?.trim();
+  if (!token) { flash('Cole um token primeiro.', 'error'); return; }
+  await run('Conectar', async () => {
+    const r = await api().githubConnect(token);
+    if (!r.ok) throw new Error(r.error);
+    refresh();
+    return `Conectado como @${r.user.login}`;
+  });
+}
+
 async function publish() {
   const name = $('git-repo-name')?.value?.trim();
   const priv = publishPrivate;
-  if (!name) { notify('Dê um nome ao repositório.', 'warning'); return; }
+  if (!name) { flash('Dê um nome ao repositório.', 'error'); return; }
   const gh = await api().githubStatus();
-  if (!gh || !gh.connected) { notify('Conecte sua conta GitHub primeiro.', 'warning'); return; }
+  if (!gh || !gh.connected) { flash('Conecte sua conta GitHub primeiro.', 'error'); return; }
   await run('Publicar', async () => {
     const isRepo = await api().isRepo();
     if (isRepo.ok && !isRepo.isRepo) { const ir = await api().init(); if (!ir.ok) throw new Error(ir.error); }
@@ -413,42 +444,35 @@ async function publish() {
     const add = await api().addRemote({ name: 'origin', url: r.cloneUrl });
     if (!add.ok) throw new Error(add.error);
     const push = await api().push({ setUpstream: true });
-    if (!push.ok) { notify(`Repo ${r.fullName} criado, mas o push falhou (${push.error}). Faça um commit e use Push.`, 'warning'); refresh(); return; }
-    notify(`Publicado em ${r.fullName}.`, 'success');
     refresh();
-  });
-}
-
-async function connect() {
-  const token = $('git-pat')?.value?.trim();
-  if (!token) { notify('Cole um token primeiro.', 'warning'); return; }
-  await run('Conectar', async () => {
-    const r = await api().githubConnect(token);
-    if (!r.ok) throw new Error(r.error);
-    notify(`Conectado como @${r.user.login}.`, 'success');
-    refresh();
+    if (!push.ok) return `Repo ${r.fullName} criado — faça um commit e Push.`;
+    return `Publicado em ${r.fullName}`;
   });
 }
 
 async function doCommit() {
-  const ta = $('git-commit-msg');
-  const message = (ta?.value || '').trim();
-  if (!message) { notify('Escreva uma mensagem de commit.', 'warning'); return; }
+  const title = ($('git-commit-title')?.value || '').trim();
+  const desc = ($('git-commit-desc')?.value || '').trim();
+  const amend = !!$('git-amend')?.checked;
+  if (!title) { flash('Escreva um resumo para o commit.', 'error'); return; }
+  const message = desc ? `${title}\n\n${desc}` : title;
   await run('Commit', async () => {
     const st = await api().status();
     const { staged } = st.ok ? partition(st) : { staged: [] };
-    if (!staged.length) { await api().stageAll(); } // nothing staged → stage all (VS Code-style)
-    const r = await api().commit({ message });
+    if (!amend && st.ok && !st.files.length) throw new Error('Nada para commitar.');
+    if (!amend && !staged.length && st.files.length) { await api().stageAll(); }
+    const r = await api().commit({ message, amend });
     if (!r.ok) throw new Error(r.error);
-    if (ta) ta.value = '';
-    notify(`Commit ${r.commit ? String(r.commit).slice(0, 7) : ''} criado.`, 'success');
+    if ($('git-commit-title')) $('git-commit-title').value = '';
+    if ($('git-commit-desc')) $('git-commit-desc').value = '';
+    if ($('git-amend')) $('git-amend').checked = false;
     refresh();
+    return amend ? 'Commit corrigido (amend)' : `Commit ${r.commit ? String(r.commit).slice(0, 7) : ''} criado`;
   });
 }
 
 // --- init ------------------------------------------------------------------
 function debounce(fn, ms) { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; }
-
 function init() {
   $('gitButton')?.addEventListener('click', open);
   modal = $('gitModal');
@@ -458,10 +482,9 @@ function init() {
   }
   $('git-commit-btn')?.addEventListener('click', doCommit);
   $('git-diff-close')?.addEventListener('click', hideDiff);
+  $('git-history-diff-close')?.addEventListener('click', () => { const d = $('git-history-diff'); if (d) d.hidden = true; });
   window.openGitPanel = open;
 
-  // Keep the toolbar badge fresh: after boot, on file saves / project changes,
-  // and a slow fallback poll. (git status is cheap.)
   const refreshBadge = debounce(updateBadge, 700);
   setTimeout(updateBadge, 1500);
   window.addEventListener('aurora:file-saved', refreshBadge);
@@ -472,8 +495,6 @@ function init() {
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+} else { init(); }
 
 export { open, close };

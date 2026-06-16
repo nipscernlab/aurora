@@ -283,3 +283,48 @@
 .git-bm-merge:hover { background: var(--overlay-hover); color: var(--text); }
 .git-bm-new { display: flex; gap: var(--space-2); padding-top: var(--space-1); border-top: 1px solid var(--border); margin-top: var(--space-1); }
 .git-bm-new .git-pat-input { flex: 1 1 auto; height: 28px; }
+
+/* ---- tabs (Changes / History) ---- */
+.git-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); }
+.git-tabs[hidden] { display: none !important; }
+.git-tab {
+  display: inline-flex; align-items: center; gap: var(--space-1);
+  padding: var(--space-2) var(--space-3); background: transparent; border: none;
+  border-bottom: 2px solid transparent; color: var(--text-muted);
+  font-size: var(--text-sm); cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.git-tab:hover { color: var(--text); }
+.git-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.git-tab-count { font-size: var(--text-xs); background: var(--bg-elev-2, var(--bg-elev)); color: var(--text-muted); border-radius: 999px; padding: 0 6px; min-width: 16px; text-align: center; }
+.git-tabpane { display: flex; flex-direction: column; gap: var(--space-3); }
+.git-tabpane[hidden] { display: none !important; }
+
+/* ---- rich commit (title + description + amend/undo) ---- */
+.git-commit-title {
+  width: 100%; height: var(--h-button, 34px); padding: 0 var(--space-3);
+  background: var(--bg-sunken, var(--bg)); border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text); font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--font-medium);
+}
+.git-commit-title:focus { outline: none; border-color: var(--accent); }
+.git-commit-actions { display: flex; align-items: center; gap: var(--space-2); }
+.git-commit-actions .git-commit-btn { margin-left: auto; }
+.git-amend { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; }
+
+/* ---- clone + account actions ---- */
+.git-clone { display: flex; gap: var(--space-2); }
+.git-clone[hidden] { display: none !important; }
+.git-account-actions { display: flex; gap: var(--space-2); }
+
+/* ---- badge redo: high contrast + informative ---- */
+.git-badge {
+  position: absolute; top: -3px; right: -3px;
+  min-width: 16px; height: 16px; padding: 0 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: var(--font-bold); line-height: 1;
+  border-radius: 999px; border: 2px solid var(--bg-titlebar, #0a0d14);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }
+.git-badge[data-kind="ahead"]   { background: #5fe0b0; color: #062018; }

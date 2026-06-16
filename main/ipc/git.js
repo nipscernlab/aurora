@@ -113,6 +113,13 @@ function register() {
     return { diff };
   }));
 
+  // Full diff of a single commit (for the History tab).
+  ipcMain.handle('git:show', safe(async (/** @type {{hash:string}} */ opts) => {
+    if (!opts || !opts.hash) throw new Error('hash required');
+    const diff = await gitForProject().show([opts.hash, '--no-color']);
+    return { diff };
+  }));
+
   ipcMain.handle('git:log', safe(async (/** @type {{maxCount?:number}} */ opts = {}) => {
     const git = gitForProject();
     const logResult = await git.log({ maxCount: (opts && opts.maxCount) || 50 });
@@ -196,12 +203,45 @@ function register() {
     return {};
   }));
 
-  ipcMain.handle('git:commit', safe(async (/** @type {{message:string}} */ opts) => {
+  ipcMain.handle('git:commit', safe(async (/** @type {{message:string, amend?:boolean}} */ opts) => {
     const message = opts && opts.message;
     if (!message || !message.trim()) throw new Error('Commit message is empty.');
     const git = gitForProject();
+    if (opts && opts.amend) {
+      await git.raw(['commit', '--amend', '-m', message]);
+      return { commit: 'amended' };
+    }
     const res = await git.commit(message);
     return { commit: res.commit, summary: res.summary };
+  }));
+
+  // Undo the last commit, keeping its changes staged (soft reset).
+  ipcMain.handle('git:undo-last-commit', safe(async () => {
+    await gitForProject().raw(['reset', '--soft', 'HEAD~1']);
+    return {};
+  }));
+
+  // Clone a repo into a folder the user picks. Uses the stored token if present.
+  ipcMain.handle('git:clone', safe(async (/** @type {{url:string}} */ opts) => {
+    if (!opts || !opts.url) throw new Error('url required');
+    const { dialog } = require('electron');
+    const picked = await dialog.showOpenDialog({
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Escolha a pasta de destino para o clone',
+    });
+    if (picked.canceled || !picked.filePaths[0]) return { canceled: true };
+    const name = (opts.url.match(/([^/]+?)(?:\.git)?$/) || [])[1] || 'repo';
+    const dest = path.join(picked.filePaths[0], name);
+    const config = [];
+    try {
+      const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
+      if (token) {
+        const basic = Buffer.from(`x-access-token:${token}`).toString('base64');
+        config.push(`http.extraHeader=Authorization: Basic ${basic}`);
+      }
+    } catch (_) { /* fall back to credential helper */ }
+    await simpleGit({ config }).clone(opts.url, dest);
+    return { dest };
   }));
 
   ipcMain.handle('git:checkout', safe(async (/** @type {{branch:string, create?:boolean}} */ opts) => {

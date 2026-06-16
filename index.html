@@ -730,31 +730,44 @@
     </span>
     <main class="modal-body git-panel">
         <div class="git-account" id="git-account"></div>
+        <div class="git-clone" id="git-clone" hidden>
+            <input type="text" id="git-clone-url" class="git-pat-input" placeholder="https://github.com/owner/repo.git" spellcheck="false" />
+            <button class="git-mini git-mini-primary" data-action="clone"><i class="ph ph-download-simple"></i> Clonar</button>
+        </div>
         <div class="git-repo" id="git-repo"></div>
         <div class="git-publish" id="git-publish" hidden></div>
-        <div class="git-commitbox" id="git-commitbox">
-            <textarea id="git-commit-msg" class="git-commit-input" rows="2"
-                placeholder="Mensagem do commit (vazio faz stage de tudo)"
-                data-i18n-placeholder="modal.git.commitPlaceholder"></textarea>
-            <button id="git-commit-btn" class="btn btn-primary git-commit-btn">
-                <i class="ph ph-check" aria-hidden="true"></i>
-                <span data-i18n="modal.git.commit">Commit</span>
-            </button>
+        <div class="git-tabs" id="git-tabs">
+            <button class="git-tab active" data-action="tab" data-tab="changes"><i class="ph ph-list-checks"></i> <span>Changes</span> <span class="git-tab-count" id="git-tab-count" hidden></span></button>
+            <button class="git-tab" data-action="tab" data-tab="history"><i class="ph ph-clock-counter-clockwise"></i> <span>History</span></button>
         </div>
-        <div class="git-changes" id="git-changes"></div>
-        <div class="git-diff" id="git-diff" hidden>
-            <div class="git-diff-head">
-                <span id="git-diff-title"></span>
-                <button class="git-mini" id="git-diff-close"><i class="ph ph-x"></i> Fechar</button>
+        <div class="git-tabpane" id="git-pane-changes">
+            <div class="git-commitbox" id="git-commitbox">
+                <input type="text" id="git-commit-title" class="git-commit-title" placeholder="Resumo do commit" />
+                <textarea id="git-commit-desc" class="git-commit-input" rows="2" placeholder="Descrição (opcional)"></textarea>
+                <div class="git-commit-actions">
+                    <label class="git-amend"><input type="checkbox" id="git-amend"> Amend</label>
+                    <button class="git-mini" data-action="undo"><i class="ph ph-arrow-counter-clockwise"></i> Desfazer último</button>
+                    <button id="git-commit-btn" class="btn btn-primary git-commit-btn"><i class="ph ph-check"></i> Commit</button>
+                </div>
             </div>
-            <div class="git-diff-body" id="git-diff-body"></div>
+            <div class="git-changes" id="git-changes"></div>
+            <div class="git-diff" id="git-diff" hidden>
+                <div class="git-diff-head">
+                    <span id="git-diff-title"></span>
+                    <button class="git-mini" id="git-diff-close"><i class="ph ph-x"></i> Fechar</button>
+                </div>
+                <div class="git-diff-body" id="git-diff-body"></div>
+            </div>
         </div>
-        <div class="git-history" id="git-history">
-            <div class="git-section-head">
-                <span><i class="ph ph-clock-counter-clockwise"></i> Histórico</span>
-                <button class="git-mini" data-action="toggle-history" id="git-history-toggle">Mostrar</button>
+        <div class="git-tabpane" id="git-pane-history" hidden>
+            <ul class="git-history-list" id="git-history-list"></ul>
+            <div class="git-diff" id="git-history-diff" hidden>
+                <div class="git-diff-head">
+                    <span id="git-history-diff-title"></span>
+                    <button class="git-mini" id="git-history-diff-close"><i class="ph ph-x"></i> Fechar</button>
+                </div>
+                <div class="git-diff-body" id="git-history-diff-body"></div>
             </div>
-            <ul class="git-history-list" id="git-history-list" hidden></ul>
         </div>
     </main>
     <footer slot="footer" class="git-footer">

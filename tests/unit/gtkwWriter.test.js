@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractSignalRefs } from '../../js/wave/gtkw_writer.js';
+import { extractSignalRefs } from '../../js/wave/gtkw_writer.ts';
 
 describe('extractSignalRefs', () => {
     it('pulls dotted paths and strips trailing ranges', () => {

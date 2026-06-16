@@ -3,8 +3,8 @@ import {
     detectProcessors,
     buildAuroraGtkw,
     buildSignedSet,
-} from '../../js/wave/gtkw_proc_writer.js';
-import { parseVerilogModules } from '../../js/wave/signal_parser.js';
+} from '../../js/wave/gtkw_proc_writer.ts';
+import { parseVerilogModules } from '../../js/wave/signal_parser.ts';
 
 /**
  * Scope shape esperado pelos helpers — espelha o que o vcd_parser

@@ -3,7 +3,7 @@ import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
   parseCocotbToplevelDirective, insertChegueiToaqui,
   isVerilogLikeFile, assertPythonModuleName, safeNamePart,
-} from '../../js/compilation/compilation_helpers.js';
+} from '../../js/compilation/compilation_helpers.ts';
 
 describe('basenameOfPath / moduleStemFromPath', () => {
   it('handles both slash styles', () => {

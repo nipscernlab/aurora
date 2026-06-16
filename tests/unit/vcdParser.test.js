@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     parseVcdScopes,
     parseVcdHeaderFromContent,
-} from '../../js/wave/vcd_parser.js';
+} from '../../js/wave/vcd_parser.ts';
 
 describe('parseVcdScopes', () => {
     it('returns flat scope list with paths from root', () => {

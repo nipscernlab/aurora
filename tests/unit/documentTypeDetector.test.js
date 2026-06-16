@@ -4,7 +4,7 @@ import {
     getExtensionForDocumentType,
     getLanguageForDocumentType,
     getSaveDialogFilters,
-} from '../../js/editor/document_type_detector.js';
+} from '../../js/editor/document_type_detector.ts';
 
 describe('document type detector', () => {
     it('detects cocotb Python files from the first import', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSurferState, buildSurferLayout, convertTradToSurferMapping } from '../../js/wave/surfer_layout_writer.js';
+import { buildSurferState, buildSurferLayout, convertTradToSurferMapping } from '../../js/wave/surfer_layout_writer.ts';
 
 /** Scope shape igual ao que o vcd_parser entrega (espelha o teste do gtkw). */
 function scope(path, signals) {

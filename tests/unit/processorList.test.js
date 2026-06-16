@@ -5,7 +5,7 @@
  * mascare um bug de side-effect.
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { setAvailableProcessors, addAvailableProcessor } from '../../js/project/processor_list.js';
+import { setAvailableProcessors, addAvailableProcessor } from '../../js/project/processor_list.ts';
 
 beforeEach(() => {
     globalThis.window = {};

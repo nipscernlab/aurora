@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     instrumentTestbenchSource,
-} from '../../js/wave/testbench_instrumenter.js';
+} from '../../js/wave/testbench_instrumenter.ts';
 
 const TB_WITH_DUMP = `
 module tb_counter;

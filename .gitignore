@@ -57,6 +57,38 @@ components/Macros/
 coverage/
 .nyc_output/
 
+# --- TypeScript compiler output (.ts → .js in-place via tsc; run `npm run build:ts`) ---
+# These are build artefacts — never edit the .js, edit the .ts source.
+js/utils/path_utils.js
+js/compilation/compilation_helpers.js
+js/compilation/command_spec.js
+js/compilation/command_overrides.js
+js/compilation/spec_factory.js
+js/compilation/spec_runner.js
+js/compilation/verilator_tb.js
+js/compilation/builders/asm.js
+js/compilation/builders/cmm.js
+js/compilation/builders/cocotb.js
+js/compilation/builders/index.js
+js/compilation/builders/iverilog.js
+js/compilation/builders/verilator.js
+js/compilation/builders/vvp.js
+js/compilation/builders/wave_tools.js
+js/compilation/builders/yosys.js
+js/editor/document_type_detector.js
+js/project/processor_list.js
+js/project/spf_store.js
+js/project/verilog_classifier.js
+js/wave/complex_decode.js
+js/wave/gtkw_proc_writer.js
+js/wave/gtkw_writer.js
+js/wave/selection_validator.js
+js/wave/signal_parser.js
+js/wave/surfer_layout_writer.js
+js/wave/testbench_instrumenter.js
+js/wave/vcd_parser.js
+js/wave/wave_state_store.js
+
 # --- Local env / secrets ---
 .env
 .env.*

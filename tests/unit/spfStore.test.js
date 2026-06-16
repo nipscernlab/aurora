@@ -5,7 +5,7 @@
  * disparada por update().
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SpfStore } from '../../js/project/spf_store.js';
+import { SpfStore } from '../../js/project/spf_store.ts';
 
 function makeFakeElectronApi() {
     const files = new Map();

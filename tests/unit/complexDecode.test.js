@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
     isComplexName, hasComplexSignals, ComplexVcdScanner, buildComplexMapping,
-} from '../../js/wave/complex_decode.js';
-import { buildSurferLayout } from '../../js/wave/surfer_layout_writer.js';
+} from '../../js/wave/complex_decode.ts';
+import { buildSurferLayout } from '../../js/wave/surfer_layout_writer.ts';
 
 // Valores reais validados contra o comp2gtkw.exe (nbm=4, nbe=3 → 32 bits):
 //   A = 12.000 -1.000i   B = 1.000 0.000i

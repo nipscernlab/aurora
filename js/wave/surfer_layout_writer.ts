@@ -268,7 +268,9 @@ export function buildSurferState(input: BuildSurferStateInput): string {
     clock_highlight_type: None,
     hierarchy_style: None,
     autoload_sibling_state_files: None,
-    autoreload_files: Some(Always),
+    // NB: o auto-reload e ligado pelo config.toml (SurferConfig.autoreload_files),
+    // NAO por este campo do state — aqui ele e inerte. Ver writeSurferCenteredWindowConfig.
+    autoreload_files: None,
     waves: Some((
         source: File(${ronStr(input.vcdPath)}),
         format: ${fmt},

@@ -3842,7 +3842,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  *               _waveLaunchGtkwave as a fallback.
  */
 async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launching'), 'info');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferLaunching'), 'info');
     // Load the active layout after the positional VCD: .surf.ron (saved
     // state) via -s, .sucl (command file) via -c. The CLI VCD takes
     // precedence over any path embedded in a state file, so a registered
@@ -3868,7 +3868,7 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
         return;
     }
     this.surferProcess = result.surferPid;
-    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.launched'), 'success');
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferLaunched'), 'success');
 }
 
 /**

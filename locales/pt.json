@@ -456,6 +456,8 @@
             "gtkwPreValidateFailed": "Não foi possível pré-validar {{file}} contra o VCD ({{message}}); abrindo GTKWave mesmo assim.",
             "launching":             "Abrindo GTKWave...",
             "launched":              "GTKWave aberto com sucesso",
+            "surferLaunching":       "Abrindo Surfer...",
+            "surferLaunched":        "Surfer aberto com sucesso",
             "hierarchyGen":          "Gerando hierarquia com Yosys...",
             "yosysRun":              "Executando comando Yosys: {{cmd}}",
             "hierarchyForTop":       "Hierarquia gerada com sucesso para o módulo top-level: {{name}}"

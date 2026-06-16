@@ -24,6 +24,14 @@ const {
 } = require('../utils');
 const { trackChild } = require('../process_registry');
 
+// A ultima instancia do Surfer que a AURORA abriu. Fechamos ela antes de abrir
+// uma nova para que re-simular reaproveite UMA janela centralizada em vez de
+// empilhar janelas (o auto-reload por file-watch do Surfer nao dispara no
+// Windows v0.7.0). Guardamos o ChildProcess (nao so o PID) para evitar matar
+// outro processo que tenha reusado o PID, e nunca tocamos em janelas que o
+// usuario abriu manualmente.
+let lastSurferChild = null;
+
 // Surfer has no "maximize" CLI flag and its state file carries no window
 // geometry, so to avoid a tiny top-left window we write a CENTERED, screen-
 // adaptive geometry into Surfer's (global) config — the only place it reads
@@ -48,6 +56,10 @@ function writeSurferCenteredWindowConfig() {
     fs.writeFileSync(file,
       `${MARKER} — Surfer opens centered on your screen; maximize it yourself.\n` +
       '# Delete this file (or remove the line above) to manage the window yourself.\n' +
+      // NB: o auto-reload (SurferConfig.autoreload_files) NAO dispara no Windows
+      // v0.7.0 — o watcher de arquivo nao pega a reescrita do FST. Por isso a
+      // AURORA fecha a janela anterior e reabre (ver launch-surfer), em vez de
+      // depender do reload automatico.
       '[layout]\n' +
       `window_width = ${w}\n` +
       `window_height = ${h}\n` +
@@ -177,6 +189,15 @@ function register() {
   ipcMain.handle('launch-surfer', async (_event, options) => {
     const { surferBin, args, workingDir } = options;
 
+    // Reaproveita UMA janela: fecha o Surfer que a AURORA abriu antes (se ainda
+    // vivo) para nao empilhar janelas a cada simulacao. So mata o NOSSO processo
+    // rastreado (mesmo objeto ChildProcess, sem risco de PID reuse); janelas que
+    // o usuario abriu por fora ficam intocadas. taskkill /F /T via killProcessSilently.
+    if (lastSurferChild && lastSurferChild.exitCode === null && !lastSurferChild.killed && lastSurferChild.pid) {
+      try { await killProcessSilently(lastSurferChild.pid); } catch { /* best-effort */ }
+      lastSurferChild = null;
+    }
+
     return new Promise((resolve) => {
       try {
         if (!surferBin || !Array.isArray(args)) {
@@ -199,6 +220,7 @@ function register() {
           shell: false,
         });
         trackChild(surferProcess);
+        lastSurferChild = surferProcess; // p/ fechar antes do proximo launch (1 janela)
 
         // The GUI-subsystem race (pid set synchronously, ENOENT-style errors
         // arriving async) is the same as gtkwave; the existsSync guard above

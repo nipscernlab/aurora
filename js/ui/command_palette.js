@@ -61,9 +61,12 @@ const COMMANDS = [
   { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
   { id: 'tools.settings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
   { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => window.electronAPI?.openDesignLab?.() },
+
+  // Dev
+  { id: 'dev.jankOverlay', group: 'Dev',   icon: 'ph ph-chart-line',    title: 'Toggle Jank Overlay',           keywords: 'performance fps jank perf debug dev p99 rAF TTI', run: () => import('../dev/jank_overlay.js').then(m => m.toggleJankOverlay()) },
 ];
 
-const GROUP_ORDER = ['Compile', 'Project', 'View', 'Tools'];
+const GROUP_ORDER = ['Compile', 'Project', 'View', 'Tools', 'Dev'];
 
 /** Subsequence score: every query term must appear in the haystack. Higher is
  *  better; title hits beat keyword hits, prefix beats mid-string. -1 = no match. */

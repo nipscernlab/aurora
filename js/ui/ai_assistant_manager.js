@@ -2903,6 +2903,16 @@ class AIAssistantManager {
         ? { role: m.role, content: m.content, attachments: m.attachments }
         : { role: m.role, content: m.content }));
 
+    // Memory hygiene: base64 dataUrls have been captured in apiMessages for this
+    // turn — strip them from the stored history so they are NOT resent on every
+    // subsequent turn (images up to 8 MB would accumulate and be re-uploaded N
+    // times). Keep name/mime/size/kind for display; drop the payload.
+    for (const m of this.messages) {
+      if (m.attachments) {
+        for (const a of m.attachments) delete a.dataUrl;
+      }
+    }
+
     const isSub = isSubProvider(this.currentProvider);
     const subEntry = this.providersAvailable.find((p) => p.name === this.currentProvider);
 

@@ -2,7 +2,8 @@
  * =====================================================================================
  *  notification.css — AURORA dialog system
  *
- *  Toast cards: <aurora-toast> Lit component (Shadow DOM). No CSS needed here.
+ *  Toast cards: <aurora-toast> Lit component (Shadow DOM) — the CARD is
+ *    self-styled; the STACK CONTAINER it lives in is positioned below.
  *    JS API: AuroraUI.notify(msg, type, duration)  or  showCardNotification.
  *
  *  Modal dialog (.confirm-modal)  ← centred, requires user choice.
@@ -12,6 +13,28 @@
  *  Anything else — inline-notification, ad-hoc alert(), confirm() — is forbidden.
  * =====================================================================================
  */
+
+/* ===========================================================================
+ *  TOAST STACK — positions the <aurora-toast> cards (created in
+ *  js/ui/notification.js as #notification-stack-container). Bottom-right,
+ *  clear of the status bar; cards are width:100% of this column and slide in
+ *  from the right. Without this the container falls into normal flow and the
+ *  toasts render full-width at the bottom of the page.
+ * ========================================================================= */
+#notification-stack-container {
+  position: fixed;
+  right: var(--space-4, 16px);
+  bottom: calc(var(--h-statusbar, 24px) + var(--space-3, 12px));
+  z-index: var(--z-notification);
+  display: flex;
+  flex-direction: column-reverse;
+  gap: var(--space-2, 8px);
+  width: min(400px, calc(100vw - 2 * var(--space-4, 16px)));
+  pointer-events: none;            /* gaps pass clicks through... */
+}
+#notification-stack-container > aurora-toast {
+  pointer-events: auto;            /* ...cards stay interactive */
+}
 
 /* ===========================================================================
  *  CONFIRM DIALOG — centred modal (used by AuroraUI.dialog / showDialog)

@@ -51,20 +51,25 @@ function safe(fn) {
   };
 }
 
-/** Per-remote-op auth: inject the stored GitHub token as a one-shot header. */
-async function withAuth(git) {
+/**
+ * A simple-git instance for REMOTE ops. The stored GitHub token is injected as a
+ * ONE-SHOT `-c http.extraHeader` (never written to the repo config). We do NOT
+ * pass a custom env — passing process.env (which usually has EDITOR set) trips
+ * simple-git's editor-safety guard ("Use of EDITOR is not permitted"), which is
+ * exactly what broke fetch/pull/push. git inherits the real env on its own.
+ */
+function remoteGit() {
+  const dir = projectDir();
+  if (!dir) throw new Error('No project is open.');
+  const config = [];
   try {
-    const token = githubAuth && typeof githubAuth.getToken === 'function'
-      ? await githubAuth.getToken()
-      : null;
+    const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
     if (token) {
-      // Basic auth header git understands for HTTPS GitHub remotes. Scoped to
-      // this command only (-c), never written to the repo config.
       const basic = Buffer.from(`x-access-token:${token}`).toString('base64');
-      return git.env({ ...process.env }).addConfig('http.extraHeader', `Authorization: Basic ${basic}`, false, 'worktree').catch(() => git);
+      config.push(`http.extraHeader=Authorization: Basic ${basic}`);
     }
-  } catch (_) { /* fall through to default credentials */ }
-  return git;
+  } catch (_) { /* fall back to the system credential helper */ }
+  return simpleGit({ baseDir: dir, trimmed: true, config });
 }
 
 function register() {
@@ -182,21 +187,22 @@ function register() {
 
   // --- remote (needs credentials/token) -----------------------------------
   ipcMain.handle('git:fetch', safe(async () => {
-    const git = await withAuth(gitForProject());
-    await git.fetch();
+    await remoteGit().fetch();
     return {};
   }));
 
   ipcMain.handle('git:pull', safe(async () => {
-    const git = await withAuth(gitForProject());
-    const res = await git.pull();
-    return { summary: res.summary, files: res.files };
+    // --no-edit so a merge commit never opens $EDITOR (which would hang the op).
+    const out = await remoteGit().raw(['pull', '--no-edit']);
+    return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
 
   ipcMain.handle('git:push', safe(async (/** @type {{setUpstream?:boolean}} */ opts = {}) => {
-    const git = await withAuth(gitForProject());
+    const git = remoteGit();
     const status = await git.status();
-    if (opts && opts.setUpstream && status.current) {
+    // Only set upstream when there isn't one yet (a fresh branch); otherwise a
+    // plain push.
+    if (opts && opts.setUpstream && status.current && !status.tracking) {
       await git.push(['-u', 'origin', status.current]);
     } else {
       await git.push();

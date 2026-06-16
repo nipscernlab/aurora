@@ -72,6 +72,29 @@ function apiGet(/** @type {string} */ apiPath, /** @type {string} */ token) {
   });
 }
 
+/** Fetch an image URL and return it as a `data:` URL (so it passes the renderer
+ *  CSP `img-src 'self' data:` without loosening the policy for github.com). */
+function fetchDataUrl(url, depth = 0) {
+  return new Promise((resolve) => {
+    if (depth > 3) return resolve(null);
+    try {
+      https.get(url, { headers: { 'User-Agent': 'aurora-ide' } }, (res) => {
+        const sc = res.statusCode || 0;
+        if (sc >= 300 && sc < 400 && res.headers.location) {
+          res.resume();
+          return resolve(fetchDataUrl(res.headers.location, depth + 1));
+        }
+        if (sc !== 200) { res.resume(); return resolve(null); }
+        const type = res.headers['content-type'] || 'image/png';
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve(`data:${type};base64,${Buffer.concat(chunks).toString('base64')}`));
+        res.on('error', () => resolve(null));
+      }).on('error', () => resolve(null));
+    } catch (_) { resolve(null); }
+  });
+}
+
 /** Main-side only: the stored token, decrypted, or null. */
 function getToken() {
   const { token } = readVault();
@@ -93,7 +116,10 @@ async function connect(token) {
     throw new Error('OS keychain encryption is not available on this system.');
   }
   const me = await apiGet('/user', token.trim());
-  const user = { login: me.login, name: me.name || me.login, avatarUrl: me.avatar_url };
+  // Bake the avatar into a data: URL up front — the renderer CSP blocks remote
+  // images, and this also makes it work offline after connecting.
+  const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
+  const user = { login: me.login, name: me.name || me.login, avatarDataUrl };
   writeVault({
     token: safeStorage.encryptString(token.trim()).toString('base64'),
     user,

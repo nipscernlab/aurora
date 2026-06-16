@@ -236,6 +236,7 @@
                here, so it always rides with the instance that has focus. -->
           <button id="gitButton" class="toolbar-button icon-only" data-tooltip="Source Control" data-i18n-tooltip="toolbar.git.tooltip">
               <i class="ph ph-git-branch"></i>
+              <span class="git-badge" id="git-badge" hidden></span>
           </button>
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
@@ -730,7 +731,7 @@
     <main class="modal-body git-panel">
         <div class="git-account" id="git-account"></div>
         <div class="git-repo" id="git-repo"></div>
-        <div class="git-commitbox">
+        <div class="git-commitbox" id="git-commitbox">
             <textarea id="git-commit-msg" class="git-commit-input" rows="2"
                 placeholder="Mensagem do commit (vazio faz stage de tudo)"
                 data-i18n-placeholder="modal.git.commitPlaceholder"></textarea>
@@ -743,9 +744,9 @@
         <div class="git-diff" id="git-diff" hidden>
             <div class="git-diff-head">
                 <span id="git-diff-title"></span>
-                <button class="git-mini" id="git-diff-close">Fechar</button>
+                <button class="git-mini" id="git-diff-close"><i class="ph ph-x"></i> Fechar</button>
             </div>
-            <pre class="git-diff-pre" id="git-diff-pre"></pre>
+            <div class="git-diff-body" id="git-diff-body"></div>
         </div>
     </main>
 </aurora-modal>

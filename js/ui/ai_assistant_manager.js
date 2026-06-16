@@ -2456,11 +2456,17 @@ class AIAssistantManager {
     // and AI-driven), so it gets an explicit human OK regardless of mode.
     const ALWAYS_CONFIRM = new Set(['set_command_override']);
     if (def && ALWAYS_CONFIRM.has(def.name)) return this.showInlineConfirm(def, args);
+    // Renames (rename_project / rename_processor) are pre-authorized — NOT routed
+    // through the blocking confirm card. They are explicit (the user asked) and
+    // reversible (rename back), and the rename runs DECOUPLED from the AI: the
+    // tool dispatches the on-disk move + reopens the project in the background and
+    // returns at once. A blocking card here would just make the MCP tool-call hang
+    // until it times out (Codex ignores progress pings) — which is exactly the
+    // "rename always times out" bug. A toast reports the result instead.
+    if (def && (def.name === 'rename_project' || def.name === 'rename_processor')) {
+      return Promise.resolve(true);
+    }
     if (mode === 'allow') return Promise.resolve(true);
-    // V9: renames go through the normal card like any other write. (The old
-    // pre-authorization existed to dodge a 120s MCP tool timeout on the Codex
-    // CLI; that ceiling is now raised to 600s, so the bypass is no longer
-    // needed and destructive renames should not skip the Allow/Deny card.)
     if (mode === 'writes' && def && def.access === 'read') return Promise.resolve(true);
     return this.showInlineConfirm(def, args);
   }

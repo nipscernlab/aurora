@@ -1064,6 +1064,9 @@ const projectNs = {
     if (newSpfPath && newRoot) {
       try { window.ProjectStore?.setProject?.(newSpfPath, newRoot); } catch (_) { /* best-effort */ }
     }
+    // The rename ran decoupled from the AI (no blocking card) — surface a toast
+    // so the user sees it landed even when the model triggered it.
+    try { window.showNotification?.(`Projeto renomeado para "${newNm}".`, 'success'); } catch (_) { /* best-effort */ }
     if (newSpfPath) {
       Promise.resolve()
         .then(() => (window.projectManager?.loadProject

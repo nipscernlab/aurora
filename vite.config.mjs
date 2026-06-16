@@ -1,5 +1,16 @@
-import { defineConfig } from 'vite';
+import { defineConfig, createLogger } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+
+// Suppress the cosmetic "can't be bundled without type=module" warning emitted
+// for the Monaco AMD loader and KaTeX UMD script. Both are vendored via
+// viteStaticCopy and resolved correctly at runtime — Vite just can't analyse
+// their AMD/UMD format, which is expected and harmless.
+const logger = createLogger();
+const _warn = logger.warn.bind(logger);
+logger.warn = (msg, opts) => {
+  if (msg.includes('without type=module')) return;
+  _warn(msg, opts);
+};
 
 // Rewrite the node_modules/ asset paths in the HTML to the vendor/ trees that
 // vite-plugin-static-copy stages. The SOURCE html keeps node_modules/ refs so
@@ -46,6 +57,7 @@ function rewriteVendorPaths() {
 // so nothing 70 MB gets committed and index.html can reference stable relative
 // `vendor/...` paths that work in both dev (vite origin) and prod (file://).
 export default defineConfig({
+  customLogger: logger,
   root: import.meta.dirname,
   base: './',
   build: {

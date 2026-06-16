@@ -48,6 +48,20 @@ class AuroraModal extends LitElement {
         !this.classList.contains('visible')) {
       this.setAttribute('aria-hidden', 'true');
     }
+    // P17 a11y: inert on the host when closed — prevents Tab + screen reader from
+    // reaching slotted content inside a visually-hidden modal.
+    this._syncInert();
+    this._mutObs = new MutationObserver(() => this._syncInert());
+    this._mutObs.observe(this, { attributes: true, attributeFilter: ['aria-hidden', 'class'] });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._mutObs?.disconnect();
+  }
+
+  _syncInert() {
+    this.toggleAttribute('inert', !this.open);
   }
 
   get open() {

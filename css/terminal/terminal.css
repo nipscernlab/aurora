@@ -317,13 +317,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  /* Layout containment: a streaming compile/sim appends hundreds of log lines;
-     without this, each append's reflow crossed panel boundaries and recalc'd
-     the file tree / editor. The body already clips via overflow + position:
-     relative, and its only absolutely-positioned children (cleared pill, hw
-     progress) live inside it, so this is safe. (P7 — paint/content-visibility
-     left for runtime tuning.) */
-  contain: layout;
+  /* P7 full containment: streaming appends are fully contained — reflows and
+     paints don't cross into the file tree / editor panels. `style` is safe
+     (no escaping counters); `paint` is safe (overflow already clips, and the
+     only abs-pos children — cleared pill, hw progress — live inside this box). */
+  contain: layout style paint;
 }
 
 /* ---------------------------------------------------------------------------
@@ -336,6 +334,10 @@
   border-radius: 3px;
   transition: background-color var(--transition-fast);
   font-family: var(--font-mono);
+  /* P7: skip painting off-screen entries; `auto` remembers each entry's last
+     known height so the scrollbar stays stable for previously-visible items. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 36px;
   line-height: 1.55;
   word-break: break-word;
   position: relative;

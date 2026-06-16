@@ -121,6 +121,10 @@
   position: relative;
   width: 100%;
   --depth: 0;
+  /* P7: skip painting off-screen rows (each row is ~22px per the layout comment
+     above). `auto` retains each row's last-known height for scrollbar stability. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 22px;
 }
 
 /* The clickable row */

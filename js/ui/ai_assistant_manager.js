@@ -1384,8 +1384,11 @@ class AIAssistantManager {
     if (!this.container) return;
     if (!opening) {
       this.container.style.width = '0px';
+      // P17 a11y: prevent Tab + screen reader from reaching the hidden panel.
+      this.container.setAttribute('inert', '');
       return;
     }
+    this.container.removeAttribute('inert');
     let target = 480;
     try {
       const saved = parseInt(localStorage.getItem('aurora-ai-panel-width'), 10);
@@ -1592,6 +1595,8 @@ class AIAssistantManager {
     // initialize() runs on first toggle, well after DOMContentLoaded).
     const mountTarget = document.querySelector('.main-container') || document.body;
     mountTarget.appendChild(this.container);
+    // P17: panel starts closed (width 0) — mark inert so Tab can't reach it.
+    this.container.setAttribute('inert', '');
 
     this.providerIcon  = this.container.querySelector('#ai-provider-icon');
     this.messagesEl    = this.container.querySelector('#ai-messages');

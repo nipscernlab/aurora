@@ -851,3 +851,31 @@
 
 .ai-pc-remove:hover { color: var(--status-error); }
 .ai-pc-remove:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* About → third-party software disclosure (the user-facing companion to
+   THIRD_PARTY_NOTICES.md). Name on the left, license tag on the right. */
+.about-licenses {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.about-licenses li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.05));
+  font-size: var(--text-sm);
+}
+.about-licenses li:last-child { border-bottom: none; }
+.about-lic-name { color: var(--text); }
+.about-lic-tag {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+.about-licenses-note { margin-top: var(--space-2); opacity: 0.8; }

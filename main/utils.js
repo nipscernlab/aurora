@@ -5,7 +5,9 @@
 
 const path = require('path');
 const os = require('os');
-const { exec } = require('child_process');
+// execFile (nao exec): sem shell intermediario, os args vao direto pro argv do
+// binario — fim da interpolacao de string em linha de comando (V10).
+const { execFile } = require('child_process');
 
 /** @param {Function} func @param {number} wait */
 function debounce(func, wait) {
@@ -44,8 +46,7 @@ function filterGtkWaveOutput(/** @type {string} */ output) {
 
 function killProcessSilently(/** @type {number} */ pid, timeout = 5000) {
   return new Promise((resolve) => {
-    const killCmd = `taskkill /F /T /PID ${pid}`;
-    const killProcess = exec(killCmd, { windowsHide: true, timeout });
+    const killProcess = execFile('taskkill', ['/F', '/T', '/PID', String(pid)], { windowsHide: true, timeout });
 
     const timer = setTimeout(() => {
       killProcess.kill();
@@ -66,8 +67,9 @@ function killProcessSilently(/** @type {number} */ pid, timeout = 5000) {
 
 function killProcessesByName(/** @type {string} */ processName, timeout = 5000) {
   return new Promise((resolve) => {
-    const killCmd = `taskkill /F /IM ${processName} 2>nul`;
-    const killProcess = exec(killCmd, { windowsHide: true, timeout });
+    // sem `2>nul`: o execFile nao passa por shell; o stderr do taskkill ("process
+    // not found") e bufferizado e ignorado, e o exit code 128 ja e' tratado abaixo.
+    const killProcess = execFile('taskkill', ['/F', '/IM', processName], { windowsHide: true, timeout });
 
     const timer = setTimeout(() => {
       killProcess.kill();
@@ -121,8 +123,8 @@ function killProcessesByPathPrefix(prefix, timeout = 5000) {
       `$_.ExecutablePath.StartsWith($p, [StringComparison]::OrdinalIgnoreCase) } | ` +
       `ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }`;
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
-    const cmd = `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`;
-    const killProcess = exec(cmd, { windowsHide: true, timeout });
+    const killProcess = execFile('powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded], { windowsHide: true, timeout });
 
     const timer = setTimeout(() => {
       killProcess.kill();
@@ -143,8 +145,9 @@ function killProcessesByPathPrefix(prefix, timeout = 5000) {
 
 function checkProcessRunning(/** @type {string} */ processName) {
   return new Promise((resolve) => {
-    const checkCmd = `tasklist /FI "IMAGENAME eq ${processName}" /NH /FO CSV`;
-    exec(checkCmd, { windowsHide: true, timeout: 3000 }, (error, stdout) => {
+    // /FI recebe o filtro como UM arg (sem aspas — o execFile nao re-parseia).
+    execFile('tasklist', ['/FI', `IMAGENAME eq ${processName}`, '/NH', '/FO', 'CSV'],
+      { windowsHide: true, timeout: 3000 }, (error, stdout) => {
       if (error) {
         resolve(false);
         return;

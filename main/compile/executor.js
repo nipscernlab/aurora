@@ -50,11 +50,22 @@ const protectedFlags = require('./protected_flags');
  */
 function buildChildEnv(spec) {
   const cpuCount = getCPUCount();
+  const sep = process.platform === 'win32' ? ';' : ':';
+  // V12: sanitiza spec.env/prependPath ANTES de mesclar — defesa contra um spec
+  // adulterado. Aceita so chaves de env validas (`^[A-Za-z_][A-Za-z0-9_]*$`) com
+  // valor string sem null byte; specs legitimos (OMP_*, MAKEFLAGS, OBJCACHE...)
+  // passam intactos.
+  const safeSpecEnv = {};
+  for (const [k, v] of Object.entries(spec.env || {})) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && typeof v === 'string' && !v.includes('\0')) {
+      safeSpecEnv[k] = v;
+    }
+  }
   const env = {
     ...process.env,
     OMP_NUM_THREADS: cpuCount.toString(),
     OMP_THREAD_LIMIT: cpuCount.toString(),
-    ...(spec.env || {}),
+    ...safeSpecEnv,
   };
   // NOTE: we intentionally do NOT enable ccache (OBJCACHE) for the Verilator
   // build. The bundled MSYS ccache can fail to exec the compiler ("The system
@@ -62,8 +73,11 @@ function buildChildEnv(spec) {
   // build. The Verilator builders pass `-MAKEFLAGS OBJCACHE=` to force the
   // generated Makefile to call `g++ …` directly (see builders/verilator.js).
   if (Array.isArray(spec.prependPath) && spec.prependPath.length) {
-    const sep = process.platform === 'win32' ? ';' : ':';
-    env.PATH = spec.prependPath.join(sep) + sep + (env.PATH || '');
+    // So dirs string, nao-vazios, sem null byte e SEM o separador de PATH (uma
+    // entrada com `;`/`:` smugglearia varias) entram no prefixo do PATH.
+    const safeDirs = spec.prependPath.filter((p) =>
+      typeof p === 'string' && p.length > 0 && !p.includes('\0') && !p.includes(sep));
+    if (safeDirs.length) env.PATH = safeDirs.join(sep) + sep + (env.PATH || '');
   }
   return env;
 }

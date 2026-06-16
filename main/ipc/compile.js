@@ -80,7 +80,13 @@ function writeSurferMappings(mappings) {
       const safe = m.name.replace(/[^A-Za-z0-9_.-]/g, '_');
       if (!safe) continue;
       try {
-        fs.writeFileSync(path.join(dir, safe), m.content, 'utf8');
+        // Atomic write: grava num .tmp e renomeia. O Surfer (processo separado)
+        // escaneia esse dir no startup; o rename (atomico no mesmo FS) garante que
+        // ele nunca leia um mapping pela metade — half-write -> panic ao carregar.
+        const finalPath = path.join(dir, safe);
+        const tmpPath = `${finalPath}.aurora.tmp`;
+        fs.writeFileSync(tmpPath, m.content, 'utf8');
+        fs.renameSync(tmpPath, finalPath);
         result.written++;
       } catch (e) {
         // Per-mapping failure (permission/IO) — record so the renderer can warn

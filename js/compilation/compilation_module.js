@@ -3935,23 +3935,54 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
         // a missing file just leaves that track in raw decimal (never fatal).
         const scopeModules = modules ? resolveScopeModules(scopes, modules) : null;
         const tradByProcType = {};
+        let newestTradMtime = 0; // p/ check de staleness (trad mais novo que o dump)
         for (const p of detectProcessors(scopes, scopeModules)) {
             if (!p || !p.procType || tradByProcType[p.procType]) continue;
             const procDir = await window.electronAPI.joinPath(tempBaseDir, p.procType);
             const opPath = await window.electronAPI.joinPath(procDir, 'trad_opcode.txt');
             const cmPath = await window.electronAPI.joinPath(procDir, 'trad_cmm.txt');
+            const opExists = await window.electronAPI.fileExists(opPath);
+            const cmExists = await window.electronAPI.fileExists(cmPath);
             tradByProcType[p.procType] = {
-                opcode: (await window.electronAPI.fileExists(opPath)) ? await window.electronAPI.readFile(opPath) : null,
-                cmm: (await window.electronAPI.fileExists(cmPath)) ? await window.electronAPI.readFile(cmPath) : null,
+                opcode: opExists ? await window.electronAPI.readFile(opPath) : null,
+                cmm: cmExists ? await window.electronAPI.readFile(cmPath) : null,
             };
+            for (const present of [opExists ? opPath : null, cmExists ? cmPath : null]) {
+                if (!present) continue;
+                try { const st = await window.electronAPI.getFileStats(present); if (st && st.mtime > newestTradMtime) newestTradMtime = st.mtime; } catch { /* sem stat -> ignora */ }
+            }
         }
+
+        // Anti-staleness: se os tradutores sao MAIS NOVOS que o dump, o usuario
+        // recompilou o .cmm sem re-simular -> o decode casaria o dump VELHO com a
+        // tabela NOVA = lixo crivel (pior que decimal cru). Margem de 2s cobre a
+        // ordem normal compile->simulate (trad fica levemente mais velho que o FST).
+        if (newestTradMtime > 0) {
+            try {
+                const fstStat = await window.electronAPI.getFileStats(vcdFile);
+                if (fstStat && newestTradMtime > fstStat.mtime + 2000) {
+                    this.terminalManager.appendToTerminal('twave',
+                        'Surfer: os tradutores Assembly/C+- sao mais novos que o dump — recompilou sem re-simular? O decode pode estar desatualizado; re-simule para alinhar.', 'tips');
+                }
+            } catch { /* sem stat do FST -> pula o check */ }
+        }
+
+        // Tag curto e estavel do projeto (FNV-1a do projectPath) pra NAMESPACING
+        // dos mappings no dir GLOBAL flat do Surfer (%APPDATA%/.../mappings): dois
+        // projetos abertos com o mesmo tb top nao se sobrescrevem mais.
+        const nsTag = (() => {
+            const s = String(this.projectPath || '');
+            let h = 0x811c9dc5;
+            for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+            return (h >>> 0).toString(16).padStart(8, '0');
+        })();
 
         // Complex numbers (comp_me3_/comp_arr_me3_): Surfer has no external
         // process filter like GTKWave's, so pre-decode the distinct complex
         // values from the dump via comp2gtkw.exe and bake a mapping. Gated —
         // projects without complex signals pay nothing (no fst2vcd full stream).
         const complexMapping = hasComplexSignals(scopes)
-            ? await this._buildSurferComplexMapping(vcdFile, simTopModule, tempBaseDir)
+            ? await this._buildSurferComplexMapping(vcdFile, simTopModule, tempBaseDir, nsTag)
             : null;
 
         const { content, processorCount, mappings } = buildSurferLayout({
@@ -3961,7 +3992,7 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
             selectedSignals: selected.length > 0 ? selected : null,
             modules,
             tradByProcType,
-            mappingNamespace: simTopModule,
+            mappingNamespace: `${nsTag}_${simTopModule}`,
             complexMapping,
         });
         if (!content) return null;
@@ -4006,7 +4037,7 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
  * (gate em _waveResolveSurferSaveFile), entao projetos sem complexo nao pagam o
  * stream do corpo do FST.
  */
-async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir) {
+async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir, nsTag = '') {
     try {
         if (typeof window.electronAPI.onExecSpecStream !== 'function') return null;
         const fst2vcdBin = await window.electronAPI.joinPath(
@@ -4057,7 +4088,7 @@ async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir) {
         const decodedByValue = new Map();
         const n = Math.min(values.length, res.decoded.length);
         for (let i = 0; i < n; i++) decodedByValue.set(values[i], res.decoded[i]);
-        const name = `aurora_cpx_${simTopModule}`.replace(/[^A-Za-z0-9_]/g, '_');
+        const name = `aurora_cpx_${nsTag}_${simTopModule}`.replace(/[^A-Za-z0-9_]/g, '_');
         const mapping = buildComplexMapping(name, decodedByValue);
         if (mapping) {
             this.terminalManager.appendToTerminal('twave',

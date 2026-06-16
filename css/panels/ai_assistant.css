@@ -272,12 +272,14 @@ body.ai-assistant-open {
   z-index: var(--z-0);
   pointer-events: none;
   overflow: hidden;
-  /* Steady mint airglow on the very bottom edge — the brightest, stable band. */
+  /* Steady mint airglow. Centred a little ABOVE the very bottom so its bright
+     band clears the input composer (which sits at the bottom of the content,
+     opaque, and would otherwise occlude the brightest part). */
   background:
-    radial-gradient(120% 46% at 50% 122%,
-      rgba(95, 224, 176, 0.20) 0%,
-      rgba(95, 224, 176, 0.09) 30%,
-      transparent 58%);
+    radial-gradient(135% 60% at 50% 112%,
+      rgba(95, 224, 176, 0.28) 0%,
+      rgba(95, 224, 176, 0.13) 34%,
+      transparent 64%);
   will-change: opacity;
   /* Very soft brightness breathe — period decoupled from the drifts below. */
   animation: aiGlowPulse 9.5s ease-in-out infinite alternate;
@@ -293,30 +295,30 @@ body.ai-assistant-open {
   will-change: transform, opacity;
 }
 .ai-aurora-glow::before {
-  /* cool curtains: teal + green/cyan tips, low */
+  /* cool curtains: teal + green/cyan tips, reaching up into the lower third */
   background:
-    radial-gradient(70% 62% at 36% 116%,
-      rgba(56, 189, 168, 0.16) 0%,
-      rgba(56, 189, 168, 0.07) 40%,
-      transparent 70%),
-    radial-gradient(60% 54% at 64% 120%,
-      rgba(95, 224, 176, 0.13) 0%,
-      rgba(91, 184, 232, 0.07) 42%,
-      transparent 72%);
+    radial-gradient(80% 78% at 34% 108%,
+      rgba(56, 189, 168, 0.24) 0%,
+      rgba(56, 189, 168, 0.11) 44%,
+      transparent 74%),
+    radial-gradient(68% 70% at 64% 112%,
+      rgba(95, 224, 176, 0.20) 0%,
+      rgba(91, 184, 232, 0.11) 46%,
+      transparent 76%);
   animation: aiGlowDriftA 22s ease-in-out infinite alternate;
 }
 .ai-aurora-glow::after {
   /* warm fringe: violet → magenta → pink, the rarer high band */
   background:
-    radial-gradient(64% 56% at 24% 118%,
-      rgba(142, 131, 232, 0.13) 0%,
-      rgba(142, 131, 232, 0.06) 40%,
-      transparent 70%),
-    radial-gradient(72% 58% at 80% 114%,
-      rgba(190, 90, 200, 0.12) 0%,
-      rgba(232, 120, 180, 0.07) 40%,
-      transparent 70%);
-  opacity: 0.92;
+    radial-gradient(72% 72% at 24% 110%,
+      rgba(142, 131, 232, 0.20) 0%,
+      rgba(142, 131, 232, 0.09) 44%,
+      transparent 74%),
+    radial-gradient(80% 70% at 80% 106%,
+      rgba(190, 90, 200, 0.17) 0%,
+      rgba(232, 120, 180, 0.10) 44%,
+      transparent 74%);
+  opacity: 0.95;
   animation: aiGlowDriftB 27.5s ease-in-out infinite alternate;
 }
 @keyframes aiGlowPulse {

@@ -957,15 +957,35 @@ const projectNs = {
     const root = window.currentProjectPath || null;
     if (!root) return err('No project open');
     if (!config || !config.processorName) return err('processorName required');
+    const name = config.processorName;
     try {
+      // Anti-duplicata pela FILE TREE (a pasta real no disco), nao so o .spf:
+      // se a pasta <root>/<name> existe, e um processador REAL ja feito —
+      // bloqueia, NAO duplica. Se o nome so consta no .spf mas a pasta sumiu
+      // (referencia "morta"/processador morto), deixa criar (revive a entrada).
+      const procDir = await window.electronAPI.joinPath(root, name);
+      if (await window.electronAPI.pathExists(procDir)) {
+        return err(`Processor "${name}" already exists on disk (folder ${name}/). `
+          + 'Pick a different name, or delete/rename the existing processor first.');
+      }
+      // O nome esta no .spf mas sem pasta? Entao a criacao revive uma referencia
+      // morta — sinaliza isso na resposta (informa o usuario, sem bloquear).
+      let revivedDanglingReference = false;
+      try {
+        const procs = await window.electronAPI.getAvailableProcessors(root);
+        revivedDanglingReference = (Array.isArray(procs) ? procs : [])
+          .map((p) => (typeof p === 'string' ? p : p && p.name))
+          .some((n) => typeof n === 'string' && n.toLowerCase() === name.toLowerCase());
+      } catch (_) { /* lista indisponivel — segue criando normalmente */ }
+
       const r = await window.electronAPI.createProcessorProject({
         projectLocation: root,
         ...config,
       });
       if (r && r.success) {
         await refreshTree();
-        emit('project:processor-created', { name: config.processorName });
-        return ok({ name: config.processorName });
+        emit('project:processor-created', { name });
+        return ok({ name, revivedDanglingReference });
       }
       return err((r && r.message) || 'createProcessor failed');
     } catch (e) { return err(e?.message || 'createProcessor failed'); }
@@ -2530,7 +2550,7 @@ const NAMESPACES = Object.freeze({
     deleteFile:         'Delete a file or directory',
     renameFile:         'Rename or move a file',
     listProcessors:     'Processors of the open project + their config',
-    createProcessor:    'Generate a processor in the open project',
+    createProcessor:    'Generate a processor in the open project (refuses to duplicate one whose folder already exists on disk; recreates a name that is only a dangling .spf reference)',
     renameProcessor:    'Rename a processor (dir, .cmm, #PRNAME, .spf, artifacts)',
     createProject:      'Create a new SAPHO project and open it',
     renameProject:      'Rename the open project (folder + .spf + every stored path)',

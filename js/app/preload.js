@@ -405,6 +405,32 @@ const utilityOperations = {
 /* ============================================================================
  *  EXPOSE — bridge para o renderer
  * ========================================================================= */
+/* ============================================================================
+ *  GIT / SOURCE CONTROL  (window.gitAPI) — backed by main/ipc/git.js (simple-git)
+ *  + main/ipc/github_auth.js (account connection). Enumerated channels only.
+ * ========================================================================= */
+const gitOperations = {
+  isRepo:    () => ipcRenderer.invoke('git:is-repo'),
+  status:    () => ipcRenderer.invoke('git:status'),
+  diff:      (opts) => ipcRenderer.invoke('git:diff', opts),
+  log:       (opts) => ipcRenderer.invoke('git:log', opts),
+  branches:  () => ipcRenderer.invoke('git:branches'),
+  remotes:   () => ipcRenderer.invoke('git:remotes'),
+  init:      () => ipcRenderer.invoke('git:init'),
+  stage:     (files) => ipcRenderer.invoke('git:stage', files),
+  stageAll:  () => ipcRenderer.invoke('git:stage-all'),
+  unstage:   (files) => ipcRenderer.invoke('git:unstage', files),
+  discard:   (files) => ipcRenderer.invoke('git:discard', files),
+  commit:    (opts) => ipcRenderer.invoke('git:commit', opts),
+  checkout:  (opts) => ipcRenderer.invoke('git:checkout', opts),
+  fetch:     () => ipcRenderer.invoke('git:fetch'),
+  pull:      () => ipcRenderer.invoke('git:pull'),
+  push:      (opts) => ipcRenderer.invoke('git:push', opts),
+  githubStatus:     () => ipcRenderer.invoke('github:status'),
+  githubConnect:    (token) => ipcRenderer.invoke('github:connect', token),
+  githubDisconnect: () => ipcRenderer.invoke('github:disconnect'),
+};
+
 contextBridge.exposeInMainWorld('electronAPI', {
   ...fileOperations,
   ...fileWatchingOperations,
@@ -424,6 +450,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 contextBridge.exposeInMainWorld('terminalAPI', terminalAPI);
 
 contextBridge.exposeInMainWorld('aiAPI', aiAPI);
+
+contextBridge.exposeInMainWorld('gitAPI', gitOperations);
 
 /* ============================================================================
  *  GLOBAL EVENT FORWARDERS

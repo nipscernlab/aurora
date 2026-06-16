@@ -69,6 +69,8 @@ const executorIpc = require('./main/compile/executor');
 const prismIpc = require('./main/ipc/prism');
 const systemIpc = require('./main/ipc/system');
 const aiIpc = require('./main/ipc/ai');
+const gitIpc = require('./main/ipc/git');
+const githubAuthIpc = require('./main/ipc/github_auth');
 
 // Register lifecycle (single-instance lock, app events, cleanup). If we lost
 // the lock, the function returns false after calling app.quit() — bail out so
@@ -83,6 +85,8 @@ if (acquiredLock) {
   prismIpc.register();
   systemIpc.register();
   aiIpc.register();
+  githubAuthIpc.register();
+  gitIpc.register();
   // Updater IPC must be registered at boot, not lazily — the splash window
   // calls `getAppVersion()` before the autoUpdater itself is initialized.
   updater.registerIpc();

@@ -153,6 +153,7 @@
     "katex": "^0.17.0",
     "lit": "^3.3.3",
     "monaco-editor": "0.52.2",
+    "simple-git": "^3.36.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {

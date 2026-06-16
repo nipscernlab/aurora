@@ -48,6 +48,10 @@ import {
   getViewer as getWaveViewer,
   setViewer as setWaveViewer,
 } from '../wave/viewer_preference.js';
+import {
+  getSurferMultiWindow,
+  setSurferMultiWindow,
+} from '../wave/surfer_window_preference.js';
 
 /* ============================================================
  *  Result helpers
@@ -1881,6 +1885,37 @@ const waveNs = {
   },
 
   /**
+   * Whether the Surfer viewer keeps multiple windows open. false (default) =
+   * one window (AURORA closes the previous Surfer before each launch); true =
+   * keep windows open so you can compare different simulation runs side by
+   * side. Persists per-user (localStorage `aurora.surferMultiWindow`).
+   * Surfer-only — GTKWave has its own window lifecycle.
+   */
+  async getSurferMultiWindow() {
+    return ok({ multiWindow: getSurferMultiWindow() });
+  },
+
+  /**
+   * Enable/disable multiple Surfer windows. Accepts a boolean `enabled`.
+   * true = keep windows open to compare runs; false = single window (the
+   * default; the previous window is closed on each Wave). Persisted across
+   * restarts; the next Wave picks it up. Mirrors the checkbox in the Wave
+   * Configuration modal.
+   */
+  async setSurferMultiWindow({ enabled } = {}) {
+    if (typeof enabled !== 'boolean') {
+      return err('enabled must be a boolean (true = multiple windows, false = single)');
+    }
+    const applied = setSurferMultiWindow(enabled);
+    // Sync the modal checkbox if it's currently in the DOM.
+    try {
+      const cb = document.getElementById('waveConfigSurferMultiWindow');
+      if (cb) cb.checked = applied;
+    } catch (_) { /* best-effort UI nudge */ }
+    return ok({ multiWindow: applied });
+  },
+
+  /**
    * List every .gtkw file currently registered for the active testbench
    * (one list per tb). Includes the active flag and absolute paths.
    */
@@ -2540,6 +2575,8 @@ const NAMESPACES = Object.freeze({
     setSimulator:       'Switch the Wave-button simulator (iverilog | verilator)',
     getViewer:          'Which waveform viewer the Wave button opens (gtkwave | surfer)',
     setViewer:          'Switch the waveform viewer (gtkwave external window | surfer embedded)',
+    getSurferMultiWindow: 'Whether Surfer keeps multiple windows open (false = single window, default)',
+    setSurferMultiWindow: 'Enable/disable multiple Surfer windows to compare runs ({ enabled: boolean })',
   },
   settings: {
     getAll: 'Snapshot of every user-facing IDE setting',

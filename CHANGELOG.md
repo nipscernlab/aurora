@@ -28,12 +28,14 @@ and this project loosely follows [Semantic Versioning](https://semver.org).
   `Assembly (cnn_features)`), red-coloured section dividers (kept italic),
   and a real collapsible `Group` per processor so multi-processor designs
   fold cleanly. Per-processor instruction labels also applied to GTKWave.
-- Surfer quick-wins — the `.surf.ron` now sets `autoreload_files: Always`
-  so the viewer reloads on every re-simulation; each section (I/O,
-  Instructions, Variables, Flags, arrays, Stack/ULA) is a nested collapsible
-  group (arrays/Flags closed by default); and the complex-decode path
-  pre-checks `comp2gtkw.exe`/`fst2vcd.exe` and warns once in the terminal
-  instead of degrading to raw binary silently.
+- Surfer quick-wins — each section (I/O, Instructions, Variables, Flags,
+  arrays, Stack/ULA) is now a nested collapsible group (arrays/Flags closed
+  by default); the complex-decode path pre-checks `comp2gtkw.exe`/`fst2vcd.exe`
+  and warns once in the terminal instead of degrading to raw binary silently;
+  re-simulating reuses a single Surfer window (the previous one is closed
+  before the new launch) instead of stacking windows; and the launch terminal
+  messages now say "Surfer" instead of "GTKWave". (Surfer's own file-watch
+  auto-reload does not fire on Windows v0.7.0, so it is not used.)
 - Surfer mapping robustness — translator files are now namespaced per project
   (FNV-1a tag of the project path) so two open projects with the same testbench
   top no longer overwrite each other in the shared global mappings dir; written

@@ -360,12 +360,15 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 ### Entregue
 | Item | O quê |
 |---|---|
-| **Auto-reload** | `autoreload_files: Some(Always)` no skeleton do `.surf.ron` → o Surfer recarrega o waveform sozinho a cada re-simulação (paridade com o GTKWave; fecha o fecha-reabre manual do loop compilar→simular→ver). Tipo derivado da fonte v0.7.0 (`config::AutoLoad = Always\|Never\|Ask`). Carrega sem panic (validado). |
+| **Auto-reload** ❌ | **NÃO funciona no Windows v0.7.0 — REVERTIDO.** Tentado primeiro no `.surf.ron` (campo errado, inerte) e depois no `config.toml` (campo certo, `SurferConfig.autoreload_files`); em ambos o file-watcher do Surfer **não pega a reescrita do FST no Windows** (testado pelo usuário, tanto via `copy` quanto re-simulando). Substituído por **fechar+reabrir** (ver `launch-surfer`, commit `a67002e`): a AURORA fecha a janela anterior e abre a nova centralizada → uma janela só, sempre com dado fresco (perde zoom/posição a cada simulação — preservar isso exigiria WCP). |
+| **Uma janela por simulação** | `launch-surfer` rastreia o `ChildProcess` do Surfer que a AURORA abriu e o fecha (`taskkill /F /T`) antes de lançar o próximo — não empilha mais janelas. Só mata o processo rastreado (sem PID-reuse, sem tocar janelas abertas à mão). |
+| **Label do terminal** | As mensagens de abertura do Surfer reusavam as chaves do GTKWave (`Launching GTKWave...`). Chaves i18n próprias `surferLaunching`/`surferLaunched` (en+pt) → `Abrindo Surfer...`. (confirmado) |
 | **Folding curado** | Cada seção (Top-level, I/O, Instructions, Variables, Flags) virou um **`Group` colapsável aninhado** em vez de `divider`. Arrays viram um Group **fechado** por padrão; Stack/ULA viram Groups dentro de **Flags** (também fechado). `pushSection`/`pushArrays`/`buildFlags` usam `mkGroup`; `DIVIDER_COLOR`→`SECTION_COLOR`. Aninhamento profundo (proc→seção→sinal = level 1/2/3) **validado por round-trip** (Surfer carrega, reconstrói a árvore, re-salva idêntico). |
 | **Pre-checks de toolchain** | `_buildSurferComplexMapping` confere `comp2gtkw.exe` **e** `fst2vcd.exe` **antes** do stream caro do FST; faltando, avisa uma vez no terminal (`twave`) e cai pro fallback (Binary cru) em vez de degradar **silenciosamente**. `writeSurferMappings` agora retorna `{ written, failed[] }` e o renderer avisa quando um mapping não é escrito. |
 
-### Descoberta: `AutoLoad` e folding profundo
-- `autoreload_files: Option<config::AutoLoad>`, enum `AutoLoad { Always, Never, Ask }` (só deriva `Deserialize` — o Surfer **lê** do state, pode não re-serializar; ok pro nosso fluxo write-only).
+### Descoberta: `AutoLoad`, file-watch e folding profundo
+- `autoreload_files` existe em **DOIS** lugares: `UserState.autoreload_files` (state/`.surf.ron`) e `SurferConfig.autoreload_files` (config.toml, campo de **topo**, antes de `[layout]`). O **watcher é ligado pelo config**, não pelo state. Enum `config::AutoLoad { Always, Never, Ask }`.
+- **MAS:** mesmo no config, o file-watch **não dispara no Windows v0.7.0** — a janela só recarrega clicando em reload manualmente. Por isso a abordagem real é fechar+reabrir (uma janela). Reload sem perder zoom só com **WCP**.
 - Folding com `level>1` (não só 0→1) carrega e preserva fold no v0.7.0 — confirmado por round-trip com `proc(0)→seção(1)→sinal(2)`.
 
 ### Backlog restante (priorizado pela análise)

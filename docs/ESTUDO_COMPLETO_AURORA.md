@@ -445,9 +445,11 @@ produto maduro — alinhado ao [Design Manifesto](DESIGN.md).*
 
 ## 12. Implementação na branch `feature/aurora-revamp` — checklist vivo
 
-> Status real (atualizado), não só a primeira leva. Todos os commits com 208 testes unit passando
+> Status real (atualizado), não só a primeira leva. Todos os commits com 253 testes unit passando
 > e lint limpo. **Verificação visual/runtime é por conta do usuário** (os testes não exercitam o
 > carregamento do Electron).
+>
+> **➡️ Sessão 16–17/06/2026 (Source Control embutido + polish da IDE): ver §14 no fim do documento.**
 
 ### Decisões de escopo (13/06/2026)
 - **Tema único canônico.** A AURORA mantém UM tema só (escuro, identidade aurora borealis). **Fora de
@@ -1003,3 +1005,150 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       fila; UI com chips das mensagens enfileiradas + cancelar uma. **FORA de escopo:** streaming **paralelo** de
       verdade (o `currentSessionId`/`segmentBuffer`/`pendingConfirms` únicos exigiriam refactor por-sessão de
       ~300+ LOC, e os `--resume` dos CLIs se atropelariam) — e não é o que o VSCode faz. 🟡 (alto valor de UX)
+
+---
+
+## 14. Source Control embutido + polish da IDE — sessão 16–17/06/2026
+
+> Leva grande. **253 testes unit passando**, ESLint/tsc/knip limpos, `vite build` verde a cada commit.
+> **Verificação visual/runtime do Electron é por conta do usuário.** Tudo na `feature/aurora-revamp`.
+> ~50 commits no dia (ver `git log --since=2026-06-16`). Idioma: i18n **PT/EN** em tudo que foi adicionado
+> (namespaces `git` e `search` em `locales/*.json`).
+
+### 14.1 Source Control embutido — "um GitHub Desktop só pra Aurora"
+Painel de controle de versão completo, dirigido por **simple-git** (`^3.36`) sobre o `git` nativo (logo
+`.gitignore`, diffs, merges e credenciais se comportam como na linha de comando). Diffs com **diff2html**.
+
+**Backend (main process):**
+- `main/ipc/git.js` — handlers: `is-repo`, `status` (com `stats` opcional = numstat +/- por arquivo),
+  `diff`, `commit-files` (numstat do commit), `show` (diff por arquivo, capado), `log`, `branches`
+  (`-a`: locais + remotas), `remotes`, `info`, `add-remote`, `init`, `stage`, `stage-all`, `unstage`,
+  `discard`, `commit` (com amend), `undo-last-commit`, `checkout` (com `create`/`track`), `merge`,
+  `stash`/`stash-list`/`stash-pop`/`stash-drop`, `fetch`, `pull` (`--no-edit --autostash`), `push`,
+  `clone` (com **barra de progresso** via plugin de progresso do simple-git -> evento `git:clone-progress`),
+  `scan-spf`. Leituras aceitam um `dir` opcional (`resolveDir`/`gitFor`) p/ o **modo navegação** (ver 14.1.4);
+  mutações sempre no projeto aberto. Cap de diff: `MAX_DIFF_BYTES` 600 KB + corte em borda de linha.
+- `main/ipc/github_auth.js` — conexão de conta GitHub. **PAT** (clássico ou fine-grained) **e OAuth Device
+  Flow** (OAuth App "sapho", `OAUTH_CLIENT_ID` = `Ov23linD078LyGE5aDvg`, público; escopo `repo read:org`).
+  Token cifrado com `safeStorage` (DPAPI no Windows) — plaintext nunca em disco; o renderer só sabe
+  "quem está conectado". `listRepos` usa `affiliation=owner,collaborator,organization_member` (pagina ~500)
+  -> inclui repos de **organizações**; retorna `owner`/`ownerType`/`htmlUrl`. Avatar bakeado em `data:` URL
+  (passa no CSP). Após autorizar o device flow, traz a janela da Aurora pro foco (restore/show/focus +
+  toggle `alwaysOnTop` + `flashFrame` de fallback).
+- `main/ipc/files.js` — `shell:open-terminal` (cmd/Terminal por plataforma) p/ o menu de projetos clonados.
+
+**UI (renderer):** `js/git/git_panel.js` + `css/panels/git_panel.css` (reescrito do zero, ~970 linhas).
+Layout estilo GitHub Desktop: **duas colunas** (lista de arquivos/commits à esquerda  ⟷  **diff à direita**),
+colapsa pra coluna única quando não há diff (`:has(#git-diff[hidden])`). Sistema de botões coeso
+(`.git-btn`/`.git-mini`/`.git-icon-btn` com mesmo hover/active/focus-ring), barra de conta, status bar
+discreta, animações GPU-only (transform/opacity) com `prefers-reduced-motion`. **O painel inteiro rola**
+(colunas com `min-height` sólido, não colapsam). Modal 1100px.
+
+#### 14.1.1 Mudanças (Changes) + commit
+- Lista estilo GitHub Desktop: **checkbox por arquivo** (marcado = em stage; clique faz stage/unstage) +
+  **checkbox mestre** no cabeçalho (stage/unstage all, com estado parcial) + "N/M em stage".
+- **Linhas +adicionadas / −removidas** por arquivo não-commitado (numstat; `git:status` com `stats` opt-in,
+  então o poll do badge segue barato).
+- Commit "rico": título + descrição (auto-grow), **amend** (toggle, com tooltip), desfazer último (soft
+  reset, com confirmação). **Commit só habilita com título preenchido** (+ ter mudanças/amend).
+- Discard por arquivo (confirmação). Flags de status coloridas (M/A/D/R/U/?).
+
+#### 14.1.2 Histórico (History) + diff que NÃO trava
+- Modelo GitHub Desktop: o commit lista os arquivos via **numstat** (rápido) e o diff de **cada arquivo
+  carrega sob demanda** ao expandir — nunca tudo de uma vez.
+- **Anti-freeze do diff** (um `.txt` de ~900k linhas travava a IDE): gate por contagem de linhas (numstat)
+  — arquivos com >1500 linhas alteradas não são auto-renderizados ("Alteração grande" + "Mostrar a primeira
+  parte"); `diffHtml` **trunca em 1500 linhas** antes do diff2html (rede de segurança universal); removido
+  `matching:'words'` (era O(n^2)); render em `requestAnimationFrame`.
+- **Pula binários/imagens** (flag binary do numstat + extensões: png/jpg/.../mif/hex/vcd/fst...).
+- **Libera memória**: fechar o painel de diff (ou o modal) limpa o innerHTML dos corpos (solta o DOM pesado
+  do diff2html). Linhas de commit com affordance de clique (cursor, barra accent, chevron).
+
+#### 14.1.3 Branches + stash
+- Menu de branches como **portal no `<body>`** (era `position:fixed` dentro do modal com `transform`, que
+  posiciona relativo ao ancestral transformado — caía "no meio do nada"); posicionado por JS sob o chip,
+  clampado à viewport (abre pra cima se não couber). Fecha em click-fora/Esc/ação/refresh.
+- **Todas as branches**: locais + seção "Branches remotas" (remote-only); checkout de remota usa
+  `git checkout --track origin/<branch>` (DWIM falhava com "pathspec did not match"). Criar branch, merge.
+- **Trocar de branch com árvore suja**: oferece "Guardar (stash) e trocar" (git checkout não tem
+  `--autostash`) -> `stash push --include-untracked` + checkout. Linha "Alterações guardadas (N)" no menu com
+  **Restaurar** (pop) e **Descartar** (drop, com confirmação). **Restaurar com conflito**: detecta e oferece
+  "Descartar atuais e restaurar" (aplica a versão guardada).
+
+#### 14.1.4 Clone + projetos clonados + modo navegação
+- **Clone**: lista dos repos (agrupada por dono — **seus** com badge accent vs **organizações** com badge/azul),
+  escolher local (lembrado entre sessões via localStorage), validação de caminho (sem espaços/exóticos),
+  **barra de progresso** que some com fade ao concluir. Pós-clone: scan `.spf` -> "Abrir no SAPHO" (se houver)
+  ou entra no **modo navegação** do repo recém-clonado.
+- **Gerenciador de projetos clonados** (botão "Projetos"): lista persistida; clique abre no SAPHO (com `.spf`)
+  ou navega o histórico (sem `.spf`); **menu de contexto** (clique direito ou ⋮), todas funcionais: abrir no
+  SAPHO, copiar nome, copiar caminho, ver no GitHub, abrir no prompt de comando, mostrar no explorador,
+  remover (tirar-da-lista ou apagar-do-disco). Aviso (toast) na IDE ao abrir um projeto git.
+- **Modo navegação (read-only)**: ver histórico/branches/diffs de **qualquer clone, mesmo sem `.spf`**. As
+  leituras do backend aceitam `dir` (browseDir) -> o painel reflete aquela pasta; banner "Navegando: <nome> ·
+  somente leitura" com Fechar; esconde commit box/publish/stage e tira fetch/pull/push.
+- **Abrir projeto "de verdade"**: usa `window.projectManager.loadProject` (mesmo fluxo do File>Open) — reseta
+  a tree **e semeia os processadores do `.spf`** (o IPC cru `openProject` deixava o tree sem processadores).
+
+#### 14.1.5 Conta, token e remoto
+- **Publicar no GitHub** (sem remote): cria repo + add origin + push. **Criar repo COM os arquivos**: init +
+  stage all + commit inicial. **Push rejeitado (non-fast-forward)**: oferece **"Pull e push"**. Pull com
+  `--autostash`. Mensagens de status somem sozinhas (inclusive erros, 8s).
+- **Guia "i" do token**: passo-a-passo atual do GitHub (token clássico, escopo `repo`, `read:org` p/ orgs) +
+  **tabela de qual permissão cada recurso precisa** (escopo clássico x fine-grained: Contents/Administration/
+  Metadata). Botão que abre `github.com/settings/tokens/new`.
+- **Login OAuth (Device Flow)**: "Entrar com GitHub" -> mostra um código grande (feedback verde ao copiar) +
+  abre o `github.com/login/device` -> polling -> token guardado. Cancelável/re-tentável (não trava o painel).
+- **Indicador na status bar** + **avatar (bolinha 18px)** no canto inferior-direito do ícone de branch quando
+  logado. **Disconnect**: ícone discreto + confirmação; ao desconectar **limpa todas as seções** da tela
+  (o histórico de clones em localStorage é preservado de propósito).
+
+#### 14.1.6 `.spf` tolerante
+`spf_store.ts` (renderer) e `project.js` (main) agora parseiam `.spf` com fallback leniente (tira BOM,
+comentários `//` e `/* */`, vírgulas finais) quando o JSON estrito falha — recupera arquivos editados à mão
+/ vindos de outra máquina em vez de cair pra defaults silenciosamente.
+
+### 14.2 Find in Files (#32) — FEITO
+Painel estilo Search do VS Code (`js/search/search_panel.js`, `main/ipc/search.js`). **Ctrl+Shift+F** ou o
+botão de lupa **no header da file tree** abre um modal: busca por texto em todo o projeto, resultados
+agrupados por arquivo (cabeçalho colapsável + linha/preview, match em `<mark>`), clique abre o arquivo na
+linha. Toggles case/word/regex. Backend recursivo **sem dependência nova** (pula `.git`/`node_modules`/
+build/binários/>1.5MB; caps de 2000 matches / 500 arquivos). i18n PT/EN.
+
+### 14.3 Empty-states unificados (#35) — FEITO
+Os 4 "nada aqui" (file tree, verilog tree, painel IA vazio/offline, "sem projetos recentes") compartilham
+**uma linguagem visual única** estilo VS Code (coluna centralizada, ícone muted ~40px, título/corpo
+consistentes). CSS-only; divergências mantidas de propósito (card CTA da file tree, tint accent da IA).
+
+### 14.4 File tree — highlight de arquivo aberto (estilo VSCode) — FEITO
+O `.editor-focused` (arquivo aberto no Monaco) era idêntico ao `.top-level-file` (accent). Agora é **neutro**
+(distinto do top-level/testbench) e **muted quando o editor perde foco**, voltando a brilhar ao re-focar —
+via `body.editor-has-focus` (focus/blur do Monaco main+split, debounce 150ms). Vale nas views files/folders.
+
+### 14.5 `.gitignore` pelo menu da file tree — FEITO
+No menu de criar (botão direito em área vazia da tree) há "Novo .gitignore": cria na raiz do projeto com
+defaults de hardware (Temp/, Backup/, `*.vcd`/`*.fst`/`*.ghw`/`*.vvp`/`*.out`, .DS_Store...), abre no editor,
+atualiza a tree. Não entra no `.spf`.
+
+### 14.6 IA — i18n dinâmico + remove-key + brilho
+- **Bug i18n dinâmico corrigido**: o painel de IA e os cards de provider do **AI Settings** mostravam chaves
+  cruas (`modal.settings.aiSave`...) — race: construídos antes do catálogo i18n carregar, com a chave como
+  "fallback". Agora usam **`data-i18n` + fallback em inglês + `applyDOM`** no subtree (resolve mesmo
+  construído antes do catálogo; boot/locale-change re-resolvem). `window.i18nApplyDOM` exposto.
+- **Botão "Remove key" por provider** sempre visível (desabilitado quando não há key).
+- **Brilho do painel de IA**: lilás, arco no rodapé, respiração bem suave (sem "efeito-GIF", sem bola que se
+  mexe), `prefers-reduced-motion` off. (Várias iterações ao longo do dia.)
+
+### 14.7 Outros fixes do dia
+- Notificações reposicionadas (não mais full-width no rodapé). Rename de projeto/processador voltou a ser
+  mecânico (sem card que travava o Codex MCP). Pull não redimensiona o modal (status com altura fixa). Badge
+  do source-control menor + auto-update (watcher + poll 8s). **ESC** fecha qualquer `aurora-modal` dismissable
+  (find-in-files, git, ...) via handler global no componente.
+
+### 14.8 Pendências / decisões
+- **OAuth Device Flow LIGADO** (Client ID preenchido). Funciona ponta-a-ponta.
+- **Deferidos do backlog anterior** com disposição final em `docs/BACKLOG_RECONCILIADO.md`: #16 WaveDrom
+  (sem superfície), #36 tokens `ai_assistant.css` (descartar — alias puro/zero valor em tema único),
+  #37 P6 width->transform (precisa decisão de UX overlay), #38 condensação de prompt (substancialmente feito).
+- **Layout do painel git**: distribuição melhorada (Clone/Projetos mutuamente exclusivos, branch menu portal,
+  scroll). Passo maior possível (overlays no lugar de seções inline) fica como opção se o usuário pedir.

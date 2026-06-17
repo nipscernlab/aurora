@@ -723,6 +723,7 @@
         "close":              "Fechar",
         "behindMsg":          "O remoto tem alterações que você ainda não tem, então o push foi rejeitado. Trazer (pull) as mudanças do remoto e dar push de novo?",
         "pullPush":           "Pull e push",
+        "remoteBranches":     "Branches remotas",
         "openFailed":         "Não foi possível abrir o projeto",
         "openFailedHint":     "A pasta pode ter sido movida ou apagada. Remover da lista ou clonar de novo?",
         "cloneAgain":         "Clonar de novo",

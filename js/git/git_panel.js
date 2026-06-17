@@ -252,7 +252,7 @@ async function toggleBranchMenu() {
   if (!r.ok) { flash(`Branches: ${r.error}`, 'error'); return; }
   let stashes = [];
   try { const s = await api().stashList(); if (s && s.ok) stashes = s.stashes || []; } catch (_) { /* optional */ }
-  renderBranchMenu(r.branches || [], r.current, stashes);
+  renderBranchMenu(r.branches || [], r.current, stashes, r.remoteBranches || []);
 }
 // Switch branches, handling a dirty tree gracefully: offer to STASH the
 // uncommitted changes first (git checkout has no --autostash), then switch. The
@@ -303,7 +303,7 @@ async function stashDrop() {
   if (ok !== 'confirm') return;
   await run(tt('git.discard', 'Discard'), async () => { const r = await api().stashDrop(); if (!r.ok) throw new Error(r.error); closeBranchMenu(); refresh(); return tt('git.discarded', 'Stash discarded'); });
 }
-function renderBranchMenu(branches, current, stashes = []) {
+function renderBranchMenu(branches, current, stashes = [], remoteBranches = []) {
   closeBranchMenu();
   const menu = document.createElement('div');
   menu.className = 'git-branch-menu';
@@ -324,6 +324,14 @@ function renderBranchMenu(branches, current, stashes = []) {
         ${b !== current ? `<button class="git-bm-merge" data-action="merge-branch" data-branch="${esc(b)}" title="Merge → ${esc(current)}"><i class="ph ph-git-merge"></i></button>` : ''}
       </li>`).join('')}
     </ul>
+    ${remoteBranches.length ? `<div class="git-bm-head">${esc(tt('git.remoteBranches', 'Remote branches'))}</div>
+    <ul class="git-bm-list">
+      ${remoteBranches.map((rb) => `<li class="git-bm-item">
+        <button class="git-bm-switch" data-action="checkout-branch" data-branch="${esc(rb.name)}" title="${esc(rb.full)}">
+          <i class="ph ph-cloud"></i> ${esc(rb.name)} <span class="git-bm-remote-ref">${esc(rb.full)}</span>
+        </button>
+      </li>`).join('')}
+    </ul>` : ''}
     <div class="git-bm-new">
       <input type="text" id="git-new-branch" class="git-pat-input" placeholder="${esc(tt('git.newBranchPlaceholder', 'new branch'))}" spellcheck="false" />
       <button class="git-mini git-mini-primary" data-action="create-branch"><i class="ph ph-plus"></i> ${esc(tt('git.create', 'Create'))}</button>
@@ -1141,6 +1149,12 @@ async function doClone() {
     try { scan = await api().scanSpf({ dir: r.dest || dest }); } catch (_) { scan = { ok: false }; }
     cloneState.spfs = (scan && scan.ok && Array.isArray(scan.spfs)) ? scan.spfs : [];
     renderCloneSpf();
+    // Switch the panel to the freshly-cloned repo so its history/branches are
+    // right there. With a .spf we keep the "Open in SAPHO" button (full project
+    // load); without one we browse it read-only.
+    if (!cloneState.spfs.length) {
+      enterBrowse({ name: cloneState.selName, path: r.dest || dest, url: repo && repo.htmlUrl ? repo.htmlUrl : '' });
+    }
     return r.dest || dest;
   });
 }
@@ -1157,7 +1171,12 @@ function renderCloneSpf() {
 
 async function openClonedSpf(spf) {
   if (!spf) return;
-  try { await window.electronAPI?.openProject(spf); } catch (e) { flash(e?.message || String(e), 'error'); return; }
+  try {
+    // Full loader (tree + processors), not the raw IPC — see openClonedProject.
+    if (window.projectManager && typeof window.projectManager.loadProject === 'function') await window.projectManager.loadProject(spf);
+    else await window.electronAPI?.openProject(spf);
+  } catch (e) { flash(e?.message || String(e), 'error'); return; }
+  try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}`, 'success', 5000, 'Git'); } catch (_) { /* optional */ }
   close();
 }
 
@@ -1293,13 +1312,19 @@ async function openClonedProject(item) {
     if (rr && rr.ok && rr.isRepo) return enterBrowse(item);
     return clonedOpenFailed(item, tt('git.noSpfInClone', 'No SAPHO project (.spf) was found in this folder.'));
   }
-  // 2) Open it and VERIFY it actually opened (openProject returns { success }).
-  let res;
-  try { res = await window.electronAPI?.openProject(spf); }
-  catch (e) { return clonedOpenFailed(item, e?.message || String(e)); }
-  if (res && res.success === false) {
-    return clonedOpenFailed(item, res.error || tt('git.openFailed', 'Could not open the project.'));
-  }
+  // 2) Open it through the FULL project loader (window.projectManager.loadProject)
+  // — the same path File > Open / recent-projects use. It resets the tree AND
+  // seeds the processor list from the .spf, so processors/organization render
+  // correctly. The raw `openProject` IPC alone only sets main-side state, which
+  // left the tree without its processors. loadProject throws on failure.
+  try {
+    if (window.projectManager && typeof window.projectManager.loadProject === 'function') {
+      await window.projectManager.loadProject(spf);
+    } else {
+      const res = await window.electronAPI?.openProject(spf);
+      if (res && res.success === false) throw new Error(res.error || res.message || '');
+    }
+  } catch (e) { return clonedOpenFailed(item, e?.message || String(e)); }
   // 3) Success → confirm with an IDE toast.
   try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}: ${item.name}`, 'success', 6000, 'Git'); } catch (_) { /* optional */ }
   close();

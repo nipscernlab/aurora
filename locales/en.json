@@ -723,6 +723,7 @@
         "close":              "Close",
         "behindMsg":          "The remote has changes you don’t have yet, so the push was rejected. Pull the remote changes and push again?",
         "pullPush":           "Pull & push",
+        "remoteBranches":     "Remote branches",
         "openFailed":         "Couldn’t open the project",
         "openFailedHint":     "The folder may have been moved or deleted. Remove it from the list or clone it again?",
         "cloneAgain":         "Clone again",

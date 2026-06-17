@@ -195,8 +195,23 @@ function register() {
 
   ipcMain.handle('git:branches', safe(async (opts) => {
     const git = gitFor(opts);
-    const b = await git.branchLocal();
-    return { current: b.current, branches: b.all };
+    // -a = local AND remote-tracking branches. Split them; surface remote-only
+    // branches (no matching local) so the user can check them out (git creates
+    // the local tracking branch on checkout).
+    const b = await git.branch(['-a']);
+    const local = []; const remote = [];
+    for (const name of b.all) {
+      if (name.startsWith('remotes/')) {
+        const short = name.replace(/^remotes\//, '');
+        if (short.includes('->')) continue; // skip "origin/HEAD -> origin/main"
+        remote.push(short);
+      } else { local.push(name); }
+    }
+    const localSet = new Set(local);
+    const remoteBranches = remote
+      .map((full) => ({ full, name: full.split('/').slice(1).join('/') }))
+      .filter((r) => r.name && !localSet.has(r.name));
+    return { current: b.current, branches: local, remoteBranches };
   }));
 
   ipcMain.handle('git:remotes', safe(async () => {

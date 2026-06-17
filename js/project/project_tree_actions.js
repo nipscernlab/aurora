@@ -277,6 +277,47 @@ export const ActionsMixin = {
      * o disco e persiste no .spf via SpfStore.update — ver doc do
      * importFiles. UI re-renderiza via aurora:spf-changed.
      */
+    /**
+     * Create a `.gitignore` at the project root (a real file, NOT a .spf source)
+     * with sensible SAPHO/hardware defaults, then open it. If one already exists,
+     * just open it. The chokidar watcher refreshes the tree; we also nudge it.
+     */
+    async createGitignore() {
+        const projectPath = ProjectStore.getProjectPath();
+        if (!projectPath) { this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000); return; }
+        const DEFAULT = [
+            '# AURORA / SAPHO',
+            'Temp/',
+            'Backup/',
+            '',
+            '# Simulation / build artifacts',
+            '*.vcd',
+            '*.fst',
+            '*.ghw',
+            '*.vvp',
+            '*.out',
+            '',
+            '# OS / editor',
+            '.DS_Store',
+            'Thumbs.db',
+            '',
+        ].join('\n');
+        try {
+            const target = await window.electronAPI.joinPath(projectPath, '.gitignore');
+            let exists = false;
+            try { exists = await window.electronAPI.fileExists(target); } catch (_) { exists = false; }
+            if (!exists) {
+                await window.electronAPI.writeFile(target, DEFAULT);
+                this.showNotification(tr('notification.tree.created', { name: '.gitignore' }), 'success', 2000);
+            }
+            try { const content = await window.electronAPI.readFile(target); TabManager.addTab(target, content); } catch (_) { /* still created */ }
+            try { window.projectTreeManager?.refreshTree?.(); } catch (_) { /* watcher will catch it */ }
+            try { await window.electronAPI.triggerFileTreeRefresh?.(); } catch (_) { /* optional */ }
+        } catch (_) {
+            this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000);
+        }
+    },
+
     async createNewFile() {
         const targetSpfPath = ProjectStore.getSpfPath();
         if (!targetSpfPath) {
@@ -855,6 +896,10 @@ async def basic_test(dut):
                 <i class="ph ph-file-py"></i>
                 <span>${tr('contextMenu.newCocotb')}</span>
             </div>
+            <div class="create-menu-item" data-action="create-gitignore">
+                <i class="ph ph-git-branch"></i>
+                <span>${tr('contextMenu.newGitignore')}</span>
+            </div>
         `;
 
         menu.style.left = x + 'px';
@@ -882,6 +927,8 @@ async def basic_test(dut):
                 await TabManager.createNewFileFromDialog();
             } else if (action === 'create-cocotb') {
                 await this.createNewCocotbFile();
+            } else if (action === 'create-gitignore') {
+                await this.createGitignore();
             }
             this.closeCreateMenu();
         });

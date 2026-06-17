@@ -302,6 +302,7 @@
         "newFile":         "New File...",
         "newVerilog":      "New Verilog File (.v)",
         "newCocotb":       "New cocotb Testbench (.py)",
+        "newGitignore":    "New .gitignore",
         "saveNewFile":     "Save New File",
         "saveNewVerilog":  "Save New Verilog File",
         "saveNewCocotb":   "Save New cocotb Testbench"

@@ -10,14 +10,41 @@
  * =====================================================================================
  */
 
+/* UNIFIED EMPTY STATE — one of four "nothing here" screens across the app
+   (file tree, verilog tree, AI panel, welcome / "no recent" + other light-DOM
+   empty states) deliberately kept visually consistent: centered column, large
+   muted icon, title, muted body, generous padding. Keep in sync with
+   .tree-empty-state, .verilog-empty-state and .ai-empty-state /
+   .ai-chat-empty-hint. */
 .empty-state {
-  padding: var(--space-3) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
   color: var(--text-muted);
+}
+
+.empty-state i,
+.empty-state .empty-state-icon {
+  font-size: 40px;
+  color: var(--text-faint, var(--text-muted));
+  margin-bottom: var(--space-1);
+}
+
+.empty-state h4,
+.empty-state strong {
+  font-size: var(--text-md);
+  font-weight: var(--font-semibold);
+  color: var(--text);
 }
 
 .empty-state p {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  font-style: italic;
+  line-height: var(--leading-snug, 1.5);
+  max-width: 280px;
 }

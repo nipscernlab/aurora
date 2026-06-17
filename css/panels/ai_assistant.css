@@ -438,6 +438,13 @@ body.ai-assistant-open {
 
 /* ---------------------------------------------------------------------------
  *  Empty state — no provider configured
+ *
+ *  UNIFIED EMPTY STATE — one of four "nothing here" screens across the app
+ *  (file tree, verilog tree, AI panel, welcome "no recent") deliberately kept
+ *  visually consistent: centered column, large muted icon, title, muted body,
+ *  generous padding. Keep in sync with .tree-empty-state, .verilog-empty-state
+ *  and .empty-state. (The AI icon keeps a faint accent tint — it's the panel's
+ *  own identity — but matches the others in size and rhythm.)
  * ------------------------------------------------------------------------- */
 .ai-empty-state {
   flex: 1 1 0;
@@ -445,17 +452,17 @@ body.ai-assistant-open {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-6);
   text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
 }
 
 .ai-empty-state.hidden { display: none; }
 
 .ai-empty-icon {
-  font-size: 42px;
+  font-size: 40px;
   color: var(--accent-hover);
-  margin-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .ai-empty-state h4 {
@@ -469,8 +476,8 @@ body.ai-assistant-open {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  max-width: 340px;
-  line-height: var(--leading-snug);
+  max-width: 280px;
+  line-height: var(--leading-snug, 1.5);
 }
 
 .ai-empty-hint {
@@ -506,6 +513,11 @@ body.ai-assistant-open {
 
 /* ---------------------------------------------------------------------------
  *  Chat empty hint — shown when a provider is ready but no messages exist
+ *
+ *  UNIFIED EMPTY STATE — shares the centered-column language of the other three
+ *  (.tree-empty-state, .verilog-empty-state, .ai-empty-state, .empty-state):
+ *  large muted icon, muted body, generous padding. Kept slightly dimmer overall
+ *  since it only whispers over an otherwise-ready, empty chat.
  * ------------------------------------------------------------------------- */
 .ai-chat-empty-hint {
   flex: 1;
@@ -513,25 +525,26 @@ body.ai-assistant-open {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  padding: var(--space-8) var(--space-6);
   text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
   pointer-events: none;
   user-select: none;
 }
 
 .ai-chat-empty-hint i {
-  font-size: 52px;
-  color: var(--border);
+  font-size: 40px;
+  color: var(--text-faint, var(--text-muted));
+  margin-bottom: var(--space-1);
 }
 
 .ai-chat-empty-hint p {
   margin: 0;
   font-size: var(--text-sm);
   color: var(--text-muted);
-  max-width: 220px;
-  line-height: var(--leading-snug);
-  opacity: 0.6;
+  max-width: 280px;
+  line-height: var(--leading-snug, 1.5);
+  opacity: 0.8;
 }
 
 .ai-chat-empty-hint.hidden { display: none; }

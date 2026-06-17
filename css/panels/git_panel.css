@@ -221,6 +221,11 @@
   background: var(--bg-elev-1, var(--bg-elev));
   border: 1px solid var(--border); border-radius: var(--radius-lg);
 }
+/* Disconnected state: the account holds the sign-in block PLUS the token form,
+   the OAuth code card and the token-help panel. Those must STACK full-width
+   below the sign-in, not sit as flex items in the space-between row (which left
+   the code box + help panel visually misplaced). Stacking only when signed-out. */
+.git-account:has(.git-signin) { flex-direction: column; align-items: stretch; }
 .git-user { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .git-avatar { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--border); object-fit: cover; background: var(--bg-sunken, var(--bg)); }
 .git-avatar-icon { font-size: 26px; color: var(--text-muted); }

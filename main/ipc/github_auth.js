@@ -18,7 +18,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { app, safeStorage, ipcMain, shell } = require('electron');
+const { app, safeStorage, ipcMain, shell, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
 // GitHub OAuth App (Device Flow). The Client ID is PUBLIC — it ships in the app
@@ -338,8 +338,23 @@ async function deviceFlowLogin(sender) {
 function register() {
   ipcMain.handle('github:oauth-configured', () => ({ configured: !!OAUTH_CLIENT_ID }));
   ipcMain.handle('github:oauth-login', async (event) => {
-    try { return { ok: true, user: await deviceFlowLogin(event.sender) }; }
-    catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+    try {
+      const user = await deviceFlowLogin(event.sender);
+      // The user just authorized in the BROWSER — pull Aurora back to the front
+      // so they don't have to alt-tab. The alwaysOnTop toggle forces Windows to
+      // raise the window even when it would otherwise deny a focus-steal.
+      try {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (win) {
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.setAlwaysOnTop(true);
+          win.setAlwaysOnTop(false);
+          win.focus();
+        }
+      } catch (_) { /* best-effort */ }
+      return { ok: true, user };
+    } catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
   });
   ipcMain.handle('github:status', async () => {
     await ensureUserAvatar();

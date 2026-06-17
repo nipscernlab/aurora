@@ -47,7 +47,6 @@ const os = require('os');
 const fs = require('fs');
 const log = require('electron-log');
 
-const state = require('../state');
 const auroraMcp = require('./aurora_mcp_server');
 const { locateCodex } = require('./cli_locator');
 const attachments = require('./attachments');
@@ -204,16 +203,15 @@ function sendEvent(/** @type {any} */ webContents, /** @type {string} */ session
   }
 }
 
-/** Directory the CLI should treat as the workspace (the open project). */
-function workspaceDir() {
-  const spf = state.currentOpenProjectPath;
-  if (spf) {
-    try {
-      const stat = fs.statSync(spf);
-      return stat.isDirectory() ? spf : path.dirname(spf);
-    } catch (_) { /* fall through */ }
-  }
-  return os.homedir();
+/** A neutral scratch directory for the CLI's working dir — deliberately NOT the
+ *  project folder. On Windows a process whose cwd is a folder LOCKS it, so with
+ *  the project as cwd a `rename_project` couldn't complete until the turn ended
+ *  (the "rename only applies after I finish" bug). Codex reaches the project via
+ *  Aurora's MCP tools (absolute paths) + the system prompt, so cwd need not be it. */
+function agentScratchDir() {
+  const dir = path.join(os.tmpdir(), 'aurora-ai-cwd');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (_) { /* best-effort */ }
+  return dir;
 }
 
 /** Map a Codex model alias to a `-m` value, or null to use the CLI default. */
@@ -278,7 +276,7 @@ async function start(payload, webContents) {
     prompt = `<conversation_context>\n${transcript}\n</conversation_context>\n\n${prompt}`;
   }
 
-  const cwd = workspaceDir();
+  const cwd = agentScratchDir();
 
   // --- argv -----------------------------------------------------------------
   // The `exec` and `exec resume` subcommands accept DIFFERENT flag sets.

@@ -804,6 +804,14 @@ function _renderMath(src, display) {
   // touches & < > " ' — it leaves \ { } ^ _ intact, so the macros below still
   // match. Without this, `$$<img src=x onerror=…>$$` is an XSS→RCE sink.
   let s = escapeHtml(raw);
+  // Text-mode macros (\text, \mathrm, \operatorname, …) render their argument as
+  // ordinary text. Strip the macro, keep the content — and do this BEFORE the
+  // super/sub pass so a `^{\text{miss}}` no longer leaves nested braces that made
+  // the script render literally (the reported bug). Twice handles one nest level.
+  const _stripTextMacros = (str) => str.replace(
+    /\\(?:text|mathrm|mathbf|mathit|mathsf|mathtt|mathbb|mathcal|operatorname)\s*\{([^{}]*)\}/g,
+    '$1');
+  s = _stripTextMacros(_stripTextMacros(s));
   // \frac{a}{b}
   s = s.replace(/\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g,
     '<span class="ai-frac"><span class="num">$1</span><span class="den">$2</span></span>');

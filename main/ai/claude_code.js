@@ -182,6 +182,17 @@ function workspaceDir() {
   return os.homedir();
 }
 
+/** A neutral scratch directory for the CLI's working dir — deliberately NOT the
+ *  project folder. On Windows a process whose cwd is a folder LOCKS it, so with
+ *  the project as cwd a `rename_project` couldn't complete until the turn ended.
+ *  The project stays fully readable via --add-dir, and every Aurora tool uses
+ *  absolute paths, so cwd need not be the project. */
+function agentScratchDir() {
+  const dir = path.join(os.tmpdir(), 'aurora-ai-cwd');
+  try { fs.mkdirSync(dir, { recursive: true }); } catch (_) { /* best-effort */ }
+  return dir;
+}
+
 // ---------------------------------------------------------------------------
 //  Aurora tool bridge (MCP)
 // ---------------------------------------------------------------------------
@@ -378,8 +389,16 @@ async function start(payload, webContents) {
     }
   }
 
-  const cwd = workspaceDir();
-  args.push('--add-dir', cwd);
+  // The CLI's working directory MUST NOT be the project folder: on Windows a
+  // process whose cwd is a folder LOCKS it, so a project rename couldn't complete
+  // until the turn ended. Run the agent from a neutral scratch dir; the project
+  // stays readable via --add-dir, and every Aurora tool uses absolute paths.
+  const projectDir = workspaceDir();
+  const cwd = agentScratchDir();
+  args.push('--add-dir', projectDir);            // project files stay readable (native Read)
+  if (cwd !== projectDir) args.push('--add-dir', cwd);
+  try { fs.mkdirSync(attachments.ATT_DIR, { recursive: true }); } catch (_) { /* best-effort */ }
+  args.push('--add-dir', attachments.ATT_DIR);   // so native Read can open attached images
 
   // Stitch the deferred system prompt onto the user message so the
   // shell never sees its bulk. Only on a fresh session — resumed CLI

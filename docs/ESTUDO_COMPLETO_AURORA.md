@@ -1209,3 +1209,25 @@ localStorage). `prefers-reduced-motion` acende o glow sem animação.
 Arquivos: `js/ui/ai_assistant_manager.js` (clone de anexos, persist/replay dos metadados, `_revealGlow`),
 `css/panels/ai_assistant.css` (estado OFF + keyframe `aiArcReveal` + classe `.revealed`). 253 unit + ESLint +
 `tsc --noEmit` + `vite build` verdes. **Verificação ao vivo do usuário pendente.**
+
+### 14.11 Render de LaTeX (`\text`/chaves aninhadas) + IA fora da pasta do projeto (destrava rename) — 17/06/2026 — FEITO
+
+**LaTeX no chat — `\text{}` e chaves aninhadas.** O fallback Unicode do `_renderMath` (usado quando o KaTeX
+não está ativo) não tratava `\text{...}` nem super/subscritos com chaves aninhadas, então `E_T^{\text{miss}}`
+saía com o `^{\text{miss}}` **literal**. Fix: o fallback agora **remove os macros de texto** (`\text`,
+`\mathrm`, `\operatorname`, …) mantendo o conteúdo, **antes** do passo de super/subscrito — então
+`^{\text{miss}}` vira `^{miss}` e renderiza como sobrescrito correto. (Quando o KaTeX está carregado ele
+segue sendo usado, que é o ideal; isto conserta o caso em que ele não está.)
+
+**IA roda fora da pasta do projeto — destrava o rename durante o turno.** Causa raiz do rename flaky (§14.9):
+o processo do agente (Claude Code / Codex) era spawnado com `cwd` = a pasta do projeto. No Windows, um
+processo cujo cwd é uma pasta **trava** essa pasta — então o `rename_project` só completava quando o turno
+terminava (o agente soltava a pasta). Fix: o agente agora roda de uma **pasta-rascunho neutra**
+(`%TEMP%\aurora-ai-cwd`), nunca a do projeto. O projeto segue legível: o Claude Code recebe `--add-dir
+<projeto>` (+ `--add-dir <dir de anexos>`, que de quebra conserta a leitura nativa das imagens anexadas); o
+Codex acessa via tools MCP (caminhos absolutos) + sandbox liberada. Com isso o rename completa **durante** o
+turno e a IA recebe o verdito de verdade (em vez de só descobrir depois que o chat fecha).
+
+Arquivos: `js/ui/ai_assistant_manager.js` (`_stripTextMacros`), `main/ai/claude_code.js` (`agentScratchDir` +
+`--add-dir` projeto/anexos), `main/ai/codex_cli.js` (`agentScratchDir`, remove o `state` ocioso). 253 unit +
+ESLint + `tsc --noEmit` + knip + `vite build` verdes. **Verificação ao vivo do usuário pendente.**

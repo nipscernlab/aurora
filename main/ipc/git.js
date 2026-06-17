@@ -103,6 +103,26 @@ function remoteGit() {
   return simpleGit({ baseDir: dir, trimmed: true, config });
 }
 
+// Per-file +/- for the WORKING tree (staged + unstaged combined), for the
+// Changes list. Two cheap numstat diffs, merged by path.
+async function workNumstat(git) {
+  const map = {};
+  const add = (raw) => {
+    for (const line of String(raw || '').split('\n')) {
+      const m = line.replace(/\r$/, '').match(/^(-|\d+)\t(-|\d+)\t(.+)$/);
+      if (!m) continue;
+      const bin = m[1] === '-' && m[2] === '-';
+      const p = m[3];
+      const cur = map[p] || { additions: 0, deletions: 0, binary: false };
+      if (bin) cur.binary = true; else { cur.additions += Number(m[1]); cur.deletions += Number(m[2]); }
+      map[p] = cur;
+    }
+  };
+  add(await git.diff(['--numstat']));             // unstaged
+  add(await git.diff(['--staged', '--numstat'])); // staged
+  return map;
+}
+
 function register() {
   // --- inspection ---------------------------------------------------------
   ipcMain.handle('git:is-repo', safe(async (opts) => {
@@ -116,14 +136,20 @@ function register() {
     const git = gitFor(opts);
     if (!(await git.checkIsRepo())) return { isRepo: false };
     const s = await git.status();
+    // opts.stats: attach per-file +/- (the Changes list wants it; the badge poll
+    // doesn't, so it stays a single status call).
+    const nmap = (opts && opts.stats) ? await workNumstat(git) : {};
     return {
       isRepo: true,
       branch: s.current,
       tracking: s.tracking,
       ahead: s.ahead,
       behind: s.behind,
-      // Per-file index/working flags (M/A/D/?/U). The renderer groups these.
-      files: s.files.map((f) => ({ path: f.path, index: f.index, working: f.working_dir })),
+      // Per-file index/working flags (M/A/D/?/U) + optional +/- counts.
+      files: s.files.map((f) => {
+        const ns = nmap[f.path] || {};
+        return { path: f.path, index: f.index, working: f.working_dir, additions: ns.additions || 0, deletions: ns.deletions || 0, binary: !!ns.binary };
+      }),
       staged: s.staged,
       modified: s.modified,
       notAdded: s.not_added,

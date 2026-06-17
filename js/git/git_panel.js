@@ -148,6 +148,15 @@ async function updateGithubStatusBar() {
   setGithubStatusBar(s);
 }
 
+// The Commit button needs BOTH a non-empty title AND something to commit
+// (changes, or amend mode). No title → no commit.
+function updateCommitBtn() {
+  const btn = $('git-commit-btn');
+  if (!btn) return;
+  const title = ($('git-commit-title')?.value || '').trim();
+  btn.disabled = !title || (!lastHasChanges && !amendOn);
+}
+
 // --- status grouping -------------------------------------------------------
 function partition(st) {
   const staged = []; const unstaged = [];
@@ -160,39 +169,54 @@ function partition(st) {
 }
 const STATUS_LABEL = { M: 'modificado', A: 'adicionado', D: 'deletado', R: 'renomeado', C: 'copiado', U: 'conflito', '?': 'novo' };
 
-function fileRow(f, group) {
-  const flag = group === 'staged' ? (f.index || '').trim()
-    : ((f.working || '').trim() || (f.index === '?' ? '?' : '')) || (f.index || '').trim();
-  const letter = flag || '?';
-  const actions = group === 'staged'
-    ? `<button class="git-act" data-action="unstage" data-file="${esc(f.path)}" title="Unstage"><i class="ph ph-minus"></i></button>`
-    : `<button class="git-act" data-action="stage" data-file="${esc(f.path)}" title="Stage"><i class="ph ph-plus"></i></button>`
-      + `<button class="git-act git-act-danger" data-action="discard" data-file="${esc(f.path)}" title="Descartar"><i class="ph ph-arrow-counter-clockwise"></i></button>`;
-  return `<li class="git-file" data-file="${esc(f.path)}" data-staged="${group === 'staged'}">
+// A file is "staged" when its index flag carries a real change (not blank, not
+// the '?' that marks an untracked file).
+function isStaged(f) { const i = (f.index || '').trim(); return i !== '' && i !== '?'; }
+function fileFlag(f) {
+  const w = (f.working || '').trim(); const i = (f.index || '').trim();
+  return w || (i === '?' ? '?' : i) || '?';
+}
+function fileStats(f) {
+  if (f.binary) return '<span class="git-fd-bin">bin</span>';
+  const add = Number(f.additions) || 0; const del = Number(f.deletions) || 0;
+  if (!add && !del) return '';
+  return `<span class="git-file-stats"><span class="git-fd-add">+${add}</span><span class="git-fd-del">-${del}</span></span>`;
+}
+// GitHub-Desktop-style row: a checkbox (checked = staged) + flag + path + the
+// +/- line counts + a discard action on hover.
+function fileRow(f) {
+  const staged = isStaged(f);
+  const letter = fileFlag(f);
+  return `<li class="git-file ${staged ? 'staged' : ''}" data-file="${esc(f.path)}" data-staged="${staged}">
+    <button class="git-file-check ${staged ? 'on' : ''}" data-action="toggle-stage" data-file="${esc(f.path)}" aria-pressed="${staged}" title="${staged ? esc(tt('git.unstageOne', 'Unstage')) : esc(tt('git.stageOne', 'Stage'))}"><i class="ph ${staged ? 'ph-check-square' : 'ph-square'}"></i></button>
     <span class="git-file-flag git-flag-${esc(letter)}" title="${esc(STATUS_LABEL[letter] || '')}">${esc(letter)}</span>
     <span class="git-file-path" title="${esc(f.path)}">${esc(f.path)}</span>
-    <span class="git-file-actions">${actions}</span>
+    ${fileStats(f)}
+    <span class="git-file-actions">
+      <button class="git-act git-act-danger" data-action="discard" data-file="${esc(f.path)}" title="${esc(tt('git.discard', 'Discard'))}"><i class="ph ph-arrow-counter-clockwise"></i></button>
+    </span>
   </li>`;
 }
 function renderChanges(st) {
   const wrap = $('git-changes');
   if (!wrap) return;
-  const { staged, unstaged } = partition(st);
+  const files = st.files || [];
   const count = $('git-tab-count');
-  if (count) { const n = st.files.length; count.textContent = String(n); count.hidden = !n; }
-  if (!staged.length && !unstaged.length) {
+  if (count) { count.textContent = String(files.length); count.hidden = !files.length; }
+  if (!files.length) {
     wrap.innerHTML = `<div class="git-clean"><i class="ph ph-check-circle"></i> ${esc(tt('git.treeClean', 'Working tree clean — no changes.'))}</div>`;
     return;
   }
+  const stagedCount = files.filter(isStaged).length;
+  const allStaged = stagedCount === files.length;
+  const masterIcon = allStaged ? 'ph-check-square' : (stagedCount > 0 ? 'ph-minus-square' : 'ph-square');
   wrap.innerHTML = `
-    ${staged.length ? `<div class="git-section">
-      <div class="git-section-head"><span>${esc(tt('git.staged', 'Staged'))} · ${staged.length}</span>
-        <button class="git-mini" data-action="unstage-all" title="Tirar tudo da área de stage (não entra no commit)">${esc(tt('git.unstageAll', 'Unstage all'))}</button></div>
-      <ul class="git-file-list">${staged.map((f) => fileRow(f, 'staged')).join('')}</ul></div>` : ''}
-    ${unstaged.length ? `<div class="git-section">
-      <div class="git-section-head"><span>${esc(tt('git.changes', 'Changes'))} · ${unstaged.length}</span>
-        <button class="git-mini" data-action="stage-all" title="Preparar TODAS as mudanças para o próximo commit (git add -A)">${esc(tt('git.stageAll', 'Stage all'))}</button></div>
-      <ul class="git-file-list">${unstaged.map((f) => fileRow(f, 'unstaged')).join('')}</ul></div>` : ''}`;
+    <div class="git-section-head git-changes-head">
+      <button class="git-file-check master ${allStaged ? 'on' : (stagedCount ? 'partial' : '')}" data-action="${allStaged ? 'unstage-all' : 'stage-all'}" title="${allStaged ? esc(tt('git.unstageAll', 'Unstage all')) : esc(tt('git.stageAll', 'Stage all'))}"><i class="ph ${masterIcon}"></i></button>
+      <span>${esc(tt('git.changes', 'Changes'))} · ${files.length}</span>
+      <span class="git-changes-staged">${stagedCount}/${files.length} ${esc(tt('git.stagedWord', 'staged'))}</span>
+    </div>
+    <ul class="git-file-list">${files.map(fileRow).join('')}</ul>`;
 }
 
 function renderRepoHeader(st, info) {
@@ -600,7 +624,7 @@ async function refresh() {
     hideDiff();
     return;
   }
-  const st = await api().status(withDir());
+  const st = await api().status(withDir({ stats: true }));
   if (!st.ok) { if (changes) changes.innerHTML = `<div class="git-empty">${esc(st.error)}</div>`; return; }
   if (commitbox) commitbox.hidden = !!browseDir; // read-only when browsing a clone
   if (tabs) tabs.hidden = false;
@@ -610,8 +634,7 @@ async function refresh() {
   renderPublish(info);
   renderChanges(st);
   lastHasChanges = !!st.files.length;
-  const commitBtn = $('git-commit-btn');
-  if (commitBtn) commitBtn.disabled = !lastHasChanges && !amendOn;
+  updateCommitBtn();
   hideDiff();
   if (browseDir) switchTab('history'); // browse a clone → straight to its history
   else if (activeTab === 'history') loadHistory();
@@ -797,6 +820,10 @@ async function onClick(e) {
       case 'refresh':    return refresh();
       case 'stage':      return run(tt('git.staged', 'Stage'), async () => { await api().stage(file); refresh(); });
       case 'unstage':    return run(tt('git.staged', 'Unstage'), async () => { await api().unstage(file); refresh(); });
+      case 'toggle-stage': {
+        const staged = actEl.closest('.git-file')?.dataset.staged === 'true';
+        return run(staged ? tt('git.unstageOne', 'Unstage') : tt('git.stageOne', 'Stage'), async () => { if (staged) await api().unstage(file); else await api().stage(file); refresh(); });
+      }
       case 'stage-all':  return run(tt('git.stageAll', 'Stage all'), async () => { await api().stageAll(); refresh(); });
       case 'unstage-all':return run(tt('git.unstageAll', 'Unstage all'), async () => { const st = await api().status(); await api().unstage(st.files.map((f) => f.path)); refresh(); });
       case 'discard':    return discard(file);
@@ -804,7 +831,7 @@ async function onClick(e) {
       case 'toggle-amend': {
         amendOn = !amendOn;
         const b = $('git-amend-btn'); if (b) { b.classList.toggle('active', amendOn); b.setAttribute('aria-pressed', String(amendOn)); }
-        const cb = $('git-commit-btn'); if (cb) cb.disabled = !lastHasChanges && !amendOn;
+        updateCommitBtn();
         return undefined;
       }
       case 'init':       return run(tt('git.initRepo', 'Initialize'), async () => { const r = await api().init(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.initRepo', 'Repository initialized'); });
@@ -1504,6 +1531,7 @@ function init() {
     });
   }
   $('git-commit-btn')?.addEventListener('click', doCommit);
+  $('git-commit-title')?.addEventListener('input', updateCommitBtn); // no title → no commit
   $('git-commit-desc')?.addEventListener('input', autoGrowDesc);
   try { api()?.onCloneProgress?.((data) => updateCloneProgress(data)); } catch (_) { /* optional */ }
   $('git-diff-close')?.addEventListener('click', hideDiff);

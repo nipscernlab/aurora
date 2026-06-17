@@ -1183,3 +1183,29 @@ Agora a renomeação roda como um **job rastreado**:
   `getRenameStatus`), `main/ai/tools.js` (descrição + `get_rename_status`), `js/ui/ai_assistant_manager.js`
   (pré-autoriza o status), `locales/{en,pt}.json`, `docs/aurora-intelligence-tools.md`.
 - Verde: 253 unit + ESLint + `tsc --noEmit` + `vite build`. **Verificação ao vivo do usuário pendente.**
+
+### 14.10 Anexos da IA (fix crítico + persistência) + glow do painel na 1ª mensagem — 17/06/2026 — FEITO
+
+**Bug crítico: a IA parou de receber imagens.** Causa raiz: a limpeza de memória que solta o base64 das
+imagens depois de enviar (pra não reenviar 8 MB a cada turno) estava mutando os MESMOS objetos de anexo que
+o `apiMessages` (a lista que vai pro modelo) referenciava — então o base64 era apagado ANTES do envio chegar
+ao transporte. Resultado: todo provedor (SDK + Claude Code) recebia o anexo sem conteúdo e o modelo só via
+"uma imagem foi anexada". Fix: `apiMessages` agora **clona** cada anexo (`{ ...a }`), então a limpeza do
+histórico não alcança mais a cópia que está sendo enviada. (Codex segue sem ver imagens — limitação real do
+provider, exibe a nota de degradação.)
+
+**Persistência de anexo ao reabrir o chat.** Antes, ao salvar uma conversa só `{role, content}` era gravado
+por mensagem — reabrir um chat com imagem mostrava uma bolha vazia. Agora gravamos os **metadados leves** do
+anexo (nome+extensão, kind, mime, size) — **sem** o payload (base64/texto), descartado por performance. Ao
+reabrir, os chips dos anexos são re-renderizados com o nome; imagem sem bytes cai num chip com ícone+nome (em
+vez de thumbnail quebrado). A mensagem mantém o contexto em vez de ficar vazia.
+
+**Glow do painel de IA — revela na 1ª mensagem.** O brilho lilás no rodapé do painel agora começa
+**apagado**; quando o usuário envia a primeira mensagem da sessão ele **revela** (sobe de baixo pra cima +
+clareia em toda a extensão, easing `--ease-reveal`, sem overshoot) e fica ligado (respiração calma). Fechar e
+reabrir o painel mantém o glow; só reiniciar a interface do zero refaz a animação (flag em memória, não
+localStorage). `prefers-reduced-motion` acende o glow sem animação.
+
+Arquivos: `js/ui/ai_assistant_manager.js` (clone de anexos, persist/replay dos metadados, `_revealGlow`),
+`css/panels/ai_assistant.css` (estado OFF + keyframe `aiArcReveal` + classe `.revealed`). 253 unit + ESLint +
+`tsc --noEmit` + `vite build` verdes. **Verificação ao vivo do usuário pendente.**

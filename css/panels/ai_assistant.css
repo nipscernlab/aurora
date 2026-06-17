@@ -274,8 +274,15 @@ body.ai-assistant-open {
       rgba(190, 170, 255, 0.30) 0%,
       rgba(176, 158, 252, 0.14) 42%,
       transparent 72%);
-  will-change: opacity;
-  animation: aiArcBreathe 14s ease-in-out infinite;
+  /* OFF until the user's first message. `.revealed` (added once, in-memory) then
+     plays the reveal — the arch RISES from the bottom and brightens across its
+     full width — and settles into the calm breathing. Closing/reopening the
+     panel keeps `.revealed`; only a fresh app start brings it back to OFF. */
+  opacity: 0;
+  transform: translateY(22%) scaleY(0.6);
+  transform-origin: 50% 100%;
+  will-change: opacity, transform;
+  animation: none;
 }
 /* Brighter, slightly tighter core of the arch — static, breathes only. */
 .ai-aurora-glow::before {
@@ -289,7 +296,23 @@ body.ai-assistant-open {
       rgba(206, 188, 255, 0.40) 0%,
       rgba(186, 164, 255, 0.18) 44%,
       transparent 76%);
-  animation: aiArcCore 10s ease-in-out infinite;
+  animation: none;
+}
+/* Reveal once on the first message, then breathe. The breathing starts after the
+   reveal (equal delay) and the reveal SETTLES to the breathing's baseline (0.82)
+   so the hand-off has no visible jump. No overshoot — DESIGN.md forbids bounce. */
+.ai-aurora-glow.revealed {
+  animation:
+    aiArcReveal 2200ms var(--ease-reveal, cubic-bezier(0.16, 1, 0.3, 1)) forwards,
+    aiArcBreathe 14s ease-in-out infinite 2200ms;
+}
+.ai-aurora-glow.revealed::before {
+  animation: aiArcCore 10s ease-in-out infinite 2200ms;
+}
+@keyframes aiArcReveal {
+  0%   { opacity: 0;    transform: translateY(22%) scaleY(0.6); }
+  70%  { opacity: 1;    transform: translateY(0)   scaleY(1);   }
+  100% { opacity: 0.82; transform: translateY(0)   scaleY(1);   }
 }
 @keyframes aiArcBreathe {
   0%, 100% { opacity: 0.82; }
@@ -302,6 +325,10 @@ body.ai-assistant-open {
 @media (prefers-reduced-motion: reduce) {
   .ai-aurora-glow,
   .ai-aurora-glow::before { animation: none; }
+  /* No animated reveal/breathing under reduced motion — but a revealed glow must
+     still show. Snap it on (core included) without any movement. */
+  .ai-aurora-glow.revealed { opacity: 1; transform: none; }
+  .ai-aurora-glow.revealed::before { opacity: 1; }
 }
 .ai-assistant-content > .ai-empty-state,
 .ai-assistant-content > .ai-messages,

@@ -1258,6 +1258,10 @@ class AIAssistantManager {
     this.tokenCounter = null;
 
     this.messages = [];              // [{ role:'user'|'assistant', content }]
+    // The bottom "aurora glow" starts OFF and reveals on the user's first
+    // message of the session, then stays lit. In-memory on purpose: closing and
+    // reopening the panel keeps it; only a fresh app start replays the reveal.
+    this._glowRevealed = false;
     this.currentProvider = null;
     this.providersAvailable = [];    // [{ name, model, defaultModel }]
     this.providersConfigured = {};   // { name: bool }
@@ -2709,6 +2713,16 @@ class AIAssistantManager {
     await this._submitUserMessage(text, atts);
   }
 
+  /** Reveal the bottom aurora glow on the user's first message of the session,
+   *  then leave it lit. Idempotent via the in-memory flag, so reopening the panel
+   *  keeps the glow and only a fresh app start replays the reveal. */
+  _revealGlow() {
+    if (this._glowRevealed) return;
+    this._glowRevealed = true;
+    const glow = this.container?.querySelector('.ai-aurora-glow');
+    if (glow) glow.classList.add('revealed');
+  }
+
   /** Append the user bubble, record the message, and dispatch its turn. Shared
    *  by an immediate send and by draining a queued follow-up. */
   async _submitUserMessage(text, atts) {
@@ -2722,6 +2736,10 @@ class AIAssistantManager {
       this.currentChatTitle = text.replace(/\s+/g, ' ').trim().slice(0, 60) || 'New chat';
       this.currentChatCreatedAt = Date.now();
     }
+
+    // First real user message of the session lights the aurora glow (it rises
+    // from the bottom and brightens, then stays on). No-op after the first time.
+    this._revealGlow();
 
     const userBubble = this.appendBubble('user', text);
     if (atts.length) this._renderBubbleAttachments(userBubble, atts);
@@ -2862,10 +2880,18 @@ class AIAssistantManager {
     if (!bubble || !atts || !atts.length) return;
     const strip = document.createElement('div');
     strip.className = 'ai-msg-attachments';
-    strip.innerHTML = atts.map((a) => (a.kind === 'image'
-      ? `<img class="ai-att-thumb ai-att-thumb-lg" src="${a.dataUrl}" alt="${this._escAtt(a.name)}" title="${this._escAtt(a.name)}">`
-      : `<span class="ai-att-chip" title="${this._escAtt(a.name)}"><i class="ph ph-file-text ai-att-icon" aria-hidden="true"></i><span class="ai-att-body"><span class="ai-att-name">${this._escAtt(a.name)}</span><span class="ai-att-meta">${this._fmtSize(a.size)}</span></span></span>`
-    )).join('');
+    strip.innerHTML = atts.map((a) => {
+      // A live image (still has its bytes) renders as a thumbnail. An image whose
+      // payload was dropped — a reopened chat keeps only the name/ext for
+      // performance — falls back to a name + icon chip, so the message keeps its
+      // context instead of going blank.
+      if (a.kind === 'image' && a.dataUrl) {
+        return `<img class="ai-att-thumb ai-att-thumb-lg" src="${a.dataUrl}" alt="${this._escAtt(a.name)}" title="${this._escAtt(a.name)}">`;
+      }
+      const icon = a.kind === 'image' ? 'ph-image' : 'ph-file-text';
+      const meta = a.size != null ? this._fmtSize(a.size) : '';
+      return `<span class="ai-att-chip" title="${this._escAtt(a.name)}"><i class="ph ${icon} ai-att-icon" aria-hidden="true"></i><span class="ai-att-body"><span class="ai-att-name">${this._escAtt(a.name)}</span>${meta ? `<span class="ai-att-meta">${meta}</span>` : ''}</span></span>`;
+    }).join('');
     const content = bubble.querySelector('.ai-msg-content');
     (content || bubble).appendChild(strip);
   }
@@ -2931,13 +2957,20 @@ class AIAssistantManager {
     const apiMessages = this.messages
       .filter((m) => m.role !== 'tool')
       .map((m) => (m.attachments && m.attachments.length
-        ? { role: m.role, content: m.content, attachments: m.attachments }
+        // CLONE each attachment. The memory-hygiene step below deletes `dataUrl`
+        // from the STORED history; if apiMessages shared the same attachment
+        // objects, that delete would also wipe the base64 out of the copy we are
+        // about to SEND — which is exactly what broke image attachments (the
+        // model received only "an image was attached", with no content). A
+        // shallow clone per attachment keeps the payload alive in what we send
+        // while the stored history still gets stripped.
+        ? { role: m.role, content: m.content, attachments: m.attachments.map((a) => ({ ...a })) }
         : { role: m.role, content: m.content }));
 
-    // Memory hygiene: base64 dataUrls have been captured in apiMessages for this
-    // turn — strip them from the stored history so they are NOT resent on every
-    // subsequent turn (images up to 8 MB would accumulate and be re-uploaded N
-    // times). Keep name/mime/size/kind for display; drop the payload.
+    // Memory hygiene: the base64 dataUrls are now safely COPIED into apiMessages
+    // for this turn — strip them from the stored history so they are NOT resent
+    // on every subsequent turn (images up to 8 MB would accumulate and be
+    // re-uploaded N times). Keep name/mime/size/kind for display; drop the payload.
     for (const m of this.messages) {
       if (m.attachments) {
         for (const a of m.attachments) delete a.dataUrl;
@@ -4178,7 +4211,12 @@ class AIAssistantManager {
         staticGroup.total += 1;
       } else if (typeof msg.content === 'string') {
         closeStaticGroup();
-        this.appendBubble(msg.role, msg.content);
+        const bubble = this.appendBubble(msg.role, msg.content);
+        // Restore the attachment chips (name/ext only — the payload was dropped)
+        // so a reopened message reads with context, not as an empty bubble.
+        if (Array.isArray(msg.attachments) && msg.attachments.length) {
+          this._renderBubbleAttachments(bubble, msg.attachments);
+        }
       }
     }
     closeStaticGroup();
@@ -4212,6 +4250,20 @@ class AIAssistantManager {
               if (m.error)          entry.error  = m.error;
             } else {
               entry.content = m.content;
+              if (Array.isArray(m.attachments) && m.attachments.length) {
+                // Persist only lightweight metadata — name (carries the
+                // extension), kind, mime, size — NOT the payload (image base64 /
+                // file text), which is dropped for performance. A reopened chat
+                // then shows the attachment's name for context instead of an
+                // empty message.
+                entry.attachments = m.attachments.map((a) => {
+                  const meta = { kind: a.kind, name: a.name };
+                  if (a.mime) meta.mime = a.mime;
+                  if (a.size != null) meta.size = a.size;
+                  if (a.clipped) meta.clipped = true;
+                  return meta;
+                });
+              }
             }
             return entry;
           }),

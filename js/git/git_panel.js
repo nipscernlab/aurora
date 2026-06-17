@@ -200,6 +200,7 @@ function fileRow(f) {
 function renderChanges(st) {
   const wrap = $('git-changes');
   if (!wrap) return;
+  lastFileIndex = -1; // list re-rendered → drop the range anchor
   const files = st.files || [];
   const count = $('git-tab-count');
   if (count) { count.textContent = String(files.length); count.hidden = !files.length; }
@@ -217,6 +218,88 @@ function renderChanges(st) {
       <span class="git-changes-staged">${stagedCount}/${files.length} ${esc(tt('git.stagedWord', 'staged'))}</span>
     </div>
     <ul class="git-file-list">${files.map(fileRow).join('')}</ul>`;
+}
+
+// --- changes-list interactions (no full reload) ----------------------------
+let lastFileIndex = -1; // anchor for shift-click range selection
+function changeRows() { return Array.from(document.querySelectorAll('#git-changes .git-file')); }
+// Click a file → show its diff + select it. Shift-click → select the whole range
+// from the anchor (GitHub-Desktop / file-manager style).
+function handleFileClick(li, shift) {
+  const rows = changeRows();
+  const idx = rows.indexOf(li);
+  if (shift && lastFileIndex >= 0 && lastFileIndex < rows.length) {
+    const a = Math.min(lastFileIndex, idx); const b = Math.max(lastFileIndex, idx);
+    rows.forEach((r, i) => r.classList.toggle('selected', i >= a && i <= b));
+  } else {
+    rows.forEach((r) => r.classList.remove('selected'));
+    li.classList.add('selected');
+    lastFileIndex = idx;
+  }
+  return showDiff(li.dataset.file, li.dataset.staged === 'true');
+}
+// Reflect a staged flag on one row WITHOUT re-rendering the list.
+function setRowStaged(el, staged) {
+  el.dataset.staged = String(staged);
+  el.classList.toggle('staged', staged);
+  const cb = el.querySelector('.git-file-check');
+  if (cb) {
+    cb.classList.toggle('on', staged);
+    cb.setAttribute('aria-pressed', String(staged));
+    const i = cb.querySelector('i'); if (i) i.className = `ph ${staged ? 'ph-check-square' : 'ph-square'}`;
+    cb.title = staged ? tt('git.unstageOne', 'Unstage') : tt('git.stageOne', 'Stage');
+  }
+}
+// Recompute the master checkbox + "N/M staged" + commit-button enablement from
+// the current DOM (after an optimistic toggle).
+function syncStageHeader() {
+  const rows = changeRows();
+  const staged = rows.filter((r) => r.dataset.staged === 'true').length;
+  const all = rows.length > 0 && staged === rows.length;
+  const master = document.querySelector('#git-changes .git-file-check.master');
+  if (master) {
+    master.classList.toggle('on', all);
+    master.classList.toggle('partial', !all && staged > 0);
+    master.dataset.action = all ? 'unstage-all' : 'stage-all';
+    const i = master.querySelector('i'); if (i) i.className = `ph ${all ? 'ph-check-square' : (staged > 0 ? 'ph-minus-square' : 'ph-square')}`;
+  }
+  const label = document.querySelector('.git-changes-staged');
+  if (label) label.textContent = `${staged}/${rows.length} ${tt('git.stagedWord', 'staged')}`;
+  lastHasChanges = rows.length > 0;
+  updateCommitBtn();
+}
+// Optimistic stage/unstage — flips the checkbox(es) instantly and runs git in the
+// background (no full panel reload). If a multi-selection is active and includes
+// the clicked row, the whole selection is toggled together.
+async function toggleStage(checkBtn) {
+  const li = checkBtn.closest('.git-file');
+  if (!li) return;
+  const selected = Array.from(document.querySelectorAll('#git-changes .git-file.selected'));
+  const targets = (selected.length > 1 && li.classList.contains('selected')) ? selected : [li];
+  const stage = li.dataset.staged !== 'true'; // stage if currently unstaged
+  const files = targets.map((el) => el.dataset.file).filter(Boolean);
+  if (!files.length) return;
+  targets.forEach((el) => setRowStaged(el, stage)); // optimistic
+  syncStageHeader();
+  try {
+    const r = stage ? await api().stage(files) : await api().unstage(files);
+    if (r && r.ok === false) throw new Error(r.error);
+    updateBadge();
+  } catch (_) {
+    refreshChangesOnly(); // reconcile on failure
+  }
+}
+// Re-render ONLY the changes list (status), preserving the open diff/account —
+// used for live updates when files change on disk (e.g. editing .gitignore makes
+// ignored files drop out of Changes) without the jarring full refresh.
+async function refreshChangesOnly() {
+  if (browseDir || !isOpen() || activeTab !== 'changes') return;
+  let st; try { st = await api().status(withDir({ stats: true })); } catch (_) { return; }
+  if (!st || !st.ok) return;
+  renderChanges(st);
+  lastHasChanges = !!st.files.length;
+  updateCommitBtn();
+  updateBadge();
 }
 
 function renderRepoHeader(st, info) {
@@ -820,10 +903,7 @@ async function onClick(e) {
       case 'refresh':    return refresh();
       case 'stage':      return run(tt('git.staged', 'Stage'), async () => { await api().stage(file); refresh(); });
       case 'unstage':    return run(tt('git.staged', 'Unstage'), async () => { await api().unstage(file); refresh(); });
-      case 'toggle-stage': {
-        const staged = actEl.closest('.git-file')?.dataset.staged === 'true';
-        return run(staged ? tt('git.unstageOne', 'Unstage') : tt('git.stageOne', 'Stage'), async () => { if (staged) await api().unstage(file); else await api().stage(file); refresh(); });
-      }
+      case 'toggle-stage': return toggleStage(actEl);
       case 'stage-all':  return run(tt('git.stageAll', 'Stage all'), async () => { await api().stageAll(); refresh(); });
       case 'unstage-all':return run(tt('git.unstageAll', 'Unstage all'), async () => { const st = await api().status(); await api().unstage(st.files.map((f) => f.path)); refresh(); });
       case 'discard':    return discard(file);
@@ -888,11 +968,7 @@ async function onClick(e) {
     }
   }
   const row = e.target.closest('.git-file');
-  if (row) {
-    document.querySelectorAll('.git-file.selected').forEach((n) => n.classList.remove('selected'));
-    row.classList.add('selected');
-    return showDiff(row.dataset.file, row.dataset.staged === 'true');
-  }
+  if (row) return handleFileClick(row, e.shiftKey);
   const commit = e.target.closest('.git-commit');
   if (commit && commit.dataset.hash) {
     document.querySelectorAll('.git-commit.selected').forEach((n) => n.classList.remove('selected'));
@@ -1538,15 +1614,16 @@ function init() {
   $('git-history-diff-close')?.addEventListener('click', hideHistoryDiff);
   window.openGitPanel = open;
 
-  const refreshBadge = debounce(updateBadge, 700);
+  // Live: when the panel is OPEN, on-disk changes (incl. editing .gitignore, which
+  // makes ignored files drop out of Changes) re-render just the changes list;
+  // when closed, only the badge is refreshed.
+  const live = debounce(() => { if (isOpen()) refreshChangesOnly(); else updateBadge(); }, 600);
   setTimeout(updateBadge, 1500);
-  window.addEventListener('aurora:file-saved', refreshBadge);
-  window.addEventListener('aurora:spf-changed', refreshBadge);
-  document.addEventListener('aurora:file-saved', refreshBadge);
-  // Reflect ON-DISK changes too (the project chokidar watcher), so the count
-  // stays fresh automatically — not only when the panel is opened.
-  try { window.electronAPI?.onDirectoryChanged?.(() => refreshBadge()); } catch (_) { /* optional */ }
-  try { window.electronAPI?.onFileChanged?.(() => refreshBadge()); } catch (_) { /* optional */ }
+  window.addEventListener('aurora:file-saved', live);
+  window.addEventListener('aurora:spf-changed', live);
+  document.addEventListener('aurora:file-saved', live);
+  try { window.electronAPI?.onDirectoryChanged?.(() => live()); } catch (_) { /* optional */ }
+  try { window.electronAPI?.onFileChanged?.(() => live()); } catch (_) { /* optional */ }
   setInterval(() => { if (!isOpen()) updateBadge(); }, 8000);
 }
 

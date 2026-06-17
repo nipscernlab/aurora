@@ -61,6 +61,41 @@
 }
 .dagr-sub::before { content: '·'; margin: 0 0.55ch 0 0.25ch; opacity: 0.5; }
 
+/* A big, MUTED "ᛞ DAGR" watermark filling the panel's empty space — the Norse
+   face, centered, sitting BEHIND the content. `isolation:isolate` makes the
+   panel its own stacking context so the watermark's z-index:-1 stays inside it
+   (behind the rows, above the modal background) instead of sinking out of view.
+   pointer-events:none so it never eats a click; overflow:hidden clips the
+   oversized glyphs to the panel. */
+.git-panel { position: relative; isolation: isolate; }
+.dagr-watermark {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.02em;
+  pointer-events: none;
+  user-select: none;
+  overflow: hidden;
+  opacity: 0.06;
+  color: var(--text-bright, #fff);
+}
+.dagr-wm-rune {
+  font-family: 'Norse', 'Segoe UI Historic', 'Noto Sans Runic', 'Segoe UI Symbol', sans-serif;
+  font-size: clamp(160px, 22vw, 300px);
+  line-height: 0.82;
+}
+.dagr-wm-name {
+  font-family: 'Norse', var(--font-sans, 'Inter'), serif;
+  font-size: clamp(96px, 14vw, 200px);
+  letter-spacing: 0.06em;
+  line-height: 0.82;
+  white-space: nowrap;
+}
+
 /* =============================================================================
  * 1. SHELL — the modal body as an app pane
  * ========================================================================== */

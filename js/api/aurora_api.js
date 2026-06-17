@@ -632,19 +632,17 @@ async function _runRenameJob(job) {
     _renameStep(job, 'disk-rename', true);
 
     const newSpfPath = r.newSpfPath || null;
-    const newRoot = r.newRoot || null;
     job.newSpfPath = newSpfPath;
     job.newName = r.newName || newNm;
 
-    // 3. Point the project store at the new .spf right away so any immediate
-    //    follow-up targets the renamed project even before the tree reloads.
-    if (newSpfPath && newRoot) {
-      try { window.ProjectStore?.setProject?.(newSpfPath, newRoot); } catch (_) { /* best-effort */ }
-    }
-
-    // 4. Reopen the project (full tree rescan + watcher re-attach). This is
-    //    the slow part; because we are OFF the tool-call path we can AWAIT it
-    //    and learn whether it truly succeeded, instead of firing it blind.
+    // 3. Reopen the project (full tree rescan + watcher re-attach). This is the
+    //    slow part; because we are OFF the tool-call path we can AWAIT it and
+    //    learn whether it truly succeeded, instead of firing it blind.
+    //    NOTE: we deliberately do NOT pre-call ProjectStore.setProject here —
+    //    loadProject sets it itself. An extra setProject fires the file tree's
+    //    ProjectStore subscriber (an out-of-band refreshTree) that RACES with
+    //    loadProject's own render and left the tree un-clickable until a manual
+    //    refresh (the reported bug).
     let reopenOk = true;
     let reopenErr = null;
     if (newSpfPath) {

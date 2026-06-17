@@ -1242,3 +1242,13 @@ impressão de IDE travada). Fix: `error_boundary.js` agora **ignora** esses canc
 `preventDefault()` — exatamente como o próprio VS Code faz com `onUnexpectedError`. A reabertura segue normal,
 sem alarme falso. Arquivo: `js/app/error_boundary.js`. 253 unit + ESLint + `tsc --noEmit` + `vite build` verdes.
 **Confirmado pelo usuário: rename funciona; faltava só não assustar com o "Canceled".**
+
+### 14.13 Fix: file tree clicável após o rename (sem refresh manual) — 17/06/2026 — FEITO
+Após o rename, a árvore reabria mas **nenhum arquivo ficava clicável** até o usuário clicar no botão de
+refresh da própria tree. Causa: o `_runRenameJob` chamava `ProjectStore.setProject(novo)` **antes** do
+`loadProject` — e o `loadProject` chama `setProject` de novo internamente. O subscriber da file tree
+(`file_tree_manager.js` `onProjectChange` → `refreshTree()`) disparava então um `refreshTree` **fora de
+banda** que corria com o render do próprio `loadProject`, deixando os handlers de clique quebrados (o refresh
+manual reconstruía). Abertura normal de projeto não tinha o bug (só um `setProject`). Fix: removido o
+`setProject` redundante do job (e o `newRoot` que só ele usava) — o `loadProject` faz tudo, igual a um
+File > Open. Arquivo: `js/api/aurora_api.js`. 253 unit + ESLint + `tsc --noEmit` + `vite build` verdes.

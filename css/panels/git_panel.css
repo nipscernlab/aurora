@@ -464,6 +464,74 @@
 .git-diff-loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); }
 .git-mini:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ---- cloned projects manager + context menu ---- */
+.git-cloned {
+  margin-top: var(--space-2);
+  animation: gitPanelReveal var(--motion-flow, 200ms) var(--ease-out, ease) both;
+}
+.git-cloned-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--text-xs); font-weight: var(--font-semibold); color: var(--text-secondary, var(--text-muted));
+  margin-bottom: var(--space-1);
+}
+.git-cloned-count {
+  padding: 0 6px; border-radius: 999px; background: var(--overlay-hover);
+  color: var(--text-muted); font-size: 9px; font-weight: var(--font-semibold);
+}
+.git-cloned-empty {
+  padding: var(--space-3); text-align: center; color: var(--text-muted); font-size: var(--text-xs);
+  border: 1px dashed var(--border); border-radius: var(--radius-md);
+}
+.git-cloned-list {
+  list-style: none; margin: 0; padding: 0; max-height: 30vh; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-sunken, var(--bg));
+}
+.git-cloned-item {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2); cursor: pointer;
+  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.04));
+  transition: background-color var(--transition-fast, 120ms ease);
+  animation: gitRowIn var(--motion-flow, 200ms) var(--ease-out, ease) both;
+}
+.git-cloned-item:last-child { border-bottom: none; }
+.git-cloned-item:hover, .git-cloned-item:focus-visible { background: var(--overlay-hover); outline: none; }
+.git-cloned-icon { font-size: 18px; color: var(--accent-hover, var(--accent)); flex-shrink: 0; }
+.git-cloned-info { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; }
+.git-cloned-name { font-size: var(--text-sm); color: var(--text); font-weight: var(--font-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-cloned-path { font-family: var(--font-mono); font-size: 10px; color: var(--text-faint, var(--text-muted)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+.git-cloned-kebab {
+  flex-shrink: 0; width: 26px; height: 26px; padding: 0; border-radius: var(--radius-md);
+  background: transparent; border: none; color: var(--text-muted); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity var(--transition-fast, 120ms ease), background-color var(--transition-fast, 120ms ease);
+}
+.git-cloned-item:hover .git-cloned-kebab, .git-cloned-item:focus-within .git-cloned-kebab { opacity: 1; }
+.git-cloned-kebab:hover { background: var(--overlay-hover); color: var(--text); }
+
+/* Floating context menu (appended to <body>, so above the modal). */
+.git-ctx-menu {
+  position: fixed; z-index: calc(var(--z-modal, 1000) + 20);
+  min-width: 200px; padding: 4px;
+  background: var(--bg-elev-3, var(--bg-elev)); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg, 0 8px 28px rgba(0, 0, 0, 0.45));
+  animation: gitCtxIn 120ms var(--ease-out, ease) both;
+}
+@keyframes gitCtxIn { from { opacity: 0; transform: scale(0.97) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.git-ctx-item {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%;
+  padding: 6px var(--space-2); background: transparent; border: none; border-radius: var(--radius-sm, 4px);
+  color: var(--text); font-family: var(--font-sans); font-size: var(--text-xs); text-align: left; cursor: pointer;
+  transition: background-color var(--transition-fast, 100ms ease);
+}
+.git-ctx-item i { font-size: 15px; color: var(--text-muted); }
+.git-ctx-item:hover { background: var(--overlay-hover); }
+.git-ctx-item.danger:hover { background: color-mix(in srgb, var(--status-error, #ff6b6b) 16%, transparent); color: var(--status-error, #ff6b6b); }
+.git-ctx-item.danger:hover i { color: var(--status-error, #ff6b6b); }
+.git-ctx-sep { height: 1px; margin: 4px 0; background: var(--border-hairline, rgba(255, 255, 255, 0.08)); }
+@media (prefers-reduced-motion: reduce) {
+  .git-cloned, .git-cloned-item, .git-ctx-menu { animation: none !important; }
+}
+
 /* ---- token help (how to get a token + per-feature permission table) ---- */
 .git-token-help {
   margin-top: var(--space-2); padding: var(--space-3);

@@ -238,6 +238,7 @@ async function renderAccount() {
         <span class="git-user-ok" title="${esc(tt('git.connect', 'Connect'))}"><i class="ph ph-check-circle"></i></span></span>
       <span class="git-account-actions">
         <button class="git-mini" data-action="clone-toggle"><i class="ph ph-download-simple"></i> ${esc(tt('git.clone', 'Clone'))}</button>
+        <button class="git-mini" data-action="cloned-toggle"><i class="ph ph-folders"></i> ${esc(tt('git.cloned', 'Projects'))}</button>
         <button class="git-icon-btn git-disconnect" data-action="disconnect" title="${esc(tt('git.disconnect', 'Disconnect'))}" aria-label="${esc(tt('git.disconnect', 'Disconnect'))}"><i class="ph ph-sign-out"></i></button>
       </span>`;
   } else {
@@ -504,6 +505,12 @@ async function onClick(e) {
         return undefined;
       }
       case 'open-token-page': { try { window.electronAPI?.openExternal?.('https://github.com/settings/tokens/new'); } catch (_) { /* ignore */ } return undefined; }
+      case 'cloned-toggle': return toggleCloned();
+      case 'cloned-menu': {
+        const r = actEl.getBoundingClientRect();
+        openClonedMenu(r.left, r.bottom + 2, Number(actEl.dataset.clonedIndex));
+        return undefined;
+      }
       case 'commit-file-toggle': return toggleCommitFile(actEl);
       case 'clone-toggle': return toggleClone();
       case 'clone-list-select': return selectCloneRepo(actEl);
@@ -532,6 +539,10 @@ async function onClick(e) {
     document.querySelectorAll('.git-commit.selected').forEach((n) => n.classList.remove('selected'));
     commit.classList.add('selected');
     return showCommitDiff(commit.dataset.hash);
+  }
+  const clonedItem = e.target.closest('.git-cloned-item');
+  if (clonedItem) {
+    return openClonedProject(loadCloned()[Number(clonedItem.dataset.clonedIndex)]);
   }
   return undefined;
 }
@@ -746,6 +757,11 @@ async function doClone() {
     const r = await api().clone({ url: cloneState.selUrl, dest });
     if (!r.ok) { updateCloneProgress({ stage: 'error', progress: 0 }); throw new Error(r.error); }
     if (r.canceled) return tt('git.cloneBtn', 'Clone canceled');
+    // Register the clone so it shows in the "Cloned projects" list (with the
+    // repo's GitHub URL, for the "View on GitHub" action).
+    const repo = cloneState.repos.find((x) => x.cloneUrl === cloneState.selUrl);
+    recordCloned({ name: cloneState.selName, path: r.dest || dest, url: repo && repo.htmlUrl ? repo.htmlUrl : '' });
+    if ($('git-cloned') && !$('git-cloned').hidden) renderCloned();
     // After cloning, look for project files to offer "Open in SAPHO".
     let scan;
     try { scan = await api().scanSpf({ dir: r.dest || dest }); } catch (_) { scan = { ok: false }; }
@@ -769,6 +785,143 @@ async function openClonedSpf(spf) {
   if (!spf) return;
   try { await window.electronAPI?.openProject(spf); } catch (e) { flash(e?.message || String(e), 'error'); return; }
   close();
+}
+
+// --- cloned projects manager -----------------------------------------------
+// A local registry (localStorage) of repositories cloned through this panel.
+// GitHub-Desktop-style: a list + a per-item context menu (open, copy name/path,
+// view on GitHub, terminal, explorer, remove).
+const CLONED_STORE = 'aurora-cloned-repos';
+function loadCloned() {
+  try { const a = JSON.parse(localStorage.getItem(CLONED_STORE) || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; }
+}
+function saveCloned(list) { try { localStorage.setItem(CLONED_STORE, JSON.stringify(list.slice(0, 100))); } catch (_) { /* quota */ } }
+function recordCloned(entry) {
+  if (!entry || !entry.path) return;
+  const list = loadCloned().filter((r) => r.path !== entry.path);
+  list.unshift({ name: entry.name || String(entry.path).split(/[\\/]/).pop(), path: entry.path, url: entry.url || '', clonedAt: new Date().toISOString() });
+  saveCloned(list);
+}
+function toggleCloned() {
+  const el = $('git-cloned');
+  if (!el) return;
+  if (el.hidden) { renderCloned(); el.hidden = false; } else { el.hidden = true; }
+}
+function renderCloned() {
+  const el = $('git-cloned');
+  if (!el) return;
+  const list = loadCloned();
+  const head = `<div class="git-cloned-head"><i class="ph ph-folders"></i> <span>${esc(tt('git.clonedTitle', 'Cloned projects'))}</span>${list.length ? `<span class="git-cloned-count">${list.length}</span>` : ''}</div>`;
+  if (!list.length) {
+    el.innerHTML = head + `<div class="git-cloned-empty">${esc(tt('git.clonedEmpty', 'No cloned projects yet — clone a repository to see it here.'))}</div>`;
+    return;
+  }
+  el.innerHTML = head + `<ul class="git-cloned-list">${list.map((r, i) => `
+    <li class="git-cloned-item" data-cloned-index="${i}" tabindex="0" title="${esc(tt('git.openInSapho', 'Open project in SAPHO'))}">
+      <i class="ph ph-folder-notch git-cloned-icon"></i>
+      <span class="git-cloned-info">
+        <span class="git-cloned-name">${esc(r.name)}</span>
+        <span class="git-cloned-path" title="${esc(r.path)}">${esc(r.path)}</span>
+      </span>
+      <button class="git-cloned-kebab" data-action="cloned-menu" data-cloned-index="${i}" title="${esc(tt('git.actions', 'Actions'))}"><i class="ph ph-dots-three-vertical"></i></button>
+    </li>`).join('')}</ul>`;
+}
+
+const CLONED_MENU = [
+  { action: 'open',          icon: 'ph-rocket-launch',   key: 'git.openInSapho',  fb: 'Open in SAPHO' },
+  { sep: true },
+  { action: 'copy-name',     icon: 'ph-copy',            key: 'git.copyName',     fb: 'Copy repo name' },
+  { action: 'copy-path',     icon: 'ph-copy',            key: 'git.copyPath',     fb: 'Copy repo path' },
+  { action: 'view-github',   icon: 'ph-github-logo',     key: 'git.viewGithub',   fb: 'View on GitHub' },
+  { action: 'open-cmd',      icon: 'ph-terminal-window', key: 'git.openCmd',      fb: 'Open in command prompt' },
+  { action: 'show-explorer', icon: 'ph-folder-open',     key: 'git.showExplorer', fb: 'Show in explorer' },
+  { sep: true },
+  { action: 'remove',        icon: 'ph-trash',           key: 'git.remove',       fb: 'Remove', danger: true },
+];
+let clonedMenuEl = null;
+function closeClonedMenu() {
+  if (!clonedMenuEl) return;
+  clonedMenuEl.remove(); clonedMenuEl = null;
+  document.removeEventListener('mousedown', onClonedMenuAway, true);
+  document.removeEventListener('keydown', onClonedMenuKey, true);
+}
+function onClonedMenuAway(e) { if (clonedMenuEl && !clonedMenuEl.contains(e.target)) closeClonedMenu(); }
+function onClonedMenuKey(e) { if (e.key === 'Escape') { e.stopPropagation(); closeClonedMenu(); } }
+function openClonedMenu(x, y, idx) {
+  closeClonedMenu();
+  if (!loadCloned()[idx]) return;
+  clonedMenuEl = document.createElement('div');
+  clonedMenuEl.className = 'git-ctx-menu';
+  clonedMenuEl.innerHTML = CLONED_MENU.map((m) => (m.sep
+    ? '<div class="git-ctx-sep"></div>'
+    : `<button class="git-ctx-item ${m.danger ? 'danger' : ''}" data-cloned-do="${m.action}"><i class="ph ${m.icon}"></i> ${esc(tt(m.key, m.fb))}</button>`)).join('');
+  document.body.appendChild(clonedMenuEl);
+  const r = clonedMenuEl.getBoundingClientRect();
+  clonedMenuEl.style.left = `${Math.max(8, Math.min(x, window.innerWidth - r.width - 8))}px`;
+  clonedMenuEl.style.top = `${Math.max(8, Math.min(y, window.innerHeight - r.height - 8))}px`;
+  clonedMenuEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-cloned-do]');
+    if (!b) return;
+    e.stopPropagation();
+    runClonedAction(b.dataset.clonedDo, idx);
+  });
+  setTimeout(() => {
+    document.addEventListener('mousedown', onClonedMenuAway, true);
+    document.addEventListener('keydown', onClonedMenuKey, true);
+  }, 0);
+}
+async function copyToClipboard(text, okMsg) {
+  try { await navigator.clipboard.writeText(text || ''); flash(okMsg, 'ok'); }
+  catch (_) { flash('Clipboard unavailable', 'error'); }
+}
+async function runClonedAction(action, idx) {
+  const item = loadCloned()[idx];
+  closeClonedMenu();
+  if (!item) return undefined;
+  switch (action) {
+    case 'open': return openClonedProject(item);
+    case 'copy-name': return copyToClipboard(item.name, tt('git.copied', 'Copied'));
+    case 'copy-path': return copyToClipboard(item.path, tt('git.copied', 'Copied'));
+    case 'view-github':
+      if (item.url) { try { window.electronAPI?.openExternal?.(item.url); } catch (_) { /* ignore */ } }
+      else flash(tt('git.noGithubUrl', 'No GitHub URL for this project.'), 'error');
+      return undefined;
+    case 'open-cmd': try { const r = await window.electronAPI?.openTerminal?.(item.path); if (r && r.success === false) flash(r.error || 'Failed', 'error'); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
+    case 'show-explorer': try { await window.electronAPI?.openFolder?.(item.path); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
+    case 'remove': return removeClonedProject(idx);
+    default: return undefined;
+  }
+}
+async function openClonedProject(item) {
+  if (!item) return;
+  try {
+    const scan = await api().scanSpf({ dir: item.path });
+    const spf = scan && scan.ok && Array.isArray(scan.spfs) && scan.spfs[0];
+    if (spf) { await window.electronAPI?.openProject(spf); close(); return; }
+    flash(tt('git.noSpfInClone', 'No SAPHO project found — opening the folder.'), 'info');
+    await window.electronAPI?.openFolder?.(item.path);
+  } catch (e) { flash(e?.message || String(e), 'error'); }
+}
+async function removeClonedProject(idx) {
+  const item = loadCloned()[idx];
+  if (!item) return;
+  const action = await window.AuroraUI?.dialog?.({
+    title: tt('git.remove', 'Remove'),
+    message: tt('git.removeClonedMsg', 'Remove <strong>{name}</strong> from the list? You can also delete its folder from disk.').replace('{name}', esc(item.name)),
+    variant: 'warning',
+    buttons: [
+      { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('git.removeFromList', 'Remove from list'), action: 'list', type: 'primary' },
+      { label: tt('git.deleteFromDisk', 'Delete from disk'), action: 'disk', type: 'danger' },
+    ],
+  });
+  if (!action || action === 'cancel') return;
+  if (action === 'disk') {
+    try { await window.electronAPI?.deleteFileOrDirectory?.(item.path); } catch (e) { flash(e?.message || String(e), 'error'); return; }
+  }
+  const list = loadCloned(); list.splice(idx, 1); saveCloned(list);
+  renderCloned();
+  flash(action === 'disk' ? tt('git.deletedFromDisk', 'Deleted from disk') : tt('git.removedFromList', 'Removed from list'), 'ok');
 }
 
 async function connect() {
@@ -839,6 +992,13 @@ function init() {
   if (modal) {
     modal.addEventListener('aurora-modal-close', close);
     modal.addEventListener('click', onClick);
+    // Right-click a cloned project → the same context menu as the ⋮ button.
+    modal.addEventListener('contextmenu', (e) => {
+      const item = e.target.closest('.git-cloned-item');
+      if (!item) return;
+      e.preventDefault();
+      openClonedMenu(e.clientX, e.clientY, Number(item.dataset.clonedIndex));
+    });
   }
   $('git-commit-btn')?.addEventListener('click', doCommit);
   $('git-commit-desc')?.addEventListener('input', autoGrowDesc);

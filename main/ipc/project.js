@@ -17,6 +17,33 @@ const log = require('electron-log');
 
 const state = require('../state');
 
+/**
+ * Parse .spf content tolerantly. A .spf is JSON, but real files pick up a BOM,
+ * trailing commas or stray comments (hand-edits, other tools, partial writes /
+ * cloned-from-another-machine). Strict first; on failure, one lenient pass so a
+ * recoverable project opens instead of failing. Mirrors spf_store.ts.
+ * @param {string} content
+ */
+function parseSpfTolerant(content) {
+  try {
+    return JSON.parse(content);
+  } catch (_strictErr) {
+    let inStr = false; let strCh = ''; let inLine = false; let inBlock = false; let out = '';
+    for (let i = 0; i < content.length; i++) {
+      const c = content[i]; const n = content[i + 1];
+      if (inLine) { if (c === '\n') { inLine = false; out += c; } continue; }
+      if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i++; } continue; }
+      if (inStr) { out += c; if (c === '\\') { out += content[i + 1] || ''; i++; } else if (c === strCh) inStr = false; continue; }
+      if (c === '"') { inStr = true; strCh = c; out += c; continue; }
+      if (c === '/' && n === '/') { inLine = true; i++; continue; }
+      if (c === '/' && n === '*') { inBlock = true; i++; continue; }
+      out += c;
+    }
+    const cleaned = out.replace(/^\s+/, '').replace(/,\s*([}\]])/g, '$1');
+    return JSON.parse(cleaned);
+  }
+}
+
 // ---- ProjectFile schema ----
 
 class ProjectFile {
@@ -305,7 +332,7 @@ function register() {
         log.warn('jumplist refresh failed:', e);
       }
       const spfContent = await fse.readFile(spfPath, 'utf8');
-      const projectData = JSON.parse(spfContent);
+      const projectData = parseSpfTolerant(spfContent);
       projectData.metadata.lastOpened = new Date().toISOString();
 
       // basePath SEMPRE alinha com dirname(spfPath). Antes checavamos so
@@ -416,7 +443,7 @@ function register() {
     if (!state.currentOpenProjectPath) return { projectOpen: false };
     try {
       const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
-      const projectData = JSON.parse(spfData);
+      const projectData = parseSpfTolerant(spfData);
       return {
         projectOpen: true,
         projectPath: projectData.structure.basePath,
@@ -482,7 +509,7 @@ void main()
           `${path.basename(formData.projectLocation)}.spf`,
         );
         const spfContent = await fse.readFile(spfPath, 'utf8');
-        const spfData = JSON.parse(spfContent);
+        const spfData = parseSpfTolerant(spfContent);
 
         // Garante array antes do push e dedup case-insensitive: bugs
         // anteriores podiam acumular o mesmo nome multiplas vezes no
@@ -565,7 +592,7 @@ void main()
       // Prefer the currently open project — most reliable source of truth.
       if (state.currentOpenProjectPath && (await fse.pathExists(state.currentOpenProjectPath))) {
         const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
-        const projectData = JSON.parse(spfData);
+        const projectData = parseSpfTolerant(spfData);
         if (projectData.structure && projectData.structure.processors) {
           return enrichProcessors(
             projectData.structure.processors,
@@ -588,7 +615,7 @@ void main()
 
         if (spfPath && (await fse.pathExists(spfPath))) {
           const spfData = await fse.readFile(spfPath, 'utf8');
-          const projectData = JSON.parse(spfData);
+          const projectData = parseSpfTolerant(spfData);
           if (projectData.structure && projectData.structure.processors) {
             return enrichProcessors(
               projectData.structure.processors,
@@ -626,7 +653,7 @@ void main()
       if (!state.currentOpenProjectPath) throw new Error('No open project');
 
       const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
-      const projectData = JSON.parse(spfData);
+      const projectData = parseSpfTolerant(spfData);
       const projectDir = projectData.structure.basePath;
 
       const processorDir = path.join(projectDir, processorName);
@@ -682,7 +709,7 @@ void main()
         throw new Error('Processor name may contain only letters, numbers, underscore or hyphen');
       }
 
-      const spfData = JSON.parse(await fse.readFile(state.currentOpenProjectPath, 'utf8'));
+      const spfData = parseSpfTolerant(await fse.readFile(state.currentOpenProjectPath, 'utf8'));
       const projectDir = spfData.structure.basePath;
       const procs = Array.isArray(spfData.structure.processors)
         ? spfData.structure.processors : [];
@@ -833,7 +860,7 @@ void main()
       const oldFolderName = path.basename(oldRoot);
       const oldSpfBase = path.basename(oldSpfPath);
 
-      const spfData = JSON.parse(await fse.readFile(oldSpfPath, 'utf8'));
+      const spfData = parseSpfTolerant(await fse.readFile(oldSpfPath, 'utf8'));
       const oldName = spfData.metadata?.projectName
         || path.basename(oldSpfPath, '.spf');
 

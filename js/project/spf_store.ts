@@ -189,6 +189,50 @@ const STRUCTURE_DEFAULTS: SpfStructure = Object.freeze({
   testbenchFiles: [],
 });
 
+// Strip // and /* */ comments that sit OUTSIDE of strings — leaves string
+// contents (including URLs with //) untouched.
+function stripJsonComments(s: string): string {
+  let out = '';
+  let inStr = false;
+  let strCh = '';
+  let inLine = false;
+  let inBlock = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    const n = s[i + 1];
+    if (inLine) { if (c === '\n') { inLine = false; out += c; } continue; }
+    if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i++; } continue; }
+    if (inStr) {
+      out += c;
+      if (c === '\\') { out += s[i + 1] ?? ''; i++; } else if (c === strCh) inStr = false;
+      continue;
+    }
+    if (c === '"') { inStr = true; strCh = c; out += c; continue; }
+    if (c === '/' && n === '/') { inLine = true; i++; continue; }
+    if (c === '/' && n === '*') { inBlock = true; i++; continue; }
+    out += c;
+  }
+  return out;
+}
+
+/**
+ * Parse .spf content. A .spf is JSON, but real files in the wild pick up a BOM,
+ * trailing commas or stray comments (hand-edits, other tools, partial writes).
+ * Strict JSON first; on failure, one lenient pass (BOM + comments + trailing
+ * commas) so a RECOVERABLE file isn't silently reset to defaults. Still throws
+ * if genuinely unparseable — the caller logs + falls back.
+ */
+function parseSpfTolerant(content: string): any {
+  try {
+    return JSON.parse(content);
+  } catch (_strictErr) {
+    const cleaned = stripJsonComments(content)
+      .replace(/^\s+/, '')
+      .replace(/,\s*([}\]])/g, '$1');
+    return JSON.parse(cleaned);
+  }
+}
+
 async function readRawUncached(spfPath: string): Promise<SpfDocument> {
   const exists = await window.electronAPI.fileExists(spfPath);
   if (!exists) {
@@ -199,7 +243,7 @@ async function readRawUncached(spfPath: string): Promise<SpfDocument> {
   }
   try {
     const content = await window.electronAPI.readFile(spfPath);
-    const parsed = JSON.parse(content);
+    const parsed = parseSpfTolerant(content);
     // Defaults first, on-disk values second — unknown keys
     // sobrevivem ao round trip.
     const structure: SpfStructure = { ...STRUCTURE_DEFAULTS, ...(parsed.structure ?? {}) };

@@ -318,6 +318,31 @@ function register() {
     }
   });
 
+  // Open a native terminal/command-prompt at a directory (cloned-projects menu).
+  ipcMain.handle('shell:open-terminal', async (_event, dirPath) => {
+    try {
+      if (!dirPath || typeof dirPath !== 'string') throw new Error('dir required');
+      if (!fse.existsSync(dirPath)) throw new Error('Directory not found');
+      const cp = require('child_process');
+      if (process.platform === 'win32') {
+        // `start "" cmd` opens a NEW console window; the empty title keeps the
+        // path from being swallowed as the window title.
+        cp.spawn('cmd.exe', ['/c', 'start', '""', 'cmd.exe'], {
+          cwd: dirPath, detached: true, stdio: 'ignore', windowsHide: false,
+        }).unref();
+      } else if (process.platform === 'darwin') {
+        cp.spawn('open', ['-a', 'Terminal', dirPath], { detached: true, stdio: 'ignore' }).unref();
+      } else {
+        const term = process.env.TERMINAL || 'x-terminal-emulator';
+        cp.spawn(term, [], { cwd: dirPath, detached: true, stdio: 'ignore' }).unref();
+      }
+      return { success: true };
+    } catch (error) {
+      log.error('Error opening terminal:', error);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
   // ---------- backups ----------
 
   ipcMain.handle('create-backup', async (_event, folderPath) => {

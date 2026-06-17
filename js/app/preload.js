@@ -42,6 +42,7 @@ const fileOperations = {
   dirname:         (p) => ipcRenderer.invoke('path-dirname', p),
 
   openFolder:      (p) => ipcRenderer.invoke('folder:open', p),
+  openTerminal:    (p) => ipcRenderer.invoke('shell:open-terminal', p),
   openExternal:    (url) => ipcRenderer.invoke('open-external', url),
 };
 

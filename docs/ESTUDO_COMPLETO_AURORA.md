@@ -1292,3 +1292,13 @@ reusam os tokens `--status-warning/success/error/info` (tree e painel Dagr sempr
 no `.verilog-file-info`). Arquivos: `js/tree/git_decorations.js` (novo), `js/app/renderer.js` (import),
 `css/tree/file_tree.css` (badge + tint). 253 unit + ESLint + `tsc --noEmit` + `vite build` verdes.
 **Verificação ao vivo do usuário pendente.**
+
+### 14.16 G1 — APIs de git completas para a IA — 17/06/2026 — FEITO
+A IA ganhou acesso completo ao controle de versão do projeto aberto (mesmo backend do painel Dagr). Namespace
+`git` novo no `AuroraAPI` (`js/api/aurora_api.js`) — wrappers finos sobre `window.gitAPI` (main/ipc/git.js /
+simple-git), com um `gitCall()` que normaliza erros + o caso "não é repo". **14 tools** em `main/ai/tools.js`:
+**read** (rodam direto) — `git_status`, `git_log`, `git_branches`, `git_diff`; **write** (passam pelo card
+Allow/Deny) — `git_stage`, `git_unstage`, `git_commit`, `git_discard`, `git_create_branch`,
+`git_switch_branch`, `git_fetch`, `git_pull`, `git_push`, `git_stash`. Todas erram com mensagem clara se o
+projeto aberto não é um repo git. Documentadas em `docs/aurora-intelligence-tools.md`. **Aditivo** (não muda
+comportamento existente; falha de tool é isolada). 253 unit + ESLint + `tsc --noEmit` + `vite build` verdes.

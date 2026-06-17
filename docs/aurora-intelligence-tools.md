@@ -770,6 +770,38 @@ Opens the Wave Configuration modal for the user (so they can select signals manu
 
 ---
 
+## Git / Source Control (Dagr)
+
+Version control over the **open project's local git repo** (same backend as the Dagr Source Control panel). Read tools run immediately; write tools show the Allow/Deny card. Every tool errors clearly if the open project is not a git repository.
+
+| Tool | Access | Arguments | What it does |
+|------|--------|-----------|--------------|
+| `git_status` | read | — | Branch, ahead/behind, and changed files (path + index/working flag M/A/D/R/? + ±lines). Call first. |
+| `git_log` | read | `limit?` | Recent commits (hash, subject, author, date). |
+| `git_branches` | read | — | Local + remote branches and the current one. |
+| `git_diff` | read | `file?`, `staged?` | Unified diff of a file (or the whole tree). Size-capped. |
+| `git_stage` | write | `files[]` | Stage files (add to the index). |
+| `git_unstage` | write | `files[]` | Unstage files (keep the changes). |
+| `git_commit` | write | `message`, `amend?` | Commit the STAGED changes (stage first). |
+| `git_discard` | write | `files[]` | Discard local changes — irreversible. |
+| `git_create_branch` | write | `name` | Create a branch from HEAD and switch to it. |
+| `git_switch_branch` | write | `name` | Checkout an existing branch. |
+| `git_fetch` | write | — | Fetch from the remote. |
+| `git_pull` | write | — | Pull (fetch + merge, `--autostash`). |
+| `git_push` | write | — | Push the current branch. |
+| `git_stash` | write | `message?` | Stash uncommitted changes (incl. untracked). |
+
+```jsonc
+// git_status output:
+{ "ok": true, "data": { "branch": "main", "ahead": 1, "behind": 0, "clean": false,
+  "files": [ { "path": "proc/Software/proc.cmm", "index": " ", "working": "M",
+              "additions": 12, "deletions": 3 } ] } }
+```
+
+> Typical loop: `git_status` → `git_stage({files})` → `git_commit({message})` → `git_push`. Paths are relative to the repo root (as `git_status` returns them).
+
+---
+
 ## Canonical Workflows
 
 ### 1. Create a custom Verilog toplevel + testbench and compile

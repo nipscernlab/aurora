@@ -538,6 +538,141 @@ const TOOL_MANIFEST = [
       required: ['jobId'],
     },
   },
+
+  /* ---- git / Source Control (Dagr): version control over the open project's
+   *      local git repo. Reads run immediately; writes go through the Allow/Deny
+   *      card. All error clearly if the open project is not a git repository. ---- */
+  {
+    name: 'git_status',
+    description:
+      'Get the working-tree git status of the OPEN project: current branch, ahead/behind the remote, ' +
+      'and the changed files — each with its index (staged) flag and working-tree flag (M=modified, ' +
+      'A=added, D=deleted, R=renamed, ?=untracked) plus +/- line counts. Use this first to see what changed.',
+    access: 'read',
+    api: ['git', 'status'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'git_log',
+    description: 'List recent commits of the open project (newest first): hash, subject, author and date.',
+    access: 'read',
+    api: ['git', 'log'],
+    argStyle: 'object',
+    inputSchema: { type: 'object', properties: { limit: { type: 'number', description: 'How many commits (default 30, max 200)' } } },
+  },
+  {
+    name: 'git_branches',
+    description: 'List the local and remote branches of the open project and which one is currently checked out.',
+    access: 'read',
+    api: ['git', 'branches'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'git_diff',
+    description:
+      'Show the unified diff of one file (or the whole working tree if `file` is omitted) in the open ' +
+      'project. Size-capped. Pass staged:true for the staged (index) diff instead of the working tree.',
+    access: 'read',
+    api: ['git', 'diff'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', description: 'Path relative to the repo root; omit for the whole tree' },
+        staged: { type: 'boolean', description: 'Diff the staged changes instead of the working tree' },
+      },
+    },
+  },
+  {
+    name: 'git_stage',
+    description: 'Stage one or more files (add to the index) in the open project. Paths are relative to the repo root.',
+    access: 'write',
+    api: ['git', 'stage'],
+    argStyle: 'object',
+    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } } }, required: ['files'] },
+  },
+  {
+    name: 'git_unstage',
+    description: 'Unstage one or more files (remove from the index, KEEP the changes) in the open project.',
+    access: 'write',
+    api: ['git', 'unstage'],
+    argStyle: 'object',
+    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } } }, required: ['files'] },
+  },
+  {
+    name: 'git_commit',
+    description:
+      'Commit the STAGED changes of the open project with a message. Only staged changes are committed — ' +
+      'stage files first with git_stage. Pass amend:true to amend the previous commit instead.',
+    access: 'write',
+    api: ['git', 'commit'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: { message: { type: 'string' }, amend: { type: 'boolean' } },
+      required: ['message'],
+    },
+  },
+  {
+    name: 'git_discard',
+    description:
+      'DISCARD local changes to one or more files in the open project — IRREVERSIBLE (restores them to the ' +
+      'last committed state). Prefer git_stash if the user might want the changes back.',
+    access: 'write',
+    api: ['git', 'discard'],
+    argStyle: 'object',
+    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } } }, required: ['files'] },
+  },
+  {
+    name: 'git_create_branch',
+    description: 'Create a new branch from the current HEAD and switch to it, in the open project.',
+    access: 'write',
+    api: ['git', 'createBranch'],
+    argStyle: 'object',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+  },
+  {
+    name: 'git_switch_branch',
+    description: 'Switch the open project to an EXISTING branch (checkout). Commit or git_stash a dirty tree first.',
+    access: 'write',
+    api: ['git', 'switchBranch'],
+    argStyle: 'object',
+    inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+  },
+  {
+    name: 'git_fetch',
+    description: 'Fetch from the remote for the open project (updates remote-tracking branches; does not touch the working tree).',
+    access: 'write',
+    api: ['git', 'fetch'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'git_pull',
+    description: 'Pull from the remote for the open project (fetch + merge, with --autostash).',
+    access: 'write',
+    api: ['git', 'pull'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'git_push',
+    description: 'Push the current branch to the remote for the open project.',
+    access: 'write',
+    api: ['git', 'push'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'git_stash',
+    description: 'Stash the uncommitted changes of the open project (including untracked files). Restore later from the Source Control panel.',
+    access: 'write',
+    api: ['git', 'stash'],
+    argStyle: 'object',
+    inputSchema: { type: 'object', properties: { message: { type: 'string' } } },
+  },
   {
     name: 'open_project',
     description: 'Open an existing SAPHO project by its .spf file path.',

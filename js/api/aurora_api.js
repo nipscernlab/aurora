@@ -2781,6 +2781,70 @@ const NAMESPACES = Object.freeze({
   },
 });
 
+/* ============================================================
+ *  Git / Source Control namespace (Dagr)
+ *
+ *  Gives Aurora Intelligence the same version-control surface the
+ *  Source Control panel uses, over the OPEN PROJECT's local git repo
+ *  (window.gitAPI → main/ipc/git.js / simple-git). Read tools run
+ *  immediately; write tools are gated by the Allow/Deny card
+ *  (access:'write' in tools.js). Everything no-ops safely with a clear
+ *  error when the open project is not a git repository.
+ * ========================================================== */
+
+const _toFiles = (files) => (Array.isArray(files) ? files : (files != null && files !== '' ? [files] : []));
+
+/** Call a window.gitAPI method, normalising errors + the not-a-repo case. */
+async function gitCall(method, arg, { needRepo = true } = {}) {
+  const fn = window.gitAPI && window.gitAPI[method];
+  if (typeof fn !== 'function') return err(`gitAPI.${method} unavailable — Source Control bridge not loaded`);
+  let r;
+  try { r = (arg === undefined) ? await fn() : await fn(arg); }
+  catch (e) { return err(e?.message || `git ${method} failed`); }
+  if (r && r.ok === false) return err(r.error || `git ${method} failed`);
+  if (needRepo && r && r.isRepo === false) return err('The open project is not a git repository.');
+  return r;
+}
+
+const gitNs = {
+  /** Working-tree status: branch, ahead/behind, and changed files (path + index/working flags + ±lines). */
+  async status() {
+    const r = await gitCall('status', { stats: true });
+    if (r.ok === false) return r;
+    return ok({
+      branch: r.branch, tracking: r.tracking, ahead: r.ahead, behind: r.behind, clean: r.clean,
+      files: (r.files || []).map((f) => ({
+        path: f.path, index: f.index, working: f.working, additions: f.additions, deletions: f.deletions,
+      })),
+    });
+  },
+  async log({ limit } = {}) { return gitCall('log', { limit: Math.max(1, Math.min(200, Number(limit) || 30)) }); },
+  async branches() { return gitCall('branches', undefined, { needRepo: false }); },
+  async diff({ file, staged } = {}) { return gitCall('diff', { file: file || undefined, staged: !!staged }, { needRepo: false }); },
+  async stage({ files } = {}) { return gitCall('stage', _toFiles(files)); },
+  async unstage({ files } = {}) { return gitCall('unstage', _toFiles(files)); },
+  async discard({ files } = {}) { return gitCall('discard', _toFiles(files)); },
+  async commit({ message, amend } = {}) {
+    const msg = String(message || '').trim();
+    if (!msg && !amend) return err('A commit message is required.');
+    return gitCall('commit', { message: msg, amend: !!amend });
+  },
+  async createBranch({ name } = {}) {
+    const b = String(name || '').trim();
+    if (!b) return err('A branch name is required.');
+    return gitCall('checkout', { branch: b, create: true });
+  },
+  async switchBranch({ name } = {}) {
+    const b = String(name || '').trim();
+    if (!b) return err('A branch name is required.');
+    return gitCall('checkout', { branch: b });
+  },
+  async fetch() { return gitCall('fetch'); },
+  async pull() { return gitCall('pull'); },
+  async push() { return gitCall('push'); },
+  async stash({ message } = {}) { return gitCall('stash', { message: String(message || '').trim() || undefined }); },
+};
+
 const metaNs = Object.freeze({
   version: '1.0.0',
   /** Machine-readable description of the whole AuroraAPI surface. */
@@ -2817,6 +2881,7 @@ export function initAuroraAPI() {
     settings: Object.freeze(settingsNs),
     ui:       Object.freeze(uiNs),
     ai:       Object.freeze(aiNs),
+    git:      Object.freeze(gitNs),
     events:   Object.freeze({ on, off, emit }),
     _meta:    metaNs,
   });

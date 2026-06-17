@@ -1305,3 +1305,33 @@ Allow/Deny) — `git_stage`, `git_unstage`, `git_commit`, `git_discard`, `git_cr
 `git_switch_branch`, `git_fetch`, `git_pull`, `git_push`, `git_stash`. Todas erram com mensagem clara se o
 projeto aberto não é um repo git. Documentadas em `docs/aurora-intelligence-tools.md`. **Aditivo** (não muda
 comportamento existente; falha de tool é isolada). 253 unit + ESLint + `tsc --noEmit` + `vite build` verdes.
+
+### 14.17 Fechamento da sessão (17/06/2026) — feito, adiado, e o estado do merge → `main`
+
+**Feito nesta sessão** (tudo commitado + pushed em `feature/aurora-revamp`, verde por ESLint/tsc/knip/253
+unit/vite build):
+- Rename de projeto da IA robusto (job + verdito final) — §14.9 (`75afc52`).
+- Imagens voltam ao modelo + anexo persiste ao reabrir + glow do painel na 1ª msg — §14.10 (`3395951`).
+- LaTeX `\text`/chaves aninhadas + IA roda fora da pasta do projeto (destrava rename mid-turn) — §14.11 (`6a01ddb`).
+- Error boundary ignora cancelamento benigno do Monaco — §14.12 (`e4aea07`).
+- File tree clicável após rename — §14.13 (`a366ac3`).
+- Dagr — nome + fonte Norse (download no bootstrap) + marca d'água — §14.14 (`1b2c3c3`/`bc9d5cd`/`a268edc`).
+- Decorações de status git na file tree (VS Code, ambas as views) — §14.15 (`d2aa1d8`).
+- G1 — APIs de git completas para a IA (namespace + 14 tools) — §14.16 (`e5c9a24`).
+- B4 — guard de CI contra `.js` gerado commitado (`d9be9a7`); B10 — cobertura + Codecov + badge (`b2d9b2f`).
+
+**Adiado — precisa de teste ao vivo (risco de UI quebrada, não subir no escuro):** `<aurora-statusbar>` ao
+vivo, `<aurora-tabs>` passo 2, B12 (CLIs de IA sob demanda). **Adiado — features grandes (binário/design):**
+O2 Verible LSP, O11 slang-server, O1 Surfer WCP/embed, O9 DigitalJS. **Descartado (baixo valor/já feito):**
+codemod base→semantic (tema único), `ai_assistant.css` (já token-based), P6 (não-jank), O14 WaveDrom.
+**Bloqueado — externo/manual:** B2 code signing (SignPath), mídia do README, toggles do GitHub
+(Discussions/secret scanning/topics) + merge do PR de release, conectar o repo no Codecov.
+
+**Estado do merge `feature/aurora-revamp` → `main`:** a feature está **244 commits à frente** da main, e a
+**main está 8 commits à frente** (trabalho paralelo: `split tools.js` em per-namespace, `split prism.js` e
+`split project.js` em módulos, `ProjectTreeManager` pure-constructor + 3 arquivos de teste). O merge dá **3
+conflitos modify/delete**: `main/ai/tools.js`, `main/ipc/prism.js`, `main/ipc/project.js` — arquivos que a
+main DELETOU (viraram módulo) e a feature MODIFICOU. Não é trivial: exige **portar** as mudanças da feature
+pra nova estrutura modular da main (ou descartar um dos lados). **Pendente de decisão** — alternativas
+discutidas com o usuário (preservar ambos via merge-main-into-feature + port; vs `main = feature` descartando
+as refatorações; vs PR).

@@ -642,7 +642,11 @@ async function undoLast() {
 // --- clone experience ------------------------------------------------------
 // Rich clone flow: pick one of the user's repos, choose a target folder,
 // validate the resulting path, clone, then offer to open any .spf in SAPHO.
-const cloneState = { open: false, repos: [], selUrl: null, selName: null, dir: null, dest: null, spfs: [], myLogin: null };
+// The last clone destination is remembered across sessions (localStorage), so
+// the user doesn't re-pick the same folder every time.
+const CLONE_DIR_STORE = 'aurora-clone-dir';
+function rememberedCloneDir() { try { return localStorage.getItem(CLONE_DIR_STORE) || null; } catch (_) { return null; } }
+const cloneState = { open: false, repos: [], selUrl: null, selName: null, dir: rememberedCloneDir(), dest: null, spfs: [], myLogin: null };
 // Only allow clean, shell-safe paths (no spaces / exotic chars). The backslash
 // is for Windows separators; the set is intentionally conservative.
 const SAFE_PATH_RE = /^[A-Za-z0-9._/\\:-]+$/;
@@ -764,6 +768,7 @@ async function chooseCloneDir() {
   else if (res && Array.isArray(res.filePaths) && res.filePaths.length) dir = res.filePaths[0];
   if (!dir || (res && res.canceled)) return;
   cloneState.dir = dir;
+  try { localStorage.setItem(CLONE_DIR_STORE, dir); } catch (_) { /* quota */ }
   const el = $('git-clone-dir');
   if (el) { el.textContent = dir; el.title = dir; }
 }
@@ -787,7 +792,14 @@ function updateCloneProgress(data) {
     label.textContent = word;
   }
   if (stage === 'done' || stage === 'error') {
-    cloneProgressHideTimer = setTimeout(() => { if (wrap) wrap.hidden = true; }, 1200);
+    // Let the 100% bar sit a beat, then fade it out smoothly before hiding.
+    cloneProgressHideTimer = setTimeout(() => {
+      if (!wrap) return;
+      wrap.classList.add('git-fadeout');
+      cloneProgressHideTimer = setTimeout(() => {
+        if (wrap) { wrap.hidden = true; wrap.classList.remove('git-fadeout'); }
+      }, 460);
+    }, 1400);
   }
 }
 function showCloneProgress() {
@@ -795,7 +807,7 @@ function showCloneProgress() {
   if (cloneProgressHideTimer) { clearTimeout(cloneProgressHideTimer); cloneProgressHideTimer = null; }
   if (fill) fill.style.transform = 'scaleX(0)';
   if (label) label.textContent = `${tt('git.cloning', 'Cloning')}… 0%`;
-  if (wrap) wrap.hidden = false;
+  if (wrap) { wrap.classList.remove('git-fadeout'); wrap.hidden = false; }
 }
 
 async function doClone() {

@@ -897,6 +897,7 @@ async function toggleClone() {
   cloneState.open = c.hidden; // about to flip
   c.hidden = !c.hidden;
   if (c.hidden) return;
+  const cl = $('git-cloned'); if (cl) cl.hidden = true; // mutually exclusive with Projects
   // Reset selection each time it opens (folder choice is kept for convenience).
   cloneState.selUrl = null; cloneState.selName = null; cloneState.spfs = [];
   renderClone();
@@ -1112,7 +1113,11 @@ function recordCloned(entry) {
 function toggleCloned() {
   const el = $('git-cloned');
   if (!el) return;
-  if (el.hidden) { renderCloned(); el.hidden = false; } else { el.hidden = true; }
+  if (el.hidden) {
+    const c = $('git-clone'); if (c) c.hidden = true; // mutually exclusive with Clone
+    renderCloned();
+    el.hidden = false;
+  } else { el.hidden = true; }
 }
 function renderCloned() {
   const el = $('git-cloned');

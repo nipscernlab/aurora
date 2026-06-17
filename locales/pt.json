@@ -656,5 +656,22 @@
         "pasteToken":         "Cole um token primeiro.",
         "pasteUrl":           "Cole a URL do repositório.",
         "invalidPath":        "O caminho não pode conter espaços ou caracteres especiais."
+    },
+    "search": {
+        "title":             "Buscar nos arquivos",
+        "placeholder":       "Buscar no projeto",
+        "matchCase":         "Diferenciar maiúsculas/minúsculas",
+        "matchWord":         "Palavra inteira",
+        "useRegex":          "Usar expressão regular",
+        "tooltip":           "Buscar nos arquivos (Ctrl+Shift+F)",
+        "noResults":         "Nenhum resultado.",
+        "noResultsSummary":  "Nenhum resultado encontrado.",
+        "failed":            "A busca falhou.",
+        "resultOne":         "resultado",
+        "resultMany":        "resultados",
+        "fileOne":           "arquivo",
+        "fileMany":          "arquivos",
+        "in":                "em",
+        "partial":           "mostrando resultados parciais (limite atingido)"
     }
 }

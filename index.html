@@ -234,6 +234,9 @@
           <!-- The split-editor control now floats inside the focused Monaco
                pane (see SplitEditorManager._updateButton) instead of living
                here, so it always rides with the instance that has focus. -->
+          <button id="searchButton" class="toolbar-button icon-only" data-tooltip="Find in files (Ctrl+Shift+F)" data-i18n-tooltip="search.tooltip">
+              <i class="ph ph-magnifying-glass"></i>
+          </button>
           <button id="gitButton" class="toolbar-button icon-only" data-tooltip="Source Control" data-i18n-tooltip="toolbar.git.tooltip">
               <i class="ph ph-git-branch"></i>
               <span class="git-badge" id="git-badge" hidden></span>
@@ -773,6 +776,34 @@
     <footer slot="footer" class="git-footer">
         <div class="git-status" id="git-status" data-kind=""></div>
     </footer>
+</aurora-modal>
+
+<!-- Find in Files Modal -->
+<aurora-modal id="searchModal" style="--aurora-modal-width: min(820px, 95vw);">
+    <span slot="title" class="modal-title">
+        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+        <span data-i18n="search.title">Find in files</span>
+    </span>
+    <main class="modal-body search-panel">
+        <div class="search-header">
+            <div class="search-input-wrap">
+                <i class="ph ph-magnifying-glass search-input-icon" aria-hidden="true"></i>
+                <input type="text" id="search-input" class="search-input"
+                       placeholder="Search across the project" data-i18n-placeholder="search.placeholder"
+                       spellcheck="false" autocomplete="off" />
+            </div>
+            <div class="search-toggles" role="group" aria-label="Search options">
+                <button class="search-toggle" id="search-case" data-toggle="case"
+                        title="Match case" data-i18n-title="search.matchCase" aria-pressed="false">Aa</button>
+                <button class="search-toggle" id="search-word" data-toggle="word"
+                        title="Match whole word" data-i18n-title="search.matchWord" aria-pressed="false"><span class="search-word-glyph">ab</span></button>
+                <button class="search-toggle" id="search-regex" data-toggle="regex"
+                        title="Use regular expression" data-i18n-title="search.useRegex" aria-pressed="false">.*</button>
+            </div>
+        </div>
+        <div class="search-summary" id="search-summary" hidden></div>
+        <div class="search-results" id="search-results"></div>
+    </main>
 </aurora-modal>
 
 <!-- Processor Hub Modal -->
@@ -1332,6 +1363,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/ui/icon_aurora.js" type="module"></script>
 <script src="./js/ui/command_palette.js" type="module"></script>
 <script src="./js/git/git_panel.js" type="module"></script>
+<script src="./js/search/search_panel.js" type="module"></script>
 <script src="./js/ui/new_project_modal.js" type="module"></script>
 <script src="./js/project/recent_projects.js" type="module"></script>
 <script src="./js/utils/resize.js" type="module"></script>

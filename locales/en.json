@@ -656,5 +656,22 @@
         "pasteToken":         "Paste a token first.",
         "pasteUrl":           "Paste the repository URL.",
         "invalidPath":        "The path can't contain spaces or special characters."
+    },
+    "search": {
+        "title":             "Find in files",
+        "placeholder":       "Search across the project",
+        "matchCase":         "Match case",
+        "matchWord":         "Match whole word",
+        "useRegex":          "Use regular expression",
+        "tooltip":           "Find in files (Ctrl+Shift+F)",
+        "noResults":         "No results.",
+        "noResultsSummary":  "No results found.",
+        "failed":            "Search failed.",
+        "resultOne":         "result",
+        "resultMany":        "results",
+        "fileOne":           "file",
+        "fileMany":          "files",
+        "in":                "in",
+        "partial":           "showing partial results (limit reached)"
     }
 }

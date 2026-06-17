@@ -382,6 +382,18 @@ const aiAPI = {
 };
 
 /* ============================================================================
+ *  SEARCH (find in files) — backed by main/ipc/search.js
+ * ========================================================================= */
+const searchOperations = {
+  /**
+   * Project-wide text search. `payload` is
+   * { query, caseSensitive?, wholeWord?, regex? }. Resolves with
+   * { ok, results, total, truncated } or { ok:false, error }.
+   */
+  searchInProject: (payload) => ipcRenderer.invoke('search:in-project', payload),
+};
+
+/* ============================================================================
  *  UTILITIES (inline, sem IPC)
  * ========================================================================= */
 const utilityOperations = {
@@ -450,6 +462,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ...uiOperations,
   ...terminalOperations,
   ...updateOperations,
+  ...searchOperations,
   ...utilityOperations,
   // Diagnostics: the renderer error boundary forwards uncaught errors here so
   // they land in the persistent electron-log file (one-way, fire-and-forget).

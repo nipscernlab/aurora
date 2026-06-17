@@ -1495,14 +1495,14 @@ class AIAssistantManager {
         <div class="ai-aurora-glow" aria-hidden="true"></div>
         <div class="ai-empty-state hidden" id="ai-empty-state">
           <i class="ph ph-sparkle ai-empty-icon" aria-hidden="true"></i>
-          <h4>Aurora Intelligence is offline</h4>
-          <p>The AI backend could not be reached. Restart Aurora, or open Settings to configure a provider.</p>
+          <h4 data-i18n="ai.offline.title">Aurora Intelligence is offline</h4>
+          <p data-i18n="ai.offline.body">The AI backend could not be reached. Restart Aurora, or open Settings to configure a provider.</p>
         </div>
 
         <div class="ai-messages" id="ai-messages" role="log" aria-live="polite">
           <div class="ai-chat-empty-hint" id="ai-chat-empty-hint" aria-hidden="true">
             <i class="ph ph-brain" aria-hidden="true"></i>
-            <p>Ask Aurora Intelligence about your project, Verilog, or SAPHO/CMM</p>
+            <p data-i18n="ai.emptyHint">Ask Aurora Intelligence about your project, Verilog, or SAPHO/CMM</p>
           </div>
         </div>
 
@@ -1510,7 +1510,7 @@ class AIAssistantManager {
           <!-- Model / provider popover — anchored above the composer chip. -->
           <div class="ai-model-popover hidden" id="ai-model-popover" role="menu">
             <div class="ai-mp-section">
-              <div class="ai-mp-label">Provider</div>
+              <div class="ai-mp-label" data-i18n="ai.provider">Provider</div>
               <div class="ai-mp-list" id="ai-mp-providers"></div>
             </div>
 
@@ -1520,12 +1520,13 @@ class AIAssistantManager {
             <div class="ai-mp-section" id="ai-mp-cc-status"></div>
 
             <div class="ai-mp-section" id="ai-mp-model-section">
-              <div class="ai-mp-label">Model</div>
+              <div class="ai-mp-label" data-i18n="ai.model">Model</div>
               <div class="ai-mp-modelrow" id="ai-mp-model-api">
                 <input type="text" id="ai-model-input" class="ai-mp-model-input"
                        spellcheck="false" autocomplete="off" placeholder="default">
                 <button class="ai-mp-iconbtn" id="ai-model-reset" type="button"
-                        title="Reset to default model" aria-label="Reset model">
+                        title="Reset to default model" aria-label="Reset model"
+                        data-i18n-title="ai.resetModel">
                   <i class="ph ph-arrow-counter-clockwise"></i>
                 </button>
               </div>
@@ -1534,7 +1535,7 @@ class AIAssistantManager {
 
             <!-- Effort / reasoning depth (Claude Code only) -->
             <div class="ai-mp-section ai-mp-cc hidden" id="ai-mp-effort-section">
-              <div class="ai-mp-label">Effort &amp; reasoning</div>
+              <div class="ai-mp-label" data-i18n="ai.effort">Effort &amp; reasoning</div>
               <div class="ai-mp-seg" id="ai-mp-effort"></div>
             </div>
 
@@ -1544,11 +1545,11 @@ class AIAssistantManager {
                  renderUsage() no-ops without #ai-usage-bars (guarded). -->
 
             <div class="ai-mp-section">
-              <div class="ai-mp-label">Permissions</div>
+              <div class="ai-mp-label" data-i18n="ai.permissions">Permissions</div>
               <div class="ai-mp-list" id="ai-mp-perms"></div>
             </div>
             <button class="ai-mp-managekeys" id="ai-mp-managekeys" type="button">
-              <i class="ph ph-key" aria-hidden="true"></i><span>Manage API keys &amp; providers</span>
+              <i class="ph ph-key" aria-hidden="true"></i><span data-i18n="ai.manageKeys">Manage API keys &amp; providers</span>
             </button>
           </div>
 
@@ -1556,13 +1557,15 @@ class AIAssistantManager {
           <div class="ai-msg-queue" id="ai-msg-queue" hidden></div>
           <div class="ai-composer" id="ai-composer">
             <button class="ai-attach-btn" id="ai-attach-btn" type="button"
-                    title="Attach files or images" aria-label="Attach files or images">
+                    title="Attach files or images" aria-label="Attach files or images"
+                    data-i18n-title="ai.attach" data-i18n-aria-label="ai.attach">
               <i class="ph ph-paperclip"></i>
             </button>
             <input type="file" id="ai-attach-input" multiple hidden
                    accept="image/*,text/*,.v,.sv,.svh,.vh,.cmm,.asm,.tasm,.json,.md,.txt,.log,.gtkw,.spf">
             <button class="ai-model-chip" id="ai-model-chip" type="button"
-                    title="Switch model or provider" aria-label="Model and provider">
+                    title="Switch model or provider" aria-label="Model and provider"
+                    data-i18n-title="ai.switchModel">
               <img class="ai-model-chip-icon" id="ai-model-chip-icon"
                    src="./assets/icons/ai_claude.svg" alt="">
               <span class="ai-model-chip-name" id="ai-model-chip-name">Claude</span>
@@ -1572,15 +1575,18 @@ class AIAssistantManager {
             <textarea id="ai-input"
               class="ai-input"
               placeholder="Ask Aurora Intelligence…"
+              data-i18n-placeholder="ai.inputPlaceholder"
               rows="1"
               aria-label="Message"></textarea>
 
             <span class="ai-token-counter" id="ai-token-counter" title="Tokens this conversation">0</span>
 
-            <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop generation" aria-label="Stop">
+            <button class="ai-stop-btn hidden" id="ai-stop-btn" title="Stop generation" aria-label="Stop"
+                    data-i18n-title="ai.stop">
               <i class="ph ph-stop"></i>
             </button>
-            <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send">
+            <button class="ai-send-btn" id="ai-send-btn" title="Send (Enter)" aria-label="Send"
+                    data-i18n-title="ai.send">
               <i class="ph-bold ph-arrow-up"></i>
             </button>
           </div>
@@ -1595,6 +1601,7 @@ class AIAssistantManager {
     // initialize() runs on first toggle, well after DOMContentLoaded).
     const mountTarget = document.querySelector('.main-container') || document.body;
     mountTarget.appendChild(this.container);
+    try { window.i18nApplyDOM?.(this.container); } catch (_) { /* i18n optional */ }
     // P17: panel starts closed (width 0) — mark inert so Tab can't reach it.
     this.container.setAttribute('inert', '');
 

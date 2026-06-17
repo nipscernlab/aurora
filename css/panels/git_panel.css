@@ -312,9 +312,66 @@
 .git-amend { display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); color: var(--text-muted); cursor: pointer; }
 
 /* ---- clone + account actions ---- */
-.git-clone { display: flex; gap: var(--space-2); }
+/* Rich clone panel: repo list + location picker + clone/open actions. */
+.git-clone {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elev-1, var(--bg-elev));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
 .git-clone[hidden] { display: none !important; }
 .git-account-actions { display: flex; gap: var(--space-2); }
+
+.git-clone-head {
+  display: flex; align-items: center; gap: var(--space-1);
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-wide, 0.04em);
+  color: var(--text-muted);
+}
+
+/* scrollable repo list */
+.git-clone-list {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 26vh; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg-sunken, var(--bg));
+}
+.git-clone-item {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: 5px var(--space-2); cursor: pointer;
+  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.04));
+}
+.git-clone-item:last-child { border-bottom: none; }
+.git-clone-item:hover { background: var(--overlay-hover); }
+.git-clone-item.selected { background: var(--accent-soft, rgba(150, 130, 235, 0.18)); }
+.git-clone-item.selected .git-clone-name { color: var(--accent-hover, #b8a0ff); }
+.git-clone-vis { font-size: 14px; color: var(--text-muted); flex-shrink: 0; }
+.git-clone-name { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text); flex-shrink: 0; }
+.git-clone-desc {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--text-xs); color: var(--text-faint, var(--text-muted));
+}
+.git-clone-loading, .git-clone-empty {
+  display: flex; align-items: center; justify-content: center; gap: var(--space-2);
+  padding: var(--space-3); color: var(--text-muted); font-size: var(--text-xs); list-style: none; text-align: center;
+}
+
+/* location picker row */
+.git-clone-loc { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.git-clone-dir {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary, var(--text-muted));
+}
+
+/* clone + open-in-SAPHO actions */
+.git-clone-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.git-clone-spf { display: inline-flex; }
+.git-clone-spf[hidden] { display: none !important; }
+.git-clone-open {
+  background: var(--accent-soft, rgba(150, 130, 235, 0.18));
+  border-color: var(--accent); color: var(--accent-hover, #b8a0ff);
+}
+.git-clone-open:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* ---- badge redo: high contrast + informative ---- */
 .git-badge {

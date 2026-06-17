@@ -217,6 +217,7 @@ if (typeof window !== 'undefined') {
     window.t = t;
     window.setLocale = setLocale;
     window.getLocale = getLocale;
+    window.i18nApplyDOM = applyDOM;
     // Compatibility with compilation_module.js (was set by yanc_lang_toggle.js).
     window.getYancLang = getLocale;
     boot();

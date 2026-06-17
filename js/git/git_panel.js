@@ -11,6 +11,15 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
   { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
 ));
 const api = () => window.gitAPI;
+// i18n: window.t returns the dotted key itself when a string is missing.
+// `tt` swaps that loud key for a sensible English fallback so users never
+// see a raw `git.foo` path if a locale entry is absent.
+function tt(key, fallback) {
+  const fn = window.t;
+  if (typeof fn !== 'function') return fallback;
+  const v = fn(key);
+  return (v && v !== key) ? v : fallback;
+}
 function relDate(iso) {
   try {
     const s = (Date.now() - new Date(iso).getTime()) / 1000;
@@ -69,7 +78,7 @@ async function run(label, fn) {
   busy = true; setBusy(true); setStatus(`${label}…`, 'busy');
   try {
     const msg = await fn();
-    setStatus(typeof msg === 'string' && msg ? msg : `${label} concluído`, 'ok');
+    setStatus(typeof msg === 'string' && msg ? msg : label, 'ok');
     statusTimer = setTimeout(() => setStatus('', null), 4000);
   } catch (e) {
     setStatus(`${label}: ${e?.message || e}`, 'error');
@@ -125,17 +134,17 @@ function renderChanges(st) {
   const count = $('git-tab-count');
   if (count) { const n = st.files.length; count.textContent = String(n); count.hidden = !n; }
   if (!staged.length && !unstaged.length) {
-    wrap.innerHTML = `<div class="git-clean"><i class="ph ph-check-circle"></i> Árvore limpa — nenhuma alteração.</div>`;
+    wrap.innerHTML = `<div class="git-clean"><i class="ph ph-check-circle"></i> ${esc(tt('git.treeClean', 'Working tree clean — no changes.'))}</div>`;
     return;
   }
   wrap.innerHTML = `
     ${staged.length ? `<div class="git-section">
-      <div class="git-section-head"><span>Staged · ${staged.length}</span>
-        <button class="git-mini" data-action="unstage-all">Unstage all</button></div>
+      <div class="git-section-head"><span>${esc(tt('git.staged', 'Staged'))} · ${staged.length}</span>
+        <button class="git-mini" data-action="unstage-all">${esc(tt('git.unstageAll', 'Unstage all'))}</button></div>
       <ul class="git-file-list">${staged.map((f) => fileRow(f, 'staged')).join('')}</ul></div>` : ''}
     ${unstaged.length ? `<div class="git-section">
-      <div class="git-section-head"><span>Changes · ${unstaged.length}</span>
-        <button class="git-mini" data-action="stage-all">Stage all</button></div>
+      <div class="git-section-head"><span>${esc(tt('git.changes', 'Changes'))} · ${unstaged.length}</span>
+        <button class="git-mini" data-action="stage-all">${esc(tt('git.stageAll', 'Stage all'))}</button></div>
       <ul class="git-file-list">${unstaged.map((f) => fileRow(f, 'unstaged')).join('')}</ul></div>` : ''}`;
 }
 
@@ -147,10 +156,13 @@ function renderRepoHeader(st, info) {
   // Push only makes sense when there's something to push: an upstream that we're
   // ahead of, or no upstream yet (a fresh branch that needs the first push -u).
   const pushDisabled = !!st.tracking && !st.ahead;
+  const tFetch = esc(tt('git.fetch', 'Fetch'));
+  const tPull = esc(tt('git.pull', 'Pull'));
+  const tPush = esc(tt('git.push', 'Push'));
   const remoteBtns = info.hasOrigin ? `
-      <button class="git-mini" data-action="fetch" title="Fetch"><i class="ph ph-cloud-arrow-down"></i> Fetch</button>
-      <button class="git-mini" data-action="pull" title="Pull"><i class="ph ph-arrow-down"></i> Pull</button>
-      <button class="git-mini git-mini-primary" data-action="push" title="Push" ${pushDisabled ? 'disabled' : ''}><i class="ph ph-arrow-up"></i> Push${st.ahead ? ` (${st.ahead})` : ''}</button>` : '';
+      <button class="git-mini" data-action="fetch" title="${tFetch}"><i class="ph ph-cloud-arrow-down"></i> ${tFetch}</button>
+      <button class="git-mini" data-action="pull" title="${tPull}"><i class="ph ph-arrow-down"></i> ${tPull}</button>
+      <button class="git-mini git-mini-primary" data-action="push" title="${tPush}" ${pushDisabled ? 'disabled' : ''}><i class="ph ph-arrow-up"></i> ${tPush}${st.ahead ? ` (${st.ahead})` : ''}</button>` : '';
   repo.innerHTML = `
     <div class="git-repo-left">
       <span class="git-repo-name" title="${esc(info.originUrl || info.name || '')}"><i class="ph ph-git-repository"></i> ${esc(info.name || '—')}</span>
@@ -161,7 +173,7 @@ function renderRepoHeader(st, info) {
       ${ahead}${behind}
     </div>
     <div class="git-repo-actions">
-      <button class="git-mini" data-action="refresh" title="Atualizar"><i class="ph ph-arrows-clockwise"></i></button>
+      <button class="git-mini" data-action="refresh" title="${esc(tt('git.refresh', 'Refresh'))}"><i class="ph ph-arrows-clockwise"></i></button>
       ${remoteBtns}
     </div>`;
 }
@@ -178,18 +190,18 @@ function renderBranchMenu(branches, current) {
   const menu = $('git-branch-menu');
   if (!menu) return;
   menu.innerHTML = `
-    <div class="git-bm-head">Branches</div>
+    <div class="git-bm-head">${esc(tt('git.branches', 'Branches'))}</div>
     <ul class="git-bm-list">
       ${branches.map((b) => `<li class="git-bm-item ${b === current ? 'current' : ''}">
         <button class="git-bm-switch" data-action="checkout-branch" data-branch="${esc(b)}" ${b === current ? 'disabled' : ''}>
           <i class="ph ${b === current ? 'ph-check' : 'ph-git-branch'}"></i> ${esc(b)}
         </button>
-        ${b !== current ? `<button class="git-bm-merge" data-action="merge-branch" data-branch="${esc(b)}" title="Merge em ${esc(current)}"><i class="ph ph-git-merge"></i></button>` : ''}
+        ${b !== current ? `<button class="git-bm-merge" data-action="merge-branch" data-branch="${esc(b)}" title="Merge → ${esc(current)}"><i class="ph ph-git-merge"></i></button>` : ''}
       </li>`).join('')}
     </ul>
     <div class="git-bm-new">
-      <input type="text" id="git-new-branch" class="git-pat-input" placeholder="nova branch" spellcheck="false" />
-      <button class="git-mini git-mini-primary" data-action="create-branch"><i class="ph ph-plus"></i> Criar</button>
+      <input type="text" id="git-new-branch" class="git-pat-input" placeholder="${esc(tt('git.newBranchPlaceholder', 'new branch'))}" spellcheck="false" />
+      <button class="git-mini git-mini-primary" data-action="create-branch"><i class="ph ph-plus"></i> ${esc(tt('git.create', 'Create'))}</button>
     </div>`;
   menu.hidden = false;
 }
@@ -200,16 +212,16 @@ function renderPublish(info) {
   if (info.hasOrigin) { el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;
   el.innerHTML = `
-    <div class="git-publish-head"><i class="ph ph-cloud-arrow-up"></i> Sem remoto — publicar no GitHub</div>
+    <div class="git-publish-head"><i class="ph ph-cloud-arrow-up"></i> ${esc(tt('git.publishHead', 'No remote — publish to GitHub'))}</div>
     <div class="git-publish-form">
-      <input type="text" id="git-repo-name" class="git-pat-input" value="${esc(info.folder || '')}" placeholder="nome do repositório" spellcheck="false" />
-      <div class="git-visibility" role="group" aria-label="Visibilidade">
-        <button class="git-vis-opt ${publishPrivate ? 'active' : ''}" data-action="set-private" data-private="true"><i class="ph ph-lock-simple"></i> Privado</button>
-        <button class="git-vis-opt ${!publishPrivate ? 'active' : ''}" data-action="set-private" data-private="false"><i class="ph ph-globe-hemisphere-west"></i> Público</button>
+      <input type="text" id="git-repo-name" class="git-pat-input" value="${esc(info.folder || '')}" placeholder="${esc(tt('git.repoNamePlaceholder', 'repository name'))}" spellcheck="false" />
+      <div class="git-visibility" role="group" aria-label="Visibility">
+        <button class="git-vis-opt ${publishPrivate ? 'active' : ''}" data-action="set-private" data-private="true"><i class="ph ph-lock-simple"></i> ${esc(tt('git.private', 'Private'))}</button>
+        <button class="git-vis-opt ${!publishPrivate ? 'active' : ''}" data-action="set-private" data-private="false"><i class="ph ph-globe-hemisphere-west"></i> ${esc(tt('git.public', 'Public'))}</button>
       </div>
-      <button class="git-mini git-mini-primary" data-action="publish"><i class="ph ph-github-logo"></i> Publicar</button>
+      <button class="git-mini git-mini-primary" data-action="publish"><i class="ph ph-github-logo"></i> ${esc(tt('git.publish', 'Publish'))}</button>
     </div>
-    <div class="git-hint">Para criar repositórios, o token precisa ser <b>clássico</b> com escopo <code>repo</code> — github.com/settings/tokens/new</div>`;
+    <div class="git-hint">${tt('git.tokenHint', 'To create repositories, the token must be <b>classic</b> with the <code>repo</code> scope — github.com/settings/tokens/new')}</div>`;
 }
 
 async function renderAccount() {
@@ -223,16 +235,16 @@ async function renderAccount() {
       ? `<img class="git-avatar" src="${esc(avatarSrc)}" alt="" referrerpolicy="no-referrer" />`
       : `<i class="ph ph-github-logo git-avatar-icon"></i>`;
     el.innerHTML = `<span class="git-user">${avatar}<span class="git-user-name">@${esc(s.user.login)}</span>
-        <span class="git-user-ok" title="conectado"><i class="ph ph-check-circle"></i></span></span>
+        <span class="git-user-ok" title="${esc(tt('git.connect', 'Connect'))}"><i class="ph ph-check-circle"></i></span></span>
       <span class="git-account-actions">
-        <button class="git-mini" data-action="clone-toggle"><i class="ph ph-download-simple"></i> Clonar</button>
-        <button class="git-mini" data-action="disconnect">Desconectar</button>
+        <button class="git-mini" data-action="clone-toggle"><i class="ph ph-download-simple"></i> ${esc(tt('git.clone', 'Clone'))}</button>
+        <button class="git-mini" data-action="disconnect">${esc(tt('git.disconnect', 'Disconnect'))}</button>
       </span>`;
   } else {
     el.innerHTML = `
       <div class="git-connect">
-        <input type="password" id="git-pat" class="git-pat-input" placeholder="GitHub token clássico (escopo repo)" autocomplete="off" spellcheck="false" />
-        <button class="git-mini git-mini-primary" data-action="connect"><i class="ph ph-github-logo"></i> Conectar</button>
+        <input type="password" id="git-pat" class="git-pat-input" placeholder="${esc(tt('git.tokenPlaceholder', 'GitHub classic token (repo scope)'))}" autocomplete="off" spellcheck="false" />
+        <button class="git-mini git-mini-primary" data-action="connect"><i class="ph ph-github-logo"></i> ${esc(tt('git.connect', 'Connect'))}</button>
       </div>`;
   }
 }
@@ -258,7 +270,7 @@ async function refresh() {
     if (repo) repo.innerHTML = '';
     if (commitbox) commitbox.hidden = true;
     if (tabs) tabs.hidden = true;
-    if (changes) changes.innerHTML = `<div class="git-empty"><i class="ph ph-folder-dashed"></i> Abra um projeto para usar o controle de versão.</div>`;
+    if (changes) changes.innerHTML = `<div class="git-empty"><i class="ph ph-folder-dashed"></i> ${esc(tt('git.openProject', 'Open a project to use version control.'))}</div>`;
     hideDiff();
     return;
   }
@@ -268,8 +280,8 @@ async function refresh() {
     if (tabs) tabs.hidden = true;
     if (changes) changes.innerHTML = `<div class="git-empty">
       <i class="ph ph-git-merge"></i>
-      <p>Este projeto ainda não é um repositório Git.</p>
-      <button class="git-mini git-mini-primary" data-action="init">Inicializar repositório</button>
+      <p>${esc(tt('git.notRepo', 'This project is not a Git repository yet.'))}</p>
+      <button class="git-mini git-mini-primary" data-action="init">${esc(tt('git.initRepo', 'Initialize repository'))}</button>
     </div>`;
     hideDiff();
     return;
@@ -316,7 +328,7 @@ async function showCommitDiff(hash) {
   const commit = historyCommits.find((c) => c.hash === hash) || {};
   d.hidden = false;
   $('git-history-diff-title').textContent = String(hash).slice(0, 7);
-  body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> Carregando…</div>`;
+  body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
   const r = await api().show({ hash });
   if (!r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r.error)}</div>`; return; }
   // Show the commit MESSAGE (subject + body) above the diff, GitHub-Desktop style.
@@ -334,7 +346,7 @@ async function loadHistory() {
   const r = await api().log({ maxCount: 50 });
   if (!r.ok) { list.innerHTML = `<li class="git-commit-empty">${esc(r.error)}</li>`; return; }
   historyCommits = r.commits || [];
-  if (!historyCommits.length) { list.innerHTML = `<li class="git-commit-empty">Nenhum commit ainda.</li>`; return; }
+  if (!historyCommits.length) { list.innerHTML = `<li class="git-commit-empty">${esc(tt('git.noCommits', 'No commits yet.'))}</li>`; return; }
   list.innerHTML = historyCommits.map((c) => `
     <li class="git-commit" data-hash="${esc(c.hash)}">
       <span class="git-commit-hash">${esc(String(c.hash).slice(0, 7))}</span>
@@ -355,10 +367,10 @@ async function onClick(e) {
     switch (action) {
       case 'tab':        return switchTab(actEl.dataset.tab);
       case 'refresh':    return refresh();
-      case 'stage':      return run('Stage', async () => { await api().stage(file); refresh(); });
-      case 'unstage':    return run('Unstage', async () => { await api().unstage(file); refresh(); });
-      case 'stage-all':  return run('Stage all', async () => { await api().stageAll(); refresh(); });
-      case 'unstage-all':return run('Unstage all', async () => { const st = await api().status(); await api().unstage(st.files.map((f) => f.path)); refresh(); });
+      case 'stage':      return run(tt('git.staged', 'Stage'), async () => { await api().stage(file); refresh(); });
+      case 'unstage':    return run(tt('git.staged', 'Unstage'), async () => { await api().unstage(file); refresh(); });
+      case 'stage-all':  return run(tt('git.stageAll', 'Stage all'), async () => { await api().stageAll(); refresh(); });
+      case 'unstage-all':return run(tt('git.unstageAll', 'Unstage all'), async () => { const st = await api().status(); await api().unstage(st.files.map((f) => f.path)); refresh(); });
       case 'discard':    return discard(file);
       case 'undo':       return undoLast();
       case 'toggle-amend': {
@@ -367,10 +379,10 @@ async function onClick(e) {
         const cb = $('git-commit-btn'); if (cb) cb.disabled = !lastHasChanges && !amendOn;
         return undefined;
       }
-      case 'init':       return run('Inicializar', async () => { const r = await api().init(); if (!r.ok) throw new Error(r.error); refresh(); return 'Repositório inicializado'; });
-      case 'fetch':      return run('Fetch', async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); refresh(); return 'Fetch concluído'; });
-      case 'pull':       return run('Pull', async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); refresh(); return 'Pull concluído'; });
-      case 'push':       return run('Push', async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); refresh(); return 'Push enviado'; });
+      case 'init':       return run(tt('git.initRepo', 'Initialize'), async () => { const r = await api().init(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.initRepo', 'Repository initialized'); });
+      case 'fetch':      return run(tt('git.fetch', 'Fetch'), async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.fetch', 'Fetch'); });
+      case 'pull':       return run(tt('git.pull', 'Pull'), async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.pull', 'Pull'); });
+      case 'push':       return run(tt('git.push', 'Push'), async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.push', 'Push'); });
       case 'publish':    return publish();
       case 'set-private': {
         publishPrivate = actEl.dataset.private === 'true';
@@ -378,16 +390,19 @@ async function onClick(e) {
         return undefined;
       }
       case 'connect':    return connect();
-      case 'disconnect': return run('Desconectar', async () => { await api().githubDisconnect(); refresh(); return 'Conta desconectada'; });
-      case 'clone-toggle': { const c = $('git-clone'); if (c) c.hidden = !c.hidden; return undefined; }
-      case 'clone':      return doClone();
+      case 'disconnect': return run(tt('git.disconnect', 'Disconnect'), async () => { await api().githubDisconnect(); refresh(); return tt('git.disconnect', 'Account disconnected'); });
+      case 'clone-toggle': return toggleClone();
+      case 'clone-list-select': return selectCloneRepo(actEl);
+      case 'clone-choose-dir': return chooseCloneDir();
+      case 'clone-do':   return doClone();
+      case 'clone-open-spf': return openClonedSpf(actEl.dataset.spf);
       case 'branch-menu': return toggleBranchMenu();
-      case 'checkout-branch': return run('Trocar branch', async () => { const r = await api().checkout({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Na branch ${actEl.dataset.branch}`; });
-      case 'merge-branch': return run('Merge', async () => { const r = await api().merge({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge de ${actEl.dataset.branch}`; });
+      case 'checkout-branch': return run(tt('git.branches', 'Switch branch'), async () => { const r = await api().checkout({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return actEl.dataset.branch; });
+      case 'merge-branch': return run('Merge', async () => { const r = await api().merge({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge ${actEl.dataset.branch}`; });
       case 'create-branch': {
         const nb = $('git-new-branch')?.value?.trim();
-        if (!nb) { flash('Dê um nome à branch.', 'error'); return undefined; }
-        return run('Nova branch', async () => { const r = await api().checkout({ branch: nb, create: true }); if (!r.ok) throw new Error(r.error); refresh(); return `Branch ${nb} criada`; });
+        if (!nb) { flash(tt('git.branchNameRequired', 'Give the branch a name.'), 'error'); return undefined; }
+        return run(tt('git.create', 'New branch'), async () => { const r = await api().checkout({ branch: nb, create: true }); if (!r.ok) throw new Error(r.error); refresh(); return nb; });
       }
       default: return undefined;
     }
@@ -415,7 +430,7 @@ async function discard(file) {
     buttons: [{ label: 'Cancelar', action: 'cancel', type: 'cancel' }, { label: 'Descartar', action: 'confirm', type: 'danger' }],
   });
   if (action !== 'confirm') return;
-  await run('Descartar', async () => { const r = await api().discard(file); if (!r.ok) throw new Error(r.error); refresh(); });
+  await run('Discard', async () => { const r = await api().discard(file); if (!r.ok) throw new Error(r.error); refresh(); });
 }
 
 async function undoLast() {
@@ -426,39 +441,164 @@ async function undoLast() {
     buttons: [{ label: 'Cancelar', action: 'cancel', type: 'cancel' }, { label: 'Desfazer', action: 'confirm', type: 'danger' }],
   });
   if (action !== 'confirm') return;
-  await run('Desfazer commit', async () => { const r = await api().undoLastCommit(); if (!r.ok) throw new Error(r.error); refresh(); return 'Último commit desfeito'; });
+  await run(tt('git.undoLast', 'Undo commit'), async () => { const r = await api().undoLastCommit(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.undoLast', 'Last commit undone'); });
+}
+
+// --- clone experience ------------------------------------------------------
+// Rich clone flow: pick one of the user's repos, choose a target folder,
+// validate the resulting path, clone, then offer to open any .spf in SAPHO.
+const cloneState = { open: false, repos: [], selUrl: null, selName: null, dir: null, dest: null, spfs: [] };
+// Only allow clean, shell-safe paths (no spaces / exotic chars). The backslash
+// is for Windows separators; the set is intentionally conservative.
+const SAFE_PATH_RE = /^[A-Za-z0-9._/\\:-]+$/;
+
+function joinPath(dir, name) {
+  if (!dir) return name || '';
+  const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/';
+  return `${dir.replace(/[\\/]+$/, '')}${sep}${name}`;
+}
+
+async function toggleClone() {
+  const c = $('git-clone');
+  if (!c) return;
+  cloneState.open = c.hidden; // about to flip
+  c.hidden = !c.hidden;
+  if (c.hidden) return;
+  // Reset selection each time it opens (folder choice is kept for convenience).
+  cloneState.selUrl = null; cloneState.selName = null; cloneState.spfs = [];
+  renderClone();
+  await loadCloneRepos();
+}
+
+async function loadCloneRepos() {
+  const list = $('git-clone-list');
+  if (list) list.innerHTML = `<li class="git-clone-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</li>`;
+  let r;
+  try { r = await api().listRepos(); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  if (!r || !r.ok) {
+    if (list) list.innerHTML = `<li class="git-clone-empty">${esc(r?.error || tt('git.connectFirst', 'Connect your GitHub account first.'))}</li>`;
+    return;
+  }
+  cloneState.repos = Array.isArray(r.repos) ? r.repos : [];
+  renderCloneList();
+}
+
+function renderClone() {
+  const c = $('git-clone');
+  if (!c) return;
+  const dirLabel = cloneState.dir ? esc(cloneState.dir) : esc(tt('git.chooseLocation', 'Choose location'));
+  c.innerHTML = `
+    <div class="git-clone-head"><i class="ph ph-download-simple"></i> ${esc(tt('git.cloneRepos', 'Clone a repository'))}</div>
+    <ul class="git-clone-list" id="git-clone-list"></ul>
+    <div class="git-clone-loc">
+      <button class="git-mini" data-action="clone-choose-dir"><i class="ph ph-folder-open"></i> ${esc(tt('git.chooseLocation', 'Choose location'))}</button>
+      <span class="git-clone-dir" id="git-clone-dir" title="${dirLabel}">${dirLabel}</span>
+    </div>
+    <div class="git-clone-actions">
+      <button class="git-mini git-mini-primary" data-action="clone-do"><i class="ph ph-download-simple"></i> ${esc(tt('git.cloneBtn', 'Clone'))}</button>
+      <span class="git-clone-spf" id="git-clone-spf" hidden></span>
+    </div>`;
+  renderCloneList();
+}
+
+function renderCloneList() {
+  const list = $('git-clone-list');
+  if (!list) return;
+  if (!cloneState.repos.length) {
+    list.innerHTML = `<li class="git-clone-empty">${esc(tt('git.connectFirst', 'Connect your GitHub account first.'))}</li>`;
+    return;
+  }
+  list.innerHTML = cloneState.repos.map((repo) => {
+    const sel = repo.cloneUrl === cloneState.selUrl;
+    const icon = repo.private ? 'ph-lock-simple' : 'ph-globe-hemisphere-west';
+    const desc = repo.description ? `<span class="git-clone-desc" title="${esc(repo.description)}">${esc(repo.description)}</span>` : '';
+    return `<li class="git-clone-item ${sel ? 'selected' : ''}" data-action="clone-list-select"
+        data-url="${esc(repo.cloneUrl)}" data-name="${esc(repo.name)}">
+      <i class="ph ${icon} git-clone-vis" title="${repo.private ? esc(tt('git.private', 'Private')) : esc(tt('git.public', 'Public'))}"></i>
+      <span class="git-clone-name">${esc(repo.name)}</span>
+      ${desc}
+    </li>`;
+  }).join('');
+}
+
+function selectCloneRepo(el) {
+  cloneState.selUrl = el.dataset.url || null;
+  cloneState.selName = el.dataset.name || null;
+  cloneState.spfs = [];
+  const spf = $('git-clone-spf'); if (spf) { spf.hidden = true; spf.innerHTML = ''; }
+  renderCloneList();
+}
+
+async function chooseCloneDir() {
+  let res;
+  try { res = await window.electronAPI?.selectDirectory(); } catch (e) { flash(e?.message || String(e), 'error'); return; }
+  // selectDirectory may return a string, {filePaths:[...]}, or {canceled:true}.
+  let dir = null;
+  if (typeof res === 'string') dir = res;
+  else if (res && Array.isArray(res.filePaths) && res.filePaths.length) dir = res.filePaths[0];
+  if (!dir || (res && res.canceled)) return;
+  cloneState.dir = dir;
+  const el = $('git-clone-dir');
+  if (el) { el.textContent = dir; el.title = dir; }
 }
 
 async function doClone() {
-  const url = $('git-clone-url')?.value?.trim();
-  if (!url) { flash('Cole a URL do repositório.', 'error'); return; }
-  await run('Clonar', async () => {
-    const r = await api().clone({ url });
+  if (!cloneState.selUrl || !cloneState.selName) { flash(tt('git.pasteUrl', 'Select a repository to clone.'), 'error'); return; }
+  if (!cloneState.dir) { flash(tt('git.chooseLocation', 'Choose a destination folder.'), 'error'); return; }
+  // Validate both the chosen folder and the repo name for unsafe characters.
+  if (!SAFE_PATH_RE.test(cloneState.dir) || !SAFE_PATH_RE.test(cloneState.selName)) {
+    flash(tt('git.invalidPath', 'Path contains spaces or invalid characters.'), 'error');
+    return;
+  }
+  const dest = joinPath(cloneState.dir, cloneState.selName);
+  cloneState.dest = dest;
+  await run(tt('git.cloneBtn', 'Clone'), async () => {
+    const r = await api().clone({ url: cloneState.selUrl, dest });
     if (!r.ok) throw new Error(r.error);
-    if (r.canceled) return 'Clone cancelado';
-    const c = $('git-clone'); if (c) c.hidden = true;
-    return `Clonado em ${r.dest}`;
+    if (r.canceled) return tt('git.cloneBtn', 'Clone canceled');
+    // After cloning, look for project files to offer "Open in SAPHO".
+    let scan;
+    try { scan = await api().scanSpf({ dir: r.dest || dest }); } catch (_) { scan = { ok: false }; }
+    cloneState.spfs = (scan && scan.ok && Array.isArray(scan.spfs)) ? scan.spfs : [];
+    renderCloneSpf();
+    return r.dest || dest;
   });
+}
+
+function renderCloneSpf() {
+  const el = $('git-clone-spf');
+  if (!el) return;
+  if (!cloneState.spfs.length) { el.hidden = true; el.innerHTML = ''; return; }
+  el.hidden = false;
+  el.innerHTML = `<button class="git-mini git-clone-open" data-action="clone-open-spf" data-spf="${esc(cloneState.spfs[0])}">
+      <i class="ph ph-rocket-launch"></i> ${esc(tt('git.openInSapho', 'Open project in SAPHO'))}
+    </button>`;
+}
+
+async function openClonedSpf(spf) {
+  if (!spf) return;
+  try { await window.electronAPI?.openProject(spf); } catch (e) { flash(e?.message || String(e), 'error'); return; }
+  close();
 }
 
 async function connect() {
   const token = $('git-pat')?.value?.trim();
-  if (!token) { flash('Cole um token primeiro.', 'error'); return; }
-  await run('Conectar', async () => {
+  if (!token) { flash(tt('git.pasteToken', 'Paste a token first.'), 'error'); return; }
+  await run(tt('git.connect', 'Connect'), async () => {
     const r = await api().githubConnect(token);
     if (!r.ok) throw new Error(r.error);
     refresh();
-    return `Conectado como @${r.user.login}`;
+    return `@${r.user.login}`;
   });
 }
 
 async function publish() {
   const name = $('git-repo-name')?.value?.trim();
   const priv = publishPrivate;
-  if (!name) { flash('Dê um nome ao repositório.', 'error'); return; }
+  if (!name) { flash(tt('git.repoNameRequired', 'Give the repository a name.'), 'error'); return; }
   const gh = await api().githubStatus();
-  if (!gh || !gh.connected) { flash('Conecte sua conta GitHub primeiro.', 'error'); return; }
-  await run('Publicar', async () => {
+  if (!gh || !gh.connected) { flash(tt('git.connectFirst', 'Connect your GitHub account first.'), 'error'); return; }
+  await run(tt('git.publish', 'Publish'), async () => {
     const isRepo = await api().isRepo();
     if (isRepo.ok && !isRepo.isRepo) { const ir = await api().init(); if (!ir.ok) throw new Error(ir.error); }
     const r = await api().githubCreateRepo({ name, private: priv });
@@ -467,8 +607,8 @@ async function publish() {
     if (!add.ok) throw new Error(add.error);
     const push = await api().push({ setUpstream: true });
     refresh();
-    if (!push.ok) return `Repo ${r.fullName} criado — faça um commit e Push.`;
-    return `Publicado em ${r.fullName}`;
+    if (!push.ok) return r.fullName;
+    return r.fullName;
   });
 }
 
@@ -476,12 +616,12 @@ async function doCommit() {
   const title = ($('git-commit-title')?.value || '').trim();
   const desc = ($('git-commit-desc')?.value || '').trim();
   const amend = amendOn;
-  if (!title) { flash('Escreva um resumo para o commit.', 'error'); return; }
+  if (!title) { flash(tt('git.summaryRequired', 'Write a summary for the commit.'), 'error'); return; }
   const message = desc ? `${title}\n\n${desc}` : title;
-  await run('Commit', async () => {
+  await run(tt('git.commit', 'Commit'), async () => {
     const st = await api().status();
     const { staged } = st.ok ? partition(st) : { staged: [] };
-    if (!amend && st.ok && !st.files.length) throw new Error('Nada para commitar.');
+    if (!amend && st.ok && !st.files.length) throw new Error(tt('git.noChanges', 'Nothing to commit.'));
     if (!amend && !staged.length && st.files.length) { await api().stageAll(); }
     const r = await api().commit({ message, amend });
     if (!r.ok) throw new Error(r.error);
@@ -490,7 +630,7 @@ async function doCommit() {
     amendOn = false;
     const ab = $('git-amend-btn'); if (ab) { ab.classList.remove('active'); ab.setAttribute('aria-pressed', 'false'); }
     refresh();
-    return amend ? 'Commit corrigido (amend)' : `Commit ${r.commit ? String(r.commit).slice(0, 7) : ''} criado`;
+    return amend ? tt('git.amend', 'Commit amended') : (r.commit ? String(r.commit).slice(0, 7) : tt('git.commit', 'Commit'));
   });
 }
 

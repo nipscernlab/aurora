@@ -222,17 +222,11 @@ function register() {
     return {};
   }));
 
-  // Clone a repo into a folder the user picks. Uses the stored token if present.
-  ipcMain.handle('git:clone', safe(async (/** @type {{url:string}} */ opts) => {
-    if (!opts || !opts.url) throw new Error('url required');
-    const { dialog } = require('electron');
-    const picked = await dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory'],
-      title: 'Escolha a pasta de destino para o clone',
-    });
-    if (picked.canceled || !picked.filePaths[0]) return { canceled: true };
-    const name = (opts.url.match(/([^/]+?)(?:\.git)?$/) || [])[1] || 'repo';
-    const dest = path.join(picked.filePaths[0], name);
+  // Clone a repo into the folder the renderer picked ({ url, dest }). Uses the
+  // stored token if present. The folder picking now happens renderer-side.
+  ipcMain.handle('git:clone', safe(async (/** @type {{url:string, dest:string}} */ opts) => {
+    if (!opts || typeof opts.url !== 'string' || !opts.url.trim()) throw new Error('url required');
+    if (typeof opts.dest !== 'string' || !opts.dest.trim()) throw new Error('dest required');
     const config = [];
     try {
       const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
@@ -241,8 +235,31 @@ function register() {
         config.push(`http.extraHeader=Authorization: Basic ${basic}`);
       }
     } catch (_) { /* fall back to credential helper */ }
-    await simpleGit({ config }).clone(opts.url, dest);
-    return { dest };
+    await simpleGit({ config }).clone(opts.url, opts.dest);
+    return { dest: opts.dest };
+  }));
+
+  // Scan a directory tree for SAPHO project files (*.spf), shallow (depth <= 5),
+  // skipping VCS/build/dependency folders. Used by the clone flow to find a
+  // project to open after a fresh clone.
+  ipcMain.handle('git:scan-spf', safe(async (opts) => {
+    const root = opts && opts.dir;
+    if (!root) throw new Error('dir required');
+    const found = [];
+    const fs = require('fs');
+    const SKIP = new Set(['.git', 'node_modules', 'dist', 'components']);
+    (function walk(d, depth) {
+      if (depth > 5) return;
+      let ents;
+      try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (_) { return; }
+      for (const e of ents) {
+        if (e.name.startsWith('.') && e.isDirectory()) continue;
+        const p = require('path').join(d, e.name);
+        if (e.isDirectory()) { if (!SKIP.has(e.name)) walk(p, depth + 1); }
+        else if (e.isFile() && e.name.toLowerCase().endsWith('.spf')) found.push(p);
+      }
+    })(root, 0);
+    return { spfs: found };
   }));
 
   ipcMain.handle('git:checkout', safe(async (/** @type {{branch:string, create?:boolean}} */ opts) => {

@@ -185,6 +185,21 @@ async function connect(token) {
   return user;
 }
 
+/** List the connected account's repositories (owner affiliation). */
+async function listRepos() {
+  const token = getToken();
+  if (!token) throw new Error('Conecte sua conta GitHub primeiro.');
+  const repos = await apiGet('/user/repos?per_page=100&sort=updated&affiliation=owner', token);
+  return repos.map((r) => ({
+    name: r.name,
+    fullName: r.full_name,
+    cloneUrl: r.clone_url,
+    private: r.private,
+    description: r.description || '',
+    updatedAt: r.updated_at,
+  }));
+}
+
 /** The connected user (no token), or null. */
 function getUser() {
   const { user, token } = readVault();
@@ -238,7 +253,14 @@ function register() {
       return { ok: false, error: e instanceof Error ? e.message : String(e) };
     }
   });
+  ipcMain.handle('github:list-repos', async () => {
+    try {
+      return { ok: true, repos: await listRepos() };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
   log.info('[ipc.github_auth] handlers registered');
 }
 
-module.exports = { register, getToken, getUser, connect, disconnect, createRepo };
+module.exports = { register, getToken, getUser, connect, disconnect, createRepo, listRepos };

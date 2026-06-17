@@ -888,7 +888,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **B1** SHA256SUMS por release + validar no downloader. 🟡
 - [ ] **B2** code signing (SignPath/Azure) — fim do SmartScreen. 🟡
 - [ ] **B3** README/badges → canal de release `sapho`. 🟡
-- [ ] **B4** `tsc --noEmit` no CI + check de `.js` dessincronizado. 🟢
+- [x] **B4 — FEITO** `tsc --noEmit` já roda no CI; e `scripts/check-no-generated-js.js` (passo novo no `ci.yml`) falha se algum `.js` gerado (com irmão `.ts`) for commitado — trava o B5. 🟢
 - [ ] **B6/B13** `copy-components` incremental / junction (não recopiar ~1 GB a cada start). 🟢
 - [ ] **B7** validar sentinelas após bootstrap no `release.yml`. 🟢
 - [ ] **B8** escolher release-please como fluxo único; aposentar `build.ps1`. 🟢

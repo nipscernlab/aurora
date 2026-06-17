@@ -33,6 +33,9 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
 
+      - name: No generated .js committed (B4/B5 guard)
+        run: node scripts/check-no-generated-js.js
+
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode
 

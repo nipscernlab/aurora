@@ -49,10 +49,11 @@ jobs:
         run: npm run test:coverage
 
       - name: Upload coverage to Codecov
-        # Tokenless upload (public repo). Add a CODECOV_TOKEN secret later if rate
-        # limits require it. Never fails CI — coverage is informational here.
+        # Uses the repo's CODECOV_TOKEN secret (GitHub → Settings → Secrets and
+        # variables → Actions). Never fails CI — coverage is informational here.
         uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
           fail_ci_if_error: false
 

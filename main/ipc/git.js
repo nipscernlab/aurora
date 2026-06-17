@@ -352,9 +352,13 @@ function register() {
     return { spfs: found };
   }));
 
-  ipcMain.handle('git:checkout', safe(async (/** @type {{branch:string, create?:boolean}} */ opts) => {
+  ipcMain.handle('git:checkout', safe(async (/** @type {{branch:string, create?:boolean, track?:boolean}} */ opts) => {
     const git = gitForProject();
     if (opts && opts.create) await git.checkoutLocalBranch(opts.branch);
+    // Remote-only branch: create a local tracking branch explicitly. Relying on
+    // git's DWIM (`git checkout name`) failed with "pathspec did not match" when
+    // there was no local branch yet — `--track origin/name` is unambiguous.
+    else if (opts && opts.track) await git.checkout(['--track', opts.branch]);
     else await git.checkout(opts.branch);
     return {};
   }));

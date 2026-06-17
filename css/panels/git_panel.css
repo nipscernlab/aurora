@@ -878,6 +878,8 @@
   background: color-mix(in srgb, var(--status-warning, #E8B86C) 10%, transparent);
   color: var(--text-secondary, var(--text-muted)); line-height: 1.5;
 }
+/* Align the leading info icon with the first text line (not the box top). */
+.git-help-note > i { flex-shrink: 0; font-size: 15px; margin-top: 2px; }
 .git-help-open { margin-top: var(--space-2); }
 
 /* OAuth device flow: BIG, copyable user_code — content centered in the card. */

@@ -257,7 +257,7 @@ async function toggleBranchMenu() {
 // Switch branches, handling a dirty tree gracefully: offer to STASH the
 // uncommitted changes first (git checkout has no --autostash), then switch. The
 // changes are restorable from the branch menu's stash row.
-async function checkoutBranch(branch) {
+async function checkoutBranch(branch, track) {
   if (!branch) return undefined;
   closeBranchMenu();
   let dirty = false;
@@ -276,7 +276,7 @@ async function checkoutBranch(branch) {
     return run(tt('git.switchBranch', 'Switch branch'), async () => {
       const s = await api().stash({ message: `aurora: ${branch}` });
       if (!s.ok) throw new Error(s.error);
-      const r = await api().checkout({ branch });
+      const r = await api().checkout({ branch, track });
       if (!r.ok) throw new Error(r.error);
       refresh();
       try { window.showNotification?.(tt('git.stashed', 'Changes stashed'), 'info', 5000, 'Git'); } catch (_) { /* optional */ }
@@ -284,12 +284,47 @@ async function checkoutBranch(branch) {
     });
   }
   return run(tt('git.switchBranch', 'Switch branch'), async () => {
-    const r = await api().checkout({ branch });
+    const r = await api().checkout({ branch, track });
     if (!r.ok) throw new Error(r.error);
     refresh();
     return branch;
   });
 }
+// Restore (stash pop). If the working tree changed the same file, git refuses
+// ("would be overwritten by merge") and KEEPS the stash. Offer to discard the
+// current changes and restore the stashed version (which is what "restore" means).
+async function restoreStash() {
+  closeBranchMenu();
+  let r;
+  try { r = await api().stashPop(); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  if (r && r.ok) { refresh(); flash(tt('git.restored', 'Changes restored'), 'ok'); return; }
+  const err = (r && r.error) || '';
+  if (/overwritten|conflict|merge/i.test(err)) {
+    const action = await window.AuroraUI?.dialog?.({
+      title: tt('git.restore', 'Restore'),
+      message: tt('git.stashConflictMsg', 'Your current changes conflict with the stash, so it can’t be restored without overwriting them. Discard your current changes and restore the stashed version? (The stash is kept if it still can’t apply.)'),
+      variant: 'warning',
+      buttons: [
+        { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+        { label: tt('git.discardRestore', 'Discard current & restore'), action: 'discard', type: 'danger' },
+      ],
+    });
+    if (action !== 'discard') { flash(tt('git.stashKept', 'Stash kept — resolve your changes and try again.'), 'info'); return; }
+    await run(tt('git.restore', 'Restore'), async () => {
+      const st = await api().status();
+      const files = (st && st.ok ? st.files : []).map((f) => f.path).filter(Boolean);
+      if (files.length) { const d = await api().discard(files); if (!d.ok) throw new Error(d.error); }
+      const r2 = await api().stashPop();
+      if (!r2.ok) throw new Error(r2.error);
+      refresh();
+      return tt('git.restored', 'Changes restored');
+    });
+    return;
+  }
+  setStatus(`${tt('git.restore', 'Restore')}: ${err}`, 'error');
+  statusTimer = setTimeout(() => setStatus('', null), 8000);
+}
+
 async function stashDrop() {
   const ok = await window.AuroraUI?.dialog?.({
     title: tt('git.discard', 'Discard'),
@@ -327,7 +362,7 @@ function renderBranchMenu(branches, current, stashes = [], remoteBranches = []) 
     ${remoteBranches.length ? `<div class="git-bm-head">${esc(tt('git.remoteBranches', 'Remote branches'))}</div>
     <ul class="git-bm-list">
       ${remoteBranches.map((rb) => `<li class="git-bm-item">
-        <button class="git-bm-switch" data-action="checkout-branch" data-branch="${esc(rb.name)}" title="${esc(rb.full)}">
+        <button class="git-bm-switch" data-action="checkout-branch" data-branch="${esc(rb.full)}" data-track="1" title="${esc(rb.full)}">
           <i class="ph ph-cloud"></i> ${esc(rb.name)} <span class="git-bm-remote-ref">${esc(rb.full)}</span>
         </button>
       </li>`).join('')}
@@ -812,8 +847,8 @@ async function onClick(e) {
       case 'clone-do':   return doClone();
       case 'clone-open-spf': return openClonedSpf(actEl.dataset.spf);
       case 'branch-menu': return toggleBranchMenu();
-      case 'checkout-branch': return checkoutBranch(actEl.dataset.branch);
-      case 'stash-pop': return run(tt('git.restore', 'Restore'), async () => { const r = await api().stashPop(); if (!r.ok) throw new Error(r.error); closeBranchMenu(); refresh(); return tt('git.restored', 'Changes restored'); });
+      case 'checkout-branch': return checkoutBranch(actEl.dataset.branch, actEl.dataset.track === '1');
+      case 'stash-pop': return restoreStash();
       case 'stash-drop': return stashDrop();
       case 'merge-branch': { const mb = actEl.dataset.branch; closeBranchMenu(); return run('Merge', async () => { const r = await api().merge({ branch: mb }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge ${mb}`; }); }
       case 'create-branch': {

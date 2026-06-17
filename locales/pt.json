@@ -655,7 +655,16 @@
         "connectFirst":       "Conecte primeiro a sua conta do GitHub.",
         "pasteToken":         "Cole um token primeiro.",
         "pasteUrl":           "Cole a URL do repositório.",
-        "invalidPath":        "O caminho não pode conter espaços ou caracteres especiais."
+        "invalidPath":        "O caminho não pode conter espaços ou caracteres especiais.",
+        "noTextDiff":         "Sem diferenças textuais.",
+        "noDiffYet":          "Sem diferenças (um arquivo novo aparece depois do stage, ou é binário).",
+        "binaryNotShown":     "Arquivo binário — diff não exibido.",
+        "noFileChanges":      "Nenhuma alteração de arquivo neste commit.",
+        "diffTruncated":      "Diff grande — mostrando apenas a primeira parte.",
+        "fileOne":            "arquivo",
+        "fileMany":           "arquivos",
+        "cancel":             "Cancelar",
+        "disconnectConfirm":  "Desconectar sua conta do GitHub da Aurora? O token armazenado será removido do armazenamento seguro."
     },
     "search": {
         "title":             "Buscar nos arquivos",

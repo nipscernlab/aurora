@@ -238,7 +238,7 @@ async function renderAccount() {
         <span class="git-user-ok" title="${esc(tt('git.connect', 'Connect'))}"><i class="ph ph-check-circle"></i></span></span>
       <span class="git-account-actions">
         <button class="git-mini" data-action="clone-toggle"><i class="ph ph-download-simple"></i> ${esc(tt('git.clone', 'Clone'))}</button>
-        <button class="git-mini" data-action="disconnect">${esc(tt('git.disconnect', 'Disconnect'))}</button>
+        <button class="git-icon-btn git-disconnect" data-action="disconnect" title="${esc(tt('git.disconnect', 'Disconnect'))}" aria-label="${esc(tt('git.disconnect', 'Disconnect'))}"><i class="ph ph-sign-out"></i></button>
       </span>`;
   } else {
     el.innerHTML = `
@@ -304,23 +304,72 @@ async function refresh() {
 }
 
 // --- diff (diff2html) ------------------------------------------------------
+// Files we never render a textual diff for (images/blobs/generated artifacts):
+// even when git treats them as text, a multi-MB .mif/.hex would choke the panel.
+const BINARY_EXT_RE = /\.(png|jpe?g|gif|bmp|ico|webp|tiff?|svg|pdf|zip|gz|tgz|7z|rar|exe|dll|so|dylib|o|a|lib|bin|dat|vcd|fst|ghw|wlf|woff2?|ttf|otf|eot|mp[34]|wav|ogg|class|jar|mif|hex|coe)$/i;
+function isBinaryFile(f) { return !!(f && (f.binary || BINARY_EXT_RE.test(f.path || ''))); }
+
+// diff2html, line-by-line. We deliberately DON'T use matching:'words' — that
+// intra-line word diff is O(n²)-ish and was a big part of the freeze on large
+// diffs. Per-file + capped + no word-matching keeps rendering snappy.
 function diffHtml(text) {
   const start = text.indexOf('diff --git');
   const body = start >= 0 ? text.slice(start) : text;
-  if (!body.trim()) return `<div class="git-diff-empty">Sem diferenças textuais.</div>`;
-  return renderDiff(body, { drawFileList: false, matching: 'words', outputFormat: 'line-by-line', colorScheme: 'dark' });
+  if (!body.trim()) return `<div class="git-diff-empty">${esc(tt('git.noTextDiff', 'No textual differences.'))}</div>`;
+  return renderDiff(body, { drawFileList: false, outputFormat: 'line-by-line', colorScheme: 'dark' });
+}
+function truncNote(truncated) {
+  return truncated
+    ? `<div class="git-diff-trunc"><i class="ph ph-warning-circle"></i> ${esc(tt('git.diffTruncated', 'Large diff — showing the first part only.'))}</div>`
+    : '';
 }
 function hideDiff() { const d = $('git-diff'); if (d) d.hidden = true; }
 async function showDiff(file, staged) {
   const d = $('git-diff'); const body = $('git-diff-body');
   if (!d || !body) return;
-  const r = await api().diff({ file, staged });
-  if (!r.ok) { flash(`diff: ${r.error}`, 'error'); return; }
-  const text = (r.diff || '').trim();
-  body.innerHTML = text ? diffHtml(text)
-    : `<div class="git-diff-empty">Sem diferenças (arquivo novo aparece após o stage, ou é binário).</div>`;
   $('git-diff-title').textContent = `${file}${staged ? '  ·  staged' : ''}`;
   d.hidden = false;
+  if (BINARY_EXT_RE.test(file)) {
+    body.innerHTML = `<div class="git-diff-empty"><i class="ph ph-file-image"></i> ${esc(tt('git.binaryNotShown', 'Binary file — diff not shown.'))}</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
+  const r = await api().diff({ file, staged });
+  if (!r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r.error)}</div>`; return; }
+  const text = (r.diff || '').trim();
+  if (!text) {
+    body.innerHTML = `<div class="git-diff-empty">${esc(tt('git.noDiffYet', 'No differences (a new file appears once staged, or it is binary).'))}</div>`;
+    return;
+  }
+  // Render on the next frame so the spinner paints first (large files).
+  requestAnimationFrame(() => { body.innerHTML = truncNote(r.truncated) + diffHtml(text); });
+}
+
+// History diff — GitHub-Desktop model: a FAST file list (numstat only), then the
+// per-file diff is lazy-loaded on expand. We never render the whole commit at
+// once, so even a 10k-line commit opens instantly.
+function commitDetailHtml(commit, hash) {
+  return `<div class="git-commit-detail">
+    <div class="git-commit-detail-subject">${esc(commit.message || '')}</div>
+    ${commit.body ? `<pre class="git-commit-detail-body">${esc(commit.body)}</pre>` : ''}
+    <div class="git-commit-detail-meta"><i class="ph ph-user-circle"></i> ${esc(commit.author || '')} &middot; <i class="ph ph-git-commit"></i> ${esc(String(hash).slice(0, 7))} &middot; ${esc(relDate(commit.date))}</div>
+  </div>`;
+}
+function fileDiffRow(f, i, hash) {
+  const bin = isBinaryFile(f);
+  const stats = bin
+    ? `<span class="git-fd-bin" title="${esc(tt('git.binaryNotShown', 'Binary file — diff not shown.'))}">bin</span>`
+    : `<span class="git-fd-add">+${f.additions}</span><span class="git-fd-del">-${f.deletions}</span>`;
+  return `<div class="git-fd ${bin ? 'is-binary' : ''}" data-file="${esc(f.path)}" data-index="${i}">
+    <button class="git-fd-head" data-action="commit-file-toggle" data-hash="${esc(hash)}" data-file="${esc(f.path)}" data-binary="${bin}" ${bin ? 'disabled' : ''}>
+      <i class="ph ph-caret-right git-fd-caret" aria-hidden="true"></i>
+      <span class="git-fd-path" title="${esc(f.path)}">${esc(f.path)}</span>
+      ${stats}
+    </button>
+    ${bin
+      ? `<div class="git-fd-note"><i class="ph ph-file-image"></i> ${esc(tt('git.binaryNotShown', 'Binary file — diff not shown.'))}</div>`
+      : `<div class="git-fd-body" hidden></div>`}
+  </div>`;
 }
 async function showCommitDiff(hash) {
   const d = $('git-history-diff'); const body = $('git-history-diff-body');
@@ -328,16 +377,35 @@ async function showCommitDiff(hash) {
   const commit = historyCommits.find((c) => c.hash === hash) || {};
   d.hidden = false;
   $('git-history-diff-title').textContent = String(hash).slice(0, 7);
+  body.innerHTML = commitDetailHtml(commit, hash)
+    + `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
+  let r;
+  try { r = await api().commitFiles({ hash }); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  if (!r || !r.ok) { body.innerHTML = commitDetailHtml(commit, hash) + `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
+  const files = Array.isArray(r.files) ? r.files : [];
+  if (!files.length) { body.innerHTML = commitDetailHtml(commit, hash) + `<div class="git-diff-empty">${esc(tt('git.noFileChanges', 'No file changes in this commit.'))}</div>`; return; }
+  const head = `<div class="git-fd-summary">${files.length} ${esc(files.length === 1 ? tt('git.fileOne', 'file') : tt('git.fileMany', 'files'))}</div>`;
+  body.innerHTML = commitDetailHtml(commit, hash) + head
+    + `<div class="git-filelist">${files.map((f, i) => fileDiffRow(f, i, hash)).join('')}</div>`;
+  // Auto-expand the first text file so there's something visible immediately.
+  const firstText = body.querySelector('.git-fd:not(.is-binary) .git-fd-head');
+  if (firstText) toggleCommitFile(firstText);
+}
+async function toggleCommitFile(btn) {
+  const fd = btn.closest('.git-fd');
+  if (!fd) return;
+  const body = fd.querySelector('.git-fd-body');
+  if (!body) return;
+  if (!body.hidden) { body.hidden = true; fd.classList.remove('expanded'); return; }
+  fd.classList.add('expanded'); body.hidden = false;
+  if (body.dataset.loaded) return;
   body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
-  const r = await api().show({ hash });
-  if (!r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r.error)}</div>`; return; }
-  // Show the commit MESSAGE (subject + body) above the diff, GitHub-Desktop style.
-  const detail = `<div class="git-commit-detail">
-    <div class="git-commit-detail-subject">${esc(commit.message || '')}</div>
-    ${commit.body ? `<pre class="git-commit-detail-body">${esc(commit.body)}</pre>` : ''}
-    <div class="git-commit-detail-meta"><i class="ph ph-user-circle"></i> ${esc(commit.author || '')} &middot; <i class="ph ph-git-commit"></i> ${esc(String(hash).slice(0, 7))} &middot; ${esc(relDate(commit.date))}</div>
-  </div>`;
-  body.innerHTML = detail + diffHtml(r.diff || '');
+  const hash = btn.dataset.hash; const file = btn.dataset.file;
+  let r;
+  try { r = await api().show({ hash, file }); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  if (!r || !r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
+  body.dataset.loaded = '1';
+  requestAnimationFrame(() => { body.innerHTML = truncNote(r.truncated) + diffHtml(r.diff || ''); });
 }
 
 async function loadHistory() {
@@ -390,7 +458,8 @@ async function onClick(e) {
         return undefined;
       }
       case 'connect':    return connect();
-      case 'disconnect': return run(tt('git.disconnect', 'Disconnect'), async () => { await api().githubDisconnect(); refresh(); return tt('git.disconnect', 'Account disconnected'); });
+      case 'disconnect': return disconnectAccount();
+      case 'commit-file-toggle': return toggleCommitFile(actEl);
       case 'clone-toggle': return toggleClone();
       case 'clone-list-select': return selectCloneRepo(actEl);
       case 'clone-choose-dir': return chooseCloneDir();
@@ -431,6 +500,20 @@ async function discard(file) {
   });
   if (action !== 'confirm') return;
   await run('Discard', async () => { const r = await api().discard(file); if (!r.ok) throw new Error(r.error); refresh(); });
+}
+
+async function disconnectAccount() {
+  const action = await window.AuroraUI?.dialog?.({
+    title: tt('git.disconnect', 'Disconnect'),
+    message: tt('git.disconnectConfirm', 'Disconnect your GitHub account from Aurora? The stored token will be removed from secure storage.'),
+    variant: 'warning',
+    buttons: [
+      { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('git.disconnect', 'Disconnect'), action: 'confirm', type: 'danger' },
+    ],
+  });
+  if (action !== 'confirm') return;
+  await run(tt('git.disconnect', 'Disconnect'), async () => { await api().githubDisconnect(); refresh(); return tt('git.disconnect', 'Account disconnected'); });
 }
 
 async function undoLast() {

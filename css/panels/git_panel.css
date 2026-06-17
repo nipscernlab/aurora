@@ -195,9 +195,29 @@
 
 /* ---- commit history ---- */
 .git-history { display: flex; flex-direction: column; gap: var(--space-1); }
-.git-history-list { list-style: none; margin: 0; padding: 0; max-height: 26vh; overflow-y: auto; }
-.git-commit { display: flex; align-items: baseline; gap: var(--space-2); padding: 4px var(--space-2); border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.04)); }
+.git-history-list { list-style: none; margin: 0; padding: 0; max-height: 30vh; overflow-y: auto; }
+.git-commit {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  padding: 6px var(--space-2); border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.04));
+  cursor: pointer; position: relative;
+  border-left: 2px solid transparent;
+  transition: background-color var(--transition-fast, 120ms ease), border-color var(--transition-fast, 120ms ease);
+}
 .git-commit:last-child { border-bottom: none; }
+/* Clickability affordance: hover lifts the row + a left accent bar slides in, the
+   hash brightens and a "view" chevron fades in on the right. */
+.git-commit:hover { background: var(--overlay-hover); border-left-color: var(--accent); }
+.git-commit:hover .git-commit-hash { color: var(--accent); }
+.git-commit.selected { background: var(--accent-soft, var(--overlay-hover)); border-left-color: var(--accent); }
+.git-commit::after {
+  content: "\f0a9"; /* caret-right (phosphor) approximation via icon font not guaranteed; use chevron text */
+  content: "›";
+  margin-left: 2px; color: var(--accent); opacity: 0; flex-shrink: 0;
+  transform: translateX(-4px);
+  transition: opacity var(--transition-fast, 120ms ease), transform var(--transition-fast, 120ms ease);
+  font-size: var(--text-sm); line-height: 1;
+}
+.git-commit:hover::after, .git-commit.selected::after { opacity: 1; transform: translateX(0); }
 .git-commit-hash { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--accent-hover, #5bb8e8); flex-shrink: 0; }
 .git-commit-msg { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-xs); color: var(--text); }
 .git-commit-meta { font-size: 10px; color: var(--text-faint, var(--text-muted)); white-space: nowrap; flex-shrink: 0; }
@@ -428,3 +448,110 @@
 /* ---- misc ---- */
 .git-diff-loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); }
 .git-mini:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ===========================================================================
+ *  Commit file-list diff (GitHub-Desktop model) + motion
+ *  The history diff is now a FAST file list (numstat) whose per-file diffs
+ *  lazy-load on expand. All motion is transform/opacity only (GPU-composited)
+ *  and respects prefers-reduced-motion below.
+ * ======================================================================== */
+.git-fd-summary {
+  padding: 6px var(--space-3); font-size: var(--text-xs); color: var(--text-muted);
+  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.05));
+  position: sticky; top: 0; background: var(--bg-elev); z-index: 1;
+}
+.git-filelist { display: flex; flex-direction: column; }
+.git-fd { border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.05)); }
+.git-fd:last-child { border-bottom: none; }
+.git-fd-head {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%;
+  padding: 6px var(--space-3); background: transparent; border: none; cursor: pointer;
+  color: var(--text); font-family: var(--font-mono); font-size: var(--text-xs); text-align: left;
+  transition: background-color var(--transition-fast, 120ms ease);
+}
+.git-fd-head:hover:not(:disabled) { background: var(--overlay-hover); }
+.git-fd-head:disabled { cursor: default; opacity: 0.7; }
+.git-fd-caret {
+  flex-shrink: 0; color: var(--text-muted); font-size: var(--text-sm);
+  transition: transform var(--transition-fast, 140ms ease);
+}
+.git-fd.expanded .git-fd-caret { transform: rotate(90deg); }
+.git-fd.is-binary .git-fd-caret { visibility: hidden; }
+.git-fd-path {
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; direction: rtl; text-align: left; /* keep filename visible when truncating */
+}
+.git-fd-add { color: var(--status-success, #5fe0b0); flex-shrink: 0; }
+.git-fd-del { color: var(--status-error, #ff6b6b); flex-shrink: 0; }
+.git-fd-bin {
+  flex-shrink: 0; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-faint, var(--text-muted)); border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 4px); padding: 0 4px;
+}
+.git-fd-note {
+  display: flex; align-items: center; gap: 6px;
+  padding: var(--space-2) var(--space-3) var(--space-2) calc(var(--space-3) + 20px);
+  font-size: var(--text-xs); color: var(--text-muted);
+}
+/* Expanding body: the inner diff fades+slides in. Height isn't animated (would
+   thrash layout); opacity/transform are GPU-composited. */
+.git-fd-body { overflow-x: auto; }
+.git-fd-body > * { animation: gitFdReveal var(--motion-flow, 200ms) var(--ease-out, ease) both; }
+@keyframes gitFdReveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Large-diff truncation banner */
+.git-diff-trunc {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px var(--space-3); margin: 0;
+  font-size: var(--text-xs); color: var(--status-warning, #f0a050);
+  background: color-mix(in srgb, var(--status-warning, #f0a050) 12%, transparent);
+  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.05));
+}
+
+/* Subtle, "more hidden" disconnect — icon-only, danger only on hover. */
+.git-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; padding: 0;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-md);
+  color: var(--text-faint, var(--text-muted)); cursor: pointer;
+  transition: color var(--transition-fast, 120ms ease), background-color var(--transition-fast, 120ms ease), border-color var(--transition-fast, 120ms ease);
+}
+.git-icon-btn:hover { color: var(--status-error, #ff6b6b); background: color-mix(in srgb, var(--status-error, #ff6b6b) 12%, transparent); border-color: color-mix(in srgb, var(--status-error, #ff6b6b) 30%, transparent); }
+
+/* ---- reveal motion: history rows + change rows stagger in ---- */
+.git-history-list .git-commit,
+.git-file-list .git-file {
+  animation: gitRowIn var(--motion-flow, 200ms) var(--ease-out, ease) both;
+}
+@keyframes gitRowIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Cheap stagger for the first handful of rows (no per-row JS needed). */
+.git-history-list .git-commit:nth-child(1) { animation-delay: 0ms; }
+.git-history-list .git-commit:nth-child(2) { animation-delay: 24ms; }
+.git-history-list .git-commit:nth-child(3) { animation-delay: 48ms; }
+.git-history-list .git-commit:nth-child(4) { animation-delay: 72ms; }
+.git-history-list .git-commit:nth-child(5) { animation-delay: 96ms; }
+.git-history-list .git-commit:nth-child(6) { animation-delay: 120ms; }
+
+/* The diff panels (working-tree + history) slide up as they reveal. */
+#git-diff:not([hidden]), #git-history-diff:not([hidden]) {
+  animation: gitPanelReveal var(--motion-flow, 220ms) var(--ease-out, ease) both;
+}
+@keyframes gitPanelReveal {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .git-commit, .git-commit::after, .git-fd-caret,
+  .git-history-list .git-commit, .git-file-list .git-file,
+  .git-fd-body > *, #git-diff:not([hidden]), #git-history-diff:not([hidden]) {
+    animation: none !important;
+    transition: none !important;
+  }
+}

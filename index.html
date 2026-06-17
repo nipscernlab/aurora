@@ -234,9 +234,6 @@
           <!-- The split-editor control now floats inside the focused Monaco
                pane (see SplitEditorManager._updateButton) instead of living
                here, so it always rides with the instance that has focus. -->
-          <button id="searchButton" class="toolbar-button icon-only" data-tooltip="Find in files (Ctrl+Shift+F)" data-i18n-tooltip="search.tooltip">
-              <i class="ph ph-magnifying-glass"></i>
-          </button>
           <button id="gitButton" class="toolbar-button icon-only" data-tooltip="Source Control" data-i18n-tooltip="toolbar.git.tooltip">
               <i class="ph ph-git-branch"></i>
               <span class="git-badge" id="git-badge" hidden></span>
@@ -356,6 +353,9 @@
             </span>
             <span id="refresh-button" class="tree-action" data-tooltip="Refresh file tree">
                 <i class="ph ph-arrows-clockwise"></i>
+            </span>
+            <span id="searchButton" class="tree-action" data-tooltip="Find in files (Ctrl+Shift+F)" data-i18n-tooltip="search.tooltip">
+                <i class="ph ph-magnifying-glass"></i>
             </span>
             <span id="open-folder-button" class="tree-action" data-tooltip="Open in system explorer">
                 <i class="ph ph-folder-notch-open"></i>
@@ -726,7 +726,7 @@
 </aurora-modal>
 
 <!-- Source Control (Git) Modal -->
-<aurora-modal id="gitModal" style="--aurora-modal-width: min(760px, 94vw);">
+<aurora-modal id="gitModal" style="--aurora-modal-width: min(1100px, 96vw);">
     <span slot="title" class="modal-title">
         <i class="ph ph-git-branch" aria-hidden="true"></i>
         <span data-i18n="modal.git.title">Source Control</span>

@@ -655,7 +655,16 @@
         "connectFirst":       "Connect your GitHub account first.",
         "pasteToken":         "Paste a token first.",
         "pasteUrl":           "Paste the repository URL.",
-        "invalidPath":        "The path can't contain spaces or special characters."
+        "invalidPath":        "The path can't contain spaces or special characters.",
+        "noTextDiff":         "No textual differences.",
+        "noDiffYet":          "No differences (a new file appears once staged, or it is binary).",
+        "binaryNotShown":     "Binary file — diff not shown.",
+        "noFileChanges":      "No file changes in this commit.",
+        "diffTruncated":      "Large diff — showing the first part only.",
+        "fileOne":            "file",
+        "fileMany":           "files",
+        "cancel":             "Cancel",
+        "disconnectConfirm":  "Disconnect your GitHub account from Aurora? The stored token will be removed from secure storage."
     },
     "search": {
         "title":             "Find in files",

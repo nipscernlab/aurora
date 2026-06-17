@@ -51,6 +51,18 @@ function safe(fn) {
   };
 }
 
+// A single commit's diff can be megabytes (generated .mif/.hex data, vendored
+// blobs). Rendering that synchronously froze the panel — so we cap the diff TEXT
+// we ship to the renderer at a line boundary and flag it as truncated.
+const MAX_DIFF_BYTES = 600 * 1024; // ~600 KB of unified-diff text
+function capDiff(text) {
+  const s = String(text == null ? '' : text);
+  if (s.length <= MAX_DIFF_BYTES) return { diff: s, truncated: false };
+  let cut = s.lastIndexOf('\n', MAX_DIFF_BYTES);
+  if (cut < 0) cut = MAX_DIFF_BYTES;
+  return { diff: s.slice(0, cut), truncated: true };
+}
+
 /**
  * A simple-git instance for REMOTE ops. The stored GitHub token is injected as a
  * ONE-SHOT `-c http.extraHeader` (never written to the repo config). We do NOT
@@ -104,20 +116,51 @@ function register() {
     };
   }));
 
-  // Unified diff for one file (or the whole worktree when file omitted).
+  // Unified diff for one file (or the whole worktree when file omitted). Capped.
   ipcMain.handle('git:diff', safe(async (/** @type {{file?:string, staged?:boolean}} */ opts = {}) => {
     const git = gitForProject();
     const args = opts && opts.staged ? ['--staged'] : [];
     if (opts && opts.file) args.push('--', opts.file);
-    const diff = await git.diff(args);
-    return { diff };
+    const raw = await git.diff(args);
+    return capDiff(raw);
   }));
 
-  // Full diff of a single commit (for the History tab).
-  ipcMain.handle('git:show', safe(async (/** @type {{hash:string}} */ opts) => {
+  // The list of files touched by a commit, with +/- counts and a binary flag.
+  // This is FAST (numstat only — no diff bodies) and lets the renderer show a
+  // GitHub-Desktop-style file list, then lazy-load each file's diff on demand,
+  // instead of rendering one giant diff up front (which froze the UI).
+  // numstat prints "<add>\t<del>\t<path>"; a binary file shows "-\t-\t<path>".
+  ipcMain.handle('git:commit-files', safe(async (/** @type {{hash:string}} */ opts) => {
     if (!opts || !opts.hash) throw new Error('hash required');
-    const diff = await gitForProject().show([opts.hash, '--no-color']);
-    return { diff };
+    const raw = await gitForProject().raw(
+      ['show', '--numstat', '--no-renames', '--format=', '--no-color', String(opts.hash)],
+    );
+    const files = [];
+    for (const line of String(raw).split('\n')) {
+      const t = line.replace(/\r$/, '');
+      if (!t.trim()) continue;
+      const m = t.match(/^(-|\d+)\t(-|\d+)\t(.*)$/);
+      if (!m) continue;
+      const binary = m[1] === '-' && m[2] === '-';
+      files.push({
+        path: m[3],
+        additions: binary ? 0 : Number(m[1]),
+        deletions: binary ? 0 : Number(m[2]),
+        binary,
+      });
+    }
+    return { files };
+  }));
+
+  // Diff of ONE file within a commit (lazy-loaded when the user expands it), or
+  // the whole commit when `file` is omitted. `--format=` drops the commit header
+  // (the renderer shows the message separately). Capped to avoid freezes.
+  ipcMain.handle('git:show', safe(async (/** @type {{hash:string, file?:string}} */ opts) => {
+    if (!opts || !opts.hash) throw new Error('hash required');
+    const args = ['show', '--no-color', '--format=', String(opts.hash)];
+    if (opts.file) args.push('--', String(opts.file));
+    const raw = await gitForProject().raw(args);
+    return capDiff(raw);
   }));
 
   ipcMain.handle('git:log', safe(async (/** @type {{maxCount?:number}} */ opts = {}) => {

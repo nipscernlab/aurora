@@ -427,6 +427,7 @@ const gitOperations = {
   diff:      (opts) => ipcRenderer.invoke('git:diff', opts),
   log:       (opts) => ipcRenderer.invoke('git:log', opts),
   show:      (opts) => ipcRenderer.invoke('git:show', opts),
+  commitFiles: (opts) => ipcRenderer.invoke('git:commit-files', opts),
   branches:  () => ipcRenderer.invoke('git:branches'),
   remotes:   () => ipcRenderer.invoke('git:remotes'),
   info:      () => ipcRenderer.invoke('git:info'),

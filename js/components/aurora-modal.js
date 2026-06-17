@@ -53,6 +53,25 @@ class AuroraModal extends LitElement {
     this._syncInert();
     this._mutObs = new MutationObserver(() => this._syncInert());
     this._mutObs.observe(this, { attributes: true, attributeFilter: ['aria-hidden', 'class'] });
+    AuroraModal._ensureGlobalKeydown();
+  }
+
+  // Esc closes the topmost open, dismissable modal. One shared capture-phase
+  // listener handles every <aurora-modal> (Find in files, Source Control, …) so
+  // each panel doesn't have to wire its own — and so Esc works regardless of
+  // where focus sits inside the modal.
+  static _ensureGlobalKeydown() {
+    if (AuroraModal._keydownBound) return;
+    AuroraModal._keydownBound = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      const open = Array.from(document.querySelectorAll('aurora-modal'))
+        .filter((m) => m.open && m.dismissable && !m.noclose);
+      if (!open.length) return;
+      e.preventDefault();
+      e.stopPropagation();
+      open[open.length - 1]._close(); // topmost in DOM order
+    }, true);
   }
 
   disconnectedCallback() {

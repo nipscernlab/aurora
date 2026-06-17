@@ -65,7 +65,11 @@ function setBadge(card, configured) {
   badge.textContent = configured
     ? tr('modal.settings.aiConfigured')
     : tr('modal.settings.aiNotConfigured');
-  card.querySelector('.ai-pc-remove').hidden = !configured;
+  // The per-provider "Remove key" button is ALWAYS visible (so every provider
+  // visibly offers it) but disabled when there's no stored key to remove.
+  const rm = card.querySelector('.ai-pc-remove');
+  rm.disabled = !configured;
+  rm.title = configured ? tr('modal.settings.aiRemove') : tr('modal.settings.aiNotConfigured');
 }
 
 function setFeedback(card, state, text) {
@@ -77,7 +81,12 @@ function setFeedback(card, state, text) {
 }
 
 function busy(card, isBusy) {
-  card.querySelectorAll('button, input').forEach((el) => { el.disabled = isBusy; });
+  // The Remove button's enabled state is owned by setBadge (it depends on
+  // whether a key exists), so don't let the generic busy-toggle flip it back on.
+  card.querySelectorAll('button, input').forEach((el) => {
+    if (el.classList.contains('ai-pc-remove')) return;
+    el.disabled = isBusy;
+  });
 }
 
 /**
@@ -131,7 +140,7 @@ function buildCard(provider, model, defaultModel) {
     <div class="ai-pc-feedback" hidden></div>
     <div class="ai-pc-footer">
       <a class="ai-pc-getkey" href="#" data-href="${meta.console}"></a>
-      <button class="ai-pc-remove" hidden></button>
+      <button class="ai-pc-remove" disabled></button>
     </div>
   `;
 
@@ -144,11 +153,18 @@ function buildCard(provider, model, defaultModel) {
   const detectBtn  = card.querySelector('.ai-pc-detect');
   const datalist   = card.querySelector('datalist');
 
-  saveBtn.textContent   = tr('modal.settings.aiSave');
-  testBtn.textContent   = tr('modal.settings.aiTest');
-  removeBtn.textContent = tr('modal.settings.aiRemove');
-  getKey.textContent    = tr('modal.settings.aiGetKey');
-  card.querySelector('.ai-pc-modellabel').textContent = tr('modal.settings.aiModel');
+  // i18n: bind via data-i18n + a real English fallback (NOT the raw key). These
+  // cards are built imperatively, possibly BEFORE the locale catalog finishes
+  // loading — so a plain tr() would bake the key path in. data-i18n lets
+  // applyDOM() (called on the host below, and again on every locale change)
+  // resolve them once the catalog is ready, while the fallback shows clean
+  // English in the meantime instead of a raw `modal.settings.aiSave` string.
+  const bindI18n = (el, key, fallback) => { el.setAttribute('data-i18n', key); el.textContent = fallback; };
+  bindI18n(saveBtn,   'modal.settings.aiSave',   'Save');
+  bindI18n(testBtn,   'modal.settings.aiTest',   'Test');
+  bindI18n(removeBtn, 'modal.settings.aiRemove', 'Remove key');
+  bindI18n(getKey,    'modal.settings.aiGetKey', 'Get a key');
+  bindI18n(card.querySelector('.ai-pc-modellabel'), 'modal.settings.aiModel', 'Model');
   if (detectBtn) detectBtn.textContent = 'Detect';
   modelInput.value = model || '';
 
@@ -238,6 +254,7 @@ function buildCard(provider, model, defaultModel) {
   });
 
   removeBtn.addEventListener('click', async () => {
+    removeBtn.disabled = true; // guard against a double-click during the op
     busy(card, true);
     try {
       await window.aiAPI.clearKey(provider);
@@ -295,6 +312,10 @@ export async function initAiSettings() {
     if (!PROVIDER_META[p.name]) continue;
     host.appendChild(buildCard(p.name, p.model, p.defaultModel));
   }
+  // Resolve the data-i18n bindings on the freshly-built cards. applyDOM is a
+  // no-op for keys whose catalog isn't loaded yet (the English fallback stays),
+  // and boot()/locale-change run it again — so the labels are always correct.
+  try { window.i18nApplyDOM?.(host); } catch (_) { /* i18n optional */ }
 
   await refreshStatuses();
 

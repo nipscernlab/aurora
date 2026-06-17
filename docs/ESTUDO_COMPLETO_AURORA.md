@@ -893,7 +893,10 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **B7** validar sentinelas após bootstrap no `release.yml`. 🟢
 - [ ] **B8** escolher release-please como fluxo único; aposentar `build.ps1`. 🟢
 - [ ] **B9** limpar refs mortas (smoke.test, yanc-managed-files, bloco `win`, RELEASE.md). 🟢
-- [ ] **B10** cobertura de testes (ipc/compile/ai/updater) + Codecov. 🟡
+- [x] **B10 — FEITO** `@vitest/coverage-v8` + bloco `coverage` no `vitest.config.js` (`all:false`, lcov),
+      script `test:coverage`, passo "Unit tests (with coverage)" + upload Codecov (tokenless) no `ci.yml`,
+      badge de cobertura no README. ~66% statements / 68% lines do que a suíte atual exercita. (Aumentar a
+      cobertura de ipc/compile/ai/updater = escrever mais testes, fica pra depois.) 🟡
 - [ ] **B11** cross-platform (Linux/macOS): allowlist por `process.platform`, libs node no lugar de `taskkill`/`Expand-Archive`. 🔴
 - [ ] **B12** CLIs de IA (~675 MB) como download opcional sob demanda. 🟡
 

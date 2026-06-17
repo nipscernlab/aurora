@@ -45,8 +45,16 @@ jobs:
           Get-ChildItem -Path js,main -Recurse -Filter *.js |
             ForEach-Object { node --check $_.FullName }
 
-      - name: Unit tests
-        run: npm test
+      - name: Unit tests (with coverage)
+        run: npm run test:coverage
+
+      - name: Upload coverage to Codecov
+        # Tokenless upload (public repo). Add a CODECOV_TOKEN secret later if rate
+        # limits require it. Never fails CI — coverage is informational here.
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: false
 
       - name: Fetch Dagr wordmark font (Norse)
         run: node components/Scripts/download-norse-font.js

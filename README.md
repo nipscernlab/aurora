@@ -11,6 +11,7 @@
 <p align="center">
   <a href="https://github.com/nipscernlab/sapho/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/nipscernlab/sapho?style=flat-square"></a>
   <a href="https://github.com/nipscernlab/aurora/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/nipscernlab/aurora/ci.yml?branch=main&style=flat-square"></a>
+  <a href="https://codecov.io/gh/nipscernlab/aurora"><img alt="Coverage" src="https://img.shields.io/codecov/c/github/nipscernlab/aurora/main?style=flat-square"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square"></a>
   <img alt="Platform" src="https://img.shields.io/badge/platform-windows-lightgrey?style=flat-square">
   <img alt="Built with Electron" src="https://img.shields.io/badge/electron-39-47848F?style=flat-square&logo=electron&logoColor=white">

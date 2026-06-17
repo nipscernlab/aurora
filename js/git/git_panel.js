@@ -104,6 +104,32 @@ async function updateBadge() {
   } catch (_) { badge.hidden = true; }
 }
 
+// --- bottom status-bar GitHub indicator ------------------------------------
+// Shows a GitHub icon when signed out and the user's AVATAR when signed in;
+// clicking it opens this panel. Kept in sync from renderAccount (which already
+// has the status) and on connect/disconnect.
+function setGithubStatusBar(s) {
+  const item = $('githubStatusItem');
+  if (!item) return;
+  if (s && s.connected && s.user) {
+    const src = s.user.avatarDataUrl || s.user.avatarUrl;
+    const avatar = src
+      ? `<img class="status-gh-avatar" src="${esc(src)}" alt="" referrerpolicy="no-referrer">`
+      : '<i class="ph ph-github-logo"></i>';
+    item.innerHTML = `${avatar}<span class="status-gh-login">@${esc(s.user.login)}</span>`;
+    item.classList.add('connected');
+    item.dataset.tooltip = `GitHub: @${s.user.login}`;
+  } else {
+    item.innerHTML = '<i class="ph ph-github-logo"></i>';
+    item.classList.remove('connected');
+    item.dataset.tooltip = tt('git.signIn', 'Sign in with GitHub');
+  }
+}
+async function updateGithubStatusBar() {
+  let s; try { s = await api().githubStatus(); } catch (_) { s = { connected: false }; }
+  setGithubStatusBar(s);
+}
+
 // --- status grouping -------------------------------------------------------
 function partition(st) {
   const staged = []; const unstaged = [];
@@ -289,6 +315,7 @@ async function renderAccount() {
   if (!el) return;
   let s;
   try { s = await api().githubStatus(); } catch (_) { s = { connected: false }; }
+  setGithubStatusBar(s); // keep the bottom status-bar indicator in sync
   if (s && s.connected && s.user) {
     const avatarSrc = s.user.avatarDataUrl || s.user.avatarUrl;
     const avatar = avatarSrc
@@ -1274,6 +1301,10 @@ function autoGrowDesc() {
 }
 function init() {
   $('gitButton')?.addEventListener('click', open);
+  // Bottom status-bar GitHub indicator: click opens the panel; sync at boot.
+  $('githubStatusItem')?.addEventListener('click', open);
+  $('githubStatusItem')?.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  setTimeout(updateGithubStatusBar, 1600);
   modal = $('gitModal');
   if (modal) {
     modal.addEventListener('aurora-modal-close', close);

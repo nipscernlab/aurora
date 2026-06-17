@@ -88,6 +88,18 @@
   color: var(--text);
 }
 
+/* GitHub / Source Control indicator (right of the status bar). Clickable; shows
+   the user's avatar once signed in. */
+.status-github { cursor: pointer; gap: 6px; }
+.status-github:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.status-github.connected { color: var(--text); }
+.status-gh-avatar {
+  width: 16px; height: 16px; border-radius: 50%;
+  object-fit: cover; border: 1px solid var(--border);
+  background: var(--bg-elev, #1a1f2b);
+}
+.status-gh-login { font-size: var(--text-xs); }
+
 .status-item i {
   font-size: var(--icon-xs);
   line-height: 1;

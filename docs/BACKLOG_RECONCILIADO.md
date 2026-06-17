@@ -44,7 +44,7 @@
 
 ### Fáceis (dificuldade 3)
 
-- [ ] 16. **O14 WaveDrom** — diagramas de timing só p/ docs/specs. **DEFERIDO** (sem superfície de docs clara; 🟢 baixa prioridade).
+- [ ] 16. **O14 WaveDrom** — diagramas de timing só p/ docs/specs. **MANTIDO DEFERIDO** — não há superfície onde renderizar (não existe preview de markdown/docs na IDE); o **surfer** já cobre waveforms de *simulação* (VCD/FST), e WaveDrom seria para diagramas *desenhados à mão* de spec. Sem um caso de uso/superfície concreta, construir seria especulativo. _Pronto p/ fazer assim que houver uma superfície (ex.: preview de `.json5`/markdown)._
 - [x] 17. **V9** — renames passam pelo card Allow/Deny. _Wave C_
 - [x] 18. **V11** — `set_command_override` sempre confirma (mesmo no allow). _Wave C_
 - [x] 19. **B6/B13** — `copy-components` por junction. _Wave B_
@@ -56,20 +56,20 @@
 - [x] 22. **B1** — SHA256SUMS verificado nos 4 downloaders (surfer pinado). _Wave B_
 - [x] 23. **Naming** — decisão SAPHO=suíte/Aurora-IDE=app; URLs corrigidas. _Wave A_
 - [~] 24. **Dependabot** — workflow de auto-merge criado; triagem dos PRs = manual (remoto). _Wave A_
-- [ ] 25. **Disclosure de terceiros user-facing** — seção no About. _moderado/M — Wave F (em andamento)_
+- [x] 25. **Disclosure de terceiros user-facing** — seção no About. _Wave F (commit 3d4ac32)_
 - [x] 26. **A4** — `global.currentProject*` colapsado no `state`. _Wave D_
 - [x] 27. **Higiene de memória** — `_capMessages()` (bound de 400) + base64 já saía. _Wave D_
 - [x] 28. **O3** — build do Verilator streamado. _Wave E_
 - [x] 29. **Smoke de orçamento de startup no CI** (assert de TTI). _Wave B_
 - [x] 30. **V7** — token de sessão no MCP local (path/Bearer). _Wave C_
 - [~] 31. **B2** — `docs/CODE_SIGNING.md` + nota no release.yml; assinatura real depende de cert externo. _Wave B_
-- [ ] 32. **O10 ripgrep** — find-in-files no projeto. _moderado/M — **a fazer (feature nova, precisa teste ao vivo)**_
-- [ ] 33. **O12 simple-git** — painel de source-control. _moderado/M — **a fazer (feature nova, precisa teste ao vivo)**_
+- [x] 32. **O10 find-in-files** — busca em todo o projeto (Ctrl+Shift+F + botão na toolbar), backend recursivo sem dependência nova, resultados agrupados por arquivo, i18n EN/PT. _feito (precisa teste ao vivo)_
+- [x] 33. **O12 simple-git** — painel source-control completo estilo GitHub Desktop: status/diff/stage/commit/amend/branch/clone/publish + i18n + badge auto-update + pull --autostash. _feito (precisa teste ao vivo)_
 - [x] 34. **V4** — Edit/Write nativos do Claude bloqueados. _Wave C_
-- [ ] 35. **Empty-states** — unificar (4 skins → 1). **DEFERIDO** (redesenho subjetivo; precisa dos prints do usuário — o próprio doc diz isso).
-- [ ] 36. **Tokens B** — consolidar `ai_assistant.css`. **DEFERIDO** (🟢 baixa prioridade; ~109 trocas mecânicas com risco de regressão visual sem teste ao vivo).
-- [~] 37. **P6** — `transition:width`→`transform`. **DEFERIDO** (vira push→overlay, muda comportamento; menor ROI/maior risco — o doc já marca assim).
-- [~] 38. **Condensar prompt injection** — o cap de tool-results + prompt-cache já existem (chat.js); o resto ("deferido conscientemente" no §13.K) fica.
+- [x] 35. **Empty-states** — 4 skins unificados numa linguagem visual única estilo VS Code (CSS-only, nenhuma classe/markup mudou). _feito_
+- [ ] 36. **Tokens B** (`ai_assistant.css` base→semantic). **RECOMENDADO DESCARTAR.** `semantic_tokens.css` é *puro alias* (zero mudança de valor em runtime) e o próprio cabeçalho dele diz que a camada semântica é "o vocabulário que CÓDIGO NOVO referencia" — código existente mantém os tokens base. Como o app tem **tema único, sem temas alternativos jamais** (decisão do usuário), o motivo de existir tokens semânticos (portabilidade de tema) não se aplica. Resultado: ~109 trocas que não mudam nada em runtime, contra a própria regra do design. Sem valor funcional → descartar (junto do #39 global).
+- [ ] 37. **P6** — `transition:width`→`transform`. **PRECISA DE DECISÃO DE UX.** Não é ganho de perf "de graça": painéis hoje *empurram* o conteúdo (animar `width` força layout/frame); `transform` só é barato em **overlay** (painel flutua por cima). Ou seja, fazer isto = mudar push→overlay, um comportamento que o usuário não pediu. _Faço se você quiser painéis em overlay; senão fica como está._
+- [x] 38. **Condensar prompt injection** — cap de tool-results (`capForModel`, chat.js:76/389) + prompt-cache ephemeral (chat.js:198) + bound de mensagens (#27) já existem. O restante é "deferido conscientemente" (§13.K). _substancialmente feito._
 
 ---
 

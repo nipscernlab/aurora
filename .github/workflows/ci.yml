@@ -45,6 +45,9 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Fetch Dagr wordmark font (Norse)
+        run: node components/Scripts/download-norse-font.js
+
       - name: E2E tests (Electron smoke)
         run: npm run test:e2e
 

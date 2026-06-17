@@ -57,7 +57,7 @@ and shipped in the installer; they are not part of the source tree.
 |---|---|
 | Inter | SIL Open Font License 1.1 |
 | JetBrains Mono | SIL Open Font License 1.1 |
-| Metamorphous (the "Dagr" Source Control wordmark) | SIL Open Font License 1.1 |
+| Norse — the "Dagr" Source Control wordmark, by Joël Carrouché | Free for commercial use + app embedding; not redistributed (fetched at bootstrap by download-norse-font.js) |
 
 ---
 

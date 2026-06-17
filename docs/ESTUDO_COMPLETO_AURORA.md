@@ -1257,11 +1257,19 @@ File > Open. Arquivo: `js/api/aurora_api.js`. 253 unit + ESLint + `tsc --noEmit`
 O painel de controle de versão ganhou identidade de **"software à parte"** (como o PRISM): **Dagr**, o deus
 nórdico que conduz o dia pelo céu — tempo e história tornados visíveis. A marca é a runa dele, **Dagaz ᛞ**
 ("dia/aurora", um nodo ao tema da AURORA). No header do modal `#gitModal`: o ícone clássico `ph-git-branch`
-**fica** (NÃO foi substituído, como pedido), seguido da **runa ᛞ** (em accent, com glow suave) + **Dagr** na
-fonte **Metamorphous** (OFL-1.1, display rúnico, vendorizada local em `assets/fonts/metamorphous-latin.woff2`)
-+ "Source Control" como descritor pequeno (i18n `modal.git.title` preservado). Os ícones/tooltips da activity
-bar e da status bar seguem clássicos. Arquivos: `index.html` (título do `#gitModal`), `css/panels/git_panel.css`
-(`@font-face` + `.dagr-*`; o `@font-face` mora aqui, não no `fonts.css` gerado), `assets/fonts/metamorphous-latin.woff2`,
-`THIRD_PARTY_NOTICES.md` + About (licença da fonte). 253 unit + `vite build` (fonte vendorizada/hasheada no
-`dist`) verdes. **Nota:** usei Metamorphous (OFL, OSS-safe) porque a licença da fonte "Norse" clássica não é
-clara para bundle OSS; trocar é uma linha de `@font-face` se você fornecer um arquivo licenciado.
+**fica** (NÃO foi substituído, como pedido), seguido da **runa ᛞ** (em accent, com glow) + **Dagr** na fonte
+**Norse** de Joël Carrouché (a fonte Viking clássica, ~1.6em), com "Source Control" como descritor pequeno
+(i18n `modal.git.title` preservado). Os ícones/tooltips da activity bar e da status bar seguem clássicos.
+
+**Licença da fonte (Norse):** é grátis para uso comercial e PODE ser embutida em aplicações, mas a licença
+**proíbe redistribuição** ("you may not make the font available for download"). Então NÃO commitamos a fonte
+no repo público — `components/Scripts/download-norse-font.js` a baixa da fonte oficial (dafont) no bootstrap
+para `assets/fonts/Norse.otf` (gitignored), exatamente como a toolchain. O app empacotado embute a fonte
+(permitido); a CI baixa antes do build; o `@font-face` tem fallback pra fonte da UI se a fonte faltar. (Antes
+tentei Metamorphous OFL como stand-in — substituído pela Norse correta a pedido do usuário.)
+
+Arquivos: `index.html` (título do `#gitModal` + About), `css/panels/git_panel.css` (`@font-face` Norse +
+`.dagr-*` redesenhado), `components/Scripts/download-norse-font.js` (novo), `package.json` (bootstrap),
+`.github/workflows/ci.yml` (passo de download), `.gitignore`, `THIRD_PARTY_NOTICES.md` + About (licença).
+253 unit + ESLint + `tsc --noEmit` + `vite build` (Norse vendorizada/hasheada no `dist`) verdes.
+**Verificação visual do usuário pendente.**

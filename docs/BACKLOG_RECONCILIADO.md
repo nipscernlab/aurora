@@ -5,6 +5,37 @@
 > desatualizada: vários `[ ]` já estavam feitos em commits recentes). 58 itens restantes,
 > ordenados do mais fácil ao mais complexo. Convenção: ao concluir → commit + pull (sem push) + `[x]`.
 
+---
+
+## Atualização 17/06/2026 — pós-sessão + `main = feature/aurora-revamp`
+
+Esta sessão (na branch, **agora `main`**): **G1** (APIs de git p/ a IA — 14 tools), **B4** (guard de `.js`
+gerado no CI), **B10** (cobertura vitest-v8 + Codecov + badge) — todos **FEITOS**; + correções da IDE (rename
+job, imagens chegando à IA, glow na 1ª msg, LaTeX `\text`, error boundary, file tree clicável pós-rename,
+decorações de status git na file tree, Dagr nome+fonte Norse+marca d'água). Detalhes em
+`ESTUDO_COMPLETO_AURORA.md` §14.9–14.17.
+
+**Efeito do `main = feature`** (descartou os 8 commits paralelos da main, **salvos na tag
+`main-pre-revamp-20260617`**):
+- **A2 (decompor god-files) REABRE** — os splits de `tools.js`/`prism.js`/`project.js` em módulos saíram do
+  histórico. God-files atuais: `ai_assistant_manager.js` 4515, `compilation_module.js` 4197, `aurora_api.js`
+  2889, `tab_manager.js` 2044, `git_panel.js` 1634, `tools.js` 1437.
+- **3 testes saíram** (monaco-pin, gtkw-picker, file-tree) — recuperáveis da tag de backup (item novo trivial).
+
+**Aberto, do fácil ao difícil (o que de fato sobra):**
+1. Re-adicionar os 3 testes da tag de backup. _trivial_
+2. Conectar o repo no Codecov (passo externo seu; badge/CI já prontos). _trivial/externo_
+3. `<aurora-statusbar>` ao vivo · `<aurora-tabs>` passo 2 · B12 (CLIs sob demanda). _médio — precisa teste ao vivo_
+4. Decisões: P6 (painéis em overlay?), tokens semânticos (descartar?), merge do PR de release (seu clique). _decisão_
+5. Features grandes: O2 Verible LSP · O11 slang-server · O1 Surfer embarcado · O9 DigitalJS · O5 YoWASP ·
+   O7 tree-sitter · O14 WaveDrom (deferido: sem superfície). _difícil_
+6. Arquitetura: A2 god-files · A3 globais · `<aurora-tree>`/`<aurora-terminal>` passo 2 · novos componentes
+   Lit (editor/titlebar/activity-bar/panel dockável) · B11 cross-platform. _radical_
+7. Bloqueado externo: B2 signing (cert) · mídia real do README · toggles do GitHub (Discussions/secret
+   scanning/topics).
+
+---
+
 ## Já concluído mas não marcado no §13 (provado por commit/código)
 
 - **V10** — `execFile` no lugar de `exec(string)` em `main/utils.js` (`eb0ade4`).
@@ -76,7 +107,7 @@
 ## Próximos níveis (fora deste lote)
 
 ### Difíceis (6–7)
-39. Tokens codemod base→semantic (~392 usos) · 40. B10 cobertura+Codecov · 41. B12 CLIs sob demanda ·
+39. Tokens codemod base→semantic (~392 usos) · 40. ~~B10 cobertura+Codecov~~ **FEITO (17/06)** · 41. B12 CLIs sob demanda ·
 42. O2 Verible LSP · 43. O5 YoWASP · 44. O9 DigitalJS · 45. O11 slang-server · 46. `<aurora-tabs>` passo 2.
 
 ### Radicais (8–10)

@@ -27,7 +27,7 @@ const log = require('electron-log');
 // "Enable Device Flow" ticked. Empty ⇒ the "Sign in with GitHub" button is
 // disabled and only the manual-token path is offered. Can also be supplied via
 // the AURORA_GITHUB_CLIENT_ID env var for local testing before it's hard-coded.
-const OAUTH_CLIENT_ID = process.env.AURORA_GITHUB_CLIENT_ID || '';
+const OAUTH_CLIENT_ID = process.env.AURORA_GITHUB_CLIENT_ID || 'Ov23linD078LyGE5aDvg';
 // Scopes mirror what a classic PAT needs for AURORA: repo (clone/push/create) +
 // read:org (so organization repos show in the clone list).
 const OAUTH_SCOPE = 'repo read:org';

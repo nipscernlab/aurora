@@ -245,8 +245,45 @@ async function renderAccount() {
       <div class="git-connect">
         <input type="password" id="git-pat" class="git-pat-input" placeholder="${esc(tt('git.tokenPlaceholder', 'GitHub classic token (repo scope)'))}" autocomplete="off" spellcheck="false" />
         <button class="git-mini git-mini-primary" data-action="connect"><i class="ph ph-github-logo"></i> ${esc(tt('git.connect', 'Connect'))}</button>
-      </div>`;
+        <button class="git-icon-btn git-help-btn" data-action="token-help" title="${esc(tt('git.howToToken', 'How to get a token'))}" aria-label="${esc(tt('git.howToToken', 'How to get a token'))}"><i class="ph ph-question"></i></button>
+      </div>
+      <div class="git-token-help" id="git-token-help" hidden></div>`;
   }
+}
+
+// In-panel guide: how to mint the token + exactly which permission each AURORA
+// feature needs (classic scope AND fine-grained equivalent). Authored strings,
+// so the few <code>/<b> snippets are injected as trusted HTML.
+function renderTokenHelp() {
+  const el = $('git-token-help');
+  if (!el) return;
+  const row = (feat, classic, fine) => `<tr><td>${feat}</td><td><code>${classic}</code></td><td>${fine}</td></tr>`;
+  el.innerHTML = `
+    <div class="git-help-title"><i class="ph ph-key"></i> ${esc(tt('git.howToToken', 'How to get a GitHub token'))}</div>
+    <ol class="git-help-steps">
+      <li>${tt('git.tokenStepOpen', 'Open <b>Settings → Developer settings → Personal access tokens → Tokens (classic)</b> and click <b>Generate new token (classic)</b>.')}</li>
+      <li>${tt('git.tokenStepName', 'Give it a name (e.g. <b>AURORA</b>) and an expiration date.')}</li>
+      <li>${tt('git.tokenStepScope', 'Tick the <code>repo</code> scope — it covers clone, pull, push, commit and creating repositories.')}</li>
+      <li>${tt('git.tokenStepOrg', 'To also see <b>organization</b> repos, tick <code>read:org</code>.')}</li>
+      <li>${tt('git.tokenStepCopy', 'Generate it, copy the token, and paste it in the field above.')}</li>
+    </ol>
+    <div class="git-help-title"><i class="ph ph-shield-check"></i> ${esc(tt('git.tokenTableTitle', 'Which permission each feature needs'))}</div>
+    <table class="git-help-table">
+      <thead><tr>
+        <th>${esc(tt('git.thFeature', 'Feature'))}</th>
+        <th>${esc(tt('git.thClassic', 'Classic scope'))}</th>
+        <th>${esc(tt('git.thFine', 'Fine-grained permission'))}</th>
+      </tr></thead>
+      <tbody>
+        ${row(esc(tt('git.featClonePull', 'Clone / Pull')), 'repo', 'Contents: Read')}
+        ${row(esc(tt('git.featCommitPush', 'Commit / Push')), 'repo', 'Contents: Read &amp; write')}
+        ${row(esc(tt('git.featCreateRepo', 'Create repo (Publish)')), 'repo', 'Administration: Read &amp; write')}
+        ${row(esc(tt('git.featListRepos', 'List your repos')), 'repo', 'Metadata: Read (auto)')}
+        ${row(esc(tt('git.featOrgRepos', 'Organization repos')), 'repo, read:org', tt('git.fineOrgGrant', 'grant org access + Metadata: Read'))}
+      </tbody>
+    </table>
+    <div class="git-help-note"><i class="ph ph-info"></i> ${tt('git.tokenFineNote', 'Fine-grained tokens often <b>cannot create repositories</b> — if Publish fails, use a <b>classic</b> token with <code>repo</code>.')}</div>
+    <button class="git-mini git-mini-primary git-help-open" data-action="open-token-page"><i class="ph ph-arrow-square-out"></i> ${esc(tt('git.openTokenPage', 'Open GitHub token page'))}</button>`;
 }
 
 // --- tabs ------------------------------------------------------------------
@@ -459,6 +496,14 @@ async function onClick(e) {
       }
       case 'connect':    return connect();
       case 'disconnect': return disconnectAccount();
+      case 'token-help': {
+        const help = $('git-token-help');
+        if (!help) return undefined;
+        if (help.hidden) { renderTokenHelp(); help.hidden = false; }
+        else { help.hidden = true; }
+        return undefined;
+      }
+      case 'open-token-page': { try { window.electronAPI?.openExternal?.('https://github.com/settings/tokens/new'); } catch (_) { /* ignore */ } return undefined; }
       case 'commit-file-toggle': return toggleCommitFile(actEl);
       case 'clone-toggle': return toggleClone();
       case 'clone-list-select': return selectCloneRepo(actEl);

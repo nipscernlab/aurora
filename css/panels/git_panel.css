@@ -464,6 +464,41 @@
 .git-diff-loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); }
 .git-mini:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* ---- token help (how to get a token + per-feature permission table) ---- */
+.git-token-help {
+  margin-top: var(--space-2); padding: var(--space-3);
+  background: var(--bg-sunken, var(--bg)); border: 1px solid var(--border);
+  border-radius: var(--radius-md); font-size: var(--text-xs); color: var(--text-secondary, var(--text-muted));
+  animation: gitPanelReveal var(--motion-flow, 200ms) var(--ease-out, ease) both;
+}
+.git-help-title {
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--text);
+  margin: var(--space-2) 0 var(--space-1);
+}
+.git-help-title:first-child { margin-top: 0; }
+.git-help-steps { margin: 0 0 var(--space-1); padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+.git-help-steps li { line-height: 1.5; }
+.git-token-help code {
+  font-family: var(--font-mono); font-size: 0.92em;
+  background: var(--overlay-hover); color: var(--accent-hover, var(--accent));
+  padding: 0 4px; border-radius: var(--radius-sm, 4px);
+}
+.git-help-table { width: 100%; border-collapse: collapse; margin: var(--space-1) 0; }
+.git-help-table th, .git-help-table td {
+  text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.06));
+  vertical-align: top;
+}
+.git-help-table th { color: var(--text-muted); font-weight: var(--font-semibold); font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; }
+.git-help-table td { color: var(--text-secondary, var(--text-muted)); }
+.git-help-note {
+  display: flex; align-items: flex-start; gap: 6px; margin-top: var(--space-2);
+  padding: var(--space-2); border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--status-warning, #f0a050) 10%, transparent);
+  color: var(--text-secondary, var(--text-muted)); line-height: 1.5;
+}
+.git-help-open { margin-top: var(--space-2); }
+
 /* ---- clone progress bar (git --progress, streamed from main) ---- */
 .git-clone-progress {
   display: flex; align-items: center; gap: var(--space-2);

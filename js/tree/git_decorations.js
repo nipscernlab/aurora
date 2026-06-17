@@ -45,6 +45,36 @@ function letterOf(f) {
   return w || (i === '?' ? '?' : i) || '?';
 }
 
+/**
+ * Build the decoration maps from a git status file list — PURE (no DOM, no
+ * globals), so it's unit-testable. status paths are relative to the repo root
+ * (== the open project root in our flow) and forward-slashed; we resolve each
+ * to a normalised absolute path that matches the rows' data-path, and roll
+ * every change up to its ancestor folders (the folder dot).
+ * @returns {{fileStatus: Map<string,string>, changedDirs: Set<string>}}
+ */
+function computeDecorations(files, rootPath) {
+  const rootN = norm(rootPath);
+  const fileStatus = new Map();
+  const changedDirs = new Set();
+  if (!rootN) return { fileStatus, changedDirs };
+  for (const f of (files || [])) {
+    const rel = String(f.path || '').replace(/^\/+/, '').toLowerCase();
+    if (!rel) continue;
+    const absN = `${rootN}/${rel}`;
+    fileStatus.set(absN, letterOf(f));
+    let dir = absN;
+    while (dir.length > rootN.length) {
+      const slash = dir.lastIndexOf('/');
+      if (slash < 0) break;
+      dir = dir.slice(0, slash);
+      if (dir.length < rootN.length) break;
+      changedDirs.add(dir);
+    }
+  }
+  return { fileStatus, changedDirs };
+}
+
 function t(key, fallback) {
   try { const v = window.t?.(key); if (v && v !== key) return v; } catch (_) { /* ignore */ }
   return fallback;
@@ -97,28 +127,7 @@ class GitDecorations {
     try { st = await window.gitAPI.status(); } catch (_) { st = null; }
     if (!st || st.ok === false || !st.isRepo || !Array.isArray(st.files)) { this._clear(); return; }
 
-    const rootN = norm(root);
-    const fileStatus = new Map();
-    const changedDirs = new Set();
-    for (const f of st.files) {
-      // status paths are relative to the repo root (== the open project root in
-      // our flow) and forward-slashed. Resolve to a normalised absolute path so
-      // it matches the rows' data-path / data-file-path.
-      const rel = String(f.path || '').replace(/^\/+/, '').toLowerCase();
-      if (!rel) continue;
-      const absN = `${rootN}/${rel}`;
-      fileStatus.set(absN, letterOf(f));
-      // Roll the change up to every ancestor folder (VS Code shows a dot on
-      // folders that contain changes).
-      let dir = absN;
-      while (dir.length > rootN.length) {
-        const slash = dir.lastIndexOf('/');
-        if (slash < 0) break;
-        dir = dir.slice(0, slash);
-        if (dir.length < rootN.length) break;
-        changedDirs.add(dir);
-      }
-    }
+    const { fileStatus, changedDirs } = computeDecorations(st.files, root);
     this._fileStatus = fileStatus;
     this._changedDirs = changedDirs;
     this.apply();
@@ -203,4 +212,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { gitDecorations, GitDecorations };
+export { gitDecorations, GitDecorations, computeDecorations, letterOf };

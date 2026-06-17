@@ -1335,3 +1335,17 @@ main DELETOU (viraram módulo) e a feature MODIFICOU. Não é trivial: exige **p
 pra nova estrutura modular da main (ou descartar um dos lados). **Pendente de decisão** — alternativas
 discutidas com o usuário (preservar ambos via merge-main-into-feature + port; vs `main = feature` descartando
 as refatorações; vs PR).
+
+### 14.18 Grupo B — testes (recuperados + novos) + extração do namespace git — 17/06/2026 — FEITO
+**B1 — testes recuperados:** os 4 arquivos de teste que saíram no `main = feature` (monacoPin,
+gtkwPickerManager, fileTreeViewController, projectTreeRender) foram recuperados da tag
+`main-pre-revamp-20260617`, + `happy-dom` (env DOM dos testes de file tree) reinstalado. Os 4 passam contra o
+código atual **sem adaptação** (31 testes) — os invariantes que eles fixam continuam valendo na `main` atual.
+
+**B2 — testes novos + refactor de testabilidade:** `git_decorations.js` ganhou uma função PURA exportada,
+`computeDecorations(files, root)` (mapa path→letra + rollup de pastas), testada em `gitDecorations.test.js`
+(8 testes, env node). O namespace `git` do AuroraAPI foi **extraído** de `aurora_api.js` (que importa monaco e
+por isso é intestável isoladamente) pra `js/api/git_ns.js` standalone — testado em `gitNs.test.js` (9 testes:
+shaping do status, validação de commit/branch, not-a-repo, bridge ausente, normalização de files). Bônus: um
+passo mínimo do A2 (aurora_api.js encolheu ~64 linhas). Suíte: **301 testes** (era 253). ESLint + `tsc` +
+`vite build` + coverage verdes.

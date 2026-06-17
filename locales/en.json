@@ -1,4 +1,10 @@
 {
+    "rename": {
+        "started":         "Renaming project to \"{{name}}\"…",
+        "success":         "Project renamed to \"{{name}}\".",
+        "successNoReload": "Project renamed to \"{{name}}\", but reopen it to refresh the file tree.",
+        "failed":          "Couldn't rename the project: {{reason}}"
+    },
     "toolbar": {
         "sidebar":         { "tooltip": "Toggle sidebar" },
         "newProject":      { "label": "New Project" },

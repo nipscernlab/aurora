@@ -2470,7 +2470,9 @@ class AIAssistantManager {
     // returns at once. A blocking card here would just make the MCP tool-call hang
     // until it times out (Codex ignores progress pings) — which is exactly the
     // "rename always times out" bug. A toast reports the result instead.
-    if (def && (def.name === 'rename_project' || def.name === 'rename_processor')) {
+    // get_rename_status is a harmless read the model polls after rename_project;
+    // pre-authorize it too so polling never spawns a confirm card.
+    if (def && (def.name === 'rename_project' || def.name === 'rename_processor' || def.name === 'get_rename_status')) {
       return Promise.resolve(true);
     }
     if (mode === 'allow') return Promise.resolve(true);

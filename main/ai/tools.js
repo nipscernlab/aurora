@@ -499,11 +499,14 @@ const TOOL_MANIFEST = [
       'Rename the CURRENTLY OPEN SAPHO project everywhere: the project root folder ' +
       '(<location>/<old> → <location>/<new>), the <old>.spf project file, the .spf ' +
       'metadata (projectName/projectPath/basePath) and EVERY absolute path stored in ' +
-      'the .spf (synthesizable + testbench file lists, top-level/testbench pointers, ' +
-      'persisted command-override cwd/env). Processor folders move with the root, so ' +
-      'their #PRNAME directives are untouched (use rename_processor for a processor). ' +
-      'The project is reopened at its new path automatically. The name may contain only ' +
-      'letters, numbers, underscore or hyphen.',
+      'the .spf. Processor folders move with the root, so their #PRNAME directives are ' +
+      'untouched (use rename_processor for a processor). ' +
+      'IMPORTANT: this starts a BACKGROUND JOB and returns IMMEDIATELY with a jobId — it ' +
+      'does NOT wait for the rename to finish (waiting on it used to time out). After ' +
+      'calling this you MUST call get_rename_status with the returned jobId, polling a few ' +
+      'times if needed, until its status is "done" or "failed", to learn the real outcome ' +
+      'and (on failure) the step and reason. The project reopens itself when the job ' +
+      'completes. The name may contain only letters, numbers, underscore or hyphen.',
     access: 'write',
     api: ['project', 'renameProject'],
     argStyle: 'object',
@@ -513,6 +516,26 @@ const TOOL_MANIFEST = [
         newName: { type: 'string', description: 'New project name (letters, digits, _ or -)' },
       },
       required: ['newName'],
+    },
+  },
+  {
+    name: 'get_rename_status',
+    description:
+      'Get the progress and final result of a project rename started by rename_project. ' +
+      'Pass the jobId that rename_project returned. Returns { status: "running" | "done" | ' +
+      '"failed", done, steps (the phases completed so far), result }. Poll this until status ' +
+      'is "done" (success — result.newName is the new name; a result.warning means only the ' +
+      'file-tree auto-reload failed, not the rename itself) or "failed" (result.failedStep and ' +
+      'result.reason say which step broke and why).',
+    access: 'read',
+    api: ['project', 'getRenameStatus'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        jobId: { type: 'string', description: 'The jobId returned by rename_project' },
+      },
+      required: ['jobId'],
     },
   },
   {

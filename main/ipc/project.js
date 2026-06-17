@@ -845,6 +845,14 @@ void main()
    * project rename (use rename_processor for those).
    */
   ipcMain.handle('rename-project', async (_event, newName) => {
+    // Track each phase so the renderer (and the AI, via get_rename_status)
+    // gets step-by-step completion feedback and, on failure, the exact step
+    // it died on. We return a STRUCTURED verdict instead of throwing so the
+    // caller never sees an opaque IPC rejection (the old "timed out" symptom).
+    const steps = [];
+    const t0 = Date.now();
+    let failedStep = 'validate';
+    const mark = (step) => { steps.push({ step, ok: true, ms: Date.now() - t0, where: 'main' }); };
     try {
       if (!state.currentOpenProjectPath) throw new Error('No open project');
 
@@ -871,11 +879,15 @@ void main()
       if (needFolderMove && !folderCaseOnly && (await fse.pathExists(newRoot))) {
         throw new Error(`A folder named "${newNm}" already exists at ${parent}`);
       }
+      mark('validate');
 
       // 1. Release watchers so the folder isn't locked during the move.
+      failedStep = 'release-watchers';
       await releaseWatchersUnder(oldRoot);
+      mark('release-watchers');
 
       // 2. Rename the project root folder (temp hop for a case-only change).
+      failedStep = 'move-folder';
       let movedRoot = oldRoot;
       if (needFolderMove) {
         if (folderCaseOnly) {
@@ -887,8 +899,10 @@ void main()
         }
         movedRoot = newRoot;
       }
+      mark('move-folder');
 
       // 3. Rename the .spf inside the (possibly moved) root.
+      failedStep = 'rename-spf';
       const currentSpfInRoot = path.join(movedRoot, oldSpfBase);
       const newSpfPath = path.join(movedRoot, `${newNm}.spf`);
       if (currentSpfInRoot.toLowerCase() !== newSpfPath.toLowerCase()) {
@@ -900,8 +914,10 @@ void main()
         await moveWithRetry(currentSpfInRoot, tmp);
         await moveWithRetry(tmp, newSpfPath);
       }
+      mark('rename-spf');
 
       // 4. Update metadata + deep-remap every absolute path old → new.
+      failedStep = 'rewrite-spf';
       spfData.metadata = spfData.metadata || {};
       spfData.metadata.projectName = newNm;
       spfData.metadata.projectPath = movedRoot;
@@ -918,8 +934,10 @@ void main()
       deepRemapPaths(spfData, oldRoot, movedRoot);
 
       await fse.writeFile(newSpfPath, JSON.stringify(spfData, null, 2));
+      mark('rewrite-spf');
 
       // 5. Re-sync main-process state + recents/jumplist to the new path.
+      failedStep = 'resync';
       state.currentOpenProjectPath = newSpfPath;
       try {
         if (process.platform === 'win32') {
@@ -933,6 +951,7 @@ void main()
       } catch (e) {
         log.warn('jumplist refresh (rename-project) failed:', e);
       }
+      mark('resync');
 
       return {
         success: true,
@@ -942,10 +961,19 @@ void main()
         newRoot: movedRoot,
         oldSpfPath,
         newSpfPath,
+        steps,
       };
     } catch (error) {
       log.error('Error renaming project:', error);
-      throw error;
+      // Structured failure (never throw): the renderer always gets a clear
+      // verdict + the step it died on, instead of an opaque IPC rejection
+      // that the AI could only read as a timeout.
+      return {
+        success: false,
+        failedStep,
+        error: (error && error.message) ? error.message : String(error),
+        steps,
+      };
     }
   });
 

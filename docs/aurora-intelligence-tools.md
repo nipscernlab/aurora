@@ -681,14 +681,43 @@ What it changes:
 
 Open chokidar watchers under the old root are released first so the folder rename can't fail with a lock error on Windows, and the project is reopened at its new path automatically (tree, watchers, name label and the recents/jumplist all re-sync).
 
+**Asynchronous (job-based).** Renaming moves the whole project folder and reopens the project (a slow tree rescan), so this tool does NOT block on it — blocking used to time out. It starts a background job and returns a `jobId` immediately; you must poll [`get_rename_status`](#get_rename_status) with that id until the job is `done` or `failed`.
+
 ```jsonc
 // input:
 { "newName": "fft_radix2" }
-// output:
-{ "ok": true, "oldName": "fft", "newName": "fft_radix2", "spfPath": "C:/Projects/fft_radix2/fft_radix2.spf" }
+// output (returns IMMEDIATELY — this is NOT the final result):
+{ "ok": true, "data": { "jobId": "rename-3", "status": "running" } }
 ```
 
 > Processor folders are subdirectories of the root, so they move with it — a project rename never touches `#PRNAME` or per-processor names. Use `rename_processor` for those.
+
+---
+
+### `get_rename_status`
+Reports the progress and final verdict of a rename started by [`rename_project`](#rename_project). Safe to call repeatedly — it is a read (no confirmation card), so poll it until the job is terminal.
+
+**Arguments:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `jobId` | string | Yes | The `jobId` returned by `rename_project` |
+
+```jsonc
+// while running:
+{ "ok": true, "data": { "status": "running", "done": false,
+  "steps": [ { "step": "prepare", "ok": true } ], "message": "Rename in progress… Poll again." } }
+// on success:
+{ "ok": true, "data": { "status": "done", "done": true,
+  "result": { "ok": true, "newName": "fft_radix2", "warning": null },
+  "message": "Rename succeeded: project renamed to \"fft_radix2\"." } }
+// on failure:
+{ "ok": true, "data": { "status": "failed", "done": true,
+  "result": { "ok": false, "failedStep": "move-folder", "reason": "EPERM: operation not permitted" },
+  "message": "Rename FAILED at step \"move-folder\": EPERM: operation not permitted" } }
+```
+
+> A `result.warning` on a `done` job means the rename itself succeeded but the editor could not auto-reload the file tree — tell the user to reopen the project. `failedStep` is one of `validate`, `release-watchers`, `move-folder`, `rename-spf`, `rewrite-spf`, `resync`, `prepare`, `reopen`.
 
 ---
 

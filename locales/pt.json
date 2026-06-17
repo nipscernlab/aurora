@@ -1,4 +1,10 @@
 {
+    "rename": {
+        "started":         "Renomeando projeto para \"{{name}}\"…",
+        "success":         "Projeto renomeado para \"{{name}}\".",
+        "successNoReload": "Projeto renomeado para \"{{name}}\", mas reabra-o para atualizar a árvore de arquivos.",
+        "failed":          "Não foi possível renomear o projeto: {{reason}}"
+    },
     "toolbar": {
         "sidebar":         { "tooltip": "Alternar barra lateral" },
         "newProject":      { "label": "Novo Projeto" },

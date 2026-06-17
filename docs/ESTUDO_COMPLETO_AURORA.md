@@ -1160,3 +1160,26 @@ atualiza a tree. Não entra no `.spf`.
   #37 P6 width->transform (precisa decisão de UX overlay), #38 condensação de prompt (substancialmente feito).
 - **Layout do painel git**: distribuição melhorada (Clone/Projetos mutuamente exclusivos, branch menu portal,
   scroll). Passo maior possível (overlays no lugar de seções inline) fica como opção se o usuário pedir.
+
+### 14.9 Rename de projeto robusto (job + verdito final) — 17/06/2026 — FEITO
+A renomeação de projeto pela IA era instável: ora estourava o tempo e não renomeava, ora estourava mas
+renomeava (só aparecia depois de um refresh manual). Causa: a tool fazia tudo num único turno (salvar e
+fechar as abas + mover a pasta do projeto no disco + reabrir o projeto, que rescaneia a árvore inteira).
+Quando isso passava do timeout da tool, a IA via "timeout" mesmo quando o rename tinha dado certo; e a
+reabertura, feita em segundo plano, falhava em silêncio, deixando a árvore desatualizada.
+
+Agora a renomeação roda como um **job rastreado**:
+- `rename_project` valida o nome e retorna **na hora** um `jobId` (não bloqueia → não estoura o tempo).
+- O job roda em segundo plano: prepara (salva/fecha abas e panes) → rename no disco (no main) → reabre o
+  projeto (agora *aguardado dentro do job*, então sabemos se realmente reabriu). Cada etapa é registrada.
+- Nova tool **`get_rename_status(jobId)`** (read, pré-autorizada para não pedir card a cada poll): a IA
+  consulta até `status` virar `done` ou `failed`, recebendo as etapas concluídas e o **verdito final**
+  (sucesso, ou o passo exato + o motivo da falha).
+- O handler do main (`rename-project`) passou a retornar um **verdito estruturado** (`{success, failedStep,
+  error, steps}`) em vez de lançar exceção — a IA nunca mais recebe um erro opaco.
+- O usuário vê um toast de início e um toast final (sucesso/aviso/erro). Uma reabertura que falhe vira um
+  **aviso** ("renomeado, reabra para atualizar a árvore"), não um rename perdido.
+- i18n PT/EN no namespace `rename.*`. Arquivos: `main/ipc/project.js`, `js/api/aurora_api.js` (job runner +
+  `getRenameStatus`), `main/ai/tools.js` (descrição + `get_rename_status`), `js/ui/ai_assistant_manager.js`
+  (pré-autoriza o status), `locales/{en,pt}.json`, `docs/aurora-intelligence-tools.md`.
+- Verde: 253 unit + ESLint + `tsc --noEmit` + `vite build`. **Verificação ao vivo do usuário pendente.**

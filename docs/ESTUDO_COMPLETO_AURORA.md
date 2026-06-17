@@ -1052,6 +1052,14 @@ discreta, animações GPU-only (transform/opacity) com `prefers-reduced-motion`.
 - Commit "rico": título + descrição (auto-grow), **amend** (toggle, com tooltip), desfazer último (soft
   reset, com confirmação). **Commit só habilita com título preenchido** (+ ter mudanças/amend).
 - Discard por arquivo (confirmação). Flags de status coloridas (M/A/D/R/U/?).
+- **Stage otimista (sem reload):** dar check no arquivo vira o checkbox na hora e roda o `git` em background
+  — sem `refresh()` do painel inteiro (preserva diff aberto, scroll e seleção); reconcilia só em erro.
+- **Seleção por intervalo (shift-click):** clicar num arquivo e **shift+clicar** em outro seleciona todos
+  entre os dois; dar check num deles faz stage/unstage **da seleção inteira**.
+- **Changes ao vivo:** com o painel aberto, mudanças em disco (incl. **editar o `.gitignore`** → arquivos
+  ignorados somem das Changes) re-renderizam **só a lista** (`refreshChangesOnly`), não o painel todo.
+- **Polish:** checkbox maior (24px, micro-press) + **barra accent esquerda arredondada** (`::before` inset)
+  nos arquivos em stage.
 
 #### 14.1.2 Histórico (History) + diff que NÃO trava
 - Modelo GitHub Desktop: o commit lista os arquivos via **numstat** (rápido) e o diff de **cada arquivo

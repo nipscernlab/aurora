@@ -63,6 +63,7 @@ function close() {
   // Leave browse mode so reopening shows the real open project.
   browseDir = null; browseName = null;
   document.body.classList.remove('git-browse');
+  closeBranchMenu();
 }
 const isOpen = () => modal && modal.classList.contains('show');
 
@@ -94,6 +95,7 @@ async function run(label, fn) {
     statusTimer = setTimeout(() => setStatus('', null), 4000);
   } catch (e) {
     setStatus(`${label}: ${e?.message || e}`, 'error');
+    statusTimer = setTimeout(() => setStatus('', null), 8000); // errors auto-clear too
   } finally { busy = false; setBusy(false); }
 }
 
@@ -118,6 +120,13 @@ async function updateBadge() {
 // clicking it opens this panel. Kept in sync from renderAccount (which already
 // has the status) and on connect/disconnect.
 function setGithubStatusBar(s) {
+  // Small avatar dot on the Git/branch toolbar button — just signals "signed in".
+  const badge = $('git-avatar-badge');
+  if (badge) {
+    const src = s && s.connected && s.user && (s.user.avatarDataUrl || s.user.avatarUrl);
+    if (src) { badge.style.backgroundImage = `url("${src}")`; badge.hidden = false; }
+    else { badge.style.backgroundImage = ''; badge.hidden = true; }
+  }
   const item = $('githubStatusItem');
   if (!item) return;
   if (s && s.connected && s.user) {
@@ -211,7 +220,6 @@ function renderRepoHeader(st, info) {
       <span class="git-repo-name" title="${esc(info.originUrl || info.name || '')}"><i class="ph ph-git-repository"></i> ${esc(info.name || '—')}</span>
       <div class="git-branch-wrap">
         <button class="git-branch-chip" data-action="branch-menu"><i class="ph ph-git-branch"></i> ${esc(st.branch || '—')} <i class="ph ph-caret-down git-caret"></i></button>
-        <div class="git-branch-menu" id="git-branch-menu" hidden></div>
       </div>
       ${ahead}${behind}
     </div>
@@ -221,10 +229,25 @@ function renderRepoHeader(st, info) {
     </div>`;
 }
 
+// The branch menu is a BODY PORTAL (appended to <body>), not an in-panel
+// dropdown. The modal has a CSS transform, and a position:fixed element inside a
+// transformed ancestor is positioned relative to THAT ancestor, not the viewport
+// — which made the menu land "in the middle of nowhere". In <body> there's no
+// transform, so fixed coords from the chip's rect are correct.
+let branchMenuEl = null;
+function closeBranchMenu() {
+  if (!branchMenuEl) return;
+  branchMenuEl.remove(); branchMenuEl = null;
+  document.removeEventListener('mousedown', onBranchMenuAway, true);
+  document.removeEventListener('keydown', onBranchMenuKey, true);
+  window.removeEventListener('resize', positionBranchMenu);
+}
+function onBranchMenuAway(e) {
+  if (branchMenuEl && !branchMenuEl.contains(e.target) && !e.target.closest('.git-branch-chip')) closeBranchMenu();
+}
+function onBranchMenuKey(e) { if (e.key === 'Escape') { e.stopPropagation(); closeBranchMenu(); } }
 async function toggleBranchMenu() {
-  const menu = $('git-branch-menu');
-  if (!menu) return;
-  if (!menu.hidden) { menu.hidden = true; return; }
+  if (branchMenuEl) { closeBranchMenu(); return; }
   const r = await api().branches(withDir());
   if (!r.ok) { flash(`Branches: ${r.error}`, 'error'); return; }
   let stashes = [];
@@ -236,6 +259,7 @@ async function toggleBranchMenu() {
 // changes are restorable from the branch menu's stash row.
 async function checkoutBranch(branch) {
   if (!branch) return undefined;
+  closeBranchMenu();
   let dirty = false;
   try { const st = await api().status(); dirty = !!(st && st.ok && st.files && st.files.length); } catch (_) { /* treat as clean */ }
   if (dirty) {
@@ -277,11 +301,12 @@ async function stashDrop() {
     ],
   });
   if (ok !== 'confirm') return;
-  await run(tt('git.discard', 'Discard'), async () => { const r = await api().stashDrop(); if (!r.ok) throw new Error(r.error); const bm = $('git-branch-menu'); if (bm) bm.hidden = true; refresh(); return tt('git.discarded', 'Stash discarded'); });
+  await run(tt('git.discard', 'Discard'), async () => { const r = await api().stashDrop(); if (!r.ok) throw new Error(r.error); closeBranchMenu(); refresh(); return tt('git.discarded', 'Stash discarded'); });
 }
 function renderBranchMenu(branches, current, stashes = []) {
-  const menu = $('git-branch-menu');
-  if (!menu) return;
+  closeBranchMenu();
+  const menu = document.createElement('div');
+  menu.className = 'git-branch-menu';
   menu.innerHTML = `
     ${stashes.length ? `<div class="git-bm-stash">
       <span class="git-bm-stash-label"><i class="ph ph-archive"></i> ${esc(tt('git.stashes', 'Stashed changes'))} (${stashes.length})</span>
@@ -303,25 +328,30 @@ function renderBranchMenu(branches, current, stashes = []) {
       <input type="text" id="git-new-branch" class="git-pat-input" placeholder="${esc(tt('git.newBranchPlaceholder', 'new branch'))}" spellcheck="false" />
       <button class="git-mini git-mini-primary" data-action="create-branch"><i class="ph ph-plus"></i> ${esc(tt('git.create', 'Create'))}</button>
     </div>`;
-  menu.hidden = false;
+  document.body.appendChild(menu);
+  menu.addEventListener('click', onClick); // reuse the panel's action handler
+  branchMenuEl = menu;
   positionBranchMenu();
+  setTimeout(() => {
+    document.addEventListener('mousedown', onBranchMenuAway, true);
+    document.addEventListener('keydown', onBranchMenuKey, true);
+    window.addEventListener('resize', positionBranchMenu);
+  }, 0);
 }
-// The branch menu is position:fixed (to escape the modal's overflow clip), so we
-// place it under the branch chip and clamp it to the viewport — flipping it
-// above the chip when it would overflow the bottom.
+// Place the body-portal menu under the branch chip, clamped to the viewport
+// (flips above the chip when it would overflow the bottom).
 function positionBranchMenu() {
-  const menu = $('git-branch-menu');
   const chip = document.querySelector('.git-branch-chip');
-  if (!menu || !chip) return;
+  if (!branchMenuEl || !chip) return;
+  branchMenuEl.style.left = '0px'; branchMenuEl.style.top = '0px'; // measure unbiased
+  const mw = branchMenuEl.offsetWidth; const mh = branchMenuEl.offsetHeight;
   const r = chip.getBoundingClientRect();
-  menu.style.left = '0px'; menu.style.top = '0px'; // measure unbiased
-  const mw = menu.offsetWidth; const mh = menu.offsetHeight;
   let left = r.left;
   let top = r.bottom + 4;
   if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
   if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4); // flip up
-  menu.style.left = `${Math.max(8, left)}px`;
-  menu.style.top = `${top}px`;
+  branchMenuEl.style.left = `${Math.max(8, left)}px`;
+  branchMenuEl.style.top = `${top}px`;
 }
 
 function renderPublish(info) {
@@ -496,6 +526,7 @@ function switchTab(tab) {
 }
 
 async function refresh() {
+  closeBranchMenu(); // chip is re-rendered below; drop any open branch portal
   await renderAccount();
   document.body.classList.toggle('git-browse', !!browseDir); // read-only browse styling
   const repo = $('git-repo'); const changes = $('git-changes'); const commitbox = $('git-commitbox');
@@ -713,8 +744,6 @@ async function loadHistory() {
 
 // --- actions ---------------------------------------------------------------
 async function onClick(e) {
-  const bm = $('git-branch-menu');
-  if (bm && !bm.hidden && !e.target.closest('.git-branch-wrap')) bm.hidden = true;
   const actEl = e.target.closest('[data-action]');
   if (actEl) {
     const action = actEl.dataset.action;
@@ -739,7 +768,7 @@ async function onClick(e) {
       case 'create-repo-files': return createRepoFromFiles();
       case 'fetch':      return run(tt('git.fetch', 'Fetch'), async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.fetch', 'Fetch'); });
       case 'pull':       return run(tt('git.pull', 'Pull'), async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.pull', 'Pull'); });
-      case 'push':       return run(tt('git.push', 'Push'), async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.push', 'Push'); });
+      case 'push':       return doPush();
       case 'publish':    return publish();
       case 'set-private': {
         publishPrivate = actEl.dataset.private === 'true';
@@ -776,12 +805,13 @@ async function onClick(e) {
       case 'clone-open-spf': return openClonedSpf(actEl.dataset.spf);
       case 'branch-menu': return toggleBranchMenu();
       case 'checkout-branch': return checkoutBranch(actEl.dataset.branch);
-      case 'stash-pop': return run(tt('git.restore', 'Restore'), async () => { const r = await api().stashPop(); if (!r.ok) throw new Error(r.error); const bm = $('git-branch-menu'); if (bm) bm.hidden = true; refresh(); return tt('git.restored', 'Changes restored'); });
+      case 'stash-pop': return run(tt('git.restore', 'Restore'), async () => { const r = await api().stashPop(); if (!r.ok) throw new Error(r.error); closeBranchMenu(); refresh(); return tt('git.restored', 'Changes restored'); });
       case 'stash-drop': return stashDrop();
-      case 'merge-branch': return run('Merge', async () => { const r = await api().merge({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge ${actEl.dataset.branch}`; });
+      case 'merge-branch': { const mb = actEl.dataset.branch; closeBranchMenu(); return run('Merge', async () => { const r = await api().merge({ branch: mb }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge ${mb}`; }); }
       case 'create-branch': {
         const nb = $('git-new-branch')?.value?.trim();
         if (!nb) { flash(tt('git.branchNameRequired', 'Give the branch a name.'), 'error'); return undefined; }
+        closeBranchMenu();
         return run(tt('git.create', 'New branch'), async () => { const r = await api().checkout({ branch: nb, create: true }); if (!r.ok) throw new Error(r.error); refresh(); return nb; });
       }
       default: return undefined;
@@ -832,6 +862,41 @@ async function createRepoFromFiles() {
   });
 }
 
+// Push, handling the common "rejected (non-fast-forward)" case: the remote has
+// commits we don't, so git refuses. Instead of just erroring, offer Pull & push
+// (pull uses --autostash --no-edit, then we push again).
+async function doPush() {
+  if (busy) return;
+  busy = true; setBusy(true); setStatus(`${tt('git.push', 'Push')}…`, 'busy');
+  let r;
+  try { r = await api().push({ setUpstream: true }); }
+  catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  busy = false; setBusy(false);
+  if (r && r.ok) { setStatus(tt('git.push', 'Pushed'), 'ok'); statusTimer = setTimeout(() => setStatus('', null), 4000); refresh(); return; }
+  const err = (r && r.error) || '';
+  if (/non-fast-forward|fetch first|behind|rejected|\[rejected\]/i.test(err)) {
+    const action = await window.AuroraUI?.dialog?.({
+      title: tt('git.push', 'Push'),
+      message: tt('git.behindMsg', 'The remote has changes you don’t have yet, so the push was rejected. Pull the remote changes and push again?'),
+      variant: 'warning',
+      buttons: [
+        { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+        { label: tt('git.pullPush', 'Pull & push'), action: 'pullpush', type: 'primary' },
+      ],
+    });
+    if (action !== 'pullpush') { setStatus('', null); return; }
+    await run(tt('git.pullPush', 'Pull & push'), async () => {
+      const pr = await api().pull(); if (!pr.ok) throw new Error(pr.error);
+      const pu = await api().push({ setUpstream: true }); if (!pu.ok) throw new Error(pu.error);
+      refresh();
+      return tt('git.push', 'Pushed');
+    });
+    return;
+  }
+  setStatus(`${tt('git.push', 'Push')}: ${err}`, 'error');
+  statusTimer = setTimeout(() => setStatus('', null), 8000);
+}
+
 async function disconnectAccount() {
   const action = await window.AuroraUI?.dialog?.({
     title: tt('git.disconnect', 'Disconnect'),
@@ -857,6 +922,7 @@ function clearPanelData() {
   historyCommits = [];
   browseDir = null; browseName = null;
   document.body.classList.remove('git-browse');
+  closeBranchMenu();
   Object.assign(cloneState, { open: false, repos: [], selUrl: null, selName: null, spfs: [], myLogin: null });
   ['git-repo', 'git-changes', 'git-history-list', 'git-diff-body', 'git-history-diff-body', 'git-clone', 'git-cloned', 'git-token-help', 'git-oauth-code'].forEach((id) => { const el = $(id); if (el) el.innerHTML = ''; });
   ['git-clone', 'git-cloned', 'git-publish', 'git-diff', 'git-history-diff', 'git-branch-menu', 'git-commitbox', 'git-tabs', 'git-token-help', 'git-oauth-code'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });

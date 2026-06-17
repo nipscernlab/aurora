@@ -349,8 +349,11 @@ function register() {
           if (win.isMinimized()) win.restore();
           win.show();
           win.setAlwaysOnTop(true);
-          win.setAlwaysOnTop(false);
           win.focus();
+          win.setAlwaysOnTop(false);
+          // Fallback if the OS denies the focus-steal: flash the taskbar button so
+          // the user notices Aurora is ready.
+          try { win.flashFrame(true); setTimeout(() => { try { win.flashFrame(false); } catch (_) { /* gone */ } }, 2500); } catch (_) { /* optional */ }
         }
       } catch (_) { /* best-effort */ }
       return { ok: true, user };

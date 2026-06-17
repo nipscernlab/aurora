@@ -20,13 +20,18 @@
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
-  /* Read as an app, not a popup: bounded but generous. */
-  min-height: clamp(520px, 72vh, 820px);
+  /* Read as an app, not a popup: bounded but generous. The WHOLE panel scrolls
+     when content is tall (clone list open + repo + history + diff) so the diff is
+     always reachable, instead of squishing the work area. */
+  min-height: clamp(420px, 60vh, 760px);
+  max-height: 86vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   font-family: var(--font-sans);
 }
 
-/* The active tab pane is the workhorse — let it flex-grow to fill the shell. */
-.git-tabpane { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; flex: 1 1 auto; }
+/* The active tab pane — sized to content (the panel scrolls), not flex-filled. */
+.git-tabpane { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
 .git-tabpane[hidden] { display: none !important; }
 
 /* Slim, theme-matching scrollbars on every scroll area so it feels native. */
@@ -382,7 +387,7 @@
     "list   diff"
     "commit diff";
   gap: var(--space-3);
-  min-height: 0; flex: 1 1 auto;
+  min-height: clamp(360px, 52vh, 680px);
 }
 #git-pane-changes #git-changes { grid-area: list; overflow: auto; min-height: 0; }
 #git-pane-changes #git-commitbox { grid-area: commit; }
@@ -401,7 +406,7 @@
   grid-template-columns: minmax(280px, 38%) 1fr;
   grid-template-areas: "list diff";
   gap: var(--space-3);
-  min-height: 0; flex: 1 1 auto;
+  min-height: clamp(360px, 52vh, 680px);
 }
 #git-pane-history #git-history-list { grid-area: list; overflow: auto; min-height: 0; align-self: stretch; }
 #git-pane-history #git-history-diff { grid-area: diff; overflow: hidden; min-height: 0; }
@@ -949,6 +954,19 @@
 }
 .git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }
 .git-badge[data-kind="ahead"]   { background: var(--status-success, #5DD4A8); color: #062018; }
+
+/* signed-in avatar dot — bottom-right of the Git/branch button (opposite the
+   change-count badge at top-right). Just indicates "connected to GitHub". */
+.git-avatar-badge {
+  position: absolute; bottom: -4px; right: -5px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background-size: cover; background-position: center; background-repeat: no-repeat;
+  background-color: var(--bg-elev, #1a1f2b);
+  border: 1.5px solid var(--bg-titlebar, var(--bg, #0A0D14));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.git-avatar-badge[hidden] { display: none !important; }
 
 /* =============================================================================
  * 18. MOTION — GPU-composited reveals + reduced-motion guard

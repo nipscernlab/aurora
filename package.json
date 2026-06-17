@@ -168,6 +168,7 @@
     "electron-builder": "^26.15.3",
     "eslint": "^9.34.0",
     "globals": "^16.3.0",
+    "happy-dom": "^20.10.5",
     "husky": "^9.1.7",
     "knip": "6.17.1",
     "lint-staged": "^16.4.0",

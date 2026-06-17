@@ -709,6 +709,10 @@
         "useToken":           "Use a token instead",
         "oauthOpened":        "We opened GitHub in your browser. Enter this code:",
         "oauthWaiting":       "Waiting for authorization…",
+        "signingIn":          "Starting sign-in…",
+        "tryAgain":           "Try again",
+        "cancelled":          "Cancelled",
+        "oauthFailed":        "Sign-in failed.",
         "projectOpened":      "Git project opened",
         "createRepoFiles":    "Create a repository from these files",
         "initialCommit":      "Initial commit"

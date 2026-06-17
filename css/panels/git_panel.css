@@ -849,7 +849,11 @@
   font-family: var(--font-mono); font-size: 26px; font-weight: var(--font-bold);
   letter-spacing: 0.18em; color: var(--text); user-select: all;
 }
-.git-oauth-wait { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--text-muted); }
+.git-oauth-wait { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--text-muted); flex-wrap: wrap; }
+.git-oauth-error {
+  display: flex; align-items: center; gap: 6px; margin-bottom: var(--space-2);
+  font-size: var(--text-sm); color: var(--status-error, #ff6b6b);
+}
 
 /* =============================================================================
  * 15. FOOTER / STATUS BAR — stable height (must NOT resize the modal)

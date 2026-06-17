@@ -261,29 +261,74 @@ async function renderAccount() {
   }
 }
 
-// OAuth device-flow: kick off login, show the user code while we poll, and on
-// success refresh the panel. The verification page is opened by the main process.
+// OAuth device-flow. The device flow polls for up to ~15 min, so we deliberately
+// DON'T route it through run()/setBusy (which would lock the whole panel that
+// whole time). Instead a local guard + a sequence token let the user CANCEL or
+// RETRY at any moment — a late/failed result from a superseded attempt is
+// ignored, so the interface is always free to try again.
 let oauthCodeUnsub = null;
-async function oauthLogin() {
+let oauthSeq = 0;
+let oauthBusy = false;
+function clearOauthSub() { if (oauthCodeUnsub) { try { oauthCodeUnsub(); } catch (_) { /* ignore */ } oauthCodeUnsub = null; } }
+function oauthWaitingCard(inner) {
   const codeBox = $('git-oauth-code');
-  if (oauthCodeUnsub) { try { oauthCodeUnsub(); } catch (_) { /* ignore */ } oauthCodeUnsub = null; }
-  oauthCodeUnsub = window.electronAPI?.onGithubOauthCode?.((data) => {
-    if (!codeBox) return;
-    codeBox.hidden = false;
-    codeBox.innerHTML = `
+  if (!codeBox) return;
+  codeBox.hidden = false;
+  codeBox.innerHTML = inner;
+}
+async function oauthLogin() {
+  if (oauthBusy) return;
+  oauthBusy = true;
+  const seq = ++oauthSeq;
+  clearOauthSub();
+  oauthWaitingCard(`<div class="git-oauth-wait"><span class="git-spinner"></span> ${esc(tt('git.signingIn', 'Starting sign-in…'))}
+      <button class="git-mini" data-action="oauth-cancel">${esc(tt('git.cancel', 'Cancel'))}</button></div>`);
+  // Live device code from main (shown until the user authorizes). NOTE: this
+  // listener lives on gitAPI (same group as githubOauthLogin), NOT electronAPI.
+  oauthCodeUnsub = api()?.onGithubOauthCode?.((data) => {
+    if (seq !== oauthSeq) return; // a newer attempt/cancel superseded this one
+    oauthWaitingCard(`
       <div class="git-oauth-step"><i class="ph ph-arrow-square-out"></i> ${esc(tt('git.oauthOpened', 'We opened GitHub in your browser. Enter this code:'))}</div>
       <div class="git-oauth-codebox"><span class="git-oauth-codeval">${esc(data.userCode || '')}</span>
         <button class="git-icon-btn" data-action="oauth-copy-code" data-code="${esc(data.userCode || '')}" title="${esc(tt('git.copied', 'Copy'))}"><i class="ph ph-copy"></i></button></div>
-      <div class="git-oauth-wait"><span class="git-spinner"></span> ${esc(tt('git.oauthWaiting', 'Waiting for authorization…'))}</div>`;
+      <div class="git-oauth-wait"><span class="git-spinner"></span> ${esc(tt('git.oauthWaiting', 'Waiting for authorization…'))}
+        <button class="git-mini" data-action="oauth-cancel">${esc(tt('git.cancel', 'Cancel'))}</button></div>`);
   });
-  await run(tt('git.signIn', 'Sign in'), async () => {
-    const r = await api().githubOauthLogin();
-    if (oauthCodeUnsub) { try { oauthCodeUnsub(); } catch (_) { /* ignore */ } oauthCodeUnsub = null; }
-    if (codeBox) { codeBox.hidden = true; codeBox.innerHTML = ''; }
-    if (!r || !r.ok) throw new Error((r && r.error) || 'OAuth failed');
-    refresh();
-    return `@${r.user.login}`;
-  });
+  setStatus(`${tt('git.signIn', 'Sign in')}…`, 'busy');
+
+  let r;
+  try { r = await api().githubOauthLogin(); }
+  catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+
+  // The user cancelled or started another attempt while we were polling — drop
+  // this result entirely (the UI already moved on).
+  if (seq !== oauthSeq) return;
+  oauthBusy = false;
+  clearOauthSub();
+
+  if (!r || !r.ok) {
+    // Failure/timeout → keep the interface free + offer an explicit retry.
+    oauthWaitingCard(`<div class="git-oauth-error"><i class="ph ph-warning-circle"></i> ${esc((r && r.error) || tt('git.oauthFailed', 'Sign-in failed.'))}</div>
+      <button class="git-btn git-btn-primary" data-action="oauth-login"><i class="ph ph-arrow-clockwise"></i> ${esc(tt('git.tryAgain', 'Try again'))}</button>`);
+    setStatus(`${tt('git.signIn', 'Sign in')}: ${(r && r.error) || ''}`, 'error');
+    return;
+  }
+  const codeBox = $('git-oauth-code');
+  if (codeBox) { codeBox.hidden = true; codeBox.innerHTML = ''; }
+  setStatus(`@${r.user.login}`, 'ok');
+  statusTimer = setTimeout(() => setStatus('', null), 4000);
+  refresh();
+}
+// Abort the in-flight attempt and free the UI immediately (the main-side poll is
+// left to expire harmlessly; the sequence bump makes its result a no-op).
+function oauthCancel() {
+  oauthSeq++;
+  oauthBusy = false;
+  clearOauthSub();
+  const codeBox = $('git-oauth-code');
+  if (codeBox) { codeBox.hidden = true; codeBox.innerHTML = ''; }
+  setStatus(tt('git.cancelled', 'Cancelled'), 'info');
+  statusTimer = setTimeout(() => setStatus('', null), 3000);
 }
 
 // In-panel guide: how to mint the token + exactly which permission each AURORA
@@ -535,6 +580,7 @@ async function onClick(e) {
       }
       case 'connect':    return connect();
       case 'oauth-login': return oauthLogin();
+      case 'oauth-cancel': return oauthCancel();
       case 'toggle-pat': { const c = $('git-connect'); if (c) c.hidden = !c.hidden; const inp = $('git-pat'); if (c && !c.hidden && inp) inp.focus(); return undefined; }
       case 'oauth-copy-code': return copyToClipboard(actEl.dataset.code, tt('git.copied', 'Copied'));
       case 'disconnect': return disconnectAccount();

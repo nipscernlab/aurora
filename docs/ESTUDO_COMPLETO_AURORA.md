@@ -1231,3 +1231,14 @@ turno e a IA recebe o verdito de verdade (em vez de só descobrir depois que o c
 Arquivos: `js/ui/ai_assistant_manager.js` (`_stripTextMacros`), `main/ai/claude_code.js` (`agentScratchDir` +
 `--add-dir` projeto/anexos), `main/ai/codex_cli.js` (`agentScratchDir`, remove o `state` ocioso). 253 unit +
 ESLint + `tsc --noEmit` + knip + `vite build` verdes. **Verificação ao vivo do usuário pendente.**
+
+### 14.12 Error boundary ignora cancelamento benigno do Monaco — 17/06/2026 — FEITO
+Com o rename agora completando **durante** o turno (§14.11), a reabertura do projeto fecha todas as abas e o
+Monaco **descarta** seus editores — e, ao descartar, rejeita o trabalho assíncrono pendente (tokenização,
+hover, resolução de modelo) com um erro **benigno** "Canceled" (`CancellationError`). O error boundary do
+renderer tratava isso como crash e mostrava o overlay "Something went wrong: Canceled: Canceled" (dava a
+impressão de IDE travada). Fix: `error_boundary.js` agora **ignora** esses cancelamentos benignos
+(`name`/`message` = "Canceled"/"CancellationError") nos dois listeners (`error` + `unhandledrejection`), com
+`preventDefault()` — exatamente como o próprio VS Code faz com `onUnexpectedError`. A reabertura segue normal,
+sem alarme falso. Arquivo: `js/app/error_boundary.js`. 253 unit + ESLint + `tsc --noEmit` + `vite build` verdes.
+**Confirmado pelo usuário: rename funciona; faltava só não assustar com o "Canceled".**

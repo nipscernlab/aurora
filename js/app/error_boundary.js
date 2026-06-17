@@ -68,11 +68,29 @@ function handle(kind, err, stack) {
   showToastOnce(message);
 }
 
+/**
+ * Monaco/VS Code routinely reject their in-flight async work (tokenization,
+ * hovers, model/link resolution) with a benign "Canceled" CancellationError when
+ * an editor or model is DISPOSED — e.g. when Aurora closes every tab and reopens
+ * the project during a rename. That is normal teardown, NOT a crash, so it must
+ * not raise the error overlay (VS Code itself swallows these). Let it pass.
+ */
+function isBenignCancellation(err) {
+  if (!err) return false;
+  const name = err.name;
+  const message = typeof err === 'string' ? err : (err && err.message);
+  return name === 'Canceled' || name === 'CancellationError'
+    || message === 'Canceled' || message === 'Cancelled';
+}
+
 window.addEventListener('error', (event) => {
-  handle('uncaught error', event.error || event.message, event.error && event.error.stack);
+  const err = event.error || event.message;
+  if (isBenignCancellation(err)) { try { event.preventDefault(); } catch { /* noop */ } return; }
+  handle('uncaught error', err, event.error && event.error.stack);
 });
 
 window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
+  if (isBenignCancellation(reason)) { try { event.preventDefault(); } catch { /* noop */ } return; }
   handle('unhandled promise rejection', reason, reason && reason.stack);
 });

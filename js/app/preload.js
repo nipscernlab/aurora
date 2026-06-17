@@ -457,6 +457,13 @@ const gitOperations = {
   githubConnect:    (token) => ipcRenderer.invoke('github:connect', token),
   githubDisconnect: () => ipcRenderer.invoke('github:disconnect'),
   githubCreateRepo: (opts) => ipcRenderer.invoke('github:create-repo', opts),
+  githubOauthConfigured: () => ipcRenderer.invoke('github:oauth-configured'),
+  githubOauthLogin: () => ipcRenderer.invoke('github:oauth-login'),
+  onGithubOauthCode: (cb) => {
+    const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
+    ipcRenderer.on('github:oauth-code', h);
+    return () => ipcRenderer.removeListener('github:oauth-code', h);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', {

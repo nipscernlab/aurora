@@ -242,14 +242,48 @@ async function renderAccount() {
         <button class="git-icon-btn git-disconnect" data-action="disconnect" title="${esc(tt('git.disconnect', 'Disconnect'))}" aria-label="${esc(tt('git.disconnect', 'Disconnect'))}"><i class="ph ph-sign-out"></i></button>
       </span>`;
   } else {
+    let oauthOn = false;
+    try { const c = await api().githubOauthConfigured?.(); oauthOn = !!(c && c.configured); } catch (_) { /* fall back to PAT only */ }
     el.innerHTML = `
-      <div class="git-connect">
-        <input type="password" id="git-pat" class="git-pat-input" placeholder="${esc(tt('git.tokenPlaceholder', 'GitHub classic token (repo scope)'))}" autocomplete="off" spellcheck="false" />
-        <button class="git-mini git-mini-primary" data-action="connect"><i class="ph ph-github-logo"></i> ${esc(tt('git.connect', 'Connect'))}</button>
-        <button class="git-icon-btn git-help-btn" data-action="token-help" title="${esc(tt('git.howToToken', 'How to get a token'))}" aria-label="${esc(tt('git.howToToken', 'How to get a token'))}"><i class="ph ph-question"></i></button>
+      <div class="git-signin">
+        ${oauthOn ? `<button class="git-btn git-btn-primary git-signin-btn" data-action="oauth-login"><i class="ph ph-github-logo"></i> ${esc(tt('git.signIn', 'Sign in with GitHub'))}</button>` : ''}
+        <div class="git-signin-advanced">
+          <button class="git-linklike" data-action="toggle-pat"><i class="ph ph-key"></i> ${esc(tt('git.useToken', 'Use a token instead'))}</button>
+          <button class="git-icon-btn git-help-btn" data-action="token-help" title="${esc(tt('git.howToToken', 'How to get a token'))}" aria-label="${esc(tt('git.howToToken', 'How to get a token'))}"><i class="ph ph-question"></i></button>
+        </div>
       </div>
+      <div class="git-connect" id="git-connect" ${oauthOn ? 'hidden' : ''}>
+        <input type="password" id="git-pat" class="git-pat-input" placeholder="${esc(tt('git.tokenPlaceholder', 'GitHub classic token (repo scope)'))}" autocomplete="off" spellcheck="false" />
+        <button class="git-btn git-btn-primary" data-action="connect"><i class="ph ph-github-logo"></i> ${esc(tt('git.connect', 'Connect'))}</button>
+      </div>
+      <div class="git-oauth-code" id="git-oauth-code" hidden></div>
       <div class="git-token-help" id="git-token-help" hidden></div>`;
   }
+}
+
+// OAuth device-flow: kick off login, show the user code while we poll, and on
+// success refresh the panel. The verification page is opened by the main process.
+let oauthCodeUnsub = null;
+async function oauthLogin() {
+  const codeBox = $('git-oauth-code');
+  if (oauthCodeUnsub) { try { oauthCodeUnsub(); } catch (_) { /* ignore */ } oauthCodeUnsub = null; }
+  oauthCodeUnsub = window.electronAPI?.onGithubOauthCode?.((data) => {
+    if (!codeBox) return;
+    codeBox.hidden = false;
+    codeBox.innerHTML = `
+      <div class="git-oauth-step"><i class="ph ph-arrow-square-out"></i> ${esc(tt('git.oauthOpened', 'We opened GitHub in your browser. Enter this code:'))}</div>
+      <div class="git-oauth-codebox"><span class="git-oauth-codeval">${esc(data.userCode || '')}</span>
+        <button class="git-icon-btn" data-action="oauth-copy-code" data-code="${esc(data.userCode || '')}" title="${esc(tt('git.copied', 'Copy'))}"><i class="ph ph-copy"></i></button></div>
+      <div class="git-oauth-wait"><span class="git-spinner"></span> ${esc(tt('git.oauthWaiting', 'Waiting for authorization…'))}</div>`;
+  });
+  await run(tt('git.signIn', 'Sign in'), async () => {
+    const r = await api().githubOauthLogin();
+    if (oauthCodeUnsub) { try { oauthCodeUnsub(); } catch (_) { /* ignore */ } oauthCodeUnsub = null; }
+    if (codeBox) { codeBox.hidden = true; codeBox.innerHTML = ''; }
+    if (!r || !r.ok) throw new Error((r && r.error) || 'OAuth failed');
+    refresh();
+    return `@${r.user.login}`;
+  });
 }
 
 // In-panel guide: how to mint the token + exactly which permission each AURORA
@@ -319,7 +353,10 @@ async function refresh() {
     if (changes) changes.innerHTML = `<div class="git-empty">
       <i class="ph ph-git-merge"></i>
       <p>${esc(tt('git.notRepo', 'This project is not a Git repository yet.'))}</p>
-      <button class="git-mini git-mini-primary" data-action="init">${esc(tt('git.initRepo', 'Initialize repository'))}</button>
+      <div class="git-empty-actions">
+        <button class="git-btn git-btn-primary" data-action="create-repo-files"><i class="ph ph-git-commit"></i> ${esc(tt('git.createRepoFiles', 'Create a repository from these files'))}</button>
+        <button class="git-btn" data-action="init"><i class="ph ph-git-branch"></i> ${esc(tt('git.initRepo', 'Initialize empty repository'))}</button>
+      </div>
     </div>`;
     hideDiff();
     return;
@@ -486,6 +523,7 @@ async function onClick(e) {
         return undefined;
       }
       case 'init':       return run(tt('git.initRepo', 'Initialize'), async () => { const r = await api().init(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.initRepo', 'Repository initialized'); });
+      case 'create-repo-files': return createRepoFromFiles();
       case 'fetch':      return run(tt('git.fetch', 'Fetch'), async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.fetch', 'Fetch'); });
       case 'pull':       return run(tt('git.pull', 'Pull'), async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.pull', 'Pull'); });
       case 'push':       return run(tt('git.push', 'Push'), async () => { const r = await api().push({ setUpstream: true }); if (!r.ok) throw new Error(r.error); refresh(); return tt('git.push', 'Push'); });
@@ -496,6 +534,9 @@ async function onClick(e) {
         return undefined;
       }
       case 'connect':    return connect();
+      case 'oauth-login': return oauthLogin();
+      case 'toggle-pat': { const c = $('git-connect'); if (c) c.hidden = !c.hidden; const inp = $('git-pat'); if (c && !c.hidden && inp) inp.focus(); return undefined; }
+      case 'oauth-copy-code': return copyToClipboard(actEl.dataset.code, tt('git.copied', 'Copied'));
       case 'disconnect': return disconnectAccount();
       case 'token-help': {
         const help = $('git-token-help');
@@ -556,6 +597,21 @@ async function discard(file) {
   });
   if (action !== 'confirm') return;
   await run('Discard', async () => { const r = await api().discard(file); if (!r.ok) throw new Error(r.error); refresh(); });
+}
+
+// Turn an opened folder into a git repo WITH its files: init, stage everything,
+// and make the initial commit — so the publish-to-GitHub step actually pushes
+// the project (not an empty repo). The publish section then offers GitHub.
+async function createRepoFromFiles() {
+  await run(tt('git.createRepoFiles', 'Create repository'), async () => {
+    const ir = await api().init(); if (!ir.ok) throw new Error(ir.error);
+    await api().stageAll();
+    const c = await api().commit({ message: tt('git.initialCommit', 'Initial commit') });
+    if (!c.ok) throw new Error(c.error);
+    refresh();
+    try { window.showNotification?.(tt('git.initialCommit', 'Initial commit'), 'success', 5000, 'Git'); } catch (_) { /* optional */ }
+    return tt('git.initialCommit', 'Initial commit');
+  });
 }
 
 async function disconnectAccount() {
@@ -897,7 +953,13 @@ async function openClonedProject(item) {
   try {
     const scan = await api().scanSpf({ dir: item.path });
     const spf = scan && scan.ok && Array.isArray(scan.spfs) && scan.spfs[0];
-    if (spf) { await window.electronAPI?.openProject(spf); close(); return; }
+    if (spf) {
+      await window.electronAPI?.openProject(spf);
+      // IDE-wide toast confirming the git project opened.
+      try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}: ${item.name}`, 'success', 6000, 'Git'); } catch (_) { /* optional */ }
+      close();
+      return;
+    }
     flash(tt('git.noSpfInClone', 'No SAPHO project found — opening the folder.'), 'info');
     await window.electronAPI?.openFolder?.(item.path);
   } catch (e) { flash(e?.message || String(e), 'error'); }

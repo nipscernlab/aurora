@@ -18,8 +18,19 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { app, safeStorage, ipcMain } = require('electron');
+const { app, safeStorage, ipcMain, shell } = require('electron');
 const log = require('electron-log');
+
+// GitHub OAuth App (Device Flow). The Client ID is PUBLIC — it ships in the app
+// and the device flow needs NO client secret, so this is safe to commit. Fill it
+// in after registering the OAuth App at github.com/settings/developers with
+// "Enable Device Flow" ticked. Empty ⇒ the "Sign in with GitHub" button is
+// disabled and only the manual-token path is offered. Can also be supplied via
+// the AURORA_GITHUB_CLIENT_ID env var for local testing before it's hard-coded.
+const OAUTH_CLIENT_ID = process.env.AURORA_GITHUB_CLIENT_ID || '';
+// Scopes mirror what a classic PAT needs for AURORA: repo (clone/push/create) +
+// read:org (so organization repos show in the clone list).
+const OAUTH_SCOPE = 'repo read:org';
 
 function vaultPath() {
   return path.join(app.getPath('userData'), 'aurora-github.json');
@@ -250,7 +261,86 @@ async function ensureUserAvatar() {
   } catch (_) { /* keep what we have */ }
 }
 
+/** POST JSON to https://github.com<path> (the OAuth endpoints live on the web
+ *  host, not api.github.com) and parse the JSON reply. */
+function oauthPostJson(pathname, payload) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const req = https.request({
+      hostname: 'github.com', path: pathname, method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data),
+        'User-Agent': 'aurora-ide',
+      },
+    }, (res) => {
+      let body = '';
+      res.on('data', (c) => { body += c; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch (e) { reject(new Error(`OAuth ${res.statusCode}: ${body.slice(0, 160)}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * GitHub OAuth Device Flow: request a device/user code, show it to the user (the
+ * renderer displays it + we open the verification page), then poll until they
+ * authorize. On success we store the access token exactly like the PAT path, so
+ * the rest of git.js is unchanged. `sender` is the webContents for the live code.
+ */
+async function deviceFlowLogin(sender) {
+  if (!OAUTH_CLIENT_ID) throw new Error('OAuth is not configured (missing Client ID).');
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('OS keychain encryption is not available on this system.');
+  const start = await oauthPostJson('/login/device/code', { client_id: OAUTH_CLIENT_ID, scope: OAUTH_SCOPE });
+  if (!start || !start.device_code) throw new Error((start && start.error_description) || 'Failed to start device flow.');
+  try {
+    sender && sender.send('github:oauth-code', {
+      userCode: start.user_code,
+      verificationUri: start.verification_uri,
+      expiresIn: start.expires_in,
+    });
+  } catch (_) { /* window gone */ }
+  try { await shell.openExternal(start.verification_uri); } catch (_) { /* user can open it manually */ }
+
+  let intervalMs = ((start.interval || 5) + 1) * 1000;
+  const deadline = Date.now() + ((start.expires_in || 900) * 1000);
+  while (Date.now() < deadline) {
+    await sleep(intervalMs);
+    const tok = await oauthPostJson('/login/oauth/access_token', {
+      client_id: OAUTH_CLIENT_ID,
+      device_code: start.device_code,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+    });
+    if (tok && tok.access_token) {
+        const me = await apiGet('/user', tok.access_token);
+        const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
+      const user = { login: me.login, name: me.name || me.login, avatarDataUrl, avatarUrl: me.avatar_url };
+      writeVault({ token: safeStorage.encryptString(tok.access_token).toString('base64'), user });
+      return user;
+    }
+    const err = tok && tok.error;
+    if (err === 'authorization_pending') continue;
+    if (err === 'slow_down') { intervalMs += ((tok.interval ? tok.interval : 5) * 1000); continue; }
+    if (err === 'expired_token') throw new Error('The code expired — please try again.');
+    if (err === 'access_denied') throw new Error('Authorization was denied.');
+    throw new Error((tok && tok.error_description) || err || 'OAuth failed.');
+  }
+  throw new Error('Timed out waiting for authorization.');
+}
+
 function register() {
+  ipcMain.handle('github:oauth-configured', () => ({ configured: !!OAUTH_CLIENT_ID }));
+  ipcMain.handle('github:oauth-login', async (event) => {
+    try { return { ok: true, user: await deviceFlowLogin(event.sender) }; }
+    catch (e) { return { ok: false, error: e instanceof Error ? e.message : String(e) }; }
+  });
   ipcMain.handle('github:status', async () => {
     await ensureUserAvatar();
     const user = getUser();

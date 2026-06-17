@@ -704,7 +704,14 @@
         "removeFromList":     "Remover da lista",
         "deleteFromDisk":     "Apagar do disco",
         "deletedFromDisk":    "Apagado do disco",
-        "removedFromList":    "Removido da lista"
+        "removedFromList":    "Removido da lista",
+        "signIn":             "Entrar com GitHub",
+        "useToken":           "Usar um token",
+        "oauthOpened":        "Abrimos o GitHub no seu navegador. Digite este código:",
+        "oauthWaiting":       "Aguardando autorização…",
+        "projectOpened":      "Projeto git aberto",
+        "createRepoFiles":    "Criar um repositório com estes arquivos",
+        "initialCommit":      "Commit inicial"
     },
     "search": {
         "title":             "Buscar nos arquivos",

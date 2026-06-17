@@ -704,7 +704,14 @@
         "removeFromList":     "Remove from list",
         "deleteFromDisk":     "Delete from disk",
         "deletedFromDisk":    "Deleted from disk",
-        "removedFromList":    "Removed from list"
+        "removedFromList":    "Removed from list",
+        "signIn":             "Sign in with GitHub",
+        "useToken":           "Use a token instead",
+        "oauthOpened":        "We opened GitHub in your browser. Enter this code:",
+        "oauthWaiting":       "Waiting for authorization…",
+        "projectOpened":      "Git project opened",
+        "createRepoFiles":    "Create a repository from these files",
+        "initialCommit":      "Initial commit"
     },
     "search": {
         "title":             "Find in files",

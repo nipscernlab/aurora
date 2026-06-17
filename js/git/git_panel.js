@@ -781,7 +781,21 @@ async function disconnectAccount() {
     ],
   });
   if (action !== 'confirm') return;
-  await run(tt('git.disconnect', 'Disconnect'), async () => { await api().githubDisconnect(); refresh(); return tt('git.disconnect', 'Account disconnected'); });
+  await run(tt('git.disconnect', 'Disconnect'), async () => {
+    await api().githubDisconnect();
+    clearPanelData();         // wipe every section from view (no lingering info)
+    await renderAccount();    // back to the clean sign-in state
+    return tt('git.disconnect', 'Account disconnected');
+  });
+}
+// On disconnect, clear EVERY section from the screen so no repo/account/clone info
+// lingers. The cloned-projects history (localStorage) is intentionally kept — the
+// user asked to remember clones — but nothing is shown until they act again.
+function clearPanelData() {
+  historyCommits = [];
+  Object.assign(cloneState, { open: false, repos: [], selUrl: null, selName: null, spfs: [], myLogin: null });
+  ['git-repo', 'git-changes', 'git-history-list', 'git-diff-body', 'git-history-diff-body', 'git-clone', 'git-cloned', 'git-token-help', 'git-oauth-code'].forEach((id) => { const el = $(id); if (el) el.innerHTML = ''; });
+  ['git-clone', 'git-cloned', 'git-publish', 'git-diff', 'git-history-diff', 'git-branch-menu', 'git-commitbox', 'git-tabs', 'git-token-help', 'git-oauth-code'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
 }
 
 async function undoLast() {
@@ -899,10 +913,15 @@ function renderCloneList() {
   }
   list.innerHTML = owners.map((owner) => {
     const repos = groups.get(owner);
+    const isYou = owner === my;
     const isOrg = repos[0] && repos[0].ownerType === 'Organization';
-    const ownerIcon = isOrg ? 'ph-buildings' : 'ph-user';
-    const label = owner === my ? `${esc(owner)} · ${esc(tt('git.you', 'you'))}` : esc(owner);
-    return `<li class="git-clone-group"><i class="ph ${ownerIcon}"></i> <span class="git-clone-group-name">${label}</span> <span class="git-clone-group-count">${repos.length}</span></li>`
+    const ownerIcon = isYou ? 'ph-user-circle' : (isOrg ? 'ph-buildings' : 'ph-user');
+    const badge = isYou
+      ? `<span class="git-clone-group-badge is-you">${esc(tt('git.you', 'you'))}</span>`
+      : (isOrg ? `<span class="git-clone-group-badge is-org">${esc(tt('git.org', 'org'))}</span>` : '');
+    return `<li class="git-clone-group ${isYou ? 'is-you' : ''} ${isOrg ? 'is-org' : ''}">
+        <i class="ph ${ownerIcon}"></i> <span class="git-clone-group-name">${esc(owner)}</span> ${badge}
+        <span class="git-clone-group-count">${repos.length}</span></li>`
       + repos.map(cloneItemHtml).join('');
   }).join('');
 }
@@ -1128,19 +1147,46 @@ async function runClonedAction(action, idx) {
 }
 async function openClonedProject(item) {
   if (!item) return;
-  try {
-    const scan = await api().scanSpf({ dir: item.path });
-    const spf = scan && scan.ok && Array.isArray(scan.spfs) && scan.spfs[0];
-    if (spf) {
-      await window.electronAPI?.openProject(spf);
-      // IDE-wide toast confirming the git project opened.
-      try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}: ${item.name}`, 'success', 6000, 'Git'); } catch (_) { /* optional */ }
-      close();
-      return;
-    }
-    flash(tt('git.noSpfInClone', 'No SAPHO project found — opening the folder.'), 'info');
-    await window.electronAPI?.openFolder?.(item.path);
-  } catch (e) { flash(e?.message || String(e), 'error'); }
+  // 1) Find a .spf in the clone.
+  let scan;
+  try { scan = await api().scanSpf({ dir: item.path }); } catch (e) { scan = { ok: false, error: e?.message || String(e) }; }
+  const spf = scan && scan.ok && Array.isArray(scan.spfs) && scan.spfs[0];
+  if (!spf) {
+    return clonedOpenFailed(item, tt('git.noSpfInClone', 'No SAPHO project (.spf) was found in this folder.'));
+  }
+  // 2) Open it and VERIFY it actually opened (openProject returns { success }).
+  let res;
+  try { res = await window.electronAPI?.openProject(spf); }
+  catch (e) { return clonedOpenFailed(item, e?.message || String(e)); }
+  if (res && res.success === false) {
+    return clonedOpenFailed(item, res.error || tt('git.openFailed', 'Could not open the project.'));
+  }
+  // 3) Success → confirm with an IDE toast.
+  try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}: ${item.name}`, 'success', 6000, 'Git'); } catch (_) { /* optional */ }
+  close();
+}
+// Open failed (folder moved/deleted, no .spf, parse error): tell the user and
+// offer to remove the dead entry or clone the repo again.
+async function clonedOpenFailed(item, msg) {
+  const action = await window.AuroraUI?.dialog?.({
+    title: tt('git.openFailed', 'Couldn’t open the project'),
+    message: `${esc(msg || '')}<br><br>${tt('git.openFailedHint', 'The folder may have been moved or deleted. Remove it from the list or clone it again?')}`,
+    variant: 'warning',
+    buttons: [
+      { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('git.cloneAgain', 'Clone again'), action: 'reclone', type: 'primary' },
+      { label: tt('git.removeFromList', 'Remove from list'), action: 'remove', type: 'danger' },
+    ],
+  });
+  if (action === 'remove') {
+    const list = loadCloned(); const i = list.findIndex((r) => r.path === item.path);
+    if (i >= 0) { list.splice(i, 1); saveCloned(list); renderCloned(); }
+    flash(tt('git.removedFromList', 'Removed from list'), 'ok');
+  } else if (action === 'reclone') {
+    const c = $('git-cloned'); if (c) c.hidden = true;
+    if ($('git-clone')?.hidden !== false) toggleClone();
+    flash(tt('git.pickRepoToClone', 'Pick the repository to clone again.'), 'info');
+  }
 }
 async function removeClonedProject(idx) {
   const item = loadCloned()[idx];

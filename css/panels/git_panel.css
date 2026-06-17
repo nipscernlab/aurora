@@ -670,6 +670,17 @@
   margin-left: auto; padding: 1px 6px; border-radius: 999px;
   background: var(--overlay-hover); color: var(--text-muted); font-size: 9px; font-weight: var(--font-semibold);
 }
+/* Distinguish YOUR account from organizations at a glance. */
+.git-clone-group.is-you { background: color-mix(in srgb, var(--accent, #8E83E8) 16%, transparent); }
+.git-clone-group.is-you > i { color: var(--accent-hover, var(--accent)); }
+.git-clone-group.is-you .git-clone-group-name { color: var(--text); }
+.git-clone-group.is-org > i { color: var(--status-info, #5BB8E8); }
+.git-clone-group-badge {
+  padding: 0 6px; border-radius: 999px; font-size: 8px; text-transform: uppercase;
+  letter-spacing: 0.05em; font-weight: var(--font-semibold);
+}
+.git-clone-group-badge.is-you { background: var(--accent, #8E83E8); color: #fff; }
+.git-clone-group-badge.is-org { background: color-mix(in srgb, var(--status-info, #5BB8E8) 22%, transparent); color: var(--status-info, #5BB8E8); }
 .git-clone-item {
   display: flex; align-items: center; gap: var(--space-2);
   padding: 6px var(--space-2); cursor: pointer;

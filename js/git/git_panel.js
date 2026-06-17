@@ -140,11 +140,11 @@ function renderChanges(st) {
   wrap.innerHTML = `
     ${staged.length ? `<div class="git-section">
       <div class="git-section-head"><span>${esc(tt('git.staged', 'Staged'))} · ${staged.length}</span>
-        <button class="git-mini" data-action="unstage-all">${esc(tt('git.unstageAll', 'Unstage all'))}</button></div>
+        <button class="git-mini" data-action="unstage-all" title="Tirar tudo da área de stage (não entra no commit)">${esc(tt('git.unstageAll', 'Unstage all'))}</button></div>
       <ul class="git-file-list">${staged.map((f) => fileRow(f, 'staged')).join('')}</ul></div>` : ''}
     ${unstaged.length ? `<div class="git-section">
       <div class="git-section-head"><span>${esc(tt('git.changes', 'Changes'))} · ${unstaged.length}</span>
-        <button class="git-mini" data-action="stage-all">${esc(tt('git.stageAll', 'Stage all'))}</button></div>
+        <button class="git-mini" data-action="stage-all" title="Preparar TODAS as mudanças para o próximo commit (git add -A)">${esc(tt('git.stageAll', 'Stage all'))}</button></div>
       <ul class="git-file-list">${unstaged.map((f) => fileRow(f, 'unstaged')).join('')}</ul></div>` : ''}`;
 }
 
@@ -661,7 +661,11 @@ function init() {
   window.addEventListener('aurora:file-saved', refreshBadge);
   window.addEventListener('aurora:spf-changed', refreshBadge);
   document.addEventListener('aurora:file-saved', refreshBadge);
-  setInterval(() => { if (!isOpen()) updateBadge(); }, 30_000);
+  // Reflect ON-DISK changes too (the project chokidar watcher), so the count
+  // stays fresh automatically — not only when the panel is opened.
+  try { window.electronAPI?.onDirectoryChanged?.(() => refreshBadge()); } catch (_) { /* optional */ }
+  try { window.electronAPI?.onFileChanged?.(() => refreshBadge()); } catch (_) { /* optional */ }
+  setInterval(() => { if (!isOpen()) updateBadge(); }, 8000);
 }
 
 if (document.readyState === 'loading') {

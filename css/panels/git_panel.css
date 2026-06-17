@@ -218,7 +218,8 @@
 .git-hint code { font-family: var(--font-mono); color: var(--accent-hover, #5bb8e8); }
 
 /* ---- live status footer ---- */
-.git-footer { width: 100%; }
+/* Stable height so showing/hiding the status never resizes/"lifts" the modal. */
+.git-footer { width: 100%; min-height: 36px; display: flex; align-items: center; }
 .git-status {
   display: flex; align-items: center; gap: var(--space-2);
   font-size: var(--text-xs); color: var(--text-muted);
@@ -375,12 +376,12 @@
 
 /* ---- badge redo: high contrast + informative ---- */
 .git-badge {
-  position: absolute; top: -3px; right: -3px;
-  min-width: 16px; height: 16px; padding: 0 4px;
+  position: absolute; top: -2px; right: -2px;
+  min-width: 12px; height: 12px; padding: 0 2px;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: var(--font-bold); line-height: 1;
-  border-radius: 999px; border: 2px solid var(--bg-titlebar, #0a0d14);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  font-size: 8px; font-weight: var(--font-bold); line-height: 1;
+  border-radius: 999px; border: 1.5px solid var(--bg-titlebar, #0a0d14);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
 .git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }

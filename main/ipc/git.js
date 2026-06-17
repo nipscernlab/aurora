@@ -283,8 +283,11 @@ function register() {
   }));
 
   ipcMain.handle('git:pull', safe(async () => {
-    // --no-edit so a merge commit never opens $EDITOR (which would hang the op).
-    const out = await remoteGit().raw(['pull', '--no-edit']);
+    // --no-edit so a merge commit never opens $EDITOR; --autostash so an
+    // uncommitted local file (e.g. fractal_proc.spf) is stashed before the pull
+    // and re-applied after, instead of aborting with "local changes would be
+    // overwritten by merge".
+    const out = await remoteGit().raw(['pull', '--no-edit', '--autostash']);
     return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
 

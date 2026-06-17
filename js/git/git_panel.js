@@ -530,7 +530,7 @@ async function undoLast() {
 // --- clone experience ------------------------------------------------------
 // Rich clone flow: pick one of the user's repos, choose a target folder,
 // validate the resulting path, clone, then offer to open any .spf in SAPHO.
-const cloneState = { open: false, repos: [], selUrl: null, selName: null, dir: null, dest: null, spfs: [] };
+const cloneState = { open: false, repos: [], selUrl: null, selName: null, dir: null, dest: null, spfs: [], myLogin: null };
 // Only allow clean, shell-safe paths (no spaces / exotic chars). The backslash
 // is for Windows separators; the set is intentionally conservative.
 const SAFE_PATH_RE = /^[A-Za-z0-9._/\\:-]+$/;
@@ -556,6 +556,7 @@ async function toggleClone() {
 async function loadCloneRepos() {
   const list = $('git-clone-list');
   if (list) list.innerHTML = `<li class="git-clone-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</li>`;
+  try { const s = await api().githubStatus(); cloneState.myLogin = s?.user?.login || null; } catch (_) { /* group still works without it */ }
   let r;
   try { r = await api().listRepos(); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
   if (!r || !r.ok) {
@@ -580,10 +581,25 @@ function renderClone() {
     <div class="git-clone-actions">
       <button class="git-mini git-mini-primary" data-action="clone-do"><i class="ph ph-download-simple"></i> ${esc(tt('git.cloneBtn', 'Clone'))}</button>
       <span class="git-clone-spf" id="git-clone-spf" hidden></span>
+    </div>
+    <div class="git-clone-progress" id="git-clone-progress" hidden>
+      <div class="git-clone-progress-track"><div class="git-clone-progress-fill" id="git-clone-progress-fill"></div></div>
+      <span class="git-clone-progress-label" id="git-clone-progress-label"></span>
     </div>`;
   renderCloneList();
 }
 
+function cloneItemHtml(repo) {
+  const sel = repo.cloneUrl === cloneState.selUrl;
+  const icon = repo.private ? 'ph-lock-simple' : 'ph-globe-hemisphere-west';
+  const desc = repo.description ? `<span class="git-clone-desc" title="${esc(repo.description)}">${esc(repo.description)}</span>` : '';
+  return `<li class="git-clone-item ${sel ? 'selected' : ''}" data-action="clone-list-select"
+      data-url="${esc(repo.cloneUrl)}" data-name="${esc(repo.name)}">
+    <i class="ph ${icon} git-clone-vis" title="${repo.private ? esc(tt('git.private', 'Private')) : esc(tt('git.public', 'Public'))}"></i>
+    <span class="git-clone-name">${esc(repo.name)}</span>
+    ${desc}
+  </li>`;
+}
 function renderCloneList() {
   const list = $('git-clone-list');
   if (!list) return;
@@ -591,16 +607,31 @@ function renderCloneList() {
     list.innerHTML = `<li class="git-clone-empty">${esc(tt('git.connectFirst', 'Connect your GitHub account first.'))}</li>`;
     return;
   }
-  list.innerHTML = cloneState.repos.map((repo) => {
-    const sel = repo.cloneUrl === cloneState.selUrl;
-    const icon = repo.private ? 'ph-lock-simple' : 'ph-globe-hemisphere-west';
-    const desc = repo.description ? `<span class="git-clone-desc" title="${esc(repo.description)}">${esc(repo.description)}</span>` : '';
-    return `<li class="git-clone-item ${sel ? 'selected' : ''}" data-action="clone-list-select"
-        data-url="${esc(repo.cloneUrl)}" data-name="${esc(repo.name)}">
-      <i class="ph ${icon} git-clone-vis" title="${repo.private ? esc(tt('git.private', 'Private')) : esc(tt('git.public', 'Public'))}"></i>
-      <span class="git-clone-name">${esc(repo.name)}</span>
-      ${desc}
-    </li>`;
+  // Group by owner so organization repos sit under their org header (your repos
+  // first), like GitHub Desktop's clone list.
+  const groups = new Map();
+  for (const repo of cloneState.repos) {
+    const owner = repo.owner || '—';
+    if (!groups.has(owner)) groups.set(owner, []);
+    groups.get(owner).push(repo);
+  }
+  const my = cloneState.myLogin;
+  const owners = Array.from(groups.keys()).sort((a, b) => {
+    if (a === my) return -1; if (b === my) return 1;
+    return a.localeCompare(b);
+  });
+  // Single owner (just you) → no group headers, keep it flat and clean.
+  if (owners.length <= 1) {
+    list.innerHTML = cloneState.repos.map(cloneItemHtml).join('');
+    return;
+  }
+  list.innerHTML = owners.map((owner) => {
+    const repos = groups.get(owner);
+    const isOrg = repos[0] && repos[0].ownerType === 'Organization';
+    const ownerIcon = isOrg ? 'ph-buildings' : 'ph-user';
+    const label = owner === my ? `${esc(owner)} · ${esc(tt('git.you', 'you'))}` : esc(owner);
+    return `<li class="git-clone-group"><i class="ph ${ownerIcon}"></i> <span class="git-clone-group-name">${label}</span> <span class="git-clone-group-count">${repos.length}</span></li>`
+      + repos.map(cloneItemHtml).join('');
   }).join('');
 }
 
@@ -625,6 +656,36 @@ async function chooseCloneDir() {
   if (el) { el.textContent = dir; el.title = dir; }
 }
 
+// Live clone progress bar (git --progress, streamed from main). scaleX on the
+// fill keeps it GPU-composited; we auto-hide a moment after done/error.
+let cloneProgressHideTimer = null;
+function updateCloneProgress(data) {
+  const wrap = $('git-clone-progress'); const fill = $('git-clone-progress-fill'); const label = $('git-clone-progress-label');
+  if (!wrap || !fill) return;
+  if (cloneProgressHideTimer) { clearTimeout(cloneProgressHideTimer); cloneProgressHideTimer = null; }
+  const stage = data && data.stage;
+  const pct = Math.max(0, Math.min(100, Math.round(Number(data && data.progress) || 0)));
+  wrap.hidden = false;
+  fill.style.transform = `scaleX(${pct / 100})`;
+  fill.dataset.stage = stage || '';
+  if (label) {
+    const word = stage === 'error' ? tt('git.cloneFailed', 'Clone failed')
+      : stage === 'done' ? tt('git.cloneDone', 'Done')
+        : `${tt('git.cloning', 'Cloning')}… ${pct}%`;
+    label.textContent = word;
+  }
+  if (stage === 'done' || stage === 'error') {
+    cloneProgressHideTimer = setTimeout(() => { if (wrap) wrap.hidden = true; }, 1200);
+  }
+}
+function showCloneProgress() {
+  const wrap = $('git-clone-progress'); const fill = $('git-clone-progress-fill'); const label = $('git-clone-progress-label');
+  if (cloneProgressHideTimer) { clearTimeout(cloneProgressHideTimer); cloneProgressHideTimer = null; }
+  if (fill) fill.style.transform = 'scaleX(0)';
+  if (label) label.textContent = `${tt('git.cloning', 'Cloning')}… 0%`;
+  if (wrap) wrap.hidden = false;
+}
+
 async function doClone() {
   if (!cloneState.selUrl || !cloneState.selName) { flash(tt('git.pasteUrl', 'Select a repository to clone.'), 'error'); return; }
   if (!cloneState.dir) { flash(tt('git.chooseLocation', 'Choose a destination folder.'), 'error'); return; }
@@ -635,9 +696,10 @@ async function doClone() {
   }
   const dest = joinPath(cloneState.dir, cloneState.selName);
   cloneState.dest = dest;
+  showCloneProgress();
   await run(tt('git.cloneBtn', 'Clone'), async () => {
     const r = await api().clone({ url: cloneState.selUrl, dest });
-    if (!r.ok) throw new Error(r.error);
+    if (!r.ok) { updateCloneProgress({ stage: 'error', progress: 0 }); throw new Error(r.error); }
     if (r.canceled) return tt('git.cloneBtn', 'Clone canceled');
     // After cloning, look for project files to offer "Open in SAPHO".
     let scan;
@@ -735,6 +797,7 @@ function init() {
   }
   $('git-commit-btn')?.addEventListener('click', doCommit);
   $('git-commit-desc')?.addEventListener('input', autoGrowDesc);
+  try { api()?.onCloneProgress?.((data) => updateCloneProgress(data)); } catch (_) { /* optional */ }
   $('git-diff-close')?.addEventListener('click', hideDiff);
   $('git-history-diff-close')?.addEventListener('click', () => { const d = $('git-history-diff'); if (d) d.hidden = true; });
   window.openGitPanel = open;

@@ -664,7 +664,11 @@
         "fileOne":            "file",
         "fileMany":           "files",
         "cancel":             "Cancel",
-        "disconnectConfirm":  "Disconnect your GitHub account from Aurora? The stored token will be removed from secure storage."
+        "disconnectConfirm":  "Disconnect your GitHub account from Aurora? The stored token will be removed from secure storage.",
+        "you":                "you",
+        "cloning":            "Cloning",
+        "cloneDone":          "Done",
+        "cloneFailed":        "Clone failed"
     },
     "search": {
         "title":             "Find in files",

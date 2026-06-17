@@ -357,6 +357,21 @@
   border: 1px solid var(--border); border-radius: var(--radius-md);
   background: var(--bg-sunken, var(--bg));
 }
+.git-clone-list { max-height: 32vh; }
+/* Owner group header (your account / each organization). */
+.git-clone-group {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px var(--space-2);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted); background: var(--bg-elev);
+  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.05));
+  position: sticky; top: 0; z-index: 1;
+}
+.git-clone-group-name { font-weight: var(--font-semibold); color: var(--text-secondary, var(--text-muted)); }
+.git-clone-group-count {
+  margin-left: auto; padding: 0 6px; border-radius: 999px;
+  background: var(--overlay-hover); color: var(--text-muted); font-size: 9px;
+}
 .git-clone-item {
   display: flex; align-items: center; gap: var(--space-2);
   padding: 5px var(--space-2); cursor: pointer;
@@ -448,6 +463,30 @@
 /* ---- misc ---- */
 .git-diff-loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); }
 .git-mini:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* ---- clone progress bar (git --progress, streamed from main) ---- */
+.git-clone-progress {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin-top: var(--space-2);
+  animation: gitPanelReveal var(--motion-flow, 200ms) var(--ease-out, ease) both;
+}
+.git-clone-progress-track {
+  flex: 1 1 auto; height: 6px; border-radius: 999px;
+  background: var(--overlay-hover); overflow: hidden;
+}
+.git-clone-progress-fill {
+  height: 100%; width: 100%;
+  transform: scaleX(0); transform-origin: left center;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover, var(--accent)));
+  border-radius: 999px;
+  transition: transform 180ms var(--ease-out, ease);
+}
+.git-clone-progress-fill[data-stage="done"] { background: var(--status-success, #5fe0b0); }
+.git-clone-progress-fill[data-stage="error"] { background: var(--status-error, #ff6b6b); }
+.git-clone-progress-label {
+  flex-shrink: 0; font-size: var(--text-xs); color: var(--text-muted);
+  font-variant-numeric: tabular-nums; min-width: 86px; text-align: right;
+}
 
 /* ===========================================================================
  *  Commit file-list diff (GitHub-Desktop model) + motion

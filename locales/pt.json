@@ -664,7 +664,11 @@
         "fileOne":            "arquivo",
         "fileMany":           "arquivos",
         "cancel":             "Cancelar",
-        "disconnectConfirm":  "Desconectar sua conta do GitHub da Aurora? O token armazenado será removido do armazenamento seguro."
+        "disconnectConfirm":  "Desconectar sua conta do GitHub da Aurora? O token armazenado será removido do armazenamento seguro.",
+        "you":                "você",
+        "cloning":            "Clonando",
+        "cloneDone":          "Concluído",
+        "cloneFailed":        "Falha no clone"
     },
     "search": {
         "title":             "Buscar nos arquivos",

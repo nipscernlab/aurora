@@ -185,18 +185,41 @@ async function connect(token) {
   return user;
 }
 
-/** List the connected account's repositories (owner affiliation). */
+/**
+ * List EVERY repository the token can reach — the user's own, ones they
+ * collaborate on, AND organization repos (when the user is an org member and the
+ * token was granted access to that org). That's the `affiliation` triad
+ * GitHub recommends; `/user/repos` already spans owners, so no per-org calls are
+ * needed. We paginate (the Link header isn't exposed by apiGet, so we walk pages
+ * until a short page) up to a sane cap, and surface `owner`/`ownerType` so the
+ * panel can group "your repos" apart from each organization.
+ */
 async function listRepos() {
   const token = getToken();
   if (!token) throw new Error('Conecte sua conta GitHub primeiro.');
-  const repos = await apiGet('/user/repos?per_page=100&sort=updated&affiliation=owner', token);
-  return repos.map((r) => ({
+  const perPage = 100;
+  const maxPages = 5; // up to ~500 repos — plenty, and bounds the worst case
+  const all = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const repos = await apiGet(
+      `/user/repos?per_page=${perPage}&sort=updated&affiliation=owner,collaborator,organization_member&page=${page}`,
+      token,
+    );
+    if (!Array.isArray(repos) || repos.length === 0) break;
+    all.push(...repos);
+    if (repos.length < perPage) break;
+  }
+  return all.map((r) => ({
     name: r.name,
     fullName: r.full_name,
     cloneUrl: r.clone_url,
+    htmlUrl: r.html_url,
     private: r.private,
     description: r.description || '',
     updatedAt: r.updated_at,
+    owner: r.owner ? r.owner.login : null,
+    ownerType: r.owner ? r.owner.type : null, // 'User' | 'Organization'
+    fork: !!r.fork,
   }));
 }
 

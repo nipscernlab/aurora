@@ -442,6 +442,11 @@ const gitOperations = {
   merge:     (opts) => ipcRenderer.invoke('git:merge', opts),
   undoLastCommit: () => ipcRenderer.invoke('git:undo-last-commit'),
   clone:     (opts) => ipcRenderer.invoke('git:clone', opts),
+  onCloneProgress: (cb) => {
+    const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
+    ipcRenderer.on('git:clone-progress', h);
+    return () => ipcRenderer.removeListener('git:clone-progress', h);
+  },
   scanSpf:   (opts) => ipcRenderer.invoke('git:scan-spf', opts),
   fetch:     () => ipcRenderer.invoke('git:fetch'),
   pull:      () => ipcRenderer.invoke('git:pull'),

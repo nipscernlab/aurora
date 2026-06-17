@@ -267,20 +267,33 @@ function register() {
 
   // Clone a repo into the folder the renderer picked ({ url, dest }). Uses the
   // stored token if present. The folder picking now happens renderer-side.
-  ipcMain.handle('git:clone', safe(async (/** @type {{url:string, dest:string}} */ opts) => {
-    if (!opts || typeof opts.url !== 'string' || !opts.url.trim()) throw new Error('url required');
-    if (typeof opts.dest !== 'string' || !opts.dest.trim()) throw new Error('dest required');
-    const config = [];
+  // NOTE: this one isn't wrapped in safe() because it needs `event.sender` to
+  // stream live progress (git --progress) back to the panel's progress bar.
+  ipcMain.handle('git:clone', async (event, /** @type {{url:string, dest:string}} */ opts) => {
     try {
-      const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
-      if (token) {
-        const basic = Buffer.from(`x-access-token:${token}`).toString('base64');
-        config.push(`http.extraHeader=Authorization: Basic ${basic}`);
-      }
-    } catch (_) { /* fall back to credential helper */ }
-    await simpleGit({ config }).clone(opts.url, opts.dest);
-    return { dest: opts.dest };
-  }));
+      if (!opts || typeof opts.url !== 'string' || !opts.url.trim()) throw new Error('url required');
+      if (typeof opts.dest !== 'string' || !opts.dest.trim()) throw new Error('dest required');
+      const config = [];
+      try {
+        const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
+        if (token) {
+          const basic = Buffer.from(`x-access-token:${token}`).toString('base64');
+          config.push(`http.extraHeader=Authorization: Basic ${basic}`);
+        }
+      } catch (_) { /* fall back to credential helper */ }
+      // simple-git's progress plugin parses git's stderr (counting/compressing/
+      // receiving/resolving + percent). We forward each tick to the renderer.
+      const progress = (/** @type {{method:string, stage:string, progress:number}} */ p) => {
+        try { event.sender.send('git:clone-progress', { stage: p.stage, progress: p.progress }); } catch (_) { /* window gone */ }
+      };
+      await simpleGit({ config, progress }).clone(opts.url, opts.dest, ['--progress']);
+      try { event.sender.send('git:clone-progress', { stage: 'done', progress: 100 }); } catch (_) { /* ignore */ }
+      return { ok: true, dest: opts.dest };
+    } catch (e) {
+      try { event.sender.send('git:clone-progress', { stage: 'error', progress: 0 }); } catch (_) { /* ignore */ }
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
 
   // Scan a directory tree for SAPHO project files (*.spf), shallow (depth <= 5),
   // skipping VCS/build/dependency folders. Used by the clone flow to find a

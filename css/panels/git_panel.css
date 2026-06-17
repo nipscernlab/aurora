@@ -834,27 +834,29 @@
 }
 .git-help-open { margin-top: var(--space-2); }
 
-/* OAuth device flow: BIG, copyable user_code */
+/* OAuth device flow: BIG, copyable user_code — content centered in the card. */
 .git-oauth-code {
-  display: flex; flex-direction: column; gap: var(--space-2);
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2);
   margin-top: var(--space-2); padding: var(--space-3);
   background: var(--bg-elev-1, var(--bg-elev)); border: 1px solid var(--accent-border, var(--border));
   border-radius: var(--radius-md);
   animation: gitPanelReveal var(--motion-flow, 200ms) var(--ease-out, ease) both;
 }
 .git-oauth-code[hidden] { display: none !important; }
-.git-oauth-step { display: flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary, var(--text-muted)); }
+.git-oauth-step { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary, var(--text-muted)); }
 .git-oauth-step i { color: var(--accent-hover, var(--accent)); font-size: 16px; }
 .git-oauth-codebox {
-  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
   background: var(--bg-sunken, var(--bg)); border: 1px solid var(--border); border-radius: var(--radius-md);
 }
 .git-oauth-codeval {
   font-family: var(--font-mono); font-size: 26px; font-weight: var(--font-bold);
   letter-spacing: 0.18em; color: var(--text); user-select: all;
 }
-.git-oauth-wait { display: flex; align-items: center; gap: 8px; font-size: var(--text-xs); color: var(--text-muted); flex-wrap: wrap; }
+.git-oauth-wait { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: var(--text-xs); color: var(--text-muted); flex-wrap: wrap; }
+/* Green confirmation flash on the copy button. */
+.git-icon-btn.copied { color: var(--status-success, #5DD4A8); }
 .git-oauth-error {
   display: flex; align-items: center; gap: 6px; margin-bottom: var(--space-2);
   font-size: var(--text-sm); color: var(--status-error, #ff6b6b);

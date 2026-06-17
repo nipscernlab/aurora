@@ -659,6 +659,8 @@
         "noTextDiff":         "No textual differences.",
         "noDiffYet":          "No differences (a new file appears once staged, or it is binary).",
         "binaryNotShown":     "Binary file — diff not shown.",
+        "largeDiff":          "Large change — diff hidden to keep the UI responsive.",
+        "showAnyway":         "Show first part anyway",
         "noFileChanges":      "No file changes in this commit.",
         "diffTruncated":      "Large diff — showing the first part only.",
         "fileOne":            "file",

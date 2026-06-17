@@ -51,6 +51,9 @@ function close() {
   if (!modal) return;
   modal.classList.remove('show');
   modal.setAttribute('aria-hidden', 'true');
+  // Free any heavy diff DOM held by the (now hidden) diff panels.
+  hideDiff();
+  hideHistoryDiff();
 }
 const isOpen = () => modal && modal.classList.contains('show');
 
@@ -429,21 +432,45 @@ async function refresh() {
 const BINARY_EXT_RE = /\.(png|jpe?g|gif|bmp|ico|webp|tiff?|svg|pdf|zip|gz|tgz|7z|rar|exe|dll|so|dylib|o|a|lib|bin|dat|vcd|fst|ghw|wlf|woff2?|ttf|otf|eot|mp[34]|wav|ogg|class|jar|mif|hex|coe)$/i;
 function isBinaryFile(f) { return !!(f && (f.binary || BINARY_EXT_RE.test(f.path || ''))); }
 
-// diff2html, line-by-line. We deliberately DON'T use matching:'words' — that
-// intra-line word diff is O(n²)-ish and was a big part of the freeze on large
-// diffs. Per-file + capped + no word-matching keeps rendering snappy.
-function diffHtml(text) {
-  const start = text.indexOf('diff --git');
-  const body = start >= 0 ? text.slice(start) : text;
-  if (!body.trim()) return `<div class="git-diff-empty">${esc(tt('git.noTextDiff', 'No textual differences.'))}</div>`;
-  return renderDiff(body, { drawFileList: false, outputFormat: 'line-by-line', colorScheme: 'dark' });
+// Hard cap on diff lines handed to diff2html. Even the byte cap (main side) can
+// leave ~20k short lines, and building that many DOM nodes froze the panel. A
+// file with one 900k-line .txt is the worst case. 1500 lines renders instantly.
+const MAX_DIFF_LINES = 1500;
+
+// A file whose total changed lines exceed the cap is NOT auto-rendered. We know
+// the counts up front from numstat, so we gate BEFORE fetching/rendering — the
+// user can still force a capped view.
+function isTooBig(f) {
+  return !isBinaryFile(f) && ((Number(f && f.additions) || 0) + (Number(f && f.deletions) || 0)) > MAX_DIFF_LINES;
 }
-function truncNote(truncated) {
-  return truncated
+
+// diff2html, line-by-line. No matching:'words' (O(n²), a big part of the freeze).
+// We ALSO truncate to MAX_DIFF_LINES here as a universal safety net — whatever
+// reaches this function, diff2html never sees more than the cap.
+function diffHtml(text, byteTruncated) {
+  const start = text.indexOf('diff --git');
+  let body = start >= 0 ? text.slice(start) : text;
+  if (!body.trim()) return `<div class="git-diff-empty">${esc(tt('git.noTextDiff', 'No textual differences.'))}</div>`;
+  const lines = body.split('\n');
+  let lineTruncated = false;
+  if (lines.length > MAX_DIFF_LINES) { body = lines.slice(0, MAX_DIFF_LINES).join('\n'); lineTruncated = true; }
+  const note = (byteTruncated || lineTruncated)
     ? `<div class="git-diff-trunc"><i class="ph ph-warning-circle"></i> ${esc(tt('git.diffTruncated', 'Large diff — showing the first part only.'))}</div>`
     : '';
+  return note + renderDiff(body, { drawFileList: false, outputFormat: 'line-by-line', colorScheme: 'dark' });
 }
-function hideDiff() { const d = $('git-diff'); if (d) d.hidden = true; }
+// Closing a diff drops its (potentially heavy) diff2html DOM so the memory is
+// reclaimed instead of lingering until the next render.
+function hideDiff() {
+  const d = $('git-diff'); const body = $('git-diff-body');
+  if (d) d.hidden = true;
+  if (body) body.innerHTML = '';
+}
+function hideHistoryDiff() {
+  const d = $('git-history-diff'); const body = $('git-history-diff-body');
+  if (d) d.hidden = true;
+  if (body) body.innerHTML = '';
+}
 async function showDiff(file, staged) {
   const d = $('git-diff'); const body = $('git-diff-body');
   if (!d || !body) return;
@@ -462,7 +489,7 @@ async function showDiff(file, staged) {
     return;
   }
   // Render on the next frame so the spinner paints first (large files).
-  requestAnimationFrame(() => { body.innerHTML = truncNote(r.truncated) + diffHtml(text); });
+  requestAnimationFrame(() => { body.innerHTML = diffHtml(text, r.truncated); });
 }
 
 // History diff — GitHub-Desktop model: a FAST file list (numstat only), then the
@@ -477,18 +504,29 @@ function commitDetailHtml(commit, hash) {
 }
 function fileDiffRow(f, i, hash) {
   const bin = isBinaryFile(f);
+  const big = isTooBig(f);
   const stats = bin
     ? `<span class="git-fd-bin" title="${esc(tt('git.binaryNotShown', 'Binary file — diff not shown.'))}">bin</span>`
     : `<span class="git-fd-add">+${f.additions}</span><span class="git-fd-del">-${f.deletions}</span>`;
-  return `<div class="git-fd ${bin ? 'is-binary' : ''}" data-file="${esc(f.path)}" data-index="${i}">
-    <button class="git-fd-head" data-action="commit-file-toggle" data-hash="${esc(hash)}" data-file="${esc(f.path)}" data-binary="${bin}" ${bin ? 'disabled' : ''}>
+  let inner;
+  if (bin) {
+    inner = `<div class="git-fd-note"><i class="ph ph-file-image"></i> ${esc(tt('git.binaryNotShown', 'Binary file — diff not shown.'))}</div>`;
+  } else if (big) {
+    const n = (Number(f.additions) || 0) + (Number(f.deletions) || 0);
+    inner = `<div class="git-fd-note"><i class="ph ph-warning-circle"></i> ${esc(tt('git.largeDiff', 'Large change — diff hidden to keep the UI responsive.'))} (${n})
+        <button class="git-mini" data-action="commit-file-force" data-hash="${esc(hash)}" data-file="${esc(f.path)}"><i class="ph ph-eye"></i> ${esc(tt('git.showAnyway', 'Show first part anyway'))}</button></div>
+      <div class="git-fd-body" hidden></div>`;
+  } else {
+    inner = '<div class="git-fd-body" hidden></div>';
+  }
+  const headDisabled = bin || big;
+  return `<div class="git-fd ${bin ? 'is-binary' : ''} ${big ? 'is-big' : ''}" data-file="${esc(f.path)}" data-index="${i}">
+    <button class="git-fd-head" data-action="commit-file-toggle" data-hash="${esc(hash)}" data-file="${esc(f.path)}" data-binary="${headDisabled}" ${headDisabled ? 'disabled' : ''}>
       <i class="ph ph-caret-right git-fd-caret" aria-hidden="true"></i>
       <span class="git-fd-path" title="${esc(f.path)}">${esc(f.path)}</span>
       ${stats}
     </button>
-    ${bin
-      ? `<div class="git-fd-note"><i class="ph ph-file-image"></i> ${esc(tt('git.binaryNotShown', 'Binary file — diff not shown.'))}</div>`
-      : `<div class="git-fd-body" hidden></div>`}
+    ${inner}
   </div>`;
 }
 async function showCommitDiff(hash) {
@@ -507,25 +545,37 @@ async function showCommitDiff(hash) {
   const head = `<div class="git-fd-summary">${files.length} ${esc(files.length === 1 ? tt('git.fileOne', 'file') : tt('git.fileMany', 'files'))}</div>`;
   body.innerHTML = commitDetailHtml(commit, hash) + head
     + `<div class="git-filelist">${files.map((f, i) => fileDiffRow(f, i, hash)).join('')}</div>`;
-  // Auto-expand the first text file so there's something visible immediately.
-  const firstText = body.querySelector('.git-fd:not(.is-binary) .git-fd-head');
+  // Auto-expand the first SMALL text file so there's something visible — never a
+  // binary or a too-big file (those would defeat the anti-freeze gate).
+  const firstText = body.querySelector('.git-fd:not(.is-binary):not(.is-big) .git-fd-head');
   if (firstText) toggleCommitFile(firstText);
+}
+async function loadFileDiffInto(body, hash, file) {
+  body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
+  let r;
+  try { r = await api().show({ hash, file }); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  if (!r || !r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
+  body.dataset.loaded = '1';
+  requestAnimationFrame(() => { body.innerHTML = diffHtml(r.diff || '', r.truncated); });
 }
 async function toggleCommitFile(btn) {
   const fd = btn.closest('.git-fd');
   if (!fd) return;
   const body = fd.querySelector('.git-fd-body');
   if (!body) return;
-  if (!body.hidden) { body.hidden = true; fd.classList.remove('expanded'); return; }
+  if (!body.hidden) { body.hidden = true; body.innerHTML = ''; delete body.dataset.loaded; fd.classList.remove('expanded'); return; }
   fd.classList.add('expanded'); body.hidden = false;
   if (body.dataset.loaded) return;
-  body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
-  const hash = btn.dataset.hash; const file = btn.dataset.file;
-  let r;
-  try { r = await api().show({ hash, file }); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
-  if (!r || !r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
-  body.dataset.loaded = '1';
-  requestAnimationFrame(() => { body.innerHTML = truncNote(r.truncated) + diffHtml(r.diff || ''); });
+  await loadFileDiffInto(body, btn.dataset.hash, btn.dataset.file);
+}
+// "Show first part anyway" for a too-big file — loads the capped diff on demand.
+async function forceCommitFile(btn) {
+  const fd = btn.closest('.git-fd');
+  const body = fd && fd.querySelector('.git-fd-body');
+  if (!body) return;
+  fd.classList.add('expanded'); body.hidden = false; btn.disabled = true;
+  if (body.dataset.loaded) return;
+  await loadFileDiffInto(body, btn.dataset.hash, btn.dataset.file);
 }
 
 async function loadHistory() {
@@ -582,7 +632,7 @@ async function onClick(e) {
       case 'oauth-login': return oauthLogin();
       case 'oauth-cancel': return oauthCancel();
       case 'toggle-pat': { const c = $('git-connect'); if (c) c.hidden = !c.hidden; const inp = $('git-pat'); if (c && !c.hidden && inp) inp.focus(); return undefined; }
-      case 'oauth-copy-code': return copyToClipboard(actEl.dataset.code, tt('git.copied', 'Copied'));
+      case 'oauth-copy-code': { copyToClipboard(actEl.dataset.code, tt('git.copied', 'Copied')); flashCopied(actEl); return undefined; }
       case 'disconnect': return disconnectAccount();
       case 'token-help': {
         const help = $('git-token-help');
@@ -599,6 +649,7 @@ async function onClick(e) {
         return undefined;
       }
       case 'commit-file-toggle': return toggleCommitFile(actEl);
+      case 'commit-file-force': return forceCommitFile(actEl);
       case 'clone-toggle': return toggleClone();
       case 'clone-list-select': return selectCloneRepo(actEl);
       case 'clone-choose-dir': return chooseCloneDir();
@@ -988,6 +1039,16 @@ async function copyToClipboard(text, okMsg) {
   try { await navigator.clipboard.writeText(text || ''); flash(okMsg, 'ok'); }
   catch (_) { flash('Clipboard unavailable', 'error'); }
 }
+// Green check feedback on a copy button: swap the icon to a check + .copied for
+// a moment, then restore. Reusable across any copy button.
+function flashCopied(btn) {
+  if (!btn) return;
+  const icon = btn.querySelector('i');
+  btn.classList.add('copied');
+  const prev = icon ? icon.className : null;
+  if (icon) icon.className = 'ph ph-check';
+  setTimeout(() => { btn.classList.remove('copied'); if (icon && prev) icon.className = prev; }, 1400);
+}
 async function runClonedAction(action, idx) {
   const item = loadCloned()[idx];
   closeClonedMenu();
@@ -1124,7 +1185,7 @@ function init() {
   $('git-commit-desc')?.addEventListener('input', autoGrowDesc);
   try { api()?.onCloneProgress?.((data) => updateCloneProgress(data)); } catch (_) { /* optional */ }
   $('git-diff-close')?.addEventListener('click', hideDiff);
-  $('git-history-diff-close')?.addEventListener('click', () => { const d = $('git-history-diff'); if (d) d.hidden = true; });
+  $('git-history-diff-close')?.addEventListener('click', hideHistoryDiff);
   window.openGitPanel = open;
 
   const refreshBadge = debounce(updateBadge, 700);

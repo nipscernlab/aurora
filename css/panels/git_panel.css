@@ -328,3 +328,45 @@
 }
 .git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }
 .git-badge[data-kind="ahead"]   { background: #5fe0b0; color: #062018; }
+
+/* ---- status bar: more visible (pill with background) ---- */
+.git-status {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 5px 10px; border-radius: var(--radius-md);
+  font-size: var(--text-sm); font-weight: var(--font-medium);
+  background: var(--bg-elev-2, var(--bg-elev)); color: var(--text);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.git-status:empty { display: none; }
+.git-status[data-kind="ok"] { background: rgba(95, 224, 176, 0.14); color: #6fe6bc; }
+.git-status[data-kind="error"] { background: rgba(232, 128, 127, 0.16); color: #f08e8d; }
+.git-status[data-kind="info"] { background: rgba(120, 150, 255, 0.12); color: var(--text); }
+
+/* ---- amend toggle — professional pill ---- */
+.git-amend-toggle {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 var(--space-2);
+  background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text-muted); font-size: var(--text-xs); cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.git-amend-toggle:hover { color: var(--text); border-color: var(--border-strong); }
+.git-amend-toggle.active { background: var(--accent-soft, rgba(150, 130, 235, 0.18)); border-color: var(--accent); color: var(--accent-hover, #b8a0ff); }
+
+/* ---- description box — auto-grows, no resize handle ---- */
+.git-commit-desc {
+  width: 100%; min-height: 34px; max-height: 160px; resize: none; overflow-y: auto;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-sunken, var(--bg)); border: 1px solid var(--border); border-radius: var(--radius-md);
+  color: var(--text); font-family: var(--font-sans); font-size: var(--text-sm); line-height: 1.5;
+}
+.git-commit-desc:focus { outline: none; border-color: var(--accent); }
+
+/* ---- commit detail (message shown above the diff in History) ---- */
+.git-commit-detail { padding: var(--space-3); border-bottom: 1px solid var(--border); background: var(--bg-elev-1, var(--bg-elev)); }
+.git-commit-detail-subject { font-size: var(--text-sm); font-weight: var(--font-semibold); color: var(--text); }
+.git-commit-detail-body { margin: var(--space-2) 0 0; padding: 0; white-space: pre-wrap; word-break: break-word; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text-secondary, var(--text-muted)); background: transparent; border: none; }
+.git-commit-detail-meta { margin-top: var(--space-2); font-size: var(--text-xs); color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+
+/* ---- misc ---- */
+.git-diff-loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); }
+.git-mini:disabled { opacity: 0.45; cursor: not-allowed; }

@@ -26,6 +26,9 @@ let modal = null;
 let busy = false;
 let publishPrivate = true;
 let activeTab = 'changes';
+let amendOn = false;
+let lastHasChanges = false;
+let historyCommits = [];
 
 // --- open / close ----------------------------------------------------------
 function open() {
@@ -141,10 +144,13 @@ function renderRepoHeader(st, info) {
   if (!repo) return;
   const ahead = st.ahead ? `<span class="git-sync git-ahead" title="à frente do remoto">↑ ${st.ahead}</span>` : '';
   const behind = st.behind ? `<span class="git-sync git-behind" title="atrás do remoto">↓ ${st.behind}</span>` : '';
+  // Push only makes sense when there's something to push: an upstream that we're
+  // ahead of, or no upstream yet (a fresh branch that needs the first push -u).
+  const pushDisabled = !!st.tracking && !st.ahead;
   const remoteBtns = info.hasOrigin ? `
       <button class="git-mini" data-action="fetch" title="Fetch"><i class="ph ph-cloud-arrow-down"></i> Fetch</button>
       <button class="git-mini" data-action="pull" title="Pull"><i class="ph ph-arrow-down"></i> Pull</button>
-      <button class="git-mini git-mini-primary" data-action="push" title="Push"><i class="ph ph-arrow-up"></i> Push</button>` : '';
+      <button class="git-mini git-mini-primary" data-action="push" title="Push" ${pushDisabled ? 'disabled' : ''}><i class="ph ph-arrow-up"></i> Push${st.ahead ? ` (${st.ahead})` : ''}</button>` : '';
   repo.innerHTML = `
     <div class="git-repo-left">
       <span class="git-repo-name" title="${esc(info.originUrl || info.name || '')}"><i class="ph ph-git-repository"></i> ${esc(info.name || '—')}</span>
@@ -277,8 +283,9 @@ async function refresh() {
   renderRepoHeader(st, info);
   renderPublish(info);
   renderChanges(st);
+  lastHasChanges = !!st.files.length;
   const commitBtn = $('git-commit-btn');
-  if (commitBtn) commitBtn.disabled = !st.files.length && !$('git-amend')?.checked;
+  if (commitBtn) commitBtn.disabled = !lastHasChanges && !amendOn;
   hideDiff();
   if (activeTab === 'history') loadHistory();
   updateBadge();
@@ -303,14 +310,22 @@ async function showDiff(file, staged) {
   $('git-diff-title').textContent = `${file}${staged ? '  ·  staged' : ''}`;
   d.hidden = false;
 }
-async function showCommitDiff(hash, subject) {
+async function showCommitDiff(hash) {
   const d = $('git-history-diff'); const body = $('git-history-diff-body');
   if (!d || !body) return;
-  const r = await api().show({ hash });
-  if (!r.ok) { flash(`show: ${r.error}`, 'error'); return; }
-  body.innerHTML = diffHtml(r.diff || '');
-  $('git-history-diff-title').textContent = `${String(hash).slice(0, 7)} · ${subject || ''}`;
+  const commit = historyCommits.find((c) => c.hash === hash) || {};
   d.hidden = false;
+  $('git-history-diff-title').textContent = String(hash).slice(0, 7);
+  body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> Carregando…</div>`;
+  const r = await api().show({ hash });
+  if (!r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r.error)}</div>`; return; }
+  // Show the commit MESSAGE (subject + body) above the diff, GitHub-Desktop style.
+  const detail = `<div class="git-commit-detail">
+    <div class="git-commit-detail-subject">${esc(commit.message || '')}</div>
+    ${commit.body ? `<pre class="git-commit-detail-body">${esc(commit.body)}</pre>` : ''}
+    <div class="git-commit-detail-meta"><i class="ph ph-user-circle"></i> ${esc(commit.author || '')} &middot; <i class="ph ph-git-commit"></i> ${esc(String(hash).slice(0, 7))} &middot; ${esc(relDate(commit.date))}</div>
+  </div>`;
+  body.innerHTML = detail + diffHtml(r.diff || '');
 }
 
 async function loadHistory() {
@@ -318,9 +333,10 @@ async function loadHistory() {
   if (!list) return;
   const r = await api().log({ maxCount: 50 });
   if (!r.ok) { list.innerHTML = `<li class="git-commit-empty">${esc(r.error)}</li>`; return; }
-  if (!r.commits.length) { list.innerHTML = `<li class="git-commit-empty">Nenhum commit ainda.</li>`; return; }
-  list.innerHTML = r.commits.map((c) => `
-    <li class="git-commit" data-hash="${esc(c.hash)}" data-subject="${esc(c.message)}">
+  historyCommits = r.commits || [];
+  if (!historyCommits.length) { list.innerHTML = `<li class="git-commit-empty">Nenhum commit ainda.</li>`; return; }
+  list.innerHTML = historyCommits.map((c) => `
+    <li class="git-commit" data-hash="${esc(c.hash)}">
       <span class="git-commit-hash">${esc(String(c.hash).slice(0, 7))}</span>
       <span class="git-commit-msg" title="${esc(c.message)}">${esc(c.message)}</span>
       <span class="git-commit-meta">${esc(c.author)} · ${esc(relDate(c.date))}</span>
@@ -345,6 +361,12 @@ async function onClick(e) {
       case 'unstage-all':return run('Unstage all', async () => { const st = await api().status(); await api().unstage(st.files.map((f) => f.path)); refresh(); });
       case 'discard':    return discard(file);
       case 'undo':       return undoLast();
+      case 'toggle-amend': {
+        amendOn = !amendOn;
+        const b = $('git-amend-btn'); if (b) { b.classList.toggle('active', amendOn); b.setAttribute('aria-pressed', String(amendOn)); }
+        const cb = $('git-commit-btn'); if (cb) cb.disabled = !lastHasChanges && !amendOn;
+        return undefined;
+      }
       case 'init':       return run('Inicializar', async () => { const r = await api().init(); if (!r.ok) throw new Error(r.error); refresh(); return 'Repositório inicializado'; });
       case 'fetch':      return run('Fetch', async () => { const r = await api().fetch(); if (!r.ok) throw new Error(r.error); refresh(); return 'Fetch concluído'; });
       case 'pull':       return run('Pull', async () => { const r = await api().pull(); if (!r.ok) throw new Error(r.error); refresh(); return 'Pull concluído'; });
@@ -380,7 +402,7 @@ async function onClick(e) {
   if (commit && commit.dataset.hash) {
     document.querySelectorAll('.git-commit.selected').forEach((n) => n.classList.remove('selected'));
     commit.classList.add('selected');
-    return showCommitDiff(commit.dataset.hash, commit.dataset.subject);
+    return showCommitDiff(commit.dataset.hash);
   }
   return undefined;
 }
@@ -453,7 +475,7 @@ async function publish() {
 async function doCommit() {
   const title = ($('git-commit-title')?.value || '').trim();
   const desc = ($('git-commit-desc')?.value || '').trim();
-  const amend = !!$('git-amend')?.checked;
+  const amend = amendOn;
   if (!title) { flash('Escreva um resumo para o commit.', 'error'); return; }
   const message = desc ? `${title}\n\n${desc}` : title;
   await run('Commit', async () => {
@@ -464,8 +486,9 @@ async function doCommit() {
     const r = await api().commit({ message, amend });
     if (!r.ok) throw new Error(r.error);
     if ($('git-commit-title')) $('git-commit-title').value = '';
-    if ($('git-commit-desc')) $('git-commit-desc').value = '';
-    if ($('git-amend')) $('git-amend').checked = false;
+    if ($('git-commit-desc')) { $('git-commit-desc').value = ''; autoGrowDesc(); }
+    amendOn = false;
+    const ab = $('git-amend-btn'); if (ab) { ab.classList.remove('active'); ab.setAttribute('aria-pressed', 'false'); }
     refresh();
     return amend ? 'Commit corrigido (amend)' : `Commit ${r.commit ? String(r.commit).slice(0, 7) : ''} criado`;
   });
@@ -473,6 +496,13 @@ async function doCommit() {
 
 // --- init ------------------------------------------------------------------
 function debounce(fn, ms) { let t; return () => { clearTimeout(t); t = setTimeout(fn, ms); }; }
+// Our own auto-growing description box (grows with the text, up to a cap).
+function autoGrowDesc() {
+  const el = $('git-commit-desc');
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+}
 function init() {
   $('gitButton')?.addEventListener('click', open);
   modal = $('gitModal');
@@ -481,6 +511,7 @@ function init() {
     modal.addEventListener('click', onClick);
   }
   $('git-commit-btn')?.addEventListener('click', doCommit);
+  $('git-commit-desc')?.addEventListener('input', autoGrowDesc);
   $('git-diff-close')?.addEventListener('click', hideDiff);
   $('git-history-diff-close')?.addEventListener('click', () => { const d = $('git-history-diff'); if (d) d.hidden = true; });
   window.openGitPanel = open;

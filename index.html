@@ -743,9 +743,9 @@
         <div class="git-tabpane" id="git-pane-changes">
             <div class="git-commitbox" id="git-commitbox">
                 <input type="text" id="git-commit-title" class="git-commit-title" placeholder="Resumo do commit" />
-                <textarea id="git-commit-desc" class="git-commit-input" rows="2" placeholder="Descrição (opcional)"></textarea>
+                <textarea id="git-commit-desc" class="git-commit-desc" rows="1" placeholder="Descrição (opcional)"></textarea>
                 <div class="git-commit-actions">
-                    <label class="git-amend"><input type="checkbox" id="git-amend"> Amend</label>
+                    <button class="git-amend-toggle" data-action="toggle-amend" id="git-amend-btn" aria-pressed="false" title="Corrigir o último commit"><i class="ph ph-pencil-simple"></i> Amend</button>
                     <button class="git-mini" data-action="undo"><i class="ph ph-arrow-counter-clockwise"></i> Desfazer último</button>
                     <button id="git-commit-btn" class="btn btn-primary git-commit-btn"><i class="ph ph-check"></i> Commit</button>
                 </div>

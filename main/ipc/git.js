@@ -125,7 +125,8 @@ function register() {
     const logResult = await git.log({ maxCount: (opts && opts.maxCount) || 50 });
     return {
       commits: logResult.all.map((c) => ({
-        hash: c.hash, date: c.date, message: c.message, author: c.author_name, email: c.author_email,
+        hash: c.hash, date: c.date, message: c.message, body: (c.body || '').trim(),
+        author: c.author_name, email: c.author_email,
       })),
     };
   }));

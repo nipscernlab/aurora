@@ -278,6 +278,12 @@ class EditorManager {
             document.dispatchEvent(new CustomEvent('aurora-editor-focused', {
                 detail: { filePath, paneIndex: 0 },
             }));
+            // VS Code-style: the tree's open-file highlight brightens while an
+            // editor has focus and mutes when it doesn't.
+            document.dispatchEvent(new CustomEvent('aurora-editor-focusstate', { detail: { focused: true } }));
+        });
+        editor.onDidBlurEditorWidget(() => {
+            document.dispatchEvent(new CustomEvent('aurora-editor-focusstate', { detail: { focused: false } }));
         });
 
         this.decorateVerticalBar(editor);

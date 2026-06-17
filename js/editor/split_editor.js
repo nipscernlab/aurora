@@ -203,6 +203,10 @@ class SplitPane {
             if (this.activeFile !== filePath) {
                 this._activateFile(filePath);
             }
+            document.dispatchEvent(new CustomEvent('aurora-editor-focusstate', { detail: { focused: true } }));
+        });
+        editor.onDidBlurEditorWidget(() => {
+            document.dispatchEvent(new CustomEvent('aurora-editor-focusstate', { detail: { focused: false } }));
         });
 
         // Mirror typing into the dirty marker. The shared model already

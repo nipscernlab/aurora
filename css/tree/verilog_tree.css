@@ -250,22 +250,28 @@
    da categoria (synth/testbench/top-level) que ja existem ali. Pintada
    por project_tree_render.js#refreshEditorFocusHighlight a cada
    aurora:editing-file-changed e no fim do render. */
-.verilog-file-item.editor-focused {
-  background-color: var(--accent-soft);
-  border-left-color: var(--accent);
+/* Open file — VS Code "active editor" affordance. NEUTRAL highlight (the accent
+   is reserved for top-level/testbench, so the open file no longer looks the
+   same as a top-level row). BRIGHT while an editor has focus, MUTED otherwise —
+   the last open file keeps a faint highlight when focus moved elsewhere, and it
+   brightens again when the editor is refocused. Top-level keeps its own accent
+   identity even when it is the open file. */
+.verilog-file-item.editor-focused:not(.top-level-file) {
+  background-color: rgba(255, 255, 255, 0.045);
+}
+body.editor-has-focus .verilog-file-item.editor-focused:not(.top-level-file) {
+  background-color: var(--overlay-hover);
 }
 .verilog-file-item.editor-focused .verilog-file-name {
-  color: var(--text);
+  color: var(--text-secondary);
   font-weight: var(--font-medium);
 }
-.verilog-file-item.editor-focused .verilog-file-icon {
-  color: var(--accent-hover);
+body.editor-has-focus .verilog-file-item.editor-focused .verilog-file-name {
+  color: var(--text);
 }
-
-.verilog-file-item.editor-focused:hover {
-  background-color: var(--accent-soft);
+.verilog-file-item.editor-focused:not(.top-level-file):hover {
+  background-color: var(--overlay-hover);
 }
-
 .verilog-file-item.top-level-file.editor-focused {
   background-color: var(--accent-strong);
 }

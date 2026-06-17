@@ -1827,6 +1827,23 @@ async def basic_test(dut):
     static _bindEditorFocusActivation() {
         if (this._editorFocusBound) return;
         this._editorFocusBound = true;
+        // VS Code-style: the file tree's open-file highlight is BRIGHT while an
+        // editor has focus and MUTED otherwise. Toggle a body class from the
+        // editors' focus/blur, debounced so switching main<->split (blur then
+        // focus) doesn't flicker the highlight off for a frame.
+        let _editorBlurTimer = null;
+        document.addEventListener('aurora-editor-focusstate', (e) => {
+            if (e.detail && e.detail.focused) {
+                if (_editorBlurTimer) { clearTimeout(_editorBlurTimer); _editorBlurTimer = null; }
+                document.body.classList.add('editor-has-focus');
+            } else {
+                if (_editorBlurTimer) clearTimeout(_editorBlurTimer);
+                _editorBlurTimer = setTimeout(() => {
+                    document.body.classList.remove('editor-has-focus');
+                    _editorBlurTimer = null;
+                }, 150);
+            }
+        });
         document.addEventListener('aurora-editor-focused', (e) => {
             const detail = e.detail || {};
             const { filePath, paneIndex } = detail;

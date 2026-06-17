@@ -162,22 +162,24 @@
   box-shadow: inset 2px 0 0 var(--border);
 }
 
-/* The file currently open in Monaco — parity with the verilog tree, so the
-   folder tree also shows which file is focused. This is the one row that gets
-   the brand accent: a purple-tinted background, a solid accent bar, and an
-   accent-coloured icon + brighter name. Unmistakable against the neutral hover
-   above, so "this file is open" reads at a glance. */
-.file-item.editor-focused,
-.file-item.editor-focused:hover {
-  background-color: var(--accent-soft);
-  box-shadow: inset 2px 0 0 var(--accent);
+/* The file currently open in Monaco — parity with the verilog tree. VS Code
+   "active editor" style: a NEUTRAL highlight (no accent — the accent is reserved
+   for top-level/testbench, so the open file doesn't get confused with those).
+   BRIGHT while an editor has focus, MUTED otherwise (the last open file keeps a
+   faint highlight when focus is elsewhere, and brightens when refocused). */
+.file-item.editor-focused {
+  background-color: rgba(255, 255, 255, 0.045);
+}
+body.editor-has-focus .file-item.editor-focused,
+body.editor-has-focus .file-item.editor-focused:hover {
+  background-color: var(--overlay-hover);
 }
 .file-item.editor-focused .file-item-name {
-  color: var(--text);
+  color: var(--text-secondary);
   font-weight: var(--font-medium);
 }
-.file-item.editor-focused .file-item-icon {
-  color: var(--accent-hover);
+body.editor-has-focus .file-item.editor-focused .file-item-name {
+  color: var(--text);
 }
 
 /* ---------------------------------------------------------------------------

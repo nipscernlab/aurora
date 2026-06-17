@@ -187,12 +187,69 @@ async function toggleBranchMenu() {
   if (!menu.hidden) { menu.hidden = true; return; }
   const r = await api().branches();
   if (!r.ok) { flash(`Branches: ${r.error}`, 'error'); return; }
-  renderBranchMenu(r.branches || [], r.current);
+  let stashes = [];
+  try { const s = await api().stashList(); if (s && s.ok) stashes = s.stashes || []; } catch (_) { /* optional */ }
+  renderBranchMenu(r.branches || [], r.current, stashes);
 }
-function renderBranchMenu(branches, current) {
+// Switch branches, handling a dirty tree gracefully: offer to STASH the
+// uncommitted changes first (git checkout has no --autostash), then switch. The
+// changes are restorable from the branch menu's stash row.
+async function checkoutBranch(branch) {
+  if (!branch) return undefined;
+  let dirty = false;
+  try { const st = await api().status(); dirty = !!(st && st.ok && st.files && st.files.length); } catch (_) { /* treat as clean */ }
+  if (dirty) {
+    const action = await window.AuroraUI?.dialog?.({
+      title: tt('git.switchBranch', 'Switch branch'),
+      message: tt('git.dirtySwitchMsg', 'You have uncommitted changes that would be overwritten. Stash them and switch? You can restore them later from the branch menu.'),
+      variant: 'warning',
+      buttons: [
+        { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+        { label: tt('git.stashSwitch', 'Stash & switch'), action: 'stash', type: 'primary' },
+      ],
+    });
+    if (action !== 'stash') return undefined;
+    return run(tt('git.switchBranch', 'Switch branch'), async () => {
+      const s = await api().stash({ message: `aurora: ${branch}` });
+      if (!s.ok) throw new Error(s.error);
+      const r = await api().checkout({ branch });
+      if (!r.ok) throw new Error(r.error);
+      refresh();
+      try { window.showNotification?.(tt('git.stashed', 'Changes stashed'), 'info', 5000, 'Git'); } catch (_) { /* optional */ }
+      return `${branch} · ${tt('git.stashed', 'stashed')}`;
+    });
+  }
+  return run(tt('git.switchBranch', 'Switch branch'), async () => {
+    const r = await api().checkout({ branch });
+    if (!r.ok) throw new Error(r.error);
+    refresh();
+    return branch;
+  });
+}
+async function stashDrop() {
+  const ok = await window.AuroraUI?.dialog?.({
+    title: tt('git.discard', 'Discard'),
+    message: tt('git.stashDropConfirm', 'Discard the stashed changes? This cannot be undone.'),
+    variant: 'warning',
+    buttons: [
+      { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('git.discard', 'Discard'), action: 'confirm', type: 'danger' },
+    ],
+  });
+  if (ok !== 'confirm') return;
+  await run(tt('git.discard', 'Discard'), async () => { const r = await api().stashDrop(); if (!r.ok) throw new Error(r.error); const bm = $('git-branch-menu'); if (bm) bm.hidden = true; refresh(); return tt('git.discarded', 'Stash discarded'); });
+}
+function renderBranchMenu(branches, current, stashes = []) {
   const menu = $('git-branch-menu');
   if (!menu) return;
   menu.innerHTML = `
+    ${stashes.length ? `<div class="git-bm-stash">
+      <span class="git-bm-stash-label"><i class="ph ph-archive"></i> ${esc(tt('git.stashes', 'Stashed changes'))} (${stashes.length})</span>
+      <span class="git-bm-stash-actions">
+        <button class="git-mini git-mini-primary" data-action="stash-pop"><i class="ph ph-arrow-counter-clockwise"></i> ${esc(tt('git.restore', 'Restore'))}</button>
+        <button class="git-mini" data-action="stash-drop" title="${esc(tt('git.discard', 'Discard'))}"><i class="ph ph-trash"></i></button>
+      </span>
+    </div>` : ''}
     <div class="git-bm-head">${esc(tt('git.branches', 'Branches'))}</div>
     <ul class="git-bm-list">
       ${branches.map((b) => `<li class="git-bm-item ${b === current ? 'current' : ''}">
@@ -656,7 +713,9 @@ async function onClick(e) {
       case 'clone-do':   return doClone();
       case 'clone-open-spf': return openClonedSpf(actEl.dataset.spf);
       case 'branch-menu': return toggleBranchMenu();
-      case 'checkout-branch': return run(tt('git.branches', 'Switch branch'), async () => { const r = await api().checkout({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return actEl.dataset.branch; });
+      case 'checkout-branch': return checkoutBranch(actEl.dataset.branch);
+      case 'stash-pop': return run(tt('git.restore', 'Restore'), async () => { const r = await api().stashPop(); if (!r.ok) throw new Error(r.error); const bm = $('git-branch-menu'); if (bm) bm.hidden = true; refresh(); return tt('git.restored', 'Changes restored'); });
+      case 'stash-drop': return stashDrop();
       case 'merge-branch': return run('Merge', async () => { const r = await api().merge({ branch: actEl.dataset.branch }); if (!r.ok) throw new Error(r.error); refresh(); return `Merge ${actEl.dataset.branch}`; });
       case 'create-branch': {
         const nb = $('git-new-branch')?.value?.trim();

@@ -325,6 +325,29 @@ function register() {
     return {};
   }));
 
+  // --- stash (so switching branches with a dirty tree just works) ---------
+  // Push a stash including untracked files, so the working tree goes fully clean
+  // (a checkout that would be "overwritten by checkout" then succeeds).
+  ipcMain.handle('git:stash', safe(async (/** @type {{message?:string}} */ opts = {}) => {
+    const args = ['stash', 'push', '--include-untracked'];
+    if (opts && opts.message) args.push('-m', String(opts.message));
+    const out = await gitForProject().raw(args);
+    return { summary: typeof out === 'string' ? out.trim() : '' };
+  }));
+  ipcMain.handle('git:stash-list', safe(async () => {
+    const out = await gitForProject().raw(['stash', 'list']);
+    const stashes = String(out || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    return { stashes };
+  }));
+  ipcMain.handle('git:stash-pop', safe(async () => {
+    const out = await gitForProject().raw(['stash', 'pop']);
+    return { summary: typeof out === 'string' ? out.trim() : '' };
+  }));
+  ipcMain.handle('git:stash-drop', safe(async () => {
+    await gitForProject().raw(['stash', 'drop']);
+    return {};
+  }));
+
   // Merge another branch INTO the current one (--no-edit so no $EDITOR popup).
   ipcMain.handle('git:merge', safe(async (/** @type {{branch:string}} */ opts) => {
     if (!opts || !opts.branch) throw new Error('branch required');

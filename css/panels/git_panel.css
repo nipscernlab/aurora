@@ -279,6 +279,15 @@
 }
 .git-branch-menu[hidden] { display: none !important; }
 .git-bm-head { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: var(--font-semibold); padding: 2px var(--space-1) 4px; }
+/* Stashed-changes row at the top of the branch menu (restore / discard). */
+.git-bm-stash {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: var(--space-2); margin-bottom: var(--space-1);
+  background: color-mix(in srgb, var(--accent, #8E83E8) 12%, transparent);
+  border: 1px solid var(--accent-border, var(--border)); border-radius: var(--radius-md);
+}
+.git-bm-stash-label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary, var(--text-muted)); }
+.git-bm-stash-actions { display: inline-flex; align-items: center; gap: var(--space-1); }
 .git-bm-list { list-style: none; margin: 0; padding: 0; max-height: 32vh; overflow-y: auto; }
 .git-bm-item { display: flex; align-items: center; gap: 2px; border-radius: var(--radius-sm); }
 .git-bm-switch {

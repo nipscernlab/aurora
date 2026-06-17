@@ -12,6 +12,9 @@ import { fileTreeViewController } from '../tree/file_tree_view_controller.js';
 // Side-effect import: registers window.standardTreeRenderer, which the
 // controller's 'standard' view renderer looks up at call time.
 import '../tree/standard_tree_render.js';
+// Side-effect import: VS Code-style git status decorations on the file tree
+// (coloured M/A/D/R badges + folder dots). Self-starts on DOMContentLoaded.
+import '../tree/git_decorations.js';
 // Make sure the view subcontainers exist before any renderer runs.
 treeView.initialize();
 fileTreeViewController.initialize();

@@ -1272,4 +1272,23 @@ Arquivos: `index.html` (título do `#gitModal` + About), `css/panels/git_panel.c
 `.dagr-*` redesenhado), `components/Scripts/download-norse-font.js` (novo), `package.json` (bootstrap),
 `.github/workflows/ci.yml` (passo de download), `.gitignore`, `THIRD_PARTY_NOTICES.md` + About (licença).
 253 unit + ESLint + `tsc --noEmit` + `vite build` (Norse vendorizada/hasheada no `dist`) verdes.
-**Verificação visual do usuário pendente.**
+**Verificação visual do usuário pendente.** (Marca d'água grande/muted "ᛞ DAGR" no fundo do painel — `a268edc`.)
+
+### 14.15 Decorações de status git na file tree (estilo VS Code) — 17/06/2026 — FEITO
+A file tree ganhou as decorações de status do git estilo VS Code, em **AMBAS** as views ("files"/verilog e
+"folders"/standard): um **badge de letra colorido** à direita de cada arquivo alterado (M amarelo = modificado,
+A/? verde = adicionado/novo, D vermelho = deletado, R azul = renomeado, U/C = conflito) + um **ponto (•)
+colorido nas pastas** que contêm alterações (rollup recursivo) + **tint do nome** na cor do status. Só aparece
+quando o projeto aberto é um repo git (gating por `is-repo`); projetos SAPHO não-git ficam limpos.
+
+Arquitetura (`js/tree/git_decorations.js`): `refresh()` busca `window.gitAPI.status()`, monta um
+`Map<pathAbs→letra>` + um `Set` de pastas alteradas, e chama `apply()`. `apply()` repinta as rows da view a
+partir do cache; um **MutationObserver** no `#file-tree` reaplica após cada re-render (os renderers apagam e
+reconstroem as rows), **desconectado durante o paint** pra não disparar a si mesmo. Refresh nos mesmos sinais
+que o badge do Source Control já usa (`file-saved`/`spf-changed`/`dir-changed`/`file-changed`) + fallback de 10s
+pra ops de git externas. A letra usa a **mesma lógica do painel** (`fileFlag`: working ‖ index ‖ '?') e as cores
+reusam os tokens `--status-warning/success/error/info` (tree e painel Dagr sempre concordam). Rows: folders view
+= `.file-tree-item[data-path]` (badge no `.file-item`), files view = `.verilog-file-item[data-file-path]` (badge
+no `.verilog-file-info`). Arquivos: `js/tree/git_decorations.js` (novo), `js/app/renderer.js` (import),
+`css/tree/file_tree.css` (badge + tint). 253 unit + ESLint + `tsc --noEmit` + `vite build` verdes.
+**Verificação ao vivo do usuário pendente.**

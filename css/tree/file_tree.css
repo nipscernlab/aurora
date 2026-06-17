@@ -182,6 +182,47 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   color: var(--text);
 }
 
+/* ----------------------------------------------------------------------------
+ *  Git status decorations (VS Code style) — painted by js/tree/git_decorations.js
+ *  on BOTH tree views (.file-item / .verilog-file-item). A coloured letter badge
+ *  on the right of a changed file (M/A/?/D/R), a • dot on folders that contain
+ *  changes, and a matching filename tint. Colours reuse the Source Control
+ *  status tokens so the tree and the Dagr panel always agree.
+ * ------------------------------------------------------------------------- */
+.git-deco {
+  flex: 0 0 auto;
+  margin-left: 6px;
+  padding-right: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.git-deco.git-st-dir { font-size: 15px; line-height: 0.5; }   /* the • dot, a touch larger */
+
+/* badge colours */
+.git-deco.git-st-modified,
+.git-deco.git-st-conflict,
+.git-deco.git-st-dir       { color: var(--status-warning, #E8B86C); }
+.git-deco.git-st-added,
+.git-deco.git-st-untracked { color: var(--status-success, #5DD4A8); }
+.git-deco.git-st-deleted   { color: var(--status-error, #E26C6C); }
+.git-deco.git-st-renamed,
+.git-deco.git-st-copied    { color: var(--status-info, #5BB8E8); }
+
+/* filename tint (matches the badge); focus/hover still win for the open file */
+.file-item-name.git-st-modified, .verilog-file-name.git-st-modified,
+.file-item-name.git-st-conflict, .verilog-file-name.git-st-conflict { color: var(--status-warning, #E8B86C); }
+.file-item-name.git-st-added, .verilog-file-name.git-st-added,
+.file-item-name.git-st-untracked, .verilog-file-name.git-st-untracked { color: var(--status-success, #5DD4A8); }
+.file-item-name.git-st-renamed, .verilog-file-name.git-st-renamed,
+.file-item-name.git-st-copied, .verilog-file-name.git-st-copied { color: var(--status-info, #5BB8E8); }
+.file-item-name.git-st-deleted, .verilog-file-name.git-st-deleted {
+  color: var(--status-error, #E26C6C);
+  text-decoration: line-through;
+  opacity: 0.85;
+}
+
 /* ---------------------------------------------------------------------------
  *  Chevron / spacer — 16px wide so files align with folder names (VSCode).
  * ------------------------------------------------------------------------- */

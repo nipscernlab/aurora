@@ -38,6 +38,25 @@ function gitForProject() {
   return simpleGit({ baseDir: dir, trimmed: true });
 }
 
+/**
+ * The directory a READ op should run in: an explicit `opts.dir` (used by the
+ * panel to browse a cloned repo that has no open .spf) when it exists, else the
+ * open project's dir. Only read handlers honour this — mutations always act on
+ * the open project.
+ */
+function resolveDir(opts) {
+  const d = opts && typeof opts === 'object' && typeof opts.dir === 'string' ? opts.dir : null;
+  if (d && fs.existsSync(d)) return d;
+  return projectDir();
+}
+/** @returns {import('simple-git').SimpleGit} */
+function gitFor(opts) {
+  const dir = resolveDir(opts);
+  if (!dir) throw new Error('No project is open.');
+  if (!fs.existsSync(dir)) throw new Error(`Directory not found: ${dir}`);
+  return simpleGit({ baseDir: dir, trimmed: true });
+}
+
 /** Wrap a handler so it always resolves to { ok, ... } instead of throwing across IPC. */
 function safe(fn) {
   return async (/** @type {any} */ _event, /** @type {any} */ ...args) => {
@@ -86,15 +105,15 @@ function remoteGit() {
 
 function register() {
   // --- inspection ---------------------------------------------------------
-  ipcMain.handle('git:is-repo', safe(async () => {
-    const dir = projectDir();
+  ipcMain.handle('git:is-repo', safe(async (opts) => {
+    const dir = resolveDir(opts);
     if (!dir || !fs.existsSync(dir)) return { isRepo: false, dir: dir || null };
     const isRepo = await simpleGit({ baseDir: dir }).checkIsRepo();
     return { isRepo, dir };
   }));
 
-  ipcMain.handle('git:status', safe(async () => {
-    const git = gitForProject();
+  ipcMain.handle('git:status', safe(async (opts) => {
+    const git = gitFor(opts);
     if (!(await git.checkIsRepo())) return { isRepo: false };
     const s = await git.status();
     return {
@@ -117,8 +136,8 @@ function register() {
   }));
 
   // Unified diff for one file (or the whole worktree when file omitted). Capped.
-  ipcMain.handle('git:diff', safe(async (/** @type {{file?:string, staged?:boolean}} */ opts = {}) => {
-    const git = gitForProject();
+  ipcMain.handle('git:diff', safe(async (/** @type {{file?:string, staged?:boolean, dir?:string}} */ opts = {}) => {
+    const git = gitFor(opts);
     const args = opts && opts.staged ? ['--staged'] : [];
     if (opts && opts.file) args.push('--', opts.file);
     const raw = await git.diff(args);
@@ -130,9 +149,9 @@ function register() {
   // GitHub-Desktop-style file list, then lazy-load each file's diff on demand,
   // instead of rendering one giant diff up front (which froze the UI).
   // numstat prints "<add>\t<del>\t<path>"; a binary file shows "-\t-\t<path>".
-  ipcMain.handle('git:commit-files', safe(async (/** @type {{hash:string}} */ opts) => {
+  ipcMain.handle('git:commit-files', safe(async (/** @type {{hash:string, dir?:string}} */ opts) => {
     if (!opts || !opts.hash) throw new Error('hash required');
-    const raw = await gitForProject().raw(
+    const raw = await gitFor(opts).raw(
       ['show', '--numstat', '--no-renames', '--format=', '--no-color', String(opts.hash)],
     );
     const files = [];
@@ -155,16 +174,16 @@ function register() {
   // Diff of ONE file within a commit (lazy-loaded when the user expands it), or
   // the whole commit when `file` is omitted. `--format=` drops the commit header
   // (the renderer shows the message separately). Capped to avoid freezes.
-  ipcMain.handle('git:show', safe(async (/** @type {{hash:string, file?:string}} */ opts) => {
+  ipcMain.handle('git:show', safe(async (/** @type {{hash:string, file?:string, dir?:string}} */ opts) => {
     if (!opts || !opts.hash) throw new Error('hash required');
     const args = ['show', '--no-color', '--format=', String(opts.hash)];
     if (opts.file) args.push('--', String(opts.file));
-    const raw = await gitForProject().raw(args);
+    const raw = await gitFor(opts).raw(args);
     return capDiff(raw);
   }));
 
-  ipcMain.handle('git:log', safe(async (/** @type {{maxCount?:number}} */ opts = {}) => {
-    const git = gitForProject();
+  ipcMain.handle('git:log', safe(async (/** @type {{maxCount?:number, dir?:string}} */ opts = {}) => {
+    const git = gitFor(opts);
     const logResult = await git.log({ maxCount: (opts && opts.maxCount) || 50 });
     return {
       commits: logResult.all.map((c) => ({
@@ -174,8 +193,8 @@ function register() {
     };
   }));
 
-  ipcMain.handle('git:branches', safe(async () => {
-    const git = gitForProject();
+  ipcMain.handle('git:branches', safe(async (opts) => {
+    const git = gitFor(opts);
     const b = await git.branchLocal();
     return { current: b.current, branches: b.all };
   }));
@@ -187,12 +206,12 @@ function register() {
   }));
 
   // Display info: a repo name (owner/repo from origin, else the folder) + origin.
-  ipcMain.handle('git:info', safe(async () => {
-    const dir = projectDir();
+  ipcMain.handle('git:info', safe(async (opts) => {
+    const dir = resolveDir(opts);
     const folder = dir ? path.basename(dir) : null;
     let originUrl = null;
     try {
-      const git = gitForProject();
+      const git = gitFor(opts);
       if (await git.checkIsRepo()) {
         const origin = (await git.getRemotes(true)).find((r) => r.name === 'origin');
         originUrl = origin ? (origin.refs.push || origin.refs.fetch) : null;

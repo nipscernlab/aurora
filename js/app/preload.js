@@ -423,15 +423,15 @@ const utilityOperations = {
  *  + main/ipc/github_auth.js (account connection). Enumerated channels only.
  * ========================================================================= */
 const gitOperations = {
-  isRepo:    () => ipcRenderer.invoke('git:is-repo'),
-  status:    () => ipcRenderer.invoke('git:status'),
+  isRepo:    (opts) => ipcRenderer.invoke('git:is-repo', opts),
+  status:    (opts) => ipcRenderer.invoke('git:status', opts),
   diff:      (opts) => ipcRenderer.invoke('git:diff', opts),
   log:       (opts) => ipcRenderer.invoke('git:log', opts),
   show:      (opts) => ipcRenderer.invoke('git:show', opts),
   commitFiles: (opts) => ipcRenderer.invoke('git:commit-files', opts),
-  branches:  () => ipcRenderer.invoke('git:branches'),
+  branches:  (opts) => ipcRenderer.invoke('git:branches', opts),
   remotes:   () => ipcRenderer.invoke('git:remotes'),
-  info:      () => ipcRenderer.invoke('git:info'),
+  info:      (opts) => ipcRenderer.invoke('git:info', opts),
   addRemote: (opts) => ipcRenderer.invoke('git:add-remote', opts),
   init:      () => ipcRenderer.invoke('git:init'),
   stage:     (files) => ipcRenderer.invoke('git:stage', files),

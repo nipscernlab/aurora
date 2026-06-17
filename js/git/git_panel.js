@@ -38,6 +38,12 @@ let activeTab = 'changes';
 let amendOn = false;
 let lastHasChanges = false;
 let historyCommits = [];
+// "Browse mode": viewing a CLONED repo that has no open .spf — read-only, just to
+// inspect its commit history/diffs. When set, read git calls run in this dir.
+let browseDir = null;
+let browseName = null;
+// Merge the browse dir into a read op's opts (no-op when not browsing).
+function withDir(opts) { return browseDir ? Object.assign({}, opts, { dir: browseDir }) : opts; }
 
 // --- open / close ----------------------------------------------------------
 function open() {
@@ -54,6 +60,9 @@ function close() {
   // Free any heavy diff DOM held by the (now hidden) diff panels.
   hideDiff();
   hideHistoryDiff();
+  // Leave browse mode so reopening shows the real open project.
+  browseDir = null; browseName = null;
+  document.body.classList.remove('git-browse');
 }
 const isOpen = () => modal && modal.classList.contains('show');
 
@@ -188,11 +197,16 @@ function renderRepoHeader(st, info) {
   const tFetch = esc(tt('git.fetch', 'Fetch'));
   const tPull = esc(tt('git.pull', 'Pull'));
   const tPush = esc(tt('git.push', 'Push'));
-  const remoteBtns = info.hasOrigin ? `
+  // Browsing a clone is read-only: no remote mutations.
+  const remoteBtns = (!browseDir && info.hasOrigin) ? `
       <button class="git-mini" data-action="fetch" title="${tFetch}"><i class="ph ph-cloud-arrow-down"></i> ${tFetch}</button>
       <button class="git-mini" data-action="pull" title="${tPull}"><i class="ph ph-arrow-down"></i> ${tPull}</button>
       <button class="git-mini git-mini-primary" data-action="push" title="${tPush}" ${pushDisabled ? 'disabled' : ''}><i class="ph ph-arrow-up"></i> ${tPush}${st.ahead ? ` (${st.ahead})` : ''}</button>` : '';
-  repo.innerHTML = `
+  const browseBanner = browseDir ? `<div class="git-browse-tag">
+      <span><i class="ph ph-eye"></i> ${esc(tt('git.browsing', 'Browsing'))}: <b>${esc(browseName || info.name || '')}</b> · ${esc(tt('git.readOnly', 'read-only'))}</span>
+      <button class="git-mini" data-action="exit-browse"><i class="ph ph-x"></i> ${esc(tt('git.close', 'Close'))}</button>
+    </div>` : '';
+  repo.innerHTML = browseBanner + `
     <div class="git-repo-left">
       <span class="git-repo-name" title="${esc(info.originUrl || info.name || '')}"><i class="ph ph-git-repository"></i> ${esc(info.name || '—')}</span>
       <div class="git-branch-wrap">
@@ -211,7 +225,7 @@ async function toggleBranchMenu() {
   const menu = $('git-branch-menu');
   if (!menu) return;
   if (!menu.hidden) { menu.hidden = true; return; }
-  const r = await api().branches();
+  const r = await api().branches(withDir());
   if (!r.ok) { flash(`Branches: ${r.error}`, 'error'); return; }
   let stashes = [];
   try { const s = await api().stashList(); if (s && s.ok) stashes = s.stashes || []; } catch (_) { /* optional */ }
@@ -290,12 +304,30 @@ function renderBranchMenu(branches, current, stashes = []) {
       <button class="git-mini git-mini-primary" data-action="create-branch"><i class="ph ph-plus"></i> ${esc(tt('git.create', 'Create'))}</button>
     </div>`;
   menu.hidden = false;
+  positionBranchMenu();
+}
+// The branch menu is position:fixed (to escape the modal's overflow clip), so we
+// place it under the branch chip and clamp it to the viewport — flipping it
+// above the chip when it would overflow the bottom.
+function positionBranchMenu() {
+  const menu = $('git-branch-menu');
+  const chip = document.querySelector('.git-branch-chip');
+  if (!menu || !chip) return;
+  const r = chip.getBoundingClientRect();
+  menu.style.left = '0px'; menu.style.top = '0px'; // measure unbiased
+  const mw = menu.offsetWidth; const mh = menu.offsetHeight;
+  let left = r.left;
+  let top = r.bottom + 4;
+  if (left + mw > window.innerWidth - 8) left = Math.max(8, window.innerWidth - mw - 8);
+  if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 4); // flip up
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${top}px`;
 }
 
 function renderPublish(info) {
   const el = $('git-publish');
   if (!el) return;
-  if (info.hasOrigin) { el.hidden = true; el.innerHTML = ''; return; }
+  if (browseDir || info.hasOrigin) { el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;
   el.innerHTML = `
     <div class="git-publish-head"><i class="ph ph-cloud-arrow-up"></i> ${esc(tt('git.publishHead', 'No remote — publish to GitHub'))}</div>
@@ -465,11 +497,12 @@ function switchTab(tab) {
 
 async function refresh() {
   await renderAccount();
+  document.body.classList.toggle('git-browse', !!browseDir); // read-only browse styling
   const repo = $('git-repo'); const changes = $('git-changes'); const commitbox = $('git-commitbox');
   const tabs = $('git-tabs');
   if ($('git-publish')) $('git-publish').hidden = true;
   let isRepo;
-  try { isRepo = await api().isRepo(); } catch (e) { isRepo = { ok: false, error: e?.message }; }
+  try { isRepo = await api().isRepo(withDir()); } catch (e) { isRepo = { ok: false, error: e?.message }; }
   if (!isRepo || isRepo.ok === false) {
     if (repo) repo.innerHTML = '';
     if (commitbox) commitbox.hidden = true;
@@ -493,12 +526,12 @@ async function refresh() {
     hideDiff();
     return;
   }
-  const st = await api().status();
+  const st = await api().status(withDir());
   if (!st.ok) { if (changes) changes.innerHTML = `<div class="git-empty">${esc(st.error)}</div>`; return; }
-  if (commitbox) commitbox.hidden = false;
+  if (commitbox) commitbox.hidden = !!browseDir; // read-only when browsing a clone
   if (tabs) tabs.hidden = false;
   let info = { hasOrigin: false, name: null, folder: null };
-  try { const r = await api().info(); if (r && r.ok) info = r; } catch (_) { /* keep */ }
+  try { const r = await api().info(withDir()); if (r && r.ok) info = r; } catch (_) { /* keep */ }
   renderRepoHeader(st, info);
   renderPublish(info);
   renderChanges(st);
@@ -506,7 +539,8 @@ async function refresh() {
   const commitBtn = $('git-commit-btn');
   if (commitBtn) commitBtn.disabled = !lastHasChanges && !amendOn;
   hideDiff();
-  if (activeTab === 'history') loadHistory();
+  if (browseDir) switchTab('history'); // browse a clone → straight to its history
+  else if (activeTab === 'history') loadHistory();
   updateBadge();
 }
 
@@ -565,7 +599,7 @@ async function showDiff(file, staged) {
     return;
   }
   body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
-  const r = await api().diff({ file, staged });
+  const r = await api().diff(withDir({ file, staged }));
   if (!r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r.error)}</div>`; return; }
   const text = (r.diff || '').trim();
   if (!text) {
@@ -622,7 +656,7 @@ async function showCommitDiff(hash) {
   body.innerHTML = commitDetailHtml(commit, hash)
     + `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
   let r;
-  try { r = await api().commitFiles({ hash }); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  try { r = await api().commitFiles(withDir({ hash })); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
   if (!r || !r.ok) { body.innerHTML = commitDetailHtml(commit, hash) + `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
   const files = Array.isArray(r.files) ? r.files : [];
   if (!files.length) { body.innerHTML = commitDetailHtml(commit, hash) + `<div class="git-diff-empty">${esc(tt('git.noFileChanges', 'No file changes in this commit.'))}</div>`; return; }
@@ -637,7 +671,7 @@ async function showCommitDiff(hash) {
 async function loadFileDiffInto(body, hash, file) {
   body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
   let r;
-  try { r = await api().show({ hash, file }); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  try { r = await api().show(withDir({ hash, file })); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
   if (!r || !r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
   body.dataset.loaded = '1';
   requestAnimationFrame(() => { body.innerHTML = diffHtml(r.diff || '', r.truncated); });
@@ -665,7 +699,7 @@ async function forceCommitFile(btn) {
 async function loadHistory() {
   const list = $('git-history-list');
   if (!list) return;
-  const r = await api().log({ maxCount: 50 });
+  const r = await api().log(withDir({ maxCount: 50 }));
   if (!r.ok) { list.innerHTML = `<li class="git-commit-empty">${esc(r.error)}</li>`; return; }
   historyCommits = r.commits || [];
   if (!historyCommits.length) { list.innerHTML = `<li class="git-commit-empty">${esc(tt('git.noCommits', 'No commits yet.'))}</li>`; return; }
@@ -726,6 +760,7 @@ async function onClick(e) {
         return undefined;
       }
       case 'open-token-page': { try { window.electronAPI?.openExternal?.('https://github.com/settings/tokens/new'); } catch (_) { /* ignore */ } return undefined; }
+      case 'exit-browse': return exitBrowse();
       case 'cloned-toggle': return toggleCloned();
       case 'cloned-menu': {
         const r = actEl.getBoundingClientRect();
@@ -820,6 +855,8 @@ async function disconnectAccount() {
 // user asked to remember clones — but nothing is shown until they act again.
 function clearPanelData() {
   historyCommits = [];
+  browseDir = null; browseName = null;
+  document.body.classList.remove('git-browse');
   Object.assign(cloneState, { open: false, repos: [], selUrl: null, selName: null, spfs: [], myLogin: null });
   ['git-repo', 'git-changes', 'git-history-list', 'git-diff-body', 'git-history-diff-body', 'git-clone', 'git-cloned', 'git-token-help', 'git-oauth-code'].forEach((id) => { const el = $(id); if (el) el.innerHTML = ''; });
   ['git-clone', 'git-cloned', 'git-publish', 'git-diff', 'git-history-diff', 'git-branch-menu', 'git-commitbox', 'git-tabs', 'git-token-help', 'git-oauth-code'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
@@ -1179,6 +1216,10 @@ async function openClonedProject(item) {
   try { scan = await api().scanSpf({ dir: item.path }); } catch (e) { scan = { ok: false, error: e?.message || String(e) }; }
   const spf = scan && scan.ok && Array.isArray(scan.spfs) && scan.spfs[0];
   if (!spf) {
+    // No .spf — but if the folder is still a git repo, let the user BROWSE its
+    // commit history read-only. Only fail (offer remove/reclone) if it's gone.
+    let rr; try { rr = await api().isRepo({ dir: item.path }); } catch (_) { rr = null; }
+    if (rr && rr.ok && rr.isRepo) return enterBrowse(item);
     return clonedOpenFailed(item, tt('git.noSpfInClone', 'No SAPHO project (.spf) was found in this folder.'));
   }
   // 2) Open it and VERIFY it actually opened (openProject returns { success }).
@@ -1192,6 +1233,20 @@ async function openClonedProject(item) {
   try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}: ${item.name}`, 'success', 6000, 'Git'); } catch (_) { /* optional */ }
   close();
 }
+// Browse a cloned repo (no open .spf) read-only — just to inspect its history.
+function enterBrowse(item) {
+  browseDir = item.path; browseName = item.name; activeTab = 'history';
+  const cl = $('git-cloned'); if (cl) cl.hidden = true;
+  const cp = $('git-clone'); if (cp) cp.hidden = true;
+  refresh();
+  try { window.showNotification?.(`${tt('git.browsing', 'Browsing')}: ${item.name}`, 'info', 4000, 'Git'); } catch (_) { /* optional */ }
+}
+function exitBrowse() {
+  browseDir = null; browseName = null;
+  document.body.classList.remove('git-browse');
+  refresh();
+}
+
 // Open failed (folder moved/deleted, no .spf, parse error): tell the user and
 // offer to remove the dead entry or clone the repo again.
 async function clonedOpenFailed(item, msg) {

@@ -149,6 +149,7 @@
     "electron-log": "^5.4.0",
     "electron-updater": "^6.8.9",
     "fs-extra": "^11.3.0",
+    "jquery": "^3.7.1",
     "katex": "^0.17.0",
     "lit": "^3.3.3",
     "monaco-editor": "0.52.2",

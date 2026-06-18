@@ -1,10 +1,12 @@
 // @ts-check
 'use strict';
 
-// DigitalJS — interactive logic simulation (O9). Bundled by Vite into the
-// PRISM chunk. We force the synchronous browser engine + dagre layout so NO
-// Web Worker is ever spawned (elkjs's worker would break under file://).
-import { Circuit } from 'digitaljs';
+// DigitalJS (interactive logic simulation, O9) is loaded LAZILY in
+// _loadDigitalJS() — only when the user enters "Simular" mode. Keeping it out
+// of the top-level import means the schematic flow never evaluates it (so a
+// load error can't break the whole PRISM window), the ~2MB chunk is fetched on
+// demand, and we can expose the global `jQuery` that jquery-ui needs BEFORE
+// digitaljs evaluates. The sync browser engine + dagre layout avoid any Worker.
 
 // ---------------------------------------------------------------------------
 //  i18n — locale-aware string lookup (no access to the main Aurora i18n layer)
@@ -110,6 +112,7 @@ class PRISMViewer {
     this.circuit = null;
     this._paper = null;     // the JointJS paper view, so we can dispose it
     this._simBusy = false;  // re-entrancy guard while a build is in flight
+    this._Circuit = null;   // cached DigitalJS Circuit class (lazy-loaded)
 
     this._initElements();
     this._setupListeners();
@@ -835,6 +838,25 @@ class PRISMViewer {
   //  Toggle between the static netlistsvg schematic and a live DigitalJS
   //  circuit the user can poke (flip inputs, step the clock, read monitors).
   // -------------------------------------------------------------------------
+
+  /**
+   * Lazy-load DigitalJS on first entry to Sim mode. jquery-ui (pulled in by
+   * digitaljs) references the GLOBAL `jQuery`/`$` at evaluation time, so we set
+   * them BEFORE importing digitaljs. Keeping this out of a top-level import is
+   * what keeps the schematic flow from ever evaluating digitaljs (a load error
+   * can't break the whole PRISM window) and defers the ~2MB chunk. Cached.
+   * @returns {Promise<any>} the DigitalJS Circuit class
+   */
+  async _loadDigitalJS() {
+    if (!this._Circuit) {
+      const jQuery = (await import('jquery')).default;
+      window.jQuery = jQuery;
+      window.$ = jQuery;
+      this._Circuit = (await import('digitaljs')).Circuit;
+    }
+    return this._Circuit;
+  }
+
   async toggleSimMode() {
     if (this.simMode) this.exitSimMode();
     else await this.enterSimMode();
@@ -869,6 +891,7 @@ class PRISMViewer {
       this.djsContainer.appendChild(paperHost);
 
       try {
+        const Circuit = await this._loadDigitalJS();
         // Synchronous browser engine (default) + dagre layout → NO Web Worker,
         // so it renders under file:// without elkjs's worker.
         this.circuit = new Circuit(res.circuit, { layoutEngine: 'dagre' });

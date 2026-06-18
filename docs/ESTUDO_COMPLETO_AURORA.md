@@ -1593,6 +1593,15 @@ check-pinned (+ integridade vs lockfile), `deadcode` (knip vê digitaljs + yosys
 **310 unit**, `vite build` (digitaljs bundla; sem worker em runtime), **9 E2E**. O render + simulação do
 DigitalJS em si (Yosys→convert→circuito vivo) é **validado ao vivo pelo usuário**: abrir PRISM → "Simular".
 
+**Fix pós-teste (regressão pega ao vivo).** O `import { Circuit } from 'digitaljs'` no topo do `prism.js` fazia o
+digitaljs — e o **jquery-ui** que ele puxa, que referencia o **global `jQuery`** — avaliar no carregamento do
+módulo. O Vite não expõe `jQuery` global → `ReferenceError: jQuery is not defined` quebrava o **módulo inteiro do
+PRISM** (até o esquemático), travando em "Compiling RTL design…". O E2E não abre a janela PRISM, por isso passou
+verde. **Correção:** o digitaljs virou **lazy** (`_loadDigitalJS()`, `await import('digitaljs')` só ao entrar em
+"Simular"), com `window.jQuery`/`window.$` setados **antes** do import. Agora o esquemático nunca avalia o
+digitaljs (uma falha não o quebra) e o chunk do PRISM voltou de ~2MB pra ~23KB (digitaljs/jquery sob demanda).
+`jquery` declarado como dependência direta. Green bar + lazy-split confirmados.
+
 ### 14.30 G6 — governança de modelos de IA (robustez + tokens por conversa) — 18/06/2026 — FEITO
 Escopo escolhido pelo usuário: **completo (a robustez + b indicador de tokens), tokens sem custo em $**.
 

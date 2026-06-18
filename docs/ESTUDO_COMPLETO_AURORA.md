@@ -1533,6 +1533,9 @@ rede. Peças:
 - **`scripts/check-pinned-versions.js`** — guard de CI: as versões do manifest têm que acompanhar o
   `package.json`, **e** a integridade/tarball têm que bater com o `package-lock.json` (offline) — pega o erro
   clássico de "bumpou a versão e esqueceu de atualizar o hash", que quebraria 100% dos downloads em produção.
+  Nota (18/06): os deps dos CLIs (`@anthropic-ai/claude-code`, `@openai/codex`) viraram **pin exato** (sem `^`)
+  porque o manifest pina exato — com `^`, um `npm install` qualquer re-resolvia pra última do range
+  (claude-code 2.1.144→2.1.181) e o guard barrava o `npm start`. Pin exato mantém manifest↔lockfile↔deps alinhados.
 
 **Revisão adversarial multi-agente (18 agentes, 14 candidatos → 6 reais) — todos corrigidos:**
 1. *(alto)* `downloadToFile` sem timeout: conexão que trava no meio pendurava a Promise pra sempre **e

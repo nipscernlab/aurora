@@ -40,6 +40,17 @@ class AuroraToast extends LitElement {
     this._onLeave = () => this._resume();
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    // Announce to assistive tech when the toast appears: errors/warnings are
+    // assertive (interrupt the user), success/info are polite. role + aria-live
+    // live on the host so the whole card is read; `type` is set before append.
+    const assertive = this.type === 'error' || this.type === 'warning';
+    if (!this.hasAttribute('role')) this.setAttribute('role', assertive ? 'alert' : 'status');
+    if (!this.hasAttribute('aria-live')) this.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
+    this.setAttribute('aria-atomic', 'true');
+  }
+
   static styles = css`
     :host {
       position: relative;

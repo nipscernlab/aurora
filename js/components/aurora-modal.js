@@ -39,6 +39,9 @@ class AuroraModal extends LitElement {
     this.size = '';
     this.dismissable = true;
     this.noclose = false;
+    this._trapped = false;
+    this._inerted = [];
+    this._returnFocusTo = null;
   }
 
   connectedCallback() {
@@ -80,7 +83,42 @@ class AuroraModal extends LitElement {
   }
 
   _syncInert() {
-    this.toggleAttribute('inert', !this.open);
+    const isOpen = this.open;
+    this.toggleAttribute('inert', !isOpen);
+    if (isOpen === this._trapped) return;
+    this._trapped = isOpen;
+    if (isOpen) this._trapFocus();
+    else this._releaseFocus();
+  }
+
+  // Focus trap (the partner to aria-modal): while open, make every OTHER
+  // top-level element inert so Tab and screen readers can't reach the
+  // background, and move focus into the modal. Stacked modals nest correctly —
+  // each one inerts everything else, and closing the top restores the one
+  // beneath. We only un-inert what WE set, so an already-closed sibling modal
+  // (inert via P17) stays inert.
+  _trapFocus() {
+    this._returnFocusTo = (this.getRootNode && this.getRootNode().activeElement) || document.activeElement;
+    this._inerted = [];
+    for (const el of Array.from(document.body.children)) {
+      if (el === this || el.contains(this)) continue;
+      if (!el.hasAttribute('inert')) { el.setAttribute('inert', ''); this._inerted.push(el); }
+    }
+    this.updateComplete.then(() => {
+      const f = this.querySelector(
+        'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+      ) || (this.renderRoot && this.renderRoot.querySelector('.close'));
+      if (f) f.focus();
+    });
+  }
+
+  _releaseFocus() {
+    for (const el of this._inerted) el.removeAttribute('inert');
+    this._inerted = [];
+    const t = this._returnFocusTo;
+    this._returnFocusTo = null;
+    // Restore focus to whatever opened the modal (if it's still around).
+    if (t && document.contains(t) && typeof t.focus === 'function') t.focus();
   }
 
   get open() {
@@ -90,16 +128,10 @@ class AuroraModal extends LitElement {
   }
 
   set open(v) {
-    const on = !!v;
-    this.setAttribute('aria-hidden', on ? 'false' : 'true');
-    if (on) {
-      this.updateComplete.then(() => {
-        const f = this.querySelector(
-          'input:not([type=hidden]), select, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
-        );
-        if (f) f.focus();
-      });
-    }
+    this.setAttribute('aria-hidden', v ? 'false' : 'true');
+    // Focus management + the background inert run in _syncInert (fired by the
+    // MutationObserver) so they happen for EVERY open path — el.open, the .show
+    // class (modal_system) and the .visible class (settings) alike.
   }
 
   static styles = css`

@@ -1427,3 +1427,16 @@ declarativo (título reativo, detecção de plataforma) pode vir depois. Arquivo
 (novo), `index.html` (tag), `js/app/renderer.js` (import que registra). **Zero regressão**: ESLint + `tsc` +
 `vite build` + **301 unit** + **9 E2E** (o app real sobe e funciona) verdes. **Verificação visual do usuário
 pendente** (confirmar que a janela arrasta e os 3 botões funcionam).
+
+### 14.24 Acessibilidade do `<aurora-modal>` / `<aurora-toast>` (passo 2) — 18/06/2026 — FEITO
+Fechei os buracos de a11y dos componentes que já existiam (o que já tinham: `role="dialog"`+`aria-modal`, ESC,
+`inert` quando fechado, foco inicial). **Modal — `aurora-modal.js`:** adicionei **focus-trap** — ao abrir, todo
+elemento top-level (os modais são filhos diretos de `<body>`) que não seja o modal vira `inert`, então Tab e
+leitor de tela não escapam pro fundo; **devolução de foco** — guarda o elemento que abriu o modal e devolve o
+foco a ele ao fechar; e movi o foco-inicial pra rodar em **todos** os caminhos de abertura (`el.open`, classe
+`.show`, classe `.visible`) via o MutationObserver, não só no setter. Modais empilhados aninham certo (cada um
+inerta tudo, fechar o de cima restaura o de baixo); só des-inerto o que eu inertei (um modal fechado segue
+inert pelo P17). **Toast — `aurora-toast.js`:** `role` + `aria-live` no host — `alert`/`assertive` p/
+erro/warning, `status`/`polite` p/ sucesso/info, `aria-atomic` — pro leitor de tela anunciar o card quando
+aparece. **Zero regressão**: ESLint + `tsc` + `vite build` + **301 unit** + **9 E2E** verdes. **Verificação ao
+vivo pendente** (abrir um modal, dar Tab — não deve sair dele; ESC/✕ fecha e o foco volta pro botão que abriu).

@@ -1,18 +1,26 @@
 import { LitElement, html, css } from 'lit';
 
 /**
- * <aurora-statusbar> — the bottom status bar, as a Lit Web Component.
+ * <aurora-statusbar> — the bottom status bar shell.
  *
- * The first shell component (DESIGN §9) and the pattern every other one follows:
- *   • Shadow DOM, so styles never leak and never need `!important`.
- *   • Reads only the SEMANTIC tokens (DESIGN §3) — they inherit across the
- *     shadow boundary from :root, so the component never cites a base token or a
- *     hardcoded hex.
- *   • Movement only via the motion tokens; the status dot glows with the state
- *     colour (DESIGN §4 — elevate by light, not shadow); reduced-motion honoured.
- *   • Reactive properties drive the display. Live wiring to ProjectStore/events
- *     happens when it replaces the light-DOM `.status-bar` (Fase C); for now it
- *     is exercised, in every state, by the Design Lab (html/design-lab.html).
+ * Wired live (Fase C) with the SAME thin-shell strategy as <aurora-tabs> /
+ * <aurora-terminal>: the real status bar's zones + items live in light DOM
+ * (index.html), and a top-level <slot> passes them through unchanged, so every
+ * existing driver keeps working on them by id —
+ *   • status_bar.js  → top-level / testbench / processor / simulator engine,
+ *   • zoom.js        → the zoom control,
+ *   • the editor     → Ln/Col,
+ *   • git_panel.js   → the GitHub / Source Control indicator,
+ *   • the compilation status updater.
+ * The host carries `class="status-bar"`, so the global grid + chrome CSS
+ * (css/base/layout.css) styles it EXACTLY as before — zero visual change, and
+ * `document.querySelector('.status-bar')` (resize.js) still finds it.
+ *
+ * The property-driven layout below is the slot's FALLBACK content: it renders
+ * only when nothing is slotted, which is how the Design Lab exercises the
+ * component in every state. It is also the eventual target — once the drivers
+ * set these reactive properties instead of poking light-DOM, the slotted markup
+ * can be dropped and this becomes the whole component.
  */
 class AuroraStatusbar extends LitElement {
   static properties = {
@@ -128,6 +136,13 @@ class AuroraStatusbar extends LitElement {
   `;
 
   render() {
+    // Live wiring: the real bar's light-DOM zones fill this slot and are laid
+    // out by the host's `.status-bar` grid. The fallback below shows only when
+    // the slot is empty (Design Lab / no slotted markup).
+    return html`<slot>${this._fallback()}</slot>`;
+  }
+
+  _fallback() {
     return html`
       <div class="zone left">
         <span class="item">
@@ -137,7 +152,7 @@ class AuroraStatusbar extends LitElement {
         ${this.processor ? html`<span class="chip">${this.processor}</span>` : ''}
       </div>
 
-      <div class="zone center"><slot></slot></div>
+      <div class="zone center"></div>
 
       <div class="zone right">
         ${this.topLevel

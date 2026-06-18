@@ -1399,3 +1399,16 @@ principal está focado, então sempre funcionou. **Fix: 100% no teste** — `win
 antes do `addTab`, resetando o foco pro painel principal; **zero mudança em produção** (revertí as tentativas no
 `tab_manager`). E2E **9/9**, unit **301/301**. Diagnóstico foi rápido porque os E2E rodam o Electron real
 localmente (`npm run test:e2e`) — não precisou iterar no CI. **Tier 1 (fácil) fechado por completo.**
+
+### 14.22 `<aurora-statusbar>` ligado ao vivo (thin shell) — 18/06/2026 — FEITO (primeiro do Tier 2)
+A status bar agora é o componente `<aurora-statusbar>` ao vivo, com a MESMA estratégia thin-shell dos
+`<aurora-tabs>`/`<aurora-terminal>`: o `<div class="status-bar">` virou `<aurora-statusbar class="status-bar">`
+(mesma classe → o CSS de grid/chrome de `css/base/layout.css` estiliza o host **igual a antes**, e o
+`document.querySelector('.status-bar')` do `resize.js` continua achando), e o shadow do componente é um único
+`<slot>` que passa as zonas/itens light-DOM sem mexer. **Os 8 indicadores e os 5 drivers continuam funcionando
+sem alteração** (status_bar.js por id, zoom.js, editor Ln/Col, git_panel.js do GitHub, status de compilação).
+A versão property-driven antiga virou o **fallback do `<slot>`** (renderiza só quando nada é slotado),
+preservando o demo do Design Lab + a API de propriedades como alvo futuro. Arquivos:
+`js/components/aurora-statusbar.js` (reescrito), `index.html` (tag trocada), `js/ui/status_bar.js` (import que
+registra o componente). **Zero regressão**: ESLint + `tsc` + `vite build` + **301 unit** + **9 E2E** (o app
+real sobe e funciona com a barra nova) verdes. **Verificação visual do usuário pendente.**

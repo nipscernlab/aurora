@@ -38,6 +38,10 @@
  * aqui so se renderiza o resultado.
  */
 
+// Registers the <aurora-statusbar> custom element that wraps this bar in
+// index.html (thin shell — same pattern as <aurora-tabs>). This manager keeps
+// driving the light-DOM items inside it by id, unchanged.
+import '../components/aurora-statusbar.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';

@@ -36,7 +36,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 
 **Componentes Lit (design system, ~40%):** [x] toast · [x] tooltip · [x] welcome (+ canvas aurora) ·
 [x] modal · [x] tabs (shell) · [x] terminal (shell) · [x] command-palette (esqueleto) ·
-[~] **statusbar** (protótipo só no Design Lab — **NÃO ligado ao vivo ainda**).
+[x] **statusbar** (ligado ao vivo — thin shell, §14.22).
 
 **Repo/infra:** [x] naming SAPHO/Aurora-IDE · [x] CODEOWNERS · [x] CodeQL · [x] dependabot auto-merge ·
 [x] CITATION/ROADMAP · [x] disclosure de terceiros · [x] README+badges.
@@ -59,9 +59,10 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   do `addTab`), **zero mudança em produção**. E2E 9/9, unit 301/301. Ver §14.21.
 
 **Médio (4–6):**
-- [ ] **`<aurora-statusbar>` ao vivo** — estender o componente p/ os **8 indicadores** (compilação, GitHub,
-  zoom, estados "falta top/tb/proc") + religar **5 drivers** (`status_bar.js`, `zoom.js`, editor, `git_panel.js`,
-  status de compilação). *[era "fácil" na lista antiga — corrigido p/ médio; precisa teste ao vivo]*
+- [x] **`<aurora-statusbar>` ao vivo** — FEITO (18/06): thin shell igual aos `<aurora-tabs>`/`<aurora-terminal>`
+  — `<div class="status-bar">` → `<aurora-statusbar class="status-bar">` + `<slot>`; os **8 indicadores** e os
+  **5 drivers** continuam funcionando sem alteração (light-DOM preservado). Property-driven vira fallback do
+  Design Lab. Zero regressão (301 unit + 9 E2E). Ver §14.22. *(precisa teste visual ao vivo)*
 - [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-titlebar>`** · **`<aurora-activity-bar>`** ·
   acessibilidade do modal/toast · **command-palette** completo.
 - [ ] **F1** consolidar ícones (sprite Phosphor, tirar FontAwesome) · **F2** fonts 100% local (verificar).

@@ -1389,3 +1389,13 @@ compilação, GitHub/Source Control, controle de zoom, e os estados "falta top-l
 vermelho), pintados por **5 drivers** (`status_bar.js`, `zoom.js`, editor p/ Ln/Col, `git_panel.js`, status de
 compilação). Uma troca completa estende o componente + religa os 5 drivers, com risco visual → **precisa teste
 ao vivo**, não é quick-win.
+
+### 14.21 E2E "PRISM open-at-line" RE-HABILITADO — era isolamento de teste, não bug — 18/06/2026
+Re-habilitei o E2E (`split-pane.test.js`, `it.skip` → `it`) depois de **reproduzir a falha localmente** (não era
+só CI). Causa raiz: **isolamento de teste**, não a feature. Os testes de split-pane acima deixam um split pane
+focado; aí a `addTab` (`tab_manager.js` ~1031) roteia o arquivo novo pro split focado (`openInFocusedPane`, que
+NÃO roda `revealPosition`) e retorna **antes** do reveal — por isso abria na linha 1. No app real o painel
+principal está focado, então sempre funcionou. **Fix: 100% no teste** — `window.SplitEditorManager.setFocus(0)`
+antes do `addTab`, resetando o foco pro painel principal; **zero mudança em produção** (revertí as tentativas no
+`tab_manager`). E2E **9/9**, unit **301/301**. Diagnóstico foi rápido porque os E2E rodam o Electron real
+localmente (`npm run test:e2e`) — não precisou iterar no CI. **Tier 1 (fácil) fechado por completo.**

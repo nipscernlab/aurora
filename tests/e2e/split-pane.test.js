@@ -217,15 +217,13 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     expect(state.cardClearedByRenderTree).toBe(true); // and is stripped on file render
   });
 
-  // SKIPPED (2026-06-18): NOT a real bug — the feature was manually verified
-  // working in the app (open a file at a line via Ctrl+Shift+F / a terminal error
-  // / PRISM, lands on the right line). This E2E fails ONLY in headless CI: the
-  // editor is created but its cursor stays at line 1 there. The 12s poll below is
-  // already generous, so it isn't slow-settle — it's a headless layout/timing (or
-  // multi-editor) race that surfaced after the tab_manager revamp. Kept skipped so
-  // CI stays green; re-enabling needs CI-side diagnosis and is low priority since
-  // the feature itself is fine. See ESTUDO_COMPLETO_AURORA.md §14.19.
-  it.skip('addTab revealPosition jumps to AND scrolls to the target line (PRISM open-at-line)', async () => {
+  // RE-ENABLED (2026-06-18): this used to open at line 1 — but it was a test
+  // ISOLATION bug, not a feature bug. The split-pane tests above leave a split
+  // focused, so addTab routes a new file into the focused split (tab_manager.js
+  // ~1031, which doesn't run revealPosition) and returns early, instead of the
+  // main pane. The fix is purely in the test: reset focus to the main pane first
+  // (the setFocus(0) call below). Zero production change. See ESTUDO §14.21.
+  it('addTab revealPosition jumps to AND scrolls to the target line (PRISM open-at-line)', async () => {
     // Repro of the PRISM right-click bug: addTab creates the Monaco editor on
     // a deferred (Monaco-ready-gated) path, so positioning right after addTab
     // hit a null editor and the file opened at line 1. revealPosition makes
@@ -242,6 +240,11 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     fs.writeFileSync(jumpPath, content);
 
     const res = await window.evaluate(async ({ p, content, target }) => {
+      // Earlier split-pane tests leave a split focused; addTab routes a new file
+      // into the focused split (which doesn't run revealPosition) and returns
+      // early. Reset focus to the main pane so this exercises the main-pane
+      // open-at-line path the test is actually about.
+      window.SplitEditorManager?.setFocus?.(0);
       window.TabManager.addTab(p, content, { preview: false, revealPosition: { line: target, column: 1 } });
       // EditorManager isn't on window; find the editor via Monaco's registry,
       // matching the model URI for our file.

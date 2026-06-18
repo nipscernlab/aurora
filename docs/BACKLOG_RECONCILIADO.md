@@ -53,9 +53,10 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   (`aurora.search.toggles`), restaurados no `init` e salvos a cada clique. *(precisa teste ao vivo)*
 - [x] **D5** `try/catch` na criação do editor — **já estava feito**: a IIFE do `addTab` (`tab_manager.js`
   ~1152) fecha a aba tanto no `!editor` quanto no `catch`. Nada a fazer.
-- [~] Re-habilitar o E2E "abrir na linha" — **adiado de propósito**: o recurso funciona (verificado); re-ligar
-  precisa iterar no CI headless (push → ver → repetir), o oposto de "implementar tudo + testar no fim". Baixa
-  prioridade. Ver §14.19.
+- [x] **Re-habilitar o E2E "abrir na linha"** — FEITO (18/06): reproduzido **localmente** e a causa era
+  **isolamento de teste**, não bug. Os testes de split-pane antes deixam um split focado → `addTab` roteia o
+  arquivo pro split (sem `revealPosition`) e retorna antes do reveal. Fix **só no teste** (`setFocus(0)` antes
+  do `addTab`), **zero mudança em produção**. E2E 9/9, unit 301/301. Ver §14.21.
 
 **Médio (4–6):**
 - [ ] **`<aurora-statusbar>` ao vivo** — estender o componente p/ os **8 indicadores** (compilação, GitHub,

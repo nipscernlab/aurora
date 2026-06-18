@@ -23,10 +23,10 @@ decorações de status git na file tree, Dagr nome+fonte Norse+marca d'água). D
 - **3 testes saíram** (monaco-pin, gtkw-picker, file-tree) — recuperáveis da tag de backup (item novo trivial).
 
 **Aberto, do fácil ao difícil (o que de fato sobra):**
-0. **🔴 CI VERMELHO (urgente)** — o E2E `split-pane.test.js` › "PRISM open-at-line" falha (editor fica na linha
-   1 em vez de pular pra 180; o `revealPosition` não dispara). **Pré-existente** (revamp do `tab_manager.js` +
-   teste mais rígido); entrou na main pelo `main = feature`, NÃO é desta sessão. Bug real do reveal → precisa
-   de diagnóstico ao vivo (grupo C). Opções: quarentenar p/ destravar o CI agora vs consertar. Ver §14.19.
+0. **🟡 E2E "PRISM open-at-line" — QUARENTENADO (conserto pendente)** — o teste em `split-pane.test.js` (editor
+   fica na linha 1 em vez de pular pra 180; `revealPosition` não dispara) virou `it.skip` (18/06) pra destravar
+   o CI. **Pré-existente** (revamp do `tab_manager.js`), não desta sessão. O conserto real do reveal precisa de
+   diagnóstico ao vivo (grupo C) — reativar o teste quando consertado. Ver §14.19.
 1. ~~Re-adicionar os 3 testes da tag de backup~~ + testes novos (git_decorations, namespace git). **FEITO**
    (B1/B2, 301 testes). Ver §14.18.
 2. **Codecov — bloqueado em permissão de org.** O `ci.yml` já usa o secret `CODECOV_TOKEN`; falta o **app do

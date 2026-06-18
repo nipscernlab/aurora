@@ -34,6 +34,7 @@
         "cancel":      { "tooltip": "Cancelar" },
         "fullBuild":   { "tooltip": "Build completo", "label": "Build Completo" },
         "settings":    { "tooltip": "Configurações do Aurora" },
+        "git":         { "tooltip": "Controle de Versão" },
         "splitEditor": { "tooltipDisabled": "Abra um arquivo primeiro para habilitar a divisão", "tooltipEnabled": "Dividir editor — abre o arquivo atual em um novo painel", "tooltipMax": "Máximo de 3 painéis atingido" },
         "ai":            { "tooltip": "Assistente IA" },
         "treeHierarchy": { "tooltip": "Alternar visão hierárquica" },
@@ -71,6 +72,7 @@
         }
     },
     "modal": {
+        "git": { "title": "Controle de Versão" },
         "waveConfig": {
             "title":              "Configuração de Ondas",
             "close":              "Fechar Modal",
@@ -161,6 +163,9 @@
             "aboutProjectSapho":       "Projeto SAPHO",
             "aboutThanks":             "Agradecimentos",
             "aboutThanksText":         "SAPHO & AURORA contam com o apoio de:",
+            "aboutThirdParty":         "Software de terceiros",
+            "aboutThirdPartyText":     "A AURORA inclui software open-source, cada um sob sua própria licença:",
+            "aboutThirdPartyNote":     "Os avisos completos estão no THIRD_PARTY_NOTICES.md.",
             "sectionAI":               "Assistente IA",
             "aiIntro":                 "A Aurora Intelligence usa a sua própria chave de API (BYOK). Escolha o provedor onde você tem conta, cole a chave e clique em Salvar. As chaves são criptografadas pelo cofre de credenciais do sistema operacional e só são enviadas ao provedor que você escolher.",
             "aiSave":                  "Salvar",

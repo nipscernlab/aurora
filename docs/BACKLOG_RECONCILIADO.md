@@ -35,7 +35,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 [x] Dagr branding (fonte Norse + marca d'água) · [x] empty-states unificados.
 
 **Componentes Lit (design system, ~40%):** [x] toast · [x] tooltip · [x] welcome (+ canvas aurora) ·
-[x] modal · [x] tabs (shell) · [x] terminal (shell) · [x] command-palette (esqueleto) ·
+[x] modal · [x] tabs (shell) · [x] terminal (shell) · [x] **command-palette** (completo + ligado, §14.25) ·
 [x] **statusbar** (ligado ao vivo — thin shell, §14.22) · [x] **titlebar** (ligado ao vivo — no-shadow, §14.23) ·
 [x] **modal/toast a11y** (focus-trap + return-focus + `aria-live`, §14.24).
 
@@ -64,10 +64,12 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   — `<div class="status-bar">` → `<aurora-statusbar class="status-bar">` + `<slot>`; os **8 indicadores** e os
   **5 drivers** continuam funcionando sem alteração (light-DOM preservado). Property-driven vira fallback do
   Design Lab. Zero regressão (301 unit + 9 E2E). Ver §14.22. *(precisa teste visual ao vivo)*
-- [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-activity-bar>`** · **command-palette** completo.
+- [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-activity-bar>`** (feature nova, adiada).
 - [ ] **F1** consolidar ícones (sprite Phosphor, tirar FontAwesome) · **F2** fonts 100% local (verificar).
 - [ ] **B12** CLIs de IA sob demanda (~675MB) · **O9** DigitalJS (esquemático — zero código hoje).
-- [ ] **G4** auditoria de i18n · **G6** governança de modelos.
+- [x] **G4** auditoria de i18n — FEITO (18/06): `scripts/check-i18n.js` (en/pt sync + chaves indefinidas, virou
+  guard de CI), 5 chaves faltantes adicionadas (EN+PT), 661 chaves em sincronia. Ver §14.25. · [ ] **G6**
+  governança de modelos.
 
 **Difícil (6–7):**
 - [ ] **O2** Verible LSP · **O11** slang-server · **O7** tree-sitter.

@@ -34,6 +34,7 @@
         "cancel":      { "tooltip": "Cancel" },
         "fullBuild":   { "tooltip": "Full build", "label": "Full Build" },
         "settings":    { "tooltip": "Aurora settings" },
+        "git":         { "tooltip": "Source Control" },
         "splitEditor": { "tooltipDisabled": "Open a file first to enable split", "tooltipEnabled": "Split editor — open current file in a new pane", "tooltipMax": "Maximum of 3 panes reached" },
         "ai":            { "tooltip": "AI assistant" },
         "treeHierarchy": { "tooltip": "Toggle hierarchy view" },
@@ -71,6 +72,7 @@
         }
     },
     "modal": {
+        "git": { "title": "Source Control" },
         "waveConfig": {
             "title":              "Wave Configuration",
             "close":              "Close Modal",
@@ -161,6 +163,9 @@
             "aboutProjectSapho":       "SAPHO project",
             "aboutThanks":             "Acknowledgements",
             "aboutThanksText":         "SAPHO & AURORA are made possible by the support of:",
+            "aboutThirdParty":         "Third-party software",
+            "aboutThirdPartyText":     "AURORA bundles open-source software, each under its own license:",
+            "aboutThirdPartyNote":     "Full notices ship in THIRD_PARTY_NOTICES.md.",
             "sectionAI":               "AI Assistant",
             "aiIntro":                 "Aurora Intelligence runs on your own API key (BYOK). Pick the provider you have an account with, paste its key, and Save. Keys are encrypted with your operating system's keychain and are only ever sent to the provider you choose.",
             "aiSave":                  "Save",

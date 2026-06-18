@@ -1440,3 +1440,20 @@ inert pelo P17). **Toast — `aurora-toast.js`:** `role` + `aria-live` no host �
 erro/warning, `status`/`polite` p/ sucesso/info, `aria-atomic` — pro leitor de tela anunciar o card quando
 aparece. **Zero regressão**: ESLint + `tsc` + `vite build` + **301 unit** + **9 E2E** verdes. **Verificação ao
 vivo pendente** (abrir um modal, dar Tab — não deve sair dele; ESC/✕ fecha e o foco volta pro botão que abriu).
+
+### 14.25 G4 — auditoria de i18n + command-palette (já estava pronto) — 18/06/2026 — FEITO
+**G4 (i18n):** criei `scripts/check-i18n.js` — uma auditoria que confere (1) **EN/PT em sincronia** (toda chave
+em `en.json` existe em `pt.json` e vice-versa) e (2) **referências sem definição** (`data-i18n*` / `window.t` /
+`tt` que não resolvem em `en.json`). Rodando, o estado já era bom: EN/PT em sincronia, só **5 chaves
+referenciadas sem definição** (`toolbar.git.tooltip`, `modal.git.title`, `modal.settings.aboutThirdParty`
++`Text`+`Note`). Adicionei as 5 em EN + PT → **661 chaves, em sincronia, tudo definido**. O script virou
+**guard de CI** (passo "i18n consistency" no `ci.yml`). (O `path.to.key` era exemplo de comentário no
+`i18n.js` — excluído do scan.)
+
+**Command-palette:** a análise dizia "esqueleto, precisa de registry/keybinding" — **estava errada**. Conferindo
+o código, `js/ui/command_palette.js` já tem o registry completo (~20 comandos agrupados Compile/Project/View/
+Tools/Dev), fuzzy scoring, navegação por teclado e os atalhos Ctrl+Shift+K/P; o `<aurora-command-palette>` já
+tem a view completa (input + lista + grupos + seleção); e é **carregado no boot** (`<script src=".../
+command_palette.js">` no `index.html`, linha 1380). Ou seja, **já estava completo + ligado** — só não tinha
+sido verificado. O único "a mais" seria um localizador de arquivos Ctrl+P (feature separada, não pedida).
+**Verificação ao vivo pendente** (Ctrl+Shift+P abre a paleta). Build + 301 unit + ESLint verdes.

@@ -36,6 +36,9 @@ jobs:
       - name: No generated .js committed (B4/B5 guard)
         run: node scripts/check-no-generated-js.js
 
+      - name: i18n consistency (en/pt sync + no undefined keys)
+        run: node scripts/check-i18n.js
+
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode
 

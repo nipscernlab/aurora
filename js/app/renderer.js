@@ -15,6 +15,9 @@ import '../tree/standard_tree_render.js';
 // Side-effect import: VS Code-style git status decorations on the file tree
 // (coloured M/A/D/R badges + folder dots). Self-starts on DOMContentLoaded.
 import '../tree/git_decorations.js';
+// Side-effect import: registers the <aurora-titlebar> custom element (the top
+// toolbar / window chrome). No Shadow DOM — see the component for why.
+import '../components/aurora-titlebar.js';
 // Make sure the view subcontainers exist before any renderer runs.
 treeView.initialize();
 fileTreeViewController.initialize();

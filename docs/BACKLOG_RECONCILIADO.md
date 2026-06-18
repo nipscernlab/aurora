@@ -36,7 +36,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 
 **Componentes Lit (design system, ~40%):** [x] toast · [x] tooltip · [x] welcome (+ canvas aurora) ·
 [x] modal · [x] tabs (shell) · [x] terminal (shell) · [x] command-palette (esqueleto) ·
-[x] **statusbar** (ligado ao vivo — thin shell, §14.22).
+[x] **statusbar** (ligado ao vivo — thin shell, §14.22) · [x] **titlebar** (ligado ao vivo — no-shadow, §14.23).
 
 **Repo/infra:** [x] naming SAPHO/Aurora-IDE · [x] CODEOWNERS · [x] CodeQL · [x] dependabot auto-merge ·
 [x] CITATION/ROADMAP · [x] disclosure de terceiros · [x] README+badges.
@@ -63,7 +63,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   — `<div class="status-bar">` → `<aurora-statusbar class="status-bar">` + `<slot>`; os **8 indicadores** e os
   **5 drivers** continuam funcionando sem alteração (light-DOM preservado). Property-driven vira fallback do
   Design Lab. Zero regressão (301 unit + 9 E2E). Ver §14.22. *(precisa teste visual ao vivo)*
-- [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-titlebar>`** · **`<aurora-activity-bar>`** ·
+- [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-activity-bar>`** ·
   acessibilidade do modal/toast · **command-palette** completo.
 - [ ] **F1** consolidar ícones (sprite Phosphor, tirar FontAwesome) · **F2** fonts 100% local (verificar).
 - [ ] **B12** CLIs de IA sob demanda (~675MB) · **O9** DigitalJS (esquemático — zero código hoje).

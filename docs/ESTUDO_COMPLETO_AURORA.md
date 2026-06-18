@@ -1412,3 +1412,18 @@ preservando o demo do Design Lab + a API de propriedades como alvo futuro. Arqui
 `js/components/aurora-statusbar.js` (reescrito), `index.html` (tag trocada), `js/ui/status_bar.js` (import que
 registra o componente). **Zero regressão**: ESLint + `tsc` + `vite build` + **301 unit** + **9 E2E** (o app
 real sobe e funciona com a barra nova) verdes. **Verificação visual do usuário pendente.**
+
+### 14.23 `<aurora-titlebar>` ligado ao vivo (sem Shadow DOM) — 18/06/2026 — FEITO
+A barra de título virou o componente `<aurora-titlebar>`. No AURORA a títulobar **é a própria toolbar de cima**
+(`#custom-titlebar`): título do projeto + ações + região de arrastar a janela + os controles min/maximizar/
+fechar. Diferente da statusbar/tabs, esse componente **NÃO usa Shadow DOM**: a toolbar é a região
+`-webkit-app-region: drag` da janela, com `no-drag` nos botões — manter os filhos em **light DOM** (sem
+`<slot>`, sem fronteira de shadow) garante que o hit-testing de app-region do Chromium continue funcionando
+**exatamente** como no `<div>` antigo (tanto o arrastar quanto os botões clicáveis). O `<div class="toolbar"
+id="custom-titlebar">` virou `<aurora-titlebar class="toolbar" id="custom-titlebar">` — mesma classe/id, então
+todo o CSS e o driver inline (`getElementById('custom-titlebar')`, dblclick→maximizar, win-min/max/close) ficam
+intactos. O componente é um marcador semântico hoje (`class AuroraTitlebar extends HTMLElement {}`); render
+declarativo (título reativo, detecção de plataforma) pode vir depois. Arquivos: `js/components/aurora-titlebar.js`
+(novo), `index.html` (tag), `js/app/renderer.js` (import que registra). **Zero regressão**: ESLint + `tsc` +
+`vite build` + **301 unit** + **9 E2E** (o app real sobe e funciona) verdes. **Verificação visual do usuário
+pendente** (confirmar que a janela arrasta e os 3 botões funcionam).

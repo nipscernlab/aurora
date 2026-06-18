@@ -876,11 +876,11 @@ class PRISMViewer {
         const paths = await window.electronAPI.getPrismCompilationPaths();
         res = await window.electronAPI.buildDigitalJS(paths);
       } catch (err) {
-        this._showStatus(`${T.simError}: ${err?.message || err}`, true);
+        this._showSimError(`${T.simError}: ${err?.message || err}`);
         return;
       }
       if (!res || !res.ok || !res.circuit) {
-        this._showStatus(res?.message ? `${T.simError}: ${res.message}` : T.simError, true);
+        this._showSimError(res?.message ? `${T.simError}: ${res.message}` : T.simError);
         return;
       }
 
@@ -900,7 +900,7 @@ class PRISMViewer {
       } catch (err) {
         console.error('[PRISM] DigitalJS render failed:', err);
         this._destroyCircuit();
-        this._showStatus(`${T.simError}: ${err?.message || err}`, true);
+        this._showSimError(`${T.simError}: ${err?.message || err}`);
         return;
       }
 
@@ -944,6 +944,13 @@ class PRISMViewer {
   _setSimToggleLabel(text) {
     const label = document.getElementById('t-simulate');
     if (label) label.textContent = text;
+  }
+
+  /** Show a sim-mode error and auto-clear it so the schematic stays usable. */
+  _showSimError(msg) {
+    this._showStatus(msg, true);
+    clearTimeout(this._simErrTimer);
+    this._simErrTimer = setTimeout(() => this._hideStatus(), 7000);
   }
 }
 

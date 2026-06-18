@@ -766,15 +766,44 @@ write_json "${jsonPath}"
     });
     trackChild(proc);
     let stderr = '';
+    let settled = false;
+    const finish = (/** @type {Error|null} */ err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (err) reject(err); else resolve(undefined);
+    };
+    // Cap a runaway synthesis so the user gets a clear error instead of an
+    // endless "Building simulation…" spinner.
+    const timer = setTimeout(() => {
+      try { proc.kill(); } catch (_) { /* already gone */ }
+      finish(new Error('Yosys synthesis timed out (90s) — the design is likely too large for interactive simulation.'));
+    }, 90000);
     proc.stderr.on('data', (d) => (stderr += d.toString()));
-    proc.on('error', reject);
+    proc.on('error', (e) => finish(e instanceof Error ? e : new Error(String(e))));
     proc.on('close', (/** @type {number} */ code) => {
-      if (code === 0) resolve(undefined);
-      else reject(new Error(`yosys exited ${code}${stderr ? `: ${stderr.slice(-400)}` : ''}`));
+      finish(code === 0 ? null : new Error(`yosys exited ${code}${stderr ? `: ${stderr.slice(-400)}` : ''}`));
     });
   });
 
   const yosysJson = await fse.readJson(jsonPath);
+
+  // DigitalJS is an interactive teaching simulator, not a viewer for big
+  // designs: the converter below runs SYNCHRONOUSLY on the main process and the
+  // in-browser layout/render bog down past a few thousand cells. Refuse an
+  // oversized netlist up front with clear guidance instead of freezing the app
+  // on an endless spinner (the static PRISM schematic already handles big RTL).
+  const cellCount = Object.values(yosysJson.modules || {}).reduce(
+    (/** @type {number} */ n, /** @type {any} */ m) => n + Object.keys((m && m.cells) || {}).length, 0);
+  const MAX_CELLS = 3000;
+  if (cellCount > MAX_CELLS) {
+    throw new Error(`Design too large for interactive simulation (${cellCount} cells, limit ${MAX_CELLS}). ` +
+      'DigitalJS is best for small modules — use the schematic view for large designs.');
+  }
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+    state.mainWindow.webContents.send('terminal-log', 'tveri', `DigitalJS netlist ready (${cellCount} cells) — converting…`, 'info');
+  }
+
   // Pure convert: takes an existing yosys JSON object, returns the DigitalJS
   // TopModule directly (no yosys spawn — we already ran ours). Required lazily
   // so the (Node-only) converter isn't loaded until the user enters Sim mode.

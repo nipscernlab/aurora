@@ -138,7 +138,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.78",
     "@ai-sdk/deepseek": "^2.0.35",
-    "@ai-sdk/google": "^3.0.75",
+    "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/groq": "^3.0.39",
     "@ai-sdk/openai": "^3.0.64",
     "@anthropic-ai/claude-code": "^2.1.144",

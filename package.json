@@ -102,13 +102,11 @@
       "!node_modules/monaco-editor/dev/**",
       "!node_modules/monaco-editor/esm/**",
       "!node_modules/monaco-editor/min-maps/**",
-      "!node_modules/@types/**"
-    ],
-    "asarUnpack": [
-      "node_modules/@anthropic-ai/claude-code/**",
-      "node_modules/@anthropic-ai/claude-code-*/**",
-      "node_modules/@openai/codex/**",
-      "node_modules/@openai/codex-*/**"
+      "!node_modules/@types/**",
+      "!node_modules/@anthropic-ai/claude-code/**",
+      "!node_modules/@anthropic-ai/claude-code-*/**",
+      "!node_modules/@openai/codex/**",
+      "!node_modules/@openai/codex-*/**"
     ],
     "extraResources": [
       {

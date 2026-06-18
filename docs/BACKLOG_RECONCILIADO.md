@@ -73,7 +73,11 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 - [x] **F2** fonts 100% local — FEITO/verificado (18/06): Inter + JetBrains Mono são woff2 variáveis locais em
   `assets/fonts/` (`css/base/fonts.css`, importado 1º no `import.css`), sem `@import`/`<link>` de CDN; o
   `vite build` resolve os `url()` e emite as 4 fontes em `dist/assets`. Nada a mudar — só confirmar. Ver §14.27.
-- [ ] **B12** CLIs de IA sob demanda (~675MB) · **O9** DigitalJS (esquemático — zero código hoje).
+- [x] **B12** CLIs de IA sob demanda — FEITO (18/06): `@anthropic-ai/claude-code` (219MB) e
+  `@openai/codex` (239MB) saíram do bundle (~457MB a menos no instalador); baixam do registry npm no 1º uso,
+  com verificação de integridade sha512, cache em `userData/cli-cache`, progresso no chat e fallback. *(precisa
+  teste ao vivo: 1ª mensagem num provider de assinatura baixa o CLI)* Ver §14.28. · [ ] **O9** DigitalJS
+  (esquemático — `@silimate/netlistsvg` já é dependência, mas zero código hoje).
 - [x] **G4** auditoria de i18n — FEITO (18/06): `scripts/check-i18n.js` (en/pt sync + chaves indefinidas, virou
   guard de CI), 5 chaves faltantes adicionadas (EN+PT), 661 chaves em sincronia. Ver §14.25. · [ ] **G6**
   governança de modelos.
@@ -119,7 +123,7 @@ modal/toast a11y, command-palette (Ctrl+Shift+P), i18n em PT, O4 (toggles do fin
 - [ ] Confirmar o badge de cobertura do Codecov no README (já está conectado).
 
 **Próximo a implementar (resumo — detalhe no backlog acima):**
-- **Médio:** `<aurora-tabs>` passo 2 · B12 CLIs sob demanda · O9 DigitalJS · G6 modelos. _(F1 ícones e F2 fonts: FEITOS 18/06 — §14.27.)_
+- **Médio:** `<aurora-tabs>` passo 2 · O9 DigitalJS · G6 modelos. _(F1 ícones, F2 fonts: FEITOS 18/06 — §14.27. B12 CLIs sob demanda: FEITO 18/06 — §14.28.)_
 - **Difícil:** O2/O11 LSP (Verible/slang) · O7 tree-sitter · `<aurora-tree>`/`<aurora-terminal>` passo 2 ·
   `<aurora-editor>` · A3 globais · PRISM reskin.
 - **Radical:** A2 god-files · O1 Surfer embarcado · `<aurora-panel>` dockável · O5 YoWASP · B11 cross-platform.

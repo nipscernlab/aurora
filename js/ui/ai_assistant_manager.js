@@ -2211,7 +2211,7 @@ class AIAssistantManager {
 
     if (!s) {
       title = `Checking ${sm.cliName}…`;
-    } else if (!s.installed) {
+    } else if (!s.installed && !s.downloadable) {
       state = 'off'; icon = 'ph-x-circle';
       title = sm.notInstalled;
       detail = sm.installHint;
@@ -2219,6 +2219,13 @@ class AIAssistantManager {
       state = 'warn'; icon = 'ph-warning-circle';
       title = 'Not signed in';
       detail = `Run <code>${sm.loginCmd}</code> in a terminal, then re-check.`;
+    } else if (!s.installed) {
+      // B12: signed in and downloadable — ready to use; the ~230 MB binary is
+      // fetched on the first message (then this flips to the version detail).
+      state = 'on'; icon = 'ph-check-circle';
+      const plan = this.formatPlanLabel(s.plan) || 'SUBSCRIPTION';
+      title = `${meta.label || sm.cliName} · ${plan}`;
+      detail = 'Downloads on first message';
     } else {
       state = 'on'; icon = 'ph-check-circle';
       const plan = this.formatPlanLabel(s.plan) || 'SUBSCRIPTION';
@@ -2692,13 +2699,18 @@ class AIAssistantManager {
     if (isSubProvider(this.currentProvider)) {
       const sm = SUB_META[this.currentProvider];
       if (!this.subStatus[this.currentProvider]) await this.refreshSubStatus();
-      if (!this.isSubReady()) {
-        const s = this.subStatus[this.currentProvider];
-        this.appendBubble('assistant', !s || !s.installed
-          ? `**${sm.notInstalled}.** ${sm.installHint}, then open the model ` +
-            'menu and click re-check.'
-          : `**${sm.cliName} is not signed in.** Run \`${sm.loginCmd}\` in a ` +
-            'terminal, then open the model menu and click re-check.', false);
+      const s = this.subStatus[this.currentProvider];
+      // B12: a downloadable-but-not-yet-installed CLI is fine to start — the
+      // turn fetches it on first use (with progress). The only hard blockers
+      // are "no CLI available at all" and "not signed in".
+      const willFetch = !!(s && !s.installed && s.downloadable && s.authed);
+      if (!this.isSubReady() && !willFetch) {
+        const signedOut = !!(s && (s.installed || s.downloadable) && !s.authed);
+        this.appendBubble('assistant', signedOut
+          ? `**${sm.cliName} is not signed in.** Run \`${sm.loginCmd}\` in a ` +
+            'terminal, then open the model menu and click re-check.'
+          : `**${sm.notInstalled}.** ${sm.installHint}, then open the model ` +
+            'menu and click re-check.', false);
         return;
       }
     }
@@ -3221,6 +3233,11 @@ class AIAssistantManager {
     // Watchdog liveness: any packet from the active turn proves it's alive.
     this._lastEventAt = Date.now();
     switch (ev.type) {
+      case 'cli-download':
+        // B12: a subscription CLI is being fetched on first use. Display-only,
+        // transient status — never persisted into the conversation.
+        this._renderCliDownload(ev);
+        break;
       case 'text-delta':
         // Do NOT hide the thinking dots here. A delta can be whitespace or a
         // stripped tool-call artifact that produces no bubble yet, so hiding
@@ -3244,6 +3261,7 @@ class AIAssistantManager {
         this.finishToolChip(ev.toolName, ev.result, ev.toolUseId);
         break;
       case 'finish':
+        this._clearCliDownload();
         this.showThinking(false);
         this.commitTurn();
         this.applyUsage(ev.usage);
@@ -3255,12 +3273,14 @@ class AIAssistantManager {
         if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
       case 'aborted':
+        this._clearCliDownload();
         this.showThinking(false);
         this.commitTurn();
         this.setStreaming(false);
         if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
       case 'error':
+        this._clearCliDownload();
         this.failTurn(ev.message || 'Unknown error');
         break;
     }
@@ -3544,6 +3564,11 @@ class AIAssistantManager {
   }
 
   resetTurnState() {
+    // Tear down the CLI-download status row here too — this is the chokepoint
+    // every turn-ending path runs through (stop()'s safety net, the stall
+    // watchdog, failTurn), so a download interrupted by Stop/stall can't leave
+    // an orphaned "Downloading…" row behind.
+    this._clearCliDownload();
     if (this._streamRenderRaf) {
       cancelAnimationFrame(this._streamRenderRaf);
       this._streamRenderRaf = null;
@@ -3857,6 +3882,55 @@ class AIAssistantManager {
     } else if (!show && this.thinkingEl) {
       this.thinkingEl.remove();
       this.thinkingEl = null;
+    }
+  }
+
+  /**
+   * Transient status while a subscription CLI is fetched on first use (B12).
+   * Reuses the thinking-indicator chrome; display-only, never persisted. The
+   * `done` phase (and any turn end) tears it down via _clearCliDownload.
+   */
+  _renderCliDownload(ev) {
+    if (!ev || ev.phase === 'done') {
+      this._clearCliDownload();
+      if (ev && ev.phase === 'done') {
+        // The CLI just finished installing. Bridge the spawn/first-token gap
+        // with the thinking indicator so the panel doesn't look frozen right
+        // after a long download, and refresh the status row so it flips off
+        // "Downloads on first message" to the resolved version/plan.
+        this.showThinking(true);
+        this.refreshSubStatus?.();
+      }
+      return;
+    }
+    this.showThinking(false); // the funny "thinking" word would fight this row
+    // Recreate if missing OR detached (a chat switch/clear wipes messagesEl,
+    // leaving a stale ref that would otherwise render progress off-DOM).
+    if (!this.cliDownloadEl || !this.cliDownloadEl.isConnected) {
+      const el = document.createElement('div');
+      el.className = 'ai-thinking-wrap ai-cli-download';
+      this.messagesEl.appendChild(el);
+      this.cliDownloadEl = el;
+    }
+    const cli = ev.cli || 'AI CLI';
+    let label;
+    if (ev.phase === 'verify') label = `Verifying ${cli}…`;
+    else if (ev.phase === 'extract') label = `Installing ${cli}…`;
+    else {
+      const mb = (n) => (Number(n || 0) / 1e6).toFixed(0);
+      const size = ev.total > 0 ? ` · ${mb(ev.received)}/${mb(ev.total)} MB` : '';
+      label = `Downloading ${cli} (first use)… ${ev.pct || 0}%${size}`;
+    }
+    this.cliDownloadEl.innerHTML =
+      `<em class="ai-thinking-word">${escapeHtml(label)}</em>` +
+      '<span class="ai-thinking-dots"><span></span><span></span><span></span></span>';
+    this.scrollToBottom();
+  }
+
+  _clearCliDownload() {
+    if (this.cliDownloadEl) {
+      this.cliDownloadEl.remove();
+      this.cliDownloadEl = null;
     }
   }
 

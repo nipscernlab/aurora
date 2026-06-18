@@ -48,7 +48,9 @@ const fs = require('fs');
 const log = require('electron-log');
 
 const auroraMcp = require('./aurora_mcp_server');
-const { locateCodex } = require('./cli_locator');
+const cliLocator = require('./cli_locator');
+const { locateCodex } = cliLocator;
+const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
 
 /** sessionId → { proc, markAborted } for in-flight turns. */
@@ -120,7 +122,16 @@ function execFileText(/** @type {string} */ bin, /** @type {string[]} */ args, t
  */
 async function detect() {
   const bin = resolveBinary();
-  if (!bin) return { installed: false };
+  if (!bin) {
+    // Not on disk yet — report whether it can be fetched on demand (B12) and
+    // whether ChatGPT is already signed in (creds are independent of the binary).
+    const creds = readCredentials();
+    return {
+      installed: false,
+      downloadable: cliDownloader.isDownloadable('codex'),
+      authed: !!(creds && creds.tokens && creds.tokens.access_token),
+    };
+  }
 
   let version = '';
   try { version = (await execFileText(bin.exe, ['--version'])).trim(); }
@@ -244,18 +255,36 @@ async function start(payload, webContents) {
     throw new Error('messages must be a non-empty array');
   }
 
-  const bin = resolveBinary();
-  if (!bin) {
-    sendEvent(webContents, sessionId, 'error', {
-      message: 'Codex CLI not found. Reinstall Aurora, or run `npm i -g @openai/codex`.',
-    });
-    return;
-  }
+  // Sign-in first — the ChatGPT OAuth tokens are independent of the binary, so
+  // there's no point downloading the CLI only to bounce off a missing login.
   if (!readCredentials()) {
     sendEvent(webContents, sessionId, 'error', {
       message: 'Codex is not signed in. Run `codex login` in a terminal, then reconnect.',
     });
     return;
+  }
+
+  let bin = resolveBinary();
+  if (!bin) {
+    // B12: the installer no longer bundles the CLI — fetch it on first use.
+    if (!cliDownloader.isDownloadable('codex')) {
+      sendEvent(webContents, sessionId, 'error', {
+        message: 'Codex CLI not found. Reinstall Aurora, or run `npm i -g @openai/codex`.',
+      });
+      return;
+    }
+    try {
+      bin = await cliDownloader.ensureCli('codex', {
+        onProgress: (p) => sendEvent(webContents, sessionId, 'cli-download', { ...p, cli: 'Codex' }),
+      });
+      cachedBin = bin;          // prime the module cache for later turns
+      cliLocator.invalidate();  // so detect()/usage see the freshly-installed CLI
+    } catch (e) {
+      sendEvent(webContents, sessionId, 'error', {
+        message: `Could not download Codex: ${e instanceof Error ? e.message : e}`,
+      });
+      return;
+    }
   }
 
   // Resume the CLI-side thread when we already have its id; that keeps

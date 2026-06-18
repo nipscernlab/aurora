@@ -35,7 +35,9 @@ const log = require('electron-log');
 
 const state = require('../state');
 const auroraMcp = require('./aurora_mcp_server');
-const { locateClaude } = require('./cli_locator');
+const cliLocator = require('./cli_locator');
+const { locateClaude } = cliLocator;
+const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
 
 /** sessionId → { proc } for in-flight turns. */
@@ -104,7 +106,18 @@ function execFileText(/** @type {string} */ binPath, /** @type {string[]} */ arg
  */
 async function detect() {
   const bin = resolveBinary();
-  if (!bin) return { installed: false };
+  if (!bin) {
+    // Not on disk yet. Report whether we CAN fetch it on demand (B12) and
+    // whether the subscription is already signed in (creds are independent of
+    // the binary — they come from the user's external `claude login`), so the
+    // panel can offer "downloads on first use" instead of a dead "not installed".
+    const creds = readCredentials();
+    return {
+      installed: false,
+      downloadable: cliDownloader.isDownloadable('claude'),
+      authed: !!(creds && creds.accessToken),
+    };
+  }
 
   let version = '';
   try { version = (await execFileText(bin.exe, ['--version'])).trim(); }
@@ -293,18 +306,36 @@ async function start(payload, webContents) {
     throw new Error('messages must be a non-empty array');
   }
 
-  const bin = resolveBinary();
-  if (!bin) {
-    sendEvent(webContents, sessionId, 'error', {
-      message: 'Claude Code CLI not found. Install it, then reopen this panel.',
-    });
-    return;
-  }
+  // Sign-in is checked first: the OAuth credentials come from the user's
+  // external `claude login` and are independent of where the binary lives, so
+  // there's no point downloading ~230 MB only to bounce off a missing login.
   if (!readCredentials()) {
     sendEvent(webContents, sessionId, 'error', {
       message: 'Claude Code is not signed in. Run `claude login` in a terminal, then reconnect.',
     });
     return;
+  }
+
+  let bin = resolveBinary();
+  if (!bin) {
+    // B12: the installer no longer bundles the CLI — fetch it on first use.
+    if (!cliDownloader.isDownloadable('claude')) {
+      sendEvent(webContents, sessionId, 'error', {
+        message: 'Claude Code CLI not found. Install it, then reopen this panel.',
+      });
+      return;
+    }
+    try {
+      bin = await cliDownloader.ensureCli('claude', {
+        onProgress: (p) => sendEvent(webContents, sessionId, 'cli-download', { ...p, cli: 'Claude Code' }),
+      });
+      cliLocator.invalidate(); // so detect()/usage see the freshly-installed CLI
+    } catch (e) {
+      sendEvent(webContents, sessionId, 'error', {
+        message: `Could not download Claude Code: ${e instanceof Error ? e.message : e}`,
+      });
+      return;
+    }
   }
 
   // Resume the CLI-side conversation when we already have its id; that
@@ -713,9 +744,22 @@ function forgetConversation(/** @type {string} */ conversationId) {
  * @param {{ system?:string, prompt:string, model?:string }} opts
  */
 async function generateOneshot({ system, prompt, model } = /** @type {any} */ ({})) {
-  const bin = resolveBinary();
-  if (!bin) return { ok: false, error: 'Claude Code CLI not found. Install it, or pick an API provider.' };
   if (!readCredentials()) return { ok: false, error: 'Claude Code is not signed in. Run `claude login` in a terminal.' };
+
+  let bin = resolveBinary();
+  if (!bin) {
+    // B12: fetch the CLI on first use here too (no progress channel on the
+    // one-shot path — the harness generator already shows its own pending UI).
+    if (!cliDownloader.isDownloadable('claude')) {
+      return { ok: false, error: 'Claude Code CLI not found. Install it, or pick an API provider.' };
+    }
+    try {
+      bin = await cliDownloader.ensureCli('claude');
+      cliLocator.invalidate();
+    } catch (e) {
+      return { ok: false, error: `Could not download Claude Code: ${e instanceof Error ? e.message : e}` };
+    }
+  }
 
   const args = ['-p', '--output-format', 'text'];
   if (model && model !== 'default') args.push('--model', model);

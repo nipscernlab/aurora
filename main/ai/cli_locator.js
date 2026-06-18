@@ -2,26 +2,30 @@
 /**
  * cli_locator.js — locates the Claude Code and Codex CLI executables.
  *
- * Aurora ships both CLIs as bundled dependencies (`@anthropic-ai/claude-code`
- * and `@openai/codex`) so the subscription-backed AI providers work out of
- * the box — the user does not have to `npm i -g` anything. This module
- * resolves the right executable across the two runtime layouts:
+ * The CLIs are resolved across three runtime layouts, in priority order:
  *
- *   - Development (`electron .`): the CLIs live under the repo's
- *     `node_modules/`, reachable straight through `require.resolve`.
+ *   0. On-demand download cache (B12): the packaged installer no longer bundles
+ *      these ~460 MB binaries. `cli_downloader` fetches the pinned platform
+ *      package on first use into `<userData>/cli-cache/…`; once present it wins,
+ *      so a downloaded CLI resolves with no further network on later runs.
  *
- *   - Packaged build: code runs from inside `app.asar`. Native executables
- *     cannot be launched from an asar archive, so electron-builder unpacks
- *     them into a sibling `app.asar.unpacked/` tree (see `asarUnpack` in
- *     package.json). `require.resolve` and `fs` see the in-asar path
- *     transparently, but `child_process.spawn` does NOT — it needs the real
- *     on-disk path. `toUnpacked()` performs that rewrite.
+ *   1. Development (`electron .`): the CLIs live under the repo's
+ *      `node_modules/` (still declared dependencies), reachable straight
+ *      through `require.resolve`.
  *
- * A global install on PATH is used as a last-resort fallback (covers a dev
- * who has their own `npm i -g` copy, or a build where bundling was skipped).
+ *   2. Packaged build with the dependency present (dev builds that skipped the
+ *      B12 exclusion): code runs from inside `app.asar`. Native executables
+ *      cannot be launched from an asar archive, so electron-builder unpacks
+ *      them into a sibling `app.asar.unpacked/` tree. `require.resolve` and
+ *      `fs` see the in-asar path transparently, but `child_process.spawn` does
+ *      NOT — it needs the real on-disk path. `toUnpacked()` performs that rewrite.
+ *
+ *   3. A global install on PATH — last-resort fallback (covers a dev with their
+ *      own `npm i -g` copy).
  *
  * Results are cached: resolution touches the filesystem and spawns `where`,
- * neither of which changes during an app run.
+ * neither of which changes during an app run. `invalidate()` clears that cache
+ * after a successful on-demand download so the freshly-installed CLI is seen.
  */
 
 'use strict';
@@ -75,6 +79,17 @@ function onPath(/** @type {string} */ name) {
   }
 }
 
+/**
+ * Sync lookup in the on-demand download cache (B12), or null. Lazily required
+ * so this module stays loadable without the downloader (and without Electron).
+ * @param {'claude'|'codex'} kind
+ * @returns {{exe:string, rgDir:string|null, viaShim:boolean}|null}
+ */
+function downloadedLocation(kind) {
+  try { return require('./cli_downloader').cachedLocation(kind); }
+  catch (_) { return null; }
+}
+
 // --- Claude Code -----------------------------------------------------------
 
 /** @type {{exe:string, viaShim:boolean}|null|undefined} */
@@ -89,6 +104,10 @@ let claudeCache;
  */
 function locateClaude() {
   if (claudeCache !== undefined) return claudeCache;
+
+  // 0. On-demand download cache (packaged builds fetch the CLI on first use).
+  const cached = downloadedLocation('claude');
+  if (cached) { claudeCache = { exe: cached.exe, viaShim: false }; return claudeCache; }
 
   // 1. Bundled dependency. The package's own postinstall drops a native
   //    binary into `bin/` (e.g. bin/claude.exe on Windows).
@@ -144,6 +163,10 @@ let codexCache;
 function locateCodex() {
   if (codexCache !== undefined) return codexCache;
 
+  // 0. On-demand download cache (packaged builds fetch the CLI on first use).
+  const cached = downloadedLocation('codex');
+  if (cached) { codexCache = { exe: cached.exe, rgDir: cached.rgDir, viaShim: false }; return codexCache; }
+
   // 1. Bundled platform package: <pkg>/vendor/<triple>/codex/codex(.exe)
   //    with ripgrep alongside at <pkg>/vendor/<triple>/path/.
   const target = CODEX_TARGETS[/** @type {keyof typeof CODEX_TARGETS} */ (`${process.platform}:${process.arch}`)];
@@ -169,4 +192,13 @@ function locateCodex() {
   return codexCache;
 }
 
-module.exports = { locateClaude, locateCodex, toUnpacked };
+/**
+ * Drop the cached resolutions so the next locate*() re-scans. Called after a
+ * successful on-demand download so the freshly-installed CLI is picked up.
+ */
+function invalidate() {
+  claudeCache = undefined;
+  codexCache = undefined;
+}
+
+module.exports = { locateClaude, locateCodex, toUnpacked, invalidate };

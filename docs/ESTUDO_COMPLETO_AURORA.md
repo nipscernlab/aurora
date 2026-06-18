@@ -1500,3 +1500,56 @@ nenhum (só comentários + o `scripts/fetch-fonts.js`, que é build-time). O `vi
 (661/661), `tsc --noEmit`, ESLint (`--max-warnings=0`), `deadcode` (knip), **301 unit**, `vite build`, **9 E2E**
 (Electron real sobe e funciona). Mudança de repo: só `package.json` (−2 linhas). Sem risco visual (nenhuma
 mudança de DOM/CSS) — não precisa de teste ao vivo seu.
+
+### 14.28 B12 — CLIs de IA sob demanda (sai ~457MB do instalador) — 18/06/2026 — FEITO
+A AURORA empacotava dois binários nativos pesados pra os provedores de assinatura funcionarem "out of the box":
+`@anthropic-ai/claude-code` (claude.exe de 229MB) e `@openai/codex` (vendor de 239MB, com ripgrep). Eles iam no
+`asarUnpack`. Agora **saem do build empacotado** e são **baixados sob demanda no 1º uso**. Continuam como
+`dependencies` no `package.json` (dev/CI/testes resolvem do `node_modules` igual a antes, via `require.resolve`)
+— só o **instalador** fica ~457MB menor, o que casa com a história de distribuição/SmartScreen (B2).
+
+**Como funciona.** No 1º turno de chat contra um provider de assinatura (ou no gerador de harness one-shot do
+Claude), se o exe não está nem no `node_modules` (dev) nem no cache de usuário, a AURORA baixa o **pacote de
+plataforma** direto do registry npm, verifica a **integridade sha512**, extrai com `tar --strip-components=1`
+pra `userData/cli-cache/<pkg>@<versão>/`, e roda dali. Nos turnos seguintes (e reinícios) o cache resolve sem
+rede. Peças:
+- **`main/ai/cli_manifest.js`** (novo) — fixa, por plataforma (hoje só `win32:x64`, o único alvo de build):
+  pacote, versão, URL do tarball, integridade sha512 e o caminho do exe (Claude: `@anthropic-ai/claude-code-
+  win32-x64` → `claude.exe`; Codex: o alias `@openai/codex-win32-x64` → `@openai/codex@<ver>-win32-x64`, exe em
+  `vendor/x86_64-pc-windows-msvc/codex/codex.exe` + ripgrep em `.../path`).
+- **`main/ai/cli_downloader.js`** (novo) — `ensureCli(kind,{onProgress})` (download com redirects + progresso +
+  **timeout de socket**, verificação de integridade ANTES de extrair, cache idempotente, dedupe de chamadas
+  concorrentes, **prune** de versões antigas), `cachedLocation`, `isDownloadable`, `installPaths`. Cache root:
+  `AURORA_CLI_CACHE` (testes) > `userData` (Electron) > `os.tmpdir`.
+- **`main/ai/cli_locator.js`** — ganhou um **passo 0** que olha o cache de download antes do `require.resolve`
+  bundled, e `invalidate()` pra reescanear após baixar.
+- **`claude_code.js` / `codex_cli.js`** — `detect()` agora reporta `{installed:false, downloadable, authed}`
+  quando não há exe (lê as credenciais mesmo sem binário, pra não baixar 230MB e só então falhar por login);
+  `start()` checa login primeiro, baixa sob demanda emitindo eventos `cli-download` de progresso, e o codex
+  re-prima seu `cachedBin`.
+- **`ai_assistant_manager.js`** — gate de envio relaxado pra `downloadable && authed`; status do painel mostra
+  "Downloads on first message"; o chat mostra "Downloading … X% · MB/MB" via um caso `cli-download`.
+- **`package.json`** — `asarUnpack` removido; os dois pacotes (e os de plataforma) excluídos do `files`.
+- **`scripts/check-pinned-versions.js`** — guard de CI: as versões do manifest têm que acompanhar o
+  `package.json`, **e** a integridade/tarball têm que bater com o `package-lock.json` (offline) — pega o erro
+  clássico de "bumpou a versão e esqueceu de atualizar o hash", que quebraria 100% dos downloads em produção.
+
+**Revisão adversarial multi-agente (18 agentes, 14 candidatos → 6 reais) — todos corrigidos:**
+1. *(alto)* `downloadToFile` sem timeout: conexão que trava no meio pendurava a Promise pra sempre **e
+   envenenava o dedupe `inFlight`** (retry impossível até reiniciar). → `req.setTimeout(60s)` que destrói com
+   erro, liberando o dedupe.
+2. *(médio)* bump de versão sem refresh do hash passava no CI e quebrava o download em runtime. → cross-check
+   da integridade/tarball contra o `package-lock.json`.
+3. *(baixo)* dirs de versões antigas nunca eram limpos (vazamento de disco no upgrade). → `pruneStaleVersions`
+   best-effort após install.
+4. *(baixo)* status ficava em "Downloads on first message" até re-check manual. → `refreshSubStatus()` no fim do
+   download.
+5. *(alto)* linha de progresso órfã no Stop/stall + **reuso de nó destacado** (próximo download renderizava
+   invisível). → `_clearCliDownload()` no chokepoint `resetTurnState()` + guard `isConnected`.
+6. *(baixo)* janela sem indicador entre fim do download e 1º token (parecia travado). → `showThinking(true)` no
+   `done`.
+
+**Green bar local (tudo verde):** check-pinned-versions (+ integridade vs lockfile), check-no-generated-js,
+check-i18n (661/661), `tsc --noEmit`, ESLint, `deadcode`, **310 unit** (9 novos em `cliDownloader.test.js`:
+manifest, integridade, cache hit/miss — o download real de rede é validado ao vivo), `vite build`, **9 E2E**.
+O download fim-a-fim (rede + 230MB) foi **validado ao vivo pelo usuário** ("tudo funcionando").

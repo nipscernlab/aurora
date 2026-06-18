@@ -136,7 +136,7 @@
     "Aurora"
   ],
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.78",
+    "@ai-sdk/anthropic": "^3.0.85",
     "@ai-sdk/deepseek": "^2.0.35",
     "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/groq": "^3.0.39",

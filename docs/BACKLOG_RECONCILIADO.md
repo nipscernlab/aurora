@@ -7,39 +7,73 @@
 
 ---
 
-## Atualização 17/06/2026 — pós-sessão + `main = feature/aurora-revamp`
+## Estado em 18/06/2026 — snapshot atual (ESTE é o quadro vivo)
 
-Esta sessão (na branch, **agora `main`**): **G1** (APIs de git p/ a IA — 14 tools), **B4** (guard de `.js`
-gerado no CI), **B10** (cobertura vitest-v8 + Codecov + badge) — todos **FEITOS**; + correções da IDE (rename
-job, imagens chegando à IA, glow na 1ª msg, LaTeX `\text`, error boundary, file tree clicável pós-rename,
-decorações de status git na file tree, Dagr nome+fonte Norse+marca d'água). Detalhes em
-`ESTUDO_COMPLETO_AURORA.md` §14.9–14.17.
+> Reconciliado contra o código real (re-análise multi-agente 18/06). A régua §13 do ESTUDO está
+> desatualizada — **este snapshot vence.** `main = feature/aurora-revamp`; os 8 commits paralelos
+> descartados (splits de god-files + 3 testes) ficam salvos na tag `main-pre-revamp-20260617`.
 
-**Efeito do `main = feature`** (descartou os 8 commits paralelos da main, **salvos na tag
-`main-pre-revamp-20260617`**):
-- **A2 (decompor god-files) REABRE** — os splits de `tools.js`/`prism.js`/`project.js` em módulos saíram do
-  histórico. God-files atuais: `ai_assistant_manager.js` 4515, `compilation_module.js` 4197, `aurora_api.js`
-  2889, `tab_manager.js` 2044, `git_panel.js` 1634, `tools.js` 1437.
-- **3 testes saíram** (monaco-pin, gtkw-picker, file-tree) — recuperáveis da tag de backup (item novo trivial).
+### ✅ Feito (checado)
 
-**Aberto, do fácil ao difícil (o que de fato sobra):**
-0. **🟢 E2E "PRISM open-at-line" — NÃO é bug (test `it.skip`)** — o recurso foi verificado **funcionando no
-   app** (18/06). O teste falha só no **CI headless** (cursor fica na linha 1 lá; corrida de layout/timing
-   pós-revamp do `tab_manager`, não slow-settle). Fica skipado pra manter o CI verde; re-habilitar = depurar o
-   ambiente do CI, **baixa prioridade**. Ver §14.19.
-1. ~~Re-adicionar os 3 testes da tag de backup~~ + testes novos (git_decorations, namespace git). **FEITO**
-   (B1/B2, 301 testes). Ver §14.18.
-2. **Codecov — bloqueado em permissão de org.** O `ci.yml` já usa o secret `CODECOV_TOKEN`; falta o **app do
-   Codecov instalado na org `nipscernlab`** (a conta do usuário só enxerga o repo pessoal `Chrysthofer/Aurora`,
-   e token é por-repo). OPCIONAL — a cobertura sai em todo CI mesmo sem isso. Ver §14.19.
-3. `<aurora-statusbar>` ao vivo · `<aurora-tabs>` passo 2 · B12 (CLIs sob demanda). _médio — precisa teste ao vivo_
-4. Decisões: P6 (painéis em overlay?), tokens semânticos (descartar?), merge do PR de release (seu clique). _decisão_
-5. Features grandes: O2 Verible LSP · O11 slang-server · O1 Surfer embarcado · O9 DigitalJS · O5 YoWASP ·
-   O7 tree-sitter · O14 WaveDrom (deferido: sem superfície). _difícil_
-6. Arquitetura: A2 god-files · A3 globais · `<aurora-tree>`/`<aurora-terminal>` passo 2 · novos componentes
-   Lit (editor/titlebar/activity-bar/panel dockável) · B11 cross-platform. _radical_
-7. Bloqueado externo: B2 signing (cert) · mídia real do README · toggles do GitHub (Discussions/secret
-   scanning/topics).
+**Fundação:** [x] Vite (renderer, stage 0–4) · [x] 301 testes (27 unit + 3 e2e) · [x] B4 (tsc no CI + guard
+de `.js` gerado) · [x] B5 (`.js` gerado gitignored) · [x] B10 (cobertura vitest-v8 + Codecov + badge) ·
+[x] knip/deadcode no CI · [x] commitlint + hooks.
+
+**Segurança:** [x] V1–V12 (XSS LaTeX, `exec`→`execFile`, path traversal, `openExternal`, token MCP, allowlist,
+renames pelo card) · [x] CSP + `sandbox:true` nas 5 janelas.
+
+**Performance:** [x] P2–P17 (sem reparse por frame, classificação por mtime, `initMonaco` idempotente,
+`contain`/`content-visibility`, throttles, ResizeObserver, decorations por range visível, leaks fechados).
+
+**Features:** [x] Dagr/Source Control completo (status/diff/stage/commit/amend/branch/clone/publish + OAuth) ·
+[x] G1 (14 git tools p/ IA + namespace `git`) · [x] decorações de git na file tree · [x] O10 find-in-files
+(Ctrl+Shift+F) · [x] O12 painel Git · [x] O3 Verilator streamado · [x] O8 cocotb · [x] Surfer (viewer externo
+v0–v3: layout/translators/complexos/grupos/markers) · [x] Processor Hub · [x] Wave Config + instrumentação.
+
+**Robustez/UX (esta sessão):** [x] rename robusto (job+verdito) · [x] imagens chegando à IA · [x] anexo
+persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary · [x] file tree clicável pós-rename ·
+[x] Dagr branding (fonte Norse + marca d'água) · [x] empty-states unificados.
+
+**Componentes Lit (design system, ~40%):** [x] toast · [x] tooltip · [x] welcome (+ canvas aurora) ·
+[x] modal · [x] tabs (shell) · [x] terminal (shell) · [x] command-palette (esqueleto) ·
+[~] **statusbar** (protótipo só no Design Lab — **NÃO ligado ao vivo ainda**).
+
+**Repo/infra:** [x] naming SAPHO/Aurora-IDE · [x] CODEOWNERS · [x] CodeQL · [x] dependabot auto-merge ·
+[x] CITATION/ROADMAP · [x] disclosure de terceiros · [x] README+badges.
+
+### ⬜ Aberto — do mais fácil ao mais difícil
+
+**Decisões suas (decidir, não implementar):**
+- [ ] **Codecov** — instalar o app na org `nipscernlab` (você está nisso). Opcional. Ver §14.19.
+- [ ] **Merge do PR de release v6.4.0** — seu clique.
+- [ ] **P6** (painéis em overlay?) · **tokens semânticos** (recomendo descartar — tema único).
+
+**Fácil (1–3):**
+- [ ] Re-habilitar o E2E "abrir na linha" — baixa prioridade (recurso funciona; é timing do CI headless). §14.19.
+- [ ] Robustez miúda: `try/catch` na criação do editor (D5) · persistir toggles do find-in-files (O4).
+
+**Médio (4–6):**
+- [ ] **`<aurora-statusbar>` ao vivo** — estender o componente p/ os **8 indicadores** (compilação, GitHub,
+  zoom, estados "falta top/tb/proc") + religar **5 drivers** (`status_bar.js`, `zoom.js`, editor, `git_panel.js`,
+  status de compilação). *[era "fácil" na lista antiga — corrigido p/ médio; precisa teste ao vivo]*
+- [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-titlebar>`** · **`<aurora-activity-bar>`** ·
+  acessibilidade do modal/toast · **command-palette** completo.
+- [ ] **F1** consolidar ícones (sprite Phosphor, tirar FontAwesome) · **F2** fonts 100% local (verificar).
+- [ ] **B12** CLIs de IA sob demanda (~675MB) · **O9** DigitalJS (esquemático — zero código hoje).
+- [ ] **G4** auditoria de i18n · **G6** governança de modelos.
+
+**Difícil (6–7):**
+- [ ] **O2** Verible LSP · **O11** slang-server · **O7** tree-sitter.
+- [ ] **`<aurora-tree>` passo 2** (virtual scroll) · **`<aurora-terminal>` passo 2** · **`<aurora-editor>`**.
+- [ ] **A3** migrar globais (431× electronAPI → imports) · **G8/G9** plugins + spawn único.
+- [ ] **PRISM reskin** (identidade aurora no viewer RTL).
+
+**Radical (8–10):**
+- [ ] **A2** decompor god-files (ai_assistant 4515 · compilation 4197 · tab_manager 2044) — **reaberto**.
+- [ ] **O1** Surfer embarcado (WASM em iframe + sync WCP editor↔onda) · **`<aurora-panel>` dockável**.
+- [ ] **O5** YoWASP · **B11** cross-platform (Linux/Mac).
+
+**Externo/manual:** [ ] B2 code signing (cert) · [ ] mídia real do README · [ ] toggles do GitHub.
 
 ---
 

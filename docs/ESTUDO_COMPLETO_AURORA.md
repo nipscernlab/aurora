@@ -1377,3 +1377,15 @@ recurso em si está OK).
 no Codecov com **68.47%** de cobertura na `main` (1392/2033 linhas, commit `2a2f390`). A org habilitou upload
 **sem token** (tokenless), então o `CODECOV_TOKEN` virou opcional — fica no `ci.yml` como reforço. Badge do
 README enche no próximo refresh/CI. B10 100% fechado.
+
+### 14.20 Re-análise do plano (18/06) + reclassificação da status bar — 18/06/2026
+Re-análise multi-agente de todos os docs cruzada com o código real → **snapshot atual e limpo** no
+`BACKLOG_RECONCILIADO.md` ("Estado em 18/06", que agora **vence** a régua §13 desatualizada — done checado +
+aberto ordenado fácil→difícil). Conclusões: o **tier fácil está essencialmente esgotado** — a remoção de CDN já
+estava feita (o `index.html` é 100% local, sem CDN), e Codecov + re-habilitar o E2E são externos/CI. A
+**`<aurora-statusbar>` foi reclassificada de fácil → médio**: o componente que existe é só protótipo (exercitado
+só no Design Lab), com API simplificada; a barra real tem **8 indicadores** que ele não cobre (status de
+compilação, GitHub/Source Control, controle de zoom, e os estados "falta top-level/testbench/processador" com X
+vermelho), pintados por **5 drivers** (`status_bar.js`, `zoom.js`, editor p/ Ln/Col, `git_panel.js`, status de
+compilação). Uma troca completa estende o componente + religa os 5 drivers, com risco visual → **precisa teste
+ao vivo**, não é quick-win.

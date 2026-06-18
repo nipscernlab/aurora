@@ -1366,9 +1366,12 @@ pra linha 180, mas ele fica na **linha 1** (o `revealPosition` do `addTab` não 
 pré-existente: o `tab_manager.js` mudou ~185 linhas entre a main antiga (que passava) e a branch do revamp, e o
 teste ficou mais rígido (de-flake da Wave D, com assert de visibilidade). Entrou na main pelo `main = feature`;
 o código do reveal **não foi tocado nesta sessão** (último toque: `f357b42`). É bug real do "abrir na linha" do
-PRISM, precisa de diagnóstico ao vivo (Electron) → grupo C. **Resolução:** o teste foi **quarentenado**
-(`it` → `it.skip` em `split-pane.test.js`, 18/06) pra destravar o CI; o conserto real do reveal "abrir na
-linha" do PRISM fica como item do grupo C (precisa de teste ao vivo). Reativar o teste quando consertado.
+PRISM, precisa de diagnóstico ao vivo (Electron) → grupo C. **Resolução (18/06): NÃO é bug.** O usuário
+verificou no app que o "abrir na linha" funciona (Ctrl+Shift+F / erro do terminal / PRISM → cai na linha
+certa). O teste falha **só no CI headless** (editor criado mas cursor fica na linha 1; o poll de 12s já é
+generoso, então não é slow-settle — é corrida de layout/timing do headless pós-revamp do `tab_manager`). Fica
+**`it.skip`** pra manter o CI verde; re-habilitar exige depurar o ambiente do CI e é **baixa prioridade** (o
+recurso em si está OK).
 
 **Codecov — FUNCIONANDO (18/06):** o app foi instalado na org `nipscernlab` e o `nipscernlab/aurora` aparece
 no Codecov com **68.47%** de cobertura na `main` (1392/2033 linhas, commit `2a2f390`). A org habilitou upload

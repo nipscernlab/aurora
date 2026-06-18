@@ -1349,3 +1349,22 @@ por isso é intestável isoladamente) pra `js/api/git_ns.js` standalone — test
 shaping do status, validação de commit/branch, not-a-repo, bridge ausente, normalização de files). Bônus: um
 passo mínimo do A2 (aurora_api.js encolheu ~64 linhas). Suíte: **301 testes** (era 253). ESLint + `tsc` +
 `vite build` + coverage verdes.
+
+### 14.19 Codecov (parcial, bloqueado em permissão de org) + CI vermelho num E2E pré-existente — 17/06/2026
+
+**Codecov:** o `ci.yml` passou a usar `token: ${{ secrets.CODECOV_TOKEN }}` no `codecov/codecov-action@v5` e o
+usuário adicionou o secret. **Pendência (externa):** a conta do usuário no Codecov só enxerga o
+`Chrysthofer/Aurora` (repo pessoal), mas o CI roda no `nipscernlab/aurora` — token é por-repo, então a
+cobertura cai no projeto errado e o badge (que aponta pro `nipscernlab/aurora`) não enche. Pra resolver, o
+**app do Codecov tem que ser instalado na org `nipscernlab`** (ação de dono da org). Codecov é OPCIONAL — a
+cobertura sai em todo CI no log (~62% linhas) independente disso. No log do run dá pra ver o passo "Upload
+coverage to Codecov" rodando (com `fail_ci_if_error:false`, ele nunca quebra o CI).
+
+**CI vermelho — pré-existente, NÃO desta sessão:** o passo "E2E (Electron smoke)" falha em
+`tests/e2e/split-pane.test.js` › "PRISM open-at-line": abre um arquivo de 300 linhas e espera o editor pular
+pra linha 180, mas ele fica na **linha 1** (o `revealPosition` do `addTab` não dispara). Confirmado
+pré-existente: o `tab_manager.js` mudou ~185 linhas entre a main antiga (que passava) e a branch do revamp, e o
+teste ficou mais rígido (de-flake da Wave D, com assert de visibilidade). Entrou na main pelo `main = feature`;
+o código do reveal **não foi tocado nesta sessão** (último toque: `f357b42`). É bug real do "abrir na linha" do
+PRISM, precisa de diagnóstico ao vivo (Electron) → grupo C. **Decisão pendente:** quarentenar o teste pra
+destravar o CI agora vs consertar o reveal de verdade.

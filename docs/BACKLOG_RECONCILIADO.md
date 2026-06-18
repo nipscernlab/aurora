@@ -23,8 +23,15 @@ decorações de status git na file tree, Dagr nome+fonte Norse+marca d'água). D
 - **3 testes saíram** (monaco-pin, gtkw-picker, file-tree) — recuperáveis da tag de backup (item novo trivial).
 
 **Aberto, do fácil ao difícil (o que de fato sobra):**
-1. Re-adicionar os 3 testes da tag de backup. _trivial_
-2. Conectar o repo no Codecov (passo externo seu; badge/CI já prontos). _trivial/externo_
+0. **🔴 CI VERMELHO (urgente)** — o E2E `split-pane.test.js` › "PRISM open-at-line" falha (editor fica na linha
+   1 em vez de pular pra 180; o `revealPosition` não dispara). **Pré-existente** (revamp do `tab_manager.js` +
+   teste mais rígido); entrou na main pelo `main = feature`, NÃO é desta sessão. Bug real do reveal → precisa
+   de diagnóstico ao vivo (grupo C). Opções: quarentenar p/ destravar o CI agora vs consertar. Ver §14.19.
+1. ~~Re-adicionar os 3 testes da tag de backup~~ + testes novos (git_decorations, namespace git). **FEITO**
+   (B1/B2, 301 testes). Ver §14.18.
+2. **Codecov — bloqueado em permissão de org.** O `ci.yml` já usa o secret `CODECOV_TOKEN`; falta o **app do
+   Codecov instalado na org `nipscernlab`** (a conta do usuário só enxerga o repo pessoal `Chrysthofer/Aurora`,
+   e token é por-repo). OPCIONAL — a cobertura sai em todo CI mesmo sem isso. Ver §14.19.
 3. `<aurora-statusbar>` ao vivo · `<aurora-tabs>` passo 2 · B12 (CLIs sob demanda). _médio — precisa teste ao vivo_
 4. Decisões: P6 (painéis em overlay?), tokens semânticos (descartar?), merge do PR de release (seu clique). _decisão_
 5. Features grandes: O2 Verible LSP · O11 slang-server · O1 Surfer embarcado · O9 DigitalJS · O5 YoWASP ·

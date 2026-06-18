@@ -1592,3 +1592,40 @@ Decisão do usuário: **DigitalJS completo, dentro da janela PRISM**, com toggle
 check-pinned (+ integridade vs lockfile), `deadcode` (knip vê digitaljs + yosys2digitaljs como usados),
 **310 unit**, `vite build` (digitaljs bundla; sem worker em runtime), **9 E2E**. O render + simulação do
 DigitalJS em si (Yosys→convert→circuito vivo) é **validado ao vivo pelo usuário**: abrir PRISM → "Simular".
+
+### 14.30 G6 — governança de modelos de IA (robustez + tokens por conversa) — 18/06/2026 — FEITO
+Escopo escolhido pelo usuário: **completo (a robustez + b indicador de tokens), tokens sem custo em $**.
+
+**(a) Robustez de modelo.** Hoje `DEFAULT_MODELS` é hardcoded + `Object.freeze`, e um id de modelo aposentado/
+renomeado **falhava em runtime sem fallback**, com mensagem críptica do SDK. Em `main/ai/provider.js`:
+- **`resolveModelId(provider, requested)`** — `''`/`'default'`/`'latest'` → o padrão atual do provider; id
+  conhecido-aposentado → seu substituto via **`MODEL_MIGRATIONS`** (mapa por provider, semeado vazio mas é o
+  gancho pra renomeações futuras); qualquer outro → passa direto. O `getModelFor` agora resolve por aqui.
+- **`isModelUnavailableError(e)`** — heurística que detecta "id de modelo ruim": status 404, OU mensagem/corpo/
+  `code` contendo "model" + um token de falha (`not_found`/`does not exist`/`deprecated`/`unknown`/`invalid`/…,
+  com separador `_`/`-`/espaço — pega o `model_not_found` do OpenAI, que vem com status 400). O requisito do
+  token de falha mantém fora os falsos positivos (rate limit, chave inválida, overloaded).
+- **Auto-fallback** nos caminhos de chamada única (`testConnection`, `generateOneshot` — `generateText` sem
+  loop): ao detectar erro de modelo, **uma** nova tentativa com o padrão do provider, reportando `fellBackFrom`.
+- **Caminho de streaming do chat (`chat.js`):** resolve o modelo via `resolveModelId`; o `modelKey` foi içado
+  pra fora do `try` pra o `catch` poder citá-lo; no erro de modelo, troca a mensagem críptica por uma
+  **acionável** ("o modelo X não está disponível… troque pelo padrão Y no menu"). **Decisão consciente:** o
+  loop de streaming (caminho mais crítico) **não** foi refatorado pra auto-retry — alias + mensagem acionável
+  cobrem os casos, sem arriscar o chat que o usuário testa só no fim.
+
+**(b) Indicador de tokens por conversa (sem $).** O *counter* por conversa **já existia** (pill
+`#ai-token-counter`, `cumulativeTokens` persistido em `conversations.js`). O incremento foi torná-lo visível na
+lista: `listAll()` agora inclui `cumulativeTokens` e o `renderChatList()` mostra um badge "· N tok" por conversa
+(omitido quando 0). Sem custo em $ (decisão do usuário) — zero manutenção de tabela de preços.
+
+**Revisão adversarial (2 revisores focados):** **nenhum bug real**. Verificaram: a mudança do `getModelFor` é
+segura (só transforma ids que nunca foram válidos); o auto-retry não dupla-cobra (só no `catch`), é limitado a 1
+tentativa e gated por `def !== model` + erro-de-modelo; o `modelKey` içado está seguro no `catch` (o branch
+acionável só dispara em erro de modelo, não em "no api key"); a Parte B é sempre numérica (`Number()||0`) e sem
+XSS. O único ponto (otimização perdida: `model_not_found` com underscore + status 400) foi **incorporado** ao
+fortalecer a heurística.
+
+**Green bar local (tudo verde):** ESLint, `tsc --noEmit`, check-i18n (661/661), check-no-generated-js,
+check-pinned, `deadcode`, **316 unit** (6 novos em `modelGovernance.test.js`: resolveModelId + a heurística),
+`vite build`, **9 E2E**. Comportamento ao vivo (fallback real num id aposentado, badge de tokens na lista) é
+**validado pelo usuário**.

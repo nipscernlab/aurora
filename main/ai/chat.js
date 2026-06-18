@@ -152,10 +152,12 @@ async function start(payload, webContents) {
   let stalled = false;
   /** @type {ReturnType<typeof setTimeout>|null} */
   let inactivityTimer = null;
+  // Hoisted so the catch can name the model in a model-unavailable error (G6).
+  let modelKey = null;
 
   try {
     const prov = provider.getProvider(providerName);
-    const modelKey = modelId || provider.getModelFor(providerName);
+    modelKey = modelId ? provider.resolveModelId(providerName, modelId) : provider.getModelFor(providerName);
     if (!modelKey) throw new Error(`no model configured for "${providerName}"`);
     const model = prov(modelKey);
 
@@ -433,7 +435,16 @@ async function start(payload, webContents) {
     } else if (abort.signal.aborted || (e instanceof Error && e.name === 'AbortError')) {
       sendEvent(webContents, sessionId, 'aborted', { text: '' });
     } else {
-      const message = e instanceof Error ? e.message : String(e);
+      let message = e instanceof Error ? e.message : String(e);
+      // G6: a retired/invalid model id yields a cryptic SDK error. The
+      // alias/migration map already covers known renames; this is the residual
+      // "your selected model is gone" case — give actionable guidance.
+      if (provider.isModelUnavailableError(e)) {
+        const def = provider.getDefaultModel(providerName);
+        message = `The model "${modelKey}" isn't available for ${providerName} ` +
+          '(it may be retired or not enabled for your API key). Open the model ' +
+          (def ? `menu and switch to "${def}" (the default).` : 'menu and pick another model.');
+      }
       log.warn(`[ai.chat] session ${sessionId} failed: ${message}`);
       sendEvent(webContents, sessionId, 'error', { message });
     }

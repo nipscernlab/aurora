@@ -4108,12 +4108,14 @@ class AIAssistantManager {
       const icon = meta.icon || '';
       const providerLabel = meta.label || c.provider || '';
       const active = c.id === this.currentChatId ? ' active' : '';
+      // G6: per-conversation token total at a glance (0 omitted).
+      const tok = c.cumulativeTokens > 0 ? ` · ${formatTokens(c.cumulativeTokens)} tok` : '';
       return `
         <div class="ai-history-item${active}" data-chat-id="${escapeHtml(c.id)}">
           ${icon ? `<img class="ai-history-item-icon" src="${icon}" alt="">` : '<span class="ai-history-item-icon-spacer"></span>'}
           <div class="ai-history-item-text">
             <span class="ai-history-item-title">${escapeHtml(c.title || 'Untitled')}</span>
-            <span class="ai-history-item-meta">${escapeHtml(providerLabel)}${providerLabel ? ' · ' : ''}${escapeHtml(relativeTime(c.updatedAt))}</span>
+            <span class="ai-history-item-meta">${escapeHtml(providerLabel)}${providerLabel ? ' · ' : ''}${escapeHtml(relativeTime(c.updatedAt))}${tok}</span>
           </div>
           <div class="ai-history-item-actions">
             <button class="ai-history-item-act" data-action="rename" title="Rename"><i class="ph ph-pencil-simple"></i></button>

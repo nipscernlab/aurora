@@ -94,6 +94,7 @@ function listAll() {
       createdAt: data.createdAt || 0,
       updatedAt: data.updatedAt || data.createdAt || 0,
       messageCount: Array.isArray(data.messages) ? data.messages.length : 0,
+      cumulativeTokens: Number(data.cumulativeTokens) || 0,
     });
   }
   out.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));

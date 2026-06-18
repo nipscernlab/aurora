@@ -66,6 +66,57 @@ const DEFAULT_MODELS = Object.freeze({
   ollama:    'llama3.1:8b',
 });
 
+// G6 — model governance. Per-provider rename map: a retired/renamed model id →
+// its current replacement, so an aged conversation or a stale prefs override
+// keeps working instead of dead-ending at runtime. Seed as providers retire ids
+// (an empty map per provider is fine — `resolveModelId` still handles the
+// 'latest'/'default' aliases and the runtime fallback covers the rest).
+const MODEL_MIGRATIONS = Object.freeze({
+  openai:    {},
+  anthropic: {},
+  google:    {},
+  deepseek:  {},
+  groq:      {},
+  ollama:    {},
+});
+
+/**
+ * Resolve a requested model id to one we should actually call:
+ *   - empty / 'default' / 'latest' → the provider's current default
+ *   - a known-retired id           → its migrated replacement
+ *   - anything else                → unchanged
+ * @param {string} provider
+ * @param {string|null} [requested]
+ */
+function resolveModelId(provider, requested) {
+  const def = DEFAULT_MODELS[/** @type {keyof typeof DEFAULT_MODELS} */ (provider)] || null;
+  const id = (requested || '').trim();
+  if (!id || id === 'default' || id === 'latest') return def;
+  const map = MODEL_MIGRATIONS[/** @type {keyof typeof MODEL_MIGRATIONS} */ (provider)];
+  return (map && map[id]) || id;
+}
+
+/**
+ * Heuristic: does this AI-SDK error mean "the model id is bad" (retired,
+ * renamed, typo'd, or not enabled for this key)? Drives the fallback to the
+ * provider default instead of dead-ending the turn with a cryptic message.
+ * @param {any} e
+ */
+function isModelUnavailableError(e) {
+  if (!e) return false;
+  const status = e.statusCode ?? e.status ?? (e.data && e.data.statusCode);
+  if (status === 404) return true;
+  // Scan message + body + error code. "model" is matched as a substring (not a
+  // word boundary) and the failure token allows `_`/`-` separators, so codes
+  // like OpenAI's `model_not_found` (often returned with status 400) are caught
+  // too. The failure-token requirement keeps false positives (rate limit, bad
+  // key, overloaded) out.
+  const text = String((e && (e.message || e.responseBody)) || '').toLowerCase() +
+    ' ' + String((e && e.code) || '').toLowerCase();
+  return /model/.test(text) &&
+    /(not[\s_-]*found|does[\s_-]*not[\s_-]*exist|deprecat|unknown|invalid|unsupported|no[\s_-]*such|is not a)/.test(text);
+}
+
 // Only include providers whose SDK package was successfully loaded.
 const PROVIDER_FACTORIES = Object.freeze(
   Object.fromEntries(
@@ -111,9 +162,9 @@ function getDefaultModel(/** @type {string} */ provider) {
   return DEFAULT_MODELS[/** @type {keyof typeof DEFAULT_MODELS} */ (provider)] || null;
 }
 
-/** The model to actually use: the user's override, else the default. */
+/** The model to actually use: the user's override (alias/migration-resolved), else the default. */
 function getModelFor(/** @type {string} */ provider) {
-  return prefs.getModel(provider) || DEFAULT_MODELS[/** @type {keyof typeof DEFAULT_MODELS} */ (provider)] || null;
+  return resolveModelId(provider, prefs.getModel(provider));
 }
 
 /**
@@ -131,26 +182,36 @@ async function testConnection(providerName, modelId) {
   if (!generateText) {
     return { ok: false, error: 'AI SDK ("ai" package) failed to load. Reinstall the app or run `npm install` if running from source.' };
   }
-  const model = modelId || getModelFor(providerName);
+  const model = modelId ? resolveModelId(providerName, modelId) : getModelFor(providerName);
   if (!model) {
     return { ok: false, error: `No model configured for "${providerName}"` };
   }
-  try {
+  const probe = async (/** @type {string} */ m) => {
     const provider = getProvider(providerName);
     const started = Date.now();
     const result = await generateText({
-      model: provider(model),
+      model: provider(m),
       prompt: 'Reply with the single word: pong.',
     });
     return {
       ok: true,
       provider: providerName,
-      model,
+      model: m,
       sample: (result.text || '').trim().slice(0, 80),
       latencyMs: Date.now() - started,
       usage: result.usage || null,
     };
+  };
+  try {
+    return await probe(model);
   } catch (e) {
+    // G6: a retired/invalid model id shouldn't dead-end the check — fall back
+    // to the provider default and report which model actually answered.
+    const def = getDefaultModel(providerName);
+    if (isModelUnavailableError(e) && def && def !== model) {
+      try { return { ...(await probe(def)), fellBackFrom: model }; }
+      catch (_) { /* fall through to the original error below */ }
+    }
     const message = e instanceof Error ? e.message : String(e);
     log.warn(`[ai.provider] testConnection ${providerName} failed: ${message}`);
     return { ok: false, provider: providerName, model, error: message };
@@ -178,12 +239,12 @@ async function generateOneshot({ provider: name, model, system, prompt, maxOutpu
   if (!name || !PROVIDER_FACTORIES[name] && name !== 'ollama') {
     return { ok: false, error: `One-shot generation needs an API provider (got "${name || 'none'}"). Pick OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama in the AI panel.` };
   }
-  const modelId = model || getModelFor(name);
-  if (!modelId) return { ok: false, error: `No model configured for "${name}"` };
-  try {
+  const resolvedModel = model ? resolveModelId(name, model) : getModelFor(name);
+  if (!resolvedModel) return { ok: false, error: `No model configured for "${name}"` };
+  const once = async (/** @type {string} */ m) => {
     const prov = getProvider(name);
     const result = await generateText({
-      model: prov(modelId),
+      model: prov(m),
       ...(system ? { system } : {}),
       prompt,
       ...(maxOutputTokens ? { maxOutputTokens } : {}),
@@ -197,9 +258,18 @@ async function generateOneshot({ provider: name, model, system, prompt, maxOutpu
       text: result.text || '',
       finishReason: result.finishReason || null,
       usage: result.usage || null,
-      model: modelId,
+      model: m,
     };
+  };
+  try {
+    return await once(resolvedModel);
   } catch (e) {
+    // G6: retired/invalid id → fall back to the provider default once.
+    const def = getDefaultModel(name);
+    if (isModelUnavailableError(e) && def && def !== resolvedModel) {
+      try { return { ...(await once(def)), fellBackFrom: resolvedModel }; }
+      catch (_) { /* fall through to the original error */ }
+    }
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
@@ -209,6 +279,8 @@ module.exports = {
   getProvider,
   getDefaultModel,
   getModelFor,
+  resolveModelId,
+  isModelUnavailableError,
   testConnection,
   generateOneshot,
 };

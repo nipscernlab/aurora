@@ -81,8 +81,11 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   **simulação interativa** — `digitaljs` + `yosys2digitaljs` (deps novas), modo "Simular" na janela PRISM, engine
   síncrono + layout `dagre` (zero Web Worker). *(precisa teste ao vivo: abrir PRISM → "Simular")* Ver §14.29.
 - [x] **G4** auditoria de i18n — FEITO (18/06): `scripts/check-i18n.js` (en/pt sync + chaves indefinidas, virou
-  guard de CI), 5 chaves faltantes adicionadas (EN+PT), 661 chaves em sincronia. Ver §14.25. · [ ] **G6**
-  governança de modelos.
+  guard de CI), 5 chaves faltantes adicionadas (EN+PT), 661 chaves em sincronia. Ver §14.25.
+- [x] **G6** governança de modelos — FEITO (18/06): (a) robustez — `resolveModelId` (alias 'latest'/'default' +
+  mapa de migração), `isModelUnavailableError`, auto-fallback em testConnection/generateOneshot, mensagem
+  acionável no chat (id aposentado não quebra mais em runtime); (b) indicador de tokens por conversa — badge
+  "· N tok" no sidebar (counter por conversa já existia), sem custo em $. Ver §14.30.
 
 **Difícil (6–7):**
 - [ ] **O2** Verible LSP · **O11** slang-server · **O7** tree-sitter.
@@ -125,7 +128,7 @@ modal/toast a11y, command-palette (Ctrl+Shift+P), i18n em PT, O4 (toggles do fin
 - [ ] Confirmar o badge de cobertura do Codecov no README (já está conectado).
 
 **Próximo a implementar (resumo — detalhe no backlog acima):**
-- **Médio:** `<aurora-tabs>` passo 2 · G6 modelos. _(F1, F2: §14.27. B12: §14.28. O9 DigitalJS: §14.29 — todos FEITOS 18/06.)_
+- **Médio:** `<aurora-tabs>` passo 2 (entrelaçado c/ TabManager → após A2). _(F1/F2 §14.27 · B12 §14.28 · O9 §14.29 · G6 §14.30 — todos FEITOS 18/06. Médio esgotado exceto aurora-tabs.)_
 - **Difícil:** O2/O11 LSP (Verible/slang) · O7 tree-sitter · `<aurora-tree>`/`<aurora-terminal>` passo 2 ·
   `<aurora-editor>` · A3 globais · PRISM reskin.
 - **Radical:** A2 god-files · O1 Surfer embarcado · `<aurora-panel>` dockável · O5 YoWASP · B11 cross-platform.

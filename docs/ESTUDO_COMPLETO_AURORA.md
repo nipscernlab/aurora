@@ -1457,3 +1457,12 @@ tem a view completa (input + lista + grupos + seleção); e é **carregado no bo
 command_palette.js">` no `index.html`, linha 1380). Ou seja, **já estava completo + ligado** — só não tinha
 sido verificado. O único "a mais" seria um localizador de arquivos Ctrl+P (feature separada, não pedida).
 **Verificação ao vivo pendente** (Ctrl+Shift+P abre a paleta). Build + 301 unit + ESLint verdes.
+
+### 14.26 Handoff (migração de máquina) + fix do guard de i18n — 18/06/2026
+Preparando a migração da conversa pra outra máquina: snapshot do estado + seção **"Handoff 18/06"** no
+`BACKLOG_RECONCILIADO.md` (convenções, pendências do usuário, próximos passos). No caminho, peguei **dois
+problemas**: (1) 3 `.js` gerados de wave (`complex_decode`, `event_markers`, `surfer_layout_writer`) tinham
+vazado pro index — des-stageados (são gitignored); (2) o `check-i18n.js` **falhava num falso positivo** — ao
+ser commitado, passou a se varrer e o regex pegou o `…` do exemplo `window.t('…')` no próprio comentário (ia
+quebrar o CI). Fix: filtro de formato de chave (`/^[A-Za-z][\w.-]*$/`, descarta o `…`) + exclusão dos arquivos
+-meta (`i18n.js`, `check-i18n.js`) do scan. Guard volta a passar (661/661). Tudo na `main`, verde.

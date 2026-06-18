@@ -52,16 +52,20 @@ const referenced = new Set();
 const files = execSync('git ls-files "*.html" "*.js"', { encoding: 'utf8' })
   .split('\n').map((s) => s.trim().replace(/\\/g, '/')).filter(Boolean)
   .filter((f) => !f.startsWith('node_modules/') && !f.includes('/vendor/'))
-  // i18n.js documents the data-i18n syntax with a `path.to.key` example in a
-  // comment — that's not a real reference.
-  .filter((f) => f !== 'js/i18n/i18n.js');
+  // i18n.js and this script itself document the i18n syntax with example keys
+  // (`path.to.key`, `…`) in comments — not real references.
+  .filter((f) => f !== 'js/i18n/i18n.js' && f !== 'scripts/check-i18n.js');
 for (const f of files) {
   let src;
   try { src = fs.readFileSync(path.join(ROOT, f), 'utf8'); } catch (_) { continue; }
   for (const re of REF_PATTERNS) {
     re.lastIndex = 0;
     let m;
-    while ((m = re.exec(src)) !== null) referenced.add(m[1]);
+    while ((m = re.exec(src)) !== null) {
+      // Only treat it as a key if it looks like one (starts with a letter, then
+      // word chars / dots / hyphens) — skips junk like a bare `…` from an example.
+      if (/^[A-Za-z][\w.-]*$/.test(m[1])) referenced.add(m[1]);
+    }
   }
 }
 const refMissing = [...referenced].filter((k) => !enKeys.has(k));

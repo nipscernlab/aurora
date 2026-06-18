@@ -45,7 +45,8 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 ### ⬜ Aberto — do mais fácil ao mais difícil
 
 **Decisões suas (decidir, não implementar):**
-- [ ] **Codecov** — instalar o app na org `nipscernlab` (você está nisso). Opcional. Ver §14.19.
+- [x] **Codecov** — conectado ao `nipscernlab/aurora` (mostrou ~68% de cobertura); upload + guard no CI
+  prontos. Falta só confirmar que o badge do README enche. Ver §14.19/§14.25.
 - [ ] **Merge do PR de release v6.4.0** — seu clique.
 - [ ] **P6** (painéis em overlay?) · **tokens semânticos** (recomendo descartar — tema único).
 
@@ -83,6 +84,39 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 - [ ] **O5** YoWASP · **B11** cross-platform (Linux/Mac).
 
 **Externo/manual:** [ ] B2 code signing (cert) · [ ] mídia real do README · [ ] toggles do GitHub.
+
+---
+
+## Handoff 18/06 — para a próxima sessão (migração de máquina)
+
+**Onde estamos:** tudo na branch **`main`** (pushed, verde). Para continuar é só abrir o repo e seguir o
+backlog acima (ordem fácil→difícil).
+
+**Convenções desta linha de trabalho (a próxima IA deve seguir):**
+- Ao concluir uma implementação de verdade: atualizar o `.md` relevante, **commit + push** (o usuário autorizou).
+- Antes do push: `git fetch origin && git rebase origin/main` — o dependabot mergeia direto na `main` o tempo todo.
+- O usuário **testa só no fim** (não consegue testar entre implementações). Implementar **por completo**; ele valida depois.
+- Pra mudança de UI, rodar os **E2E localmente** (`npm run test:e2e`) — sobem o Electron real, não dependem do CI.
+- Verde local exigido: ESLint, `tsc --noEmit`, **301 unit**, **9 E2E**, `vite build`, e os guards
+  (`check-i18n`, `check-no-generated-js`). **Atenção:** os `.js` gerados de `.ts` (lista no `.gitignore`) às
+  vezes vazam pro index — `git status` antes de commitar; se aparecerem, `git reset HEAD <arquivo>`.
+- Escrever em **linguagem clara** (pedido do usuário — nada de frases cifradas/genéricas).
+
+**Pendente de VERIFICAÇÃO VISUAL do usuário** (implementado, aguardando teste ao vivo): statusbar, titlebar,
+modal/toast a11y, command-palette (Ctrl+Shift+P), i18n em PT, O4 (toggles do find-in-files persistem).
+
+**Pendente de AÇÃO do usuário (externo, só ele faz):**
+- [ ] Merge do PR de release-please (v6.4.0) — clique no GitHub.
+- [ ] **B2** code signing — certificado externo (SignPath/Azure) p/ acabar com o SmartScreen.
+- [ ] Mídia real do README — gravar os GIFs.
+- [ ] Toggles do GitHub — Discussions, secret scanning/push protection, topics/social.
+- [ ] Confirmar o badge de cobertura do Codecov no README (já está conectado).
+
+**Próximo a implementar (resumo — detalhe no backlog acima):**
+- **Médio:** `<aurora-tabs>` passo 2 · F1 ícones · F2 fonts · B12 CLIs sob demanda · O9 DigitalJS · G6 modelos.
+- **Difícil:** O2/O11 LSP (Verible/slang) · O7 tree-sitter · `<aurora-tree>`/`<aurora-terminal>` passo 2 ·
+  `<aurora-editor>` · A3 globais · PRISM reskin.
+- **Radical:** A2 god-files · O1 Surfer embarcado · `<aurora-panel>` dockável · O5 YoWASP · B11 cross-platform.
 
 ---
 

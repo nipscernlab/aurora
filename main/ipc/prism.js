@@ -676,6 +676,112 @@ async function performPrismCompilationWithPaths(/** @type {any} */ compilationPa
   }
 }
 
+// ---------- DigitalJS interactive simulation (O9) ----------
+
+// Gather every synthesizable .v for a design: the SAPHO HDL library + the
+// .spf's synthesizableFiles + an optional TopLevel/ + each processor's
+// Hardware/. Same sources as runYosysCompilationWithPaths, kept lean and
+// standalone so the DigitalJS build never perturbs the schematic path.
+async function collectSynthFiles(/** @type {any} */ compilationPaths) {
+  const fileSet = new Set();
+  const addV = (/** @type {string} */ p) => { if (p && p.toLowerCase().endsWith('.v')) fileSet.add(p); };
+
+  const hdlPath = compilationPaths.hdlPath;
+  if (hdlPath && await fse.pathExists(hdlPath)) {
+    for (const f of await fse.readdir(hdlPath)) {
+      if (f.endsWith('.v') && !f.includes('_tb') && !f.toLowerCase().includes('test')) addV(path.join(hdlPath, f));
+    }
+  }
+
+  const spfPath = compilationPaths.spfPath;
+  let spfStructure = null;
+  if (spfPath && await fse.pathExists(spfPath)) {
+    try { spfStructure = (await fse.readJson(spfPath))?.structure ?? null; } catch (_e) { /* parse fail tolerated */ }
+  }
+
+  // Resolve .spf-relative paths against basePath (new .spf format); absolute paths pass through.
+  const spfBaseDir = spfStructure?.basePath || (spfPath ? path.dirname(spfPath) : '');
+  const isAbs = (/** @type {any} */ p) => typeof p === 'string' && /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
+  const resolveSpf = (/** @type {any} */ p) => (!p || isAbs(p) || !spfBaseDir) ? p : path.join(spfBaseDir, p);
+
+  if (Array.isArray(spfStructure?.synthesizableFiles)) {
+    for (const f of spfStructure.synthesizableFiles) addV(resolveSpf(typeof f === 'string' ? f : f?.path));
+  }
+
+  const topLevelDir = compilationPaths.topLevelPath;
+  if (topLevelDir && await fse.pathExists(topLevelDir)) {
+    for (const f of await fse.readdir(topLevelDir)) {
+      if (f.endsWith('.v') && !f.includes('_tb')) addV(path.join(topLevelDir, f));
+    }
+  }
+
+  const projectPath = compilationPaths.projectPath;
+  const procNames = new Set();
+  if (Array.isArray(spfStructure?.processors)) {
+    for (const p of spfStructure.processors) { const n = typeof p === 'string' ? p : p?.name; if (n) procNames.add(n); }
+  }
+  for (const procName of procNames) {
+    const hwDir = path.join(projectPath, procName, 'Hardware');
+    if (!(await fse.pathExists(hwDir))) continue;
+    for (const f of await fse.readdir(hwDir)) {
+      if (f.endsWith('.v') && !f.includes('_tb')) addV(path.join(hwDir, f));
+    }
+  }
+
+  return [...fileSet];
+}
+
+// Synthesize the design with a digitaljs-friendly yosys script, then convert
+// the JSON with yosys2digitaljs into the DigitalJS circuit format. We run
+// AURORA's own (allowlisted) yosys and feed its JSON to the converter's pure
+// function, so nothing needs yosys on PATH and the schematic flow is untouched.
+async function buildDigitalJSCircuit(
+  /** @type {any} */ compilationPaths,
+  /** @type {string} */ topLevelModule,
+  /** @type {string} */ tempDir,
+) {
+  const fileList = await collectSynthFiles(compilationPaths);
+  if (fileList.length === 0) throw new Error('No Verilog files found for the simulation');
+
+  const jsonPath = path.join(tempDir, 'digitaljs.json');
+  const readCommands = fileList.map((f) => `read_verilog "${f}"`).join('\n');
+  // Word-level synthesis the yosys2digitaljs converter expects (no abc/techmap,
+  // so $add/$mux/$dff stay as DigitalJS cells rather than being mapped to gates).
+  const script = `
+${readCommands}
+hierarchy -top ${topLevelModule}
+proc
+opt_clean
+memory -nomap
+wreduce -memx
+opt_clean
+write_json "${jsonPath}"
+`;
+  const scriptPath = path.join(tempDir, 'digitaljs_yosys.ys');
+  await fse.writeFile(scriptPath, script);
+
+  await new Promise((resolve, reject) => {
+    const proc = spawn(compilationPaths.yosysPath, ['-s', scriptPath], {
+      cwd: tempDir, env: process.env, windowsHide: true,
+    });
+    trackChild(proc);
+    let stderr = '';
+    proc.stderr.on('data', (d) => (stderr += d.toString()));
+    proc.on('error', reject);
+    proc.on('close', (/** @type {number} */ code) => {
+      if (code === 0) resolve(undefined);
+      else reject(new Error(`yosys exited ${code}${stderr ? `: ${stderr.slice(-400)}` : ''}`));
+    });
+  });
+
+  const yosysJson = await fse.readJson(jsonPath);
+  // Pure convert: takes an existing yosys JSON object, returns the DigitalJS
+  // TopModule directly (no yosys spawn — we already ran ours). Required lazily
+  // so the (Node-only) converter isn't loaded until the user enters Sim mode.
+  const { yosys2digitaljs } = require('yosys2digitaljs/core');
+  return yosys2digitaljs(yosysJson, {});
+}
+
 // ---------- IPC ----------
 
 function register() {
@@ -786,6 +892,31 @@ function register() {
     } catch (error) {
       log.error('PRISM recompilation error:', error);
       return { success: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  // O9: build the DigitalJS interactive-simulation circuit for the current
+  // top-level. Same paths/top as the schematic flow, different yosys script.
+  ipcMain.handle('prism:build-digitaljs', async (_event, compilationPaths) => {
+    try {
+      if (!compilationPaths) throw new Error('Compilation paths are required.');
+      const tempDir = compilationPaths.tempPath;
+      await fse.ensureDir(tempDir);
+
+      const spfPath = compilationPaths.spfPath;
+      if (!spfPath || !(await fse.pathExists(spfPath))) throw new Error('.spf not found');
+      const spfData = await fse.readJson(spfPath);
+      const topLevelModule = path.basename(spfData?.structure?.topLevelFile || '', '.v');
+      if (!topLevelModule) throw new Error('No top-level module set in the .spf');
+
+      if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+        state.mainWindow.webContents.send('terminal-log', 'tveri', 'Building DigitalJS simulation…', 'info');
+      }
+      const circuit = await buildDigitalJSCircuit(compilationPaths, topLevelModule, tempDir);
+      return { ok: true, circuit, topLevelModule };
+    } catch (error) {
+      log.error('DigitalJS build error:', error);
+      return { ok: false, message: error instanceof Error ? error.message : String(error) };
     }
   });
 }

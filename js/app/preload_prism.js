@@ -28,6 +28,10 @@ try {
     prismRecompile: (compilationPaths) =>
       ipcRenderer.invoke('prism-recompile', compilationPaths),
 
+    // O9 — build the DigitalJS interactive-simulation circuit for the current top.
+    buildDigitalJS: (compilationPaths) =>
+      ipcRenderer.invoke('prism:build-digitaljs', compilationPaths),
+
     onTerminalLog: (callback) => ipcRenderer.on('terminal-log', callback),
     removeTerminalLog: (callback) => ipcRenderer.removeListener('terminal-log', callback),
 

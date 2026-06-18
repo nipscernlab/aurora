@@ -1553,3 +1553,42 @@ rede. Peças:
 check-i18n (661/661), `tsc --noEmit`, ESLint, `deadcode`, **310 unit** (9 novos em `cliDownloader.test.js`:
 manifest, integridade, cache hit/miss — o download real de rede é validado ao vivo), `vite build`, **9 E2E**.
 O download fim-a-fim (rede + 230MB) foi **validado ao vivo pelo usuário** ("tudo funcionando").
+
+### 14.29 O9 — DigitalJS: simulação interativa no PRISM (modo "Simular") — 18/06/2026 — FEITO
+O rótulo do backlog ("O9 = netlistsvg, já é dependência") enganava: o **esquemático estático já é o PRISM**
+(Yosys `write_json` + `@silimate/netlistsvg` → SVG, janela própria, navegação por módulo). O **O9 de verdade**
+(pelo §315) é **simulação visual interativa** — o usuário toggla entradas, vê sinais propagarem, passa o clock.
+Decisão do usuário: **DigitalJS completo, dentro da janela PRISM**, com toggle "Esquemático ↔ Simular".
+
+**Arquitetura.**
+- **Main (`main/ipc/prism.js`):** `collectSynthFiles()` (coleta os `.v` — espelho enxuto e standalone da
+  coleta do `runYosysCompilationWithPaths`, que ficou **intocado** pra não arriscar o esquemático) +
+  `buildDigitalJSCircuit()` roda o **yosys nativo (allowlisted) da AURORA** com um script word-level
+  (`hierarchy -top; proc; opt_clean; memory -nomap; wreduce -memx; opt_clean; write_json`) e converte o JSON com
+  `require('yosys2digitaljs/core').yosys2digitaljs(json,{})` — a função **pura** de convert, sem precisar de
+  yosys no PATH (o `process_files` do yosys2digitaljs usa `timeout`/PATH, Linux-only). Novo IPC
+  `prism:build-digitaljs` → `{ ok, circuit, topLevelModule }`.
+- **Preload:** `buildDigitalJS()` no allowlist enumerado (sem passthrough).
+- **Renderer (`prism.js`):** `import { Circuit } from 'digitaljs'`; toggle na toolbar; `enterSimMode()` busca os
+  paths + chama o IPC, depois `new Circuit(json, { layoutEngine: 'dagre' }).displayOn(host).start()`. **Decisão
+  de design que matou o maior risco:** o `Circuit` já usa o **`BrowserSynchEngine`** (síncrono) por padrão, e
+  `layoutEngine: 'dagre'` (em vez do `elkjs`, que exige Web Worker) → **zero Web Worker**, então o digitaljs
+  bundla limpo no Vite e roda sob `file://`. Interatividade (toggles, clock, monitores) vem pronta do digitaljs.
+- **Bundle:** o Vite empacota o digitaljs no chunk do PRISM (~2MB, carregado só quando a janela abre; o elkjs
+  entra mas nunca instancia worker). A CSP existente já permite (`script-src`/`style-src 'unsafe-inline'`).
+
+**Revisão adversarial (13 agentes, 10 candidatos → 6 reais; nenhum tocava o esquemático — corrigidos):**
+1. *(médio×3)* sem guard de re-entrância: clicar "Simular" 2× durante o build (yosys leva segundos) disparava
+   builds concorrentes (yosys duplicado, race em `this.circuit`/tempDir). → flag `_simBusy` + `try/finally` +
+   botão desabilitado durante o build.
+2. *(baixo)* handlers de teclado/Ctrl-wheel/context-menu/resize agiam no esquemático escondido em modo Sim. →
+   early-return quando `simMode` (mantendo Ctrl+R/recompile).
+3. *(baixo)* o paper do JointJS não era destruído (soft leak de view/listeners por ciclo enter/exit). → capturo
+   `this._paper` e chamo `remove()` no `_destroyCircuit`.
+4. *(baixo)* o overlay de status vivia dentro do `#svgContainer` escondido → erros em modo Sim ficavam
+   invisíveis. → movido pra `.main-content` (irmão dos dois surfaces).
+
+**Green bar local (tudo verde):** ESLint, `tsc --noEmit`, check-i18n (661/661), check-no-generated-js,
+check-pinned (+ integridade vs lockfile), `deadcode` (knip vê digitaljs + yosys2digitaljs como usados),
+**310 unit**, `vite build` (digitaljs bundla; sem worker em runtime), **9 E2E**. O render + simulação do
+DigitalJS em si (Yosys→convert→circuito vivo) é **validado ao vivo pelo usuário**: abrir PRISM → "Simular".

@@ -52,6 +52,10 @@
         <i class="ph ph-download-simple"></i>
         <span id="t-download">Download</span>
       </button>
+      <button class="toolbar-button" id="simToggle" title="DigitalJS interactive simulation">
+        <i class="ph ph-pulse"></i>
+        <span id="t-simulate">Simular</span>
+      </button>
       <button class="toolbar-button btn-primary" id="compileBtn">
         <i class="ph ph-arrows-clockwise"></i>
         <span id="t-recompile">Recompile</span>
@@ -96,12 +100,6 @@
         <div class="svg-content" id="svgContent"></div>
       </div>
 
-      <!-- Loading / error overlay -->
-      <div class="status-overlay" id="statusOverlay">
-        <div class="loading-spinner"></div>
-        <div class="status-text" id="t-compiling">Compiling RTL design…</div>
-      </div>
-
       <!-- Zoom controls (bottom-right) -->
       <div class="zoom-controls">
         <button class="zoom-btn" id="zoomInBtn"  aria-label="Zoom in">+</button>
@@ -111,6 +109,16 @@
         </button>
       </div>
 
+    </div>
+
+    <!-- DigitalJS interactive simulation host (O9) — shown in "Simular" mode -->
+    <div class="djs-container" id="djsContainer" style="display:none"></div>
+
+    <!-- Loading / error overlay — sibling of both surfaces so it shows over
+         whichever (schematic or simulation) is active -->
+    <div class="status-overlay" id="statusOverlay">
+      <div class="loading-spinner"></div>
+      <div class="status-text" id="t-compiling">Compiling RTL design…</div>
     </div>
   </div>
 

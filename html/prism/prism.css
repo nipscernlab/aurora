@@ -356,6 +356,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   display: flex;
   overflow: hidden;
   min-height: 0;
+  position: relative; /* offset parent for #statusOverlay (covers either surface) */
 }
 
 .svg-container {
@@ -714,6 +715,33 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 ::-webkit-scrollbar-track        { background: transparent; }
 ::-webkit-scrollbar-thumb        { background: var(--border-strong); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover  { background: var(--accent-border); }
+
+/* ---------------------------------------------------------------------------
+ *  DigitalJS interactive simulation (O9) — "Simular" mode host
+ * --------------------------------------------------------------------------- */
+.djs-container {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  margin: 8px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  background: var(--bg);
+}
+
+.djs-paper { min-width: 100%; min-height: 100%; }
+
+/* DigitalJS/JointJS cells are drawn for a light surface; give the paper one so
+ * the circuit stays legible against Aurora's dark theme. */
+.djs-container .joint-paper { background: #f5f7fa; }
+
+/* Active state for the Sim toggle while DigitalJS is on screen. */
+.toolbar-button.active {
+  background: rgba(95, 224, 176, 0.12);
+  border-color: var(--accent-border, var(--border-strong));
+  color: var(--aurora-mint, var(--accent));
+}
 
 /* ---------------------------------------------------------------------------
  *  Reduced motion

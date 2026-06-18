@@ -1,6 +1,11 @@
 // @ts-check
 'use strict';
 
+// DigitalJS — interactive logic simulation (O9). Bundled by Vite into the
+// PRISM chunk. We force the synchronous browser engine + dagre layout so NO
+// Web Worker is ever spawned (elkjs's worker would break under file://).
+import { Circuit } from 'digitaljs';
+
 // ---------------------------------------------------------------------------
 //  i18n — locale-aware string lookup (no access to the main Aurora i18n layer)
 // ---------------------------------------------------------------------------
@@ -18,6 +23,10 @@ const PRISM_STRINGS = {
     resetZoom:   'Reset Zoom',
     clickModule: 'Click to open · double-click for source: ',
     clickWire:   'Click to highlight connection',
+    simulate:    'Simulate',
+    schematic:   'Schematic',
+    building:    'Building simulation…',
+    simError:    'Could not build the simulation',
   },
   pt: {
     title:       'Visualizador RTL PRISM',
@@ -32,6 +41,10 @@ const PRISM_STRINGS = {
     resetZoom:   'Resetar Zoom',
     clickModule: 'Clique para abrir · duplo-clique p/ o código: ',
     clickWire:   'Clique para destacar conexão',
+    simulate:    'Simular',
+    schematic:   'Esquemático',
+    building:    'Montando a simulação…',
+    simError:    'Não foi possível montar a simulação',
   },
 };
 
@@ -59,6 +72,7 @@ _setText('t-back',      T.back);
 _setText('t-fit',       T.fit);
 _setText('t-download',  T.download);
 _setText('t-recompile', T.recompile);
+_setText('t-simulate',  T.simulate);
 _setText('t-compiling', T.compiling);
 _setText('currentModule', T.loading);
 _setText('currentPath',   T.preparing);
@@ -91,6 +105,12 @@ class PRISMViewer {
     this._lastTouchPoint = null;
     this._lastTouchDist = null;
 
+    // DigitalJS interactive simulation (O9): null until the user enters Sim mode.
+    this.simMode = false;
+    this.circuit = null;
+    this._paper = null;     // the JointJS paper view, so we can dispose it
+    this._simBusy = false;  // re-entrancy guard while a build is in flight
+
     this._initElements();
     this._setupListeners();
   }
@@ -111,6 +131,8 @@ class PRISMViewer {
     this.zoomOutBtn      = document.getElementById('zoomOutBtn');
     this.resetZoomBtn    = document.getElementById('resetZoomBtn');
     this.tooltip         = document.getElementById('tooltip');
+    this.simToggle       = document.getElementById('simToggle');
+    this.djsContainer    = document.getElementById('djsContainer');
   }
 
   _setupListeners() {
@@ -135,6 +157,7 @@ class PRISMViewer {
     this.zoomInBtn.addEventListener('click',   () => this._zoomButton(1.25));
     this.zoomOutBtn.addEventListener('click',  () => this._zoomButton(0.8));
     this.resetZoomBtn.addEventListener('click',() => this.resetView());
+    this.simToggle?.addEventListener('click',  () => this.toggleSimMode());
 
     // IPC — compilation complete
     if (window.electronAPI?.onCompilationComplete) {
@@ -187,14 +210,15 @@ class PRISMViewer {
     // act here when the cursor is OUTSIDE it (avoids a double zoom step).
     document.addEventListener('wheel', (e) => {
       if (!e.ctrlKey) return;
-      e.preventDefault();
+      e.preventDefault();                 // block the browser's page-zoom in both modes
+      if (this.simMode) return;           // sim mode: leave the circuit to JointJS
       if (!this.svgContainer.contains(e.target)) this._onWheel(e);
     }, { passive: false });
 
-    // Window resize → re-fit
+    // Window resize → re-fit (schematic only; DigitalJS lays itself out)
     window.addEventListener('resize', () => {
       clearTimeout(this._resizeTimer);
-      this._resizeTimer = setTimeout(() => this.fitToScreen(), 250);
+      this._resizeTimer = setTimeout(() => { if (!this.simMode) this.fitToScreen(); }, 250);
     });
   }
 
@@ -206,6 +230,8 @@ class PRISMViewer {
       this._showStatus(`Compilation Error: ${data.message}`, true);
       return;
     }
+    // A fresh (re)compile returns to the schematic; the live circuit is stale.
+    if (this.simMode) this.exitSimMode();
     this.currentModule = data.topLevelModule;
     this.tempDir = data.tempDir;
     this.navigationHistory = [{ module: data.topLevelModule, svgPath: data.svgPath }];
@@ -738,15 +764,19 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   _onKeyDown(e) {
     if (e.ctrlKey || e.metaKey) {
-      switch (e.key) {
-        case '=': case '+': e.preventDefault(); this.zoom(1.2); break;
-        case '-':           e.preventDefault(); this.zoom(0.8); break;
-        case '0':           e.preventDefault(); this.resetView();    break;
-        case 'f':           e.preventDefault(); this.fitToScreen();  break;
-        case 'r':           e.preventDefault(); this.recompile();    break;
+      // Recompile works in either mode; the pan/zoom keys act on the schematic,
+      // so skip them while the DigitalJS canvas is showing.
+      if (e.key === 'r') { e.preventDefault(); this.recompile(); }
+      else if (!this.simMode) {
+        switch (e.key) {
+          case '=': case '+': e.preventDefault(); this.zoom(1.2); break;
+          case '-':           e.preventDefault(); this.zoom(0.8); break;
+          case '0':           e.preventDefault(); this.resetView();    break;
+          case 'f':           e.preventDefault(); this.fitToScreen();  break;
+        }
       }
     }
-    if (e.key === 'Escape' && !this.backBtn.disabled) this.navigateBack();
+    if (!this.simMode && e.key === 'Escape' && !this.backBtn.disabled) this.navigateBack();
     if (e.key === 'F11') {
       e.preventDefault();
       document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
@@ -757,6 +787,8 @@ class PRISMViewer {
   //  Context menu
   // -------------------------------------------------------------------------
   _onContextMenu(e) {
+    // Sim mode: let DigitalJS/JointJS handle right-click on the live circuit.
+    if (this.simMode) return;
     // Source cells no longer claim right-click (it opens via double-click now),
     // so the zoom/recompile menu is available everywhere on the canvas.
     e.preventDefault();
@@ -796,6 +828,99 @@ class PRISMViewer {
       if (!menu.contains(ev.target)) { menu.classList.remove('show'); document.removeEventListener('click', hide); }
     };
     setTimeout(() => document.addEventListener('click', hide), 10);
+  }
+
+  // -------------------------------------------------------------------------
+  //  DigitalJS interactive simulation (O9)
+  //  Toggle between the static netlistsvg schematic and a live DigitalJS
+  //  circuit the user can poke (flip inputs, step the clock, read monitors).
+  // -------------------------------------------------------------------------
+  async toggleSimMode() {
+    if (this.simMode) this.exitSimMode();
+    else await this.enterSimMode();
+  }
+
+  async enterSimMode() {
+    // Re-entrancy guard: the build spawns yosys (seconds) and the toggle stays
+    // visible — a second click must NOT start a second concurrent build.
+    if (this._simBusy || this.simMode || !window.electronAPI?.buildDigitalJS) return;
+    this._simBusy = true;
+    if (this.simToggle) this.simToggle.disabled = true;
+    this._showStatus(T.building, false);
+
+    try {
+      let res;
+      try {
+        const paths = await window.electronAPI.getPrismCompilationPaths();
+        res = await window.electronAPI.buildDigitalJS(paths);
+      } catch (err) {
+        this._showStatus(`${T.simError}: ${err?.message || err}`, true);
+        return;
+      }
+      if (!res || !res.ok || !res.circuit) {
+        this._showStatus(res?.message ? `${T.simError}: ${res.message}` : T.simError, true);
+        return;
+      }
+
+      // Fresh paper host inside the dedicated DigitalJS container.
+      this._destroyCircuit();
+      const paperHost = document.createElement('div');
+      paperHost.className = 'djs-paper';
+      this.djsContainer.appendChild(paperHost);
+
+      try {
+        // Synchronous browser engine (default) + dagre layout → NO Web Worker,
+        // so it renders under file:// without elkjs's worker.
+        this.circuit = new Circuit(res.circuit, { layoutEngine: 'dagre' });
+        this._paper = this.circuit.displayOn(paperHost);
+        this.circuit.start();
+      } catch (err) {
+        console.error('[PRISM] DigitalJS render failed:', err);
+        this._destroyCircuit();
+        this._showStatus(`${T.simError}: ${err?.message || err}`, true);
+        return;
+      }
+
+      this.simMode = true;
+      this.svgContainer.style.display = 'none';
+      this.djsContainer.style.display = 'block';
+      this.simToggle?.classList.add('active');
+      this._setSimToggleLabel(T.schematic);
+      this._hideStatus();
+    } finally {
+      this._simBusy = false;
+      if (this.simToggle) this.simToggle.disabled = false;
+    }
+  }
+
+  exitSimMode() {
+    this._destroyCircuit();
+    this.simMode = false;
+    this.djsContainer.style.display = 'none';
+    this.svgContainer.style.display = '';
+    this.simToggle?.classList.remove('active');
+    this._setSimToggleLabel(T.simulate);
+  }
+
+  /** Stop + dispose the live circuit (best-effort) and clear its host. */
+  _destroyCircuit() {
+    if (this.circuit) {
+      try { this.circuit.stop?.(); } catch (_) { /* best-effort */ }
+      try { this.circuit.shutdown?.(); } catch (_) { /* best-effort */ }
+      this.circuit = null;
+    }
+    // Dispose the JointJS paper view (shutdown() doesn't): drops its DOM +
+    // Backbone listeners so repeated enter/exit cycles don't leak views.
+    if (this._paper) {
+      try { this._paper.remove?.(); } catch (_) { /* best-effort */ }
+      this._paper = null;
+    }
+    if (this.djsContainer) this.djsContainer.innerHTML = '';
+  }
+
+  _setSimToggleLabel(text) {
+    const label = document.getElementById('t-simulate');
+    if (label) label.textContent = text;
   }
 }
 

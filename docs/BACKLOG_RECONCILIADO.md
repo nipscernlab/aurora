@@ -66,7 +66,13 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   **5 drivers** continuam funcionando sem alteração (light-DOM preservado). Property-driven vira fallback do
   Design Lab. Zero regressão (301 unit + 9 E2E). Ver §14.22. *(precisa teste visual ao vivo)*
 - [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-activity-bar>`** (feature nova, adiada).
-- [ ] **F1** consolidar ícones (sprite Phosphor, tirar FontAwesome) · **F2** fonts 100% local (verificar).
+- [x] **F1** consolidar ícones — FEITO (18/06): a IDE já era 100% Phosphor (`@phosphor-icons/web`,
+  vendorizado local em `dist/vendor/phosphor`) + SVG inline nos botões de compile; FontAwesome já não tinha
+  uso real (as ocorrências de `fa-` eram comentários/regex de hex) e nem era mais dependência. O único resíduo
+  eram 2 linhas mortas de exclusão (`!node_modules/@fortawesome/...`) no `package.json` — removidas. Ver §14.27.
+- [x] **F2** fonts 100% local — FEITO/verificado (18/06): Inter + JetBrains Mono são woff2 variáveis locais em
+  `assets/fonts/` (`css/base/fonts.css`, importado 1º no `import.css`), sem `@import`/`<link>` de CDN; o
+  `vite build` resolve os `url()` e emite as 4 fontes em `dist/assets`. Nada a mudar — só confirmar. Ver §14.27.
 - [ ] **B12** CLIs de IA sob demanda (~675MB) · **O9** DigitalJS (esquemático — zero código hoje).
 - [x] **G4** auditoria de i18n — FEITO (18/06): `scripts/check-i18n.js` (en/pt sync + chaves indefinidas, virou
   guard de CI), 5 chaves faltantes adicionadas (EN+PT), 661 chaves em sincronia. Ver §14.25. · [ ] **G6**
@@ -113,7 +119,7 @@ modal/toast a11y, command-palette (Ctrl+Shift+P), i18n em PT, O4 (toggles do fin
 - [ ] Confirmar o badge de cobertura do Codecov no README (já está conectado).
 
 **Próximo a implementar (resumo — detalhe no backlog acima):**
-- **Médio:** `<aurora-tabs>` passo 2 · F1 ícones · F2 fonts · B12 CLIs sob demanda · O9 DigitalJS · G6 modelos.
+- **Médio:** `<aurora-tabs>` passo 2 · B12 CLIs sob demanda · O9 DigitalJS · G6 modelos. _(F1 ícones e F2 fonts: FEITOS 18/06 — §14.27.)_
 - **Difícil:** O2/O11 LSP (Verible/slang) · O7 tree-sitter · `<aurora-tree>`/`<aurora-terminal>` passo 2 ·
   `<aurora-editor>` · A3 globais · PRISM reskin.
 - **Radical:** A2 god-files · O1 Surfer embarcado · `<aurora-panel>` dockável · O5 YoWASP · B11 cross-platform.

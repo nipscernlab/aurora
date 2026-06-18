@@ -1466,3 +1466,37 @@ vazado pro index — des-stageados (são gitignored); (2) o `check-i18n.js` **fa
 ser commitado, passou a se varrer e o regex pegou o `…` do exemplo `window.t('…')` no próprio comentário (ia
 quebrar o CI). Fix: filtro de formato de chave (`/^[A-Za-z][\w.-]*$/`, descarta o `…`) + exclusão dos arquivos
 -meta (`i18n.js`, `check-i18n.js`) do scan. Guard volta a passar (661/661). Tudo na `main`, verde.
+
+### 14.27 F1 (ícones) + F2 (fonts) fechados — eram quase-prontos, rótulos desatualizados — 18/06/2026
+Primeira sessão na máquina nova. Antes de qualquer coisa, **sincronização do clone**: este clone estava parado em
+`de38e4a` (8 commits locais de split de god-files = A2, nunca publicados) enquanto o `origin/main` já tinha
+avançado 267 commits (todo o trabalho de statusbar/titlebar/a11y/i18n do §14.22–14.26). Os 8 commits A2 foram
+**preservados** num branch+tag de backup local (`backup/a2-godfiles-de38e4a` / `shelf-a2-godfiles-2026-06-18`) e a
+`main` local foi alinhada ao `origin/main` (`reset --hard`). Como o backlog já registrava que esses 8 commits
+foram conscientemente descartados (e o `origin/main` ainda tem os god-files monolíticos — A2 segue "Radical"
+aberto), o alinhamento foi o caminho certo.
+
+**Reconhecimento dos próximos itens "Médio" cruzado com o código real** mostrou o mesmo padrão de
+command-palette/CDN (§14.25): os rótulos estavam desatualizados e os dois próximos já estavam essencialmente
+prontos.
+
+**F1 — consolidar ícones (Phosphor, tirar FontAwesome):** a IDE já é 100% Phosphor (`@phosphor-icons/web`,
+vendorizado local em `dist/vendor/phosphor` pelo `vite-plugin-static-copy`) + SVG inline nos botões de compile
+(`glyph-cpm` etc.). Não havia **nenhum** uso real de FontAwesome — as 6 ocorrências de `fa-` no grep eram
+comentários (ex.: o aviso histórico no `terminal_module.js` sobre o botão de trash migrado pra `ph-trash`) ou
+regex de hexadecimal (`[0-9a-fA-F]`). FontAwesome também já **não era dependência** (`npm ls` → vazio; só sobrava
+um diretório órfão vazio em `node_modules/@fortawesome`). O único resíduo real eram **2 linhas mortas de
+exclusão** no `files` do `package.json` (`!node_modules/@fortawesome/fontawesome-free/{less,metadata}/**`),
+apontando pra um pacote inexistente — **removidas**. O órfão saiu sozinho no `npm ci`.
+
+**F2 — fonts 100% local (verificar):** confirmado, nada a mudar. `css/base/fonts.css` declara Inter e
+JetBrains Mono como woff2 **variáveis** locais (`../../assets/fonts/*.woff2`, os 4 arquivos presentes), é o
+**primeiro** `@import` do `import.css` (antes de qualquer uso) e não há `@import`/`<link>` remoto ativo em lugar
+nenhum (só comentários + o `scripts/fetch-fonts.js`, que é build-time). O `vite build` resolve os `url()` e emite
+`inter-latin`, `inter-latin-ext`, `jetbrains-mono-latin`, `jetbrains-mono-latin-ext` + `fonts-*.css` em
+`dist/assets` — prova de que carregam offline, sem rede no primeiro paint.
+
+**Green bar local (tudo verde):** check-pinned-versions, check-no-generated-js (384 arquivos), check-i18n
+(661/661), `tsc --noEmit`, ESLint (`--max-warnings=0`), `deadcode` (knip), **301 unit**, `vite build`, **9 E2E**
+(Electron real sobe e funciona). Mudança de repo: só `package.json` (−2 linhas). Sem risco visual (nenhuma
+mudança de DOM/CSS) — não precisa de teste ao vivo seu.

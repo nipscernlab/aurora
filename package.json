@@ -102,8 +102,6 @@
       "!node_modules/monaco-editor/dev/**",
       "!node_modules/monaco-editor/esm/**",
       "!node_modules/monaco-editor/min-maps/**",
-      "!node_modules/@fortawesome/fontawesome-free/less/**",
-      "!node_modules/@fortawesome/fontawesome-free/metadata/**",
       "!node_modules/@types/**"
     ],
     "asarUnpack": [

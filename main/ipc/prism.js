@@ -743,6 +743,15 @@ async function buildDigitalJSCircuit(
   const fileList = await collectSynthFiles(compilationPaths);
   if (fileList.length === 0) throw new Error('No Verilog files found for the simulation');
 
+  // Per-phase progress to the terminal so a slow/stuck build is diagnosable
+  // (which phase — yosys, convert, or the renderer — is the bottleneck).
+  const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
+    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+      state.mainWindow.webContents.send('terminal-log', 'tveri', m, t);
+    }
+  };
+  const t0 = Date.now();
+
   const jsonPath = path.join(tempDir, 'digitaljs.json');
   const readCommands = fileList.map((f) => `read_verilog "${f}"`).join('\n');
   // Word-level synthesis the yosys2digitaljs converter expects (no abc/techmap,
@@ -760,6 +769,7 @@ write_json "${jsonPath}"
   const scriptPath = path.join(tempDir, 'digitaljs_yosys.ys');
   await fse.writeFile(scriptPath, script);
 
+  tlog(`DigitalJS: synthesizing with Yosys (${fileList.length} files)…`);
   await new Promise((resolve, reject) => {
     const proc = spawn(compilationPaths.yosysPath, ['-s', scriptPath], {
       cwd: tempDir, env: process.env, windowsHide: true,
@@ -786,6 +796,7 @@ write_json "${jsonPath}"
     });
   });
 
+  tlog(`DigitalJS: Yosys done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   const yosysJson = await fse.readJson(jsonPath);
 
   // DigitalJS is an interactive teaching simulator, not a viewer for big
@@ -800,15 +811,17 @@ write_json "${jsonPath}"
     throw new Error(`Design too large for interactive simulation (${cellCount} cells, limit ${MAX_CELLS}). ` +
       'DigitalJS is best for small modules — use the schematic view for large designs.');
   }
-  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-    state.mainWindow.webContents.send('terminal-log', 'tveri', `DigitalJS netlist ready (${cellCount} cells) — converting…`, 'info');
-  }
+  tlog(`DigitalJS: netlist ${cellCount} cells — converting…`);
 
   // Pure convert: takes an existing yosys JSON object, returns the DigitalJS
   // TopModule directly (no yosys spawn — we already ran ours). Required lazily
   // so the (Node-only) converter isn't loaded until the user enters Sim mode.
+  const tConv = Date.now();
   const { yosys2digitaljs } = require('yosys2digitaljs/core');
-  return yosys2digitaljs(yosysJson, {});
+  const circuit = yosys2digitaljs(yosysJson, {});
+  tlog(`DigitalJS: converted to ${Object.keys(circuit.devices || {}).length} devices ` +
+    `in ${((Date.now() - tConv) / 1000).toFixed(1)}s — rendering in PRISM…`, 'success');
+  return circuit;
 }
 
 // ---------- IPC ----------

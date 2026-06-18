@@ -27,6 +27,19 @@ const collapsed = new Set();                // file paths the user collapsed
 const toggles = { case: false, word: false, regex: false };
 let reqSeq = 0;                             // guards against out-of-order responses
 
+// Persist the case/word/regex modes so a search behaves the same across
+// sessions (VS Code does this). Restored on load; saved on every toggle.
+const TOGGLES_KEY = 'aurora.search.toggles';
+try {
+  const saved = JSON.parse(localStorage.getItem(TOGGLES_KEY) || '{}');
+  for (const k of Object.keys(toggles)) {
+    if (typeof saved[k] === 'boolean') toggles[k] = saved[k];
+  }
+} catch (_) { /* corrupt/absent value — keep the defaults */ }
+function saveToggles() {
+  try { localStorage.setItem(TOGGLES_KEY, JSON.stringify(toggles)); } catch (_) { /* ignore */ }
+}
+
 // --- open / close ----------------------------------------------------------
 function open() {
   modal = modal || $('searchModal');
@@ -215,6 +228,7 @@ function onToggleClick(btn) {
   toggles[key] = !toggles[key];
   btn.classList.toggle('active', toggles[key]);
   btn.setAttribute('aria-pressed', String(toggles[key]));
+  saveToggles();
   runSearch();
 }
 
@@ -231,6 +245,12 @@ function init() {
     modal.addEventListener('aurora-modal-close', close);
     $('search-results')?.addEventListener('click', onResultsClick);
     modal.querySelectorAll('.search-toggle').forEach((btn) => {
+      // Reflect the restored state on the button before wiring it.
+      const key = btn.dataset.toggle;
+      if (key && key in toggles) {
+        btn.classList.toggle('active', toggles[key]);
+        btn.setAttribute('aria-pressed', String(toggles[key]));
+      }
       btn.addEventListener('click', () => onToggleClick(btn));
     });
     const input = $('search-input');

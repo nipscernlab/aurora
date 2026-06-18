@@ -48,9 +48,14 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 - [ ] **Merge do PR de release v6.4.0** — seu clique.
 - [ ] **P6** (painéis em overlay?) · **tokens semânticos** (recomendo descartar — tema único).
 
-**Fácil (1–3):**
-- [ ] Re-habilitar o E2E "abrir na linha" — baixa prioridade (recurso funciona; é timing do CI headless). §14.19.
-- [ ] Robustez miúda: `try/catch` na criação do editor (D5) · persistir toggles do find-in-files (O4).
+**Fácil (1–3) — FECHADO (18/06):**
+- [x] **O4** persistir os toggles do find-in-files (case/word/regex) entre sessões — via `localStorage`
+  (`aurora.search.toggles`), restaurados no `init` e salvos a cada clique. *(precisa teste ao vivo)*
+- [x] **D5** `try/catch` na criação do editor — **já estava feito**: a IIFE do `addTab` (`tab_manager.js`
+  ~1152) fecha a aba tanto no `!editor` quanto no `catch`. Nada a fazer.
+- [~] Re-habilitar o E2E "abrir na linha" — **adiado de propósito**: o recurso funciona (verificado); re-ligar
+  precisa iterar no CI headless (push → ver → repetir), o oposto de "implementar tudo + testar no fim". Baixa
+  prioridade. Ver §14.19.
 
 **Médio (4–6):**
 - [ ] **`<aurora-statusbar>` ao vivo** — estender o componente p/ os **8 indicadores** (compilação, GitHub,

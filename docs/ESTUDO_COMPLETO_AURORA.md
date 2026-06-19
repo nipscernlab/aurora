@@ -1970,3 +1970,14 @@ o call site em `generateProjectHierarchy` (`this.parseYosysHierarchy` → `parse
 ~142 linhas. **Ganho além da decomposição:** a classe NÃO tinha teste de unidade — adicionei **11 testes**
 (`tests/unit/hierarchy_parser.test.js`: identificadores Yosys mangled, src→file:line, montagem da árvore + filtro de
 primitivos + top ausente). Green bar (ESLint, tsc, 4 guards, **327 unit [+11]**, vite build, 9 E2E).
+
+**Extração #2 — `js/compilation/hierarchy_view.js` (FEITO):** movida toda a renderização **DOM** da árvore de
+hierarquia (`renderHierarchy` ex-renderHierarchicalTree, `buildHierarchyChildren` ex-buildHierarchyTree,
+`createHierarchyItem`, `toggleHierarchyItem`, `refreshHierarchyFocusHighlight`, `openModuleFile`, `goToLineInEditor`).
+`this.` → funções de módulo; a hierarchyData entra por parâmetro. **`renderHierarchicalTree()` virou delegador fino**
+no CompilationModule (o `file_tree_view_controller.js` ainda o chama na instância → API preservada). O listener
+`aurora:editing-file-changed` agora chama a função importada direto. Removidos os imports órfãos (`EditorManager`).
+**Cuidados:** (a) renomeei o builder pra `buildHierarchyChildren` — `buildHierarchyTree` é OUTRA função, importada do
+`signal_parser.js` (colisão de nome evitada); (b) o `openModuleFile` era `static` e logava via `this.terminalManager`
+**sempre undefined** (bug latente que travava no caminho de erro) → troquei pra `console` (sem dep quebrada). God-file
+encolheu **~250 linhas**. Green bar (ESLint, tsc, 4 guards, 327 unit, vite build, 9 E2E).

@@ -42,7 +42,6 @@
  *      ARCHITECTURE.md §9 pro racional.
  */
 import { TabManager } from '../tabs/tab_manager.js';
-import { EditorManager } from '../editor/monaco_editor.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
@@ -64,6 +63,7 @@ import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { parseYosysHierarchy } from './hierarchy_parser.js';
+import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import {
   buildCmmSpec,
   buildAsmPreSpec, buildAsmSpec,
@@ -127,84 +127,10 @@ class CompilationModule {
             if (!window.__hierarchyFocusWired) {
                 window.__hierarchyFocusWired = true;
                 document.addEventListener('aurora:editing-file-changed', () => {
-                    window._latestCompilationModule?.refreshHierarchyFocusHighlight?.();
+                    refreshHierarchyFocusHighlight();
                 });
             }
         }
-    }
-
-    /**
-     * Marca a row do arquivo em foco no Monaco na hierarchy tree (toggle de
-     * `.active` em `.hierarchy-item[data-filepath]`, ja estilizado em
-     * h_tree.css). Um modulo pode aparecer varias vezes (mesma .v instanciada
-     * N vezes) — todas as ocorrencias acendem, que e o esperado. Idempotente.
-     */
-    refreshHierarchyFocusHighlight() {
-        const host = (typeof window !== 'undefined') && window.treeView?.getContainer?.('hierarchy');
-        if (!host) return;
-        const norm = (p) => String(p || '').replace(/\\/g, '/').toLowerCase();
-        const target = norm(window.TabManager?.getEditingFilePath?.() || '');
-        host.querySelectorAll('.hierarchy-item[data-filepath]').forEach((it) => {
-            const match = !!target && norm(it.getAttribute('data-filepath')) === target;
-            it.classList.toggle('active', match);
-        });
-    }
-
-    static async openModuleFile(filePath, lineNumber = null) {
-        try {
-            const fileExists = await window.electronAPI.fileExists(filePath);
-            if (!fileExists) {
-                this.terminalManager.appendToTerminal('tveri',
-                    tr('terminal.veri.fileNotFound', { path: filePath }), 'error');
-                return;
-            }
-
-            const content = await window.electronAPI.readFile(filePath, {
-                encoding: 'utf8'
-            });
-
-            TabManager.addTab(filePath, content);
-
-            if (lineNumber) {
-                setTimeout(() => {
-                    const editor = EditorManager.getEditorForFile(filePath);
-                    if (editor) {
-                        this.goToLineInEditor(editor, lineNumber);
-                    }
-                }, 100);
-            }
-
-        } catch (error) {
-            console.error('Error opening module file:', error);
-            this.terminalManager.appendToTerminal('tveri',
-                tr('terminal.veri.failedToOpen', { message: error.message }), 'error');
-        }
-    }
-
-    static goToLineInEditor(editor, lineNumber) {
-        if (!editor) return;
-
-        const model = editor.getModel();
-        if (!model) return;
-
-        const totalLines = model.getLineCount();
-        const targetLine = Math.max(1, Math.min(lineNumber, totalLines));
-
-        editor.setPosition({
-            lineNumber: targetLine,
-            column: 1
-        });
-
-        editor.revealLineInCenter(targetLine);
-
-        editor.focus();
-
-        editor.setSelection({
-            startLineNumber: targetLine,
-            startColumn: 1,
-            endLineNumber: targetLine,
-            endColumn: model.getLineMaxColumn(targetLine)
-        });
     }
 
     async initializeComponentsPath() {
@@ -331,187 +257,10 @@ async generateProjectHierarchy() {
         }
     }
 
+    // Thin delegator — the DOM render lives in hierarchy_view.js (A2 #2). Kept
+    // as a method because file_tree_view_controller.js calls it on the instance.
     renderHierarchicalTree() {
-        // Hierarchy view owns its dedicated subcontainer inside
-        // #file-tree. Each view is in its own subtree so we can
-        // freely innerHTML='' our own without touching the standard
-        // tree or the verilog picker. See js/tree/tree_view.js.
-        const hostContainer = window.treeView?.getContainer('hierarchy');
-        if (!hostContainer) return;
-
-        // Single source of truth for hierarchy data: the file-tree
-        // view controller. Per-instance `this.hierarchyData` is just
-        // a freshness shortcut for the compile that produced it —
-        // the controller's slot survives the per-compile reconstruction
-        // of CompilationModule.
-        const hierarchyData = this.hierarchyData ?? window.fileTreeViewController?.getHierarchyData?.();
-        if (!hierarchyData) return;
-
-        // Preserve expand/collapse state across view switches. The
-        // controller re-invokes this renderer every time the hierarchy
-        // view becomes active (it's the 'hierarchy' renderer in the
-        // toggle cycle); a full rebuild would reset every node back to
-        // the default "only top level expanded" layout — exactly the
-        // "it collapses when I come back" bug. So if the DOM already
-        // reflects this exact hierarchy data object, leave it alone.
-        // Only a new compile (new parsed object → different reference)
-        // forces a rebuild.
-        if (hostContainer.__auroraHierarchyData === hierarchyData
-            && hostContainer.querySelector('.hierarchy-container')) {
-            this.refreshHierarchyFocusHighlight();
-            return;
-        }
-        hostContainer.__auroraHierarchyData = hierarchyData;
-
-        hostContainer.innerHTML = '';
-
-        const container = document.createElement('div');
-        container.className = 'hierarchy-container';
-
-        const topLevelInstance = {
-            instanceName: hierarchyData.name,
-            type: 'instance',
-            moduleDefinition: hierarchyData
-        };
-
-        const topItem = this.createHierarchyItem(topLevelInstance, 'top-level', 'ph ph-cpu', true);
-
-        topItem.setAttribute('data-type', 'top-level');
-
-        container.appendChild(topItem);
-
-        this.buildHierarchyTree(topItem, hierarchyData);
-
-        hostContainer.appendChild(container);
-
-        // aurora-tree p2: observability guard. The whole tree is built into the
-        // DOM up front (collapse is CSS-only), so a very large synthesis can put
-        // thousands of rows in the DOM. They're cheap while collapsed
-        // (.hierarchy-children.collapsed → content-visibility:hidden skips their
-        // layout/paint), but flag the size once so a perf report can be traced
-        // to the design rather than the IDE.
-        const HIERARCHY_LARGE = 2000;
-        const nodeCount = container.querySelectorAll('.hierarchy-item').length;
-        if (nodeCount > HIERARCHY_LARGE) {
-            console.info(`[aurora-tree] large hierarchy: ${nodeCount} modules — collapsed branches are not laid out/painted; expand on demand.`);
-        }
-
-        this.refreshHierarchyFocusHighlight();
-    }
-
-    buildHierarchyTree(parentItem, moduleDefinition) {
-        if (!moduleDefinition.children || moduleDefinition.children.length === 0) {
-            return;
-        }
-
-        const childrenContainer = parentItem.querySelector('.hierarchy-children');
-        if (!childrenContainer) return;
-
-        const sortedInstances = [...moduleDefinition.children].sort((a, b) => {
-            const nameA = a?.instanceName || '';
-            const nameB = b?.instanceName || '';
-            return nameA.localeCompare(nameB);
-        });
-
-        for (const instanceNode of sortedInstances) {
-            const childItem = this.createHierarchyItem(instanceNode, 'module', 'ph ph-tree-structure');
-
-            childItem.setAttribute('data-type', 'module');
-
-            childrenContainer.appendChild(childItem);
-
-            this.buildHierarchyTree(childItem, instanceNode.moduleDefinition);
-        }
-    }
-
-    createHierarchyItem(instanceNode, type, icon, isExpanded = false) {
-        const itemContainer = document.createElement('div');
-        itemContainer.className = 'hierarchy-item';
-
-        const moduleDef = instanceNode.moduleDefinition;
-
-        if (moduleDef.filePath) {
-            itemContainer.setAttribute('data-filepath', moduleDef.filePath);
-            if (moduleDef.lineNumber) {
-                itemContainer.setAttribute('data-linenumber', moduleDef.lineNumber);
-            }
-        }
-
-        const itemElement = document.createElement('div');
-        itemElement.className = 'hierarchy-item-content';
-
-        const hasChildren = moduleDef.children && moduleDef.children.length > 0;
-
-        if (hasChildren) {
-            const toggle = document.createElement('span');
-            toggle.className = `hierarchy-toggle ${isExpanded ? 'expanded' : ''}`;
-            // The affordance is now a curved-tree node (hollow when
-            // collapsed, filled accent when expanded) drawn via the
-            // ::before pseudo in h_tree.css. No glyph child needed.
-            toggle.addEventListener('click', e => {
-                e.stopPropagation();
-                this.toggleHierarchyItem(itemContainer);
-            });
-            itemElement.appendChild(toggle);
-        } else {
-            itemElement.appendChild(document.createElement('span')).className = 'hierarchy-spacer';
-        }
-
-        // Icon = the file's tab icon when this module maps to a file, so the
-        // hierarchy reads with the SAME glyphs as the verilog/standard trees and
-        // the Monaco tabs; fall back to the passed Phosphor glyph for synthetic
-        // nodes with no filePath.
-        const fileBase = moduleDef.filePath ? moduleDef.filePath.split(/[\\/]/).pop() : '';
-        const resolvedIcon = (fileBase && window.TabManager?.getFileIcon)
-            ? window.TabManager.getFileIcon(fileBase)
-            : icon;
-        itemElement.appendChild(document.createElement('span')).className = 'hierarchy-icon';
-        itemElement.querySelector('.hierarchy-icon').innerHTML = `<i class="${resolvedIcon}"></i>`;
-
-        const label = document.createElement('span');
-        label.className = 'hierarchy-label';
-        label.textContent = instanceNode.instanceName === moduleDef.name ?
-            moduleDef.name :
-            `${instanceNode.instanceName} (${moduleDef.name})`;
-        itemElement.appendChild(label);
-
-        itemContainer.appendChild(itemElement);
-        itemContainer.appendChild(document.createElement('div')).className =
-            `hierarchy-children ${isExpanded ? 'expanded' : 'collapsed'}`;
-
-        if (moduleDef.filePath) {
-            itemElement.style.cursor = 'pointer';
-
-            const fileName = moduleDef.filePath.split(/[\\/]/).pop();
-            itemElement.title = `Click to open ${fileName}`;
-
-            itemElement.addEventListener('click', async (e) => {
-                if (e.target.closest('.hierarchy-toggle')) return;
-
-                const filePath = itemContainer.getAttribute('data-filepath');
-                const lineNumber = itemContainer.getAttribute('data-linenumber');
-
-                if (filePath) {
-                    await this.constructor.openModuleFile(
-                        filePath,
-                        lineNumber ? parseInt(lineNumber, 10) : null
-                    );
-                }
-            });
-        }
-
-        return itemContainer;
-    }
-
-    toggleHierarchyItem(itemElement) {
-        const toggle = itemElement.querySelector('.hierarchy-toggle');
-        const children = itemElement.querySelector('.hierarchy-children');
-        if (!toggle || !children) return;
-
-        const isExpanded = children.classList.contains('expanded');
-        children.classList.toggle('expanded', !isExpanded);
-        children.classList.toggle('collapsed', isExpanded);
-        toggle.classList.toggle('expanded', !isExpanded);
+        renderHierarchy(this.hierarchyData);
     }
 
 async loadConfig() {

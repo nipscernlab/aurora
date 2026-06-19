@@ -2139,6 +2139,21 @@ display por tipo/sem-tipo/saved, avanço+colisão do counter). God-file **−2 l
 adversarial** (não é estado entrelaçado; a parte entrelaçada foi deixada na classe por decisão). Green bar (ESLint,
 tsc, 4 guards, **422 unit [+8]**, vite build, 9 E2E).
 
+**AI-5 — chat_scroll (math puro) → `js/ai/chat_scroll.js` (FEITO 19/06/2026):** primeira extração da CLASSE do
+ai_assistant (depois dos helpers de módulo AI-1/2/3). Re-mapeado vs código real: o sistema de scroll é interdependente
+(`_isAtBottom`/`scrollToBottom`/`smoothScrollToBottom` + listener de scroll + pill "Jump to latest" + estado
+`stickToBottom`/`_scrollRaf` + rAF) — DOM/estado, **sem E2E** (o E2E não exercita o chat). O subconjunto **puro** é a
+**matemática**: `isAtBottom(el, thresholdPx)` (geometria; el ausente = no fundo; lê só scrollHeight/clientHeight/
+scrollTop), `easeInOutCubic(p)` (curva ease-in-out) e `smoothScrollDuration(dist)` (≈metade da distância, clamp
+[240,560]). Extraídos pra `chat_scroll.js`; a classe mantém a **orquestração** (dona de messagesEl/stickToBottom/
+_scrollRaf e do loop rAF) e só **delega a matemática** — `_isAtBottom` → `isAtBottom(...)`, `smoothScrollToBottom`
+usa `smoothScrollDuration`+`easeInOutCubic`. Comportamento idêntico (revisão manual de equivalência: mesma fórmula de
+ease/duração/geometria). Mesma decisão do TM-4: extrai o puro/testável, deixa o DOM/estado na classe. **+7 testes**
+(`chat_scroll.test.js`: isAtBottom null/dentro/fora do threshold; ease endpoints+aceleração; duração clamp+meio).
+ai_assistant **3376→3375** (ganho = +26 linhas testáveis num módulo; o god-file mal encolhe — o valor é a matemática
+isolada/testável, não o tamanho). Puro → sem revisão adversarial. Green bar
+(ESLint, tsc, 4 guards, **429 unit [+7]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para
@@ -2171,8 +2186,10 @@ existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" 
   **ai_assistant_manager**.
 - **ai_assistant_manager (js/ui/) — classe `AIAssistantManager` ~3376 linhas, ~40 campos entrelaçados.** **E2E NÃO
   exercita o chat ao vivo** → bug sutil só no teste do usuário (classe-risco do O9/O11). Peças mais ortogonais
-  primeiro (deps bag + delegadores): **scroll** (`scrollToBottom`/`smoothScrollToBottom`/`_isAtBottom`) e **anexos**
-  (`_addFiles`/`_renderAttachments`/`pendingAttachments`). Depois o núcleo profundo (mais arriscado, sequência
+  primeiro (deps bag + delegadores): ~~**scroll**~~ — **FEITO (AI-5)**: só a matemática pura saiu (chat_scroll.js);
+  a orquestração DOM/rAF fica na classe. Próximo ortho: **anexos** (`_addFiles`/`_renderAttachments`/
+  `pendingAttachments`) — re-mapear; provável mesmo perfil (DOM+estado → extrair só o puro). Depois o núcleo profundo
+  (mais arriscado, **PAUSAR antes** — sequência
   própria): **tool-chips**, **permission-gate** (`confirmToolCall` é chamado por `tool_runner.js`),
   **provider/model UI**, **histórico** (load/save/replay), **streaming/sessão** (`_dispatchTurn`/`handleChatEvent` +
   o campo-seam `currentSessionId`). API externa a preservar: `initialize`/`toggle` (renderer), `confirmToolCall`

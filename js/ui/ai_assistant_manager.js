@@ -20,6 +20,7 @@ import { showCardNotification } from './notification.js';
 import { constrainTerminalHeight } from '../utils/resize.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
+import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
@@ -103,9 +104,8 @@ class AIAssistantManager {
   get _bottomThresholdPx() { return 32; }
 
   _isAtBottom() {
-    const el = this.messagesEl;
-    if (!el) return true;
-    return (el.scrollHeight - el.clientHeight - el.scrollTop) <= this._bottomThresholdPx;
+    // Pure geometry in chat_scroll.js; this class owns the element + state.
+    return isAtBottom(this.messagesEl, this._bottomThresholdPx);
   }
 
   /**
@@ -137,13 +137,12 @@ class AIAssistantManager {
     const start = el.scrollTop;
     const dist = (el.scrollHeight - el.clientHeight) - start;
     if (dist <= 2) { el.scrollTop = el.scrollHeight; return; }
-    const dur = Math.min(560, Math.max(240, dist * 0.5));
+    const dur = smoothScrollDuration(dist);
     const t0 = performance.now();
-    const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
     const step = (now) => {
       const p = Math.min(1, (now - t0) / dur);
       const target = el.scrollHeight - el.clientHeight;   // re-target growing content
-      el.scrollTop = start + (target - start) * ease(p);
+      el.scrollTop = start + (target - start) * easeInOutCubic(p);
       if (p < 1) {
         this._scrollRaf = requestAnimationFrame(step);
       } else {

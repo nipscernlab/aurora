@@ -1721,4 +1721,28 @@ rename); `didOpen` válido → 0 diagnostics; `didChange` full-replace de códig
 
 **LIÇÃO:** a revisão adversarial (workflow) bateu no **limite de sessão** e não rodou — fiz a revisão manual + a
 verificação empírica acima no lugar. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E) +
-downloader validado de verdade (baixou, verificou SHA, podou, instalou). **Falta o teste ao vivo do usuário.**
+downloader validado de verdade (baixou, verificou SHA, podou, instalou). **VALIDADO AO VIVO pelo usuário** ("Funcionou").
+
+### 14.33 Formatação C/C++/CMM via clang-format (Shift+Alt+F) — 19/06/2026 — FEITO (aguarda teste ao vivo)
+Logo após o O2 o usuário pediu pra estender o Shift+Alt+F além do Verilog. **Não existe "formatar qualquer coisa"**
+no Monaco — o atalho chama o `DocumentFormattingEditProvider` registrado pra linguagem do buffer em foco. Então
+cada linguagem precisa de um provider. Escopo escolhido pelo usuário: **Verilog** (já era, via Verible), **CMM**
+(formatar como C) e **C++**. Monaco despacha por linguagem **automaticamente** — só registrei o provider certo.
+
+Pra C/C++/CMM o motor é o **clang-format** (mesma estratégia do Verible, mas mais simples — não é LSP, é CLI
+one-shot stdin→stdout):
+- **`components/Scripts/download-clang-format.js`** — bootstrap (depois do verible). Baixa o `.exe` estático avulso
+  do `muttleyxd/clang-tools-static-binaries` (clang-format 20.1.0, pin `master-796e77c` + **SHA-256** verificado
+  ANTES de promover o temp→bin, 2.7MB) em `components/Packages/clang-format/bin/`. Best-effort (exit 0).
+- **`main/format/clang_format.js`** — IPC `format:clang`: spawna o clang-format, joga o buffer no stdin, devolve o
+  stdout formatado. CMM usa regras de C via `-assume-filename=<dir>/<base>.c`; C/C++ usam o caminho real (detecta
+  dialeto + acha um `.clang-format` do projeto, com `-style=file -fallback-style=LLVM`). Timeout 15s, gate de
+  allowlist, `trackChild`, no-op se o binário faltar.
+- **`js/editor/clang_format_integration.js`** — registra o provider de formatação pra `c`/`cpp`/`cmm`; troca o
+  buffer inteiro (`getFullModelRange`) pelo texto formatado; no-op se já formatado ou se o backend devolve null.
+  `initClangFormat` em try/catch total (não quebra o boot do Monaco), chamado no `initMonaco` após o `initVerilogLSP`.
+- **preload** `window.clangFormatAPI`, **allowlist** + extensões C++ extras (`.cc/.cxx/.hh/.hxx`) no mapa de linguagem.
+
+**Verificado empiricamente** contra o binário real: `clang-format --version` (20.1.0); formatou C (pra CMM), C++ e
+um caso `-style=file -fallback-style=LLVM` sem `.clang-format` (cai pro LLVM, exit 0). Green bar completo (ESLint,
+tsc, 4 guards, 316 unit, vite build, 9 E2E) + downloader rodado de verdade. **Falta o teste ao vivo do usuário.**

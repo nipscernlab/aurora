@@ -424,6 +424,21 @@ const lspOperations = {
 };
 
 /* ============================================================================
+ *  CLANG-FORMAT (window.clangFormatAPI) — backed by main/format/clang_format.js
+ *
+ *  One-shot C/C++/CMM document formatter (Shift+Alt+F). The renderer
+ *  (js/editor/clang_format_integration.js) sends the buffer + languageId +
+ *  filePath; main pipes it through the bundled clang-format and returns the
+ *  formatted text. Best-effort — resolves null if clang-format isn't
+ *  installed or errors, leaving the buffer untouched.
+ * ========================================================================= */
+const clangFormatOperations = {
+  status: () => ipcRenderer.invoke('format:clang-status'),
+  format: (languageId, filePath, text) =>
+    ipcRenderer.invoke('format:clang', { languageId, filePath, text }),
+};
+
+/* ============================================================================
  *  UTILITIES (inline, sem IPC)
  * ========================================================================= */
 const utilityOperations = {
@@ -523,6 +538,8 @@ contextBridge.exposeInMainWorld('aiAPI', aiAPI);
 contextBridge.exposeInMainWorld('gitAPI', gitOperations);
 
 contextBridge.exposeInMainWorld('lspAPI', lspOperations);
+
+contextBridge.exposeInMainWorld('clangFormatAPI', clangFormatOperations);
 
 /* ============================================================================
  *  GLOBAL EVENT FORWARDERS

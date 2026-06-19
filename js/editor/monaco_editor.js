@@ -5,6 +5,7 @@
 import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
 import { initVerilogLSP } from './lsp_integration.js';
+import { initClangFormat } from './clang_format_integration.js';
 
 class EditorManager {
     static editors = new Map();
@@ -674,8 +675,12 @@ class EditorManager {
             'py': 'python',
             'c': 'c',
             'cpp': 'cpp',
+            'cc': 'cpp',
+            'cxx': 'cpp',
             'h': 'c',
             'hpp': 'cpp',
+            'hh': 'cpp',
+            'hxx': 'cpp',
             'cmm': 'cmm',
             'asm': 'asm',
             'v': 'verilog',
@@ -851,6 +856,10 @@ function initMonaco() {
             // The 'verilog'/'systemverilog' languages are already registered
             // by the vendored Monaco build, so this only wires the providers.
             initVerilogLSP();
+            // Shift+Alt+F formatting for C / C++ / CMM via bundled clang-format
+            // (CMM borrows C rules). Verilog formats via Verible above; Monaco
+            // dispatches by the focused buffer's language automatically.
+            initClangFormat();
 
             // Aurora dark theme — colors mirror theme_variables.css so the
             // editor surface blends with the rest of the IDE chrome.

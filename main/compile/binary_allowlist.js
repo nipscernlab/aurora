@@ -61,6 +61,9 @@ const RAW_ALLOWLIST = [
   // stdio process spawned by main/lsp/verible_lsp.js for diagnostics,
   // formatting, outline, hover and definition/references in Monaco.
   ['verible-verilog-ls.exe', ['Packages/verible/bin']],
+  // clang-format — the C/C++/CMM formatter (Shift+Alt+F). One-shot stdin->
+  // stdout process spawned by main/format/clang_format.js.
+  ['clang-format.exe', ['Packages/clang-format/bin']],
   // comp2gtkw — the complex-number decoder pre-pass (decode-complex). Ships
   // with the YANC compilers in components/bin.
   ['comp2gtkw.exe', ['bin']],

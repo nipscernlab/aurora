@@ -61,6 +61,7 @@ const COMMANDS = [
   { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
   { id: 'tools.settings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
   { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => window.electronAPI?.openDesignLab?.() },
+  { id: 'tools.slang',     group: 'Tools',   icon: 'ph ph-brackets-angle', title: 'Toggle slang (SystemVerilog semantic analysis)', keywords: 'slang systemverilog verilog semantic lsp lint diagnostics elaboration toggle', run: () => window.AuroraSlang?.toggle?.() },
 
   // Dev
   { id: 'dev.jankOverlay', group: 'Dev',   icon: 'ph ph-chart-line',    title: 'Toggle Jank Overlay',           keywords: 'performance fps jank perf debug dev p99 rAF TTI', run: () => import('../dev/jank_overlay.js').then(m => m.toggleJankOverlay()) },

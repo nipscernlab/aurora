@@ -64,6 +64,10 @@ const RAW_ALLOWLIST = [
   // clang-format — the C/C++/CMM formatter (Shift+Alt+F). One-shot stdin->
   // stdout process spawned by main/format/clang_format.js.
   ['clang-format.exe', ['Packages/clang-format/bin']],
+  // slang-server — the SystemVerilog SEMANTIC language server (O11).
+  // Long-lived stdio process spawned by main/lsp/slang_lsp.js for
+  // elaboration diagnostics + completion in Monaco (complements Verible).
+  ['slang-server.exe', ['Packages/slang-server/bin']],
   // comp2gtkw — the complex-number decoder pre-pass (decode-complex). Ships
   // with the YANC compilers in components/bin.
   ['comp2gtkw.exe', ['bin']],

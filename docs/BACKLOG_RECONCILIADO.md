@@ -91,7 +91,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   "· N tok" no sidebar (counter por conversa já existia), sem custo em $. Ver §14.30.
 
 **Difícil (6–7):**
-- [x] **O2** Verible LSP — FEITO 19/06/2026 (diagnostics + format + outline + hover + def/refs; ponte stdio custom; binário no bootstrap). Ver §14.32. · [ ] **O11** slang-server · [ ] **O7** tree-sitter.
+- [x] **O2** Verible LSP — FEITO 19/06/2026 (diagnostics + format + outline + hover + def/refs; ponte stdio custom; binário no bootstrap). Ver §14.32. · [x] **O11** slang-server — FEITO 19/06/2026 (análise semântica + autocompletar, toggle; complementa o Verible). Ver §14.34. · [ ] **O7** tree-sitter.
 - [ ] **`<aurora-tree>` passo 2** (virtual scroll) · **`<aurora-terminal>` passo 2** · **`<aurora-editor>`**.
 - [ ] **A3** migrar globais (431× electronAPI → imports) · **G8/G9** plugins + spawn único.
 - [ ] **PRISM reskin** (identidade aurora no viewer RTL).
@@ -210,7 +210,7 @@ modal/toast a11y, command-palette (Ctrl+Shift+P), i18n em PT, O4 (toggles do fin
 
 ### Difíceis (6–7)
 39. Tokens codemod base→semantic (~392 usos) · 40. ~~B10 cobertura+Codecov~~ **FEITO (17/06)** · 41. B12 CLIs sob demanda ·
-42. O2 Verible LSP · 43. O5 YoWASP · 44. O9 DigitalJS · 45. O11 slang-server · 46. `<aurora-tabs>` passo 2.
+42. ~~O2 Verible LSP~~ **FEITO (19/06)** · 43. O5 YoWASP · 44. ~~O9 DigitalJS~~ **FEITO** · 45. ~~O11 slang-server~~ **FEITO (19/06)** · 46. `<aurora-tabs>` passo 2.
 
 ### Radicais (8–10)
 47. A3 migrar globais · 48. `<aurora-tree>` passo 2 · 49. `<aurora-terminal>` passo 2 ·

@@ -424,6 +424,31 @@ const lspOperations = {
 };
 
 /* ============================================================================
+ *  SLANG (window.slangAPI) — backed by main/lsp/slang_lsp.js
+ *
+ *  SystemVerilog SEMANTIC language server (O11). The renderer
+ *  (js/editor/slang_integration.js) drives the document lifecycle and
+ *  pulls completion; semantic diagnostics are pushed back via
+ *  onDiagnostics. setEnabled toggles the whole feature (it elaborates the
+ *  project on every change). Best-effort — no-op when the binary is
+ *  missing or the toggle is off. Complements Verible (window.lspAPI).
+ * ========================================================================= */
+const slangOperations = {
+  status:     () => ipcRenderer.invoke('slang:status'),
+  setEnabled: (on) => ipcRenderer.invoke('slang:set-enabled', on),
+  didOpen:    (uri, text, languageId) => ipcRenderer.invoke('slang:did-open', { uri, text, languageId }),
+  didChange:  (uri, text) => ipcRenderer.invoke('slang:did-change', { uri, text }),
+  didClose:   (uri) => ipcRenderer.invoke('slang:did-close', { uri }),
+  completion: (uri, position) => ipcRenderer.invoke('slang:completion', { uri, position }),
+
+  onDiagnostics: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('slang:diagnostics', handler);
+    return () => ipcRenderer.removeListener('slang:diagnostics', handler);
+  },
+};
+
+/* ============================================================================
  *  CLANG-FORMAT (window.clangFormatAPI) — backed by main/format/clang_format.js
  *
  *  One-shot C/C++/CMM document formatter (Shift+Alt+F). The renderer
@@ -540,6 +565,8 @@ contextBridge.exposeInMainWorld('gitAPI', gitOperations);
 contextBridge.exposeInMainWorld('lspAPI', lspOperations);
 
 contextBridge.exposeInMainWorld('clangFormatAPI', clangFormatOperations);
+
+contextBridge.exposeInMainWorld('slangAPI', slangOperations);
 
 /* ============================================================================
  *  GLOBAL EVENT FORWARDERS

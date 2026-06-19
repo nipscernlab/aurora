@@ -882,7 +882,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **O5 YoWASP** — Yosys in-process (sem spawn). 🔴
 - [ ] **O7 tree-sitter** — grammar C±/ASM (folding/outline/símbolos). 🔴
 - [ ] **O9 DigitalJS** — simulação visual no PRISM. 🟡
-- [ ] **O11 slang-server** · **O12 simple-git** · **O14 WaveDrom (docs)**. 🟡/🟢
+- [x] **O11 slang-server** — análise semântica de SystemVerilog (diagnostics + autocompletar, toggle). ✅ 19/06/2026 (§14.34; aguarda teste ao vivo) · [ ] **O12 simple-git** · **O14 WaveDrom (docs)**. 🟡/🟢
 
 ### I. Build / DX (parking lot)
 - [ ] **B1** SHA256SUMS por release + validar no downloader. 🟡
@@ -1746,3 +1746,43 @@ one-shot stdin→stdout):
 **Verificado empiricamente** contra o binário real: `clang-format --version` (20.1.0); formatou C (pra CMM), C++ e
 um caso `-style=file -fallback-style=LLVM` sem `.clang-format` (cai pro LLVM, exit 0). Green bar completo (ESLint,
 tsc, 4 guards, 316 unit, vite build, 9 E2E) + downloader rodado de verdade. **Falta o teste ao vivo do usuário.**
+
+### 14.34 O11 — slang-server: análise SEMÂNTICA de SystemVerilog (diagnostics + completion) — 19/06/2026 — FEITO (aguarda teste ao vivo)
+Segundo item do "Difícil". Liga o **slang-server** (hudson-trading/slang-server, LSP baseado na lib slang) ao
+Monaco. Diferente do Verible (O2, sintático/per-file), o slang **elabora o design inteiro** → pega erros
+semânticos que o Verible não vê (sinal não declarado, tipo/porta errados, sinal não usado, …) e oferece
+**autocompletar** de símbolos.
+
+**Decisões do usuário (AskUserQuestion):** (1) **meio-termo** — slang = diagnostics semânticos + autocompletar (os
+ganhos únicos); Verible mantém hover/def/refs/outline/format (sem duplicação). (2) **toggle** — ligável/desligável
+(slang elabora a cada mudança e pode ser ruidoso em design incompleto).
+
+**Arquitetura** — reusa o padrão LSP do O2, mas o `verible_lsp.js` (validado ao vivo) ficou **intocado**; escrevi
+um `slang_lsp.js` paralelo (zero risco de regressão no O2):
+1. **`components/Scripts/download-slang-server.js`** — bootstrap (depois do clang-format). Baixa o asset win64 da
+   release `hudson-trading/slang-server` (pin `v0.2.7` + **SHA-256**), extrai só o `slang-server.exe` (7.2MB) em
+   `components/Packages/slang-server/bin/`. Best-effort.
+2. **`main/lsp/slang_lsp.js`** — manager stdio JSON-RPC, mas com o que o slang exige a mais que o Verible:
+   **workspace/rootUri** = pasta do projeto (slang indexa a árvore), **restart automático ao trocar de projeto**
+   (`maybeRestartForProject` compara o `state.currentOpenProjectPath`), **enable/disable** (toggle → mata o server
+   + limpa markers), e **resposta a requests servidor→cliente** (`workspace/configuration` → itens nulos;
+   `registerCapability`/progress → null). Diagnostics → push `slang:diagnostics`; pede `textDocument/completion`.
+   Ciclo resiliente igual ao Verible (restart re-semeia `openDocs`). Gate de allowlist, `trackChild`, no-op se o
+   binário faltar ou o toggle off.
+3. **IPC `slang:*`** + **`window.slangAPI`** no preload.
+4. **`js/editor/slang_integration.js`** (renderer) — anexa no nível do model (didOpen/didChange debounced
+   400ms/didClose), mapeia diagnostics → `setModelMarkers(model, 'slang', …)` (coexiste com `'verible'`), e
+   registra **completion provider** (kinds LSP→Monaco, range do textEdit ou palavra atual, trigger chars
+   `` ` # . ( : [ ``). **Toggle** persistido em `localStorage` (`window.AuroraSlang.toggle()`), exposto no
+   **command palette** ("Toggle slang…") com toast; ao desligar limpa markers, ao ligar re-`didOpen` os buffers.
+5. Wiring no `monaco_editor.js` após o `initClangFormat`.
+
+**Verificado empiricamente** contra o binário real (E2E não exercita o LSP): handshake → capabilities completas
+(completion/hover/def/refs/symbol/rename/inlay/callHierarchy); `didOpen` de `assign a = b;` → diagnostics
+SEMÂNTICOS (`use of undeclared identifier 'b'`, `variable 'a' assigned but never used`) que o Verible não pega;
+`textDocument/completion` dentro de `assign out = ` → 3 sinais em escopo (`clk, reset, out`); reply de
+`workspace/configuration`. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E) + downloader
+rodado de verdade. **Falta o teste ao vivo do usuário.**
+
+**Estado das integrações de linguagem (resumo):** Verilog/SV → **Verible** (lint sintático, format, hover, def/refs,
+outline) **+ slang** (diagnostics semânticos, autocompletar, toggle). C/C++/CMM → **clang-format** (Shift+Alt+F).

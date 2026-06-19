@@ -2081,3 +2081,36 @@ helpers stateless (`isSubProvider`/`shortModelName`/`formatTokens`/`untilTime`/`
 **−186 linhas** (3562→3376). +6 testes (isSubProvider, formatTokens k/M, shortModelName, permission modes c/
 localStorage). Com isso **toda a região de helpers de módulo do ai_assistant saiu** (4592→3376, **−1216**); o que
 resta é a CLASSE. Green bar (**401 unit [+6]**, build, 9 E2E).
+
+**RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
+está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
+**Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para
+funções que tocam estado, passar um **deps bag** ou (no tab_manager estático) receber o estado e manter
+**delegadores** na classe → +testes → green bar (ESLint, tsc, 4 guards, unit, vite build, 9 E2E) → **revisão
+adversarial (workflow 3 lentes)** pras entrelaçadas → 1 commit/push por extração → atualizar §14.43 + BACKLOG +
+memória. **IMPORTANTE: re-mapear vs o código REAL antes** — o workflow de mapeamento OVER-especificou símbolos (ex.:
+"TM-2 file-operations" listou `registerSavedProjectFile`/`registerProcessor`/`saveCmmProcessorFile`, que **não
+existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" js/tabs/tab_manager.js` pra confirmar.
+
+- **tab_manager (js/tabs/, classe ESTÁTICA, 17 importers) — 1957 linhas restantes.** Externos leem
+  `TabManager.tabs/activeTab/unsavedChanges/untitledDocuments` como **propriedade** e chamam ~29 métodos (`addTab`,
+  `saveAllFiles`, `getEditingFilePath`, `closeTab`, `markFileAsModified`…). Logo: **estado estático fica na classe**,
+  funções extraídas recebem o estado, classe mantém **delegadores**. Extrações candidatas (re-mapear nomes/linhas):
+  (a) **file-type/ícone** — `isImageFile`/`isPdfFile`/`isBinaryFile`/`getFileIcon` (métodos estáticos) + sets
+  `imageExtensions`/`pdfExtensions` → `tab_utils.js` como funções puras + **delegadores estáticos** (`getFileIcon` tem
+  4 callers externos; os outros são `this.` internos ~20×). BAIXO risco, bom próximo passo. (b) **file-watching** —
+  chokidar/polling; **reconciliar com o `js/tabs/tab_watchers.js` já existente**. (c) **untitled** lifecycle
+  (`createNewFile`/`isUntitledPath`/`expandUntitledSnippet`/`getDisplayName` — vários externos → delegadores). (d)
+  **save_flow** (`saveCurrentFile`/`saveAllFiles`/`saveFile`/`saveUntitledFile` — núcleo, API mais chamada; ALTO
+  risco). + overlay/dialogs.
+- **ai_assistant_manager (js/ui/) — classe `AIAssistantManager` ~3376 linhas, ~40 campos entrelaçados.** **E2E NÃO
+  exercita o chat ao vivo** → bug sutil só no teste do usuário (classe-risco do O9/O11). Peças mais ortogonais
+  primeiro (deps bag + delegadores): **scroll** (`scrollToBottom`/`smoothScrollToBottom`/`_isAtBottom`) e **anexos**
+  (`_addFiles`/`_renderAttachments`/`pendingAttachments`). Depois o núcleo profundo (mais arriscado, sequência
+  própria): **tool-chips**, **permission-gate** (`confirmToolCall` é chamado por `tool_runner.js`),
+  **provider/model UI**, **histórico** (load/save/replay), **streaming/sessão** (`_dispatchTurn`/`handleChatEvent` +
+  o campo-seam `currentSessionId`). API externa a preservar: `initialize`/`toggle` (renderer), `confirmToolCall`
+  (tool_runner), `showAskUserQuestionInline` (aurora_api), `askAboutSelection` (window.AuroraAPI.ai).
+
+Estado: tudo no `origin/main`, verde. Branch backup antigo: `backup/a2-godfiles-de38e4a` + tag
+`shelf-a2-godfiles-2026-06-18`.

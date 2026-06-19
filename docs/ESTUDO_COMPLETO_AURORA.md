@@ -2293,3 +2293,26 @@ existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" 
 
 Estado: tudo no `origin/main`, verde. Branch backup antigo: `backup/a2-godfiles-de38e4a` + tag
 `shelf-a2-godfiles-2026-06-18`.
+
+### 14.44 `<aurora-tabs>` passo 2 — tablist acessível (não o rewrite data-driven) — 19/06/2026 — FEITO
+A nota do roadmap dizia "passo 2 (data-driven)" e estava deferida "DEPOIS do A2" por estar entrelaçada com o
+TabManager. **Re-mapeando vs o código real:** o tab-strip é DOM 100% imperativo — TabManager faz
+`createElement`/`innerHTML`/`querySelectorAll('.tab[data-path]')` em ~15 pontos espalhados por tab_manager.js +
+tab_drag.js + tab_watchers.js + split_editor.js, e o caminho de ativar/salvar é sensível a perda de dados (lição P1).
+Um rewrite **data-driven** (TabManager vira dono de um array e o `<aurora-tabs>` renderiza declarativo) seria uma
+rearquitetura cross-file de alto risco SEM E2E ao vivo do chat/tab — **a mesma situação do `<aurora-tree>` passo 2**,
+onde o rewrite arriscado (virtual scroll) foi corretamente trocado por um endurecimento seguro e contido. Mesma
+decisão aqui (princípio "seguro→arriscado" + P1).
+
+**Entregue (seguro, contido no componente, ZERO mudança no TabManager):** o `<aurora-tabs>` deixou de ser um `<slot>`
+puro e virou um **controlador de tablist ARIA** sobre seus filhos light-DOM: `role="tablist"` no host, `role="tab"` +
+`aria-selected` em cada `.tab` (espelhando a classe `.active` que o TabManager já controla), **roving tabindex** (a
+aba ativa é o único tab-stop, então o strip não prende o Tab) e navegação por teclado **Arrow/Home/End** (move o
+foco) + **Enter/Space** (ativa via o `click()` que já existe). Um `MutationObserver` (filtro `class` + childList)
+re-aplica a semântica quando o TabManager adiciona/remove aba ou troca o `.active`; só ESCREVE role/aria/tabindex (não
+class), então não há loop. A matemática do roving (`nextRovingIndex`) saiu como função **pura exportada** e
+testada. Nada toca estado/save do TabManager — só reflete o `.active` e ativa pelo caminho de clique existente.
+**+5 testes** (`aurora_tabs.test.js`: wrap-around das setas, Home/End, teclas ignoradas, strip vazio). Green bar
+(ESLint, tsc, 4 guards, **476 unit [+5]**, vite build, **9 E2E** — que abrem arquivos = criam/ativam abas, exercendo
+o componente no app real). O rewrite data-driven completo fica disponível se o usuário quiser pagar o risco; não é
+pré-requisito de nada.

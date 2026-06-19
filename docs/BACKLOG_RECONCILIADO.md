@@ -65,7 +65,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   — `<div class="status-bar">` → `<aurora-statusbar class="status-bar">` + `<slot>`; os **8 indicadores** e os
   **5 drivers** continuam funcionando sem alteração (light-DOM preservado). Property-driven vira fallback do
   Design Lab. Zero regressão (301 unit + 9 E2E). Ver §14.22. *(precisa teste visual ao vivo)*
-- [ ] **`<aurora-tabs>` passo 2** (data-driven) · **`<aurora-activity-bar>`** (feature nova, adiada).
+- [x] **`<aurora-tabs>` passo 2** — FEITO 19/06/2026 (NÃO o rewrite data-driven). Re-mapeado: tab-strip é DOM 100% imperativo (TabManager em ~15 pontos / 4 arquivos, sensível a perda de dados/P1) → rewrite data-driven = alto risco cross-file sem E2E (mesma decisão do aurora-tree passo 2). Entregue seguro e contido no componente (zero mudança no TabManager): `<aurora-tabs>` virou controlador de **tablist ARIA** (role=tablist/tab + aria-selected espelhando `.active`, roving tabindex, teclado Arrow/Home/End/Enter), via MutationObserver; helper puro `nextRovingIndex` testado. +5 testes; 9 E2E. Ver §14.44. · [ ] **`<aurora-activity-bar>`** (feature nova, adiada).
 - [x] **F1** consolidar ícones — FEITO (18/06): a IDE já era 100% Phosphor (`@phosphor-icons/web`,
   vendorizado local em `dist/vendor/phosphor`) + SVG inline nos botões de compile; FontAwesome já não tinha
   uso real (as ocorrências de `fa-` eram comentários/regex de hex) e nem era mais dependência. O único resíduo

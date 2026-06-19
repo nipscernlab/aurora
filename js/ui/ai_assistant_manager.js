@@ -14,6 +14,7 @@
  * Delete operate on those files (see `main/ai/conversations.js`).
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { showConfirm } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
 import { constrainTerminalHeight } from '../utils/resize.js';
@@ -2325,7 +2326,7 @@ class AIAssistantManager {
     // Bypass the warning entirely when the user has chosen to trust external
     // links (the dialog checkbox, mirrored by the Settings toggle).
     if (this._getTrustExternalLinks()) {
-      window.electronAPI?.openExternal?.(url);
+      electronAPI?.openExternal?.(url);
       return;
     }
 
@@ -2363,7 +2364,7 @@ class AIAssistantManager {
       if (overlay.querySelector('.ai-link-warning-trust-cb')?.checked) {
         this._setTrustExternalLinks(true);
       }
-      window.electronAPI?.openExternal?.(url);
+      electronAPI?.openExternal?.(url);
       close();
     });
     document.addEventListener('keydown', onKey);
@@ -2381,25 +2382,25 @@ class AIAssistantManager {
   async _openChatPath(rawPath) {
     if (!rawPath) return;
     let info = null;
-    try { info = await window.electronAPI?.getFileStats?.(rawPath); }
+    try { info = await electronAPI?.getFileStats?.(rawPath); }
     catch (_) { info = null; }
     if (!info) {
       try { window.showNotification?.(`Path not found: ${rawPath}`, 'warning'); } catch (_) { /* ignore */ }
       return;
     }
     if (info.isDirectory) {
-      window.electronAPI?.openFolder?.(rawPath);           // shell.openPath → Explorer
+      electronAPI?.openFolder?.(rawPath);           // shell.openPath → Explorer
       return;
     }
     if (aiPathIsText(rawPath)) {
       try {
-        const content = await window.electronAPI.readFile(rawPath);
+        const content = await electronAPI.readFile(rawPath);
         window.TabManager?.addTab?.(rawPath, content ?? '', { preview: true });
       } catch (_) {
-        window.electronAPI?.openFolder?.(rawPath);         // fallback: default app
+        electronAPI?.openFolder?.(rawPath);         // fallback: default app
       }
     } else {
-      window.electronAPI?.openFolder?.(rawPath);           // shell.openPath → default app
+      electronAPI?.openFolder?.(rawPath);           // shell.openPath → default app
     }
   }
 
@@ -4558,7 +4559,7 @@ class AIAssistantManager {
     let filePath = null;
     for (const cand of this._fileRefCandidates(fileName)) {
       try {
-        if (await window.electronAPI.fileExists(cand)) { filePath = cand; break; }
+        if (await electronAPI.fileExists(cand)) { filePath = cand; break; }
       } catch (_) { /* try the next candidate */ }
     }
     if (!filePath) {
@@ -4569,7 +4570,7 @@ class AIAssistantManager {
       return;
     }
     try {
-      const content = await window.electronAPI.readFile(filePath);
+      const content = await electronAPI.readFile(filePath);
       const opts = (Number.isFinite(line) && line > 0)
         ? { revealPosition: { line, column: 1 } }
         : {};

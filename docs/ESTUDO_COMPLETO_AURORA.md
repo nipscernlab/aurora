@@ -1893,3 +1893,26 @@ column` (editor.css), então o host vira o flex container; o `<slot>` é `displa
 envolve `.terminal-container` com filhos slotted). **O E2E abre a janela real + o editor e passou (9/9)** —
 confirma que o mount/layout do Monaco não regrediu. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite
 build, 9 E2E).
+
+### 14.39 A3 (migrar globais) — PARCIAL: módulo electron_api + 15 arquivos pequenos — 19/06/2026 — PARCIAL
+`window.electronAPI` (global injetado pelo preload) aparecia em ~482 sites / 34 arquivos. **Decisão do usuário: A3
+parcial** — migrar só os arquivos pequenos/estáveis, deixando os god-files pro A2 (senão migra 226 sites do
+compilation_module e decompõe em seguida = trabalho dobrado).
+
+Feito:
+1. **`js/app/electron_api.js`** — re-export tipado do global: `export const electronAPI = window.electronAPI;`
+   (tipo inferido da declaração em aurora-globals.d.ts). Módulos agora podem `import { electronAPI }` em vez de
+   tocar no global — explícito, grep-ável, mockável. O bridge segue no window (preload é o dono); os dois estilos
+   coexistem enquanto a migração é incremental.
+2. **15 arquivos pequenos migrados** (~26 sites): close_project, git_panel, gtkw_picker, file_tree_toggler,
+   status_bar, split_editor, aurora_settings, app_initializer, aurora-welcome, renderer, new_project_modal,
+   standard_tree_render, ai_assistant_manager, file_tree_manager, terminal_module. Cada um: + `import { electronAPI }`
+   e `window.electronAPI` → `electronAPI`.
+
+**Deferido (pro A2 / lotes futuros):** os god-files **compilation_module.js (226)** e **tab_manager.js (27)**, o
+central **aurora_api.js (33)**, os médios (project_tree_actions 18, wave_config_manager 16, project_manager 14,
+tab_watchers 10, file_mode 9, compilation_flow 8, zoom 6, processor_hub 6), os arquivos com fonte **.ts**
+(spec_factory, wave_state_store, spf_store, spec_runner, command_overrides, compilation_helpers) e dois sem bloco de
+import no topo (search_panel, tab_viewers). Como é parcial, o global continua configurado no eslint — a remoção do
+global + enforcement só quando 100% migrado (no/após o A2). Green bar completo (ESLint, tsc, 4 guards, 316 unit,
+vite build, 9 E2E — inclusive E2E que exercita renderer/terminal migrados).

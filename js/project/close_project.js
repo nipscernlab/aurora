@@ -4,6 +4,7 @@
  * @date November 12, 2025
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
@@ -124,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeButton.style.cursor = 'not-allowed';
 
         try {
-            const result = await window.electronAPI.closeProject();
+            const result = await electronAPI.closeProject();
 
             if (result.success) {
                 // Close all open tabs properly using TabManager

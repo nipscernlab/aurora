@@ -11,6 +11,7 @@
  * so. Aurora roda em modo unico desde 2026-05.
  */
 
+import { electronAPI } from './electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 import { projectManager } from '../project/project_manager.js';
 
@@ -64,7 +65,7 @@ class AppInitializer {
         }
 
         try {
-            const exists = await window.electronAPI.fileExists(lastProjectPath);
+            const exists = await electronAPI.fileExists(lastProjectPath);
 
             if (!exists) {
                 console.warn('⚠️ Last project file not found');

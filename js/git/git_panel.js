@@ -3,6 +3,7 @@
 // The on-disk truth is real `git`, so .gitignore, diffs and merges behave
 // exactly as on the command line. Diffs render with diff2html.
 
+import { electronAPI } from '../app/electron_api.js';
 import { html as renderDiff } from 'diff2html';
 import 'diff2html/bundles/css/diff2html.min.css';
 
@@ -938,7 +939,7 @@ async function onClick(e) {
         else { help.hidden = true; }
         return undefined;
       }
-      case 'open-token-page': { try { window.electronAPI?.openExternal?.('https://github.com/settings/tokens/new'); } catch (_) { /* ignore */ } return undefined; }
+      case 'open-token-page': { try { electronAPI?.openExternal?.('https://github.com/settings/tokens/new'); } catch (_) { /* ignore */ } return undefined; }
       case 'exit-browse': return exitBrowse();
       case 'cloned-toggle': return toggleCloned();
       case 'cloned-menu': {
@@ -1213,7 +1214,7 @@ function selectCloneRepo(el) {
 
 async function chooseCloneDir() {
   let res;
-  try { res = await window.electronAPI?.selectDirectory(); } catch (e) { flash(e?.message || String(e), 'error'); return; }
+  try { res = await electronAPI?.selectDirectory(); } catch (e) { flash(e?.message || String(e), 'error'); return; }
   // selectDirectory may return a string, {filePaths:[...]}, or {canceled:true}.
   let dir = null;
   if (typeof res === 'string') dir = res;
@@ -1312,7 +1313,7 @@ async function openClonedSpf(spf) {
   try {
     // Full loader (tree + processors), not the raw IPC — see openClonedProject.
     if (window.projectManager && typeof window.projectManager.loadProject === 'function') await window.projectManager.loadProject(spf);
-    else await window.electronAPI?.openProject(spf);
+    else await electronAPI?.openProject(spf);
   } catch (e) { flash(e?.message || String(e), 'error'); return; }
   try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}`, 'success', 5000, 'Git'); } catch (_) { /* optional */ }
   close();
@@ -1428,11 +1429,11 @@ async function runClonedAction(action, idx) {
     case 'copy-name': return copyToClipboard(item.name, tt('git.copied', 'Copied'));
     case 'copy-path': return copyToClipboard(item.path, tt('git.copied', 'Copied'));
     case 'view-github':
-      if (item.url) { try { window.electronAPI?.openExternal?.(item.url); } catch (_) { /* ignore */ } }
+      if (item.url) { try { electronAPI?.openExternal?.(item.url); } catch (_) { /* ignore */ } }
       else flash(tt('git.noGithubUrl', 'No GitHub URL for this project.'), 'error');
       return undefined;
-    case 'open-cmd': try { const r = await window.electronAPI?.openTerminal?.(item.path); if (r && r.success === false) flash(r.error || 'Failed', 'error'); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
-    case 'show-explorer': try { await window.electronAPI?.openFolder?.(item.path); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
+    case 'open-cmd': try { const r = await electronAPI?.openTerminal?.(item.path); if (r && r.success === false) flash(r.error || 'Failed', 'error'); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
+    case 'show-explorer': try { await electronAPI?.openFolder?.(item.path); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
     case 'remove': return removeClonedProject(idx);
     default: return undefined;
   }
@@ -1459,7 +1460,7 @@ async function openClonedProject(item) {
     if (window.projectManager && typeof window.projectManager.loadProject === 'function') {
       await window.projectManager.loadProject(spf);
     } else {
-      const res = await window.electronAPI?.openProject(spf);
+      const res = await electronAPI?.openProject(spf);
       if (res && res.success === false) throw new Error(res.error || res.message || '');
     }
   } catch (e) { return clonedOpenFailed(item, e?.message || String(e)); }
@@ -1519,7 +1520,7 @@ async function removeClonedProject(idx) {
   });
   if (!action || action === 'cancel') return;
   if (action === 'disk') {
-    try { await window.electronAPI?.deleteFileOrDirectory?.(item.path); } catch (e) { flash(e?.message || String(e), 'error'); return; }
+    try { await electronAPI?.deleteFileOrDirectory?.(item.path); } catch (e) { flash(e?.message || String(e), 'error'); return; }
   }
   const list = loadCloned(); list.splice(idx, 1); saveCloned(list);
   renderCloned();
@@ -1622,8 +1623,8 @@ function init() {
   window.addEventListener('aurora:file-saved', live);
   window.addEventListener('aurora:spf-changed', live);
   document.addEventListener('aurora:file-saved', live);
-  try { window.electronAPI?.onDirectoryChanged?.(() => live()); } catch (_) { /* optional */ }
-  try { window.electronAPI?.onFileChanged?.(() => live()); } catch (_) { /* optional */ }
+  try { electronAPI?.onDirectoryChanged?.(() => live()); } catch (_) { /* optional */ }
+  try { electronAPI?.onFileChanged?.(() => live()); } catch (_) { /* optional */ }
   setInterval(() => { if (!isOpen()) updateBadge(); }, 8000);
 }
 

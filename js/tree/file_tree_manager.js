@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-tree.js';
 // file_tree_manager.js
 //
@@ -163,7 +164,7 @@ class DirectoryWatcher {
         await this.stopWatching();
         if (!directoryPath) return;
         try {
-            await window.electronAPI.watchDirectory(directoryPath);
+            await electronAPI.watchDirectory(directoryPath);
             this.currentWatchedDirectory = directoryPath;
             this.isWatching = true;
         } catch (error) {
@@ -174,7 +175,7 @@ class DirectoryWatcher {
     async stopWatching() {
         if (this.currentWatchedDirectory && this.isWatching) {
             try {
-                await window.electronAPI.stopWatchingDirectory(this.currentWatchedDirectory);
+                await electronAPI.stopWatchingDirectory(this.currentWatchedDirectory);
                 this.currentWatchedDirectory = null;
                 this.isWatching = false;
             } catch (error) {
@@ -208,7 +209,7 @@ class FileTreeManager {
         // hierarchy. Nao re-attachar aqui; ja tivemos dois listeners
         // brigando no mesmo botao.
 
-        window.electronAPI.onDirectoryChanged((dir, _files) => {
+        electronAPI.onDirectoryChanged((dir, _files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
             if (TreeViewState.isHierarchical) return;
             // Standard (folder) view mirrors the disk — re-render it so
@@ -226,7 +227,7 @@ class FileTreeManager {
         // Directory watcher errors used to be emitted by main but never
         // consumed (the renderer had no listener) — the error was silently
         // lost. Mirror the file-watcher's handling: surface it to the console.
-        window.electronAPI.onDirectoryWatcherError?.((dir, error) => {
+        electronAPI.onDirectoryWatcherError?.((dir, error) => {
             console.error(`Directory watcher error for ${dir}:`, error);
         });
 

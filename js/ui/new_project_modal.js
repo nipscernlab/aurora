@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 import { projectManager } from '../project/project_manager.js';
 import { showDialog } from './dialog_manager.js';
 
@@ -61,7 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // (process's last-used dir) and the user accidentally
             // creates Project-B nested under Project-A.
             const lastLocation = localStorage.getItem('aurora-last-new-project-location') || undefined;
-            const folderPath = await window.electronAPI.selectDirectory({ defaultPath: lastLocation });
+            const folderPath = await electronAPI.selectDirectory({ defaultPath: lastLocation });
 
             if (folderPath) {
                 projectLocationInput.value = folderPath;
@@ -106,7 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const projectPath = `${projectLocation}\\${projectName}`;
             const spfPath = `${projectPath}\\${projectName}.spf`;
 
-            const result = await window.electronAPI.createProjectStructure(projectPath, spfPath, projectName);
+            const result = await electronAPI.createProjectStructure(projectPath, spfPath, projectName);
 
             if (result.success) {
                 // Remember this location so the next New Project

@@ -41,6 +41,7 @@
 // Registers the <aurora-statusbar> custom element that wraps this bar in
 // index.html (thin shell — same pattern as <aurora-tabs>). This manager keeps
 // driving the light-DOM items inside it by id, unchanged.
+import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-statusbar.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
@@ -88,8 +89,8 @@ class StatusBarManager {
         document.addEventListener('aurora:editing-file-changed', () => this.refresh());
         // Criacao/delete de processadores no main process — o .spf ja
         // foi reescrito quando esses eventos chegam aqui.
-        window.electronAPI?.onProcessorCreated?.(() => this.refresh());
-        window.electronAPI?.onProcessorsUpdated?.(() => this.refresh());
+        electronAPI?.onProcessorCreated?.(() => this.refresh());
+        electronAPI?.onProcessorsUpdated?.(() => this.refresh());
         // Locale flip re-renders too: "No top-level"/"No testbench" and
         // "No active processor" live in JS-set textContent and would
         // otherwise stay stuck in the previous language.

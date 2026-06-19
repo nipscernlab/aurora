@@ -6,6 +6,7 @@
  * Drag resizers sit between each pane pair.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { TabManager, showUnsavedChangesDialog } from '../tabs/tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
 import { SharedModelRegistry } from './shared_models.js';
@@ -404,7 +405,7 @@ class SplitPane {
                         return;
                     } else {
                         const content = SharedModelRegistry.getModel(filePath)?.getValue() ?? '';
-                        await window.electronAPI.writeFile(filePath, content);
+                        await electronAPI.writeFile(filePath, content);
                         SharedModelRegistry.markSaved(filePath);
                         TabManager.markFileAsSaved(filePath);
                     }

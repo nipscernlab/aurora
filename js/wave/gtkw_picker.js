@@ -23,6 +23,7 @@
  * concorrentes serializam per-(projectPath, tbKey).
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { WaveStore } from './wave_state_store.js';
@@ -305,7 +306,7 @@ class GtkwPickerManager {
         const filters = this._isSurfer
             ? [{ name: 'Surfer layout (*.surf.ron, *.sucl)', extensions: ['ron', 'sucl'] }]
             : [{ name: 'GTKWave Save Files (*.gtkw)', extensions: ['gtkw'] }];
-        const result = await window.electronAPI.showOpenDialogImport({
+        const result = await electronAPI.showOpenDialogImport({
             properties: ['openFile'],
             filters,
         });

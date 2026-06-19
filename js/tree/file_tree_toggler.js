@@ -2,6 +2,7 @@
  * @file Controller for File Tree interactions (Collapse, Refresh, Backup).
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { showCardNotification } from '../ui/notification.js';
 
 class FileTreeController {
@@ -61,7 +62,7 @@ class FileTreeController {
 
     try {
         // 4. Invoke main process handler
-        const result = await window.electronAPI.createBackup(projectPath);
+        const result = await electronAPI.createBackup(projectPath);
 
         // 5. Show result
         if (result.success) {

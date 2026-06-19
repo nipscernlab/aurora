@@ -21,6 +21,7 @@
  * standard view deleted in 2026-05 does not come back.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { treeView } from './tree_view.js';
 import { TabManager } from '../tabs/tab_manager.js';
 
@@ -202,7 +203,7 @@ class StandardTreeRenderer {
     // ---------------- private ----------------
 
     async _read(dirPath) {
-        const list = await window.electronAPI?.getFolderFiles?.(dirPath);
+        const list = await electronAPI?.getFolderFiles?.(dirPath);
         if (!Array.isArray(list)) return [];
         return sortEntries(list.filter((e) => !isIgnored(e)));
     }
@@ -347,7 +348,7 @@ class StandardTreeRenderer {
 
     async _openFile(filePath, fileName, options) {
         try {
-            const content = await window.electronAPI.readFile(filePath);
+            const content = await electronAPI.readFile(filePath);
             const sem = window.SplitEditorManager;
             if (sem && sem.focusedPane > 0) {
                 await sem.openInFocusedPane(filePath, content, options);

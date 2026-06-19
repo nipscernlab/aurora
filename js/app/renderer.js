@@ -1,6 +1,7 @@
 // renderer.js
 
 // --- Module Imports ---
+import { electronAPI } from './electron_api.js';
 import { initMonaco } from '../editor/monaco_editor.js';
 import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -159,7 +160,7 @@ window.onload = () => {
     // fill its real-progress bar to 100% and hand off to this window.
     // Two rAFs = wait for Monaco's first layout/paint before signalling.
     requestAnimationFrame(() => requestAnimationFrame(() => {
-        window.electronAPI?.splashNotifyReady?.();
+        electronAPI?.splashNotifyReady?.();
     }));
 
     // Post-update confirmation toast — main/updater.js persists the
@@ -169,7 +170,7 @@ window.onload = () => {
     // re-toast. Delay the toast until after the splash → main handoff
     // (~1s splash fill + 1s reveal) so it doesn't compete with the
     // window appear animation.
-    window.electronAPI?.getPostUpdateStatus?.().then((status) => {
+    electronAPI?.getPostUpdateStatus?.().then((status) => {
         if (!status || !status.justUpdated) return;
         setTimeout(() => {
             const version = status.currentVersion;
@@ -194,7 +195,7 @@ document.addEventListener('keydown', (e) => {
     
     // Open Project Folder: F2
     if (e.key === 'F2' && currentProjectPath) {
-        window.electronAPI.openFolder(currentProjectPath);
+        electronAPI.openFolder(currentProjectPath);
     }
 });
 
@@ -205,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         websiteLink.addEventListener('click', (e) => {
             e.preventDefault();
             // CORREÇÃO AQUI: Usando a API exposta pelo preload
-            window.electronAPI.openExternal('https://nipscern.com');
+            electronAPI.openExternal('https://nipscern.com');
         });
     }
 });

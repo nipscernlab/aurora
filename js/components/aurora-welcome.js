@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 import { LitElement, html, css } from 'lit';
 
 // Phosphor's class-based icons (.ph) don't cross a shadow root, so the welcome
@@ -463,7 +464,7 @@ class AuroraWelcome extends LitElement {
 
   _openWebsite() {
     const url = 'https://nipscern.com';
-    if (window.electronAPI?.openExternal) window.electronAPI.openExternal(url);
+    if (electronAPI?.openExternal) electronAPI.openExternal(url);
     else window.open(url, '_blank');
   }
 }

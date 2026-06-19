@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-terminal.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
@@ -470,7 +471,7 @@ class TerminalManager {
         // appendToTerminal routes by id — so one listener serving all
         // terminals is correct. Subsequent constructors no-op.
         if (TerminalManager.terminalLogListenerInitialized) return;
-        window.electronAPI.onTerminalLog((event, terminal, message, type = 'info') => {
+        electronAPI.onTerminalLog((event, terminal, message, type = 'info') => {
             this.appendToTerminal(terminal, message, type);
         });
         TerminalManager.terminalLogListenerInitialized = true;
@@ -752,7 +753,7 @@ class TerminalManager {
                                         const iMatch = entryText.match(/-i\s+"([^"]+\.cmm)"/);
                                         const pMatch = entryText.match(/-p\s+"([^"]+)"/);
                                         if (iMatch && pMatch) {
-                                            filePath = await window.electronAPI.joinPath(pMatch[1], 'Software', iMatch[1]);
+                                            filePath = await electronAPI.joinPath(pMatch[1], 'Software', iMatch[1]);
                                             break;
                                         }
                                     }
@@ -766,7 +767,7 @@ class TerminalManager {
                         return;
                     }
 
-                    const fileExists = await window.electronAPI.fileExists(filePath);
+                    const fileExists = await electronAPI.fileExists(filePath);
                     if (!fileExists) {
                         console.log(`File does not exist: ${filePath}`);
                         return;
@@ -775,7 +776,7 @@ class TerminalManager {
                     const isFileOpen = TabManager.tabs.has(filePath);
 
                     if (!isFileOpen) {
-                        const content = await window.electronAPI.readFile(filePath, {
+                        const content = await electronAPI.readFile(filePath, {
                             encoding: 'utf8'
                         });
                         TabManager.addTab(filePath, content);
@@ -1100,7 +1101,7 @@ createLogEntry(terminal, text, type, timestamp) {
         const defaultName = `aurora-log-all-${stamp}.txt`;
 
         try {
-            const api = window.electronAPI;
+            const api = electronAPI;
             if (!api?.showSaveDialog || !api?.writeFile) {
                 showCardNotification('Export not available in this build.', 'error', 4000);
                 return;

@@ -1,4 +1,5 @@
 // aurora_settings.js
+import { electronAPI } from '../app/electron_api.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -341,8 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // the em-dash placeholder. The string from package.json may or may
     // not carry the leading "v", so we normalise it.
     const aboutVersion = document.getElementById('about-version');
-    if (aboutVersion && window.electronAPI?.getAppVersion) {
-        window.electronAPI.getAppVersion()
+    if (aboutVersion && electronAPI?.getAppVersion) {
+        electronAPI.getAppVersion()
             .then((v) => {
                 if (v) aboutVersion.textContent = 'v' + String(v).replace(/^v/i, '');
             })
@@ -357,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         a.addEventListener('click', (e) => {
             e.preventDefault();
             const href = a.getAttribute('data-href');
-            if (href) window.electronAPI?.openExternal?.(href);
+            if (href) electronAPI?.openExternal?.(href);
         });
     });
 });

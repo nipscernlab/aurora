@@ -1957,7 +1957,7 @@ Apontei pros tokens (`var(--text-secondary)` e `var(--bg-elev-2)`), escolhidos p
 `.svg-content` (texto/rect/path/line/circle já são Aurora), então o impacto visível é mínimo — mas, por ser visual,
 **vale o olhar do usuário no teste** (fácil reverter). Green bar (build, 4 guards, 316 unit, 9 E2E).
 
-### 14.42 A2 — decomposição do compilation_module (em andamento, commit por extração) — 19/06/2026
+### 14.42 A2 — decomposição do compilation_module (COMPLETA — 5/5 extrações, commit por extração) — 19/06/2026
 God-file de ~4210 linhas (classe `CompilationModule`, 53 métodos async, ~13 responsabilidades). Mapeei com agente de
 leitura e **apresentei o plano ao usuário ANTES de mexer** (ele aprovou: 5 extrações, da mais segura pra mais
 arriscada, **commit por extração**, pode interromper a qualquer ponto). Ordem: (1) hierarchy_parser → (2)
@@ -2003,7 +2003,7 @@ sinais da wave — `validateWaveSelection` (poda seleção stale vs hierarquia p
 WaveStore), `resolveWaveSelection` (precedência da fonte do $dumpvars: .gtkw ativo > Wave Config > $dumpvars
 hand-written > default), `resolveCocotbWaveSelection` e `parseProjectSources`. **Não são puras** (tocam WaveStore,
 terminal, config), então recebem um **deps bag** `{ projectPath, terminalManager, projectConfig, componentsPath }`;
-a classe mantém **delegadores finos** (via `_waveDeps()`) — preserva os call sites internos + o **externo**
+a classe mantém **delegadores finos** (via `_instanceDeps()`, renomeado de `_waveDeps()` no #5) — preserva os call sites internos + o **externo**
 (`wave_config_manager.js` chama `compiler._validateWaveSelection`). **Seam do `_validatedWaveSelection`:** o campo
 (cache lido pelos geradores de auto-gtkw/auto-surfer) continua **dono da classe** — `resolveCocotbWaveSelection`
 agora **retorna** a seleção e o delegador escreve o campo, mantendo as **3 escritas / 2 leituras** todas dentro da
@@ -2014,12 +2014,26 @@ cocotb). God-file **−238 linhas** (3696→3458). **Revisão adversarial** (wor
 seam-integrity / integration) = **0 defeitos**; fechei os 3 gaps de cobertura que ela apontou. Green bar (ESLint,
 tsc, 4 guards, **356 unit [+13]**, vite build, 9 E2E).
 
-**Restante (#5) — `processor_compiler.js`:** a última extração é o núcleo de compile do processador (estado próprio,
-**sem teste de unidade**, E2E não roda compile real → bug sutil só ao vivo); sai com testes + revisão adversarial, na
-mesma cadência do #1–#4. Plano detalhado (já mapeado por agente de leitura):
-- **#5 `processor_compiler.js`** — `cmmCompilation`, `asmCompilation`, `_ensureChegueiToaqui`, `getSelectedCmmFile`,
-  `getTestbenchInfo`, `_stageProcessorMemoryFiles`. Estado próprio; chamados por `compilation_flow.js` → preservar a
-  API pública (provavelmente como classe `ProcessorCompiler` ou métodos delegadores).
+**Extração #5 — `js/compilation/processor_compiler.js` (FEITO 19/06/2026) — ENCERRA a decomposição:** movidos os 6
+métodos de compile do processador SAPHO — `cmmCompilation` (.cmm → .asm via cmmcomp), `asmCompilation` (appcomp +
+asmcomp → `<proc>.v` + pc_*_mem.txt + tb), `getSelectedCmmFile`, `getTestbenchInfo`, `ensureChegueiToaqui`
+(instrumenta #TOAQUI), `stageProcessorMemoryFiles`. **Não são puras** (rodam .exe via runSpec, salvam abas, dirigem
+status/terminal) → recebem o **deps bag** (renomeei `_waveDeps()` → **`_instanceDeps()`**, agora bag comum de
+wave+compile). A classe mantém **delegadores** pra API pública (`cmmCompilation`/`asmCompilation` são chamados por
+`compilation_flow.js`) + `_stageProcessorMemoryFiles`; os 3 helpers internos saíram de vez (sem caller restante).
+**Dois seams de campo preservados exatos:** (a) **`lastCompiledCmmPath`** — escrito ANTES do runSpec (sobrevive a
+falha de compile, lido de fora pelo `terminal_module.js`) → o helper recebe um **callback `setLastCompiledCmmPath`** e
+o invoca no mesmo ponto, então a escrita fica na classe, no timing idêntico; (b) **`_chegueiInstrumentProc`** —
+setado de fora por `compilation_flow.js`, passado como **parâmetro** pro gating do #TOAQUI. Removidos 4 imports
+órfãos (buildCmmSpec, buildAsmPreSpec, buildAsmSpec, insertChegueiToaqui). **+18 testes**
+(`tests/unit/processor_compiler.test.js`: helpers + cmm/asm com **runSpec mockado** assertando o seam do
+lastCompiledCmmPath, o gating do #TOAQUI, a cópia do tb e os branches de staging). God-file **−342 linhas**
+(3458→3116). **Revisão adversarial** (workflow, 3 lentes) = **0 defeitos** (só uma ref stale de comentário do rename,
+corrigida). Green bar (ESLint, tsc, 4 guards, **374 unit [+18]**, vite build, 9 E2E).
+
+**Decomposição do compilation_module COMPLETA (5/5):** hierarchy_parser · hierarchy_view · wave_toolchain ·
+wave_signal_validator · processor_compiler. God-file: **4197 → 3116 linhas (−1081)**, ~13 responsabilidades
+desmembradas em módulos testáveis (o conjunto ganhou ~58 testes de unidade ao longo das 5 extrações).
 Depois de compilation_module, os outros god-files do A2 (ai_assistant 4515, tab_manager 2044) + o **A3 restante**
 (migrar os globais dos god-files) seguem a mesma cadência (um por commit, green bar). **LIÇÃO desta sessão:** várias
 fases ("virtual scroll", "reskin") já estavam majoritariamente resolvidas por trabalho anterior — sempre auditar

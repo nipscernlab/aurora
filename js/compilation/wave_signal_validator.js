@@ -9,7 +9,7 @@
 // They are NOT pure — they touch the WaveStore, the terminal, and (for source
 // parsing) the project config. Rather than capture instance state, each takes a
 // `deps` bag: { projectPath, terminalManager, projectConfig, componentsPath }.
-// CompilationModule keeps thin delegator methods (see _waveDeps()) so every
+// CompilationModule keeps thin delegator methods (see _instanceDeps()) so every
 // caller — including the external js/wave/wave_config_manager.js, which calls
 // compiler._validateWaveSelection — is unchanged.
 //

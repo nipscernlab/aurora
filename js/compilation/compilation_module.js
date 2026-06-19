@@ -68,8 +68,9 @@ import {
   resolveCocotbWaveSelection, parseProjectSources,
 } from './wave_signal_validator.js';
 import {
-  buildCmmSpec,
-  buildAsmPreSpec, buildAsmSpec,
+  cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
+} from './processor_compiler.js';
+import {
   buildIverilogCheckSpec, buildIverilogBuildSpec,
   buildVvpRunSpec,
   buildCocotbRunSpec,
@@ -85,7 +86,7 @@ import {
 import * as CommandSpec from './command_spec.js';
 import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
-  parseCocotbToplevelDirective, insertChegueiToaqui,
+  parseCocotbToplevelDirective,
   isVerilogLikeFile, assertPythonModuleName, safeNamePart,
 } from './compilation_helpers.js';
 
@@ -308,294 +309,15 @@ async loadConfig() {
         }
     }
 
-    async getSelectedCmmFile(processor) {
-        if (!processor.cmmFile) {
-            throw new Error(tr('error.config.noCmm'));
-        }
-        return processor.cmmFile;
-    }
-
-    /**
-     * Resolve qual testbench o asmCompilation vai copiar pra
-     * <proj>/<proc>/Simulation/. Duas formas:
-     *
-     *   - processor.testbenchFile e um path absoluto → usa direto
-     *     (testbench custom, salvo no .spf).
-     *   - caso contrario → convencao "<cmmBase>_tb.v" dentro de
-     *     <proj>/<proc>/Simulation/ (testbench auto-gerado pelo
-     *     asmcomp).
-     */
-    async getTestbenchInfo(processor, cmmBaseName) {
-        let tbModule, tbFile;
-        const testbenchFilePath = processor.testbenchFile;
-
-        if (testbenchFilePath && testbenchFilePath !== 'standard') {
-            tbFile = testbenchFilePath;
-            const tbFileName = testbenchFilePath.split(/[\\\\/]/).pop();
-            tbModule = moduleStemFromPath(tbFileName);
-        } else {
-            tbModule = `${cmmBaseName}_tb`;
-            const simulationPath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Simulation');
-            tbFile = await window.electronAPI.joinPath(simulationPath, `${tbModule}.v`);
-        }
-
-        return {
-            tbModule,
-            tbFile
-        };
-    }
-
-    /**
-     * Garante que o .cmm tenha #TOAQUI antes do `}` de main() — sem isso o
-     * pino `cheguei` nao vira porta do <proc>.v e o harness do botao Verilator
-     * nao consegue detectar o fim do programa. Idempotente: se ja houver
-     * #TOAQUI em qualquer lugar do arquivo, nao mexe. Roda DEPOIS do
-     * saveAllFiles (sem corrida) e sincroniza o buffer do editor aberto pra
-     * que um save manual posterior nao derrube a instrumentacao.
-     *
-     * @param {string} softwarePath  <proj>/<proc>/Software
-     * @param {string} cmmFile       nome do .cmm (ex: ProcDTW.cmm)
-     */
-    async _ensureChegueiToaqui(softwarePath, cmmFile) {
-        const cmmPath = await window.electronAPI.joinPath(softwarePath, cmmFile);
-        let src;
-        try {
-            src = await window.electronAPI.readFile(cmmPath, { encoding: 'utf8' });
-        } catch (_e) {
-            return; // sem .cmm — o proprio cmmcomp vai reclamar adiante
-        }
-
-        if (/#TOAQUI\b/.test(src)) {
-            this.terminalManager.appendToTerminal('thtest',
-                tr('terminal.htest.toaquiPresent', { file: cmmFile }), 'plain', { internal: true });
-            return;
-        }
-
-        const out = insertChegueiToaqui(src);
-        if (out === src) {
-            this.terminalManager.appendToTerminal('thtest',
-                tr('terminal.htest.toaquiNoMain', { file: cmmFile }), 'warning');
-            return;
-        }
-
-        await window.electronAPI.writeFile(cmmPath, out);
-        // Mantem o editor em sincronia com o disco (se o .cmm estiver aberto),
-        // pra que um Ctrl+S posterior nao reescreva sem o #TOAQUI.
-        const model = window.SharedModelRegistry?.getModel?.(cmmPath)
-            ?? window.EditorManager?.getEditorForFile?.(cmmPath)?.getModel?.();
-        if (model && model.getValue() !== out) model.setValue(out);
-
-        this.terminalManager.appendToTerminal('thtest',
-            tr('terminal.htest.toaquiAdded', { file: cmmFile }), 'info');
-    }
-
     async cmmCompilation(processor) {
-        const { name, showArrays } = processor;
-        await this.terminalManager.clearTerminal('tcmm');
-
-        this.terminalManager.appendToTerminal('tcmm', tr('terminal.cmm.starting', { name }));
-        
-        try {
-            const selectedCmmFile = await this.getSelectedCmmFile(processor);
-            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-            
-            // 1. Caminhos
-            const macrosPath = await window.electronAPI.joinPath(this.componentsPath, 'Macros');
-            
-            // Define o caminho da pasta temporária específica do processador: components/Temp/{name}
-            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
-            
-            // 2. NOVA LÓGICA: Criar a pasta Temp/{name} se não existir
-            // O parâmetro { recursive: true } no backend garante que cria a pasta 'Temp' e a subpasta '{name}'
-            await window.electronAPI.createDirectory(tempPath);
-
-            const cmmCompPath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'cmmcomp.exe');
-            const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
-            const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
-            const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
-
-            await TabManager.saveAllFiles();
-
-            // Botao Verilator: instrumenta o .cmm do processador-alvo com
-            // #TOAQUI (pino `cheguei` no fim do programa) ANTES do cmmcomp.exe
-            // ler o arquivo. Aqui — depois do saveAllFiles — pra que o save
-            // nao sobrescreva a instrumentacao com o buffer do editor. Idem-
-            // potente: pula se ja houver #TOAQUI em qualquer lugar.
-            if (this._chegueiInstrumentProc === name) {
-                await this._ensureChegueiToaqui(softwarePath, selectedCmmFile);
-            }
-
-            statusUpdater.startCompilation('cmm');
-
-            // yanc v4 usa named options (CMMComp/Sources/args.c):
-            //   -i input  -n name  -p proc-dir  -m macros-dir  -t temp-dir  [-A]
-            // -pt / -en vem do toggle de locale (UI + compiler unified) e vai
-            // PRIMEIRO: parse_lang_flag() consome essa flag e a remove de argv
-            // antes do cli_parse() ler o resto. Explicito pra que a UI mande,
-            // ignorando qualquer env var preexistente do shell.
-            //
-            // -A / --array liga o showArrays do .spf (campo per-processador) —
-            // dump de arrays no waveform. Era -P no yanc v3.
-            const lang = window.getYancLang?.() ?? 'pt';
-            const cmmSpec = buildCmmSpec({
-                cmmCompPath,
-                inputFile: selectedCmmFile,
-                baseName: cmmBaseName,
-                projectPath,
-                macrosPath,
-                tempPath,
-                processorName: name,
-                lang,
-                showArrays: !!showArrays,
-            });
-
-            // Track which .cmm this run is compiling so the terminal's
-            // "line N" click handler can resolve the file even when verbose
-            // is off (the cmmcomp.exe echo is hidden in that mode, so DOM
-            // scraping would find nothing).
-            this.lastCompiledCmmPath = await window.electronAPI.joinPath(softwarePath, selectedCmmFile);
-
-            // internal:true marca como 'plain', entao o filtro de
-            // verbose esconde a linha de comando quando verbose=off.
-            // Continua util pra debug verbose mas nao polui o
-            // terminal padrao.
-            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.executing', { cmd: CommandSpec.formatSpec(cmmSpec) }), 'info', { internal: true });
-
-            const result = await runSpec(cmmSpec, { consumeEphemeral: true });
-            this.terminalManager.processExecutableOutput('tcmm', result);
-
-            if (result.code !== 0) {
-                statusUpdater.compilationError('cmm', `CMM compilation failed with code ${result.code}`);
-                throw new Error(tr('error.compilation.cmmFailed', { code: result.code }));
-            }
-            statusUpdater.compilationSuccess('cmm');
-            return asmPath;
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
-            statusUpdater.compilationError('cmm', error.message);
-            throw error;
-        }
+        return cmmCompilation(
+            this._instanceDeps(), processor, this._chegueiInstrumentProc,
+            (p) => { this.lastCompiledCmmPath = p; },
+        );
     }
 
     async asmCompilation(processor, preamble = null) {
-        const {
-            name,
-            clk,
-            numClocks
-        } = processor;
-        await this.terminalManager.clearTerminal('tasm');
-
-        // Mensagem opcional logada APOS o clear — usada pelo handler
-        // do botao ASM pra avisar quando o C+- foi recompilado por
-        // falta de cmm_log.txt. Antes do clear ela era apagada antes
-        // do usuario ver.
-        if (preamble) {
-            this.terminalManager.appendToTerminal('tasm', preamble, 'tips');
-        }
-
-        this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.starting', { name }));
-
-        try {
-            const projectPath = await window.electronAPI.joinPath(this.projectPath, name);
-            const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
-            const appCompPath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'appcomp.exe');
-            const asmCompPath = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'asmcomp.exe');
-            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-            const selectedCmmFile = await this.getSelectedCmmFile(processor);
-            const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-            const softwarePath = await window.electronAPI.joinPath(this.projectPath, name, 'Software');
-            const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
-            const macrosPath = await window.electronAPI.joinPath(this.componentsPath, 'Macros');
-
-            const {
-                tbFile
-            } = await this.getTestbenchInfo(processor, cmmBaseName);
-
-            statusUpdater.startCompilation('asm');
-            await TabManager.saveAllFiles();
-
-            // -pt / -en vem do toggle de locale. Vai PRIMEIRO: parse_lang_flag()
-            // consome a flag antes do cli_parse() ler as named options. Aplicado
-            // igual em appcomp e asmcomp pra que stdout/stderr dos dois passos
-            // saiam na mesma lingua.
-            const lang = window.getYancLang?.() ?? 'pt';
-
-            // appcomp: named options -i input  -t temp-dir (APP/Sources/args.c).
-            const asmPreSpec = buildAsmPreSpec({
-                appCompPath,
-                asmFile: asmPath,
-                tempPath,
-                processorName: name,
-                lang,
-            });
-            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingPrep', { cmd: CommandSpec.formatSpec(asmPreSpec) }), 'info', { internal: true });
-            const appResult = await runSpec(asmPreSpec, { consumeEphemeral: true });
-            this.terminalManager.processExecutableOutput('tasm', appResult);
-
-            if (appResult.code !== 0) {
-                statusUpdater.compilationError('asm', `ASM Preprocessor failed with code ${appResult.code}`);
-                throw new Error(tr('error.compilation.asmPrepFailed', { code: appResult.code }));
-            }
-
-            // asmcomp v4: named options -i -p -d -m -t -f -c (ASM/Sources/args.c).
-            // -f/-c TEM que ser inteiros — o yanc rejeita valor nao-numerico
-            // e sai com usage. O -P (project mode = sem $finish no _tb.v) foi
-            // removido no v4: o $finish agora e sempre emitido; multi-proc
-            // workflows ignoram o _tb.v individual e usam um top-level proprio.
-            const freq = Number.parseInt(clk, 10) || 0;
-            const clocks = Number.parseInt(numClocks, 10) || 0;
-            const asmSpec = buildAsmSpec({
-                asmCompPath,
-                asmFile: asmPath,
-                projectPath,
-                hdlPath,
-                macrosPath,
-                tempPath,
-                freq,
-                clocks,
-                processorName: name,
-                lang,
-            });
-            this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.executingComp', { cmd: CommandSpec.formatSpec(asmSpec) }), 'info', { internal: true });
-
-            const asmResult = await runSpec(asmSpec, { consumeEphemeral: true });
-
-            this.terminalManager.processExecutableOutput('tasm', asmResult);
-
-
-            if (asmResult.code !== 0) {
-                statusUpdater.compilationError('asm', `ASM compilation failed with code ${asmResult.code}`);
-                throw new Error(tr('error.compilation.asmFailed', { code: asmResult.code }));
-            }
-
-            // Copia o testbench auto-gerado (asmcomp escreve em tempPath)
-            // pra <proc>/Simulation/<base>_tb.v sempre que o processador
-            // usa o testbench "standard" — i.e., nao tem um testbench
-            // customizado configurado. O testbench auto-gerado e
-            // per-processador (Simulation/<base>_tb.v), distinto do
-            // testbench-top que o .spf aponta, entao nao
-            // conflita com nada.
-            const usesStandardTestbench =
-                !processor.testbenchFile || processor.testbenchFile === 'standard';
-            if (usesStandardTestbench) {
-                const tbFileName = tbFile.split(/[\\\\/]/)
-                    .pop();
-                const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
-                const destinationTestbench = tbFile;
-
-                // Path-cheio so em verbose; o resumo "Testbench
-                // atualizado" (tips) e o que aparece sem verbose.
-                this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.copyingTb', { src: sourceTestbench, dst: destinationTestbench }), 'info', { internal: true });
-                await window.electronAPI.copyFile(sourceTestbench, destinationTestbench);
-                this.terminalManager.appendToTerminal('tasm', tr('terminal.asm.tbUpdated'), 'tips');
-            }
-
-            statusUpdater.compilationSuccess('asm');
-        } catch (error) {
-            this.terminalManager.appendToTerminal('tasm', tr('terminal.common.error', { message: error.message }), 'error');
-            statusUpdater.compilationError('asm', error.message);
-            throw error;
-        }
+        return asmCompilation(this._instanceDeps(), processor, preamble);
     }
 
 
@@ -734,10 +456,12 @@ _pickSingleTop(files, category) {
  * method is the IO glue.
  */
 /**
- * Deps bag passado aos helpers extraidos pra wave_signal_validator.js —
- * eles tocam WaveStore (projectPath), terminal e config sem capturar `this`.
+ * Bag de estado de instancia passado aos helpers extraidos
+ * (wave_signal_validator.js e processor_compiler.js) — eles tocam
+ * WaveStore (projectPath), terminal, config e componentsPath sem
+ * capturar `this`.
  */
-_waveDeps() {
+_instanceDeps() {
     return {
         projectPath: this.projectPath,
         terminalManager: this.terminalManager,
@@ -752,7 +476,7 @@ _waveDeps() {
  * compiler._validateWaveSelection direto — API publica de fato.
  */
 async _validateWaveSelection(rawSelected, filePaths, simTopModule, tbKey = null) {
-    return validateWaveSelection(this._waveDeps(), rawSelected, filePaths, simTopModule, tbKey);
+    return validateWaveSelection(this._instanceDeps(), rawSelected, filePaths, simTopModule, tbKey);
 }
 
 /**
@@ -860,7 +584,7 @@ async syntaxCheck() {
  * e devolve { signalsToDump, overrideUserDumpvars, source, tbKey }.
  */
 async _resolveWaveSelection({ config, simTopModule, filePaths }) {
-    return resolveWaveSelection(this._waveDeps(), { config, simTopModule, filePaths });
+    return resolveWaveSelection(this._instanceDeps(), { config, simTopModule, filePaths });
 }
 
 async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false) {
@@ -1551,7 +1275,7 @@ async _stageProcessorMemoryFilesForCocotb(tempBaseDir, buildDir) {
  * o ciclo de vida do campo seguir todo dentro da classe.
  */
 async _resolveCocotbWaveSelection(ctx, config, sources) {
-    const validSignals = await resolveCocotbWaveSelection(this._waveDeps(), ctx, config, sources);
+    const validSignals = await resolveCocotbWaveSelection(this._instanceDeps(), ctx, config, sources);
     this._validatedWaveSelection = validSignals;
     return validSignals;
 }
@@ -2587,73 +2311,7 @@ async verilatorProcessorRun() {
  * arquivo de memoria" — silencio.
  */
 async _stageProcessorMemoryFiles(tempBaseDir) {
-    // Projeto sem processador no .spf nunca gera pc_*_mem.txt — o
-    // $readmemb que consome esses arquivos so existe dentro do .v do
-    // processador SAPHO. Pular o staging inteiro (incluindo o warning
-    // "no pc_*_mem.txt found") nesse caso: procurar arquivos de memoria
-    // de processador num design que nao tem processador so confunde.
-    const procs = Array.isArray(this.projectConfig?.processors)
-        ? this.projectConfig.processors.filter(
-            (p) => p && (typeof p === 'string' ? p.trim() : p.name))
-        : [];
-    if (procs.length === 0) return;
-
-    let entries;
-    try {
-        entries = await window.electronAPI.getFolderFiles(tempBaseDir);
-    } catch (_e) {
-        this.terminalManager.appendToTerminal(
-            'twave',
-            tr('terminal.wave.couldNotList', { path: tempBaseDir }),
-            'warning',
-        );
-        return;
-    }
-    if (!Array.isArray(entries)) return;
-
-    let staged = 0;
-    const failedSubdirs = [];
-    for (const entry of entries) {
-        if (!entry?.isDirectory) continue;
-        const subDir = entry.path;
-        let subFiles;
-        try {
-            subFiles = await window.electronAPI.listFilesInDirectory(subDir);
-        } catch (_e) {
-            failedSubdirs.push(subDir);
-            continue;
-        }
-        if (!Array.isArray(subFiles)) continue;
-        for (const fileName of subFiles) {
-            if (typeof fileName !== 'string') continue;
-            if (!fileName.startsWith('pc_') || !fileName.endsWith('_mem.txt')) continue;
-            const src = await window.electronAPI.joinPath(subDir, fileName);
-            const dst = await window.electronAPI.joinPath(tempBaseDir, fileName);
-            try {
-                await window.electronAPI.copyFile(src, dst);
-                staged++;
-            } catch (_e) {
-                this.terminalManager.appendToTerminal(
-                    'twave',
-                    tr('terminal.wave.copyMemFailed', { name: fileName, path: subDir }),
-                    'warning',
-                );
-            }
-        }
-    }
-
-    if (staged === 0) {
-        // Sem nenhum pc_*_mem.txt → o $readmemb do .v do processador
-        // vai falhar logo a seguir. Avisar claramente em vez de deixar
-        // o erro do vvp ser a unica pista. O caminho de sucesso e
-        // silencioso por design: copiar arquivos de mem entre pastas
-        // e plumbing interno, nao algo que o usuario precisa saber.
-        this.terminalManager.appendToTerminal(
-            'twave',
-            tr('terminal.wave.noMemFiles', { path: tempBaseDir }),
-            'warning',
-        );
-    }
+    return stageProcessorMemoryFiles(this._instanceDeps(), tempBaseDir);
 }
 
 /**
@@ -2993,7 +2651,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
  * pelos geradores de auto-gtkw/auto-surfer.
  */
 async _parseProjectSources() {
-    return parseProjectSources(this._waveDeps());
+    return parseProjectSources(this._instanceDeps());
 }
 
 /**

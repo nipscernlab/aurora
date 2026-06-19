@@ -2208,6 +2208,25 @@ chamam os puros. Markup byte-idêntico. Removido o import órfão `relativeTime`
 testes** (empty/ativo/token/XSS na lista; tool breadcrumb, drop de payload, não-mutação). ai_assistant **3271→3219
 (−52)**. Green bar (ESLint, tsc, 4 guards, **466 unit [+7]**, vite build, 9 E2E).
 
+**AI-11 — streaming/turn (shaping puro) → `js/ai/chat_turn.js` (FEITO 19/06/2026):** o núcleo de streaming/sessão
+(`_dispatchTurn`/`handleChatEvent`/`currentSessionId`/`setStreaming`) é orquestração pesada (IPC, estado, DOM, seam
+de sessão) e **fica inteiro na classe**. O puro/testável do caminho de envio são duas funções:
+`buildApiMessages(messages)` (filtra entradas `tool` display-only + **clona** anexos pro strip de memória pós-envio
+não esvaziar o que foi enviado — o bug histórico das imagens) e `buildProjectContext(projectPath, spfPath)` (o bloco
+de contexto de projeto anexado ao SYSTEM_PROMPT por turno — **texto model-facing, byte-idêntico verificado por diff**).
+`_dispatchTurn` chama os dois; o loop de strip de `dataUrl` e o `startChat` IPC ficam na classe. Extração de funções
+puras (não toca o estado de streaming) → sem revisão adversarial. **+5 testes** (filtro tool + independência do clone;
+contexto com/sem spf/sem projeto). ai_assistant **3219→3204 (−15)**. Green bar (ESLint, tsc, 4 guards, **471 unit
+[+5]**, vite build, 9 E2E).
+
+**A2 — DECOMPOSIÇÃO DA CLASSE ai_assistant CONCLUÍDA (passo de subconjuntos puros), 19/06/2026.** ai_assistant_manager
+**4592 → 3204 (−1388, ~30%)**. Saíram, em módulos testáveis em `js/ai/`: helpers de módulo (AI-1 system_prompt ·
+AI-2 chat_render · AI-3 ai_metadata) + da CLASSE (AI-5 chat_scroll · AI-6 chat_attachments · AI-7 tool_call_text ·
+AI-8 tool_permission · AI-9 provider_view · AI-10 chat_history · AI-11 chat_turn). **Decisão consistente** (TM-4
+diante): extrai o **puro/testável** (matemática, markup, shaping, decisão, parsing) e deixa na classe a **orquestração
+de estado/DOM/IPC/streaming** (sem seam limpo, sem cobertura E2E do chat ao vivo — extrair via deps bag seria alto
+risco/baixo ganho). ~+50 testes de unidade novos nesta leva da classe.
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para

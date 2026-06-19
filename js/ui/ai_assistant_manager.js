@@ -26,6 +26,7 @@ import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_te
 import { decideToolPermission, previewArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js';
+import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
@@ -1677,19 +1678,10 @@ class AIAssistantManager {
       `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     this.setStreaming(true);
 
-    // Tool-type entries are display-only records; filter them before sending to the model.
-    const apiMessages = this.messages
-      .filter((m) => m.role !== 'tool')
-      .map((m) => (m.attachments && m.attachments.length
-        // CLONE each attachment. The memory-hygiene step below deletes `dataUrl`
-        // from the STORED history; if apiMessages shared the same attachment
-        // objects, that delete would also wipe the base64 out of the copy we are
-        // about to SEND — which is exactly what broke image attachments (the
-        // model received only "an image was attached", with no content). A
-        // shallow clone per attachment keeps the payload alive in what we send
-        // while the stored history still gets stripped.
-        ? { role: m.role, content: m.content, attachments: m.attachments.map((a) => ({ ...a })) }
-        : { role: m.role, content: m.content }));
+    // Tool-type entries are display-only records; filter them before sending to
+    // the model. Attachments are cloned (chat_turn.js) so the memory-hygiene
+    // strip below can't wipe the payload out of what we're about to send.
+    const apiMessages = buildApiMessages(this.messages);
 
     // Memory hygiene: the base64 dataUrls are now safely COPIED into apiMessages
     // for this turn — strip them from the stored history so they are NOT resent
@@ -1713,14 +1705,7 @@ class AIAssistantManager {
     const projectPath =
       window.currentProjectPath || window.currentOpenProjectPath || null;
     const spfPath = window.ProjectStore?.getSpfPath?.() || null;
-    const projectContext = projectPath
-      ? `\n\nACTIVE AURORA PROJECT — single source of truth, refreshed every turn:\n` +
-        `  project_root: ${projectPath}\n` +
-        (spfPath ? `  spf_file:     ${spfPath}\n` : '') +
-        `Use these exact paths when calling tools (read_file, create_file, set_top_level, …).\n` +
-        `Do not hallucinate a different root, do not assume cwd. If you need the full file list, call get_project_tree.\n`
-      : '\n\nNO PROJECT IS CURRENTLY OPEN — ask the user to open one before running any project-scoped tool.\n';
-    const systemPrompt = SYSTEM_PROMPT + projectContext;
+    const systemPrompt = SYSTEM_PROMPT + buildProjectContext(projectPath, spfPath);
 
     try {
       const r = await window.aiAPI.startChat({

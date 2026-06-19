@@ -18,15 +18,13 @@ import { classifyVerilogContent } from '../project/verilog_classifier.js';
 import { addAvailableProcessor } from '../project/processor_list.js';
 import {
   basenameOf, withoutExtension, extensionOf, normalizeKey,
-  sanitizeVerilogFileName, sanitizePythonModuleName, sanitizeProcessorName,
+  sanitizeProcessorName,
   createCmmTemplate, ensureCmmPrname, typeFromExtension,
   isImageFile, isPdfFile, isBinaryFile, getFileIcon,
+  appendDefaultExtension, validateSaveName,
 } from './tab_utils.js';
 
 const UNTITLED_PREFIX = 'Untitled-';
-const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
-const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-const VALID_PROCESSOR_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const CMM_SNIPPET_TRIGGER = '$cmm';
 
 function showNotification(message, type = 'info', duration = 3000) {
@@ -191,36 +189,6 @@ export class TabManager {
         }
     }
 
-    static appendDefaultExtension(filePath, documentType) {
-        if (/\.(?:py|v|cmm)$/i.test(filePath)) return filePath;
-        const extension = getExtensionForDocumentType(documentType) || 'v';
-        return `${filePath}.${extension}`;
-    }
-
-    static validateSaveName(filePath) {
-        const ext = extensionOf(filePath);
-        const baseName = withoutExtension(basenameOf(filePath));
-        if (ext === 'py' && !VALID_PYTHON_MODULE_RE.test(baseName)) {
-            return {
-                ok: false,
-                suggestion: `${sanitizePythonModuleName(baseName)}.py`,
-            };
-        }
-        if (ext === 'v' && !VALID_VERILOG_FILENAME_RE.test(baseName)) {
-            return {
-                ok: false,
-                suggestion: `${sanitizeVerilogFileName(baseName)}.v`,
-            };
-        }
-        if (ext === 'cmm' && !VALID_PROCESSOR_NAME_RE.test(baseName)) {
-            return {
-                ok: false,
-                suggestion: `${sanitizeProcessorName(baseName)}.cmm`,
-            };
-        }
-        return { ok: true };
-    }
-
     static async confirmOverwrite(filePath) {
         try {
             const exists = await window.electronAPI.fileExists(filePath);
@@ -280,8 +248,8 @@ export class TabManager {
 
             if (result.canceled || !result.filePath) return null;
 
-            const finalPath = this.appendDefaultExtension(result.filePath, detectedType);
-            const validation = this.validateSaveName(finalPath);
+            const finalPath = appendDefaultExtension(result.filePath, detectedType);
+            const validation = validateSaveName(finalPath);
             if (validation.ok) return finalPath;
 
             suggestedBase = withoutExtension(validation.suggestion);
@@ -353,7 +321,7 @@ export class TabManager {
         const finalContent = ensureCmmPrname(content, target.processorName);
 
         if (!target.projectPath) {
-            const finalPath = this.appendDefaultExtension(selectedPath, 'cmm');
+            const finalPath = appendDefaultExtension(selectedPath, 'cmm');
             if (!await this.confirmOverwrite(finalPath)) return null;
             await window.electronAPI.writeFile(finalPath, finalContent);
             return { filePath: finalPath, content: finalContent, processorName: target.processorName };
@@ -500,10 +468,10 @@ async def basic_test(dut):
         let type = typeFromExtension(requestedPath);
         if (!type) {
             type = 'verilog';
-            requestedPath = this.appendDefaultExtension(requestedPath, type);
+            requestedPath = appendDefaultExtension(requestedPath, type);
         }
 
-        const validation = this.validateSaveName(requestedPath);
+        const validation = validateSaveName(requestedPath);
         if (!validation.ok) {
             showNotification(
                 window.t

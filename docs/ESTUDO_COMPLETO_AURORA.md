@@ -2099,6 +2099,27 @@ ext, fallback `ph ph-file`). God-file **−123 linhas** (1957→1834). **BAIXO r
 preservam tudo) → sem revisão adversarial (não é estado entrelaçado; reservada pras extrações de watchers/save_flow).
 Green bar (ESLint, tsc, 4 guards, **407 unit [+6]**, vite build, 9 E2E).
 
+**Auditoria file-watching (b) — JÁ FEITO, nada a fazer (19/06/2026):** ao re-mapear vs o código real, o
+file-watching **já está totalmente extraído** em `js/tabs/tab_watchers.js` (mixin `tabWatchers`, `Object.assign`
+no fim do tab_manager): poll periódico, watcher chokidar (push), restart resiliente, e todo o handling de conflito
+externo (diff/diálogo/reload undoable) vivem lá. O que resta na classe são só os **5 campos de estado** que o mixin
+lê como `this.X` (`fileWatchers`/`lastModifiedTimes`/`externalChangeQueue`/`periodicCheckInterval`/`isCheckingFiles`)
++ os call sites — exatamente o correto (estado fica na classe). Lição §14.42 de novo: auditar antes de assumir que há
+trabalho.
+
+**TM-3 — save-name helpers → `js/tabs/tab_utils.js` (FEITO 19/06/2026):** extraídas as 2 funções **PURAS** de
+nome-de-save que sobraram na classe — `appendDefaultExtension` (mapeia tipo→extensão, fallback `.v`) e
+`validateSaveName` (valida o base name por linguagem verilog/python/processor e sugere um nome saneado) + as 3 regex
+`VALID_VERILOG_FILENAME_RE`/`VALID_PYTHON_MODULE_RE`/`VALID_PROCESSOR_NAME_RE`. Zero estado/DOM, **0 callers
+externos** (só `this.X` interno: appendDefaultExtension ×3, validateSaveName ×2) → **sem delegador**, os 5 call sites
+viraram chamada nua ao import (igual ao TM-1). `validateSaveName` agora chama os sanitizers irmãos no próprio
+`tab_utils`; `appendDefaultExtension` puxa `getExtensionForDocumentType` do `document_type_detector.js` (módulo
+folha, sem ciclo). Removidos 2 imports que ficaram órfãos no tab_manager (`sanitizeVerilogFileName`/
+`sanitizePythonModuleName` — só o validateSaveName os usava; `sanitizeProcessorName` continua, usado em outro lugar).
+Movido por script, byte-idêntico. **+7 testes** (tipo→ext, fallback, extensão já-presente case-insensitive; nomes
+válidos/ inválidos+sugestão por linguagem, passthrough de extensão não-policiada). God-file **−32 linhas** (1834→1802).
+BAIXO risco (puro). Green bar (ESLint, tsc, 4 guards, **414 unit [+7]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para
@@ -2113,8 +2134,8 @@ existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" 
   `TabManager.tabs/activeTab/unsavedChanges/untitledDocuments` como **propriedade** e chamam ~29 métodos (`addTab`,
   `saveAllFiles`, `getEditingFilePath`, `closeTab`, `markFileAsModified`…). Logo: **estado estático fica na classe**,
   funções extraídas recebem o estado, classe mantém **delegadores**. Extrações candidatas (re-mapear nomes/linhas):
-  (a) ~~**file-type/ícone**~~ — **FEITO (TM-2, acima)**. (b) **file-watching** —
-  chokidar/polling; **reconciliar com o `js/tabs/tab_watchers.js` já existente**. (c) **untitled** lifecycle
+  (a) ~~**file-type/ícone**~~ — **FEITO (TM-2)**. ~~(b) **file-watching**~~ — **JÁ ESTAVA FEITO** (tudo em
+  `tab_watchers.js`; só o estado fica na classe — ver auditoria acima). (c) **untitled** lifecycle
   (`createNewFile`/`isUntitledPath`/`expandUntitledSnippet`/`getDisplayName` — vários externos → delegadores). (d)
   **save_flow** (`saveCurrentFile`/`saveAllFiles`/`saveFile`/`saveUntitledFile` — núcleo, API mais chamada; ALTO
   risco). + overlay/dialogs.

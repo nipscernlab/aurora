@@ -1,7 +1,10 @@
 // tab_utils.js — pure filename/string helpers for the tab manager (extracted
 // from tab_manager.js, A2 god-file decomposition). No TabManager state, no DOM:
-// basename/extension parsing, key normalization, name sanitizers, and the C±
-// (.cmm) starter template. Imported back into tab_manager.js for internal use.
+// basename/extension parsing, key normalization, name sanitizers, the C±
+// (.cmm) starter template, file-type/icon detection, and save-name
+// validation. Imported back into tab_manager.js for internal use.
+
+import { getExtensionForDocumentType } from '../editor/document_type_detector.js';
 
 const CMM_DEFAULTS = Object.freeze({
     nBits: 23,
@@ -248,4 +251,43 @@ export function getFileIcon(filename) {
     };
 
     return iconMap[extension] || 'ph ph-file';
+}
+
+// ---------------------------------------------------------------------------
+// Save-name validation — extracted from TabManager (static, pure). Maps a
+// requested path to a default extension and validates the base name per
+// language (verilog/python/processor). No state, no DOM.
+
+const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
+const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+const VALID_PROCESSOR_NAME_RE = /^[a-zA-Z0-9_-]+$/;
+
+export function appendDefaultExtension(filePath, documentType) {
+    if (/\.(?:py|v|cmm)$/i.test(filePath)) return filePath;
+    const extension = getExtensionForDocumentType(documentType) || 'v';
+    return `${filePath}.${extension}`;
+}
+
+export function validateSaveName(filePath) {
+    const ext = extensionOf(filePath);
+    const baseName = withoutExtension(basenameOf(filePath));
+    if (ext === 'py' && !VALID_PYTHON_MODULE_RE.test(baseName)) {
+        return {
+            ok: false,
+            suggestion: `${sanitizePythonModuleName(baseName)}.py`,
+        };
+    }
+    if (ext === 'v' && !VALID_VERILOG_FILENAME_RE.test(baseName)) {
+        return {
+            ok: false,
+            suggestion: `${sanitizeVerilogFileName(baseName)}.v`,
+        };
+    }
+    if (ext === 'cmm' && !VALID_PROCESSOR_NAME_RE.test(baseName)) {
+        return {
+            ok: false,
+            suggestion: `${sanitizeProcessorName(baseName)}.cmm`,
+        };
+    }
+    return { ok: true };
 }

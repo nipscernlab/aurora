@@ -4,6 +4,7 @@ import {
     sanitizeVerilogFileName, sanitizePythonModuleName, sanitizeProcessorName,
     createCmmTemplate, ensureCmmPrname, typeFromExtension,
     isImageFile, isPdfFile, isBinaryFile, getFileIcon,
+    appendDefaultExtension, validateSaveName,
 } from '../../js/tabs/tab_utils.js';
 
 describe('path helpers', () => {
@@ -115,5 +116,42 @@ describe('getFileIcon', () => {
         expect(getFileIcon('Main.JS')).toBe('ph ph-file-js');
         expect(getFileIcon('mystery.qzx')).toBe('ph ph-file');
         expect(getFileIcon('Makefile')).toBe('ph ph-file'); // no extension
+    });
+});
+
+describe('appendDefaultExtension', () => {
+    it('maps the document type to its extension', () => {
+        expect(appendDefaultExtension('proc', 'cmm')).toBe('proc.cmm');
+        expect(appendDefaultExtension('mod', 'python')).toBe('mod.py');
+        expect(appendDefaultExtension('top', 'verilog')).toBe('top.v');
+    });
+    it('falls back to .v for an unknown/null type', () => {
+        expect(appendDefaultExtension('thing', null)).toBe('thing.v');
+        expect(appendDefaultExtension('thing', 'whatever')).toBe('thing.v');
+    });
+    it('leaves a path that already has a source extension (case-insensitive)', () => {
+        expect(appendDefaultExtension('core.v', 'cmm')).toBe('core.v');
+        expect(appendDefaultExtension('mod.PY', 'verilog')).toBe('mod.PY');
+        expect(appendDefaultExtension('p.CMM', 'python')).toBe('p.CMM');
+    });
+    it('appends when the existing extension is not a source one', () => {
+        expect(appendDefaultExtension('notes.txt', 'python')).toBe('notes.txt.py');
+    });
+});
+
+describe('validateSaveName', () => {
+    it('accepts valid names per language', () => {
+        expect(validateSaveName('proc.cmm')).toEqual({ ok: true });
+        expect(validateSaveName('core.v')).toEqual({ ok: true });
+        expect(validateSaveName('test_dut.py')).toEqual({ ok: true });
+    });
+    it('rejects + suggests a sanitized name per language', () => {
+        expect(validateSaveName('my proc.cmm')).toEqual({ ok: false, suggestion: 'my_proc.cmm' });
+        expect(validateSaveName('bad name.v')).toEqual({ ok: false, suggestion: 'bad_name.v' });
+        expect(validateSaveName('123mod.py')).toEqual({ ok: false, suggestion: 'test_123mod.py' });
+    });
+    it('passes through extensions it does not police', () => {
+        expect(validateSaveName('readme.txt')).toEqual({ ok: true });
+        expect(validateSaveName('data.json')).toEqual({ ok: true });
     });
 });

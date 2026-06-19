@@ -23,8 +23,8 @@ import {
   isImageFile, isPdfFile, isBinaryFile, getFileIcon,
   appendDefaultExtension, validateSaveName,
 } from './tab_utils.js';
+import { isUntitled, untitledDisplayName, nextUntitledPath } from './untitled_docs.js';
 
-const UNTITLED_PREFIX = 'Untitled-';
 const CMM_SNIPPET_TRIGGER = '$cmm';
 
 function showNotification(message, type = 'info', duration = 3000) {
@@ -91,25 +91,23 @@ export class TabManager {
         }
     }
 
+    // Pure untitled metadata logic lives in untitled_docs.js; the state (the
+    // untitledDocuments Map + untitledCounter) stays owned here, so these are
+    // thin delegators. Their monaco/DOM-heavy siblings (updateUntitledDocumentType,
+    // expandUntitledSnippet, updateUntitledTabPresentation) stay full in the class.
     static isUntitledPath(filePath) {
-        return this.untitledDocuments.has(filePath);
+        return isUntitled(this.untitledDocuments, filePath);
     }
 
     static getDisplayName(filePath) {
-        if (this.isUntitledPath(filePath)) {
-            const meta = this.untitledDocuments.get(filePath);
-            const ext = getExtensionForDocumentType(meta?.detectedType);
-            return ext ? `${filePath}.${ext}` : filePath;
-        }
-        return basenameOf(filePath);
+        return untitledDisplayName(this.untitledDocuments, filePath);
     }
 
     static createNewFile() {
-        let filePath;
-        do {
-            this.untitledCounter += 1;
-            filePath = `${UNTITLED_PREFIX}${this.untitledCounter}`;
-        } while (this.tabs.has(filePath) || this.untitledDocuments.has(filePath));
+        const { filePath, counter } = nextUntitledPath(
+            this.untitledDocuments, this.tabs, this.untitledCounter,
+        );
+        this.untitledCounter = counter;
 
         this.untitledDocuments.set(filePath, { detectedType: null });
         window.SplitEditorManager?.setFocus?.(0);

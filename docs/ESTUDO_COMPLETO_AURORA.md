@@ -2120,6 +2120,25 @@ Movido por script, byte-idêntico. **+7 testes** (tipo→ext, fallback, extensã
 válidos/ inválidos+sugestão por linguagem, passthrough de extensão não-policiada). God-file **−32 linhas** (1834→1802).
 BAIXO risco (puro). Green bar (ESLint, tsc, 4 guards, **414 unit [+7]**, vite build, 9 E2E).
 
+**TM-4 — untitled metadata puro → `js/tabs/untitled_docs.js` (FEITO 19/06/2026) — DECISÃO DE ESCOPO DO USUÁRIO:**
+ao re-mapear, o untitled lifecycle se revelou **não** ser uma extração limpa (caso clássico do "workflow
+over-especificou"): as 6 funções têm callers externos (`createNewFile`→aurora_api/renderer;
+`createNewFileFromDialog`→project_tree_actions; `isUntitledPath`/`getDisplayName`/`expandUntitledSnippet`/
+`updateUntitledDocumentType`→split_editor) e o grosso (`updateUntitledDocumentType`/`expandUntitledSnippet`/
+`updateUntitledTabPresentation`) é orquestração de **monaco + DOM + métodos-irmãos** (`addTab`/`markFileAsModified`/
+`updateContextPath`/`setModelLanguage`), sem seam limpo e **SEM cobertura E2E** — deps bag = alto risco/baixo ganho
+(o oposto do TM-2/3). Apresentei isso ao usuário; ele escolheu **extrair só os helpers PUROS de metadados** e deixar
+os orquestradores na classe com rationale documentado. Movidos: `isUntitled` (map.has), `untitledDisplayName`
+(path+ext detectado, senão basename), `nextUntitledPath` (loop de nomeação "Untitled-N", pula colisão de tab/doc;
+retorna `{filePath, counter}` — a classe **escreve o counter de volta**, é dona dele) + `UNTITLED_PREFIX`. A classe
+mantém **delegadores** (`isUntitledPath`/`getDisplayName`) e o `createNewFile` virou delegador fino. **Seam do counter
+preservado:** o loop extraído só LÊ o counter atual e devolve o novo; comportamento byte-equivalente (counter final
+idêntico — loop síncrono, sem await, sem leitor concorrente). **+8 testes** (`untitled_docs.test.js`: isUntitled,
+display por tipo/sem-tipo/saved, avanço+colisão do counter). God-file **−2 linhas** (1802→1800) — o ganho aqui é
+**+47 linhas testáveis num módulo**, não encolher o god-file (o grosso ficou de propósito). Puro → **sem revisão
+adversarial** (não é estado entrelaçado; a parte entrelaçada foi deixada na classe por decisão). Green bar (ESLint,
+tsc, 4 guards, **422 unit [+8]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para
@@ -2135,10 +2154,12 @@ existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" 
   `saveAllFiles`, `getEditingFilePath`, `closeTab`, `markFileAsModified`…). Logo: **estado estático fica na classe**,
   funções extraídas recebem o estado, classe mantém **delegadores**. Extrações candidatas (re-mapear nomes/linhas):
   (a) ~~**file-type/ícone**~~ — **FEITO (TM-2)**. ~~(b) **file-watching**~~ — **JÁ ESTAVA FEITO** (tudo em
-  `tab_watchers.js`; só o estado fica na classe — ver auditoria acima). (c) **untitled** lifecycle
-  (`createNewFile`/`isUntitledPath`/`expandUntitledSnippet`/`getDisplayName` — vários externos → delegadores). (d)
+  `tab_watchers.js`; só o estado fica na classe — ver auditoria acima). (c) ~~**untitled** lifecycle~~ — **FEITO
+  PARCIAL (TM-4)**: extraído só o metadata puro (`isUntitled`/`untitledDisplayName`/`nextUntitledPath` →
+  `untitled_docs.js`); os orquestradores monaco/DOM (`updateUntitledDocumentType`/`expandUntitledSnippet`/
+  `updateUntitledTabPresentation`) ficaram na classe **por decisão** (alto risco/baixo ganho, sem E2E). (d)
   **save_flow** (`saveCurrentFile`/`saveAllFiles`/`saveFile`/`saveUntitledFile` — núcleo, API mais chamada; ALTO
-  risco). + overlay/dialogs.
+  risco) ← **PRÓXIMO**. + overlay/dialogs.
 - **ai_assistant_manager (js/ui/) — classe `AIAssistantManager` ~3376 linhas, ~40 campos entrelaçados.** **E2E NÃO
   exercita o chat ao vivo** → bug sutil só no teste do usuário (classe-risco do O9/O11). Peças mais ortogonais
   primeiro (deps bag + delegadores): **scroll** (`scrollToBottom`/`smoothScrollToBottom`/`_isAtBottom`) e **anexos**

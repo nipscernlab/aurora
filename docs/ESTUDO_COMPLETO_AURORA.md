@@ -1877,3 +1877,19 @@ os `.grouped-message` **não** tinham `content-visibility`. Dois ajustes cirúrg
 
 Sem mexer no streaming, grouping, filtro verbose, line-links ou auto-scroll — zero risco de regressão. Green bar
 completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E).
+
+### 14.38 aurora-editor — shell semântico do painel do editor — 19/06/2026 — FEITO
+Fecha o conjunto de componentes-casca (já existiam `<aurora-tabs>`, `<aurora-terminal>`, `<aurora-tree>`,
+`<aurora-statusbar>`, `<aurora-titlebar>`, `<aurora-welcome>`). O painel do editor ainda era um `<div
+class="editor-container">` cru. Criei **`js/components/aurora-editor.js`** — LitElement fino (`render → <slot>`),
+exatamente o padrão do `<aurora-tabs>`/`<aurora-terminal>` — e troquei `<div class="editor-container">` por
+`<aurora-editor class="editor-container">` no index.html (importado por `monaco_editor.js`).
+
+Por que é seguro (e por que o Monaco não se importa): a `.editor-container` já é `display:flex; flex-direction:
+column` (editor.css), então o host vira o flex container; o `<slot>` é `display:contents`, logo os filhos slotted
+(`<aurora-tabs>` + `#monaco-editor`) viram os flex items do host — layout idêntico ao `<div>`. O Monaco monta em
+`#monaco-editor` (descendente light-DOM, achável por `getElementById`), e os seletores `.editor-container`
+(split_editor.js, aurora_api.js) casam o host pela classe. Mesmo mecanismo já provado pelo `<aurora-terminal>` (que
+envolve `.terminal-container` com filhos slotted). **O E2E abre a janela real + o editor e passou (9/9)** —
+confirma que o mount/layout do Monaco não regrediu. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite
+build, 9 E2E).

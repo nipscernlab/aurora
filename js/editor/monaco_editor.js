@@ -2,6 +2,7 @@
 // monaco is loaded globally via index.html
 // require is the AMD loader from monaco-editor/min/vs/loader.js
 
+import '../components/aurora-editor.js';
 import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
 import { initVerilogLSP } from './lsp_integration.js';

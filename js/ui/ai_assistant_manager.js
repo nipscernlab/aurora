@@ -25,6 +25,7 @@ import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/ch
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import { decideToolPermission, previewArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
+import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
@@ -33,7 +34,7 @@ import {
   PROVIDER_META, CLAUDE_CODE_PROVIDER, CLAUDE_CODE_EFFORT, CHATGPT_PROVIDER, CHATGPT_MODELS,
   SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
   shortModelName, formatTokens, WINDOW_META, untilTime, usageRowHTML,
-  PERMISSION_STORE_KEY, PERMISSION_MODES, readPermissionMode, relativeTime,
+  PERMISSION_STORE_KEY, PERMISSION_MODES, readPermissionMode,
 } from '../ai/ai_metadata.js';
 
 /* ============================================================
@@ -2779,31 +2780,8 @@ class AIAssistantManager {
 
   renderChatList() {
     if (!this.historyList) return;
-    if (!this.chatList.length) {
-      this.historyList.innerHTML = '<p class="ai-history-empty">No saved chats yet.</p>';
-      return;
-    }
-    this.historyList.innerHTML = this.chatList.map((c) => {
-      const meta = PROVIDER_META[c.provider] || {};
-      const icon = meta.icon || '';
-      const providerLabel = meta.label || c.provider || '';
-      const active = c.id === this.currentChatId ? ' active' : '';
-      // G6: per-conversation token total at a glance (0 omitted).
-      const tok = c.cumulativeTokens > 0 ? ` · ${formatTokens(c.cumulativeTokens)} tok` : '';
-      return `
-        <div class="ai-history-item${active}" data-chat-id="${escapeHtml(c.id)}">
-          ${icon ? `<img class="ai-history-item-icon" src="${icon}" alt="">` : '<span class="ai-history-item-icon-spacer"></span>'}
-          <div class="ai-history-item-text">
-            <span class="ai-history-item-title">${escapeHtml(c.title || 'Untitled')}</span>
-            <span class="ai-history-item-meta">${escapeHtml(providerLabel)}${providerLabel ? ' · ' : ''}${escapeHtml(relativeTime(c.updatedAt))}${tok}</span>
-          </div>
-          <div class="ai-history-item-actions">
-            <button class="ai-history-item-act" data-action="rename" title="Rename"><i class="ph ph-pencil-simple"></i></button>
-            <button class="ai-history-item-act" data-action="delete" title="Delete"><i class="ph ph-trash"></i></button>
-          </div>
-        </div>
-      `;
-    }).join('');
+    // Pure list markup in chat_history.js; this method owns the popover element.
+    this.historyList.innerHTML = chatListHtml(this.chatList, this.currentChatId);
   }
 
   async handleHistoryClick(e) {
@@ -2998,39 +2976,9 @@ class AIAssistantManager {
         provider: this.currentProvider,
         model: providerInfo ? providerInfo.model : null,
         createdAt: this.currentChatCreatedAt || Date.now(),
-        messages: this.messages.map((m) => {
-            const entry = { role: m.role };
-            if (m.role === 'tool') {
-              // Persist the full tool-call breadcrumb — toolName, status,
-              // args, result, error, toolUseId — so a re-opened chat
-              // shows every call exactly as it happened (success AND
-              // failure). The chip tooltip is rebuilt from these fields
-              // by appendStaticToolChip on replay.
-              entry.toolName  = m.toolName;
-              entry.status    = m.status;
-              if (m.toolUseId) entry.toolUseId = m.toolUseId;
-              if (m.args != null)   entry.args   = m.args;
-              if (m.result != null) entry.result = m.result;
-              if (m.error)          entry.error  = m.error;
-            } else {
-              entry.content = m.content;
-              if (Array.isArray(m.attachments) && m.attachments.length) {
-                // Persist only lightweight metadata — name (carries the
-                // extension), kind, mime, size — NOT the payload (image base64 /
-                // file text), which is dropped for performance. A reopened chat
-                // then shows the attachment's name for context instead of an
-                // empty message.
-                entry.attachments = m.attachments.map((a) => {
-                  const meta = { kind: a.kind, name: a.name };
-                  if (a.mime) meta.mime = a.mime;
-                  if (a.size != null) meta.size = a.size;
-                  if (a.clipped) meta.clipped = true;
-                  return meta;
-                });
-              }
-            }
-            return entry;
-          }),
+        // Pure message-shaping (tool breadcrumb + lightweight attachment meta,
+        // payload dropped) lives in chat_history.js.
+        messages: serializeMessagesForStorage(this.messages),
         cumulativeTokens: this.cumulativeTokens,
       });
     } catch (e) { console.warn('[ai-panel] persist failed:', e); }

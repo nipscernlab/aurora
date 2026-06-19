@@ -2198,6 +2198,16 @@ saiu (caller único virou import). Markup byte-idêntico. **+6 testes** (`provid
 fallback de label; preset ativo; label fiel CLI/API/fallback). ai_assistant **3299→3271 (−28)**. Green bar (ESLint,
 tsc, 4 guards, **459 unit [+6]**, vite build, 9 E2E).
 
+**AI-10 — history (lista + serialização puras) → `js/ai/chat_history.js` (FEITO 19/06/2026):** o load/save real é IPC
+(`main/ai/conversations.js`) e fica na classe; o puro/testável são duas coisas: `chatListHtml(chatList,
+currentChatId)` (markup da lista de chats salvos no popover — empty-state + item ativo + badge de tokens G6, com
+escapeHtml/relativeTime/formatTokens/PROVIDER_META) e `serializeMessagesForStorage(messages)` (shape de persistência:
+breadcrumb completo das entradas tool; user/assistant guardam content + **metadata leve** de anexo, **payload
+dropado**; **não muta** a entrada). `renderChatList`/`persistCurrentChat` ficam na classe (donas do DOM/IPC) e
+chamam os puros. Markup byte-idêntico. Removido o import órfão `relativeTime` (só o renderChatList o usava). **+7
+testes** (empty/ativo/token/XSS na lista; tool breadcrumb, drop de payload, não-mutação). ai_assistant **3271→3219
+(−52)**. Green bar (ESLint, tsc, 4 guards, **466 unit [+7]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para

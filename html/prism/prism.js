@@ -113,6 +113,14 @@ class PRISMViewer {
     this._paper = null;     // the JointJS paper view, so we can dispose it
     this._simBusy = false;  // re-entrancy guard while a build is in flight
     this._Circuit = null;   // cached DigitalJS Circuit class (lazy-loaded)
+    // Sim-mode pan/zoom — a CSS transform on a wrapper around the paper, with
+    // the SAME values as the schematic so the two views feel identical.
+    this.djsWrapper = null;
+    this.paperHost = null;
+    this._paperScale = 1;
+    this._paperTx = 0;
+    this._paperTy = 0;
+    this._paperPan = null;
 
     this._initElements();
     this._setupListeners();
@@ -155,12 +163,29 @@ class PRISMViewer {
     // Toolbar buttons
     this.backBtn.addEventListener('click',     () => this.navigateBack());
     this.compileBtn.addEventListener('click',  () => this.recompile());
-    this.fitBtn.addEventListener('click',      () => this.fitToScreen());
+    this.fitBtn.addEventListener('click',      () => (this.simMode ? this._fitPaper() : this.fitToScreen()));
     this.downloadBtn?.addEventListener('click',() => this.downloadSVG());
-    this.zoomInBtn.addEventListener('click',   () => this._zoomButton(1.25));
-    this.zoomOutBtn.addEventListener('click',  () => this._zoomButton(0.8));
-    this.resetZoomBtn.addEventListener('click',() => this.resetView());
+    this.zoomInBtn.addEventListener('click',   () => (this.simMode ? this._paperZoom(1.25) : this._zoomButton(1.25)));
+    this.zoomOutBtn.addEventListener('click',  () => (this.simMode ? this._paperZoom(0.8)  : this._zoomButton(0.8)));
+    this.resetZoomBtn.addEventListener('click',() => (this.simMode ? this._fitPaper() : this.resetView()));
     this.simToggle?.addEventListener('click',  () => this.toggleSimMode());
+
+    // DigitalJS sim: wheel-zoom (same feel as the schematic) on the paper.
+    this.djsContainer?.addEventListener('wheel', (e) => {
+      if (!this.simMode) return;
+      e.preventDefault();
+      this._paperZoom(Math.exp(-e.deltaY * 0.0016), e.clientX, e.clientY);
+    }, { passive: false });
+    // Blank-drag pan: started by the paper's blank:pointerdown, tracked here.
+    document.addEventListener('mousemove', (e) => {
+      if (!this._paperPan) return;
+      this._paperTx = this._paperPan.tx + (e.clientX - this._paperPan.x);
+      this._paperTy = this._paperPan.ty + (e.clientY - this._paperPan.y);
+      this._applyPaperTransform();
+    });
+    document.addEventListener('mouseup', () => {
+      if (this._paperPan) { this._paperPan = null; this.djsContainer?.classList.remove('panning'); }
+    });
 
     // IPC — compilation complete
     if (window.electronAPI?.onCompilationComplete) {
@@ -890,11 +915,17 @@ class PRISMViewer {
         return;
       }
 
-      // Fresh paper host inside the dedicated DigitalJS container.
+      // Fresh paper host inside a transformed wrapper (pan/zoom layer).
       this._destroyCircuit();
+      const wrapper = document.createElement('div');
+      wrapper.className = 'djs-wrapper';
       const paperHost = document.createElement('div');
       paperHost.className = 'djs-paper';
-      this.djsContainer.appendChild(paperHost);
+      wrapper.appendChild(paperHost);
+      this.djsContainer.appendChild(wrapper);
+      this.djsWrapper = wrapper;
+      this.paperHost = paperHost;
+      this._paperScale = 1; this._paperTx = 0; this._paperTy = 0;
 
       try {
         const Circuit = await this._loadDigitalJS();
@@ -903,6 +934,15 @@ class PRISMViewer {
         this.circuit = new Circuit(res.circuit, { layoutEngine: 'dagre' });
         this._paper = this.circuit.displayOn(paperHost);
         this.circuit.start();
+        // Pan by dragging blank space (gates stay draggable via JointJS).
+        this._paper.on('blank:pointerdown', (/** @type {any} */ evt) => {
+          const oe = (evt && evt.originalEvent) || evt || {};
+          this._paperPan = { x: oe.clientX, y: oe.clientY, tx: this._paperTx, ty: this._paperTy };
+          this.djsContainer.classList.add('panning');
+        });
+        // Center + fit once the (async) layout is on screen.
+        this._paper.once('render:done', () => this._fitPaper());
+        setTimeout(() => this._fitPaper(), 150);
       } catch (err) {
         console.error('[PRISM] DigitalJS render failed:', err);
         this._destroyCircuit();
@@ -944,7 +984,10 @@ class PRISMViewer {
       try { this._paper.remove?.(); } catch (_) { /* best-effort */ }
       this._paper = null;
     }
-    if (this.djsContainer) this.djsContainer.innerHTML = '';
+    this.djsWrapper = null;
+    this.paperHost = null;
+    this._paperPan = null;
+    if (this.djsContainer) { this.djsContainer.innerHTML = ''; this.djsContainer.classList.remove('panning'); }
   }
 
   _setSimToggleLabel(text) {
@@ -957,6 +1000,47 @@ class PRISMViewer {
     this._showStatus(msg, true);
     clearTimeout(this._simErrTimer);
     this._simErrTimer = setTimeout(() => this._hideStatus(), 7000);
+  }
+
+  // -------------------------------------------------------------------------
+  //  DigitalJS paper pan/zoom — CSS transform on the wrapper, mirroring the
+  //  schematic's values (factor exp(-deltaY*0.0016), clamp 0.1–5, ~90% fit).
+  // -------------------------------------------------------------------------
+  _applyPaperTransform() {
+    if (this.djsWrapper) {
+      this.djsWrapper.style.transformOrigin = '0 0';
+      this.djsWrapper.style.transform =
+        `translate(${this._paperTx}px, ${this._paperTy}px) scale(${this._paperScale})`;
+    }
+  }
+
+  /** Center + fit the circuit in the viewport. */
+  _fitPaper() {
+    if (!this.djsWrapper || !this.paperHost || !this.djsContainer) return;
+    const cw = this.djsContainer.clientWidth;
+    const ch = this.djsContainer.clientHeight;
+    const pw = this.paperHost.offsetWidth;
+    const ph = this.paperHost.offsetHeight;
+    if (!cw || !ch || !pw || !ph) return;
+    this._paperScale = Math.max(0.1, Math.min((cw * 0.9) / pw, (ch * 0.9) / ph, 2.5));
+    this._paperTx = (cw - pw * this._paperScale) / 2;
+    this._paperTy = (ch - ph * this._paperScale) / 2;
+    this._applyPaperTransform();
+  }
+
+  /** Zoom the paper, anchored at (clientX,clientY) when given, else the centre. */
+  _paperZoom(factor, clientX = null, clientY = null) {
+    if (!this.djsWrapper) return;
+    const cur = this._paperScale;
+    const next = Math.max(0.1, Math.min(5, cur * factor));
+    if (Math.abs(next - cur) < 1e-4) return;
+    const rect = this.djsContainer.getBoundingClientRect();
+    const ox = clientX == null ? rect.width / 2 : clientX - rect.left;
+    const oy = clientY == null ? rect.height / 2 : clientY - rect.top;
+    this._paperTx = ox - (ox - this._paperTx) * (next / cur);
+    this._paperTy = oy - (oy - this._paperTy) * (next / cur);
+    this._paperScale = next;
+    this._applyPaperTransform();
   }
 }
 

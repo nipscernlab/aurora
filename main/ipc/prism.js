@@ -819,9 +819,27 @@ write_json "${jsonPath}"
   const tConv = Date.now();
   const { yosys2digitaljs } = require('yosys2digitaljs/core');
   const circuit = yosys2digitaljs(yosysJson, {});
+  stripYosysLabels(circuit);
   tlog(`DigitalJS: converted to ${Object.keys(circuit.devices || {}).length} devices ` +
     `in ${((Date.now() - tConv) / 1000).toFixed(1)}s — rendering in PRISM…`, 'success');
   return circuit;
+}
+
+// yosys names internal cells "$xor$<src>:<line>$n" — pure clutter next to the
+// gate symbol (and they overlap badly). Named ports (a, b, sum…) don't start
+// with '$', so blanking only the '$'-prefixed labels keeps the useful ones.
+function stripYosysLabels(/** @type {any} */ circuit) {
+  const strip = (/** @type {any} */ devs) => {
+    if (!devs) return;
+    for (const d of Object.values(devs)) {
+      const dev = /** @type {any} */ (d);
+      if (dev && typeof dev.label === 'string' && dev.label.startsWith('$')) dev.label = '';
+    }
+  };
+  strip(circuit.devices);
+  if (circuit.subcircuits) {
+    for (const sub of Object.values(circuit.subcircuits)) strip(/** @type {any} */ (sub).devices);
+  }
 }
 
 // ---------- IPC ----------

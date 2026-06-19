@@ -722,19 +722,34 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .djs-container {
   flex: 1;
   position: relative;
-  overflow: auto;
+  overflow: hidden;            /* pan/zoom is a CSS transform on .djs-wrapper */
   margin: 8px;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
-  background: var(--bg);
+  background: #eef1f6;          /* soft light surface (DigitalJS cells are dark-on-light) */
+  cursor: grab;
+  touch-action: none;
 }
+.djs-container.panning { cursor: grabbing; }
 
-.djs-paper { min-width: 100%; min-height: 100%; }
+/* The transformed layer (translate + scale) that holds the paper. */
+.djs-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.djs-paper { display: inline-block; }
 
-/* DigitalJS/JointJS cells are drawn for a light surface; give the paper one so
- * the circuit stays legible against Aurora's dark theme. */
-.djs-container .joint-paper { background: #f5f7fa; }
+/* Keep the paper transparent so the soft container surface shows through. */
+.djs-container .joint-paper { background: transparent; }
+
+/* Thicker wires + crisper gate outlines for readability at a glance. */
+.djs-container .joint-link .connection,
+.djs-container .joint-link path.connection { stroke-width: 2.5px; }
+.djs-container .joint-element .body { stroke-width: 1.5px; }
 
 /* Active state for the Sim toggle while DigitalJS is on screen. */
 .toolbar-button.active {

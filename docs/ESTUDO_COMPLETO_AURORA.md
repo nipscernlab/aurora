@@ -1998,13 +1998,25 @@ que `componentsPath` está sempre inicializado nos call sites (todos passam por 
 `await initializeComponentsPath()` em compilation_flow.js). Green bar (ESLint, tsc, 4 guards, **343 unit [+16]**,
 vite build, 9 E2E).
 
-**Restante (#4–#5) — pipeline de wave/simulação:** as duas últimas extrações são o núcleo de compile/sim (estado
-entrelaçado: `this._validatedWaveSelection`, `this.projectConfig`, `this.componentsPath`, `this.terminalManager`),
-**sem teste de unidade** e o **E2E não roda compile/sim real** → bug sutil só apareceria no teste ao vivo; cada uma
-sai com testes + revisão adversarial, na mesma cadência do #1–#3. Plano detalhado (já mapeado por agente de leitura):
-- **#4 `wave_signal_validator.js`** — `_validateWaveSelection`, `_resolveWaveSelection`, `_resolveCocotbWaveSelection`,
-  `_parseProjectSources`. Lógica pura (lê WaveStore). Cuidado: `this._validatedWaveSelection` é setado em 3 lugares
-  e lido em 2 → mapear bem o fluxo antes.
+**Extração #4 — `js/compilation/wave_signal_validator.js` (FEITO 19/06/2026):** movida a resolução de seleção de
+sinais da wave — `validateWaveSelection` (poda seleção stale vs hierarquia parseada + warning + auto-prune no
+WaveStore), `resolveWaveSelection` (precedência da fonte do $dumpvars: .gtkw ativo > Wave Config > $dumpvars
+hand-written > default), `resolveCocotbWaveSelection` e `parseProjectSources`. **Não são puras** (tocam WaveStore,
+terminal, config), então recebem um **deps bag** `{ projectPath, terminalManager, projectConfig, componentsPath }`;
+a classe mantém **delegadores finos** (via `_waveDeps()`) — preserva os call sites internos + o **externo**
+(`wave_config_manager.js` chama `compiler._validateWaveSelection`). **Seam do `_validatedWaveSelection`:** o campo
+(cache lido pelos geradores de auto-gtkw/auto-surfer) continua **dono da classe** — `resolveCocotbWaveSelection`
+agora **retorna** a seleção e o delegador escreve o campo, mantendo as **3 escritas / 2 leituras** todas dentro da
+classe (o risco central do §14.42 some por construção). Removidos 4 imports órfãos (validateSelection,
+parseVerilogModules, buildHierarchyTree, hasUserDumpCalls). **+13 testes** (`tests/unit/wave_signal_validator.test.js`,
+exercitam o parser/validator/WaveStore reais: poda + persistência, precedência gtkw/wc/tb/default, HDL SAPHO, seam
+cocotb). God-file **−238 linhas** (3696→3458). **Revisão adversarial** (workflow, 3 lentes: behavior-preservation /
+seam-integrity / integration) = **0 defeitos**; fechei os 3 gaps de cobertura que ela apontou. Green bar (ESLint,
+tsc, 4 guards, **356 unit [+13]**, vite build, 9 E2E).
+
+**Restante (#5) — `processor_compiler.js`:** a última extração é o núcleo de compile do processador (estado próprio,
+**sem teste de unidade**, E2E não roda compile real → bug sutil só ao vivo); sai com testes + revisão adversarial, na
+mesma cadência do #1–#4. Plano detalhado (já mapeado por agente de leitura):
 - **#5 `processor_compiler.js`** — `cmmCompilation`, `asmCompilation`, `_ensureChegueiToaqui`, `getSelectedCmmFile`,
   `getTestbenchInfo`, `_stageProcessorMemoryFiles`. Estado próprio; chamados por `compilation_flow.js` → preservar a
   API pública (provavelmente como classe `ProcessorCompiler` ou métodos delegadores).

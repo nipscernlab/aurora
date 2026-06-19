@@ -940,9 +940,9 @@ class PRISMViewer {
           this._paperPan = { x: oe.clientX, y: oe.clientY, tx: this._paperTx, ty: this._paperTy };
           this.djsContainer.classList.add('panning');
         });
-        // Center + fit once the (async) layout is on screen.
-        this._paper.once('render:done', () => this._fitPaper());
-        setTimeout(() => this._fitPaper(), 150);
+        // Center + fit, and lay the 0/1 digits, once the (async) layout lands.
+        this._paper.once('render:done', () => { this._fitPaper(); this._buildValueOverlays(); });
+        setTimeout(() => { this._fitPaper(); this._buildValueOverlays(); }, 150);
       } catch (err) {
         console.error('[PRISM] DigitalJS render failed:', err);
         this._destroyCircuit();
@@ -1041,6 +1041,41 @@ class PRISMViewer {
     this._paperTy = oy - (oy - this._paperTy) * (next / cur);
     this._paperScale = next;
     this._applyPaperTransform();
+  }
+
+  /**
+   * Overlay a live 0/1/x digit on each 1-bit input/output box so the value is
+   * readable at a glance (DigitalJS only fills the box black/white). The
+   * overlays live inside .djs-wrapper, so they pan/zoom with the circuit, and
+   * update on every signal change (e.g. when the user clicks an input).
+   */
+  _buildValueOverlays() {
+    if (!this._paper || !this.djsWrapper) return;
+    this.djsWrapper.querySelectorAll('.djs-valnum').forEach((e) => e.remove());
+    const graph = this._paper.model;
+    const digit = (/** @type {any} */ sig) => (!sig ? 'x' : sig.isHigh ? '1' : sig.isLow ? '0' : 'x');
+    for (const cell of graph.getElements()) {
+      const type = cell.get('type');
+      if ((type !== 'Input' && type !== 'Output') || cell.get('bits') !== 1) continue;
+      const sigKey = type === 'Input' ? 'outputSignals' : 'inputSignals';
+      const port = type === 'Input' ? 'out' : 'in';
+      const el = document.createElement('div');
+      el.className = 'djs-valnum';
+      this.djsWrapper.appendChild(el);
+      const place = () => {
+        const b = cell.getBBox();
+        el.style.left = `${b.x + b.width / 2}px`;
+        el.style.top = `${b.y + b.height / 2}px`;
+      };
+      const update = () => {
+        const d = digit((cell.get(sigKey) || {})[port]);
+        el.textContent = d;
+        el.dataset.v = d;
+      };
+      place(); update();
+      cell.on(`change:${sigKey}`, update);
+      cell.on('change:position change:size', place);
+    }
   }
 }
 

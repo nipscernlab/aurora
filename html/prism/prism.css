@@ -741,10 +741,26 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   transform-origin: 0 0;
   will-change: transform;
 }
-.djs-paper { display: inline-block; }
+.djs-paper { display: inline-block; background: transparent; }
 
-/* Keep the paper transparent so the soft container surface shows through. */
-.djs-container .joint-paper { background: transparent; }
+/* Keep the paper transparent so the single container surface shows through
+ * (beats DigitalJS's own .joint-paper.joint-theme-default { #FFFFFF }). */
+.djs-container .joint-paper,
+.djs-container .joint-paper.joint-theme-default { background: transparent !important; }
+
+/* Live 0/1/x digit on each 1-bit input/output box (lives inside .djs-wrapper,
+ * so it pans/zooms with the circuit). Colour picked for contrast on the box. */
+.djs-valnum {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font: 700 11px/1 'JetBrains Mono', ui-monospace, monospace;
+  pointer-events: none;
+  user-select: none;
+  z-index: 3;
+}
+.djs-valnum[data-v="1"] { color: #ffffff; }              /* on the filled (black) box */
+.djs-valnum[data-v="0"] { color: #1b2433; }              /* on the empty (white) box  */
+.djs-valnum[data-v="x"] { color: #c0492f; }              /* undefined */
 
 /* Thicker wires + crisper gate outlines for readability at a glance. */
 .djs-container .joint-link .connection,

@@ -1,0 +1,198 @@
+// ai_metadata.js — Aurora Intelligence provider/model/permission metadata +
+// pure formatters (extracted from ai_assistant_manager.js, A2 god-file
+// decomposition). Static config tables (PROVIDER_META, SUB_META, model/effort
+// lists, permission modes, token-window sizes) and stateless helpers
+// (isSubProvider, shortModelName, formatTokens, untilTime, usageRowHTML,
+// readPermissionMode, relativeTime). No instance state, no DOM.
+
+export const PROVIDER_META = {
+  // Subscription-backed: runs through the Claude Code / Claude Agent SDK,
+  // billed against the user's Pro/MAX plan — no per-token API key.
+  'claude-code': {
+    label: 'Claude Code', icon: './assets/icons/ai_claude.svg',
+    subscription: true, tagline: 'Pro / MAX plan — no API key',
+  },
+  // Subscription-backed: runs through the OpenAI Codex CLI, billed
+  // against the user's ChatGPT plan — no per-token API key.
+  'chatgpt': {
+    label: 'ChatGPT', icon: './assets/icons/ai_codex.svg',
+    subscription: true, tagline: 'ChatGPT plan — no API key',
+  },
+  openai:    { label: 'ChatGPT',  icon: './assets/icons/ai_chatgpt.svg'  },
+  anthropic: { label: 'Claude',   icon: './assets/icons/ai_claude.svg'   },
+  google:    { label: 'Gemini',   icon: './assets/icons/ai_gemini.webp'  },
+  deepseek:  { label: 'DeepSeek', icon: './assets/icons/ai_deepseek.svg' },
+  groq:      { label: 'Groq',     icon: './assets/icons/ai_groq.svg'     },
+  ollama:    { label: 'Ollama',   icon: './assets/icons/ai_ollama.svg'   },
+};
+
+// Synthetic provider entry for Claude Code — it is not returned by the
+// backend `listProviders()` (no API key), so the panel injects it.
+export const CLAUDE_CODE_PROVIDER = { name: 'claude-code', model: 'default', defaultModel: 'default' };
+
+// Claude Code model aliases + effort levels — surfaced as segmented
+// controls in the model popover. `effort: ''` means "let the CLI decide".
+const CLAUDE_CODE_MODELS = [
+  { id: 'default', label: 'Default' },
+  { id: 'sonnet',  label: 'Sonnet'  },
+  { id: 'opus',    label: 'Opus'    },
+  { id: 'haiku',   label: 'Haiku'   },
+];
+export const CLAUDE_CODE_EFFORT = [
+  { id: '',       label: 'Auto'  },
+  { id: 'low',    label: 'Low'   },
+  { id: 'medium', label: 'Medium'},
+  { id: 'high',   label: 'High'  },
+  { id: 'xhigh',  label: 'xHigh' },
+  { id: 'max',    label: 'Max'   },
+];
+
+// Synthetic provider entry for ChatGPT (Codex CLI) — like Claude Code it
+// is subscription-authed, so the backend `listProviders()` never returns
+// it and the panel injects it.
+export const CHATGPT_PROVIDER = { name: 'chatgpt', model: 'default', defaultModel: 'default' };
+
+// Codex model presets surfaced as a segmented control. We only expose
+// `default` — explicit `-m gpt-5-codex` and `-m gpt-5` both fail on a
+// ChatGPT subscription with:
+//   "The '<model>' model is not supported when using Codex with a
+//    ChatGPT account."
+// "default" omits `-m` entirely and lets the CLI pick whatever the
+// signed-in plan is entitled to (Plus / Pro / Business / Edu / Enterprise).
+export const CHATGPT_MODELS = [
+  { id: 'default', label: 'Default' },
+];
+
+// Per-subscription-provider specifics. The panel's subscription UI
+// (status row, usage bars, model presets) is driven entirely off this
+// table so Claude Code and ChatGPT share one code path.
+export const SUB_META = {
+  'claude-code': {
+    models: CLAUDE_CODE_MODELS,
+    hasEffort: true,
+    statusApi: 'getClaudeCodeStatus',
+    usageApi: 'getClaudeCodeUsage',
+    modelStoreKey: 'aurora-ai-claude-code-model',
+    cliName: 'Claude Code',
+    notInstalled: 'Claude Code not installed',
+    installHint: 'Reinstall Aurora, or run: npm i -g @anthropic-ai/claude-code',
+    loginCmd: 'claude login',
+  },
+  'chatgpt': {
+    models: CHATGPT_MODELS,
+    hasEffort: false,
+    statusApi: 'getCodexStatus',
+    usageApi: 'getCodexUsage',
+    modelStoreKey: 'aurora-ai-chatgpt-model',
+    cliName: 'Codex',
+    notInstalled: 'Codex CLI not installed',
+    installHint: 'Reinstall Aurora, or run: npm i -g @openai/codex',
+    loginCmd: 'codex login',
+  },
+};
+
+/** True when `name` is a subscription-backed CLI provider. */
+export function isSubProvider(name) {
+  return !!SUB_META[name];
+}
+
+// Anti-freeze watchdog: if a streaming turn goes this long with NO chat event
+// AND nothing pending (no in-flight tool, no open ask/confirm card), it's
+// treated as wedged and the UI self-heals back to idle. Generous so a slow
+// model or a long single tool never trips it falsely.
+export const STREAM_STALL_MS = 180000;
+
+// Hard ceiling for the watchdog. A running tool chip normally blocks the stall
+// recovery (a real tool can run for minutes), but a chip can get STUCK (a
+// tool-result that never matched it) and would then suppress the rescue
+// forever. No legitimate tool runs longer than the tool_bridge backstops
+// (≤10 min), so past this ceiling we reap regardless of running chips.
+export const STREAM_STALL_HARD_MS = 12 * 60 * 1000;
+
+/** Strip vendor prefixes / date suffixes so a model id fits on the chip. */
+export function shortModelName(model) {
+  if (!model) return '';
+  return String(model)
+    .replace(/^(claude-|gpt-|gemini-|models\/|deepseek-)/i, '')
+    .replace(/-\d{8}$/, '')
+    .replace(/-latest$/, '');
+}
+
+/** Compact a token count: 1234 → "1.2k", 12 → "12". */
+export function formatTokens(n) {
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return (v / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (v >= 1_000)     return (v / 1_000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(v);
+}
+
+// Rate-limit window display metadata, keyed by the CLI's `rateLimitType`.
+export const WINDOW_META = {
+  five_hour: { label: '5-hour window', icon: 'ph-hourglass-medium' },
+  weekly:    { label: 'This week',     icon: 'ph-calendar-dots'    },
+};
+
+/** Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp. */
+export function untilTime(unixSeconds) {
+  const ms = Number(unixSeconds) * 1000 - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return 'now';
+  const m = Math.round(ms / 60000);
+  if (m < 60)   return `in ${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24)   return `in ${h}h ${m % 60}m`;
+  return `in ${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+/**
+ * One row in the Claude Code usage panel: a label, a value, and a thin
+ * bar. `state` colours the fill (ok / mid / high / count); `pct` is the
+ * fill width (0–100).
+ */
+export function usageRowHTML(label, icon, valText, state, pct) {
+  return `
+    <div class="ai-usage" data-state="${state}">
+      <div class="ai-usage-top">
+        <span class="ai-usage-label"><i class="ph ${icon}" aria-hidden="true"></i>${label}</span>
+        <span class="ai-usage-val">${valText || ''}</span>
+      </div>
+      <div class="ai-usage-track"><div class="ai-usage-fill" style="width:${pct || 0}%"></div></div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/* ============================================================
+ *  Tool permission modes
+ *
+ *  Persisted in localStorage; chosen from the chat's gear popover.
+ *    ask    — every tool call needs an inline OK (read and write)
+ *    writes — reads run freely, writes need an inline OK (default)
+ *    allow  — nothing is prompted; the assistant is fully autonomous
+ * ========================================================== */
+
+export const PERMISSION_STORE_KEY = 'aurora-ai-permission';
+export const PERMISSION_MODES = [
+  { id: 'ask',    label: 'Ask every time',     hint: 'Confirm every action' },
+  { id: 'writes', label: 'Ask before changes', hint: 'Reads run freely; changes ask first' },
+  { id: 'allow',  label: 'Allow all',          hint: 'Full autonomy — no prompts' },
+];
+
+export function readPermissionMode() {
+  try {
+    const v = localStorage.getItem(PERMISSION_STORE_KEY);
+    if (PERMISSION_MODES.some((m) => m.id === v)) return v;
+  } catch (_) { /* fall through to default */ }
+  return 'writes';
+}
+
+/** Compact "2 min ago" / "3 d ago" / locale date stamp. */
+export function relativeTime(ts) {
+  if (!ts) return '';
+  const diff = Date.now() - Number(ts);
+  if (diff < 60_000)      return 'just now';
+  if (diff < 3_600_000)   return `${Math.floor(diff / 60_000)} min ago`;
+  if (diff < 86_400_000)  return `${Math.floor(diff / 3_600_000)} h ago`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)} d ago`;
+  try { return new Date(Number(ts)).toLocaleDateString(); }
+  catch (_) { return ''; }
+}

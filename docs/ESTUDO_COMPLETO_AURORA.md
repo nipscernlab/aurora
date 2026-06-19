@@ -2073,3 +2073,11 @@ entry points que a classe usa (`escapeHtml`, `renderMarkdown`, `highlightCodeBlo
 `aiPathIsText`, `TRUST_LINKS_KEY`). Byte-idêntico (script, verificado vs `git show` 216-788). God-file **−570
 linhas** (4132→3562). +7 testes (escape, markdown headings/bold/listas/fence, **XSS guard**, aiPathIsText). Green bar
 (**395 unit [+7]**, build, 9 E2E).
+
+**AI-3 — `js/ai/ai_metadata.js` (FEITO):** movidos os metadados de provider/model/permission + formatters **puros**
+(~191 linhas) — tabelas de config (`PROVIDER_META`/`SUB_META`/listas de modelo/effort/permissão/janelas de token) +
+helpers stateless (`isSubProvider`/`shortModelName`/`formatTokens`/`untilTime`/`usageRowHTML`/`readPermissionMode`/
+`relativeTime`). Sem estado/DOM; 18 símbolos exportados (`CLAUDE_CODE_MODELS` fica interno). Byte-idêntico. God-file
+**−186 linhas** (3562→3376). +6 testes (isSubProvider, formatTokens k/M, shortModelName, permission modes c/
+localStorage). Com isso **toda a região de helpers de módulo do ai_assistant saiu** (4592→3376, **−1216**); o que
+resta é a CLASSE. Green bar (**401 unit [+6]**, build, 9 E2E).

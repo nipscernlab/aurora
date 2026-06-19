@@ -1064,8 +1064,13 @@ class PRISMViewer {
       this.djsWrapper.appendChild(el);
       const place = () => {
         const b = cell.getBBox();
-        el.style.left = `${b.x + b.width / 2}px`;
-        el.style.top = `${b.y + b.height / 2}px`;
+        // Map model coords → paper pixels so we account for the paper's own
+        // origin/scale (digitaljs fitToContent moves it); the overlay lives in
+        // .djs-wrapper alongside the paper, so our pan/zoom transform applies to
+        // both equally and they stay aligned.
+        const p = this._paper.localToPaperPoint(b.x + b.width / 2, b.y + b.height / 2);
+        el.style.left = `${p.x}px`;
+        el.style.top = `${p.y}px`;
       };
       const update = () => {
         const d = digit((cell.get(sigKey) || {})[port]);

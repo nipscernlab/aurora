@@ -753,14 +753,16 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .djs-valnum {
   position: absolute;
   transform: translate(-50%, -50%);
-  font: 700 11px/1 'JetBrains Mono', ui-monospace, monospace;
+  font: 700 12px/1 'JetBrains Mono', ui-monospace, monospace;
+  /* White glyph + dark halo → legible on ANY background (black box, white box,
+   * the light surface, or a coloured lamp), so position offsets never hide it. */
+  color: #ffffff;
+  text-shadow: 0 0 2px #000, 0 0 3px #000, 0 0 4px #000;
   pointer-events: none;
   user-select: none;
   z-index: 3;
 }
-.djs-valnum[data-v="1"] { color: #ffffff; }              /* on the filled (black) box */
-.djs-valnum[data-v="0"] { color: #1b2433; }              /* on the empty (white) box  */
-.djs-valnum[data-v="x"] { color: #c0492f; }              /* undefined */
+.djs-valnum[data-v="x"] { color: #ffd9cf; }              /* undefined — slight warm tint */
 
 /* Thicker wires + crisper gate outlines for readability at a glance. */
 .djs-container .joint-link .connection,

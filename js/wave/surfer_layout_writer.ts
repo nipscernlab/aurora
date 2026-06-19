@@ -643,7 +643,7 @@ function findTypedVars(scopes: VcdScope[], instancePath: string, prefix: string)
   return out;
 }
 
-function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string, prefix: string, format: string, typeLabel: string, filter: Set<string> | null): void {
+function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string, prefix: string, format: string, typeLabel: string, tag: string, filter: Set<string> | null): void {
   const groups = new Map<string, Array<{ sig: EnrichedSig; idx: number }>>();
   for (const s of slListSignals(scopes, instancePath)) {
     if (!s.name.startsWith(prefix)) continue;
@@ -659,7 +659,7 @@ function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string,
     const m = baseName.match(/_f_(.*?)_v_(.*?)_e_/);
     const vr = m ? m[2] : baseName;
     const funcLabel = m ? (m[1] === 'global' ? 'global' : `${m[1]}()`) : '';
-    const groupLabel = `${typeLabel} ${vr} in ${funcLabel}`;
+    const groupLabel = `${typeLabel} ${vr} in ${funcLabel}${tag}`;
     const elemItems: SurferItem[] = [];
     let i = 0;
     for (const { sig } of elems) {
@@ -675,13 +675,18 @@ function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string,
   }
 }
 
-function buildVariables(scopes: VcdScope[], instancePath: string, filter: Set<string> | null, complexFormat: string | null): SurferItem[] {
+function buildVariables(scopes: VcdScope[], instancePath: string, procName: string | null, filter: Set<string> | null, complexFormat: string | null): SurferItem[] {
   const out: SurferItem[] = [];
   const cpx = complexFormat || 'Binary'; // mapping de decode complexo, ou Binary cru
+  // Em designs MULTI-processador a MESMA variavel ("float acc in global") repete
+  // entre procs sem rotulo que diga de qual proc e — so o grupo dobravel ajudava.
+  // A tag (procType) desambigua, espelhando a das instrucoes (buildInstructions).
+  // Em single-proc procName e null e o sufixo some (sem ruido onde nao ha duvida).
+  const tag = procName ? ` (${procName})` : '';
   const pushTyped = (list: Array<{ sig: EnrichedSig; varName: string; func: string }>, format: string, label: string): void => {
     for (const v of list) {
       if (!passesFilter(filter, v.sig.fullName)) continue;
-      out.push({ kind: 'variable', scope: instancePath.split('.'), name: v.sig.name, format, color: 'Orange', manualName: `${label} ${v.varName} in ${v.func}` });
+      out.push({ kind: 'variable', scope: instancePath.split('.'), name: v.sig.name, format, color: 'Orange', manualName: `${label} ${v.varName} in ${v.func}${tag}` });
     }
   };
   // Floats (me2_/arr_me2_) ficam como NUMERO (FP), nao como onda analog: uma
@@ -689,9 +694,9 @@ function buildVariables(scopes: VcdScope[], instancePath: string, filter: Set<st
   pushTyped(findTypedVars(scopes, instancePath, 'me1_'), 'Signed', 'int');
   pushTyped(findTypedVars(scopes, instancePath, 'me2_'), 'FP: 32-bit IEEE 754', 'float');
   pushTyped(findTypedVars(scopes, instancePath, 'comp_me3_'), cpx, 'comp');
-  pushArrays(out, scopes, instancePath, 'arr_me1_', 'Signed', 'int', filter);
-  pushArrays(out, scopes, instancePath, 'arr_me2_', 'FP: 32-bit IEEE 754', 'float', filter);
-  pushArrays(out, scopes, instancePath, 'comp_arr_me3_', cpx, 'comp', filter);
+  pushArrays(out, scopes, instancePath, 'arr_me1_', 'Signed', 'int', tag, filter);
+  pushArrays(out, scopes, instancePath, 'arr_me2_', 'FP: 32-bit IEEE 754', 'float', tag, filter);
+  pushArrays(out, scopes, instancePath, 'comp_arr_me3_', cpx, 'comp', tag, filter);
   return out;
 }
 
@@ -758,7 +763,7 @@ export function buildSurferLayout(input: BuildSurferLayoutInput): { content: str
     pushSection(procItems, 'I/O', buildIo(scopes, proc.instancePath, filter));
     const { asmFormat, srcFormat } = resolveProcMappings(scopes, proc, tradByProcType, ns, mappings);
     pushSection(procItems, 'Instructions', buildInstructions(scopes, proc.instancePath, proc.procType, asmFormat, srcFormat));
-    pushSection(procItems, 'Variables', buildVariables(scopes, proc.instancePath, filter, cpxFormat));
+    pushSection(procItems, 'Variables', buildVariables(scopes, proc.instancePath, procs.length > 1 ? proc.procType : null, filter, cpxFormat));
     pushSection(procItems, 'Flags', buildFlags(scopes, proc.corePath, filter), false); // Flags fecha por padrao (debug secundario)
     items.push(mkGroup(proc.instanceName, procItems, true));
   }

@@ -2316,3 +2316,41 @@ testada. Nada toca estado/save do TabManager — só reflete o `.active` e ativa
 (ESLint, tsc, 4 guards, **476 unit [+5]**, vite build, **9 E2E** — que abrem arquivos = criam/ativam abas, exercendo
 o componente no app real). O rewrite data-driven completo fica disponível se o usuário quiser pagar o risco; não é
 pré-requisito de nada.
+
+### 14.45 `<aurora-panel>` — shell semântico do painel (não o docking-rewrite) — 19/06/2026 — FEITO
+A nota de roadmap pedia `<aurora-panel> dockável`. **Re-mapeando:** o "docking" de verdade (arrastar painéis entre
+zonas, persistir layout) é uma rearquitetura grande do grid/layout sem cobertura E2E — mesma decisão do aurora-tree
+passo 2 (rewrite arriscado → endurecimento seguro). Entreguei o **shell semântico seguro** que o design system pede,
+no padrão dos outros (`<aurora-tabs>`/`<aurora-editor>`/`<aurora-statusbar>`): **`js/components/aurora-panel.js`** —
+LitElement `render()=><slot>` + `connectedCallback` que dá **`role="region"` + `aria-label`** (landmark a11y), e
+exporta o helper **PURO `nextCollapseState(width, threshold)`** (`width < threshold`). O **sidebar** (`.file-tree-
+container`) virou `<aurora-panel class="file-tree-container" role="region" aria-label="File tree"
+data-i18n-aria-label="fileTree.label">` (a classe é preservada → o CSS `display:flex;column` e o `resize.js` que acha
+por `.file-tree-container` continuam funcionando; o `<slot>` é `display:contents`, então os filhos light-DOM
+(resizer/header/actions) ficam idênticos — mesma técnica do `<aurora-editor>`). O `resize.js` **importa** o
+componente (registra o elemento) e usa `nextCollapseState` no `applyFileTreeWidth` (a regra de threshold do collapse
+agora vive num único lugar testado). NÃO toca docking/persistência. **+3 testes** (`aurora_panel.test.js`:
+nextCollapseState abaixo/no/acima do threshold + coerção de string). Green bar (ESLint, tsc, 4 guards, vite build,
+**9 E2E** — que sobem o renderer real com o sidebar embrulhado). O docking real fica disponível se o usuário quiser.
+
+### 14.46 Surfer + GTKWave — tag `(procType)` nas variáveis em multi-proc — 19/06/2026 — FEITO
+Polish v4+ do Surfer externo (item aberto no §13). Antes, a tag `(procType)` só ia nas **instruções**
+(`Assembly (cnn_features)`); as **variáveis** repetiam entre processadores (`float acc in global` igual em todos os
+procs, só desambiguadas pelo grupo dobrável). Agora a mesma tag vai nas variáveis: em design **multi-proc**,
+`buildVariables` (Surfer, `surfer_layout_writer.ts`) e `emitVariablesSection` (GTKWave, `gtkw_proc_writer.ts`) recebem
+`procName` (= `procs.length > 1 ? proc.procType : null`) e anexam ` (procType)` ao `manual_name`/alias das variáveis
+tipadas E ao label dos grupos de array. **Single-proc fica byte-idêntico** (procName null → sufixo vazio → sem ruído
+onde não há ambiguidade). **Paridade Surfer↔GTKWave** mantida (igual à tag de instrução). **+4 testes** (surfer +
+gtkw: multi-proc tagueia variável+array; single-proc não). Green bar.
+
+### 14.47 Git badges (M/A/D…) alinhados à direita nas DUAS file trees — 19/06/2026 — FEITO
+A pedido do usuário: o badge de status git deve ficar **flush à direita** de cada arquivo nas duas árvores (folders +
+files). Re-mapeado: na view de **folders** o badge já era a última flex-child de `.file-item` (com `.file-item-row`
+`flex:1`) → direita; na view de **files** ele era anexado em `.verilog-file-info`, que **para antes** do botão de
+delete do hover (`.verilog-file-actions`), então não ficava flush e deslocava no hover. Correções: (1)
+`css/tree/file_tree.css` — `.git-deco` `margin-left: 6px` → **`margin-left: auto`** (empurra pra borda direita em
+qualquer flex row; inócuo onde um filho já cresce) + `padding-left: 8px` (gap de um nome longo/truncado); (2)
+`js/tree/git_decorations.js` — na view de files o badge passa a ser hospedado em **`.verilog-file-content`** (a row
+full-width), virando o elemento mais à direita, flush e estável no hover, igual à view de folders. `_paint`/observer/
+tint inalterados. Sem novo teste de unidade (alinhamento é CSS+DOM; a lógica pura `computeDecorations`/`letterOf`
+segue testada e intocada) — validado por raciocínio + 9 E2E (app sobe com as decorações).

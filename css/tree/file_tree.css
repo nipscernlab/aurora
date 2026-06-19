@@ -191,7 +191,11 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
  * ------------------------------------------------------------------------- */
 .git-deco {
   flex: 0 0 auto;
-  margin-left: 6px;
+  /* Pin the badge to the row's RIGHT edge in BOTH tree views (folders + files).
+     `auto` consumes the free space to its left; harmless where an inner element
+     already grows (flex:1). padding-left keeps a gap from a long/truncated name. */
+  margin-left: auto;
+  padding-left: 8px;
   padding-right: 2px;
   font-size: 11px;
   font-weight: 700;

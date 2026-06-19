@@ -6,6 +6,10 @@
  * `transition: width 0.28s` que existia em layout.css.
  */
 
+// Registers <aurora-panel> (the file-tree sidebar's semantic shell) and supplies
+// the shared collapse-threshold rule used by applyFileTreeWidth below.
+import { nextCollapseState } from '../components/aurora-panel.js';
+
 const verticalResizer   = document.querySelector('.resizer-vertical');
 const horizontalResizer = document.querySelector('.resizer-horizontal');
 const fileTreeContainer = document.querySelector('.file-tree-container');
@@ -71,11 +75,7 @@ function constrainTerminalHeight(h) {
 function applyFileTreeWidth(w) {
   if (!fileTreeContainer) return;
   fileTreeContainer.style.width = w + 'px';
-  if (w < COLLAPSED_THRESHOLD) {
-    fileTreeContainer.classList.add('is-collapsed');
-  } else {
-    fileTreeContainer.classList.remove('is-collapsed');
-  }
+  fileTreeContainer.classList.toggle('is-collapsed', nextCollapseState(w, COLLAPSED_THRESHOLD));
 }
 
 // Public toggle for the sidebar — exposed on window so the toolbar button

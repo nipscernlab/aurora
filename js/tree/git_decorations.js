@@ -162,7 +162,11 @@ class GitDecorations {
       });
       // --- "files" (verilog) view: file items ---
       treeRoot.querySelectorAll('.verilog-file-item[data-file-path]').forEach((item) => {
-        const host = item.querySelector('.verilog-file-info') || item;
+        // Host the badge on the FULL-WIDTH row wrapper (not .verilog-file-info,
+        // which stops short of the hover delete-button) so the badge sits flush
+        // at the row's right edge — same alignment as the folders view, and it
+        // no longer shifts left when the hover actions appear.
+        const host = item.querySelector('.verilog-file-content') || item;
         const nameEl = item.querySelector('.verilog-file-name');
         const p = norm(item.getAttribute('data-file-path'));
         this._paint(host, nameEl, this._fileStatus.get(p) || null);

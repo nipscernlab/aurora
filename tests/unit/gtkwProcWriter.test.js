@@ -203,6 +203,40 @@ describe('buildAuroraGtkw', () => {
         expect(content).toContain('comp z in main()');
     });
 
+    it('multi-proc: as VARIAVEIS levam a tag (procType) (paridade com o Surfer)', () => {
+        const scopes = [
+            scope('tb', [{ name: 'clk' }]),
+            scope('tb.p1', [
+                { name: 'valr2' }, { name: 'linetabs' },
+                { name: 'me1_f_global_v_acc_e_', width: 32, range: '31:0' },
+            ]),
+            scope('tb.p2', [
+                { name: 'valr2' }, { name: 'linetabs' },
+                { name: 'me1_f_global_v_acc_e_', width: 32, range: '31:0' },
+            ]),
+        ];
+        const { content, processorCount } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes, binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
+        });
+        expect(processorCount).toBe(2);
+        expect(content).toContain('int acc in global (p1)');
+        expect(content).toContain('int acc in global (p2)');
+    });
+
+    it('single-proc NAO tagueia a variavel (sem ruido onde nao ha duvida)', () => {
+        const scopes = [
+            scope('tb.proc', [
+                { name: 'valr2' }, { name: 'linetabs' },
+                { name: 'me1_f_global_v_acc_e_', width: 32, range: '31:0' },
+            ]),
+        ];
+        const { content } = buildAuroraGtkw({
+            vcdPath: 'a', gtkwPath: 'b', scopes, binDir: 'C:\\bin', tempBaseDir: 'C:\\Temp',
+        });
+        expect(content).toContain('int acc in global');
+        expect(content).not.toContain('int acc in global (');
+    });
+
     it('process filter pra comp usa sintaxe `^>N <path>` (nao `^^N`)', () => {
         // GTKWave aceita dois prefixos de filter inline:
         //   ^N  <path>  → file filter (translation table .txt)

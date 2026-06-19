@@ -308,7 +308,7 @@
        MAIN — file tree + editor/terminal stack
        ============================================================ -->
   <div class="main-container">
-    <div class="file-tree-container">
+    <aurora-panel class="file-tree-container" role="region" aria-label="File tree" data-i18n-aria-label="fileTree.label">
         <div class="resizer-vertical"></div>
         <div class="file-tree-header">
             <span class="file-tree-label" data-i18n="fileTree.label">FILE TREE</span>
@@ -378,7 +378,7 @@
         <div class="file-tree-actions">
             <aurora-tree id="file-tree" class="file-tree"></aurora-tree>
         </div>
-    </div>
+    </aurora-panel>
 
     <div class="editor-terminal-container">
         <!-- Welcome overlay sits HERE (sibling of editor + terminal) so the

@@ -244,6 +244,46 @@ describe('buildSurferLayout — grupos por processador (multi-proc)', () => {
         expect(content).toContain('manual_name: Some("Assembly (p1)")');
         expect(content).toContain('manual_name: Some("Assembly (p2)")');
     });
+
+    it('multi-proc: as VARIAVEIS levam a tag (procType) pra desambiguar entre procs', () => {
+        const sc = [
+            scope('tb', [{ name: 'clk' }]),
+            scope('tb.p1', [
+                { name: 'valr2', range: '31:0' }, { name: 'linetabs', range: '19:0' },
+                { name: 'me1_f_global_v_acc_e_', range: '31:0' },
+                { name: 'arr_me2_f_global_v_w_e_0000', range: '31:0' },
+                { name: 'arr_me2_f_global_v_w_e_0001', range: '31:0' },
+            ]),
+            scope('tb.p2', [
+                { name: 'valr2', range: '31:0' }, { name: 'linetabs', range: '19:0' },
+                { name: 'me1_f_global_v_acc_e_', range: '31:0' },
+            ]),
+        ];
+        const { content } = buildSurferLayout({ vcdPath: 'x.vcd', scopes: sc, tbModule: 'tb' });
+        // Variavel tipada: "int acc in global" agora carrega "(p1)"/"(p2)".
+        expect(content).toContain('manual_name: Some("int acc in global (p1)")');
+        expect(content).toContain('manual_name: Some("int acc in global (p2)")');
+        // Array tambem: o label do Group do array leva a tag.
+        expect(content).toContain('name: "float w in global (p1)"');
+        // sem a tag (comportamento antigo) NAO deve aparecer mais em multi-proc.
+        expect(content).not.toContain('manual_name: Some("int acc in global")');
+    });
+});
+
+describe('buildSurferLayout — single-proc NAO tagueia variaveis (sem ruido)', () => {
+    const scopes = [
+        scope('tb', [{ name: 'clk' }]),
+        scope('tb.proc', [
+            { name: 'valr2', range: '31:0' }, { name: 'linetabs', range: '19:0' },
+            { name: 'me1_f_global_v_acc_e_', range: '31:0' },
+        ]),
+    ];
+    it('com 1 proc a variavel fica "int acc in global" (sem "(proc)")', () => {
+        const { content, processorCount } = buildSurferLayout({ vcdPath: 'x.vcd', scopes, tbModule: 'tb' });
+        expect(processorCount).toBe(1);
+        expect(content).toContain('manual_name: Some("int acc in global")');
+        expect(content).not.toContain('manual_name: Some("int acc in global (proc)")');
+    });
 });
 
 describe('convertTradToSurferMapping (trad → mapping translator do Surfer)', () => {

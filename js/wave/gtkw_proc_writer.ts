@@ -574,15 +574,15 @@ function findTypedVars(scopes: ScopeLike[], instancePath: string, prefix: string
     return out;
 }
 
-function emitTypedVars(lines: string[], scopes: ScopeLike[], instancePath: string, paths: ProcPaths, counter: FilterCounter, filter: Set<string> | null): void {
+function emitTypedVars(lines: string[], scopes: ScopeLike[], instancePath: string, paths: ProcPaths, counter: FilterCounter, filter: Set<string> | null, tag: string): void {
     const ints   = findTypedVars(scopes, instancePath, 'me1_');
     const floats = findTypedVars(scopes, instancePath, 'me2_');
     const comps  = findTypedVars(scopes, instancePath, 'comp_me3_');
 
-    for (const v of ints)   emitSignal(lines, v.sig, FMT_SIGNED_DEC, COLOR_ORANGE, `int ${v.var} in ${v.func}`, { filter });
-    for (const v of floats) emitSignal(lines, v.sig, FMT_REAL,       COLOR_ORANGE, `float ${v.var} in ${v.func}`, { filter });
+    for (const v of ints)   emitSignal(lines, v.sig, FMT_SIGNED_DEC, COLOR_ORANGE, `int ${v.var} in ${v.func}${tag}`, { filter });
+    for (const v of floats) emitSignal(lines, v.sig, FMT_REAL,       COLOR_ORANGE, `float ${v.var} in ${v.func}${tag}`, { filter });
     for (const v of comps) {
-        emitSignal(lines, v.sig, FMT_BIN, COLOR_ORANGE, `comp ${v.var} in ${v.func}`, {
+        emitSignal(lines, v.sig, FMT_BIN, COLOR_ORANGE, `comp ${v.var} in ${v.func}${tag}`, {
             procFilterPath: paths.comp2gtkw,
             counter,
             filter,
@@ -592,7 +592,7 @@ function emitTypedVars(lines: string[], scopes: ScopeLike[], instancePath: strin
 
 // Arrays: nomes terminam com um sufixo numerico de 4 digitos. Agrupa
 // por base (sem o sufixo) e cria um group GTKWave por base.
-function emitArrayVars(lines: string[], scopes: ScopeLike[], instancePath: string, prefix: string, fmt: number, typeLabel: string, procFilterPath: string | null, counter: FilterCounter, filter: Set<string> | null): void {
+function emitArrayVars(lines: string[], scopes: ScopeLike[], instancePath: string, prefix: string, fmt: number, typeLabel: string, procFilterPath: string | null, counter: FilterCounter, filter: Set<string> | null, tag: string): void {
     const sigs = listSignalsInScope(scopes, instancePath);
     const groups = new Map<string, Array<{ sig: EnrichedSignal; idx: number }>>(); // baseName -> [{ sig, idx }]
     for (const s of sigs) {
@@ -613,7 +613,7 @@ function emitArrayVars(lines: string[], scopes: ScopeLike[], instancePath: strin
         const fn = m ? m[1] : '';
         const vr = m ? m[2] : baseName;
         const funcLabel = fn === 'global' ? 'global' : `${fn}()`;
-        const groupLabel = `${typeLabel} ${vr} in ${funcLabel}`;
+        const groupLabel = `${typeLabel} ${vr} in ${funcLabel}${tag}`;
         emitGroupBegin(lines, groupLabel);
         let i = 0;
         for (const { sig } of items) {
@@ -627,12 +627,15 @@ function emitArrayVars(lines: string[], scopes: ScopeLike[], instancePath: strin
     }
 }
 
-function emitVariablesSection(lines: string[], scopes: ScopeLike[], instancePath: string, paths: ProcPaths, counter: FilterCounter, filter: Set<string> | null): void {
+function emitVariablesSection(lines: string[], scopes: ScopeLike[], instancePath: string, paths: ProcPaths, counter: FilterCounter, filter: Set<string> | null, procName: string | null): void {
     emitComment(lines, 'Variables **********');
-    emitTypedVars(lines, scopes, instancePath, paths, counter, filter);
-    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC, 'int',   null,             counter, filter);
-    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_REAL,       'float', null,             counter, filter);
-    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,        'comp',  paths.comp2gtkw,  counter, filter);
+    // Em multi-proc a mesma variavel ("float acc in global") repete entre procs;
+    // a tag (procType) desambigua, igual a das instrucoes. Single-proc: sem tag.
+    const tag = procName ? ` (${procName})` : '';
+    emitTypedVars(lines, scopes, instancePath, paths, counter, filter, tag);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me1_',      FMT_SIGNED_DEC, 'int',   null,             counter, filter, tag);
+    emitArrayVars(lines, scopes, instancePath, 'arr_me2_',      FMT_REAL,       'float', null,             counter, filter, tag);
+    emitArrayVars(lines, scopes, instancePath, 'comp_arr_me3_', FMT_BIN,        'comp',  paths.comp2gtkw,  counter, filter, tag);
 }
 
 function emitFlagsSection(lines: string[], scopes: ScopeLike[], corePath: string | null, filter: Set<string> | null): void {
@@ -922,7 +925,7 @@ export function buildAuroraGtkw({
 
         emitIoSection(lines, scopes, proc.instancePath, filter);
         emitInstructionsSection(lines, scopes, proc.instancePath, proc.procType, paths, counter, filter);
-        emitVariablesSection(lines, scopes, proc.instancePath, paths, counter, filter);
+        emitVariablesSection(lines, scopes, proc.instancePath, paths, counter, filter, procs.length > 1 ? proc.procType : null);
         emitFlagsSection(lines, scopes, proc.corePath, filter);
     });
 

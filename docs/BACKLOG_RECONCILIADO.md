@@ -77,9 +77,12 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   `@openai/codex` (239MB) saíram do bundle (~457MB a menos no instalador); baixam do registry npm no 1º uso,
   com verificação de integridade sha512, cache em `userData/cli-cache`, progresso no chat e fallback. *(precisa
   teste ao vivo: 1ª mensagem num provider de assinatura baixa o CLI)* Ver §14.28.
-- [x] **O9** DigitalJS — FEITO (18/06): o esquemático estático já era o PRISM (Yosys+netlistsvg); o O9 real é
-  **simulação interativa** — `digitaljs` + `yosys2digitaljs` (deps novas), modo "Simular" na janela PRISM, engine
-  síncrono + layout `dagre` (zero Web Worker). *(precisa teste ao vivo: abrir PRISM → "Simular")* Ver §14.29.
+- [x] **O9** DigitalJS — FEITO + **validado ao vivo** (18/06): o esquemático estático já era o PRISM
+  (Yosys+netlistsvg); o O9 real é **simulação interativa** — `digitaljs` + `yosys2digitaljs` (deps novas;
+  `jquery`/`jquery-ui` também), modo "Simular" na janela PRISM, engine síncrono + `dagre` (zero Web Worker),
+  lazy-load. Endurecido nos testes ao vivo (jQuery/jquery-ui, timeout+guard de tamanho p/ designs grandes) e
+  polido (rótulos limpos, centralizar/zoom/pan/drag iguais ao PRISM, fundo uniforme, dígito 0/1/x ao vivo nas
+  caixinhas). Ver §14.29 + §14.31. *(Os CLIs de IA viraram pin exato — §14.28/§14.31.)*
 - [x] **G4** auditoria de i18n — FEITO (18/06): `scripts/check-i18n.js` (en/pt sync + chaves indefinidas, virou
   guard de CI), 5 chaves faltantes adicionadas (EN+PT), 661 chaves em sincronia. Ver §14.25.
 - [x] **G6** governança de modelos — FEITO (18/06): (a) robustez — `resolveModelId` (alias 'latest'/'default' +

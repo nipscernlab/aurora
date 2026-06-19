@@ -1641,3 +1641,43 @@ fortalecer a heurística.
 check-pinned, `deadcode`, **316 unit** (6 novos em `modelGovernance.test.js`: resolveModelId + a heurística),
 `vite build`, **9 E2E**. Comportamento ao vivo (fallback real num id aposentado, badge de tokens na lista) é
 **validado pelo usuário**.
+
+### 14.31 O9 — endurecimento nos testes ao vivo + UX do "Simular" — 18/06/2026 — FEITO
+O O9 passou no green bar mas **o E2E não abre a janela PRISM**, então vários problemas só apareceram no teste ao
+vivo do usuário. Sequência de correções (todas verdes + commitadas):
+
+1. **PRISM nem carregava** (`e3905f8`): o `import { Circuit } from 'digitaljs'` no topo do `prism.js` avaliava o
+   digitaljs (e o jquery-ui) no load do módulo; o jquery-ui referencia o `jQuery` global, que o Vite não expõe →
+   `ReferenceError: jQuery is not defined` quebrava o módulo INTEIRO do PRISM (até o esquemático). Fix: digitaljs
+   virou **lazy** (`_loadDigitalJS`, `await import('digitaljs')` só no "Simular"), com `window.jQuery` setado
+   antes. O chunk do PRISM voltou de ~2MB pra ~23KB.
+2. **"Simular" travava** (`f64b515`): o convert `yosys2digitaljs` é **síncrono no processo main** → num netlist
+   grande congela o app. Fixes: **timeout de 45s** no yosys + **guard de tamanho** (recusa > 3000 células com
+   mensagem clara) + erro auto-some no renderer.
+3. **`npm start` bloqueado** (`b8fedce`): ao adicionar o `jquery` como dep, o `npm install` re-resolveu o
+   `@anthropic-ai/claude-code` de `^2.1.144` → 2.1.181 no lockfile, e o guard do B12 barrou (manifest pina
+   2.1.144). O guard fez o trabalho dele; a correção durável foi **pinar os CLIs exatos** (sem `^`) — alinhado
+   com o manifest. (Ver nota no §14.28.)
+4. **Logs de fase** (`5d34570`): instrumentei a build do DigitalJS (yosys/convert/render) no terminal pra
+   diagnosticar onde trava — yosys e convert são rápidos (processador SAPHO: 90 células, convert 14ms); o gargalo
+   real em designs grandes é a escala (daí o guard).
+5. **"e.widget is not a function"** (`52696d9`): num design pequeno, o render falhava — o jquery-ui (dialog)
+   chama `$.widget` no load, mas a fábrica não estava anexada ao jQuery global a tempo. Fix: carrego o
+   **jquery-ui completo** (`jquery-ui/dist/jquery-ui.js`) no global ANTES do digitaljs. jquery-ui declarado como
+   dep. **Aqui o "Simular" passou a funcionar de verdade** (validado pelo usuário num full adder).
+6. **UX da área de trabalho** (`723f528`, `dd05884`, `32d7ac8`): o usuário pediu polish:
+   - **Rótulos limpos** — `stripYosysLabels` no main blanka os nomes internos `$xor$<arquivo>:<linha>$n` (só o
+     símbolo do gate fica; nomes de porta a/b/sum permanecem).
+   - **Centralizar/zoom/pan/drag** com os MESMOS valores do esquemático (fator `exp(-deltaY*0.0016)`, clamp
+     0.1–5, fit ~90%) — via transform CSS num `.djs-wrapper` em volta do paper, em estado separado (não toca o
+     pan/zoom do esquemático). Botões Fit/＋/－/🏠 + roda + arrastar-vazio funcionam nos dois modos.
+   - **Fundo uniforme** — forço o paper transparente (`!important`, vence o `joint-theme-default { #FFFFFF }`) →
+     superfície única, sem a "caixa branca".
+   - **Dígito 0/1/x ao vivo** em cada caixinha de I/O de 1 bit (`_buildValueOverlays`): overlay dentro do
+     `.djs-wrapper` (acompanha zoom/pan), posicionado com `paper.localToPaperPoint` (considera o offset interno
+     do paper), branco com contorno escuro (legível em qualquer fundo), atualizando a cada mudança de sinal.
+
+**Conclusão O9:** o esquemático estático sempre foi o PRISM; o O9 adicionou a **simulação interativa** (DigitalJS)
+no modo "Simular", agora funcional + polida em designs pequenos (o alvo do simulador didático). Designs grandes
+(CNN, processador inteiro) dão mensagem clara "use a visão esquemática". **Validado ao vivo pelo usuário.**
+Green bar a cada passo (ESLint, tsc, guards, 316 unit, vite build, 9 E2E).

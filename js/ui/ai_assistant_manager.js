@@ -21,6 +21,7 @@ import { constrainTerminalHeight } from '../utils/resize.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
+import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
@@ -1649,31 +1650,18 @@ class AIAssistantManager {
     return d.innerHTML;
   }
 
-  _fmtSize(n) {
-    if (n == null) return '';
-    if (n < 1024) return `${n} B`;
-    if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
-    return `${(n / 1024 / 1024).toFixed(1)} MB`;
-  }
-
   /** Render the preview chips row above the composer. */
   _renderAttachments() {
     if (!this.attachmentsEl) return;
     const list = this.pendingAttachments;
     this.attachmentsEl.hidden = list.length === 0;
-    this.attachmentsEl.innerHTML = list.map((a) => {
-      const thumb = a.kind === 'image'
-        ? `<img class="ai-att-thumb" src="${a.dataUrl}" alt="">`
-        : `<i class="ph ph-file-text ai-att-icon" aria-hidden="true"></i>`;
-      const meta = a.kind === 'image'
-        ? ''
-        : `<span class="ai-att-meta">${this._fmtSize(a.size)}${a.clipped ? ' · clipped' : ''}</span>`;
-      return `<span class="ai-att-chip ${a.kind === 'image' ? 'is-image' : ''}" title="${this._escAtt(a.name)}">
-        ${thumb}
-        <span class="ai-att-body"><span class="ai-att-name">${this._escAtt(a.name)}</span>${meta}</span>
-        <button class="ai-att-remove" data-id="${a.id}" type="button" aria-label="Remove attachment"><i class="ph ph-x"></i></button>
-      </span>`;
-    }).join('');
+    // Pure chip markup lives in chat_attachments.js; the class still owns the
+    // element, the state, and the remove-button wiring. `esc` is the same
+    // DOM-based escaper as before, so the markup stays byte-identical.
+    const esc = (s) => this._escAtt(s);
+    this.attachmentsEl.innerHTML = list
+      .map((a) => composerChipHtml(a, esc, formatAttachmentSize))
+      .join('');
     this.attachmentsEl.querySelectorAll('.ai-att-remove').forEach((btn) => {
       btn.addEventListener('click', () => this._removeAttachment(btn.dataset.id));
     });
@@ -1684,18 +1672,8 @@ class AIAssistantManager {
     if (!bubble || !atts || !atts.length) return;
     const strip = document.createElement('div');
     strip.className = 'ai-msg-attachments';
-    strip.innerHTML = atts.map((a) => {
-      // A live image (still has its bytes) renders as a thumbnail. An image whose
-      // payload was dropped — a reopened chat keeps only the name/ext for
-      // performance — falls back to a name + icon chip, so the message keeps its
-      // context instead of going blank.
-      if (a.kind === 'image' && a.dataUrl) {
-        return `<img class="ai-att-thumb ai-att-thumb-lg" src="${a.dataUrl}" alt="${this._escAtt(a.name)}" title="${this._escAtt(a.name)}">`;
-      }
-      const icon = a.kind === 'image' ? 'ph-image' : 'ph-file-text';
-      const meta = a.size != null ? this._fmtSize(a.size) : '';
-      return `<span class="ai-att-chip" title="${this._escAtt(a.name)}"><i class="ph ${icon} ai-att-icon" aria-hidden="true"></i><span class="ai-att-body"><span class="ai-att-name">${this._escAtt(a.name)}</span>${meta ? `<span class="ai-att-meta">${meta}</span>` : ''}</span></span>`;
-    }).join('');
+    const esc = (s) => this._escAtt(s);
+    strip.innerHTML = atts.map((a) => bubbleChipHtml(a, esc, formatAttachmentSize)).join('');
     const content = bubble.querySelector('.ai-msg-content');
     (content || bubble).appendChild(strip);
   }

@@ -2154,6 +2154,18 @@ ai_assistant **3376→3375** (ganho = +26 linhas testáveis num módulo; o god-f
 isolada/testável, não o tamanho). Puro → sem revisão adversarial. Green bar
 (ESLint, tsc, 4 guards, **429 unit [+7]**, vite build, 9 E2E).
 
+**AI-6 — anexos (subconjunto puro) → `js/ai/chat_attachments.js` (FEITO 19/06/2026):** segunda peça ortogonal da
+classe. O sistema de anexos é DOM + FileReader + estado (`pendingAttachments`); o puro/testável é a **formatação +
+o markup dos chips**: `formatAttachmentSize` (B/KB/MB, ex-`_fmtSize`), `composerChipHtml` (chip da régua acima do
+input) e `bubbleChipHtml` (chip read-only dentro da bolha enviada). Os builders recebem `esc` (o **mesmo** escaper
+DOM da classe, passado como dep) e `fmtSize` por parâmetro → **markup byte-idêntico** (templates copiados verbatim,
+só `this._escAtt`→`esc`/`this._fmtSize`→`fmtSize`). A classe mantém a orquestração: FileReader (`_addFiles`/
+`_readAs`), `pendingAttachments`, inserção de nós + wiring do botão remove, e o `_escAtt` (escaper DOM, dono dela).
+`_fmtSize` saiu de vez (sem outro caller). **+7 testes** (`chat_attachments.test.js`: formatação nos limites;
+chip imagem/arquivo + clipped; bolha thumbnail vs fallback nome+ícone — com fakes de esc/fmt provando o wiring).
+ai_assistant **3375→3353 (−22)**. Mesma decisão do TM-4/AI-5 (extrai o puro, deixa DOM/IO/estado na classe). Green
+bar (ESLint, tsc, 4 guards, **436 unit [+7]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para
@@ -2187,9 +2199,10 @@ existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" 
 - **ai_assistant_manager (js/ui/) — classe `AIAssistantManager` ~3376 linhas, ~40 campos entrelaçados.** **E2E NÃO
   exercita o chat ao vivo** → bug sutil só no teste do usuário (classe-risco do O9/O11). Peças mais ortogonais
   primeiro (deps bag + delegadores): ~~**scroll**~~ — **FEITO (AI-5)**: só a matemática pura saiu (chat_scroll.js);
-  a orquestração DOM/rAF fica na classe. Próximo ortho: **anexos** (`_addFiles`/`_renderAttachments`/
-  `pendingAttachments`) — re-mapear; provável mesmo perfil (DOM+estado → extrair só o puro). Depois o núcleo profundo
-  (mais arriscado, **PAUSAR antes** — sequência
+  a orquestração DOM/rAF fica na classe. ~~Próximo ortho: **anexos**~~ — **FEITO (AI-6)**: formatação + builders de
+  chip puros (chat_attachments.js); FileReader/DOM/estado ficam na classe. Próximo = o núcleo profundo
+  (mais arriscado — o usuário pediu **"faça tudo"**, seguir sem pausar, com revisão adversarial nas peças de estado;
+  sequência
   própria): **tool-chips**, **permission-gate** (`confirmToolCall` é chamado por `tool_runner.js`),
   **provider/model UI**, **histórico** (load/save/replay), **streaming/sessão** (`_dispatchTurn`/`handleChatEvent` +
   o campo-seam `currentSessionId`). API externa a preservar: `initialize`/`toggle` (renderer), `confirmToolCall`

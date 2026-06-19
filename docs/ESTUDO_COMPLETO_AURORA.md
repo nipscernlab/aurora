@@ -2063,3 +2063,13 @@ externos**, re-importados no tab_manager pro uso interno. Byte-idêntico (script
 +12 testes (parsing, sanitizers, template C±). A detecção de tipo/ícone (`isImageFile`/`getFileIcon` — métodos
 estáticos, precisam de delegador p/ os 4 callers externos de `getFileIcon`) fica pra extração própria. Green bar
 (**388 unit [+12]**, build, 9 E2E).
+
+**AI-2 — `js/ai/chat_render.js` (FEITO, absorve o AI-4):** movida a stack COMPLETA de render texto→HTML do chat
+(~573 linhas) — syntax highlighter zero-dep, `escapeHtml`, math LaTeX→Unicode (KaTeX opcional), Markdown inline +
+bloco (headings/listas/quotes/tabelas GFM) E a linkificação de refs de arquivo (`core.v`/`my_proc.cmm:25` → spans
+clicáveis). Tudo **PURO/DOM-only** (sem estado/electronAPI/TabManager). Como markdown e file-ref estavam
+**interleaved** e ambos são "render do texto do chat", uni os dois (AI-2 absorve o AI-4) num módulo só. Exporta os 6
+entry points que a classe usa (`escapeHtml`, `renderMarkdown`, `highlightCodeBlocks`, `linkifyFileRefs`,
+`aiPathIsText`, `TRUST_LINKS_KEY`). Byte-idêntico (script, verificado vs `git show` 216-788). God-file **−570
+linhas** (4132→3562). +7 testes (escape, markdown headings/bold/listas/fence, **XSS guard**, aiPathIsText). Green bar
+(**395 unit [+7]**, build, 9 E2E).

@@ -2166,6 +2166,17 @@ chip imagem/arquivo + clipped; bolha thumbnail vs fallback nome+ícone — com f
 ai_assistant **3375→3353 (−22)**. Mesma decisão do TM-4/AI-5 (extrai o puro, deixa DOM/IO/estado na classe). Green
 bar (ESLint, tsc, 4 guards, **436 unit [+7]**, vite build, 9 E2E).
 
+**AI-7 — strip de tool-call inline → `js/ai/tool_call_text.js` (FEITO 19/06/2026):** alguns modelos (Llama/Qwen)
+emitem tool calls como TEXTO inline (blocos XML `<tool_call>`/`<function_calls>`/`<invoke>`, JSON Qwen
+`{"name":...,"arguments":{...}}`, tags órfãs) em vez de eventos estruturados. A limpeza disso é uma **cadeia de 3
+`.replace` PURA que estava DUPLICADA em 3 call sites** (`_revealSegment`, `_renderStreamingBubble`, fim de turno).
+Extraída pra `stripToolCallArtifacts(text)` (a cadeia verbatim, regexes **byte-idênticas** incl. o range CJK
+`[⺀-鿿]`, verificado por diff) + `mayHaveToolArtifacts(text)` (o pré-check barato que pula 3 scans/frame no caso
+comum). Os 3 sites viraram `(mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim()`. **Ganho duplo:
+dedup (3→1) + testável.** Comportamento idêntico. **+7 testes** (XML/JSON/órfã removidos; prosa intacta; tag
+meio-streamada incompleta preservada). ai_assistant **3353→3331 (−22)**. Green bar (ESLint, tsc, 4 guards,
+**443 unit [+7]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para

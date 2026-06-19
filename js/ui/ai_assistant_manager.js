@@ -22,6 +22,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
+import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
@@ -2072,14 +2073,7 @@ class AIAssistantManager {
    */
   _revealSegment() {
     const buf = this.segmentBuffer || '';
-    const mayHaveArtifacts = buf.indexOf('<') !== -1 || buf.indexOf('{"name"') !== -1;
-    const displayText = (mayHaveArtifacts
-      ? buf
-        .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
-        .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
-        .replace(/<\/tool_call>/g, '')
-      : buf
-    ).trim();
+    const displayText = (mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim();
 
     if (!displayText) {
       // Pure tool-call artifact / whitespace — never leave an empty bubble.
@@ -2124,23 +2118,11 @@ class AIAssistantManager {
   /** Render the accumulated stream buffer with the fade-reveal suffix. */
   _renderStreamingBubble() {
     // Strip tool-call artefacts that some models (Llama/Qwen) emit as inline
-    // text. This covers XML blocks, Qwen-style JSON+</tool_call> lines, and
-    // orphan closing tags. Only complete patterns are stripped while streaming
-    // so partial tags don't permanently corrupt the buffer.
-    // These three passes each scan the whole buffer every streaming frame.
-    // Skip them when no tool-call marker is present (the common case — Claude
-    // and most models never emit these artefacts), so a long well-behaved
-    // response doesn't pay three full-buffer regex scans per frame. The result
-    // is identical: with no markers the regexes were already no-ops.
+    // text (see tool_call_text.js). mayHaveToolArtifacts skips the three
+    // full-buffer scans on the common case (no markers — Claude & most models),
+    // so a long well-behaved response pays nothing; result is identical.
     const buf = this.segmentBuffer;
-    const mayHaveArtifacts = buf.indexOf('<') !== -1 || buf.indexOf('{"name"') !== -1;
-    const displayText = (mayHaveArtifacts
-      ? buf
-        .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
-        .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
-        .replace(/<\/tool_call>/g, '')
-      : buf
-    ).trim();
+    const displayText = (mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim();
     // If stripping removes everything and the buffer looks like a tool-call
     // JSON being streamed token-by-token, render empty rather than flashing
     // raw JSON at the user (the tool chip will appear shortly).
@@ -2252,11 +2234,7 @@ class AIAssistantManager {
     // The whole turn's text is persisted as one assistant message so
     // the next turn carries context. Strip XML tool-call artifacts before
     // storing — they confuse models on subsequent turns.
-    const cleanText = this.turnText
-      .replace(/<(?:tool_call|function_calls|invoke)(?:\s[^>]*)?>[\s\S]*?<\/(?:tool_call|function_calls|invoke)>/g, '')
-      .replace(/[⺀-鿿]*\s*\{"name"\s*:\s*"[a-z_][a-z_0-9]*"\s*,\s*"arguments"\s*:[\s\S]*?\}\s*\}\s*(?:<\/tool_call>)?/g, '')
-      .replace(/<\/tool_call>/g, '')
-      .trim();
+    const cleanText = stripToolCallArtifacts(this.turnText).trim();
     if (cleanText) {
       this.messages.push({ role: 'assistant', content: cleanText });
     }

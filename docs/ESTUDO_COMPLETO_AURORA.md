@@ -1894,7 +1894,7 @@ envolve `.terminal-container` com filhos slotted). **O E2E abre a janela real + 
 confirma que o mount/layout do Monaco não regrediu. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite
 build, 9 E2E).
 
-### 14.39 A3 (migrar globais) — PARCIAL: módulo electron_api + 15 arquivos pequenos — 19/06/2026 — PARCIAL
+### 14.39 A3 (migrar globais) — CONCLUÍDO (100%) — 19/06/2026
 `window.electronAPI` (global injetado pelo preload) aparecia em ~482 sites / 34 arquivos. **Decisão do usuário: A3
 parcial** — migrar só os arquivos pequenos/estáveis, deixando os god-files pro A2 (senão migra 226 sites do
 compilation_module e decompõe em seguida = trabalho dobrado).
@@ -1916,6 +1916,28 @@ tab_watchers 10, file_mode 9, compilation_flow 8, zoom 6, processor_hub 6), os a
 import no topo (search_panel, tab_viewers). Como é parcial, o global continua configurado no eslint — a remoção do
 global + enforcement só quando 100% migrado (no/após o A2). Green bar completo (ESLint, tsc, 4 guards, 316 unit,
 vite build, 9 E2E — inclusive E2E que exercita renderer/terminal migrados).
+
+**CONCLUSÃO DO A3 (100%, 19/06/2026 — a pedido do usuário "faça o A3 COMPLETO"):** migrados TODOS os ~490 sites
+restantes; **nenhum `window.electronAPI` sobra no `js/` fora do próprio `electron_api.js`**.
+- **Pré-requisito — `electron_api.js` virou handle LIVE (Proxy):** o re-export era SNAPSHOT
+  (`export const electronAPI = window.electronAPI`), capturado no load → quebraria os módulos cujos testes trocam
+  `globalThis.window = { electronAPI: fake }` **depois** do load (WaveStore/SpfStore/wave_toolchain/
+  wave_signal_validator/processor_compiler/spec_*). Agora é um **Proxy** que encaminha cada acesso pro
+  `window.electronAPI` ATUAL — transparente (incl. `this`), então `electronAPI.foo(x)` ≡ `window.electronAPI.foo(x)`,
+  e os mocks de teste voltam a funcionar. Caveat documentado: o Proxy é sempre truthy → preferir checagem por
+  propriedade (`if (electronAPI.foo)`); as checagens de existência que existiam eram todas pareadas com checagem de
+  propriedade, então a troca é comportamento-idêntica. Commit `5502105`.
+- **`electron_api.d.ts`** dá o tipo (`Window['electronAPI']`) pros importadores **.ts** sem `allowJs` (tsc resolve o
+  import do `.js` pro `.d.ts` irmão); `build:ts` emite+checa limpo.
+- **22 módulos `.js`** migrados por script (sed + inserção do import), incl. os god-files compilation_module/
+  aurora_api/tab_manager e os test-mockados wave_toolchain/wave_signal_validator/processor_compiler. Commit `fb3728b`.
+- **4 módulos `.ts`** migrados (wave_state_store/spf_store/spec_runner/spec_factory); a `.js` gerada (gitignored)
+  regenera com a migração. Commit `44610af`.
+- **Validação chave:** TODOS os testes que trocam `globalThis.window` (processor_compiler, spfStore, WaveStore,
+  spec_*) **continuam passando** com os módulos importando o Proxy → confirma o live-forward. Green bar a cada lote
+  (eslint `.`, tsc/build:ts, 4 guards, **471 unit**, vite build, 9 E2E). eslint: não há global `electronAPI` no
+  config (o bridge sempre foi acessado via `window`), então não houve nada a remover; o acoplamento ao global some
+  pelo uso do import.
 
 ### 14.40 G9 (spawn único) + G8 (política default-on × sob-demanda) — 19/06/2026 — FEITO
 **G9 — registry como único ponto de spawn.** O `process_registry.js` já tinha `trackChild` (tree-kill no fechamento),

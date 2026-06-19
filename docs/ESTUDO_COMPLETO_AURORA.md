@@ -880,7 +880,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [ ] **O3 Verilator** — feedback streamado no build + consolidar `waveBuild`. 🟡
 - [ ] **O8 cocotb** — fluxo de teste de 1ª classe (alinha com branch do Arthur). 🟡
 - [ ] **O5 YoWASP** — Yosys in-process (sem spawn). 🔴
-- [ ] **O7 tree-sitter** — grammar C±/ASM (folding/outline/símbolos). 🔴
+- [x] **O7 tree-sitter** — highlight preciso (semantic tokens) p/ Verilog/SV/C/C++ via web-tree-sitter. ✅ 19/06/2026 (§14.35; aguarda teste ao vivo). NOTA: CMM/ASM não têm gramática tree-sitter → seguem Monarch; folding/outline já vêm do Monaco/Verible.
 - [ ] **O9 DigitalJS** — simulação visual no PRISM. 🟡
 - [x] **O11 slang-server** — análise semântica de SystemVerilog (diagnostics + autocompletar, toggle). ✅ 19/06/2026 (§14.34; aguarda teste ao vivo) · [ ] **O12 simple-git** · **O14 WaveDrom (docs)**. 🟡/🟢
 
@@ -1788,3 +1788,45 @@ rodado de verdade. **Falta o teste ao vivo do usuário.**
 
 **Estado das integrações de linguagem (resumo):** Verilog/SV → **Verible** (lint sintático, format, hover, def/refs,
 outline) **+ slang** (diagnostics semânticos, autocompletar, toggle). C/C++/CMM → **clang-format** (Shift+Alt+F).
+
+### 14.35 O7 — tree-sitter: highlight preciso (semantic tokens) p/ Verilog/SV/C/C++ — 19/06/2026 — FEITO (aguarda teste ao vivo)
+Terceiro item do "Difícil" e a fase de highlighting. Usa **web-tree-sitter** (WASM) pra parsear o buffer e, via a
+**highlights query (.scm)** de cada gramática, gera **semantic tokens** do Monaco que SOBREPÕEM o Monarch com cores
+fiéis à gramática (nome de módulo vs instância, direção de porta, tipo, macro, …). Escopo escolhido pelo usuário:
+**Verilog/SV + C/C++**. CMM/ASM não têm gramática tree-sitter → seguem no Monarch (inevitável).
+
+**Pesquisa/de-risco (spikes em Node antes de qualquer linha de integração):**
+- web-tree-sitter **0.26.9** (runtime WASM). Gramáticas pré-compiladas **.wasm**: SystemVerilog do
+  `gmlarumbe/tree-sitter-systemverilog` v0.3.1 (cobre .v e .sv, **20,5MB**, ABI 15 ✓), C do `tree-sitter-c` v0.24.2
+  (0,6MB) e C++ do `tree-sitter-cpp` v0.23.4 (3,3MB). O `tree-sitter-wasms` (npm) **não** tem verilog e suas
+  C/C++ falham o ABI do 0.26 → usei os .wasm oficiais das releases (ABI compatível, validado).
+- Validado de ponta a ponta: **carregar por BYTES** (`Parser.init({wasmBinary})` + `Language.load(bytes)`) — o
+  caminho do renderer, sem fetch/URL; **query real** com a highlights.scm oficial (SV: 31 capturas corretas —
+  `module`→keyword, `foo`→function, `wire`→type); C++ **herda** a query de C (`; inherits: c` → concateno c+cpp).
+
+**Implementação:**
+1. **`components/Scripts/download-tree-sitter-grammars.js`** — bootstrap: baixa as 3 .wasm (pin + **SHA-256** cada)
+   pra `components/Packages/tree-sitter/` e copia o `web-tree-sitter.wasm` do node_modules (casa com o JS bundlado).
+   Best-effort (exit 0 → cai pro Monarch). +`web-tree-sitter` 0.26.9 como dep (pin exato, guard reconhece).
+2. **`main/treesitter/grammars.js`** — IPC `treesitter:status`/`treesitter:wasm(name)`: serve os BYTES de um
+   conjunto fixo de nomes (runtime/systemverilog/c/cpp) — o renderer não pede caminhos arbitrários.
+3. **`js/editor/treesitter_highlight.js`** — registra um **DocumentSemanticTokensProvider** p/ verilog/
+   systemverilog/c/cpp. Lazy (carrega a gramática no 1º uso), parse → query.captures → semantic tokens. Cuidados:
+   **byte(UTF-8)→coluna UTF-16 por linha** (fast-path ASCII) pra comentários acentuados (PT-BR) não deslocarem o
+   highlight; **resolução de sobreposição** (mais específico/interno vence, sem overlap); **split de captura
+   multi-linha** (block comment); mapa capture→tipo padrão (VS Code) p/ o tema colorir sozinho. Tudo em try/catch:
+   se faltar wasm ou o runtime falhar, devolve 0 tokens e o Monarch fica (sem regressão).
+4. **preload** `window.treeSitterAPI`; **wiring** no `monaco_editor.js` (após o slang) + opção de editor
+   `'semanticHighlighting.enabled': true`. Queries `.scm` commitadas em `js/editor/treesitter/queries/` (import
+   Vite `?raw`).
+
+**CSP**: o `script-src` já tem `'unsafe-eval'` (loader AMD do Monaco) → cobre a glue Emscripten do web-tree-sitter
++ a instanciação WASM (de bytes, sem fetch). Sem worker (roda in-thread).
+
+**Custo**: ~24,6MB de .wasm em `components/Packages/tree-sitter/` (a SV é 20,5MB) → entra no instalador
+(extraResources), como os outros tools. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E) +
+downloader rodado de verdade (baixou, verificou SHA, copiou runtime). **Falta o teste ao vivo do usuário.**
+
+**Estado FINAL das integrações de linguagem:** Verilog/SV → **tree-sitter** (highlight) + **Verible** (lint/format/
+hover/def/refs/outline) + **slang** (semântica + autocompletar, toggle). C/C++ → **tree-sitter** (highlight) +
+**clang-format** (format). CMM/ASM → **Monarch** (highlight) + clang-format só no CMM (regras de C).

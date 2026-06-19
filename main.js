@@ -70,6 +70,7 @@ const prismIpc = require('./main/ipc/prism');
 const veribleLsp = require('./main/lsp/verible_lsp');
 const slangLsp = require('./main/lsp/slang_lsp');
 const clangFormat = require('./main/format/clang_format');
+const treeSitter = require('./main/treesitter/grammars');
 const systemIpc = require('./main/ipc/system');
 const aiIpc = require('./main/ipc/ai');
 const gitIpc = require('./main/ipc/git');
@@ -90,6 +91,7 @@ if (acquiredLock) {
   veribleLsp.register();
   slangLsp.register();
   clangFormat.register();
+  treeSitter.register();
   systemIpc.register();
   aiIpc.register();
   githubAuthIpc.register();

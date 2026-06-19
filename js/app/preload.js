@@ -464,6 +464,20 @@ const clangFormatOperations = {
 };
 
 /* ============================================================================
+ *  TREE-SITTER (window.treeSitterAPI) — backed by main/treesitter/grammars.js
+ *
+ *  Serves WASM bytes (web-tree-sitter runtime + grammar parsers) to the
+ *  renderer's semantic highlighter (js/editor/treesitter_highlight.js),
+ *  which feeds them into web-tree-sitter directly — no URL/fetch under the
+ *  sandboxed file:// renderer. Best-effort: if a grammar isn't installed,
+ *  the editor keeps Monaco's Monarch highlighting.
+ * ========================================================================= */
+const treeSitterOperations = {
+  status: () => ipcRenderer.invoke('treesitter:status'),
+  wasm:   (name) => ipcRenderer.invoke('treesitter:wasm', name),
+};
+
+/* ============================================================================
  *  UTILITIES (inline, sem IPC)
  * ========================================================================= */
 const utilityOperations = {
@@ -567,6 +581,8 @@ contextBridge.exposeInMainWorld('lspAPI', lspOperations);
 contextBridge.exposeInMainWorld('clangFormatAPI', clangFormatOperations);
 
 contextBridge.exposeInMainWorld('slangAPI', slangOperations);
+
+contextBridge.exposeInMainWorld('treeSitterAPI', treeSitterOperations);
 
 /* ============================================================================
  *  GLOBAL EVENT FORWARDERS

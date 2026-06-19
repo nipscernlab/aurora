@@ -7,6 +7,7 @@ import { attachAiSelectionWidget } from './ai_selection_widget.js';
 import { initVerilogLSP } from './lsp_integration.js';
 import { initClangFormat } from './clang_format_integration.js';
 import { initSlang } from './slang_integration.js';
+import { initTreeSitter } from './treesitter_highlight.js';
 
 class EditorManager {
     static editors = new Map();
@@ -171,6 +172,10 @@ class EditorManager {
 
             // PERFORMANCE IMPROVEMENTS
             renderValidationDecorations: 'on',
+
+            // O7: enable semantic tokens (tree-sitter overlay) regardless of
+            // theme; the provider only emits for Verilog/SV/C/C++.
+            'semanticHighlighting.enabled': true,
 
             // SMART WORD WRAP
             wordWrapBreakAfterCharacters: ' \t})]?|/&.,;¢°′″‴‶‷‸‹›«»',
@@ -865,6 +870,10 @@ function initMonaco() {
             // elaboration diagnostics + completion, complementing Verible.
             // Toggleable (command palette); only wires providers here.
             initSlang();
+            // O7: tree-sitter precise highlighting (semantic tokens) for
+            // Verilog/SV/C/C++ via web-tree-sitter (WASM). Overlays Monarch;
+            // best-effort (falls back to Monarch if grammars are absent).
+            initTreeSitter();
 
             // Aurora dark theme — colors mirror theme_variables.css so the
             // editor surface blends with the rest of the IDE chrome.

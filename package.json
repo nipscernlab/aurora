@@ -15,7 +15,7 @@
   "homepage": "https://github.com/nipscernlab/aurora#readme",
   "main": "main.js",
   "scripts": {
-    "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/download-norse-font.js && node components/Scripts/download-surfer.js && node components/Scripts/download-verible.js && node components/Scripts/download-clang-format.js && node components/Scripts/download-slang-server.js && node components/Scripts/copy-components.js",
+    "bootstrap": "node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/download-norse-font.js && node components/Scripts/download-surfer.js && node components/Scripts/download-verible.js && node components/Scripts/download-clang-format.js && node components/Scripts/download-slang-server.js && node components/Scripts/download-tree-sitter-grammars.js && node components/Scripts/copy-components.js",
     "build:ts": "tsc",
     "build:renderer": "vite build",
     "predev": "npm run build:ts",
@@ -155,6 +155,7 @@
     "lit": "^3.3.3",
     "monaco-editor": "0.52.2",
     "simple-git": "^3.36.0",
+    "web-tree-sitter": "0.26.9",
     "yosys2digitaljs": "^0.10.3",
     "zod": "^3.25.76"
   },

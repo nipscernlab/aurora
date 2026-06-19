@@ -2055,3 +2055,11 @@ estático **fica na classe**, funções extraídas recebem o estado, a classe ma
 contexto do projeto a cada turno). Movimentação por script (**byte-idêntica**, verificada via `git show`). God-file
 **−460 linhas** (4592→4132). +2 testes smoke (string não-vazia; invariantes AURORA-feminina / ATLAS-nunca-LHCb).
 Green bar (ESLint, tsc, 4 guards, **376 unit [+2]**, vite build, 9 E2E).
+
+**TM-1 — `js/tabs/tab_utils.js` (FEITO):** movidos os 10 helpers **PUROS** de nome/caminho de arquivo
+(`basenameOf`/`withoutExtension`/`extensionOf`/`normalizeKey`, sanitizers verilog/python/processor,
+`typeFromExtension`, `createCmmTemplate`/`ensureCmmPrname` + `CMM_DEFAULTS`) — zero estado/DOM, **0 callers
+externos**, re-importados no tab_manager pro uso interno. Byte-idêntico (script). God-file **−87 linhas** (2044→1957).
++12 testes (parsing, sanitizers, template C±). A detecção de tipo/ícone (`isImageFile`/`getFileIcon` — métodos
+estáticos, precisam de delegador p/ os 4 callers externos de `getFileIcon`) fica pra extração própria. Green bar
+(**388 unit [+12]**, build, 9 E2E).

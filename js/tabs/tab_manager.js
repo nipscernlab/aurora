@@ -16,104 +16,17 @@ import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { classifyVerilogContent } from '../project/verilog_classifier.js';
 import { addAvailableProcessor } from '../project/processor_list.js';
+import {
+  basenameOf, withoutExtension, extensionOf, normalizeKey,
+  sanitizeVerilogFileName, sanitizePythonModuleName, sanitizeProcessorName,
+  createCmmTemplate, ensureCmmPrname, typeFromExtension,
+} from './tab_utils.js';
 
 const UNTITLED_PREFIX = 'Untitled-';
 const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;
 const VALID_PYTHON_MODULE_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 const VALID_PROCESSOR_NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const CMM_SNIPPET_TRIGGER = '$cmm';
-const CMM_DEFAULTS = Object.freeze({
-    nBits: 23,
-    dataStackSize: 5,
-    instructionStackSize: 5,
-    inputPorts: 1,
-    outputPorts: 1,
-    nbMantissa: 16,
-    nbExponent: 6,
-    gain: 128,
-});
-
-function basenameOf(filePath) {
-    return String(filePath || '').split(/[\\/]/).pop();
-}
-
-function withoutExtension(fileName) {
-    return String(fileName || '').replace(/\.[^.\\/]+$/, '');
-}
-
-function extensionOf(filePath) {
-    const match = String(filePath || '').match(/\.([^.\\/]+)$/);
-    return match ? match[1].toLowerCase() : '';
-}
-
-function normalizeKey(filePath) {
-    return String(filePath || '').replace(/\\/g, '/').toLowerCase();
-}
-
-function sanitizeVerilogFileName(baseName) {
-    const cleaned = String(baseName || '')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9_-]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^[_-]+|[_-]+$/g, '');
-    return cleaned || 'untitled';
-}
-
-function sanitizePythonModuleName(baseName) {
-    let cleaned = String(baseName || 'test_dut')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9_]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
-    if (!cleaned) cleaned = 'test_dut';
-    if (!/^[a-zA-Z_]/.test(cleaned)) cleaned = `test_${cleaned}`;
-    return cleaned;
-}
-
-function sanitizeProcessorName(baseName) {
-    const cleaned = String(baseName || 'processor')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-        .replace(/[^a-zA-Z0-9_-]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^[_-]+|[_-]+$/g, '');
-    return cleaned || 'processor';
-}
-
-function createCmmTemplate(processorName = 'processor') {
-    return `#PRNAME ${processorName}
-#NUBITS ${CMM_DEFAULTS.nBits}
-#NDSTAC ${CMM_DEFAULTS.dataStackSize}
-#SDEPTH ${CMM_DEFAULTS.instructionStackSize}
-#NUIOIN ${CMM_DEFAULTS.inputPorts}
-#NUIOOU ${CMM_DEFAULTS.outputPorts}
-#NBMANT ${CMM_DEFAULTS.nbMantissa}
-#NBEXPO ${CMM_DEFAULTS.nbExponent}
-#NUGAIN ${CMM_DEFAULTS.gain}
-
-void main()
-{
-    // Øk. Você criou um processador em C±, mas e agora?
-}
-`;
-}
-
-function ensureCmmPrname(content, processorName) {
-    const source = String(content || '').trim()
-        ? String(content)
-        : createCmmTemplate(processorName);
-    if (/^#PRNAME\s+.+$/mi.test(source)) {
-        return source.replace(/^#PRNAME\s+.+$/mi, `#PRNAME ${processorName}`);
-    }
-    return `#PRNAME ${processorName}\n${source.replace(/^\s+/, '')}`;
-}
-
-function typeFromExtension(filePath) {
-    const ext = extensionOf(filePath);
-    if (ext === 'py') return 'python';
-    if (ext === 'v') return 'verilog';
-    if (ext === 'cmm') return 'cmm';
-    return null;
-}
 
 function showNotification(message, type = 'info', duration = 3000) {
     if (typeof window.showNotification === 'function') {

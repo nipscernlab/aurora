@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 /**
  * Image / PDF viewers for the tab system.
  *
@@ -14,7 +15,7 @@
  *     to thread a context object through every callsite.
  */
 
-// Decode whatever shape window.electronAPI.readFileBuffer returns into a
+// Decode whatever shape electronAPI.readFileBuffer returns into a
 // fresh ArrayBuffer suitable for Blob construction.
 function bufferToArrayBuffer(buffer) {
     if (buffer instanceof ArrayBuffer) return buffer;
@@ -182,7 +183,7 @@ export const tabViewers = {
 
     async loadImageFile(filePath, imgElement) {
         try {
-            const buffer = await window.electronAPI.readFileBuffer(filePath);
+            const buffer = await electronAPI.readFileBuffer(filePath);
             const arrayBuffer = bufferToArrayBuffer(buffer);
             const blob = new Blob([arrayBuffer]);
             const url = URL.createObjectURL(blob);
@@ -230,7 +231,7 @@ export const tabViewers = {
 
     async loadPdfFile(filePath, iframeElement) {
         try {
-            const buffer = await window.electronAPI.readFileBuffer(filePath);
+            const buffer = await electronAPI.readFileBuffer(filePath);
             const arrayBuffer = bufferToArrayBuffer(buffer);
             const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
             const url = URL.createObjectURL(blob);

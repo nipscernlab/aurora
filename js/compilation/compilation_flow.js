@@ -23,6 +23,7 @@
  * waveBuildVvp, runGtkWave, e as 8 fases _wave*), ver compilation_module.js.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -172,8 +173,8 @@ async function resolveFallbackCmmPath() {
         : null;
     if (!proc && procs.length === 1) proc = procs[0];
     if (!proc) return null;
-    return window.electronAPI?.joinPath
-        ? window.electronAPI.joinPath(window.currentProjectPath, proc, 'Software', `${proc}.cmm`)
+    return electronAPI?.joinPath
+        ? electronAPI.joinPath(window.currentProjectPath, proc, 'Software', `${proc}.cmm`)
         : `${window.currentProjectPath}/${proc}/Software/${proc}.cmm`;
 }
 
@@ -321,10 +322,10 @@ async function precompileAllProcessors(compiler, terminalId) {
     for (const proc of procs) {
         checkCancellation();
         const cmmFileName = `${proc.name}.cmm`;
-        const cmmPath = await window.electronAPI.joinPath(
+        const cmmPath = await electronAPI.joinPath(
             window.currentProjectPath, proc.name, 'Software', cmmFileName,
         );
-        if (!(await window.electronAPI.fileExists(cmmPath))) {
+        if (!(await electronAPI.fileExists(cmmPath))) {
             tm?.appendToTerminal?.(
                 terminalId,
                 `Warning: no ${cmmFileName} at ${cmmPath} — skipping ${proc.name}.`,
@@ -627,7 +628,7 @@ async function handlePrismStep() {
     startCompilation(STEP_TERMINALS.prism);
     try {
         const projectPath = window.currentProjectPath
-            || await window.electronAPI.dirname(window.currentOpenProjectPath);
+            || await electronAPI.dirname(window.currentOpenProjectPath);
         if (!projectPath) throw new Error(tr('error.config.noProject'));
 
         const compiler = new CompilationModule(projectPath);
@@ -648,7 +649,7 @@ async function handlePrismStep() {
             }
         } catch (_e) { /* override resolver missing — pipeline ainda roda */ }
 
-        const result = await window.electronAPI.prismCompileWithPaths(paths);
+        const result = await electronAPI.prismCompileWithPaths(paths);
         if (!result.success) throw new Error(result.message);
     } catch (error) {
         console.error('Erro no trigger PRISM:', error);
@@ -663,8 +664,8 @@ async function handlePrismStep() {
  * Todos absolutos, slashes normalizadas pra forward.
  */
 async function buildPrismCompilationPaths(projectPath) {
-    const rawComponentsPath = await window.electronAPI.getComponentsPath();
-    const join = window.electronAPI.joinPath;
+    const rawComponentsPath = await electronAPI.getComponentsPath();
+    const join = electronAPI.joinPath;
     return {
         projectPath:               toForwardSlashes(projectPath),
         componentsPath:            toForwardSlashes(rawComponentsPath),
@@ -817,8 +818,8 @@ class CompilationFlowManager {
         // processadores sao criados/removidos.
         window.addEventListener('aurora:spf-changed', () => syncToolbarEnabledState());
         window.ProjectStore?.subscribe?.(() => syncToolbarEnabledState());
-        window.electronAPI?.onProcessorCreated?.(() => syncToolbarEnabledState());
-        window.electronAPI?.onProcessorsUpdated?.(() => syncToolbarEnabledState());
+        electronAPI?.onProcessorCreated?.(() => syncToolbarEnabledState());
+        electronAPI?.onProcessorsUpdated?.(() => syncToolbarEnabledState());
 
         this.updateButtonStates();
     }
@@ -920,7 +921,7 @@ class CompilationFlowManager {
         );
 
         statusUpdater.cancelRun();
-        window.electronAPI.cancelVvpProcess()
+        electronAPI.cancelVvpProcess()
             .then((result) => {
                 // Main reports "no compilation process running" when the
                 // user clicked Cancel while idle. Surface that as an info

@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 // =====================================================================================
 // Zoom Control System - Browser Environment Script
 // Simple zoom controls with buttons and keyboard shortcuts
@@ -262,24 +263,24 @@ class ZoomControlManager {
 
   zoomIn() {
     this.currentZoom = Math.min(this.maxZoom, this.currentZoom + 0.1);
-    if (window.electronAPI && window.electronAPI.zoomIn) {
-      window.electronAPI.zoomIn();
+    if (electronAPI && electronAPI.zoomIn) {
+      electronAPI.zoomIn();
     }
     this.maintainMenuSize();
   }
 
   zoomOut() {
     this.currentZoom = Math.max(this.minZoom, this.currentZoom - 0.1);
-    if (window.electronAPI && window.electronAPI.zoomOut) {
-      window.electronAPI.zoomOut();
+    if (electronAPI && electronAPI.zoomOut) {
+      electronAPI.zoomOut();
     }
     this.maintainMenuSize();
   }
 
   zoomReset() {
     this.currentZoom = 1.0;
-    if (window.electronAPI && window.electronAPI.zoomReset) {
-      window.electronAPI.zoomReset();
+    if (electronAPI && electronAPI.zoomReset) {
+      electronAPI.zoomReset();
     }
     this.maintainMenuSize();
   }

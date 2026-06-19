@@ -23,11 +23,12 @@
 //   - _chegueiInstrumentProc: set externally by compilation_flow.js to gate the
 //     #TOAQUI instrumentation. Passed in as `chegueiInstrumentProc`.
 //
-// Kept on `window.electronAPI` (live global) rather than the ../app/electron_api
+// Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
 // `globalThis.window = { electronAPI: fake }` pattern — migrating these globals
 // belongs to A3, not this extraction.
 
+import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec } from './spec_runner.js';
@@ -67,8 +68,8 @@ export async function getTestbenchInfo(deps, processor, cmmBaseName) {
         tbModule = moduleStemFromPath(tbFileName);
     } else {
         tbModule = `${cmmBaseName}_tb`;
-        const simulationPath = await window.electronAPI.joinPath(deps.projectPath, processor.name, 'Simulation');
-        tbFile = await window.electronAPI.joinPath(simulationPath, `${tbModule}.v`);
+        const simulationPath = await electronAPI.joinPath(deps.projectPath, processor.name, 'Simulation');
+        tbFile = await electronAPI.joinPath(simulationPath, `${tbModule}.v`);
     }
 
     return {
@@ -90,10 +91,10 @@ export async function getTestbenchInfo(deps, processor, cmmBaseName) {
  * @param {string} cmmFile       nome do .cmm (ex: ProcDTW.cmm)
  */
 export async function ensureChegueiToaqui(deps, softwarePath, cmmFile) {
-    const cmmPath = await window.electronAPI.joinPath(softwarePath, cmmFile);
+    const cmmPath = await electronAPI.joinPath(softwarePath, cmmFile);
     let src;
     try {
-        src = await window.electronAPI.readFile(cmmPath, { encoding: 'utf8' });
+        src = await electronAPI.readFile(cmmPath, { encoding: 'utf8' });
     } catch (_e) {
         return; // sem .cmm — o proprio cmmcomp vai reclamar adiante
     }
@@ -111,7 +112,7 @@ export async function ensureChegueiToaqui(deps, softwarePath, cmmFile) {
         return;
     }
 
-    await window.electronAPI.writeFile(cmmPath, out);
+    await electronAPI.writeFile(cmmPath, out);
     // Mantem o editor em sincronia com o disco (se o .cmm estiver aberto),
     // pra que um Ctrl+S posterior nao reescreva sem o #TOAQUI.
     const model = window.SharedModelRegistry?.getModel?.(cmmPath)
@@ -142,19 +143,19 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
         const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
 
         // 1. Caminhos
-        const macrosPath = await window.electronAPI.joinPath(deps.componentsPath, 'Macros');
+        const macrosPath = await electronAPI.joinPath(deps.componentsPath, 'Macros');
 
         // Define o caminho da pasta temporária específica do processador: components/Temp/{name}
-        const tempPath = await window.electronAPI.joinPath(deps.componentsPath, 'Temp', name);
+        const tempPath = await electronAPI.joinPath(deps.componentsPath, 'Temp', name);
 
         // 2. NOVA LÓGICA: Criar a pasta Temp/{name} se não existir
         // O parâmetro { recursive: true } no backend garante que cria a pasta 'Temp' e a subpasta '{name}'
-        await window.electronAPI.createDirectory(tempPath);
+        await electronAPI.createDirectory(tempPath);
 
-        const cmmCompPath = await window.electronAPI.joinPath(deps.componentsPath, 'bin', 'cmmcomp.exe');
-        const projectPath = await window.electronAPI.joinPath(deps.projectPath, name);
-        const softwarePath = await window.electronAPI.joinPath(deps.projectPath, name, 'Software');
-        const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
+        const cmmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'cmmcomp.exe');
+        const projectPath = await electronAPI.joinPath(deps.projectPath, name);
+        const softwarePath = await electronAPI.joinPath(deps.projectPath, name, 'Software');
+        const asmPath = await electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
 
         await TabManager.saveAllFiles();
 
@@ -195,7 +196,7 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
         // "line N" click handler can resolve the file even when verbose
         // is off (the cmmcomp.exe echo is hidden in that mode, so DOM
         // scraping would find nothing).
-        setLastCompiledCmmPath(await window.electronAPI.joinPath(softwarePath, selectedCmmFile));
+        setLastCompiledCmmPath(await electronAPI.joinPath(softwarePath, selectedCmmFile));
 
         // internal:true marca como 'plain', entao o filtro de
         // verbose esconde a linha de comando quando verbose=off.
@@ -245,16 +246,16 @@ export async function asmCompilation(deps, processor, preamble = null) {
     deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.starting', { name }));
 
     try {
-        const projectPath = await window.electronAPI.joinPath(deps.projectPath, name);
-        const tempPath = await window.electronAPI.joinPath(deps.componentsPath, 'Temp', name);
-        const appCompPath = await window.electronAPI.joinPath(deps.componentsPath, 'bin', 'appcomp.exe');
-        const asmCompPath = await window.electronAPI.joinPath(deps.componentsPath, 'bin', 'asmcomp.exe');
-        const hdlPath = await window.electronAPI.joinPath(deps.componentsPath, 'HDL');
+        const projectPath = await electronAPI.joinPath(deps.projectPath, name);
+        const tempPath = await electronAPI.joinPath(deps.componentsPath, 'Temp', name);
+        const appCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'appcomp.exe');
+        const asmCompPath = await electronAPI.joinPath(deps.componentsPath, 'bin', 'asmcomp.exe');
+        const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'HDL');
         const selectedCmmFile = await getSelectedCmmFile(processor);
         const cmmBaseName = selectedCmmFile.replace(/\.cmm$/i, '');
-        const softwarePath = await window.electronAPI.joinPath(deps.projectPath, name, 'Software');
-        const asmPath = await window.electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
-        const macrosPath = await window.electronAPI.joinPath(deps.componentsPath, 'Macros');
+        const softwarePath = await electronAPI.joinPath(deps.projectPath, name, 'Software');
+        const asmPath = await electronAPI.joinPath(softwarePath, `${cmmBaseName}.asm`);
+        const macrosPath = await electronAPI.joinPath(deps.componentsPath, 'Macros');
 
         const {
             tbFile
@@ -329,13 +330,13 @@ export async function asmCompilation(deps, processor, preamble = null) {
         if (usesStandardTestbench) {
             const tbFileName = tbFile.split(/[\\\\/]/)
                 .pop();
-            const sourceTestbench = await window.electronAPI.joinPath(tempPath, tbFileName);
+            const sourceTestbench = await electronAPI.joinPath(tempPath, tbFileName);
             const destinationTestbench = tbFile;
 
             // Path-cheio so em verbose; o resumo "Testbench
             // atualizado" (tips) e o que aparece sem verbose.
             deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.copyingTb', { src: sourceTestbench, dst: destinationTestbench }), 'info', { internal: true });
-            await window.electronAPI.copyFile(sourceTestbench, destinationTestbench);
+            await electronAPI.copyFile(sourceTestbench, destinationTestbench);
             deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.tbUpdated'), 'tips');
         }
 
@@ -369,7 +370,7 @@ export async function stageProcessorMemoryFiles(deps, tempBaseDir) {
 
     let entries;
     try {
-        entries = await window.electronAPI.getFolderFiles(tempBaseDir);
+        entries = await electronAPI.getFolderFiles(tempBaseDir);
     } catch (_e) {
         deps.terminalManager.appendToTerminal(
             'twave',
@@ -387,7 +388,7 @@ export async function stageProcessorMemoryFiles(deps, tempBaseDir) {
         const subDir = entry.path;
         let subFiles;
         try {
-            subFiles = await window.electronAPI.listFilesInDirectory(subDir);
+            subFiles = await electronAPI.listFilesInDirectory(subDir);
         } catch (_e) {
             failedSubdirs.push(subDir);
             continue;
@@ -396,10 +397,10 @@ export async function stageProcessorMemoryFiles(deps, tempBaseDir) {
         for (const fileName of subFiles) {
             if (typeof fileName !== 'string') continue;
             if (!fileName.startsWith('pc_') || !fileName.endsWith('_mem.txt')) continue;
-            const src = await window.electronAPI.joinPath(subDir, fileName);
-            const dst = await window.electronAPI.joinPath(tempBaseDir, fileName);
+            const src = await electronAPI.joinPath(subDir, fileName);
+            const dst = await electronAPI.joinPath(tempBaseDir, fileName);
             try {
-                await window.electronAPI.copyFile(src, dst);
+                await electronAPI.copyFile(src, dst);
                 staged++;
             } catch (_e) {
                 deps.terminalManager.appendToTerminal(

@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 /**
  * git_decorations.js — VSCode-style git status decorations on the file tree.
  *
@@ -107,8 +108,8 @@ class GitDecorations {
     window.addEventListener('aurora:file-saved', onChange);
     window.addEventListener('aurora:spf-changed', onChange);   // project open / switch / structure change
     document.addEventListener('aurora:file-saved', onChange);
-    try { window.electronAPI?.onDirectoryChanged?.(() => onChange()); } catch (_) { /* optional */ }
-    try { window.electronAPI?.onFileChanged?.(() => onChange()); } catch (_) { /* optional */ }
+    try { electronAPI?.onDirectoryChanged?.(() => onChange()); } catch (_) { /* optional */ }
+    try { electronAPI?.onFileChanged?.(() => onChange()); } catch (_) { /* optional */ }
     // Slow fallback: catches commits / checkouts done outside Aurora.
     setInterval(() => this.refresh(), 10000);
 

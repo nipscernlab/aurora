@@ -35,6 +35,7 @@
  *     manifest auto-consumable by the AI runner.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SharedModelRegistry } from '../editor/shared_models.js';
@@ -86,7 +87,7 @@ async function resolveProjectFile(filePath, root) {
 
   // 1. Try the path as given first — cheapest, and the usual hit.
   try {
-    await window.electronAPI.readFile(direct);
+    await electronAPI.readFile(direct);
     return direct;
   } catch (_) { /* fall through to a project-wide search */ }
 
@@ -405,7 +406,7 @@ const editorNs = {
     }
     let content;
     try {
-      content = await window.electronAPI.readFile(absPath);
+      content = await electronAPI.readFile(absPath);
     } catch (e) {
       return err(`Found "${absPath}" but could not read it: ${e?.message || e}`);
     }
@@ -519,7 +520,7 @@ const terminalNs = {
  * ========================================================== */
 
 async function refreshTree() {
-  try { await window.electronAPI?.triggerFileTreeRefresh?.(); }
+  try { await electronAPI?.triggerFileTreeRefresh?.(); }
   catch (_) { /* tree refresh is best-effort */ }
 }
 
@@ -609,7 +610,7 @@ async function _runRenameJob(job) {
     // 2. On-disk rename in the main process. It returns a STRUCTURED verdict
     //    (never throws raw): { success, failedStep?, error?, steps?, newSpfPath, newRoot }.
     let r;
-    try { r = await window.electronAPI.renameProject(newNm); }
+    try { r = await electronAPI.renameProject(newNm); }
     catch (e) {
       const reason = e?.message || 'rename IPC failed';
       _renameStep(job, 'disk-rename', false, reason);
@@ -649,7 +650,7 @@ async function _runRenameJob(job) {
     if (newSpfPath) {
       try {
         if (window.projectManager?.loadProject) await window.projectManager.loadProject(newSpfPath);
-        else await window.electronAPI.openProject(newSpfPath);
+        else await electronAPI.openProject(newSpfPath);
         try { window.recentProjectsManager?.removeProject?.(job.oldSpfPath); } catch (_) { /* best-effort */ }
       } catch (e) {
         reopenOk = false;
@@ -690,7 +691,7 @@ const projectNs = {
     const path = window.currentProjectPath || window.currentOpenProjectPath || null;
     if (!path) return ok(null);
     try {
-      const info = await window.electronAPI?.getProjectInfo?.(path);
+      const info = await electronAPI?.getProjectInfo?.(path);
       return ok({ path, info: info || null });
     } catch (e) {
       return ok({ path, info: null, infoError: e?.message || String(e) });
@@ -710,7 +711,7 @@ const projectNs = {
     async function walk(dir, depth) {
       if (depth > MAX_DEPTH) return;
       try {
-        const entries = await window.electronAPI?.getFolderFiles?.(dir);
+        const entries = await electronAPI?.getFolderFiles?.(dir);
         if (!entries) return;
         for (const entry of entries) {
           const rel = entry.path.slice(root.length).replace(/^[\\/]+/, '').replace(/\\/g, '/');
@@ -775,7 +776,7 @@ const projectNs = {
 
     const MAX = 256 * 1024;
     const readAt = async (abs) => {
-      const text = String(await window.electronAPI.readFile(abs) ?? '');
+      const text = String(await electronAPI.readFile(abs) ?? '');
       return text.length > MAX
         ? ok({ filePath: abs, content: text.slice(0, MAX), length: text.length, truncated: true })
         : ok({ filePath: abs, content: text, length: text.length, truncated: false });
@@ -845,7 +846,7 @@ const projectNs = {
     if (liveModel) {
       text = liveModel.getValue();
     } else {
-      try { text = String(await window.electronAPI.readFile(target) ?? ''); }
+      try { text = String(await electronAPI.readFile(target) ?? ''); }
       catch (e) { return err(`File not found: "${target}"`); }
     }
 
@@ -956,7 +957,7 @@ const projectNs = {
   async createFile(filePath, content = '') {
     if (!filePath) return err('filePath required');
     try {
-      await window.electronAPI.writeFile(filePath, String(content ?? ''));
+      await electronAPI.writeFile(filePath, String(content ?? ''));
 
       // Magic-wand sweep across the editor when the AI rewrites a file
       // the user has open. We call setActiveText through the underlying
@@ -1006,7 +1007,7 @@ const projectNs = {
   async createFolder(dirPath) {
     if (!dirPath) return err('dirPath required');
     try {
-      await window.electronAPI.mkdir(dirPath);
+      await electronAPI.mkdir(dirPath);
       await refreshTree();
       return ok({ dirPath });
     } catch (e) { return err(e?.message || 'createFolder failed'); }
@@ -1016,7 +1017,7 @@ const projectNs = {
   async deleteFile(filePath) {
     if (!filePath) return err('filePath required');
     try {
-      await window.electronAPI.deleteFileOrDirectory(filePath);
+      await electronAPI.deleteFileOrDirectory(filePath);
       await refreshTree();
       emit('project:file-deleted', { filePath });
       return ok({ filePath });
@@ -1027,8 +1028,8 @@ const projectNs = {
   async renameFile(fromPath, toPath) {
     if (!fromPath || !toPath) return err('fromPath and toPath required');
     try {
-      await window.electronAPI.copyFile(fromPath, toPath);
-      await window.electronAPI.deleteFileOrDirectory(fromPath);
+      await electronAPI.copyFile(fromPath, toPath);
+      await electronAPI.deleteFileOrDirectory(fromPath);
       await refreshTree();
       emit('project:file-renamed', { fromPath, toPath });
       return ok({ fromPath, toPath });
@@ -1040,7 +1041,7 @@ const projectNs = {
     const root = window.currentProjectPath || null;
     if (!root) return err('No project open');
     try {
-      const procs = await window.electronAPI.getAvailableProcessors(root);
+      const procs = await electronAPI.getAvailableProcessors(root);
       return ok(procs || []);
     } catch (e) { return err(e?.message || 'listProcessors failed'); }
   },
@@ -1104,8 +1105,8 @@ const projectNs = {
       // se a pasta <root>/<name> existe, e um processador REAL ja feito —
       // bloqueia, NAO duplica. Se o nome so consta no .spf mas a pasta sumiu
       // (referencia "morta"/processador morto), deixa criar (revive a entrada).
-      const procDir = await window.electronAPI.joinPath(root, name);
-      if (await window.electronAPI.pathExists(procDir)) {
+      const procDir = await electronAPI.joinPath(root, name);
+      if (await electronAPI.pathExists(procDir)) {
         return err(`Processor "${name}" already exists on disk (folder ${name}/). `
           + 'Pick a different name, or delete/rename the existing processor first.');
       }
@@ -1113,13 +1114,13 @@ const projectNs = {
       // morta — sinaliza isso na resposta (informa o usuario, sem bloquear).
       let revivedDanglingReference = false;
       try {
-        const procs = await window.electronAPI.getAvailableProcessors(root);
+        const procs = await electronAPI.getAvailableProcessors(root);
         revivedDanglingReference = (Array.isArray(procs) ? procs : [])
           .map((p) => (typeof p === 'string' ? p : p && p.name))
           .some((n) => typeof n === 'string' && n.toLowerCase() === name.toLowerCase());
       } catch (_) { /* lista indisponivel — segue criando normalmente */ }
 
-      const r = await window.electronAPI.createProcessorProject({
+      const r = await electronAPI.createProcessorProject({
         projectLocation: root,
         ...config,
       });
@@ -1144,7 +1145,7 @@ const projectNs = {
     try {
       const projectPath = `${location}\\${name}`;
       const spfPath = `${projectPath}\\${name}.spf`;
-      const r = await window.electronAPI.createProjectStructure(projectPath, spfPath, name);
+      const r = await electronAPI.createProjectStructure(projectPath, spfPath, name);
       if (!r || !r.success) return err((r && r.message) || 'createProject failed');
       if (window.projectManager?.loadProject) {
         await window.projectManager.loadProject(spfPath);
@@ -1173,7 +1174,7 @@ const projectNs = {
     }
     const spfPath = window.ProjectStore?.getSpfPath?.() || window.currentSpfPath || null;
     if (!spfPath) return err('No project open');
-    if (typeof window.electronAPI?.renameProject !== 'function') {
+    if (typeof electronAPI?.renameProject !== 'function') {
       return err('rename-project IPC unavailable');
     }
 
@@ -1314,7 +1315,7 @@ const projectNs = {
       if (window.projectManager?.loadProject) {
         await window.projectManager.loadProject(spfPath);
       } else {
-        await window.electronAPI.openProject(spfPath);
+        await electronAPI.openProject(spfPath);
       }
       return ok({ spfPath });
     } catch (e) { return err(e?.message || 'openProject failed'); }
@@ -1327,8 +1328,8 @@ const projectNs = {
    */
   async listRecents() {
     try {
-      if (typeof window.electronAPI?.listRecentProjects === 'function') {
-        const paths = await window.electronAPI.listRecentProjects();
+      if (typeof electronAPI?.listRecentProjects === 'function') {
+        const paths = await electronAPI.listRecentProjects();
         const list = (paths || []).map((p) => {
           const base = String(p).split(/[\\/]/).pop() || p;
           const name = base.replace(/\.spf$/i, '');
@@ -1357,11 +1358,11 @@ const projectNs = {
   async backup() {
     const projectRoot = window.currentProjectPath || null;
     if (!projectRoot) return err('No project is open');
-    if (typeof window.electronAPI?.createBackup !== 'function') {
+    if (typeof electronAPI?.createBackup !== 'function') {
       return err('Backup IPC unavailable');
     }
     try {
-      const r = await window.electronAPI.createBackup(projectRoot);
+      const r = await electronAPI.createBackup(projectRoot);
       if (!r || r.success === false) {
         return err(r?.message || 'backup failed');
       }
@@ -1383,11 +1384,11 @@ const projectNs = {
    */
   async deleteProcessor(processorName) {
     if (!processorName) return err('processorName required');
-    if (typeof window.electronAPI?.deleteProcessor !== 'function') {
+    if (typeof electronAPI?.deleteProcessor !== 'function') {
       return err('delete-processor IPC unavailable');
     }
     try {
-      const r = await window.electronAPI.deleteProcessor(processorName);
+      const r = await electronAPI.deleteProcessor(processorName);
       if (r && r.success === false) return err(r.error || 'deleteProcessor failed');
       await refreshTree();
       emit('project:processor-deleted', { processorName });
@@ -1418,7 +1419,7 @@ const projectNs = {
     }
     const root = window.currentProjectPath || null;
     if (!root) return err('No project open');
-    if (typeof window.electronAPI?.renameProcessor !== 'function') {
+    if (typeof electronAPI?.renameProcessor !== 'function') {
       return err('rename-processor IPC unavailable');
     }
 
@@ -1440,7 +1441,7 @@ const projectNs = {
       ? openResp.data.filter(isUnderOld) : [];
 
     let r;
-    try { r = await window.electronAPI.renameProcessor(oldNm, newNm); }
+    try { r = await electronAPI.renameProcessor(oldNm, newNm); }
     catch (e) { return err(e?.message || 'renameProcessor failed'); }
     if (r && r.success === false) return err(r.error || 'renameProcessor failed');
 
@@ -1463,7 +1464,7 @@ const projectNs = {
     }
     if (reopenCmm) {
       try {
-        const content = await window.electronAPI.readFile(reopenCmm);
+        const content = await electronAPI.readFile(reopenCmm);
         TabManager.addTab(reopenCmm, content);
       } catch (_) { /* the .cmm may not exist; leave it */ }
     }
@@ -1472,7 +1473,7 @@ const projectNs = {
     // the processor folder move. Re-establish it on the (unchanged) project
     // root — main creates a fresh chokidar since releaseWatchersUnder dropped
     // the entry — so file-system changes are detected again, no reopen needed.
-    try { await window.electronAPI.watchDirectory?.(window.currentProjectPath); }
+    try { await electronAPI.watchDirectory?.(window.currentProjectPath); }
     catch (_) { /* best-effort; a project reopen would also restore it */ }
 
     await refreshTree();
@@ -1503,7 +1504,7 @@ const projectNs = {
       if (!normSrc.startsWith(normRoot + '/')) {
         const base = filePath.split(/[\\/]/).pop();
         finalPath = `${projectRoot}${sep}${base}`;
-        await window.electronAPI.copyFile(filePath, finalPath);
+        await electronAPI.copyFile(filePath, finalPath);
       }
       const name = finalPath.split(/[\\/]/).pop();
       const normFinal = finalPath.replace(/\\/g, '/').toLowerCase();
@@ -1541,7 +1542,7 @@ const projectNs = {
         }
       });
       if (deleteFromDisk) {
-        try { await window.electronAPI.deleteFileOrDirectory(filePath); }
+        try { await electronAPI.deleteFileOrDirectory(filePath); }
         catch (_) { /* removing from SPF still counts as success */ }
       }
       await refreshTree();
@@ -1561,8 +1562,8 @@ const projectNs = {
       const fromNorm = fromPath.replace(/\\/g, '/').toLowerCase();
       // Copy + delete (matches renameFile above — true rename can fail
       // across drives on Windows).
-      await window.electronAPI.copyFile(fromPath, toPath);
-      await window.electronAPI.deleteFileOrDirectory(fromPath);
+      await electronAPI.copyFile(fromPath, toPath);
+      await electronAPI.deleteFileOrDirectory(fromPath);
       const newName = toPath.split(/[\\/]/).pop();
       await window.SpfStore.update(spfPath, (cfg) => {
         for (const key of ['synthesizableFiles', 'testbenchFiles']) {
@@ -1614,7 +1615,7 @@ const projectNs = {
         if (project && name) {
           try {
             const cmm = `${project}\\${name}\\Software\\${name}.cmm`;
-            const raw2 = await window.electronAPI.readFile(cmm);
+            const raw2 = await electronAPI.readFile(cmm);
             const header = {};
             for (const line of String(raw2 || '').split('\n')) {
               const m = line.match(/^#([A-Z_]+)\s+(.+)/);
@@ -1697,7 +1698,7 @@ const projectNs = {
       // Two-pronged: the main-process file watcher refresh AND the
       // renderer's ProjectTreeManager reload. Either alone covers the
       // most-common race, both together cover all of them.
-      await window.electronAPI?.triggerFileTreeRefresh?.();
+      await electronAPI?.triggerFileTreeRefresh?.();
     } catch (_) { /* best-effort */ }
     try {
       await window.projectTreeManager?.refreshTree?.();
@@ -1917,7 +1918,7 @@ const compileNs = {
   /** Per-step list of flags the override system refuses to touch. */
   async listProtectedFlags(step) {
     try {
-      const result = await window.electronAPI.getProtectedFlags(step);
+      const result = await electronAPI.getProtectedFlags(step);
       return ok({ step: step || null, protected: result });
     } catch (e) { return err(e?.message || 'listProtectedFlags failed'); }
   },
@@ -1925,7 +1926,7 @@ const compileNs = {
   /** Read-only: which binaries the main-process executor will spawn. */
   async listAllowedBinaries() {
     try {
-      const result = await window.electronAPI.listAllowedBinaries();
+      const result = await electronAPI.listAllowedBinaries();
       return ok({ binaries: result });
     } catch (e) { return err(e?.message || 'listAllowedBinaries failed'); }
   },
@@ -2181,7 +2182,7 @@ const waveNs = {
     const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
     const abs = isAbs ? filePath : `${projectPath}\\${filePath.replace(/^[\\/]+/, '')}`;
     try {
-      const exists = await window.electronAPI.fileExists(abs);
+      const exists = await electronAPI.fileExists(abs);
       if (!exists) return err(`file not found: ${abs}`);
     } catch (e) { return err(e?.message || 'fileExists failed'); }
     const name = abs.split(/[\\/]/).pop();
@@ -2335,7 +2336,7 @@ const waveNs = {
     const isAbs = /^[a-zA-Z]:[\\/]/.test(filePath) || filePath.startsWith('\\\\');
     const abs = isAbs ? filePath : `${projectPath}\\${filePath.replace(/^[\\/]+/, '')}`;
     try {
-      const exists = await window.electronAPI.fileExists(abs);
+      const exists = await electronAPI.fileExists(abs);
       if (!exists) return err(`file not found: ${abs}`);
     } catch (e) { return err(e?.message || 'fileExists failed'); }
     const name = abs.split(/[\\/]/).pop();

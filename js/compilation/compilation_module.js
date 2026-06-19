@@ -41,6 +41,7 @@
  *      comportamento da wave-flow pertencem dentro de uma fase. Ver
  *      ARCHITECTURE.md §9 pro racional.
  */
+import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
@@ -139,7 +140,7 @@ class CompilationModule {
 
     async initializeComponentsPath() {
         if (!this.componentsPath) {
-            this.componentsPath = await window.electronAPI.getComponentsPath();
+            this.componentsPath = await electronAPI.getComponentsPath();
         }
     }
 
@@ -149,7 +150,7 @@ class CompilationModule {
 
         const checkInterval = setInterval(async () => {
             try {
-                const isRunning = await window.electronAPI.isProcessRunning(this.gtkwaveProcess);
+                const isRunning = await electronAPI.isProcessRunning(this.gtkwaveProcess);
 
                 if (!isRunning) {
                     clearInterval(checkInterval);
@@ -187,8 +188,8 @@ async generateProjectHierarchy() {
             if (!topLevelFilePath) throw new Error("'topLevelFile' not found in .spf");
 
             const designTopModule = moduleStemFromPath(topLevelFilePath);
-            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
-            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
+            const yosysPath = await electronAPI.joinPath(this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
+            const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
 
             // components/HDL/ tem a biblioteca SAPHO (myFIFO, processor,
             // core, ula, addr_dec, instr_dec, etc) — modulos referenciados
@@ -201,15 +202,15 @@ async generateProjectHierarchy() {
             //
             // `hierarchy -top` remove modulos nao alcancaveis depois,
             // entao incluir HDL/* todo nao polui o JSON final.
-            const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+            const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
             let hdlReadCmds = '';
             try {
-                const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+                const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
                 if (Array.isArray(hdlEntries)) {
                     const hdlVerilogPaths = await Promise.all(
                         hdlEntries
                             .filter((n) => typeof n === 'string' && n.endsWith('.v') && !n.includes('_tb'))
-                            .map((n) => window.electronAPI.joinPath(hdlPath, n)),
+                            .map((n) => electronAPI.joinPath(hdlPath, n)),
                     );
                     hdlReadCmds = hdlVerilogPaths
                         .map((p) => `read_verilog -sv "${p}"`)
@@ -234,8 +235,8 @@ async generateProjectHierarchy() {
                 write_json "${tempBaseDir}\\project_hierarchy.json"
             `;
 
-            const scriptPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy_gen.ys');
-            await window.electronAPI.writeFile(scriptPath, yosysScript);
+            const scriptPath = await electronAPI.joinPath(tempBaseDir, 'project_hierarchy_gen.ys');
+            await electronAPI.writeFile(scriptPath, yosysScript);
 
             const hierSpec = buildYosysHierarchySpec({
                 yosysPath,
@@ -246,8 +247,8 @@ async generateProjectHierarchy() {
 
             if (result.code !== 0) throw new Error(tr('error.compilation.yosysProjectFailed'));
 
-            const jsonPath = await window.electronAPI.joinPath(tempBaseDir, 'project_hierarchy.json');
-            const hierarchyJson = JSON.parse(await window.electronAPI.readFile(jsonPath, {
+            const jsonPath = await electronAPI.joinPath(tempBaseDir, 'project_hierarchy.json');
+            const hierarchyJson = JSON.parse(await electronAPI.readFile(jsonPath, {
                 encoding: 'utf8'
             }));
 
@@ -269,7 +270,7 @@ async generateProjectHierarchy() {
 
 async loadConfig() {
     try {
-        const projectInfo = await window.electronAPI.getCurrentProject();
+        const projectInfo = await electronAPI.getCurrentProject();
         const currentProjectPath = projectInfo.projectPath || this.projectPath;
 
         if (!currentProjectPath) {
@@ -296,12 +297,12 @@ async loadConfig() {
 
     async ensureDirectories(name) {
         try {
-            const componentsDir = await window.electronAPI.joinPath('components');
-            await window.electronAPI.mkdir(componentsDir);
-            const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-            await window.electronAPI.mkdir(tempBaseDir);
-            const tempProcessorDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp', name);
-            await window.electronAPI.mkdir(tempProcessorDir);
+            const componentsDir = await electronAPI.joinPath('components');
+            await electronAPI.mkdir(componentsDir);
+            const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
+            await electronAPI.mkdir(tempBaseDir);
+            const tempProcessorDir = await electronAPI.joinPath(this.componentsPath, 'Temp', name);
+            await electronAPI.mkdir(tempProcessorDir);
             return tempProcessorDir;
         } catch (error) {
             console.error("Failed to ensure directories:", error);
@@ -500,10 +501,10 @@ async syntaxCheck() {
     try {
         const config = this.validateForVerilog();
 
-        const iveriCompPath = await window.electronAPI.joinPath(
+        const iveriCompPath = await electronAPI.joinPath(
             this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe',
         );
-        if (!await window.electronAPI.fileExists(iveriCompPath)) {
+        if (!await electronAPI.fileExists(iveriCompPath)) {
             const msg = tr('error.toolchain.iverilogNotFound', { path: iveriCompPath });
             this.terminalManager.appendToTerminal('tveri', msg, 'error');
             return { success: false, message: msg };
@@ -526,7 +527,7 @@ async syntaxCheck() {
         // instancia. Sem isso o syntax check falha com "Unknown module
         // type: processor" em projetos que tem processadores SAPHO.
         // Mesmo padrao do verilogSyntaxCheck / waveBuildVvp.
-        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+        const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
 
         const checkSpec = buildIverilogCheckSpec({
             iveriCompPath,
@@ -588,7 +589,7 @@ async _resolveWaveSelection({ config, simTopModule, filePaths }) {
 }
 
 async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false) {
-    const originalContent = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
+    const originalContent = await electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     const result = instrumentTestbenchSource({
         originalContent,
         tbModule,
@@ -598,7 +599,7 @@ async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals 
     if (!result.needsWrite) return { path: testbenchPath, reason: result.reason };
 
     const basename = testbenchPath.split(/[\\/]/).pop();
-    const instrumentedPath = await window.electronAPI.joinPath(tempBaseDir, `instr_${basename}`);
+    const instrumentedPath = await electronAPI.joinPath(tempBaseDir, `instr_${basename}`);
 
     // Idempotencia de mtime: so escreve se o conteudo realmente mudou.
     // Importante pro path do Verilator — o make detecta mudanca via
@@ -606,16 +607,16 @@ async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals 
     // o make recompila tudo (5-15s desperdicados). Pro iverilog e
     // neutro (compile e fast anyway). Checamos existence antes de readFile
     // pra evitar o ENOENT spam que o IPC handler loga ate em try/catch.
-    if (await window.electronAPI.fileExists(instrumentedPath)) {
+    if (await electronAPI.fileExists(instrumentedPath)) {
         try {
-            const existing = await window.electronAPI.readFile(instrumentedPath, { encoding: 'utf8' });
+            const existing = await electronAPI.readFile(instrumentedPath, { encoding: 'utf8' });
             if (existing === result.content) {
                 return { path: instrumentedPath, reason: result.reason };
             }
         } catch (_e) { /* read falhou apos exists ok — race ou disco; segue e escreve */ }
     }
 
-    await window.electronAPI.writeFile(instrumentedPath, result.content);
+    await electronAPI.writeFile(instrumentedPath, result.content);
     return { path: instrumentedPath, reason: result.reason };
 }
 
@@ -645,12 +646,12 @@ async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
     const filePaths = new Set(config.synthesizableFiles);
     if (config.testbenchFile) filePaths.add(config.testbenchFile);
     try {
-        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-        const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+        const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
+        const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
         if (Array.isArray(hdlEntries)) {
             for (const name of hdlEntries) {
                 if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                    filePaths.add(await window.electronAPI.joinPath(hdlPath, name));
+                    filePaths.add(await electronAPI.joinPath(hdlPath, name));
                 }
             }
         }
@@ -709,15 +710,15 @@ async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
  * Side-effect: mkdir tempBaseDir.
  */
 async _resolveIverilogTools() {
-    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-    const iveriCompPath = await window.electronAPI.joinPath(
+    const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
+    const iveriCompPath = await electronAPI.joinPath(
         this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'iverilog.exe',
     );
-    if (!await window.electronAPI.fileExists(iveriCompPath)) {
+    if (!await electronAPI.fileExists(iveriCompPath)) {
         throw new Error(tr('error.toolchain.iverilogNotFound', { path: iveriCompPath }));
     }
-    await window.electronAPI.mkdir(tempBaseDir);
-    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
+    await electronAPI.mkdir(tempBaseDir);
+    const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
     return { tempBaseDir, iveriCompPath, hdlPath };
 }
 
@@ -865,7 +866,7 @@ async waveBuildVvp() {
         const { tempBaseDir, iveriCompPath, hdlPath } = await this._resolveIverilogTools();
 
         const simTopModule = config.testbenchFile.split(/[\\/]/).pop().replace(/\.v$/i, '');
-        const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
+        const outputFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
 
         // Source set: synth files; o tb instrumentado e adicionado abaixo.
         const fileSet = new Set(config.synthesizableFiles);
@@ -876,11 +877,11 @@ async waveBuildVvp() {
         const filePaths = new Set(config.synthesizableFiles);
         filePaths.add(config.testbenchFile);
         try {
-            const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+            const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
             if (Array.isArray(hdlEntries)) {
                 for (const name of hdlEntries) {
                     if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                        filePaths.add(await window.electronAPI.joinPath(hdlPath, name));
+                        filePaths.add(await electronAPI.joinPath(hdlPath, name));
                     }
                 }
             }
@@ -947,7 +948,7 @@ async waveBuildVvp() {
 
         // Defensive: iverilog exit 0 mas o -o pode ter falhado em escrever
         // (race com AV scanner, permission, etc).
-        if (!await window.electronAPI.fileExists(outputFile)) {
+        if (!await electronAPI.fileExists(outputFile)) {
             throw new Error(tr('error.compilation.vvpNotGenerated'));
         }
 
@@ -1127,7 +1128,7 @@ async _waveValidateCocotbConfig(config) {
     // the bundled HDL), or the simulator won't find it.
     let pySource = '';
     try {
-        pySource = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+        pySource = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
     } catch { /* unreadable here — fall back to the .spf top-level below */ }
     const directiveTop = parseCocotbToplevelDirective(pySource);
 
@@ -1158,7 +1159,7 @@ async _waveValidateCocotbConfig(config) {
 }
 
 async _writeCocotbRunnerScript(tempBaseDir) {
-    const scriptPath = await window.electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
+    const scriptPath = await electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
     const source = [
         'import json',
         'import os',
@@ -1220,7 +1221,7 @@ async _writeCocotbRunnerScript(tempBaseDir) {
         '    main()',
         '',
     ].join('\n');
-    await window.electronAPI.writeFile(scriptPath, source);
+    await electronAPI.writeFile(scriptPath, source);
     return scriptPath;
 }
 
@@ -1234,12 +1235,12 @@ async _collectCocotbSources(config) {
     }
 
     try {
-        const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-        const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+        const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
+        const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
         if (Array.isArray(hdlEntries)) {
             for (const name of hdlEntries) {
                 if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                    fileSet.add(await window.electronAPI.joinPath(hdlPath, name));
+                    fileSet.add(await electronAPI.joinPath(hdlPath, name));
                 }
             }
         }
@@ -1252,7 +1253,7 @@ async _stageProcessorMemoryFilesForCocotb(tempBaseDir, buildDir) {
     await this._stageProcessorMemoryFiles(tempBaseDir);
     let entries = [];
     try {
-        entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
+        entries = await electronAPI.listFilesInDirectory(tempBaseDir);
     } catch (_e) {
         return;
     }
@@ -1260,9 +1261,9 @@ async _stageProcessorMemoryFilesForCocotb(tempBaseDir, buildDir) {
         if (typeof name !== 'string') continue;
         if (!name.startsWith('pc_') || !name.endsWith('_mem.txt')) continue;
         try {
-            await window.electronAPI.copyFile(
-                await window.electronAPI.joinPath(tempBaseDir, name),
-                await window.electronAPI.joinPath(buildDir, name),
+            await electronAPI.copyFile(
+                await electronAPI.joinPath(tempBaseDir, name),
+                await electronAPI.joinPath(buildDir, name),
             );
         } catch (_copyErr) { /* best effort: simulator reports the missing file */ }
     }
@@ -1295,8 +1296,8 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
     // Fast path: stream fst2vcd (no -o → it emits the VCD to stdout) and kill it
     // the instant $enddefinitions appears, so it iterates only the FST geometry
     // plus the first buffered block — never the multi-hundred-MB body.
-    if (typeof window.electronAPI.onExecSpecStream === 'function'
-        && typeof window.electronAPI.killCurrentSpecProcess === 'function') {
+    if (typeof electronAPI.onExecSpecStream === 'function'
+        && typeof electronAPI.killCurrentSpecProcess === 'function') {
         const spec = {
             step: 'fst2vcd',
             binary: fst2vcdBin,
@@ -1308,7 +1309,7 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         let acc = '';
         let header = null;
         let killPromise = null;
-        const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+        const unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (header !== null || !payload || payload.type !== 'stdout' || !payload.data) return;
             acc += payload.data;
             const m = ENDDEFS.exec(acc);
@@ -1318,7 +1319,7 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
                 // body. Targeted kill of the parked child ONLY (NOT cancelVvpProcess,
                 // whose by-name vvp/gtkwave sweep would race with and kill the
                 // GTKWave this same wave flow launches moments later).
-                killPromise = window.electronAPI.killCurrentSpecProcess();
+                killPromise = electronAPI.killCurrentSpecProcess();
             }
         });
         try {
@@ -1337,7 +1338,7 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
             if (m) header = `${acc.slice(0, m.index + m[0].length)}\n`;
         }
         if (header && header.length > 0) {
-            await window.electronAPI.writeFile(headerVcdPath, header);
+            await electronAPI.writeFile(headerVcdPath, header);
             return true;
         }
     }
@@ -1354,14 +1355,14 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
         buildFst2VcdSpec({ fst2vcdBin, inputFile: fstPath, outputFile: headerVcdPath, cwd }),
         { consumeEphemeral: true });
     if (result.code !== 0 && result.code !== null) return false;
-    if (!await window.electronAPI.fileExists(headerVcdPath)) return false;
+    if (!await electronAPI.fileExists(headerVcdPath)) return false;
     // Um exit limpo pode ainda deixar um arquivo VAZIO (FST corrompido, entrada
     // nao-FST que mesmo assim saiu com code 0). Sem este check o downstream
     // parsearia 0 scopes e geraria um auto-gtkw vazio SEM nenhum aviso — o
     // usuario veria o GTKWave abrir sem sinais e culparia a propria simulacao.
     // Trata vazio como falha de captura (caller cai no comportamento sem-gtkw).
     try {
-        const stats = await window.electronAPI.getFileStats(headerVcdPath);
+        const stats = await electronAPI.getFileStats(headerVcdPath);
         if (!stats || stats.size === 0) return false;
     } catch { /* sem stat -> fileExists ja confirmou presenca; deixa passar */ }
     return true;
@@ -1371,7 +1372,7 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
     // cocotb runs the sim with cwd = the test dir, so the dump can land next to
     // the .py (the project dir) instead of in buildDir. Search the build dir
     // first, then the testbench's dir.
-    const testDir = await window.electronAPI.dirname(ctx.testbenchFile);
+    const testDir = await electronAPI.dirname(ctx.testbenchFile);
     const candidate =
         await findWaveCandidateInDir(buildDir, ctx.hdlTopModule) ||
         await findWaveCandidateInDir(testDir, ctx.hdlTopModule);
@@ -1385,11 +1386,11 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
     // every wave path now uses. (A rare direct text-VCD dump is just copied
     // through; it is its own parseable header source.)
     const ext = /\.fst$/i.test(candidate) ? 'fst' : 'vcd';
-    const target = await window.electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.${ext}`);
+    const target = await electronAPI.joinPath(tools.tempBaseDir, `${ctx.hdlTopModule}.${ext}`);
     if (candidate.toLowerCase() !== target.toLowerCase()) {
-        await window.electronAPI.copyFile(candidate, target);
+        await electronAPI.copyFile(candidate, target);
     }
-    if (!await window.electronAPI.fileExists(target)) {
+    if (!await electronAPI.fileExists(target)) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }
     this.terminalManager.appendToTerminal('twave',
@@ -1412,16 +1413,16 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
  */
 async _resolveCocotbSimProfile(wave = true) {
     const vTools = await resolveVerilatorTools(this.componentsPath);
-    const pythonPath = await window.electronAPI.joinPath(vTools.mingwBin, 'python.exe');
-    if (!await window.electronAPI.fileExists(pythonPath)) {
+    const pythonPath = await electronAPI.joinPath(vTools.mingwBin, 'python.exe');
+    if (!await electronAPI.fileExists(pythonPath)) {
         throw new Error(tr('error.compilation.cocotbPythonMissing'));
     }
-    const status = await window.electronAPI.getPythonStatus();
+    const status = await electronAPI.getPythonStatus();
     if (!status?.ok || !status.hasCocotb) {
         throw new Error(tr('error.compilation.cocotbPackageMissing', { path: pythonPath }));
     }
     // <bundle>/mingw64/bin → <bundle>/mingw64 (PYTHONHOME).
-    const pythonHome = await window.electronAPI.dirname(vTools.mingwBin);
+    const pythonHome = await electronAPI.dirname(vTools.mingwBin);
     const base = {
         pythonPath,
         prependPath: [vTools.mingwBin, vTools.usrBin],
@@ -1468,20 +1469,20 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     // no build, WAVES=0 no runner, e nao adota/abre waveform no fim.
     const wave = opts.wave !== false;
     await TabManager.saveAllFiles();
-    await window.electronAPI.mkdir(tools.tempBaseDir);
+    await electronAPI.mkdir(tools.tempBaseDir);
 
     const profile = await this._resolveCocotbSimProfile(wave);
 
-    const buildDir = await window.electronAPI.joinPath(
+    const buildDir = await electronAPI.joinPath(
         tools.tempBaseDir,
         `cocotb_${safeNamePart(ctx.tbKey)}`,
     );
-    await window.electronAPI.mkdir(buildDir);
+    await electronAPI.mkdir(buildDir);
     await this._stageProcessorMemoryFilesForCocotb(tools.tempBaseDir, buildDir);
 
     const sources = await this._collectCocotbSources(config);
     await this._resolveCocotbWaveSelection(ctx, config, sources);
-    const tbDir = await window.electronAPI.dirname(ctx.testbenchFile);
+    const tbDir = await electronAPI.dirname(ctx.testbenchFile);
     const runnerScript = await this._writeCocotbRunnerScript(tools.tempBaseDir);
     const pythonPathSep = ';';
     const env = {
@@ -1526,8 +1527,8 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
     let unsubscribe = null;
-    if (typeof window.electronAPI.onExecSpecStream === 'function') {
-        unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+    if (typeof electronAPI.onExecSpecStream === 'function') {
+        unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
@@ -1570,8 +1571,8 @@ async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
     // waveBuildVvp ja verifica internamente que o .vvp existe (defesa
     // em profundidade); este check externo permite mensagem de erro
     // especifica do contexto Wave caso o path seja sintetizado errado.
-    const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
-    if (!await window.electronAPI.fileExists(vvpFile)) {
+    const vvpFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
+    if (!await electronAPI.fileExists(vvpFile)) {
         throw new Error(tr('error.compilation.vvpNotProduced', { path: vvpFile }));
     }
 }
@@ -1617,7 +1618,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
     }
 
-    const vvpFile = await window.electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
+    const vvpFile = await electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
 
     // Single full simulation with vvp -fst → ${simTopModule}.vcd (FST binary
     // written under the $dumpfile name). No header-only pass anymore: the VCD
@@ -1650,8 +1651,8 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // Guard a ausencia de onExecSpecStream (degrada sem streaming ao vivo)
     // — consistente com os fluxos cocotb e Verilator, que ja checam.
     let unsubscribe = null;
-    if (typeof window.electronAPI.onExecSpecStream === 'function') {
-        unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+    if (typeof electronAPI.onExecSpecStream === 'function') {
+        unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             // Split so each line can be classified independently; chunks
             // from spawn can carry multiple newlines per data event.
@@ -1731,9 +1732,9 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
             tr('terminal.veri.autoInstrTb', { name: prep.instrumentedTbPath.split(/[\\/]/).pop() }), 'plain');
     }
 
-    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
-    await window.electronAPI.mkdir(objDir);
+    const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
+    await electronAPI.mkdir(objDir);
 
     // --timing (e nao --no-timing): testbenches SAPHO usam # delays pra
     // gerar clock e timing de IO. Sem isso, o clk fica preso em settling
@@ -1825,8 +1826,8 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     // terminal shows progress instead of a frozen panel. Same wiring as the
     // run-step below: append lines live, unsubscribe when the build resolves.
     let buildUnsub = null;
-    if (typeof window.electronAPI.onExecSpecStream === 'function') {
-        buildUnsub = window.electronAPI.onExecSpecStream((payload) => {
+    if (typeof electronAPI.onExecSpecStream === 'function') {
+        buildUnsub = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (line.trim()) this.terminalManager.appendToTerminal('twave', line, 'raw');
@@ -1844,10 +1845,10 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     }
 
     // Verilator nomeia o .exe como V<top>.exe (Windows mingw) ou V<top>.
-    const exePath = await window.electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
-    if (!await window.electronAPI.fileExists(exePath)) {
-        const fallback = await window.electronAPI.joinPath(objDir, `V${simTopModule}`);
-        if (!await window.electronAPI.fileExists(fallback)) {
+    const exePath = await electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
+    if (!await electronAPI.fileExists(exePath)) {
+        const fallback = await electronAPI.joinPath(objDir, `V${simTopModule}`);
+        if (!await electronAPI.fileExists(fallback)) {
             throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
         }
         return { exePath: fallback, objDir };
@@ -1901,8 +1902,8 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     };
 
     let unsubscribe = null;
-    if (typeof window.electronAPI.onExecSpecStream === 'function') {
-        unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+    if (typeof electronAPI.onExecSpecStream === 'function') {
+        unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
@@ -1956,9 +1957,9 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
  * @returns {Promise<{ fileSet:Set<string>, fastTbPath:string }>}
  */
 async _prepareFastSimInputs(config, simTopModule, tempBaseDir) {
-    const tbSrc = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
-    const fastTbPath = await window.electronAPI.joinPath(tempBaseDir, `fast_${simTopModule}.v`);
-    await window.electronAPI.writeFile(fastTbPath, commentOutDumpCalls(tbSrc));
+    const tbSrc = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    const fastTbPath = await electronAPI.joinPath(tempBaseDir, `fast_${simTopModule}.v`);
+    await electronAPI.writeFile(fastTbPath, commentOutDumpCalls(tbSrc));
     const fileSet = new Set(config.synthesizableFiles);
     fileSet.add(fastTbPath);
     return { fileSet, fastTbPath };
@@ -1976,9 +1977,9 @@ async _fastSimBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.fastBuilding'), 'plain');
 
     const prep = await this._prepareFastSimInputs(config, simTopModule, tempBaseDir);
-    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_fast_${simTopModule}`);
-    await window.electronAPI.mkdir(objDir);
+    const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_fast_${simTopModule}`);
+    await electronAPI.mkdir(objDir);
 
     const verilatorSpec = buildVerilatorBuildSpec({
         perlExe: tools.perlExe,
@@ -2001,10 +2002,10 @@ async _fastSimBuildVerilator(simTopModule, tempBaseDir, config, tools) {
         throw new Error(tr('error.compilation.verilatorFailed', { code: result.code }));
     }
 
-    let exePath = await window.electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
-    if (!await window.electronAPI.fileExists(exePath)) {
-        const fallback = await window.electronAPI.joinPath(objDir, `V${simTopModule}`);
-        if (!await window.electronAPI.fileExists(fallback)) {
+    let exePath = await electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
+    if (!await electronAPI.fileExists(exePath)) {
+        const fallback = await electronAPI.joinPath(objDir, `V${simTopModule}`);
+        if (!await electronAPI.fileExists(fallback)) {
             throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
         }
         exePath = fallback;
@@ -2133,19 +2134,19 @@ async verilatorProcessorRun() {
     const procName = proc.name;
     const numClocks = Number.isFinite(proc.numClocks) ? proc.numClocks : 2000;
 
-    const procDir = await window.electronAPI.joinPath(this.projectPath, procName);
-    const procV = await window.electronAPI.joinPath(procDir, 'Hardware', `${procName}.v`);
-    const simDir = await window.electronAPI.joinPath(procDir, 'Simulation');
+    const procDir = await electronAPI.joinPath(this.projectPath, procName);
+    const procV = await electronAPI.joinPath(procDir, 'Hardware', `${procName}.v`);
+    const simDir = await electronAPI.joinPath(procDir, 'Simulation');
 
-    if (!await window.electronAPI.fileExists(procV)) {
+    if (!await electronAPI.fileExists(procV)) {
         throw new Error(tr('error.compilation.procVMissing', { path: procV }));
     }
 
     const tools = await resolveVerilatorTools(this.componentsPath);
-    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-    const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
-    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_proc_${procName}`);
-    await window.electronAPI.mkdir(objDir);
+    const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
+    const hdlPath = await electronAPI.joinPath(this.componentsPath, 'HDL');
+    const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_proc_${procName}`);
+    await electronAPI.mkdir(objDir);
 
     // Todo este fluxo loga no terminal THTEST (Hardware Test) — etapas de
     // pipeline em alto nivel (info/success), ruido da toolchain
@@ -2168,14 +2169,14 @@ async verilatorProcessorRun() {
     const jsonResult = await runSpec(jsonSpec, { consumeEphemeral: true });
     this.terminalManager.processExecutableOutput(T, jsonResult);
     if (jsonResult.code !== 0) throw new Error(tr('error.compilation.verilatorJsonFailed', { code: jsonResult.code }));
-    const jsonPath = await window.electronAPI.joinPath(objDir, `V${procName}.tree.json`);
-    if (!await window.electronAPI.fileExists(jsonPath)) {
+    const jsonPath = await electronAPI.joinPath(objDir, `V${procName}.tree.json`);
+    if (!await electronAPI.fileExists(jsonPath)) {
         throw new Error(tr('error.compilation.verilatorJsonMissing', { path: jsonPath }));
     }
-    const ports = parseVerilatorPorts(JSON.parse(await window.electronAPI.readFile(jsonPath, { encoding: 'utf8' })));
+    const ports = parseVerilatorPorts(JSON.parse(await electronAPI.readFile(jsonPath, { encoding: 'utf8' })));
 
     // ---- Passo 2: fiacao de I/O lida do proprio <proc>.v (bloco YANC_SIM_VIS) ----
-    const wiring = parseProcessorIO(await window.electronAPI.readFile(procV, { encoding: 'utf8' }));
+    const wiring = parseProcessorIO(await electronAPI.readFile(procV, { encoding: 'utf8' }));
     if (wiring.inputs.length === 0 && wiring.outputs.length === 0) {
         this.terminalManager.appendToTerminal(T, tr('terminal.wave.procNoPorts'), 'warning');
     }
@@ -2187,8 +2188,8 @@ async verilatorProcessorRun() {
         inputs: wiring.inputs, outputs: wiring.outputs,
         numClocks,
     });
-    const cppPath = await window.electronAPI.joinPath(tempBaseDir, `tl_proc_${procName}.cpp`);
-    await window.electronAPI.writeFile(cppPath, gen.source);
+    const cppPath = await electronAPI.joinPath(tempBaseDir, `tl_proc_${procName}.cpp`);
+    await electronAPI.writeFile(cppPath, gen.source);
 
     this.terminalManager.appendToTerminal(T,
         tr('terminal.wave.procWiring', {
@@ -2210,10 +2211,10 @@ async verilatorProcessorRun() {
     this.terminalManager.processExecutableOutput(T, buildResult);
     if (buildResult.code !== 0) throw new Error(tr('error.compilation.verilatorTbBuildFailed', { code: buildResult.code }));
 
-    let exePath = await window.electronAPI.joinPath(objDir, `V${procName}.exe`);
-    if (!await window.electronAPI.fileExists(exePath)) {
-        const fallback = await window.electronAPI.joinPath(objDir, `V${procName}`);
-        if (!await window.electronAPI.fileExists(fallback)) {
+    let exePath = await electronAPI.joinPath(objDir, `V${procName}.exe`);
+    if (!await electronAPI.fileExists(exePath)) {
+        const fallback = await electronAPI.joinPath(objDir, `V${procName}`);
+        if (!await electronAPI.fileExists(fallback)) {
             throw new Error(tr('error.compilation.verilatorExeMissing', { path: exePath }));
         }
         exePath = fallback;
@@ -2242,8 +2243,8 @@ async verilatorProcessorRun() {
     let chegueiClock = null;
     let lastReads = null;
     let unsub = null;
-    if (typeof window.electronAPI.onExecSpecStream === 'function') {
-        unsub = window.electronAPI.onExecSpecStream((payload) => {
+    if (typeof electronAPI.onExecSpecStream === 'function') {
+        unsub = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 const m = line.match(PROG_RE);
@@ -2334,7 +2335,7 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
     if (!testbenchPath) return;
     let content;
     try {
-        content = await window.electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
+        content = await electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     } catch (_e) {
         return;
     }
@@ -2372,27 +2373,27 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
     }
     if (filenames.size === 0) return;
 
-    const tbDir = await window.electronAPI.dirname(testbenchPath);
+    const tbDir = await electronAPI.dirname(testbenchPath);
     const failures = [];
     for (const fname of filenames) {
         // Skip absolute paths — usuario sabe o que quer (e o vvp
         // resolve corretamente desde o CWD).
         if (/^[a-zA-Z]:[\\/]/.test(fname) || fname.startsWith('/') || fname.startsWith('\\')) continue;
         const clean = fname.replace(/^\.[\\/]+/, '');
-        const src = await window.electronAPI.joinPath(tbDir, clean);
+        const src = await electronAPI.joinPath(tbDir, clean);
         try {
-            const exists = await window.electronAPI.fileExists(src);
+            const exists = await electronAPI.fileExists(src);
             if (!exists) {
                 failures.push({ name: fname, reason: 'not found in testbench folder' });
                 continue;
             }
-            const dst = await window.electronAPI.joinPath(tempBaseDir, clean);
+            const dst = await electronAPI.joinPath(tempBaseDir, clean);
             // Garante dirs intermediarios pra fname com subpasta.
-            const dstDir = await window.electronAPI.dirname(dst);
+            const dstDir = await electronAPI.dirname(dst);
             if (dstDir && dstDir !== tempBaseDir) {
-                try { await window.electronAPI.mkdir(dstDir); } catch (_e) { /* exists ok */ }
+                try { await electronAPI.mkdir(dstDir); } catch (_e) { /* exists ok */ }
             }
-            await window.electronAPI.copyFile(src, dst);
+            await electronAPI.copyFile(src, dst);
         } catch (e) {
             failures.push({ name: fname, reason: e.message });
         }
@@ -2437,20 +2438,20 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     // plumbing. The user already saw "Simulation started"; the next
     // visible step is GTKWave opening. Failures still throw with a
     // detailed error below.
-    const expectedFst = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.fst`);
-    if (await window.electronAPI.fileExists(expectedFst)) {
+    const expectedFst = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.fst`);
+    if (await electronAPI.fileExists(expectedFst)) {
         return expectedFst;
     }
     // Legacy fallback: a full .vcd, in case someone runs vvp without
     // -fst (e.g. when investigating a problem with the two-pass flow).
-    const expectedVcd = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
-    if (await window.electronAPI.fileExists(expectedVcd)) {
+    const expectedVcd = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
+    if (await electronAPI.fileExists(expectedVcd)) {
         return expectedVcd;
     }
 
     let candidates = [];
     try {
-        const entries = await window.electronAPI.listFilesInDirectory(tempBaseDir);
+        const entries = await electronAPI.listFilesInDirectory(tempBaseDir);
         candidates = (entries || []).filter((name) => {
             const n = name.toLowerCase();
             return n.endsWith('.fst') || n.endsWith('.vcd');
@@ -2460,7 +2461,7 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     }
 
     if (candidates.length === 1) {
-        const adopted = await window.electronAPI.joinPath(tempBaseDir, candidates[0]);
+        const adopted = await electronAPI.joinPath(tempBaseDir, candidates[0]);
         // The warning is the actionable bit — the user's $dumpfile()
         // picked a different name than expected. Keep it. The "found
         // the file" success line is suppressed (internal plumbing).
@@ -2529,7 +2530,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
 
     // Source 2: auto-gerado. buildAuroraGtkw cobre o caso geral —
     // top-level flat + secoes por processador SAPHO detectado.
-    const autoGtkw = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
+    const autoGtkw = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.gtkw`);
     // Preferencia: a selecao ja validada (escrita por _validateWaveSelection
     // durante o passo de instrumentacao). Senao, le do WaveStore — caso
     // onde o auto-gtkw e chamado sem o pipeline de instrumentacao
@@ -2550,7 +2551,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
     // Prefer that header file when it exists.
     let parseSource = vcdFile;
     const headerSibling = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
-    if (await window.electronAPI.fileExists(headerSibling)) {
+    if (await electronAPI.fileExists(headerSibling)) {
         parseSource = headerSibling;
     } else if (vcdFile.toLowerCase().endsWith('.fst')) {
         this.terminalManager.appendToTerminal('twave',
@@ -2559,9 +2560,9 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
         return null;
     }
     try {
-        const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
+        const vcdContent = await electronAPI.readFile(parseSource, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
-        const binDir = await window.electronAPI.joinPath(this.componentsPath, 'bin');
+        const binDir = await electronAPI.joinPath(this.componentsPath, 'bin');
 
         // Last-line-of-defense pra picker selection: avisa o usuario
         // sobre sinais selecionados que nao chegaram no VCD (testbench
@@ -2628,7 +2629,7 @@ async _waveResolveGtkwSaveFile(simTopModule, vcdFile, tempBaseDir) {
         });
         if (!result.content) return null;
 
-        await window.electronAPI.writeFile(autoGtkw, result.content);
+        await electronAPI.writeFile(autoGtkw, result.content);
         const procPart = result.processorCount > 0
             ? `${result.processorCount} processor${result.processorCount === 1 ? '' : 's'}`
             : 'flat layout';
@@ -2674,17 +2675,17 @@ async _waveValidateUserGtkwAgainstVcd(gtkwPath, vcdPath) {
     let parseSource = vcdPath;
     if (vcdPath) {
         const headerSibling = vcdPath.replace(/\.(fst|vcd)$/i, '.header.vcd');
-        if (await window.electronAPI.fileExists(headerSibling)) {
+        if (await electronAPI.fileExists(headerSibling)) {
             parseSource = headerSibling;
         } else if (vcdPath.toLowerCase().endsWith('.fst')) {
             return;
         }
     }
     try {
-        const gtkwContent = await window.electronAPI.readFile(gtkwPath, { encoding: 'utf8' });
+        const gtkwContent = await electronAPI.readFile(gtkwPath, { encoding: 'utf8' });
         const referenced = extractSignalRefs(gtkwContent);
         if (referenced.length === 0) return;
-        const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
+        const vcdContent = await electronAPI.readFile(parseSource, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
         const inVcd = new Set();
         for (const scope of scopes) {
@@ -2746,7 +2747,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
     // space-free gtkwave path, so the old IPC rejected it as "Invalid
     // GTKWave command format". The args array is already exactly what
     // spawn needs (e.g. '--script=PATH' stays one token).
-    const gtkwaveResult = await window.electronAPI.launchGtkwaveOnly({
+    const gtkwaveResult = await electronAPI.launchGtkwaveOnly({
         gtkwaveBin: finalSpec.binary,
         args: finalSpec.args,
         workingDir: tools.tempBaseDir,
@@ -2789,7 +2790,7 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
         const flag = /\.sucl$/i.test(surferLayoutFile) ? '-c' : '-s';
         args.push(flag, surferLayoutFile);
     }
-    const result = await window.electronAPI.launchSurfer({
+    const result = await electronAPI.launchSurfer({
         surferBin: tools.surferBin,
         args,
         workingDir: tools.tempBaseDir,
@@ -2846,7 +2847,7 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
 
     // Source 2: auto-generated curated .surf.ron (declarative mirror of the
     // auto-.gtkw — same selection + processor sections/colors/formats/analog).
-    const autoSurfer = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.surf.ron`);
+    const autoSurfer = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.surf.ron`);
     let selected;
     if (Array.isArray(this._validatedWaveSelection)) {
         selected = this._validatedWaveSelection;
@@ -2860,13 +2861,13 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
     // FST binary isn't text-parseable). Same guard as the auto-.gtkw path.
     let parseSource = vcdFile;
     const headerSibling = vcdFile.replace(/\.(fst|vcd)$/i, '.header.vcd');
-    if (await window.electronAPI.fileExists(headerSibling)) {
+    if (await electronAPI.fileExists(headerSibling)) {
         parseSource = headerSibling;
     } else if (vcdFile.toLowerCase().endsWith('.fst')) {
         return null; // no parseable header → Surfer opens the raw VCD
     }
     try {
-        const vcdContent = await window.electronAPI.readFile(parseSource, { encoding: 'utf8' });
+        const vcdContent = await electronAPI.readFile(parseSource, { encoding: 'utf8' });
         const scopes = parseVcdHeaderFromContent(vcdContent);
         const modules = await this._parseProjectSources();
 
@@ -2879,18 +2880,18 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
         let newestTradMtime = 0; // p/ check de staleness (trad mais novo que o dump)
         for (const p of detectProcessors(scopes, scopeModules)) {
             if (!p || !p.procType || tradByProcType[p.procType]) continue;
-            const procDir = await window.electronAPI.joinPath(tempBaseDir, p.procType);
-            const opPath = await window.electronAPI.joinPath(procDir, 'trad_opcode.txt');
-            const cmPath = await window.electronAPI.joinPath(procDir, 'trad_cmm.txt');
-            const opExists = await window.electronAPI.fileExists(opPath);
-            const cmExists = await window.electronAPI.fileExists(cmPath);
+            const procDir = await electronAPI.joinPath(tempBaseDir, p.procType);
+            const opPath = await electronAPI.joinPath(procDir, 'trad_opcode.txt');
+            const cmPath = await electronAPI.joinPath(procDir, 'trad_cmm.txt');
+            const opExists = await electronAPI.fileExists(opPath);
+            const cmExists = await electronAPI.fileExists(cmPath);
             tradByProcType[p.procType] = {
-                opcode: opExists ? await window.electronAPI.readFile(opPath) : null,
-                cmm: cmExists ? await window.electronAPI.readFile(cmPath) : null,
+                opcode: opExists ? await electronAPI.readFile(opPath) : null,
+                cmm: cmExists ? await electronAPI.readFile(cmPath) : null,
             };
             for (const present of [opExists ? opPath : null, cmExists ? cmPath : null]) {
                 if (!present) continue;
-                try { const st = await window.electronAPI.getFileStats(present); if (st && st.mtime > newestTradMtime) newestTradMtime = st.mtime; } catch { /* sem stat -> ignora */ }
+                try { const st = await electronAPI.getFileStats(present); if (st && st.mtime > newestTradMtime) newestTradMtime = st.mtime; } catch { /* sem stat -> ignora */ }
             }
         }
 
@@ -2900,7 +2901,7 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
         // ordem normal compile->simulate (trad fica levemente mais velho que o FST).
         if (newestTradMtime > 0) {
             try {
-                const fstStat = await window.electronAPI.getFileStats(vcdFile);
+                const fstStat = await electronAPI.getFileStats(vcdFile);
                 if (fstStat && newestTradMtime > fstStat.mtime + 2000) {
                     this.terminalManager.appendToTerminal('twave',
                         'Surfer: os tradutores Assembly/C+- sao mais novos que o dump — recompilou sem re-simular? O decode pode estar desatualizado; re-simule para alinhar.', 'tips');
@@ -2944,11 +2945,11 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
             eventMarkers,
         });
         if (!content) return null;
-        await window.electronAPI.writeFile(autoSurfer, content);
+        await electronAPI.writeFile(autoSurfer, content);
         // Surfer scans its global config/mappings dir at startup; write the
         // decode maps now (before launch) so valr2/linetabs render decoded.
         if (Array.isArray(mappings) && mappings.length > 0) {
-            const wr = await window.electronAPI.writeSurferMappings(mappings);
+            const wr = await electronAPI.writeSurferMappings(mappings);
             // Visibilidade: se algum mapping nao foi escrito (permissao/IO), avisa —
             // esses tracks abrem em decimal cru em vez de falhar mudo.
             if (wr && Array.isArray(wr.failed) && wr.failed.length > 0) {
@@ -2987,34 +2988,34 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
  */
 async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir, nsTag = '') {
     try {
-        if (typeof window.electronAPI.onExecSpecStream !== 'function') return null;
-        const fst2vcdBin = await window.electronAPI.joinPath(
+        if (typeof electronAPI.onExecSpecStream !== 'function') return null;
+        const fst2vcdBin = await electronAPI.joinPath(
             this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
-        const comp2gtkwExe = await window.electronAPI.joinPath(this.componentsPath, 'bin', 'comp2gtkw.exe');
+        const comp2gtkwExe = await electronAPI.joinPath(this.componentsPath, 'bin', 'comp2gtkw.exe');
         // Pre-check: sem o decoder (comp2gtkw) ou o streamer (fst2vcd) nao adianta
         // varrer o FST inteiro — avisa UMA vez no terminal e cai pro fallback
         // (complexos em Binary cru) em vez de degradar SILENCIOSAMENTE. Esse era o
         // gap: o usuario abria o Surfer, via binario cru e nao sabia o porque.
-        if (!await window.electronAPI.fileExists(comp2gtkwExe)) {
+        if (!await electronAPI.fileExists(comp2gtkwExe)) {
             this.terminalManager.appendToTerminal('twave',
                 'Surfer: comp2gtkw.exe nao encontrado em components/bin/ — numeros complexos abrem em Binary cru.', 'tips');
             return null;
         }
-        if (!await window.electronAPI.fileExists(fst2vcdBin)) {
+        if (!await electronAPI.fileExists(fst2vcdBin)) {
             this.terminalManager.appendToTerminal('twave',
                 'Surfer: fst2vcd.exe nao encontrado — decode de complexos pulado (Binary cru).', 'tips');
             return null;
         }
         const scanner = new ComplexVcdScanner();
         let killed = false;
-        const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+        const unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || payload.type !== 'stdout' || !payload.data) return;
             scanner.feed(payload.data);
             // Cap atingido → para o fst2vcd cedo (kill ALVO do filho parqueado,
             // nao o sweep por-nome que mataria o viewer deste mesmo fluxo).
-            if (!killed && scanner.wasCapped() && typeof window.electronAPI.killCurrentSpecProcess === 'function') {
+            if (!killed && scanner.wasCapped() && typeof electronAPI.killCurrentSpecProcess === 'function') {
                 killed = true;
-                window.electronAPI.killCurrentSpecProcess();
+                electronAPI.killCurrentSpecProcess();
             }
         });
         try {
@@ -3031,7 +3032,7 @@ async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir, nsTag = '')
 
         const values = scanner.distinctValues();
         if (values.length === 0) return null;
-        const res = await window.electronAPI.decodeComplex({ exePath: comp2gtkwExe, values });
+        const res = await electronAPI.decodeComplex({ exePath: comp2gtkwExe, values });
         if (!res || !res.success || !Array.isArray(res.decoded)) return null;
         const decodedByValue = new Map();
         const n = Math.min(values.length, res.decoded.length);
@@ -3062,19 +3063,19 @@ async _buildSurferComplexMapping(fstPath, simTopModule, tempBaseDir, nsTag = '')
  */
 async _buildSurferEventMarkers(fstPath, tempBaseDir) {
     try {
-        if (typeof window.electronAPI.onExecSpecStream !== 'function') return null;
-        const fst2vcdBin = await window.electronAPI.joinPath(
+        if (typeof electronAPI.onExecSpecStream !== 'function') return null;
+        const fst2vcdBin = await electronAPI.joinPath(
             this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe');
-        if (!await window.electronAPI.fileExists(fst2vcdBin)) return null;
+        if (!await electronAPI.fileExists(fst2vcdBin)) return null;
         const scanner = new EventScanner();
         let killed = false;
-        const unsubscribe = window.electronAPI.onExecSpecStream((payload) => {
+        const unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || payload.type !== 'stdout' || !payload.data) return;
             scanner.feed(payload.data);
             // Achou entrada + saida (ou cap) -> mata o fst2vcd CEDO.
-            if (!killed && (scanner.done() || scanner.capped()) && typeof window.electronAPI.killCurrentSpecProcess === 'function') {
+            if (!killed && (scanner.done() || scanner.capped()) && typeof electronAPI.killCurrentSpecProcess === 'function') {
                 killed = true;
-                window.electronAPI.killCurrentSpecProcess();
+                electronAPI.killCurrentSpecProcess();
             }
         });
         try {

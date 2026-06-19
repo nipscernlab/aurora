@@ -19,11 +19,12 @@
 // writes the field. That keeps the field's whole lifecycle (3 writes / 2 reads)
 // inside the class even though this body moved out.
 //
-// Kept on `window.electronAPI` (live global) rather than the ../app/electron_api
+// Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
 // `globalThis.window = { electronAPI: fake }` pattern (same as WaveStore) —
 // migrating these globals belongs to A3, not this extraction.
 
+import { electronAPI } from '../app/electron_api.js';
 import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { WaveStore } from '../wave/wave_state_store.js';
@@ -58,7 +59,7 @@ export async function validateWaveSelection(deps, rawSelected, filePaths, simTop
         const fileContents = await Promise.all(
             filePaths.map(async (path) => ({
                 path,
-                content: await window.electronAPI.readFile(path, { encoding: 'utf8' }),
+                content: await electronAPI.readFile(path, { encoding: 'utf8' }),
             })),
         );
         const { modules } = parseVerilogModules(fileContents);
@@ -146,7 +147,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
 
     // 1a visita: snapshot do estado original do testbench. Idempotente
     // — re-chamadas nao mudam o flag.
-    const tbContent = await window.electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+    const tbContent = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
     const hadOriginalDumpvars = hasUserDumpCalls(tbContent);
     await WaveStore.ensureRegistered(deps.projectPath, tbKey, {
         tbPath: config.testbenchFile,
@@ -163,7 +164,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
         const contents = await Promise.all(
             filePaths.map(async (p) => ({
                 path: p,
-                content: await window.electronAPI.readFile(p, { encoding: 'utf8' }),
+                content: await electronAPI.readFile(p, { encoding: 'utf8' }),
             })),
         );
         const { modules } = parseVerilogModules(contents);
@@ -177,7 +178,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
     const activeGtkw = (state.gtkwFiles || []).find((f) => f && f.isActive === true);
     if (activeGtkw && activeGtkw.path) {
         try {
-            const gtkwContent = await window.electronAPI.readFile(activeGtkw.path, { encoding: 'utf8' });
+            const gtkwContent = await electronAPI.readFile(activeGtkw.path, { encoding: 'utf8' });
             const refs = extractSignalRefs(gtkwContent);
             if (refs.length > 0) {
                 const tree = await buildTree();
@@ -307,12 +308,12 @@ export async function parseProjectSources(deps) {
         // <inst>.core.sp.pointeri ficam com moduleType=null e nao
         // recebem decoracao SAPHO no .gtkw.
         try {
-            const hdlPath = await window.electronAPI.joinPath(deps.componentsPath, 'HDL');
-            const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+            const hdlPath = await electronAPI.joinPath(deps.componentsPath, 'HDL');
+            const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
             if (Array.isArray(hdlEntries)) {
                 for (const name of hdlEntries) {
                     if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                        paths.add(await window.electronAPI.joinPath(hdlPath, name));
+                        paths.add(await electronAPI.joinPath(hdlPath, name));
                     }
                 }
             }
@@ -323,7 +324,7 @@ export async function parseProjectSources(deps) {
         const files = [];
         for (const p of paths) {
             try {
-                const content = await window.electronAPI.readFile(p, { encoding: 'utf8' });
+                const content = await electronAPI.readFile(p, { encoding: 'utf8' });
                 files.push({ path: p, content });
             } catch (_e) { /* arquivo sumiu — ignora */ }
         }

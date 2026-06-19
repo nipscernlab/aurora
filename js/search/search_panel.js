@@ -1,5 +1,6 @@
+import { electronAPI } from '../app/electron_api.js';
 // search_panel.js — "Find in Files" panel (VS Code's Search), driven by
-// window.electronAPI.searchInProject (main/ipc/search.js). Results are grouped
+// electronAPI.searchInProject (main/ipc/search.js). Results are grouped
 // by file: a collapsible file header + match rows. Clicking a row opens the
 // file at that line via TabManager and closes the modal.
 
@@ -75,7 +76,7 @@ async function runSearch() {
   const seq = ++reqSeq;
   let res;
   try {
-    res = await window.electronAPI?.searchInProject?.({
+    res = await electronAPI?.searchInProject?.({
       query,
       caseSensitive: toggles.case,
       wholeWord: toggles.word,
@@ -192,7 +193,7 @@ async function openMatch(gi, line, col) {
   const group = lastResults[gi];
   if (!group) return;
   try {
-    const content = await window.electronAPI.readFile(group.abs);
+    const content = await electronAPI.readFile(group.abs);
     window.TabManager.addTab(group.abs, content, {
       preview: false,
       revealPosition: { line, column: col || 1 },

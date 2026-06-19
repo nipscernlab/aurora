@@ -1,13 +1,14 @@
+import { electronAPI } from '../app/electron_api.js';
 // wave_toolchain.js — resolve bundled toolchain paths for the wave/sim flow.
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #3). Pure IO
 // helpers: they join paths to bundled executables and probe the filesystem for
 // existence / wave artifacts. No DOM, no simulation state — the only coupling is
-// `window.electronAPI` (path join + fileExists + listFilesInDirectory) and the
+// `electronAPI` (path join + fileExists + listFilesInDirectory) and the
 // i18n shim. componentsPath is passed in (was this.componentsPath) so these are
 // plain functions the wave pipeline calls.
 //
-// Kept on `window.electronAPI` (live global) rather than the ../app/electron_api
+// Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
 // `globalThis.window = { electronAPI: fake }` pattern (same as WaveStore /
 // SpfStore) — migrating these globals belongs to A3, not this extraction.
@@ -31,27 +32,27 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  * directly (unlike Verilator, which merges in resolveVerilatorTools()).
  */
 export async function resolveWaveToolchain(componentsPath) {
-    const tempBaseDir = await window.electronAPI.joinPath(componentsPath, 'Temp');
-    const gtkwaveBin = await window.electronAPI.joinPath(
+    const tempBaseDir = await electronAPI.joinPath(componentsPath, 'Temp');
+    const gtkwaveBin = await electronAPI.joinPath(
         componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe',
     );
     // Unified mingw bundle: iverilog + vvp live in Packages/msys/mingw64/bin.
-    const iverilogBinDir = await window.electronAPI.joinPath(
+    const iverilogBinDir = await electronAPI.joinPath(
         componentsPath, 'Packages', 'msys', 'mingw64', 'bin',
     );
-    const iverilogBin = await window.electronAPI.joinPath(iverilogBinDir, 'iverilog.exe');
-    const vvpBin = await window.electronAPI.joinPath(iverilogBinDir, 'vvp.exe');
+    const iverilogBin = await electronAPI.joinPath(iverilogBinDir, 'iverilog.exe');
+    const vvpBin = await electronAPI.joinPath(iverilogBinDir, 'vvp.exe');
     // fst2vcd is the only GTKWave CLI tool Aurora needs; it ships in the
     // gtkwave-nipscern fork (no separate Icarus GTKWave bundle anymore).
-    const gtkwaveBinDir = await window.electronAPI.joinPath(
+    const gtkwaveBinDir = await electronAPI.joinPath(
         componentsPath, 'Packages', 'gtkwave-nipscern',
     );
-    const fst2vcdBin = await window.electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
+    const fst2vcdBin = await electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
     // Surfer (optional, opt-in viewer): a standalone surfer.exe dropped under
     // Packages/surfer/. NOT bundled by default — _waveLaunchSurfer degrades to
     // GTKWave with a friendly message if it's absent, so resolving the path
     // unconditionally here is harmless.
-    const surferBin = await window.electronAPI.joinPath(
+    const surferBin = await electronAPI.joinPath(
         componentsPath, 'Packages', 'surfer', 'surfer.exe',
     );
     return {
@@ -75,7 +76,7 @@ export async function resolveWaveToolchain(componentsPath) {
 export async function findWaveCandidateInDir(dir, topModule) {
     let entries = [];
     try {
-        entries = await window.electronAPI.listFilesInDirectory(dir);
+        entries = await electronAPI.listFilesInDirectory(dir);
     } catch (_e) {
         return null;
     }
@@ -92,10 +93,10 @@ export async function findWaveCandidateInDir(dir, topModule) {
     const lowerToName = new Map(waves.map((name) => [name.toLowerCase(), name]));
     for (const name of preferred) {
         const found = lowerToName.get(name.toLowerCase());
-        if (found) return await window.electronAPI.joinPath(dir, found);
+        if (found) return await electronAPI.joinPath(dir, found);
     }
     if (waves.length === 1) {
-        return await window.electronAPI.joinPath(dir, waves[0]);
+        return await electronAPI.joinPath(dir, waves[0]);
     }
     return null;
 }
@@ -114,26 +115,26 @@ export async function findWaveCandidateInDir(dir, topModule) {
  * base wave toolchain, Verilator merges these into its own tools object.
  */
 export async function resolveVerilatorTools(componentsPath) {
-    const bundleRoot = await window.electronAPI.joinPath(componentsPath, 'Packages', 'msys');
-    const mingwBin = await window.electronAPI.joinPath(bundleRoot, 'mingw64', 'bin');
-    const usrBin   = await window.electronAPI.joinPath(bundleRoot, 'usr', 'bin');
-    const verilatorScript = await window.electronAPI.joinPath(mingwBin, 'verilator');
-    const perlExe         = await window.electronAPI.joinPath(mingwBin, 'perl.exe');
-    const cxxBin          = await window.electronAPI.joinPath(mingwBin, 'g++.exe');
+    const bundleRoot = await electronAPI.joinPath(componentsPath, 'Packages', 'msys');
+    const mingwBin = await electronAPI.joinPath(bundleRoot, 'mingw64', 'bin');
+    const usrBin   = await electronAPI.joinPath(bundleRoot, 'usr', 'bin');
+    const verilatorScript = await electronAPI.joinPath(mingwBin, 'verilator');
+    const perlExe         = await electronAPI.joinPath(mingwBin, 'perl.exe');
+    const cxxBin          = await electronAPI.joinPath(mingwBin, 'g++.exe');
 
-    if (!await window.electronAPI.fileExists(verilatorScript)) {
+    if (!await electronAPI.fileExists(verilatorScript)) {
         throw new Error(tr('error.toolchain.verilatorNotFound', {
             paths: `  ${verilatorScript}\n  (bundle nao instalado — rode "npm run bootstrap" pra baixar)`,
         }));
     }
-    if (!await window.electronAPI.fileExists(perlExe)) {
+    if (!await electronAPI.fileExists(perlExe)) {
         throw new Error(tr('error.toolchain.verilatorNotFound', {
             paths: `  ${perlExe}\n  (bundle corrompido — apague components/Packages/msys/ e rode "npm run bootstrap")`,
         }));
     }
 
     // fst2vcd vem do gtkwave-nipscern (a unica CLI de GTKWave que o Aurora usa).
-    const fst2vcdBin = await window.electronAPI.joinPath(
+    const fst2vcdBin = await electronAPI.joinPath(
         componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe',
     );
 

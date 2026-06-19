@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-tabs.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
@@ -189,7 +190,7 @@ export class TabManager {
 
     static async confirmOverwrite(filePath) {
         try {
-            const exists = await window.electronAPI.fileExists(filePath);
+            const exists = await electronAPI.fileExists(filePath);
             if (!exists) return true;
         } catch (_) {
             return true;
@@ -216,11 +217,11 @@ export class TabManager {
             return { processorName, cmmPath: selectedPath, projectPath: null };
         }
 
-        const processorPath = await window.electronAPI.joinPath(projectPath, processorName);
-        const softwarePath = await window.electronAPI.joinPath(processorPath, 'Software');
-        const hardwarePath = await window.electronAPI.joinPath(processorPath, 'Hardware');
-        const simulationPath = await window.electronAPI.joinPath(processorPath, 'Simulation');
-        const cmmPath = await window.electronAPI.joinPath(softwarePath, `${processorName}.cmm`);
+        const processorPath = await electronAPI.joinPath(projectPath, processorName);
+        const softwarePath = await electronAPI.joinPath(processorPath, 'Software');
+        const hardwarePath = await electronAPI.joinPath(processorPath, 'Hardware');
+        const simulationPath = await electronAPI.joinPath(processorPath, 'Simulation');
+        const cmmPath = await electronAPI.joinPath(softwarePath, `${processorName}.cmm`);
         return { processorName, processorPath, softwarePath, hardwarePath, simulationPath, cmmPath, projectPath };
     }
 
@@ -234,10 +235,10 @@ export class TabManager {
             const projectPath = ProjectStore.getProjectPath();
             const defaultFileName = `${suggestedBase}.${suggestedExt}`;
             const defaultPath = projectPath
-                ? await window.electronAPI.joinPath(projectPath, defaultFileName)
+                ? await electronAPI.joinPath(projectPath, defaultFileName)
                 : defaultFileName;
 
-            const result = await window.electronAPI.showSaveDialog({
+            const result = await electronAPI.showSaveDialog({
                 title: window.t ? window.t('contextMenu.saveNewFile') : 'Save New File',
                 defaultPath,
                 filters: getSaveDialogFilters(detectedType),
@@ -321,17 +322,17 @@ export class TabManager {
         if (!target.projectPath) {
             const finalPath = appendDefaultExtension(selectedPath, 'cmm');
             if (!await this.confirmOverwrite(finalPath)) return null;
-            await window.electronAPI.writeFile(finalPath, finalContent);
+            await electronAPI.writeFile(finalPath, finalContent);
             return { filePath: finalPath, content: finalContent, processorName: target.processorName };
         }
 
-        await window.electronAPI.mkdir(target.softwarePath);
-        await window.electronAPI.mkdir(target.hardwarePath);
-        await window.electronAPI.mkdir(target.simulationPath);
+        await electronAPI.mkdir(target.softwarePath);
+        await electronAPI.mkdir(target.hardwarePath);
+        await electronAPI.mkdir(target.simulationPath);
 
         if (!await this.confirmOverwrite(target.cmmPath)) return null;
 
-        await window.electronAPI.writeFile(target.cmmPath, finalContent);
+        await electronAPI.writeFile(target.cmmPath, finalContent);
         await this.registerProcessor(target.processorName);
         return { filePath: target.cmmPath, content: finalContent, processorName: target.processorName };
     }
@@ -413,18 +414,18 @@ export class TabManager {
             savedPath = saved.filePath;
             savedContent = saved.content;
         } else {
-            await window.electronAPI.writeFile(finalPath, content);
+            await electronAPI.writeFile(finalPath, content);
             await this.registerSavedProjectFile(finalPath, content);
         }
         await this.replaceUntitledWithSavedFile(filePath, savedPath, savedContent);
 
         try {
-            const stats = await window.electronAPI.getFileStats(savedPath);
+            const stats = await electronAPI.getFileStats(savedPath);
             this.lastModifiedTimes.set(savedPath, stats.mtime);
         } catch (_) { /* stats errors are non-fatal */ }
 
         if (ProjectStore.getProjectPath()) {
-            try { await window.electronAPI.triggerFileTreeRefresh?.(); }
+            try { await electronAPI.triggerFileTreeRefresh?.(); }
             catch (_) { /* tree refresh is best-effort */ }
         }
         return true;
@@ -451,9 +452,9 @@ async def basic_test(dut):
     static async createNewFileFromDialog() {
         const projectPath = ProjectStore.getProjectPath();
         const defaultPath = projectPath
-            ? await window.electronAPI.joinPath(projectPath, 'untitled.v')
+            ? await electronAPI.joinPath(projectPath, 'untitled.v')
             : 'untitled.v';
-        const result = await window.electronAPI.showSaveDialog({
+        const result = await electronAPI.showSaveDialog({
             title: window.t ? window.t('contextMenu.saveNewFile') : 'Save New File',
             defaultPath,
             filters: getSaveDialogFilters(null, { includeCmmFallback: true }),
@@ -493,12 +494,12 @@ async def basic_test(dut):
             savedPath = saved.filePath;
             savedContent = saved.content;
         } else {
-            await window.electronAPI.writeFile(requestedPath, content);
+            await electronAPI.writeFile(requestedPath, content);
             await this.registerSavedProjectFile(requestedPath, content);
         }
 
         if (ProjectStore.getProjectPath()) {
-            try { await window.electronAPI.triggerFileTreeRefresh?.(); }
+            try { await electronAPI.triggerFileTreeRefresh?.(); }
             catch (_) { /* tree refresh is best-effort */ }
         }
         this.addTab(savedPath, savedContent);
@@ -1080,13 +1081,13 @@ async def basic_test(dut):
             this.tabs.set(currentPath, content);
 
             // Save file without interfering with undo history
-            await window.electronAPI.writeFile(currentPath, content);
+            await electronAPI.writeFile(currentPath, content);
             window.SharedModelRegistry?.markSaved?.(currentPath);
             this.markFileAsSaved(currentPath);
 
             // Update last modified time
             try {
-                const stats = await window.electronAPI.getFileStats(currentPath);
+                const stats = await electronAPI.getFileStats(currentPath);
                 this.lastModifiedTimes.set(currentPath, stats.mtime);
             } catch (error) {
                 // Ignore stats errors
@@ -1133,12 +1134,12 @@ async def basic_test(dut):
             const currentContent = model.getValue();
             try {
                 this.tabs.set(filePath, currentContent);
-                await window.electronAPI.writeFile(filePath, currentContent);
+                await electronAPI.writeFile(filePath, currentContent);
                 registry.markSaved(filePath);
                 this.markFileAsSaved(filePath);
 
                 try {
-                    const stats = await window.electronAPI.getFileStats(filePath);
+                    const stats = await electronAPI.getFileStats(filePath);
                     this.lastModifiedTimes.set(filePath, stats.mtime);
                 } catch (_) { /* stats errors are non-fatal */ }
             } catch (error) {
@@ -1437,7 +1438,7 @@ async def basic_test(dut):
             this.tabs.set(currentPath, content);
 
             // Save file without interfering with undo history
-            await window.electronAPI.writeFile(currentPath, content);
+            await electronAPI.writeFile(currentPath, content);
 
             // Mark as saved
             window.SharedModelRegistry?.markSaved?.(currentPath);
@@ -1445,7 +1446,7 @@ async def basic_test(dut):
 
             // Update the last modified time to prevent false external change detection
             try {
-                const stats = await window.electronAPI.getFileStats(currentPath);
+                const stats = await electronAPI.getFileStats(currentPath);
                 this.lastModifiedTimes.set(currentPath, stats.mtime);
             } catch (error) {
                 // If we can't get stats, that's okay - the content comparison will handle it
@@ -1517,7 +1518,7 @@ async def basic_test(dut):
             // Try to read current file content
             let currentContent;
             try {
-                currentContent = await window.electronAPI.readFile(filePath);
+                currentContent = await electronAPI.readFile(filePath);
             } catch (error) {
                 // File might not exist anymore, use stored content
                 currentContent = content;

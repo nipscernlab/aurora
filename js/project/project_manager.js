@@ -1,5 +1,6 @@
 // project_manager.js
 
+import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { showDialog } from '../ui/dialog_manager.js';
@@ -95,9 +96,9 @@ async function openMissingFilesLogInEditor(missing, spfPath, basePath) {
     }
 
     const logFileName = '.aurora-missing-files.log';
-    const logPath = await window.electronAPI.joinPath(basePath, logFileName);
+    const logPath = await electronAPI.joinPath(basePath, logFileName);
     const content = lines.join('\n');
-    await window.electronAPI.writeFile(logPath, content);
+    await electronAPI.writeFile(logPath, content);
 
     // Open as a preview tab (italic). Without preview:false the file
     // gets pinned; we want it dismissable with one click on another file.
@@ -114,16 +115,16 @@ async function openMissingFilesLogInEditor(missing, spfPath, basePath) {
 async function removeMissingFilesLog(basePath) {
     if (!basePath) return;
     const logFileName = '.aurora-missing-files.log';
-    const logPath = await window.electronAPI.joinPath(basePath, logFileName);
-    const exists = await window.electronAPI.fileExists?.(logPath);
+    const logPath = await electronAPI.joinPath(basePath, logFileName);
+    const exists = await electronAPI.fileExists?.(logPath);
     if (!exists) return;
     // Fecha a tab no Monaco se o usuario tinha o log aberto, antes
     // de apagar do disco — assim o save no exit nao recria o arquivo.
     if (window.TabManager?.tabs?.has?.(logPath)) {
         try { await window.TabManager.closeTab?.(logPath); } catch (_) { /* best effort */ }
     }
-    if (typeof window.electronAPI.deleteFile === 'function') {
-        await window.electronAPI.deleteFile(logPath);
+    if (typeof electronAPI.deleteFile === 'function') {
+        await electronAPI.deleteFile(logPath);
     }
 }
 
@@ -223,7 +224,7 @@ function enableCompileButtons() {
  */
 async function loadProject(spfPath) {
     try {
-        const result = await window.electronAPI.openProject(spfPath);
+        const result = await electronAPI.openProject(spfPath);
 
         if (!result || result.success === false) {
             const msg = (result && result.message) || 'Could not open project.';
@@ -366,7 +367,7 @@ class ProjectManager {
     initialize() {
         // Listener para o botão "Open Project" da UI principal
         document.getElementById('openProjectBtn')?.addEventListener('click', async () => {
-            const result = await window.electronAPI.showOpenDialog();
+            const result = await electronAPI.showOpenDialog();
             if (!result.canceled && result.filePaths.length > 0) {
                 await loadProject(result.filePaths[0]);
             }
@@ -374,7 +375,7 @@ class ProjectManager {
 
         // Listener para o botão da tela de boas-vindas
         document.getElementById('openProjectBtnWelcome')?.addEventListener('click', async () => {
-            const result = await window.electronAPI.showOpenDialog();
+            const result = await electronAPI.showOpenDialog();
             if (!result.canceled && result.filePaths.length > 0) {
                 await loadProject(result.filePaths[0]);
             }
@@ -383,7 +384,7 @@ class ProjectManager {
         document.getElementById('projectInfo')?.addEventListener('click', async () => {
             if (!window.currentSpfPath) return;
             try {
-                const projectData = await window.electronAPI.getProjectInfo(window.currentSpfPath);
+                const projectData = await electronAPI.getProjectInfo(window.currentSpfPath);
                 showProjectInfoDialog(projectData);
             } catch (error) {
                 console.error('Error getting project info:', error);
@@ -391,11 +392,11 @@ class ProjectManager {
         });
 
         document.getElementById('open-folder-button')?.addEventListener('click', () => {
-            if (window.currentProjectPath) window.electronAPI.openFolder(window.currentProjectPath);
+            if (window.currentProjectPath) electronAPI.openFolder(window.currentProjectPath);
         });
 
         // Listener para quando o projeto é aberto via "File > Open" ou atalhos
-        window.electronAPI.onSimulateOpenProject(async (result) => {
+        electronAPI.onSimulateOpenProject(async (result) => {
             if (!result.canceled && result.filePaths.length > 0) {
                 await loadProject(result.filePaths[0]);
             }
@@ -405,7 +406,7 @@ class ProjectManager {
         // na linha exata. Reusa o pipeline existente (readFile + TabManager
         // ou SplitEditorManager) pra parity com clique no file tree, depois
         // posiciona o cursor monaco via EditorManager.
-        window.electronAPI.onOpenFileAt(async ({ filePath, line, column }) => {
+        electronAPI.onOpenFileAt(async ({ filePath, line, column }) => {
             try {
                 const ln  = Number.isInteger(line)   && line   > 0 ? line   : 1;
                 const col = Number.isInteger(column) && column > 0 ? column : 1;
@@ -431,7 +432,7 @@ class ProjectManager {
                     return;
                 }
 
-                const content = await window.electronAPI.readFile(filePath);
+                const content = await electronAPI.readFile(filePath);
                 const sem = window.SplitEditorManager;
                 if (sem && sem.focusedPane > 0) {
                     await sem.openInFocusedPane(filePath, content);

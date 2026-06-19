@@ -1,3 +1,4 @@
+import { electronAPI } from './electron_api.js';
 /**
  * error_boundary.js — the renderer's last line of defence.
  *
@@ -27,7 +28,7 @@ function describe(err) {
 function forwardToMain(kind, message, stack) {
   // Best-effort: the preload may expose a logging channel; never assume it does.
   try {
-    const api = window.electronAPI;
+    const api = electronAPI;
     if (api && typeof api.logRendererError === 'function') {
       api.logRendererError({ kind, message, stack: stack || null });
     }

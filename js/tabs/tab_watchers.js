@@ -2,7 +2,7 @@
  * External-file-change detection for the tab system.
  *
  * Each open file is watched two ways:
- *   1. chokidar via window.electronAPI.watchFile (push)
+ *   1. chokidar via electronAPI.watchFile (push)
  *   2. a 2-second periodic stat poll (pull, fallback for editors that race
  *      with the OS file events on Windows)
  *
@@ -13,6 +13,7 @@
  * Object.assign at the bottom of tab_manager.js.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showDialog } from '../ui/dialog_manager.js';
 
@@ -86,7 +87,7 @@ export const tabWatchers = {
             if (!this.tabs.has(filePath)) return;
             if (this.isUntitledPath?.(filePath)) return;
 
-            const stats = await window.electronAPI.getFileStats(filePath);
+            const stats = await electronAPI.getFileStats(filePath);
             const lastKnownTime = this.lastModifiedTimes.get(filePath);
 
             if (!lastKnownTime || stats.mtime > lastKnownTime) {
@@ -106,11 +107,11 @@ export const tabWatchers = {
     // -- Push-side watcher (chokidar via main) -------------------------------
 
     initFileChangeListeners() {
-        window.electronAPI.onFileChanged((filePath) => {
+        electronAPI.onFileChanged((filePath) => {
             this.handleExternalFileChange(filePath);
         });
 
-        window.electronAPI.onFileWatcherError((filePath, error) => {
+        electronAPI.onFileWatcherError((filePath, error) => {
             console.error(`File watcher error for ${filePath}:`, error);
             // Try to restart the watcher after a delay.
             setTimeout(() => this.restartFileWatcher(filePath), 2000);
@@ -134,10 +135,10 @@ export const tabWatchers = {
         if (this.fileWatchers.has(filePath)) return;
 
         try {
-            const stats = await window.electronAPI.getFileStats(filePath);
+            const stats = await electronAPI.getFileStats(filePath);
             this.lastModifiedTimes.set(filePath, stats.mtime);
 
-            const watcherId = await window.electronAPI.watchFile(filePath);
+            const watcherId = await electronAPI.watchFile(filePath);
             this.fileWatchers.set(filePath, watcherId);
         } catch (error) {
             console.error(`Error starting file watcher for ${filePath}:`, error);
@@ -155,7 +156,7 @@ export const tabWatchers = {
         this.fileWatchers.delete(filePath);
         this.lastModifiedTimes.delete(filePath);
         try {
-            await window.electronAPI.stopWatchingFile(watcher);
+            await electronAPI.stopWatchingFile(watcher);
         } catch (_) { /* main may have already torn it down */ }
     },
 
@@ -174,7 +175,7 @@ export const tabWatchers = {
         this.externalChangeQueue.add(filePath);
 
         try {
-            const stats = await window.electronAPI.getFileStats(filePath);
+            const stats = await electronAPI.getFileStats(filePath);
             const lastKnownTime = this.lastModifiedTimes.get(filePath);
 
             // 1s tolerance for clock skew between filesystem and process.
@@ -189,7 +190,7 @@ export const tabWatchers = {
             const currentEditorContent = editor.getValue();
             const originalTabContent = this.tabs.get(filePath);
 
-            const newFileContent = await window.electronAPI.readFile(filePath);
+            const newFileContent = await electronAPI.readFile(filePath);
 
             // If the editor already matches what's on disk, this was almost
             // certainly our own save round-tripping back to us. Just store
@@ -298,7 +299,7 @@ export const tabWatchers = {
             case 'save-and-reload': {
                 await this.saveFile(filePath);
                 // Re-read in case the save itself triggered yet another change.
-                const freshContent = await window.electronAPI.readFile(filePath);
+                const freshContent = await electronAPI.readFile(filePath);
                 await this.updateTabWithExternalContent(filePath, freshContent, editor);
                 this.showExternalChangeNotification(filePath, 'saved-and-reloaded');
                 break;

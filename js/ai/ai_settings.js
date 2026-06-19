@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 /**
  * ai_settings.js — the "AI Assistant" pane of the Settings modal.
  *
@@ -272,7 +273,7 @@ function buildCard(provider, model, defaultModel) {
   // "Get a key" / site link — opens in system browser.
   getKey.addEventListener('click', (e) => {
     e.preventDefault();
-    window.electronAPI?.openExternal?.(meta.console);
+    electronAPI?.openExternal?.(meta.console);
   });
 
   return card;

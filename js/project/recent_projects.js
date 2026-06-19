@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-welcome.js';
 
 // ADDED: Export the class to make it importable
@@ -29,7 +30,7 @@ export class RecentProjectsManager {
   // preview. Best-effort, cached on the project object so it reads only once.
   async _readProcessors(spfPath) {
     try {
-      const content = await window.electronAPI?.readFile?.(spfPath);
+      const content = await electronAPI?.readFile?.(spfPath);
       if (!content) return [];
       const procs = JSON.parse(content)?.structure?.processors;
       return Array.isArray(procs) ? procs.map((p) => p && p.name).filter(Boolean) : [];
@@ -119,7 +120,7 @@ export class RecentProjectsManager {
   async checkProjectExists(project) {
     try {
       // electronAPI expõe `fileExists` / `pathExists` (não `checkFileExists`).
-      const probe = window.electronAPI?.fileExists ?? window.electronAPI?.pathExists;
+      const probe = electronAPI?.fileExists ?? electronAPI?.pathExists;
       if (probe) {
         const exists = await probe(project.path);
         if (!exists) {
@@ -200,7 +201,7 @@ export class RecentProjectsManager {
     // Drop the .spf filename — VS Code shows the parent folder, not the file.
     let display = path.replace(/[\\/][^\\/]+\.spf$/i, '');
     // Collapse the user's home dir to ~ for compactness.
-    const home = (typeof window !== 'undefined' && window.electronAPI?.homePath) || null;
+    const home = (typeof window !== 'undefined' && electronAPI?.homePath) || null;
     if (home && display.startsWith(home)) {
       display = '~' + display.slice(home.length);
     }

@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -153,15 +154,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 6. IPC Listeners (Electron) ---
 
-    if (window.electronAPI) {
-        if (window.electronAPI.onProcessorHubState) {
-            window.electronAPI.onProcessorHubState((state) => {
+    if (electronAPI) {
+        if (electronAPI.onProcessorHubState) {
+            electronAPI.onProcessorHubState((state) => {
                 if (processorHubButton) processorHubButton.disabled = false;
             });
         }
 
-        if (window.electronAPI.onProcessorsUpdated) {
-            window.electronAPI.onProcessorsUpdated((data) => {
+        if (electronAPI.onProcessorsUpdated) {
+            electronAPI.onProcessorsUpdated((data) => {
                 currentProjectPath = data.projectPath;
             });
         }
@@ -220,13 +221,13 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                const result = await window.electronAPI.createProcessorProject(formData);
+                const result = await electronAPI.createProcessorProject(formData);
 
                 if (result && result.success) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     
                     try {
-                        await window.electronAPI.triggerFileTreeRefresh();
+                        await electronAPI.triggerFileTreeRefresh();
                     } catch (err) { console.error(err); }
 
                     document.getElementById('cancelProcessorHub').click();

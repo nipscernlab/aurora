@@ -28,6 +28,7 @@
  * (passados como referencia) quanto como metodos.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 import { SpfStore } from './spf_store.js';
@@ -84,7 +85,7 @@ export const ActionsMixin = {
         for (let i = 0; i < droppedFiles.length; i++) {
             const file = droppedFiles[i];
 
-            let filePath = window.electronAPI.getPathForFile(file);
+            let filePath = electronAPI.getPathForFile(file);
 
             if (!filePath || filePath === '') {
                 console.warn('Cannot get path for file:', file.name);
@@ -110,7 +111,7 @@ export const ActionsMixin = {
             }
 
             try {
-                const exists = await window.electronAPI.fileExists(filePath);
+                const exists = await electronAPI.fileExists(filePath);
 
                 if (!exists) {
                     this.showNotification(
@@ -222,7 +223,7 @@ export const ActionsMixin = {
                 continue;
             }
             try {
-                const content = await window.electronAPI.readFile(f.path);
+                const content = await electronAPI.readFile(f.path);
                 f.category = classifyVerilogContent(content, f.name);
             } catch (err) {
                 console.warn(`Classifier: cannot read ${f.path}:`, err);
@@ -303,16 +304,16 @@ export const ActionsMixin = {
             '',
         ].join('\n');
         try {
-            const target = await window.electronAPI.joinPath(projectPath, '.gitignore');
+            const target = await electronAPI.joinPath(projectPath, '.gitignore');
             let exists = false;
-            try { exists = await window.electronAPI.fileExists(target); } catch (_) { exists = false; }
+            try { exists = await electronAPI.fileExists(target); } catch (_) { exists = false; }
             if (!exists) {
-                await window.electronAPI.writeFile(target, DEFAULT);
+                await electronAPI.writeFile(target, DEFAULT);
                 this.showNotification(tr('notification.tree.created', { name: '.gitignore' }), 'success', 2000);
             }
-            try { const content = await window.electronAPI.readFile(target); TabManager.addTab(target, content); } catch (_) { /* still created */ }
+            try { const content = await electronAPI.readFile(target); TabManager.addTab(target, content); } catch (_) { /* still created */ }
             try { window.projectTreeManager?.refreshTree?.(); } catch (_) { /* watcher will catch it */ }
-            try { await window.electronAPI.triggerFileTreeRefresh?.(); } catch (_) { /* optional */ }
+            try { await electronAPI.triggerFileTreeRefresh?.(); } catch (_) { /* optional */ }
         } catch (_) {
             this.showNotification(tr('notification.tree.errorCreating'), 'error', 3000);
         }
@@ -338,10 +339,10 @@ export const ActionsMixin = {
             let finalPath = null;
             while (finalPath === null) {
                 const defaultPath = projectPath
-                    ? await window.electronAPI.joinPath(projectPath, `${suggested}.v`)
+                    ? await electronAPI.joinPath(projectPath, `${suggested}.v`)
                     : `${suggested}.v`;
 
-                const result = await window.electronAPI.showSaveDialog({
+                const result = await electronAPI.showSaveDialog({
                     title: tr('contextMenu.saveNewVerilog'),
                     defaultPath,
                     filters: [
@@ -369,7 +370,7 @@ export const ActionsMixin = {
             }
             const finalFileName = basenameOf(finalPath);
 
-            await window.electronAPI.writeFile(finalPath, '// New Verilog file\n');
+            await electronAPI.writeFile(finalPath, '// New Verilog file\n');
 
             // Append-com-dedup atomico no .spf capturado. Arquivo novo
             // / vazio cai como 'synthesizable' (default seguro;
@@ -390,7 +391,7 @@ export const ActionsMixin = {
             this.showNotification(tr('notification.tree.created', { name: finalFileName }), 'success', 2000);
 
             try {
-                const content = await window.electronAPI.readFile(finalPath);
+                const content = await electronAPI.readFile(finalPath);
                 TabManager.addTab(finalPath, content);
             } catch (error) {
                 console.error('Error opening new file:', error);
@@ -414,10 +415,10 @@ export const ActionsMixin = {
             let finalPath = null;
             while (finalPath === null) {
                 const defaultPath = projectPath
-                    ? await window.electronAPI.joinPath(projectPath, `${suggested}.py`)
+                    ? await electronAPI.joinPath(projectPath, `${suggested}.py`)
                     : `${suggested}.py`;
 
-                const result = await window.electronAPI.showSaveDialog({
+                const result = await electronAPI.showSaveDialog({
                     title: tr('contextMenu.saveNewCocotb'),
                     defaultPath,
                     filters: [
@@ -455,7 +456,7 @@ async def basic_test(dut):
     await Timer(1, unit="ns")
 `;
 
-            await window.electronAPI.writeFile(finalPath, template);
+            await electronAPI.writeFile(finalPath, template);
 
             await SpfStore.update(targetSpfPath, (cfg) => {
                 const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
@@ -473,7 +474,7 @@ async def basic_test(dut):
             this.showNotification(tr('notification.tree.created', { name: finalFileName }), 'success', 2000);
 
             try {
-                const content = await window.electronAPI.readFile(finalPath);
+                const content = await electronAPI.readFile(finalPath);
                 TabManager.addTab(finalPath, content);
             } catch (error) {
                 console.error('Error opening new cocotb file:', error);
@@ -503,7 +504,7 @@ async def basic_test(dut):
         if (!confirmed) return;
 
         try {
-            await window.electronAPI.deleteFile(filePath);
+            await electronAPI.deleteFile(filePath);
             await this._dropFileFromSpf(targetSpfPath, filePath);
             this.showNotification(tr('notification.tree.deleted', { name: fileName }), 'success', 2000);
             if (TabManager.tabs && TabManager.tabs.has(filePath)) {
@@ -705,7 +706,7 @@ async def basic_test(dut):
         if (!confirmed) return;
 
         try {
-            await window.electronAPI.deleteProcessor(procName);
+            await electronAPI.deleteProcessor(procName);
             // Tree refresh is triggered by the project:processors IPC broadcast
             // from the main process after deletion. No explicit refreshTree() needed.
         } catch (err) {

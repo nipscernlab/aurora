@@ -34,6 +34,7 @@
  * file livremente.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 import { setAvailableProcessors, addAvailableProcessor } from './processor_list.js';
@@ -46,7 +47,7 @@ import { SpfStore } from './spf_store.js';
 // pane carries its own preview slot, decoupled from the main pane.
 async function openTreeFile(filePath, fileName, options, ctx) {
     try {
-        const content = await window.electronAPI.readFile(filePath);
+        const content = await electronAPI.readFile(filePath);
         const sem = window.SplitEditorManager;
         if (sem && sem.focusedPane > 0) {
             await sem.openInFocusedPane(filePath, content, options);
@@ -289,7 +290,7 @@ class ProjectTreeManager {
         // precisamos sincroniza-la aqui antes de refreshTree() — senao
         // o varredor pula a pasta do processador recem-criado e os
         // arquivos do template nunca aparecem.
-        window.electronAPI?.onProcessorCreated?.((data) => {
+        electronAPI?.onProcessorCreated?.((data) => {
             // addAvailableProcessor faz dedup case-insensitive — ver
             // processor_list.js.
             addAvailableProcessor(data?.processorName);
@@ -298,7 +299,7 @@ class ProjectTreeManager {
         // onProcessorsUpdated traz a lista completa (disparado em
         // delete-processor e re-disparado em project open). Substituimos
         // a lista inteira; setAvailableProcessors faz dedup.
-        window.electronAPI?.onProcessorsUpdated?.((data) => {
+        electronAPI?.onProcessorsUpdated?.((data) => {
             if (Array.isArray(data?.processors)) {
                 setAvailableProcessors(data.processors);
             }
@@ -423,10 +424,10 @@ class ProjectTreeManager {
 
         for (const procName of procs) {
             for (const subDirName of subfolders) {
-                const subDir = await window.electronAPI.joinPath(projectPath, procName, subDirName);
+                const subDir = await electronAPI.joinPath(projectPath, procName, subDirName);
                 let entries;
                 try {
-                    entries = await window.electronAPI.listFilesInDirectory(subDir);
+                    entries = await electronAPI.listFilesInDirectory(subDir);
                 } catch {
                     continue;
                 }
@@ -437,7 +438,7 @@ class ProjectTreeManager {
                     const matchedExt = allExts.find((ext) => lower.endsWith(ext));
                     if (!matchedExt) continue;
                     const isSoftware = this.SOFTWARE_EXTENSIONS.includes(matchedExt);
-                    const fullPath = await window.electronAPI.joinPath(subDir, entry);
+                    const fullPath = await electronAPI.joinPath(subDir, entry);
                     const key = this._normalizePath(fullPath);
                     if (seen.has(key)) continue;
                     const fileEntry = {
@@ -506,7 +507,7 @@ class ProjectTreeManager {
             const cache = this._classifyCache || (this._classifyCache = new Map());
             let mtime = null;
             try {
-                mtime = (await window.electronAPI.getFileStats(file.path))?.mtime ?? null;
+                mtime = (await electronAPI.getFileStats(file.path))?.mtime ?? null;
             } catch (_) { /* fall through to a full read */ }
             const hit = mtime != null ? cache.get(file.path) : null;
             let category;
@@ -515,7 +516,7 @@ class ProjectTreeManager {
             } else {
                 let content;
                 try {
-                    content = await window.electronAPI.readFile(file.path);
+                    content = await electronAPI.readFile(file.path);
                 } catch (error) {
                     console.warn(`Classifier: cannot read ${file.path}:`, error);
                     if (!file.category) file.category = 'synthesizable';
@@ -620,7 +621,7 @@ class ProjectTreeManager {
             // depois que setProject foi chamado.
             if (!ProjectStore.hasProject()) {
                 try {
-                    const projectData = await window.electronAPI.getCurrentProject();
+                    const projectData = await electronAPI.getCurrentProject();
                     const discoveredPath =
                         (projectData && typeof projectData === 'object' && projectData.projectPath) ||
                         (typeof projectData === 'string' ? projectData : null);
@@ -799,7 +800,7 @@ class ProjectTreeManager {
                 for (const fileData of configData.synthesizableFiles) {
                     if (!fileData.path || !fileData.name) continue;
                     try {
-                        const exists = await window.electronAPI.fileExists(fileData.path);
+                        const exists = await electronAPI.fileExists(fileData.path);
                         if (exists) {
                             nextFiles.push({
                                 name: fileData.name,
@@ -825,7 +826,7 @@ class ProjectTreeManager {
                 for (const fileData of configData.testbenchFiles) {
                     if (!fileData.path || !fileData.name) continue;
                     try {
-                        const exists = await window.electronAPI.fileExists(fileData.path);
+                        const exists = await electronAPI.fileExists(fileData.path);
                         if (exists) {
                             // Backward-compat: um codepath antigo
                             // persistia a marca de testbench-top como

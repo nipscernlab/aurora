@@ -13,6 +13,7 @@
  * picker still gets a sensible wave layout.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { parseVerilogModules, buildHierarchyTree } from './signal_parser.js';
 import { parseVcdHeaderFromContent } from './vcd_parser.js';
 import { buildAliasMap } from './gtkw_proc_writer.js';
@@ -376,13 +377,13 @@ class WaveConfigManager {
             // every time the modal opens. Mirrors the same widening done
             // for the compile-time path in waveBuildVvp.
             try {
-                const componentsPath = await window.electronAPI.getComponentsPath();
-                const hdlDir = await window.electronAPI.joinPath(componentsPath, 'HDL');
-                const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlDir);
+                const componentsPath = await electronAPI.getComponentsPath();
+                const hdlDir = await electronAPI.joinPath(componentsPath, 'HDL');
+                const hdlEntries = await electronAPI.listFilesInDirectory(hdlDir);
                 if (Array.isArray(hdlEntries)) {
                     for (const name of hdlEntries) {
                         if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                            filePaths.push(await window.electronAPI.joinPath(hdlDir, name));
+                            filePaths.push(await electronAPI.joinPath(hdlDir, name));
                         }
                     }
                 }
@@ -493,13 +494,13 @@ class WaveConfigManager {
         // — e ai o $dumpvars gerado nao inclui esses sinais no VCD,
         // sumindo a secao Flags do .gtkw final.
         try {
-            const componentsPath = await window.electronAPI.getComponentsPath();
-            const hdlPath = await window.electronAPI.joinPath(componentsPath, 'HDL');
-            const hdlEntries = await window.electronAPI.listFilesInDirectory(hdlPath);
+            const componentsPath = await electronAPI.getComponentsPath();
+            const hdlPath = await electronAPI.joinPath(componentsPath, 'HDL');
+            const hdlEntries = await electronAPI.listFilesInDirectory(hdlPath);
             if (Array.isArray(hdlEntries)) {
                 for (const name of hdlEntries) {
                     if (typeof name === 'string' && name.endsWith('.v') && !name.includes('_tb')) {
-                        const full = await window.electronAPI.joinPath(hdlPath, name);
+                        const full = await electronAPI.joinPath(hdlPath, name);
                         filePaths.add(full);
                     }
                 }
@@ -520,7 +521,7 @@ class WaveConfigManager {
         const contents = await Promise.all(
             [...filePaths].map(async (path) => {
                 try {
-                    return { path, content: await window.electronAPI.readFile(path) };
+                    return { path, content: await electronAPI.readFile(path) };
                 } catch (_e) {
                     return null;
                 }
@@ -654,7 +655,7 @@ class WaveConfigManager {
         try {
             // Precisa ter um testbenchFile pra verificar dumpvars.
             if (!config.testbenchFile) return null;
-            const tbContent = await window.electronAPI.readFile(config.testbenchFile);
+            const tbContent = await electronAPI.readFile(config.testbenchFile);
             // hasUserDumpCalls strip-a comentarios antes de testar,
             // pra que `// $dumpvars(0, tb);` NAO conte como user-defined.
             if (!hasUserDumpCalls(tbContent)) return null;
@@ -662,19 +663,19 @@ class WaveConfigManager {
             // VCD vive em components/Temp/<topModule>.vcd no fluxo
             // no-processors. Outras configs podem ter outros paths
             // mas esse e o caminho canonico do botao Wave.
-            const componentsPath = await window.electronAPI.getComponentsPath();
+            const componentsPath = await electronAPI.getComponentsPath();
             // Prefer the stashed pass-1 header (.header.vcd) because the
             // canonical .vcd is overwritten with FST binary by pass 2 of
             // the two-pass dump strategy. Fall back to .vcd if present
             // (legacy / single-pass runs).
-            const headerPath = await window.electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.header.vcd`);
-            const legacyPath = await window.electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.vcd`);
+            const headerPath = await electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.header.vcd`);
+            const legacyPath = await electronAPI.joinPath(componentsPath, 'Temp', `${topModule}.vcd`);
             let vcdPath = null;
-            if (await window.electronAPI.fileExists(headerPath)) vcdPath = headerPath;
-            else if (await window.electronAPI.fileExists(legacyPath)) vcdPath = legacyPath;
+            if (await electronAPI.fileExists(headerPath)) vcdPath = headerPath;
+            else if (await electronAPI.fileExists(legacyPath)) vcdPath = legacyPath;
             if (!vcdPath) return null;
 
-            const vcdContent = await window.electronAPI.readFile(vcdPath);
+            const vcdContent = await electronAPI.readFile(vcdPath);
             const scopes = parseVcdHeaderFromContent(vcdContent);
             if (!Array.isArray(scopes) || scopes.length === 0) return null;
 

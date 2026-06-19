@@ -17,6 +17,7 @@
  * move; Enter runs.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-command-palette.js';
 
 /** Click a toolbar button by id if it exists and isn't disabled. */
@@ -60,7 +61,7 @@ const COMMANDS = [
   { id: 'tools.hub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
   { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
   { id: 'tools.settings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
-  { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => window.electronAPI?.openDesignLab?.() },
+  { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => electronAPI?.openDesignLab?.() },
   { id: 'tools.slang',     group: 'Tools',   icon: 'ph ph-brackets-angle', title: 'Toggle slang — SystemVerilog semantic analysis (Ctrl+Alt+S)', keywords: 'slang systemverilog verilog semantic lsp lint diagnostics elaboration toggle ctrl alt s', run: () => window.AuroraSlang?.toggle?.() },
 
   // Dev

@@ -18,6 +18,7 @@
  * (entry sai, config some junto).
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { ProjectStore } from '../project/project_store.js';
 import { SpfStore } from '../project/spf_store.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
@@ -103,8 +104,8 @@ class ProcessorConfigPanel {
         // muda, ou processadores sao criados/deletados pelo main.
         ProjectStore.subscribe(() => this.refresh());
         document.addEventListener('aurora:editing-file-changed', () => this.refresh());
-        window.electronAPI?.onProcessorCreated?.(() => this.refresh());
-        window.electronAPI?.onProcessorsUpdated?.(() => this.refresh());
+        electronAPI?.onProcessorCreated?.(() => this.refresh());
+        electronAPI?.onProcessorsUpdated?.(() => this.refresh());
 
         this.refresh();
     }

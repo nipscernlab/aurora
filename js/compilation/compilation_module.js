@@ -63,6 +63,7 @@ import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
+import { parseYosysHierarchy } from './hierarchy_parser.js';
 import {
   buildCmmSpec,
   buildAsmPreSpec, buildAsmSpec,
@@ -147,18 +148,6 @@ class CompilationModule {
             const match = !!target && norm(it.getAttribute('data-filepath')) === target;
             it.classList.toggle('active', match);
         });
-    }
-
-    static extractFileInfoFromSource(sourceAttr) {
-        if (!sourceAttr) return null;
-
-        const match = sourceAttr.match(/^(.+\.v):(\d+)\.\d+(?:-\d+\.\d+)?$/);
-        if (!match) return null;
-
-        return {
-            filePath: match[1],
-            lineNumber: parseInt(match[2], 10)
-        };
     }
 
     static async openModuleFile(filePath, lineNumber = null) {
@@ -332,7 +321,7 @@ async generateProjectHierarchy() {
                 encoding: 'utf8'
             }));
 
-            this.hierarchyData = this.parseYosysHierarchy(hierarchyJson, designTopModule);
+            this.hierarchyData = parseYosysHierarchy(hierarchyJson, designTopModule);
             window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
             this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchySuccess'), 'success');
             return true;
@@ -340,137 +329,6 @@ async generateProjectHierarchy() {
             this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchyError', { message: error.message }), 'warning');
             return false;
         }
-    }
-
-
-    parseYosysIdentifier(yosysName) {
-        let cleanName = yosysName;
-        let filePath = null;
-        const pathRegex = /([a-zA-Z]:\\[^:]+\.v)|(\/[^:]+\.v)/;
-        const match = yosysName.match(pathRegex);
-        if (match) filePath = match[1] || match[2] || null;
-        if (filePath) cleanName = cleanName.split(filePath)[0];
-        if (cleanName.startsWith('$paramod')) {
-            const parts = cleanName.split('\\');
-            if (parts.length >= 2) cleanName = parts[1];
-        }
-        cleanName = cleanName.replace(/\$[a-f0-9]{32,}/g, '').replace(/^\$[0-9]+\$/g, '').replace(/[$\\]+$/, '').replace(/^[$\\]+/, '');
-        if (!cleanName.trim()) cleanName = yosysName.split('\\').pop() || 'unknown';
-        return {
-            cleanName,
-            filePath
-        };
-    }
-
-    parseYosysHierarchy(jsonData, topLevelModule) {
-        const modules = jsonData.modules || {};
-        const memo = new Map();
-
-        const PRIMITIVE_PATTERNS = [
-            /^\$_/,
-            /^\$paramod\$_/,
-            /^\$lut/i,
-            /^\$(and|or|xor|not|buf|mux|add|sub|mul|div|mod|pow|eq|ne|lt|le|gt|ge)/i,
-            /^\$(dff|dffe|adff|adffe|sdff|sdffe|dlatch|dlatchsr)/i,
-            /^\$(mem|memrd|memwr)/i,
-            /^\$(assert|assume|cover|check)/i,
-            /^\$reduce_/i,
-            /^\$logic_/i,
-            /^\$shift/i,
-        ];
-
-        const isPrimitive = (moduleName) => {
-            const cleanName = this.parseYosysIdentifier(moduleName).cleanName;
-
-            if (PRIMITIVE_PATTERNS.some(pattern => pattern.test(cleanName))) {
-                return true;
-            }
-
-            if (!modules[moduleName]) {
-                return true;
-            }
-
-            const moduleData = modules[moduleName];
-
-            if (!moduleData.attributes || !moduleData.attributes.src) {
-                const hasCells = moduleData.cells && Object.keys(moduleData.cells).length > 0;
-                return !hasCells;
-            }
-
-            return false;
-        };
-
-        const buildDefinitionTree = (moduleName) => {
-            if (memo.has(moduleName)) return memo.get(moduleName);
-
-            if (isPrimitive(moduleName)) {
-                return null;
-            }
-
-            const moduleData = modules[moduleName];
-            const {
-                cleanName,
-                filePath
-            } = this.parseYosysIdentifier(moduleName);
-
-            if (!moduleData) return null;
-
-            let sourceFilePath = filePath;
-            let sourceLineNumber = null;
-
-            if (moduleData.attributes && moduleData.attributes.src) {
-                const fileInfo = this.constructor.extractFileInfoFromSource(moduleData.attributes.src);
-                if (fileInfo) {
-                    sourceFilePath = fileInfo.filePath;
-                    sourceLineNumber = fileInfo.lineNumber;
-                }
-            }
-
-            const definitionNode = {
-                name: cleanName,
-                filePath: sourceFilePath,
-                lineNumber: sourceLineNumber,
-                children: []
-            };
-
-            memo.set(moduleName, definitionNode);
-
-            const cells = moduleData.cells || {};
-            for (const [cellName, cellData] of Object.entries(cells)) {
-                const subModuleDefinition = buildDefinitionTree(cellData.type);
-
-                if (subModuleDefinition) {
-                    const instanceNode = {
-                        instanceName: this.parseYosysIdentifier(cellName).cleanName,
-                        type: 'instance',
-                        moduleDefinition: subModuleDefinition
-                    };
-                    definitionNode.children.push(instanceNode);
-                }
-            }
-
-            return definitionNode;
-        };
-
-        const originalTopLevelName = Object.keys(modules).find(key =>
-            this.parseYosysIdentifier(key).cleanName === topLevelModule
-        );
-
-        if (!originalTopLevelName) {
-            console.error(`Top module "${topLevelModule}" not found.`);
-            return {
-                name: topLevelModule,
-                filePath: null,
-                lineNumber: null,
-                children: []
-            };
-        }
-
-        const hierarchyTree = buildDefinitionTree(originalTopLevelName);
-
-        console.log(`Hierarchy built: ${memo.size} user modules found`);
-
-        return hierarchyTree;
     }
 
     renderHierarchicalTree() {

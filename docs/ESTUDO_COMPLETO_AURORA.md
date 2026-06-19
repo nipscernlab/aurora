@@ -1956,3 +1956,17 @@ Apontei pros tokens (`var(--text-secondary)` e `var(--bg-elev-2)`), escolhidos p
 (texto claro; célula um pouco mais clara que o canvas). É um fallback majoritariamente sobreposto pelas regras
 `.svg-content` (texto/rect/path/line/circle já são Aurora), então o impacto visível é mínimo — mas, por ser visual,
 **vale o olhar do usuário no teste** (fácil reverter). Green bar (build, 4 guards, 316 unit, 9 E2E).
+
+### 14.42 A2 — decomposição do compilation_module (em andamento, commit por extração) — 19/06/2026
+God-file de ~4210 linhas (classe `CompilationModule`, 53 métodos async, ~13 responsabilidades). Mapeei com agente de
+leitura e **apresentei o plano ao usuário ANTES de mexer** (ele aprovou: 5 extrações, da mais segura pra mais
+arriscada, **commit por extração**, pode interromper a qualquer ponto). Ordem: (1) hierarchy_parser → (2)
+hierarchy_view → (3) wave_toolchain → (4) wave_signal_validator → (5) processor_compiler.
+
+**Extração #1 — `js/compilation/hierarchy_parser.js` (FEITO):** movidas as 3 funções **PURAS** de parsing do Yosys
+(`parseYosysIdentifier`, `extractFileInfoFromSource`, `parseYosysHierarchy` + `PRIMITIVE_PATTERNS`) — zero DOM/
+`window`/estado. No compilation_module: removidos os 3 métodos (via sed nos ranges verificados), `import` adicionado e
+o call site em `generateProjectHierarchy` (`this.parseYosysHierarchy` → `parseYosysHierarchy`). O arquivo encolheu
+~142 linhas. **Ganho além da decomposição:** a classe NÃO tinha teste de unidade — adicionei **11 testes**
+(`tests/unit/hierarchy_parser.test.js`: identificadores Yosys mangled, src→file:line, montagem da árvore + filtro de
+primitivos + top ausente). Green bar (ESLint, tsc, 4 guards, **327 unit [+11]**, vite build, 9 E2E).

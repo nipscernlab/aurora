@@ -7,10 +7,14 @@
  * =============================================================================
  */
 
-/* vscode vars consumed by @silimate/netlistsvg SVG fill/stroke attributes */
+/* netlistsvg consumes these VS Code var NAMES for SVG fill/stroke fallbacks.
+   Point them at Aurora tokens (instead of generic VS Code greys) so any SVG
+   element not already covered by the .svg-content overrides below still draws
+   in the Aurora palette. Token choices preserve the original relationship:
+   light-ish foreground text, and cells a touch lighter than the canvas. */
 :root {
-  --vscode-foreground:         #cccccc;
-  --vscode-editor-background:  #1e1e1e;
+  --vscode-foreground:         var(--text-secondary);
+  --vscode-editor-background:  var(--bg-elev-2);
 
   /* PRISM palette — two-tone for clear separation:
    *   wires   → violet (the Aurora accent), highlights mint

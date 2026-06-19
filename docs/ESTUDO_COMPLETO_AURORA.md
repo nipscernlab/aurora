@@ -1937,3 +1937,22 @@ muito OSS (LSPs/WASM) vs §8 (instalador grande). Regra de fato em vigor:
   ~457MB). Critério: grande + opcional/pessoal (nem todo usuário usa).
 Resumo da regra: *central pro fluxo → bootstrap; opcional/pessoal e grande → sob-demanda*. Novas integrações se
 encaixam num dos dois. Green bar completo (ESLint full em main/, tsc, 4 guards, 316 unit, vite build, 9 E2E).
+
+### 14.41 PRISM reskin — verificação: já estava no design system; 1 alinhamento de token — 19/06/2026 — FEITO
+Decisão do usuário: **aplicar o design system da AURORA** (conservador). Auditando o `html/prism/prism.css`, o achado
+foi que ele **já está totalmente no design system** — o cabeçalho confirma ("Aurora design system... uses --accent /
+--bg / --text"). Usa tokens em tudo (superfícies `--bg`/`--bg-elev`, `--border`, `--text`, `--accent`, fontes,
+`--radius`, `--shadow`, `--space`), o logo usa o `--gradient-aurora`, e a toolbar/breadcrumbs/zoom/overlay/tooltip
+espelham a UI principal. Como aurora-tree/terminal, o reskin **já estava feito**.
+
+Os hardcodes restantes são **intencionais e não-mexíveis às cegas**: (a) o vermelho do botão fechar
+(`#E25C5C`/`#C24A4A`) é **idêntico ao da titlebar principal** (toolbar.css) — mudar QUEBRARIA a consistência; (b) as
+cores do schematic (netlistsvg) e da simulação (DigitalJS: superfície clara `#eef1f6`, dígito 0/1 branco+halo) foram
+**afinadas no O9** (risco classe-O9 de só aparecer no teste). Não toquei nenhuma.
+
+**Única mudança:** o `prism.css` definia os fallbacks do netlistsvg com cores **genéricas do VS Code**
+(`--vscode-foreground: #cccccc; --vscode-editor-background: #1e1e1e`) — o único ponto fora do palette Aurora.
+Apontei pros tokens (`var(--text-secondary)` e `var(--bg-elev-2)`), escolhidos pra **preservar a relação visual**
+(texto claro; célula um pouco mais clara que o canvas). É um fallback majoritariamente sobreposto pelas regras
+`.svg-content` (texto/rect/path/line/circle já são Aurora), então o impacto visível é mínimo — mas, por ser visual,
+**vale o olhar do usuário no teste** (fácil reverter). Green bar (build, 4 guards, 316 unit, 9 E2E).

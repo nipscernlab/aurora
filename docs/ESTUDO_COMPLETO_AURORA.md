@@ -1830,3 +1830,30 @@ downloader rodado de verdade (baixou, verificou SHA, copiou runtime). **Falta o 
 **Estado FINAL das integrações de linguagem:** Verilog/SV → **tree-sitter** (highlight) + **Verible** (lint/format/
 hover/def/refs/outline) + **slang** (semântica + autocompletar, toggle). C/C++ → **tree-sitter** (highlight) +
 **clang-format** (format). CMM/ASM → **Monarch** (highlight) + clang-format só no CMM (regras de C).
+
+### 14.36 aurora-tree passo 2 — endurecimento de performance (sem virtual scroll) — 19/06/2026 — FEITO
+A file tree tem 3 views: **Files** (lista plana, 10–100, reconciliação por chave), **Hierarchy** (módulos Yosys,
+pode ser 1000+), **Folders** (lazy — filhos só ao expandir). **Decisão do usuário:** *endurecer performance, leve e
+seguro* — NÃO fazer o virtual scroll completo. Razões (apresentadas + aceitas): (a) as linhas já têm
+`content-visibility: auto` ([file_tree.css:126]) → o Chromium **já pula layout/paint das linhas fora da tela** (o
+ganho central do virtual scroll); (b) o virtual scroll exigiria achatar a estrutura aninhada → quebraria os
+conectores curvos da hierarchy (`::before` com `top:-11px`), o expand/collapse, scroll-to-file e context menu; (c)
+precedente: o **P1 foi revertido** por bugs. Otimização prematura de alto risco p/ projetos SAPHO pequenos/médios.
+
+Em vez disso, 3 ajustes cirúrgicos e seguros:
+1. **`.verilog-file-item`** ganhou `content-visibility: auto; contain-intrinsic-size: auto 22px` — a view Files
+   (lista plana, 22px, sem aninhamento/conectores) agora pula paint fora da tela, igual à view Folders.
+2. **`.hierarchy-children.collapsed`** ganhou `content-visibility: hidden` — o **ganho real**: o colapso era só
+   `max-height:0; overflow:hidden`, que **CLIPA mas ainda calcula o layout** de toda a subárvore escondida. Com
+   `content-visibility: hidden` o navegador **pula layout+paint do conteúdo colapsado** → uma hierarchy de 1000+
+   módulos colapsada no topo custa quase nada. NÃO afeta as linhas visíveis: os conectores trunk/elbow ficam no
+   `.hierarchy-item` pai (fora deste container) e a altura do item colapsado já era 0, então os conectores não
+   mudam. O `max-height` segue animando o expand.
+3. **Guarda de contagem** em `renderHierarchicalTree`: conta `.hierarchy-item`; se > 2000, loga um aviso
+   informativo (observabilidade — atribui eventual lentidão ao design, não ao IDE). Sem truncar (não esconde
+   módulos).
+
+NÃO toquei: a estrutura aninhada, os conectores, expand/collapse, drag, context menu, scroll-to-file — zero risco
+de regressão de interação. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E). NOTA p/ o
+futuro: se algum dia uma hierarchy gigante PESAR no build inicial (createElement de N nós), o próximo passo seria
+**build lazy on-expand** (como a view Folders já faz) — mas isso é médio risco e ficou fora deste passo seguro.

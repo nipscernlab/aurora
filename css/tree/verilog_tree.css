@@ -233,6 +233,10 @@
   border-radius: 0;
   cursor: pointer;
   transition: background-color 100ms linear, border-color 100ms linear;
+  /* aurora-tree p2: skip layout/paint of off-screen rows (flat list, each row
+     is exactly 22px). Matches .file-tree-item in the folders view. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 22px;
 }
 
 /* Category (synthesizable vs testbench) is now conveyed by the ICON shape, not

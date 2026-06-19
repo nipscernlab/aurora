@@ -525,6 +525,19 @@ async generateProjectHierarchy() {
         this.buildHierarchyTree(topItem, hierarchyData);
 
         hostContainer.appendChild(container);
+
+        // aurora-tree p2: observability guard. The whole tree is built into the
+        // DOM up front (collapse is CSS-only), so a very large synthesis can put
+        // thousands of rows in the DOM. They're cheap while collapsed
+        // (.hierarchy-children.collapsed → content-visibility:hidden skips their
+        // layout/paint), but flag the size once so a perf report can be traced
+        // to the design rather than the IDE.
+        const HIERARCHY_LARGE = 2000;
+        const nodeCount = container.querySelectorAll('.hierarchy-item').length;
+        if (nodeCount > HIERARCHY_LARGE) {
+            console.info(`[aurora-tree] large hierarchy: ${nodeCount} modules — collapsed branches are not laid out/painted; expand on demand.`);
+        }
+
         this.refreshHierarchyFocusHighlight();
     }
 

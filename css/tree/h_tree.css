@@ -325,7 +325,13 @@
               opacity 140ms;
 }
 
-.hierarchy-children.collapsed { max-height: 0; opacity: 0; }
+/* Collapsed: `max-height:0; overflow:hidden` only CLIPS — the browser still
+   lays out the whole hidden subtree. `content-visibility: hidden` makes it skip
+   layout+paint of the collapsed descendants entirely, so a 1000+ module
+   hierarchy collapsed to its top level costs almost nothing. Only affects
+   hidden content; the visible rows' trunk/elbow connectors are unaffected
+   (they live on the parent .hierarchy-item, outside this container). */
+.hierarchy-children.collapsed { max-height: 0; opacity: 0; content-visibility: hidden; }
 .hierarchy-children.expanded  { max-height: 10000px; opacity: 1; }
 
 /* ---------------------------------------------------------------------------

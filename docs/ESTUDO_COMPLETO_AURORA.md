@@ -1981,3 +1981,23 @@ no CompilationModule (o `file_tree_view_controller.js` ainda o chama na instânc
 `signal_parser.js` (colisão de nome evitada); (b) o `openModuleFile` era `static` e logava via `this.terminalManager`
 **sempre undefined** (bug latente que travava no caminho de erro) → troquei pra `console` (sem dep quebrada). God-file
 encolheu **~250 linhas**. Green bar (ESLint, tsc, 4 guards, 327 unit, vite build, 9 E2E).
+
+**Restante (#3–#5) — HANDOFF pro próximo chat (contexto cheio + risco maior):** as extrações da **pipeline de
+wave/simulação** ficaram pra retomar com contexto fresco, porque são o núcleo de compile/sim (estado entrelaçado:
+`this._validatedWaveSelection`, `this.projectConfig`, `this.componentsPath`, `this.terminalManager`), **sem teste
+de unidade** e o **E2E não roda compile/sim real** → bug sutil só apareceria no teste ao vivo. Plano detalhado (já
+mapeado por agente de leitura):
+- **#3 `wave_toolchain.js`** — `_waveResolveToolchain` (iverilog/vvp/gtkwave), `_waveResolveVerilatorTools`
+  (verilator/g++/fst2vcd), `_findWaveCandidateInDir`. IO puro (existência de arquivo). Interface sugerida:
+  `resolveWaveToolchain(componentsPath)` / `resolveVerilatorTools(componentsPath)`. Atualizar os MUITOS callers
+  (`this._waveResolveToolchain()` → função). Risco: médio (muitos call sites).
+- **#4 `wave_signal_validator.js`** — `_validateWaveSelection`, `_resolveWaveSelection`, `_resolveCocotbWaveSelection`,
+  `_parseProjectSources`. Lógica pura (lê WaveStore). Cuidado: `this._validatedWaveSelection` é setado em 3 lugares
+  e lido em 2 → mapear bem o fluxo antes.
+- **#5 `processor_compiler.js`** — `cmmCompilation`, `asmCompilation`, `_ensureChegueiToaqui`, `getSelectedCmmFile`,
+  `getTestbenchInfo`, `_stageProcessorMemoryFiles`. Estado próprio; chamados por `compilation_flow.js` → preservar a
+  API pública (provavelmente como classe `ProcessorCompiler` ou métodos delegadores).
+Depois de compilation_module, os outros god-files do A2 (ai_assistant 4515, tab_manager 2044) + o **A3 restante**
+(migrar os globais dos god-files) seguem a mesma cadência (um por commit, green bar). **LIÇÃO desta sessão:** várias
+fases ("virtual scroll", "reskin") já estavam majoritariamente resolvidas por trabalho anterior — sempre auditar
+antes de assumir que há trabalho; e refatorar a pipeline de wave pede contexto fresco + idealmente testes primeiro.

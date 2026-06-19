@@ -97,7 +97,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 - [x] **PRISM reskin** (identidade aurora no viewer RTL) — FEITO 19/06/2026: o prism.css JÁ estava todo no design system Aurora; alinhei o único ponto fora (fallbacks netlistsvg vscode → tokens). Demais hardcodes intencionais (close-red = igual à titlebar; schematic/sim afinados no O9). Ver §14.41.
 
 **Radical (8–10):**
-- [ ] **A2** decompor god-files (ai_assistant 4515 · compilation 4197 · tab_manager 2044) — **reaberto**.
+- [~] **A2** decompor god-files (ai_assistant 4515 · compilation 4197 · tab_manager 2044) — EM ANDAMENTO. compilation_module: **2/5 extrações FEITAS** 19/06/2026 (#1 hierarchy_parser +11 testes `eb14e3f`; #2 hierarchy_view `4eecdf7`; -390 linhas). Restante: #3 wave_toolchain · #4 wave_signal_validator · #5 processor_compiler (pipeline de wave — pro próximo chat, contexto fresco) + os god-files ai_assistant/tab_manager. Plano detalhado em §14.42.
 - [ ] **O1** Surfer embarcado (WASM em iframe + sync WCP editor↔onda) · **`<aurora-panel>` dockável**.
 - [ ] **O5** YoWASP · **B11** cross-platform (Linux/Mac).
 

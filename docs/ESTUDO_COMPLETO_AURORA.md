@@ -1982,15 +1982,26 @@ no CompilationModule (o `file_tree_view_controller.js` ainda o chama na instânc
 **sempre undefined** (bug latente que travava no caminho de erro) → troquei pra `console` (sem dep quebrada). God-file
 encolheu **~250 linhas**. Green bar (ESLint, tsc, 4 guards, 327 unit, vite build, 9 E2E).
 
-**Restante (#3–#5) — HANDOFF pro próximo chat (contexto cheio + risco maior):** as extrações da **pipeline de
-wave/simulação** ficaram pra retomar com contexto fresco, porque são o núcleo de compile/sim (estado entrelaçado:
-`this._validatedWaveSelection`, `this.projectConfig`, `this.componentsPath`, `this.terminalManager`), **sem teste
-de unidade** e o **E2E não roda compile/sim real** → bug sutil só apareceria no teste ao vivo. Plano detalhado (já
-mapeado por agente de leitura):
-- **#3 `wave_toolchain.js`** — `_waveResolveToolchain` (iverilog/vvp/gtkwave), `_waveResolveVerilatorTools`
-  (verilator/g++/fst2vcd), `_findWaveCandidateInDir`. IO puro (existência de arquivo). Interface sugerida:
-  `resolveWaveToolchain(componentsPath)` / `resolveVerilatorTools(componentsPath)`. Atualizar os MUITOS callers
-  (`this._waveResolveToolchain()` → função). Risco: médio (muitos call sites).
+**Extração #3 — `js/compilation/wave_toolchain.js` (FEITO 19/06/2026):** movidos os 3 helpers de **resolução de
+toolchain por IO puro** da pipeline de wave — `resolveWaveToolchain` (ex-`_waveResolveToolchain`: paths
+iverilog/vvp/gtkwave/fst2vcd/surfer + `Temp`), `findWaveCandidateInDir` (ex-`_findWaveCandidateInDir`: acha o
+.fst/.vcd preferido num dir) e `resolveVerilatorTools` (ex-`_waveResolveVerilatorTools`: verilator/perl/g++/fst2vcd,
+**lança** se o bundle ausente). Única transformação: `this.componentsPath` → parâmetro `componentsPath`;
+corpo/erros/return byte-a-byte idênticos. **9 call sites** atualizados (`this._wave…()` → função). **Decisão:**
+mantive `window.electronAPI` direto (não o `import { electronAPI }` do #2) pra deixar o módulo **testável** com o
+padrão `globalThis.window = { electronAPI: fake }` (igual WaveStore/SpfStore) — o re-export captura `window` no load
+e quebraria o mock; e mantém o **A3 separado**. **+16 testes** (`tests/unit/wave_toolchain.test.js`: prioridade de
+nome fst>vcd>dump, exclusão de `fix.vcd`, fallback de arquivo único, ambíguo→null, dir inexistente→null,
+case-insensitive; verilator throw/sucesso; smoke dos 8 campos). God-file **−121 linhas** (3817→3696). **Revisão
+adversarial** (workflow, 3 lentes: behavior-preservation / call-site / regression-hunt) = **0 achados** — confirmou
+que `componentsPath` está sempre inicializado nos call sites (todos passam por `precompileAllProcessors` →
+`await initializeComponentsPath()` em compilation_flow.js). Green bar (ESLint, tsc, 4 guards, **343 unit [+16]**,
+vite build, 9 E2E).
+
+**Restante (#4–#5) — pipeline de wave/simulação:** as duas últimas extrações são o núcleo de compile/sim (estado
+entrelaçado: `this._validatedWaveSelection`, `this.projectConfig`, `this.componentsPath`, `this.terminalManager`),
+**sem teste de unidade** e o **E2E não roda compile/sim real** → bug sutil só apareceria no teste ao vivo; cada uma
+sai com testes + revisão adversarial, na mesma cadência do #1–#3. Plano detalhado (já mapeado por agente de leitura):
 - **#4 `wave_signal_validator.js`** — `_validateWaveSelection`, `_resolveWaveSelection`, `_resolveCocotbWaveSelection`,
   `_parseProjectSources`. Lógica pura (lê WaveStore). Cuidado: `this._validatedWaveSelection` é setado em 3 lugares
   e lido em 2 → mapear bem o fluxo antes.

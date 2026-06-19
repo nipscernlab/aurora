@@ -64,6 +64,7 @@ import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { parseYosysHierarchy } from './hierarchy_parser.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
+import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
   buildCmmSpec,
   buildAsmPreSpec, buildAsmSpec,
@@ -1423,7 +1424,7 @@ async waveBuildVvp() {
  *
  * Pipeline (read top-to-bottom):
  *
- *   _waveResolveToolchain()          → { tempBaseDir, gtkwaveBin, vvpBin }
+ *   resolveWaveToolchain(componentsPath) → { tempBaseDir, gtkwaveBin, vvpBin, ... }
  *   _waveDeriveSimTopModule(config)  → testbench module name
  *   _waveBuildAndVerifyVvp()         → tempBaseDir/${simTop}.vvp on disk
  *   _waveRunVvpSimulation()          → tempBaseDir/<some>.vcd on disk
@@ -1449,7 +1450,7 @@ async runGtkWave() {
         // testbench que vivia aqui.
         const config = this.validateForWave();
 
-        const tools = await this._waveResolveToolchain();
+        const tools = await resolveWaveToolchain(this.componentsPath);
         let simTopModule = this._waveDeriveSimTopModule(config);
         let vcdFile = null;
 
@@ -1490,7 +1491,7 @@ async runGtkWave() {
                 // no ultimo step do pipeline ('asm'/Assembly). Marca 'verilator'
                 // aqui pra a barra refletir a etapa real durante build + sim.
                 statusUpdater.startCompilation('verilator');
-                const vTools = await this._waveResolveVerilatorTools();
+                const vTools = await resolveVerilatorTools(this.componentsPath);
                 const fullTools = { ...tools, ...vTools };
                 const { exePath } = await this._waveBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
                 await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
@@ -1539,51 +1540,6 @@ async runGtkWave() {
 // each phase below documents the local invariants. ARCHITECTURE.md §9
 // has the cross-cutting principles (dump-as-truth, validation gates).
 // ---------------------------------------------------------------------
-
-/**
- * Resolve absolute paths to bundled toolchain executables and Aurora's
- * Temp / Scripts directories.
- *
- * Inputs:  this.componentsPath
- * Returns: { tempBaseDir, gtkwaveBin, vvpBin, iverilogBin,
- *            iverilogBinDir, gtkwaveBinDir, fst2vcdBin } — all absolute
- * Throws:  never (joinPath is total)
- * Side-effects: none
- *
- * The iverilog / gtkwaveBinDir / fst2vcd fields exist so the cocotb
- * (Python testbench) flow can find the Icarus binary, put it on PATH,
- * and convert the FST it produces — that path uses the base tools object
- * directly (unlike Verilator, which merges in _waveResolveVerilatorTools()).
- */
-async _waveResolveToolchain() {
-    const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
-    const gtkwaveBin = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'gtkwave-nipscern', 'gtkwave.exe',
-    );
-    // Unified mingw bundle: iverilog + vvp live in Packages/msys/mingw64/bin.
-    const iverilogBinDir = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin',
-    );
-    const iverilogBin = await window.electronAPI.joinPath(iverilogBinDir, 'iverilog.exe');
-    const vvpBin = await window.electronAPI.joinPath(iverilogBinDir, 'vvp.exe');
-    // fst2vcd is the only GTKWave CLI tool Aurora needs; it ships in the
-    // gtkwave-nipscern fork (no separate Icarus GTKWave bundle anymore).
-    const gtkwaveBinDir = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'gtkwave-nipscern',
-    );
-    const fst2vcdBin = await window.electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
-    // Surfer (optional, opt-in viewer): a standalone surfer.exe dropped under
-    // Packages/surfer/. NOT bundled by default — _waveLaunchSurfer degrades to
-    // GTKWave with a friendly message if it's absent, so resolving the path
-    // unconditionally here is harmless.
-    const surferBin = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'surfer', 'surfer.exe',
-    );
-    return {
-        tempBaseDir, gtkwaveBin, vvpBin,
-        iverilogBin, iverilogBinDir, gtkwaveBinDir, fst2vcdBin, surferBin,
-    };
-}
 
 /**
  * Derive the simulation-top module name (the `-s` value passed to
@@ -1787,34 +1743,6 @@ async _resolveCocotbWaveSelection(ctx, config, sources) {
     return validSignals;
 }
 
-async _findWaveCandidateInDir(dir, topModule) {
-    let entries = [];
-    try {
-        entries = await window.electronAPI.listFilesInDirectory(dir);
-    } catch (_e) {
-        return null;
-    }
-    const waves = (entries || [])
-        .filter((name) => typeof name === 'string' && /\.(fst|vcd)$/i.test(name) && name !== 'fix.vcd');
-    if (waves.length === 0) return null;
-
-    const preferred = [
-        `${topModule}.fst`,
-        `${topModule}.vcd`,
-        'dump.fst',
-        'dump.vcd',
-    ];
-    const lowerToName = new Map(waves.map((name) => [name.toLowerCase(), name]));
-    for (const name of preferred) {
-        const found = lowerToName.get(name.toLowerCase());
-        if (found) return await window.electronAPI.joinPath(dir, found);
-    }
-    if (waves.length === 1) {
-        return await window.electronAPI.joinPath(dir, waves[0]);
-    }
-    return null;
-}
-
 /**
  * Pull ONLY the VCD header (the $scope/$var hierarchy, up to $enddefinitions)
  * out of an FST — WITHOUT materializing the full text VCD. fst2vcd streams VCD
@@ -1908,8 +1836,8 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
     // first, then the testbench's dir.
     const testDir = await window.electronAPI.dirname(ctx.testbenchFile);
     const candidate =
-        await this._findWaveCandidateInDir(buildDir, ctx.hdlTopModule) ||
-        await this._findWaveCandidateInDir(testDir, ctx.hdlTopModule);
+        await findWaveCandidateInDir(buildDir, ctx.hdlTopModule) ||
+        await findWaveCandidateInDir(testDir, ctx.hdlTopModule);
     if (!candidate) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
     }
@@ -1946,7 +1874,7 @@ async _adoptCocotbWaveform(ctx, tools, buildDir) {
  *        a sim cocotb so verifica (asserts Python), sem gerar onda.
  */
 async _resolveCocotbSimProfile(wave = true) {
-    const vTools = await this._waveResolveVerilatorTools();
+    const vTools = await resolveVerilatorTools(this.componentsPath);
     const pythonPath = await window.electronAPI.joinPath(vTools.mingwBin, 'python.exe');
     if (!await window.electronAPI.fileExists(pythonPath)) {
         throw new Error(tr('error.compilation.cocotbPythonMissing'));
@@ -2232,55 +2160,6 @@ async _waveRunVvpSimulation(simTopModule, tools) {
 // adicional (verilator + g++). Escolha do simulador via
 // js/wave/simulator_preference.js (default: iverilog).
 // ---------------------------------------------------------------------
-
-/**
- * Resolve os binarios necessarios pro pipeline do Verilator.
- *
- * Bundle mingw unificado em components/Packages/msys/ — baixado por
- * download-toolchain.js (repo nipscernlab/aurora-toolchain) no
- * `npm run bootstrap`. Layout:
- *
- *   components/Packages/msys/
- *     mingw64/bin/{verilator,perl.exe,g++.exe,make.exe,...} + DLLs
- *     mingw64/share/verilator/{include,bin}/      <- templates C++
- *     usr/bin/{bash.exe,coreutils...}             <- shell utils que o
- *                                                    verilated.mk invoca
- *
- * Invocacao direta: perl <script> <args> com PATH ajustado. Sem msys2
- * no host, sem bash -lc, sem MSYSTEM, sem .sh intermediario.
- *
- * Throws com instrucao de bootstrap se o bundle nao estiver presente.
- */
-async _waveResolveVerilatorTools() {
-    const bundleRoot = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'msys');
-    const mingwBin = await window.electronAPI.joinPath(bundleRoot, 'mingw64', 'bin');
-    const usrBin   = await window.electronAPI.joinPath(bundleRoot, 'usr', 'bin');
-    const verilatorScript = await window.electronAPI.joinPath(mingwBin, 'verilator');
-    const perlExe         = await window.electronAPI.joinPath(mingwBin, 'perl.exe');
-    const cxxBin          = await window.electronAPI.joinPath(mingwBin, 'g++.exe');
-
-    if (!await window.electronAPI.fileExists(verilatorScript)) {
-        throw new Error(tr('error.toolchain.verilatorNotFound', {
-            paths: `  ${verilatorScript}\n  (bundle nao instalado — rode "npm run bootstrap" pra baixar)`,
-        }));
-    }
-    if (!await window.electronAPI.fileExists(perlExe)) {
-        throw new Error(tr('error.toolchain.verilatorNotFound', {
-            paths: `  ${perlExe}\n  (bundle corrompido — apague components/Packages/msys/ e rode "npm run bootstrap")`,
-        }));
-    }
-
-    // fst2vcd vem do gtkwave-nipscern (a unica CLI de GTKWave que o Aurora usa).
-    const fst2vcdBin = await window.electronAPI.joinPath(
-        this.componentsPath, 'Packages', 'gtkwave-nipscern', 'fst2vcd.exe',
-    );
-
-    // PATH em runtime: bundle/mingw64/bin (verilator, perl, g++, make,
-    // DLLs) + bundle/usr/bin (bash + coreutils que o verilated.mk usa
-    // via `$(shell ...)`). System32 sempre presente automaticamente
-    // quando invocamos via cmd.exe com `%PATH%` suffix.
-    return { mingwBin, usrBin, verilatorScript, perlExe, cxxBin, fst2vcdBin };
-}
 
 /**
  * Compila o design via Verilator. Produz um .exe nativo em
@@ -2623,11 +2502,11 @@ async runFastSim() {
 
 /** Fast Sim, caminho Verilog: Verilator binario sem trace (sem onda). */
 async _runFastVerilator(config) {
-    const tools = await this._waveResolveToolchain();
+    const tools = await resolveWaveToolchain(this.componentsPath);
     const simTopModule = this._waveDeriveSimTopModule(config);
 
     statusUpdater.startCompilation('verilator');
-    const vTools = await this._waveResolveVerilatorTools();
+    const vTools = await resolveVerilatorTools(this.componentsPath);
     const fullTools = { ...tools, ...vTools };
 
     const exePath = await this._fastSimBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
@@ -2644,7 +2523,7 @@ async _runFastVerilator(config) {
  * cocotb do runGtkWave, menos o pos-processamento de onda.
  */
 async _runFastCocotb(config) {
-    const tools = await this._waveResolveToolchain();
+    const tools = await resolveWaveToolchain(this.componentsPath);
     const cocotbCtx = await this._waveValidateCocotbConfig(config);
 
     if (cocotbCtx.toplevelSource === 'directive') {
@@ -2725,7 +2604,7 @@ async verilatorProcessorRun() {
         throw new Error(tr('error.compilation.procVMissing', { path: procV }));
     }
 
-    const tools = await this._waveResolveVerilatorTools();
+    const tools = await resolveVerilatorTools(this.componentsPath);
     const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
     const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
     const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_proc_${procName}`);

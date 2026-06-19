@@ -26,13 +26,12 @@
 
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
 
 const state = require('../state');
 const { componentsPath } = require('../paths');
-const { trackChild } = require('../process_registry');
+const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -184,10 +183,9 @@ function doStart() {
     let initSettled = false;
     let child;
     try {
-      child = spawn(LS_BIN, LS_ARGS, { windowsHide: true });
+      child = spawnTracked(LS_BIN, LS_ARGS, { windowsHide: true });
     } catch (e) { reject(e); return; }
     proc = child;
-    trackChild(child); // killed on main-window close / app quit
 
     child.stdout.on('data', onStdout);
     child.stderr.on('data', () => { /* startup banner + noise */ });

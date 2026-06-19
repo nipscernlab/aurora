@@ -22,12 +22,11 @@
 
 const path = require('path');
 const fs = require('fs');
-const { spawn } = require('child_process');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
 
 const { componentsPath } = require('../paths');
-const { trackChild } = require('../process_registry');
+const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
 
 const CF_BIN = path.join(componentsPath, 'Packages', 'clang-format', 'bin', 'clang-format.exe');
@@ -74,13 +73,12 @@ function format({ languageId, filePath, text } = {}) {
   return new Promise((resolve) => {
     let child;
     try {
-      child = spawn(CF_BIN, args, { windowsHide: true });
+      child = spawnTracked(CF_BIN, args, { windowsHide: true });
     } catch (e) {
       log.warn('[clang-format] spawn failed:', e instanceof Error ? e.message : e);
       resolve(null);
       return;
     }
-    trackChild(child);
 
     let out = '';
     let errOut = '';

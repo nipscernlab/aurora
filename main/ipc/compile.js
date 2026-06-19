@@ -13,7 +13,7 @@
 const { ipcMain, app, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { execFile, spawn } = require('child_process');
+const { execFile } = require('child_process');
 const log = require('electron-log');
 
 const state = require('../state');
@@ -22,7 +22,7 @@ const {
   killProcessesByName,
   checkProcessRunning,
 } = require('../utils');
-const { trackChild } = require('../process_registry');
+const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
 
 // A ultima instancia do Surfer que a AURORA abriu. Fechamos ela antes de abrir
@@ -163,17 +163,16 @@ function register() {
         // CREATE_NO_WINDOW, abre normal. Como o exe e GUI-subsystem, nao ha
         // flash de console — windowsHide:false aqui e cosmeticamente equivalente
         // a true, mas evita esse quirk.
-        const gtkwaveProcess = spawn(gtkwaveBin, args, {
+        // spawnTracked the detached GTKWave so closing the main interface
+        // tears it down too — it's unref'd to outlive a single run, but must
+        // not outlive the IDE itself.
+        const gtkwaveProcess = spawnTracked(gtkwaveBin, args, {
           cwd: workingDir,
           detached: true,
           stdio: 'ignore',
           windowsHide: false,
           shell: false,
         });
-        // Track the detached GTKWave so closing the main interface tears it
-        // down too — it's unref'd to outlive a single run, but must not
-        // outlive the IDE itself.
-        trackChild(gtkwaveProcess);
 
         // An 'error' EventEmitter with no listener would throw; keep one so a
         // spawn failure (e.g. ENOENT) is reported instead of crashing main.
@@ -194,7 +193,7 @@ function register() {
   // launch-gtkwave-only, but pre-checks the binary with existsSync so a missing
   // Surfer (the default — it isn't bundled) returns a clean not-found the
   // renderer degrades on, instead of the false-success the GUI-subsystem
-  // gtkwave path tolerates. Tracked via trackChild → torn down with the IDE.
+  // gtkwave path tolerates. Tracked via spawnTracked → torn down with the IDE.
   ipcMain.handle('launch-surfer', async (_event, options) => {
     const { surferBin, args, workingDir } = options;
 
@@ -230,14 +229,13 @@ function register() {
         // Center Surfer on the user's screen (it has no true maximize).
         writeSurferCenteredWindowConfig();
 
-        const surferProcess = spawn(surferBin, args, {
+        const surferProcess = spawnTracked(surferBin, args, {
           cwd: workingDir,
           detached: true,
           stdio: 'ignore',
           windowsHide: false,
           shell: false,
         });
-        trackChild(surferProcess);
         lastSurferChild = surferProcess; // p/ fechar antes do proximo launch (1 janela)
 
         // The GUI-subsystem race (pid set synchronously, ENOENT-style errors
@@ -293,7 +291,7 @@ function register() {
           resolve({ success: false, decoded: [] });
           return;
         }
-        const child = spawn(exePath, [], { stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true });
+        const child = spawnTracked(exePath, [], { stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true });
         let out = '';
         let settled = false;
         const done = (success) => { if (!settled) { settled = true; resolve({ success, decoded: out.split(/\r?\n/).filter((l) => l.length > 0) }); } };

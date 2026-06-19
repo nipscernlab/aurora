@@ -11,7 +11,6 @@
 const path = require('path');
 const fse = require('fs-extra');
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
-const { spawn } = require('child_process');
 const log = require('electron-log');
 // @ts-ignore -- @silimate/netlistsvg ships no type declarations
 const netlistsvgLib = require('@silimate/netlistsvg');
@@ -19,7 +18,7 @@ const netlistsvgLib = require('@silimate/netlistsvg');
 const state = require('../state');
 const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
-const { trackChild } = require('../process_registry');
+const { spawnTracked } = require('../process_registry');
 const { loadPage } = require('../render_loader');
 
 // ---------- helpers ----------
@@ -356,15 +355,14 @@ write_json "${hierarchyJsonPath}"
   if (Array.isArray(ov?.envUnset)) for (const k of ov.envUnset) delete childEnv[k];
 
   return new Promise((resolve, reject) => {
-    const yosysProcess = spawn(yosysExe, finalArgs, {
+    // spawnTracked so closing the main window kills an in-flight PRISM
+    // synthesis — yosys runs from the bundled mingw64/bin (not Temp/), so the
+    // path-prefix sweep never caught it before.
+    const yosysProcess = spawnTracked(yosysExe, finalArgs, {
       cwd: tempDir,
       env: childEnv,
       windowsHide: true,
     });
-    // Track so closing the main window kills an in-flight PRISM synthesis —
-    // yosys runs from the bundled mingw64/bin (not Temp/), so the path-prefix
-    // sweep never caught it before.
-    trackChild(yosysProcess);
 
     let stderr = '';
     yosysProcess.stdout.on('data', (_data) => {});
@@ -771,10 +769,9 @@ write_json "${jsonPath}"
 
   tlog(`DigitalJS: synthesizing with Yosys (${fileList.length} files)…`);
   await new Promise((resolve, reject) => {
-    const proc = spawn(compilationPaths.yosysPath, ['-s', scriptPath], {
+    const proc = spawnTracked(compilationPaths.yosysPath, ['-s', scriptPath], {
       cwd: tempDir, env: process.env, windowsHide: true,
     });
-    trackChild(proc);
     let stderr = '';
     let settled = false;
     const finish = (/** @type {Error|null} */ err) => {

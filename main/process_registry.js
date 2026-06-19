@@ -17,6 +17,7 @@
 'use strict';
 
 const path = require('path');
+const { spawn } = require('child_process');
 
 const state = require('./state');
 const { componentsPath } = require('./paths');
@@ -59,6 +60,28 @@ function trackChild(child) {
   child.once('close', drop);
   child.once('error', drop);
   return child;
+}
+
+/**
+ * G9: the single, mandatory spawn entry point for toolchain children.
+ * `spawnTracked(...)` is exactly `trackChild(spawn(...))` — spawning through
+ * it makes "register for tree-kill on close" automatic, so a new toolchain
+ * spawn can't forget `trackChild` and leak a zombie (yosys/verilator/g++/make,
+ * the LSP servers, clang-format, gtkwave, and any future OSS tool). Same
+ * signature + return value as child_process.spawn (throws synchronously on bad
+ * args just like spawn, so existing try/catch around a spawn keeps working).
+ *
+ * NB: the AI-agent CLIs (claude_code/codex_cli) deliberately do NOT go through
+ * here — they own their own process trees and are torn down via their killAll()
+ * in stopAllToolchain(); double-tracking them would fight that lifecycle.
+ *
+ * @param {string} command
+ * @param {readonly string[]} [args]
+ * @param {import('child_process').SpawnOptions} [options]
+ * @returns {import('child_process').ChildProcess}
+ */
+function spawnTracked(command, args, options) {
+  return trackChild(spawn(command, /** @type {any} */ (args), /** @type {any} */ (options)));
 }
 
 /**
@@ -127,4 +150,4 @@ async function runStopAllToolchain() {
   state.currentGtkwaveProcesses.clear();
 }
 
-module.exports = { trackChild, stopAllToolchain };
+module.exports = { trackChild, spawnTracked, stopAllToolchain };

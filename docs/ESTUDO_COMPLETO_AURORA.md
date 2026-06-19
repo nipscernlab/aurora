@@ -1916,3 +1916,24 @@ tab_watchers 10, file_mode 9, compilation_flow 8, zoom 6, processor_hub 6), os a
 import no topo (search_panel, tab_viewers). Como é parcial, o global continua configurado no eslint — a remoção do
 global + enforcement só quando 100% migrado (no/após o A2). Green bar completo (ESLint, tsc, 4 guards, 316 unit,
 vite build, 9 E2E — inclusive E2E que exercita renderer/terminal migrados).
+
+### 14.40 G9 (spawn único) + G8 (política default-on × sob-demanda) — 19/06/2026 — FEITO
+**G9 — registry como único ponto de spawn.** O `process_registry.js` já tinha `trackChild` (tree-kill no fechamento),
+mas cada spawn de toolchain chamava `trackChild` na mão — qualquer spawn futuro que esquecesse vira zumbi (a
+varredura-backstop só pega vvp/gtkwave + `Temp/`). Adicionei **`spawnTracked(cmd, args, opts)`** = exatamente
+`trackChild(spawn(...))`, e migrei **todos os 9 sites de spawn de toolchain** pra ele: executor (×2:
+iverilog/vvp/verilator), prism (×2: yosys síntese + DigitalJS), verible_lsp, slang_lsp, clang_format, e compile (×3:
+gtkwave, surfer, **decode-complex/comp2gtkw** — este **não era tracked antes**, um buraco que agora fechou). Os
+spawns que NÃO entram: os CLIs de IA (claude_code/codex_cli, que têm árvore própria + `killAll`), o `taskkill`/
+`tasklist` (cleanup efêmero) e o terminal externo (`files.js`, detached p/ sobreviver ao IDE de propósito). Agora
+"registrar pra tree-kill" é automático por construção — um spawn novo de toolchain só precisa usar `spawnTracked`.
+
+**G8 — política default-on × plugin sob-demanda (governança, codificando o que já decidimos).** Tensão: §7 quer
+muito OSS (LSPs/WASM) vs §8 (instalador grande). Regra de fato em vigor:
+- **Default-on (baixado no bootstrap, vai no instalador via extraResources):** toolchain msys (iverilog/vvp/
+  verilator/yosys/g++/make/python), GTKWave, Surfer, **Verible** (O2), **clang-format**, **slang-server** (O11),
+  **gramáticas tree-sitter** (O7). Critério: pesado MAS necessário pro fluxo central de hardware.
+- **Sob-demanda (B12 — download lazy pra userData, FORA do instalador):** os CLIs de IA (Claude Code, Codex,
+  ~457MB). Critério: grande + opcional/pessoal (nem todo usuário usa).
+Resumo da regra: *central pro fluxo → bootstrap; opcional/pessoal e grande → sob-demanda*. Novas integrações se
+encaixam num dos dois. Green bar completo (ESLint full em main/, tsc, 4 guards, 316 unit, vite build, 9 E2E).

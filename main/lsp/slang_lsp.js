@@ -34,13 +34,12 @@
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
-const { spawn } = require('child_process');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
 
 const state = require('../state');
 const { componentsPath } = require('../paths');
-const { trackChild } = require('../process_registry');
+const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -191,11 +190,10 @@ function doStart() {
     let initSettled = false;
     let child;
     try {
-      child = spawn(LS_BIN, [], { windowsHide: true, cwd: dir || componentsPath });
+      child = spawnTracked(LS_BIN, [], { windowsHide: true, cwd: dir || componentsPath });
     } catch (e) { reject(e); return; }
     proc = child;
     currentProjectDir = dir;
-    trackChild(child);
 
     child.stdout.on('data', onStdout);
     child.stderr.on('data', () => { /* slang logs banners/info to stderr */ });

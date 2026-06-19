@@ -2034,7 +2034,24 @@ corrigida). Green bar (ESLint, tsc, 4 guards, **374 unit [+18]**, vite build, 9 
 **Decomposição do compilation_module COMPLETA (5/5):** hierarchy_parser · hierarchy_view · wave_toolchain ·
 wave_signal_validator · processor_compiler. God-file: **4197 → 3116 linhas (−1081)**, ~13 responsabilidades
 desmembradas em módulos testáveis (o conjunto ganhou ~58 testes de unidade ao longo das 5 extrações).
-Depois de compilation_module, os outros god-files do A2 (ai_assistant 4515, tab_manager 2044) + o **A3 restante**
+Depois de compilation_module, os outros god-files do A2 (ai_assistant 4592, tab_manager 2044) + o **A3 restante**
 (migrar os globais dos god-files) seguem a mesma cadência (um por commit, green bar). **LIÇÃO desta sessão:** várias
 fases ("virtual scroll", "reskin") já estavam majoritariamente resolvidas por trabalho anterior — sempre auditar
 antes de assumir que há trabalho; e refatorar a pipeline de wave pede contexto fresco + idealmente testes primeiro.
+
+### 14.43 A2 — decomposição de ai_assistant_manager (4592) + tab_manager (2044), em paralelo — 19/06/2026
+Próximos god-files do A2, mapeados por workflow (3 agentes de leitura) e consolidados pra granularidade do §14.42
+(~6 extrações por arquivo, não os ~22 micro que os agentes sugeriram). Plano apresentado e **aprovado**. Mesma
+cadência: 1 extração = deps/delegadores + testes + green bar + revisão adversarial + 1 commit. Os dois arquivos em
+paralelo (interleaved, seguro→arriscado).
+
+**Mapa.** `ai_assistant_manager.js` (em js/ui/, só 2 importers, API externa mínima): o grosso seguro são as ~1250
+linhas de helpers de módulo ANTES da classe (system prompt, markdown/math/syntax, file-ref, metadata/formatters —
+quase tudo PURO). `tab_manager.js` (js/tabs/, classe **ESTÁTICA**, 17 importers): externos leem
+`TabManager.tabs/activeTab/unsavedChanges/untitledDocuments` como propriedades + chamam ~29 métodos → o estado
+estático **fica na classe**, funções extraídas recebem o estado, a classe mantém **delegadores**.
+
+**AI-1 — `js/ai/system_prompt.js` (FEITO):** movida a constante `SYSTEM_PROMPT` (string imutável concatenada ao
+contexto do projeto a cada turno). Movimentação por script (**byte-idêntica**, verificada via `git show`). God-file
+**−460 linhas** (4592→4132). +2 testes smoke (string não-vazia; invariantes AURORA-feminina / ATLAS-nunca-LHCb).
+Green bar (ESLint, tsc, 4 guards, **376 unit [+2]**, vite build, 9 E2E).

@@ -2188,6 +2188,16 @@ revisão manual de equivalência) — e o `showInlineConfirm` (card DOM) fica ne
 (internos) viram chamadas aos imports. **+10 testes** (decisão nos 5 caminhos; previewArgs vazio/json/cap; radios
 checked). ai_assistant **3331→3299 (−32)**. Green bar (ESLint, tsc, 4 guards, **453 unit [+10]**, vite build, 9 E2E).
 
+**AI-9 — provider/model view (markup + label puros) → `js/ai/provider_view.js` (FEITO 19/06/2026):** a DATA de
+provider/model já saíra no AI-3; aqui sai o **view**: `providerOptionsHtml(providers, currentProvider)` (radios do
+picker de provider), `modelPresetsHtml(models, active)` (botões segmentados dos presets das CLIs) e
+`faithfulModelName(entry, provider)` (o label fiel do marcador "--- Modelo: … ---": preset pra CLI assinada, id
+encurtado pra API, fallback pro default). Puros (importam só PROVIDER_META/SUB_META/shortModelName do ai_metadata.js,
+sem ciclo). As `render*` ficam na classe (donas dos elementos do popover) e chamam os builders; `_faithfulModelName`
+saiu (caller único virou import). Markup byte-idêntico. **+6 testes** (`provider_view.test.js`: checked + hint +
+fallback de label; preset ativo; label fiel CLI/API/fallback). ai_assistant **3299→3271 (−28)**. Green bar (ESLint,
+tsc, 4 guards, **459 unit [+6]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para

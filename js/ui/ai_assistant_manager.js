@@ -24,6 +24,7 @@ import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scr
 import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
 import { decideToolPermission, previewArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
+import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
@@ -767,22 +768,8 @@ class AIAssistantManager {
   }
 
   renderProviderOptions() {
-    this.mpProviders.innerHTML = this.providersAvailable.map((p) => {
-      const meta = PROVIDER_META[p.name] || { label: p.name };
-      const checked = p.name === this.currentProvider ? ' checked' : '';
-      const hint = meta.subscription ? meta.tagline : (p.model || 'default model');
-      return `
-        <label class="ai-mp-opt">
-          <input type="radio" name="ai-provider" value="${p.name}"${checked}>
-          <img class="ai-mp-opt-icon" src="${meta.icon}" alt="">
-          <span class="ai-mp-opt-text">
-            <span class="ai-mp-opt-label">${meta.label}${
-              meta.subscription ? '<span class="ai-mp-opt-tag">SUB</span>' : ''}</span>
-            <span class="ai-mp-opt-hint">${hint}</span>
-          </span>
-        </label>
-      `;
-    }).join('');
+    // Pure markup in provider_view.js; this method owns the popover element.
+    this.mpProviders.innerHTML = providerOptionsHtml(this.providersAvailable, this.currentProvider);
   }
 
   /** Reflect the active provider across the icon, chip, controls and usage. */
@@ -837,7 +824,7 @@ class AIAssistantManager {
     const meta = PROVIDER_META[this.currentProvider] || {};
     const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
     const label = meta.label || this.currentProvider || 'Model';
-    const model = this._faithfulModelName(entry);
+    const model = faithfulModelName(entry, this.currentProvider);
     const el = this.appendDivider(model ? `Modelo: ${label} · ${model}` : `Modelo: ${label}`);
     // Render this marker with a flowing sine wave instead of flat rules.
     el?.classList.add('ai-divider-wave');
@@ -850,19 +837,6 @@ class AIAssistantManager {
    * the real model id (lightly shortened), falling back to the provider's
    * default model so the marker is never blank.
    */
-  _faithfulModelName(entry) {
-    const model = entry?.model || '';
-    const sm = SUB_META[this.currentProvider];
-    if (sm) {
-      const preset = sm.models.find((m) => m.id === (model || 'default'));
-      return preset ? preset.label : (model || 'Default');
-    }
-    if (model && model !== 'default') return shortModelName(model) || model;
-    const fallback = entry?.defaultModel && entry.defaultModel !== 'default'
-      ? entry.defaultModel : '';
-    return fallback ? (shortModelName(fallback) || fallback) : '';
-  }
-
   /** Model picker: free-text input for API providers, presets for the CLIs. */
   renderModelControls() {
     const sm = SUB_META[this.currentProvider];
@@ -871,9 +845,7 @@ class AIAssistantManager {
     if (sm) {
       const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
       const active = entry?.model || 'default';
-      this.mpModelPresets.innerHTML = sm.models.map((m) =>
-        `<button type="button" data-model="${m.id}" class="ai-seg-btn${
-          m.id === active ? ' active' : ''}">${m.label}</button>`).join('');
+      this.mpModelPresets.innerHTML = modelPresetsHtml(sm.models, active);
     }
   }
 

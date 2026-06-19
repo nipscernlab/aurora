@@ -521,6 +521,12 @@
   font-size: var(--text-sm);
   line-height: 1.5;
   color: inherit;
+  /* aurora-terminal p2: skip layout/paint of off-screen lines INSIDE a tall
+     grouped card (the card itself already has content-visibility, but a single
+     on-screen card can hold thousands of grouped lines). `auto` remembers the
+     real height of wrapped lines after first render. ~21px = text-sm * 1.5. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 21px;
 }
 
 .log-entry strong {

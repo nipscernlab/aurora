@@ -1857,3 +1857,23 @@ NÃO toquei: a estrutura aninhada, os conectores, expand/collapse, drag, context
 de regressão de interação. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E). NOTA p/ o
 futuro: se algum dia uma hierarchy gigante PESAR no build inicial (createElement de N nós), o próximo passo seria
 **build lazy on-expand** (como a view Folders já faz) — mas isso é médio risco e ficou fora deste passo seguro.
+
+### 14.37 aurora-terminal passo 2 — cap por card + content-visibility nos grouped-message — 19/06/2026 — FEITO
+Auditando o terminal pro "passo 2 (virtual scroll)", o achado foi que ele **já estava fortemente endurecido** — o
+objetivo do virtual scroll (DOM limitado + pular paint fora da tela) já estava entregue por: **cap de 5000
+`.log-entry`** (`MAX_TERMINAL_ENTRIES` + `trimTerminal` removendo os mais antigos), **`content-visibility: auto`**
+nos `.log-entry` (terminal.css), **`contain: layout style paint`** no `.terminal-body`, e **bookkeeping batched por
+frame** (`_scheduleTerminalRefresh` — evita o O(n²) de trim+recount+filter+scroll por linha que travava builds
+grandes). Então, como no aurora-tree, **não** fiz o virtual scroll (reescrita arriscada e redundante).
+
+A **única lacuna real**: o cap conta `.log-entry`, mas um **card AGRUPADO** é UMA entrada que acumula
+`.grouped-message` filhos **sem limite** (ex.: build cuspindo milhares de warnings do mesmo tipo num só grupo), e
+os `.grouped-message` **não** tinham `content-visibility`. Dois ajustes cirúrgicos:
+1. **Cap por card** (`MAX_GROUPED_MESSAGES = 5000`): em `addMessageToCard`, dropa os grouped-message mais antigos
+   além do limite — espelha o `trimTerminal`. Um card não cresce mais sem limite.
+2. **`content-visibility: auto` em `.grouped-message`** (intrinsic ~21px): pula layout/paint das linhas fora da
+   tela DENTRO de um card alto e on-screen (o card já tinha content-visibility, mas um único card visível podia ter
+   milhares de linhas).
+
+Sem mexer no streaming, grouping, filtro verbose, line-links ou auto-scroll — zero risco de regressão. Green bar
+completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E).

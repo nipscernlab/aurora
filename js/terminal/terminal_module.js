@@ -13,6 +13,13 @@ import { switchTerminal } from './terminal.js';
 // the retained window — the right semantics for a live scrollback console.
 const MAX_TERMINAL_ENTRIES = 5000;
 
+// Companion cap for GROUPED cards: the per-terminal cap above counts
+// `.log-entry` nodes, but a grouped card is ONE entry that can accrete an
+// unbounded number of `.grouped-message` children (e.g. a build spewing
+// thousands of same-type warnings into a single group). Trim the oldest
+// grouped lines past this limit so one card can't grow without bound.
+const MAX_GROUPED_MESSAGES = 5000;
+
 class TerminalManager {
     constructor() {
         this.terminals = {
@@ -665,6 +672,14 @@ class TerminalManager {
         this._attachLineLinkClicks(messageDiv);
 
         messagesContainer.appendChild(messageDiv);
+
+        // Bound the card: drop the oldest grouped lines past the cap (mirrors
+        // trimTerminal for `.log-entry`). Keeps memory/layout bounded even when
+        // a single group accretes thousands of same-type lines.
+        let excess = messagesContainer.childElementCount - MAX_GROUPED_MESSAGES;
+        while (excess-- > 0 && messagesContainer.firstElementChild) {
+            messagesContainer.removeChild(messagesContainer.firstElementChild);
+        }
     }
 
     /**

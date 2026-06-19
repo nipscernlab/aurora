@@ -92,7 +92,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 
 **Difícil (6–7):**
 - [x] **O2** Verible LSP — FEITO 19/06/2026 (diagnostics + format + outline + hover + def/refs; ponte stdio custom; binário no bootstrap). Ver §14.32. · [x] **O11** slang-server — FEITO 19/06/2026 (análise semântica + autocompletar, toggle; complementa o Verible). Ver §14.34. · [x] **O7** tree-sitter — FEITO 19/06/2026 (highlight preciso via semantic tokens p/ Verilog/SV/C/C++; CMM/ASM seguem Monarch). Ver §14.35.
-- [x] **`<aurora-tree>` passo 2** — FEITO 19/06/2026 (endurecimento de perf, sem virtual scroll: content-visibility na view Files + content-visibility:hidden nas subárvores colapsadas da hierarchy + guarda de contagem. content-visibility já cobria o paint fora da tela; virtual scroll seria reescrita arriscada). Ver §14.36. · [ ] **`<aurora-terminal>` passo 2** · **`<aurora-editor>`**.
+- [x] **`<aurora-tree>` passo 2** — FEITO 19/06/2026 (endurecimento de perf, sem virtual scroll: content-visibility na view Files + content-visibility:hidden nas subárvores colapsadas da hierarchy + guarda de contagem. content-visibility já cobria o paint fora da tela; virtual scroll seria reescrita arriscada). Ver §14.36. · [x] **`<aurora-terminal>` passo 2** — FEITO 19/06/2026 (já tinha cap 5000 + content-visibility + contain + batched; fechei a única lacuna: cap por card agrupado + content-visibility nos grouped-message). Ver §14.37. · [ ] **`<aurora-editor>`**.
 - [ ] **A3** migrar globais (431× electronAPI → imports) · **G8/G9** plugins + spawn único.
 - [ ] **PRISM reskin** (identidade aurora no viewer RTL).
 

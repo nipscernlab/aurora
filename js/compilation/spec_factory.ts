@@ -17,6 +17,7 @@
  * runtime carrega; os imports usam a extensão `.js`.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { SpfStore } from '../project/spf_store.js';
 import {
   buildCmmSpec,
@@ -95,14 +96,14 @@ async function loadProcessorContext(processorName: string | null | undefined): P
 }
 
 async function getComponentsPath(): Promise<string> {
-  return window.electronAPI.getComponentsPath();
+  return electronAPI.getComponentsPath();
 }
 
 async function joinComponents(...parts: string[]): Promise<string> {
   const root = await getComponentsPath();
   let p = root;
   for (const part of parts) {
-    p = await window.electronAPI.joinPath(p, part);
+    p = await electronAPI.joinPath(p, part);
   }
   return p;
 }
@@ -111,7 +112,7 @@ async function getProjectPath(): Promise<string | null> {
   return (
     window.currentProjectPath ||
     (window.currentOpenProjectPath
-      ? await window.electronAPI.dirname(window.currentOpenProjectPath)
+      ? await electronAPI.dirname(window.currentOpenProjectPath)
       : null)
   );
 }
@@ -135,8 +136,8 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
   if (step === 'cmm') {
     const proc = await loadProcessorContext(processorName);
     const cmmCompPath = await joinComponents('bin', 'cmmcomp.exe');
-    const procDir     = await window.electronAPI.joinPath(projectPath, proc.name);
-    const tempPath    = await window.electronAPI.joinPath(tempBaseDir, proc.name);
+    const procDir     = await electronAPI.joinPath(projectPath, proc.name);
+    const tempPath    = await electronAPI.joinPath(tempBaseDir, proc.name);
     const baseName    = (proc.cmmFile || `${proc.name}.cmm`).replace(/\.cmm$/i, '');
     return buildCmmSpec({
       cmmCompPath,
@@ -155,11 +156,11 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
     const proc = await loadProcessorContext(processorName);
     const appCompPath = await joinComponents('bin', 'appcomp.exe');
     const asmCompPath = await joinComponents('bin', 'asmcomp.exe');
-    const procDir     = await window.electronAPI.joinPath(projectPath, proc.name);
-    const tempPath    = await window.electronAPI.joinPath(tempBaseDir, proc.name);
-    const softwareDir = await window.electronAPI.joinPath(procDir, 'Software');
+    const procDir     = await electronAPI.joinPath(projectPath, proc.name);
+    const tempPath    = await electronAPI.joinPath(tempBaseDir, proc.name);
+    const softwareDir = await electronAPI.joinPath(procDir, 'Software');
     const baseName    = (proc.cmmFile || `${proc.name}.cmm`).replace(/\.cmm$/i, '');
-    const asmFile     = await window.electronAPI.joinPath(softwareDir, `${baseName}.asm`);
+    const asmFile     = await electronAPI.joinPath(softwareDir, `${baseName}.asm`);
     if (step === 'asm-pre') {
       return buildAsmPreSpec({ appCompPath, asmFile, tempPath, processorName: proc.name, lang });
     }
@@ -203,7 +204,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
   if (step === 'cocotb-run') {
     if (!tb || !tbIsPython) throw new Error('cocotb-run needs a Python .py testbench');
     if (!topLevelFile || !topLevelModuleName) throw new Error('cocotb-run needs a Verilog top-level set');
-    const pyStatus = await window.electronAPI.getPythonStatus();
+    const pyStatus = await electronAPI.getPythonStatus();
     if (!pyStatus?.ok) throw new Error('Python was not found');
     if (!pyStatus.isBundled) throw new Error('cocotb-run requires Aurora bundled Python');
     if (!pyStatus.hasCocotb) throw new Error('Aurora bundled Python is missing cocotb');
@@ -211,13 +212,13 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
     if (pyStatus.cocotbVersion !== expectedCocotbVersion) {
       throw new Error(`Aurora bundled Python has cocotb ${pyStatus.cocotbVersion || 'not installed'}, expected ${expectedCocotbVersion}`);
     }
-    const runnerScript = await window.electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
-    const buildDir = await window.electronAPI.joinPath(tempBaseDir, `cocotb_${simTopModule || 'test'}`);
-    const tbDir = await window.electronAPI.dirname(tb);
+    const runnerScript = await electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
+    const buildDir = await electronAPI.joinPath(tempBaseDir, `cocotb_${simTopModule || 'test'}`);
+    const tbDir = await electronAPI.dirname(tb);
     // The bundle Python is mingw: point PYTHONHOME at <bundle>/mingw64 so it
     // finds its stdlib/platform libs (pythonPath = .../msys/mingw64/bin/python.exe).
-    const pythonHome = await window.electronAPI.dirname(
-      await window.electronAPI.dirname(pyStatus.pythonPath),
+    const pythonHome = await electronAPI.dirname(
+      await electronAPI.dirname(pyStatus.pythonPath),
     );
     return buildCocotbRunSpec({
       pythonPath: pyStatus.pythonPath,
@@ -240,8 +241,8 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
         PYTHONIOENCODING: 'utf-8',
       },
       prependPath: [
-        await window.electronAPI.dirname(iveriCompPath),
-        await window.electronAPI.dirname(gtkwaveBin),
+        await electronAPI.dirname(iveriCompPath),
+        await electronAPI.dirname(gtkwaveBin),
       ],
     });
   }
@@ -259,7 +260,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
   if (step === 'iverilog-build') {
     if (tbIsPython) throw new Error('iverilog-build cannot use a Python testbench; use cocotb-run');
     if (!simTopModule) throw new Error('iverilog-build needs a testbench or top-level set');
-    const outputFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
+    const outputFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     return buildIverilogBuildSpec({
       iveriCompPath, hdlPath, simTopModule, outputFile,
       sourceFiles: sources, cwd: projectPath,
@@ -269,39 +270,39 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
   if (step === 'vvp-run') {
     if (tbIsPython) throw new Error(`${step} cannot use a Python testbench; use cocotb-run`);
     if (!simTopModule) throw new Error(`${step} needs a testbench`);
-    const vvpFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
+    const vvpFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
     return buildVvpRunSpec({ vvpBin, vvpFile, cwd: tempBaseDir });
   }
 
   if (step === 'verilator-build' || step === 'verilator-run') {
     const mingwBin = await joinComponents('Packages', 'msys', 'mingw64', 'bin');
     const usrBin   = await joinComponents('Packages', 'msys', 'usr', 'bin');
-    const perlExe  = await window.electronAPI.joinPath(mingwBin, 'perl.exe');
-    const verilatorScript = await window.electronAPI.joinPath(mingwBin, 'verilator');
+    const perlExe  = await electronAPI.joinPath(mingwBin, 'perl.exe');
+    const verilatorScript = await electronAPI.joinPath(mingwBin, 'verilator');
     if (step === 'verilator-build') {
       if (!simTopModule) throw new Error('verilator-build needs a testbench or top-level set');
-      const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
+      const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
       return buildVerilatorBuildSpec({
         perlExe, verilatorScript, mingwBin, usrBin, hdlPath,
         simTopModule, objDir, sourceFiles: sources, cwd: tempBaseDir,
       });
     }
     if (!simTopModule) throw new Error(`${step} needs a testbench`);
-    const objDir = await window.electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
-    const exePath = await window.electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
+    const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
+    const exePath = await electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
     return buildVerilatorRunSpec({ exePath, cwd: tempBaseDir, mingwBin, usrBin });
   }
 
   if (step === 'fst2vcd') {
     if (!simTopModule) throw new Error('fst2vcd needs a testbench');
-    const pass1File = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
-    const headerVcd = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.header.vcd`);
+    const pass1File = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
+    const headerVcd = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.header.vcd`);
     return buildFst2VcdSpec({ fst2vcdBin, inputFile: pass1File, outputFile: headerVcd, cwd: tempBaseDir });
   }
 
   if (step === 'gtkwave') {
     if (!simTopModule) throw new Error('gtkwave needs a testbench');
-    const vcdFile = await window.electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
+    const vcdFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
     return buildGtkwaveSpec({ gtkwaveBin, vcdFile, cwd: tempBaseDir });
   }
 
@@ -309,7 +310,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
     const yosysPath = await joinComponents('Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
     // Preview uses a placeholder script path — the real path is built
     // by the runtime invoker since the script is freshly emitted per run.
-    const scriptPath = await window.electronAPI.joinPath(tempBaseDir, step === 'prism-yosys' ? 'yosys_script.ys' : 'hierarchy_gen.ys');
+    const scriptPath = await electronAPI.joinPath(tempBaseDir, step === 'prism-yosys' ? 'yosys_script.ys' : 'hierarchy_gen.ys');
     return buildYosysHierarchySpec({ yosysPath, scriptPath, cwd: tempBaseDir });
   }
 

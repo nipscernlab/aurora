@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 /**
  * spf_store.ts — Single writer pra <project>.spf (renderer-side).
  *
@@ -234,7 +235,7 @@ function parseSpfTolerant(content: string): any {
 }
 
 async function readRawUncached(spfPath: string): Promise<SpfDocument> {
-  const exists = await window.electronAPI.fileExists(spfPath);
+  const exists = await electronAPI.fileExists(spfPath);
   if (!exists) {
     return {
       metadata: {},
@@ -242,7 +243,7 @@ async function readRawUncached(spfPath: string): Promise<SpfDocument> {
     };
   }
   try {
-    const content = await window.electronAPI.readFile(spfPath);
+    const content = await electronAPI.readFile(spfPath);
     const parsed = parseSpfTolerant(content);
     // Defaults first, on-disk values second — unknown keys
     // sobrevivem ao round trip.
@@ -280,7 +281,7 @@ function readRaw(spfPath: string): Promise<SpfDocument> {
 }
 
 async function writeRaw(spfPath: string, fullDoc: SpfDocument): Promise<void> {
-  await window.electronAPI.writeFile(spfPath, JSON.stringify(fullDoc, null, 2));
+  await electronAPI.writeFile(spfPath, JSON.stringify(fullDoc, null, 2));
 }
 
 export const SpfStore = {

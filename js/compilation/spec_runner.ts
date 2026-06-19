@@ -19,6 +19,7 @@
  * runtime carrega; os imports usam a extensão `.js`.
  */
 
+import { electronAPI } from '../app/electron_api.js';
 import { applyResolved } from './command_overrides.js';
 import * as CommandSpec from './command_spec.js';
 import type { CommandSpec as CommandSpecType, CommandOverride } from './command_spec.js';
@@ -103,7 +104,7 @@ export async function runSpec(baseSpec: CommandSpecType, options: { consumeEphem
 
   logOverride(appliedSpec, baseSpec, override, sources, terminalForStep(baseSpec.step));
 
-  return window.electronAPI.execSpec({
+  return electronAPI.execSpec({
     spec: appliedSpec,
     baseSpec, // main re-runs protected-flag check
   });
@@ -124,7 +125,7 @@ export async function runSpecStreamed(baseSpec: CommandSpecType, options: { cons
 
   logOverride(appliedSpec, baseSpec, override, sources, terminalForStep(baseSpec.step));
 
-  return window.electronAPI.execSpecStreamed({
+  return electronAPI.execSpecStreamed({
     spec: appliedSpec,
     baseSpec,
   });

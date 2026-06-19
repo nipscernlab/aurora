@@ -1,3 +1,4 @@
+import { electronAPI } from '../app/electron_api.js';
 /**
  * wave_state_store.ts — Per-testbench wave-flow state.
  *
@@ -80,20 +81,20 @@ function safeKey(tbKey: string): string {
 }
 
 async function stateDirFor(projectPath: string): Promise<string> {
-  return window.electronAPI.joinPath(projectPath, STATE_DIRNAME);
+  return electronAPI.joinPath(projectPath, STATE_DIRNAME);
 }
 
 async function stateFilePathFor(projectPath: string, tbKey: string): Promise<string> {
   const dir = await stateDirFor(projectPath);
-  return window.electronAPI.joinPath(dir, `${safeKey(tbKey)}.json`);
+  return electronAPI.joinPath(dir, `${safeKey(tbKey)}.json`);
 }
 
 async function readRaw(projectPath: string, tbKey: string): Promise<WaveState | null> {
   const filePath = await stateFilePathFor(projectPath, tbKey);
-  const exists = await window.electronAPI.fileExists(filePath);
+  const exists = await electronAPI.fileExists(filePath);
   if (!exists) return null;
   try {
-    const content = await window.electronAPI.readFile(filePath);
+    const content = await electronAPI.readFile(filePath);
     const parsed = JSON.parse(content);
     return { ...DEFAULTS, ...parsed } as WaveState;
   } catch (err) {
@@ -104,9 +105,9 @@ async function readRaw(projectPath: string, tbKey: string): Promise<WaveState | 
 
 async function writeRaw(projectPath: string, tbKey: string, state: WaveState): Promise<void> {
   const dir = await stateDirFor(projectPath);
-  await window.electronAPI.mkdir(dir);
+  await electronAPI.mkdir(dir);
   const filePath = await stateFilePathFor(projectPath, tbKey);
-  await window.electronAPI.writeFile(filePath, JSON.stringify(state, null, 2));
+  await electronAPI.writeFile(filePath, JSON.stringify(state, null, 2));
 }
 
 function chainKey(projectPath: string, tbKey: string): string {
@@ -181,9 +182,9 @@ export const WaveStore = {
    */
   async list(projectPath: string): Promise<Array<{ tbKey: string; state: WaveState }>> {
     const dir = await stateDirFor(projectPath);
-    const exists = await window.electronAPI.fileExists(dir);
+    const exists = await electronAPI.fileExists(dir);
     if (!exists) return [];
-    const entries = await window.electronAPI.listFilesInDirectory(dir);
+    const entries = await electronAPI.listFilesInDirectory(dir);
     if (!Array.isArray(entries)) return [];
     const out: Array<{ tbKey: string; state: WaveState }> = [];
     for (const name of entries.sort()) {

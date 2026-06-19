@@ -23,6 +23,7 @@ import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
+import { decideToolPermission, previewArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import {
   escapeHtml, renderMarkdown, highlightCodeBlocks,
   linkifyFileRefs, aiPathIsText, TRUST_LINKS_KEY,
@@ -686,15 +687,7 @@ class AIAssistantManager {
   }
 
   buildPermissionOptions() {
-    this.mpPerms.innerHTML = PERMISSION_MODES.map((m) => `
-      <label class="ai-mp-opt ai-mp-opt-perm">
-        <input type="radio" name="ai-perm" value="${m.id}"${m.id === this.permissionMode ? ' checked' : ''}>
-        <span class="ai-mp-opt-text">
-          <span class="ai-mp-opt-label">${m.label}</span>
-          <span class="ai-mp-opt-hint">${m.hint}</span>
-        </span>
-      </label>
-    `).join('');
+    this.mpPerms.innerHTML = permissionOptionsHtml(PERMISSION_MODES, this.permissionMode);
   }
 
   setPermissionMode(mode) {
@@ -1261,36 +1254,11 @@ class AIAssistantManager {
    * `writes` auto-approves reads; otherwise an inline card is shown.
    */
   confirmToolCall(def, args) {
-    const mode = this.permissionMode;
-    // V11: a few writes are high-blast-radius enough to ALWAYS show the card,
-    // even in `allow` mode. set_command_override rewrites a toolchain command
-    // line (allowlist + protected flags still apply, but the surface is wide
-    // and AI-driven), so it gets an explicit human OK regardless of mode.
-    const ALWAYS_CONFIRM = new Set(['set_command_override']);
-    if (def && ALWAYS_CONFIRM.has(def.name)) return this.showInlineConfirm(def, args);
-    // Renames (rename_project / rename_processor) are pre-authorized — NOT routed
-    // through the blocking confirm card. They are explicit (the user asked) and
-    // reversible (rename back), and the rename runs DECOUPLED from the AI: the
-    // tool dispatches the on-disk move + reopens the project in the background and
-    // returns at once. A blocking card here would just make the MCP tool-call hang
-    // until it times out (Codex ignores progress pings) — which is exactly the
-    // "rename always times out" bug. A toast reports the result instead.
-    // get_rename_status is a harmless read the model polls after rename_project;
-    // pre-authorize it too so polling never spawns a confirm card.
-    if (def && (def.name === 'rename_project' || def.name === 'rename_processor' || def.name === 'get_rename_status')) {
-      return Promise.resolve(true);
-    }
-    if (mode === 'allow') return Promise.resolve(true);
-    if (mode === 'writes' && def && def.access === 'read') return Promise.resolve(true);
-    return this.showInlineConfirm(def, args);
-  }
-
-  previewArgs(args) {
-    if (!args || Object.keys(args).length === 0) return '';
-    let json;
-    try { json = JSON.stringify(args, null, 2); }
-    catch { json = String(args); }
-    return json.length > 500 ? json.slice(0, 500) + '\n…' : json;
+    // Pure decision logic (modes, always-confirm, pre-authorized) lives in
+    // tool_permission.js; the class still owns the DOM card (showInlineConfirm).
+    return decideToolPermission(def, this.permissionMode) === 'allow'
+      ? Promise.resolve(true)
+      : this.showInlineConfirm(def, args);
   }
 
   /**
@@ -1333,7 +1301,7 @@ class AIAssistantManager {
       `;
       card.querySelector('.ai-confirm-tool').textContent = def ? def.name : 'tool';
       card.querySelector('.ai-confirm-desc').textContent = def ? (def.description || '') : '';
-      const preview = this.previewArgs(args);
+      const preview = previewArgs(args);
       const pre = card.querySelector('.ai-confirm-args');
       if (preview) pre.textContent = preview; else pre.remove();
 

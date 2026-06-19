@@ -2177,6 +2177,17 @@ dedup (3→1) + testável.** Comportamento idêntico. **+7 testes** (XML/JSON/ó
 meio-streamada incompleta preservada). ai_assistant **3353→3331 (−22)**. Green bar (ESLint, tsc, 4 guards,
 **443 unit [+7]**, vite build, 9 E2E).
 
+**AI-8 — permission-gate (lógica pura) → `js/ai/tool_permission.js` (FEITO 19/06/2026):** a DATA de permissão já
+saíra no AI-3 (`ai_metadata.js`); aqui sai a **lógica de decisão** do gate. `decideToolPermission(def, mode)` →
+`'allow'`|`'confirm'` (pura: always-confirm `set_command_override` V11; pré-autorizados rename_project/processor/
+get_rename_status; `allow` aprova tudo; `writes` aprova reads; senão confirma) + `previewArgs(args)` (pretty-print
+JSON capado em 500, verbatim) + `permissionOptionsHtml(modes, currentMode)` (markup dos radios, byte-idêntico). A
+classe mantém `confirmToolCall` (API pública chamada pelo `tool_runner.js`) como **delegador** —
+`decideToolPermission(...) === 'allow' ? Promise.resolve(true) : this.showInlineConfirm(...)` (comportamento idêntico,
+revisão manual de equivalência) — e o `showInlineConfirm` (card DOM) fica nela. `previewArgs`/`buildPermissionOptions`
+(internos) viram chamadas aos imports. **+10 testes** (decisão nos 5 caminhos; previewArgs vazio/json/cap; radios
+checked). ai_assistant **3331→3299 (−32)**. Green bar (ESLint, tsc, 4 guards, **453 unit [+10]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para

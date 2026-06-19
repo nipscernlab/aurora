@@ -2158,8 +2158,17 @@ existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" 
   PARCIAL (TM-4)**: extraído só o metadata puro (`isUntitled`/`untitledDisplayName`/`nextUntitledPath` →
   `untitled_docs.js`); os orquestradores monaco/DOM (`updateUntitledDocumentType`/`expandUntitledSnippet`/
   `updateUntitledTabPresentation`) ficaram na classe **por decisão** (alto risco/baixo ganho, sem E2E). (d)
-  **save_flow** (`saveCurrentFile`/`saveAllFiles`/`saveFile`/`saveUntitledFile` — núcleo, API mais chamada; ALTO
-  risco) ← **PRÓXIMO**. + overlay/dialogs.
+  ~~**save_flow**~~ — **DEIXADO NA CLASSE POR DECISÃO DO USUÁRIO (19/06)**: é a API de save mais chamada/espalhada
+  (`saveAllFiles` só ele tem 8 callers externos; `saveCurrentFile`/`saveUntitledFile`/`saveFile`/`markFileAsSaved`/
+  `markFileAsModified` todos externos), **sensível a perda de dados** (escreve disco, troca untitled→saved, resolve
+  conflito — lição P1), e a parte **pura já saiu no TM-3**. O resto é orquestração sem subconjunto puro e **sem
+  cobertura E2E** → deps bag = alto risco/baixo ganho. Fica como núcleo coeso da classe. + overlay/dialogs (idem).
+
+  **Status tab_manager (Wave 2 FECHADA, 19/06):** 2044 → 1800 linhas. Saíram TM-2 (file-type/ícone), TM-3 (save-name
+  helpers), TM-4 (untitled metadata puro); file-watching já estava em tab_watchers.js. O que permanece é, por
+  decisão, o **núcleo de estado entrelaçado** (save_flow, orquestração untitled monaco/DOM, add/close-tab, split,
+  overlay) — a parte pura já foi; extrair o resto seria alto risco/baixo ganho. Próximo alvo do A2: classe do
+  **ai_assistant_manager**.
 - **ai_assistant_manager (js/ui/) — classe `AIAssistantManager` ~3376 linhas, ~40 campos entrelaçados.** **E2E NÃO
   exercita o chat ao vivo** → bug sutil só no teste do usuário (classe-risco do O9/O11). Peças mais ortogonais
   primeiro (deps bag + delegadores): **scroll** (`scrollToBottom`/`smoothScrollToBottom`/`_isAtBottom`) e **anexos**

@@ -57,6 +57,10 @@ const RAW_ALLOWLIST = [
 
   // Surfer — the opt-in embedded waveform viewer (launch-surfer).
   ['surfer.exe',    ['Packages/surfer']],
+  // Verible language server — the Verilog LSP backend (O2). Long-lived
+  // stdio process spawned by main/lsp/verible_lsp.js for diagnostics,
+  // formatting, outline, hover and definition/references in Monaco.
+  ['verible-verilog-ls.exe', ['Packages/verible/bin']],
   // comp2gtkw — the complex-number decoder pre-pass (decode-complex). Ships
   // with the YANC compilers in components/bin.
   ['comp2gtkw.exe', ['bin']],

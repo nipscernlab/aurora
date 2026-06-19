@@ -4,6 +4,7 @@
 
 import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
+import { initVerilogLSP } from './lsp_integration.js';
 
 class EditorManager {
     static editors = new Map();
@@ -678,6 +679,9 @@ class EditorManager {
             'cmm': 'cmm',
             'asm': 'asm',
             'v': 'verilog',
+            'vh': 'verilog',
+            'sv': 'systemverilog',
+            'svh': 'systemverilog',
             'spf': 'json'   // project file is JSON — gets keys/strings/numbers + folding for free
         };
         return languageMap[extension] || 'plaintext';
@@ -842,6 +846,11 @@ function initMonaco() {
         require(['vs/editor/editor.main'], function () {
             setupCMMLanguage();
             setupASMLanguage();
+            // O2: attach the Verible language server to .v/.sv buffers
+            // (diagnostics, formatting, outline, hover, definition/refs).
+            // The 'verilog'/'systemverilog' languages are already registered
+            // by the vendored Monaco build, so this only wires the providers.
+            initVerilogLSP();
 
             // Aurora dark theme — colors mirror theme_variables.css so the
             // editor surface blends with the rest of the IDE chrome.

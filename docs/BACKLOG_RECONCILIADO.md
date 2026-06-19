@@ -91,7 +91,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
   "· N tok" no sidebar (counter por conversa já existia), sem custo em $. Ver §14.30.
 
 **Difícil (6–7):**
-- [ ] **O2** Verible LSP · **O11** slang-server · **O7** tree-sitter.
+- [x] **O2** Verible LSP — FEITO 19/06/2026 (diagnostics + format + outline + hover + def/refs; ponte stdio custom; binário no bootstrap). Ver §14.32. · [ ] **O11** slang-server · [ ] **O7** tree-sitter.
 - [ ] **`<aurora-tree>` passo 2** (virtual scroll) · **`<aurora-terminal>` passo 2** · **`<aurora-editor>`**.
 - [ ] **A3** migrar globais (431× electronAPI → imports) · **G8/G9** plugins + spawn único.
 - [ ] **PRISM reskin** (identidade aurora no viewer RTL).

@@ -875,7 +875,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 
 ### H. OSS a integrar (parking lot — resolver G8: default-on vs plugin sob demanda)
 - [ ] **O1 Surfer** — ondas embutidas (remove GTKWave externo). 🔴 maior alavanca.
-- [ ] **O2 Verible** — LSP de Verilog (diagnostics inline) via shim manual. 🟡
+- [x] **O2 Verible** — LSP de Verilog (diagnostics + format + outline + hover + def/refs) via shim manual. ✅ 19/06/2026 (§14.32; aguarda teste ao vivo)
 - [ ] **O10 ripgrep** — find-in-files no projeto. 🟡 quick-win de UX.
 - [ ] **O3 Verilator** — feedback streamado no build + consolidar `waveBuild`. 🟡
 - [ ] **O8 cocotb** — fluxo de teste de 1ª classe (alinha com branch do Arthur). 🟡
@@ -1681,3 +1681,44 @@ vivo do usuário. Sequência de correções (todas verdes + commitadas):
 no modo "Simular", agora funcional + polida em designs pequenos (o alvo do simulador didático). Designs grandes
 (CNN, processador inteiro) dão mensagem clara "use a visão esquemática". **Validado ao vivo pelo usuário.**
 Green bar a cada passo (ESLint, tsc, guards, 316 unit, vite build, 9 E2E).
+
+### 14.32 O2 — Verible LSP (diagnostics + format + outline + hover + def/refs) — 19/06/2026 — FEITO (aguarda teste ao vivo)
+Primeiro item do "Difícil". Liga o **language server do Verilog** (`verible-verilog-ls`, suite C++ Apache-2.0) ao
+editor Monaco, dando pela primeira vez **diagnóstico semântico ao vivo** (lint + sintaxe) em `.v`/`.sv`, além de
+formatação, outline, hover e ir-para-definição/referências.
+
+**Decisões do usuário (AskUserQuestion):** binário **baixado no bootstrap** (estilo surfer, não sob demanda) +
+escopo **completo** (todas as features que o Verible faz bem).
+
+**Arquitetura — ponte LSP mínima e custom (NÃO `monaco-languageclient`)**, como o §7 (O6) já mandava: a AURORA já
+tem IPC na mão e o Monaco é o build AMD vendorizado; uma ponte fina basta.
+1. **`components/Scripts/download-verible.js`** — bootstrap (depois do surfer, antes do copy-components). Baixa o
+   asset win64 da release `chipsalliance/verible` (pin `v0.0-4080-ga0a8d8eb` + **SHA-256** verificado), extrai e
+   **poda tudo menos o `verible-verilog-ls.exe`** (3.3MB, vs ~25MB dos ~10 exes) em
+   `components/Packages/verible/bin/`. Best-effort (exit 0 se falhar → editor cai pro highlight estático, sem erro).
+2. **`main/lsp/verible_lsp.js`** — manager: spawna **um** LS de vida longa (`--lsp_enable_hover`
+   `--rules_config_search`), fala **JSON-RPC framed por Content-Length** no stdio, `trackChild` (morre ao fechar a
+   janela). Ciclo de vida **resiliente**: `start()` memoiza a promessa (nula no fracasso → retry, mantém no
+   sucesso), `handleProcessGone` idempotente rejeita pendências, e o `openDocs` **persiste entre restarts** → um LS
+   re-spawnado é **re-semeado** (re-`didOpen`) transparente. `didChange` usa **full-replace sem range** (o Verible
+   anuncia sync incremental mas aceita — validado). Tudo no-op gracioso se o binário faltar. Gateado pelo
+   `binary_allowlist` (entrada nova) antes do spawn.
+3. **IPC `lsp:*`** (no próprio manager) + **`window.lspAPI`** no preload — `status/didOpen/didChange/didClose` +
+   `format/documentSymbols/hover/definition/references` + push `onDiagnostics`.
+4. **`js/editor/lsp_integration.js`** (renderer) — espelha o `setupCMMLanguage`: anexa no nível do **model** Monaco
+   (`onDidCreateModel` → `didOpen`; `onDidChangeContent` debounced 350ms → `didChange`; `onWillDispose` →
+   `didClose`), então splits que compartilham um model abrem o doc **uma vez**. Mapeia publishDiagnostics →
+   `setModelMarkers` (LSP 0-based → Monaco 1-based) e registra os 5 providers. `initVerilogLSP()` é **try/catch**
+   total — uma falha do LSP nunca quebra o boot do Monaco (lição do O9).
+
+**`verilog`/`systemverilog` já vêm registrados no Monaco vendorizado** (só liguei os providers; highlight estático
+fica pro O7 tree-sitter depois). Adicionei `.vh/.sv/.svh` ao mapa de linguagem (alinha com `split_editor.js`).
+
+**Verificação empírica contra o binário real** (E2E não exercita o LSP — mesma lição do O9): handshake initialize →
+capabilities completas (format, documentSymbol, hover, definition, references, documentHighlight, codeAction,
+rename); `didOpen` válido → 0 diagnostics; `didChange` full-replace de código quebrado → 1 syntax error;
+`format` de código feio → edits corretos; `documentSymbol` → módulo. **Mapeamento de coordenadas confere.**
+
+**LIÇÃO:** a revisão adversarial (workflow) bateu no **limite de sessão** e não rodou — fiz a revisão manual + a
+verificação empírica acima no lugar. Green bar completo (ESLint, tsc, 4 guards, 316 unit, vite build, 9 E2E) +
+downloader validado de verdade (baixou, verificou SHA, podou, instalou). **Falta o teste ao vivo do usuário.**

@@ -67,6 +67,7 @@ const projectIpc = require('./main/ipc/project');
 const compileIpc = require('./main/ipc/compile');
 const executorIpc = require('./main/compile/executor');
 const prismIpc = require('./main/ipc/prism');
+const veribleLsp = require('./main/lsp/verible_lsp');
 const systemIpc = require('./main/ipc/system');
 const aiIpc = require('./main/ipc/ai');
 const gitIpc = require('./main/ipc/git');
@@ -84,6 +85,7 @@ if (acquiredLock) {
   compileIpc.register();
   executorIpc.register();
   prismIpc.register();
+  veribleLsp.register();
   systemIpc.register();
   aiIpc.register();
   githubAuthIpc.register();

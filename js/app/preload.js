@@ -395,6 +395,35 @@ const searchOperations = {
 };
 
 /* ============================================================================
+ *  VERILOG LSP (window.lspAPI) — backed by main/lsp/verible_lsp.js
+ *
+ *  Thin bridge to the bundled verible-verilog-ls. The renderer
+ *  (js/editor/lsp_integration.js) drives the document lifecycle
+ *  (open/change/close) and pulls on-demand features (format, symbols,
+ *  hover, definition, references); diagnostics are pushed the other way
+ *  via onDiagnostics. Every channel is best-effort — if Verible isn't
+ *  installed the main side no-ops and these resolve to null/undefined.
+ * ========================================================================= */
+const lspOperations = {
+  status:    () => ipcRenderer.invoke('lsp:status'),
+  didOpen:   (uri, text, languageId) => ipcRenderer.invoke('lsp:did-open', { uri, text, languageId }),
+  didChange: (uri, text) => ipcRenderer.invoke('lsp:did-change', { uri, text }),
+  didClose:  (uri) => ipcRenderer.invoke('lsp:did-close', { uri }),
+
+  format:          (uri) => ipcRenderer.invoke('lsp:format', { uri }),
+  documentSymbols: (uri) => ipcRenderer.invoke('lsp:document-symbols', { uri }),
+  hover:           (uri, position) => ipcRenderer.invoke('lsp:hover', { uri, position }),
+  definition:      (uri, position) => ipcRenderer.invoke('lsp:definition', { uri, position }),
+  references:      (uri, position) => ipcRenderer.invoke('lsp:references', { uri, position }),
+
+  onDiagnostics: (cb) => {
+    const handler = (_e, payload) => cb(payload);
+    ipcRenderer.on('lsp:diagnostics', handler);
+    return () => ipcRenderer.removeListener('lsp:diagnostics', handler);
+  },
+};
+
+/* ============================================================================
  *  UTILITIES (inline, sem IPC)
  * ========================================================================= */
 const utilityOperations = {
@@ -492,6 +521,8 @@ contextBridge.exposeInMainWorld('terminalAPI', terminalAPI);
 contextBridge.exposeInMainWorld('aiAPI', aiAPI);
 
 contextBridge.exposeInMainWorld('gitAPI', gitOperations);
+
+contextBridge.exposeInMainWorld('lspAPI', lspOperations);
 
 /* ============================================================================
  *  GLOBAL EVENT FORWARDERS

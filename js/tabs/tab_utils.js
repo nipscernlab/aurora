@@ -95,3 +95,157 @@ export function typeFromExtension(filePath) {
     if (ext === 'cmm') return 'cmm';
     return null;
 }
+
+// ---------------------------------------------------------------------------
+// File-type detection + icon mapping — extracted from TabManager (these were
+// static methods + the imageExtensions/pdfExtensions sets). Pure: no
+// TabManager state, no DOM. TabManager keeps thin static delegators
+// (getFileIcon has external callers; isImageFile/isPdfFile/isBinaryFile are
+// called internally as this.X).
+
+// Image and PDF extensions
+export const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+export const pdfExtensions = new Set(['pdf']);
+
+// Utility method to check if file is an image
+export function isImageFile(filePath) {
+    const extension = filePath.split('.')
+        .pop()
+        .toLowerCase();
+    return imageExtensions.has(extension);
+}
+
+// Utility method to check if file is a PDF
+export function isPdfFile(filePath) {
+    const extension = filePath.split('.')
+        .pop()
+        .toLowerCase();
+    return pdfExtensions.has(extension);
+}
+
+// Utility method to check if file is binary (image or PDF)
+export function isBinaryFile(filePath) {
+    return isImageFile(filePath) || isPdfFile(filePath);
+}
+
+// getFileIcon — returns Phosphor classes (no FA dependency)
+export function getFileIcon(filename) {
+    const extension = filename.split('.').pop().toLowerCase();
+
+    // Images
+    if (imageExtensions.has(extension)) {
+        return extension === 'svg' ? 'ph ph-file-svg' : 'ph ph-file-image';
+    }
+
+    if (extension === 'pdf') return 'ph ph-file-pdf';
+
+    const iconMap = {
+        // SAPHO/AURORA file types — distinctive icons per family so the
+        // hardware toolchain reads at a glance (Verilog = a chip, C± = a
+        // custom C±-lettered document, assembly = binary, waves = waveform).
+        'cmm':       'aurora-icon-cmm',
+        'asm':       'ph ph-binary',
+        'v':         'ph ph-cpu',
+        'vh':        'ph ph-cpu',
+        'sv':        'ph ph-cpu',
+        'gtkw':      'ph ph-waveform',
+        'vcd':       'ph ph-waveform',
+        'fst':       'ph ph-waveform',
+        'mif':       'ph ph-database',
+        'spf':       'ph ph-package',
+
+        // JS/TS
+        'js':   'ph ph-file-js',
+        'jsx':  'ph ph-file-jsx',
+        'ts':   'ph ph-file-ts',
+        'tsx':  'ph ph-file-tsx',
+        'mjs':  'ph ph-file-js',
+        'vue':  'ph ph-file-vue',
+
+        // Web
+        'html': 'ph ph-file-html',
+        'htm':  'ph ph-file-html',
+        'css':  'ph ph-file-css',
+        'scss': 'ph ph-file-css',
+        'sass': 'ph ph-file-css',
+        'less': 'ph ph-file-css',
+
+        // Data
+        'json': 'ph ph-brackets-curly',
+        'xml':  'ph ph-file-code',
+        'yaml': 'ph ph-file-code',
+        'yml':  'ph ph-file-code',
+        'toml': 'ph ph-file-code',
+
+        // Docs
+        'md':       'ph ph-file-md',
+        'markdown': 'ph ph-file-md',
+        'txt':      'ph ph-file-text',
+        'rtf':      'ph ph-file-text',
+
+        // Other languages
+        'py':    'ph ph-file-py',
+        'java':  'ph ph-file-code',
+        'c':     'ph ph-file-c',
+        'cpp':   'ph ph-file-cpp',
+        'cc':    'ph ph-file-cpp',
+        'cxx':   'ph ph-file-cpp',
+        // Phosphor has no ph-file-h — headers borrow the C/C++ document.
+        'h':     'ph ph-file-c',
+        'hpp':   'ph ph-file-cpp',
+        'hh':    'ph ph-file-cpp',
+        'hxx':   'ph ph-file-cpp',
+        'cs':    'ph ph-file-c-sharp',
+        'php':   'ph ph-file-code',
+        'rb':    'ph ph-file-code',
+        'go':    'ph ph-file-code',
+        'rs':    'ph ph-file-rs',
+        'swift': 'ph ph-file-code',
+        'kt':    'ph ph-file-code',
+        'scala': 'ph ph-file-code',
+
+        // Shell
+        'sh':   'ph ph-terminal',
+        'bash': 'ph ph-terminal',
+        'zsh':  'ph ph-terminal',
+        'fish': 'ph ph-terminal',
+        'ps1':  'ph ph-terminal',
+        'bat':  'ph ph-terminal',
+        'cmd':  'ph ph-terminal',
+
+        // Config
+        'ini':    'ph ph-gear',
+        'conf':   'ph ph-gear',
+        'config': 'ph ph-gear',
+        'env':    'ph ph-gear',
+
+        // Archive
+        'zip': 'ph ph-file-zip',
+        'rar': 'ph ph-file-zip',
+        '7z':  'ph ph-file-zip',
+        'tar': 'ph ph-file-zip',
+        'gz':  'ph ph-file-zip',
+
+        // Audio
+        'mp3':  'ph ph-file-audio',
+        'wav':  'ph ph-file-audio',
+        'flac': 'ph ph-file-audio',
+        'ogg':  'ph ph-file-audio',
+
+        // Video
+        'mp4': 'ph ph-file-video',
+        'avi': 'ph ph-file-video',
+        'mkv': 'ph ph-file-video',
+        'mov': 'ph ph-file-video',
+
+        // Office
+        'doc':  'ph ph-file-doc',
+        'docx': 'ph ph-file-doc',
+        'xls':  'ph ph-file-xls',
+        'xlsx': 'ph ph-file-xls',
+        'ppt':  'ph ph-file-ppt',
+        'pptx': 'ph ph-file-ppt'
+    };
+
+    return iconMap[extension] || 'ph ph-file';
+}

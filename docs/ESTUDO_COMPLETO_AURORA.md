@@ -2082,6 +2082,23 @@ helpers stateless (`isSubProvider`/`shortModelName`/`formatTokens`/`untilTime`/`
 localStorage). Com isso **toda a região de helpers de módulo do ai_assistant saiu** (4592→3376, **−1216**); o que
 resta é a CLASSE. Green bar (**401 unit [+6]**, build, 9 E2E).
 
+**TM-2 — file-type/ícone → `js/tabs/tab_utils.js` (FEITO 19/06/2026):** primeira extração da Wave 2 (tab_manager).
+Movida a detecção de tipo + o mapa de ícones do TabManager (classe **estática**) — os 4 métodos
+`isImageFile`/`isPdfFile`/`isBinaryFile`/`getFileIcon` + os sets `imageExtensions`/`pdfExtensions` — pra
+`tab_utils.js` como **funções puras** (sets viram constantes de módulo). Os sets eram lidos **só internamente**
+(zero leitor externo, verificado no repo inteiro), então saíram de vez da classe. Movimentação **por script** com
+verificação **byte-idêntica** (diff normalizado = só as 4 linhas em branco que separam as funções; **zero mudança**
+no icon-map de ~80 entradas). A classe mantém **4 delegadores estáticos finos** — preserva os ~20 call sites
+internos (`this.isBinaryFile`/`this.getFileIcon`…) E os **4 callers externos** de `getFileIcon`
+(`standard_tree_render`, `project_tree_render` via `window.TabManager`, `split_editor`, `hierarchy_view`), todos
+intactos. Padrão de delegação idêntico ao compilation_module #5 (mesmo nome no import e no delegador; a chamada nua
+resolve pro import, não recursão — comentado no código). **Re-mapeado vs código real antes** (os símbolos batiam, ao
+contrário do "TM-2 file-operations" do mapa do workflow). **+6 testes** (`tab_utils.test.js`: image/pdf/binary
+case-insensitive + sem-extensão; getFileIcon p/ famílias SAPHO cmm/v/sv/vcd/asm/spf, svg special-case, lowercase do
+ext, fallback `ph ph-file`). God-file **−123 linhas** (1957→1834). **BAIXO risco** (funções puras, delegadores
+preservam tudo) → sem revisão adversarial (não é estado entrelaçado; reservada pras extrações de watchers/save_flow).
+Green bar (ESLint, tsc, 4 guards, **407 unit [+6]**, vite build, 9 E2E).
+
 **RESTANTE (Wave 2/3) — HANDOFF pro próximo chat (a parte ARRISCADA, contexto fresco):** a Wave 1 (helpers puros)
 está FEITA; o que sobra é estado entrelaçado — mesma situação do compilation_module #3-5, que pediu contexto fresco.
 **Cadência (a mesma das 9 extrações já feitas):** mover verbatim (script, **byte-idêntico** vs `git show`) → para
@@ -2096,9 +2113,7 @@ existem** assim no `tab_manager.js`). Use `grep -nE "(static |function )<nome>" 
   `TabManager.tabs/activeTab/unsavedChanges/untitledDocuments` como **propriedade** e chamam ~29 métodos (`addTab`,
   `saveAllFiles`, `getEditingFilePath`, `closeTab`, `markFileAsModified`…). Logo: **estado estático fica na classe**,
   funções extraídas recebem o estado, classe mantém **delegadores**. Extrações candidatas (re-mapear nomes/linhas):
-  (a) **file-type/ícone** — `isImageFile`/`isPdfFile`/`isBinaryFile`/`getFileIcon` (métodos estáticos) + sets
-  `imageExtensions`/`pdfExtensions` → `tab_utils.js` como funções puras + **delegadores estáticos** (`getFileIcon` tem
-  4 callers externos; os outros são `this.` internos ~20×). BAIXO risco, bom próximo passo. (b) **file-watching** —
+  (a) ~~**file-type/ícone**~~ — **FEITO (TM-2, acima)**. (b) **file-watching** —
   chokidar/polling; **reconciliar com o `js/tabs/tab_watchers.js` já existente**. (c) **untitled** lifecycle
   (`createNewFile`/`isUntitledPath`/`expandUntitledSnippet`/`getDisplayName` — vários externos → delegadores). (d)
   **save_flow** (`saveCurrentFile`/`saveAllFiles`/`saveFile`/`saveUntitledFile` — núcleo, API mais chamada; ALTO

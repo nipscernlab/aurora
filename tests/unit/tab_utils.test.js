@@ -3,6 +3,7 @@ import {
     basenameOf, withoutExtension, extensionOf, normalizeKey,
     sanitizeVerilogFileName, sanitizePythonModuleName, sanitizeProcessorName,
     createCmmTemplate, ensureCmmPrname, typeFromExtension,
+    isImageFile, isPdfFile, isBinaryFile, getFileIcon,
 } from '../../js/tabs/tab_utils.js';
 
 describe('path helpers', () => {
@@ -72,5 +73,47 @@ describe('cmm template', () => {
         const out = ensureCmmPrname('   ', 'Empty');
         expect(out).toContain('#PRNAME Empty');
         expect(out).toContain('#NUBITS 23');
+    });
+});
+
+describe('file-type detection', () => {
+    it('isImageFile matches the image extensions, case-insensitively', () => {
+        expect(isImageFile('photo.PNG')).toBe(true);
+        expect(isImageFile('/a/b/icon.svg')).toBe(true);
+        expect(isImageFile('logo.webp')).toBe(true);
+        expect(isImageFile('notes.txt')).toBe(false);
+        expect(isImageFile('README')).toBe(false); // no extension → basename, not in set
+    });
+    it('isPdfFile matches only pdf (case-insensitive)', () => {
+        expect(isPdfFile('manual.pdf')).toBe(true);
+        expect(isPdfFile('manual.PDF')).toBe(true);
+        expect(isPdfFile('manual.png')).toBe(false);
+    });
+    it('isBinaryFile is the union of image and pdf', () => {
+        expect(isBinaryFile('x.png')).toBe(true);
+        expect(isBinaryFile('x.pdf')).toBe(true);
+        expect(isBinaryFile('x.v')).toBe(false);
+        expect(isBinaryFile('x.cmm')).toBe(false);
+    });
+});
+
+describe('getFileIcon', () => {
+    it('maps the SAPHO/AURORA hardware families', () => {
+        expect(getFileIcon('proc.cmm')).toBe('aurora-icon-cmm');
+        expect(getFileIcon('core.v')).toBe('ph ph-cpu');
+        expect(getFileIcon('top.sv')).toBe('ph ph-cpu');
+        expect(getFileIcon('dump.vcd')).toBe('ph ph-waveform');
+        expect(getFileIcon('boot.asm')).toBe('ph ph-binary');
+        expect(getFileIcon('project.spf')).toBe('ph ph-package');
+    });
+    it('handles images (svg special-cased) and pdf via the sets', () => {
+        expect(getFileIcon('icon.svg')).toBe('ph ph-file-svg');
+        expect(getFileIcon('photo.PNG')).toBe('ph ph-file-image');
+        expect(getFileIcon('manual.pdf')).toBe('ph ph-file-pdf');
+    });
+    it('lowercases the extension and falls back for the unknown', () => {
+        expect(getFileIcon('Main.JS')).toBe('ph ph-file-js');
+        expect(getFileIcon('mystery.qzx')).toBe('ph ph-file');
+        expect(getFileIcon('Makefile')).toBe('ph ph-file'); // no extension
     });
 });

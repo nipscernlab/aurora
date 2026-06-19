@@ -787,8 +787,8 @@ write_json "${jsonPath}"
     // endless "Building simulation…" spinner.
     const timer = setTimeout(() => {
       try { proc.kill(); } catch (_) { /* already gone */ }
-      finish(new Error('Yosys synthesis timed out (90s) — the design is likely too large for interactive simulation.'));
-    }, 90000);
+      finish(new Error('Yosys synthesis timed out (45s) — the design is likely too large/complex for interactive simulation. Use the schematic view.'));
+    }, 45000);
     proc.stderr.on('data', (d) => (stderr += d.toString()));
     proc.on('error', (e) => finish(e instanceof Error ? e : new Error(String(e))));
     proc.on('close', (/** @type {number} */ code) => {

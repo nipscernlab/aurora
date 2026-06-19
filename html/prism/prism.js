@@ -852,6 +852,12 @@ class PRISMViewer {
       const jQuery = (await import('jquery')).default;
       window.jQuery = jQuery;
       window.$ = jQuery;
+      // digitaljs pulls in jquery-ui widgets (dialog) that call $.widget AT LOAD
+      // time. Load the COMPLETE jquery-ui onto the global jQuery FIRST (in its
+      // own correct internal order: version → widget factory → widgets) so
+      // $.widget / $.fn.dialog exist before digitaljs's bundled dialog.js runs —
+      // otherwise it throws "e.widget is not a function".
+      await import('jquery-ui/dist/jquery-ui.js');
       this._Circuit = (await import('digitaljs')).Circuit;
     }
     return this._Circuit;

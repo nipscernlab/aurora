@@ -1773,8 +1773,10 @@ um `slang_lsp.js` paralelo (zero risco de regressão no O2):
 4. **`js/editor/slang_integration.js`** (renderer) — anexa no nível do model (didOpen/didChange debounced
    400ms/didClose), mapeia diagnostics → `setModelMarkers(model, 'slang', …)` (coexiste com `'verible'`), e
    registra **completion provider** (kinds LSP→Monaco, range do textEdit ou palavra atual, trigger chars
-   `` ` # . ( : [ ``). **Toggle** persistido em `localStorage` (`window.AuroraSlang.toggle()`), exposto no
-   **command palette** ("Toggle slang…") com toast; ao desligar limpa markers, ao ligar re-`didOpen` os buffers.
+   `` ` # . ( : [ ``). **Toggle** persistido em `localStorage` (`window.AuroraSlang.toggle()`), com **atalho
+   dedicado Ctrl+Alt+S** (no `shortcut_manager.js` — inclui Ctrl pra disparar com o editor Monaco focado; o
+   Ctrl+Shift+P é do command palette) e entrada no **command palette** ("Toggle slang…") com toast; ao desligar
+   limpa markers, ao ligar re-`didOpen` os buffers.
 5. Wiring no `monaco_editor.js` após o `initClangFormat`.
 
 **Verificado empiricamente** contra o binário real (E2E não exercita o LSP): handshake → capabilities completas

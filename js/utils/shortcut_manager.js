@@ -14,6 +14,10 @@
         'reopenTab': { ctrlKey: true, shiftKey: true, altKey: false, key: 'T' },
         'saveFile': { ctrlKey: true, shiftKey: false, altKey: false, key: 'S' },
         'saveAllFiles': { ctrlKey: true, shiftKey: true, altKey: false, key: 'S' },
+        // O11: liga/desliga a análise semântica do slang. Ctrl+Alt+S (S de
+        // slang/semântico) — inclui Ctrl pra disparar com o editor Monaco
+        // focado; Ctrl+Shift+P é do command palette, não daqui.
+        'toggleSlang': { ctrlKey: true, shiftKey: false, altKey: true, key: 'S' },
     };
 
     let activeShortcuts = {};
@@ -29,6 +33,7 @@
         reopenTab:    () => window.AuroraAPI?.editor.reopenLastTab(),
         saveFile:     () => window.AuroraAPI?.editor.save(),
         saveAllFiles: () => window.AuroraAPI?.editor.saveAll(),
+        toggleSlang:  () => window.AuroraSlang?.toggle?.(),
     };
     
     function loadShortcuts() {

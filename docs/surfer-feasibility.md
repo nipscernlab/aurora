@@ -388,3 +388,29 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 | **Cores por opcode** | — | **NÃO feito** (deferido): mapping malformado dá panic e não dá pra validar a cor headless. Precisa do usuário no loop. |
 
 **🛡️ Robustez (`d59b225`):** anti-staleness compara `mtime(trad) > mtime(FST)` (recompilou sem re-simular → avisa, não decodifica lixo); namespacing prefixa os mappings com FNV-1a do projectPath (field-test: nome de 42 chars carrega, sem truncar); escrita atômica via `.tmp`+`rename` (Surfer nunca lê mapping pela metade).
+
+## 16. Embed WASM / WCP — due diligence no ambiente de dev (19/06/2026)
+
+Tentativa de "começar o O1-embed" (a pedido do usuário). Resultado: dois bloqueios **concretos e
+verificados** pra ESTE ambiente. Registrado aqui pra não re-derivar.
+
+1. **WASM iframe — BLOQUEADO.** O registro de pacotes genérico do GitLab do Surfer (projeto 42073614) só
+   publica os zips **nativos** (win) — **sem artefato wasm/web** (verificado via API de packages: v0.6.0/
+   v0.7.0 só têm o build nativo). O build web sai de `trunk` a partir do fonte Rust → não disponível nem
+   validável aqui. Iframe **remoto** (`app.surfer-project.org`) está descartado por 3 motivos sólidos: viola
+   a **CSP estrita + `sandbox:true`** (trabalho V-series), exige **rede** (a IDE é offline-first), e mandaria
+   os **dados de simulação locais do usuário** pra um site remoto (privacidade). Sem bundle local não há o que
+   o iframe carregue.
+2. **WCP → binário nativo — viável no binário, protocolo não-validável aqui.** O `surfer.exe` **v0.7.0
+   bundlado suporta `--wcp-initiate <port>`** (confirmado por `surfer.exe --help`). MAS o spec do wire-protocol
+   (framing/handshake/schema JSON) está **inacessível** — `surfer-project.org/wcp.html`,
+   `docs.surfer-project.org/integration.html` e o fonte `surver/.../wcp/mod.rs` deram **404**; e o próprio
+   projeto marca o WCP como "early/unstable" (comandos deprecados). Sem o framing exato **e** sem rodar o
+   handshake TCP ao vivo, implementar o cliente seria às cegas → alto risco de bridge quebrado (e o E2E não
+   exercita o viewer).
+
+**Conclusão:** as duas metades do O1 não são entregáveis como código **funcionando + validado** neste ambiente
+sem risco de feature quebrada. Caminho responsável: fazer numa máquina com (a) Rust + `trunk` pra buildar o
+bundle web do Surfer (iframe), e/ou (b) o app rodando ao vivo pra iterar o handshake WCP contra o `surfer.exe`
+(`--wcp-initiate`) + acesso ao spec do protocolo. O viewer **externo** do Surfer (completo e polido, §9–§15)
+cobre o uso hoje; o embed é conveniência (ondas dentro da IDE), **não bloqueia nada**.

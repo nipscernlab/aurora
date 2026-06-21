@@ -1,0 +1,807 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: simulação e o fluxo de ondas}
+\label{cap:09-aurora-simulacao-ondas}
+
+Este capítulo documenta o subsistema da \tool{AURORA} que vai dos arquivos
+Verilog de um projeto até um arquivo de ondas (\file{.fst} ou \file{.vcd})
+pronto para ser visualizado. O escopo cobre a orquestração da simulação, a
+escolha do simulador e do visualizador, a preparação do que entra na onda
+(o \lstinline|$dumpvars|) e a geração automática do layout \file{.gtkw}. O
+visualizador em si (a janela do GTKWave/fork \tool{nipscern} e a integração com
+o \tool{Surfer}) é assunto do \autoref{cap:10-aurora-visualizacao}; aqui o fluxo
+termina no instante em que o arquivo de ondas existe e o processo do
+visualizador é disparado.
+
+A fonte de verdade deste capítulo é o código em \path{js/wave/*} e as fases
+\lstinline|_wave*| do método \lstinline|runGtkWave| em
+\path{js/compilation/compilation_module.js}, além do resolvedor de seleção em
+\path{js/compilation/wave_signal_validator.js}.
+
+\section{Visão geral: o botão Wave}
+
+O ponto de entrada é \lstinline|CompilationModule.runGtkWave()|. O nome do
+método é histórico: ele orquestra o pipeline completo independentemente do
+simulador e do visualizador escolhidos. A primeira linha do método valida a
+configuração com \lstinline|validateForWave()|, que exige um testbench --- sem
+testbench não há o que simular. Os arquivos sintetizáveis e o \emph{top-level}
+são opcionais: um testbench autônomo pode definir o DUT internamente.
+
+\subsection{Os quatro caminhos de simulação}
+
+A \tool{AURORA} oferece quatro caminhos para produzir uma onda. Eles resultam da
+combinação de dois eixos independentes: a \emph{linguagem do testbench}
+(Verilog puro ou Python/cocotb) e o \emph{motor de simulação} (Icarus Verilog ou
+Verilator). A \autoref{tab:09-quatro-caminhos} resume as combinações.
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\linewidth}{Y Y Y}
+\toprule
+\textbf{Testbench} & \textbf{Simulador} & \textbf{Cadeia de ferramentas} \\
+\midrule
+Verilog (\file{.v}) & Icarus & \tool{iverilog} $\rightarrow$ \file{.vvp} $\rightarrow$ \tool{vvp} \\
+Verilog (\file{.v}) & Verilator & \tool{verilator} $\rightarrow$ C++ $\rightarrow$ \tool{g++} $\rightarrow$ \file{.exe} \\
+Python (\file{.py}, cocotb) & Icarus & runner cocotb com \lstinline|SIM=icarus| \\
+Python (\file{.py}, cocotb) & Verilator & runner cocotb com \lstinline|SIM=verilator| \\
+\bottomrule
+\end{tabularx}
+\caption{Os quatro caminhos de simulação e suas cadeias de ferramentas.}
+\label{tab:09-quatro-caminhos}
+\end{table}
+
+Os quatro caminhos convergem: cada um produz um arquivo de ondas que o restante
+do pipeline trata de modo uniforme. A simulação roda \emph{exatamente uma vez}
+em todos os caminhos. O cabeçalho do VCD (a hierarquia de \lstinline|$scope| e
+\lstinline|$var| usada pelo \emph{picker} de sinais e pelo gerador automático de
+\file{.gtkw}) é extraído diretamente do \file{.fst} já finalizado por
+\lstinline|_extractFstHeaderVcd| --- não há mais um passe separado só para
+gerar o cabeçalho.
+
+\subsection{O diagrama de fluxo}
+
+\begin{lstlisting}[caption={Os quatro caminhos convergindo no arquivo de ondas e no visualizador.},captionpos=b]
+                         runGtkWave()
+                              |
+                    validateForWave()  (exige testbench)
+                              |
+           resolveWaveToolchain(componentsPath)
+                              |
+              _waveDeriveSimTopModule(config)
+                              |
+        +---------------------+---------------------+
+        |                                           |
+   testbench .py?                            testbench .v
+   (isPythonFile)                                   |
+        |                                  getSimulator()
+        | sim escolhido:                  +---------+---------+
+        |  icarus | verilator             |                   |
+        v                            'verilator'          'iverilog'
+ _waveValidateCocotbConfig                |                   |
+        |                       _waveBuildVerilator   _waveBuildAndVerifyVvp
+ _waveRunCocotbSimulation               |                   |
+   (runner cocotb)       _waveRunVerilatorSimulation   _waveRunVvpSimulation
+        |                                |                   |
+        |                                +---------+---------+
+        |                                          |
+        |                              _waveResolveVcdFile()
+        |                                          |
+        +----------------------+-------------------+
+                               |
+                  (CONVERGENCIA: .fst / .vcd)
+                               |
+                  _extractFstHeaderVcd()  -> <top>.header.vcd
+                               |
+                       getViewer()
+              +----------------+----------------+
+              |                                 |
+          'surfer'                          'gtkwave'
+              |                                 |
+ _waveResolveSurferSaveFile      _waveResolveGtkwSaveFile (auto-gtkw)
+ _waveLaunchSurfer               _waveLaunchGtkwave
+\end{lstlisting}
+
+\section{Escolha do simulador e do visualizador}
+
+Dois \emph{toggles} globais, persistidos em \lstinline|localStorage|, controlam
+qual simulador e qual visualizador o botão Wave usa. Ambas as escolhas são do
+usuário, valem para o aplicativo inteiro (não por projeto nem por testbench) e
+são lidas \enquote{frescas} a cada clique no Wave.
+
+\subsection{Preferência de simulador}
+
+O módulo \file{js/wave/simulator_preference.js} expõe \lstinline|getSimulator()|
+e \lstinline|setSimulator(value)|. A chave de storage é
+\lstinline|aurora.waveSimulator| e os valores válidos são \lstinline|iverilog|
+(padrão) e \lstinline|verilator|.
+
+\begin{lstlisting}[language=Java,caption={Leitura defensiva da preferência de simulador.}]
+const STORAGE_KEY = 'aurora.waveSimulator';
+const VALID = new Set(['iverilog', 'verilator']);
+
+export function getSimulator() {
+    try {
+        const v = (typeof localStorage !== 'undefined')
+            ? localStorage.getItem(STORAGE_KEY) : null;
+        return VALID.has(v) ? v : 'iverilog';
+    } catch (_e) {
+        return 'iverilog';
+    }
+}
+\end{lstlisting}
+
+A função nunca lança exceção: ela roda em \emph{hot path} (a cada clique no
+Wave) e é defensiva quanto à corrupção do storage --- qualquer valor inválido
+ou ausente cai no padrão \lstinline|iverilog|. A \tool{UI} do toggle vive em
+\file{js/wave/simulator_toggle.js} (um \emph{segmented switch} na barra de
+ferramentas) e dispara o evento \lstinline|aurora:wave-simulator-changed| para
+que outras superfícies sigam a mudança.
+
+\begin{nota}
+Testbenches em Python/cocotb também respeitam \lstinline|getSimulator()|: o
+valor é mapeado para o campo \lstinline|SIM| do runner cocotb
+(\lstinline|verilator| ou \lstinline|icarus|). Não há, portanto, um quinto
+caminho --- o eixo do simulador é o mesmo para Verilog e para Python.
+\end{nota}
+
+\subsection{Preferência de visualizador}
+
+O módulo \file{js/wave/viewer_preference.js} é o espelho exato do anterior, com
+\lstinline|getViewer()| / \lstinline|setViewer(value)|, chave
+\lstinline|aurora.waveViewer| e valores \lstinline|gtkwave| (padrão) e
+\lstinline|surfer|. A escolha do visualizador só importa no fim do pipeline,
+após a onda existir: \lstinline|runGtkWave| ramifica em
+\lstinline|getViewer() === 'surfer'| para decidir entre o caminho do Surfer
+(layout \file{.surf.ron} / \file{.sucl}) e o caminho do GTKWave (save-file
+\file{.gtkw}).
+
+\section{As fases do orquestrador}
+
+O corpo de \lstinline|runGtkWave| é curto de propósito: ele expressa a
+\emph{ordem das fases} e delega cada preocupação a um método privado
+\lstinline|_wave*| com contrato próprio. Esta seção percorre as fases na ordem
+em que executam.
+
+\subsection{\texttt{resolveWaveToolchain}}
+
+Resolve os caminhos e binários necessários à simulação a partir de
+\lstinline|this.componentsPath|: \lstinline|tempBaseDir| (a pasta
+\file{components/Temp/}, criada se não existir), o binário do GTKWave, o
+\tool{vvp}, o \tool{fst2vcd} (usado na extração de cabeçalho), entre outros. O
+diretório \lstinline|tempBaseDir| é o \emph{working directory} de todas as
+simulações --- caminhos relativos em \lstinline|$readmemb| e
+\lstinline|$fopen| são resolvidos a partir dele.
+
+\subsection{\texttt{\_waveDeriveSimTopModule}}
+
+Deriva o nome do módulo \emph{top} de simulação --- o valor passado como
+\lstinline|-s| ao \tool{iverilog} e o radical (\emph{stem}) que a \tool{AURORA}
+espera para a tríade \file{.vvp} / \file{.vcd} / \file{.gtkw}. A regra é
+direta: o módulo do testbench é o top quando há testbench; o fallback para o
+top sintetizável só existe para o fluxo raro de \enquote{compilar um único
+\file{.v} sem testbench}, que o botão Wave rejeita a montante.
+
+\begin{lstlisting}[language=Java,caption={Derivação do módulo top de simulação.}]
+_waveDeriveSimTopModule(config) {
+    if (config.testbenchFile) {
+        return moduleStemFromPath(config.testbenchFile);
+    }
+    if (!config.topLevelFile) return null;
+    return moduleStemFromPath(config.topLevelFile);
+}
+\end{lstlisting}
+
+No caminho cocotb, o módulo top é \emph{re-derivado}: ele vem da diretiva
+\lstinline|# aurora-toplevel: <module>| do \file{.py} (se presente) ou do
+top-level do \file{.spf} (com aviso), via
+\lstinline|_waveValidateCocotbConfig|.
+
+\subsection{Construção e simulação por caminho}
+
+\subsubsection{Caminho Icarus (\texttt{iverilog} + \texttt{vvp})}
+
+Duas fases: \lstinline|_waveBuildAndVerifyVvp(simTopModule, tempBaseDir)| e
+\lstinline|_waveRunVvpSimulation(simTopModule, tools)|.
+
+A primeira chama \lstinline|waveBuildVvp()|, que compila o conjunto de fontes
+(sintetizáveis $+$ testbench instrumentado $+$ \lstinline|-y components/HDL|)
+com \tool{iverilog} produzindo \file{<top>.vvp}, e depois confirma que o
+arquivo foi escrito em disco. O \file{.vvp} é \emph{sempre} reconstruído ---
+o testbench instrumentado \enquote{assa} a seleção de \lstinline|$dumpvars| do
+usuário no momento da compilação, então um \file{.vvp} antigo travaria uma
+seleção antiga.
+
+A segunda executa \lstinline|vvp -fst| sobre o \file{.vvp}, com \emph{cwd} em
+\lstinline|tempBaseDir|. Antes de rodar, ela faz \emph{staging} de arquivos: os
+\file{pc_*_mem.txt} gerados pelo \tool{cmmcomp} em subpastas
+\file{Temp/<proc>/} são copiados para \file{Temp/} direto (para que os
+\lstinline|$readmemb| relativos resolvam), e os arquivos de dado referenciados
+pelo testbench (\lstinline|$fopen|, \lstinline|$readmemh|) são copiados da
+pasta do testbench. A saída é \file{<top>.vcd} com conteúdo binário FST escrito
+sob o nome do \lstinline|$dumpfile| --- o \tool{vvp} honra o nome sem trocar a
+extensão.
+
+\subsubsection{Caminho Verilator (testbench Verilog)}
+
+Duas fases: \lstinline|_waveBuildVerilator(...)| e
+\lstinline|_waveRunVerilatorSimulation(...)|. O Verilator é \emph{opt-in} via o
+toggle de simulador. O build reusa \lstinline|_prepareWaveBuildInputs| (a mesma
+resolução de seleção e instrumentação de testbench do caminho Icarus) e invoca
+o Verilator com, entre outras, as flags da \autoref{tab:09-verilator-flags}.
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Flag} & \textbf{Função} \\
+\midrule
+\lstinline|--binary| & gera o \lstinline|main| e invoca o \tool{make} para produzir o \file{.exe} \\
+\lstinline|--trace-fst| & instrumenta o runtime para escrever FST (honra \lstinline|$dumpvars|/\lstinline|$dumpfile|) \\
+\lstinline|--timing| & habilita \lstinline|#| delays (testbenches SAPHO geram clock por delay) \\
+\lstinline|+define+YANC_TRACE| & ativa o bloco de sim-visibility no \file{<proc>.v} gerado \\
+\lstinline|-Mdir <objDir>| & diretório de saída dos arquivos C++ e do Makefile \\
+\lstinline|--top-module| & módulo top da simulação (nome do testbench) \\
+\lstinline|-y <hdl>| & biblioteca de módulos (mesma lógica do \tool{iverilog}) \\
+\lstinline|-Wno-fatal| & avisos não abortam o build (Verilator é mais estrito que Icarus) \\
+\bottomrule
+\end{tabularx}
+\caption{Principais flags do build Verilator no fluxo Wave.}
+\label{tab:09-verilator-flags}
+\end{table}
+
+O executável resultante é \file{obj\_dir\_<top>/V<top>.exe} (com fallback para
+\file{V<top>} sem extensão). A fase de simulação roda esse \file{.exe} uma
+única vez, com \emph{cwd} em \lstinline|tempBaseDir| e com o \lstinline|PATH|
+estendido com \lstinline|mingw64\bin| e \lstinline|usr\bin| do bundle (o
+\file{.exe} linka dinamicamente contra \file{libstdc++-6.dll} e afins).
+
+\begin{nota}
+\textbf{Visibilidade de sinais sob Verilator (YANC v4.3).} O harness compila
+sob Verilator via \lstinline|+define+YANC_TRACE|, e o \file{<proc>.v} gerado
+espelha cada variável/array do usuário, a tabela de linha PC$\rightarrow$\cmm{}
+e os ports de I/O em sinais marcados \lstinline|/* verilator public_flat */|.
+Esses sinais curados aparecem no FST igual ao Icarus. Permanecem
+\emph{não-visíveis} sob Verilator os internos do CPU cercados por
+\lstinline|/* verilator tracing_off */| (por exemplo os sinais de Stack/ULA
+dentro do \lstinline|.core|): mesmo que o \lstinline|$dumpvars| os nomeie, a
+\emph{fence} vence. Sob Icarus, tudo é \emph{dumpável}.
+\end{nota}
+
+\subsubsection{Caminhos cocotb (testbench Python em Icarus ou Verilator)}
+
+Quando \lstinline|isPythonFile(config.testbenchFile)| é verdadeiro, o
+orquestrador toma o ramo cocotb. \lstinline|_waveValidateCocotbConfig| resolve o
+DUT (módulo que o cocotb elabora e liga a \lstinline|dut|), preferindo a
+diretiva \lstinline|# aurora-toplevel:| no \file{.py} e, na ausência dela, o
+top-level do \file{.spf} (com aviso). \lstinline|_waveRunCocotbSimulation|
+então:
+
+\begin{enumerate}[leftmargin=*]
+  \item resolve o perfil de simulador com \lstinline|_resolveCocotbSimProfile|.
+    Ambos os perfis rodam sobre o \emph{único} Python do bundle unificado
+    (\path{components/Packages/msys/mingw64/bin/python.exe}), cujo cocotb carrega
+    os dois VPIs (Icarus e Verilator). A única diferença por simulador é o campo
+    \lstinline|SIM| e os \emph{build args} (\lstinline|-g2012| é exclusivo do
+    Icarus; o Verilator recebe o conjunto \lstinline|-Wno-*|,
+    \lstinline|+define+YANC_TRACE| e \lstinline|--trace-fst|);
+  \item escreve o script runner (\lstinline|_writeCocotbRunnerScript|), que usa
+    \lstinline|cocotb_tools.runner.get_runner| para \lstinline|build| e
+    \lstinline|test|;
+  \item coleta as fontes (\lstinline|_collectCocotbSources|: sintetizáveis $+$
+    top-level $+$ HDL do bundle), faz \emph{staging} dos \file{pc_*_mem.txt}
+    para o \emph{build dir} e monta o ambiente (\lstinline|SIM|,
+    \lstinline|TOPLEVEL_LANG=verilog|, \lstinline|WAVES|, \lstinline|PYTHONUTF8|,
+    etc.);
+  \item após a execução, \emph{adota} a onda com \lstinline|_adoptCocotbWaveform|:
+    procura o dump no \emph{build dir} e na pasta do testbench, normaliza-o para
+    \file{Temp/<top>.fst} (ou \file{.vcd}) e devolve o caminho.
+\end{enumerate}
+
+O cocotb usa \lstinline|--trace-fst| (FST é cerca de 10$\times$ menor que o VCD
+bruto, barateando o I/O da simulação longa). O cabeçalho para o auto-gtkw é
+puxado desse FST pelo mesmo \lstinline|_extractFstHeaderVcd| dos demais
+caminhos.
+
+\subsection{\texttt{\_waveResolveVcdFile}}
+
+Após a simulação (nos caminhos não-cocotb), descobre o caminho absoluto do
+arquivo de ondas. A ordem de busca em \lstinline|tempBaseDir| é:
+\file{<top>.fst} (esperado) $\rightarrow$ \file{<top>.vcd} (fallback legado)
+$\rightarrow$ varredura por um único \file{.fst}/\file{.vcd} restante. Quando há
+exatamente um candidato com nome inesperado, ele é adotado com um aviso de
+\enquote{dumpfile mismatch} (o \lstinline|$dumpfile()| do usuário escolheu outro
+nome). Zero candidatos ou múltiplos candidatos resultam em erro com detalhe.
+
+\subsection{\texttt{\_extractFstHeaderVcd}}
+
+Esta é a fase de \emph{convergência} dos quatro caminhos. Ela extrai
+\emph{apenas} o cabeçalho VCD (a hierarquia \lstinline|$scope|/\lstinline|$var|
+até \lstinline|$enddefinitions|) de um FST, \emph{sem} materializar o VCD-texto
+completo. A técnica:
+
+\begin{itemize}[leftmargin=*]
+  \item executa o \tool{fst2vcd} em modo \emph{stream} (sem \lstinline|-o|, ele
+    emite o VCD para \lstinline|stdout|, cabeçalho primeiro);
+  \item acumula \lstinline|stdout| e, no instante em que vê
+    \lstinline|$enddefinitions $end|, mata o \tool{fst2vcd}
+    (\lstinline|killCurrentSpecProcess|) --- assim ele percorre apenas a
+    geometria do FST mais o primeiro bloco bufferizado, nunca o corpo de
+    centenas de MB;
+  \item grava o cabeçalho num arquivo irmão \file{<top>.header.vcd}.
+\end{itemize}
+
+Há um \emph{fallback} de conversão completa (\tool{fst2vcd} normal) para o caso
+de o streaming não estar disponível ou o cabeçalho não surgir. Uma entrada que
+não é FST (por exemplo um dump que já é VCD-texto) falha a verificação de
+\emph{magic} do \tool{fst2vcd}; nesse caso a função retorna \lstinline|false| e
+o VCD-texto é parseado diretamente a jusante. Um arquivo de cabeçalho vazio
+(FST corrompido, ou exit limpo sem conteúdo) é tratado como falha de captura.
+
+\subsection{\texttt{\_waveResolveGtkwSaveFile}}
+
+Decide qual \file{.gtkw} o GTKWave abre. Duas fontes, em ordem de prioridade:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{\file{.gtkw} curado pelo usuário}: a entrada com
+    \lstinline|isActive === true| na lista per-testbench do \tool{WaveStore}
+    (marcada pelo dropdown do \emph{gtkw picker} na barra). É submetida a um
+    cross-check contra o VCD (\lstinline|_waveValidateUserGtkwAgainstVcd|) e
+    devolvida intacta;
+  \item \textbf{auto-gerado por \lstinline|buildAuroraGtkw|}: parseia o
+    cabeçalho (preferindo \file{<top>.header.vcd}), constrói o layout
+    (seção \enquote{Top-level} $+$ uma seção SAPHO por processador detectado),
+    filtra por \lstinline|_validatedWaveSelection| quando há seleção e escreve
+    \file{<top>.gtkw}.
+\end{enumerate}
+
+Quando o arquivo de ondas é \file{.fst} e não há \file{.header.vcd}
+parseável, o método retorna \lstinline|null| e o GTKWave abre sem save-file.
+Antes de escrever o layout, sinais selecionados que não chegaram ao VCD são
+reportados; sob Verilator, sinais ausentes que vivem dentro de um
+\lstinline|.core| de processador recebem uma nota amigável por processador
+(limitação conhecida, não erro) em vez do aviso genérico de \enquote{stale}.
+
+\subsection{\texttt{\_waveLaunchGtkwave}}
+
+Monta a linha de comando do GTKWave (fork \tool{nipscern}, com \lstinline|--dark|,
+\lstinline|--zoom-fit|, \lstinline|--left-justify| e \lstinline|-a <gtkw>| quando
+aplicável), aplica eventuais \emph{overrides} (de
+\path{js/compilation/command_overrides.js}, usados pela \tool{Aurora Intelligence})
+e dispara o processo via \lstinline|launchGtkwaveOnly| (spawn detached,
+monitorado por poll). O lançamento do visualizador é detalhado no
+\autoref{cap:10-aurora-visualizacao}; a fase paralela para o Surfer é
+\lstinline|_waveLaunchSurfer|.
+
+\section{O WaveStore: estado por testbench}
+
+O módulo \file{js/wave/wave_state_store.ts} (compilado para
+\file{wave\_state\_store.js}) mantém o estado do fluxo de ondas isolado
+\emph{por testbench}. Cada testbench tem seu próprio escopo, persistido como um
+JSON em \file{<project>/testbench/<tbKey>.json}, onde \lstinline|tbKey| é o nome
+do \file{.v} sem extensão.
+
+\subsection{O formato do estado}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Campo} & \textbf{Significado} \\
+\midrule
+\lstinline|tbPath| & caminho absoluto do \file{.v} do testbench \\
+\lstinline|tbModule| & nome do módulo Verilog ($=$ \lstinline|tbKey|) \\
+\lstinline|hadOriginalDumpvars| & na 1ª visita, o testbench já tinha \lstinline|$dumpfile|/\lstinline|$dumpvars| escrito à mão? \\
+\lstinline|gtkwFiles| & \file{.gtkw} registrados via dropdown; um com \lstinline|isActive: true| \\
+\lstinline|surferFiles| & layouts do Surfer (\file{.surf.ron}/\file{.sucl}) registrados \\
+\lstinline|waveSignals| & seleção da Wave Configuration (caminhos pontilhados, ex.: \lstinline|tb.dut.q|) \\
+\lstinline|wcInitialized| & o modal Wave Configuration já foi aberto pelo menos uma vez? \\
+\lstinline|wcCustomized| & a seleção salva difere do default (o usuário alterou)? \\
+\bottomrule
+\end{tabularx}
+\caption{Campos persistidos do \tool{WaveStore} (\lstinline|WaveState|).}
+\label{tab:09-wavestore}
+\end{table}
+
+O campo \lstinline|hadOriginalDumpvars| é um \emph{snapshot} da 1ª visita: ele
+NÃO muda depois do registro inicial. Mesmo que o usuário edite o testbench, a
+re-instrumentação do botão Wave continua baseada nessa decisão original.
+
+\subsection{A API e a serialização das escritas}
+
+A API espelha a do \lstinline|SpfStore|: \lstinline|read| puro e
+\lstinline|update| atômico via cadeia de promessas serializada por
+\lstinline|(projectPath, tbKey)|.
+
+\begin{description}[leftmargin=*]
+  \item[\lstinline|get(projectPath, tbKey)|] retorna o estado salvo ou
+    \lstinline|null| se não registrado.
+  \item[\lstinline|read(projectPath, tbKey)|] retorna o estado aplicando os
+    \lstinline|DEFAULTS| (não persiste).
+  \item[\lstinline|ensureRegistered(...)|] registra o testbench se ausente;
+    idempotente --- re-registrar não sobrescreve \lstinline|hadOriginalDumpvars|.
+  \item[\lstinline|update(...)|] read-mutate-write atômico. Updates para o mesmo
+    \lstinline|(projectPath, tbKey)| serializam; updates para testbenches
+    distintos correm em paralelo.
+  \item[\lstinline|list(projectPath)|] lista todos os testbenches registrados.
+\end{description}
+
+A chave de chaveamento usa \lstinline|safeKey|, que substitui
+separadores de caminho e \lstinline|..| por \lstinline|_| (defesa contra
+\emph{path traversal}). Quem escreve as flags do WaveStore: o \emph{gtkw
+picker} (\lstinline|gtkwFiles|/\lstinline|surferFiles|, \lstinline|isActive|) e
+o modal Wave Configuration (\lstinline|waveSignals|, \lstinline|wcInitialized|,
+\lstinline|wcCustomized|).
+
+\section{O parser de sinais}
+
+O módulo \file{js/wave/signal_parser.ts} é um parser Verilog leve, baseado em
+expressões regulares, usado pelo \emph{picker} da Wave Configuration e pela
+resolução de seleção. Ele não usa o \tool{Yosys} porque (a) a geração de
+hierarquia do \tool{Yosys} alimenta apenas os arquivos sintetizáveis --- o
+testbench é excluído, então sinais declarados nele nunca apareceriam; (b) o
+\tool{Yosys} otimiza fora redes não usadas; (c) o picker precisa da lista de
+sinais \emph{antes} de qualquer simulação rodar, então também não dá para
+extrair os nomes de um VCD.
+
+\subsection{O que o parser captura}
+
+O parser extrai apenas \emph{nomes} de sinais e instanciações de módulos, não
+tipos, expressões ou timing. As estruturas principais:
+
+\begin{itemize}[leftmargin=*]
+  \item \lstinline|VerilogSignal|: \lstinline|name|, \lstinline|kind| (palavra
+    primária por prioridade: direção $>$ tipo de rede $>$ \lstinline|signed|),
+    \lstinline|isSigned| e \lstinline|range| (texto da faixa de bits sem
+    colchetes, ou \lstinline|null| se escalar);
+  \item \lstinline|ModuleInstance|: \lstinline|instanceName| e
+    \lstinline|moduleType|;
+  \item \lstinline|ModuleInfo|: arquivo, sinais e instâncias de um módulo;
+  \item \lstinline|HierarchyNode|: um nó da árvore de hierarquia, com
+    \lstinline|scopePath| (caminho pontilhado) e filhos.
+\end{itemize}
+
+Os tokens de tipo reconhecidos incluem \lstinline|input|, \lstinline|output|,
+\lstinline|inout|, \lstinline|wire|, \lstinline|reg|, \lstinline|logic|,
+\lstinline|signed| e --- relevante para o SAPHO --- \lstinline|real|,
+\lstinline|integer| e \lstinline|time|. Esses três últimos são tipos não
+sintetizáveis que aparecem no source gerado pelo \tool{asmcomp} para variáveis
+\cmm{} (por exemplo \lstinline|real| para \emph{float}). Sem eles, o picker não
+mostraria variáveis \lstinline|real|, e o \lstinline|$dumpvars| ficaria sem.
+
+\subsection{Robustez do parser}
+
+O parser faz várias passagens de limpeza antes de aplicar os regex de extração:
+
+\begin{itemize}[leftmargin=*]
+  \item \lstinline|stripComments|: remove comentários de bloco e de linha;
+  \item \lstinline|expandPortHeader|: em portas ANSI, \lstinline|input a, b, c|
+    declara três portas do mesmo tipo --- a vírgula separa nomes, não
+    declarações. A função propaga o prefixo (tipo $+$ faixa) para as entradas
+    seguintes;
+  \item \lstinline|stripDirectives|: remove diretivas de pré-processador
+    (\lstinline|`ifdef|, \lstinline|`define|, etc.) mantendo ambos os ramos;
+  \item \lstinline|stripConditionalGenerates|: remove blocos
+    \lstinline|generate if/case| --- como o parser não avalia parâmetros,
+    capturá-los faria o \tool{iverilog} falhar com \enquote{Unable to bind};
+  \item \lstinline|stripParamLists|: substitui blocos \lstinline|#(...)| por
+    \lstinline|#()| (com balanceamento de parênteses e ciência de literais de
+    string), evitando que o regex não-guloso confunda instâncias adjacentes.
+\end{itemize}
+
+A construção da hierarquia (\lstinline|buildHierarchyTree|) parte do módulo top
+e desce por cada instanciação, quebrando ciclos com um conjunto de
+ancestrais.
+
+\section{A instrumentação do testbench}
+
+O módulo \file{js/wave/testbench_instrumenter.ts} decide \emph{se} e
+\emph{como} injetar \lstinline|$dumpfile| $+$ \lstinline|$dumpvars| num
+testbench Verilog, e constrói o texto instrumentado. É uma função pura: recebe o
+conteúdo original mais a seleção e retorna o novo texto (ou indica que nenhuma
+escrita é necessária); a leitura/escrita de arquivos fica no fluxo de
+compilação (\lstinline|instrumentTestbench|, que escreve
+\file{Temp/instr\_<basename>}).
+
+\subsection{A intenção e os argumentos do dump}
+
+A intenção é dupla: testbenches que já têm \lstinline|$dumpfile| ou
+\lstinline|$dumpvars| escrito à mão são deixados em paz (o usuário sabe o que
+quer); caso contrário, a \tool{AURORA} injeta um bloco \lstinline|initial| antes
+do último \lstinline|endmodule|. A lista de argumentos do \lstinline|$dumpvars|
+vem de \lstinline|selectedSignals|:
+
+\begin{itemize}[leftmargin=*]
+  \item não-vazia $\rightarrow$ \lstinline|$dumpvars(0, sig1, sig2, ...)| ---
+    exatamente os sinais escolhidos no modal Wave Configuration;
+  \item vazia (default) $\rightarrow$ \lstinline|$dumpvars(1, <tb>)| --- sinais
+    apenas no escopo do módulo do testbench.
+\end{itemize}
+
+\begin{lstlisting}[language=Verilog,caption={Forma do bloco injetado pela auto-instrumentação.}]
+// --- AURORA AUTO-INSTRUMENTATION ---
+// <comentario de cabecalho> <nota sobre a fonte da selecao>
+initial begin
+    $dumpfile("<tbModule>.vcd");
+    $dumpvars(<args>);
+end
+// --------------------------------------------------
+\end{lstlisting}
+
+\subsection{Funções auxiliares}
+
+\begin{description}[leftmargin=*]
+  \item[\lstinline|hasUserDumpCalls(src)|] retorna verdadeiro se o source tem
+    \lstinline|$dumpfile| ou \lstinline|$dumpvars| \emph{fora} de comentário
+    (usa \lstinline|stripVerilogComments|, que é ciente de literais de string);
+  \item[\lstinline|commentOutDumpCalls(src)|] substitui chamadas a
+    \lstinline|$dumpfile|/\lstinline|$dumpvars| por comentários, neutralizando o
+    efeito (usado no caso de \emph{override} e no Fast Sim);
+  \item[\lstinline|lastEndmoduleIndex(src)|] acha o índice do último
+    \lstinline|endmodule| que é um \emph{token} de verdade (fora de comentário,
+    fora de string, delimitado por não-identificadores) --- garantindo que a
+    injeção entre dentro do módulo.
+\end{description}
+
+O parâmetro \lstinline|overrideUserDumpvars| ativa o caso especial: quando o
+testbench tem dump escrito à mão \emph{e} o usuário customizou a Wave
+Configuration, a função comenta as chamadas originais e injeta o
+\lstinline|$dumpvars| da \tool{AURORA}. O resultado carrega um campo
+\lstinline|reason| diagnóstico: \lstinline|user-defined|, \lstinline|malformed|,
+\lstinline|auto|, \lstinline|auto-selection| ou \lstinline|override-user|.
+
+\begin{nota}
+A simulação roda exatamente uma vez para todos os caminhos. Não há mais um
+gate \lstinline|+AURORA_HEADER_ONLY| no testbench: o cabeçalho do VCD é puxado
+do FST finalizado por \lstinline|_extractFstHeaderVcd|. O dump corre livre até o
+\lstinline|$finish|, sem \emph{flush} periódico --- os \lstinline|$display| do
+usuário saem em bloco quando a simulação termina.
+\end{nota}
+
+\section{A precedência de \texttt{\$dumpvars}: o que dumpar}
+
+A decisão central do fluxo de ondas --- \emph{quais sinais entram no VCD} --- é
+tomada por \lstinline|resolveWaveSelection| em
+\file{js/compilation/wave\_signal\_validator.js}. Três eixos agem em conjunto,
+numa ordem fixa de precedência (do maior para o menor). A
+\autoref{tab:09-precedencia} resume.
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\linewidth}{Y Y Z}
+\toprule
+\textbf{Prioridade} & \textbf{Fonte (\lstinline|source|)} & \textbf{Condição e efeito} \\
+\midrule
+1 (maior) & \lstinline|gtkw| & há \file{.gtkw} ativo (\lstinline|gtkwFiles[].isActive|); extrai refs do arquivo, valida e usa. \lstinline|override = true| \\
+2 & \lstinline|wc| & \lstinline|wcCustomized| e \lstinline|waveSignals| não-vazio; o WC dita o dump. \lstinline|override = true| \\
+3 & \lstinline|tb| & \lstinline|hadOriginalDumpvars|; nada é injetado, o testbench domina. \lstinline|override = false| \\
+4 (menor) & \lstinline|default| & \lstinline|$dumpvars(1, tbModule)|; sinais só do escopo do testbench. \lstinline|override = false| \\
+\bottomrule
+\end{tabularx}
+\caption{Precedência da resolução de \lstinline|$dumpvars|.}
+\label{tab:09-precedencia}
+\end{table}
+
+\subsection{O algoritmo de resolução}
+
+\lstinline|resolveWaveSelection| executa, em ordem:
+
+\begin{enumerate}[leftmargin=*]
+  \item lê o testbench e, na 1ª visita, registra o estado no \tool{WaveStore}
+    com o snapshot \lstinline|hadOriginalDumpvars = hasUserDumpCalls(tbContent)|;
+  \item \textbf{(.gtkw ativo)}: se há entrada \lstinline|isActive|, lê o arquivo,
+    extrai os caminhos com \lstinline|extractSignalRefs|, valida-os contra a
+    hierarquia parseada (\lstinline|validateSelection|) e retorna o conjunto
+    válido com \lstinline|source: 'gtkw'|. Refs que sumiram do source geram aviso
+    em \lstinline|twave| $+$ \emph{toast}; o build segue sem elas;
+  \item \textbf{(Wave Config customizada)}: se \lstinline|wcCustomized| e
+    \lstinline|waveSignals| não-vazio, valida a seleção salva (com auto-prune) e
+    retorna com \lstinline|source: 'wc'|;
+  \item \textbf{(testbench com dump à mão)}: se \lstinline|hadOriginalDumpvars|,
+    retorna \lstinline|signalsToDump: []| e \lstinline|source: 'tb'| --- nada
+    é instrumentado;
+  \item \textbf{(default)}: retorna \lstinline|signalsToDump: []| e
+    \lstinline|source: 'default'|.
+\end{enumerate}
+
+O parse do source é \emph{on-demand}: só ocorre se for preciso validar um
+conjunto de sinais (vindo do \file{.gtkw} ou do WC), e o resultado é cacheado.
+A fonte vencedora é registrada em \lstinline|twave| (\enquote{Wave source:
+...}), o que ajuda a depurar quando o usuário esperava outra seleção.
+
+\subsection{Como cada flag chega ao WaveStore}
+
+A precedência depende de flags escritas por superfícies de UI distintas:
+
+\begin{itemize}[leftmargin=*]
+  \item \lstinline|isActive| em \lstinline|gtkwFiles| é marcada pelo \emph{gtkw
+    picker} (\file{js/wave/gtkw\_picker.js}) ao escolher um \file{.gtkw} ativo no
+    dropdown da barra;
+  \item \lstinline|wcCustomized| é ligada pelo modal Wave Configuration
+    (\file{js/wave/wave\_config\_manager.js}) quando a seleção salva difere da
+    seleção inicial. A comparação é por conjunto (tamanhos iguais \emph{e} todos
+    os elementos em comum); a flag só liga --- uma vez customizado, fica;
+  \item \lstinline|hadOriginalDumpvars| é o snapshot da 1ª visita, escrito por
+    \lstinline|ensureRegistered|.
+\end{itemize}
+
+\section{A validação de seleção}
+
+O módulo \file{js/wave/selection\_validator.ts} filtra uma seleção salva contra
+a hierarquia Verilog parseada atual. O picker armazena seleções como
+\emph{strings} de caminho pontilhado (ex.: \lstinline|tb.dut.q_next|); quando o
+usuário renomeia uma instância, remove um sinal ou edita o testbench, as
+entradas salvas podem ficar pendentes (\emph{dangling}). Alimentar caminhos
+pendentes a \lstinline|$dumpvars(0, ...)| faz o \tool{iverilog} falhar com erro
+de elaboração críptico.
+
+\lstinline|validateSelection(selectedSignals, hierarchyTree)| é pura e retorna
+um \lstinline|SelectionSplit| com dois conjuntos: \lstinline|valid| (caminhos
+ainda presentes na hierarquia) e \lstinline|dropped| (não resolvem mais, para
+que o chamador avise o usuário). Detalhes de borda:
+
+\begin{itemize}[leftmargin=*]
+  \item seleção vazia $\rightarrow$ ambos os conjuntos vazios;
+  \item \lstinline|hierarchyTree === null| (parse falhou, top ausente)
+    $\rightarrow$ mantém a seleção como está --- é melhor deixar o
+    \tool{iverilog} falar do que apagar silenciosamente as escolhas do usuário;
+  \item caso normal: percorre a árvore coletando todo
+    \lstinline|{scopePath}.{signal}| legal e separa a seleção contra esse
+    conjunto.
+\end{itemize}
+
+\section{Os escritores de \texttt{.gtkw}}
+
+A geração do layout \file{.gtkw} é dividida em dois módulos.
+
+\subsection{\texttt{gtkw\_writer.ts}: inspeção}
+
+\file{js/wave/gtkw\_writer.ts} contém \lstinline|extractSignalRefs|, que extrai
+os caminhos pontilhados referenciados por um \file{.gtkw} existente. É usado
+para (a) decodificar o que dumpar a partir de um \file{.gtkw} ativo
+(precedência 1) e (b) cross-checar um \file{.gtkw} curado contra o VCD da
+simulação atual. O \file{.gtkw} é um formato orientado a linha; a função pula
+decorações (\lstinline|[*]|, \lstinline|@<hex>|, \lstinline|-<nome>|, etc.),
+trata o prefixo de alias \lstinline|+{alias} <path>|, remove uma faixa final
+\lstinline|[a:b]| e aceita como sinal apenas linhas com forma de identificador
+pontilhado (começa com letra/underscore e contém pelo menos um ponto).
+
+\subsection{\texttt{gtkw\_proc\_writer.ts}: o construtor}
+
+\file{js/wave/gtkw\_proc\_writer.ts} contém \lstinline|buildAuroraGtkw|, o
+construtor principal do layout. O arquivo resultante tem duas zonas:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Top-level}: todos os sinais do VCD que NÃO estão dentro de uma
+    instância de processador SAPHO --- a \enquote{glue logic} do design. Lista
+    plana com formato escolhido por sinal: \lstinline|FMT_BIN| para escalares,
+    \lstinline|FMT_SIGNED_DEC| para barramentos \lstinline|signed| (detectados
+    pelo source via \lstinline|buildSignedSet|) e \lstinline|FMT_DEC| para os
+    demais;
+  \item \textbf{Seções por processador}: para cada instância de processador
+    SAPHO detectada, uma seção completa com cores, aliases e grupos.
+\end{enumerate}
+
+\subsubsection{Detecção de processador}
+
+Um escopo conta como instância de processador se contém \emph{ambos} os
+registradores \lstinline|valr2| e \lstinline|linetabs| (que o \tool{asmcomp}
+emite). O \lstinline|procType| (nome do módulo $=$ nome da pasta
+\file{Temp/<procType>/} com os arquivos de tradução) é resolvido por
+preferência: (1) \lstinline|moduleType| resolvido pelo source via
+\lstinline|resolveScopeModules|; (2) padrão \lstinline|<inst>.p_<X>.core| no
+VCD; (3) heurística do pai \lstinline|<X>_inst|; (4) fallback
+\lstinline|<X>_tb|; (5) último recurso, o \lstinline|instanceName|. O
+\lstinline|corePath| (onde vivem \lstinline|clk|/\lstinline|rst|/\lstinline|itr|
+e Stack/ULA) prefere o sub-escopo \lstinline|.p_<X>.core| se existir.
+
+\subsubsection{O layout por processador}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\linewidth}{Y Y Z}
+\toprule
+\textbf{Seção} & \textbf{Sinais} & \textbf{Formato / decoração} \\
+\midrule
+Banner & \lstinline|clk|, \lstinline|rst|, \lstinline|itr| & \lstinline|FMT_BIN|, do core \\
+I/O & pares \lstinline|req_in_sim_N|/\lstinline|in_sim_N| e \lstinline|out_en_sim_N|/\lstinline|out_sig_N| & amarelo, alias \enquote{req\_in N} / \enquote{input N} etc. \\
+Instructions & \lstinline|valr2| / \lstinline|linetabs| & indigo (\enquote{Assembly}, filtro \file{trad\_opcode.txt}) / violeta (\enquote{\cmm{}}, filtro \file{trad\_cmm.txt}) \\
+Variables & \lstinline|me1_*| (int), \lstinline|me2_*| (float), \lstinline|comp_me3_*| (comp) e arrays & laranja; \lstinline|FMT_SIGNED_DEC|/\lstinline|FMT_REAL|/\lstinline|FMT_BIN| \\
+Flags & grupo Stack (\lstinline|sp|/\lstinline|isp|) e grupo ULA (\lstinline|delta_int|/\lstinline|delta_float|) & \emph{analog step} $+$ signed/hex \\
+\bottomrule
+\end{tabularx}
+\caption{Seções do layout per-processador gerado por \lstinline|buildAuroraGtkw|.}
+\label{tab:09-gtkw-secoes}
+\end{table}
+
+Os formatos foram calibrados a partir de um \file{.gtkw} salvo pelo próprio
+GTKWave (não por adivinhação). Cada linha de sinal é emitida por
+\lstinline|emitSignal|, que escreve a flag \lstinline|@<hex>|, a cor opcional
+\lstinline|[color] N|, os filtros inline e a referência (com alias
+\lstinline|+{alias} <path>| quando há). Há dois tipos de filtro de tradução:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{file filter} (tabela \file{.txt} como \file{trad\_opcode.txt},
+    \file{trad\_cmm.txt}): sintaxe \lstinline|^N <path>|, acende
+    \lstinline|TR_FTRANSLATED|;
+  \item \textbf{process filter} (executável \tool{comp2gtkw.exe}, traduz binário
+    bruto para o literal \cmm{}): sintaxe \lstinline|^>N <path>|, acende
+    \lstinline|TR_PTRANSLATED|.
+\end{itemize}
+
+Quando \lstinline|selectedSignals| é fornecido, o layout completo é percorrido
+(comentários, grupos, cores, tradutores) mas apenas sinais cujo caminho bate são
+emitidos --- os aliases continuam refletindo a hierarquia inteira (posições
+estáveis). \lstinline|buildAliasMap| reusa as mesmas regras para que o modal
+Wave Configuration mostre os mesmos rótulos amigáveis.
+
+\section{A decodificação de complexos}
+
+O módulo \file{js/wave/complex\_decode.ts} é o pré-passe de decodificação dos
+números complexos do SAPHO \emph{para o Surfer}. Diferença em relação ao
+GTKWave: no GTKWave, os complexos são decodificados \emph{ao vivo} pelo
+\emph{process filter} \tool{comp2gtkw.exe} (sintaxe \lstinline|^>N <exe>|, que
+roda sobre os bits crus em tempo de render). O Surfer não tem esse filtro
+externo e seu tradutor é uma tabela estática valor$\rightarrow$string. Portanto,
+decodificar complexo no Surfer é um \emph{pré-passe}.
+
+\subsection{O pré-passe}
+
+Os prefixos dos sinais complexos que o \tool{asmcomp} emite são
+\lstinline|comp_me3_| (escalar) e \lstinline|comp_arr_me3_| (array). O pré-passe:
+
+\begin{enumerate}[leftmargin=*]
+  \item usa \lstinline|ComplexVcdScanner|, um scanner \emph{incremental} do stream
+    de texto VCD do \tool{fst2vcd}, para coletar o conjunto de valores
+    \emph{distintos} (zero-extended à largura do sinal) de todos os sinais
+    complexos. A memória é limitada (buffer de linha $+$ o \lstinline|Set| de
+    distintos, com cap defensivo via \lstinline|maxValues|);
+  \item decodifica cada valor com o próprio \tool{comp2gtkw.exe} (o binário
+    canônico do GTKWave);
+  \item monta um mapping \lstinline|bitpattern -> "re imi"| com
+    \lstinline|buildComplexMapping| que o Surfer mostra direto.
+\end{enumerate}
+
+O módulo é \emph{puro} (sem \lstinline|fs|/\lstinline|spawn|): a orquestração (o
+stream do \tool{fst2vcd} $+$ o IPC do \tool{comp2gtkw}) vive no
+\lstinline|compilation_module|. Sobre o \emph{encoding} (de \file{comp2gtkw.c}):
+os 16 primeiros bits são auto-descritivos --- \lstinline|bits[0:8]| é a largura
+da mantissa (\lstinline|nbm|) e \lstinline|bits[8:16]| a largura do expoente
+(\lstinline|nbe|); em seguida vêm \lstinline|re| e \lstinline|im|, cada um com
+\lstinline|nbm + nbe + 1| bits. O módulo apenas \emph{extrai} o bitpattern; a
+aritmética do decode roda no \tool{comp2gtkw.exe}.
+
+\begin{nota}
+O mapping do Surfer usa cabeçalho \lstinline|Name =| (sem \lstinline|Bits =|, a
+largura varia por formato de processador e o match é por valor) seguido de uma
+linha \lstinline|0b<bits> <re imi>| por valor decodificado. Sem entradas
+decodificadas, \lstinline|buildComplexMapping| retorna \lstinline|null| --- não
+se cria um mapping vazio, que o Surfer rejeitaria.
+\end{nota}
+
+\section{Resumo do fluxo de dados}
+
+A \autoref{tab:09-resumo-modulos} mapeia cada módulo à sua responsabilidade no
+fluxo de ondas, fechando o capítulo.
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Módulo / símbolo} & \textbf{Responsabilidade} \\
+\midrule
+\lstinline|runGtkWave| (\lstinline|compilation_module.js|) & orquestrador dos quatro caminhos \\
+\lstinline|simulator_preference.js| & escolha Icarus vs Verilator (localStorage) \\
+\lstinline|viewer_preference.js| & escolha GTKWave vs Surfer (localStorage) \\
+\lstinline|wave_state_store.ts| & estado por testbench (\lstinline|WaveState|, JSON) \\
+\lstinline|wave_signal_validator.js| & precedência do \lstinline|$dumpvars| (\lstinline|resolveWaveSelection|) \\
+\lstinline|signal_parser.ts| & parser Verilog leve $\rightarrow$ hierarquia \\
+\lstinline|selection_validator.ts| & filtra seleção salva contra a hierarquia \\
+\lstinline|testbench_instrumenter.ts| & injeta/neutraliza \lstinline|$dumpvars| \\
+\lstinline|gtkw_writer.ts| & \lstinline|extractSignalRefs| (inspeção de \file{.gtkw}) \\
+\lstinline|gtkw_proc_writer.ts| & \lstinline|buildAuroraGtkw| (layout SAPHO) \\
+\lstinline|complex_decode.ts| & pré-passe de complexos para o Surfer \\
+\lstinline|_extractFstHeaderVcd| & convergência: cabeçalho VCD a partir do FST \\
+\bottomrule
+\end{tabularx}
+\caption{Módulos do fluxo de ondas e suas responsabilidades.}
+\label{tab:09-resumo-modulos}
+\end{table}

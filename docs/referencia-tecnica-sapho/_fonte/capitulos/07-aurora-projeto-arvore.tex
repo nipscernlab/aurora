@@ -1,0 +1,690 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: projeto, processadores e árvore de arquivos}
+\label{cap:07-aurora-projeto-arvore}
+
+Este capítulo descreve o modelo de projeto da \tool{AURORA} — como um projeto
+é representado no disco e em memória — e a navegação pela árvore de arquivos.
+A fonte da verdade é o código-fonte do renderer (\path{js/project/},
+\path{js/tree/}, \path{js/processors/}) e dos handlers do processo principal
+(\path{main/ipc/project.js}, \path{main/ipc/files.js}, \path{main/recents.js}).
+O fluxo de compilação que consome o que está aqui descrito (botões Verilog,
+Wave, PRISM, \cmm) é assunto do \autoref{cap:08-aurora-toolchain} e não é
+re-documentado aqui.
+
+\section{Visão geral do modelo de projeto}
+
+Um projeto da \tool{AURORA} é uma pasta no disco que contém um arquivo
+\path{.spf} (\enquote{SAPHO Project File}) de mesmo nome que a pasta. O
+\path{.spf} consolida toda a configuração canônica do projeto: metadados de
+ciclo de vida (nome, datas, máquina, versão do app) e a \emph{estrutura}
+(listas de arquivos, top-level, testbench-topo, processadores). Em torno desse
+arquivo orbitam subpastas — uma por processador \tool{SAPHO} — e os arquivos
+\file{.v}/\file{.sv} importados pelo usuário.
+
+A representação em memória é dividida entre o processo principal (que faz o IO
+no disco) e o renderer (que mantém o estado da UI). Três peças de software
+governam o estado:
+
+\begin{description}[leftmargin=2.2em,style=nextline]
+  \item[\file{ProjectStore} (\path{js/project/project_store.js})] dono único de
+    \enquote{qual projeto está aberto} no renderer — guarda o
+    \lstinline|projectPath| (pasta) e o \lstinline|spfPath| (arquivo \path{.spf}).
+  \item[\file{SpfStore} (\path{js/project/spf_store.ts})] escritor único e
+    serializado do \path{.spf} no lado do renderer; faz leitura pura e escrita
+    atômica do bloco \lstinline|structure|.
+  \item[\file{state.currentOpenProjectPath} (\path{main/state.js})] no processo
+    principal, é a única fonte de verdade de \enquote{qual \path{.spf} está
+    aberto}; a pasta do projeto é sempre derivada por \lstinline|path.dirname|.
+\end{description}
+
+\begin{nota}
+A pasta do projeto NUNCA é armazenada em paralelo ao \path{.spf} no processo
+principal: ela é sempre derivada de \lstinline|path.dirname(spfPath)| sob
+demanda. O comentário \enquote{A4} em \path{main/ipc/project.js} registra essa
+decisão — evita o problema clássico de dois globais que divergem.
+\end{nota}
+
+\section{O arquivo de projeto \texttt{.spf}}
+\label{sec:spf-formato}
+
+O \path{.spf} é um documento JSON com dois blocos de topo: \lstinline|metadata|
+e \lstinline|structure|. O esqueleto é produzido pela classe
+\lstinline|ProjectFile| em \path{main/ipc/project.js} no momento da criação.
+
+\subsection{Estrutura completa}
+
+A tabela seguinte lista todos os campos definidos no código. As interfaces
+\lstinline|SpfDocument|, \lstinline|SpfStructure| e \lstinline|SpfMetadata| em
+\path{spf_store.ts} são a referência do lado do renderer; o construtor de
+\lstinline|ProjectFile| é a referência do lado do processo principal.
+
+\begin{longtable}{p{0.30\linewidth} p{0.16\linewidth} p{0.46\linewidth}}
+  \toprule
+  \textbf{Campo} & \textbf{Bloco} & \textbf{Significado} \\
+  \midrule
+  \endhead
+  \lstinline|projectName|   & metadata  & Nome do projeto (basename da pasta). Exibido na barra de título como \lstinline|<nome>.spf|. \\
+  \lstinline|createdAt|     & metadata  & Timestamp ISO de criação. \\
+  \lstinline|lastModified|  & metadata  & Timestamp ISO carimbado a cada escrita do \path{.spf}. \\
+  \lstinline|lastOpened|    & metadata  & Timestamp ISO da última abertura (gravado em \lstinline|project:open|). \\
+  \lstinline|computerName|  & metadata  & \lstinline|COMPUTERNAME| ou \lstinline|os.hostname()|. \\
+  \lstinline|appVersion|    & metadata  & Versão do app (\lstinline|app.getVersion()|). \\
+  \lstinline|projectPath|   & metadata  & Caminho absoluto da pasta do projeto. \\
+  \midrule
+  \lstinline|basePath|          & structure & Caminho absoluto da pasta do projeto; reconciliado na abertura. \\
+  \lstinline|folders|           & structure & Subpastas registradas pela UI (criadas via \enquote{New Folder}). \\
+  \lstinline|processors|        & structure & Lista de processadores \tool{SAPHO}; cada entrada é \lstinline|{ name }|. \\
+  \lstinline|topLevelFile|      & structure & Top do design (modo \emph{check} do iverilog, flag \lstinline|-s|). \\
+  \lstinline|testbenchFile|     & structure & Testbench-topo (modo \emph{simulação}, flag \lstinline|-s| do botão Wave). \\
+  \lstinline|synthesizableFiles|& structure & Arquivos \file{.v} sintetizáveis; cada entrada tem \lstinline|path| (e \lstinline|name|). \\
+  \lstinline|testbenchFiles|    & structure & Arquivos \file{.v} de testbench; mesma forma de entrada. \\
+  \bottomrule
+\end{longtable}
+
+As constantes de \lstinline|STRUCTURE_DEFAULTS| em \path{spf_store.ts}
+congelam (\lstinline|Object.freeze|) os valores-padrão de \lstinline|structure|:
+\lstinline|basePath: ''|, \lstinline|folders: []|, \lstinline|processors: []|,
+\lstinline|topLevelFile: ''|, \lstinline|testbenchFile: ''|,
+\lstinline|synthesizableFiles: []| e \lstinline|testbenchFiles: []|. Na
+leitura, os defaults são aplicados primeiro e os valores do disco depois
+(\code{\{ ...STRUCTURE\_DEFAULTS, ...parsed.structure \}}), de modo que chaves
+desconhecidas sobrevivem ao \emph{round-trip} (\enquote{unknown keys survive}).
+
+\subsection{Exemplo de um \texttt{.spf}}
+
+\begin{lstlisting}
+{
+  "metadata": {
+    "projectName": "demo",
+    "createdAt": "2026-06-21T12:00:00.000Z",
+    "lastModified": "2026-06-21T12:34:56.000Z",
+    "computerName": "NIPSCERN-PC",
+    "appVersion": "1.0.0",
+    "projectPath": "C:\\Users\\dev\\Documents\\demo"
+  },
+  "structure": {
+    "basePath": "C:\\Users\\dev\\Documents\\demo",
+    "folders": [],
+    "processors": [ { "name": "cpu" } ],
+    "topLevelFile": "cpu\\Hardware\\cpu.v",
+    "testbenchFile": "cpu\\Simulation\\cpu_tb.v",
+    "synthesizableFiles": [
+      { "name": "cpu.v", "path": "cpu\\Hardware\\cpu.v" }
+    ],
+    "testbenchFiles": [
+      { "name": "cpu_tb.v", "path": "cpu\\Simulation\\cpu_tb.v" }
+    ]
+  }
+}
+\end{lstlisting}
+
+\subsection{Normalização de caminhos: relativo no disco, absoluto em memória}
+\label{sec:spf-paths}
+
+O \file{SpfStore} grava os caminhos de arquivo \emph{relativos} ao
+\lstinline|basePath| quando o arquivo está dentro da pasta do projeto, e
+\emph{absolutos} quando está fora. Tudo que é exposto fora do \file{SpfStore}
+(via \lstinline|read|/\lstinline|update|) é \emph{sempre} absoluto — o chamador
+não precisa conhecer essa normalização. As funções relevantes em
+\path{spf_store.ts} são:
+
+\begin{itemize}[leftmargin=1.6em]
+  \item \lstinline|isAbsolutePath| — reconhece caminhos Windows
+    (\lstinline|C:\|, \lstinline|\\server\|) e POSIX (\lstinline|/|).
+  \item \lstinline|toRelativeIfInside| — converte para relativo se o absoluto
+    estiver sob o \lstinline|baseDir| (comparação \emph{case-insensitive},
+    idioma Windows); caso contrário retorna o absoluto intacto.
+  \item \lstinline|toAbsoluteFromBase| — junta um relativo com o
+    \lstinline|baseDir| na leitura.
+  \item \lstinline|expandStructurePaths| / \lstinline|contractStructurePaths| —
+    aplicam a conversão sobre os campos de caminho (\lstinline|topLevelFile|,
+    \lstinline|testbenchFile|, \lstinline|synthesizableFiles[].path|,
+    \lstinline|testbenchFiles[].path|).
+\end{itemize}
+
+\begin{nota}
+\path{.spf} antigos com caminhos absolutos continuam sendo lidos
+(\lstinline|isAbsolutePath| faz \emph{bypass} do \lstinline|resolve|); o
+primeiro \lstinline|save| migra automaticamente para a forma relativa. Isso
+permite copiar/mover a pasta do projeto sem quebrar as referências internas.
+\end{nota}
+
+\subsection{Parsing tolerante}
+
+A leitura do \path{.spf} usa \lstinline|parseSpfTolerant| (presente tanto em
+\path{spf_store.ts} quanto em \path{main/ipc/project.js}): tenta
+\lstinline|JSON.parse| estrito primeiro e, em caso de falha, faz uma única
+passagem leniente que remove BOM, comentários (\lstinline|//| e
+\lstinline|/* */| fora de strings) e vírgulas finais (\emph{trailing commas}).
+Um arquivo recuperável não é silenciosamente resetado para os defaults; só um
+arquivo genuinamente ilegível cai no fallback (defaults), com aviso no console.
+
+\section{O \texttt{SpfStore}: escritor único e serializado}
+\label{sec:spfstore}
+
+O \file{SpfStore} (\path{js/project/spf_store.ts}, compilado por
+\lstinline|tsc| em \path{spf_store.js}) é o único ponto de escrita do
+\path{.spf} no renderer. Sua API espelha um antigo \lstinline|ProjectConfigStore|:
+
+\begin{description}[leftmargin=2em,style=nextline]
+  \item[\lstinline|read(spfPath)|] devolve só o bloco \lstinline|structure|
+    (com defaults aplicados, caminhos expandidos para absolutos).
+  \item[\lstinline|readFull(spfPath)|] devolve \lstinline|metadata| +
+    \lstinline|structure|.
+  \item[\lstinline|update(spfPath, mutator)|] leitura-mutação-escrita atômica;
+    o \lstinline|mutator| recebe o \lstinline|structure| e o \lstinline|metadata|
+    é preservado com \lstinline|lastModified| recarimbado.
+\end{description}
+
+\subsection{Serialização das escritas}
+
+Cada \path{.spf} tem uma cadeia de promises própria
+(\lstinline|writeChainByPath: Map|): chamadas de \lstinline|update| para o mesmo
+caminho serializam em ordem de chegada (\lstinline|prev.then(...)|), de modo que
+duas mutações no mesmo \emph{tick} não operem sobre o mesmo \emph{snapshot} pré-escrita.
+
+\subsection{Coalescência de leituras}
+
+Para evitar \emph{fanout} de \lstinline|readFile|/\lstinline|JSON.parse|, o
+\file{SpfStore} coalesce leituras em voo (\lstinline|inFlightReads: Map|): se
+vários consumidores chamam \lstinline|read| no mesmo tick, todos compartilham a
+mesma promise. O mapa é limpo quando a promise é resolvida — não há cache
+atravessando ticks (sem \emph{mtime} obsoleto). O \lstinline|update|, por outro
+lado, sempre lê do disco com \lstinline|readRawUncached| (o \lstinline|writeChain|
+já serializa, então pular o coalescing aqui não introduz \emph{race}).
+
+\subsection{Evento \texttt{aurora:spf-changed}}
+
+Após cada escrita, o \file{SpfStore} compara o \lstinline|structure| antes e
+depois do \lstinline|mutator| (via \lstinline|JSON.stringify|). Somente quando o
+\lstinline|structure| efetivamente mudou é disparado o evento de janela
+\lstinline|aurora:spf-changed| (com \lstinline|detail: { spfPath, source }|).
+Mutações \emph{no-op} não geram refresh — isso elimina a classe de laços
+\enquote{save $\rightarrow$ event $\rightarrow$ refresh $\rightarrow$ load
+$\rightarrow$ save (no-op) $\rightarrow$ \ldots}. Os assinantes desse evento
+incluem a barra de status, o painel de configuração do processador e o
+\file{file\_mode}.
+
+\section{O \texttt{ProjectStore}: dono do projeto aberto}
+
+O \file{ProjectStore} (\path{js/project/project_store.js}) mantém em variáveis
+de módulo o \lstinline|projectPath| e o \lstinline|spfPath| do projeto aberto.
+A API é \lstinline|setProject(spfPath, projectPath)|, \lstinline|clearProject()|,
+\lstinline|getProjectPath()|, \lstinline|getSpfPath()|, \lstinline|hasProject()|
+e \lstinline|subscribe(fn)|.
+
+Por compatibilidade com dezenas de pontos de leitura legados, o store
+\emph{espelha} seus valores para \lstinline|window.currentProjectPath| e
+\lstinline|window.currentSpfPath| a cada mudança (\lstinline|mirrorToWindow|).
+Código novo deve preferir os getters. Assinantes (\lstinline|subscribe|) são
+notificados com um \emph{snapshot} \lstinline|{ projectPath, spfPath }| — o
+controlador de views da árvore, por exemplo, usa isso para habilitar/desabilitar
+a view \enquote{standard} conforme um projeto abre ou fecha.
+
+\section{Ciclo de vida: criar, abrir e fechar projeto}
+
+\subsection{Criar projeto}
+
+O fluxo começa na UI: \path{js/ui/new_project_modal.js} valida o nome
+(\lstinline|/^[a-zA-Z0-9_-]+$/|) e o caminho, monta
+\lstinline|projectPath = <local>\<nome>| e
+\lstinline|spfPath = <projectPath>\<nome>.spf|, e chama
+\lstinline|electronAPI.createProjectStructure|. No processo principal, o handler
+\lstinline|project:createStructure| (\path{main/ipc/project.js}):
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item cria a pasta do projeto (\lstinline|fse.mkdir| recursivo);
+  \item instancia \lstinline|new ProjectFile(projectPath)| e grava o
+    \path{.spf} com \lstinline|metadata| + \lstinline|structure| iniciais;
+  \item confirma a existência da pasta e do \path{.spf};
+  \item lista o conteúdo da pasta para devolver ao renderer;
+  \item registra o novo \path{.spf} nos recentes e reconstrói a \emph{jumplist}
+    do Windows.
+\end{enumerate}
+
+A localização escolhida é lembrada em
+\lstinline|aurora-last-new-project-location| (localStorage) para que a próxima
+caixa de diálogo \enquote{New Project} abra na mesma pasta-pai. Em seguida o
+modal chama \lstinline|projectManager.loadProject(spfPath)|.
+
+\subsection{Abrir projeto}
+
+Há vários gatilhos de abertura, todos convergindo para
+\lstinline|loadProject| em \path{js/project/project_manager.js}:
+
+\begin{itemize}[leftmargin=1.6em]
+  \item botões \enquote{Open Project} (toolbar e tela de boas-vindas), que
+    chamam \lstinline|electronAPI.showOpenDialog|;
+  \item clique numa linha de projeto recente (tela de boas-vindas);
+  \item abertura via \enquote{File > Open} / atalhos
+    (\lstinline|onSimulateOpenProject|).
+\end{itemize}
+
+O handler do processo principal \lstinline|project:open|
+(\path{main/ipc/project.js}) faz o trabalho pesado:
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item Corrige o caminho se o \path{.spf} não existir no formato esperado
+    (tenta \lstinline|<root>/<nome>/<nome>.spf|).
+  \item Define \lstinline|state.currentOpenProjectPath = spfPath| (fonte de
+    verdade no main).
+  \item Registra nos recentes (\path{main/recents.js}) e reconstrói a
+    \emph{jumplist}; chama também \lstinline|app.addRecentDocument|.
+  \item Lê e faz parse tolerante do \path{.spf}, carimba
+    \lstinline|metadata.lastOpened|.
+  \item \textbf{Reconcilia o \lstinline|basePath|}: alinha sempre com
+    \lstinline|path.dirname(spfPath)|. Se diferir, faz \lstinline|deepRemapPaths|
+    de todo caminho absoluto que ainda apontava para a raiz antiga (caso de
+    projeto copiado/movido) — ver \autoref{sec:rename}.
+  \item Para cada processador, anexa \lstinline|exists| (existência da pasta no
+    disco).
+  \item Reescreve o \path{.spf} (já reconciliado) e devolve
+    \lstinline|{ projectData, files, spfPath }|, enviando também os eventos IPC
+    \lstinline|project:processorHubState| e \lstinline|project:processors| para
+    a janela que originou a requisição.
+\end{enumerate}
+
+De volta no renderer, \lstinline|loadProject| orquestra a UI:
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item resolve o \lstinline|basePath| de forma tolerante (várias formas de
+    payload) e chama \lstinline|ProjectStore.setProject(spfPath, basePath)|;
+  \item \lstinline|projectTreeManager.reset()| — \emph{clean slate} antes da
+    nova árvore (uma troca direta projeto$\rightarrow$projeto não passa pelo
+    fluxo de fechar);
+  \item \lstinline|setAvailableProcessors(structure.processors)| — semeia a
+    lista global de processadores ANTES de renderizar;
+  \item atualiza o nome na UI, fecha todas as abas
+    (\lstinline|TabManager.closeAllTabs|);
+  \item \lstinline|projectTreeManager.activateTree()| popula e renderiza a
+    árvore;
+  \item inicia o \emph{watcher} de arquivos, registra o projeto nos recentes da
+    tela de boas-vindas e habilita os botões de compilação;
+  \item sintetiza \lstinline|aurora:spf-changed| (\lstinline|source: 'project-loaded'|)
+    para forçar a reaplicação do estado derivado do \path{.spf} (testbench,
+    top-level, processadores) em todos os assinantes;
+  \item se o \path{.spf} referencia arquivos que sumiram do disco, gera o
+    relatório \path{.aurora-missing-files.log} (aberto no Monaco como preview) e
+    uma notificação; caso contrário, remove um log obsoleto de corrida anterior.
+\end{enumerate}
+
+\subsection{Fechar projeto}
+
+\path{js/project/close_project.js} trata o botão de fechar: pede confirmação
+(\lstinline|showDialog|), chama \lstinline|electronAPI.closeProject| (handler
+\lstinline|project:close| no main, que zera \lstinline|currentOpenProjectPath| e
+emite \lstinline|project:processors|/\lstinline|project:fileTree|/\lstinline|project:closed|
+vazios), fecha todas as abas, limpa a interface
+(\lstinline|clearProjectInterface| $\rightarrow$ \lstinline|treeView.clearAll()|
++ card de \enquote{no project}), chama \lstinline|ProjectStore.clearProject()|,
+esquece o último projeto aberto (\lstinline|appInitializer.clearLastProject|) e
+faz \lstinline|projectTreeManager.reset()| para que a próxima abertura dispare
+um \emph{re-activate} completo.
+
+\section{Processadores}
+\label{sec:processadores}
+
+Um processador \tool{SAPHO} corresponde a uma subpasta da raiz do projeto, com
+três subpastas reconhecidas: \path{Software/}, \path{Hardware/} e
+\path{Simulation/}. A lista canônica de processadores do projeto é
+\lstinline|structure.processors| no \path{.spf} (cada entrada é
+\lstinline|{ name }|); em memória, no renderer, a lista de nomes vive em
+\lstinline|window.availableProcessors|.
+
+\subsection{A lista global de processadores}
+
+O módulo \file{processor\_list} (\path{js/project/processor_list.ts}, compilado
+em \path{.js}) é o dono único de \lstinline|window.availableProcessors| e expõe:
+
+\begin{itemize}[leftmargin=1.6em]
+  \item \lstinline|setAvailableProcessors(list)| — substitui a lista inteira;
+    aceita arrays de strings ou de \lstinline|{name}| e faz \emph{dedup}
+    \emph{case-insensitive} (pastas no Windows são \emph{case-insensitive});
+  \item \lstinline|getAvailableProcessors()| — sempre retorna array;
+  \item \lstinline|addAvailableProcessor(name)| — acrescenta um nome se ainda
+    não presente (match \emph{case-insensitive}).
+\end{itemize}
+
+\subsection{Criar processador}
+
+A criação é feita pelo \emph{Processor Hub} (\path{js/processors/processor_hub.js}):
+um formulário modal com validação ao vivo. As regras de validação são:
+
+\begin{longtable}{p{0.30\linewidth} p{0.62\linewidth}}
+  \toprule
+  \textbf{Campo} & \textbf{Regra} \\
+  \midrule
+  \endhead
+  \lstinline|name|         & \lstinline|/^[a-zA-Z0-9_-]+$/| (letras, números, hífen, sublinhado). \\
+  \lstinline|nBits|        & Inteiro positivo; deve satisfazer a consistência abaixo. \\
+  \lstinline|nbMantissa|   & Inteiro positivo. \\
+  \lstinline|nbExponent|   & Inteiro positivo. \\
+  \lstinline|gain|         & Potência de 2 (\lstinline|(num & (num-1)) === 0|). \\
+  \lstinline|instructionStackSize| & Inteiro positivo. \\
+  \lstinline|dataStackSize|        & Inteiro positivo. \\
+  \lstinline|inputPorts|   & Inteiro positivo. \\
+  \lstinline|outputPorts|  & Inteiro positivo. \\
+  \bottomrule
+\end{longtable}
+
+A consistência de bits exige \lstinline|nBits === nbMantissa + nbExponent + 1|
+(\lstinline|checkBitConsistency|). O botão \enquote{Generate} só fica habilitado
+quando todos os campos passam (\lstinline|validateAll|).
+
+No envio, o renderer chama \lstinline|electronAPI.createProcessorProject|; o
+handler \lstinline|create-processor-project| (\path{main/ipc/project.js}):
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item re-valida o nome (defesa contra \emph{path traversal}: o nome vai direto
+    para \lstinline|path.join|, então é confinado a um único segmento);
+  \item cria \path{<proc>/Software}, \path{<proc>/Hardware} e
+    \path{<proc>/Simulation};
+  \item escreve \path{Software/<proc>.cmm} com um cabeçalho de diretivas
+    \tool{SAPHO} preenchido a partir do formulário;
+  \item acrescenta \lstinline|{ name }| em \lstinline|structure.processors| do
+    \path{.spf} (com \emph{dedup case-insensitive}) e reescreve o arquivo;
+  \item emite o evento IPC \lstinline|processor:created| para o renderer.
+\end{enumerate}
+
+O cabeçalho \file{.cmm} gerado tem a forma:
+
+\begin{lstlisting}[style=cmm]
+#PRNAME <nome>
+#NUBITS <nBits>
+#NDSTAC <dataStackSize>
+#SDEPTH <instructionStackSize>
+#NUIOIN <inputPorts>
+#NUIOOU <outputPorts>
+#NBMANT <nbMantissa>
+#NBEXPO <nbExponent>
+#NUGAIN <gain>
+
+void main()
+{
+    // ...
+}
+\end{lstlisting}
+
+\begin{nota}
+As diretivas \lstinline|#NUBITS|, \lstinline|#NBMANT| etc. no \file{.cmm} são a
+fonte \emph{canônica} dos parâmetros do processador para o pipeline de
+compilação. O \path{.spf} guarda apenas \lstinline|{ name }|; os números vivem
+no \file{.cmm}. A semântica das diretivas é detalhada nos capítulos do
+\tool{YANC}.
+\end{nota}
+
+\subsection{Renomear processador}
+\label{sec:rename}
+
+O handler \lstinline|rename-processor| (\path{main/ipc/project.js}) renomeia o
+processador em todas as superfícies internas do \tool{SAPHO}, de forma atômica:
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item libera os \emph{watchers} sob a raiz do projeto
+    (\lstinline|releaseWatchersUnder|) — sem isso o \tool{chokidar} mantém um
+    \emph{handle} e a renomeação da pasta falharia com EPERM/EBUSY no Windows;
+  \item move a pasta \path{<root>/<old>} $\rightarrow$ \path{<root>/<new>}
+    (\lstinline|moveWithRetry|; renomeação só de \emph{case} usa um salto por
+    pasta temporária);
+  \item renomeia os artefatos nomeados pelo processador:
+    \path{Software/<old>.cmm}, \path{Software/<old>.asm},
+    \path{Hardware/<old>.v}, \path{Simulation/<old>_tb.v};
+  \item corrige a diretiva \lstinline|#PRNAME| no \file{.cmm} — \emph{apenas} a
+    linha da diretiva; comentários e código do usuário não são tocados;
+  \item atualiza a entrada em \lstinline|processors[]| preservando a
+    configuração por processador;
+  \item faz \lstinline|remapProcessorPath| de qualquer referência do \path{.spf}
+    (\lstinline|topLevelFile|, \lstinline|testbenchFile|,
+    \lstinline|synthesizableFiles|, \lstinline|testbenchFiles|) que apontava para
+    dentro da pasta antiga;
+  \item emite \lstinline|project:processors| e \lstinline|processor:renamed|.
+\end{enumerate}
+
+\subsection{Deletar processador}
+
+O handler \lstinline|delete-processor| remove a pasta do processador do disco
+(\lstinline|fse.remove|), filtra a entrada de \lstinline|structure.processors| no
+\path{.spf} e emite \lstinline|project:processors| atualizado. No renderer, a
+opção \enquote{Delete processor} aparece no menu de contexto do separador de
+processador na árvore (\lstinline|_deleteProcessorByName| em
+\path{project_tree_actions.js}, que chama \lstinline|electronAPI.deleteProcessor|).
+
+\subsection{Agrupamento e identificação na árvore}
+
+Na view de arquivos (\enquote{verilog picker}), os arquivos são agrupados por
+processador. A função \lstinline|_getProcessorForFile| em \path{file_mode.js}
+decide o \enquote{dono} de um arquivo: o caminho precisa cair em
+\path{<projeto>/<proc>/{Hardware|Software|Simulation}/<arquivo>} e
+\lstinline|<proc>| precisa estar em \lstinline|window.availableProcessors|
+(comparação \emph{case-insensitive}). Cada grupo é precedido por um separador
+horizontal rotulado com o nome do processador
+(\lstinline|_createProcessorSeparator| em \path{project_tree_render.js}); o
+grupo de arquivos importados que não pertencem a nenhum processador aparece sob
+um separador \enquote{Imported} (apenas quando há também grupos de processador).
+
+\section{As três views da árvore de arquivos}
+\label{sec:views}
+
+A árvore de arquivos da \tool{AURORA} pode se apresentar de três formas, todas
+dentro do mesmo elemento \lstinline|#file-tree|:
+
+\begin{description}[leftmargin=2em,style=nextline]
+  \item[\enquote{verilog}] o \emph{verilog picker} — a view de arquivos do
+    projeto, agrupada por processador, com indicadores de synth/testbench. É a
+    view padrão e também hospeda os cartões de estado vazio.
+  \item[\enquote{hierarchy}] a árvore de instâncias de módulo produzida pelo
+    \tool{Yosys} (resultado de compilação).
+  \item[\enquote{standard}] uma árvore simples de pastas/arquivos enraizada na
+    pasta do projeto, lendo filhos sob demanda (\emph{lazy}).
+\end{description}
+
+\subsection{Subcontêineres físicos e o \texttt{tree\_view}}
+
+O controlador de baixo nível \file{tree\_view} (\path{js/tree/tree_view.js})
+cria três subcontêineres DOM fisicamente separados dentro de
+\lstinline|#file-tree| — um por view — e governa a visibilidade por um único
+atributo \lstinline|data-active-view| (a CSS em \path{css/tree/file_tree.css}
+mostra/oculta com base nele). Cada \emph{renderer} escreve apenas no \emph{seu}
+subcontêiner — eles não podem colidir.
+
+\begin{lstlisting}
+<div id="file-tree" data-active-view="verilog">
+  <div class="tree-view tree-view-verilog">...</div>
+  <div class="tree-view tree-view-hierarchy">...</div>
+  <div class="tree-view tree-view-standard">...</div>
+</div>
+\end{lstlisting}
+
+A API é \lstinline|getContainer(name)| (devolve o subcontêiner), \lstinline|setActive(name)|
+(troca a view visível — uma única mudança de atributo, sem mutação de DOM),
+\lstinline|getActive()|, \lstinline|clear(name)| e \lstinline|clearAll()|. O
+array \lstinline|VIEW_NAMES| congela os três nomes.
+
+\subsection{O controlador único de views}
+
+O \file{file\_tree\_view\_controller} (\path{js/tree/file_tree_view_controller.js})
+é o dono único do par \enquote{qual view está ativa} + o \emph{listener} do
+botão de alternância (exatamente um, anexado uma vez). Ele:
+
+\begin{itemize}[leftmargin=1.6em]
+  \item mantém o nome da view ativa (\lstinline|_activeView|) e os dados de
+    hierarquia (\lstinline|_hierarchyData|);
+  \item registra um \emph{renderer} por view (\lstinline|registerRenderer|); ao
+    ativar a view, invoca o renderer correspondente;
+  \item expõe \lstinline|showFileMode()|, \lstinline|showHierarchyMode()| e
+    \lstinline|showStandardMode()|, além dos predicados
+    \lstinline|isShowingFileMode/Hierarchy/Standard|;
+  \item assina o \file{ProjectStore} (\lstinline|_wireProjectStore|): a view
+    \enquote{standard} só entra no ciclo com um projeto aberto, então o botão
+    habilita ao abrir e desabilita ao fechar (deixando \enquote{standard} para
+    não ficar numa árvore de pastas vazia).
+\end{itemize}
+
+O conjunto de views pelas quais o botão rotaciona é dinâmico
+(\lstinline|_cyclableViews|): \enquote{verilog} sempre presente, \enquote{hierarchy}
+apenas com dados compilados, \enquote{standard} apenas com projeto aberto. O
+botão fica habilitado quando há mais de uma view; um clique avança para a
+próxima view do ciclo (\lstinline|_nextView|, com \emph{wrap}). Os renderers
+registrados são delegadores que buscam o gerente correto em tempo de chamada:
+\enquote{verilog} chama \lstinline|window.projectTreeManager.renderTree()|,
+\enquote{hierarchy} chama \lstinline|renderHierarchicalTree| do
+\lstinline|CompilationModule| mais recente e \enquote{standard} chama
+\lstinline|window.standardTreeRenderer.render()|.
+
+\subsection{Renderer da view \enquote{verilog}}
+
+A renderização do \emph{verilog picker} fica no \file{RenderMixin}
+(\path{js/project/project_tree_render.js}), misturado em
+\lstinline|ProjectTreeManager.prototype| por \path{file_mode.js}. O
+\lstinline|renderTree()| é um \emph{reconciler keyed-por-path}: nunca faz
+\lstinline|innerHTML = ''|; compara \lstinline|this.verilogFiles| (chaveado por
+caminho) contra as linhas existentes — linhas cujo caminho sumiu são removidas,
+linhas ainda desejadas são atualizadas \emph{in-place}
+(\lstinline|_updateFileItem|), e caminhos sem linha são criados
+(\lstinline|_createFileItem|) e posicionados via \lstinline|insertBefore|. É
+idempotente: o mesmo input duas vezes não causa mutações na segunda chamada.
+
+As linhas software (\file{.cmm} em \path{Software/}) não recebem botão de
+remoção (são geridas pelo processador). Arquivos importados que sumiram do disco
+são exibidos num cartão de aviso (\lstinline|_renderMissingFilesNotice|).
+
+\subsection{Renderer da view \enquote{standard}}
+
+O \file{standard\_tree\_render} (\path{js/tree/standard_tree_render.js})
+desenha a árvore de pastas enraizada em \lstinline|window.currentProjectPath|,
+ao modo de um explorador de arquivos genérico. As leituras são \emph{lazy}: só
+a raiz é listada de início; os filhos de uma pasta são buscados
+(\lstinline|electronAPI.getFolderFiles|) na primeira expansão e mantidos no DOM
+para reexpansão instantânea. Caminhos expandidos são lembrados num
+\lstinline|Set| (\lstinline|_expanded|) para sobreviver a um re-render. A
+ordenação é \enquote{pastas primeiro, depois alfabética} (\lstinline|sortEntries|).
+Arquivos ignorados (\lstinline|isIgnored|): \emph{dotfiles}, o próprio
+\path{.spf} e blobs de configuração legados
+(\lstinline|projectOriented.json|, \lstinline|processorConfig.json|,
+\lstinline|fileOriented.json|). O método \lstinline|revealFolder| expande os
+ancestrais até uma pasta-alvo e a destaca; \lstinline|expandAll| /
+\lstinline|collapseAll| operam sobre toda a árvore.
+
+\begin{nota}
+Há um único caminho de abertura de arquivo, idêntico ao da view \enquote{verilog}
+(\lstinline|readFile| $\rightarrow$ painel dividido em foco ou \emph{preview} do
+\file{TabManager}; o duplo-clique promove a aba a permanente). Não há um segundo
+\emph{handler} de abertura — a classe de bug que motivou a remoção da antiga
+view \enquote{standard} não retorna.
+\end{nota}
+
+\section{Marcação de top-level e testbench}
+
+A categoria \emph{synth} vs \emph{testbench} de cada arquivo Verilog é
+\emph{auto-detectada} do conteúdo pelo classificador
+(\path{js/project/verilog_classifier.ts}), não por uma marca manual. O
+classificador é um \emph{scorer} com limiar \lstinline|TB_THRESHOLD = 3|: cada
+sinal definitivo (dump de VCD via \lstinline|$dump*|, terminação de simulação
+\lstinline|$finish|/\lstinline|$stop|, módulo sem portas) soma \lstinline|+3| e
+já passa o limiar sozinho; o bloco \lstinline|initial| soma \lstinline|+2|
+(forte, mas não classifica isolado, pois código sintetizável pode tê-lo); e os
+sinais fracos (\lstinline|$display| e afins, atrasos procedurais como
+\lstinline|#10|, hint de nome \lstinline|tb|/\lstinline|test|/\lstinline|testbench|)
+somam \lstinline|+1| ou \lstinline|+2| cada. Em dúvida, o default seguro é
+\emph{synthesizable}. Arquivos \file{.py} (cocotb) são sempre testbench
+(decisão em \lstinline|_classifyAll| de \path{file_mode.js}, antes do
+\emph{scorer}).
+
+A escolha de \emph{top-level} e \emph{testbench top}, porém, é explícita do
+usuário (menu de contexto na linha do arquivo, em \path{project_tree_actions.js}).
+A marca \lstinline|isTopLevel| é relativa à categoria atual do arquivo: um synth
+com \lstinline|isTopLevel=true| é o \emph{synth top}; um testbench com
+\lstinline|isTopLevel=true| é o \emph{testbench top}. As marcações são
+persistidas no \path{.spf} via \lstinline|SpfStore.update| (campos
+\lstinline|topLevelFile| / \lstinline|testbenchFile| e as listas
+\lstinline|synthesizableFiles| / \lstinline|testbenchFiles|), e a remoção de um
+arquivo limpa essas referências quando apontavam para o caminho removido.
+
+\section{Tela de boas-vindas e projetos recentes}
+\label{sec:recentes}
+
+Há \emph{duas} listas de recentes, com propósitos distintos:
+
+\begin{description}[leftmargin=2em,style=nextline]
+  \item[Tela de boas-vindas (renderer)] gerida por
+    \file{RecentProjectsManager} (\path{js/project/recent_projects.js}),
+    persistida em \lstinline|localStorage| sob a chave
+    \lstinline|aurora-recent-projects| (até 10 entradas, cada uma com
+    \lstinline|name|, \lstinline|path|, \lstinline|lastOpened|). Alimenta o
+    componente \lstinline|<aurora-welcome>| (Lit), que renderiza a etapa
+    Start/Recent, anima as linhas e mostra um \emph{preview} dos processadores
+    de cada projeto (lido sob demanda de cada \path{.spf} por
+    \lstinline|_readProcessors|, cacheado em \lstinline|p._procs|).
+  \item[\emph{Jumplist} do Windows (processo principal)] gerida por
+    \path{main/recents.js}, persistida num único JSON em \lstinline|userData|
+    (\path{aurora-recents.json}), também limitada a 10 (\lstinline|MAX_RECENTS|).
+    A API é \lstinline|read|, \lstinline|push| (insere no topo,
+    deduplicado/normalizado), \lstinline|prune| (remove entradas cujo \path{.spf}
+    não existe mais) e a constante \lstinline|MAX_RECENTS|.
+\end{description}
+
+A separação existe porque o processo principal não alcança o
+\lstinline|localStorage|, e a lista no main permite limpar os resíduos
+\enquote{Electron} de execuções antigas da \emph{jumplist} gerida pela shell do
+Windows. Os recentes do main são atualizados em toda abertura/criação de
+projeto, junto da reconstrução da \emph{jumplist} (\lstinline|rebuildJumpList|).
+O handler \lstinline|list-recent-projects| devolve a lista do main após
+\lstinline|prune|.
+
+A \file{RecentProjectsManager} valida a existência do \path{.spf} antes de abrir
+(\lstinline|checkProjectExists|); se sumiu, remove da lista e avisa o usuário.
+Ao clicar numa linha, fecha as abas abertas e delega para o callback de abertura
+injetado (\lstinline|loadProject|).
+
+\section{Backups (zip sob demanda)}
+
+A \tool{AURORA} produz backups \file{.zip} sob demanda (botão
+\lstinline|backupFolderBtn| na toolbar, habilitado com projeto aberto). O
+handler \lstinline|create-backup| (\path{main/ipc/files.js}):
+
+\begin{enumerate}[leftmargin=1.8em]
+  \item valida o \lstinline|folderPath| (\lstinline|safePath|);
+  \item garante a pasta \path{Backup/} dentro do projeto e uma pasta de
+    \emph{staging} temporária \path{backup_<timestamp>/};
+  \item copia todo o conteúdo do projeto para a \emph{staging} (exceto a própria
+    \path{Backup/} e a \emph{staging});
+  \item gera \path{Backup/<nome>_<timestamp>.zip} via
+    \lstinline|Compress-Archive| do PowerShell (nativo do Windows, sem depender
+    de 7-Zip no PATH);
+  \item remove a pasta de \emph{staging} em qualquer caminho (sucesso ou
+    falha), devolvendo \lstinline|{ success, message }|.
+\end{enumerate}
+
+O \emph{quoting} para o PowerShell escapa aspas simples (\lstinline|'| para
+\lstinline|''|), e o comando roda com \lstinline|-NoProfile -NonInteractive|.
+
+\section{Estrutura de um projeto no disco}
+
+O diagrama abaixo resume a estrutura típica de um projeto com um processador
+\lstinline|cpu| e a pasta de backups:
+
+\begin{lstlisting}
+demo/                          <- pasta do projeto (== nome do .spf)
+|-- demo.spf                   <- arquivo de projeto (JSON: metadata + structure)
+|-- cpu/                       <- processador SAPHO
+|   |-- Software/
+|   |   |-- cpu.cmm            <- fonte C+-  (#PRNAME, #NUBITS, ...)
+|   |   `-- cpu.asm            <- gerado (nao aparece na arvore)
+|   |-- Hardware/
+|   |   `-- cpu.v              <- Verilog sintetizavel (synth top)
+|   `-- Simulation/
+|       `-- cpu_tb.v           <- testbench (testbench top)
+|-- (arquivos .v importados)   <- grupo "Imported" na arvore
+`-- Backup/
+    `-- demo_2026-06-21.zip    <- backup sob demanda
+\end{lstlisting}
+
+\begin{nota}
+A categoria de cada \file{.v} (synth ou testbench) é decidida pelo conteúdo, não
+pela subpasta: \lstinline|_discoverProcessorFiles| em \path{file_mode.js} varre
+as três subpastas (\path{Hardware}, \path{Software}, \path{Simulation}) e aceita
+\file{.v}/\file{.sv}/\file{.vh} como sintetizáveis e \file{.cmm} como software,
+independentemente da pasta; o \lstinline|_classifyAll| posteriormente reclassifica
+cada Verilog. O \file{.asm} é gerado e re-descoberto a cada \emph{load}, ficando
+fora da árvore para não gerar laço com o \emph{watcher}.
+\end{nota}

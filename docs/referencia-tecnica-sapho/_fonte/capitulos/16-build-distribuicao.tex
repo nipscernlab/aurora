@@ -1,0 +1,786 @@
+% !TEX root = ../main.tex
+\chapter{Build, empacotamento e distribuição}
+\label{cap:16-build-distribuicao}
+
+Este capítulo descreve, de ponta a ponta, como a \tool{AURORA} é construída a
+partir do código-fonte e como é empacotada e distribuída ao usuário final. A
+descrição segue o que está efetivamente codificado em \file{package.json}
+(scripts e bloco \texttt{build}), \file{vite.config.mjs}, nos scripts de
+\path{scripts/} e \path{components/Scripts/}, nos workflows de
+\path{.github/workflows/}, no instalador \file{build/installer.nsh} e no
+auto-updater em \path{main/updater.js}. Onde a documentação histórica do
+repositório divergia do código, a descrição aqui reflete o código.
+
+A cadeia completa tem cinco estágios encadeados: (1) \emph{bootstrap}, que baixa
+o \emph{toolchain} e os artefatos não versionados; (2) compilação \texttt{tsc}
+do processo principal e dos \emph{preloads}; (3) \emph{build} do \emph{renderer}
+com Vite; (4) empacotamento com \tool{electron-builder} (alvo NSIS x64); e (5)
+publicação no canal de \emph{release}, consumido pelo auto-updater. A
+\autoref{sec:16-fluxo} traz o diagrama geral.
+
+\section{Identidade do pacote e visão geral dos scripts}
+\label{sec:16-identidade}
+
+O \file{package.json} define a identidade do projeto e o conjunto de
+\emph{scripts} npm que orquestram todo o ciclo. Os campos principais:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Campo} & \textbf{Valor} \\
+\midrule
+\texttt{name}        & \texttt{sapho} \\
+\texttt{productName} & \texttt{SAPHO} \\
+\texttt{version}     & \texttt{6.3.2} (no momento da leitura) \\
+\texttt{main}        & \texttt{main.js} (ponto de entrada do processo principal) \\
+\texttt{license}     & \texttt{MIT} \\
+\texttt{repository}  & \lstinline|github.com/nipscernlab/aurora| \\
+\texttt{engines.node}& \lstinline|>=18.0.0| \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+Há uma distinção importante entre o \texttt{name}/\texttt{productName} do pacote
+npm (\enquote{sapho}/\enquote{SAPHO}) e o \texttt{productName} do bloco
+\texttt{build} do \tool{electron-builder} (\enquote{Aurora-IDE}): o primeiro
+identifica o projeto npm; o segundo nomeia o aplicativo instalado.
+
+\subsection{Os scripts npm}
+\label{sec:16-scripts}
+
+A tabela a seguir lista os \emph{scripts} declarados e o que cada um executa.
+Os \emph{hooks} \texttt{pre*} do npm disparam automaticamente antes do
+\emph{script} de mesmo nome.
+
+\begin{longtable}{l Y}
+\toprule
+\textbf{Script} & \textbf{Comando / efeito} \\
+\midrule
+\endhead
+\texttt{bootstrap}      & encadeia o \emph{check} de versões pinadas, os 9 \emph{downloaders} e o \texttt{copy-components} (\autoref{sec:16-bootstrap}). \\
+\texttt{build:ts}        & \lstinline|tsc| — compila TypeScript \emph{in-place} (processo principal e \emph{preloads}). \\
+\texttt{build:renderer}  & \lstinline|vite build| — empacota o \emph{renderer} em \path{dist/} (\autoref{sec:16-vite}). \\
+\texttt{predev}          & \lstinline|npm run build:ts| (roda antes de \texttt{dev}). \\
+\texttt{dev}             & \lstinline|node scripts/dev.js| — Vite \emph{dev server} + Electron com HMR (\autoref{sec:16-dev}). \\
+\texttt{prestart}        & \lstinline|bootstrap && build:ts && build:renderer|. \\
+\texttt{start}           & \lstinline|node scripts/launch-electron.js| — inicia o Electron sobre o \path{dist/} já construído. \\
+\texttt{test}            & \lstinline|vitest run| (testes unitários). \\
+\texttt{pretest:e2e}     & \lstinline|npm run build:renderer|. \\
+\texttt{test:e2e}        & \lstinline|vitest run --config vitest.config.e2e.js| (\emph{smoke} Electron). \\
+\texttt{rules:sync}      & \lstinline|node scripts/sync-sapho-rules.js| (\autoref{sec:16-rules-sync}). \\
+\texttt{prebuild}        & \lstinline|bootstrap && build:ts && build:renderer| (idêntico a \texttt{prestart}). \\
+\texttt{build}           & \lstinline|electron-builder| — empacota o instalador (\autoref{sec:16-electron-builder}). \\
+\texttt{prepare}         & \lstinline|husky| (instala os \emph{git hooks}). \\
+\bottomrule
+\end{longtable}
+
+\begin{nota}
+O \emph{hook} \texttt{prebuild} garante que \lstinline|npm run build| sempre
+parte de um \emph{toolchain} baixado, de um \texttt{tsc} fresco e de um
+\path{dist/} recém-gerado. Importante: os \emph{workflows} de CI e de
+\emph{release} \textbf{não} invocam \lstinline|npm run build| --- eles chamam
+\lstinline|electron-builder| diretamente, de modo que \texttt{prebuild} não
+dispara nesses contextos; por isso os \emph{workflows} repetem os passos de
+\emph{bootstrap}, \texttt{build:ts} e \texttt{build:renderer} explicitamente
+(\autoref{sec:16-ci}).
+\end{nota}
+
+\section{O bootstrap}
+\label{sec:16-bootstrap}
+
+O \emph{toolchain} e a maior parte dos binários de terceiros \textbf{não são
+versionados} no repositório \repo{aurora}; eles são baixados em tempo de
+\emph{setup} pelo \texttt{npm run bootstrap}. O \emph{script} executa, em ordem:
+
+\begin{enumerate}[nosep]
+  \item \file{scripts/check-pinned-versions.js} --- verifica versões pinadas;
+  \item nove \emph{downloaders} em \path{components/Scripts/};
+  \item \file{components/Scripts/copy-components.js} --- liga a pasta
+        \path{components/} ao Electron de desenvolvimento.
+\end{enumerate}
+
+\subsection{Verificação de versões pinadas}
+\label{sec:16-pinned}
+
+O \file{check-pinned-versions.js} é uma guarda contra a deriva de versões.
+A convenção: uma dependência declarada em \file{package.json} com
+\emph{semver} exato (sem \lstinline|^|, \lstinline|~| ou outro operador de
+faixa) entra na checagem estrita; qualquer faixa fica fora. O regex de
+reconhecimento é \lstinline|/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/|.
+
+Para cada dependência pinada, o \emph{script} lê a versão realmente instalada em
+\path{node_modules/<pkg>/package.json} e compara com o valor declarado; uma
+divergência (ou pacote ausente) faz o \emph{script} sair com código 1. No estado
+lido, o único pacote pinado é o \texttt{monaco-editor} (\texttt{0.52.2}).
+
+O \emph{script} faz ainda duas verificações cruzadas relativas às CLIs de IA
+(que \textbf{não} são empacotadas no instalador, mas baixadas sob demanda em
+tempo de execução --- ver \autoref{cap:12-aurora-intelligence-ia}):
+
+\begin{itemize}[nosep]
+  \item compara as versões em \file{main/ai/cli\_manifest.js}
+        (\texttt{CLAUDE\_VERSION}, \texttt{CODEX\_VERSION}) com as versões-base
+        declaradas em \file{package.json} para \lstinline|@anthropic-ai/claude-code|
+        e \lstinline|@openai/codex|;
+  \item confere \texttt{integrity} e \texttt{tarball} do manifesto contra o
+        \file{package-lock.json}, evitando que um \emph{bump} de versão fique com
+        \emph{hash} de integridade defasado.
+\end{itemize}
+
+Este \emph{script} roda no \texttt{prestart}/\texttt{prebuild} (via
+\texttt{bootstrap}) e também explicitamente no \emph{workflow} de CI logo após o
+\lstinline|npm ci| (\autoref{sec:16-ci}).
+
+\subsection{Os nove downloaders}
+\label{sec:16-downloaders}
+
+Cada \emph{downloader} é um \emph{script} Node autossuficiente em
+\path{components/Scripts/}. Todos compartilham o mesmo padrão:
+
+\begin{itemize}[nosep]
+  \item \textbf{HTTPS com \emph{redirect}}: usam o módulo \lstinline|https|,
+        seguindo redirecionamentos 301/302/307/308 até cinco saltos
+        (os \emph{assets} de \emph{release} do GitHub redirecionam para um CDN);
+  \item \textbf{\emph{sentinel}}: um arquivo-marcador prova a presença do pacote;
+        se já existe (e sem \lstinline|--force|), o \emph{download} é pulado;
+  \item \textbf{verificação de \emph{checksum}}: via
+        \file{components/Scripts/lib/checksum.js} antes de extrair
+        (\autoref{sec:16-checksum});
+  \item \textbf{extração}: arquivos \texttt{.zip} são expandidos com
+        \lstinline|powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive ..."|
+        (disponível em todo Windows 10+);
+  \item \textbf{\emph{best-effort}}: em caso de falha, a maioria sai com código 0
+        (com instruções de \emph{download} manual), para não bloquear o
+        \lstinline|npm start| de um desenvolvedor \emph{offline} --- a
+        funcionalidade correspondente fica indisponível até o \emph{setup}.
+\end{itemize}
+
+A tabela resume cada \emph{downloader}, sua origem e seu destino.
+
+\begin{longtable}{l Y l}
+\toprule
+\textbf{Downloader / artefato} & \textbf{Origem (pinada)} & \textbf{Destino} \\
+\midrule
+\endhead
+\texttt{download-toolchain.js} \newline (\file{aurora-msys-v1.zip}, \emph{tag} \texttt{msys-v1})
+  & \emph{release} de \repo{aurora-toolchain}
+  & \path{components/Packages/msys/} \\
+\addlinespace
+\texttt{download-yanc.js} \newline (\file{yanc-bin-v5.2.zip})
+  & \emph{release} de \repo{yanc}
+  & \path{components/} (gera \path{bin/}, \path{HDL/}, \path{Header/}, \path{Macros/}) \\
+\addlinespace
+\texttt{download-gtkwave-nipscern.js} \newline (\emph{tag} \texttt{v0.1.2-nipscern})
+  & \emph{release} de \repo{gtkwave-nipscern}
+  & \path{components/Packages/gtkwave-nipscern/} \\
+\addlinespace
+\texttt{download-norse-font.js} \newline (\file{Norse.otf})
+  & dafont (\lstinline|dl.dafont.com|)
+  & \path{assets/fonts/} \\
+\addlinespace
+\texttt{download-surfer.js} \newline (\file{surfer\_win\_v0.7.0.zip})
+  & registro genérico do GitLab do Surfer
+  & \path{components/Packages/surfer/} \\
+\addlinespace
+\texttt{download-verible.js} \newline (\emph{LS} \texttt{v0.0-4080-...})
+  & \emph{release} de \lstinline|chipsalliance/verible|
+  & \path{components/Packages/verible/bin/} \\
+\addlinespace
+\texttt{download-clang-format.js} \newline (\file{clang-format-20...exe})
+  & \lstinline|muttleyxd/clang-tools-static-binaries|
+  & \path{components/Packages/clang-format/bin/} \\
+\addlinespace
+\texttt{download-slang-server.js} \newline (\emph{LS} \texttt{v0.2.7})
+  & \lstinline|hudson-trading/slang-server|
+  & \path{components/Packages/slang-server/bin/} \\
+\addlinespace
+\texttt{download-tree-sitter-grammars.js} \newline (3 \texttt{.wasm} + \emph{runtime})
+  & \emph{releases} GitHub das gramáticas
+  & \path{components/Packages/tree-sitter/} \\
+\bottomrule
+\end{longtable}
+
+\subsubsection{Toolchain MSYS unificado}
+
+O \file{download-toolchain.js} baixa o \emph{bundle} portátil
+\file{aurora-msys-v1.zip} e o extrai em \path{components/Packages/msys/}. Esse
+\emph{snapshot} MSYS2/mingw64 reúne, em um só lugar, toda a cadeia FOSS de
+síntese e simulação:
+
+\begin{itemize}[nosep]
+  \item \path{mingw64/bin/} --- \tool{iverilog}, \tool{vvp}, \tool{yosys},
+        \tool{verilator}, \tool{perl}, \texttt{g++}, \texttt{make},
+        \texttt{ccache}, \texttt{python} e DLLs compartilhadas;
+  \item \path{mingw64/lib/} --- \emph{backends} do iverilog (\path{ivl/}),
+        \path{python3.12/} com \tool{cocotb} (VPI do Icarus
+        \file{libcocotbvpi\_icarus.vpl} e o estático do Verilator
+        \file{libcocotbvpi\_verilator.a}), \texttt{gcc/};
+  \item \path{mingw64/share/} --- \tool{verilator}, \tool{yosys};
+  \item \path{usr/bin/} --- \texttt{bash} + \emph{coreutils}.
+\end{itemize}
+
+\noindent
+O \emph{sentinel} é \file{components/Packages/msys/mingw64/bin/verilator\_bin.exe}.
+Há um segundo marcador, o \tool{cocotb} estático
+(\file{...libs/libcocotbvpi\_verilator.a}, varrido sob qualquer
+\path{python3.*}): um \emph{bundle} antigo que não o contenha dispara um
+\emph{re-download} para atualizar no lugar. O \emph{bundle} é construído e
+publicado pelo \emph{pipeline} dedicado do \repo{aurora-toolchain}; o
+\tool{netlistsvg} \textbf{não} vem nele --- roda \emph{in-process} a partir de
+\path{node_modules} (\lstinline|@silimate/netlistsvg|).
+
+\subsubsection{Compiladores YANC}
+
+O \file{download-yanc.js} baixa \file{yanc-bin-v5.2.zip} do \repo{yanc} e o
+extrai em \path{components/} (de modo que \path{bin/cmmcomp.exe} etc.\ caiam em
+\path{components/bin/}). O \texttt{.zip} contém os seis binários (desde a v4):
+\texttt{cmmcomp.exe}, \texttt{cppcomp.exe}, \texttt{asmcomp.exe},
+\texttt{cpppp.exe}, \texttt{appcomp.exe} e \texttt{comp2gtkw.exe}, além das
+pastas \path{HDL/} (bibliotecas Verilog do SAPHO), \path{Macros/} (\emph{helpers}
+de ponto flutuante \file{float\_*.asm}) e \path{Header/} (\emph{shims} de C++).
+
+Este \emph{downloader} tem o controle de versão mais elaborado:
+
+\begin{itemize}[nosep]
+  \item \emph{sentinels} de presença: \file{components/bin/cppcomp.exe},
+        \file{components/HDL/core.v}, \file{components/Header/cmath} e
+        \file{components/Macros/float\_sin.asm} (um por pasta, pois HDL/Header/
+        Macros não são mais versionados);
+  \item \emph{sentinel} de versão: \file{components/bin/.yanc-version}, escrito
+        após uma extração bem-sucedida e comparado contra \texttt{YANC\_TAG}.
+        Só pula o \emph{download} quando \emph{ambos} valem (presença \emph{e}
+        \emph{tag} correta) --- assim um \emph{bump} de \texttt{YANC\_TAG}
+        alcança quem já tinha a versão anterior.
+\end{itemize}
+
+\subsubsection{Visualizadores de forma de onda e ferramentas de editor}
+
+Os demais \emph{downloaders} buscam ferramentas que a \tool{AURORA} executa de
+forma \emph{arm's-length} (invoca o \texttt{.exe}, não \emph{linka} a
+biblioteca), o que evita contaminação de licença:
+
+\begin{description}[nosep]
+  \item[\tool{gtkwave-nipscern}] \emph{fork} portátil do GTKWave (com
+        \texttt{gtkwave.exe} + \texttt{fst2vcd.exe} + DLLs do GTK), visualizador
+        de formas de onda padrão.
+  \item[\tool{Surfer}] visualizador \emph{opt-in} (alternável com o GTKWave),
+        baixado do registro genérico do GitLab; licença EUPL-1.2. Tem
+        \texttt{EXPECTED\_SHA256} pinado e \emph{flatten} de subpasta aninhada.
+  \item[\tool{Verible}] apenas o \emph{language server}
+        \file{verible-verilog-ls.exe} é mantido (os demais \textasciitilde{}10 executáveis do
+        \texttt{.zip} são descartados); motor de diagnóstico/formatação/outline
+        de Verilog (O2, LSP). Licença Apache-2.0.
+  \item[\tool{clang-format}] \emph{build} estático do LLVM (um \texttt{.exe}
+        avulso); formatação de C/C++/\cmm{} no editor. Licença Apache-2.0 com
+        exceção LLVM.
+  \item[\tool{slang-server}] \emph{LS} de SystemVerilog (análise semântica,
+        O11); apenas o \texttt{.exe} é mantido. Licença MIT.
+  \item[gramáticas \tool{tree-sitter}] três \texttt{.wasm}
+        (SystemVerilog, C, C++) baixados com \texttt{SHA-256} por arquivo, mais
+        o \emph{runtime} \file{web-tree-sitter.wasm} copiado de
+        \path{node_modules} para casar exatamente com a versão do JS empacotado.
+\end{description}
+
+A fonte \enquote{Norse} (\file{download-norse-font.js}) é caso à parte: a
+licença permite \emph{embutir} a fonte no aplicativo, mas \textbf{proíbe
+redistribuição}, então ela não é versionada --- é buscada da fonte original
+(dafont) no \emph{bootstrap} e fica \emph{gitignored}; o \emph{build} a embute,
+o que a licença permite.
+
+\subsection{Verificação de integridade (checksum)}
+\label{sec:16-checksum}
+
+O \file{components/Scripts/lib/checksum.js} expõe \lstinline|verifyChecksum()|.
+Após o \texttt{.zip} chegar e \emph{antes} de extrair:
+
+\begin{itemize}[nosep]
+  \item se houver \texttt{EXPECTED\_SHA256} pinado, o \texttt{SHA-256} é
+        recomputado e comparado; uma divergência \emph{lança erro} e o arquivo
+        potencialmente adulterado nunca é extraído;
+  \item se o \emph{hash} for \lstinline|null|, o \texttt{SHA-256} é apenas
+        computado e registrado no \emph{log} (para um mantenedor pinar depois).
+\end{itemize}
+
+\noindent
+No estado lido, têm \emph{hash} pinado e enforçado: Surfer, Verible,
+clang-format, slang-server e as três gramáticas tree-sitter. O \emph{toolchain}
+MSYS, o YANC e o gtkwave-nipscern usam \lstinline|EXPECTED_SHA256 = null|
+(computa e registra, sem enforçar).
+
+\subsection{Ligação dos componentes (copy-components)}
+\label{sec:16-copy-components}
+
+O último passo do \emph{bootstrap}, \file{components/Scripts/copy-components.js},
+torna a pasta \path{components/} alcançável a partir do Electron de
+desenvolvimento, no caminho \path{node_modules/electron/dist/components}.
+
+Como o \emph{toolchain} pesa cerca de 1\,GB, o \emph{script} \textbf{prefere uma
+junção de diretório} (\emph{junction}, via \lstinline|fse.ensureSymlink(..., 'junction')|)
+em vez de copiar: não duplica, não fica desatualizado. Se já existir uma junção
+apontando para a origem correta, nada é feito; se a junção não puder ser criada
+(volume/permissões), há \emph{fallback} para cópia física com
+\lstinline|fse.copy|.
+
+\section{Build do renderer com Vite}
+\label{sec:16-vite}
+
+O \file{vite.config.mjs} é a configuração \emph{só do renderer}. O processo
+principal e os \emph{preloads} \textbf{não} são empacotados pelo Vite --- ficam
+em CommonJS cru, carregados diretamente pelo Electron; o \texttt{tsc} apenas os
+compila \emph{in-place} (\autoref{sec:16-tsc}). O Vite é dono de
+\file{index.html} e do seu grafo de módulos.
+
+\subsection{base relativa para file://}
+
+A diretiva \lstinline|base: './'| é obrigatória: o aplicativo empacotado carrega
+\file{dist/index.html} por \texttt{file://}. A \texttt{base} padrão
+(\lstinline|'/'|) emitiria URLs absolutas \lstinline|/assets/...| que, sob
+\texttt{file://}, resolveriam à raiz do sistema de arquivos e dariam 404. Com
+\lstinline|'./'|, toda URL de \emph{asset} é relativa ao HTML.
+
+\subsection{Saída multi-página}
+
+O \emph{build} é multi-página: a janela principal mais janelas secundárias.
+O \lstinline|rollupOptions.input| declara cinco entradas:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Entrada} & \textbf{Arquivo-fonte} \\
+\midrule
+\texttt{index}       & \file{index.html} (janela principal) \\
+\texttt{splash}      & \file{html/splash.html} \\
+\texttt{update}      & \file{html/update-notification.html} \\
+\texttt{prism}       & \file{html/prism/prism.html} (visualizador PRISM) \\
+\texttt{design-lab}  & \file{html/design-lab.html} (galeria interna de componentes) \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+Cada página é emitida no caminho relativo à fonte (\path{dist/index.html},
+\path{dist/html/splash.html}, \dots) e tem suas referências de \emph{asset}
+reescritas conforme a profundidade (graças a \lstinline|base: './'|). Outros
+parâmetros de \emph{build}: \lstinline|outDir: 'dist'|,
+\lstinline|emptyOutDir: true|, \lstinline|target: 'chrome130'| e
+\lstinline|cssMinify: false| (o JS continua minificado; o CSS é mantido sem
+minificar para preservar cada \texttt{@font-face} exatamente como na página
+crua, evitando que a deduplicação/minificação altere a resolução de pesos das
+fontes, já que o CSS vem de disco local/asar).
+
+\subsection{Vendorização de Monaco, KaTeX e Phosphor}
+
+Três dependências de grande porte são \enquote{vendorizadas} verbatim para
+\path{dist/vendor/} pelo \emph{plugin} \lstinline|vite-plugin-static-copy|, em
+vez de passar pelo grafo de \emph{import} do Vite (são módulos AMD/UMD que o Vite
+não consegue analisar):
+
+\begin{tabularx}{\linewidth}{l l}
+\toprule
+\textbf{Origem (\path{node_modules})} & \textbf{Destino} \\
+\midrule
+\path{monaco-editor/min/vs/}        & \path{dist/vendor/vs/} \\
+\path{katex/dist/}                  & \path{dist/vendor/katex/dist/} \\
+\path{@phosphor-icons/web/src/}     & \path{dist/vendor/phosphor/src/} \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+A cópia usa \lstinline|rename.stripBase| para descartar os segmentos iniciais do
+caminho e aterrissar as árvores exatamente nos caminhos que \file{index.html}
+referencia. O mesmo \emph{plugin} ainda espelha para \path{dist/} três conjuntos
+de recursos que o \emph{renderer} busca por caminho relativo ao documento em
+tempo de execução (fora do grafo de \emph{import}): \path{locales/} (i18n),
+\path{resources/} (incluindo \file{sapho\_rules.json}) e \path{assets/icons/}.
+
+Um \emph{plugin} adicional, \lstinline|rewriteVendorPaths()|
+(\lstinline|order: 'pre'|), reescreve no HTML os caminhos
+\path{node_modules/...} para \path{vendor/...} antes da análise do Vite. O
+\emph{logger} também é customizado para suprimir o aviso cosmético
+\enquote{without type=module} dos \emph{loaders} AMD/UMD.
+
+\subsection{Seleção da fonte do renderer em runtime}
+\label{sec:16-render-loader}
+
+O \file{main/render\_loader.js} centraliza, via \lstinline|loadPage(win, relPath)|,
+a escolha de onde cada janela de primeira parte carrega seu HTML:
+
+\begin{itemize}[nosep]
+  \item \textbf{Dev (Vite)}: quando \texttt{AURORA\_RENDERER\_URL} está definido
+        \emph{e} o app não está empacotado, carrega a página do \emph{dev
+        server} (com HMR); o caminho é anexado à origem do servidor;
+  \item \textbf{Produção/empacotado}: carrega a página de \path{dist/} por
+        \texttt{file://} (\lstinline|win.loadFile(...)|).
+\end{itemize}
+
+\begin{nota}
+\textbf{Não existe \emph{fallback} para a fonte crua.} Após a migração para Lit,
+o \file{index.html} cru carrega \emph{imports} \lstinline|lit| que só resolvem
+pelo \emph{bundler}; um \path{dist/} ausente é, portanto, \emph{erro de build} ---
+o \emph{loader} mostra uma página de erro explícita em vez de carregar uma UI
+quebrada. Todo fluxo real constrói \path{dist/} antes: \texttt{npm run dev}
+(Vite), \texttt{npm start} (via \texttt{prestart}), o arnês e2e
+(\texttt{pretest:e2e}) e o empacotamento.
+\end{nota}
+
+\subsection{Compilação TypeScript in-place}
+\label{sec:16-tsc}
+
+O \texttt{build:ts} executa \lstinline|tsc| (configurado por \file{tsconfig.json})
+e compila o TypeScript do processo principal e dos \emph{preloads}
+\emph{no lugar} (gerando \texttt{.js} ao lado dos \texttt{.ts}). Esses
+arquivos não passam pelo Vite; o Electron os carrega como CommonJS. Em CI/release
+há ainda a guarda \file{scripts/check-no-generated-js.js}, que falha o
+\emph{build} se algum \texttt{.js} gerado for commitado por engano.
+
+\subsection{Servidor de desenvolvimento (npm run dev)}
+\label{sec:16-dev}
+
+O \file{scripts/dev.js} sobe o \emph{dev server} do Vite na porta fixa
+\texttt{5273} (com \lstinline|--strictPort|), espera-o responder por
+\emph{polling} HTTP (até \textasciitilde{}30\,s) e então lança o Electron apontado para ele via
+\texttt{AURORA\_RENDERER\_URL}. O Vite é \emph{spawnado} como filho Node direto
+(via seu \emph{bin} \file{node\_modules/vite/bin/vite.js}), não por \texttt{npx}
+ou \emph{shell}, o que dá encerramento limpo. Se o Vite morre, o Electron é
+derrubado junto. Tanto \file{dev.js} quanto \file{scripts/launch-electron.js}
+\textbf{removem} \texttt{ELECTRON\_RUN\_AS\_NODE} do ambiente antes de lançar o
+Electron --- alguns \emph{shells} (terminal do VS Code, Claude Code) exportam
+essa variável, o que faria o Electron iniciar como Node puro e falhar em
+\lstinline|app.getAppPath()|.
+
+\section{Empacotamento com electron-builder}
+\label{sec:16-electron-builder}
+
+O bloco \texttt{build} do \file{package.json} configura o \tool{electron-builder}
+(invocado por \lstinline|npm run build|).
+
+\subsection{Identidade do aplicativo e alvo}
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Chave} & \textbf{Valor} \\
+\midrule
+\texttt{appId}        & \lstinline|com.nipscern.auroraide| \\
+\texttt{productName}  & \texttt{Aurora-IDE} \\
+\texttt{win.target}   & \texttt{nsis}, \texttt{arch: ["x64"]} \\
+\texttt{win.icon}     & \path{./assets/icons/sapho_aurora_icon.ico} \\
+\texttt{win.artifactName} & \path{sapho-aurora-Setup-v${version}.${ext}} \\
+\texttt{directories.buildResources} & \path{build} \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+O nome do artefato resultante é, portanto,
+\file{sapho-aurora-Setup-vX.Y.Z.exe}.
+
+\subsection{Associação de arquivo e protocolo}
+
+\begin{description}[nosep]
+  \item[fileAssociations] registra a extensão \texttt{.spf}
+        (\enquote{SAPHO Project File}), papel \texttt{Editor}, com o ícone
+        \file{sapho\_aurora\_icon.ico} --- dar duplo-clique em um \texttt{.spf}
+        abre a \tool{AURORA};
+  \item[protocols] registra o esquema de URL \lstinline|sapho://| (\enquote{SAPHO
+        Project Protocol}), permitindo \emph{deep links} \lstinline|sapho://...|.
+\end{description}
+
+\subsection{Listas files e extraResources}
+\label{sec:16-files}
+
+A chave \texttt{files} define o que entra no \emph{asar} do aplicativo. Inclui
+\lstinline|**/*| e \path{dist/**}, e \textbf{exclui} (prefixo \lstinline|!|) o
+que não pertence ao pacote: \path{components/**} (vai como \emph{extraResource},
+ver adiante), \path{tests/**}, \path{docs/**}, \path{scripts/**}, todos os
+\texttt{*.md}, arquivos de configuração de \emph{release} e variantes pesadas do
+Monaco (\path{node_modules/monaco-editor/dev|esm|min-maps/**}). Também exclui
+explicitamente as CLIs de IA empacotáveis
+(\lstinline|node_modules/@anthropic-ai/claude-code*| e
+\lstinline|node_modules/@openai/codex*|), coerente com o modelo de
+\emph{download} sob demanda.
+
+A chave \texttt{extraResources} copia a pasta \path{components/} (o
+\emph{toolchain} de \textasciitilde{}1\,GB) para \path{resources/components\_tmp} no aplicativo
+instalado, em vez de embuti-la no \emph{asar}, aplicando um \emph{filter} que
+remove projetos do usuário, temporários e \emph{backups}
+(\path{Projeto/**}, \path{Temp/**}, \path{Backup/**}, \texttt{*.bak},
+\texttt{*.aurora\_backup}, \texttt{*.spf.bak}, \texttt{*.log}).
+
+\begin{nota}
+O destino é \path{components\_tmp} (não \path{components}) de propósito: o
+instalador NSIS o renomeia para \path{components} no passo de pós-instalação
+(\autoref{sec:16-nsis}). Em produção, o processo principal procura os componentes
+ao lado do executável: \file{main/paths.js} computa \texttt{componentsPath} como
+\path{<dir do exe>/components} quando não está em \emph{dev}.
+\end{nota}
+
+\subsection{asarUnpack}
+
+O empacotamento padrão coloca o código em um \emph{asar}; binários e recursos que
+precisam existir como arquivos reais em disco (em vez de dentro do \emph{archive})
+são desempacotados via \texttt{asarUnpack}. No estado lido, o \emph{toolchain}
+viaja como \texttt{extraResource} (fora do \emph{asar} por construção), e o bloco
+\texttt{build} não declara uma lista \texttt{asarUnpack} explícita adicional ---
+os executáveis ficam em \path{resources/components/} graças ao
+\texttt{extraResources}/renomeação NSIS.
+
+\section{O instalador NSIS}
+\label{sec:16-nsis}
+
+A configuração \texttt{nsis} do \file{package.json}:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Opção} & \textbf{Valor} \\
+\midrule
+\texttt{oneClick}                       & \lstinline|true| (instalação de um clique) \\
+\texttt{allowToChangeInstallationDirectory} & \lstinline|false| \\
+\texttt{createDesktopShortcut}          & \lstinline|true| \\
+\texttt{createStartMenuShortcut}        & \lstinline|true| \\
+\texttt{include}                        & \path{build/installer.nsh} \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+O \emph{script} customizado \file{build/installer.nsh} contém apenas uma macro de
+pós-instalação que renomeia a pasta de componentes para o nome final:
+
+\begin{lstlisting}[language=bash]
+!macro customInstall
+  Rename "$INSTDIR\resources\components_tmp" "$INSTDIR\components"
+!macroend
+\end{lstlisting}
+
+\noindent
+É esse passo que materializa o casamento entre o \texttt{extraResources}
+(\path{components\_tmp}) e o caminho que \file{main/paths.js} espera em produção
+(\path{<INSTDIR>/components}).
+
+\section{Auto-updater}
+\label{sec:16-updater}
+
+A atualização automática usa \lstinline|electron-updater| e está implementada em
+\file{main/updater.js}. O fluxo (apenas em produção --- é pulado em \emph{dev}):
+
+\begin{enumerate}[nosep]
+  \item cerca de 6\,s após a janela principal aparecer, faz uma verificação
+        silenciosa nos \emph{releases};
+  \item em \texttt{update-available}, abre a janela customizada
+        \file{html/update-notification.html} (nunca um diálogo nativo) com o
+        \emph{changelog} bilíngue e a opção de baixar;
+  \item o \emph{download} é iniciado pelo usuário; \texttt{download-progress}
+        alimenta a barra de progresso;
+  \item em \texttt{update-downloaded}, a janela passa ao estado
+        \enquote{Reiniciar e instalar};
+  \item \lstinline|quitAndInstall(false, true)| instala e relança direto na nova
+        versão.
+\end{enumerate}
+
+\subsection{Feed apontando para o canal de release}
+
+O \emph{feed} é configurado explicitamente em
+\lstinline|initializeUpdateSystem()|:
+
+\begin{lstlisting}
+autoUpdater.setFeedURL({
+  provider: 'github',
+  owner: 'nipscernlab',
+  repo: 'sapho',
+  releaseType: 'release',
+});
+\end{lstlisting}
+
+\noindent
+Note o destino: o repositório \repo{sapho} (não \repo{aurora}). É o canal de
+distribuição estável (\autoref{sec:16-split}). As constantes
+\texttt{REPO\_OWNER}/\texttt{REPO\_NAME} também são usadas no \emph{fallback} que
+busca as notas de \emph{release} pela API do GitHub quando o
+\lstinline|electron-updater| não as expõe. As opções
+\lstinline|autoDownload = false| e \lstinline|autoInstallOnAppQuit = false|
+garantem que nada é baixado ou instalado sem ação do usuário.
+
+\subsection{latest.yml e blockmap}
+
+O \tool{electron-builder} publica, junto do \texttt{.exe}, um \file{latest.yml}
+(o manifesto que o \lstinline|electron-updater| lê: versão, caminho do arquivo,
+\texttt{sha512}, tamanho) e um \texttt{.blockmap} (mapa de blocos para
+atualizações diferenciais/\emph{delta}). O \lstinline|electron-updater| valida o
+\texttt{sha512} do \file{latest.yml} contra os bytes baixados antes de instalar.
+
+Após a primeira inicialização, o \file{main/updater.js} também persiste a versão
+corrente em \file{aurora-version.json} (no \texttt{userData}); na inicialização
+seguinte, uma divergência entre a versão armazenada e a atual indica que o
+usuário acabou de atualizar, e o \emph{renderer} surge um \emph{toast} de
+confirmação (uma única vez por atualização).
+
+\section{Workflows de CI e de release}
+\label{sec:16-ci}
+
+\subsection{CI (ci.yml)}
+
+O \emph{workflow} \file{.github/workflows/ci.yml} roda em \texttt{push} e
+\emph{pull request} para \texttt{main}, no \texttt{windows-latest}. Após
+\lstinline|npm ci|, executa, em sequência:
+
+\begin{enumerate}[nosep]
+  \item \file{check-pinned-versions.js} (versões pinadas);
+  \item ESLint (\lstinline|--max-warnings=0|);
+  \item \emph{typecheck} (\lstinline|tsc --noEmit|);
+  \item guarda de \texttt{.js} gerado (\file{check-no-generated-js.js});
+  \item consistência de i18n (\file{check-i18n.js});
+  \item \emph{dead code} (\lstinline|npm run deadcode|);
+  \item \lstinline|node --check| em todo \texttt{.js} de \path{js/} e \path{main/};
+  \item testes unitários com cobertura + \emph{upload} ao Codecov
+        (informativo, nunca falha o CI);
+  \item \emph{download} da fonte Norse;
+  \item testes e2e (\emph{smoke} Electron);
+  \item \texttt{build:renderer} (Vite);
+  \item \emph{build} de \emph{smoke} com
+        \lstinline|electron-builder --win --x64 --publish never|.
+\end{enumerate}
+
+\noindent
+O CI invoca \lstinline|electron-builder| diretamente (não por \texttt{npm run
+build}), por isso constrói o \emph{renderer} explicitamente antes --- caso
+contrário o \emph{smoke build} validaria um \path{dist/} obsoleto/ausente.
+
+\subsection{Release (release.yml)}
+
+O \file{.github/workflows/release.yml} dispara quando um \emph{release} do GitHub
+é \emph{publicado} (e tem \texttt{workflow\_dispatch} como gatilho manual). No
+\texttt{windows-latest}, com permissão \lstinline|contents: write|, executa:
+
+\begin{enumerate}[nosep]
+  \item \lstinline|npm ci|;
+  \item \lstinline|npm run bootstrap| (baixa todo o \emph{toolchain});
+  \item \textbf{verificação de \emph{sentinels}}: ao contrário dos
+        \emph{downloaders} (que saem 0 em falha para não bloquear o
+        desenvolvedor), o \emph{release} \textbf{falha alto} se faltar qualquer
+        \emph{sentinel}
+        (\file{.../verilator\_bin.exe}, \file{components/bin/cppcomp.exe},
+        \file{.../gtkwave.exe}, \file{.../surfer.exe}) --- um \emph{release}
+        nunca pode sair sem o \emph{toolchain};
+  \item \texttt{build:ts} e \texttt{build:renderer};
+  \item \lstinline|electron-builder --win --x64 --publish always|, usando
+        \texttt{GH\_TOKEN} para criar o \emph{release} e subir os \emph{assets}.
+\end{enumerate}
+
+\subsection{release-please}
+
+O \file{.github/workflows/release-please.yml} roda em \texttt{push} para
+\texttt{main} e usa a \lstinline|googleapis/release-please-action@v4|. Ele mantém
+um \emph{pull request} permanente de \emph{release} que agrega todos os
+\emph{Conventional Commits} desde o último \emph{release}; ao ser mesclado, gera
+o \emph{commit} de \emph{version bump}, cria a \emph{tag}, atualiza o
+\file{CHANGELOG.md} e publica o \emph{release} do GitHub --- o que, por sua vez,
+dispara o \file{release.yml}.
+
+A configuração vive em \file{release-please-config.json}
+(\lstinline|release-type: node|, \lstinline|include-v-in-tag: true|,
+\lstinline|bump-minor-pre-major: true| e o mapeamento de seções do
+\emph{changelog} por tipo de \emph{commit}) e em
+\file{.release-please-manifest.json}, que registra a versão corrente
+(\lstinline|{".": "6.3.2"}|).
+
+\section{Assinatura de código}
+\label{sec:16-signing}
+
+Segundo o \file{docs/CODE\_SIGNING.md} e as configurações lidas, o instalador
+NSIS e o auto-updater são \textbf{atualmente não assinados}: o SmartScreen do
+Windows pode alertar (\enquote{Windows protegeu seu PC}) na primeira execução, e
+o \emph{updater} verifica apenas o \texttt{sha512} do \file{latest.yml}. O passo
+\enquote{Build \& publish} do \file{release.yml} traz um comentário registrando
+esse estado e apontando para o \emph{runbook}.
+
+O \emph{runbook} documenta o caminho recomendado: como o Aurora-IDE é MIT, ele se
+qualifica ao programa gratuito da \textbf{SignPath Foundation} (OSS). O fluxo de
+CI proposto (ainda não aplicado ao \file{release.yml}) é \emph{gated} na
+existência do \emph{secret} \texttt{SIGNPATH\_API\_TOKEN}: enquanto ele não
+existir, o passo de \emph{build} não assinado roda sem alteração; quando
+presente, o \emph{build} gera o instalador sem publicar, o envia para assinatura
+e então republica.
+
+Como a assinatura externa (SignPath) devolve \emph{novos bytes}, o
+\file{latest.yml} precisa ser re-\emph{hasheado}, ou todo auto-update falharia.
+Esse re-\emph{hash} está pronto em \file{scripts/patch-latest-yml.js}: ele
+recomputa \texttt{sha512} (base64) e tamanho do \texttt{.exe} assinado, reescreve
+as entradas correspondentes em \file{latest.yml} e remove o \texttt{.blockmap}
+defasado (forçando o \emph{updater} a um \emph{download} completo, sempre válido,
+em vez de um \emph{delta} quebrado). Há ainda a alternativa de assinar
+\emph{durante} o \emph{build} (\emph{hook} \lstinline|win.sign| do
+\tool{electron-builder}, ou Azure Trusted Signing via
+\texttt{CSC\_LINK}/\texttt{CSC\_KEY\_PASSWORD}), que dispensaria o re-\emph{hash}.
+
+\section{Split intencional de repositórios}
+\label{sec:16-split}
+
+A separação entre \repo{aurora} e \repo{sapho} é \textbf{intencional}, não um
+defeito:
+
+\begin{description}
+  \item[\repo{aurora}] repositório de \textbf{desenvolvimento} da IDE. É onde o
+        código vive, onde a CI roda e onde o \tool{electron-builder} executa.
+  \item[\repo{sapho}] \textbf{canal de distribuição estável}. O instalador
+        \file{sapho-aurora-Setup-vX.Y.Z.exe} e o \file{latest.yml} são
+        publicados como \emph{assets} de \emph{release} \textbf{do repositório
+        sapho}.
+\end{description}
+
+\noindent
+Isso é coerente em todo o código: o bloco \texttt{publish} do \file{package.json}
+aponta \lstinline|owner: nipscernlab|, \lstinline|repo: sapho|; o auto-updater em
+\file{main/updater.js} configura o \emph{feed} para
+\lstinline|owner: 'nipscernlab', repo: 'sapho'|; e o \emph{runbook} de assinatura
+nota que publicar de \texttt{aurora} para \texttt{sapho} é uma operação
+\emph{cross-repo} (exige um \emph{token} com \lstinline|contents:write| em
+\texttt{sapho}). Em resumo: o usuário final baixa de \repo{sapho} e recebe
+atualizações de \repo{sapho}; toda a engenharia acontece em \repo{aurora}.
+
+\section{Fluxo de build (visão geral)}
+\label{sec:16-fluxo}
+
+O diagrama a seguir resume a cadeia, do código-fonte ao usuário final.
+
+\begin{lstlisting}
+                     repo: nipscernlab/aurora  (DESENVOLVIMENTO)
+  +---------------------------------------------------------------+
+  |  npm ci                                                       |
+  |    |                                                          |
+  |    v                                                          |
+  |  npm run bootstrap                                            |
+  |    |-- check-pinned-versions.js  (monaco 0.52.2; manifest IA) |
+  |    |-- download-toolchain (aurora-msys-v1.zip) -> Packages/msys|
+  |    |-- download-yanc (yanc-bin-v5.2.zip)       -> components/  |
+  |    |-- download-gtkwave-nipscern               -> Packages/   |
+  |    |-- download-norse-font (dafont)            -> assets/fonts|
+  |    |-- download-surfer / verible / clang-format / slang-server|
+  |    |-- download-tree-sitter-grammars (3x .wasm + runtime)     |
+  |    +-- copy-components (junction -> electron/dist/components)  |
+  |    |                                                          |
+  |    v                                                          |
+  |  build:ts  (tsc)         ----> main/preload .js in-place      |
+  |  build:renderer (vite)   ----> dist/ (index + 4 paginas;      |
+  |                                 vendor/ Monaco/KaTeX/Phosphor) |
+  |    |                                                          |
+  |    v                                                          |
+  |  electron-builder --win --x64                                 |
+  |    |-- asar (files: !components !tests !docs ...)             |
+  |    |-- extraResources: components -> resources/components_tmp |
+  |    |-- NSIS (oneClick) + installer.nsh                        |
+  |    |     customInstall: rename components_tmp -> components   |
+  |    +-- artefatos: sapho-aurora-Setup-vX.Y.Z.exe               |
+  |                   latest.yml + .blockmap                      |
+  +-------------------------------|-------------------------------+
+            release-please PR     |  --publish always (cross-repo)
+            (Conventional Commits)|
+                                  v
+                     repo: nipscernlab/sapho  (RELEASE ESTAVEL)
+  +---------------------------------------------------------------+
+  |  Release assets: Setup .exe + latest.yml + .blockmap          |
+  +-------------------------------|-------------------------------+
+                                  |  electron-updater (feed: sapho)
+                                  v
+                          USUARIO FINAL  (instala / auto-update)
+\end{lstlisting}
+
+\noindent
+Para o detalhamento do \emph{toolchain} de simulação/síntese baixado no
+\emph{bootstrap}, ver \autoref{cap:14-toolchain-bundle}; para o subsistema de IA
+cujas CLIs são baixadas sob demanda (e não empacotadas), ver
+\autoref{cap:12-aurora-intelligence-ia}.

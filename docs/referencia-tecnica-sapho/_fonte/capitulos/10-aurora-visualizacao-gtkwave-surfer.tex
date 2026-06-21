@@ -1,0 +1,809 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: visualização de ondas (GTKWave e Surfer)}
+\label{cap:10-aurora-visualizacao-gtkwave-surfer}
+
+Depois que a simulação produz um dump de formas de onda (\path{.vcd} ou \path{.fst}),
+a AURORA oferece dois visualizadores externos para inspecioná-lo: o \tool{GTKWave}
+(em um \emph{fork} próprio do laboratório, \repo{gtkwave-nipscern}) e o \tool{Surfer}
+(viewer escrito em Rust, integrado de forma \emph{opt-in}). O \tool{GTKWave} é o
+visualizador padrão e vem empacotado com a IDE; o \tool{Surfer} é uma alternativa
+opcional que o usuário liga por um \emph{toggle}, e que cai de volta para o
+\tool{GTKWave} caso não esteja instalado.
+
+Este capítulo descreve os dois visualizadores a partir do código-fonte:
+\textbf{(A)} as customizações de UI/comportamento do \emph{fork} \tool{GTKWave}
+\repo{gtkwave-nipscern} frente ao \emph{upstream}, como ele é construído (Meson +
+MSYS2) e como a AURORA o invoca; e \textbf{(B)} o \tool{Surfer} como viewer
+\emph{opt-in}, com ênfase no \emph{layout} declarativo \path{.surf.ron} gerado por
+\lstinline|buildSurferLayout| (grupos colapsáveis por processador, cores, aliases,
+tracks de Assembly/\cmm{} via \emph{mapping translators}, decode de números
+complexos via pré-passo). A geração do arquivo de \emph{save} \path{.gtkw} para o
+\tool{GTKWave} é o tema do \autoref{cap:09-aurora-simulacao-ondas}; aqui ela é
+mencionada apenas de passagem, no que toca aos dois visualizadores.
+
+\section{Visão geral: dois visualizadores, um pipeline}
+\label{sec:cap10-visao-geral}
+
+A escolha de visualizador é uma preferência global do usuário, persistida em
+\lstinline|localStorage| sob a chave \lstinline|aurora.waveViewer|, com dois valores
+válidos: \lstinline|'gtkwave'| (default) e \lstinline|'surfer'|. O módulo
+\file{js/wave/viewer\_preference.js} expõe \lstinline|getViewer()| e
+\lstinline|setViewer(value)|; valores inválidos normalizam para \lstinline|'gtkwave'|,
+e \lstinline|getViewer()| nunca lança (é chamado no \emph{hot path}, a cada clique no
+botão Wave).
+
+No passo \enquote{Wave} do fluxo de compilação (\file{js/compilation/compilation\_module.js})
+o ramo é simples: depois de localizar o dump e extrair o cabeçalho VCD, se
+\lstinline|getViewer() === 'surfer'| a AURORA resolve o \emph{layout} do Surfer e o
+lança; caso contrário segue o caminho do \tool{GTKWave}.
+
+\begin{lstlisting}[language=Java,caption={Ramo do visualizador no passo Wave (compilation\_module.js).}]
+await this._extractFstHeaderVcd(vcdFile, headerVcd, tools.fst2vcdBin, tools.tempBaseDir);
+if (getViewer() === 'surfer') {
+    const surferLayout =
+        await this._waveResolveSurferSaveFile(simTopModule, vcdFile, tools.tempBaseDir);
+    await this._waveLaunchSurfer(vcdFile, surferLayout, tools);
+}
+// senao: caminho GTKWave (auto-.gtkw + _waveLaunchGtkwave)
+\end{lstlisting}
+
+\begin{nota}
+Ambos os viewers leem o \emph{mesmo} dump de simulação e ambos são processos
+\emph{externos} lançados de forma \emph{detached} pelo processo \emph{main} do
+Electron (não há embutimento na janela da IDE). A relação entre o ramo
+\enquote{surfer} e o \enquote{gtkwave} é de \emph{fallback}: se o \path{surfer.exe}
+não existe, \lstinline|_waveLaunchSurfer| degrada para o \tool{GTKWave}, de modo que
+o botão Wave \emph{sempre} produz um visualizador.
+\end{nota}
+
+A \autoref{tab:cap10-viewers} resume o contraste entre os dois viewers conforme o
+código.
+
+\begin{table}[h]
+\centering
+\caption{\tool{GTKWave} (fork nipscern) vs.\ \tool{Surfer} na AURORA.}
+\label{tab:cap10-viewers}
+\begin{tabularx}{\linewidth}{l Y Y}
+\toprule
+ & \textbf{GTKWave (nipscern)} & \textbf{Surfer} \\
+\midrule
+Status     & padrão, empacotado          & \emph{opt-in}, opcional      \\
+Origem     & \emph{fork} C/GTK3 do lab   & binário Rust de \emph{upstream} \\
+Curadoria  & arquivo \path{.gtkw}        & arquivo \path{.surf.ron}     \\
+Decode ASM/\cmm & \emph{file filter} (\path{trad\_*.txt}) & \emph{mapping translator} \\
+Decode complexo & \emph{process filter} (\tool{comp2gtkw}) ao vivo & pré-passo (\tool{comp2gtkw}) assado em mapping \\
+Local instalação & \path{components/Packages/gtkwave-nipscern/} & \path{components/Packages/surfer/} \\
+Lançamento & \lstinline|launch-gtkwave-only| & \lstinline|launch-surfer| \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{O \emph{fork} GTKWave do nipscern}
+\label{sec:cap10-gtkwave-fork}
+
+O repositório \repo{gtkwave-nipscern} é um \emph{fork} do \tool{GTKWave} de
+\emph{upstream} (que parte da base v3.3.116, já migrada de autotools para Meson e
+de GTK2 para GTK3). Sobre essa base, o laboratório aplicou um conjunto de
+customizações de interface e comportamento, além de tornar a build no Windows
+viável sem WSL. As customizações foram introduzidas em quatro \emph{commits}
+sequenciais (verificados no histórico do \emph{fork}):
+
+\begin{enumerate}[label=\arabic*.]
+  \item \lstinline|b83a5ee| — \enquote{Add nipscern customizations}: \lstinline|--zoom-fit|,
+        painel de sinais escuro, remoção do SST, \lstinline|--left-justify|;
+  \item \lstinline|6aa80b2| — link do \path{gtkwave.exe} com o \emph{subsystem}
+        Windows GUI;
+  \item \lstinline|f17e0b5| — filhos lançados com \lstinline|CREATE_NO_WINDOW| no
+        Windows;
+  \item \lstinline|4491579| — \enquote{Surfer dark theme, Phosphor icons, custom
+        title bar, animated zoom + Windows build}: tema escuro padrão alinhado ao
+        Surfer, ícones Phosphor, barra de título customizada e \emph{zoom} animado.
+\end{enumerate}
+
+\subsection{Flags de linha de comando adicionadas}
+\label{sec:cap10-gtkwave-flags}
+
+Duas opções novas de CLI foram registradas em \file{src/main.c}, na tabela
+\lstinline|long_options| consumida por \lstinline|getopt_long|.
+
+\subsubsection{\lstinline|-Z| / \lstinline|--zoom-fit| — zoom-fit inicial}
+
+Força um \emph{Zoom Fit} (o mesmo do botão da \emph{toolbar}) assim que o
+\emph{main loop} entra, de modo que a forma de onda inteira fique visível no
+\emph{startup}. No código: o \lstinline|case 'Z'| seta
+\lstinline|GLOBALS->do_initial_zoom_fit = 1|, e logo antes de \lstinline|gtk_main()|
+um \lstinline|g_idle_add(initial_zoom_fit_idle_cb, NULL)| agenda a aplicação. O
+\emph{callback} ocioso chama \lstinline|service_zoom_fit(NULL, NULL)| e marca
+\lstinline|do_initial_zoom_fit_used = 1| para não repetir.
+
+\begin{lstlisting}[language=C,caption={Zoom-fit inicial em src/main.c (verificado).}]
+static gboolean initial_zoom_fit_idle_cb(gpointer data)
+{
+    service_zoom_fit(NULL, NULL);
+    GLOBALS->do_initial_zoom_fit_used = 1;
+    /* ... */
+}
+/* ... no parser de opcoes ... */
+case 'Z':
+    GLOBALS->do_initial_zoom_fit = 1;
+    break;
+/* ... antes de gtk_main(): */
+if (GLOBALS->do_initial_zoom_fit) {
+    g_idle_add(initial_zoom_fit_idle_cb, NULL);
+}
+\end{lstlisting}
+
+\subsubsection{\lstinline|-L| / \lstinline|--left-justify| — nomes à esquerda}
+
+Alinha os nomes de sinal à \emph{esquerda} no painel (em vez do alinhamento padrão
+à direita). Expõe na CLI o \emph{rcvar} \lstinline|left_justify_sigs| já existente
+(também acessível pelo menu \textbf{Edit $\rightarrow$ Set Left Justify Signals}). No
+\lstinline|case 'L'|: \lstinline|GLOBALS->left_justify_sigs = ~0|.
+
+\subsection{Painel de sinais escuro}
+\label{sec:cap10-gtkwave-darkpanel}
+
+A flag \lstinline|-6| / \lstinline|--dark| de \emph{upstream} apenas setava
+\lstinline|gtk-application-prefer-dark-theme|, o que não afetava a lista de sinais
+desenhada via Cairo. O \emph{fork} introduziu uma paleta escura própria para esse
+painel. Posteriormente (\emph{commit} \lstinline|4491579|) o tema escuro foi
+promovido a \textbf{padrão}: em \file{src/globals.c}, o campo \lstinline|use_dark|
+é inicializado como \lstinline|TRUE| (comentário: \enquote{nipscern: dark theme is
+the default}). A paleta do canvas e do painel de nomes foi recolorida estritamente
+para a paleta \emph{default-dark} do Surfer.
+
+\subsection{Remoção do painel SST (Signal Search Tree)}
+\label{sec:cap10-gtkwave-sst}
+
+A árvore de hierarquia do lado esquerdo (SST) deixou de ser construída: a janela
+principal contém apenas a lista de sinais e a área de formas de onda. Em
+\file{src/main.c} o bloco que montava \lstinline|toppanedwindow| /
+\lstinline|sstpane| / \lstinline|expanderwindow| foi substituído por atribuições
+\lstinline|NULL| (verificado no código atual):
+
+\begin{lstlisting}[language=C,caption={SST desativado em src/main.c.}]
+/* SST panel disabled: do not create toppanedwindow/sstpane/expanderwindow */
+GLOBALS->toppanedwindow = NULL;
+GLOBALS->sstpane = NULL;
+GLOBALS->expanderwindow = NULL;
+\end{lstlisting}
+
+A página do \emph{notebook} já trazia um \emph{fallback}
+\lstinline|toppanedwindow ? toppanedwindow : panedwindow|, então passa a usar o
+\lstinline|panedwindow| diretamente. A reconstrução da SST em tempo de
+\emph{reload} (em \file{src/globals.c}) fica protegida por
+\lstinline|if (GLOBALS->expanderwindow)|, tornando-se um \emph{no-op}.
+
+\subsection{Tema visual: paleta Surfer, ícones Phosphor, barra de título e zoom animado}
+\label{sec:cap10-gtkwave-theme}
+
+O \emph{commit} \lstinline|4491579| fez uma reformulação visual da GUI, alinhando-a
+à paleta padrão (escura) do Surfer para dar consistência visual entre os dois
+viewers do SAPHO.
+
+\paragraph{Paleta do canvas e do painel.} Em
+\file{lib/libgtkwave/src/gw-color-theme.c}, o canvas e o painel de nomes são
+recoloridos com os valores da paleta \emph{default-dark} do Surfer. Alguns valores
+verificados no código: fundo do canvas \lstinline|#0b151d|, \emph{foreground}
+\lstinline|#d4d4d4|, traços de variável em verde \lstinline|#56c126|, cursor
+\lstinline|#b63935|, \emph{undef} \lstinline|#f44747|, \emph{high-impedance}
+\lstinline|#c9e124|, \emph{don't-care} \lstinline|#4040ff|, \emph{weak}
+\lstinline|#808080|.
+
+\paragraph{Folha de estilo da GUI.} O arquivo \file{src/gtkwave.css} foi reescrito
+para re-tintar as cores nomeadas do Adwaita para a paleta Surfer, definir fontes
+(\enquote{Segoe UI} / \enquote{Cascadia Mono}) e espaçamentos. Ele é carregado em
+prioridade de aplicação sobre o Adwaita-dark. Referência de paleta no cabeçalho do
+CSS: \lstinline|foreground #d4d4d4|, \lstinline|primary_ui #171717|,
+\lstinline|secondary_ui #0d1317|, \lstinline|canvas #0b151d|,
+\lstinline|accent_info #007acc|, \lstinline|accent_error #d2302f|.
+
+\paragraph{Ícones Phosphor (MIT).} 39 SVGs pré-recoloridos sob
+\path{share/icons/phosphor}, organizados por código de cor (azul = estrutura, verde
+= sinais, amarelo = controle, laranja/rosa = comportamental). Em \file{src/main.c} o
+helper \lstinline|gw_phosphor_image(name)| carrega cada ícone diretamente do
+\emph{gresource} pelo caminho
+\path{/io/github/gtkwave/GTKWave/icons/phosphor/<name>.svg}.
+
+\paragraph{Barra de título customizada (CSD).} No Windows com GTK3, o
+\lstinline|gtk_header_bar_set_show_close_button()| frequentemente não renderiza os
+controles, então o \emph{fork} substitui a barra de título nativa por um
+\lstinline|GtkHeaderBar| com botões próprios de minimizar/maximizar/fechar. Em
+\file{src/main.c} (verificado): cria-se o \lstinline|headerbar|, desliga-se o botão
+de fechar nativo (\lstinline|set_show_close_button(..., FALSE)|), empacotam-se os
+três botões (\lstinline|win-minimize|, \lstinline|win-maximize|,
+\lstinline|win-close|) com \lstinline|gtk_header_bar_pack_end| e instala-se via
+\lstinline|gtk_window_set_titlebar|. O \emph{callback} de maximizar alterna o ícone
+entre \lstinline|win-maximize| e \lstinline|win-restore|.
+
+\paragraph{Zoom animado.} Em \file{src/zoombuttons.c} o \emph{zoom in/out} passa a
+suavizar com \emph{easing} (\emph{ease-out cubic}, 150\,ms) em vez de saltar
+instantaneamente, dirigido por um \emph{tick callback} do \emph{frame clock} do
+widget. Constantes verificadas: \lstinline|GW_ZOOM_ANIM_DURATION_US = 150000| (150\,ms)
+e \lstinline|gw_zoom_animate_enabled = TRUE|. A interpolação aplica
+\lstinline|gw_ease_out_cubic(t)| entre \lstinline|from| e \lstinline|to| a cada tick.
+
+\subsection{Subsystem GUI e filhos sem console no Windows}
+\label{sec:cap10-gtkwave-windows}
+
+Dois ajustes específicos do Windows garantem uma experiência sem janelas de
+console espúrias:
+
+\begin{itemize}
+  \item \textbf{Subsystem GUI.} Em \file{src/meson.build} o alvo \lstinline|gtkwave|
+        é construído com \lstinline|win_subsystem: 'windows'|, de modo que nenhum
+        console abre junto com a GUI. (O comentário do \emph{fork} registra que
+        passar a flag via \lstinline|link_args| cru não funciona, pois o Meson
+        anexa \lstinline|-Wl,--subsystem,console| \emph{depois} dos argumentos do
+        usuário, e o \emph{ld} respeita o último \lstinline|--subsystem|.)
+  \item \textbf{Filhos com \lstinline|CREATE_NO_WINDOW|.} Como o
+        \path{gtkwave.exe} é GUI-subsystem, qualquer filho de subsistema console
+        que ele lançasse abriria, por uma fração de segundo, uma janela tipo
+        \lstinline|cmd|. As \emph{flags} de \lstinline|CreateProcess| em três
+        pontos de chamada foram mudadas de \lstinline|0| para
+        \lstinline|CREATE_NO_WINDOW|: o \emph{process filter}
+        (\file{src/pipeio.c}, usado por filtros como \tool{comp2gtkw}), o
+        \enquote{open a second viewer} (\file{src/menu.c}) e o \emph{reader} de
+        \path{.stems}/rtlbrowse (\file{src/main.c}).
+\end{itemize}
+
+\subsection{Construção no Windows (Meson + MSYS2)}
+\label{sec:cap10-gtkwave-build}
+
+O \emph{fork} traz uma build de um clique para Windows nativo (sem WSL). O ponto de
+entrada é \file{build-windows.bat} na raiz do repositório; ele localiza o MSYS2
+(instalando-o via \lstinline|winget| se ausente), configura o ambiente
+\lstinline|MINGW64| e delega para \file{tools/msys2-build.sh}.
+
+\begin{lstlisting}[language=bash,caption={Uso do build-windows.bat (do README do fork).}]
+build-windows.bat          # build + install (incremental)
+build-windows.bat clean    # apaga build/ e refaz do zero
+build-windows.bat run      # build, instala e roda gtkwave --dark
+\end{lstlisting}
+
+Detalhes verificados no \emph{script} de build:
+
+\begin{itemize}
+  \item \textbf{Prefixo de instalação.} O default é
+        \path{C:/packs/gtkwave-bin} (variável \lstinline|GTKWAVE_PREFIX|); o
+        MSYS2 pode ser sobrescrito por \lstinline|GTKWAVE_MSYS2|.
+  \item \textbf{Configuração Meson.} \file{tools/msys2-build.sh} chama
+        \lstinline|meson setup --prefix="$PREFIX" -Djudy=disabled -Dtests=false build|.
+  \item \textbf{Launcher.} Gera um \path{gtkwave.cmd} no prefixo que ajusta o
+        \lstinline|PATH| das DLLs do GTK antes de invocar o \path{gtkwave.exe}.
+  \item \textbf{Bundle para a AURORA.} O passo final invoca
+        \file{tools/deploy-aurora.sh}, que reempacota a build no \emph{package}
+        portátil da AURORA (exe + DLLs do GTK via \lstinline|ldd| + \emph{pixbuf
+        loaders} + \path{loaders.cache} portável).
+  \item \textbf{Hooks só de Linux pulados.} Em \file{meson.build}, os
+        \lstinline|gnome.post_install| de atualização de bancos
+        \emph{desktop}/\emph{mime} são desativados no Windows
+        (\lstinline|is_windows = host_machine.system() == 'windows'|).
+\end{itemize}
+
+\subsection{Empacotamento e \emph{bootstrap} pela AURORA}
+\label{sec:cap10-gtkwave-bootstrap}
+
+A AURORA não compila o \tool{GTKWave}: ela baixa um \emph{bundle} Windows portátil
+publicado nas \emph{releases} de \repo{gtkwave-nipscern}. O \emph{script}
+\file{components/Scripts/download-gtkwave-nipscern.js} roda no \emph{prestart},
+depois do \texttt{download-toolchain} e antes do \texttt{copy-components}.
+
+\begin{itemize}
+  \item \textbf{Pinagem de versão.} Constantes no topo do \emph{script}:
+        \lstinline|GTKWAVE_TAG = 'v0.1.2-nipscern'|, \emph{filename}
+        \path{gtkwave-nipscern-v0.1.2-win-x64.zip}, \emph{owner}
+        \lstinline|nipscernlab|, \emph{repo} \lstinline|gtkwave-nipscern|.
+  \item \textbf{Destino.} Extraído em
+        \path{components/Packages/gtkwave-nipscern/}; o arquivo-sentinela é
+        \path{gtkwave.exe} nessa pasta (o ZIP não tem prefixo de pasta, então a
+        extração vai direto para o diretório de instalação).
+  \item \textbf{Bundle portátil.} Traz \path{gtkwave.exe} + \path{fst2vcd.exe} +
+        todas as DLLs do \emph{runtime} GTK, sem depender de um MSYS2 instalado.
+        Substitui o \tool{GTKWave} do \emph{toolchain} principal (o
+        \tool{iverilog}/\tool{yosys} continuam vindo do outro bundle).
+  \item \textbf{Integridade.} A verificação SHA-256 (\lstinline|EXPECTED_SHA256|)
+        está como \lstinline|null| neste \emph{script} (computa e registra, sem
+        impor). A falha de download é \emph{best-effort}: sai com código 0 para
+        não bloquear o \lstinline|npm start| (a AURORA ainda compila/simula; só o
+        botão Wave falha até o setup).
+\end{itemize}
+
+\subsection{Como a AURORA invoca o GTKWave}
+\label{sec:cap10-gtkwave-invoca}
+
+A linha de comando é montada em \file{js/compilation/builders/wave\_tools.ts}
+(compilado para \path{wave\_tools.js}). O \emph{builder}
+\lstinline|buildGtkwaveSpec| produz os argumentos \lstinline|--dark --zoom-fit
+--left-justify <vcd>| e, quando há arquivo de \emph{save}, anexa \lstinline|-a
+<gtkw>|. Como o SST já vem removido do \emph{fork}, não há necessidade de um
+\lstinline|--rcvar hide_sst on|.
+
+\begin{lstlisting}[language=Java,caption={buildGtkwaveSpec (wave\_tools.ts, verbatim).}]
+export function buildGtkwaveSpec(ctx: GtkwaveBuilderCtx): CommandSpec {
+  const args = ['--dark', '--zoom-fit', '--left-justify', ctx.vcdFile];
+  if (ctx.gtkwSaveFile) {
+    args.push('-a', ctx.gtkwSaveFile);
+  }
+  return {
+    step: 'gtkwave',
+    binary: ctx.gtkwaveBin,
+    args,
+    cwd: ctx.cwd,
+    label: 'gtkwave --dark --zoom-fit --left-justify',
+  };
+}
+\end{lstlisting}
+
+O \emph{spawn} real ocorre no processo \emph{main} via IPC
+\lstinline|launch-gtkwave-only| (\file{main/ipc/compile.js}). Pontos verificados:
+
+\begin{itemize}
+  \item O binário recebido do \emph{renderer} passa pelo \emph{allowlist} de
+        \emph{toolchain} (\lstinline|isAllowed|): \path{gtkwave.exe} só é aceito a
+        partir de \path{Packages/gtkwave-nipscern}.
+  \item Lançado \emph{detached}, com \lstinline|stdio: 'ignore'| e
+        \lstinline|shell: false|; é \lstinline|unref|'d para sobreviver a uma única
+        execução, mas é rastreado (\lstinline|spawnTracked|) para morrer junto com
+        a IDE.
+  \item \lstinline|windowsHide: false| de propósito: um \emph{quirk} do
+        \emph{fork} GUI-subsystem faz com que, sob \lstinline|CREATE_NO_WINDOW| e
+        recebendo um VCD para carregar, o processo suba mas a janela \emph{top-level}
+        não seja criada. Como o exe é GUI-subsystem, não há \emph{flash} de console
+        de qualquer modo.
+\end{itemize}
+
+\subsection{O papel do \path{.gtkw} e do \tool{fst2vcd}}
+\label{sec:cap10-gtkwave-gtkw-fst2vcd}
+
+O \tool{GTKWave} recebe, além do dump, um arquivo de \emph{save} \path{.gtkw} que a
+AURORA gera automaticamente (\lstinline|buildAuroraGtkw|, em
+\file{js/wave/gtkw\_proc\_writer.ts}). Esse arquivo carrega a curadoria SAPHO:
+seções por processador, cores, formatos e \emph{aliases}. Dois mecanismos do
+próprio \path{.gtkw} são relevantes para o contraste com o Surfer (\autoref{sec:cap10-surfer}):
+
+\begin{itemize}
+  \item \textbf{\emph{File filter} (\path{trad\_*.txt}).} As trilhas de Assembly
+        (\lstinline|valr2|) e de \cmm{} (\lstinline|linetabs|) usam tabelas
+        \path{trad\_opcode.txt} / \path{trad\_cmm.txt} via a sintaxe
+        \lstinline|^N <path>| do \path{.gtkw}.
+  \item \textbf{\emph{Process filter} (\tool{comp2gtkw}).} Os números complexos
+        (\lstinline|comp_me3_*| / \lstinline|comp_arr_me3_*|) são decodificados
+        \emph{ao vivo} por um executável externo, via a sintaxe
+        \lstinline|^>N <path>| (\emph{caret} + \emph{maior-que}). É justamente esse
+        \emph{process filter} um dos filhos beneficiados pelo
+        \lstinline|CREATE_NO_WINDOW| (\autoref{sec:cap10-gtkwave-windows}).
+\end{itemize}
+
+O \tool{fst2vcd} (que vem no \emph{bundle} do \emph{fork}, em
+\path{components/Packages/gtkwave-nipscern/fst2vcd.exe}) é a única CLI do
+\tool{GTKWave} que a AURORA usa diretamente. Ele converte o FST produzido pela
+simulação em VCD-texto e — no caminho do Surfer — é \emph{streamado} para extrair só
+o cabeçalho ou só os valores necessários (ver \autoref{sec:cap10-surfer-prepass}). A
+resolução do caminho desses binários fica em
+\file{js/compilation/wave\_toolchain.js} (\lstinline|resolveWaveToolchain|).
+
+\section{O visualizador Surfer (opt-in)}
+\label{sec:cap10-surfer}
+
+O \tool{Surfer} (\url{https://surfer-project.org/}) é um visualizador de formas de
+onda escrito em Rust/egui que lê o mesmo VCD/FST. A AURORA o trata como um
+\path{surfer.exe} \emph{standalone} opcional sob \path{components/Packages/surfer/}.
+
+\begin{nota}
+\textbf{Estado real da integração (confirmado no código):} o Surfer é
+\textbf{opt-in}. O default do visualizador é \lstinline|'gtkwave'|
+(\file{viewer\_preference.js}), e o Surfer \textbf{não é empacotado por padrão} — o
+comentário em \file{wave\_toolchain.js} é explícito: \enquote{NOT bundled by default
+— \lstinline|_waveLaunchSurfer| degrades to GTKWave with a friendly message if it's
+absent}. Quando o \path{surfer.exe} está ausente, o \emph{launch} reporta um
+\enquote{not found} limpo e a AURORA cai de volta para o \tool{GTKWave}. A integração
+está completa para o uso a que se propõe; o que não vem ligado/instalado é apenas o
+\emph{default} e o binário.
+\end{nota}
+
+\subsection{Download e integração}
+\label{sec:cap10-surfer-download}
+
+O \emph{script} \file{components/Scripts/download-surfer.js} baixa o build Windows do
+Surfer e extrai \path{surfer.exe} em \path{components/Packages/surfer/}. Roda no
+\emph{bootstrap}, depois do \texttt{download-gtkwave-nipscern} e antes do
+\texttt{copy-components}. Pontos verificados:
+
+\begin{itemize}
+  \item \textbf{Fonte e pinagem.} \lstinline|SURFER_TAG = 'v0.7.0'|, baixado do
+        \emph{registro de pacotes genérico} do GitLab do projeto Surfer (id
+        \lstinline|42073614|), arquivo \path{surfer\_win\_v0.7.0.zip}.
+  \item \textbf{Integridade.} Diferente do \tool{GTKWave}, aqui o SHA-256 é
+        \textbf{imposto}: \lstinline|EXPECTED_SHA256| traz o \emph{hash} pinado e
+        uma divergência aborta a instalação (\lstinline|verifyChecksum| antes de
+        extrair).
+  \item \textbf{Sentinela e \emph{flatten}.} O arquivo-sentinela é
+        \path{surfer.exe} no diretório de instalação; \lstinline|flattenIfNested|
+        sobe os arquivos um nível caso o ZIP traga \path{surfer/surfer.exe}.
+  \item \textbf{Best-effort.} Falha de download sai com código 0; o botão Wave
+        (com Surfer) cai para o \tool{GTKWave} até o setup ser feito.
+  \item \textbf{Licença.} O comentário registra EUPL-1.2 com atribuição no
+        \path{LICENSE} da raiz; o \emph{spawn} \emph{arm's-length} (a AURORA só
+        executa o \path{.exe}, não linka) não contamina a IDE.
+\end{itemize}
+
+\subsection{Lançamento do Surfer}
+\label{sec:cap10-surfer-launch}
+
+O método \lstinline|_waveLaunchSurfer| (\file{compilation\_module.js}) monta os
+argumentos e delega ao IPC \lstinline|launch-surfer|. O VCD vai posicional; o
+\emph{layout} ativo vem depois: um \emph{save state} \path{.surf.ron} via
+\lstinline|-s|, ou um \emph{command file} \path{.sucl} via \lstinline|-c|. O VCD da
+CLI tem precedência sobre qualquer caminho embutido no \emph{state}, de modo que um
+\path{.surf.ron} registrado fica portável entre re-execuções (os itens re-vinculam por
+nome).
+
+\begin{lstlisting}[language=Java,caption={Montagem de argumentos do Surfer (\_waveLaunchSurfer).}]
+const args = [vcdFile];
+if (surferLayoutFile) {
+    const flag = /\.sucl$/i.test(surferLayoutFile) ? '-c' : '-s';
+    args.push(flag, surferLayoutFile);
+}
+const result = await electronAPI.launchSurfer({
+    surferBin: tools.surferBin,
+    args,
+    workingDir: tools.tempBaseDir,
+    multiWindow: getSurferMultiWindow(),
+});
+\end{lstlisting}
+
+No \emph{main} (\file{main/ipc/compile.js}), o IPC \lstinline|launch-surfer|:
+
+\begin{itemize}
+  \item Pré-checa o binário com \lstinline|fs.existsSync| e o \emph{allowlist}
+        (\path{surfer.exe} só de \path{Packages/surfer}), retornando um
+        \enquote{not found} limpo quando ausente.
+  \item \textbf{Uma janela por padrão.} Se \lstinline|multiWindow| é falso, mata o
+        Surfer que a AURORA abriu antes (rastreado em \lstinline|lastSurferChild|,
+        comparando o \emph{mesmo} objeto \lstinline|ChildProcess| para evitar reuso
+        de PID), via \lstinline|killProcessSilently|. A preferência
+        \lstinline|getSurferMultiWindow()| (chave \lstinline|aurora.surferMultiWindow|,
+        default false) liga o modo \enquote{várias janelas} para comparar
+        simulações lado a lado.
+  \item \textbf{Janela centralizada.} Antes do \emph{spawn}, chama
+        \lstinline|writeSurferCenteredWindowConfig|, que escreve geometria
+        (\textasciitilde85\% da área de trabalho do display primário, centralizada)
+        no \path{config.toml} \emph{global} do Surfer
+        (\path{\%APPDATA\%/surfer-project/surfer/config/config.toml}). Um marcador
+        \lstinline|# Managed by AURORA| protege um config escrito à mão (se o
+        arquivo existe sem o marcador, a AURORA não o sobrescreve).
+  \item \emph{Spawn} \emph{detached}, \lstinline|stdio: 'ignore'|,
+        \lstinline|shell: false|, rastreado para morrer junto com a IDE.
+\end{itemize}
+
+\begin{nota}
+O \emph{auto-reload} do Surfer (\lstinline|SurferConfig.autoreload_files|) não
+dispara no Windows v0.7.0 — o \emph{watcher} de arquivo não detecta a reescrita do
+FST. Por isso a AURORA fecha a janela anterior e reabre, em vez de depender do
+reload automático. O campo \lstinline|autoreload_files| no \emph{state}
+\path{.surf.ron} é inerte; quem controla o reload é o \path{config.toml}.
+\end{nota}
+
+\subsection{O layout declarativo \path{.surf.ron}}
+\label{sec:cap10-surfer-ron}
+
+A peça central da integração é o escritor de \emph{layout}
+\file{js/wave/surfer\_layout\_writer.ts} (compilado para
+\path{surfer\_layout\_writer.js}). Ele é a contraparte \emph{declarativa} do
+\path{.gtkw}: enquanto o \path{.gtkw} é um \emph{savefile} do GTKWave, o
+\path{.surf.ron} é um \emph{save state} do Surfer (formato RON), em que cada item
+carrega sua própria cor/formato/análogo/nome.
+
+O comentário de cabeçalho do módulo explica a escolha por \path{.surf.ron} em vez
+de um \emph{command file} \path{.sucl}: o \path{.sucl} não monta grupos curados, não
+seta \emph{display} analógico, e o \emph{targeting} por item (\lstinline|item_focus|
+por um índice base-16 frágil) erra silenciosamente. O \path{.surf.ron} é
+declarativo, e o Surfer \textbf{re-resolve} os itens por caminho hierárquico + nome
+no \emph{load} (os IDs Wellen são apenas dica de performance, recomputados), de modo
+que IDs \emph{placeholder} sequenciais ficam portáveis entre re-execuções.
+
+O módulo separa duas camadas:
+
+\begin{description}
+  \item[Camada de formato — \lstinline|buildSurferState|] transforma uma lista
+        \emph{ordenada} de \lstinline|SurferItem| em RON válido.
+  \item[Camada de curadoria — \lstinline|buildSurferLayout|] decide \emph{quais}
+        sinais e \emph{quais} cores/formatos, reusando a detecção de processador do
+        \file{gtkw\_proc\_writer} (ver \autoref{sec:cap10-surfer-curadoria}).
+\end{description}
+
+\subsubsection{Tipos de item}
+
+Os itens declarativos (\lstinline|SurferItem|) são quatro:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{kind} & \textbf{Campos principais} \\
+\midrule
+\lstinline|variable| & \lstinline|scope[]|, \lstinline|name|, \lstinline|format|, \lstinline|color|, \lstinline|manualName| (alias), \lstinline|heightScale|, \lstinline|analog| \\
+\lstinline|divider|  & \lstinline|name|, \lstinline|color| \\
+\lstinline|timeline| & \lstinline|name| \\
+\lstinline|group|    & \lstinline|name|, \lstinline|color|, \lstinline|isOpen|, \lstinline|children[]| \\
+\bottomrule
+\end{tabularx}
+
+\subsubsection{Grupos colapsáveis e a árvore de itens}
+
+Um \lstinline|group| é um \lstinline|DisplayedItem::Group| do Surfer. Detalhe
+verificado contra o \emph{save} nativo do Surfer v0.7.0: os filhos \textbf{não} são
+listados em \lstinline|content| (que serializa sempre como \lstinline|[]|); a
+hierarquia é definida \emph{apenas} pelos níveis (\lstinline|level|) na
+\lstinline|items_tree| — os filhos vêm logo após o nó do grupo, com
+\lstinline|level + 1|. O campo \lstinline|is_open| persiste o estado dobrado
+(\lstinline|true| = expandido).
+
+A travessia em \lstinline|buildSurferState| é \emph{depth-first in-order}: os
+\lstinline|ref| são sequenciais (1-based) na ordem de visita, o nó do grupo vem
+\emph{antes} dos filhos, e cada item gera tanto uma linha na \lstinline|items_tree|
+quanto uma entrada no \lstinline|displayed_items|.
+
+\begin{lstlisting}[language=Java,caption={Travessia in-order que numera refs e níveis (buildSurferState).}]
+const visit = (item, level) => {
+  const ref = nextRef++;
+  if (item.kind === 'group') {
+    nodes.push({ ref, level, unfolded: item.isOpen ?? true });
+    for (const child of item.children) visit(child, level + 1);
+    entries.push(emitGroup(ref, item));
+  } else if (item.kind === 'variable') {
+    nodes.push({ ref, level, unfolded: true });
+    /* scope id + var id placeholders, re-resolvidos por nome no load */
+    entries.push(emitVariable(ref, item, sid, nextVarId++));
+  } /* divider / timeline analogos */
+  return ref;
+};
+\end{lstlisting}
+
+\subsubsection{Esqueleto do estado}
+
+O esqueleto externo do \path{.surf.ron} são os \emph{defaults} estáveis do
+\lstinline|UserState| (todos os \emph{toggles} \lstinline|None|; \lstinline|frame_buffer|
+e \lstinline|variable_filter| nos defaults). Só o bloco \lstinline|waves| é derivado:
+a \lstinline|source: File(...)| (dica; o VCD posicional sobrescreve), o
+\lstinline|format| (\lstinline|Vcd|/\lstinline|Fst|, magic-detectado de qualquer
+modo), a \lstinline|items_tree|, o \lstinline|displayed_items|, os
+\lstinline|viewports| e os \lstinline|markers|.
+
+\subsubsection{Marcadores automáticos e janela de delta}
+
+Quando há \lstinline|markerTimes| (tempos de evento), eles viram entradas
+\lstinline|<id>: (1, [<tempo>])| no campo \lstinline|markers| (formato nativo do
+Surfer v0.7.0), e \lstinline|show_cursor_window| abre a janela de cursor/delta para
+medir o intervalo (latência). Os tempos são o \lstinline|#N| cru do dump (em
+unidades do \emph{timescale}).
+
+\subsection{Camada de curadoria: \lstinline|buildSurferLayout|}
+\label{sec:cap10-surfer-curadoria}
+
+A função \lstinline|buildSurferLayout| espelha o \lstinline|buildAuroraGtkw|:
+mesma detecção de processador (\lstinline|detectProcessors|,
+\lstinline|resolveScopeModules|, \lstinline|buildSignedSet|, importados \emph{verbatim}
+de \file{gtkw\_proc\_writer}) e a mesma ordem de seções, mas emitindo
+\lstinline|SurferItem| declarativos em vez de linhas \lstinline|@<hexflag>| do
+GTKWave. A ordem por processador é: \textbf{Top-level} $\rightarrow$ por processador
+(\emph{banner}/grupo $\rightarrow$ clk/rst/itr $\rightarrow$ I/O $\rightarrow$
+Instructions $\rightarrow$ Variables $\rightarrow$ Flags).
+
+\subsubsection{Grupos por processador e cores de seção}
+
+Cada processador detectado vira um \textbf{grupo colapsável} (cabeçalho =
+\lstinline|instanceName|), expandido por padrão (\lstinline|is_open: true|); em
+\emph{designs} multi-processador o usuário pode dobrar os que não interessam. As
+seções internas (\textbf{I/O}, \textbf{Instructions}, \textbf{Variables},
+\textbf{Flags}) também são grupos. A cor de todos os \emph{headers} curados é
+\lstinline|SECTION_COLOR = 'Red'| (\lstinline|mkGroup|), por contraste com as
+trilhas (I/O em \lstinline|Yellow|, Variables em \lstinline|Orange|, Instructions em
+\lstinline|Violet|). Blocos volumosos abrem fechados: \emph{arrays} e a seção
+\textbf{Flags} têm \lstinline|isOpen = false|.
+
+\subsubsection{Mapeamento de formato e cor (GTKWave $\rightarrow$ Surfer)}
+
+A \autoref{tab:cap10-fmt} resume o mapeamento verificado no código.
+
+\begin{table}[h]
+\centering
+\caption{Mapeamento de formato e cor do \path{.gtkw} para o \path{.surf.ron}.}
+\label{tab:cap10-fmt}
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{GTKWave} & \textbf{Surfer (item.format / color)} \\
+\midrule
+FMT\_BIN              & \lstinline|Binary| \\
+FMT\_DEC             & \lstinline|Unsigned| \\
+FMT\_SIGNED\_DEC      & \lstinline|Signed| \\
+FMT\_REAL            & \lstinline|FP: 32-bit IEEE 754| \\
+FMT\_ANALOG\_*        & formato base + \lstinline|analog| (Step) \\
+Orange / Yellow      & \lstinline|Orange| / \lstinline|Yellow| \\
+Indigo / Violet      & \lstinline|Violet| \\
+NORMAL               & sem cor \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Seções de sinal}
+
+\begin{description}
+  \item[Top-level] sinais fora de qualquer processador; \lstinline|Binary| para
+        escalares, \lstinline|Signed|/\lstinline|Unsigned| conforme o
+        \lstinline|signedSet|.
+  \item[clk/rst/itr] 1-bit, \lstinline|Binary|, com \lstinline|heightScale: 0.8|
+        (levemente reduzidos para dar proeminência aos sinais de dado; o comentário
+        registra que 0.5 era curto demais e o rótulo encavalava).
+  \item[I/O] sinais \lstinline|req_in_sim|, \lstinline|in_sim|,
+        \lstinline|out_en_sim|, \lstinline|out_sig| (regex), cor \lstinline|Yellow|,
+        com \emph{aliases} legíveis (\enquote{req\_in 0}, \enquote{input 0},
+        \enquote{out\_en 0}, \enquote{output 0}).
+  \item[Instructions] as trilhas \lstinline|valr2| (Assembly) e \lstinline|linetabs|
+        (\cmm{}), cor \lstinline|Violet|. São a \textbf{assinatura curada} do SAPHO e
+        são \emph{sempre} emitidas quando existem — de propósito \textbf{não} passam
+        pelo filtro do \emph{picker}. O \emph{alias} carrega o nome do processador
+        (ex.: \enquote{Assembly (ProcDTW)}).
+  \item[Variables] inteiros (\lstinline|me1_| $\rightarrow$ \lstinline|Signed|),
+        floats (\lstinline|me2_| $\rightarrow$ \lstinline|FP: 32-bit IEEE 754|),
+        complexos (\lstinline|comp_me3_|) e seus \emph{arrays}
+        (\lstinline|arr_me1_| etc.), cor \lstinline|Orange|, com \emph{aliases} do
+        tipo \enquote{int v in f()}. \emph{Arrays} viram subgrupos fechados.
+  \item[Flags] grupos \textbf{Stack} (ponteiros/limites das pilhas de dados e de
+        instrução, em \lstinline|sp|/\lstinline|isp|) e \textbf{ULA}
+        (\lstinline|delta_int|/\lstinline|delta_float|, hexadecimal), com
+        \emph{display} analógico \lstinline|ANALOG_STEP|
+        (\lstinline|{ renderStyle: 'Step', yAxisScale: 'TypeLimits' }|).
+\end{description}
+
+\subsection{Tracks de Assembly/\cmm{}: \emph{mapping translators}}
+\label{sec:cap10-surfer-mapping}
+
+Onde o \path{.gtkw} usa \emph{file filters} (\path{trad\_opcode.txt} /
+\path{trad\_cmm.txt}), o Surfer usa \emph{mapping translators}: arquivos de
+mapeamento valor$\rightarrow$texto que o Surfer escaneia no \emph{startup} e
+referencia pelo nome (campo \lstinline|format| do item). A AURORA converte os
+\emph{trad files} do YANC nesses mappings.
+
+\subsubsection{Conversão (\lstinline|convertTradToSurferMapping|)}
+
+Um \emph{trad file} do YANC tem linhas \enquote{\lstinline|<chave-decimal> <texto>|}.
+A conversão (regras validadas contra o binário v0.7.0):
+
+\begin{itemize}
+  \item emite um cabeçalho \lstinline|Name = <nome>| (e \lstinline|Bits = <n>|
+        quando a largura é conhecida);
+  \item o Surfer casa a chave pelo \emph{valor numérico} dos bits;
+  \item chaves \textbf{negativas} (\emph{linetabs}: \lstinline|-1|/\lstinline|-2|/\lstinline|-3|)
+        viram o padrão de bits \emph{unsigned} na largura do sinal (ex.: 20-bit
+        \lstinline|-1| $\rightarrow$ \lstinline|0xFFFFF|), pois o Surfer não casa
+        assinado;
+  \item linhas \textbf{sem texto} são \textbf{puladas}: o Surfer rejeita
+        (\enquote{Missing mapping}) e a falha derruba o arquivo inteiro, o que faria
+        o Surfer entrar em \emph{panic} ao carregar um \path{.surf.ron} que
+        referencia um \emph{translator} não carregado.
+\end{itemize}
+
+\subsubsection{Resolução e escrita}
+
+\lstinline|resolveProcMappings| decide o \lstinline|format| das trilhas: com
+\emph{trad file} presente, o \lstinline|format| é o nome do mapping (decode); sem
+ele, o \emph{fallback} é decimal cru (\lstinline|Unsigned| para Assembly,
+\lstinline|Signed| para \cmm{}). Os nomes de mapping são FS-safe e prefixados
+(\lstinline|aurora_asm_<ns>_<procType>| etc.), com \emph{namespace} derivado do
+caminho do projeto (FNV-1a de \lstinline|projectPath|), de modo que dois projetos
+com o mesmo \emph{top} de testbench não se sobrescrevem.
+
+A escrita dos mappings é feita pelo IPC \lstinline|write-surfer-mappings|
+(\file{main/ipc/compile.js}), no diretório \textbf{global} do Surfer
+(\path{\%APPDATA\%/surfer-project/surfer/config/mappings}) — o único lugar onde o
+Surfer descobre os mappings de forma confiável no Windows (o \emph{walk-up} local
+\path{.surfer/} está quebrado em v0.7.0). A escrita é \emph{atômica} (grava em
+\path{.aurora.tmp} e renomeia) para o Surfer nunca ler um mapping pela metade; os
+nomes são \lstinline|aurora_*|-prefixados para nunca tocar mappings do usuário, e
+cada \emph{launch} sobrescreve o conjunto do projeto ativo (idempotente).
+
+\subsection{Números complexos: pré-passo via \tool{comp2gtkw}}
+\label{sec:cap10-surfer-prepass}
+
+O Surfer não tem o \emph{process filter} externo do GTKWave, então os números
+complexos (\lstinline|comp_me3_| / \lstinline|comp_arr_me3_|) são pré-decodificados
+e \enquote{assados} em um mapping. O método
+\lstinline|_buildSurferComplexMapping| (\file{compilation\_module.js}):
+
+\begin{enumerate}[label=\arabic*.]
+  \item faz \emph{stream} do \tool{fst2vcd} sobre o FST e coleta os valores
+        \emph{distintos} dos sinais complexos (parando cedo ao atingir o \emph{cap});
+  \item envia esses valores ao \tool{comp2gtkw} (o mesmo decoder do GTKWave) via o
+        IPC \lstinline|decode-complex|, que os alimenta no \lstinline|stdin| (um
+        token por linha) e devolve as strings \enquote{re imi} em ordem;
+  \item monta um único mapping compartilhado por todos os sinais complexos (o
+        decode depende só do \emph{bitpattern}).
+\end{enumerate}
+
+Tudo é \emph{gated}: projetos sem sinais complexos (\lstinline|hasComplexSignals|)
+não pagam o \emph{stream}. Sem o decoder
+(\path{components/bin/comp2gtkw.exe}) ou sem o \tool{fst2vcd}, o passo é pulado e os
+complexos abrem em \lstinline|Binary| cru. O \lstinline|comp2gtkw.exe| só é aceito
+pelo \emph{allowlist} a partir de \path{bin}.
+
+\subsection{Marcadores de latência (eventos de I/O)}
+\label{sec:cap10-surfer-markers}
+
+\lstinline|_buildSurferEventMarkers| crava marcadores automáticos nos tempos do
+primeiro \lstinline|req_in| (entrada) e do primeiro \lstinline|out_en| (saída) para
+medir latência. Também é \emph{gated} (\lstinline|hasIoEventSignals|): só paga o
+\emph{stream} do \tool{fst2vcd} quando há sinais de I/O, e para cedo ao achar os dois
+eventos. Quando há marcadores, a janela de delta do Surfer abre
+(\lstinline|showCursorWindow: markerTimes.length > 0|).
+
+\subsection{Resolução do layout: usuário vs.\ auto-gerado}
+\label{sec:cap10-surfer-resolve}
+
+O \lstinline|_waveResolveSurferSaveFile| decide qual \emph{layout} carregar, em duas
+fontes:
+
+\begin{description}
+  \item[Fonte 1 — curado pelo usuário] a entrada de \lstinline|surferFiles[]|
+        marcada \lstinline|isActive| na \lstinline|WaveStore| (um \path{.surf.ron}
+        ou \path{.sucl}). Se existir, é usada diretamente.
+  \item[Fonte 2 — auto-gerado] quando não há entrada ativa, gera um
+        \path{.surf.ron} curado via \lstinline|buildSurferLayout|, reusando a
+        \emph{mesma} seleção do \emph{picker} e a mesma detecção de processador do
+        \tool{GTKWave}. O arquivo vai para
+        \path{<tempBaseDir>/<simTopModule>.surf.ron}.
+\end{description}
+
+Quando nenhuma fonte produz um \emph{layout}, retorna \lstinline|null| e o Surfer
+abre o VCD cru. O \emph{parse} do cabeçalho prefere o irmão \path{.header.vcd}
+(o FST binário não é \emph{parseável} como texto); se só houver FST e nenhum
+\path{.header.vcd}, retorna \lstinline|null|.
+
+\paragraph{Anti-\emph{staleness}.} Antes de assar os mappings, o método compara os
+\emph{mtimes}: se os tradutores são \emph{mais novos} que o dump (recompilou o
+\cmm{} sem re-simular), avisa no terminal que o decode pode estar desatualizado
+(uma tabela nova casada com um dump velho geraria \enquote{lixo crível}), com margem
+de 2\,s para a ordem normal compile$\rightarrow$simulate.
+
+\subsection{Limites atuais da camada de curadoria}
+\label{sec:cap10-surfer-limites}
+
+O cabeçalho do próprio \file{surfer\_layout\_writer.ts} registra a paridade: cores,
+formatos, \emph{analog}, \emph{aliases}, seções, \emph{arrays} e \emph{flags} têm
+paridade total com o \path{.gtkw}. As trilhas de Assembly/\cmm{} e os complexos
+dependem do mecanismo de \emph{mapping translator} / pré-passo descrito acima; quando
+os \emph{trad files} ou o decoder não estão disponíveis, esses tracks abrem em
+decimal/binário cru (nunca é fatal). A \autoref{tab:cap10-surfer-resumo} consolida
+onde cada artefato é escrito.
+
+\begin{table}[h]
+\centering
+\caption{Artefatos do caminho Surfer e onde são gravados.}
+\label{tab:cap10-surfer-resumo}
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Artefato} & \textbf{Local} \\
+\midrule
+\path{.surf.ron} auto-gerado & \path{components/Temp/<top>.surf.ron} \\
+\emph{Mapping translators}   & \path{\%APPDATA\%/surfer-project/surfer/config/mappings/} \\
+Config de janela (centralizada) & \path{\%APPDATA\%/surfer-project/surfer/config/config.toml} \\
+Binário do Surfer            & \path{components/Packages/surfer/surfer.exe} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Resumo}
+\label{sec:cap10-resumo}
+
+A AURORA entrega dois visualizadores de onda sobre o mesmo \emph{pipeline} de
+simulação. O \tool{GTKWave} (fork \repo{gtkwave-nipscern}) é o padrão empacotado,
+com customizações verificadas no código: \lstinline|--zoom-fit| e
+\lstinline|--left-justify| novas, painel/canvas escuros alinhados à paleta Surfer
+(agora \emph{default}), SST removido, ícones Phosphor, barra de título CSD, \emph{zoom}
+animado e build Windows nativo via Meson/MSYS2. O \tool{Surfer} é o viewer
+\emph{opt-in}: baixado opcionalmente, lançado como janela externa, e alimentado por
+um \emph{layout} declarativo \path{.surf.ron} gerado por \lstinline|buildSurferLayout|
+— grupos colapsáveis por processador, cores, \emph{aliases}, \emph{display} analógico,
+tracks de Assembly/\cmm{} via \emph{mapping translators} (conversão de
+\path{trad\_*.txt}) e complexos via pré-passo \tool{comp2gtkw}. Quando o
+\path{surfer.exe} está ausente, o botão Wave degrada limpa e automaticamente para o
+\tool{GTKWave}.

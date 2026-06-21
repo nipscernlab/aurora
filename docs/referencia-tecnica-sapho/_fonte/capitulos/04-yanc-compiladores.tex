@@ -1,0 +1,678 @@
+% !TEX root = ../main.tex
+\chapter{YANC: os compiladores e o pipeline de tradução}
+\label{cap:04-yanc-compiladores}
+
+O \tool{YANC} (\enquote{Yet Another Compiler}) é o conjunto de programas de linha de
+comando que transforma o programa de alto nível do usuário no hardware
+sintetizável de um \emph{soft-processor} \tool{SAPHO}, junto com as imagens de
+memória e o \emph{testbench} necessários para simulá-lo. Diferentemente de um
+compilador convencional, cuja saída é código de máquina para uma CPU já
+existente, o \tool{YANC} emite Verilog: o produto final é a descrição RTL de um
+processador customizado mais a memória de instruções (\file{.mif}) que esse
+processador executa. A IDE \tool{AURORA} (\autoref{cap:05-aurora-arquitetura}) é a
+camada que orquestra esses binários; este capítulo documenta os binários em si e
+a cadeia de tradução que eles compõem.
+
+Todo o material descrito aqui vive no repositório \repo{yanc}, em
+\path{Compilers/}, \path{Scripts/} e no \file{Makefile} na raiz. A versão da
+suíte é definida em um único lugar, \file{Compilers/yanc_version.h}
+(\lstinline|#define YANC_VERSION "5.2"|), incluído por todos os binários para que
+a saída de \lstinline|--version| seja consistente.
+
+\section{Os sete binários e o modelo de construção}
+\label{sec:yanc-binarios}
+
+O \file{Makefile} é a fonte única de verdade da construção: ele define, em um só
+lugar, como cada binário é compilado, e é consumido por \file{Scripts/setup.sh},
+\file{Scripts/setup.bat}, \file{Scripts/aurora.bat} e pelos fluxos de CI/release.
+São sete binários produzidos em \path{bin/}:
+
+\begin{longtable}{l l l}
+\toprule
+\textbf{Binário} & \textbf{Entrada} & \textbf{Saída} \\
+\midrule
+\endhead
+\tool{cmmcomp}   & \cmm{} (\file{.cmm})            & \file{.asm} + tabelas de log \\
+\tool{cppcomp}   & C++ pré-processado (\file{.c})  & \file{.asm} + tabelas de log \\
+\tool{cpppp}     & C++ (\file{.cpp}, com diretivas)& C++ pré-processado \\
+\tool{appcomp}   & \file{.asm}                     & \file{app\_log.txt} (1ª passada) \\
+\tool{asmcomp}   & \file{.asm} (+ logs)            & \file{.v} + \file{.mif} + \file{\_tb.v} \\
+\tool{comp2gtkw} & padrão de bits (stdin)          & número complexo legível (stdout) \\
+\tool{gen\_gtkw} & cabeçalho de \file{.vcd}        & \file{.gtkw} formatado \\
+\bottomrule
+\end{longtable}
+
+\subsection{Tecnologias de construção: Flex, Bison e GCC}
+\label{sec:yanc-flexbison}
+
+Os binários se dividem por tecnologia, conforme as receitas do \file{Makefile}:
+
+\begin{description}[leftmargin=1.2em]
+  \item[Flex + Bison] \tool{cmmcomp} e \tool{cppcomp}. A receita roda
+    \lstinline|bison -y -d <gram>.y| (gera \file{y.tab.c} e \file{y.tab.h}) e
+    \lstinline|flex <lexer>.l| (gera \file{lex.yy.c}); em seguida o GCC compila
+    esses arquivos gerados junto com os \file{.c} escritos à mão.
+  \item[Apenas Flex] \tool{appcomp} (de \file{app.l}) e \tool{asmcomp} (de
+    \file{ASMComp.l}). Não há gramática \file{.y}: a análise é dirigida por
+    estados dentro do próprio analisador léxico.
+  \item[Apenas GCC] \tool{cpppp} (uma única unidade de tradução, \file{cpppp.c}),
+    \tool{comp2gtkw} e \tool{gen\_gtkw} (\file{Scripts/comp2gtkw.c} e
+    \file{Scripts/gen\_gtkw.c}).
+\end{description}
+
+A lista de fontes por binário é fixada no \file{Makefile}. Por exemplo,
+\tool{cmmcomp} compila \lstinline|ast.c data_assign.c oper.c stdlib.c| (entre
+outros) mais \file{CMMComp.l} e \file{CMMComp.y}; \tool{asmcomp} compila
+\lstinline|eval.c labels.c opcodes.c hdl.c simulacao.c array.c| mais
+\file{ASMComp.l}.
+
+\subsection{Compilação cruzada para Windows sem dependência de DLL}
+\label{sec:yanc-crosscompile}
+
+O \file{Makefile} detecta a plataforma por \lstinline|$(OS)|: quando é
+\lstinline|Windows_NT| (inclusive sob MSYS2), o sufixo de saída vira \file{.exe};
+em POSIX não há sufixo. O compilador é parametrizável por \lstinline|CC|, e o
+cabeçalho da receita documenta explicitamente o uso de um \emph{toolchain} de
+compilação cruzada:
+
+\begin{lstlisting}[language=bash]
+make CC=x86_64-w64-mingw32-gcc        # Windows standalone (sem DLLs do MSYS2)
+\end{lstlisting}
+
+Construir com \tool{x86\_64-w64-mingw32-gcc} produz \file{.exe} que não dependem
+das DLLs de runtime do MSYS2, ou seja, binários autocontidos que a \tool{AURORA}
+pode empacotar e distribuir. No fluxo nativo do Windows, \file{setup.bat}
+localiza preferencialmente \lstinline|x86_64-w64-mingw32-gcc.exe| no \lstinline|PATH|
+ou em \path{<msys2>/mingw64/bin} (\file{Scripts/setup.bat}). Os alvos
+\lstinline|make <nome>| (curtos, sem sufixo) e \lstinline|make install DESTDIR=<dir>|
+completam o conjunto de operações de build.
+
+\section{O front end C+-: \tool{cmmcomp}}
+\label{sec:yanc-cmmcomp}
+
+O \tool{cmmcomp} é o compilador da linguagem \cmm{}, descrita em detalhe no
+\autoref{cap:03-linguagem-cmm}; aqui o foco é seu papel como binário no pipeline.
+Ele lê um arquivo \file{.cmm} e produz um \file{.asm} mais um conjunto de tabelas
+auxiliares no diretório temporário.
+
+\subsection{Interface de linha de comando}
+\label{sec:yanc-cmmcomp-cli}
+
+A análise de argumentos vive em \file{Compilers/CMMComp/Sources/args.c}. Todas as
+opções que carregam caminhos são obrigatórias; a falta de qualquer uma encerra o
+programa com mensagem de uso. As opções (de \file{args.h}, \lstinline|struct cli_args|):
+
+\begin{longtable}{l l}
+\toprule
+\textbf{Opção} & \textbf{Significado} \\
+\midrule
+\endhead
+\lstinline|-i / --input|       & arquivo-fonte \cmm{} (dentro de \path{<proc-dir>/Software}) \\
+\lstinline|-n / --name|        & nome do processador (base do \file{.asm} de saída) \\
+\lstinline|-p / --proc-dir|    & diretório do processador \\
+\lstinline|-m / --macros-dir|  & diretório de macros \\
+\lstinline|-t / --temp-dir|    & diretório temporário \\
+\lstinline|-A / --array|       & emite cada elemento de array como sinal próprio no GTKWave \\
+\lstinline|-h / --help|        & imprime ajuda e sai \\
+\lstinline|-V / --version|     & imprime versão e sai \\
+\bottomrule
+\end{longtable}
+
+Há ainda um \emph{flag} de idioma processado antes de tudo
+(\lstinline|parse_lang_flag(&argc, argv)| em \lstinline|main|), que seleciona o
+idioma das mensagens (\lstinline|-en|/\lstinline|-pt|) e o remove de
+\lstinline|argv|.
+
+\subsection{Léxico, diretivas e \texttt{\#define} no analisador}
+\label{sec:yanc-cmmcomp-lexer}
+
+O analisador léxico (\file{CMMComp.l}) reconhece as diretivas de configuração do
+processador como \emph{tokens} próprios: \lstinline|#PRNAME|, \lstinline|#NUBITS|,
+\lstinline|#NBMANT|, \lstinline|#NBEXPO|, \lstinline|#NDSTAC|, \lstinline|#SDEPTH|,
+\lstinline|#NUIOIN|, \lstinline|#NUIOOU|, \lstinline|#NUGAIN|, \lstinline|#FFTSIZ|,
+mais as diretivas comportamentais \lstinline|#PRACA| (ponto de retorno da
+interrupção) e \lstinline|#TOAQUI| (marcador de PC). Reconhece também as palavras
+da biblioteca padrão (\lstinline|in|, \lstinline|out|, \lstinline|norm|,
+\lstinline|sqrt|, \lstinline|sin|, \lstinline|complex|, etc.), os tipos
+(\lstinline|int|, \lstinline|float|, \lstinline|comp|, \lstinline|void|), os
+operadores de dois símbolos (\lstinline|<<|, \lstinline|>>>|, \lstinline|==|,
+\lstinline|&&|) e a notação de Dirac em UTF-8 (\lstinline|BRA|/\lstinline|KET|).
+
+Um \lstinline|#define| do tipo objeto é tratado inteiramente no léxico: a regra
+captura \lstinline|#define NAME corpo|, registra o corpo em uma tabela
+(\lstinline|g_def|, capacidade \lstinline|CMM_MAX_DEFINES = 256|) e, ao reencontrar
+\lstinline|NAME|, re-analisa o corpo a partir de um buffer empilhado
+(\lstinline|yy_scan_string| + \lstinline|yypush_buffer_state|), desempilhado no
+\lstinline|<<EOF>>|. Um \emph{flag} \lstinline|active| por macro impede a expansão
+infinita de uma definição auto-referente. Macros do tipo função, \lstinline|#ifdef|
+e \lstinline|#include| estão fora de escopo do léxico do \cmm{}.
+
+\subsection{Gramática dirigida por AST e a entrada do programa}
+\label{sec:yanc-cmmcomp-ast}
+
+A gramática (\file{CMMComp.y}) constrói uma AST (\emph{abstract syntax tree})
+durante o \emph{parse}: cada regra produtora monta a subárvore correspondente
+(\lstinline|expr_node *| na pilha do Bison) sem emitir código inline. Quando o
+\emph{parse} termina (regra \lstinline|fim : prog|), dispara-se
+\lstinline|prog_emit()|, que percorre a AST inteira e gera o assembly em uma única
+varredura. O \lstinline|main| (em \file{CMMComp.y}) encadeia
+\lstinline|parse_lang_flag| $\rightarrow$ \lstinline|cli_parse| $\rightarrow$
+\lstinline|parse_init| $\rightarrow$ \lstinline|yyparse| $\rightarrow$
+\lstinline|parse_end|.
+
+As diretivas têm efeito duplo (em \file{diretivas.c}, \lstinline|dire_exec|):
+atualizam estado global de compilação lido pelas demais regras
+(p.\,ex.\ \lstinline|nbmant|, \lstinline|nbexpo|, \lstinline|nuioin|,
+\lstinline|nuioou|, \lstinline|prname|) e, ao mesmo tempo, anexam um nó
+\lstinline|STMT_DIRECTIVE| à lista de \emph{statements}, para que sua emissão
+aconteça no percurso final da AST.
+
+\subsection{A inicialização e os arquivos gerados}
+\label{sec:yanc-cmmcomp-init}
+
+\lstinline|parse_init| (em \file{global.c}) abre o \file{.cmm} de entrada em
+\path{<proc-dir>/Software/<input>} e cria o \file{.asm} de saída em
+\path{<proc-dir>/Software/<name>.asm}. Cria ainda dois arquivos auxiliares no
+diretório temporário: \file{cmm_log.txt} (informações para o assembler e para o
+GTKWave) e \file{pc\_<name>\_mem.txt} (a \emph{side-table} de linhas, descrita na
+\autoref{sec:yanc-sidetable}). Ao final, \lstinline|parse_end| anexa as macros
+necessárias ao \file{.asm} (\lstinline|mac_copy|), verifica consistência das
+variáveis (\lstinline|check_var|), grava \lstinline|num_ins| no
+\file{cmm_log.txt} e gera \file{trad_cmm.txt}, o mapa de número de linha para
+texto-fonte.
+
+\section{O front end C++: \tool{cpppp} e \tool{cppcomp}}
+\label{sec:yanc-cpp}
+
+O caminho C++ usa dois binários em sequência, espelhando a disposição de
+diretórios do caminho \cmm{}.
+
+\subsection{\tool{cpppp}: o pré-processador C}
+\label{sec:yanc-cpppp}
+
+O \tool{cpppp} (uma única unidade, \file{Compilers/CPPComp/Sources/cpppp.c}) roda
+antes do \tool{cppcomp} e trata as diretivas do pré-processador, conforme o
+cabeçalho do arquivo: \lstinline|#include "nome"| (relativo ao arquivo atual e aos
+caminhos \lstinline|-I|), \lstinline|#include <nome>| (apenas caminhos
+\lstinline|-I|), \lstinline|#define NAME corpo| (macros tipo objeto e tipo função,
+incluindo variádicas com \lstinline|...|/\lstinline|__VA_ARGS__|, \emph{stringize}
+com \lstinline|#| e colagem com \lstinline|##|), \lstinline|#undef|,
+\lstinline|#ifdef|/\lstinline|#ifndef|/\lstinline|#else|/\lstinline|#endif|,
+\lstinline|#pragma once| e \lstinline|#pragma yanc ...| (repassado verbatim). Para
+o \lstinline|#pragma once|, os caminhos são canonizados (\lstinline|path_canon|:
+absolutos, com barras normais e em minúsculas no Windows) para que o mesmo arquivo
+incluído por grafias diferentes compare igual. A invocação é
+\lstinline|cpppp -i input.c [-o out.c] [-I dir]*|.
+
+\subsection{\tool{cppcomp}: o compilador C}
+\label{sec:yanc-cppcomp}
+
+O \tool{cppcomp} (Flex + Bison: \file{CPPComp.l}, \file{CPPComp.y}, mais
+\file{codegen.c}, \file{symtab.c}, \file{types.c}, \file{ast.c}, \file{main.c})
+recebe o \file{.c} já pré-processado e emite o \file{.asm}. Seu \lstinline|main|
+(em \file{main.c}) lê \lstinline|-i|, \lstinline|-p|, \lstinline|-n| e
+\lstinline|-t|; constrói a AST (\lstinline|ast_unit|, \lstinline|st_init|,
+\lstinline|yyparse|); deriva o nome do processador do basename quando
+\lstinline|-n| não é dado; e grava a saída em
+\path{<proc-dir>/Software/<prname>.asm} (criando \path{Software/} se faltar).
+
+O ponto crucial para a integração é que \tool{cppcomp} produz \emph{as mesmas}
+tabelas auxiliares que \tool{cmmcomp}, de modo que o restante do pipeline
+(\tool{appcomp}, \tool{asmcomp}, \tool{gen\_gtkw}) é idêntico para os dois front
+ends. Em \file{codegen.c}, \lstinline|write_cmm_log| grava \file{cmm_log.txt}
+(uma linha por variável, no formato \lstinline|func var tipo [tamanho]|, mais
+\lstinline|num_ins|) e \lstinline|write_trad_cmm| grava \file{trad_cmm.txt} com os
+mesmos três cabeçalhos de \emph{scaffolding} negativos do caminho \cmm{}
+(\lstinline|-1 INTERNAL|, \lstinline|-2 void main();|, \lstinline|-3 END|)
+seguidos de cada linha-fonte numerada a partir de 1. Como o
+\lstinline|src_path| é o arquivo efetivamente compilado (o \file{pp.cpp}
+pré-processado), os números de linha batem com os carimbos de linha da AST.
+
+\section{O formato do assembly intermediário (\file{.asm})}
+\label{sec:yanc-asm}
+
+O \file{.asm} é a representação intermediária que une os dois front ends ao back
+end. É texto, uma instrução por linha, no formato \emph{mnemônico} seguido (quando
+houver) de um operando, com comentários estilo \lstinline|//| e rótulos de salto
+prefixados por \lstinline|@|. As diretivas de configuração aparecem como linhas
+\lstinline|#...|. O trecho abaixo, extraído de
+\file{Compilers/CMMComp/Includes/float_sqrt.asm}, é um exemplo real de corpo de
+rotina:
+
+\begin{lstlisting}
+@float_sqrt     SET sqrt_num       // pega o parametro
+              F_ROT                // estimativa inicial (potencia de 2 mais proxima)
+                PSH                // atualiza x
+              F_DIV sqrt_num       // iteracao 1
+             SF_ADD
+              F_MLT 0.5
+                RET
+\end{lstlisting}
+
+\subsection{O conjunto de mnemônicos}
+\label{sec:yanc-asm-mnemonics}
+
+Os mnemônicos válidos são definidos identicamente nos analisadores de
+\tool{appcomp} (\file{app.l}) e \tool{asmcomp} (\file{ASMComp.l}). Cada mnemônico
+é mapeado a um índice de opcode e a um \enquote{próximo estado} que determina como
+o operando seguinte será interpretado (sem operando; endereço em memória de dados;
+endereço em memória de instruções; porta de entrada; porta de saída; ou
+endereçamento indireto fixo de pseudo-instruções). As famílias incluem:
+
+\begin{description}[leftmargin=1.2em]
+  \item[Memória/acumulador] \lstinline|LOD|, \lstinline|P_LOD|, \lstinline|LDI|,
+    \lstinline|ILI| (carga, com variantes de \emph{push} e endereçamento indireto/
+    invertido para FFT); \lstinline|SET|, \lstinline|SET_P|, \lstinline|STI|,
+    \lstinline|ISI| (armazenamento).
+  \item[Pilha] \lstinline|PSH|, \lstinline|POP|.
+  \item[E/S] \lstinline|INN|, \lstinline|F_INN|, \lstinline|P_INN|,
+    \lstinline|PF_INN|, \lstinline|OUT|.
+  \item[Saltos/sub-rotinas] \lstinline|JMP|, \lstinline|JIZ|, \lstinline|CAL|,
+    \lstinline|RET|.
+  \item[Aritmética] \lstinline|ADD|, \lstinline|MLT|, \lstinline|DIV|,
+    \lstinline|MOD| e seus variantes de ponto flutuante (\lstinline|F_...|) e de
+    pilha (\lstinline|S_...|, \lstinline|SF_...|).
+  \item[Funções especiais] \lstinline|SGN|, \lstinline|NEG|, \lstinline|ABS|,
+    \lstinline|PST|, \lstinline|NRM|, \lstinline|I2F|, \lstinline|F2I|,
+    \lstinline|F_ROT| (raiz por potência de 2 mais próxima), \lstinline|F_SCL|,
+    \lstinline|XPO|.
+  \item[Lógicos/bit a bit] \lstinline|AND|, \lstinline|ORR|, \lstinline|XOR|,
+    \lstinline|INV|, \lstinline|LAN|, \lstinline|LOR|, \lstinline|LIN|;
+    comparações \lstinline|LES|, \lstinline|GRE|, \lstinline|EQU|;
+    deslocamentos \lstinline|SHL|, \lstinline|SHR|, \lstinline|SRS|.
+  \item[Ponteiros/pseudo-instruções] \lstinline|LDA|, \lstinline|STA|,
+    \lstinline|LEA| (\emph{load-effective-address}) e a família \lstinline|..._V|
+    (acesso com deslocamento constante, p.\,ex.\ \lstinline|LOD_V|,
+    \lstinline|ADD_V|).
+\end{description}
+
+O \tool{asmcomp} associa a cada mnemônico um índice numérico de 7 bits
+(\lstinline|NBITS_OPC = 7|, que deve casar com o Verilog em \file{proc.v}); o
+operando ocupa \lstinline|nbopr| bits, calculado em \lstinline|eval_init| como
+\lstinline|ceil(log2(max(n_ins, n_dat)))|.
+
+\section{A primeira passada: \tool{appcomp}}
+\label{sec:yanc-appcomp}
+
+O \tool{appcomp} (somente Flex, \file{app.l} + \file{eval.c}) faz a primeira
+passada sobre o \file{.asm}. Seu papel é \emph{coletar} os parâmetros do
+processador e \emph{resolver} os endereços de variáveis e rótulos, gravando tudo
+em \file{app_log.txt} (no diretório \lstinline|-t|). A invocação é
+\lstinline|appcomp -i <arquivo.asm> -t <temp-dir>|.
+
+A passada é necessária porque o \file{.asm} é único, mas referencia rótulos antes
+de defini-los (saltos para frente). Contando instruções e registrando o índice
+onde cada rótulo aparece, a primeira passada permite que a segunda passada já
+conheça o endereço final de cada salto. Concretamente, em \file{eval.c}:
+
+\begin{itemize}[leftmargin=1.2em]
+  \item As diretivas \lstinline|#PRNAME|, \lstinline|#NUBITS|, \lstinline|#NBMANT|,
+    \lstinline|#NBEXPO| têm seu argumento capturado e gravado
+    (\lstinline|eval_direct| + \lstinline|eval_opernd|, estados 1 a 4).
+  \item \lstinline|#ITRAD| e \lstinline|#TOAQUI| registram o índice da instrução
+    corrente como \lstinline|itr_addr| e \lstinline|toaqui_addr|
+    (\lstinline|eval_itrad|, \lstinline|eval_toaqui|).
+  \item Cada opcode incrementa o contador de instruções \lstinline|n_ins| no
+    momento certo (no operando, para instruções com operando; imediatamente, para
+    instruções sem operando, em \lstinline|eval_opcode|).
+  \item Cada operando que é variável é adicionado à tabela
+    (\lstinline|var_add|), construindo a memória de dados; arrays com e sem
+    inicialização são reconhecidos por estados dedicados.
+  \item Cada rótulo \lstinline|@nome| é gravado com seu índice de instrução
+    (\lstinline|eval_label| escreve \lstinline|@nome n_ins|).
+  \item A pseudo-instrução \lstinline|LEA <nome>| conta como uma variável (o alvo)
+    mais uma constante sintética \lstinline|__addr_<nome>| (o endereço
+    materializado).
+\end{itemize}
+
+Ao final (\lstinline|eval_finish|), o log recebe \lstinline|n_ins| (número de
+instruções) e \lstinline|n_dat| (número de dados, \lstinline|var_cnt()|). Há uma
+verificação de sanidade: se a memória de dados teria duas células ou menos, o
+processador é considerado inútil e a compilação é abortada.
+
+\section{A segunda passada: \tool{asmcomp}}
+\label{sec:yanc-asmcomp}
+
+O \tool{asmcomp} (Flex, \file{ASMComp.l} + \file{eval.c} + \file{hdl.c} +
+\file{simulacao.c} + \file{array.c} + \file{labels.c} + \file{opcodes.c}) é o back
+end. Ele faz a segunda passada sobre o \emph{mesmo} \file{.asm}, agora com os
+endereços já resolvidos pela primeira passada, e emite os três produtos finais:
+o Verilog do processador, as imagens de memória \file{.mif} e o \emph{testbench}.
+
+\subsection{Interface e inicialização}
+\label{sec:yanc-asmcomp-cli}
+
+As opções (de \file{ASMComp/Headers/args.h}) acrescentam, ao conjunto do
+\tool{cmmcomp}, o diretório de HDL e os parâmetros de simulação:
+
+\begin{longtable}{l l}
+\toprule
+\textbf{Opção} & \textbf{Significado} \\
+\midrule
+\endhead
+\lstinline|-i / --input|       & arquivo \file{.asm} (caminho completo) \\
+\lstinline|-p / --proc-dir|    & diretório do processador (saída em \path{Hardware/}) \\
+\lstinline|-d / --hdl-dir|     & diretório de HDL \\
+\lstinline|-m / --macros-dir|  & diretório de macros \\
+\lstinline|-t / --temp-dir|    & diretório temporário (lê os logs aqui) \\
+\lstinline|-f / --freq|        & frequência de operação em MHz \\
+\lstinline|-c / --clocks|      & número de clocks a simular \\
+\bottomrule
+\end{longtable}
+
+\lstinline|eval_init| lê \file{app_log.txt} para recuperar \lstinline|prname|,
+\lstinline|n_ins|, \lstinline|n_dat|, \lstinline|nubits|, \lstinline|nbmant|,
+\lstinline|nbexpo| e, se existirem, \lstinline|itr_addr| e \lstinline|toaqui_addr|.
+Registra os rótulos (\lstinline|lab_reg| lê \file{app_log.txt} e, ao encontrar
+\lstinline|@fim|, fixa o endereço de fim em \file{simulacao.c}). Calcula
+\lstinline|nbopr| (\lstinline|(n_ins > n_dat) ? ceil(log2(n_ins)) : ceil(log2(n_dat))|)
+e abre, com \lstinline|fopen|, as duas imagens de memória em
+\path{<proc-dir>/Hardware/} (\file{<prname>\_data.mif} e
+\file{<prname>\_inst.mif}). Os arquivos de simulação por porta
+(\path{<proc-dir>/Simulation/input_<i>.txt} e \path{output_<i>.txt}) são abertos
+mais tarde pelo \emph{testbench} gerado, via \lstinline|$fopen| no
+\file{<prname>\_tb.v} (\file{hdl.c}).
+
+\subsection{Geração das memórias \file{.mif}}
+\label{sec:yanc-asmcomp-mif}
+
+São duas memórias, gravadas como \file{.mif} (uma palavra binária por linha) em
+\path{<proc-dir>/Hardware/}:
+
+\begin{description}[leftmargin=1.2em]
+  \item[\file{<prname>\_data.mif}] memória de dados. Cada variável vista pela
+    primeira vez é registrada (\lstinline|instr_ula|) e uma célula é emitida:
+    floats são inicializados com zero pela conversão \enquote{my float}
+    (\lstinline|f2mf("0.0", ...)|), inteiros e constantes recebem seu valor
+    (\lstinline|var_val|). Arrays e a pseudo-instrução \lstinline|LEA| também
+    materializam suas células aqui, em ordem de primeiro aparecimento.
+  \item[\file{<prname>\_inst.mif}] memória de instruções. Cada instrução vira a
+    concatenação do índice de opcode em \lstinline|NBITS_OPC| bits com o operando
+    em \lstinline|nbopr| bits (\lstinline|itob(opc_idx, NBITS_OPC)| seguido de
+    \lstinline|itob(operando, nbopr)|). O operando é o endereço de dados
+    (\lstinline|var_find|), o endereço de instrução do salto
+    (\lstinline|lab_find|), o índice da porta de E/S, ou o deslocamento.
+\end{description}
+
+A conversão de inteiro para string binária é \lstinline|itob| (em
+\file{ASMComp/Sources/t2t.c}); a conversão de float IEEE-754 para o formato de
+ponto flutuante interno (\enquote{my float}, parametrizado por \lstinline|nbmant|
+e \lstinline|nbexpo|) é \lstinline|f2mf| no mesmo arquivo. Ao final
+(\lstinline|eval_finish|), há a checagem de consistência
+\lstinline|nubits == nbmant + nbexpo + 1|.
+
+\subsection{Geração do Verilog e do \emph{testbench}}
+\label{sec:yanc-asmcomp-hdl}
+
+Encerrado o léxico, \lstinline|eval_finish| chama \lstinline|hdl_vv_file| e
+\lstinline|hdl_tb_file| (em \file{hdl.c}):
+
+\begin{description}[leftmargin=1.2em]
+  \item[\file{<prname>.v}] o Verilog de topo do processador: instancia o núcleo
+    \lstinline|p_<prname>| com clock, reset, portas de E/S, o pino de interrupção
+    e, quando há \lstinline|#TOAQUI|, o pino \lstinline|cheguei|. Inclui também o
+    bloco de visibilidade de simulação (sinais \lstinline|valr2| e
+    \lstinline|linetabs|) descrito na \autoref{sec:yanc-sidetable}.
+  \item[\file{<prname>\_tb.v}] o \emph{testbench} gerado, escrito no diretório
+    temporário. Ele gera clock e reset, instancia o processador, lista os sinais
+    a despejar (\lstinline|$dumpvars| de clock, reset, portas de E/S,
+    \lstinline|valr2|, \lstinline|linetabs| e variáveis/arrays do usuário),
+    suporta um modo \lstinline|+HEADER_ONLY| (que despeja apenas o cabeçalho do
+    VCD, para acelerar a coleta de sinais por \tool{gen\_gtkw}) e termina a
+    simulação (\lstinline|$finish|) ao atingir o endereço \lstinline|@fim|.
+\end{description}
+
+\subsection{A tabela de simulação e o tradutor de opcodes}
+\label{sec:yanc-asmcomp-sim}
+
+Em paralelo às memórias, o \tool{asmcomp} grava \file{trad_opcode.txt} (em
+\file{simulacao.c}, via \lstinline|sim_add|): uma linha por instrução, no formato
+\lstinline|<idx> <opcode> <operando>|. Esse arquivo é o que o GTKWave usa, via
+filtro de arquivo, para mostrar o assembly legível na trilha \enquote{Assembly}.
+Variáveis e arrays declarados pelo usuário no \file{.cmm} (descobertos consultando
+\file{cmm_log.txt} em \lstinline|sim_is_var|/\lstinline|sim_is_arr|) são
+registrados com nomes mangleados (p.\,ex.\ \lstinline|me1_f_global_v_x_e_|) para
+aparecerem corretamente no waveform.
+
+\section{A \emph{side-table} de linhas e o trace em lockstep}
+\label{sec:yanc-sidetable}
+
+O recurso central que liga a execução em hardware ao código-fonte é a
+\emph{side-table} de linhas: para cada valor do contador de programa (PC), ela
+mapeia a instrução de volta à linha-fonte de alto nível que a originou. Esse mapa
+é a base da visualização \emph{em lockstep} no GTKWave, onde se acompanha
+simultaneamente a instrução de assembly e a linha de \cmm{}/C++ que o processador
+está executando.
+
+\subsection{O arquivo \file{pc\_<name>\_mem.txt}}
+\label{sec:yanc-sidetable-pc}
+
+O \tool{cmmcomp} grava esse arquivo durante a emissão (em \file{global.c}).
+A cada instrução normal adicionada (\lstinline|add_instr|), ele escreve uma linha
+com a linha-fonte corrente codificada em 20 bits binários
+(\lstinline|itob(emit_line, 20)|). Para construções de \emph{scaffolding}
+(\lstinline|add_sinst|), usa códigos negativos sentinela: \lstinline|-1|
+(\lstinline|INTERNAL|), \lstinline|-2| (\lstinline|void main();|) e \lstinline|-3|
+(\lstinline|END|). Assim, o arquivo tem uma entrada por instrução, na mesma ordem
+da memória de instruções, e cada entrada é o número da linha-fonte (ou um
+sentinela). A variável \lstinline|emit_line| é mantida pelo percurso da AST e lida
+por \lstinline|add_instr|, de modo que cada instrução carrega a linha do nó que a
+gerou. O caminho C++ produz exatamente o mesmo arquivo, com os mesmos sentinelas,
+via \lstinline|cg_line| / \file{codegen.c}.
+
+\subsection{O arquivo \file{trad_cmm.txt}}
+\label{sec:yanc-sidetable-trad}
+
+O complemento é \file{trad_cmm.txt}, que mapeia número de linha para o
+\emph{texto} daquela linha. Os três primeiros registros são os códigos negativos
+de \emph{scaffolding} (\lstinline|-1 INTERNAL|, \lstinline|-2 void main();|,
+\lstinline|-3 END|); em seguida, cada linha-fonte numerada a partir de 1. Antes de
+gravar, o \tool{cmmcomp} substitui os caracteres de Dirac em UTF-8 por
+\lstinline|<| e \lstinline|>| (\lstinline|substituir_braket| em \file{global.c})
+para que sejam exibíveis no GTKWave.
+
+\subsection{Como o hardware consome a tabela}
+\label{sec:yanc-sidetable-hw}
+
+O \tool{asmcomp} embute no \file{<prname>.v} a leitura dessa tabela
+(\file{hdl.c}). Uma memória \lstinline|reg [19:0] min| é carregada no início com
+\lstinline|$readmemb("pc_<prname>_mem.txt", min)|. A cada \lstinline|posedge clk|,
+o índice do PC (\lstinline|pc_sim_val|) indexa essa memória produzindo
+\lstinline|linetab|, registrado em \lstinline|linetabs| (sinal \emph{traceado}). O
+valor do PC propaga por uma cadeia de dez registradores (\lstinline|valr1| a
+\lstinline|valr10|), dos quais \lstinline|valr2| é o estágio exibido (a trilha
+\enquote{Assembly}). No GTKWave, o filtro de arquivo \file{trad_opcode.txt}
+traduz \lstinline|valr2| em mnemônico, e o filtro \file{trad_cmm.txt} traduz
+\lstinline|linetabs| na linha-fonte: as duas trilhas avançam em \emph{lockstep}
+com a execução.
+
+\section{Os auxiliares de GTKWave: \tool{comp2gtkw} e \tool{gen\_gtkw}}
+\label{sec:yanc-gtkw}
+
+\subsection{\tool{comp2gtkw}: tradutor de números complexos}
+\label{sec:yanc-comp2gtkw}
+
+O \tool{comp2gtkw} (\file{Scripts/comp2gtkw.c}) é um filtro de processo: lê de
+\lstinline|stdin| o padrão de bits de um sinal complexo e escreve em
+\lstinline|stdout| a forma legível \lstinline|<real> <imag>i|. O formato de
+entrada é autodescritivo: os primeiros 16 bits codificam \lstinline|nbm| (8 bits)
+e \lstinline|nbe| (8 bits); os \lstinline|nbits = nbm + nbe + 1| bits seguintes
+são a parte real, e os próximos \lstinline|nbits| são a parte imaginária. Cada
+metade é decodificada do formato \enquote{my float} (\lstinline|b2mf|) para
+\lstinline|float| e impressa com três casas. O GTKWave invoca esse executável como
+filtro de processo nos sinais do tipo \lstinline|comp| (ver
+\autoref{sec:yanc-gen-gtkw}), exibindo o número complexo em vez do binário cru.
+
+\subsection{\tool{gen\_gtkw}: gerador do \file{.gtkw}}
+\label{sec:yanc-gen-gtkw}
+
+O \tool{gen\_gtkw} (\file{Scripts/gen\_gtkw.c}) lê o \emph{cabeçalho} de um
+\file{.vcd} e escreve um arquivo de salvamento \file{.gtkw} já formatado, com
+todos os sinais agrupados, coloridos, com aliases legíveis e com os filtros de
+tradução conectados. Substitui o antigo formatador em Tcl em tempo de execução: o
+GTKWave v4 usado no fluxo nipscern ignora \lstinline|--script|, então a formatação
+precisa viver no próprio arquivo de salvamento, aberto com
+\lstinline|gtkwave <vcd> -a <out.gtkw>|. A invocação é:
+
+\begin{lstlisting}[language=bash]
+gen_gtkw <in.vcd> <out.gtkw> <tmp_base> <comp2gtkw_exe>
+\end{lstlisting}
+
+O programa faz \emph{parsing} do cabeçalho do VCD (escopos \lstinline|$scope|,
+sinais \lstinline|$var|, parando em \lstinline|$enddefinitions| para não ler um
+VCD de gigabytes inteiro), detecta cada instância de processador (todo escopo que
+possui ao mesmo tempo um sinal \lstinline|valr2| e um \lstinline|linetabs|), e
+emite uma seção formatada por instância. Funciona tanto para um quanto para
+vários processadores, sendo o caso de um único processador apenas o $N = 1$.
+Para cada processador, conecta a trilha
+\enquote{Assembly} (\lstinline|valr2|) ao filtro de arquivo
+\path{<tmp_base>/<tipo>/trad_opcode.txt}, a trilha \enquote{C+-}
+(\lstinline|linetabs|) ao filtro \path{<tmp_base>/<tipo>/trad_cmm.txt}, e os
+sinais \lstinline|comp_me3_| ao filtro de processo \tool{comp2gtkw}. A lógica de
+formatação é portada de \file{js/wave/gtkw_proc_writer.js} da \tool{AURORA}; os
+\emph{flags} de formato (\lstinline|@<hex>|) foram calibrados contra um arquivo de
+salvamento real do GTKWave.
+
+\section{Os scripts de orquestração}
+\label{sec:yanc-scripts}
+
+Os scripts em \path{Scripts/} demonstram e automatizam o pipeline ponta a ponta.
+Os exemplos POSIX (\file{.sh}) têm contrapartidas Windows (\file{.bat}).
+
+\subsection{\file{env}: resolução do ambiente}
+\label{sec:yanc-env}
+
+\file{env.sh} (e \file{env.bat}) é carregado por \lstinline|source| pelos demais
+scripts. Resolve a raiz do repositório a partir da própria localização do arquivo,
+define \lstinline|YANC_BIN = <repo>/bin| e localiza as ferramentas de simulação
+(\tool{iverilog}, \tool{vvp}, \tool{verilator}, \tool{gtkwave}, \tool{fst2vcd}).
+Primeiro carrega o cache \file{Scripts/tools.local.sh} (gravado por \file{setup};
+ignorado pelo git, específico da máquina) e, para o que faltar, recorre ao
+\lstinline|PATH|. Nenhum caminho é codificado fixamente.
+
+\subsection{\file{setup}: preparação única}
+\label{sec:yanc-setup}
+
+\file{setup.sh}/\file{setup.bat} preparam o ambiente uma vez após o clone:
+localizam o \emph{toolchain} de build (gcc/bison/flex; no Windows,
+preferencialmente \tool{x86\_64-w64-mingw32-gcc}), produzem os binários em
+\path{bin/} (mantendo os existentes, ou compilando da fonte, ou baixando os
+pré-compilados do release mais recente), localizam os simuladores e o GTKWave, e
+gravam todos os caminhos resolvidos em \file{tools.local.sh}. Aceitam
+\lstinline|--rebuild| (recompilar) e \lstinline|--download| (baixar
+pré-compilados).
+
+\subsection{\file{single\_proc}, \file{single\_proc\_cpp} e \file{multi\_proc}}
+\label{sec:yanc-runners}
+
+\begin{description}[leftmargin=1.2em]
+  \item[\file{single\_proc.sh}] roda o pipeline \cmm{} completo de um processador:
+    \tool{cmmcomp} $\rightarrow$ \tool{appcomp} $\rightarrow$ \tool{asmcomp}
+    $\rightarrow$ simulação $\rightarrow$ GTKWave. O exemplo embutido é
+    \lstinline|proc_fft| (uma FFT de ordem 8 usando endereçamento por bits
+    invertidos do \cmm{}).
+  \item[\file{single\_proc\_cpp.sh}] o equivalente para o front end C++:
+    \tool{cpppp} $\rightarrow$ \tool{cppcomp} $\rightarrow$ \tool{appcomp}
+    $\rightarrow$ \tool{asmcomp} $\rightarrow$ simulação $\rightarrow$ GTKWave.
+    Aceita também \lstinline|--no-view| (roda o pipeline sem abrir o GTKWave).
+  \item[\file{multi\_proc.sh}] demonstra um circuito de topo com dois
+    processadores \tool{SAPHO} internos (\lstinline|ZeroCross| e
+    \lstinline|ProcDTW|). Cada processador passa pelo pipeline de compilação até
+    seu Verilog; o \emph{testbench} é o \file{top_level_tb.v} escrito pelo
+    usuário (o \emph{testbench} auto-gerado só conduz um processador isolado).
+\end{description}
+
+Todos os \emph{runners} escrevem apenas em \path{Teste/} (ignorado pelo git) e
+leem HDL, macros e binários direto do repositório.
+
+\subsection{O flag \texttt{-{}-sim iverilog|verilator}}
+\label{sec:yanc-simflag}
+
+Os \emph{runners} aceitam \lstinline|--sim iverilog| (padrão) ou
+\lstinline|--sim verilator|, selecionando o simulador:
+
+\begin{description}[leftmargin=1.2em]
+  \item[Icarus (\tool{iverilog} + \tool{vvp})] compila o \emph{testbench}
+    auto-gerado (\file{<proc>_tb.v}) junto com o \file{<proc>.v} e os arquivos de
+    HDL (\file{addr_dec.v}, \file{instr_dec.v}, \file{processor.v}, \file{core.v},
+    \file{ula.v}). Roda primeiro com \lstinline|+HEADER_ONLY| (VCD de cabeçalho,
+    para \tool{gen\_gtkw}) e depois a simulação real com saída FST.
+  \item[Verilator] reusa o \file{<proc>_tb.v} como topo, com
+    \lstinline|--binary --timing --trace +define+YANC_TRACE| (a flag
+    \lstinline|YANC_TRACE| habilita o \emph{harness} de visibilidade) e vários
+    \lstinline|-Wno-...| para tolerar o estilo do Verilog gerado.
+\end{description}
+
+Em ambos os casos, o passo final é idêntico: \tool{gen\_gtkw} gera o layout
+\file{.gtkw} a partir do cabeçalho do VCD e o GTKWave abre o waveform com esse
+layout.
+
+\subsection{\file{regress.sh}: suíte de regressão}
+\label{sec:yanc-regress}
+
+\file{regress.sh} é a suíte de regressão única do repositório. Constrói os cinco
+binários de compilação uma vez e roda três fases sobre eles: a fase \cmm{} (para
+cada teste em \path{Compilers/CMMComp/Tests/}, roda \tool{cmmcomp} e compara o
+\file{.asm} com um \file{golden.asm}; para o subconjunto com simulação, roda
+também \tool{appcomp} + \tool{asmcomp} + iverilog + vvp e compara as saídas); a
+fase C++ (para cada teste em \path{Compilers/CPPComp/Tests/}, roda o pipeline C++
+completo e compara contra um \file{golden.txt}); e a fase negativa \cmm{} (para
+cada fixture em \path{Compilers/CMMComp/NegTests/}, assegura que \tool{cmmcomp}
+rejeita o programa malformado com saída não-zero limpa e o diagnóstico esperado).
+Aceita \lstinline|--update| (regenerar goldens), \lstinline|--no-sim|,
+\lstinline|--cmm-only| e \lstinline|--cpp-only|, entre outros.
+
+\section{Diagrama do pipeline}
+\label{sec:yanc-diagrama}
+
+O fluxo completo, dos dois front ends ao GTKWave, é o seguinte:
+
+\begin{lstlisting}
+  C+- (.cmm)                       C++ (.cpp)
+     |                                |
+     |                          [ cpppp ]   (pre-processador: #include/#define/#ifdef)
+     |                                |
+     |                          C++ pre-proc. (pp.cpp)
+     |                                |
+ [ cmmcomp ]                     [ cppcomp ]
+     |   \                            |   \
+     |    +--> cmm_log.txt            |    +--> cmm_log.txt
+     |    +--> pc_<n>_mem.txt         |    +--> pc_<n>_mem.txt   (side-table de linhas)
+     |    +--> trad_cmm.txt           |    +--> trad_cmm.txt     (linha -> texto)
+     v                                v
+  <name>.asm  <---- (mesmo formato intermediario) ---->  <prname>.asm
+     |
+     v
+ [ appcomp ]  (1a passada)
+     |
+     +--> app_log.txt   (prname/nubits/nbmant/nbexpo, rotulos@->addr,
+     |                    variaveis, itr_addr, toaqui_addr, n_ins, n_dat)
+     v
+ [ asmcomp ]  (2a passada)
+     |
+     +--> Hardware/<prname>_inst.mif   (memoria de instrucoes: opcode|operando)
+     +--> Hardware/<prname>_data.mif   (memoria de dados)
+     +--> Hardware/<prname>.v          (Verilog sintetizavel + $readmemb da side-table)
+     +--> Temp/<prname>_tb.v           (testbench)
+     +--> Temp/trad_opcode.txt         (idx -> mnemonico, para a trilha Assembly)
+     v
+ [ iverilog+vvp  |  verilator ]   (--sim iverilog|verilator)
+     |
+     +--> <proc>_tb.vcd / .fst   (waveform)
+     +--> <proc>_tb_hdr.vcd      (apenas cabecalho, via +HEADER_ONLY)
+     v
+ [ gen_gtkw ]   (le o cabecalho do VCD -> escreve .gtkw formatado)
+     |           filtros: trad_opcode.txt (Assembly), trad_cmm.txt (C+-),
+     |           comp2gtkw (sinais complexos)
+     v
+ [ GTKWave ]   trilhas Assembly + C+- avancando em lockstep com a execucao
+\end{lstlisting}
+
+\begin{nota}
+O \file{.asm} é o ponto de convergência: os dois front ends (\cmm{} e C++)
+produzem exatamente o mesmo formato intermediário e as mesmas tabelas auxiliares,
+de modo que todo o back end (\tool{appcomp}, \tool{asmcomp}, \tool{gen\_gtkw}) é
+compartilhado. A linguagem \cmm{} em si é detalhada no
+\autoref{cap:03-linguagem-cmm}; o RTL gerado e o conjunto de instruções do
+processador, no \autoref{cap:02-arquitetura-soft-processor-sapho}.
+\end{nota}

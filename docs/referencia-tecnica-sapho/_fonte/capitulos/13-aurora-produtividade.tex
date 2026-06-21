@@ -1,0 +1,750 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: ferramentas de produtividade}
+\label{cap:13-aurora-produtividade}
+
+A \tool{AURORA} reúne, em torno do editor \tool{Monaco}, um conjunto de
+recursos auxiliares que aproximam a IDE da experiência de um ambiente
+profissional de desenvolvimento: um terminal de saída rico, controle de versão
+embutido, busca global no projeto, servidores de linguagem (LSP) para
+\textit{Verilog}/\textit{SystemVerilog}, realce sintático por
+\textit{tree-sitter}, formatação de código, paleta de comandos,
+internacionalização, painel de configurações, atualizador automático e um
+\textit{overlay} de diagnóstico de desempenho para desenvolvimento.
+
+Este capítulo descreve cada um desses recursos a partir do código-fonte: o que
+faz, qual ferramenta o sustenta e como está ligado entre o processo principal
+(\textit{main}) do \tool{Electron} e o processo de renderização (\textit{renderer}).
+O fluxo de compilação propriamente dito é tratado em outros capítulos; aqui o
+foco é na infraestrutura de produtividade que cerca a edição.
+
+\begin{nota}
+Um padrão recorrente atravessa todos os recursos: \textbf{best-effort}. Cada
+módulo verifica se o binário ou recurso de que depende está presente e, quando
+não está, vira um \textit{no-op} silencioso — o editor continua funcionando
+exatamente como antes, sem erro visível ao usuário. Isso aparece em
+\file{verible\_lsp.js}, \file{slang\_lsp.js}, \file{clang\_format.js},
+\file{grammars.js} e no atualizador.
+\end{nota}
+
+\section{Arquitetura de ligação: \textit{main} $\leftrightarrow$ \textit{renderer}}
+\label{sec:13-arquitetura-ligacao}
+
+Quase todos os recursos deste capítulo seguem a mesma topologia em três
+camadas:
+
+\begin{enumerate}[leftmargin=*]
+  \item Um módulo no processo \textit{main} (sob \path{aurora/main/}) que faz o
+        trabalho privilegiado: gerar processos filhos, ler o sistema de
+        arquivos, falar com a API do GitHub. Ele registra \textit{handlers} de
+        IPC via \lstinline|ipcMain.handle(...)|.
+  \item Uma ponte exposta no \file{preload.js} (em \path{js/app/preload.js})
+        via \lstinline|contextBridge.exposeInMainWorld(...)|, que publica um
+        objeto no \lstinline|window| do \textit{renderer} (por exemplo
+        \lstinline|window.lspAPI|, \lstinline|window.gitAPI|,
+        \lstinline|window.treeSitterAPI|, \lstinline|window.clangFormatAPI| e
+        \lstinline|window.slangAPI|). Algumas operações não têm ponte própria e
+        são agregadas em \lstinline|window.electronAPI| (por exemplo a busca, via
+        \lstinline|electronAPI.searchInProject|).
+  \item Um módulo no \textit{renderer} (sob \path{aurora/js/}) que consome essa
+        ponte e a integra ao \tool{Monaco} ou à interface.
+\end{enumerate}
+
+A \autoref{tab:13-mapa-modulos} resume o mapeamento entre recurso, módulo
+\textit{main}, ponte e módulo \textit{renderer}.
+
+\begin{table}[h]
+\centering
+\caption{Mapa de módulos das ferramentas de produtividade.}
+\label{tab:13-mapa-modulos}
+\small
+\begin{tabularx}{\linewidth}{Y Y Y}
+\toprule
+\textbf{Recurso} & \textbf{Módulo \textit{main}} & \textbf{Renderer / ponte} \\
+\midrule
+Terminal de saída    & ---                                & \file{js/terminal/terminal\_module.js} \\
+Source control       & \file{main/ipc/git.js}             & \file{js/git/git\_panel.js} (\lstinline|gitAPI|) \\
+Auth GitHub          & \file{main/ipc/github\_auth.js}    & \file{js/git/git\_panel.js} \\
+Busca no projeto     & \file{main/ipc/search.js}          & \file{js/search/search\_panel.js} \\
+LSP Verilog          & \file{main/lsp/verible\_lsp.js}    & \file{js/editor/lsp\_integration.js} (\lstinline|lspAPI|) \\
+LSP semântico        & \file{main/lsp/slang\_lsp.js}      & \file{js/editor/slang\_integration.js} (\lstinline|slangAPI|) \\
+Realce tree-sitter   & \file{main/treesitter/grammars.js} & \file{js/editor/treesitter\_highlight.js} (\lstinline|treeSitterAPI|) \\
+Formatação C/C++     & \file{main/format/clang\_format.js}& \file{js/editor/clang\_format\_integration.js} \\
+Paleta de comandos   & ---                                & \file{js/ui/command\_palette.js} \\
+i18n                 & ---                                & \file{js/i18n/i18n.js} + \path{locales/} \\
+Configurações        & ---                                & \file{js/processors/aurora\_settings.js} \\
+Atualizador          & \file{main/updater.js}             & \path{html/update-notification.html} \\
+Overlay de jank      & ---                                & \file{js/dev/jank\_overlay.js} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Terminal de saída}
+\label{sec:13-terminal}
+
+O painel inferior da \tool{AURORA} é um console de \textit{scrollback} rico,
+implementado pela classe \lstinline|TerminalManager| em
+\file{js/terminal/terminal\_module.js}. Não é um terminal interativo (não há
+\textit{shell}); é uma superfície de \textbf{saída} estruturada que recebe e
+classifica as linhas emitidas pelas ferramentas do \textit{toolchain}.
+
+\subsection{Abas e troca de terminal}
+
+O painel é dividido em abas, cada uma com seu próprio corpo de rolagem,
+mapeadas no construtor de \lstinline|TerminalManager|:
+
+\begin{table}[h]
+\centering
+\caption{Abas do terminal de saída.}
+\label{tab:13-terminal-abas}
+\small
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Identificador} & \textbf{Conteúdo} \\
+\midrule
+\lstinline|tcmm|   & Compilação \cmm \\
+\lstinline|tasm|   & Montagem (\textit{assembly}) \\
+\lstinline|tveri|  & Síntese \textit{Verilog} / \tool{PRISM} \\
+\lstinline|twave|  & Geração de \textit{waveform} \\
+\lstinline|thtest| & \textit{Terminal Hardware Test} — etapas e barra de progresso \\
+\lstinline|tcmd|   & Saída de comandos genéricos \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+A troca de aba é feita por \file{js/terminal/terminal.js}, que exporta a função
+\lstinline|switchTerminal(targetId)|. Essa é a única implementação da troca
+(consolidada de cópias que existiam em \file{compilation\_flow.js} e
+\file{wave\_config\_manager.js}). Ela esconde todos os corpos
+(\lstinline|.terminal-content|), revela o alvo e desliza um único indicador de
+aba ativa (\lstinline|.terminal-tab-indicator|) via \lstinline|transform:
+translateX(...)|, em vez de ligar/desligar uma barra por aba. Os botões de
+compilação focam automaticamente a aba onde sua saída cai (por exemplo,
+\lstinline|cmmcomp| foca \lstinline|terminal-tcmm|).
+
+\subsection{Cartões por tipo de mensagem}
+
+A saída não é texto cru: cada mensagem é classificada e agrupada em
+\textbf{cartões} (\lstinline|.log-entry|). O \lstinline|TerminalManager| mantém
+contadores por terminal nas categorias \lstinline|error|, \lstinline|warning|,
+\lstinline|success| e \lstinline|tips|, exibidos como \textit{badges} sobre os
+botões de filtro (\lstinline|createCounterBadges| /
+\lstinline|updateCounterDisplay|).
+
+Mensagens do mesmo tipo emitidas na mesma sessão são consolidadas num único
+cartão agrupado (\lstinline|createGroupedCard| / \lstinline|addMessageToCard|):
+o cartão recebe um \textit{timestamp} em formato \lstinline|pt-BR| e cada nova
+linha vira um \lstinline|.grouped-message| dentro do contêiner. Botões de
+filtro permitem mostrar/ocultar categorias (\lstinline|_cardMatchesFilter|,
+\lstinline|applyFilter|); o filtro trata \lstinline|tips| e \lstinline|info|
+como equivalentes. Há ainda um modo \textit{verbose} (persistido em
+\lstinline|localStorage| sob \lstinline|terminal-verbose-mode|) que controla a
+exibição das linhas \lstinline|plain| (não classificadas).
+
+\begin{nota}
+Para manter o consumo de memória e o desempenho de rolagem limitados num
+\textit{build} que despeja milhares de linhas, há dois tetos: no máximo
+\lstinline|MAX_TERMINAL_ENTRIES| (5000) nós \lstinline|.log-entry| por terminal
+e no máximo \lstinline|MAX_GROUPED_MESSAGES| (5000) sub-mensagens por cartão
+agrupado. Os mais antigos são descartados do topo, e os contadores são
+recalculados a partir do DOM já podado.
+\end{nota}
+
+\subsection{Números de linha clicáveis}
+
+O método \lstinline|makeLineNumbersClickable(text)| transforma referências de
+diagnóstico em \textit{links} navegáveis. Há dois formatos reconhecidos:
+
+\begin{description}[leftmargin=*]
+  \item[Estilo \textit{toolchain} C] padrão \lstinline|<arquivo>:<linha>:|
+        emitido por \tool{iverilog}, \tool{yosys}, \tool{gcc} e pelo
+        \textit{appcomp}. A expressão regular captura o caminho (inclusive um
+        prefixo de unidade do Windows como \lstinline|C:\foo\bar.v:15:|) e a
+        linha; o caminho é guardado em \lstinline|data-file| para que o clique
+        abra exatamente aquele arquivo.
+  \item[Estilo \tool{AURORA}/\tool{YANC}] padrão \enquote{\lstinline|linha N|}
+        ou \enquote{\lstinline|line N|}, sem prefixo de arquivo. Nesse caso o
+        clique recai sobre o último \cmm{} compilado, resolvido pelo gerenciador
+        de compilação.
+\end{description}
+
+Cada \textit{link} (\lstinline|.line-link|) tem seu clique conectado por
+\lstinline|_attachLineLinkClicks|, e a navegação até a posição é feita por
+\lstinline|goToLine(lineNumber)|, que comanda o \tool{Monaco} a posicionar e
+revelar a linha-alvo (limitada ao número total de linhas do modelo). Há também
+um \textit{link} de pasta (\lstinline|appendFolderLink|), construído com
+\lstinline|textContent| (sem \lstinline|innerHTML|), que alterna a árvore de
+arquivos para a visão de pastas e revela a pasta correspondente via
+\lstinline|standardTreeRenderer.revealFolder|.
+
+\subsection{Barra de progresso de teste de \textit{hardware}}
+
+O fluxo de \textit{Terminal Hardware Test} (aba \lstinline|thtest|) usa
+\lstinline|renderHardwareProgress(terminalId, p)| para exibir uma barra de
+progresso real em DOM. Diferentemente dos cartões, esse é um \textbf{único}
+elemento \lstinline|.hw-progress| que se atualiza no lugar: ele \textbf{não} é
+um \lstinline|.log-entry|, portanto o filtro de \textit{verbose} e os
+contadores o ignoram e ele permanece sempre visível. A cada atualização o nó é
+reanexado ao fim do terminal, para acompanhar a última saída transmitida. O
+preenchimento (\lstinline|.hw-progress-fill|) anima por
+\lstinline|transform: scaleX(...)|, e a linha de metadados mostra
+\lstinline|ciclo/total| mais o total de leituras de entrada (rotulado via
+i18n por \lstinline|terminal.htest.reads|). O \textit{payload} \lstinline|p|
+carrega \lstinline|pct|, \lstinline|cyc|, \lstinline|total|, \lstinline|reads|,
+\lstinline|label| e \lstinline|done|.
+
+\section{Controle de versão (Source Control) embutido}
+\label{sec:13-git}
+
+A \tool{AURORA} embute um painel de controle de versão completo. O lado
+\textit{main} vive em \file{main/ipc/git.js} e é construído sobre a biblioteca
+\textbf{simple-git}, um invólucro fino sobre o binário nativo \lstinline|git|.
+Como ele dirige o \lstinline|git| real, \path{.gitignore}, \textit{diffs},
+\textit{merges} e credenciais se comportam exatamente como na linha de comando.
+A interface vive em \file{js/git/git\_panel.js}.
+
+\subsection{Escopo das operações}
+
+Todas as operações agem sobre o diretório do \textbf{projeto aberto}, derivado
+de \lstinline|state.currentOpenProjectPath| (a fonte única de verdade): a função
+\lstinline|projectDir()| devolve o diretório-pai do arquivo \path{.spf}. As
+\textit{handlers} de leitura podem honrar um diretório explícito
+(\lstinline|opts.dir|) para navegar um repositório recém-clonado que ainda não
+tem \path{.spf} aberto; as mutações sempre agem sobre o projeto aberto. Toda
+\textit{handler} é embrulhada por \lstinline|safe(fn)|, que converte exceções em
+um objeto \lstinline|{ ok:false, error }| em vez de propagá-las pelo IPC.
+
+\subsection{Inspeção e \textit{diffs}}
+
+As \textit{handlers} de leitura cobrem o conjunto típico de inspeção:
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.34\linewidth} >{\raggedright\arraybackslash}p{0.6\linewidth}}
+\caption{Handlers de inspeção do controle de versão.}\label{tab:13-git-read}\\
+\toprule
+\textbf{Canal IPC} & \textbf{Função} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Canal IPC} & \textbf{Função} \\
+\midrule
+\endhead
+\lstinline|git:is-repo|      & Verifica se o diretório é um repositório. \\
+\lstinline|git:status|       & \textit{Status} com \textit{branch}, \textit{tracking}, \textit{ahead}/\textit{behind} e \texttt{flags} por arquivo; opcionalmente anexa contagens \texttt{+}/\texttt{-}. \\
+\lstinline|git:diff|         & \textit{Diff} unificado de um arquivo ou de toda a árvore de trabalho. \\
+\lstinline|git:commit-files| & Lista (apenas \textit{numstat}) os arquivos tocados por um \textit{commit}. \\
+\lstinline|git:show|         & \textit{Diff} de um arquivo dentro de um \textit{commit} (carregado sob demanda). \\
+\lstinline|git:log|          & Histórico de \textit{commits} (padrão: 50). \\
+\lstinline|git:branches|     & \textit{Branches} locais e remotas (\lstinline|-a|), com remotas-só destacadas. \\
+\lstinline|git:remotes|      & Lista de \textit{remotes}. \\
+\lstinline|git:info|         & Nome derivado de \lstinline|origin| (\lstinline|owner/repo|) e URL. \\
+\bottomrule
+\end{longtable}
+
+O texto dos \textit{diffs} é limitado por \lstinline|capDiff|: um \textit{diff}
+de \textit{commit} pode ter megabytes (dados \path{.mif}/\path{.hex} gerados,
+\textit{blobs} versionados), então a saída é cortada num limite de linha em
+\lstinline|MAX_DIFF_BYTES| ($\approx$ 600 KB) e marcada como truncada. As
+contagens por arquivo da árvore de trabalho (\lstinline|workNumstat|) combinam
+dois \textit{diffs} \lstinline|--numstat| (\textit{staged} + \textit{unstaged}).
+Na interface, os \textit{diffs} são renderizados por \textbf{diff2html}
+(importado em \file{js/git/git\_panel.js} como \lstinline|html as renderDiff|),
+com a CSS \path{diff2html/bundles/css/diff2html.min.css}, em modo
+\lstinline|line-by-line| e \lstinline|colorScheme: 'dark'|. Há um teto adicional
+de linhas no lado do \textit{renderer} antes de entregar o conteúdo ao
+\lstinline|diff2html|.
+
+\subsection{Mutações e operações remotas}
+
+As mutações cobrem o ciclo completo de trabalho: \lstinline|git:init|,
+\lstinline|git:stage| / \lstinline|git:stage-all| / \lstinline|git:unstage|,
+\lstinline|git:discard|, \lstinline|git:commit| (com \lstinline|--amend|
+opcional), \lstinline|git:undo-last-commit| (\textit{reset} \textit{soft}),
+\lstinline|git:checkout| (incluindo criar \textit{branch} local e rastrear uma
+remota com \lstinline|--track|), \lstinline|git:merge| (\lstinline|--no-edit|),
+e o conjunto de \textit{stash} (\lstinline|git:stash|, \lstinline|git:stash-list|,
+\lstinline|git:stash-pop|, \lstinline|git:stash-drop|), de modo que trocar de
+\textit{branch} com a árvore suja simplesmente funciona.
+
+As operações remotas — \lstinline|git:fetch|, \lstinline|git:pull|,
+\lstinline|git:push| — usam o invólucro \lstinline|remoteGit()|. O
+\lstinline|pull| roda com \lstinline|--no-edit --autostash| (nenhum
+\lstinline|$EDITOR| abre e mudanças locais não impedem o \textit{merge}); o
+\lstinline|push| define \textit{upstream} (\lstinline|-u origin <branch>|)
+apenas quando ainda não há rastreamento. O \lstinline|git:clone| transmite
+progresso ao vivo: o \textit{plugin} de progresso do \textbf{simple-git} analisa
+o \texttt{stderr} do \lstinline|git --progress| e cada \textit{tick} é
+encaminhado ao \textit{renderer} pelo canal \lstinline|git:clone-progress|, que
+move a barra de progresso do painel. Após um \textit{clone}, \lstinline|git:scan-spf|
+varre o diretório (profundidade $\le$ 5) em busca de arquivos \path{.spf} para
+abrir o projeto recém-clonado.
+
+\subsection{Autenticação GitHub}
+\label{sec:13-github-auth}
+
+O \enquote{conectar sua conta GitHub} vive em \file{main/ipc/github\_auth.js} e
+oferece dois caminhos de autenticação:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{\textit{Personal Access Token} (PAT)} — o usuário cola um
+        \textit{token} (clássico ou \textit{fine-grained} com escopo
+        \lstinline|repo|); ele é validado contra \lstinline|/user| da API do
+        GitHub e então armazenado.
+  \item \textbf{OAuth \textit{Device Flow}} — \lstinline|deviceFlowLogin| pede
+        um \textit{device}/\textit{user code}, abre a página de verificação no
+        navegador (\lstinline|shell.openExternal|) e faz \textit{polling} até a
+        autorização. O \textit{Client ID} é público (o \textit{device flow} não
+        usa segredo) e os escopos são \lstinline|repo read:org|. Ao autorizar, a
+        janela da \tool{AURORA} é trazida de volta ao primeiro plano.
+\end{enumerate}
+
+Em ambos os casos o \textit{token} é cifrado com
+\lstinline|safeStorage.encryptString| (DPAPI no Windows) e gravado em
+\path{userData/aurora-github.json}; o texto plano nunca toca o disco. O
+\textit{token} é lido somente no lado \textit{main} — o \file{git.js} o injeta
+como cabeçalho \lstinline|http.extraHeader| de uso único (\lstinline|-c|, nunca
+escrito na configuração do repositório) para \textit{push}/\textit{pull}/
+\textit{clone}; o \textit{renderer} só consegue perguntar \enquote{quem está
+conectado?} (\lstinline|github:status|), nunca obter os \textit{bytes}. Outras
+\textit{handlers}: \lstinline|github:create-repo| (cria repositório sob a conta),
+\lstinline|github:list-repos| (lista repositórios próprios, de colaboração e de
+organização, paginando) e \lstinline|github:disconnect|. O \textit{avatar} é
+baixado e convertido em \textit{data URL} para passar pela CSP do
+\textit{renderer} sem afrouxá-la.
+
+\section{Busca no projeto (Find in Files)}
+\label{sec:13-busca}
+
+A busca global, equivalente ao painel \textit{Search} do VS Code, é
+implementada em \file{main/ipc/search.js} e exposta pelo canal
+\lstinline|search:in-project|. O \textit{renderer} é \file{js/search/search\_panel.js},
+que agrupa os resultados por arquivo (cabeçalho recolhível + linhas de
+ocorrência) e abre o arquivo na linha clicada via \lstinline|TabManager|.
+
+\begin{nota}
+O motor de busca \textbf{não é o ripgrep nem um binário externo}. É uma
+varredura recursiva síncrona e \textbf{sem dependências}, escrita diretamente
+sobre o módulo \lstinline|fs| do Node, enraizada no diretório do projeto aberto.
+\end{nota}
+
+\subsection{Consulta e modificadores}
+
+O \textit{payload} aceita \lstinline|{ query, caseSensitive?, wholeWord?, regex? }|.
+A função \lstinline|buildRegex| monta a expressão regular: em modo literal o
+texto é escapado por \lstinline|escapeRegExp|; \lstinline|wholeWord| envolve o
+corpo em \lstinline|\b...\b|; \lstinline|caseSensitive| controla a \textit{flag}
+\lstinline|i|. Um padrão inválido em modo \textit{regex} é convertido em
+\lstinline|{ ok:false, error }|. Os modificadores de caixa/palavra/\textit{regex}
+são persistidos no \textit{renderer} sob \lstinline|aurora.search.toggles|.
+
+\subsection{Limites da varredura}
+
+Como a varredura é síncrona, há limites rígidos que impedem que uma árvore
+grande congele o processo principal:
+
+\begin{table}[h]
+\centering
+\caption{Limites da busca em \file{main/ipc/search.js}.}
+\label{tab:13-busca-limites}
+\small
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Constante} & \textbf{Valor / efeito} \\
+\midrule
+\lstinline|MAX_DEPTH|         & 12 níveis de profundidade. \\
+\lstinline|MAX_FILE_BYTES|    & $\approx$ 1,5 MB — arquivos maiores são ignorados. \\
+\lstinline|BINARY_SNIFF_BYTES|& 4 KB lidos para detectar byte \texttt{NUL} (binário). \\
+\lstinline|PREVIEW_MAX|       & 240 caracteres por linha de \textit{preview}. \\
+\lstinline|MAX_MATCHES|       & 2000 ocorrências no total. \\
+\lstinline|MAX_FILES|         & 500 arquivos com ocorrência. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Diretórios de VCS, dependências e \textit{build} nunca são percorridos
+(\lstinline|SKIP_DIRS|: \path{.git}, \path{node_modules}, \path{dist},
+\path{build}, \path{components}, \path{.vite} entre outros). Arquivos binários
+são detectados por uma heurística simples (\lstinline|looksBinary|: byte
+\texttt{NUL} nos primeiros 4 KB). Ao atingir qualquer teto, a varredura para e o
+resultado é marcado com \lstinline|truncated: true|. Cada ocorrência devolve
+\lstinline|{ line, col, preview }|, e o caminho é relativo à raiz do projeto.
+
+\section{Servidores de linguagem (LSP) para Verilog}
+\label{sec:13-lsp}
+
+A \tool{AURORA} integra dois servidores de linguagem distintos para
+\textit{Verilog}/\textit{SystemVerilog}, com responsabilidades deliberadamente
+divididas. Ambos falam JSON-RPC enquadrado por \lstinline|Content-Length| sobre
+\textit{stdio}, por uma ponte de transporte escrita à mão — a \tool{AURORA} não
+usa \textit{monaco-languageclient}; seu IPC já é próprio e um único \textit{backend}
+de \textit{Verilog} precisa apenas de um transporte fino.
+
+\subsection{Verible: o servidor sintático completo}
+
+\file{main/lsp/verible\_lsp.js} gera um único processo de longa duração
+\tool{verible-verilog-ls} (empacotado em
+\path{components/Packages/verible/bin}), iniciado com
+\lstinline|--lsp_enable_hover| e \lstinline|--rules_config_search| (para que o
+\tool{Verible} procure, subindo a árvore, um \path{.rules.verible_lint} por
+projeto). É o servidor \textbf{completo}: o \textit{renderer}
+(\file{js/editor/lsp\_integration.js}) registra no \tool{Monaco} todo o conjunto
+de provedores:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{diagnósticos ao vivo} (\textit{lint} + sintaxe) como
+        \textit{squiggles} e marcadores no painel \textit{Problems}, sob o dono
+        \lstinline|verible|;
+  \item \textbf{formatação} de documento (\textit{Format Document} /
+        \lstinline|Shift+Alt+F|);
+  \item \textbf{símbolos de \textit{outline}} (\textit{breadcrumbs} e visão
+        \textit{Outline}), via \lstinline|provideDocumentSymbols|;
+  \item \textbf{hover};
+  \item \textbf{ir para definição} e \textbf{localizar referências}.
+\end{itemize}
+
+\begin{nota}
+O \textbf{\textit{outline}} e o \textit{folding} simbólico vêm dos
+\lstinline|documentSymbols| do \tool{Verible}, e \textbf{não} do
+\textit{tree-sitter} (que é exclusivamente realce — ver
+\autoref{sec:13-treesitter}). O \file{lsp\_integration.js} converte as
+coordenadas LSP (base 0) para as do \tool{Monaco} (base 1) e mapeia
+\lstinline|SymbolKind|/\lstinline|MarkerSeverity| entre os dois esquemas.
+\end{nota}
+
+O ciclo de vida é dirigido no nível do \textbf{modelo} do \tool{Monaco}: todo
+modelo \path{.v}/\path{.sv} que aparece é \lstinline|didOpen|; suas edições são
+debounced (350 ms) em \lstinline|didChange|; e o descarte dispara
+\lstinline|didClose|. A sincronização é de documento inteiro (uma única mudança
+sem \lstinline|range|). O \textit{bridge} é resiliente: se o servidor morre, ele
+é respawnado na próxima requisição e os documentos abertos são re-enviados
+(\lstinline|didOpen|) de forma transparente, de modo que os diagnósticos
+continuam fluindo sem o \textit{renderer} perceber. Cada requisição
+(\textit{format}/\textit{symbols}/\textit{hover}/...) tem \textit{timeout}
+(\lstinline|REQUEST_TIMEOUT_MS| = 15 s) e, ao falhar, devolve um \textit{fallback}
+vazio em vez de travar o editor.
+
+\subsection{slang: o servidor semântico}
+
+\file{main/lsp/slang\_lsp.js} gera o \tool{slang-server} (de
+\textit{hudson-trading/slang-server}, em
+\path{components/Packages/slang-server/bin}). Diferentemente do \tool{Verible}
+(sintático e por arquivo), o \tool{slang} \textbf{elabora o projeto inteiro},
+capturando erros semânticos que o \tool{Verible} não vê: identificadores não
+declarados, incompatibilidades de tipo/porta, sinais não usados etc.
+
+Pela divisão escolhida (\enquote{meio-termo}), o \textit{renderer}
+(\file{js/editor/slang\_integration.js}) consome do \tool{slang} \textbf{apenas}:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{diagnósticos semânticos} (sob o dono \lstinline|slang|,
+        coexistindo com os marcadores \lstinline|verible|); e
+  \item \textbf{completação} de símbolos (módulos, portas, membros de
+        \textit{package}/\textit{struct}, macros), com caracteres de gatilho
+        \lstinline| ` # . ( : [ |.
+\end{itemize}
+
+\textit{Hover}, definição, referências, \textit{outline} e formatação
+permanecem com o \tool{Verible}. Como o \tool{slang} é acoplado ao
+\textit{workspace} (indexa a árvore do projeto), o \textit{bridge} o inicia com
+o diretório do projeto como \lstinline|rootUri| e o reinicia de forma
+transparente quando o projeto muda (\lstinline|maybeRestartForProject|). Por
+elaborar a cada mudança e poder ser ruidoso em projetos incompletos, o
+\tool{slang} é \textbf{ligável/desligável}: \lstinline|window.AuroraSlang.toggle()|,
+com estado persistido em \lstinline|localStorage| (\lstinline|slangEnabled|) e
+sincronizado ao \textit{main}; há uma entrada na paleta de comandos para
+alterná-lo. Ao desligar, os marcadores \lstinline|slang| são limpos e nenhuma
+requisição é enviada.
+
+\section{Realce sintático por tree-sitter}
+\label{sec:13-treesitter}
+
+O realce de sintaxe preciso é fornecido por \textit{tree-sitter} (via
+\textbf{web-tree-sitter}, WASM), implementado em
+\file{js/editor/treesitter\_highlight.js}. O \textit{parser} processa o
+\textit{buffer}, a \textit{query} de \textit{highlights} da gramática produz
+\textit{captures}, e o módulo os mapeia para \textbf{\textit{semantic tokens}}
+do \tool{Monaco}, que sobrepõem o realce base (\textit{Monarch}) com cores
+fiéis à gramática: nomes de módulo, instâncias, direção de portas, tipos,
+macros etc.
+
+\begin{nota}
+O \textit{tree-sitter} na \tool{AURORA} faz \textbf{apenas realce} (semantic
+tokens). Não provê \textit{folding} nem \textit{outline} — isso vem do LSP
+(\autoref{sec:13-lsp}). As gramáticas cobertas são
+\textit{Verilog}/\textit{SystemVerilog}, C e C++; \cmm{} e \textit{assembly}
+não têm gramática e mantêm seus \textit{tokenizers} \textit{Monarch}.
+\end{nota}
+
+\subsection{Entrega das gramáticas WASM}
+
+O \textit{renderer}, sob o \textit{sandbox} \lstinline|file://|, não consegue
+buscar \path{.wasm} de forma confiável por URL. Por isso \file{main/treesitter/grammars.js}
+serve os \textbf{bytes} crus de cada artefato pelo canal
+\lstinline|treesitter:wasm|, e o \textit{renderer} os alimenta diretamente em
+\lstinline|Parser.init({ wasmBinary })| e \lstinline|Language.load(bytes)|,
+contornando todos os problemas de URL/\textit{fetch}/CSP. Apenas um conjunto fixo
+de nomes lógicos é aceito (o \textit{renderer} não pode pedir caminhos
+arbitrários):
+
+\begin{table}[h]
+\centering
+\caption{Artefatos tree-sitter servidos por \file{grammars.js}.}
+\label{tab:13-ts-artefatos}
+\small
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Nome lógico} & \textbf{Arquivo} \\
+\midrule
+\lstinline|runtime|       & \path{web-tree-sitter.wasm} \\
+\lstinline|systemverilog| & \path{tree-sitter-systemverilog.wasm} \\
+\lstinline|c|             & \path{tree-sitter-c.wasm} \\
+\lstinline|cpp|           & \path{tree-sitter-cpp.wasm} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Os artefatos ficam em \path{components/Packages/tree-sitter/} (baixados por
+\file{download-tree-sitter-grammars.js} no \textit{bootstrap}). O canal
+\lstinline|treesitter:status| informa se o \textit{runtime} e ao menos uma
+gramática estão presentes.
+
+\subsection{Detalhes de mapeamento}
+
+As \textit{queries} (\path{js/editor/treesitter/queries/}) são incorporadas em
+tempo de \textit{build} (\lstinline|?raw|); \textit{cpp} herda as \textit{queries}
+de \textit{c}. Os nomes de \textit{capture} são mapeados para tipos de
+\textit{token} semântico padrão do VS Code (\lstinline|CAPTURE_MAP|), de modo que
+o tema ativo os colore sem configuração extra. Como as posições do
+\textit{tree-sitter} são \textit{offsets} em \textbf{bytes} (UTF-8) e o
+\tool{Monaco} usa colunas UTF-16, há conversão por linha (com caminho rápido
+para ASCII), garantindo que comentários/\textit{strings} acentuados (por exemplo
+em português) não desloquem o realce subsequente. Tudo é \textit{best-effort}:
+se o \textit{runtime} ou os \textit{bytes} faltarem, o provedor devolve zero
+\textit{tokens} e o realce \textit{Monarch} permanece, sem regressão. O
+carregamento é \textbf{preguiçoso}: uma gramática só é buscada e compilada na
+primeira vez que um \textit{buffer} daquela linguagem é realçado.
+
+\section{Formatação com clang-format}
+\label{sec:13-clang-format}
+
+A formatação de C, C++ e \cmm{} é feita pelo \tool{clang-format} empacotado
+(\path{components/Packages/clang-format/bin/clang-format.exe}), via
+\file{main/format/clang\_format.js}. Diferentemente de um LSP, o
+\tool{clang-format} é uma CLI de uma só passada: lê um \textit{buffer} no
+\textit{stdin} e escreve o \textit{buffer} formatado no \textit{stdout}.
+
+Por \lstinline|Shift+Alt+F|, o \textit{renderer}
+(\file{js/editor/clang\_format\_integration.js}) registra um provedor de
+formatação para \lstinline|c|, \lstinline|cpp| e \lstinline|cmm| e envia o
+\textit{buffer} ao canal \lstinline|format:clang|. O \tool{Monaco} já despacha o
+atalho para o provedor que casa com a linguagem do editor em foco — assim,
+\textit{Verilog}/\textit{SystemVerilog} vão ao \tool{Verible} e
+\lstinline|c|/\lstinline|cpp|/\lstinline|cmm| vão ao \tool{clang-format}. O
+resultado é um \textbf{\textit{replace} de documento inteiro} (o
+\tool{clang-format} devolve o \textit{buffer} completo, não um \textit{diff}).
+
+O tratamento de linguagem usa \lstinline|-assume-filename|: o \cmm{} (um
+subconjunto de C) é formatado com regras de C ao reivindicar um nome de arquivo
+\path{.c}; C/C++ usam o caminho real, de modo que o \tool{clang-format} detecte o
+dialeto \textbf{e} encontre, subindo a árvore, um \path{.clang-format} de
+projeto (executado com \lstinline|-style=file -fallback-style=LLVM|). Há
+\textit{timeout} de 15 s contra travamentos, verificação de \textit{allowlist}
+de binário (\lstinline|isAllowed|, a mesma do executor do \textit{toolchain}) e
+comportamento \textit{best-effort}: se o binário faltar ou houver erro,
+\lstinline|format()| resolve \lstinline|null| e o \textit{buffer} fica
+intocado.
+
+\section{Paleta de comandos}
+\label{sec:13-paleta}
+
+A paleta de comandos (\file{js/ui/command\_palette.js}) é uma superfície única,
+orientada a teclado, para as ações espalhadas pela barra de ferramentas e
+menus. Abre com \lstinline|Ctrl/Cmd+Shift+K| (principal) ou
+\lstinline|Ctrl/Cmd+Shift+P|; \lstinline|Esc| fecha, setas navegam,
+\lstinline|Enter| executa. O \lstinline|Ctrl+K| puro é reservado para o painel
+de IA e por isso não é vinculado. A captura é feita na fase de captura com
+\lstinline|stopPropagation|, de forma que a paleta abra mesmo sobre um editor
+\tool{Monaco} em foco (que liga \lstinline|Ctrl+Shift+K| a \enquote{apagar
+linha}) sem disparar aquele comando.
+
+A \textbf{visão} é o componente Lit \lstinline|<aurora-command-palette>| (Shadow
+DOM + \textit{tokens} semânticos); o módulo é o dono do \textbf{registro}
+(dados puros), da \textbf{pontuação} \textit{fuzzy} e da lógica de execução. Os
+comandos preferem a API pública (\lstinline|window.AuroraAPI| / controlador da
+árvore de arquivos) e, na ausência dela, clicam o botão de barra existente por
+\lstinline|id| — assim um comando faz exatamente o que o botão faz (inclusive
+ser \textit{no-op} quando o botão está desabilitado), sem lógica duplicada.
+
+O registro \lstinline|COMMANDS| é agrupado em \lstinline|Compile|,
+\lstinline|Project|, \lstinline|View|, \lstinline|Tools| e \lstinline|Dev| (a
+ordem de exibição segue \lstinline|GROUP_ORDER|). Inclui, entre outros:
+compilar \cmm, sintetizar \textit{Verilog}, gerar \textit{waveform}, execução
+rápida (\tool{Verilator}), abrir o \tool{PRISM}, novo/abrir projeto,
+configurações da \tool{AURORA}, alternar o \tool{slang} e alternar o
+\textit{overlay} de \textit{jank} (este último por \textit{import} dinâmico, sem
+custo de \textit{boot}). A função \lstinline|scoreCommand| pontua por
+subsequência: cada termo da consulta precisa aparecer no \textit{haystack}
+(título + \textit{keywords} + grupo); acertos no título (e prefixos) valem mais
+que acertos em \textit{keywords}.
+
+\section{Internacionalização (i18n)}
+\label{sec:13-i18n}
+
+A camada de internacionalização vive em \file{js/i18n/i18n.js}, com dois
+catálogos em \path{locales/}: \path{en.json} e \path{pt.json}. São dois
+\textit{locales} suportados — inglês e português do Brasil — e o padrão é
+\lstinline|pt|. O DOM declara associações por dois atributos principais:
+
+\begin{itemize}[leftmargin=*]
+  \item \lstinline|data-i18n="caminho.da.chave"| $\rightarrow$
+        \lstinline|element.textContent|;
+  \item \lstinline|data-i18n-tooltip| $\rightarrow$ \lstinline|data-tooltip|;
+        \lstinline|data-i18n-placeholder| $\rightarrow$ \lstinline|placeholder|;
+        \lstinline|data-i18n-aria-label| $\rightarrow$ \lstinline|aria-label|;
+        \lstinline|data-i18n-title| $\rightarrow$ \lstinline|title|.
+\end{itemize}
+
+A função \lstinline|applyDOM()| percorre o documento no \textit{boot} e a cada
+troca de \textit{locale}, resolvendo cada associação por \lstinline|t(key)|. A
+mesma \lstinline|t()| é exposta como \lstinline|window.t| para chamadas em JS
+(mensagens do terminal, UI dinâmica). Há ainda um preenchimento automático de
+\textit{tooltip} por \lstinline|id|: qualquer elemento com \lstinline|id="X"|
+recebe \lstinline|data-tooltip| de \lstinline|tooltip.extended.X| quando a chave
+existe.
+
+\subsection{Resolução, \textit{fallback} e interpolação}
+
+O \textit{locale} ativo é guardado em \lstinline|localStorage| sob
+\lstinline|aurora-locale| (a chave legada \lstinline|aurora-yanc-lang| é migrada
+silenciosamente na primeira leitura). A resolução tenta o \textit{locale} ativo;
+se a chave faltar, recai em \lstinline|en|; se ainda faltar, devolve o próprio
+caminho da chave — uma falha \enquote{barulhenta} que evidencia strings sem
+tradução durante o desenvolvimento. A interpolação resolve marcadores
+\lstinline|{{nome}}| no \textit{template}; parâmetros ausentes viram string
+vazia (sem exceção).
+
+Cada troca de \textit{locale} dispara o evento
+\lstinline|aurora:locale-changed|, ao qual componentes que renderizam strings
+imperativamente (terminal, notificações) reagem para re-renderizar. Por
+compatibilidade com o compilador \tool{YANC}, \lstinline|window.getYancLang| é
+um \textit{alias} de \lstinline|getLocale()|, de modo que a injeção do
+\textit{flag} \lstinline|-pt|/\lstinline|-en| do compilador segue inalterada — a
+preferência de idioma é, intencionalmente, unificada entre UI e compilador. O
+controle visual é o \lstinline|<select>| de idioma em
+\textbf{Configurações $\rightarrow$ Idioma}, ligado por
+\file{js/ui/locale\_toggle.js}.
+
+\section{Painel de configurações}
+\label{sec:13-config}
+
+O painel de configurações é montado por \file{js/processors/aurora\_settings.js},
+acionado pelo botão \lstinline|aurora-settings| (e pelo comando homônimo na
+paleta). Ele abre um modal (\lstinline|settings-modal|) com os controles de
+preferências. O estado é persistido em \lstinline|localStorage|:
+
+\begin{itemize}[leftmargin=*]
+  \item \lstinline|aurora-settings| — as preferências gerais (por exemplo,
+        \textit{tooltips} habilitados);
+  \item \lstinline|aurora-shortcuts| — os atalhos de teclado personalizados;
+  \item \lstinline|aurora-ai-trust-external-links| — chave compartilhada com a
+        caixa de \enquote{confiar em links externos} do chat de IA, de modo que
+        as duas fiquem ligadas.
+\end{itemize}
+
+Os atalhos padrão (\lstinline|defaultShortcuts|) cobrem ações como novo arquivo
+(\lstinline|Ctrl+N|), compilar tudo (\lstinline|Ctrl+Shift+B|), fechar/reabrir
+aba, salvar/salvar tudo e abrir configurações. Os rótulos dos atalhos são
+resolvidos em tempo de renderização via chaves de i18n
+(\lstinline|SHORTCUT_LABEL_KEYS|), não armazenados — assim uma troca de
+\textit{locale} atualiza a UI sem tocar nos atalhos persistidos. O painel também
+expõe o \textit{select} de idioma (\autoref{sec:13-i18n}) e o controle de
+\textit{tooltips} (aplicado imediatamente por \lstinline|setTooltipsEnabled|).
+
+\section{Atualizador automático (do ponto de vista do usuário)}
+\label{sec:13-updater}
+
+O \textit{auto-updater} vive em \file{main/updater.js} e é construído sobre
+\textbf{electron-updater}, consultando os \textit{releases} do repositório
+\repo{sapho} no GitHub. Os detalhes de \textit{release} e empacotamento são
+tratados em \autoref{cap:16-release}; aqui descreve-se a experiência do usuário.
+
+O fluxo (somente em produção — pulado em modo de desenvolvimento) é:
+
+\begin{enumerate}[leftmargin=*]
+  \item Cerca de 6 segundos após a janela principal aparecer, a \tool{AURORA}
+        checa silenciosamente por atualizações
+        (\lstinline|autoUpdater.autoDownload = false|).
+  \item Em \lstinline|update-available|, abre-se uma janela de atualização
+        personalizada (\path{html/update-notification.html}) mostrando o
+        \textit{changelog} bilíngue e a opção de baixar — nunca um diálogo
+        nativo. Se o \textit{electron-updater} não trouxer as notas, elas são
+        buscadas diretamente na API do GitHub (\lstinline|fetchReleaseNotes|).
+  \item Ao iniciar o \textit{download}, o evento \lstinline|download-progress|
+        alimenta uma barra de progresso real (percentual, MB transferidos,
+        velocidade, ETA) na mesma janela.
+  \item Em \lstinline|update-downloaded|, a janela muda para o estado
+        \enquote{Reiniciar e instalar}.
+  \item \lstinline|quitAndInstall(false, true)| instala e relança diretamente
+        na nova versão.
+\end{enumerate}
+
+Uma verificação manual (\enquote{checar atualizações}, via menu/configurações/
+\textit{About}) usa \lstinline|checkForUpdates(true)| e, se nada for encontrado,
+exibe um diálogo \enquote{você está atualizado}; a checagem silenciosa de
+inicialização suprime esse aviso. Erros são traduzidos para mensagens curtas e
+legíveis por \lstinline|friendlyError| (falha de rede, verificação de
+assinatura, falta de espaço em disco, permissão negada). Há ainda a
+\textbf{detecção pós-atualização}: a versão em execução é gravada em
+\path{userData/aurora-version.json} a cada \textit{boot}; no \textit{boot}
+seguinte, uma divergência entre a versão armazenada e a atual indica que o
+usuário acabou de atualizar — o \textit{renderer} lê esse estado uma vez
+(\lstinline|updates:post-update-status|) e mostra um \textit{toast} de
+confirmação. Instalações novas não disparam falso \enquote{você foi
+atualizado}, e o sinalizador é de uso único (uma segunda janela na mesma sessão
+não repete o \textit{toast}).
+
+\section{Overlay de desenvolvimento (Jank Overlay)}
+\label{sec:13-jank}
+
+Para diagnóstico de desempenho durante o desenvolvimento, há o \textit{Jank
+Overlay} em \file{js/dev/jank\_overlay.js}, um HUD que mede e exibe em tempo
+real:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{FPS} instantâneo (último quadro);
+  \item \textbf{p99} do tempo de quadro sobre uma janela deslizante de 300
+        quadros;
+  \item \textbf{taxa de \textit{jank}}: percentual de quadros cujo tempo excede
+        o dobro do orçamento de 165 Hz --- isto é, $2 \times 6{,}06 \approx
+        12$ ms (a constante \lstinline|BUDGET_MS| vale $1000/165 \approx 6{,}06$ ms);
+  \item contagem de \textbf{\textit{longtasks}} (via \lstinline|PerformanceObserver|,
+        tarefas $>$ 50 ms);
+  \item aproximação de \textbf{TTI} (\textit{time to interactive}), a partir da
+        marca \lstinline|aurora-interactive| ou do \lstinline|domInteractive| da
+        entrada de navegação.
+\end{itemize}
+
+O \textit{overlay} tem \textbf{custo zero quando inativo}: o laço de
+\lstinline|requestAnimationFrame| e o \lstinline|PerformanceObserver| só rodam
+enquanto ele está visível. É alternado pela paleta de comandos
+(\enquote{\textit{Toggle Jank Overlay}}, grupo \lstinline|Dev|), e o
+\textit{import} dinâmico do módulo evita qualquer custo de inicialização da IDE.
+Os valores são coloridos por limiares (verde/âmbar/vermelho) para leitura
+rápida.
+
+\section{Síntese}
+\label{sec:13-sintese}
+
+As ferramentas de produtividade da \tool{AURORA} compõem uma camada coesa em
+torno do editor, conectando processos privilegiados do \textit{main} a
+integrações no \tool{Monaco} e à interface. O terminal de saída estrutura e
+torna navegável o que as ferramentas do \textit{toolchain} emitem; o controle de
+versão embutido (sobre \textbf{simple-git} e \textbf{diff2html}) cobre o ciclo
+completo de \lstinline|git| com autenticação GitHub cifrada; a busca global é um
+varredor próprio sem dependências; o par \tool{Verible} (sintático completo) +
+\tool{slang} (semântico, opcional) entrega diagnósticos, formatação,
+\textit{outline}, \textit{hover}, navegação e completação; o
+\textit{tree-sitter} acrescenta realce fiel à gramática; o \tool{clang-format}
+formata C/C++/\cmm; e paleta de comandos, i18n, configurações, atualizador e
+\textit{overlay} de \textit{jank} fecham a experiência. O fio condutor é o
+\textit{best-effort}: cada recurso degrada graciosamente para um \textit{no-op}
+quando seu binário ou dependência não está presente, sem nunca comprometer a
+edição.

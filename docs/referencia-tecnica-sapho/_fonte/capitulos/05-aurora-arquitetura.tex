@@ -1,0 +1,660 @@
+% !TEX root = ../main.tex
+\chapter{AURORA IDE: arquitetura geral}
+\label{cap:05-aurora-arquitetura}
+
+A \tool{AURORA} é a IDE desktop da plataforma \tool{SAPHO}: uma aplicação
+\href{https://www.electronjs.org/}{Electron} na qual o usuário projeta
+soft-processors, edita código em \cmm, Verilog e SystemVerilog, compila pela
+toolchain \tool{YANC} (\autoref{cap:07-yanc-pipeline}), simula, visualiza o RTL
+no \tool{PRISM} e conversa com o subsistema Aurora Intelligence
+(\autoref{cap:12-aurora-intelligence}). Este capítulo documenta a
+\emph{arquitetura do processo Electron}: a separação entre processo principal
+(\emph{main}) e processo de renderização (\emph{renderer}), as janelas criadas,
+a topologia de IPC (\emph{inter-process communication}) e os módulos de
+infraestrutura do \emph{main} (estado, ciclo de vida, caminhos, rastreio de
+processos filhos, log, carregamento do bundle do renderer).
+
+O escopo aqui é o processo \emph{main} e a fronteira IPC. A interface em si
+(componentes \href{https://lit.dev/}{Lit}, editor \tool{Monaco}, terminal,
+painéis) é tratada em \autoref{cap:06-aurora-renderer}; a toolchain, o pipeline
+de compilação e o \tool{PRISM} têm capítulos próprios. Quando um assunto pertence
+a outro capítulo, ele é apenas mencionado de passagem.
+
+\begin{nota}
+Toda afirmação deste capítulo foi verificada lendo o código-fonte em
+\path{C:/Users/chrys/Documents/GitHub/aurora}. Os arquivos centrais são
+\file{main.js} (ponto de entrada), \file{main/windows.js} (fábricas de janelas),
+\file{main/lifecycle.js} (ciclo de vida), os módulos \file{main/ipc/*.js}
+(handlers IPC) e os preloads em \path{js/app/preload*.js}.
+\end{nota}
+
+\section{Modelo de dois processos do Electron}
+\label{sec:05-dois-processos}
+
+O Electron herda do Chromium um modelo multiprocessos. A \tool{AURORA} usa duas
+classes de processo:
+
+\begin{description}[leftmargin=*]
+  \item[Processo \emph{main} (Node.js)] É o processo privilegiado. Tem acesso a
+    Node, ao sistema de arquivos, ao \lstinline|child_process| (spawn de
+    compiladores/simuladores), à rede e às APIs nativas do Electron
+    (\lstinline|app|, \lstinline|BrowserWindow|, \lstinline|dialog|,
+    \lstinline|session|, \lstinline|safeStorage|). Existe exatamente um por
+    instância da aplicação. Todo o código sob \file{main/} roda aqui.
+  \item[Processo \emph{renderer} (Chromium)] É a página web que desenha a UI.
+    Roda \emph{sandboxed}, sem acesso direto a Node nem ao filesystem. Cada
+    \lstinline|BrowserWindow| tem o seu próprio renderer. Para alcançar qualquer
+    capacidade do \emph{main}, o renderer chama uma API curada exposta por um
+    \emph{preload} via \lstinline|contextBridge|.
+\end{description}
+
+\subsection{O padrão central: ``renderer orquestra, main executa''}
+\label{sec:05-padrao-central}
+
+A linha divisória de toda a \tool{AURORA} é: \emph{o renderer decide o que fazer;
+o main faz o que pode causar efeito colateral}. O renderer monta a intenção
+(abrir projeto, ler arquivo, compilar uma etapa, fazer commit, gerar um SVG) e a
+envia por um canal IPC; o \emph{main} valida a entrada, executa a operação
+privilegiada (filesystem, \lstinline|spawn|, rede, keychain) e devolve o
+resultado. Nenhuma capacidade de Node, \lstinline|fs| ou \lstinline|spawn| vive
+no renderer --- todas estão no \emph{main}, atrás de um canal IPC.
+
+Esse padrão aparece de forma explícita no executor de compilação. O renderer
+constrói um \lstinline|CommandSpec| estruturado (\lstinline|{binary, args}|) e o
+manda por \lstinline|exec-spec|; o \emph{main} valida o binário contra uma
+allowlist da toolchain, confere \emph{protected flags} e só então dispara
+\lstinline|spawn(binary, args, { shell: false })|. Como descrito no cabeçalho de
+\file{main/compile/executor.js}, com \lstinline|shell:false| cada argumento vai
+para o filho exatamente como está --- não há parsing de shell, portanto não há
+bug de \emph{quoting} nem vetor de injeção. É exatamente essa propriedade que
+permite que o sistema de \emph{command override} da Aurora Intelligence exista
+com segurança (\autoref{cap:12-aurora-intelligence}).
+
+\section{O ponto de entrada: \file{main.js}}
+\label{sec:05-mainjs}
+
+O arquivo \file{main.js} é deliberadamente magro: toda a lógica real vive em
+\file{main/}, e este arquivo apenas \emph{conecta os módulos} numa ordem de boot
+determinística. Suas responsabilidades, em ordem de execução, são:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Configurar o logger antes de tudo.} A primeira instrução após os
+    \lstinline|require| é \lstinline|configureLogger()| (de \file{main/logger.js}),
+    para que toda chamada de log subsequente já use a configuração definitiva.
+  \item \textbf{Rede de segurança do processo main.} Inicia o
+    \lstinline|crashReporter| em modo local (\lstinline|uploadToServer: false|,
+    coletando minidumps) e registra \lstinline|process.on('uncaughtException')|
+    e \lstinline|process.on('unhandledRejection')| para que nada que escape de um
+    callback derrube o processo silenciosamente. Tudo \emph{best-effort}: a rede
+    de segurança nunca pode ser o que bloqueia o boot.
+  \item \textbf{Ajuste de GPU / compositor.} As \emph{command-line switches} têm
+    de ser anexadas \emph{antes} de o app ficar pronto, pois o processo de GPU as
+    lê no lançamento. Veja \autoref{sec:05-gpu}.
+  \item \textbf{AppUserModelID (Windows).} Chama
+    \lstinline|app.setAppUserModelId('com.nipscern.sapho')| o mais cedo possível
+    --- antes de existir qualquer \lstinline|BrowserWindow| --- para que o Windows
+    associe o processo a uma identidade estável de \emph{jumplist}/taskbar.
+  \item \textbf{Registro de IPC e ciclo de vida.} Adquire o \emph{single-instance
+    lock} via \lstinline|lifecycle.register()| e, se obtido, registra todos os
+    módulos de IPC (\autoref{sec:05-ipc}).
+  \item \textbf{\lstinline|app.whenReady()|.} Quando o Electron está pronto:
+    cria o diretório \path{/tmp} do MSYS, roda a higiene de temporários
+    (\file{main/temp_gc.js}), reconstrói a jumplist, instala a
+    \emph{Content-Security-Policy} (\autoref{sec:05-csp}) e finalmente chama
+    \lstinline|windows.createSplashScreen()| --- a splash agenda a criação da
+    janela principal.
+\end{enumerate}
+
+\subsection{Switches de GPU}
+\label{sec:05-gpu}
+
+Antes de \lstinline|app.whenReady|, \file{main.js} anexa duas switches:
+
+\begin{lstlisting}[language=Java]
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+\end{lstlisting}
+
+A combinação rasteriza os \emph{tiles} na GPU e os carrega sem cópia pela CPU ---
+um ganho para painéis de muito \emph{scroll}/\emph{paint} (terminal, editor,
+configuração de waveform). O código documenta explicitamente que \emph{não} se
+usa \lstinline|disable-frame-rate-limit| (removeria o \emph{vsync} do Chromium e
+poderia saturar o processo de GPU durante os \emph{loops} de
+\lstinline|requestAnimationFrame| da splash). A aceleração de hardware é deixada
+\textbf{ligada} --- \lstinline|app.disableHardwareAcceleration()| nunca é chamado
+--- e o \lstinline|backgroundThrottling| fica no padrão.
+
+\subsection{Content-Security-Policy}
+\label{sec:05-csp}
+
+Dentro de \lstinline|app.whenReady|, \file{main.js} instala uma CSP via
+\lstinline|session.defaultSession.webRequest.onHeadersReceived|, entregue como
+\emph{header} de resposta para que cubra tanto o carregamento empacotado
+(\lstinline|file://|) quanto o servidor de desenvolvimento. O \emph{handler}
+\emph{substitui} (não acrescenta) qualquer CSP que um servidor de dev tenha
+definido, deixando a da \tool{AURORA} como autoritativa. As diretivas incluem,
+entre outras, \lstinline|default-src 'self'|, \lstinline|object-src 'none'|,
+\lstinline|frame-ancestors 'none'| e um \lstinline|connect-src| que, em produção,
+só permite a origem própria mais a detecção local do \tool{Ollama}
+(\lstinline|localhost:11434|) --- os provedores de IA em nuvem e o \tool{MCP}
+rodam no \emph{main}, não no renderer.
+
+\section{Janelas: \file{main/windows.js}}
+\label{sec:05-janelas}
+
+As fábricas de janela vivem em \file{main/windows.js}, com exceção da janela do
+\tool{PRISM}, que mora em \file{main/ipc/prism.js} por carregar muita lógica de
+compilação. Ao todo a \tool{AURORA} cria \textbf{cinco} tipos de
+\lstinline|BrowserWindow|: principal, splash, atualização, \tool{PRISM} e o
+\emph{Design Lab}. A tabela abaixo resume cada uma e suas opções de segurança ---
+em todas elas \lstinline|contextIsolation| está ligado, \lstinline|sandbox| está
+ligado e \lstinline|nodeIntegration| está desligado.
+
+\begin{longtable}{@{}p{0.16\linewidth} p{0.30\linewidth} p{0.46\linewidth}@{}}
+  \toprule
+  \textbf{Janela} & \textbf{Preload dedicado} & \textbf{Características} \\
+  \midrule
+  \endhead
+  Principal & \file{js/app/preload.js} &
+    \lstinline|frame:false|, \lstinline|thickFrame:true|, barra de título
+    customizada; 1280\texttimes820 (mín.\ 720\texttimes480); carrega
+    \path{index.html}. Bloqueio de navegação: \lstinline|setWindowOpenHandler|
+    nega \lstinline|window.open| e \lstinline|will-navigate| é cancelado.
+    Múltiplas janelas principais podem coexistir no mesmo processo. \\
+  Splash & \file{js/app/preload_splash.js} &
+    720\texttimes480, \lstinline|frame:false|, \lstinline|transparent:true|,
+    \lstinline|alwaysOnTop|, \lstinline|skipTaskbar|; carrega
+    \path{html/splash.html}. Exibe progresso \emph{real} de boot. \\
+  Atualização & \file{js/app/preload_update.js} &
+    540\texttimes660, \lstinline|frame:false|, \lstinline|transparent:true|,
+    \lstinline|alwaysOnTop|; janela única que percorre os estados
+    \emph{available} / \emph{downloading} / \emph{downloaded}
+    (\autoref{cap:13-updater-build}). Não fecha durante um download em curso. \\
+  \tool{PRISM} & \file{js/app/preload_prism.js} &
+    1400\texttimes900 (mín.\ 1000\texttimes700), \lstinline|frame:false|,
+    \lstinline|thickFrame:true|; carrega \path{html/prism/prism.html}.
+    Criada em \file{main/ipc/prism.js} (\autoref{cap:08-prism-rtl}). \\
+  Design Lab & (sem preload) &
+    1100\texttimes820, janela emoldurada (controles nativos do SO), singleton.
+    Galeria interna de componentes, aberta pela paleta de comandos; é uma página
+    estática que não fala com nada. \\
+  \bottomrule
+  \caption{As cinco janelas da \tool{AURORA} e suas opções principais.}
+\end{longtable}
+
+\subsection{Janela principal: \lstinline|createMainWindow|}
+\label{sec:05-main-window}
+
+A janela principal é criada sem moldura nativa (\lstinline|frame:false|) porque a
+\tool{AURORA} desenha a própria barra de título; \lstinline|thickFrame:true|
+preserva o \emph{Aero snap}, o redimensionamento de borda e as animações em todas
+as versões do Windows. As \lstinline|webPreferences| materializam o modelo de
+segurança: \lstinline|contextIsolation:true|, \lstinline|sandbox:true|,
+\lstinline|nodeIntegration:false|, \lstinline|nodeIntegrationInSubFrames:false|,
+\lstinline|webviewTag:false|, \lstinline|enableWebSQL:false|,
+\lstinline|allowRunningInsecureContent:false| e
+\lstinline|experimentalFeatures:false|. O único caminho do renderer para o
+\emph{main} é o \lstinline|electronAPI| exposto pelo preload.
+
+A função também:
+
+\begin{itemize}[leftmargin=*]
+  \item registra o protocolo \lstinline|sapho:| e a extensão \path{.spf} no
+    Windows e reconstrói a \emph{jumplist} a cada criação de janela;
+  \item notifica o renderer sobre maximizar/restaurar/fullscreen (evento
+    \lstinline|window-state|) para que o ícone da barra de título acompanhe;
+  \item ao detectar um \path{.spf} passado na linha de comando, envia
+    \lstinline|open-spf-file| ao renderer após \lstinline|did-finish-load|;
+  \item no \lstinline|close| da \emph{última} janela principal, dispara
+    \lstinline|stopAllToolchain()| e fecha a janela auxiliar do \tool{PRISM},
+    garantindo que nenhum compile/simulação/síntese sobreviva ao fechamento da
+    IDE.
+\end{itemize}
+
+\subsection{Splash com progresso real}
+\label{sec:05-splash}
+
+A splash não é um \emph{timer} fixo: a barra avança conforme a janela principal
+cruza marcos genuínos de boot. O fluxo, codificado em
+\lstinline|createSplashScreen|, é:
+
+\begin{lstlisting}[language=bash]
+splash carrega (did-finish-load)         -> progresso 10%  "boot"
+  cria janela principal OCULTA (deferShow)
+                                         -> progresso 24%  "window"
+                                         -> progresso 36%  "loading"
+  webContents da principal:
+    dom-ready                            -> progresso 56%  "dom"
+    did-finish-load                      -> progresso 80%  "resources"
+    ready-to-show                        -> progresso 90%  "editor"
+  renderer sinaliza app:renderer-ready   -> progresso 96%  -> handoff 100%
+  splash responde splash:filled          -> espera 2 s     -> reveal
+\end{lstlisting}
+
+O \lstinline|reveal| maximiza e mostra a janela principal e fecha a splash de
+imediato (sem \emph{fade}, para não haver \emph{flash} de desktop vazio entre
+elas). Um teto absoluto de \textbf{15\,s} força a transferência caso algum marco
+nunca dispare. O coordenador usa \lstinline|ipcMain.once| para os sinais
+\lstinline|splash:filled| e \lstinline|app:renderer-ready|, de modo que uma
+segunda janela criada depois não re-dispare o \emph{handoff}.
+
+\subsection{Controles de janela roteados pelo emissor}
+\label{sec:05-window-controls}
+
+Como vários janelas principais podem coexistir no mesmo processo (ver
+\autoref{sec:05-lifecycle}), \lstinline|registerWindowControls| roteia cada IPC
+de janela para \emph{a janela que o enviou}, via
+\lstinline|BrowserWindow.fromWebContents(event.sender)|, e não para o singleton
+\lstinline|state.mainWindow|. Os canais são: \lstinline|window:minimize|,
+\lstinline|window:maximize-toggle|, \lstinline|window:close| e
+\lstinline|window:get-state| (mais zoom: \lstinline|zoom-in|,
+\lstinline|zoom-out|, \lstinline|zoom-reset|, e \lstinline|open-design-lab|).
+
+\section{Ciclo de vida da aplicação: \file{main/lifecycle.js}}
+\label{sec:05-lifecycle}
+
+O módulo \file{main/lifecycle.js} concentra o ciclo de vida do app via a função
+\lstinline|register()|, registrada por \file{main.js} no boot.
+
+\subsection{Single-instance lock e múltiplas janelas}
+
+No início, \lstinline|register()| detecta um \path{.spf} na linha de comando
+(\lstinline|process.argv.find(arg => arg.endsWith('.spf'))|) e tenta adquirir o
+\emph{single-instance lock} com \lstinline|app.requestSingleInstanceLock()|. A
+variável de ambiente \lstinline|SAPHO_SKIP_SINGLE_INSTANCE=1| ignora o lock (uso
+exclusivo dos testes). Se o lock não é obtido, a função loga o motivo em
+\emph{ambos} o arquivo de log e o \lstinline|stderr| e chama
+\lstinline|app.quit()|, retornando \lstinline|false| --- o que faz \file{main.js}
+abortar o registro dos handlers num processo que está morrendo.
+
+Quando uma segunda instância é lançada, o evento \lstinline|second-instance|
+\textbf{cria uma nova janela} no mesmo processo (em vez de só focar a existente),
+permitindo vários projetos lado a lado sem duplicar processos Electron nem correr
+risco de corrida sobre a pasta compartilhada \path{components/Temp}. Se essa
+segunda invocação trouxe um \path{.spf}, ele é enviado à nova janela.
+
+\subsection{Encerramento: limpeza em duas fases}
+\label{sec:05-before-quit}
+
+O \emph{handler} \lstinline|before-quit| é a limpeza \emph{autoritativa} e roda em
+duas fases serializadas, para evitar \lstinline|EBUSY| no \lstinline|rmdir| de
+\path{Temp}:
+
+\begin{description}[leftmargin=*]
+  \item[Fase 1 --- soltar handles.] Fecha todos os \emph{watchers} de arquivo e
+    de diretório (chokidar, que no Windows usa \lstinline|ReadDirectoryChangesW|)
+    e chama \lstinline|stopAllToolchain()| (\autoref{sec:05-process-registry}),
+    que mata todos os processos filhos da toolchain. Também encerra o servidor
+    \tool{MCP} da Aurora (a ponte HTTP local). Tudo isso corre em paralelo, com
+    um teto de \textbf{5\,s} via \lstinline|Promise.race| para não travar o quit.
+  \item[Fase 2 --- apagar \path{Temp}.] Só depois de a fase 1 liberar os handles,
+    remove recursivamente \path{components/Temp} (\lstinline|maxRetries:3|) e a
+    recria vazia.
+\end{description}
+
+Há ainda \lstinline|window-all-closed| (sai do app fora do macOS) e
+\lstinline|activate| (recria a janela principal se não houver nenhuma, padrão
+macOS).
+
+\section{Caminhos e estado do main}
+\label{sec:05-paths-state}
+
+\subsection{\file{main/paths.js}}
+
+Centraliza os caminhos estáticos. \lstinline|appRoot| é
+\lstinline|app.getAppPath()| (a raiz do projeto em dev, ou
+\path{resources/app.asar} empacotado). O \lstinline|componentsPath| --- onde mora
+o toolchain bundle (\autoref{cap:09-toolchain-bundle}) --- depende do modo: em dev
+é \path{<appRoot>/components}; empacotado, fica ao lado do executável
+(\lstinline|path.dirname(app.getPath('exe'))/components|), pois os componentes são
+distribuídos \emph{fora} do asar. O sinalizador \lstinline|isDev| deriva de
+\lstinline|process.env.NODE_ENV === 'development'|.
+
+\subsection{\file{main/state.js}}
+\label{sec:05-state}
+
+Estado mutável compartilhado do \emph{main}. Todos os módulos importam a
+\emph{mesma} referência de objeto, de modo que escritas feitas por um handler
+ficam visíveis a todos. Substitui as antigas variáveis \lstinline|let| de escopo
+de arquivo. Os campos incluem:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Janelas:} \lstinline|mainWindow|, \lstinline|splashWindow|,
+    \lstinline|updateWindow|, \lstinline|prismWindow|.
+  \item \textbf{Updater:} \lstinline|isQuitting|,
+    \lstinline|downloadInProgress|, \lstinline|updateAvailable|,
+    \lstinline|updateInfo| etc.
+  \item \textbf{Projeto:} \lstinline|currentOpenProjectPath| (a fonte única da
+    verdade sobre qual projeto está aberto, lida por \file{git.js} e
+    \file{search.js}) e \lstinline|fileToOpen|.
+  \item \textbf{Processos de simulação:} \lstinline|currentVvpProcess|,
+    \lstinline|vvpProcessPid|, \lstinline|currentGtkwaveProcesses| e
+    \lstinline|childProcesses| --- o \emph{Set} central de todo filho da
+    toolchain, \emph{tree-killed} ao fechar a janela/sair.
+  \item \textbf{Watchers:} \lstinline|activeWatchers|,
+    \lstinline|activeDirectoryWatchers| e seus caches de \emph{stats}.
+\end{itemize}
+
+\section{Rastreio e \emph{tree-kill} de processos filhos}
+\label{sec:05-process-registry}
+
+O módulo \file{main/process_registry.js} é o registro central de todo processo
+filho da toolchain que a \tool{AURORA} dispara (compiladores \cmm/ASM,
+\tool{iverilog}, \tool{vvp}, \tool{Verilator} com seus \tool{g++}/\tool{make}/
+\tool{ccache}, \tool{yosys} para o \tool{PRISM}, \tool{gtkwave}, \tool{cocotb}/
+Python) mais a rotina única que força a parada de todos.
+
+\subsection{Registro e ponto de spawn único}
+
+\begin{description}[leftmargin=*]
+  \item[\lstinline|trackChild(child)|] adiciona o filho a
+    \lstinline|state.childProcesses| e o remove automaticamente em
+    \lstinline|exit|/\lstinline|close|/\lstinline|error| --- o \emph{Set} só
+    contém processos vivos. Marca também \lstinline|toolchainEverRan = true|.
+  \item[\lstinline|spawnTracked(cmd, args, opts)|] é o ponto de \emph{spawn}
+    obrigatório da toolchain: equivale a \lstinline|trackChild(spawn(...))|, com a
+    mesma assinatura e o mesmo retorno de \lstinline|child_process.spawn|. Spawnar
+    por aqui torna automático o registro para \emph{tree-kill}.
+\end{description}
+
+Os CLIs de agente de IA (\file{claude_code}, \file{codex_cli})
+\emph{deliberadamente} não passam por aqui --- eles gerenciam as próprias árvores
+de processo e são derrubados por seus \lstinline|killAll()| em
+\lstinline|stopAllToolchain()|.
+
+\subsection{\lstinline|stopAllToolchain()|}
+
+É \emph{best-effort} e idempotente (memoizada numa única \lstinline|stopPromise|),
+chamável tanto no \lstinline|close| da janela quanto no \lstinline|before-quit|.
+Cobre, em ordem:
+
+\begin{enumerate}[leftmargin=*]
+  \item todo filho rastreado, \emph{tree-killed} por PID
+    (\lstinline|taskkill /F /T /PID|);
+  \item o processo de simulação \emph{legacy} de slot único, caso não estivesse
+    rastreado;
+  \item \textbf{apenas se algum filho realmente rodou nesta sessão}
+    (\lstinline|toolchainEverRan|): varreduras de \emph{backstop} por nome
+    (\lstinline|vvp.exe|, \lstinline|gtkwave.exe|) e por prefixo de caminho
+    (os \lstinline|V<top>.exe| do Verilator sob \path{components/Temp});
+  \item os CLIs de IA (Claude Code / Codex) via \lstinline|killAll()|;
+  \item as gerações de chat de IA em curso, via \lstinline|abortAll()| (aborta os
+    \emph{streams} HTTP).
+\end{enumerate}
+
+A guarda \lstinline|toolchainEverRan| é o que faz uma sessão só de edição fechar
+instantaneamente: as varreduras externas (que custam um \lstinline|taskkill| frio
+e um \lstinline|Get-CimInstance Win32_Process| via PowerShell) só rodam se houve
+provadamente o que matar. As primitivas de \emph{kill} (\lstinline|killProcessSilently|,
+\lstinline|killProcessesByName|, \lstinline|killProcessesByPathPrefix|) vivem em
+\file{main/utils.js}.
+
+\section{Higiene de temporários e log}
+\label{sec:05-tempgc-log}
+
+\subsection{\file{main/temp_gc.js}}
+
+Higiene universal de temporários, \emph{best-effort} e não-bloqueante, rodada uma
+vez no startup (enfileirada para fora do caminho crítico via
+\lstinline|setImmediate|). \lstinline|runStartupGC()| (1) poda os arquivos
+\path{aurora-mcp-<pid>.json} obsoletos que o Claude Code escreve no diretório
+temporário do SO e que nunca eram limpos, e (2) limpa as imagens de anexo da IA
+(\lstinline|cleanupTempImages(0)|), que são \emph{one-shot} por turno.
+
+\subsection{\file{main/logger.js}}
+
+Configuração central do
+\href{https://github.com/megahertz/electron-log}{\tool{electron-log}}, que é um
+singleton: como toda chamada \lstinline|require('electron-log')| no código retorna
+a mesma instância, basta configurar transportes/níveis/formato uma vez aqui e todo
+o \emph{main} herda. O transporte de arquivo fica no nível \lstinline|info|, com
+rotação a $\sim$5\,MB; o transporte de console é \lstinline|debug| em dev e
+\lstinline|warn| em produção. Os caminhos de log por SO (padrão do
+\tool{electron-log}) são:
+
+\begin{tabularx}{\linewidth}{Y Z}
+  \toprule
+  \textbf{Sistema} & \textbf{Caminho de \path{main.log}} \\
+  \midrule
+  Windows & \path{%APPDATA%/Aurora-IDE/logs/main.log} \\
+  macOS   & \path{~/Library/Logs/Aurora-IDE/main.log} \\
+  Linux   & \path{~/.config/Aurora-IDE/logs/main.log} \\
+  \bottomrule
+\end{tabularx}
+
+\section{Carregando o renderer empacotado pelo Vite}
+\label{sec:05-render-loader}
+
+\subsection{\file{main/render_loader.js}}
+
+Toda janela de primeira parte (principal, splash, atualização, \tool{PRISM})
+carrega sua página por \lstinline|loadPage(win, relPath)|, centralizando a
+seleção dev/prod num só lugar:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Dev (Vite):} quando \lstinline|AURORA_RENDERER_URL| está definida
+    \emph{e} o app não está empacotado, a página é carregada do servidor de dev do
+    Vite (com HMR), anexando o caminho relativo à origem do servidor.
+  \item \textbf{Produção:} carrega a página empacotada de \path{dist/} via
+    \lstinline|file://|.
+\end{itemize}
+
+Não há \emph{fallback} para a fonte crua: após a migração para \tool{Lit}, a
+\path{index.html} crua carrega \lstinline|import|s de \lstinline|lit| que só
+resolvem pelo \emph{bundler}, então um \path{dist/} ausente é um erro de build
+--- e é exibido explicitamente como uma página de erro, não como uma UI
+silenciosamente quebrada.
+
+\subsection{\file{scripts/launch-electron.js}}
+
+O \lstinline|npm start| não chama \lstinline|electron .| diretamente, e sim
+\file{scripts/launch-electron.js}. O motivo: alguns shells pais (o terminal
+integrado do VS Code, o Claude Code) exportam
+\lstinline|ELECTRON_RUN_AS_NODE=1|; herdada por \lstinline|electron .|, ela faria
+o Electron bootar como Node puro (\lstinline|app| viraria \lstinline|undefined| e
+o app quebraria em \lstinline|app.getAppPath()| dentro de \file{main/paths.js}). O
+script \emph{deleta} essa variável do ambiente e então faz
+\lstinline|spawn(electron, ['.', ...argv])|.
+
+\section{Topologia de IPC}
+\label{sec:05-ipc}
+
+A fronteira IPC é o coração da arquitetura: é por ela que o renderer alcança o
+\emph{main}. No total existem \textbf{157} registros de \lstinline|ipcMain| no
+processo principal (contagem por \lstinline|grep| de
+\lstinline|ipcMain.handle/on/once| em \file{main/} e \file{main.js}). A maioria
+usa \lstinline|ipcMain.handle| (\emph{request/response} via
+\lstinline|invoke|/\lstinline|Promise|); alguns usam \lstinline|ipcMain.on|
+(sinais unidirecionais, como controles de janela e a conclusão de \emph{tool
+call}).
+
+\subsection{Os módulos \file{main/ipc/*}}
+
+\begin{longtable}{@{}p{0.18\linewidth} r p{0.58\linewidth}@{}}
+  \toprule
+  \textbf{Módulo} & \textbf{Handlers} & \textbf{Papel} \\
+  \midrule
+  \endhead
+  \file{ipc/files.js}    & 27 &
+    Sistema de arquivos, diálogos e \emph{watchers} (chokidar):
+    \lstinline|read-file|, \lstinline|write-file|, \lstinline|copy-file|,
+    \lstinline|mkdir|, \lstinline|file:delete|, \lstinline|watch-file|,
+    \lstinline|watch-directory|, \lstinline|dialog:showOpen|,
+    \lstinline|show-save-dialog|, \lstinline|create-backup| etc. \\
+  \file{ipc/git.js}      & 28 &
+    Controle de versão via \href{https://github.com/steveukx/git-js}{simple-git}
+    sobre o diretório do projeto aberto: \lstinline|git:status|,
+    \lstinline|git:diff|, \lstinline|git:commit|, \lstinline|git:push|,
+    \lstinline|git:pull|, \lstinline|git:clone|, \lstinline|git:branches|,
+    \lstinline|git:stash| etc. (\autoref{cap:11-git-github}). \\
+  \file{ipc/ai.js}       & 22 &
+    Aurora Intelligence: gestão de chaves (\lstinline|ai:set-key|,
+    \lstinline|ai:get-key-status| --- a chave \emph{nunca} sai do main),
+    \lstinline|ai:chat-start|/\lstinline|ai:chat-abort|, \emph{bridges} de
+    Claude Code/Codex, manifesto de \emph{tools}, histórico de conversas
+    (\autoref{cap:12-aurora-intelligence}). \\
+  \file{ipc/project.js}  & 11 &
+    Lifecycle de projeto (\lstinline|project:open|, \lstinline|project:close|,
+    \lstinline|project:createStructure|) e CRUD de processadores
+    (\lstinline|create-processor-project|, \lstinline|delete-processor|,
+    \lstinline|rename-processor|); reescreve o \path{.spf} nesses eventos. \\
+  \file{ipc/compile.js}  & 7 &
+    Execução de compilação/simulação \emph{legacy} e abertura de visualizadores
+    de waveform: \lstinline|launch-gtkwave-only|, \lstinline|launch-surfer|,
+    \lstinline|cancel-vvp-process|, \lstinline|kill-current-spec-process|,
+    \lstinline|check-process-running|, \lstinline|decode-complex|. \\
+  \file{ipc/prism.js}    & 6 &
+    \tool{PRISM}: dono da janela do visualizador de RTL e de todos os passos de
+    síntese (Yosys $\to$ netlistsvg): \lstinline|prism-compile-with-paths|,
+    \lstinline|prism-recompile|, \lstinline|generate-svg-from-module|,
+    \lstinline|prism:build-digitaljs| (\autoref{cap:08-prism-rtl}). \\
+  \file{ipc/github_auth.js} & 7 &
+    Conexão de conta GitHub (PAT validado + \emph{Device Flow} OAuth), com o
+    token cifrado por \lstinline|safeStorage| (DPAPI no Windows):
+    \lstinline|github:connect|, \lstinline|github:status|,
+    \lstinline|github:list-repos|, \lstinline|github:oauth-login| etc. \\
+  \file{ipc/system.js}   & 6 &
+    Utilidades de sistema: \lstinline|get-components-path|,
+    \lstinline|toolchain:python-status|, \lstinline|join-path|,
+    \lstinline|path-dirname|, \lstinline|app:reload| e
+    \lstinline|renderer:error| (a \emph{error boundary} do renderer encaminha
+    erros não tratados para o log persistente). \\
+  \file{ipc/search.js}   & 2 &
+    \emph{Find in Files} no projeto: \lstinline|search:in-project|, uma varredura
+    recursiva síncrona limitada por profundidade/tamanho/matches, ancorada em
+    \lstinline|state.currentOpenProjectPath|. \\
+  \bottomrule
+  \caption{Os nove módulos sob \file{main/ipc/} (somam 116 handlers).}
+\end{longtable}
+
+\subsection{Outros registradores de IPC}
+
+Além de \file{main/ipc/*}, registram canais: \file{main/compile/executor.js}
+(4 --- \lstinline|exec-spec|, \lstinline|exec-spec-streamed|,
+\lstinline|exec-spec-allowed-binaries|, \lstinline|exec-spec-protected-flags|),
+\file{main/lsp/verible_lsp.js} (9, \lstinline|lsp:*|),
+\file{main/lsp/slang_lsp.js} (6, \lstinline|slang:*|),
+\file{main/format/clang_format.js} (2, \lstinline|format:*|),
+\file{main/treesitter/grammars.js} (2, \lstinline|treesitter:*| --- serve bytes
+WASM ao realce semântico), \file{main/updater.js} (8, \lstinline|update*|) e
+\file{main/windows.js} (10 --- os oito controles de janela/zoom mais os dois
+sinais da splash \lstinline|splash:filled| e \lstinline|app:renderer-ready|,
+registrados via \lstinline|ipcMain.once| dentro de \lstinline|createSplashScreen|).
+Os LSP, \emph{clang-format} e \emph{tree-sitter} são todos
+\emph{best-effort}: se o binário/grammar não estiver instalado, o lado \emph{main}
+vira \emph{no-op}.
+
+\section{Os preloads como ponte segura}
+\label{sec:05-preloads}
+
+Cada janela tem um preload que executa num contexto isolado e usa
+\lstinline|contextBridge.exposeInMainWorld| para expor \emph{apenas} as funções
+IPC que aquele renderer realmente consome --- uma allowlist de canais. Nenhum
+preload expõe um \lstinline|send|/\lstinline|invoke| genérico, então um renderer
+não pode alcançar um canal arbitrário.
+
+\subsection{\file{js/app/preload.js} (janela principal)}
+
+O preload principal expõe \emph{oito} \emph{namespaces} no
+\lstinline|window| via \lstinline|contextBridge|:
+
+\begin{tabularx}{\linewidth}{Y Z}
+  \toprule
+  \textbf{Objeto global} & \textbf{Conteúdo} \\
+  \midrule
+  \lstinline|electronAPI| & Arquivos, \emph{watchers}, projeto, compilação/
+    simulação (\lstinline|execSpec|, \lstinline|execSpecStreamed|),
+    \tool{PRISM}, diálogos, UI/janela, terminal, updater, busca,
+    \lstinline|getPathForFile| e \lstinline|logRendererError|. \\
+  \lstinline|terminalAPI| & Terminal integrado (canais do terminal expostos
+    também como \emph{namespace} próprio, além do \emph{spread} em
+    \lstinline|electronAPI|). \\
+  \lstinline|aiAPI|       & Aurora Intelligence (provedores, chaves, chat,
+    \emph{tools}, conversas). \\
+  \lstinline|gitAPI|      & Git + integração GitHub. \\
+  \lstinline|lspAPI|      & LSP Verilog (Verible). \\
+  \lstinline|slangAPI|    & LSP semântico SystemVerilog (Slang). \\
+  \lstinline|clangFormatAPI| & Formatação C/C++/\cmm. \\
+  \lstinline|treeSitterAPI| & Bytes WASM de \emph{grammars} tree-sitter. \\
+  \bottomrule
+\end{tabularx}
+
+Cada método é um \emph{wrapper} fino sobre \lstinline|ipcRenderer.invoke| ou
+\lstinline|ipcRenderer.send|, mantendo o mapeamento 1:1 com os
+\lstinline|ipcMain.handle/on| do \emph{main}. As chaves de API em texto puro
+trafegam \emph{só} no sentido renderer $\to$ main: não existe canal
+\lstinline|getKey|, pois ler bytes decifrados de volta para o renderer anularia o
+propósito de manter o \emph{keystore} no \emph{main}. \lstinline|getPathForFile|
+usa \lstinline|webUtils.getPathForFile| para resolver o caminho de um \lstinline|File|
+em \emph{drag\&drop} (necessário no Electron 32+, que removeu \lstinline|file.path|).
+
+\subsection{Preloads auxiliares}
+
+\begin{description}[leftmargin=*]
+  \item[\file{preload_splash.js}] expõe \lstinline|splashAPI| com apenas
+    \lstinline|onProgress|, \lstinline|notifyFilled| e \lstinline|getAppVersion|
+    --- a splash não precisa de mais nada.
+  \item[\file{preload_update.js}] expõe \lstinline|updateAPI| espelhando 1:1 os
+    canais de \file{main/updater.js}: \lstinline|onState|, \lstinline|onProgress|,
+    \lstinline|onError|, \lstinline|onShake| (main $\to$ renderer) e
+    \lstinline|download|, \lstinline|install|, \lstinline|dismiss|
+    (renderer $\to$ main).
+  \item[\file{preload_prism.js}] expõe um \lstinline|electronAPI| reduzido com
+    cada canal que a janela do \tool{PRISM} usa (\lstinline|readFile|,
+    \lstinline|prismCompileWithPaths|, \lstinline|buildDigitalJS|,
+    \lstinline|openSourceFile| etc.), e comenta explicitamente que \emph{não} há
+    \lstinline|send|/\lstinline|removeAllListeners| genéricos, para preservar a
+    allowlist de canais.
+\end{description}
+
+\section{Diagrama da topologia}
+\label{sec:05-diagrama}
+
+O diagrama abaixo resume processos, janelas e a direção do IPC.
+
+\begin{lstlisting}
++===========================================================================+
+|                       PROCESSO MAIN (Node.js)                             |
+|                                                                           |
+|  main.js  -> lifecycle.register() (single-instance lock, before-quit)     |
+|          -> <modulo>.register() para cada IPC abaixo                       |
+|          -> windows.createSplashScreen() em app.whenReady                  |
+|                                                                           |
+|  Estado/infra:  state.js   paths.js   logger.js   temp_gc.js              |
+|                 process_registry.js (trackChild / spawnTracked /          |
+|                                      stopAllToolchain -> taskkill /T)      |
+|                                                                           |
+|  IPC (157 ipcMain):                                                        |
+|    files  project  compile  git  github_auth  prism  ai  search  system   |
+|    + executor(exec-spec)  lsp(verible/slang)  format  treesitter  updater |
+|                                                                           |
+|    spawn(shell:false) -> YANC / iverilog / vvp / verilator / yosys /      |
+|                          gtkwave / cocotb   (todos rastreados)            |
++=================================|=========================================+
+            contextBridge (preload)  |  ipcRenderer.invoke / .send  /  eventos
+   +--------------+--------------+----+------------+-------------------+
+   |              |              |                 |                   |
++--v---------+ +--v--------+ +---v---------+ +-----v--------+ +--------v------+
+| RENDERER   | | RENDERER  | | RENDERER    | | RENDERER     | | RENDERER      |
+| principal  | | splash    | | update      | | PRISM        | | Design Lab    |
+| index.html | | splash.   | | update-     | | prism.html   | | design-lab.   |
+|            | | html      | | notif.html  | |              | | html          |
+| preload.js | | preload_  | | preload_    | | preload_     | | (sem preload) |
+| (electron/ | | splash.js | | update.js   | | prism.js     | |               |
+|  ai/git/   | | splashAPI | | updateAPI   | | electronAPI  | |               |
+|  lsp/...)  | |           | |             | | (reduzido)   | |               |
++------------+ +-----------+ +-------------+ +--------------+ +---------------+
+  ctxIso=on     ctxIso=on     ctxIso=on       ctxIso=on        ctxIso=on
+  sandbox=on    sandbox=on    sandbox=on      sandbox=on       sandbox=on
+  nodeInt=off   nodeInt=off   nodeInt=off     nodeInt=off      nodeInt=off
+\end{lstlisting}
+
+\begin{nota}
+\textbf{Invariante de segurança.} Em todas as cinco janelas vale
+\lstinline|contextIsolation:true|, \lstinline|sandbox:true| e
+\lstinline|nodeIntegration:false|. O renderer nunca toca em Node, \lstinline|fs|
+ou \lstinline|spawn| diretamente: tudo cruza a fronteira IPC por um canal
+enumerado do preload, onde o \emph{main} valida a entrada
+(\lstinline|safePath|, \emph{allowlist} de binários, \emph{protected flags}) antes
+de executar a operação privilegiada.
+\end{nota}

@@ -1,0 +1,75 @@
+% !TEX root = ../main.tex
+\chapter{Referências e fontes}
+\label{ap:referencias}
+
+Este documento foi construído a partir do estudo direto do \textbf{código-fonte} dos repositórios
+da organização \texttt{nipscernlab} no GitHub. As referências abaixo apontam para esses
+repositórios, para as ferramentas de terceiros orquestradas pela plataforma e para os padrões
+relevantes.
+
+\section{Repositórios da plataforma SAPHO}
+
+\begin{description}[style=nextline,leftmargin=0pt]
+\item[\repo{aurora}] A IDE AURORA (código estudado).
+\url{https://github.com/nipscernlab/aurora}
+\item[\repo{yanc}] Os compiladores YANC.
+\url{https://github.com/nipscernlab/yanc}
+\item[\repo{sapho}] O canal de distribuição (instalador da suíte).
+\url{https://github.com/nipscernlab/sapho}
+\item[\repo{aurora-toolchain}] O \textit{toolchain bundle} reprodutível (msys/mingw64).
+\url{https://github.com/nipscernlab/aurora-toolchain}
+\item[\repo{gtkwave-nipscern}] O \textit{fork} customizado do GTKWave.
+\url{https://github.com/nipscernlab/gtkwave-nipscern}
+\item[\repo{netlistsvg-aurora}] O \textit{fork} do netlistsvg usado pelo PRISM.
+\url{https://github.com/nipscernlab/netlistsvg-aurora}
+\item[\repo{nipscernweb}] O sítio do laboratório.
+\url{https://github.com/nipscernlab/nipscernweb}
+\end{description}
+
+\section{Ferramentas de terceiros (projetos de origem)}
+
+\begin{description}[style=nextline,leftmargin=0pt]
+\item[Electron] \url{https://www.electronjs.org}
+\item[Monaco Editor] \url{https://microsoft.github.io/monaco-editor/}
+\item[Vite] \url{https://vitejs.dev}
+\item[Icarus Verilog] \url{https://steveicarus.github.io/iverilog/}
+\item[Verilator] \url{https://www.veripool.org/verilator/}
+\item[Yosys] \url{https://yosyshq.net/yosys/}
+\item[GTKWave] \url{https://gtkwave.sourceforge.net}
+\item[cocotb] \url{https://www.cocotb.org}
+\item[netlistsvg] \url{https://github.com/nturley/netlistsvg}
+\item[DigitalJS] \url{https://github.com/tilk/digitaljs}
+\item[Surfer] \url{https://surfer-project.org}
+\item[Verible] \url{https://github.com/chipsalliance/verible}
+\item[slang] \url{https://github.com/MikePopoloski/slang}
+\item[tree-sitter] \url{https://tree-sitter.github.io/tree-sitter/}
+\item[clang-format] \url{https://clang.llvm.org/docs/ClangFormat.html}
+\item[MSYS2] \url{https://www.msys2.org}
+\item[KaTeX] \url{https://katex.org}
+\item[Lit] \url{https://lit.dev}
+\item[Model Context Protocol] \url{https://modelcontextprotocol.io}
+\item[Vercel AI SDK] \url{https://sdk.vercel.ai}
+\item[electron-builder] \url{https://www.electron.build}
+\item[electron-updater] \url{https://www.electron.build/auto-update}
+\item[release-please] \url{https://github.com/googleapis/release-please}
+\end{description}
+
+\section{Padrões, formatos e convenções}
+
+\begin{description}[style=nextline,leftmargin=0pt]
+\item[Verilog HDL] IEEE Std 1364 --- linguagem de descrição de hardware alvo da síntese SAPHO.
+\item[VCD] \textit{Value Change Dump} --- formato textual de \textit{dump} de simulação (parte do
+padrão Verilog).
+\item[FST] \textit{Fast Signal Trace} --- formato binário de \textit{dump} do GTKWave.
+\item[Conventional Commits] Convenção de mensagens de \textit{commit} adotada no repositório.
+\url{https://www.conventionalcommits.org}
+\item[NSIS] \textit{Nullsoft Scriptable Install System} --- sistema de instalador para Windows.
+\end{description}
+
+\section{Documentos internos do repositório}
+
+Os documentos abaixo existem nos repositórios e foram consultados apenas como pistas para localizar
+o código; todas as afirmações deste relatório foram verificadas contra a implementação:
+\file{README.md}, \file{ARCHITECTURE.md}, \file{CHANGELOG.md}, \file{ROADMAP.md}, \file{RELEASE.md},
+\file{CONTRIBUTING.md}, \file{THIRD_PARTY_NOTICES.md}, \file{CITATION.cff} e os documentos em
+\file{docs/} (entre eles \file{docs/CODE_SIGNING.md}, \file{docs/DESIGN.md} e os estudos internos).

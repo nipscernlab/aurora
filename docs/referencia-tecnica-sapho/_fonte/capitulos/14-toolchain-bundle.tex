@@ -1,0 +1,519 @@
+% !TEX root = ../main.tex
+\chapter{O toolchain bundle (aurora-toolchain)}
+\label{cap:14-toolchain-bundle}
+
+A AURORA é uma IDE de desktop, mas o trabalho pesado de simulação, síntese e
+compilação de hardware é feito por uma pilha de ferramentas FOSS de EDA
+(\emph{Electronic Design Automation}) externas: \tool{iverilog}, \tool{verilator},
+\tool{yosys}, além de um compilador C/C++ completo e um interpretador Python com
+\tool{cocotb}. Em vez de exigir que o usuário instale e configure cada uma dessas
+ferramentas no Windows, a AURORA baixa e desempacota um único artefato portátil:
+o \emph{toolchain bundle}. Este capítulo documenta o repositório que produz esse
+artefato --- \repo{aurora-toolchain} --- e a maneira como a AURORA o consome.
+
+O repositório \repo{aurora-toolchain} é um \emph{projeto de build} em si: não
+contém código que roda dentro da IDE, e sim os \emph{scripts} (\path{build/10..60 *.sh}),
+o manifesto de versões (\path{manifest.txt}) e o \emph{workflow} de CI
+(\path{.github/workflows/build.yml}) que montam, enxugam, testam e publicam o
+arquivo \path{aurora-msys-vN.zip}. O artefato é publicado como um \emph{GitHub
+Release} e a AURORA o busca em tempo de \emph{bootstrap}.
+
+\begin{nota}
+Toda afirmação deste capítulo foi verificada lendo os \emph{scripts} de build
+(\path{build/10-install-packages.sh} a \path{build/60-package.sh}), o
+\path{manifest.txt}, o \path{.github/workflows/build.yml} do repositório
+\repo{aurora-toolchain} e o consumidor \file{components/Scripts/download-toolchain.js}
+no repositório \repo{aurora}. Onde o \path{README.md} divergia do código, o
+código prevaleceu.
+\end{nota}
+
+\section{Visão geral e papel na suíte SAPHO}
+
+O bundle consolida, num único \emph{prefixo} \tool{MSYS2}/\tool{mingw64}, toda a
+parte da pilha de ferramentas que pode ser empacotada como binários portáteis
+para Windows. Nem tudo que a AURORA usa está no bundle: o que está fora vem de
+outros repositórios, documentados em seus próprios capítulos.
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Componente} & \textbf{Onde vive} \\
+\midrule
+\tool{iverilog}, \tool{verilator}, \tool{yosys}, \tool{g++}, \tool{python}+\tool{cocotb} (ambos os VPIs) & \textbf{No bundle} (este capítulo) \\
+\tool{gtkwave-nipscern} (exibição de ondas + \path{fst2vcd}) & \emph{Download} separado (ver \autoref{cap:10-aurora-visualizacao-gtkwave-surfer} e \autoref{cap:15-catalogo-terceiros}) \\
+Compiladores YANC (\cmm{} $\rightarrow$ Verilog) & \emph{Download} separado (ver \autoref{cap:04-yanc-compiladores}) \\
+\tool{netlistsvg} (renderização de RTL para o PRISM) & Pacote npm em \path{node_modules} (ver \autoref{cap:11-aurora-prism-rtl}) \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+A divisão é deliberada: o bundle reúne apenas o que é grande, pinado por versão
+e compartilhado por vários fluxos. O \path{README.md} resume o motivo de o
+repositório existir separado da IDE: dar a esse trabalho de empacotamento um
+histórico próprio, uma fonte única de verdade para as versões e um build
+reproduzível, em vez de ele viver como \emph{scripts} espalhados dentro da AURORA.
+
+\subsection{Layout do artefato}
+
+O \path{aurora-msys-vN.zip} contém, a partir da sua raiz, um diretório \path{msys}
+com duas subárvores. O \path{build/60-package.sh} exige explicitamente que o
+diretório empacotado se chame \path{msys}, justamente para que a raiz interna do
+zip seja \path{msys/...}; ao ser extraído pela AURORA, ele recai em
+\file{components/Packages/msys/}.
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Caminho dentro do bundle} & \textbf{Conteúdo} \\
+\midrule
+\path{msys/mingw64/bin/} & Executáveis e DLLs: \path{iverilog.exe}, \path{vvp.exe}, \path{verilator}/\path{verilator_bin.exe}, \path{yosys.exe}, \path{g++}/\path{gcc}/\path{cc1plus}, \path{perl}, \path{make}, \path{ccache}, \path{python.exe} e as DLLs compartilhadas \\
+\path{msys/mingw64/lib/ivl/} & \emph{Backends} do \tool{iverilog} \\
+\path{msys/mingw64/lib/python3.12/} & Biblioteca padrão do Python + \path{site-packages} com \tool{cocotb} (e os dois VPIs) \\
+\path{msys/mingw64/share/verilator/} & Cabeçalhos e \path{verilated.mk} do \tool{verilator} \\
+\path{msys/mingw64/share/yosys/} & Dados de tempo de execução do \tool{yosys} \\
+\path{msys/usr/bin/} & \path{bash} + \emph{coreutils} do \tool{MSYS} (necessários para o \path{verilated.mk} do \tool{verilator}) \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+O \path{build/40-assemble-bundle.sh} copia o \path{/mingw64} inteiro e, do
+\tool{MSYS}, apenas o \path{/usr/bin} (sem \path{usr/lib} nem \path{usr/share}),
+porque o bundle enxuto comprovadamente funciona só com \path{usr/bin}, e arrastar
+o resto apenas inflaria o artefato.
+
+\section{O que o bundle contém, ferramenta a ferramenta}
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Ferramenta} & \textbf{Papel na AURORA} \\
+\midrule
+\path{iverilog} + \path{vvp} & Simulador Verilog padrão (botão \emph{Wave}) \\
+\path{verilator} + \path{verilator_bin} & Simulador rápido opcional; compila um modelo em C++ \\
+\path{yosys} & Síntese $\rightarrow$ hierarquia em JSON (consumida pelo PRISM) \\
+\path{g++} / \path{gcc} / \path{cc1plus} & Compilador C++ que roda em \textbf{tempo de execução} para compilar o modelo gerado pelo \tool{verilator} \\
+\path{perl}, \path{make}, \path{ccache} & \emph{Driver} de build do \tool{verilator} e cache de compilação \\
+\path{python} 3.12 + \tool{cocotb} 2.0.1 & \emph{Testbenches} em \tool{cocotb}, com \textbf{os dois VPIs} \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+Um ponto central, repetido em vários comentários dos \emph{scripts} e no
+\path{manifest.txt}, é que o \tool{g++} não é só uma dependência de build do
+repositório: ele \emph{roda em tempo de execução} na máquina do usuário. O fluxo
+do \tool{verilator} emite C++ que precisa ser compilado a cada simulação; logo, o
+bundle \emph{precisa} carregar um \tool{g++} funcional. Isso explica por que a
+versão do GCC é tratada como um pino crítico (\autoref{sec:14-pins}) e por que o
+\path{build/45-trim-bundle.sh} marca \path{g++}/\path{cc1plus} como
+\enquote{intocáveis}.
+
+\subsection{Os dois VPIs do cocotb}
+
+O \tool{cocotb} comunica-se com o simulador através de uma \emph{VPI} (\emph{Verilog
+Procedural Interface}) --- uma biblioteca de \emph{ponte} específica para cada
+simulador. O bundle carrega \textbf{dois} VPIs, para que um \emph{único} Python
+sirva aos dois \emph{backends}:
+
+\begin{itemize}
+  \item \path{libcocotbvpi_icarus.vpl} --- a VPI do \tool{iverilog}, que é
+        \textbf{compilada automaticamente} pelo próprio \emph{build} do
+        \tool{cocotb} durante a instalação a partir do \emph{sdist} (sua
+        compilação \textbf{não} está sob o portão \code{posix}).
+  \item \path{libcocotbvpi_verilator.a} --- a VPI do \tool{verilator}, cuja
+        compilação o \emph{build} do \tool{cocotb} \textbf{pula} no Windows
+        (está sob a condição \code{if os.name == "posix"}) e que por isso é
+        compilada à mão por este repositório (\autoref{sec:14-recipe}).
+\end{itemize}
+
+\section{Os pinos de versão (manifest.txt)}
+\label{sec:14-pins}
+
+O \path{manifest.txt} é a fonte única de verdade para as versões do bundle. Como
+o \tool{MSYS2} é de \emph{rolling release} (atualização contínua), sem esses pinos
+um \emph{rebuild} pegaria o que estiver corrente no repositório e poderia quebrar.
+Os \emph{scripts} de build leem o manifesto, e a CI instala exatamente essas
+versões. Há dois grupos: \emph{pinados} (onde o mais novo é sabidamente quebrado)
+e \emph{flutuantes} (acompanham o \tool{MSYS2} mais recente; registrados aqui
+apenas para reprodutibilidade).
+
+\subsection{Pinos críticos}
+
+\begin{tabularx}{\linewidth}{Y Y Z}
+\toprule
+\textbf{Pacote} & \textbf{Versão pinada} & \textbf{Razão (verificada no manifesto e nos scripts)} \\
+\midrule
+\path{gcc} & \path{15.1.0-5} & A \path{16.1.0-5} traz uma libstdc++ quebrada (construtor de \emph{move} de \path{std::string} indefinido); a VPI do \tool{cocotb} não \emph{linka} contra ela. Como o \tool{g++} roda em tempo de execução, o bundle precisa de um \tool{g++} funcional. \\
+\path{gcc-libs} & \path{15.1.0-5} & Bibliotecas de runtime do GCC; pinadas junto com o \path{gcc} pelo mesmo motivo. \\
+\path{python} & \path{3.12.11-1} & O \tool{cocotb} \emph{linka} \code{-lpython3.X}; o \emph{minor} do Python do bundle precisa casar com aquele contra o qual o \tool{cocotb} foi construído. A 3.14 quebra o build do \tool{cocotb}. \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+Esses três pacotes \textbf{já não estão} no repositório vivo do \tool{MSYS2} (que
+serve gcc16/py3.14 agora). Por isso, em vez de instalá-los via \code{pacman -S},
+o \path{build/10-install-packages.sh} os baixa de um \emph{Release} próprio do
+repositório, com a \emph{tag} \path{pins-v1}, onde os arquivos
+\path{.pkg.tar.zst} exatos ficam arquivados, e os instala com \code{pacman -U}.
+Para mover um pino, sobe-se um novo \path{.pkg.tar.zst} num \emph{release}
+\path{pins-vN} e aponta-se a variável \code{PINS_TAG} para ele.
+
+\subsection{Pacotes flutuantes e dependências PyPI}
+
+\begin{tabularx}{\linewidth}{Y Y Z}
+\toprule
+\textbf{Pacote} & \textbf{Versão registrada} & \textbf{Observação} \\
+\midrule
+\path{verilator} & \path{5.048-1} & Simulador rápido (modelo em C++). \\
+\path{iverilog} & \path{1~13.0-2} & Era a 12 no bundle antigo; a 13 é mais estrita (exige HDL que declare antes de usar). \\
+\path{yosys} & \path{0.56-4} & Instalado com \code{--assume-installed mingw-w64-x86_64-ghdl} para pular o \emph{frontend} VHDL (que arrastaria gcc16 via \path{gcc-ada}). \\
+\path{ccache} & \path{4.13.6-2} & Cache de compilação. \\
+\path{perl} & \path{5.38.5-1} & \emph{Wrapper} do \tool{verilator}. \\
+\path{make} & \path{4.4.1-4} & \emph{Driver} de build do \tool{verilator}. \\
+\path{cocotb} & \path{2.0.1} & Instalado a partir do \emph{sdist}; a VPI do \tool{verilator} é compilada à mão. \\
+\path{find_libpython} & \path{0.5.1} & Dependência de runtime do \path{cocotb_tools.runner}. \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+O artefato produzido também está registrado no manifesto: \code{bundle_tag = msys-v1}
+(a \emph{tag} do \emph{GitHub Release}) e \code{bundle_filename = aurora-msys-v1.zip}
+(o nome do asset, que extrai para \file{components/Packages/msys/}).
+
+\section{A receita cocotb-on-Verilator (a parte difícil)}
+\label{sec:14-recipe}
+
+O ponto mais delicado --- e o que justifica a existência do repositório --- é
+fazer o \tool{cocotb} rodar sobre o \tool{verilator} no \tool{mingw}. O
+\emph{wheel} nativo do \tool{cocotb} para Windows \textbf{não} traz a VPI do
+\tool{verilator}: no código-fonte do \tool{cocotb}, a compilação dessa VPI está
+sob uma condição \code{if os.name == "posix"}, de modo que o Windows fica sem o
+\path{libcocotbvpi_verilator}. A solução implementada em
+\path{build/20-build-cocotb-vpi.sh} é construir essa VPI à mão.
+
+\subsection{Por que a VPI é estática e por que \texttt{-DPLI\_DLLISPEC=}}
+
+A biblioteca \path{libcocotbvpi_verilator.a} é construída como \textbf{estática}
+(arquivo \path{.a}), e não como DLL, porque o \tool{verilator} \emph{linka} a VPI
+diretamente no executável do modelo (não há \code{dlopen}). Ser estática deixa os
+símbolos \path{vpi_*}, \path{gpi} e \path{gpilog} indefinidos no \path{.a}: eles
+são resolvidos quando o executável \emph{verilado} faz o \emph{link} final --- os
+\path{vpi_*} vêm do próprio \tool{verilator} (\code{--vpi}), e \path{gpi}/\path{gpilog}
+vêm das DLLs \emph{core} do \tool{cocotb}.
+
+A chave da compilação é a flag \code{-DPLI_DLLISPEC=} (definida como vazia),
+combinada com o uso do \path{vpi_user.h} do \emph{próprio} \tool{verilator} (via
+\code{-I} apontando para a raiz do \tool{verilator}). Isso faz com que os símbolos
+\path{vpi_*} sejam \textbf{planos} --- sem o \code{__declspec(dllimport)}. Sem essa
+flag, o \path{.a} referenciaria símbolos \path{__imp_vpi_*}, que o
+\path{verilated_vpi.o} (que define os \path{vpi_*} planos) não satisfaria, e o
+\emph{link} falharia.
+
+O \path{build/20-build-cocotb-vpi.sh} compila cinco fontes do diretório
+\path{src/cocotb/share/lib/vpi/} do \emph{sdist} do \tool{cocotb} --- \path{VpiImpl},
+\path{VpiCbHdl}, \path{VpiObj}, \path{VpiIterator} e \path{VpiSignal} --- e as
+arquiva com \path{ar} numa única \path{.a}:
+
+\begin{lstlisting}[language=bash,caption={Compilação da VPI estática do Verilator (trecho de 20-build-cocotb-vpi.sh).}]
+for f in VpiImpl VpiCbHdl VpiObj VpiIterator VpiSignal; do
+  g++ -O2 -std=c++11 -fvisibility=hidden -fvisibility-inlines-hidden \
+      -DCOCOTBVPI_EXPORTS= -DVERILATOR= -D__STDC_FORMAT_MACROS= -DWIN32= -DPLI_DLLISPEC= \
+      -I"$VROOT/include" -I"$VROOT/include/vltstd" \
+      -I"$INC" -I"$PKGDIR/src/cocotb" -I"$PYINC" \
+      -c "$VPIDIR/$f.cpp" -o "$OBJ/$f.o"
+done
+ar rcs "$OBJ/libcocotbvpi_verilator.a" "$OBJ"/*.o
+cp -f "$OBJ/libcocotbvpi_verilator.a" "$LIBS/"
+\end{lstlisting}
+
+As mesmas fontes e \emph{flags} do build do \tool{iverilog} são reusadas, trocando
+\code{-DICARUS} por \code{-DVERILATOR}. Não há \code{-Werror}, para que um
+\emph{warning} de versão nova do GCC não interrompa o build.
+
+\subsection{O patch em cocotb\_tools/runner.py}
+
+Compilar a VPI não basta: o \emph{runner} do \tool{cocotb} precisa saber linká-la
+ao executável verilado e localizar o \tool{verilator}. O
+\path{build/20-build-cocotb-vpi.sh} aplica dois \emph{patches} em
+\path{src/cocotb_tools/runner.py} antes de instalar o \tool{cocotb}.
+
+\subsubsection{Patch 1 --- LDFLAGS por token}
+
+Como o \path{.a} é estático e não carrega suas dependências, o executável verilado
+precisa também linkar as DLLs \emph{core} do \tool{cocotb}. Além disso, o
+\emph{wrapper} \tool{perl} do \tool{verilator} no Windows \textbf{quebra} um
+\code{-LDFLAGS} de várias palavras nos espaços (o \tool{verilator} interpreta
+\code{-LC:/...} como opção solta e reclama de \enquote{Invalid option}). A
+correção é emitir \emph{cada} flag como seu próprio par \code{-LDFLAGS <token>},
+que o \tool{verilator} acumula:
+
+\begin{lstlisting}[language=Java,caption={Substituição do par -LDFLAGS no runner (cada flag vira um token).}]
+"-LDFLAGS", f"-L{cocotb_tools.config.libs_dir}",
+"-LDFLAGS", "-lcocotbvpi_verilator",
+"-LDFLAGS", "-lgpi",
+"-LDFLAGS", "-lgpilog",
+"-LDFLAGS", "-lcocotbutils",
+"-LDFLAGS", "-static-libstdc++",
+"-LDFLAGS", "-static-libgcc",
+\end{lstlisting}
+
+Detalhes do raciocínio registrados no \emph{script}: não se usa
+\code{-Wl,-rpath,...} (inútil no Windows/PE, e o \tool{verilator} escaparia as
+vírgulas, gerando \enquote{unrecognized option} no \tool{g++}); as DLLs \emph{core}
+são achadas via \code{PATH} em tempo de execução. As flags
+\code{-static-libstdc++} e \code{-static-libgcc} são necessárias porque o
+\path{verilated.o} referencia símbolos de libstdc++ que não resolvem ao misturar
+com as DLLs pré-construídas do \tool{cocotb}; linkar estático deixa tudo
+consistente.
+
+\subsubsection{Patch 2 --- resolução do verilator}
+
+No \tool{mingw}, o \code{verilator} é um \emph{script} \tool{perl} \textbf{sem
+extensão}, e o \code{shutil.which} do Python no Windows nunca encontra um nome
+\enquote{puro} (sem \path{.exe}/\path{.bat}). O \emph{patch} acrescenta um
+\emph{fallback} que varre o \code{PATH} procurando um arquivo chamado
+\code{verilator}:
+
+\begin{lstlisting}[language=Java,caption={Fallback de resolução do verilator (script perl sem extensão).}]
+executable = shutil.which("verilator")
+if executable is None:
+    import os as _os
+    for _d in _os.environ.get("PATH", "").split(_os.pathsep):
+        _p = _os.path.join(_d, "verilator")
+        if _os.path.isfile(_p):
+            executable = _p
+            break
+if executable is None:
+    raise SystemExit("ERROR: verilator executable not found!")
+\end{lstlisting}
+
+\subsection{Construção a partir do sdist e versão do Python}
+
+O \tool{cocotb} é instalado a partir do \emph{sdist} (não do \emph{wheel}), porque
+são necessárias as \emph{fontes} da VPI (\path{src/cocotb/share/lib/vpi/*.cpp})
+para compilar o \path{libcocotbvpi_verilator.a} à mão. O \emph{script} cria um
+\emph{venv} (o \tool{MSYS2} marca o Python do sistema como \emph{externally
+managed} pela PEP 668, o que bloqueia \code{pip install}), baixa o \emph{sdist}
+com \code{pip download --no-binary :all:}, aplica os \emph{patches} no
+\path{runner.py} e instala. A VPI do \tool{iverilog} (\path{.vpl}) é compilada
+automaticamente pelo \emph{build} do \tool{cocotb} durante essa instalação;
+apenas a do \tool{verilator} é gerada à mão num passo posterior do \emph{script}.
+
+O \path{build/20-build-cocotb-vpi.sh} também valida a versão do Python: o
+\tool{cocotb} 2.0.x só suporta até a 3.13. Como o \tool{pacman} tende a instalar
+a mais nova, há uma checagem que aborta o build em Python $>$ 3.13 (com uma saída
+de escape opcional \code{ALLOW_PY314=1} que exporta
+\code{COCOTB_IGNORE_PYTHON_REQUIRES}, sem garantia). No fluxo oficial, isso não é
+exercitado: o \path{build/10-install-packages.sh} já pina o Python em 3.12.11-1.
+
+\section{O pipeline de build, em ordem}
+\label{sec:14-pipeline}
+
+Os \emph{scripts} numerados em \path{build/} formam o \emph{pipeline}, executado
+numa \emph{shell} \tool{MSYS2 MINGW64}, em ordem. O \path{<out>} típico é
+\path{dist/msys}.
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Script} & \textbf{O que faz} \\
+\midrule
+\path{10-install-packages.sh} & Instala os pacotes pinados (gcc15/python3.12) via \code{pacman -U} a partir do \emph{release} \path{pins-v1}, fixa-os em \code{IgnorePkg} no \path{/etc/pacman.conf} e puxa as ferramentas flutuantes (\tool{verilator}/\tool{iverilog}/\tool{ccache}/\tool{perl}/\tool{make}) do repositório vivo. Instala o \tool{yosys} sem \tool{ghdl}. \\
+\path{20-build-cocotb-vpi.sh} & Cria o \emph{venv}, baixa o \emph{sdist} do \tool{cocotb}, aplica os \emph{patches} no \path{runner.py}, instala o \tool{cocotb} e compila o \path{libcocotbvpi_verilator.a} (a receita da \autoref{sec:14-recipe}). \\
+\path{40-assemble-bundle.sh} & Copia o \path{/mingw64} inteiro e o \path{/usr/bin} do \tool{MSYS} para \path{<out>}, e \enquote{assa} o \tool{cocotb} (com os dois VPIs) no \path{site-packages} do Python do bundle. \\
+\path{45-trim-bundle.sh} & Enxuga o bundle em cerca de 40\% (de $\approx$1077\,MB para $\approx$660\,MB descompactado), removendo o que nenhum fluxo da AURORA toca. \\
+\path{50-smoke.sh} & Executa os 4 fluxos da AURORA contra o bundle. É o \emph{gate}: precisa dar 4/4 PASS. \\
+\path{60-package.sh} & Compacta o bundle (preferindo \tool{7zip}/\tool{zip} a \emph{Compress-Archive}) em \path{aurora-msys-vN.zip}, com a raiz interna \path{msys/...}. \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+Os \emph{scripts} \path{30-package-cocotb.sh} e \path{21-rebuild-vpi.sh} são
+auxiliares originais que operam sobre um bundle \emph{já existente}
+(\path{21} recompila apenas a \path{.a} estática quando só as \emph{flags} da VPI
+mudaram; \path{30} monta o \tool{cocotb} dentro de um bundle pronto e o testa de
+forma \emph{standalone}). O \path{40-assemble-bundle.sh} formaliza o caminho
+\enquote{do zero}.
+
+\subsection{O \emph{trim} (45-trim-bundle.sh)}
+
+O \path{build/45-trim-bundle.sh} remove, em blocos, partes que nenhum fluxo da
+AURORA carrega. Cada bloco foi validado empiricamente: após cada remoção, o
+\emph{smoke} de 4 fluxos precisa continuar passando.
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Bloco} & \textbf{O que remove} \\
+\midrule
+1 & Suíte de testes do Python ($\approx$132\,MB), \path{idlelib}, \path{tkinter}, \path{lib2to3}, \path{ensurepip} e dados de GUI em \path{share} (\path{gtk-3.0}, \path{icons}, \path{glib-2.0} etc.). \\
+2 & Bibliotecas estáticas \path{.a} de terceiros que a AURORA nunca \emph{linka} estaticamente (gnutls, glib, archive, isl/gmp/mpfr/mpc, bfd/opcodes etc.). \\
+3 & Cabeçalhos de bibliotecas (\path{include/}) de GTK/GUI/fontes que o \tool{g++} sobre a saída do \tool{verilator} não precisa. \\
+4 & DLLs da pilha GTK/GUI/fontes (nenhuma ferramenta de EDA \emph{headless} as carrega). \\
+5 & \tool{perl} duplicado em \path{usr/} (o \tool{verilator} usa o \tool{perl} do \path{mingw64}). \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+O \emph{script} documenta o \enquote{piso intocável}: \path{g++}/\path{cc1plus}
+(que roda em tempo de execução para compilar o modelo do \tool{verilator}), o
+núcleo da \emph{stdlib} do Python + \tool{cocotb}, os três simuladores/sintetizador,
+os \emph{backends} do \tool{iverilog} (\path{lib/ivl}), \path{share/verilator} +
+\path{share/yosys}, o \path{bash}+\emph{coreutils} para o \path{verilated.mk}, e as
+DLLs que esses executáveis carregam.
+
+\subsection{O smoke obrigatório (50-smoke.sh)}
+
+O \path{build/50-smoke.sh} é o \emph{gate} de cada bloco de \emph{trim} e de cada
+\emph{release}. Ele monta arquivos de teste num diretório temporário e executa
+quatro fluxos, todos apontando o \code{PATH} para o \emph{próprio} bundle (provando
+que ele não depende do \tool{MSYS2} do sistema):
+
+\begin{enumerate}
+  \item \textbf{Simulação \tool{iverilog}}: compila \path{dff.v}+\path{dff_tb.v}
+        com \path{iverilog.exe}, roda com \path{vvp.exe} e confere a saída
+        \code{IVOK}.
+  \item \textbf{Hierarquia \tool{yosys} $\rightarrow$ JSON}: lê dois módulos,
+        roda \code{hierarchy -top top}, \code{proc} e \code{write_json}, e
+        confere que o JSON foi escrito.
+  \item \textbf{cocotb-icarus}: \code{get_runner("icarus")} com a VPI \path{.vpl}
+        gerada pelo \emph{build} do \tool{cocotb}; confere \code{COCOTB_icarus_OK}.
+  \item \textbf{cocotb-verilator}: \code{get_runner("verilator")} com a VPI
+        \path{.a} construída à mão; confere \code{COCOTB_verilator_OK}.
+\end{enumerate}
+
+O \emph{script} sai com código não-zero se qualquer fluxo falhar; ele imprime
+\code{--- PASS=$pass FAIL=$fail ---} e só termina com sucesso se
+\code{FAIL=0}. Os dois fluxos do \tool{cocotb} usam \emph{o mesmo} Python do
+bundle, com \code{PYTHONHOME} apontando para \path{mingw64} e o \code{PATH}
+restrito a \path{mingw64/bin} + \path{usr/bin}.
+
+\section{Build reproduzível via CI}
+
+O \path{.github/workflows/build.yml} é a versão \enquote{de botão} do
+\emph{pipeline}: monta o \path{aurora-msys-<tag>.zip} num \emph{runner}
+\tool{windows-latest} limpo e o publica como \emph{GitHub Release}, removendo a
+dependência da máquina de qualquer desenvolvedor. É acionado manualmente
+(\emph{workflow\_dispatch}), recebendo a \emph{tag} e se é \emph{pre-release}.
+
+As etapas, na ordem do \emph{workflow}: configurar o \tool{MSYS2} (MINGW64),
+instalar a base mínima (\path{tar}, \path{unzip}, \path{zip}, \tool{7zip} ---
+\textbf{sem} \path{git}, para não arrastar \tool{openssh}/módulos CPAN que vazariam
+para o bundle), rodar \path{10-install-packages.sh}, \textbf{verificar} que as
+versões instaladas batem com o \path{manifest.txt} (um \emph{guardrail} que falha
+se um pacote pinado tiver \emph{driftado}), rodar
+\path{20}/\path{40}/\path{45}/\path{50}/\path{60}, arquivar os
+\path{.pkg.tar.zst} exatos usados (reprodutibilidade) e publicar o \emph{Release}.
+
+\begin{lstlisting}[language=bash,caption={Guardrail de versões pinadas no CI (trecho de build.yml).}]
+for kv in "gcc:gcc" "gcc-libs:gcc-libs" "python:python"; do
+  key="${kv%%:*}"; pkg="${kv##*:}"
+  want="$(sed -nE "s/^${key}[[:space:]]*=[[:space:]]*([^[:space:]#]+).*/\1/p" manifest.txt | head -1)"
+  got="$(pacman -Q mingw-w64-x86_64-$pkg | awk '{print $2}')"
+  [ "$want" = "$got" ] || { echo "::error::$pkg drifted ($got != $want)"; exit 1; }
+done
+\end{lstlisting}
+
+\subsection{Como evoluir um release}
+
+O \path{README.md} e os \emph{scripts} descrevem um único caminho de evolução:
+editar o \path{manifest.txt} (subir uma versão e a \code{bundle_tag}), rodar o
+\emph{pipeline} (ou deixar a CI fazer), confirmar o \emph{smoke} 4/4 e publicar com
+\code{gh release create}. Do lado da AURORA, ajusta-se \code{MSYS_TAG} /
+\code{MSYS_FILENAME} em \file{components/Scripts/download-toolchain.js} para a nova
+\emph{tag}. Em resumo: \emph{um bump de manifesto $\rightarrow$ rebuild $\rightarrow$
+smoke $\rightarrow$ publish}.
+
+\section{Como a AURORA consome o bundle}
+\label{sec:14-consumo}
+
+O consumidor é \file{components/Scripts/download-toolchain.js} no repositório
+\repo{aurora}. Ele baixa o \path{aurora-msys-vN.zip} do \emph{GitHub Release}
+pinado e o extrai em \file{components/Packages/}. As constantes que fixam o
+artefato:
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Constante} & \textbf{Valor} \\
+\midrule
+\code{MSYS_TAG} & \path{msys-v1} \\
+\code{MSYS_FILENAME} & \path{aurora-msys-v1.zip} \\
+\code{GITHUB_OWNER} & \path{nipscernlab} \\
+\code{GITHUB_REPO} & \path{aurora-toolchain} \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+A URL final é montada como
+\path{https://github.com/<owner>/<repo>/releases/download/<tag>/<filename>}. O
+download segue até 5 redirecionamentos, e a escrita do zip só é resolvida após o
+arquivo estar totalmente \emph{flushed} e fechado --- caso contrário, o
+\emph{Expand-Archive} do PowerShell correria contra o \emph{writer} e atingiria o
+zip ainda travado (corrupção silenciosa). A extração usa
+\code{Expand-Archive} com \code{$ErrorActionPreference='Stop'}, para que uma falha
+do \emph{cmdlet} se propague como código de saída não-zero.
+
+\subsection{As sentinelas verificadas}
+
+O \emph{script} usa duas \emph{sentinelas} --- arquivos que comprovam a presença e
+a completude da extração:
+
+\begin{itemize}
+  \item \textbf{Bundle presente}: \file{components/Packages/msys/mingw64/bin/verilator_bin.exe}
+        (constante \code{MSYS_SENTINEL}), um binário fundo no bundle que prova uma
+        extração completa.
+  \item \textbf{cocotb presente}: a VPI estática do \tool{verilator}. A função
+        \code{cocotbInstalled()} varre \path{msys/mingw64/lib/} por qualquer
+        diretório \path{python3.*} e checa
+        \path{site-packages/cocotb/libs/libcocotbvpi_verilator.a}. Varrer por
+        \path{python3.*} (em vez de fixar \path{python3.12}) faz a checagem
+        sobreviver a um futuro \emph{bump} de \emph{minor} do Python.
+\end{itemize}
+
+A lógica de \code{main()} combina as duas: se o bundle e o \tool{cocotb} estão
+presentes (e não há \code{--force}), pula o download; se o bundle está presente
+mas falta o suporte a \tool{cocotb} (por exemplo, um \emph{snapshot} mais antigo),
+faz o download para \emph{atualizar no lugar}. Após extrair, reconfere a sentinela
+do bundle (e sai com erro se faltar) e avisa, sem ser fatal, se o suporte a
+\tool{cocotb} não veio.
+
+\begin{lstlisting}[language=Java,caption={Detecção do cocotb via varredura de python3.* (download-toolchain.js).}]
+function cocotbInstalled() {
+    const libBase = path.join(PACKAGES_DIR, 'msys', 'mingw64', 'lib');
+    let entries;
+    try { entries = fs.readdirSync(libBase); }
+    catch (_e) { return false; }
+    return entries.some((name) =>
+        /^python3\./i.test(name) &&
+        fs.existsSync(path.join(
+            libBase, name, 'site-packages', 'cocotb', 'libs',
+            'libcocotbvpi_verilator.a')));
+}
+\end{lstlisting}
+
+\begin{nota}
+Uma falha de download não bloqueia o \code{npm start}: o \emph{script} sai com
+código 0 após imprimir instruções de download manual, e a própria IDE mostra um
+erro claro (\enquote{run npm run bootstrap}) quando uma ferramenta for de fato
+invocada sem o bundle presente. Há ainda um gancho de verificação de
+\emph{checksum} (\code{EXPECTED_SHA256}), hoje em \code{null} (calcula e registra,
+sem impor), para fixar o SHA-256 do artefato no futuro.
+\end{nota}
+
+\section{Resumo}
+
+O \repo{aurora-toolchain} encapsula toda a pilha FOSS de EDA num único
+\path{aurora-msys-vN.zip}: um prefixo \tool{mingw64} pinado com \tool{iverilog},
+\tool{verilator}, \tool{yosys}, \tool{g++} (que roda em tempo de execução),
+\tool{perl}/\tool{make}/\tool{ccache} e um Python 3.12 com \tool{cocotb} 2.0.1
+carregando os dois VPIs. A peça inédita é a VPI estática
+\path{libcocotbvpi_verilator.a}, compilada à mão com \code{-DPLI_DLLISPEC=} e
+acompanhada de \emph{patches} cirúrgicos no \path{cocotb_tools/runner.py}, que
+permitem rodar \tool{cocotb} sobre \tool{verilator} no Windows. O \emph{pipeline}
+numerado (instalar pinos $\rightarrow$ build da VPI $\rightarrow$ \emph{assemble}
+$\rightarrow$ \emph{trim} $\rightarrow$ \emph{smoke} 4/4 $\rightarrow$ \emph{package})
+é reproduzível na CI e protegido por um \emph{guardrail} de versões; do lado da
+AURORA, o \file{download-toolchain.js} busca o artefato pela \emph{tag} pinada e
+confirma a instalação por duas sentinelas.

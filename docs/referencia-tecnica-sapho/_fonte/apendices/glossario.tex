@@ -1,0 +1,115 @@
+% !TEX root = ../main.tex
+\chapter{Glossário}
+\label{ap:glossario}
+
+Este apêndice reúne os termos, siglas e nomes de artefato recorrentes ao longo do documento.
+
+\begin{description}[style=nextline,leftmargin=0pt,font=\bfseries\ttfamily]
+
+\item[SAPHO] \textit{Scalable Architecture for Hardware Optimization}. A plataforma/suíte
+desenvolvida pelo NIPSCERN que reúne a IDE \tool{AURORA}, os compiladores \tool{YANC} e o
+\textit{toolchain bundle}. Também nomeia o canal de distribuição (repositório \repo{sapho}) e o
+arquivo de projeto (\file{.spf}).
+
+\item[AURORA] A IDE desktop (Electron + Monaco) da plataforma SAPHO, onde o usuário projeta,
+compila, simula e visualiza \textit{soft-processors}. Repositório de desenvolvimento: \repo{aurora}.
+
+\item[YANC] \textit{Yet Another Compiler}. O conjunto de compiladores e utilitários que traduzem
+\cmm{} (ou C++) até Verilog sintetizável, imagens de memória e \textit{testbench}. Repositório:
+\repo{yanc}.
+
+\item[\cmm{} (CMM)] A linguagem de alto nível, semelhante a C, com suporte de primeira classe a
+ponto-fixo, ponto-flutuante e números complexos, usada para descrever o programa de um processador
+SAPHO. Arquivos com extensão \file{.cmm}.
+
+\item[PRISM] O visualizador de RTL embutido na AURORA: converte Verilog em um diagrama de netlist
+(via \tool{Yosys} e \tool{netlistsvg}).
+
+\item[Aurora Intelligence] O subsistema de inteligência artificial da AURORA (assistente de chat e
+ferramentas), com transportes via SDK (provedores com chave) e via CLIs por assinatura.
+
+\item[POLARIS] Tentativa de sucessor multiplataforma da AURORA, \textbf{descontinuada}. Citada
+apenas por contexto histórico; não faz parte do escopo deste documento.
+
+\item[\file{.spf}] \textit{SAPHO Project File}. O arquivo canônico de configuração de um projeto
+(processadores, arquivos sintetizáveis, \textit{testbenches}, \textit{top-level}, metadados).
+
+\item[\file{.asm}] O assembly intermediário emitido pelos compiladores de \textit{front-end}
+(\tool{cmmcomp}/\tool{cppcomp}) e consumido pelo \textit{back-end} (\tool{asmcomp}).
+
+\item[\file{.mif}] \textit{Memory Initialization File}. Imagem de memória (programa e/ou dados)
+gerada pelo \tool{asmcomp} para inicializar as memórias do core.
+
+\item[testbench (\file{\_tb.v})] Banco de testes em Verilog gerado pelo \tool{asmcomp} para exercitar
+o processador na simulação. Também pode ser um \textit{testbench} Python via \tool{cocotb}.
+
+\item[VCD / FST] Formatos de \textit{dump} de simulação (\textit{Value Change Dump} e o formato
+binário compacto do \tool{GTKWave}) que registram a evolução dos sinais ao longo do tempo.
+
+\item[\file{.gtkw}] Arquivo de \textit{save} do \tool{GTKWave} que descreve a visualização
+(sinais, cores, agrupamentos) a ser aplicada sobre um \textit{dump}.
+
+\item[cmmcomp / cppcomp / asmcomp] Os três compiladores do YANC: \textit{front-ends} de \cmm{} e
+C++ para assembly, e o \textit{back-end} de assembly para Verilog + memórias + \textit{testbench}.
+
+\item[appcomp / cpppp] Pré-processadores do YANC: \tool{appcomp} faz a primeira passada do assembly
+(parâmetros do processador e endereços de variáveis/labels); \tool{cpppp} é o pré-processador de C++.
+
+\item[comp2gtkw / gen\_gtkw] Utilitários do YANC: tradução do padrão de bits de números complexos
+para o \tool{GTKWave}, e geração de uma \textit{view} \file{.gtkw} a partir do cabeçalho de um VCD.
+
+\item[Icarus Verilog (iverilog / vvp)] Simulador Verilog padrão da AURORA; \tool{iverilog} compila e
+\tool{vvp} executa a simulação.
+
+\item[Verilator] Simulador Verilog de alto desempenho (opt-in) que compila o modelo para C++.
+
+\item[cocotb] \textit{Framework} Python para \textit{testbenches} de hardware, executável sobre
+\tool{Icarus} ou \tool{Verilator}.
+
+\item[Yosys] Ferramenta de síntese de RTL usada pelo PRISM para gerar a netlist em JSON.
+
+\item[GTKWave] Visualizador de formas de onda; a AURORA empacota um \textit{fork} customizado
+(\repo{gtkwave-nipscern}).
+
+\item[Surfer] Visualizador de formas de onda alternativo, integrado de forma opcional à AURORA.
+
+\item[netlistsvg] Conversor de netlist JSON em diagrama SVG; a AURORA usa um \textit{fork}
+(\repo{netlistsvg-aurora}).
+
+\item[Verible / slang-server] Servidores de linguagem (LSP) para Verilog/SystemVerilog que fornecem
+diagnósticos e análise ao editor.
+
+\item[tree-sitter] Biblioteca de \textit{parsing} incremental (via \tool{web-tree-sitter}) usada
+para recursos de estrutura de código no editor.
+
+\item[clang-format] Formatador de código usado pela IDE.
+
+\item[Monaco Editor] O componente de editor de texto (o mesmo do VS Code) usado pela AURORA, fixado
+na versão 0.52.2.
+
+\item[Electron] O \textit{framework} que combina Chromium e Node.js para construir a aplicação
+\textit{desktop}.
+
+\item[Vite] O empacotador (\textit{bundler}) usado para construir o \textit{renderer} da AURORA.
+
+\item[electron-builder / NSIS] Ferramenta de empacotamento e o sistema de instalador (Windows)
+usados para produzir o executável distribuível.
+
+\item[electron-updater] Biblioteca responsável pelas atualizações automáticas via GitHub Releases.
+
+\item[MCP] \textit{Model Context Protocol}. Protocolo pelo qual as CLIs de IA acessam as ferramentas
+da AURORA por meio de um servidor HTTP local.
+
+\item[DPAPI / safeStorage] Mecanismo de criptografia do sistema operacional (via \tool{safeStorage}
+do Electron) usado para proteger as chaves de API armazenadas.
+
+\item[release-please] Automação que mantém o versionamento e o \textit{changelog} a partir de
+\textit{Conventional Commits}.
+
+\item[toolchain bundle] O pacote portátil \file{aurora-msys-vN.zip} (prefixo \texttt{msys/mingw64})
+com simuladores, síntese e \tool{cocotb}, produzido pelo repositório \repo{aurora-toolchain}.
+
+\item[numBits / MABits / MIBits] Diretivas de hardware do \cmm{} que parametrizam as larguras de
+palavra e de endereçamento de memória do core gerado.
+
+\end{description}

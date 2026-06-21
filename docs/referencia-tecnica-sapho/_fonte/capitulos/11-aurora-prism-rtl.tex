@@ -1,0 +1,782 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: o visualizador de RTL PRISM}
+\label{cap:11-aurora-prism-rtl}
+
+O \tool{PRISM} é o visualizador de RTL (\emph{register-transfer level}) embarcado
+na \tool{AURORA}. A partir do Verilog sintetizável de um projeto SAPHO, ele
+produz um \emph{esquemático} navegável do circuito: cada módulo da hierarquia
+vira um diagrama vetorial (SVG) com células, portas e fios, no qual o usuário
+pode entrar em submódulos com um clique, voltar ao código-fonte com duplo-clique
+e --- desde a fase O9 --- alternar para uma \emph{simulação lógica interativa}
+do mesmo \emph{netlist} via \tool{DigitalJS}.
+
+Este capítulo documenta o subsistema completo: a janela e o canal de IPC
+(\file{main/ipc/prism.js}), o \emph{preload} sandboxizado
+(\file{js/app/preload\_prism.js}), o renderer da janela
+(\file{html/prism/prism.js} e \file{html/prism/prism.html}), o \emph{pipeline}
+Verilog~$\rightarrow$~Yosys~$\rightarrow$~netlistsvg-aurora~$\rightarrow$~SVG, o
+fork \repo{netlistsvg-aurora} (o que ele muda em relação ao
+\lstinline|@silimate/netlistsvg| de \emph{upstream}), o sistema de \emph{skins}
+customizadas da família SAPHO, e o estado de integração de
+\tool{DigitalJS}~+~\tool{yosys2digitaljs}. A síntese pela ferramenta \tool{Yosys}
+e o \emph{toolchain} bundle são tratados em outros capítulos; aqui o foco é o que
+o \tool{PRISM} faz com a saída do \tool{Yosys}.
+
+\begin{nota}
+Fonte da verdade: todas as afirmações deste capítulo foram verificadas lendo o
+código real. Onde a documentação de prosa interna e o código divergem, vale o
+código. Os arquivos efetivamente abertos estão listados ao final do estudo.
+\end{nota}
+
+\section{Visão geral e fluxo de acionamento}
+
+O \tool{PRISM} é acionado pelo botão \enquote{PRISM} da \emph{toolbar} de
+compilação da \tool{AURORA} (id \lstinline|prismcomp|). O \emph{handler} desse
+botão vive em \file{js/compilation/compilation\_flow.js}, na função
+\lstinline|handlePrismStep()|. Conforme a filosofia \enquote{cada botão é
+self-contained} desse arquivo, o \tool{PRISM} é um \emph{superset} do botão
+Verilog: ele primeiro roda \cmm{}~+~ASM para cada processador conhecido e a
+verificação de sintaxe Verilog (top-level), e só então invoca o \tool{Yosys}
+para a análise estrutural.
+
+\begin{lstlisting}[language=bash,caption={Expansão dos botões (cabeçalho de compilation\_flow.js)}]
+Verilog = cmm + asm + iverilog(-tnull, top)
+PRISM   = Verilog                            + yosys
+Wave    =     cmm + asm + iverilog(-o vvp, tb) + vvp + gtkwave
+\end{lstlisting}
+
+O botão \lstinline|prismcomp| só fica habilitado quando o \file{.spf} tem um
+\emph{top-level} definido (\lstinline|setEnabled('prismcomp', hasTop)| em
+\file{compilation\_flow.js}). O fluxo de alto nível é:
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{Renderer (Aurora principal):} \lstinline|handlePrismStep()| roda
+        \cmm{}/ASM e \lstinline|verilogSyntaxCheck()|, monta o \emph{payload} de
+        caminhos absolutos (\lstinline|buildPrismCompilationPaths|), consulta o
+        \emph{store} de \emph{overrides} de IA para a etapa
+        \lstinline|prism-yosys| e chama \lstinline|electronAPI.prismCompileWithPaths(paths)|.
+  \item \textbf{Main:} o \emph{handler} IPC \lstinline|prism-compile-with-paths|
+        executa o \emph{pipeline} de síntese e geração de SVG, e abre (ou foca) a
+        janela do \tool{PRISM}.
+  \item \textbf{Renderer (janela PRISM):} recebe \lstinline|compilation-complete|
+        com o caminho do SVG do top-level, carrega o SVG, instrumenta cliques e
+        navegação.
+\end{enumerate}
+
+O \emph{payload} de caminhos é montado em
+\lstinline|buildPrismCompilationPaths(projectPath)| com todos os campos
+absolutos e \emph{slashes} normalizadas para barra direta:
+
+\begin{lstlisting}[caption={Campos do payload de caminhos (compilation\_flow.js)}]
+{
+  projectPath, componentsPath,
+  hdlPath:      <components>/HDL,
+  tempPath:     <components>/Temp/PRISM,
+  yosysPath:    <components>/Packages/msys/mingw64/bin/yosys.exe,
+  spfPath:      <currentSpfPath>,
+  topLevelPath: <projectPath>/TopLevel,
+  yosysOverride?: { appendArgs, prependArgs, removeArgs, envSet, envUnset }
+}
+\end{lstlisting}
+
+O \emph{main} também expõe \lstinline|get-prism-compilation-paths|, que recompõe
+esses mesmos campos a partir do \file{.spf} aberto
+(\lstinline|state.currentOpenProjectPath|); a janela usa esse canal para
+recompilar e para construir a simulação \tool{DigitalJS} por conta própria.
+
+\section{A janela do PRISM}
+
+A janela é criada por \lstinline|createPrismWindow(compilationData)| em
+\file{main/ipc/prism.js}. É uma \lstinline|BrowserWindow| única
+(\lstinline|state.prismWindow|): se já existe e não foi destruída, a chamada
+apenas a foca e reenvia o payload de compilação, em vez de abrir uma segunda
+janela.
+
+\subsection{Configuração da BrowserWindow}
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Propriedade} & \textbf{Valor / efeito} \\
+\midrule
+\lstinline|width| / \lstinline|height| & 1400 $\times$ 900 (mín. 1000 $\times$ 700) \\
+\lstinline|frame| & \lstinline|false| --- janela \emph{frameless} com \emph{titlebar} customizada desenhada pelo HTML do PRISM \\
+\lstinline|thickFrame| & \lstinline|true| --- preserva \emph{snap} do Aero e redimensionamento por borda nativo no Windows \\
+\lstinline|titleBarStyle| & \lstinline|'hidden'| \\
+\lstinline|backgroundColor| & \lstinline|'#0A0D14'| (mesmo fundo escuro da \tool{AURORA}) \\
+\lstinline|icon| & \path{assets/icons/sapho_aurora_icon.ico} \\
+\lstinline|contextIsolation| & \lstinline|true| \\
+\lstinline|sandbox| & \lstinline|true| \\
+\lstinline|nodeIntegration| & \lstinline|false| \\
+\lstinline|preload| & \path{js/app/preload_prism.js} (existência verificada antes de criar a janela) \\
+\bottomrule
+\end{tabularx}
+
+A página em si é carregada por \lstinline|loadPage(prismWindow, 'html/prism/prism.html')|,
+de \file{main/render\_loader.js}. Esse \emph{loader} é compartilhado por todas as
+janelas de primeira parte e resolve a fonte do renderer em duas vias: servidor de
+desenvolvimento Vite (quando \lstinline|AURORA_RENDERER_URL| está setado e o app
+não está empacotado) ou o \emph{bundle} de produção em \path{dist/} via
+\lstinline|file://|. \emph{Não há \emph{fallback}} para o fonte cru --- um
+\emph{bundle} ausente é tratado como erro de \emph{build} (página de erro
+explícita), porque pós-migração para \tool{Lit} o HTML cru carrega \emph{imports}
+que só resolvem através do empacotador.
+
+\subsection{Controles de janela e estado}
+
+Como a janela é \emph{frameless}, os botões minimizar/maximizar/fechar são
+desenhados em SVG no HTML e ligados via IPC genéricos do \emph{preload}
+(\lstinline|window:minimize|, \lstinline|window:maximize-toggle|,
+\lstinline|window:close|). O \emph{main} relê o estado de maximização/tela-cheia
+para o renderer pelo canal \lstinline|prism:window-state| nos eventos
+\lstinline|maximize|, \lstinline|unmaximize|, \lstinline|enter-full-screen| e
+\lstinline|leave-full-screen|, para que o ícone \emph{maximize/restore} se
+atualize. Ao carregar, a janela é maximizada e exibida; o \emph{main} também
+notifica a janela principal com \lstinline|prism-status| (\lstinline|true| ao
+abrir, \lstinline|false| ao fechar).
+
+Erros de carregamento são tratados em três pontos: o \lstinline|try/catch| em
+torno de \lstinline|loadPage| (mostra \lstinline|dialog.showMessageBox| e destrói
+a janela), o \lstinline|did-fail-load| e o \lstinline|render-process-gone|
+(ambos registram em \lstinline|electron-log| e exibem diálogo de erro).
+
+\section{O preload sandboxizado}
+
+\file{js/app/preload\_prism.js} expõe um \emph{único} objeto
+\lstinline|window.electronAPI| via \lstinline|contextBridge|, com uma
+\emph{allowlist enumerada} de canais. O comentário no próprio arquivo é
+explícito: \emph{deliberadamente não há} um \lstinline|send|/\lstinline|removeAllListeners|
+genérico, para que esse renderer nunca alcance um canal IPC arbitrário.
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Método exposto} & \textbf{Canal IPC / efeito} \\
+\midrule
+\lstinline|windowMinimize/MaximizeToggle/Close| & \lstinline|window:minimize| / \lstinline|maximize-toggle| / \lstinline|close| \\
+\lstinline|onWindowState(cb)| & escuta \lstinline|prism:window-state| \\
+\lstinline|readFile(path)| & \lstinline|read-file| (passa por \lstinline|safePath()| no main; evita \lstinline|fetch('file://')|) \\
+\lstinline|joinPath(...segs)| & \lstinline|join-path| \\
+\lstinline|getPrismCompilationPaths()| & \lstinline|get-prism-compilation-paths| \\
+\lstinline|prismCompileWithPaths(paths)| & \lstinline|prism-compile-with-paths| \\
+\lstinline|prismRecompile(paths)| & \lstinline|prism-recompile| \\
+\lstinline|buildDigitalJS(paths)| & \lstinline|prism:build-digitaljs| (O9) \\
+\lstinline|generateSVGFromModule(name, dir)| & \lstinline|generate-svg-from-module| \\
+\lstinline|openSourceFile({filePath,line,column})| & \lstinline|prism:open-source-file| \\
+\lstinline|onCompilationComplete(cb)| & escuta \lstinline|compilation-complete| \\
+\lstinline|onTerminalLog| / \lstinline|onPrismStatus| & escuta \lstinline|terminal-log| / \lstinline|prism-status| \\
+\bottomrule
+\end{tabularx}
+
+Além disso, o \emph{preload} reencaminha eventos \lstinline|terminal-log| do
+\emph{main} para a página como \lstinline|window.postMessage|, de modo que a
+janela do \tool{PRISM} possa exibir o progresso da síntese.
+
+\section{O pipeline de compilação}
+
+O coração do \tool{PRISM} é a função assíncrona
+\lstinline|performPrismCompilationWithPaths(compilationPaths)|, que orquestra
+três etapas: síntese com \tool{Yosys}, divisão do \emph{netlist} por módulo, e
+geração do SVG do top-level. O top-level vem \emph{sempre} de
+\lstinline|spf.structure.topLevelFile| (\lstinline|path.basename(...,'.v')|).
+
+\begin{lstlisting}[caption={Diagrama de fluxo do pipeline (main/ipc/prism.js)}]
+ +-------------------------+
+ |  spf.structure.topLevel |  ->  topLevelModule (basename sem .v)
+ +-----------+-------------+
+             |
+             v
+ +-------------------------+    coleta unificada de .v + dedup por path
+ |  runYosysCompilation    |    -> yosys_script.ys -> yosys.exe -> hierarchy.json
+ +-----------+-------------+
+             |
+             v
+ +-------------------------+    para cada modulo "clicavel":
+ |  splitHierarchyJson     |    limpa nome, escreve <modulo>.json no tempDir
+ +-----------+-------------+
+             |
+             v
+ +-------------------------+    skin default + skins custom -> netlistsvg.render
+ |  generateModuleSVG      |    -> injeta data-cell-type -> <modulo>.svg
+ +-----------+-------------+
+             |
+             v
+ +-------------------------+
+ |  janela PRISM carrega   |  ->  compilation-complete { topLevelModule, svgPath, tempDir }
+ +-------------------------+
+\end{lstlisting}
+
+\subsection{Etapa 1 --- coleta de arquivos e síntese com Yosys}
+
+A função \lstinline|runYosysCompilationWithPaths(paths, topLevelModule, tempDir)|
+coleta \emph{todos} os \file{.v} relevantes em um \lstinline|Set| (dedup por
+caminho absoluto, evitando erros de módulo duplicado no \tool{Yosys}). As fontes,
+nesta ordem, são:
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item \path{components/HDL/*.v} --- a biblioteca SAPHO (processor, addr\_dec,
+        core, ula, myFIFO, instr\_dec etc.), sempre incluída porque qualquer
+        \emph{top} que seja um processador SAPHO depende dela. Arquivos com
+        \lstinline|_tb| ou \lstinline|test| no nome são excluídos.
+  \item \lstinline|spf.structure.synthesizableFiles[].path| --- a fonte canônica
+        de todos os \file{.v} do projeto (auto-descobertos pela árvore de
+        arquivos e/ou adicionados manualmente). Caminhos relativos são resolvidos
+        contra \lstinline|spf.structure.basePath| (formato novo do \file{.spf};
+        caminhos absolutos passam direto).
+  \item \path{<projeto>/TopLevel/*.v}, se a pasta existir (\emph{wrapper}
+        top-level, raro mas possível).
+  \item \textbf{\emph{Fallback} defensivo:} para cada processador listado em
+        \lstinline|spf.structure.processors|, varre
+        \path{<projeto>/<proc>/Hardware/*.v}. No caminho feliz o \emph{dedup}
+        torna isso \emph{no-op}, mas garante os módulos do processador em
+        projetos antigos onde \lstinline|synthesizableFiles| esteja vazio.
+\end{enumerate}
+
+Se nenhum \file{.v} for encontrado, a etapa falha com \enquote{No Verilog files
+found for compilation}.
+
+O \emph{script} \tool{Yosys} é gerado em \path{<tempDir>/yosys_script.ys}. Cada
+arquivo é lido com \lstinline|read_verilog -setattr src| --- a opção
+\lstinline|-setattr src| faz o \tool{Yosys} gravar um atributo
+\lstinline|src="arquivo.v:linha.col-linha.col"| em cada célula derivada do
+\emph{source}, o que mais tarde habilita o duplo-clique \enquote{abrir no
+editor}. O \emph{script} é exatamente:
+
+\begin{lstlisting}[caption={Script Yosys do esquemático (gerado em main/ipc/prism.js)}]
+read_verilog -setattr src "arquivo1.v"
+read_verilog -setattr src "arquivo2.v"
+...
+hierarchy -top <topLevelModule>
+proc
+setundef -zero
+opt_clean -purge
+write_json "hierarchy.json"
+\end{lstlisting}
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Comando} & \textbf{Função no PRISM} \\
+\midrule
+\lstinline|read_verilog -setattr src| & lê cada \file{.v} e anota a procedência (\lstinline|src|) em cada célula \\
+\lstinline|hierarchy -top| & fixa o módulo top e resolve a árvore de instâncias/parametrizações \\
+\lstinline|proc| & converte processos (\lstinline|always|) em células (mux, dff etc.) \\
+\lstinline|setundef -zero| & troca \emph{don't-care} (\lstinline|x|) por constante 0, evitando \enquote{linhas fantasma} que o netlistsvg desenharia a partir de ramos \emph{full\_case} inalcançáveis \\
+\lstinline|opt_clean -purge| & remove fios/células desconectados após a substituição \\
+\lstinline|write_json| & emite o \emph{netlist} consolidado em \path{hierarchy.json} \\
+\bottomrule
+\end{tabularx}
+
+Note que o \emph{script do esquemático não faz} \lstinline|techmap|/\lstinline|abc|:
+o objetivo é um diagrama em nível de palavra (RTL), não \emph{gates}.
+
+O \tool{Yosys} é executado com \lstinline|spawnTracked(yosysExe, finalArgs, ...)|.
+O uso de \lstinline|spawnTracked| (de \file{main/process\_registry.js}) garante
+que fechar a janela principal mata uma síntese do \tool{PRISM} em andamento ---
+necessário porque o \tool{Yosys} roda do \path{mingw64/bin} bundle, fora de
+\path{Temp/}. Os argumentos base são \lstinline|['-s', yosysScriptPath]|, mas
+podem ser modificados por um \emph{override} de IA
+(\lstinline|paths.yosysOverride|) com o mesmo contrato dos demais \emph{steps}:
+\lstinline|removeArgs|, \lstinline|prependArgs|, \lstinline|appendArgs|,
+\lstinline|envSet|, \lstinline|envUnset|. Sem \emph{override}, o comportamento é
+idêntico ao padrão. O processo só resolve em sucesso se o código de saída for 0
+\emph{e} \path{hierarchy.json} existir; caso contrário rejeita com o
+\lstinline|stderr| capturado.
+
+\subsection{Etapa 2 --- divisão do netlist por módulo}
+
+\lstinline|splitHierarchyJson(hierarchyJsonPath, tempDir)| lê o
+\path{hierarchy.json} consolidado e, para cada módulo \enquote{clicável}, escreve
+um JSON \emph{por módulo} (\path{<sanitized>.json}) contendo apenas aquele
+módulo. Isso é o que permite, em tempo de navegação, renderizar qualquer módulo
+sob demanda sem reexecutar o \tool{Yosys}.
+
+Dois \emph{helpers} regem o que entra:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+  \item[\lstinline|isClickableModule(name)|] descarta primitivas do \tool{Yosys}
+        (qualquer \lstinline|$_|, \lstinline|$dff|, \lstinline|$mux|,
+        \lstinline|$add|, \lstinline|$pmux|, \lstinline|$lut|, etc.) e aceita
+        apenas \lstinline|$paramod...| ou identificadores Verilog legítimos
+        (\lstinline|^[a-zA-Z_][a-zA-Z0-9_]*$|). É o mesmo conjunto de padrões
+        replicado no renderer (\lstinline|_isClickableModuleType|), para que o
+        que o \emph{main} grava como navegável coincida com o que o renderer
+        torna clicável.
+  \item[\lstinline|cleanModuleName(name)|] normaliza nomes gerados pelo
+        \tool{Yosys}: desembrulha prefixos \lstinline|$paramod\...| de módulos
+        parametrizados, remove \emph{hashes} (\lstinline|$<hex de 40+ dígitos>|),
+        sufixos de parâmetro (\lstinline|\PARAM=...|), e prefixos de escopo de
+        \emph{generate block} (\lstinline|genblk<N>.|), de modo que o usuário veja
+        o nome real (ex.: \lstinline|my_f2i| em vez de
+        \lstinline|genblk27.my_f2i|).
+\end{description}
+
+Para cada módulo aceito, o nome é limpo e \emph{sanitizado}
+(\lstinline|sanitizeFileName|), as células internas também têm seus nomes e tipos
+limpos, e o JSON resultante é escrito com a forma
+\lstinline|{ creator, modules: { <cleanName>: <data> } }|.
+
+\subsection{Etapa 3 --- renderização do SVG com netlistsvg-aurora}
+
+\lstinline|generateModuleSVGWithPaths(moduleName, tempDir)| produz o SVG de um
+módulo. Pontos-chave:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item A biblioteca é carregada \emph{in-process} via
+        \lstinline|require('@silimate/netlistsvg')| --- \emph{não há} \emph{spawn}
+        de processo externo nem binário separado para o netlistsvg. (O comentário
+        em \lstinline|get-prism-compilation-paths| confirma: \enquote{netlistsvg
+        agora vem do node\_modules e roda in-process}.)
+  \item A \emph{skin} é obtida por \lstinline|getDefaultSkinData()| (ver
+        \autoref{sec:skins}), que combina a \path{lib/default.svg} do pacote com
+        as \emph{skins} customizadas de \path{assets/prism-skins/}.
+  \item Antes de renderizar, \lstinline|pruneNetlistToSkinPorts| poda do
+        \emph{netlist} conexões a portas que a \emph{skin} customizada do tipo
+        \emph{não} desenha (ver \autoref{sec:skin-ports}), evitando que o ELK
+        aborte o \emph{layout}.
+  \item A renderização usa \lstinline|netlistsvgLib.render(skinData, netlistJson, cb)|
+        (estilo \emph{callback}), envolto em \lstinline|Promise|.
+  \item Se a renderização não devolver uma \emph{string} não-vazia, a função
+        falha com mensagem clara (em vez de estourar \lstinline|TypeError| na
+        injeção seguinte).
+  \item Por fim, \lstinline|injectCellTypesIntoSvg| insere
+        \lstinline|data-cell-type=<tipo>| em cada \lstinline|<g id="cell_<inst>">|,
+        e o SVG é gravado em \path{<sanitized>.svg}.
+\end{itemize}
+
+A injeção de \lstinline|data-cell-type| é necessária porque o netlistsvg rotula
+cada célula com o \emph{nome da instância} (\lstinline|s:attribute="ref"|), não
+com o \emph{tipo} de módulo. \lstinline|buildInstanceTypeMap| constrói o mapa
+\lstinline|instância -> tipo| a partir do JSON do \tool{Yosys}, e
+\lstinline|injectCellTypesIntoSvg| usa uma \emph{regex} (não um \emph{parser} XML)
+para anotar cada \lstinline|<g>| de célula com o tipo --- assim o renderer sabe
+para qual módulo navegar ao clicar. Valores de atributo são escapados por
+\lstinline|xmlAttrEscape| (\lstinline|&|, \lstinline|"|, \lstinline|<|).
+
+\subsection{Resultado e abertura da janela}
+
+Em sucesso, \lstinline|performPrismCompilationWithPaths| retorna
+\lstinline|{ success: true, topLevelModule, svgPath, tempDir }|, e o \emph{handler}
+\lstinline|prism-compile-with-paths| chama \lstinline|createPrismWindow(result)|.
+A janela recebe \lstinline|compilation-complete| com esse objeto, carrega o SVG
+do top-level e inicializa a navegação. Durante todo o processo, mensagens de
+progresso são enviadas à janela principal pelo canal \lstinline|terminal-log| no
+terminal \lstinline|tveri| (\enquote{Top-level: \dots}, \enquote{Running Yosys
+synthesis\dots}, \enquote{PRISM compilation completed successfully}, ou os erros
+correspondentes).
+
+\section{O fork netlistsvg-aurora}
+\label{sec:fork}
+
+O \file{package.json} da \tool{AURORA} aponta a dependência
+\lstinline|@silimate/netlistsvg| para o fork do laboratório:
+
+\begin{lstlisting}[caption={Dependência apontando para o fork (package.json da AURORA)}]
+"@silimate/netlistsvg":
+  "github:nipscernlab/netlistsvg-aurora#58a0703904a35841616db58716f40532b84fb018"
+\end{lstlisting}
+
+Ou seja, embora o nome do pacote permaneça \lstinline|@silimate/netlistsvg|
+(versão \lstinline|1.1.4|, autor original Neil Turley), o código instalado vem de
+\repo{netlistsvg-aurora}, fixado por \emph{commit hash}.
+
+\subsection{O que o fork muda em relação ao upstream}
+
+A diferença substantiva do fork é um \textbf{ajuste de \emph{tsconfig} para
+destravar a compilação sob TypeScript~6}, seguida de uma reconstrução de
+\path{built/}. O \file{tsconfig.json} do fork é:
+
+\begin{lstlisting}[caption={tsconfig.json do fork netlistsvg-aurora}]
+{
+  "compilerOptions": {
+    "outDir": "./built",
+    "allowJs": true,
+    "lib": [ "es6", "dom" ],
+    "target": "es2015",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "types": []
+  },
+  "include": [ "./lib/*", "./lib/@types" ]
+}
+\end{lstlisting}
+
+A mensagem de \emph{commit} do fork descreve precisamente as mudanças:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \lstinline|target| passou de \lstinline|"es5"| (que o TS~6 marca como
+        \emph{deprecated} e recusa compilar, erro \lstinline|TS5107|) para
+        \lstinline|"es2015"|.
+  \item Foram adicionados \lstinline|module: "commonjs"| e
+        \lstinline|moduleResolution: "node"| explícitos, para que a sintaxe
+        CommonJS existente (\lstinline|import x = require(...)|) continue
+        funcionando sob o compilador moderno.
+  \item \lstinline|types: []| foi fixado para que o \lstinline|tsc| não varra
+        pacotes \lstinline|@types| transitivos e tropece em definições de
+        \emph{babel}/\emph{jest}.
+  \item O diretório \path{built/} foi reconstruído a partir dessas
+        configurações; a mensagem afirma que a saída é funcionalmente idêntica
+        (testada renderizando os exemplos digitais).
+\end{itemize}
+
+O \emph{layout} de pastas do fork (\path{lib/} com os \file{.ts} fonte ---
+\file{index.ts}, \file{FlatModule.ts}, \file{Cell.ts}, \file{Port.ts},
+\file{Skin.ts}, \file{drawModule.ts}, \file{elkGraph.ts}, \file{YosysModel.ts}
+--- além de \file{lib/default.svg} e \file{lib/analog.svg}, e \path{built/} com os
+\file{.js} compilados e \file{netlistsvg.bundle.js}) é o mesmo do \emph{upstream}.
+A API usada pela \tool{AURORA} é a função
+\lstinline|render(skinData, yosysNetlist, done)| de \file{lib/index.ts}, que
+constrói o \lstinline|FlatModule|, monta o grafo ELK
+(\lstinline|buildElkGraph|), roda o \emph{layout} via \lstinline|elkjs| e desenha
+com \lstinline|drawModule| --- preservando o estilo de \emph{callback} legado que
+o código do \tool{PRISM} consome.
+
+\begin{nota}
+As demais diferenças efetivas em relação ao netlistsvg de prateleira estão
+\emph{fora} do fork da biblioteca: a \tool{AURORA} não edita
+\path{lib/default.svg}; em vez disso \emph{mescla} suas próprias \emph{skins} em
+tempo de execução (ver \autoref{sec:skins}). As \emph{skins} customizadas da
+família SAPHO vivem no repositório \tool{AURORA}, em \path{assets/prism-skins/}.
+\end{nota}
+
+\section{Sistema de skins}
+\label{sec:skins}
+
+Uma \emph{skin} do netlistsvg é um SVG que declara, em blocos
+\lstinline|<g s:type="...">|, como desenhar cada \emph{tipo} de célula (suas
+portas, identificadas por \lstinline|s:pid|, e a geometria do símbolo). A
+\path{lib/default.svg} do pacote traz os tipos genéricos: portas externas
+(\lstinline|inputExt|, \lstinline|outputExt|), \emph{flip-flops} e \emph{latches}
+(\lstinline|dff|, \lstinline|dffn|, \lstinline|dlatch| e variantes \lstinline|-bus|),
+operadores aritméticos e lógicos (\lstinline|add|, \lstinline|sub|, \lstinline|mul|,
+\lstinline|div|, \lstinline|mod|, \lstinline|and|, \lstinline|or|, \lstinline|not|,
+\lstinline|mux|, \lstinline|eq|, \lstinline|lt|, \lstinline|shl|, \lstinline|shr|
+etc.), \lstinline|split|/\lstinline|join|, \lstinline|constant| e o fallback
+\lstinline|generic|.
+
+\subsection{Mescla de skins customizadas em runtime}
+
+\lstinline|getDefaultSkinData()| (em \file{main/ipc/prism.js}) não usa a
+\path{default.svg} crua: ela a combina com as \emph{skins} de
+\path{assets/prism-skins/}. O processo, executado a \emph{cada} compilação (sem
+\emph{cache}, para que \enquote{Recompile} já reflita edições em \emph{skins}
+custom):
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item Lê a \path{lib/default.svg} resolvida via
+        \lstinline|require.resolve('@silimate/netlistsvg')|.
+  \item \lstinline|loadCustomSkinBlocks(customSkinDir)| varre
+        \path{assets/prism-skins/*.svg} (ignorando arquivos começados por
+        \lstinline|_|, como \file{\_template.svg}), e de cada um extrai os blocos
+        \lstinline|<g s:type="...">| de topo via
+        \lstinline|extractTopLevelGBlocks|. Esse extrator usa contagem de
+        profundidade de \lstinline|<g>| (pilha) para suportar \lstinline|<g>|
+        aninhados dentro de portas/labels --- uma \emph{regex} \emph{non-greedy}
+        quebraria em blocos como o \lstinline|generic|.
+  \item Para cada \lstinline|s:type| customizado, o bloco correspondente é
+        \emph{removido} da \emph{skin} default e o customizado é injetado logo
+        antes de \lstinline|</svg>|.
+\end{enumerate}
+
+O comentário no código explica a escolha de mesclar em tempo de execução em vez
+de editar \path{node_modules/.../default.svg}: um \lstinline|npm install|
+sobrescreveria a \path{default.svg}; mantendo as customizações em
+\path{assets/prism-skins/} elas sobrevivem ao \emph{install} e ficam versionadas
+no git.
+
+\subsection{A família de símbolos SAPHO}
+
+As \emph{skins} customizadas são geradas por
+\file{scripts/prism-skin-standard.js}, que estabelece um \emph{padrão} de
+símbolos: cada classe de módulo é desenhada como seu símbolo de livro-texto (mux
+= pentágono apontando à direita; ALU = \emph{chevron} entalhado; decodificador =
+trapézio \emph{fan-out}; registrador = cartão com \emph{clock} $\blacktriangleright$;
+memória = grade; FIFO = \emph{chevrons} de fluxo; blocos hierárquicos/de controle
+= cartão de \emph{chip} arredondado). Cada símbolo usa fundo escuro de \emph{chip},
+fluxo da esquerda para a direita (dados a oeste, resultados a leste; sinais de
+controle como \lstinline|clk|/\lstinline|rst|/\lstinline|op|/\lstinline|en| em
+violeta), portas rotuladas no \emph{anchor} e cores temáticas via variáveis CSS
+com \emph{fallbacks} em hexadecimal.
+
+Há \emph{skins} para a biblioteca SAPHO inteira --- por exemplo
+\file{processor.svg}, \file{core.svg}, \file{ula.svg}, \file{addr\_dec.svg},
+\file{instr\_dec.svg}, \file{instr\_fetch.svg}, \file{mem\_ctrl.svg},
+\file{mem\_data.svg}, \file{mem\_instr.svg}, \file{myFIFO.svg}, \file{pc.svg},
+\file{stack.svg}, \file{prefetch.svg} --- além de uma família grande de variantes
+de ALU (\file{ula\_add.svg}, \file{ula\_fadd.svg}, \file{ula\_fmlt.svg},
+\file{ula\_i2f.svg}, \file{ula\_mux.svg} etc.). Cada arquivo declara seu
+\lstinline|s:type| (o tipo de célula que casa com o nome do módulo Verilog) e um
+\lstinline|<s:alias val="..."/>|; uma regra dura do padrão é que cada
+\lstinline|s:pid| \emph{deve} ser igual ao nome da porta Verilog.
+
+\begin{lstlisting}[language=Java,caption={Cabeçalho de uma skin SAPHO (assets/prism-skins/processor.svg)}]
+<svg xmlns="..." xmlns:s="https://github.com/nturley/netlistsvg">
+  <g s:type="processor" transform="translate(0, 0)"
+     s:width="150" s:height="132">
+    <s:alias val="processor"/>
+    ...
+    <g s:x="0"   s:y="66" s:pid="clk"/>
+    <g s:x="0"   s:y="75" s:pid="rst"/>
+    <g s:x="150" s:y="66" s:pid="io_out"/>
+    ...
+  </g>
+</svg>
+\end{lstlisting}
+
+\subsection{Poda de portas ausentes na skin}
+\label{sec:skin-ports}
+
+Uma \emph{skin} customizada tem um conjunto \emph{fixo} de portas. Se o RTL tem
+uma porta que a \emph{skin} não declara (ex.: o \lstinline|core| ganhou um sinal
+novo mas \file{core.svg} ainda não tem o \emph{anchor}), o netlistsvg geraria uma
+\emph{aresta} para uma \emph{shape} de porta que nunca desenhou, e o ELK abortaria
+com \enquote{Referenced shape does not exist}, derrubando o \emph{render} inteiro
+do módulo.
+
+Para evitar isso, \lstinline|generateModuleSVGWithPaths| poda o \emph{netlist}
+antes de renderizar:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \lstinline|buildSkinPortMap(skinData)| monta
+        \lstinline|tipo -> Set(s:pid)| a partir dos blocos da \emph{skin}.
+  \item \lstinline|pruneNetlistToSkinPorts(netlistJson, skinPortMap)| remove, de
+        cada célula, as conexões cujo \emph{port} não está na \emph{skin} de seu
+        tipo (e o respectivo \lstinline|port_directions|), registrando um aviso
+        com \lstinline|log.warn| indicando que basta adicionar um
+        \lstinline|<g s:pid="..."/>| à \emph{skin} para desenhá-la.
+  \item Células de tipo \emph{genérico} (sem \emph{skin}) \emph{não} são tocadas:
+        ali o netlistsvg cria as portas a partir das próprias conexões.
+\end{itemize}
+
+O resultado é que uma porta extra apenas não aparece (com aviso), em vez de
+quebrar a tela.
+
+\section{O renderer da janela}
+
+\file{html/prism/prism.js} (carregado como \lstinline|<script type="module">|)
+define a classe \lstinline|PRISMViewer|, instanciada em
+\lstinline|DOMContentLoaded| e exposta como \lstinline|window.prismViewer|. Ela
+cobre i18n, carregamento e interação do SVG, navegação, pan/zoom e a simulação
+\tool{DigitalJS}.
+
+\subsection{Internacionalização}
+
+O renderer mantém um dicionário próprio \lstinline|PRISM_STRINGS| com locais
+\lstinline|en| e \lstinline|pt| (não acessa a camada i18n da \tool{AURORA}
+principal). \lstinline|detectLocale()| lê \lstinline|aurora-locale| (ou o legado
+\lstinline|aurora-yanc-lang|) do \lstinline|localStorage|, com \emph{default}
+\lstinline|pt|. As \emph{strings} resolvidas são aplicadas aos elementos da
+\emph{toolbar} no carregamento.
+
+\subsection{Carregamento e interação do SVG}
+
+Em \lstinline|compilation-complete|, \lstinline|_onCompilationComplete(data)|
+zera as pilhas de navegação, define o módulo corrente e chama
+\lstinline|_loadSVG(svgPath, module)|. \lstinline|_loadSVG| lê o SVG via
+\lstinline|electronAPI.readFile| (passando pelo \emph{main}, sem
+\lstinline|fetch('file://')|), injeta-o no DOM com \emph{fade-in}, atualiza
+\emph{breadcrumbs} e info do módulo, e instala as interações.
+
+\lstinline|_setupSVGInteractions()| instala três comportamentos:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+  \item[Navegação por clique] Cada \lstinline|g[data-cell-type]| cujo tipo é
+        clicável (mesma lista de \emph{skip} do \emph{main}, em
+        \lstinline|_isClickableModuleType|) ganha cursor de ponteiro, realce ao
+        passar o mouse e \emph{tooltip}. Um clique simples agenda
+        \lstinline|navigateToModule(type)| após $\sim$250\,ms, dando janela para
+        um eventual duplo-clique cancelar a navegação.
+  \item[Abrir o código-fonte por duplo-clique] Cada
+        \lstinline|g[onclick^="gotosrc"]| (atributo que o netlistsvg emite a
+        partir do \lstinline|src| do \tool{Yosys}) tem seu \lstinline|onclick|
+        removido e substituído por um \emph{listener} de \lstinline|dblclick| que
+        extrai o localizador \lstinline|arquivo:linha.col| e chama
+        \lstinline|electronAPI.openSourceFile(...)|. (O \emph{stub} global
+        \lstinline|window.gotosrc = () => {}| neutraliza o \emph{handler} inline
+        original.)
+  \item[Realce de fios] Cliques em \lstinline|path|/\lstinline|line|/\lstinline|polyline|
+        disparam \lstinline|_highlightWireConnection|, que faz \emph{flood-fill}
+        geométrico de \emph{endpoints} (tolerância de 5 unidades) para realçar
+        toda a conexão elétrica em \lstinline|var(--aurora-mint)|.
+\end{description}
+
+\subsection{Navegação hierárquica}
+
+A entrada em submódulos é feita por \lstinline|navigateToModule(name)|, que chama
+\lstinline|electronAPI.generateSVGFromModule(name, tempDir)| --- o \emph{main}
+gera o SVG do \path{<modulo>.json} já existente no \emph{tempDir} (sem reexecutar
+o \tool{Yosys}). O renderer mantém duas pilhas, \lstinline|navigationHistory| e
+\lstinline|forwardHistory|, e oferece:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \lstinline|navigateBack()| / \lstinline|navigateForward()| (também ligados
+        aos botões laterais do mouse X1/X2 e a \lstinline|Esc| para voltar);
+  \item \emph{breadcrumbs} clicáveis que truncam o histórico até o nível
+        escolhido;
+  \item \lstinline|recompile()|, que reobtém os caminhos via
+        \lstinline|getPrismCompilationPaths| e chama
+        \lstinline|prismRecompile|.
+\end{itemize}
+
+\subsection{Pan, zoom e download}
+
+O canvas é uma \lstinline|<div>| com \emph{transform} CSS
+(\lstinline|translate(...) scale(...)|). O zoom é \enquote{suave}: a roda do mouse
+ajusta um \lstinline|targetScale| (fator \lstinline|exp(-deltaY*0.0016)|, clamp
+0{,}1--5) e \lstinline|currentScale| é interpolado por \emph{requestAnimationFrame},
+ancorado sob o cursor. Há também \emph{pan} por arraste, gestos de toque
+(\emph{pinch} e \emph{pan}), \lstinline|fitToScreen()| (ajusta a $\sim$90\% do
+\emph{viewport}), \lstinline|resetView()| e atalhos de teclado
+(\lstinline|Ctrl+=/-/0/F|, \lstinline|Ctrl+R| recompila, \lstinline|F11| tela
+cheia). \lstinline|downloadSVG()| serializa o SVG atual (clonado, com
+\emph{namespaces} XML adicionados) para um \lstinline|Blob| baixável, nomeado pelo
+módulo corrente --- funciona em qualquer nível de navegação.
+
+\section{Simulação interativa com DigitalJS (O9)}
+\label{sec:digitaljs}
+
+Desde a fase O9, o \tool{PRISM} oferece, além do esquemático estático, uma
+\emph{simulação lógica interativa} do mesmo \emph{netlist}, via \tool{DigitalJS}.
+O botão \enquote{Simular} (id \lstinline|simToggle|) alterna entre as duas
+superfícies. \textbf{A integração está de fato funcional} --- não é apenas uma
+dependência presente: há \emph{handler} IPC dedicado, conversão real do
+\emph{netlist} e renderização da paper interativa, conforme o código abaixo.
+
+As dependências relevantes no \file{package.json} da \tool{AURORA} são
+\lstinline|digitaljs| \lstinline|^0.14.2| e \lstinline|yosys2digitaljs|
+\lstinline|^0.10.3| (instalado com \lstinline|main: dist/index.js| e um
+sub-\emph{entry} \lstinline|core|).
+
+\subsection{Construção do circuito no main}
+
+O \emph{handler} \lstinline|prism:build-digitaljs| (em \file{main/ipc/prism.js})
+resolve o top-level do \file{.spf} e chama
+\lstinline|buildDigitalJSCircuit(paths, topLevelModule, tempDir)|. Esse fluxo é
+deliberadamente \emph{separado} do esquemático para nunca perturbá-lo:
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item \lstinline|collectSynthFiles| coleta os \file{.v} com a mesma lógica de
+        \lstinline|runYosysCompilationWithPaths| (HDL + \lstinline|synthesizableFiles|
+        + \path{TopLevel/} + \path{<proc>/Hardware/}).
+  \item Gera um \emph{script} \tool{Yosys} \enquote{amigável ao
+        yosys2digitaljs}, em nível de palavra (sem \lstinline|abc|/\lstinline|techmap|,
+        para manter \lstinline|$add|/\lstinline|$mux|/\lstinline|$dff| como
+        células \tool{DigitalJS} em vez de \emph{gates}):
+\end{enumerate}
+
+\begin{lstlisting}[caption={Script Yosys da simulação (buildDigitalJSCircuit)}]
+read_verilog "..."
+...
+hierarchy -top <topLevelModule>
+proc
+opt_clean
+memory -nomap
+wreduce -memx
+opt_clean
+write_json "digitaljs.json"
+\end{lstlisting}
+
+\begin{enumerate}[leftmargin=2.2em,start=3]
+  \item Roda o \emph{próprio} \tool{Yosys} (allowlisted) via
+        \lstinline|spawnTracked|, com \emph{timeout} de 45\,s (uma síntese
+        descontrolada falha com mensagem clara em vez de \emph{spinner} infinito).
+  \item Conta as células do \emph{netlist}; se passar de \lstinline|MAX_CELLS = 3000|,
+        \emph{recusa} a simulação com orientação para usar o esquemático
+        (\tool{DigitalJS} é um simulador didático para módulos pequenos; o
+        conversor roda síncrono no processo principal e o \emph{layout} no
+        navegador degrada além de alguns milhares de células).
+  \item Carrega \emph{lazy} o conversor \lstinline|require('yosys2digitaljs/core')|
+        e chama \lstinline|yosys2digitaljs(yosysJson, {})| --- uma função
+        \emph{pura} que recebe o JSON do \tool{Yosys} já produzido (nenhum
+        \emph{spawn} adicional de \tool{Yosys}) e devolve o \lstinline|TopModule|
+        no formato \tool{DigitalJS}.
+  \item \lstinline|stripYosysLabels(circuit)| zera \emph{labels} internos
+        gerados pelo \tool{Yosys} (que começam com \lstinline|$|, como
+        \lstinline|$xor$src:line$n|), preservando os úteis (\lstinline|a|,
+        \lstinline|b|, \lstinline|sum| etc.).
+\end{enumerate}
+
+O \emph{handler} retorna \lstinline|{ ok: true, circuit, topLevelModule }|, com
+\emph{logs} de progresso por fase (\enquote{synthesizing\dots}, \enquote{netlist
+N cells --- converting\dots}, \enquote{converted to M devices\dots}).
+
+\subsection{Renderização interativa no renderer}
+
+No renderer, \lstinline|enterSimMode()| (em \file{html/prism/prism.js}):
+
+\begin{itemize}[leftmargin=1.4em]
+  \item Usa um \emph{guard} de reentrância (\lstinline|_simBusy|) para que um
+        segundo clique não inicie um segundo \emph{build} concorrente.
+  \item Obtém o circuito via \lstinline|electronAPI.buildDigitalJS(paths)|.
+  \item \emph{Carrega \tool{DigitalJS} de forma \emph{lazy}}
+        (\lstinline|_loadDigitalJS()|): expõe o \lstinline|jQuery| global,
+        importa o \lstinline|jquery-ui| \emph{completo} (na ordem correta, para
+        que \lstinline|$.widget|/\lstinline|$.fn.dialog| existam antes de o
+        \emph{bundle} do \tool{DigitalJS} avaliar seu \lstinline|dialog.js|), e
+        só então faz \lstinline|import('digitaljs')| para obter a classe
+        \lstinline|Circuit|. Manter isso fora do \emph{import} de topo significa
+        que o fluxo do esquemático nunca avalia o \tool{DigitalJS} (um erro de
+        carga não derruba a janela inteira) e o \emph{chunk} de $\sim$2\,MB só é
+        baixado sob demanda.
+  \item Instancia \lstinline|new Circuit(res.circuit, { layoutEngine: 'dagre' })|
+        e exibe com \lstinline|circuit.displayOn(paperHost)|, depois
+        \lstinline|circuit.start()|. O motor de navegador \emph{síncrono} (padrão)
+        com \emph{layout} \lstinline|dagre| evita qualquer \emph{Web Worker},
+        permitindo rodar sob \lstinline|file://|.
+\end{itemize}
+
+A simulação tem seu próprio \emph{pan}/\emph{zoom} (transform CSS no
+\lstinline|.djs-wrapper|, espelhando os valores do esquemático), \emph{pan} por
+arraste de área vazia (\lstinline|blank:pointerdown|), \lstinline|_fitPaper()|
+para centralizar/ajustar, e \lstinline|_buildValueOverlays()|, que sobrepõe um
+dígito vivo \lstinline|0|/\lstinline|1|/\lstinline|x| em cada caixa de
+entrada/saída de 1 bit (o \tool{DigitalJS} sozinho só pinta a caixa) e o atualiza
+a cada mudança de sinal. \lstinline|exitSimMode()| e \lstinline|_destroyCircuit()|
+param e descartam o circuito e a \emph{paper} JointJS, evitando vazamentos em
+ciclos repetidos de entrar/sair. Uma recompilação do esquemático sai
+automaticamente do modo de simulação (o circuito vivo fica obsoleto).
+
+\section{Árvore de hierarquia pós-síntese}
+
+A \enquote{árvore de hierarquia} que o \tool{PRISM} apresenta não é uma estrutura
+em árvore separada, e sim a \emph{navegação} sobre os módulos individuais que
+\lstinline|splitHierarchyJson| derivou do \path{hierarchy.json}. Como o
+\emph{script} do esquemático roda \lstinline|hierarchy -top| seguido de
+\lstinline|proc| (sem \emph{flatten}), o \path{hierarchy.json} preserva a
+estrutura hierárquica: cada módulo guarda suas células, e células cujo
+\lstinline|type| é outro módulo clicável tornam-se pontos de entrada.
+
+Em tempo de execução, o usuário começa no top-level e \enquote{desce} a árvore
+clicando em células de submódulo; os \emph{breadcrumbs} mostram o caminho atual e
+permitem saltar para qualquer ancestral. Como cada nível corresponde a um
+\path{<modulo>.json} já materializado, descer/subir é instantâneo --- nenhuma
+reexecução de \tool{Yosys} ocorre durante a navegação (apenas uma nova chamada a
+\lstinline|netlistsvg.render| por módulo visitado).
+
+\section{Resumo de artefatos e responsabilidades}
+
+\begin{tabularx}{\linewidth}{Y Z}
+\toprule
+\textbf{Arquivo} & \textbf{Responsabilidade} \\
+\midrule
+\file{main/ipc/prism.js} & janela, \emph{pipeline} Yosys, split por módulo, render SVG, skins, DigitalJS; \emph{handlers} IPC \\
+\file{js/app/preload\_prism.js} & \emph{bridge} sandboxizada com \emph{allowlist} de canais \\
+\file{html/prism/prism.html} & layout da janela (toolbar, breadcrumbs, canvas SVG, host DigitalJS) \\
+\file{html/prism/prism.js} & classe \lstinline|PRISMViewer|: i18n, SVG, navegação, pan/zoom, sim \\
+\file{js/compilation/compilation\_flow.js} & botão PRISM, pré-flight, payload de caminhos, \emph{overrides} \\
+\file{main/render\_loader.js} & seleção dev/prod do renderer (\lstinline|loadPage|) \\
+\repo{netlistsvg-aurora} & fork de \lstinline|@silimate/netlistsvg| (fix de tsconfig; skins default) \\
+\file{assets/prism-skins/*.svg} & símbolos customizados da família SAPHO (mesclados em runtime) \\
+\file{scripts/prism-skin-standard.js} & gerador do padrão de símbolos SAPHO \\
+\bottomrule
+\end{tabularx}
+
+\begin{nota}
+Em síntese: o \tool{PRISM} sintetiza o RTL do projeto com o \tool{Yosys} bundle
+(\lstinline|read_verilog -setattr src| $\rightarrow$ \lstinline|hierarchy| $\rightarrow$
+\lstinline|proc| $\rightarrow$ \lstinline|setundef -zero| $\rightarrow$
+\lstinline|opt_clean| $\rightarrow$ \lstinline|write_json|), divide o
+\emph{netlist} por módulo, e renderiza cada módulo \emph{in-process} com o fork
+\repo{netlistsvg-aurora} usando \emph{skins} SAPHO mescladas em tempo de
+execução, produzindo um esquemático SVG navegável. Sobre o mesmo desenho de
+fluxo, a fase O9 acrescentou uma simulação lógica interativa via
+\tool{yosys2digitaljs}~+~\tool{DigitalJS}, integrada e funcional, ativada pelo
+botão \enquote{Simular}.
+\end{nota}

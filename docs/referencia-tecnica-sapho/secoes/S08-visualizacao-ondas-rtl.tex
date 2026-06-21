@@ -1,0 +1,35 @@
+% !TEX root = ../main.tex
+\section{Visualização: ondas (GTKWave/Surfer) e RTL (PRISM)}
+\label{sec:S08-visualizacao-ondas-rtl}
+
+Após a simulação (\path{.vcd}/\path{.fst}), a AURORA oferece dois visualizadores de onda; o \tool{PRISM} visualiza o RTL sintetizado. Todos são processos externos lançados \emph{detached} pelo \emph{main} do Electron, com \emph{allowlist} de binários.
+
+\subsection{Ondas: GTKWave e Surfer}
+
+A preferência global fica em \lstinline|localStorage| sob \lstinline|aurora.waveViewer| (\file{viewer\_preference.js}): \lstinline|'gtkwave'| (default) ou \lstinline|'surfer'|. No passo Wave, se \lstinline|getViewer()==='surfer'| resolve o layout e lança o Surfer; senão segue o GTKWave. O Surfer \textbf{não vem empacotado por padrão}; ausente o \path{surfer.exe}, \lstinline|_waveLaunchSurfer| degrada limpo para GTKWave.
+
+\begin{table}[h]\centering\scriptsize
+\begin{tabularx}{\linewidth}{l Y Y}
+\toprule
+ & \textbf{GTKWave (nipscern)} & \textbf{Surfer} \\
+\midrule
+Status & padrão, empacotado & opt-in, opcional \\
+Origem & fork C/GTK3 do lab & binário Rust upstream \\
+Curadoria & \path{.gtkw} & \path{.surf.ron} (RON) \\
+ASM/\cmm{} & \emph{file filter} (\path{trad\_*.txt}) & \emph{mapping translator} \\
+Complexo & \emph{process filter} \tool{comp2gtkw} ao vivo & pré-passo \tool{comp2gtkw} assado em mapping \\
+Local & \path{Packages/gtkwave-nipscern/} & \path{Packages/surfer/} \\
+IPC & \lstinline|launch-gtkwave-only| & \lstinline|launch-surfer| \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Fork \repo{gtkwave-nipscern}.} Sobre o upstream (base v3.3.116, Meson, GTK3): flags \lstinline|--zoom-fit| (\lstinline|-Z|, via \lstinline|g_idle_add|) e \lstinline|--left-justify| (\lstinline|-L|); canvas escuro \textbf{default} (\lstinline|use_dark=TRUE| em \file{globals.c}, paleta \emph{default-dark} do Surfer, canvas \lstinline|#0b151d|); remoção do painel SST; ícones Phosphor; barra CSD; \emph{zoom} animado (\emph{ease-out cubic}, 150\,ms). Build nativa: \file{build-windows.bat} (MSYS2/MINGW64) chama \lstinline|meson setup -Djudy=disabled -Dtests=false|; alvo \lstinline|win_subsystem:'windows'|, filhos \lstinline|CREATE_NO_WINDOW|. A AURORA não compila: \file{download-gtkwave-nipscern.js} baixa o \emph{bundle} portátil (tag \lstinline|v0.1.2-nipscern|) com \path{gtkwave.exe}+\path{fst2vcd.exe}+DLLs. Invocação (\lstinline|buildGtkwaveSpec|): \lstinline|--dark --zoom-fit --left-justify <vcd>| mais \lstinline|-a <gtkw>|. \tool{fst2vcd} é a única CLI direta (FST$\rightarrow$VCD). O \path{.gtkw} (\lstinline|buildAuroraGtkw|): \emph{file filter} \lstinline|^N <path>| (ASM/\cmm{}) e \emph{process filter} \lstinline|^>N <path>| (\tool{comp2gtkw}, complexos).
+
+\paragraph{Surfer.} \file{download-surfer.js} baixa do GitLab (tag \lstinline|v0.7.0|) com SHA-256 \textbf{imposto}. O layout \path{.surf.ron} (\file{surfer\_layout\_writer.ts}) é declarativo: \lstinline|buildSurferLayout| espelha o \path{.gtkw} (mesma \lstinline|detectProcessors|, mesma ordem) emitindo \lstinline|SurferItem| (\lstinline|variable|/\lstinline|divider|/\lstinline|timeline|/\lstinline|group|). Cada processador vira \textbf{grupo colapsável}; o Surfer re-resolve itens por caminho+nome no \emph{load} (IDs só dica de performance), tornando o arquivo portável. Seções: Top-level $\rightarrow$ clk/rst/itr $\rightarrow$ I/O (\lstinline|Yellow|) $\rightarrow$ Instructions (\lstinline|Violet|) $\rightarrow$ Variables (\lstinline|Orange|) $\rightarrow$ Flags. Tracks ASM/\cmm{} usam \emph{mapping translators}: \lstinline|convertTradToSurferMapping| converte \path{trad\_*.txt} e \lstinline|write-surfer-mappings| grava atômico em \path{\%APPDATA\%/surfer-project/surfer/config/mappings} (nomes \lstinline|aurora_*|). Complexos: \lstinline|_buildSurferComplexMapping| pré-decodifica via \tool{fst2vcd}+\tool{comp2gtkw} (IPC \lstinline|decode-complex|), assando um mapping (\emph{gated}; sem decoder abre \lstinline|Binary|). Reload automático não funciona em v0.7.0; a AURORA fecha e reabre a janela.
+
+\subsection{RTL: PRISM}
+
+Botão \lstinline|prismcomp| (só com top-level). \lstinline|handlePrismStep| é \emph{superset} do Verilog (\cmm{}+ASM+syntax-check) e chama \lstinline|prismCompileWithPaths|. Janela única \lstinline|BrowserWindow| 1400$\times$900, \emph{frameless}, \lstinline|sandbox:true|, \lstinline|contextIsolation:true|, preload \file{preload\_prism.js} (allowlist de canais). Pipeline (\file{main/ipc/prism.js}): coleta \file{.v} (HDL+\lstinline|synthesizableFiles|+TopLevel+\path{<proc>/Hardware}, dedup) $\rightarrow$ \tool{Yosys} (\lstinline|read_verilog -setattr src| $\rightarrow$ \lstinline|hierarchy -top| $\rightarrow$ \lstinline|proc| $\rightarrow$ \lstinline|setundef -zero| $\rightarrow$ \lstinline|opt_clean -purge| $\rightarrow$ \lstinline|write_json|; sem \lstinline|techmap|/\lstinline|abc| — diagrama RTL) $\rightarrow$ \lstinline|splitHierarchyJson| (JSON por módulo) $\rightarrow$ \lstinline|generateModuleSVG|. Render \emph{in-process} via \lstinline|require('@silimate/netlistsvg')|. O fork \repo{netlistsvg-aurora} (pinado por commit) muda só o \file{tsconfig.json} (\lstinline|target| es5$\rightarrow$es2015 para TS~6, \lstinline|module:commonjs|, \lstinline|types:[]|) + rebuild de \path{built/}; API \lstinline|render(skin,netlist,cb)| idêntica. Skins SAPHO (\path{assets/prism-skins/*.svg}, de \file{prism-skin-standard.js}) mescladas em \emph{runtime} sobre \path{lib/default.svg}; \lstinline|pruneNetlistToSkinPorts| poda portas ausentes (ELK); \lstinline|injectCellTypesIntoSvg| anota \lstinline|data-cell-type|. Renderer (\lstinline|PRISMViewer|): clique entra em submódulo (SVG já materializado, sem re-rodar Yosys), duplo-clique abre o fonte (via \lstinline|src|), breadcrumbs, pan/zoom.
+
+\paragraph{DigitalJS (O9).} Integração \textbf{funcional}: botão \enquote{Simular}; \lstinline|prism:build-digitaljs| gera script Yosys amigável (\lstinline|memory -nomap|, \lstinline|wreduce|), recusa acima de \lstinline|MAX_CELLS=3000|, e converte com \lstinline|yosys2digitaljs| (\lstinline|^0.10.3|; função pura) para \tool{DigitalJS} (\lstinline|^0.14.2|), carregado \emph{lazy}, com layout \lstinline|dagre| síncrono (roda sob \lstinline|file://|).

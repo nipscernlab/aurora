@@ -1,0 +1,1067 @@
+% !TEX root = ../main.tex
+\chapter{A linguagem C± (CMM) e o caminho C++}
+\label{cap:03-linguagem-cmm}
+
+Este capítulo descreve a linguagem \cmm{} (CMM) tal como ela é definida pela
+gramática real do compilador \tool{cmmcomp}, parte do projeto \repo{yanc}. A
+descrição parte das duas fontes canônicas da sintaxe: o scanner Flex
+\file{Compilers/CMMComp/Sources/CMMComp.l} e o parser Bison
+\file{Compilers/CMMComp/Sources/CMMComp.y}. As ações semânticas residem nos
+módulos C de \file{Compilers/CMMComp/Sources/} (entre eles
+\file{diretivas.c}, \file{data\_declar.c}, \file{stdlib.c}, \file{oper.c},
+\file{saltos.c}, \file{funcoes.c}, \file{array\_index.c} e \file{messages.c}).
+O catálogo de mensagens vem de \file{Compilers/CMMComp/Headers/messages.h}, e os
+exemplos vêm de \file{Compilers/CMMComp/Tests/}. A última seção documenta o
+caminho C++ (\tool{cpppp} e \tool{cppcomp}), cuja gramática vive em
+\file{Compilers/CPPComp/Sources/}.
+
+\begin{nota}
+A linguagem \cmm{} é um front-end de software para o soft-processor SAPHO. Ela
+produz \emph{assembly} simbólico (\path{.asm}), que é posteriormente convertido
+em imagem de memória e em Verilog pelos estágios seguintes do toolchain (ver
+\autoref{cap:02-yanc-pipeline}). O foco deste capítulo é a \emph{linguagem-fonte}:
+sintaxe, tipos, operadores, biblioteca padrão e diretivas.
+\end{nota}
+
+\section{Estrutura de um programa \cmm{}}
+\label{sec:cmm-estrutura}
+
+Pela regra de partida do parser, um programa \cmm{} é uma sequência de
+elementos de topo de nível, sem ordem rígida entre eles:
+
+\begin{lstlisting}[language=C]
+fim           : prog {prog_emit();}
+prog          : prog_elements | prog prog_elements
+prog_elements : direct | declar | funcao
+\end{lstlisting}
+
+Ou seja, cada elemento de topo de nível é uma das três coisas:
+
+\begin{description}[leftmargin=2.2em]
+  \item[\code{direct}] uma \emph{diretiva} de hardware (linhas iniciadas por
+  \texttt{\#}), que configura parâmetros do processador-alvo.
+  \item[\code{declar}] uma \emph{declaração} de variável ou de \emph{array}
+  global.
+  \item[\code{funcao}] a definição de uma \emph{função}.
+\end{description}
+
+Não existe a noção sintática de um bloco \enquote{\code{processor \{ ... \}}};
+o que individualiza um processador é o conjunto de diretivas no início do arquivo
+(em especial \lstinline|#PRNAME|, que dá o nome do processador). O ponto de
+entrada da execução é a função \lstinline|main()|: a ausência dela é um erro
+detectado ao final da compilação, com a mensagem \lstinline|MSG_ERR_NO_MAIN|.
+
+Um arquivo \cmm{} mínimo e completo, retirado de
+\file{Tests/cmm\_define/Software/cmm\_define.cmm}, ilustra a forma canônica:
+diretivas no topo, depois a função \lstinline|main()|, normalmente com um laço
+infinito \lstinline|while (1)| que modela o comportamento contínuo do hardware:
+
+\begin{lstlisting}[style=cmm]
+#PRNAME cmm_define
+#NUBITS 16
+#NDSTAC 4
+#SDEPTH 4
+#NUIOIN 1
+#NUIOOU 1
+#NBMANT 10
+#NBEXPO 5
+#NUGAIN 128
+
+#define SCALE  3
+#define OFFSET 7
+
+void main()
+{
+    int x;
+    while (1)
+    {
+        x = in(0);
+        x = x + SCALE;
+        out(0, x);
+        x = x + OFFSET;
+        out(0, x);
+    }
+}
+\end{lstlisting}
+
+\section{Diretivas de hardware}
+\label{sec:cmm-diretivas}
+
+As diretivas são reconhecidas pelo scanner como \emph{tokens} próprios (regras
+\lstinline|"#PRNAME"|, \lstinline|"#NUBITS"|, etc. em \file{CMMComp.l}) e
+aparecem na gramática nas regras \code{direct} (configuração) e \code{dire\_inter}
+(comportamentais). Cada diretiva ocupa uma linha e recebe um argumento: um nome
+(em \lstinline|#PRNAME|) ou um inteiro (nas demais).
+
+\subsection{Diretivas de configuração}
+
+A regra \code{direct} mapeia cada diretiva para uma chamada de
+\lstinline|dire_exec()| (em \file{diretivas.c}), que atualiza o estado de
+compilação e anexa um \code{STMT\_DIRECTIVE} ao programa. A tabela a seguir lista
+as diretivas exatamente como aparecem no parser, com os comentários do próprio
+código.
+
+\begin{longtable}{@{}p{0.16\linewidth}p{0.12\linewidth}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Diretiva} & \textbf{Argumento} & \textbf{Significado (do parser)} \\
+\midrule
+\endhead
+\lstinline|#PRNAME| & nome & nome do processador \\
+\lstinline|#NUBITS| & inteiro & largura da palavra da ULA \\
+\lstinline|#NBMANT| & inteiro & largura da mantissa (bits) \\
+\lstinline|#NBEXPO| & inteiro & largura do expoente (bits) \\
+\lstinline|#NDSTAC| & inteiro & profundidade da pilha de dados \\
+\lstinline|#SDEPTH| & inteiro & profundidade da pilha de sub-rotinas \\
+\lstinline|#NUIOIN| & inteiro & número de portas de entrada \\
+\lstinline|#NUIOOU| & inteiro & número de portas de saída \\
+\lstinline|#NUGAIN| & inteiro & constante de divisão usada por \lstinline|norm(.)| \\
+\lstinline|#FFTSIZ| & inteiro & tamanho da FFT (na forma $2^{\texttt{FFTSIZ}}$) \\
+\bottomrule
+\end{longtable}
+
+A função \lstinline|dire_exec()| guarda em variáveis globais do compilador apenas
+o que o front-end \cmm{} precisa consultar em tempo de compilação: o nome
+(\lstinline|prname|), a largura da mantissa (\lstinline|nbmant|), a do expoente
+(\lstinline|nbexpo|), e a contagem de portas de entrada e de saída
+(\lstinline|nuioin|, \lstinline|nuioou|). As demais diretivas são repassadas
+adiante no pipeline via o \code{STMT\_DIRECTIVE} emitido. Os valores-padrão,
+definidos em \file{diretivas.c}, são \lstinline|nbmant = 16|,
+\lstinline|nbexpo = 6|, \lstinline|nuioin = 1| e \lstinline|nuioou = 1|.
+
+\begin{nota}
+As contagens \lstinline|#NUIOIN| e \lstinline|#NUIOOU| são checadas em tempo de
+compilação contra os índices de porta usados em \lstinline|in(.)|/\lstinline|out(.,.)|.
+Um índice fora da faixa produz \lstinline|MSG_ERR_NO_IN_PORT| ou
+\lstinline|MSG_ERR_NO_OUT_PORT|.
+\end{nota}
+
+\subsection{Diretivas comportamentais}
+
+Duas diretivas adicionais marcam pontos no fluxo de execução, em vez de
+configurar parâmetros. Elas são reconhecidas pelo scanner com nomes que diferem
+do \emph{token} interno (ver \file{CMMComp.l}):
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \lstinline|#PRACA| (token \code{ITRADD}) --- marca o ponto de retorno
+  para o \emph{reset} acionado pelo pino de interrupção (\code{itr}). É tratada
+  pela regra \code{dire\_inter}, que emite \lstinline|stmt_dire_inter()|.
+  \item \lstinline|#TOAQUI| (token \code{TOAQUI}) --- marca um endereço que o
+  pino \code{cheguei} reflete (verdadeiro quando \texttt{PC == addr}). Emite
+  \lstinline|stmt_dire_toaqui()|.
+\end{itemize}
+
+Diferentemente das diretivas de configuração, estas são \emph{statements}: podem
+aparecer dentro do corpo de funções (a regra \code{dire\_inter} é uma das
+alternativas de \code{stmt\_full}).
+
+\section{Tipos de dados}
+\label{sec:cmm-tipos}
+
+O scanner reconhece exatamente quatro palavras-chave de tipo, cada uma associada
+a um código numérico interno (ver \file{CMMComp.l}):
+
+\begin{lstlisting}[language=C]
+"comp"  {type_tmp = 3; yylval.ival = 3; return TYPE;}
+"float" {type_tmp = 2; yylval.ival = 2; return TYPE;}
+"int"   {type_tmp = 1; yylval.ival = 1; return TYPE;}
+"void"  {              yylval.ival = 0; return TYPE;}
+\end{lstlisting}
+
+Os códigos de tipo são usados em toda a tabela de símbolos e nas decisões de
+codegen. A tabela abaixo consolida os códigos, confirmados em
+\file{data\_declar.c} (campo \lstinline|v_table[id].type|):
+
+\begin{longtable}{@{}p{0.10\linewidth}p{0.20\linewidth}p{0.60\linewidth}@{}}
+\toprule
+\textbf{Código} & \textbf{Tipo} & \textbf{Descrição} \\
+\midrule
+\endhead
+0 & \lstinline|void| & ausência de tipo (também: variável ainda não declarada) \\
+1 & \lstinline|int|  & inteiro de \lstinline|#NUBITS| bits, em complemento de dois \\
+2 & \lstinline|float| & ponto flutuante (mantissa \lstinline|#NBMANT|, expoente \lstinline|#NBEXPO|) \\
+3 & \lstinline|comp| & número complexo (par de valores em ponto flutuante) \\
+4 & --- & parte imaginária de um \lstinline|comp| (gerada automaticamente) \\
+5 & --- & literal complexo (\code{CNUM}), usado nas reduções de expressão \\
+\bottomrule
+\end{longtable}
+
+\subsection{Inteiro (\texttt{int})}
+
+O tipo \lstinline|int| é a palavra inteira da ULA, com largura dada por
+\lstinline|#NUBITS| e aritmética em complemento de dois. É o tipo dos índices de
+\emph{array}, dos resultados lógicos e dos operandos de operações bit-a-bit e de
+deslocamento. Literais inteiros são reconhecidos pela regra \code{INNUM}
+(\lstinline|[0-9]+|) e produzem o \emph{token} \code{INUM}.
+
+\subsection{Ponto flutuante (\texttt{float})}
+
+O tipo \lstinline|float| representa números fracionários no formato de ponto
+flutuante do SAPHO, parametrizado por \lstinline|#NBMANT| (mantissa) e
+\lstinline|#NBEXPO| (expoente). Não existe na linguagem um tipo separado
+\enquote{ponto fixo}: o único tipo fracionário é \lstinline|float|, e a precisão
+efetiva é configurada pelas diretivas. Literais com ponto decimal são
+reconhecidos pela regra \code{FLNUM} (\lstinline|(0|[1-9]+[0-9]*)\.?[0-9]*|) e
+produzem \code{FNUM}.
+
+As funções transcendentais (raiz, trigonometria, exponencial, logaritmo) e os
+arredondamentos sempre operam sobre, ou produzem, valores \lstinline|float|.
+
+\subsection{Número complexo (\texttt{comp})}
+
+O tipo \lstinline|comp| é a marca distintiva da \cmm{}. Cada variável
+\lstinline|comp| ocupa, na tabela de símbolos, dois registros: o da parte real
+(código de tipo 3) e o da parte imaginária (código 4), criado automaticamente em
+\lstinline|declar_var()| por \lstinline|get_img_id()| sempre que
+\lstinline|type_tmp > 2|. Literais complexos são reconhecidos pela regra
+\code{CONUM} do scanner:
+
+\begin{lstlisting}[language=C]
+CONUM  [-]*{WS}*{FLNUM}{WS}*[+|-]{WS}*{FLNUM}{WS}*[i]
+\end{lstlisting}
+
+ou seja, a forma \lstinline|a+bi| (com \lstinline|i| ao final), produzindo o
+\emph{token} \code{CNUM}. O símbolo \lstinline|i| é \emph{reservado} para indicar
+a parte imaginária; usá-lo como identificador gera \lstinline|MSG_ERR_RESERVED_I|.
+
+Exemplo de uso de literais complexos (de \file{Tests/cmm\_comp\_arith/Software/cmm\_comp\_arith.cmm}):
+
+\begin{lstlisting}[style=cmm]
+void main() {
+    comp x; comp y; comp r;
+    while (1) {
+        r = (1.0+2.0i) * (3.0+4.0i);   fout(0, real(r)); fout(0, imag(r));
+        r = (4.0+2.0i) / (1.0+1.0i);   fout(0, real(r)); fout(0, imag(r));
+        r = (1.0+2.0i) + (3.0+4.0i);   fout(0, real(r)); fout(0, imag(r));
+        x = 1.0+2.0i; y = 3.0+4.0i; r = x * y;  fout(0, real(r)); fout(0, imag(r));
+    }
+}
+\end{lstlisting}
+
+A aritmética \lstinline|comp| dá suporte a \lstinline|+|, \lstinline|-|,
+\lstinline|*| e \lstinline|/| entre operandos complexos, com o tratamento das
+duas componentes feito pela camada de operadores (\file{oper.c}).
+
+\section{Declaração de variáveis e \emph{arrays}}
+\label{sec:cmm-declaracao}
+
+A regra \code{declar} cobre todas as formas de declaração. As formas e suas ações
+semânticas, lidas diretamente do parser:
+
+\begin{longtable}{@{}p{0.52\linewidth}p{0.40\linewidth}@{}}
+\toprule
+\textbf{Forma sintática} & \textbf{Ação} \\
+\midrule
+\endhead
+\lstinline|TYPE id_list ;| & lista de variáveis sem inicialização \\
+\lstinline|TYPE ID = exp ;| & declaração com inicialização \\
+\lstinline|TYPE ID [INUM] STRING ;| & \emph{array} 1D inicializado por arquivo \\
+\lstinline|TYPE ID [INUM][INUM] STRING ;| & \emph{array} 2D inicializado por arquivo \\
+\lstinline+TYPE ID [INUM] # | ID | ID >;+ & \emph{array} 1D inicializado por produto matriz-vetor \\
+\lstinline+TYPE ID [INUM] # exp | ID >;+ & \emph{array} 1D inicializado por produto constante-vetor \\
+\bottomrule
+\end{longtable}
+
+A \code{id\_list} permite declarar várias variáveis e/ou \emph{arrays} de uma vez:
+
+\begin{lstlisting}[language=C]
+id_list : IID | id_list ',' IID
+IID    : ID                           {declar_var   ($1         );}
+       | ID '[' INUM ']'              {declar_arr_1d($1,$3   ,-1);}
+       | ID '[' INUM ']' '[' INUM ']' {declar_arr_2d($1,$3,$6,-1);}
+\end{lstlisting}
+
+\subsection{Variáveis escalares}
+
+Uma variável escalar é declarada por \lstinline|declar_var()|, que rejeita
+redeclaração com \lstinline|MSG_ERR_VAR_EXISTS| (\enquote{a variável já existe})
+e, no caso de \lstinline|comp|, registra automaticamente a parte imaginária. Há
+ainda a forma com inicialização imediata, \lstinline|TYPE ID = exp ;|, que
+declara e em seguida atribui (\lstinline|stmt_assign|).
+
+\subsection{\emph{Arrays} 1D e 2D}
+
+\emph{Arrays} podem ser uni- ou bidimensionais. O tamanho é um literal inteiro
+(\code{INUM}). Há três formas de inicialização:
+
+\begin{description}[leftmargin=1.6em]
+  \item[Sem inicialização] na \code{id\_list}, com índice \texttt{-1} indicando
+  ausência de arquivo.
+  \item[Por arquivo] um literal de string após as dimensões dá o nome de um
+  arquivo de texto cujos valores preenchem a memória do \emph{array} em tempo de
+  compilação. O parser emite \lstinline|MSG_INFO_ARRAY_FILE_INIT| ao reconhecer
+  essa forma. Exemplo de uso: \lstinline|int x[128] "values.txt";|.
+  \item[Por notação de Dirac] formas \lstinline+# |M|v>+ e
+  \lstinline+# c|v>+ inicializam o \emph{array} como produto matriz-vetor ou
+  constante-vetor (ver \autoref{sec:cmm-dirac}).
+\end{description}
+
+\subsection{\emph{Array} com índice invertido (\emph{bit-reversal})}
+
+A \cmm{} oferece uma sintaxe especial de indexação para a FFT: a forma
+\lstinline|x[i)| (colchete de abertura, parêntese de fechamento) acessa o
+elemento cujo índice tem os \emph{bits} de \texttt{i} invertidos. Isso aparece na
+gramática tanto em expressões quanto em atribuições:
+
+\begin{lstlisting}[language=C]
+| ID '[' exp ')'  '='     exp ';'  {stmt_append(stmt_array_assign($1, $3, NULL, $6, 1));} // reversed
+| ID '[' exp ')'                   {$$ = expr_array_index(v_table[$1].type, $1, 1, $3, NULL);}
+\end{lstlisting}
+
+O quinto argumento de \lstinline|stmt_array_assign| (\texttt{1}) distingue o
+acesso invertido do normal. O uso típico aparece em \file{Tests/proc\_fft}:
+
+\begin{lstlisting}[style=cmm]
+temp    = wpv[sind]*data[j);
+data[j) =   data[k) - temp;
+data[k) =   data[k) + temp;
+\end{lstlisting}
+
+\section{Operadores}
+\label{sec:cmm-operadores}
+
+A precedência e a associatividade dos operadores são declaradas no parser e
+seguem a convenção de C (\enquote{mais abaixo na lista $\Rightarrow$ maior
+prioridade}):
+
+\begin{lstlisting}[language=C]
+%left LOR
+%left LAN
+%left '|'
+%left '^'
+%left '&'
+%left EQU DIF
+%left '>' '<' GREQU LESEQ
+%left SHIFTL SHIFTR SSHIFTR
+%left '+' '-'
+%left '*' '/' '%'
+%left '!' '~' PPLUS
+\end{lstlisting}
+
+\subsection{Aritméticos, bit-a-bit e de deslocamento}
+
+A tabela a seguir lista cada operador binário com a operação interna que a regra
+de expressão produz (\lstinline|expr_binop(OP_...)| no parser):
+
+\begin{longtable}{@{}p{0.16\linewidth}p{0.18\linewidth}p{0.56\linewidth}@{}}
+\toprule
+\textbf{Símbolo} & \textbf{Operação} & \textbf{Descrição} \\
+\midrule
+\endhead
+\lstinline|+| & \code{OP\_ADD} & soma \\
+\lstinline|-| & \code{OP\_SUB} & subtração \\
+\lstinline|*| & \code{OP\_MUL} & multiplicação \\
+\lstinline|/| & \code{OP\_DIV} & divisão \\
+\lstinline|%| & \code{OP\_MOD} & resto (somente inteiros) \\
+\lstinline|&| & \code{OP\_AND} & E bit-a-bit \\
+\lstinline+|+ & \code{OP\_OR} & OU bit-a-bit \\
+\lstinline|^| & \code{OP\_XOR} & OU-exclusivo bit-a-bit \\
+\lstinline|<<| & \code{OP\_SHL} & deslocamento à esquerda \\
+\lstinline|>>| & \code{OP\_SHR} & deslocamento à direita \\
+\lstinline|>>>| & \code{OP\_SSHR} & deslocamento à direita com sinal (complemento de dois) \\
+\bottomrule
+\end{longtable}
+
+O operador \lstinline|>>>| (\enquote{\emph{arithmetic right shift}}) preserva o
+bit de sinal --- é uma extensão da \cmm{} em relação a C. As operações bit-a-bit
+e de deslocamento são restritas a operandos inteiros: aplicá-las a um
+\lstinline|comp| produz \lstinline|MSG_ERR_BITWISE_COMPLEX| ou
+\lstinline|MSG_ERR_SHIFT_COMPLEX|; o resto (\lstinline|%|) sobre não-inteiro
+produz \lstinline|MSG_ERR_MOD_NON_INT|.
+
+\subsection{Relacionais e lógicos}
+
+Os operadores relacionais e lógicos produzem resultados inteiros (0/1):
+
+\begin{tabularx}{\linewidth}{Y Y Y}
+\toprule
+\textbf{Símbolo} & \textbf{Operação} & \textbf{Descrição} \\
+\midrule
+\lstinline|<|   & \code{OP\_LT} & menor que \\
+\lstinline|>|   & \code{OP\_GT} & maior que \\
+\lstinline|<=|  & \code{OP\_LE} & menor ou igual \\
+\lstinline|>=|  & \code{OP\_GE} & maior ou igual \\
+\lstinline|==|  & \code{OP\_EQ} & igual \\
+\lstinline|!=|  & \code{OP\_NE} & diferente \\
+\lstinline|&&|  & \code{OP\_LAN} & E lógico \\
+\lstinline+||+ & \code{OP\_LOR} & OU lógico \\
+\bottomrule
+\end{tabularx}
+
+Comparar um valor complexo dispara avisos de que o compilador usará o módulo
+(\lstinline|MSG_WARN_CMP_COMPLEX| e variantes); uma operação lógica só entre
+inteiros é o caso esperado, e um operando \lstinline|float| ou \lstinline|comp|
+gera aviso (\lstinline|MSG_WARN_LOGIC_FLOAT|, \lstinline|MSG_WARN_LOGIC_COMP|).
+
+\subsection{Unários e incremento}
+
+Os operadores unários são reconhecidos por regras dedicadas de expressão:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \lstinline|-exp| --- negação aritmética (\code{OP\_NEG});
+  \item \lstinline|!exp| --- negação lógica (\code{OP\_LIN});
+  \item \lstinline|~exp| --- inversão bit-a-bit (\code{OP\_INV}, só inteiros ---
+  caso contrário \lstinline|MSG_ERR_INV_NON_INT|);
+  \item \lstinline|+exp| --- operador nulo (retorna o próprio operando).
+\end{itemize}
+
+O incremento \lstinline|++| (token \code{PPLUS}) existe em duas posições: como
+\emph{statement} de atribuição (\lstinline|x++;|, \lstinline|x[i]++;|,
+\lstinline|x[i][j]++;|) e como expressão (\lstinline|expr_pplus|). Incrementar um
+número complexo é rejeitado com \lstinline|MSG_ERR_INCR_COMPLEX|.
+
+\section{Atribuições}
+\label{sec:cmm-atribuicoes}
+
+A regra \code{assignment} cobre a atribuição escalar, o incremento e os acessos a
+\emph{array} (incluindo a forma de índice invertido e a 2D):
+
+\begin{lstlisting}[language=C]
+assignment : ID '=' exp ';'                          {stmt_assign}
+           | ID PPLUS ';'                            {stmt_pplus}
+           | ID '[' exp ']' PPLUS ';'                {stmt_pplus (1D)}
+           | ID '[' exp ']' '[' exp ']' PPLUS ';'    {stmt_pplus (2D)}
+           | ID '[' exp ']' '=' exp ';'              {stmt_array_assign (normal)}
+           | ID '[' exp ')' '=' exp ';'              {stmt_array_assign (reversed)}
+           | ID '[' exp ']' '[' exp ']' '=' exp ';'  {stmt_array_assign (2D)}
+\end{lstlisting}
+
+Atribuições entre tipos diferentes não são bloqueadas, mas emitem avisos de
+conversão, por exemplo \lstinline|MSG_WARN_INT_RECV_FLOAT| (\enquote{variável é
+int, mas recebe float}) e suas variantes para todas as combinações
+int/float/comp.
+
+A regra \code{assignment} ainda contém todo o bloco de atribuições em notação de
+Dirac, descrito em \autoref{sec:cmm-dirac}.
+
+\section{Controle de fluxo}
+\label{sec:cmm-fluxo}
+
+A \cmm{} oferece os comandos de controle de fluxo de C. Cada um corresponde a
+uma alternativa de \code{stmt\_full} no parser.
+
+\subsection{\texttt{if} / \texttt{else}}
+
+A regra resolve a ambiguidade clássica do \enquote{\emph{dangling else}} com as
+declarações \lstinline|%nonassoc THEN| e \lstinline|%nonassoc ELSE|:
+
+\begin{lstlisting}[language=C]
+if_else_stmt : if_exp stmt_full else_intro stmt_full {stmt_append(if_fim());}  // com else
+             | if_exp stmt_full %prec THEN           {stmt_append(if_stmt());} // sem else
+if_exp       : IF '(' exp ')'                        {if_exp($3);}
+else_intro   : ELSE                                  {else_stmt();}
+\end{lstlisting}
+
+\subsection{\texttt{while}, \texttt{do/while} e \texttt{for}}
+
+O \lstinline|while| e o \lstinline|do/while| são tratados em \file{saltos.c}. O
+\lstinline|for| é \emph{açúcar sintático}: o parser o reescreve em tempo de
+\emph{parsing} para um \lstinline|while| equivalente, conforme o comentário da
+gramática:
+
+\begin{lstlisting}[language=C]
+// for (init; cond; step) body  desugars at parse-time into:
+//     init;
+//     while (cond) { body; step; }
+\end{lstlisting}
+
+A cláusula de inicialização do \lstinline|for| aceita a forma declarativa
+(\lstinline|TYPE ID = exp|) ou a de atribuição (\lstinline|ID = exp|); a de passo
+aceita \lstinline|ID = exp| ou \lstinline|ID++|.
+
+\subsection{\texttt{break} e \texttt{continue}}
+
+\lstinline|break;| e \lstinline|continue;| são \emph{statements} próprios
+(\lstinline|exec_break()| / \lstinline|exec_continue()|). Pelo comentário do
+parser, o \lstinline|break| liga-se ao laço \emph{ou} ao \lstinline|switch| mais
+interno por meio de uma pilha de alvos em \file{saltos.c}; um \lstinline|break|
+solto gera \lstinline|MSG_ERR_BREAK_LOST| e um \lstinline|continue| fora de laço
+gera \lstinline|MSG_ERR_CONTINUE_LOST|.
+
+\subsection{\texttt{switch} / \texttt{case} / \texttt{default}}
+
+O corpo do \lstinline|switch| é uma sequência plana de rótulos
+(\lstinline|case|, \lstinline|default|) e \emph{statements}, no modelo de C ---
+um rótulo é só um marcador, não um contêiner. Isso permite \emph{fall-through}
+real, blocos \lstinline|{ }| dentro de um \lstinline|case| e
+\lstinline|switch| aninhados. Os rótulos de \lstinline|case| aceitam tanto
+constantes inteiras quanto \emph{float}:
+
+\begin{lstlisting}[language=C]
+case_label    : CASE INUM ':' {case_test($2,1);}
+              | CASE FNUM ':' {case_test($2,2);}
+default_label : DEFAULT   ':' {defaut_test();}
+\end{lstlisting}
+
+O exemplo \file{Tests/ctrl\_flow/Software/ctrl\_flow.cmm} exercita
+sistematicamente todas as combinações de \lstinline|if|/\lstinline|else|/%
+\lstinline|while|/\lstinline|break|; um trecho:
+
+\begin{lstlisting}[style=cmm]
+void main()
+{
+    while (1)
+    {
+        if (1)        { out(0, 11); }   // if sem else, tomado
+        if (0)        { out(0, 12); }   // if sem else, nao tomado
+        if (1)        { out(0, 21); }
+        else          { out(0, 22); }
+
+        int bc = 5;
+        while (bc)
+        {
+            if (bc == 3) { break; }     // break liga-se a este while
+            out(0, 100 + bc);
+            bc = bc - 1;
+        }
+        out(0, 0);
+    }
+}
+\end{lstlisting}
+
+\section{Funções}
+\label{sec:cmm-funcoes}
+
+A definição de função segue a regra \code{funcao}:
+
+\begin{lstlisting}[language=C]
+funcao     : func_intro par_list ')' '{' stmt_list '}' {func_ret($1);}
+func_intro : TYPE ID '('                  {declar_fun($1,$2); $$ = $2;}
+par_items  : TYPE ID                       {declar_par($1,$2);}
+           | par_items ',' TYPE ID         {declar_par($3,$4);}
+\end{lstlisting}
+
+Características confirmadas no parser e nos módulos de apoio:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item O tipo de retorno é um dos quatro \code{TYPE}; \lstinline|void| indica
+  função que não retorna valor.
+  \item A lista de parâmetros pode ser vazia. Os parâmetros são escalares: pelo
+  comentário do parser, \emph{arrays} não são permitidos como parâmetros.
+  \item O retorno é feito por \lstinline|return exp;| (função com valor) ou
+  \lstinline|return;| (void). Retornar valor de função \lstinline|void| produz
+  \lstinline|MSG_ERR_VOID_RETURN_VALUE|; usar como valor uma função que não
+  retorna nada produz \lstinline|MSG_ERR_VOID_FUNC_USE|.
+  \item Conversões de tipo nos parâmetros e no retorno geram avisos dedicados
+  (família \lstinline|MSG_WARN_CONV_*_PARAM| e \lstinline|MSG_WARN_RET_*|).
+  \item A contagem de parâmetros na chamada é verificada
+  (\lstinline|MSG_ERR_PARAM_COUNT|); uma função inexistente gera
+  \lstinline|MSG_ERR_FUNC_WHERE|.
+\end{itemize}
+
+Chamadas aparecem em dois contextos: como \emph{statement}
+(\lstinline|ID(exp_list);|, regra \code{void\_call}) e como expressão
+(\lstinline|ID(exp_list)|, regra \code{func\_call}).
+
+\section{Entrada e saída}
+\label{sec:cmm-io}
+
+A entrada e a saída usam portas indexadas por inteiro, com variantes inteiras e
+de ponto flutuante. As regras de I/O da gramática:
+
+\begin{longtable}{@{}p{0.34\linewidth}p{0.58\linewidth}@{}}
+\toprule
+\textbf{Forma} & \textbf{Descrição} \\
+\midrule
+\endhead
+\lstinline|in(INUM)| & lê dado externo da porta (expressão; \code{OP\_STD\_IN}) \\
+\lstinline|fin(INUM)| & lê dado externo convertendo para \emph{float} (\code{OP\_STD\_FIN}) \\
+\lstinline|out(INUM, exp);| & escreve para fora do processador (\code{stmt\_out}) \\
+\lstinline|fout(INUM, exp);| & escreve convertendo para \emph{float} (\code{stmt\_out}) \\
+\bottomrule
+\end{longtable}
+
+As portas em \lstinline|in|/\lstinline|fin| e \lstinline|out|/\lstinline|fout|
+são literais inteiros (\code{INUM}), validados contra \lstinline|#NUIOIN| e
+\lstinline|#NUIOOU|. Há ainda a saída em notação de Dirac (\code{std\_vout}),
+\lstinline+out(p, c|v>);+, que exporta um vetor ponderado por uma constante
+(ver \autoref{sec:cmm-dirac}). Avisos \lstinline|MSG_WARN_USE_FOUT| e
+\lstinline|MSG_WARN_USE_OUT| orientam a escolha entre as variantes inteira e
+\emph{float}.
+
+\section{Biblioteca padrão (\emph{stdlib})}
+\label{sec:cmm-stdlib}
+
+A biblioteca padrão da \cmm{} é composta por funções intrínsecas reconhecidas
+como \emph{tokens} pelo scanner e mapeadas, no parser, para nós de expressão
+\lstinline|expr_stdlib(OP_STD_...)| (ou para \emph{statements}, no caso das que
+não retornam valor). A tabela cataloga todas elas com a descrição do próprio
+parser.
+
+\subsection{Funções especiais}
+
+\begin{longtable}{@{}p{0.18\linewidth}p{0.16\linewidth}p{0.56\linewidth}@{}}
+\toprule
+\textbf{Função} & \textbf{Operação} & \textbf{Descrição} \\
+\midrule
+\endhead
+\lstinline|norm(x)| & \code{OP\_STD\_NRM} & divide o argumento por \lstinline|#NUGAIN| (evita o divisor da ULA); só inteiro \\
+\lstinline|pset(x)| & \code{OP\_STD\_PST} & retorna zero se o argumento for negativo \\
+\lstinline|abs(x)| & \code{OP\_STD\_ABS} & valor absoluto; para \lstinline|comp|, o módulo \\
+\lstinline|sign(x,y)| & \code{OP\_STD\_SIGN} & retorna \lstinline|y| com o sinal de \lstinline|x| \\
+\lstinline|copy(x,y)| & \lstinline|stmt_copy| & copia \lstinline|x| em \lstinline|y| (sem checagem de tipo) \\
+\bottomrule
+\end{longtable}
+
+A \lstinline|norm(.)| sobre não-inteiro produz \lstinline|MSG_ERR_NORM_NON_INT|;
+\lstinline|sign(.,.)| e \lstinline|pset(.)| com complexos produzem
+\lstinline|MSG_ERR_SIGN_COMPLEX| e \lstinline|MSG_ERR_PSET_COMPLEX|.
+
+\subsection{Funções não-lineares e de arredondamento}
+
+\begin{longtable}{@{}p{0.18\linewidth}p{0.18\linewidth}p{0.54\linewidth}@{}}
+\toprule
+\textbf{Função} & \textbf{Operação} & \textbf{Descrição} \\
+\midrule
+\endhead
+\lstinline|sqrt(x)| & \code{OP\_STD\_SQRT} & raiz quadrada (\emph{float}; raiz principal se complexo) \\
+\lstinline|atan(x)| & \code{OP\_STD\_ATAN} & arco-tangente \\
+\lstinline|sin(x)| & \code{OP\_STD\_SIN} & seno \\
+\lstinline|cos(x)| & \code{OP\_STD\_COS} & cosseno \\
+\lstinline|tan(x)| & \code{OP\_STD\_TAN} & tangente (minimax dedicado, não sin/cos) \\
+\lstinline|cosh(x)| & \code{OP\_STD\_COSH} & cosseno hiperbólico \\
+\lstinline|sinh(x)| & \code{OP\_STD\_SINH} & seno hiperbólico \\
+\lstinline|tanh(x)| & \code{OP\_STD\_TANH} & tangente hiperbólica \\
+\lstinline|exp(x)| & \code{OP\_STD\_EXP} & exponencial $e^x$ \\
+\lstinline|log(x)| & \code{OP\_STD\_LOG} & logaritmo natural (ln) \\
+\lstinline|pow(x,y)| & \code{OP\_STD\_POW} & $x^y$ \\
+\lstinline|floor(x)| & \code{OP\_STD\_FLOOR} & maior \emph{float} inteiro $\le x$ \\
+\lstinline|ceil(x)| & \code{OP\_STD\_CEIL} & menor \emph{float} inteiro $\ge x$ \\
+\lstinline|round(x)| & \code{OP\_STD\_ROUND} & \emph{float} inteiro mais próximo (\emph{ties away from zero}) \\
+\bottomrule
+\end{longtable}
+
+Pelo comentário do parser, \lstinline|pow(x,y)| escolhe a estratégia conforme o
+expoente: constante inteira $\to$ \emph{square-and-multiply}; variável inteira
+$\to$ laço em tempo de execução; caso geral $\to$ $\exp(y \cdot \ln x)$.
+Diversas dessas funções ainda não têm versão complexa, e o uso com
+\lstinline|comp| é rejeitado (\lstinline|MSG_ERR_SQRT_COMPLEX|,
+\lstinline|MSG_ERR_EXP_COMPLEX|, \lstinline|MSG_ERR_LOG_COMPLEX|,
+\lstinline|MSG_ERR_POW_COMPLEX|).
+
+\subsection{Funções de números complexos}
+
+\begin{longtable}{@{}p{0.20\linewidth}p{0.18\linewidth}p{0.52\linewidth}@{}}
+\toprule
+\textbf{Função} & \textbf{Operação} & \textbf{Descrição} \\
+\midrule
+\endhead
+\lstinline|real(z)| & \code{OP\_STD\_REAL} & parte real de um complexo \\
+\lstinline|imag(z)| & \code{OP\_STD\_IMAG} & parte imaginária de um complexo \\
+\lstinline|fase(z)| & \code{OP\_STD\_FASE} & fase (argumento) de um complexo \\
+\lstinline|mod2(z)| & \code{OP\_STD\_MOD2} & módulo ao quadrado de um complexo \\
+\lstinline|complex(x,y)| & \code{OP\_STD\_COMP} & cria um complexo a partir de dois reais \\
+\lstinline|conj(z)| & \code{OP\_STD\_CONJ} & conjugado complexo ($a - bi$); um real vira $x + 0i$ \\
+\bottomrule
+\end{longtable}
+
+As funções \lstinline|real|, \lstinline|imag|, \lstinline|mod2| e
+\lstinline|fase| exigem argumento complexo (\lstinline|MSG_ERR_REAL_ARG_COMP| e
+análogas); \lstinline|complex(.,.)| não aceita argumentos já complexos
+(\lstinline|MSG_ERR_COMPLEX_OF_COMPLEX|); \lstinline|conj| de um real emite
+\lstinline|MSG_WARN_CONJ_REAL|.
+
+\section{Álgebra linear em notação de Dirac (bra-ket)}
+\label{sec:cmm-dirac}
+
+A \cmm{} incorpora um conjunto de \emph{statements} em notação de Dirac
+(bra-ket) para álgebra linear sobre vetores e matrizes. Os delimitadores são
+tratados no scanner:
+
+\begin{lstlisting}[language=C]
+"⟩"   return BRA;
+"⟨"   return KET;
+"|I|" return EYE;     // matriz identidade
+"|0⟩" return VZERO;   // vetor nulo
+\end{lstlisting}
+
+\begin{nota}
+A sintaxe usa os caracteres Unicode de bra-ket: \lstinline|⟨| (token \code{KET})
+e \lstinline|⟩| (token \code{BRA}). O caractere \lstinline|#| separa o vetor ou
+matriz de destino da expressão. O operador \lstinline+|+ delimita matrizes e
+vetores conforme a forma.
+\end{nota}
+
+\subsection{Produto interno como expressão}
+
+A única forma de Dirac que aparece como \emph{expressão} (e não como
+\emph{statement}) é o produto interno $\langle a | b \rangle$:
+
+\begin{lstlisting}[language=C]
+exp : KET ID '|' ID BRA   {$$ = expr_inner(expr_var(...,$2), expr_var(...,$4));}
+\end{lstlisting}
+
+ou seja, \lstinline+<a|b>+ devolve o produto interno entre os vetores
+\lstinline|a| e \lstinline|b|. Vetores de tamanhos diferentes geram
+\lstinline|MSG_ERR_VECTOR_SIZE_DIFF|; operandos que não são vetores geram
+\lstinline|MSG_ERR_INNER_NEEDS_VECTORS|.
+
+\subsection{Atribuições em notação de Dirac}
+
+As demais formas são \emph{statements} de atribuição (parte da regra
+\code{assignment}). A tabela lista cada forma com a função de codegen invocada,
+exatamente como no parser:
+
+\begin{longtable}{@{}p{0.42\linewidth}p{0.50\linewidth}@{}}
+\toprule
+\textbf{Forma} & \textbf{Significado} \\
+\midrule
+\endhead
+\lstinline+A # |B|a>;+ & $A \leftarrow B \cdot a$ (matriz-vetor); \lstinline|stmt_dirac_Mv| \\
+\lstinline+a # c|b>;+ & $a \leftarrow c \cdot b$ (constante-vetor); \lstinline|stmt_dirac_cv| \\
+\lstinline+a # |b> + c|d>;+ & $a \leftarrow b + c \cdot d$ (soma de vetores); \lstinline|stmt_dirac_apcb| \\
+\lstinline+A # |a><b|;+ & $A \leftarrow a \cdot b^{T}$ (produto externo); \lstinline|stmt_dirac_vvt| \\
+\lstinline+A # |B| - |a><b|;+ & $A \leftarrow B - a \cdot b^{T}$; \lstinline|stmt_dirac_Mmvvt| \\
+\lstinline+A # c|B|;+ & $A \leftarrow c \cdot B$ (constante-matriz); \lstinline|stmt_dirac_cM| \\
+\lstinline+A # c|I|;+ & $A \leftarrow c \cdot I$ (identidade ponderada); \lstinline|stmt_dirac_cI| \\
+\lstinline+a # |0>;+ & zera todos os elementos de \lstinline|a|; \lstinline|stmt_dirac_v0| \\
+\lstinline+a # c|in(p)>;+ & preenche \lstinline|a| com a entrada da porta \lstinline|p| ponderada por \lstinline|c|; \lstinline|stmt_dirac_cvin| \\
+\lstinline+a # c -> |a>;+ & registrador de deslocamento (\emph{shift register}); \lstinline|stmt_dirac_shift| \\
+\bottomrule
+\end{longtable}
+
+A saída de um vetor ponderado, \lstinline+out(p, c|v>);+ (regra \code{std\_vout},
+\lstinline|stmt_vout|), também usa a notação. Erros de dimensão e de tipo nessas
+operações têm mensagens dedicadas: \lstinline|MSG_ERR_NOT_A_VECTOR|,
+\lstinline|MSG_ERR_NOT_A_MATRIX|, \lstinline|MSG_ERR_MATRIX_ROW_MISMATCH|,
+\lstinline|MSG_ERR_DIM_MISMATCH|, entre outras.
+
+\subsection{Exemplo: RLS (\emph{Recursive Least Squares})}
+
+O exemplo \file{Tests/proc\_rls/Software/proc\_rls.cmm} reúne a maioria das
+formas, inclusive a declaração de \emph{array} inicializada por Dirac
+(\lstinline+float Px[4] # |P|x>;+):
+
+\begin{lstlisting}[style=cmm]
+void rls_update(float d)
+{
+    float e = d - ⟨w|x⟩;             // produto interno como expressao
+
+    float Px[4] # |P|x⟩;             // declaracao: Px = P * x
+    float g     = 1.0/(0.99 + ⟨x|Px⟩);
+    float K [4] # g|Px⟩;             // declaracao: K = g * Px
+
+    w # |w⟩ + e|K⟩;                  // soma de vetores
+    P # |P| - |K⟩⟨Px|;               // matriz - produto externo
+    P # 1.010101|P|;                 // constante * matriz
+}
+
+void main()
+{
+    P # 1000.0|I|;                   // P = 1000 * I
+    w # |0⟩;                         // zera w
+    int j = 0;
+    while (j < 20)
+    {
+        x # fin(0)*0.001 -> |x⟩;     // shift register a partir de entrada float
+        rls_update(in(1)*0.001);
+        out(0,1000.0|w⟩);            // saida de vetor ponderado
+        j++;
+    }
+}
+\end{lstlisting}
+
+\section{Pré-processamento: \texttt{\#define} e \texttt{\#include}}
+\label{sec:cmm-preproc}
+
+\subsection{\texttt{\#define} (macro de objeto)}
+
+O \lstinline|#define| é tratado \emph{inteiramente no scanner}, conforme o
+cabeçalho de \file{CMMComp.l}. É suportada apenas a forma \enquote{de objeto}
+(\emph{object-like}): \lstinline|#define NAME body| registra o corpo, e cada uso
+posterior de \lstinline|NAME| é substituído reanalisando o corpo a partir de um
+\emph{buffer} empilhado. Um sinalizador \lstinline|active| por macro impede que
+uma definição auto-referente se expanda indefinidamente. Macros \emph{de função},
+\lstinline|#ifdef| e \lstinline|#include| estão fora do escopo do scanner da
+\cmm{}.
+
+\begin{lstlisting}[style=cmm]
+#define SCALE  3
+#define OFFSET 7
+// ... SCALE e OFFSET sao expandidos para 3 e 7 antes de o parser ve-los
+\end{lstlisting}
+
+O teste negativo \file{NegTests/define\_recursive.cmm} verifica que uma macro que
+se referencia recursivamente termina como variável não declarada (a expansão não
+entra em laço infinito).
+
+\subsection{Macros de \emph{assembly} (includes da stdlib)}
+
+As funções transcendentais são implementadas como \emph{macros de assembly},
+disponíveis em \file{Compilers/CMMComp/Includes/}. Esses arquivos contêm rotinas
+prontas que o codegen injeta quando a função correspondente é usada (emitindo as
+mensagens \lstinline|MSG_INFO_*_MACRO|). Os arquivos disponíveis são:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Arquivo} & \textbf{Função} \\
+\midrule
+\file{float\_sqrt.asm} & raiz quadrada \\
+\file{float\_atan.asm} & arco-tangente \\
+\file{float\_sin.asm} & seno \\
+\file{float\_tan.asm} & tangente \\
+\file{float\_exp.asm} & exponencial \\
+\file{float\_log.asm} & logaritmo natural \\
+\bottomrule
+\end{tabularx}
+
+Como ilustração, \file{float\_sqrt.asm} implementa a raiz por iterações de
+Newton-Raphson sobre uma estimativa inicial (potência de 2 mais próxima):
+
+\begin{lstlisting}[language=bash]
+@float_sqrt     SET sqrt_num       // obtem o parametro
+              F_ROT                // primeira estimativa
+                PSH
+              F_DIV sqrt_num       // iteracao 1
+             SF_ADD
+              F_MLT 0.5
+                ...                // mais iteracoes
+                RET
+\end{lstlisting}
+
+Alguns exemplos (como \file{Tests/Seno} e \file{Tests/ArcTan}) também usam
+tabelas de \emph{look-up} (\path{*_LUT.txt}) carregadas via inicialização de
+\emph{array} por arquivo.
+
+\section{Catálogo de mensagens do compilador}
+\label{sec:cmm-mensagens}
+
+O compilador é bilíngue: \file{messages.h} define cada mensagem com a macro
+\lstinline|M(pt, en)|, e a opção de linha de comando \lstinline|-en|/\lstinline|-pt|
+seleciona o idioma (padrão: português). As mensagens dividem-se em erros
+(abortam a compilação), avisos (\enquote{atenção}, não abortam) e informações.
+A tabela a seguir resume as principais categorias e mensagens representativas;
+todas têm o símbolo correspondente em \file{messages.h}.
+
+\begin{longtable}{@{}p{0.30\linewidth}p{0.30\linewidth}p{0.32\linewidth}@{}}
+\toprule
+\textbf{Categoria} & \textbf{Símbolo} & \textbf{Condição} \\
+\midrule
+\endhead
+Geral & \lstinline|MSG_ERR_SYNTAX| & erro de sintaxe (parser) \\
+Geral & \lstinline|MSG_ERR_NO_MAIN| & ausência de \lstinline|main()| \\
+Geral & \lstinline|MSG_ERR_CANT_OPEN_FILE| & arquivo não pôde ser aberto \\
+Variável & \lstinline|MSG_ERR_VAR_EXISTS| & redeclaração de variável \\
+Variável & \lstinline|MSG_ERR_VAR_NOT_FOUND| & variável inexistente \\
+Variável & \lstinline|MSG_ERR_DECLARE_VAR_PLEASE| & uso de variável não declarada \\
+Número & \lstinline|MSG_ERR_RESERVED_I| & \lstinline|i| usado como identificador \\
+Número & \lstinline|MSG_ERR_INT_MAX_OVERFLOW| & inteiro fora da faixa \\
+\emph{Array} & \lstinline|MSG_ERR_ARRAY_NEEDS_IDX| & \emph{array} usado sem índice \\
+\emph{Array} & \lstinline|MSG_ERR_NOT_ARRAY| & indexação de não-\emph{array} \\
+\emph{Array} & \lstinline|MSG_ERR_ARRAY_2D| / \lstinline|_1D| & número de dimensões incompatível \\
+Complexo & \lstinline|MSG_ERR_INCR_COMPLEX| & incremento de complexo \\
+Complexo & \lstinline|MSG_ERR_SQRT_COMPLEX| & \lstinline|sqrt| de complexo (não implementado) \\
+Complexo & \lstinline|MSG_ERR_REAL_ARG_COMP| & argumento de \lstinline|real| não é complexo \\
+I/O & \lstinline|MSG_ERR_NO_IN_PORT| & porta de entrada inexistente \\
+I/O & \lstinline|MSG_ERR_NO_OUT_PORT| & porta de saída inexistente \\
+Operador & \lstinline|MSG_ERR_MOD_NON_INT| & \lstinline|%| com não-inteiro \\
+Operador & \lstinline|MSG_ERR_BITWISE_COMPLEX| & bit-a-bit com complexo \\
+Operador & \lstinline|MSG_ERR_SHIFT_COMPLEX| & deslocamento de complexo \\
+Operador & \lstinline|MSG_ERR_LOGIC_NON_INT| & operação lógica com não-inteiro \\
+Álgebra & \lstinline|MSG_ERR_INNER_NEEDS_VECTORS| & produto interno exige vetores \\
+Álgebra & \lstinline|MSG_ERR_VECTOR_SIZE_DIFF| & vetores de tamanhos diferentes \\
+Álgebra & \lstinline|MSG_ERR_DIM_MISMATCH| & dimensões incompatíveis \\
+Função & \lstinline|MSG_ERR_PARAM_COUNT| & número de parâmetros errado \\
+Função & \lstinline|MSG_ERR_FUNC_WHERE| & função inexistente \\
+Função & \lstinline|MSG_ERR_VOID_RETURN_VALUE| & retorno com valor em \lstinline|void| \\
+Salto & \lstinline|MSG_ERR_BREAK_LOST| & \lstinline|break| fora de laço/switch \\
+Salto & \lstinline|MSG_ERR_CONTINUE_LOST| & \lstinline|continue| fora de laço \\
+Interrupção & \lstinline|MSG_ERR_DUP_INTERRUPT| & duas interrupções definidas \\
+\bottomrule
+\end{longtable}
+
+Além dos erros, há famílias de avisos de conversão de tipo
+(\lstinline|MSG_WARN_INT_RECV_FLOAT|, \lstinline|MSG_WARN_CONV_*_PARAM|,
+\lstinline|MSG_WARN_RET_*|), de arredondamento de índice de \emph{array}
+(\lstinline|MSG_WARN_IDX_FLOAT| e variantes), de comparação envolvendo complexos
+(\lstinline|MSG_WARN_CMP_*|) e de variáveis/funções não usadas
+(\lstinline|MSG_WARN_UNUSED_*|). Ao final de uma compilação bem-sucedida o
+compilador imprime \lstinline|MSG_OK_CMM_DONE|.
+
+\subsection{Testes negativos}
+
+O diretório \file{NegTests/} contém fixtures malformadas que o compilador deve
+rejeitar de forma limpa (saída não-zero, sem \emph{crash}). O manifesto
+\file{NegTests/manifest.txt} associa cada fixture à substring esperada na
+mensagem:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Fixture} & \textbf{Mensagem esperada} \\
+\midrule
+\path{syntax.cmm} & \enquote{Syntax error} \\
+\path{no_main.cmm} & \enquote{main() function} \\
+\path{garbage.cmm} & \enquote{Syntax error} \\
+\path{undeclared.cmm} & \enquote{declared the variable} \\
+\path{define_recursive.cmm} & \enquote{declare the variable} \\
+\bottomrule
+\end{tabularx}
+
+\section{Interface de linha de comando do \texttt{cmmcomp}}
+\label{sec:cmm-cli}
+
+O ponto de entrada está em \lstinline|main()| no próprio \file{CMMComp.y} e usa o
+parser de argumentos de \file{args.c}. Pelas mensagens de ajuda em
+\file{messages.h} (\lstinline|MSG_CLI_HELP|), a invocação é:
+
+\begin{lstlisting}[language=bash]
+cmmcomp [opcoes] -i <arq.cmm> -n <nome> -p <dir> -m <dir> -t <dir>
+\end{lstlisting}
+
+\begin{longtable}{@{}p{0.26\linewidth}p{0.66\linewidth}@{}}
+\toprule
+\textbf{Opção} & \textbf{Descrição} \\
+\midrule
+\endhead
+\lstinline|-i|, \lstinline|--input| & arquivo-fonte \cmm{} (obrigatória) \\
+\lstinline|-n|, \lstinline|--name| & nome do processador / base do \path{.asm} (obrigatória) \\
+\lstinline|-p|, \lstinline|--proc-dir| & diretório do processador (obrigatória) \\
+\lstinline|-m|, \lstinline|--macros-dir| & diretório de Macros (obrigatória) \\
+\lstinline|-t|, \lstinline|--temp-dir| & diretório Temp (obrigatória) \\
+\lstinline|-A|, \lstinline|--array| & expande cada elemento de \emph{array} como sinal individual no GTKWave \\
+\lstinline|-en|, \lstinline|-pt| & idioma das mensagens (padrão: \lstinline|-pt|) \\
+\lstinline|-h|, \lstinline|--help| & mostra ajuda e sai \\
+\lstinline|-V|, \lstinline|--version| & mostra a versão e sai \\
+\bottomrule
+\end{longtable}
+
+\section{O caminho C++}
+\label{sec:cmm-cpp}
+
+Além da \cmm{}, o YANC oferece um caminho alternativo a partir de C/C++ para o
+mesmo soft-processor, composto por dois binários em
+\file{Compilers/CPPComp/Sources/}:
+
+\begin{description}[leftmargin=2em]
+  \item[\tool{cpppp}] o pré-processador C autônomo (\file{cpppp.c}). Trata
+  \lstinline|#include "..."| e \lstinline|#include <...>| (com diretórios
+  \lstinline|-I|), \lstinline|#define| de objeto e de função (incluindo
+  variádicas \lstinline|...|/\lstinline|__VA_ARGS__|, \emph{stringize} \lstinline|#|
+  e \emph{paste} \lstinline|##|), \lstinline|#undef|,
+  \lstinline|#ifdef|/\lstinline|#ifndef|/\lstinline|#else|/\lstinline|#endif|,
+  \lstinline|#pragma once| e repassa \lstinline|#pragma yanc| verbatim.
+  \item[\tool{cppcomp}] o compilador propriamente dito (\file{main.c},
+  \file{CPPComp.l}, \file{CPPComp.y}, \file{codegen.c}). Consome o código já
+  pré-processado e emite \path{.asm} no mesmo layout de pipeline do
+  \tool{cmmcomp} (\path{<proc_dir>/Software/<prname>.asm}).
+\end{description}
+
+\subsection{Subconjunto da linguagem aceito}
+
+O scanner \file{CPPComp.l} tokeniza um subconjunto de C99 com extensões de C++.
+As palavras-chave reconhecidas incluem, além das de fluxo de controle
+(\lstinline|if|, \lstinline|else|, \lstinline|while|, \lstinline|for|,
+\lstinline|do|, \lstinline|switch|, \lstinline|case|, \lstinline|default|,
+\lstinline|break|, \lstinline|continue|, \lstinline|return|, \lstinline|goto|),
+os tipos \lstinline|void|, \lstinline|int|, \lstinline|float|, \lstinline|char|,
+\lstinline|short|, \lstinline|long|, \lstinline|double|, \lstinline|bool| /
+\lstinline|_Bool|, \lstinline|unsigned| e \lstinline|signed|. Entre os recursos
+de C++ reconhecidos estão \lstinline|struct|, \lstinline|class|, \lstinline|this|,
+\lstinline|virtual|, \lstinline|override|, \lstinline|final|, os \emph{casts} de
+C++ (\lstinline|static_cast|, \lstinline|reinterpret_cast|, \lstinline|const_cast|,
+\lstinline|dynamic_cast|), \lstinline|operator|, \lstinline|template|,
+\lstinline|typename|, \lstinline|auto|, \lstinline|public| /
+\lstinline|private| / \lstinline|protected|, \lstinline|namespace|,
+\lstinline|using|, \lstinline|new| / \lstinline|delete| e
+\lstinline|sizeof|. Literais \lstinline|true|, \lstinline|false| e
+\lstinline|nullptr| são tratados como inteiros.
+
+Para desambiguar nomes de tipo de nomes de expressão, o scanner usa o
+\enquote{\emph{typedef-name hack}}: a cada identificador, consulta a tabela de
+símbolos e emite \code{TYPEDEF\_NAME} ou \code{TEMPLATE\_NAME} no lugar de
+\code{IDENT} quando o nome resolve para um \emph{typedef} ou para um
+\emph{template} de função.
+
+Diversos especificadores são reconhecidos e ignorados no alvo
+(\lstinline|inline|, \lstinline|register|, \lstinline|volatile|,
+\lstinline|restrict|, \lstinline|explicit|, \lstinline|mutable|,
+\lstinline|noexcept|, \lstinline|_Noreturn|); \lstinline|constexpr| é
+tratado como \lstinline|const| (token \code{KW\_CONST}).
+
+\subsection{O alvo e o \texttt{\#pragma yanc}}
+
+C/C++ não carrega diretivas de processador na sintaxe; em vez disso, os
+parâmetros do alvo têm \emph{padrões fixos} em \file{Headers/config.h}, que
+\emph{são} o alvo YANC: palavra de 32 bits, mantissa 23 / expoente 8 (formato
+estilo IEEE-754 de precisão simples), pilhas de dados e de retorno com 128
+posições. Um programa pode sobrescrever esses padrões por arquivo com
+\lstinline|#pragma yanc <chave> <valor>| no escopo de arquivo, processado
+diretamente no scanner. As chaves reconhecidas espelham as diretivas \cmm{}:
+\lstinline|prname|, \lstinline|nubits|, \lstinline|nbmant|, \lstinline|nbexpo|,
+\lstinline|nugain|, \lstinline|ndstac|, \lstinline|sdepth|, \lstinline|nuioin|,
+\lstinline|nuioou|, \lstinline|fftsiz| e \lstinline|itradd|. A tabela mostra os
+padrões de \file{config.h}:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Parâmetro} & \textbf{Padrão} \\
+\midrule
+\lstinline|CFG_NUBITS| & 32 \\
+\lstinline|CFG_NBMANT| & 23 \\
+\lstinline|CFG_NBEXPO| & 8 \\
+\lstinline|CFG_NUGAIN| & 128 \\
+\lstinline|CFG_NDSTAC| & 128 \\
+\lstinline|CFG_SDEPTH| & 128 \\
+\lstinline|CFG_NUIOIN| & 1 \\
+\lstinline|CFG_NUIOOU| & 1 \\
+\lstinline|CFG_FFTSIZ| & 3 \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Intrínsecas de I/O e \emph{assembly} inline}
+
+A I/O do alvo é exposta como funções intrínsecas reconhecidas pelo codegen
+(\file{codegen.c}): \lstinline|in(porta)| emite a instrução \code{INN} (a porta
+deve ser literal inteiro) e \lstinline|out(porta, valor)| emite \code{OUT}. Como
+a saída do hardware é uma palavra inteira, enviar um \lstinline|float| por
+\lstinline|out| gera um aviso orientando a converter para inteiro. Há ainda
+intrínsecas de heap (\lstinline|malloc|, \lstinline|free|) quando o programa usa
+\lstinline|new|/\lstinline|delete| ou alocação dinâmica.
+
+A linguagem aceita \emph{assembly} embutido pela forma
+\lstinline|asm("...");| (regra \code{S\_ASM} no parser; sinônimos
+\lstinline|asm| e \lstinline|__asm__| no scanner), emitido verbatim e nunca
+fundido pelo \emph{peephole}.
+
+\subsection{Cabeçalhos de biblioteca (\texttt{Includes})}
+
+O diretório \file{Compilers/CPPComp/Includes/} fornece versões enxutas de
+cabeçalhos da biblioteca padrão adaptadas ao alvo:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Cabeçalho} & \textbf{Conteúdo} \\
+\midrule
+\file{cmath} & subconjunto de funções matemáticas em software \\
+\file{cstdint} & inteiros de largura fixa \\
+\file{cstddef} & definições básicas (\lstinline|size_t|, etc.) \\
+\file{cstring} & funções de manipulação de memória/strings \\
+\file{vector} & contêiner dinâmico \\
+\file{array} & contêiner de tamanho fixo \\
+\file{bit} & utilitários de bits \\
+\file{limits} & limites numéricos \\
+\bottomrule
+\end{tabularx}
+
+Como exemplo, \file{cmath} implementa \lstinline|sqrt| por Newton-Raphson em
+software (24 iterações) e expõe \lstinline|isfinite|/\lstinline|isnan|/%
+\lstinline|isinf| como \emph{no-ops}, pois o formato de \emph{float} do alvo não
+tem padrões de bits para NaN ou infinito.
+
+\subsection{Recursos de C++ exercitados pelos testes}
+
+A suíte \file{Compilers/CPPComp/Tests/} contém dezenas de programas que vão de um
+\emph{smoke test} em C (\file{test1/Software/test1.cpp}) a uma mini-STL escrita na
+própria linguagem (\file{test21/Software/test21.cpp}, com um \lstinline|Vector|
+templatizado com RAII, crescimento sob demanda e \lstinline|operator[]|, além de
+um \lstinline|unique_ptr| dono de recurso). Os testes mais avançados
+(\file{test44} a \file{test50}) implementam pipelines de DSP
+(\emph{blind deconvolution}, FISTA, FIR inverso) em múltiplos arquivos
+\path{.cpp}/\path{.hpp}, demonstrando que o caminho C++ suporta projetos
+multi-arquivo de porte realista para o mesmo soft-processor SAPHO.
+
+\begin{nota}
+O \tool{cppcomp} compartilha o número de versão (\file{yanc\_version.h}) e o
+layout de saída com o \tool{cmmcomp}: ambos produzem \path{.asm} em
+\path{<proc_dir>/Software/<prname>.asm}, consumido pelos estágios seguintes do
+pipeline (ver \autoref{cap:02-yanc-pipeline}).
+\end{nota}

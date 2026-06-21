@@ -1,0 +1,89 @@
+% !TEX root = ../main.tex
+\section{Edição, projeto e árvore de arquivos}
+\label{sec:S06-edicao-projeto-arvore}
+
+\subsection{Motor de edição}
+O editor da \tool{AURORA} usa o \tool{Monaco Editor} fixado em \texttt{0.52.2}
+(sem faixa \emph{semver}; \file{scripts/check-pinned-versions.js} verifica no
+\code{prestart}/CI, pois \texttt{0.53.0} lança exceção na inicialização). O
+Monaco é carregado pelo \emph{loader} AMD (\path{min/vs/loader.js}); o caminho
+\texttt{vs} é ancorado em URL absoluta de \lstinline|document.baseURI| para
+funcionar sob \lstinline|file://|. \code{initMonaco} memoiza a promessa de carga
+e registra linguagens/temas uma só vez; \code{EditorManager.ready} é o portão
+que todo chamador aguarda antes de \code{createEditorInstance}.
+
+Quatro módulos formam o subsistema:
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Módulo} & \textbf{Papel} \\
+\midrule
+\code{EditorManager} & Bootstrap, instâncias do painel principal, temas, \emph{decorations}, busca, atalhos, linguagens \cmm/\code{asm}. \\
+\code{SharedModelRegistry} & Modelos \code{ITextModel} com contagem de referências, compartilhados entre painéis. \\
+\code{SplitEditorManager} & Editor dividido em até 3 painéis lado a lado, cada um com sua barra de abas. \\
+\code{TabManager} & Abas do painel principal: ativação, modificado/salvo, contagem de instâncias, ordem, reabertura. \\
+\bottomrule
+\end{tabularx}
+
+\paragraph{Modelo compartilhado.} Cada arquivo aberto é um único
+\code{ITextModel}; todas as \emph{views} (principal e \emph{splits}) apontam
+para ele. Edições, \emph{undo}/\emph{redo} e estado de modificado ficam em
+sincronia. A \tool{AURORA} controla o ciclo de vida: passa \lstinline|model:|
+explícito, faz \code{acquire} (\lstinline|refCount+=1|) e \code{release}
+(descarta em zero). \code{isDirty} compara o \emph{alternative version id}
+corrente com o \emph{snapshot} salvo por \code{markSaved} — limpa-se sozinho ao
+desfazer até o estado salvo. \code{getInstanceCount} garante que só a última
+instância dispare o \emph{prompt} de não salvo. O \emph{split} edita o mesmo
+modelo ao vivo (orçamento de 3, \code{canSplit}).
+
+\paragraph{Sintaxe (Monarch).} \cmm{} e \code{asm} têm gramáticas próprias
+escritas à mão; \code{verilog}/\code{systemverilog} usam a gramática
+vendorizada do Monaco (apenas conectada a Verible/slang/tree-sitter). A
+gramática \cmm{} cobre palavras-chave C, diretivas (\code{\#PRNAME},
+\code{\#NUBITS}…), funções de \emph{stdlib}, números complexos (sufixo
+\code{im}), notação de Dirac (bra-ket) e um conjunto vivo de \code{\#define}
+re-coletado de forma \emph{debounced}.
+
+\subsection{Modelo de projeto}
+Um projeto é uma pasta com um \path{.spf} (JSON) de mesmo nome, com blocos
+\lstinline|metadata| (\code{projectName}, \code{createdAt}, \code{lastModified},
+\code{lastOpened}, \code{computerName}, \code{appVersion}, \code{projectPath}) e
+\lstinline|structure| (\code{basePath}, \code{folders}, \code{processors},
+\code{topLevelFile}, \code{testbenchFile}, \code{synthesizableFiles},
+\code{testbenchFiles}). Caminhos são gravados relativos ao \code{basePath} (mas
+expostos sempre absolutos); o \emph{parsing} é tolerante (remove BOM,
+comentários, vírgulas finais).
+
+Três peças governam o estado: \code{ProjectStore} (dono de
+\code{projectPath}/\code{spfPath} no renderer), \code{SpfStore} (único escritor
+do \path{.spf}, com escritas serializadas por caminho e leituras coalescidas;
+emite \lstinline|aurora:spf-changed| só em mudança real) e
+\code{state.currentOpenProjectPath} (verdade no processo principal; a pasta vem
+de \lstinline|path.dirname|).
+
+\paragraph{Processadores.} Cada processador \tool{SAPHO} é uma subpasta com
+\path{Software/}, \path{Hardware/}, \path{Simulation/}. A lista canônica é
+\code{structure.processors} (\lstinline|{name}|); os parâmetros numéricos vivem
+nas diretivas do \file{.cmm} gerado. O \emph{Processor Hub} valida bits
+(\lstinline|nBits === nbMantissa + nbExponent + 1|) e cria/renomeia/deleta via
+handlers IPC.
+
+\subsection{Árvore de arquivos}
+Três \emph{views} no mesmo \lstinline|#file-tree|, sob subcontêineres separados
+controlados por \lstinline|data-active-view| (\code{tree\_view}):
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{View} & \textbf{Conteúdo} \\
+\midrule
+\enquote{verilog} & \emph{Picker} padrão, agrupado por processador (synth/testbench auto-detectados por \code{verilog\_classifier}, limiar 3); \emph{reconciler} chaveado por caminho. \\
+\enquote{hierarchy} & Árvore de instâncias de módulo do \tool{Yosys}. \\
+\enquote{standard} & Explorador de pastas \emph{lazy}, só com projeto aberto. \\
+\bottomrule
+\end{tabularx}
+
+O \code{file\_tree\_view\_controller} é o dono único: registra um renderer por
+view, rotaciona o conjunto dinâmico (\enquote{hierarchy} só com dados,
+\enquote{standard} só com projeto). Há listas de recentes na tela de boas-vindas
+(\code{localStorage}, até 10) e na \emph{jumplist} do Windows
+(\path{aurora-recents.json}). Backups \file{.zip} sob demanda usam
+\code{Compress-Archive} via PowerShell.

@@ -1,0 +1,454 @@
+% !TEX root = ../main.tex
+\chapter{O pipeline de criação ponta a ponta}
+\label{cap:17-pipeline-ponta-a-ponta}
+
+Os capítulos anteriores descreveram cada subsistema da plataforma SAPHO de forma
+isolada: a arquitetura do soft-processor (\autoref{cap:02-arquitetura-soft-processor-sapho}),
+a linguagem \cmm{} (\autoref{cap:03-linguagem-cmm}), os compiladores \tool{YANC}
+(\autoref{cap:04-yanc-compiladores}), o motor de compilação da AURORA
+(\autoref{cap:08-aurora-compilacao}), a simulação e instrumentação de ondas
+(\autoref{cap:09-aurora-simulacao-ondas}), os visualizadores
+(\autoref{cap:10-aurora-visualizacao-gtkwave-surfer}) e o \tool{PRISM}
+(\autoref{cap:11-aurora-prism-rtl}). Este capítulo é de \emph{síntese}: ele costura
+todos esses subsistemas em um único fio condutor, do projeto vazio ao resultado
+visualizado, mostrando \emph{quais artefatos} cada etapa produz e \emph{quem invoca
+o quê}.
+
+A descrição é construída sobre o que o código realmente faz. Do lado da AURORA, o
+orquestrador é o renderer (\file{js/compilation/compilation\_flow.js} e
+\file{js/compilation/compilation\_module.js}, apoiados em
+\file{js/compilation/processor\_compiler.js}); a execução dos binários acontece no
+processo \emph{main}, atrás da \emph{allowlist} de
+\file{main/compile/binary\_allowlist.js}. Os mesmos passos, em forma de script de
+referência, existem no repositório \tool{YANC} em
+\file{Scripts/single\_proc.sh} (um processador) e \file{Scripts/multi\_proc.sh}
+(vários processadores sob um top-level). Onde a documentação anterior e o código
+divergem, vale o código.
+
+\section{Visão geral: o fio condutor}
+
+O caminho de criação tem sete estágios. Cada um consome os artefatos do anterior e
+produz artefatos novos; nenhum estágio precisa adivinhar nada que o anterior não
+tenha gravado em disco ou no \file{.spf}.
+
+\begin{enumerate}[leftmargin=2.2em]
+  \item \textbf{Projeto e processadores} — cria-se o arquivo de projeto \file{.spf}
+        e a estrutura de pastas dos processadores na AURORA.
+  \item \textbf{Código-fonte} — escreve-se o programa em \cmm{} (\file{.cmm}) ou
+        em C++ (\file{.cpp}), além do Verilog de top-level e do testbench quando
+        houver.
+  \item \textbf{Compilação} — \tool{cmmcomp} gera o \file{.asm}; \tool{appcomp}
+        pré-processa; \tool{asmcomp} gera o \file{.v} sintetizável, as imagens de
+        memória e o testbench padrão \file{<proc>\_tb.v}.
+  \item \textbf{Simulação} — Icarus (\tool{iverilog}\,+\,\tool{vvp}), \tool{Verilator}
+        ou \tool{cocotb} (Python) elabora o design e produz o \emph{dump} de ondas.
+  \item \textbf{Instrumentação do dump} — o testbench recebe \lstinline|$dumpfile|/%
+        \lstinline|$dumpvars| de acordo com a seleção de sinais escolhida.
+  \item \textbf{Visualização de ondas} — \tool{GTKWave} (fork) ou \tool{Surfer}
+        abre o waveform com as faixas de \cmm{}, assembly e variáveis em
+        \emph{lockstep} com o clock.
+  \item \textbf{Inspeção do RTL} — o \tool{PRISM} converte o design via \tool{Yosys}
+        e \tool{netlistsvg} em um diagrama navegável.
+\end{enumerate}
+
+\begin{nota}
+Os estágios 3 a 6 não têm desvio estrutural ``tem processador?''. Quando o
+\file{.spf} não lista nenhum processador (projeto Verilog puro), os laços sobre o
+array de processadores são no-op e o pipeline segue idêntico — o cabeçalho de
+\file{compilation\_module.js} documenta essa decisão de \emph{pipeline único}. Por
+isso este capítulo descreve o caminho com processador, que é o caso mais completo;
+o caso puro é o mesmo fluxo com os laços vazios.
+\end{nota}
+
+\section{Quem invoca o quê: as duas fronteiras}
+\label{sec:17-fronteiras}
+
+Antes do passo a passo, é preciso fixar a topologia de invocação, porque ela se
+repete em todos os estágios que tocam binários.
+
+\subsection{Fronteira 1: orquestração no renderer}
+
+Os botões da UI (Verilog, Wave, ASM, PRISM) entram por
+\file{compilation\_flow.js}. Esse módulo prepara a lista de processadores a
+compilar e delega para um \code{CompilationModule} (instanciado por compilação).
+Os métodos públicos do \code{CompilationModule} são o ``backend'' de cada etapa:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \code{loadConfig()} lê o \file{.spf} para \code{this.projectConfig} via
+        \code{SpfStore.read}.
+  \item \code{cmmCompilation(proc)} e \code{asmCompilation(proc)} delegam para
+        \file{processor\_compiler.js} (passos por processador).
+  \item \code{verilogSyntaxCheck()} roda o \emph{check} de sintaxe
+        (\lstinline|iverilog -tnull|) e regenera a hierarquia via \tool{Yosys}.
+  \item \code{waveBuildVvp()} compila o \file{.vvp} com o testbench instrumentado.
+  \item \code{runGtkWave()} orquestra todo o fluxo de ondas em fases
+        privadas \lstinline|_wave*|.
+\end{itemize}
+
+A função \code{precompileAllProcessors} (em \file{compilation\_flow.js}) é o ponto
+comum: antes de qualquer simulação ou check, ela percorre os processadores do
+\file{.spf} e chama \code{cmmCompilation} + \code{asmCompilation} em cada um. Os
+defaults numéricos de cada processador (\lstinline|clk = 100| e
+\lstinline|numClocks = 2000|) ficam embutidos em \code{PROC\_DEFAULTS} (objeto
+congelado em \file{compilation\_flow.js}) e são aplicados quando o \file{.spf} não
+os define; o nome do \file{.cmm}, por sua vez, deriva do nome do processador
+(\lstinline|`${proc.name}.cmm`|).
+
+\subsection{Fronteira 2: execução no main atrás da allowlist}
+
+Nenhum binário é executado diretamente pelo renderer. Cada etapa monta uma
+\emph{CommandSpec} (um \code{builder} em \file{js/compilation/builders/}), e a
+\code{runSpec} (\file{js/compilation/spec\_runner.js}) é o \emph{único} ponto de
+passagem: ela aplica os \emph{overrides} persistidos/efêmeros (o canal pelo qual a
+Aurora Intelligence ajusta linhas de comando, \autoref{cap:12-aurora-intelligence-ia}),
+loga a linha resultante e dispara o IPC \lstinline|exec-spec| / \lstinline|exec-spec-streamed|.
+
+Do lado do main, a spec é \emph{re-validada}: o campo \code{binary} precisa bater
+com o \emph{basename} e com um dos diretórios legais listados em
+\file{main/compile/binary\_allowlist.js}. Essa tabela é a fronteira de confiança —
+um renderer comprometido não consegue spawnar um executável fora dela. A tabela
+inclui \file{cmmcomp.exe}, \file{appcomp.exe}, \file{asmcomp.exe} e
+\file{comp2gtkw.exe} (em \path{components/bin}); \file{iverilog.exe},
+\file{vvp.exe}, \file{verilator.exe}, \file{yosys.exe}, \file{g++.exe},
+\file{make.exe} e \file{perl.exe} (em \path{Packages/msys/mingw64/bin});
+\file{gtkwave.exe} e \file{fst2vcd.exe} (do fork \tool{gtkwave-nipscern}); e
+\file{surfer.exe}. O \tool{netlistsvg} do \tool{PRISM} não está na tabela porque
+roda \emph{in-process} (não é um \file{.exe} bundled).
+
+\begin{nota}
+Resumo da regra: \textbf{o renderer orquestra; o main executa.} Toda etapa que
+chama um compilador, simulador ou visualizador passa por
+\code{runSpec} $\rightarrow$ \lstinline|exec-spec| $\rightarrow$ allowlist. Detalhes
+de cada \code{builder} e do executor estão em \autoref{cap:08-aurora-compilacao}.
+\end{nota}
+
+\section{Estágio 1 — Criar o projeto e os processadores}
+\label{sec:17-projeto}
+
+O artefato raiz é o arquivo de projeto \file{.spf} (\emph{SAPHO Project File}). Ele
+é a fonte canônica única de configuração: as listas \code{synthesizableFiles} e
+\code{testbenchFiles}, o \code{topLevelFile}/\code{testbenchFile}, e o array
+\code{processors} (cada um com \code{name}, \code{cmmFile}, \code{clk},
+\code{numClocks}, \code{showArrays}). Formatos legados (\path{projectOriented.json},
+\path{processorConfig.json}) foram consolidados no \file{.spf} — ver o cabeçalho de
+\file{compilation\_module.js} e \autoref{cap:07-aurora-projeto-arvore}.
+
+Para cada processador, a estrutura de pastas é \path{<proj>/<proc>/Software/}
+(onde mora o \file{.cmm}) e \path{<proj>/<proc>/Hardware/} (onde o \file{.v}
+gerado será gravado). A AURORA mantém ainda a área de \emph{scratch}
+\path{components/Temp/<proc>/}, criada por \code{ensureDirectories} /
+\code{createDirectory}, que serve de diretório temporário (\lstinline|-t|) dos
+compiladores e de CWD da simulação. A árvore de arquivos e a leitura/escrita do
+\file{.spf} são detalhadas em \autoref{cap:07-aurora-projeto-arvore}.
+
+\section{Estágio 2 — Escrever o código-fonte}
+\label{sec:17-codigo}
+
+O insumo primário é o programa em \cmm{} (\file{<proc>.cmm}), descrito em
+\autoref{cap:03-linguagem-cmm}. Alternativamente pode-se escrever C++
+(\file{.cpp}), que o \tool{YANC} também aceita como entrada
+(\autoref{cap:04-yanc-compiladores}). O editor Monaco (\autoref{cap:06-aurora-editor})
+fornece destaque, formatação e os \emph{language servers}.
+
+Além do \file{.cmm}, um projeto típico tem: o Verilog de top-level marcado como
+\code{isTopLevel} em \code{synthesizableFiles}, e um testbench. O testbench pode
+ser o padrão auto-gerado pelo \tool{asmcomp} (\file{<proc>\_tb.v}, que exercita um
+único processador isolado) ou um testbench de usuário (por exemplo
+\file{top\_level\_tb.v}, que instancia o top-level com vários processadores).
+
+\begin{nota}
+\textbf{Instrumentação \lstinline|#TOAQUI| (botão Verilator).} Quando a simulação
+escolhida é Verilator, \code{ensureChegueiToaqui} (em
+\file{processor\_compiler.js}) garante que o \file{.cmm} tenha a diretiva
+\lstinline|#TOAQUI| antes do \lstinline|}| de \code{main()} — sem ela, o pino
+\code{cheguei} não vira porta do \file{<proc>.v} e o harness não detecta o fim do
+programa. A operação é idempotente e ocorre \emph{depois} de salvar os buffers,
+sincronizando o editor para que um Ctrl+S posterior não derrube a instrumentação.
+\end{nota}
+
+\section{Estágio 3 — Compilar: \texorpdfstring{\cmm{}}{C+-} até Verilog}
+\label{sec:17-compilar}
+
+Este é o coração do pipeline. São três binários do \tool{YANC} em sequência,
+um por processador, com a AURORA salvando os buffers do editor antes de cada
+passo (\code{TabManager.saveAllFiles()}).
+
+\subsection{3a — \texttt{cmmcomp}: \texorpdfstring{\cmm{}}{C+-} → assembly}
+
+\code{cmmCompilation} (\file{processor\_compiler.js}) monta a spec via
+\code{buildCmmSpec} e roda \file{components/bin/cmmcomp.exe}. As opções nomeadas
+do \tool{YANC} v4 são \lstinline|-i input -n name -p proc-dir -m macros-dir -t temp-dir|,
+com \lstinline|-A|/\lstinline|--array| habilitando o dump de arrays
+(\code{showArrays} do \file{.spf}) e a flag de locale (\lstinline|-pt|/\lstinline|-en|)
+indo \emph{primeiro}. O script de referência mostra a mesma chamada:
+
+\begin{lstlisting}[language=bash]
+"$BIN_DIR/cmmcomp" -i "$FNAM" -n "$PROC" -p "$PROC_DIR" -m "$MAC_DIR" -t "$TMP_PRO"
+\end{lstlisting}
+
+\textbf{Artefatos produzidos:} \file{<proj>/<proc>/Software/<base>.asm} (o assembly
+SAPHO), as imagens de memória do processador (\file{<proc>\_data.mif} /
+\file{<proc>\_inst.mif} no fluxo single, e \file{pc\_<proc>\_mem.txt} no
+\path{Temp/<proc>/}) e o \file{cmm\_log.txt}. A AURORA cacheia o caminho do
+\file{.cmm} corrente (\code{lastCompiledCmmPath}) \emph{antes} de rodar, para que
+o clique em ``linha N'' no terminal resolva o arquivo mesmo após falha.
+
+\subsection{3b — \texttt{appcomp}: pré-montagem}
+
+\code{asmCompilation} chama primeiro \file{components/bin/appcomp.exe} (spec por
+\code{buildAsmPreSpec}), que pré-processa o assembly resolvendo parâmetros e
+endereços. As opções são \lstinline|-i input -t temp-dir|:
+
+\begin{lstlisting}[language=bash]
+"$BIN_DIR/appcomp" -i "$ASM_FILE" -t "$TMP_PRO"
+\end{lstlisting}
+
+\subsection{3c — \texttt{asmcomp}: assembly → Verilog sintetizável}
+
+Em seguida \code{asmCompilation} roda \file{components/bin/asmcomp.exe} (spec por
+\code{buildAsmSpec}), com as opções nomeadas
+\lstinline|-i -p -d -m -t -f -c|, onde \lstinline|-f| é a frequência de clock
+(\code{clk}) e \lstinline|-c| o número de clocks (\code{numClocks}) — ambos
+obrigatoriamente inteiros:
+
+\begin{lstlisting}[language=bash]
+"$BIN_DIR/asmcomp" -i "$ASM_FILE" -p "$PROC_DIR" -d "$HDL_DIR" \
+    -m "$MAC_DIR" -t "$TMP_PRO" -f "$FRE_CLK" -c "$NUM_CLK"
+\end{lstlisting}
+
+\textbf{Artefatos produzidos:} \file{<proj>/<proc>/Hardware/<proc>.v} (o RTL
+sintetizável do processador), as imagens de memória \file{.mif} e o testbench
+padrão \file{<proc>\_tb.v}. Quando o processador usa o testbench ``standard''
+(sem testbench customizado no \file{.spf}), a AURORA copia o \file{<base>\_tb.v}
+gerado de \path{Temp/<proc>/} para \path{<proj>/<proc>/Simulation/}.
+
+\begin{nota}
+\textbf{Biblioteca SAPHO via \lstinline|-y|.} O \file{<proc>.v} gerado instancia
+módulos da biblioteca SAPHO (\file{processor.v}, \file{core.v}, \file{ula.v},
+\file{addr\_dec.v}, \file{instr\_dec.v}, \file{myFIFO.v}) que vivem em
+\path{components/HDL}. Em todos os passos seguintes que chamam \tool{iverilog} ou
+\tool{Yosys}, a AURORA acrescenta \path{components/HDL} como diretório de busca
+(\lstinline|-y| para o iverilog, \code{read\_verilog} para o Yosys) para resolver
+esses módulos sem o usuário precisar listá-los. Ver
+\autoref{cap:02-arquitetura-soft-processor-sapho}.
+\end{nota}
+
+\section{Estágio 4 — Simular}
+\label{sec:17-simular}
+
+Com o \file{<proc>.v} e o testbench prontos, a simulação elabora o design e produz
+o dump de ondas. A escolha do simulador vem de \code{getSimulator()}
+(preferência persistida; \tool{iverilog} é o default, \tool{Verilator} é opt-in) e
+o tipo de testbench decide se o caminho é HDL ou \tool{cocotb} (Python). O
+orquestrador é \code{runGtkWave()} em \file{compilation\_module.js}; a etapa de
+pré-compilação dos processadores (\code{precompileAllProcessors}) já rodou antes.
+
+\subsection{4a — Icarus (iverilog + vvp)}
+
+\code{waveBuildVvp} monta a spec via \code{buildIverilogBuildSpec} e compila o
+\file{.vvp} a partir dos \code{synthesizableFiles} + testbench instrumentado, com
+\lstinline|-s <tbModule>| (top de simulação) e \lstinline|-y components/HDL|. A
+fase \code{\_waveRunVvpSimulation} então roda \tool{vvp} com CWD em
+\path{components/Temp/}, depois de \code{stageProcessorMemoryFiles} ter copiado os
+\file{pc\_<proc>\_mem.txt} para a raiz desse diretório (é onde o
+\lstinline|$readmemb| do \file{<proc>.v} procura). A linha de referência:
+
+\begin{lstlisting}[language=bash]
+"$IVERILOG" -s "$TB_MOD" -o "$TMP_PRO/$PROC.vvp" \
+    "$TMP_PRO/${PROC}_tb.v" "$UPROC.v" addr_dec.v instr_dec.v processor.v core.v ula.v
+"$VVP" "$PROC.vvp" -fst
+\end{lstlisting}
+
+\textbf{Artefato produzido:} o dump de ondas (FST no fluxo da AURORA).
+
+\subsection{4b — Verilator}
+
+Quando \code{getSimulator()} retorna \code{'verilator'}, \code{\_waveBuildVerilator}
+(specs por \code{buildVerilatorBuildSpec} / \code{buildVerilatorTbBuildSpec}) faz a
+verilation + \tool{g++} num executável nativo sob \path{components/Temp/}, e
+\code{\_waveRunVerilatorSimulation} o executa. O script de referência usa
+\lstinline|--binary --timing --trace +define+YANC_TRACE| reaproveitando o
+\file{<proc>\_tb.v} como top.
+
+\subsection{4c — cocotb (Python)}
+
+Se o testbench é um \file{.py} (\code{isPythonFile}), \code{runGtkWave} entra no
+ramo cocotb: \code{\_waveValidateCocotbConfig} resolve o módulo HDL de topo (via
+diretiva \lstinline|TOPLEVEL| no \file{.py} ou fallback para o top-level do
+\file{.spf}, com aviso), e \code{\_waveRunCocotbSimulation} (spec por
+\code{buildCocotbRunSpec}) roda o teste usando, por baixo, \tool{iverilog} ou
+\tool{Verilator}. Detalhes em \autoref{cap:09-aurora-simulacao-ondas}.
+
+\section{Estágio 5 — Instrumentar o dump}
+\label{sec:17-instrumentar}
+
+Antes de spawnar o simulador, a AURORA decide \emph{quais sinais} entram no dump e
+\emph{como}. \code{\_resolveWaveSelection} (em \file{wave\_signal\_validator.js})
+aplica a precedência: \textbf{.gtkw ativo} > \textbf{Wave Config (seleção do
+usuário)} > \textbf{testbench com \lstinline|$dumpvars| escrito à mão} >
+\textbf{default} (\lstinline|$dumpvars(1, <tb>)|). O resultado é
+\code{\{ signalsToDump, overrideUserDumpvars, source \}}.
+
+\code{instrumentTestbench} então lê o testbench original e, via
+\code{instrumentTestbenchSource} (\file{testbench\_instrumenter.js}), injeta
+\lstinline|$dumpfile|/\lstinline|$dumpvars| conforme a seleção, gravando uma
+\emph{cópia} em \path{components/Temp/instr_<tb>.v}. \textbf{O testbench original
+nunca é tocado.} A escrita é idempotente por conteúdo (só regrava se mudou), o que
+evita recompilações desnecessárias no caminho do Verilator. O conjunto final de
+fontes passado ao simulador é \code{synthesizableFiles} + esse testbench
+instrumentado.
+
+\section{Estágio 6 — Visualizar as ondas}
+\label{sec:17-visualizar}
+
+Concluída a simulação, \code{runGtkWave} faz uma captura única de cabeçalho:
+\code{\_extractFstHeaderVcd} usa \tool{fst2vcd} para extrair, do FST, o VCD de
+cabeçalho (escopos e sinais) que alimenta o seletor de sinais e o gerador
+automático de layout. Em seguida, o ramo depende de \code{getViewer()}:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{GTKWave} (default): \code{\_waveResolveGtkwSaveFile} resolve ou
+        gera o arquivo de layout \file{.gtkw} (via \code{buildAuroraGtkw} em
+        \file{gtkw\_proc\_writer.js}), e \code{\_waveLaunchGtkwave} (spec por
+        \code{buildGtkwaveSpec}) abre o \tool{gtkwave.exe} do fork. O processo é
+        monitorado por \code{monitorGtkwaveProcess}.
+  \item \textbf{Surfer} (opt-in): \code{\_waveResolveSurferSaveFile} gera o layout
+        (\code{buildSurferLayout} em \file{surfer\_layout\_writer.js}) e
+        \code{\_waveLaunchSurfer} abre o \tool{surfer.exe}.
+\end{itemize}
+
+O diferencial do layout SAPHO é mostrar as faixas de \cmm{}, assembly e variáveis
+em \emph{lockstep} com o clock do processador — o usuário vê o programa executando
+linha a linha junto às ondas. O script de referência delega a construção do layout
+ao \tool{gen\_gtkw} do \tool{YANC}; na AURORA, os writers
+\file{gtkw\_proc\_writer.js}/\file{surfer\_layout\_writer.js} desempenham esse
+papel. Toda a mecânica de layout, decodificação de complexos
+(\file{complex\_decode.js}) e marcadores de evento (\file{event\_markers.js}) está
+em \autoref{cap:10-aurora-visualizacao-gtkwave-surfer}.
+
+\section{Estágio 7 — Inspecionar o RTL no PRISM}
+\label{sec:17-prism}
+
+Paralelamente à simulação, o usuário pode inspecionar a estrutura do RTL. O botão
+PRISM dispara, primeiro, o \code{verilogSyntaxCheck}, que além do check de sintaxe
+(\lstinline|iverilog -tnull|) regenera a hierarquia: \code{generateProjectHierarchy}
+monta um script \tool{Yosys} (\code{read\_verilog} de \path{components/HDL/*} + dos
+\code{synthesizableFiles}, \code{hierarchy -top}, \code{proc}, \code{write\_json})
+e o roda via \code{buildYosysHierarchySpec}, produzindo
+\path{Temp/project_hierarchy.json}, que \code{parseYosysHierarchy} converte na
+árvore de módulos da file-tree.
+
+O \tool{PRISM} propriamente (\file{main/ipc/prism.js}) usa o mesmo \tool{Yosys}
+allowlisted para gerar o JSON da netlist e o entrega ao \tool{netlistsvg}
+(rodando in-process) para produzir o SVG navegável do RTL. Os detalhes do
+conversor e da renderização estão em \autoref{cap:11-aurora-prism-rtl}.
+
+\section{Diagrama ASCII do pipeline completo}
+\label{sec:17-diagrama}
+
+O diagrama a seguir reúne os sete estágios, os binários envolvidos e os artefatos
+de cada transição. A coluna da esquerda é o que o renderer orquestra; os binários
+(em colchetes) são executados pelo main atrás da allowlist (\autoref{sec:17-fronteiras}).
+
+\begin{lstlisting}
+==============================================================================
+   PIPELINE SAPHO PONTA A PONTA  (renderer orquestra | [bin] = main + allowlist)
+==============================================================================
+
+ (1) PROJETO
+     AURORA: novo projeto + processadores
+        |  grava
+        v
+     <proj>.spf  ........... fonte canonica (synthesizableFiles, testbenchFiles,
+        |                     processors[]: name/cmmFile/clk/numClocks/showArrays)
+        |  cria pastas:  <proj>/<proc>/{Software,Hardware,Simulation}
+        |                components/Temp/<proc>/   (scratch -t / CWD da sim)
+        v
+ (2) CODIGO-FONTE  (editor Monaco)
+     <proc>.cmm  (ou .cpp)   + top-level.v  + testbench (<proc>_tb.v auto ou
+        |                                     top_level_tb.v / *.py do usuario)
+        |   [Verilator] ensureChegueiToaqui -> injeta #TOAQUI no .cmm
+        v
+ (3) COMPILACAO   (precompileAllProcessors -> por processador)
+     +--------------------------------------------------------------+
+     | [cmmcomp.exe]  -i .cmm -n -p -m -t  [--array] [-pt|-en]      |
+     |     -> <proc>.asm  +  cmm_log.txt  +  pc_<proc>_mem.txt      |
+     |                       +  <proc>_data.mif / <proc>_inst.mif   |
+     | [appcomp.exe]  -i .asm -t                                    |
+     |     -> .asm pre-processado (params + enderecos)              |
+     | [asmcomp.exe]  -i .asm -p -d HDL -m -t -f<clk> -c<numClk>    |
+     |     -> Hardware/<proc>.v  (RTL sintetizavel)                 |
+     |     -> <proc>_tb.v  (testbench padrao) -> Simulation/        |
+     +--------------------------------------------------------------+
+        |   (-y components/HDL resolve processor/core/ula/addr_dec/instr_dec)
+        |
+        +-------------------------------+----------------------------------+
+        |                               |                                  |
+        v (4a Icarus)                   v (4b Verilator)        v (4c cocotb/Python)
+ (5) INSTRUMENTAR DUMP  (comum aos tres ramos, ANTES de simular)
+     _resolveWaveSelection: .gtkw ativo > Wave Config > $dumpvars do tb > default
+     instrumentTestbench -> Temp/instr_<tb>.v  (copia; original intacto)
+        |
+        v
+     [iverilog -s tb -o .vvp     [verilator --binary       [cocotb: iverilog
+       -y HDL] ; [vvp -fst]       --timing --trace]          ou verilator por baixo]
+        |   stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ (readmemb)
+        v
+     DUMP de ondas (FST)
+        |
+        |  _extractFstHeaderVcd  -> [fst2vcd] -> <tb>.header.vcd (escopos/sinais)
+        v
+ (6) VISUALIZAR   (getViewer)
+        +--- gtkwave -> buildAuroraGtkw -> <tb>.gtkw -> [gtkwave.exe --dark ...]
+        +--- surfer  -> buildSurferLayout -> .surf -> [surfer.exe]
+              faixas C+- / assembly / variaveis em LOCKSTEP com o clock
+
+ (7) INSPECIONAR RTL  (botao PRISM, em paralelo)
+     verilogSyntaxCheck -> [iverilog -tnull] (ok) ->
+     generateProjectHierarchy -> [yosys] read_verilog + hierarchy -top + proc +
+        write_json -> Temp/project_hierarchy.json -> arvore de modulos
+     PRISM -> [yosys] netlist JSON -> netlistsvg (in-process) -> SVG navegavel
+==============================================================================
+\end{lstlisting}
+
+\section{Os dois scripts de referência do YANC}
+\label{sec:17-scripts}
+
+O repositório \tool{YANC} encapsula o pipeline em dois scripts que servem de
+especificação executável e batem, passo a passo, com o que a AURORA faz no main.
+
+\begin{description}[leftmargin=1.2em, style=nextline]
+  \item[\file{Scripts/single\_proc.sh}] Um único processador. Exemplo embutido:
+        \code{proc\_fft} (FFT de ordem 8 com endereçamento bit-reverso do \cmm{}).
+        Usa o testbench auto-gerado \file{<proc>\_tb.v} como top de simulação,
+        roda Icarus (default) ou Verilator via \lstinline|--sim|, e abre o
+        \tool{GTKWave} com layout do \tool{gen\_gtkw}.
+  \item[\file{Scripts/multi\_proc.sh}] Vários processadores sob um top-level
+        escrito pelo usuário. Exemplo embutido: projeto \code{DTW} com
+        \code{ProcDTW} + \code{ZeroCross} (já testado em FPGA). Como os
+        processadores rodam juntos, o testbench é o \file{top\_level\_tb.v} do
+        usuário (o \file{<proc>\_tb.v} auto-gerado só dirige um processador
+        isolado). A view mostra os sinais do top-level lado a lado com a execução
+        de software dos dois processadores em \emph{lockstep}.
+\end{description}
+
+A diferença essencial entre os dois é qual testbench dirige a simulação — o
+auto-gerado por processador (single) ou o top-level de usuário (multi) — e o
+\emph{staging} extra de \file{pc\_<proc>\_mem.txt} e \file{.mif} para o CWD da
+simulação no caso multi. A AURORA reproduz exatamente essa lógica: o staging vive
+em \code{stageProcessorMemoryFiles} e a escolha do top de simulação em
+\code{\_waveDeriveSimTopModule} / \code{validateForWave}.
+
+\section{Síntese final}
+
+O pipeline SAPHO é uma cadeia determinística de transformações sobre artefatos em
+disco, ancorada em um único arquivo de configuração (\file{.spf}). Cada estágio
+tem um responsável claro no renderer (um método de \code{CompilationModule} ou um
+helper de \file{processor\_compiler.js}) e, quando precisa de um binário, atravessa
+a fronteira \code{runSpec} $\rightarrow$ \lstinline|exec-spec| $\rightarrow$
+allowlist do main. Do \cmm{} ao SVG do RTL, passando pelo \file{.v} sintetizável,
+pelo dump de ondas e pela visualização em lockstep, o caminho é único e sem
+ramificações estruturais — o que muda entre os cenários (com/sem processador,
+single/multi, Icarus/Verilator/cocotb, GTKWave/Surfer) são escolhas de dados e de
+preferência, não desvios de fluxo. Os capítulos referenciados ao longo deste texto
+detalham cada subsistema; aqui o objetivo foi mostrar como todos se encaixam.

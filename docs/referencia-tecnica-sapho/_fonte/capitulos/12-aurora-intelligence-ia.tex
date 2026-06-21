@@ -1,0 +1,609 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: o subsistema Aurora Intelligence (IA)}
+\label{cap:12-aurora-intelligence-ia}
+
+O \tool{Aurora Intelligence} e o assistente de IA integrado a IDE \tool{AURORA}.
+Ele permite que o usuario converse com um modelo de linguagem sobre o projeto
+aberto, sobre \cmm{}, Verilog e o ecossistema SAPHO, e que esse modelo
+\emph{aja} sobre o ambiente de trabalho --- lendo arquivos, disparando
+compilacoes, configurando formas de onda e mexendo no projeto --- por meio de um
+conjunto curado de ferramentas (\emph{tools}). O subsistema esta
+\textbf{completamente implementado}. O unico item ainda pendente e o modelo
+proprio do laboratorio: o \emph{provider} e os modelos treinados pelo NIPSCERN
+ainda \textbf{nao foram treinados}, sendo um item de roteiro. Enquanto isso, o
+assistente opera contra provedores externos (descritos adiante), de modo que a
+funcionalidade ja esta disponivel ao usuario final.
+
+\begin{nota}
+Este capitulo descreve o codigo real em \path{aurora/main/ai/*},
+\path{aurora/main/ipc/ai.js} e \path{aurora/js/ai/*} mais
+\file{js/ui/ai\_assistant\_manager.js}. Os assuntos vizinhos --- pipeline de
+compilacao, terminais, formas de onda, PRISM --- sao tocados aqui apenas no
+ponto em que as \emph{tools} os acionam; cada um e documentado em seu proprio
+capitulo.
+\end{nota}
+
+\section{Arquitetura em duas camadas}
+
+O Aurora Intelligence segue o modelo de processos do Electron: o
+\textbf{processo principal} (\emph{main}) e dono de tudo o que e sensivel ou de
+sistema (chaves de API, chamadas de rede aos provedores, subprocessos das CLIs,
+servidor MCP local, persistencia em disco), e o \textbf{renderer} e dono da
+interface (o painel lateral de chat) e da execucao concreta de cada ferramenta
+contra o espaco de trabalho (\code{window.AuroraAPI}). As duas metades se
+comunicam por IPC.
+
+\begin{lstlisting}[caption={Fluxo geral de um turno de chat (ASCII).}]
+  renderer (painel)                  main (processo principal)
+  -----------------                  -------------------------
+  envia mensagens  --- ai:chat-start --->  escolhe o transporte
+                                           (SDK | claude-code | chatgpt)
+                   <-- ai:chat-event ----  text-delta / tool-call /
+                       (multicast)         tool-result / finish | aborted | error
+   .                                       |  ao chamar uma tool:
+   .            <--- ai:tool-exec --------'  tool_bridge.runTool
+  tool_runner executa                       (renderer faz o trabalho real)
+  AuroraAPI.<ns>.<fn>(...)
+   --- ai:tool-result -------------------> resolveToolResult -> resultado volta
+                                           ao modelo
+\end{lstlisting}
+
+Um ponto central de projeto e que \textbf{os dois transportes convergem nos
+mesmos eventos de chat}. Independentemente de a resposta vir do Vercel AI SDK ou
+de uma CLI por assinatura, o main emite sempre os mesmos pacotes
+\code{ai:chat-event}, de modo que o laco de chat do renderer e
+\emph{transporte-agnostico}.
+
+\subsection{O ciclo de vida dos eventos de chat}
+
+Todo turno termina com exatamente um evento de fechamento
+(\code{finish}, \code{aborted} ou \code{error}). A sequencia tipica de eventos
+emitidos por \file{main/ai/chat.js} (e replicada pelas pontes das CLIs) e:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Tipo} & \textbf{Carga e significado} \\
+\midrule
+\code{text-delta}   & \code{\{ delta \}} --- um fragmento de texto da resposta, transmitido token a token. \\
+\code{tool-call}    & \code{\{ toolUseId, toolName, args \}} --- o modelo decidiu chamar uma ferramenta. \\
+\code{tool-result}  & \code{\{ toolUseId, toolName, result \}} --- o resultado dessa chamada. \\
+\code{finish}       & \code{\{ text, usage \}} --- fim normal do turno, com a contagem de tokens. \\
+\code{aborted}      & \code{\{ text \}} --- o usuario interrompeu (ou um \emph{watchdog} agiu); devolve o texto parcial. \\
+\code{error}        & \code{\{ message \}} --- falha; mensagem ja tratada para exibicao. \\
+\bottomrule
+\end{tabularx}
+
+\section{Transporte 1: Vercel AI SDK (provedores com chave de API)}
+
+A primeira via de transporte usa o \textbf{Vercel AI SDK} (pacote \code{ai},
+funcoes \code{streamText} e \code{generateText}) para falar com provedores
+comerciais por meio de uma chave de API fornecida pelo usuario (modelo
+\emph{BYOK}, \emph{bring your own key}). A integracao vive em
+\file{main/ai/provider.js} (montagem do provider e chamadas de um disparo) e em
+\file{main/ai/chat.js} (laco de \emph{streaming} com ferramentas).
+
+\subsection{Provedores suportados e suas dependencias}
+
+\file{main/ai/provider.js} carrega cada SDK de provedor de forma defensiva (via
+um \code{tryRequire}: se um pacote falhar ao carregar, apenas aquele provedor e
+desabilitado em vez de derrubar o processo principal). Os provedores reconhecidos
+correspondem as dependencias \code{@ai-sdk/*} declaradas em
+\file{package.json}:
+
+\begin{tabularx}{\linewidth}{l l Y}
+\toprule
+\textbf{Provedor} & \textbf{Pacote SDK} & \textbf{Modelo padrao (\code{DEFAULT\_MODELS})} \\
+\midrule
+openai    & \code{@ai-sdk/openai}    & \lstinline|gpt-4o-mini| \\
+anthropic & \code{@ai-sdk/anthropic} & \lstinline|claude-haiku-4-5-20251001| \\
+google    & \code{@ai-sdk/google}    & \lstinline|gemini-2.5-flash| \\
+deepseek  & \code{@ai-sdk/deepseek}  & \lstinline|deepseek-chat| \\
+groq      & \code{@ai-sdk/groq}      & \lstinline|llama-3.3-70b-versatile| \\
+ollama    & (via \code{@ai-sdk/openai}) & \lstinline|llama3.1:8b| \\
+\bottomrule
+\end{tabularx}
+
+\begin{nota}
+O \tool{Ollama} e um caso especial: nao tem pacote dedicado. \code{getProvider}
+o monta reaproveitando \code{createOpenAI} apontado para um \emph{base URL}
+local (padrao \url{http://localhost:11434/v1}), no endpoint
+\path{/v1/chat/completions}. Para o Ollama, a "chave" armazenada no cofre e, na
+verdade, o \emph{base URL}; se nao houver nenhum, usa-se o padrao local, de modo
+que ele funciona sem configuracao.
+\end{nota}
+
+\subsection{Governanca de modelos}
+
+A escolha do modelo segue uma cadeia de resolucao deterministica em
+\code{resolveModelId(provider, requested)}:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item entrada vazia, \lstinline|'default'| ou \lstinline|'latest'| $\rightarrow$ o modelo padrao do provedor (\code{DEFAULT\_MODELS});
+  \item um id sabidamente aposentado/renomeado $\rightarrow$ seu substituto, via o mapa \code{MODEL\_MIGRATIONS} (um mapa por provedor, semeado conforme ids sao aposentados);
+  \item qualquer outro valor $\rightarrow$ inalterado.
+\end{itemize}
+
+A preferencia de modelo por provedor (a sobreposicao escolhida pelo usuario) e
+persistida por \file{main/ai/prefs.js} em
+\path{userData/aurora-ai-prefs.json} (dado nao sensivel). \code{getModelFor}
+combina essa preferencia com a resolucao acima.
+
+Quando um id de modelo esta indisponivel em tempo de execucao (aposentado, com
+erro de digitacao ou nao habilitado para a chave), a heuristica
+\code{isModelUnavailableError} reconhece o erro do SDK (por exemplo HTTP 404 ou
+mensagens contendo \enquote{model \dots not found}) e o sistema recua uma vez
+para o modelo padrao do provedor, em vez de encerrar o turno com uma mensagem
+obscura. Esse recuo existe em \code{testConnection}, em \code{generateOneshot} e
+no laco de chat.
+
+\subsection{O laco de \emph{streaming} com ferramentas}
+
+\file{main/ai/chat.js} mantem uma \code{Map} de sessoes ativas (uma por
+\code{sessionId} gerado pelo renderer) e usa \code{streamText} consumindo
+\code{result.fullStream} --- e nao apenas o fluxo de texto --- para que partes de
+\code{tool-call} e \code{tool-result} aparecam no painel como
+\emph{chips} de atividade. Caracteristicas relevantes:
+
+\begin{description}[leftmargin=0pt, style=nextline]
+  \item[Limite de passos] \code{stopWhen: stepCountIs(MAX\_STEPS)} com \code{MAX\_STEPS = 24} impede que o modelo entre em laco infinito de chamadas de ferramenta.
+  \item[Anti-congelamento] um temporizador de inatividade (\code{STREAM\_INACTIVITY\_MS = 120000}) aborta o turno se o modelo ficar mudo por tempo demais \emph{sem} nenhuma ferramenta em voo. Enquanto ha ferramentas pendentes (controladas por um \code{Set} de ids), o temporizador fica pausado --- assim uma compilacao lenta nunca o dispara.
+  \item[Conteudo multimodal] \code{toSdkMessage} expande anexos do compositor em partes nativas do SDK: o texto, cada imagem como parte \code{image} (\emph{data URL}) e cada arquivo como bloco de texto cercado.
+  \item[\emph{Prompt caching} da Anthropic] quando o provedor e \code{anthropic} e o \emph{system prompt} e grande, ele e enviado com \code{cacheControl: \{ type: 'ephemeral' \}}, reduzindo o custo de tokens repetidos em turnos seguintes. Outros SDKs ignoram esse campo.
+  \item[Compatibilidade] um caso conhecido de \code{item\_reference} (incompatibilidade do \emph{prompt caching} da Anthropic apos um resultado de ferramenta) e tratado como encerramento gracioso, com um eventual reenvio sem ferramentas para que o modelo resuma o que encontrou.
+  \item[Ferramentas em texto] para modelos (tipicamente via Ollama) que emitem chamadas de ferramenta como JSON no proprio texto em vez de usar o campo de \emph{function calling}, ha um caminho de \emph{fallback} que extrai esse JSON, executa as ferramentas pela ponte e injeta os resultados numa chamada de continuacao. Artefatos textuais de chamada de ferramenta (tags \lstinline|<tool_call>|, JSON \enquote{name/arguments}) sao removidos do texto exibido.
+\end{description}
+
+\subsection{Geracao de um disparo}
+
+Alem do chat com \emph{streaming}, \code{generateOneshot} oferece uma geracao
+de texto unica (sem ferramentas, sem historico, sem \emph{streaming}) para
+recursos que transformam uma entrada em uma saida num unico passo --- por
+exemplo o gerador de \emph{harness} por IA. So provedores do SDK sao aceitos
+nesse caminho (as pontes das CLIs sao apenas de chat, com excecao do caminho
+proprio descrito na \autoref{sec:ia-claude-oneshot}). Para o Gemini, ele
+desativa explicitamente os \enquote{tokens de raciocinio}
+(\code{thinkingBudget: 0}) para que todo o orcamento de saida va para a resposta.
+
+\section{Transporte 2: CLIs por assinatura (Claude Code e Codex)}
+
+A segunda via permite usar a \emph{assinatura} do usuario (Claude Pro/MAX ou um
+plano ChatGPT) em vez de uma chave de API metrada. Em vez de falar HTTP direto
+com o provedor, a AURORA \textbf{invoca a CLI instalada localmente} em modo
+nao interativo e traduz os eventos que ela emite para os mesmos pacotes
+\code{ai:chat-event}. Sao duas pontes:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \file{main/ai/claude\_code.js} --- a CLI \tool{Claude Code} da Anthropic, provedor \enquote{claude-code} no painel;
+  \item \file{main/ai/codex\_cli.js} --- a CLI \tool{Codex} da OpenAI, provedor \enquote{chatgpt} no painel.
+\end{itemize}
+
+Em ambas, a autenticacao e feita pelo \emph{login} OAuth da propria CLI
+(\lstinline|claude login| / \lstinline|codex login|); a AURORA \textbf{nunca} ve
+nem armazena um token. As pontes ainda \emph{removem} as variaveis de ambiente
+de chave de API do processo filho (\code{ANTHROPIC\_API\_KEY},
+\code{ANTHROPIC\_AUTH\_TOKEN} no Claude; \code{OPENAI\_API\_KEY} no Codex) para
+que a CLI nao caia silenciosamente em cobranca metrada por API.
+
+\subsection{Invocacao das CLIs}
+
+\begin{description}[leftmargin=0pt, style=nextline]
+  \item[Claude Code] e iniciada em modo \emph{print}: \lstinline|claude -p --output-format stream-json --verbose --include-partial-messages ...|. Os eventos \code{stream-json} (do tipo \code{system}, \code{stream\_event}, \code{assistant}, \code{user}, \code{result}, \code{rate\_limit\_event}) sao traduzidos para eventos de chat. O \emph{system prompt} grande viaja no corpo do \emph{prompt} (lido por \code{stdin}) quando ultrapassa um limiar conservador, contornando o limite de tamanho de linha de comando do Windows.
+  \item[Codex] e iniciada como \lstinline|codex exec --json --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox ...|. Seus eventos (modelo de \emph{thread}/\emph{turn}/\emph{item}: \code{thread.started}, \code{item.started}, \code{item.completed}, \code{turn.completed}, \code{turn.failed}) sao traduzidos da mesma forma.
+\end{description}
+
+Para nao perder contexto, cada ponte mantem um mapa de
+\code{conversationId} para o id de sessao/\emph{thread} da CLI, de modo que
+turnos seguintes usam \lstinline|--resume| (Claude) ou \lstinline|exec resume|
+(Codex). Quando nao ha sessao a retomar mas o renderer entrega historico, os
+turnos anteriores sao dobrados no \emph{prompt} dentro de um bloco
+\lstinline|<conversation_context>|. Ambas as pontes tem \emph{watchdog} de
+inatividade (mesma logica de \code{Set} de ferramentas pendentes do
+transporte 1) e encerram subprocessos no fim da aplicacao
+(\code{killAll}, via \lstinline|taskkill /T /F| no Windows).
+
+\subsection{Deteccao, anexos e uso}
+
+Cada ponte expoe \code{detect()} (instalado? autenticado? plano? versao?) e
+\code{getUsage()} (uma contagem de tokens acumulada por execucao). O plano do
+ChatGPT e extraido, somente leitura, da \emph{claim} \code{chatgpt\_plan\_type}
+do \emph{id token} JWT das credenciais. Anexos sao tratados por
+\file{main/ai/attachments.js}: arquivos viram blocos de texto cercados; imagens,
+que as CLIs nao recebem inline, sao gravadas em arquivos temporarios e
+referenciadas por caminho quando a CLI sabe le-las nativamente (Claude Code), ou
+degradam para uma nota \enquote{este provedor nao ve imagens} (Codex). Os
+temporarios sao limpos no inicio da aplicacao e podados por TTL a cada escrita.
+
+\subsection{\emph{Download} das CLIs sob demanda}
+
+O instalador da AURORA \textbf{nao empacota} os binarios nativos das CLIs
+(eram cerca de 460 MB somados). Eles sao baixados na primeira vez que o usuario
+de fato usa cada provedor:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \file{main/ai/cli\_manifest.js} fixa exatamente qual pacote de
+        plataforma do npm buscar, sua versao e seu \emph{hash} de integridade
+        (\emph{Subresource Integrity}, \lstinline|sha512-...|), por plataforma.
+        As versoes (Claude \lstinline|2.1.144|, Codex \lstinline|0.131.0|) devem
+        acompanhar as dependencias-base de \file{package.json}.
+  \item \file{main/ai/cli\_downloader.js} baixa o \emph{tarball}, \textbf{verifica
+        a integridade SHA-512 antes da extracao}, extrai com o \code{tar} do
+        sistema para um cache por usuario em
+        \path{userData/cli-cache/<pkg>@<versao>/}, e poda versoes antigas.
+        Chamadas concorrentes para a mesma CLI compartilham um unico
+        \emph{download}.
+  \item \file{main/ai/cli\_locator.js} resolve o executavel em quatro \emph{layouts}
+        de execucao, em ordem de prioridade: (0) o cache de \emph{download} sob
+        demanda; (1) desenvolvimento (\path{node_modules/}); (2) build empacotado
+        com a dependencia presente (reescrevendo \path{app.asar} para
+        \path{app.asar.unpacked}, pois binarios nativos nao rodam de dentro do
+        \emph{asar}); (3) uma instalacao global no \code{PATH}.
+\end{itemize}
+
+\section{O servidor MCP HTTP local}
+
+As CLIs por assinatura conhecem apenas as \emph{suas} ferramentas nativas
+(Read/Edit/Bash etc.). Para que elas dirijam o \emph{pipeline} da AURORA em vez
+de invocar binarios da \emph{toolchain} por um \emph{shell}, a AURORA expoe sua
+propria superficie de ferramentas a CLI por meio de um \textbf{servidor MCP
+(\emph{Model Context Protocol}) HTTP local}, implementado em
+\file{main/ai/aurora\_mcp\_server.js} sobre o
+\code{@modelcontextprotocol/sdk}.
+
+\subsection{Natureza e seguranca do servidor}
+
+\begin{description}[leftmargin=0pt, style=nextline]
+  \item[Transporte] \emph{Streamable HTTP} em modo \emph{stateless} (\code{sessionIdGenerator: undefined}): um \code{Server} e um \emph{transport} novos a cada requisicao. Como o ritmo de chamadas e humano (poucas por turno), a alocacao extra e desprezivel.
+  \item[Endereco] vinculado a \textbf{127.0.0.1 numa porta efemera aleatoria} (\code{listen(0, '127.0.0.1')}). A URL final tem a forma \path{http://127.0.0.1:<porta>/mcp/<token>}.
+  \item[Defesa contra \emph{DNS rebinding}] o cabecalho \code{Host} e reverificado a cada requisicao; so \code{127.0.0.1} ou \code{localhost} sao aceitos.
+  \item[\emph{Token} de sessao] exige-se um \emph{token} de 256 bits (\code{crypto.randomBytes(32)}) em \emph{toda} requisicao, no caminho (\path{/mcp/<token>}) ou como \code{Authorization: Bearer}. Isso bloqueia uma pagina web maliciosa que alcance o \emph{loopback} mas nao consiga adivinhar a porta efemera e o \emph{token}.
+  \item[Metodo] somente \code{POST}; corpo limitado a 4 MB.
+\end{description}
+
+O servidor registra cada entrada de \code{tools.TOOL\_MANIFEST} como uma
+ferramenta MCP. As CLIs recebem um arquivo \lstinline|--mcp-config| apontando
+para ele (Claude com \lstinline|--strict-mcp-config|; Codex via
+\lstinline|-c mcp_servers.aurora.url=...|), de forma que as ferramentas da AURORA
+aparecem a CLI como \lstinline|mcp__aurora__<nome>|. Cada chamada e reencaminhada
+ao mesmo \code{tool\_bridge.runTool} usado pelo caminho do SDK --- ou seja, o
+mesmo \emph{ask-before-write}, o mesmo \emph{log} de auditoria e o mesmo
+\code{AuroraAPI} no renderer.
+
+\subsection{Regras de uso das ferramentas}
+
+Para garantir que o modelo \emph{prefira} as ferramentas \lstinline|mcp__aurora__*|
+e nao recorra ao \emph{shell}, cada ponte injeta um texto de regras no primeiro
+turno (\code{MCP\_TOOL\_RULES}) que instrui o modelo a nunca chamar binarios da
+YANC (\tool{cmmcomp}, \tool{cppcomp}, \tool{asmcomp}, \dots), \tool{iverilog},
+\tool{verilator} ou \tool{gtkwave} por um \emph{shell}, usando em vez disso as
+ferramentas equivalentes da AURORA. Alem disso:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item na CLI do Claude Code, ferramentas que escrevem ou usam \emph{shell}
+        (\code{Bash}, \code{Edit}, \code{Write}, \code{MultiEdit},
+        \code{NotebookEdit} \dots) sao \textbf{desabilitadas} via
+        \lstinline|--disallowed-tools|, de modo que toda escrita passe pelas
+        ferramentas da AURORA, que sao protegidas pelo cartao Permitir/Negar;
+  \item na CLI do Codex, cuja ferramenta de \emph{shell} nao pode ser removida,
+        a contencao e feita pelas regras do \emph{system prompt} (uma garantia
+        mais suave, declaradamente uma limitacao aceita dessa integracao);
+  \item o tempo limite de leitura de chamadas MCP nas CLIs e elevado (10 min) para
+        ficar acima do teto da ponte de ferramentas, evitando que a CLI declare
+        falha enquanto uma operacao lenta (como renomear projeto) ainda esta sendo
+        concluida do lado do renderer.
+\end{itemize}
+
+\section{O conjunto de ferramentas (\emph{tools})}
+
+O catalogo de ferramentas que o assistente pode chamar vive em
+\file{main/ai/tools.js}, na constante \code{TOOL\_MANIFEST}. Trata-se de
+\textbf{dados puros} (sem fechamentos), de modo que pode ser enviado por IPC
+verbatim: o renderer puxa o mesmo manifesto e usa os campos \code{api},
+\code{argStyle} e \code{argNames} para despachar a chamada contra
+\code{window.AuroraAPI}, mantendo uma unica fonte de verdade.
+
+\subsection{Contagem e estrutura}
+
+O manifesto define \textbf{98 ferramentas}, das quais \textbf{41 sao de leitura}
+(\code{access: 'read'}, executam sem confirmacao) e \textbf{57 sao de escrita}
+(\code{access: 'write'}, exibem o cartao de confirmacao antes de agir). Cada
+entrada declara:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Campo} & \textbf{Significado} \\
+\midrule
+\code{name}        & nome da ferramenta exposto ao modelo. \\
+\code{description} & descricao em linguagem natural para o modelo. \\
+\code{access}      & \lstinline|'read'| ou \lstinline|'write'|. \\
+\code{api}         & par \code{[namespace, metodo]} em \code{window.AuroraAPI}. \\
+\code{argStyle}    & \lstinline|'none'| / \lstinline|'positional'| / \lstinline|'object'|: como transformar os argumentos JSON na chamada. \\
+\code{argNames}    & ordem dos argumentos posicionais, quando aplicavel. \\
+\code{inputSchema} & esquema JSON dos argumentos. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Categorias de ferramentas}
+
+As ferramentas cobrem todo o fluxo de trabalho da IDE. A tabela a seguir agrupa
+exemplos representativos por area funcional (a lista completa esta no codigo).
+
+\begin{longtable}{l Y}
+\caption{Categorias de ferramentas em \file{main/ai/tools.js}.}\\
+\toprule
+\textbf{Categoria} & \textbf{Exemplos de ferramentas} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Categoria} & \textbf{Exemplos de ferramentas} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Editor / leitura       & \code{get\_active\_file}, \code{get\_open\_files}, \code{read\_active\_file}, \code{get\_cursor} \\
+Projeto / arquivos     & \code{get\_project\_tree}, \code{read\_file}, \code{create\_file}, \code{create\_folder}, \code{delete\_file}, \code{rename\_file}, \code{refresh\_file\_tree} \\
+Edicao de texto        & \code{write\_active\_file}, \code{insert\_text}, \code{replace\_range}, \code{save\_file} \\
+Compilacao / simulacao & \code{compile\_all}, \code{compile\_step}, \code{run\_in\_background}, \code{run\_verilator\_proc}, \code{run\_fast\_sim}, \code{cancel\_compilation} \\
+Terminais              & \code{get\_terminal\_output}, \code{list\_terminals}, \code{read\_all\_terminals} \\
+Processadores          & \code{list\_processors}, \code{create\_processor}, \code{delete\_processor}, \code{rename\_processor}, \code{get\_processor\_config}, \code{set\_processor\_config} \\
+Topo / \emph{testbench}& \code{set\_top\_level}, \code{set\_testbench\_top} \\
+Projetos (gestao)      & \code{create\_project}, \code{open\_project}, \code{rename\_project}, \code{backup\_project}, \code{list\_recent\_projects}, \code{get\_rename\_status} \\
+Git                    & \code{git\_status}, \code{git\_log}, \code{git\_diff}, \code{git\_stage}, \code{git\_commit}, \code{git\_create\_branch}, \code{git\_pull}, \code{git\_push}, \code{git\_stash} \\
+Formas de onda (GTKWave)& \code{list\_wave\_signals}, \code{select\_wave\_signals}, \code{open\_wave\_config}, \code{list\_gtkw\_files}, \code{add\_gtkw\_file}, \code{set\_active\_gtkw\_file} \\
+Formas de onda (Surfer)& \code{list\_surfer\_files}, \code{add\_surfer\_file}, \code{set\_active\_surfer\_file} \\
+Simulador / visualizador& \code{get\_simulator}, \code{set\_simulator}, \code{get\_waveform\_viewer}, \code{set\_waveform\_viewer} \\
+Diretivas / opcodes    & \code{list\_directives}, \code{get\_directive}, \code{lookup\_compiler\_message}, \code{list\_opcodes}, \code{get\_opcode}, \code{analyze\_asm} \\
+Configuracoes          & \code{get\_settings}, \code{set\_setting}, \code{get\_tree\_view}, \code{set\_tree\_view} \\
+Sobreposicao de comando& \code{list\_compile\_steps}, \code{inspect\_compile\_command}, \code{preview\_compile\_command}, \code{list\_command\_overrides}, \code{set\_command\_override}, \code{clear\_command\_override} \\
+Interacao com o usuario& \code{ask\_user\_question} \\
+\end{longtable}
+
+\subsection{Da definicao a chamada efetiva}
+
+\code{buildTools(runToolFn)} converte o manifesto no objeto \code{tools} do
+Vercel AI SDK, ligando o \code{execute} de cada ferramenta a uma funcao-ponte
+fornecida pelo \file{chat.js}. \code{getManifest()} produz a versao serializavel
+(sem fechamentos) que o renderer consome.
+
+\begin{lstlisting}[caption={Construcao das ferramentas para o SDK (\file{main/ai/tools.js}).}]
+function buildTools(runToolFn) {
+  if (!tool || !jsonSchema) return {};
+  const tools = {};
+  for (const def of TOOL_MANIFEST) {
+    tools[def.name] = tool({
+      description: def.description,
+      inputSchema: jsonSchema(def.inputSchema),
+      execute: async (args) => runToolFn(def.name, args || {}),
+    });
+  }
+  return tools;
+}
+\end{lstlisting}
+
+\section{A ponte de ferramentas (\code{tool\_bridge})}
+
+O SDK invoca o \code{execute()} de uma ferramenta dentro do \emph{processo
+principal}, mas o espaco de trabalho a ser manipulado (Monaco, arvore de
+arquivos, terminais) so existe no renderer. \file{main/ai/tool\_bridge.js}
+preenche essa lacuna:
+
+\begin{enumerate}[leftmargin=1.4em]
+  \item \code{runTool(webContents, toolName, args)} gera um \code{requestId} e envia \code{ai:tool-exec} ao renderer;
+  \item o \code{tool\_runner} do renderer executa o trabalho (incluindo a confirmacao \emph{ask-before-write}) e responde em \code{ai:tool-result};
+  \item \code{resolveToolResult(requestId, result)} casa a resposta e resolve a \emph{promise} pendente exatamente uma vez.
+\end{enumerate}
+
+A conclusao e \textbf{dirigida por evento}, nao por relogio: a chamada se
+resolve quando o renderer responde, ou imediatamente se o renderer morre no meio
+(eventos \code{destroyed} / \code{render-process-gone}). O temporizador e apenas
+um \emph{backstop} de ultimo recurso para o caso de um renderer vivo mas travado.
+Os tempos limites sao escalonados conforme o tipo de ferramenta:
+
+\begin{tabularx}{\linewidth}{l l Y}
+\toprule
+\textbf{Classe} & \textbf{Limite} & \textbf{Ferramentas} \\
+\midrule
+Padrao       & \code{TOOL\_TIMEOUT\_MS = 120000}   & a maioria das ferramentas. \\
+Interativa   & \code{INTERACTIVE\_TIMEOUT\_MS = 600000} & \code{ask\_user\_question} (espera uma resposta humana deliberada). \\
+Lenta        & \code{SLOW\_TIMEOUT\_MS = 300000}   & \code{rename\_project}, \code{rename\_processor} (mexem no disco). \\
+\bottomrule
+\end{tabularx}
+
+A ponte \textbf{nunca rejeita}: falhas resolvem como
+\code{\{ ok:false, error \}}, de modo que o SDK realimenta o erro ao modelo em
+vez de abortar o fluxo.
+
+\subsection{Execucao no renderer e o portao de permissao}
+
+No renderer, \file{js/ai/tool\_runner.js} recebe cada \code{ai:tool-exec},
+localiza a definicao no manifesto, aplica o portao de permissao
+(\code{aiAssistantManager.confirmToolCall}), despacha a chamada para
+\code{window.AuroraAPI[ns][fn](...)} e responde com \code{sendToolResult}. Uma
+chamada negada resolve como um resultado normal
+\code{\{ ok:false, error: 'The user denied this action.' \}}, de forma que o
+modelo recebe \enquote{o usuario recusou} em vez de uma falha.
+
+A decisao de permissao e pura, em \file{js/ai/tool\_permission.js}
+(\code{decideToolPermission}), combinada com os modos definidos em
+\file{js/ai/ai\_metadata.js}:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Modo} & \textbf{Comportamento} \\
+\midrule
+\lstinline|ask|    & toda chamada (leitura e escrita) pede um OK inline. \\
+\lstinline|writes| & leituras correm livres; escritas pedem OK (\emph{padrao}). \\
+\lstinline|allow|  & nada e perguntado; autonomia total. \\
+\bottomrule
+\end{tabularx}
+
+Ha duas excecoes codificadas: \code{set\_command\_override} esta em
+\code{ALWAYS\_CONFIRM} (sempre mostra o cartao, mesmo no modo \lstinline|allow|,
+por reescrever uma linha de comando da \emph{toolchain}); e
+\code{rename\_project}, \code{rename\_processor} e \code{get\_rename\_status}
+estao em \code{PRE\_AUTHORIZED} (nunca passam pelo cartao bloqueante, pois rodam
+desacoplados da IA). Alem dessas, o \code{tool\_runner} pre-autoriza o
+\code{ask\_user\_question} pulando explicitamente o portao de permissao para ele
+--- afinal ele \emph{e}, em si, um \emph{prompt} ao usuario.
+
+\section{Cofre de chaves (\code{keystore})}
+
+As chaves de API por provedor sao guardadas por \file{main/ai/keystore.js},
+criptografadas com o \code{safeStorage} do Electron, que delega ao chaveiro do
+sistema operacional: \textbf{DPAPI no Windows}, \emph{Keychain} no macOS e
+\emph{libsecret} no Linux. O cofre em disco fica em
+\path{userData/aurora-ai-keys.json} como um mapa de provedor para o
+\emph{ciphertext} em base64.
+
+\begin{nota}
+\textbf{O texto puro nunca cruza a fronteira de IPC de volta ao renderer.} O
+renderer so pode perguntar \emph{se} ha uma chave configurada
+(\code{hasKey}, exposto por \code{ai:get-key-status}, que retorna apenas
+booleanos) e \emph{testar} a chave; \textbf{ler os bytes e uma operacao exclusiva
+do processo principal} --- nao existe canal \code{getKey} exposto.
+\end{nota}
+
+Detalhes de comportamento: \code{setKey} recusa-se a gravar se a criptografia do
+SO nao estiver disponivel (lanca erro em vez de salvar texto puro silenciosamente);
+\code{getKey} retorna \code{null} (e nao lanca) em falha de decifragem, para que o
+chamador possa tratar um cofre corrompido sem quebrar; e os provedores aceitos
+sao \code{openai}, \code{anthropic}, \code{google}, \code{deepseek}, \code{groq}
+e \code{ollama} (\code{SUPPORTED\_PROVIDERS}).
+
+\section{Persistencia: conversas, auditoria e preferencias}
+
+\subsection{Conversas}
+
+\file{main/ai/conversations.js} guarda \textbf{um arquivo JSON por conversa} em
+\path{userData/aurora-intelligence-chats/<id>.json}. Esse desenho (um arquivo por
+chat, em vez de um indice unico) faz com que adicionar uma conversa nunca
+reescreva todo o historico e que um arquivo corrompido mate apenas aquela
+conversa. \code{listAll()} devolve uma visao \emph{leve}
+(id, titulo, provedor, modelo, datas, contagem de mensagens e tokens
+acumulados), enquanto \code{read(id)} devolve o documento completo. Os canais IPC
+correspondentes sao \code{ai:conv-list}, \code{ai:conv-read},
+\code{ai:conv-save}, \code{ai:conv-delete}, \code{ai:conv-rename} e
+\code{ai:conv-new-id}.
+
+\subsection{Auditoria}
+
+\file{main/ai/audit.js} mantem um \emph{log} \textbf{somente-acrescimo}, um objeto
+JSON por linha, em \path{userData/aurora-intelligence-log.jsonl}. Cada chamada de
+ferramenta e seu desfecho sao registrados (\code{kind: 'tool-call'} /
+\code{'tool-result'}), dando ao usuario uma trilha revisavel do que o assistente
+fez com seu espaco de trabalho. O registro e \emph{best-effort}: uma falha de
+escrita e logada e engolida, pois a trilha de auditoria nunca pode quebrar um
+turno de chat. O laco de chat acrescenta um par de entradas em torno de cada
+ferramenta, e ha tambem \code{compile-override-applied} para registrar quando uma
+sobreposicao de comando efetivamente disparou.
+
+\subsection{Preferencias}
+
+\file{main/ai/prefs.js} guarda preferencias \emph{nao} secretas (atualmente a
+sobreposicao de modelo por provedor) em texto puro em
+\path{userData/aurora-ai-prefs.json}.
+
+\section{O painel no renderer}
+
+O painel lateral de chat vive em \file{js/ui/ai\_assistant\_manager.js}, a classe
+\code{AIAssistantManager}, apoiada por modulos puros extraidos em
+\path{js/ai/*}:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Modulo} & \textbf{Papel} \\
+\midrule
+\file{js/ai/ai\_metadata.js}     & metadados de provedor/modelo, modos de permissao, formatadores. \\
+\file{js/ai/provider\_view.js}   & marcacao (\emph{markup}) do seletor de provedor/modelo. \\
+\file{js/ai/tool\_permission.js} & logica pura do portao de permissao. \\
+\file{js/ai/tool\_runner.js}     & execucao de ferramentas contra \code{AuroraAPI}. \\
+\file{js/ai/chat\_turn.js}       & montagem do \emph{payload} de cada turno. \\
+\file{js/ai/chat\_render.js}     & renderizacao de Markdown, realce de codigo, \emph{links} de arquivo. \\
+\file{js/ai/chat\_history.js}    & lista de conversas e serializacao. \\
+\file{js/ai/system\_prompt.js}   & o \emph{system prompt} (constante imutavel). \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Comportamento da interface}
+
+O painel mantem o historico em memoria, transmite cada turno via
+\code{ai:chat-event} e renderiza o texto do assistente como Markdown ao vivo,
+token a token. Pontos notaveis:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Provedores sinteticos}: \enquote{Claude Code} e \enquote{ChatGPT} sao sempre listados (autenticacao por assinatura, sem chave); os provedores por chave so aparecem quando configurados. O modelo de cada um e persistido localmente.
+  \item \textbf{Selecao a partir do editor}: \code{askAboutSelection(...)} abre o painel e semeia o compositor com um trecho destacado no Monaco, com intencoes pre-definidas (explicar, corrigir, melhorar, comentar, documentar).
+  \item \textbf{Cartoes de atividade}: cada \code{tool-call} vira um \emph{chip} que se fecha quando chega o \code{tool-result} correspondente.
+  \item \textbf{Rolagem inteligente}: a viewport so e empurrada quando o usuario ja esta no fim; rolar para cima libera a leitura, e uma pilula \enquote{Ir para o mais recente} reancorra.
+  \item \textbf{\emph{Links} externos}: URLs vindas do modelo so abrem no navegador apos um aviso de redirecionamento (com opcao de confiar sempre); caminhos absolutos do sistema de arquivos abrem em Monaco, no Explorer ou no aplicativo padrao conforme o tipo.
+  \item \textbf{\emph{Watchdog} de interface}: \code{STREAM\_STALL\_MS} e \code{STREAM\_STALL\_HARD\_MS} recuperam a UI para o estado ocioso se um turno travar.
+\end{itemize}
+
+\subsection{O \emph{system prompt} e o contexto de projeto}
+
+\file{js/ai/system\_prompt.js} e uma string imutavel, montada a partir da
+gramatica do compilador YANC, de exemplos reais de \cmm{}, do site do NIPSCERN e
+do manifesto de ferramentas. Ela define a identidade do assistente
+(\enquote{Aurora Intelligence}, sempre no feminino), o ecossistema SAPHO, a
+linguagem \cmm{} e as regras de formatacao (sempre cercar codigo, citar
+\lstinline|arquivo.ext:linha| para gerar \emph{links} clicaveis, responder no
+idioma do usuario). A cada turno, \file{js/ai/chat\_turn.js}
+(\code{buildProjectContext}) acrescenta o contexto do projeto ativo (caminho da
+raiz e do arquivo \path{.spf}), poupando uma chamada de ferramenta e evitando que
+o modelo alucine caminhos de projetos anteriores.
+
+\section{Superficie IPC}
+
+Todos os canais sao registrados em \file{main/ipc/ai.js}. Resumo:
+
+\begin{longtable}{l Y}
+\caption{Canais IPC do Aurora Intelligence.}\\
+\toprule
+\textbf{Canal} & \textbf{Funcao} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Canal} & \textbf{Funcao} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\code{ai:list-providers}    & lista provedores, modelo padrao e modelo efetivo. \\
+\code{ai:get-key-status}    & quais provedores tem chave (apenas booleanos). \\
+\code{ai:set-key} / \code{ai:clear-key} & grava / remove uma chave no cofre. \\
+\code{ai:set-model}         & persiste a sobreposicao de modelo do provedor. \\
+\code{ai:test-connection}   & testa a chave com uma chamada minima. \\
+\code{ai:generate-oneshot}  & geracao de um disparo (SDK ou Claude Code). \\
+\code{ai:claude-code-status} / \code{ai:claude-code-usage} & estado e uso da CLI Claude Code. \\
+\code{ai:codex-status} / \code{ai:codex-usage} & estado e uso da CLI Codex. \\
+\code{ai:chat-start}        & inicia um turno (roteia ao transporte correto). \\
+\code{ai:chat-abort}        & aborta um turno em qualquer um dos transportes. \\
+\code{ai:chat-event}        & (main $\rightarrow$ renderer) eventos de \emph{streaming}. \\
+\code{ai:get-tool-manifest} & manifesto de ferramentas para o \code{tool\_runner}. \\
+\code{ai:tool-exec}         & (main $\rightarrow$ renderer) pedido de execucao de ferramenta. \\
+\code{ai:tool-result}       & (renderer $\rightarrow$ main) resposta da ferramenta. \\
+\code{ai:audit-override-applied} & registro de sobreposicao de comando aplicada. \\
+\code{ai:conv-*}            & lista, le, salva, apaga, renomeia conversas. \\
+\bottomrule
+\end{longtable}
+
+O \code{ai:chat-start} ilustra o roteamento entre transportes: o provedor
+\enquote{claude-code} vai para \file{claude\_code.js}, \enquote{chatgpt} para
+\file{codex\_cli.js}, e todo o resto para o laco do Vercel AI SDK em
+\file{chat.js}.
+
+\section{Status do modelo proprio do laboratorio}
+
+\label{sec:ia-claude-oneshot}
+O Aurora Intelligence esta \textbf{totalmente implementado}: os dois transportes,
+o servidor MCP, as 98 ferramentas, a ponte de ferramentas, o cofre criptografado,
+a persistencia e o painel estao todos operacionais. A governanca de modelos
+(\code{DEFAULT\_MODELS}, \code{MODEL\_MIGRATIONS}, resolucao e recuo) e factual e
+ativa para os provedores externos hoje disponiveis.
+
+\begin{nota}
+\textbf{Item de roteiro --- modelo proprio do NIPSCERN.} O \emph{provider} e os
+modelos \textbf{proprios} do laboratorio ainda \textbf{nao foram treinados}. Sao
+um item planejado de roteiro. Ate la, o assistente funciona normalmente contra os
+provedores externos descritos neste capitulo (provedores com chave de API e CLIs
+por assinatura), de modo que toda a funcionalidade ja esta disponivel ao usuario.
+\end{nota}

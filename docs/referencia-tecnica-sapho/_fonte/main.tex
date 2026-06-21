@@ -1,0 +1,194 @@
+% !TEX program = pdflatex
+% =====================================================================
+%  SAPHO — Referência Técnica Completa
+%  A plataforma AURORA + YANC para concepção de soft-processors
+%
+%  Documento gerado a partir do ESTUDO DO CÓDIGO-FONTE dos repositórios
+%  da organização nipscernlab (não da documentação existente).
+%
+%  Compilação:  pdflatex main && pdflatex main   (duas passadas p/ TOC)
+%  Requer:      TeX Live 2021+ ou MiKTeX. Pacotes todos padrão.
+% =====================================================================
+\documentclass[11pt,a4paper,oneside]{report}
+
+% ---------- Codificação e idioma ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage{microtype}
+
+% ---------- Layout ----------
+\usepackage[a4paper,margin=2.5cm,headheight=14pt]{geometry}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{csquotes}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+\hypersetup{
+  pdftitle={SAPHO — Referência Técnica Completa (AURORA + YANC)},
+  pdfauthor={NIPSCERN / UFJF},
+  pdfsubject={Plataforma SAPHO de soft-processors},
+  colorlinks=true,
+  linkcolor=auroraDeep,
+  citecolor=auroraDeep,
+  urlcolor=auroraTeal
+}
+
+% ---------- Paleta AURORA (aurora borealis) ----------
+\definecolor{auroraDeep}{HTML}{0B3D5B}   % azul profundo
+\definecolor{auroraTeal}{HTML}{0E8F8F}   % verde-água
+\definecolor{auroraMint}{HTML}{2FB89B}   % menta
+\definecolor{auroraInk}{HTML}{1A2330}    % quase-preto
+\definecolor{auroraGray}{HTML}{5A6675}
+\definecolor{auroraLight}{HTML}{EEF4F6}
+\definecolor{codeBg}{HTML}{F6F8FA}
+\definecolor{codeKw}{HTML}{0B5FA5}
+\definecolor{codeCom}{HTML}{6A8759}
+\definecolor{codeStr}{HTML}{A31515}
+
+% ---------- Colunas tabularx ----------
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{Z}{>{\raggedright\arraybackslash\small}X}
+
+% ---------- Estilo de código (listings) ----------
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codeKw}\bfseries,
+  commentstyle=\color{codeCom}\itshape,
+  stringstyle=\color{codeStr},
+  backgroundcolor=\color{codeBg},
+  frame=single,
+  rulecolor=\color{auroraLight},
+  framesep=4pt,
+  breaklines=true,
+  breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{auroraGray}{$\hookrightarrow$}\space},
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  tabsize=2,
+  upquote=true,
+  extendedchars=true,
+  literate=%
+    {á}{{\'a}}1 {à}{{\`a}}1 {â}{{\^a}}1 {ã}{{\~a}}1
+    {é}{{\'e}}1 {ê}{{\^e}}1 {í}{{\'i}}1
+    {ó}{{\'o}}1 {ô}{{\^o}}1 {õ}{{\~o}}1
+    {ú}{{\'u}}1 {ü}{{\"u}}1 {ç}{{\c c}}1
+    {Á}{{\'A}}1 {Ã}{{\~A}}1 {É}{{\'E}}1 {Ó}{{\'O}}1 {Ç}{{\c C}}1
+    {±}{{$\pm$}}1 {→}{{$\rightarrow$}}1 {≈}{{$\approx$}}1
+}
+
+% Linguagem auxiliar p/ a notação C± (CMM)
+\lstdefinelanguage{CMM}{
+  morekeywords={processor, in, out, void, comp, float, int, fixed, return,
+    if, else, while, for, const, include, datatype, numBits, MABits,
+    MIBits, gain},
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]"
+}
+\lstdefinestyle{cmm}{language=CMM}
+
+% ---------- Cabeçalhos ----------
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\itshape SAPHO — Referência Técnica}
+\fancyhead[R]{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{auroraTeal}\leaders\hrule height \headrulewidth\hfill}}
+
+% ---------- Títulos de capítulo ----------
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\color{auroraDeep}}
+  {\filright\Large\color{auroraTeal}Capítulo \thechapter}{8pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{10pt}{24pt}
+\titleformat{\section}{\Large\bfseries\color{auroraDeep}}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\large\bfseries\color{auroraInk}}{\thesubsection}{0.6em}{}
+
+% ---------- Macros de conveniência ----------
+\newcommand{\cmm}{C\textpm{}}                      % nome da linguagem C±
+\newcommand{\repo}[1]{\texttt{nipscernlab/#1}}
+\newcommand{\file}[1]{\path{#1}}
+\newcommand{\tool}[1]{\textsc{#1}}
+\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily\normalsize]|#1|}
+
+% Caixa de nota neutra (sem dependências externas)
+\newenvironment{nota}
+  {\par\medskip\noindent\begin{tabularx}{\linewidth}{!{\color{auroraTeal}\vrule width 3pt}>{\hspace{6pt}}X}}
+  {\end{tabularx}\par\medskip}
+
+\setlist{itemsep=2pt,topsep=4pt}
+
+% =====================================================================
+\begin{document}
+
+% ----------------------------- CAPA -----------------------------
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+{\color{auroraTeal}\rule{\linewidth}{2pt}}\\[10pt]
+{\Huge\bfseries\color{auroraDeep} SAPHO}\\[6pt]
+{\LARGE\color{auroraInk} Referência Técnica Completa}\\[14pt]
+{\large\color{auroraGray} A plataforma \textbf{AURORA} (IDE) + \textbf{YANC} (compiladores)\\
+para concepção, compilação, simulação e visualização de \emph{soft-processors}}\\[10pt]
+{\color{auroraTeal}\rule{\linewidth}{2pt}}\\[2cm]
+
+{\large\itshape Documento construído a partir do estudo direto do código-fonte\\
+dos repositórios da organização \texttt{nipscernlab}.}\\[2cm]
+
+{\large\bfseries NIPSCERN}\\[2pt]
+{\normalsize Núcleo de pesquisa --- Universidade Federal de Juiz de Fora (UFJF)}\\[1.5cm]
+
+{\normalsize Versão da suíte documentada: \textbf{SAPHO/AURORA 6.3.2}}\\[2pt]
+{\normalsize Junho de 2026}
+
+\vfill
+{\footnotesize\color{auroraGray} Escopo: núcleo SAPHO (AURORA, YANC, \textit{toolchain bundle},
+canal de distribuição \texttt{sapho}, \textit{forks} \texttt{gtkwave-nipscern} e
+\texttt{netlistsvg-aurora}, e o subsistema \textit{Aurora Intelligence}).\par}
+\end{titlepage}
+
+% --------------------------- SUMÁRIO ---------------------------
+\cleardoublepage
+\tableofcontents
+\cleardoublepage
+
+% --------------------------- CAPÍTULOS ---------------------------
+\input{capitulos/01-contexto-visao-geral}
+\input{capitulos/02-arquitetura-soft-processor-sapho}
+\input{capitulos/03-linguagem-cmm}
+\input{capitulos/04-yanc-compiladores}
+\input{capitulos/05-aurora-arquitetura}
+\input{capitulos/06-aurora-editor}
+\input{capitulos/07-aurora-projeto-arvore}
+\input{capitulos/08-aurora-compilacao}
+\input{capitulos/09-aurora-simulacao-ondas}
+\input{capitulos/10-aurora-visualizacao-gtkwave-surfer}
+\input{capitulos/11-aurora-prism-rtl}
+\input{capitulos/12-aurora-intelligence-ia}
+\input{capitulos/13-aurora-produtividade}
+\input{capitulos/14-toolchain-bundle}
+\input{capitulos/15-catalogo-terceiros}
+\input{capitulos/16-build-distribuicao}
+\input{capitulos/17-pipeline-ponta-a-ponta}
+\input{capitulos/18-engenharia-evolucao}
+
+% --------------------------- APÊNDICES ---------------------------
+\appendix
+\input{apendices/glossario}
+\input{apendices/referencias}
+
+\end{document}

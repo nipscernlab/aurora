@@ -1,0 +1,58 @@
+% !TEX root = ../main.tex
+\section{Glossário e fontes}
+\label{sec:glossario}
+
+\subsection*{Glossário}
+{\footnotesize
+\begin{multicols}{2}
+\begin{description}[style=nextline,leftmargin=0pt,font=\bfseries\ttfamily,itemsep=1pt]
+\item[SAPHO] \textit{Scalable Architecture for Hardware Optimization}: a suíte AURORA + YANC +
+\textit{toolchain}; também o canal de distribuição e o arquivo de projeto (\file{.spf}).
+\item[AURORA] A IDE \textit{desktop} (Electron + Monaco) da plataforma.
+\item[YANC] \textit{Yet Another Compiler}: os compiladores que vão de \cmm{}/C++ a Verilog.
+\item[\cmm{}] Linguagem tipo C com ponto-fixo, ponto-flutuante e complexos de primeira classe.
+\item[PRISM] Visualizador de RTL embutido (Yosys + netlistsvg).
+\item[Aurora Intelligence] Subsistema de IA (chat + ferramentas).
+\item[\file{.spf}] \textit{SAPHO Project File}: configuração canônica do projeto.
+\item[\file{.asm}] Assembly intermediário entre \textit{front-end} e \textit{back-end}.
+\item[\file{.mif}] \textit{Memory Initialization File}: imagem de memória do core.
+\item[testbench] Banco de testes (\file{\_tb.v} em Verilog, ou Python via \tool{cocotb}).
+\item[VCD / FST] Formatos de \textit{dump} de simulação (textual / binário do GTKWave).
+\item[\file{.gtkw}] Arquivo de \textit{view} (sinais/cores/grupos) do GTKWave.
+\item[Icarus / vvp] Simulador Verilog padrão (compila + executa).
+\item[Verilator] Simulador de alto desempenho (compila para C++).
+\item[cocotb] \textit{Framework} Python de \textit{testbench}.
+\item[Yosys] Síntese de RTL para netlist JSON (usada no PRISM).
+\item[GTKWave / Surfer] Visualizadores de formas de onda.
+\item[netlistsvg] Netlist JSON $\rightarrow$ diagrama SVG.
+\item[Verible / slang] Servidores de linguagem (LSP) de Verilog.
+\item[Monaco / Electron / Vite] Editor, \textit{framework} \textit{desktop} e \textit{bundler}.
+\item[MCP] \textit{Model Context Protocol}: acesso das CLIs de IA às ferramentas da IDE.
+\item[DPAPI / safeStorage] Criptografia do SO para as chaves de API.
+\item[NSIS / electron-updater] Instalador Windows e atualização automática.
+\item[numBits / MABits / MIBits] Diretivas \cmm{} que parametrizam larguras do core.
+\end{description}
+\end{multicols}
+}
+
+\subsection*{Fontes}
+Este documento foi construído a partir do \textbf{estudo direto do código-fonte} dos repositórios
+\texttt{nipscernlab} (a documentação \file{.md} existente serviu apenas como pista, sendo cada
+afirmação verificada contra a implementação).
+
+{\footnotesize
+\textbf{Repositórios:}
+\repo{aurora} (\url{https://github.com/nipscernlab/aurora}),
+\repo{yanc},
+\repo{sapho},
+\repo{aurora-toolchain},
+\repo{gtkwave-nipscern},
+\repo{netlistsvg-aurora}.
+\par\smallskip
+\textbf{Ferramentas de terceiros (projetos de origem):}
+Electron, Monaco Editor, Vite, Icarus Verilog, Verilator, Yosys, GTKWave, cocotb, netlistsvg,
+DigitalJS, Surfer, Verible, slang, tree-sitter, clang-format, MSYS2, KaTeX, Lit,
+\textit{Model Context Protocol}, Vercel AI SDK, electron-builder, electron-updater, release-please.
+\par\smallskip
+\textbf{Padrões:} Verilog HDL (IEEE 1364); VCD/FST; \textit{Conventional Commits}; NSIS.
+}

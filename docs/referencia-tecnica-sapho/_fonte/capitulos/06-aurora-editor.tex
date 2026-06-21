@@ -1,0 +1,1176 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: o editor de código}
+\label{cap:06-aurora-editor}
+
+Este capítulo documenta o subsistema de edição de texto da \tool{AURORA}: o
+motor de edição (\tool{Monaco Editor}), a camada que o instancia e gerencia
+(\code{EditorManager}), o registro de modelos compartilhados entre painéis
+(\code{SharedModelRegistry}), o gerenciador de abas (\code{TabManager}), o
+editor dividido em múltiplos painéis (\code{SplitEditorManager}), o realce de
+sintaxe (gramáticas Monarch para \cmm{} e \emph{assembly}, mais a gramática
+vendorizada de Verilog), as \emph{decorations} visuais e o mecanismo de busca.
+
+O escopo aqui é estritamente o que vive em \path{js/editor/} e \path{js/tabs/}.
+Recursos de linguagem que dependem de servidores externos --- \emph{language
+server} Verible, \code{clang-format}, \code{slang} e o realce semântico por
+\emph{tree-sitter} --- são apenas \emph{conectados} a partir daqui (ver
+\autoref{sec:editor-bootstrap}) e documentados em profundidade em outro
+capítulo. Quando um assunto pertencer a outro escopo, ele é mencionado de
+passagem com referência cruzada.
+
+\section{Visão geral da arquitetura}
+\label{sec:editor-overview}
+
+O editor é construído sobre o \tool{Monaco Editor} (o mesmo motor de edição do
+VS Code), carregado por meio do \emph{loader} AMD distribuído com o pacote. Em
+cima desse motor a \tool{AURORA} mantém quatro módulos principais, todos em
+\path{js/editor/} e \path{js/tabs/}:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Módulo} & \textbf{Responsabilidade} \\
+\midrule
+\file{js/editor/monaco\_editor.js} & Classe \code{EditorManager}: bootstrap do Monaco, criação de instâncias do editor no painel principal, temas, \emph{decorations}, busca, atalhos, registro das linguagens \cmm{} e \code{asm}. \\
+\file{js/editor/shared\_models.js} & \code{SharedModelRegistry}: registro de modelos de texto (\code{ITextModel}) com contagem de referências, compartilhados entre painéis. \\
+\file{js/editor/split\_editor.js} & \code{SplitEditorManager} e \code{SplitPane}: editor dividido em até três painéis lado a lado, cada um com sua barra de abas. \\
+\file{js/tabs/tab\_manager.js} & \code{TabManager}: abas do painel principal, ativação, marcação de modificado/salvo, contagem de instâncias, persistência de ordem, reabertura de abas fechadas. \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+Módulos auxiliares completam o subsistema: \file{js/editor/ai\_selection\_widget.js}
+(estrela \enquote{perguntar à IA} sobre uma seleção), \file{js/tabs/tab\_drag.js}
+(reordenação de abas por arrastar), \file{js/tabs/tab\_viewers.js} e
+\file{js/tabs/tab\_watchers.js} (visualizadores binários e observação de
+arquivos), e \file{js/tabs/untitled\_docs.js} (documentos sem título).
+
+\begin{nota}
+A regra central que costura todos esses módulos é a do \textbf{modelo
+compartilhado}: cada arquivo aberto corresponde a exatamente um
+\code{ITextModel} do Monaco, e \emph{todas} as instâncias visuais de editor
+(painel principal e painéis divididos) que mostram esse arquivo apontam para o
+mesmo modelo. Edições, pilha de \emph{undo}/\emph{redo} e estado de
+\enquote{modificado} ficam, portanto, sempre em sincronia, independentemente de
+em qual painel o usuário digita.
+\end{nota}
+
+\section{O Monaco Editor e o \emph{loader} AMD}
+\label{sec:editor-monaco}
+
+\subsection{Versão fixada}
+\label{sec:editor-pin}
+
+A versão do \tool{Monaco Editor} é fixada \emph{exatamente} em \texttt{0.52.2}.
+Isso é declarado em \file{package.json} sem nenhum operador de faixa (sem
+\lstinline|^| ou \lstinline|~|):
+
+\begin{lstlisting}[language=Java]
+"monaco-editor": "0.52.2",
+\end{lstlisting}
+
+\noindent
+Um \emph{semver} simples (sem modificador de faixa) sinaliza, por convenção, que
+a dependência está sob verificação estrita. O script
+\file{scripts/check-pinned-versions.js} percorre \code{dependencies} e
+\code{devDependencies}, filtra as entradas que casam com a expressão de
+\emph{semver} exato
+
+\begin{lstlisting}[language=Java]
+const EXACT_SEMVER_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
+\end{lstlisting}
+
+\noindent
+e compara o valor declarado com a versão realmente instalada em
+\path{node_modules/<pkg>/package.json}. Se divergirem, o processo encerra com
+código de erro. O cabeçalho do próprio script registra o motivo histórico do
+pino: a versão \texttt{0.53.0} do Monaco lança uma exceção dentro do próprio
+\code{monaco.contribution.js} durante a inicialização, o que bloqueia
+\code{EditorManager.initialize()}. O \code{monaco-editor} é, no momento, a única
+dependência efetivamente pinada por esse mecanismo. O script roda no
+\code{prestart} do \file{package.json} e na esteira de CI após \code{npm ci}.
+
+\subsection{O \emph{loader} AMD e a configuração do caminho \texttt{vs}}
+\label{sec:editor-loader}
+
+O Monaco é distribuído como um conjunto de módulos AMD. A \tool{AURORA} carrega
+primeiro o \emph{loader} AMD do pacote --- o único \emph{script} clássico (não
+módulo ES) que precisa rodar antes dos módulos ES da aplicação, pois instala o
+\code{require()} global do qual \file{monaco\_editor.js} depende. Em
+\file{index.html}:
+
+\begin{lstlisting}[language=Java]
+<script src="node_modules/monaco-editor/min/vs/loader.js"></script>
+<script>
+  require.config({
+    paths: { vs: new URL('node_modules/monaco-editor/min/vs',
+                          document.baseURI).href }
+  });
+</script>
+\end{lstlisting}
+
+\noindent
+O caminho-base \texttt{vs} é ancorado em uma URL \emph{absoluta} construída a
+partir de \lstinline|document.baseURI|, em vez de um caminho relativo nu. O
+Monaco constrói a URL de seu \emph{web worker} a partir desse caminho e o carrega
+via \code{importScripts} dentro do \emph{worker}; sob o esquema \lstinline|file://|
+(aplicação empacotada) um caminho relativo se resolveria contra a raiz do sistema
+de arquivos e falharia. Ancorar em \lstinline|document.baseURI| funciona tanto em
+desenvolvimento (\lstinline|http://localhost|) quanto na aplicação empacotada.
+
+A inicialização efetiva dos módulos do Monaco acontece em
+\file{monaco\_editor.js} por meio do \code{require} AMD:
+
+\begin{lstlisting}[language=Java]
+require(['vs/editor/editor.main'], function () {
+    setupCMMLanguage();
+    setupASMLanguage();
+    initVerilogLSP();   // O2  -- Verible (.v/.sv): diagnostico, formatacao, outline
+    initClangFormat();  // Shift+Alt+F: C / C++ / CMM via clang-format empacotado
+    initSlang();        // O11 -- analise semantica slang (Verilog/SystemVerilog)
+    initTreeSitter();   // O7  -- realce semantico (tree-sitter / WASM)
+    monaco.editor.defineTheme('cmm-dark', { /* ... */ });
+    monaco.editor.defineTheme('cmm-light', { /* ... */ });
+    resolve();
+});
+\end{lstlisting}
+
+\noindent
+As funções \code{initVerilogLSP}, \code{initClangFormat}, \code{initSlang} e
+\code{initTreeSitter} apenas \emph{conectam} provedores às linguagens já
+registradas; o trabalho pesado dessas integrações pertence a outro capítulo.
+
+\subsection{Idempotência da inicialização: \code{initMonaco}}
+\label{sec:editor-initmonaco}
+
+A função \code{initMonaco} memoiza a promessa de inicialização. Tanto
+\file{renderer.js} quanto o \emph{bootstrap} de \code{DOMContentLoaded} do
+próprio módulo chamam \code{initMonaco}; a memoização garante que os módulos AMD
+do Monaco carreguem e que as linguagens/temas sejam registrados exatamente uma
+vez, com ambos os chamadores compartilhando a mesma resolução:
+
+\begin{lstlisting}[language=Java]
+let _monacoReady = null;
+function initMonaco() {
+    if (_monacoReady) return _monacoReady;
+    _monacoReady = new Promise((resolve) => {
+        require(['vs/editor/editor.main'], function () { /* ... */ resolve(); });
+    });
+    return _monacoReady;
+}
+\end{lstlisting}
+
+\section{Contratos de inicialização: \code{EditorManager.ready}}
+\label{sec:editor-bootstrap}
+
+A criação de qualquer instância de editor depende de duas condições: os módulos
+AMD do Monaco precisam estar carregados, \emph{e} o \code{EditorManager} precisa
+ter localizado e dimensionado o contêiner DOM. Como um arquivo pode ser aberto
+antes de esse processo terminar (por exemplo, o usuário clica em um \path{.v}
+logo após o lançamento), o módulo expõe uma promessa pública que serve de portão
+de entrada:
+
+\begin{lstlisting}[language=Java]
+let _resolveEditorManagerReady;
+EditorManager.ready = new Promise((resolve) => {
+    _resolveEditorManagerReady = resolve;
+});
+
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await initMonaco();
+        await EditorManager.initialize();
+    } finally {
+        _resolveEditorManagerReady();
+    }
+    /* ... listener de resize ... */
+});
+\end{lstlisting}
+
+\noindent
+\code{EditorManager.initialize()} é assíncrono. Ele primeiro aguarda
+\code{ensureMonacoInitialized()} (que resolve quando \lstinline|window.monaco|
+existe, com sondagem a cada 100\,ms), depois localiza o contêiner
+\lstinline|#monaco-editor|, ajusta sua altura e largura para
+100\%, carrega o tema salvo de \code{localStorage} e instala o
+observador de redimensionamento responsivo:
+
+\begin{lstlisting}[language=Java]
+static async initialize() {
+    await ensureMonacoInitialized();
+    this.editorContainer = document.getElementById('monaco-editor');
+    if (!this.editorContainer) { console.error('Editor container not found'); return; }
+    this.editorContainer.style.height = '100%';
+    this.editorContainer.style.width  = '100%';
+    const savedTheme = localStorage.getItem('editorTheme');
+    const isDark = savedTheme ? savedTheme === 'dark' : true;
+    this.setTheme(isDark);
+    this.setupResponsiveObserver();
+}
+\end{lstlisting}
+
+\noindent
+O contrato para os chamadores é, portanto: \textbf{sempre aguardar
+\code{EditorManager.ready} antes de chamar \code{createEditorInstance}}. É
+exatamente o que \code{TabManager.addTab} faz (ver \autoref{sec:editor-addtab}).
+
+\section{O \code{EditorManager} e o ciclo de criação de instâncias}
+\label{sec:editor-manager}
+
+O \code{EditorManager} é uma classe estática: não há instâncias, apenas estado
+de classe. Os campos principais são:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Campo estático} & \textbf{Conteúdo} \\
+\midrule
+\code{editors} & \code{Map}: \emph{filePath} $\rightarrow$ \lstinline|{ editor, container }| (uma entrada por arquivo aberto no painel principal). \\
+\code{activeEditor} & A instância de editor atualmente visível/focada no painel principal. \\
+\code{editorContainer} & O elemento DOM \lstinline|#monaco-editor| que hospeda as instâncias. \\
+\code{currentTheme} & Tema corrente (\code{'cmm-dark'} por padrão). \\
+\code{resizeObserver} & \code{ResizeObserver} responsivo único. \\
+\code{findStates} & \code{Map}: \emph{filePath} $\rightarrow$ estado do \emph{widget} de busca (aberto? termo?). \\
+\code{decorationCollections} & \code{Map}: \emph{filePath} $\rightarrow$ IDs das \emph{decorations} ativas (bra-ket e barra vertical). \\
+\bottomrule
+\end{tabularx}
+
+\subsection{\code{createEditorInstance}}
+\label{sec:editor-create}
+
+\code{createEditorInstance(filePath, initialContent)} é o ponto único de criação
+de uma instância no painel principal. Seu fluxo:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{\emph{Fallback} preguiçoso do contêiner.} Se \code{editorContainer}
+        ainda for nulo, tenta capturá-lo do DOM (\lstinline|#monaco-editor|). Se
+        nem o contêiner nem \lstinline|window.monaco| existirem, registra um erro
+        e retorna --- o editor não pode ser criado fora do contrato de
+        \autoref{sec:editor-bootstrap}.
+  \item \textbf{Idempotência.} Se já existir um editor para esse \emph{filePath},
+        reutiliza-o; se o conteúdo do modelo estiver vazio e houver
+        \code{initialContent}, semeia o modelo. Isso evita que chamadores em
+        corrida (a auto-criação de \code{setActiveEditor} e a IIFE de
+        \code{addTab}) empilhem dois \lstinline|div| de editor no mesmo
+        contêiner.
+  \item \textbf{Criação do \lstinline|div|.} Um \lstinline|div.editor-instance|
+        absolutamente posicionado (\lstinline|top/left/right/bottom: 0|,
+        \lstinline|display: none|) é anexado ao contêiner; seu \code{id} é
+        derivado do caminho e \lstinline|dataset.filePath| recebe o caminho.
+  \item \textbf{Resolução de linguagem e tema.} A linguagem vem de
+        \code{getLanguageFromPath} (\autoref{sec:editor-langmap}); o tema é
+        \code{cmm-dark}/\code{cmm-light} para \cmm{} e o tema corrente para o
+        restante.
+  \item \textbf{Aquisição do modelo compartilhado.}
+        \lstinline|SharedModelRegistry.acquire(filePath, initialContent, language)|
+        devolve o \code{ITextModel} (criando-o se necessário) e incrementa a
+        contagem de referências.
+  \item \textbf{Criação do editor Monaco} com \lstinline|model:| explícito (ver
+        \autoref{sec:editor-shared} para o porquê) e o conjunto extenso de opções
+        descrito em \autoref{sec:editor-options}.
+  \item \textbf{Recursos extras, \emph{widget} de IA, \emph{listeners} e
+        \emph{decorations}} (passos detalhados abaixo).
+\end{enumerate}
+
+\noindent
+A passagem explícita de \lstinline|model:| é essencial:
+
+\begin{lstlisting}[language=Java]
+const model = SharedModelRegistry.acquire(filePath, initialContent, language);
+const editor = monaco.editor.create(editorDiv, {
+    theme, model, automaticLayout: true, /* ... demais opcoes ... */
+});
+this.setupEnhancedFeatures(editor);
+attachAiSelectionWidget(editor, { getFilePath: () => filePath });
+this.editors.set(filePath, { editor, container: editorDiv });
+\end{lstlisting}
+
+\subsubsection{\emph{Listeners} registrados por instância}
+
+Após \lstinline|editors.set|, \code{createEditorInstance} conecta uma série de
+ouvintes:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Foco/desfoco.} \code{onDidFocusEditorWidget} dispara o evento
+        \code{aurora-editor-focused} (com \lstinline|paneIndex: 0|) e
+        \code{aurora-editor-focusstate} (\lstinline|focused: true|);
+        \code{onDidBlurEditorWidget} dispara o estado \lstinline|focused: false|.
+        São eventos customizados, usados para evitar dependência circular com o
+        \code{TabManager}.
+  \item \textbf{Ligaduras por linguagem.} \code{syncLigatures} desliga as
+        ligaduras de fonte quando a linguagem do modelo é \code{verilog} (para
+        que \lstinline|<=|, atribuição não-bloqueante, não seja renderizada como
+        \enquote{$\leq$}) e as mantém ligadas para as demais. É reaplicado em
+        \code{onDidChangeModel} e \code{onDidChangeModelLanguage}.
+  \item \textbf{Re-decoração agendada.} \code{onDidChangeModelContent},
+        \code{onDidScrollChange} e \code{onDidLayoutChange} chamam
+        \code{\_scheduleRedecorate}, que reexecuta as varreduras bra-ket e
+        barra-vertical de forma \emph{debounced} (120\,ms).
+\end{itemize}
+
+\subsection{O conjunto de opções do editor}
+\label{sec:editor-options}
+
+A chamada a \lstinline|monaco.editor.create| em \code{createEditorInstance}
+configura um conjunto amplo de opções. Os grupos mais relevantes:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Grupo} & \textbf{Configuração efetiva} \\
+\midrule
+Cursor & \lstinline|cursorSmoothCaretAnimation: 'on'|, \lstinline|cursorStyle: 'line'|, \lstinline|cursorWidth: 2|, \lstinline|cursorBlinking: 'smooth'|. \\
+Busca & \lstinline|addExtraSpaceOnTop|, \lstinline|seedSearchStringFromSelection: 'always'|, \lstinline|globalFindClipboard: true|, \lstinline|loop: true|. \\
+Navegação & \emph{breadcrumbs} ligados (caminho + símbolos); \emph{outline} com filtros; \emph{code lens} com fonte \enquote{JetBrains Mono}. \\
+Sugestões & \code{suggest} com praticamente todas as categorias habilitadas (métodos, funções, classes, \emph{snippets}, etc.). \\
+Realce semântico & \lstinline|'semanticHighlighting.enabled': true| (camada tree-sitter), independentemente do tema. \\
+Quebra de linha & \lstinline|wordWrap: 'bounded'| em \emph{desktop} (ou \code{'on'} abaixo de 768\,px), \lstinline|wordWrapColumn: 120|. \\
+Minimapa & habilitado acima de 1024\,px; escala \lstinline|1| acima de 1200\,px, senão \lstinline|0.8|. \\
+Fonte & família \enquote{JetBrains Mono}/\enquote{Fira Code}/etc., \lstinline|fontLigatures: true|, tamanho 11 (móvel) ou 12. \\
+Brackets & \lstinline|bracketPairColorization.enabled: true|; guias de \emph{brackets} e indentação. \\
+Edição & \lstinline|autoClosingBrackets: 'always'|, \lstinline|autoClosingQuotes: 'always'|, \lstinline|formatOnPaste: true|, \lstinline|formatOnType: true|. \\
+\emph{Zoom} & \lstinline|mouseWheelZoom: false| (o \emph{zoom} de janela é a via intencional, em \file{zoom.js}). \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Recursos extras e atalhos: \code{setupEnhancedFeatures}}
+\label{sec:editor-enhanced}
+
+\code{setupEnhancedFeatures(editor)} registra os atalhos de teclado por meio de
+\code{editor.addCommand}. A tabela resume os comandos:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Atalho} & \textbf{Ação} \\
+\midrule
+\lstinline|Ctrl/Cmd + F| & \code{actions.find} (e foca o campo de busca após 50\,ms). \\
+\lstinline|Ctrl/Cmd + H| & \code{editor.action.startFindReplaceAction}. \\
+\lstinline|Ctrl/Cmd + Shift + F| & \code{editor.action.formatDocument}. \\
+\lstinline|Ctrl/Cmd + G| & \code{editor.action.gotoLine}. \\
+\lstinline|Ctrl/Cmd + P| & \code{editor.action.quickCommand}. \\
+\lstinline|F12| & \code{editor.action.revealDefinition}. \\
+\lstinline|Alt + F12| & \code{editor.action.peekDefinition}. \\
+\lstinline|Ctrl/Cmd + F12| & \code{editor.action.goToImplementation}. \\
+\lstinline|Shift + F12| & \code{editor.action.goToReferences}. \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+O método também instala um \code{onDidChangeModelContent} que detecta o
+fechamento do \emph{widget} de busca: ele primeiro consulta o estado próprio
+rastreado em \code{findStates} e só então executa a consulta DOM
+(\lstinline|.find-widget|), de modo que o caminho quente de digitação não pague
+um \code{querySelector} por tecla quando nenhuma busca está aberta.
+
+\subsection{Ativação, foco e \emph{layout}: \code{setActiveEditor}}
+\label{sec:editor-setactive}
+
+\code{setActiveEditor(filePath)} torna visível a instância de um arquivo. Antes
+de trocar, salva o estado de busca do arquivo que está saindo (aberto? termo?).
+Em seguida esconde todas as instâncias (\lstinline|display: none|), localiza a
+entrada do arquivo e, se ela existir, exibe-a (\lstinline|display: block|) e a
+marca como \code{activeEditor}. Não há auto-criação aqui: a criação pertence a
+\code{TabManager.addTab}, então se a instância ainda não estiver no \code{Map} o
+método retorna \lstinline|null| silenciosamente (a IIFE de \code{addTab}
+chamará novamente quando a instância existir).
+
+O \code{layout()} e o \code{focus()} são adiados via
+\code{requestAnimationFrame}, que dispara depois de o navegador ter aplicado o
+\lstinline|display: block| e computado o \emph{layout} --- exatamente quando
+\code{editor.layout()} consegue medir o contêiner corretamente:
+
+\begin{lstlisting}[language=Java]
+requestAnimationFrame(() => {
+    if (!this.activeEditor) return;          // fechamento rapido pode anular
+    this.activeEditor.layout();
+    if (!(window.SplitEditorManager && window.SplitEditorManager.focusedPane > 0)) {
+        this.activeEditor.focus();           // nao rouba foco de um split ativo
+    }
+    /* ... restaura o widget de busca para este arquivo ... */
+});
+\end{lstlisting}
+
+\noindent
+A guarda \lstinline|focusedPane > 0| impede que o painel principal roube o foco
+do teclado enquanto o usuário trabalha em um painel dividido.
+
+\subsection{Fechamento: \code{closeEditor} e \code{cleanup}}
+\label{sec:editor-close}
+
+\code{closeEditor(filePath)} limpa o ponteiro \code{activeEditor} \emph{antes} de
+descartar a instância (para que nenhum código chame \code{setValue}/\code{layout}
+sobre uma instância já descartada), descarta a \emph{view} do editor (mas
+\textbf{não} o modelo --- isso é tarefa do registro), remove o \lstinline|div| do
+contêiner, apaga as entradas em \code{editors}, \code{findStates} e
+\code{decorationCollections}, e por fim chama
+\lstinline|SharedModelRegistry.release(filePath)|. O modelo só é efetivamente
+descartado quando a contagem de referências chega a zero.
+
+\code{cleanup()} desconecta o \code{resizeObserver}, descarta cada editor e
+libera o modelo correspondente, e limpa todos os \code{Map}/\code{Set} de
+estado.
+
+\subsection{Mapeamento de extensão para linguagem}
+\label{sec:editor-langmap}
+
+\code{getLanguageFromPath(filePath)} resolve a extensão do arquivo para um
+identificador de linguagem Monaco. As entradas relevantes para o domínio da
+\tool{AURORA}:
+
+\begin{tabularx}{\linewidth}{Y Y Y}
+\toprule
+\textbf{Extensão} & \textbf{Linguagem} & \textbf{Observação} \\
+\midrule
+\code{.cmm} & \code{cmm} & \cmm{}, gramática Monarch própria. \\
+\code{.asm} & \code{asm} & \emph{assembly} do processor, gramática própria. \\
+\code{.v}, \code{.vh} & \code{verilog} & gramática vendorizada do Monaco. \\
+\code{.sv}, \code{.svh} & \code{systemverilog} & gramática vendorizada do Monaco. \\
+\code{.spf} & \code{json} & arquivo de projeto (JSON) --- ganha chaves/strings/números e \emph{folding}. \\
+\code{.c}, \code{.h} & \code{c} & \\
+\code{.cpp}, \code{.cc}, \code{.cxx}, \code{.hpp} & \code{cpp} & \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+Demais extensões comuns (\code{js}, \code{ts}, \code{html}, \code{css},
+\code{json}, \code{md}, \code{py}) mapeiam para suas linguagens nativas; o que não
+estiver no mapa cai em \code{plaintext}. O \code{SplitEditorManager} tem seu
+próprio mapa equivalente em \code{\_langFromPath} (\autoref{sec:editor-split}).
+
+\section{O \code{SharedModelRegistry}}
+\label{sec:editor-shared}
+
+O \file{js/editor/shared\_models.js} resolve um problema concreto: dividir o
+editor não pode clonar o texto do arquivo em um novo modelo por painel, porque
+então as edições não se propagariam e apenas a aba do painel principal receberia
+a marca de \enquote{modificado}. Com modelos compartilhados, toda instância que
+mostra o mesmo arquivo aponta para o mesmo \code{ITextModel}: edições,
+\emph{undo}/\emph{redo} e \emph{decorations} permanecem em sincronia, e o fluxo
+de modificado/salvo funciona não importa em qual painel se digita.
+
+\subsection{Por que a \tool{AURORA} controla o ciclo de vida do modelo}
+
+O Monaco descarta automaticamente um modelo quando o editor que o \emph{criou} é
+descartado --- o que arrancaria o modelo dos demais painéis. A regra do módulo é,
+portanto:
+
+\begin{itemize}[leftmargin=*]
+  \item sempre passar \lstinline|model:| explicitamente a
+        \lstinline|monaco.editor.create(...)|;
+  \item adquirir o modelo pelo registro (\lstinline|refCount += 1|);
+  \item liberá-lo quando o editor correspondente é descartado
+        (\lstinline|refCount -= 1|; descartar a zero).
+\end{itemize}
+
+\subsection{A estrutura interna}
+
+O registro mantém um \code{Map} privado de \emph{filePath} para
+\lstinline|{ model, refCount, savedAltVersionId }|. As chaves de URI são geradas
+por \lstinline|monaco.Uri.file(filePath)|, que normaliza barras invertidas do
+Windows e produz uma string de URI estável --- a mesma forma pela qual o Monaco
+indexa modelos internamente.
+
+\subsection{\code{acquire}}
+
+\code{acquire(filePath, content, language)} obtém (ou cria) o modelo
+compartilhado. Se o modelo já existir, \code{content} é ignorado --- o texto em
+memória é a fonte da verdade, de modo que um segundo painel abrindo o arquivo vê
+as edições não salvas do usuário, e não o conteúdo em disco:
+
+\begin{lstlisting}[language=Java]
+acquire(filePath, content, language) {
+  let entry = entries.get(filePath);
+  if (!entry) {
+    const uri = uriFor(filePath);
+    let model = monaco.editor.getModel(uri);
+    if (!model) {
+      model = monaco.editor.createModel(content || '', language, uri);
+    } else if (typeof content === 'string' && model.getValue() === '') {
+      model.setValue(content);   // modelo existente vazio + temos conteudo -> semeia
+    }
+    entry = { model, refCount: 0,
+              savedAltVersionId: model.getAlternativeVersionId() };
+    entries.set(filePath, entry);
+  }
+  entry.refCount += 1;
+  return entry.model;
+}
+\end{lstlisting}
+
+\noindent
+No momento da aquisição, o registro tira um \emph{snapshot} do
+\emph{alternative version id} do modelo. Esse é o valor contra o qual todo painel
+compara para decidir se o \emph{buffer} está \enquote{sujo}. O Monaco incrementa
+esse id a cada edição e o \emph{reverte} no \emph{undo}; assim, desfazer até o
+estado salvo limpa corretamente a marca de modificado, exatamente como no
+VS Code.
+
+\subsection{\code{release}, \code{markSaved} e \code{isDirty}}
+
+\code{release(filePath)} decrementa a contagem; ao chegar a zero, descarta o
+modelo e remove a entrada. É seguro chamar com um caminho não rastreado (por
+exemplo, arquivos binários nunca registrados).
+
+\code{isDirty(filePath)} é uma comparação de inteiros barata e independente de
+painel: retorna verdadeiro \emph{se e somente se} o
+\emph{alternative version id} corrente difere do \emph{snapshot} salvo. Retorna
+falso para arquivos não rastreados.
+
+\code{markSaved(filePath)} fixa o estado corrente do \emph{buffer} como
+\enquote{o estado salvo}, atualizando \code{savedAltVersionId}. Deve ser chamado
+logo após uma escrita bem-sucedida em disco, de modo que \code{isDirty} retorne
+falso até a próxima edição --- e o comportamento sobrevive a \emph{undo}/\emph{redo}
+que cruze esse ponto.
+
+\begin{lstlisting}[language=Java]
+isDirty(filePath) {
+  const entry = entries.get(filePath);
+  if (!entry) return false;
+  return entry.model.getAlternativeVersionId() !== entry.savedAltVersionId;
+}
+markSaved(filePath) {
+  const entry = entries.get(filePath);
+  if (entry) entry.savedAltVersionId = entry.model.getAlternativeVersionId();
+}
+\end{lstlisting}
+
+\subsection{Exposição global}
+
+Os métodos auxiliares \code{getModel}, \code{has} e \code{refCount} completam a
+interface. Ao final do módulo, o registro é exposto em \lstinline|window.SharedModelRegistry|
+para os caminhos de \file{split\_editor.js} e do \code{TabManager} que vivem fora
+do grafo de \emph{import} do módulo de edição.
+
+\section{O \code{TabManager}}
+\label{sec:editor-tabmanager}
+
+O \file{js/tabs/tab\_manager.js} é a classe estática \code{TabManager}, que
+gerencia as abas do \emph{painel principal} (os painéis divididos têm sua própria
+barra de abas, ver \autoref{sec:editor-split}). Seus campos de estado incluem:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Campo} & \textbf{Conteúdo} \\
+\midrule
+\code{tabs} & \code{Map}: \emph{filePath} $\rightarrow$ conteúdo (texto) ou o marcador \lstinline|'[BINARY_FILE]'|. \\
+\code{activeTab} & Caminho da aba ativa no painel principal. \\
+\code{previewTab} & Caminho da aba de \emph{preview} (itálico) corrente, ou \lstinline|null|. \\
+\code{unsavedChanges} & \code{Set} de caminhos com edições não salvas. \\
+\code{closedTabsStack} & Pilha (máx. 10) de abas fechadas, para reabertura. \\
+\code{untitledDocuments} & \code{Map} de documentos sem título. \\
+\code{fileWatchers}, \code{lastModifiedTimes} & Suporte à observação de arquivos no disco. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Criação de abas: \code{addTab}}
+\label{sec:editor-addtab}
+
+\code{addTab(filePath, content, options)} é o ponto de entrada para abrir um
+arquivo. Seu comportamento, em ordem:
+
+\begin{enumerate}[leftmargin=*]
+  \item \textbf{Roteamento para o painel dividido focado.} Se houver um painel
+        dividido focado (\lstinline|focusedPane > 0|) e a chamada não vier de
+        dentro do \emph{split} (\lstinline|!options._fromSplit|), o arquivo é
+        encaminhado a \code{SplitEditorManager.openInFocusedPane} e \code{addTab}
+        retorna --- a regra \enquote{uma nova aba sempre cai no \emph{split}
+        focado}.
+  \item \textbf{Aba já existente.} Se a aba já existir, promove-a de \emph{preview}
+        a permanente quando aplicável e a ativa.
+  \item \textbf{\emph{Preview} substituído.} Abrir um novo \emph{preview} fecha
+        silenciosamente o \emph{preview} anterior.
+  \item \textbf{Elemento DOM da aba.} Cria o \lstinline|div.tab| com
+        \lstinline|data-path|, ícone, nome de exibição e botão de fechar; marca
+        \code{binary-file} para arquivos binários e \code{preview} para
+        \emph{previews}.
+  \item \textbf{\emph{Listeners} da aba.} Clique (ativa, devolve o foco ao painel
+        principal), duplo-clique (promove \emph{preview}), botão de fechar, e
+        clique do botão do meio (\code{auxclick}, fecha a aba).
+  \item \textbf{Conteúdo.} Para binários, armazena \lstinline|'[BINARY_FILE]'| e
+        ativa o visualizador; para texto, armazena o conteúdo e cria o editor.
+\end{enumerate}
+
+\noindent
+A criação do editor de texto é o ponto em que o contrato de
+\autoref{sec:editor-bootstrap} é honrado: uma IIFE assíncrona aguarda
+\code{EditorManager.ready} antes de instanciar:
+
+\begin{lstlisting}[language=Java]
+(async () => {
+    try {
+        await EditorManager.ready;
+        const editor = EditorManager.createEditorInstance(filePath, content || '');
+        if (!editor) { this.closeTab(filePath); return; }
+        this.setupContentChangeListener(filePath, editor);
+        this.activateTab(filePath);
+        if (options.revealPosition && typeof editor.revealLineInCenter === 'function') {
+            const ln = options.revealPosition.line || 1;
+            const col = options.revealPosition.column || 1;
+            requestAnimationFrame(() => {
+                editor.layout();
+                editor.setPosition({ lineNumber: ln, column: col });
+                editor.revealLineInCenter(ln);
+                editor.focus();
+            });
+        }
+    } catch (error) {
+        console.error('Error creating editor:', error);
+        this.closeTab(filePath);
+    }
+})();
+\end{lstlisting}
+
+\noindent
+A opção \code{revealPosition} é usada, por exemplo, pelo \tool{PRISM} ao saltar
+da definição de um módulo para o ponto correspondente no código (ver
+\autoref{cap:06-aurora-editor} apenas como contexto; o \tool{PRISM} é descrito em
+outro capítulo). O salto é adiado para o próximo \emph{frame} com um
+\code{layout()} explícito, de modo que o editor recém-exibido tenha dimensões
+reais.
+
+\subsection{\emph{Preview tabs} (abas em itálico)}
+\label{sec:editor-preview}
+
+A \tool{AURORA} implementa o comportamento de \emph{preview} do VS Code: um
+clique simples na árvore de arquivos abre o arquivo como aba \emph{preview}
+(itálico), e há no máximo uma por painel. A aba é \enquote{promovida} a permanente
+quando o usuário dá duplo-clique nela ou começa a editar o \emph{buffer}.
+\code{promotePreviewToPermanent} remove a classe \code{preview} e zera
+\code{previewTab}; \code{\_closePreviewSilently} descarta o \emph{preview}
+anterior sem prompt, pois um \emph{preview} nunca está sujo (a primeira edição o
+teria promovido).
+
+\subsection{Marcação de modificado/salvo}
+\label{sec:editor-dirty}
+
+\code{markFileAsModified} adiciona o caminho a \code{unsavedChanges} e troca o
+botão de fechar de \textbf{todas} as abas do arquivo (principal e \emph{splits})
+por um ponto dourado (\enquote{$\bullet$}); \code{markFileAsSaved} faz o inverso,
+restaurando o \enquote{$\times$}. Ambos consultam \emph{todas} as abas via
+\lstinline|querySelectorAll('.tab[data-path="..."]')|, garantindo que o
+indicador de modificado apareça de forma idêntica em cada instância.
+
+A decisão de \emph{quando} marcar como modificado é tomada em
+\code{setupContentChangeListener}, registrado uma única vez por editor (com
+guarda de idempotência \lstinline|editor.__auroraContentDisposable|). A cada
+mudança de conteúdo ele consulta \lstinline|SharedModelRegistry.isDirty| e
+marca modificado ou salvo de acordo --- o que faz a marca de modificado se
+limpar sozinha quando o usuário desfaz até o estado salvo:
+
+\begin{lstlisting}[language=Java]
+editor.__auroraContentDisposable = editor.onDidChangeModelContent(() => {
+    if (this.isUntitledPath(filePath)) { /* ... documentos sem titulo ... */ return; }
+    const dirty = window.SharedModelRegistry?.isDirty?.(filePath) ?? false;
+    if (dirty) {
+        this.markFileAsModified(filePath);
+        if (this.previewTab === filePath) this.promotePreviewToPermanent(filePath);
+    } else {
+        this.markFileAsSaved(filePath);
+    }
+});
+\end{lstlisting}
+
+\subsection{Contagem de instâncias: \code{getInstanceCount}}
+\label{sec:editor-instancecount}
+
+\code{getInstanceCount(filePath)} conta quantas \emph{views} de editor apontam
+para o arquivo: a aba do painel principal mais cada aba de painel dividido. O
+fluxo de fechamento usa essa contagem para decidir se descartar uma \emph{view}
+deve perguntar por alterações não salvas --- apenas a \emph{última} instância
+dispara o \emph{prompt}; as anteriores apenas descartam sua \emph{view}, pois o
+modelo compartilhado (e as edições) sobrevive nas demais.
+
+\begin{lstlisting}[language=Java]
+static getInstanceCount(filePath) {
+    if (!filePath) return 0;
+    let count = this.tabs.has(filePath) ? 1 : 0;
+    const split = window.SplitEditorManager;
+    if (split && Array.isArray(split.panes)) {
+        for (const pane of split.panes) {
+            if (pane?.tabs?.has?.(filePath)) count += 1;
+        }
+    }
+    return count;
+}
+\end{lstlisting}
+
+\subsection{Reabertura de abas fechadas}
+\label{sec:editor-reopen}
+
+Ao fechar uma aba (não sem título), o \code{TabManager} empilha
+\lstinline|{ filePath, content, timestamp }| em \code{closedTabsStack},
+limitada a 10 entradas. \code{reopenLastClosedTab} desempilha a última, tenta
+reler o conteúdo atual do disco (caindo para o conteúdo armazenado se o arquivo
+não existir mais), recria a aba via \code{addTab} e, se o conteúdo armazenado
+diferir do conteúdo em disco, restaura-o e marca o arquivo como modificado.
+
+\subsection{Ordenação e persistência de abas}
+\label{sec:editor-order}
+
+A reordenação de abas por arrastar é implementada em \file{js/tabs/tab\_drag.js}
+como um \emph{mixin} instalado em \code{TabManager} via \code{Object.assign}. O
+método \code{initSortableTabs} liga a API HTML5 de \emph{drag} a cada
+\lstinline|.tab| dentro de \lstinline|#tabs-container|. Pontos centrais:
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{Reordenação ao vivo com FLIP.} Durante o arraste, a função
+        \code{liveReorder} reposiciona a aba arrastada e anima os vizinhos da
+        posição antiga para a nova com uma transição de \lstinline|transform|
+        (190\,ms), de modo que deslizem para abrir espaço.
+  \item \textbf{MIME customizado.} O arraste usa
+        \lstinline|application/x-aurora-tab-path| para que o Monaco não trate o
+        \emph{drop} como texto e cole o caminho do arquivo no \emph{buffer}; os
+        alvos de \emph{drop} (painéis divididos e \emph{shell} principal) leem
+        essa mesma chave.
+  \item \textbf{Sinalização entre painéis.} No \code{dragstart}, sinaliza em
+        \lstinline|window.SplitEditorManager._dragActive| / \code{\_dragSourcePane}
+        que se trata de um arraste de aba da \tool{AURORA} originado no painel
+        principal (índice 0), para que os alvos de \emph{drop} dos \emph{splits}
+        o aceitem.
+  \item \textbf{Auto-conexão.} Um \code{MutationObserver} conecta os
+        \emph{listeners} a abas inseridas em tempo de execução.
+\end{itemize}
+
+\noindent
+A persistência da ordem usa \code{localStorage}:
+
+\begin{lstlisting}[language=Java]
+getTabOrder() {
+    const c = document.getElementById('tabs-container');
+    return Array.from(c.querySelectorAll('.tab')).map((t) => t.getAttribute('data-path'));
+}
+saveTabOrder()   { localStorage.setItem('editorTabOrder', JSON.stringify(this.getTabOrder())); }
+restoreTabOrder(){ /* le 'editorTabOrder' e reanexa cada .tab na ordem salva */ }
+\end{lstlisting}
+
+\noindent
+\code{saveTabOrder} é chamado ao final de cada arraste; \code{restoreTabOrder}
+reanexa cada \lstinline|.tab| na ordem persistida.
+
+\section{O editor dividido (\emph{split editor})}
+\label{sec:editor-split}
+
+O \file{js/editor/split\_editor.js} implementa o editor dividido: \textbf{até três
+painéis lado a lado}, cada um com sua própria barra de abas e suas próprias
+instâncias Monaco. Painéis não focados recebem uma sobreposição de escurecimento
+sutil, e há divisores arrastáveis (\code{SplitResizer}) entre cada par de
+painéis. Os três objetos centrais são \code{SplitResizer}, \code{SplitPane} e o
+gerenciador \code{SplitEditorManager}.
+
+\subsection{Orçamento de painéis e \code{canSplit}}
+
+O orçamento é de três painéis. O painel principal só conta quando efetivamente
+tem conteúdo --- assim, depois que o usuário esvazia o painel principal (ele é
+escondido), a vaga liberada permite dividir novamente:
+
+\begin{lstlisting}[language=Java]
+canSplit() {
+    const mainCount = this._mainHasContent() ? 1 : 0;
+    if (mainCount + this.panes.length >= 3) return false;
+    if (this.focusedPane === 0) return TabManager.activeTab !== null;
+    const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
+    return !!pane?.activeFile;
+}
+\end{lstlisting}
+
+\subsection{Criação de um \emph{split}: \code{createSplit}}
+
+\code{createSplit} resolve o arquivo de origem e seu conteúdo a partir do painel
+que tem o foco. Exige um editor Monaco real (dividir um visualizador binário ou
+uma aba cujo editor ainda não foi instanciado produziria um painel em branco). O
+índice do novo painel é \lstinline|max(indices) + 1| (não \lstinline|panes.length + 1|,
+que colidiria após o fechamento de um painel intermediário). Em seguida, o novo
+painel é criado, o arquivo é aberto nele e o \emph{layout} é recalculado:
+
+\begin{lstlisting}[language=Java]
+const newIndex = this.panes.reduce((m, p) => Math.max(m, p.paneIndex), 0) + 1;
+const newPane  = new SplitPane(newIndex);
+this.panes.push(newPane);
+this.wrapper.appendChild(newPane.element);
+await newPane.openFile(filePath, content);
+this.refreshLayout();
+this.setFocus(newIndex);
+\end{lstlisting}
+
+\subsection{Edição ao vivo sobre o mesmo modelo}
+\label{sec:editor-split-live}
+
+O ponto-chave do \emph{split} é que ele edita o \emph{mesmo modelo} ao vivo.
+Quando um painel abre um arquivo, ele adquire o modelo compartilhado pelo
+\code{SharedModelRegistry} --- exatamente como o painel principal:
+
+\begin{lstlisting}[language=Java]
+const model = SharedModelRegistry.acquire(filePath, content || '', lang);
+const editor = monaco.editor.create(editorDiv, {
+    theme: EditorManager?.currentTheme ?? 'vs-dark',
+    model, automaticLayout: true,
+    fontFamily: "'JetBrains Mono', monospace", fontLigatures: true, fontSize: 12,
+    minimap: { enabled: false }, scrollBeyondLastLine: false,
+    cursorSmoothCaretAnimation: 'on', cursorBlinking: 'smooth',
+});
+\end{lstlisting}
+
+\noindent
+Como todos os painéis apontam para o mesmo \code{ITextModel}, digitar em um
+painel aparece em todos os outros em tempo real, a pilha de \emph{undo}/\emph{redo}
+é única e compartilhada, e a marca de modificado dispara uma vez por arquivo. O
+\emph{listener} de conteúdo do painel dividido vai através do \code{TabManager}
+(para que o ponto de modificado caia em todas as abas) e através de
+\lstinline|SharedModelRegistry.isDirty| (para que o resultado seja o mesmo
+independentemente de qual painel disparou o evento). O painel dividido também
+desliga as ligaduras em Verilog e anexa o \emph{widget} de IA, espelhando o
+painel principal.
+
+\subsection{Fechamento na última instância}
+
+\code{SplitPane.\_closeFile} usa \code{getInstanceCount}
+(\autoref{sec:editor-instancecount}) para decidir se mostra o diálogo de
+alterações não salvas. Se este painel for a única instância ainda segurando o
+arquivo \emph{e} o \emph{buffer} estiver sujo, executa o mesmo diálogo
+\enquote{salvar / não salvar / cancelar} do painel principal; com outras
+instâncias vivas, o modelo sobrevive e o fechamento é silencioso. Após descartar
+a \emph{view}, libera sua referência no modelo via
+\lstinline|SharedModelRegistry.release|.
+
+\subsection{Mover arquivos entre painéis}
+
+\code{moveFileToPane(filePath, targetPaneIndex)} move um arquivo (arrastado de
+sua aba) para o painel-alvo: abre no destino \emph{antes} de fechar na origem.
+Como todos os painéis compartilham o modelo, abrir no destino antes mantém a
+contagem de instâncias $\geq 1$ durante todo o movimento --- o modelo (e
+quaisquer edições não salvas) nunca é descartado no meio da operação, e o
+fechamento na origem vê que não é a última instância e não pergunta nada. O
+conteúdo é sempre obtido do modelo ao vivo (\lstinline|_contentFor|), nunca do
+disco.
+
+\subsection{\emph{Layout} e a sobreposição de boas-vindas}
+
+\code{refreshLayout} é a fonte única de verdade para o \emph{layout} do
+\emph{split}: esconde painéis sem abas (inclusive o \emph{shell} principal),
+reconstrói do zero os divisores entre painéis visíveis consecutivos, equaliza os
+painéis visíveis com \lstinline|flex: 1|, e exibe a sobreposição de boas-vindas
+apenas quando \emph{todos} os painéis estão vazios. Ao final, chama
+\code{\_relayoutVisibleEditors}, que reexecuta \code{layout()} em cada editor
+visível dentro de um \code{requestAnimationFrame} --- o Monaco precisa de um
+\code{layout()} explícito sempre que o tamanho ou a visibilidade do contêiner
+muda.
+
+\subsection{Foco, botão flutuante e \code{getFocusedFile}}
+
+\code{setFocus(paneIndex)} marca o painel focado, aplica o escurecimento aos
+demais e dispara \code{aurora:editing-file-changed}. \code{getFocusedFile}
+devolve o arquivo em edição no painel focado (do \code{TabManager.activeTab} no
+painel principal, ou do \code{activeFile} do painel dividido) --- usado por
+\lstinline|Ctrl+S| para que salvar funcione igual em qualquer painel.
+
+O controle de dividir é um único botão flutuante (\code{splitFloatBtn}),
+re-aninhado no painel que tem o foco a cada mudança de foco/aba via
+\code{\_updateButton}, com estado \emph{enabled}/\emph{tooltip} dirigido por
+\code{canSplit} e pelo sistema de \emph{tooltip} i18n.
+
+\section{Realce de sintaxe (Monarch)}
+\label{sec:editor-syntax}
+
+O realce de sintaxe usa o mecanismo \emph{Monarch} do Monaco. A \tool{AURORA}
+registra \textbf{duas linguagens próprias} --- \cmm{} e \emph{assembly} (\code{asm})
+--- com gramáticas Monarch escritas à mão em \file{monaco\_editor.js}. As
+linguagens \code{verilog} e \code{systemverilog} \textbf{não} têm gramática
+própria neste repositório: elas vêm da gramática \emph{vendorizada} no \emph{build}
+do Monaco (\path{node_modules/monaco-editor/min/vs/basic-languages/}) e são
+apenas conectadas a provedores externos (Verible, slang, tree-sitter) no
+\emph{bootstrap}.
+
+\subsection{A linguagem \cmm}
+\label{sec:editor-cmm}
+
+\code{setupCMMLanguage} registra o identificador \code{cmm} e instala o
+\emph{tokenizer} Monarch construído por \code{buildCMMTokenizer}. A gramática
+cobre:
+
+\begin{description}[leftmargin=*]
+  \item[Palavras reservadas (\code{keywords}).] Inclui o conjunto C usual
+        (\code{if}, \code{else}, \code{for}, \code{while}, \code{do},
+        \code{struct}, \code{return}, \code{break}, \code{continue},
+        \code{switch}, \code{case}, \code{default}, \code{goto},
+        \code{sizeof}, \code{typedef}, \code{enum}, \code{union}, etc.) e os
+        tipos (\code{void}, \code{int}, \code{comp}, \code{char}, \code{float},
+        \code{double}, \code{bool}, \code{long}, \code{short}, \code{signed},
+        \code{unsigned}, \code{const}, \code{static}). Há ainda três
+        identificadores especiais do domínio: \code{Jussara}, \code{Anon} e
+        \code{Chrysthofer}.
+  \item[Tipos (\code{typeKeywords}).] \code{bool}, \code{int}, \code{long},
+        \code{float}, \code{double}, \code{char}, \code{void}, \code{unsigned},
+        \code{signed}, \code{short} --- coloridos como \code{keyword.type}.
+  \item[Operadores.] O conjunto completo C, incluindo deslocamentos
+        (\lstinline|<<|, \lstinline|>>|, \lstinline|>>>|) e suas variantes de
+        atribuição; \lstinline|>>>| recebe um \emph{token} próprio
+        (\code{operator.shift.arithmetic}).
+  \item[Diretivas.] As diretivas \code{\#PRNAME}, \code{\#NUBITS},
+        \code{\#NBMANT} (e demais da lista) são realçadas como
+        \code{keyword.directive.cmm}.
+  \item[Macros \code{\#define}.] A linha \lstinline|#define NOME corpo| colore a
+        diretiva e o nome definido; cada uso posterior de \code{NOME} é capturado
+        pela regra de identificador (ver \autoref{sec:editor-cmm-define}).
+  \item[Funções da biblioteca padrão.] Os identificadores
+        \code{in}, \code{fin}, \code{out}, \code{fout}, \code{norm}, \code{sign},
+        \code{pset}, \code{abs}, \code{copy}, \code{sqrt}, \code{atan},
+        \code{sin}, \code{cos}, \code{tan}, \code{exp}, \code{log}, \code{pow},
+        \code{real}, \code{imag}, \code{fase}, \code{mod2}, \code{complex},
+        \code{vtv} --- quando seguidos de \lstinline|(| --- recebem
+        \code{keyword.function.stdlib.cmm}.
+  \item[Números complexos.] O sufixo imaginário \code{im} (como em \code{8im},
+        \code{9.234im}, \code{4im}) é reconhecido: a magnitude fica com cor de
+        número e o \code{im} recebe \code{number.complex.imaginary.cmm}. Um
+        \lstinline|\b| final impede casar \code{im} colado em um identificador
+        maior.
+  \item[\emph{Array} de arquivo.] O padrão \lstinline|nome[TAM] "arquivo.txt"|
+        é tratado de modo que \code{TAM} saia com cor de número.
+\end{description}
+
+\subsubsection{A notação de Dirac (bra-ket)}
+\label{sec:editor-dirac}
+
+Uma característica distintiva da gramática \cmm{} é o suporte à notação de Dirac
+(bra-ket) da mecânica quântica, com uma série de regras dedicadas no estado
+\code{root} do \emph{tokenizer}. Os \emph{tokens} envolvidos são
+\code{dirac.bracket} (para os colchetes angulares $\langle$ e $\rangle$),
+\code{dirac.bar} (para a barra vertical \lstinline+|+) e
+\code{keyword.special.dirac} (para símbolos especiais como \code{B}, \code{I},
+\code{0}). As regras casam padrões como o produto interno
+$\langle a | b \rangle$, o ket $| x \rangle$, o bra $\langle x |$, o operador
+densidade $| x \rangle\langle y |$ e combinações com a função \code{in(...)}.
+As regras mais específicas vêm primeiro, de modo que a
+barra vertical solta caia na última regra (\code{dirac.bar}) apenas quando não
+casar nenhum padrão estruturado.
+
+\subsubsection{Conjunto dinâmico de \code{\#define}}
+\label{sec:editor-cmm-define}
+
+A gramática \cmm{} mantém um conjunto \emph{vivo} de nomes de macros
+\lstinline|#define| objeto. \code{collectCMMDefineNames} varre todos os modelos
+\code{cmm} abertos com a expressão âncora
+
+\begin{lstlisting}[language=Java]
+const re = /^[ \t]*#define[ \t]+([a-zA-Z_]\w*)/gm;
+\end{lstlisting}
+
+\noindent
+(que só casa \lstinline|#define| no início de uma linha, evitando registrar um
+falso constante escrito dentro de uma string). \code{refreshCMMDefines}
+re-constrói o \emph{tokenizer} (via \code{setMonarchTokensProvider}) apenas quando
+o conjunto de nomes efetivamente muda --- re-registrar re-tokeniza todos os
+modelos \code{cmm}, então a atualização é \emph{debounced}
+(300\,ms) e disparada por \code{onDidChangeContent},
+\code{onDidCreateModel} e \code{onDidChangeModelLanguage}. Os nomes coletados
+são consultados pela regra de identificador via a entrada
+\lstinline|@defineConstants| do bloco de casos:
+
+\begin{lstlisting}[language=Java]
+[/[a-zA-Z_]\w*/, {
+    cases: {
+        '@typeKeywords':     'keyword.type',
+        '@keywords':         'keyword',
+        '@defineConstants':  'constant.define.cmm',
+        '@default':          'identifier'
+    }
+}],
+\end{lstlisting}
+
+\noindent
+Como a regra de identificador roda apenas no estado \code{root} (comentários e
+strings têm seus próprios estados) e palavras reservadas, tipos e funções da
+\emph{stdlib} são casados antes, um nome de \code{\#define} nunca pode
+sobrescrever uma palavra reservada.
+
+\subsubsection{Estados de comentário e string}
+
+O \emph{tokenizer} \cmm{} tem estados separados para comentários
+(\lstinline|/* ... */| com aninhamento via \code{@push}/\code{@pop} e
+\lstinline|// ...|) e strings (\lstinline|"..."| com sequências de escape e
+strings inválidas/não terminadas). O atributo \code{escapes} define a expressão
+de sequências de escape reconhecidas.
+
+\subsection{A linguagem \emph{assembly} (\code{asm})}
+\label{sec:editor-asm}
+
+\code{setupASMLanguage} registra o identificador \code{asm} com um \emph{tokenizer}
+Monarch para o \emph{assembly} do processor. Os principais grupos:
+
+\begin{description}[leftmargin=*]
+  \item[Diretivas.] \code{PRNAME}, \code{NUBITS}, \code{NBMANT}, \code{NBEXPO},
+        \code{NDSTAC}, \code{SDEPTH}, \code{NUIOIN}, \code{NUIOOU},
+        \code{NUGAIN}, \code{FFTSIZ}, \code{array}, \code{arrays}, \code{ITRAD},
+        \code{TOAQUI} --- reconhecidas com prefixo \lstinline|#| como
+        \code{keyword.directive}.
+  \item[Instruções.] Um conjunto extenso de mnemônicos do conjunto de instruções
+        do processor (\code{LOD}, \code{LDI}, \code{SET}, \code{PSH}, \code{POP},
+        \code{ADD}, \code{MLT}, \code{DIV}, \code{MOD}, \code{NEG}, \code{ABS},
+        \code{NRM}, \code{I2F}, \code{F2I}, \code{AND}, \code{ORR}, \code{XOR},
+        \code{INV}, \code{LES}, \code{GRE}, \code{EQU}, \code{SHL}, \code{SHR},
+        \code{CAL}, \code{RET}, e muitas variantes com prefixos \code{S\_},
+        \code{F\_}, \code{SF\_}, \code{P\_}, \code{PF\_}), realçados como
+        \code{keyword.instruction}.
+  \item[Instruções de salto.] \code{JMP} e \code{JIZ} recebem um \emph{token}
+        próprio (\code{keyword.jumpInstruction}).
+  \item[Rótulos.] Um identificador no início de linha seguido de \lstinline|:|
+        é realçado como \code{type.identifier}.
+  \item[Números.] Hexadecimal (\lstinline|0x...|), decimal e binário
+        (sufixo \code{b}); strings com aspas e comentários (\lstinline|//| e
+        \lstinline|;|).
+\end{description}
+
+\noindent
+A regra de identificador em maiúsculas usa um bloco de casos que classifica o
+\emph{token} como instrução, diretiva ou identificador comum, conforme pertença a
+\lstinline|@instructions| ou \lstinline|@directives|.
+
+\subsection{Verilog e SystemVerilog}
+\label{sec:editor-verilog}
+
+As linguagens \code{verilog} e \code{systemverilog} já estão registradas pelo
+\emph{build} vendorizado do Monaco; o módulo de edição não define gramática
+Monarch para elas. O que a \tool{AURORA} faz é (a) escolher o identificador
+correto por extensão em \code{getLanguageFromPath}/\code{\_langFromPath}, (b)
+desligar as ligaduras de fonte em Verilog (para que \lstinline|<=| não vire
+\enquote{$\leq$}), (c) aplicar as \emph{decorations} de barra vertical
+(\autoref{sec:editor-decorations}), e (d) conectar os provedores externos
+(Verible, slang, tree-sitter) no \emph{bootstrap}. Esses provedores externos são
+documentados em outro capítulo.
+
+\section{Temas do editor}
+\label{sec:editor-themes}
+
+O módulo define quatro temas próprios via \code{monaco.editor.defineTheme}:
+\code{cmm-dark}, \code{cmm-light}, \code{asm-dark} e \code{asm-light}. As cores
+espelham as variáveis de tema da IDE (\path{theme_variables.css}), de modo que a
+superfície do editor se misture com o restante da interface --- fundo
+\lstinline|#0A0D14|, acento \lstinline|#8E83E8|. Os temas \code{cmm-*} mapeiam os
+\emph{tokens} próprios da gramática \cmm{} (incluindo \code{dirac.bracket},
+\code{dirac.bar}, \code{number.complex.imaginary.cmm},
+\code{operator.shift.arithmetic} e \code{constant.define.cmm}) para a paleta
+\enquote{Aurora}; os temas \code{asm-*} mapeiam os \emph{tokens} de
+\emph{assembly}.
+
+\code{setTheme(isDark)} aplica o tema a todas as instâncias abertas, escolhendo
+por linguagem: \code{cmm-*} para \cmm{}, \code{asm-*} para \emph{assembly} e
+\code{vs-dark}/\code{vs} para o restante. A preferência é persistida em
+\lstinline|localStorage['editorTheme']|.
+
+\begin{nota}
+A \tool{AURORA} opera, na prática, com um tema escuro canônico único. O par
+claro/escuro existe na infraestrutura de temas do editor, mas o padrão
+inicializado (e a direção de projeto da interface) é o tema escuro
+\code{cmm-dark}.
+\end{nota}
+
+\section{\emph{Decorations} visuais}
+\label{sec:editor-decorations}
+
+O \code{EditorManager} aplica duas \emph{decorations} inline próprias, ambas
+varrendo apenas o intervalo \emph{visível} do modelo (e por isso reexecutadas em
+rolagem/\emph{layout}), com os IDs de \emph{decoration} guardados por arquivo em
+\code{decorationCollections}:
+
+\begin{description}[leftmargin=*]
+  \item[Bra-ket (\code{decorateBraKet}).] Procura ocorrências de $\rangle$
+        nas linhas visíveis e aplica a classe inline \code{bra-ket-padding},
+        ajustando o espaçamento do símbolo de \emph{ket} da notação de Dirac.
+  \item[Barra vertical (\code{decorateVerticalBar}).] Procura ocorrências de
+        \lstinline+|+ nas linhas visíveis e aplica a classe inline
+        \code{vertical-bar-lower}. A varredura é limitada ao intervalo visível
+        justamente porque a barra vertical é onipresente em Verilog (operador
+        OR).
+\end{description}
+
+\noindent
+Ambas usam \code{editor.getVisibleRanges()} e \code{model.findMatches(...)}, e
+aplicam as \emph{decorations} via \code{editor.deltaDecorations}, reaproveitando
+os IDs anteriores. As duas varreduras são reagendadas juntas por
+\code{\_scheduleRedecorate}, que coalesce rajadas de digitação e \emph{flings} de
+rolagem em uma passada a cada 120\,ms:
+
+\begin{lstlisting}[language=Java]
+static _scheduleRedecorate(editor) {
+    if (editor.__redecorateTimer) clearTimeout(editor.__redecorateTimer);
+    editor.__redecorateTimer = setTimeout(() => {
+        editor.__redecorateTimer = null;
+        this.decorateBraKet(editor);
+        this.decorateVerticalBar(editor);
+    }, 120);
+}
+\end{lstlisting}
+
+\section{Busca}
+\label{sec:editor-find}
+
+A busca dentro de um arquivo usa o \emph{widget} de busca nativo do Monaco
+(configurado via a opção \code{find} em \autoref{sec:editor-options}:
+\code{loop}, \code{globalFindClipboard}, semear da seleção). O atalho
+\lstinline|Ctrl/Cmd + F| executa a ação \code{actions.find} e foca o campo de
+entrada; \lstinline|Ctrl/Cmd + H| abre buscar-e-substituir.
+
+O \code{EditorManager} mantém o estado da busca por arquivo em \code{findStates}
+(\lstinline|{ isOpen, searchTerm }|), salvo ao trocar de aba em
+\code{setActiveEditor} e restaurado quando o arquivo volta a ficar ativo. A
+recuperação do caminho do arquivo ativo lê \lstinline|dataset.path| da aba
+ativa:
+
+\begin{lstlisting}[language=Java]
+static getActiveFilePath() {
+    const activeTab = document.querySelector('.tab.active');
+    return activeTab ? activeTab.dataset.path : null;
+}
+\end{lstlisting}
+
+\noindent
+Além da busca no arquivo, \code{searchInAllFiles(searchTerm, options)} percorre
+todos os editores abertos no painel principal e devolve, por arquivo, a lista de
+ocorrências (número da linha, coluna, texto da linha e \emph{range}), usando
+\lstinline|model.findMatches| com suporte a \emph{regex}, sensibilidade a
+maiúsculas e palavra inteira. \code{navigateToSearchResult(filePath, line, col)}
+ativa o editor do arquivo, posiciona o cursor, revela a linha no centro e foca o
+editor. (A busca de projeto inteiro, na árvore de arquivos, pertence a outro
+escopo.)
+
+\section{O \emph{widget} de seleção para IA}
+\label{sec:editor-aiwidget}
+
+\code{attachAiSelectionWidget(editor, { getFilePath })} anexa um botão flutuante
+em forma de estrela (\enquote{$\star$}) a uma instância de editor; ambos os
+\emph{factories} (painel principal e painel dividido) o chamam uma vez por
+instância. O botão aparece sempre que há uma seleção não vazia, ancorado no
+início da seleção (preferência ABOVE, com \emph{fallback} BELOW). Ao clicar,
+abre um pequeno menu de intenções rápidas:
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Intenção} & \textbf{Comportamento} \\
+\midrule
+\code{explain} (Explain) & Envia imediatamente. \\
+\code{fix} (Find \& fix bugs) & Envia imediatamente. \\
+\code{improve} (Improve) & Envia imediatamente. \\
+\code{comment} (Add comments) & Envia imediatamente. \\
+\code{ask} (Ask\ldots) & Apenas semeia o compositor para o usuário digitar. \\
+\bottomrule
+\end{tabularx}
+
+\noindent
+A ação escolhida captura o contexto vivo da seleção (\code{code},
+\code{language}, \code{filePath}, \code{lineStart}, \code{lineEnd}) e o entrega a
+\lstinline|window.AuroraAPI.ai.askAboutSelection(...)|, que abre o painel de IA e
+semeia o compositor. O \emph{widget} usa uma guarda de idempotência
+(\lstinline|editor.__auroraAiStarAttached|) para nunca anexar-se duas vezes ao
+mesmo editor reutilizado. A integração de IA (\tool{Aurora Intelligence}) é
+descrita em capítulo próprio.
+
+\section{Resumo dos contratos}
+\label{sec:editor-contracts}
+
+\begin{tabularx}{\linewidth}{Y Y}
+\toprule
+\textbf{Contrato} & \textbf{Garantia} \\
+\midrule
+\code{EditorManager.ready} & Promessa resolvida quando os módulos AMD do Monaco \emph{e} \code{initialize()} terminaram; todo chamador de \code{createEditorInstance} deve aguardá-la. \\
+Modelo explícito & \lstinline|monaco.editor.create| sempre recebe \lstinline|model:| vindo do \code{SharedModelRegistry}, para que o Monaco não descarte o modelo ao fechar um painel. \\
+\code{acquire}/\code{release} balanceados & Cada \code{acquire} é casado por um \code{release} no descarte da \emph{view}; o modelo só some na contagem zero. \\
+\emph{Dirty} por arquivo & \code{isDirty} compara \emph{alternative version ids}: resposta única por arquivo, idêntica em qualquer painel; \emph{undo} até o estado salvo limpa a marca. \\
+\emph{Prompt} na última instância & \code{getInstanceCount} garante que apenas o fechamento da última \emph{view} de um arquivo sujo pergunta por alterações não salvas. \\
+\bottomrule
+\end{tabularx}

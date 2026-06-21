@@ -1,0 +1,987 @@
+% !TEX root = ../main.tex
+\chapter{AURORA: o subsistema de compilação}
+\label{cap:08-aurora-compilacao}
+
+Este capítulo documenta como a IDE \tool{AURORA} orquestra a compilação e a
+simulação de soft-processors. O foco é o caminho que vai do clique num botão da
+barra de ferramentas até o processo-filho real disparado pela toolchain
+(\tool{cmmcomp}, \tool{asmcomp}, \tool{iverilog}, \tool{vvp}, \tool{verilator},
+\tool{yosys}, \tool{gtkwave}, etc.). A documentação que segue foi verificada
+diretamente contra o código-fonte; quando o texto descreve um comportamento, ele
+corresponde ao que os arquivos \path{js/compilation/*}, \path{main/compile/*} e
+\path{main/ipc/compile.js} efetivamente fazem.
+
+A arquitetura tem duas metades bem separadas, ligadas por IPC:
+
+\begin{description}[leftmargin=1.4em]
+  \item[Renderer (processo da janela).] Decide \emph{o que} rodar. Os botões
+    expandem para sequências de etapas; cada etapa é montada por um
+    \emph{builder} puro que devolve um \code{CommandSpec} estruturado
+    (\lstinline|{ binary, args[], cwd, env, prependPath }|). Vive sob
+    \path{js/compilation/}.
+  \item[Main (processo principal do Electron).] Decide \emph{como} rodar. O
+    \emph{executor} (\path{main/compile/executor.js}) é o único ponto que
+    efetivamente chama \lstinline|spawn(binary, args, { shell:false })|, depois de
+    validar o spec contra uma \emph{allowlist} de binários e contra as
+    \emph{protected flags}. Vive sob \path{main/compile/} e
+    \path{main/ipc/compile.js}.
+\end{description}
+
+A fronteira de confiança é nítida: o renderer nunca executa nada por conta
+própria; ele compõe um spec e o envia por IPC. O main re-valida tudo antes de
+gerar o processo-filho.
+
+\begin{nota}
+A modelagem em \code{CommandSpec} substituiu o antigo idioma de concatenar uma
+\emph{string de shell} no renderer. Como o spawn usa \lstinline|shell:false|,
+cada argumento chega ao processo-filho exatamente como está no array
+\code{args}; não há parsing de shell, portanto não há bug de aspas nem vetor de
+injeção. É justamente isso que permite que o subsistema de \emph{overrides}
+dirigido pela Aurora Intelligence (\autoref{cap:11-aurora-intelligence}) exista
+com segurança.
+\end{nota}
+
+\section{Visão geral do fluxo}
+\label{sec:08-visao-geral}
+
+O ciclo de vida de uma etapa de compilação percorre sempre o mesmo encadeamento
+de módulos. O diagrama a seguir resume o caminho de uma invocação, do clique ao
+processo-filho e de volta ao terminal.
+
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+ [botao toolbar]  -> window.AuroraAPI.compile.compileStep('wave')
+        |
+        v
+ CompilationFlowManager.runSingleStep('wave')      (compilation_flow.js)
+        |  expande o botao numa sequencia de etapas
+        v
+ CompilationModule.<fase>()                         (compilation_module.js)
+        |  monta o CommandSpec via um builder puro
+        v
+ builders/<tool>.js  ->  { step, binary, args[], cwd, env?, prependPath? }
+        |
+        v
+ spec_runner.runSpec / runSpecStreamed             (spec_runner.js)
+        |  aplica overrides (command_overrides.js), loga o diff
+        v
+ electronAPI.execSpec / execSpecStreamed   ==IPC==> main
+        |
+        v
+ executor.js  validateSpecForExec:                  (main/compile/executor.js)
+        |   1) binario na allowlist  (binary_allowlist.js)
+        |   2) protected flags ok    (protected_flags.js)
+        |   3) shape do spec valido
+        v
+ spawnTracked(binary, args, { cwd, env, shell:false })
+        |
+        |  stdout/stderr  ==IPC (one-shot ou stream)==>  terminal (renderer)
+        v
+ { code, stdout, stderr, pid }
+\end{lstlisting}
+
+\subsection{Os módulos e seus papéis}
+
+\begin{longtable}{p{0.34\linewidth} p{0.58\linewidth}}
+  \toprule
+  \textbf{Arquivo} & \textbf{Responsabilidade} \\
+  \midrule
+  \endhead
+  \path{js/compilation/compilation_flow.js} &
+    Handlers dos botões. Expande cada botão na sequência de etapas, gerencia
+    cancelamento, troca de terminal e o \emph{gating} (habilitar/desabilitar)
+    dos botões conforme o estado do \path{.spf}. \\
+  \path{js/compilation/compilation_module.js} &
+    A classe \code{CompilationModule} — o ``backend'' dos botões. Cada método
+    público é uma fase (cmm, asm, verilog, wave, etc.). Monta os specs e os
+    despacha. \\
+  \path{js/compilation/processor_compiler.js} &
+    As fases \code{cmmCompilation} e \code{asmCompilation} (impuras: rodam
+    \tool{cmmcomp}/\tool{appcomp}/\tool{asmcomp}, salvam buffers, copiam
+    artefatos). \\
+  \path{js/compilation/builders/*} &
+    Builders puros: dado um contexto, devolvem um \code{CommandSpec} sem efeito
+    colateral nem I/O. \\
+  \path{js/compilation/command_spec.js} &
+    O contrato \code{CommandSpec}: IDs de etapa, \code{applyOverride},
+    \code{formatSpec}, \code{diffSpecs}, \code{validateShape}. \\
+  \path{js/compilation/command_overrides.js} &
+    Registro de overrides (efêmeros e persistidos) que a Aurora Intelligence
+    aplica sobre os specs. \\
+  \path{js/compilation/spec_factory.js} &
+    Constrói o spec-base de qualquer etapa \emph{sem} executá-lo (para
+    pré-visualização pela IA). \\
+  \path{js/compilation/spec_runner.js} &
+    O ponto único renderer-side que aplica overrides e chama o executor via
+    IPC (\code{runSpec} / \code{runSpecStreamed}). \\
+  \path{main/compile/executor.js} &
+    O runner real: \lstinline|spawn(..., shell:false)|, monta o ambiente do
+    filho, valida e faz streaming. \\
+  \path{main/compile/binary_allowlist.js} &
+    Conjunto fechado de binários que o executor aceita gerar. \\
+  \path{main/compile/protected_flags.js} &
+    Flags invariantes por etapa que um override não pode remover. \\
+  \path{main/compile/python_locator.js} &
+    Localização do interpretador Python para o fluxo cocotb. \\
+  \path{main/ipc/compile.js} &
+    Handlers IPC auxiliares: lançar GTKWave/Surfer (detached), cancelar
+    processos, decodificar números complexos. \\
+  \bottomrule
+\end{longtable}
+
+\section{Os botões da toolbar e suas sequências}
+\label{sec:08-botoes}
+
+Todos os botões da toolbar passam por \code{window.AuroraAPI.compile} —
+intencionalmente, para que o clique do usuário percorra exatamente o mesmo
+caminho que a Aurora Intelligence usa via \emph{function-calling}. Os listeners
+são registrados em \code{CompilationFlowManager.initialize}:
+
+\begin{lstlisting}[language=Java]
+document.getElementById('cmmcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileStep('cmm'));
+document.getElementById('vericomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('verilog'));
+document.getElementById('wavecomp')?.addEventListener('click', () => window.AuroraAPI?.compile.compileStep('wave'));
+document.getElementById('prismcomp')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('prism'));
+document.getElementById('verilatorproc')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-proc'));
+document.getElementById('fastsim')?.addEventListener('click',() => window.AuroraAPI?.compile.compileStep('verilator-fast'));
+document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
+document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
+\end{lstlisting}
+
+\subsection{Filosofia: cada botão é \emph{self-contained}}
+
+O cabeçalho de \path{compilation_flow.js} descreve a filosofia adotada como
+\enquote{lazy do ponto de vista do usuário}: cada botão é auto-suficiente, e o
+usuário não precisa lembrar a ordem dos cliques nem rodar uma compilação prévia
+antes de pedir \tool{Wave} ou \tool{PRISM}. Aceita-se re-trabalho (recompilar a
+cada clique) em troca de previsibilidade. Cada botão expande para a mesma
+sequência-base:
+
+\begin{lstlisting}[basicstyle=\ttfamily\footnotesize]
+ Verilog =        cmm + asm + iverilog(-tnull, top-level)
+ PRISM   = Verilog                                        + yosys (via IPC PRISM)
+ Wave    =        cmm + asm + iverilog(-o vvp, testbench) + vvp + gtkwave
+\end{lstlisting}
+
+Os laços que rodam \code{cmm}\,+\,\code{asm} iteram sobre
+\code{window.availableProcessors}. Em um projeto de Verilog puro (sem
+processadores), o array é vazio e o laço é um \emph{no-op} natural — não há
+\lstinline|if (hasProcessor)| no pipeline. Esse princípio (laço sobre array
+vazio em vez de ramificação estrutural) é recorrente em todo o subsistema.
+
+\subsection{Mapa de botões}
+
+\begin{longtable}{p{0.16\linewidth} p{0.20\linewidth} p{0.56\linewidth}}
+  \toprule
+  \textbf{Etapa} & \textbf{Handler} & \textbf{Sequência expandida} \\
+  \midrule
+  \endhead
+  \code{cmm} & \code{handleCmmStep} &
+    \tool{cmmcomp} ($\to$ \path{Software/<base>.asm} + \path{cmm_log.txt}),
+    depois \tool{asmcomp} ($\to$ \path{Hardware/<proc>.v} + memória +
+    \path{Simulation/<proc>_tb.v}). Exige um \path{.cmm} em foco (ou inferível). \\
+  \code{asm} & \code{handleAsmStep} &
+    \tool{asmcomp} (\emph{sem} \tool{cmmcomp}) + \tool{iverilog -tnull}. Etapa
+    sem botão na toolbar; existe para a Aurora Intelligence testar um
+    \path{.asm} otimizado à mão sem regenerá-lo a partir do \path{.cmm}. \\
+  \code{verilog} & \code{handleVerilogStep} &
+    Pré-compila cmm+asm de todos os processadores, depois
+    \tool{iverilog -tnull} com o top-level (sem testbench, sem \path{.vvp}). \\
+  \code{wave} & \code{handleWaveStep} &
+    Pré-compila cmm+asm, depois \code{runGtkWave} (que faz
+    \tool{iverilog -o vvp} com testbench, roda \tool{vvp} e abre o visualizador). \\
+  \code{prism} & \code{handlePrismStep} &
+    Tudo que \code{verilog} faz e em seguida \tool{yosys} via IPC PRISM. PRISM é
+    superset de Verilog. \\
+  \code{verilator-proc} & \code{handleVerilatorProcStep} &
+    Pré-compila cmm+asm e roda o top-level \path{<proc>.v} gerado sob
+    \tool{Verilator} com a fiação previsível do processador SAPHO
+    (req\_in/out\_en one-hot, I/O por arquivo). \\
+  \code{verilator-fast} & \code{handleFastSimStep} &
+    Roda o testbench via \tool{Verilator} binário \emph{sem} gerar onda nem
+    abrir o visualizador (\code{runFastSim}). \\
+  \code{all} & \code{runAll} &
+    Full Build: \code{precompileAllProcessors} + \code{runGtkWave}. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{Gating dos botões pelo estado do design}
+\label{sec:08-gating}
+
+\code{syncToolbarEnabledState} habilita/desabilita os botões lendo a mesma fonte
+de verdade da barra de status (o \code{SpfStore}). As regras observadas no
+código:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{top-level definido} $\to$ habilita \code{vericomp},
+    \code{prismcomp};
+  \item \textbf{processador ativo} (\path{.cmm} em foco) $\to$ habilita
+    \code{verilatorproc};
+  \item \textbf{testbench definido} $\to$ habilita \code{wavecomp},
+    \code{waveConfigBtn}, \code{cancel-everything};
+  \item \textbf{Fast Sim} (\code{fastsim}) habilita quando há testbench
+    \emph{e} ou ele é \path{.py} (cocotb roda em qualquer engine) ou o simulador
+    selecionado é Verilator (\lstinline|getSimulator() === 'verilator'|).
+\end{itemize}
+
+\noindent O botão C± (\code{cmmcomp}) tem regra própria
+(\code{syncCmmcompEnabled}): só fica habilitado quando o arquivo em foco no
+Monaco termina em \path{.cmm}. A re-sincronização é disparada por eventos
+(\lstinline|aurora:editing-file-changed|, \lstinline|aurora:spf-changed|,
+\lstinline|aurora:wave-simulator-changed|, criação/remoção de processador).
+
+\section{Os builders}
+\label{sec:08-builders}
+
+Cada builder em \path{js/compilation/builders/} é uma função pura: recebe um
+objeto de contexto (caminhos, configuração, valores derivados) e devolve um
+\code{CommandSpec}, sem I/O, sem \code{console} e sem efeito colateral. Isso os
+torna triviais de testar e fáceis de alimentar às ferramentas
+\code{inspect_compile_command} / \code{preview_compile_command} da IA. O
+\path{builders/index.js} apenas re-exporta todos.
+
+\begin{nota}
+Os arquivos carregados em runtime são os \path{.js}; os \path{.ts} ao lado são a
+fonte TypeScript compilada por \lstinline|npm run build:ts|. O comportamento
+descrito aqui foi lido dos \path{.js} efetivamente executados.
+\end{nota}
+
+\subsection{\file{cmm.js} — \texttt{buildCmmSpec}}
+
+Espelha o call site \code{cmmCompilation}. Monta os argumentos nomeados do
+compilador C± (\tool{cmmcomp.exe}). A flag de idioma (\code{-pt}/\code{-en}) vai
+\emph{primeiro}, pois o yanc a consome em \code{parse_lang_flag} antes do
+parsing das demais opções. \code{-A} (\code{--array}) liga o dump de arrays do
+waveform quando \code{showArrays} está ativo.
+
+\begin{lstlisting}[language=Java]
+export function buildCmmSpec(ctx) {
+  const args = [
+    `-${ctx.lang}`,
+    '-i', ctx.inputFile,   // .cmm de entrada
+    '-n', ctx.baseName,    // nome base do processador
+    '-p', ctx.projectPath, // diretorio do processador
+    '-m', ctx.macrosPath,  // components/Macros
+    '-t', ctx.tempPath,    // components/Temp/<proc>
+  ];
+  if (ctx.showArrays) args.push('-A');
+  return { step: 'cmm', binary: ctx.cmmCompPath, args, cwd: ctx.projectPath,
+           processorName: ctx.processorName, label: `cmm: ${ctx.processorName}` };
+}
+\end{lstlisting}
+
+\subsection{\file{asm.js} — \texttt{buildAsmPreSpec} e \texttt{buildAsmSpec}}
+
+Dois builders para os dois passos do estágio ASM:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \code{buildAsmPreSpec} — o pré-processador de macros (\tool{appcomp.exe}),
+    com \code{-i <asm>} e \code{-t <temp>};
+  \item \code{buildAsmSpec} — o compilador final (\tool{asmcomp.exe}), com
+    \code{-i -p -d -m -t -f -c}. \code{-f} (frequência/clk) e \code{-c}
+    (\emph{clocks}) devem ser inteiros — o yanc rejeita valor não-numérico.
+\end{itemize}
+
+\begin{lstlisting}[language=Java]
+export function buildAsmSpec(ctx) {
+  const args = [
+    `-${ctx.lang}`,
+    '-i', ctx.asmFile,
+    '-p', ctx.projectPath,
+    '-d', ctx.hdlPath,     // components/HDL
+    '-m', ctx.macrosPath,
+    '-t', ctx.tempPath,
+    '-f', String(ctx.freq),
+    '-c', String(ctx.clocks),
+  ];
+  return { step: 'asm', binary: ctx.asmCompPath, args, cwd: ctx.tempPath,
+           processorName: ctx.processorName, label: `asm: ${ctx.processorName}` };
+}
+\end{lstlisting}
+
+\subsection{\file{iverilog.js} — \texttt{buildIverilogCheckSpec} e \texttt{buildIverilogBuildSpec}}
+
+Dois usos do \tool{iverilog}:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \code{iverilog-check} — \code{-tnull} (verificação de sintaxe e
+    elaboração, sem emitir \path{.vvp}); usado pelo botão Verilog e pelo
+    \emph{gate} do Wave-Config;
+  \item \code{iverilog-build} — \code{-o <vvp>} (build completo, produz o
+    \path{.vvp}); usado pelo botão Wave antes de o \tool{vvp} rodar.
+\end{itemize}
+
+\noindent Ambos sempre incluem \code{-y <components/HDL>} para que os módulos da
+biblioteca SAPHO (\path{processor.v}, \path{ula.v}, \path{myFIFO.v}, etc.)
+resolvam sem o usuário precisar listá-los. Ambos também retornam
+\code{prependPath} com o diretório do binário, porque o \tool{iverilog} e os
+módulos que ele faz \emph{dlopen} são MinGW-linked e dependem das DLLs de runtime
+em \path{mingw64/bin}.
+
+\begin{lstlisting}[language=Java]
+export function buildIverilogBuildSpec(ctx) {
+  const args = [
+    '-y', ctx.hdlPath,
+    '-s', ctx.simTopModule,   // top-level da simulacao
+    '-o', ctx.outputFile,     // <temp>/<simTop>.vvp
+    ...ctx.sourceFiles,
+  ];
+  return { step: 'iverilog-build', binary: ctx.iveriCompPath, args, cwd: ctx.cwd,
+           ...prependBinDir(ctx.iveriCompPath), label: ... };
+}
+\end{lstlisting}
+
+\subsection{\file{vvp.js} — \texttt{buildVvpRunSpec}}
+
+Uma única simulação completa com saída FST: \lstinline|<vvpBin> <vvpFile> -fst|.
+O cabeçalho VCD não é mais capturado por um passo separado \emph{header-only}; é
+extraído diretamente do FST finalizado (\code{_extractFstHeaderVcd}), de modo
+que uma execução produz tudo que o seletor do Wave-Config e o \path{.gtkw}
+automático precisam. O \code{cwd} resolve os caminhos relativos de
+\code{$readmemb} / \code{$fopen}, dispensando o antigo idioma
+\lstinline|cd && vvp|. O builder prepara o diretório do \tool{vvp} no
+\code{prependPath}, porque o \tool{vvp} carrega \path{system.vpi} com
+\code{LOAD_WITH_ALTERED_SEARCH_PATH} e precisa das DLLs MinGW vizinhas.
+
+\subsection{\file{cocotb.js} — \texttt{buildCocotbRunSpec}}
+
+Para o fluxo cocotb (testbench em Python), a AURORA é dona do \emph{runner
+script} e passa todos os dados específicos do projeto por variáveis de ambiente.
+O arquivo Python do usuário contém apenas testes cocotb; nenhum \tool{Makefile}
+ou boilerplate de runner é exigido no projeto.
+
+\begin{lstlisting}[language=Java]
+export function buildCocotbRunSpec(ctx) {
+  return {
+    step: 'cocotb-run',
+    binary: ctx.pythonPath,             // python.exe do bundle
+    args: [ctx.runnerScript],           // aurora_cocotb_runner.py
+    cwd: ctx.cwd,
+    env: ctx.env,                       // AURORA_COCOTB_*, SIM, PYTHONHOME, ...
+    prependPath: ctx.prependPath || [], // mingw64/bin (iverilog) + gtkwave-nipscern
+    label: 'python aurora_cocotb_runner.py',
+  };
+}
+\end{lstlisting}
+
+\subsection{\file{verilator.js} — pipeline do Verilator}
+\label{sec:08-verilator-builders}
+
+O arquivo \path{builders/verilator.js} concentra cinco builders e os ``botões''
+de performance do Verilator. O script \code{verilator} é Perl, então é sempre
+invocado como \lstinline|perl.exe verilator <args>|, com \path{mingw64/bin} e
+\path{usr/bin} prefixados no PATH para que \tool{perl}, \tool{g++}, \tool{make} e
+os utilitários do \path{verilated.mk} resolvam. O \path{V<top>.exe} gerado é
+aceito pela regra de prefixo da allowlist (vive sob \path{components/Temp/obj_dir_*}).
+
+\paragraph{Botões de performance (constantes do módulo).}
+
+\begin{tabularx}{\linewidth}{Y Y}
+  \toprule
+  \textbf{Constante} & \textbf{Valor / efeito} \\
+  \midrule
+  \code{VERILATOR_BUILD_JOBS} & \code{'0'} — um job por núcleo (\code{-j 0}). \\
+  \code{VERILATOR_OPT_LEVEL}  & \code{'-O3'} — otimização do g++ do modelo. \\
+  \code{VERILATOR_SIM_THREADS}& \code{0} — simulação single-thread por padrão. \\
+  \bottomrule
+\end{tabularx}
+
+\paragraph{\texttt{buildVerilatorBuildSpec} (fluxo Wave, \texttt{verilator-build}).}
+Gera o \path{V<top>.exe} a partir das fontes com \code{--binary --main}. Inclui
+\code{--trace-fst} por padrão (o Fast Sim passa \code{trace:false} para suprimir
+o dump), \code{--timing} (o testbench dirige o clock por \code{#delay}),
+\code{+define+YANC_TRACE} (liga a visibilidade de simulação do harness gerado
+pelo YANC), e uma sequência de \code{-CFLAGS} (\code{-O3}, \code{-march=native},
+\code{-fstrict-aliasing}, \code{-pipe}, \code{-Wno-attributes}). Para evitar uma
+falha do \tool{ccache} empacotado (que pode abortar o build com erro 127), passa
+\code{-MAKEFLAGS OBJCACHE=}, forçando o Makefile gerado a chamar \tool{g++}
+diretamente. O ambiente carrega \lstinline|LC_ALL=C| para silenciar o aviso de
+locale do perl MSYS2.
+
+\paragraph{\texttt{buildVerilatorRunSpec} (\texttt{verilator-run}).}
+Roda o \path{V<top>.exe} sem argumentos; o cabeçalho VCD é extraído do FST
+finalizado, igual ao fluxo do \tool{vvp}.
+
+\paragraph{Pipeline top-level em três passos (botão Verilator do processador).}
+Diferente do fluxo Wave, o harness para o processador CMM roda o Verilator em
+três etapas distintas:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \code{buildVerilatorJsonSpec} (\code{verilator-json}) — \code{--json-only}
+    dumpa \path{V<top>.tree.json} (as portas do top-level); nenhum C++ é gerado.
+  \item \code{buildVerilatorTbBuildSpec} (\code{verilator-tb-build}) —
+    \code{--cc --exe --build} compila o testbench C++ manual (gerado em
+    \path{verilator_tb.js}) junto com as fontes. Aqui \emph{não} há
+    \code{--timing}: o clock é dirigido à mão pelo harness C++, e o RTL é 100\%
+    sintetizável.
+  \item \code{buildVerilatorTbRunSpec} (\code{verilator-tb-run}) — roda o
+    \path{V<top>.exe}, que lê \path{input_<N>.txt} e escreve
+    \path{output_<N>.txt}. \code{+cycles=N} é apenas o teto.
+\end{enumerate}
+
+\subsection{\file{yosys.js} — \texttt{buildYosysHierarchySpec} e \texttt{buildPrismYosysSpec}}
+
+Dois usos do \tool{yosys}, ambos como \lstinline|yosys.exe -s <script>|; a única
+diferença é qual script o chamador grava em disco antes. \code{yosys-hierarchy}
+emite o JSON de hierarquia para o painel do renderer; \code{prism-yosys} faz a
+síntese para o esquemático do PRISM (ver \autoref{cap:10-aurora-prism}). O
+builder desconhece o conteúdo do script — só o caminho.
+
+\subsection{\file{wave_tools.js} — \texttt{buildFst2VcdSpec} e \texttt{buildGtkwaveSpec}}
+
+\code{buildFst2VcdSpec} monta \lstinline|fst2vcd -f <in> -o <out>|, usado para
+extrair um cabeçalho VCD em texto a partir do FST. \code{buildGtkwaveSpec} monta
+a linha do \tool{gtkwave} do fork \repo{gtkwave-nipscern}:
+\code{--dark --zoom-fit --left-justify <vcd>} (com \code{-a <save>} opcional). O
+GTKWave é caso especial: é lançado \emph{detached} e monitorado, não
+\emph{exec'd-and-awaited} — o renderer alimenta o spec ao IPC
+\code{launch-gtkwave-only} depois de renderizar os args; o pipeline de overrides
+ainda roda, só o spawn real é diferente.
+
+\subsection{Lista completa de builders}
+
+\begin{longtable}{p{0.30\linewidth} p{0.16\linewidth} p{0.46\linewidth}}
+  \toprule
+  \textbf{Builder} & \textbf{Etapa} & \textbf{Binário / efeito} \\
+  \midrule
+  \endhead
+  \code{buildCmmSpec} & \code{cmm} & \tool{cmmcomp.exe}: \path{.cmm} $\to$ \path{.asm}. \\
+  \code{buildAsmPreSpec} & \code{asm-pre} & \tool{appcomp.exe}: expande macros. \\
+  \code{buildAsmSpec} & \code{asm} & \tool{asmcomp.exe}: \path{.asm} $\to$ \path{.v} + memória + \path{_tb.v}. \\
+  \code{buildIverilogCheckSpec} & \code{iverilog-check} & \tool{iverilog -tnull}: sintaxe/elaboração. \\
+  \code{buildIverilogBuildSpec} & \code{iverilog-build} & \tool{iverilog -o}: produz \path{.vvp}. \\
+  \code{buildVvpRunSpec} & \code{vvp-run} & \tool{vvp -fst}: simulação $\to$ FST. \\
+  \code{buildCocotbRunSpec} & \code{cocotb-run} & Python runner cocotb. \\
+  \code{buildVerilatorBuildSpec} & \code{verilator-build} & \tool{verilator --binary --main} $\to$ \path{.exe}. \\
+  \code{buildVerilatorRunSpec} & \code{verilator-run} & roda \path{V<top>.exe}. \\
+  \code{buildVerilatorJsonSpec} & \code{verilator-json} & \tool{verilator --json-only}: AST de portas. \\
+  \code{buildVerilatorTbBuildSpec} & \code{verilator-tb-build} & \tool{verilator --cc --exe --build} + harness C++. \\
+  \code{buildVerilatorTbRunSpec} & \code{verilator-tb-run} & roda \path{V<top>.exe} (harness I/O por arquivo). \\
+  \code{buildFst2VcdSpec} & \code{fst2vcd} & \tool{fst2vcd}: FST $\to$ VCD texto. \\
+  \code{buildGtkwaveSpec} & \code{gtkwave} & \tool{gtkwave} (lançado detached). \\
+  \code{buildYosysHierarchySpec} & \code{yosys-hierarchy} & \tool{yosys -s}: hierarquia (JSON). \\
+  \code{buildPrismYosysSpec} & \code{prism-yosys} & \tool{yosys -s}: síntese PRISM. \\
+  \bottomrule
+\end{longtable}
+
+\section{O contrato \texttt{CommandSpec}}
+\label{sec:08-commandspec}
+
+Um \code{CommandSpec} descreve \emph{o que} rodar; o executor decide \emph{como}.
+É a forma sobre a qual os overrides da Aurora Intelligence se conectam. Suas
+invariantes (documentadas em \path{command_spec.js}):
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \code{binary} é um caminho absoluto (validado pelo main contra a
+    allowlist; o renderer nunca executa nada);
+  \item \code{args} é um array de tokens \emph{posicionais}, sem aspas de shell —
+    um caminho com espaços é \emph{um} elemento, não \lstinline|"path with spaces"|;
+  \item \code{cwd} e \code{env} são opcionais e, quando presentes, estruturados
+    (nada de idiomas \lstinline|cd "..." && cmd|).
+\end{itemize}
+
+\noindent O módulo exporta \code{STEP_IDS} (a lista congelada dos 16 IDs de
+etapa), \code{STEP_DESCRIPTIONS} (descrição de cada uma) e quatro funções puras:
+
+\begin{description}[leftmargin=1.4em]
+  \item[\code{applyOverride(spec, ov)}] devolve uma cópia do spec com o override
+    aplicado, sem mutar a entrada. A ordem é: filtra \code{removeArgs},
+    prepende \code{prependArgs}, anexa \code{appendArgs}, mescla \code{envSet},
+    remove \code{envUnset}.
+  \item[\code{formatSpec(spec)}] renderiza o spec numa linha de comando legível
+    (somente exibição — nunca alimentada a um shell); tokens com espaço são
+    citados.
+  \item[\code{diffSpecs(before, after)}] reporta o que mudou (args adicionados/
+    removidos, env adicionado/removido/alterado). Alimenta o modal de
+    confirmação e o log de auditoria.
+  \item[\code{validateShape(spec)}] validação rasa de formato (etapa conhecida,
+    \code{binary} string, \code{args} array de strings, \code{cwd} string).
+\end{description}
+
+\section{Overrides dirigidos pela Aurora Intelligence}
+\label{sec:08-overrides}
+
+O subsistema de overrides (\path{command_overrides.js}) permite que a IA
+acrescente, remova ou ajuste flags e variáveis de ambiente de qualquer etapa,
+sem nunca trocar o binário. Há duas camadas com dois tempos de vida:
+
+\begin{description}[leftmargin=1.4em]
+  \item[Efêmera (\code{Map} em memória).] Vale só até a próxima invocação da
+    etapa correspondente; o wrapper do executor a consome e limpa o slot. Bom
+    para \enquote{tente esta flag no próximo compile}.
+  \item[Persistida (\path{.spf} \code{structure.commandOverrides}).] Sobrevive
+    entre sessões, viaja com o projeto e fica sob a efêmera quando ambas
+    existem (a efêmera vence naquela execução).
+\end{description}
+
+\noindent As chaves são \code{<step>} (global) ou \code{<step>:<processorName>}
+(por processador); a mais específica vence. \code{resolveOverride} combina as
+camadas na ordem persistida-global, persistida-específica, efêmera-global,
+efêmera-específica, de modo que a camada mais específica e mais recente
+prevaleça. \code{applyResolved} aplica o override resolvido sobre o spec-base e,
+com \lstinline|consumeEphemeral:true|, remove o slot efêmero após a leitura — é o
+que o wrapper do executor faz a cada invocação.
+
+\section{O ponto único de execução: \texttt{spec\_runner.js}}
+\label{sec:08-spec-runner}
+
+\code{spec_runner.js} é o ``chokepoint'' renderer-side que transforma um
+\code{CommandSpec} base numa chamada de exec real. Qualquer caminho que
+\emph{burle} o spec\_runner não honra overrides — intencional, pois esses são
+caminhos não-toolchain ou gerenciados pelo main. Há duas funções de execução:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \code{runSpec(baseSpec, options)} — variante one-shot; devolve
+    \lstinline|{ code, stdout, stderr, pid }|;
+  \item \code{runSpecStreamed(baseSpec, options)} — variante com streaming;
+    stdout/stderr disparam eventos \code{exec-spec-stream}.
+\end{itemize}
+
+\noindent Ambas validam o formato (\code{validateShape}), resolvem e aplicam
+overrides (\code{applyResolved}), logam o diff no terminal certo (mapeado por
+\code{terminalForStep}) e despacham por IPC. Crucialmente, ambas enviam tanto o
+\code{appliedSpec} (com override) quanto o \code{baseSpec} (sem override): o main
+re-roda a verificação de protected flags contra a base.
+
+\begin{lstlisting}[language=Java]
+export async function runSpec(baseSpec, options = {}) {
+  const shape = CommandSpec.validateShape(baseSpec);
+  if (!shape.ok) throw new Error(`runSpec: invalid base spec: ${shape.error}`);
+  const { appliedSpec, override, sources } =
+    await applyResolved(baseSpec, { consumeEphemeral: !!options.consumeEphemeral });
+  logOverride(appliedSpec, baseSpec, override, sources, terminalForStep(baseSpec.step));
+  return electronAPI.execSpec({ spec: appliedSpec, baseSpec });
+}
+\end{lstlisting}
+
+\noindent O mapeamento etapa $\to$ terminal (em \code{terminalForStep}) define
+onde a saída e as dicas de override aparecem:
+
+\begin{tabularx}{\linewidth}{Y Y}
+  \toprule
+  \textbf{Etapa(s)} & \textbf{Terminal} \\
+  \midrule
+  \code{cmm} & \code{tcmm} \\
+  \code{asm-pre}, \code{asm} & \code{tasm} \\
+  \code{iverilog*}, \code{prism-yosys} & \code{tveri} \\
+  \code{vvp*}, \code{cocotb*}, \code{verilator*}, \code{fst2vcd}, \code{gtkwave}, \code{yosys-hierarchy} & \code{twave} \\
+  \bottomrule
+\end{tabularx}
+
+\section{O executor estruturado (main)}
+\label{sec:08-executor}
+
+\path{main/compile/executor.js} é o único módulo que efetivamente chama
+\lstinline|spawn(binary, args, { cwd, env, shell:false })|. Ele registra dois
+handlers IPC principais e dois de diagnóstico.
+
+\subsection{Validação antes do spawn}
+
+Tanto a chamada one-shot quanto a com streaming passam por
+\code{validateSpecForExec}, que enforça, em ordem:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item formato: \code{spec.binary} string não-vazia, \code{spec.args} array de
+    strings, \code{spec.cwd} string não-vazia;
+  \item \textbf{allowlist}: o binário precisa estar em \code{binary_allowlist.js}
+    (\autoref{sec:08-allowlist});
+  \item \textbf{protected flags}: quando o \code{baseSpec} foi fornecido (i.e.,
+    houve override), as flags protegidas da base precisam ter sido preservadas
+    (\autoref{sec:08-protected}).
+\end{enumerate}
+
+\subsection{Os handlers IPC}
+
+\begin{description}[leftmargin=1.4em]
+  \item[\code{exec-spec}] one-shot: gera o binário, acumula stdout/stderr em
+    strings e resolve com \lstinline|{ code, stdout, stderr, pid }| no
+    fechamento.
+  \item[\code{exec-spec-streamed}] streaming: cada chunk de stdout/stderr dispara
+    um evento \code{exec-spec-stream} para o renderer; resolve com
+    \lstinline|{ code }| no fechamento. Usado pelas simulações de pass-2
+    (\tool{vvp}/\tool{verilator}) para que linhas de \code{$display} apareçam ao
+    vivo.
+  \item[\code{exec-spec-allowed-binaries}] diagnóstico: lista os binários
+    permitidos (usado pela ferramenta \code{list_allowed_binaries} da IA).
+  \item[\code{exec-spec-protected-flags}] diagnóstico: tabela de flags protegidas
+    por etapa (usado por \code{list_allowed_flags}).
+\end{description}
+
+\subsection{Spawn rastreado e cancelamento}
+
+O filho é gerado por \code{spawnTracked}, que o registra no \emph{registry}
+central da toolchain — assim, fechar a janela principal (ou sair) faz um
+\emph{tree-kill} da etapa \emph{e} de qualquer ferramenta que ela fan-out
+(Verilator $\to$ make/g++/ccache, cocotb $\to$ python), não só do PID direto. O
+filho também é estacionado em \code{state.currentVvpProcess} para que
+\code{cancel-vvp-process} possa matá-lo — o slot serve para qualquer etapa longa,
+não só \tool{vvp} (o nome é histórico). O pipeline roda as etapas
+sequencialmente (apenas um filho vivo por vez), então um único slot basta.
+
+\subsection{Prioridade de processo}
+
+Os filhos da toolchain recebem mais CPU que o trabalho normal do desktop sem
+inanir a UI. O padrão é \code{ABOVE_NORMAL} (passo seguro: \code{HIGH}/
+\code{REALTIME} podem engasgar o desktop e o próprio renderer da AURORA). É
+\emph{best-effort} — \code{os.setPriority} pode lançar \code{EPERM} em sistemas
+restritos, nunca fatal. A variável de ambiente
+\lstinline|AURORA_TOOLCHAIN_PRIORITY| (\code{normal} | \code{above} | \code{high}
+| \code{realtime}) permite optar por outro nível em uma máquina dedicada a build.
+
+\subsection{Streaming até o terminal}
+
+No fluxo do \tool{vvp}, por exemplo, o renderer assina \code{onExecSpecStream}
+\emph{antes} de invocar \code{runSpecStreamed}, classifica cada linha e a escreve
+em \code{twave}. Linhas de bookkeeping do simulador (\code{FST info:},
+\code{$finish called at}, etc.) são descartadas; as linhas de \code{$display}
+do usuário recebem a tag \code{raw} (sempre visíveis). A assinatura é removida no
+\code{finally}, garantindo limpeza mesmo em erro.
+
+\begin{lstlisting}[language=Java]
+let unsubscribe = null;
+if (typeof electronAPI.onExecSpecStream === 'function') {
+  unsubscribe = electronAPI.onExecSpecStream((payload) => {
+    if (!payload || !payload.data) return;
+    for (const line of payload.data.split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      if (isVvpNoise(line)) continue;
+      this.terminalManager.appendToTerminal('twave', line, 'raw');
+    }
+  });
+}
+try {
+  const r = await runSpecStreamed(buildVvpRunSpec({ ... }), { consumeEphemeral: true });
+  code = r.code;
+} finally { if (unsubscribe) unsubscribe(); }
+\end{lstlisting}
+
+\noindent A ponte IPC fica em \path{js/app/preload.js}:
+
+\begin{lstlisting}[language=Java]
+execSpec:           (payload)  => ipcRenderer.invoke('exec-spec', payload),
+execSpecStreamed:   (payload)  => ipcRenderer.invoke('exec-spec-streamed', payload),
+onExecSpecStream:   (callback) => { /* on('exec-spec-stream'); returns unsubscribe */ },
+killCurrentSpecProcess: ()     => ipcRenderer.invoke('kill-current-spec-process'),
+\end{lstlisting}
+
+\section{A allowlist de binários}
+\label{sec:08-allowlist}
+
+\path{main/compile/binary_allowlist.js} é o conjunto fechado de executáveis que o
+executor aceita gerar — a fronteira de confiança. A superfície de edição de
+linha de comando exposta à IA \emph{não} permite trocar o binário, mas um
+renderer com defeito ou comprometido poderia tentar enviar qualquer coisa; a
+allowlist rejeita qualquer spec cujo \code{binary} não esteja na tabela, com erro
+claro, independentemente do que os args digam.
+
+A tabela é indexada pelo \emph{basename} do binário; cada entrada lista os
+diretórios legais (relativos a \path{components/<subdir>}). Um spec precisa
+terminar com um dos nomes listados \emph{e} viver em um dos diretórios listados.
+
+\subsection{Os binários permitidos}
+
+\begin{longtable}{p{0.30\linewidth} p{0.42\linewidth} p{0.18\linewidth}}
+  \toprule
+  \textbf{Binário} & \textbf{Diretório permitido (sob \path{components})} & \textbf{Papel} \\
+  \midrule
+  \endhead
+  \path{cmmcomp.exe} & \path{bin} & compilador C± \\
+  \path{appcomp.exe} & \path{bin} & pré-proc. de macros ASM \\
+  \path{asmcomp.exe} & \path{bin} & compilador ASM \\
+  \path{iverilog.exe} & \path{Packages/msys/mingw64/bin} & Icarus Verilog \\
+  \path{vvp.exe} & \path{Packages/msys/mingw64/bin} & runtime do Icarus \\
+  \path{verilator} / \path{verilator.exe} & \path{Packages/msys/mingw64/bin} & Verilator \\
+  \path{perl.exe} & \path{Packages/msys/mingw64/bin} & invoca o script verilator \\
+  \path{g++.exe} & \path{Packages/msys/mingw64/bin} & compila o modelo C++ \\
+  \path{make.exe} & \path{Packages/msys/mingw64/bin} & build do Verilator \\
+  \path{yosys.exe} & \path{Packages/msys/mingw64/bin} & síntese (hierarquia/PRISM) \\
+  \path{gtkwave.exe} & \path{Packages/gtkwave-nipscern} & visualizador de onda \\
+  \path{fst2vcd.exe} & \path{Packages/gtkwave-nipscern} & FST $\to$ VCD \\
+  \path{surfer.exe} & \path{Packages/surfer} & visualizador opt-in \\
+  \path{verible-verilog-ls.exe} & \path{Packages/verible/bin} & LSP Verilog \\
+  \path{clang-format.exe} & \path{Packages/clang-format/bin} & formatador C/C++/CMM \\
+  \path{slang-server.exe} & \path{Packages/slang-server/bin} & LSP SystemVerilog \\
+  \path{comp2gtkw.exe} & \path{bin} & decode de números complexos \\
+  \bottomrule
+\end{longtable}
+
+\begin{nota}
+A tabela estática (\code{RAW_ALLOWLIST}) também é a documentação canônica de
+\enquote{onde cada ferramenta mora}. Adicionar um binário novo à toolchain é
+literalmente adicionar uma linha aqui — esse é o portão inteiro.
+\end{nota}
+
+\subsection{Os dois casos especiais}
+
+Além da tabela estática, \code{isAllowed} trata dois casos por regra:
+
+\begin{description}[leftmargin=1.4em]
+  \item[Python.] Qualquer \path{python}/\path{python3}/\path{py} (com ou sem
+    \code{.exe}) só é aceito se for exatamente o Python empacotado, verificado
+    por \code{isBundledPythonPath} (\autoref{sec:08-python}). O único Python do
+    bundle serve a ambos os fluxos cocotb (Icarus e Verilator).
+  \item[Executável gerado pelo Verilator.] O \path{V<top>.exe} não é empacotado;
+    ele nasce em \path{components/Temp/obj_dir_<simTop>/}. A allowlist o aceita
+    por casamento de prefixo: o caminho precisa começar com
+    \path{<components>/Temp/} e bater com o padrão
+    \lstinline|/obj_dir*/V<algo>(.exe)?$|.
+\end{description}
+
+\noindent A comparação de diretório é case-insensitive no Windows (o
+casing da letra de unidade pode variar conforme o app foi lançado), e o caminho
+do binário precisa ser absoluto.
+
+\section{As protected flags}
+\label{sec:08-protected}
+
+\path{main/compile/protected_flags.js} mantém, por etapa, as flags que as camadas
+de override \emph{não} podem remover nem substituir. A superfície da IA permite
+\emph{adicionar} flags — esse é o ponto de ter poder de override —, mas algumas
+flags são invariantes do pipeline: remover \code{-o <vvpFile>} do
+\code{iverilog-build}, por exemplo, quebraria o fluxo Wave, pois nenhum
+\path{.vvp} cairia no caminho que a etapa seguinte lê.
+
+A verificação dispara \emph{depois} de o override ser aplicado: compara os args
+resultantes contra a lista protegida. Se um token protegido da base sumiu,
+rejeita; se uma env var protegida foi removida ou re-vinculada a outro valor,
+rejeita. O casamento é por token exato. Para pares flag-e-valor (\code{-o file},
+\code{-y dir}, \code{-s tb}) verifica-se apenas o \emph{nome} da flag (o valor
+pode mudar — a AURORA o regenera a cada run); para tokens isolados
+(\code{--binary}, \code{--main}, \code{-tnull}) verifica-se o literal.
+
+\subsection{Tabela de regras (\texttt{RULES})}
+
+\begin{longtable}{p{0.24\linewidth} p{0.30\linewidth} p{0.36\linewidth}}
+  \toprule
+  \textbf{Etapa} & \textbf{Flags com valor (nome preservado)} & \textbf{Literais / env protegidos} \\
+  \midrule
+  \endhead
+  \code{cmm} & \code{-i -n -p -m -t} & --- \\
+  \code{asm-pre} & \code{-i -t} & --- \\
+  \code{asm} & \code{-i -p -d -m -t -f -c} & --- \\
+  \code{iverilog-check} & \code{-s -y} & \code{-tnull} \\
+  \code{iverilog-build} & \code{-s -y -o} & --- \\
+  \code{vvp-run} & --- & \code{-fst} \\
+  \code{cocotb-run} & --- & env: \code{AURORA_COCOTB_SOURCES_JSON}, \code{_TOP}, \code{_TEST_MODULE}, \code{_BUILD_DIR} \\
+  \code{verilator-build} & \code{-Mdir --top-module -y} & \code{--binary --main --trace-fst} \\
+  \code{verilator-json} & \code{--top-module -Mdir -y} & \code{--json-only} \\
+  \code{verilator-tb-build} & \code{--top-module -Mdir -y} & \code{--cc --exe --build} \\
+  \code{fst2vcd} & \code{-f -o} & --- \\
+  \code{yosys-hierarchy} & \code{-s} & --- \\
+  \code{prism-yosys} & \code{-s} & --- \\
+  \bottomrule
+\end{longtable}
+
+\noindent As etapas \code{verilator-run}, \code{verilator-tb-run} e
+\code{gtkwave} têm regras vazias (nada a proteger além do binário). A função
+\code{describe(step)} expõe a tabela para a ferramenta de introspecção
+\code{list_allowed_flags} da IA.
+
+\section{Localização do Python}
+\label{sec:08-python}
+
+\path{main/compile/python_locator.js} localiza um interpretador Python para o
+fluxo cocotb. A função \code{getBundledPythonPath} aponta para o único Python do
+bundle unificado:
+\path{components/Packages/msys/mingw64/bin/python.exe} (ou \path{python3} fora do
+Windows). Esse Python carrega ambos os VPIs do cocotb
+(\path{libcocotbvpi_icarus.vpl} e o estático \path{libcocotbvpi_verilator.a}),
+construídos pelo repositório \repo{aurora-toolchain}.
+
+\subsection{Ordem de preferência da descoberta}
+
+\code{listPythonCandidatesSync} monta a lista de candidatos nesta ordem:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item o Python empacotado (\code{getBundledPythonPath});
+  \item a variável de ambiente \lstinline|AURORA_PYTHON|, depois \lstinline|PYTHON|;
+  \item o prefixo Conda ativo (\lstinline|CONDA_PREFIX|);
+  \item candidatos comuns do Windows (miniconda3/anaconda3/mambaforge/miniforge3
+    sob o perfil do usuário e Program Files; instalações em
+    \path{LOCALAPPDATA/Programs/Python}; o \tool{py.exe});
+  \item Python encontrado no \code{PATH} (e via \tool{where.exe}/\tool{which}).
+\end{enumerate}
+
+\subsection{Sonda de capacidade}
+
+\code{getPythonStatus} prioriza o candidato empacotado; se presente, roda nele
+uma sonda (\code{runPythonProbe}) que executa um script curto reportando
+\code{executable}, versão do Python, se tem cocotb e qual a versão do cocotb. O
+status enriquecido (\code{enrichStatus}) marca \code{isBundled} e compara a versão
+do cocotb com a esperada (\code{EXPECTED_COCOTB_VERSION = '2.0.1'}), expondo
+\code{isPinnedCocotb}. A fábrica de specs (\autoref{sec:08-spec-factory}) usa esse
+status: o \code{cocotb-run} exige que o Python seja o do bundle, tenha cocotb e
+que a versão case com a esperada — caso contrário, lança erro descritivo antes de
+qualquer spawn.
+
+\section{O ambiente do processo-filho}
+\label{sec:08-env}
+
+\code{buildChildEnv} (em \path{executor.js}) monta o ambiente do filho em
+camadas: \code{process.env} $\to$ defaults de performance da toolchain $\to$
+\code{spec.env} (overrides vencem). Os defaults injetados são
+\lstinline|OMP_NUM_THREADS| e \lstinline|OMP_THREAD_LIMIT|, ambos com a contagem
+de CPUs.
+
+\subsection{Sanitização do \texttt{spec.env}}
+
+Antes de mesclar, \code{spec.env} é \emph{sanitizado} como defesa contra um spec
+adulterado: só passam chaves que casam \lstinline|^[A-Za-z_][A-Za-z0-9_]*$| com
+valor string sem \emph{null byte}. Specs legítimos (\code{OMP_*},
+\code{MAKEFLAGS}, \code{LC_ALL}, \code{AURORA_COCOTB_*}, etc.) passam intactos.
+
+\subsection{Composição do PATH (\texttt{prependPath})}
+
+Quando o spec tem \code{prependPath}, esses diretórios são prefixados ao
+\code{PATH} \emph{depois} da mescla, para que sempre tenham precedência. Apenas
+diretórios string, não-vazios, sem \emph{null byte} e \emph{sem} o separador de
+PATH (uma entrada com \code{;}/\code{:} contrabandearia várias) entram no
+prefixo. É por meio do \code{prependPath} que o \tool{iverilog}/\tool{vvp} acham
+suas DLLs MinGW e que o Verilator acha \tool{perl}/\tool{g++}/\tool{make} —
+substituindo o antigo \lstinline|cmd.exe && set "PATH=..."|.
+
+\begin{lstlisting}[language=Java]
+function buildChildEnv(spec) {
+  const cpuCount = getCPUCount();
+  const sep = process.platform === 'win32' ? ';' : ':';
+  const safeSpecEnv = {};
+  for (const [k, v] of Object.entries(spec.env || {})) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && typeof v === 'string' && !v.includes('\0'))
+      safeSpecEnv[k] = v;
+  }
+  const env = { ...process.env,
+    OMP_NUM_THREADS: cpuCount.toString(),
+    OMP_THREAD_LIMIT: cpuCount.toString(),
+    ...safeSpecEnv };
+  if (Array.isArray(spec.prependPath) && spec.prependPath.length) {
+    const safeDirs = spec.prependPath.filter((p) =>
+      typeof p === 'string' && p.length > 0 && !p.includes('\0') && !p.includes(sep));
+    if (safeDirs.length) env.PATH = safeDirs.join(sep) + sep + (env.PATH || '');
+  }
+  return env;
+}
+\end{lstlisting}
+
+\section{Modos de pipeline: simulação completa vs.\ Verilog-only}
+\label{sec:08-modos}
+
+O pipeline não tem ramos do tipo \lstinline|if (hasProcessor)|; em vez disso, os
+laços de cmm+asm iteram sobre \code{availableProcessors} e o conjunto de fontes
+(\code{synthesizableFiles}) já inclui os \path{.v} dos processadores. O que
+\emph{varia} entre os botões é \emph{quanto} do pipeline executa, decidido pelo
+botão (e pelo estado do design lido do \path{.spf}), não por uma ramificação
+condicional dentro de uma etapa.
+
+\subsection{Pré-compilação dos processadores}
+
+\code{precompileAllProcessors} é o pré-flight comum a Verilog/Wave/PRISM: para
+cada processador conhecido, roda cmm+asm. Pula em silêncio aqueles cuja
+convenção \path{<proj>/<proc>/Software/<proc>.cmm} não existe em disco (sem
+\path{.cmm}, o \tool{cmmcomp} falharia). Como itera sobre o array de
+processadores, é \emph{no-op} natural num projeto de Verilog puro.
+
+\subsection{Verilog-only}
+
+O botão \code{verilog} (e o \code{prism}, superset dele) termina em
+\tool{iverilog -tnull} sobre o top-level. É uma verificação de sintaxe e
+elaboração: nenhum \path{.vvp} é produzido, nenhuma simulação roda. O top-level
+da \enquote{sim} usado nesse modo é o módulo do top-level do projeto (e não o do
+testbench), pois não há testbench em jogo.
+
+\subsection{Simulação completa (Wave)}
+
+O botão \code{wave} acrescenta \tool{iverilog -o vvp} \emph{com} o testbench,
+roda \tool{vvp -fst} (com streaming ao vivo) e abre o visualizador. A escolha do
+top-level da simulação reflete a presença de um testbench Verilog:
+
+\begin{lstlisting}[language=Java]
+const hasVerilogTestbench = config.testbenchFile && !isPythonFile(config.testbenchFile);
+const simTopModule = hasVerilogTestbench
+  ? moduleStemFromPath(config.testbenchFile)  // tem testbench -> top = testbench
+  : topLevelModuleName;                        // sem tb -> top = top-level do projeto
+\end{lstlisting}
+
+\subsection{Auto-decisão de engine e fluxo cocotb}
+
+A fábrica de specs (\autoref{sec:08-spec-factory}) deriva o engine a partir do
+tipo do testbench e da preferência de simulador:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item testbench \path{.py} $\to$ fluxo \code{cocotb-run} (roda em qualquer
+    engine, headless ou com onda); exige o Python do bundle com cocotb na versão
+    correta;
+  \item testbench \path{.v} $\to$ fluxo \tool{iverilog}+\tool{vvp} (padrão) ou
+    \tool{Verilator} binário, conforme \code{getSimulator}; o
+    \code{iverilog-build} rejeita explicitamente um testbench Python
+    (\enquote{use cocotb-run}).
+\end{itemize}
+
+\noindent O Fast Sim (\code{verilator-fast}) é o caminho headless: roda o
+testbench via Verilator binário (ou cocotb headless, se \path{.py}) sem gerar
+onda nem abrir o visualizador — só a velocidade.
+
+\section{A fábrica de specs (pré-visualização)}
+\label{sec:08-spec-factory}
+
+\path{js/compilation/spec_factory.js} constrói o spec-base de qualquer etapa
+\emph{sem} executá-lo. É o que alimenta as ferramentas
+\code{inspect_compile_command} / \code{preview_compile_command} da IA: o
+modelo pergunta \enquote{o que você \emph{rodaria} para a etapa X?}, a fábrica
+monta o spec usando os \emph{mesmos} builders do pipeline real, e as camadas de
+override são depois sobrepostas por \code{resolveSpec} (em \code{spec_runner.js})
+para exibição.
+
+Para etapas por-processador (\code{cmm}, \code{asm-pre}, \code{asm}),
+\code{processorName} é exigido — senão, a fábrica escolhe o primeiro processador
+do projeto ou falha com mensagem útil. Para etapas do pipeline inteiro
+(\code{iverilog-*}, \code{vvp-*}, \code{verilator-*}, \code{gtkwave},
+\code{prism-yosys}), o processador é ignorado. Algumas etapas lançam erro quando
+precisam de informação de runtime que a fábrica não consegue reconstruir — por
+exemplo, \code{verilator-run} precisa do \path{V<top>.exe} por-build, que só
+existe depois de o build rodar.
+
+\section{Os handlers IPC auxiliares de compilação}
+\label{sec:08-ipc-auxiliares}
+
+\path{main/ipc/compile.js} concentra a execução de processos que \emph{não}
+passam pelo executor estruturado, sempre mantendo o cancelamento numa única
+fonte de verdade. O handler legado \code{exec-command} (string de shell crua) foi
+removido — toda a execução da toolchain passa agora pelo executor estruturado.
+Os handlers presentes:
+
+\begin{description}[leftmargin=1.4em]
+  \item[\code{launch-gtkwave-only}] lança o GTKWave \emph{detached} (sobrevive ao
+    run; rastreado por \code{spawnTracked} para ser derrubado junto com a IDE). O
+    binário fornecido pelo renderer é passado pela mesma allowlist
+    (\code{isAllowed}) antes de qualquer spawn.
+  \item[\code{launch-surfer}] lança o visualizador opt-in Surfer, com a mesma
+    porta de allowlist e um \code{existsSync} adicional (Surfer não é
+    empacotado por padrão). Reaproveita uma única janela fechando a instância
+    anterior antes de abrir outra.
+  \item[\code{write-surfer-mappings}] grava os \emph{translators} de mapeamento
+    (decode de Assembly/linha-fonte) que o \path{.surf.ron} referencia.
+  \item[\code{decode-complex}] decodifica padrões de bits de números complexos
+    via o canônico \tool{comp2gtkw.exe} (também passado pela allowlist),
+    alimentando os valores por stdin.
+  \item[\code{cancel-vvp-process}] cancelamento amplo: mata o filho estacionado
+    \emph{e} varre \path{vvp.exe}/\path{gtkwave.exe} por nome.
+  \item[\code{kill-current-spec-process}] parada cirúrgica: mata \emph{apenas} o
+    filho com streaming estacionado (sem a varredura por nome). Usado por
+    \code{_extractFstHeaderVcd} para parar o \tool{fst2vcd} assim que o cabeçalho
+    é capturado.
+\end{description}
+
+\section{Resumo}
+\label{sec:08-resumo}
+
+O subsistema de compilação da AURORA é uma esteira de duas metades. No renderer,
+os botões expandem para sequências de etapas; cada etapa vira um
+\code{CommandSpec} produzido por um \emph{builder} puro, eventualmente alterado
+por \emph{overrides} da Aurora Intelligence, e despachado por um ponto único
+(\code{spec_runner.js}). No main, um \emph{executor} valida o spec contra uma
+\emph{allowlist} fechada de \textasciitilde17 binários e contra \emph{protected
+flags} por etapa, monta o ambiente do filho (com sanitização e
+\code{prependPath}) e o gera com \lstinline|shell:false| — eliminando, por
+construção, qualquer parsing de shell. A distinção entre Verilog-only e simulação
+completa não é uma ramificação dentro das etapas, e sim o quanto da esteira cada
+botão executa, com o engine (Icarus, Verilator ou cocotb) auto-decidido pelo tipo
+do testbench e pela preferência de simulador.

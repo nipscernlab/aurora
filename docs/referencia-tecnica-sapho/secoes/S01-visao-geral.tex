@@ -1,0 +1,54 @@
+% !TEX root = ../main.tex
+\section{Visão geral e contexto}
+\label{sec:S01-visao-geral}
+
+\tool{SAPHO} (\emph{Scalable Architecture for Hardware Optimization}) é a suíte
+integrada para concepção, compilação, simulação e visualização de
+\emph{soft-processors} mantida pelo \textbf{NIPSCERN}, núcleo de pesquisa da
+\textbf{Universidade Federal de Juiz de Fora (UFJF)}, em Minas Gerais. O
+laboratório colabora com o CERN no experimento ATLAS do LHC e emprega a
+plataforma no ensino (disciplina DLP --- Dispositivos Lógicos Programáveis). A
+expansão da sigla está declarada no campo \code{description} do
+\file{package.json}. Versão documentada: \textbf{6.3.2}; licença \textbf{MIT}.
+
+Um \emph{soft-processor} é um processador descrito em HDL (\emph{Verilog}) e
+implementado na malha reconfigurável de um FPGA; sua arquitetura (largura, ISA,
+periféricos, memória) é parametrizável e recompilável em minutos. Todo o fluxo
+\tool{SAPHO} roda localmente, sem nuvem.
+
+\subsection{Modelo conceitual}
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Peça} & \textbf{Papel} \\
+\midrule
+\tool{AURORA} & IDE desktop (Electron 39 + editor Monaco; repositório \repo{aurora}) que orquestra escrita, compilação, simulação, ondas e RTL sob interface única. Projetos no tipo \code{.spf} (\emph{SAPHO Project File}), organizados por processador. \\
+\tool{YANC} & \enquote{Yet Another Compiler} (em C, Flex/Bison; repositório \repo{yanc}): compila \cmm{} ou C++ até Verilog sintetizável, imagens de memória e \emph{testbench}. Binários: \code{cmmcomp}, \code{asmcomp}, \code{appcomp}, \code{comp2gtkw}. \\
+\emph{toolchain bundle} & \emph{Snapshot} portátil msys/mingw64 (\code{aurora-msys-v1.zip}, repositório \repo{aurora-toolchain}) baixado no \emph{bootstrap}: Icarus Verilog, Verilator, Yosys, GCC/G++, \code{make}, Perl, Python+cocotb. \\
+\bottomrule
+\end{tabularx}
+
+Dois subsistemas operam dentro da IDE. \tool{PRISM} é o visualizador de RTL, que
+renderiza a netlist via Yosys + netlistsvg (\emph{fork} \repo{netlistsvg-aurora}).
+\tool{Aurora Intelligence} é o subsistema de IA, \textbf{totalmente
+implementado} (Vercel AI SDK; provedores \code{openai}, \code{anthropic},
+\code{google}, \code{deepseek}, \code{groq}, \code{ollama}; servidor MCP próprio);
+porém o \emph{provedor e os modelos próprios} do laboratório ainda \textbf{não
+foram treinados} (roadmap), e hoje opera por provedores de terceiros com chaves
+do usuário.
+
+\subsection{Fluxo, público e plataforma}
+
+Fluxo de alto nível: \emph{projeto \code{.spf} $\to$ código \cmm{}/C++ $\to$
+compilação (YANC) $\to$ Verilog + memórias + \emph{testbench} $\to$ simulação
+(iverilog/verilator + cocotb) $\to$ visualização de ondas (GTKWave/Surfer) e RTL
+(PRISM)}.
+
+Público-alvo: \textbf{pesquisa e ensino} em arquitetura de computadores e projeto
+de soft-processors --- estudantes/docentes e pesquisadores que iteram variações
+de arquitetura localmente.
+
+Plataformas: a \textbf{IDE AURORA} hoje roda \textbf{somente em Windows} (alvo
+\code{nsis}/\code{x64} no electron-builder); o \tool{YANC} suporta Windows e
+Linux. Os repositórios \repo{aurora} (desenvolvimento) e \repo{sapho} (canal de
+release) são separados por intenção.

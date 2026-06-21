@@ -1,0 +1,45 @@
+% !TEX root = ../main.tex
+\section{Build, empacotamento e distribuição}
+\label{sec:S13-build-distribuicao}
+
+A cadeia tem cinco estágios: \emph{bootstrap}, \lstinline|tsc| (processo principal + \emph{preloads}), \emph{build} do \emph{renderer} com Vite, empacotamento com \tool{electron-builder} (NSIS x64) e publicação no canal de \emph{release}. O \file{package.json} declara \texttt{name}/\texttt{productName} \texttt{sapho}/\texttt{SAPHO}, \lstinline|engines.node >=18|, licença MIT; o bloco \texttt{build} renomeia o app instalado para \texttt{Aurora-IDE}. Scripts-chave: \texttt{bootstrap}, \texttt{build:ts} (\lstinline|tsc| \emph{in-place}), \texttt{build:renderer} (\lstinline|vite build|), \texttt{build} (\lstinline|electron-builder|); \emph{hooks} \texttt{prebuild}/\texttt{prestart} encadeiam \texttt{bootstrap \&\& build:ts \&\& build:renderer}.
+
+\subsection{Bootstrap}
+\label{sec:S13-bootstrap}
+O \emph{toolchain} não é versionado; \texttt{npm run bootstrap} executa, em ordem: \file{check-pinned-versions.js} (versões \emph{semver} exato; checa \texttt{monaco-editor 0.52.2} e o manifesto das CLIs de IA contra \file{package-lock.json}), nove \emph{downloaders} Node em \path{components/Scripts/}, e \file{copy-components.js} (cria \emph{junction} \path{node_modules/electron/dist/components} -> \path{components/}, evitando copiar \textasciitilde{}1\,GB). Cada \emph{downloader} usa HTTPS com \emph{redirect}, \emph{sentinel} de presença, \emph{checksum} (\file{lib/checksum.js}, \texttt{SHA-256} enforçado quando pinado) e extração via \lstinline|Expand-Archive|; em falha sai 0 (\emph{best-effort}). O que baixam:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Downloader} & \textbf{Artefato / destino} \\
+\midrule
+\texttt{download-toolchain} & \file{aurora-msys-v1.zip} (MSYS2: iverilog, vvp, yosys, verilator, cocotb) -> \path{Packages/msys/} \\
+\texttt{download-yanc} & \file{yanc-bin-v5.2.zip} (6 compiladores + HDL/Macros/Header) -> \path{components/} \\
+\texttt{download-gtkwave-nipscern} & \emph{fork} portátil GTKWave -> \path{Packages/gtkwave-nipscern/} \\
+\texttt{download-surfer} & \tool{Surfer} (visualizador \emph{opt-in}, GitLab) \\
+\texttt{download-verible} & LS Verilog (O2) \\
+\texttt{download-clang-format} & formatador C/C++/\cmm{} \\
+\texttt{download-slang-server} & LS SystemVerilog (O11) \\
+\texttt{download-tree-sitter-grammars} & 3 \texttt{.wasm} + \emph{runtime} \\
+\texttt{download-norse-font} & \file{Norse.otf} (dafont; embutível, não redistribuível, \emph{gitignored}) \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Renderer com Vite e tsc}
+\label{sec:S13-vite}
+O \file{vite.config.mjs} cobre só o \emph{renderer}; processo principal e \emph{preloads} ficam em CommonJS, compilados \emph{in-place} por \texttt{tsc}. Diretrizes: \lstinline|base: './'| (app carrega \file{dist/index.html} por \texttt{file://}), saída multi-página (\texttt{index}, \texttt{splash}, \texttt{update}, \texttt{prism}, \texttt{design-lab}), \lstinline|target: 'chrome130'|, \lstinline|cssMinify: false|. O \emph{plugin} \lstinline|vite-plugin-static-copy| vendoriza \emph{verbatim} para \path{dist/vendor/}: \tool{Monaco} (\path{vs/}), \tool{KaTeX}, \tool{Phosphor}; espelha ainda \path{locales/}, \path{resources/} (com \file{sapho_rules.json}) e \path{assets/icons/}.
+
+\subsection{electron-builder e NSIS}
+\label{sec:S13-builder}
+\texttt{appId} \lstinline|com.nipscern.auroraide|, alvo \texttt{nsis} \texttt{x64}, artefato \file{sapho-aurora-Setup-vX.Y.Z.exe}. Registra \texttt{fileAssociations} \texttt{.spf} (papel Editor) e o protocolo \lstinline|sapho://|. A chave \texttt{files} monta o \emph{asar} (exclui \path{components/}, \path{tests/}, \path{docs/}, \texttt{*.md} e as CLIs de IA); \texttt{extraResources} copia \path{components/} para \path{resources/components_tmp}, que o NSIS (\texttt{oneClick}, via \file{build/installer.nsh}, macro \texttt{customInstall}) renomeia para \path{components} pós-instalação --- caminho que \file{main/paths.js} espera.
+
+\subsection{Auto-updater}
+\label{sec:S13-updater}
+\file{main/updater.js} usa \lstinline|electron-updater| (só em produção): \textasciitilde{}6\,s após abrir, verifica \emph{releases}; em \texttt{update-available} mostra \file{html/update-notification.html} (\emph{changelog} bilíngue); \emph{download} e instalação iniciados pelo usuário (\lstinline|autoDownload=false|), \lstinline|quitAndInstall()| relança. O \emph{feed} aponta para \lstinline|owner: nipscernlab, repo: sapho|. O \emph{builder} publica \file{latest.yml} (versão, \texttt{sha512}, tamanho --- validado antes de instalar) e \texttt{.blockmap} (\emph{delta}).
+
+\subsection{CI, release e assinatura}
+\label{sec:S13-ci}
+\file{ci.yml} (push/PR em \texttt{main}, \texttt{windows-latest}): versões pinadas, ESLint, \emph{typecheck}, guarda de \texttt{.js} gerado, i18n, \emph{dead code}, testes unitários + e2e, \texttt{build:renderer} e \emph{smoke build} (\lstinline|--publish never|). \file{release.yml} (ao publicar \emph{release}): \texttt{bootstrap}, verificação \emph{alta} de \emph{sentinels}, \texttt{build:ts}/\texttt{build:renderer}, \lstinline|electron-builder --win --x64 --publish always|. \file{release-please.yml} (\lstinline|release-type: node|, \lstinline|include-v-in-tag|; manifesto em \texttt{6.3.2}) agrega \emph{Conventional Commits} num PR de \emph{release}. Assinatura de código: instalador e \emph{updater} \textbf{não assinados} atualmente; o \emph{runbook} (\file{docs/CODE_SIGNING.md}) propõe SignPath Foundation (OSS/MIT), \emph{gated} no \emph{secret} \texttt{SIGNPATH\_API\_TOKEN}, com re-\emph{hash} de \file{latest.yml} via \file{scripts/patch-latest-yml.js}.
+
+\subsection{Split de repositórios}
+\label{sec:S13-split}
+A separação é \textbf{intencional}: \repo{aurora} é o repositório de desenvolvimento (código, CI, \emph{electron-builder}); \repo{sapho} é o canal de distribuição estável onde o instalador e o \file{latest.yml} são publicados (\texttt{publish} em \lstinline|repo: sapho|) e de onde o auto-updater consome. Publicar de aurora para sapho é operação \emph{cross-repo}. O usuário final baixa e atualiza de \repo{sapho}; a engenharia ocorre em \repo{aurora}.

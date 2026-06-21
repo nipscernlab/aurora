@@ -1,0 +1,122 @@
+% !TEX root = ../main.tex
+\section{Catálogo de ferramentas de terceiros}
+\label{sec:S12-catalogo-terceiros}
+
+Ferramentas que o SAPHO usa, orquestra ou empacota, com versão \emph{exata}
+verificada na fonte primária (\file{package.json}, \file{manifest.txt} do
+\repo{aurora-toolchain}, \file{components/Scripts/download-*.js},
+\file{main/ai/cli\_manifest.js}, \file{THIRD\_PARTY\_NOTICES.md}). A AURORA é MIT
+(\copyright{} 2024 NIPSCERN); cada componente mantém sua licença. GPL forte e o
+Surfer (EUPL) são invocados como processos externos separados, sem \emph{link}.
+Quatro modos de chegada: npm \code{dependencies} (empacotados pelo
+\tool{electron-builder}); npm \code{devDependencies} (só build/CI); \emph{bootstrap}
+(binários baixados por \file{download-*.js} com \emph{tag} e \code{SHA-256} fixados,
+em \code{extraResources}); \emph{on-demand} (CLIs de IA baixadas do npm no 1\textsuperscript{o} uso).
+O \file{check-pinned-versions.js} falha o build se versões fixadas (sem
+\lstinline|^|/\lstinline|~|) divergirem.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.27\linewidth} >{\raggedright\arraybackslash}p{0.13\linewidth} >{\raggedright\arraybackslash}p{0.15\linewidth} >{\raggedright\arraybackslash}p{0.36\linewidth}}
+\caption{Catálogo de terceiros, por categoria}\label{tab:cat}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\multicolumn{4}{l}{\textit{Runtime da aplicação}} \\
+\midrule
+\tool{electron} & \code{39.8.10} & MIT & Runtime desktop (Chromium + Node); embutido pelo \tool{electron-builder}. \\
+Node.js & \code{>=18} & MIT & Processo \emph{main}; declarado em \code{engines}. \\
+\midrule
+\multicolumn{4}{l}{\textit{Editor e interface (npm)}} \\
+\midrule
+\lstinline|monaco-editor| & \code{0.52.2} & MIT & Editor de código (núcleo VS Code); fixado (0.53.x regride). \\
+\lstinline|lit| & \code{3.3.3} & BSD-3 & Web Components da UI (shell, abas, painéis). \\
+\lstinline|@phosphor-icons/web| & \code{2.1.2} & MIT & Ícones da interface. \\
+\lstinline|katex| & \code{0.17.0} & MIT & Renderização de fórmulas LaTeX. \\
+\lstinline|jquery| / \lstinline|jquery-ui| & \code{3.7.1} / \code{1.14.2} & MIT & DOM e widgets em painéis legados. \\
+\lstinline|diff2html| & \code{3.4.56} & MIT & Diffs unificados em HTML. \\
+Inter / JetBrains Mono & --- & SIL OFL 1.1 & Fontes de UI / monoespaçada; \code{.woff2} versionadas. \\
+Norse (J. Carrouché) & --- & Própria, sem redistr. & Letreiro \enquote{Dagr}; baixada no bootstrap, não versionada. \\
+\midrule
+\multicolumn{4}{l}{\textit{Toolchain EDA (bundle MSYS2/MinGW64, \repo{aurora-toolchain})}} \\
+\midrule
+Icarus Verilog & \code{13.0} & GPL v2 & Compilação/simulação Verilog (v13 mais estrita). \\
+Verilator & \code{5.048} & LGPL-3.0/Artistic-2.0 & Simulação de alto desempenho (compila via G++). \\
+Yosys (+ ABC) & \code{0.56} & ISC / MIT-style & Síntese RTL para o PRISM (sem frontend VHDL). \\
+GTKWave (\emph{fork} nipscern) & \code{v0.1.2-nipscern} & GPL v2 & Visualizador de ondas + \code{fst2vcd}/\code{vcd2fst}; baixado à parte. \\
+cocotb & \code{2.0.1} & BSD-3 & Testbench em Python (VPIs Icarus + Verilator). \\
+\code{find\_libpython} & \code{0.5.1} & MIT & Dependência de \code{cocotb\_tools.runner}. \\
+Python (MinGW) & \code{3.12.11} & PSF & Hospeda o cocotb; fixado (3.14 quebra). \\
+GCC / G++ & \code{15.1.0} & GPL v3 (runtime exc.) & Compila o modelo Verilator; fixado (16.x quebra VPI). \\
+\code{ccache} & \code{4.13.6} & GPL v3 & Cache de compilação. \\
+Perl / \code{make} (MinGW) & \code{5.38.5} / \code{4.4.1} & Artistic-GPL / GPL v3 & \emph{Wrapper} Verilator / orquestra \file{verilated.mk}. \\
+\lstinline|@silimate/netlistsvg| (\emph{fork}) & \code{1.1.4} (\code{58a0703}) & MIT & RTL Yosys $\to$ SVG, \emph{in-process}; fixado por commit. \\
+\lstinline|digitaljs| & \code{0.14.2} & BSD-2 & Simulador/visualizador digital (PRISM interativo). \\
+\lstinline|yosys2digitaljs| & \code{0.10.3} & BSD-2 & Saída Yosys $\to$ formato DigitalJS. \\
+\midrule
+\multicolumn{4}{l}{\textit{Linguagem, LSP e formatação (bootstrap)}} \\
+\midrule
+Verible (\code{verilog-ls}) & \code{v0.0-4080-ga0a8d8eb} & Apache-2.0 & LSP Verilog: lint, formatação, outline, hover, ir-a-def. \\
+slang-server & \code{v0.2.7} & MIT & LSP semântico SystemVerilog (elaboração); HRT. \\
+clang-format & LLVM \code{20} (\code{master-796e77c}) & Apache-2.0 (exc. LLVM) & Formatação C/C++/\cmm{} (\cmm{} usa regras de C). \\
+\lstinline|web-tree-sitter| & \code{0.26.9} & MIT & Runtime WASM; \emph{semantic tokens} no Monaco; fixado. \\
+\code{tree-sitter-systemverilog} & \code{v0.3.1} & MIT & Gramática \code{.v}/\code{.sv}. \\
+\code{tree-sitter-c} / \code{-cpp} & \code{v0.24.2} / \code{v0.23.4} & MIT & Gramáticas C / C++. \\
+\midrule
+\multicolumn{4}{l}{\textit{Formas de onda}} \\
+\midrule
+Surfer & \code{v0.7.0} & EUPL-1.2 & Visualizador Rust \emph{opt-in} (alterna com GTKWave); spawn externo. \\
+\midrule
+\multicolumn{4}{l}{\textit{Inteligência artificial (npm + on-demand)}} \\
+\midrule
+\lstinline|ai| & \code{6.0.184} & Apache-2.0 & Núcleo do AI SDK (modelo, streaming, tools). \\
+\lstinline|@ai-sdk/anthropic| & \code{3.0.85} & Apache-2.0 & Adaptador Anthropic. \\
+\lstinline|@ai-sdk/openai| & \code{3.0.64} & Apache-2.0 & Adaptador OpenAI. \\
+\lstinline|@ai-sdk/google| & \code{3.0.83} & Apache-2.0 & Adaptador Google. \\
+\lstinline|@ai-sdk/groq| & \code{3.0.39} & Apache-2.0 & Adaptador Groq. \\
+\lstinline|@ai-sdk/deepseek| & \code{2.0.39} & Apache-2.0 & Adaptador DeepSeek. \\
+\lstinline|@modelcontextprotocol/sdk| & \code{1.29.0} & MIT & SDK do Model Context Protocol. \\
+\lstinline|zod| & \code{3.25.76} & MIT & Validação de esquemas de saídas/tools. \\
+\lstinline|@anthropic-ai/claude-code| & \code{2.1.144} & Comercial Anthropic & CLI Claude Code; on-demand, não empacotada. \\
+\lstinline|@openai/codex| & \code{0.131.0} & Apache-2.0 & CLI Codex; on-demand, não empacotada. \\
+\midrule
+\multicolumn{4}{l}{\textit{Build e infraestrutura (npm)}} \\
+\midrule
+\lstinline|vite| & \code{8.0.16} & MIT & Bundler do \emph{renderer} (dev). \\
+\lstinline|vite-plugin-static-copy| & \code{4.1.1} & MIT & Cópia de ativos no build (dev). \\
+\lstinline|electron-builder| & \code{26.15.3} & MIT & Instalador NSIS e empacotamento (dev). \\
+\lstinline|electron-updater| & \code{6.8.9} & MIT & Atualização automática (releases \repo{sapho}). \\
+\lstinline|electron-log| & \code{5.4.3} & MIT & Log de \emph{main}/\emph{renderer}. \\
+\lstinline|chokidar| & \code{4.0.3} & MIT & Observação da árvore de arquivos. \\
+\lstinline|fs-extra| & \code{11.3.2} & MIT & Operações de arquivo estendidas. \\
+\lstinline|simple-git| & \code{3.36.0} & MIT & Operações Git (painel \enquote{Dagr}). \\
+\midrule
+\multicolumn{4}{l}{\textit{Qualidade e desenvolvimento (devDependencies)}} \\
+\midrule
+\lstinline|typescript| & \code{6.0.3} & Apache-2.0 & Compilador TS. \\
+\lstinline|@types/node| & \code{25.9.3} & MIT & Tipos do Node. \\
+\lstinline|eslint| (+ \lstinline|@eslint/js|, \lstinline|globals|) & \code{9.39.1} & MIT & Lint de JavaScript. \\
+\lstinline|vitest| (+ \lstinline|coverage-v8|) & \code{4.1.9} & MIT & Testes unitários e cobertura. \\
+\lstinline|happy-dom| & \code{20.10.6} & MIT & DOM simulado nos testes. \\
+\lstinline|playwright| & \code{1.61.0} & Apache-2.0 & Testes e2e da app Electron. \\
+\lstinline|husky| / \lstinline|lint-staged| & \code{9.1.7} / \code{16.4.0} & MIT & Hooks Git / lint em arquivos \emph{staged}. \\
+\lstinline|@commitlint/cli| (+ config) & \code{19.8.1} & MIT & Conventional Commits. \\
+\lstinline|knip| & \code{6.17.1} & ISC & Código/dependências mortos; fixado. \\
+\end{longtable}
+
+\begin{nota}
+O Aurora Intelligence está completamente implementado; o \emph{provider} e os
+modelos \emph{próprios} do laboratório ainda não foram treinados (\emph{roadmap}) ---
+até lá opera pelos provedores externos acima. O versionamento de releases usa
+\tool{release-please} (\emph{GitHub Action}, não pacote npm). Os compiladores YANC
+(\code{cmmcomp}, \code{cppcomp}, \code{asmcomp}, \code{cpppp}, \code{appcomp},
+\code{comp2gtkw}) chegam pelo mesmo bootstrap (\file{download-yanc.js}, \emph{tag}
+\code{v5.2}), licenciados segundo o projeto YANC.
+\end{nota}

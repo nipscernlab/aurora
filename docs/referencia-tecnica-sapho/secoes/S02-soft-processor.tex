@@ -1,0 +1,33 @@
+% !TEX root = ../main.tex
+\section{A arquitetura do soft-processor SAPHO}
+\label{sec:S02-soft-processor}
+
+O \tool{YANC} emite um \emph{soft-processor} Verilog (\path{yanc/HDL/}), parametrizado e instanciado pelo montador (\emph{ASMComp}, \path{yanc/Compilers/ASMComp/Sources/}). É um \textbf{datapath baseado em acumulador} com \textbf{arquitetura Harvard}: memórias de programa e de dados fisicamente separadas, cada uma com largura e barramento próprios. O coração é um único registrador acumulador (\lstinline|racc| em \file{core.v}), que a cada ciclo captura a saída da ULA (\lstinline|racc <= ula_out|). Padrão dominante \emph{acumulador-com-memória}: operando 1 da memória, operando 2 o acumulador, resultado realimenta o acumulador. Uma \textbf{pilha de dados} fornece o segundo operando às variantes com prefixo \lstinline|S_|.
+
+Três traços de estilo: (1) \textbf{totalmente parametrizável} --- toda largura é \lstinline|parameter| (palavra \lstinline|NUBITS|, mantissa \lstinline|NBMANT|, expoente \lstinline|NBEXPO|, operando \lstinline|NBOPER|, opcode \lstinline|NBOPCO=7|, memórias \lstinline|MINSTS|/\lstinline|MDATAS|); (2) \textbf{pague pelo que usar} --- cada instrução é um \lstinline|parameter| booleano e o montador liga só as usadas, o resto é eliminado por \lstinline|generate if|; (3) \textbf{ciclo curto} --- sem \emph{pipeline} com \emph{forwarding}, apenas latência fixa de decodificação registrada.
+
+\begin{longtable}{l l}
+\toprule \textbf{Módulo (arquivo)} & \textbf{Função} \\ \midrule \endhead
+\lstinline|processor| (\file{processor.v}) & Topo: instancia \lstinline|core| + duas memórias. \\
+\lstinline|mem_instr|/\lstinline|mem_data| (\file{processor.v}) & Memórias Harvard; carga via \lstinline|$readmemb|. \\
+\lstinline|core| (\file{core.v}) & Datapath + controle: acumulador, pilha, ULA. \\
+\lstinline|instr_fetch|/\lstinline|pc|/\lstinline|prefetch| (\file{core.v}) & Busca, PC, fatia opcode/operando, saltos. \\
+\lstinline|stack| (\file{core.v}) & Pilha genérica (dados e retorno de subrotina). \\
+\lstinline|instr_dec| (\file{instr\_dec.v}) & Decodificador: opcode $\rightarrow$ \lstinline|ula_op| + controles. \\
+\lstinline|ula| (\file{ula.v}) & Unidade Lógico-Aritmética (todas as operações). \\
+\lstinline|addr_dec| (\file{addr\_dec.v}) & Decodificador de porta 1-de-N. \\
+\lstinline|myFIFO| (\file{myFIFO.v}) & FIFO genérica (substitui IP do fabricante). \\
+\bottomrule
+\end{longtable}
+
+\textbf{Memórias.} \lstinline|mem_instr|: palavra de \lstinline|NBOPCO+NBOPER| bits, só leitura, opcode nos bits altos. \lstinline|mem_data|: palavra \lstinline|NUBITS| \lstinline|signed|, uma leitura + uma escrita por ciclo (\lstinline|addr_rd|/\lstinline|addr_wr| independentes). Em síntese (Yosys) o \lstinline|$readmemb| é ignorado por \lstinline|`ifdef YOSYS|.
+
+\textbf{Busca e controle.} O \lstinline|pc| incrementa ou carrega (\lstinline|load|). O \lstinline|prefetch| decide saltos sobre o opcode, sem ULA: \lstinline|JMP| (15), \lstinline|JIZ| (16, se acumulador zero), \lstinline|CAL| (17)/\lstinline|RET| (18) com push/pop na pilha de subrotina. Interrupção (\lstinline|ITRADD>0|) e marcador \lstinline|#TOAQUI| (\lstinline|TOAQUIADDR>0|, pulsa \lstinline|cheguei|) são opcionais.
+
+\textbf{ISA.} Opcode de 7 bits. Sufixos: \lstinline|S_| (operando da pilha), \lstinline|F_| (float), \lstinline|SF_| (float+pilha), \lstinline|P_| (PUSH antes), \lstinline|_M| (opera sobre memória). Famílias: load/store diretos e indiretos (\lstinline|LOD|, \lstinline|SET|, \lstinline|LDI|/\lstinline|STI|, \lstinline|ILI|/\lstinline|ISI| com reversão de bits p/ FFT, \lstinline|LDA|/\lstinline|STA| \emph{base-less}); pilha (\lstinline|PSH|/\lstinline|POP|); I/O (\lstinline|INN|/\lstinline|OUT|); fluxo (\lstinline|JMP|/\lstinline|JIZ|/\lstinline|CAL|/\lstinline|RET|/\lstinline|NOP|); e cálculo (\lstinline|ADD|, \lstinline|MLT|, \lstinline|DIV|, \lstinline|MOD|, \lstinline|AND|/\lstinline|OR|/\lstinline|XOR|/\lstinline|INV|, comparações \lstinline|LES|/\lstinline|GRE|/\lstinline|EQU|, deslocamentos \lstinline|SHL|/\lstinline|SHR|/\lstinline|SRS|, conversões \lstinline|I2F|/\lstinline|F2I|, \lstinline|F_ROT|, \lstinline|F_SCL|, \lstinline|XPO|). O decodificador entrega um \lstinline|ula_op| de 6 bits, registrado um ciclo antes da ULA.
+
+\textbf{ULA.} Banco de submódulos especializados (um por operação) multiplexados por \lstinline|op|; submódulo não usado recebe \lstinline|{NUBITS{1'bx}}| e é descartado. Trata inteiro/fixo como \lstinline|signed| (\lstinline|+ * / %|). \textbf{Ponto flutuante próprio} (não IEEE): 1 bit de sinal, \lstinline|NBEXPO| bits de expoente (complemento de dois), \lstinline|NBMANT| bits de mantissa com bit líder explícito; exige \lstinline|NUBITS == NBMANT+NBEXPO+1|. Hardware faz denormalização (alinha expoentes), operação e normalização; conversão IEEE$\leftrightarrow$SAPHO em software (\lstinline|f2mf|/\lstinline|mf2f|, \file{t2t.c}). \textbf{Complexos} não têm hardware dedicado: par de floats (real/imag), manipulados por componente.
+
+\textbf{I/O e FIFO.} \lstinline|io_ctrl| expõe \lstinline|io_in|/\lstinline|io_out|, endereços e \lstinline|req_in|/\lstinline|out_en|; a entrada injeta-se no operando 2 quando \lstinline|req_in| ativo. Múltiplas portas usam \lstinline|addr_dec| (1-de-N). \lstinline|myFIFO| é parametrizada por \lstinline|WORD|/\lstinline|LENGTH|/\lstinline|ALMOST| e expõe \lstinline|empty|/\lstinline|full|/\lstinline|almost_empty|/\lstinline|usedw|.
+
+\textbf{Parametrização e artefatos.} O montador lê \lstinline|nubits|/\lstinline|nbmant|/\lstinline|nbexpo| de \path{app_log.txt} (\lstinline|eval_init|, \file{eval.c}) e diretivas (\lstinline|#NDSTAC|, \lstinline|#SDEPTH|, \lstinline|#NUIOIN|/\lstinline|#NUIOOU|, \lstinline|#NUGAIN|, \lstinline|#FFTSIZ|); \lstinline|nbopr| deriva da maior memória. \file{hdl.c} (\lstinline|hdl_vv_file|) emite a instância \lstinline|processor| ligando só as instruções usadas. Gera duas imagens binárias (\file{hdl.c}/\file{eval.c}): \path{<proc>_inst.mif} (opcode+operando por linha, via \lstinline|itob|) e \path{<proc>_data.mif} (uma palavra por variável; floats inicializados em \lstinline|0.0| por \lstinline|f2mf|). \lstinline|hdl_tb_file| gera o \emph{testbench} autônomo \path{<proc>_tb.v}: clock/reset (\lstinline|T=1000.0/sim_clk()| ns), estímulo de \path{input_<i>.txt} (\lstinline|$fscanf|), captura em \path{output_<i>.txt} (\lstinline|$fdisplay|), dump \path{.vcd} e \lstinline|$finish| ao fim do programa. Instrumentação fica atrás de \lstinline|YANC_SIM_VIS|, nunca sintetizada.

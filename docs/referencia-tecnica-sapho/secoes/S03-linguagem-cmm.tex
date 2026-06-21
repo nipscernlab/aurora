@@ -1,0 +1,85 @@
+% !TEX root = ../main.tex
+\section{A linguagem C±}
+\label{sec:S03-linguagem-cmm}
+
+A \cmm{} (CMM) é o front-end de software do soft-processor SAPHO. O compilador \tool{cmmcomp} (\repo{yanc}; scanner \file{CMMComp.l}, parser \file{CMMComp.y}) produz \emph{assembly} simbólico (\path{.asm}) consumido pelos estágios seguintes do toolchain.
+
+\subsection{Estrutura de um programa}
+
+Um programa é uma sequência de elementos de topo (\code{direct}, \code{declar}, \code{funcao}), sem ordem rígida. Não há bloco \code{processor \{ ... \}}: o processador é individualizado pelas diretivas iniciais (em especial \lstinline|#PRNAME|). O ponto de entrada é \lstinline|main()|; sua ausência gera \lstinline|MSG_ERR_NO_MAIN|. A forma canônica é: diretivas no topo, depois \lstinline|main()| com laço infinito \lstinline|while (1)| modelando o hardware contínuo.
+
+\begin{lstlisting}[style=cmm]
+#PRNAME cmm_define
+#NUBITS 16
+#NUIOIN 1
+#NUIOOU 1
+#NBMANT 10
+#NBEXPO 5
+#NUGAIN 128
+#define SCALE 3
+void main() {
+    int x;
+    while (1) {
+        x = in(0);
+        x = x + SCALE;
+        out(0, x);
+    }
+}
+\end{lstlisting}
+
+\subsection{Tipos de dados}
+
+O scanner reconhece quatro palavras-chave de tipo, com código numérico interno (\lstinline|v_table[id].type|). Não existe tipo \enquote{ponto fixo}: o único tipo fracionário é \lstinline|float|, com precisão configurada por diretivas.
+
+\begin{longtable}{@{}p{0.07\linewidth}p{0.14\linewidth}p{0.71\linewidth}@{}}
+\toprule
+\textbf{Cód.} & \textbf{Tipo} & \textbf{Descrição} \\
+\midrule
+\endhead
+0 & \lstinline|void| & ausência de tipo \\
+1 & \lstinline|int| & inteiro de \lstinline|#NUBITS| bits, complemento de dois \\
+2 & \lstinline|float| & ponto flutuante (mantissa \lstinline|#NBMANT|, expoente \lstinline|#NBEXPO|) \\
+3 & \lstinline|comp| & complexo (par de \emph{floats}); literal \lstinline|a+bi| (token \code{CNUM}) \\
+4 & --- & parte imaginária de \lstinline|comp| (gerada automaticamente) \\
+\bottomrule
+\end{longtable}
+
+Cada \lstinline|comp| ocupa dois registros (real, código 3; imaginário, código 4, criado por \lstinline|get_img_id()|). O símbolo \lstinline|i| é reservado (\lstinline|MSG_ERR_RESERVED_I|). A aritmética \lstinline|comp| suporta \lstinline|+ - * /| (módulo \file{oper.c}).
+
+\subsection{Diretivas de hardware}
+
+Reconhecidas como \emph{tokens} próprios; cada uma ocupa uma linha e recebe um nome ou inteiro. A regra \code{direct} chama \lstinline|dire_exec()| (\file{diretivas.c}).
+
+\begin{longtable}{@{}p{0.16\linewidth}p{0.78\linewidth}@{}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\lstinline|#PRNAME| & nome do processador \\
+\lstinline|#NUBITS| & largura da palavra da ULA \\
+\lstinline|#NBMANT| & largura da mantissa (padrão 16) \\
+\lstinline|#NBEXPO| & largura do expoente (padrão 6) \\
+\lstinline|#NDSTAC| & profundidade da pilha de dados \\
+\lstinline|#SDEPTH| & profundidade da pilha de sub-rotinas \\
+\lstinline|#NUIOIN| & número de portas de entrada (padrão 1) \\
+\lstinline|#NUIOOU| & número de portas de saída (padrão 1) \\
+\lstinline|#NUGAIN| & constante de divisão usada por \lstinline|norm(.)| \\
+\lstinline|#FFTSIZ| & tamanho da FFT ($2^{\texttt{FFTSIZ}}$) \\
+\bottomrule
+\end{longtable}
+
+As comportamentais \lstinline|#PRACA| (retorno de \emph{reset} por interrupção) e \lstinline|#TOAQUI| (endereço refletido pelo pino \code{cheguei}) são \emph{statements}.
+
+\subsection{Entrada e saída}
+
+Portas indexadas por literal inteiro, validadas contra \lstinline|#NUIOIN|/\lstinline|#NUIOOU| (\lstinline|MSG_ERR_NO_IN_PORT|/\lstinline|_OUT_PORT|): \lstinline|in(p)| (lê), \lstinline|fin(p)| (lê convertendo para \emph{float}), \lstinline|out(p, exp);| (escreve), \lstinline|fout(p, exp);| (escreve em \emph{float}).
+
+\subsection{Biblioteca padrão e macros}
+
+Funções intrínsecas mapeadas a \lstinline|expr_stdlib(OP_STD_...)|: especiais (\lstinline|norm|, \lstinline|pset|, \lstinline|abs|, \lstinline|sign|, \lstinline|copy|); não-lineares e arredondamento (\lstinline|sqrt|, \lstinline|atan|, \lstinline|sin|, \lstinline|cos|, \lstinline|tan|, \lstinline|sinh|, \lstinline|cosh|, \lstinline|tanh|, \lstinline|exp|, \lstinline|log|, \lstinline|pow|, \lstinline|floor|, \lstinline|ceil|, \lstinline|round|); complexas (\lstinline|real|, \lstinline|imag|, \lstinline|fase|, \lstinline|mod2|, \lstinline|complex|, \lstinline|conj|). A \cmm{} também oferece álgebra linear em notação de Dirac (bra-ket): produto interno \lstinline+<a|b>+ como expressão, e \emph{statements} de produto matriz-vetor, externo e \emph{shift register}.
+
+O \lstinline|#define| (apenas \emph{object-like}) é tratado no scanner com proteção contra recursão. As transcendentais são macros de \emph{assembly} em \file{Compilers/CMMComp/Includes/}, injetadas pelo codegen: \file{float\_sqrt.asm}, \file{float\_atan.asm}, \file{float\_sin.asm}, \file{float\_tan.asm}, \file{float\_exp.asm}, \file{float\_log.asm}.
+
+\subsection{O caminho C++}
+
+Alternativamente, o YANC compila C/C++ para o mesmo soft-processor via \tool{cpppp} (pré-processador autônomo) e \tool{cppcomp} (subconjunto de C99 com extensões de C++); os parâmetros do alvo têm padrões fixos em \file{config.h} (palavra 32 bits, mantissa 23, expoente 8) ajustáveis por \lstinline|#pragma yanc|, e a saída é o mesmo \path{.asm}.

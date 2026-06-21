@@ -1,0 +1,654 @@
+% !TEX root = ../main.tex
+\chapter{Engenharia, qualidade e evolução do projeto}
+\label{cap:18-engenharia-evolucao}
+
+Este capítulo descreve dois aspectos complementares da plataforma \tool{SAPHO}.
+A \autoref{sec:18-engenharia} (Parte~A) documenta a \emph{infraestrutura de
+engenharia e qualidade} do repositório \repo{aurora}: como o código é testado,
+verificado, formatado, versionado e integrado de forma contínua. A
+\autoref{sec:18-evolucao} (Parte~B) reconstrói a \emph{linha do tempo de
+evolução} dos repositórios \repo{aurora} e \repo{yanc} a partir do histórico
+real de \emph{commits} do Git --- marcos técnicos, progressão de versões e
+contribuidores.
+
+Todas as afirmações desta seção foram verificadas diretamente nos arquivos de
+configuração e no histórico de \emph{commits}; onde a documentação textual
+divergir do que está descrito aqui, prevalece o que foi lido do repositório.
+
+\section{Parte A --- Engenharia e qualidade}
+\label{sec:18-engenharia}
+
+A IDE \tool{AURORA} é um aplicativo Electron escrito majoritariamente em
+JavaScript, com uma fatia crescente de TypeScript compilado \emph{in place}. A
+disciplina de qualidade do repositório é construída sobre uma cadeia de
+ferramentas que atua em três momentos: no \emph{editor} do desenvolvedor
+(\file{.editorconfig}, \file{tsconfig.json}), no momento do \emph{commit}
+(\tool{husky} + \tool{lint-staged} + \tool{commitlint}) e na
+\emph{integração contínua} (GitHub Actions). Cada um desses estágios é
+descrito a seguir.
+
+\subsection{Visão geral dos scripts npm}
+\label{sub:18-scripts-npm}
+
+O ponto de entrada de toda a automação é a seção \code{scripts} de
+\file{package.json}. A \autoref{tab:18-npm-scripts} resume os comandos
+relevantes para teste e qualidade.
+
+\begin{longtable}{Y Z}
+  \caption{Scripts npm de qualidade e ciclo de vida (\file{package.json}).}
+  \label{tab:18-npm-scripts}\\
+  \toprule
+  \textbf{Script} & \textbf{Ação} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Script} & \textbf{Ação} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  \code{build:ts}      & \lstinline|tsc| --- compila os módulos TypeScript declarados em \file{tsconfig.json} para \code{.js} ao lado do fonte. \\
+  \code{build:renderer}& \lstinline|vite build| --- empacota o \emph{renderer} em \path{dist/}. \\
+  \code{predev} / \code{dev} & \code{predev} roda \code{build:ts}; \code{dev} executa \file{scripts/dev.js}. \\
+  \code{prestart} / \code{start} & \code{prestart} encadeia \code{bootstrap}, \code{build:ts} e \code{build:renderer}; \code{start} chama \file{scripts/launch-electron.js}. \\
+  \code{test}          & \lstinline|vitest run| --- suíte unitária (sem Electron). \\
+  \code{test:watch}    & \lstinline|vitest| em modo observação. \\
+  \code{test:coverage} & \lstinline|vitest run --coverage| --- cobertura via provedor v8. \\
+  \code{test:e2e} (com \code{pretest:e2e}) & compila o \emph{renderer} e roda os testes E2E sob \file{vitest.config.e2e.js}. \\
+  \code{deadcode} / \code{deadcode:all} & \tool{knip} para detecção de código/dependências mortas. \\
+  \code{prebuild} / \code{build} & \code{prebuild} encadeia \code{bootstrap}, \code{build:ts}, \code{build:renderer}; \code{build} invoca \lstinline|electron-builder|. \\
+  \code{prepare}       & \lstinline|husky| --- instala os \emph{git hooks} ao rodar \lstinline|npm install|. \\
+\end{longtable}
+
+O campo \code{engines} exige \lstinline|node >=18.0.0|. As versões pinadas de
+ferramentas (em \code{devDependencies}) incluem \tool{vitest}, \tool{playwright},
+\tool{eslint}, \tool{knip} (fixado em \code{6.17.1}), \tool{husky},
+\tool{lint-staged}, \tool{commitlint}, \tool{typescript} e \tool{electron-builder}.
+
+\subsection{Estratégia de testes}
+\label{sub:18-testes}
+
+A suíte é dividida em duas camadas com configurações independentes, refletindo
+custos de execução muito diferentes.
+
+\subsubsection{Testes unitários (Vitest)}
+
+A configuração padrão fica em \file{vitest.config.js}. Ela inclui apenas
+\path{tests/unit/**/*.test.js} e exclui \path{node_modules}. São testes
+\enquote{puros}: exercitam módulos isolados de lógica (parsing, normalização,
+validação, escrita de formatos) sem subir o Electron, o que os torna rápidos.
+
+No diretório \path{tests/unit/} existem dezenas de arquivos de teste. A
+\autoref{tab:18-unit-tests} agrupa amostras por domínio para ilustrar a
+cobertura.
+
+\begin{longtable}{Y Z}
+  \caption{Amostra de testes unitários por domínio (\path{tests/unit/}).}
+  \label{tab:18-unit-tests}\\
+  \toprule
+  \textbf{Domínio} & \textbf{Arquivos de teste (exemplos)} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Domínio} & \textbf{Arquivos de teste (exemplos)} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  Segurança / caminhos & \file{safePath.test.js}, \file{sanitizeFileName.test.js} \\
+  Forma de ondas (\emph{wave}) & \file{vcdParser.test.js}, \file{signalParser.test.js}, \file{gtkwWriter.test.js}, \file{gtkwProcWriter.test.js}, \file{surferLayoutWriter.test.js}, \file{waveStateStore.test.js}, \file{complexDecode.test.js}, \file{eventMarkers.test.js}, \file{selectionValidator.test.js} \\
+  Compilação & \file{compilationHelpers.test.js}, \file{processor\_compiler.test.js}, \file{wave\_toolchain.test.js} \\
+  Projeto / árvore & \file{spfStore.test.js}, \file{processorList.test.js}, \file{verilogClassifier.test.js}, \file{projectTreeRender.test.js}, \file{fileTreeViewController.test.js} \\
+  Aurora Intelligence & \file{ai\_system\_prompt.test.js}, \file{ai\_chat\_render.test.js}, \file{ai\_metadata.test.js}, \file{chat\_history.test.js}, \file{tool\_permission.test.js}, \file{modelGovernance.test.js}, \file{provider\_view.test.js} \\
+  Editor / componentes & \file{documentTypeDetector.test.js}, \file{monacoPin.test.js}, \file{aurora\_tabs.test.js}, \file{aurora\_panel.test.js}, \file{tab\_utils.test.js} \\
+  Git / decorações & \file{gitDecorations.test.js}, \file{gitNs.test.js} \\
+  Diversos & \file{i18n.test.js}, \file{utils.test.js}, \file{formatTimestamp.test.js}, \file{cliDownloader.test.js}, \file{download-toolchain.test.js} \\
+\end{longtable}
+
+Como exemplo concreto, \file{safePath.test.js} valida o auxiliar defensivo
+\lstinline|safePath| de \file{main/utils.js} usado por todos os \emph{handlers}
+de IPC de sistema de arquivos: rejeita não-strings (\code{TypeError}), strings
+vazias e injeção de \emph{null byte}, e normaliza separadores. O próprio teste
+documenta que \lstinline|safePath| é \emph{normalização}, não
+\emph{confinamento} de diretório.
+
+\paragraph{Cobertura.} A seção \code{coverage} de \file{vitest.config.js}
+configura o provedor \code{v8}, com relatórios \code{text-summary} e \code{lcov}
+gravados em \path{./coverage}. A opção \lstinline|all: false| restringe o
+relatório aos módulos efetivamente importados pelos testes (em vez de diluir o
+número com toda a árvore do \emph{renderer}/\emph{main} a 0\%). Listas de
+exclusão removem arquivos de teste, \path{node_modules}, \path{dist/},
+\path{components/} e arquivos de configuração.
+
+\subsubsection{Testes ponta a ponta (E2E) com Playwright + Electron}
+
+Os testes E2E ficam em \path{tests/e2e/} e usam a API \lstinline|_electron| do
+Playwright para lançar o aplicativo Electron completo (processos \emph{main},
+\emph{renderer} e GPU). A configuração \file{vitest.config.e2e.js} inclui apenas
+\path{tests/e2e/**/*.test.js} e ajusta o ambiente para o custo de inicialização
+do Electron:
+
+\begin{itemize}[nosep]
+  \item \lstinline|fileParallelism: false| --- os arquivos rodam \emph{um por
+        vez}. Cada arquivo faz \emph{cold start} de um Electron completo; rodar
+        vários em paralelo estourava o orçamento de tempo em \emph{runners} de
+        2 núcleos do CI. Serializar mantém apenas um Electron vivo de cada vez.
+  \item \lstinline|testTimeout: 60_000| e \lstinline|hookTimeout: 120_000| ---
+        margens generosas, dimensionadas para o pior caso observado no
+        \emph{runner} \code{windows-latest}, onde o \emph{cold start} mais a
+        cadeia de IPC de carga de \code{.spf} chega a 10--15~s.
+\end{itemize}
+
+Os três arquivos E2E são \file{smoke.test.js}, \file{edit-flow.test.js} e
+\file{split-pane.test.js}. O teste de fumaça (\file{smoke.test.js}) lança o
+aplicativo com um diretório de dados de usuário isolado
+(\lstinline|--user-data-dir|), define a variável
+\lstinline|SAPHO_SKIP_SINGLE_INSTANCE| para contornar o \emph{lock} de instância
+única e remove \lstinline|ELECTRON_RUN_AS_NODE| do ambiente. Em seguida espera a
+janela principal (identificada por \path{index.html}) e verifica:
+
+\begin{itemize}[nosep]
+  \item que o \emph{container} \lstinline|#monaco-editor| está montado;
+  \item que os módulos AMD do Monaco carregaram (\lstinline|window.monaco| existe);
+  \item que nenhum marcador conhecido de falha de inicialização do Monaco
+        apareceu no console ou em \emph{page errors} (a lista
+        \code{MONACO_FAILURE_MARKERS} inclui
+        \enquote{EditorManager has not been initialized},
+        \enquote{Property description must be an object} e
+        \lstinline|monaco.contribution.js|);
+  \item que o \emph{renderer} alcança o estado interativo dentro de um orçamento
+        de 30~s, medido pela marca de desempenho
+        \lstinline|performance.mark('aurora-interactive')| emitida ao fim da
+        inicialização. Trata-se de uma \emph{guarda de regressão}, não de um
+        \emph{benchmark}.
+\end{itemize}
+
+\subsection{Lint com ESLint (flat config)}
+\label{sub:18-eslint}
+
+O \emph{linting} é configurado em \file{eslint.config.mjs} no formato
+\emph{flat config} do ESLint~9, exportando um array de blocos via
+\lstinline|defineConfig|. O desenho reconhece que o \emph{renderer} da AURORA
+\textbf{não} é um grafo de \emph{imports} empacotado: \file{index.html} carrega
+\emph{scripts} clássicos via tags \lstinline|<script>| que compartilham estado
+por globais de \lstinline|window|. Por isso a configuração declara um conjunto de
+globais compartilhados (\code{rendererSharedGlobals}: \lstinline|editor|,
+\lstinline|monaco|, \lstinline|TabManager|, \lstinline|CodeFormatter| etc.) como
+\code{readonly}.
+
+Os blocos escopam o ambiente correto para cada tipo de código:
+
+\begin{itemize}[nosep]
+  \item \textbf{Ignorados globais}: \path{components/**} (\emph{toolchain}
+        baixado, artefatos de terceiros), exceto \path{components/Scripts/}
+        (código próprio); \path{dist/} e \path{release/} (saídas de \emph{build}).
+  \item \textbf{Regra base} \code{js/recommended} com \code{no-unused-vars}
+        ajustada: \code{args: "none"}, \code{caughtErrors: "none"} e o padrão de
+        escape \code{varsIgnorePattern: "^_"} (prefixo
+        sublinhado marca variáveis intencionalmente não usadas, como
+        \lstinline|_event|, \lstinline|_info|).
+  \item \textbf{Processo \emph{main} e scripts Node} (\file{main.js},
+        \path{main/**}, \path{components/Scripts/**}, \path{scripts/**}):
+        \code{sourceType: "commonjs"} com globais do Node.
+  \item \textbf{Testes E2E e unitários}: \code{sourceType: "module"}, globais do
+        Node mais \lstinline|window|/\lstinline|document| em \code{readonly}.
+  \item \textbf{Preloads} (\file{js/app/preload*.js}): CommonJS com globais de
+        Node \emph{e} \emph{browser} (a ponte \lstinline|contextBridge| vive nos
+        dois mundos).
+  \item \textbf{Renderer} (\path{js/**}, \path{html/**}, exceto os preloads):
+        globais de \emph{browser} mais os globais compartilhados.
+\end{itemize}
+
+Na CI o \emph{lint} roda com tolerância zero a avisos
+(\lstinline|npx eslint . --max-warnings=0|).
+
+\subsection{Detecção de código morto (knip)}
+\label{sub:18-knip}
+
+\tool{knip} é configurado em \file{knip.config.js} (CommonJS) como portão de
+código morto. Como o \emph{renderer} não é um grafo de \emph{imports}
+rastreável, a configuração informa explicitamente todos os pontos de entrada
+reais:
+
+\begin{itemize}[nosep]
+  \item \file{main.js} (processo \emph{main}); \file{js/app/preload*.js} (4
+        \emph{preloads} carregados por caminho); \file{html/prism/prism.js};
+        \file{js/components/design-lab.js};
+        \path{scripts/*.js}; \path{components/Scripts/*.js};
+  \item e --- de forma engenhosa --- todas as entradas
+        \lstinline|<script src="/foo.js">| \textbf{lidas de
+        \file{index.html} em tempo de execução}, pela função
+        \lstinline|rendererEntriesFromIndexHtml()|. Assim, adicionar ou remover
+        uma tag de \emph{script} mantém a configuração correta sem edição.
+\end{itemize}
+
+O array \code{project} restringe a análise ao código próprio
+(\file{main.js}, \path{main/**}, \path{js/**}, \path{scripts/*.js},
+\path{components/Scripts/*.js}, \file{html/prism/prism.js}). A lista
+\code{ignoreDependencies} cobre pacotes alcançados de formas que a análise
+estática não enxerga: \tool{monaco-editor} (carregado pelo próprio \emph{loader}
+AMD), os provedores \lstinline|@ai-sdk/*| (resolvidos por string em
+\file{main/ai/provider.js}), \tool{@openai/codex} (CLI \emph{spawned} como
+subprocesso), \tool{@phosphor-icons/web} e \tool{katex} (referenciados via
+\lstinline|<link>|/\lstinline|<script>| diretos a \path{node_modules}).
+
+A CI roda apenas \lstinline|npm run deadcode|, que limita o portão a
+\code{files} (módulos não usados) e \code{dependencies} (pacotes npm não usados)
+--- as classes que o autor considera confiáveis para falhar a \emph{build}.
+
+\subsection{Hooks de Git (husky + lint-staged)}
+\label{sub:18-husky}
+
+Os \emph{git hooks} são gerenciados por \tool{husky} (instalado pelo script
+\code{prepare}). Há dois \emph{hooks} em \path{.husky/}:
+
+\begin{itemize}[nosep]
+  \item \file{pre-commit}: executa \lstinline|npx lint-staged|. A configuração
+        \code{lint-staged} em \file{package.json} roda
+        \lstinline|eslint --max-warnings=0 --no-warn-ignored| sobre os arquivos
+        \lstinline|*.{js,mjs,cjs}| preparados (\emph{staged}).
+  \item \file{commit-msg}: executa
+        \lstinline|npx --no-install commitlint --edit "$1"|, validando a
+        mensagem de \emph{commit}.
+\end{itemize}
+
+\subsection{Conventional Commits (commitlint)}
+\label{sub:18-commitlint}
+
+A convenção de mensagens é definida em \file{commitlint.config.mjs}, que estende
+\code{@commitlint/config-conventional} com ajustes para o estilo bilíngue e
+escopado da AURORA:
+
+\begin{itemize}[nosep]
+  \item \code{type-enum} acrescenta tipos próprios do projeto aos padrões:
+        além de \code{feat}, \code{fix}, \code{perf}, \code{refactor},
+        \code{chore}, \code{docs}, \code{test}, \code{build}, \code{ci},
+        \code{style}, \code{revert}, inclui \code{hardening}, \code{ux},
+        \code{ui} e \code{diag}.
+  \item \code{header-max-length} elevado para 120 (assuntos costumam estar em
+        português e referenciar seções com o sinal de parágrafo).
+  \item \code{subject-case} e \code{body-max-line-length} desativados
+        (valor 0), para não conflitar com o registro bilíngue.
+\end{itemize}
+
+Essa convenção pareia com o \tool{release-please} (ver
+\autoref{sub:18-ci}), que agrega \emph{Conventional Commits} para gerar
+notas de versão e \emph{bumps} semânticos.
+
+\subsection{TypeScript (compilação \emph{in place})}
+\label{sub:18-typescript}
+
+A adoção de TypeScript é \emph{incremental e in place}: \file{tsconfig.json}
+define \lstinline|rootDir: "."| e \lstinline|outDir: "."|, de modo que
+\lstinline|tsc| emite cada \code{.js} ao lado do seu \code{.ts}. As opções
+relevantes são \code{target: "ES2022"}, \code{module: "ESNext"},
+\code{moduleResolution: "Bundler"}, \lstinline|strict: true|,
+\code{isolatedModules: true} e \code{esModuleInterop: true}.
+
+A lista \code{include} é \emph{explícita} --- apenas os módulos já migrados são
+compilados, concentrados em três áreas: utilidades de caminho e tipos globais
+(\file{js/utils/path\_utils.ts}, \file{js/types/aurora-globals.d.ts}), o
+subsistema de forma de ondas (\path{js/wave/*.ts}: \emph{parsers} de sinais e
+VCD, escritores \code{.gtkw}, instrumentação de \emph{testbench}, decodificação
+de complexos, marcadores de evento) e o subsistema de compilação
+(\path{js/compilation/*.ts} e \path{js/compilation/builders/*.ts}: \emph{specs}
+de comando, \emph{builders} para \cmm, \emph{asm}, \tool{cocotb},
+\tool{iverilog}, \tool{vvp}, \tool{yosys}, \tool{verilator} e ferramentas de
+\emph{wave}).
+
+\begin{nota}
+Os \code{.js} gerados por \lstinline|tsc| são \textbf{artefatos de build} e estão
+no \file{.gitignore}, de modo que a árvore versionada nunca diverge do fonte.
+A CI mantém duas guardas complementares: \lstinline|tsc --noEmit| prova que o
+\code{.ts} tipa corretamente, e o script \file{scripts/check-no-generated-js.js}
+falha a \emph{build} se algum \code{.js} gerado (um \code{.js} versionado com um
+\code{.ts} irmão também versionado) reaparecer no Git.
+\end{nota}
+
+\subsection{Convenções de formatação (.editorconfig)}
+\label{sub:18-editorconfig}
+
+O arquivo \file{.editorconfig} fixa as convenções básicas para qualquer editor
+compatível: \code{charset = utf-8}, \code{end_of_line = lf},
+\code{insert_final_newline = true}, \code{trim_trailing_whitespace = true},
+indentação por espaços com largura 4 por padrão. Sobrescrições por tipo: largura
+2 para \code{json}/\code{yml}/\code{yaml} e para \code{html}/\code{css}/\code{scss};
+preservação de espaços finais em \code{md}/\code{markdown}; e indentação por
+\emph{tab} no \code{Makefile}.
+
+\subsection{Integração contínua (GitHub Actions)}
+\label{sub:18-ci}
+
+O diretório \path{.github/workflows/} contém cinco \emph{workflows}, descritos na
+\autoref{tab:18-workflows}.
+
+\begin{longtable}{Y Z}
+  \caption{Workflows de GitHub Actions (\path{.github/workflows/}).}
+  \label{tab:18-workflows}\\
+  \toprule
+  \textbf{Arquivo} & \textbf{Papel} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Arquivo} & \textbf{Papel} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  \file{ci.yml} & Lint + \emph{typecheck} + testes + \emph{smoke build} em \code{windows-latest}, em \emph{push} e \emph{pull request} para \code{main}. \\
+  \file{codeql.yml} & Análise CodeQL (\code{javascript-typescript}) em \emph{push}, PR e agendamento semanal (segunda 06:00 UTC), ignorando \path{dist}, \path{components}, \path{node_modules} e \path{assets/prism-skins}. \\
+  \file{release-please.yml} & Mantém uma PR de \enquote{release} em \code{main} que agrega os \emph{Conventional Commits}; ao mesclar, cria o \emph{commit} de \emph{bump}, a \emph{tag} e a GitHub Release. \\
+  \file{release.yml} & Constrói o instalador Windows e publica nos \emph{assets} da Release (consumidos pelo \tool{electron-updater}); dispara quando uma Release é \emph{published} (mais \code{workflow_dispatch} manual). \\
+  \file{dependabot-automerge.yml} & Faz \emph{auto-merge} (squash) de PRs do Dependabot do tipo \emph{patch}/\emph{minor} após a CI passar. \\
+\end{longtable}
+
+\subsubsection{Pipeline de CI (\file{ci.yml})}
+
+O \emph{job} \code{lint-and-build} roda em \code{windows-latest} com Node~20 e
+\lstinline|npm ci|. A sequência de passos é uma cadeia de portões:
+
+\begin{enumerate}[nosep]
+  \item \textbf{Verificar versões pinadas}: \file{scripts/check-pinned-versions.js}
+        garante que pacotes com semver exata (sem \code{^}/\code{~})
+        não derivem da versão declarada --- mecanismo criado por causa de uma
+        regressão do \tool{monaco-editor} 0.53.0 que quebrava a inicialização do
+        editor; \tool{monaco-editor} está fixado em \code{0.52.2}.
+  \item \textbf{ESLint} com \lstinline|--max-warnings=0|.
+  \item \textbf{Typecheck} via \lstinline|npx tsc --noEmit|.
+  \item \textbf{Sem \code{.js} gerado versionado}: \file{scripts/check-no-generated-js.js}.
+  \item \textbf{Consistência de i18n}: \file{scripts/check-i18n.js} (sincronia
+        en/pt e ausência de chaves indefinidas).
+  \item \textbf{Código morto}: \lstinline|npm run deadcode| (\tool{knip}).
+  \item \textbf{Sanidade dos módulos JS}: \lstinline|node --check| sobre cada
+        \code{.js} em \path{js} e \path{main}.
+  \item \textbf{Testes unitários com cobertura}: \lstinline|npm run test:coverage|.
+  \item \textbf{Upload de cobertura ao Codecov} (informativo;
+        \lstinline|fail_ci_if_error: false|).
+  \item \textbf{Testes E2E} (\emph{smoke} do Electron), precedidos do download da
+        fonte Norse (\enquote{Dagr}).
+  \item \textbf{Build do renderer} (Vite) e \textbf{build sem publicação}
+        (\lstinline|electron-builder --win --x64 --publish never|).
+\end{enumerate}
+
+\subsubsection{Fluxo de release}
+
+O versionamento é automatizado por \tool{release-please}: cada \emph{push} em
+\code{main} atualiza uma PR de release acumulada. Mesclá-la publica a GitHub
+Release, o que dispara \file{release.yml}. Esse \emph{workflow} roda
+\lstinline|npm run bootstrap| (baixando o \emph{bundle} mingw unificado ---
+\tool{iverilog}/\tool{yosys}/\tool{verilator}/Python+\tool{cocotb} ---, o fork
+\repo{gtkwave-nipscern}, os compiladores \tool{YANC} e o \tool{Surfer}),
+verifica \emph{sentinelas} obrigatórias do \emph{toolchain} (falhando se alguma
+faltar, pois uma Release não pode sair sem o \emph{toolchain}), compila
+\code{.ts} e o \emph{renderer}, e finalmente publica o instalador com
+\lstinline|electron-builder --win --x64 --publish always|. O \tool{electron-updater}
+lê \file{latest.yml} e o \code{.exe} diretamente desses \emph{assets} (ver
+\autoref{cap:11-build-empacotamento} para detalhes de empacotamento e
+auto-atualização). A configuração \code{build} de \file{package.json} publica no
+repositório \repo{sapho}, refletindo o \emph{split} intencional entre o repo de
+desenvolvimento (\repo{aurora}) e o canal de release estável (\repo{sapho}).
+
+\section{Parte B --- Evolução via histórico de Git}
+\label{sec:18-evolucao}
+
+Esta seção reconstrói a história dos repositórios a partir do log de
+\emph{commits} real (e não do \file{CHANGELOG.md}). Os números e datas vêm de
+\lstinline|git log|, \lstinline|git shortlog -sn| e \lstinline|git tag|
+executados em ambos os repositórios.
+
+\subsection{Panorama quantitativo}
+\label{sub:18-panorama}
+
+\begin{tabularx}{\linewidth}{Y Y Y}
+  \toprule
+  \textbf{Métrica} & \repo{aurora} & \repo{yanc} \\
+  \midrule
+  \emph{Commits} totais & 1269 & 665 \\
+  Primeiro \emph{commit} & 04/02/2025 & 09/10/2024 \\
+  \emph{Commit} mais recente (deste estudo) & 19/06/2026 & 14/06/2026 \\
+  Tags de versão & até \code{v6.3.2} & até \code{v5.2} \\
+  \bottomrule
+\end{tabularx}
+
+\medskip
+
+A atividade concentra-se fortemente em 2026, com picos em maio e junho de 2026.
+No \repo{aurora}, os meses de maior volume foram 2026-06 (498 \emph{commits}) e
+2026-05 (447); no \repo{yanc}, 2026-05 (280) e 2026-06 (125). Esse adensamento
+coincide com a fase de profissionalização da plataforma (introdução da cadeia de
+qualidade, do \emph{bundle} de \emph{toolchain} e da Aurora Intelligence).
+
+\subsection{Contribuidores}
+\label{sub:18-contribuidores}
+
+A \autoref{tab:18-autores-aurora} mostra a contagem de \emph{commits} por autor
+em cada repositório (de \lstinline|git shortlog -sn --all|). Vários nomes
+correspondem à mesma pessoa em identidades Git distintas: \enquote{Chrysthofer},
+\enquote{chrysthofer}, \enquote{Kristoffer} e a conta \enquote{nipscern}
+(\code{nipscernlab}) são todos Chrysthofer Afonso; \enquote{Luciano} é o
+responsável pelo projeto (Luciano Andrade).
+
+\begin{tabularx}{\linewidth}{Y Y}
+  \toprule
+  \multicolumn{2}{c}{\textbf{\repo{aurora} --- commits por autor}} \\
+  \midrule
+  \textbf{Autor} & \textbf{Commits} \\
+  \midrule
+  Chrysthofer & 611 \\
+  Luciano & 473 \\
+  nipscern & 228 \\
+  dependabot[bot] & 21 \\
+  Kristoffer & 10 \\
+  ART\_AM (Arthur) & 8 \\
+  chrysthofer & 7 \\
+  LucasAredesCruz & 2 \\
+  github-actions[bot] & 2 \\
+  Claude & 1 \\
+  robertaluchini & 1 \\
+  \bottomrule
+\end{tabularx}
+
+\begin{tabularx}{\linewidth}{Y Y}
+  \toprule
+  \multicolumn{2}{c}{\textbf{\repo{yanc} --- commits por autor}} \\
+  \midrule
+  \textbf{Autor} & \textbf{Commits} \\
+  \midrule
+  Luciano & 399 \\
+  nipscern & 243 \\
+  Claude & 21 \\
+  Chrysthofer & 3 \\
+  Kristoffer & 2 \\
+  \bottomrule
+\end{tabularx}
+
+\medskip
+
+\paragraph{Colaboração via \emph{branches}.} O \emph{branch} \code{main} é o de
+integração. O histórico de \emph{branches} (remotos) evidencia colaboração e
+automação por ramos: \code{feature/aurora-revamp} e \code{ide-ux-fixes}
+(trabalho de funcionalidade), \code{claude/wave-button-pipeline-V4zTD} (sessão
+assistida por IA), além de \emph{branches} automáticos do Dependabot
+(\code{dependabot/npm_and_yarn/*}, \code{dependabot/github_actions/*}) e do
+\tool{release-please} (\code{release-please--branches--main--*}). Arthur
+(\code{ART_AM}) contribui pontualmente via \emph{branches} de correção. As
+entradas \code{dependabot[bot]}, \code{github-actions[bot]} e \code{Claude}
+refletem, respectivamente, atualizações automáticas de dependências, \emph{commits}
+de automação e sessões de assistência por IA.
+
+\subsection{Progressão de versões (tags)}
+\label{sub:18-versoes}
+
+A \autoref{tab:18-tags-aurora} lista as \emph{tags} do \repo{aurora} com a data
+e o assunto do \emph{commit} apontado.
+
+\begin{longtable}{Y Y Z}
+  \caption{Tags do repositório \repo{aurora}.}
+  \label{tab:18-tags-aurora}\\
+  \toprule
+  \textbf{Tag} & \textbf{Data} & \textbf{Commit apontado} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Tag} & \textbf{Data} & \textbf{Commit apontado} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  \code{v4.1.13} & 02/05/2026 & \emph{build}: corrige caminho de \code{yosys.exe} em \code{extraResources} \\
+  \code{v6.0.0}  & 16/05/2026 & \emph{feat}(intelligence,toolbar): Aurora Intelligence ponta a ponta + marca \\
+  \code{v6.2.0}  & 17/05/2026 & \emph{chore}(release): v6.2.0 \\
+  \code{v6.3.1}  & 19/05/2026 & \emph{fix}(wave): PATH para a passada 2 do Verilator \\
+  \code{v6.3.2}  & 19/05/2026 & \emph{chore}(release): 6.3.2 --- sincroniza regras do YANC \\
+  \code{toolchain-v1} & 06/05/2026 & \emph{feat}(toolchain): \emph{bootstrap} de auto-download + remoção de \code{Packages} do Git \\
+  \code{toolchain-v2} & 07/05/2026 & \emph{chore}(deps): Electron 38 \textrightarrow{} 39.8.10 \\
+  \code{msys-v1} & 03/06/2026 & \emph{refactor}(toolchain): consolida o \emph{toolchain} FOSS em um \emph{bundle} mingw \\
+  \code{verilator-v1} & 19/05/2026 & \emph{fix}(ai): desbloqueia Claude Code no Windows + persiste tool calls \\
+  \code{verilator-v2} & 02/06/2026 & marco do fluxo Verilator \\
+  \code{main-pre-revamp-20260617} & 15/06/2026 & \emph{snapshot} pré-\emph{revamp} \\
+  \code{shelf-a2-godfiles-2026-06-18} & 15/06/2026 & \emph{snapshot} de prateleira (refatoração A2) \\
+  \bottomrule
+\end{longtable}
+
+A versão declarada em \file{package.json} no momento deste estudo é
+\code{6.3.2}. Observa-se que parte das \emph{tags} é semântica de versão
+(\code{v4.1.13}, \code{v6.x}) e parte é de \emph{snapshot}/componente
+(\code{toolchain-v*}, \code{msys-v1}, \code{verilator-v*}, e tags datadas de
+\enquote{prateleira}). As versões anteriores a \code{v4.1.13} aparecem no
+\emph{assunto} de muitos \emph{commits} (\code{v2.x} em 2025, \code{v3.0.0} e
+\code{v3.4.0} em maio de 2025) ainda na fase em que o \emph{bump} de versão era
+manual, antes da adoção do \tool{release-please}.
+
+Para o \repo{yanc}, as \emph{tags} são \code{v1}, \code{v2}, \code{v3},
+\code{v4}, \code{v4.1}, \code{v4.2}, \code{v4.3}, \code{v4.4}, \code{v4.4.1},
+\code{v5.0}, \code{v5.1} e \code{v5.2}, todas concentradas entre 10/05/2026
+(\code{v1}, \enquote{\emph{build} e release dos binários do YANC em \emph{push}
+de tag}) e 08/06/2026 (\code{v5.2}, \enquote{paridade de GTKWave no pipeline
+C++ + otimização de \emph{asm} no \code{cppcomp}}).
+
+\subsection{Linha do tempo do \repo{aurora}}
+\label{sub:18-timeline-aurora}
+
+A \autoref{tab:18-timeline} consolida os marcos verificados no histórico. As
+datas são dos \emph{commits} reais.
+
+\begin{longtable}{Y Z}
+  \caption{Linha do tempo de marcos do \repo{aurora}.}
+  \label{tab:18-timeline}\\
+  \toprule
+  \textbf{Período} & \textbf{Marco} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Período} & \textbf{Marco} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  Fev/2025 & Início do histórico público (\code{v2.0.0}, 04/02). Cadência rápida de \emph{tags} \code{v2.x} no \emph{assunto} dos \emph{commits}; versionamento manual. \\
+  Mar/2025 & Introdução do PRISM (visualizador de RTL) na faixa \code{v2.21.0} (23/03). \\
+  Abr/2025 & Editor Monaco (10/04); \enquote{Consolidation of CSS} (consolidação de CSS); \code{v2.38.0} \enquote{Huge UI Changes!} (26/04). \\
+  Mai/2025 & \code{v3.0.0} (20/05) e \code{v3.4.0} (23/05); primeiros trabalhos de \emph{updater}. \\
+  Jul--Nov/2025 & Refatorações do fluxo de compilação e do terminal; gerência de modos (\enquote{Project Mode}, \enquote{Verilog Mode}) com \emph{file manager}, \emph{drag \& drop} e hierarquia (nov/2025). \\
+  Mar/2026 & \enquote{Split editor} (30/03) --- base de painéis divididos; primeiros \emph{commits} no formato \emph{Conventional} (\enquote{Fix(ui)} em 03/04). \\
+  26/04/2026 & \enquote{SAPHO IDE: full UI overhaul + frameless window} --- \emph{revamp} visual maior, janela sem moldura. \\
+  01--03/05/2026 & Reorganização do código em pastas de domínio (CSS e JS); \emph{split} de \file{main.js} em submódulos \path{main/}; LICENSE, README, CONTRIBUTING, SECURITY, templates; documentação de release + auto-\emph{updater}. \\
+  06--07/05/2026 & \tool{husky} + \tool{lint-staged} (07/05); \emph{auto-download} de \emph{toolchain} e remoção de \code{Packages} do Git (\code{toolchain-v1}, 06/05); endurecimento de segurança (desabilita \code{nodeIntegration}, IPC de FS/exec). \\
+  07/05/2026 & \tool{Vitest} adotado (\emph{bootstrap} com \file{safePath} + cobertura de download); \emph{opt-in} de TypeScript via \lstinline|// @ts-check|; \emph{release-please} automatiza releases. \\
+  07--09/05/2026 & Primeiro teste E2E do Electron (\emph{smoke}: abre + Monaco inicializado, 07/05). \\
+  10--11/05/2026 & \textbf{Consolidação para modo único}: fase 1 esconde o \emph{toggle} de modo e trava em \enquote{project} (11/05); fase 2.3 deleta os métodos órfãos de \enquote{Processor/Verilog Mode}; reestruturação \enquote{filosofia modo único}. \\
+  13--14/05/2026 & \emph{Bump} para \code{5.0.0} (renomeia instalador, poda componentes empacotados). \\
+  16--18/05/2026 & \textbf{Aurora Intelligence} ponta a ponta + marca (\code{v6.0.0}, 16/05); \emph{overhaul} de provedor Ollama + \emph{multi-step tool calling}; redesenho do PRISM (\emph{titlebar} própria, tema Aurora). \\
+  19/05/2026 & Desbloqueio do Claude Code no Windows + persistência de \emph{tool calls} + novas \emph{tools} de IDE (\code{verilator-v1}); \code{v6.3.x}. \\
+  02--03/06/2026 & Consolidação do \emph{toolchain} FOSS em um único \emph{bundle} mingw (\code{msys-v1}, 03/06). \\
+  06--07/06/2026 & Conversão de \emph{builders} de compilação para TypeScript (\code{spec_factory}, \code{spec_runner}, \code{command_overrides}). \\
+  13/06/2026 & \textbf{Vite adotado como \emph{bundler} do \emph{renderer}} (A1, primeiro \emph{flag-gated}, 21:39; default \emph{flipado} para \emph{renderer} empacotado às 22:36); \textbf{fundação Lit} + \enquote{Design Lab} + primeiro componente \lstinline|<aurora-statusbar>|. \\
+  14/06/2026 & \textbf{Surfer} como \emph{viewer} \emph{opt-in} ao lado do GTKWave (\emph{toggle} + API da IA); migração de telas para componentes Lit (\emph{welcome}, \emph{command palette}); CSP + \emph{sandbox} em todas as janelas. \\
+  15--16/06/2026 & \emph{Snapshots} \code{main-pre-revamp} e \code{shelf-a2-godfiles}; profissionalização do repo (CODEOWNERS, \tool{commitlint}, CodeQL, CITATION, README \textrightarrow{} \repo{sapho}); integridade de download e fluxo de release (\enquote{Wave B}). \\
+  16--17/06/2026 & \textbf{Source Control embutido} (\enquote{Dagr}, runa Dagaz, G2); APIs de Git completas para a IA (G1, 14 \emph{tools}); decorações de status Git na árvore de arquivos (estilo VS Code); cobertura de testes \tool{vitest} v8 + badge Codecov. \\
+  18--19/06/2026 & Simulação DigitalJS interativa no PRISM (O9, modo \enquote{Simular}); \emph{language servers}: \textbf{Verible} (O2: diagnósticos, \emph{format}, \emph{outline}, \emph{hover}, def/refs) e \textbf{slang-server} (O11); \textbf{tree-sitter} para \emph{highlight} preciso (O7); \emph{format} C/C++/\cmm{} via \tool{clang-format}; refatorações A2/A3 (extração de domínios, migração de globais \lstinline|electronAPI| para \emph{imports}); \emph{shells} semânticos \lstinline|<aurora-editor>|, \lstinline|<aurora-panel>|, \lstinline|<aurora-tabs>|; \emph{runbook} de assinatura de código. \\
+  \bottomrule
+\end{longtable}
+
+\subsubsection{Marcos de arquitetura em destaque}
+
+\begin{description}[style=nextline,leftmargin=0pt]
+  \item[Adoção do Vite] O \emph{commit} \enquote{build(vite): adopt Vite as the
+    renderer bundler (A1, renderer-only, flag-gated)} (13/06/2026) introduziu o
+    Vite empacotando apenas o \emph{renderer}, atrás de uma \emph{flag}; horas
+    depois o default foi invertido para o \emph{renderer} empacotado, com todas
+    as janelas passando pelo Vite. É o ponto em que \code{build:renderer}
+    (\lstinline|vite build| \textrightarrow{} \path{dist/}) entrou no ciclo de
+    \emph{build}.
+  \item[Revamp visual] O \emph{commit} \enquote{SAPHO IDE: full UI overhaul +
+    frameless window} (26/04/2026) marca o \emph{revamp} maior; o trabalho
+    continuou no \emph{branch} \code{feature/aurora-revamp}. A consolidação
+    visual prossegue nas fases Lit (\autoref{cap:05-lit-componentes}, se
+    aplicável).
+  \item[Consolidação para modo único] Em 10--11/05/2026, uma série de
+    \emph{commits} \emph{refactor(mode)} removeu os modos \enquote{Processor
+    Mode} e \enquote{Verilog Mode} (que tinham \emph{file managers} próprios em
+    nov/2025): a fase 1 escondeu o \emph{toggle} e travou em \enquote{project},
+    e a fase 2.3 apagou os métodos órfãos. O resultado é a \enquote{filosofia
+    modo único} da IDE atual.
+  \item[Bundle de toolchain e split de repos] A remoção do diretório
+    \code{Packages} do Git e o \emph{auto-download} via \code{bootstrap}
+    (\code{toolchain-v1}, 06/05/2026), seguidos da consolidação em um único
+    \emph{bundle} mingw (\code{msys-v1}, 03/06/2026), separaram o código-fonte
+    do \emph{toolchain} pesado. As releases passaram a publicar em \repo{sapho}.
+  \item[Source Control, Surfer, Verible, tree-sitter] A faixa final (14--19/06/2026)
+    embutiu o controle de versão (\enquote{Dagr}), adicionou o \tool{Surfer}
+    como \emph{viewer} de ondas \emph{opt-in}, e trouxe \emph{language servers}
+    (Verible, slang) e \emph{highlight} via \tool{tree-sitter} ---
+    aproximando a IDE de uma experiência de \emph{language tooling} completa.
+\end{description}
+
+\subsection{Linha do tempo do \repo{yanc}}
+\label{sub:18-timeline-yanc}
+
+O repositório dos compiladores (\enquote{Yet Another Compiler}) é anterior ao
+\repo{aurora} (início em out/2024). A \autoref{tab:18-timeline-yanc} resume seus
+marcos.
+
+\begin{longtable}{Y Z}
+  \caption{Linha do tempo de marcos do \repo{yanc}.}
+  \label{tab:18-timeline-yanc}\\
+  \toprule
+  \textbf{Período} & \textbf{Marco} \\
+  \midrule
+  \endfirsthead
+  \toprule
+  \textbf{Período} & \textbf{Marco} \\
+  \midrule
+  \endhead
+  \bottomrule
+  \endfoot
+  Out--Dez/2024 & \emph{Initial commit} (09/10/2024); trabalho em FFT, números complexos, geração de imagens de memória (\code{.mif}); \emph{Makefiles} para \code{CMMComp} e \code{Assembler}. \\
+  Jan/2025 & Renomeação \code{Assembler} \textrightarrow{} \code{ASMComp}; variáveis \emph{float} no GTKWave. \\
+  Fev--Mar/2025 & Limpeza de código; remoção da criação de Verilog para simulação (30/03). \\
+  Mai/2026 & Profissionalização intensa: CI que constrói e publica binários do YANC em \emph{push} de tag (\code{v1}, 10/05); empacotamento de \code{HDL/} e \code{Macros/} no zip de release (\code{v2}); \emph{smoke} cobrindo o pipeline \code{cmmcomp} \textrightarrow{} \code{appcomp} \textrightarrow{} \code{asmcomp} (13/05); tradução dos comentários PT \textrightarrow{} EN; compiladores bilíngues (PT/EN). \\
+  28--31/05/2026 & Série de releases \code{v3} (args nomeados de CLI, tabelas que crescem sob demanda, \code{--help}/\code{--version}), \code{v4}, \code{v4.1}, \code{v4.2}, \code{v4.3}, \code{v4.4}; \emph{harness} de regressão (\code{regress.sh}) que roda toolchain + simulação e compara arquivos de saída. \\
+  01--03/06/2026 & \code{v4.4.1}; \code{v5.0} (correção em \code{gen_gtkw} sob \code{-Werror=format-truncation}). \\
+  07--08/06/2026 & \code{v5.1} (biblioteca matemática + números complexos); \code{v5.2} (paridade de GTKWave no pipeline C++ + otimização de \emph{asm} no \code{cppcomp}). \\
+  14/06/2026 & Estudo de viabilidade e projeto-piloto de prova formal em Lean~4 (\emph{feasibility study} + corpus de análise \code{f2mf}); correção de \emph{overflow} de mantissa em \code{f2mf}. \\
+  \bottomrule
+\end{longtable}
+
+\paragraph{Automação e assistência por IA no YANC.} Assim como no \repo{aurora},
+o \repo{yanc} recebeu uma cadeia de CI (\emph{workflows} de \emph{build} por
+\emph{push} e release por \emph{tag}) e \emph{commits} de sessão de IA
+(autor \enquote{Claude}, 21 \emph{commits}), incluindo um documento de
+\emph{handoff} de sessão com sumário, \emph{bugs} encontrados e tarefas Windows.
+O detalhamento dos compiladores em si está em
+\autoref{cap:02-yanc-compiladores}.
+
+\begin{nota}
+Os dois repositórios refletem o \emph{split} intencional da plataforma: o
+\repo{yanc} entrega binários de compilador versionados (\code{v1}--\code{v5.2})
+que o \repo{aurora} baixa via \code{bootstrap}, enquanto o \repo{aurora}
+desenvolve a IDE e publica releases estáveis no canal \repo{sapho}. A explosão
+de atividade em maio--junho de 2026 nos dois repositórios corresponde à fase em
+que a plataforma adquiriu sua infraestrutura de engenharia (testes, CI, releases
+automatizadas) e seus subsistemas mais recentes (Aurora Intelligence, Source
+Control embutido, \emph{language tooling}).
+\end{nota}

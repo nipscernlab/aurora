@@ -1,0 +1,30 @@
+% !TEX root = ../main.tex
+\section{O toolchain bundle}
+\label{sec:S11-toolchain-bundle}
+
+A AURORA é IDE de desktop, mas simulação, síntese e compilação de HDL são feitas por ferramentas FOSS de EDA externas. Em vez de exigir instalação manual no Windows, a AURORA baixa um artefato portátil único, o \emph{toolchain bundle}, produzido pelo repositório de \emph{build} \repo{aurora-toolchain} (scripts \path{build/10..60 *.sh}, \path{manifest.txt}, CI \path{.github/workflows/build.yml}) e publicado como \emph{GitHub Release}.
+
+\textbf{Conteúdo do \path{aurora-msys-vN.zip}.} Um prefixo \tool{MSYS2}/\tool{mingw64} com raiz interna \path{msys/...} (extrai para \file{components/Packages/msys/}). Em \path{mingw64/bin}: \tool{iverilog}+\path{vvp} (simulador Verilog do botão \emph{Wave}), \tool{verilator}+\path{verilator_bin} (simulador rápido, modelo C++), \tool{yosys} (síntese $\rightarrow$ JSON para o PRISM), \tool{g++}/\tool{gcc}/\path{cc1plus} (compilam o modelo do \tool{verilator} \textbf{em tempo de execução}), \tool{perl}/\tool{make}/\tool{ccache} (driver e cache do \tool{verilator}), e Python 3.12+\tool{cocotb} 2.0.1 com \textbf{dois VPIs}: \path{libcocotbvpi_icarus.vpl} (compilado pelo build do \tool{cocotb}) e \path{libcocotbvpi_verilator.a} (compilado à mão). De fora vêm: \tool{gtkwave-nipscern}, compiladores YANC e \tool{netlistsvg} (downloads/npm separados).
+
+\textbf{Receita cocotb-on-Verilator.} O \emph{wheel} de Windows não traz a VPI do \tool{verilator} (compilação sob \code{if os.name == "posix"}). O \path{build/20-build-cocotb-vpi.sh} compila cinco fontes (\path{VpiImpl}, \path{VpiCbHdl}, \path{VpiObj}, \path{VpiIterator}, \path{VpiSignal}) numa \textbf{biblioteca estática} \path{.a} (o \tool{verilator} linka a VPI direto no executável; sem \code{dlopen}). A flag \code{-DPLI_DLLISPEC=} (vazia), com o \path{vpi_user.h} do próprio \tool{verilator}, torna os símbolos \path{vpi_*} planos (sem \code{__imp_}), resolvidos no link final. Dois \emph{patches} em \path{cocotb_tools/runner.py}: (1) emitir cada flag como par \code{-LDFLAGS <token>} (o wrapper \tool{perl} quebraria flags com espaços) linkando DLLs core + \code{-static-libstdc++}/\code{-static-libgcc}; (2) \emph{fallback} de PATH para achar o \code{verilator} (script perl sem extensão que \code{shutil.which} ignora). Instalado a partir do \emph{sdist} (precisa das fontes da VPI), em \emph{venv} (PEP 668).
+
+\textbf{Pinos de versão (\path{manifest.txt}).} \tool{MSYS2} é \emph{rolling release}; pinos evitam \emph{drift}.
+
+\begin{tabularx}{\linewidth}{Y Y Z}
+\toprule
+\textbf{Pacote} & \textbf{Versão} & \textbf{Tipo / razão} \\
+\midrule
+\path{gcc}/\path{gcc-libs} & \path{15.1.0-5} & Pinado: 16.x tem libstdc++ quebrada; \tool{g++} roda em runtime \\
+\path{python} & \path{3.12.11-1} & Pinado: \tool{cocotb} linka \code{-lpython3.X}; 3.14 quebra o build \\
+\path{iverilog} & \path{13.0-2} & Flutuante (era 12; a 13 é mais estrita) \\
+\path{yosys} & \path{0.56-4} & Flutuante (instalado sem \tool{ghdl}) \\
+\path{verilator} & \path{5.048-1} & Flutuante \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+Os três pinados saíram do \tool{MSYS2} vivo; vêm de um Release \path{pins-v1} via \code{pacman -U}.
+
+\textbf{Pipeline e gate.} \path{10}-instala pinos $\rightarrow$ \path{20}-build VPI $\rightarrow$ \path{40}-\emph{assemble} $\rightarrow$ \path{45}-\emph{trim} ($\approx$1077\,MB $\to$ $\approx$660\,MB) $\rightarrow$ \path{50}-\textbf{smoke} (4 fluxos contra o próprio bundle: \tool{iverilog}, \tool{yosys}$\rightarrow$JSON, cocotb-icarus, cocotb-verilator; exige \textbf{4/4 PASS}) $\rightarrow$ \path{60}-\emph{package}. A CI roda tudo num \emph{runner} limpo com \emph{guardrail} que falha se a versão instalada divergir do manifesto.
+
+\textbf{Consumo pela AURORA.} \file{components/Scripts/download-toolchain.js} baixa o asset pela tag pinada (\code{MSYS_TAG}=\path{msys-v1}, owner \path{nipscernlab}, repo \path{aurora-toolchain}), extrai com \code{Expand-Archive} e confere duas \emph{sentinelas}: \path{mingw64/bin/verilator_bin.exe} (bundle completo) e, via varredura de \path{python3.*}, \path{site-packages/cocotb/libs/libcocotbvpi_verilator.a} (suporte a cocotb). Bundle+cocotb presentes pula o download; falta de cocotb força atualização no lugar. Há gancho de checksum \code{EXPECTED_SHA256} (hoje \code{null}).

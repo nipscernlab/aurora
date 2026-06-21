@@ -1,0 +1,37 @@
+% !TEX root = ../main.tex
+\section{Aurora Intelligence (IA)}
+\label{sec:S09-aurora-intelligence}
+
+\tool{Aurora Intelligence} (feminino) e o assistente de IA da \tool{AURORA}: conversa sobre o projeto, \cmm{} e Verilog e \emph{age} sobre o ambiente por ferramentas curadas. Esta \textbf{totalmente implementado}; so o \emph{provider}/modelos \textbf{proprios do NIPSCERN ainda nao foram treinados} (roteiro). Ate la, opera contra provedores externos. Arquitetura Electron: o \emph{main} detem chaves, rede, subprocessos, MCP e disco; o \emph{renderer} detem o painel e executa cada \emph{tool} via \code{window.AuroraAPI}.
+
+\textbf{Dois transportes convergem nos mesmos eventos} \code{ai:chat-event} (\code{text-delta}, \code{tool-call}, \code{tool-result} e exatamente um fechamento: \code{finish}/\code{aborted}/\code{error}), tornando o laco do renderer transporte-agnostico.
+
+\subsection{Transporte 1 --- Vercel AI SDK (BYOK)}
+Pacote \code{ai} (\code{streamText}/\code{generateText}) com chave do usuario; \file{main/ai/provider.js} carrega cada SDK via \code{tryRequire} (falha isola so o provedor).
+
+\begin{tabularx}{\linewidth}{l l Y}
+\toprule
+\textbf{Provedor} & \textbf{Pacote} & \textbf{Modelo padrao} \\
+\midrule
+openai    & \code{@ai-sdk/openai}    & \lstinline|gpt-4o-mini| \\
+anthropic & \code{@ai-sdk/anthropic} & \lstinline|claude-haiku-4-5-20251001| \\
+google    & \code{@ai-sdk/google}    & \lstinline|gemini-2.5-flash| \\
+deepseek  & \code{@ai-sdk/deepseek}  & \lstinline|deepseek-chat| \\
+groq      & \code{@ai-sdk/groq}      & \lstinline|llama-3.3-70b-versatile| \\
+ollama    & via \code{@ai-sdk/openai} & \lstinline|llama3.1:8b| \\
+\bottomrule
+\end{tabularx}
+
+Ollama reusa \code{createOpenAI} contra \url{http://localhost:11434/v1}. \code{resolveModelId} resolve \lstinline|default|/\lstinline|latest| para \code{DEFAULT\_MODELS}, ids aposentados via \code{MODEL\_MIGRATIONS}, e recua para o padrao quando o modelo esta indisponivel. \file{chat.js}: \code{stopWhen=stepCountIs(24)}, \emph{watchdog} de inatividade (120\,s, pausado com \emph{tools} em voo), conteudo multimodal, \emph{prompt caching} efemero da Anthropic, e \emph{fallback} de \emph{tools-em-texto} (Ollama). \code{generateOneshot} faz geracao unica (sem \emph{tools}/historico), so para provedores do SDK.
+
+\subsection{Transporte 2 --- CLIs por assinatura}
+Usa a assinatura do usuario invocando a CLI local em modo nao interativo, traduzindo seus eventos para \code{ai:chat-event}. \file{main/ai/claude\_code.js} (\enquote{claude-code}: \lstinline|claude -p --output-format stream-json|) e \file{main/ai/codex\_cli.js} (\enquote{chatgpt}: \lstinline|codex exec --json|). Auth e por OAuth da CLI; a AURORA nunca ve o token e \emph{remove} \code{ANTHROPIC\_API\_KEY}/\code{OPENAI\_API\_KEY} do filho. Continuidade via \lstinline|--resume|/\lstinline|exec resume|. Binarios nao sao empacotados: baixados sob demanda (\file{cli\_manifest.js}, \file{cli\_downloader.js} com verificacao SHA-512, \file{cli\_locator.js}).
+
+\subsection{Servidor MCP HTTP local}
+\file{main/ai/aurora\_mcp\_server.js} expoe as \emph{tools} da AURORA as CLIs como \lstinline|mcp__aurora__<nome>|: \emph{Streamable HTTP stateless} em 127.0.0.1:porta-efemera, defesa anti-\emph{DNS-rebinding} (\code{Host}), \emph{token} de 256 bits em \path{/mcp/<token>}, so \code{POST} ate 4 MB. \code{MCP\_TOOL\_RULES} proibe binarios da YANC pelo \emph{shell}; no Claude as \emph{tools} de escrita/\emph{shell} sao desabilitadas. Cada chamada cai no mesmo \code{tool\_bridge.runTool}.
+
+\subsection{Ferramentas e \code{tool\_bridge}}
+\file{main/ai/tools.js} (\code{TOOL\_MANIFEST}, dados puros via IPC) define \textbf{98 ferramentas}: \textbf{41 leitura} (sem confirmacao) e \textbf{57 escrita} (cartao Permitir/Negar). Campos: \code{name}, \code{access}, \code{api}=[ns,metodo], \code{argStyle}, \code{inputSchema}. Cobrem editor, projeto, compilacao/simulacao, terminais, processadores, Git, formas de onda (GTKWave/Surfer), diretivas/opcodes e \code{ask\_user\_question}. \file{tool\_bridge.js} liga \emph{main}$\rightarrow$renderer (\code{ai:tool-exec}/\code{ai:tool-result}), dirigido por evento, com limites de 120\,s/300\,s/600\,s; nunca rejeita (\code{\{ok:false,error\}}). Permissao pura em \file{tool\_permission.js}, modos \lstinline|ask|/\lstinline|writes| (padrao)/\lstinline|allow|.
+
+\subsection{Cofre, persistencia, IPC}
+\file{keystore.js} cifra chaves com \code{safeStorage} (\textbf{DPAPI}/Keychain/libsecret) em \path{userData/aurora-ai-keys.json}; texto puro nunca volta ao renderer (so \code{hasKey}). Persistencia: \textbf{um JSON por conversa} (\file{conversations.js}), \emph{log} de auditoria \emph{append-only} \path{.jsonl} (\file{audit.js}) e prefs nao secretas (\file{prefs.js}). Canais em \file{main/ipc/ai.js} (\code{ai:list-providers}, \code{ai:set-key}, \code{ai:chat-start}, \code{ai:tool-*}, \code{ai:conv-*}). O painel e \file{js/ui/ai\_assistant\_manager.js}, apoiado por modulos puros em \path{js/ai/*} (\emph{system prompt}, \emph{render}, contexto de projeto).

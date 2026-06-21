@@ -1,0 +1,787 @@
+% !TEX root = ../main.tex
+\chapter{A arquitetura do soft-processor SAPHO}
+\label{cap:02-arquitetura-soft-processor-sapho}
+
+Este capítulo descreve o processador (\emph{soft-processor}) que o \emph{toolchain}
+\tool{YANC} emite ao final da compilação. A fonte da verdade é o conjunto de módulos
+Verilog em \path{yanc/HDL/} --- \file{processor.v}, \file{core.v}, \file{ula.v},
+\file{instr\_dec.v}, \file{addr\_dec.v} e \file{myFIFO.v} --- e o \emph{back-end} do
+montador (\emph{ASMComp}) em \path{yanc/Compilers/ASMComp/Sources/}, que parametriza e
+instancia esses módulos, gera as imagens de memória (\path{.mif}) e produz o
+\emph{testbench}. A geração do código \cmm/C++ até a montagem em Assembly é tratada em
+\autoref{cap:03-pipeline-de-compilacao-yanc}; aqui o foco é o \emph{hardware} resultante.
+
+\section{Visão geral do estilo de arquitetura}
+\label{sec:arq-visao-geral}
+
+O processador SAPHO é um núcleo de \textbf{datapath baseado em acumulador} (\emph{single
+accumulator}) com \textbf{arquitetura Harvard}: memória de programa e memória de dados são
+fisicamente separadas, cada uma com sua própria largura e seu próprio barramento de
+endereço. O coração do datapath é um único registrador acumulador (\lstinline|racc|),
+declarado em \file{core.v} como
+
+\begin{lstlisting}[language=Verilog]
+reg signed [NUBITS-1:0] racc;
+// ...
+always @ (posedge clk or posedge rst) if (rst) racc <= 0; else racc <= ula_out;
+\end{lstlisting}
+
+A cada ciclo o acumulador captura a saída da Unidade Lógico-Aritmética (a \tool{ULA}). A
+maioria das instruções segue o padrão \emph{acumulador-com-memória}: um operando vem da
+memória de dados (entrada \lstinline|in1| da ULA) e o outro é o próprio acumulador
+(entrada \lstinline|in2|), e o resultado realimenta o acumulador. Há ainda uma
+\textbf{pilha de dados} (\emph{data stack}) que fornece o segundo operando para as variantes
+de instrução com prefixo \lstinline|S_| (\emph{stack}), permitindo expressões aninhadas sem
+variáveis temporárias em memória.
+
+Três características definem o estilo do núcleo:
+
+\begin{description}[leftmargin=2.2em]
+  \item[Totalmente parametrizável] Toda largura --- palavra, mantissa, expoente, operando,
+    endereços, profundidade de pilhas, número de portas --- é um \lstinline|parameter|
+    Verilog. O mesmo RTL gera desde um processador de 8 bits inteiros até um de dezenas de
+    bits com ponto flutuante customizado.
+  \item[Pague apenas pelo que usar] Cada instrução do conjunto é um \lstinline|parameter|
+    booleano (0/1). O montador liga (\lstinline|.OPCODE(1)|) somente as instruções que o
+    programa efetivamente usa; tudo o mais permanece em 0 e é eliminado pelo
+    \lstinline|generate ... if| que envolve cada bloco. Assim, o circuito sintetizado contém
+    apenas as unidades aritméticas e os caminhos de controle realmente exercitados.
+  \item[Datapath de ciclo curto] Não há \emph{pipeline} de execução clássico com
+    \emph{forwarding}; o fluxo é busca de instrução, decodificação registrada, seleção de
+    operandos e operação combinacional na ULA, com o resultado registrado no acumulador.
+    Registradores de \emph{prefetch}/decodificação introduzem latência fixa entre busca e
+    escrita.
+\end{description}
+
+\begin{nota}
+Os nomes dos parâmetros são abreviações em maiúsculas fixadas no RTL: \lstinline|NUBITS|
+(largura da palavra), \lstinline|NBMANT| (bits de mantissa), \lstinline|NBEXPO| (bits de
+expoente), \lstinline|NBOPER| (largura do campo operando), \lstinline|NBOPCO| (largura do
+opcode, fixa em 7), \lstinline|MDATAS|/\lstinline|MINSTS| (tamanho das memórias de dados e
+de instruções) e \lstinline|MDATAW|/\lstinline|MINSTW| (bits de endereço correspondentes,
+derivados via \lstinline|$clog2|).
+\end{nota}
+
+\subsection{Hierarquia de módulos}
+\label{sec:arq-hierarquia}
+
+O topo sintetizável é o módulo \lstinline|processor| (\file{processor.v}), que conecta o
+\lstinline|core| às duas memórias. O \lstinline|core| (\file{core.v}) contém o datapath e o
+controle. A tabela a seguir resume a hierarquia confirmada no RTL.
+
+\begin{longtable}{l l}
+\toprule
+\textbf{Módulo (arquivo)} & \textbf{Função} \\
+\midrule
+\endhead
+\lstinline|processor| (\file{processor.v}) & Topo: instancia \lstinline|core|, \lstinline|mem_instr| e \lstinline|mem_data|. \\
+\lstinline|mem_instr| (\file{processor.v}) & Memória de programa (Harvard), carregada por \lstinline|$readmemb|. \\
+\lstinline|mem_data| (\file{processor.v})  & Memória de dados (Harvard), 1 leitura + 1 escrita por ciclo. \\
+\lstinline|core| (\file{core.v})           & Datapath + controle: acumulador, pilha de dados, ULA. \\
+\lstinline|instr_fetch| (\file{core.v})    & Busca de instrução: PC, \emph{prefetch}, pilha de subrotina. \\
+\lstinline|pc| (\file{core.v})             & Contador de programa. \\
+\lstinline|prefetch| (\file{core.v})       & Separa opcode/operando, decide saltos (JMP/JIZ/CAL/RET) e interrupção. \\
+\lstinline|stack| (\file{core.v})          & Pilha genérica (usada para dados e para retorno de subrotina). \\
+\lstinline|instr_dec| (\file{instr\_dec.v})& Decodificador: opcode $\rightarrow$ sinais de controle e \lstinline|ula_op|. \\
+\lstinline|ula_in1_ctrl| (\file{core.v})   & Seleção do operando 1 (memória ou topo da pilha). \\
+\lstinline|ula_in2_ctrl| (\file{core.v})   & Seleção do operando 2 (acumulador ou entrada de I/O). \\
+\lstinline|mem_ctrl|/\lstinline|rel_addr| (\file{core.v}) & Endereçamento indireto e relativo (arrays, FFT, ponteiros). \\
+\lstinline|io_ctrl| (\file{core.v})        & Controle das portas de entrada e saída. \\
+\lstinline|ula| (\file{ula.v})             & Unidade Lógico-Aritmética (todas as operações). \\
+\lstinline|addr_dec| (\file{addr\_dec.v})  & Decodificador de endereço de porta (1-de-N), no nível do \emph{wrapper}. \\
+\lstinline|myFIFO| (\file{myFIFO.v})       & FIFO genérica (substitui IP de FIFO do fabricante). \\
+\bottomrule
+\end{longtable}
+
+\subsection{Fluxo de dados do núcleo}
+\label{sec:arq-fluxo}
+
+O diagrama ASCII a seguir resume o caminho confirmado em \file{core.v}, da busca de
+instrução até a realimentação do acumulador.
+
+\begin{lstlisting}
+       +----------------+      instr (NBOPCO+NBOPER bits)
+       |  mem_instr     |----------------------------+
+       | (programa)     |<--- instr_addr            |
+       +----------------+                           v
+              ^                            +--------------------+
+              |                            |  instr_fetch       |
+       +------+------+  pc_addr            |  (pc, prefetch,    |
+       |  pc (PC)    |<-------- pc_load    |   stack subrotina) |
+       +-------------+                     +----+----------+----+
+                                               |opcode    |operand
+                                               v          |
+                                       +---------------+   |
+                                       |  instr_dec    |   |  (endereco de dados)
+                                       | -> ula_op,    |   |
+                                       |    push/pop,  |   v
+                                       |    wr,ldi,sti |  +--------------+
+                                       +-------+-------+  |  mem_data    |
+                                               |          | (dados)      |
+            +--------------+   in1   +----------+----+     +------+-------+
+            | data stack   |-------->| ula_in1_ctrl |<-----------+ mem_data_out
+            | (sp)         |         +-------+-------+
+            +------^-------+                 | in1
+                   |                         v
+                   |  sp_in           +------------+   out
+                   +------------------|    ULA     |--------+
+                   |                  +-----+------+        |
+            +------+-------+  in2           ^               v
+            | ula_in2_ctrl |---------------/         +-------------+
+            | (acc / io_in)|                         |  racc (ACC) |
+            +------^-------+<------------------------+-------------+
+                   | io_in                            (realimenta in2)
+\end{lstlisting}
+
+\section{Memórias: arquitetura Harvard}
+\label{sec:arq-memorias}
+
+As duas memórias são instanciadas no topo (\file{processor.v}) e têm larguras e
+profundidades independentes.
+
+\subsection{Memória de instruções}
+\label{sec:arq-mem-instr}
+
+A memória de programa é o módulo \lstinline|mem_instr|. Cada palavra tem
+\lstinline|NBOPCO + NBOPER| bits (opcode + operando) e é apenas de leitura em operação. O
+conteúdo é carregado em simulação por \lstinline|$readmemb| a partir do arquivo
+\path{.mif} de instruções; sob Yosys (síntese) o \lstinline|$readmemb| é ignorado por uma
+guarda \lstinline|`ifdef YOSYS|.
+
+\begin{lstlisting}[language=Verilog]
+module mem_instr
+#( parameter NADDRE = 8, parameter NBDATA = 12, parameter FNAME = "instr.mif" )
+( input clk, input [$clog2(NADDRE)-1:0] addr, output reg [NBDATA-1:0] data = 0 );
+  reg [NBDATA-1:0] mem [0:NADDRE-1];
+  `ifdef YOSYS
+  `else
+    initial $readmemb(FNAME, mem);
+  `endif
+  wire wr = 0; // avoid unnecessary warnings
+  always @ (posedge clk) begin
+    data <= mem[addr];
+    if (wr) mem[addr] <= 0;
+  end
+endmodule
+\end{lstlisting}
+
+\subsection{Memória de dados}
+\label{sec:arq-mem-dados}
+
+A memória de dados (\lstinline|mem_data|) tem palavra de \lstinline|NUBITS| bits, é
+\textbf{signed} e oferece uma porta de leitura e uma de escrita simultâneas no mesmo ciclo
+(endereços \lstinline|addr_rd| e \lstinline|addr_wr| independentes). A escrita é condicionada
+ao sinal \lstinline|wr| produzido pelo decodificador.
+
+\begin{lstlisting}[language=Verilog]
+module mem_data
+#( parameter NADDRE = 8, parameter NBDATA = 32, parameter FNAME = "data.mif" )
+( input clk, input wr,
+  input  [$clog2(NADDRE)-1:0] addr_rd, addr_wr,
+  input  signed [NBDATA-1:0] data_in,
+  output reg signed [NBDATA-1:0] data_out );
+  reg [NBDATA-1:0] mem [0:NADDRE-1];
+  `ifdef YOSYS
+  `else
+    initial $readmemb(FNAME, mem);
+  `endif
+  always @ (posedge clk) begin
+    if (wr) mem[addr_wr] <= data_in;
+    data_out <= mem[addr_rd];
+  end
+endmodule
+\end{lstlisting}
+
+No topo, as duas memórias são ligadas ao núcleo:
+
+\begin{lstlisting}[language=Verilog]
+mem_instr #(.NADDRE(MINSTS), .NBDATA(NBOPCO+NBOPER), .FNAME(IFILE))
+          minstr(clk, instr_addr, instr);
+mem_data  #(.NADDRE(MDATAS), .NBDATA(NUBITS), .FNAME(DFILE))
+          mdata(clk, mem_wr, mem_addr_rd, mem_addr_wr, mem_data_out, mem_data_in);
+\end{lstlisting}
+
+\section{Busca de instruções, PC e saltos}
+\label{sec:arq-fetch}
+
+\subsection{Contador de programa}
+\label{sec:arq-pc}
+
+O contador de programa (módulo \lstinline|pc|) é um registrador de \lstinline|MINSTW| bits
+que, a cada ciclo, ou incrementa o endereço atual ou carrega um novo valor (\lstinline|load|).
+O incremento é sempre por um.
+
+\begin{lstlisting}[language=Verilog]
+wire [NBITS-1:0] um  = {{NBITS-1{1'b0}}, {1'b1}};
+wire [NBITS-1:0] val = (load) ? data : addr;
+always @ (posedge clk or posedge rst) begin
+  if (rst) addr <= 0;
+  else     addr <= val + um;
+end
+\end{lstlisting}
+
+\subsection{Prefetch, opcode e operando}
+\label{sec:arq-prefetch}
+
+O módulo \lstinline|prefetch| fatia a palavra de instrução em opcode e operando, e centraliza
+a lógica de salto. A instrução tem o opcode nos bits mais significativos e o operando nos
+menos significativos:
+
+\begin{lstlisting}[language=Verilog]
+assign opcode  = mem_instr[NBOPCO+NBOPER-1:NBOPER];
+assign operand = mem_instr[NBOPER       -1:     0];
+\end{lstlisting}
+
+Os saltos são decididos diretamente sobre o opcode (sem passar pela ULA). O \lstinline|JMP|
+(opcode 15) é incondicional; o \lstinline|JIZ| (opcode 16, \emph{jump if zero}) salta quando o
+acumulador é zero --- o sinal \lstinline|is_um| indica acumulador não nulo:
+
+\begin{lstlisting}[language=Verilog]
+// JMP                                       JIZ
+assign wJMP = (opcode == 5'd15) | ((opcode == 5'd16) & ~is_um);
+\end{lstlisting}
+
+Quando a chamada de subrotina (\lstinline|CAL|) está habilitada, o \lstinline|prefetch|
+reconhece também \lstinline|CAL| (opcode 17) e \lstinline|RET| (opcode 18), gerando os
+sinais de \emph{push}/\emph{pop} para a pilha de subrotina:
+
+\begin{lstlisting}[language=Verilog]
+wire wCAL = (opcode == 5'd17);
+wire wRET = (opcode == 5'd18);
+assign pc_load  = wJMP | wCAL | wRET;
+assign isp_push = wCAL;
+assign isp_pop  = wRET;
+\end{lstlisting}
+
+\subsection{Interrupção e marcador \texttt{\#TOAQUI}}
+\label{sec:arq-itr-toaqui}
+
+Dois mecanismos opcionais são parametrizados por endereço. Quando \lstinline|ITRADD > 0|, a
+entrada \lstinline|itr| força o PC a saltar para o endereço de interrupção; quando
+\lstinline|TOAQUIADDR > 0|, a saída \lstinline|cheguei| pulsa no ciclo em que o endereço
+buscado iguala o marcador (\lstinline|instr_addr == TOAQUIADDR|), permitindo instrumentar o
+ponto exato de execução.
+
+\subsection{Pilha de subrotina e pilha de dados}
+\label{sec:arq-stacks}
+
+Ambas reusam o mesmo módulo genérico \lstinline|stack|, parametrizado por largura
+(\lstinline|NBITS|) e profundidade (\lstinline|DEPTH|). A pilha de subrotina
+(\lstinline|isp|, profundidade \lstinline|SDEPTH|) guarda endereços de retorno e só é
+sintetizada quando \lstinline|CAL| está presente. A pilha de dados (\lstinline|sp|,
+profundidade \lstinline|DDEPTH|, largura \lstinline|NUBITS|) fornece o segundo operando às
+instruções de variante \lstinline|S_|/\lstinline|SF_|.
+
+\begin{lstlisting}[language=Verilog]
+reg  [NADDR-1:0] pointer = 0;
+wire [NADDR-1:0] pmaisum = pointer + um;
+wire [NADDR-1:0] pmenoum = pointer - um;
+always @ (posedge clk or posedge rst) begin
+  if      (rst ) pointer <= zero;
+  else if (push) pointer <= pmaisum;
+  else if (pop ) pointer <= pmenoum;
+end
+always @ (posedge clk) if (push) mem[pointer] <= in;
+assign                     out = mem[pmenoum];
+\end{lstlisting}
+
+\section{Decodificação de instruções}
+\label{sec:arq-decod}
+
+O decodificador (\file{instr\_dec.v}) recebe o opcode de 7 bits e produz: os sinais de
+\emph{push}/\emph{pop} das pilhas, o código de operação da ULA (\lstinline|ula_op|, 6 bits),
+o \emph{enable} de escrita em memória (\lstinline|mem_wr|), os controles de I/O
+(\lstinline|req_in|, \lstinline|out_en|) e os controles de endereçamento indireto
+(\lstinline|ldi|, \lstinline|sti|, \lstinline|fft|, \lstinline|lda|, \lstinline|sta|).
+
+\subsection{Reconhecimento condicional de cada opcode}
+\label{sec:arq-decod-cond}
+
+Cada instrução só gera lógica de reconhecimento quando seu parâmetro está ligado. O padrão,
+repetido para todos os opcodes, é um \lstinline|generate|:
+
+\begin{lstlisting}[language=Verilog]
+wire wLOD; generate if ((LOD) != 0)
+  begin : dec_wlod assign wLOD = opcode == 7'd00; end
+  else begin : dec_wlod assign wLOD = 1'b0; end endgenerate
+\end{lstlisting}
+
+Os sinais agregados (por exemplo, \lstinline|mem_wr|, \lstinline|push|, \lstinline|pop|) são
+ORs dos reconhecedores das instruções que os disparam. Por exemplo, a escrita em memória é
+ativada por \lstinline|SET|, \lstinline|SET_P|, \lstinline|STI|, \lstinline|ISI| e
+\lstinline|STA|:
+
+\begin{lstlisting}[language=Verilog]
+assign mem_wr = wSET | wSET_P | wSTI | wISI | wSTA;
+\end{lstlisting}
+
+\subsection{Geração do código da ULA (\lstinline|ula_op|)}
+\label{sec:arq-decod-ula}
+
+O campo \lstinline|ula_op| (6 bits) é montado bit a bit. Cada bit (\lstinline|b0|..\lstinline|b5|)
+é o OR dos reconhecedores das instruções cujo código de ULA tem aquele bit em 1. O valor
+final é registrado (atraso de um ciclo) antes de chegar à ULA:
+
+\begin{lstlisting}[language=Verilog]
+always @ (posedge clk) ula_op <= {b5,b4,b3,b2,b1,b0};
+\end{lstlisting}
+
+\section{Conjunto de instruções (ISA)}
+\label{sec:arq-isa}
+
+O opcode tem \textbf{7 bits} (\lstinline|NBOPCO = 7|, fixo em \file{processor.v} e replicado
+como \lstinline|NBITS_OPC| no montador, em \file{eval.c}). A associação \emph{mnemônico
+$\rightarrow$ opcode} está no analisador léxico do montador
+(\file{ASMComp.l}); a associação \emph{opcode $\rightarrow$ \lstinline|ula_op|} está no
+decodificador (\file{instr\_dec.v}). As convenções de sufixo são:
+
+\begin{description}[leftmargin=2.6em]
+  \item[\texttt{S\_}] segundo operando vindo da \textbf{pilha de dados} (em vez da memória).
+  \item[\texttt{F\_}] versão em \textbf{ponto flutuante}.
+  \item[\texttt{SF\_}] ponto flutuante com operando vindo da pilha.
+  \item[\texttt{P\_}] faz \textbf{PUSH} antes da operação.
+  \item[\texttt{\_M}] opera sobre o valor de \textbf{memória} (em vez do acumulador).
+\end{description}
+
+\subsection{Controle de fluxo, memória e I/O}
+\label{sec:arq-isa-ctrl}
+
+\begin{longtable}{l l l}
+\toprule
+\textbf{Op.} & \textbf{Mnemônico} & \textbf{Descrição} \\
+\midrule
+\endhead
+0  & \lstinline|LOD|    & Carrega o acumulador com dado da memória. \\
+1  & \lstinline|P_LOD|  & PUSH seguido de LOD. \\
+2  & \lstinline|LDI|    & Load com endereçamento indireto (índice no acumulador). \\
+3  & \lstinline|ILI|    & Load indireto com reversão de bits (FFT). \\
+4  & \lstinline|SET|    & Armazena o acumulador na memória. \\
+5  & \lstinline|SET_P|  & SET seguido de POP. \\
+6  & \lstinline|STI|    & Store com endereçamento indireto (índice na pilha). \\
+7  & \lstinline|ISI|    & Store indireto com reversão de bits (FFT). \\
+8  & \lstinline|PSH|    & Empurra o acumulador na pilha de dados. \\
+9  & \lstinline|POP|    & Retira da pilha de dados para o acumulador. \\
+10 & \lstinline|INN|    & Entrada de dado (porta de I/O). \\
+11 & \lstinline|F_INN|  & Entrada em ponto flutuante (aplica I2F). \\
+12 & \lstinline|P_INN|  & PUSH seguido de INN. \\
+13 & \lstinline|PF_INN| & PUSH seguido de F\_INN. \\
+14 & \lstinline|OUT|    & Saída de dado (porta de I/O). \\
+15 & \lstinline|JMP|    & Salto incondicional. \\
+16 & \lstinline|JIZ|    & Salta se o acumulador for zero. \\
+17 & \lstinline|CAL|    & Chamada de subrotina (empilha retorno). \\
+18 & \lstinline|RET|    & Retorno de subrotina (desempilha). \\
+96 & \lstinline|NOP|    & Nenhuma operação. \\
+102& \lstinline|LDA|    & \lstinline|acc = mem[acc]| (indireto base-less). \\
+103& \lstinline|STA|    & \lstinline|mem[topo_pilha] = acc|, com POP. \\
+\bottomrule
+\end{longtable}
+
+\begin{nota}
+O mnemônico \lstinline|LEA| (\emph{load effective address}) não é um opcode próprio: no
+montador ele se expande para um \lstinline|LOD| de uma constante igual ao endereço de uma
+variável (\file{eval.c}, função \lstinline|instr_lea|). Isso permite passar o endereço-base
+de um array para uma subrotina, que então o desreferencia em tempo de execução com
+\lstinline|ADD| + \lstinline|LDA|/\lstinline|STA|.
+\end{nota}
+
+\subsection{Operações aritméticas, lógicas e de comparação}
+\label{sec:arq-isa-arit}
+
+A tabela a seguir lista os opcodes de cálculo (variantes \lstinline|S_|, \lstinline|F_|,
+\lstinline|SF_|, \lstinline|P_| e \lstinline|_M| compartilham a unidade aritmética da base).
+A coluna \lstinline|ula_op| é o código que o decodificador entrega à ULA (de
+\file{instr\_dec.v}).
+
+\begin{longtable}{l l l l}
+\toprule
+\textbf{Op.} & \textbf{Mnemônico} & \textbf{ula\_op} & \textbf{Operação} \\
+\midrule
+\endhead
+19--22  & \lstinline|ADD|/\lstinline|S_ADD|/\lstinline|F_ADD|/\lstinline|SF_ADD| & 2 / 3 & Soma (inteira / float). \\
+23--26  & \lstinline|MLT| .. \lstinline|SF_MLT| & 4 / 5 & Multiplicação (inteira / float). \\
+27--30  & \lstinline|DIV| .. \lstinline|SF_DIV| & 6 / 7 & Divisão (inteira / float). \\
+31--32  & \lstinline|MOD|/\lstinline|S_MOD|     & 8     & Resto da divisão (inteiro). \\
+33--36  & \lstinline|SGN| .. \lstinline|SF_SGN| & 9 / 10& Copia o sinal de um operando ao outro. \\
+37--42  & \lstinline|NEG| .. \lstinline|PF_NEG_M|& 11--14& Negação (inteira / float). \\
+43--48  & \lstinline|ABS| .. \lstinline|PF_ABS_M|& 15--18& Valor absoluto (inteiro / float). \\
+49--54  & \lstinline|PST| .. \lstinline|PF_PST_M|& 19--22& Zera se negativo (\emph{positive set}). \\
+55--57  & \lstinline|NRM|/\lstinline|NRM_M|/\lstinline|P_NRM_M|& 23 / 24& Divisão por constante \lstinline|NUGAIN|. \\
+58--60  & \lstinline|I2F|/\lstinline|I2F_M|/\lstinline|P_I2F_M|& 25 / 26& Inteiro $\rightarrow$ float. \\
+61--63  & \lstinline|F2I|/\lstinline|F2I_M|/\lstinline|P_F2I_M|& 27 / 28& Float $\rightarrow$ inteiro. \\
+64--69  & \lstinline|AND| .. \lstinline|S_XOR|  & 29--31& Bit a bit: AND, OR, XOR. \\
+70--72  & \lstinline|INV|/\lstinline|INV_M|/\lstinline|P_INV_M|& 32 / 33& Inversão bit a bit (NOT). \\
+73--76  & \lstinline|LAN| .. \lstinline|S_LOR|  & 34 / 35& Lógico booleano AND/OR. \\
+77--79  & \lstinline|LIN|/\lstinline|LIN_M|/\lstinline|P_LIN_M|& 36 / 37& Inversão lógica (NOT booleano). \\
+80--83  & \lstinline|LES| .. \lstinline|SF_LES| & 38 / 39& Menor que (inteiro / float). \\
+84--87  & \lstinline|GRE| .. \lstinline|SF_GRE| & 40 / 41& Maior que (inteiro / float). \\
+88--89  & \lstinline|EQU|/\lstinline|S_EQU|     & 42    & Igualdade (inteiro e float). \\
+90--91  & \lstinline|SHL|/\lstinline|S_SHL|     & 43    & Deslocamento à esquerda. \\
+92--93  & \lstinline|SHR|/\lstinline|S_SHR|     & 44    & Deslocamento lógico à direita. \\
+94--95  & \lstinline|SRS|/\lstinline|S_SRS|     & 45    & Deslocamento aritmético à direita. \\
+97      & \lstinline|F_ROT|                     & 46    & Aproximação de raiz quadrada (potência de 2). \\
+98--101 & \lstinline|F_SU1| .. \lstinline|SF_SU2|& 47 / 48& Subtração em float (no operando 1 ou 2). \\
+104--105& \lstinline|F_SCL|/\lstinline|SF_SCL|  & 49    & Escala float por $2^{k}$. \\
+106--107& \lstinline|XPO|/\lstinline|XPO_M|     & 50 / 51& Expoente base-2 do float como inteiro. \\
+\bottomrule
+\end{longtable}
+
+\section{A Unidade Lógico-Aritmética (ULA)}
+\label{sec:arq-ula}
+
+A ULA (\file{ula.v}) é organizada como um banco de submódulos especializados (um por
+operação) cujas saídas convergem para um multiplexador final selecionado por
+\lstinline|ula_op|. Cada submódulo só é instanciado quando seu parâmetro está ligado; caso
+contrário, sua saída recebe \lstinline|{NUBITS{1'bx}}| (don't-care), e a síntese descarta o
+caminho. A interface do módulo é simples:
+
+\begin{lstlisting}[language=Verilog]
+module ula
+#( parameter NUBITS = 32, parameter NBMANT = 23, parameter NBEXPO = 8,
+   parameter signed [NUBITS-1:0] NUGAIN = 64, /* ... flags por operacao ... */ )
+( input [5:0] op,
+  input  signed [NUBITS-1:0] in1, in2,
+  output signed [NUBITS-1:0] out );
+\end{lstlisting}
+
+\subsection{Aritmética inteira}
+\label{sec:arq-ula-int}
+
+As operações inteiras são diretas e tratam a palavra como \lstinline|signed [NUBITS-1:0]|.
+Exemplos confirmados no RTL:
+
+\begin{lstlisting}[language=Verilog]
+// ADD            // MLT             // DIV             // MOD
+assign out = in1 + in2;   assign out = in1 * in2;
+assign out = in1 / in2;   assign out = in1 % in2;
+\end{lstlisting}
+
+A negação é \lstinline|-in|; o valor absoluto é \lstinline|(in[NUBITS-1]) ? -in : in|; o
+\emph{positive set} (\lstinline|PST|) zera valores negativos. A normalização (\lstinline|NRM|)
+divide por uma constante de hardware \lstinline|NUGAIN|:
+
+\begin{lstlisting}[language=Verilog]
+module ula_nrm #( parameter NUBITS = 32, parameter signed NUGAIN = 1 )
+( input signed [NUBITS-1:0] in, output signed [NUBITS-1:0] out );
+  assign out = in/NUGAIN;
+endmodule
+\end{lstlisting}
+
+\subsection{Operações lógicas, condicionais, comparações e deslocamentos}
+\label{sec:arq-ula-logic}
+
+As operações bit a bit são \lstinline|&|, \lstinline^|^, \lstinline|^| e \lstinline|~|. As
+condicionais booleanas tratam ``zero'' como falso: \lstinline|LAN| produz 1 se ambos forem
+diferentes de zero, \lstinline|LOR| produz 1 se algum for diferente de zero, \lstinline|LIN|
+inverte a condição. As comparações (\lstinline|LES|, \lstinline|GRE|, \lstinline|EQU|)
+devolvem a palavra estendida com zeros à esquerda e 1 no bit menos significativo quando
+verdadeiro:
+
+\begin{lstlisting}[language=Verilog]
+// LES (menor que, com sinal)
+assign out = {{(NUBITS-1){1'b0}}, (in1 < in2)};
+\end{lstlisting}
+
+Os deslocamentos são \lstinline|<<| (\lstinline|SHL|), \lstinline|>>| lógico (\lstinline|SHR|)
+e \lstinline|>>>| aritmético com sinal (\lstinline|SRS|).
+
+\subsection{Ponto flutuante customizado}
+\label{sec:arq-ula-float}
+
+O SAPHO usa um formato de ponto flutuante \textbf{próprio}, parametrizável (não o IEEE-754).
+A palavra de \lstinline|NUBITS| bits é dividida em:
+
+\begin{itemize}[leftmargin=1.6em]
+  \item \textbf{1 bit de sinal} (o mais significativo);
+  \item \textbf{\lstinline|NBEXPO| bits de expoente} com sinal (em complemento de dois);
+  \item \textbf{\lstinline|NBMANT| bits de mantissa}, com o bit ``1'' líder
+    \emph{armazenado explicitamente} (não há bit implícito como no IEEE).
+\end{itemize}
+
+A consistência \lstinline|NUBITS == NBMANT + NBEXPO + 1| é verificada pelo montador em
+\file{eval.c} (\lstinline|eval_finish|); se violada, a compilação aborta. A conversão de e
+para o formato é feita em software pelo montador (rotinas \lstinline|f2mf|/\lstinline|mf2f|
+em \file{t2t.c}): \lstinline|f2mf| desempacota um \lstinline|float| IEEE de 32 bits, reescala
+o expoente para \lstinline|NBEXPO| e a mantissa para \lstinline|NBMANT| (com arredondamento e
+renormalização), e empacota no formato SAPHO.
+
+O hardware opera sobre esse formato. A \textbf{denormalização} (\lstinline|ula_denorm|)
+alinha os expoentes de dois operandos antes da soma/comparação, deslocando a mantissa de
+menor expoente:
+
+\begin{lstlisting}[language=Verilog]
+// equaliza expoentes: o menor expoente desloca para casar com o maior
+wire signed [EXP:0] eme    =  e1_in-e2_in;
+wire                ege    =  eme[EXP];
+wire        [EXP:0] shift2 = (ege) ? {EXP+1{1'b0}} : eme;
+wire        [EXP:0] shift1 = (ege) ? -eme          : {EXP+1{1'b0}};
+always @ (*) e_out = (ege) ? e2_in : e1_in; // expoente final = o maior
+\end{lstlisting}
+
+A \textbf{normalização} pós-operação (\lstinline|ula_norm|) desloca a mantissa à esquerda até
+que o bit mais significativo seja 1, ajustando o expoente. A multiplicação em float
+(\lstinline|ula_fmlt|) soma os expoentes e multiplica as mantissas; a divisão
+(\lstinline|ula_fdiv|) subtrai os expoentes e divide as mantissas estendidas. A subtração é
+realizada pelo próprio somador, com inversão de sinal do operando indicado
+(\lstinline|F_SU1|/\lstinline|F_SU2|):
+
+\begin{lstlisting}[language=Verilog]
+wire su1 = (F_SU1 != 0) & (op == 6'd47); // inverte o sinal de in1
+wire su2 = (F_SU2 != 0) & (op == 6'd48); // inverte o sinal de in2
+\end{lstlisting}
+
+Há ainda operações de ``cirurgia de expoente'': \lstinline|F_SCL| escala um float por $2^{k}$
+somando \lstinline|k| ao expoente (com saturação à faixa do expoente), e \lstinline|XPO|
+extrai o expoente base-2 como inteiro. A conversão inteiro$\leftrightarrow$float
+(\lstinline|I2F|/\lstinline|F2I|) e a aproximação de raiz quadrada (\lstinline|F_ROT|, potência
+de dois mais próxima) completam o repertório de ponto flutuante.
+
+\subsection{Números complexos}
+\label{sec:arq-ula-complex}
+
+Não há uma unidade de hardware dedicada a números complexos no datapath. Um valor complexo é
+representado como um \textbf{par de variáveis} float (parte real e parte imaginária); o
+compilador e a biblioteca os manipulam por operações sobre cada componente. No nível de
+simulação, o gerador de HDL (\file{hdl.c}) reconhece os pares (sufixos de parte real/imaginária)
+e os junta em um sinal \lstinline|comp_<nome>| de largura dupla, apenas para visualização de
+forma de onda --- não é parte do circuito sintetizado.
+
+\subsection{O multiplexador final}
+\label{sec:arq-ula-mux}
+
+O submódulo \lstinline|ula_mux| seleciona, por \lstinline|op|, qual resultado vai à saída. As
+operações de ponto flutuante que exigem normalização (soma, multiplicação, divisão,
+\lstinline|I2F|, \lstinline|F_ROT|, subtrações) compartilham a saída normalizada
+\lstinline|smx|, produzida por \lstinline|norm_mux|:
+
+\begin{lstlisting}[language=Verilog]
+always @ (*) case (op)
+  6'd0 : out = in2 ;   // NOP
+  6'd1 : out = in1 ;   // LOD
+  6'd2 : out = add ;   // ADD
+  6'd3 : out = smx ;   // F_ADD (normalizada)
+  6'd4 : out = mlt ;   // MLT
+  // ...
+  6'd42: out = equ ;   // EQU
+  6'd43: out = shl ;   // SHL
+  default: out = {NUBITS{1'bx}};
+endcase
+\end{lstlisting}
+
+\section{Entrada e saída}
+\label{sec:arq-io}
+
+\subsection{Portas, \emph{request} e \emph{enable}}
+\label{sec:arq-io-portas}
+
+A interface de I/O do núcleo expõe um barramento de entrada (\lstinline|io_in|), um de saída
+(\lstinline|io_out|, que espelha \lstinline|mem_data_out|), endereços de porta
+(\lstinline|addr_in|, \lstinline|addr_out|) e sinais de controle (\lstinline|req_in|,
+\lstinline|out_en|). O módulo \lstinline|io_ctrl| só ativa esses sinais quando há
+instruções de I/O presentes. A entrada é injetada no operando 2 da ULA via
+\lstinline|ula_in2_ctrl|: quando \lstinline|req_in| está ativo, o dado da porta substitui o
+acumulador.
+
+\begin{lstlisting}[language=Verilog]
+reg req_inr; always @ (posedge clk) req_inr <= req_in;
+reg [NUBITS-1:0] ior; always @ (posedge clk) ior <= io_in;
+assign out = (req_inr) ? ior : acc;
+\end{lstlisting}
+
+\subsection{Decodificação de múltiplas portas}
+\label{sec:arq-io-decod}
+
+No nível do \emph{wrapper} gerado (\file{hdl.c}), quando há mais de uma porta de entrada ou
+saída, um decodificador 1-de-N (\lstinline|addr_dec|) converte o índice de porta no sinal de
+\emph{enable} correspondente. Com uma única porta, o sinal é ligado diretamente.
+
+\begin{lstlisting}[language=Verilog]
+module addr_dec #( parameter NPORT = 4 )
+( input valid_in, input [$clog2(NPORT)-1:0] index,
+  output reg [NPORT-1:0] valid_out );
+  integer i;
+  always @* for (i = 0; i < NPORT; i = i+1)
+    valid_out[i] = valid_in & (index == i[$clog2(NPORT)-1:0]);
+endmodule
+\end{lstlisting}
+
+\subsection{FIFO genérica}
+\label{sec:arq-io-fifo}
+
+Para fluxos de dados, o repositório fornece uma FIFO genérica (\lstinline|myFIFO|,
+\file{myFIFO.v}) parametrizada por largura da palavra (\lstinline|WORD|), profundidade
+(\lstinline|LENGTH|) e limiar de ``quase vazia'' (\lstinline|ALMOST|). Ela expõe os sinais
+usuais --- \lstinline|empty|, \lstinline|full|, \lstinline|almost_empty|, \lstinline|usedw| ---
+e foi escrita para substituir o IP de FIFO de fabricantes de FPGA.
+
+\section{Endereçamento indireto: arrays, ponteiros e FFT}
+\label{sec:arq-indireto}
+
+O endereçamento indireto é tratado por \lstinline|mem_ctrl| e \lstinline|rel_addr|. Há dois
+modos:
+
+\begin{description}[leftmargin=2.2em]
+  \item[Indireto relativo] (\lstinline|LDI|/\lstinline|STI| e variantes \lstinline|ILI|/\lstinline|ISI|):
+    o endereço efetivo é a base (operando da instrução) somada a um deslocamento. Para FFT,
+    o deslocamento passa por \textbf{reversão de bits} (\lstinline|FFTSIZ| bits), implementada
+    em \lstinline|rel_addr| quando \lstinline|USEFFT| está ligado.
+  \item[Indireto \emph{base-less}] (\lstinline|LDA|/\lstinline|STA|): o endereço vem
+    diretamente do acumulador (leitura) ou do topo da pilha de dados (escrita), sem a base do
+    operando. Isso viabiliza ponteiros em tempo de execução e a passagem de arrays como
+    parâmetros de função.
+\end{description}
+
+\begin{lstlisting}[language=Verilog]
+generate
+  if (LDA) begin : rd_addr assign mem_addr_rd = lda ? ula[MDATAW-1:0] : rel_rd; end
+  else     begin : rd_addr assign mem_addr_rd = rel_rd;                          end
+endgenerate
+generate
+  if (STA) begin : wr_addr assign mem_addr_wr = sta ? stk_ofst : rel_wr; end
+  else     begin : wr_addr assign mem_addr_wr = rel_wr;                  end
+endgenerate
+\end{lstlisting}
+
+A reversão de bits da FFT é feita invertendo a ordem dos \lstinline|FFTSIZ| bits menos
+significativos do deslocamento:
+
+\begin{lstlisting}[language=Verilog]
+integer i;
+always @ (*) for (i = 0; i < FFTSIZ; i = i+1) aux[i] = offset[FFTSIZ-1-i];
+wire [MDATAW-1:0] add = (fft) ? {offset[MDATAW-1:FFTSIZ], aux} : offset;
+assign out = (use_oft) ? add + addr : addr;
+\end{lstlisting}
+
+\section{Parametrização de hardware a partir do \cmm}
+\label{sec:arq-param}
+
+Os parâmetros de hardware declarados no programa \cmm (largura de palavra, mantissa, etc.)
+chegam ao montador via \emph{logs} intermediários e são lidos em \file{eval.c} pela rotina
+\lstinline|eval_init|, que os busca em \path{app_log.txt}:
+
+\begin{lstlisting}[language=C]
+eval_get("app_log.txt","nubits", aux); nubits = atoi(aux); // largura da palavra
+eval_get("app_log.txt","nbmant", aux); nbmant = atoi(aux); // bits de mantissa
+eval_get("app_log.txt","nbexpo", aux); nbexpo = atoi(aux); // bits de expoente
+\end{lstlisting}
+
+Outros parâmetros vêm de diretivas no próprio Assembly (\file{ASMComp.l}), processadas por
+\lstinline|eval_opernd| em \file{eval.c}: \lstinline|#NDSTAC| (profundidade da pilha de
+dados), \lstinline|#SDEPTH| (pilha de subrotina), \lstinline|#NUIOIN|/\lstinline|#NUIOOU|
+(número de portas de entrada/saída), \lstinline|#NUGAIN| (constante de normalização) e
+\lstinline|#FFTSIZ| (bits da FFT).
+
+A largura do campo operando (\lstinline|nbopr|) é derivada do maior entre a memória de
+instruções e a de dados:
+
+\begin{lstlisting}[language=C]
+nbopr = (n_ins > n_dat) ? ceil(log2(n_ins)) : ceil(log2(n_dat));
+\end{lstlisting}
+
+Por fim, o gerador de HDL (\file{hdl.c}, \lstinline|hdl_vv_file|) emite a instância do
+\lstinline|processor| com todos esses valores e liga, uma a uma, somente as instruções
+usadas:
+
+\begin{lstlisting}[language=C]
+fprintf(f_veri, "processor#(.NUBITS(%d),\n", nubits);
+fprintf(f_veri,            ".NBMANT(%d),\n", nbmant);
+fprintf(f_veri,            ".NBEXPO(%d),\n", nbexpo);
+// ... MDATAS, MINSTS, SDEPTH, DDEPTH, NBIOIN, NBIOOU, FFTSIZ, NUGAIN ...
+for (int i = 0; i < opc_cnt(); i++) fprintf(f_veri, ".%s(1),\n", opc_get(i));
+\end{lstlisting}
+
+\section{Imagens de memória (\path{.mif}) geradas}
+\label{sec:arq-mif}
+
+O montador escreve duas imagens de memória em texto binário, uma por linha, à medida que
+varre o Assembly (\file{eval.c}): \path{<proc>_inst.mif} (programa) e \path{<proc>_data.mif}
+(dados). Ambas são abertas em \lstinline|eval_init|:
+
+\begin{lstlisting}[language=C]
+snprintf(aux, sizeof(aux), "%s/Hardware/%s_data.mif", proc_dir, prname); f_data  = fopen(aux, "w");
+snprintf(aux, sizeof(aux), "%s/Hardware/%s_inst.mif", proc_dir, prname); f_instr = fopen(aux, "w");
+\end{lstlisting}
+
+\subsection{Imagem de instruções}
+\label{sec:arq-mif-instr}
+
+Cada instrução é uma linha com \lstinline|NBITS_OPC| (7) bits de opcode concatenados a
+\lstinline|nbopr| bits de operando, ambos convertidos por \lstinline|itob| (inteiro para
+string binária). Para uma operação aritmética com variável:
+
+\begin{lstlisting}[language=C]
+fprintf(f_instr, "%s%s\n", itob(opc_idx, NBITS_OPC), itob(var_find(va), nbopr));
+\end{lstlisting}
+
+Esse formato (opcode nos bits altos, operando nos baixos) é exatamente o que o
+\lstinline|prefetch| espera ao fatiar \lstinline|mem_instr[NBOPCO+NBOPER-1:NBOPER]| e
+\lstinline|mem_instr[NBOPER-1:0]| (ver \autoref{sec:arq-prefetch}). Saltos gravam o endereço
+do rótulo (\lstinline|lab_find|); entradas e saídas gravam o índice de porta.
+
+\subsection{Imagem de dados}
+\label{sec:arq-mif-dados}
+
+Cada variável ocupa uma linha de \lstinline|nubits| bits. Variáveis inteiras gravam o valor
+diretamente; variáveis float são inicializadas com o equivalente binário de \lstinline|0.0|
+no formato SAPHO via \lstinline|f2mf|:
+
+\begin{lstlisting}[language=C]
+if (!is_const && type > 1)
+    fprintf(f_data, "%s\n", itob(f2mf("0.0", NULL), nubits)); // float -> 0.0
+else
+    fprintf(f_data, "%s\n", itob(var_val(va), nubits));        // inteiro/constante
+\end{lstlisting}
+
+Arrays são preenchidos por \lstinline|arr_add| (de \file{array.c}), opcionalmente a partir de
+um arquivo de inicialização (diretiva \lstinline|#arrays|).
+
+\section{Geração do \emph{testbench} (\path{_tb.v})}
+\label{sec:arq-tb}
+
+Ao final da varredura, \lstinline|eval_finish| invoca \lstinline|hdl_vv_file| (o \path{.v} de
+topo do processador) e \lstinline|hdl_tb_file| (o \emph{testbench}), ambos em \file{hdl.c}.
+O \emph{testbench} gerado (\path{<proc>_tb.v}) é autônomo e contém:
+
+\begin{description}[leftmargin=2.2em]
+  \item[Relógio e \emph{reset}] um período derivado da frequência configurada
+    (\lstinline|T = 1000.0/sim_clk()| ns), com pulso de \emph{reset} inicial e geração de
+    clock por \lstinline|always #(T/2) clk = ~clk|.
+  \item[Instância do processador] conectada conforme as portas existentes (entrada, saída,
+    interrupção, \lstinline|cheguei|).
+  \item[Estímulo de entrada] cada porta de entrada lê de um arquivo
+    \path{Simulation/input_<i>.txt} via \lstinline|$fscanf| na borda de descida do clock.
+  \item[Captura de saída] cada porta de saída grava em \path{Simulation/output_<i>.txt} via
+    \lstinline|$fdisplay| + \lstinline|$fflush| quando seu \emph{enable} está ativo.
+  \item[Dump de forma de onda] \lstinline|$dumpfile|/\lstinline|$dumpvars| produzem o
+    \path{.vcd}, incluindo as variáveis e arrays do usuário (espelhados no \path{.v} de topo)
+    e os \emph{flags} de pilha e os erros de arredondamento da ULA.
+  \item[Término] um bloco de progresso imprime o avanço, e o \emph{testbench} encerra com
+    \lstinline|$finish| ao detectar o marcador de fim de programa (\lstinline|proc.valr10|).
+\end{description}
+
+\begin{lstlisting}[language=C]
+double T = 1000.0/sim_clk(); // periodo em ns (frequencia em MHz)
+fprintf(f_veri, "    clk = 0;\n    rst = 1;\n    #%f;\n    rst = 0;\n", T);
+fprintf(f_veri, "always #%f clk = ~clk;\n\n", T/2.0);
+// ...
+fprintf(f_veri, "always @ (posedge clk) if (proc.valr10 == %d) begin\n", sim_get_fim());
+fprintf(f_veri, "    $display(\"Info: end of program!\");\n    $finish;\nend\n");
+\end{lstlisting}
+
+\subsection{Visibilidade de simulação versus síntese}
+\label{sec:arq-tb-vis}
+
+Sinais de instrumentação (espelhos de variáveis, \emph{taps} do PC e da memória, erros de
+arredondamento em \lstinline|real|) ficam atrás da macro \lstinline|YANC_SIM_VIS|, definida
+automaticamente para Icarus Verilog (que predefine \lstinline|__ICARUS__|) e para Verilator
+quando se passa \lstinline|+define+YANC_TRACE|. Nunca são incluídos na síntese. No \path{.v}
+de topo, comentários \lstinline|/* verilator tracing_off */| e \lstinline|/* verilator
+tracing_on */| delimitam quais sinais entram na forma de onda sob Verilator (escolhido por
+velocidade), mantendo os \emph{taps} caros (como o erro de arredondamento real da ULA)
+disponíveis apenas sob Icarus.
+
+\begin{nota}
+A interação entre as imagens \path{.mif}, o \emph{testbench} e as ferramentas de simulação
+(Icarus, Verilator, GTKWave) e síntese (Yosys), bem como o empacotamento dessas ferramentas
+no \emph{bundle} portátil, são detalhados em \autoref{cap:03-pipeline-de-compilacao-yanc} e
+nos capítulos sobre o \emph{toolchain}.
+\end{nota}

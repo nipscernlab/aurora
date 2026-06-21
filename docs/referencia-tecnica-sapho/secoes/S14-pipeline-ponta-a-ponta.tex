@@ -1,0 +1,94 @@
+% !TEX root = ../main.tex
+\section{O pipeline de criação ponta a ponta}
+\label{sec:S14-pipeline-ponta-a-ponta}
+
+Cadeia determinística sobre artefatos em disco, ancorada no \file{.spf}.
+\textbf{Regra-mãe: o renderer orquestra; o main executa.} O renderer
+(\file{compilation\_flow.js}, \file{compilation\_module.js},
+\file{processor\_compiler.js}) monta cada etapa como \emph{CommandSpec};
+\code{runSpec} (\file{spec\_runner.js}) é o único ponto de passagem e dispara
+\lstinline|exec-spec|; o main re-valida o \code{binary} contra a \emph{allowlist}
+(\file{binary\_allowlist.js}) antes de spawnar. Scripts de referência no
+\tool{YANC}: \file{single\_proc.sh} (um processador) e \file{multi\_proc.sh}
+(vários sob top-level). Sem desvio ``tem processador?''; sem processadores os laços
+são no-op (\emph{pipeline único}).
+
+\begin{lstlisting}
+=========================================================================
+  PIPELINE SAPHO  (renderer orquestra | [bin] = main + allowlist)
+=========================================================================
+ (1) PROJETO  -> grava <proj>.spf  (fonte canonica)
+     synthesizableFiles, testbenchFiles, topLevelFile,
+     processors[]: name/cmmFile/clk(=100)/numClocks(=2000)/showArrays
+     cria: <proj>/<proc>/{Software,Hardware,Simulation}
+           components/Temp/<proc>/   (scratch -t / CWD da sim)
+        v
+ (2) CODIGO-FONTE  (editor Monaco)
+     <proc>.cmm (ou .cpp) + top-level.v + testbench
+       (<proc>_tb.v auto | top_level_tb.v | *.py cocotb)
+     [Verilator] ensureChegueiToaqui -> injeta #TOAQUI no .cmm
+        v
+ (3) COMPILACAO  (precompileAllProcessors -> por processador)
+   +-----------------------------------------------------------------+
+   | [cmmcomp.exe] [-pt|-en] -i .cmm -n -p -m -t [--array]           |
+   |    -> <proc>.asm + cmm_log.txt + pc_<proc>_mem.txt              |
+   |       + <proc>_data.mif / <proc>_inst.mif                       |
+   | [appcomp.exe] -i .asm -t  -> .asm pre-processado (params/end.)  |
+   | [asmcomp.exe] -i .asm -p -d HDL -m -t -f<clk> -c<numClk>        |
+   |    -> Hardware/<proc>.v (RTL) + .mif + <proc>_tb.v -> Simulation|
+   +-----------------------------------------------------------------+
+     (-y components/HDL: processor/core/ula/addr_dec/instr_dec/myFIFO)
+        +----------------+------------------+
+        v (4a Icarus)    v (4b Verilator)   v (4c cocotb/Python)
+ (5) INSTRUMENTAR DUMP  (comum, ANTES de simular)
+     _resolveWaveSelection:
+       .gtkw ativo > Wave Config > $dumpvars no tb > default
+     instrumentTestbench -> Temp/instr_<tb>.v  (copia; original intacto)
+        v
+   [iverilog -s tb -y HDL  [verilator --binary  [cocotb: iverilog ou
+    -o .vvp]; [vvp -fst]    --timing --trace]    verilator por baixo]
+     stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ ($readmemb)
+        v
+     DUMP de ondas (FST)
+     _extractFstHeaderVcd -> [fst2vcd] -> header.vcd (escopos/sinais)
+        v
+ (6) VISUALIZAR  (getViewer)
+     +-- gtkwave -> buildAuroraGtkw -> .gtkw -> [gtkwave.exe]
+     +-- surfer  -> buildSurferLayout -> .surf -> [surfer.exe]
+        faixas C+- / assembly / variaveis em LOCKSTEP com o clock
+ (7) INSPECIONAR RTL  (botao PRISM, em paralelo)
+     verilogSyntaxCheck -> [iverilog -tnull] ->
+     generateProjectHierarchy -> [yosys] read_verilog+hierarchy+proc+
+        write_json -> Temp/project_hierarchy.json -> arvore de modulos
+     PRISM -> [yosys] netlist JSON -> netlistsvg (in-process) -> SVG
+=========================================================================
+\end{lstlisting}
+
+\subsection{Artefatos e responsáveis por estágio}
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{(1)} \file{.spf} (canônico, via \code{SpfStore.read} em
+        \code{loadConfig}); pastas por \code{ensureDirectories}.
+  \item \textbf{(2)} \file{<proc>.cmm}/\file{.cpp}, top-level, testbench;
+        \code{ensureChegueiToaqui} só no ramo Verilator.
+  \item \textbf{(3a) cmmcomp} (\code{buildCmmSpec}): \file{.asm},
+        \file{cmm\_log.txt}, \file{pc\_<proc>\_mem.txt}, \file{.mif}.
+        \textbf{(3b) appcomp} (\code{buildAsmPreSpec}). \textbf{(3c) asmcomp}
+        (\code{buildAsmSpec}): \file{Hardware/<proc>.v}, \file{.mif},
+        \file{<proc>\_tb.v}.
+  \item \textbf{(4)} \code{getSimulator()} (Icarus default; Verilator opt-in);
+        cocotb se testbench é \file{.py}. Orquestra \code{runGtkWave}.
+  \item \textbf{(5)} \code{instrumentTestbench} grava \file{instr\_<tb>.v}
+        idempotente; original nunca tocado.
+  \item \textbf{(6)} \code{getViewer()}: writers \file{gtkw\_proc\_writer.js} /
+        \file{surfer\_layout\_writer.js}.
+  \item \textbf{(7)} \file{prism.js}; \tool{netlistsvg} roda in-process (fora da
+        allowlist).
+\end{itemize}
+
+\textbf{Allowlist} (basename + diretório legal): \file{cmmcomp.exe},
+\file{appcomp.exe}, \file{asmcomp.exe}, \file{comp2gtkw.exe}
+(\path{components/bin}); \file{iverilog.exe}, \file{vvp.exe},
+\file{verilator.exe}, \file{yosys.exe}, \file{g++.exe}, \file{make.exe},
+\file{perl.exe} (\path{Packages/msys/mingw64/bin}); \file{gtkwave.exe},
+\file{fst2vcd.exe} (fork \tool{gtkwave-nipscern}); \file{surfer.exe}.

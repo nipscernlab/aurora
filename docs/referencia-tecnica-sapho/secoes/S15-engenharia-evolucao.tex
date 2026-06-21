@@ -1,0 +1,43 @@
+% !TEX root = ../main.tex
+\section{Engenharia, qualidade e evolução}
+\label{sec:S15-engenharia-evolucao}
+
+A IDE \tool{AURORA} é um app Electron em JavaScript com migração incremental para TypeScript \emph{in place} (\file{tsconfig.json} com \lstinline|rootDir| e \lstinline|outDir| em \code{.}, \code{strict}; \code{.js} gerados ficam no \file{.gitignore}). A qualidade atua em três momentos: editor, \emph{commit} e CI.
+
+\subsection{Cadeia de qualidade}
+\label{sub:S15-cadeia}
+
+\begin{itemize}[nosep]
+  \item \textbf{Testes unitários}: \tool{vitest} (\lstinline|vitest run|), só \path{tests/unit/**}, sem Electron; cobertura via provedor \code{v8} (\code{lcov} em \path{coverage/}). Domínios: caminhos (\file{safePath.test.js}), \emph{wave} (\file{vcdParser}, \file{gtkwWriter}, \file{surferLayoutWriter}), compilação, projeto, Aurora Intelligence, editor, Git.
+  \item \textbf{E2E}: \tool{playwright} via \lstinline|_electron| (\file{vitest.config.e2e.js}, \lstinline|fileParallelism:false|, \emph{timeouts} 60/120\,s). Três arquivos: \file{smoke.test.js}, \file{edit-flow.test.js}, \file{split-pane.test.js}; o \emph{smoke} valida montagem do \lstinline|#monaco-editor| e marca \lstinline|aurora-interactive| (guarda de regressão, 30\,s).
+  \item \textbf{Lint}: \tool{eslint} 9 \emph{flat config} (\file{eslint.config.mjs}), blocos por ambiente (\emph{main} CommonJS, \emph{renderer} com globais de \lstinline|window| \code{readonly}, preloads, testes); CI com \lstinline|--max-warnings=0|.
+  \item \textbf{Código morto}: \tool{knip} (\file{knip.config.js}, fixado \code{6.17.1}); entradas lidas de \file{index.html} em \emph{runtime}; CI roda \lstinline|npm run deadcode|.
+  \item \textbf{Hooks}: \tool{husky}+\tool{lint-staged} (instalados por \code{prepare}); \file{pre-commit} roda ESLint nos \emph{staged}, \file{commit-msg} chama \tool{commitlint}.
+  \item \textbf{Conventional Commits}: \file{commitlint.config.mjs} estende \code{config-conventional} com tipos \code{hardening}, \code{ux}, \code{ui}, \code{diag}; pareia com \tool{release-please}.
+  \item \textbf{Tipos}: \lstinline|tsc --noEmit| na CI + \file{scripts/check-no-generated-js.js}.
+  \item \textbf{CI} (\path{.github/workflows/}, \code{windows-latest}, Node~20): \file{ci.yml} encadeia versões pinadas, ESLint, \emph{typecheck}, i18n, \tool{knip}, \lstinline|node --check|, testes com cobertura, E2E e \emph{build} sem publicação. Mais \file{codeql.yml}, \file{release-please.yml}, \file{release.yml} (instalador Windows para \tool{electron-updater}) e \file{dependabot-automerge.yml}. Release publica em \repo{sapho} (\emph{split} intencional com \repo{aurora}).
+\end{itemize}
+
+\subsection{Evolução (histórico de Git)}
+\label{sub:S15-evolucao}
+
+\repo{aurora}: 1269 \emph{commits} desde 04/02/2025, tags até \code{v6.3.2}; \repo{yanc}: 665 desde 09/10/2024, tags até \code{v5.2}. Pico em maio--junho/2026. Autores (\repo{aurora}): Chrysthofer (611+228+10+7, em identidades distintas incl.\ \code{nipscern}/\code{Kristoffer}), Luciano (473, responsável), Arthur (\code{ART_AM}, 8, via \emph{branches}), Dependabot (21), Claude (sessões de IA). \code{main} é o \emph{branch} de integração.
+
+\begin{longtable}{Y Z}
+  \caption{Marcos do \repo{aurora}.}\label{tab:S15-timeline}\\
+  \toprule \textbf{Data} & \textbf{Marco} \\ \midrule \endhead
+  \bottomrule \endfoot
+  Fev--Mai/2025 & Histórico público (\code{v2.0.0}); PRISM (RTL); editor Monaco; \emph{revamp} de UI (\code{v3.x}); versionamento manual. \\
+  Nov/2025 & Modos \enquote{Project}/\enquote{Verilog} com \emph{file managers} próprios. \\
+  26/04/2026 & \emph{Revamp} visual maior + janela sem moldura. \\
+  06--07/05/2026 & \tool{husky}+\tool{lint-staged}; \emph{auto-download} de \emph{toolchain} (\code{toolchain-v1}); \tool{vitest} + TypeScript \emph{opt-in}; \tool{release-please}; 1.º E2E. \\
+  10--11/05/2026 & Consolidação para \textbf{modo único} (remoção dos modos). \\
+  16--19/05/2026 & \textbf{Aurora Intelligence} ponta a ponta (\code{v6.0.0}); \code{v6.3.x}. \\
+  03/06/2026 & \emph{Toolchain} FOSS num \emph{bundle} mingw (\code{msys-v1}); \emph{builders} de compilação em TS. \\
+  13/06/2026 & \textbf{Vite} como \emph{bundler} do \emph{renderer}; fundação Lit + Design Lab. \\
+  14/06/2026 & \tool{Surfer} como \emph{viewer} de ondas \emph{opt-in} (ao lado do GTKWave); CSP/\emph{sandbox}. \\
+  16--17/06/2026 & \textbf{Source Control embutido} (\enquote{Dagr}); APIs Git para a IA; decorações de status na árvore. \\
+  18--19/06/2026 & \tool{Verible} e slang-server; \tool{tree-sitter} (\emph{highlight}); \emph{format} via \tool{clang-format}; \emph{shells} Lit. \\
+\end{longtable}
+
+\noindent\textbf{Aurora Intelligence} está totalmente implementado, mas o provider e os modelos próprios do laboratório ainda não foram treinados (roadmap). \repo{yanc} entrega binários versionados (\code{v1}--\code{v5.2}) que o \repo{aurora} baixa via \code{bootstrap}; \code{v5.2} (08/06/2026) trouxe paridade de GTKWave no pipeline C++.

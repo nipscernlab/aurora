@@ -1,0 +1,28 @@
+% !TEX root = ../main.tex
+\section{Ferramentas de produtividade}
+\label{sec:S10-produtividade}
+
+Em torno do editor \tool{Monaco}, a \tool{AURORA} reúne recursos auxiliares ligando o processo \textit{main} do \tool{Electron} (trabalho privilegiado, \textit{handlers} \lstinline|ipcMain.handle|) a integrações no \textit{renderer} via pontes do \file{preload.js} (\lstinline|gitAPI|, \lstinline|lspAPI|, \lstinline|slangAPI|, \lstinline|treeSitterAPI|, \lstinline|clangFormatAPI|, \lstinline|electronAPI|). Padrão transversal: \textbf{best-effort} --- sem o binário/recurso, o módulo vira \textit{no-op} silencioso e a edição segue.
+
+\begin{table}[h]
+\centering\caption{Recurso, ferramenta e função.}\label{tab:S10-mapa}\small
+\begin{tabularx}{\linewidth}{l Z}
+\toprule
+\textbf{Recurso / ferramenta} & \textbf{O que faz} \\
+\midrule
+\textbf{Terminal} (\file{js/terminal/terminal\_module.js}) & Console de \textbf{saída} (não interativo) com abas \lstinline|tcmm|/\lstinline|tasm|/\lstinline|tveri|/\lstinline|twave|/\lstinline|thtest|/\lstinline|tcmd|; troca por \lstinline|switchTerminal|. Mensagens viram \textbf{cartões} (\lstinline|.log-entry|) por tipo (error/warning/success/tips) com \textit{badges} e filtros; tetos de 5000 entradas. \textbf{Números de linha clicáveis}: \lstinline|<arq>:<linha>:| (iverilog/yosys/gcc) ou \enquote{linha N} (\cmm), navegando via \lstinline|goToLine| no \tool{Monaco}. Barra de progresso de \textit{hardware test} (\lstinline|renderHardwareProgress|). \\
+\textbf{Source Control} (\file{main/ipc/git.js}, UI \file{js/git/git\_panel.js}) & Sobre \textbf{simple-git} (invólucro do \lstinline|git| nativo), no diretório do projeto aberto. Leitura: \lstinline|status|, \lstinline|diff|, \lstinline|log|, \lstinline|branches|, \lstinline|remotes|, \lstinline|show|. Mutações: \lstinline|stage|, \lstinline|commit| (\lstinline|--amend|), \lstinline|checkout|, \lstinline|merge|, \textit{stash}, \lstinline|init|. Remotas: \lstinline|fetch|/\lstinline|pull| (\lstinline|--autostash|)/\lstinline|push|/\lstinline|clone| (progresso ao vivo). \textit{Diffs} renderizados por \textbf{diff2html} (\lstinline|line-by-line|, tema escuro). \\
+\textbf{Auth GitHub} (\file{main/ipc/github\_auth.js}) & PAT ou OAuth \textit{Device Flow} (escopos \lstinline|repo read:org|). \textit{Token} cifrado com \lstinline|safeStorage| (DPAPI) em \path{userData/aurora-github.json}; lido só no \textit{main}, injetado como \lstinline|http.extraHeader| de uso único. \\
+\textbf{Busca no projeto} (\file{main/ipc/search.js}, canal \lstinline|search:in-project|) & Motor \textbf{próprio} (varredura síncrona sobre \lstinline|fs|, sem ripgrep). Modificadores caso/palavra/regex (\lstinline|buildRegex|). Limites: profundidade 12, $\le$1,5 MB/arq, 2000 ocorrências, 500 arquivos; pula \path{.git}/\path{node_modules}/\path{dist}; \lstinline|truncated| ao estourar. \\
+\textbf{LSP Verilog} (\file{main/lsp/verible\_lsp.js}) & \tool{verible-verilog-ls} (JSON-RPC sobre \textit{stdio}): servidor completo --- diagnósticos, formatação, \textit{outline}/símbolos, \textit{hover}, definição, referências. Ciclo por modelo (\lstinline|didOpen|/\lstinline|didChange| debounce 350 ms); respawn transparente; \textit{timeout} 15 s. Marcadores no \tool{Monaco} sob dono \lstinline|verible|. \\
+\textbf{LSP semântico} (\file{main/lsp/slang\_lsp.js}) & \tool{slang-server} elabora o projeto inteiro; entrega só \textbf{diagnósticos semânticos} (dono \lstinline|slang|) + \textbf{completação}. \textit{Workspace}-acoplado (\lstinline|rootUri|); \textbf{ligável/desligável} (\lstinline|window.AuroraSlang.toggle()|, persistido). \\
+\textbf{tree-sitter} (\file{js/editor/treesitter\_highlight.js}) & Realce via \textbf{web-tree-sitter} (WASM) $\rightarrow$ \textit{semantic tokens} (SystemVerilog, C, C++); \textbf{só realce}, sem \textit{outline}. Bytes servidos por \file{main/treesitter/grammars.js} (canal \lstinline|treesitter:wasm|). Carregamento preguiçoso. \\
+\textbf{clang-format} (\file{main/format/clang\_format.js}) & CLI empacotada formata C/C++/\cmm{} via \textit{stdin}/\textit{stdout} (\textit{replace} de documento inteiro), \lstinline|Shift+Alt+F|. Usa \lstinline|-assume-filename| e \lstinline|-style=file|; \textit{timeout} 15 s. \\
+\textbf{Paleta de comandos} (\file{js/ui/command\_palette.js}) & \lstinline|Ctrl/Cmd+Shift+K| (ou \lstinline|+Shift+P|); componente Lit. Registro \lstinline|COMMANDS| em grupos Compile/Project/View/Tools/Dev; pontuação \textit{fuzzy} (\lstinline|scoreCommand|); comandos clicam o botão existente. \\
+\textbf{i18n} (\file{js/i18n/i18n.js}) & \textit{Locales} \path{pt.json}/\path{en.json} (padrão \lstinline|pt|), atributos \lstinline|data-i18n*|, \lstinline|applyDOM()|, \lstinline|window.t|. \textit{Fallback} en $\rightarrow$ chave crua; \lstinline|getYancLang| unifica idioma de UI e \tool{YANC}. \\
+\textbf{Configurações} (\file{js/processors/aurora\_settings.js}) & Modal; persiste \lstinline|aurora-settings|, \lstinline|aurora-shortcuts|; rótulos de atalho por i18n; expõe idioma e \textit{tooltips}. \\
+\textbf{Atualizador} (\file{main/updater.js}) & \textbf{electron-updater} sobre \repo{sapho} (só produção). $\approx$6 s após \textit{boot} checa; janela própria (\path{html/update-notification.html}) com \textit{changelog} bilíngue, barra de \textit{download} e \enquote{Reiniciar e instalar} (\lstinline|quitAndInstall|). \textit{Toast} pós-atualização único. \\
+\textbf{Jank Overlay} (\file{js/dev/jank\_overlay.js}) & HUD de dev: FPS, p99, taxa de \textit{jank} (orçamento 165 Hz $\approx$6,06 ms), \textit{longtasks}, TTI. Custo zero inativo; alternado pela paleta (grupo Dev). \\
+\bottomrule
+\end{tabularx}
+\end{table}

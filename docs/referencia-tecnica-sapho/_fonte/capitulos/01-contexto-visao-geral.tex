@@ -1,0 +1,379 @@
+% !TEX root = ../main.tex
+\chapter{Contexto e visão geral}
+\label{cap:01-contexto-visao-geral}
+
+Este capítulo situa a plataforma \tool{SAPHO} no seu contexto institucional,
+descreve o que ela é, apresenta o seu modelo conceitual (a IDE \tool{AURORA},
+os compiladores \tool{YANC} e o \emph{toolchain bundle}, mais os subsistemas
+\tool{PRISM} e \tool{Aurora Intelligence}), identifica o público-alvo e oferece
+um panorama de alto nível do fluxo de trabalho. Ele termina com um mapa dos 18
+capítulos deste documento. Os detalhes de cada assunto ficam reservados aos
+capítulos próprios; aqui o objetivo é dar a visão de conjunto que permite ler o
+restante com orientação.
+
+\begin{nota}
+\textbf{Fonte da verdade.} As afirmações deste documento foram verificadas
+diretamente no código-fonte dos repositórios da organização
+\texttt{nipscernlab} (arquivos \path{package.json}, \path{CITATION.cff},
+\path{README.md}, scripts de \emph{bootstrap}, módulos do processo principal do
+Electron e os compiladores do \tool{YANC}). Quando a documentação histórica
+diverge do código, o código prevalece.
+\end{nota}
+
+\section{O laboratório NIPSCERN e a UFJF}
+\label{sec:01-nipscern}
+
+\tool{SAPHO} é desenvolvida pelo \textbf{NIPSCERN}, um núcleo de pesquisa
+sediado na \textbf{Universidade Federal de Juiz de Fora (UFJF)}, em Minas
+Gerais, Brasil. O laboratório se localiza no prédio do PPEE --- Programa de
+Pós-Graduação em Engenharia Elétrica da UFJF --- e mantém colaboração direta
+com o CERN, contribuindo para o experimento ATLAS do LHC (instrumentação de
+detectores, teste de PMTs e eletrônica do TileCal).
+
+O grupo passou por uma evolução de identidade: foi originalmente conhecido como
+\emph{LAPTEL} (Laboratório de Processamento de Sinais e Telecomunicações),
+depois \emph{NIPS} (Núcleo de Instrumentação e Processamento de Sinais) e,
+após a formalização da colaboração com o CERN, \textbf{NIPSCERN}. A coordenação
+é do Prof. Dr. Luciano Manhães de Andrade Filho, e a equipe reúne pesquisadores,
+mestres, doutores e estudantes de iniciação científica --- um traço marcante do
+laboratório é o envolvimento direto de graduandos em experimentos reais.
+
+A autoria registrada da IDE \tool{AURORA} (arquivo \file{CITATION.cff} do
+repositório \repo{aurora}) aponta para a afiliação \enquote{NIPSCERN ---
+Universidade Federal de Juiz de Fora}, e o endereço institucional é
+\url{https://www.nipscern.com}. As instituições parceiras que aparecem no sítio
+do laboratório incluem FAPEMIG, CAPES, CNPq, a própria UFJF e o CERN.
+
+\subsection{Soft-processors em FPGA: o terreno técnico}
+\label{sec:01-soft-processor}
+
+\tool{SAPHO} pertence ao domínio do projeto de \emph{soft-processors}. Um
+soft-processor é um processador descrito inteiramente em uma linguagem de
+descrição de hardware (HDL, aqui \emph{Verilog}) e implementado sobre a malha
+lógica reconfigurável de um FPGA, em vez de ser fabricado como um circuito
+integrado fixo. Essa abordagem permite que a arquitetura do processador ---
+largura de palavra, conjunto de instruções, periféricos, organização de memória
+--- seja parametrizada e modificada livremente, recompilada e reimplementada em
+minutos. É justamente essa maleabilidade que torna o soft-processor uma
+ferramenta natural para pesquisa e ensino de arquitetura de computadores: o
+aluno ou pesquisador projeta o hardware, escreve software para ele e observa o
+comportamento, tudo dentro de um único ciclo iterativo.
+
+\tool{SAPHO} adota um modelo de processador próprio, projetado para ser
+modificado por quem o estuda. O fluxo completo --- da descrição em alto nível
+até a imagem de memória e o \emph{testbench} --- roda localmente, sem dependência
+de nuvem. A arquitetura do núcleo \tool{SAPHO} é tratada em detalhe no
+\autoref{cap:02-arquitetura-soft-processor-sapho}.
+
+\section{O que é a plataforma SAPHO}
+\label{sec:01-o-que-e-sapho}
+
+\textbf{SAPHO} é a suíte integrada para concepção, compilação, simulação e
+visualização de soft-processors mantida pelo NIPSCERN. O nome é um acrônimo cuja
+expansão aparece de forma consistente no código e nos metadados do projeto:
+
+\begin{nota}
+\textbf{SAPHO = \emph{Scalable Architecture for Hardware Optimization}.}
+Esta expansão é declarada no campo \code{description} do \file{package.json} do
+repositório \repo{aurora} (\enquote{Scalable Architecture for Hardware
+Optimization}), no \file{README.md} do repositório de distribuição \repo{sapho}
+e na página de projeto do sítio do laboratório. Não foram encontradas no
+código-fonte expansões alternativas concorrentes.
+\end{nota}
+
+Vale distinguir três usos do nome, que convivem no código:
+
+\begin{description}[leftmargin=1.4em]
+  \item[A plataforma/suíte.] \tool{SAPHO} como o ecossistema completo que une a
+        IDE, os compiladores e o toolchain (o sentido predominante neste
+        documento).
+  \item[O canal de distribuição.] O repositório \repo{sapho} é o \emph{canal de
+        release} estável de onde os usuários finais baixam o instalador. O
+        repositório \repo{aurora}, por sua vez, é onde a IDE é
+        \emph{desenvolvida}. Essa separação em dois repositórios é intencional
+        (ver \autoref{sec:01-nomes} e o \autoref{cap:16-build-distribuicao}).
+  \item[O produto empacotado.] O \file{package.json} do repositório \repo{aurora}
+        nomeia o pacote como \code{sapho} e o \code{productName} como
+        \code{SAPHO}; o instalador gerado chama-se
+        \path{sapho-aurora-Setup-vX.Y.Z.exe}.
+\end{description}
+
+A versão da suíte documentada neste material é a \textbf{6.3.2} (campo
+\code{version} do \file{package.json} e do \file{CITATION.cff}), e a distribuição
+é licenciada sob \textbf{MIT}.
+
+\section{O modelo conceitual: AURORA + YANC + toolchain bundle}
+\label{sec:01-modelo-conceitual}
+
+Conceitualmente, \tool{SAPHO} é a composição de três peças principais, mais dois
+subsistemas que operam dentro da IDE. A separação de responsabilidades é nítida:
+o \tool{YANC} compila, o \emph{toolchain bundle} simula e sintetiza, e a
+\tool{AURORA} orquestra tudo por trás de uma única interface.
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Peça} & \textbf{Papel} \\
+\midrule
+\tool{AURORA} & A IDE desktop (Electron + Monaco) onde o usuário escreve o
+código, dispara as compilações, simula, vê ondas e inspeciona o RTL. É o
+repositório vivo do desenvolvimento. \\
+\tool{YANC} & Os compiladores que traduzem o código de alto nível até Verilog
+sintetizável, imagens de memória e \emph{testbench}. \\
+\emph{toolchain bundle} & O \emph{snapshot} portátil msys/mingw64 que reúne os
+simuladores e sintetizadores de terceiros (Icarus Verilog, Verilator, Yosys,
+GCC/G++, Python+cocotb) que a \tool{AURORA} baixa e empacota. \\
+\bottomrule
+\end{tabularx}
+
+\subsection{AURORA --- a IDE}
+\label{sec:01-aurora}
+
+\tool{AURORA} é a IDE desktop da plataforma. Conforme o \file{package.json} e o
+\file{README.md} do repositório \repo{aurora}, ela é construída sobre
+\textbf{Electron} (versão 39 nas dependências de desenvolvimento) e o editor
+\textbf{Monaco} (o mesmo motor de edição do VS Code). Ela unifica, sob uma
+interface única: a escrita de \cmm{}, a montagem (\emph{assembling}), a síntese
+de Verilog, a simulação, a visualização de formas de onda e a inspeção de RTL.
+
+A IDE associa-se ao tipo de arquivo de projeto \textbf{\code{.spf}} (\emph{SAPHO
+Project File}), declarado em \code{fileAssociations} no \file{package.json}, e
+organiza o trabalho de forma orientada a processadores: cada projeto contém um
+ou mais processadores, com codificação por cor e uma árvore de arquivos
+unificada. A arquitetura interna da \tool{AURORA} é detalhada no
+\autoref{cap:05-aurora-arquitetura}, e seus subsistemas funcionais (editor,
+árvore, compilação, simulação) nos capítulos seguintes.
+
+\subsection{YANC --- os compiladores}
+\label{sec:01-yanc}
+
+\textbf{YANC} (\enquote{Yet Another Compiler}) é a espinha dorsal de compilação
+da plataforma. Segundo o \file{README.md} do repositório \repo{yanc}, ele recebe
+um programa de alto nível --- escrito em \cmm{} (uma linguagem do tipo C, com
+operadores de ponto fixo, ponto flutuante, números complexos e notação de Dirac
+como cidadãos de primeira classe) ou em \emph{C++} --- e o compila por completo
+até um núcleo \tool{SAPHO} sintetizável, as imagens de memória de programa e de
+dados, e um \emph{testbench} pronto para executar.
+
+Os binários do \tool{YANC} incluem, entre outros, \code{cmmcomp} (\cmm{} para
+\emph{assembly}), \code{asmcomp} (\emph{assembly} para binário/hex),
+\code{appcomp} e \code{comp2gtkw}; eles são distribuídos com bibliotecas HDL e
+macros. O \tool{YANC} é desenvolvido em C, com Flex e Bison, e pode ser usado de
+forma autônoma a partir de scripts de \emph{shell}, embora o uso principal seja
+dirigido pela \tool{AURORA}. A linguagem \cmm{} é o tema do
+\autoref{cap:03-linguagem-cmm}, e o interior dos compiladores, do
+\autoref{cap:04-yanc-compiladores}.
+
+\subsection{O toolchain bundle}
+\label{sec:01-toolchain}
+
+O \emph{toolchain bundle} é um \emph{snapshot} portátil de ferramentas de
+terceiros que a \tool{AURORA} não traz no seu repositório fonte, mas baixa
+durante o \emph{bootstrap}. Conforme o script
+\file{components/Scripts/download-toolchain.js}, o bundle (arquivo
+\code{aurora-msys-v1.zip}, distribuído pelo repositório \repo{aurora-toolchain})
+reúne, num único diretório msys/mingw64, o Icarus Verilog (\code{iverilog},
+\code{vvp}), o Verilator, o Yosys, GCC/G++, \code{make}, Perl e um Python com
+cocotb (incluindo a VPI estática \path{libcocotbvpi_verilator.a}). O
+\tool{YANC}, o \emph{fork} \repo{gtkwave-nipscern} e demais componentes são
+baixados separadamente por scripts irmãos. O toolchain é descrito no
+\autoref{cap:14-toolchain-bundle}, e o catálogo dos componentes de terceiros, no
+\autoref{cap:15-catalogo-terceiros}.
+
+\subsection{PRISM --- visualizador de RTL}
+\label{sec:01-prism}
+
+\textbf{PRISM} é o subsistema de visualização de RTL da \tool{AURORA}. Ele
+renderiza a estrutura do processador e os caminhos de dados como diagramas de
+netlist, a partir da síntese do \textbf{Yosys} combinada com o
+\textbf{netlistsvg}. O \file{package.json} aponta a dependência
+\code{@silimate/netlistsvg} para o \emph{fork} \repo{netlistsvg-aurora}, e o
+netlistsvg roda em processo (a partir de \path{node_modules}). A interface do
+PRISM vive em \path{html/prism/} (arquivos \path{prism.html}, \path{prism.js} e
+\path{prism.css}). O subsistema é tratado em detalhe no
+\autoref{cap:11-aurora-prism-rtl}.
+
+\subsection{Aurora Intelligence --- subsistema de IA}
+\label{sec:01-aurora-intelligence}
+
+\textbf{Aurora Intelligence} é o subsistema de inteligência artificial integrado
+à IDE. Ele está \textbf{completamente implementado}: o módulo
+\file{main/ai/provider.js} mostra a integração via Vercel AI SDK, com suporte aos
+provedores \code{openai}, \code{anthropic}, \code{google}, \code{deepseek},
+\code{groq} e \code{ollama}, mais um servidor MCP (\emph{Model Context Protocol})
+próprio (\file{main/ai/aurora_mcp_server.js}), um \emph{tool bridge}, gestão de
+chaves (\code{keystore}), conversas, e a ponte com CLIs de agente
+(\file{main/ai/claude_code.js}, \file{main/ai/codex_cli.js}).
+
+\begin{nota}
+\textbf{Status do provedor próprio.} Embora o subsistema esteja completo, o
+\emph{provedor} e os \emph{modelos próprios} do laboratório ainda \textbf{não
+foram treinados} --- esse treinamento é um item de \emph{roadmap}. Hoje, o
+Aurora Intelligence opera por meio dos provedores de terceiros listados acima,
+com as chaves de API fornecidas pelo usuário. O subsistema é detalhado no
+\autoref{cap:12-aurora-intelligence-ia}.
+\end{nota}
+
+\section{Público-alvo}
+\label{sec:01-publico}
+
+\tool{SAPHO} destina-se a \textbf{pesquisa e ensino em arquitetura de
+computadores e projeto de soft-processors}. A vertente de ensino é concreta: a
+plataforma é empregada na disciplina de \textbf{DLP --- Dispositivos Lógicos
+Programáveis} da UFJF, na qual os estudantes projetam, compilam e simulam
+arquiteturas de processador customizadas usando o ecossistema. Isso aproxima a
+plataforma de dois perfis complementares:
+
+\begin{itemize}
+  \item \textbf{Estudantes e docentes} de cursos de engenharia/computação que
+        precisam de um caminho concreto entre os conceitos teóricos de
+        arquitetura de computadores e a prática de projeto de hardware ---
+        escrever um programa, compilá-lo para um processador customizado,
+        simulá-lo e ver as formas de onda, sem montar um \emph{toolchain} de
+        EDA manualmente.
+  \item \textbf{Pesquisadores} que desejam experimentar variações de
+        arquitetura (largura, ISA, periféricos) de forma rápida e iterativa,
+        com todo o fluxo executando localmente.
+\end{itemize}
+
+\section{Panorama de alto nível do fluxo}
+\label{sec:01-fluxo}
+
+Em alto nível, o trabalho na plataforma percorre o caminho \emph{projeto $\to$
+\cmm{} $\to$ compilação $\to$ simulação $\to$ ondas/RTL}. O usuário cria um
+projeto (arquivo \code{.spf}) com um ou mais processadores, escreve o código em
+\cmm{}, dispara a compilação a partir da barra de ferramentas, e então simula e
+inspeciona os resultados. O diagrama a seguir resume o encadeamento conceitual;
+os detalhes de cada etapa ficam para os capítulos correspondentes, e o pipeline
+completo, ponta a ponta, é o tema do \autoref{cap:17-pipeline-ponta-a-ponta}.
+
+\begin{lstlisting}[caption={Fluxo conceitual de alto nível da plataforma SAPHO.},captionpos=b]
+  Projeto (.spf)            Cap. 7  — arvore de projeto / processadores
+       |
+       v
+  Codigo C+- / C++          Cap. 3  — linguagem C+-    | Cap. 6 — editor
+       |
+       v
+  Compilacao  (YANC)        Cap. 4  — cmmcomp -> asmcomp
+   cmmcomp -> asmcomp       Cap. 8  — orquestracao da compilacao na AURORA
+       |
+       +--> Verilog sintetizavel + imagens de memoria (.mif) + testbench
+       |
+       v
+  Simulacao                 Cap. 9  — Icarus Verilog / Verilator + cocotb
+   (iverilog / verilator)
+       |
+       +--> formas de onda (.vcd / .fst)
+       |
+       v
+  Visualizacao
+   - Ondas  (GTKWave/Surfer)  Cap. 10
+   - RTL    (PRISM)           Cap. 11  — Yosys + netlistsvg
+\end{lstlisting}
+
+A correspondência entre os passos do fluxo e os botões da barra de ferramentas
+de compilação da \tool{AURORA}, conforme o \file{README.md} do repositório
+\repo{aurora}, é:
+
+\begin{tabularx}{\linewidth}{l l Y}
+\toprule
+\textbf{Passo} & \textbf{Botão} & \textbf{Ferramenta de apoio} \\
+\midrule
+\cmm{}  & \code{cmmcomp}  & \code{cmmcomp} + \code{asmcomp} (por processador) \\
+Veri    & \code{vericomp} & Icarus Verilog (sintetiza o \emph{top-level}) \\
+Wave    & \code{wavecomp} & GTKWave (abre o \code{.vcd}/\code{.fst} gerado) \\
+PRISM   & \code{prismcomp}& Yosys + netlistsvg (visualizador de RTL) \\
+\bottomrule
+\end{tabularx}
+
+A IDE distingue ainda os modos \emph{Processor} (um único processador ativo,
+ciclo completo \cmm{} $\to$ ASM $\to$ IVL $\to$ Wave) e \emph{Project} (todos os
+processadores do \code{.spf}), com a chave \emph{Compile-\&-Simulate} escolhendo
+entre simulação dirigida por \emph{testbench} e síntese somente-Verilog. Esses
+modos são detalhados no \autoref{cap:08-aurora-compilacao}.
+
+\section{Convenção de nomes}
+\label{sec:01-nomes}
+
+Os nomes próprios da plataforma têm significados precisos, resumidos a seguir:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Nome} & \textbf{Significado} \\
+\midrule
+\tool{SAPHO} & \emph{Scalable Architecture for Hardware Optimization} --- a
+plataforma/suíte completa; também o nome do canal de distribuição
+(repositório \repo{sapho}) e do produto empacotado. \\
+\tool{AURORA} & A IDE desktop (Electron + Monaco); repositório de
+desenvolvimento \repo{aurora}. \\
+\tool{YANC} & \emph{Yet Another Compiler} --- a suíte de compiladores
+(\code{cmmcomp}, \code{asmcomp}, \code{appcomp}, \code{comp2gtkw});
+repositório \repo{yanc}. \\
+\tool{PRISM} & O visualizador de RTL embutido na IDE (Yosys + netlistsvg). \\
+\tool{Aurora Intelligence} & O subsistema de IA da IDE. \\
+\cmm{} & A linguagem de alto nível principal aceita pelo \tool{YANC}. \\
+\bottomrule
+\end{tabularx}
+
+\begin{nota}
+\textbf{Dois repositórios, de propósito.} O repositório \repo{aurora} é onde a
+GUI é \emph{desenvolvida}; o repositório \repo{sapho} é o \emph{canal de
+release} de onde os usuários finais baixam o instalador estável (a suíte =
+\tool{YANC} + \tool{AURORA}). A divisão é intencional, não um defeito.
+\end{nota}
+
+\textbf{POLARIS} foi um sucessor planejado da IDE que está \textbf{descontinuado};
+a IDE viva e mantida da plataforma é a \tool{AURORA}, e este documento não
+descreve o POLARIS.
+
+\section{Plataformas suportadas}
+\label{sec:01-plataformas}
+
+O suporte de plataforma difere entre as peças, conforme verificado no código:
+
+\begin{itemize}
+  \item \textbf{AURORA (IDE):} hoje, somente \textbf{Windows}. A configuração do
+        \code{electron-builder} no \file{package.json} declara apenas o alvo
+        \code{nsis} para \code{win} na arquitetura \code{x64}; não há alvos para
+        macOS ou Linux. O \file{README.md} reforça que a IDE empacota um
+        \emph{toolchain} específico de Windows e não é suportada em macOS ou
+        Linux no momento.
+  \item \textbf{YANC (compiladores):} \textbf{Windows e Linux}, com scripts de
+        \emph{setup} próprios para cada sistema (\path{Scripts/setup.bat} no
+        Windows, \path{Scripts/setup.sh} no Linux), conforme o \file{README.md}
+        do repositório \repo{yanc}.
+\end{itemize}
+
+\section{Mapa do documento}
+\label{sec:01-mapa}
+
+Esta referência técnica está organizada em 18 capítulos, mais apêndices. O mapa
+abaixo orienta a leitura:
+
+\begin{longtable}{c >{\raggedright\arraybackslash}p{0.30\linewidth} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{\#} & \textbf{Título} & \textbf{Escopo} \\
+\midrule
+\endhead
+1  & Contexto e visão geral & Este capítulo: laboratório, plataforma, modelo conceitual, fluxo, nomes e mapa. \\
+2  & Arquitetura do soft-processor SAPHO & O modelo de processador \tool{SAPHO}: organização, parametrização, datapath. \\
+3  & A linguagem \cmm{} & Sintaxe, tipos, diretivas de hardware e semântica da linguagem de alto nível. \\
+4  & YANC --- os compiladores & Interior dos compiladores (\code{cmmcomp}, \code{asmcomp} e demais), Flex/Bison, bibliotecas HDL. \\
+5  & AURORA --- arquitetura & Estrutura interna da IDE: processo principal (Electron), \emph{renderer}, IPC, módulos. \\
+6  & AURORA --- editor & O editor Monaco, modos de edição, \emph{split}, introspecção de código. \\
+7  & AURORA --- projeto e árvore & Projetos \code{.spf}, processadores, árvore de arquivos e hierarquia. \\
+8  & AURORA --- compilação & Orquestração da compilação: modos, especificações de comando, \emph{builders}. \\
+9  & AURORA --- simulação e ondas & Simulação com Icarus Verilog/Verilator e cocotb; geração de traços. \\
+10 & AURORA --- visualização (GTKWave / Surfer) & Visualizadores de forma de onda integrados. \\
+11 & AURORA --- PRISM (RTL) & O visualizador de RTL via Yosys + netlistsvg. \\
+12 & AURORA --- Aurora Intelligence (IA) & O subsistema de IA: provedores, MCP, ferramentas, status do provedor próprio. \\
+13 & AURORA --- produtividade & Recursos de produtividade da IDE (backups, projetos recentes, integrações). \\
+14 & O toolchain bundle & O \emph{snapshot} msys/mingw64: conteúdo, \emph{bootstrap} e empacotamento. \\
+15 & Catálogo de componentes de terceiros & Inventário das ferramentas FOSS embutidas e suas licenças. \\
+16 & Build e distribuição & \emph{Build} com electron-builder, instalador NSIS, auto-atualização, split de repositórios. \\
+17 & Pipeline ponta a ponta & O fluxo completo, do código à onda/RTL, integrando todas as peças. \\
+18 & Engenharia e evolução & Práticas de engenharia, versionamento e evolução do projeto. \\
+\bottomrule
+\end{longtable}
+
+\noindent Os apêndices reúnem um glossário de termos e uma lista de referências
+externas.

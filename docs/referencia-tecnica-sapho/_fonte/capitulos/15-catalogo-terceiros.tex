@@ -1,0 +1,477 @@
+% !TEX root = ../main.tex
+\chapter{Catálogo de ferramentas de terceiros}
+\label{cap:15-catalogo-terceiros}
+
+Este capítulo é o catálogo de referência das ferramentas de terceiros que o
+SAPHO usa, orquestra ou empacota. Cada componente aparece com seu nome, a versão
+\emph{exata} verificada na fonte primária, a licença confirmada e o papel que
+desempenha na plataforma. As fontes primárias deste levantamento são o
+\file{package.json} da AURORA (campos \code{dependencies} e \code{devDependencies}),
+o \file{manifest.txt} do repositório \repo{aurora-toolchain}, os scripts
+\file{components/Scripts/download-*.js} (que baixam e fixam cada binário externo),
+o \file{main/ai/cli\_manifest.js} (manifesto das CLIs de IA baixadas sob demanda)
+e os arquivos \file{LICENSE} e \file{THIRD\_PARTY\_NOTICES.md} da raiz.
+
+As versões aqui registradas foram confirmadas lendo diretamente esses arquivos e,
+quando instaladas, os \file{package.json} de cada pacote em \path{node_modules/}.
+Os caminhos de instalação dos binários nativos (toolchain, viewers, LSPs) e o
+fluxo de \emph{bootstrap} que os baixa são detalhados em
+\autoref{cap:10-toolchain} e \autoref{cap:14-build-empacotamento}; aqui o foco é
+o \emph{inventário} de cada peça.
+
+\begin{nota}
+A AURORA é distribuída sob licença MIT (\copyright{} 2024--presente NIPSCERN).
+Cada componente de terceiros permanece sob sua própria licença, que se aplica aos
+respectivos arquivos em adição à licença da AURORA. Os componentes nativos sob
+GPL (Icarus Verilog, GTKWave) e o Surfer sob EUPL são invocados como processos
+externos, separados e em \emph{arm's-length} --- a AURORA os executa, mas não
+faz \emph{link} contra eles. Os componentes LGPL são usados sem modificação.
+\end{nota}
+
+\section{Como ler este catálogo}
+
+\subsection{Modos de empacotamento}
+
+As ferramentas chegam ao usuário por quatro mecanismos distintos, e a coluna
+\enquote{origem} de cada tabela indica qual se aplica.
+
+\begin{description}[leftmargin=2.2em]
+  \item[npm (\code{dependencies}).] Bibliotecas JavaScript/TypeScript instaladas
+  em \path{node_modules/} e empacotadas dentro do instalador pelo
+  \tool{electron-builder}. São as bibliotecas de runtime da aplicação.
+  \item[npm (\code{devDependencies}).] Ferramentas usadas apenas no
+  desenvolvimento e na CI (build, testes, lint). Não vão para o instalador final.
+  \item[Bootstrap (download fixado).] Binários nativos (\code{.exe}, \code{.wasm},
+  fontes, \emph{bundle} MSYS2) baixados de releases do GitHub/GitLab por um script
+  \file{download-*.js} durante o \code{npm run bootstrap}. Cada um fixa uma
+  \emph{tag} de versão e, na maioria dos casos, um \code{SHA-256} verificado antes
+  da extração. São empacotados no instalador via \code{extraResources}.
+  \item[On-demand (runtime).] As CLIs de IA por assinatura (Claude Code, Codex)
+  \emph{não} são empacotadas: são baixadas do registro npm na primeira utilização,
+  a partir de um manifesto fixado em \file{main/ai/cli\_manifest.js}.
+\end{description}
+
+\subsection{Fixação de versões e integridade}
+
+O fluxo de bootstrap é descrito em
+\autoref{cap:14-build-empacotamento}; aqui basta registrar os mecanismos que
+garantem que as versões deste catálogo são as que efetivamente chegam ao usuário.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{Pacotes npm fixados.} O script \file{scripts/check-pinned-versions.js}
+  trata qualquer dependência declarada com \emph{semver} puro (sem \lstinline|^|,
+  \lstinline|~| ou outro operador de intervalo) como \enquote{fixada} e
+  falha o build se a versão instalada divergir. Hoje os pacotes com versão exata
+  são \lstinline|monaco-editor| (\code{0.52.2}), \lstinline|web-tree-sitter|
+  (\code{0.26.9}), \lstinline|@anthropic-ai/claude-code| (\code{2.1.144}),
+  \lstinline|@openai/codex| (\code{0.131.0}) e \lstinline|knip| (\code{6.17.1}).
+  \item \textbf{Binários de bootstrap.} Cada \file{download-*.js} carrega uma
+  constante de \emph{tag} e, na maioria, um \code{EXPECTED_SHA256} verificado
+  via \file{components/Scripts/lib/checksum.js} antes da extração. Uma divergência
+  de hash aborta a instalação.
+  \item \textbf{CLIs de IA on-demand.} O \file{cli\_manifest.js} fixa versão,
+  URL do \emph{tarball} e \emph{Subresource-Integrity} (\code{sha512-...}) por
+  plataforma; o \file{check-pinned-versions.js} cruza essas versões com o
+  \file{package.json} e os hashes com o \file{package-lock.json}.
+\end{itemize}
+
+\section{Runtime da aplicação}
+
+A base de execução da AURORA é o Electron, que combina o Chromium (processo
+\emph{renderer}, onde vive a UI) e o Node.js (processo \emph{main}, onde vivem
+o sistema de arquivos, os spawns de toolchain e a IPC). A versão de Node mínima
+declarada em \code{engines} é \code{>=18.0.0}.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.20\linewidth} >{\raggedright\arraybackslash}p{0.12\linewidth} >{\raggedright\arraybackslash}p{0.13\linewidth} >{\raggedright\arraybackslash}p{0.43\linewidth}}
+\caption{Runtime da aplicação}\label{tab:cat-runtime}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\tool{electron} & \code{39.8.10} & MIT & Runtime desktop (Chromium + Node). Hospeda toda a aplicação; é \code{devDependency} porque o \tool{electron-builder} a embute no instalador. \\
+Node.js & \code{>=18} & MIT & Ambiente do processo \emph{main}; declarado em \code{engines}. \\
+\end{longtable}
+
+\section{Editor e interface}
+
+A camada de edição e UI combina o Monaco (o editor de código do VS Code),
+componentes web baseados em Lit, ícones Phosphor, renderização de fórmulas com
+KaTeX, jQuery/jQuery-UI para alguns painéis legados, \emph{diffs} HTML com
+diff2html e as fontes tipográficas. O destaque semântico de sintaxe usa o
+runtime \lstinline|web-tree-sitter| com gramáticas \code{.wasm} (catalogadas em
+\autoref{tab:cat-lsp}).
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.21\linewidth} >{\raggedright\arraybackslash}p{0.10\linewidth} >{\raggedright\arraybackslash}p{0.13\linewidth} >{\raggedright\arraybackslash}p{0.44\linewidth}}
+\caption{Editor e interface (npm)}\label{tab:cat-ui}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\lstinline|monaco-editor| & \code{0.52.2} & MIT & Editor de código (núcleo do VS Code). Fixado em versão exata: a \code{0.53.x} regride na inicialização. Hospeda \cmm{}, C/C++, ASM, Verilog/SystemVerilog. \\
+\lstinline|lit| & \code{3.3.3} & BSD-3-Clause & Biblioteca de Web Components reativos usada nos elementos de UI próprios (\emph{shell}, abas, painéis). \\
+\lstinline|@phosphor-icons/web| & \code{2.1.2} & MIT & Conjunto de ícones da interface. \\
+\lstinline|katex| & \code{0.17.0} & MIT & Renderização de fórmulas matemáticas (LaTeX) em superfícies de UI/documentação. \\
+\lstinline|jquery| & \code{3.7.1} & MIT & Manipulação de DOM em componentes de UI legados. \\
+\lstinline|jquery-ui| & \code{1.14.2} & MIT & Widgets de interface (sobre jQuery). \\
+\lstinline|diff2html| & \code{3.4.56} & MIT & Renderização HTML de \emph{diffs} unificados (visualização de controle de versão). \\
+\end{longtable}
+
+\subsection{Fontes tipográficas}
+
+As fontes ficam em \path{assets/fonts/}. Inter e JetBrains Mono são versionadas
+no repositório como \code{.woff2}; a fonte Norse \emph{não} é versionada porque
+sua licença proíbe redistribuição --- é baixada da fonte original (dafont) pelo
+\file{download-norse-font.js} no bootstrap e embutida no aplicativo construído
+(o que a licença permite). Em caso de falha de download, o letreiro
+\enquote{Dagr} (controle de versão) recai sobre a fonte da UI.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.22\linewidth} >{\raggedright\arraybackslash}p{0.18\linewidth} >{\raggedright\arraybackslash}p{0.50\linewidth}}
+\caption{Fontes}\label{tab:cat-fonts}\\
+\toprule
+\textbf{Fonte} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Fonte} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+Inter & SIL OFL 1.1 & Fonte de interface (texto da UI). Versionada (\file{inter-latin.woff2}, \file{inter-latin-ext.woff2}). \\
+JetBrains Mono & SIL OFL 1.1 & Fonte monoespaçada (editor/terminal). Versionada (\file{jetbrains-mono-latin.woff2}, \file{jetbrains-mono-latin-ext.woff2}). \\
+Norse (Joël Carrouché) & Livre para uso comercial e embutimento; redistribuição proibida & Letreiro \enquote{Dagr} do painel de controle de versão. Baixada no bootstrap (\file{download-norse-font.js}); não versionada. Licença em \file{assets/fonts/NORSE-LICENSE.txt}. \\
+\end{longtable}
+
+\section{Toolchain EDA}
+
+O coração do fluxo de hardware é o \emph{bundle} unificado MSYS2/MinGW64 do
+repositório \repo{aurora-toolchain}, baixado pelo \file{download-toolchain.js}
+como \file{aurora-msys-v1.zip} (\emph{tag} \code{msys-v1}) e extraído em
+\path{components/Packages/msys/}. Esse \emph{bundle} carrega, em um só lugar,
+Icarus Verilog, Verilator, Yosys, GCC/G++, Python e cocotb com suas DLLs. As
+versões são fixadas no \file{manifest.txt} do \repo{aurora-toolchain}, que é a
+fonte única de verdade para a montagem do \emph{bundle} (MSYS2 é
+\emph{rolling-release}; sem os pinos, uma reconstrução puxa versões correntes que
+podem quebrar o fluxo). Cada linha do manifesto é uma versão exata de pacote
+MSYS2.
+
+O GTKWave não vem do \emph{bundle} principal: é um \emph{fork} próprio
+(\repo{gtkwave-nipscern}) baixado à parte. O netlistsvg deixou de ser um binário
+e roda \emph{in-process} a partir de \path{node_modules/} (ver
+\autoref{sec:cat-prism}). DigitalJS e yosys2digitaljs são bibliotecas npm
+empregadas pelo visualizador PRISM (\autoref{cap:12-prism}).
+
+\begin{nota}
+O \code{7-Zip} não é uma dependência ativa. O empacotamento de \emph{backups}
+de projeto usa o \code{Compress-Archive} nativo do PowerShell
+(\file{main/ipc/files.js}); a referência a \code{7z} no código é um comentário
+documentando que essa dependência foi removida.
+\end{nota}
+
+\subsection{Bundle MSYS2/MinGW e ferramentas nativas}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.20\linewidth} >{\raggedright\arraybackslash}p{0.14\linewidth} >{\raggedright\arraybackslash}p{0.18\linewidth} >{\raggedright\arraybackslash}p{0.36\linewidth}}
+\caption{Toolchain EDA (bundle e binários de bootstrap)}\label{tab:cat-eda}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+Icarus Verilog (\code{iverilog}/\code{vvp}) & \code{13.0} (pkg \lstinline|1~13.0-2|) & GNU GPL v2 & Compilação e simulação Verilog. A v13 é mais estrita (exige declaração antes do uso). No \emph{bundle}. \\
+Verilator & \code{5.048} (pkg \code{5.048-1}) & LGPL-3.0 ou Artistic-2.0 & Simulação Verilog de alto desempenho (compila o modelo via G++ em runtime). No \emph{bundle}. \\
+Yosys (+ ABC) & \code{0.56} (pkg \code{0.56-4}) & ISC (Yosys); MIT-style (ABC, UC Berkeley) & Síntese RTL para o PRISM. Instalado sem o \emph{frontend} VHDL (GHDL). No \emph{bundle}. \\
+GTKWave (\emph{fork} nipscern) & \code{v0.1.2-nipscern} & GNU GPL v2 & Visualizador de formas de onda + \code{fst2vcd}/\code{vcd2fst}. \emph{Fork} portátil (DLLs GTK incluídas) com \code{--zoom-fit}, painel escuro, \code{--left-justify}. Baixado por \file{download-gtkwave-nipscern.js}. \\
+cocotb & \code{2.0.1} & BSD-3-Clause & Framework de testbench em Python (VPIs Icarus + Verilator compiladas no \emph{bundle}). \\
+\code{find_libpython} & \code{0.5.1} & MIT & Dependência de runtime de \code{cocotb_tools.runner} (no \emph{bundle}). \\
+Python (MinGW) & \code{3.12.11} (pkg \code{3.12.11-1}) & PSF & Interpretador que hospeda o cocotb. Fixado: a 3.14 quebra o build do cocotb. No \emph{bundle}. \\
+GCC / G++ & \code{15.1.0} (pkg \code{15.1.0-5}) & GNU GPL v3 (runtime: GCC Runtime Library Exception) & Compilador que o Verilator usa em runtime para compilar o modelo. Fixado: a 16.x quebra o link do VPI do cocotb. No \emph{bundle}. \\
+\code{ccache} & \code{4.13.6} (pkg \code{4.13.6-2}) & GNU GPL v3 & Cache de compilação (acelera o Verilator). No \emph{bundle}. \\
+Perl (MinGW) & \code{5.38.5} (pkg \code{5.38.5-1}) & Artistic / GPL & \emph{Wrapper} do Verilator. No \emph{bundle}. \\
+\code{make} (MinGW) & \code{4.4.1} (pkg \code{4.4.1-4}) & GNU GPL v3 & Orquestra a compilação do modelo Verilator (\file{verilated.mk}). No \emph{bundle}. \\
+MSYS2 / MinGW runtime & --- & Diversas (GPL/LGPL/MIT por pacote) & Hospeda os binários GTK/Yosys no Windows (bash + coreutils em \path{usr/bin}). No \emph{bundle}. \\
+\end{longtable}
+
+\subsection{PRISM: visualização de RTL via npm}
+\label{sec:cat-prism}
+
+O PRISM (\autoref{cap:12-prism}) sintetiza o RTL com o Yosys do \emph{bundle} e
+renderiza o esquemático. O netlistsvg deixou de ser um \code{.exe} empacotado e
+hoje é carregado \emph{in-process} a partir de \path{node_modules/} em
+\file{main/ipc/prism.js} (\lstinline|require('@silimate/netlistsvg')|), o que
+elimina a necessidade de resolver caminho ou de entrada na \emph{allowlist} de
+binários. O pacote é um \emph{fork} do laboratório, fixado a um commit Git
+específico no \file{package.json}.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.21\linewidth} >{\raggedright\arraybackslash}p{0.12\linewidth} >{\raggedright\arraybackslash}p{0.12\linewidth} >{\raggedright\arraybackslash}p{0.43\linewidth}}
+\caption{PRISM e visualização de circuitos (npm)}\label{tab:cat-prism}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\lstinline|@silimate/netlistsvg| (\emph{fork} nipscern) & \code{1.1.4} (commit \code{58a0703}) & MIT & Renderiza o JSON do Yosys em esquemático SVG, em processo. Fixado por commit em \repo{netlistsvg-aurora}. \\
+\lstinline|digitaljs| & \code{0.14.2} & BSD-2-Clause & Simulador/visualizador de circuitos digitais no navegador (PRISM interativo). \\
+\lstinline|yosys2digitaljs| & \code{0.10.3} & BSD-2-Clause & Converte a saída do Yosys para o formato DigitalJS. \\
+\end{longtable}
+
+\section{Linguagem, LSP e formatação}
+
+A inteligência de edição combina dois \emph{language servers} de Verilog/SystemVerilog
+(Verible para lint/sintaxe; slang-server para análise semântica completa),
+gramáticas \code{tree-sitter} para destaque semântico de Verilog/C/C++, e o
+clang-format para formatação de C/C++/\cmm{}. Esses motores são detalhados em
+\autoref{cap:09-editor-lsp}; abaixo está apenas o inventário.
+
+Os três binários de LSP/formatação são baixados no bootstrap, cada um com tag e
+\code{SHA-256} fixados, e instalados em \path{components/Packages/}. As gramáticas
+\code{.wasm} são baixadas pelo \file{download-tree-sitter-grammars.js} (cada uma
+com hash fixado), e o runtime \lstinline|web-tree-sitter.wasm| é copiado de
+\path{node_modules/} para casar exatamente com a versão do JavaScript empacotado.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.24\linewidth} >{\raggedright\arraybackslash}p{0.18\linewidth} >{\raggedright\arraybackslash}p{0.14\linewidth} >{\raggedright\arraybackslash}p{0.30\linewidth}}
+\caption{Linguagem, LSP e formatação}\label{tab:cat-lsp}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+Verible (\code{verible-verilog-ls.exe}) & \code{v0.0-4080-ga0a8d8eb} & Apache-2.0 & LSP de Verilog: diagnóstico (lint+sintaxe), formatação, \emph{outline}, hover, ir-para-definição. Só o \emph{language server} é extraído. Baixado por \file{download-verible.js}. \\
+slang-server (\code{slang-server.exe}) & \code{v0.2.7} & MIT & LSP semântico de SystemVerilog (elaboração completa): erros que o lint sintático não vê + autocompletar. Hudson River Trading. Baixado por \file{download-slang-server.js}. \\
+clang-format (\code{clang-format.exe}) & LLVM \code{20} (tag \code{master-796e77c}) & Apache-2.0 com exceção LLVM & Formatação de C/C++/\cmm{} no editor (\cmm{} usa regras de C). \emph{Repack} estático de \code{muttleyxd/clang-tools-static-binaries}. Baixado por \file{download-clang-format.js}. \\
+\lstinline|web-tree-sitter| (runtime) & \code{0.26.9} & MIT & Runtime WASM do tree-sitter; gera \emph{semantic tokens} no Monaco. Fixado em versão exata; copiado para \path{components/Packages/tree-sitter/}. \\
+\code{tree-sitter-systemverilog.wasm} & \code{v0.3.1} (gmlarumbe) & MIT & Gramática para destaque semântico de \code{.v}/\code{.sv}. \\
+\code{tree-sitter-c.wasm} & \code{v0.24.2} & MIT & Gramática para destaque semântico de C. \\
+\code{tree-sitter-cpp.wasm} & \code{v0.23.4} & MIT & Gramática para destaque semântico de C++. \\
+\end{longtable}
+
+\section{Visualização de formas de onda (Surfer)}
+
+O Surfer é o visualizador de formas de onda \emph{opt-in} (alternância
+GTKWave\,$\leftrightarrow$\,Surfer); na sua ausência, o botão de onda recai sobre
+o GTKWave. É um binário Rust baixado do registro de pacotes genérico do GitLab do
+projeto Surfer, com \code{SHA-256} fixado, e instalado em
+\path{components/Packages/surfer/}.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.20\linewidth} >{\raggedright\arraybackslash}p{0.12\linewidth} >{\raggedright\arraybackslash}p{0.13\linewidth} >{\raggedright\arraybackslash}p{0.43\linewidth}}
+\caption{Visualização de formas de onda}\label{tab:cat-surfer}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+Surfer (\code{surfer.exe}) & \code{v0.7.0} & EUPL-1.2 & Visualizador de formas de onda em Rust (alternativa ao GTKWave). Spawn em \emph{arm's-length}. Baixado por \file{download-surfer.js}. \\
+\end{longtable}
+
+\section{Inteligência artificial}
+
+O subsistema Aurora Intelligence (\autoref{cap:13-aurora-intelligence}) é
+construído sobre o AI SDK (Vercel) com adaptadores para vários provedores, o SDK
+do Model Context Protocol e o validador de esquemas Zod. As CLIs por assinatura
+da Anthropic (Claude Code) e da OpenAI (Codex) são integradas, mas não
+empacotadas no instalador: são baixadas sob demanda na primeira utilização, a
+partir do manifesto fixado em \file{main/ai/cli\_manifest.js} (versão, URL do
+\emph{tarball} e \emph{Subresource-Integrity} por plataforma). O
+\file{package.json} declara essas CLIs como dependências para fixar as versões
+base, mas as exclui explicitamente do \emph{bundle} (\code{build.files}).
+
+\begin{nota}
+O subsistema Aurora Intelligence está completamente implementado. O \emph{provider}
+e os modelos \emph{próprios} do laboratório ainda não foram treinados (item de
+\emph{roadmap}); até lá, a inteligência opera por meio dos provedores externos
+listados abaixo.
+\end{nota}
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.27\linewidth} >{\raggedright\arraybackslash}p{0.10\linewidth} >{\raggedright\arraybackslash}p{0.16\linewidth} >{\raggedright\arraybackslash}p{0.35\linewidth}}
+\caption{Inteligência artificial}\label{tab:cat-ai}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\lstinline|ai| & \code{6.0.184} & Apache-2.0 & Núcleo do AI SDK (chamadas de modelo, streaming, ferramentas). \\
+\lstinline|@ai-sdk/anthropic| & \code{3.0.85} & Apache-2.0 & Adaptador do provedor Anthropic. \\
+\lstinline|@ai-sdk/openai| & \code{3.0.64} & Apache-2.0 & Adaptador do provedor OpenAI. \\
+\lstinline|@ai-sdk/google| & \code{3.0.83} & Apache-2.0 & Adaptador do provedor Google. \\
+\lstinline|@ai-sdk/groq| & \code{3.0.39} & Apache-2.0 & Adaptador do provedor Groq. \\
+\lstinline|@ai-sdk/deepseek| & \code{2.0.39} & Apache-2.0 & Adaptador do provedor DeepSeek. \\
+\lstinline|@modelcontextprotocol/sdk| & \code{1.29.0} & MIT & SDK do Model Context Protocol (servidores/clientes de ferramentas). \\
+\lstinline|zod| & \code{3.25.76} & MIT & Validação de esquemas (formato de saídas e ferramentas da IA). \\
+\lstinline|@anthropic-ai/claude-code| & \code{2.1.144} & Termos comerciais da Anthropic & CLI Claude Code. On-demand: baixada na 1ª utilização; não empacotada. \\
+\lstinline|@openai/codex| & \code{0.131.0} & Apache-2.0 & CLI Codex. On-demand: baixada na 1ª utilização; não empacotada. \\
+\end{longtable}
+
+\section{Build e infraestrutura}
+
+O empacotamento usa Vite (build do \emph{renderer}) e electron-builder (instalador
+NSIS), com atualização automática via electron-updater (publicação em releases do
+GitHub no repositório \repo{sapho}). O log, a observação de arquivos, as operações
+de arquivo e o Git são cobertos por bibliotecas dedicadas. O processo de build
+completo está em \autoref{cap:14-build-empacotamento}.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.23\linewidth} >{\raggedright\arraybackslash}p{0.11\linewidth} >{\raggedright\arraybackslash}p{0.11\linewidth} >{\raggedright\arraybackslash}p{0.43\linewidth}}
+\caption{Build e infraestrutura}\label{tab:cat-build}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\lstinline|vite| & \code{8.0.16} & MIT & Bundler do \emph{renderer} (\code{build:renderer}). \emph{devDependency}. \\
+\lstinline|vite-plugin-static-copy| & \code{4.1.1} & MIT & Cópia de ativos estáticos no build do Vite. \emph{devDependency}. \\
+\lstinline|electron-builder| & \code{26.15.3} & MIT & Geração do instalador NSIS e empacotamento. \emph{devDependency}. \\
+\lstinline|electron-updater| & \code{6.8.9} & MIT & Atualização automática (releases do GitHub). \\
+\lstinline|electron-log| & \code{5.4.3} & MIT & Sistema de log de \emph{main} e \emph{renderer}. \\
+\lstinline|chokidar| & \code{4.0.3} & MIT & Observação de mudanças no sistema de arquivos (árvore do projeto). \\
+\lstinline|fs-extra| & \code{11.3.2} & MIT & Operações de arquivo estendidas (cópia, remoção recursiva). \\
+\lstinline|simple-git| & \code{3.36.0} & MIT & Operações Git (painel de controle de versão \enquote{Dagr}). \\
+\end{longtable}
+
+\section{Qualidade e ferramentas de desenvolvimento}
+
+As ferramentas de qualidade e desenvolvimento (\code{devDependencies}, não
+empacotadas) cobrem tipagem TypeScript, lint com ESLint, testes unitários com
+Vitest, testes \emph{end-to-end} com Playwright (sobre Electron, com DOM
+simulado via happy-dom), \emph{hooks} de Git com Husky + lint-staged, validação
+de mensagens de commit com commitlint e detecção de código morto com Knip. O
+versionamento automatizado de releases é feito pelo \tool{release-please}, que é
+uma \emph{GitHub Action} (workflow \file{.github/workflows/release-please.yml}),
+não um pacote npm.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.27\linewidth} >{\raggedright\arraybackslash}p{0.11\linewidth} >{\raggedright\arraybackslash}p{0.10\linewidth} >{\raggedright\arraybackslash}p{0.40\linewidth}}
+\caption{Qualidade e desenvolvimento (devDependencies)}\label{tab:cat-dev}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel no SAPHO} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\lstinline|typescript| & \code{6.0.3} & Apache-2.0 & Compilador TypeScript (\code{build:ts}). \\
+\lstinline|@types/node| & \code{25.9.3} & MIT & Tipos do Node.js para o processo \emph{main}. \\
+\lstinline|eslint| & \code{9.39.1} & MIT & Linter de JavaScript. \\
+\lstinline|@eslint/js| & \code{9.39.1} & MIT & Configuração base recomendada do ESLint. \\
+\lstinline|globals| & \code{16.5.0} & MIT & Definições de variáveis globais para o ESLint. \\
+\lstinline|vitest| & \code{4.1.9} & MIT & Framework de testes unitários (\code{test}). \\
+\lstinline|@vitest/coverage-v8| & \code{4.1.9} & MIT & Cobertura de testes (V8). \\
+\lstinline|happy-dom| & \code{20.10.6} & MIT & DOM simulado para os testes. \\
+\lstinline|playwright| & \code{1.61.0} & Apache-2.0 & Testes \emph{end-to-end} da aplicação Electron. \\
+\lstinline|husky| & \code{9.1.7} & MIT & Gestão de \emph{hooks} de Git (\code{prepare}). \\
+\lstinline|lint-staged| & \code{16.4.0} & MIT & Roda o linter apenas nos arquivos \emph{staged}. \\
+\lstinline|@commitlint/cli| & \code{19.8.1} & MIT & Validação de mensagens de commit. \\
+\lstinline|@commitlint/config-conventional| & \code{19.8.1} & MIT & Regras de \emph{Conventional Commits}. \\
+\lstinline|knip| & \code{6.17.1} & ISC & Detecção de código/dependências mortos (\code{deadcode}). Fixado em versão exata. \\
+\end{longtable}
+
+\section{Componentes próprios do laboratório (YANC)}
+
+Embora os compiladores YANC (\autoref{cap:05-yanc-pipeline}) sejam desenvolvidos
+internamente pelo NIPSCERN e não sejam \enquote{terceiros}, eles chegam à AURORA
+pelo mesmo mecanismo de bootstrap dos binários externos --- o
+\file{download-yanc.js} baixa \file{yanc-bin-v5.2.zip} (\emph{tag} \code{v5.2}) e o
+extrai em \path{components/}. Registra-se aqui apenas por completude do inventário
+de artefatos baixados; o conteúdo (6 executáveis em \path{bin/} --- os
+compiladores/pré-processadores \code{cmmcomp}, \code{cppcomp}, \code{asmcomp},
+\code{cpppp} e \code{appcomp}, mais o utilitário \code{comp2gtkw} de decodificação
+de números complexos para formas de onda --- além da biblioteca Verilog HDL,
+\emph{headers} C++ e macros de ponto flutuante) é descrito no capítulo do
+\emph{pipeline} YANC. Tudo é licenciado segundo o projeto YANC.
+
+\section{Síntese de licenças}
+
+A tabela a seguir consolida as famílias de licença presentes na distribuição. A
+AURORA em si é MIT; os componentes mais permissivos (MIT, BSD, ISC, Apache-2.0)
+são empacotados sem restrição prática; os componentes \emph{copyleft} fortes (GPL)
+e o EUPL são invocados como processos externos separados (sem \emph{link});
+o Verilator (LGPL) é usado sem modificação.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.26\linewidth} >{\raggedright\arraybackslash}p{0.30\linewidth} >{\raggedright\arraybackslash}p{0.36\linewidth}}
+\caption{Famílias de licença na distribuição}\label{tab:cat-licencas}\\
+\toprule
+\textbf{Licença} & \textbf{Componentes (exemplos)} & \textbf{Forma de uso} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Licença} & \textbf{Componentes (exemplos)} & \textbf{Forma de uso} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+MIT & AURORA; Monaco; jQuery/jQuery-UI; KaTeX; Phosphor; netlistsvg; MCP SDK; Zod; web-tree-sitter; slang-server; gramáticas tree-sitter; Electron e a maioria das libs de build & Empacotamento direto. \\
+BSD-2/3-Clause & Lit (3); DigitalJS, yosys2digitaljs (2); cocotb (3) & Empacotamento direto / processo externo (cocotb). \\
+Apache-2.0 & AI SDK (\lstinline|ai|, \code{@ai-sdk/*}); Codex; TypeScript; Playwright; Verible; clang-format (com exceção LLVM) & Empacotamento direto / spawn (Verible, clang-format, Codex). \\
+ISC & Yosys; Knip & Processo externo (Yosys) / dev. \\
+LGPL-3.0 ou Artistic-2.0 & Verilator & Processo externo, sem modificação. \\
+GNU GPL v2 & Icarus Verilog; GTKWave (\emph{fork}) & Processo externo separado, sem \emph{link}. \\
+GNU GPL v3 & GCC/G++ (runtime com exceção), \code{ccache}, \code{make} & Toolchain no \emph{bundle}; runtime de compilação. \\
+EUPL-1.2 & Surfer & Processo externo separado, sem \emph{link}. \\
+PSF & Python & Interpretador no \emph{bundle}. \\
+SIL OFL 1.1 & Inter; JetBrains Mono & Embutimento de fonte. \\
+Licença própria (sem redistribuição) & Norse & Embutida no app; baixada no bootstrap, não versionada. \\
+Termos comerciais & Claude Code (Anthropic) & CLI on-demand; não empacotada. \\
+\end{longtable}

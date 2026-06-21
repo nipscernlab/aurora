@@ -1,0 +1,32 @@
+% !TEX root = ../main.tex
+\section{Compilação e simulação na IDE}
+\label{sec:S07-compilacao-simulacao}
+
+A compilação na \tool{AURORA} tem duas metades ligadas por IPC. No \textbf{renderer} (\path{js/compilation/}) decide-se \emph{o que} rodar: cada botão da toolbar expande numa sequência de etapas (\code{CompilationFlowManager} em \file{compilation\_flow.js}), e cada etapa é montada por um \emph{builder puro} (\path{builders/*}) que devolve um \code{CommandSpec} estruturado \lstinline|{ binary, args[], cwd, env, prependPath }| --- sem I/O nem efeito colateral. No \textbf{main} decide-se \emph{como} rodar: o executor (\file{main/compile/executor.js}) é o único ponto que chama \lstinline|spawn(binary, args, { shell:false })|. Como não há shell, cada argumento chega intacto (sem parsing, sem injeção). Todos os botões passam por \code{window.AuroraAPI.compile}, o mesmo caminho que a Aurora Intelligence usa via function-calling.
+
+\textbf{Fluxo.} Botão $\to$ \code{CompilationModule.<fase>()} monta o spec via builder $\to$ \code{spec\_runner.js} (ponto único renderer-side) aplica overrides e loga o diff $\to$ \code{electronAPI.execSpec}/\code{execSpecStreamed} via IPC $\to$ \code{executor.validateSpecForExec} $\to$ \code{spawnTracked}. A validação enforça, em ordem: (1) formato do spec; (2) binário na \textbf{allowlist} (\file{binary\_allowlist.js}); (3) \textbf{protected flags} preservadas (\file{protected\_flags.js}). O spec aplicado e o \code{baseSpec} viajam juntos: o main re-checa as flags protegidas contra a base.
+
+\textbf{Allowlist} (\textasciitilde17 binários, indexada por basename + diretório legal sob \path{components/}): \tool{cmmcomp}, \tool{appcomp}, \tool{asmcomp} (\path{bin}); \tool{iverilog}, \tool{vvp}, \tool{verilator}, \tool{perl}, \tool{g++}, \tool{make}, \tool{yosys} (\path{Packages/msys/mingw64/bin}); \tool{gtkwave}, \tool{fst2vcd} (\path{Packages/gtkwave-nipscern}); \tool{surfer}, \tool{verible-verilog-ls}, \tool{clang-format}, \tool{slang-server}, \tool{comp2gtkw}. Dois casos por regra: Python só se for o do bundle (\code{isBundledPythonPath}), e o \path{V<top>.exe} gerado, aceito por prefixo (\path{Temp/obj_dir*/V...}). \textbf{Protected flags} por etapa: flags com valor preservam só o \emph{nome} (\code{-o}, \code{-y}, \code{-s}; valor regenerado a cada run); literais preservam o token (\code{-tnull}, \code{--binary}, \code{--main}, \code{-fst}). Overrides podem \emph{adicionar} flags/env, nunca remover protegidas nem trocar o binário.
+
+\textbf{Ambiente do filho} (\code{buildChildEnv}): \code{process.env} $\to$ defaults (\code{OMP\_NUM\_THREADS}/\code{OMP\_THREAD\_LIMIT} = nº de CPUs) $\to$ \code{spec.env} sanitizado (só chaves \lstinline|^[A-Za-z_]\w*$| com valor string sem null byte). O \code{prependPath} prefixa diretórios ao \code{PATH} (sem separador embutido) --- é assim que \tool{iverilog}/\tool{vvp} acham as DLLs MinGW e o Verilator acha \tool{perl}/\tool{g++}/\tool{make}. Filhos rodam em prioridade \code{ABOVE\_NORMAL} (ajustável por \code{AURORA\_TOOLCHAIN\_PRIORITY}). \code{spawnTracked} registra cada filho para tree-kill ao fechar a IDE.
+
+\textbf{Streaming.} \code{runSpecStreamed} dispara eventos \code{exec-spec-stream}; o renderer assina \code{onExecSpecStream} antes de invocar, classifica cada linha (descarta ruído do simulador, marca \code{\$display} do usuário com tag \code{raw}) e escreve no terminal certo (\code{terminalForStep}: \code{cmm}$\to$tcmm; \code{asm}$\to$tasm; \code{iverilog}/\code{prism-yosys}$\to$tveri; \code{vvp}/\code{cocotb}/\code{verilator}/\code{gtkwave}$\to$twave).
+
+\subsection{Os quatro caminhos de simulação}
+
+\code{CompilationModule.runGtkWave()} orquestra o pipeline. Exige testbench (\code{validateForWave}). Dois toggles globais em \code{localStorage} decidem o engine e o visualizador: simulador \code{aurora.waveSimulator} (\code{iverilog} padrão | \code{verilator}, via \code{getSimulator()}) e visualizador \code{aurora.waveViewer} (\code{gtkwave} padrão | \code{surfer}). A linguagem do testbench (\file{.v} vs \file{.py}) cruza com o engine, dando quatro caminhos que convergem num único \file{.fst}/\file{.vcd}. A simulação roda \emph{exatamente uma vez}; o cabeçalho VCD é extraído do FST finalizado por \code{\_extractFstHeaderVcd} (roda \tool{fst2vcd} em stream e mata-o ao ver \code{\$enddefinitions}).
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+ testbench .v ---getSimulator()---+--- iverilog: iverilog -o .vvp -> vvp -fst
+                                  +--- verilator: verilator --binary -> g++ -> V<top>.exe
+ testbench .py (cocotb) ----------+--- SIM=icarus    } runner cocotb (python do bundle,
+                                  +--- SIM=verilator }  ambos VPIs), --trace-fst
+                                  |
+                        CONVERGENCIA: .fst / .vcd
+                                  |
+                      _extractFstHeaderVcd -> <top>.header.vcd
+                                  |
+                getViewer(): gtkwave (auto .gtkw) | surfer (.surf.ron)
+\end{lstlisting}
+
+\textbf{Precedência de \code{\$dumpvars}} (\code{resolveWaveSelection}, do maior ao menor): (1) \file{.gtkw} ativo (\code{gtkwFiles[].isActive}) --- extrai refs, valida, usa (\code{override}); (2) Wave Config (\code{wcCustomized} + \code{waveSignals}); (3) testbench com dump à mão (\code{hadOriginalDumpvars}, snapshot da 1ª visita) --- nada injetado; (4) default \lstinline|$dumpvars(1, tbModule)|. O \code{testbench\_instrumenter} injeta \lstinline|$dumpvars(0, ...)| com os sinais escolhidos; \code{selection\_validator} filtra caminhos pendentes (evita erro de elaboração do \tool{iverilog}); o \code{signal\_parser} (regex leve, não Yosys) alimenta o picker antes de qualquer simulação. O estado por testbench fica no \code{WaveStore} (\file{wave\_state\_store.ts}, JSON por \code{tbKey}).

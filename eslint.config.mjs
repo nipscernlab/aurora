@@ -39,6 +39,9 @@ export default defineConfig([
       "!components/Scripts/**",
       "dist/**",
       "release/**",
+      // docs/ holds LaTeX sources and their Node build/lint helpers (CommonJS,
+      // top-level return) — documentation tooling, not the app surface.
+      "docs/**",
     ],
   },
   {

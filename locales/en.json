@@ -152,7 +152,7 @@
             "reset":                   "Reset to Defaults",
             "save":                    "Save Changes",
             "sectionAbout":            "About",
-            "aboutTagline":            "Scalable Architecture for Hardware Optimization",
+            "aboutTagline":            "Scalable Architecture Processor for Hardware Optimization",
             "aboutVersion":            "Version",
             "aboutTeam":               "Team",
             "aboutDeveloper":          "Developer",
@@ -579,7 +579,7 @@
         }
     },
     "welcome": {
-        "tagline":         "Scalable Architecture for Hardware Optimization",
+        "tagline":         "Scalable Architecture Processor for Hardware Optimization",
         "sectionStart":    "Start",
         "newProject":      "New Project",
         "openProject":     "Open Project",

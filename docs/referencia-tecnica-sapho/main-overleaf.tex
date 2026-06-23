@@ -1,0 +1,1075 @@
+% !TEX program = pdflatex
+% =====================================================================
+%  SAPHO — Referência Técnica (edição compacta, <= 20 páginas)
+%  Densa em informação. Destilada do estudo do código-fonte.
+%  Compilar:  pdflatex main && pdflatex main
+% =====================================================================
+\documentclass[11pt,a4paper,oneside]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage{microtype}
+
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{csquotes}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{titling}
+\usepackage{parskip}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+% ---- espaçamento de leitura ----
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+\setlength{\columnsep}{18pt}
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.3}
+\setlist{itemsep=3pt,topsep=4pt,parsep=0pt}
+
+% ---- paleta ----
+\definecolor{auroraDeep}{HTML}{0B3D5B}
+\definecolor{auroraTeal}{HTML}{0E8F8F}
+\definecolor{auroraInk}{HTML}{1A2330}
+\definecolor{auroraGray}{HTML}{5A6675}
+\definecolor{auroraLight}{HTML}{EEF4F6}
+\definecolor{codeBg}{HTML}{F6F8FA}
+\definecolor{codeKw}{HTML}{0B5FA5}
+\definecolor{codeCom}{HTML}{6A8759}
+\definecolor{codeStr}{HTML}{A31515}
+
+\hypersetup{
+  pdftitle={SAPHO — Referência Técnica (compacta)},
+  pdfauthor={NIPSCERN / UFJF},
+  colorlinks=true, linkcolor=auroraDeep, urlcolor=auroraTeal, citecolor=auroraDeep}
+
+% ---- colunas tabularx ----
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{Z}{>{\raggedright\arraybackslash\small}X}
+
+% ---- código (pequeno e denso) ----
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codeKw}\bfseries,
+  commentstyle=\color{codeCom}\itshape,
+  stringstyle=\color{codeStr},
+  backgroundcolor=\color{codeBg},
+  frame=single, rulecolor=\color{auroraLight}, framesep=3pt,
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false, tabsize=2, upquote=true, extendedchars=true,
+  aboveskip=4pt, belowskip=4pt,
+  literate=%
+    {á}{{\'a}}1 {à}{{\`a}}1 {â}{{\^a}}1 {ã}{{\~a}}1
+    {é}{{\'e}}1 {ê}{{\^e}}1 {í}{{\'i}}1
+    {ó}{{\'o}}1 {ô}{{\^o}}1 {õ}{{\~o}}1
+    {ú}{{\'u}}1 {ü}{{\"u}}1 {ç}{{\c c}}1
+    {Á}{{\'A}}1 {É}{{\'E}}1 {Ç}{{\c C}}1
+    {±}{{$\pm$}}1 {→}{{$\rightarrow$}}1 {≈}{{$\approx$}}1
+}
+\lstdefinelanguage{CMM}{morekeywords={processor,in,out,void,comp,float,int,fixed,return,if,else,
+  while,for,const,include,datatype,numBits,MABits,MIBits,gain},
+  morecomment=[l]{//},morecomment=[s]{/*}{*/},morestring=[b]"}
+\lstdefinestyle{cmm}{language=CMM}
+
+% ---- títulos ----
+\titleformat{\section}{\Large\bfseries\color{auroraDeep}}{\thesection}{0.6em}{}[{\color{auroraLight}\titlerule[1.2pt]}]
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titleformat{\subsection}{\large\bfseries\color{auroraInk}}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{9pt}{3pt}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{auroraInk}}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\subsubsection}{0pt}{6pt}{2pt}
+
+% ---- macros ----
+\newcommand{\cmm}{C\textpm{}}
+\newcommand{\repo}[1]{\texttt{nipscernlab/#1}}
+\newcommand{\file}[1]{\path{#1}}
+\newcommand{\tool}[1]{\textsc{#1}}
+\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily]|#1|}
+
+% caixa de nota (barra colorida à esquerda)
+\newenvironment{nota}
+  {\par\medskip\noindent\begin{tabularx}{\linewidth}{!{\color{auroraTeal}\vrule width 3pt}>{\hspace{8pt}\small}X}}
+  {\end{tabularx}\par\medskip}
+
+% título sem página inteira
+\setlength{\droptitle}{-3.2em}
+\pretitle{\begin{center}\color{auroraTeal}\rule{\linewidth}{1.2pt}\\[4pt]\Large\bfseries\color{auroraDeep}}
+\posttitle{\par\end{center}\vspace{-2pt}}
+\preauthor{\begin{center}\small}
+\postauthor{\par\end{center}}
+\predate{\begin{center}\footnotesize\color{auroraGray}}
+\postdate{\par\color{auroraTeal}\rule{\linewidth}{1.2pt}\end{center}}
+
+\title{SAPHO --- Referência Técnica Compacta\\[2pt]
+\normalsize\mdseries\color{auroraInk}A plataforma \textbf{AURORA} (IDE) + \textbf{YANC} (compiladores)
+para concepção de \textit{soft-processors}}
+\author{NIPSCERN --- Universidade Federal de Juiz de Fora (UFJF)}
+\date{Suíte 6.3.2 --- junho de 2026 \quad\textbar\quad documento construído a partir do estudo do código-fonte}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+\vspace{-1.2em}
+
+% sumário curtinho
+{\small\setlength{\parskip}{0pt}\tableofcontents}
+\vspace{2pt}
+\hrule
+\vspace{4pt}
+
+\
+\section{Visão geral e contexto}
+\label{sec:S01-visao-geral}
+
+\tool{SAPHO} (\emph{Scalable Architecture Processor for Hardware Optimization}) é a suíte
+integrada para concepção, compilação, simulação e visualização de
+\emph{soft-processors} mantida pelo \textbf{NIPSCERN}, núcleo de pesquisa da
+\textbf{Universidade Federal de Juiz de Fora (UFJF)}, em Minas Gerais. O
+laboratório colabora com o CERN no experimento ATLAS do LHC e emprega a
+plataforma no ensino (disciplina DLP --- Dispositivos Lógicos Programáveis). A
+expansão da sigla está declarada no campo \code{description} do
+\file{package.json}. Versão documentada: \textbf{6.3.2}; licença \textbf{MIT}.
+
+Um \emph{soft-processor} é um processador descrito em HDL (\emph{Verilog}) e
+implementado na malha reconfigurável de um FPGA; sua arquitetura (largura, ISA,
+periféricos, memória) é parametrizável e recompilável em minutos. Todo o fluxo
+\tool{SAPHO} roda localmente, sem nuvem.
+
+\subsection{Modelo conceitual}
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Peça} & \textbf{Papel} \\
+\midrule
+\tool{AURORA} & IDE desktop (Electron 39 + editor Monaco; repositório \repo{aurora}) que orquestra escrita, compilação, simulação, ondas e RTL sob interface única. Projetos no tipo \code{.spf} (\emph{SAPHO Project File}), organizados por processador. \\
+\tool{YANC} & \enquote{Yet Another Compiler} (em C, Flex/Bison; repositório \repo{yanc}): compila \cmm{} ou C++ até Verilog sintetizável, imagens de memória e \emph{testbench}. Binários: \code{cmmcomp}, \code{asmcomp}, \code{appcomp}, \code{comp2gtkw}. \\
+\emph{toolchain bundle} & \emph{Snapshot} portátil msys/mingw64 (\code{aurora-msys-v1.zip}, repositório \repo{aurora-toolchain}) baixado no \emph{bootstrap}: Icarus Verilog, Verilator, Yosys, GCC/G++, \code{make}, Perl, Python+cocotb. \\
+\bottomrule
+\end{tabularx}
+
+Dois subsistemas operam dentro da IDE. \tool{PRISM} é o visualizador de RTL, que
+renderiza a netlist via Yosys + netlistsvg (\emph{fork} \repo{netlistsvg-aurora}).
+\tool{Aurora Intelligence} é o subsistema de IA, \textbf{totalmente
+implementado} (Vercel AI SDK; provedores \code{openai}, \code{anthropic},
+\code{google}, \code{deepseek}, \code{groq}, \code{ollama}; servidor MCP próprio);
+porém o \emph{provedor e os modelos próprios} do laboratório ainda \textbf{não
+foram treinados} (roadmap), e hoje opera por provedores de terceiros com chaves
+do usuário.
+
+\subsection{Fluxo, público e plataforma}
+
+Fluxo de alto nível: \emph{projeto \code{.spf} $\to$ código \cmm{}/C++ $\to$
+compilação (YANC) $\to$ Verilog + memórias + \emph{testbench} $\to$ simulação
+(iverilog/verilator + cocotb) $\to$ visualização de ondas (GTKWave/Surfer) e RTL
+(PRISM)}.
+
+Público-alvo: \textbf{pesquisa e ensino} em arquitetura de computadores e projeto
+de soft-processors --- estudantes/docentes e pesquisadores que iteram variações
+de arquitetura localmente.
+
+Plataformas: a \textbf{IDE AURORA} hoje roda \textbf{somente em Windows} (alvo
+\code{nsis}/\code{x64} no electron-builder); o \tool{YANC} suporta Windows e
+Linux. Os repositórios \repo{aurora} (desenvolvimento) e \repo{sapho} (canal de
+release) são separados por intenção.
+
+\
+\section{A arquitetura do soft-processor SAPHO}
+\label{sec:S02-soft-processor}
+
+O \tool{YANC} emite um \emph{soft-processor} Verilog (\path{yanc/HDL/}), parametrizado e instanciado pelo montador (\emph{ASMComp}, \path{yanc/Compilers/ASMComp/Sources/}). É um \textbf{datapath baseado em acumulador} com \textbf{arquitetura Harvard}: memórias de programa e de dados fisicamente separadas, cada uma com largura e barramento próprios. O coração é um único registrador acumulador (\lstinline|racc| em \file{core.v}), que a cada ciclo captura a saída da ULA (\lstinline|racc <= ula_out|). Padrão dominante \emph{acumulador-com-memória}: operando 1 da memória, operando 2 o acumulador, resultado realimenta o acumulador. Uma \textbf{pilha de dados} fornece o segundo operando às variantes com prefixo \lstinline|S_|.
+
+Três traços de estilo: (1) \textbf{totalmente parametrizável} --- toda largura é \lstinline|parameter| (palavra \lstinline|NUBITS|, mantissa \lstinline|NBMANT|, expoente \lstinline|NBEXPO|, operando \lstinline|NBOPER|, opcode \lstinline|NBOPCO=7|, memórias \lstinline|MINSTS|/\lstinline|MDATAS|); (2) \textbf{pague pelo que usar} --- cada instrução é um \lstinline|parameter| booleano e o montador liga só as usadas, o resto é eliminado por \lstinline|generate if|; (3) \textbf{ciclo curto} --- sem \emph{pipeline} com \emph{forwarding}, apenas latência fixa de decodificação registrada.
+
+\begin{longtable}{l l}
+\toprule \textbf{Módulo (arquivo)} & \textbf{Função} \\ \midrule \endhead
+\lstinline|processor| (\file{processor.v}) & Topo: instancia \lstinline|core| + duas memórias. \\
+\lstinline|mem_instr|/\lstinline|mem_data| (\file{processor.v}) & Memórias Harvard; carga via \lstinline|$readmemb|. \\
+\lstinline|core| (\file{core.v}) & Datapath + controle: acumulador, pilha, ULA. \\
+\lstinline|instr_fetch|/\lstinline|pc|/\lstinline|prefetch| (\file{core.v}) & Busca, PC, fatia opcode/operando, saltos. \\
+\lstinline|stack| (\file{core.v}) & Pilha genérica (dados e retorno de subrotina). \\
+\lstinline|instr_dec| (\file{instr\_dec.v}) & Decodificador: opcode $\rightarrow$ \lstinline|ula_op| + controles. \\
+\lstinline|ula| (\file{ula.v}) & Unidade Lógico-Aritmética (todas as operações). \\
+\lstinline|addr_dec| (\file{addr\_dec.v}) & Decodificador de porta 1-de-N. \\
+\lstinline|myFIFO| (\file{myFIFO.v}) & FIFO genérica (substitui IP do fabricante). \\
+\bottomrule
+\end{longtable}
+
+\textbf{Memórias.} \lstinline|mem_instr|: palavra de \lstinline|NBOPCO+NBOPER| bits, só leitura, opcode nos bits altos. \lstinline|mem_data|: palavra \lstinline|NUBITS| \lstinline|signed|, uma leitura + uma escrita por ciclo (\lstinline|addr_rd|/\lstinline|addr_wr| independentes). Em síntese (Yosys) o \lstinline|$readmemb| é ignorado por \lstinline|`ifdef YOSYS|.
+
+\textbf{Busca e controle.} O \lstinline|pc| incrementa ou carrega (\lstinline|load|). O \lstinline|prefetch| decide saltos sobre o opcode, sem ULA: \lstinline|JMP| (15), \lstinline|JIZ| (16, se acumulador zero), \lstinline|CAL| (17)/\lstinline|RET| (18) com push/pop na pilha de subrotina. Interrupção (\lstinline|ITRADD>0|) e marcador \lstinline|#TOAQUI| (\lstinline|TOAQUIADDR>0|, pulsa \lstinline|cheguei|) são opcionais.
+
+\textbf{ISA.} Opcode de 7 bits. Sufixos: \lstinline|S_| (operando da pilha), \lstinline|F_| (float), \lstinline|SF_| (float+pilha), \lstinline|P_| (PUSH antes), \lstinline|_M| (opera sobre memória). Famílias: load/store diretos e indiretos (\lstinline|LOD|, \lstinline|SET|, \lstinline|LDI|/\lstinline|STI|, \lstinline|ILI|/\lstinline|ISI| com reversão de bits p/ FFT, \lstinline|LDA|/\lstinline|STA| \emph{base-less}); pilha (\lstinline|PSH|/\lstinline|POP|); I/O (\lstinline|INN|/\lstinline|OUT|); fluxo (\lstinline|JMP|/\lstinline|JIZ|/\lstinline|CAL|/\lstinline|RET|/\lstinline|NOP|); e cálculo (\lstinline|ADD|, \lstinline|MLT|, \lstinline|DIV|, \lstinline|MOD|, \lstinline|AND|/\lstinline|OR|/\lstinline|XOR|/\lstinline|INV|, comparações \lstinline|LES|/\lstinline|GRE|/\lstinline|EQU|, deslocamentos \lstinline|SHL|/\lstinline|SHR|/\lstinline|SRS|, conversões \lstinline|I2F|/\lstinline|F2I|, \lstinline|F_ROT|, \lstinline|F_SCL|, \lstinline|XPO|). O decodificador entrega um \lstinline|ula_op| de 6 bits, registrado um ciclo antes da ULA.
+
+\textbf{ULA.} Banco de submódulos especializados (um por operação) multiplexados por \lstinline|op|; submódulo não usado recebe \lstinline|{NUBITS{1'bx}}| e é descartado. Trata inteiro/fixo como \lstinline|signed| (\lstinline|+ * / %|). \textbf{Ponto flutuante próprio} (não IEEE): 1 bit de sinal, \lstinline|NBEXPO| bits de expoente (complemento de dois), \lstinline|NBMANT| bits de mantissa com bit líder explícito; exige \lstinline|NUBITS == NBMANT+NBEXPO+1|. Hardware faz denormalização (alinha expoentes), operação e normalização; conversão IEEE$\leftrightarrow$SAPHO em software (\lstinline|f2mf|/\lstinline|mf2f|, \file{t2t.c}). \textbf{Complexos} não têm hardware dedicado: par de floats (real/imag), manipulados por componente.
+
+\textbf{I/O e FIFO.} \lstinline|io_ctrl| expõe \lstinline|io_in|/\lstinline|io_out|, endereços e \lstinline|req_in|/\lstinline|out_en|; a entrada injeta-se no operando 2 quando \lstinline|req_in| ativo. Múltiplas portas usam \lstinline|addr_dec| (1-de-N). \lstinline|myFIFO| é parametrizada por \lstinline|WORD|/\lstinline|LENGTH|/\lstinline|ALMOST| e expõe \lstinline|empty|/\lstinline|full|/\lstinline|almost_empty|/\lstinline|usedw|.
+
+\textbf{Parametrização e artefatos.} O montador lê \lstinline|nubits|/\lstinline|nbmant|/\lstinline|nbexpo| de \path{app_log.txt} (\lstinline|eval_init|, \file{eval.c}) e diretivas (\lstinline|#NDSTAC|, \lstinline|#SDEPTH|, \lstinline|#NUIOIN|/\lstinline|#NUIOOU|, \lstinline|#NUGAIN|, \lstinline|#FFTSIZ|); \lstinline|nbopr| deriva da maior memória. \file{hdl.c} (\lstinline|hdl_vv_file|) emite a instância \lstinline|processor| ligando só as instruções usadas. Gera duas imagens binárias (\file{hdl.c}/\file{eval.c}): \path{<proc>_inst.mif} (opcode+operando por linha, via \lstinline|itob|) e \path{<proc>_data.mif} (uma palavra por variável; floats inicializados em \lstinline|0.0| por \lstinline|f2mf|). \lstinline|hdl_tb_file| gera o \emph{testbench} autônomo \path{<proc>_tb.v}: clock/reset (\lstinline|T=1000.0/sim_clk()| ns), estímulo de \path{input_<i>.txt} (\lstinline|$fscanf|), captura em \path{output_<i>.txt} (\lstinline|$fdisplay|), dump \path{.vcd} e \lstinline|$finish| ao fim do programa. Instrumentação fica atrás de \lstinline|YANC_SIM_VIS|, nunca sintetizada.
+
+\
+\section{A linguagem C±}
+\label{sec:S03-linguagem-cmm}
+
+A \cmm{} (CMM) é o front-end de software do soft-processor SAPHO. O compilador \tool{cmmcomp} (\repo{yanc}; scanner \file{CMMComp.l}, parser \file{CMMComp.y}) produz \emph{assembly} simbólico (\path{.asm}) consumido pelos estágios seguintes do toolchain.
+
+\subsection{Estrutura de um programa}
+
+Um programa é uma sequência de elementos de topo (\code{direct}, \code{declar}, \code{funcao}), sem ordem rígida. Não há bloco \code{processor \{ ... \}}: o processador é individualizado pelas diretivas iniciais (em especial \lstinline|#PRNAME|). O ponto de entrada é \lstinline|main()|; sua ausência gera \lstinline|MSG_ERR_NO_MAIN|. A forma canônica é: diretivas no topo, depois \lstinline|main()| com laço infinito \lstinline|while (1)| modelando o hardware contínuo.
+
+\begin{lstlisting}[style=cmm]
+#PRNAME cmm_define
+#NUBITS 16
+#NUIOIN 1
+#NUIOOU 1
+#NBMANT 10
+#NBEXPO 5
+#NUGAIN 128
+#define SCALE 3
+void main() {
+    int x;
+    while (1) {
+        x = in(0);
+        x = x + SCALE;
+        out(0, x);
+    }
+}
+\end{lstlisting}
+
+\subsection{Tipos de dados}
+
+O scanner reconhece quatro palavras-chave de tipo, com código numérico interno (\lstinline|v_table[id].type|). Não existe tipo \enquote{ponto fixo}: o único tipo fracionário é \lstinline|float|, com precisão configurada por diretivas.
+
+\begin{longtable}{@{}p{0.07\linewidth}p{0.14\linewidth}p{0.71\linewidth}@{}}
+\toprule
+\textbf{Cód.} & \textbf{Tipo} & \textbf{Descrição} \\
+\midrule
+\endhead
+0 & \lstinline|void| & ausência de tipo \\
+1 & \lstinline|int| & inteiro de \lstinline|#NUBITS| bits, complemento de dois \\
+2 & \lstinline|float| & ponto flutuante (mantissa \lstinline|#NBMANT|, expoente \lstinline|#NBEXPO|) \\
+3 & \lstinline|comp| & complexo (par de \emph{floats}); literal \lstinline|a+bi| (token \code{CNUM}) \\
+4 & --- & parte imaginária de \lstinline|comp| (gerada automaticamente) \\
+\bottomrule
+\end{longtable}
+
+Cada \lstinline|comp| ocupa dois registros (real, código 3; imaginário, código 4, criado por \lstinline|get_img_id()|). O símbolo \lstinline|i| é reservado (\lstinline|MSG_ERR_RESERVED_I|). A aritmética \lstinline|comp| suporta \lstinline|+ - * /| (módulo \file{oper.c}).
+
+\subsection{Diretivas de hardware}
+
+Reconhecidas como \emph{tokens} próprios; cada uma ocupa uma linha e recebe um nome ou inteiro. A regra \code{direct} chama \lstinline|dire_exec()| (\file{diretivas.c}).
+
+\begin{longtable}{@{}p{0.16\linewidth}p{0.78\linewidth}@{}}
+\toprule
+\textbf{Diretiva} & \textbf{Significado} \\
+\midrule
+\endhead
+\lstinline|#PRNAME| & nome do processador \\
+\lstinline|#NUBITS| & largura da palavra da ULA \\
+\lstinline|#NBMANT| & largura da mantissa (padrão 16) \\
+\lstinline|#NBEXPO| & largura do expoente (padrão 6) \\
+\lstinline|#NDSTAC| & profundidade da pilha de dados \\
+\lstinline|#SDEPTH| & profundidade da pilha de sub-rotinas \\
+\lstinline|#NUIOIN| & número de portas de entrada (padrão 1) \\
+\lstinline|#NUIOOU| & número de portas de saída (padrão 1) \\
+\lstinline|#NUGAIN| & constante de divisão usada por \lstinline|norm(.)| \\
+\lstinline|#FFTSIZ| & tamanho da FFT ($2^{\texttt{FFTSIZ}}$) \\
+\bottomrule
+\end{longtable}
+
+As comportamentais \lstinline|#PRACA| (retorno de \emph{reset} por interrupção) e \lstinline|#TOAQUI| (endereço refletido pelo pino \code{cheguei}) são \emph{statements}.
+
+\subsection{Entrada e saída}
+
+Portas indexadas por literal inteiro, validadas contra \lstinline|#NUIOIN|/\lstinline|#NUIOOU| (\lstinline|MSG_ERR_NO_IN_PORT|/\lstinline|_OUT_PORT|): \lstinline|in(p)| (lê), \lstinline|fin(p)| (lê convertendo para \emph{float}), \lstinline|out(p, exp);| (escreve), \lstinline|fout(p, exp);| (escreve em \emph{float}).
+
+\subsection{Biblioteca padrão e macros}
+
+Funções intrínsecas mapeadas a \lstinline|expr_stdlib(OP_STD_...)|: especiais (\lstinline|norm|, \lstinline|pset|, \lstinline|abs|, \lstinline|sign|, \lstinline|copy|); não-lineares e arredondamento (\lstinline|sqrt|, \lstinline|atan|, \lstinline|sin|, \lstinline|cos|, \lstinline|tan|, \lstinline|sinh|, \lstinline|cosh|, \lstinline|tanh|, \lstinline|exp|, \lstinline|log|, \lstinline|pow|, \lstinline|floor|, \lstinline|ceil|, \lstinline|round|); complexas (\lstinline|real|, \lstinline|imag|, \lstinline|fase|, \lstinline|mod2|, \lstinline|complex|, \lstinline|conj|). A \cmm{} também oferece álgebra linear em notação de Dirac (bra-ket): produto interno \lstinline+<a|b>+ como expressão, e \emph{statements} de produto matriz-vetor, externo e \emph{shift register}.
+
+O \lstinline|#define| (apenas \emph{object-like}) é tratado no scanner com proteção contra recursão. As transcendentais são macros de \emph{assembly} em \file{Compilers/CMMComp/Includes/}, injetadas pelo codegen: \file{float\_sqrt.asm}, \file{float\_atan.asm}, \file{float\_sin.asm}, \file{float\_tan.asm}, \file{float\_exp.asm}, \file{float\_log.asm}.
+
+\subsection{O caminho C++}
+
+Alternativamente, o YANC compila C/C++ para o mesmo soft-processor via \tool{cpppp} (pré-processador autônomo) e \tool{cppcomp} (subconjunto de C99 com extensões de C++); os parâmetros do alvo têm padrões fixos em \file{config.h} (palavra 32 bits, mantissa 23, expoente 8) ajustáveis por \lstinline|#pragma yanc|, e a saída é o mesmo \path{.asm}.
+
+\
+\section{YANC: compiladores e pipeline de tradução}
+\label{sec:S04-yanc-pipeline}
+
+O \tool{YANC} (\enquote{Yet Another Compiler}) é a suíte de linha de comando que
+traduz o programa de alto nível num \emph{soft-processor} \tool{SAPHO}: a saída
+não é código de máquina, mas o Verilog RTL do processador mais as imagens de
+memória (\file{.mif}) e o \emph{testbench}. Tudo vive no \repo{yanc}
+(\path{Compilers/}, \path{Scripts/}, \file{Makefile}); a versão é única em
+\file{Compilers/yanc_version.h} (\lstinline|YANC_VERSION "5.2"|).
+
+\subsection{Os sete binários}
+\label{sec:S04-binarios}
+
+O \file{Makefile} é a fonte única de build, consumido por \file{setup.sh/.bat},
+\file{aurora.bat} e pela CI. Produz sete binários em \path{bin/}:
+
+\begin{longtable}{l l l l}
+\toprule
+\textbf{Binário} & \textbf{Entrada} & \textbf{Saída} & \textbf{Build} \\
+\midrule
+\endhead
+\tool{cmmcomp}   & \cmm{} (\file{.cmm})        & \file{.asm} + logs        & Flex+Bison+GCC \\
+\tool{cppcomp}   & C++ pré-proc.\ (\file{.c})  & \file{.asm} + logs        & Flex+Bison+GCC \\
+\tool{cpppp}     & C++ (\file{.cpp})           & C++ pré-processado        & GCC \\
+\tool{appcomp}   & \file{.asm}                 & \file{app\_log.txt} (1ª pas.) & Flex+GCC \\
+\tool{asmcomp}   & \file{.asm} + logs          & \file{.v}+\file{.mif}+\file{\_tb.v} & Flex+GCC \\
+\tool{comp2gtkw} & bits (stdin)                & complexo legível (stdout) & GCC \\
+\tool{gen\_gtkw} & cabeçalho \file{.vcd}       & \file{.gtkw} formatado    & GCC \\
+\bottomrule
+\end{longtable}
+
+Flex+Bison rodam \lstinline|bison -y -d| (gera \file{y.tab.c/.h}) e
+\lstinline|flex| (gera \file{lex.yy.c}), compilados pelo GCC com os \file{.c}
+manuais. O \file{Makefile} detecta \lstinline|$(OS)=Windows_NT| (sufixo
+\file{.exe}) e parametriza \lstinline|CC|: \lstinline|make CC=x86_64-w64-mingw32-gcc|
+gera \file{.exe} autocontidos, sem DLLs do MSYS2, que a \tool{AURORA} empacota.
+
+\subsection{O \file{.asm} intermediário e a side-table}
+\label{sec:S04-asm}
+
+O \file{.asm} é a IR textual que une os dois front ends ao back end: uma
+instrução por linha (mnemônico + operando), comentários \lstinline|//|, rótulos
+\lstinline|@|, diretivas \lstinline|#...|. Mnemônicos são idênticos em
+\file{app.l} e \file{ASMComp.l}; cada um mapeia a um opcode de \lstinline|NBITS_OPC=7|
+bits, com operando de \lstinline|nbopr = ceil(log2(max(n_ins,n_dat)))| bits.
+\tool{cppcomp} emite \emph{as mesmas} tabelas de \tool{cmmcomp}, então todo o
+back end é compartilhado.
+
+A \emph{side-table} liga PC à linha-fonte: \file{pc\_<name>\_mem.txt} grava, por
+instrução, a linha em 20 bits (\lstinline|itob(emit_line,20)|), com sentinelas
+\lstinline|-1| (INTERNAL), \lstinline|-2| (\lstinline|void main();|),
+\lstinline|-3| (END); \file{trad\_cmm.txt} mapeia linha$\to$texto. No
+\file{<prname>.v}, \lstinline|$readmemb| carrega \lstinline|reg[19:0] min|; o PC
+indexa \lstinline|linetabs| e propaga por \lstinline|valr1..valr10|
+(\lstinline|valr2| = trilha Assembly). No GTKWave, filtros \file{trad\_opcode.txt}
+e \file{trad\_cmm.txt} fazem Assembly e C+- avançarem em \emph{lockstep}.
+
+\subsection{Pipeline e scripts de orquestração}
+\label{sec:S04-pipeline}
+
+\begin{lstlisting}
+ C+- (.cmm)                  C++ (.cpp)
+    |                           |
+    |                      [ cpppp ]   #include/#define/#ifdef
+    |                           v
+    |                      pp.cpp
+    v                           v
+ [ cmmcomp ]               [ cppcomp ]
+    |  +-> cmm_log.txt / pc_<n>_mem.txt / trad_cmm.txt
+    v
+ <name>.asm  <-- mesmo formato IR -->  <prname>.asm
+    v
+ [ appcomp ] 1a passada -> app_log.txt
+    |  (prname,nubits,nbmant,nbexpo; @->addr; vars; n_ins,n_dat)
+    v
+ [ asmcomp ] 2a passada
+    +-> Hardware/<p>_inst.mif   (opcode|operando)
+    +-> Hardware/<p>_data.mif
+    +-> Hardware/<p>.v          (RTL + $readmemb side-table)
+    +-> Temp/<p>_tb.v           (testbench)
+    +-> Temp/trad_opcode.txt    (idx->mnemonico)
+    v
+ [ iverilog+vvp | verilator ]   --sim iverilog|verilator
+    +-> .vcd/.fst  (e .vcd hdr via +HEADER_ONLY)
+    v
+ [ gen_gtkw ] le cabecalho VCD -> .gtkw formatado
+    v
+ [ GTKWave ] Assembly + C+- em lockstep
+\end{lstlisting}
+
+Os scripts em \path{Scripts/} (\file{.sh} + contrapartes \file{.bat})
+automatizam o fluxo: \file{single\_proc.sh} roda o pipeline \cmm{} completo
+(exemplo \lstinline|proc_fft|); \file{single\_proc\_cpp.sh} adiciona \tool{cpppp}
+no início e aceita \lstinline|--no-view|; \file{multi\_proc.sh} demonstra um topo
+com dois processadores (\lstinline|ZeroCross|, \lstinline|ProcDTW|) usando
+\file{top\_level\_tb.v} próprio. A flag \lstinline|--sim| seleciona o simulador:
+\lstinline|iverilog| (padrão; Icarus + vvp, roda \lstinline|+HEADER_ONLY| e
+depois FST) ou \lstinline|verilator| (\lstinline|--binary --timing --trace
++define+YANC_TRACE|). Em ambos, \tool{gen\_gtkw} gera o layout e o GTKWave abre.
+Os \emph{runners} só escrevem em \path{Teste/}; \file{regress.sh} é a suíte de
+regressão (fases \cmm{}, C++ e negativa).
+
+\
+\section{AURORA: arquitetura da IDE}
+\label{sec:S05-aurora-arquitetura}
+
+A \tool{AURORA} é a IDE desktop \href{https://www.electronjs.org/}{Electron} da plataforma \tool{SAPHO}. O Electron impõe dois tipos de processo: o \emph{main} (Node.js), único por instância, com acesso a \lstinline|fs|, \lstinline|child_process|, rede e APIs nativas (\lstinline|app|, \lstinline|BrowserWindow|, \lstinline|dialog|, \lstinline|session|, \lstinline|safeStorage|); e o \emph{renderer} (Chromium), \emph{sandboxed}, sem Node nem filesystem, que só alcança o \emph{main} por uma API curada exposta num \emph{preload} via \lstinline|contextBridge|.
+
+\subsection{Padrão central e janelas}
+\textbf{Renderer orquestra, main executa:} o renderer monta a intenção e a envia por IPC; o \emph{main} valida e executa a operação privilegiada. Nenhum \lstinline|fs|/\lstinline|spawn| vive no renderer. No executor (\file{main/compile/executor.js}), o renderer envia um \lstinline|CommandSpec| \lstinline|{binary,args}| por \lstinline|exec-spec|; o \emph{main} valida o binário contra allowlist da toolchain, confere \emph{protected flags} e dispara \lstinline|spawn(..., {shell:false})| --- sem parsing de shell, sem injeção.
+
+São cinco \lstinline|BrowserWindow|, todas com \lstinline|contextIsolation:true|, \lstinline|sandbox:true|, \lstinline|nodeIntegration:false|. As fábricas vivem em \file{main/windows.js} (exceto \tool{PRISM}, em \file{main/ipc/prism.js}).
+
+\begin{longtable}{@{}p{0.16\linewidth} p{0.26\linewidth} p{0.50\linewidth}@{}}
+  \toprule
+  \textbf{Janela} & \textbf{Preload} & \textbf{Características} \\
+  \midrule
+  \endhead
+  Principal & \file{preload.js} & \lstinline|frame:false|, barra de título própria; \lstinline|index.html|; nega \lstinline|window.open|/navegação; várias coexistem. \\
+  Splash & \file{preload\_splash.js} & 720\texttimes480 transparente, \lstinline|alwaysOnTop|; progresso real de boot. \\
+  Atualização & \file{preload\_update.js} & estados \emph{available}/\emph{downloading}/\emph{downloaded}. \\
+  \tool{PRISM} & \file{preload\_prism.js} & visualizador RTL; \lstinline|electronAPI| reduzido. \\
+  Design Lab & (sem preload) & galeria de componentes, página estática singleton. \\
+  \bottomrule
+\end{longtable}
+
+\subsection{Infraestrutura do main}
+\file{main.js} é magro: configura o logger, ativa \lstinline|crashReporter| e \emph{handlers} de exceção, anexa switches de GPU (\lstinline|enable-gpu-rasterization|, \lstinline|enable-zero-copy|), define o AppUserModelID, adquire o \emph{single-instance lock} via \lstinline|lifecycle.register()|, registra os IPC e, em \lstinline|app.whenReady|, instala a CSP e cria a splash.
+
+\begin{description}[leftmargin=*]
+  \item[\file{state.js}] estado mutável compartilhado (mesma referência em todos os módulos): janelas, campos do updater, \lstinline|currentOpenProjectPath|, processos de simulação e \lstinline|childProcesses|, \emph{watchers}.
+  \item[\file{lifecycle.js}] \emph{single-instance lock}; \lstinline|second-instance| \textbf{cria nova janela}; \lstinline|before-quit| limpa em duas fases (soltar handles + \lstinline|stopAllToolchain|, teto 5\,s; depois apagar \path{components/Temp}).
+  \item[\file{process\_registry.js}] registro de todo filho da toolchain. \lstinline|trackChild| (auto-remove em \lstinline|exit|) e \lstinline|spawnTracked| (spawn obrigatório). \lstinline|stopAllToolchain()| é \emph{best-effort}/idempotente: \emph{tree-kill} por PID (\lstinline|taskkill /F /T|), \emph{backstop} por nome/caminho (só se \lstinline|toolchainEverRan|), CLIs de IA e \emph{streams}.
+  \item[\file{paths.js}] \lstinline|appRoot|, \lstinline|componentsPath| (dev x empacotado), \lstinline|isDev|.
+  \item[\file{logger.js}] \tool{electron-log} singleton; arquivo \lstinline|info| com rotação $\sim$5\,MB; console \lstinline|debug|/\lstinline|warn|.
+  \item[\file{temp\_gc.js}] higiene de temporários no startup.
+\end{description}
+
+\subsection{IPC e renderer}
+São \textbf{157} registros \lstinline|ipcMain| (maioria \lstinline|handle|/\lstinline|invoke|). Os nove módulos \file{main/ipc/*} somam 116 handlers: \file{files.js} (27, fs/diálogos/chokidar), \file{git.js} (28, simple-git), \file{ai.js} (22, Aurora Intelligence --- chave nunca sai do main), \file{project.js} (11, reescreve \path{.spf}), \file{compile.js} (7), \file{prism.js} (6), \file{github\_auth.js} (7, token cifrado por \lstinline|safeStorage|), \file{system.js} (6), \file{search.js} (2). Outros: \file{executor.js}, LSP \emph{verible}/\emph{slang}, \emph{clang-format}, \emph{tree-sitter}, \file{updater.js}, \file{windows.js}.
+
+O renderer é bundlado pelo \tool{Vite}: \file{render\_loader.js} usa o dev server (HMR) quando \lstinline|AURORA_RENDERER_URL| está setada, ou \path{dist/} via \lstinline|file://| em produção. Cada preload expõe uma allowlist de canais; o principal traz oito namespaces (\lstinline|electronAPI|, \lstinline|terminalAPI|, \lstinline|aiAPI|, \lstinline|gitAPI|, \lstinline|lspAPI|, \lstinline|slangAPI|, \lstinline|clangFormatAPI|, \lstinline|treeSitterAPI|). O subsistema Aurora Intelligence está totalmente implementado; o provider/modelos próprios do laboratório ainda não foram treinados (roadmap).
+
+\
+\section{Edição, projeto e árvore de arquivos}
+\label{sec:S06-edicao-projeto-arvore}
+
+\subsection{Motor de edição}
+O editor da \tool{AURORA} usa o \tool{Monaco Editor} fixado em \texttt{0.52.2}
+(sem faixa \emph{semver}; \file{scripts/check-pinned-versions.js} verifica no
+\code{prestart}/CI, pois \texttt{0.53.0} lança exceção na inicialização). O
+Monaco é carregado pelo \emph{loader} AMD (\path{min/vs/loader.js}); o caminho
+\texttt{vs} é ancorado em URL absoluta de \lstinline|document.baseURI| para
+funcionar sob \lstinline|file://|. \code{initMonaco} memoiza a promessa de carga
+e registra linguagens/temas uma só vez; \code{EditorManager.ready} é o portão
+que todo chamador aguarda antes de \code{createEditorInstance}.
+
+Quatro módulos formam o subsistema:
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Módulo} & \textbf{Papel} \\
+\midrule
+\code{EditorManager} & Bootstrap, instâncias do painel principal, temas, \emph{decorations}, busca, atalhos, linguagens \cmm/\code{asm}. \\
+\code{SharedModelRegistry} & Modelos \code{ITextModel} com contagem de referências, compartilhados entre painéis. \\
+\code{SplitEditorManager} & Editor dividido em até 3 painéis lado a lado, cada um com sua barra de abas. \\
+\code{TabManager} & Abas do painel principal: ativação, modificado/salvo, contagem de instâncias, ordem, reabertura. \\
+\bottomrule
+\end{tabularx}
+
+\paragraph{Modelo compartilhado.} Cada arquivo aberto é um único
+\code{ITextModel}; todas as \emph{views} (principal e \emph{splits}) apontam
+para ele. Edições, \emph{undo}/\emph{redo} e estado de modificado ficam em
+sincronia. A \tool{AURORA} controla o ciclo de vida: passa \lstinline|model:|
+explícito, faz \code{acquire} (\lstinline|refCount+=1|) e \code{release}
+(descarta em zero). \code{isDirty} compara o \emph{alternative version id}
+corrente com o \emph{snapshot} salvo por \code{markSaved} — limpa-se sozinho ao
+desfazer até o estado salvo. \code{getInstanceCount} garante que só a última
+instância dispare o \emph{prompt} de não salvo. O \emph{split} edita o mesmo
+modelo ao vivo (orçamento de 3, \code{canSplit}).
+
+\paragraph{Sintaxe (Monarch).} \cmm{} e \code{asm} têm gramáticas próprias
+escritas à mão; \code{verilog}/\code{systemverilog} usam a gramática
+vendorizada do Monaco (apenas conectada a Verible/slang/tree-sitter). A
+gramática \cmm{} cobre palavras-chave C, diretivas (\code{\#PRNAME},
+\code{\#NUBITS}…), funções de \emph{stdlib}, números complexos (sufixo
+\code{im}), notação de Dirac (bra-ket) e um conjunto vivo de \code{\#define}
+re-coletado de forma \emph{debounced}.
+
+\subsection{Modelo de projeto}
+Um projeto é uma pasta com um \path{.spf} (JSON) de mesmo nome, com blocos
+\lstinline|metadata| (\code{projectName}, \code{createdAt}, \code{lastModified},
+\code{lastOpened}, \code{computerName}, \code{appVersion}, \code{projectPath}) e
+\lstinline|structure| (\code{basePath}, \code{folders}, \code{processors},
+\code{topLevelFile}, \code{testbenchFile}, \code{synthesizableFiles},
+\code{testbenchFiles}). Caminhos são gravados relativos ao \code{basePath} (mas
+expostos sempre absolutos); o \emph{parsing} é tolerante (remove BOM,
+comentários, vírgulas finais).
+
+Três peças governam o estado: \code{ProjectStore} (dono de
+\code{projectPath}/\code{spfPath} no renderer), \code{SpfStore} (único escritor
+do \path{.spf}, com escritas serializadas por caminho e leituras coalescidas;
+emite \lstinline|aurora:spf-changed| só em mudança real) e
+\code{state.currentOpenProjectPath} (verdade no processo principal; a pasta vem
+de \lstinline|path.dirname|).
+
+\paragraph{Processadores.} Cada processador \tool{SAPHO} é uma subpasta com
+\path{Software/}, \path{Hardware/}, \path{Simulation/}. A lista canônica é
+\code{structure.processors} (\lstinline|{name}|); os parâmetros numéricos vivem
+nas diretivas do \file{.cmm} gerado. O \emph{Processor Hub} valida bits
+(\lstinline|nBits === nbMantissa + nbExponent + 1|) e cria/renomeia/deleta via
+handlers IPC.
+
+\subsection{Árvore de arquivos}
+Três \emph{views} no mesmo \lstinline|#file-tree|, sob subcontêineres separados
+controlados por \lstinline|data-active-view| (\code{tree\_view}):
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{View} & \textbf{Conteúdo} \\
+\midrule
+\enquote{verilog} & \emph{Picker} padrão, agrupado por processador (synth/testbench auto-detectados por \code{verilog\_classifier}, limiar 3); \emph{reconciler} chaveado por caminho. \\
+\enquote{hierarchy} & Árvore de instâncias de módulo do \tool{Yosys}. \\
+\enquote{standard} & Explorador de pastas \emph{lazy}, só com projeto aberto. \\
+\bottomrule
+\end{tabularx}
+
+O \code{file\_tree\_view\_controller} é o dono único: registra um renderer por
+view, rotaciona o conjunto dinâmico (\enquote{hierarchy} só com dados,
+\enquote{standard} só com projeto). Há listas de recentes na tela de boas-vindas
+(\code{localStorage}, até 10) e na \emph{jumplist} do Windows
+(\path{aurora-recents.json}). Backups \file{.zip} sob demanda usam
+\code{Compress-Archive} via PowerShell.
+
+\
+\section{Compilação e simulação na IDE}
+\label{sec:S07-compilacao-simulacao}
+
+A compilação na \tool{AURORA} tem duas metades ligadas por IPC. No \textbf{renderer} (\path{js/compilation/}) decide-se \emph{o que} rodar: cada botão da toolbar expande numa sequência de etapas (\code{CompilationFlowManager} em \file{compilation\_flow.js}), e cada etapa é montada por um \emph{builder puro} (\path{builders/*}) que devolve um \code{CommandSpec} estruturado \lstinline|{ binary, args[], cwd, env, prependPath }| --- sem I/O nem efeito colateral. No \textbf{main} decide-se \emph{como} rodar: o executor (\file{main/compile/executor.js}) é o único ponto que chama \lstinline|spawn(binary, args, { shell:false })|. Como não há shell, cada argumento chega intacto (sem parsing, sem injeção). Todos os botões passam por \code{window.AuroraAPI.compile}, o mesmo caminho que a Aurora Intelligence usa via function-calling.
+
+\textbf{Fluxo.} Botão $\to$ \code{CompilationModule.<fase>()} monta o spec via builder $\to$ \code{spec\_runner.js} (ponto único renderer-side) aplica overrides e loga o diff $\to$ \code{electronAPI.execSpec}/\code{execSpecStreamed} via IPC $\to$ \code{executor.validateSpecForExec} $\to$ \code{spawnTracked}. A validação enforça, em ordem: (1) formato do spec; (2) binário na \textbf{allowlist} (\file{binary\_allowlist.js}); (3) \textbf{protected flags} preservadas (\file{protected\_flags.js}). O spec aplicado e o \code{baseSpec} viajam juntos: o main re-checa as flags protegidas contra a base.
+
+\textbf{Allowlist} (\textasciitilde17 binários, indexada por basename + diretório legal sob \path{components/}): \tool{cmmcomp}, \tool{appcomp}, \tool{asmcomp} (\path{bin}); \tool{iverilog}, \tool{vvp}, \tool{verilator}, \tool{perl}, \tool{g++}, \tool{make}, \tool{yosys} (\path{Packages/msys/mingw64/bin}); \tool{gtkwave}, \tool{fst2vcd} (\path{Packages/gtkwave-nipscern}); \tool{surfer}, \tool{verible-verilog-ls}, \tool{clang-format}, \tool{slang-server}, \tool{comp2gtkw}. Dois casos por regra: Python só se for o do bundle (\code{isBundledPythonPath}), e o \path{V<top>.exe} gerado, aceito por prefixo (\path{Temp/obj_dir*/V...}). \textbf{Protected flags} por etapa: flags com valor preservam só o \emph{nome} (\code{-o}, \code{-y}, \code{-s}; valor regenerado a cada run); literais preservam o token (\code{-tnull}, \code{--binary}, \code{--main}, \code{-fst}). Overrides podem \emph{adicionar} flags/env, nunca remover protegidas nem trocar o binário.
+
+\textbf{Ambiente do filho} (\code{buildChildEnv}): \code{process.env} $\to$ defaults (\code{OMP\_NUM\_THREADS}/\code{OMP\_THREAD\_LIMIT} = nº de CPUs) $\to$ \code{spec.env} sanitizado (só chaves \lstinline|^[A-Za-z_]\w*$| com valor string sem null byte). O \code{prependPath} prefixa diretórios ao \code{PATH} (sem separador embutido) --- é assim que \tool{iverilog}/\tool{vvp} acham as DLLs MinGW e o Verilator acha \tool{perl}/\tool{g++}/\tool{make}. Filhos rodam em prioridade \code{ABOVE\_NORMAL} (ajustável por \code{AURORA\_TOOLCHAIN\_PRIORITY}). \code{spawnTracked} registra cada filho para tree-kill ao fechar a IDE.
+
+\textbf{Streaming.} \code{runSpecStreamed} dispara eventos \code{exec-spec-stream}; o renderer assina \code{onExecSpecStream} antes de invocar, classifica cada linha (descarta ruído do simulador, marca \code{\$display} do usuário com tag \code{raw}) e escreve no terminal certo (\code{terminalForStep}: \code{cmm}$\to$tcmm; \code{asm}$\to$tasm; \code{iverilog}/\code{prism-yosys}$\to$tveri; \code{vvp}/\code{cocotb}/\code{verilator}/\code{gtkwave}$\to$twave).
+
+\subsection{Os quatro caminhos de simulação}
+
+\code{CompilationModule.runGtkWave()} orquestra o pipeline. Exige testbench (\code{validateForWave}). Dois toggles globais em \code{localStorage} decidem o engine e o visualizador: simulador \code{aurora.waveSimulator} (\code{iverilog} padrão | \code{verilator}, via \code{getSimulator()}) e visualizador \code{aurora.waveViewer} (\code{gtkwave} padrão | \code{surfer}). A linguagem do testbench (\file{.v} vs \file{.py}) cruza com o engine, dando quatro caminhos que convergem num único \file{.fst}/\file{.vcd}. A simulação roda \emph{exatamente uma vez}; o cabeçalho VCD é extraído do FST finalizado por \code{\_extractFstHeaderVcd} (roda \tool{fst2vcd} em stream e mata-o ao ver \code{\$enddefinitions}).
+
+\begin{lstlisting}[basicstyle=\ttfamily\scriptsize]
+ testbench .v ---getSimulator()---+--- iverilog: iverilog -o .vvp -> vvp -fst
+                                  +--- verilator: verilator --binary -> g++ -> V<top>.exe
+ testbench .py (cocotb) ----------+--- SIM=icarus    } runner cocotb (python do bundle,
+                                  +--- SIM=verilator }  ambos VPIs), --trace-fst
+                                  |
+                        CONVERGENCIA: .fst / .vcd
+                                  |
+                      _extractFstHeaderVcd -> <top>.header.vcd
+                                  |
+                getViewer(): gtkwave (auto .gtkw) | surfer (.surf.ron)
+\end{lstlisting}
+
+\textbf{Precedência de \code{\$dumpvars}} (\code{resolveWaveSelection}, do maior ao menor): (1) \file{.gtkw} ativo (\code{gtkwFiles[].isActive}) --- extrai refs, valida, usa (\code{override}); (2) Wave Config (\code{wcCustomized} + \code{waveSignals}); (3) testbench com dump à mão (\code{hadOriginalDumpvars}, snapshot da 1ª visita) --- nada injetado; (4) default \lstinline|$dumpvars(1, tbModule)|. O \code{testbench\_instrumenter} injeta \lstinline|$dumpvars(0, ...)| com os sinais escolhidos; \code{selection\_validator} filtra caminhos pendentes (evita erro de elaboração do \tool{iverilog}); o \code{signal\_parser} (regex leve, não Yosys) alimenta o picker antes de qualquer simulação. O estado por testbench fica no \code{WaveStore} (\file{wave\_state\_store.ts}, JSON por \code{tbKey}).
+
+\
+\section{Visualização: ondas (GTKWave/Surfer) e RTL (PRISM)}
+\label{sec:S08-visualizacao-ondas-rtl}
+
+Após a simulação (\path{.vcd}/\path{.fst}), a AURORA oferece dois visualizadores de onda; o \tool{PRISM} visualiza o RTL sintetizado. Todos são processos externos lançados \emph{detached} pelo \emph{main} do Electron, com \emph{allowlist} de binários.
+
+\subsection{Ondas: GTKWave e Surfer}
+
+A preferência global fica em \lstinline|localStorage| sob \lstinline|aurora.waveViewer| (\file{viewer\_preference.js}): \lstinline|'gtkwave'| (default) ou \lstinline|'surfer'|. No passo Wave, se \lstinline|getViewer()==='surfer'| resolve o layout e lança o Surfer; senão segue o GTKWave. O Surfer \textbf{não vem empacotado por padrão}; ausente o \path{surfer.exe}, \lstinline|_waveLaunchSurfer| degrada limpo para GTKWave.
+
+\begin{table}[h]\centering\scriptsize
+\begin{tabularx}{\linewidth}{l Y Y}
+\toprule
+ & \textbf{GTKWave (nipscern)} & \textbf{Surfer} \\
+\midrule
+Status & padrão, empacotado & opt-in, opcional \\
+Origem & fork C/GTK3 do lab & binário Rust upstream \\
+Curadoria & \path{.gtkw} & \path{.surf.ron} (RON) \\
+ASM/\cmm{} & \emph{file filter} (\path{trad\_*.txt}) & \emph{mapping translator} \\
+Complexo & \emph{process filter} \tool{comp2gtkw} ao vivo & pré-passo \tool{comp2gtkw} assado em mapping \\
+Local & \path{Packages/gtkwave-nipscern/} & \path{Packages/surfer/} \\
+IPC & \lstinline|launch-gtkwave-only| & \lstinline|launch-surfer| \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Fork \repo{gtkwave-nipscern}.} Sobre o upstream (base v3.3.116, Meson, GTK3): flags \lstinline|--zoom-fit| (\lstinline|-Z|, via \lstinline|g_idle_add|) e \lstinline|--left-justify| (\lstinline|-L|); canvas escuro \textbf{default} (\lstinline|use_dark=TRUE| em \file{globals.c}, paleta \emph{default-dark} do Surfer, canvas \lstinline|#0b151d|); remoção do painel SST; ícones Phosphor; barra CSD; \emph{zoom} animado (\emph{ease-out cubic}, 150\,ms). Build nativa: \file{build-windows.bat} (MSYS2/MINGW64) chama \lstinline|meson setup -Djudy=disabled -Dtests=false|; alvo \lstinline|win_subsystem:'windows'|, filhos \lstinline|CREATE_NO_WINDOW|. A AURORA não compila: \file{download-gtkwave-nipscern.js} baixa o \emph{bundle} portátil (tag \lstinline|v0.1.2-nipscern|) com \path{gtkwave.exe}+\path{fst2vcd.exe}+DLLs. Invocação (\lstinline|buildGtkwaveSpec|): \lstinline|--dark --zoom-fit --left-justify <vcd>| mais \lstinline|-a <gtkw>|. \tool{fst2vcd} é a única CLI direta (FST$\rightarrow$VCD). O \path{.gtkw} (\lstinline|buildAuroraGtkw|): \emph{file filter} \lstinline|^N <path>| (ASM/\cmm{}) e \emph{process filter} \lstinline|^>N <path>| (\tool{comp2gtkw}, complexos).
+
+\paragraph{Surfer.} \file{download-surfer.js} baixa do GitLab (tag \lstinline|v0.7.0|) com SHA-256 \textbf{imposto}. O layout \path{.surf.ron} (\file{surfer\_layout\_writer.ts}) é declarativo: \lstinline|buildSurferLayout| espelha o \path{.gtkw} (mesma \lstinline|detectProcessors|, mesma ordem) emitindo \lstinline|SurferItem| (\lstinline|variable|/\lstinline|divider|/\lstinline|timeline|/\lstinline|group|). Cada processador vira \textbf{grupo colapsável}; o Surfer re-resolve itens por caminho+nome no \emph{load} (IDs só dica de performance), tornando o arquivo portável. Seções: Top-level $\rightarrow$ clk/rst/itr $\rightarrow$ I/O (\lstinline|Yellow|) $\rightarrow$ Instructions (\lstinline|Violet|) $\rightarrow$ Variables (\lstinline|Orange|) $\rightarrow$ Flags. Tracks ASM/\cmm{} usam \emph{mapping translators}: \lstinline|convertTradToSurferMapping| converte \path{trad\_*.txt} e \lstinline|write-surfer-mappings| grava atômico em \path{\%APPDATA\%/surfer-project/surfer/config/mappings} (nomes \lstinline|aurora_*|). Complexos: \lstinline|_buildSurferComplexMapping| pré-decodifica via \tool{fst2vcd}+\tool{comp2gtkw} (IPC \lstinline|decode-complex|), assando um mapping (\emph{gated}; sem decoder abre \lstinline|Binary|). Reload automático não funciona em v0.7.0; a AURORA fecha e reabre a janela.
+
+\subsection{RTL: PRISM}
+
+Botão \lstinline|prismcomp| (só com top-level). \lstinline|handlePrismStep| é \emph{superset} do Verilog (\cmm{}+ASM+syntax-check) e chama \lstinline|prismCompileWithPaths|. Janela única \lstinline|BrowserWindow| 1400$\times$900, \emph{frameless}, \lstinline|sandbox:true|, \lstinline|contextIsolation:true|, preload \file{preload\_prism.js} (allowlist de canais). Pipeline (\file{main/ipc/prism.js}): coleta \file{.v} (HDL+\lstinline|synthesizableFiles|+TopLevel+\path{<proc>/Hardware}, dedup) $\rightarrow$ \tool{Yosys} (\lstinline|read_verilog -setattr src| $\rightarrow$ \lstinline|hierarchy -top| $\rightarrow$ \lstinline|proc| $\rightarrow$ \lstinline|setundef -zero| $\rightarrow$ \lstinline|opt_clean -purge| $\rightarrow$ \lstinline|write_json|; sem \lstinline|techmap|/\lstinline|abc| — diagrama RTL) $\rightarrow$ \lstinline|splitHierarchyJson| (JSON por módulo) $\rightarrow$ \lstinline|generateModuleSVG|. Render \emph{in-process} via \lstinline|require('@silimate/netlistsvg')|. O fork \repo{netlistsvg-aurora} (pinado por commit) muda só o \file{tsconfig.json} (\lstinline|target| es5$\rightarrow$es2015 para TS~6, \lstinline|module:commonjs|, \lstinline|types:[]|) + rebuild de \path{built/}; API \lstinline|render(skin,netlist,cb)| idêntica. Skins SAPHO (\path{assets/prism-skins/*.svg}, de \file{prism-skin-standard.js}) mescladas em \emph{runtime} sobre \path{lib/default.svg}; \lstinline|pruneNetlistToSkinPorts| poda portas ausentes (ELK); \lstinline|injectCellTypesIntoSvg| anota \lstinline|data-cell-type|. Renderer (\lstinline|PRISMViewer|): clique entra em submódulo (SVG já materializado, sem re-rodar Yosys), duplo-clique abre o fonte (via \lstinline|src|), breadcrumbs, pan/zoom.
+
+\paragraph{DigitalJS (O9).} Integração \textbf{funcional}: botão \enquote{Simular}; \lstinline|prism:build-digitaljs| gera script Yosys amigável (\lstinline|memory -nomap|, \lstinline|wreduce|), recusa acima de \lstinline|MAX_CELLS=3000|, e converte com \lstinline|yosys2digitaljs| (\lstinline|^0.10.3|; função pura) para \tool{DigitalJS} (\lstinline|^0.14.2|), carregado \emph{lazy}, com layout \lstinline|dagre| síncrono (roda sob \lstinline|file://|).
+
+\
+\section{Aurora Intelligence (IA)}
+\label{sec:S09-aurora-intelligence}
+
+\tool{Aurora Intelligence} (feminino) e o assistente de IA da \tool{AURORA}: conversa sobre o projeto, \cmm{} e Verilog e \emph{age} sobre o ambiente por ferramentas curadas. Esta \textbf{totalmente implementado}; so o \emph{provider}/modelos \textbf{proprios do NIPSCERN ainda nao foram treinados} (roteiro). Ate la, opera contra provedores externos. Arquitetura Electron: o \emph{main} detem chaves, rede, subprocessos, MCP e disco; o \emph{renderer} detem o painel e executa cada \emph{tool} via \code{window.AuroraAPI}.
+
+\textbf{Dois transportes convergem nos mesmos eventos} \code{ai:chat-event} (\code{text-delta}, \code{tool-call}, \code{tool-result} e exatamente um fechamento: \code{finish}/\code{aborted}/\code{error}), tornando o laco do renderer transporte-agnostico.
+
+\subsection{Transporte 1 --- Vercel AI SDK (BYOK)}
+Pacote \code{ai} (\code{streamText}/\code{generateText}) com chave do usuario; \file{main/ai/provider.js} carrega cada SDK via \code{tryRequire} (falha isola so o provedor).
+
+\begin{tabularx}{\linewidth}{l l Y}
+\toprule
+\textbf{Provedor} & \textbf{Pacote} & \textbf{Modelo padrao} \\
+\midrule
+openai    & \code{@ai-sdk/openai}    & \lstinline|gpt-4o-mini| \\
+anthropic & \code{@ai-sdk/anthropic} & \lstinline|claude-haiku-4-5-20251001| \\
+google    & \code{@ai-sdk/google}    & \lstinline|gemini-2.5-flash| \\
+deepseek  & \code{@ai-sdk/deepseek}  & \lstinline|deepseek-chat| \\
+groq      & \code{@ai-sdk/groq}      & \lstinline|llama-3.3-70b-versatile| \\
+ollama    & via \code{@ai-sdk/openai} & \lstinline|llama3.1:8b| \\
+\bottomrule
+\end{tabularx}
+
+Ollama reusa \code{createOpenAI} contra \url{http://localhost:11434/v1}. \code{resolveModelId} resolve \lstinline|default|/\lstinline|latest| para \code{DEFAULT\_MODELS}, ids aposentados via \code{MODEL\_MIGRATIONS}, e recua para o padrao quando o modelo esta indisponivel. \file{chat.js}: \code{stopWhen=stepCountIs(24)}, \emph{watchdog} de inatividade (120\,s, pausado com \emph{tools} em voo), conteudo multimodal, \emph{prompt caching} efemero da Anthropic, e \emph{fallback} de \emph{tools-em-texto} (Ollama). \code{generateOneshot} faz geracao unica (sem \emph{tools}/historico), so para provedores do SDK.
+
+\subsection{Transporte 2 --- CLIs por assinatura}
+Usa a assinatura do usuario invocando a CLI local em modo nao interativo, traduzindo seus eventos para \code{ai:chat-event}. \file{main/ai/claude\_code.js} (\enquote{claude-code}: \lstinline|claude -p --output-format stream-json|) e \file{main/ai/codex\_cli.js} (\enquote{chatgpt}: \lstinline|codex exec --json|). Auth e por OAuth da CLI; a AURORA nunca ve o token e \emph{remove} \code{ANTHROPIC\_API\_KEY}/\code{OPENAI\_API\_KEY} do filho. Continuidade via \lstinline|--resume|/\lstinline|exec resume|. Binarios nao sao empacotados: baixados sob demanda (\file{cli\_manifest.js}, \file{cli\_downloader.js} com verificacao SHA-512, \file{cli\_locator.js}).
+
+\subsection{Servidor MCP HTTP local}
+\file{main/ai/aurora\_mcp\_server.js} expoe as \emph{tools} da AURORA as CLIs como \lstinline|mcp__aurora__<nome>|: \emph{Streamable HTTP stateless} em 127.0.0.1:porta-efemera, defesa anti-\emph{DNS-rebinding} (\code{Host}), \emph{token} de 256 bits em \path{/mcp/<token>}, so \code{POST} ate 4 MB. \code{MCP\_TOOL\_RULES} proibe binarios da YANC pelo \emph{shell}; no Claude as \emph{tools} de escrita/\emph{shell} sao desabilitadas. Cada chamada cai no mesmo \code{tool\_bridge.runTool}.
+
+\subsection{Ferramentas e \code{tool\_bridge}}
+\file{main/ai/tools.js} (\code{TOOL\_MANIFEST}, dados puros via IPC) define \textbf{98 ferramentas}: \textbf{41 leitura} (sem confirmacao) e \textbf{57 escrita} (cartao Permitir/Negar). Campos: \code{name}, \code{access}, \code{api}=[ns,metodo], \code{argStyle}, \code{inputSchema}. Cobrem editor, projeto, compilacao/simulacao, terminais, processadores, Git, formas de onda (GTKWave/Surfer), diretivas/opcodes e \code{ask\_user\_question}. \file{tool\_bridge.js} liga \emph{main}$\rightarrow$renderer (\code{ai:tool-exec}/\code{ai:tool-result}), dirigido por evento, com limites de 120\,s/300\,s/600\,s; nunca rejeita (\code{\{ok:false,error\}}). Permissao pura em \file{tool\_permission.js}, modos \lstinline|ask|/\lstinline|writes| (padrao)/\lstinline|allow|.
+
+\subsection{Cofre, persistencia, IPC}
+\file{keystore.js} cifra chaves com \code{safeStorage} (\textbf{DPAPI}/Keychain/libsecret) em \path{userData/aurora-ai-keys.json}; texto puro nunca volta ao renderer (so \code{hasKey}). Persistencia: \textbf{um JSON por conversa} (\file{conversations.js}), \emph{log} de auditoria \emph{append-only} \path{.jsonl} (\file{audit.js}) e prefs nao secretas (\file{prefs.js}). Canais em \file{main/ipc/ai.js} (\code{ai:list-providers}, \code{ai:set-key}, \code{ai:chat-start}, \code{ai:tool-*}, \code{ai:conv-*}). O painel e \file{js/ui/ai\_assistant\_manager.js}, apoiado por modulos puros em \path{js/ai/*} (\emph{system prompt}, \emph{render}, contexto de projeto).
+
+\
+\section{Ferramentas de produtividade}
+\label{sec:S10-produtividade}
+
+Em torno do editor \tool{Monaco}, a \tool{AURORA} reúne recursos auxiliares ligando o processo \textit{main} do \tool{Electron} (trabalho privilegiado, \textit{handlers} \lstinline|ipcMain.handle|) a integrações no \textit{renderer} via pontes do \file{preload.js} (\lstinline|gitAPI|, \lstinline|lspAPI|, \lstinline|slangAPI|, \lstinline|treeSitterAPI|, \lstinline|clangFormatAPI|, \lstinline|electronAPI|). Padrão transversal: \textbf{best-effort} --- sem o binário/recurso, o módulo vira \textit{no-op} silencioso e a edição segue.
+
+\begin{table}[h]
+\centering\caption{Recurso, ferramenta e função.}\label{tab:S10-mapa}\small
+\begin{tabularx}{\linewidth}{l Z}
+\toprule
+\textbf{Recurso / ferramenta} & \textbf{O que faz} \\
+\midrule
+\textbf{Terminal} (\file{js/terminal/terminal\_module.js}) & Console de \textbf{saída} (não interativo) com abas \lstinline|tcmm|/\lstinline|tasm|/\lstinline|tveri|/\lstinline|twave|/\lstinline|thtest|/\lstinline|tcmd|; troca por \lstinline|switchTerminal|. Mensagens viram \textbf{cartões} (\lstinline|.log-entry|) por tipo (error/warning/success/tips) com \textit{badges} e filtros; tetos de 5000 entradas. \textbf{Números de linha clicáveis}: \lstinline|<arq>:<linha>:| (iverilog/yosys/gcc) ou \enquote{linha N} (\cmm), navegando via \lstinline|goToLine| no \tool{Monaco}. Barra de progresso de \textit{hardware test} (\lstinline|renderHardwareProgress|). \\
+\textbf{Source Control} (\file{main/ipc/git.js}, UI \file{js/git/git\_panel.js}) & Sobre \textbf{simple-git} (invólucro do \lstinline|git| nativo), no diretório do projeto aberto. Leitura: \lstinline|status|, \lstinline|diff|, \lstinline|log|, \lstinline|branches|, \lstinline|remotes|, \lstinline|show|. Mutações: \lstinline|stage|, \lstinline|commit| (\lstinline|--amend|), \lstinline|checkout|, \lstinline|merge|, \textit{stash}, \lstinline|init|. Remotas: \lstinline|fetch|/\lstinline|pull| (\lstinline|--autostash|)/\lstinline|push|/\lstinline|clone| (progresso ao vivo). \textit{Diffs} renderizados por \textbf{diff2html} (\lstinline|line-by-line|, tema escuro). \\
+\textbf{Auth GitHub} (\file{main/ipc/github\_auth.js}) & PAT ou OAuth \textit{Device Flow} (escopos \lstinline|repo read:org|). \textit{Token} cifrado com \lstinline|safeStorage| (DPAPI) em \path{userData/aurora-github.json}; lido só no \textit{main}, injetado como \lstinline|http.extraHeader| de uso único. \\
+\textbf{Busca no projeto} (\file{main/ipc/search.js}, canal \lstinline|search:in-project|) & Motor \textbf{próprio} (varredura síncrona sobre \lstinline|fs|, sem ripgrep). Modificadores caso/palavra/regex (\lstinline|buildRegex|). Limites: profundidade 12, $\le$1,5 MB/arq, 2000 ocorrências, 500 arquivos; pula \path{.git}/\path{node_modules}/\path{dist}; \lstinline|truncated| ao estourar. \\
+\textbf{LSP Verilog} (\file{main/lsp/verible\_lsp.js}) & \tool{verible-verilog-ls} (JSON-RPC sobre \textit{stdio}): servidor completo --- diagnósticos, formatação, \textit{outline}/símbolos, \textit{hover}, definição, referências. Ciclo por modelo (\lstinline|didOpen|/\lstinline|didChange| debounce 350 ms); respawn transparente; \textit{timeout} 15 s. Marcadores no \tool{Monaco} sob dono \lstinline|verible|. \\
+\textbf{LSP semântico} (\file{main/lsp/slang\_lsp.js}) & \tool{slang-server} elabora o projeto inteiro; entrega só \textbf{diagnósticos semânticos} (dono \lstinline|slang|) + \textbf{completação}. \textit{Workspace}-acoplado (\lstinline|rootUri|); \textbf{ligável/desligável} (\lstinline|window.AuroraSlang.toggle()|, persistido). \\
+\textbf{tree-sitter} (\file{js/editor/treesitter\_highlight.js}) & Realce via \textbf{web-tree-sitter} (WASM) $\rightarrow$ \textit{semantic tokens} (SystemVerilog, C, C++); \textbf{só realce}, sem \textit{outline}. Bytes servidos por \file{main/treesitter/grammars.js} (canal \lstinline|treesitter:wasm|). Carregamento preguiçoso. \\
+\textbf{clang-format} (\file{main/format/clang\_format.js}) & CLI empacotada formata C/C++/\cmm{} via \textit{stdin}/\textit{stdout} (\textit{replace} de documento inteiro), \lstinline|Shift+Alt+F|. Usa \lstinline|-assume-filename| e \lstinline|-style=file|; \textit{timeout} 15 s. \\
+\textbf{Paleta de comandos} (\file{js/ui/command\_palette.js}) & \lstinline|Ctrl/Cmd+Shift+K| (ou \lstinline|+Shift+P|); componente Lit. Registro \lstinline|COMMANDS| em grupos Compile/Project/View/Tools/Dev; pontuação \textit{fuzzy} (\lstinline|scoreCommand|); comandos clicam o botão existente. \\
+\textbf{i18n} (\file{js/i18n/i18n.js}) & \textit{Locales} \path{pt.json}/\path{en.json} (padrão \lstinline|pt|), atributos \lstinline|data-i18n*|, \lstinline|applyDOM()|, \lstinline|window.t|. \textit{Fallback} en $\rightarrow$ chave crua; \lstinline|getYancLang| unifica idioma de UI e \tool{YANC}. \\
+\textbf{Configurações} (\file{js/processors/aurora\_settings.js}) & Modal; persiste \lstinline|aurora-settings|, \lstinline|aurora-shortcuts|; rótulos de atalho por i18n; expõe idioma e \textit{tooltips}. \\
+\textbf{Atualizador} (\file{main/updater.js}) & \textbf{electron-updater} sobre \repo{sapho} (só produção). $\approx$6 s após \textit{boot} checa; janela própria (\path{html/update-notification.html}) com \textit{changelog} bilíngue, barra de \textit{download} e \enquote{Reiniciar e instalar} (\lstinline|quitAndInstall|). \textit{Toast} pós-atualização único. \\
+\textbf{Jank Overlay} (\file{js/dev/jank\_overlay.js}) & HUD de dev: FPS, p99, taxa de \textit{jank} (orçamento 165 Hz $\approx$6,06 ms), \textit{longtasks}, TTI. Custo zero inativo; alternado pela paleta (grupo Dev). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\
+\section{O toolchain bundle}
+\label{sec:S11-toolchain-bundle}
+
+A AURORA é IDE de desktop, mas simulação, síntese e compilação de HDL são feitas por ferramentas FOSS de EDA externas. Em vez de exigir instalação manual no Windows, a AURORA baixa um artefato portátil único, o \emph{toolchain bundle}, produzido pelo repositório de \emph{build} \repo{aurora-toolchain} (scripts \path{build/10..60 *.sh}, \path{manifest.txt}, CI \path{.github/workflows/build.yml}) e publicado como \emph{GitHub Release}.
+
+\textbf{Conteúdo do \path{aurora-msys-vN.zip}.} Um prefixo \tool{MSYS2}/\tool{mingw64} com raiz interna \path{msys/...} (extrai para \file{components/Packages/msys/}). Em \path{mingw64/bin}: \tool{iverilog}+\path{vvp} (simulador Verilog do botão \emph{Wave}), \tool{verilator}+\path{verilator_bin} (simulador rápido, modelo C++), \tool{yosys} (síntese $\rightarrow$ JSON para o PRISM), \tool{g++}/\tool{gcc}/\path{cc1plus} (compilam o modelo do \tool{verilator} \textbf{em tempo de execução}), \tool{perl}/\tool{make}/\tool{ccache} (driver e cache do \tool{verilator}), e Python 3.12+\tool{cocotb} 2.0.1 com \textbf{dois VPIs}: \path{libcocotbvpi_icarus.vpl} (compilado pelo build do \tool{cocotb}) e \path{libcocotbvpi_verilator.a} (compilado à mão). De fora vêm: \tool{gtkwave-nipscern}, compiladores YANC e \tool{netlistsvg} (downloads/npm separados).
+
+\textbf{Receita cocotb-on-Verilator.} O \emph{wheel} de Windows não traz a VPI do \tool{verilator} (compilação sob \code{if os.name == "posix"}). O \path{build/20-build-cocotb-vpi.sh} compila cinco fontes (\path{VpiImpl}, \path{VpiCbHdl}, \path{VpiObj}, \path{VpiIterator}, \path{VpiSignal}) numa \textbf{biblioteca estática} \path{.a} (o \tool{verilator} linka a VPI direto no executável; sem \code{dlopen}). A flag \code{-DPLI_DLLISPEC=} (vazia), com o \path{vpi_user.h} do próprio \tool{verilator}, torna os símbolos \path{vpi_*} planos (sem \code{__imp_}), resolvidos no link final. Dois \emph{patches} em \path{cocotb_tools/runner.py}: (1) emitir cada flag como par \code{-LDFLAGS <token>} (o wrapper \tool{perl} quebraria flags com espaços) linkando DLLs core + \code{-static-libstdc++}/\code{-static-libgcc}; (2) \emph{fallback} de PATH para achar o \code{verilator} (script perl sem extensão que \code{shutil.which} ignora). Instalado a partir do \emph{sdist} (precisa das fontes da VPI), em \emph{venv} (PEP 668).
+
+\textbf{Pinos de versão (\path{manifest.txt}).} \tool{MSYS2} é \emph{rolling release}; pinos evitam \emph{drift}.
+
+\begin{tabularx}{\linewidth}{Y Y Z}
+\toprule
+\textbf{Pacote} & \textbf{Versão} & \textbf{Tipo / razão} \\
+\midrule
+\path{gcc}/\path{gcc-libs} & \path{15.1.0-5} & Pinado: 16.x tem libstdc++ quebrada; \tool{g++} roda em runtime \\
+\path{python} & \path{3.12.11-1} & Pinado: \tool{cocotb} linka \code{-lpython3.X}; 3.14 quebra o build \\
+\path{iverilog} & \path{13.0-2} & Flutuante (era 12; a 13 é mais estrita) \\
+\path{yosys} & \path{0.56-4} & Flutuante (instalado sem \tool{ghdl}) \\
+\path{verilator} & \path{5.048-1} & Flutuante \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+Os três pinados saíram do \tool{MSYS2} vivo; vêm de um Release \path{pins-v1} via \code{pacman -U}.
+
+\textbf{Pipeline e gate.} \path{10}-instala pinos $\rightarrow$ \path{20}-build VPI $\rightarrow$ \path{40}-\emph{assemble} $\rightarrow$ \path{45}-\emph{trim} ($\approx$1077\,MB $\to$ $\approx$660\,MB) $\rightarrow$ \path{50}-\textbf{smoke} (4 fluxos contra o próprio bundle: \tool{iverilog}, \tool{yosys}$\rightarrow$JSON, cocotb-icarus, cocotb-verilator; exige \textbf{4/4 PASS}) $\rightarrow$ \path{60}-\emph{package}. A CI roda tudo num \emph{runner} limpo com \emph{guardrail} que falha se a versão instalada divergir do manifesto.
+
+\textbf{Consumo pela AURORA.} \file{components/Scripts/download-toolchain.js} baixa o asset pela tag pinada (\code{MSYS_TAG}=\path{msys-v1}, owner \path{nipscernlab}, repo \path{aurora-toolchain}), extrai com \code{Expand-Archive} e confere duas \emph{sentinelas}: \path{mingw64/bin/verilator_bin.exe} (bundle completo) e, via varredura de \path{python3.*}, \path{site-packages/cocotb/libs/libcocotbvpi_verilator.a} (suporte a cocotb). Bundle+cocotb presentes pula o download; falta de cocotb força atualização no lugar. Há gancho de checksum \code{EXPECTED_SHA256} (hoje \code{null}).
+
+\
+\section{Catálogo de ferramentas de terceiros}
+\label{sec:S12-catalogo-terceiros}
+
+Ferramentas que o SAPHO usa, orquestra ou empacota, com versão \emph{exata}
+verificada na fonte primária (\file{package.json}, \file{manifest.txt} do
+\repo{aurora-toolchain}, \file{components/Scripts/download-*.js},
+\file{main/ai/cli\_manifest.js}, \file{THIRD\_PARTY\_NOTICES.md}). A AURORA é MIT
+(\copyright{} 2024 NIPSCERN); cada componente mantém sua licença. GPL forte e o
+Surfer (EUPL) são invocados como processos externos separados, sem \emph{link}.
+Quatro modos de chegada: npm \code{dependencies} (empacotados pelo
+\tool{electron-builder}); npm \code{devDependencies} (só build/CI); \emph{bootstrap}
+(binários baixados por \file{download-*.js} com \emph{tag} e \code{SHA-256} fixados,
+em \code{extraResources}); \emph{on-demand} (CLIs de IA baixadas do npm no 1\textsuperscript{o} uso).
+O \file{check-pinned-versions.js} falha o build se versões fixadas (sem
+\lstinline|^|/\lstinline|~|) divergirem.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.27\linewidth} >{\raggedright\arraybackslash}p{0.13\linewidth} >{\raggedright\arraybackslash}p{0.15\linewidth} >{\raggedright\arraybackslash}p{0.36\linewidth}}
+\caption{Catálogo de terceiros, por categoria}\label{tab:cat}\\
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Componente} & \textbf{Versão} & \textbf{Licença} & \textbf{Papel} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\bottomrule
+\endlastfoot
+\multicolumn{4}{l}{\textit{Runtime da aplicação}} \\
+\midrule
+\tool{electron} & \code{39.8.10} & MIT & Runtime desktop (Chromium + Node); embutido pelo \tool{electron-builder}. \\
+Node.js & \code{>=18} & MIT & Processo \emph{main}; declarado em \code{engines}. \\
+\midrule
+\multicolumn{4}{l}{\textit{Editor e interface (npm)}} \\
+\midrule
+\lstinline|monaco-editor| & \code{0.52.2} & MIT & Editor de código (núcleo VS Code); fixado (0.53.x regride). \\
+\lstinline|lit| & \code{3.3.3} & BSD-3 & Web Components da UI (shell, abas, painéis). \\
+\lstinline|@phosphor-icons/web| & \code{2.1.2} & MIT & Ícones da interface. \\
+\lstinline|katex| & \code{0.17.0} & MIT & Renderização de fórmulas LaTeX. \\
+\lstinline|jquery| / \lstinline|jquery-ui| & \code{3.7.1} / \code{1.14.2} & MIT & DOM e widgets em painéis legados. \\
+\lstinline|diff2html| & \code{3.4.56} & MIT & Diffs unificados em HTML. \\
+Inter / JetBrains Mono & --- & SIL OFL 1.1 & Fontes de UI / monoespaçada; \code{.woff2} versionadas. \\
+Norse (J. Carrouché) & --- & Própria, sem redistr. & Letreiro \enquote{Dagr}; baixada no bootstrap, não versionada. \\
+\midrule
+\multicolumn{4}{l}{\textit{Toolchain EDA (bundle MSYS2/MinGW64, \repo{aurora-toolchain})}} \\
+\midrule
+Icarus Verilog & \code{13.0} & GPL v2 & Compilação/simulação Verilog (v13 mais estrita). \\
+Verilator & \code{5.048} & LGPL-3.0/Artistic-2.0 & Simulação de alto desempenho (compila via G++). \\
+Yosys (+ ABC) & \code{0.56} & ISC / MIT-style & Síntese RTL para o PRISM (sem frontend VHDL). \\
+GTKWave (\emph{fork} nipscern) & \code{v0.1.2-nipscern} & GPL v2 & Visualizador de ondas + \code{fst2vcd}/\code{vcd2fst}; baixado à parte. \\
+cocotb & \code{2.0.1} & BSD-3 & Testbench em Python (VPIs Icarus + Verilator). \\
+\code{find\_libpython} & \code{0.5.1} & MIT & Dependência de \code{cocotb\_tools.runner}. \\
+Python (MinGW) & \code{3.12.11} & PSF & Hospeda o cocotb; fixado (3.14 quebra). \\
+GCC / G++ & \code{15.1.0} & GPL v3 (runtime exc.) & Compila o modelo Verilator; fixado (16.x quebra VPI). \\
+\code{ccache} & \code{4.13.6} & GPL v3 & Cache de compilação. \\
+Perl / \code{make} (MinGW) & \code{5.38.5} / \code{4.4.1} & Artistic-GPL / GPL v3 & \emph{Wrapper} Verilator / orquestra \file{verilated.mk}. \\
+\lstinline|@silimate/netlistsvg| (\emph{fork}) & \code{1.1.4} (\code{58a0703}) & MIT & RTL Yosys $\to$ SVG, \emph{in-process}; fixado por commit. \\
+\lstinline|digitaljs| & \code{0.14.2} & BSD-2 & Simulador/visualizador digital (PRISM interativo). \\
+\lstinline|yosys2digitaljs| & \code{0.10.3} & BSD-2 & Saída Yosys $\to$ formato DigitalJS. \\
+\midrule
+\multicolumn{4}{l}{\textit{Linguagem, LSP e formatação (bootstrap)}} \\
+\midrule
+Verible (\code{verilog-ls}) & \code{v0.0-4080-ga0a8d8eb} & Apache-2.0 & LSP Verilog: lint, formatação, outline, hover, ir-a-def. \\
+slang-server & \code{v0.2.7} & MIT & LSP semântico SystemVerilog (elaboração); HRT. \\
+clang-format & LLVM \code{20} (\code{master-796e77c}) & Apache-2.0 (exc. LLVM) & Formatação C/C++/\cmm{} (\cmm{} usa regras de C). \\
+\lstinline|web-tree-sitter| & \code{0.26.9} & MIT & Runtime WASM; \emph{semantic tokens} no Monaco; fixado. \\
+\code{tree-sitter-systemverilog} & \code{v0.3.1} & MIT & Gramática \code{.v}/\code{.sv}. \\
+\code{tree-sitter-c} / \code{-cpp} & \code{v0.24.2} / \code{v0.23.4} & MIT & Gramáticas C / C++. \\
+\midrule
+\multicolumn{4}{l}{\textit{Formas de onda}} \\
+\midrule
+Surfer & \code{v0.7.0} & EUPL-1.2 & Visualizador Rust \emph{opt-in} (alterna com GTKWave); spawn externo. \\
+\midrule
+\multicolumn{4}{l}{\textit{Inteligência artificial (npm + on-demand)}} \\
+\midrule
+\lstinline|ai| & \code{6.0.184} & Apache-2.0 & Núcleo do AI SDK (modelo, streaming, tools). \\
+\lstinline|@ai-sdk/anthropic| & \code{3.0.85} & Apache-2.0 & Adaptador Anthropic. \\
+\lstinline|@ai-sdk/openai| & \code{3.0.64} & Apache-2.0 & Adaptador OpenAI. \\
+\lstinline|@ai-sdk/google| & \code{3.0.83} & Apache-2.0 & Adaptador Google. \\
+\lstinline|@ai-sdk/groq| & \code{3.0.39} & Apache-2.0 & Adaptador Groq. \\
+\lstinline|@ai-sdk/deepseek| & \code{2.0.39} & Apache-2.0 & Adaptador DeepSeek. \\
+\lstinline|@modelcontextprotocol/sdk| & \code{1.29.0} & MIT & SDK do Model Context Protocol. \\
+\lstinline|zod| & \code{3.25.76} & MIT & Validação de esquemas de saídas/tools. \\
+\lstinline|@anthropic-ai/claude-code| & \code{2.1.144} & Comercial Anthropic & CLI Claude Code; on-demand, não empacotada. \\
+\lstinline|@openai/codex| & \code{0.131.0} & Apache-2.0 & CLI Codex; on-demand, não empacotada. \\
+\midrule
+\multicolumn{4}{l}{\textit{Build e infraestrutura (npm)}} \\
+\midrule
+\lstinline|vite| & \code{8.0.16} & MIT & Bundler do \emph{renderer} (dev). \\
+\lstinline|vite-plugin-static-copy| & \code{4.1.1} & MIT & Cópia de ativos no build (dev). \\
+\lstinline|electron-builder| & \code{26.15.3} & MIT & Instalador NSIS e empacotamento (dev). \\
+\lstinline|electron-updater| & \code{6.8.9} & MIT & Atualização automática (releases \repo{sapho}). \\
+\lstinline|electron-log| & \code{5.4.3} & MIT & Log de \emph{main}/\emph{renderer}. \\
+\lstinline|chokidar| & \code{4.0.3} & MIT & Observação da árvore de arquivos. \\
+\lstinline|fs-extra| & \code{11.3.2} & MIT & Operações de arquivo estendidas. \\
+\lstinline|simple-git| & \code{3.36.0} & MIT & Operações Git (painel \enquote{Dagr}). \\
+\midrule
+\multicolumn{4}{l}{\textit{Qualidade e desenvolvimento (devDependencies)}} \\
+\midrule
+\lstinline|typescript| & \code{6.0.3} & Apache-2.0 & Compilador TS. \\
+\lstinline|@types/node| & \code{25.9.3} & MIT & Tipos do Node. \\
+\lstinline|eslint| (+ \lstinline|@eslint/js|, \lstinline|globals|) & \code{9.39.1} & MIT & Lint de JavaScript. \\
+\lstinline|vitest| (+ \lstinline|coverage-v8|) & \code{4.1.9} & MIT & Testes unitários e cobertura. \\
+\lstinline|happy-dom| & \code{20.10.6} & MIT & DOM simulado nos testes. \\
+\lstinline|playwright| & \code{1.61.0} & Apache-2.0 & Testes e2e da app Electron. \\
+\lstinline|husky| / \lstinline|lint-staged| & \code{9.1.7} / \code{16.4.0} & MIT & Hooks Git / lint em arquivos \emph{staged}. \\
+\lstinline|@commitlint/cli| (+ config) & \code{19.8.1} & MIT & Conventional Commits. \\
+\lstinline|knip| & \code{6.17.1} & ISC & Código/dependências mortos; fixado. \\
+\end{longtable}
+
+\begin{nota}
+O Aurora Intelligence está completamente implementado; o \emph{provider} e os
+modelos \emph{próprios} do laboratório ainda não foram treinados (\emph{roadmap}) ---
+até lá opera pelos provedores externos acima. O versionamento de releases usa
+\tool{release-please} (\emph{GitHub Action}, não pacote npm). Os compiladores YANC
+(\code{cmmcomp}, \code{cppcomp}, \code{asmcomp}, \code{cpppp}, \code{appcomp},
+\code{comp2gtkw}) chegam pelo mesmo bootstrap (\file{download-yanc.js}, \emph{tag}
+\code{v5.2}), licenciados segundo o projeto YANC.
+\end{nota}
+
+\
+\section{Build, empacotamento e distribuição}
+\label{sec:S13-build-distribuicao}
+
+A cadeia tem cinco estágios: \emph{bootstrap}, \lstinline|tsc| (processo principal + \emph{preloads}), \emph{build} do \emph{renderer} com Vite, empacotamento com \tool{electron-builder} (NSIS x64) e publicação no canal de \emph{release}. O \file{package.json} declara \texttt{name}/\texttt{productName} \texttt{sapho}/\texttt{SAPHO}, \lstinline|engines.node >=18|, licença MIT; o bloco \texttt{build} renomeia o app instalado para \texttt{Aurora-IDE}. Scripts-chave: \texttt{bootstrap}, \texttt{build:ts} (\lstinline|tsc| \emph{in-place}), \texttt{build:renderer} (\lstinline|vite build|), \texttt{build} (\lstinline|electron-builder|); \emph{hooks} \texttt{prebuild}/\texttt{prestart} encadeiam \texttt{bootstrap \&\& build:ts \&\& build:renderer}.
+
+\subsection{Bootstrap}
+\label{sec:S13-bootstrap}
+O \emph{toolchain} não é versionado; \texttt{npm run bootstrap} executa, em ordem: \file{check-pinned-versions.js} (versões \emph{semver} exato; checa \texttt{monaco-editor 0.52.2} e o manifesto das CLIs de IA contra \file{package-lock.json}), nove \emph{downloaders} Node em \path{components/Scripts/}, e \file{copy-components.js} (cria \emph{junction} \path{node_modules/electron/dist/components} -> \path{components/}, evitando copiar \textasciitilde{}1\,GB). Cada \emph{downloader} usa HTTPS com \emph{redirect}, \emph{sentinel} de presença, \emph{checksum} (\file{lib/checksum.js}, \texttt{SHA-256} enforçado quando pinado) e extração via \lstinline|Expand-Archive|; em falha sai 0 (\emph{best-effort}). O que baixam:
+
+\begin{tabularx}{\linewidth}{l Y}
+\toprule
+\textbf{Downloader} & \textbf{Artefato / destino} \\
+\midrule
+\texttt{download-toolchain} & \file{aurora-msys-v1.zip} (MSYS2: iverilog, vvp, yosys, verilator, cocotb) -> \path{Packages/msys/} \\
+\texttt{download-yanc} & \file{yanc-bin-v5.2.zip} (6 compiladores + HDL/Macros/Header) -> \path{components/} \\
+\texttt{download-gtkwave-nipscern} & \emph{fork} portátil GTKWave -> \path{Packages/gtkwave-nipscern/} \\
+\texttt{download-surfer} & \tool{Surfer} (visualizador \emph{opt-in}, GitLab) \\
+\texttt{download-verible} & LS Verilog (O2) \\
+\texttt{download-clang-format} & formatador C/C++/\cmm{} \\
+\texttt{download-slang-server} & LS SystemVerilog (O11) \\
+\texttt{download-tree-sitter-grammars} & 3 \texttt{.wasm} + \emph{runtime} \\
+\texttt{download-norse-font} & \file{Norse.otf} (dafont; embutível, não redistribuível, \emph{gitignored}) \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Renderer com Vite e tsc}
+\label{sec:S13-vite}
+O \file{vite.config.mjs} cobre só o \emph{renderer}; processo principal e \emph{preloads} ficam em CommonJS, compilados \emph{in-place} por \texttt{tsc}. Diretrizes: \lstinline|base: './'| (app carrega \file{dist/index.html} por \texttt{file://}), saída multi-página (\texttt{index}, \texttt{splash}, \texttt{update}, \texttt{prism}, \texttt{design-lab}), \lstinline|target: 'chrome130'|, \lstinline|cssMinify: false|. O \emph{plugin} \lstinline|vite-plugin-static-copy| vendoriza \emph{verbatim} para \path{dist/vendor/}: \tool{Monaco} (\path{vs/}), \tool{KaTeX}, \tool{Phosphor}; espelha ainda \path{locales/}, \path{resources/} (com \file{sapho_rules.json}) e \path{assets/icons/}.
+
+\subsection{electron-builder e NSIS}
+\label{sec:S13-builder}
+\texttt{appId} \lstinline|com.nipscern.auroraide|, alvo \texttt{nsis} \texttt{x64}, artefato \file{sapho-aurora-Setup-vX.Y.Z.exe}. Registra \texttt{fileAssociations} \texttt{.spf} (papel Editor) e o protocolo \lstinline|sapho://|. A chave \texttt{files} monta o \emph{asar} (exclui \path{components/}, \path{tests/}, \path{docs/}, \texttt{*.md} e as CLIs de IA); \texttt{extraResources} copia \path{components/} para \path{resources/components_tmp}, que o NSIS (\texttt{oneClick}, via \file{build/installer.nsh}, macro \texttt{customInstall}) renomeia para \path{components} pós-instalação --- caminho que \file{main/paths.js} espera.
+
+\subsection{Auto-updater}
+\label{sec:S13-updater}
+\file{main/updater.js} usa \lstinline|electron-updater| (só em produção): \textasciitilde{}6\,s após abrir, verifica \emph{releases}; em \texttt{update-available} mostra \file{html/update-notification.html} (\emph{changelog} bilíngue); \emph{download} e instalação iniciados pelo usuário (\lstinline|autoDownload=false|), \lstinline|quitAndInstall()| relança. O \emph{feed} aponta para \lstinline|owner: nipscernlab, repo: sapho|. O \emph{builder} publica \file{latest.yml} (versão, \texttt{sha512}, tamanho --- validado antes de instalar) e \texttt{.blockmap} (\emph{delta}).
+
+\subsection{CI, release e assinatura}
+\label{sec:S13-ci}
+\file{ci.yml} (push/PR em \texttt{main}, \texttt{windows-latest}): versões pinadas, ESLint, \emph{typecheck}, guarda de \texttt{.js} gerado, i18n, \emph{dead code}, testes unitários + e2e, \texttt{build:renderer} e \emph{smoke build} (\lstinline|--publish never|). \file{release.yml} (ao publicar \emph{release}): \texttt{bootstrap}, verificação \emph{alta} de \emph{sentinels}, \texttt{build:ts}/\texttt{build:renderer}, \lstinline|electron-builder --win --x64 --publish always|. \file{release-please.yml} (\lstinline|release-type: node|, \lstinline|include-v-in-tag|; manifesto em \texttt{6.3.2}) agrega \emph{Conventional Commits} num PR de \emph{release}. Assinatura de código: instalador e \emph{updater} \textbf{não assinados} atualmente; o \emph{runbook} (\file{docs/CODE_SIGNING.md}) propõe SignPath Foundation (OSS/MIT), \emph{gated} no \emph{secret} \texttt{SIGNPATH\_API\_TOKEN}, com re-\emph{hash} de \file{latest.yml} via \file{scripts/patch-latest-yml.js}.
+
+\subsection{Split de repositórios}
+\label{sec:S13-split}
+A separação é \textbf{intencional}: \repo{aurora} é o repositório de desenvolvimento (código, CI, \emph{electron-builder}); \repo{sapho} é o canal de distribuição estável onde o instalador e o \file{latest.yml} são publicados (\texttt{publish} em \lstinline|repo: sapho|) e de onde o auto-updater consome. Publicar de aurora para sapho é operação \emph{cross-repo}. O usuário final baixa e atualiza de \repo{sapho}; a engenharia ocorre em \repo{aurora}.
+
+\
+\section{O pipeline de criação ponta a ponta}
+\label{sec:S14-pipeline-ponta-a-ponta}
+
+Cadeia determinística sobre artefatos em disco, ancorada no \file{.spf}.
+\textbf{Regra-mãe: o renderer orquestra; o main executa.} O renderer
+(\file{compilation\_flow.js}, \file{compilation\_module.js},
+\file{processor\_compiler.js}) monta cada etapa como \emph{CommandSpec};
+\code{runSpec} (\file{spec\_runner.js}) é o único ponto de passagem e dispara
+\lstinline|exec-spec|; o main re-valida o \code{binary} contra a \emph{allowlist}
+(\file{binary\_allowlist.js}) antes de spawnar. Scripts de referência no
+\tool{YANC}: \file{single\_proc.sh} (um processador) e \file{multi\_proc.sh}
+(vários sob top-level). Sem desvio ``tem processador?''; sem processadores os laços
+são no-op (\emph{pipeline único}).
+
+\begin{lstlisting}
+=========================================================================
+  PIPELINE SAPHO  (renderer orquestra | [bin] = main + allowlist)
+=========================================================================
+ (1) PROJETO  -> grava <proj>.spf  (fonte canonica)
+     synthesizableFiles, testbenchFiles, topLevelFile,
+     processors[]: name/cmmFile/clk(=100)/numClocks(=2000)/showArrays
+     cria: <proj>/<proc>/{Software,Hardware,Simulation}
+           components/Temp/<proc>/   (scratch -t / CWD da sim)
+        v
+ (2) CODIGO-FONTE  (editor Monaco)
+     <proc>.cmm (ou .cpp) + top-level.v + testbench
+       (<proc>_tb.v auto | top_level_tb.v | *.py cocotb)
+     [Verilator] ensureChegueiToaqui -> injeta #TOAQUI no .cmm
+        v
+ (3) COMPILACAO  (precompileAllProcessors -> por processador)
+   +-----------------------------------------------------------------+
+   | [cmmcomp.exe] [-pt|-en] -i .cmm -n -p -m -t [--array]           |
+   |    -> <proc>.asm + cmm_log.txt + pc_<proc>_mem.txt              |
+   |       + <proc>_data.mif / <proc>_inst.mif                       |
+   | [appcomp.exe] -i .asm -t  -> .asm pre-processado (params/end.)  |
+   | [asmcomp.exe] -i .asm -p -d HDL -m -t -f<clk> -c<numClk>        |
+   |    -> Hardware/<proc>.v (RTL) + .mif + <proc>_tb.v -> Simulation|
+   +-----------------------------------------------------------------+
+     (-y components/HDL: processor/core/ula/addr_dec/instr_dec/myFIFO)
+        +----------------+------------------+
+        v (4a Icarus)    v (4b Verilator)   v (4c cocotb/Python)
+ (5) INSTRUMENTAR DUMP  (comum, ANTES de simular)
+     _resolveWaveSelection:
+       .gtkw ativo > Wave Config > $dumpvars no tb > default
+     instrumentTestbench -> Temp/instr_<tb>.v  (copia; original intacto)
+        v
+   [iverilog -s tb -y HDL  [verilator --binary  [cocotb: iverilog ou
+    -o .vvp]; [vvp -fst]    --timing --trace]    verilator por baixo]
+     stageProcessorMemoryFiles: pc_*_mem.txt -> Temp/ ($readmemb)
+        v
+     DUMP de ondas (FST)
+     _extractFstHeaderVcd -> [fst2vcd] -> header.vcd (escopos/sinais)
+        v
+ (6) VISUALIZAR  (getViewer)
+     +-- gtkwave -> buildAuroraGtkw -> .gtkw -> [gtkwave.exe]
+     +-- surfer  -> buildSurferLayout -> .surf -> [surfer.exe]
+        faixas C+- / assembly / variaveis em LOCKSTEP com o clock
+ (7) INSPECIONAR RTL  (botao PRISM, em paralelo)
+     verilogSyntaxCheck -> [iverilog -tnull] ->
+     generateProjectHierarchy -> [yosys] read_verilog+hierarchy+proc+
+        write_json -> Temp/project_hierarchy.json -> arvore de modulos
+     PRISM -> [yosys] netlist JSON -> netlistsvg (in-process) -> SVG
+=========================================================================
+\end{lstlisting}
+
+\subsection{Artefatos e responsáveis por estágio}
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \textbf{(1)} \file{.spf} (canônico, via \code{SpfStore.read} em
+        \code{loadConfig}); pastas por \code{ensureDirectories}.
+  \item \textbf{(2)} \file{<proc>.cmm}/\file{.cpp}, top-level, testbench;
+        \code{ensureChegueiToaqui} só no ramo Verilator.
+  \item \textbf{(3a) cmmcomp} (\code{buildCmmSpec}): \file{.asm},
+        \file{cmm\_log.txt}, \file{pc\_<proc>\_mem.txt}, \file{.mif}.
+        \textbf{(3b) appcomp} (\code{buildAsmPreSpec}). \textbf{(3c) asmcomp}
+        (\code{buildAsmSpec}): \file{Hardware/<proc>.v}, \file{.mif},
+        \file{<proc>\_tb.v}.
+  \item \textbf{(4)} \code{getSimulator()} (Icarus default; Verilator opt-in);
+        cocotb se testbench é \file{.py}. Orquestra \code{runGtkWave}.
+  \item \textbf{(5)} \code{instrumentTestbench} grava \file{instr\_<tb>.v}
+        idempotente; original nunca tocado.
+  \item \textbf{(6)} \code{getViewer()}: writers \file{gtkw\_proc\_writer.js} /
+        \file{surfer\_layout\_writer.js}.
+  \item \textbf{(7)} \file{prism.js}; \tool{netlistsvg} roda in-process (fora da
+        allowlist).
+\end{itemize}
+
+\textbf{Allowlist} (basename + diretório legal): \file{cmmcomp.exe},
+\file{appcomp.exe}, \file{asmcomp.exe}, \file{comp2gtkw.exe}
+(\path{components/bin}); \file{iverilog.exe}, \file{vvp.exe},
+\file{verilator.exe}, \file{yosys.exe}, \file{g++.exe}, \file{make.exe},
+\file{perl.exe} (\path{Packages/msys/mingw64/bin}); \file{gtkwave.exe},
+\file{fst2vcd.exe} (fork \tool{gtkwave-nipscern}); \file{surfer.exe}.
+
+\
+\section{Engenharia, qualidade e evolução}
+\label{sec:S15-engenharia-evolucao}
+
+A IDE \tool{AURORA} é um app Electron em JavaScript com migração incremental para TypeScript \emph{in place} (\file{tsconfig.json} com \lstinline|rootDir| e \lstinline|outDir| em \code{.}, \code{strict}; \code{.js} gerados ficam no \file{.gitignore}). A qualidade atua em três momentos: editor, \emph{commit} e CI.
+
+\subsection{Cadeia de qualidade}
+\label{sub:S15-cadeia}
+
+\begin{itemize}[nosep]
+  \item \textbf{Testes unitários}: \tool{vitest} (\lstinline|vitest run|), só \path{tests/unit/**}, sem Electron; cobertura via provedor \code{v8} (\code{lcov} em \path{coverage/}). Domínios: caminhos (\file{safePath.test.js}), \emph{wave} (\file{vcdParser}, \file{gtkwWriter}, \file{surferLayoutWriter}), compilação, projeto, Aurora Intelligence, editor, Git.
+  \item \textbf{E2E}: \tool{playwright} via \lstinline|_electron| (\file{vitest.config.e2e.js}, \lstinline|fileParallelism:false|, \emph{timeouts} 60/120\,s). Três arquivos: \file{smoke.test.js}, \file{edit-flow.test.js}, \file{split-pane.test.js}; o \emph{smoke} valida montagem do \lstinline|#monaco-editor| e marca \lstinline|aurora-interactive| (guarda de regressão, 30\,s).
+  \item \textbf{Lint}: \tool{eslint} 9 \emph{flat config} (\file{eslint.config.mjs}), blocos por ambiente (\emph{main} CommonJS, \emph{renderer} com globais de \lstinline|window| \code{readonly}, preloads, testes); CI com \lstinline|--max-warnings=0|.
+  \item \textbf{Código morto}: \tool{knip} (\file{knip.config.js}, fixado \code{6.17.1}); entradas lidas de \file{index.html} em \emph{runtime}; CI roda \lstinline|npm run deadcode|.
+  \item \textbf{Hooks}: \tool{husky}+\tool{lint-staged} (instalados por \code{prepare}); \file{pre-commit} roda ESLint nos \emph{staged}, \file{commit-msg} chama \tool{commitlint}.
+  \item \textbf{Conventional Commits}: \file{commitlint.config.mjs} estende \code{config-conventional} com tipos \code{hardening}, \code{ux}, \code{ui}, \code{diag}; pareia com \tool{release-please}.
+  \item \textbf{Tipos}: \lstinline|tsc --noEmit| na CI + \file{scripts/check-no-generated-js.js}.
+  \item \textbf{CI} (\path{.github/workflows/}, \code{windows-latest}, Node~20): \file{ci.yml} encadeia versões pinadas, ESLint, \emph{typecheck}, i18n, \tool{knip}, \lstinline|node --check|, testes com cobertura, E2E e \emph{build} sem publicação. Mais \file{codeql.yml}, \file{release-please.yml}, \file{release.yml} (instalador Windows para \tool{electron-updater}) e \file{dependabot-automerge.yml}. Release publica em \repo{sapho} (\emph{split} intencional com \repo{aurora}).
+\end{itemize}
+
+\subsection{Evolução (histórico de Git)}
+\label{sub:S15-evolucao}
+
+\repo{aurora}: 1269 \emph{commits} desde 04/02/2025, tags até \code{v6.3.2}; \repo{yanc}: 665 desde 09/10/2024, tags até \code{v5.2}. Pico em maio--junho/2026. Autores (\repo{aurora}): Chrysthofer (611+228+10+7, em identidades distintas incl.\ \code{nipscern}/\code{Kristoffer}), Luciano (473, responsável), Arthur (\code{ART_AM}, 8, via \emph{branches}), Dependabot (21), Claude (sessões de IA). \code{main} é o \emph{branch} de integração.
+
+\begin{longtable}{Y Z}
+  \caption{Marcos do \repo{aurora}.}\label{tab:S15-timeline}\\
+  \toprule \textbf{Data} & \textbf{Marco} \\ \midrule \endhead
+  \bottomrule \endfoot
+  Fev--Mai/2025 & Histórico público (\code{v2.0.0}); PRISM (RTL); editor Monaco; \emph{revamp} de UI (\code{v3.x}); versionamento manual. \\
+  Nov/2025 & Modos \enquote{Project}/\enquote{Verilog} com \emph{file managers} próprios. \\
+  26/04/2026 & \emph{Revamp} visual maior + janela sem moldura. \\
+  06--07/05/2026 & \tool{husky}+\tool{lint-staged}; \emph{auto-download} de \emph{toolchain} (\code{toolchain-v1}); \tool{vitest} + TypeScript \emph{opt-in}; \tool{release-please}; 1.º E2E. \\
+  10--11/05/2026 & Consolidação para \textbf{modo único} (remoção dos modos). \\
+  16--19/05/2026 & \textbf{Aurora Intelligence} ponta a ponta (\code{v6.0.0}); \code{v6.3.x}. \\
+  03/06/2026 & \emph{Toolchain} FOSS num \emph{bundle} mingw (\code{msys-v1}); \emph{builders} de compilação em TS. \\
+  13/06/2026 & \textbf{Vite} como \emph{bundler} do \emph{renderer}; fundação Lit + Design Lab. \\
+  14/06/2026 & \tool{Surfer} como \emph{viewer} de ondas \emph{opt-in} (ao lado do GTKWave); CSP/\emph{sandbox}. \\
+  16--17/06/2026 & \textbf{Source Control embutido} (\enquote{Dagr}); APIs Git para a IA; decorações de status na árvore. \\
+  18--19/06/2026 & \tool{Verible} e slang-server; \tool{tree-sitter} (\emph{highlight}); \emph{format} via \tool{clang-format}; \emph{shells} Lit. \\
+\end{longtable}
+
+\noindent\textbf{Aurora Intelligence} está totalmente implementado, mas o provider e os modelos próprios do laboratório ainda não foram treinados (roadmap). \repo{yanc} entrega binários versionados (\code{v1}--\code{v5.2}) que o \repo{aurora} baixa via \code{bootstrap}; \code{v5.2} (08/06/2026) trouxe paridade de GTKWave no pipeline C++.
+
+
+\
+\section{Glossário e fontes}
+\label{sec:glossario}
+
+\subsection*{Glossário}
+{\footnotesize
+\begin{multicols}{2}
+\begin{description}[style=nextline,leftmargin=0pt,font=\bfseries\ttfamily,itemsep=1pt]
+\item[SAPHO] \textit{Scalable Architecture Processor for Hardware Optimization}: a suíte AURORA + YANC +
+\textit{toolchain}; também o canal de distribuição e o arquivo de projeto (\file{.spf}).
+\item[AURORA] A IDE \textit{desktop} (Electron + Monaco) da plataforma.
+\item[YANC] \textit{Yet Another Compiler}: os compiladores que vão de \cmm{}/C++ a Verilog.
+\item[\cmm{}] Linguagem tipo C com ponto-fixo, ponto-flutuante e complexos de primeira classe.
+\item[PRISM] Visualizador de RTL embutido (Yosys + netlistsvg).
+\item[Aurora Intelligence] Subsistema de IA (chat + ferramentas).
+\item[\file{.spf}] \textit{SAPHO Project File}: configuração canônica do projeto.
+\item[\file{.asm}] Assembly intermediário entre \textit{front-end} e \textit{back-end}.
+\item[\file{.mif}] \textit{Memory Initialization File}: imagem de memória do core.
+\item[testbench] Banco de testes (\file{\_tb.v} em Verilog, ou Python via \tool{cocotb}).
+\item[VCD / FST] Formatos de \textit{dump} de simulação (textual / binário do GTKWave).
+\item[\file{.gtkw}] Arquivo de \textit{view} (sinais/cores/grupos) do GTKWave.
+\item[Icarus / vvp] Simulador Verilog padrão (compila + executa).
+\item[Verilator] Simulador de alto desempenho (compila para C++).
+\item[cocotb] \textit{Framework} Python de \textit{testbench}.
+\item[Yosys] Síntese de RTL para netlist JSON (usada no PRISM).
+\item[GTKWave / Surfer] Visualizadores de formas de onda.
+\item[netlistsvg] Netlist JSON $\rightarrow$ diagrama SVG.
+\item[Verible / slang] Servidores de linguagem (LSP) de Verilog.
+\item[Monaco / Electron / Vite] Editor, \textit{framework} \textit{desktop} e \textit{bundler}.
+\item[MCP] \textit{Model Context Protocol}: acesso das CLIs de IA às ferramentas da IDE.
+\item[DPAPI / safeStorage] Criptografia do SO para as chaves de API.
+\item[NSIS / electron-updater] Instalador Windows e atualização automática.
+\item[numBits / MABits / MIBits] Diretivas \cmm{} que parametrizam larguras do core.
+\end{description}
+\end{multicols}
+}
+
+\subsection*{Fontes}
+Este documento foi construído a partir do \textbf{estudo direto do código-fonte} dos repositórios
+\texttt{nipscernlab} (a documentação \file{.md} existente serviu apenas como pista, sendo cada
+afirmação verificada contra a implementação).
+
+{\footnotesize
+\textbf{Repositórios:}
+\repo{aurora} (\url{https://github.com/nipscernlab/aurora}),
+\repo{yanc},
+\repo{sapho},
+\repo{aurora-toolchain},
+\repo{gtkwave-nipscern},
+\repo{netlistsvg-aurora}.
+\par\smallskip
+\textbf{Ferramentas de terceiros (projetos de origem):}
+Electron, Monaco Editor, Vite, Icarus Verilog, Verilator, Yosys, GTKWave, cocotb, netlistsvg,
+DigitalJS, Surfer, Verible, slang, tree-sitter, clang-format, MSYS2, KaTeX, Lit,
+\textit{Model Context Protocol}, Vercel AI SDK, electron-builder, electron-updater, release-please.
+\par\smallskip
+\textbf{Padrões:} Verilog HDL (IEEE 1364); VCD/FST; \textit{Conventional Commits}; NSIS.
+}
+
+
+\end{document}

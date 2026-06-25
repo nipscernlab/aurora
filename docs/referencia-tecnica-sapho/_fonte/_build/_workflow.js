@@ -12,7 +12,7 @@ export const meta = {
 // ---------------------------------------------------------------------
 const SHARED = `
 == PROJETO ==
-Voce esta documentando o NUCLEO da plataforma SAPHO ("Scalable Architecture for Hardware
+Voce esta documentando o NUCLEO da plataforma SAPHO ("Scalable-Architecture Processor for Hardware
 Optimization"), desenvolvida pelo laboratorio NIPSCERN na UFJF (Universidade Federal de Juiz de
 Fora, Brasil). SAPHO = a suite que une AURORA + YANC + um toolchain bundle.
 

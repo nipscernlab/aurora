@@ -321,7 +321,7 @@ class AuroraWelcome extends LitElement {
       <div class="content">
         <header class="topbar">
           <span class="mark">SAPHO</span>
-          <span class="tagline">${this._t('welcome.tagline', 'Scalable Architecture Processor for Hardware Optimization')}</span>
+          <span class="tagline">${this._t('welcome.tagline', 'Scalable-Architecture Processor for Hardware Optimization')}</span>
         </header>
 
         <div class="grid">

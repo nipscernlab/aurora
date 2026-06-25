@@ -1,7 +1,7 @@
 {
   "name": "sapho",
   "productName": "SAPHO",
-  "description": "Scalable Architecture Processor for Hardware Optimization",
+  "description": "Scalable-Architecture Processor for Hardware Optimization",
   "author": "NIPSCERN",
   "version": "6.3.2",
   "license": "MIT",

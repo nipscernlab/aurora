@@ -152,7 +152,7 @@
             "reset":                   "Restaurar Padrões",
             "save":                    "Salvar Alterações",
             "sectionAbout":            "Sobre",
-            "aboutTagline":            "Arquitetura Escalável para Otimização de Hardware",
+            "aboutTagline":            "Processador de Arquitetura Escalável para Otimização de Hardware",
             "aboutVersion":            "Versão",
             "aboutTeam":               "Equipe",
             "aboutDeveloper":          "Desenvolvedor",
@@ -579,7 +579,7 @@
         }
     },
     "welcome": {
-        "tagline":         "Arquitetura Escalável para Otimização de Hardware",
+        "tagline":         "Processador de Arquitetura Escalável para Otimização de Hardware",
         "sectionStart":    "Início",
         "newProject":      "Novo Projeto",
         "openProject":     "Abrir Projeto",

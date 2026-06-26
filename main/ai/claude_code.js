@@ -513,6 +513,18 @@ async function start(payload, webContents) {
   const INACTIVITY_MS = 120_000;
   const pendingTools = new Set();
   let stalled = false;
+
+  // Tree-kill the CLI + its children (MCP client, any grandchildren). Shared by
+  // the inactivity reaper, the absolute-ceiling reaper, and a hard-stop. The
+  // `close` handler still fires after this, so callers don't double-handle.
+  const killProcTree = () => {
+    try {
+      if (process.platform === 'win32' && proc.pid) {
+        spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { windowsHide: true });
+      } else { proc.kill('SIGTERM'); }
+    } catch (_) { /* the close handler still fires */ }
+  };
+
   /** @type {ReturnType<typeof setTimeout>|null} */
   let inactivityTimer = null;
   const armInactivity = () => {
@@ -521,15 +533,20 @@ async function start(payload, webContents) {
     const t = setTimeout(() => {
       if (t !== inactivityTimer) return; // a newer arm (or cleanup) superseded us
       stalled = true;
-      try {
-        if (process.platform === 'win32' && proc.pid) {
-          spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { windowsHide: true });
-        } else { proc.kill('SIGTERM'); }
-      } catch (_) { /* the close handler still fires */ }
+      killProcTree();
     }, INACTIVITY_MS);
     inactivityTimer = t;
   };
 
+  // NB: there is deliberately NO absolute per-turn time limit. A real agentic
+  // task (a large refactor, several slow compiles, deep reasoning) can run for a
+  // long time and must NOT be cut off by an arbitrary clock. Orphans are handled
+  // by OWNERSHIP instead (see killAll / the renderer-reload reaper in
+  // windows.js): a turn is reaped when nobody is listening for it anymore — the
+  // panel was abandoned, the renderer reloaded, or the app is quitting — never
+  // because it "took too long". The inactivity reaper above only fires on pure
+  // silence with no tool in flight (a genuinely wedged CLI), which is a liveness
+  // signal, not a deadline.
   sessions.set(sessionId, { proc, markAborted: () => { aborted = true; } });
 
   try { proc.stdin.write(prompt); proc.stdin.end(); }

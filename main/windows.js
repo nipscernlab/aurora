@@ -192,6 +192,28 @@ function createMainWindow(opts = {}) {
     }
   });
 
+  // Orphan reaper (ownership-based, NOT time-based). A Claude Code / Codex turn
+  // streams its events to THIS renderer document. If the document goes away — a
+  // reload (Ctrl+R in dev), a navigation, or a renderer crash — every in-flight
+  // AI turn is abandoned: nobody will ever consume its events or abort it, so the
+  // CLI subprocess would linger as a zombie child of the still-alive app and pile
+  // up across the session. Reap them the instant the document is replaced. This
+  // is the correct anti-orphan signal precisely because it is about OWNERSHIP, not
+  // elapsed time — a long-but-healthy agentic turn (big refactor, slow compiles)
+  // keeps running untouched as long as its panel is alive.
+  const reapAbandonedAi = (why) => {
+    try { require('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
+    try { require('./ai/codex_cli').killAll(); } catch (_) { /* not loaded */ }
+    log.info(`[windows] reaped abandoned AI turns (${why})`);
+  };
+  mainWindow.webContents.on('did-start-navigation', (_e, _url, isInPlace, isMainFrame) => {
+    // Only a real top-level document load wipes the renderer's JS state; skip
+    // same-document (anchor) navigations and sub-frames. On the very FIRST load
+    // there are no sessions yet, so this is a harmless no-op.
+    if (isMainFrame && !isInPlace) reapAbandonedAi('renderer navigation/reload');
+  });
+  mainWindow.webContents.on('render-process-gone', () => reapAbandonedAi('renderer process gone'));
+
   // Register the sapho: protocol and .spf extension on Windows.
   // AppUserModelID + initial jumplist are set in main.js / on
   // app-ready — too early for createMainWindow to be involved.

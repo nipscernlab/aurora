@@ -76,6 +76,41 @@ function computeDecorations(files, rootPath) {
   return { fileStatus, changedDirs };
 }
 
+/**
+ * Build the ignored-path matcher from git's ignored+untracked list — PURE, so
+ * it's unit-testable. `paths` are repo-relative, forward-slashed; a fully-ignored
+ * directory arrives as "<dir>/" (trailing slash). We resolve each to a normalised
+ * absolute path (matching the rows' data-path) and split into exact files and
+ * directory prefixes.
+ * @returns {{files: Set<string>, dirs: string[]}}
+ */
+function computeIgnored(paths, rootPath) {
+  const rootN = norm(rootPath);
+  const files = new Set();
+  const dirs = [];
+  if (!rootN) return { files, dirs };
+  for (const p of (paths || [])) {
+    let rel = String(p || '').replace(/\\/g, '/').replace(/^\/+/, '');
+    if (!rel) continue;
+    const isDir = rel.endsWith('/');
+    rel = rel.replace(/\/+$/, '').toLowerCase();
+    if (!rel) continue;
+    const absN = `${rootN}/${rel}`;
+    if (isDir) dirs.push(absN); else files.add(absN);
+  }
+  return { files, dirs };
+}
+
+/** Is normalised absolute path `absN` ignored (exact file, or under an ignored dir)? */
+function isIgnoredPath(absN, ig) {
+  if (!ig || !absN) return false;
+  if (ig.files.has(absN)) return true;
+  for (const d of ig.dirs) {
+    if (absN === d || absN.startsWith(d + '/')) return true;
+  }
+  return false;
+}
+
 function t(key, fallback) {
   try { const v = window.t?.(key); if (v && v !== key) return v; } catch (_) { /* ignore */ }
   return fallback;
@@ -85,6 +120,7 @@ class GitDecorations {
   constructor() {
     this._fileStatus = new Map();   // normAbsPath → status letter
     this._changedDirs = new Set();  // normAbsPath of dirs that contain a change
+    this._ignored = null;           // { files:Set, dirs:[] } of gitignored+untracked paths
     this._applyTimer = null;
     this._refreshTimer = null;
     this._observer = null;
@@ -131,13 +167,24 @@ class GitDecorations {
     const { fileStatus, changedDirs } = computeDecorations(st.files, root);
     this._fileStatus = fileStatus;
     this._changedDirs = changedDirs;
+
+    // Gitignored + untracked paths → muted rows in the folders view. Best-effort:
+    // a failure (or older preload without the channel) just means no muting.
+    try {
+      const ig = await window.gitAPI.ignored?.();
+      this._ignored = (ig && ig.ok !== false && ig.isRepo && Array.isArray(ig.paths))
+        ? computeIgnored(ig.paths, root)
+        : null;
+    } catch (_) { this._ignored = null; }
+
     this.apply();
   }
 
   _clear() {
-    if (this._fileStatus.size === 0 && this._changedDirs.size === 0) { this.apply(); return; }
+    if (this._fileStatus.size === 0 && this._changedDirs.size === 0 && !this._ignored) { this.apply(); return; }
     this._fileStatus = new Map();
     this._changedDirs = new Set();
+    this._ignored = null;
     this.apply();
   }
 
@@ -159,6 +206,8 @@ class GitDecorations {
         } else {
           this._paint(row, nameEl, this._fileStatus.get(p) || null);
         }
+        // Dim rows that are gitignored AND untracked (files or whole folders).
+        row.classList.toggle('git-ignored-muted', isIgnoredPath(p, this._ignored));
       });
       // --- "files" (verilog) view: file items ---
       treeRoot.querySelectorAll('.verilog-file-item[data-file-path]').forEach((item) => {
@@ -217,4 +266,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { gitDecorations, GitDecorations, computeDecorations, letterOf };
+export { gitDecorations, GitDecorations, computeDecorations, letterOf, computeIgnored, isIgnoredPath };

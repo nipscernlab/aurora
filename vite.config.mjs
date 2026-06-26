@@ -103,6 +103,14 @@ export default defineConfig({
         // strip node_modules/@phosphor-icons/web -> keeps src/...  -> dist/vendor/phosphor/src/...
         { src: 'node_modules/@phosphor-icons/web/src/**/*', dest: 'vendor/phosphor', rename: { stripBase: 3 } },
 
+        // Material Icon Theme — the Folders (standard) file-tree view's icons
+        // (js/tree/material_icons.js fetches the manifest, then sets each row's
+        // background-image to a vendored SVG). strip node_modules/material-icon-theme/icons
+        // -> keeps <name>.svg -> dist/vendor/material-icons/<name>.svg, and the
+        // association manifest lands beside them as material-icons.json.
+        { src: 'node_modules/material-icon-theme/icons/**/*', dest: 'vendor/material-icons', rename: { stripBase: 3 } },
+        { src: 'node_modules/material-icon-theme/dist/material-icons.json', dest: 'vendor/material-icons', rename: { stripBase: 3 } },
+
         // App resources the renderer fetches by DOCUMENT-RELATIVE path at runtime
         // (not via the import graph, so Vite can't see them). The raw page lived
         // at the repo root where these resolved; the built page lives in dist/,

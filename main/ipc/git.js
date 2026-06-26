@@ -161,6 +161,20 @@ function register() {
     };
   }));
 
+  // Paths that git IGNORES and does NOT track — i.e. matched by .gitignore and
+  // never added. (git never reports a *tracked* file as ignored, so this is
+  // exactly "ignored AND untracked".) `--directory` collapses a fully-ignored
+  // folder to a single "<dir>/" entry instead of listing all its contents; the
+  // renderer rolls that prefix down when muting rows. `-z` => NUL-separated so
+  // paths with spaces/newlines are safe. Paths are repo-relative, forward-slashed.
+  ipcMain.handle('git:ignored', safe(async (opts) => {
+    const git = gitFor(opts);
+    if (!(await git.checkIsRepo())) return { isRepo: false, paths: [] };
+    const raw = await git.raw(['ls-files', '-o', '-i', '--exclude-standard', '--directory', '-z']);
+    const paths = String(raw || '').split('\0').filter(Boolean);
+    return { isRepo: true, paths };
+  }));
+
   // Unified diff for one file (or the whole worktree when file omitted). Capped.
   ipcMain.handle('git:diff', safe(async (/** @type {{file?:string, staged?:boolean, dir?:string}} */ opts = {}) => {
     const git = gitFor(opts);

@@ -249,7 +249,11 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 .file-tree-item:hover .folder-toggle-icon { color: var(--text-secondary); }
 
 /* ---------------------------------------------------------------------------
- *  File icon — 16px, sits between chevron and name
+ *  File / folder icon — 16px, between chevron and name. Icons come from the
+ *  Material Icon Theme (js/tree/material_icons.js), painted as a background-
+ *  image in THEIR OWN colours. Aurora's old per-extension / per-depth icon
+ *  tinting was removed — the library provides the colour now. `color` is kept
+ *  only for the masked .aurora-icon-cmm glyph, which renders in currentColor.
  * ------------------------------------------------------------------------- */
 .file-item-icon {
   display: inline-flex;
@@ -259,103 +263,19 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   height: 22px;
   flex-shrink: 0;
   margin: 0 4px 0 2px;
-  font-size: var(--text-base);
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   color: var(--text-muted);
 }
 
-.file-item-icon.ph-folder,
-.file-item-icon.ph-folder-open {
-  color: var(--aurora-cyan);
-}
-/* Open folders glow a touch brighter (teal) so the expanded state reads
-   instantly without changing the icon's footprint. */
-.file-item-icon.ph-folder-open {
-  color: var(--aurora-teal);
-}
-
 /* ---------------------------------------------------------------------------
- *  Type-aware icon colours. The standard renderer stamps data-ext on each
- *  file row. Grouped by family so related types read as a set at a glance.
+ *  Git-ignored + untracked rows (matched by .gitignore, not tracked in Dagr)
+ *  are dimmed — still visible, just clearly "not in version control". Painted
+ *  by js/tree/git_decorations.js (.git-ignored-muted on the row).
  * ------------------------------------------------------------------------- */
-/* SAPHO / hardware toolchain — same hues the compile buttons use. */
-.file-tree-item[data-ext="cmm"]  .file-item-icon { color: var(--color-cmm); }
-.file-tree-item[data-ext="asm"]  .file-item-icon { color: var(--color-asm); }
-.file-tree-item[data-ext="v"]    .file-item-icon,
-.file-tree-item[data-ext="sv"]   .file-item-icon,
-.file-tree-item[data-ext="vh"]   .file-item-icon { color: var(--color-veri); }
-.file-tree-item[data-ext="gtkw"] .file-item-icon,
-.file-tree-item[data-ext="vcd"]  .file-item-icon,
-.file-tree-item[data-ext="fst"]  .file-item-icon { color: var(--color-wave); }
-.file-tree-item[data-ext="mif"]  .file-item-icon { color: var(--aurora-teal); }
-.file-tree-item[data-ext="spf"]  .file-item-icon { color: var(--aurora-violet); }
-
-/* Python (cocotb testbenches & scripts). */
-.file-tree-item[data-ext="py"]   .file-item-icon { color: #6FB7E8; }
-
-/* JS / TS family. */
-.file-tree-item[data-ext="js"]   .file-item-icon,
-.file-tree-item[data-ext="mjs"]  .file-item-icon,
-.file-tree-item[data-ext="jsx"]  .file-item-icon { color: var(--status-warning); }
-.file-tree-item[data-ext="ts"]   .file-item-icon,
-.file-tree-item[data-ext="tsx"]  .file-item-icon { color: var(--aurora-cyan); }
-.file-tree-item[data-ext="vue"]  .file-item-icon { color: var(--aurora-mint); }
-
-/* Web. */
-.file-tree-item[data-ext="html"] .file-item-icon,
-.file-tree-item[data-ext="htm"]  .file-item-icon { color: #E8865C; }
-.file-tree-item[data-ext="css"]  .file-item-icon,
-.file-tree-item[data-ext="scss"] .file-item-icon,
-.file-tree-item[data-ext="sass"] .file-item-icon,
-.file-tree-item[data-ext="less"] .file-item-icon { color: var(--aurora-cyan); }
-
-/* Data / config. */
-.file-tree-item[data-ext="json"] .file-item-icon { color: var(--status-warning); }
-.file-tree-item[data-ext="xml"]  .file-item-icon { color: var(--aurora-pink); }
-.file-tree-item[data-ext="yaml"] .file-item-icon,
-.file-tree-item[data-ext="yml"]  .file-item-icon,
-.file-tree-item[data-ext="toml"] .file-item-icon { color: var(--aurora-teal); }
-.file-tree-item[data-ext="ini"]  .file-item-icon,
-.file-tree-item[data-ext="conf"] .file-item-icon,
-.file-tree-item[data-ext="config"] .file-item-icon,
-.file-tree-item[data-ext="env"]  .file-item-icon { color: var(--text-secondary); }
-
-/* C / C++ family. */
-.file-tree-item[data-ext="c"]    .file-item-icon { color: var(--aurora-cyan); }
-.file-tree-item[data-ext="cpp"]  .file-item-icon,
-.file-tree-item[data-ext="cc"]   .file-item-icon,
-.file-tree-item[data-ext="cxx"]  .file-item-icon { color: var(--aurora-violet); }
-.file-tree-item[data-ext="h"]    .file-item-icon,
-.file-tree-item[data-ext="hpp"]  .file-item-icon { color: var(--aurora-purple); }
-
-/* Docs. */
-.file-tree-item[data-ext="md"]       .file-item-icon,
-.file-tree-item[data-ext="markdown"] .file-item-icon { color: var(--aurora-cyan); }
-.file-tree-item[data-ext="txt"]  .file-item-icon,
-.file-tree-item[data-ext="rtf"]  .file-item-icon { color: var(--text-muted); }
-.file-tree-item[data-ext="pdf"]  .file-item-icon { color: var(--status-error); }
-
-/* Shell / scripts. */
-.file-tree-item[data-ext="sh"]   .file-item-icon,
-.file-tree-item[data-ext="bash"] .file-item-icon,
-.file-tree-item[data-ext="zsh"]  .file-item-icon,
-.file-tree-item[data-ext="ps1"]  .file-item-icon,
-.file-tree-item[data-ext="bat"]  .file-item-icon,
-.file-tree-item[data-ext="cmd"]  .file-item-icon { color: var(--aurora-mint); }
-
-/* Media. */
-.file-tree-item[data-ext="svg"]  .file-item-icon { color: var(--status-warning); }
-.file-tree-item[data-ext="png"]  .file-item-icon,
-.file-tree-item[data-ext="jpg"]  .file-item-icon,
-.file-tree-item[data-ext="jpeg"] .file-item-icon,
-.file-tree-item[data-ext="gif"]  .file-item-icon,
-.file-tree-item[data-ext="webp"] .file-item-icon { color: var(--aurora-purple); }
-
-/* Archives. */
-.file-tree-item[data-ext="zip"]  .file-item-icon,
-.file-tree-item[data-ext="rar"]  .file-item-icon,
-.file-tree-item[data-ext="7z"]   .file-item-icon,
-.file-tree-item[data-ext="tar"]  .file-item-icon,
-.file-tree-item[data-ext="gz"]   .file-item-icon { color: var(--status-warning); }
+.file-item.git-ignored-muted { opacity: 0.45; }
+.file-item.git-ignored-muted:hover { opacity: 0.7; }
 
 /* ---------------------------------------------------------------------------
  *  Name

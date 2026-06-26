@@ -508,6 +508,7 @@ const utilityOperations = {
 const gitOperations = {
   isRepo:    (opts) => ipcRenderer.invoke('git:is-repo', opts),
   status:    (opts) => ipcRenderer.invoke('git:status', opts),
+  ignored:   (opts) => ipcRenderer.invoke('git:ignored', opts),
   diff:      (opts) => ipcRenderer.invoke('git:diff', opts),
   log:       (opts) => ipcRenderer.invoke('git:log', opts),
   show:      (opts) => ipcRenderer.invoke('git:show', opts),

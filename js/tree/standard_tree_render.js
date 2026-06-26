@@ -24,6 +24,8 @@
 import { electronAPI } from '../app/electron_api.js';
 import { treeView } from './tree_view.js';
 import { TabManager } from '../tabs/tab_manager.js';
+import { ensureManifest, iconUrlForFile, iconUrlForFolder } from './material_icons.js';
+import { parseInv, isInvHidden } from './inv_filter.js';
 
 // Files that never belong in the explorer: legacy config blobs, the
 // .spf project file itself, and dotfiles. Mirrors the old standard
@@ -36,6 +38,25 @@ function isIgnored(entry) {
     return name.startsWith('.')
         || IGNORED_FILES.includes(name)
         || name.endsWith('.spf');
+}
+
+// .cmm has no Material icon — it keeps Aurora's custom masked glyph
+// (.aurora-icon-cmm, currentColor) used across the tabs and verilog tree.
+function isCmm(name) {
+    return String(name || '').toLowerCase().endsWith('.cmm');
+}
+
+// Path of `p` relative to project root `root` (forward-slashed, root-relative,
+// no leading slash). '' when p IS the root; full path if p is outside root.
+function relTo(root, p) {
+    const norm = (x) => String(x || '').replace(/\\/g, '/').replace(/\/+$/, '');
+    const r = norm(root);
+    const f = norm(p);
+    const rl = r.toLowerCase();
+    const fl = f.toLowerCase();
+    if (fl === rl) return '';
+    if (fl.startsWith(rl + '/')) return f.slice(r.length + 1);
+    return f;
 }
 
 // Directories first, then alphabetical — case-insensitive, the way a
@@ -55,12 +76,25 @@ class StandardTreeRenderer {
         this._expanded = new Set();
         // Guard against overlapping renders racing on the same container.
         this._rendering = false;
+        // Compiled `.inv` rules for the current project (loaded per full render).
+        // Entries matching these are dropped from the view (still git-tracked).
+        this._invRules = [];
         // Keep the open-in-editor file highlighted in the folder tree too
         // (parity with the verilog tree), updating as the active file changes.
         // The event is dispatched on `document` (and doesn't bubble to window),
         // so we MUST listen on document — listening on window silently never
         // fired, which is why the folder tree never showed the open file.
         document.addEventListener('aurora:editing-file-changed', () => this.refreshFocusHighlight());
+
+        // `.inv` lives outside the chokidar dir-watch (dotfiles are ignored),
+        // so editing it in the editor wouldn't otherwise refresh the tree.
+        // Re-render when an `.inv` is saved (dispatched on both window/document).
+        const onSaved = (e) => {
+            const p = e?.detail?.path || '';
+            if (/\.inv$/i.test(p)) this.render();
+        };
+        window.addEventListener('aurora:file-saved', onSaved);
+        document.addEventListener('aurora:file-saved', onSaved);
     }
 
     isExpanded(path) { return this._expanded.has(path); }
@@ -94,9 +128,8 @@ class StandardTreeRenderer {
         if (!container) return;
         container.querySelectorAll('.folder-content').forEach((fc) => fc.classList.add('hidden'));
         container.querySelectorAll('.folder-toggle-icon').forEach((t) => t.classList.add('collapsed'));
-        container.querySelectorAll('.file-item-icon.ph-folder-open').forEach((i) => {
-            i.classList.remove('ph-folder-open');
-            i.classList.add('ph-folder');
+        container.querySelectorAll('.file-item-icon[data-folder]').forEach((i) => {
+            this._setFolderIcon(i, i.dataset.folder, false);
         });
     }
 
@@ -146,6 +179,10 @@ class StandardTreeRenderer {
 
         this._rendering = true;
         try {
+            // Material icon manifest (cached after first load) + this project's
+            // `.inv` rules must be ready before we build any rows.
+            await ensureManifest();
+            await this._loadInvRules(root);
             const entries = await this._read(root);
             // Drop expanded paths that no longer exist under the root so
             // the Set doesn't grow unbounded across project switches.
@@ -205,7 +242,34 @@ class StandardTreeRenderer {
     async _read(dirPath) {
         const list = await electronAPI?.getFolderFiles?.(dirPath);
         if (!Array.isArray(list)) return [];
-        return sortEntries(list.filter((e) => !isIgnored(e)));
+        const root = window.currentProjectPath;
+        const rules = this._invRules;
+        const keep = (e) => {
+            if (isIgnored(e)) return false;
+            if (rules && rules.length && root) {
+                const rel = relTo(root, e.path);
+                if (rel && isInvHidden(rel, e.isDirectory, rules)) return false;
+            }
+            return true;
+        };
+        return sortEntries(list.filter(keep));
+    }
+
+    /**
+     * Load `<root>/.inv` into compiled rules for this render pass. Missing/
+     * unreadable `.inv` → empty rules (nothing hidden). The `.inv` file itself
+     * is a dotfile, so it's already excluded by isIgnored.
+     */
+    async _loadInvRules(root) {
+        this._invRules = [];
+        if (!root) return;
+        try {
+            const invPath = await electronAPI.joinPath(root, '.inv');
+            const txt = await electronAPI.readFile(invPath);
+            this._invRules = parseInv(txt);
+        } catch (_) {
+            this._invRules = []; // no .inv (ENOENT) or unreadable — hide nothing
+        }
     }
 
     _pruneExpanded(root) {
@@ -269,14 +333,18 @@ class StandardTreeRenderer {
             inner.appendChild(spacer);
         }
 
-        // Icon
-        const icon = document.createElement('i');
+        // Icon — Material Icon Theme SVG in its OWN colours, painted as a
+        // background-image (no recolouring; the old per-ext/per-depth tinting
+        // is gone). Folders get name-specific glyphs; .cmm keeps Aurora's
+        // custom masked currentColor glyph (no Material equivalent).
+        const icon = document.createElement('span');
+        icon.className = 'file-item-icon';
         if (entry.isDirectory) {
-            icon.className = `file-item-icon ph ${this.isExpanded(entry.path) ? 'ph-folder-open' : 'ph-folder'}`;
+            this._setFolderIcon(icon, entry.name, this.isExpanded(entry.path));
+        } else if (isCmm(entry.name)) {
+            icon.classList.add('aurora-icon-cmm');
         } else {
-            icon.className = `${TabManager.getFileIcon(entry.name)} file-item-icon`;
-            const ext = (entry.name.split('.').pop() || '').toLowerCase();
-            if (ext) wrapper.setAttribute('data-ext', ext);
+            icon.style.backgroundImage = `url("${iconUrlForFile(entry.name)}")`;
         }
         inner.appendChild(icon);
 
@@ -340,10 +408,18 @@ class StandardTreeRenderer {
 
         if (chevron) chevron.classList.toggle('collapsed', !willExpand);
         if (childBox) childBox.classList.toggle('hidden', !willExpand);
-        if (icon) {
-            icon.classList.toggle('ph-folder', !willExpand);
-            icon.classList.toggle('ph-folder-open', willExpand);
-        }
+        if (icon) this._setFolderIcon(icon, entry.name, willExpand);
+    }
+
+    /**
+     * Paint a folder row's icon: a name-specific Material folder glyph
+     * (folder-test/folder-scripts/…) in its open or closed variant. Stamps
+     * data-folder so collapseAll can recompute the closed icon without the
+     * entry object.
+     */
+    _setFolderIcon(iconEl, name, open) {
+        iconEl.dataset.folder = name || '';
+        iconEl.style.backgroundImage = `url("${iconUrlForFolder(name, { open })}")`;
     }
 
     async _openFile(filePath, fileName, options) {

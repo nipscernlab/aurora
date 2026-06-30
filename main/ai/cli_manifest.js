@@ -21,15 +21,19 @@
  * registry (`dist.integrity`); cli_downloader verifies the downloaded bytes
  * against them before extraction, so a tampered or truncated download aborts.
  *
- * To bump a CLI: change the base version in package.json, mirror it here, and
- * refresh the matching tarball URL + integrity from the registry, e.g.
+ * To bump a CLI: change the base version in package.json and run `npm install`.
+ * scripts/sync-cli-manifest.js (wired into `npm run bootstrap`, before the
+ * check) rewrites the version constants and per-platform integrity hashes here
+ * from package.json + package-lock.json automatically, so you normally don't
+ * edit this file by hand. To do it manually, mirror the version and refresh the
+ * tarball URL + integrity from the registry, e.g.
  *   npm view @anthropic-ai/claude-code-win32-x64@<ver> dist.integrity dist.tarball
  */
 
 'use strict';
 
 // Base versions — keep in lockstep with package.json dependencies.
-const CLAUDE_VERSION = '2.1.144'; // @anthropic-ai/claude-code
+const CLAUDE_VERSION = '2.1.196'; // @anthropic-ai/claude-code
 const CODEX_VERSION = '0.131.0';  // @openai/codex
 
 const REGISTRY = 'https://registry.npmjs.org';
@@ -54,7 +58,7 @@ const MANIFEST = {
         pkg: '@anthropic-ai/claude-code-win32-x64',
         version: CLAUDE_VERSION,
         tarball: `${REGISTRY}/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-${CLAUDE_VERSION}.tgz`,
-        integrity: 'sha512-0m1BDehglWdXdTdDXWdGYNonnPa/J/Ys26PERJPJ5MeJ6iB2IL9sIe28SNalecp3uW25XBiXXGl5QcPS70ZnDQ==',
+        integrity: 'sha512-Jz3R4pBXh48COCvumeykQPJXF9Dc1E7n9KeajAEKsHyj2WmgkR0GBXY0g/XBd1xtNono4CQjzaqXdEXa1Xqoog==',
         exe: 'claude.exe',
         rg: null,
       },

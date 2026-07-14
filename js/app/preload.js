@@ -200,6 +200,22 @@ const uiOperations = {
  * ========================================================================= */
 const terminalOperations = {
   onTerminalLog: (cb) => ipcRenderer.on('terminal-log', cb),
+
+  // Embedded interactive shell (TCMD tab). Human-driven only — NOT wired to the
+  // AI tool bridge. start streams `shell:data` / `shell:exit`; input feeds stdin.
+  shellStart: (opts) => ipcRenderer.invoke('shell:start', opts || {}),
+  shellInput: (id, data) => ipcRenderer.invoke('shell:input', { id, data }),
+  shellKill:  (id) => ipcRenderer.invoke('shell:kill', { id }),
+  onShellData: (cb) => {
+    const h = (_e, payload) => cb(payload);
+    ipcRenderer.on('shell:data', h);
+    return () => ipcRenderer.removeListener('shell:data', h);
+  },
+  onShellExit: (cb) => {
+    const h = (_e, payload) => cb(payload);
+    ipcRenderer.on('shell:exit', h);
+    return () => ipcRenderer.removeListener('shell:exit', h);
+  },
 };
 
 const terminalAPI = {};   // (terminalAPI separado mantido para compat futuro)

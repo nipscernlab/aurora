@@ -474,6 +474,15 @@
                       </span>
                       THTEST
                   </button>
+                  <button class="tab" data-terminal="tcmd" data-tooltip="Shell terminal (PowerShell)" data-i18n-tooltip="toolbar.termTab.cmd">
+                      <span class="glyph glyph-tcmd" aria-hidden="true">
+                        <svg viewBox="0 0 16 16">
+                          <path d="M3.5 4.5 L6.5 8 L3.5 11.5"/>
+                          <path d="M8.5 11.5 H12.5"/>
+                        </svg>
+                      </span>
+                      TCMD
+                  </button>
                 </div>
 
                 <div class="terminal-tabs-actions">
@@ -504,6 +513,17 @@
             <div class="terminal-content hidden" id="terminal-thtest">
                 <div class="terminal-header">THTEST Terminal</div>
                 <div class="terminal-body" data-i18n="terminalWelcome.thtest">Welcome to the terminal THTEST!</div>
+            </div>
+            <div class="terminal-content hidden" id="terminal-tcmd">
+                <div class="terminal-header">TCMD Terminal</div>
+                <div class="terminal-body"></div>
+                <div class="terminal-input-line">
+                    <span class="terminal-prompt">›</span>
+                    <input class="terminal-input" type="text" spellcheck="false" autocomplete="off"
+                           autocapitalize="off" autocorrect="off"
+                           aria-label="Shell command input" data-i18n-placeholder="terminal.cmd.placeholder"
+                           placeholder="Run a command (python, git, cd …) and press Enter" />
+                </div>
             </div>
         </aurora-terminal>
     </div>

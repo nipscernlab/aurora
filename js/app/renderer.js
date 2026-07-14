@@ -6,6 +6,9 @@ import { initMonaco } from '../editor/monaco_editor.js';
 import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
+// Side-effect import: boots the TCMD tab's embedded interactive shell (PowerShell)
+// and self-initializes on DOMContentLoaded.
+import '../terminal/shell_terminal.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 import { fileTreeManager } from '../tree/file_tree_manager.js';
 import { treeView } from '../tree/tree_view.js';

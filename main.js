@@ -76,6 +76,7 @@ const aiIpc = require('./main/ipc/ai');
 const gitIpc = require('./main/ipc/git');
 const githubAuthIpc = require('./main/ipc/github_auth');
 const searchIpc = require('./main/ipc/search');
+const shellIpc = require('./main/ipc/shell');
 
 // Register lifecycle (single-instance lock, app events, cleanup). If we lost
 // the lock, the function returns false after calling app.quit() — bail out so
@@ -97,6 +98,7 @@ if (acquiredLock) {
   githubAuthIpc.register();
   gitIpc.register();
   searchIpc.register();
+  shellIpc.register();
   // Updater IPC must be registered at boot, not lazily — the splash window
   // calls `getAppVersion()` before the autoUpdater itself is initialized.
   updater.registerIpc();

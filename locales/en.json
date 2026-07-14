@@ -47,7 +47,8 @@
             "asm":  "ASM terminal",
             "veri": "Verilog terminal",
             "wave": "Wave terminal",
-            "thtest": "Hardware test terminal"
+            "thtest": "Hardware test terminal",
+            "cmd": "Shell terminal (PowerShell)"
         }
     },
     "windowControls": {
@@ -414,6 +415,9 @@
             "toaquiPresent": "{{file}} already has a #TOAQUI — leaving it as is.",
             "toaquiNoMain":  "Could not find main()'s closing brace in {{file}} — #TOAQUI not added; the sim will run the full clock budget.",
             "chegueiEnd":    "Program end reached at clock {{clock}} (cheguei pin) — simulation stopped early."
+        },
+        "cmd": {
+            "placeholder": "Run a command (python, git, cd …) and press Enter"
         },
         "wave": {
             "gtkwaveClosed":         "GTKWave closed - restoring standard file tree...",

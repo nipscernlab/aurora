@@ -663,6 +663,9 @@
 #terminal-tcmd .terminal-line.success  { color: var(--term-success); }
 #terminal-tcmd .terminal-line.warning  { color: var(--term-warn); }
 #terminal-tcmd .terminal-line.info     { color: var(--term-info); }
+/* stderr from the shell: a muted tint so it's distinguishable without claiming
+   the strong error red (stderr is not always an error). */
+#terminal-tcmd .terminal-line.stderr   { color: var(--text-muted); }
 
 #terminal-tcmd .terminal-input-line {
   display: flex;

@@ -198,15 +198,22 @@ literalmente o nome do produto, feito com contenção.
 **Spec técnico:**
 - **WebGL** (full-screen quad + fragment shader), com **fallback** para `--aurora-veil` animado em
   CSS quando WebGL falta ou em `prefers-reduced-motion`.
-- **Movimento:** ruído de fluxo (curl/Perlin) deslocando bandas verticais do `--accent-veil`,
-  período `--motion-ambient` (~18s), amplitude baixa. A aurora *ondula*, não pisca.
-- **Custo:** alvo **< 1 ms/frame** em GPU integrada. Resolução interna reduzida (half-res) + upscale;
-  `requestAnimationFrame` pausado quando a janela perde foco (`backgroundThrottling` cuida do resto).
+- **Forma:** cortinas de aurora **em perspectiva**, varrendo o céu com profundidade 3D — o march
+  volumétrico do nimitz ("Auroras", ShaderToy XtGGRt, 2017), colorido por **profundidade** (verde na
+  base → teal → ciano → violeta → magenta nas pontas). Bandas em altitudes próximas se **sobrepõem
+  numa fita única conectada**; uma **franja de filamentos** verticais pende da borda inferior.
+- **Movimento:** a forma se transforma **no lugar** (o gradiente do tri-noise gira no tempo), **sem
+  translação lateral**; bandas extras **aparecem e somem** num envelope de período irregular (duas
+  senoides incomensuráveis), então nunca há loop perceptível. Lentíssimo. A aurora *ondula*, não pisca.
+- **Custo:** resolução interna reduzida (half-res) + upscale; `requestAnimationFrame` pausado fora de
+  tela / quando a janela perde foco. São 3 marchas empilhadas (banda-base + 2 camadas), custo maior
+  que uma cortina única — aceitável para um fundo ambiente pausável; reduzir passos se preciso.
 - **Restrição:** **nunca** atrás de texto de leitura prolongada (editor, terminal). Só em telas de
   transição/identidade. Opacidade baixa o suficiente para o conteúdo respirar.
 
-Isto é desenvolvido como um componente Lit isolado (`<aurora-canvas>`) com um único parâmetro de
-intensidade, para ser reutilizado e nunca duplicado.
+Isto é um componente Lit/vanilla isolado (`<aurora-canvas>`) com parâmetros `intensity` e `speed`,
+para ser reutilizado e nunca duplicado. Os coeficientes do visual (SOFT/FIL/BANDS/CONN/SWEEP/…) foram
+afinados ao vivo num protótipo e ficam como constantes no `FRAG` de [aurora_canvas.js](../js/visual/aurora_canvas.js).
 
 ---
 

@@ -316,7 +316,7 @@ class AuroraWelcome extends LitElement {
   render() {
     return html`
       <link rel="stylesheet" href=${PHOSPHOR_HREF} />
-      <aurora-canvas class="bg-canvas" intensity="0.95" speed="1.0" aria-hidden="true"></aurora-canvas>
+      <aurora-canvas class="bg-canvas" intensity="1.0" speed="1.3" aria-hidden="true"></aurora-canvas>
       <img class="watermark" src=${WATERMARK_SRC} alt="" aria-hidden="true" />
       <div class="content">
         <header class="topbar">

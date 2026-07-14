@@ -64,6 +64,11 @@ class AuroraWelcome extends LitElement {
       overflow-y: auto;
       position: relative;
       background: var(--surface-sky);
+      /* Over the vivid aurora the near-black --text-faint (#3F434E) is unreadable,
+         so within the welcome we lift "faint" text (tagline, Recent paths, footer,
+         icons) to the theme's light gray. The purple accents use --accent-hover and
+         are untouched. */
+      --text-faint: var(--text-secondary);
       /* "cortina que clareia" — the aurora reveal (DESIGN §6). */
       animation: welcomeFadeIn var(--motion-curtain, 480ms) var(--ease-reveal, ease) both;
     }

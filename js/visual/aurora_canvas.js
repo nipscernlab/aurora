@@ -124,9 +124,10 @@ vec4 aurora3D(vec3 ro, vec3 rd, float time, float baseH, float phase){
     vec3 bpos = ro + pt * rd;
     float rzt = triNoise2d(bpos.zx + vec2(phase), 0.06, time);
     // Vertical filament fringe, strongest near the hanging lower edge (small fi).
+    // Kept moderate frequency + gentle carve so it doesn't alias/crawl at low res.
     float edge = smoothstep(22.0, 2.0, fi);
-    float st = fbm1(bpos.z * (7.0 + FIL * 30.0) + bpos.x * 2.2 + time * 0.12);
-    rzt *= mix(1.0, mix(0.45, 1.25, smoothstep(0.34, 0.70, st)), FIL * edge);
+    float st = fbm1(bpos.z * (6.0 + FIL * 18.0) + bpos.x * 2.2 + time * 0.08);
+    rzt *= mix(1.0, mix(0.55, 1.20, smoothstep(0.30, 0.72, st)), FIL * edge);
     vec3 c = auroraRamp(fi / 39.0);
     vec4 col2 = vec4(c * rzt, rzt);
     avg = mix(avg, col2, 0.5);
@@ -320,9 +321,11 @@ class AuroraCanvas extends HTMLElement {
 
   _onResize() {
     if (!this._gl || !this._canvas) return;
-    // Half-res render for cheap fill; CSS upscales. Cap DPR so a 4K panel
-    // doesn't pay full-res for an ambient effect.
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5) * 0.6;
+    // Render a bit above half-res and upscale via CSS. The fine vertical
+    // filaments alias / crawl when the buffer is too small (reads as "losing
+    // quality" in motion), so 0.6x was too coarse. Cap the product so a high-DPI
+    // panel still doesn't pay full-res for an ambient effect.
+    const dpr = Math.min((window.devicePixelRatio || 1) * 0.85, 1.1);
     const w = Math.max(2, Math.floor(this.clientWidth * dpr));
     const h = Math.max(2, Math.floor(this.clientHeight * dpr));
     if (this._canvas.width !== w || this._canvas.height !== h) {

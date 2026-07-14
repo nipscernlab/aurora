@@ -107,6 +107,21 @@ class AuroraWelcome extends LitElement {
         var(--surface-sky);
     }
 
+    /* Text-protection scrim: a soft dark veil over the central reading area so the
+       Start/Recent text stays legible against the vivid aurora, while the aurora
+       still blooms unclouded at the screen edges. Sits above the canvas + watermark
+       (later in the DOM, same z-0 stacking) and below .content (z-1). */
+    .scrim {
+      position: absolute;
+      inset: 0;
+      z-index: var(--z-0, 0);
+      pointer-events: none;
+      background:
+        radial-gradient(135% 78% at 50% 40%,
+          rgba(10, 13, 20, 0.52) 0%, rgba(10, 13, 20, 0.34) 46%,
+          rgba(10, 13, 20, 0.0) 80%);
+    }
+
     /* Watermark — large dimmed SAPHO logo as a brand backdrop, centred on both
        axes so it stays balanced as the welcome area is resized. */
     .watermark {
@@ -133,6 +148,9 @@ class AuroraWelcome extends LitElement {
       user-select: none;
       position: relative;
       z-index: var(--z-1, 1);
+      /* Legibility halo so text reads over the vivid aurora (esp. the Recent
+         paths on the right). Inherited by all descendants; cheap and robust. */
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.65);
     }
 
     /* Topbar — wordmark + tagline */
@@ -317,6 +335,7 @@ class AuroraWelcome extends LitElement {
     return html`
       <link rel="stylesheet" href=${PHOSPHOR_HREF} />
       <aurora-canvas class="bg-canvas" intensity="1.0" speed="1.3" aria-hidden="true"></aurora-canvas>
+      <div class="scrim" aria-hidden="true"></div>
       <img class="watermark" src=${WATERMARK_SRC} alt="" aria-hidden="true" />
       <div class="content">
         <header class="topbar">

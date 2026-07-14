@@ -205,6 +205,7 @@ const terminalOperations = {
   // AI tool bridge. start streams `shell:data` / `shell:exit`; input feeds stdin.
   shellStart: (opts) => ipcRenderer.invoke('shell:start', opts || {}),
   shellInput: (id, data) => ipcRenderer.invoke('shell:input', { id, data }),
+  shellResize: (id, cols, rows) => ipcRenderer.invoke('shell:resize', { id, cols, rows }),
   shellKill:  (id) => ipcRenderer.invoke('shell:kill', { id }),
   onShellData: (cb) => {
     const h = (_e, payload) => cb(payload);

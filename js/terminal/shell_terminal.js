@@ -1,143 +1,136 @@
-// shell_terminal.js — drives the TCMD tab's embedded interactive shell.
+// shell_terminal.js — the TCMD tab's real terminal (xterm.js + a PTY).
 //
-// The main process (main/ipc/shell.js) owns a persistent PowerShell over pipes;
-// this module renders its stream and feeds it the user's typed lines. The shell
-// echoes each command and prints its own prompt (which tracks the cwd as `cd`
-// runs), so we just render stdout/stderr faithfully — no prompt/echo of our own.
-//
-// Rendering is a tiny terminal line-model: it strips ANSI escapes, treats CRLF
-// as newline, a lone CR as "overwrite this line" (progress bars) and BS as
-// backspace. The session starts lazily the first time the TCMD tab is opened so
-// we don't spawn a shell for users who never touch it.
+// The main process (main/ipc/shell.js) owns a pseudo-terminal; xterm renders it
+// and forwards keystrokes. Because it's a true PTY, we get inline editing, the
+// shell's own Tab autocomplete, colours and a cursor for free — this module only
+// wires xterm to the IPC, keeps the PTY sized to the panel, and adds copy/paste,
+// clickable URLs and clickable Windows file paths. The session starts lazily the
+// first time the TCMD tab is opened.
 
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import '@xterm/xterm/css/xterm.css';
 import { electronAPI } from '../app/electron_api.js';
 
 const SESSION_ID = 'tcmd';
-const MAX_LINES = 5000;                 // bound the scrollback like the log panels
-// eslint-disable-next-line no-control-regex
-const ANSI_RE = /\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]|\x1b\][^\x07]*(?:\x07|\x1b\\)/g;
+// Windows-style absolute paths: `C:\...` or UNC `\\host\...`, stopping at
+// whitespace / quotes / shell metacharacters.
+const WIN_PATH_RE = /(?:[A-Za-z]:\\|\\\\)[^\s"'<>|)}\]]+/g;
+const TEXT_EXT_RE = /\.(v|sv|svh|vh|cmm|asm|c|h|cpp|py|txt|md|json|jsonc|log|csv|sdc|tcl|vhd|vhdl|xdc|ys|do|f|mk|cfg|ini|yml|yaml)$/i;
 
 class ShellTerminal {
   constructor() {
     this.panel = document.getElementById('terminal-tcmd');
-    this.body = this.panel?.querySelector('.terminal-body') || null;
-    this.input = this.panel?.querySelector('.terminal-input') || null;
+    this.mount = this.panel?.querySelector('.tcmd-xterm') || null;
     this.tab = document.querySelector('.tab[data-terminal="tcmd"]');
-    this._startPromise = null;          // in-flight/settled shellStart (shared, race-free)
-    this._cur = null;                   // the current (not-yet-newline) line node
-    this._history = [];
-    this._histIdx = -1;
-    this._draft = '';
+    this.term = null;
+    this.fit = null;
+    this._ro = null;
+    this._startPromise = null;
     this._unsub = [];
   }
 
   init() {
-    if (!this.panel || !this.body || !this.input) return;
-
-    // Stream from the main-process shell.
-    this._unsub.push(electronAPI.onShellData(({ id, type, data }) => {
-      if (id !== SESSION_ID) return;
-      this._write(data, type);
-    }));
-    this._unsub.push(electronAPI.onShellExit(({ id, code }) => {
-      if (id !== SESSION_ID) return;
-      this._writeLine(`\n[processo encerrado (código ${code ?? 0})] — reabra a aba para um novo shell.`, 'warning');
-      this._startPromise = null;        // next activation restarts a fresh shell
-    }));
-
-    // Lazy start + focus when the TCMD tab is opened. Both the generic tab strip
-    // (terminal.js) and TerminalManager already toggle visibility; we just need
-    // to know the panel became visible to boot the shell and focus the input.
+    if (!this.panel || !this.mount) return;
     this.tab?.addEventListener('click', () => this._onActivate());
-    // Clicking anywhere in the panel focuses the input (terminal ergonomics).
-    this.panel.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.terminal-input-line')) return; // let the field handle it
-      // Defer so a text selection in the scrollback isn't stolen by focus().
-      if (window.getSelection()?.toString()) return;
-      setTimeout(() => this.input.focus(), 0);
-    });
-
-    this.input.addEventListener('keydown', (e) => this._onKey(e));
-
-    // If TCMD is already the active tab at load (unlikely, tcmm is default), boot.
+    // If TCMD is already the active tab at load (tcmm is default, so unlikely).
     if (!this.panel.classList.contains('hidden')) this._onActivate();
   }
 
-  async _onActivate() {
-    await this._ensureStarted();
-    setTimeout(() => this.input?.focus(), 0);
+  // Pull a few brand colours from CSS so the terminal matches the theme.
+  _theme() {
+    const css = getComputedStyle(document.documentElement);
+    const v = (n, f) => (css.getPropertyValue(n).trim() || f);
+    return {
+      background: v('--bg', '#0A0D14'),
+      foreground: v('--text', '#E8ECF3'),
+      cursor: v('--accent', '#8E83E8'),
+      cursorAccent: v('--bg', '#0A0D14'),
+      selectionBackground: 'rgba(142,131,232,0.35)',
+      black: '#11131c', red: '#E26C6C', green: '#5FE0B0', yellow: '#E8C97D',
+      blue: '#5BB8E8', magenta: '#B58AE8', cyan: '#4FD3C2', white: '#C5C9D6',
+      brightBlack: '#5A6072', brightRed: '#FF8A8A', brightGreen: '#7FF0C6', brightYellow: '#FFE0A0',
+      brightBlue: '#8CD0FF', brightMagenta: '#D0B0FF', brightCyan: '#7FEFE0', brightWhite: '#FFFFFF',
+    };
   }
 
-  // Returns a shared promise that resolves true once the shell session is live
-  // in the main process. Concurrent callers (tab click + first Enter) await the
-  // SAME promise, so a command is never written before the session exists.
+  _ensureTerm() {
+    if (this.term) return;
+    const mono = getComputedStyle(document.documentElement).getPropertyValue('--font-mono').trim()
+      || 'Consolas, "Cascadia Mono", monospace';
+    this.term = new Terminal({
+      fontFamily: mono,
+      fontSize: 13,
+      lineHeight: 1.2,
+      cursorBlink: true,
+      scrollback: 5000,
+      theme: this._theme(),
+      allowProposedApi: true,
+    });
+    this.fit = new FitAddon();
+    this.term.loadAddon(this.fit);
+    // http(s) URLs → open in the default browser.
+    this.term.loadAddon(new WebLinksAddon((_e, uri) => electronAPI.openExternal?.(uri)));
+    this.term.open(this.mount);
+    this._registerFileLinks();
+    this._wireClipboard();
+
+    // Keystrokes → PTY (xterm handles inline editing; the PTY gives real Tab
+    // completion, history, Ctrl+C, etc.).
+    this.term.onData((d) => this._send(d));
+    this.term.onResize(({ cols, rows }) => electronAPI.shellResize?.(SESSION_ID, cols, rows));
+
+    // Keep the PTY grid matched to the panel size.
+    this._ro = new ResizeObserver(() => this._fit());
+    this._ro.observe(this.mount);
+
+    // Stream from the PTY.
+    this._unsub.push(electronAPI.onShellData(({ id, data }) => {
+      if (id === SESSION_ID) this.term.write(data);
+    }));
+    this._unsub.push(electronAPI.onShellExit(({ id, code }) => {
+      if (id !== SESSION_ID) return;
+      this.term.write(`\r\n\x1b[33m[processo encerrado (código ${code ?? 0})] — reabra a aba para um novo shell.\x1b[0m\r\n`);
+      this._startPromise = null;   // next activation restarts a fresh shell
+    }));
+  }
+
+  _fit() {
+    try { this.fit?.fit(); } catch (_) { /* not laid out yet */ }
+  }
+
+  async _onActivate() {
+    this._ensureTerm();
+    // The tab switch toggles display; fit + focus once the panel is visible.
+    requestAnimationFrame(() => { this._fit(); this.term?.focus(); });
+    await this._ensureStarted();
+  }
+
+  // Shared promise so the tab click and the first keystroke await the SAME start
+  // and never write to a PTY that doesn't exist yet.
   _ensureStarted() {
     if (this._startPromise) return this._startPromise;
     this._startPromise = (async () => {
+      this._fit();
       const cwd = window.currentProjectPath || undefined;
+      const cols = this.term?.cols || 80;
+      const rows = this.term?.rows || 24;
       try {
-        const res = await electronAPI.shellStart({ id: SESSION_ID, cwd });
+        const res = await electronAPI.shellStart({ id: SESSION_ID, cwd, cols, rows });
         if (!res?.ok) {
           this._startPromise = null;
-          this._writeLine(`[não foi possível iniciar o shell] ${res?.error || ''}`, 'error');
+          this.term?.write(`\x1b[31m[não foi possível iniciar o shell] ${res?.error || ''}\x1b[0m\r\n`);
           return false;
         }
         return true;
       } catch (err) {
         this._startPromise = null;
-        this._writeLine(`[não foi possível iniciar o shell] ${err?.message || err}`, 'error');
+        this.term?.write(`\x1b[31m[erro ao iniciar o shell] ${err?.message || err}\x1b[0m\r\n`);
         return false;
       }
     })();
     return this._startPromise;
-  }
-
-  _onKey(e) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const line = this.input.value;
-      this.input.value = '';
-      if (line.trim()) { this._history.push(line); }
-      this._histIdx = this._history.length;
-      this._draft = '';
-      // The shell echoes the command + prints the next prompt, so we don't echo.
-      this._send(line + '\r\n');
-      return;
-    }
-    if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!this._history.length) return;
-      if (this._histIdx === this._history.length) this._draft = this.input.value;
-      this._histIdx = Math.max(0, this._histIdx - 1);
-      this.input.value = this._history[this._histIdx];
-      this._moveCaretToEnd();
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (this._histIdx >= this._history.length) return;
-      this._histIdx += 1;
-      this.input.value = this._histIdx === this._history.length ? this._draft : this._history[this._histIdx];
-      this._moveCaretToEnd();
-      return;
-    }
-    if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
-      // Best-effort interrupt. Over a pipe (no PTY) this may not always reach a
-      // running child, but it does end the current PowerShell input line.
-      if (!window.getSelection()?.toString()) { // let Ctrl+C copy a selection
-        e.preventDefault();
-        this._send('\x03');
-      }
-      return;
-    }
-    if (e.ctrlKey && (e.key === 'l' || e.key === 'L')) {
-      e.preventDefault();
-      this.clear();
-    }
-  }
-
-  _moveCaretToEnd() {
-    const v = this.input.value; this.input.value = ''; this.input.value = v;
   }
 
   async _send(data) {
@@ -145,91 +138,83 @@ class ShellTerminal {
     if (ok) electronAPI.shellInput(SESSION_ID, data);
   }
 
-  // ---- stream rendering -----------------------------------------------------
+  // ---- copy / paste ---------------------------------------------------------
 
-  _ensureCurLine() {
-    // Recreate if missing or detached (e.g. the Clear button wiped the body).
-    if (!this._cur || !this._cur.isConnected) {
-      this._cur = document.createElement('div');
-      this._cur.className = 'terminal-line';
-      this.body.appendChild(this._cur);
-    }
-    return this._cur;
-  }
-
-  _newLine(cls) {
-    const el = document.createElement('div');
-    el.className = 'terminal-line' + (cls ? ' ' + cls : '');
-    this.body.appendChild(el);
-    this._cur = el;
-    this._trim();
-    return el;
-  }
-
-  /** Append a whole pre-formatted line as its own entry (used for our notices). */
-  _writeLine(text, cls) {
-    // Close any partial current line first so notices don't merge into it.
-    if (this._cur && this._cur.textContent) this._cur = null;
-    const el = this._newLine(cls);
-    el.textContent = text.replace(/^\n+/, '');
-    this._newLine();
-    this._scroll();
-  }
-
-  _write(raw, streamType) {
-    if (!raw) return;
-    const text = String(raw).replace(ANSI_RE, '').replace(/\r\n/g, '\n');
-    const parts = text.split('\n');
-    for (let i = 0; i < parts.length; i++) {
-      let seg = parts[i];
-      const cur = this._ensureCurLine();
-      // Lone CR: overwrite from the start of the line (progress bars).
-      if (seg.indexOf('\r') !== -1) {
-        cur.textContent = '';
-        seg = seg.slice(seg.lastIndexOf('\r') + 1);
+  _wireClipboard() {
+    // Ctrl+C copies the selection if there is one; otherwise ^C reaches the
+    // shell as an interrupt. Ctrl+V pastes. Right-click: copy-or-paste.
+    this.term.attachCustomKeyEventHandler((e) => {
+      if (e.type !== 'keydown') return true;
+      const ctrl = e.ctrlKey && !e.altKey;
+      if (ctrl && (e.key === 'c' || e.key === 'C')) {
+        const sel = this.term.getSelection();
+        if (sel) { navigator.clipboard?.writeText(sel); return false; }
+        return true;
       }
-      // Backspaces: apply against the accumulated line text.
-      if (seg.indexOf('\b') !== -1) {
-        let t = cur.textContent;
-        for (const ch of seg) t = ch === '\b' ? t.slice(0, -1) : t + ch;
-        cur.textContent = t;
-      } else if (seg) {
-        cur.textContent += seg;
-      }
-      // stderr gets a subtle tint without hijacking real error styling.
-      if (streamType === 'stderr' && seg && !cur.classList.contains('stderr')) {
-        cur.classList.add('stderr');
-      }
-      if (i < parts.length - 1) this._newLine();  // the split point was a newline
-    }
-    this._scroll();
-  }
-
-  _trim() {
-    let excess = this.body.childElementCount - MAX_LINES;
-    while (excess-- > 0 && this.body.firstElementChild) {
-      this.body.removeChild(this.body.firstElementChild);
-    }
-  }
-
-  _scroll() {
-    if (this._scrollPending) return;
-    this._scrollPending = true;
-    requestAnimationFrame(() => {
-      this._scrollPending = false;
-      this.body.scrollTop = this.body.scrollHeight;
+      if (ctrl && (e.key === 'v' || e.key === 'V')) { this._paste(); return false; }
+      return true;
+    });
+    this.mount.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const sel = this.term.getSelection();
+      if (sel) { navigator.clipboard?.writeText(sel); this.term.clearSelection(); }
+      else this._paste();
     });
   }
 
-  clear() {
-    this.body.innerHTML = '';
-    this._cur = null;
+  async _paste() {
+    try {
+      const t = await navigator.clipboard.readText();
+      if (t) this._send(t);
+    } catch (_) { /* clipboard denied */ }
   }
+
+  // ---- clickable file paths -------------------------------------------------
+
+  _registerFileLinks() {
+    this.term.registerLinkProvider({
+      provideLinks: (lineNo, cb) => {
+        const text = this.term.buffer.active.getLine(lineNo - 1)?.translateToString(true) || '';
+        const links = [];
+        let m;
+        WIN_PATH_RE.lastIndex = 0;
+        while ((m = WIN_PATH_RE.exec(text)) !== null) {
+          const start = m.index;
+          const p = m[0].replace(/[.,;:)]+$/, ''); // trim trailing punctuation
+          if (p.length < 4) continue;
+          links.push({
+            range: { start: { x: start + 1, y: lineNo }, end: { x: start + p.length, y: lineNo } },
+            text: p,
+            activate: () => this._openPath(p),
+          });
+        }
+        cb(links.length ? links : undefined);
+      },
+    });
+  }
+
+  async _openPath(p) {
+    try {
+      const exists = await electronAPI.fileExists?.(p);
+      if (!exists) return;
+      if (TEXT_EXT_RE.test(p)) {
+        const content = await electronAPI.readFile(p);
+        if (typeof content === 'string') window.TabManager?.addTab?.(p, content);
+      } else {
+        // Non-text (e.g. the generated .html plots) → open with the OS default.
+        electronAPI.openExternal?.('file:///' + p.replace(/\\/g, '/'));
+      }
+    } catch (_) { /* noop */ }
+  }
+
+  clear() { this.term?.clear(); }
 
   dispose() {
     this._unsub.forEach((fn) => { try { fn?.(); } catch (_) { /* noop */ } });
     this._unsub = [];
+    try { this._ro?.disconnect(); } catch (_) { /* noop */ }
     try { electronAPI.shellKill(SESSION_ID); } catch (_) { /* noop */ }
+    try { this.term?.dispose(); } catch (_) { /* noop */ }
   }
 }
 

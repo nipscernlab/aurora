@@ -637,61 +637,23 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-#terminal-tcmd .terminal-body,
-#terminal-tcmd #terminal-container {
+/* xterm.js mount — fills the panel below the header; xterm owns its own scroll
+   and layout, so we only give it a sized box. */
+#terminal-tcmd .tcmd-xterm {
   flex: 1 1 0;
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--bg);
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  overflow-y: auto;
-}
-
-#terminal-tcmd .terminal-line {
-  white-space: pre-wrap;
-  word-break: break-word;
-  padding: 0;
-}
-
-#terminal-tcmd .terminal-line.command {
-  color: var(--accent-hover);
-  font-weight: var(--font-medium);
-}
-
-#terminal-tcmd .terminal-line.error    { color: var(--term-error); }
-#terminal-tcmd .terminal-line.success  { color: var(--term-success); }
-#terminal-tcmd .terminal-line.warning  { color: var(--term-warn); }
-#terminal-tcmd .terminal-line.info     { color: var(--term-info); }
-/* stderr from the shell: a muted tint so it's distinguishable without claiming
-   the strong error red (stderr is not always an error). */
-#terminal-tcmd .terminal-line.stderr   { color: var(--text-muted); }
-
-#terminal-tcmd .terminal-input-line {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+  min-height: 0;
+  width: 100%;
   padding: var(--space-2) var(--space-3);
-  background-color: var(--bg-elev);
-  border-top: 1px solid var(--border);
+  background-color: var(--bg);
+  overflow: hidden;
 }
-
-#terminal-tcmd .terminal-prompt {
-  color: var(--accent-hover);
-  font-weight: var(--font-semibold);
-  font-family: var(--font-mono);
-  user-select: none;
-}
-
-#terminal-tcmd .terminal-input {
-  flex: 1 1 0;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  outline: none;
-  caret-color: var(--accent);
+#terminal-tcmd .tcmd-xterm .xterm { height: 100%; }
+#terminal-tcmd .tcmd-xterm .xterm-viewport { overflow-y: auto; }
+/* Match the app's thin scrollbar treatment. */
+#terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar { width: 8px; }
+#terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
+#terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar-thumb {
+  background: var(--border-strong, #3a3f55); border-radius: 4px;
 }
 
 /* ---------------------------------------------------------------------------

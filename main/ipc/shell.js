@@ -2,82 +2,76 @@
 /**
  * shell.js — the embedded interactive shell behind the TCMD terminal tab.
  *
- * A persistent PowerShell (win32) / $SHELL (POSIX) driven over pipes: the
- * renderer writes the user's typed line to stdin and we stream stdout/stderr
- * back. No PTY, so no native modules — the shell itself echoes the command and
- * prints its own prompt (which tracks the cwd as `cd` runs), so the panel reads
- * like a real terminal without us re-implementing one. `cd` and env persist for
- * the life of the session; `PYTHONUNBUFFERED=1` makes `python` output stream
- * live instead of block-buffering because stdout isn't a TTY.
+ * Backed by a real pseudo-terminal (@lydell/node-pty — a ConPTY-only, prebuilt
+ * fork, so there is NO native compilation in dev or when packaging). A true PTY
+ * gives the renderer's xterm.js everything a terminal has: inline editing, the
+ * shell's own Tab autocomplete, colours, cursor, and resize. `cd`/env persist;
+ * python detects a TTY and streams live (PYTHONUNBUFFERED is set as a belt).
  *
  * SECURITY: this runs ARBITRARY commands the human types, so it is a separate,
  * human-only channel — deliberately NOT the toolchain `exec-spec` path and NOT
  * reachable from the AI tool bridge / MCP. The AI never gets a handle to it.
  *
- * Lifecycle is managed here (not via process_registry.spawnTracked) so opening
- * a shell doesn't arm the toolchain close-time WMI sweeps. We tree-kill the
- * shell (taskkill /F /T, so a running `python long.py` child dies too) when the
- * renderer reloads/closes, on restart, and on explicit kill.
+ * Lifecycle: one PTY per session id; killed (which tears down its child tree,
+ * e.g. a running `python long.py`, via ConPTY) when the renderer reloads/closes,
+ * on restart, and on explicit kill.
  */
 
 'use strict';
 
 const os = require('os');
-const { spawn } = require('child_process');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
-const { killProcessSilently } = require('../utils');
 
-/** @type {Map<string, import('child_process').ChildProcess>} */
-const sessions = new Map();
-
-/** The shell binary + startup args for the current platform. */
-function shellCommand() {
-  if (process.platform === 'win32') {
-    return { file: 'powershell.exe', args: ['-NoLogo', '-NoProfile'] };
-  }
-  return { file: process.env.SHELL || '/bin/bash', args: ['-i'] };
+/** @type {import('@lydell/node-pty') | null} */
+let pty = null;
+try {
+  pty = require('@lydell/node-pty');
+} catch (err) {
+  log.error('[shell] node-pty unavailable:', err instanceof Error ? err.message : err);
 }
 
-/** Tree-kill and forget the session under `id` (safe if none exists). */
+/** @type {Map<string, { proc: any, dispose: () => void }>} */
+const sessions = new Map();
+
+function shellCommand() {
+  if (process.platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] };
+  return { file: process.env.SHELL || '/bin/bash', args: [] };
+}
+
 function killSession(id) {
-  const child = sessions.get(id);
-  if (!child) return;
+  const s = sessions.get(id);
+  if (!s) return;
   sessions.delete(id);
-  try { child.stdin?.end(); } catch (_) { /* already gone */ }
-  try {
-    if (typeof child.pid === 'number') killProcessSilently(child.pid);
-    else child.kill();
-  } catch (err) {
-    log.debug('[shell] kill failed:', err instanceof Error ? err.message : err);
-  }
+  try { s.dispose(); } catch (_) { /* listeners gone */ }
+  try { s.proc.kill(); } catch (_) { /* already dead */ }
 }
 
 function register() {
   /**
-   * Start (or restart) the interactive shell for a session id. Streams
-   * `shell:data` { id, type:'stdout'|'stderr', data } events and, on exit,
-   * `shell:exit` { id, code }. Payload: { id?, cwd? }.
+   * Start (or restart) a PTY for a session id. Streams `shell:data` { id, data }
+   * and, on exit, `shell:exit` { id, code }. Payload: { id?, cwd?, cols?, rows? }.
    */
   ipcMain.handle('shell:start', (event, opts = {}) => {
+    if (!pty) return { ok: false, error: 'node-pty indisponível (binário nativo não carregou)' };
     const id = String(opts.id || 'tcmd');
     killSession(id); // clean restart if one is already live
 
     const { file, args } = shellCommand();
     const cwd = (opts.cwd && typeof opts.cwd === 'string') ? opts.cwd : os.homedir();
+    const cols = Number.isFinite(opts.cols) ? Math.max(2, opts.cols | 0) : 80;
+    const rows = Number.isFinite(opts.rows) ? Math.max(2, opts.rows | 0) : 24;
 
-    let child;
+    let proc;
     try {
-      child = spawn(file, args, {
-        cwd,
-        windowsHide: true,
-        shell: false,
+      proc = pty.spawn(file, args, {
+        name: 'xterm-256color',
+        cols, rows, cwd,
         env: {
           ...process.env,
-          // python (and many tools) block-buffer stdout when it isn't a TTY;
-          // force unbuffered so print() output streams live into the panel.
           PYTHONUNBUFFERED: '1',
           PYTHONIOENCODING: 'utf-8',
+          TERM: 'xterm-256color',
         },
       });
     } catch (err) {
@@ -85,37 +79,43 @@ function register() {
       return { ok: false, error: String(err instanceof Error ? err.message : err) };
     }
 
-    sessions.set(id, child);
     const wc = event.sender;
-    const send = (type, data) => { if (!wc.isDestroyed()) wc.send('shell:data', { id, type, data }); };
-
-    child.stdout?.setEncoding('utf8');
-    child.stderr?.setEncoding('utf8');
-    child.stdout?.on('data', (d) => send('stdout', d));
-    child.stderr?.on('data', (d) => send('stderr', d));
-    child.on('close', (code) => {
-      if (sessions.get(id) === child) sessions.delete(id);
-      if (!wc.isDestroyed()) wc.send('shell:exit', { id, code });
+    const onData = proc.onData((data) => { if (!wc.isDestroyed()) wc.send('shell:data', { id, data }); });
+    const onExit = proc.onExit(({ exitCode }) => {
+      if (sessions.get(id)?.proc === proc) sessions.delete(id);
+      if (!wc.isDestroyed()) wc.send('shell:exit', { id, code: exitCode });
     });
-    child.on('error', (err) => {
-      send('stderr', `\n[shell error] ${err instanceof Error ? err.message : err}\n`);
-    });
+    const dispose = () => {
+      try { onData.dispose(); } catch (_) { /* noop */ }
+      try { onExit.dispose(); } catch (_) { /* noop */ }
+    };
+    sessions.set(id, { proc, dispose });
 
     // Don't leak the shell (or its python children) if the renderer goes away.
     wc.once('destroyed', () => killSession(id));
 
-    return { ok: true, id, shell: file, cwd };
+    return { ok: true, id, shell: file, cwd, pid: proc.pid };
   });
 
-  /** Write the user's keystrokes/line to the shell's stdin. Payload: { id?, data }. */
+  /** Feed the user's keystrokes to the PTY. Payload: { id?, data }. */
   ipcMain.handle('shell:input', (_event, payload = {}) => {
-    const child = sessions.get(String(payload.id || 'tcmd'));
-    if (!child || !child.stdin || child.stdin.destroyed) return { ok: false };
-    try { child.stdin.write(String(payload.data ?? '')); return { ok: true }; }
+    const s = sessions.get(String(payload.id || 'tcmd'));
+    if (!s) return { ok: false };
+    try { s.proc.write(String(payload.data ?? '')); return { ok: true }; }
     catch (err) { return { ok: false, error: String(err instanceof Error ? err.message : err) }; }
   });
 
-  /** Explicitly tree-kill a session. Payload: { id? }. */
+  /** Resize the PTY to match xterm's grid. Payload: { id?, cols, rows }. */
+  ipcMain.handle('shell:resize', (_event, payload = {}) => {
+    const s = sessions.get(String(payload.id || 'tcmd'));
+    if (!s) return { ok: false };
+    const cols = Math.max(2, (payload.cols | 0) || 80);
+    const rows = Math.max(2, (payload.rows | 0) || 24);
+    try { s.proc.resize(cols, rows); return { ok: true }; }
+    catch (_) { return { ok: false }; }
+  });
+
+  /** Explicitly kill a session. Payload: { id? }. */
   ipcMain.handle('shell:kill', (_event, payload = {}) => {
     killSession(String(payload.id || 'tcmd'));
     return { ok: true };

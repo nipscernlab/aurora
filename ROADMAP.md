@@ -1,8 +1,8 @@
 # AURORA — Roadmap
 
 > Public, high-level view. The living, detailed backlog lives in
-> [docs/BACKLOG_RECONCILIADO.md](docs/BACKLOG_RECONCILIADO.md) and
-> [docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md).
+> [docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md)
+> (§17 = quadro vivo de execução; §15–16 = estudos de interface e file tree).
 > AURORA is built by NIPSCERN / UFJF — context at <https://www.nipscern.com>.
 
 ## Now (hardening + professionalisation)

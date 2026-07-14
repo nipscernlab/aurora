@@ -26,6 +26,10 @@ import { treeView } from './tree_view.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ensureManifest, iconUrlForFile, iconUrlForFolder } from './material_icons.js';
 import { parseInv, isInvHidden } from './inv_filter.js';
+// CRUD layer (context menu, inline create/rename, cut/copy/paste, delete).
+// Imported for its side effect: registers the singleton + window hook that
+// project_tree_actions routes right-clicks to when this view is active.
+import './standard_tree_crud.js';
 
 // Files that never belong in the explorer: legacy config blobs, the
 // .spf project file itself, and dotfiles. Mirrors the old standard
@@ -190,6 +194,9 @@ class StandardTreeRenderer {
             container.innerHTML = '';
             await this._renderLevel(entries, container, 0);
             this.refreshFocusHighlight();
+            // Renders rebuild every row — let the CRUD layer re-apply its
+            // selection / cut-pending decorations on the fresh DOM.
+            document.dispatchEvent(new CustomEvent('aurora:standard-tree-rendered'));
         } catch (err) {
             console.error('StandardTreeRenderer.render failed:', err);
         } finally {
@@ -312,6 +319,8 @@ class StandardTreeRenderer {
         const wrapper = document.createElement('div');
         wrapper.className = 'file-tree-item';
         wrapper.setAttribute('data-path', entry.path);
+        // Consumed by the CRUD layer (context menu / paste-target resolution).
+        wrapper.dataset.isDir = entry.isDirectory ? '1' : '';
         wrapper.style.setProperty('--depth', String(level));
 
         const row = document.createElement('div');

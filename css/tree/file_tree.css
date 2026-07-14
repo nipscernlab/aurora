@@ -304,6 +304,78 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 /* Highlight breve quando uma pasta e revelada por um link externo (ex: o
    link do diretorio de saida no terminal THTEST). Pulsa o fundo accent e
    desvanece — chama atencao sem ser permanente. */
+/* ---------------------------------------------------------------------------
+ *  CRUD layer (standard_tree_crud.js) — selection, cut-pending, inline edit
+ * ------------------------------------------------------------------------- */
+
+/* Row selected via click / kept as the keyboard target (F2, Del, Ctrl+C/X/V).
+   Uses the shared selected-overlay token so it reads like every other list. */
+.file-item.selected {
+  background-color: var(--overlay-selected);
+}
+.file-item.selected .file-item-name {
+  color: var(--text);
+}
+
+/* Entry sitting on the clipboard as a CUT — dimmed like VS Code. */
+.file-item.cut-pending {
+  opacity: 0.5;
+}
+
+/* Original row hides while its inline rename editor is mounted in its place. */
+.file-item.hidden-during-rename,
+.file-tree-item > .file-item.hidden-during-rename {
+  display: none;
+}
+
+/* Inline create/rename editor — a .file-item lookalike hosting an input. */
+.tree-inline-edit .file-item {
+  cursor: default;
+}
+.tree-inline-edit .file-item:hover {
+  background: none;
+  box-shadow: none;
+}
+.tree-inline-input {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 18px;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
+  background: var(--surface-sunken, var(--bg));
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-sm);
+}
+.tree-inline-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+.tree-inline-input.invalid,
+.tree-inline-input.invalid:focus {
+  border-color: var(--status-error);
+  box-shadow: 0 0 0 1px var(--status-error-bg);
+}
+
+/* Validation bubble under the input — VS Code's red hint box. */
+.tree-inline-error {
+  margin: 2px var(--space-2) var(--space-1) calc(28px + var(--depth, 0) * 8px);
+  padding: var(--space-1) var(--space-2);
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-sm);
+  color: var(--status-error);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  white-space: normal;
+}
+.tree-inline-error.hidden {
+  display: none;
+}
+
 @keyframes reveal-flash-fade {
   from { background-color: var(--accent-soft); }
   to   { background-color: transparent; }

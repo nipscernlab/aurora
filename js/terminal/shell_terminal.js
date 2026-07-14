@@ -138,20 +138,44 @@ class ShellTerminal {
     if (ok) electronAPI.shellInput(SESSION_ID, data);
   }
 
+  /**
+   * "Open terminal here" (file-tree context menu): make sure the terminal
+   * exists/started, focus it and `cd` the live shell into `dirPath`. The PTY
+   * runs PowerShell on Windows (see main/ipc/shell.js), where `cd "path"`
+   * (Set-Location) already handles drive changes — no `/d` needed. Quotes in
+   * the path are escaped PowerShell-style by doubling them.
+   * The caller is responsible for making the TCMD tab visible (switchTerminal).
+   */
+  async openAt(dirPath) {
+    if (!dirPath) return;
+    this._ensureTerm();
+    requestAnimationFrame(() => { this._fit(); this.term?.focus(); });
+    const ok = await this._ensureStarted();
+    if (!ok) return;
+    const q = String(dirPath).replace(/"/g, '""');
+    electronAPI.shellInput(SESSION_ID, `cd "${q}"\r`);
+  }
+
   // ---- copy / paste ---------------------------------------------------------
 
   _wireClipboard() {
     // Ctrl+C copies the selection if there is one; otherwise ^C reaches the
     // shell as an interrupt. Ctrl+V pastes. Right-click: copy-or-paste.
+    //
+    // e.preventDefault() is REQUIRED on both: returning false only tells xterm
+    // to skip the key, it does NOT stop the browser default. Without it the
+    // native paste event still fires on xterm's hidden textarea and xterm
+    // forwards the clipboard to the PTY via onData — so Ctrl+V pasted TWICE
+    // (and Ctrl+C ran the native copy in parallel with ours).
     this.term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true;
       const ctrl = e.ctrlKey && !e.altKey;
       if (ctrl && (e.key === 'c' || e.key === 'C')) {
         const sel = this.term.getSelection();
-        if (sel) { navigator.clipboard?.writeText(sel); return false; }
+        if (sel) { e.preventDefault(); navigator.clipboard?.writeText(sel); return false; }
         return true;
       }
-      if (ctrl && (e.key === 'v' || e.key === 'V')) { this._paste(); return false; }
+      if (ctrl && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); this._paste(); return false; }
       return true;
     });
     this.mount.addEventListener('contextmenu', (e) => {
@@ -221,7 +245,13 @@ class ShellTerminal {
 let instance = null;
 function initShellTerminal() {
   if (instance) return instance;
-  const boot = () => { instance = new ShellTerminal(); instance.init(); };
+  const boot = () => {
+    instance = new ShellTerminal();
+    instance.init();
+    // Reachable from the file tree's "Open terminal here" without an import
+    // cycle (tree → terminal); mirrors the other window-exposed singletons.
+    window.shellTerminal = instance;
+  };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot, { once: true });
   } else {

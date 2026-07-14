@@ -26,6 +26,11 @@ interface AuroraElectronAPI {
   writeFile(path: string, content: string): Promise<void>;
   mkdir(path: string): Promise<void>;
   listFilesInDirectory(dir: string): Promise<string[]>;
+  renamePath(oldPath: string, newPath: string, opts?: { overwrite?: boolean }):
+    Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
+  trashPath(path: string): Promise<{ success: boolean; error?: string }>;
+  copyAnyPath(src: string, dest: string, opts?: { overwrite?: boolean }):
+    Promise<{ success: boolean; code?: string; error?: string; path?: string }>;
   getComponentsPath(): Promise<string>;
   getPythonStatus(): Promise<PythonStatus>;
   execSpec(req: { spec: unknown; baseSpec: unknown }): Promise<ExecSpecResult>;

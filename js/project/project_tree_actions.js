@@ -840,6 +840,17 @@ async def basic_test(dut):
     async handleTreeContextMenu(event) {
         if (!this.isTreeActive) return;
 
+        // Folders (standard) view owns its own CRUD context menu — rows AND
+        // empty area (New File/Folder, rename, delete, cut/copy/paste, open
+        // terminal here, …). See js/tree/standard_tree_crud.js.
+        if (window.fileTreeViewController?.getActiveView?.() === 'standard') {
+            event.preventDefault();
+            event.stopPropagation();
+            this.closeAllTreeMenus();
+            window.standardTreeCrud?.showMenu?.(event);
+            return;
+        }
+
         // Right-click numa row → context menu per-row. Listeners
         // per-row sumiram com o render-reconciler refactor; este path
         // delegado os substitui. Busca por data-file-path —

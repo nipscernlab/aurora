@@ -37,6 +37,11 @@ const fileOperations = {
   deleteFile:             (p) => ipcRenderer.invoke('delete-file', p),
   deleteFileOrDirectory:  (p) => ipcRenderer.invoke('file:delete', p),
 
+  // File-tree CRUD (js/tree/standard_tree_crud.js)
+  renamePath:  (oldP, newP, opts) => ipcRenderer.invoke('file:rename', oldP, newP, opts),
+  trashPath:   (p) => ipcRenderer.invoke('file:trash', p),
+  copyAnyPath: (src, dest, opts) => ipcRenderer.invoke('file:copy-any', src, dest, opts),
+
   pathExists:      (p) => ipcRenderer.invoke('path-exists', p),
   joinPath:        (...parts) => ipcRenderer.invoke('join-path', ...parts),
   dirname:         (p) => ipcRenderer.invoke('path-dirname', p),

@@ -214,6 +214,78 @@ function register() {
     }
   });
 
+  // ---------- file-tree CRUD (rename / trash / copy) ----------
+
+  // Rename OR move a file/directory. `overwrite:false` (default) fails with
+  // code EEXIST when the destination already exists, so the renderer can ask
+  // the user (replace / keep both / cancel) instead of silently clobbering.
+  // Windows case-only renames (README.md → readme.md) are the same path for
+  // fs.stat, so they go through a two-step rename via a temp name.
+  ipcMain.handle('file:rename', async (_event, oldPath, newPath, opts = {}) => {
+    oldPath = safePath(oldPath, 'oldPath');
+    newPath = safePath(newPath, 'newPath');
+    const overwrite = !!(opts && opts.overwrite);
+    try {
+      const sameCaseInsensitive =
+        oldPath.toLowerCase() === newPath.toLowerCase() && oldPath !== newPath;
+      if (sameCaseInsensitive) {
+        const tmp = `${oldPath}.__aurora_case_tmp__`;
+        await fs.rename(oldPath, tmp);
+        await fs.rename(tmp, newPath);
+        return { success: true, path: newPath };
+      }
+      if (!overwrite) {
+        try {
+          await fs.access(newPath);
+          return { success: false, code: 'EEXIST', error: 'Destination already exists' };
+        } catch { /* destination free — proceed */ }
+      }
+      // fse.move: rename when possible, copy+delete across devices (EXDEV).
+      await fse.move(oldPath, newPath, { overwrite });
+      return { success: true, path: newPath };
+    } catch (error) {
+      const e = /** @type {NodeJS.ErrnoException} */ (error);
+      log.error(`Error renaming ${oldPath} → ${newPath}:`, error);
+      return { success: false, code: e.code || 'ERENAME', error: e.message || String(error) };
+    }
+  });
+
+  // Move to the OS trash (Recycle Bin) — the default delete of the file-tree
+  // CRUD, mirroring VS Code. Falls back to the caller to decide on permanent
+  // deletion when trashing fails (e.g. network drives without a recycle bin).
+  ipcMain.handle('file:trash', async (_event, targetPath) => {
+    targetPath = safePath(targetPath, 'targetPath');
+    try {
+      await shell.trashItem(targetPath);
+      return { success: true };
+    } catch (error) {
+      log.error(`Error trashing ${targetPath}:`, error);
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  // Copy a file OR a whole directory (fse.copy is recursive). Same EEXIST
+  // contract as file:rename so paste conflicts surface as a user decision.
+  ipcMain.handle('file:copy-any', async (_event, src, dest, opts = {}) => {
+    src = safePath(src, 'src');
+    dest = safePath(dest, 'dest');
+    const overwrite = !!(opts && opts.overwrite);
+    try {
+      if (!overwrite) {
+        try {
+          await fs.access(dest);
+          return { success: false, code: 'EEXIST', error: 'Destination already exists' };
+        } catch { /* destination free — proceed */ }
+      }
+      await fse.copy(src, dest, { overwrite, errorOnExist: !overwrite });
+      return { success: true, path: dest };
+    } catch (error) {
+      const e = /** @type {NodeJS.ErrnoException} */ (error);
+      log.error(`Error copying ${src} → ${dest}:`, error);
+      return { success: false, code: e.code || 'ECOPY', error: e.message || String(error) };
+    }
+  });
+
   ipcMain.handle('list-files-directory', async (_event, directoryPath) => {
     try {
       return await fs.readdir(safePath(directoryPath, 'directoryPath'));

@@ -155,8 +155,10 @@ class FileTreeController {
    */
   updateCollapseButtonState() {
     if (!this.collapseButton) return;
+    // VS Code-style "collapse all" glyph (square with a minus) — matches the
+    // Explorer's rightmost header action the users already know.
     const icon = this.collapseButton.querySelector('i');
-    if (icon) icon.className = 'ph ph-rows';
+    if (icon) icon.className = 'ph ph-minus-square';
     // Single smart toggle now (collapses or expands depending on state),
     // so the tooltip names both actions. data-tooltip drives Aurora's
     // custom tooltip (see js/ui/tooltip.js); window.t falls back to the

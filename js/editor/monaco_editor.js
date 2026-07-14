@@ -627,7 +627,10 @@ class EditorManager {
             const language = this.getLanguageFromPath(filePath);
             let theme;
 
-            if (language === 'cmm') {
+            if (language === 'cmm' || language === 'matlab') {
+                // MATLAB rides the CMM/Aurora palette (single canonical theme):
+                // its Monarch tokens are generic (keyword/string/number/…), which
+                // the cmm-dark rules already colour, so it blends with the IDE.
                 theme = isDark ? 'cmm-dark' : 'cmm-light';
             } else if (language === 'asm') {
                 theme = isDark ? 'asm-dark' : 'asm-light';
@@ -690,6 +693,7 @@ class EditorManager {
             'hxx': 'cpp',
             'cmm': 'cmm',
             'asm': 'asm',
+            'm': 'matlab',
             'v': 'verilog',
             'vh': 'verilog',
             'sv': 'systemverilog',
@@ -858,6 +862,7 @@ function initMonaco() {
         require(['vs/editor/editor.main'], function () {
             setupCMMLanguage();
             setupASMLanguage();
+            setupMatlabLanguage();
             // O2: attach the Verible language server to .v/.sv buffers
             // (diagnostics, formatting, outline, hover, definition/refs).
             // The 'verilog'/'systemverilog' languages are already registered
@@ -891,6 +896,7 @@ function initMonaco() {
                     { token: 'keyword.directive.cmm',            foreground: 'B98AE0' },
                     { token: 'keyword.function.stdlib.cmm',      foreground: '5BB8E8', fontStyle: 'bold' },
                     { token: 'constant.define.cmm',              foreground: 'E8B86C', fontStyle: 'bold' },
+                    { token: 'constant.language',                foreground: 'E8B86C', fontStyle: 'bold' },
                     { token: 'string',                           foreground: 'E68FB8' },
                     { token: 'number',                           foreground: '5FE0B0' },
                     { token: 'number.complex.imaginary.cmm',     foreground: 'BD93F9', fontStyle: 'bold' },
@@ -965,6 +971,7 @@ function initMonaco() {
                     { token: 'keyword.directive.cmm',            foreground: '8B5CB8' },
                     { token: 'keyword.function.stdlib.cmm',      foreground: '2A7AB0', fontStyle: 'bold' },
                     { token: 'constant.define.cmm',              foreground: 'B5791F', fontStyle: 'bold' },
+                    { token: 'constant.language',                foreground: 'B5791F', fontStyle: 'bold' },
                     { token: 'string',                           foreground: 'B8568C' },
                     { token: 'number',                           foreground: '3A9D6E' },
                     { token: 'number.complex.imaginary.cmm',     foreground: '7C3AED', fontStyle: 'bold' },
@@ -1165,6 +1172,167 @@ function setupASMLanguage() {
             'editorWhitespace.foreground':        '#DDDDE3',
             'editorIndentGuide.background1':      '#EAEAEF',
             'editorIndentGuide.activeBackground1':'#6E63C8'
+        }
+    });
+}
+
+// MATLAB / Octave (.m). Not shipped by the vendored Monaco build (see the
+// basic-languages folder — matlab is absent), so we register it ourselves with
+// a Monarch tokenizer, exactly like CMM and ASM above. Tokens are deliberately
+// generic (keyword/string/number/comment/operator/delimiter + constant.language)
+// so the cmm-dark/cmm-light Aurora themes colour them with zero extra rules —
+// keeping the single canonical theme.
+//
+// The one MATLAB-specific subtlety is the apostrophe: `'` is BOTH the char-array
+// delimiter ('text') AND the (conjugate-)transpose operator (A'). We disambiguate
+// with a two-mode tokenizer: in `root` an apostrophe opens a string; right after
+// a value (identifier / number / closing bracket / another transpose) we sit in
+// the tiny `@transpose` state where a run of apostrophes is an operator instead.
+// Lookbehind is avoided on purpose — Monarch anchors each rule at the current
+// offset, so `(?<=…)` can't see the preceding character reliably.
+function setupMatlabLanguage() {
+    monaco.languages.register({
+        id: 'matlab',
+        extensions: ['.m'],
+        aliases: ['MATLAB', 'matlab', 'Octave', 'octave']
+    });
+
+    monaco.languages.setLanguageConfiguration('matlab', {
+        comments: { lineComment: '%', blockComment: ['%{', '%}'] },
+        brackets: [['{', '}'], ['[', ']'], ['(', ')']],
+        autoClosingPairs: [
+            { open: '{', close: '}' },
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '"', close: '"', notIn: ['string'] },
+            { open: "'", close: "'", notIn: ['string', 'comment'] }
+        ],
+        surroundingPairs: [
+            { open: '{', close: '}' },
+            { open: '[', close: ']' },
+            { open: '(', close: ')' },
+            { open: '"', close: '"' },
+            { open: "'", close: "'" }
+        ],
+        indentationRules: {
+            increaseIndentPattern: /^\s*(if|elseif|else|for|parfor|while|switch|case|otherwise|function|classdef|methods|properties|events|enumeration|try|catch|do|unwind_protect|spmd)\b.*$/,
+            decreaseIndentPattern: /^\s*(end|endif|endwhile|endfor|endfunction|endswitch|endclassdef|endmethods|endproperties|endevents|endenumeration|endparfor|else|elseif|case|otherwise|catch|until|unwind_protect_cleanup)\b.*$/
+        }
+    });
+
+    monaco.languages.setMonarchTokensProvider('matlab', {
+        defaultToken: '',
+        tokenPostfix: '.matlab',
+
+        // Control flow + declarations. Octave `end*`/`unwind_protect` variants are
+        // included so plain-Octave .m files highlight too.
+        keywords: [
+            'break', 'case', 'catch', 'classdef', 'continue', 'do', 'else',
+            'elseif', 'end', 'end_try_catch', 'end_unwind_protect', 'endclassdef',
+            'endenumeration', 'endevents', 'endfor', 'endfunction', 'endif',
+            'endmethods', 'endparfor', 'endproperties', 'endswitch', 'endwhile',
+            'enumeration', 'events', 'for', 'function', 'global', 'if', 'methods',
+            'otherwise', 'parfor', 'persistent', 'properties', 'return', 'spmd',
+            'switch', 'try', 'until', 'unwind_protect', 'unwind_protect_cleanup',
+            'while'
+        ],
+
+        // Built-in constants / special values.
+        constants: [
+            'true', 'false', 'pi', 'eps', 'Inf', 'inf', 'NaN', 'nan', 'NA',
+            'ans', 'nargin', 'nargout', 'varargin', 'varargout', 'realmax',
+            'realmin'
+        ],
+
+        operators: [
+            '+', '-', '*', '/', '\\', '^', '.\'', '.^', '.*', './', '.\\',
+            '==', '~=', '!=', '<', '>', '<=', '>=', '&', '|', '~', '!', '&&',
+            '||', '=', '+=', '-=', '*=', '/=', '^=', '++', '--', ':', '@'
+        ],
+
+        symbols: /[=><~&|+\-*/^%@:!.\\]+/,
+
+        tokenizer: {
+            root: [
+                // Block comment `%{ … %}` / Octave `#{ … #}` — only when the
+                // opener is alone on its line (MATLAB rule). Mid-line `%{` falls
+                // through to the line-comment rule below.
+                [/^\s*%\{[ \t]*$/, { token: 'comment', next: '@blockcomment' }],
+                [/^\s*#\{[ \t]*$/, { token: 'comment', next: '@blockcomment' }],
+
+                // Line comments (`%` MATLAB, `#` Octave) and `...` continuation
+                // (the tail after `...` is a comment).
+                [/%.*$/, 'comment'],
+                [/#.*$/, 'comment'],
+                [/\.\.\..*$/, 'comment'],
+
+                // Non-conjugate transpose `.'` — a value-position apostrophe run
+                // is handled by @transpose instead (see below).
+                [/\.'/, 'operator'],
+
+                // Identifiers / keywords / constants. Landing on a value flips us
+                // into @transpose so a following `'` reads as transpose.
+                [/[a-zA-Z_]\w*/, {
+                    cases: {
+                        '@keywords':  { token: 'keyword',           next: '@transpose' },
+                        '@constants': { token: 'constant.language', next: '@transpose' },
+                        '@default':   { token: 'identifier',        next: '@transpose' }
+                    }
+                }],
+
+                // Function handle: @name
+                [/@[a-zA-Z_]\w*/, 'identifier'],
+
+                { include: '@whitespace' },
+
+                // Numbers (optional imaginary suffix i/j). Also value → @transpose.
+                [/\d*\.\d+([eE][-+]?\d+)?[ij]?/, { token: 'number.float', next: '@transpose' }],
+                [/0[xX][0-9a-fA-F]+/,            { token: 'number.hex',   next: '@transpose' }],
+                [/\d+([eE][-+]?\d+)?[ij]?/,      { token: 'number',       next: '@transpose' }],
+
+                // Brackets. A closing bracket is a value, so it also enters
+                // @transpose (handles `A(1:end)'`, `[1 2]'`).
+                [/[([{]/, '@brackets'],
+                [/[)\]}]/, { token: '@brackets', next: '@transpose' }],
+
+                // Strings — apostrophe here (NOT after a value) opens a char array.
+                [/"/, { token: 'string.quote', bracket: '@open', next: '@dqstring' }],
+                [/'/, { token: 'string.quote', bracket: '@open', next: '@sqstring' }],
+
+                // Operators / delimiters.
+                [/@symbols/, { cases: { '@operators': 'operator', '@default': 'delimiter' } }],
+                [/[;,]/, 'delimiter']
+            ],
+
+            // Entered right after a value: a run of apostrophes is (c)transpose;
+            // anything else re-tokenizes in root. Empty on end-of-line, so the
+            // state self-heals on the next line's first character.
+            transpose: [
+                [/'+/, 'operator'],
+                [/./, { token: '@rematch', next: '@pop' }]
+            ],
+
+            blockcomment: [
+                [/^\s*%\}[ \t]*$/, { token: 'comment', next: '@pop' }],
+                [/^\s*#\}[ \t]*$/, { token: 'comment', next: '@pop' }],
+                [/.*$/, 'comment']
+            ],
+
+            dqstring: [
+                [/[^"]+/, 'string'],
+                [/""/, 'string'],
+                [/"/, { token: 'string.quote', bracket: '@close', next: '@pop' }]
+            ],
+
+            sqstring: [
+                [/[^']+/, 'string'],
+                [/''/, 'string'],
+                [/'/, { token: 'string.quote', bracket: '@close', next: '@pop' }]
+            ],
+
+            whitespace: [
+                [/[ \t\r\n]+/, 'white']
+            ]
         }
     });
 }

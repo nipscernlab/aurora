@@ -36,6 +36,7 @@ const OVERRIDES = Object.freeze({
   v: 'verilog',
   vh: 'verilog',
   sv: 'verilog',
+  m: 'matlab',      // Material maps .m → objective-c; in this IDE .m is MATLAB
   gtkw: 'log',
   vcd: 'log',
   fst: 'log',

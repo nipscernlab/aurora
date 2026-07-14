@@ -188,6 +188,7 @@ export function getFileIcon(filename) {
 
         // Other languages
         'py':    'ph ph-file-py',
+        'm':     'ph ph-function',   // MATLAB / Octave
         'java':  'ph ph-file-code',
         'c':     'ph ph-file-c',
         'cpp':   'ph ph-file-cpp',

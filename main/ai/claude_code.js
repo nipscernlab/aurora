@@ -246,6 +246,11 @@ const MCP_TOOL_RULES = [
   '  - mcp__aurora__list_wave_signals, select_wave_signals, open_wave_config',
   '  - mcp__aurora__list_gtkw_files, add_gtkw_file, set_active_gtkw_file',
   '',
+  'Asking the user — your built-in AskUserQuestion tool is DISABLED here.',
+  'Whenever you need a decision, clarification or a choice between options,',
+  'call mcp__aurora__ask_user_question — it renders an interactive card in',
+  'the IDE and returns the selected answer. Never guess when you could ask.',
+  '',
   'If a task seems to need a shell command, you are missing an Aurora tool —',
   'inspect the available mcp__aurora__* tools or ask the user. Do not',
   'improvise with PowerShell or raw filesystem calls for SAPHO work.',
@@ -258,8 +263,15 @@ const MCP_TOOL_RULES = [
  *    bypassing the renderer's Allow/Deny card. File writes must go through
  *    mcp__aurora__create_file, which IS gated. (Read stays enabled — the image
  *    attachment flow writes a temp file in main and the model reads it.)
+ *  - AskUserQuestion → the CLI's NATIVE question tool cannot reach a human
+ *    here: we run `-p` + bypassPermissions with no TTY and no canUseTool
+ *    callback, so a native AskUserQuestion self-resolves CLI-side and Aurora
+ *    only ever saw an inert chip — the "no question card in bypass mode"
+ *    bug. Disallowing it forces the model onto mcp__aurora__ask_user_question
+ *    (also steered by MCP_TOOL_RULES), which renders the real interactive
+ *    card and pipes the answer back through the MCP bridge.
  */
-const DISALLOWED_CLI_TOOLS = 'Bash BashOutput KillShell KillBash Edit Write MultiEdit NotebookEdit';
+const DISALLOWED_CLI_TOOLS = 'Bash BashOutput KillShell KillBash Edit Write MultiEdit NotebookEdit AskUserQuestion';
 
 /**
  * Ensure the Aurora MCP server is up and (re)write the `--mcp-config`

@@ -787,7 +787,8 @@ class AIAssistantManager {
     // Effort / usage sections stay subscription-only — they have no
     // analog for API providers.
     this.ccSections.forEach((el) => el.classList.toggle('hidden', !isSub));
-    // Effort is Claude-Code-only — Codex has no per-turn effort flag.
+    // Effort shows for any bridge with hasEffort — Claude Code (--effort)
+    // and Codex (-c model_reasoning_effort) share the same segmented control.
     const sm = SUB_META[this.currentProvider];
     if (this.effortSection) {
       this.effortSection.classList.toggle('hidden', !(sm && sm.hasEffort));
@@ -1715,7 +1716,9 @@ class AIAssistantManager {
         modelId: isSub ? (subEntry?.model || 'default') : undefined,
         messages: apiMessages,
         system: systemPrompt,
-        effort: this.currentProvider === 'claude-code' ? this.claudeCodeEffort : undefined,
+        // Shared effort selection — sent to any bridge that declares
+        // hasEffort (Claude Code --effort; Codex -c model_reasoning_effort).
+        effort: SUB_META[this.currentProvider]?.hasEffort ? this.claudeCodeEffort : undefined,
         permission: this.permissionMode,
       });
       if (r && r.ok === false) this.failTurn(r.error || 'Failed to start chat');

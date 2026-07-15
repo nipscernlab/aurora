@@ -32,12 +32,28 @@ export const CLAUDE_CODE_PROVIDER = { name: 'claude-code', model: 'default', def
 
 // Claude Code model aliases + effort levels — surfaced as segmented
 // controls in the model popover. `effort: ''` means "let the CLI decide".
+//
+// ALIASES on purpose (not dated ids): the CLI resolves each alias to the
+// newest model of that family, so this list never rots when Anthropic ships
+// a new snapshot. Current resolution (07/2026, code.claude.com/docs/model-config):
+//   default → Opus 4.8 (Max/Enterprise) or Sonnet 5 (Pro/Team)
+//   fable   → Claude Fable 5 (frontier; pick explicitly, never a default)
+//   opus    → Opus 4.8 · sonnet → Sonnet 5 · haiku → Haiku 4.5
+//   opus[1m]→ Opus 4.8 with the 1M-token context window
+// (Sonnet 5 is already 1M-native on the Anthropic API — no suffix needed.)
 const CLAUDE_CODE_MODELS = [
-  { id: 'default', label: 'Default' },
-  { id: 'sonnet',  label: 'Sonnet'  },
-  { id: 'opus',    label: 'Opus'    },
-  { id: 'haiku',   label: 'Haiku'   },
+  { id: 'default',  label: 'Default'   },
+  { id: 'fable',    label: 'Fable 5'   },
+  { id: 'opus',     label: 'Opus'      },
+  { id: 'sonnet',   label: 'Sonnet'    },
+  { id: 'haiku',    label: 'Haiku'     },
+  { id: 'opus[1m]', label: 'Opus 1M'   },
 ];
+// Effort levels — shared by BOTH CLI bridges. Verified current (07/2026):
+// Claude Code `--effort low|medium|high|xhigh|max` (default high on
+// Fable 5 / Sonnet 5 / Opus 4.8); Codex `model_reasoning_effort` accepts
+// low|medium|high|xhigh (+ max on the GPT-5.6 family, its default lineup).
+// '' = Auto: omit the flag and let the CLI's per-model default win.
 export const CLAUDE_CODE_EFFORT = [
   { id: '',       label: 'Auto'  },
   { id: 'low',    label: 'Low'   },
@@ -52,15 +68,21 @@ export const CLAUDE_CODE_EFFORT = [
 // it and the panel injects it.
 export const CHATGPT_PROVIDER = { name: 'chatgpt', model: 'default', defaultModel: 'default' };
 
-// Codex model presets surfaced as a segmented control. We only expose
-// `default` — explicit `-m gpt-5-codex` and `-m gpt-5` both fail on a
-// ChatGPT subscription with:
-//   "The '<model>' model is not supported when using Codex with a
-//    ChatGPT account."
-// "default" omits `-m` entirely and lets the CLI pick whatever the
-// signed-in plan is entitled to (Plus / Pro / Business / Edu / Enterprise).
+// Codex model presets surfaced as a segmented control. Current lineup
+// (07/2026, learn.chatgpt.com/docs/models): the GPT-5.6 family — Sol
+// (complex work, the CLI default), Terra (balanced) and Luna (fast) — is
+// available on ChatGPT Plus AND Pro; Codex Spark (gpt-5.3-codex-spark,
+// real-time iteration) is Pro-only. gpt-5.2 / gpt-5.3-codex are deprecated
+// (and the OLD gpt-5 / gpt-5-codex ids are rejected outright on ChatGPT
+// auth). "default" omits `-m` and lets the signed-in plan pick — always
+// safe; explicit picks that the plan doesn't cover fail with a friendly
+// "model not supported" turn error that names the fix.
 export const CHATGPT_MODELS = [
-  { id: 'default', label: 'Default' },
+  { id: 'default',            label: 'Default' },
+  { id: 'gpt-5.6-sol',        label: 'Sol'     },
+  { id: 'gpt-5.6-terra',      label: 'Terra'   },
+  { id: 'gpt-5.6-luna',       label: 'Luna'    },
+  { id: 'gpt-5.3-codex-spark', label: 'Spark (Pro)' },
 ];
 
 // Per-subscription-provider specifics. The panel's subscription UI
@@ -80,7 +102,9 @@ export const SUB_META = {
   },
   'chatgpt': {
     models: CHATGPT_MODELS,
-    hasEffort: false,
+    // Reasoning effort IS wired for Codex now: the bridge maps the shared
+    // effort selection to `-c model_reasoning_effort=…` (codex_cli.js).
+    hasEffort: true,
     statusApi: 'getCodexStatus',
     usageApi: 'getCodexUsage',
     modelStoreKey: 'aurora-ai-chatgpt-model',

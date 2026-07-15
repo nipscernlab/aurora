@@ -195,6 +195,12 @@ const MCP_TOOL_RULES = [
   '  - mcp__aurora__list_wave_signals, select_wave_signals, open_wave_config',
   '  - mcp__aurora__list_gtkw_files, add_gtkw_file, set_active_gtkw_file',
   '',
+  'Asking the user — you have NO way to prompt a human directly in this',
+  'non-interactive mode. Whenever you need a decision, clarification or a',
+  'choice between options, call mcp__aurora__ask_user_question — it renders',
+  'an interactive card in the IDE and returns the selected answer. Never',
+  'guess when you could ask.',
+  '',
   'The shell tool exists only for incidental, read-only inspection. Any time',
   'a task touches SAPHO compilation, the project tree, processors or',
   'waveforms, the matching mcp__aurora__* tool is mandatory — never the',
@@ -240,10 +246,11 @@ function modelFlag(/** @type {string | undefined} */ modelId) {
  * @param {{role:string,content:string}[]} payload.messages
  * @param {string} [payload.system]
  * @param {string} [payload.modelId]
+ * @param {string} [payload.effort]  reasoning effort (low|medium|high|xhigh|max; '' = CLI default)
  * @param {Electron.WebContents} webContents
  */
 async function start(payload, webContents) {
-  const { sessionId, conversationId, messages, system, modelId } = payload || {};
+  const { sessionId, conversationId, messages, system, modelId, effort } = payload || {};
 
   if (!sessionId || typeof sessionId !== 'string') {
     throw new Error('sessionId is required');
@@ -324,6 +331,16 @@ async function start(payload, webContents) {
   if (!resumeId) args.push('-C', cwd);
   const model = modelFlag(modelId);
   if (model) args.push('-m', model);
+
+  // Reasoning effort — `-c` config overrides are accepted by BOTH `exec`
+  // and `exec resume` (unlike `-m`/`-C`), so this is resume-safe. Values
+  // low|medium|high|xhigh are valid across the lineup; `max` is first-class
+  // on the GPT-5.6 family (the current default lineup). Empty = omit and
+  // let the CLI's per-model default win.
+  const VALID_EFFORT = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
+  if (effort && VALID_EFFORT.has(String(effort))) {
+    args.push('-c', `model_reasoning_effort="${effort}"`);
+  }
 
   // Aurora tool bridge — register the MCP server so Codex gets the
   // mcp__aurora__* tools. If it fails to come up the turn still runs;
@@ -520,15 +537,17 @@ async function start(payload, webContents) {
       case 'turn.failed': {
         finished = true;
         let msg = (obj.error && (obj.error.message || obj.error)) || 'Codex reported an error.';
-        // ChatGPT-subscription auth rejects every explicit `-m` value that
-        // isn't whitelisted for the user's plan (gpt-5, gpt-5-codex, …).
-        // Rephrase the cryptic CLI error so the user knows the fix is
-        // simply "switch the model preset back to Default".
+        // ChatGPT-subscription auth rejects explicit `-m` values outside the
+        // signed-in plan's whitelist (e.g. the Pro-only Codex Spark on a
+        // Plus plan, or deprecated ids like gpt-5.2 / gpt-5.3-codex).
+        // Rephrase the cryptic CLI error so the user knows the fix is a
+        // model-preset switch, not a broken install.
         if (/model is not supported when using Codex with a ChatGPT account/i.test(String(msg))) {
           msg = String(msg).replace(/\s*$/, '') +
-            "\n\nFix: open the model menu next to the composer and select " +
-            "**Default** — that lets the Codex CLI pick a model your ChatGPT " +
-            "plan is entitled to (Plus / Pro / Business / Edu / Enterprise).";
+            "\n\nFix: open the model menu next to the composer and pick " +
+            "**Default** (the CLI chooses a model your plan covers) or one of " +
+            "the GPT-5.6 presets — Sol / Terra / Luna (Plus and Pro). " +
+            "Spark requires ChatGPT Pro.";
         }
         // A failed resume usually means the thread is gone — drop the
         // mapping so the next turn starts fresh.

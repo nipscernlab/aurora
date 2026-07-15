@@ -2731,3 +2731,121 @@ modal/toast a11y, command-palette (Ctrl+Shift+P), i18n em PT, O4 (toggles do fin
 50. `<aurora-statusbar>` ao vivo · 51. O7 tree-sitter · 52. A2 decompor god-files ·
 53. O1 Surfer (iframe WASM + WCP + cores por opcode) · 54. `<aurora-editor>` · 55. `<aurora-titlebar>` ·
 56. `<aurora-activity-bar>` · 57. B11 cross-platform · 58. `<aurora-panel>` dockável.
+
+### 14.49 Sessão 14/07/2026 (parte 2) — Estudo do sistema de IA + fix do AskUserQuestion em bypass + modernização Claude/Codex
+
+Ver §18 (estudo completo). Entregue nesta sessão: (1) **bug do card AskUserQuestion em bypass CORRIGIDO** —
+a tool nativa `AskUserQuestion` do Claude Code agora está em `DISALLOWED_CLI_TOOLS` e as `MCP_TOOL_RULES`
+das duas pontes direcionam o modelo para `mcp__aurora__ask_user_question` (a única variante que renderiza o
+card interativo); (2) **modelos atualizados** — Claude: default/fable/opus/sonnet/haiku/opus[1m]; Codex:
+default + GPT-5.6 Sol/Terra/Luna + Spark (Pro-only); (3) **reasoning effort ligado no Codex**
+(`-c model_reasoning_effort`, resume-safe) — o mesmo controle segmentado low→max serve às duas pontes;
+(4) **CLIs bumpados**: claude-code ^2.1.202, codex 0.144.3 (lock + cli_manifest re-sincronizados).
+
+---
+
+## 18. Estudo — sistema de IA da AURORA (Claude Code + Codex) — 14/07/2026
+
+> Pesquisa dupla: mapa completo do código (multi-arquivo, com file:line) + estado da arte via documentação
+> oficial (code.claude.com/docs, learn.chatgpt.com/docs, npm). **Foco: as duas pontes de assinatura.**
+> Roadmap de melhoria brutal de performance/confiabilidade em 18.5.
+
+### 18.1 Arquitetura atual (como é hoje)
+
+`ai_assistant_manager.js` (renderer, 3204 linhas) → `aiAPI.startChat` (IPC fire-and-forget,
+`main/ipc/ai.js:162`) → roteia por provider: `claude-code` → `main/ai/claude_code.js`, `chatgpt` →
+`main/ai/codex_cli.js`, demais → `main/ai/chat.js` (Vercel AI SDK). Streaming volta por eventos
+`ai:chat-event` (`text-delta`/`tool-call`/`tool-result`/`finish`/`error`). System prompt montado no
+renderer (SYSTEM_PROMPT + contexto do projeto por turno). Histórico: 1 JSON por conversa (userData),
+cap 400 mensagens.
+
+- **Claude Code**: spawn por turno de `claude -p --output-format stream-json --verbose
+  --include-partial-messages --permission-mode bypassPermissions --mcp-config <tmp> --strict-mcp-config
+  --disallowed-tools "Bash … AskUserQuestion" [--model] [--effort] [--resume <sid>]`, prompt via stdin,
+  OAuth de assinatura (`~/.claude/.credentials.json`; API keys removidas do env). Tools da AURORA via
+  MCP HTTP (`aurora_mcp_server.js`, ~90 tools de `tools.js`). Reaper de inatividade 120s; usage/custo
+  acumulados do evento `result`; janelas de rate-limit de `rate_limit_event`.
+- **Codex**: spawn por turno de `codex exec [resume <tid>] --json --skip-git-repo-check
+  --dangerously-bypass-approvals-and-sandbox -c mcp_servers.aurora.url=… -c tool_timeout_sec=600
+  [-m modelo] [-c model_reasoning_effort=…]`. Mesmo MCP. SEM deltas de token (mensagens inteiras via
+  `item.completed`); custo sempre 0; plano lido do JWT de `~/.codex/auth.json`.
+- **Permissões**: os 3 modos do renderer (ask/writes/allow) só gateiam as tools MCP da AURORA
+  (`tool_permission.js`); o CLI SEMPRE roda bypass (decisão consciente: `-p` sem TTY auto-negaria
+  writes/bash silenciosamente). Guard-rails reais = `--disallowed-tools` (Claude) + regras de texto (Codex).
+
+### 18.2 O bug "bypass → nenhum card de AskUserQuestion" (CORRIGIDO 14/07)
+
+**Causa raiz** — existem DOIS mecanismos de pergunta e só um mostra card:
+1. `mcp__aurora__ask_user_question` (tool MCP da AURORA) → `tool_runner.js` pula o gate de permissão
+   (a pergunta É o prompt) → `showAskUserQuestionInline` → **card interativo**. ✔
+2. `AskUserQuestion` NATIVO do CLI → em `-p` + bypass sem TTY não há como perguntar a um humano; o
+   evento chegava como `tool-call` genérico → `startToolChip` → **chip inerte girando**, sem card e sem
+   como responder. ✘
+
+Como `permissionFlag()` força bypass em todo turno e a tool nativa não estava bloqueada nem havia
+qualquer menção a `ask_user_question` nas MCP_TOOL_RULES, o modelo usava a nativa e o card NUNCA
+aparecia. **Fix aplicado**: `AskUserQuestion` adicionada a `DISALLOWED_CLI_TOOLS` (claude_code.js) +
+seção "Asking the user" nas MCP_TOOL_RULES das DUAS pontes apontando para
+`mcp__aurora__ask_user_question`. Nota de referência: desde o claude-code 2.1.199 a nativa carrega
+`_meta["anthropic/requiresUserInteraction"]` e SEMPRE cai no callback `canUseTool` mesmo em bypass —
+mas isso só ajuda no Agent SDK (onde há callback); no modo `-p` atual, bloquear + direcionar é o correto.
+
+### 18.3 Modelos & níveis — estado da arte verificado (07/2026)
+
+**Claude Code** (CLI 2.1.202; docs code.claude.com):
+- Aliases (nunca ids datados — resolvem sempre pro mais novo): `default` (Opus 4.8 em Max/Enterprise,
+  Sonnet 5 em Pro/Team), `fable` (Claude Fable 5), `opus` (4.8), `sonnet` (5), `haiku` (4.5),
+  `opusplan`, sufixo `[1m]` p/ contexto 1M (`opus[1m]`; Sonnet 5 já é 1M nativo na API Anthropic).
+- Effort REAL e atual: `--effort low|medium|high|xhigh|max` (default `high` em Fable 5/Sonnet 5/Opus 4.8) —
+  os níveis da AURORA NÃO estavam ultrapassados, apenas o Codex não os usava. `ultracode` = xhigh +
+  workflows (≥2.1.203, ainda não exposto).
+- Caminho recomendado p/ embedding: **Claude Agent SDK** (`@anthropic-ai/claude-agent-sdk`, `query()`),
+  com `canUseTool` (permissões de verdade por modo: default/dontAsk/acceptEdits/bypassPermissions/plan),
+  MCP in-process, `resume`/`continue`, hooks, usage no `ResultMessage` — ver 18.5.
+
+**Codex** (CLI 0.144.3; docs learn.chatgpt.com):
+- Lineup atual: família **GPT-5.6 — `gpt-5.6-sol` (default, complexo), `gpt-5.6-terra` (equilíbrio),
+  `gpt-5.6-luna` (rápido)** — Plus E Pro; `gpt-5.3-codex-spark` (iteração em tempo real, Pro-only);
+  `gpt-5.4`/`gpt-5.4-mini`. **Deprecados**: gpt-5.2, gpt-5.3-codex (e os antigos gpt-5/gpt-5-codex
+  rejeitados em auth ChatGPT).
+- Reasoning effort: `model_reasoning_effort` = minimal/low/medium/high/xhigh (+ `max` first-class e
+  `ultra` na 5.6). Agora WIRED na AURORA via `-c` (resume-safe).
+- Caminho recomendado p/ embedding: **`@openai/codex-sdk`** (Thread API, `runStreamed()` → eventos
+  estruturados, JSON schema de saída) ou o protocolo app-server (thread/turn UUID7, `history_mode`).
+
+### 18.4 Achados de performance/confiabilidade (mapa completo)
+
+1. **Spawn por mensagem** nas duas pontes (cold-start de CLI a cada turno; mcp-config reescrito por
+   turno). Continuidade via `--resume`/`exec resume` ok, mas sessão nova re-injeta transcript inteiro.
+2. **Codex sem streaming de tokens** — `agent_message` chega inteiro (`item.completed`); percepção de
+   lentidão. O app-server/SDK tem deltas.
+3. **Zero retry/backoff** em 429/5xx/rede — qualquer falha transitória mata o turno (chat.js e pontes).
+4. **Full-history re-send** por turno no caminho API (só Anthropic tem prompt-cache); caps: 400 msgs,
+   100KB por tool-result, dataURLs strip.
+5. **6+ constantes de timeout sobrepostas** mantidas em sincronia por comentário (120s stream, 120s
+   inatividade CLI, 120s/5min/10min tool_bridge, 600s MCP, 180s+12min watchdog renderer, 7min oneshot).
+6. **taskkill /T /F** spawnado por abort/reaper (ok, mas pesado); regex de scrubbing multi-padrão por
+   flush de delta (fallback Llama/Qwen).
+7. Custo Codex sempre 0 (não reportado); tokens só provider-reported.
+8. Pontos FORTES a preservar: fire-and-forget IPC, death-listener no tool_bridge, dedup de tool-calls,
+   heartbeats de progresso do MCP (mantêm o CLI vivo em tools longas), reaper por posse do turno.
+
+### 18.5 Roadmap de modernização (proposto, em ordem)
+
+1. **[FEITO 14/07]** Fix AskUserQuestion + modelos/efforts atuais + bump dos CLIs.
+2. **Migrar a ponte Claude → Claude Agent SDK** (`query()` in-process): mata o spawn por turno, ganha
+   `canUseTool` (permissões reais por modo — os 3 modos do renderer passam a valer para TODAS as tools,
+   não só MCP; AskUserQuestion nativo passa a cair no callback e podemos renderizar o card diretamente),
+   hooks, usage estruturado, MCP in-process (sem servidor HTTP nem tmp-config). Maior alavanca de
+   confiabilidade+performance do sistema.
+3. **Migrar a ponte Codex → `@openai/codex-sdk`** (Thread API): processo persistente por thread,
+   `runStreamed()` com eventos estruturados (ganha deltas), sandbox/approvals de verdade em vez de
+   `--dangerously-bypass…`.
+4. **Retry/backoff** (exponencial + jitter, respeitando `retry-after`) nas 3 vias; classificar erros
+   transitório×permanente.
+5. **Unificar timeouts** numa tabela única exportada (um módulo `ai/timeouts.js`) consumida por todos.
+6. Expor `ultracode`/thinking adaptativo (Claude ≥2.1.203) e `ultra` (Codex 5.6) quando estáveis.
+7. Prompt-cache/history-mode: usar `history_mode` do app-server (Codex) e confiar no resume nativo dos
+   CLIs em vez de fold de transcript.
+
+---

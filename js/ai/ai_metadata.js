@@ -156,10 +156,16 @@ export function formatTokens(n) {
   return String(v);
 }
 
-// Rate-limit window display metadata, keyed by the CLI's `rateLimitType`.
+// Rate-limit window display metadata, keyed by the SDK's `rateLimitType`.
+// The Claude Agent SDK emits five_hour + seven_day (and per-model
+// seven_day_opus / seven_day_sonnet on some plans); `weekly` is kept for any
+// older payload shape.
 export const WINDOW_META = {
-  five_hour: { label: '5-hour window', icon: 'ph-hourglass-medium' },
-  weekly:    { label: 'This week',     icon: 'ph-calendar-dots'    },
+  five_hour:        { label: '5-hour window',      icon: 'ph-hourglass-medium' },
+  seven_day:        { label: 'This week',          icon: 'ph-calendar-dots'    },
+  seven_day_opus:   { label: 'This week · Opus',   icon: 'ph-calendar-dots'    },
+  seven_day_sonnet: { label: 'This week · Sonnet', icon: 'ph-calendar-dots'    },
+  weekly:           { label: 'This week',          icon: 'ph-calendar-dots'    },
 };
 
 /** Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp. */

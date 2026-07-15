@@ -1566,6 +1566,14 @@ body.ai-assistant-open {
  * ------------------------------------------------------------------------- */
 .ai-mp-usage.hidden { display: none; }
 
+/* Section header: the "Usage" label and the plan chip share one row. */
+.ai-usage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
 .ai-usage-plan {
   font-size: 8px;
   font-weight: var(--font-bold);

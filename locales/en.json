@@ -664,6 +664,7 @@
         "provider":        "Provider",
         "model":           "Model",
         "effort":          "Effort & reasoning",
+        "usage":           "Usage",
         "permissions":     "Permissions",
         "manageKeys":      "Manage API keys & providers",
         "inputPlaceholder": "Ask Aurora Intelligence…",

@@ -187,6 +187,18 @@ function renderInline(s) {
   //    escapeHtml() from mangling the LaTeX source. Inline math has to
   //    sidestep plain "$10" / "R$ 5" by requiring at least one math token.
   const maths = [];
+  // ChatGPT-style delimiters \[ … \] (display) and \( … \) (inline). Many models
+  // emit these instead of $…$; without handling them the literal `\(x^2\)` was
+  // shown verbatim. Unambiguous, so no math-token gate — and stashed before
+  // escapeHtml (like the $ handlers) so the LaTeX source survives.
+  s = s.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => {
+    maths.push({ expr, display: true });
+    return `${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
+  });
+  s = s.replace(/\\\(([\s\S]+?)\\\)/g, (_, expr) => {
+    maths.push({ expr, display: false });
+    return `${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;
+  });
   s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, expr) => {
     maths.push({ expr, display: true });
     return `${MATH_SENTINEL_OPEN}${maths.length - 1}${MATH_SENTINEL_CLOSE}`;

@@ -664,6 +664,7 @@
         "provider":        "Provedor",
         "model":           "Modelo",
         "effort":          "Esforço e raciocínio",
+        "usage":           "Uso",
         "permissions":     "Permissões",
         "manageKeys":      "Gerenciar chaves de API e provedores",
         "inputPlaceholder": "Pergunte à Aurora Intelligence…",

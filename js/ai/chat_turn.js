@@ -10,11 +10,28 @@
 // `dataUrl` from the STORED history) can't also wipe the payload out of what we
 // are sending this turn.
 export function buildApiMessages(messages) {
-    return messages
+    const mapped = messages
         .filter((m) => m.role !== 'tool')
         .map((m) => (m.attachments && m.attachments.length
             ? { role: m.role, content: m.content, attachments: m.attachments.map((a) => ({ ...a })) }
             : { role: m.role, content: m.content }));
+    // A single turn can now store several assistant segments (interleaved with
+    // the display-only `tool` entries just filtered out) so a reloaded chat
+    // reproduces the live layout. But the Anthropic API — and others — require
+    // roles to ALTERNATE, so merge adjacent same-role messages back into one
+    // before sending. Alternating histories are unaffected (no adjacency).
+    const out = [];
+    for (const m of mapped) {
+        const prev = out[out.length - 1];
+        if (prev && prev.role === m.role) {
+            const sep = prev.content && m.content ? '\n\n' : '';
+            prev.content = `${prev.content || ''}${sep}${m.content || ''}`;
+            if (m.attachments) prev.attachments = [...(prev.attachments || []), ...m.attachments];
+        } else {
+            out.push({ ...m });
+        }
+    }
+    return out;
 }
 
 // The per-turn project context appended to SYSTEM_PROMPT. Injecting the active

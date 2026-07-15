@@ -69,6 +69,7 @@ class AIAssistantManager {
     this.currentAssistantContentEl = null;  // current text segment bubble, or null
     this.segmentBuffer = '';                // text of the current segment
     this.turnText = '';                     // full assistant text for the turn
+    this._committedTurnLen = 0;             // chars of turnText already stored as messages
     this.runningChips = [];                 // [{ toolName, el }] in-flight tools
     this.thinkingEl = null;                 // "thinking…" placeholder, or null
     this._lastMsgRole = null;               // role of the last appended bubble (label de-dup)
@@ -341,10 +342,19 @@ class AIAssistantManager {
               <div class="ai-mp-seg" id="ai-mp-effort"></div>
             </div>
 
-            <!-- "Subscription usage" section removed: the CLIs only report an
-                 in-memory, per-run tally that resets each launch, so the bars
-                 never reflected real plan limits. Dropped rather than mislead.
-                 renderUsage() no-ops without #ai-usage-bars (guarded). -->
+            <!-- Subscription usage. For Claude Code these are REAL plan-limit
+                 windows (5-hour / 7-day): the Agent SDK streams a per-window
+                 utilization percent + reset time as rate_limit_event, read via
+                 getClaudeCodeUsage. For Codex the CLI exposes only a session
+                 token tally, so it shows one honest session row + a hint. Shown
+                 for any subscription provider (ai-mp-cc toggle). -->
+            <div class="ai-mp-section ai-mp-usage ai-mp-cc hidden" id="ai-mp-usage">
+              <div class="ai-mp-label ai-usage-head">
+                <span data-i18n="ai.usage">Usage</span>
+                <span class="ai-usage-plan" id="ai-usage-plan"></span>
+              </div>
+              <div class="ai-usage-bars" id="ai-usage-bars"></div>
+            </div>
 
             <div class="ai-mp-section">
               <div class="ai-mp-label" data-i18n="ai.permissions">Permissions</div>
@@ -1175,28 +1185,30 @@ class AIAssistantManager {
         'count', 0),
     ];
 
-    // Rate-limit windows (5-hour, weekly, …) reported by the CLI.
-    // When the CLI gives us `used` / `limit` (Claude Code does), we plot
-    // the real percentage. Otherwise we fall back to a coarse heuristic
-    // off `status` so the bar still communicates something useful.
+    // Rate-limit windows (5-hour, 7-day, …). The Claude Agent SDK reports a
+    // real `utilization` (0–100 %) per window plus a `resetsAt` timestamp, so we
+    // plot that directly. (The previous code guessed `used`/`limit` fields the
+    // SDK never sends, so `pct` was always null and every bar fell back to a
+    // coarse status heuristic — why the meter never showed real numbers.)
     const windows = Array.isArray(u?.windows) ? u.windows : [];
     for (const w of windows) {
       const meta = WINDOW_META[w.rateLimitType] || { label: w.rateLimitType, icon: 'ph-clock' };
-      const used = Number(w.used ?? w.tokensUsed ?? w.consumed);
-      const limit = Number(w.limit ?? w.total ?? w.tokensLimit);
-      let pct = null;
-      if (Number.isFinite(used) && Number.isFinite(limit) && limit > 0) {
-        pct = Math.max(0, Math.min(100, (used / limit) * 100));
-      }
+      const util = Number(w.utilization);
+      const pct = Number.isFinite(util) ? Math.max(0, Math.min(100, util)) : null;
       const sev = (pct != null
         ? (pct >= 90 ? 'high' : pct >= 60 ? 'mid' : 'ok')
         : (w.status === 'rejected' ? 'high'
             : (w.status && w.status !== 'allowed') ? 'mid' : 'ok'));
-      const reset = w.resetsAt ? `resets ${untilTime(w.resetsAt)}` : '';
-      const usedText = (pct != null)
+      // resetsAt can arrive in seconds or milliseconds — untilTime wants unix
+      // seconds, so fold ms down.
+      const resetSecs = w.resetsAt
+        ? (Number(w.resetsAt) > 1e12 ? Number(w.resetsAt) / 1000 : Number(w.resetsAt))
+        : null;
+      const reset = resetSecs ? `resets ${untilTime(resetSecs)}` : '';
+      const valText = (pct != null)
         ? `${Math.round(pct)}%${reset ? ` · ${reset}` : ''}`
         : (reset || w.status || '');
-      rows.push(usageRowHTML(meta.label, meta.icon, usedText, sev,
+      rows.push(usageRowHTML(meta.label, meta.icon, valText, sev,
         pct != null ? pct : (sev === 'high' ? 100 : sev === 'mid' ? 66 : 22)));
     }
 
@@ -1942,6 +1954,17 @@ class AIAssistantManager {
         // Reveal whatever text the model produced BEFORE this tool call, then
         // start a fresh segment below the chip.
         this._revealSegment();
+        // Persist that pre-tool prose as its OWN assistant message, interleaved
+        // with the tool entry, instead of dumping the whole turn's text after
+        // the tool group at commitTurn. This makes a reloaded chat reproduce the
+        // live layout (seg1 → [actions] → seg2). buildApiMessages re-merges
+        // adjacent assistant messages so the API still sees alternating roles.
+        {
+          const seg = stripToolCallArtifacts(
+            this.turnText.slice(this._committedTurnLen || 0)).trim();
+          if (seg) this.messages.push({ role: 'assistant', content: seg });
+          this._committedTurnLen = this.turnText.length;
+        }
         this.showThinking(false);
         this.hadToolCalls = true;
         this.startToolChip(ev.toolName, ev.args, ev.toolUseId);
@@ -2160,10 +2183,12 @@ class AIAssistantManager {
       this._streamRenderRaf = null;
     }
     this._revealSegment();
-    // The whole turn's text is persisted as one assistant message so
-    // the next turn carries context. Strip XML tool-call artifacts before
-    // storing — they confuse models on subsequent turns.
-    const cleanText = stripToolCallArtifacts(this.turnText).trim();
+    // Persist only the FINAL segment (text produced after the last tool call);
+    // any earlier segments were already stored at their tool-call boundaries
+    // above. Strip XML tool-call artifacts before storing — they confuse models
+    // on subsequent turns.
+    const cleanText = stripToolCallArtifacts(
+      this.turnText.slice(this._committedTurnLen || 0)).trim();
     if (cleanText) {
       this.messages.push({ role: 'assistant', content: cleanText });
     }
@@ -2245,6 +2270,7 @@ class AIAssistantManager {
     this.currentAssistantContentEl = null;
     this.segmentBuffer = '';
     this.turnText = '';
+    this._committedTurnLen = 0;   // reset the per-turn "already stored" cursor
     this._revealLength = 0;
     this.currentSessionId = null;
     this.runningChips = [];

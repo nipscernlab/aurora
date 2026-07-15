@@ -52,6 +52,7 @@ const cliLocator = require('./cli_locator');
 const { locateCodex } = cliLocator;
 const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
+const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
 // Codex SDK engine (ESTUDO §18.5 step 3) — preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
 const codexAgent = require('./codex_agent');
@@ -393,7 +394,7 @@ async function start(payload, webContents) {
     // genuine completion (resolving on the renderer's reply, with a 5-min
     // backstop), so raise Codex's ceiling above that and let the bridge be the
     // single authority instead of Codex hanging up first. Seconds, not ms.
-    args.push('-c', 'mcp_servers.aurora.tool_timeout_sec=600'); // 10 min
+    args.push('-c', `mcp_servers.aurora.tool_timeout_sec=${MCP_TOOL_CALL_MS / 1000}`);
     mcpReady = true;
   } catch (e) {
     log.warn('[ai.codex] Aurora MCP bridge unavailable:', e instanceof Error ? e.message : e);
@@ -450,7 +451,7 @@ async function start(payload, webContents) {
   // card (an outstanding tool) never trips it. A Set (keyed by item id), not a
   // counter, so a duplicate item.started/completed can't desync it (which would
   // pause the timer forever or fire it during a legit tool).
-  const INACTIVITY_MS = 120_000;
+  const INACTIVITY_MS = CLI_INACTIVITY_MS;
   const pendingTools = new Set();
   let stalled = false;
   /** @type {ReturnType<typeof setTimeout>|null} */

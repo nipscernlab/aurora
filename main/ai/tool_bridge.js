@@ -24,22 +24,19 @@
 'use strict';
 
 const log = require('electron-log');
+// Single source of truth for the three leashes below (and their relationship
+// to the CLIs' MCP ceiling) — see the hierarchy doc in timeouts.js.
+const { TOOL_DEFAULT_MS, TOOL_SLOW_MS, TOOL_INTERACTIVE_MS } = require('./timeouts');
 
 /** requestId → { settle } — settle() clears the timer, detaches the death
  *  listeners, removes the entry, and resolves the runTool promise exactly once. */
 const pending = new Map();
 let seq = 0;
 
-// Backstop only (see header): long enough that a slow-but-healthy tool or a
-// human reading an ask-before-write card is never cut off, since a genuinely
-// dead renderer is now caught by events rather than by this timer.
-const TOOL_TIMEOUT_MS = 120_000;
-
 // Tools that block on a deliberate human answer (the inline question card)
 // need a far longer leash — 2 minutes routinely lapses while the user reads
 // the options and types, which is why ask_user_question "always failed".
 const INTERACTIVE_TOOLS = new Set(['ask_user_question']);
-const INTERACTIVE_TIMEOUT_MS = 10 * 60_000;
 
 // Renames touch the filesystem (release watchers → move the folder → rewrite
 // the .spf → reopen) and can run well past 2 minutes on a large project or a
@@ -47,7 +44,6 @@ const INTERACTIVE_TIMEOUT_MS = 10 * 60_000;
 // in seconds, but give these a long leash so a slow disk never produces a
 // false "tool execution timed out" while the rename actually succeeds.
 const SLOW_TOOLS = new Set(['rename_project', 'rename_processor']);
-const SLOW_TIMEOUT_MS = 5 * 60_000;
 
 /**
  * Dispatch `toolName(args)` to the renderer and resolve with whatever
@@ -67,9 +63,9 @@ function runTool(webContents, toolName, args) {
       return;
     }
     const requestId = `tool-${Date.now()}-${++seq}`;
-    const timeoutMs = INTERACTIVE_TOOLS.has(toolName) ? INTERACTIVE_TIMEOUT_MS
-      : SLOW_TOOLS.has(toolName) ? SLOW_TIMEOUT_MS
-      : TOOL_TIMEOUT_MS;
+    const timeoutMs = INTERACTIVE_TOOLS.has(toolName) ? TOOL_INTERACTIVE_MS
+      : SLOW_TOOLS.has(toolName) ? TOOL_SLOW_MS
+      : TOOL_DEFAULT_MS;
 
     // Single settle point: whichever of the three outcomes fires first
     // (renderer reply, renderer death, or the backstop timer) tears down the

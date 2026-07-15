@@ -124,6 +124,12 @@ export function isSubProvider(name) {
 // AND nothing pending (no in-flight tool, no open ask/confirm card), it's
 // treated as wedged and the UI self-heals back to idle. Generous so a slow
 // model or a long single tool never trips it falsely.
+//
+// HIERARCHY NOTE — these two renderer constants are the LAST resort and must
+// out-wait the main-process table in main/ai/timeouts.js (renderer bundle
+// can't import that CJS module): STREAM_STALL_MS > CLI_INACTIVITY_MS (120s)
+// so main always reaps first; STREAM_STALL_HARD_MS > MCP_TOOL_CALL_MS (10min)
+// so a stuck chip can never suppress the rescue past the longest real tool.
 export const STREAM_STALL_MS = 180000;
 
 // Hard ceiling for the watchdog. A running tool chip normally blocks the stall

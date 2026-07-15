@@ -44,6 +44,8 @@ const log = require('electron-log');
 
 const auroraMcp = require('./aurora_mcp_server');
 const attachments = require('./attachments');
+const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
+const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
 
 // ---------------------------------------------------------------------------
 //  SDK loading (ESM-only package — dynamic import from CJS, memoized)
@@ -105,7 +107,7 @@ const MCP_TOOL_RULES = [
   'shell, never raw filesystem writes.',
 ].join('\n');
 
-const INACTIVITY_MS = 120_000; // same liveness leash as the legacy path
+const INACTIVITY_MS = CLI_INACTIVITY_MS; // shared table — see timeouts.js
 const VALID_EFFORT = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
 
 /** Same neutral scratch cwd rationale as the legacy path (folder locking). */
@@ -190,7 +192,7 @@ async function tryStart(p, webContents, host) {
     const url = await auroraMcp.ensureStarted();
     // Same values as the legacy `-c` overrides; the SDK flattens this
     // object into --config key=value TOML literals.
-    config.mcp_servers = { aurora: { url, tool_timeout_sec: 600 } };
+    config.mcp_servers = { aurora: { url, tool_timeout_sec: MCP_TOOL_CALL_MS / 1000 } };
     mcpReady = true;
   } catch (e) {
     log.warn('[ai.codex-agent] Aurora MCP bridge unavailable:',
@@ -231,6 +233,9 @@ async function tryStart(p, webContents, host) {
   let finished = false;
   let aborted = false;
   let stalled = false;
+  // True once ANY event reached us this attempt — the retry gate: a turn
+  // may only be replayed while the user has seen nothing (§18.5 item 4).
+  let anyEvent = false;
   const itemTools = new Map();
   const pendingTools = new Set();
   /** Per-item text already streamed, so item.updated diffs into real deltas. */
@@ -280,6 +285,7 @@ async function tryStart(p, webContents, host) {
 
   const handleEvent = (/** @type {any} */ obj) => {
     if (!obj || typeof obj !== 'object') return;
+    anyEvent = true;
     switch (obj.type) {
       case 'thread.started':
         if (obj.thread_id && conversationId) convThreads.set(conversationId, obj.thread_id);
@@ -401,52 +407,75 @@ async function tryStart(p, webContents, host) {
     ...(modelId && modelId !== 'default' ? { model: modelId } : {}),
   };
 
-  armInactivity();
   try {
-    const codex = new sdk.Codex({ codexPathOverride: bin.exe, env, config });
-    const thread = resumeId
-      ? codex.resumeThread(resumeId, threadOptions)
-      : codex.startThread(threadOptions);
+    // Attempt loop (§18.5 item 4): a TRANSIENT failure (429/5xx/network)
+    // before ANYTHING was emitted replays the whole turn after a
+    // full-jitter backoff. Once a single event reached the renderer,
+    // retrying would duplicate output — so anyEvent gates it off.
+    for (let attempt = 1; ; attempt++) {
+      // Fresh per-attempt turn state (invisible: nothing was emitted yet).
+      fullText = ''; finished = false; stalled = false; anyEvent = false;
+      itemTools.clear(); pendingTools.clear(); emittedText.clear();
+      armInactivity();
+      try {
+        const codex = new sdk.Codex({ codexPathOverride: bin.exe, env, config });
+        const thread = resumeId
+          ? codex.resumeThread(resumeId, threadOptions)
+          : codex.startThread(threadOptions);
 
-    const { events } = await thread.runStreamed(prompt, { signal: abortController.signal });
-    for await (const ev of events) handleEvent(ev);
+        const { events } = await thread.runStreamed(prompt, { signal: abortController.signal });
+        for await (const ev of events) handleEvent(ev);
 
-    // Thread id can also surface via the Thread object (belt & braces).
-    if (!resumeId && conversationId && thread.id) convThreads.set(conversationId, thread.id);
+        // Thread id can also surface via the Thread object (belt & braces).
+        if (!resumeId && conversationId && thread.id) convThreads.set(conversationId, thread.id);
 
-    if (!finished) {
-      if (aborted) {
-        sendEvent(webContents, sessionId, 'aborted', { text: fullText });
-      } else if (stalled) {
-        sendEvent(webContents, sessionId, 'error', {
-          message: 'Codex stopped responding (no output). Please try again.',
-        });
-      } else if (fullText) {
-        sendEvent(webContents, sessionId, 'finish', { text: fullText, usage: null });
-      } else {
-        if (resumeId && conversationId) convThreads.delete(conversationId);
-        sendEvent(webContents, sessionId, 'error', {
-          message: 'Codex ended without a response.',
-        });
+        if (!finished) {
+          if (aborted) {
+            sendEvent(webContents, sessionId, 'aborted', { text: fullText });
+          } else if (stalled) {
+            sendEvent(webContents, sessionId, 'error', {
+              message: 'Codex stopped responding (no output). Please try again.',
+            });
+          } else if (fullText) {
+            sendEvent(webContents, sessionId, 'finish', { text: fullText, usage: null });
+          } else {
+            if (resumeId && conversationId) convThreads.delete(conversationId);
+            sendEvent(webContents, sessionId, 'error', {
+              message: 'Codex ended without a response.',
+            });
+          }
+        }
+        break;
+      } catch (e) {
+        const retryable = !finished && !aborted && !stalled && !anyEvent
+          && attempt < TRANSIENT_MAX_ATTEMPTS && isTransientAiError(e);
+        if (retryable) {
+          const delayMs = backoffDelay(attempt);
+          log.warn(`[ai.codex-agent] transient failure (attempt ${attempt}/${TRANSIENT_MAX_ATTEMPTS}) — retrying in ${delayMs}ms:`,
+            e instanceof Error ? e.message : e);
+          await sleep(delayMs);
+          if (aborted) { sendEvent(webContents, sessionId, 'aborted', { text: fullText }); break; }
+          continue;
+        }
+        if (!finished) {
+          if (aborted) {
+            sendEvent(webContents, sessionId, 'aborted', { text: fullText });
+          } else if (stalled) {
+            sendEvent(webContents, sessionId, 'error', {
+              message: 'Codex stopped responding (no output). Please try again.',
+            });
+          } else {
+            if (resumeId && conversationId) convThreads.delete(conversationId);
+            sendEvent(webContents, sessionId, 'error', {
+              message: rewriteModelError(`Codex failed: ${e instanceof Error ? e.message : e}`),
+            });
+          }
+        } else {
+          log.warn('[ai.codex-agent] post-finish stream error (ignored):',
+            e instanceof Error ? e.message : e);
+        }
+        break;
       }
-    }
-  } catch (e) {
-    if (!finished) {
-      if (aborted) {
-        sendEvent(webContents, sessionId, 'aborted', { text: fullText });
-      } else if (stalled) {
-        sendEvent(webContents, sessionId, 'error', {
-          message: 'Codex stopped responding (no output). Please try again.',
-        });
-      } else {
-        if (resumeId && conversationId) convThreads.delete(conversationId);
-        sendEvent(webContents, sessionId, 'error', {
-          message: rewriteModelError(`Codex failed: ${e instanceof Error ? e.message : e}`),
-        });
-      }
-    } else {
-      log.warn('[ai.codex-agent] post-finish stream error (ignored):',
-        e instanceof Error ? e.message : e);
     }
   } finally {
     if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }

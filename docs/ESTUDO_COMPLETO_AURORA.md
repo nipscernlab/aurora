@@ -2858,12 +2858,28 @@ mas isso só ajuda no Agent SDK (onde há callback); no modo `-p` atual, bloquea
    ambiente do filho → clone sanitizado completo (sem OPENAI_API_KEY, ripgrep no PATH). Paridade total
    de eventos/bookkeeping (convThreads, usage, reaper 120s, rewrite de model-not-supported).
    Validado: 525 unit + 13 E2E, lint/tsc/knip verdes. deps: +@openai/codex-sdk 0.144.3 (92KB).
-4. **Retry/backoff** (exponencial + jitter, respeitando `retry-after`) nas 3 vias; classificar erros
-   transitório×permanente.
-5. **Unificar timeouts** numa tabela única exportada (um módulo `ai/timeouts.js`) consumida por todos.
+4. **[FEITO 15/07] Retry/backoff** — `main/ai/retry.js` (puro, testado): `isTransientAiError`
+   (429/5xx/network ENUMERADOS — sem falso-positivo em "512 ms"), `backoffDelay` full-jitter
+   (AWS-style, base 1s, cap 8s), `TRANSIENT_MAX_ATTEMPTS=3`. Política: só re-tenta quando NADA
+   chegou ao usuário (flag `anyEvent` nos engines — replay invisível; depois do 1º delta/chip,
+   nunca, para não duplicar saída nem re-rodar tools). Aplicado: engines Claude+Codex (attempt
+   loop com estado por tentativa) e via API (`streamText maxRetries:3` — o retry request-level
+   nativo do ai-sdk, explicitado). Spawns legados ficam sem retry (são fallback).
+5. **[FEITO 15/07] Timeouts unificados** — `main/ai/timeouts.js`: tabela única com a HIERARQUIA
+   documentada e AUTO-VERIFICADA (throw no load se a ordem quebrar + teste): MCP_TOOL_CALL (10min)
+   ≥ TOOL_INTERACTIVE (10min) > TOOL_SLOW (5min) > TOOL_DEFAULT (2min); reapers de silêncio
+   (STREAM_IDLE/CLI_INACTIVITY 2min) ≤ TOOL_DEFAULT; watchdogs do renderer (ai_metadata.js, não
+   importa CJS de main — hierarquia documentada + testada cross-boundary: STALL 3min > INACTIVITY,
+   STALL_HARD 12min > MCP_TOOL_CALL). Consumidores migrados: tool_bridge, chat.js, claude_code,
+   codex_cli, claude_agent, codex_agent (zero literais soltos). +8 testes (ai_retry_timeouts).
 6. Expor `ultracode`/thinking adaptativo (Claude ≥2.1.203) e `ultra` (Codex 5.6) quando estáveis.
 7. Prompt-cache/history-mode: usar `history_mode` do app-server (Codex) e confiar no resume nativo dos
    CLIs em vez de fold de transcript.
+
+**Estado do roadmap (15/07/2026): itens 1–5 CONCLUÍDOS.** Restam os opcionais 6–7 (dependem de
+estabilização upstream) e as ideias de longo prazo: processo persistente por conversa (eliminar o
+cold-start de ~1-2s por turno), MCP in-process no Agent SDK, e aposentar os spawns legados quando
+os engines SDK acumularem rodagem ao vivo suficiente.
 
 ---
 
@@ -2884,3 +2900,13 @@ resumeThread em vez de `exec resume` manual; effort/MCP via config TOML. abort()
 num stopSession() (mesmo padrão da ponte Claude). Detalhe completo no §18.5 item 3. Verde: 525 unit,
 13 E2E, lint, tsc, knip. Roadmap §18.5: passos 1–3 CONCLUÍDOS; próximos = retry/backoff (4) e
 tabela única de timeouts (5).
+
+### 14.52 Sessão 15/07/2026 (parte 3) — retry/backoff + tabela única de timeouts (§18.5 itens 4 e 5)
+
+Fecha o roadmap de confiabilidade da IA (§18.5 itens 1–5 CONCLUÍDOS). `main/ai/retry.js` (classificador
+de erro transitório com códigos ENUMERADOS + full-jitter backoff + attempts=3) e `main/ai/timeouts.js`
+(tabela única com hierarquia documentada E auto-verificada no load). Retry aplicado nos engines
+Claude/Codex (attempt loop gated pelo flag anyEvent — só re-tenta se NADA chegou ao usuário) e no
+caminho API (streamText maxRetries:3). Timeouts migrados em 6 consumidores (tool_bridge, chat,
+2 bridges, 2 engines); watchdogs do renderer documentados + testados cross-boundary. +8 testes
+(533 unit no total), 13 E2E, lint/tsc/knip verdes. ROADMAP.md refrescado (Now/Next).

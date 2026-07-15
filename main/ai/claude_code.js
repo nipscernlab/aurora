@@ -39,6 +39,7 @@ const cliLocator = require('./cli_locator');
 const { locateClaude } = cliLocator;
 const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
+const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS, ONESHOT_MS } = require('./timeouts');
 // Agent SDK engine (ESTUDO §18.5 step 2) — preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
 const claudeAgent = require('./claude_agent');
@@ -513,8 +514,8 @@ async function start(payload, webContents) {
   // hanging up first. Raise MCP_TOOL_TIMEOUT above that bridge ceiling so the
   // CLI waits for tool_bridge to settle (success or its own timeout) instead
   // of inventing a false failure. Respect an explicit user override if set.
-  if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = '600000'; // 10 min
-  if (!env.MCP_TIMEOUT) env.MCP_TIMEOUT = '30000';            // server startup
+  if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_CALL_MS);
+  if (!env.MCP_TIMEOUT) env.MCP_TIMEOUT = String(MCP_STARTUP_MS); // server startup
 
   let proc;
   try {
@@ -559,7 +560,7 @@ async function start(payload, webContents) {
   // (keyed by tool-use id), not a counter, so a duplicate/out-of-order tool
   // event can't desync it (which would pause the timer forever or fire it
   // during a legit tool).
-  const INACTIVITY_MS = 120_000;
+  const INACTIVITY_MS = CLI_INACTIVITY_MS;
   const pendingTools = new Set();
   let stalled = false;
 
@@ -854,7 +855,7 @@ async function generateOneshot({ system, prompt, model } = /** @type {any} */ ({
     // The CLI in text mode is slow (it returns only after the whole answer is
     // generated — measured ~4 min for a harness). Generous timeout so a real
     // hang doesn't wait forever, without cutting a legitimate generation.
-    const TIMEOUT_MS = 420000; // 7 min
+    const TIMEOUT_MS = ONESHOT_MS; // 7 min
     const timer = setTimeout(() => {
       try { proc.kill(); } catch (_) { /* already gone */ }
       finish({ ok: false, error: 'Claude Code timed out (no answer in 7 min). It is much slower than an API provider — try gemini/openai for faster iteration.' });

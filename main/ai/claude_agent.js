@@ -43,6 +43,8 @@ const log = require('electron-log');
 const auroraMcp = require('./aurora_mcp_server');
 const toolBridge = require('./tool_bridge');
 const attachments = require('./attachments');
+const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } = require('./timeouts');
+const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
 
 // ---------------------------------------------------------------------------
 //  SDK loading (ESM-only package — dynamic import from CJS, memoized)
@@ -109,7 +111,7 @@ const MCP_TOOL_RULES = [
   'improvise with PowerShell or raw filesystem calls for SAPHO work.',
 ].join('\n');
 
-const INACTIVITY_MS = 120_000; // same liveness leash as the legacy path
+const INACTIVITY_MS = CLI_INACTIVITY_MS; // shared table — see timeouts.js
 
 // ---------------------------------------------------------------------------
 //  AskUserQuestion → Aurora card
@@ -254,8 +256,8 @@ async function tryStart(p, webContents, host) {
   const env = { ...process.env };
   delete env.ANTHROPIC_API_KEY;
   delete env.ANTHROPIC_AUTH_TOKEN;
-  if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = '600000'; // see legacy note
-  if (!env.MCP_TIMEOUT) env.MCP_TIMEOUT = '30000';
+  if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_CALL_MS); // see legacy note
+  if (!env.MCP_TIMEOUT) env.MCP_TIMEOUT = String(MCP_STARTUP_MS);
 
   const projectDir = workspaceDir();
   const cwd = agentScratchDir();
@@ -269,6 +271,9 @@ async function tryStart(p, webContents, host) {
   let finished = false;
   let aborted = false;
   let stalled = false;
+  // True once ANY message reached us this attempt — the retry gate: a turn
+  // may only be replayed while the user has seen nothing (§18.5 item 4).
+  let anyEvent = false;
   const seenToolCalls = new Set();
   const toolUseNames = new Map();
   const pendingTools = new Set();
@@ -294,6 +299,7 @@ async function tryStart(p, webContents, host) {
   // ---- message translation (mirrors legacy handleObject) ----------------------
   const handleMessage = (/** @type {any} */ obj) => {
     if (!obj || typeof obj !== 'object') return;
+    anyEvent = true;
     switch (obj.type) {
       case 'system':
         if (obj.subtype === 'init' && obj.session_id && conversationId) {
@@ -437,47 +443,70 @@ async function tryStart(p, webContents, host) {
     },
   };
 
-  armInactivity();
   try {
-    for await (const message of sdk.query({ prompt: promptStream(), options })) {
-      handleMessage(message);
-    }
-    // Stream ended. If no `result` closed the turn, mirror the legacy
-    // close-handler semantics.
-    if (!finished) {
-      if (aborted) {
-        sendEvent(webContents, sessionId, 'aborted', { text: fullText });
-      } else if (stalled) {
-        sendEvent(webContents, sessionId, 'error', {
-          message: 'Claude Code stopped responding (no output). Please try again.',
-        });
-      } else if (fullText) {
-        sendEvent(webContents, sessionId, 'finish', { text: fullText, usage: null });
-      } else {
-        if (resumeId && conversationId) convSessions.delete(conversationId);
-        sendEvent(webContents, sessionId, 'error', {
-          message: 'Claude Code ended without a response.',
-        });
+    // Attempt loop (§18.5 item 4): a TRANSIENT failure (429/5xx/network)
+    // before ANYTHING was emitted replays the whole turn after a
+    // full-jitter backoff. Once a single event reached the renderer,
+    // retrying would duplicate output — so anyEvent gates it off.
+    for (let attempt = 1; ; attempt++) {
+      // Fresh per-attempt turn state (invisible: nothing was emitted yet).
+      fullText = ''; finished = false; stalled = false; anyEvent = false;
+      seenToolCalls.clear(); toolUseNames.clear(); pendingTools.clear();
+      armInactivity();
+      try {
+        for await (const message of sdk.query({ prompt: promptStream(), options })) {
+          handleMessage(message);
+        }
+        // Stream ended. If no `result` closed the turn, mirror the legacy
+        // close-handler semantics.
+        if (!finished) {
+          if (aborted) {
+            sendEvent(webContents, sessionId, 'aborted', { text: fullText });
+          } else if (stalled) {
+            sendEvent(webContents, sessionId, 'error', {
+              message: 'Claude Code stopped responding (no output). Please try again.',
+            });
+          } else if (fullText) {
+            sendEvent(webContents, sessionId, 'finish', { text: fullText, usage: null });
+          } else {
+            if (resumeId && conversationId) convSessions.delete(conversationId);
+            sendEvent(webContents, sessionId, 'error', {
+              message: 'Claude Code ended without a response.',
+            });
+          }
+        }
+        break;
+      } catch (e) {
+        const retryable = !finished && !aborted && !stalled && !anyEvent
+          && attempt < TRANSIENT_MAX_ATTEMPTS && isTransientAiError(e);
+        if (retryable) {
+          const delayMs = backoffDelay(attempt);
+          log.warn(`[ai.claude-agent] transient failure (attempt ${attempt}/${TRANSIENT_MAX_ATTEMPTS}) — retrying in ${delayMs}ms:`,
+            e instanceof Error ? e.message : e);
+          await sleep(delayMs);
+          if (aborted) { sendEvent(webContents, sessionId, 'aborted', { text: fullText }); break; }
+          continue;
+        }
+        if (!finished) {
+          if (aborted) {
+            sendEvent(webContents, sessionId, 'aborted', { text: fullText });
+          } else if (stalled) {
+            sendEvent(webContents, sessionId, 'error', {
+              message: 'Claude Code stopped responding (no output). Please try again.',
+            });
+          } else {
+            // A failed --resume usually means the CLI-side session is gone.
+            if (resumeId && conversationId) convSessions.delete(conversationId);
+            sendEvent(webContents, sessionId, 'error', {
+              message: `Claude Code failed: ${e instanceof Error ? e.message : e}`,
+            });
+          }
+        } else {
+          log.warn('[ai.claude-agent] post-result stream error (ignored):',
+            e instanceof Error ? e.message : e);
+        }
+        break;
       }
-    }
-  } catch (e) {
-    if (!finished) {
-      if (aborted) {
-        sendEvent(webContents, sessionId, 'aborted', { text: fullText });
-      } else if (stalled) {
-        sendEvent(webContents, sessionId, 'error', {
-          message: 'Claude Code stopped responding (no output). Please try again.',
-        });
-      } else {
-        // A failed --resume usually means the CLI-side session is gone.
-        if (resumeId && conversationId) convSessions.delete(conversationId);
-        sendEvent(webContents, sessionId, 'error', {
-          message: `Claude Code failed: ${e instanceof Error ? e.message : e}`,
-        });
-      }
-    } else {
-      log.warn('[ai.claude-agent] post-result stream error (ignored):',
-        e instanceof Error ? e.message : e);
     }
   } finally {
     if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }

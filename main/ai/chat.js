@@ -44,6 +44,8 @@ const provider = require('./provider');
 const tools = require('./tools');
 const toolBridge = require('./tool_bridge');
 const audit = require('./audit');
+const { STREAM_IDLE_MS } = require('./timeouts');
+const { AI_SDK_MAX_RETRIES } = require('./retry');
 
 /** sessionId → { abort: AbortController } */
 const sessions = new Map();
@@ -58,7 +60,8 @@ const MAX_STEPS = 24;
 // a hung stream leaves the renderer spinning until its 3-minute watchdog. Tool
 // execution is exempt (it has its own backstop in tool_bridge), so a slow
 // compile never trips this; only a model that stopped emitting does.
-const STREAM_INACTIVITY_MS = 120_000;
+// Value lives in the shared table (timeouts.js) with the full hierarchy doc.
+const STREAM_INACTIVITY_MS = STREAM_IDLE_MS;
 
 function sendEvent(/** @type {any} */ webContents, /** @type {string} */ sessionId, /** @type {string} */ type, /** @type {any} */ data) {
   if (!webContents || webContents.isDestroyed()) return;
@@ -214,6 +217,10 @@ async function start(payload, webContents) {
       tools: aiTools,
       stopWhen: stepCountIs(MAX_STEPS),
       abortSignal: abort.signal,
+      // Transient 429/5xx/network failures retry with exponential backoff at
+      // the REQUEST level (never mid-stream, so no duplicated output) —
+      // ESTUDO §18.5 item 4. The SDK's default is 2; made explicit + raised.
+      maxRetries: AI_SDK_MAX_RETRIES,
     });
 
     // Remove tool-call artefacts that some models (Llama, Qwen) emit as plain

@@ -7,14 +7,17 @@
 
 ## Now (hardening + professionalisation)
 
+- AI bridges modernised (done): Claude Agent SDK + Codex SDK engines with
+  automatic legacy fallback, transient retry/backoff, unified timeout table.
 - Residual security follow-ups (MCP auth, AI-CLI tool allowlists, allowlisted launches).
 - Build/DX: release-integrity (SHA256SUMS), incremental component copy, CI startup budget.
 - Repository: CODEOWNERS, commitlint, CodeQL, CITATION, release-please as the single flow.
 
 ## Next (capability)
 
-- In-project search (ripgrep) and Git integration (status/diff/commit).
-- Verilog language intelligence (Verible LSP) and richer Verilator feedback.
+- Persistent AI process per conversation (kill the per-turn CLI cold-start);
+  retire the legacy spawn paths once the SDK engines have live mileage.
+- Style consolidation (single button/card system, tokenised panels — ESTUDO §15).
 - Embedded waveforms (Surfer) graduating from opt-in toward default.
 
 ## Later (foundation)

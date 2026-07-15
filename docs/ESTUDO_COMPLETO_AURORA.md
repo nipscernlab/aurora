@@ -2845,9 +2845,19 @@ mas isso só ajuda no Agent SDK (onde há callback); no modo `-p` atual, bloquea
    streaming-input mode (exigência do canUseTool). Paridade total de eventos/bookkeeping (convSessions,
    usage, rate-limit, reaper de inatividade 120s). MCP continua o servidor HTTP (in-process fica p/
    depois). Validado: 525 unit + 13 E2E (app boota com o engine), lint/tsc/knip/build verdes.
-3. **Migrar a ponte Codex → `@openai/codex-sdk`** (Thread API): processo persistente por thread,
-   `runStreamed()` com eventos estruturados (ganha deltas), sandbox/approvals de verdade em vez de
-   `--dangerously-bypass…`.
+3. **[FEITO 15/07] Ponte Codex → `@openai/codex-sdk`** — `main/ai/codex_agent.js` (engine novo) +
+   roteamento em `codex_cli.js` com FALLBACK automático pro spawn legado (import falhou, binário
+   .cmd-shim, ou `AURORA_CODEX_LEGACY_CLI=1`). Thread API: `startThread`/`resumeThread(threadId)` +
+   `runStreamed(prompt, {signal})` sobre o MESMO binário nativo (`codexPathOverride`). Ganhos:
+   (a) aborts limpos via AbortSignal (sem taskkill); (b) **deltas incrementais de texto** quando o CLI
+   emite `item.updated` de agent_message (o engine faz diff e streama; turnos whole-message degradam
+   exatamente pro comportamento legado); (c) opções tipadas — `approvalPolicy:'never'` +
+   `sandboxMode:'danger-full-access'` (idêntico ao que o flag bypass legado expande; continua a única
+   combinação onde mcp__aurora__* roda em modo não-interativo); (d) effort + MCP via `config` (objeto →
+   `--config` TOML; aceita `max` que o tipo do SDK ainda não lista). Env: CodexOptions.env SUBSTITUI o
+   ambiente do filho → clone sanitizado completo (sem OPENAI_API_KEY, ripgrep no PATH). Paridade total
+   de eventos/bookkeeping (convThreads, usage, reaper 120s, rewrite de model-not-supported).
+   Validado: 525 unit + 13 E2E, lint/tsc/knip verdes. deps: +@openai/codex-sdk 0.144.3 (92KB).
 4. **Retry/backoff** (exponencial + jitter, respeitando `retry-after`) nas 3 vias; classificar erros
    transitório×permanente.
 5. **Unificar timeouts** numa tabela única exportada (um módulo `ai/timeouts.js`) consumida por todos.
@@ -2864,3 +2874,13 @@ fallback automático em `claude_code.js` (spawn legado preservado). AskUserQuest
 existir NO SDK-path e vira card via canUseTool; aborts via AbortController; system prompt sem limite
 de argv. Detalhe completo no §18.5 item 2. deps: +@anthropic-ai/claude-agent-sdk ^0.3.210, zod 3→4
 (peer-only; nenhum import próprio). Verde: 525 unit, 13 E2E, lint, tsc, knip, vite build.
+
+### 14.51 Sessão 15/07/2026 (parte 2) — ponte Codex migrada pro codex-sdk (ESTUDO §18.5 passo 3)
+
+`main/ai/codex_agent.js` novo (Thread API do @openai/codex-sdk 0.144.3, 92KB) + roteamento com fallback
+automático em `codex_cli.js` (spawn legado preservado; `AURORA_CODEX_LEGACY_CLI=1` força o legado).
+Aborts via AbortSignal; deltas incrementais de agent_message via item.updated (diff no engine);
+resumeThread em vez de `exec resume` manual; effort/MCP via config TOML. abort()/killAll() unificados
+num stopSession() (mesmo padrão da ponte Claude). Detalhe completo no §18.5 item 3. Verde: 525 unit,
+13 E2E, lint, tsc, knip. Roadmap §18.5: passos 1–3 CONCLUÍDOS; próximos = retry/backoff (4) e
+tabela única de timeouts (5).

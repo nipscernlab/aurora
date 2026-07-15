@@ -41,6 +41,8 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { SharedModelRegistry } from '../editor/shared_models.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
 import { gitNs } from './git_ns.js';
+import { switchTerminal } from '../terminal/terminal.js';
+import { resolveWaveToolchain } from '../compilation/wave_toolchain.js';
 import { processorConfigPanel } from '../processors/processor_config_panel.js';
 import {
   getSimulator as getWaveSimulator,
@@ -510,6 +512,32 @@ const terminalNs = {
       return ok({ id: target });
     } catch (e) {
       return err(e?.message || 'clear failed');
+    }
+  },
+
+  /**
+   * Type — and optionally run — a command in the user's TCMD shell (their real
+   * PowerShell/bash, the one they see). `execute:false` just places the command
+   * on the input line for the user to review and run; `execute:true` (default)
+   * runs it and returns a best-effort snapshot of the output. `cd` persists in
+   * the user's shell. This is the HUMAN shell — not the sandboxed compile path;
+   * prefer compile_all / compile_step / run_fast_sim for real builds.
+   */
+  async runInShell(args = {}) {
+    const command = typeof args === 'string' ? args : (args?.command ?? '');
+    if (!String(command).trim()) return err('command is required');
+    const execute = args?.execute !== false;   // default true
+    const st = window.shellTerminal;
+    if (!st || typeof st.runCommand !== 'function') return err('TCMD shell unavailable');
+    // Bring the TCMD terminal into view so the user watches it happen (this
+    // module owns the tab switch; shell_terminal deliberately doesn't).
+    try { switchTerminal('terminal-tcmd'); } catch (_) { /* best-effort */ }
+    try {
+      const res = await st.runCommand(command, { execute });
+      if (!res?.ok) return err(res?.error || 'shell command failed');
+      return ok({ command: res.command, executed: res.executed, output: res.output ?? '' });
+    } catch (e) {
+      return err(e?.message || 'shell command failed');
     }
   },
 };
@@ -2262,6 +2290,29 @@ const waveNs = {
   // per-testbench list shape, stored separately in WaveStore.surferFiles so the
   // two viewers never cross-contaminate. The toolbar picker is viewer-aware and
   // shows whichever list matches the active viewer.
+
+  /**
+   * Open the Surfer waveform viewer directly on a .vcd/.fst file (Aurora
+   * Intelligence `open_surfer` tool). Reuses the compilation module's launcher,
+   * so it inherits Surfer's process tracking, the terminal status messages, and
+   * the automatic fall-back to GTKWave when surfer.exe isn't installed. Pass an
+   * absolute file path (from get_project_tree); `layout` optionally loads a
+   * .surf.ron saved state (via -s) or a .sucl command file (via -c).
+   */
+  async openSurfer({ file, layout } = {}) {
+    const vcd = String(file || '').trim();
+    if (!vcd) return err('file is required — pass a .vcd/.fst path (see get_project_tree)');
+    const cm = window.compilationModule;
+    if (!cm || typeof cm._waveLaunchSurfer !== 'function') return err('compilation module unavailable');
+    try {
+      const componentsPath = await electronAPI.getComponentsPath();
+      const tools = await resolveWaveToolchain(componentsPath);
+      await cm._waveLaunchSurfer(vcd, layout || null, tools);
+      return ok({ opened: vcd, layout: layout || null });
+    } catch (e) {
+      return err(e?.message || 'surfer launch failed');
+    }
+  },
 
   /** List every Surfer layout (.surf.ron/.sucl) registered for the active testbench. */
   async listSurferFiles() {

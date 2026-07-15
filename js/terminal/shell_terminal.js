@@ -17,6 +17,18 @@ const SESSION_ID = 'tcmd';
 // Windows-style absolute paths: `C:\...` or UNC `\\host\...`, stopping at
 // whitespace / quotes / shell metacharacters.
 const WIN_PATH_RE = /(?:[A-Za-z]:\\|\\\\)[^\s"'<>|)}\]]+/g;
+
+// Strip ANSI escape sequences (colours/cursor moves, window-title OSC) from
+// captured PTY output so the AI's run_in_terminal tool gets plain, readable text.
+// Keeps \t \n \r; drops other C0 control bytes.
+function stripAnsi(s) {
+  /* eslint-disable no-control-regex -- stripping ANSI/control bytes needs them */
+  return String(s)
+    .replace(/\x1b\][\s\S]*?(?:\x07|\x1b\\)/g, '')   // OSC (e.g. window title) … BEL/ST
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')        // CSI (SGR colours, cursor)
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, '');    // stray control chars
+  /* eslint-enable no-control-regex */
+}
 const TEXT_EXT_RE = /\.(v|sv|svh|vh|cmm|asm|c|h|cpp|py|txt|md|json|jsonc|log|csv|sdc|tcl|vhd|vhdl|xdc|ys|do|f|mk|cfg|ini|yml|yaml)$/i;
 
 class ShellTerminal {
@@ -154,6 +166,57 @@ class ShellTerminal {
     if (!ok) return;
     const q = String(dirPath).replace(/"/g, '""');
     electronAPI.shellInput(SESSION_ID, `cd "${q}"\r`);
+  }
+
+  /**
+   * Programmatic command entry — backs Aurora Intelligence's `run_in_terminal`
+   * tool. Ensures the shell is live, then EITHER just types `command` (execute
+   * false — the user reviews and presses Enter themselves) OR runs it (execute
+   * true) and returns a best-effort snapshot of the output it produced. Output is
+   * captured from the PTY stream and resolves once the stream goes idle for
+   * `idleMs` (command finished) or `maxMs` elapses (safety cap so a long-running
+   * or interactive command can never block the AI turn). The caller switches the
+   * TCMD tab into view (this module deliberately doesn't import switchTerminal).
+   *
+   * @param {string} command
+   * @param {{execute?: boolean, idleMs?: number, maxMs?: number}} [opts]
+   * @returns {Promise<{ok:boolean, executed?:boolean, command?:string, output?:string, error?:string}>}
+   */
+  async runCommand(command, { execute = true, idleMs = 500, maxMs = 4000 } = {}) {
+    const cmd = String(command ?? '');
+    if (!cmd.trim()) return { ok: false, error: 'empty command' };
+    this._ensureTerm();
+    const started = await this._ensureStarted();
+    if (!started) return { ok: false, error: 'shell could not start' };
+    requestAnimationFrame(() => { this._fit(); this.term?.focus(); });
+
+    if (!execute) {
+      // Place the command on the input line WITHOUT a carriage return so the user
+      // reviews it and presses Enter (the "what's that command again?" case).
+      electronAPI.shellInput(SESSION_ID, cmd);
+      return { ok: true, executed: false, command: cmd };
+    }
+
+    return await new Promise((resolve) => {
+      const chunks = [];
+      let idle = null;
+      let hard = null;
+      let unsub = null;
+      const finish = () => {
+        if (idle) clearTimeout(idle);
+        if (hard) clearTimeout(hard);
+        try { unsub?.(); } catch (_) { /* already gone */ }
+        resolve({ ok: true, executed: true, command: cmd, output: stripAnsi(chunks.join('')) });
+      };
+      unsub = electronAPI.onShellData(({ id, data }) => {
+        if (id !== SESSION_ID) return;
+        chunks.push(data);
+        if (idle) clearTimeout(idle);
+        idle = setTimeout(finish, idleMs);   // idle stream ⇒ command likely done
+      });
+      hard = setTimeout(finish, maxMs);       // safety cap for long/interactive cmds
+      electronAPI.shellInput(SESSION_ID, cmd + '\r');
+    });
   }
 
   // ---- copy / paste ---------------------------------------------------------

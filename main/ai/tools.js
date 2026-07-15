@@ -169,6 +169,30 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'run_in_terminal',
+    description:
+      "Type — and optionally run — a command in the user's TCMD terminal: their " +
+      'REAL interactive shell (PowerShell on Windows), the one they can see, NOT a ' +
+      'sandbox. Use execute:false to just place the command on the input line for the ' +
+      "user to review and press Enter (great for \"what's the command to compile in " +
+      'python again?"); execute:true (the default) runs it and returns a best-effort ' +
+      'snapshot of the output. `cd` and environment changes PERSIST in the session, so ' +
+      'you can navigate folders and chain commands. This is the human shell — for real ' +
+      'SAPHO builds/sims prefer compile_all / compile_step / run_fast_sim; use this for ' +
+      'ad-hoc shell commands, navigation, git one-offs, running the user\'s python, etc.',
+    access: 'write',
+    api: ['terminal', 'runInShell'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'The shell command line to type/run.' },
+        execute: { type: 'boolean', description: 'true (default) runs it and returns output; false just types it for the user to run.' },
+      },
+      required: ['command'],
+    },
+  },
+  {
     name: 'list_processors',
     description: 'List the processors of the open project together with their configuration.',
     access: 'read',
@@ -1219,6 +1243,28 @@ const TOOL_MANIFEST = [
         viewer: { type: 'string', enum: ['gtkwave', 'surfer'] },
       },
       required: ['viewer'],
+    },
+  },
+  {
+    name: 'open_surfer',
+    description:
+      'Open the Surfer waveform viewer on a specific .vcd/.fst file, in its own ' +
+      'window. Optionally load a Surfer layout: a .surf.ron saved state or a .sucl ' +
+      'command file. If surfer.exe is not installed it cleanly falls back to GTKWave, ' +
+      'so this always produces a viewer. Pass an ABSOLUTE file path (find one with ' +
+      'get_project_tree — e.g. a <proc>/Simulation/<proc>.vcd or a dump.fst). Unlike ' +
+      'set_waveform_viewer (which only changes what the Wave button uses), this ' +
+      'launches the viewer immediately on the file you name.',
+    access: 'write',
+    api: ['wave', 'openSurfer'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', description: 'Absolute path to the .vcd/.fst wave file to open.' },
+        layout: { type: 'string', description: 'Optional Surfer layout: a .surf.ron (loaded with -s) or .sucl (loaded with -c).' },
+      },
+      required: ['file'],
     },
   },
   {

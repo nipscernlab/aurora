@@ -461,6 +461,40 @@ Creates a new editor split pane.
 
 ---
 
+### `run_in_terminal`
+Types — and optionally runs — a command in the user's **TCMD** terminal (their real interactive PowerShell, the one they see). `cd` and environment changes persist across calls. `execute:false` just places the command on the input line for the user to review and press Enter; `execute:true` (default) runs it and returns a best-effort snapshot of the output. This is the *human* shell — for real SAPHO builds/sims prefer `compile_*` / `run_fast_sim`.
+
+**Arguments:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `command` | string | Yes | The shell command line to type/run |
+| `execute` | boolean | No | `true` (default) runs it and returns output; `false` just types it |
+
+```jsonc
+// input:
+{ "command": "python plot_results.py", "execute": true }
+```
+
+---
+
+### `open_surfer`
+Launches the Surfer waveform viewer on a specific `.vcd`/`.fst` file, optionally loading a layout (`.surf.ron` via `-s`, or `.sucl` via `-c`). Falls back to GTKWave when `surfer.exe` isn't installed, so it always produces a viewer. Unlike `set_waveform_viewer` (which only changes what the Wave button uses), this opens the viewer immediately on the named file.
+
+**Arguments:**
+
+| Name | Type | Required | Description |
+|------|------|----------|-------------|
+| `file` | string | Yes | Absolute path to the `.vcd`/`.fst` wave file |
+| `layout` | string | No | Optional Surfer layout (`.surf.ron` / `.sucl`) |
+
+```jsonc
+// input:
+{ "file": "C:/proj/PMU_padrao/Simulation/PMU_padrao.vcd" }
+```
+
+---
+
 ### `create_file`
 Creates a new file (or overwrites an existing one) with given content.  
 `.v`, `.sv`, `.vh` files are automatically registered in the project's synthesizable file list and appear in the file tree immediately.

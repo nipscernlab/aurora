@@ -336,6 +336,58 @@ class AuroraWelcome extends LitElement {
     .signature-sep { margin: 0 6px; color: var(--text-disabled); font-weight: var(--font-normal); }
   `;
 
+  /* Stylesheet for the body-level processor popover (see _onHover for why it
+     can't live in this shadow root). Injected ONCE into document.head. Token-
+     based — no inline hex — so it tracks the theme and honours DESIGN.md:
+     elevation by light + luminous border (§4), reveal not fly (§6), and pills
+     coloured as aurora bands from the 16 processor slots (§2). */
+  static procPopCSS = `
+    .aurora-proc-pop {
+      position: fixed;
+      z-index: var(--z-popover, 10000);
+      max-width: 300px;
+      padding: 10px 12px 11px;
+      background: var(--surface-overlay, var(--bg-elev-3, #1B2130));
+      border: 1px solid var(--border-luminous, rgba(142,131,232,0.45));
+      border-radius: var(--radius-lg, 8px);
+      /* Elevation by light: a luminous hairline + a soft accent glow, not a
+         heavy black drop shadow (DESIGN §4). */
+      box-shadow: 0 0 0 1px var(--border-luminous, rgba(142,131,232,0.30)),
+                  0 12px 32px -14px var(--accent-glow, rgba(142,131,232,0.42));
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity var(--motion-quick, 140ms) var(--ease-reveal, ease),
+                  transform var(--motion-quick, 140ms) var(--ease-reveal, ease);
+    }
+    .aurora-proc-pop.visible { opacity: 1; transform: translateY(0); }
+    .aurora-proc-pop .app-header {
+      margin-bottom: 8px;
+      font-size: var(--text-2xs, 10px);
+      font-weight: var(--font-semibold, 600);
+      letter-spacing: var(--tracking-wider, 0.06em);
+      text-transform: uppercase;
+      color: var(--text-muted, var(--text-faint, #6A6F7C));
+    }
+    .aurora-proc-pop .app-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+    .aurora-proc-pop .app-pill {
+      --pc: var(--accent, #8E83E8);
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: var(--radius-full, 999px);
+      font-family: var(--font-mono, monospace);
+      font-size: var(--text-2xs, 10px);
+      line-height: 1.5;
+      color: var(--pc);
+      background: color-mix(in srgb, var(--pc) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--pc) 34%, transparent);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .aurora-proc-pop { transition: none; }
+    }
+  `;
+
   render() {
     return html`
       <link rel="stylesheet" href=${PHOSPHOR_HREF} />
@@ -440,14 +492,17 @@ class AuroraWelcome extends LitElement {
   // the viewport, and flies off-screen. A body-level fixed element is truly
   // viewport-relative.
   _ensureProcPop() {
+    // Token-based styles injected once into the document head (see procPopCSS).
+    if (!document.getElementById('aurora-proc-pop-styles')) {
+      const style = document.createElement('style');
+      style.id = 'aurora-proc-pop-styles';
+      style.textContent = AuroraWelcome.procPopCSS;
+      document.head.appendChild(style);
+    }
     if (!this._procPopEl) {
       const el = document.createElement('div');
       el.className = 'aurora-proc-pop';
-      el.style.cssText =
-        'position:fixed;z-index:10000;max-width:280px;padding:8px 12px;' +
-        'background:var(--surface-overlay,#1a1d2a);border:1px solid var(--border-luminous,#3a3f55);' +
-        'border-radius:8px;box-shadow:var(--elev-overlay,0 8px 24px rgba(0,0,0,.4));' +
-        'pointer-events:none;display:none;';
+      el.style.display = 'none';
       document.body.appendChild(el);
       this._procPopEl = el;
     }
@@ -461,29 +516,36 @@ class AuroraWelcome extends LitElement {
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const el = this._ensureProcPop();
+    const label = esc(this._t('welcome.processors', 'Processors'));
+    // Each pill is coloured by its slot in the 16-colour processor spectrum
+    // (positional, wrapping at 16) — a project's processors read as several
+    // aurora bands rather than a flat list (DESIGN §2).
     el.innerHTML =
-      '<div style="margin-bottom:8px;font-size:10px;font-weight:600;letter-spacing:.06em;' +
-      'text-transform:uppercase;color:var(--text-faint,#8a90a8)">' +
-      `${esc(this._t('welcome.processors', 'Processors'))} · ${procs.length}</div>` +
-      '<div style="display:flex;flex-wrap:wrap;gap:4px">' +
-      procs.map((n) =>
-        '<span style="padding:1px 8px;border-radius:999px;background:var(--surface-raised,#22263a);' +
-        'border:1px solid var(--border-subtle,#333850);color:var(--accent-hover,#9aa6ff);' +
-        `font-family:var(--font-mono,monospace);font-size:10px">${esc(n)}</span>`).join('') +
+      `<div class="app-header">${label} · ${procs.length}</div>` +
+      '<div class="app-pills">' +
+      procs.map((n, i) =>
+        `<span class="app-pill" style="--pc:var(--proc-color-${i % 16})">${esc(n)}</span>`
+      ).join('') +
       '</div>';
     // Measure, then place EXACTLY to the left of the row (fall back to the right
     // if there's no room), clamped to the viewport. Viewport-relative now.
     el.style.display = 'block';
+    el.classList.remove('visible');
     const w = el.offsetWidth;
     const ph = el.offsetHeight;
     let left = r.left - w - 12;
     if (left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
     el.style.left = `${Math.max(8, left)}px`;
     el.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - ph - 8))}px`;
+    // Reveal on the next frame — opacity + a 4px lift, never a fly-in (DESIGN §6).
+    requestAnimationFrame(() => el.classList.add('visible'));
   }
 
   _hideProcPop() {
-    if (this._procPopEl) this._procPopEl.style.display = 'none';
+    if (this._procPopEl) {
+      this._procPopEl.classList.remove('visible');
+      this._procPopEl.style.display = 'none';
+    }
   }
 
   _openWebsite() {

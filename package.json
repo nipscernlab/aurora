@@ -141,6 +141,7 @@
     "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/groq": "^3.0.39",
     "@ai-sdk/openai": "^3.0.64",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.210",
     "@anthropic-ai/claude-code": "^2.1.202",
     "@lydell/node-pty": "^1.2.0-beta.12",
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -166,7 +167,7 @@
     "simple-git": "^3.36.0",
     "web-tree-sitter": "0.26.9",
     "yosys2digitaljs": "^0.10.3",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.1",

@@ -2833,11 +2833,18 @@ mas isso só ajuda no Agent SDK (onde há callback); no modo `-p` atual, bloquea
 ### 18.5 Roadmap de modernização (proposto, em ordem)
 
 1. **[FEITO 14/07]** Fix AskUserQuestion + modelos/efforts atuais + bump dos CLIs.
-2. **Migrar a ponte Claude → Claude Agent SDK** (`query()` in-process): mata o spawn por turno, ganha
-   `canUseTool` (permissões reais por modo — os 3 modos do renderer passam a valer para TODAS as tools,
-   não só MCP; AskUserQuestion nativo passa a cair no callback e podemos renderizar o card diretamente),
-   hooks, usage estruturado, MCP in-process (sem servidor HTTP nem tmp-config). Maior alavanca de
-   confiabilidade+performance do sistema.
+2. **[FEITO 15/07] Ponte Claude → Claude Agent SDK** — `main/ai/claude_agent.js` (engine novo) +
+   roteamento em `claude_code.js` com FALLBACK automático pro spawn legado (import falhou, binário
+   .cmd-shim, ou escape hatch `AURORA_CLAUDE_LEGACY_CLI=1`). O engine dirige o MESMO binário nativo
+   (`pathToClaudeCodeExecutable`) via `query()` do `@anthropic-ai/claude-agent-sdk` (0.3.210; exigiu
+   zod ^4 — nenhum código próprio importa zod, só peer). Ganhos entregues: (a) **`canUseTool`** — o
+   AskUserQuestion NATIVO agora renderiza o card da AURORA mesmo em bypass (tool interaction-required
+   sempre cai no callback; respostas mapeadas de volta via `updatedInput.answers`; o SDK-path
+   RE-habilita a tool nativa que o legado bloqueia); (b) aborts limpos via AbortController (sem
+   taskkill); (c) system prompt sem limite de argv (canal de controle; sem fold >2048); (d) prompt em
+   streaming-input mode (exigência do canUseTool). Paridade total de eventos/bookkeeping (convSessions,
+   usage, rate-limit, reaper de inatividade 120s). MCP continua o servidor HTTP (in-process fica p/
+   depois). Validado: 525 unit + 13 E2E (app boota com o engine), lint/tsc/knip/build verdes.
 3. **Migrar a ponte Codex → `@openai/codex-sdk`** (Thread API): processo persistente por thread,
    `runStreamed()` com eventos estruturados (ganha deltas), sandbox/approvals de verdade em vez de
    `--dangerously-bypass…`.
@@ -2849,3 +2856,11 @@ mas isso só ajuda no Agent SDK (onde há callback); no modo `-p` atual, bloquea
    CLIs em vez de fold de transcript.
 
 ---
+
+### 14.50 Sessão 15/07/2026 — ponte Claude migrada pro Agent SDK (ESTUDO §18.5 passo 2)
+
+`main/ai/claude_agent.js` novo (engine `query()` do @anthropic-ai/claude-agent-sdk) + roteamento com
+fallback automático em `claude_code.js` (spawn legado preservado). AskUserQuestion nativo volta a
+existir NO SDK-path e vira card via canUseTool; aborts via AbortController; system prompt sem limite
+de argv. Detalhe completo no §18.5 item 2. deps: +@anthropic-ai/claude-agent-sdk ^0.3.210, zod 3→4
+(peer-only; nenhum import próprio). Verde: 525 unit, 13 E2E, lint, tsc, knip, vite build.

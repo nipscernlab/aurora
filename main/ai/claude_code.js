@@ -39,6 +39,9 @@ const cliLocator = require('./cli_locator');
 const { locateClaude } = cliLocator;
 const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
+// Agent SDK engine (ESTUDO §18.5 step 2) — preferred transport; this module's
+// spawn path below remains as the automatic fallback (and the shim-binary path).
+const claudeAgent = require('./claude_agent');
 
 /** sessionId → { proc } for in-flight turns. */
 const sessions = new Map();
@@ -349,6 +352,40 @@ async function start(payload, webContents) {
       return;
     }
   }
+
+  // ---- Agent SDK engine (preferred) ----------------------------------------
+  // Drives the SAME native binary through @anthropic-ai/claude-agent-sdk:
+  // clean aborts, no argv limits, and canUseTool — which is what lets the
+  // native AskUserQuestion render Aurora's interactive card even under
+  // bypassPermissions. Returns false (→ fall through to the legacy spawn)
+  // when the SDK can't run: import failure, .cmd-shim-only binary, or the
+  // AURORA_CLAUDE_LEGACY_CLI=1 escape hatch.
+  try {
+    const handled = await claudeAgent.tryStart(
+      { sessionId, conversationId, messages, system, modelId, effort, bin },
+      webContents,
+      {
+        sendEvent,
+        convSessions,
+        sessions,
+        addUsage: (t, c) => { sessionTokens += t; sessionCostUsd += c; },
+        setRateLimit: (info) => { /** @type {Record<string, any>} */ (rateLimitWindows)[info.rateLimitType] = info; },
+        workspaceDir,
+      },
+    );
+    if (handled) return;
+    log.info('[ai.claude-code] Agent SDK unavailable — using legacy CLI spawn');
+  } catch (e) {
+    // tryStart reports its own TURN errors as chat-events; reaching here
+    // means the engine wiring itself blew up — surface it rather than
+    // double-running the turn through the legacy path.
+    sendEvent(webContents, sessionId, 'error', {
+      message: `Claude engine error: ${e instanceof Error ? e.message : e}`,
+    });
+    return;
+  }
+
+  // ---- legacy CLI spawn (fallback) ------------------------------------------
 
   // Resume the CLI-side conversation when we already have its id; that
   // keeps prompt-cache hits and means we only send the new user turn.
@@ -725,11 +762,16 @@ async function start(payload, webContents) {
   });
 }
 
-/** Abort an in-flight turn. Returns true if a process was killed. */
-function abort(/** @type {string} */ sessionId) {
-  const s = sessions.get(sessionId);
-  if (!s || !s.proc) return false;
+/** Stop one session handle — SDK turns expose stop() (AbortController);
+ *  legacy spawns expose proc (tree-killed via taskkill on Windows). */
+function stopSession(/** @type {any} */ s) {
+  if (!s) return false;
   if (s.markAborted) s.markAborted();
+  if (typeof s.stop === 'function') {
+    try { s.stop(); } catch (_) { /* the stream loop settles the turn */ }
+    return true;
+  }
+  if (!s.proc) return false;
   try {
     if (process.platform === 'win32' && s.proc.pid) {
       spawn('taskkill', ['/pid', String(s.proc.pid), '/T', '/F'], { windowsHide: true });
@@ -740,21 +782,16 @@ function abort(/** @type {string} */ sessionId) {
   return true;
 }
 
+/** Abort an in-flight turn. Returns true if a session was stopped. */
+function abort(/** @type {string} */ sessionId) {
+  return stopSession(sessions.get(sessionId));
+}
+
 /** Kill every in-flight session. Called on app quit so Claude Code CLI
  *  subprocesses (and their children, via taskkill /T) aren't orphaned —
  *  abort() only ever fired for a single renderer-requested session. */
 function killAll() {
-  for (const [, s] of sessions) {
-    if (!s || !s.proc) continue;
-    if (s.markAborted) s.markAborted();
-    try {
-      if (process.platform === 'win32' && s.proc.pid) {
-        spawn('taskkill', ['/pid', String(s.proc.pid), '/T', '/F'], { windowsHide: true });
-      } else {
-        s.proc.kill('SIGTERM');
-      }
-    } catch (_) { /* close handler still fires */ }
-  }
+  for (const [, s] of sessions) stopSession(s);
   sessions.clear();
 }
 

@@ -265,6 +265,58 @@
 
 .split-float-btn i { font-size: 16px; line-height: 1; }
 
+/*
+ * Floating markdown/HTML preview (magnifier) button. Same treatment as the
+ * split button, parked immediately to its left in the focused pane
+ * (28px button + 6px gap). Shown only for .md/.html files.
+ */
+.md-preview-float-btn {
+  position: absolute;
+  top: 8px;
+  right: 48px;
+  z-index: var(--z-10);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(4px);
+  color: var(--text);
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.md-preview-float-btn:hover {
+  opacity: 1;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.md-preview-float-btn.hidden { display: none; }
+
+.md-preview-float-btn i { font-size: 16px; line-height: 1; }
+
+/* Rendered Markdown preview: breathing room on both sides so the text
+ * doesn't touch the pane edges. */
+.md-preview-doc {
+  padding: 16px 32px 48px;
+}
+
+/* Rendered HTML preview: the iframe must fill the pane — without an
+ * explicit size it collapses to the 300x150 browser default. */
+.md-preview-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
 .split-tab {
   display: flex;
   align-items: center;

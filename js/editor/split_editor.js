@@ -11,6 +11,7 @@ import { TabManager, showUnsavedChangesDialog } from '../tabs/tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
 import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
+import { renderMarkdown, highlightCodeBlocks, linkifyFileRefs } from '../ai/chat_render.js';
 
 const MIN_PANE_WIDTH = 120;
 
@@ -243,6 +244,89 @@ class SplitPane {
         this._addTabElement(filePath, { preview: isPreview });
         if (isPreview) this.previewTab = filePath;
         this._activateFile(filePath);
+    }
+
+    /**
+     * Host a RENDERED preview (not a Monaco editor) in this pane: Markdown → HTML
+     * via the chat renderer, or an <iframe> for a full HTML document (e.g. a
+     * Plotly plot). Keyed by a SYNTHETIC path ("<source>::preview") so it stays
+     * invisible to the dirty / save / instance-count machinery. The tab info
+     * carries an editor STUB (layout/focus/dispose) so every existing pane method
+     * — tab switching, close, relayout — works unchanged with NO per-call guards;
+     * the synthetic key flows harmlessly through SharedModelRegistry (all no-ops
+     * on an unknown key), and createSplit refuses to split it (the stub has no
+     * getValue). Markdown live-syncs to the source model while it stays open.
+     */
+    openRenderedPreview(key, opts) {
+        const sourcePath = opts.sourcePath;
+        const kind = opts.kind;
+        const content = opts.content;
+        if (this.tabs.has(key)) { this._activateFile(key); return; }
+
+        const editorArea = this.element.querySelector('.split-pane-editor-area');
+        const div = document.createElement('div');
+        div.className = 'split-editor-instance md-preview';
+        div.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;display:none;overflow:auto;';
+
+        let blobUrl = null;
+        let sub = null;
+
+        if (kind === 'html') {
+            const iframe = document.createElement('iframe');
+            iframe.className = 'md-preview-frame';
+            // A blob URL (not srcdoc) so a large self-contained Plotly document
+            // loads cleanly and its inline scripts run. Sandboxed to scripts +
+            // same-origin (it is the user's own generated file) so plots render.
+            blobUrl = URL.createObjectURL(new Blob([content || ''], { type: 'text/html' }));
+            iframe.src = blobUrl;
+            iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
+            div.appendChild(iframe);
+        } else {
+            div.classList.add('md-preview-doc');
+            const paint = (md) => {
+                div.innerHTML = renderMarkdown(md || '');
+                try { highlightCodeBlocks(div); } catch (_) { /* best-effort */ }
+                try { linkifyFileRefs(div); } catch (_) { /* best-effort */ }
+            };
+            paint(content);
+            // Live re-render while the source buffer is open (shared model).
+            const model = window.SharedModelRegistry?.getModel?.(sourcePath);
+            if (model && typeof model.onDidChangeContent === 'function') {
+                let raf = null;
+                sub = model.onDidChangeContent(() => {
+                    if (raf) cancelAnimationFrame(raf);
+                    raf = requestAnimationFrame(() => paint(model.getValue()));
+                });
+            }
+        }
+        editorArea.appendChild(div);
+
+        const stub = {
+            layout() { /* CSS-sized — nothing to relayout */ },
+            focus() { /* not a text input */ },
+            dispose() {
+                try { sub?.dispose?.(); } catch (_) { /* noop */ }
+                if (blobUrl) { try { URL.revokeObjectURL(blobUrl); } catch (_) { /* noop */ } }
+            },
+            // No getValue on purpose → createSplit won't try to split a preview.
+        };
+        this.tabs.set(key, { editor: stub, editorDiv: div });
+        this._addTabElement(key, {});
+
+        // Friendlier tab: source basename + magnifier icon, and NOT draggable
+        // (a synthetic preview key has no meaning in another pane).
+        const tabEl = this.element.querySelector(`.split-tab[data-path="${CSS.escape(key)}"]`);
+        if (tabEl) {
+            const base = sourcePath.split(/[\\/]/).pop();
+            const nameEl = tabEl.querySelector('.tab-name');
+            if (nameEl) nameEl.textContent = base;
+            const iconEl = tabEl.querySelector('i');
+            if (iconEl) iconEl.className = 'ph ph-magnifying-glass';
+            tabEl.title = 'Preview — ' + sourcePath;
+            tabEl.draggable = false;
+        }
+
+        this._activateFile(key);
     }
 
     /** Strip the italic from a preview tab in this pane (no-op otherwise). */
@@ -487,6 +571,9 @@ const SplitEditorManager = {
     // than living in the top toolbar — one shared button, re-parented to
     // whichever instance currently has focus. Created lazily by _updateButton.
     splitFloatBtn: null,
+    // The markdown/HTML preview (magnifier) button — same floating pattern as
+    // splitFloatBtn, parked in the focused pane, shown only for .md/.html.
+    lupaBtn: null,
     // Cross-pane tab drag state. Set at dragstart (by main tab_drag.js and by
     // split tabs here), read by pane drop targets so they only accept Aurora's
     // own tab drags and know which pane the tab came from (for move semantics).
@@ -920,6 +1007,78 @@ const SplitEditorManager = {
         // it can't resurface as originalTitle.
         btn.removeAttribute('title');
         delete btn.dataset.originalTitle;
+        this._updateLupaButton();
+    },
+
+    /**
+     * Open a rendered preview of the focused Markdown/HTML file in a NEW split
+     * pane, side-by-side with the source. Backs the floating magnifier button.
+     * The preview is a synthetic tab (SplitPane.openRenderedPreview); if one for
+     * this source already exists anywhere, just focus it.
+     */
+    async openRenderedPreview(sourcePath) {
+        if (!sourcePath) return;
+        const ext = sourcePath.split('.').pop().toLowerCase();
+        const kind = (ext === 'html' || ext === 'htm') ? 'html'
+            : (ext === 'md' || ext === 'markdown') ? 'markdown' : null;
+        if (!kind) return;
+
+        const key = sourcePath + '::preview';
+        for (const pane of this.panes) {
+            if (pane.tabs.has(key)) { this.setFocus(pane.paneIndex); pane._activateFile(key); return; }
+        }
+
+        // Respect the 3-pane budget (main counts only when it has content).
+        const mainCount = this._mainHasContent() ? 1 : 0;
+        if (mainCount + this.panes.length >= 3) return;
+
+        // Content: the live buffer if the file is open, else read from disk.
+        let content = window.SharedModelRegistry?.getModel?.(sourcePath)?.getValue?.();
+        if (content == null) {
+            try { content = await electronAPI.readFile(sourcePath); }
+            catch (_) { content = ''; }
+        }
+
+        const newIndex = this.panes.reduce((m, p) => Math.max(m, p.paneIndex), 0) + 1;
+        const newPane = new SplitPane(newIndex);
+        this.panes.push(newPane);
+        this.wrapper.appendChild(newPane.element);
+        newPane.openRenderedPreview(key, { sourcePath, kind, content: content || '' });
+        this.refreshLayout();
+        this.setFocus(newIndex);
+        this._updateButton();
+    },
+
+    /** Lazily build the single floating markdown/HTML preview (magnifier) button. */
+    _ensureLupaBtn() {
+        if (this.lupaBtn) return this.lupaBtn;
+        const btn = document.createElement('button');
+        btn.id = 'md-preview-float-btn';
+        btn.type = 'button';
+        btn.className = 'md-preview-float-btn toolbar-button icon-only';
+        btn.innerHTML = '<i class="ph ph-magnifying-glass"></i>';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.openRenderedPreview(this.getFocusedFile());
+        });
+        this.lupaBtn = btn;
+        return btn;
+    },
+
+    /** Park the preview button in the focused pane; show it only for md/html. */
+    _updateLupaButton() {
+        const btn = this._ensureLupaBtn();
+        const host = this._focusedPaneEl();
+        if (!host) { btn.remove(); return; }
+        if (btn.parentElement !== host) host.appendChild(btn);
+        const file = this.getFocusedFile() || '';
+        const ext = file.split('.').pop().toLowerCase();
+        const isHtml = ext === 'html' || ext === 'htm';
+        const previewable = isHtml || ext === 'md' || ext === 'markdown';
+        btn.classList.toggle('hidden', !previewable);
+        btn.setAttribute('data-tooltip',
+            isHtml ? 'Preview rendered HTML in a split' : 'Preview rendered Markdown in a split');
+        btn.removeAttribute('title');
     },
 };
 

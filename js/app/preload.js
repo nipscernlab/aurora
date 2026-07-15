@@ -212,6 +212,9 @@ const terminalOperations = {
   shellInput: (id, data) => ipcRenderer.invoke('shell:input', { id, data }),
   shellResize: (id, cols, rows) => ipcRenderer.invoke('shell:resize', { id, cols, rows }),
   shellKill:  (id) => ipcRenderer.invoke('shell:kill', { id }),
+  // Push app context (active processor) into the aurora terminal prompt. Cheap,
+  // fire-and-forget; the prompt re-reads it on its next render.
+  shellSetContext: (ctx) => ipcRenderer.invoke('shell:context', ctx || {}),
   onShellData: (cb) => {
     const h = (_e, payload) => cb(payload);
     ipcRenderer.on('shell:data', h);

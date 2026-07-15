@@ -166,6 +166,7 @@ class StatusBarManager {
         // Sem processadores no projeto: nada a dizer sobre ativo/inativo.
         if (processors.length === 0) {
             this._toggle(this.activeProcEl, false);
+            this._pushShellContext('');
             return;
         }
         this._toggle(this.activeProcEl, true);
@@ -173,6 +174,7 @@ class StatusBarManager {
         // Passa a lista fresca recem-lida do .spf — mais atual que a
         // sincrona do processor_list durante a 1a pintura.
         const activeName = getActiveProcessorName(processors);
+        this._pushShellContext(activeName || '');
 
         const icon = this.activeProcEl.querySelector('i');
         const text = this.activeProcEl.querySelector('span');
@@ -184,6 +186,17 @@ class StatusBarManager {
             icon.className = 'ph ph-x-circle status-icon-error';
             text.textContent = window.t ? window.t('statusBar.noActiveProcessor') : 'No active processor';
         }
+    }
+
+    /**
+     * Mirror the active processor into the TCMD shell prompt (aurora-prompt.ps1
+     * reads it from a context file). Guarded so we only touch disk when the value
+     * actually changes — this runs on every status-bar render.
+     */
+    _pushShellContext(name) {
+        if (name === this._lastShellProc) return;
+        this._lastShellProc = name;
+        electronAPI.shellSetContext?.({ processor: name });
     }
 
     _toggle(el, visible) {

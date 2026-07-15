@@ -85,9 +85,11 @@ describe('Aurora E2E — TCMD terminal (xterm + pty)', () => {
     );
   }
 
-  it('mounts xterm and the PTY prints a shell prompt', async () => {
-    await waitForText(/PS .*>/);
-    expect(await screenText()).toMatch(/PS .*>/);
+  it('mounts xterm and the PTY prints the aurora prompt', async () => {
+    // The TCMD shell loads a themed prompt (main/shell/aurora-prompt.ps1) whose
+    // input marker is the accent chevron ❯ instead of the default `PS ...>`.
+    await waitForText(/❯/);
+    expect(await screenText()).toMatch(/❯/);
   }, 30_000);
 
   it("runs the user's python and shows the version", async () => {
@@ -99,9 +101,10 @@ describe('Aurora E2E — TCMD terminal (xterm + pty)', () => {
   it('navigates folders (cd persists, prompt updates)', async () => {
     await runCommand('Set-Location $env:USERPROFILE; Get-Location');
     await waitForText(/Path/i);
-    // The prompt now reflects the user-profile directory.
-    await waitForText(/PS .*Users.*>/);
-    expect(await screenText()).toMatch(/PS .*Users.*>/);
+    // The aurora prompt collapses the home directory to ~, so landing in the
+    // user profile shows a ~ segment — proof the prompt tracks the new cwd.
+    await waitForText(/~/);
+    expect(await screenText()).toMatch(/~/);
   }, 30_000);
 
   it('streams live output (unbuffered python)', async () => {

@@ -20,8 +20,25 @@
 'use strict';
 
 const os = require('os');
+const path = require('path');
+const fs = require('fs');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
+
+// Themed prompt for the TCMD shell (see main/shell/aurora-prompt.ps1) plus a tiny
+// JSON file the prompt reads for the app's active-processor segment. The renderer
+// keeps the file current via the `shell:context` IPC below.
+const PROMPT_SCRIPT = path.join(__dirname, '..', 'shell', 'aurora-prompt.ps1');
+const CONTEXT_FILE = path.join(os.tmpdir(), 'aurora-shell', 'context.json');
+
+function ensureContextFile() {
+  try {
+    fs.mkdirSync(path.dirname(CONTEXT_FILE), { recursive: true });
+    if (!fs.existsSync(CONTEXT_FILE)) fs.writeFileSync(CONTEXT_FILE, '{}', 'utf8');
+  } catch (err) {
+    log.warn('[shell] context file init failed:', err instanceof Error ? err.message : err);
+  }
+}
 
 /** @type {import('@lydell/node-pty') | null} */
 let pty = null;
@@ -35,7 +52,21 @@ try {
 const sessions = new Map();
 
 function shellCommand() {
-  if (process.platform === 'win32') return { file: 'powershell.exe', args: ['-NoLogo'] };
+  if (process.platform === 'win32') {
+    const base = ['-NoLogo'];
+    // Load the aurora prompt into THIS session only. A -EncodedCommand bootstrap
+    // reads the .ps1 as TEXT and dot-sources it as a scriptblock, so (a) the user's
+    // global $PROFILE is untouched and (b) it sidesteps the script-file
+    // ExecutionPolicy (Restricted/RemoteSigned machines still get the prompt).
+    // -NoExit keeps the session interactive after the bootstrap runs.
+    if (fs.existsSync(PROMPT_SCRIPT)) {
+      const q = PROMPT_SCRIPT.replace(/'/g, "''");
+      const bootstrap = `$p = '${q}'; if (Test-Path -LiteralPath $p) { . ([ScriptBlock]::Create((Get-Content -Raw -LiteralPath $p))) }`;
+      const encoded = Buffer.from(bootstrap, 'utf16le').toString('base64');
+      base.push('-NoExit', '-EncodedCommand', encoded);
+    }
+    return { file: 'powershell.exe', args: base };
+  }
   return { file: process.env.SHELL || '/bin/bash', args: [] };
 }
 
@@ -48,6 +79,8 @@ function killSession(id) {
 }
 
 function register() {
+  ensureContextFile();
+
   /**
    * Start (or restart) a PTY for a session id. Streams `shell:data` { id, data }
    * and, on exit, `shell:exit` { id, code }. Payload: { id?, cwd?, cols?, rows? }.
@@ -72,6 +105,8 @@ function register() {
           PYTHONUNBUFFERED: '1',
           PYTHONIOENCODING: 'utf-8',
           TERM: 'xterm-256color',
+          // Where the aurora prompt reads the app's active-processor segment from.
+          AURORA_SHELL_CONTEXT: CONTEXT_FILE,
         },
       });
     } catch (err) {
@@ -119,6 +154,23 @@ function register() {
   ipcMain.handle('shell:kill', (_event, payload = {}) => {
     killSession(String(payload.id || 'tcmd'));
     return { ok: true };
+  });
+
+  /**
+   * Update the shell context the aurora prompt reads (currently the active
+   * processor). Fire-and-forget from the renderer whenever the value changes;
+   * the running prompt re-reads the file on its next render — no terminal noise,
+   * no PTY writes. Payload: { processor? }.
+   */
+  ipcMain.handle('shell:context', (_event, payload = {}) => {
+    ensureContextFile();
+    const processor = typeof payload.processor === 'string' ? payload.processor : '';
+    try {
+      fs.writeFileSync(CONTEXT_FILE, JSON.stringify({ processor }), 'utf8');
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: String(err instanceof Error ? err.message : err) };
+    }
   });
 }
 

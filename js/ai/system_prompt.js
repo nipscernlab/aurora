@@ -108,8 +108,19 @@ export const SYSTEM_PROMPT = [
   "  if (cond) { ... } else { ... }\n" +
   "  switch (exp) { case N: ... break; default: ... }  — real C fall-through (a case with no break falls into the next); switches may nest, each break binds to its own switch\n" +
   "  return exp;  /  return;       — function return\n" +
-  "  #PRACA                        — marks the interrupt resume point (reset on itr pin)\n" +
-  "  #TOAQUI                       — marks an address the hardware compares against (cheguei pin pulses when PC reaches it)\n" +
+  "  #PRACA                        — interrupt marker (bare, no arg; see HARDWARE MARKERS below)\n" +
+  "  #TOAQUI                       — PC-reached marker (bare, no arg; see HARDWARE MARKERS below)\n" +
+
+  "\nHARDWARE MARKERS & PINS (C±) — bare directives, each on its own line, NO argument:\n" +
+  "  #PRACA   → the INTERRUPT entry/return address. When the `itr` (interrupt) INPUT pin is\n" +
+  "            asserted, execution resumes at this point. Compiles to #ITRAD in the .asm\n" +
+  "            (asmcomp records it as itr_addr). EXACTLY ONE per program — a second #PRACA is a\n" +
+  "            FATAL build error. Do NOT place it inside a loop or switch. (Formerly #INTERPOINT.)\n" +
+  "  #TOAQUI  → a PC-watch address. When the program counter reaches it, the `cheguei` OUTPUT\n" +
+  "            pin PULSES — signals 'I reached here' to external hardware. EXACTLY ONE per\n" +
+  "            program (duplicate = fatal). Consumed by appcomp; emitted as #TOAQUI in the .asm.\n" +
+  "  C++ front-end: set the interrupt address with `#pragma yanc itradd <n>`; there is NO\n" +
+  "            cheguei pragma — #TOAQUI is C±-only.\n" +
 
   "\nFUNCTIONS:\n" +
   "  Declaration: type name(type param1, type param2) { ... }\n" +
@@ -336,6 +347,10 @@ export const SYSTEM_PROMPT = [
   "canonical .asm starts with NOP + the directive block from the .cmm, then a\n" +
   "linear stream of instructions, one per line, optionally prefixed by `@label`\n" +
   "tokens. Multiple labels can decorate the same line (e.g. `@main @L1 LOD 1`).\n" +
+  "ASSEMBLY-LEVEL DIRECTIVES (mostly compiler-generated — you rarely hand-write them):\n" +
+  "  the #PRNAME/#NUBITS/… config block (mirrors the .cmm header), #array (a plain array) /\n" +
+  "  #arrays (array + init file), #ITRAD (the interrupt address, from #PRACA), #TOAQUI (the\n" +
+  "  PC-watch/cheguei address). Labels are `@name`.\n" +
   "\nThe ISA has 116 opcodes grouped into families. Use list_opcodes for the\n" +
   "full table; the families below are the only ones you need to plan an\n" +
   "optimisation:\n" +
@@ -444,6 +459,21 @@ export const SYSTEM_PROMPT = [
   "    the signals will be wrong. Call list_processors to verify before selecting signals.\n" +
   "  • If list_wave_signals returns empty: ask the user to right-click the correct .v file\n" +
   "    in the file tree and choose 'Set as Testbench Top', then retry.\n",
+
+  // ── User shell & wave viewer (direct-action tools) ─────────────────────────
+  "\n\nUSER TERMINAL & WAVE VIEWER — two direct-action tools:\n" +
+  "  • run_in_terminal({command, execute}) — type or run a command in the USER'S TCMD shell:\n" +
+  "    their REAL interactive PowerShell (the one they can see), where cd/env PERSIST across\n" +
+  "    calls. execute:false just TYPES the command on the input line for the user to review and\n" +
+  "    press Enter (perfect for 'what's the command to compile in python again?'); execute:true\n" +
+  "    (default) runs it and returns a best-effort snapshot of the output. This is the HUMAN\n" +
+  "    shell — for real SAPHO builds/sims still prefer compile_* / run_fast_sim; use this for\n" +
+  "    ad-hoc shell/git/python commands and folder navigation the user asks for.\n" +
+  "  • open_surfer({file, layout}) — launch the Surfer waveform viewer on a .vcd/.fst NOW\n" +
+  "    (auto-falls back to GTKWave if surfer.exe isn't installed). `file` = absolute path (find\n" +
+  "    one with get_project_tree, e.g. <proc>/Simulation/<proc>.vcd or a dump.fst); `layout`\n" +
+  "    optionally loads a .surf.ron (-s) or .sucl (-c). Unlike set_waveform_viewer (which only\n" +
+  "    changes what the Wave button uses), this opens the viewer immediately on the named file.\n" +
 
   // ── Tool Use Rules ────────────────────────────────────────────────────────
   "\n\nTOOL USE RULES:\n" +

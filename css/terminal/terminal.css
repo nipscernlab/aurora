@@ -309,7 +309,9 @@
   padding: var(--space-2) var(--space-3);
   color: var(--text-secondary);
   overflow-y: auto;
-  scroll-behavior: smooth;
+  /* No `scroll-behavior: smooth` here: the auto-follow sets scrollTop directly
+     every frame during a stream, and a smooth animation made it chase a moving
+     target and never land at the true bottom. Terminal scrolling is instant. */
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.55;
@@ -427,6 +429,14 @@
   border-radius: var(--radius-md);
   background: var(--bg-elev);
   border: 1px solid var(--border-subtle);
+  /* Fade-out when the run finishes (see .hiding) — opacity/transform only. */
+  transition: opacity 380ms var(--ease-exit), transform 380ms var(--ease-exit);
+}
+/* A few seconds after hitting 100% the bar retires itself with a soft lift. */
+.hw-progress.hiding {
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
 }
 .hw-progress-head {
   display: flex;
@@ -465,7 +475,9 @@
   transform: scaleX(0);
   border-radius: inherit;
   background: var(--gradient-aurora);
-  transition: transform 300ms var(--ease-aurora);
+  /* Grow smoothly toward each new value: a longer, decelerating ease reads as
+     the bar filling in, not snapping in discrete spikes between updates. */
+  transition: transform 700ms var(--ease-reveal);
 }
 .hw-progress-meta {
   margin-top: 6px;
@@ -476,6 +488,11 @@
 }
 .hw-progress.done .hw-progress-pct {
   color: var(--status-success);
+}
+/* At 100% the whole fill goes solid green (drops the aurora gradient) so a
+   finished run reads as unambiguously complete. */
+.hw-progress.done .hw-progress-fill {
+  background: var(--status-success);
 }
 
 /* ---------------------------------------------------------------------------

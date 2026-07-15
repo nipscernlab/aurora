@@ -1526,12 +1526,27 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     }), 'info');
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
+    // cocotb testbenches log progress as "<name>: N/M samples processed (...)"
+    // via dut._log.info(...). Collapse that climbing counter into the single
+    // updatable hw-progress bar (same widget THTEST uses) instead of echoing
+    // every line raw. Matches regardless of the "<ns> INFO cocotb.<x> " prefix.
+    const COCOTB_PROG_RE = /(\w+):\s*(\d+)\s*\/\s*(\d+)\s+samples\s+processed/i;
     let unsubscribe = null;
     if (typeof electronAPI.onExecSpecStream === 'function') {
         unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
+                const m = line.match(COCOTB_PROG_RE);
+                if (m) {
+                    const cyc = +m[2];
+                    const total = +m[3];
+                    this.terminalManager.renderHardwareProgress?.('twave', {
+                        pct: total ? Math.round((cyc / total) * 100) : 0,
+                        cyc, total, label: m[1], done: cyc >= total,
+                    });
+                    continue;   // consume — don't also echo the raw counter line
+                }
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });

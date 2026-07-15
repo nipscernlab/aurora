@@ -919,6 +919,10 @@ createLogEntry(terminal, text, type, timestamp) {
             el._pct = el.querySelector('.hw-progress-pct');
             el._fill = el.querySelector('.hw-progress-fill');
             el._meta = el.querySelector('.hw-progress-meta');
+            el._displayPct = 0;   // last-shown integer % (tween source)
+            el._t0 = null;        // perf clock at first counted update (ETA)
+            el._c0 = 0;           // cyc at _t0
+            el._lastUpdateAt = null;  // perf clock of the previous update (growth interval)
             terminal.appendChild(el);
             this.updatableCards[terminalId].hwProgress = el;
         } else {
@@ -927,19 +931,97 @@ createLogEntry(terminal, text, type, timestamp) {
             terminal.appendChild(el);
         }
 
+        // A new run reusing the same card: cancel any pending auto-hide + un-hide.
+        if (el._hideTimer) { clearTimeout(el._hideTimer); el._hideTimer = null; }
+        if (el._removeTimer) { clearTimeout(el._removeTimer); el._removeTimer = null; }
+        el.classList.remove('hiding');
+
         const pct = Math.max(0, Math.min(100, Math.round(p.pct || 0)));
+        const done = !!p.done;
+        el._label.textContent = p.label || '';
+        el.classList.toggle('done', done);
+
+        // Interval-matched growth: animate the fill LINEARLY over roughly the gap
+        // since the last update, so between discrete updates the bar CREEPS
+        // continuously toward the new value instead of jumping then sitting still.
+        // On completion it snaps up quickly to the full green bar.
+        const nowP = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        let interval = el._lastUpdateAt ? (nowP - el._lastUpdateAt) : 600;
+        interval = Math.max(200, Math.min(interval, 30000));
+        el._lastUpdateAt = nowP;
+        const growMs = done ? 400 : interval;
+        el._fill.style.transition = `transform ${growMs}ms linear`;
+        el._fill.style.transform = `scaleX(${pct / 100})`;
+
+        // Count the integer % up over the SAME interval, linearly, so the number
+        // climbs 0,1,2,… in lock-step with the bar.
+        this._tweenProgressPct(el, pct, growMs);
+
+        // ETA from the average rate since the first counted update.
+        const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        if (el._t0 == null && p.cyc > 0) { el._t0 = now; el._c0 = p.cyc; }
+        let etaTxt = '';
+        if (!done && el._t0 != null && p.cyc > el._c0) {
+            const rate = (p.cyc - el._c0) / (now - el._t0);   // cyc per ms
+            if (rate > 0 && p.total > p.cyc) {
+                etaTxt = ` · ~${this._fmtEta((p.total - p.cyc) / rate)} left`;
+            }
+        }
         // `reads` e o TOTAL de leituras de entrada (somando todos os input_<N>),
         // entao o rotulo agregado "leituras" cabe mesmo com varias entradas.
         const readsWord = (typeof window !== 'undefined' && window.t)
             ? window.t('terminal.htest.reads') : 'reads';
         const tail = (p.reads != null) ? ` · ${p.reads} ${readsWord}` : '';
-        el._label.textContent = p.label || '';
-        el._pct.textContent = `${pct}%`;
-        el._fill.style.transform = `scaleX(${pct / 100})`;
-        el._meta.textContent = `${p.cyc}/${p.total}${tail}`;
-        el.classList.toggle('done', !!p.done);
+        el._meta.textContent = done
+            ? `${p.total}/${p.total}${tail} · done`
+            : `${p.cyc}/${p.total}${tail}${etaTxt}`;
+
+        // Hold the completed (solid-green) bar a few seconds, then retire it.
+        if (done) {
+            el._hideTimer = setTimeout(() => {
+                el.classList.add('hiding');
+                el._removeTimer = setTimeout(() => {
+                    try { el.remove(); } catch (_) { /* already gone */ }
+                    if (this.updatableCards[terminalId]
+                        && this.updatableCards[terminalId].hwProgress === el) {
+                        this.updatableCards[terminalId].hwProgress = null;
+                    }
+                }, 420);   // matches the .hiding opacity transition
+            }, 3200);
+        }
 
         this.scrollToBottom(terminalId);
+    }
+
+    /**
+     * Tween the displayed integer percentage from its current value up to
+     * `target` over ~700ms (matching the fill transition) so the number climbs
+     * 0,1,2,… in step with the bar instead of snapping. Cancels any live tween.
+     */
+    _tweenProgressPct(el, target, dur = 700) {
+        if (el._pctRAF) { cancelAnimationFrame(el._pctRAF); el._pctRAF = null; }
+        const from = el._displayPct || 0;
+        if (from === target) { el._pct.textContent = `${target}%`; el._displayPct = target; return; }
+        const nowFn = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        const t0 = nowFn();
+        const stepFn = () => {
+            const k = Math.min(1, (nowFn() - t0) / Math.max(1, dur));
+            const val = Math.round(from + (target - from) * k);   // linear, matches the bar
+            el._pct.textContent = `${val}%`;
+            el._displayPct = val;
+            if (k < 1) { el._pctRAF = requestAnimationFrame(stepFn); }
+            else { el._displayPct = target; el._pctRAF = null; }
+        };
+        el._pctRAF = requestAnimationFrame(stepFn);
+    }
+
+    /** Format a millisecond ETA as a compact `Ns` / `Mm Ss` string. */
+    _fmtEta(ms) {
+        const s = Math.max(0, Math.round(ms / 1000));
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return r > 0 ? `${m}m ${r}s` : `${m}m`;
     }
 
     /**
@@ -1194,6 +1276,7 @@ createLogEntry(terminal, text, type, timestamp) {
                 const observer = new MutationObserver(() => this.scrollToBottom(id));
                 if (terminal) {
                     observer.observe(terminal, config);
+                    this._wireStick(terminal);
                 }
             });
         TerminalManager.autoScrollInitialized = true;
@@ -1226,7 +1309,7 @@ createLogEntry(terminal, text, type, timestamp) {
             if (!terminal) return;
             // Cheap per-frame work: keep the DOM bounded and stay scrolled.
             this.trimTerminal(terminal);
-            terminal.scrollTop = terminal.scrollHeight;
+            this._stickBottom(terminal);
             // recount + filter walk the whole log (O(n)); throttle them so a
             // fast stream re-walks ~8×/s instead of every frame (P10).
             this._scheduleCountRefresh(terminalId);
@@ -1266,7 +1349,56 @@ createLogEntry(terminal, text, type, timestamp) {
         pending.add(terminalId);
         requestAnimationFrame(() => {
             pending.delete(terminalId);
-            terminal.scrollTop = terminal.scrollHeight;
+            this._stickBottom(terminal);
+        });
+    }
+
+    /**
+     * Attach the stick-to-bottom tracking to a terminal body ONCE. Idempotent
+     * and per-element (guarded by `_auroraWired`) so it survives panel rebuilds:
+     * when `_resolveTerminal` swaps in a freshly-created `.terminal-body`, the
+     * next `_stickBottom` re-wires it — unlike the one-shot MutationObserver.
+     *
+     * Intent is read from real gestures, NOT from scroll-position math during our
+     * own scrolls (which raced under fast streaming and froze the follow):
+     *   • wheel up            → pause the follow (user wants to read back)
+     *   • scrolled to bottom  → re-arm (dist small, by any means)
+     *   • drag up (height unchanged) → pause
+     *   • content grew (height changed) → NEVER pause on the transient distance
+     */
+    _wireStick(terminal) {
+        if (!terminal || terminal._auroraWired) return;
+        terminal._auroraWired = true;
+        terminal._auroraStick = true;
+        terminal._auroraLastH = terminal.scrollHeight;
+        terminal.addEventListener('wheel', (e) => {
+            if (e.deltaY < 0) terminal._auroraStick = false;
+        }, { passive: true });
+        terminal.addEventListener('scroll', () => {
+            const h = terminal.scrollHeight;
+            const dist = h - terminal.scrollTop - terminal.clientHeight;
+            if (dist <= 80) terminal._auroraStick = true;               // back at bottom → follow
+            else if (h === terminal._auroraLastH) terminal._auroraStick = false; // user moved up
+            terminal._auroraLastH = h;                                 // content-driven scroll: ignore
+        }, { passive: true });
+    }
+
+    /**
+     * Pin a terminal to the TRUE bottom when the user hasn't scrolled away. Plain
+     * scrollTop writes (CSS `scroll-behavior` is no longer smooth, so they are
+     * instant). We re-assert across a few frames because `.log-entry` uses
+     * `content-visibility:auto`: the newly revealed bottom rows only get their
+     * real height after paint, so a single jump lands short of the last line.
+     */
+    _stickBottom(terminal) {
+        if (!terminal) return;
+        this._wireStick(terminal);
+        if (terminal._auroraStick === false) return;
+        const jump = () => { terminal.scrollTop = terminal.scrollHeight; };
+        jump();
+        requestAnimationFrame(() => {
+            if (terminal._auroraStick !== false) jump();
+            requestAnimationFrame(() => { if (terminal._auroraStick !== false) jump(); });
         });
     }
 

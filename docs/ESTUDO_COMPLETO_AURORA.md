@@ -657,6 +657,40 @@ fastest→slowest. Tudo com **243 unit** + ESLint (lint-staged) + `commit`+`pull
   🟡 subjetivo (precisa de prints do usuário); religar a statusbar segue **bloqueado** porque `zoom.js` faz
   `editorStatus.parentNode.insertBefore` — quebraria se `#editorStatus` virasse Shadow DOM. Ambos seguem em §13.A.
 
+**Sessão 16/07/2026 (preview de HTML renderizado — página branca) ✅.** Verificado com **533 unit** + ESLint +
+`tsc --noEmit`, e com uma bancada Electron descartável que carregou o **arquivo real** do usuário
+(`pmu_plots.html`, export do Plotly) pelo módulo real e inspecionou o frame por dentro.
+- **Preview de `.html` abria branco e sem interação — CORRIGIDO.** O mesmo arquivo renderizava normal no VS Code
+  (extensão Live Preview), o que localizou a causa na Aurora, não no arquivo. **Causa raiz:** o iframe do preview
+  carregava um **blob URL**, e `blob:` é um *local scheme* — pela CSP3 o documento **herda a política da página que
+  o criou** em vez de receber a sua. Ou seja, a CSP do app (`script-src 'self' 'unsafe-inline' 'unsafe-eval'
+  blob:`, apertada de propósito, §13.G) valia **dentro** do preview e barrava o `<script>` de CDN. Todo export de
+  Plotly/Bokeh/pandas busca a biblioteca num CDN (`https://cdn.plot.ly/plotly-3.7.0.min.js`) → a lib nunca chegava,
+  o bootstrap inline que chama `Plotly.newPlot` estourava, e o painel ficava branco. Medido na bancada:
+  `typeof Plotly === "undefined"`, com a violação de CSP no console. O VS Code serve por `http://127.0.0.1:3000` —
+  origem real, sem CSP nossa — e por isso funcionava.
+- **Fix: protocolo `aurora-preview://`** (`main/ipc/preview.js`, novo). Um scheme **de verdade** passa pela pilha de
+  rede, então carrega a CSP que **nós** mandamos no header e **não herda nada**. Três ganhos de uma vez: (1) o
+  preview roda sob uma política própria (`PREVIEW_CSP` — https/inline/eval liberados, como uma aba de navegador),
+  **sem afrouxar um único diretivo da CSP do app**; (2) **caminhos relativos resolvem** — a URL espelha o
+  filesystem, então `./style.css` do documento é um irmão de verdade (sob `blob:` tudo relativo dava 404); (3) o
+  preview fica **cross-origin** ao app — o blob herdava a origem do renderer, e com `allow-same-origin` a markup
+  visualizada alcançava o DOM real; agora a origem é `aurora-preview://<id>` (medido: `parent.document` e
+  `parent.electronAPI` → `blocked`).
+- **Escopo por diretório.** Cada preview registra a fonte e recebe um **host aleatório de uso único** mapeado para o
+  **diretório** do arquivo; o handler serve essa subárvore e nada mais (liberado no fim do tab). `path.resolve` +
+  `startsWith` barram travessia — o `..` cru já morre na normalização de URL, mas o **`%2e%2e` codificado** sobrevive
+  a ela e só morre nessa guarda (medido: irmão `200` · `..` `404` · `%2e%2e` **`403`** · host não registrado
+  inalcançável). O buffer **não salvo** continua sendo o que aparece (snapshot vai junto no registro), igual ao MD.
+- **Duas armadilhas achadas pela bancada, não pelo raciocínio:** `onHeadersReceived` **dispara para schemes
+  customizados** (carimbaria a CSP do app de volta no preview, ressuscitando o bug) → exceção explícita por URL; e
+  `frame-ancestors` **não** cai pra `default-src` e seria checado contra a origem *do preview* (`'self'` =
+  `aurora-preview://<id>` recusaria o frame do app) → fica **ausente** de propósito, com o `frame-src` do app
+  controlando o que pode ser embutido.
+- **Resultado medido no arquivo do usuário:** `typeof Plotly === "object"`, **11 traces**, 3 `main-svg`, `draglayer`
+  presente (zoom/pan ativos), e os *ticks* dos 4 eixos (−1..1 · 0..0.8 · −200..200 · 60..64) batendo com o print do
+  VS Code.
+
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**
 - [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados

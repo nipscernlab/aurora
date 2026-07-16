@@ -24,6 +24,11 @@ workflow — writing C±, assembling, synthesising Verilog, simulating with Icar
 Verilog, viewing waveforms in GTKWave, and inspecting RTL with PRISM — behind
 one consistent interface built on Electron and Monaco.
 
+AURORA is developed by [NIPS-CERN](https://www.nipscern.com), a research group at
+the [Universidade Federal de Juiz de Fora](https://www.ufjf.br) (UFJF) in Brazil,
+working in collaboration with CERN.
+Project page: [nipscern.com/projects/aurora](https://www.nipscern.com/projects/aurora).
+
 ## Screenshots
 
 <!--
@@ -375,9 +380,42 @@ AURORA is released under the [MIT License](LICENSE). Bundled third-party
 toolchain components retain their original licences (GPL, ISC, MIT) — see
 the LICENSE file for the full attribution list.
 
+## About NIPS-CERN
+
+AURORA is developed and maintained by **NIPS-CERN**, the research and development
+group of the Department of Electrical Engineering at the
+[Universidade Federal de Juiz de Fora](https://www.ufjf.br) (UFJF), Brazil.
+
+NIPS-CERN operates two laboratories: one at CERN in Geneva, Switzerland, and one
+in the PPEE (Graduate Program in Electrical Engineering) building at UFJF. Students
+and researchers work at both. UFJF's Department of Electrical Engineering is a
+[member institution of the ATLAS Collaboration](https://atlaspo.cern.ch/public/institutions/)
+at CERN, with system membership in the Tile Calorimeter and the Liquid-Argon
+Calorimeter.
+
+| | |
+|---|---|
+| Institutional website | [nipscern.com](https://www.nipscern.com) |
+| About the group | [nipscern.com/about](https://www.nipscern.com/about) |
+| University | [Universidade Federal de Juiz de Fora (UFJF)](https://www.ufjf.br) |
+| SAPHO project page | [nipscern.com/projects/sapho](https://www.nipscern.com/projects/sapho) |
+| AURORA project page | [nipscern.com/projects/aurora](https://www.nipscern.com/projects/aurora) |
+| Publications | [nipscern.com/publications](https://www.nipscern.com/publications) |
+| Contact | contact@nipscern.com |
+
+### Citing SAPHO
+
+The SAPHO architecture is described in:
+
+> SAPHO, Scalable-Architecture Processor for Hardware Optimization: An FPGA
+> Customizable Implementation Approach. *IEEE*, 2026.
+> <https://ieeexplore.ieee.org/document/11345120/>
+
+Further publications on SAPHO, AURORA and YANC, including applications in
+high-energy physics instrumentation, are listed at
+[nipscern.com/publications](https://www.nipscern.com/publications).
+
 ## Acknowledgements
 
-AURORA is developed and maintained by **NIPSCERN** at the
-[Universidade Federal de Juiz de Fora](https://www.ufjf.br). It builds on
-work from the open-source EDA community — in particular Icarus Verilog,
-GTKWave, Yosys, netlistsvg, Monaco, and Electron.
+AURORA builds on work from the open-source EDA community, in particular Icarus
+Verilog, GTKWave, Yosys, netlistsvg, Monaco, and Electron.

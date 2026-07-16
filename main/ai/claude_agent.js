@@ -8,12 +8,6 @@
  * `@anthropic-ai/claude-agent-sdk` (`query()`), which owns the process,
  * the control protocol and the message parsing. What that buys us:
  *
- *   - `canUseTool`: tools flagged "requires user interaction" reach a real
- *     callback EVEN under bypassPermissions — so the CLI's native
- *     AskUserQuestion renders Aurora's interactive card and the chosen
- *     answer flows back to the model (the definitive fix for the
- *     "no question card in bypass mode" bug; the legacy path had to
- *     disallow the native tool entirely).
  *   - Clean aborts via AbortController (no taskkill trees).
  *   - No Windows argv-length limits for the system prompt (it rides the
  *     SDK's control channel, not the command line).
@@ -26,11 +20,24 @@
  * to the legacy spawn when the SDK is unavailable (import failure,
  * shim-only binary) or when AURORA_CLAUDE_LEGACY_CLI=1 is set.
  *
- * NOTE (kept in sync with claude_code.js): the disallowed-tools list and
- * the MCP rules text below are the SDK-path variants of the legacy
- * constants — the ONLY intended difference is AskUserQuestion, which is
- * blocked on the legacy path (unanswerable there) but ENABLED here
- * (answerable via canUseTool).
+ * NOTE (kept in sync with claude_code.js): the disallowed-tools list and the
+ * MCP rules text below MIRROR the legacy constants. They used to differ on
+ * AskUserQuestion — this engine kept the native tool enabled on the premise
+ * that `canUseTool` still fires for interaction-required tools under
+ * bypassPermissions. That premise is FALSE, and the SDK says so out loud:
+ *
+ *   [CLAUDE_SDK_CAN_USE_TOOL_SHADOWED] canUseTool will not be invoked:
+ *   permissionMode 'bypassPermissions' auto-approves every tool call
+ *   (except explicit deny rules) before the callback is consulted.
+ *
+ * So the native question tool self-resolved CLI-side with no human involved
+ * and Aurora only ever saw an inert chip — exactly the "no question card in
+ * bypass mode" bug the legacy path had already diagnosed and fixed by
+ * disallowing it (see claude_code.js). This engine now does the same, and
+ * asking is routed through mcp__aurora__ask_user_question, which reaches the
+ * renderer and renders a real card. bypassPermissions stays: Aurora gates its
+ * own MCP tools in the renderer and deliberately does not want the CLI's
+ * permission system on top of that.
  */
 
 'use strict';
@@ -41,7 +48,6 @@ const path = require('path');
 const log = require('electron-log');
 
 const auroraMcp = require('./aurora_mcp_server');
-const toolBridge = require('./tool_bridge');
 const attachments = require('./attachments');
 const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } = require('./timeouts');
 const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
@@ -66,11 +72,13 @@ function loadSdk() {
 //  Constants (SDK-path variants — see module header note)
 // ---------------------------------------------------------------------------
 
-// Same list as the legacy path MINUS AskUserQuestion: here the native
-// question tool is answerable (canUseTool → Aurora card), so it stays on.
+// Identical to the legacy path's list — see the module header for why
+// AskUserQuestion is on it (canUseTool never fires under bypassPermissions, so
+// the native tool self-resolves with no human and no card).
 const DISALLOWED_TOOLS = [
   'Bash', 'BashOutput', 'KillShell', 'KillBash',
   'Edit', 'Write', 'MultiEdit', 'NotebookEdit',
+  'AskUserQuestion',
 ];
 
 const MCP_TOOL_RULES = [
@@ -101,10 +109,10 @@ const MCP_TOOL_RULES = [
   '  - mcp__aurora__list_wave_signals, select_wave_signals, open_wave_config',
   '  - mcp__aurora__list_gtkw_files, add_gtkw_file, set_active_gtkw_file',
   '',
-  'Asking the user — when you need a decision, clarification or a choice',
-  'between options, use your AskUserQuestion tool (preferred) or',
-  'mcp__aurora__ask_user_question; both render an interactive card in the',
-  'IDE and return the selected answer. Never guess when you could ask.',
+  'Asking the user — your built-in AskUserQuestion tool is DISABLED here.',
+  'Whenever you need a decision, clarification or a choice between options,',
+  'call mcp__aurora__ask_user_question — it renders an interactive card in',
+  'the IDE and returns the selected answer. Never guess when you could ask.',
   '',
   'If a task seems to need a shell command, you are missing an Aurora tool —',
   'inspect the available mcp__aurora__* tools or ask the user. Do not',
@@ -112,63 +120,6 @@ const MCP_TOOL_RULES = [
 ].join('\n');
 
 const INACTIVITY_MS = CLI_INACTIVITY_MS; // shared table — see timeouts.js
-
-// ---------------------------------------------------------------------------
-//  AskUserQuestion → Aurora card
-// ---------------------------------------------------------------------------
-
-/**
- * Answer a native AskUserQuestion tool call by rendering Aurora's own
- * question card (one per question, sequentially) and mapping the answers
- * back into the tool input's `answers` field (the shape the CLI expects
- * from a canUseTool allow: { questions, answers: { [question]: answer } };
- * multiSelect questions answer with an array of labels).
- *
- * Card round-trip: toolBridge.runTool → renderer tool_runner →
- * AuroraAPI.ui.askUserQuestion → showAskUserQuestionInline. The renderer
- * resolves `{ ok:true, data:{ answer, selected } }` (aurora_api ok()),
- * or ok:false when the user dismissed the card / the turn aborted.
- *
- * @param {Electron.WebContents} webContents
- * @param {Record<string, unknown>} input  native tool input ({ questions })
- * @returns {Promise<{behavior:'allow', updatedInput:Record<string, unknown>}
- *                 | {behavior:'deny', message:string}>}
- */
-async function answerAskUserQuestion(webContents, input) {
-  const questions = Array.isArray(/** @type {any} */ (input)?.questions)
-    ? /** @type {any[]} */ (/** @type {any} */ (input).questions)
-    : [];
-  if (questions.length === 0) {
-    return { behavior: 'deny', message: 'AskUserQuestion carried no questions.' };
-  }
-
-  /** @type {Record<string, string|string[]>} */
-  const answers = {};
-  for (const q of questions) {
-    const question = String(q?.question || '').trim();
-    if (!question) continue;
-    const res = await toolBridge.runTool(webContents, 'ask_user_question', {
-      question,
-      options: Array.isArray(q?.options)
-        ? q.options.map((/** @type {any} */ o) => ({
-            label: String(o?.label ?? o ?? ''),
-            ...(o?.description ? { description: String(o.description) } : {}),
-          })).filter((/** @type {any} */ o) => o.label)
-        : [],
-      multiSelect: !!q?.multiSelect,
-    });
-    const data = res && res.ok ? (res.data || {}) : null;
-    if (!data || (!data.answer && !(Array.isArray(data.selected) && data.selected.length))) {
-      // Dismissed / aborted — tell the model instead of hanging the turn.
-      return { behavior: 'deny', message: 'The user dismissed the question.' };
-    }
-    answers[question] = q?.multiSelect
-      ? (Array.isArray(data.selected) && data.selected.length ? data.selected : [String(data.answer)])
-      : String(data.answer ?? (Array.isArray(data.selected) ? data.selected[0] : ''));
-  }
-
-  return { behavior: 'allow', updatedInput: { ...input, answers } };
-}
 
 // ---------------------------------------------------------------------------
 //  Engine
@@ -393,9 +344,14 @@ async function tryStart(p, webContents, host) {
   };
 
   // ---- run ---------------------------------------------------------------------
-  // Streaming-input prompt (an async generator with a single user message):
-  // canUseTool rides the SDK's control protocol, which requires the
-  // streaming input mode — a plain string prompt would disable it.
+  // Streaming-input prompt (an async generator with a single user message).
+  // It was originally a generator because canUseTool needs the streaming input
+  // mode; that callback is gone (see the header), so the reason now is the
+  // input channel itself: a plain string prompt closes input immediately and
+  // rules out ever pushing a follow-up into a live turn. Note the SDK ends the
+  // output stream when this generator RETURNS, not at `result` — so keeping it
+  // open is what a mid-turn push would need, and also what would hang the turn
+  // if nothing ever closed it.
   async function* promptStream() {
     yield {
       type: 'user',
@@ -413,21 +369,17 @@ async function tryStart(p, webContents, host) {
     mcpServers,
     strictMcpConfig: true,
     disallowedTools: DISALLOWED_TOOLS,
-    // Same posture as the legacy path: Aurora's renderer gates the MCP
-    // tools; native destructive tools are disallowed above. Under bypass,
-    // canUseTool still receives interaction-required tools (AskUserQuestion).
+    // Same posture as the legacy path: Aurora's renderer gates the MCP tools
+    // (tool_runner → the Allow/Deny card) and native destructive tools are
+    // disallowed above, so the CLI's own permission system is redundant here.
+    //
+    // No canUseTool: bypassPermissions auto-approves every call BEFORE the
+    // callback is consulted, so one would be dead code that reads as a gate —
+    // which is exactly how AskUserQuestion ended up silently broken. The SDK
+    // warns about this (CLAUDE_SDK_CAN_USE_TOOL_SHADOWED). If a native tool
+    // ever needs a human, disallow it here and expose an mcp__aurora__ tool.
     permissionMode: 'bypassPermissions',
     allowDangerouslySkipPermissions: true,
-    canUseTool: async (/** @type {string} */ toolName, /** @type {Record<string, unknown>} */ input) => {
-      if (toolName === 'AskUserQuestion') {
-        try {
-          return await answerAskUserQuestion(webContents, input);
-        } catch (e) {
-          return { behavior: 'deny', message: `Question UI failed: ${e instanceof Error ? e.message : e}` };
-        }
-      }
-      return { behavior: 'allow', updatedInput: input };
-    },
     includePartialMessages: true,
     abortController,
     ...(modelId && modelId !== 'default' ? { model: modelId } : {}),
@@ -515,4 +467,4 @@ async function tryStart(p, webContents, host) {
   return true;
 }
 
-module.exports = { tryStart, answerAskUserQuestion };
+module.exports = { tryStart };

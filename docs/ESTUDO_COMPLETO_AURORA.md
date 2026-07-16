@@ -745,6 +745,34 @@ card de permissão com o CSS real, antes vs depois.
   fila) — o `promptStream()` já está em streaming-input, mas mantê-lo aberto mexe no ciclo de vida do turno,
   no timeout de inatividade e no watchdog (§13.K, a área que custou a sessão de freezes). Passo separado.
 
+**Sessão 16/07/2026 (parte 3 — AskUserQuestion nunca renderizava) ✅.** 563 unit + ESLint + `tsc --noEmit`, e
+duas sondas contra o **CLI real** (assinatura do usuário, com autorização explícita dele pro gasto).
+- **O card de pergunta nunca aparecia no caminho do SDK — CORRIGIDO.** O `npm start` do usuário cuspia 4× o aviso
+  `[CLAUDE_SDK_CAN_USE_TOOL_SHADOWED] canUseTool will not be invoked: permissionMode 'bypassPermissions'
+  auto-approves every tool call before the callback is consulted`. E o `claude_agent.js` afirmava o **oposto**, no
+  header (§"o que a migração pro SDK compra": *"canUseTool: tools flagged 'requires user interaction' reach a real
+  callback EVEN under bypassPermissions … the definitive fix for the 'no question card in bypass mode' bug"*) e no
+  comentário do `options`. Ou seja: **a migração pro SDK vendeu como conserto uma regressão**. O `canUseTool` era
+  código morto; o `answerAskUserQuestion` (50 linhas) nunca rodou.
+- **O agravante estava no prompt.** O `MCP_TOOL_RULES` mandava *"use your AskUserQuestion tool (**preferred**) or
+  mcp__aurora__ask_user_question; **both** render an interactive card"*. As duas afirmações eram falsas: o modelo
+  era instruído a **preferir** justo a tool quebrada, e a nativa não renderiza card nenhum.
+- **O caminho legado já tinha resolvido isso** — `claude_code.js:270`: *"the CLI's NATIVE question tool cannot
+  reach a human here … a native AskUserQuestion self-resolves CLI-side and Aurora only ever saw an **inert
+  chip**"*. Era literalmente o sintoma relatado. Fix = alinhar o SDK ao legado: `AskUserQuestion` entra no
+  `DISALLOWED_TOOLS`, o prompt passa a dizer "DISABLED here, call mcp__aurora__ask_user_question" (texto idêntico
+  ao legado), e `canUseTool` + `answerAskUserQuestion` + o import do `toolBridge` saem. **`bypassPermissions`
+  fica**: a Aurora gateia as próprias tools no renderer e não quer o sistema de permissão do CLI por cima.
+- **Verificado no CLI real:** a lista de tools do `system/init` passou a **não conter** `AskUserQuestion`, sem o
+  aviso `CAN_USE_TOOL_SHADOWED`, turno concluindo `success`.
+- **🟡 Achado colateral (decisão pendente do usuário):** o `DISALLOWED_TOOLS` foi escrito quando o CLI era menor.
+  A sonda listou o que **segue habilitado** hoje no painel: `Task` e `Workflow` (spawnam subagentes — custo),
+  `Artifact` (**publica página na claude.ai** — superfície pra fora), `CronCreate/Delete/List` (agenda agentes na
+  nuvem), `RemoteTrigger`, `PushNotification`, `SendMessage`, `DesignSync`, `EnterWorktree/ExitWorktree`,
+  `Monitor`, `ScheduleWakeup`, `Skill`, `ToolSearch`, além de `Read`/`Glob`/`Grep`/`Web*`/`TodoWrite`. Nada disso
+  passa pelo card da Aurora. Revisar a lista item a item.
+- **Fora desta parte:** injeção mid-turn (sonda já feita, ver parte 4).
+
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**
 - [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados

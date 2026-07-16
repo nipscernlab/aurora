@@ -275,7 +275,10 @@ const MCP_TOOL_RULES = [
  *    (also steered by MCP_TOOL_RULES), which renders the real interactive
  *    card and pipes the answer back through the MCP bridge.
  */
-const DISALLOWED_CLI_TOOLS = 'Bash BashOutput KillShell KillBash Edit Write MultiEdit NotebookEdit AskUserQuestion';
+// Shared with the Agent SDK engine (claude_agent.js) — one list, two consumers.
+// Two hand-kept copies is exactly how AskUserQuestion drifted back on over
+// there and silently stopped rendering its card. See native_tools.js.
+const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
 
 /**
  * Ensure the Aurora MCP server is up and (re)write the `--mcp-config`
@@ -440,10 +443,15 @@ async function start(payload, webContents) {
   try {
     const cfgPath = await ensureMcpConfig();
     args.push('--mcp-config', cfgPath, '--strict-mcp-config');
-    // disallowed-tools wins over every permission mode, including
-    // `bypassPermissions` — so even "allow" turns cannot PowerShell
-    // their way around Aurora's compile pipeline.
-    args.push('--disallowed-tools', DISALLOWED_CLI_TOOLS);
+    // --tools is the allowlist: the built-in surface is exactly this, and the
+    // CLI's future additions stay off until someone adds them deliberately.
+    // Comma-separated is the form `--help` documents for this flag.
+    args.push('--tools', NATIVE_TOOLS.join(','));
+    // Redundant with --tools, kept anyway: disallowed-tools wins over every
+    // permission mode, including `bypassPermissions` — so even "allow" turns
+    // cannot PowerShell their way around Aurora's compile pipeline. Space-
+    // separated, which is what this flag has always been given here.
+    args.push('--disallowed-tools', DISALLOWED_TOOLS.join(' '));
     mcpReady = true;
   } catch (e) {
     log.warn('[ai.claude-code] Aurora MCP bridge unavailable — falling back to shell tools:', e instanceof Error ? e.message : e);

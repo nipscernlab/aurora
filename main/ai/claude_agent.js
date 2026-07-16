@@ -72,14 +72,9 @@ function loadSdk() {
 //  Constants (SDK-path variants — see module header note)
 // ---------------------------------------------------------------------------
 
-// Identical to the legacy path's list — see the module header for why
-// AskUserQuestion is on it (canUseTool never fires under bypassPermissions, so
-// the native tool self-resolves with no human and no card).
-const DISALLOWED_TOOLS = [
-  'Bash', 'BashOutput', 'KillShell', 'KillBash',
-  'Edit', 'Write', 'MultiEdit', 'NotebookEdit',
-  'AskUserQuestion',
-];
+// Both lists now live in native_tools.js — one source of truth shared with the
+// legacy engine, which is what stops the two from drifting apart again.
+const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
 
 const MCP_TOOL_RULES = [
   'You are running inside the Aurora IDE. Aurora exposes its own IDE and',
@@ -447,6 +442,11 @@ async function tryStart(p, webContents, host) {
     additionalDirectories,
     mcpServers,
     strictMcpConfig: true,
+    // The built-in surface, as an ALLOWLIST — anything absent does not exist for
+    // the model. MCP is untouched by this: mcp__aurora__* stays available and
+    // keeps going through the renderer's card. See native_tools.js for why this
+    // is not a blocklist.
+    tools: NATIVE_TOOLS,
     disallowedTools: DISALLOWED_TOOLS,
     // Same posture as the legacy path: Aurora's renderer gates the MCP tools
     // (tool_runner → the Allow/Deny card) and native destructive tools are

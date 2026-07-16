@@ -808,6 +808,38 @@ das três premissas do desenho estavam erradas**, e as duas teriam pendurado o c
 - **Caminhos de saída cobertos:** `stop`, `markAborted` e o timer de inatividade agora chamam `wakeInputNow()` — sem
   isso o generator ficaria `await`-ando pra sempre e o turno não morreria nem no abort.
 
+**Sessão 16/07/2026 (parte 5 — superfície de tools nativas: blocklist → allowlist) ✅.** 588 unit + ESLint +
+`tsc --noEmit`, e sonda contra o CLI real.
+- **O 🟡 da parte 3 fechado, mas o conserto não foi "revisar a lista" — foi inverter o mecanismo.** O
+  `DISALLOWED_TOOLS` nomeava o que **bloquear**, e isso **falha aberto por construção**: toda tool que o CLI passa
+  a shippar entra habilitada na Aurora sozinha, em silêncio, num `npm install`. Não era uma lista desatualizada;
+  era uma lista que **não tem como** ficar atualizada. Agora o `Options.tools` (SDK) / `--tools` (CLI legado) define
+  um **allowlist**: o que não está listado **não existe** pro modelo, e tool nova nasce **desligada**. O modo de
+  falha vira "faltou uma tool" (vira report) em vez de "tool nova ligada no IDE de todo mundo" (vira surpresa).
+- **Medido no CLI real: de 23 nativas para 7.** Ficaram: `Read` (**obrigatória** — o fluxo de anexo de imagem
+  escreve temp no main e o modelo lê de volta), `Glob`/`Grep` (read-only, escopadas ao `additionalDirectories`),
+  `WebFetch`/`WebSearch` (pesquisa read-only; *offline-first* = a IDE não pode **exigir** rede, não que a IA nunca
+  possa ler — projeto de hardware vive de datasheet e norma IEEE/IEC), `TodoWrite` (rascunho interno) e
+  `ToolSearch` (**infra**: é como o modelo acha a superfície `mcp__aurora__*` quando ela é deferida).
+- **Saíram, com motivo registrado no código:** `Task`/`Workflow` (subagentes — gasto sem teto na assinatura do
+  usuário, e os passos internos são invisíveis aos chips da Aurora), `Artifact` (**publica arquivo local como
+  página hospedada na claude.ai** — distribuição pra fora), `Cron{Create,Delete,List}`/`ScheduleWakeup`/
+  `RemoteTrigger` (agendam/disparam trabalho sem ninguém olhando), `EnterWorktree`/`ExitWorktree` (criam e trocam
+  worktree do git, movendo os arquivos do usuário sem card), `PushNotification` (manda pro celular),
+  `SendMessage` (só endereça subagente), `Monitor` (serve pra vigiar Bash em background, que está off),
+  `ReportFindings` (renderiza numa UI que a Aurora não implementa → o resultado sumiria no caminho) e `DesignSync`
+  (sem tipo no SDK, nada a ver com SAPHO).
+- **Lista única (`main/ai/native_tools.js`).** Havia **duas cópias à mão** — array no `claude_agent.js`, string
+  separada por espaço no `claude_code.js` — e foi exatamente assim que elas divergiram no `AskUserQuestion`.
+  Agora é uma fonte, dois consumidores. `disallowedTools` fica como deny redundante de propósito: ele **vence
+  qualquer permission mode** e bloqueia também invocação interna do harness, não só `tool_use` do modelo.
+- **+25 testes** (`native_tools.test.js`): as duas listas nunca se contradizem, e **cada** tool perigosa é negada
+  nominalmente com o motivo junto — reabrir uma quebra o teste ali, com a explicação do lado, em vez de passar batido.
+- **🟡 Achado colateral (não mexido, decisão pendente):** o `settingSources` não é passado, e o default do SDK é
+  *"When omitted, all sources are loaded"* — ou seja, o `~/.claude/settings.json` **pessoal** do usuário (hooks
+  inclusive) é carregado dentro do painel da Aurora. Um hook escrito pro Claude Code do terminal dispara aqui.
+  Decidir se a Aurora quer isolar (`settingSources: []`) ou manter.
+
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**
 - [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados

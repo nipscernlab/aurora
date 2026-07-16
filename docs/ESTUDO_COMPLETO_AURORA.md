@@ -840,6 +840,33 @@ das três premissas do desenho estavam erradas**, e as duas teriam pendurado o c
   inclusive) é carregado dentro do painel da Aurora. Um hook escrito pro Claude Code do terminal dispara aqui.
   Decidir se a Aurora quer isolar (`settingSources: []`) ou manter.
 
+**Sessão 16/07/2026 (parte 6 — card de pergunta: visual + registro permanente) ✅.** 591 unit + ESLint, e render
+do card com o CSS real (antes/depois).
+- **Registro permanente da pergunta no chat.** O card sumia em 180 ms e o que foi perguntado/escolhido sobrevivia
+  só dentro do JSON do chip da tool — um chat reaberto **perdia a decisão**, que costuma ser a coisa mais
+  re-lida da conversa toda. Agora o `finish()` grava uma entrada `role:'question'`
+  (`{question, selected, custom, cancelled}`), renderizada **no lugar do card** e de novo na hidratação — mesmo
+  elemento (`_renderQuestionRecord`), então o chat reaberto lê igual ao vivo. Mostra a pergunta, chips do que foi
+  marcado e o texto livre; dispensa fica apagada. Só grava em ação deliberada (responder/cancelar) — turno
+  abortado de fora não é decisão. Tudo por `textContent`: label vem do modelo, texto livre vem do usuário.
+- **`buildApiMessages` ganhou `DISPLAY_ONLY_ROLES` (`tool` + `question`).** A entrada não tem `content`; sem o
+  filtro o modelo receberia `{role:'question', content: undefined}`. E ele **já** sabe a resposta — ela voltou como
+  retorno da tool; reenviar seria repetir.
+- **🔴 Bug de CSS que falhava em silêncio — CORRIGIDO.** A escala de elevação é `--bg` / **`--bg-elev`** /
+  `--bg-elev-2` / `--bg-elev-3`: o primeiro degrau **não tem número**. Alguém assumiu `elev-1/2/3` e escreveu
+  `var(--bg-elev-1)`, que **nunca foi definido em lugar nenhum** — em **7 lugares**. `var()` sem fallback pra token
+  inexistente é *invalid at computed-value time*: a declaração inteira cai, sem erro de build e sem warning. As
+  opções do card de pergunta, o zebrado das tabelas do chat, os blockquotes e o campo de texto livre renderizavam
+  **sem fundo nenhum** — parte da queixa "pouco apresentável" era isso, e era antigo.
+- **Visual do multiSelect.** O `.ai-askq-opt` tinha `:hover` mas **nenhum estado `:checked`**: marcada ou não, a
+  linha era idêntica — só mudava o quadradinho nativo de 14px. Com multiSelect, onde o ponto é marcar várias, não
+  havia como escanear o que estava marcado. Agora `:has(input:checked)` dá fundo/borda de acento e label em
+  destaque, `accent-color` temiza o input e `:focus-within` separa o foco do teclado do estado marcado.
+- **+3 testes (`css_tokens.test.js`) varrendo o CSS inteiro** atrás de `var(--x)` sem fallback cujo `--x` não é
+  definido em lugar nenhum. Achou **mais 2** que ninguém sabia: `--border-soft` (2×, `shell/toolbar.css`) — a
+  escala é `--border-subtle`/`--border`/`--border-strong`. Corrigidos. Essa classe de bug agora quebra o teste em
+  vez de renderizar torto pra sempre.
+
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**
 - [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados

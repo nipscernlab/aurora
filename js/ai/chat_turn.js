@@ -5,13 +5,21 @@
 // the startChat IPC, the stream wiring + the post-send memory-hygiene strip);
 // these just shape the payload it sends, so they're unit-testable.
 
-// Build the messages array sent to the model: drop display-only `tool` entries,
-// and CLONE each attachment so the post-send memory-hygiene strip (which deletes
+// Roles that exist ONLY to render in the panel. They carry no `content`, so
+// letting one through would send the model `{role, content: undefined}`:
+//   tool     — the collapsed "N actions" chips.
+//   question — the record of an ask_user_question exchange. The model already
+//              got the answer as that tool's return value; resending it here
+//              would just repeat it back, in a role the API does not accept.
+const DISPLAY_ONLY_ROLES = new Set(['tool', 'question']);
+
+// Build the messages array sent to the model: drop display-only entries, and
+// CLONE each attachment so the post-send memory-hygiene strip (which deletes
 // `dataUrl` from the STORED history) can't also wipe the payload out of what we
 // are sending this turn.
 export function buildApiMessages(messages) {
     const mapped = messages
-        .filter((m) => m.role !== 'tool')
+        .filter((m) => !DISPLAY_ONLY_ROLES.has(m.role))
         .map((m) => (m.attachments && m.attachments.length
             ? { role: m.role, content: m.content, attachments: m.attachments.map((a) => ({ ...a })) }
             : { role: m.role, content: m.content }));

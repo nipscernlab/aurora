@@ -1391,10 +1391,24 @@ class AIAssistantManager {
       card.querySelector('.ai-askq-question').textContent = question;
 
       let settled = false;
-      const finish = (payload) => {
+      /**
+       * `record` leaves a permanent trace of the exchange in the chat. Without
+       * it the card just vanished: what was asked and what you picked survived
+       * only inside the tool chip's JSON, so a reopened chat lost the decision
+       * entirely — and a decision is usually the most re-readable thing in the
+       * whole conversation. Passed only for deliberate answers/dismissals; a
+       * turn aborted from elsewhere resolves without one, since "the turn died"
+       * is not a decision worth a record.
+       */
+      const finish = (payload, record = null) => {
         if (settled) return;
         settled = true;
         this.pendingAskUserQuestions?.delete(decide);
+        if (record) {
+          this.messages.push(record);
+          // In place, where the card stood, before the card fades out.
+          this.messagesEl.insertBefore(this._renderQuestionRecord(record), card);
+        }
         card.classList.add('done');
         setTimeout(() => card.remove(), 180);
         resolve(payload);
@@ -1424,12 +1438,14 @@ class AIAssistantManager {
           setTimeout(() => card.classList.remove('shake'), 320);
           return;
         }
-        finish({ answer, selected: checked });
+        finish({ answer, selected: checked },
+          { role: 'question', question, selected: checked, custom: otherText, cancelled: false });
       };
 
       card.querySelector('.ai-askq-submit').addEventListener('click', submit);
       card.querySelector('.ai-askq-cancel').addEventListener('click', () => {
-        finish({ answer: '[user cancelled the question]', selected: [] });
+        finish({ answer: '[user cancelled the question]', selected: [] },
+          { role: 'question', question, selected: [], custom: '', cancelled: true });
       });
       // Enter inside the textarea (without shift) also submits.
       card.querySelector('.ai-askq-other-input').addEventListener('keydown', (e) => {
@@ -1440,6 +1456,64 @@ class AIAssistantManager {
       this.scrollToBottom();
       requestAnimationFrame(() => card.classList.remove('enter'));
     });
+  }
+
+  /**
+   * The permanent trace of one ask_user_question exchange: what was asked and
+   * what you picked. Rendered live in place of the card, and again from
+   * `this.messages` when the chat is reopened — same element either way, so the
+   * reloaded chat reads exactly like the live one.
+   *
+   * Display-only: `question` entries are filtered out of buildApiMessages. The
+   * model already learned the answer through the tool's return value, so
+   * sending this too would just say it twice.
+   *
+   * @param {{question?:string, selected?:string[], custom?:string, cancelled?:boolean}} entry
+   */
+  _renderQuestionRecord(entry) {
+    const el = document.createElement('div');
+    el.className = `ai-askq-record${entry.cancelled ? ' cancelled' : ''}`;
+
+    const head = document.createElement('div');
+    head.className = 'ai-askq-record-head';
+    const icon = document.createElement('i');
+    icon.className = entry.cancelled ? 'ph ph-x-circle' : 'ph ph-check-circle';
+    icon.setAttribute('aria-hidden', 'true');
+    const headText = document.createElement('span');
+    headText.textContent = entry.cancelled ? 'You dismissed a question' : 'You answered';
+    head.append(icon, headText);
+    el.appendChild(head);
+
+    const q = document.createElement('div');
+    q.className = 'ai-askq-record-q';
+    q.textContent = entry.question || '';   // model text — never markup
+    el.appendChild(q);
+
+    const selected = Array.isArray(entry.selected) ? entry.selected : [];
+    if (selected.length) {
+      const chips = document.createElement('div');
+      chips.className = 'ai-askq-record-chips';
+      for (const label of selected) {
+        const chip = document.createElement('span');
+        chip.className = 'ai-askq-record-chip';
+        const tick = document.createElement('i');
+        tick.className = 'ph ph-check';
+        tick.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        text.textContent = String(label);   // model text — never markup
+        chip.append(tick, text);
+        chips.appendChild(chip);
+      }
+      el.appendChild(chips);
+    }
+
+    if (entry.custom) {
+      const custom = document.createElement('div');
+      custom.className = 'ai-askq-record-custom';
+      custom.textContent = entry.custom;    // the user's own words
+      el.appendChild(custom);
+    }
+    return el;
   }
 
   showEmptyState(show) {
@@ -3069,6 +3143,11 @@ class AIAssistantManager {
           this.appendStaticToolChip(msg.toolName, msg.status, msg.error, msg.args, msg.result),
         );
         staticGroup.total += 1;
+      } else if (msg.role === 'question') {
+        // A question record has no `content`, so without this branch the
+        // `typeof msg.content === 'string'` test below drops it silently.
+        closeStaticGroup();
+        this.messagesEl.appendChild(this._renderQuestionRecord(msg));
       } else if (typeof msg.content === 'string') {
         closeStaticGroup();
         const bubble = this.appendBubble(msg.role, msg.content);

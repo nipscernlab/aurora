@@ -369,7 +369,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   gap: var(--space-2);
   background: transparent;
   color: var(--text-secondary);
-  border: 1px solid var(--border-soft);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   cursor: pointer;
   font-family: var(--font-sans);
@@ -475,7 +475,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 .gtkw-picker-row.adder {
   color: var(--accent);
-  border-top: 1px solid var(--border-soft);
+  border-top: 1px solid var(--border-subtle);
   margin-top: 4px;
 }
 

@@ -1355,7 +1355,7 @@ body.ai-assistant-open {
   align-items: baseline;
   margin: var(--space-2) 0 0;
   padding: var(--space-2) var(--space-3);
-  background: var(--bg-elev-1);
+  background: var(--bg-elev);
   border-left: 2px solid var(--accent);
   border-radius: var(--radius-sm);
 }
@@ -2312,7 +2312,7 @@ body.resizing-ai-corner * {
   border-top: 1px solid var(--border-subtle);
   color: var(--text);
 }
-.ai-table tbody tr:nth-child(even) td { background: var(--bg-elev-1); }
+.ai-table tbody tr:nth-child(even) td { background: var(--bg-elev); }
 
 /* Horizontal rule */
 .ai-hr {
@@ -2326,7 +2326,7 @@ body.resizing-ai-corner * {
   margin: var(--space-2) 0;
   padding: 6px 12px;
   border-left: 3px solid var(--accent);
-  background: var(--bg-elev-1);
+  background: var(--bg-elev);
   color: var(--text-muted);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
@@ -2335,7 +2335,7 @@ body.resizing-ai-corner * {
   border: 1px solid var(--border-subtle);
   border-left-width: 3px;
   border-radius: var(--radius-md);
-  background: var(--bg-elev-1);
+  background: var(--bg-elev);
   overflow: hidden;
 }
 .ai-callout-head {
@@ -2548,17 +2548,101 @@ body.resizing-ai-corner * {
   display: flex;
   gap: 8px;
   padding: 8px 10px;
-  background: var(--bg-elev-1);
+  background: var(--bg-elev);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: border-color var(--transition-fast), background-color var(--transition-fast);
 }
 .ai-askq-opt:hover { border-color: var(--accent); background: var(--bg-elev-3); }
-.ai-askq-opt input { margin-top: 3px; cursor: pointer; }
+.ai-askq-opt input { margin-top: 3px; cursor: pointer; accent-color: var(--accent); }
 .ai-askq-opt-text { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 .ai-askq-opt-label { color: var(--text); font-size: var(--text-sm); }
 .ai-askq-opt-desc  { color: var(--text-muted); font-size: var(--text-xs); }
+
+/* A CHOSEN option has to read as chosen from across the card. Without this the
+ * row looked identical checked or not — the only thing that changed was the
+ * 14px native box — and with multiSelect, where the whole point is picking
+ * several, there was no way to scan what you had marked. */
+.ai-askq-opt:has(input:checked) {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+}
+.ai-askq-opt:has(input:checked) .ai-askq-opt-label {
+  color: var(--accent-hover);
+  font-weight: 500;
+}
+/* Keyboard users need the focused row to stand apart from the checked ones. */
+.ai-askq-opt:focus-within { border-color: var(--accent); }
+
+/* ---------------------------------------------------------------------------
+ *  The permanent record left behind after a question is answered. Quieter than
+ *  the live card on purpose — it is history, not a thing to act on — but the
+ *  chosen options stay in accent so the decision is still scannable when you
+ *  reopen the chat weeks later.
+ * ------------------------------------------------------------------------- */
+.ai-askq-record {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-subtle);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+.ai-askq-record.cancelled { border-left-color: var(--text-muted); opacity: 0.75; }
+
+.ai-askq-record-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ai-askq-record-head i { font-size: var(--icon-xs); color: var(--accent); }
+.ai-askq-record.cancelled .ai-askq-record-head i { color: var(--text-muted); }
+
+.ai-askq-record-q {
+  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: var(--leading-snug);
+}
+
+.ai-askq-record-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.ai-askq-record-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  color: var(--accent-hover);
+}
+
+.ai-askq-record-chip i { font-size: var(--icon-xs); }
+
+/* The user's own free text — quoted, so it reads as words rather than a label. */
+.ai-askq-record-custom {
+  margin-top: 6px;
+  padding-left: var(--space-2);
+  border-left: 2px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text);
+  font-style: italic;
+  white-space: pre-wrap;
+}
 
 .ai-askq-other-label {
   display: block;
@@ -2569,7 +2653,7 @@ body.resizing-ai-corner * {
 .ai-askq-other-input {
   width: 100%;
   padding: 8px 10px;
-  background: var(--bg-elev-1);
+  background: var(--bg-elev);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   color: var(--text);

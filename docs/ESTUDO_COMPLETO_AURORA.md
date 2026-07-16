@@ -731,6 +731,19 @@ card de permissão com o CSS real, antes vs depois.
   Rodou limpo no manifesto existente. **+8 testes.**
 - **Lacuna vizinha fechada:** o `_meta.schema()` promete descrever "every function", mas `getMissingFiles` e
   `dismissMissingFiles` nunca entraram no catálogo `NAMESPACES`. Entraram agora, junto das 3 de memória.
+- **Fila de mensagens: já estava inteira, e desligada por uma condição — CORRIGIDO.** Investigando o pedido
+  ("mandar uma seguida da outra sem bloquear o chat"), o achado foi que **tudo** já existia: o `#ai-msg-queue`
+  no markup, o CSS `.ai-queued-chip`, o `_messageQueue`, o branch de enfileirar no `send()`, o `_renderQueue()`
+  com chip cancelável, e o dreno no `setStreaming(false)` (`if (!this._drainMessageQueue()) this._drainAutoQueue()`
+  — follow-up do usuário tem prioridade sobre o autônomo). Só que o handler do Enter fazia
+  `if (!this._isStreaming && ...) this.send()`, então **o `send()` nunca era alcançado durante um turno** e o
+  branch de fila era código morto. O comentário ("Block sending while streaming") era anterior à fila e a
+  contradizia. Fix: tirar o `_isStreaming` do guard — o `send()` já decide sozinho entre despachar e enfileirar;
+  o `sendBtn.disabled` continua guardando o bloqueio real (sem provider). Enter-pra-enfileirar bate com o Claude
+  Code, já que o botão de enviar vira Stop durante o turno.
+- **Fora desta parte:** a **injeção mid-turn** no caminho do SDK (a mensagem entrar no turno vivo, não só na
+  fila) — o `promptStream()` já está em streaming-input, mas mantê-lo aberto mexe no ciclo de vida do turno,
+  no timeout de inatividade e no watchdog (§13.K, a área que custou a sessão de freezes). Passo separado.
 
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**

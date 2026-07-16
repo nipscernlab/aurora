@@ -596,11 +596,15 @@ class AIAssistantManager {
     this.clearBtn.addEventListener('click', () => this.newChat());
 
     // Enter sends, Shift+Enter inserts a newline.
-    // Block sending while streaming — user can still type their next message.
+    // Enter is NOT gated on _isStreaming: send() itself decides between
+    // dispatching now and queueing (see the _messageQueue branch there), so
+    // gating here just made the follow-up queue unreachable from the keyboard —
+    // the whole point is that a running turn does not block the composer.
+    // sendBtn.disabled still guards the real blocker: no AI provider available.
     this.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        if (!this._isStreaming && !this.sendBtn.disabled) this.send();
+        if (!this.sendBtn.disabled) this.send();
       }
     });
 

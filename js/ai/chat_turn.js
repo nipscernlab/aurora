@@ -34,16 +34,52 @@ export function buildApiMessages(messages) {
     return out;
 }
 
+// Total budget for the injected memory block. A memory is meant to be a short
+// fact, but the model writes them, so the block is bounded rather than trusted:
+// past this we stop and say how many were dropped (silently truncating would
+// read as "that is all of them").
+const MEMORY_BUDGET = 6000;
+
+/**
+ * Render the project-memory block, or '' when there is nothing remembered.
+ *
+ * Conditional on purpose. This context is rebuilt EVERY turn, so anything here
+ * is paid for on every turn — and an empty "memories: none" line would be pure
+ * waste on the common path. It also sits AFTER the static SYSTEM_PROMPT, which
+ * is what keeps the big cacheable prefix stable while this part varies.
+ *
+ * @param {Array<{name:string, content:string}>} memories
+ */
+function buildMemoryBlock(memories) {
+    if (!Array.isArray(memories) || memories.length === 0) return '';
+    let out = `\nPROJECT MEMORY — facts you were told to remember about THIS project (<root>/.aurora/memory/).\n` +
+              `They are already here; do NOT call list_memories just to read them. If one contradicts what you\n` +
+              `see in the code, the code wins — the memory went stale, so fix it with remember() or drop it with forget().\n`;
+    let used = 0;
+    let shown = 0;
+    for (const m of memories) {
+        const entry = `\n[${m.name}]\n${String(m.content || '').trim()}\n`;
+        if (used + entry.length > MEMORY_BUDGET) break;
+        out += entry;
+        used += entry.length;
+        shown++;
+    }
+    const dropped = memories.length - shown;
+    if (dropped > 0) out += `\n(+${dropped} more memory/memories not shown — over the context budget. Call list_memories to read them.)\n`;
+    return out;
+}
+
 // The per-turn project context appended to SYSTEM_PROMPT. Injecting the active
 // project paths every turn saves the model a get_current_project tool-call and
 // stops it hallucinating paths from earlier projects; rebuilt each turn so
 // switching projects mid-chat just works. (Text is model-facing — keep verbatim.)
-export function buildProjectContext(projectPath, spfPath) {
+export function buildProjectContext(projectPath, spfPath, memories) {
     return projectPath
         ? `\n\nACTIVE AURORA PROJECT — single source of truth, refreshed every turn:\n` +
           `  project_root: ${projectPath}\n` +
           (spfPath ? `  spf_file:     ${spfPath}\n` : '') +
           `Use these exact paths when calling tools (read_file, create_file, set_top_level, …).\n` +
-          `Do not hallucinate a different root, do not assume cwd. If you need the full file list, call get_project_tree.\n`
+          `Do not hallucinate a different root, do not assume cwd. If you need the full file list, call get_project_tree.\n` +
+          buildMemoryBlock(memories)
         : '\n\nNO PROJECT IS CURRENTLY OPEN — ask the user to open one before running any project-scoped tool.\n';
 }

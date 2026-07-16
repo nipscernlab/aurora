@@ -701,6 +701,37 @@ card de permissão com o CSS real, antes vs depois.
   Tudo por `textContent` — é saída de modelo, nunca vira markup. Prosa capada em 1000 (o JSON segue em 500);
   `note` não-string ou em branco cai como dado, não como prosa. **+7 testes** (17 no arquivo).
 
+**Sessão 16/07/2026 (parte 2 — memória de projeto pra IA) ✅.** **563 unit** + ESLint + `tsc --noEmit`.
+- **A IA não conseguia gravar memória — CORRIGIDO com tool própria.** O `Write` está em `DISALLOWED_TOOLS`
+  (`main/ai/claude_agent.js`), então a memória nativa do Claude Code (que grava por arquivo) morria com
+  "Write failed". **Isso não era bug:** toda escrita passa pelas tools MCP da Aurora de propósito, pra bater no
+  card de permissão + audit log; o `Write` nativo furaria os dois. Então o conserto **não** foi liberar o `Write`
+  (devolveria escrita irrestrita sem card) — foi dar memória de primeira classe à Aurora: `remember` / `forget` /
+  `list_memories`. **Razão decisiva:** são **3 transportes** (Agent SDK · Claude Code CLI · Codex); consertar a
+  memória nativa resolveria **um**, a tool resolve os três e já entra no card/audit como o resto.
+- **Mora em `<root>/.aurora/memory/<name>.md`**, um fato por arquivo (decisão do usuário). In-project, não
+  userData: sobrevive a mover a pasta, e o usuário pode ler/versionar/gitignorar. Chavear por path absoluto já
+  mordeu este repo — o `testbench/pmu_cocotb.json` do PMU ainda aponta pro Desktop de onde o projeto saiu.
+- **Recall junto do contexto de projeto** (`chat_turn.js`): o bloco só aparece **quando há memória** — ele é
+  reconstruído todo turno, então um "memories: none" seria desperdício no caminho comum; e fica **depois** do
+  `SYSTEM_PROMPT` estático, que é o que mantém o prefixo cacheável intacto. Orçamento de 6 KB e, ao estourar,
+  **diz quantas ficaram de fora** (truncar calado se leria como "são todas"). Diz ao modelo que, se a memória
+  contradiz o código, **o código vence**.
+- **`memorySlug` é fronteira de segurança, não cosmética** — o `name` vem do modelo e vira path. É **allowlist**
+  (`[a-z0-9-]`), então `../`, path absoluto, letra de drive, ADS do NTFS, dotfile e null byte morrem **por
+  construção**, não por blocklist que alguém tem que manter completa. Extraído pra `js/ai/memory.js` (módulo
+  puro) porque `tests/unit` é suíte de módulos puros e o `aurora_api.js` toca `document` — mesmo movimento do
+  `tool_permission.js`. **+10 testes** só de traversal/rejeição.
+- **Bug pego pelo contrato, antes de rodar:** as tools tinham nascido `argStyle:'object'`, mas
+  `tool_runner.buildCallArgs` manda `fn(args)` nesse modo — e `remember(name, content)` é posicional, então
+  receberia o objeto inteiro como `name` e **falharia em toda chamada**. Viraram `'positional'` + `argNames`.
+  Daí nasceu `tests/unit/tool_manifest.test.js`: **teste de contrato do manifesto inteiro** (positional declara
+  argNames · todo argName existe no schema · todo required é passado · nomes únicos · api/access válidos) —
+  pega essa classe de erro pra **qualquer tool futura**, que hoje só é ligada à API por convenção, não por tipo.
+  Rodou limpo no manifesto existente. **+8 testes.**
+- **Lacuna vizinha fechada:** o `_meta.schema()` promete descrever "every function", mas `getMissingFiles` e
+  `dismissMissingFiles` nunca entraram no catálogo `NAMESPACES`. Entraram agora, junto das 3 de memória.
+
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**
 - [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados

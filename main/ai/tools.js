@@ -214,6 +214,55 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'list_memories',
+    description:
+      'List everything you were told to remember about THIS project (from ' +
+      '<root>/.aurora/memory/). The same memories are already injected into your ' +
+      'system prompt each turn, so call this only to audit or before forget().',
+    access: 'read',
+    api: ['project', 'listMemories'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'remember',
+    description:
+      'Save ONE durable fact about this project to <root>/.aurora/memory/<name>.md, ' +
+      'so it survives across chats. Use it for what the code and git do NOT already ' +
+      'record: a decision and its rationale, a user preference about how to work, a ' +
+      'constraint, an external reference. Do NOT save what a tool can re-derive (file ' +
+      'lists, paths, compile output) or what only matters to the current turn. One ' +
+      'fact per name; writing an existing name OVERWRITES it, which is how you update. ' +
+      'Prefer updating a related memory over creating a near-duplicate.',
+    access: 'write',
+    api: ['project', 'remember'],
+    argStyle: 'positional',
+    argNames: ['name', 'content'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Short kebab-case id, e.g. "porta-adc-q20". Slugified; it is the filename.' },
+        content: { type: 'string', description: 'The fact, in Markdown. State it plainly and say WHY it matters.' },
+      },
+      required: ['name', 'content'],
+    },
+  },
+  {
+    name: 'forget',
+    description:
+      'Delete one project memory by name — use when a remembered fact turned out to be ' +
+      'wrong or went stale. Returns { removed:false } when there was no such memory.',
+    access: 'write',
+    api: ['project', 'forget'],
+    argStyle: 'positional',
+    argNames: ['name'],
+    inputSchema: {
+      type: 'object',
+      properties: { name: { type: 'string', description: 'The memory id, as listed by list_memories.' } },
+      required: ['name'],
+    },
+  },
+  {
     name: 'analyze_asm',
     description:
       'Parse a SAPHO assembly (.asm) file and return a structured summary: total instruction ' +

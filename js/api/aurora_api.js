@@ -57,6 +57,8 @@ import {
   setSurferMultiWindow,
 } from '../wave/surfer_window_preference.js';
 
+import { memorySlug } from '../ai/memory.js';
+
 /* ============================================================
  *  Result helpers
  * ========================================================== */
@@ -65,6 +67,7 @@ function ok(data) { return { ok: true, data: data === undefined ? null : data };
 function err(message, code) {
   return { ok: false, error: { message: String(message || 'Unknown error'), code: code || null } };
 }
+
 
 /**
  * Resolve a file the AI named to an absolute path inside the open project —
@@ -1115,6 +1118,73 @@ const projectNs = {
     } catch (e) {
       return err(e?.message || 'dismissMissingFiles failed');
     }
+  },
+
+  /**
+   * PROJECT MEMORY — `<root>/.aurora/memory/<name>.md`, one fact per file.
+   *
+   * Why a first-class Aurora tool and not the CLI's own file-based memory:
+   * `Write` is in DISALLOWED_TOOLS (main/ai/claude_agent.js) on purpose — every
+   * write goes through Aurora's MCP tools so it hits the permission card and the
+   * audit log, and the native tool would bypass both. Routing memory through the
+   * API keeps that gate AND makes it work on all three transports (Agent SDK,
+   * Claude Code CLI, Codex) instead of only the one that ships a memory feature.
+   *
+   * In-project (not userData) so memories survive moving the folder and the user
+   * can read, version, or gitignore them. Keying off an absolute path has
+   * already bitten this codebase — a stale testbench sidecar still points at a
+   * project that moved.
+   */
+  async listMemories() {
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    try {
+      const dir = await electronAPI.joinPath(root, '.aurora', 'memory');
+      if (!(await electronAPI.fileExists(dir))) return ok({ count: 0, memories: [] });
+      const names = (await electronAPI.listFilesInDirectory(dir)) || [];
+      const memories = [];
+      for (const n of names) {
+        const base = typeof n === 'string' ? n : (n?.name || '');
+        if (!base.toLowerCase().endsWith('.md')) continue;
+        try {
+          const p = await electronAPI.joinPath(dir, base);
+          memories.push({ name: base.replace(/\.md$/i, ''), content: (await electronAPI.readFile(p)) || '' });
+        } catch (_) { /* a memory we can't read is not worth failing the turn over */ }
+      }
+      return ok({ count: memories.length, memories });
+    } catch (e) { return err(e?.message || 'listMemories failed'); }
+  },
+
+  /** Write (or overwrite) one memory. `name` is slugified into the filename. */
+  async remember(name, content) {
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    const slug = memorySlug(name);
+    if (!slug) return err('name required');
+    if (typeof content !== 'string' || !content.trim()) return err('content required');
+    try {
+      const dir = await electronAPI.joinPath(root, '.aurora', 'memory');
+      await electronAPI.createDirectory(dir);
+      const p = await electronAPI.joinPath(dir, `${slug}.md`);
+      await electronAPI.writeFile(p, content.trim() + '\n');
+      emit('project:memory-written', { name: slug, path: p });
+      return ok({ name: slug, path: p });
+    } catch (e) { return err(e?.message || 'remember failed'); }
+  },
+
+  /** Drop one memory. Returns { removed:false } when it was not there. */
+  async forget(name) {
+    const root = window.currentProjectPath || null;
+    if (!root) return err('No project open');
+    const slug = memorySlug(name);
+    if (!slug) return err('name required');
+    try {
+      const p = await electronAPI.joinPath(root, '.aurora', 'memory', `${slug}.md`);
+      if (!(await electronAPI.fileExists(p))) return ok({ name: slug, removed: false });
+      await electronAPI.deleteFile(p);
+      emit('project:memory-forgotten', { name: slug });
+      return ok({ name: slug, removed: true });
+    } catch (e) { return err(e?.message || 'forget failed'); }
   },
 
   /**
@@ -2766,6 +2836,11 @@ const NAMESPACES = Object.freeze({
     setView:            'Switch the left panel: "file" or "hierarchy"',
     getView:            'Which tree view is active right now',
     analyzeAsm:         'Parse a SAPHO .asm and return instruction counts, families, labels and loops',
+    getMissingFiles:    'Paths the .spf still references but that are gone from disk',
+    dismissMissingFiles:'Prune every dangling .spf reference to a missing file',
+    listMemories:       'Facts remembered about this project (<root>/.aurora/memory/)',
+    remember:           'Save one durable fact about this project (overwrites the same name)',
+    forget:             'Delete one project memory by name',
   },
   compile: {
     compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',

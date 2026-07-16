@@ -1738,7 +1738,18 @@ class AIAssistantManager {
     const projectPath =
       window.currentProjectPath || window.currentOpenProjectPath || null;
     const spfPath = window.ProjectStore?.getSpfPath?.() || null;
-    const systemPrompt = SYSTEM_PROMPT + buildProjectContext(projectPath, spfPath);
+    // Project memories ride along in the same block. Read per turn rather than
+    // cached: a memory written during THIS turn has to be visible on the next
+    // one, and a cache keyed on anything less than the turn would go stale
+    // exactly when it matters. They are a handful of small files.
+    let memories = [];
+    try {
+      const r = await window.AuroraAPI?.project?.listMemories?.();
+      if (r?.ok) memories = r.data?.memories || [];
+    } catch (e) {
+      console.warn('[ai] could not load project memories:', e);  // never block a turn over this
+    }
+    const systemPrompt = SYSTEM_PROMPT + buildProjectContext(projectPath, spfPath, memories);
 
     try {
       const r = await window.aiAPI.startChat({

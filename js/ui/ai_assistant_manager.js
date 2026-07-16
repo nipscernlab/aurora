@@ -1486,11 +1486,12 @@ class AIAssistantManager {
     this._renderAttachments();
     this.autoGrowInput();
 
-    // A turn is already streaming → QUEUE this message (VSCode-style follow-up);
-    // it dispatches automatically when the current turn ends. Sequential by
-    // design — the main process runs one turn at a time per session. Queuing
-    // (not dispatching) is also what prevents a double-dispatch mid-stream.
+    // A turn is already streaming. Preferred: push into the LIVE session so the
+    // model answers it without a re-dispatch. If this runner has no open input
+    // channel (everything but the Claude Agent SDK engine), fall back to the
+    // follow-up queue, which dispatches when the current turn ends.
     if (this._isStreaming) {
+      if (await this._tryPushLive(text, atts)) return;
       (this._messageQueue || (this._messageQueue = [])).push({ text, atts });
       this._renderQueue();
       return;
@@ -1534,6 +1535,35 @@ class AIAssistantManager {
     this._autoChainCount = 0;
 
     await this._dispatchTurn();
+  }
+
+  /**
+   * Try to hand a follow-up to the turn that is running right now, so the model
+   * sees it in-session instead of after a fresh dispatch. Returns true when the
+   * live turn took it — the caller then does NOT queue.
+   *
+   * Attachments deliberately never take this path: the live channel carries
+   * plain text, and an image has to ride the normal startChat payload.
+   */
+  async _tryPushLive(text, atts) {
+    if (!text || (atts && atts.length)) return false;
+    if (!window.aiAPI?.pushChatMessage || !this.currentSessionId) return false;
+    let accepted = false;
+    try {
+      const r = await window.aiAPI.pushChatMessage(this.currentSessionId, text);
+      accepted = !!(r && r.ok && r.data && r.data.accepted);
+    } catch (e) {
+      console.warn('[ai] live push failed — queueing instead:', e);
+      return false;
+    }
+    if (!accepted) return false;
+    // It is in the CLI's transcript now, so it belongs in ours too — in order,
+    // as a normal message. The model answers it in a later segment of this same
+    // turn, which is why no queued chip is rendered for it.
+    this.messages.push({ role: 'user', content: text });
+    this.appendBubble('user', text);
+    this.scrollToBottom();
+    return true;
   }
 
   /** Dispatch the next queued user follow-up, if any. Returns true if it did
@@ -2015,6 +2045,16 @@ class AIAssistantManager {
         this.showThinking(false);
         this.commitTurn();
         this.applyUsage(ev.usage);
+        // `more` = a follow-up the user pushed mid-turn is already queued inside
+        // the CLI and answers next, in this same session. Seal this segment but
+        // stay streaming: ending the turn here would drain the renderer queue on
+        // top of the CLI's own, double-dispatching, and would flip the composer
+        // back to Send while the model is still working.
+        if (ev.more) {
+          this._startNextSegment();
+          this.showThinking(true);
+          break;
+        }
         this.setStreaming(false);
         // Pull the CLI's authoritative usage snapshot at the END of every
         // turn (not just when the model popover happens to be open) so the
@@ -2290,6 +2330,35 @@ class AIAssistantManager {
     this.persistCurrentChat();
     this.resetTurnState();
     this.setStreaming(false);
+  }
+
+  /**
+   * Re-arm the render accumulators for the NEXT in-session turn, after
+   * commitTurn() has sealed the previous one. Used only on `finish` with
+   * `more` — i.e. the user pushed a follow-up mid-turn and the CLI is about
+   * to answer it in the same session.
+   *
+   * Deliberately NOT resetTurnState(): that one is turn-ENDING teardown. It
+   * nulls currentSessionId — and handleChatEvent drops any packet whose
+   * sessionId doesn't match, so every event of the follow-up turn would be
+   * silently discarded and the panel would sit on the thinking dots forever.
+   * It also auto-denies open confirm cards and cancels open question cards,
+   * which are perfectly legitimate mid-session. Keep all of that; reset only
+   * what draws the next assistant bubble.
+   */
+  _startNextSegment() {
+    if (this._streamRenderRaf) {
+      cancelAnimationFrame(this._streamRenderRaf);
+      this._streamRenderRaf = null;
+    }
+    this.currentAssistantContentEl = null;   // next delta opens a fresh bubble
+    this.segmentBuffer = '';
+    this.turnText = '';
+    this._committedTurnLen = 0;
+    this._revealLength = 0;
+    this._toolGroup = null;                  // next tool call opens a new group
+    this.runningChips = [];
+    this.hadToolCalls = false;
   }
 
   resetTurnState() {

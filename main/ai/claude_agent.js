@@ -238,13 +238,46 @@ async function tryStart(p, webContents, host) {
       if (t !== inactivityTimer) return;
       stalled = true;
       try { abortController.abort(); } catch (_) { /* loop exit handles it */ }
+      wakeInputNow();   // let promptStream return instead of awaiting forever
     }, INACTIVITY_MS);
     inactivityTimer = t;
   };
 
+  // ---- mid-turn follow-ups -----------------------------------------------------
+  // The user can send while a turn is running. Rather than parking the message
+  // in the renderer until the turn ends, push it into the LIVE session: it is
+  // already in the CLI's transcript, so it runs with no re-dispatch and no
+  // context rebuild. Measured against the real CLI (see promptStream below).
+  /** @type {string[]} */
+  const followUps = [];
+  /** @type {(() => void)|null} */
+  let wakeInput = null;
+  let inputClosed = false;
+  // True while a user message is in flight (yielded, `result` not back yet).
+  // Exactly ONE may be in flight — see promptStream for why that is load-bearing
+  // and not just tidiness.
+  let awaitingResult = false;
+  const wakeInputNow = () => { const w = wakeInput; wakeInput = null; w?.(); };
+
   sessions.set(sessionId, {
-    stop: () => { try { abortController.abort(); } catch (_) { /* noop */ } },
-    markAborted: () => { aborted = true; },
+    stop: () => {
+      try { abortController.abort(); } catch (_) { /* noop */ }
+      wakeInputNow();   // let promptStream return instead of awaiting forever
+    },
+    markAborted: () => { aborted = true; wakeInputNow(); },
+    /**
+     * Feed a follow-up into this live turn. Returns false once the turn is
+     * winding down, so the renderer falls back to its own queue instead of
+     * dropping the message.
+     * @param {string} content
+     */
+    pushUserMessage: (content) => {
+      if (inputClosed || finished || aborted || stalled) return false;
+      if (typeof content !== 'string' || !content.trim()) return false;
+      followUps.push(content);
+      wakeInputNow();
+      return true;
+    },
   });
 
   // ---- message translation (mirrors legacy handleObject) ----------------------
@@ -319,7 +352,12 @@ async function tryStart(p, webContents, host) {
       }
 
       case 'result': {
-        finished = true;
+        // One yield, one result (promptStream keeps a single message in flight).
+        // Anything left in followUps means the CLI has another turn to run in
+        // THIS session, so the UI turn is not over yet.
+        awaitingResult = false;
+        const more = !obj.is_error && !aborted && followUps.length > 0;
+        finished = !more;
         const text = typeof obj.result === 'string' && obj.result ? obj.result : fullText;
         const u = obj.usage || {};
         const totalTokens =
@@ -331,9 +369,20 @@ async function tryStart(p, webContents, host) {
           sendEvent(webContents, sessionId, 'error', {
             message: text || obj.api_error_status || 'Claude Code reported an error.',
           });
+          inputClosed = true;
         } else {
-          sendEvent(webContents, sessionId, 'finish', { text, usage: { totalTokens } });
+          // `more` tells the renderer to seal this segment but KEEP streaming —
+          // a follow-up is waiting and answers next in this same session.
+          sendEvent(webContents, sessionId, 'finish', { text, usage: { totalTokens }, more });
+          if (!more) inputClosed = true;
         }
+        // Always wake: either to release the next follow-up, or to let
+        // promptStream see inputClosed and RETURN — which is the only thing
+        // that ends the output stream and lets the for-await below exit.
+        wakeInputNow();
+        // Reset the per-segment accumulator so the next in-session turn does not
+        // re-emit the previous one's prose as its own result text.
+        if (more) fullText = '';
         break;
       }
 
@@ -344,20 +393,50 @@ async function tryStart(p, webContents, host) {
   };
 
   // ---- run ---------------------------------------------------------------------
-  // Streaming-input prompt (an async generator with a single user message).
-  // It was originally a generator because canUseTool needs the streaming input
-  // mode; that callback is gone (see the header), so the reason now is the
-  // input channel itself: a plain string prompt closes input immediately and
-  // rules out ever pushing a follow-up into a live turn. Note the SDK ends the
-  // output stream when this generator RETURNS, not at `result` — so keeping it
-  // open is what a mid-turn push would need, and also what would hang the turn
-  // if nothing ever closed it.
+  // Streaming-input prompt. This generator IS the input channel, and three
+  // facts about it were measured against the real CLI, not assumed:
+  //
+  //  1. The SDK ends the output stream when this generator RETURNS — NOT at
+  //     `result`. Left open with nothing to close it, the for-await below never
+  //     exits, `finish` never reaches the renderer and the panel streams
+  //     forever. Closing on the last outstanding result is what prevents that.
+  //  2. priority:'next' lets the in-flight turn finish cleanly and runs the
+  //     follow-up right after, in-session (measured: full output, result
+  //     success, then a fresh turn for the follow-up).
+  //  3. priority:'now' would ABORT the in-flight turn — it comes back
+  //     `error_during_execution` and the work in progress is thrown away. That
+  //     is an interrupt, not a follow-up, so it is deliberately not used here.
+  //
+  // Hence ONE message in flight at a time (`awaitingResult`), releasing the
+  // next only once the previous result lands. Yielding them eagerly looks
+  // fine and is not: the CLI COALESCES queued async messages into a single
+  // turn, so three messages came back as two results — one answer silently
+  // dropped, and the counter that was supposed to close the input never
+  // reached zero, hanging the turn until the 60s backstop. Serialising costs
+  // nothing (the user is typing far slower than a turn) and makes the
+  // termination rule provable: one yield, one result, close when none queued.
   async function* promptStream() {
+    awaitingResult = true;
     yield {
       type: 'user',
       message: { role: 'user', content: prompt },
       parent_tool_use_id: null,
     };
+    for (;;) {
+      if (!awaitingResult && followUps.length) {
+        const content = /** @type {string} */ (followUps.shift());
+        awaitingResult = true;
+        yield {
+          type: 'user',
+          message: { role: 'user', content },
+          parent_tool_use_id: null,
+          priority: 'next',
+        };
+        continue;
+      }
+      if (inputClosed || aborted || stalled) return;
+      await new Promise((resolve) => { wakeInput = resolve; });
+    }
   }
 
   /** @type {Record<string, unknown>} */
@@ -404,6 +483,11 @@ async function tryStart(p, webContents, host) {
       // Fresh per-attempt turn state (invisible: nothing was emitted yet).
       fullText = ''; finished = false; stalled = false; anyEvent = false;
       seenToolCalls.clear(); toolUseNames.clear(); pendingTools.clear();
+      // Fresh input channel per attempt (promptStream() is re-created below).
+      // followUps is deliberately NOT cleared: a retry only happens when the
+      // user has seen nothing, so anything they typed meanwhile still owes them
+      // an answer and rides along on the replay.
+      awaitingResult = false; inputClosed = false; wakeInput = null;
       armInactivity();
       try {
         for await (const message of sdk.query({ prompt: promptStream(), options })) {

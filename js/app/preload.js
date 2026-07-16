@@ -320,6 +320,12 @@ const aiAPI = {
   /** Abort an in-flight session. Resolves with `{ ok, stopped: bool }`. */
   abortChat: (sessionId) => ipcRenderer.invoke('ai:chat-abort', { sessionId }),
 
+  // Push a follow-up into a LIVE turn instead of queueing it in the renderer.
+  // Resolves { ok, data:{ accepted } } — accepted:false just means this runner
+  // has no open input channel, so the caller should queue it as before.
+  pushChatMessage: (sessionId, content) =>
+    ipcRenderer.invoke('ai:chat-push', { sessionId, content }),
+
   /* ---- Claude Code (subscription) bridge ---- */
 
   /**

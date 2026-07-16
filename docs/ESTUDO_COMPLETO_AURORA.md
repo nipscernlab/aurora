@@ -773,6 +773,41 @@ duas sondas contra o **CLI real** (assinatura do usuário, com autorização exp
   passa pelo card da Aurora. Revisar a lista item a item.
 - **Fora desta parte:** injeção mid-turn (sonda já feita, ver parte 4).
 
+**Sessão 16/07/2026 (parte 4 — injeção mid-turn) ✅.** 563 unit + ESLint + `tsc --noEmit`, e **3 sondas contra o
+CLI real** (assinatura do usuário, gasto autorizado por ele explicitamente). As sondas não foram cerimônia: **duas
+das três premissas do desenho estavam erradas**, e as duas teriam pendurado o chat em produção.
+- **Mandar mensagem durante o turno agora entra na sessão viva.** Antes ela só ia pra fila do renderer e esperava
+  o turno acabar. Agora `send()` tenta `_tryPushLive()` primeiro (IPC `ai:chat-push` → `claude_code.pushUserMessage`
+  → a sessão do `claude_agent`); se o runner não tem canal de entrada aberto (legado, Codex, providers do Vercel),
+  devolve `accepted:false` e cai na fila de sempre. Anexos nunca vão por aqui — imagem precisa do payload do
+  `startChat`.
+- **A feature é NATIVA do SDK, não foi inventada aqui:** `SDKUserMessage.priority: 'now' | 'next' | 'later'`, mais
+  `uuid`, `cancel_async_message` e o `still_queued` do `interrupt()`.
+- **Sonda 1 — `priority:'now'` é interrupção, não injeção.** 12ms após o push: `result subtype=error_during_execution
+  is_error=true`, **sem uma linha** da saída do turno em voo, seguido de um `init` novo. Ele mata o turno e joga o
+  trabalho fora. Usamos **`'next'`**: o turno em voo termina inteiro (`success`), e a injetada roda **sozinha, na
+  mesma sessão**, sem redispatch. *(A leitura só ficou honesta porque rodei uma **baseline sem injeção** antes — o
+  `rate_limit_event` que parecia sintoma é ruído normal, aparece nela igual.)*
+- **Sonda 2 — o `for await` NÃO fecha no `result`.** Ele fecha quando o generator de entrada **retorna**. Medido 3×.
+  Deixar aberto sem nada que feche = laço nunca sai → `finish` nunca chega no renderer → painel streamando pra
+  sempre. Era **o** risco de freeze do §13.K, e agora está provado em vez de suposto.
+- **Sonda 3 — a premissa "1 mensagem = 1 result" é FALSA: o CLI COALESCE.** Com yield ansioso, 3 mensagens
+  voltaram como **2 results** (TWO e THREE fundidos num turno; a resposta do TWO **sumiu**) e o contador nunca
+  chegou a zero → **hang de 60s**. O d.ts avisava ("a batch dequeued and coalesced into one turn") e eu li tarde.
+  Fix: **uma em voo por vez** (`awaitingResult`), soltando a próxima só quando o `result` da anterior chega.
+  Custo zero (o humano digita mais devagar que um turno) e torna a regra de término **provável**: um yield, um
+  result, fecha quando a fila esvazia. Re-medido: 3 mensagens → 3 respostas → 3 results → laço sai em **8,5 s**.
+- **`finish` ganhou `more`.** O renderer sela o segmento e **continua streamando** quando `more:true` — encerrar ali
+  drenaria a fila do renderer **por cima** da fila do CLI (dispatch duplo) e devolveria o composer pro Send com o
+  modelo ainda trabalhando.
+- **Bug pego na leitura, antes de rodar:** o primeiro rascunho chamava `resetTurnState()` na fronteira de segmento.
+  Ela **zera `currentSessionId`** — e o `handleChatEvent` descarta todo pacote cujo `sessionId` não bate. Teria
+  engolido **todos** os eventos do turno seguinte e travado o painel nos dots; além de auto-negar cards de
+  confirmação e cancelar perguntas abertas, que são legítimos mid-sessão. Virou `_startNextSegment()`, que reseta
+  só os acumuladores de render.
+- **Caminhos de saída cobertos:** `stop`, `markAborted` e o timer de inatividade agora chamam `wakeInputNow()` — sem
+  isso o generator ficaria `await`-ando pra sempre e o turno não morreria nem no abort.
+
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**
 - [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados

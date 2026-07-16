@@ -788,6 +788,28 @@ function abort(/** @type {string} */ sessionId) {
   return stopSession(sessions.get(sessionId));
 }
 
+/**
+ * Push a follow-up into a LIVE turn so it runs in the same CLI session instead
+ * of waiting for a fresh dispatch. Only the Agent SDK engine registers a
+ * `pushUserMessage` (claude_agent.js) — the legacy spawn path has no input
+ * channel once `-p` is running, so this returns false there and the renderer
+ * falls back to its own follow-up queue. Also returns false once the turn is
+ * winding down, which is what keeps a late message from vanishing.
+ *
+ * @param {string} sessionId
+ * @param {string} content
+ * @returns {boolean} true when the live turn accepted it
+ */
+function pushUserMessage(sessionId, content) {
+  const s = sessions.get(sessionId);
+  if (!s || typeof s.pushUserMessage !== 'function') return false;
+  try { return !!s.pushUserMessage(content); }
+  catch (e) {
+    log.warn('[ai.claude-code] pushUserMessage failed:', e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
 /** Kill every in-flight session. Called on app quit so Claude Code CLI
  *  subprocesses (and their children, via taskkill /T) aren't orphaned —
  *  abort() only ever fired for a single renderer-requested session. */
@@ -878,4 +900,4 @@ async function generateOneshot({ system, prompt, model } = /** @type {any} */ ({
   });
 }
 
-module.exports = { detect, getUsage, start, abort, killAll, forgetConversation, generateOneshot };
+module.exports = { detect, getUsage, start, abort, pushUserMessage, killAll, forgetConversation, generateOneshot };

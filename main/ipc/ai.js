@@ -181,6 +181,15 @@ function register() {
     return ok({ stopped });
   });
 
+  // Feed a follow-up into a LIVE turn (the user typed while the model was
+  // working). Only the Claude Agent SDK engine has an open input channel; every
+  // other runner reports false and the renderer parks the message in its own
+  // queue instead. `accepted:false` is a normal answer here, not a failure.
+  ipcMain.handle('ai:chat-push', (_event, payload) => {
+    const accepted = claudeCode.pushUserMessage(payload?.sessionId, payload?.content);
+    return ok({ accepted });
+  });
+
   // The renderer's tool_runner pulls this once at boot to learn which
   // tools exist and how to dispatch them against window.AuroraAPI.
   ipcMain.handle('ai:get-tool-manifest', () => ({ tools: tools.getManifest() }));

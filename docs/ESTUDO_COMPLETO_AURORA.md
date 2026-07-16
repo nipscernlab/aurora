@@ -657,9 +657,10 @@ fastest→slowest. Tudo com **243 unit** + ESLint (lint-staged) + `commit`+`pull
   🟡 subjetivo (precisa de prints do usuário); religar a statusbar segue **bloqueado** porque `zoom.js` faz
   `editorStatus.parentNode.insertBefore` — quebraria se `#editorStatus` virasse Shadow DOM. Ambos seguem em §13.A.
 
-**Sessão 16/07/2026 (preview de HTML renderizado — página branca) ✅.** Verificado com **533 unit** + ESLint +
-`tsc --noEmit`, e com uma bancada Electron descartável que carregou o **arquivo real** do usuário
-(`pmu_plots.html`, export do Plotly) pelo módulo real e inspecionou o frame por dentro.
+**Sessão 16/07/2026 (preview de HTML branco · card de permissão) ✅.** Verificado com **540 unit** + ESLint +
+`tsc --noEmit`, e com bancadas Electron descartáveis: uma carregou o **arquivo real** do usuário
+(`pmu_plots.html`, export do Plotly) pelo módulo real e inspecionou o frame por dentro; a outra renderizou o
+card de permissão com o CSS real, antes vs depois.
 - **Preview de `.html` abria branco e sem interação — CORRIGIDO.** O mesmo arquivo renderizava normal no VS Code
   (extensão Live Preview), o que localizou a causa na Aurora, não no arquivo. **Causa raiz:** o iframe do preview
   carregava um **blob URL**, e `blob:` é um *local scheme* — pela CSP3 o documento **herda a política da página que
@@ -690,6 +691,15 @@ fastest→slowest. Tudo com **243 unit** + ESLint (lint-staged) + `commit`+`pull
 - **Resultado medido no arquivo do usuário:** `typeof Plotly === "object"`, **11 traces**, 3 `main-svg`, `draglayer`
   presente (zoom/pan ativos), e os *ticks* dos 4 eixos (−1..1 · 0..0.8 · −200..200 · 60..64) batendo com o print do
   VS Code.
+- **Card de permissão: a prosa da IA saía como código — CORRIGIDO.** `previewArgs` fazia `JSON.stringify` de
+  **todos** os args num `<pre>` só, então o `note` — que é texto escrito *pro humano ler* (`set_command_override`:
+  "lands in the audit log"; `run_in_background`: "echoed back to you") — ficava preso no bloco de código: entre
+  aspas, com as barras escapadas (`C:\\Users\\…`) e quebrado no meio da palavra. `splitArgs()` (novo, em
+  `tool_permission.js`) separa os campos de prosa (`note`, `question` do `ask_user_question`) do resto estrutural;
+  o card renderiza a prosa como texto (fonte proporcional, barra de destaque à esquerda pra distinguir da
+  `.ai-confirm-desc`, que é a descrição estática da tool) e o `<pre>` fica só com `step`/`appendArgs`/`persist`.
+  Tudo por `textContent` — é saída de modelo, nunca vira markup. Prosa capada em 1000 (o JSON segue em 500);
+  `note` não-string ou em branco cai como dado, não como prosa. **+7 testes** (17 no arquivo).
 
 ### ⬜ Falta
 **Fundação (Vite — Stage 5 ✅ nesta sessão):**

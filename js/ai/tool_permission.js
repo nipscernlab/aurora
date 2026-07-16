@@ -29,7 +29,41 @@ export function decideToolPermission(def, mode) {
     return 'confirm';
 }
 
+// Args the model writes as PROSE for the human reading the card, not as data:
+// `note` (run_in_background, set_command_override) and `question`
+// (ask_user_question). They used to go through previewArgs like everything
+// else, which buried the one human-readable field in the JSON block — quoted,
+// backslash-escaped (C:\\Users\\…) and broken mid-word by the code wrapping.
+// splitArgs pulls them out so the card can render them as text.
+const PROSE_ARGS = new Set(['note', 'question']);
+
+// A note is meant to be read, so the cap is loose (the JSON's is 500) — but
+// still bounded, since the text comes from the model.
+const PROSE_CAP = 1000;
+
+/**
+ * Split tool args into the prose a human should READ and the structural rest
+ * that belongs in the JSON block. Returns `{ prose: [{key, text}], rest }`.
+ * Non-string or blank prose fields fall through to `rest` — a `note: 42` is
+ * data, whatever the schema says.
+ */
+export function splitArgs(args) {
+    const prose = [];
+    const rest = {};
+    if (!args || typeof args !== 'object') return { prose, rest };
+    for (const [key, value] of Object.entries(args)) {
+        if (PROSE_ARGS.has(key) && typeof value === 'string' && value.trim()) {
+            const text = value.trim();
+            prose.push({ key, text: text.length > PROSE_CAP ? text.slice(0, PROSE_CAP) + '…' : text });
+        } else {
+            rest[key] = value;
+        }
+    }
+    return { prose, rest };
+}
+
 // Pretty-print tool args for the confirm card / tool chip, capped at 500 chars.
+// Feed it splitArgs().rest — the prose fields render separately.
 export function previewArgs(args) {
     if (!args || Object.keys(args).length === 0) return '';
     let json;

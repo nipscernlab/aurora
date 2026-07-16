@@ -23,7 +23,7 @@ import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
-import { decideToolPermission, previewArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
+import { decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml } from '../ai/tool_permission.js';
 import { providerOptionsHtml, modelPresetsHtml, faithfulModelName } from '../ai/provider_view.js';
 import { chatListHtml, serializeMessagesForStorage } from '../ai/chat_history.js';
 import { buildApiMessages, buildProjectContext } from '../ai/chat_turn.js';
@@ -1280,6 +1280,7 @@ class AIAssistantManager {
         </div>
         <div class="ai-confirm-tool"></div>
         <div class="ai-confirm-desc"></div>
+        <div class="ai-confirm-notes"></div>
         <pre class="ai-confirm-args"></pre>
         <div class="ai-confirm-actions">
           <button class="ai-confirm-deny" type="button">Deny</button>
@@ -1288,7 +1289,26 @@ class AIAssistantManager {
       `;
       card.querySelector('.ai-confirm-tool').textContent = def ? def.name : 'tool';
       card.querySelector('.ai-confirm-desc').textContent = def ? (def.description || '') : '';
-      const preview = previewArgs(args);
+      // The model's prose (note / question) reads as text; only the structural
+      // args stay in the JSON block. textContent throughout — this is model
+      // output, so it is never parsed as markup.
+      const { prose, rest } = splitArgs(args);
+      const notes = card.querySelector('.ai-confirm-notes');
+      for (const p of prose) {
+        const row = document.createElement('div');
+        row.className = 'ai-confirm-note';
+        const key = document.createElement('span');
+        key.className = 'ai-confirm-note-key';
+        key.textContent = p.key;
+        const text = document.createElement('span');
+        text.className = 'ai-confirm-note-text';
+        text.textContent = p.text;
+        row.append(key, text);
+        notes.appendChild(row);
+      }
+      if (!prose.length) notes.remove();
+
+      const preview = previewArgs(rest);
       const pre = card.querySelector('.ai-confirm-args');
       if (preview) pre.textContent = preview; else pre.remove();
 

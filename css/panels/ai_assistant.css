@@ -1342,6 +1342,39 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
+ *  Ask-before-write confirmation — the model's prose args (note / question).
+ *  These are the AI's own words about WHY it wants the call, so they read as
+ *  text: proportional font, normal wrapping, the model's line breaks kept.
+ *  Inside .ai-confirm-args they were quoted, backslash-escaped and broken
+ *  mid-word. The left accent rule separates them from .ai-confirm-desc above,
+ *  which is the tool's static description rather than anything the AI wrote.
+ * ------------------------------------------------------------------------- */
+.ai-confirm-note {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elev-1);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+}
+
+.ai-confirm-note-key {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--accent-hover);
+}
+
+.ai-confirm-note-text {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: var(--leading-snug);
+  white-space: pre-wrap;
+}
+
+/* ---------------------------------------------------------------------------
  *  Ask-before-write confirmation — args preview inside the shared dialog
  * ------------------------------------------------------------------------- */
 .ai-confirm-args {

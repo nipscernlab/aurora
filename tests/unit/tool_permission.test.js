@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    decideToolPermission, previewArgs, permissionOptionsHtml,
+    decideToolPermission, previewArgs, splitArgs, permissionOptionsHtml,
 } from '../../js/ai/tool_permission.js';
 
 describe('decideToolPermission', () => {
@@ -38,6 +38,41 @@ describe('previewArgs', () => {
         const out = previewArgs({ big: 'x'.repeat(2000) });
         expect(out.length).toBeLessThanOrEqual(502); // 500 + "\n…"
         expect(out.endsWith('\n…')).toBe(true);
+    });
+});
+
+describe('splitArgs', () => {
+    it('returns empty halves for no args', () => {
+        expect(splitArgs(null)).toEqual({ prose: [], rest: {} });
+        expect(splitArgs({})).toEqual({ prose: [], rest: {} });
+    });
+    it('pulls note out of the structural args', () => {
+        const { prose, rest } = splitArgs({ step: 'verilator-build', note: 'resolve MODMISSING', persist: true });
+        expect(prose).toEqual([{ key: 'note', text: 'resolve MODMISSING' }]);
+        expect(rest).toEqual({ step: 'verilator-build', persist: true });
+    });
+    it('pulls question out too', () => {
+        const { prose, rest } = splitArgs({ question: 'Qual top?', multiSelect: false });
+        expect(prose).toEqual([{ key: 'question', text: 'Qual top?' }]);
+        expect(rest).toEqual({ multiSelect: false });
+    });
+    it('leaves the JSON block empty when every arg is prose', () => {
+        const { rest } = splitArgs({ question: 'Só isso?' });
+        expect(previewArgs(rest)).toBe('');
+    });
+    it('treats a non-string or blank note as data, not prose', () => {
+        expect(splitArgs({ note: 42 })).toEqual({ prose: [], rest: { note: 42 } });
+        expect(splitArgs({ note: '   ' })).toEqual({ prose: [], rest: { note: '   ' } });
+    });
+    it('trims and caps long prose at 1000 chars with an ellipsis', () => {
+        const { prose } = splitArgs({ note: '  ' + 'x'.repeat(2000) + '  ' });
+        expect(prose[0].text.length).toBe(1001); // 1000 + "…"
+        expect(prose[0].text.endsWith('…')).toBe(true);
+    });
+    it('keeps args untouched when there is no prose field', () => {
+        const { prose, rest } = splitArgs({ step: 'cmm', appendArgs: ['-y'] });
+        expect(prose).toEqual([]);
+        expect(rest).toEqual({ step: 'cmm', appendArgs: ['-y'] });
     });
 });
 

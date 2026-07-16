@@ -268,17 +268,21 @@ class SplitPane {
         div.className = 'split-editor-instance md-preview';
         div.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;display:none;overflow:auto;';
 
-        let blobUrl = null;
+        let previewId = opts.previewId || null;
         let sub = null;
 
         if (kind === 'html') {
             const iframe = document.createElement('iframe');
             iframe.className = 'md-preview-frame';
-            // A blob URL (not srcdoc) so a large self-contained Plotly document
-            // loads cleanly and its inline scripts run. Sandboxed to scripts +
-            // same-origin (it is the user's own generated file) so plots render.
-            blobUrl = URL.createObjectURL(new Blob([content || ''], { type: 'text/html' }));
-            iframe.src = blobUrl;
+            // Served over aurora-preview:// (main/ipc/preview.js), NOT a blob URL.
+            // A blob: document inherits the app's CSP, which blocked the CDN
+            // <script> every Plotly/Bokeh export needs — the pane just went white.
+            // A real scheme carries its own policy, resolves the page's relative
+            // paths, and keeps it cross-origin to the renderer.
+            iframe.src = opts.previewUrl;
+            // allow-same-origin refers to aurora-preview://<id> here, not to the
+            // app's origin, so the page still reaches its own sibling files while
+            // staying locked out of the real DOM.
             iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-popups');
             div.appendChild(iframe);
         } else {
@@ -306,7 +310,12 @@ class SplitPane {
             focus() { /* not a text input */ },
             dispose() {
                 try { sub?.dispose?.(); } catch (_) { /* noop */ }
-                if (blobUrl) { try { URL.revokeObjectURL(blobUrl); } catch (_) { /* noop */ } }
+                // Release the aurora-preview:// slot so its directory stops
+                // being reachable the moment the tab closes.
+                if (previewId) {
+                    try { electronAPI.previewUnregister(previewId); } catch (_) { /* noop */ }
+                    previewId = null;
+                }
             },
             // No getValue on purpose → createSplit won't try to split a preview.
         };
@@ -1039,11 +1048,28 @@ const SplitEditorManager = {
             catch (_) { content = ''; }
         }
 
+        // HTML renders in an iframe served by the aurora-preview:// protocol, so
+        // claim a slot for this file first: main maps it to the file's directory
+        // and hands back the URL to point the frame at. `content` goes with it so
+        // an unsaved buffer previews its unsaved text, exactly as Markdown does.
+        let previewUrl = null;
+        let previewId = null;
+        if (kind === 'html') {
+            try {
+                const slot = await electronAPI.previewRegister(sourcePath, content || '');
+                previewUrl = slot?.url;
+                previewId = slot?.id;
+            } catch (e) {
+                console.error('[preview] could not open a preview slot:', e);
+            }
+            if (!previewUrl) return;
+        }
+
         const newIndex = this.panes.reduce((m, p) => Math.max(m, p.paneIndex), 0) + 1;
         const newPane = new SplitPane(newIndex);
         this.panes.push(newPane);
         this.wrapper.appendChild(newPane.element);
-        newPane.openRenderedPreview(key, { sourcePath, kind, content: content || '' });
+        newPane.openRenderedPreview(key, { sourcePath, kind, content: content || '', previewUrl, previewId });
         this.refreshLayout();
         this.setFocus(newIndex);
         this._updateButton();

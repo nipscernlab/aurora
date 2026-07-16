@@ -44,6 +44,12 @@ const fileOperations = {
 
   pathExists:      (p) => ipcRenderer.invoke('path-exists', p),
   joinPath:        (...parts) => ipcRenderer.invoke('join-path', ...parts),
+
+  // Rendered-HTML preview (js/editor/split_editor.js). previewRegister opens an
+  // `aurora-preview://` slot serving the file's own directory and returns
+  // {id, url} for the iframe; previewUnregister closes it when the tab does.
+  previewRegister:   (p, content) => ipcRenderer.invoke('preview:register', p, content),
+  previewUnregister: (id) => ipcRenderer.invoke('preview:unregister', id),
   dirname:         (p) => ipcRenderer.invoke('path-dirname', p),
 
   openFolder:      (p) => ipcRenderer.invoke('folder:open', p),

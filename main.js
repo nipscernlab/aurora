@@ -77,6 +77,11 @@ const gitIpc = require('./main/ipc/git');
 const githubAuthIpc = require('./main/ipc/github_auth');
 const searchIpc = require('./main/ipc/search');
 const shellIpc = require('./main/ipc/shell');
+const previewIpc = require('./main/ipc/preview');
+
+// Scheme privileges are read once, at Chromium startup — this MUST stay above
+// app.whenReady (the handler itself is installed inside it, further down).
+previewIpc.registerScheme();
 
 // Register lifecycle (single-instance lock, app events, cleanup). If we lost
 // the lock, the function returns false after calling app.quit() — bail out so
@@ -99,6 +104,7 @@ if (acquiredLock) {
   gitIpc.register();
   searchIpc.register();
   shellIpc.register();
+  previewIpc.register();
   // Updater IPC must be registered at boot, not lazily — the splash window
   // calls `getAppVersion()` before the autoUpdater itself is initialized.
   updater.registerIpc();
@@ -162,13 +168,22 @@ if (acquiredLock) {
         `connect-src ${connectSrc.join(' ')}`,
         "worker-src 'self' blob:",
         "child-src 'self' blob:",
-        "frame-src 'self' blob: data:",
+        // aurora-preview: the rendered-HTML preview iframe. It is a real scheme
+        // (main/ipc/preview.js), so it ships its own policy and inherits none of
+        // this one — which is exactly why the preview can host a CDN-backed plot
+        // without any of these directives being loosened for the app itself.
+        `frame-src 'self' blob: data: ${previewIpc.SCHEME}:`,
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
       ].join('; ');
       session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+        // This fires for custom schemes too, so the preview must be exempted or
+        // we would stamp the app policy right back onto it — reintroducing the
+        // blank plot, and `frame-ancestors 'none'` would then block the app from
+        // framing it at all. It sends its own CSP; leave the response alone.
+        if (previewIpc.isPreviewUrl(details.url)) return callback({});
         const headers = { ...details.responseHeaders };
         // Replace (don't append): drop any CSP a dev server set so ours is authoritative.
         for (const k of Object.keys(headers)) {
@@ -180,6 +195,12 @@ if (acquiredLock) {
     } catch (e) {
       log.warn('[csp] failed to install Content-Security-Policy:', e);
     }
+
+    // Serves the editor's rendered-HTML preview. Must come after app.whenReady,
+    // and after the CSP block above so the exemption is already in place for the
+    // first request. Failing here only costs the preview, so it must not throw.
+    try { previewIpc.installProtocol(); }
+    catch (e) { log.warn('[preview] failed to install the preview protocol:', e); }
 
     windows.createSplashScreen(); // splash schedules createMainWindow itself
   });

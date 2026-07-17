@@ -249,6 +249,17 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
 
   const verilogSimTopModule = tb && !tbIsPython ? simTopModule : topLevelModuleName;
 
+  // Simulation-run cwd — mirror of compilation_module._waveSimCwd, so the
+  // command preview / overrides match what the wave flow actually runs:
+  // the testbench's folder for pure-HDL projects (relative $readmemb/$fopen
+  // resolve against the project), tempBaseDir when SAPHO processors are
+  // present (their pc_*_mem.txt staging depends on the Temp cwd).
+  const specProcs = structure.processors as unknown[] | undefined;
+  const hasProcessors = Array.isArray(specProcs) && specProcs.length > 0;
+  const simRunCwd = (!hasProcessors && tb && !tbIsPython)
+    ? await electronAPI.dirname(tb)
+    : tempBaseDir;
+
   if (step === 'iverilog-check') {
     return buildIverilogCheckSpec({
       iveriCompPath, hdlPath,
@@ -271,7 +282,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
     if (tbIsPython) throw new Error(`${step} cannot use a Python testbench; use cocotb-run`);
     if (!simTopModule) throw new Error(`${step} needs a testbench`);
     const vvpFile = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vvp`);
-    return buildVvpRunSpec({ vvpBin, vvpFile, cwd: tempBaseDir });
+    return buildVvpRunSpec({ vvpBin, vvpFile, cwd: simRunCwd });
   }
 
   if (step === 'verilator-build' || step === 'verilator-run') {
@@ -290,7 +301,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
     if (!simTopModule) throw new Error(`${step} needs a testbench`);
     const objDir = await electronAPI.joinPath(tempBaseDir, `obj_dir_${simTopModule}`);
     const exePath = await electronAPI.joinPath(objDir, `V${simTopModule}.exe`);
-    return buildVerilatorRunSpec({ exePath, cwd: tempBaseDir, mingwBin, usrBin });
+    return buildVerilatorRunSpec({ exePath, cwd: simRunCwd, mingwBin, usrBin });
   }
 
   if (step === 'fst2vcd') {

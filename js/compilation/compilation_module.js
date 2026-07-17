@@ -1035,6 +1035,7 @@ async runGtkWave() {
             // Ambos os caminhos convergem em _waveResolveVcdFile — o arquivo
             // de saida (.fst ou .vcd-com-FST) e descoberto la, sem branch.
             const simulator = getSimulator();
+            let simDir = tools.tempBaseDir;
             if (simulator === 'verilator') {
                 this.terminalManager.appendToTerminal('twave', tr('terminal.wave.verilatorSimulator'), 'tips');
                 // O build do Verilator (verilation + g++, pesado) e a sim nao
@@ -1045,7 +1046,7 @@ async runGtkWave() {
                 const vTools = await resolveVerilatorTools(this.componentsPath);
                 const fullTools = { ...tools, ...vTools };
                 const { exePath } = await this._waveBuildVerilator(simTopModule, tools.tempBaseDir, config, fullTools);
-                await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
+                simDir = await this._waveRunVerilatorSimulation(simTopModule, fullTools, exePath);
             } else {
                 this.terminalManager.appendToTerminal('twave', tr('terminal.wave.iverilogSimulator'), 'tips');
                 // Same as Verilator above: the iverilog build/run doesn't touch
@@ -1053,9 +1054,11 @@ async runGtkWave() {
                 // stays on 'asm' through the whole Wave.
                 statusUpdater.startCompilation('verilog');
                 await this._waveBuildAndVerifyVvp(simTopModule, tools.tempBaseDir);
-                await this._waveRunVvpSimulation(simTopModule, tools);
+                simDir = await this._waveRunVvpSimulation(simTopModule, tools);
             }
-            vcdFile = await this._waveResolveVcdFile(simTopModule, tools.tempBaseDir);
+            // Scan the dir the simulation actually ran in — the dump lands
+            // in the cwd (_waveSimCwd: tb folder for pure-HDL, Temp for SAPHO).
+            vcdFile = await this._waveResolveVcdFile(simTopModule, simDir);
         }
         // Unified header capture — ONE extraction for all four wave paths
         // (iverilog, Verilator, cocotb+iverilog, cocotb+Verilator). Replaces the
@@ -1593,44 +1596,72 @@ async _waveBuildAndVerifyVvp(simTopModule, tempBaseDir) {
 }
 
 /**
- * Run vvp on the freshly-built .vvp. We `cd` to tempBaseDir before
- * exec so any user-written `$dumpfile("foo.vcd")` lands in a
- * predictable location (the resolver below scans tempBaseDir).
+ * Working directory for the simulation run (vvp / Verilator exe).
+ *
+ * Pure-HDL projects run in the TESTBENCH's folder, so relative
+ * $readmemb/$fopen paths written in the tb/DUT resolve against the
+ * project itself — a cloned project works from any location without
+ * absolute paths. The dump ($dumpfile with a relative name) then lands
+ * next to the testbench, and the resolver scans that folder.
+ *
+ * SAPHO projects (any processor present) keep the legacy tempBaseDir
+ * cwd: the generated pc_*_mem.txt are staged into Temp and the
+ * processor HDL reads them with bare relative names.
+ *
+ * Inputs:  config (loadConfigUnsafe shape), tools (tempBaseDir)
+ * Returns: absolute dir to run the simulation in
+ */
+async _waveSimCwd(config, tools) {
+    const procs = this.projectConfig?.processors;
+    const hasProcessors = Array.isArray(procs) && procs.length > 0;
+    if (hasProcessors || !config.testbenchFile) return tools.tempBaseDir;
+    return await electronAPI.dirname(config.testbenchFile);
+}
+
+/**
+ * Run vvp on the freshly-built .vvp. The cwd is _waveSimCwd: the
+ * testbench's folder for pure-HDL projects (relative data paths
+ * resolve against the project), tempBaseDir for SAPHO projects
+ * (generated pc_*_mem.txt staged there).
  *
  * Inputs:  simTopModule, tools (uses tempBaseDir + vvpBin)
- * Returns: void
+ * Returns: the cwd the simulation ran in (dir to scan for the dump)
  * Throws:  if vvp exits non-zero
- * Side-effects: writes a .vcd somewhere under tempBaseDir; streams
+ * Side-effects: writes a .vcd under the returned dir; streams
  *               vvp's stdout/stderr to twave.
  */
 async _waveRunVvpSimulation(simTopModule, tools) {
-    // asmcomp gera `initial $readmemb("pc_<proc>_mem.txt", min)` dentro
-    // do .v do processador (yanc/ASM/Sources/hdl.c). O caminho e
-    // RELATIVO — vvp procura no CWD, que aqui e tempBaseDir.
-    // Mas o cmmcomp escreve o pc_<proc>_mem.txt em
-    // <components>/Temp/<proc>/, nao em <components>/Temp/.
-    //
-    // Antes de rodar o vvp, copiar todo pc_*_mem.txt que estiver em
-    // qualquer Temp/<sub>/ pra Temp/ direto, pra que o $readmemb
-    // resolva. Idempotente: se ja foi copiado antes, o copyFile
-    // simplesmente sobrescreve com o mesmo conteudo.
-    await this._stageProcessorMemoryFiles(tools.tempBaseDir);
-
-    // Mesmo problema, outro vetor: testbenches do usuario costumam
-    // ler arquivos de dado com $fopen("sinal.txt") ou $readmemh.
-    // Paths sao relativos ao CWD do vvp (tempBaseDir), mas o usuario
-    // espera resolucao relativa a pasta do testbench. Varremos o
-    // source do testbench atras dessas chamadas e copiamos cada
-    // arquivo da pasta do testbench pra tempBaseDir.
-    //
     // Re-entry: runGtkWave ja validou pra Wave upstream; aqui so
-    // precisamos consultar config.testbenchFile pra fazer staging
-    // dos arquivos de dado referenciados pelo tb. loadConfigUnsafe
+    // precisamos consultar config.testbenchFile. loadConfigUnsafe
     // pega o config sem re-validar (evita throws fantasmas no meio
     // da execucao).
     const config = this.loadConfigUnsafe();
-    if (config.testbenchFile) {
-        await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
+    const simCwd = await this._waveSimCwd(config, tools);
+
+    if (simCwd === tools.tempBaseDir) {
+        // Legacy Temp cwd (SAPHO): asmcomp gera
+        // `initial $readmemb("pc_<proc>_mem.txt", min)` dentro do .v do
+        // processador (yanc/ASM/Sources/hdl.c). O caminho e RELATIVO —
+        // vvp procura no CWD. Mas o cmmcomp escreve o pc_<proc>_mem.txt
+        // em <components>/Temp/<proc>/, nao em <components>/Temp/.
+        //
+        // Antes de rodar o vvp, copiar todo pc_*_mem.txt que estiver em
+        // qualquer Temp/<sub>/ pra Temp/ direto, pra que o $readmemb
+        // resolva. Idempotente: se ja foi copiado antes, o copyFile
+        // simplesmente sobrescreve com o mesmo conteudo.
+        await this._stageProcessorMemoryFiles(tools.tempBaseDir);
+
+        // Mesmo problema, outro vetor: testbenches do usuario costumam
+        // ler arquivos de dado com $fopen("sinal.txt") ou $readmemh.
+        // Paths sao relativos ao CWD do vvp (tempBaseDir aqui), mas o
+        // usuario espera resolucao relativa a pasta do testbench.
+        // Varremos o source do testbench atras dessas chamadas e
+        // copiamos cada arquivo da pasta do testbench pra tempBaseDir.
+        // (No cwd novo — pasta do testbench — nada disso e preciso:
+        // os paths relativos ja resolvem no lugar certo.)
+        if (config.testbenchFile) {
+            await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
+        }
     }
 
     const vvpFile = await electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
@@ -1689,7 +1720,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         const vvpRunSpec = buildVvpRunSpec({
             vvpBin: tools.vvpBin,
             vvpFile,
-            cwd: tools.tempBaseDir,
+            cwd: simCwd,
         });
         const r = await runSpecStreamed(vvpRunSpec, { consumeEphemeral: true });
         code = r.code;
@@ -1699,6 +1730,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));
     }
+    return simCwd;
 }
 
 // ---------------------------------------------------------------------
@@ -1882,12 +1914,16 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
  * relativo, $fopen do testbench relativo).
  */
 async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
-    await this._stageProcessorMemoryFiles(tools.tempBaseDir);
-
     // Re-entry: runGtkWave ja validou; aqui so consultamos testbenchFile.
+    // Mesmo contrato de cwd do vvp (_waveSimCwd): pasta do testbench pra
+    // projeto puro-HDL, tempBaseDir (com staging) pra projeto SAPHO.
     const config = this.loadConfigUnsafe();
-    if (config.testbenchFile) {
-        await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
+    const simCwd = await this._waveSimCwd(config, tools);
+    if (simCwd === tools.tempBaseDir) {
+        await this._stageProcessorMemoryFiles(tools.tempBaseDir);
+        if (config.testbenchFile) {
+            await this._stageTestbenchDataFiles(tools.tempBaseDir, config.testbenchFile);
+        }
     }
 
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'plain');
@@ -1936,7 +1972,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         // monta isso via prependPath; executor em main injeta no env.
         const verilatorRunSpec = buildVerilatorRunSpec({
             exePath,
-            cwd: tools.tempBaseDir,
+            cwd: simCwd,
             mingwBin: tools.mingwBin,
             usrBin: tools.usrBin,
         });
@@ -1948,6 +1984,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     if (code !== 0) {
         throw new Error(tr('error.compilation.verilatorRunFailed', { code }));
     }
+    return simCwd;
 }
 
 // =====================================================================
@@ -2432,19 +2469,20 @@ async _stageTestbenchDataFiles(tempBaseDir, testbenchPath) {
  *
  * Aurora's auto-instrumented testbench writes `${simTopModule}.vcd`,
  * which is the happy path. The recovery branch handles the
- * "user wrote $dumpfile with a different name" case: vvp's CWD is
- * tempBaseDir, so the file is in there under whatever name the user
- * picked. We scan for unambiguous .vcd files and adopt one if the
- * choice is clear.
+ * "user wrote $dumpfile with a different name" case: the dump lands in
+ * the simulation cwd (`simDir` — tb folder for pure-HDL projects, Temp
+ * for SAPHO; see _waveSimCwd), so the file is in there under whatever
+ * name the user picked. We scan for unambiguous .vcd files and adopt
+ * one if the choice is clear.
  *
- * Inputs:  simTopModule, tempBaseDir
+ * Inputs:  simTopModule, simDir (the cwd the simulation ran in)
  * Returns: absolute path to the .vcd to use downstream
  * Throws:  if zero or multiple candidate .vcds (ambiguous);
  *          message names the candidates and offers two concrete fixes
  * Side-effects: logs to twave (success line, or warning when the
  *               adopted file's name differs from simTopModule.vcd)
  */
-async _waveResolveVcdFile(simTopModule, tempBaseDir) {
+async _waveResolveVcdFile(simTopModule, simDir) {
     // Pass 2 (vvp -fst) produces ${simTopModule}.fst — that's what
     // GTKWave opens. Pass 1 left a partial .vcd alongside it for
     // _waveResolveGtkwSaveFile to parse the header from; that file
@@ -2453,20 +2491,20 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     // plumbing. The user already saw "Simulation started"; the next
     // visible step is GTKWave opening. Failures still throw with a
     // detailed error below.
-    const expectedFst = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.fst`);
+    const expectedFst = await electronAPI.joinPath(simDir, `${simTopModule}.fst`);
     if (await electronAPI.fileExists(expectedFst)) {
         return expectedFst;
     }
     // Legacy fallback: a full .vcd, in case someone runs vvp without
     // -fst (e.g. when investigating a problem with the two-pass flow).
-    const expectedVcd = await electronAPI.joinPath(tempBaseDir, `${simTopModule}.vcd`);
+    const expectedVcd = await electronAPI.joinPath(simDir, `${simTopModule}.vcd`);
     if (await electronAPI.fileExists(expectedVcd)) {
         return expectedVcd;
     }
 
     let candidates = [];
     try {
-        const entries = await electronAPI.listFilesInDirectory(tempBaseDir);
+        const entries = await electronAPI.listFilesInDirectory(simDir);
         candidates = (entries || []).filter((name) => {
             const n = name.toLowerCase();
             return n.endsWith('.fst') || n.endsWith('.vcd');
@@ -2476,7 +2514,7 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
     }
 
     if (candidates.length === 1) {
-        const adopted = await electronAPI.joinPath(tempBaseDir, candidates[0]);
+        const adopted = await electronAPI.joinPath(simDir, candidates[0]);
         // The warning is the actionable bit — the user's $dumpfile()
         // picked a different name than expected. Keep it. The "found
         // the file" success line is suppressed (internal plumbing).
@@ -2513,10 +2551,10 @@ async _waveResolveVcdFile(simTopModule, tempBaseDir) {
  * Se ambas falharem (VCD invalido, etc.), retorna null e GTKWave abre
  * sem save-file.
  *
- * Inputs:  simTopModule, vcdFile, tempBaseDir
+ * Inputs:  simTopModule, vcdFile, simDir
  * Returns: path absoluto pro .gtkw, ou null
  * Throws:  nunca (validation hiccups viram warnings)
- * Side-effects: pode escrever ${tempBaseDir}/${simTopModule}.gtkw;
+ * Side-effects: pode escrever ${simDir}/${simTopModule}.gtkw;
  *               loga em twave.
  *
  * Ver ARCHITECTURE.md §9 pro racional de precedencia.

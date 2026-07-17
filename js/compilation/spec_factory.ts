@@ -229,7 +229,9 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
         AURORA_COCOTB_TOP: topLevelModuleName,
         AURORA_COCOTB_TEST_MODULE: moduleStem(tb),
         AURORA_COCOTB_BUILD_DIR: buildDir,
-        AURORA_COCOTB_TEST_DIR: tbDir,
+        // Mirror of the wave flow: the simulation cwd (cocotb test_dir) is
+        // the project folder — the uniform relative-path base.
+        AURORA_COCOTB_TEST_DIR: projectPath || tbDir,
         AURORA_COCOTB_PYTHONPATH: [tbDir, projectPath, buildDir].filter(Boolean).join(';'),
         AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(['-g2012']),
         AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),

@@ -1372,12 +1372,14 @@ async _extractFstHeaderVcd(fstPath, headerVcdPath, fst2vcdBin, cwd) {
 }
 
 async _adoptCocotbWaveform(ctx, tools, buildDir) {
-    // cocotb runs the sim with cwd = the test dir, so the dump can land next to
-    // the .py (the project dir) instead of in buildDir. Search the build dir
-    // first, then the testbench's dir.
+    // cocotb runs the sim with cwd = test_dir, which Aurora sets to the
+    // PROJECT folder (the .spf dir — same uniform rule as _waveSimCwd), so
+    // the dump can land there instead of in buildDir. Search the build dir
+    // first, then the project folder, then the testbench's dir (legacy runs).
     const testDir = await electronAPI.dirname(ctx.testbenchFile);
     const candidate =
         await findWaveCandidateInDir(buildDir, ctx.hdlTopModule) ||
+        (this.projectPath ? await findWaveCandidateInDir(this.projectPath, ctx.hdlTopModule) : null) ||
         await findWaveCandidateInDir(testDir, ctx.hdlTopModule);
     if (!candidate) {
         throw new Error(tr('error.compilation.cocotbNoWave', { path: buildDir }));
@@ -1493,7 +1495,11 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
         AURORA_COCOTB_TOP: ctx.hdlTopModule,
         AURORA_COCOTB_TEST_MODULE: ctx.testModule,
         AURORA_COCOTB_BUILD_DIR: buildDir,
-        AURORA_COCOTB_TEST_DIR: tbDir,
+        // test_dir = cwd da SIMULACAO no runner do cocotb. Mesma regra
+        // uniforme dos fluxos vvp/Verilator (_waveSimCwd): a pasta do
+        // projeto (.spf) e a base de referencia — paths relativos do .py
+        // e do HDL resolvem contra ela, e o dump cai la.
+        AURORA_COCOTB_TEST_DIR: this.projectPath || tbDir,
         AURORA_COCOTB_PYTHONPATH: [tbDir, this.projectPath, buildDir].filter(Boolean).join(pythonPathSep),
         AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(profile.buildArgs),
         AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),

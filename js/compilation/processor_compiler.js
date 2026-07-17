@@ -349,14 +349,16 @@ export async function asmCompilation(deps, processor, preamble = null) {
 }
 
 /**
- * Copia os pc_*_mem.txt (gerados por cmmcomp em Temp/<proc>/) pra raiz de
- * tempBaseDir — onde o $readmemb do <proc>.v procura (vvp roda com
- * CWD=tempBaseDir). No-op (silencioso) em projeto sem processador; warning
+ * Copia os pc_*_mem.txt (gerados por cmmcomp em Temp/<proc>/) pra destDir —
+ * o CWD da simulacao, onde o $readmemb do <proc>.v procura. O fluxo Wave
+ * passa a pasta do projeto (regra uniforme: simulacao roda na pasta do
+ * .spf); o cocotb usa o default (raiz de tempBaseDir) e re-copia pro
+ * buildDir dele. No-op (silencioso) em projeto sem processador; warning
  * claro quando ha processador mas nenhum pc_*_mem.txt foi achado.
  *
  * @param {{ projectConfig: object, terminalManager: object }} deps
  */
-export async function stageProcessorMemoryFiles(deps, tempBaseDir) {
+export async function stageProcessorMemoryFiles(deps, tempBaseDir, destDir = tempBaseDir) {
     // Projeto sem processador no .spf nunca gera pc_*_mem.txt — o
     // $readmemb que consome esses arquivos so existe dentro do .v do
     // processador SAPHO. Pular o staging inteiro (incluindo o warning
@@ -398,7 +400,7 @@ export async function stageProcessorMemoryFiles(deps, tempBaseDir) {
             if (typeof fileName !== 'string') continue;
             if (!fileName.startsWith('pc_') || !fileName.endsWith('_mem.txt')) continue;
             const src = await electronAPI.joinPath(subDir, fileName);
-            const dst = await electronAPI.joinPath(tempBaseDir, fileName);
+            const dst = await electronAPI.joinPath(destDir, fileName);
             try {
                 await electronAPI.copyFile(src, dst);
                 staged++;

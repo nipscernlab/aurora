@@ -251,14 +251,10 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
 
   // Simulation-run cwd — mirror of compilation_module._waveSimCwd, so the
   // command preview / overrides match what the wave flow actually runs:
-  // the testbench's folder for pure-HDL projects (relative $readmemb/$fopen
-  // resolve against the project), tempBaseDir when SAPHO processors are
-  // present (their pc_*_mem.txt staging depends on the Temp cwd).
-  const specProcs = structure.processors as unknown[] | undefined;
-  const hasProcessors = Array.isArray(specProcs) && specProcs.length > 0;
-  const simRunCwd = (!hasProcessors && tb && !tbIsPython)
-    ? await electronAPI.dirname(tb)
-    : tempBaseDir;
+  // ALWAYS the project folder (the .spf directory), the same base the
+  // .spf's own relative paths resolve against. Generated SAPHO memory
+  // files are staged there by the wave flow before the run.
+  const simRunCwd = projectPath || tempBaseDir;
 
   if (step === 'iverilog-check') {
     return buildIverilogCheckSpec({

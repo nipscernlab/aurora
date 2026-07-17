@@ -19,10 +19,8 @@ const log = require('electron-log');
 const state = require('../state');
 const {
   killProcessSilently,
-  killProcessesByName,
-  checkProcessRunning,
 } = require('../utils');
-const { spawnTracked } = require('../process_registry');
+const { spawnTracked, stopToolchainRun, GROUP } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
 
 // A ultima instancia do Surfer que a AURORA abriu. Fechamos ela antes de abrir
@@ -172,7 +170,7 @@ function register() {
           stdio: 'ignore',
           windowsHide: false,
           shell: false,
-        });
+        }, GROUP.VIEWER);
 
         // An 'error' EventEmitter with no listener would throw; keep one so a
         // spawn failure (e.g. ENOENT) is reported instead of crashing main.
@@ -229,13 +227,16 @@ function register() {
         // Center Surfer on the user's screen (it has no true maximize).
         writeSurferCenteredWindowConfig();
 
+        // GROUP.VIEWER: Surfer isn't bundled, so the old name-sweep for
+        // gtkwave.exe never reached it and Cancel left it running. Tagging it
+        // puts it under the same tree-kill by PID.
         const surferProcess = spawnTracked(surferBin, args, {
           cwd: workingDir,
           detached: true,
           stdio: 'ignore',
           windowsHide: false,
           shell: false,
-        });
+        }, GROUP.VIEWER);
         lastSurferChild = surferProcess; // p/ fechar antes do proximo launch (1 janela)
 
         // The GUI-subsystem race (pid set synchronously, ENOENT-style errors
@@ -291,7 +292,7 @@ function register() {
           resolve({ success: false, decoded: [] });
           return;
         }
-        const child = spawnTracked(exePath, [], { stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true });
+        const child = spawnTracked(exePath, [], { stdio: ['pipe', 'pipe', 'ignore'], shell: false, windowsHide: true }, GROUP.RUN);
         let out = '';
         let settled = false;
         const done = (success) => { if (!settled) { settled = true; resolve({ success, decoded: out.split(/\r?\n/).filter((l) => l.length > 0) }); } };
@@ -308,59 +309,21 @@ function register() {
     });
   });
 
+  // "Cancel everything". Delegates to the process registry, which sits above
+  // the SAPHO flow and tree-kills every live RUN/VIEWER child by PID — see
+  // stopToolchainRun(). This handler used to kill only `state.currentVvpProcess`
+  // (a single slot, overwritten by each step) plus a name-sweep for vvp.exe and
+  // gtkwave.exe, so cancelling during cmmcomp/asmcomp/yosys/Verilator-build hit
+  // the wrong process or nothing at all, and Surfer always survived. The channel
+  // name is kept for the preload/renderer contract; the scope is no longer
+  // vvp-specific.
   ipcMain.handle('cancel-vvp-process', async () => {
     try {
-      const results = [];
-      let hasActiveProcesses = false;
-
-      if (state.currentVvpProcess && !state.currentVvpProcess.killed) {
-        hasActiveProcesses = true;
-        try {
-          const killed = await killProcessSilently(state.currentVvpProcess.pid);
-          if (killed) results.push('VVP process terminated');
-        } catch (error) {
-          log.error('Error killing specific VVP process:', error);
-        } finally {
-          state.currentVvpProcess = null;
-          state.vvpProcessPid = null;
-        }
-      }
-
-      const [vvpRunning, gtkwaveRunning] = await Promise.all([
-        checkProcessRunning('vvp.exe'),
-        checkProcessRunning('gtkwave.exe'),
-      ]);
-
-      if (vvpRunning || gtkwaveRunning) hasActiveProcesses = true;
-
-      const killPromises = [];
-      if (vvpRunning) {
-        killPromises.push(
-          killProcessesByName('vvp.exe').then((killed) => {
-            if (killed) results.push('All VVP processes terminated');
-          }),
-        );
-      }
-      if (gtkwaveRunning) {
-        killPromises.push(
-          killProcessesByName('gtkwave.exe').then((killed) => {
-            if (killed) results.push('GTKWave processes terminated');
-          }),
-        );
-      }
-
-      await Promise.all(killPromises);
-      state.currentGtkwaveProcesses.clear();
-
-      if (!hasActiveProcesses) {
+      const { hadActive, killed } = await stopToolchainRun();
+      if (!hadActive) {
         return { success: false, message: 'No compilation process is currently running.' };
       }
-
-      return {
-        success: results.length > 0,
-        message:
-          results.length > 0 ? `Compilation canceled: ${results.join(', ')}` : 'Process cancellation initiated',
-      };
+      return { success: true, message: `Compilation canceled: ${killed} process(es) terminated` };
     } catch (error) {
       log.error('Error canceling processes:', error);
       return { success: false, message: `Error occurred while canceling processes: ${error.message}` };

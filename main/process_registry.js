@@ -42,18 +42,54 @@ let toolchainEverRan = false;
 let stopPromise = null;
 
 /**
+ * Process GROUPS — the cancellation hierarchy.
+ *
+ * "Cancel everything" must outrank every stage of the SAPHO flow and be able to
+ * kill its PID, no matter which stage spawned it or how deep the tree goes. But
+ * "everything" cannot mean literally every tracked child: the registry also
+ * holds long-lived editor services (the Verible/Slang LSPs, clang-format) that
+ * have nothing to do with a build. Tree-killing those on Cancel would silently
+ * break diagnostics and formatting for the rest of the session.
+ *
+ * So each child declares which group it belongs to, and Cancel kills by group:
+ *
+ *   RUN     — a stage of the compile/simulate flow: cmmcomp, appcomp, asmcomp,
+ *             iverilog, vvp, Verilator (+ its perl/make/g++/ccache fan-out),
+ *             the built V<top>.exe, cocotb/python, yosys. Cancel kills these.
+ *   VIEWER  — waveform viewers (GTKWave, Surfer) launched by a run. Cancel kills
+ *             these too: the button is "cancel everything", and a viewer opened
+ *             by the run being cancelled belongs to that run.
+ *   SERVICE — editor infrastructure with a lifetime independent of any build.
+ *             Cancel NEVER touches these; only app teardown does.
+ *
+ * @typedef {'run'|'viewer'|'service'} ProcGroup
+ */
+const GROUP = Object.freeze({ RUN: 'run', VIEWER: 'viewer', SERVICE: 'service' });
+
+// Groups a cancel is allowed to kill. SERVICE is deliberately absent.
+const CANCELLABLE = Object.freeze(new Set([GROUP.RUN, GROUP.VIEWER]));
+
+/**
  * Register a freshly-spawned toolchain child so stopAllToolchain() can
  * force-kill it. Auto-unregisters when the child exits, so the set only ever
  * holds live processes. Returns the same child for call-site chaining:
  * `const c = trackChild(spawn(...))`.
  *
+ * `group` defaults to SERVICE — the *conservative* default. A caller that
+ * forgets to tag gets a process Cancel won't kill (an annoyance: the user
+ * clicks Cancel and one tool runs on), never one it kills by surprise (a bug:
+ * the LSP dies and the editor quietly degrades). Every stage of the SAPHO flow
+ * must pass GROUP.RUN explicitly.
+ *
  * @template {import('child_process').ChildProcess} T
  * @param {T} child
+ * @param {ProcGroup} [group]
  * @returns {T}
  */
-function trackChild(child) {
+function trackChild(child, group = GROUP.SERVICE) {
   if (!child || typeof child.pid !== 'number') return child;
   toolchainEverRan = true; // a real toolchain child ran → arm the close-time sweeps
+  /** @type {any} */ (child).__auroraGroup = group;
   state.childProcesses.add(child);
   const drop = () => state.childProcesses.delete(child);
   child.once('exit', drop);
@@ -78,10 +114,16 @@ function trackChild(child) {
  * @param {string} command
  * @param {readonly string[]} [args]
  * @param {import('child_process').SpawnOptions} [options]
+ * @param {ProcGroup} [group] - cancellation group; see GROUP. Anything that is
+ *   a stage of the compile/simulate flow MUST pass GROUP.RUN, or the Cancel
+ *   button will not be able to stop it.
  * @returns {import('child_process').ChildProcess}
  */
-function spawnTracked(command, args, options) {
-  return trackChild(spawn(command, /** @type {any} */ (args), /** @type {any} */ (options)));
+function spawnTracked(command, args, options, group) {
+  return trackChild(
+    spawn(command, /** @type {any} */ (args), /** @type {any} */ (options)),
+    group,
+  );
 }
 
 /**
@@ -104,6 +146,76 @@ function spawnTracked(command, args, options) {
 function stopAllToolchain() {
   if (!stopPromise) stopPromise = runStopAllToolchain();
   return stopPromise;
+}
+
+/**
+ * Cancel-scoped teardown: stop the CURRENT run, whatever stage it is in.
+ *
+ * This is what the "cancel everything" button reaches. It sits ABOVE the SAPHO
+ * flow rather than inside it: it does not ask which step is running or wait for
+ * a step to reach a checkpoint — it walks the registry and tree-kills every
+ * live RUN/VIEWER process by PID. That is the whole point of routing spawns
+ * through the registry: a stage that fans out (Verilator → perl → make → g++ →
+ * ccache, cocotb → python → the simulator) dies whole, because taskkill /T
+ * takes the tree, and a stage nobody remembered to special-case still dies,
+ * because it is in the registry like every other.
+ *
+ * Deliberately NOT this function's job (unlike stopAllToolchain):
+ *   • SERVICE children (LSPs, clang-format) — they outlive any single run;
+ *   • the AI CLIs and in-flight chat streams — cancelling a build must not
+ *     abort the user's unrelated Aurora Intelligence conversation.
+ *
+ * Not memoized either — stopAllToolchain runs once per app lifetime, but a
+ * cancel can happen on every run.
+ *
+ * @returns {Promise<{hadActive: boolean, killed: number}>}
+ *   `hadActive` false ⇒ the user clicked Cancel with nothing running, which the
+ *   renderer surfaces as "nothing to cancel" instead of a false confirmation.
+ */
+async function stopToolchainRun() {
+  const tasks = [];
+  const seen = new Set();   // PIDs already scheduled — the slot below usually
+                            // points at a child we just killed via the registry
+
+  // 1) The registry is the authority — every live RUN/VIEWER child, tree-killed
+  //    by PID regardless of binary name, location, or how it was reached.
+  for (const child of [...state.childProcesses]) {
+    const group = /** @type {any} */ (child).__auroraGroup;
+    if (!CANCELLABLE.has(group)) continue;               // SERVICE: leave it be
+    if (!child || typeof child.pid !== 'number' || child.killed) continue;
+    seen.add(child.pid);
+    tasks.push(killProcessSilently(child.pid));
+    state.childProcesses.delete(child);
+  }
+
+  // 2) The legacy single-slot sim process, in case it escaped tracking.
+  const slot = state.currentVvpProcess;
+  if (slot && !slot.killed && typeof slot.pid === 'number' && !seen.has(slot.pid)) {
+    seen.add(slot.pid);
+    tasks.push(killProcessSilently(slot.pid));
+  }
+
+  const killed = seen.size;
+
+  // 3) Backstops for grandchildren that outlived their parent's tree-kill:
+  //    bundled tools by name, and Verilator's per-testbench V<top>.exe (whose
+  //    name varies, so only a path-prefix match is safe) under components/Temp.
+  //    Only worth their cost — the path sweep enumerates every process on the
+  //    box — when something was actually running; a Cancel on an idle IDE stays
+  //    instant.
+  if (killed > 0) {
+    tasks.push(killProcessesByName('vvp.exe'));
+    tasks.push(killProcessesByName('gtkwave.exe'));
+    tasks.push(killProcessesByPathPrefix(path.join(componentsPath, 'Temp') + path.sep));
+  }
+
+  await Promise.all(tasks);
+
+  state.currentVvpProcess = null;
+  state.vvpProcessPid = null;
+  state.currentGtkwaveProcesses.clear();
+
+  return { hadActive: killed > 0, killed };
 }
 
 async function runStopAllToolchain() {
@@ -150,4 +262,4 @@ async function runStopAllToolchain() {
   state.currentGtkwaveProcesses.clear();
 }
 
-module.exports = { trackChild, spawnTracked, stopAllToolchain };
+module.exports = { GROUP, trackChild, spawnTracked, stopAllToolchain, stopToolchainRun };

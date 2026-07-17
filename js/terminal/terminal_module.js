@@ -893,6 +893,12 @@ createLogEntry(terminal, text, type, timestamp) {
      *          label:string, done?:boolean}} p
      */
     renderHardwareProgress(terminalId, p) {
+        // A cancel already tore the bar down (clearHardwareProgress). Stream
+        // chunks buffered before the kill still land here afterwards, and each
+        // one would rebuild the very bar the user just cancelled away. The flag
+        // resets when the next run starts, so this only blocks the tail.
+        if (typeof window !== 'undefined' && window.isCompilationCanceled?.()) return;
+
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
@@ -904,8 +910,8 @@ createLogEntry(terminal, text, type, timestamp) {
         if (!el || !el.isConnected) {
             // Real DOM progress bar (replaces the old ASCII █░ string): a label
             // row, an aurora-gradient fill on a track, and a meta line. The fill
-            // animates via a CSS transform transition, so it slides smoothly
-            // between updates instead of snapping.
+            // is driven frame-by-frame by _driveProgress (not a CSS transition),
+            // so it creeps continuously between the discrete stdout updates.
             el = document.createElement('div');
             el.className = 'hw-progress';
             el.innerHTML =
@@ -919,10 +925,12 @@ createLogEntry(terminal, text, type, timestamp) {
             el._pct = el.querySelector('.hw-progress-pct');
             el._fill = el.querySelector('.hw-progress-fill');
             el._meta = el.querySelector('.hw-progress-meta');
-            el._displayPct = 0;   // last-shown integer % (tween source)
-            el._t0 = null;        // perf clock at first counted update (ETA)
-            el._c0 = 0;           // cyc at _t0
-            el._lastUpdateAt = null;  // perf clock of the previous update (growth interval)
+            el._displayPct = 0;       // currently painted % (float — the tween source)
+            el._targetPct = 0;        // % the running tween is heading toward
+            el._t0 = null;            // perf clock at first counted update (ETA)
+            el._c0 = 0;               // cyc at _t0
+            el._lastUpdateAt = null;  // perf clock of the previous update
+            el._emaInterval = null;   // smoothed gap between updates (tween duration)
             terminal.appendChild(el);
             this.updatableCards[terminalId].hwProgress = el;
         } else {
@@ -936,26 +944,54 @@ createLogEntry(terminal, text, type, timestamp) {
         if (el._removeTimer) { clearTimeout(el._removeTimer); el._removeTimer = null; }
         el.classList.remove('hiding');
 
-        const pct = Math.max(0, Math.min(100, Math.round(p.pct || 0)));
         const done = !!p.done;
         el._label.textContent = p.label || '';
         el.classList.toggle('done', done);
 
-        // Interval-matched growth: animate the fill LINEARLY over roughly the gap
-        // since the last update, so between discrete updates the bar CREEPS
-        // continuously toward the new value instead of jumping then sitting still.
-        // On completion it snaps up quickly to the full green bar.
-        const nowP = (typeof performance !== 'undefined' ? performance.now() : Date.now());
-        let interval = el._lastUpdateAt ? (nowP - el._lastUpdateAt) : 600;
-        interval = Math.max(200, Math.min(interval, 30000));
-        el._lastUpdateAt = nowP;
-        const growMs = done ? 400 : interval;
-        el._fill.style.transition = `transform ${growMs}ms linear`;
-        el._fill.style.transform = `scaleX(${pct / 100})`;
+        // Resolve the target as a FLOAT. Callers hand us a pre-rounded integer
+        // pct, but cyc/total carries the full precision — and rounding first is
+        // itself a source of stepping (many updates land on the same integer,
+        // then one jumps a whole point). Prefer the raw ratio when we have it.
+        const exact = (p.total > 0 && p.cyc != null) ? (p.cyc / p.total) * 100 : (p.pct || 0);
+        const pct = Math.max(0, Math.min(100, exact));
 
-        // Count the integer % up over the SAME interval, linearly, so the number
-        // climbs 0,1,2,… in lock-step with the bar.
-        this._tweenProgressPct(el, pct, growMs);
+        // Is this a NEW run inheriting a card the last one left behind (the
+        // auto-hide hasn't fired yet, or the run failed and never retired it)?
+        // Two tells: the card already finished and we're moving again, or the
+        // target fell well below what's painted. Both are impossible within a
+        // run — progress there is monotonic — so either means "start over".
+        // This matters because the rest of the card's state (the % floor, the
+        // ETA baseline, the update-rate EMA) all assume a single run; carried
+        // over, they would pin the bar at the old 100% and quote a nonsense ETA.
+        if ((el._runDone && !done) || pct < (el._displayPct || 0) - 5) {
+            if (el._raf) { cancelAnimationFrame(el._raf); el._raf = null; }
+            el._displayPct = pct;
+            el._targetPct = pct;
+            el._t0 = null;            // ETA re-baselines off this run's first update
+            el._c0 = 0;
+            el._lastUpdateAt = null;  // don't smooth across the gap between runs
+            el._emaInterval = null;
+        }
+        el._runDone = done;
+
+        // Tween duration = the SMOOTHED gap between updates, so the fill arrives
+        // at each value just as the next one lands and the motion reads as one
+        // continuous creep. Using the raw last gap (as before) made this jerky:
+        // stdout arrives in bursts, so a burst produced a near-zero duration (the
+        // bar leapt) followed by a long silence (it sat frozen). An EMA rides
+        // through the bursts and tracks the real average rate instead.
+        const nowP = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+        if (el._lastUpdateAt != null) {
+            const gap = nowP - el._lastUpdateAt;
+            el._emaInterval = (el._emaInterval == null)
+                ? gap
+                : (el._emaInterval * 0.7 + gap * 0.3);
+        }
+        el._lastUpdateAt = nowP;
+        const growMs = done
+            ? 260                                                    // finish: settle quickly
+            : Math.max(180, Math.min(el._emaInterval ?? 600, 4000));
+        this._driveProgress(el, pct, growMs);
 
         // ETA from the average rate since the first counted update.
         const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
@@ -994,25 +1030,65 @@ createLogEntry(terminal, text, type, timestamp) {
     }
 
     /**
-     * Tween the displayed integer percentage from its current value up to
-     * `target` over ~700ms (matching the fill transition) so the number climbs
-     * 0,1,2,… in step with the bar instead of snapping. Cancels any live tween.
+     * Drive the fill AND the percentage from one rAF loop, so the two can never
+     * disagree and the bar moves every frame rather than once per stdout update.
+     *
+     * Retargeting mid-flight is the point: each update rewrites the tween's
+     * from/target/clock while the loop keeps running, so the fill bends toward
+     * the new value from wherever it currently sits — no restart, no snap. That
+     * is why the loop reads `el._*` on every frame instead of closing over the
+     * arguments, and why a live loop is reused (`if (el._raf) return`) instead
+     * of being cancelled and replaced.
+     *
+     * @param {HTMLElement} el      the .hw-progress node
+     * @param {number} target       destination percentage (float, 0-100)
+     * @param {number} dur          ms to travel there (the smoothed update gap)
      */
-    _tweenProgressPct(el, target, dur = 700) {
-        if (el._pctRAF) { cancelAnimationFrame(el._pctRAF); el._pctRAF = null; }
-        const from = el._displayPct || 0;
-        if (from === target) { el._pct.textContent = `${target}%`; el._displayPct = target; return; }
+    _driveProgress(el, target, dur) {
         const nowFn = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-        const t0 = nowFn();
-        const stepFn = () => {
-            const k = Math.min(1, (nowFn() - t0) / Math.max(1, dur));
-            const val = Math.round(from + (target - from) * k);   // linear, matches the bar
-            el._pct.textContent = `${val}%`;
+        // Never walk backwards: a late/out-of-order update would otherwise make
+        // the bar visibly retreat. Progress is monotonic by construction.
+        el._targetPct = Math.max(el._displayPct || 0, target);
+        el._animFrom = el._displayPct || 0;
+        el._animT0 = nowFn();
+        el._animDur = Math.max(1, dur);
+
+        if (el._raf) return;   // loop already live — it picks the new target up
+
+        const step = () => {
+            const k = Math.min(1, (nowFn() - el._animT0) / el._animDur);
+            const val = el._animFrom + (el._targetPct - el._animFrom) * k;
             el._displayPct = val;
-            if (k < 1) { el._pctRAF = requestAnimationFrame(stepFn); }
-            else { el._displayPct = target; el._pctRAF = null; }
+            el._fill.style.transform = `scaleX(${val / 100})`;
+            el._pct.textContent = `${Math.round(val)}%`;
+            el._raf = (k < 1) ? requestAnimationFrame(step) : null;
         };
-        el._pctRAF = requestAnimationFrame(stepFn);
+        el._raf = requestAnimationFrame(step);
+    }
+
+    /**
+     * Tear every hardware-progress bar down immediately, wherever it lives.
+     * Called when the user cancels: the run is over, so a bar frozen mid-fill
+     * (and its pending auto-hide) is a lie about work still happening.
+     *
+     * Sweeps the DOM rather than trusting `updatableCards` alone — a new
+     * TerminalManager is built per compile, so the instance handling the cancel
+     * is not necessarily the one that created the bar on screen.
+     */
+    clearHardwareProgress() {
+        const drop = (el) => {
+            if (!el) return;
+            if (el._hideTimer) { clearTimeout(el._hideTimer); el._hideTimer = null; }
+            if (el._removeTimer) { clearTimeout(el._removeTimer); el._removeTimer = null; }
+            if (el._raf) { cancelAnimationFrame(el._raf); el._raf = null; }
+            try { el.remove(); } catch (_) { /* already detached */ }
+        };
+        Object.values(this.updatableCards || {}).forEach((cards) => {
+            if (!cards || !cards.hwProgress) return;
+            drop(cards.hwProgress);
+            cards.hwProgress = null;
+        });
+        document.querySelectorAll('.hw-progress').forEach(drop);
     }
 
     /** Format a millisecond ETA as a compact `Ns` / `Mm Ss` string. */
@@ -1359,27 +1435,31 @@ createLogEntry(terminal, text, type, timestamp) {
      * when `_resolveTerminal` swaps in a freshly-created `.terminal-body`, the
      * next `_stickBottom` re-wires it — unlike the one-shot MutationObserver.
      *
-     * Intent is read from real gestures, NOT from scroll-position math during our
-     * own scrolls (which raced under fast streaming and froze the follow):
-     *   • wheel up            → pause the follow (user wants to read back)
-     *   • scrolled to bottom  → re-arm (dist small, by any means)
-     *   • drag up (height unchanged) → pause
-     *   • content grew (height changed) → NEVER pause on the transient distance
+     * Intent is decided by ONE question: was this scroll ours, or the user's?
+     * `_stickBottom` records the exact scrollTop it writes, so any scroll event
+     * landing on a *different* offset came from the user — by whatever means:
+     * scrollbar drag, wheel, PageUp/Home, touch, middle-click autoscroll. Then:
+     *   • user scrolled away from the bottom → pause the follow
+     *   • user came back to the bottom       → re-arm it
+     *
+     * The previous version inferred this from `scrollHeight` staying unchanged
+     * between scroll events, which is only true when NO output is arriving —
+     * exactly backwards. While a compile streamed, the height changed on every
+     * event, so the "user moved up" branch never ran, the follow never paused,
+     * and each appended line yanked the view back down: the scrollbar was
+     * unusable during the one activity it matters most for.
      */
     _wireStick(terminal) {
         if (!terminal || terminal._auroraWired) return;
         terminal._auroraWired = true;
         terminal._auroraStick = true;
-        terminal._auroraLastH = terminal.scrollHeight;
-        terminal.addEventListener('wheel', (e) => {
-            if (e.deltaY < 0) terminal._auroraStick = false;
-        }, { passive: true });
+        terminal._auroraProgTop = -1;   // last offset WE wrote; -1 = never
         terminal.addEventListener('scroll', () => {
-            const h = terminal.scrollHeight;
-            const dist = h - terminal.scrollTop - terminal.clientHeight;
-            if (dist <= 80) terminal._auroraStick = true;               // back at bottom → follow
-            else if (h === terminal._auroraLastH) terminal._auroraStick = false; // user moved up
-            terminal._auroraLastH = h;                                 // content-driven scroll: ignore
+            // Tolerance of 1px: fractional/zoomed layouts can round the value
+            // back a hair from what we assigned.
+            if (Math.abs(terminal.scrollTop - terminal._auroraProgTop) <= 1) return;
+            const dist = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight;
+            terminal._auroraStick = dist <= 40;
         }, { passive: true });
     }
 
@@ -1394,7 +1474,12 @@ createLogEntry(terminal, text, type, timestamp) {
         if (!terminal) return;
         this._wireStick(terminal);
         if (terminal._auroraStick === false) return;
-        const jump = () => { terminal.scrollTop = terminal.scrollHeight; };
+        const jump = () => {
+            terminal.scrollTop = terminal.scrollHeight;
+            // Read back the CLAMPED value and record it, so the scroll event this
+            // write is about to fire is recognised as ours and left alone.
+            terminal._auroraProgTop = terminal.scrollTop;
+        };
         jump();
         requestAnimationFrame(() => {
             if (terminal._auroraStick !== false) jump();

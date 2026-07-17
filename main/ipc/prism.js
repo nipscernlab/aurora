@@ -18,7 +18,7 @@ const netlistsvgLib = require('@silimate/netlistsvg');
 const state = require('../state');
 const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
-const { spawnTracked } = require('../process_registry');
+const { spawnTracked, GROUP } = require('../process_registry');
 const { loadPage } = require('../render_loader');
 
 // ---------- helpers ----------
@@ -358,11 +358,12 @@ write_json "${hierarchyJsonPath}"
     // spawnTracked so closing the main window kills an in-flight PRISM
     // synthesis — yosys runs from the bundled mingw64/bin (not Temp/), so the
     // path-prefix sweep never caught it before.
+    // GROUP.RUN: PRISM synthesis is a compile stage, so Cancel must stop it.
     const yosysProcess = spawnTracked(yosysExe, finalArgs, {
       cwd: tempDir,
       env: childEnv,
       windowsHide: true,
-    });
+    }, GROUP.RUN);
 
     let stderr = '';
     yosysProcess.stdout.on('data', (_data) => {});
@@ -771,7 +772,7 @@ write_json "${jsonPath}"
   await new Promise((resolve, reject) => {
     const proc = spawnTracked(compilationPaths.yosysPath, ['-s', scriptPath], {
       cwd: tempDir, env: process.env, windowsHide: true,
-    });
+    }, GROUP.RUN);
     let stderr = '';
     let settled = false;
     const finish = (/** @type {Error|null} */ err) => {

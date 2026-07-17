@@ -475,9 +475,12 @@
   transform: scaleX(0);
   border-radius: inherit;
   background: var(--gradient-aurora);
-  /* Grow smoothly toward each new value: a longer, decelerating ease reads as
-     the bar filling in, not snapping in discrete spikes between updates. */
-  transition: transform 700ms var(--ease-reveal);
+  /* NB: `transform` is deliberately NOT transitioned. The fill is driven frame
+     by frame from JS (_driveProgress), which interpolates toward each new value
+     over the smoothed update interval. A CSS transition on top of that would
+     fight the rAF writes and re-introduce the stepping it exists to remove.
+     Only the .done gradient→green swap animates here. */
+  transition: background 380ms var(--ease-reveal);
 }
 .hw-progress-meta {
   margin-top: 6px;

@@ -34,7 +34,7 @@ const { ipcMain } = require('electron');
 const log = require('electron-log');
 
 const state = require('../state');
-const { spawnTracked } = require('../process_registry');
+const { spawnTracked, GROUP } = require('../process_registry');
 const { getCPUCount } = require('../utils');
 const { isAllowed } = require('./binary_allowlist');
 const protectedFlags = require('./protected_flags');
@@ -186,12 +186,15 @@ function register() {
       // closing the main window (or quitting) tree-kills this step AND any
       // tools it fans out (Verilator → make/g++/ccache, cocotb → python),
       // not just its PID.
+      // GROUP.RUN: every spec that flows through here IS a stage of the compile/
+      // simulate flow, which is exactly what the Cancel button must be able to
+      // kill mid-step. Without the tag, cancelling could not reach it.
       const child = spawnTracked(spec.binary, spec.args, {
         cwd: spec.cwd,
         env,
         windowsHide: true,
         shell: false,
-      });
+      }, GROUP.RUN);
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid ?? null;
       boostPriority(child.pid);
@@ -245,12 +248,15 @@ function register() {
       // closing the main window (or quitting) tree-kills this step AND any
       // tools it fans out (Verilator → make/g++/ccache, cocotb → python),
       // not just its PID.
+      // GROUP.RUN: every spec that flows through here IS a stage of the compile/
+      // simulate flow, which is exactly what the Cancel button must be able to
+      // kill mid-step. Without the tag, cancelling could not reach it.
       const child = spawnTracked(spec.binary, spec.args, {
         cwd: spec.cwd,
         env,
         windowsHide: true,
         shell: false,
-      });
+      }, GROUP.RUN);
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid ?? null;
       boostPriority(child.pid);

@@ -61,6 +61,10 @@ function checkCancellation() {
 // Expoe pro CompilationModule consultar entre fases.
 if (typeof window !== 'undefined') {
     window.checkCancellation = checkCancellation;
+    // Non-throwing peek, for code that must merely stay quiet once the user has
+    // cancelled (e.g. the terminal's progress bar refusing to rebuild itself
+    // from stream chunks that were already in flight when the kill landed).
+    window.isCompilationCanceled = () => compilationCanceled;
 }
 
 // =====================================================================
@@ -187,7 +191,14 @@ let activeRunStep = null;
 function logFatalError(terminalId, error) {
     // User-triggered cancel is not a failure: render it as a friendly
     // info card (no "Erro Fatal:" prefix, no red error styling).
-    if (isCancellationError(error)) {
+    //
+    // `compilationCanceled` matters as much as the tagged error here. Only the
+    // handful of `checkCancellation()` points between phases raise the tagged
+    // error; a cancel that lands *inside* a running step kills the child, and
+    // the step then rejects with whatever the dying tool reported — "cocotb
+    // simulation failed with exit code 1". That is the kill, not a real fault,
+    // so once the user has cancelled, every fatal is reported as the cancel.
+    if (isCancellationError(error) || compilationCanceled) {
         getTM()?.appendToTerminal?.(
             terminalId,
             tr('compilation.cancelledByUser'),
@@ -757,10 +768,13 @@ async function syncToolbarEnabledState() {
     //  - testbench .py -> cocotb headless, roda em qualquer engine.
     // Re-sincronizado no evento aurora:wave-simulator-changed (initialize()).
     setEnabled('fastsim', hasTb && (isPyTb || getSimulator() === 'verilator'));
-    // Cancelar a simulacao segue a MESMA regra do Wave: sem testbench
-    // nao da pra iniciar uma simulacao, entao o botao de cancelar (par
-    // visual do Wave, a direita dele na toolbar) fica desabilitado junto.
-    setEnabled('cancel-everything', hasTb);
+    // Cancelar NAO segue a regra do Wave (era `hasTb`, espelhando o botao de
+    // Wave por ser o par visual dele na toolbar). Cancelar esta ACIMA de todo o
+    // fluxo SAPHO, nao so da simulacao: C±, ASM, Verilog e PRISM compilam sem
+    // testbench nenhum, e com o botao desabilitado nao havia como matar um
+    // cmmcomp/yosys travado. Fica sempre habilitado — clicar com nada rodando
+    // ja responde "nada a cancelar" (cancelAll → nothingToCancel).
+    setEnabled('cancel-everything', true);
     setEnabled('waveConfigBtn', hasTb);
     // A lista .gtkw gerencia seu proprio disabled (gtkw_picker.refresh le
     // o testbench); so pedimos pra re-sincronizar.
@@ -911,6 +925,12 @@ class CompilationFlowManager {
             return;
         }
         compilationCanceled = true;
+
+        // Retire the progress bar at once. It is frozen at whatever % the last
+        // stdout line reported, and leaving it there next to a "cancelled" card
+        // claims work is still advancing. Must come after the flag is set, or a
+        // buffered stream chunk rebuilds it right back.
+        tm?.clearHardwareProgress?.();
 
         // Brief ack in the currently visible terminal so the user has
         // immediate visual confirmation the click took effect, even if

@@ -75,27 +75,24 @@
 }
 
 /* Terminal body — long compiler output can overflow horizontally on
-   wrapped flags like `-iverilog` paths. Same discreet treatment so the
-   bar never competes with the log content for attention. */
+   wrapped flags like `-iverilog` paths. Discreet, but the bar is a CONTROL
+   first: it has to be visible and grabbable without hunting for it.
+ *
+ * Standard properties only. `scrollbar-width`/`scrollbar-color` and the
+ * `::-webkit-scrollbar` pseudo-elements are mutually exclusive in Chromium:
+ * once either standard property is set, the whole ::-webkit-scrollbar block is
+ * IGNORED. This rule set used to declare both, so the ::-webkit styling below
+ * (a 6px bar with a violet thumb) was dead code and the real, applied style was
+ * `scrollbar-color: transparent transparent` — a fully transparent thumb that
+ * only appeared while the pointer was already inside the terminal. The bar you
+ * cannot see is the bar you cannot click. Dead block removed; the thumb now
+ * rests visible and strengthens on hover. */
 .terminal-body {
   scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  scrollbar-color: rgba(142, 131, 232, 0.42) transparent;
 }
 .terminal-body:hover {
-  scrollbar-color: var(--accent-border) transparent;
-}
-.terminal-body::-webkit-scrollbar           { height: 4px; width: 6px; }
-.terminal-body::-webkit-scrollbar-track     { background: transparent; }
-.terminal-body::-webkit-scrollbar-thumb     {
-  background: transparent;
-  border-radius: 2px;
-  transition: background var(--transition-fast);
-}
-.terminal-body:hover::-webkit-scrollbar-thumb {
-  background: rgba(142, 131, 232, 0.35);
-}
-.terminal-body::-webkit-scrollbar-thumb:hover {
-  background: rgba(142, 131, 232, 0.65);
+  scrollbar-color: rgba(142, 131, 232, 0.72) transparent;
 }
 
 .terminal-tabs-actions {
@@ -309,9 +306,12 @@
   padding: var(--space-2) var(--space-3);
   color: var(--text-secondary);
   overflow-y: auto;
-  /* No `scroll-behavior: smooth` here: the auto-follow sets scrollTop directly
-     every frame during a stream, and a smooth animation made it chase a moving
-     target and never land at the true bottom. Terminal scrolling is instant. */
+  /* No `scroll-behavior: smooth` here, deliberately — and it is not a leftover.
+     The auto-follow writes scrollTop every frame during a stream; a CSS smooth
+     animation restarts on each write, so it chased a bottom that kept moving and
+     never landed. The smoothing lives in _stickBottom instead, which eases a
+     fraction of the remaining distance per frame and re-aims as content grows.
+     Setting this property would fight that loop and bring the bug back. */
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   line-height: 1.55;

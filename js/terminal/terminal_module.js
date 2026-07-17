@@ -1464,27 +1464,53 @@ createLogEntry(terminal, text, type, timestamp) {
     }
 
     /**
-     * Pin a terminal to the TRUE bottom when the user hasn't scrolled away. Plain
-     * scrollTop writes (CSS `scroll-behavior` is no longer smooth, so they are
-     * instant). We re-assert across a few frames because `.log-entry` uses
-     * `content-visibility:auto`: the newly revealed bottom rows only get their
-     * real height after paint, so a single jump lands short of the last line.
+     * Follow a terminal's bottom while the user hasn't scrolled away — smoothly,
+     * so streamed output reads as the view gliding down with the text rather
+     * than teleporting on every line.
+     *
+     * A self-sustaining rAF loop that eases a fixed FRACTION of the remaining
+     * distance per frame and re-reads `scrollHeight` each time. That is what
+     * makes it safe on a moving target, which plain `scroll-behavior: smooth`
+     * was not: a CSS animation restarts on every scrollTop write, so during a
+     * stream it kept re-aiming at a bottom that had already moved and never
+     * landed (why it was ripped out for instant jumps). Re-targeting per frame
+     * converges instead — and because the loop only exits once the gap is gone,
+     * it also absorbs `content-visibility:auto` settling, where bottom rows get
+     * their real height only after paint (the old fixed double-rAF guessed at
+     * this and could still land short).
+     *
+     * A burst too large to animate meaningfully snaps: past a few screenfuls the
+     * user wants the end, not a ride to it.
      */
     _stickBottom(terminal) {
         if (!terminal) return;
         this._wireStick(terminal);
         if (terminal._auroraStick === false) return;
-        const jump = () => {
-            terminal.scrollTop = terminal.scrollHeight;
-            // Read back the CLAMPED value and record it, so the scroll event this
+        if (terminal._followRAF) return;   // already gliding — it re-aims itself
+
+        const settle = () => {
+            // Read the CLAMPED value back and record it, so the scroll event this
             // write is about to fire is recognised as ours and left alone.
             terminal._auroraProgTop = terminal.scrollTop;
         };
-        jump();
-        requestAnimationFrame(() => {
-            if (terminal._auroraStick !== false) jump();
-            requestAnimationFrame(() => { if (terminal._auroraStick !== false) jump(); });
-        });
+        const step = () => {
+            terminal._followRAF = null;
+            if (terminal._auroraStick === false) return;   // user took over
+            const target = terminal.scrollHeight - terminal.clientHeight;
+            const gap = target - terminal.scrollTop;
+            if (gap <= 0.5) { terminal.scrollTop = target; settle(); return; }
+            if (gap > terminal.clientHeight * 3) {          // flood: go straight there
+                terminal.scrollTop = target;
+                settle();
+                return;
+            }
+            // ~18%/frame ≈ 200ms to close a gap, with a 1px floor so it always
+            // converges instead of asymptotically crawling the last fraction.
+            terminal.scrollTop += Math.max(1, gap * 0.18);
+            settle();
+            terminal._followRAF = requestAnimationFrame(step);
+        };
+        terminal._followRAF = requestAnimationFrame(step);
     }
 
 async clearTerminal(terminalId) {

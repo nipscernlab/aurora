@@ -36,9 +36,18 @@ const {
 // nothing to tear down. Set in trackChild, read in stopAllToolchain.
 let toolchainEverRan = false;
 
-// Memoize the teardown. The main-window 'close' handler fires it (best-effort),
-// then app before-quit fires it again (authoritative). Both must share ONE run
-// so the expensive sweeps don't execute twice on a single close.
+// Coalesce the teardown while it is IN FLIGHT. The main-window 'close' handler
+// fires it (best-effort), then app before-quit fires it again (authoritative)
+// milliseconds later; both must share ONE run so the expensive sweeps don't
+// execute twice on a single close.
+//
+// Cleared once it settles, so a LATER teardown runs for real. This used to be a
+// permanent memo, which quietly made "closing the window kills every compile" a
+// once-per-process guarantee: a new main window in the same process (the
+// second-instance handler opens one per SAPHO launch, and `activate` re-creates
+// one) would hand its close the old, already-resolved promise and kill nothing,
+// leaving its compiles running headless. Same reasoning for a close that starts
+// the teardown and is then vetoed.
 let stopPromise = null;
 
 /**
@@ -144,7 +153,11 @@ function spawnTracked(command, args, options, group) {
  * @returns {Promise<void>}
  */
 function stopAllToolchain() {
-  if (!stopPromise) stopPromise = runStopAllToolchain();
+  if (!stopPromise) {
+    // Release the coalescing slot once this run settles (either way) so a later
+    // close/quit gets a real teardown rather than this run's stale result.
+    stopPromise = runStopAllToolchain().finally(() => { stopPromise = null; });
+  }
   return stopPromise;
 }
 

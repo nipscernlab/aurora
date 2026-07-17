@@ -123,6 +123,16 @@ if (acquiredLock) {
       fs.mkdirSync(path.join(componentsPath, 'Packages', 'msys', 'tmp'), { recursive: true });
     } catch (_) { /* best-effort */ }
 
+    // Crash net: wipe the components/Temp scratch tree BEFORE the window exists.
+    // The quit-time wipe (main/lifecycle.js) is the normal path; a hard crash
+    // leaves the last session's scratch behind, and this clears it before any
+    // build can read stale artifacts. Synchronous on purpose — ordered strictly
+    // before the renderer (and thus any compile) comes up. See main/temp_gc.js.
+    try {
+      const { componentsPath } = require('./main/paths');
+      require('./main/temp_gc').clearTempFolderSync(componentsPath);
+    } catch (_) { /* best-effort */ }
+
     // Universal startup temp hygiene (best-effort, non-blocking, startup ONLY —
     // synchronous fs at quit would slow the close). Clears the AI image-attachment
     // carry-over (one-shot per turn) AND the stale aurora-mcp-<pid>.json configs

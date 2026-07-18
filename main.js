@@ -31,6 +31,13 @@ process.on('unhandledRejection', (reason) => { log.error('[main] unhandledReject
 //   • gpu-rasterization + zero-copy: rasterize tiles on the GPU and upload
 //     them without a CPU copy. Cheap, broadly safe, and the biggest win for
 //     scroll/paint-heavy panels (terminal, editor, wave config).
+//   • force_high_performance_gpu: on a hybrid-graphics machine (laptop or
+//     desktop with iGPU + discrete GPU) Chromium picks the INTEGRATED GPU for
+//     its GPU process by default, and a per-context `powerPreference:
+//     high-performance` (as the aurora canvas requests) does NOT reliably move
+//     it. That left the heavy aurora-borealis shader on the weak iGPU, stalling
+//     the welcome screen even on strong PCs with an idle discrete GPU. This
+//     switch makes Chromium select the discrete GPU for the whole app.
 //
 // We deliberately do NOT set `disable-frame-rate-limit`. It removes Chromium's
 // vsync pacing, which let the splash's per-frame requestAnimationFrame loops
@@ -45,6 +52,7 @@ process.on('unhandledRejection', (reason) => { log.error('[main] unhandledReject
 // default so a minimized window doesn't keep the GPU busy.
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('force_high_performance_gpu');
 
 // AppUserModelID must be registered as early as possible — before any
 // BrowserWindow exists. Windows uses it to associate the running

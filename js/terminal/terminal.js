@@ -59,7 +59,9 @@ export function smoothFollowToBottom(el) {
       // Spring: accelerates from rest (ease-in) and decelerates as the gap closes
       // (ease-out). The CAP keeps a big jump (tab switch) or a fast burst a
       // visible glide instead of the near-instant snap it was without it.
-      el._followVel = Math.min((el._followVel + gap * 0.16) * 0.72, gap, CAP);
+      // Velocity retention 0.62 (was 0.72) = MORE friction, so it brakes more
+      // gradually near the end — a softer, smoother landing.
+      el._followVel = Math.min((el._followVel + gap * 0.16) * 0.62, gap, CAP);
       el.scrollTop += Math.max(el._followVel, 1);
       el._followRAF = requestAnimationFrame(step);
       return;

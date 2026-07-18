@@ -1299,7 +1299,7 @@ const TOOL_MANIFEST = [
     description:
       'Open the Surfer waveform viewer on a specific .vcd/.fst file, in its own ' +
       'window. Optionally load a Surfer layout: a .surf.ron saved state or a .sucl ' +
-      'command file. If surfer.exe is not installed it cleanly falls back to GTKWave, ' +
+      'command file. If surfer-aurora.exe is not installed it cleanly falls back to GTKWave, ' +
       'so this always produces a viewer. Pass an ABSOLUTE file path (find one with ' +
       'get_project_tree — e.g. a <proc>/Simulation/<proc>.vcd or a dump.fst). Unlike ' +
       'set_waveform_viewer (which only changes what the Wave button uses), this ' +

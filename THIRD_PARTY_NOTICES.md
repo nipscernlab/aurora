@@ -19,7 +19,7 @@ and shipped in the installer; they are not part of the source tree.
 |---|---|---|
 | Icarus Verilog (`iverilog`/`vvp`) | Verilog compilation + simulation | GNU GPL v2 |
 | GTKWave (nipscern fork) | Waveform viewer + `fst2vcd`/`vcd2fst` | GNU GPL v2 |
-| Surfer | Waveform viewer (Rust) | EUPL-1.2 |
+| Surfer — fork NIPSCERN [`surfer-aurora`](https://gitlab.com/nips-cern/surfer-aurora), derivado de [surfer-project/surfer](https://gitlab.com/surfer-project/surfer) | Waveform viewer (Rust) | EUPL-1.2 (fork publico) |
 | Yosys (+ ABC) | RTL synthesis (PRISM) | ISC (Yosys) · MIT-style (ABC, UC Berkeley) |
 | Verilator | Fast Verilog simulation | LGPL-3.0 or Artistic-2.0 |
 | Python + cocotb | Cocotb test flow | PSF (Python) · BSD-3-Clause (cocotb) |

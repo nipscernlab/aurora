@@ -2365,7 +2365,7 @@ const waveNs = {
    * Open the Surfer waveform viewer directly on a .vcd/.fst file (Aurora
    * Intelligence `open_surfer` tool). Reuses the compilation module's launcher,
    * so it inherits Surfer's process tracking, the terminal status messages, and
-   * the automatic fall-back to GTKWave when surfer.exe isn't installed. Pass an
+   * the automatic fall-back to GTKWave when surfer-aurora.exe isn't installed. Pass an
    * absolute file path (from get_project_tree); `layout` optionally loads a
    * .surf.ron saved state (via -s) or a .sucl command file (via -c).
    */

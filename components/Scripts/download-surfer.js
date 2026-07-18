@@ -2,15 +2,23 @@
 /**
  * Aurora IDE - Surfer bootstrap
  *
- * Baixa o build Windows do Surfer (waveform viewer em Rust) e extrai
- * surfer.exe em components/Packages/surfer/. Surfer e o viewer opt-in
- * (toggle GTKWave<->Surfer); sem ele, o botao Wave cai pro GTKWave.
+ * Instala o build Windows do NOSSO fork do Surfer (waveform viewer em Rust)
+ * como surfer-aurora.exe em components/Packages/surfer/. Surfer e o viewer
+ * opt-in (toggle GTKWave<->Surfer); sem ele, o botao Wave cai pro GTKWave.
  *
- * Fonte: registro de pacotes generico do GitLab do projeto Surfer.
- * Pinning: SURFER_TAG abaixo. Pra subir, atualizar a tag/URL.
+ * Fork: gitlab.com/nips-cern/surfer-aurora (fork de surfer-project/surfer),
+ * onde ficam as melhorias da NIPSCERN. Licenca EUPL-1.2 — atribuicao no
+ * LICENSE da raiz; spawn arm's-length (a AURORA so executa o .exe, nao linka)
+ * nao contamina a AURORA. O fork fica PUBLICO por exigencia da EUPL.
  *
- * Licenca EUPL-1.2 — atribuicao no LICENSE da raiz; spawn arm's-length
- * (a AURORA so executa o .exe, nao linka) nao contamina a AURORA.
+ * PUBLICACAO DO ARTEFATO: enquanto o CI do fork nao publicar o zip do binario
+ * (PUBLISHED=false abaixo), este script NAO baixa nada — deliberadamente. Ele
+ * jamais baixa o surfer.exe do upstream pra renomear como nosso, o que
+ * mascararia as melhorias do fork por um binario sem elas. Ate la, o
+ * surfer-aurora.exe e provido pelo build local (cargo build --release no fork
+ * -> target/release/surfer.exe, renomeado). Quando o CI publicar, vire
+ * PUBLISHED=true e preencha FORK_ARTIFACT (URL + SHA-256 + tag) que a maquina
+ * de download abaixo (intacta) passa a instalar automaticamente.
  *
  * Roda no bootstrap, depois do download-gtkwave-nipscern e antes do
  * copy-components. Best-effort: se falhar, sai com 0 (a AURORA ainda
@@ -27,19 +35,28 @@ const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-// Pinned SHA-256 of surfer_win_v0.7.0.zip (GitLab generic package, immutable
-// per tag). Verified before extraction; a mismatch aborts the install.
-const EXPECTED_SHA256 = '4fbb0ad93e1aa958f6944c036a8d01b36b267a96e7f904683317235cd041fc24';
+// Vira true quando o CI do fork (gitlab.com/nips-cern/surfer-aurora) publicar
+// um zip do binario Windows no registro de pacotes. Enquanto false, o
+// surfer-aurora.exe vem do build local — nunca do upstream (ver header).
+const PUBLISHED = false;
 
-const SURFER_TAG      = 'v0.7.0';
-const SURFER_FILENAME = `surfer_win_${SURFER_TAG}.zip`;
-// Registro de pacotes generico do GitLab (projeto Surfer, id 42073614).
-const DOWNLOAD_URL    = `https://gitlab.com/api/v4/projects/42073614/packages/generic/surfer/${SURFER_TAG}/${SURFER_FILENAME}`;
+// Preencher junto com PUBLISHED=true. `url` aponta pro pacote generico do FORK
+// (nao do upstream); `sha256` e o hash imutavel do zip daquela tag; `filename`
+// e o nome do zip. Deixado a null enquanto nao publicado.
+/** @type {{ url: string, sha256: string, filename: string, tag: string } | null} */
+const FORK_ARTIFACT = PUBLISHED ? {
+    tag:      'vX.Y.Z',
+    filename: 'surfer-aurora_win_vX.Y.Z.zip',
+    sha256:   'REPLACE_WITH_FORK_ARTIFACT_SHA256',
+    url:      'https://gitlab.com/api/v4/projects/nips-cern%2Fsurfer-aurora/packages/generic/surfer-aurora/vX.Y.Z/surfer-aurora_win_vX.Y.Z.zip',
+} : null;
 
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'surfer');
-const SENTINEL_FILE = path.join(INSTALL_DIR, 'surfer.exe'); // NB: surfer.exe, nao surver.exe (helper)
-const TMP_ZIP       = path.join(ROOT_DIR, SURFER_FILENAME);
+// O binario do fork. A AURORA resolve/allowlista EXATAMENTE este nome
+// (wave_toolchain.js, binary_allowlist.js) — manter em sync.
+const SENTINEL_FILE = path.join(INSTALL_DIR, 'surfer-aurora.exe');
+const TMP_ZIP       = FORK_ARTIFACT ? path.join(ROOT_DIR, FORK_ARTIFACT.filename) : '';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -117,14 +134,15 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
     );
 }
 
-// Se o zip trouxe surfer.exe dentro de uma subpasta (ex.: surfer/surfer.exe),
-// sobe os arquivos um nivel pra o sentinel ficar em INSTALL_DIR/surfer.exe.
+// Se o zip do fork trouxe o binario dentro de uma subpasta, sobe os arquivos
+// um nivel pra o sentinel ficar em INSTALL_DIR/surfer-aurora.exe.
 function flattenIfNested(/** @type {string} */ dir) {
     if (fs.existsSync(SENTINEL_FILE)) return;
+    const wanted = path.basename(SENTINEL_FILE); // surfer-aurora.exe
     let found = null;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
         if (!entry.isDirectory()) continue;
-        const candidate = path.join(dir, entry.name, 'surfer.exe');
+        const candidate = path.join(dir, entry.name, wanted);
         if (fs.existsSync(candidate)) { found = path.join(dir, entry.name); break; }
     }
     if (!found) return;
@@ -140,21 +158,31 @@ async function main() {
     const force = process.argv.includes('--force');
 
     if (alreadyInstalled() && !force) {
-        log(`surfer already present — skipping download.`);
+        log(`surfer-aurora already present — skipping.`);
         return;
     }
 
-    if (!alreadyInstalled()) {
-        log(`surfer not found in components/Packages/surfer/.`);
+    // Ate o CI do fork publicar um artefato, NAO ha de onde baixar o binario
+    // COM as melhorias do fork. Nao caimos pro upstream (isso instalaria um
+    // Surfer sem as nossas mudancas, mascarado com o nosso nome). Instrui e sai
+    // limpo — o build local prove o surfer-aurora.exe nesse meio-tempo.
+    if (!FORK_ARTIFACT) {
+        log(`surfer-aurora nao encontrado e o CI do fork ainda nao publica binario.`);
+        log(`Providencie o build local:`);
+        log(`  1) git clone https://gitlab.com/nips-cern/surfer-aurora.git`);
+        log(`  2) cd surfer-aurora && cargo build --release`);
+        log(`  3) copie target/release/surfer.exe -> components/Packages/surfer/surfer-aurora.exe`);
+        log(`(Surfer e opt-in; sem ele o botao Wave usa o GTKWave.)`);
+        return; // exit 0 implicito — nao bloqueia o bootstrap
     }
 
     try {
-        await downloadFile(DOWNLOAD_URL, TMP_ZIP);
-        await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
+        await downloadFile(FORK_ARTIFACT.url, TMP_ZIP);
+        await verifyChecksum(TMP_ZIP, FORK_ARTIFACT.sha256, log);
         extractZip(TMP_ZIP, INSTALL_DIR);
         flattenIfNested(INSTALL_DIR);
         fs.unlinkSync(TMP_ZIP);
-        log(`surfer installed successfully.`);
+        log(`surfer-aurora installed successfully.`);
 
         if (!alreadyInstalled()) {
             err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);
@@ -163,10 +191,10 @@ async function main() {
         }
     } catch (e) {
         err(e instanceof Error ? e.message : String(e));
-        err(`\nCould not download surfer automatically.`);
+        err(`\nCould not download surfer-aurora automatically.`);
         err(`Please download manually from:`);
-        err(`  ${DOWNLOAD_URL}`);
-        err(`Extract surfer.exe into:  components/Packages/surfer/`);
+        err(`  ${FORK_ARTIFACT.url}`);
+        err(`Extract surfer-aurora.exe into:  components/Packages/surfer/`);
         // Exit 0 pra nao bloquear npm start. Aurora ainda compila/simula;
         // so o botao Wave (com Surfer) que cai pro GTKWave ate o setup.
         process.exit(0);
@@ -182,9 +210,8 @@ module.exports = {
     downloadFile,
     extractZip,
     flattenIfNested,
-    DOWNLOAD_URL,
-    SURFER_TAG,
-    SURFER_FILENAME,
+    PUBLISHED,
+    FORK_ARTIFACT,
     INSTALL_DIR,
     SENTINEL_FILE,
 };

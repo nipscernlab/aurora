@@ -47,7 +47,7 @@ describe('resolveWaveToolchain', () => {
             iverilogBinDir: '/comp/Packages/msys/mingw64/bin',
             gtkwaveBinDir: '/comp/Packages/gtkwave-nipscern',
             fst2vcdBin: '/comp/Packages/gtkwave-nipscern/fst2vcd.exe',
-            surferBin: '/comp/Packages/surfer/surfer.exe',
+            surferBin: '/comp/Packages/surfer/surfer-aurora.exe',
         });
     });
 

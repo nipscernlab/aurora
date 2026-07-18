@@ -55,8 +55,9 @@ const RAW_ALLOWLIST = [
   ['gtkwave.exe',   ['Packages/gtkwave-nipscern']],
   ['fst2vcd.exe',   ['Packages/gtkwave-nipscern']],
 
-  // Surfer — the opt-in embedded waveform viewer (launch-surfer).
-  ['surfer.exe',    ['Packages/surfer']],
+  // Surfer — the opt-in embedded waveform viewer (launch-surfer). NIPSCERN
+  // fork build (surfer-aurora.exe) from gitlab.com/nips-cern/surfer-aurora.
+  ['surfer-aurora.exe', ['Packages/surfer']],
   // Verible language server — the Verilog LSP backend (O2). Long-lived
   // stdio process spawned by main/lsp/verible_lsp.js for diagnostics,
   // formatting, outline, hover and definition/references in Monaco.

@@ -470,7 +470,7 @@ export const SYSTEM_PROMPT = [
   "    shell — for real SAPHO builds/sims still prefer compile_* / run_fast_sim; use this for\n" +
   "    ad-hoc shell/git/python commands and folder navigation the user asks for.\n" +
   "  • open_surfer({file, layout}) — launch the Surfer waveform viewer on a .vcd/.fst NOW\n" +
-  "    (auto-falls back to GTKWave if surfer.exe isn't installed). `file` = absolute path (find\n" +
+  "    (auto-falls back to GTKWave if surfer-aurora.exe isn't installed). `file` = absolute path (find\n" +
   "    one with get_project_tree, e.g. <proc>/Simulation/<proc>.vcd or a dump.fst); `layout`\n" +
   "    optionally loads a .surf.ron (-s) or .sucl (-c). Unlike set_waveform_viewer (which only\n" +
   "    changes what the Wave button uses), this opens the viewer immediately on the named file.\n" +

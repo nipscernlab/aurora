@@ -2807,7 +2807,8 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  *
  * Surfer (https://surfer-project.org/) is a Rust/egui waveform viewer that
  * reads the same VCD/FST. Aurora treats it as an optional standalone
- * surfer.exe under components/Packages/surfer/. It opens as an external
+ * surfer-aurora.exe under components/Packages/surfer/ (the NIPSCERN fork
+ * build — gitlab.com/nips-cern/surfer-aurora). It opens as an external
  * window on the VCD, loading the active Surfer layout when one is set: a
  * .surf.ron saved state (via -s) or a .sucl command file (via -c). If the
  * binary is absent (the default — it isn't bundled yet) the launch reports a
@@ -2818,7 +2819,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  *
  * Inputs:  vcdFile (absolute), surferLayoutFile (.surf.ron/.sucl or null), tools
  * Returns: void
- * Side-effects: spawns surfer.exe (stored on this.surferProcess), or calls
+ * Side-effects: spawns surfer-aurora.exe (stored on this.surferProcess), or calls
  *               _waveLaunchGtkwave as a fallback.
  */
 async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
@@ -2845,7 +2846,7 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
         this.terminalManager.appendToTerminal(
             'twave',
             `Surfer unavailable (${result.message}) — opening GTKWave instead. ` +
-            'Drop surfer.exe in components/Packages/surfer/ to use Surfer.',
+            'Drop surfer-aurora.exe in components/Packages/surfer/ to use Surfer.',
             'tips',
         );
         await this._waveLaunchGtkwave(vcdFile, null, tools);

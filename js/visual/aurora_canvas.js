@@ -278,7 +278,12 @@ class AuroraCanvas extends HTMLElement {
   }
 
   _initGL() {
-    const opts = { alpha: true, antialias: false, premultipliedAlpha: false, depth: false, powerPreference: 'low-power' };
+    // high-performance: on a machine with a discrete GPU, run this heavy
+    // per-pixel march there instead of the integrated GPU. The old 'low-power'
+    // hint pinned it to the iGPU, which stalled even on strong desktops (the
+    // dGPU sat idle while the iGPU choked). With the fps + resolution caps above
+    // bounding the work, letting the real GPU take it is the right trade.
+    const opts = { alpha: true, antialias: false, premultipliedAlpha: false, depth: false, powerPreference: 'high-performance' };
     const gl = this._canvas.getContext('webgl', opts) || this._canvas.getContext('experimental-webgl', opts);
     if (!gl) return false;
     this._gl = gl;

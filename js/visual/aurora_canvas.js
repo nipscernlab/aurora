@@ -13,8 +13,11 @@
  *
  *  - Drift, never pulse: motion is nimitz's slow in-place tri-noise morph plus a
  *    slow per-band appear/vanish envelope. No translation.
- *  - Cheap-ish: half-res render, upscaled; rAF paused off-screen / unfocused;
- *    static CSS-gradient fallback on prefers-reduced-motion or missing WebGL.
+ *  - Bounded cost: the per-pixel march is heavy, so we render at reduced
+ *    resolution under a hard pixel budget, cap the loop at ~30fps (the drift is
+ *    slow enough that this is invisible), upscale via CSS, and pause the rAF
+ *    off-screen / unfocused. Static CSS-gradient fallback on
+ *    prefers-reduced-motion or missing WebGL.
  *
  * Self-registering vanilla custom element (works inside the Shadow DOM of
  * <aurora-welcome>). Attributes:
@@ -198,6 +201,11 @@ class AuroraCanvas extends HTMLElement {
     this._canvas = null;
     this._start = 0;
     this._last = 0;
+    // Cap the ambient effect at ~30fps. The march is heavy per pixel and the
+    // curtain morph is deliberately slow, so 30fps looks identical to 60/120
+    // while cutting shader invocations 2-4x — the biggest lever against the
+    // welcome-screen stall on integrated GPUs.
+    this._minFrameMs = 1000 / 30;
     this._running = false;
     this._visible = true;
     this._onResize = this._onResize.bind(this);
@@ -321,13 +329,25 @@ class AuroraCanvas extends HTMLElement {
 
   _onResize() {
     if (!this._gl || !this._canvas) return;
-    // Render a bit above half-res and upscale via CSS. The fine vertical
-    // filaments alias / crawl when the buffer is too small (reads as "losing
-    // quality" in motion), so 0.6x was too coarse. Cap the product so a high-DPI
-    // panel still doesn't pay full-res for an ambient effect.
-    const dpr = Math.min((window.devicePixelRatio || 1) * 0.85, 1.1);
-    const w = Math.max(2, Math.floor(this.clientWidth * dpr));
-    const h = Math.max(2, Math.floor(this.clientHeight * dpr));
+    // Reduced-resolution render, upscaled via CSS. This march is heavy PER PIXEL,
+    // so the fragment count is a primary cost driver. The previous factor (0.85 *
+    // devicePixelRatio) rendered at ~full CSS resolution — worse, on a scaled
+    // display (Windows 125%/150%) devicePixelRatio pushed it ABOVE 1.0, i.e. it
+    // paid MORE than full-res for an ambient background. Now: a genuine downscale
+    // AND a hard pixel budget, so neither a large window nor a high-DPI panel can
+    // blow up the cost. Some softening of the fine filaments is the deliberate
+    // trade for not stalling; raise SCALE / BUDGET if more crispness is wanted.
+    const SCALE = 0.68;
+    const BUDGET = 850000;   // ~0.85 MP ceiling regardless of window size / DPI
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25) * SCALE;
+    let w = Math.max(2, Math.floor(this.clientWidth * dpr));
+    let h = Math.max(2, Math.floor(this.clientHeight * dpr));
+    const px = w * h;
+    if (px > BUDGET) {
+      const s = Math.sqrt(BUDGET / px);
+      w = Math.max(2, Math.floor(w * s));
+      h = Math.max(2, Math.floor(h * s));
+    }
     if (this._canvas.width !== w || this._canvas.height !== h) {
       this._canvas.width = w;
       this._canvas.height = h;
@@ -345,7 +365,9 @@ class AuroraCanvas extends HTMLElement {
     if (this._running || !this._gl) return;
     this._running = true;
     if (!this._start) this._start = performance.now();
-    this._last = performance.now();
+    // Back-date _last by one interval so the first tick renders immediately
+    // instead of being throttled away.
+    this._last = performance.now() - this._minFrameMs;
     this._raf = requestAnimationFrame(this._tick);
   }
 
@@ -356,8 +378,13 @@ class AuroraCanvas extends HTMLElement {
 
   _tick(now) {
     if (!this._running) return;
-    this._render((now - this._start) / 1000);
     this._raf = requestAnimationFrame(this._tick);
+    // Throttle to ~30fps. Advancing _last by whole frame intervals keeps a
+    // stable cadence instead of drifting with rAF jitter.
+    const dt = now - this._last;
+    if (dt < this._minFrameMs) return;
+    this._last = now - (dt % this._minFrameMs);
+    this._render((now - this._start) / 1000);
   }
 
   _renderOnce() {

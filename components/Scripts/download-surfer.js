@@ -38,17 +38,19 @@ const { verifyChecksum } = require('./lib/checksum');
 // Vira true quando o CI do fork (gitlab.com/nips-cern/surfer-aurora) publicar
 // um zip do binario Windows no registro de pacotes. Enquanto false, o
 // surfer-aurora.exe vem do build local — nunca do upstream (ver header).
-const PUBLISHED = false;
+const PUBLISHED = true;
 
-// Preencher junto com PUBLISHED=true. `url` aponta pro pacote generico do FORK
-// (nao do upstream); `sha256` e o hash imutavel do zip daquela tag; `filename`
-// e o nome do zip. Deixado a null enquanto nao publicado.
+// O pacote publicado pelo CI do fork (.gitlab-ci-aurora.yml). `url` aponta pro
+// registro generico do FORK (projeto 84576006 = nips-cern/surfer-aurora, id
+// numerico p/ ser estavel a renomeacoes); `sha256` e o hash imutavel do zip
+// daquela tag (verificado antes de extrair). Pra subir de versao: nova tag ->
+// CI publica -> atualizar tag/filename/sha256/url aqui.
 /** @type {{ url: string, sha256: string, filename: string, tag: string } | null} */
 const FORK_ARTIFACT = PUBLISHED ? {
-    tag:      'vX.Y.Z',
-    filename: 'surfer-aurora_win_vX.Y.Z.zip',
-    sha256:   'REPLACE_WITH_FORK_ARTIFACT_SHA256',
-    url:      'https://gitlab.com/api/v4/projects/nips-cern%2Fsurfer-aurora/packages/generic/surfer-aurora/vX.Y.Z/surfer-aurora_win_vX.Y.Z.zip',
+    tag:      'v0.7.0-nips.1',
+    filename: 'surfer-aurora_win_v0.7.0-nips.1.zip',
+    sha256:   '5823ac77f0c7b9a9ba165f11c690c0e0490f7d03f8eb5ad7645c1e3ba6c66e15',
+    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.1/surfer-aurora_win_v0.7.0-nips.1.zip',
 } : null;
 
 const ROOT_DIR      = path.join(__dirname, '..', '..');

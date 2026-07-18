@@ -49,6 +49,20 @@ export function switchTerminal(targetId) {
   // Show the selected terminal content
   targetContent.classList.remove('hidden');
 
+  // Entering a terminal ALWAYS lands at the bottom. Content may have streamed in
+  // while this terminal was hidden — its scrollHeight was 0/stale then, so the
+  // per-append auto-scroll couldn't stick. Now that it's visible, scroll to the
+  // end. Double rAF: the newly revealed `.log-entry` rows use
+  // content-visibility:auto, so their real height lands only after the first
+  // paint; a single jump would stop short of the last line.
+  const body = targetContent.querySelector('.terminal-body');
+  if (body) {
+    requestAnimationFrame(() => {
+      body.scrollTop = body.scrollHeight;
+      requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
+    });
+  }
+
   // Mark the corresponding tab as active
   // O replace remove o prefixo 'terminal-' para achar o data-terminal correto
   const dataTerm = targetId.replace('terminal-', '');

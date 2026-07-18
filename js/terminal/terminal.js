@@ -45,20 +45,33 @@ function positionTerminalIndicator(activeTab) {
  */
 export function smoothFollowToBottom(el) {
   if (!el || el._followRAF) return;
+  const CAP = 45;          // px/frame ceiling: a controlled glide, never a teleport
+  el._followVel = 0;
+  let atBottom = 0;        // consecutive frames settled at a STABLE bottom
+  let lastTarget = -1;
   const step = () => {
     const target = el.scrollHeight - el.clientHeight;
     const gap = target - el.scrollTop;
-    if (gap <= 0.5) {                 // arrived exactly at the true bottom
-      el.scrollTop = target;
-      el._followVel = 0;
-      el._followRAF = 0;
+    const stable = Math.abs(target - lastTarget) < 0.5;   // height stopped changing
+    lastTarget = target;
+    if (gap > 0.5) {
+      atBottom = 0;
+      // Spring: accelerates from rest (ease-in) and decelerates as the gap closes
+      // (ease-out). The CAP keeps a big jump (tab switch) or a fast burst a
+      // visible glide instead of the near-instant snap it was without it.
+      el._followVel = Math.min((el._followVel + gap * 0.16) * 0.72, gap, CAP);
+      el.scrollTop += Math.max(el._followVel, 1);
+      el._followRAF = requestAnimationFrame(step);
       return;
     }
-    // Spring toward the bottom: accelerate from rest, decelerate near the end.
-    // Tight enough that the lag stays under a line or two during normal streams,
-    // so nothing is left below the fold, yet still a visible glide (not a jump).
-    el._followVel = ((el._followVel || 0) + gap * 0.22) * 0.68;
-    el.scrollTop += el._followVel;
+    // At the bottom — but don't stop yet. content-visibility:auto rows settle
+    // their REAL height only a few frames after we arrive (worst on a tab
+    // switch, where the whole body was unrendered while hidden), which moves the
+    // true bottom down. Snap exactly and keep watching until the height has held
+    // steady for a few frames — otherwise the view stops short of the last line.
+    el.scrollTop = target;
+    el._followVel = 0;
+    if (stable && atBottom++ > 5) { el._followRAF = 0; return; }
     el._followRAF = requestAnimationFrame(step);
   };
   el._followRAF = requestAnimationFrame(step);

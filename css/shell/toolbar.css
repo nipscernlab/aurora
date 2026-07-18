@@ -644,8 +644,8 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 .prism-btn img,
 #prismcomp img {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   filter: drop-shadow(0 0 5px var(--accent-glow));
   transition: filter var(--transition-fast),
               transform 200ms var(--ease-out-quart);
@@ -662,9 +662,9 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-weight: var(--font-semibold);
-  letter-spacing: 0.08em;
-  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  letter-spacing: 0.02em;
+  font-size: var(--text-xs);
 }
 
 /* Active state — accent indicator at the bottom */

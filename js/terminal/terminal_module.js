@@ -1352,7 +1352,6 @@ createLogEntry(terminal, text, type, timestamp) {
                 const observer = new MutationObserver(() => this.scrollToBottom(id));
                 if (terminal) {
                     observer.observe(terminal, config);
-                    this._wireStick(terminal);
                 }
             });
         TerminalManager.autoScrollInitialized = true;
@@ -1385,7 +1384,7 @@ createLogEntry(terminal, text, type, timestamp) {
             if (!terminal) return;
             // Cheap per-frame work: keep the DOM bounded and stay scrolled.
             this.trimTerminal(terminal);
-            this._stickBottom(terminal);
+            terminal.scrollTop = terminal.scrollHeight;
             // recount + filter walk the whole log (O(n)); throttle them so a
             // fast stream re-walks ~8×/s instead of every frame (P10).
             this._scheduleCountRefresh(terminalId);
@@ -1425,92 +1424,8 @@ createLogEntry(terminal, text, type, timestamp) {
         pending.add(terminalId);
         requestAnimationFrame(() => {
             pending.delete(terminalId);
-            this._stickBottom(terminal);
+            terminal.scrollTop = terminal.scrollHeight;
         });
-    }
-
-    /**
-     * Attach the stick-to-bottom tracking to a terminal body ONCE. Idempotent
-     * and per-element (guarded by `_auroraWired`) so it survives panel rebuilds:
-     * when `_resolveTerminal` swaps in a freshly-created `.terminal-body`, the
-     * next `_stickBottom` re-wires it — unlike the one-shot MutationObserver.
-     *
-     * Intent is decided by ONE question: was this scroll ours, or the user's?
-     * `_stickBottom` records the exact scrollTop it writes, so any scroll event
-     * landing on a *different* offset came from the user — by whatever means:
-     * scrollbar drag, wheel, PageUp/Home, touch, middle-click autoscroll. Then:
-     *   • user scrolled away from the bottom → pause the follow
-     *   • user came back to the bottom       → re-arm it
-     *
-     * The previous version inferred this from `scrollHeight` staying unchanged
-     * between scroll events, which is only true when NO output is arriving —
-     * exactly backwards. While a compile streamed, the height changed on every
-     * event, so the "user moved up" branch never ran, the follow never paused,
-     * and each appended line yanked the view back down: the scrollbar was
-     * unusable during the one activity it matters most for.
-     */
-    _wireStick(terminal) {
-        if (!terminal || terminal._auroraWired) return;
-        terminal._auroraWired = true;
-        terminal._auroraStick = true;
-        terminal._auroraProgTop = -1;   // last offset WE wrote; -1 = never
-        terminal.addEventListener('scroll', () => {
-            // Tolerance of 1px: fractional/zoomed layouts can round the value
-            // back a hair from what we assigned.
-            if (Math.abs(terminal.scrollTop - terminal._auroraProgTop) <= 1) return;
-            const dist = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight;
-            terminal._auroraStick = dist <= 40;
-        }, { passive: true });
-    }
-
-    /**
-     * Follow a terminal's bottom while the user hasn't scrolled away — smoothly,
-     * so streamed output reads as the view gliding down with the text rather
-     * than teleporting on every line.
-     *
-     * A self-sustaining rAF loop that eases a fixed FRACTION of the remaining
-     * distance per frame and re-reads `scrollHeight` each time. That is what
-     * makes it safe on a moving target, which plain `scroll-behavior: smooth`
-     * was not: a CSS animation restarts on every scrollTop write, so during a
-     * stream it kept re-aiming at a bottom that had already moved and never
-     * landed (why it was ripped out for instant jumps). Re-targeting per frame
-     * converges instead — and because the loop only exits once the gap is gone,
-     * it also absorbs `content-visibility:auto` settling, where bottom rows get
-     * their real height only after paint (the old fixed double-rAF guessed at
-     * this and could still land short).
-     *
-     * A burst too large to animate meaningfully snaps: past a few screenfuls the
-     * user wants the end, not a ride to it.
-     */
-    _stickBottom(terminal) {
-        if (!terminal) return;
-        this._wireStick(terminal);
-        if (terminal._auroraStick === false) return;
-        if (terminal._followRAF) return;   // already gliding — it re-aims itself
-
-        const settle = () => {
-            // Read the CLAMPED value back and record it, so the scroll event this
-            // write is about to fire is recognised as ours and left alone.
-            terminal._auroraProgTop = terminal.scrollTop;
-        };
-        const step = () => {
-            terminal._followRAF = null;
-            if (terminal._auroraStick === false) return;   // user took over
-            const target = terminal.scrollHeight - terminal.clientHeight;
-            const gap = target - terminal.scrollTop;
-            if (gap <= 0.5) { terminal.scrollTop = target; settle(); return; }
-            if (gap > terminal.clientHeight * 3) {          // flood: go straight there
-                terminal.scrollTop = target;
-                settle();
-                return;
-            }
-            // ~18%/frame ≈ 200ms to close a gap, with a 1px floor so it always
-            // converges instead of asymptotically crawling the last fraction.
-            terminal.scrollTop += Math.max(1, gap * 0.18);
-            settle();
-            terminal._followRAF = requestAnimationFrame(step);
-        };
-        terminal._followRAF = requestAnimationFrame(step);
     }
 
 async clearTerminal(terminalId) {

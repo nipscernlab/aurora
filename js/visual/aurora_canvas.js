@@ -13,11 +13,13 @@
  *
  *  - Drift, never pulse: motion is nimitz's slow in-place tri-noise morph plus a
  *    slow per-band appear/vanish envelope. No translation.
- *  - Bounded cost: the per-pixel march is heavy, so we render at reduced
- *    resolution under a hard pixel budget, cap the loop at ~30fps (the drift is
- *    slow enough that this is invisible), upscale via CSS, and pause the rAF
- *    off-screen / unfocused. Static CSS-gradient fallback on
- *    prefers-reduced-motion or missing WebGL.
+ *  - Full quality or nothing: the effect always renders at full resolution. The
+ *    per-pixel march is heavy, so a capability gate watches the frame pacing and
+ *    REMOVES the aurora on a GPU that can't sustain it (leaving just the SAPHO
+ *    wordmark) — it never shows a downscaled/soft version. The loop is capped at
+ *    ~30fps (the drift is slow enough that this is imperceptible, not a quality
+ *    change) and the rAF pauses off-screen / unfocused. Static CSS-gradient
+ *    fallback on prefers-reduced-motion or missing WebGL.
  *
  * Self-registering vanilla custom element (works inside the Shadow DOM of
  * <aurora-welcome>). Attributes:
@@ -206,6 +208,16 @@ class AuroraCanvas extends HTMLElement {
     // while cutting shader invocations 2-4x — the biggest lever against the
     // welcome-screen stall on integrated GPUs.
     this._minFrameMs = 1000 / 30;
+    // Capability gate — NEVER degrades quality. The shader runs at full quality
+    // or not at all. On hardware too weak to sustain it (integrated-only PCs,
+    // where force_high_performance_gpu has no discrete GPU to switch to), watch
+    // the achieved frame pacing and, if it can't keep up, REMOVE the aurora
+    // entirely, leaving the plain welcome + SAPHO wordmark. No reduced-quality
+    // tier, no soft fallback.
+    this._lastRenderAt = 0;   // wall clock of the previous rendered frame
+    this._avgFrameMs = 0;     // rolling avg of the rendered-frame interval
+    this._renderCount = 0;    // rendered frames since play began (gate warmup)
+    this._gated = false;      // once true, the gate removed the effect (decide once)
     this._running = false;
     this._visible = true;
     this._onResize = this._onResize.bind(this);
@@ -334,25 +346,13 @@ class AuroraCanvas extends HTMLElement {
 
   _onResize() {
     if (!this._gl || !this._canvas) return;
-    // Reduced-resolution render, upscaled via CSS. This march is heavy PER PIXEL,
-    // so the fragment count is a primary cost driver. The previous factor (0.85 *
-    // devicePixelRatio) rendered at ~full CSS resolution — worse, on a scaled
-    // display (Windows 125%/150%) devicePixelRatio pushed it ABOVE 1.0, i.e. it
-    // paid MORE than full-res for an ambient background. Now: a genuine downscale
-    // AND a hard pixel budget, so neither a large window nor a high-DPI panel can
-    // blow up the cost. Some softening of the fine filaments is the deliberate
-    // trade for not stalling; raise SCALE / BUDGET if more crispness is wanted.
-    const SCALE = 0.68;
-    const BUDGET = 850000;   // ~0.85 MP ceiling regardless of window size / DPI
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.25) * SCALE;
-    let w = Math.max(2, Math.floor(this.clientWidth * dpr));
-    let h = Math.max(2, Math.floor(this.clientHeight * dpr));
-    const px = w * h;
-    if (px > BUDGET) {
-      const s = Math.sqrt(BUDGET / px);
-      w = Math.max(2, Math.floor(w * s));
-      h = Math.max(2, Math.floor(h * s));
-    }
+    // Full-quality render at native resolution (capped at 1.5x so a 4K/retina
+    // panel doesn't allocate an absurd buffer, but no cost-driven downscale). We
+    // never render a soft version to keep up: a GPU that can't sustain full
+    // quality gets the effect REMOVED by the capability gate instead.
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const w = Math.max(2, Math.floor(this.clientWidth * dpr));
+    const h = Math.max(2, Math.floor(this.clientHeight * dpr));
     if (this._canvas.width !== w || this._canvas.height !== h) {
       this._canvas.width = w;
       this._canvas.height = h;
@@ -373,6 +373,8 @@ class AuroraCanvas extends HTMLElement {
     // Back-date _last by one interval so the first tick renders immediately
     // instead of being throttled away.
     this._last = performance.now() - this._minFrameMs;
+    // Don't count the paused gap as one giant frame in the capability gate.
+    this._lastRenderAt = 0;
     this._raf = requestAnimationFrame(this._tick);
   }
 
@@ -390,6 +392,45 @@ class AuroraCanvas extends HTMLElement {
     if (dt < this._minFrameMs) return;
     this._last = now - (dt % this._minFrameMs);
     this._render((now - this._start) / 1000);
+    this._sampleAndGate(now);
+  }
+
+  // Capability gate: watch the achieved rendered-frame interval and, if this GPU
+  // can't sustain the full-quality effect after a short warmup, remove it. Never
+  // downscales — full quality or none. Capable GPUs sit near the 33ms target and
+  // never trip the threshold.
+  _sampleAndGate(now) {
+    if (this._gated) return;
+    const rt = this._lastRenderAt ? (now - this._lastRenderAt) : this._minFrameMs;
+    this._lastRenderAt = now;
+    this._renderCount++;
+    if (this._renderCount <= 12) return;   // warmup: shader compile + first draws jank
+    this._avgFrameMs = this._avgFrameMs ? this._avgFrameMs * 0.85 + rt * 0.15 : rt;
+    // >70ms sustained (~<14fps) once we have enough samples: this GPU can't run
+    // the effect. Remove it. The 70ms line sits far above a healthy 33ms, so a
+    // capable GPU (or a brief hitch) never triggers a false removal.
+    if (this._renderCount >= 30 && this._avgFrameMs > 70) this._gate();
+  }
+
+  // Not enough GPU for the full-quality aurora: tear the effect down entirely and
+  // leave the plain welcome (just the SAPHO wordmark). No degraded fallback.
+  _gate() {
+    if (this._gated) return;
+    this._gated = true;
+    this._pause();
+    this.style.display = 'none';   // hide the whole host -> aurora gone, SAPHO stays
+    if (this._observer) { this._observer.disconnect(); this._observer = null; }
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    window.removeEventListener('resize', this._onResize);
+    window.removeEventListener('blur', this._onVisibility);
+    window.removeEventListener('focus', this._onVisibility);
+    document.removeEventListener('visibilitychange', this._onVisibility);
+    if (this._canvas) { this._canvas.remove(); this._canvas = null; }
+    if (this._gl) {
+      const lose = this._gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+      this._gl = null;
+    }
   }
 
   _renderOnce() {

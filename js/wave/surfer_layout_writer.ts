@@ -580,7 +580,8 @@ function buildTopLevel(scopes: VcdScope[], procPaths: string[], filter: Set<stri
       const fullName = `${scope.path}.${sig.name}`;
       if (!passesFilter(filter, fullName)) continue;
       const range = sig.range ?? null;
-      const format = range === null ? 'Binary' : (signedSet && signedSet.has(fullName) ? 'Signed' : 'Unsigned');
+      // range === null => escalar de 1 bit: 'Bit' desenha onda quadrada (ver pushClk).
+      const format = range === null ? 'Bit' : (signedSet && signedSet.has(fullName) ? 'Signed' : 'Unsigned');
       out.push({ kind: 'variable', scope: scope.path.split('.'), name: sig.name, format });
     }
   }
@@ -597,7 +598,12 @@ function pushClk(items: SurferItem[], filter: Set<string> | null, scopes: VcdSco
   // reduzida deixa os sinais de dado (variaveis/instrucoes) mais proeminentes.
   // NB: 0.5 era curto demais — o rotulo da linha nao cabia e "encavalava" com a
   // linha vizinha (ilegivel). 0.8 mantem clk/rst um pouco menores, mas legiveis.
-  items.push({ kind: 'variable', scope: scopePath.split('.'), name, format: 'Binary', heightScale: 0.8 });
+  // format 'Bit' (nao 'Binary'): o BitTranslator do Surfer reporta
+  // VariableInfo::Bool e desenha o sinal como ONDA QUADRADA (dois niveis).
+  // 'Binary' usa o BinaryTranslator (VariableInfo::Bits), que desenha caixa de
+  // valor por segmento — o clk virava "numero" 1/0 em vez de onda. 'Bit' e o
+  // tradutor que o proprio Surfer ja prefere para 1 bit.
+  items.push({ kind: 'variable', scope: scopePath.split('.'), name, format: 'Bit', heightScale: 0.8 });
 }
 
 function buildIo(scopes: VcdScope[], instancePath: string, filter: Set<string> | null): SurferItem[] {
@@ -613,10 +619,12 @@ function buildIo(scopes: VcdScope[], instancePath: string, filter: Set<string> |
     if (!sig || !passesFilter(filter, sig.fullName)) return;
     out.push({ kind: 'variable', scope: instancePath.split('.'), name: sig.name, format, color: 'Yellow', manualName });
   };
+  // req_in/out_en sao 1-bit (handshake) -> 'Bit' (onda quadrada); in/out sao
+  // barramentos -> 'Signed'.
   const n1 = Math.max(reqIns.length, inSims.length);
-  for (let i = 0; i < n1; i++) { push(reqIns[i], 'Binary', `req_in ${i}`); push(inSims[i], 'Signed', `input  ${i}`); }
+  for (let i = 0; i < n1; i++) { push(reqIns[i], 'Bit', `req_in ${i}`); push(inSims[i], 'Signed', `input  ${i}`); }
   const n2 = Math.max(outEns.length, outSigs.length);
-  for (let i = 0; i < n2; i++) { push(outEns[i], 'Binary', `out_en ${i}`); push(outSigs[i], 'Signed', `output ${i}`); }
+  for (let i = 0; i < n2; i++) { push(outEns[i], 'Bit', `out_en ${i}`); push(outSigs[i], 'Signed', `output ${i}`); }
   return out;
 }
 
@@ -717,10 +725,10 @@ function buildFlags(scopes: VcdScope[], corePath: string | null, filter: Set<str
   const stackSpec = [
     { path: `${corePath}.sp`,  name: 'pointeri', format: 'Signed',   analog: true,  alias: 'Data Stack Pointer' },
     { path: `${corePath}.sp`,  name: 'fl_max',   format: 'Unsigned', analog: false, alias: 'Data Stack Max' },
-    { path: `${corePath}.sp`,  name: 'fl_full',  format: 'Binary',   analog: false, alias: 'Data Stack Overflow' },
+    { path: `${corePath}.sp`,  name: 'fl_full',  format: 'Bit',      analog: false, alias: 'Data Stack Overflow' },
     { path: `${corePath}.isp`, name: 'pointeri', format: 'Signed',   analog: true,  alias: 'Inst Stack Pointer' },
     { path: `${corePath}.isp`, name: 'fl_max',   format: 'Unsigned', analog: false, alias: 'Inst Stack Max' },
-    { path: `${corePath}.isp`, name: 'fl_full',  format: 'Binary',   analog: false, alias: 'Inst Stack Overflow' },
+    { path: `${corePath}.isp`, name: 'fl_full',  format: 'Bit',      analog: false, alias: 'Inst Stack Overflow' },
   ];
   const stackItems: SurferItem[] = [];
   for (const e of stackSpec) {

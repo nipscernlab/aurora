@@ -3,7 +3,7 @@ import '../components/aurora-terminal.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
-import { switchTerminal } from './terminal.js';
+import { switchTerminal, smoothFollowToBottom } from './terminal.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
 // compile (Verilator/iverilog dumping thousands of lines) appends one node
@@ -1384,7 +1384,7 @@ createLogEntry(terminal, text, type, timestamp) {
             if (!terminal) return;
             // Cheap per-frame work: keep the DOM bounded and stay scrolled.
             this.trimTerminal(terminal);
-            terminal.scrollTop = terminal.scrollHeight;
+            smoothFollowToBottom(terminal);
             // recount + filter walk the whole log (O(n)); throttle them so a
             // fast stream re-walks ~8×/s instead of every frame (P10).
             this._scheduleCountRefresh(terminalId);
@@ -1412,20 +1412,12 @@ createLogEntry(terminal, text, type, timestamp) {
     scrollToBottom(terminalId) {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
-
-        // Coalesce bursts of scroll requests (the autoscroll MutationObserver
-        // fires one per appended node) into a single rAF per terminal. The old
-        // version also queued a setTimeout(…,100) re-scroll on every call, so a
-        // fast stream left hundreds of pending timers each reading scrollHeight
-        // (a forced layout). The observer already re-fires on any late height
-        // change, so one coalesced scroll per frame is both cheaper and correct.
-        const pending = this._scrollPending || (this._scrollPending = new Set());
-        if (pending.has(terminalId)) return;
-        pending.add(terminalId);
-        requestAnimationFrame(() => {
-            pending.delete(terminalId);
-            terminal.scrollTop = terminal.scrollHeight;
-        });
+        // Smooth, self-coalescing follow to the true bottom (see
+        // smoothFollowToBottom). Calling it per appended line is cheap: a call
+        // while its rAF loop is already running is a no-op, and the loop re-reads
+        // the height each frame so it keeps up with the stream and lands exactly
+        // on the last line instead of stopping short.
+        smoothFollowToBottom(terminal);
     }
 
 async clearTerminal(terminalId) {

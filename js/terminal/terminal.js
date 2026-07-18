@@ -30,6 +30,40 @@ function positionTerminalIndicator(activeTab) {
   ind.classList.add('visible');
 }
 
+/**
+ * Smoothly follow a scroll container to its TRUE bottom, with acceleration and
+ * deceleration. One self-sustaining rAF loop per element (guarded by
+ * `_followRAF`) that RE-READS scrollHeight every frame — so it stays locked to
+ * the bottom while text is still streaming in, and while `content-visibility:
+ * auto` rows settle their real height only after the first paint. That is what
+ * fixes both "stops short / cuts off content" (a single scrollTop = scrollHeight
+ * lands before the bottom rows have height) and "doesn't follow while spitting
+ * text". A spring drives the motion: velocity builds from rest (ease-in) and
+ * decays as the gap closes (ease-out). Cheap to call on every appended line — a
+ * call while the loop is already running is a no-op; it stops once it reaches
+ * the bottom and a later append restarts it.
+ */
+export function smoothFollowToBottom(el) {
+  if (!el || el._followRAF) return;
+  const step = () => {
+    const target = el.scrollHeight - el.clientHeight;
+    const gap = target - el.scrollTop;
+    if (gap <= 0.5) {                 // arrived exactly at the true bottom
+      el.scrollTop = target;
+      el._followVel = 0;
+      el._followRAF = 0;
+      return;
+    }
+    // Spring toward the bottom: accelerate from rest, decelerate near the end.
+    // Tight enough that the lag stays under a line or two during normal streams,
+    // so nothing is left below the fold, yet still a visible glide (not a jump).
+    el._followVel = ((el._followVel || 0) + gap * 0.22) * 0.68;
+    el.scrollTop += el._followVel;
+    el._followRAF = requestAnimationFrame(step);
+  };
+  el._followRAF = requestAnimationFrame(step);
+}
+
 export function switchTerminal(targetId) {
   const targetContent = document.getElementById(targetId);
 
@@ -51,17 +85,10 @@ export function switchTerminal(targetId) {
 
   // Entering a terminal ALWAYS lands at the bottom. Content may have streamed in
   // while this terminal was hidden — its scrollHeight was 0/stale then, so the
-  // per-append auto-scroll couldn't stick. Now that it's visible, scroll to the
-  // end. Double rAF: the newly revealed `.log-entry` rows use
-  // content-visibility:auto, so their real height lands only after the first
-  // paint; a single jump would stop short of the last line.
-  const body = targetContent.querySelector('.terminal-body');
-  if (body) {
-    requestAnimationFrame(() => {
-      body.scrollTop = body.scrollHeight;
-      requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
-    });
-  }
+  // per-append follow couldn't stick. Now that it's visible, glide to the end
+  // (smoothFollowToBottom re-reads the height until it truly reaches the last
+  // line, so it never stops short on content-visibility rows).
+  smoothFollowToBottom(targetContent.querySelector('.terminal-body'));
 
   // Mark the corresponding tab as active
   // O replace remove o prefixo 'terminal-' para achar o data-terminal correto

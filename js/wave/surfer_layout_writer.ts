@@ -311,6 +311,18 @@ ${displayed}
         ],
         cursor: None,
         markers: ${markersRon},
+        // Campos do WaveData sem #[serde(default)] no binario que a AURORA
+        // embarca (surfer-aurora, base v0.7.0 + commits do upstream): a
+        // desserializacao RON e' estrita e um campo obrigatorio ausente derruba
+        // o load INTEIRO (o Surfer abre o dump cru, sem a curadoria). O struct
+        // EXTERNO UserState tem #[serde(default)] no nivel do struct, entao la
+        // omitir campo e' inofensivo; o WaveData interno NAO tem, entao estes
+        // tres precisam ser emitidos. Espelham o save nativo (vazio/false/0):
+        //   annotation_groups: Vec<AnnotationGroup>, annotation_list_visible:
+        //   bool, last_active_viewport_idx: usize.
+        annotation_groups: [],
+        annotation_list_visible: false,
+        last_active_viewport_idx: 0,
         focused_item: None,
         focused_transaction: (None, None),
         default_variable_name_type: Unique,

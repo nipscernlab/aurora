@@ -1,0 +1,379 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[a4paper,margin=2.4cm]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\usepackage{etoolbox}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!45!black,
+  urlcolor=blue!55!black,
+  citecolor=black,
+}
+
+% Blocos de codigo NAO podem ser cortados entre paginas: cada lstlisting vai
+% dentro de um minipage indivisivel, entao o bloco inteiro desce para a proxima
+% pagina se nao couber, em vez de partir no meio.
+\BeforeBeginEnvironment{lstlisting}{\par\noindent\begin{minipage}{\linewidth}}
+\AfterEndEnvironment{lstlisting}{\end{minipage}\par}
+
+% Nao esticar o espaco vertical para encher a pagina: quando um bloco desce
+% inteiro, o vazio fica no fim da pagina, sem abrir buracos entre as secoes.
+\raggedbottom
+
+\definecolor{codebg}{gray}{0.96}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codebg},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  frame=single,
+  rulecolor=\color{gray!40},
+  framesep=5pt,
+  xleftmargin=6pt,
+  xrightmargin=6pt,
+  showstringspaces=false,
+  aboveskip=8pt,
+  belowskip=8pt,
+}
+
+\setlist{itemsep=2pt,topsep=3pt}
+
+\title{Infraestrutura de Python da AURORA}
+\author{NIPS-CERN}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\noindent
+Este documento descreve, de forma geral, como o Python funciona dentro da
+AURORA: qual interpretador embarcamos, de onde ele vem (o bundle MSYS2), quais
+bibliotecas estão de fato instaladas, como um testbench cocotb roda de ponta a
+ponta, onde fica cada componente com os nomes reais, e o plano para distribuir
+bibliotecas sob demanda, com o Python do próprio usuário via terminal TCMD como
+saída para as bibliotecas que não empacotarmos.
+\end{abstract}
+
+% Corpo alinhado a esquerda: nomes de arquivo e caminhos longos em \texttt nao
+% escapam para fora da margem porque as linhas nao sao esticadas ate a direita.
+\raggedright
+
+\section{Visão geral}
+
+O Python na AURORA existe para uma finalidade específica: rodar testbenches
+cocotb. cocotb é um framework em Python para verificação de hardware; em vez de
+escrever o testbench em Verilog, o usuário escreve um arquivo \texttt{.py} que
+estimula e checa o DUT enquanto um simulador (Icarus Verilog ou Verilator) roda
+o design por baixo.
+
+Por isso o nosso Python é um runtime enxuto, embarcado, com um único trabalho.
+Ele não é um Python de propósito geral com muitas bibliotecas; é um interpretador
+mínimo que carrega o cocotb. Ele vive dentro do mesmo bundle MSYS2/mingw64 que
+traz o resto da toolchain (iverilog, vvp, verilator, yosys, perl, g++, make), de
+modo que há um único Python para os dois fluxos cocotb (Icarus e Verilator).
+
+Os pontos gerais:
+
+\begin{itemize}
+  \item Interpretador embarcado: \texttt{python.exe} dentro do bundle
+        \texttt{components/Packages/msys/mingw64/bin/}. É um build MinGW do MSYS2,
+        não o CPython oficial (MSVC) da python.org. Essa distinção importa para o
+        plano de bibliotecas (Seção 8).
+  \item Versões fixadas: Python 3.12.11 e cocotb 2.0.1.
+  \item A AURORA não usa o cocotb pela linha de comando dele. Ela gera um script
+        runner e passa os dados do projeto por variáveis de ambiente.
+  \item Segurança: só o Python embarcado pode ser executado pelo fluxo de
+        compilação; qualquer outro é rejeitado (Seção 7).
+\end{itemize}
+
+\section{O bundle MSYS2}
+
+O Python não é instalado à parte. Ele vem dentro de um único bundle que contém
+toda a toolchain FOSS empacotada a partir de um snapshot do MSYS2/mingw64.
+
+\begin{itemize}
+  \item Arquivo: \texttt{aurora-msys-v1.zip}, tag de release \texttt{msys-v1}.
+  \item Origem: repositório \texttt{nipscernlab/aurora-toolchain} no GitHub
+        (\url{https://github.com/nipscernlab/aurora-toolchain}). O download é
+        feito pelo script \texttt{components/Scripts/download-toolchain.js}
+        durante o \texttt{npm run bootstrap}.
+  \item Conteúdo relevante: \texttt{mingw64/bin} (iverilog, vvp, yosys, verilator,
+        perl, g++, make, ccache, e o \texttt{python.exe} com suas DLLs),
+        \texttt{mingw64/lib/python3.12} (a stdlib e o \texttt{site-packages} com o
+        cocotb), e \texttt{usr/bin} (bash e coreutils).
+\end{itemize}
+
+O cocotb não é instalado com \texttt{pip} em tempo de execução. Ele já vem
+pré-montado dentro do zip, pela CI do \texttt{aurora-toolchain}, que fixa o MSYS2,
+monta o VPI do cocotb, monta o bundle, faz um smoke test dos fluxos e publica.
+
+A instalação do bundle é verificada por sentinelas: o \texttt{verilator\_bin.exe}
+confirma a toolchain, e a presença de
+\texttt{site-packages/cocotb/libs/libcocotbvpi\_verilator.a} confirma que o cocotb
+veio junto. Um bundle sem cocotb dispara um novo download.
+
+Links úteis:
+
+\begin{itemize}
+  \item cocotb: \url{https://www.cocotb.org} e \url{https://docs.cocotb.org}
+  \item MSYS2: \url{https://www.msys2.org}
+  \item aurora-toolchain (nosso empacotamento):
+        \url{https://github.com/nipscernlab/aurora-toolchain}
+\end{itemize}
+
+\section{O interpretador e as versões}
+
+Quem resolve qual Python usar é \texttt{main/compile/python\_locator.js}. O
+interpretador canônico é o embarcado:
+
+\begin{lstlisting}[language=bash]
+components/Packages/msys/mingw64/bin/python.exe
+\end{lstlisting}
+
+O \texttt{python\_locator.js} monta uma lista de candidatos, na ordem: o Python
+embarcado, depois as variáveis \texttt{AURORA\_PYTHON}, \texttt{PYTHON},
+\texttt{CONDA\_PREFIX}, instalações comuns do Windows (miniconda, anaconda,
+Python da python.org, \texttt{py.exe}) e por fim o que estiver no \texttt{PATH}.
+Cada candidato é validado por uma sonda que roda um \texttt{python -c} curto e
+reporta a versão do Python, se o cocotb está presente e qual a versão do cocotb.
+Na prática o embarcado sempre vence: se ele existe, é o escolhido.
+
+Versões fixadas:
+
+\begin{itemize}
+  \item Python 3.12.11 (a stdlib fica em \texttt{mingw64/lib/python3.12}).
+  \item cocotb 2.0.1, fixado pela constante \texttt{EXPECTED\_COCOTB\_VERSION} em
+        \texttt{python\_locator.js}. O status do Python (exposto pela IPC
+        \texttt{toolchain:python-status}) marca se a versão do cocotb bate com a
+        esperada.
+\end{itemize}
+
+\section{Bibliotecas instaladas}
+
+Este é o ponto mais importante para entender o estado atual. O nosso Python é
+mínimo. O \texttt{site-packages} contém apenas o cocotb e o que ele precisa:
+
+\begin{itemize}
+  \item \texttt{cocotb} (2.0.1): o framework.
+  \item \texttt{cocotb\_tools}: o runner e a configuração do cocotb (o
+        \texttt{runner.py} que a AURORA usa).
+  \item \texttt{pygpi}: a ponte do cocotb com o simulador (a interface GPI).
+  \item \texttt{find\_libpython} (0.5.1): dependência do cocotb.
+\end{itemize}
+
+E, igualmente importante, o que NÃO está instalado:
+
+\begin{itemize}
+  \item Não há \texttt{pip} nem \texttt{ensurepip}. O bundle não traz gerenciador
+        de pacotes, então não dá para \texttt{pip install} algo direto de fábrica.
+  \item Não há \texttt{setuptools} nem \texttt{wheel}.
+  \item Não há bibliotecas científicas (\texttt{numpy}, \texttt{scipy}, etc.). Um
+        testbench que faça análise numérica precisa delas e hoje elas não existem
+        no runtime embarcado.
+\end{itemize}
+
+Ou seja, hoje o runtime cobre exatamente o fluxo cocotb e nada além. É esse vazio
+que o repositório de bibliotecas (Seção 8) pretende preencher.
+
+\section{Como um testbench cocotb roda}
+
+O fluxo, do clique ao resultado, é o seguinte.
+
+\paragraph{Detecção.} A AURORA decide pelo nome do arquivo. Um testbench
+\texttt{.py} (função \texttt{isPythonFile} em
+\texttt{js/compilation/compilation\_helpers.ts}) é roteado para o fluxo cocotb;
+um \texttt{.v/.sv} vai para o fluxo iverilog/verilator tradicional. Isso vale
+tanto para o botão Wave (\texttt{runGtkWave}) quanto para o Fast Sim
+(\texttt{runFastSim}), ambos em
+\texttt{js/compilation/compilation\_module.js}.
+
+\paragraph{Módulo topo (DUT).} Dentro do \texttt{.py}, um comentário opcional
+indica o módulo HDL de topo:
+
+\begin{lstlisting}[language=python]
+# aurora-toplevel: meu_modulo
+\end{lstlisting}
+
+Se presente, esse é o DUT. Se ausente, cai no top-level do projeto \texttt{.spf}.
+Por ser um comentário, o cocotb puro ignora a linha.
+
+\paragraph{O runner gerado.} A AURORA não chama o cocotb pela CLI. Ela gera, em
+tempo de execução, o script \texttt{components/Temp/aurora\_cocotb\_runner.py}
+(método \texttt{\_writeCocotbRunnerScript}) e o executa. Esse runner lê as
+variáveis de ambiente, injeta os caminhos no \texttt{sys.path} e usa a API
+oficial do cocotb (\texttt{get\_runner} de \texttt{cocotb\_tools.runner}) para
+compilar o HDL (\texttt{runner.build}) e rodar o testbench (\texttt{runner.test}).
+O comando executado é, em essência:
+
+\begin{lstlisting}[language=bash]
+python.exe aurora_cocotb_runner.py
+\end{lstlisting}
+
+com tudo o mais vindo do ambiente.
+
+\paragraph{O contrato de ambiente.} Os dados do projeto vão por variáveis
+\texttt{AURORA\_COCOTB\_*}. As quatro protegidas (que o override da Aurora
+Intelligence não pode alterar, ver \texttt{main/compile/protected\_flags.js}):
+
+\begin{lstlisting}
+AURORA_COCOTB_SOURCES_JSON   # JSON com os arquivos HDL passados ao runner.build
+AURORA_COCOTB_TOP            # nome do modulo topo (hdl_toplevel, o DUT)
+AURORA_COCOTB_TEST_MODULE    # nome do modulo Python (o .py) a importar
+AURORA_COCOTB_BUILD_DIR      # diretorio de build/saida (Temp/cocotb_<tb>)
+\end{lstlisting}
+
+Além dessas, o ambiente carrega o diretório de teste, o \texttt{PYTHONPATH} (para
+o \texttt{.py} e os módulos do projeto importarem), os argumentos de build por
+engine, o \texttt{SIM} (\texttt{icarus} ou \texttt{verilator}), o
+\texttt{TOPLEVEL\_LANG}, o \texttt{WAVES} (1 no Wave, 0 no Fast Sim) e ajustes de
+encoding (\texttt{PYTHONUTF8}, \texttt{PYTHONIOENCODING}) para o log não quebrar.
+
+\paragraph{A execução.} O runner é lançado pelo processo principal
+(\texttt{main/compile/executor.js}) com \texttt{shell:false} (sem shell, sem
+injeção), registrado no process registry para que o cancelamento derrube o Python
+e tudo que ele ramifica (iverilog/verilator/g++). O stdout aparece ao vivo no
+terminal.
+
+\paragraph{Engines.} O mesmo Python roda os dois engines; muda só o \texttt{SIM}
+e os argumentos de build. Icarus usa \texttt{-g2012}. Verilator usa um conjunto
+de \texttt{-Wno-*} (para os warnings do HDL do SAPHO não abortarem o build), o
+\texttt{+define+YANC\_TRACE} e flags de otimização. No modo Wave o Verilator
+recebe \texttt{--trace-fst} e \texttt{WAVES=1}; no Fast Sim roda headless, sem
+onda.
+
+\paragraph{Progresso e resultado.} A AURORA lê o stdout do cocotb procurando o
+padrão de progresso (regex \texttt{COCOTB\_PROG\_RE} em
+\texttt{compilation\_module.js}, algo como \texttt{"nome: N/M samples
+processed"}) e transforma isso na barra de progresso do terminal. O sucesso ou
+falha é dado pelo código de saída do processo: o \texttt{runner.test} retorna
+diferente de zero quando os testes falham. No modo Wave, o dump \texttt{.fst}/
+\texttt{.vcd} gerado é localizado e aberto no viewer.
+
+\section{Onde fica cada componente}
+
+Agrupando pelos papéis, com os nomes reais:
+
+\paragraph{Localizar e validar o interpretador.}
+\texttt{main/compile/python\_locator.js} (resolve o Python embarcado, descobre
+candidatos, sonda o cocotb, expõe \texttt{getPythonStatus}),
+\texttt{main/paths.js} (a raiz \texttt{componentsPath} do bundle),
+\texttt{main/ipc/system.js} (a IPC \texttt{toolchain:python-status}).
+
+\paragraph{Bundle e download.}
+\texttt{components/Scripts/download-toolchain.js} (baixa e extrai o
+\texttt{aurora-msys-v1.zip}, checa a sentinela do cocotb). O interpretador e o
+cocotb em si ficam em \texttt{components/Packages/msys/mingw64/}.
+
+\paragraph{Montar e rodar o comando cocotb.}
+\texttt{js/compilation/builders/cocotb.ts} (monta o CommandSpec
+\texttt{cocotb-run}), \texttt{js/compilation/compilation\_module.js} (a
+orquestração: gera o runner, coleta as fontes, resolve o perfil Icarus/Verilator,
+roda a simulação, adota a onda), \texttt{js/compilation/compilation\_helpers.ts}
+(\texttt{isPythonFile}, a diretiva \texttt{aurora-toplevel}, validação de nome de
+módulo), \texttt{js/wave/simulator\_preference.js} (o toggle do engine).
+
+\paragraph{Executar (processo principal).}
+\texttt{main/compile/executor.js} (spawn com \texttt{shell:false}, ambiente
+sanitizado, prioridade elevada, slot de cancelamento) e
+\texttt{main/process\_registry.js} (o tree-kill do grupo RUN).
+
+\paragraph{Segurança.}
+\texttt{main/compile/binary\_allowlist.js} (só o Python embarcado é executável) e
+\texttt{main/compile/protected\_flags.js} (as invariantes de ambiente do
+\texttt{cocotb-run}).
+
+\section{Segurança}
+
+Dois controles cercam a execução do Python:
+
+\begin{itemize}
+  \item Allowlist de binário: em \texttt{binary\_allowlist.js}, qualquer nome
+        \texttt{python}/\texttt{python3}/\texttt{py} só é liberado se o caminho
+        for exatamente o do interpretador embarcado. Um Python de fora é
+        recusado, não importam os argumentos. É o mesmo mecanismo que restringe
+        os outros binários da toolchain.
+  \item Flags protegidas: o spec \texttt{cocotb-run} não carrega flags de CLI
+        sensíveis (só o caminho do runner), então as invariantes são as quatro
+        variáveis \texttt{AURORA\_COCOTB\_*} da Seção 5. Um override não pode
+        mudar o valor delas.
+  \item \texttt{shell:false} no spawn: os argumentos vão diretos ao processo, sem
+        passar por um shell, o que elimina injeção por parsing de string.
+\end{itemize}
+
+\section{Plano: repositório de bibliotecas sob demanda}
+
+A ideia é preencher o vazio da Seção 4: manter um repositório de bibliotecas
+Python interessantes e deixar o usuário baixar sob demanda, instalando-as no
+runtime embarcado. As bibliotecas especiais que não empacotarmos ficam a cargo do
+Python do próprio usuário, via terminal TCMD.
+
+\subsection{A restrição técnica que orienta tudo}
+
+O nosso Python é um build MinGW do MSYS2, não o CPython oficial (MSVC) da
+python.org. Isso tem uma consequência prática forte:
+
+\begin{itemize}
+  \item Bibliotecas Python puras (só \texttt{.py}, sem extensão em C) funcionam
+        em qualquer interpretador, então basta colocá-las no
+        \texttt{site-packages}.
+  \item Bibliotecas com extensão em C (\texttt{numpy}, \texttt{scipy},
+        \texttt{pandas}, etc.) são compiladas para uma ABI específica. As wheels
+        binárias da PyPI são feitas para o CPython MSVC e em geral NÃO carregam no
+        Python MinGW. Para essas, o caminho correto é usar os pacotes mingw do
+        próprio MSYS2 (por exemplo \texttt{mingw-w64-x86\_64-python-numpy}), que
+        são compilados para a mesma ABI do nosso Python.
+\end{itemize}
+
+Em resumo: um repositório de wheels da PyPI não serve direto para o nosso Python.
+O repositório precisa guardar ou libs puras, ou pacotes mingw compatíveis.
+
+\subsection{Como instalar sob demanda}
+
+Como o bundle não traz \texttt{pip} nem \texttt{ensurepip} (Seção 4), há três
+abordagens possíveis, da mais simples à mais completa:
+
+\begin{itemize}
+  \item Guardar no repositório os pacotes já prontos (a árvore de arquivos da
+        biblioteca) e, no download, extrair direto no
+        \texttt{site-packages} do bundle. Funciona bem para libs puras e para
+        pacotes mingw pré-extraídos, sem precisar de gerenciador de pacotes.
+  \item Adicionar \texttt{pip} ao runtime (via \texttt{ensurepip} ou um
+        \texttt{get-pip.py}) e então instalar com \texttt{pip install}. Serve para
+        libs puras; para libs com C, esbarra na restrição de ABI acima.
+  \item Para as libs com C, distribuir os pacotes mingw do MSYS2 e colocá-los no
+        lugar, já compatíveis com o nosso Python.
+\end{itemize}
+
+A escolha entre elas depende de quão longe queremos ir com libs binárias. Para
+começar, guardar os pacotes prontos no repositório e extrair no
+\texttt{site-packages} é o caminho de menor atrito.
+
+\subsection{Fallback: o Python do usuário via TCMD}
+
+O TCMD é o terminal interativo da AURORA, um pseudo-terminal real (ConPTY, via
+\texttt{@lydell/node-pty}) que roda um shell de verdade (PowerShell no Windows).
+Nele o usuário roda comandos livres, incluindo o Python que ele tiver instalado
+na máquina:
+
+\begin{lstlisting}[language=bash]
+python meu_script.py
+\end{lstlisting}
+
+Esse é o escape para as bibliotecas que não estiverem no nosso repositório: em
+vez de forçar tudo para dentro do runtime embarcado (com a restrição de ABI), o
+usuário usa o Python dele, com o ecossistema completo da PyPI, direto no TCMD. O
+runtime embarcado continua dedicado ao cocotb; o TCMD cobre o uso geral.
+
+\end{document}

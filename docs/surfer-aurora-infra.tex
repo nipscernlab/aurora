@@ -8,13 +8,26 @@
 \usepackage{xcolor}
 \usepackage{enumitem}
 \usepackage[hidelinks]{hyperref}
+\usepackage{xurl}
+\usepackage{seqsplit}
+\usepackage{etoolbox}
 
 \hypersetup{
   colorlinks=true,
-  linkcolor=black,
+  linkcolor=blue!45!black,
   urlcolor=blue!55!black,
   citecolor=black,
 }
+
+% Blocos de codigo NAO podem ser cortados entre paginas: cada lstlisting vai
+% dentro de um minipage indivisivel, entao o bloco inteiro desce para a proxima
+% pagina se nao couber, em vez de partir no meio.
+\BeforeBeginEnvironment{lstlisting}{\par\noindent\begin{minipage}{\linewidth}}
+\AfterEndEnvironment{lstlisting}{\end{minipage}\par}
+
+% Nao esticar o espaco vertical para encher a pagina: quando um bloco desce
+% inteiro, o vazio fica no fim da pagina, sem abrir buracos entre as secoes.
+\raggedbottom
 
 \definecolor{codebg}{gray}{0.96}
 \lstset{
@@ -36,7 +49,7 @@
 \setlist{itemsep=2pt,topsep=3pt}
 
 \title{Infraestrutura do Surfer e do Surfer-Aurora}
-\author{NIPSCERN}
+\author{NIPS-CERN}
 \date{\today}
 
 \begin{document}
@@ -53,8 +66,9 @@ links relevantes, como o nosso executável próprio é de fato gerado e o que
 precisamos fazer para gerá-lo, e como a AURORA usa o \texttt{surfer-aurora.exe}.
 \end{abstract}
 
-\tableofcontents
-\bigskip
+% Corpo alinhado a esquerda: nomes de arquivo e caminhos longos em \texttt nao
+% escapam para fora da margem porque as linhas nao sao esticadas ate a direita.
+\raggedright
 
 \section{Visão geral do Surfer}
 
@@ -101,7 +115,7 @@ Pontos principais:
         \url{https://matrix.to/#/#surfer-project:matrix.org}
 \end{itemize}
 
-\subsection{Nosso fork (NIPSCERN)}
+\subsection{Nosso fork (NIPS-CERN)}
 \begin{itemize}
   \item Grupo no GitLab: \url{https://gitlab.com/nips-cern}
   \item Fork Surfer-Aurora: \url{https://gitlab.com/nips-cern/surfer-aurora}
@@ -231,7 +245,7 @@ testes visuais em \texttt{snapshots/}, e a documentação de usuário em
 
 \section{O nosso fork: surfer-aurora}
 
-O Surfer-Aurora é um fork do Surfer mantido pela NIPSCERN, em
+O Surfer-Aurora é um fork do Surfer mantido pela NIPS-CERN, em
 \url{https://gitlab.com/nips-cern/surfer-aurora}. Ele preserva o vínculo com o
 repositório original: dá para puxar as melhorias do upstream e, se quisermos,
 propor as nossas de volta. É onde entram as melhorias específicas para uso na
@@ -326,7 +340,7 @@ lido do \texttt{SHA256.txt}). A partir daí, \texttt{npm run bootstrap} baixa o
 binário novo sozinho.
 
 O esquema de versão que adotamos preserva a base do upstream: \texttt{v0.7.0}
-(a base) mais uma revisão da NIPSCERN, por exemplo \texttt{v0.7.0-nips.2},
+(a base) mais uma revisão da NIPS-CERN, por exemplo \texttt{v0.7.0-nips.2},
 incrementando a cada release nosso e re-baseando quando o upstream subir.
 
 \subsection{Versão publicada atualmente}
@@ -336,7 +350,7 @@ incrementando a cada release nosso e re-baseando quando o upstream subir.
   \item Pacote: \texttt{surfer-aurora\_win\_v0.7.0-nips.2.zip} (contém
         \texttt{surfer-aurora.exe})
   \item SHA-256:
-        \texttt{a27dac113e0b74b2bcc6ec477beab040102ad1889720b7d8b15047cd37efa8ba}
+        \texttt{\seqsplit{a27dac113e0b74b2bcc6ec477beab040102ad1889720b7d8b15047cd37efa8ba}}
   \item Projeto (id numérico usado na URL do registro): \texttt{84576006}
 \end{itemize}
 
@@ -453,7 +467,7 @@ A AURORA procura exatamente por \texttt{surfer-aurora.exe} em dois pontos:
 
 \begin{itemize}
   \item \texttt{js/compilation/wave\_toolchain.js} resolve o caminho
-        \texttt{components/Packages/surfer/surfer-aurora.exe}.
+        \nolinkurl{components/Packages/surfer/surfer-aurora.exe}.
   \item \texttt{main/compile/binary\_allowlist.js} autoriza esse nome de binário
         (gate de segurança de execução).
 \end{itemize}

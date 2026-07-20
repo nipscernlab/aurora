@@ -751,7 +751,8 @@ createLogEntry(terminal, text, type, timestamp) {
             out.push('', `########## ${NAMES[id] || id.toUpperCase()} ##########`);
             out.push(lines.length ? lines.join('\n') : '(vazio)');
         }
-        out.push('', sep, ` Fim do log — ${out.length} linhas`, sep, '');
+        const lineCount = out.join('\n').split('\n').length;
+        out.push('', sep, ` Fim do log — ${lineCount} linhas`, sep, '');
 
         // File-system-safe default name, timestamped so runs never overwrite.
         const fileStamp = now.toISOString().slice(0, 19).replace(/[:T]/g, '-');

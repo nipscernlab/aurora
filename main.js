@@ -17,7 +17,16 @@ const path = require('path');
 const fse = require('fs-extra');
 const fs = require('fs').promises;
 const os = require('os');
-const moment = require("moment");
+// moment() was dropped from the toolchain's deps after this era, so the current
+// node_modules no longer ships it and this old main.js failed to load with
+// "Cannot find module 'moment'". Its single use (a backup-filename timestamp)
+// is replaced by a native Date formatter below — same YYYY-MM-DD_HH-mm-ss shape,
+// no dependency, so the branch runs against the current node_modules unchanged.
+const momentStamp = () => {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}_${p(d.getHours())}-${p(d.getMinutes())}-${p(d.getSeconds())}`;
+};
 const log = require('electron-log');
 const chokidar = require('chokidar');
 const isDev = process.env.NODE_ENV === 'development';
@@ -1894,7 +1903,7 @@ ipcMain.handle("create-backup", async (_, folderPath) => {
 
   const folderName = path.basename(folderPath);
   const backupFolderPath = path.join(folderPath, "Backup");
-  const timestamp = moment().format("YYYY-MM-DD_HH-mm-ss");
+  const timestamp = momentStamp();
   const tempBackupFolderName = `backup_${timestamp}`;
   const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
   const zipFileName = `${folderName}_${timestamp}.7z`;

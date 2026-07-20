@@ -81,3 +81,18 @@ dist/${Aurora IDE}-Setup-${1.0.0}.exe.blockmap
 /components/Projeto
 /components/Temp
 /dist/
+# --- paper-sim-abril2026: toolchain baixado + artefatos de build/backup ---
+/components/Packages/
+/components/bin/_yanc52_backup/
+/components/HDL/_april_backup/
+/components/Macros/_april_backup/
+.tmp-build/
+/coverage/
+# ruido do v6 que fica no disco mas nao pertence a esta branch de abril
+/js/compilation/
+/js/wave/
+/assets/fonts/
+# macros de exp/log/tan sao do v6, nao da era
+/components/Macros/float_exp.asm
+/components/Macros/float_log.asm
+/components/Macros/float_tan.asm

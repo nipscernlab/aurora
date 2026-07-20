@@ -1986,6 +1986,35 @@ ipcMain.handle('export-log', async (event, logData) => {
   }
 });
 
+// Save every terminal's log to a plain-text file the user names. Distinct from
+// 'export-log' above (that one writes a JSON house_report into Backup/). This
+// backs the terminal toolbar's export button used in the paper measurement loop.
+ipcMain.handle('export-terminals-log', async (event, payload) => {
+  try {
+    const content = (payload && typeof payload.content === 'string') ? payload.content : '';
+    if (!content) return { success: false, message: 'Nothing to export (empty log).' };
+
+    // Default to the open project folder so runs land next to their processors.
+    const projectPath = global.currentProjectPath || global.currentOpenProjectPath ||
+      (global.currentProject && global.currentProject.path) || app.getPath('documents');
+    const defaultName = (payload && payload.defaultName) || 'aurora-terminais.txt';
+
+    const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+      title: 'Exportar log dos terminais',
+      defaultPath: path.join(projectPath, defaultName),
+      filters: [{ name: 'Texto', extensions: ['txt'] }, { name: 'Todos os arquivos', extensions: ['*'] }],
+    });
+    if (canceled || !filePath) return { success: false, canceled: true };
+
+    // Write UTF-8 with a BOM so Windows Notepad shows the accents correctly.
+    await fse.writeFile(filePath, '﻿' + content, 'utf8');
+    return { success: true, path: filePath };
+  } catch (error) {
+    console.error('Error exporting terminals log:', error);
+    return { success: false, message: error.message };
+  }
+});
+
 // Context: IPC handlers for app information, folder operations, Verilog file creation, terminal interaction, and external links
 
 // Handler for getting application information

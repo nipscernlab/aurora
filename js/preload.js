@@ -89,7 +89,9 @@ const fileOperations = {
   selectFilesWithPath: (options) => ipcRenderer.invoke('select-files-with-path', options),
   
   // Export operations
-  exportLog: (logData) => ipcRenderer.invoke('export-log', logData)
+  exportLog: (logData) => ipcRenderer.invoke('export-log', logData),
+  // Dump every terminal to a .txt via a Save-As dialog (paper measurement loop).
+  exportTerminalsLog: (payload) => ipcRenderer.invoke('export-terminals-log', payload)
 };
 
 // ============================================================================

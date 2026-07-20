@@ -25,6 +25,7 @@ class TerminalManager {
         this.setupTerminalTabs();
         this.setupAutoScroll();
         this.setupGoDownButton();
+        this.setupExportButton();
         this.setupTerminalLogListener();
         this.updatableCards = {};
 
@@ -666,6 +667,101 @@ createLogEntry(terminal, text, type, timestamp) {
         }
 
         return logEntry;
+    }
+
+    /**
+     * Wire the "#export-log" toolbar button to dump EVERY terminal (TCMM, TASM,
+     * TVERI, TWAVE) to a single .txt — each log line kept with the timestamp it
+     * already carries in the DOM, plus its severity. Built for the paper's
+     * measurement loop: clear the terminals, run one compile+simulation, then
+     * export so every compilation step and the total simulation time are on
+     * record in a plain-text artifact that is easy to diff across runs.
+     */
+    setupExportButton() {
+        const btn = document.getElementById('export-log');
+        if (!btn) return;
+        // Idempotent: reconstructing the manager must not stack listeners.
+        if (this._exportHandler) btn.removeEventListener('click', this._exportHandler);
+        this._exportHandler = () => this.exportAllTerminals();
+        btn.addEventListener('click', this._exportHandler);
+    }
+
+    /** Read one terminal's DOM into plain lines: "[timestamp] (type) message". */
+    _collectTerminalLines(bodyEl) {
+        const lines = [];
+        if (!bodyEl) return lines;
+        const entries = bodyEl.querySelectorAll('.log-entry');
+        if (!entries.length) {
+            // No structured entries yet — fall back to whatever raw text is
+            // showing (e.g. the "Welcome to the terminal" seed line).
+            const raw = (bodyEl.innerText || '').trim();
+            if (raw) lines.push(raw);
+            return lines;
+        }
+        entries.forEach((entry) => {
+            const ts = entry.querySelector('.timestamp')?.textContent?.trim() || '';
+            const type = ['error', 'warning', 'success', 'tips', 'info']
+                .find((t) => entry.classList.contains(t)) || 'info';
+            // innerText (not textContent) so grouped messages keep their line
+            // breaks; strip the timestamp span's text from the front.
+            const body = entry.querySelector('.message-content');
+            let msg = (body ? body.innerText : entry.innerText || '').trim();
+            if (!msg) return;
+            // A grouped card can hold several messages — indent continuation
+            // lines under the timestamp so the file stays readable.
+            const msgLines = msg.split('\n');
+            lines.push(`${ts} (${type}) ${msgLines[0]}`.trim());
+            for (let i = 1; i < msgLines.length; i++) {
+                if (msgLines[i].trim()) lines.push(`${' '.repeat(ts.length + 1)}${msgLines[i]}`);
+            }
+        });
+        return lines;
+    }
+
+    /** Build the export text and hand it to main for a Save-As dialog. */
+    async exportAllTerminals() {
+        const NAMES = { tcmm: 'TCMM', tasm: 'TASM', tveri: 'TVERI', twave: 'TWAVE', tcmd: 'TCMD' };
+        const now = new Date();
+        const stamp = now.toLocaleString('pt-BR', { hour12: false });
+
+        let project = '(sem projeto)';
+        try { project = window.currentProjectPath || global?.currentProjectPath || project; } catch (_) { /* renderer has no global */ }
+
+        const sep = '='.repeat(80);
+        const out = [
+            sep,
+            ' AURORA — Log de terminais',
+            ` Exportado em: ${stamp}`,
+            ` Projeto:      ${project}`,
+            sep,
+            '',
+        ];
+
+        for (const [id, body] of Object.entries(this.terminals)) {
+            if (!body) continue;                        // April has no TCMD
+            const lines = this._collectTerminalLines(body);
+            out.push('', `########## ${NAMES[id] || id.toUpperCase()} ##########`);
+            out.push(lines.length ? lines.join('\n') : '(vazio)');
+        }
+        out.push('', sep, ` Fim do log — ${out.length} linhas`, sep, '');
+
+        // File-system-safe default name, timestamped so runs never overwrite.
+        const fileStamp = now.toISOString().slice(0, 19).replace(/[:T]/g, '-');
+        const defaultName = `aurora-terminais-${fileStamp}.txt`;
+
+        try {
+            const res = await window.electronAPI.exportTerminalsLog({
+                content: out.join('\n'),
+                defaultName,
+            });
+            if (res && res.success) {
+                this.appendToTerminal('tcmm', `Log exportado: ${res.path}`, 'success');
+            } else if (res && !res.canceled) {
+                this.appendToTerminal('tcmm', `Falha ao exportar o log: ${res?.message || 'erro desconhecido'}`, 'error');
+            }
+        } catch (e) {
+            this.appendToTerminal('tcmm', `Falha ao exportar o log: ${e?.message || e}`, 'error');
+        }
     }
 
     setupGoDownButton() {

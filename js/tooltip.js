@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'clear-terminal': 'Clear all content from the current terminal tab.',
         'goup-terminal': 'Scroll up in the terminal output.',
         'godown-terminal': 'Scroll down in the terminal output.',
-        'export-log': 'Export the current terminal log to a file.',
+        'export-log': 'Export ALL terminal logs (with timestamps) to a .txt file.',
         'reload-everything-terminal': 'Reload the entire application and refresh all components.',
         'filter-error': 'Toggle visibility of error messages in the terminal output.',
         'filter-warning': 'Toggle visibility of warning messages in the terminal output.',

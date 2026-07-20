@@ -2180,16 +2180,23 @@ async runProjectGtkWave() {
 
         this.terminalManager.appendToTerminal('twave', 'Running VVP simulation...');
 
-        // Run VVP simulation
+        // Run VVP simulation. Cronometra o wall-clock do vvp (modo projeto usa
+        // execCommand, nao o handler serial/paralelo — por isso o [TIMING]
+        // faltava aqui). Mesmo formato de linha, pra extrair no export igual aos
+        // outros processadores.
         const vvpCmd = `cd "${tempBaseDir}" && "${vvpBin}" "${vvpFile}"`;
+        const vvpT0 = performance.now();
         const result = await window.electronAPI.execCommand(vvpCmd);
-        
+        const vvpMs = Math.round(performance.now() - vvpT0);
+
         if (result.stdout) this.terminalManager.appendToTerminal('twave', result.stdout);
         if (result.stderr) this.terminalManager.appendToTerminal('twave', result.stderr);
 
         if (result.code !== 0) {
             throw new Error(`VVP simulation failed with exit code ${result.code}`);
         }
+
+        this.terminalManager.appendToTerminal('twave', `[TIMING] Tempo de simulacao (vvp): ${vvpMs} ms`, 'success');
 
         // Verify VCD file was generated
         if (!await window.electronAPI.fileExists(vcdFile)) {

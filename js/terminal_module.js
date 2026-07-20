@@ -25,7 +25,6 @@ class TerminalManager {
         this.setupTerminalTabs();
         this.setupAutoScroll();
         this.setupGoDownButton();
-        this.setupExportButton();
         this.setupTerminalLogListener();
         this.updatableCards = {};
 
@@ -38,6 +37,15 @@ class TerminalManager {
         if (!TerminalManager.clearButtonInitialized) {
             this.setupClearButton();
             TerminalManager.clearButtonInitialized = true;
+        }
+
+        // Same one-time guard as the clear button: TerminalManager is
+        // reconstructed several times, and the #export-log element persists in
+        // the DOM, so wiring it on every construction stacked N click listeners
+        // — one Save-As dialog per construction. Wire it exactly once.
+        if (!TerminalManager.exportButtonInitialized) {
+            this.setupExportButton();
+            TerminalManager.exportButtonInitialized = true;
         }
 
         this.activeFilters = new Set();

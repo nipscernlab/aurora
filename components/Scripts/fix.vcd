@@ -1,0 +1,5 @@
+$scope module new $end
+$var wire 1 ! dummy $end
+$enddefinitions $end
+$dumpall
+b10000 !

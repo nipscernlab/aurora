@@ -3605,6 +3605,10 @@ ipcMain.handle('launch-serial-simulation', async (event, {
     const vvpPath = vvpMatch[1];
     const vvpFile = vvpMatch[2];
 
+    // Paper timing: wall-clock of the vvp process alone (spawn → close),
+    // ms precision, so the total simulation time is on record for every run.
+    const vvpStart = Date.now();
+
     // Launch VVP and WAIT for completion
     await new Promise((resolve, reject) => {
       const vvpProcess = spawn(vvpPath, [vvpFile], {
@@ -3646,10 +3650,17 @@ ipcMain.handle('launch-serial-simulation', async (event, {
         if (code !== 0) {
           reject(new Error(`VVP failed with code ${code}`));
         } else {
+          const vvpMs = Date.now() - vvpStart;
           event.sender.send('gtkwave-output', {
             type: 'completion',
             code: 0,
             message: 'VVP simulation completed successfully (100%)'
+          });
+          // Dedicated, easy-to-grep timing line for the paper's measurement
+          // loop (30 runs). Single line, fixed prefix, milliseconds.
+          event.sender.send('gtkwave-output', {
+            type: 'stdout',
+            data: `[TIMING] Tempo de simulacao (vvp): ${vvpMs} ms\n`
           });
           resolve();
         }
@@ -4498,6 +4509,9 @@ ipcMain.handle('launch-parallel-simulation', async (event, {
     const vvpPath = vvpMatch[1];
     const vvpFile = vvpMatch[2];
 
+    // Paper timing (parallel path): wall-clock of the vvp process alone.
+    const vvpStart = Date.now();
+
     // Launch VVP process
     const vvpProcess = spawn(vvpPath, [vvpFile], {
       cwd: workingDir,
@@ -4542,6 +4556,13 @@ ipcMain.handle('launch-parallel-simulation', async (event, {
         code: code,
         message: code === 0 ? 'VVP simulation completed' : `VVP exited with code ${code}`
       });
+      if (code === 0) {
+        const vvpMs = Date.now() - vvpStart;
+        event.sender.send('gtkwave-output', {
+          type: 'stdout',
+          data: `[TIMING] Tempo de simulacao (vvp): ${vvpMs} ms\n`
+        });
+      }
     });
 
     // Wait briefly to ensure VCD starts

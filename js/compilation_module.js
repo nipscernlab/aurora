@@ -781,6 +781,18 @@ end
 
             if (projectParam === null) {
                 projectParam = this.isProjectOriented ? 1 : 0;
+                // Fallback confiavel: um projeto com projectOriented.json E
+                // project-oriented, mesmo quando o radio "Project Mode" da UI
+                // nao estava marcado na hora do loadConfig (timing) — o que
+                // fazia o asmcomp gerar um $finish standalone que encerrava a
+                // simulacao do projeto em ~66us, antes do trabalho pesado. Detecta
+                // pelo arquivo de config, nao pela UI.
+                if (projectParam === 0) {
+                    try {
+                        const projCfg = await window.electronAPI.joinPath(this.projectPath, 'projectOriented.json');
+                        if (await window.electronAPI.fileExists(projCfg)) projectParam = 1;
+                    } catch (_) { /* mantem standalone */ }
+                }
             }
 
             cmd = `"${asmCompPath}" "${asmPath}" "${projectPath}" "${hdlPath}" "${macrosPath}" "${tempPath}" ${clk || 0} ${numClocks || 0} ${projectParam}`;

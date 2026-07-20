@@ -505,6 +505,17 @@ async loadConfig() {
             throw new Error('No current project path available for loading configuration');
         }
 
+        // Deteccao robusta: a existencia de projectOriented.json prova que o
+        // projeto E project-oriented, mesmo quando o radio da UI nao estava
+        // marcado (timing). Sem isso, projectConfig nao carregava e o
+        // runProjectPipeline falhava / os procs vinham com $finish standalone.
+        if (!this.isProjectOriented) {
+            try {
+                const cfg = await window.electronAPI.joinPath(currentProjectPath, 'projectOriented.json');
+                if (await window.electronAPI.fileExists(cfg)) this.isProjectOriented = true;
+            } catch (_) { /* mantem deteccao da UI */ }
+        }
+
         // Always load processor config
         const configFilePath = await window.electronAPI.joinPath(currentProjectPath, 'processorConfig.json');
         const config = await window.electronAPI.loadConfigFromPath(configFilePath);

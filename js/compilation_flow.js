@@ -69,7 +69,7 @@ async function runProcessorPipeline(compiler) {
     checkCancellation();
     await compiler.cmmCompilation(activeProcessor);
     
-    // 2. ASM Compilation
+    // 2. ASM Compilation (individual = standalone, com $finish proprio)
     switchTerminal('terminal-tasm');
     checkCancellation();
     await compiler.asmCompilation(activeProcessor, 0);
@@ -272,7 +272,17 @@ async runAll() {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
         
-        const isProjectMode = document.getElementById('toggle-ui')?.classList.contains('active');
+        let isProjectMode = document.getElementById('toggle-ui')?.classList.contains('active');
+        // Robusto: um projeto com projectOriented.json E project-oriented mesmo
+        // que o toggle da UI nao esteja ativo. Sem isso o Full Build rodava o
+        // pipeline individual (so o proc ativo), deixando o outro proc sem .v/mem
+        // e a simulacao do projeto quebrada.
+        if (!isProjectMode) {
+            try {
+                const projCfg = await window.electronAPI.joinPath(window.currentProjectPath, 'projectOriented.json');
+                if (await window.electronAPI.fileExists(projCfg)) isProjectMode = true;
+            } catch (_) { /* mantem deteccao da UI */ }
+        }
         const hasProcessors = compiler.config?.processors?.length > 0;
         
         // Run All requires processors
@@ -387,8 +397,7 @@ async runSingleStep(step) {
                 
                 case 'asm':
                     switchTerminal('terminal-tasm');
-                    // O segundo argumento '0' indica modo processador (padrão) vs projeto
-                    await compiler.asmCompilation(activeProcessor, 0); 
+                    await compiler.asmCompilation(activeProcessor, 0);
                     break;
                 
                 case 'verilog':

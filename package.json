@@ -30,6 +30,8 @@
     "deadcode": "knip --include files,dependencies --no-config-hints",
     "deadcode:all": "knip --no-config-hints",
     "rules:sync": "node scripts/sync-sapho-rules.js",
+    "components:verify": "node scripts/verify-components.js",
+    "postinstall": "node scripts/verify-components.js --postinstall",
     "prebuild": "npm run bootstrap && npm run build:ts && npm run build:renderer",
     "build": "electron-builder",
     "prepare": "husky"

@@ -32,6 +32,42 @@ runs `npm run bootstrap`, which downloads the `msys-vX` bundle (re-fetched if
 the cocotb sentinel `…/cocotb/libs/libcocotbvpi_verilator.a` is missing),
 gtkwave-nipscern and the YANC compilers.
 
+## Verifying / restoring components (the "doctor")
+
+The bootstrap only runs on `prestart` / `prebuild`. That left a gap: deleting a
+binary (say `surfer-aurora.exe`) and running `npm install` re-downloaded
+nothing, because there is no `postinstall` triggering the bootstrap. And most
+`download-*.js` only check "does the file exist?", so a **version bump** never
+reached a dev who already had the previous version (only YANC, via its
+`bin/.yanc-version` marker, did).
+
+[`scripts/verify-components.js`](scripts/verify-components.js) closes both gaps.
+It checks the 7 executable-bearing components by the same sentinel each
+`download-*.js` uses (not file-by-file, so it survives files changing between
+versions), and keeps a per-machine manifest `components/.aurora-versions.json`
+(gitignored) recording the installed tag of every component — which makes a
+version bump detectable for **all** of them, not just YANC. It never builds
+anything; it only invokes the `download-*.js`, which fetch the pinned `.zip` /
+`.exe` from the release repos.
+
+Entry points:
+
+| Command | Behavior |
+|---------|----------|
+| `npm install` (hook `postinstall`, `--postinstall` mode) | Restores anything **missing**, re-downloads anything **bumped** (pinned tag ≠ installed tag), silent when all OK. Skips entirely under CI (`CI` env set) or `AURORA_SKIP_BOOTSTRAP=1`, and never fails the install. |
+| `npm run components:verify` | Interactive report + prompts to download missing, upgrade bumped, and optionally force-redownload the OK ones. |
+| `node scripts/verify-components.js --report` / `--json` | Read-only status. |
+| `… --yes` / `--force-all` / `--only <keys>` / `--strict` | Non-interactive restore / force-all / restrict to components / exit 1 if anything missing (CI). |
+
+On Windows, [`scripts/verify-components.bat`](scripts/verify-components.bat) is a
+double-click wrapper around the same script.
+
+**Why postinstall is skipped in CI:** GitHub Actions starts every job with
+`npm ci` on a clean VM where none of the (gitignored) binaries exist. Without
+the skip, each job would try to download the whole toolchain (hundreds of MB)
+even though the unit tests never touch those binaries — wasted minutes, and a
+red CI whenever a release host is momentarily unreachable.
+
 ## Maintainer flow
 
 ### One-time: cut the unified toolchain (msys) bundle

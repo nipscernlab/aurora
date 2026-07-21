@@ -35,6 +35,11 @@ components/Backup/
 components/Packages/
 saphoComponents/Packages/
 
+# Version manifest kept by scripts/verify-components.js — per-machine record of
+# which toolchain tag is installed for each component, used to detect a version
+# bump on `npm install` / `npm run components:verify`. Never commit it.
+components/.aurora-versions.json
+
 # YANC compilers (cmmcomp, asmcomp, appcomp, comp2gtkw) — built from
 # the separate nipscernlab/yanc repo. download-yanc.js fetches them
 # from that repo's GitHub Releases at prestart, same model as the main

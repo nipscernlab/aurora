@@ -133,7 +133,7 @@ class CompilationModule {
 
     async generateProcessorHierarchy(processor) {
         try {
-            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
             const tempPath = await window.electronAPI.joinPath(this.componentsPath, 'Temp', processor.name);
             const hdlPath = await window.electronAPI.joinPath(this.componentsPath, 'HDL');
             const hardwarePath = await window.electronAPI.joinPath(this.projectPath, processor.name, 'Hardware');
@@ -194,7 +194,7 @@ async generateProjectHierarchy() {
             if (!topLevelFilePath) throw new Error("'topLevelFile' not found in projectOriented.json");
 
             const designTopModule = topLevelFilePath.split(/[\\\\/]/).pop().replace(/\.v$/i, '');
-            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+            const yosysPath = await window.electronAPI.joinPath(this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
             const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 
             this.terminalManager.appendToTerminal('tveri', 'Generating project hierarchy with Yosys...');
@@ -2689,7 +2689,7 @@ async generateVerilogModeHierarchy() {
 
         const topLevelModuleName = topLevelFile.name.replace(/\.v$/i, '');
         const yosysPath = await window.electronAPI.joinPath(
-            this.componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'
+            this.componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe'
         );
         const tempBaseDir = await window.electronAPI.joinPath(this.componentsPath, 'Temp');
 

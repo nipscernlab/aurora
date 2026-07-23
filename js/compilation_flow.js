@@ -356,7 +356,7 @@ async runSingleStep(step) {
                     componentsPath: normalizePath(rawComponentsPath),
                     hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
                     tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
-                    yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+                    yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe')),
                     netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
                     processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),
                     projectOrientedConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'projectOriented.json')),
@@ -484,7 +484,7 @@ async acquirePrismPaths() {
             // Construct ABSOLUTE paths for all resources
             hdlPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'HDL')),
             tempPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Temp', 'PRISM')),
-            yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe')),
+            yosysPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe')),
             netlistsvgPath: normalizePath(await window.electronAPI.joinPath(rawComponentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe')),
             // Project specific paths
             processorConfigPath: normalizePath(await window.electronAPI.joinPath(projectPath, 'processorConfig.json')),

@@ -2341,7 +2341,7 @@ function getExecutablePath(executableName) {
   console.log(`Main executable directory: ${__dirname}`);
   
   if (executableName === 'yosys') {
-    const yosysPath = path.join(__dirname, 'components', 'Packages', 'PRISM', 'yosys', 'yosys.exe');
+    const yosysPath = path.join(__dirname, 'components', 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
     console.log(`Yosys path: ${yosysPath}`);
     return yosysPath;
   } else if (executableName === 'netlistsvg') {
@@ -2963,10 +2963,15 @@ async function generateModuleSVGWithPaths(moduleName, tempDir, netlistsvgPath) {
     throw new Error(`Module JSON file not found: ${inputJsonPath}`);
   }
   
-  const netlistSvgCommand = `"${netlistsvgPath}" "${inputJsonPath}" -o "${outputSvgPath}"`;
-  
+  // netlistsvg agora roda pelo pacote npm (o .exe bundlado saiu do toolchain nesta branch).
+  // Rodamos o CLI com o proprio binario do Electron em modo Node (ELECTRON_RUN_AS_NODE=1),
+  // assim nao dependemos de 'node' no PATH. O parametro netlistsvgPath e ignorado (mantido
+  // por compatibilidade de assinatura com os callers).
+  const netlistsvgCli = require.resolve('netlistsvg/bin/netlistsvg.js');
+  const netlistSvgCommand = `"${process.execPath}" "${netlistsvgCli}" "${inputJsonPath}" -o "${outputSvgPath}"`;
+
   return new Promise((resolve, reject) => {
-    exec(netlistSvgCommand, { shell: true }, (error, stdout, stderr) => {
+    exec(netlistSvgCommand, { shell: true, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } }, (error, stdout, stderr) => {
       if (error) {
         console.error('netlistsvg error:', error);
         if (mainWindow && !mainWindow.isDestroyed()) {
@@ -3109,7 +3114,7 @@ ipcMain.handle('get-prism-compilation-paths', async () => {
       componentsPath: componentsPath,
       hdlPath: path.join(componentsPath, 'HDL'),
       tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
-      yosysPath: path.join(componentsPath, 'Packages', 'PRISM', 'yosys', 'yosys.exe'),
+      yosysPath: path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe'),
       netlistsvgPath: path.join(componentsPath, 'Packages', 'PRISM', 'netlistsvg', 'netlistsvg.exe'),
       processorConfigPath: path.join(projectPath, 'processorConfig.json'),
       projectOrientedConfigPath: path.join(projectPath, 'projectOriented.json'),

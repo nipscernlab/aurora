@@ -1,0 +1,87 @@
+% !TEX root = ../main.tex
+\chapter{Tour pela interface}
+\label{cap:tour-interface}
+
+A janela da AURORA não tem a moldura padrão do Windows nem uma barra de menus \menu{Arquivo/Editar/Exibir}: tudo vive numa \textbf{barra de título personalizada} (que concentra a toolbar), no \textbf{painel lateral} da árvore de arquivos, no \textbf{editor}, nos \textbf{terminais} e na \textbf{barra de status}. Este capítulo apresenta cada região; os detalhes de uso ficam nos capítulos dedicados.
+
+\figurapendente{Janela principal da AURORA com um projeto aberto}{Visão geral anotável: toolbar no topo, árvore à esquerda, editor ao centro, terminais embaixo, barra de status no rodapé.}
+
+\section{A barra de título e a toolbar}
+\label{sec:toolbar}
+
+A barra superior tem três zonas:
+
+\textbf{Zona esquerda} --- identidade e projeto:
+\begin{itemize}
+  \item o ícone do SAPHO;
+  \item \botao{Alternar barra lateral} --- mostra/esconde o painel da árvore de arquivos;
+  \item \botao{Novo Projeto} e \botao{Abrir Projeto}.
+\end{itemize}
+
+\textbf{Zona central} --- a cadeia do processador, na ordem em que você a usa:
+\begin{itemize}
+  \item \botao{Hub de Processadores} --- cria processadores (Capítulo~\ref{cap:criando-processadores});
+  \item \botao{Compilar \cmm{}} (glifo \enquote{C±}) --- compila o fonte \cmm{} até Verilog;
+  \item \botao{Configurações de simulação do processador} (engrenagem) --- clock, número de ciclos e exibição de arrays;
+  \item \botao{Sintetizar Verilog} (pena) --- verifica os arquivos Verilog com o Icarus Verilog;
+  \item \botao{PRISM} --- abre o visualizador de RTL (Capítulo~\ref{cap:prism});
+  \item \textbf{seletor de simulador} --- Icarus Verilog ou Verilator (Capítulo~\ref{cap:simulacao});
+  \item \textbf{seletor de visualizador} --- GTKWave ou Surfer (Capítulo~\ref{cap:ondas});
+  \item \botao{Analisar Verilog} (onda quadrada) --- roda a simulação e abre as formas de onda;
+  \item \botao{Fast Sim} (\enquote{»}) --- simulação rápida sem ondas (apenas com Verilator);
+  \item \botao{Cancelar} --- interrompe todos os processos de compilação/simulação em andamento;
+  \item \botao{Configuração de ondas} --- escolhe quais sinais entram no arquivo de ondas;
+  \item \textbf{seletor de \file{.gtkw}} --- escolhe o layout de ondas ativo;
+  \item \botao{Teste do processador sintetizado} (chip) --- teste de E/S do processador via Verilator.
+\end{itemize}
+
+\textbf{Zona direita} --- apoio e janela:
+\begin{itemize}
+  \item \botao{Controle de Versão} (Dagr, Capítulo~\ref{cap:git});
+  \item \botao{Configurações do Aurora} (Capítulo~\ref{cap:configuracoes});
+  \item \botao{Assistente IA} (estrela --- Aurora Intelligence, Capítulo~\ref{cap:aurora-intelligence});
+  \item os controles de janela: minimizar, maximizar/restaurar, fechar. Duplo clique na área vazia da barra também maximiza/restaura.
+\end{itemize}
+
+\figurapendente{Toolbar completa em close}{Print da barra de título inteira, com um projeto aberto e os botões habilitados. Idealmente uma segunda versão com os tooltips de um dos botões visível.}
+
+\section{O painel da árvore de arquivos}
+
+À esquerda fica o painel \textbf{ÁRVORE DE ARQUIVOS}, com o nome do projeto aberto ao lado do rótulo. Ele tem \textbf{três visões}, alternadas por um único botão no cabeçalho do painel:
+
+\begin{enumerate}
+  \item \textbf{Arquivos} --- a visão padrão, agrupada por processador, com os arquivos Verilog classificados automaticamente entre sintetizáveis e \emph{testbench};
+  \item \textbf{Hierarquia} --- a árvore de instâncias de módulos do projeto, extraída pelo Yosys após uma síntese;
+  \item \textbf{Pastas} --- um explorador de diretórios convencional, no estilo do VS Code, com criar/renomear/mover/excluir.
+\end{enumerate}
+
+O cabeçalho do painel traz ainda: \botao{Novo arquivo}, \botao{Atualizar}, \botao{Buscar nos arquivos} (\tecla{Ctrl+Shift+F}), \botao{Abrir no explorador do sistema}, \botao{Backup do projeto} (gera um \file{.zip}), \botao{Recolher tudo} e \botao{Fechar projeto}. O uso completo das árvores está no Capítulo~\ref{cap:projetos}.
+
+\section{O editor}
+
+O centro da janela é o editor de código, baseado no \tool{Monaco} (o mesmo motor do VS Code): abas múltiplas, divisão em até três painéis, realce de sintaxe para \cmm{}, assembly, Verilog e SystemVerilog, diagnósticos em tempo real e formatação automática. Tudo no Capítulo~\ref{cap:editor}.
+
+\section{Os terminais}
+
+A área inferior reúne \textbf{seis terminais} em abas: \textbf{TCMM}, \textbf{TASM}, \textbf{TVERI}, \textbf{TWAVE} e \textbf{THTEST} são consoles de saída das etapas de compilação e simulação (cada etapa escreve no seu), e o \textbf{TCMD} é um terminal PowerShell interativo de verdade. Filtros por tipo de mensagem, exportação de log e números de linha clicáveis completam o conjunto (Capítulo~\ref{cap:terminais}).
+
+\section{A barra de status}
+
+No rodapé:
+\begin{itemize}
+  \item à esquerda, o indicador \textbf{Pronto/Não Pronto} (o ponto verde/vermelho indica se o projeto está em condições de compilar) e o \textbf{processador ativo} (deduzido do arquivo \file{.cmm} em foco no editor);
+  \item ao centro, o botão \botao{Iniciar Compilação} (ícone de raio);
+  \item à direita, avisos de estrutura (\enquote{Sem top-level}, \enquote{Sem testbench}), o motor de simulação selecionado, a posição do cursor (\code{Ln}, \code{Col}) e o indicador do GitHub/controle de versão.
+\end{itemize}
+
+\section{Paleta de comandos, notificações e tooltips}
+
+\begin{itemize}
+  \item \textbf{Paleta de comandos} (\tecla{Ctrl+Shift+P}): busca difusa sobre os comandos da IDE, organizados em grupos (Compile, Project, View, Tools). Útil quando você sabe o nome do que quer fazer, mas não onde fica o botão.
+  \item \textbf{Notificações}: eventos como criação de arquivos, troca de simulador e avisos de projeto aparecem como \emph{toasts} no canto da janela.
+  \item \textbf{Tooltips}: todo botão tem uma dica de ferramenta rica ao passar o mouse; elas podem ser desligadas nas Configurações.
+\end{itemize}
+
+\section{A tela de boas-vindas}
+
+Sem projeto aberto, a AURORA mostra a tela de boas-vindas: a marca SAPHO com a \emph{tagline} \enquote{Processador de Arquitetura Escalável para Otimização de Hardware}, a seção \textbf{Início} (\botao{Novo Projeto}, \botao{Abrir Projeto}) e a seção \textbf{Recentes} com os últimos dez projetos. O fundo é uma animação de aurora boreal.

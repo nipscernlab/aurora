@@ -1,0 +1,52 @@
+% !TEX root = ../main.tex
+\chapter{Referência de diretivas}
+\label{ap:diretivas}
+
+\section{Diretivas de configuração}
+
+Uma por linha, no topo do \file{.cmm}, sem ponto e vírgula. \enquote{Padrão} é o valor assumido pela toolchain quando a diretiva é omitida; o Hub de Processadores da AURORA escreve todas explicitamente.
+
+\begin{longtable}{@{}lllp{0.44\linewidth}@{}}
+\toprule
+\textbf{Diretiva} & \textbf{Argumento} & \textbf{Padrão} & \textbf{Efeito} \\
+\midrule
+\endhead
+\code{\#PRNAME} & nome & --- & Nome do processador; deve casar com o nome no projeto e nos artefatos. \\
+\code{\#NUBITS} & inteiro & 23 & Largura da palavra da ULA e dos inteiros (complemento de dois). Deve valer \texttt{NBMANT}+\texttt{NBEXPO}+1. \\
+\code{\#NBMANT} & inteiro & 16 & Bits de mantissa do ponto flutuante próprio. \\
+\code{\#NBEXPO} & inteiro & 6 & Bits de expoente (complemento de dois). \\
+\code{\#NDSTAC} & inteiro & 10 & Profundidade da pilha de dados (complexidade de expressões). \\
+\code{\#SDEPTH} & inteiro & 10 & Profundidade da pilha de sub-rotinas (chamadas aninhadas). \\
+\code{\#NUIOIN} & inteiro & 1 & Número de portas de entrada; \code{in(p)} exige \texttt{p} $<$ \texttt{NUIOIN}. \\
+\code{\#NUIOOU} & inteiro & 1 & Número de portas de saída; \texttt{out(p, \ldots)} exige \texttt{p} $<$ \texttt{NUIOOU}. \\
+\code{\#NUGAIN} & potência de 2 & 64 & Divisor fixo da função \code{norm()}. \\
+\code{\#FFTSIZ} & inteiro & 8 & Bits invertidos no endereçamento bit-reverso \code{x[k)} (FFT de $2^n$ pontos). \\
+\bottomrule
+\end{longtable}
+
+Com uma única porta, a ligação é direta; com mais de uma, o hardware instancia um decodificador de endereços automaticamente.
+
+\section{Diretivas comportamentais}
+
+Aparecem no corpo do programa, marcando pontos do código:
+
+\begin{longtable}{@{}lp{0.70\linewidth}@{}}
+\toprule
+\textbf{Diretiva} & \textbf{Efeito} \\
+\midrule
+\endhead
+\code{\#PRACA} & Marca o ponto para onde o processador desvia quando o pino de interrupção (\code{itr}) pulsa. \\
+\code{\#TOAQUI} & Marca um endereço do programa; o pino \code{cheguei} pulsa sempre que a execução passa por ele. Usado pela AURORA para detectar o fim do programa em testes e simulações. \\
+\bottomrule
+\end{longtable}
+
+\section{Pré-processador}
+
+\begin{longtable}{@{}lp{0.70\linewidth}@{}}
+\toprule
+\textbf{Construção} & \textbf{Regras} \\
+\midrule
+\endhead
+\code{\#define NOME corpo} & Constante simbólica (apenas objeto; sem argumentos). Máximo de 256 por programa. Sem \code{\#include}/\code{\#ifdef} no fluxo \cmm{}. \\
+\bottomrule
+\end{longtable}

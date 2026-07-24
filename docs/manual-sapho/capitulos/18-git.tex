@@ -1,0 +1,53 @@
+% !TEX root = ../main.tex
+\chapter{Dagr: controle de versão}
+\label{cap:git}
+
+\tool{Dagr} (do nórdico antigo \enquote{dia}; o painel usa a runa \emph{dagaz} como marca) é o painel de controle de versão da AURORA: uma interface completa de \textbf{Git} sobre o repositório do projeto aberto, com integração ao GitHub. Você não precisa instalar nem conhecer a linha de comando do Git para versionar seus projetos SAPHO --- embora o TCMD esteja ali para quem preferir.
+
+\section{Abrindo}
+
+Botão \botao{Controle de Versão} na toolbar (ícone de ramificação, com um contador de alterações pendentes) ou o indicador do GitHub na barra de status. Abre o modal \textbf{Dagr --- Controle de Versão}.
+
+\figurapendente{Modal do Dagr com alterações pendentes}{A aba Changes com arquivos preparados/não preparados, o diff de um deles e a caixa de commit.}
+
+Se o projeto ainda não é um repositório, o Dagr oferece inicializá-lo (\code{git init}) --- e criar um \file{.gitignore} adequado está a um clique no menu de contexto da árvore.
+
+\section{A aba Changes}
+
+O fluxo cotidiano:
+
+\begin{enumerate}
+  \item a lista de \textbf{alterações} mostra cada arquivo modificado/criado/excluído; o clique abre o \emph{diff} colorido (adições/remoções) embutido;
+  \item \textbf{prepare} o que vai entrar no commit --- por arquivo ou \botao{Preparar tudo} (o inverso, \botao{Despreparar}, também existe);
+  \item escreva o \textbf{Resumo do commit} (e a descrição opcional) e clique em \botao{Commit}.
+\end{enumerate}
+
+Apoios: \botao{Amend} (emenda o último commit), \botao{Desfazer último} (desfaz o commit mantendo as alterações), descartar alterações de um arquivo, e avisos para arquivos binários ou \emph{diffs} muito grandes.
+
+A árvore de arquivos também participa: cada arquivo ganha a \textbf{decoração de status Git} (modificado, novo, ignorado) na cor correspondente.
+
+\section{A aba History}
+
+O histórico de commits do ramo atual: autor, data, mensagem; o clique mostra os arquivos e o \emph{diff} de cada commit.
+
+\section{Ramos e stashes}
+
+\begin{itemize}
+  \item \textbf{Branches}: criar, trocar (com a opção \botao{Guardar e trocar}, que faz \emph{stash} automático das alterações pendentes) e mesclar.
+  \item \textbf{Stashes}: a prateleira de alterações guardadas, com \botao{Restaurar} e \botao{Descartar}.
+\end{itemize}
+
+\section{GitHub: publicar, clonar, sincronizar}
+
+\begin{itemize}
+  \item \botao{Entrar com GitHub} --- dois métodos: o \emph{device flow} (\enquote{Abrimos o GitHub no seu navegador. Digite este código:}) ou um token clássico com escopo \code{repo} (o Dagr traz um guia embutido de como criar o token). O token é cifrado no cofre do sistema; \botao{Desconectar} o remove.
+  \item \botao{Publicar} --- cria o repositório no GitHub a partir do projeto local e envia tudo.
+  \item \botao{Push} / \botao{Pull} / \botao{Fetch} --- sincronização com o remoto, com progresso ao vivo (o \emph{pull} usa \emph{autostash}: suas alterações locais são guardadas e reaplicadas).
+  \item \botao{Clonar repositórios} --- traz um repositório remoto para o disco; se contiver um \file{.spf}, o Dagr oferece \botao{Abrir projeto no SAPHO}.
+\end{itemize}
+
+\begin{nota}
+Versione desde o primeiro dia. O \file{.spf} é JSON amigável a \emph{diffs}, os fontes \cmm{}/Verilog são texto --- e um repositório é o pré-requisito para usar a Aurora Intelligence com tranquilidade (todo passo dela vira um \emph{diff} revisável no Dagr).
+\end{nota}
+
+A Aurora Intelligence expõe o mesmo backend como ferramentas (\code{git\_status}, \code{git\_commit}, \code{git\_push}\ldots), com as mutações sujeitas a confirmação --- Capítulo~\ref{cap:aurora-intelligence}.

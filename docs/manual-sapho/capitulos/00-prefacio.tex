@@ -1,0 +1,56 @@
+% !TEX root = ../main.tex
+\chapter{Prefácio}
+\label{cap:prefacio}
+
+Este livro é o manual de uso da plataforma \tool{SAPHO}: da instalação ao primeiro processador funcionando em simulação, e de lá até os recursos mais avançados da IDE \tool{AURORA} e da linguagem \cmm{}. Ele foi escrito para quem \textbf{nunca viu o SAPHO} --- nenhum conhecimento prévio da plataforma é assumido, embora familiaridade básica com programação em C e com a ideia de circuitos digitais ajude.
+
+\section*{Como este livro está organizado}
+
+O livro é dividido em módulos, um por componente da plataforma --- cada componente do SAPHO é, na prática, um projeto por si só, e recebeu aqui a sua própria mini-documentação:
+
+\begin{description}
+  \item[Parte I --- Primeiros passos.] O que é o SAPHO, instalação e um tour pela interface da AURORA.
+  \item[Parte II --- Projetos e processadores.] O arquivo de projeto \file{.spf}, a arquitetura do processador SAPHO e o Hub de Processadores.
+  \item[Parte III --- A linguagem \cmm{}.] A referência completa da linguagem: estrutura, tipos, operadores, E/S, biblioteca padrão e recursos avançados.
+  \item[Parte IV --- O editor.] O editor Monaco e todo o apoio à edição: abas, divisão de painéis, diagnósticos, formatação, busca.
+  \item[Parte V --- Compilação e simulação.] Os botões da toolbar, o pipeline do YANC, os seis terminais e os quatro caminhos de simulação.
+  \item[Parte VI --- Visualização.] Formas de onda (GTKWave e Surfer) e o visualizador de RTL PRISM.
+  \item[Parte VII --- Aurora Intelligence.] O assistente de IA integrado: configuração, provedores, ferramentas e permissões.
+  \item[Parte VIII --- Ferramentas de apoio.] Dagr (controle de versão Git) e as configurações da IDE.
+  \item[Parte IX --- Manutenção.] O atualizador automático e a solução de problemas.
+  \item[Apêndices.] Referências rápidas: diretivas, biblioteca padrão, atalhos de teclado e glossário.
+\end{description}
+
+Um exemplo único costura o livro: o processador \code{media_movel}, um filtro de média móvel construído do zero no projeto \code{MeuFiltro}. Ele nasce no Capítulo~\ref{cap:criando-processadores}, ganha código na Parte~III, compila na Parte~V e aparece nas ondas e no RTL na Parte~VI.
+
+\section*{Convenções usadas neste livro}
+
+\begin{description}
+  \item[\botao{Botão}] Elementos clicáveis da interface: botões, itens de menu de contexto.
+  \item[\tecla{Ctrl+S}] Atalhos de teclado.
+  \item[\code{codigo}] Nomes de comandos, diretivas, variáveis, valores literais.
+  \item[\file{arquivo.cmm}] Nomes de arquivos e caminhos.
+  \item[\tool{Nome}] Ferramentas e componentes da plataforma.
+\end{description}
+
+As caixas coloridas seguem o vocabulário de cores da própria AURORA:
+
+\begin{nota}
+\textbf{Nota} (menta): dicas e informações que enriquecem o assunto ao lado.
+\end{nota}
+
+\begin{info}
+\textbf{Informação} (ciano): contexto adicional, referências cruzadas, detalhes de bastidores.
+\end{info}
+
+\begin{aviso}
+\textbf{Aviso} (âmbar): restrições e comportamentos que costumam surpreender.
+\end{aviso}
+
+\begin{perigo}
+\textbf{Cuidado} (vermelho): ações destrutivas ou erros com consequências sérias.
+\end{perigo}
+
+\section*{Um documento vivo}
+
+Este manual acompanha o desenvolvimento da plataforma e é atualizado junto com a AURORA, o YANC e os demais componentes. Cada afirmação sobre comportamento foi extraída do código-fonte dos repositórios oficiais --- não de documentos intermediários --- na data da edição. Se você encontrar divergência entre o manual e o software, o software mudou primeiro: procure a edição mais recente ou abra uma issue nos repositórios do \texttt{nipscernlab}.

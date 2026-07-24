@@ -1,0 +1,86 @@
+% !TEX root = ../main.tex
+\chapter{Formas de onda: GTKWave e Surfer}
+\label{cap:ondas}
+
+Depois que a simulação gera o arquivo de ondas (\file{.fst} ou \file{.vcd}), a AURORA abre um visualizador de formas de onda para você inspecionar cada sinal do processador ciclo a ciclo. Há dois visualizadores disponíveis, e a escolha entre eles é uma preferência global da IDE:
+
+\begin{itemize}
+  \item \tool{GTKWave} --- o visualizador padrão, que já vem empacotado com a AURORA. É um \emph{fork} próprio do laboratório (\repo{gtkwave-nipscern}) com tema escuro e ajustes de usabilidade.
+  \item \tool{Surfer} --- visualizador moderno escrito em Rust, opcional. A AURORA usa o \emph{fork} \texttt{surfer-aurora}, mantido pelo grupo no GitLab (\texttt{nips-cern}), com decodificadores específicos do SAPHO.
+\end{itemize}
+
+Ambos recebem exatamente a mesma simulação: o formato FST é nativo dos dois, então trocar de visualizador não exige simular de novo.
+
+\figurapendente{Formas de onda de uma simulação do processador \code{media\_movel} abertas no GTKWave}{Mostrar as faixas de clock, instruções (Assembly e \cmm{} em lockstep), variáveis e portas de E/S.}
+
+\section{O que a AURORA prepara para você}
+\label{sec:curadoria-ondas}
+
+Abrir um \file{.vcd} bruto num visualizador qualquer significa começar do zero: nenhum sinal selecionado, tudo em binário. A AURORA elimina esse trabalho gerando, a cada simulação, um \textbf{layout curado} com os sinais que interessam, já agrupados, coloridos e formatados:
+
+\begin{itemize}
+  \item \textbf{Seções por processador}: cada processador do projeto vira um bloco (no Surfer, um grupo colapsável), com divisores nomeados.
+  \item \textbf{Sinais de topo}: clock, reset e interrupção primeiro.
+  \item \textbf{Portas de E/S} em amarelo, \textbf{instruções} em violeta, \textbf{variáveis} em laranja, \emph{flags} ao final.
+  \item \textbf{Trilha Assembly e trilha \cmm{}}: duas faixas de texto que mostram, a cada ciclo de clock, o mnemônico assembly executado e a linha do seu código \cmm{} correspondente. As duas avançam em \emph{lockstep} com o clock --- é como ver o seu programa rodando dentro do circuito. Elas vêm dos arquivos de tradução \file{trad_opcode.txt} e \file{trad_cmm.txt} gerados na compilação.
+  \item \textbf{Variáveis complexas}: sinais do tipo \code{comp} são decodificados para a forma legível \enquote{$a+bi$} usando o conversor \tool{comp2gtkw} do YANC.
+\end{itemize}
+
+No GTKWave, essa curadoria chega como um arquivo \file{.gtkw}; no Surfer, como um arquivo de estado \file{.surf.ron}. Nos dois casos o visualizador já abre pronto para leitura.
+
+\section{Escolhendo o visualizador}
+
+O \textbf{seletor de visualizador} fica na toolbar, ao lado do seletor de simulador: \textbf{GTKWave} (padrão) ou \textbf{Surfer}. A escolha vale para o aplicativo inteiro e é lembrada entre sessões. Se o Surfer estiver selecionado mas o executável não estiver instalado, a AURORA cai automaticamente para o GTKWave, sem erro.
+
+\section{GTKWave (fork NIPS-CERN)}
+\label{sec:gtkwave}
+
+O \tool{GTKWave} empacotado na AURORA não é o upstream puro: o laboratório mantém o \emph{fork} \repo{gtkwave-nipscern} com mudanças pensadas para o fluxo SAPHO:
+
+\begin{itemize}
+  \item \textbf{Tema escuro por padrão}, com canvas na mesma paleta da AURORA;
+  \item \textbf{Zoom-fit automático} ao abrir (a onda inteira cabe na tela) e rótulos justificados à esquerda;
+  \item Remoção de painéis pouco usados e ícones modernizados;
+  \item Zoom animado e suave.
+\end{itemize}
+
+Uso essencial dentro do visualizador:
+
+\begin{longtable}{@{}lp{0.62\linewidth}@{}}
+\toprule
+\textbf{Ação} & \textbf{Como fazer} \\
+\midrule
+\endhead
+Adicionar sinais & Navegue na árvore de escopos (à esquerda), selecione o sinal e use \menu{Append}/arraste para a área de ondas. \\
+Medir tempo & Clique posiciona o cursor primário; clique com o botão do meio (ou marcador) posiciona o secundário; a barra mostra a diferença. \\
+Zoom & Botões de lupa, \tecla{Ctrl}+roda do mouse, ou zoom-fit para ver tudo. \\
+Mudar formato de um sinal & Botão direito no nome $\to$ \menu{Data Format} (decimal, hexadecimal, binário, com sinal etc.). \\
+Salvar sua seleção & \menu{File $\to$ Write Save File} grava um \file{.gtkw} com os sinais, cores e ordem atuais. \\
+Recarregar após nova simulação & \menu{File $\to$ Reload Waveform}. \\
+\bottomrule
+\end{longtable}
+
+\begin{nota}
+Se você salvar o seu próprio \file{.gtkw} no projeto e marcá-lo como ativo na AURORA, ele passa a ter precedência sobre o layout automático: a próxima simulação registra exatamente os sinais que o seu \file{.gtkw} referencia (Capítulo~\ref{cap:simulacao}).
+\end{nota}
+
+\section{Surfer}
+\label{sec:surfer}
+
+O \tool{Surfer} é um visualizador de ondas moderno (Rust, interface acelerada por GPU) que lê VCD, FST e GHW com carregamento preguiçoso --- confortável em simulações grandes. A AURORA baixa o binário do \emph{fork} \texttt{surfer-aurora} automaticamente (com verificação de integridade) e o lança como processo externo com o layout curado.
+
+Recursos que valem conhecer:
+
+\begin{itemize}
+  \item \textbf{Formatos de exibição ricos}: cada sinal pode ser mostrado como binário, hexadecimal, decimal com/sem sinal, octal, ASCII, ponto fixo, ponto flutuante IEEE (vários tamanhos) e outros decodificadores.
+  \item \textbf{Grupos colapsáveis}: no layout da AURORA, cada processador é um grupo que pode ser recolhido --- essencial em projetos multi-core.
+  \item \textbf{Trilhas Assembly/\cmm{}} através de \emph{mapping translators} instalados automaticamente pela AURORA.
+  \item \textbf{Cursores, zoom e navegação} rápidos, com linha de comando interna com autocompletar difuso (tecla de comando dentro do Surfer).
+  \item \textbf{Desenho analógico} de sinais, útil para visualizar amostras de sinais processados.
+\end{itemize}
+
+Limitações conhecidas da versão empacotada no Windows: o recarregamento automático do arquivo de ondas não dispara --- por isso a AURORA fecha e reabre a janela do Surfer a cada nova simulação.
+
+\begin{nota}
+Os números complexos do SAPHO também funcionam no Surfer: a AURORA pré-decodifica os sinais \code{comp} com o \tool{comp2gtkw} e instala o resultado como um \emph{translator}, de modo que a faixa já abre em \enquote{$a+bi$}.
+\end{nota}

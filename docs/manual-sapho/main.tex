@@ -1,0 +1,232 @@
+% !TEX program = pdflatex
+% =====================================================================
+%  SAPHO — Manual do Usuário
+%  Documentação viva da plataforma SAPHO (AURORA + YANC + toolchain).
+%  Compilar:  pdflatex main && pdflatex main
+%  Estrutura: um módulo (Parte) por componente; capítulos em capitulos/.
+% =====================================================================
+\documentclass[11pt,a4paper,twoside,openright]{book}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{textcomp}
+\usepackage{microtype}
+
+\usepackage[a4paper,margin=2.4cm]{geometry}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{csquotes}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{parskip}
+\usepackage{framed}
+\usepackage{fancyhdr}
+\setlength{\headheight}{14pt}
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+% ---- espaçamento de leitura ----
+\setlength{\parskip}{0.6em}
+\setlength{\parindent}{0pt}
+\setlength{\columnsep}{18pt}
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.3}
+\setlist{itemsep=3pt,topsep=4pt,parsep=0pt}
+
+% ---- paleta AURORA (tokens reais de css/base/theme_variables.css) ----
+% accent:        #8E83E8 (violeta aurora)   accent-active: #6E63C8
+% mint:          #5FE0B0   cyan: #5BB8E8   teal: #4FD3C2   purple: #B98AE0
+% status:        success #5DD4A8 | warning #E8B86C | error #E26C6C | info #5BB8E8
+% night sky:     #0A0D14 (canvas) / #1B2130 (elevado)
+\definecolor{auroraAccent}{HTML}{8E83E8}     % accent oficial (decoração, régua)
+\definecolor{auroraDeep}{HTML}{6E63C8}       % accent-active (títulos, links)
+\definecolor{auroraMint}{HTML}{5FE0B0}       % menta (notas)
+\definecolor{auroraCyan}{HTML}{5BB8E8}       % ciano (info)
+\definecolor{auroraTeal}{HTML}{4FD3C2}       % teal (réguas finas)
+\definecolor{auroraNight}{HTML}{0A0D14}      % céu noturno (capa)
+\definecolor{auroraInk}{HTML}{1A2330}        % texto de títulos secundários
+\definecolor{auroraGray}{HTML}{6A6F7C}       % text-muted
+\definecolor{auroraLight}{HTML}{ECEAFB}      % accent-soft aproximado p/ fundo claro
+\definecolor{statusSuccess}{HTML}{5DD4A8}
+\definecolor{statusWarning}{HTML}{E8B86C}
+\definecolor{statusError}{HTML}{E26C6C}
+\definecolor{codeBg}{HTML}{F6F6FB}
+\definecolor{codeKw}{HTML}{6E63C8}
+\definecolor{codeCom}{HTML}{6A8759}
+\definecolor{codeStr}{HTML}{A31515}
+
+\hypersetup{
+  pdftitle={SAPHO --- Manual do Usuário},
+  pdfauthor={NIPS-CERN / UFJF},
+  colorlinks=true, linkcolor=auroraDeep, urlcolor=auroraTeal, citecolor=auroraDeep}
+
+% ---- colunas tabularx ----
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{Z}{>{\raggedright\arraybackslash\small}X}
+
+% ---- código ----
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codeKw}\bfseries,
+  commentstyle=\color{codeCom}\itshape,
+  stringstyle=\color{codeStr},
+  backgroundcolor=\color{codeBg},
+  frame=single, rulecolor=\color{auroraLight}, framesep=3pt,
+  breaklines=true, columns=fullflexible, keepspaces=true,
+  showstringspaces=false, tabsize=2, upquote=true, extendedchars=true,
+  aboveskip=6pt, belowskip=6pt,
+  literate=%
+    {á}{{\'a}}1 {à}{{\`a}}1 {â}{{\^a}}1 {ã}{{\~a}}1
+    {é}{{\'e}}1 {ê}{{\^e}}1 {í}{{\'i}}1
+    {ó}{{\'o}}1 {ô}{{\^o}}1 {õ}{{\~o}}1
+    {ú}{{\'u}}1 {ü}{{\"u}}1 {ç}{{\c c}}1
+    {Á}{{\'A}}1 {É}{{\'E}}1 {Ç}{{\c C}}1 {Ø}{{\O}}1 {ø}{{\o}}1
+    {±}{{$\pm$}}1 {→}{{$\rightarrow$}}1 {≈}{{$\approx$}}1
+}
+\lstdefinelanguage{CMM}{morekeywords={void,int,float,comp,if,else,while,for,do,switch,case,
+  default,break,continue,return,
+  in,out,fin,fout,abs,sign,norm,pset,copy,sqrt,atan,sin,cos,tan,sinh,cosh,tanh,exp,log,pow,
+  floor,ceil,round,real,imag,fase,mod2,complex,conj},
+  morecomment=[l]{//},morecomment=[s]{/*}{*/},morestring=[b]",
+  morecomment=[l][\color{codeKw}\bfseries]{\#}}
+\lstdefinestyle{cmm}{language=CMM}
+\lstdefinelanguage{Verilog}{morekeywords={module,endmodule,input,output,inout,wire,reg,
+  assign,always,posedge,negedge,begin,end,if,else,initial,parameter,localparam,integer},
+  morecomment=[l]{//},morecomment=[s]{/*}{*/},morestring=[b]"}
+
+% ---- títulos ----
+\titleformat{\chapter}[display]
+  {\huge\bfseries\color{auroraDeep}}
+  {\filleft\normalsize\color{auroraGray}\MakeUppercase{Capítulo \thechapter}}
+  {6pt}{\filright}
+  [{\color{auroraAccent}\titlerule[1.4pt]}]
+\titlespacing*{\chapter}{0pt}{-18pt}{18pt}
+\titleformat{\section}{\Large\bfseries\color{auroraDeep}}{\thesection}{0.6em}{}
+\titlespacing*{\section}{0pt}{14pt}{5pt}
+\titleformat{\subsection}{\large\bfseries\color{auroraInk}}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{9pt}{3pt}
+\titleformat{\subsubsection}{\normalsize\bfseries\color{auroraInk}}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\subsubsection}{0pt}{6pt}{2pt}
+
+% ---- cabeçalho/rodapé (estilo livro, espelhado) ----
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\small\color{auroraGray}\thepage\quad\leftmark}
+\fancyhead[RO]{\small\color{auroraGray}\rightmark\quad\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\chaptermark}[1]{\markboth{Capítulo \thechapter\ --- #1}{}}
+\renewcommand{\sectionmark}[1]{\markright{\thesection\ #1}}
+\fancypagestyle{plain}{\fancyhf{}\fancyfoot[C]{\small\thepage}\renewcommand{\headrulewidth}{0pt}}
+
+% ---- macros ----
+\newcommand{\cmm}{C\textpm{}}
+\newcommand{\repo}[1]{\texttt{nipscernlab/#1}}
+\newcommand{\file}[1]{\path{#1}}
+\newcommand{\tool}[1]{\textsc{#1}}
+\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily]|#1|}
+\newcommand{\botao}[1]{\textsf{\textbf{#1}}}          % botão da interface
+\newcommand{\menu}[1]{\textsf{#1}}                    % item de menu
+\newcommand{\tecla}[1]{\fbox{\footnotesize\textsf{#1}}} % tecla de atalho
+
+% caixas de destaque no vocabulário visual da AURORA:
+% nota (menta = success/tips), aviso (âmbar = warning), perigo (vermelho = error), info (ciano)
+% implementadas com framed (barra colorida à esquerda)
+\newenvironment{caixaaurora}[1]{%
+  \def\FrameCommand{{\color{#1}\vrule width 3pt}\hspace{8pt}}%
+  \MakeFramed{\advance\hsize-\width\FrameRestore}\small}%
+ {\endMakeFramed}
+\newenvironment{nota}{\begin{caixaaurora}{auroraMint}}{\end{caixaaurora}}
+\newenvironment{aviso}{\begin{caixaaurora}{statusWarning}}{\end{caixaaurora}}
+\newenvironment{perigo}{\begin{caixaaurora}{statusError}}{\end{caixaaurora}}
+\newenvironment{info}{\begin{caixaaurora}{auroraCyan}}{\end{caixaaurora}}
+% marcador de figura pendente (print a ser tirado)
+\newcounter{figpend}
+\newcommand{\figurapendente}[2]{%
+  \refstepcounter{figpend}%
+  \begin{center}\fbox{\parbox{0.9\linewidth}{\centering\small
+  \textbf{[Figura \thefigpend{} --- print pendente]} \textit{#1}\\[2pt]
+  \footnotesize\color{auroraGray}#2}}\end{center}}
+
+\begin{document}
+\frontmatter
+
+% ===================== capa =====================
+\begin{titlepage}
+\centering
+{\color{auroraMint}\rule{0.25\linewidth}{2pt}\color{auroraCyan}\rule{0.25\linewidth}{2pt}\color{auroraAccent}\rule{0.25\linewidth}{2pt}\color{auroraDeep}\rule{0.25\linewidth}{2pt}}\\[2.2cm]
+{\Huge\bfseries\color{auroraDeep} SAPHO\\[6pt]}
+{\LARGE\color{auroraInk} Manual do Usuário\par}
+\vspace{1.0cm}
+{\large\color{auroraGray} Concepção, programação, simulação e visualização\\ de \textit{soft-processors} com a IDE AURORA\par}
+\vspace{2.6cm}
+{\large NIPS-CERN --- Núcleo de Instrumentação e Processamento de Sinais\\
+Universidade Federal de Juiz de Fora (UFJF)\par}
+\vspace{0.8cm}
+{\normalsize\color{auroraGray} \url{https://nipscern.com/sapho}\par}
+\vfill
+{\normalsize\color{auroraGray} Documento vivo --- acompanha as versões da plataforma\par}
+{\color{auroraDeep}\rule{0.25\linewidth}{2pt}\color{auroraAccent}\rule{0.25\linewidth}{2pt}\color{auroraCyan}\rule{0.25\linewidth}{2pt}\color{auroraMint}\rule{0.25\linewidth}{2pt}}
+\end{titlepage}
+
+\tableofcontents
+
+\input{capitulos/00-prefacio}
+
+% ===================== módulos =====================
+\mainmatter
+
+\part{Primeiros passos}
+\input{capitulos/01-o-que-e-sapho}
+\input{capitulos/02-instalacao}
+\input{capitulos/03-tour-interface}
+
+\part{Projetos e processadores}
+\input{capitulos/04-projetos}
+\input{capitulos/05-processador-sapho}
+\input{capitulos/06-criando-processadores}
+
+\part{A linguagem \cmm{}}
+\input{capitulos/07-cmm-fundamentos}
+\input{capitulos/08-cmm-tipos-operadores}
+\input{capitulos/09-cmm-io-stdlib}
+\input{capitulos/10-cmm-avancado}
+
+\part{O editor}
+\input{capitulos/11-editor}
+
+\part{Compilação e simulação}
+\input{capitulos/12-compilacao}
+\input{capitulos/13-terminais}
+\input{capitulos/14-simulacao}
+
+\part{Visualização}
+\input{capitulos/15-ondas-gtkwave-surfer}
+\input{capitulos/16-prism}
+
+\part{Aurora Intelligence}
+\input{capitulos/17-aurora-intelligence}
+
+\part{Ferramentas de apoio}
+\input{capitulos/18-git}
+\input{capitulos/19-configuracoes}
+
+\part{Manutenção da plataforma}
+\input{capitulos/20-atualizacoes}
+\input{capitulos/21-solucao-problemas}
+
+\appendix
+\part{Apêndices}
+\input{capitulos/A-referencia-diretivas}
+\input{capitulos/B-referencia-stdlib}
+\input{capitulos/C-atalhos}
+\input{capitulos/D-glossario}
+
+\end{document}

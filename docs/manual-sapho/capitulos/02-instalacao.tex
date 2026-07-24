@@ -1,0 +1,57 @@
+% !TEX root = ../main.tex
+\chapter{Instalação}
+\label{cap:instalacao}
+
+\section{Requisitos}
+
+\begin{itemize}
+  \item \textbf{Windows 64 bits} (Windows 10 ou 11). A AURORA é, hoje, um aplicativo exclusivamente Windows.
+  \item Cerca de 2\,GB de espaço em disco (o aplicativo já traz embutida toda a cadeia de ferramentas de simulação e síntese).
+  \item Nenhum outro programa é necessário: compiladores, simuladores e visualizadores vêm no pacote.
+\end{itemize}
+
+\section{Baixando e instalando}
+
+\begin{enumerate}
+  \item Acesse \url{https://nipscern.com/sapho} e baixe o instalador --- um arquivo chamado \file{sapho-aurora-Setup-vX.Y.Z.exe} (onde \code{X.Y.Z} é a versão).
+  \item Dê dois cliques no executável. O instalador é do tipo \emph{one-click}: não há telas de opções nem escolha de pasta --- ele instala, cria os atalhos na área de trabalho e no menu Iniciar e abre o aplicativo.
+\end{enumerate}
+
+\figurapendente{Página de download em nipscern.com/sapho}{Mostrar o botão de download do instalador.}
+
+\figurapendente{Primeira abertura da AURORA: tela de splash e tela de boas-vindas}{Capturar a splash com a barra de progresso e, em seguida, a tela de boas-vindas com o fundo animado de aurora boreal.}
+
+Durante a instalação são registrados dois vínculos com o sistema:
+\begin{itemize}
+  \item a extensão \file{.spf} (arquivo de projeto SAPHO) passa a abrir com a AURORA, com ícone próprio --- dois cliques num \file{.spf} no Explorer abrem o projeto;
+  \item o protocolo \code{sapho://} é registrado para integrações futuras via navegador.
+\end{itemize}
+
+\begin{nota}
+O instalador ainda não é assinado digitalmente; o Windows SmartScreen pode exibir um aviso de \enquote{editor desconhecido} na primeira execução. Clique em \menu{Mais informações $\to$ Executar assim mesmo}.
+\end{nota}
+
+\section{O que é instalado, e onde}
+
+\begin{longtable}{@{}p{0.34\linewidth}p{0.60\linewidth}@{}}
+\toprule
+\textbf{Local} & \textbf{Conteúdo} \\
+\midrule
+\endhead
+Pasta do aplicativo & O executável da AURORA e a pasta \file{components/} com toda a toolchain: compiladores do YANC, simuladores (Icarus Verilog, Verilator), Yosys, GTKWave, Python com cocotb e os moldes de HDL do processador. \\
+\file{\%APPDATA\%\textbackslash Aurora-IDE\textbackslash} & Dados do usuário: logs (\file{logs/main.log}), lista de projetos recentes (\file{aurora-recents.json}), registro de versão para o pós-atualização. \\
+Cofre de credenciais do Windows & Chaves de API da Aurora Intelligence e token do GitHub, cifrados pelo sistema operacional (DPAPI) --- nunca em texto puro. \\
+\bottomrule
+\end{longtable}
+
+Os seus projetos ficam onde você quiser: a AURORA pergunta a pasta ao criar cada projeto (Capítulo~\ref{cap:projetos}).
+
+\section{Primeira execução}
+
+Ao abrir, a AURORA exibe uma tela de \emph{splash} com o progresso real de inicialização e, em seguida, a \textbf{tela de boas-vindas}, com o fundo animado de aurora boreal, os botões \botao{Novo Projeto} e \botao{Abrir Projeto} e a lista de projetos \textbf{Recentes} (vazia na primeira vez). A partir daí, siga para o Capítulo~\ref{cap:tour-interface} para conhecer a interface, ou direto para o Capítulo~\ref{cap:projetos} para criar o primeiro projeto.
+
+Cerca de seis segundos após abrir, a AURORA verifica silenciosamente se há uma versão mais nova; se houver, você verá a janela de atualização (Capítulo~\ref{cap:atualizacoes}). Não é preciso fazer nada para manter o SAPHO em dia além de aceitar as atualizações quando oferecidas.
+
+\section{Desinstalação}
+
+Use \menu{Configurações do Windows $\to$ Aplicativos $\to$ Aurora-IDE $\to$ Desinstalar}. Os projetos criados por você não são apagados --- eles pertencem às pastas que você escolheu.

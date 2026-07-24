@@ -1,0 +1,87 @@
+% !TEX root = ../main.tex
+\chapter{Aurora Intelligence}
+\label{cap:aurora-intelligence}
+
+A \tool{Aurora Intelligence} é a assistente de IA integrada à AURORA. Ela conversa sobre o seu projeto --- \cmm{}, Verilog, arquitetura SAPHO, mensagens do compilador --- e, com a sua permissão, \textbf{age} sobre a IDE: edita arquivos, compila, dispara simulações, seleciona sinais de onda, opera o Git. Este capítulo cobre a configuração e o uso.
+
+\begin{info}
+A Aurora Intelligence funciona no modelo \emph{traga a sua chave} (BYOK): você conecta a sua própria conta de um provedor de IA. O provedor e os modelos próprios do NIPS-CERN estão no roteiro do laboratório, mas ainda não foram treinados --- até lá, a assistente opera sobre provedores externos.
+\end{info}
+
+\section{Abrindo o painel}
+
+Clique no botão \botao{Assistente IA} (estrela) na toolbar. O painel abre à direita, empurrando o editor; a largura é ajustável e lembrada. No cabeçalho: o ícone do provedor ativo, \botao{Chat history} (conversas anteriores), \botao{New chat} e \botao{Close}.
+
+\figurapendente{Painel da Aurora Intelligence com uma conversa}{Uma pergunta sobre o \code{media\_movel} respondida, mostrando um cartão de ferramenta executada e o composer embaixo.}
+
+\section{Configurando um provedor}
+\label{sec:ai-config}
+
+Em \botao{Configurações do Aurora} $\to$ aba \textbf{Assistente IA}, há um cartão por provedor:
+
+\begin{longtable}{@{}llp{0.40\linewidth}@{}}
+\toprule
+\textbf{Provedor} & \textbf{Chave} & \textbf{Observações} \\
+\midrule
+\endhead
+OpenAI & \texttt{sk-proj-\ldots} & Chave em \emph{platform.openai.com}. \\
+Anthropic (Claude) & \texttt{sk-ant-api03-\ldots} & Chave em \emph{console.anthropic.com}. \\
+Google (Gemini) & \texttt{AIza\ldots} & Chave em \emph{aistudio.google.com}. \\
+DeepSeek & \texttt{sk-\ldots} & Chave em \emph{platform.deepseek.com}. \\
+Groq & \texttt{gsk\_\ldots} & Chave em \emph{console.groq.com}. \\
+Ollama (local) & --- & Sem chave: aponta para o Ollama rodando na sua máquina (\code{http://localhost:11434/v1}); o botão \botao{Detect} encontra a instância e os modelos. \\
+\bottomrule
+\end{longtable}
+
+Cada cartão tem os botões \botao{Salvar}, \botao{Testar} (responde \enquote{Conectado --- N ms}), \botao{Obter uma chave} (abre o console do provedor) e \botao{Remover chave}, além do selo \textbf{Configurada}/\textbf{Sem chave} e do campo \textbf{Modelo} para escolher um modelo específico (ou manter o padrão do provedor).
+
+\begin{nota}
+\textbf{Segurança das chaves:} as chaves são cifradas pelo cofre de credenciais do Windows (DPAPI) e usadas somente pelo processo principal da AURORA --- nunca circulam pela interface nem aparecem em logs. A IDE só exibe \emph{se} há chave, nunca o valor.
+\end{nota}
+
+\subsection{CLIs por assinatura}
+
+Alternativa às chaves de API: se você assina o \tool{Claude Code} (Anthropic) ou o \tool{Codex} (OpenAI), a Aurora Intelligence pode usar as CLIs oficiais com o login da sua assinatura. A AURORA baixa a CLI sob demanda (com verificação de integridade), a autenticação é o OAuth da própria ferramenta --- a IDE nunca vê o seu token --- e as respostas chegam no mesmo painel de chat. Nesse modo, as ferramentas da AURORA são expostas à CLI por um servidor MCP local e privado.
+
+\section{O composer}
+
+Na caixa de mensagem (\enquote{Pergunte à Aurora Intelligence\ldots}):
+
+\begin{itemize}
+  \item seletores de \textbf{Provedor} e \textbf{Modelo}, e \textbf{esforço de raciocínio} (para modelos que suportam);
+  \item \botao{Anexar arquivos ou imagens} --- anexos multimodais;
+  \item \textbf{Uso} --- consumo da conversa;
+  \item \textbf{Permissões} --- o modo de autorização de ferramentas (abaixo);
+  \item \tecla{Enter} envia; \botao{Parar geração} interrompe.
+\end{itemize}
+
+Selecionar código no editor e clicar na estrela do widget de seleção (Seção~\ref{cap:editor}) envia o trecho já contextualizado.
+
+\section{Ferramentas: o que a assistente pode fazer}
+\label{sec:ai-tools}
+
+A Aurora Intelligence age por \textbf{ferramentas curadas} --- as mesmas operações dos botões da IDE, nada além. Elas se dividem em dois níveis:
+
+\begin{itemize}
+  \item \textbf{Leitura} (executam sem confirmação): ler o arquivo ativo e os abertos, a árvore do projeto, a saída dos terminais, a lista de processadores, sinais de onda, configurações; consultar a referência embutida de diretivas, opcodes e mensagens do compilador; status/log/diff do Git.
+  \item \textbf{Escrita} (pedem confirmação): editar/criar/renomear/excluir arquivos, salvar, abrir arquivos e splits, compilar (\code{compile\_all}/\code{compile\_step}), cancelar compilação, criar processadores e projetos, mudar configurações, selecionar sinais de onda, abrir o Surfer, rodar comandos no TCMD, e as mutações de Git (stage, commit, push\ldots).
+\end{itemize}
+
+Cada ação de escrita aparece como um \textbf{cartão de confirmação} no chat --- \botao{Permitir} ou \botao{Negar} --- antes de executar. O seletor \textbf{Permissões} do composer ajusta o rigor: confirmar tudo, confirmar apenas escritas (padrão) ou permitir tudo.
+
+\begin{perigo}
+O modo \enquote{permitir tudo} deixa a assistente editar arquivos e rodar comandos sem perguntar. Use-o apenas em projetos versionados no Git, onde qualquer alteração é revisável e reversível (Capítulo~\ref{cap:git}).
+\end{perigo}
+
+\section{Conversas}
+
+Cada conversa é salva localmente; o \botao{Chat history} reabre conversas antigas com contexto completo. Sem conexão, o painel indica \enquote{A Aurora Intelligence está offline}.
+
+\section{Para que ela é boa (no fluxo SAPHO)}
+
+\begin{itemize}
+  \item \emph{\enquote{Por que este \cmm{} não compila?}} --- ela lê o terminal, conhece as mensagens do YANC e propõe a correção;
+  \item \emph{\enquote{Quanto hardware custa esta função?}} --- ela consulta a referência de opcodes e o \file{.asm} gerado;
+  \item \emph{\enquote{Escreva um testbench cocotb que compare com um modelo NumPy}};
+  \item \emph{\enquote{Selecione os sinais das portas e abra as ondas}} --- ferramentas de onda por comando de voz\ldots{} escrito.
+\end{itemize}

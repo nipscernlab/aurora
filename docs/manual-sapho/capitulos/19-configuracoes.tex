@@ -1,0 +1,42 @@
+% !TEX root = ../main.tex
+\chapter{Configurações}
+\label{cap:configuracoes}
+
+O botão \botao{Configurações do Aurora} na toolbar abre o modal de configurações, organizado em sete seções na navegação lateral. O rodapé traz \botao{Restaurar Padrões} e \botao{Salvar Alterações}.
+
+\figurapendente{Modal de Configurações}{A seção Geral aberta, mostrando a navegação lateral com as sete seções.}
+
+\section{Geral}
+
+\begin{itemize}
+  \item \textbf{Habilitar Tooltips} (ligado por padrão) --- as dicas ricas ao passar o mouse pelos botões da IDE.
+  \item \textbf{Confiar em links externos} (desligado por padrão) --- quando ligado, links do chat da Aurora Intelligence abrem no navegador sem confirmação.
+\end{itemize}
+
+\section{Aparência}
+
+Troca do \textbf{ícone da aplicação}: envie uma imagem sua ou \botao{Restaurar ícone padrão}.
+
+\begin{info}
+A AURORA tem um único tema visual --- o tema escuro aurora, cuidadosamente construído --- e ele não é configurável. É uma decisão de design da plataforma.
+\end{info}
+
+\section{Idioma}
+
+\textbf{Português} (padrão) ou \textbf{English}. A escolha muda a interface \emph{e} as mensagens do compilador YANC (que recebe a flag \code{-pt}/\code{-en} correspondente) --- erros de compilação chegam no idioma da IDE.
+
+\section{Terminal}
+
+\textbf{Modo Verboso} (ligado por padrão): mostra todas as mensagens de compilação. Desligue para ativar os filtros por classe (erros, avisos, sucessos, dicas) nos terminais --- útil quando só interessam os problemas.
+
+\section{Atalhos de Teclado}
+
+Todos os atalhos da IDE, editáveis: clique num atalho, tecle a nova combinação (esc cancela). Combinações em conflito são recusadas com o aviso \enquote{Este atalho já está em uso}. A lista padrão está no Apêndice~\ref{ap:atalhos}.
+
+\section{Assistente IA}
+
+Os cartões de provedores da Aurora Intelligence --- chaves, modelos, testes de conexão (Seção~\ref{sec:ai-config}).
+
+\section{Sobre}
+
+A ficha da plataforma: versão instalada, a equipe (desenvolvimento e orientação), os vínculos institucionais (UFJF, NIPS-CERN) e agradecimentos (CAPES, CNPq, FAPEMIG), os links oficiais e o catálogo de \textbf{software de terceiros} com as respectivas licenças --- do Icarus Verilog ao Monaco, transparência completa sobre o que compõe a AURORA.

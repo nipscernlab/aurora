@@ -1,0 +1,58 @@
+% !TEX root = ../main.tex
+\chapter{Os terminais}
+\label{cap:terminais}
+
+A área inferior da janela reúne seis terminais em abas. Cinco são \textbf{consoles de saída} --- cada etapa da toolchain escreve no seu, então você sempre sabe onde procurar --- e um é um \textbf{shell interativo} de verdade.
+
+\figurapendente{Área de terminais com o TCMM ativo após uma compilação}{Mostrar as seis abas, alguns cartões de mensagem (sucesso/aviso) e os filtros do topo.}
+
+\section{Quem escreve onde}
+
+\begin{longtable}{@{}llp{0.52\linewidth}@{}}
+\toprule
+\textbf{Aba} & \textbf{Nome} & \textbf{Conteúdo} \\
+\midrule
+\endhead
+\textbf{TCMM} & Terminal \cmm{} & Saída do compilador \cmm{} (\tool{cmmcomp}): erros, avisos e progresso da tradução para assembly. \\
+\textbf{TASM} & Terminal ASM & Saída do montador (\tool{appcomp}/\tool{asmcomp}): geração do Verilog, memórias, e os avisos de \enquote{recurso instanciado}. \\
+\textbf{TVERI} & Terminal Verilog & Saída do Icarus Verilog e da síntese (Yosys/PRISM): diagnósticos de Verilog. \\
+\textbf{TWAVE} & Terminal Wave & Execução da simulação (vvp, Verilator, cocotb) e abertura dos visualizadores de onda. \\
+\textbf{THTEST} & Terminal de teste de hardware & O teste de E/S do processador sintetizado, com barra de progresso própria. \\
+\textbf{TCMD} & Terminal de shell & Um \textbf{PowerShell interativo} completo (Seção~\ref{sec:tcmd}). \\
+\bottomrule
+\end{longtable}
+
+Quando você dispara uma ação na toolbar, a AURORA troca automaticamente para a aba certa conforme as etapas avançam.
+
+\section{Cartões, filtros e o modo verboso}
+
+As mensagens dos consoles chegam como \textbf{cartões} classificados: \textcolor{statusError}{\textbf{erros}}, \textcolor{statusWarning}{\textbf{avisos}}, \textcolor{statusSuccess}{\textbf{sucessos}} e dicas/informações --- o mesmo código de cores da IDE. No topo da área ficam:
+
+\begin{itemize}
+  \item os \textbf{filtros por tipo} com contadores (clique para mostrar/ocultar cada classe); eles atuam quando o \textbf{Modo Verboso} está desligado nas Configurações --- com o modo ligado (padrão), tudo aparece;
+  \item \botao{Limpar} --- esvazia o terminal atual;
+  \item \botao{Exportar log} --- salva o conteúdo em arquivo;
+  \item \botao{Recarregar aplicação} --- reinicia a interface da IDE.
+\end{itemize}
+
+Cada terminal retém até 5000 entradas.
+
+\section{Números de linha clicáveis}
+
+Erros que citam arquivo e linha --- \code{arquivo.v:42:} do Icarus/Yosys ou \enquote{linha 17} do \cmm{} --- viram \textbf{links}: o clique abre o arquivo no editor, na linha exata. É o caminho mais rápido do erro à correção.
+
+\section{TCMD: o shell integrado}
+\label{sec:tcmd}
+
+A aba \textbf{TCMD} é um terminal PowerShell real (xterm), rodando na máquina com um \emph{prompt} próprio da AURORA:
+
+\begin{itemize}
+  \item digite qualquer comando --- \code{git}, \code{python}, \code{cd}, scripts do projeto --- e tecle \tecla{Enter};
+  \item o diretório atual e as variáveis de ambiente \textbf{persistem} entre comandos, como num terminal comum;
+  \item o menu de contexto da árvore de arquivos tem \menu{Abrir no Terminal Integrado}, que abre o TCMD já na pasta escolhida;
+  \item é também o shell que a Aurora Intelligence usa quando você autoriza a ferramenta \code{run\_in\_terminal} (Capítulo~\ref{cap:aurora-intelligence}).
+\end{itemize}
+
+\begin{nota}
+Use o TCMD para tarefas auxiliares (Git avançado, scripts Python de análise dos \file{output_*.txt}, utilitários). Para compilar e simular, prefira os botões da toolbar --- eles cuidam de argumentos, caminhos e ordem das etapas por você.
+\end{nota}

@@ -1,0 +1,115 @@
+% !TEX root = ../main.tex
+\chapter{Projetos}
+\label{cap:projetos}
+
+Tudo no SAPHO acontece dentro de um \textbf{projeto}: uma pasta no disco governada por um arquivo \file{.spf} (\emph{SAPHO Project File}). O projeto reúne um ou mais processadores, os arquivos Verilog de integração (\emph{top-level} e \emph{testbench}) e os metadados que a AURORA usa para orquestrar compilação e simulação.
+
+\section{Criando um projeto}
+\label{sec:criando-projeto}
+
+Clique em \botao{Novo Projeto} (na toolbar ou na tela de boas-vindas). O modal \textbf{Criar Novo Projeto} pede:
+
+\begin{longtable}{@{}lp{0.64\linewidth}@{}}
+\toprule
+\textbf{Campo} & \textbf{Regras} \\
+\midrule
+\endhead
+\textbf{Nome do Projeto} & Apenas letras, números, sublinhado (\code{\_}) e hífen (\code{-}). Sem espaços, acentos ou símbolos. \\
+\textbf{Local do Projeto} & Somente leitura; preencha com o botão \botao{Procurar}, que abre o seletor de pastas do Windows. A AURORA lembra o último local usado. \\
+\bottomrule
+\end{longtable}
+
+Clique em \botao{Gerar Projeto}. Se algum campo violar as regras, o diálogo \textbf{Entrada Inválida} explica o problema (\enquote{Nome do Projeto e Local não podem conter espaços ou símbolos especiais\ldots}).
+
+\figurapendente{Modal Criar Novo Projeto preenchido}{Com o nome \code{MeuFiltro} e um local qualquer, antes de clicar em Gerar Projeto.}
+
+No disco, é criada a estrutura \file{<Local>/<Nome>/<Nome>.spf}. Um projeto recém-criado ainda não tem processadores --- a árvore abre praticamente vazia, e o próximo passo natural é o \botao{Hub de Processadores} (Capítulo~\ref{cap:criando-processadores}).
+
+Para o exemplo condutor deste manual, crie o projeto \textbf{MeuFiltro}.
+
+\section{O arquivo \texttt{.spf}}
+\label{sec:spf}
+
+O \file{.spf} é um arquivo JSON legível, com dois blocos:
+
+\begin{itemize}
+  \item \code{metadata} --- nome do projeto, datas de criação/modificação/última abertura, nome do computador e versão da AURORA que o criou;
+  \item \code{structure} --- a lista de \code{processors}, as pastas do projeto, o \code{topLevelFile}, o \code{testbenchFile} e as listas de arquivos Verilog sintetizáveis e de \emph{testbench}.
+\end{itemize}
+
+Você raramente precisará editá-lo à mão: a AURORA é a única escritora do arquivo e o mantém em dia a cada ação na interface. Os caminhos são gravados relativos à pasta do projeto, então o projeto inteiro pode ser copiado, movido de máquina ou versionado no Git sem quebrar --- ao abrir, a AURORA realinha os caminhos ao novo local.
+
+\section{Abrindo um projeto}
+
+Três caminhos:
+\begin{itemize}
+  \item \botao{Abrir Projeto} na toolbar ou na tela de boas-vindas, selecionando o \file{.spf};
+  \item dois cliques no \file{.spf} pelo Explorer do Windows (a extensão é associada na instalação);
+  \item a lista de \textbf{Recentes} na tela de boas-vindas (até dez projetos, também disponíveis na \emph{jumplist} do ícone da AURORA na barra de tarefas do Windows).
+\end{itemize}
+
+Ao abrir, a AURORA carrega a árvore, restaura a lista de processadores e registra a data de abertura. Se o \file{.spf} tiver sumido do caminho registrado, o diálogo \textbf{Projeto Não Encontrado} avisa e o item sai da lista de recentes.
+
+\section{Arquivos do projeto: quem é quem}
+\label{sec:arquivos-do-projeto}
+
+Um projeto maduro tem esta cara (exemplo com o nosso \code{MeuFiltro}):
+
+\begin{lstlisting}
+MeuFiltro/
+|-- MeuFiltro.spf              (o arquivo de projeto)
+|-- media_movel/               (um processador)
+|   |-- Software/media_movel.cmm
+|   |-- Hardware/              (gerados: media_movel.v, *.mif)
+|   `-- Simulation/            (gerado: media_movel_tb.v)
+|-- TopLevel/                  (Verilog de integracao, opcional)
+`-- ...
+\end{lstlisting}
+
+Dois papéis especiais são atribuídos por você, pelo menu de contexto da árvore:
+
+\begin{itemize}
+  \item \textbf{Top-level} --- o módulo Verilog que integra o(s) processador(es); é o topo da síntese e o alvo do PRISM. Menu de contexto: \menu{Definir como Top Level} / \menu{Remover Top Level}.
+  \item \textbf{Testbench} --- o banco de testes da simulação (um \file{_tb.v} Verilog ou um \file{.py} cocotb). Menu de contexto: \menu{Marcar como Testbench} / \menu{Desmarcar como Testbench}.
+\end{itemize}
+
+A barra de status lembra você do que falta: \enquote{Sem top-level}, \enquote{Sem testbench}. Para um projeto de um único processador, o \emph{testbench} gerado automaticamente pela compilação (\file{<proc>_tb.v}) costuma bastar --- os papéis manuais importam quando você escreve integração própria.
+
+\section{As três visões da árvore}
+\label{sec:tres-arvores}
+
+O botão de alternância no cabeçalho do painel circula entre as visões:
+
+\subsection{Visão Arquivos}
+A visão padrão: um \emph{picker} agrupado por processador, mostrando os fontes \cmm{}, os Verilog classificados automaticamente (sintetizável vs.\ \emph{testbench}) e os artefatos relevantes. É a visão de trabalho do dia a dia.
+
+\subsection{Visão Hierarquia}
+Depois de uma síntese (por exemplo, ao abrir o PRISM), esta visão mostra a \textbf{árvore de instâncias de módulos} do projeto, como o Yosys a enxerga: o top-level no topo, cada instância aninhada abaixo. Só aparece quando há dados de hierarquia.
+
+\subsection{Visão Pastas}
+Um explorador de arquivos completo, no estilo do VS Code, com CRUD integral pelo menu de contexto:
+
+\begin{itemize}
+  \item \menu{Novo Arquivo\ldots} / \menu{Nova Pasta\ldots} / \menu{Novo arquivo Verilog (.v)} / \menu{Novo testbench cocotb (.py)} / \menu{Novo .gitignore};
+  \item \menu{Recortar}, \menu{Copiar}, \menu{Colar}, \menu{Renomear\ldots}, \menu{Excluir} (com escolha entre \menu{Mover para a Lixeira} --- restaurável --- e \menu{Excluir Permanentemente});
+  \item \menu{Copiar Caminho} / \menu{Copiar Caminho Relativo};
+  \item \menu{Abrir no Terminal Integrado} (abre o TCMD já na pasta) e \menu{Revelar no Explorador de Arquivos};
+  \item \menu{Atualizar} e \menu{Recolher Tudo}.
+\end{itemize}
+
+Nomes de arquivo são validados como o Windows exige: sem \texttt{< > : " | ? *}, sem nomes reservados do sistema, sem terminar em ponto ou espaço. Em conflitos de colagem, a AURORA oferece \menu{Substituir} ou \menu{Manter Ambos}.
+
+\figurapendente{As três visões da árvore, lado a lado}{Três prints da mesma região: visão Arquivos, visão Hierarquia (após abrir o PRISM) e visão Pastas com o menu de contexto aberto.}
+
+\begin{nota}
+\textbf{Arrastar e soltar:} a árvore aceita a importação de arquivos \file{.v}, \file{.sv}, \file{.vh} e \emph{testbenches} cocotb \file{.py} por arrastar-e-soltar. Outros tipos são recusados com uma dica (arquivos \file{.gtkw}, por exemplo, entram pelo seletor próprio da toolbar).
+\end{nota}
+
+\section{Manutenção do projeto}
+
+\begin{itemize}
+  \item \textbf{Backup}: o botão \botao{Backup do projeto} no cabeçalho da árvore gera um \file{.zip} do projeto inteiro, sob demanda.
+  \item \textbf{Arquivos faltantes}: se arquivos registrados no \file{.spf} sumirem do disco, um aviso lista quantos faltam e oferece dispensá-los (removendo as referências).
+  \item \textbf{Fechar projeto}: o botão vermelho no cabeçalho da árvore, com confirmação (\enquote{Tem certeza que deseja fechar o projeto atual?}).
+  \item \textbf{Renomear projeto}: disponível também via Aurora Intelligence; a operação reescreve o \file{.spf} e a pasta.
+\end{itemize}

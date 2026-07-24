@@ -1,0 +1,140 @@
+% !TEX root = ../main.tex
+\chapter{\cmm{}: tipos, operadores e controle}
+\label{cap:cmm-tipos-operadores}
+
+\section{Tipos de dados}
+
+A \cmm{} tem exatamente quatro palavras-chave de tipo:
+
+\begin{longtable}{@{}lp{0.72\linewidth}@{}}
+\toprule
+\textbf{Tipo} & \textbf{Descrição} \\
+\midrule
+\endhead
+\code{void} & Ausência de tipo (retorno de funções que não retornam nada). \\
+\code{int} & Inteiro de \code{\#NUBITS} bits, em complemento de dois. \\
+\code{float} & Ponto flutuante no formato próprio do SAPHO: mantissa de \code{\#NBMANT} bits, expoente de \code{\#NBEXPO} bits (Seção~\ref{sec:float-sapho}). \\
+\code{comp} & Número complexo: um par de \code{float} (parte real e imaginária), tipo de primeira classe da linguagem. \\
+\bottomrule
+\end{longtable}
+
+Não existe um tipo \enquote{ponto fixo} separado: o papel de fracionário é do \code{float} configurável. Também não existem \code{char}, \code{double}, \code{struct}, \code{union}, \code{enum} nem \emph{strings} (um literal de texto só aparece para inicializar arrays por arquivo, adiante).
+
+\subsection{Literais complexos e o \texttt{i} reservado}
+
+Um literal complexo escreve-se \code{a+bi}, como em matemática:
+
+\begin{lstlisting}[style=cmm]
+comp z;
+z = 3.0 + 4.0i;
+\end{lstlisting}
+
+Por causa disso, \textbf{o identificador \code{i} é reservado} para a unidade imaginária: usar \code{i} como nome de variável é erro de compilação. Adote \code{k}, \code{n}, \code{idx} para contadores.
+
+\subsection{Conversões entre tipos}
+
+Misturar \code{int}, \code{float} e \code{comp} numa expressão ou atribuição é permitido, mas o compilador emite \textbf{avisos} de conversão implícita (por exemplo, ao guardar um \code{float} num \code{int}, quando há perda). Usar \code{float} ou \code{comp} como condição de \code{if}/\code{while} ou como índice de array também gera aviso. Trate os avisos como cheiro de projeto: conversões explícitas e índices inteiros deixam o hardware gerado mais barato e o comportamento mais óbvio.
+
+\section{Operadores}
+
+\begin{longtable}{@{}lp{0.58\linewidth}@{}}
+\toprule
+\textbf{Grupo} & \textbf{Operadores} \\
+\midrule
+\endhead
+Aritméticos & \texttt{+} \enspace \texttt{-} \enspace \texttt{*} \enspace \texttt{/} \enspace \texttt{\%} (módulo, só inteiros) \enspace e o \texttt{-} unário \\
+Bit a bit & \texttt{\&} \enspace \texttt{|} \enspace \texttt{\textasciicircum} \enspace \texttt{\textasciitilde} (inversão) \\
+Deslocamentos & \texttt{<<} \enspace \texttt{>>} \enspace \texttt{>>>} (deslocamento à direita preservando o sinal) \\
+Relacionais & \texttt{<} \enspace \texttt{>} \enspace \texttt{<=} \enspace \texttt{>=} \enspace \texttt{==} \enspace \texttt{!=} \\
+Lógicos & \texttt{\&\&} \enspace \texttt{||} \enspace \texttt{!} \\
+Incremento & \texttt{++} (como comando ou dentro de expressão, inclusive em elemento de array) \\
+\bottomrule
+\end{longtable}
+
+A precedência segue o C. As ausências, porém, importam tanto quanto as presenças:
+
+\begin{aviso}
+Não existem em \cmm{}: o decremento \texttt{-{}-}, os operadores compostos (\texttt{+=}, \texttt{-=}, \texttt{*=}, \ldots), o operador ternário \texttt{?:}, \emph{cast} explícito e \textbf{ponteiros} (nem \texttt{*} de indireção, nem \texttt{\&} de endereço --- esses símbolos são apenas multiplicação e AND bit a bit). Escreva \texttt{x = x - 1;} em vez de \texttt{x-{}-;}.
+\end{aviso}
+
+\subsection{Operadores custam hardware}
+
+Cada operador usado pela primeira vez no programa instancia o circuito correspondente na ULA do processador gerado --- e o terminal TASM anuncia isso na compilação (\enquote{recurso instanciado}). Divisão e módulo são os blocos mais caros; os deslocamentos, os mais baratos. Daí o idioma do exemplo condutor: \code{soma >> 2} em vez de \code{soma / 4}. A aritmética \code{comp} suporta \code{+ - * /}, e cada uma expande para o conjunto de operações reais/imaginárias necessárias.
+
+\section{Estruturas de controle}
+
+Todas as estruturas clássicas do C existem, com a mesma sintaxe:
+
+\begin{itemize}
+  \item \texttt{if (cond) \{ \ldots \} else \{ \ldots \}}
+  \item \texttt{while (cond) \{ \ldots \}} e \texttt{do \{ \ldots \} while (cond);}
+  \item \texttt{for (init; cond; passo) \{ \ldots \}} --- açúcar sintático: o compilador o reescreve como um \code{while} equivalente;
+  \item \texttt{switch (x) \{ case 1: \ldots{} default: \ldots \}} --- com \emph{fall-through} real como no C: sem \code{break}, a execução continua no próximo \code{case};
+  \item \code{break}, \code{continue} (dentro de laços; fora deles é erro) e \code{return}.
+\end{itemize}
+
+\begin{lstlisting}[style=cmm]
+// exemplo: saturador
+int satura(int x, int lim)
+{
+    if (x > lim)  return lim;
+    if (x < -lim) return -lim;
+    return x;
+}
+\end{lstlisting}
+
+\section{Funções}
+
+\begin{itemize}
+  \item Sintaxe C: \texttt{tipo nome(tipo p1, tipo p2, \ldots) \{ \ldots \}}, chamadas com argumentos posicionais, \code{return} devolvendo o valor.
+  \item O número de argumentos é conferido na chamada (contagem errada é erro de compilação); conversões de tipo em parâmetros e retorno geram aviso.
+  \item \textbf{Arrays não podem ser parâmetros de função.} Trabalhe com arrays globais ou dentro do \code{main()}.
+  \item \textbf{Recursão não é suportada no fluxo \cmm{}.} Cada variável --- incluindo parâmetros e locais --- vive num endereço fixo da memória de dados; uma função que chamasse a si mesma sobrescreveria os próprios dados. (É esse endereçamento fixo que permite à AURORA mostrar cada variável por nome nas formas de onda.) Se o seu algoritmo é essencialmente recursivo, use o caminho C++ (Capítulo~\ref{cap:cmm-avancado}).
+  \item A profundidade de chamadas aninhadas (f chama g, que chama h\ldots) é limitada por \code{\#SDEPTH}, a pilha de sub-rotinas.
+\end{itemize}
+
+\begin{lstlisting}[style=cmm]
+int add(int a, int b)
+{
+    return a + b;
+}
+
+int triple_sum(int x, int y, int z)
+{
+    return x + y + z;
+}
+
+void main()
+{
+    while (1)
+    {
+        int v = in(0);
+        out(0, add(v, 1));
+        out(0, triple_sum(v, 1, 2));
+    }
+}
+\end{lstlisting}
+
+\section{Arrays}
+
+Arrays de uma e duas dimensões, com tamanho fixo:
+
+\begin{lstlisting}[style=cmm]
+int  x[128];               // sem inicializacao
+int  h[8]    "coefs.txt";  // inicializado por arquivo, em tempo de compilacao
+int  m[8][8] "matriz.txt"; // 2D, tambem por arquivo
+\end{lstlisting}
+
+A inicialização por arquivo lê os valores de um arquivo de texto ao lado do fonte e grava-os diretamente na imagem da memória de dados do processador --- os coeficientes do seu filtro já nascem na memória, sem custo de inicialização em tempo de execução.
+
+Duas formas de indexação:
+\begin{itemize}
+  \item \code{x[k]} --- indexação normal;
+  \item \code{x[k)} --- \textbf{indexação bit-reversa} (repare no fecha-parênteses): o índice é lido com os bits invertidos, o endereçamento clássico da FFT. A quantidade de bits invertidos vem da diretiva \code{\#FFTSIZ}. (Capítulo~\ref{cap:cmm-avancado}.)
+\end{itemize}
+
+Elementos de array aceitam \code{++}: \code{hist[k]++;}.
+
+\section{Variáveis e escopo}
+
+Declarações podem aparecer no topo do programa (globais) ou dentro de funções e blocos. Na prática, porém, \textbf{todo nome vive num endereço fixo e único} da memória de dados do processador: declarar duas variáveis com o mesmo nome é erro (\enquote{a variável já existe}). Pense nas variáveis \cmm{} como registradores nomeados do seu circuito --- é exatamente isso que elas viram, e é por isso que cada uma aparece por nome na forma de onda da simulação.

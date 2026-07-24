@@ -1,0 +1,95 @@
+% !TEX root = ../main.tex
+\chapter{Simulação}
+\label{cap:simulacao}
+
+Simular é executar o processador gerado, ciclo a ciclo, num simulador de Verilog --- vendo cada variável, cada instrução e cada porta no tempo. A AURORA orquestra tudo com um clique em \botao{Analisar Verilog}; este capítulo explica as escolhas disponíveis e como controlá-las.
+
+\section{Dois motores: Icarus Verilog e Verilator}
+\label{sec:motores}
+
+O seletor de simulador na toolbar alterna o motor global:
+
+\begin{longtable}{@{}lp{0.36\linewidth}p{0.38\linewidth}@{}}
+\toprule
+ & \textbf{Icarus Verilog} (padrão) & \textbf{Verilator} \\
+\midrule
+\endhead
+Como funciona & Interpreta o Verilog (\tool{iverilog} compila, \tool{vvp} executa). & Converte o design em C++ e compila um executável nativo. \\
+Velocidade & Boa para designs pequenos/médios. & Cerca de 5--10$\times$ mais rápido em simulações longas. \\
+Visibilidade & \textbf{Expõe os sinais internos} do processador (variáveis, acumulador, PC\ldots). & Apenas os sinais do topo do \emph{testbench}. \\
+Uso típico & Depuração: ver o programa rodando por dentro. & Execuções longas e testes de regressão. \\
+\bottomrule
+\end{longtable}
+
+Ao alternar, uma notificação resume a troca. Para o dia a dia de depuração do \code{media_movel}, fique no Icarus; quando quiser rodar milhões de ciclos, mude para o Verilator.
+
+\section{Dois tipos de testbench: Verilog e cocotb}
+
+O \emph{testbench} marca quem estimula o processador:
+
+\begin{itemize}
+  \item \textbf{Verilog} (\file{_tb.v}) --- o gerado pela compilação, ou um seu. O gerado cria clock e reset, alimenta cada porta de entrada com o conteúdo de \file{input_<i>.txt} (um valor por linha) e grava cada porta de saída em \file{output_<i>.txt}.
+  \item \textbf{Python/cocotb} (\file{.py}) --- marque um arquivo Python como \emph{testbench} (menu de contexto da árvore, que também oferece \menu{Novo testbench cocotb (.py)}) e a AURORA roda o \emph{framework} cocotb com o Python embutido, sobre o motor selecionado. Ideal para estímulos complexos, checagens automáticas e comparação com modelos NumPy.
+\end{itemize}
+
+Os dois tipos cruzam com os dois motores: são \textbf{quatro caminhos} que convergem no mesmo arquivo de ondas (FST). A simulação roda uma única vez por clique.
+
+\section{Parâmetros da simulação}
+
+No popover \botao{Configurações de simulação do processador} (Seção~\ref{sec:proc-config}): frequência de clock (MHz), número de ciclos e a exibição de arrays nas ondas. O tempo simulado estimado é mostrado ali mesmo. Se a saída do seu programa não aparece, a causa mais comum é simulação curta demais --- aumente o número de ciclos.
+
+\section{Escolhendo os sinais das ondas}
+\label{sec:wave-config}
+
+Por padrão, o \emph{dump} grava os sinais do escopo do \emph{testbench}. O botão \botao{Configuração de ondas} abre o modal \textbf{Sinais para Dump}, onde você escolhe exatamente o que gravar:
+
+\begin{itemize}
+  \item lista de todos os sinais descobertos no projeto, com busca (\tecla{Ctrl+F} dentro do modal), opções de maiúsculas/minúsculas e expressão regular;
+  \item \botao{Selecionar tudo}, \botao{Limpar}, \botao{Restaurar padrão};
+  \item filtro \menu{Mostrar apenas sinais do processador};
+  \item a opção \menu{Surfer: manter janelas abertas} (para comparar execuções lado a lado);
+  \item rodapé com o contador de selecionados e \botao{Salvar}.
+\end{itemize}
+
+\figurapendente{Modal Configuração de Ondas}{Com alguns sinais do \code{media\_movel} filtrados e selecionados.}
+
+Menos sinais = arquivos menores e simulação mais leve --- relevante em execuções longas.
+
+\subsection{Quem manda no dump: a ordem de precedência}
+
+Quando a simulação vai gravar ondas, a AURORA decide a lista de sinais nesta ordem:
+
+\begin{enumerate}
+  \item um \textbf{\file{.gtkw} ativo} no seletor da toolbar --- os sinais referenciados nele mandam;
+  \item a sua seleção no modal \textbf{Configuração de ondas};
+  \item um \code{\$dumpvars} escrito à mão no seu \emph{testbench} --- respeitado, nada é injetado;
+  \item o padrão: todo o escopo do \emph{testbench}.
+\end{enumerate}
+
+O seu \emph{testbench} nunca é modificado: a instrumentação acontece numa cópia temporária.
+
+\section{O seletor de \texttt{.gtkw}}
+
+Ao lado do botão de ondas, o seletor de \file{.gtkw} escolhe o \textbf{layout ativo}: \enquote{padrão} usa o layout curado gerado pela AURORA; \menu{+ Adicionar arquivo .gtkw\ldots} registra um layout seu (salvo de dentro do GTKWave). O layout ativo também dirige a precedência do \emph{dump}, acima.
+
+\section{Rodando}
+
+Clique em \botao{Analisar Verilog}. Acompanhe no terminal TWAVE: construção, execução (\enquote{Executando simulação VVP\ldots} ou a compilação do Verilator) e a abertura do visualizador escolhido. O Capítulo~\ref{cap:ondas} assume daqui.
+
+Para execuções sem ondas, use \botao{Fast Sim} (Verilator): o programa roda na velocidade máxima e as saídas ficam nos \file{output_<i>.txt}.
+
+\section{Teste de hardware (THTEST)}
+
+O botão \botao{Teste do processador sintetizado} valida o processador como caixa-preta: um \emph{harness} C++ do Verilator alimenta as portas de entrada e confere as saídas, sem \emph{dump} de ondas, com barra de progresso no THTEST. Para detectar o fim do programa, a AURORA usa o mecanismo \code{\#TOAQUI}/\code{cheguei} (Seção~\ref{sec:toaqui}): o marcador é inserido automaticamente ao final do \code{main()} quando necessário.
+
+\section{Simulando o \texttt{media\_movel}}
+
+Roteiro completo do exemplo condutor:
+\begin{enumerate}
+  \item crie \file{Simulation/input_0.txt} com uma rampa e um degrau (um inteiro por linha);
+  \item \botao{Compilar \cmm{}} --- confira no TCMM/TASM que tudo passou;
+  \item confira o motor (Icarus) e o visualizador (GTKWave) nos seletores;
+  \item \botao{Analisar Verilog} --- o GTKWave abre com o layout curado;
+  \item observe \code{x[0]}\ldots\code{x[3]}, \code{soma} e a porta de saída suavizando o degrau; a trilha \cmm{} mostra qual linha do programa executa em cada ciclo;
+  \item os valores de saída também estão em \file{output_0.txt}, prontos para conferir num script.
+\end{enumerate}

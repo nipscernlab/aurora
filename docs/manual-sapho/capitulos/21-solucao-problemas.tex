@@ -1,0 +1,59 @@
+% !TEX root = ../main.tex
+\chapter{Solução de problemas}
+\label{cap:solucao-problemas}
+
+Um capítulo de pronto-socorro: os tropeços mais comuns e o caminho de volta.
+
+\section{Compilação e simulação}
+
+\begin{longtable}{@{}p{0.40\linewidth}p{0.54\linewidth}@{}}
+\toprule
+\textbf{Sintoma} & \textbf{Causa e solução} \\
+\midrule
+\endhead
+\enquote{Erro de sintaxe na linha N} no TCMM & Erro de \cmm{}. Clique na linha para ir ao ponto; confira as ausências da linguagem (sem \code{--}, sem \code{+=}, sem ponteiros --- Capítulo~\ref{cap:cmm-tipos-operadores}). \\
+\enquote{yo, where's the main()?} & Todo programa \cmm{} precisa de \code{void main()}. \\
+Erro citando porta de E/S inexistente & O índice em \code{in()}/\code{out()} excede \code{\#NUIOIN}/\code{\#NUIOOU}. Aumente a diretiva (ou o campo no Hub) e recompile. \\
+Total de bits recusado no Hub & A regra é \texttt{NUBITS} = \texttt{NBMANT} + \texttt{NBEXPO} + 1, e o Ganho deve ser potência de 2. \\
+Botão de ondas não faz nada / aviso na barra de status & Falta \emph{testbench} (ou top-level, para o PRISM). Compile o \cmm{} para gerar o \file{_tb.v}, ou marque o seu pelo menu de contexto. \\
+A simulação termina antes dos resultados & Poucos ciclos. Aumente \textbf{Number of clocks} no popover de configurações do processador. \\
+Simulação lenta demais & Troque o motor para Verilator (5--10$\times$ mais rápido; só sinais de topo) ou reduza os sinais no \botao{Configuração de ondas}. \\
+Sinais internos sumiram das ondas & Você está no Verilator, que só expõe o topo do \emph{testbench}. Volte ao Icarus para depurar por dentro. \\
+Processo travado & \botao{Cancelar} na toolbar interrompe toda a toolchain sem fechar a IDE. \\
+\enquote{Binário Icarus Verilog não encontrado} & A pasta \file{components/} da instalação está incompleta ou foi movida. Reinstale o SAPHO pelo instalador oficial. \\
+\bottomrule
+\end{longtable}
+
+\section{Projeto e arquivos}
+
+\begin{longtable}{@{}p{0.40\linewidth}p{0.54\linewidth}@{}}
+\toprule
+\textbf{Sintoma} & \textbf{Causa e solução} \\
+\midrule
+\endhead
+\enquote{Projeto Não Encontrado} & O \file{.spf} foi movido ou apagado. Abra pelo novo caminho; o item sai dos recentes sozinho. \\
+Aviso de arquivos faltantes & Arquivos registrados no \file{.spf} sumiram do disco. Restaure-os ou dispense o aviso para limpar as referências. \\
+\enquote{Arquivo Modificado Externamente} & Outro programa alterou um arquivo aberto. Escolha entre manter a versão do editor, a do disco, ou salvar e recarregar. \\
+Arrastar arquivo para a árvore não funciona & A importação por arraste aceita \file{.v}, \file{.sv}, \file{.vh} e \file{.py} (cocotb). Arquivos \file{.gtkw} entram pelo seletor da toolbar. \\
+\bottomrule
+\end{longtable}
+
+\section{Visualizadores}
+
+\begin{itemize}
+  \item \textbf{Selecionei o Surfer e abriu o GTKWave}: o executável do Surfer não está presente --- a AURORA degrada para o GTKWave de propósito. Reinstale/atualize para obter o componente.
+  \item \textbf{O Surfer não recarregou a onda nova}: comportamento esperado no Windows --- a AURORA fecha e reabre a janela a cada simulação.
+  \item \textbf{O PRISM recusou o modo Simular}: o circuito passa de 3000 células; use o diagrama esquemático comum.
+\end{itemize}
+
+\section{Aurora Intelligence}
+
+\begin{itemize}
+  \item \textbf{\enquote{A Aurora Intelligence está offline}}: sem conexão com o provedor. Verifique a rede e teste a chave na aba Assistente IA (\botao{Testar}).
+  \item \textbf{Modelo indisponível}: a AURORA recua automaticamente para o modelo padrão do provedor; escolha outro no seletor do composer.
+  \item \textbf{Ollama não detectado}: confirme que o serviço local está rodando e use \botao{Detect} no cartão do Ollama.
+\end{itemize}
+
+\section{Onde estão os logs}
+
+Para relatar um problema, anexe o log principal: \file{\%APPDATA\%\textbackslash Aurora-IDE\textbackslash logs\textbackslash main.log} (o anterior fica em \file{main.old.log}). O conteúdo dos terminais pode ser salvo com \botao{Exportar log}. Issues são bem-vindas nos repositórios do \texttt{nipscernlab} no GitHub.

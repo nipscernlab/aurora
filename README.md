@@ -158,7 +158,7 @@ browser and extract it manually:
 
 * `aurora-msys-v1.zip` → extract **into** `components/Packages/`
   (so you end up with `components/Packages/msys/mingw64/bin/iverilog.exe`).
-* `yanc-bin-v5.2.zip` → extract **into** `components/`
+* `yanc-bin-v5.3.zip` → extract **into** `components/`
   (so you end up with `components/bin/cmmcomp.exe`).
 
 #### 5. Build a distributable installer (optional)

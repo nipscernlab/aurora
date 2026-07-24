@@ -2,30 +2,24 @@
 \chapter{Atualizações automáticas}
 \label{cap:atualizacoes}
 
-O SAPHO evolui rápido, e a AURORA cuida de se manter atual: um atualizador automático embutido verifica, baixa e instala novas versões --- sempre com o seu aval.
+O SAPHO evolui rápido, e a AURORA cuida de se manter atual: um atualizador embutido verifica, baixa e instala novas versões, sempre com o seu aval.
 
 \section{Como funciona, do seu ponto de vista}
 
-\begin{enumerate}
-  \item \textbf{Verificação silenciosa}: cerca de seis segundos após abrir a IDE, a AURORA consulta o canal oficial de \emph{releases} (o repositório \repo{sapho} no GitHub). Se você já está na última versão, nada acontece --- nenhum diálogo.
-  \item \textbf{Oferta}: havendo versão nova, abre a \textbf{janela de atualização}: versão nova e atual, o tamanho do download e o \emph{changelog} bilíngue com o que mudou. Nada é baixado sem você pedir.
-  \item \textbf{Download}: ao aceitar, a barra de progresso mostra percentual, MB, velocidade e tempo restante. Você pode continuar trabalhando.
-  \item \textbf{Instalação}: com o download pronto, o botão vira \botao{Reiniciar e instalar}. A AURORA fecha, o instalador roda e a IDE reabre na versão nova.
-  \item \textbf{Confirmação}: na primeira abertura pós-atualização, um \emph{toast} discreto confirma: \enquote{O SAPHO foi atualizado para a versão X.Y.Z}.
-\end{enumerate}
+Cerca de seis segundos após abrir a IDE, a AURORA consulta silenciosamente o canal oficial de \textit{releases}, o repositório \repo{sapho} no GitHub; se você já está na última versão, nada acontece, nenhum diálogo. Havendo versão nova, abre-se a janela de atualização, com a versão nova e a atual, o tamanho do download e o registro de mudanças bilíngue. Nada é baixado sem você pedir. Ao aceitar, a barra de progresso mostra percentual, velocidade e tempo restante, e é possível continuar trabalhando. Com o download pronto, o botão vira \botao{Reiniciar e instalar}: a AURORA fecha, o instalador roda e a IDE reabre na versão nova, confirmando a mudança com uma notificação discreta na primeira abertura.
 
-\figurapendente{Janela de atualização}{Com uma versão nova disponível: changelog, tamanho do download e o botão de baixar. Se possível, um segundo print com o download em progresso.}
+A integridade do pacote é verificada por \textit{hash} criptográfico antes de instalar, e os downloads são incrementais quando possível. Em caso de problema, como falta de internet, de espaço ou de permissão, a janela explica em linguagem clara e a IDE continua funcionando na versão atual.
 
-A integridade do pacote é verificada (\emph{hash} SHA-512 publicado junto com a \emph{release}) antes de instalar; downloads são incrementais quando possível. Em caso de problema --- sem internet, sem espaço em disco, sem permissão --- a janela explica em linguagem clara e a IDE continua funcionando na versão atual.
+\figurapendente{Janela de atualização}{Com uma versão nova disponível: changelog, tamanho do download e o botão de baixar; se possível, um segundo print com o download em progresso.}
 
 \begin{info}
-\textbf{Dois repositórios, por desenho:} o desenvolvimento da AURORA acontece no repositório \repo{aurora}; as versões estáveis são publicadas no repositório \repo{sapho}, que é o canal que o seu instalador e o atualizador consomem. Você sempre recebe releases estáveis, nunca o estado intermediário do desenvolvimento.
+Há dois repositórios por desenho: o desenvolvimento acontece em \repo{aurora}, e as versões estáveis são publicadas em \repo{sapho}, o canal que o instalador e o atualizador consomem. Você sempre recebe \textit{releases} estáveis, nunca o estado intermediário do desenvolvimento.
 \end{info}
 
 \section{A toolchain acompanha}
 
-Cada instalador carrega, embutida, a versão da toolchain testada com aquela versão da IDE --- os compiladores do YANC, os simuladores, o GTKWave, os moldes de HDL. Atualizar a AURORA atualiza o conjunto todo, em versões que foram validadas juntas. Não há nada para você gerenciar manualmente.
+Cada instalador carrega, embutida, a versão da cadeia de ferramentas testada com aquela versão da IDE: os compiladores do YANC, os simuladores, o GTKWave e os moldes de HDL. Atualizar a AURORA atualiza o conjunto inteiro, em versões validadas juntas, sem nada para gerenciar manualmente.
 
 \section{Este manual também se atualiza}
 
-O manual que você lê é parte do ecossistema versionado: cada mudança relevante na AURORA, no YANC ou nos componentes reflete numa edição nova. A versão do manual acompanha a da plataforma.
+O manual que você lê é parte do ecossistema versionado: cada mudança relevante na AURORA, no YANC ou nos componentes reflete numa edição nova, e a versão do manual acompanha a da plataforma.

@@ -2,58 +2,50 @@
 \chapter{Solução de problemas}
 \label{cap:solucao-problemas}
 
-Um capítulo de pronto-socorro: os tropeços mais comuns e o caminho de volta.
+Um capítulo de pronto-socorro, com os tropeços mais comuns e o caminho de volta. As tabelas seguem o formato sintoma e solução; para os diagnósticos do compilador em si, veja a Seção~\ref{sec:mensagens-compilador}.
 
 \section{Compilação e simulação}
 
-\begin{longtable}{@{}p{0.40\linewidth}p{0.54\linewidth}@{}}
+\begin{longtable}{p{0.40\linewidth}p{0.52\linewidth}}
 \toprule
-\textbf{Sintoma} & \textbf{Causa e solução} \\
+Sintoma & Causa e solução \\
 \midrule
 \endhead
-\enquote{Erro de sintaxe na linha N} no TCMM & Erro de \cmm{}. Clique na linha para ir ao ponto; confira as ausências da linguagem (sem \code{--}, sem \code{+=}, sem ponteiros --- Capítulo~\ref{cap:cmm-tipos-operadores}). \\
-\enquote{yo, where's the main()?} & Todo programa \cmm{} precisa de \code{void main()}. \\
-Erro citando porta de E/S inexistente & O índice em \code{in()}/\code{out()} excede \code{\#NUIOIN}/\code{\#NUIOOU}. Aumente a diretiva (ou o campo no Hub) e recompile. \\
-Total de bits recusado no Hub & A regra é \texttt{NUBITS} = \texttt{NBMANT} + \texttt{NBEXPO} + 1, e o Ganho deve ser potência de 2. \\
-Botão de ondas não faz nada / aviso na barra de status & Falta \emph{testbench} (ou top-level, para o PRISM). Compile o \cmm{} para gerar o \file{_tb.v}, ou marque o seu pelo menu de contexto. \\
-A simulação termina antes dos resultados & Poucos ciclos. Aumente \textbf{Number of clocks} no popover de configurações do processador. \\
-Simulação lenta demais & Troque o motor para Verilator (5--10$\times$ mais rápido; só sinais de topo) ou reduza os sinais no \botao{Configuração de ondas}. \\
-Sinais internos sumiram das ondas & Você está no Verilator, que só expõe o topo do \emph{testbench}. Volte ao Icarus para depurar por dentro. \\
-Processo travado & \botao{Cancelar} na toolbar interrompe toda a toolchain sem fechar a IDE. \\
-\enquote{Binário Icarus Verilog não encontrado} & A pasta \file{components/} da instalação está incompleta ou foi movida. Reinstale o SAPHO pelo instalador oficial. \\
+Erro de sintaxe no TCMM & Clique na linha para ir ao ponto. Confira as ausências da linguagem: não há decremento, operadores compostos nem ponteiros (Capítulo~\ref{cap:cmm-tipos-operadores}). \\
+Falta o \code{main()} & Todo programa \cmm{} precisa de \code{void main()}. \\
+Porta de E/S inexistente & O índice em \code{in()} ou \code{out()} excede as diretivas de porta. Aumente \code{\#NUIOIN} ou \code{\#NUIOOU} e recompile. \\
+Total de bits recusado no Hub & Vale a igualdade estrutural (mantissa mais expoente mais um), e o ganho deve ser potência de dois. \\
+O botão de ondas não age & Falta \textit{testbench}, ou \textit{top-level} no caso do PRISM. Compile o \cmm{} para gerar o \file{_tb.v}, ou marque o seu pelo menu de contexto. \\
+A simulação termina cedo demais & Poucos ciclos. Aumente o número de ciclos no painel de configurações do processador. \\
+Simulação lenta demais & Troque o motor para o Verilator, ou reduza os sinais gravados na configuração de ondas. \\
+Sinais internos sumiram das ondas & Você está no Verilator, que expõe apenas o topo do \textit{testbench}. Volte ao Icarus para depurar por dentro. \\
+Processo travado & O botão \botao{Cancelar} interrompe toda a cadeia sem fechar a IDE. \\
+Binário do simulador não encontrado & A pasta \file{components} da instalação está incompleta ou foi movida. Reinstale o SAPHO pelo instalador oficial. \\
 \bottomrule
 \end{longtable}
 
 \section{Projeto e arquivos}
 
-\begin{longtable}{@{}p{0.40\linewidth}p{0.54\linewidth}@{}}
+\begin{longtable}{p{0.40\linewidth}p{0.52\linewidth}}
 \toprule
-\textbf{Sintoma} & \textbf{Causa e solução} \\
+Sintoma & Causa e solução \\
 \midrule
 \endhead
-\enquote{Projeto Não Encontrado} & O \file{.spf} foi movido ou apagado. Abra pelo novo caminho; o item sai dos recentes sozinho. \\
-Aviso de arquivos faltantes & Arquivos registrados no \file{.spf} sumiram do disco. Restaure-os ou dispense o aviso para limpar as referências. \\
-\enquote{Arquivo Modificado Externamente} & Outro programa alterou um arquivo aberto. Escolha entre manter a versão do editor, a do disco, ou salvar e recarregar. \\
-Arrastar arquivo para a árvore não funciona & A importação por arraste aceita \file{.v}, \file{.sv}, \file{.vh} e \file{.py} (cocotb). Arquivos \file{.gtkw} entram pelo seletor da toolbar. \\
+Projeto não encontrado & O \file{.spf} foi movido ou apagado. Abra pelo novo caminho; o item sai dos recentes sozinho. \\
+Aviso de arquivos faltantes & Arquivos registrados no \file{.spf} sumiram do disco. Restaure-os, ou dispense o aviso para limpar as referências. \\
+Arquivo modificado externamente & Outro programa alterou um arquivo aberto. Escolha entre manter a versão do editor, usar a do disco, ou salvar e recarregar. \\
+Arrastar para a árvore não funciona & A importação por arraste aceita \file{.v}, \file{.sv}, \file{.vh} e \file{.py}. Arquivos \file{.gtkw} entram pelo seletor da \textit{toolbar}. \\
 \bottomrule
 \end{longtable}
 
 \section{Visualizadores}
 
-\begin{itemize}
-  \item \textbf{Selecionei o Surfer e abriu o GTKWave}: o executável do Surfer não está presente --- a AURORA degrada para o GTKWave de propósito. Reinstale/atualize para obter o componente.
-  \item \textbf{O Surfer não recarregou a onda nova}: comportamento esperado no Windows --- a AURORA fecha e reabre a janela a cada simulação.
-  \item \textbf{O PRISM recusou o modo Simular}: o circuito passa de 3000 células; use o diagrama esquemático comum.
-\end{itemize}
+Se você selecionou o Surfer e o GTKWave abriu, o executável do Surfer não está presente, e a AURORA recuou de propósito; reinstale ou atualize para obter o componente. Se o Surfer não recarregou a onda nova, trata-se do comportamento esperado no Windows, no qual a AURORA fecha e reabre a janela a cada simulação. Se o PRISM recusou o modo de simulação, o circuito passa de três mil células; use a visão esquemática comum.
 
 \section{Aurora Intelligence}
 
-\begin{itemize}
-  \item \textbf{\enquote{A Aurora Intelligence está offline}}: sem conexão com o provedor. Verifique a rede e teste a chave na aba Assistente IA (\botao{Testar}).
-  \item \textbf{Modelo indisponível}: a AURORA recua automaticamente para o modelo padrão do provedor; escolha outro no seletor do composer.
-  \item \textbf{Ollama não detectado}: confirme que o serviço local está rodando e use \botao{Detect} no cartão do Ollama.
-\end{itemize}
+Quando o painel indica que a assistente está \textit{offline}, não há conexão com o provedor; verifique a rede e use o botão de teste da chave nas Configurações. Quando um modelo está indisponível, a AURORA recua automaticamente para o padrão do provedor, e outro pode ser escolhido no seletor. Quando o Ollama não é detectado, confirme que o serviço local está em execução e use o botão \botao{Detect} no cartão correspondente.
 
-\section{Onde estão os logs}
+\section{Onde estão os registros}
 
-Para relatar um problema, anexe o log principal: \file{\%APPDATA\%\textbackslash Aurora-IDE\textbackslash logs\textbackslash main.log} (o anterior fica em \file{main.old.log}). O conteúdo dos terminais pode ser salvo com \botao{Exportar log}. Issues são bem-vindas nos repositórios do \texttt{nipscernlab} no GitHub.
+Para relatar um problema, anexe o registro principal, em \file{\%APPDATA\%\textbackslash Aurora-IDE\textbackslash logs\textbackslash main.log}; o anterior fica em \file{main.old.log}. O conteúdo dos terminais pode ser salvo pelo botão de exportação. Relatos são bem-vindos nos repositórios da organização \texttt{nipscernlab}, no GitHub.

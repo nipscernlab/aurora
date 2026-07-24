@@ -2,38 +2,39 @@
 \chapter{Glossário}
 \label{ap:glossario}
 
-\begin{description}[style=nextline,font=\bfseries]
-  \item[SAPHO] \emph{Scalable-Architecture Processor for Hardware Optimization}: o processador \emph{soft-core} e, por extensão, a plataforma completa (AURORA + YANC + toolchain) e o canal de distribuição.
-  \item[AURORA] \emph{Advanced Utility Running Optimized Resource Architectures}: a IDE de desktop da plataforma.
-  \item[YANC] \emph{Yet Another Compiler}: a suíte de compiladores que traduz \cmm{}/C++ em processador Verilog.
-  \item[\cmm{} (CMM)] A linguagem de programação da plataforma; dialeto de C com complexos nativos e notação de Dirac. Arquivos \file{.cmm}.
-  \item[PRISM] \emph{Processor Rendering Interface for Schematic Models}: o visualizador de RTL da AURORA.
+\begin{description}[style=nextline,font=\normalfont\scshape,itemsep=4pt]
+  \item[SAPHO] \textit{Scalable-Architecture Processor for Hardware Optimization}: o processador \textit{soft-core} e, por extensão, a plataforma completa e o canal de distribuição.
+  \item[AURORA] \textit{Advanced Utility Running Optimized Resource Architectures}: a IDE de desktop da plataforma.
+  \item[YANC] \textit{Yet Another Compiler}: a suíte de compiladores que traduz \cmm{} e C++ em processador Verilog.
+  \item[\cmm{} (CMM)] A linguagem de programação da plataforma, dialeto de C com complexos nativos e notação de Dirac; arquivos \file{.cmm}.
+  \item[PRISM] \textit{Processor Rendering Interface for Schematic Models}: o visualizador de RTL da AURORA.
   \item[Aurora Intelligence] A assistente de IA integrada à AURORA.
   \item[Dagr] O painel de controle de versão (Git) da AURORA.
-  \item[NIPS-CERN] O Núcleo de Instrumentação e Processamento de Sinais da UFJF, em colaboração com o CERN --- o laboratório que desenvolve a plataforma.
-  \item[soft-processor / soft-core] Processador descrito em HDL e implementado na malha reconfigurável de um FPGA.
-  \item[FPGA] \emph{Field-Programmable Gate Array}: circuito integrado reconfigurável.
-  \item[Verilog / HDL] Linguagem de descrição de hardware usada pela plataforma.
-  \item[\file{.spf}] \emph{SAPHO Project File}: o arquivo JSON que define um projeto.
-  \item[\file{.asm}] O assembly intermediário do SAPHO, entre o compilador e o montador.
-  \item[\file{.mif}] \emph{Memory Initialization File}: imagem de memória (programa ou dados) embutida no design.
-  \item[testbench] O banco de testes da simulação: um módulo Verilog (\file{_tb.v}) ou um script Python (cocotb) que estimula o processador.
-  \item[top-level] O módulo Verilog que integra os processadores e blocos do projeto; topo da síntese.
-  \item[ULA] Unidade Lógico-Aritmética: o conjunto de operadores do processador; no SAPHO, só os usados são instanciados.
-  \item[acumulador (ACC)] O registrador central do processador SAPHO, destino de toda operação da ULA.
-  \item[Harvard] Arquitetura com memórias de programa e dados separadas.
-  \item[opcode / ISA] Código de operação de uma instrução / o conjunto de instruções do processador.
-  \item[Icarus Verilog / vvp] O simulador de Verilog padrão (interpreta o design).
-  \item[Verilator] Simulador de alto desempenho que converte o design em executável C++.
-  \item[cocotb] \emph{Framework} Python para escrever \emph{testbenches}.
+  \item[NIPS-CERN] O Núcleo de Instrumentação e Processamento de Sinais da UFJF, em parceria com o CERN; o laboratório que desenvolve a plataforma.
+  \item[soft-processor] Processador descrito em HDL e implementado na malha reconfigurável de um FPGA; também dito \textit{soft-core}.
+  \item[FPGA] \textit{Field-Programmable Gate Array}: circuito integrado reconfigurável.
+  \item[Verilog] A linguagem de descrição de hardware (HDL) usada pela plataforma.
+  \item[.spf] \textit{SAPHO Project File}: o arquivo JSON que define um projeto.
+  \item[.asm] O \textit{assembly} intermediário do SAPHO, entre o compilador e o montador.
+  \item[.mif] \textit{Memory Initialization File}: imagem de memória, de programa ou de dados, embutida no circuito.
+  \item[testbench] O banco de testes da simulação, em Verilog (\file{_tb.v}) ou em Python (cocotb), que estimula o processador.
+  \item[top-level] O módulo Verilog que integra os processadores e blocos do projeto; o topo da síntese.
+  \item[ULA] Unidade lógica e aritmética; no SAPHO, apenas os operadores usados pelo programa são instanciados.
+  \item[ACC] O acumulador, registrador central do processador, destino de toda operação da ULA.
+  \item[Harvard] Arquitetura com memórias de programa e de dados separadas.
+  \item[ISA] \textit{Instruction Set Architecture}: o conjunto de instruções do processador.
+  \item[Icarus Verilog] O simulador de Verilog padrão da plataforma; compila com o \code{iverilog} e executa com o \code{vvp}.
+  \item[Verilator] Simulador de alto desempenho que converte o circuito em executável nativo.
+  \item[cocotb] \textit{Framework} Python para a escrita de \textit{testbenches}.
   \item[Yosys] Ferramenta de síntese usada pelo PRISM e pela visão Hierarquia.
-  \item[GTKWave / Surfer] Os dois visualizadores de formas de onda da plataforma.
-  \item[VCD / FST] Formatos de arquivo de ondas gerados pela simulação (textual / binário compacto).
-  \item[\file{.gtkw} / \file{.surf.ron}] Arquivos de layout de ondas (GTKWave / Surfer): quais sinais, cores e grupos mostrar.
-  \item[Monaco] O motor de edição de código (o mesmo do VS Code).
-  \item[LSP] \emph{Language Server Protocol}: o mecanismo dos diagnósticos e navegação de código (Verible, slang).
-  \item[BYOK] \emph{Bring Your Own Key}: o modelo de chaves da Aurora Intelligence.
-  \item[MCP] \emph{Model Context Protocol}: como as CLIs de IA acessam as ferramentas da AURORA.
-  \item[bit-reverso] Endereçamento com bits do índice invertidos (\code{x[k)}), usado em FFT.
+  \item[GTKWave] Visualizador de formas de onda padrão, em \textit{fork} próprio do laboratório.
+  \item[Surfer] Visualizador de formas de onda opcional, em Rust, no \textit{fork} \texttt{surfer-aurora}.
+  \item[VCD, FST] Formatos de arquivo de ondas gerados pela simulação, textual e binário compacto.
+  \item[.gtkw, .surf.ron] Arquivos de \textit{layout} de ondas do GTKWave e do Surfer: quais sinais, cores e grupos mostrar.
+  \item[Monaco] O motor de edição de código da AURORA, o mesmo do VS Code.
+  \item[LSP] \textit{Language Server Protocol}: o mecanismo dos diagnósticos e da navegação de código (Verible, slang).
+  \item[BYOK] \textit{Bring Your Own Key}: o modelo de chaves da Aurora Intelligence.
+  \item[MCP] \textit{Model Context Protocol}: como as ferramentas de linha de comando de IA acessam as ferramentas da AURORA.
+  \item[bit-reverso] Endereçamento com os bits do índice invertidos, \code{x[k)}, usado em FFT.
   \item[DLP] Dispositivos Lógicos Programáveis: a disciplina da UFJF que usa a plataforma no ensino.
 \end{description}

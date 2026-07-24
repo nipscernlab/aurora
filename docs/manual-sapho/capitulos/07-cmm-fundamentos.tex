@@ -2,17 +2,17 @@
 \chapter{\cmm{}: fundamentos}
 \label{cap:cmm-fundamentos}
 
-A \cmm{} (lê-se \enquote{C mais-menos}; nos arquivos, extensão \file{.cmm}) é a linguagem principal do SAPHO: um dialeto de C criado pelo NIPS-CERN, enxuto o bastante para virar hardware eficiente e expressivo o bastante para algoritmos de processamento de sinais --- incluindo números complexos como tipo nativo e álgebra linear em notação de Dirac. Este capítulo apresenta a estrutura de um programa; os capítulos seguintes cobrem tipos, operadores, E/S, biblioteca e recursos avançados.
+A \cmm{} (lê-se \enquote{C mais-menos}; nos arquivos, extensão \file{.cmm}) é a linguagem principal do SAPHO: um dialeto de C criado pelo NIPS-CERN, enxuto o bastante para virar hardware eficiente e expressivo o bastante para algoritmos de processamento de sinais, com números complexos como tipo nativo e álgebra linear em notação de Dirac. Este capítulo apresenta a estrutura de um programa; os seguintes cobrem tipos, operadores, entrada e saída, biblioteca e recursos avançados.
 
 \begin{nota}
-Tudo o que está nesta Parte foi extraído da gramática oficial do compilador (\file{CMMComp.y} e \file{CMMComp.l} do repositório \repo{yanc}, toolchain 5.3). Quando este manual diz que algo \enquote{não existe} na linguagem, é porque não existe na gramática --- o compilador rejeitará o código.
+Tudo o que está nesta parte foi extraído da gramática oficial do compilador, nos arquivos \file{CMMComp.y} e \file{CMMComp.l} do repositório \repo{yanc}, cadeia de ferramentas na versão 5.3. Quando o manual diz que algo não existe na linguagem, é porque não existe na gramática, e o compilador rejeitará o código.
 \end{nota}
 
 \section{A estrutura de um programa}
 
-Um programa \cmm{} é uma sequência de três tipos de elemento, em qualquer ordem: \textbf{diretivas} (linhas iniciadas por \code{\#}), \textbf{declarações de variáveis globais} e \textbf{funções}. O ponto de entrada é obrigatório: uma função \code{void main()}. Sem ela, o compilador encerra com erro.
+Um programa \cmm{} é uma sequência de três tipos de elemento, em qualquer ordem: diretivas, que são as linhas iniciadas por \code{\#}; declarações de variáveis globais; e funções. O ponto de entrada é obrigatório, uma função \code{void main()}, e a sua ausência encerra a compilação com erro.
 
-A forma canônica de um programa SAPHO é: diretivas no topo (configurando o processador), depois o \code{main()} com um laço infinito \code{while (1)} --- afinal, o programa modela um circuito que roda continuamente, processando amostras para sempre:
+A forma canônica de um programa SAPHO coloca as diretivas no topo, configurando o processador, e em seguida o \code{main()} com um laço infinito \code{while (1)}; afinal, o programa modela um circuito que roda continuamente, processando amostras para sempre. O exemplo abaixo é o \code{media_movel}, o processador que acompanha o manual inteiro, um filtro de média móvel de quatro amostras:
 
 \begin{lstlisting}[style=cmm]
 #PRNAME media_movel
@@ -42,36 +42,18 @@ void main()
 }
 \end{lstlisting}
 
-Este é o \code{media_movel}, o processador que acompanha o manual inteiro: um filtro de média móvel de 4 amostras. Repare em duas escolhas típicas de quem escreve para o SAPHO: o histórico é um array deslocado à mão, e a divisão por 4 é um deslocamento de bits (\code{>> 2}) --- assim o processador gerado não precisa instanciar um divisor, que é um dos blocos mais caros da ULA.
+Repare em duas escolhas típicas de quem escreve para o SAPHO. O histórico é um \textit{array} deslocado à mão, e a divisão por quatro é um deslocamento de bits (\code{>> 2}); assim o processador gerado não precisa instanciar um divisor, que é um dos blocos mais caros da ULA.
 
 \section{Diretivas: configurando o processador no próprio código}
 \label{sec:diretivas}
 
-As diretivas são linhas que começam com \code{\#}, uma por linha, \textbf{sem ponto e vírgula}. Elas definem o nome e a arquitetura do processador que será gerado. Quando você cria um processador pela AURORA (Capítulo~\ref{cap:criando-processadores}), o formulário preenche essas diretivas por você no \file{.cmm} inicial; depois disso, o arquivo é a fonte da verdade --- editar a diretiva muda o processador na próxima compilação.
-
-\begin{longtable}{@{}llp{0.52\linewidth}@{}}
-\toprule
-\textbf{Diretiva} & \textbf{Padrão} & \textbf{Significado} \\
-\midrule
-\endhead
-\code{\#PRNAME <nome>} & --- & Nome do processador (deve casar com o nome usado no projeto). \\
-\code{\#NUBITS <n>} & 23 & Largura da palavra em bits (inteiros em complemento de dois). \\
-\code{\#NBMANT <n>} & 16 & Bits de mantissa do ponto flutuante. \\
-\code{\#NBEXPO <n>} & 6 & Bits de expoente do ponto flutuante. \\
-\code{\#NDSTAC <n>} & 10 & Profundidade da pilha de dados. \\
-\code{\#SDEPTH <n>} & 10 & Profundidade da pilha de sub-rotinas (limita chamadas aninhadas). \\
-\code{\#NUIOIN <n>} & 1 & Número de portas de entrada. \\
-\code{\#NUIOOU <n>} & 1 & Número de portas de saída. \\
-\code{\#NUGAIN <n>} & 64 & Divisor fixo usado pela função \code{norm()}. \\
-\code{\#FFTSIZ <n>} & 8 & Tamanho da FFT ($2^n$ pontos) para o endereçamento bit-reverso. \\
-\bottomrule
-\end{longtable}
+As diretivas são linhas que começam com \code{\#}, uma por linha, sem ponto e vírgula ao final. São elas que definem o nome e a arquitetura do processador a ser gerado. Quando você cria um processador pela AURORA (Capítulo~\ref{cap:criando-processadores}), o formulário preenche essas diretivas no \file{.cmm} inicial; a partir daí o arquivo é a fonte da verdade, e editar uma diretiva muda o processador na compilação seguinte. A referência completa, com os valores assumidos quando cada diretiva é omitida, está no Apêndice~\ref{ap:diretivas}; as mais usadas são \code{\#PRNAME}, o nome do processador, \code{\#NUBITS}, a largura da palavra, \code{\#NBMANT} e \code{\#NBEXPO}, o formato do ponto flutuante, e \code{\#NUIOIN} e \code{\#NUIOOU}, as quantidades de portas.
 
 \begin{aviso}
-Lembre da restrição estrutural: \texttt{NUBITS} = \texttt{NBMANT} + \texttt{NBEXPO} + 1. No exemplo acima, $16 = 10 + 5 + 1$. A AURORA valida isso ao criar o processador, mas se você editar as diretivas à mão, é sua responsabilidade manter a igualdade.
+Lembre da restrição estrutural: \texttt{NUBITS} deve ser igual a \texttt{NBMANT} mais \texttt{NBEXPO} mais um. No exemplo acima, $16 = 10 + 5 + 1$. A AURORA valida a igualdade ao criar o processador, mas quem edita as diretivas à mão responde por mantê-la.
 \end{aviso}
 
-Existem ainda duas diretivas \emph{comportamentais}, que aparecem no meio do código (não no topo) e são explicadas no Capítulo~\ref{cap:cmm-avancado}: \code{\#PRACA} (ponto de retorno da interrupção) e \code{\#TOAQUI} (marcador refletido no pino \code{cheguei}).
+Existem ainda duas diretivas comportamentais, que aparecem no meio do código e marcam pontos do programa: \code{\#PRACA}, o ponto de retorno da interrupção, e \code{\#TOAQUI}, o marcador refletido no pino \code{cheguei}. Ambas são explicadas no Capítulo~\ref{cap:cmm-avancado}.
 
 \section{Constantes com \texttt{\#define}}
 
@@ -95,19 +77,12 @@ void main()
 }
 \end{lstlisting}
 
-Três limitações importantes em relação ao C tradicional:
-\begin{itemize}
-  \item só existem \emph{defines de objeto} --- macros com argumentos, como \code{\#define DOBRO(x) ((x)*2)}, não são suportadas;
-  \item não há \code{\#include} nem \code{\#ifdef} no lado \cmm{} (o fluxo C++, sim, tem pré-processador completo --- Capítulo~\ref{cap:cmm-avancado});
-  \item o limite é de 256 defines por programa.
-\end{itemize}
-
-O editor da AURORA reconhece os seus \code{\#define} e os colore como constantes conforme você digita.
+Três limitações distinguem esse pré-processador do C tradicional: só existem \textit{defines} de objeto, de modo que macros com argumentos, como \code{\#define DOBRO(x) ((x)*2)}, não são aceitas; não há \code{\#include} nem \code{\#ifdef} no lado \cmm{}, embora o fluxo C++ tenha pré-processador completo (Capítulo~\ref{cap:cmm-avancado}); e o limite é de 256 \textit{defines} por programa. O editor da AURORA reconhece os seus \code{\#define} e os colore como constantes conforme você digita.
 
 \section{Comentários}
 
-Como em C: \code{//} comenta até o fim da linha, \code{/* ... */} comenta blocos.
+Como em C: \code{//} comenta até o fim da linha, e \code{/* ... */} comenta blocos.
 
 \section{Onde o arquivo vive}
 
-Dentro de um projeto AURORA, o código de cada processador fica em \file{<projeto>/<processador>/Software/<processador>.cmm}. A compilação gera o assembly em \file{Software/}, o Verilog e as imagens de memória em \file{Hardware/} e o \emph{testbench} em \file{Simulation/} (Capítulo~\ref{cap:compilacao}).
+Dentro de um projeto AURORA, o código de cada processador fica em \file{<projeto>/<processador>/Software/<processador>.cmm}. A compilação gera o \textit{assembly} em \file{Software}, o Verilog e as imagens de memória em \file{Hardware} e o \textit{testbench} em \file{Simulation} (Capítulo~\ref{cap:compilacao}).

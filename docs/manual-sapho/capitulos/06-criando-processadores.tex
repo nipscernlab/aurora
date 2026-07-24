@@ -2,54 +2,43 @@
 \chapter{Criando processadores: o Hub de Processadores}
 \label{cap:criando-processadores}
 
-Com o projeto aberto, o botão \botao{Hub de Processadores} na toolbar abre o formulário que dá vida a um novo processador SAPHO. É aqui que as escolhas de arquitetura do Capítulo~\ref{cap:processador-sapho} viram campos concretos.
+Com o projeto aberto, o botão \botao{Hub de Processadores} da \textit{toolbar} abre o formulário que dá vida a um novo processador SAPHO. É aqui que as escolhas de arquitetura do Capítulo~\ref{cap:processador-sapho} viram campos concretos.
 
-\figurapendente{Modal Criar Hub de Processadores}{O formulário completo, preenchido para o processador \code{media\_movel} do exemplo condutor (Total de Bits 16, Mantissa 10, Expoente 5).}
+\figurapendente{Modal Criar Hub de Processadores}{O formulário completo, preenchido para o processador media\_movel do exemplo condutor (Total de Bits 16, Mantissa 10, Expoente 5).}
 
 \section{Os campos do formulário}
 
-\begin{longtable}{@{}p{0.30\linewidth}llp{0.34\linewidth}@{}}
+O formulário pede o nome do processador e, em duas seções, os parâmetros numéricos. A Tabela~\ref{tab:hub} resume os campos, os valores de fábrica e as regras de validação; o texto a seguir comenta as escolhas.
+
+\begin{table}[ht]
+\centering
+\caption{Campos do Hub de Processadores, com os valores de fábrica e as validações.}
+\label{tab:hub}
+\small
+\begin{tabular}{lclp{0.40\linewidth}}
 \toprule
-\textbf{Campo} & \textbf{Diretiva} & \textbf{Padrão} & \textbf{Validação} \\
+Campo & Diretiva & Padrão & Validação \\
 \midrule
-\endhead
-Nome do Processador & \code{\#PRNAME} & \code{procTest\_00} & Letras, números, \code{\_} e \code{-}; sem espaços ou acentos. \\
-\multicolumn{4}{@{}l}{\emph{Seção Formato Numérico}} \\
-Total de Bits & \code{\#NUBITS} & 23 & Inteiro $>0$ e igual a Mantissa + Expoente + 1. \\
-Ganho & \code{\#NUGAIN} & 128 & Inteiro $>0$ e \textbf{potência de 2}. \\
-Bits da Mantissa & \code{\#NBMANT} & 16 & Inteiro $>0$. \\
-Bits do Expoente & \code{\#NBEXPO} & 6 & Inteiro $>0$. \\
-\multicolumn{4}{@{}l}{\emph{Seção Pilhas e Portas}} \\
-Tamanho da Pilha de Instruções & \code{\#SDEPTH} & 5 & Inteiro $>0$. \\
-Tamanho da Pilha de Dados & \code{\#NDSTAC} & 5 & Inteiro $>0$. \\
-Portas de Entrada & \code{\#NUIOIN} & 1 & Inteiro $>0$. \\
-Portas de Saída & \code{\#NUIOOU} & 1 & Inteiro $>0$. \\
+Nome do Processador & \code{\#PRNAME} & \code{procTest\_00} & letras, números, sublinhado e hífen \\
+Total de Bits & \code{\#NUBITS} & 23 & inteiro positivo, igual a mantissa + expoente + 1 \\
+Ganho & \code{\#NUGAIN} & 128 & inteiro positivo, potência de 2 \\
+Bits da Mantissa & \code{\#NBMANT} & 16 & inteiro positivo \\
+Bits do Expoente & \code{\#NBEXPO} & 6 & inteiro positivo \\
+Pilha de Instruções & \code{\#SDEPTH} & 5 & inteiro positivo \\
+Pilha de Dados & \code{\#NDSTAC} & 5 & inteiro positivo \\
+Portas de Entrada & \code{\#NUIOIN} & 1 & inteiro positivo \\
+Portas de Saída & \code{\#NUIOOU} & 1 & inteiro positivo \\
 \bottomrule
-\end{longtable}
+\end{tabular}
+\end{table}
 
-O formulário valida enquanto você digita: um campo inválido ganha borda vermelha e um tooltip explicando a regra (\enquote{Total de Bits deve ser igual a Bits da Mantissa + Bits do Expoente + 1}, \enquote{Ganho deve ser potência de 2}). O botão \botao{Gerar Processador} só habilita quando tudo está válido. Note que o padrão de fábrica já é consistente: $23 = 16 + 6 + 1$.
+A validação acontece enquanto você digita: um campo inválido ganha borda vermelha e uma dica explicando a regra, e o botão \botao{Gerar Processador} só habilita quando tudo está consistente. Note que o padrão de fábrica já respeita a igualdade estrutural, pois $23 = 16 + 6 + 1$.
 
-Como escolher os valores:
-\begin{itemize}
-  \item \textbf{Total de Bits} dimensiona os inteiros e o consumo de hardware; 16 bits bastam para muitos sinais de instrumentação, 23 (padrão) dá folga com \emph{float} de boa precisão.
-  \item \textbf{Mantissa/Expoente} definem a precisão e a faixa do ponto flutuante (Seção~\ref{sec:float-sapho}); se o seu programa só usa inteiros, os valores têm pouco efeito prático, mas a igualdade estrutural continua obrigatória.
-  \item \textbf{Pilha de Instruções} limita a profundidade de chamadas de função aninhadas; \textbf{Pilha de Dados} limita a complexidade das expressões. Os padrões atendem programas típicos.
-  \item \textbf{Portas} de entrada/saída: uma por fluxo de dados que o processador troca com o mundo (Capítulo~\ref{cap:cmm-io-stdlib}).
-  \item \textbf{Ganho}: o divisor fixo da função \code{norm()}; relevante apenas se você a usa.
-\end{itemize}
+Sobre as escolhas: o total de bits dimensiona os inteiros e o consumo de hardware, e 16 bits bastam para muitos sinais de instrumentação, enquanto o padrão de 23 dá folga com um \code{float} de boa precisão. A mantissa e o expoente definem a precisão e a faixa do ponto flutuante (Seção~\ref{sec:float-sapho}); se o programa só usa inteiros, esses valores têm pouco efeito prático, mas a igualdade estrutural continua obrigatória. A pilha de instruções limita a profundidade de chamadas de função aninhadas, e a de dados, a complexidade das expressões; os padrões atendem programas típicos. Reserve uma porta para cada fluxo de dados que o processador troca com o mundo, e lembre que o ganho só importa se o programa usa a função \code{norm()}.
 
 \section{O que é gerado}
 
-Ao clicar em \botao{Gerar Processador}, a AURORA cria dentro do projeto:
-
-\begin{lstlisting}
-<projeto>/<NomeDoProcessador>/
-|-- Software/<NomeDoProcessador>.cmm
-|-- Hardware/        (vazia; recebera o Verilog e as memorias)
-`-- Simulation/      (vazia; recebera o testbench)
-\end{lstlisting}
-
-O \file{.cmm} inicial vem com o cabeçalho de diretivas preenchido com os valores do formulário e um \code{main()} vazio à sua espera:
+Ao confirmar, a AURORA cria dentro do projeto a pasta do processador com as três subpastas de trabalho, \file{Software}, \file{Hardware} e \file{Simulation}, e registra o novo processador no \file{.spf}, bloqueando nomes duplicados. O arquivo \file{Software/<nome>.cmm} nasce com o cabeçalho de diretivas preenchido com os valores do formulário e um \code{main()} vazio à sua espera:
 
 \begin{lstlisting}[style=cmm]
 #PRNAME media_movel
@@ -68,30 +57,17 @@ void main()
 }
 \end{lstlisting}
 
-E agora, o Capítulo~\ref{cap:cmm-fundamentos}: escrever o programa. O processador também é registrado no \file{.spf} (nomes duplicados são bloqueados, sem distinção de maiúsculas).
+E agora, o Capítulo~\ref{cap:cmm-fundamentos}: escrever o programa.
 
 \section{Configurações de simulação do processador}
 \label{sec:proc-config}
 
-Ao lado do botão de compilar há a engrenagem \botao{Configurações de simulação do processador}, que abre um popover com três ajustes \textbf{por processador}:
-
-\begin{longtable}{@{}lp{0.52\linewidth}l@{}}
-\toprule
-\textbf{Campo} & \textbf{Efeito} & \textbf{Padrão} \\
-\midrule
-\endhead
-\textbf{Clock frequency (MHz)} & Frequência do clock do \emph{testbench} gerado. & 100 \\
-\textbf{Number of clocks} & Quantos ciclos a simulação executa antes de encerrar. & 2000 \\
-\textbf{Show arrays in GTKWave} & Emite cada elemento de array como um sinal visível nas ondas (equivale à flag \code{--array} do compilador). & desligado \\
-\bottomrule
-\end{longtable}
-
-O popover também exibe o \textbf{tempo estimado de simulação} (ciclos divididos pelo clock, em $\mu$s). Se a sua simulação termina antes de o programa produzir os resultados, aumente o número de ciclos aqui.
+Ao lado do botão de compilar há uma engrenagem que abre um pequeno painel com três ajustes por processador: a frequência de \textit{clock} do \textit{testbench} gerado, em MHz (padrão 100); o número de ciclos que a simulação executa antes de encerrar (padrão 2000); e a opção de emitir cada elemento de \textit{array} como um sinal visível nas formas de onda, equivalente à opção \code{--array} do compilador. O painel também exibe o tempo estimado de simulação, os ciclos divididos pelo \textit{clock}, em microssegundos. Se a simulação termina antes de o programa produzir os resultados, é aqui que se aumenta o número de ciclos.
 
 \section{Renomear e excluir processadores}
 
-Pelo menu de contexto do processador na árvore. Renomear é uma operação completa: a pasta é movida, os artefatos (\file{.cmm}, \file{.asm}, \file{Hardware/<nome>.v}, \file{Simulation/<nome>_tb.v}) são renomeados e a diretiva \code{\#PRNAME} dentro do fonte é corrigida --- tudo numa ação. As mesmas regras de nome do formulário se aplicam. Excluir remove a pasta do processador e o registro no \file{.spf}.
+Ambas as operações ficam no menu de contexto do processador na árvore. Renomear é uma operação completa: a pasta é movida, os artefatos gerados são renomeados e a diretiva \code{\#PRNAME} dentro do fonte é corrigida, tudo numa só ação, sob as mesmas regras de nome do formulário. Excluir remove a pasta do processador e o registro no \file{.spf}.
 
 \begin{aviso}
-O nome do processador e a diretiva \code{\#PRNAME} precisam concordar --- é assim que a toolchain conecta o fonte aos artefatos. Renomeie sempre pela AURORA, que mantém os dois lados em sincronia.
+O nome do processador e a diretiva \code{\#PRNAME} precisam concordar; é assim que a cadeia de ferramentas conecta o fonte aos artefatos. Renomeie sempre pela AURORA, que mantém os dois lados em sincronia.
 \end{aviso}

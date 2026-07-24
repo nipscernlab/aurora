@@ -2,83 +2,43 @@
 \chapter{O editor}
 \label{cap:editor}
 
-O editor da AURORA é construído sobre o \tool{Monaco}, o mesmo motor de edição do Visual Studio Code --- portanto multi-cursor, minimapa, localizar/substituir (\tecla{Ctrl+F}), \emph{undo} ilimitado e a ergonomia geral que você já conhece vêm de fábrica. Este capítulo cobre o que a AURORA acrescenta por cima.
+O editor da AURORA é construído sobre o \tool{Monaco}, o mesmo motor de edição do Visual Studio Code. Multi-cursor, minimapa, localizar e substituir, desfazer ilimitado e a ergonomia geral que você já conhece vêm de fábrica; este capítulo cobre o que a AURORA acrescenta por cima.
 
 \section{Abas}
 
-Cada arquivo aberto vira uma aba na barra superior do editor:
-\begin{itemize}
-  \item o ponto de \enquote{modificado} indica alterações não salvas; \tecla{Ctrl+S} salva a aba atual, \tecla{Ctrl+Shift+S} salva todas;
-  \item as abas podem ser \textbf{reordenadas por arraste};
-  \item \tecla{Ctrl+W} fecha a aba atual; \tecla{Ctrl+Shift+T} reabre a última fechada;
-  \item \tecla{Ctrl+N} cria um arquivo novo.
-\end{itemize}
+Cada arquivo aberto vira uma aba na barra superior do editor, com um ponto indicando alterações não salvas. As abas podem ser reordenadas por arraste. Salva-se a aba atual com \tecla{Ctrl+S} e todas com \tecla{Ctrl+Shift+S}; fecha-se a atual com \tecla{Ctrl+W}, reabre-se a última fechada com \tecla{Ctrl+Shift+T}, e \tecla{Ctrl+N} cria um arquivo novo.
 
 \section{Editor dividido}
 \label{sec:split}
 
-O botão de divisão, que flutua no canto do painel em foco, abre o arquivo atual num novo painel lado a lado --- até \textbf{três painéis}, cada um com a sua barra de abas. O detalhe importante: painéis que mostram o mesmo arquivo compartilham o \emph{mesmo} documento. Editar de um lado atualiza o outro ao vivo, com \emph{undo} e estado de salvamento unificados. É a forma natural de manter o \file{.cmm} à esquerda e o \file{.v} gerado à direita, ou duas regiões distantes do mesmo arquivo.
+O botão de divisão, que flutua no canto do painel em foco, abre o arquivo atual num novo painel lado a lado, até o limite de três painéis, cada um com a sua barra de abas. O detalhe importante é que painéis exibindo o mesmo arquivo compartilham o mesmo documento: editar de um lado atualiza o outro ao vivo, com desfazer e estado de salvamento unificados. É a forma natural de manter o \file{.cmm} à esquerda e o \file{.v} gerado à direita, ou duas regiões distantes do mesmo arquivo.
 
-\figurapendente{Editor dividido em dois painéis}{O \file{media\_movel.cmm} à esquerda e o \file{media\_movel.v} gerado à direita.}
+\figurapendente{Editor dividido em dois painéis}{O media\_movel.cmm à esquerda e o media\_movel.v gerado à direita.}
 
 \section{Realce de sintaxe}
 
-\begin{itemize}
-  \item \textbf{\cmm{}}: gramática própria --- palavras-chave, diretivas (\code{\#PRNAME}, \code{\#NUBITS}\ldots), funções da biblioteca, literais complexos (sufixo \code{i}), notação de Dirac. Os \code{\#define} do seu programa são recolhidos dinamicamente e coloridos como constantes.
-  \item \textbf{Assembly SAPHO}: gramática própria para os \file{.asm} gerados.
-  \item \textbf{Verilog/SystemVerilog}: gramática do Monaco, enriquecida com \emph{semantic tokens} do tree-sitter.
-  \item \textbf{C/C++}: realce via tree-sitter para o caminho C++.
-\end{itemize}
+A \cmm{} tem gramática de realce própria, cobrindo palavras-chave, diretivas, funções da biblioteca, literais complexos e a notação de Dirac; os \code{\#define} do programa são recolhidos dinamicamente e coloridos como constantes. O \textit{assembly} do SAPHO também tem gramática própria. O Verilog e o SystemVerilog usam a gramática do Monaco, enriquecida com \textit{tokens} semânticos do tree-sitter, que igualmente atende C e C++ no caminho alternativo de compilação.
 
-\section{Diagnósticos e navegação (LSP)}
+\section{Diagnósticos e navegação}
 
-Dois servidores de linguagem trabalham nos arquivos Verilog:
-
-\begin{longtable}{@{}lp{0.66\linewidth}@{}}
-\toprule
-\textbf{Servidor} & \textbf{O que oferece} \\
-\midrule
-\endhead
-\tool{Verible} & O servidor \enquote{completo}: diagnósticos de sintaxe/estilo enquanto digita, formatação, \emph{outline} de símbolos, \emph{hover}, ir-à-definição, referências. \\
-\tool{slang} & Análise \textbf{semântica} do projeto inteiro (elabora todos os módulos juntos): erros de elaboração, portas incompatíveis, e autocompletar. Pode ser ligado/desligado com \tecla{Ctrl+Alt+S} --- útil em projetos grandes. \\
-\bottomrule
-\end{longtable}
-
-Os problemas aparecem sublinhados no código e no \emph{hover}. Tudo é \emph{best-effort}: se um servidor não estiver disponível, a edição segue sem ele.
+Dois servidores de linguagem (LSP, \textit{Language Server Protocol}) trabalham nos arquivos Verilog. O \tool{Verible} é o servidor completo: diagnósticos de sintaxe e estilo enquanto se digita, formatação, \textit{outline} de símbolos, \textit{hover}, ir à definição e referências. O \tool{slang} complementa com a análise semântica do projeto inteiro, elaborando todos os módulos em conjunto para apontar erros de elaboração e portas incompatíveis, além de oferecer autocompletar; por ser mais pesado, pode ser ligado e desligado com \tecla{Ctrl+Alt+S}. Os problemas aparecem sublinhados no código, e tudo funciona em regime de melhor esforço: sem um servidor disponível, a edição segue sem ele.
 
 \section{Formatação automática}
 
-\tecla{Shift+Alt+F} formata o documento atual (C, C++ e \cmm{}) com o \tool{clang-format} empacotado. Se o projeto tiver um \file{.clang-format} próprio, ele é respeitado.
+O atalho \tecla{Shift+Alt+F} formata o documento atual, para C, C++ e \cmm{}, com o \tool{clang-format} empacotado. Se o projeto tiver um arquivo \file{.clang-format} próprio, ele é respeitado.
 
 \section{Busca no projeto}
 
-\tecla{Ctrl+Shift+F} (ou o botão de busca no cabeçalho da árvore) abre o modal \textbf{Buscar nos arquivos}: termo com opções de \emph{diferenciar maiúsculas}, \emph{palavra inteira} e \emph{expressão regular}, resultados agrupados por arquivo, clique leva à linha. A busca ignora \file{.git} e pastas de artefatos.
+O atalho \tecla{Ctrl+Shift+F}, ou o botão de busca no cabeçalho da árvore, abre o modal Buscar nos Arquivos: termo com opções de diferenciar maiúsculas, palavra inteira e expressão regular, resultados agrupados por arquivo e clique levando à linha. A busca ignora o \file{.git} e as pastas de artefatos.
 
-\section{Widget de seleção e IA}
+\section{Seleção e IA}
 
-Ao selecionar um trecho de código, um pequeno widget (estrela) aparece junto à seleção: ele envia o trecho diretamente para a Aurora Intelligence, já contextualizado --- o caminho mais curto para \enquote{explique isto} ou \enquote{por que isso não compila?} (Capítulo~\ref{cap:aurora-intelligence}).
+Ao selecionar um trecho de código, um pequeno botão em forma de estrela aparece junto à seleção: ele envia o trecho diretamente à Aurora Intelligence, já contextualizado. É o caminho mais curto para pedir uma explicação ou perguntar por que algo não compila (Capítulo~\ref{cap:aurora-intelligence}).
 
 \section{Conflitos com o disco}
 
-Se um arquivo aberto for alterado por outro programa, a AURORA detecta e pergunta o que fazer no diálogo \textbf{Arquivo Modificado Externamente}: \botao{Manter Versão do Editor}, \botao{Usar Versão do Disco} ou \botao{Salvar e Recarregar}. Nada é sobrescrito sem a sua decisão.
+Se um arquivo aberto for alterado por outro programa, a AURORA detecta a divergência e pergunta o que fazer no diálogo Arquivo Modificado Externamente, oferecendo manter a versão do editor, usar a versão do disco ou salvar e recarregar. Nada é sobrescrito sem a sua decisão.
 
 \section{Atalhos de teclado}
 
-Os atalhos padrão do editor (todos reconfiguráveis nas Configurações, Capítulo~\ref{cap:configuracoes}):
-
-\begin{longtable}{@{}ll@{}}
-\toprule
-\textbf{Atalho} & \textbf{Ação} \\
-\midrule
-\endhead
-\tecla{Ctrl+N} & Novo arquivo \\
-\tecla{Ctrl+S} / \tecla{Ctrl+Shift+S} & Salvar / Salvar todos \\
-\tecla{Ctrl+W} / \tecla{Ctrl+Shift+T} & Fechar aba / Reabrir última aba \\
-\tecla{Ctrl+Shift+F} & Buscar nos arquivos \\
-\tecla{Ctrl+Shift+P} & Paleta de comandos \\
-\tecla{Ctrl+Alt+S} & Ligar/desligar análise semântica (slang) \\
-\tecla{Shift+Alt+F} & Formatar documento \\
-\bottomrule
-\end{longtable}
-
-A posição do cursor (\code{Ln}, \code{Col}) é exibida na barra de status.
+Os atalhos citados neste capítulo, todos reconfiguráveis nas Configurações, estão reunidos com os demais no Apêndice~\ref{ap:atalhos}. Dentro do editor valem ainda os atalhos usuais do Monaco, como \tecla{Ctrl+F} para localizar, \tecla{Alt+Click} para múltiplos cursores e \tecla{Ctrl+/} para comentar a linha. A posição do cursor é exibida na barra de status.

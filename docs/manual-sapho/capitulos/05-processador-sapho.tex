@@ -2,93 +2,64 @@
 \chapter{O processador SAPHO}
 \label{cap:processador-sapho}
 
-Antes de criar processadores na IDE, vale entender o que exatamente está sendo criado. Este capítulo descreve a arquitetura do \emph{soft-processor} SAPHO do ponto de vista de quem o usa: o que os parâmetros significam, como o processador executa o seu programa e quais são as suas restrições. Não é preciso decorar nada aqui para usar a plataforma --- mas quem entende a máquina escreve programas melhores para ela.
+Antes de criar processadores na IDE, vale entender o que exatamente está sendo criado. Este capítulo descreve a arquitetura do \textit{soft-processor} SAPHO do ponto de vista de quem o usa: o que os parâmetros significam, como a máquina executa o programa e quais são as suas restrições. Nada aqui precisa ser decorado para usar a plataforma, mas quem entende a máquina escreve programas melhores para ela.
 
 \section{Visão geral da arquitetura}
 
-O SAPHO é um processador de \textbf{acumulador} com \textbf{arquitetura Harvard}:
+O SAPHO é um processador de acumulador com arquitetura Harvard. Em vez de um banco de registradores, existe um único registrador central, o acumulador (ACC), que recebe o resultado de toda operação da unidade lógica e aritmética (ULA); o padrão dominante é buscar um operando na memória de dados, tomar o próprio acumulador como segundo operando e devolver o resultado ao acumulador, com uma pilha de dados fornecendo o segundo operando quando a expressão exige. A arquitetura Harvard, por sua vez, separa fisicamente as memórias de programa e de dados, cada uma com a sua largura e o seu barramento: o programa não pode se sobrescrever, e instruções e dados são acessados em paralelo.
 
-\begin{itemize}
-  \item \textbf{Acumulador}: em vez de um banco de registradores, existe um único registrador central, o acumulador, que recebe o resultado de toda operação da ULA (unidade lógico-aritmética). O padrão dominante é: um operando vem da memória de dados, o outro é o próprio acumulador, e o resultado volta para o acumulador. Uma \textbf{pilha de dados} fornece o segundo operando quando a expressão exige.
-  \item \textbf{Harvard}: as memórias de programa e de dados são fisicamente separadas, cada uma com sua largura e seu barramento. O programa não pode se sobrescrever, e dados e instruções são acessados em paralelo.
-\end{itemize}
-
-Três traços definem o estilo do processador:
-
-\begin{enumerate}
-  \item \textbf{Totalmente parametrizável} --- toda largura é um parâmetro Verilog: a palavra de dados (\code{NUBITS}), a mantissa (\code{NBMANT}) e o expoente (\code{NBEXPO}) do ponto flutuante, o operando das instruções, as profundidades das memórias e das pilhas.
-  \item \textbf{Pague pelo que usar} --- cada instrução do conjunto é um parâmetro booleano; o montador do YANC liga apenas as instruções que o seu programa realmente usa, e o hardware das demais é eliminado na geração do circuito.
-  \item \textbf{Ciclo curto} --- o processador opera com um \emph{pipeline} raso de três estágios (busca, decodificação, execução), sem \emph{forwarding}: a ULA é combinacional e o resultado se acumula a cada ciclo, de modo que nem saltos condicionais quebram o fluxo. O comportamento temporal é simples de prever, o que é uma virtude em instrumentação.
-\end{enumerate}
+Três traços definem o estilo da máquina. Primeiro, ela é totalmente parametrizável: toda largura é um parâmetro Verilog, da palavra de dados à mantissa e ao expoente do ponto flutuante, passando pelas profundidades das memórias e das pilhas. Segundo, vale o princípio de pagar apenas pelo que se usa: cada instrução do conjunto é um parâmetro booleano, o montador do YANC liga somente as instruções que o programa emprega, e o hardware das demais é eliminado na geração do circuito. Terceiro, o ciclo é curto e previsível: um \textit{pipeline} raso de três estágios, busca, decodificação e execução, sem \textit{forwarding}; como a ULA é combinacional e acumula a cada ciclo, nem os saltos condicionais quebram o fluxo, uma virtude e tanto em instrumentação.
 
 \section{Os parâmetros fundamentais}
 \label{sec:parametros-fundamentais}
 
-Ao criar um processador (Capítulo~\ref{cap:criando-processadores}) você escolhe, direta ou indiretamente, os valores abaixo. Eles aparecem como diretivas no topo do arquivo \cmm{} e como \code{parameter} no Verilog gerado.
+Ao criar um processador (Capítulo~\ref{cap:criando-processadores}) você escolhe, direta ou indiretamente, os valores da Tabela~\ref{tab:parametros}. Eles aparecem como diretivas no topo do arquivo \cmm{} e como \code{parameter} no Verilog gerado.
 
-\begin{longtable}{@{}llp{0.60\linewidth}@{}}
+\begin{table}[ht]
+\centering
+\caption{Parâmetros de arquitetura do processador e as diretivas correspondentes.}
+\label{tab:parametros}
+\small
+\begin{tabular}{llp{0.52\linewidth}}
 \toprule
-\textbf{Parâmetro} & \textbf{Diretiva \cmm{}} & \textbf{Significado} \\
+Parâmetro & Diretiva & Significado \\
 \midrule
-\endhead
-\code{NUBITS} & \code{\#NUBITS} & Largura da palavra de dados, em bits. Todo inteiro do programa tem esse tamanho, em complemento de dois. \\
+\code{NUBITS} & \code{\#NUBITS} & Largura da palavra de dados, em bits; todo inteiro do programa tem esse tamanho, em complemento de dois. \\
 \code{NBMANT} & \code{\#NBMANT} & Largura da mantissa do ponto flutuante. \\
 \code{NBEXPO} & \code{\#NBEXPO} & Largura do expoente do ponto flutuante. \\
---- & \code{\#NDSTAC} & Profundidade da pilha de dados. \\
---- & \code{\#SDEPTH} & Profundidade da pilha de sub-rotinas (chamadas de função aninhadas). \\
---- & \code{\#NUIOIN} & Número de portas de entrada. \\
---- & \code{\#NUIOOU} & Número de portas de saída. \\
---- & \code{\#NUGAIN} & Constante usada pela função \code{norm()} (normalização por divisão fixa). \\
---- & \code{\#FFTSIZ} & Tamanho da FFT ($2^{\texttt{FFTSIZ}}$ pontos), quando o programa usa os endereçamentos com reversão de bits. \\
+ & \code{\#NDSTAC} & Profundidade da pilha de dados. \\
+ & \code{\#SDEPTH} & Profundidade da pilha de sub-rotinas. \\
+ & \code{\#NUIOIN} & Número de portas de entrada. \\
+ & \code{\#NUIOOU} & Número de portas de saída. \\
+ & \code{\#NUGAIN} & Constante de divisão da função \code{norm()}. \\
+ & \code{\#FFTSIZ} & Tamanho da FFT ($2^{\texttt{FFTSIZ}}$ pontos) no endereçamento com reversão de bits. \\
 \bottomrule
-\end{longtable}
+\end{tabular}
+\end{table}
 
 \begin{aviso}
-\textbf{Restrição estrutural do ponto flutuante:} a palavra precisa comportar exatamente o formato, isto é, \texttt{NUBITS} = \texttt{NBMANT} + \texttt{NBEXPO} + 1 (o bit extra é o sinal). A AURORA valida essa igualdade no formulário de criação de processador e recusa combinações inválidas.
+A palavra precisa comportar exatamente o formato de ponto flutuante, isto é, \texttt{NUBITS} deve ser igual a \texttt{NBMANT} mais \texttt{NBEXPO} mais um (o bit de sinal). A AURORA valida essa igualdade no formulário de criação de processador e recusa combinações inválidas.
 \end{aviso}
 
 \section{O ponto flutuante do SAPHO}
 \label{sec:float-sapho}
 
-O SAPHO tem hardware de ponto flutuante \textbf{próprio, que não segue o padrão IEEE 754}. O formato é: 1 bit de sinal, \code{NBEXPO} bits de expoente em complemento de dois e \code{NBMANT} bits de mantissa com o bit líder explícito. Isso permite escolher precisões arbitrárias --- uma mantissa de 10 bits com expoente de 5, por exemplo --- e economizar hardware exatamente onde a aplicação permite.
+O SAPHO tem hardware de ponto flutuante próprio, que não segue o padrão IEEE~754. O formato reúne um bit de sinal, \code{NBEXPO} bits de expoente em complemento de dois e \code{NBMANT} bits de mantissa com o bit líder explícito. A escolha permite precisões arbitrárias, como uma mantissa de 10 bits com expoente de 5, economizando hardware exatamente onde a aplicação permite.
 
-Na prática, para o usuário:
-\begin{itemize}
-  \item Dentro do programa \cmm{}, \code{float} \enquote{simplesmente funciona}: literais, aritmética e as funções da biblioteca operam nesse formato interno.
-  \item A conversão entre o formato IEEE do seu computador e o formato do SAPHO é feita em software pela toolchain (na carga das memórias e na leitura dos resultados), de forma transparente.
-  \item A precisão que você obtém é exatamente a que você configurou: com \code{\#NBMANT 10}, espere cerca de 3 dígitos decimais significativos.
-\end{itemize}
-
-Números \textbf{complexos} (tipo \code{comp} da linguagem) não têm hardware dedicado: cada complexo é um par de \emph{floats} (parte real e imaginária) manipulado componente a componente pelo código gerado.
+Na prática, dentro do programa \cmm{} o tipo \code{float} simplesmente funciona: literais, aritmética e as funções da biblioteca operam nesse formato interno, e a conversão entre o formato IEEE do seu computador e o formato do SAPHO é feita em software pela cadeia de ferramentas, na carga das memórias e na leitura dos resultados. A precisão obtida é exatamente a configurada; com \code{\#NBMANT 10}, espere cerca de três dígitos decimais significativos. Números complexos, o tipo \code{comp} da linguagem, não têm hardware dedicado: cada complexo é um par de \code{float}, parte real e imaginária, manipulado componente a componente pelo código gerado.
 
 \section{Como o programa vira circuito}
 
-O processador gerado é composto por poucos módulos Verilog, todos criados a partir de moldes parametrizáveis da pasta de HDL do YANC:
+O processador gerado compõe-se de poucos módulos Verilog, criados a partir de moldes parametrizáveis que acompanham o YANC. O módulo \code{processor} é o topo e instancia o núcleo e as duas memórias: \code{mem\_instr}, a memória de programa, somente leitura, carregada com a imagem \file{<proc>_inst.mif}, e \code{mem\_data}, a memória de dados, carregada com \file{<proc>_data.mif} e capaz de uma leitura e uma escrita por ciclo. O núcleo, \code{core}, reúne o caminho de dados com o acumulador, as pilhas, a busca de instruções e o contador de programa, apoiado pelo decodificador \code{instr\_dec} e pela \code{ula}, na qual cada operação é um submódulo e somente os usados sobrevivem. Completam o conjunto o decodificador de endereços \code{addr\_dec}, para múltiplas portas, e a FIFO genérica \code{myFIFO}, útil para acoplar o processador ao mundo externo sem depender de IP de fabricante.
 
-\begin{longtable}{@{}lp{0.68\linewidth}@{}}
-\toprule
-\textbf{Módulo} & \textbf{Função} \\
-\midrule
-\endhead
-\code{processor} & O topo: instancia o núcleo e as duas memórias. \\
-\code{mem\_instr} & Memória de programa (somente leitura), carregada com a imagem \file{<proc>_inst.mif}. \\
-\code{mem\_data} & Memória de dados, carregada com a imagem \file{<proc>_data.mif}; uma leitura e uma escrita por ciclo. \\
-\code{core} & O caminho de dados: acumulador, pilhas, busca de instruções, contador de programa. \\
-\code{instr\_dec} & Decodificador de instruções. \\
-\code{ula} & A unidade lógico-aritmética: um submódulo por operação, e só os usados sobrevivem. \\
-\code{addr\_dec} & Decodificador de endereços para múltiplas portas de E/S. \\
-\code{myFIFO} & FIFO genérica, disponível para acoplar o processador ao mundo externo sem depender de IP de fabricante. \\
-\bottomrule
-\end{longtable}
-
-O conjunto de instruções usa opcode de 7 bits, com famílias para carga e armazenamento (direto, indireto e com reversão de bits para FFT), pilha, entrada e saída, controle de fluxo (salto incondicional, salto se zero, chamada e retorno de sub-rotina) e cálculo (aritmética inteira e em ponto flutuante, lógica, comparações, deslocamentos e conversões). Você não escreve essas instruções à mão --- o compilador \cmm{} as gera ---, mas as verá nas formas de onda: a AURORA exibe, em \emph{lockstep} com o clock, a instrução assembly e a linha \cmm{} correspondente a cada ciclo (Capítulo~\ref{cap:ondas}).
+O conjunto de instruções usa \textit{opcode} de 7 bits, com famílias de carga e armazenamento (direto, indexado e com reversão de bits para FFT), pilha, entrada e saída, controle de fluxo e cálculo, este cobrindo a aritmética inteira e em ponto flutuante, a lógica, as comparações, os deslocamentos e as conversões. Essas instruções não são escritas à mão, o compilador \cmm{} as gera; mas você as verá nas formas de onda, pois a AURORA exibe, em sincronia com o \textit{clock}, a instrução \textit{assembly} e a linha \cmm{} correspondente a cada ciclo (Capítulo~\ref{cap:ondas}).
 
 \section{Entrada, saída e o mundo externo}
 
-O processador conversa com o exterior por portas numeradas de entrada e de saída, criadas conforme \code{\#NUIOIN} e \code{\#NUIOOU}. No programa, elas são acessadas pelas funções \code{in()}, \code{out()}, \code{fin()} e \code{fout()} (Capítulo~\ref{cap:cmm-io-stdlib}). No hardware, cada porta vira sinais de dados e de controle no topo do módulo \code{processor} --- é por eles que o seu projeto de FPGA conecta o processador a ADCs, DACs, FIFOs e outros blocos.
+O processador conversa com o exterior por portas numeradas de entrada e de saída, criadas conforme as diretivas \code{\#NUIOIN} e \code{\#NUIOOU} e acessadas no programa pelas funções \code{in()}, \code{out()}, \code{fin()} e \code{fout()} (Capítulo~\ref{cap:cmm-io-stdlib}). No hardware, cada porta vira sinais de dados e de controle no topo do módulo \code{processor}; é por eles que o projeto de FPGA conecta o processador a conversores, FIFOs e outros blocos.
 
-Dois recursos opcionais completam a interface: \textbf{interrupção} (o processador desvia para um endereço configurado quando o pino de interrupção pulsa) e o marcador \code{\#TOAQUI}, que gera um pino \code{cheguei} pulsado quando o programa passa por um ponto marcado --- útil para sincronizar hardware externo com fases do programa.
+Dois recursos opcionais completam a interface. A interrupção faz o processador desviar para um ponto configurado do programa quando o pino correspondente pulsa. O marcador \code{\#TOAQUI} gera um pino chamado \code{cheguei}, pulsado sempre que o programa passa pelo ponto marcado, o que permite sincronizar hardware externo com fases do algoritmo.
 
 \section{Um processador por tarefa}
 
-Como cada processador é gerado sob medida, o padrão de projeto no SAPHO é diferente do mundo dos processadores fixos: em vez de um processador grande que faz tudo, criam-se \textbf{vários processadores pequenos}, um por tarefa, conectados entre si por um \emph{top-level} Verilog (por exemplo, um processador que detecta cruzamentos de zero alimentando outro que calcula uma distância). A AURORA suporta esse fluxo diretamente: um projeto pode conter quantos processadores você quiser, cada um com sua pasta, seu \file{.cmm} e seus parâmetros, todos integrados por um arquivo \emph{top-level} e um \emph{testbench} comuns (Capítulo~\ref{cap:projetos}).
+Como cada processador é gerado sob medida, o padrão de projeto no SAPHO difere do mundo dos processadores fixos: em vez de uma máquina grande que faz tudo, criam-se várias máquinas pequenas, uma por tarefa, conectadas por um \textit{top-level} Verilog; um processador que detecta cruzamentos de zero pode alimentar outro que calcula uma distância, por exemplo. A AURORA suporta esse fluxo diretamente, pois um projeto pode conter quantos processadores forem necessários, cada um com a sua pasta, o seu fonte e os seus parâmetros, todos integrados por um \textit{top-level} e um \textit{testbench} comuns (Capítulo~\ref{cap:projetos}).

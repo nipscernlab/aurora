@@ -4,67 +4,38 @@
 
 \section{Interrupção: \texttt{\#PRACA}}
 
-O processador SAPHO tem um pino de interrupção (\code{itr}). Quando ele pulsa, o contador de programa desvia para o ponto do código marcado pela diretiva \code{\#PRACA} --- que, diferentemente das diretivas de configuração, aparece \textbf{no meio do programa}, marcando a linha de retorno. O uso típico é reiniciar o laço de processamento quando o hardware externo sinaliza um novo evento (um \emph{trigger} de aquisição, por exemplo), sem esperar o programa completar a volta.
+O processador SAPHO tem um pino de interrupção, o \code{itr}. Quando ele pulsa, o contador de programa desvia para o ponto do código marcado pela diretiva \code{\#PRACA}, que, diferentemente das diretivas de configuração, aparece no meio do programa, marcando a linha de retorno. O uso típico é reiniciar o laço de processamento quando o hardware externo sinaliza um novo evento, como um gatilho de aquisição, sem esperar o programa completar a volta.
 
 \section{Sincronização com o hardware: \texttt{\#TOAQUI}}
 \label{sec:toaqui}
 
-A diretiva \code{\#TOAQUI}, colocada num ponto do programa, faz o pino \code{cheguei} do processador pulsar sempre que a execução passa por ali. É um farol para o mundo externo: \enquote{cheguei neste ponto do programa}. Serve para sincronizar blocos de hardware com fases do algoritmo --- e é também o mecanismo que a AURORA usa internamente: no \textbf{teste de hardware} (terminal THTEST) e nas simulações com Verilator, a IDE insere um \code{\#TOAQUI} ao final do \code{main()} para detectar o término do programa e encerrar a simulação no instante certo.
+A diretiva \code{\#TOAQUI}, colocada num ponto do programa, faz o pino \code{cheguei} do processador pulsar sempre que a execução passa por ali. É um farol para o mundo externo, útil para sincronizar blocos de hardware com fases do algoritmo, e é também um mecanismo interno da própria AURORA: no teste de hardware do terminal THTEST e nas simulações com o Verilator, a IDE insere um \code{\#TOAQUI} ao final do \code{main()} para detectar o término do programa e encerrar a simulação no instante certo.
 
 \section{FFT e o endereçamento bit-reverso}
 
-A diretiva \code{\#FFTSIZ n} configura o circuito de reversão de bits para FFTs de $2^n$ pontos, usado pela indexação \code{x[k)} (Capítulo~\ref{cap:cmm-tipos-operadores}). Na FFT radix-2, os resultados saem em ordem bit-reversa; com \code{x[k)} a reordenação é gratuita --- o hardware inverte os bits do índice na leitura/escrita, sem instruções extras. O repositório do YANC traz um projeto de exemplo completo (\code{proc\_fft}) com FFT em \cmm{}.
+A diretiva \code{\#FFTSIZ n} configura o circuito de reversão de bits para transformadas de $2^n$ pontos, usado pela indexação \code{x[k)} apresentada no Capítulo~\ref{cap:cmm-tipos-operadores}. Na FFT radix-2 os resultados saem em ordem bit-reversa; com \code{x[k)} a reordenação é gratuita, pois o hardware inverte os bits do índice na própria leitura ou escrita, sem instruções extras. O repositório do YANC traz um projeto de exemplo completo, o \code{proc\_fft}, com uma FFT inteira em \cmm{}.
 
 \section{Quanto custa cada construção}
 \label{sec:custo-hardware}
 
-O lema \enquote{pague pelo que usar} tem uma consequência prática: \textbf{o custo em FPGA do seu processador é proporcional ao subconjunto da linguagem que você usa}. Durante a compilação, o terminal TASM informa cada bloco de hardware instanciado à medida que os opcodes aparecem pela primeira vez:
+O princípio de pagar apenas pelo que se usa tem uma consequência prática: o custo em FPGA do processador é proporcional ao subconjunto da linguagem que o programa emprega. Durante a compilação, o terminal TASM informa cada bloco de hardware instanciado à medida que os \textit{opcodes} aparecem pela primeira vez. Chamar uma função instancia a memória da pilha de sub-rotinas; usar \textit{arrays} instancia o circuito de endereçamento indexado, e a forma \code{x[k)}, o de reversão de bits; a divisão instancia o divisor inteiro, o \code{\%} o módulo, e as versões em ponto flutuante, os blocos correspondentes. Ao final, o TASM resume o percentual da ISA (\textit{Instruction Set Architecture}) e da ULA efetivamente usados pelo programa.
 
-\begin{itemize}
-  \item chamar uma função (\code{CAL}) instancia a memória de pilha de sub-rotinas;
-  \item usar arrays instancia o circuito de endereçamento indexado; \code{x[k)}, o de reversão de bits;
-  \item \code{/} instancia o divisor inteiro; \code{\%}, o módulo; as versões \code{float}, os blocos de ponto flutuante correspondentes;
-  \item ao final, o TASM resume o percentual da ISA e da ULA efetivamente usados pelo programa.
-\end{itemize}
-
-Regras de bolso para hardware enxuto: prefira deslocamentos a divisões por potências de 2 (ou \code{norm()}); prefira \code{mod2()} a \code{abs()} quando só compara magnitudes; evite \code{float} se a dinâmica do sinal cabe em inteiros; e lembre que a primeira ocorrência paga o bloco --- a segunda ocorrência do mesmo operador é \enquote{grátis}.
+Daí algumas regras de bolso para hardware enxuto: prefira deslocamentos a divisões por potências de dois, ou use \code{norm()}; prefira \code{mod2()} a \code{abs()} quando só compara magnitudes; evite \code{float} quando a dinâmica do sinal cabe em inteiros; e lembre que é a primeira ocorrência de um operador que paga o bloco, pois a segunda em diante reaproveita o circuito.
 
 \section{O caminho C++}
 \label{sec:caminho-cpp}
 
-Além da \cmm{}, o YANC compila \textbf{C++} para o mesmo processador, por uma toolchain paralela: o pré-processador \tool{cpppp} (com \code{\#include}, \code{\#define} completo e compilação condicional) seguido do compilador \tool{cppcomp}, que aceita um subconjunto de C99 com extensões de C++ e emite o mesmo assembly intermediário.
+Além da \cmm{}, o YANC compila C++ para o mesmo processador, por uma cadeia paralela: o pré-processador \tool{cpppp}, com \code{\#include}, \code{\#define} completo e compilação condicional, seguido do compilador \tool{cppcomp}, que aceita um subconjunto de C99 com extensões de C++ e emite o mesmo \textit{assembly} intermediário.
 
-O que o caminho C++ oferece que a \cmm{} não tem:
-
-\begin{itemize}
-  \item \textbf{ponteiros} (para indexar arrays de tamanho fixo; sem alocação dinâmica);
-  \item \textbf{recursão}, com quadros de pilha de verdade;
-  \item \textbf{structs} simples (POD) e até recursos de C++ como \emph{lambdas} e destrutores (RAII);
-  \item cabeçalhos padrão adaptados: \file{array}, \file{cmath}, \file{cstdint}, \file{vector} e outros.
-\end{itemize}
-
-O preço: variáveis locais deixam de ter endereço fixo, e com isso \textbf{deixam de aparecer por nome nas formas de onda} --- o vínculo íntimo entre código e onda, marca do fluxo \cmm{}, se perde em parte. Os parâmetros do processador no fluxo C++ têm padrões próprios (palavra de 32 bits, mantissa 23, expoente 8), ajustáveis por \code{\#pragma yanc}.
+O caminho C++ oferece o que a \cmm{} não tem: ponteiros, restritos à indexação de \textit{arrays} de tamanho fixo e sem alocação dinâmica; recursão, com quadros de pilha de verdade; \textit{structs} simples; e até recursos modernos como \textit{lambdas} e destrutores. Os cabeçalhos padrão adaptados incluem \file{array}, \file{cmath}, \file{cstdint} e \file{vector}. O preço é a visibilidade: variáveis locais deixam de ter endereço fixo e, com isso, deixam de aparecer por nome nas formas de onda, perdendo-se em parte o vínculo íntimo entre código e onda que marca o fluxo \cmm{}. Os parâmetros do processador nesse fluxo têm padrões próprios, palavra de 32 bits com mantissa de 23 e expoente de 8, ajustáveis por \code{\#pragma yanc}.
 
 \begin{nota}
-Recomendação prática: comece todo projeto em \cmm{}. Migre para C++ apenas quando precisar especificamente de recursão, ponteiros ou structs --- e mantenha os processadores de sinal críticos em \cmm{}, onde a visibilidade de simulação é total.
+Recomendação prática: comece todo projeto em \cmm{} e migre para C++ apenas quando precisar especificamente de recursão, ponteiros ou \textit{structs}. Mantenha em \cmm{} os processadores de sinal críticos, nos quais a visibilidade de simulação é total.
 \end{nota}
 
 \section{As mensagens do compilador}
 \label{sec:mensagens-compilador}
 
-Os diagnósticos do YANC são bilíngues --- acompanham o idioma da IDE (Capítulo~\ref{cap:configuracoes}) --- e têm personalidade: um erro de sintaxe rende \enquote{Erro de sintaxe na linha N} com um comentário bem-humorado, e esquecer o \code{main()} provoca a pergunta clássica sobre onde ele está. Por trás do humor, a informação é séria; as classes principais:
+Os diagnósticos do YANC são bilíngues, acompanhando o idioma da IDE (Capítulo~\ref{cap:configuracoes}), e têm personalidade: um erro de sintaxe rende um comentário bem-humorado, e esquecer o \code{main()} provoca a pergunta clássica sobre onde ele está. Por trás do humor, a informação é séria e cai em poucas classes. Erros de estrutura cobrem a falta do \code{main()}, o \code{break} ou \code{continue} fora de laço e a contagem errada de parâmetros. Erros de nome apontam variável inexistente, variável já declarada e o uso do \code{i} reservado. Erros de tipo cobrem o módulo e a \code{norm()} com não inteiros, os intrínsecos sem versão para complexos e o incremento de um \code{comp}. Erros de faixa denunciam o estouro de inteiro para o \code{\#NUBITS} escolhido, o \code{float} fora da faixa do formato configurado e a porta de entrada ou saída inexistente. Os avisos, por fim, sinalizam conversões implícitas entre tipos e o uso de \code{float} ou \code{comp} em condições e índices.
 
-\begin{longtable}{@{}lp{0.60\linewidth}@{}}
-\toprule
-\textbf{Classe} & \textbf{Exemplos} \\
-\midrule
-\endhead
-Estrutura & falta de \code{main()}; \code{break}/\code{continue} fora de laço; contagem errada de parâmetros. \\
-Nomes & variável inexistente; variável já declarada; uso do \code{i} reservado. \\
-Tipos & \code{\%}/\code{norm()} com não-inteiro; intrínsecos não implementados para \code{comp}; \code{++} em complexo. \\
-Faixas & estouro de inteiro para o \code{\#NUBITS} escolhido; \code{float} fora da faixa do formato configurado; porta de E/S inexistente. \\
-Avisos & conversões implícitas entre tipos (atribuição, parâmetro, retorno); \code{float}/\code{comp} em condição ou índice. \\
-\bottomrule
-\end{longtable}
-
-Erros aparecem no terminal TCMM com a linha clicável --- o clique leva o editor à linha exata (Capítulo~\ref{cap:terminais}). A Aurora Intelligence também sabe explicar qualquer mensagem do compilador (ferramenta \code{lookup\_compiler\_message}, Capítulo~\ref{cap:aurora-intelligence}).
+Os erros aparecem no terminal TCMM com a linha clicável, e o clique leva o editor ao ponto exato (Capítulo~\ref{cap:terminais}). A Aurora Intelligence também sabe explicar qualquer mensagem do compilador, pela ferramenta de consulta embutida (Capítulo~\ref{cap:aurora-intelligence}).

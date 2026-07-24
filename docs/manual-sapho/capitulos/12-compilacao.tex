@@ -2,55 +2,30 @@
 \chapter{Compilação}
 \label{cap:compilacao}
 
-Com o \code{media_movel.cmm} escrito, é hora de transformá-lo em hardware. Este capítulo explica o que acontece quando você aciona cada botão de compilação e quais arquivos aparecem no projeto.
+Com o \code{media_movel.cmm} escrito, é hora de transformá-lo em hardware. Este capítulo explica o que acontece quando cada botão de compilação é acionado e quais arquivos aparecem no projeto.
 
 \section{O pipeline do YANC em três estágios}
 \label{sec:pipeline-yanc}
 
-Todo clique em \botao{Compilar \cmm{}} executa, por processador, a cadeia de três compiladores do YANC:
+Todo clique em \botao{Compilar \cmm{}} executa, por processador, a cadeia de três compiladores do YANC. O \tool{cmmcomp} traduz o \file{<proc>.cmm} em \textit{assembly} simbólico, o \file{<proc>.asm}, junto com os registros e as tabelas que ligam cada instrução à linha do fonte. O \tool{appcomp} faz a primeira passada sobre o \textit{assembly}, coletando os parâmetros do processador e resolvendo os endereços de variáveis e rótulos. O \tool{asmcomp}, na segunda passada, gera o processador em Verilog (\file{Hardware/<proc>.v}), as duas imagens de memória, \file{<proc>_inst.mif} com o programa e \file{<proc>_data.mif} com os dados, e o \textit{testbench} (\file{Simulation/<proc>_tb.v}).
 
-\begin{enumerate}
-  \item \tool{cmmcomp} --- traduz o \file{<proc>.cmm} em assembly simbólico (\file{<proc>.asm}), junto com os logs e as tabelas que ligam cada instrução à linha do fonte;
-  \item \tool{appcomp} --- primeira passada sobre o \file{.asm}: coleta os parâmetros do processador e resolve os endereços de variáveis e rótulos;
-  \item \tool{asmcomp} --- segunda passada: gera o processador em Verilog (\file{Hardware/<proc>.v}), as duas imagens de memória (\file{Hardware/<proc>_inst.mif} com o programa, \file{Hardware/<proc>_data.mif} com os dados) e o \emph{testbench} (\file{Simulation/<proc>_tb.v}).
-\end{enumerate}
-
-O terminal TCMM mostra a saída do primeiro estágio; o TASM, a dos outros dois --- incluindo os avisos de \enquote{recurso instanciado} que revelam o custo de hardware do seu código (Seção~\ref{sec:custo-hardware}).
+O terminal TCMM mostra a saída do primeiro estágio; o TASM, a dos outros dois, incluindo os avisos de recurso instanciado que revelam o custo de hardware do código (Seção~\ref{sec:custo-hardware}).
 
 \begin{info}
-O processador gerado instancia os moldes de HDL do SAPHO (\code{core}, \code{ula}, memórias etc.), que acompanham a instalação. O programa \textbf{não é um arquivo carregado depois}: as imagens \file{.mif} nascem embutidas no design --- reprogramar significa recompilar e re-sintetizar.
+O processador gerado instancia os moldes de HDL do SAPHO que acompanham a instalação: o núcleo, a ULA, as memórias. O programa não é um arquivo carregado depois; as imagens \file{.mif} nascem embutidas no projeto de hardware, e reprogramar significa recompilar e sintetizar de novo.
 \end{info}
 
-\section{Os botões de compilação, um a um}
+\section{Os botões de compilação}
 
-\begin{longtable}{@{}lp{0.64\linewidth}@{}}
-\toprule
-\textbf{Botão} & \textbf{O que faz} \\
-\midrule
-\endhead
-\botao{Compilar \cmm{}} & Roda o pipeline completo da Seção~\ref{sec:pipeline-yanc} para os processadores do projeto: do \file{.cmm} ao Verilog, memórias e \emph{testbench}. \\
-\botao{Sintetizar Verilog} & Verificação dos arquivos Verilog do projeto com o Icarus Verilog: erros de sintaxe e elaboração aparecem no TVERI, com linha clicável. \\
-\botao{Analisar Verilog} (onda) & O fluxo completo até as formas de onda: compila o que for preciso, roda a simulação e abre o visualizador (Capítulo~\ref{cap:simulacao}). \\
-\botao{Fast Sim} & Simulação rápida sem gravação de ondas (requer Verilator selecionado). Para quando só interessam as saídas de texto/arquivo. \\
-\botao{PRISM} & Sintetiza com o Yosys e abre o diagrama RTL (Capítulo~\ref{cap:prism}). Requer top-level definido. \\
-\botao{Teste do processador sintetizado} & Constrói um \emph{harness} C++ (Verilator) em torno do \file{<proc>.v} e exercita apenas as portas de E/S --- o teste de fumaça do processador como caixa-preta. Progresso no THTEST. \\
-\botao{Cancelar} & Interrompe todos os processos de compilação e simulação em andamento (não fecha a IDE). \\
-\bottomrule
-\end{longtable}
+O botão \botao{Compilar \cmm{}} roda o pipeline completo da seção anterior para os processadores do projeto, do fonte ao Verilog, memórias e \textit{testbench}. O \botao{Sintetizar Verilog} verifica os arquivos Verilog com o Icarus Verilog, apontando erros de sintaxe e elaboração no terminal TVERI, com as linhas clicáveis. O \botao{Analisar Verilog} percorre o fluxo completo até as formas de onda: compila o que for preciso, roda a simulação e abre o visualizador (Capítulo~\ref{cap:simulacao}). O \botao{Fast Sim} simula sem gravar ondas, disponível com o Verilator selecionado, para quando só interessam as saídas em arquivo. O \botao{PRISM} sintetiza com o Yosys e abre o diagrama de RTL (Capítulo~\ref{cap:prism}), exigindo um \textit{top-level} definido. O \botao{Teste do processador sintetizado} constrói um \textit{harness} C++ com o Verilator em torno do \file{<proc>.v} e exercita apenas as portas de entrada e saída, o teste de fumaça do processador como caixa-preta, com progresso no THTEST. E o \botao{Cancelar} interrompe todos os processos de compilação e simulação em andamento, sem fechar a IDE.
 
-O botão \botao{Iniciar Compilação} (raio, na barra de status) é um atalho para o fluxo principal. Todos esses comandos também existem na paleta (\tecla{Ctrl+Shift+P}), no grupo \emph{Compile}.
+O botão \botao{Iniciar Compilação}, o raio da barra de status, é um atalho para o fluxo principal, e todos esses comandos também existem na paleta (\tecla{Ctrl+Shift+P}), no grupo de compilação.
 
-\section{Pré-requisitos e avisos}
-
-\begin{itemize}
-  \item O fluxo de ondas exige um \emph{testbench} (o gerado \file{<proc>_tb.v} serve); o PRISM exige um \textbf{top-level} definido. A barra de status avisa o que falta.
-  \item O processador ativo (mostrado na barra de status) segue o \file{.cmm} em foco no editor.
-  \item Arquivos são salvos automaticamente antes de compilar.
-\end{itemize}
+Antes de compilar, a AURORA salva os arquivos automaticamente. O fluxo de ondas exige um \textit{testbench}, papel que o \file{<proc>_tb.v} gerado cumpre, e o PRISM exige um \textit{top-level}; a barra de status avisa o que falta, e o processador ativo acompanha o \file{.cmm} em foco no editor.
 
 \section{Onde cada artefato aparece}
 
-Depois de compilar o \code{media_movel}:
+Depois de compilar o \code{media_movel}, o projeto ganha esta forma:
 
 \begin{lstlisting}
 media_movel/
@@ -66,8 +41,8 @@ media_movel/
     `-- media_movel_tb.v       (testbench gerado)
 \end{lstlisting}
 
-O \file{.v} e os \file{.mif} da pasta \file{Hardware/} são exatamente o que você leva para o Quartus/Vivado na hora de sintetizar para o FPGA real. O \emph{testbench} gerado produz clock e reset, alimenta o processador com os estímulos de \file{input_<i>.txt} (um valor por linha, um arquivo por porta de entrada) e grava as saídas em \file{output_<i>.txt} --- além do \emph{dump} de ondas.
+O \file{.v} e os \file{.mif} da pasta \file{Hardware} são exatamente o que se leva ao Quartus ou ao Vivado na hora de sintetizar para o FPGA real. O \textit{testbench} gerado produz \textit{clock} e \textit{reset}, alimenta o processador com os estímulos de \file{input_<i>.txt}, um valor por linha e um arquivo por porta de entrada, e grava as saídas em \file{output_<i>.txt}, além do despejo de ondas.
 
 \begin{nota}
-Segurança de execução: a AURORA só executa binários da própria toolchain, validados contra uma lista fechada --- os botões não passam por um shell, e argumentos críticos são protegidos. É por isso que a IDE não oferece \enquote{rodar comando arbitrário} fora do terminal TCMD.
+Segurança de execução: a AURORA só executa binários da própria cadeia de ferramentas, validados contra uma lista fechada, e os botões não passam por um \textit{shell}. É por isso que a IDE não oferece a execução de comandos arbitrários fora do terminal TCMD.
 \end{nota}

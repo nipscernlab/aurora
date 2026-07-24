@@ -2,59 +2,59 @@
 \chapter{Referência da biblioteca padrão}
 \label{ap:stdlib}
 
-Todas as funções intrínsecas da \cmm{}, agrupadas. \enquote{Tipos} indica os tipos aceitos; erros de tipo são apontados na compilação.
+Todas as funções intrínsecas da \cmm{}, agrupadas. Erros de tipo são apontados na compilação; as restrições de cada grupo estão no Capítulo~\ref{cap:cmm-io-stdlib}.
 
 \section{Entrada e saída}
 
-\begin{longtable}{@{}llp{0.52\linewidth}@{}}
+\begin{longtable}{llp{0.50\linewidth}}
 \toprule
-\textbf{Função} & \textbf{Tipos} & \textbf{Descrição} \\
+Função & Tipos & Descrição \\
 \midrule
 \endhead
 \code{in(p)} & \code{int} & Lê a porta de entrada \code{p}. \\
-\code{fin(p)} & \code{float} & Lê a porta \code{p} convertendo para \emph{float}. \\
+\code{fin(p)} & \code{float} & Lê a porta \code{p} convertendo para \code{float}. \\
 \code{out(p, x);} & qualquer & Escreve \code{x} na porta de saída \code{p}. \\
-\code{fout(p, x);} & \code{float} & Escreve em formato \emph{float}. \\
+\code{fout(p, x);} & \code{float} & Escreve em formato \code{float}. \\
 \bottomrule
 \end{longtable}
 
-\section{Funções especiais (economia de hardware)}
+\section{Funções especiais}
 
-\begin{longtable}{@{}llp{0.52\linewidth}@{}}
+\begin{longtable}{llp{0.50\linewidth}}
 \toprule
-\textbf{Função} & \textbf{Tipos} & \textbf{Descrição} \\
+Função & Tipos & Descrição \\
 \midrule
 \endhead
-\code{norm(x)} & \code{int} & $x\,/\,$\texttt{\#NUGAIN} sem instanciar divisor. \\
-\code{pset(x)} & \code{int}, \code{float} & $x$ se $x \geq 0$; senão $0$. \\
+\code{norm(x)} & \code{int} & Divide pelo valor de \code{\#NUGAIN} sem instanciar o divisor. \\
+\code{pset(x)} & \code{int}, \code{float} & Devolve $x$ se não negativo; senão zero. \\
 \code{abs(x)} & todos & Valor absoluto; magnitude para \code{comp}. \\
-\code{sign(x, y)} & \code{int}, \code{float} & $y$ com o sinal de $x$. \\
+\code{sign(x, y)} & \code{int}, \code{float} & Devolve $y$ com o sinal de $x$. \\
 \code{copy(x, y);} & todos & Cópia bit a bit, sem checagem de tipo. \\
 \bottomrule
 \end{longtable}
 
-\section{Não-lineares (macros de assembly)}
+\section{Não lineares e arredondamento}
 
-\begin{longtable}{@{}lp{0.64\linewidth}@{}}
+\begin{longtable}{lp{0.60\linewidth}}
 \toprule
-\textbf{Função} & \textbf{Descrição} \\
+Função & Descrição \\
 \midrule
 \endhead
-\code{sqrt(x)} & Raiz quadrada (Newton--Raphson). Não aceita \code{comp}. \\
+\code{sqrt(x)} & Raiz quadrada, pelo método de Newton; não aceita \code{comp}. \\
 \code{sin(x)}, \code{cos(x)}, \code{tan(x)} & Trigonométricas. \\
 \code{atan(x)} & Arco-tangente. \\
 \code{sinh(x)}, \code{cosh(x)}, \code{tanh(x)} & Hiperbólicas. \\
-\code{exp(x)}, \code{log(x)} & Exponencial e logaritmo natural. Não aceitam \code{comp}. \\
-\code{pow(x, y)} & Potência; estratégia depende do expoente (constante inteiro $\to$ multiplicações; variável inteiro $\to$ laço; senão $e^{y\ln x}$). \\
-\code{floor(x)}, \code{ceil(x)}, \code{round(x)} & Arredondamentos (retornam \code{float}; \code{round} afasta do zero no meio). \\
+\code{exp(x)}, \code{log(x)} & Exponencial e logaritmo natural; não aceitam \code{comp}. \\
+\code{pow(x, y)} & Potência; a estratégia depende do expoente (Capítulo~\ref{cap:cmm-io-stdlib}). \\
+\code{floor(x)}, \code{ceil(x)}, \code{round(x)} & Arredondamentos; retornam \code{float}, e o \code{round} afasta o meio do zero. \\
 \bottomrule
 \end{longtable}
 
 \section{Complexos}
 
-\begin{longtable}{@{}lp{0.64\linewidth}@{}}
+\begin{longtable}{lp{0.60\linewidth}}
 \toprule
-\textbf{Função} & \textbf{Descrição} \\
+Função & Descrição \\
 \midrule
 \endhead
 \code{real(z)}, \code{imag(z)} & Partes real e imaginária. \\
@@ -67,9 +67,9 @@ Todas as funções intrínsecas da \cmm{}, agrupadas. \enquote{Tipos} indica os 
 
 \section{Notação de Dirac}
 
-\begin{longtable}{@{}lp{0.60\linewidth}@{}}
+\begin{longtable}{lp{0.56\linewidth}}
 \toprule
-\textbf{Sintaxe} & \textbf{Operação} \\
+Sintaxe & Operação \\
 \midrule
 \endhead
 \texttt{<a|b>} & Produto interno (expressão). \\
@@ -83,24 +83,24 @@ Todas as funções intrínsecas da \cmm{}, agrupadas. \enquote{Tipos} indica os 
 
 \section{Famílias de instruções do processador}
 
-Para leitura das trilhas de assembly nas ondas: os mnemônicos seguem convenções de prefixo/sufixo. \code{F\_} indica a versão em ponto flutuante; \code{S\_}/\code{SF\_}, operando vindo da pilha; \code{P\_}, empilha antes; \code{\_M}, opera sobre memória; \code{\_V}, variante vetorial/indexada.
+Para a leitura das trilhas de \textit{assembly} nas ondas, os mnemônicos seguem convenções de prefixo e sufixo: \code{F\_} indica a versão em ponto flutuante; \code{S\_} e \code{SF\_}, o operando vindo da pilha; \code{P\_}, o empilhamento prévio; \code{\_M}, a operação sobre memória; e \code{\_V}, a variante indexada.
 
-\begin{longtable}{@{}lp{0.62\linewidth}@{}}
+\begin{longtable}{lp{0.58\linewidth}}
 \toprule
-\textbf{Família} & \textbf{Mnemônicos principais} \\
+Família & Mnemônicos principais \\
 \midrule
 \endhead
-Carga/armazenamento & \code{LOD}, \code{SET}, \code{LDI}/\code{STI} (indexados), \code{ILI}/\code{ISI} (bit-reverso) \\
+Carga e armazenamento & \code{LOD}, \code{SET}, \code{LDI}, \code{STI}, \code{ILI}, \code{ISI} \\
 Pilha & \code{PSH}, \code{POP} \\
-E/S & \code{INN}, \code{F\_INN}, \code{OUT} \\
+Entrada e saída & \code{INN}, \code{F\_INN}, \code{OUT} \\
 Fluxo & \code{JMP}, \code{JIZ}, \code{CAL}, \code{RET}, \code{NOP} \\
 Aritmética inteira & \code{ADD}, \code{MLT}, \code{DIV}, \code{MOD}, \code{NEG}, \code{ABS}, \code{SGN}, \code{PST}, \code{NRM} \\
-Aritmética float & \code{F\_ADD}, \code{F\_SU1}/\code{F\_SU2}, \code{F\_MLT}, \code{F\_DIV}, \code{F\_NEG}, \code{F\_ABS}, \code{F\_ROT}, \code{F\_SCL}, \code{XPO} \\
+Aritmética em ponto flutuante & \code{F\_ADD}, \code{F\_SU1}, \code{F\_SU2}, \code{F\_MLT}, \code{F\_DIV}, \code{F\_NEG}, \code{F\_ABS}, \code{F\_ROT}, \code{F\_SCL}, \code{XPO} \\
 Conversões & \code{I2F}, \code{F2I} \\
 Lógica e bits & \code{AND}, \code{ORR}, \code{XOR}, \code{INV}, \code{LAN}, \code{LOR}, \code{LIN} \\
-Comparações & \code{LES}, \code{GRE}, \code{EQU} (e as versões \code{F\_}) \\
-Deslocamentos & \code{SHL}, \code{SHR}, \code{SRS} (equivale ao operador \code{>>>}) \\
+Comparações & \code{LES}, \code{GRE}, \code{EQU}, e as versões \code{F\_} \\
+Deslocamentos & \code{SHL}, \code{SHR}, \code{SRS} (o operador \texttt{>>>}) \\
 \bottomrule
 \end{longtable}
 
-Cada mnemônico usado pela primeira vez no programa liga o bloco de hardware correspondente no processador gerado --- a lista completa e o percentual de uso da ISA aparecem no terminal TASM a cada compilação.
+Cada mnemônico usado pela primeira vez liga o bloco de hardware correspondente no processador gerado; a lista completa e o percentual de uso da ISA aparecem no terminal TASM a cada compilação.

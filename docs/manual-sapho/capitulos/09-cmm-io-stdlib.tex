@@ -5,74 +5,23 @@
 \section{Entrada e saída}
 \label{sec:io}
 
-O processador conversa com o mundo por portas numeradas, criadas pelas diretivas \code{\#NUIOIN} (entradas) e \code{\#NUIOOU} (saídas). No código, quatro funções intrínsecas fazem todo o tráfego:
+O processador conversa com o mundo por portas numeradas, criadas pelas diretivas \code{\#NUIOIN} e \code{\#NUIOOU}, e todo o tráfego passa por quatro funções intrínsecas: \code{in(p)} lê um inteiro da porta de entrada \code{p}; \code{fin(p)} lê convertendo para \code{float}; \code{out(p, expr);} escreve o valor da expressão na porta de saída \code{p}; e \code{fout(p, expr);} escreve em formato \code{float}.
 
-\begin{longtable}{@{}lp{0.66\linewidth}@{}}
-\toprule
-\textbf{Função} & \textbf{Efeito} \\
-\midrule
-\endhead
-\code{x = in(p);} & Lê um valor inteiro da porta de entrada \code{p}. \\
-\code{x = fin(p);} & Lê da porta \code{p} convertendo para \code{float}. \\
-\code{out(p, expr);} & Escreve o valor de \code{expr} na porta de saída \code{p}. \\
-\code{fout(p, expr);} & Escreve na porta \code{p} em formato \code{float}. \\
-\bottomrule
-\end{longtable}
-
-O número da porta é um literal inteiro, validado contra as diretivas: usar \code{in(2)} num processador com \code{\#NUIOIN 1} é erro de compilação (\enquote{não existe porta de entrada}). No hardware, \code{in()} é uma leitura com \emph{handshake} (o processador sinaliza \code{req\_in} e aguarda o dado), e \code{out()} pulsa \code{out\_en} com o dado estável no barramento --- é o suficiente para acoplar FIFOs, ADCs e DACs.
-
-No nosso \code{media_movel}, \code{x[0] = in(0);} lê a amostra e \code{out(0, soma >> 2);} publica a média: uma porta de cada lado basta.
+O número da porta é um literal inteiro, validado contra as diretivas: usar \code{in(2)} num processador com \code{\#NUIOIN 1} é erro de compilação. No hardware, \code{in()} é uma leitura com \textit{handshake}, na qual o processador sinaliza \code{req\_in} e aguarda o dado, e \code{out()} pulsa \code{out\_en} com o dado estável no barramento, o suficiente para acoplar FIFOs e conversores. No nosso \code{media_movel}, \code{x[0] = in(0);} lê a amostra e \code{out(0, soma >> 2);} publica a média: uma porta de cada lado basta.
 
 \section{Funções especiais}
 
-Cinco funções existem para \textbf{economizar hardware} --- cada uma evita instanciar um bloco caro da ULA ou uma sequência de instruções:
+Cinco funções existem para economizar hardware, cada uma evitando um bloco caro da ULA ou uma sequência de instruções. A \code{norm(x)} divide pelo valor da diretiva \code{\#NUGAIN}, uma potência de dois, e entrega a normalização sem instanciar o divisor completo; funciona só com inteiros. A \code{pset(x)} devolve \code{x} quando positivo e zero quando negativo, o equivalente de \code{if (x<0) x=0;} numa única instrução. A \code{abs(x)} é o valor absoluto e, sobre um complexo, a magnitude. A \code{sign(x, y)} devolve \code{y} com o sinal de \code{x}. E a \code{copy(x, y);} copia os bits de \code{x} em \code{y} sem conversão nem checagem de tipo, uma reinterpretação crua, a ser usada com consciência.
 
-\begin{longtable}{@{}lp{0.64\linewidth}@{}}
-\toprule
-\textbf{Função} & \textbf{O que faz} \\
-\midrule
-\endhead
-\code{norm(x)} & Divide \code{x} pela constante \code{\#NUGAIN} (potência de 2). Normalização sem o divisor completo. Só inteiros. \\
-\code{pset(x)} & Retorna \code{x} se positivo, \code{0} se negativo --- o equivalente de \code{if (x<0) x=0;} numa única instrução. \\
-\code{abs(x)} & Valor absoluto. Para \code{comp}, retorna a magnitude. \\
-\code{sign(x, y)} & Retorna \code{y} com o sinal de \code{x}. \\
-\code{copy(x, y);} & Copia os bits de \code{x} em \code{y} \textbf{sem conversão nem checagem de tipo} --- reinterpretação crua. Use com consciência. \\
-\bottomrule
-\end{longtable}
+\section{Funções não lineares e de arredondamento}
 
-\section{Funções não-lineares e de arredondamento}
+A biblioteca cobre raiz e trigonometria (\code{sqrt}, \code{sin}, \code{cos}, \code{tan}, \code{atan}), as hiperbólicas (\code{sinh}, \code{cosh}, \code{tanh}), exponencial e logaritmo (\code{exp}, \code{log}, \code{pow}) e os arredondamentos \code{floor}, \code{ceil} e \code{round}, que retornam \code{float}, com o \code{round} arredondando o meio para longe do zero.
 
-\begin{longtable}{@{}lp{0.62\linewidth}@{}}
-\toprule
-\textbf{Grupo} & \textbf{Funções} \\
-\midrule
-\endhead
-Raiz e trigonometria & \code{sqrt(x)}, \code{sin(x)}, \code{cos(x)}, \code{tan(x)}, \code{atan(x)} \\
-Hiperbólicas & \code{sinh(x)}, \code{cosh(x)}, \code{tanh(x)} \\
-Exponencial e logaritmo & \code{exp(x)}, \code{log(x)}, \code{pow(x, y)} \\
-Arredondamento & \code{floor(x)}, \code{ceil(x)}, \code{round(x)} (retornam \code{float}; \code{round} arredonda o meio para longe do zero) \\
-\bottomrule
-\end{longtable}
-
-Essas funções não são circuitos dedicados: são \textbf{macros de assembly} otimizadas (Newton--Raphson para \code{sqrt}, séries para as trigonométricas) injetadas no seu programa quando usadas. Elas custam instruções e ciclos, não blocos de ULA --- exceto pelas operações de float que elas próprias usam.
-
-\code{pow(x, y)} merece nota: com expoente inteiro constante o compilador gera a sequência mínima de multiplicações; com expoente inteiro variável, um laço em tempo de execução; nos demais casos, a identidade $x^y = e^{y \ln x}$.
+Essas funções não são circuitos dedicados: são macros de \textit{assembly} otimizadas, como o método de Newton na \code{sqrt} e séries nas trigonométricas, injetadas no programa quando usadas. Elas custam instruções e ciclos, não blocos de ULA, exceto pelas operações de ponto flutuante que elas próprias empregam. A \code{pow(x, y)} merece nota: com expoente inteiro constante, o compilador gera a sequência mínima de multiplicações; com expoente inteiro variável, um laço em tempo de execução; nos demais casos, a identidade $x^y = e^{y \ln x}$.
 
 \section{Funções para complexos}
 
-\begin{longtable}{@{}lp{0.64\linewidth}@{}}
-\toprule
-\textbf{Função} & \textbf{Retorno} \\
-\midrule
-\endhead
-\code{real(z)} & Parte real de \code{z}. \\
-\code{imag(z)} & Parte imaginária de \code{z}. \\
-\code{fase(z)} & O ângulo (argumento) de \code{z}. \\
-\code{mod2(z)} & A magnitude ao quadrado ($a^2+b^2$ --- sem a raiz, mais barato que \code{abs}). \\
-\code{complex(re, im)} & Monta um \code{comp} a partir de dois \code{float}. \\
-\code{conj(z)} & O conjugado de \code{z}. \\
-\bottomrule
-\end{longtable}
+Seis funções operam sobre o tipo \code{comp}: \code{real(z)} e \code{imag(z)} extraem as partes; \code{fase(z)} devolve o argumento; \code{mod2(z)} devolve a magnitude ao quadrado, $a^2+b^2$, mais barata que \code{abs} por dispensar a raiz; \code{complex(re, im)} monta um complexo a partir de dois \code{float}; e \code{conj(z)} devolve o conjugado.
 
 \begin{lstlisting}[style=cmm]
 comp x; comp y; comp r;
@@ -84,26 +33,12 @@ fout(0, imag(r));
 \end{lstlisting}
 
 \begin{aviso}
-Nem tudo se aplica a \code{comp}: \code{sqrt}, \code{exp}, \code{log}, \code{pow}, \code{sign} e \code{pset} sobre complexos são erro de compilação, assim como \code{z++}. O módulo \code{\%} e \code{norm()} são exclusivos de inteiros.
+Nem tudo se aplica a \code{comp}: \code{sqrt}, \code{exp}, \code{log}, \code{pow}, \code{sign} e \code{pset} sobre complexos são erro de compilação, assim como o incremento \code{z++}. O módulo \code{\%} e a \code{norm()} são exclusivos de inteiros.
 \end{aviso}
 
 \section{Álgebra linear em notação de Dirac}
 \label{sec:dirac}
 
-O recurso mais idiossincrático da \cmm{}: operações vetoriais e matriciais escritas em notação \emph{bra-ket}, familiar a quem vem da física. Com \code{a}, \code{b} vetores (arrays) e \code{M} matriz:
+O recurso mais idiossincrático da \cmm{} é a escrita de operações vetoriais e matriciais em notação \textit{bra-ket}, familiar a quem vem da física. Sendo \code{a} e \code{b} vetores (\textit{arrays}) e \code{M} uma matriz, o produto interno é a expressão \texttt{<a|b>}; o comando \texttt{a \# |0>;} zera o vetor; \texttt{a \# |M|b>;} calcula o produto matriz-vetor; \texttt{a \# c|b>;} escala um vetor por uma constante; \texttt{A \# |a><b|;} forma o produto externo; e \texttt{out(p, c|a>);} emite o vetor escalado por uma porta de saída.
 
-\begin{longtable}{@{}lp{0.58\linewidth}@{}}
-\toprule
-\textbf{Sintaxe} & \textbf{Operação} \\
-\midrule
-\endhead
-\texttt{x = <a|b>;} & Produto interno de \code{a} e \code{b} (expressão). \\
-\texttt{a \# |0>;} & Zera o vetor \code{a}. \\
-\texttt{a \# |M|b>;} & Produto matriz-vetor: $a \leftarrow M\,b$. \\
-\texttt{a \# c|b>;} & Vetor escalado: $a \leftarrow c\,b$. \\
-\texttt{A \# |a><b|;} & Produto externo: $A \leftarrow a\,b^{T}$. \\
-\texttt{out(p, c|a>);} & Escreve o vetor \code{a} escalado por \code{c} na porta \code{p}. \\
-\bottomrule
-\end{longtable}
-
-Essas construções expandem para os laços e instruções indexadas adequadas --- são a forma idiomática de escrever filtros FIR, correlações e projeções em \cmm{}. Um FIR direto, por exemplo, é uma linha: \texttt{y = <h|x>;} com \code{h} os coeficientes (inicializados por arquivo) e \code{x} a janela de amostras.
+Essas construções expandem para os laços e instruções indexadas adequados, e são a forma idiomática de escrever filtros FIR, correlações e projeções em \cmm{}. Um FIR direto, por exemplo, é uma linha, \texttt{y = <h|x>;}, com \code{h} guardando os coeficientes, inicializados por arquivo, e \code{x} a janela de amostras.

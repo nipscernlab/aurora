@@ -2,46 +2,22 @@
 \chapter{PRISM: o visualizador de RTL}
 \label{cap:prism}
 
-O \tool{PRISM} (\emph{Processor Rendering Interface for Schematic Models}) desenha o seu projeto como um \textbf{diagrama de circuito navegável}: módulos, portas e conexões, do top-level até dentro do processador. É a resposta visual à pergunta \enquote{que hardware o meu código virou?}.
+O \tool{PRISM} (\textit{Processor Rendering Interface for Schematic Models}) desenha o projeto como um diagrama de circuito navegável, com módulos, portas e conexões, do \textit{top-level} até o interior do processador. É a resposta visual à pergunta sobre que hardware o código virou.
 
-\figurapendente{Janela do PRISM com o diagrama do projeto}{O top-level do \code{MeuFiltro} renderizado; se possível, um segundo print já dentro do módulo do processador.}
+\figurapendente{Janela do PRISM com o diagrama do projeto}{O top-level do MeuFiltro renderizado; se possível, um segundo print já dentro do módulo do processador.}
 
 \section{Como abrir}
 
-Botão \botao{PRISM} na toolbar (requer um \textbf{top-level} definido no projeto --- Seção~\ref{sec:arquivos-do-projeto}). A AURORA então:
-
-\begin{enumerate}
-  \item compila o que estiver pendente e verifica a sintaxe dos Verilog;
-  \item reúne todos os fontes do projeto (HDL do SAPHO, sintetizáveis, top-level, \file{Hardware/} de cada processador);
-  \item sintetiza com o \tool{Yosys} em modo diagrama (sem mapeamento tecnológico --- o desenho preserva a estrutura RTL do seu código);
-  \item renderiza cada módulo em SVG (via \tool{netlistsvg}) e abre a janela do PRISM.
-\end{enumerate}
-
-A saída do Yosys corre no terminal TVERI. A síntese também alimenta a \textbf{visão Hierarquia} da árvore de arquivos (Seção~\ref{sec:tres-arvores}).
+O botão \botao{PRISM} da \textit{toolbar} exige um \textit{top-level} definido no projeto (Seção~\ref{sec:arquivos-do-projeto}). Acionado, ele compila o que estiver pendente, verifica a sintaxe dos Verilog, reúne todos os fontes do projeto, dos moldes de HDL do SAPHO aos \file{Hardware} de cada processador, sintetiza com o \tool{Yosys} em modo diagrama, sem mapeamento tecnológico, para que o desenho preserve a estrutura RTL do código, e renderiza cada módulo como um desenho vetorial antes de abrir a janela. A saída do Yosys corre no terminal TVERI, e a mesma síntese alimenta a visão Hierarquia da árvore de arquivos (Seção~\ref{sec:tres-arvores}).
 
 \section{Navegando no diagrama}
 
-A janela do PRISM é independente da principal (1400$\times$900, maximizada ao abrir), com o mesmo tema escuro:
+A janela do PRISM é independente da principal e abre maximizada, no mesmo tema escuro. O mouse faz o deslocamento e o \textit{zoom}. Um clique num módulo entra nele, e como os diagramas dos submódulos já foram materializados, a navegação é instantânea; a trilha no topo mostra o caminho na hierarquia e permite voltar. Um duplo clique numa célula abre o código-fonte correspondente no editor principal, na linha exata da declaração, levando do desenho ao código num gesto. O botão \botao{Recompile} refaz a síntese e o diagrama após mudanças. Os blocos do processador usam símbolos próprios, desenhados para a ULA, as memórias e as pilhas, em vez de retângulos genéricos.
 
-\begin{itemize}
-  \item \textbf{pan e zoom} com o mouse;
-  \item \textbf{clique} num módulo entra nele --- o diagrama do submódulo já está materializado, a navegação é instantânea;
-  \item \emph{breadcrumbs} no topo mostram o caminho na hierarquia e permitem voltar;
-  \item \textbf{duplo clique} numa célula abre o \textbf{código-fonte} correspondente no editor principal, na linha exata da declaração --- do desenho ao código num gesto;
-  \item \botao{Recompile} refaz a síntese e o diagrama após mudanças.
-\end{itemize}
+\section{Modo simulação}
 
-Os blocos do processador SAPHO usam \emph{skins} próprias --- símbolos desenhados para a ULA, memórias, pilhas --- em vez de retângulos genéricos.
-
-\section{Modo simulação (DigitalJS)}
-
-Além do diagrama estático, o PRISM tem um modo \textbf{Simular}: o circuito é convertido para o \tool{DigitalJS} e vira um esquemático \emph{interativo}, onde você alterna entradas e vê os valores se propagarem pelas conexões, ao vivo. É uma lupa didática para circuitos pequenos:
-
-\begin{itemize}
-  \item o limite é de \textbf{3000 células} --- acima disso o PRISM recusa e sugere a visão esquemática comum;
-  \item a síntese para este modo tem \emph{timeout} de 45 segundos.
-\end{itemize}
+Além do diagrama estático, o PRISM tem um modo de simulação interativa, apoiado no \tool{DigitalJS}: o circuito vira um esquemático vivo, no qual se alternam entradas e se observam os valores se propagando pelas conexões. É uma lupa didática para circuitos pequenos, limitada a três mil células; acima disso o PRISM recusa e sugere a visão esquemática comum.
 
 \begin{nota}
-Use o PRISM cedo e com frequência: compilar o \code{media_movel} e abrir o diagrama depois de cada mudança de código torna palpável a relação entre construções \cmm{} e custo de hardware --- adicione uma divisão ao programa e veja o divisor aparecer no desenho.
+Use o PRISM cedo e com frequência. Compilar o \code{media_movel} e abrir o diagrama depois de cada mudança torna palpável a relação entre as construções da linguagem e o custo de hardware: acrescente uma divisão ao programa e veja o divisor aparecer no desenho.
 \end{nota}

@@ -2,61 +2,36 @@
 \chapter{O que é o SAPHO}
 \label{cap:o-que-e-sapho}
 
-\section{A plataforma em uma frase}
-
-\tool{SAPHO} (\emph{Scalable-Architecture Processor for Hardware Optimization}) é uma plataforma completa para criar, programar, simular e visualizar \emph{soft-processors}: você escreve um programa numa linguagem parecida com C, chamada \cmm{} (lê-se \enquote{C mais-menos}), e a plataforma gera um processador dedicado em Verilog, sob medida para aquele programa, pronto para ser sintetizado em FPGA. Tudo acontece dentro de uma única aplicação de desktop, a IDE \tool{AURORA} (\emph{Advanced Utility Running Optimized Resource Architectures}), que roda localmente no Windows, sem depender de nuvem.
+O \tool{SAPHO} (\textit{Scalable-Architecture Processor for Hardware Optimization}) é uma plataforma completa para criar, programar, simular e visualizar \textit{soft-processors}. O usuário escreve um programa numa linguagem parecida com C, chamada \cmm{} (lê-se \enquote{C mais-menos}), e a plataforma gera um processador dedicado em Verilog, sob medida para aquele programa, pronto para ser sintetizado em FPGA (\textit{Field-Programmable Gate Array}). Tudo acontece dentro de uma única aplicação de desktop, a IDE \tool{AURORA} (\textit{Advanced Utility Running Optimized Resource Architectures}), que roda localmente no Windows, sem depender de nuvem.
 
 \section{O que é um soft-processor}
 
-Um processador convencional (como o do seu computador) é um chip fixo: sua arquitetura foi decidida na fábrica e não muda. Um \emph{soft-processor}, por outro lado, é um processador descrito em uma linguagem de descrição de hardware (HDL, no caso o Verilog) e implementado na malha reconfigurável de um FPGA. Isso significa que a arquitetura --- largura da palavra, conjunto de instruções, quantidade de portas de entrada e saída, tamanho das memórias --- é escolhida por você, e pode ser alterada e recompilada em minutos.
+Um processador convencional, como o do seu computador, é um circuito fixo: sua arquitetura foi decidida na fábrica e não muda. Um \textit{soft-processor}, por outro lado, é um processador descrito em uma linguagem de descrição de hardware (no caso, o Verilog) e implementado na malha reconfigurável de um FPGA. A arquitetura, isto é, a largura da palavra, o conjunto de instruções, a quantidade de portas e o tamanho das memórias, passa a ser uma escolha do projetista, que pode alterá-la e recompilá-la em minutos.
 
-O SAPHO leva essa ideia ao extremo: o processador gerado contém \emph{apenas} o hardware que o seu programa usa. Se o programa não usa divisão, o divisor não existe no circuito final. Se não usa ponto flutuante, nenhuma lógica de ponto flutuante é gerada. O resultado é um processador enxuto, previsível e eficiente, ideal para instrumentação científica e processamento de sinais em tempo real.
+O SAPHO leva essa ideia ao extremo: o processador gerado contém apenas o hardware que o programa usa. Se o programa não divide, o divisor não existe no circuito final; se não usa ponto flutuante, nenhuma lógica de ponto flutuante é gerada. O resultado é um processador enxuto, previsível e eficiente, feito para a instrumentação científica e para o processamento de sinais em tempo real.
 
 \section{As peças da plataforma}
 \label{sec:pecas-da-plataforma}
 
-O SAPHO é um guarda-chuva que reúne vários componentes. Cada um deles tem um módulo próprio neste manual.
+O nome SAPHO designa tanto o processador quanto o guarda-chuva que reúne os componentes da plataforma, e cada componente tem o seu módulo próprio neste manual. A \tool{AURORA} é a IDE de desktop, o programa que você instala e abre: nela vivem o editor, o gerenciador de projetos, os botões de compilação e simulação, os terminais e os visualizadores. O \tool{YANC} (\textit{Yet Another Compiler}) é a suíte de compiladores que trabalha por baixo dos panos, traduzindo o programa \cmm{} (ou C++) no processador em Verilog, nas imagens de memória e no \textit{testbench}. O processador \tool{SAPHO} propriamente dito é o circuito parametrizável que o YANC emite, descrito no Capítulo~\ref{cap:processador-sapho}.
 
-\begin{longtable}{@{}p{0.24\linewidth}p{0.70\linewidth}@{}}
-\toprule
-\textbf{Componente} & \textbf{O que é} \\
-\midrule
-\endhead
-\tool{AURORA} & \emph{Advanced Utility Running Optimized Resource Architectures}: a IDE de desktop --- editor de código, gerenciador de projetos, botões de compilação e simulação, terminais, visualizadores. É o programa que você instala e abre. \\
-\tool{YANC} & \emph{Yet Another Compiler}: a suíte de compiladores que traduz seu programa \cmm{} (ou C++) no processador Verilog, nas imagens de memória e no \emph{testbench}. Roda por baixo dos panos quando você clica nos botões de compilação. \\
-Processador \tool{SAPHO} & O \emph{soft-processor} em si: o circuito Verilog parametrizável gerado pelo YANC (Capítulo~\ref{cap:processador-sapho}). \\
-\emph{Toolchain bundle} & Um pacote portátil de ferramentas de EDA de código aberto (Icarus Verilog, Verilator, Yosys, GCC, Python + cocotb) que a AURORA baixa automaticamente na primeira execução. \\
-\tool{PRISM} & \emph{Processor Rendering Interface for Schematic Models}: o visualizador de RTL embutido, que desenha o diagrama do circuito sintetizado, navegável módulo a módulo (Capítulo~\ref{cap:prism}). \\
-\tool{GTKWave} / \tool{Surfer} & Os dois visualizadores de formas de onda disponíveis para inspecionar simulações (Capítulo~\ref{cap:ondas}). \\
-\tool{Aurora Intelligence} & O assistente de IA integrado, que conversa sobre o projeto e age sobre a IDE por ferramentas curadas (Capítulo~\ref{cap:aurora-intelligence}). \\
-\bottomrule
-\end{longtable}
+Em volta desse núcleo orbitam as ferramentas de apoio. Um pacote portátil de ferramentas abertas de EDA (\textit{Electronic Design Automation}) acompanha a instalação: o simulador Icarus Verilog, o Verilator, o Yosys, o GCC e o Python com cocotb. O \tool{PRISM} (\textit{Processor Rendering Interface for Schematic Models}) é o visualizador de RTL embutido, que desenha o circuito sintetizado como um diagrama navegável (Capítulo~\ref{cap:prism}). As formas de onda das simulações podem ser inspecionadas em dois visualizadores, o \tool{GTKWave} e o \tool{Surfer} (Capítulo~\ref{cap:ondas}). Por fim, a \tool{Aurora Intelligence} é a assistente de IA integrada, capaz de conversar sobre o projeto e de agir sobre a IDE por ferramentas curadas (Capítulo~\ref{cap:aurora-intelligence}).
 
-\section{O fluxo de trabalho, de ponta a ponta}
+\section{O fluxo de trabalho de ponta a ponta}
 
-O caminho típico de quem usa o SAPHO é sempre o mesmo, e este manual o percorre na ordem:
-
-\begin{enumerate}
-  \item \textbf{Criar um projeto} --- uma pasta com um arquivo \file{.spf} que descreve tudo (Capítulo~\ref{cap:projetos}).
-  \item \textbf{Criar um processador} --- escolher nome e parâmetros de arquitetura (Capítulo~\ref{cap:criando-processadores}).
-  \item \textbf{Programar em \cmm{}} --- escrever o comportamento no editor (Parte~III).
-  \item \textbf{Compilar} --- o YANC transforma o programa em Verilog + memórias + testbench (Capítulo~\ref{cap:compilacao}).
-  \item \textbf{Simular} --- Icarus Verilog ou Verilator executam o circuito (Capítulo~\ref{cap:simulacao}).
-  \item \textbf{Visualizar} --- formas de onda no GTKWave/Surfer, circuito no PRISM (Parte~VI).
-  \item \textbf{Sintetizar no FPGA} --- levar o \file{.v} e os \file{.mif} gerados para a ferramenta do fabricante (Quartus, Vivado etc.), fora da AURORA.
-\end{enumerate}
+O caminho de quem usa o SAPHO é sempre o mesmo, e este manual o percorre na ordem natural. Cria-se um projeto, que é uma pasta governada por um arquivo \file{.spf} (Capítulo~\ref{cap:projetos}); dentro dele, cria-se um processador, escolhendo nome e parâmetros de arquitetura (Capítulo~\ref{cap:criando-processadores}); programa-se o comportamento em \cmm{} no editor (Parte~III); compila-se, e o YANC transforma o programa em Verilog, memórias e \textit{testbench} (Capítulo~\ref{cap:compilacao}); simula-se com o Icarus Verilog ou com o Verilator (Capítulo~\ref{cap:simulacao}); e inspeciona-se o resultado, as formas de onda no GTKWave ou no Surfer e o circuito no PRISM (Parte~VI). A síntese física no FPGA, com a ferramenta do fabricante (Quartus, Vivado), é a única etapa que acontece fora da AURORA: basta levar o \file{.v} e os \file{.mif} gerados.
 
 \section{O exemplo que acompanha este manual}
 \label{sec:exemplo-condutor}
 
-Para que cada conceito apareça em contexto, este manual constrói um processador de exemplo do zero e o acompanha até a forma de onda final: o \code{media_movel}, um filtro de média móvel que lê amostras de um sinal por uma porta de entrada, calcula a média das últimas amostras e escreve o resultado numa porta de saída. É um exemplo pequeno, mas exercita o essencial: entrada e saída, aritmética, laço principal e simulação com estímulo externo.
+Para que cada conceito apareça em contexto, o manual constrói um processador de exemplo do zero e o acompanha até a forma de onda final: o \code{media_movel}, um filtro de média móvel que lê amostras de um sinal por uma porta de entrada, calcula a média das últimas amostras e escreve o resultado numa porta de saída. É um exemplo pequeno, mas exercita o essencial: entrada e saída, aritmética, laço principal e simulação com estímulo externo.
 
 \section{O laboratório por trás: NIPS-CERN}
 
-O SAPHO é desenvolvido e mantido pelo \textbf{NIPS-CERN}, núcleo de pesquisa da \textbf{Universidade Federal de Juiz de Fora (UFJF)}, em Minas Gerais. O laboratório colabora com o CERN no experimento \textbf{ATLAS} do LHC, onde técnicas de processamento de sinais em FPGA --- o habitat natural do SAPHO --- são aplicadas à instrumentação dos calorímetros. A plataforma também é usada no ensino, na disciplina de Dispositivos Lógicos Programáveis (DLP) da UFJF.
+O SAPHO é desenvolvido e mantido pelo NIPS-CERN, o Núcleo de Instrumentação e Processamento de Sinais da Universidade Federal de Juiz de Fora (UFJF), em Minas Gerais. O laboratório atua em parceria com o CERN no experimento ATLAS do LHC (\textit{Large Hadron Collider}), onde técnicas de processamento de sinais em FPGA, o habitat natural do SAPHO, são aplicadas à instrumentação dos calorímetros. A plataforma também sustenta o ensino na disciplina de Dispositivos Lógicos Programáveis (DLP) da UFJF, na qual os alunos projetam, simulam e inspecionam processadores de ponta a ponta sem depender de licenças proprietárias.
 
 Todo o ecossistema é de código aberto, hospedado na organização \texttt{nipscernlab} no GitHub. O canal oficial de download para o usuário final é \url{https://nipscern.com/sapho}.
 
 \begin{nota}
-Este é um documento vivo: ele acompanha as versões da plataforma e é atualizado junto com a AURORA, o YANC e os demais componentes. Se algo na sua tela não corresponde ao manual, verifique se a sua instalação está atualizada (Capítulo~\ref{cap:atualizacoes}).
+Este é um documento vivo: ele acompanha as versões da plataforma e é atualizado junto com a AURORA, o YANC e os demais componentes. Se algo na sua tela não corresponde ao manual, verifique se a instalação está atualizada (Capítulo~\ref{cap:atualizacoes}).
 \end{nota}

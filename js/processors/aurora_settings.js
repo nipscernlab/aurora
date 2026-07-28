@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortcutList = document.getElementById('shortcut-list');
     const shortcutWarning = document.getElementById('shortcut-warning');
     const tooltipsToggle = document.getElementById('tooltips-toggle');
+    const auroraBgToggle = document.getElementById('aurora-bg-toggle');
     const trustLinksToggle = document.getElementById('trust-links-toggle');
 
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
@@ -47,7 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const defaultSettings = {
         tooltipsEnabled: true,
-        verboseMode: false
+        verboseMode: false,
+        // Fundo aurora da Welcome: DESLIGADO por padrao. E um shader em GPU
+        // rodando em laco continuo; numa maquina fraca ou numa bateria ele
+        // custa caro por um efeito puramente decorativo, entao quem quiser
+        // liga de proposito.
+        auroraBackground: false
     };
 
     let currentShortcuts = {};
@@ -62,12 +68,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Apply to UI toggles (safely)
         if (tooltipsToggle) tooltipsToggle.checked = !!currentSettings.tooltipsEnabled;
+        if (auroraBgToggle) auroraBgToggle.checked = !!currentSettings.auroraBackground;
         // Trust-external-links lives on its own shared key (not the settings
         // JSON) so the AI link-warning checkbox and this toggle are linked.
         if (trustLinksToggle) trustLinksToggle.checked = localStorage.getItem(TRUST_LINKS_KEY) === '1';
 
         // Aplica estado dos tooltips imediatamente
         setTooltipsEnabled(!!currentSettings.tooltipsEnabled);
+        applyAuroraBackground(!!currentSettings.auroraBackground);
+    };
+
+    /**
+     * Liga ou desliga o fundo aurora da Welcome.
+     *
+     * Marca o estado num atributo do <html> em vez de mexer no componente:
+     * a <aurora-welcome> pode nem existir ainda (so aparece sem projeto
+     * aberto) e pode ser recriada depois. Como atributo global, o CSS ja
+     * encontra o estado certo em qualquer momento em que ela montar, e o
+     * proprio componente escuta o evento para parar o laco de render.
+     */
+    const applyAuroraBackground = (on) => {
+        document.documentElement.toggleAttribute('data-aurora-bg', !!on);
+        window.dispatchEvent(new CustomEvent('aurora:background-toggled', { detail: { enabled: !!on } }));
     };
 
     /**
@@ -75,6 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     const saveSettings = () => {
         currentSettings.tooltipsEnabled = tooltipsToggle?.checked ?? true;
+        currentSettings.auroraBackground = auroraBgToggle?.checked ?? false;
 
         localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(currentSettings));
         // Evento global para quem quiser reagir às mudanças de settings
@@ -82,7 +105,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Notifica especificamente sobre tooltips
         setTooltipsEnabled(currentSettings.tooltipsEnabled);
+        applyAuroraBackground(currentSettings.auroraBackground);
     };
+
+    // Efeito imediato, sem esperar o Salvar: o usuario liga e ve na hora.
+    if (auroraBgToggle) {
+        auroraBgToggle.addEventListener('change', () => {
+            applyAuroraBackground(auroraBgToggle.checked);
+        });
+    }
 
     // Listener para toggles com efeito imediato
     if (tooltipsToggle) {

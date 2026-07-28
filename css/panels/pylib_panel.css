@@ -366,12 +366,19 @@
 .pylib-btn[data-busy='1'] {
   position: relative;
   width: 30px;
+  height: 30px;
   padding: 0;
-  border-color: transparent;
+  /* `border-radius: 50%` é o que faz o anel ser redondo. Sem ele o botão
+     mantinha o --radius-md do estado normal e o conic-gradient pintava um
+     quadrado de cantos arredondados. A borda some de vez (em vez de só ficar
+     transparente) para o disco não ficar 1px menor que a caixa. */
+  border: none;
+  border-radius: 50%;
   background:
     conic-gradient(var(--accent) calc(var(--pct, 0) * 1%), var(--bg-elev-3) 0);
   color: transparent;
   cursor: progress;
+  flex: 0 0 auto;
 }
 
 /* O miolo escuro, que transforma o disco em anel. */
@@ -522,3 +529,7 @@
   font-size: var(--text-xs);
   color: var(--text-faint);
 }
+
+/* Botão de verificação completa, na faixa de runtime. Empurrado para a direita
+   para não competir com a leitura dos dados do interpretador. */
+.pylib-verify-btn { margin-left: auto; }

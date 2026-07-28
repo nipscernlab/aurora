@@ -287,7 +287,9 @@
       "aiEnterKey": "Enter a key first.",
       "aiTestOk": "Connected — {{ms}} ms.",
       "aiModel": "Model",
-      "aiModelSet": "Model updated."
+      "aiModelSet": "Model updated.",
+      "auroraBg": "Aurora Borealis on the Welcome screen",
+      "auroraBgDescription": "Animated aurora background behind the Welcome screen. It renders on the GPU in a continuous loop; off by default to save battery and to keep weaker machines responsive."
     }
   },
   "shortcuts": {
@@ -930,7 +932,8 @@
     "toast": {
       "installed": "{{name}} installed.",
       "repaired": "{{name}} repaired.",
-      "uninstalled": "{{name}} removed ({{n}} files)."
+      "uninstalled": "{{name}} removed ({{n}} files).",
+      "broken": "A Python library changed on disk. Open the panel and use Repair."
     },
     "confirm": {
       "title": "Uninstall library",
@@ -944,6 +947,12 @@
       "checking": "Querying PyPI…",
       "pure": "Pure Python library",
       "deps": "Note: without pip there is no dependency resolver. If this library imports another that is not installed, install that one here too."
+    },
+    "verify": {
+      "deep": "Full check",
+      "running": "Checking every file…",
+      "clean": "All libraries are intact.",
+      "dirty": "{{n}} library(ies) with problems."
     }
   },
   "common": {

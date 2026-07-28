@@ -116,7 +116,13 @@ describe('extractZip', () => {
     // 4. Verify expected files landed at the expected paths with intact contents.
     expect(fs.readFileSync(path.join(dest, 'file.txt'), 'utf8')).toBe('top-level content');
     expect(fs.readFileSync(path.join(dest, 'sub', 'nested.txt'), 'utf8')).toBe('nested content');
-  });
+  // Este teste sobe DOIS processos PowerShell (Compress-Archive e
+  // Expand-Archive), e so o custo de iniciar cada um ja passa de 2 s no
+  // Windows. Com o timeout padrao de 5 s do vitest ele cabia por pouco quando
+  // rodava sozinho e estourava quando a suite ficou maior e os arquivos de
+  // teste passaram a competir por CPU — falha intermitente que nao dizia nada
+  // sobre o codigo. 30 s da folga sem esconder um travamento de verdade.
+  }, 30000);
 
   it.skipIf(!hasPowerShell)('throws when given a non-existent zip', () => {
     const dest = path.join(scratch, 'extracted');

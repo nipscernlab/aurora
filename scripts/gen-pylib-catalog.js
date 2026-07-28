@@ -52,265 +52,408 @@ const PYPI = (name) => `https://pypi.org/pypi/${encodeURIComponent(name)}/json`;
  * }>}
  */
 const CURATED = [
-  /* ── Verificacao de hardware ────────────────────────────────────────────── */
+  /* ═══ Verificacao de hardware ══════════════════════════════════════════════
+     O cocotb ja vem no bundle, entao ele nunca aparece em `deps`. */
   {
-    id: 'pyuvm',
-    pypi: 'pyuvm',
-    deps: [], // cocotb ja vem no bundle
-    category: 'hdl',
-    icon: 'pyuvm',
-    name: 'pyUVM',
-    homepage: 'https://pyuvm.github.io/pyuvm/',
+    id: 'pyuvm', pypi: 'pyuvm', deps: [], category: 'hdl', icon: 'pyuvm',
+    name: 'pyUVM', homepage: 'https://pyuvm.github.io/pyuvm/',
     summary: {
       pt: 'A metodologia UVM escrita em Python, sobre o cocotb. Organiza o testbench em agentes, sequencias e scoreboard em vez de um roteiro solto.',
       en: 'The UVM methodology written in Python, on top of cocotb. Structures the testbench into agents, sequences and a scoreboard instead of a loose script.',
     },
     uses: {
-      pt: [
-        'Estruturar a verificacao de um processador SAPHO em agentes e sequencias',
-        'Separar o gerador de estimulos, o driver e o scoreboard em classes proprias',
-        'Reaproveitar o mesmo ambiente de teste entre projetos do laboratorio',
-      ],
-      en: [
-        'Structure the verification of a SAPHO processor into agents and sequences',
-        'Split stimulus generator, driver and scoreboard into their own classes',
-        'Reuse the same test environment across lab projects',
-      ],
+      pt: ['Estruturar a verificacao de um processador SAPHO em agentes e sequencias',
+           'Separar gerador de estimulos, driver e scoreboard em classes proprias',
+           'Reaproveitar o mesmo ambiente de teste entre projetos do laboratorio'],
+      en: ['Structure the verification of a SAPHO processor into agents and sequences',
+           'Split stimulus generator, driver and scoreboard into their own classes',
+           'Reuse the same test environment across lab projects'],
     },
   },
   {
-    id: 'cocotb-bus',
-    pypi: 'cocotb-bus',
-    deps: [],
-    category: 'hdl',
-    icon: 'cocotb',
-    name: 'cocotb-bus',
-    homepage: 'https://github.com/cocotb/cocotb-bus',
+    id: 'cocotb-bus', pypi: 'cocotb-bus', deps: [], category: 'hdl', icon: 'cocotb',
+    name: 'cocotb-bus', homepage: 'https://github.com/cocotb/cocotb-bus',
     summary: {
-      pt: 'Drivers e monitores de barramento prontos para cocotb (Avalon, AXI basico, OPB). Evita reescrever o handshake a mao no testbench.',
-      en: 'Ready-made bus drivers and monitors for cocotb (Avalon, basic AXI, OPB). Avoids hand-writing the handshake in the testbench.',
+      pt: 'Drivers e monitores de barramento prontos para cocotb. Evita reescrever o handshake a mao no testbench.',
+      en: 'Ready-made bus drivers and monitors for cocotb. Avoids hand-writing the handshake in the testbench.',
     },
     uses: {
-      pt: [
-        'Dirigir o barramento do DUT sem implementar o protocolo de novo',
-        'Monitorar transacoes e comparar contra um modelo de referencia',
-        'Emular o front-end de aquisicao que entrega amostras ao processador',
-      ],
-      en: [
-        'Drive the DUT bus without re-implementing the protocol',
-        'Monitor transactions and compare against a reference model',
-        'Emulate the acquisition front-end that feeds samples to the processor',
-      ],
+      pt: ['Dirigir o barramento do DUT sem implementar o protocolo de novo',
+           'Monitorar transacoes e comparar contra um modelo de referencia',
+           'Emular o front-end de aquisicao que entrega amostras ao processador'],
+      en: ['Drive the DUT bus without re-implementing the protocol',
+           'Monitor transactions and compare against a reference model',
+           'Emulate the acquisition front-end that feeds samples to the processor'],
     },
   },
   {
-    id: 'vcdvcd',
-    pypi: 'vcdvcd',
-    deps: [],
-    category: 'hdl',
-    icon: 'vcd',
-    name: 'vcdvcd',
-    homepage: 'https://github.com/cirosantilli/vcdvcd',
+    id: 'cocotbext-axi', pypi: 'cocotbext-axi', deps: ['cocotb-bus'], category: 'hdl', icon: 'cocotb',
+    name: 'cocotb AXI', homepage: 'https://github.com/alexforencich/cocotbext-axi',
     summary: {
-      pt: 'Le arquivos VCD em Python puro. Permite analisar a forma de onda que a simulacao gerou por codigo, sem abrir o visualizador.',
+      pt: 'Modelos completos de AXI, AXI-Lite e AXI-Stream para cocotb, com memoria de apoio e verificacao de protocolo.',
+      en: 'Complete AXI, AXI-Lite and AXI-Stream models for cocotb, with backing memory and protocol checking.',
+    },
+    uses: {
+      pt: ['Conectar um processador SAPHO a uma infraestrutura AXI simulada',
+           'Servir memoria ao DUT sem escrever o modelo de RAM em HDL',
+           'Detectar violacao de protocolo no barramento durante o ensaio'],
+      en: ['Attach a SAPHO processor to a simulated AXI fabric',
+           'Serve memory to the DUT without writing a RAM model in HDL',
+           'Catch bus protocol violations during the run'],
+    },
+  },
+  {
+    id: 'cocotbext-spi', pypi: 'cocotbext-spi', deps: ['cocotb-bus'], category: 'hdl', icon: 'cocotb',
+    name: 'cocotb SPI', homepage: 'https://github.com/schang412/cocotbext-spi',
+    summary: {
+      pt: 'Mestre e escravo SPI para cocotb, com os quatro modos de relogio.',
+      en: 'SPI master and slave for cocotb, covering all four clock modes.',
+    },
+    uses: {
+      pt: ['Simular o ADC ou o DAC que conversa com o processador por SPI',
+           'Validar o driver SPI embarcado antes de gravar na FPGA'],
+      en: ['Simulate the ADC or DAC that talks to the processor over SPI',
+           'Validate the embedded SPI driver before flashing the FPGA'],
+    },
+  },
+  {
+    id: 'cocotbext-uart', pypi: 'cocotbext-uart', deps: [], category: 'hdl', icon: 'cocotb',
+    name: 'cocotb UART', homepage: 'https://github.com/alexforencich/cocotbext-uart',
+    summary: {
+      pt: 'Transmissor e receptor UART para cocotb, com baud configuravel.',
+      en: 'UART transmitter and receiver for cocotb, with configurable baud rate.',
+    },
+    uses: {
+      pt: ['Emular o console serial do processador durante a simulacao',
+           'Conferir o texto que o SAPHO imprime sem precisar da placa'],
+      en: ['Emulate the processor\'s serial console during simulation',
+           'Check the text SAPHO prints without needing the board'],
+    },
+  },
+  {
+    id: 'vcdvcd', pypi: 'vcdvcd', deps: [], category: 'hdl', icon: 'vcd',
+    name: 'vcdvcd', homepage: 'https://github.com/cirosantilli/vcdvcd',
+    summary: {
+      pt: 'Le arquivos VCD em Python puro. Permite analisar por codigo a forma de onda que a simulacao gerou, sem abrir o visualizador.',
       en: 'Reads VCD files in pure Python. Lets you analyse the waveform a simulation produced programmatically, without opening a viewer.',
     },
     uses: {
-      pt: [
-        'Conferir por script se um sinal respeitou um limite ao longo de toda a simulacao',
-        'Extrair uma serie temporal do VCD para comparar com o modelo de referencia',
-        'Automatizar regressao: rodar, ler a onda e falhar sozinho quando desviar',
-      ],
-      en: [
-        'Script-check whether a signal stayed within bounds across the whole run',
-        'Extract a time series from the VCD to compare against the reference model',
-        'Automate regression: run, read the wave and fail on its own when it drifts',
-      ],
+      pt: ['Conferir por script se um sinal respeitou um limite na simulacao inteira',
+           'Extrair uma serie temporal do VCD para comparar com o modelo de referencia',
+           'Automatizar regressao: rodar, ler a onda e falhar sozinho quando desviar'],
+      en: ['Script-check whether a signal stayed within bounds across the whole run',
+           'Extract a time series from the VCD to compare against the reference model',
+           'Automate regression: run, read the wave and fail on its own when it drifts'],
     },
   },
   {
-    id: 'pyvcd',
-    pypi: 'pyvcd',
-    deps: [],
-    category: 'hdl',
-    icon: 'vcd',
-    name: 'PyVCD',
-    homepage: 'https://github.com/westerndigitalcorporation/pyvcd',
+    id: 'pyvcd', pypi: 'pyvcd', deps: [], category: 'hdl', icon: 'vcd',
+    name: 'PyVCD', homepage: 'https://github.com/westerndigitalcorporation/pyvcd',
     summary: {
-      pt: 'Escreve arquivos VCD a partir do Python. O caminho inverso do vcdvcd: transforma dados calculados em forma de onda.',
+      pt: 'Escreve arquivos VCD a partir do Python. O caminho inverso do vcdvcd: transforma dado calculado em forma de onda.',
       en: 'Writes VCD files from Python. The reverse of vcdvcd: turns computed data into a waveform.',
     },
     uses: {
-      pt: [
-        'Despejar o modelo de referencia como onda para abrir no GTKWave ou no Surfer',
-        'Ver lado a lado, no mesmo visualizador, o esperado e o que o SAPHO produziu',
-      ],
-      en: [
-        'Dump the reference model as a wave to open in GTKWave or Surfer',
-        'View expected and actual SAPHO output side by side in the same viewer',
-      ],
+      pt: ['Despejar o modelo de referencia como onda para abrir no GTKWave ou no Surfer',
+           'Ver lado a lado, no mesmo visualizador, o esperado e o que o SAPHO produziu'],
+      en: ['Dump the reference model as a wave to open in GTKWave or Surfer',
+           'View expected and actual SAPHO output side by side in the same viewer'],
     },
   },
 
-  /* ── Matematica ─────────────────────────────────────────────────────────── */
+  /* ═══ Graficos ═════════════════════════════════════════════════════════════ */
   {
-    id: 'mpmath',
-    pypi: 'mpmath',
-    deps: [],
-    category: 'math',
-    icon: 'mpmath',
-    name: 'mpmath',
-    homepage: 'https://mpmath.org/',
-    summary: {
-      pt: 'Aritmetica de ponto flutuante com precisao arbitraria. Da para fixar quantos bits de mantissa usar, o que casa com o float proprio do SAPHO.',
-      en: 'Arbitrary-precision floating-point arithmetic. You choose how many mantissa bits to use, which lines up with SAPHO\'s own float format.',
-    },
-    uses: {
-      pt: [
-        'Modelar a aritmetica de 24 ou 32 bits do SAPHO (mantissa e expoente proprios, fora do IEEE 754)',
-        'Separar o erro do metodo do erro do arredondamento do processador',
-        'Produzir a referencia de alta precisao contra a qual o hardware e medido',
-      ],
-      en: [
-        'Model SAPHO\'s 24- or 32-bit arithmetic (its own mantissa and exponent, outside IEEE 754)',
-        'Separate method error from the processor\'s rounding error',
-        'Produce the high-precision reference the hardware is measured against',
-      ],
-    },
-  },
-  {
-    id: 'sympy',
-    pypi: 'sympy',
-    deps: ['mpmath'],
-    category: 'math',
-    icon: 'sympy',
-    name: 'SymPy',
-    homepage: 'https://www.sympy.org/',
-    summary: {
-      pt: 'Matematica simbolica: resolve, deriva, simplifica e gera codigo a partir de expressoes exatas, sem depender do NumPy.',
-      en: 'Symbolic mathematics: solves, differentiates, simplifies and generates code from exact expressions, with no NumPy dependency.',
-    },
-    uses: {
-      pt: [
-        'Deduzir os coeficientes de um filtro IIR biquadratico de forma exata',
-        'Verificar algebricamente a transformada que o algoritmo em C+- implementa',
-        'Gerar a expressao de referencia e so entao arredonda-la para o formato do SAPHO',
-      ],
-      en: [
-        'Derive biquad IIR filter coefficients exactly',
-        'Algebraically check the transform the C+- algorithm implements',
-        'Generate the reference expression and only then round it to SAPHO\'s format',
-      ],
-    },
-  },
-
-  /* ── Visualizacao ───────────────────────────────────────────────────────── */
-  {
-    id: 'plotly',
-    pypi: 'plotly',
-    deps: ['narwhals', 'packaging'],
-    category: 'viz',
-    icon: 'plotly',
-    name: 'Plotly',
-    homepage: 'https://plotly.com/python/',
+    id: 'plotly', pypi: 'plotly', deps: ['narwhals', 'packaging'], category: 'viz', icon: 'plotly',
+    name: 'Plotly', homepage: 'https://plotly.com/python/',
     summary: {
       pt: 'Graficos interativos em HTML, com zoom e leitura de valor ponto a ponto. Gera arquivo que a propria AURORA abre.',
       en: 'Interactive HTML charts with zoom and point-by-point readout. Produces a file AURORA itself can open.',
     },
     uses: {
-      pt: [
-        'Plotar a saida do processador contra o modelo de referencia no mesmo grafico',
-        'Mostrar o erro em escala logaritmica ao longo das amostras do ensaio',
-        'Gerar relatorio de verificacao em HTML para anexar ao projeto',
-      ],
-      en: [
-        'Plot processor output against the reference model on one chart',
-        'Show error on a log scale across the run\'s samples',
-        'Generate an HTML verification report to attach to the project',
-      ],
+      pt: ['Plotar a saida do processador contra o modelo de referencia no mesmo grafico',
+           'Mostrar o erro em escala logaritmica ao longo das amostras do ensaio',
+           'Gerar relatorio de verificacao em HTML para anexar ao projeto'],
+      en: ['Plot processor output against the reference model on one chart',
+           'Show error on a log scale across the run\'s samples',
+           'Generate an HTML verification report to attach to the project'],
+    },
+  },
+  {
+    id: 'pygal', pypi: 'pygal', deps: ['importlib-metadata', 'zipp'], category: 'viz', icon: 'pygal',
+    name: 'pygal', homepage: 'https://www.pygal.org/',
+    summary: {
+      pt: 'Graficos em SVG vetorial, sem depender de NumPy. Saida leve, que escala sem perder nitidez e entra direto em documento.',
+      en: 'Vector SVG charts with no NumPy dependency. Light output that scales without blurring and drops straight into a document.',
+    },
+    uses: {
+      pt: ['Gerar figura vetorial do ensaio para colar no artigo ou no relatorio',
+           'Produzir grafico de barras da ocupacao de hardware por processador',
+           'Exportar SVG que a AURORA consegue exibir sem nenhum navegador externo'],
+      en: ['Generate a vector figure of the run to paste into a paper or report',
+           'Produce a bar chart of hardware usage per processor',
+           'Export SVG that AURORA can display with no external browser'],
+    },
+  },
+  {
+    id: 'plotext', pypi: 'plotext', deps: [], category: 'viz', icon: 'plotext',
+    name: 'plotext', homepage: 'https://github.com/piccolomo/plotext',
+    summary: {
+      pt: 'Desenha grafico dentro do terminal, com caracteres e cor. Aparece direto no terminal da AURORA, sem gerar arquivo nenhum.',
+      en: 'Draws charts inside the terminal using characters and colour. Appears right in AURORA\'s terminal, with no file produced.',
+    },
+    uses: {
+      pt: ['Ver a forma do sinal durante a simulacao, sem sair do terminal',
+           'Acompanhar a convergencia de um filtro adaptativo enquanto o ensaio roda',
+           'Ter um grafico rapido de conferencia sem abrir visualizador nenhum'],
+      en: ['See the signal shape during simulation without leaving the terminal',
+           'Watch an adaptive filter converge while the run is in progress',
+           'Get a quick sanity-check plot without opening any viewer'],
+    },
+  },
+  {
+    id: 'drawsvg', pypi: 'drawsvg', deps: [], category: 'viz', icon: 'drawsvg',
+    name: 'drawsvg', homepage: 'https://github.com/cduck/drawsvg',
+    summary: {
+      pt: 'Desenha SVG por codigo: formas, texto e animacao. Para quando o grafico pronto nao serve e voce precisa desenhar exatamente o que quer.',
+      en: 'Draws SVG from code: shapes, text and animation. For when an off-the-shelf chart will not do and you need to draw exactly what you mean.',
+    },
+    uses: {
+      pt: ['Desenhar diagrama de tempo (waveform) formatado do jeito do artigo',
+           'Gerar figura de arquitetura do pipeline a partir dos parametros do projeto'],
+      en: ['Draw a timing diagram formatted the way the paper needs',
+           'Generate a pipeline architecture figure from the project parameters'],
     },
   },
 
-  /* ── Testes e terminal ──────────────────────────────────────────────────── */
+  /* ═══ Matematica e analise numerica ════════════════════════════════════════ */
   {
-    id: 'pytest',
-    pypi: 'pytest',
-    deps: ['iniconfig', 'packaging', 'pluggy', 'pygments', 'colorama'],
-    category: 'test',
-    icon: 'pytest',
-    name: 'pytest',
-    homepage: 'https://docs.pytest.org/',
+    id: 'mpmath', pypi: 'mpmath', deps: [], category: 'math', icon: 'mpmath',
+    name: 'mpmath', homepage: 'https://mpmath.org/',
+    summary: {
+      pt: 'Aritmetica de ponto flutuante com precisao arbitraria. Da para fixar quantos bits de mantissa usar, o que casa com o float proprio do SAPHO.',
+      en: 'Arbitrary-precision floating-point arithmetic. You choose how many mantissa bits to use, which lines up with SAPHO\'s own float format.',
+    },
+    uses: {
+      pt: ['Modelar a aritmetica de 24 ou 32 bits do SAPHO (mantissa e expoente proprios, fora do IEEE 754)',
+           'Separar o erro do metodo do erro de arredondamento do processador',
+           'Produzir a referencia de alta precisao contra a qual o hardware e medido'],
+      en: ['Model SAPHO\'s 24- or 32-bit arithmetic (its own mantissa and exponent, outside IEEE 754)',
+           'Separate method error from the processor\'s rounding error',
+           'Produce the high-precision reference the hardware is measured against'],
+    },
+  },
+  {
+    id: 'sympy', pypi: 'sympy', deps: ['mpmath'], category: 'math', icon: 'sympy',
+    name: 'SymPy', homepage: 'https://www.sympy.org/',
+    summary: {
+      pt: 'Matematica simbolica: resolve, deriva, simplifica e gera codigo a partir de expressoes exatas, sem depender do NumPy.',
+      en: 'Symbolic mathematics: solves, differentiates, simplifies and generates code from exact expressions, with no NumPy dependency.',
+    },
+    uses: {
+      pt: ['Deduzir de forma exata os coeficientes de um filtro IIR biquadratico',
+           'Verificar algebricamente a transformada que o algoritmo em C+- implementa',
+           'Gerar a expressao de referencia e so entao arredonda-la para o formato do SAPHO'],
+      en: ['Derive biquad IIR filter coefficients exactly',
+           'Algebraically check the transform the C+- algorithm implements',
+           'Generate the reference expression and only then round it to SAPHO\'s format'],
+    },
+  },
+  {
+    id: 'fixedpoint', pypi: 'fixedpoint', deps: [], category: 'math', icon: 'fixedpoint',
+    name: 'fixedpoint', homepage: 'https://github.com/Schweitzer-Engineering-Laboratories/fixedpoint',
+    summary: {
+      pt: 'Aritmetica de ponto fixo com largura, sinal e politica de arredondamento e saturacao explicitas — as mesmas decisoes que a ULA do SAPHO toma.',
+      en: 'Fixed-point arithmetic with explicit width, signedness, rounding and overflow policy — the same decisions SAPHO\'s ALU makes.',
+    },
+    uses: {
+      pt: ['Modelar em Python a ULA de ponto fixo antes de fixar a largura no hardware',
+           'Prever onde vai haver saturacao ou perda de bits no algoritmo',
+           'Comparar a mesma conta em ponto fixo e em ponto flutuante para escolher o formato'],
+      en: ['Model the fixed-point ALU in Python before fixing the width in hardware',
+           'Predict where saturation or bit loss will occur in the algorithm',
+           'Compare the same computation in fixed and floating point to choose the format'],
+    },
+  },
+  {
+    id: 'uncertainties', pypi: 'uncertainties', deps: [], category: 'math', icon: 'uncertainties',
+    name: 'uncertainties', homepage: 'https://uncertainties.readthedocs.io/',
+    summary: {
+      pt: 'Propaga incerteza pelas contas automaticamente. Escreve-se 3.2+-0.1 e o erro acompanha o resultado por toda a expressao.',
+      en: 'Propagates uncertainty through calculations automatically. Write 3.2+-0.1 and the error follows the result through the whole expression.',
+    },
+    uses: {
+      pt: ['Levar a incerteza da medida ate a metrica final do ensaio',
+           'Saber se o desvio observado cabe dentro da incerteza, antes de culpar o hardware'],
+      en: ['Carry measurement uncertainty through to the run\'s final metric',
+           'Tell whether an observed deviation fits within the uncertainty before blaming the hardware'],
+    },
+  },
+
+  /* ═══ Dados, formatos e placa ══════════════════════════════════════════════ */
+  {
+    id: 'intelhex', pypi: 'intelhex', deps: [], category: 'data', icon: 'intelhex',
+    name: 'IntelHex', homepage: 'https://github.com/python-intelhex/intelhex',
+    summary: {
+      pt: 'Le e escreve arquivos Intel HEX e converte de e para binario. E o formato em que memoria de programa costuma circular.',
+      en: 'Reads and writes Intel HEX files and converts to and from binary. It is the format program memory usually travels in.',
+    },
+    uses: {
+      pt: ['Converter a memoria de programa do SAPHO entre formatos',
+           'Conferir o conteudo gravado byte a byte antes de simular',
+           'Gerar vetor de inicializacao de memoria a partir de dado calculado'],
+      en: ['Convert SAPHO program memory between formats',
+           'Check the written content byte by byte before simulating',
+           'Generate a memory initialisation vector from computed data'],
+    },
+  },
+  {
+    id: 'construct', pypi: 'construct', deps: [], category: 'data', icon: 'construct',
+    name: 'Construct', homepage: 'https://construct.readthedocs.io/',
+    summary: {
+      pt: 'Descreve um formato binario de forma declarativa e ganha o leitor e o escritor de graca, nos dois sentidos.',
+      en: 'Describe a binary format declaratively and get both the parser and the builder for free.',
+    },
+    uses: {
+      pt: ['Montar e desmontar o pacote de dados que o processador troca com o mundo',
+           'Decodificar o despejo bruto de uma simulacao em campos com nome'],
+      en: ['Assemble and disassemble the data packet the processor exchanges with the world',
+           'Decode a raw simulation dump into named fields'],
+    },
+  },
+  {
+    id: 'crc', pypi: 'crc', deps: [], category: 'data', icon: 'crc',
+    name: 'CRC', homepage: 'https://github.com/Nicoretti/crc',
+    summary: {
+      pt: 'Calcula CRC em qualquer configuracao (polinomio, largura, reflexao) e ja traz os padroes conhecidos prontos.',
+      en: 'Computes CRC in any configuration (polynomial, width, reflection) and ships the well-known standards ready to use.',
+    },
+    uses: {
+      pt: ['Conferir o CRC que um bloco em hardware calcula, contra a referencia em Python',
+           'Validar integridade do quadro no barramento simulado'],
+      en: ['Check the CRC a hardware block computes against the Python reference',
+           'Validate frame integrity on the simulated bus'],
+    },
+  },
+  {
+    id: 'pyserial', pypi: 'pyserial', deps: [], category: 'data', icon: 'pyserial',
+    name: 'pySerial', homepage: 'https://github.com/pyserial/pyserial',
+    summary: {
+      pt: 'Comunicacao por porta serial. E a ponte entre o Python e a FPGA depois que o projeto sai da simulacao e vai para a placa.',
+      en: 'Serial port communication. The bridge between Python and the FPGA once the design leaves simulation and reaches the board.',
+    },
+    uses: {
+      pt: ['Enviar vetor de teste para a placa e ler a resposta do SAPHO real',
+           'Rodar o MESMO script de conferencia contra a simulacao e contra o hardware',
+           'Automatizar a coleta de resultado em bancada'],
+      en: ['Send a test vector to the board and read the real SAPHO response',
+           'Run the SAME checking script against simulation and against hardware',
+           'Automate result collection on the bench'],
+    },
+  },
+  {
+    id: 'networkx', pypi: 'networkx', deps: [], category: 'data', icon: 'networkx',
+    name: 'NetworkX', homepage: 'https://networkx.org/',
+    summary: {
+      pt: 'Grafos: construir, percorrer e analisar. Um netlist e um grafo, e uma hierarquia de modulos tambem.',
+      en: 'Graphs: build, traverse and analyse. A netlist is a graph, and so is a module hierarchy.',
+    },
+    uses: {
+      pt: ['Analisar a hierarquia de modulos que o Yosys extrai, por codigo',
+           'Achar caminho critico ou ciclo combinacional no netlist',
+           'Medir profundidade e fan-out do circuito que o C+- gerou'],
+      en: ['Analyse the module hierarchy Yosys extracts, programmatically',
+           'Find a critical path or combinational loop in the netlist',
+           'Measure depth and fan-out of the circuit the C+- generated'],
+    },
+  },
+
+  /* ═══ Testes e terminal ════════════════════════════════════════════════════ */
+  {
+    id: 'pytest', pypi: 'pytest', deps: ['iniconfig', 'packaging', 'pluggy', 'pygments', 'colorama'],
+    category: 'test', icon: 'pytest',
+    name: 'pytest', homepage: 'https://docs.pytest.org/',
     summary: {
       pt: 'Framework de testes do Python. Cobre o codigo de apoio dos testbenches e organiza casos com fixtures.',
       en: 'Python testing framework. Covers the testbenches\' supporting code and organises cases with fixtures.',
     },
     uses: {
-      pt: [
-        'Testar o gerador de estimulos e o modelo de referencia antes de rodar a simulacao',
-        'Parametrizar um mesmo ensaio para varias frequencias ou configuracoes',
-        'Escrever asserts legiveis com mensagem de falha detalhada',
-      ],
-      en: [
-        'Test the stimulus generator and reference model before running the simulation',
-        'Parameterise one test across several frequencies or configurations',
-        'Write readable asserts with detailed failure messages',
-      ],
+      pt: ['Testar o gerador de estimulos e o modelo de referencia antes de simular',
+           'Parametrizar um mesmo ensaio para varias frequencias ou configuracoes',
+           'Escrever asserts legiveis com mensagem de falha detalhada'],
+      en: ['Test the stimulus generator and reference model before simulating',
+           'Parameterise one test across several frequencies or configurations',
+           'Write readable asserts with detailed failure messages'],
     },
   },
   {
-    id: 'rich',
-    pypi: 'rich',
-    deps: ['markdown-it-py', 'mdurl', 'pygments'],
-    category: 'cli',
-    icon: 'rich',
-    name: 'Rich',
-    homepage: 'https://rich.readthedocs.io/',
+    id: 'rich', pypi: 'rich', deps: ['markdown-it-py', 'mdurl', 'pygments'], category: 'cli', icon: 'rich',
+    name: 'Rich', homepage: 'https://rich.readthedocs.io/',
     summary: {
       pt: 'Saida formatada no terminal: tabelas, cores, barras de progresso e arvores. Aparece direto no terminal da AURORA.',
       en: 'Formatted terminal output: tables, colours, progress bars and trees. Shows up directly in AURORA\'s terminal.',
     },
     uses: {
-      pt: [
-        'Imprimir a tabela de metricas do ensaio no terminal, ja alinhada e colorida',
-        'Destacar em vermelho a amostra que estourou o limite',
-        'Mostrar o progresso de um ensaio longo de milhares de amostras',
-      ],
-      en: [
-        'Print the run\'s metrics table in the terminal, aligned and coloured',
-        'Highlight in red the sample that broke the limit',
-        'Show progress of a long run over thousands of samples',
-      ],
+      pt: ['Imprimir a tabela de metricas do ensaio ja alinhada e colorida',
+           'Destacar em vermelho a amostra que estourou o limite',
+           'Mostrar o progresso de um ensaio longo de milhares de amostras'],
+      en: ['Print the run\'s metrics table already aligned and coloured',
+           'Highlight in red the sample that broke the limit',
+           'Show progress of a long run over thousands of samples'],
     },
   },
   {
-    id: 'tabulate',
-    pypi: 'tabulate',
-    deps: [],
-    category: 'cli',
-    icon: 'tabulate',
-    name: 'Tabulate',
-    homepage: 'https://github.com/astanin/python-tabulate',
+    id: 'tabulate', pypi: 'tabulate', deps: [], category: 'cli', icon: 'tabulate',
+    name: 'Tabulate', homepage: 'https://github.com/astanin/python-tabulate',
     summary: {
       pt: 'Tabelas de texto a partir de listas, sem nenhuma dependencia. Exporta tambem em Markdown e LaTeX.',
       en: 'Text tables from lists, with no dependencies. Also exports Markdown and LaTeX.',
     },
     uses: {
-      pt: [
-        'Formatar o resumo do ensaio em tabela alinhada',
-        'Exportar a tabela de resultados em LaTeX direto para o artigo',
-      ],
-      en: [
-        'Format the run summary as an aligned table',
-        'Export the results table as LaTeX straight into the paper',
-      ],
+      pt: ['Formatar o resumo do ensaio em tabela alinhada',
+           'Exportar a tabela de resultados em LaTeX direto para o artigo'],
+      en: ['Format the run summary as an aligned table',
+           'Export the results table as LaTeX straight into the paper'],
     },
   },
-  // Fora da lista de proposito, com o motivo:
-  //  - cocotb-coverage: depende de python-constraint (so publica sdist, sem
-  //    wheel) e de PyYAML (so wheel compilada). Sem pip, nenhuma das duas entra.
-  //  - Jinja2 / edalize / fusesoc: dependem de MarkupSafe ou PyYAML, mesma
+  {
+    id: 'tqdm', pypi: 'tqdm', deps: ['colorama'], category: 'cli', icon: 'tqdm',
+    name: 'tqdm', homepage: 'https://tqdm.github.io/',
+    summary: {
+      pt: 'Barra de progresso que se envolve em qualquer laco. Uma linha de codigo e o ensaio longo passa a mostrar quanto falta.',
+      en: 'A progress bar that wraps any loop. One line of code and a long run starts showing how much is left.',
+    },
+    uses: {
+      pt: ['Acompanhar o avanco de um laco de milhares de amostras no terminal',
+           'Saber se a simulacao esta andando ou travada'],
+      en: ['Follow the progress of a loop over thousands of samples in the terminal',
+           'Tell whether the simulation is advancing or stuck'],
+    },
+  },
+  {
+    id: 'humanize', pypi: 'humanize', deps: [], category: 'cli', icon: 'humanize',
+    name: 'humanize', homepage: 'https://github.com/python-humanize/humanize',
+    summary: {
+      pt: 'Converte numero, tamanho e duracao para forma legivel: "1,2 MB", "3 minutos atras". Tem traducao para portugues.',
+      en: 'Turns numbers, sizes and durations into readable form: "1.2 MB", "3 minutes ago". Ships Portuguese translations.',
+    },
+    uses: {
+      pt: ['Escrever o relatorio do ensaio em numero que se le sem contar zero',
+           'Formatar tempo de simulacao e tamanho de despejo no log'],
+      en: ['Write the run report in numbers you can read without counting zeros',
+           'Format simulation time and dump size in the log'],
+    },
+  },
+  // Fora da lista de proposito, com o motivo — para ninguem tentar de novo:
+  //  - hypothesis: desde a 6.x publica so wheel compilada (61 wheels, nenhuma
+  //    pura). Era o candidato natural para teste baseado em propriedade.
+  //  - bitstring: a propria e pura, mas depende de bitarray, que e em C.
+  //  - cocotb-coverage: depende de python-constraint (so sdist, sem wheel) e de
+  //    PyYAML (so wheel compilada).
+  //  - Jinja2, edalize, fusesoc: dependem de MarkupSafe ou PyYAML, mesma
   //    barreira. Fixar versao antiga para contornar trocaria um problema de
   //    compatibilidade por um de seguranca.
+  //  - asciichartpy: declara setuptools como dependencia de runtime, que nao
+  //    existe no interpretador embarcado.
 ];
 
 /**
@@ -519,6 +662,7 @@ async function main() {
     python: { validatedAgainst: '3.12', abiTag: 'cp312', platform: 'mingw_x86_64_msvcrt_gnu' },
     categories: {
       hdl:  { pt: 'Verificacao',   en: 'Verification' },
+      data: { pt: 'Dados e placa', en: 'Data & board' },
       math: { pt: 'Matematica',    en: 'Mathematics' },
       viz:  { pt: 'Visualizacao',  en: 'Visualisation' },
       test: { pt: 'Testes',        en: 'Testing' },

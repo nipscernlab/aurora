@@ -10,6 +10,10 @@
       "pt": "Verificacao",
       "en": "Verification"
     },
+    "data": {
+      "pt": "Dados e placa",
+      "en": "Data & board"
+    },
     "math": {
       "pt": "Matematica",
       "en": "Mathematics"
@@ -49,7 +53,7 @@
       "uses": {
         "pt": [
           "Estruturar a verificacao de um processador SAPHO em agentes e sequencias",
-          "Separar o gerador de estimulos, o driver e o scoreboard em classes proprias",
+          "Separar gerador de estimulos, driver e scoreboard em classes proprias",
           "Reaproveitar o mesmo ambiente de teste entre projetos do laboratorio"
         ],
         "en": [
@@ -81,8 +85,8 @@
       "license": null,
       "requiresPython": ">=3.6",
       "summary": {
-        "pt": "Drivers e monitores de barramento prontos para cocotb (Avalon, AXI basico, OPB). Evita reescrever o handshake a mao no testbench.",
-        "en": "Ready-made bus drivers and monitors for cocotb (Avalon, basic AXI, OPB). Avoids hand-writing the handshake in the testbench."
+        "pt": "Drivers e monitores de barramento prontos para cocotb. Evita reescrever o handshake a mao no testbench.",
+        "en": "Ready-made bus drivers and monitors for cocotb. Avoids hand-writing the handshake in the testbench."
       },
       "uses": {
         "pt": [
@@ -109,6 +113,132 @@
       ]
     },
     {
+      "id": "cocotbext-axi",
+      "name": "cocotb AXI",
+      "version": "0.1.28",
+      "kind": "pure",
+      "category": "hdl",
+      "icon": "cocotb",
+      "homepage": "https://github.com/alexforencich/cocotbext-axi",
+      "license": "MIT",
+      "requiresPython": ">=3.6",
+      "summary": {
+        "pt": "Modelos completos de AXI, AXI-Lite e AXI-Stream para cocotb, com memoria de apoio e verificacao de protocolo.",
+        "en": "Complete AXI, AXI-Lite and AXI-Stream models for cocotb, with backing memory and protocol checking."
+      },
+      "uses": {
+        "pt": [
+          "Conectar um processador SAPHO a uma infraestrutura AXI simulada",
+          "Servir memoria ao DUT sem escrever o modelo de RAM em HDL",
+          "Detectar violacao de protocolo no barramento durante o ensaio"
+        ],
+        "en": [
+          "Attach a SAPHO processor to a simulated AXI fabric",
+          "Serve memory to the DUT without writing a RAM model in HDL",
+          "Catch bus protocol violations during the run"
+        ]
+      },
+      "downloadSize": 92879,
+      "wheels": [
+        {
+          "name": "cocotbext-axi",
+          "version": "0.1.28",
+          "filename": "cocotbext_axi-0.1.28-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/29/eb/d1c1f727a52ef2b7d0a2e4ff31817add1ccd42155642ba971b49d9ee089c/cocotbext_axi-0.1.28-py3-none-any.whl",
+          "sha256": "aff88b528733e4e59359f06b8cc30524cc75bf31ee951ed8a573694b26816eb2",
+          "size": 56673
+        },
+        {
+          "name": "cocotb-bus",
+          "version": "0.3.0",
+          "filename": "cocotb_bus-0.3.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ea/43/8b3f96cf401c2a7f6e907ccc86d3b73433eeaf5525df90b630d8c112474b/cocotb_bus-0.3.0-py3-none-any.whl",
+          "sha256": "b4f06cce2462a8f9487b42c46b0ff3afd253f0fa4f67a0c382ebe0ba614229eb",
+          "size": 36206
+        }
+      ]
+    },
+    {
+      "id": "cocotbext-spi",
+      "name": "cocotb SPI",
+      "version": "0.5.0",
+      "kind": "pure",
+      "category": "hdl",
+      "icon": "cocotb",
+      "homepage": "https://github.com/schang412/cocotbext-spi",
+      "license": "MIT",
+      "requiresPython": ">=3.7",
+      "summary": {
+        "pt": "Mestre e escravo SPI para cocotb, com os quatro modos de relogio.",
+        "en": "SPI master and slave for cocotb, covering all four clock modes."
+      },
+      "uses": {
+        "pt": [
+          "Simular o ADC ou o DAC que conversa com o processador por SPI",
+          "Validar o driver SPI embarcado antes de gravar na FPGA"
+        ],
+        "en": [
+          "Simulate the ADC or DAC that talks to the processor over SPI",
+          "Validate the embedded SPI driver before flashing the FPGA"
+        ]
+      },
+      "downloadSize": 56448,
+      "wheels": [
+        {
+          "name": "cocotbext-spi",
+          "version": "0.5.0",
+          "filename": "cocotbext_spi-0.5.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/de/b7/530c612220c180f01276e4177f5c0d1617fa4f7b4eae6070dae429db0462/cocotbext_spi-0.5.0-py3-none-any.whl",
+          "sha256": "c4e2c9cce2382e4529dac9b03b171c92988241c644afafb2a35a556812b9e10b",
+          "size": 20242
+        },
+        {
+          "name": "cocotb-bus",
+          "version": "0.3.0",
+          "filename": "cocotb_bus-0.3.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ea/43/8b3f96cf401c2a7f6e907ccc86d3b73433eeaf5525df90b630d8c112474b/cocotb_bus-0.3.0-py3-none-any.whl",
+          "sha256": "b4f06cce2462a8f9487b42c46b0ff3afd253f0fa4f67a0c382ebe0ba614229eb",
+          "size": 36206
+        }
+      ]
+    },
+    {
+      "id": "cocotbext-uart",
+      "name": "cocotb UART",
+      "version": "0.1.4",
+      "kind": "pure",
+      "category": "hdl",
+      "icon": "cocotb",
+      "homepage": "https://github.com/alexforencich/cocotbext-uart",
+      "license": "MIT",
+      "requiresPython": ">=3.6",
+      "summary": {
+        "pt": "Transmissor e receptor UART para cocotb, com baud configuravel.",
+        "en": "UART transmitter and receiver for cocotb, with configurable baud rate."
+      },
+      "uses": {
+        "pt": [
+          "Emular o console serial do processador durante a simulacao",
+          "Conferir o texto que o SAPHO imprime sem precisar da placa"
+        ],
+        "en": [
+          "Emulate the processor's serial console during simulation",
+          "Check the text SAPHO prints without needing the board"
+        ]
+      },
+      "downloadSize": 6627,
+      "wheels": [
+        {
+          "name": "cocotbext-uart",
+          "version": "0.1.4",
+          "filename": "cocotbext_uart-0.1.4-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/24/32/351045b5ac3feb65c3b54153a20ffb882a5445297572d67752ac755791c9/cocotbext_uart-0.1.4-py3-none-any.whl",
+          "sha256": "be78f266449765a1cb7877a733f796bbfdbe492e7205051c4cc413e2e0c4727f",
+          "size": 6627
+        }
+      ]
+    },
+    {
       "id": "vcdvcd",
       "name": "vcdvcd",
       "version": "2.6.0",
@@ -119,12 +249,12 @@
       "license": null,
       "requiresPython": null,
       "summary": {
-        "pt": "Le arquivos VCD em Python puro. Permite analisar a forma de onda que a simulacao gerou por codigo, sem abrir o visualizador.",
+        "pt": "Le arquivos VCD em Python puro. Permite analisar por codigo a forma de onda que a simulacao gerou, sem abrir o visualizador.",
         "en": "Reads VCD files in pure Python. Lets you analyse the waveform a simulation produced programmatically, without opening a viewer."
       },
       "uses": {
         "pt": [
-          "Conferir por script se um sinal respeitou um limite ao longo de toda a simulacao",
+          "Conferir por script se um sinal respeitou um limite na simulacao inteira",
           "Extrair uma serie temporal do VCD para comparar com o modelo de referencia",
           "Automatizar regressao: rodar, ler a onda e falhar sozinho quando desviar"
         ],
@@ -157,7 +287,7 @@
       "license": "MIT",
       "requiresPython": ">=3.7",
       "summary": {
-        "pt": "Escreve arquivos VCD a partir do Python. O caminho inverso do vcdvcd: transforma dados calculados em forma de onda.",
+        "pt": "Escreve arquivos VCD a partir do Python. O caminho inverso do vcdvcd: transforma dado calculado em forma de onda.",
         "en": "Writes VCD files from Python. The reverse of vcdvcd: turns computed data into a waveform."
       },
       "uses": {
@@ -179,90 +309,6 @@
           "url": "https://files.pythonhosted.org/packages/8d/6d/24f67ec6cbe90ffca470f3c31e24f3d21124abc5b690398ab34a54bd3070/pyvcd-0.4.1-py2.py3-none-any.whl",
           "sha256": "3a4c71d4dce741f1155a2ed11a6278390a0816293068f6162ad9658d20f75578",
           "size": 23561
-        }
-      ]
-    },
-    {
-      "id": "mpmath",
-      "name": "mpmath",
-      "version": "1.4.1",
-      "kind": "pure",
-      "category": "math",
-      "icon": "mpmath",
-      "homepage": "https://mpmath.org/",
-      "license": "BSD-3-Clause",
-      "requiresPython": ">=3.9",
-      "summary": {
-        "pt": "Aritmetica de ponto flutuante com precisao arbitraria. Da para fixar quantos bits de mantissa usar, o que casa com o float proprio do SAPHO.",
-        "en": "Arbitrary-precision floating-point arithmetic. You choose how many mantissa bits to use, which lines up with SAPHO's own float format."
-      },
-      "uses": {
-        "pt": [
-          "Modelar a aritmetica de 24 ou 32 bits do SAPHO (mantissa e expoente proprios, fora do IEEE 754)",
-          "Separar o erro do metodo do erro do arredondamento do processador",
-          "Produzir a referencia de alta precisao contra a qual o hardware e medido"
-        ],
-        "en": [
-          "Model SAPHO's 24- or 32-bit arithmetic (its own mantissa and exponent, outside IEEE 754)",
-          "Separate method error from the processor's rounding error",
-          "Produce the high-precision reference the hardware is measured against"
-        ]
-      },
-      "downloadSize": 567787,
-      "wheels": [
-        {
-          "name": "mpmath",
-          "version": "1.4.1",
-          "filename": "mpmath-1.4.1-py3-none-any.whl",
-          "url": "https://files.pythonhosted.org/packages/13/f2/abeec3db71d221ccd3cd89d206be1fabf5a3ee7178862f5fba23a59607e0/mpmath-1.4.1-py3-none-any.whl",
-          "sha256": "dc4f0ea2304480d4a9a48a94c1020571558ade522b44a6912efac63a586e140f",
-          "size": 567787
-        }
-      ]
-    },
-    {
-      "id": "sympy",
-      "name": "SymPy",
-      "version": "1.14.0",
-      "kind": "pure",
-      "category": "math",
-      "icon": "sympy",
-      "homepage": "https://www.sympy.org/",
-      "license": "BSD",
-      "requiresPython": ">=3.9",
-      "summary": {
-        "pt": "Matematica simbolica: resolve, deriva, simplifica e gera codigo a partir de expressoes exatas, sem depender do NumPy.",
-        "en": "Symbolic mathematics: solves, differentiates, simplifies and generates code from exact expressions, with no NumPy dependency."
-      },
-      "uses": {
-        "pt": [
-          "Deduzir os coeficientes de um filtro IIR biquadratico de forma exata",
-          "Verificar algebricamente a transformada que o algoritmo em C+- implementa",
-          "Gerar a expressao de referencia e so entao arredonda-la para o formato do SAPHO"
-        ],
-        "en": [
-          "Derive biquad IIR filter coefficients exactly",
-          "Algebraically check the transform the C+- algorithm implements",
-          "Generate the reference expression and only then round it to SAPHO's format"
-        ]
-      },
-      "downloadSize": 6867140,
-      "wheels": [
-        {
-          "name": "sympy",
-          "version": "1.14.0",
-          "filename": "sympy-1.14.0-py3-none-any.whl",
-          "url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
-          "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
-          "size": 6299353
-        },
-        {
-          "name": "mpmath",
-          "version": "1.4.1",
-          "filename": "mpmath-1.4.1-py3-none-any.whl",
-          "url": "https://files.pythonhosted.org/packages/13/f2/abeec3db71d221ccd3cd89d206be1fabf5a3ee7178862f5fba23a59607e0/mpmath-1.4.1-py3-none-any.whl",
-          "sha256": "dc4f0ea2304480d4a9a48a94c1020571558ade522b44a6912efac63a586e140f",
-          "size": 567787
         }
       ]
     },
@@ -321,6 +367,478 @@
       ]
     },
     {
+      "id": "pygal",
+      "name": "pygal",
+      "version": "3.1.3",
+      "kind": "pure",
+      "category": "viz",
+      "icon": "pygal",
+      "homepage": "https://www.pygal.org/",
+      "license": "GNU LGPL v3+",
+      "requiresPython": ">=3.8",
+      "summary": {
+        "pt": "Graficos em SVG vetorial, sem depender de NumPy. Saida leve, que escala sem perder nitidez e entra direto em documento.",
+        "en": "Vector SVG charts with no NumPy dependency. Light output that scales without blurring and drops straight into a document."
+      },
+      "uses": {
+        "pt": [
+          "Gerar figura vetorial do ensaio para colar no artigo ou no relatorio",
+          "Produzir grafico de barras da ocupacao de hardware por processador",
+          "Exportar SVG que a AURORA consegue exibir sem nenhum navegador externo"
+        ],
+        "en": [
+          "Generate a vector figure of the run to paste into a paper or report",
+          "Produce a bar chart of hardware usage per processor",
+          "Export SVG that AURORA can display with no external browser"
+        ]
+      },
+      "downloadSize": 170657,
+      "wheels": [
+        {
+          "name": "pygal",
+          "version": "3.1.3",
+          "filename": "pygal-3.1.3-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/c3/43/5441ea0f9a35a0f2d30a79712cc21c737cf959a3451565d41e09d2fd90de/pygal-3.1.3-py3-none-any.whl",
+          "sha256": "c0b9bc2d31df4094c9f65b0969b62571a47b28197aced081b1a9433c3a760f32",
+          "size": 132630
+        },
+        {
+          "name": "importlib-metadata",
+          "version": "9.0.0",
+          "filename": "importlib_metadata-9.0.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/38/3d/2d244233ac4f76e38533cfcb2991c9eb4c7bf688ae0a036d30725b8faafe/importlib_metadata-9.0.0-py3-none-any.whl",
+          "sha256": "2d21d1cc5a017bd0559e36150c21c830ab1dc304dedd1b7ea85d20f45ef3edd7",
+          "size": 27789
+        },
+        {
+          "name": "zipp",
+          "version": "4.1.0",
+          "filename": "zipp-4.1.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/3a/13/547360d81e6d88d58492968ffda9f9542854f11310ee556fef14260cc886/zipp-4.1.0-py3-none-any.whl",
+          "sha256": "25ad4e16390cd314347dd8f1de67a2ac538ae658ed4ab9db16029c07c188e97f",
+          "size": 10238
+        }
+      ]
+    },
+    {
+      "id": "plotext",
+      "name": "plotext",
+      "version": "5.3.2",
+      "kind": "pure",
+      "category": "viz",
+      "icon": "plotext",
+      "homepage": "https://github.com/piccolomo/plotext",
+      "license": "MIT",
+      "requiresPython": ">=3.5",
+      "summary": {
+        "pt": "Desenha grafico dentro do terminal, com caracteres e cor. Aparece direto no terminal da AURORA, sem gerar arquivo nenhum.",
+        "en": "Draws charts inside the terminal using characters and colour. Appears right in AURORA's terminal, with no file produced."
+      },
+      "uses": {
+        "pt": [
+          "Ver a forma do sinal durante a simulacao, sem sair do terminal",
+          "Acompanhar a convergencia de um filtro adaptativo enquanto o ensaio roda",
+          "Ter um grafico rapido de conferencia sem abrir visualizador nenhum"
+        ],
+        "en": [
+          "See the signal shape during simulation without leaving the terminal",
+          "Watch an adaptive filter converge while the run is in progress",
+          "Get a quick sanity-check plot without opening any viewer"
+        ]
+      },
+      "downloadSize": 64047,
+      "wheels": [
+        {
+          "name": "plotext",
+          "version": "5.3.2",
+          "filename": "plotext-5.3.2-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/f6/1e/12fe7c40cd2099a1f454518754ed229b01beaf3bbb343127f0cc13ce6c22/plotext-5.3.2-py3-none-any.whl",
+          "sha256": "394362349c1ddbf319548cfac17ca65e6d5dfc03200c40dfdc0503b3e95a2283",
+          "size": 64047
+        }
+      ]
+    },
+    {
+      "id": "drawsvg",
+      "name": "drawsvg",
+      "version": "2.4.1",
+      "kind": "pure",
+      "category": "viz",
+      "icon": "drawsvg",
+      "homepage": "https://github.com/cduck/drawsvg",
+      "license": null,
+      "requiresPython": null,
+      "summary": {
+        "pt": "Desenha SVG por codigo: formas, texto e animacao. Para quando o grafico pronto nao serve e voce precisa desenhar exatamente o que quer.",
+        "en": "Draws SVG from code: shapes, text and animation. For when an off-the-shelf chart will not do and you need to draw exactly what you mean."
+      },
+      "uses": {
+        "pt": [
+          "Desenhar diagrama de tempo (waveform) formatado do jeito do artigo",
+          "Gerar figura de arquitetura do pipeline a partir dos parametros do projeto"
+        ],
+        "en": [
+          "Draw a timing diagram formatted the way the paper needs",
+          "Generate a pipeline architecture figure from the project parameters"
+        ]
+      },
+      "downloadSize": 44067,
+      "wheels": [
+        {
+          "name": "drawsvg",
+          "version": "2.4.1",
+          "filename": "drawsvg-2.4.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/bf/07/a2c3db84e6af6fa761de905b39109fe24eff2c8d52653c1bff968b6b965d/drawsvg-2.4.1-py3-none-any.whl",
+          "sha256": "241ff024968e03542bc8685b41a285427303c17f81eae1933229d26bb65b7fda",
+          "size": 44067
+        }
+      ]
+    },
+    {
+      "id": "mpmath",
+      "name": "mpmath",
+      "version": "1.4.1",
+      "kind": "pure",
+      "category": "math",
+      "icon": "mpmath",
+      "homepage": "https://mpmath.org/",
+      "license": "BSD-3-Clause",
+      "requiresPython": ">=3.9",
+      "summary": {
+        "pt": "Aritmetica de ponto flutuante com precisao arbitraria. Da para fixar quantos bits de mantissa usar, o que casa com o float proprio do SAPHO.",
+        "en": "Arbitrary-precision floating-point arithmetic. You choose how many mantissa bits to use, which lines up with SAPHO's own float format."
+      },
+      "uses": {
+        "pt": [
+          "Modelar a aritmetica de 24 ou 32 bits do SAPHO (mantissa e expoente proprios, fora do IEEE 754)",
+          "Separar o erro do metodo do erro de arredondamento do processador",
+          "Produzir a referencia de alta precisao contra a qual o hardware e medido"
+        ],
+        "en": [
+          "Model SAPHO's 24- or 32-bit arithmetic (its own mantissa and exponent, outside IEEE 754)",
+          "Separate method error from the processor's rounding error",
+          "Produce the high-precision reference the hardware is measured against"
+        ]
+      },
+      "downloadSize": 567787,
+      "wheels": [
+        {
+          "name": "mpmath",
+          "version": "1.4.1",
+          "filename": "mpmath-1.4.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/13/f2/abeec3db71d221ccd3cd89d206be1fabf5a3ee7178862f5fba23a59607e0/mpmath-1.4.1-py3-none-any.whl",
+          "sha256": "dc4f0ea2304480d4a9a48a94c1020571558ade522b44a6912efac63a586e140f",
+          "size": 567787
+        }
+      ]
+    },
+    {
+      "id": "sympy",
+      "name": "SymPy",
+      "version": "1.14.0",
+      "kind": "pure",
+      "category": "math",
+      "icon": "sympy",
+      "homepage": "https://www.sympy.org/",
+      "license": "BSD",
+      "requiresPython": ">=3.9",
+      "summary": {
+        "pt": "Matematica simbolica: resolve, deriva, simplifica e gera codigo a partir de expressoes exatas, sem depender do NumPy.",
+        "en": "Symbolic mathematics: solves, differentiates, simplifies and generates code from exact expressions, with no NumPy dependency."
+      },
+      "uses": {
+        "pt": [
+          "Deduzir de forma exata os coeficientes de um filtro IIR biquadratico",
+          "Verificar algebricamente a transformada que o algoritmo em C+- implementa",
+          "Gerar a expressao de referencia e so entao arredonda-la para o formato do SAPHO"
+        ],
+        "en": [
+          "Derive biquad IIR filter coefficients exactly",
+          "Algebraically check the transform the C+- algorithm implements",
+          "Generate the reference expression and only then round it to SAPHO's format"
+        ]
+      },
+      "downloadSize": 6867140,
+      "wheels": [
+        {
+          "name": "sympy",
+          "version": "1.14.0",
+          "filename": "sympy-1.14.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
+          "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+          "size": 6299353
+        },
+        {
+          "name": "mpmath",
+          "version": "1.4.1",
+          "filename": "mpmath-1.4.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/13/f2/abeec3db71d221ccd3cd89d206be1fabf5a3ee7178862f5fba23a59607e0/mpmath-1.4.1-py3-none-any.whl",
+          "sha256": "dc4f0ea2304480d4a9a48a94c1020571558ade522b44a6912efac63a586e140f",
+          "size": 567787
+        }
+      ]
+    },
+    {
+      "id": "fixedpoint",
+      "name": "fixedpoint",
+      "version": "1.0.1",
+      "kind": "pure",
+      "category": "math",
+      "icon": "fixedpoint",
+      "homepage": "https://github.com/Schweitzer-Engineering-Laboratories/fixedpoint",
+      "license": "BSD",
+      "requiresPython": ">=3.8",
+      "summary": {
+        "pt": "Aritmetica de ponto fixo com largura, sinal e politica de arredondamento e saturacao explicitas — as mesmas decisoes que a ULA do SAPHO toma.",
+        "en": "Fixed-point arithmetic with explicit width, signedness, rounding and overflow policy — the same decisions SAPHO's ALU makes."
+      },
+      "uses": {
+        "pt": [
+          "Modelar em Python a ULA de ponto fixo antes de fixar a largura no hardware",
+          "Prever onde vai haver saturacao ou perda de bits no algoritmo",
+          "Comparar a mesma conta em ponto fixo e em ponto flutuante para escolher o formato"
+        ],
+        "en": [
+          "Model the fixed-point ALU in Python before fixing the width in hardware",
+          "Predict where saturation or bit loss will occur in the algorithm",
+          "Compare the same computation in fixed and floating point to choose the format"
+        ]
+      },
+      "downloadSize": 28285,
+      "wheels": [
+        {
+          "name": "fixedpoint",
+          "version": "1.0.1",
+          "filename": "fixedpoint-1.0.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/51/70/c895ee1db90a2054ae4881ff2fdddcc3caf74ba7d4f11de72ed7ec7393dd/fixedpoint-1.0.1-py3-none-any.whl",
+          "sha256": "53dbcdaa583e2fa11eeb409c898608702a8b3de87d72d03952183d5da7229337",
+          "size": 28285
+        }
+      ]
+    },
+    {
+      "id": "uncertainties",
+      "name": "uncertainties",
+      "version": "3.2.3",
+      "kind": "pure",
+      "category": "math",
+      "icon": "uncertainties",
+      "homepage": "https://uncertainties.readthedocs.io/",
+      "license": "Revised BSD License",
+      "requiresPython": ">=3.8",
+      "summary": {
+        "pt": "Propaga incerteza pelas contas automaticamente. Escreve-se 3.2+-0.1 e o erro acompanha o resultado por toda a expressao.",
+        "en": "Propagates uncertainty through calculations automatically. Write 3.2+-0.1 and the error follows the result through the whole expression."
+      },
+      "uses": {
+        "pt": [
+          "Levar a incerteza da medida ate a metrica final do ensaio",
+          "Saber se o desvio observado cabe dentro da incerteza, antes de culpar o hardware"
+        ],
+        "en": [
+          "Carry measurement uncertainty through to the run's final metric",
+          "Tell whether an observed deviation fits within the uncertainty before blaming the hardware"
+        ]
+      },
+      "downloadSize": 60118,
+      "wheels": [
+        {
+          "name": "uncertainties",
+          "version": "3.2.3",
+          "filename": "uncertainties-3.2.3-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/8f/5e/f1e1dd319e35e962a4e00b33150a8868b6329cc1d19fd533436ba5488f09/uncertainties-3.2.3-py3-none-any.whl",
+          "sha256": "313353900d8f88b283c9bad81e7d2b2d3d4bcc330cbace35403faaed7e78890a",
+          "size": 60118
+        }
+      ]
+    },
+    {
+      "id": "intelhex",
+      "name": "IntelHex",
+      "version": "2.3.0",
+      "kind": "pure",
+      "category": "data",
+      "icon": "intelhex",
+      "homepage": "https://github.com/python-intelhex/intelhex",
+      "license": "BSD",
+      "requiresPython": null,
+      "summary": {
+        "pt": "Le e escreve arquivos Intel HEX e converte de e para binario. E o formato em que memoria de programa costuma circular.",
+        "en": "Reads and writes Intel HEX files and converts to and from binary. It is the format program memory usually travels in."
+      },
+      "uses": {
+        "pt": [
+          "Converter a memoria de programa do SAPHO entre formatos",
+          "Conferir o conteudo gravado byte a byte antes de simular",
+          "Gerar vetor de inicializacao de memoria a partir de dado calculado"
+        ],
+        "en": [
+          "Convert SAPHO program memory between formats",
+          "Check the written content byte by byte before simulating",
+          "Generate a memory initialisation vector from computed data"
+        ]
+      },
+      "downloadSize": 50914,
+      "wheels": [
+        {
+          "name": "intelhex",
+          "version": "2.3.0",
+          "filename": "intelhex-2.3.0-py2.py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/97/78/79461288da2b13ed0a13deb65c4ad1428acb674b95278fa9abf1cefe62a2/intelhex-2.3.0-py2.py3-none-any.whl",
+          "sha256": "87cc5225657524ec6361354be928adfd56bcf2a3dcc646c40f8f094c39c07db4",
+          "size": 50914
+        }
+      ]
+    },
+    {
+      "id": "construct",
+      "name": "Construct",
+      "version": "2.10.70",
+      "kind": "pure",
+      "category": "data",
+      "icon": "construct",
+      "homepage": "https://construct.readthedocs.io/",
+      "license": "MIT",
+      "requiresPython": ">=3.6",
+      "summary": {
+        "pt": "Descreve um formato binario de forma declarativa e ganha o leitor e o escritor de graca, nos dois sentidos.",
+        "en": "Describe a binary format declaratively and get both the parser and the builder for free."
+      },
+      "uses": {
+        "pt": [
+          "Montar e desmontar o pacote de dados que o processador troca com o mundo",
+          "Decodificar o despejo bruto de uma simulacao em campos com nome"
+        ],
+        "en": [
+          "Assemble and disassemble the data packet the processor exchanges with the world",
+          "Decode a raw simulation dump into named fields"
+        ]
+      },
+      "downloadSize": 63020,
+      "wheels": [
+        {
+          "name": "construct",
+          "version": "2.10.70",
+          "filename": "construct-2.10.70-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/b2/fb/08b3f4bf05da99aba8ffea52a558758def16e8516bc75ca94ff73587e7d3/construct-2.10.70-py3-none-any.whl",
+          "sha256": "c80be81ef595a1a821ec69dc16099550ed22197615f4320b57cc9ce2a672cb30",
+          "size": 63020
+        }
+      ]
+    },
+    {
+      "id": "crc",
+      "name": "CRC",
+      "version": "7.1.0",
+      "kind": "pure",
+      "category": "data",
+      "icon": "crc",
+      "homepage": "https://github.com/Nicoretti/crc",
+      "license": "BSD-2-Clause",
+      "requiresPython": "<4.0,>=3.8",
+      "summary": {
+        "pt": "Calcula CRC em qualquer configuracao (polinomio, largura, reflexao) e ja traz os padroes conhecidos prontos.",
+        "en": "Computes CRC in any configuration (polynomial, width, reflection) and ships the well-known standards ready to use."
+      },
+      "uses": {
+        "pt": [
+          "Conferir o CRC que um bloco em hardware calcula, contra a referencia em Python",
+          "Validar integridade do quadro no barramento simulado"
+        ],
+        "en": [
+          "Check the CRC a hardware block computes against the Python reference",
+          "Validate frame integrity on the simulated bus"
+        ]
+      },
+      "downloadSize": 8790,
+      "wheels": [
+        {
+          "name": "crc",
+          "version": "7.1.0",
+          "filename": "crc-7.1.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/df/ff/5ebeae9b53e8cddd9e6f3b6b0c98da3f112d9a7e1ea638a00876aa8fb5b4/crc-7.1.0-py3-none-any.whl",
+          "sha256": "b9845c81d0b900d8fda1aae7af977035bee0359c279713814e9fd23a2d59db6a",
+          "size": 8790
+        }
+      ]
+    },
+    {
+      "id": "pyserial",
+      "name": "pySerial",
+      "version": "3.5",
+      "kind": "pure",
+      "category": "data",
+      "icon": "pyserial",
+      "homepage": "https://github.com/pyserial/pyserial",
+      "license": "BSD",
+      "requiresPython": null,
+      "summary": {
+        "pt": "Comunicacao por porta serial. E a ponte entre o Python e a FPGA depois que o projeto sai da simulacao e vai para a placa.",
+        "en": "Serial port communication. The bridge between Python and the FPGA once the design leaves simulation and reaches the board."
+      },
+      "uses": {
+        "pt": [
+          "Enviar vetor de teste para a placa e ler a resposta do SAPHO real",
+          "Rodar o MESMO script de conferencia contra a simulacao e contra o hardware",
+          "Automatizar a coleta de resultado em bancada"
+        ],
+        "en": [
+          "Send a test vector to the board and read the real SAPHO response",
+          "Run the SAME checking script against simulation and against hardware",
+          "Automate result collection on the bench"
+        ]
+      },
+      "downloadSize": 90585,
+      "wheels": [
+        {
+          "name": "pyserial",
+          "version": "3.5",
+          "filename": "pyserial-3.5-py2.py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/07/bc/587a445451b253b285629263eb51c2d8e9bcea4fc97826266d186f96f558/pyserial-3.5-py2.py3-none-any.whl",
+          "sha256": "c4451db6ba391ca6ca299fb3ec7bae67a5c55dde170964c7a14ceefec02f2cf0",
+          "size": 90585
+        }
+      ]
+    },
+    {
+      "id": "networkx",
+      "name": "NetworkX",
+      "version": "3.6.1",
+      "kind": "pure",
+      "category": "data",
+      "icon": "networkx",
+      "homepage": "https://networkx.org/",
+      "license": "BSD-3-Clause",
+      "requiresPython": "!=3.14.1,>=3.11",
+      "summary": {
+        "pt": "Grafos: construir, percorrer e analisar. Um netlist e um grafo, e uma hierarquia de modulos tambem.",
+        "en": "Graphs: build, traverse and analyse. A netlist is a graph, and so is a module hierarchy."
+      },
+      "uses": {
+        "pt": [
+          "Analisar a hierarquia de modulos que o Yosys extrai, por codigo",
+          "Achar caminho critico ou ciclo combinacional no netlist",
+          "Medir profundidade e fan-out do circuito que o C+- gerou"
+        ],
+        "en": [
+          "Analyse the module hierarchy Yosys extracts, programmatically",
+          "Find a critical path or combinational loop in the netlist",
+          "Measure depth and fan-out of the circuit the C+- generated"
+        ]
+      },
+      "downloadSize": 2068504,
+      "wheels": [
+        {
+          "name": "networkx",
+          "version": "3.6.1",
+          "filename": "networkx-3.6.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/9e/c9/b2622292ea83fbb4ec318f5b9ab867d0a28ab43c5717bb85b0a5f6b3b0a4/networkx-3.6.1-py3-none-any.whl",
+          "sha256": "d47fbf302e7d9cbbb9e2555a0d267983d2aa476bac30e90dfbe5669bd57f3762",
+          "size": 2068504
+        }
+      ]
+    },
+    {
       "id": "pytest",
       "name": "pytest",
       "version": "9.1.1",
@@ -336,12 +854,12 @@
       },
       "uses": {
         "pt": [
-          "Testar o gerador de estimulos e o modelo de referencia antes de rodar a simulacao",
+          "Testar o gerador de estimulos e o modelo de referencia antes de simular",
           "Parametrizar um mesmo ensaio para varias frequencias ou configuracoes",
           "Escrever asserts legiveis com mensagem de falha detalhada"
         ],
         "en": [
-          "Test the stimulus generator and reference model before running the simulation",
+          "Test the stimulus generator and reference model before simulating",
           "Parameterise one test across several frequencies or configurations",
           "Write readable asserts with detailed failure messages"
         ]
@@ -414,12 +932,12 @@
       },
       "uses": {
         "pt": [
-          "Imprimir a tabela de metricas do ensaio no terminal, ja alinhada e colorida",
+          "Imprimir a tabela de metricas do ensaio ja alinhada e colorida",
           "Destacar em vermelho a amostra que estourou o limite",
           "Mostrar o progresso de um ensaio longo de milhares de amostras"
         ],
         "en": [
-          "Print the run's metrics table in the terminal, aligned and coloured",
+          "Print the run's metrics table already aligned and coloured",
           "Highlight in red the sample that broke the limit",
           "Show progress of a long run over thousands of samples"
         ]
@@ -493,6 +1011,86 @@
           "url": "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl",
           "sha256": "f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3",
           "size": 39814
+        }
+      ]
+    },
+    {
+      "id": "tqdm",
+      "name": "tqdm",
+      "version": "4.70.0",
+      "kind": "pure",
+      "category": "cli",
+      "icon": "tqdm",
+      "homepage": "https://tqdm.github.io/",
+      "license": "MPL-2.0 AND MIT",
+      "requiresPython": ">=3.8",
+      "summary": {
+        "pt": "Barra de progresso que se envolve em qualquer laco. Uma linha de codigo e o ensaio longo passa a mostrar quanto falta.",
+        "en": "A progress bar that wraps any loop. One line of code and a long run starts showing how much is left."
+      },
+      "uses": {
+        "pt": [
+          "Acompanhar o avanco de um laco de milhares de amostras no terminal",
+          "Saber se a simulacao esta andando ou travada"
+        ],
+        "en": [
+          "Follow the progress of a loop over thousands of samples in the terminal",
+          "Tell whether the simulation is advancing or stuck"
+        ]
+      },
+      "downloadSize": 105519,
+      "wheels": [
+        {
+          "name": "tqdm",
+          "version": "4.70.0",
+          "filename": "tqdm-4.70.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/f9/1c/01bfd571a64e7f270e6bab5e33777debe0edc56759233ce84f27dec92d14/tqdm-4.70.0-py3-none-any.whl",
+          "sha256": "7f585706bfddbdebf89daac705b2dfcc16890130727d3197ca62c732b4310953",
+          "size": 80184
+        },
+        {
+          "name": "colorama",
+          "version": "0.4.6",
+          "filename": "colorama-0.4.6-py2.py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl",
+          "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+          "size": 25335
+        }
+      ]
+    },
+    {
+      "id": "humanize",
+      "name": "humanize",
+      "version": "4.16.0",
+      "kind": "pure",
+      "category": "cli",
+      "icon": "humanize",
+      "homepage": "https://github.com/python-humanize/humanize",
+      "license": "MIT",
+      "requiresPython": ">=3.10",
+      "summary": {
+        "pt": "Converte numero, tamanho e duracao para forma legivel: \"1,2 MB\", \"3 minutos atras\". Tem traducao para portugues.",
+        "en": "Turns numbers, sizes and durations into readable form: \"1.2 MB\", \"3 minutes ago\". Ships Portuguese translations."
+      },
+      "uses": {
+        "pt": [
+          "Escrever o relatorio do ensaio em numero que se le sem contar zero",
+          "Formatar tempo de simulacao e tamanho de despejo no log"
+        ],
+        "en": [
+          "Write the run report in numbers you can read without counting zeros",
+          "Format simulation time and dump size in the log"
+        ]
+      },
+      "downloadSize": 137209,
+      "wheels": [
+        {
+          "name": "humanize",
+          "version": "4.16.0",
+          "filename": "humanize-4.16.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/b0/aa/0b7365d30fed43e7a3449aba1fe20a0a7174d9cf13e282af4e69ac825441/humanize-4.16.0-py3-none-any.whl",
+          "sha256": "353eb2f34c09d098b2880eee8bef21832eae6d174f48c5762fff7e5fcb74d01d",
+          "size": 137209
         }
       ]
     },

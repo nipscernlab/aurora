@@ -16,6 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 import { pickPureWheel, PURE_SUFFIX } from '../../scripts/gen-pylib-catalog.js';
 
@@ -210,5 +211,98 @@ describe('pylib_manager', () => {
     const r = await manager.resolveExternal('../../etc/passwd');
     expect(r.ok).toBe(false);
     expect(r.reason).toBe('invalid-name');
+  });
+});
+
+describe('integridade (o doutor)', () => {
+  let tmp;
+  let manager;
+
+  beforeEach(async () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-pylibs-doc-'));
+    process.env.AURORA_PYLIBS_ROOT = tmp;
+    manager = await import('../../main/python/pylib_manager.js');
+  });
+
+  afterEach(() => {
+    delete process.env.AURORA_PYLIBS_ROOT;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('parseRecord le o inventario da wheel', () => {
+    const rec = manager.parseRecord(
+      'plotly/__init__.py,sha256=AbC-_9xY,1234\n'
+      + 'plotly/io/_html.py,sha256=ZZZ,42\n'
+      + 'plotly-6.9.0.dist-info/RECORD,,\n',
+    );
+    expect(rec['plotly/__init__.py']).toEqual({ sha256: 'AbC-_9xY', size: 1234 });
+    expect(rec['plotly/io/_html.py'].size).toBe(42);
+    // O RECORD nao pode conter o hash de si mesmo — vira entrada sem verificacao.
+    expect(rec['plotly-6.9.0.dist-info/RECORD']).toEqual({ sha256: null, size: null });
+  });
+
+  it('parseRecord aguenta virgula no caminho', () => {
+    const rec = manager.parseRecord('pkg/a,b.py,sha256=HHH,10\n');
+    expect(rec['pkg/a,b.py']).toEqual({ sha256: 'HHH', size: 10 });
+  });
+
+  /** Escreve um arquivo e devolve a entrada de RECORD correspondente. */
+  const plant = (site, rel, content) => {
+    const abs = path.join(site, rel);
+    fs.mkdirSync(path.dirname(abs), { recursive: true });
+    fs.writeFileSync(abs, content);
+    const sha = crypto.createHash('sha256').update(content)
+      .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    return { sha256: sha, size: Buffer.byteLength(content) };
+  };
+
+  it('a checagem rapida ve arquivo apagado, a funda ve conteudo trocado', () => {
+    const site = path.join(tmp, 'site');
+    const a = plant(site, 'lib/a.py', 'conteudo A');
+    const b = plant(site, 'lib/b.py', 'conteudo B');
+
+    fs.writeFileSync(path.join(tmp, 'installed.json'), JSON.stringify({
+      schemaVersion: 1,
+      abiTag: 'cp312',
+      installed: {
+        lib: {
+          version: '1', installedAt: '', wheels: [],
+          files: ['lib/a.py', 'lib/b.py'],
+          hashes: { 'lib/a.py': a, 'lib/b.py': b },
+        },
+      },
+    }));
+
+    expect(manager.doctor().ok).toBe(true);
+    expect(manager.doctor({ deep: true }).ok).toBe(true);
+
+    // 1. Antivirus apaga um arquivo — a checagem rapida (so stat) ja pega.
+    fs.rmSync(path.join(site, 'lib', 'a.py'));
+    const afterDelete = manager.doctor();
+    expect(afterDelete.ok).toBe(false);
+    expect(afterDelete.issues[0].counts.missing).toBe(1);
+
+    // 2. Corrupcao silenciosa: MESMO tamanho, conteudo diferente. A checagem
+    //    rapida nao tem como ver, e e exatamente por isso que a funda existe.
+    fs.writeFileSync(path.join(site, 'lib', 'b.py'), 'CONTEUDO X');
+    const quick = manager.doctor();
+    expect(quick.issues.some((i) => i.counts.corrupt > 0)).toBe(false);
+    const deep = manager.doctor({ deep: true });
+    expect(deep.issues.some((i) => i.counts.corrupt > 0)).toBe(true);
+  });
+
+  it('sentinelCheck acusa a biblioteca sem o __init__ do pacote de topo', () => {
+    const site = path.join(tmp, 'site');
+    plant(site, 'lib/__init__.py', 'x');
+    fs.writeFileSync(path.join(tmp, 'installed.json'), JSON.stringify({
+      schemaVersion: 1,
+      installed: { lib: { version: '1', installedAt: '', wheels: [], files: ['lib/__init__.py'], hashes: {} } },
+    }));
+
+    expect(manager.sentinelCheck().ok).toBe(true);
+    fs.rmSync(path.join(site, 'lib', '__init__.py'));
+    const r = manager.sentinelCheck();
+    expect(r.ok).toBe(false);
+    expect(r.broken).toContain('lib');
   });
 });

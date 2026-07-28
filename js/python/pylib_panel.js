@@ -56,6 +56,8 @@ let state = null;          // último retorno de pylibs:state
 let externalList = [];     // libs trazidas pelo usuário
 let filterText = '';
 let filterCat = 'all';
+/** Ultimo veredito do vigia (main/python/pylib_watch.js). */
+let health = null;
 /** Operações em curso, por id: { phase, pct }. Sobrevive ao redesenho da lista. */
 const busy = new Map();
 
@@ -84,6 +86,8 @@ async function refresh() {
   state = res.data;
   const ext = await api().listExternal();
   externalList = ext?.ok ? ext.data : [];
+  const doc = await api().doctor();
+  if (doc?.ok) health = doc.data;
   renderRuntime();
   renderChips();
   renderList();
@@ -113,6 +117,21 @@ function renderRuntime() {
        ${esc(state.site)}
      </span>`,
   ];
+
+  parts.push(`<button class="pylib-btn pylib-btn-ghost pylib-verify-btn" id="pylib-verify-deep">
+       <i class="ph ph-shield-check" aria-hidden="true"></i>
+       <span>${esc(tt('pylibs.verify.deep', 'Verificacao completa'))}</span>
+     </button>`);
+
+  // Veredito do vigia. So aparece quando ha problema — quando esta tudo bem, a
+  // ausencia de aviso ja e a mensagem.
+  if (health && !health.ok && health.issues?.length) {
+    const lines = health.issues.map((i) => esc(i.message)).join('<br>');
+    parts.push(`<span class="pylib-runtime-warn">
+      <i class="ph ph-warning-octagon" aria-hidden="true"></i>
+      <span>${lines}</span>
+    </span>`);
+  }
 
   if (!py.present) {
     parts.push(`<span class="pylib-runtime-warn">
@@ -465,8 +484,13 @@ function setStatus(text, kind) {
 /** Ponto no botão da toolbar quando alguma biblioteca está quebrada. */
 function updateBadge() {
   const badge = $('pylib-badge');
-  if (!badge || !state) return;
-  const broken = state.libraries.some((l) => l.broken) || externalList.some((x) => x.broken);
+  if (!badge) return;
+  // O emblema acende por QUALQUER sinal de problema: o estado do catalogo, as
+  // externas, ou o veredito do vigia — que e o unico que chega sozinho, sem o
+  // painel estar aberto.
+  const broken = (state?.libraries || []).some((l) => l.broken)
+    || externalList.some((x) => x.broken)
+    || !!(health && health.ok === false && health.issues?.length);
   badge.hidden = !broken;
 }
 
@@ -542,6 +566,37 @@ function wire() {
   // O painel vive enquanto a janela viver, entao a inscricao nunca e desfeita —
   // o retorno de onProgress (a funcao de desinscricao) e descartado de proposito.
   api()?.onProgress(onProgress);
+
+  // Veredito do vigia. Chega sem o painel pedir e mesmo com ele fechado: e o
+  // que acende o aviso na toolbar quando um arquivo some com o app ja aberto.
+  api()?.onHealth((h) => {
+    health = h;
+    updateBadge();
+    if (modal?.classList.contains('show')) renderRuntime();
+    if (h && h.ok === false && h.issues?.length && h.reason !== 'startup') {
+      notify.warning(tt('pylibs.toast.broken',
+        'Alguma biblioteca Python foi alterada no disco. Abra o painel e use Reparar.'));
+    }
+  });
+
+  // Verificacao completa: le todos os arquivos e compara com o sha256 do
+  // RECORD. Fica na faixa de runtime, que e redesenhada, entao o clique e
+  // capturado por delegacao no container.
+  $('pylib-runtime')?.addEventListener('click', async (e) => {
+    if (!e.target.closest('#pylib-verify-deep')) return;
+    setStatus(tt('pylibs.verify.running', 'Conferindo todos os arquivos...'), 'working');
+    const res = await api().verifyDeep();
+    if (res?.ok) {
+      health = res.data;
+      renderRuntime();
+      updateBadge();
+      if (health.ok) notify.success(tt('pylibs.verify.clean', 'Todas as bibliotecas estao integras.'));
+      else notify.error(tt('pylibs.verify.dirty', '{{n}} biblioteca(s) com problema.', { n: health.issues.length }));
+    } else {
+      notify.error(res?.error || 'Falha na verificacao.');
+    }
+    setStatus('', '');
+  });
 }
 
 if (typeof window !== 'undefined' && window.pyLibsAPI) {

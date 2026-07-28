@@ -27,6 +27,7 @@ class AuroraWelcome extends LitElement {
   static properties = {
     projects: { attribute: false },
     version: { type: String },
+    auroraBg: { attribute: false },
   };
 
   constructor() {
@@ -35,15 +36,30 @@ class AuroraWelcome extends LitElement {
     this.version = 'v6.3.2';
     this._removing = new Set();
     this._onLocale = () => this.requestUpdate();
+    // Fundo aurora: desligado por padrao (ver defaultSettings em
+    // js/processors/aurora_settings.js). O estado vive num atributo do <html>
+    // porque este componente so existe enquanto nao ha projeto aberto, e pode
+    // ser montado e desmontado varias vezes; ler o atributo no connectedCallback
+    // faz cada nova montagem ja nascer com a preferencia certa.
+    this.auroraBg = AuroraWelcome._bgEnabled();
+    this._onBgToggle = (e) => { this.auroraBg = !!e.detail?.enabled; };
+  }
+
+  /** Le a preferencia sem depender de o modulo de settings ja ter carregado. */
+  static _bgEnabled() {
+    return document.documentElement.hasAttribute('data-aurora-bg');
   }
 
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('aurora:locale-changed', this._onLocale);
+    window.addEventListener('aurora:background-toggled', this._onBgToggle);
+    this.auroraBg = AuroraWelcome._bgEnabled();
   }
 
   disconnectedCallback() {
     window.removeEventListener('aurora:locale-changed', this._onLocale);
+    window.removeEventListener('aurora:background-toggled', this._onBgToggle);
     if (this._procPopEl) { this._procPopEl.remove(); this._procPopEl = null; }
     super.disconnectedCallback();
   }
@@ -391,7 +407,9 @@ class AuroraWelcome extends LitElement {
   render() {
     return html`
       <link rel="stylesheet" href=${PHOSPHOR_HREF} />
-      <aurora-canvas class="bg-canvas" intensity="1.0" speed="1.3" aria-hidden="true"></aurora-canvas>
+      ${this.auroraBg
+        ? html`<aurora-canvas class="bg-canvas" intensity="1.0" speed="1.3" aria-hidden="true"></aurora-canvas>`
+        : ''}
       <div class="scrim" aria-hidden="true"></div>
       <img class="watermark" src=${WATERMARK_SRC} alt="" aria-hidden="true" />
       <div class="content">

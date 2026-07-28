@@ -287,7 +287,9 @@
       "aiEnterKey": "Insira uma chave primeiro.",
       "aiTestOk": "Conectado — {{ms}} ms.",
       "aiModel": "Modelo",
-      "aiModelSet": "Modelo atualizado."
+      "aiModelSet": "Modelo atualizado.",
+      "auroraBg": "Aurora Boreal na tela de Boas-vindas",
+      "auroraBgDescription": "Fundo animado de aurora atrás da tela de Boas-vindas. É desenhado na GPU em laço contínuo; vem desligado para poupar bateria e não pesar em máquina mais fraca."
     }
   },
   "shortcuts": {
@@ -930,7 +932,8 @@
     "toast": {
       "installed": "{{name}} instalada.",
       "repaired": "{{name}} reparada.",
-      "uninstalled": "{{name}} removida ({{n}} arquivos)."
+      "uninstalled": "{{name}} removida ({{n}} arquivos).",
+      "broken": "Alguma biblioteca Python foi alterada no disco. Abra o painel e use Reparar."
     },
     "confirm": {
       "title": "Desinstalar biblioteca",
@@ -944,6 +947,12 @@
       "checking": "Consultando a PyPI…",
       "pure": "Biblioteca Python pura",
       "deps": "Atenção: sem pip não há resolvedor de dependências. Se esta biblioteca importar outra que não esteja instalada, instale-a também aqui."
+    },
+    "verify": {
+      "deep": "Verificação completa",
+      "running": "Conferindo todos os arquivos…",
+      "clean": "Todas as bibliotecas estão íntegras.",
+      "dirty": "{{n}} biblioteca(s) com problema."
     }
   },
   "common": {

@@ -186,6 +186,86 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; overflow: hidden; }
 
 /* ---------------------------------------------------------------------------
+ *  Janela estreita — a toolbar vira duas linhas.
+ *
+ *  O clipping acima resolve a SOBREPOSICAO, mas em janela estreita ele cobra
+ *  um preco alto: os botoes da zona central simplesmente somem, cortados pela
+ *  borda da zona, sem nenhum aviso de que existem.
+ *
+ *  Somando o conteudo real (3 botoes a esquerda, 15 botoes + 3 separadores no
+ *  centro, 8 a direita e os 3 controles de janela) a toolbar precisa de cerca
+ *  de 1150px para caber numa linha. Abaixo disso a zona central desce inteira
+ *  para uma segunda linha, onde tem a largura toda a disposicao.
+ *
+ *  A primeira linha continua sendo a barra de titulo: brand + zona esquerda a
+ *  esquerda, zona direita e os controles de janela a direita, na altura
+ *  padrao. Isso mantem a area de arrasto e o alvo de fechar no canto, que e
+ *  onde o Windows ensina o usuario a jogar o cursor.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 1150px) {
+  /*
+   * Grid de duas linhas, e nao `flex-wrap`.
+   *
+   * A diferenca importa. Os filhos DIRETOS da toolbar sao so as tres zonas: a
+   * marca SAPHO vive dentro da zona esquerda, e os controles de janela vivem
+   * dentro da DIREITA — e o que os ancora no canto. Com wrap + `order`, os
+   * controles de janela nao sao itens desta caixa e portanto nao respondem a
+   * ordem nenhuma; eles acompanham a zona direita e, quando ela encolhe, o
+   * `overflow: hidden` dela some com minimizar, maximizar e fechar. Foi
+   * exatamente o que aconteceu na primeira tentativa.
+   *
+   * O grid da posicao explicita: a primeira linha carrega esquerda e direita
+   * (logo, marca e controles de janela), a segunda recebe a zona central
+   * inteira. Nada depende de sobrar espaco.
+   */
+  .toolbar {
+    display: grid;
+    /* A coluna da esquerda cede primeiro; a da direita fica com o resto e
+       alinha o proprio conteudo ao canto. */
+    grid-template-columns: minmax(0, max-content) 1fr;
+    grid-template-rows: var(--h-toolbar) auto;
+    height: auto;
+    align-items: center;
+  }
+
+  /* `height: 100%` nao significa mais nada com o pai em altura automatica. */
+  .toolbar-zone,
+  .toolbar-group,
+  .compile-all-group,
+  .toolbar-brand {
+    height: auto;
+    min-height: var(--h-toolbar);
+  }
+
+  .toolbar-zone-left {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  /* NUNCA cortar esta zona: os controles de janela estao dentro dela, e um
+     botao de fechar invisivel deixa a janela sem saida pelo mouse. */
+  .toolbar-zone-right {
+    grid-row: 1;
+    grid-column: 2;
+    overflow: visible;
+  }
+
+  /* A zona central ganha a segunda linha inteira. Se ainda assim nao couber
+     (tela bem estreita), ela rola na horizontal: os botoes continuam
+     alcancaveis, que era justamente o que o clipping tirava. */
+  .toolbar-zone-center {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    border-top: 1px solid var(--border);
+    padding-inline: var(--space-1);
+  }
+}
+
+/* ---------------------------------------------------------------------------
  *  Brand mark — tiny SAPHO icon anchored at the far-left of the toolbar.
  *  pointer-events: none so the drag region passes through and the toolbar
  *  still drags the window.

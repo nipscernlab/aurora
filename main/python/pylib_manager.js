@@ -35,6 +35,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const fetcher = require('../net/fetcher');
 const { pylibRoot, pylibSite, manifestFile, stagingDir, ensureDirs } = require('./pylib_paths');
@@ -155,6 +156,127 @@ function topLevelDirs(/** @type {string[]} */ files) {
   return set;
 }
 
+/* ── Integridade ──────────────────────────────────────────────────────────── */
+
+/**
+ * Le o RECORD que toda wheel traz dentro do `.dist-info/`.
+ *
+ * O RECORD e o inventario oficial da wheel, no formato
+ * `caminho,sha256=<base64url>,tamanho` por linha. Usar ele significa que temos
+ * hash de CADA arquivo instalado sem calcular nada na instalacao: a wheel ja
+ * chega com essa informacao pronta e assinada pelo proprio empacotador.
+ *
+ * (A ultima linha do proprio RECORD vem sem hash e sem tamanho, porque ele nao
+ * pode conter o hash de si mesmo. Essas linhas viram entradas sem verificacao.)
+ *
+ * @param {string} text conteudo do RECORD
+ * @returns {Record<string, {sha256: string|null, size: number|null}>}
+ */
+function parseRecord(text) {
+  /** @type {Record<string, {sha256: string|null, size: number|null}>} */
+  const out = {};
+  for (const raw of String(text || '').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    // O caminho pode conter virgula (raro, mas legal no formato), entao o parse
+    // e feito pela DIREITA: os dois ultimos campos sao sempre hash e tamanho.
+    const lastComma = line.lastIndexOf(',');
+    if (lastComma < 0) continue;
+    const prevComma = line.lastIndexOf(',', lastComma - 1);
+    if (prevComma < 0) continue;
+
+    const file = line.slice(0, prevComma).replace(/\\/g, '/');
+    const hash = line.slice(prevComma + 1, lastComma);
+    const size = line.slice(lastComma + 1);
+    if (!file) continue;
+
+    out[file] = {
+      sha256: hash.startsWith('sha256=') ? hash.slice('sha256='.length) : null,
+      size: size ? Number(size) : null,
+    };
+  }
+  return out;
+}
+
+/** Acha e le o RECORD de uma wheel ja extraida no site/. */
+function readRecordFor(/** @type {string[]} */ entries) {
+  const rec = entries.find((e) => /(^|\/)[^/]+\.dist-info\/RECORD$/.test(e));
+  if (!rec) return {};
+  try {
+    return parseRecord(fs.readFileSync(path.join(pylibSite(), rec), 'utf8'));
+  } catch (_) {
+    return {};
+  }
+}
+
+/** sha256 de um arquivo no formato base64url sem padding, como o RECORD usa. */
+function fileHash(/** @type {string} */ abs) {
+  const h = crypto.createHash('sha256');
+  h.update(fs.readFileSync(abs));
+  return h.digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Verifica os arquivos de uma biblioteca instalada.
+ *
+ * Dois niveis, porque tem custo bem diferente:
+ *
+ *   rapido — so `stat`: o arquivo existe e o tamanho bate. Nao le conteudo
+ *            nenhum, entao roda sobre milhares de arquivos em milissegundos.
+ *            Pega o caso comum: o antivirus removeu ou pos em quarentena, o
+ *            disco encheu no meio da extracao, alguem apagou a pasta.
+ *
+ *   fundo  — le cada arquivo e compara o sha256 com o do RECORD. Pega
+ *            corrupcao silenciosa, em que o tamanho continua certo mas o
+ *            conteudo mudou. Custa I/O de verdade, entao nao roda sozinho:
+ *            e o botao "verificacao completa" do painel.
+ *
+ * @param {any} rec entrada do manifesto
+ * @param {{deep?: boolean, maxReport?: number}} [opts]
+ */
+function verifyFiles(rec, opts = {}) {
+  const site = pylibSite();
+  const deep = !!opts.deep;
+  const maxReport = opts.maxReport ?? 20;
+  const hashes = rec.hashes || {};
+  /** @type {Array<{file:string, problem:string}>} */
+  const problems = [];
+
+  for (const rel of rec.files || []) {
+    if (problems.length >= maxReport) break;
+    const abs = path.join(site, rel);
+    let st;
+    try {
+      st = fs.statSync(abs);
+    } catch (_) {
+      problems.push({ file: rel, problem: 'missing' });
+      continue;
+    }
+
+    const expected = hashes[rel];
+    if (!expected) continue; // sem inventario para este arquivo — nada a comparar
+
+    if (expected.size != null && st.size !== expected.size) {
+      problems.push({ file: rel, problem: 'size' });
+      continue;
+    }
+    if (deep && expected.sha256) {
+      try {
+        if (fileHash(abs) !== expected.sha256) problems.push({ file: rel, problem: 'corrupt' });
+      } catch (_) {
+        problems.push({ file: rel, problem: 'unreadable' });
+      }
+    }
+  }
+
+  return {
+    ok: problems.length === 0,
+    problems,
+    // Mantido para quem so quer a contagem do que sumiu.
+    missing: problems.filter((p) => p.problem === 'missing').map((p) => p.file),
+  };
+}
+
 /* ── Estado para o painel ─────────────────────────────────────────────────── */
 
 /**
@@ -188,19 +310,6 @@ function getState() {
     root: pylibRoot(),
     libraries,
   };
-}
-
-/** Confere se os arquivos anotados no manifesto ainda existem no disco. */
-function verifyFiles(/** @type {any} */ rec) {
-  const site = pylibSite();
-  const missing = [];
-  for (const rel of rec.files || []) {
-    if (!fs.existsSync(path.join(site, rel))) {
-      missing.push(rel);
-      if (missing.length > 20) break; // amostra basta para decidir
-    }
-  }
-  return { ok: missing.length === 0, missing };
 }
 
 /* ── Instalacao ───────────────────────────────────────────────────────────── */
@@ -250,6 +359,8 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
   let doneBytes = 0;
   /** @type {string[]} */
   const files = [];
+  /** @type {Record<string, {sha256:string|null, size:number|null}>} */
+  const hashes = {};
 
   try {
     for (let i = 0; i < wheels.length; i++) {
@@ -290,6 +401,11 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
         if (e.endsWith('/')) continue; // diretorio
         files.push(e.replace(/\\/g, '/'));
       }
+      // O inventario da propria wheel (sha256 + tamanho por arquivo), lido do
+      // RECORD que ela ja traz. E o que permite ao doutor dizer depois se um
+      // arquivo sumiu, encolheu ou mudou de conteudo — sem isso, "instalada"
+      // seria so uma anotacao de fe.
+      Object.assign(hashes, readRecordFor(entries));
       try { fs.unlinkSync(whl); } catch (_) { /* best-effort */ }
     }
 
@@ -301,6 +417,7 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
       installedAt: new Date().toISOString(),
       wheels: wheels.map((w) => ({ name: w.name, version: w.version, sha256: w.sha256 })),
       files,
+      hashes,
     };
     writeManifest(manifest);
 
@@ -500,6 +617,7 @@ async function installExternal(name, opts = {}) {
       installedAt: new Date().toISOString(),
       wheels: [{ name: w.name, version: w.version, sha256: w.sha256 }],
       files: entries.filter((e) => !e.endsWith('/')).map((e) => e.replace(/\\/g, '/')),
+      hashes: readRecordFor(entries),
     };
     writeManifest(manifest);
 
@@ -532,7 +650,8 @@ function listExternal() {
  * derruba tudo em silencio: o bundle subir de versao do Python e as bibliotecas
  * instaladas ficarem para uma ABI que nao existe mais.
  */
-function doctor() {
+function doctor(opts = {}) {
+  const deep = !!opts.deep;
   const manifest = readManifest();
   const catalog = loadCatalog();
   const expectedAbi = catalog.python?.abiTag || null;
@@ -548,17 +667,67 @@ function doctor() {
   }
 
   for (const [id, rec] of Object.entries(manifest.installed)) {
-    const check = verifyFiles(rec);
-    if (!check.ok) {
-      issues.push({
-        kind: 'missing-files',
-        id,
-        message: `${id}: ${check.missing.length}+ arquivo(s) faltando. Use Reparar.`,
-      });
+    const check = verifyFiles(rec, { deep });
+    if (check.ok) continue;
+
+    // Separa por CAUSA, porque a acao do usuario e a mesma (Reparar) mas o que
+    // aconteceu com a maquina dele nao e: arquivo que sumiu costuma ser
+    // antivirus ou limpeza manual; arquivo com hash errado e corrupcao de
+    // verdade, e vale desconfiar do disco ou do download.
+    const missing = check.problems.filter((p) => p.problem === 'missing').length;
+    const corrupt = check.problems.filter((p) => p.problem === 'corrupt' || p.problem === 'unreadable').length;
+    const resized = check.problems.filter((p) => p.problem === 'size').length;
+
+    const parts = [];
+    if (missing) parts.push(`${missing}+ arquivo(s) faltando`);
+    if (resized) parts.push(`${resized}+ com tamanho errado`);
+    if (corrupt) parts.push(`${corrupt}+ corrompido(s)`);
+
+    issues.push({
+      kind: corrupt ? 'corrupt-files' : 'missing-files',
+      id,
+      counts: { missing, resized, corrupt },
+      sample: check.problems.slice(0, 3).map((p) => p.file),
+      message: `${id}: ${parts.join(', ')}. Use Reparar para reinstalar.`,
+    });
+  }
+
+  return {
+    ok: issues.length === 0,
+    deep,
+    issues,
+    installed: Object.keys(manifest.installed).length,
+    // Carimbo de quando rodou, para o painel dizer "verificado ha 3 minutos"
+    // em vez de deixar o usuario no escuro sobre a idade do diagnostico.
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Checagem de sentinela: existe e tem o tamanho certo o arquivo mais
+ * caracteristico de cada biblioteca instalada.
+ *
+ * Serve para o momento em que a verificacao mais importa e o custo menos pode
+ * aparecer: logo antes de rodar um testbench. Sao poucos `stat` por biblioteca
+ * em vez de milhares, entao nao adiciona latencia perceptivel a simulacao, e
+ * pega o caso comum de o antivirus ter posto a pasta inteira em quarentena.
+ */
+function sentinelCheck() {
+  const manifest = readManifest();
+  const site = pylibSite();
+  const broken = [];
+
+  for (const [id, rec] of Object.entries(manifest.installed)) {
+    const files = (/** @type {any} */ (rec)).files || [];
+    // O RECORD e o __init__ do pacote de topo: se um dos dois sumiu, a
+    // biblioteca nao importa mais.
+    const sentinels = files.filter((f) => /\.dist-info\/RECORD$/.test(f) || /^[^/]+\/__init__\.py$/.test(f));
+    for (const rel of sentinels.slice(0, 4)) {
+      if (!fs.existsSync(path.join(site, rel))) { broken.push(id); break; }
     }
   }
 
-  return { ok: issues.length === 0, issues, installed: Object.keys(manifest.installed).length };
+  return { ok: broken.length === 0, broken };
 }
 
 module.exports = {
@@ -572,6 +741,9 @@ module.exports = {
   installExternal,
   listExternal,
   doctor,
+  sentinelCheck,
+  verifyFiles,
+  parseRecord,
   readManifest,
   isSafeEntry,
   PURE_SUFFIX,

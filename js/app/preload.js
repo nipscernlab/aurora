@@ -605,6 +605,7 @@ const pyLibsOperations = {
   installExternal:  (name) => ipcRenderer.invoke('pylibs:install-external', name),
   listExternal:     () => ipcRenderer.invoke('pylibs:list-external'),
   doctor:           () => ipcRenderer.invoke('pylibs:doctor'),
+  verifyDeep:       () => ipcRenderer.invoke('pylibs:verify-deep'),
   openHomepage:     (url) => ipcRenderer.invoke('pylibs:open-homepage', url),
   // Progresso de download/instalacao. Devolve a funcao de desinscricao, mesmo
   // contrato de gitAPI.onCloneProgress.
@@ -612,6 +613,14 @@ const pyLibsOperations = {
     const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
     ipcRenderer.on('pylibs:progress', h);
     return () => ipcRenderer.removeListener('pylibs:progress', h);
+  },
+  // Veredito do vigia (main/python/pylib_watch.js). Chega sozinho, sem o painel
+  // pedir: e o que acende o aviso na toolbar quando um arquivo some com o app
+  // ja aberto.
+  onHealth: (cb) => {
+    const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
+    ipcRenderer.on('pylibs:health', h);
+    return () => ipcRenderer.removeListener('pylibs:health', h);
   },
 };
 

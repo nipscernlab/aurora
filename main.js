@@ -86,6 +86,7 @@ const githubAuthIpc = require('./main/ipc/github_auth');
 const searchIpc = require('./main/ipc/search');
 const shellIpc = require('./main/ipc/shell');
 const previewIpc = require('./main/ipc/preview');
+const pylibsIpc = require('./main/ipc/pylibs');
 
 // Scheme privileges are read once, at Chromium startup — this MUST stay above
 // app.whenReady (the handler itself is installed inside it, further down).
@@ -113,6 +114,7 @@ if (acquiredLock) {
   searchIpc.register();
   shellIpc.register();
   previewIpc.register();
+  pylibsIpc.register();
   // Updater IPC must be registered at boot, not lazily — the splash window
   // calls `getAppVersion()` before the autoUpdater itself is initialized.
   updater.registerIpc();

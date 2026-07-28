@@ -312,53 +312,136 @@ Dois controles cercam a execução do Python:
         passar por um shell, o que elimina injeção por parsing de string.
 \end{itemize}
 
-\section{Plano: repositório de bibliotecas sob demanda}
+\section{O painel de bibliotecas}
 
-A ideia é preencher o vazio da Seção 4: manter um repositório de bibliotecas
-Python interessantes e deixar o usuário baixar sob demanda, instalando-as no
-runtime embarcado. As bibliotecas especiais que não empacotarmos ficam a cargo do
-Python do próprio usuário, via terminal TCMD.
+O vazio da Seção 4 é preenchido por um painel dentro da AURORA que lista as
+bibliotecas disponíveis, com descrição e casos de uso, e instala sob demanda. As
+bibliotecas que não couberem nesse caminho ficam a cargo do Python do próprio
+usuário, via terminal TCMD.
 
 \subsection{A restrição técnica que orienta tudo}
 
 O nosso Python é um build MinGW do MSYS2, não o CPython oficial (MSVC) da
-python.org. Isso tem uma consequência prática forte:
+python.org. Três testes feitos diretamente sobre o interpretador embarcado
+delimitam o que é possível:
 
 \begin{itemize}
-  \item Bibliotecas Python puras (só \texttt{.py}, sem extensão em C) funcionam
-        em qualquer interpretador, então basta colocá-las no
-        \texttt{site-packages}.
-  \item Bibliotecas com extensão em C (\texttt{numpy}, \texttt{scipy},
-        \texttt{pandas}, etc.) são compiladas para uma ABI específica. As wheels
-        binárias da PyPI são feitas para o CPython MSVC e em geral NÃO carregam no
-        Python MinGW. Para essas, o caminho correto é usar os pacotes mingw do
-        próprio MSYS2 (por exemplo \texttt{mingw-w64-x86\_64-python-numpy}), que
-        são compilados para a mesma ABI do nosso Python.
+  \item Biblioteca Python pura (wheel \texttt{*-none-any.whl}): funciona. O
+        Plotly 6.9.0 da PyPI importou e gerou figura HTML sem nenhum ajuste.
+  \item Wheel binária da PyPI (\texttt{cp312-win\_amd64}): não carrega. Mesmo
+        forçando o nome do \texttt{.pyd}, o erro é \texttt{DLL load failed} —
+        o módulo procura a \texttt{python312.dll} do CPython da Microsoft, que
+        não existe no nosso build, que expõe \texttt{libpython3.12.dll}.
+  \item Pacote mingw do MSYS2: também não. Este ponto corrige o plano anterior,
+        que apostava em \texttt{mingw-w64-x86\_64-python-numpy} por ser compilado
+        para o mesmo compilador. O raciocínio de ABI está certo, mas o MSYS2 é
+        \emph{rolling release} e já andou: o repositório \texttt{mingw64} hoje
+        entrega Python 3.14.6, e o NumPy 2.4.6-1 de lá vem marcado \texttt{cp314},
+        instalado em \texttt{lib/python3.14/}. Contra o nosso 3.12.11 o import
+        falha. Ou seja, a barreira imediata não é o compilador: é a versão do
+        Python. O bundle está congelado num snapshot de junho de 2025 e o
+        repositório do MSYS2 só distribui o presente.
 \end{itemize}
 
-Em resumo: um repositório de wheels da PyPI não serve direto para o nosso Python.
-O repositório precisa guardar ou libs puras, ou pacotes mingw compatíveis.
+O critério prático que decorre disso é verificável por máquina, e não por
+julgamento: se a PyPI publica uma wheel terminada em \texttt{-none-any.whl}, a
+biblioteca instala; se só publica wheel compilada, não instala de jeito nenhum.
+O painel consulta isso na API da PyPI \emph{antes} de baixar qualquer byte, tanto
+para a lista curada quanto para uma biblioteca arbitrária pedida pelo usuário.
 
-\subsection{Como instalar sob demanda}
+\subsection{Arquitetura}
 
-Como o bundle não traz \texttt{pip} nem \texttt{ensurepip} (Seção 4), há três
-abordagens possíveis, da mais simples à mais completa:
+O catálogo (\texttt{resources/pylib-catalog.json}) guarda metadados, não bytes:
+nome, versão fixada, descrição e casos de uso em português e inglês, licença,
+categoria, ícone e o \texttt{sha256} de cada wheel. Ele é gerado por
+\texttt{scripts/gen-pylib-catalog.js}, que consulta a PyPI e recusa sozinho
+qualquer entrada que não seja pura. As bibliotecas compiladas entram como
+registros informativos, sem wheel, para o painel poder exibi-las e explicar o
+motivo em vez de fingir que não existem.
+
+Os bytes vêm da PyPI no momento da instalação e são conferidos contra o hash
+fixado. Não há resolvedor de dependências, e isso é proposital: sem \texttt{pip}
+no runtime não existe resolvedor, então o catálogo já traz o fecho completo
+pronto e o instalador apenas obedece à lista.
+
+\subsection{Onde as bibliotecas são instaladas}
+
+Em \texttt{components/PyLibs/site/}, e não no \texttt{site-packages} do bundle.
+A pasta do bundle pertence à toolchain: o bootstrap a baixa, o
+\texttt{scripts/verify-components.js} a re-baixa quando o componente está
+faltando ou desatualizado, e o \texttt{components/Packages/} inteiro é
+\emph{gitignored} por ser artefato derivado. Instalar estado do usuário lá dentro
+significaria perdê-lo num \texttt{--force} ou quando alguém apaga a pasta para
+consertar a toolchain, que é o conserto documentado.
+
+Sem \texttt{pip} nem \texttt{ensurepip}, \texttt{venv} não é uma opção real; o
+isolamento é por diretório mais \texttt{PYTHONPATH}. O diretório entra no
+\texttt{AURORA\_COCOTB\_PYTHONPATH} pelo processo principal, em
+\texttt{main/compile/executor.js}, e não onde o renderer monta a variável: assim
+vale sempre, e o valor final é o nosso mesmo que um \emph{override} tenha mexido
+na variável. Pela mesma razão, o \texttt{AURORA\_COCOTB\_PYTHONPATH} passou a
+integrar as chaves protegidas do passo \texttt{cocotb-run} — depois que ele
+carrega código instalado, reescrevê-lo passa a ser escolher de onde o Python
+importa módulo.
+
+\subsection{Instalar, remover, reparar}
+
+Instalar é baixar a wheel medindo o progresso real em bytes, conferir o
+\texttt{sha256}, recusar qualquer caminho interno com \texttt{..} ou absoluto,
+extrair e anotar no manifesto (\texttt{components/PyLibs/installed.json}) a lista
+completa de arquivos escritos. É essa anotação que torna a remoção exata.
+
+Remover apaga apenas os arquivos que nenhuma outra biblioteca instalada
+reivindica — o \texttt{packaging} chega junto do Plotly e do pytest, o
+\texttt{pygments} junto do pytest e do Rich — e em seguida varre os diretórios de
+topo que ficaram sem dono, levando junto o \texttt{\_\_pycache\_\_} que o Python
+criou depois da instalação e que não existia na wheel.
+
+Reparar é remover e instalar de novo. Atende ao caso em que o manifesto diz
+``instalada'' mas os arquivos sumiram, e ao caso de acompanhar uma versão nova do
+catálogo. O manifesto grava contra qual ABI a instalação foi feita, de modo que
+um futuro bump do Python do bundle seja detectado e avisado, em vez de quebrar em
+silêncio — que é exatamente o que aconteceu com o pacote mingw64 do NumPy.
+
+\subsection{O que ainda falta: as bibliotecas compiladas}
+
+NumPy, SciPy, Matplotlib e pandas não instalam por esse caminho, e não há ajuste
+no instalador que resolva: é incompatibilidade de ABI, não de configuração.
+
+Isso pesa mais do que parece, porque é justamente o ferramental de que a
+metodologia publicada do grupo depende. O testbench cocotb da PMU segundo a norma
+IEC/IEEE 60255-118-1 usa geração de sinal, modelo de referência em dupla
+precisão, filtro FIR classe M e estatística de TVE, FE e ROCOF; o trabalho da CNN
+do TileCal compara a saída do SAPHO com a referência em Python por erro médio
+absoluto e $R^2$.
+
+O que o painel entrega hoje cobre modelagem de referência e conferência, mas não
+substitui o NumPy em volume: \texttt{mpmath} permite fixar a mantissa em 24 bits
+e modelar o \emph{float} próprio do SAPHO (1+8+23, fora do IEEE 754), separando
+erro de método de erro de arredondamento; \texttt{sympy} deduz coeficientes de
+filtro de forma exata; \texttt{vcdvcd} e \texttt{pyvcd} leem e escrevem forma de
+onda; o Plotly desenha a conferência. Um laço de filtragem sobre milhares de
+amostras em Python puro, porém, é lento.
+
+Há três saídas, em ordem de custo:
 
 \begin{itemize}
-  \item Guardar no repositório os pacotes já prontos (a árvore de arquivos da
-        biblioteca) e, no download, extrair direto no
-        \texttt{site-packages} do bundle. Funciona bem para libs puras e para
-        pacotes mingw pré-extraídos, sem precisar de gerenciador de pacotes.
-  \item Adicionar \texttt{pip} ao runtime (via \texttt{ensurepip} ou um
-        \texttt{get-pip.py}) e então instalar com \texttt{pip install}. Serve para
-        libs puras; para libs com C, esbarra na restrição de ABI acima.
-  \item Para as libs com C, distribuir os pacotes mingw do MSYS2 e colocá-los no
-        lugar, já compatíveis com o nosso Python.
+  \item Levar as compiladas para dentro do \textbf{bundle}. O
+        \texttt{aurora-toolchain} já monta o bundle a partir de um snapshot
+        fixado do MSYS2; NumPy e SciPy podem entrar pela mesma CI, do mesmo
+        snapshot, com a ABI garantida por construção. Custo: o bundle cresce (o
+        NumPy sozinho ocupa cerca de 55\,MB descompactado e arrasta o
+        \texttt{openblas}) e cada mudança vira um bump de toolchain.
+  \item Subir o Python do bundle para 3.14 e acompanhar o MSYS2, passando a usar
+        os pacotes mingw prontos. Custo: mexe no cocotb, no VPI do Verilator e na
+        toolchain inteira de uma vez.
+  \item Deixar com o usuário, via TCMD e o Python dele. Custo zero para nós, mas
+        o modelo de referência sai de dentro do fluxo da AURORA.
 \end{itemize}
 
-A escolha entre elas depende de quão longe queremos ir com libs binárias. Para
-começar, guardar os pacotes prontos no repositório e extrair no
-\texttt{site-packages} é o caminho de menor atrito.
+A primeira é a recomendada: o painel continua simples e sem risco de ABI, as
+bibliotecas puras chegam sob demanda, e as pesadas viram decisão de bundle, rara
+e verificada por CI.
 
 \subsection{Fallback: o Python do usuário via TCMD}
 

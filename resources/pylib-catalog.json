@@ -1,0 +1,616 @@
+{
+  "schemaVersion": 1,
+  "python": {
+    "validatedAgainst": "3.12",
+    "abiTag": "cp312",
+    "platform": "mingw_x86_64_msvcrt_gnu"
+  },
+  "categories": {
+    "hdl": {
+      "pt": "Verificacao",
+      "en": "Verification"
+    },
+    "math": {
+      "pt": "Matematica",
+      "en": "Mathematics"
+    },
+    "viz": {
+      "pt": "Visualizacao",
+      "en": "Visualisation"
+    },
+    "test": {
+      "pt": "Testes",
+      "en": "Testing"
+    },
+    "cli": {
+      "pt": "Terminal",
+      "en": "Terminal"
+    },
+    "sci": {
+      "pt": "Cientificas",
+      "en": "Scientific"
+    }
+  },
+  "libraries": [
+    {
+      "id": "pyuvm",
+      "name": "pyUVM",
+      "version": "4.0.1",
+      "kind": "pure",
+      "category": "hdl",
+      "icon": "pyuvm",
+      "homepage": "https://pyuvm.github.io/pyuvm/",
+      "license": null,
+      "requiresPython": ">=3.6",
+      "summary": {
+        "pt": "A metodologia UVM escrita em Python, sobre o cocotb. Organiza o testbench em agentes, sequencias e scoreboard em vez de um roteiro solto.",
+        "en": "The UVM methodology written in Python, on top of cocotb. Structures the testbench into agents, sequences and a scoreboard instead of a loose script."
+      },
+      "uses": {
+        "pt": [
+          "Estruturar a verificacao de um processador SAPHO em agentes e sequencias",
+          "Separar o gerador de estimulos, o driver e o scoreboard em classes proprias",
+          "Reaproveitar o mesmo ambiente de teste entre projetos do laboratorio"
+        ],
+        "en": [
+          "Structure the verification of a SAPHO processor into agents and sequences",
+          "Split stimulus generator, driver and scoreboard into their own classes",
+          "Reuse the same test environment across lab projects"
+        ]
+      },
+      "downloadSize": 68821,
+      "wheels": [
+        {
+          "name": "pyuvm",
+          "version": "4.0.1",
+          "filename": "pyuvm-4.0.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ea/f6/f52fd6cfc824050d4a8e062adb9d6c2f90cc15dc057200b7449bdfcbab13/pyuvm-4.0.1-py3-none-any.whl",
+          "sha256": "6c5e53afb3e4885765d1bb0efcd0a09ecd08ff5407ebcfe739901ffd97c61d21",
+          "size": 68821
+        }
+      ]
+    },
+    {
+      "id": "cocotb-bus",
+      "name": "cocotb-bus",
+      "version": "0.3.0",
+      "kind": "pure",
+      "category": "hdl",
+      "icon": "cocotb",
+      "homepage": "https://github.com/cocotb/cocotb-bus",
+      "license": null,
+      "requiresPython": ">=3.6",
+      "summary": {
+        "pt": "Drivers e monitores de barramento prontos para cocotb (Avalon, AXI basico, OPB). Evita reescrever o handshake a mao no testbench.",
+        "en": "Ready-made bus drivers and monitors for cocotb (Avalon, basic AXI, OPB). Avoids hand-writing the handshake in the testbench."
+      },
+      "uses": {
+        "pt": [
+          "Dirigir o barramento do DUT sem implementar o protocolo de novo",
+          "Monitorar transacoes e comparar contra um modelo de referencia",
+          "Emular o front-end de aquisicao que entrega amostras ao processador"
+        ],
+        "en": [
+          "Drive the DUT bus without re-implementing the protocol",
+          "Monitor transactions and compare against a reference model",
+          "Emulate the acquisition front-end that feeds samples to the processor"
+        ]
+      },
+      "downloadSize": 36206,
+      "wheels": [
+        {
+          "name": "cocotb-bus",
+          "version": "0.3.0",
+          "filename": "cocotb_bus-0.3.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/ea/43/8b3f96cf401c2a7f6e907ccc86d3b73433eeaf5525df90b630d8c112474b/cocotb_bus-0.3.0-py3-none-any.whl",
+          "sha256": "b4f06cce2462a8f9487b42c46b0ff3afd253f0fa4f67a0c382ebe0ba614229eb",
+          "size": 36206
+        }
+      ]
+    },
+    {
+      "id": "vcdvcd",
+      "name": "vcdvcd",
+      "version": "2.6.0",
+      "kind": "pure",
+      "category": "hdl",
+      "icon": "vcd",
+      "homepage": "https://github.com/cirosantilli/vcdvcd",
+      "license": null,
+      "requiresPython": null,
+      "summary": {
+        "pt": "Le arquivos VCD em Python puro. Permite analisar a forma de onda que a simulacao gerou por codigo, sem abrir o visualizador.",
+        "en": "Reads VCD files in pure Python. Lets you analyse the waveform a simulation produced programmatically, without opening a viewer."
+      },
+      "uses": {
+        "pt": [
+          "Conferir por script se um sinal respeitou um limite ao longo de toda a simulacao",
+          "Extrair uma serie temporal do VCD para comparar com o modelo de referencia",
+          "Automatizar regressao: rodar, ler a onda e falhar sozinho quando desviar"
+        ],
+        "en": [
+          "Script-check whether a signal stayed within bounds across the whole run",
+          "Extract a time series from the VCD to compare against the reference model",
+          "Automate regression: run, read the wave and fail on its own when it drifts"
+        ]
+      },
+      "downloadSize": 12075,
+      "wheels": [
+        {
+          "name": "vcdvcd",
+          "version": "2.6.0",
+          "filename": "vcdvcd-2.6.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/9a/c4/8deea995921806aab923d543342031d8704231347a83d31259b666bb8a73/vcdvcd-2.6.0-py3-none-any.whl",
+          "sha256": "d78a81bb7015f7c2564553624fd059c876fa4aca26ff1646e752a1fa06b18000",
+          "size": 12075
+        }
+      ]
+    },
+    {
+      "id": "pyvcd",
+      "name": "PyVCD",
+      "version": "0.4.1",
+      "kind": "pure",
+      "category": "hdl",
+      "icon": "vcd",
+      "homepage": "https://github.com/westerndigitalcorporation/pyvcd",
+      "license": "MIT",
+      "requiresPython": ">=3.7",
+      "summary": {
+        "pt": "Escreve arquivos VCD a partir do Python. O caminho inverso do vcdvcd: transforma dados calculados em forma de onda.",
+        "en": "Writes VCD files from Python. The reverse of vcdvcd: turns computed data into a waveform."
+      },
+      "uses": {
+        "pt": [
+          "Despejar o modelo de referencia como onda para abrir no GTKWave ou no Surfer",
+          "Ver lado a lado, no mesmo visualizador, o esperado e o que o SAPHO produziu"
+        ],
+        "en": [
+          "Dump the reference model as a wave to open in GTKWave or Surfer",
+          "View expected and actual SAPHO output side by side in the same viewer"
+        ]
+      },
+      "downloadSize": 23561,
+      "wheels": [
+        {
+          "name": "pyvcd",
+          "version": "0.4.1",
+          "filename": "pyvcd-0.4.1-py2.py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/8d/6d/24f67ec6cbe90ffca470f3c31e24f3d21124abc5b690398ab34a54bd3070/pyvcd-0.4.1-py2.py3-none-any.whl",
+          "sha256": "3a4c71d4dce741f1155a2ed11a6278390a0816293068f6162ad9658d20f75578",
+          "size": 23561
+        }
+      ]
+    },
+    {
+      "id": "mpmath",
+      "name": "mpmath",
+      "version": "1.4.1",
+      "kind": "pure",
+      "category": "math",
+      "icon": "mpmath",
+      "homepage": "https://mpmath.org/",
+      "license": "BSD-3-Clause",
+      "requiresPython": ">=3.9",
+      "summary": {
+        "pt": "Aritmetica de ponto flutuante com precisao arbitraria. Da para fixar quantos bits de mantissa usar, o que casa com o float proprio do SAPHO.",
+        "en": "Arbitrary-precision floating-point arithmetic. You choose how many mantissa bits to use, which lines up with SAPHO's own float format."
+      },
+      "uses": {
+        "pt": [
+          "Modelar a aritmetica de 24 ou 32 bits do SAPHO (mantissa e expoente proprios, fora do IEEE 754)",
+          "Separar o erro do metodo do erro do arredondamento do processador",
+          "Produzir a referencia de alta precisao contra a qual o hardware e medido"
+        ],
+        "en": [
+          "Model SAPHO's 24- or 32-bit arithmetic (its own mantissa and exponent, outside IEEE 754)",
+          "Separate method error from the processor's rounding error",
+          "Produce the high-precision reference the hardware is measured against"
+        ]
+      },
+      "downloadSize": 567787,
+      "wheels": [
+        {
+          "name": "mpmath",
+          "version": "1.4.1",
+          "filename": "mpmath-1.4.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/13/f2/abeec3db71d221ccd3cd89d206be1fabf5a3ee7178862f5fba23a59607e0/mpmath-1.4.1-py3-none-any.whl",
+          "sha256": "dc4f0ea2304480d4a9a48a94c1020571558ade522b44a6912efac63a586e140f",
+          "size": 567787
+        }
+      ]
+    },
+    {
+      "id": "sympy",
+      "name": "SymPy",
+      "version": "1.14.0",
+      "kind": "pure",
+      "category": "math",
+      "icon": "sympy",
+      "homepage": "https://www.sympy.org/",
+      "license": "BSD",
+      "requiresPython": ">=3.9",
+      "summary": {
+        "pt": "Matematica simbolica: resolve, deriva, simplifica e gera codigo a partir de expressoes exatas, sem depender do NumPy.",
+        "en": "Symbolic mathematics: solves, differentiates, simplifies and generates code from exact expressions, with no NumPy dependency."
+      },
+      "uses": {
+        "pt": [
+          "Deduzir os coeficientes de um filtro IIR biquadratico de forma exata",
+          "Verificar algebricamente a transformada que o algoritmo em C+- implementa",
+          "Gerar a expressao de referencia e so entao arredonda-la para o formato do SAPHO"
+        ],
+        "en": [
+          "Derive biquad IIR filter coefficients exactly",
+          "Algebraically check the transform the C+- algorithm implements",
+          "Generate the reference expression and only then round it to SAPHO's format"
+        ]
+      },
+      "downloadSize": 6867140,
+      "wheels": [
+        {
+          "name": "sympy",
+          "version": "1.14.0",
+          "filename": "sympy-1.14.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl",
+          "sha256": "e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5",
+          "size": 6299353
+        },
+        {
+          "name": "mpmath",
+          "version": "1.4.1",
+          "filename": "mpmath-1.4.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/13/f2/abeec3db71d221ccd3cd89d206be1fabf5a3ee7178862f5fba23a59607e0/mpmath-1.4.1-py3-none-any.whl",
+          "sha256": "dc4f0ea2304480d4a9a48a94c1020571558ade522b44a6912efac63a586e140f",
+          "size": 567787
+        }
+      ]
+    },
+    {
+      "id": "plotly",
+      "name": "Plotly",
+      "version": "6.9.0",
+      "kind": "pure",
+      "category": "viz",
+      "icon": "plotly",
+      "homepage": "https://plotly.com/python/",
+      "license": "MIT",
+      "requiresPython": ">=3.8",
+      "summary": {
+        "pt": "Graficos interativos em HTML, com zoom e leitura de valor ponto a ponto. Gera arquivo que a propria AURORA abre.",
+        "en": "Interactive HTML charts with zoom and point-by-point readout. Produces a file AURORA itself can open."
+      },
+      "uses": {
+        "pt": [
+          "Plotar a saida do processador contra o modelo de referencia no mesmo grafico",
+          "Mostrar o erro em escala logaritmica ao longo das amostras do ensaio",
+          "Gerar relatorio de verificacao em HTML para anexar ao projeto"
+        ],
+        "en": [
+          "Plot processor output against the reference model on one chart",
+          "Show error on a log scale across the run's samples",
+          "Generate an HTML verification report to attach to the project"
+        ]
+      },
+      "downloadSize": 10470871,
+      "wheels": [
+        {
+          "name": "plotly",
+          "version": "6.9.0",
+          "filename": "plotly-6.9.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/24/18/d8544811ab076f876c4892b3714f5b0dad335e1dc33aef826df431b8325d/plotly-6.9.0-py3-none-any.whl",
+          "sha256": "36bebe2f1bb13884774fe61689c329071446f6ce4a8927fb1f0d6fb24f581236",
+          "size": 9909646
+        },
+        {
+          "name": "narwhals",
+          "version": "2.24.0",
+          "filename": "narwhals-2.24.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/7e/85/a5bfaebfd305ac18b57b0854d74e37e586809061a91fda62f0bd50c8518e/narwhals-2.24.0-py3-none-any.whl",
+          "sha256": "42fdedf44e5b2ca7505630d45b4ac3058f38d8485cba9fe1652ca23152df7489",
+          "size": 461030
+        },
+        {
+          "name": "packaging",
+          "version": "26.2",
+          "filename": "packaging-26.2-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/df/b2/87e62e8c3e2f4b32e5fe99e0b86d576da1312593b39f47d8ceef365e95ed/packaging-26.2-py3-none-any.whl",
+          "sha256": "5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e",
+          "size": 100195
+        }
+      ]
+    },
+    {
+      "id": "pytest",
+      "name": "pytest",
+      "version": "9.1.1",
+      "kind": "pure",
+      "category": "test",
+      "icon": "pytest",
+      "homepage": "https://docs.pytest.org/",
+      "license": "MIT",
+      "requiresPython": ">=3.10",
+      "summary": {
+        "pt": "Framework de testes do Python. Cobre o codigo de apoio dos testbenches e organiza casos com fixtures.",
+        "en": "Python testing framework. Covers the testbenches' supporting code and organises cases with fixtures."
+      },
+      "uses": {
+        "pt": [
+          "Testar o gerador de estimulos e o modelo de referencia antes de rodar a simulacao",
+          "Parametrizar um mesmo ensaio para varias frequencias ou configuracoes",
+          "Escrever asserts legiveis com mensagem de falha detalhada"
+        ],
+        "en": [
+          "Test the stimulus generator and reference model before running the simulation",
+          "Parameterise one test across several frequencies or configurations",
+          "Write readable asserts with detailed failure messages"
+        ]
+      },
+      "downloadSize": 1771239,
+      "wheels": [
+        {
+          "name": "pytest",
+          "version": "9.1.1",
+          "filename": "pytest-9.1.1-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl",
+          "sha256": "37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c",
+          "size": 386536
+        },
+        {
+          "name": "iniconfig",
+          "version": "2.3.0",
+          "filename": "iniconfig-2.3.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl",
+          "sha256": "f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12",
+          "size": 7484
+        },
+        {
+          "name": "packaging",
+          "version": "26.2",
+          "filename": "packaging-26.2-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/df/b2/87e62e8c3e2f4b32e5fe99e0b86d576da1312593b39f47d8ceef365e95ed/packaging-26.2-py3-none-any.whl",
+          "sha256": "5fc45236b9446107ff2415ce77c807cee2862cb6fac22b8a73826d0693b0980e",
+          "size": 100195
+        },
+        {
+          "name": "pluggy",
+          "version": "1.6.0",
+          "filename": "pluggy-1.6.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl",
+          "sha256": "e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746",
+          "size": 20538
+        },
+        {
+          "name": "Pygments",
+          "version": "2.20.0",
+          "filename": "pygments-2.20.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl",
+          "sha256": "81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176",
+          "size": 1231151
+        },
+        {
+          "name": "colorama",
+          "version": "0.4.6",
+          "filename": "colorama-0.4.6-py2.py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl",
+          "sha256": "4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6",
+          "size": 25335
+        }
+      ]
+    },
+    {
+      "id": "rich",
+      "name": "Rich",
+      "version": "15.0.0",
+      "kind": "pure",
+      "category": "cli",
+      "icon": "rich",
+      "homepage": "https://rich.readthedocs.io/",
+      "license": "MIT",
+      "requiresPython": ">=3.9.0",
+      "summary": {
+        "pt": "Saida formatada no terminal: tabelas, cores, barras de progresso e arvores. Aparece direto no terminal da AURORA.",
+        "en": "Formatted terminal output: tables, colours, progress bars and trees. Shows up directly in AURORA's terminal."
+      },
+      "uses": {
+        "pt": [
+          "Imprimir a tabela de metricas do ensaio no terminal, ja alinhada e colorida",
+          "Destacar em vermelho a amostra que estourou o limite",
+          "Mostrar o progresso de um ensaio longo de milhares de amostras"
+        ],
+        "en": [
+          "Print the run's metrics table in the terminal, aligned and coloured",
+          "Highlight in red the sample that broke the limit",
+          "Show progress of a long run over thousands of samples"
+        ]
+      },
+      "downloadSize": 1643471,
+      "wheels": [
+        {
+          "name": "rich",
+          "version": "15.0.0",
+          "filename": "rich-15.0.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl",
+          "sha256": "33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb",
+          "size": 310654
+        },
+        {
+          "name": "markdown-it-py",
+          "version": "4.2.0",
+          "filename": "markdown_it_py-4.2.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/b3/81/4da04ced5a082363ecfa159c010d200ecbd959ae410c10c0264a38cac0f5/markdown_it_py-4.2.0-py3-none-any.whl",
+          "sha256": "9f7ebbcd14fe59494226453aed97c1070d83f8d24b6fc3a3bcf9a38092641c4a",
+          "size": 91687
+        },
+        {
+          "name": "mdurl",
+          "version": "0.1.2",
+          "filename": "mdurl-0.1.2-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl",
+          "sha256": "84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8",
+          "size": 9979
+        },
+        {
+          "name": "Pygments",
+          "version": "2.20.0",
+          "filename": "pygments-2.20.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl",
+          "sha256": "81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176",
+          "size": 1231151
+        }
+      ]
+    },
+    {
+      "id": "tabulate",
+      "name": "Tabulate",
+      "version": "0.10.0",
+      "kind": "pure",
+      "category": "cli",
+      "icon": "tabulate",
+      "homepage": "https://github.com/astanin/python-tabulate",
+      "license": "MIT",
+      "requiresPython": ">=3.10",
+      "summary": {
+        "pt": "Tabelas de texto a partir de listas, sem nenhuma dependencia. Exporta tambem em Markdown e LaTeX.",
+        "en": "Text tables from lists, with no dependencies. Also exports Markdown and LaTeX."
+      },
+      "uses": {
+        "pt": [
+          "Formatar o resumo do ensaio em tabela alinhada",
+          "Exportar a tabela de resultados em LaTeX direto para o artigo"
+        ],
+        "en": [
+          "Format the run summary as an aligned table",
+          "Export the results table as LaTeX straight into the paper"
+        ]
+      },
+      "downloadSize": 39814,
+      "wheels": [
+        {
+          "name": "tabulate",
+          "version": "0.10.0",
+          "filename": "tabulate-0.10.0-py3-none-any.whl",
+          "url": "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl",
+          "sha256": "f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3",
+          "size": 39814
+        }
+      ]
+    },
+    {
+      "id": "numpy",
+      "name": "NumPy",
+      "version": null,
+      "kind": "compiled",
+      "category": "sci",
+      "icon": "numpy",
+      "homepage": "https://numpy.org/",
+      "license": null,
+      "requiresPython": null,
+      "summary": {
+        "pt": "Vetores e matrizes numericas. E a base sobre a qual quase toda a analise numerica do laboratorio e escrita.",
+        "en": "Numeric arrays and matrices. The base on which nearly all of the lab's numerical analysis is written."
+      },
+      "uses": {
+        "pt": [
+          "Gerar o sinal de estimulo amostrado do ensaio (harmonico, ruido, degrau)",
+          "Escrever o modelo de referencia em dupla precisao contra o qual o SAPHO e medido",
+          "Calcular FFT, erro medio absoluto e R^2 sobre a saida da simulacao"
+        ],
+        "en": [
+          "Generate the run's sampled stimulus signal (harmonic, noise, step)",
+          "Write the double-precision reference model SAPHO is measured against",
+          "Compute FFT, mean absolute error and R^2 over the simulation output"
+        ]
+      },
+      "downloadSize": 0,
+      "wheels": [],
+      "unavailable": "compiled-abi"
+    },
+    {
+      "id": "scipy",
+      "name": "SciPy",
+      "version": null,
+      "kind": "compiled",
+      "category": "sci",
+      "icon": "scipy",
+      "homepage": "https://scipy.org/",
+      "license": null,
+      "requiresPython": null,
+      "summary": {
+        "pt": "Algoritmos cientificos sobre o NumPy: projeto de filtros, otimizacao, algebra linear e processamento de sinais.",
+        "en": "Scientific algorithms on top of NumPy: filter design, optimisation, linear algebra and signal processing."
+      },
+      "uses": {
+        "pt": [
+          "Projetar o filtro FIR classe M e os biquadrados IIR usados nos processadores",
+          "Alinhar series temporais por DTW, como no detector de novidade",
+          "Validar blocos de DSP embarcados contra a implementacao de referencia"
+        ],
+        "en": [
+          "Design the class-M FIR filter and the IIR biquads used in the processors",
+          "Align time series by DTW, as in the novelty detector",
+          "Validate embedded DSP blocks against the reference implementation"
+        ]
+      },
+      "downloadSize": 0,
+      "wheels": [],
+      "unavailable": "compiled-abi"
+    },
+    {
+      "id": "matplotlib",
+      "name": "Matplotlib",
+      "version": null,
+      "kind": "compiled",
+      "category": "viz",
+      "icon": "matplotlib",
+      "homepage": "https://matplotlib.org/",
+      "license": null,
+      "requiresPython": null,
+      "summary": {
+        "pt": "Graficos estaticos com qualidade de publicacao. Gera PNG, PDF e SVG, e e o que produz as figuras dos artigos do grupo.",
+        "en": "Publication-quality static plots. Outputs PNG, PDF and SVG, and is what produces the group's paper figures."
+      },
+      "uses": {
+        "pt": [
+          "Montar a figura de varios paineis com frequencia, TVE e desvio em escala log",
+          "Gerar as figuras em PDF que vao direto para o artigo"
+        ],
+        "en": [
+          "Build the multi-panel figure with frequency, TVE and log-scale deviation",
+          "Generate the PDF figures that go straight into the paper"
+        ]
+      },
+      "downloadSize": 0,
+      "wheels": [],
+      "unavailable": "compiled-abi"
+    },
+    {
+      "id": "pandas",
+      "name": "pandas",
+      "version": null,
+      "kind": "compiled",
+      "category": "sci",
+      "icon": "pandas",
+      "homepage": "https://pandas.pydata.org/",
+      "license": null,
+      "requiresPython": null,
+      "summary": {
+        "pt": "Tabelas de dados com indice, filtro e agregacao. Util quando a regressao acumula log de muitas execucoes.",
+        "en": "Indexed data tables with filtering and aggregation. Useful once regression accumulates logs from many runs."
+      },
+      "uses": {
+        "pt": [
+          "Cruzar os resultados de varias execucoes do mesmo ensaio",
+          "Consolidar metricas por configuracao de processador e exportar em CSV"
+        ],
+        "en": [
+          "Cross-reference results from many runs of the same test",
+          "Consolidate metrics per processor configuration and export to CSV"
+        ]
+      },
+      "downloadSize": 0,
+      "wheels": [],
+      "unavailable": "compiled-abi"
+    }
+  ]
+}

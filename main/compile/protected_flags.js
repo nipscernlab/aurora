@@ -61,6 +61,13 @@ const RULES = {
       'AURORA_COCOTB_TOP',
       'AURORA_COCOTB_TEST_MODULE',
       'AURORA_COCOTB_BUILD_DIR',
+      // Entrou na lista quando o painel de bibliotecas passou a instalar codigo
+      // em components/PyLibs/site e esse diretorio virou parte do PYTHONPATH: a
+      // variavel deixou de ser "onde achar o testbench" e virou um caminho de
+      // CARREGAMENTO DE CODIGO. Um override que a reescrevesse escolheria de
+      // onde o Python importa modulo, o que e execucao arbitraria disfarcada de
+      // ajuste de flag.
+      'AURORA_COCOTB_PYTHONPATH',
     ],
   },
   'verilator-build': {

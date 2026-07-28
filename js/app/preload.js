@@ -591,6 +591,30 @@ const gitOperations = {
   },
 };
 
+/* ============================================================================
+ *  BIBLIOTECAS PYTHON  (window.pyLibsAPI) — main/ipc/pylibs.js
+ *  Todo handler responde { ok, data } ou { ok:false, error } — o painel nunca
+ *  precisa de try/catch por chamada.
+ * ========================================================================= */
+const pyLibsOperations = {
+  state:            () => ipcRenderer.invoke('pylibs:state'),
+  install:          (id) => ipcRenderer.invoke('pylibs:install', id),
+  uninstall:        (id) => ipcRenderer.invoke('pylibs:uninstall', id),
+  repair:           (id) => ipcRenderer.invoke('pylibs:repair', id),
+  resolveExternal:  (name) => ipcRenderer.invoke('pylibs:resolve-external', name),
+  installExternal:  (name) => ipcRenderer.invoke('pylibs:install-external', name),
+  listExternal:     () => ipcRenderer.invoke('pylibs:list-external'),
+  doctor:           () => ipcRenderer.invoke('pylibs:doctor'),
+  openHomepage:     (url) => ipcRenderer.invoke('pylibs:open-homepage', url),
+  // Progresso de download/instalacao. Devolve a funcao de desinscricao, mesmo
+  // contrato de gitAPI.onCloneProgress.
+  onProgress: (cb) => {
+    const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
+    ipcRenderer.on('pylibs:progress', h);
+    return () => ipcRenderer.removeListener('pylibs:progress', h);
+  },
+};
+
 contextBridge.exposeInMainWorld('electronAPI', {
   ...fileOperations,
   ...fileWatchingOperations,
@@ -621,6 +645,8 @@ contextBridge.exposeInMainWorld('clangFormatAPI', clangFormatOperations);
 contextBridge.exposeInMainWorld('slangAPI', slangOperations);
 
 contextBridge.exposeInMainWorld('treeSitterAPI', treeSitterOperations);
+
+contextBridge.exposeInMainWorld('pyLibsAPI', pyLibsOperations);
 
 /* ============================================================================
  *  GLOBAL EVENT FORWARDERS

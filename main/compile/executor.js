@@ -30,6 +30,7 @@
 'use strict';
 
 const os = require('os');
+const fs = require('fs');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
 
@@ -78,7 +79,40 @@ function buildChildEnv(spec) {
       typeof p === 'string' && p.length > 0 && !p.includes('\0') && !p.includes(sep));
     if (safeDirs.length) env.PATH = safeDirs.join(sep) + sep + (env.PATH || '');
   }
+
+  // Bibliotecas Python instaladas pelo painel (components/PyLibs/site) entram no
+  // PYTHONPATH do cocotb aqui, no processo principal, e nao onde o renderer
+  // monta a variavel. Dois motivos:
+  //   - o renderer nao precisa conhecer o caminho de instalacao, entao nao ha
+  //     um segundo lugar para esquecer de atualizar quando ele mudar;
+  //   - isto roda DEPOIS da mesclagem de spec.env, entao o valor final e sempre
+  //     o nosso, mesmo que um override tenha mexido na variavel.
+  // A condicao e a presenca da propria variavel: so o spec `cocotb-run` a
+  // carrega, entao nenhum outro passo da toolchain e afetado.
+  if (typeof env.AURORA_COCOTB_PYTHONPATH === 'string') {
+    const site = pylibSitePath();
+    if (site && !env.AURORA_COCOTB_PYTHONPATH.split(sep).includes(site)) {
+      env.AURORA_COCOTB_PYTHONPATH = env.AURORA_COCOTB_PYTHONPATH
+        ? `${env.AURORA_COCOTB_PYTHONPATH}${sep}${site}`
+        : site;
+    }
+  }
   return env;
+}
+
+/**
+ * Diretorio das bibliotecas instaladas, ou '' quando nada foi instalado ainda.
+ * Resolvido a cada chamada (o usuario pode instalar com o app aberto) e sempre
+ * defensivo: uma falha aqui nao pode derrubar uma compilacao.
+ */
+function pylibSitePath() {
+  try {
+    const { pylibSite } = require('../python/pylib_paths');
+    const site = pylibSite();
+    return fs.existsSync(site) ? site : '';
+  } catch (_) {
+    return '';
+  }
 }
 
 // Toolchain children get more CPU than the rest of the desktop's normal-

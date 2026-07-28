@@ -1,0 +1,214 @@
+/**
+ * Testes do painel de bibliotecas Python.
+ *
+ * Cobrem a superficie deterministica e offline: o catalogo commitado, a regra
+ * que decide se uma wheel roda no Python embarcado, a guarda de caminho na
+ * extracao e o ciclo instalar/desinstalar sobre um manifesto de mentira.
+ *
+ * O download real NAO e exercitado aqui (dependeria da rede e da PyPI estar de
+ * pe); o que se testa e a logica que decide, anota e remove. `AURORA_PYLIBS_ROOT`
+ * aponta a arvore inteira para um diretorio descartavel, entao nada toca o
+ * components/ de verdade — mesmo recurso que o cliDownloader.test.js usa com
+ * AURORA_CLI_CACHE.
+ */
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import { pickPureWheel, PURE_SUFFIX } from '../../scripts/gen-pylib-catalog.js';
+
+const CATALOG = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), 'resources', 'pylib-catalog.json'), 'utf8'),
+);
+
+describe('catalogo de bibliotecas', () => {
+  it('declara o schema e a ABI do Python contra a qual foi validado', () => {
+    expect(CATALOG.schemaVersion).toBe(1);
+    expect(CATALOG.python.abiTag).toBe('cp312');
+    expect(CATALOG.python.platform).toBe('mingw_x86_64_msvcrt_gnu');
+  });
+
+  it('toda biblioteca instalavel so aponta para wheel pura', () => {
+    const pure = CATALOG.libraries.filter((l) => l.kind === 'pure');
+    expect(pure.length).toBeGreaterThan(0);
+    for (const lib of pure) {
+      expect(lib.wheels.length).toBeGreaterThan(0);
+      for (const w of lib.wheels) {
+        // A regra inteira do painel cabe nesta linha: ABI `none`, plataforma
+        // `any`. Qualquer outra coisa nao carrega no Python MinGW.
+        expect(w.filename.endsWith(PURE_SUFFIX)).toBe(true);
+        expect(w.sha256).toMatch(/^[a-f0-9]{64}$/);
+        expect(w.url.startsWith('https://')).toBe(true);
+      }
+    }
+  });
+
+  it('toda biblioteca compilada e informativa: sem wheel, com motivo', () => {
+    const compiled = CATALOG.libraries.filter((l) => l.kind === 'compiled');
+    expect(compiled.map((l) => l.id)).toContain('numpy');
+    for (const lib of compiled) {
+      expect(lib.wheels).toEqual([]);
+      expect(lib.unavailable).toBe('compiled-abi');
+    }
+  });
+
+  it('toda entrada tem descricao e usos nos dois idiomas', () => {
+    for (const lib of CATALOG.libraries) {
+      expect(lib.summary.pt.length).toBeGreaterThan(10);
+      expect(lib.summary.en.length).toBeGreaterThan(10);
+      expect(lib.uses.pt.length).toBeGreaterThan(0);
+      expect(lib.uses.en.length).toBeGreaterThan(0);
+      expect(CATALOG.categories[lib.category]).toBeTruthy();
+    }
+  });
+
+  it('nao repete id', () => {
+    const ids = CATALOG.libraries.map((l) => l.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('pickPureWheel', () => {
+  const wheel = (filename) => ({ packagetype: 'bdist_wheel', filename });
+
+  it('aceita py3-none-any', () => {
+    expect(pickPureWheel([wheel('plotly-6.9.0-py3-none-any.whl')])).toBeTruthy();
+  });
+
+  it('aceita py2.py3-none-any — o colorama publica assim e e igualmente puro', () => {
+    expect(pickPureWheel([wheel('colorama-0.4.6-py2.py3-none-any.whl')])).toBeTruthy();
+  });
+
+  it('recusa wheel compilada', () => {
+    expect(pickPureWheel([
+      wheel('numpy-2.5.1-cp312-cp312-win_amd64.whl'),
+      wheel('numpy-2.5.1-cp313-cp313-manylinux_2_17_x86_64.whl'),
+    ])).toBeNull();
+  });
+
+  it('escolhe a pura quando o release tem as duas formas', () => {
+    const picked = pickPureWheel([
+      wheel('x-1.0-cp312-cp312-win_amd64.whl'),
+      wheel('x-1.0-py3-none-any.whl'),
+    ]);
+    expect(picked.filename).toBe('x-1.0-py3-none-any.whl');
+  });
+
+  it('ignora sdist', () => {
+    expect(pickPureWheel([{ packagetype: 'sdist', filename: 'x-1.0.tar.gz' }])).toBeNull();
+  });
+});
+
+describe('pylib_manager', () => {
+  let tmp;
+  let manager;
+
+  beforeEach(async () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-pylibs-'));
+    process.env.AURORA_PYLIBS_ROOT = tmp;
+    // Import depois de fixar a env: pylibRoot() a le a cada chamada, mas o
+    // modulo tambem guarda o catalogo em cache entre testes.
+    manager = await import('../../main/python/pylib_manager.js');
+  });
+
+  afterEach(() => {
+    delete process.env.AURORA_PYLIBS_ROOT;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('isSafeEntry barra caminho que escapa do destino', () => {
+    const { isSafeEntry } = manager;
+    expect(isSafeEntry('plotly/__init__.py')).toBe(true);
+    expect(isSafeEntry('plotly-6.9.0.dist-info/RECORD')).toBe(true);
+    // Uma wheel e um zip vindo da internet: estes tres escreveriam fora do site.
+    expect(isSafeEntry('../evil.py')).toBe(false);
+    expect(isSafeEntry('plotly/../../evil.py')).toBe(false);
+    expect(isSafeEntry('/etc/passwd')).toBe(false);
+    expect(isSafeEntry('C:/Windows/System32/evil.dll')).toBe(false);
+    expect(isSafeEntry('')).toBe(false);
+  });
+
+  it('getState marca tudo como nao instalado num diretorio limpo', () => {
+    const st = manager.getState();
+    expect(st.libraries.length).toBe(CATALOG.libraries.length);
+    expect(st.libraries.every((l) => l.installed === false)).toBe(true);
+    expect(st.site).toBe(path.join(tmp, 'site'));
+  });
+
+  it('recusa instalar biblioteca compilada, antes de tocar a rede', async () => {
+    await expect(manager.install('numpy')).rejects.toThrow(/extensao em C/i);
+  });
+
+  it('recusa id que nao existe no catalogo', async () => {
+    await expect(manager.install('nao-existe')).rejects.toThrow(/desconhecida/i);
+  });
+
+  it('desinstalar preserva o arquivo que outra biblioteca instalada reivindica', () => {
+    const site = path.join(tmp, 'site');
+    fs.mkdirSync(path.join(site, 'shared'), { recursive: true });
+    fs.mkdirSync(path.join(site, 'solo'), { recursive: true });
+    fs.writeFileSync(path.join(site, 'shared', 'mod.py'), '# compartilhado');
+    fs.writeFileSync(path.join(site, 'solo', 'mod.py'), '# so da libA');
+
+    // Manifesto de mentira: libA e libB dividem shared/mod.py.
+    fs.writeFileSync(path.join(tmp, 'installed.json'), JSON.stringify({
+      schemaVersion: 1,
+      abiTag: 'cp312',
+      installed: {
+        libA: { version: '1', installedAt: '', wheels: [], files: ['solo/mod.py', 'shared/mod.py'] },
+        libB: { version: '1', installedAt: '', wheels: [], files: ['shared/mod.py'] },
+      },
+    }));
+
+    const res = manager.uninstall('libA');
+    expect(res.removed).toBe(1);
+    expect(res.kept).toBe(1);
+    expect(fs.existsSync(path.join(site, 'solo', 'mod.py'))).toBe(false);
+    // libB continua funcionando.
+    expect(fs.existsSync(path.join(site, 'shared', 'mod.py'))).toBe(true);
+  });
+
+  it('desinstalar leva junto o __pycache__ que o Python criou depois', () => {
+    const site = path.join(tmp, 'site');
+    fs.mkdirSync(path.join(site, 'lonely', '__pycache__'), { recursive: true });
+    fs.writeFileSync(path.join(site, 'lonely', 'mod.py'), '# codigo');
+    // Bytecode: nao veio na wheel, entao nao esta no manifesto. Sem a varredura
+    // de diretorio de topo, a pasta sobreviveria a desinstalacao.
+    fs.writeFileSync(path.join(site, 'lonely', '__pycache__', 'mod.cpython-312.pyc'), 'x');
+
+    fs.writeFileSync(path.join(tmp, 'installed.json'), JSON.stringify({
+      schemaVersion: 1,
+      installed: { lonely: { version: '1', installedAt: '', wheels: [], files: ['lonely/mod.py'] } },
+    }));
+
+    manager.uninstall('lonely');
+    expect(fs.existsSync(path.join(site, 'lonely'))).toBe(false);
+  });
+
+  it('desinstalar o que nao esta instalado nao quebra', () => {
+    const res = manager.uninstall('plotly');
+    expect(res.notInstalled).toBe(true);
+  });
+
+  it('doctor acusa arquivo faltando e deriva do ABI', () => {
+    fs.mkdirSync(path.join(tmp, 'site'), { recursive: true });
+    fs.writeFileSync(path.join(tmp, 'installed.json'), JSON.stringify({
+      schemaVersion: 1,
+      abiTag: 'cp311', // instalado num Python anterior ao do catalogo (cp312)
+      installed: { ghost: { version: '1', installedAt: '', wheels: [], files: ['ghost/mod.py'] } },
+    }));
+
+    const d = manager.doctor();
+    expect(d.ok).toBe(false);
+    expect(d.issues.map((i) => i.kind)).toContain('abi-drift');
+    expect(d.issues.map((i) => i.kind)).toContain('missing-files');
+  });
+
+  it('resolveExternal recusa nome invalido sem consultar a rede', async () => {
+    const r = await manager.resolveExternal('../../etc/passwd');
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe('invalid-name');
+  });
+});

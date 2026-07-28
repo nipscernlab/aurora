@@ -240,6 +240,13 @@
               <!-- Small avatar dot (bottom-right) when signed in to GitHub. -->
               <span class="git-avatar-badge" id="git-avatar-badge" hidden></span>
           </button>
+          <button id="pylibsButton" class="toolbar-button icon-only" data-tooltip="Python libraries" data-i18n-tooltip="toolbar.pylibs.tooltip">
+              <svg class="toolbar-svg-icon" aria-hidden="true" viewBox="0 0 32 32">
+                  <use href="assets/icons/pylibs.svg#pylib-python"></use>
+              </svg>
+              <!-- Ponto de aviso quando o doutor acha biblioteca quebrada. -->
+              <span class="pylib-badge" id="pylib-badge" hidden></span>
+          </button>
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
           </button>
@@ -803,6 +810,66 @@
     </main>
     <footer slot="footer" class="git-footer">
         <div class="git-status" id="git-status" data-kind=""></div>
+    </footer>
+</aurora-modal>
+
+<!-- ==========================================================================
+     Bibliotecas Python — o berço das libs que rodam no Python embarcado.
+     Controlado por js/python/pylib_panel.js; estilos em css/panels/pylib_panel.css.
+     O conteúdo da lista é renderizado a partir de resources/pylib-catalog.json,
+     então aqui ficam só o esqueleto e os pontos de ancoragem.
+     ====================================================================== -->
+<aurora-modal id="pylibsModal" style="--aurora-modal-width: min(1040px, 96vw);">
+    <span slot="title" class="modal-title pylib-title">
+        <svg class="pylib-title-icon" aria-hidden="true" viewBox="0 0 32 32">
+            <use href="assets/icons/pylibs.svg#pylib-python"></use>
+        </svg>
+        <span class="pylib-name">Python</span>
+        <span class="pylib-sub" data-i18n="pylibs.title">Bibliotecas</span>
+    </span>
+
+    <main class="modal-body pylib-panel">
+        <!-- Estado do runtime: versão do Python, onde as libs são instaladas e
+             o aviso do doutor quando algo está quebrado. -->
+        <section class="pylib-runtime" id="pylib-runtime"></section>
+
+        <!-- Filtro por texto e por categoria. -->
+        <div class="pylib-toolbar">
+            <div class="pylib-search">
+                <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                <input type="text" id="pylib-filter" class="pylib-filter-input" spellcheck="false"
+                       placeholder="Filtrar bibliotecas" data-i18n-placeholder="pylibs.filter.placeholder" />
+            </div>
+            <div class="pylib-chips" id="pylib-chips"></div>
+        </div>
+
+        <!-- A lista curada. -->
+        <div class="pylib-list" id="pylib-list" role="list"></div>
+
+        <!-- Segundo nível: qualquer biblioteca da PyPI, verificada antes de baixar. -->
+        <section class="pylib-external">
+            <header class="pylib-external-head">
+                <i class="ph ph-package" aria-hidden="true"></i>
+                <span data-i18n="pylibs.external.title">Outra biblioteca da PyPI</span>
+            </header>
+            <p class="pylib-external-hint" data-i18n="pylibs.external.hint">
+                Digite o nome do pacote. A AURORA verifica na PyPI se ele roda no Python embarcado antes de baixar qualquer coisa.
+            </p>
+            <div class="pylib-external-row">
+                <input type="text" id="pylib-external-name" class="pylib-filter-input" spellcheck="false"
+                       placeholder="requests" data-i18n-placeholder="pylibs.external.placeholder" />
+                <button class="pylib-btn pylib-btn-ghost" id="pylib-external-check" data-action="check-external">
+                    <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+                    <span data-i18n="pylibs.external.check">Verificar</span>
+                </button>
+            </div>
+            <div class="pylib-external-result" id="pylib-external-result" hidden></div>
+            <div class="pylib-external-list" id="pylib-external-list"></div>
+        </section>
+    </main>
+
+    <footer slot="footer" class="pylib-footer">
+        <div class="pylib-status" id="pylib-status" data-kind=""></div>
     </footer>
 </aurora-modal>
 
@@ -1392,6 +1459,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/ui/icon_aurora.js" type="module"></script>
 <script src="./js/ui/command_palette.js" type="module"></script>
 <script src="./js/git/git_panel.js" type="module"></script>
+<script src="./js/python/pylib_panel.js" type="module"></script>
 <script src="./js/search/search_panel.js" type="module"></script>
 <script src="./js/ui/new_project_modal.js" type="module"></script>
 <script src="./js/project/recent_projects.js" type="module"></script>

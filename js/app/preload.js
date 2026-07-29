@@ -606,6 +606,7 @@ const pyLibsOperations = {
   listExternal:     () => ipcRenderer.invoke('pylibs:list-external'),
   doctor:           () => ipcRenderer.invoke('pylibs:doctor'),
   verifyDeep:       () => ipcRenderer.invoke('pylibs:verify-deep'),
+  refreshCatalog:   (force) => ipcRenderer.invoke('pylibs:refresh-catalog', force),
   openHomepage:     (url) => ipcRenderer.invoke('pylibs:open-homepage', url),
   // Progresso de download/instalacao. Devolve a funcao de desinscricao, mesmo
   // contrato de gitAPI.onCloneProgress.

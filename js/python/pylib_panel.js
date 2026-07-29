@@ -58,6 +58,34 @@ let filterText = '';
 let filterCat = 'all';
 /** Ultimo veredito do vigia (main/python/pylib_watch.js). */
 let health = null;
+/**
+ * Ids de simbolo que o sprite desta versao possui (assets/icons/pylibs.json,
+ * gerado junto com o SVG).
+ *
+ * Existe por causa do catalogo remoto: a lista pode citar um icone que so vai
+ * existir numa AURORA futura, e um <use> apontando para simbolo inexistente nao
+ * desenha nada nem reclama — vira um buraco silencioso na linha. Com o indice em
+ * maos, o desconhecido cai no generico.
+ */
+let knownIcons = null;
+
+async function loadIconIndex() {
+  if (knownIcons) return knownIcons;
+  try {
+    const res = await fetch('./assets/icons/pylibs.json');
+    knownIcons = new Set((await res.json()).ids || []);
+  } catch (_) {
+    knownIcons = new Set(); // sem indice, tudo vira generico: feio, nunca vazio
+  }
+  return knownIcons;
+}
+
+/** O simbolo a usar para uma biblioteca, com recuo para o generico. */
+function iconId(lib) {
+  const id = lib.icon || 'generic';
+  if (!knownIcons || knownIcons.has(id)) return id;
+  return 'generic';
+}
 /** Operações em curso, por id: { phase, pct }. Sobrevive ao redesenho da lista. */
 const busy = new Map();
 
@@ -69,6 +97,11 @@ function open() {
   modal.classList.add('show');
   modal.setAttribute('aria-hidden', 'false');
   refresh();
+  // Busca a lista no repositorio publico DEPOIS de desenhar. O painel nunca
+  // espera a rede: abre com o que tem e se atualiza sozinho se vier algo novo.
+  api()?.refreshCatalog().then((r) => {
+    if (r?.ok && r.data?.changed) refresh();
+  });
 }
 
 function close() {
@@ -78,6 +111,7 @@ function close() {
 }
 
 async function refresh() {
+  await loadIconIndex();
   const res = await api().state();
   if (!res?.ok) {
     setStatus(res?.error || 'Falha ao ler o catálogo.', 'error');
@@ -117,6 +151,16 @@ function renderRuntime() {
        ${esc(state.site)}
      </span>`,
   ];
+
+  // De onde a lista veio. Sem isso, uma lista velha por falha de rede seria
+  // indistinguivel de uma lista atual.
+  const remote = state.catalogSource === 'remote';
+  parts.push(`<span class="pylib-runtime-item" title="${esc(remote
+    ? tt('pylibs.catalog.remoteHint', 'Lista baixada de nipscernlab/aurora-pylibs')
+    : tt('pylibs.catalog.localHint', 'Lista que veio junto com esta versao da AURORA'))}">
+     <i class="ph ${remote ? 'ph-cloud-check' : 'ph-hard-drives'}" aria-hidden="true"></i>
+     ${esc(remote ? tt('pylibs.catalog.remote', 'lista atualizada') : tt('pylibs.catalog.local', 'lista local'))}
+   </span>`);
 
   parts.push(`<button class="pylib-btn pylib-btn-ghost pylib-verify-btn" id="pylib-verify-deep">
        <i class="ph ph-shield-check" aria-hidden="true"></i>
@@ -233,7 +277,7 @@ function renderCard(lib) {
   return `
     <div class="pylib-card" role="listitem" data-id="${esc(lib.id)}" data-state="${st}">
       <svg class="pylib-icon" aria-hidden="true" viewBox="0 0 32 32">
-        <use href="./assets/icons/pylibs.svg#pylib-${esc(lib.icon || 'generic')}"></use>
+        <use href="./assets/icons/pylibs.svg#pylib-${esc(iconId(lib))}"></use>
       </svg>
       <div class="pylib-info">
         <div class="pylib-head">

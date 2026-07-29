@@ -306,3 +306,125 @@ describe('integridade (o doutor)', () => {
     expect(r.broken).toContain('lib');
   });
 });
+
+describe('origem do catalogo (local vs remoto)', () => {
+  let tmp;
+  let catalog;
+
+  beforeEach(async () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-pylibs-cat-'));
+    process.env.AURORA_PYLIBS_ROOT = tmp;
+    catalog = await import('../../main/python/pylib_catalog.js');
+    catalog.invalidate();
+  });
+
+  afterEach(() => {
+    delete process.env.AURORA_PYLIBS_ROOT;
+    catalog.invalidate();
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  const valid = (over = {}) => ({
+    schemaVersion: 1,
+    python: { abiTag: 'cp312' },
+    categories: { viz: { pt: 'V', en: 'V' } },
+    libraries: [{
+      id: 'x', name: 'X', kind: 'pure', category: 'viz',
+      summary: { pt: 'a', en: 'a' }, uses: { pt: [], en: [] },
+      wheels: [{
+        name: 'x', version: '1', filename: 'x-1-py3-none-any.whl',
+        url: 'https://files.pythonhosted.org/x.whl', sha256: 'a'.repeat(64),
+      }],
+    }],
+    ...over,
+  });
+
+  it('sem cache, vale a copia embutida no app', () => {
+    const a = catalog.active();
+    expect(a.source).toBe('embedded');
+    expect(a.libraries.length).toBeGreaterThan(0);
+  });
+
+  it('com cache valido, o remoto tem precedencia', () => {
+    fs.writeFileSync(path.join(tmp, 'catalog-cache.json'), JSON.stringify({
+      fetchedAt: new Date().toISOString(), catalog: valid(),
+    }));
+    catalog.invalidate();
+    const a = catalog.active();
+    expect(a.source).toBe('remote');
+    expect(a.libraries[0].id).toBe('x');
+  });
+
+  it('cache com formato mais novo e RECUSADO — o embutido assume', () => {
+    // O cenario que essa guarda existe para cobrir: o catalogo do repo evolui e
+    // uma AURORA antiga o encontra. Ler errado seria pior do que ficar velho.
+    fs.writeFileSync(path.join(tmp, 'catalog-cache.json'), JSON.stringify({
+      fetchedAt: new Date().toISOString(), catalog: valid({ schemaVersion: 99 }),
+    }));
+    catalog.invalidate();
+    expect(catalog.active().source).toBe('embedded');
+  });
+
+  it('cache corrompido nao derruba nada', () => {
+    fs.writeFileSync(path.join(tmp, 'catalog-cache.json'), '{ isso nao e json');
+    catalog.invalidate();
+    expect(catalog.active().source).toBe('embedded');
+  });
+
+  it('validate recusa wheel sem sha256 utilizavel', () => {
+    const bad = valid();
+    bad.libraries[0].wheels[0].sha256 = 'curto-demais';
+    expect(catalog.validate(bad).ok).toBe(false);
+  });
+
+  it('validate recusa url que nao e https', () => {
+    const bad = valid();
+    bad.libraries[0].wheels[0].url = 'http://files.pythonhosted.org/x.whl';
+    expect(catalog.validate(bad).ok).toBe(false);
+  });
+
+  it('validate recusa id repetido', () => {
+    const bad = valid();
+    bad.libraries.push({ ...bad.libraries[0] });
+    expect(catalog.validate(bad).ok).toBe(false);
+  });
+
+  it('categoria desconhecida cai em "Outras" em vez de sumir da tela', () => {
+    const c = catalog.normalize({
+      schemaVersion: 1,
+      categories: { viz: { pt: 'V', en: 'V' } },
+      libraries: [{ id: 'a', category: 'viz' }, { id: 'b', category: 'inventada-no-futuro' }],
+    });
+    expect(c.libraries[0].category).toBe('viz');
+    expect(c.libraries[1].category).toBe(catalog.FALLBACK_CATEGORY);
+    expect(c.libraries[1].originalCategory).toBe('inventada-no-futuro');
+    expect(c.categories[catalog.FALLBACK_CATEGORY]).toBeTruthy();
+  });
+});
+
+describe('indice de icones', () => {
+  const INDEX = JSON.parse(
+    fs.readFileSync(path.join(process.cwd(), 'assets', 'icons', 'pylibs.json'), 'utf8'),
+  );
+  const SPRITE = fs.readFileSync(
+    path.join(process.cwd(), 'assets', 'icons', 'pylibs.svg'), 'utf8',
+  );
+
+  it('todo id do indice existe de fato no sprite', () => {
+    for (const id of INDEX.ids) {
+      expect(SPRITE).toContain(`id="pylib-${id}"`);
+    }
+  });
+
+  it('tem o simbolo generico — e o recuo de todo icone desconhecido', () => {
+    expect(INDEX.ids).toContain('generic');
+  });
+
+  it('todo icone citado pelo catalogo existe no sprite desta versao', () => {
+    // Nao e obrigatorio (o painel cai no generico), mas um icone faltando na
+    // nossa PROPRIA lista e descuido, nao evolucao do catalogo remoto.
+    const ids = new Set(INDEX.ids);
+    const faltando = CATALOG.libraries.map((l) => l.icon).filter((i) => i && !ids.has(i));
+    expect(faltando).toEqual([]);
+  });
+});

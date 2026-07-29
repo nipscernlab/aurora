@@ -953,6 +953,12 @@
       "running": "Conferindo todos os arquivos…",
       "clean": "Todas as bibliotecas estão íntegras.",
       "dirty": "{{n}} biblioteca(s) com problema."
+    },
+    "catalog": {
+      "remote": "lista atualizada",
+      "local": "lista local",
+      "remoteHint": "Lista baixada de nipscernlab/aurora-pylibs",
+      "localHint": "Lista que veio junto com esta versão da AURORA"
     }
   },
   "common": {

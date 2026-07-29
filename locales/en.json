@@ -953,6 +953,12 @@
       "running": "Checking every file…",
       "clean": "All libraries are intact.",
       "dirty": "{{n}} library(ies) with problems."
+    },
+    "catalog": {
+      "remote": "list up to date",
+      "local": "bundled list",
+      "remoteHint": "List downloaded from nipscernlab/aurora-pylibs",
+      "localHint": "List that shipped with this AURORA version"
     }
   },
   "common": {

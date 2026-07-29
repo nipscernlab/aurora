@@ -34,6 +34,11 @@ const path = require('path');
 const https = require('https');
 
 const OUT = path.join(__dirname, '..', 'assets', 'icons', 'pylibs.svg');
+// Indice dos simbolos que existem no sprite. O painel le este arquivo para
+// saber quando cair no generico: o catalogo e remoto e pode citar um icone que
+// esta versao da AURORA ainda nao tem, e um <use> apontando para um simbolo
+// inexistente nao desenha NADA — fica um buraco na linha, sem erro nenhum.
+const INDEX_OUT = path.join(__dirname, '..', 'assets', 'icons', 'pylibs.json');
 const CDN = (slug) => `https://cdn.jsdelivr.net/npm/simple-icons@15/icons/${slug}.svg`;
 
 /**
@@ -263,9 +268,14 @@ ${symbols.join('\n')}
 </svg>
 `;
 
+  const ids = [...Object.keys(BRANDS), ...Object.keys(NEUTRAL)];
+  const index = `${JSON.stringify({ ids }, null, 2)}
+`;
+
   if (check) {
+    const curIndex = fs.existsSync(INDEX_OUT) ? fs.readFileSync(INDEX_OUT, 'utf8') : '';
     const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
-    if (cur !== out) {
+    if (cur !== out || curIndex !== index) {
       process.stderr.write('[icones] sprite desatualizado — rode: node scripts/gen-pylib-icons.js\n');
       process.exit(1);
     }
@@ -274,7 +284,9 @@ ${symbols.join('\n')}
   }
 
   fs.writeFileSync(OUT, out);
+  fs.writeFileSync(INDEX_OUT, index);
   process.stdout.write(`\n[icones] ${symbols.length} simbolos -> ${path.relative(process.cwd(), OUT)}\n`);
+  process.stdout.write(`[icones] indice -> ${path.relative(process.cwd(), INDEX_OUT)}\n`);
 }
 
 if (require.main === module) {

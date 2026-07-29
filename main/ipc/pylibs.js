@@ -19,6 +19,7 @@ const log = require('electron-log');
 
 const pylibs = require('../python/pylib_manager');
 const watch = require('../python/pylib_watch');
+const catalog = require('../python/pylib_catalog');
 
 /** Envia progresso de volta para quem pediu, ignorando janela ja fechada. */
 function progressSender(/** @type {any} */ event) {
@@ -73,6 +74,12 @@ function register() {
     guard(() => pylibs.installExternal(String(name), { onProgress: progressSender(event) })));
 
   ipcMain.handle('pylibs:list-external', () => guard(async () => pylibs.listExternal()));
+
+  // Busca a lista no repositorio publico (nipscernlab/aurora-pylibs). Nunca
+  // lanca: falha de rede mantem a lista que ja estava valendo, entao o painel
+  // abre igual com ou sem internet.
+  ipcMain.handle('pylibs:refresh-catalog', (_event, force) =>
+    guard(() => catalog.refresh({ force: !!force })));
 
   // Diagnostico rapido (so stat) — e o que o painel pede ao abrir.
   ipcMain.handle('pylibs:doctor', () => guard(async () => watch.latest()));

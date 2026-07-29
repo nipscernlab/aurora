@@ -39,6 +39,7 @@ const crypto = require('crypto');
 
 const fetcher = require('../net/fetcher');
 const { pylibRoot, pylibSite, manifestFile, stagingDir, ensureDirs } = require('./pylib_paths');
+const catalogSource = require('./pylib_catalog');
 
 /**
  * Caminho do Python embarcado, resolvido tarde. O python_locator depende de
@@ -63,23 +64,14 @@ const PYPI_JSON = (name) => `https://pypi.org/pypi/${encodeURIComponent(name)}/j
 
 /* ── Catalogo ─────────────────────────────────────────────────────────────── */
 
-/** @type {any|null} */
-let catalogCache = null;
-
 /**
- * O catalogo curado, versionado junto com o app em resources/pylib-catalog.json.
- * Ele guarda metadados e hashes; os bytes vem da PyPI na instalacao.
+ * A lista em vigor. Quem escolhe entre o catalogo remoto (nipscernlab/
+ * aurora-pylibs) e a copia embutida no app e o pylib_catalog; aqui so se
+ * consome o resultado, entao instalar, remover e verificar funcionam igual
+ * independentemente de onde a lista veio.
  */
 function loadCatalog() {
-  if (catalogCache) return catalogCache;
-  const file = path.join(__dirname, '..', '..', 'resources', 'pylib-catalog.json');
-  try {
-    catalogCache = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch (e) {
-    log.error('[pylibs] catalogo ilegivel:', e);
-    catalogCache = { schemaVersion: MANIFEST_VERSION, python: {}, categories: {}, libraries: [] };
-  }
-  return catalogCache;
+  return catalogSource.active();
 }
 
 function catalogEntry(/** @type {string} */ id) {
@@ -304,6 +296,11 @@ function getState() {
 
   return {
     schemaVersion: catalog.schemaVersion,
+    // De onde a lista veio ('remote' | 'embedded') e quando. O painel mostra
+    // isso: sem essa informacao, uma lista desatualizada por falha de rede
+    // seria indistinguivel de uma lista atual.
+    catalogSource: catalog.source || 'embedded',
+    catalogFetchedAt: catalog.fetchedAt || null,
     python: { ...catalog.python, present: pythonPresent, path: pythonPath },
     categories: catalog.categories,
     site: pylibSite(),

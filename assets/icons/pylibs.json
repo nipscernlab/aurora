@@ -1,0 +1,31 @@
+{
+  "ids": [
+    "python",
+    "numpy",
+    "scipy",
+    "pandas",
+    "plotly",
+    "pytest",
+    "sympy",
+    "tqdm",
+    "rich",
+    "vcd",
+    "cocotb",
+    "pyuvm",
+    "pygal",
+    "plotext",
+    "drawsvg",
+    "mpmath",
+    "fixedpoint",
+    "uncertainties",
+    "intelhex",
+    "construct",
+    "crc",
+    "pyserial",
+    "networkx",
+    "tabulate",
+    "humanize",
+    "matplotlib",
+    "generic"
+  ]
+}

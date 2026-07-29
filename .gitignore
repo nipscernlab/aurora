@@ -103,6 +103,32 @@ js/wave/testbench_instrumenter.js
 js/wave/vcd_parser.js
 js/wave/wave_state_store.js
 
+# --- LaTeX build artefacts (docs/) ---
+# The .tex sources AND the built main.pdf are tracked on purpose — the PDF is
+# the reader-facing manual, shipped straight from the repo. Everything else
+# pdflatex drops beside them is per-build scratch: regenerated on every compile,
+# changes on every run, and pure noise in diffs. (*.log is already covered by
+# the global rule at the top of this file.)
+docs/**/*.aux
+docs/**/*.out
+docs/**/*.toc
+docs/**/*.lof
+docs/**/*.lot
+docs/**/*.fls
+docs/**/*.fdb_latexmk
+docs/**/*.synctex.gz
+docs/**/*.bbl
+docs/**/*.blg
+docs/**/*.idx
+docs/**/*.ind
+docs/**/*.ilg
+docs/**/*.nav
+docs/**/*.snm
+docs/**/*.vrb
+docs/**/*.bcf
+docs/**/*.run.xml
+docs/**/*.xdv
+
 # --- Local env / secrets ---
 .env
 .env.*

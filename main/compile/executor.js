@@ -30,7 +30,6 @@
 'use strict';
 
 const os = require('os');
-const fs = require('fs');
 const { ipcMain } = require('electron');
 const log = require('electron-log');
 
@@ -80,39 +79,21 @@ function buildChildEnv(spec) {
     if (safeDirs.length) env.PATH = safeDirs.join(sep) + sep + (env.PATH || '');
   }
 
-  // Bibliotecas Python instaladas pelo painel (components/PyLibs/site) entram no
-  // PYTHONPATH do cocotb aqui, no processo principal, e nao onde o renderer
-  // monta a variavel. Dois motivos:
-  //   - o renderer nao precisa conhecer o caminho de instalacao, entao nao ha
-  //     um segundo lugar para esquecer de atualizar quando ele mudar;
-  //   - isto roda DEPOIS da mesclagem de spec.env, entao o valor final e sempre
-  //     o nosso, mesmo que um override tenha mexido na variavel.
-  // A condicao e a presenca da propria variavel: so o spec `cocotb-run` a
-  // carrega, entao nenhum outro passo da toolchain e afetado.
-  if (typeof env.AURORA_COCOTB_PYTHONPATH === 'string') {
-    const site = pylibSitePath();
-    if (site && !env.AURORA_COCOTB_PYTHONPATH.split(sep).includes(site)) {
-      env.AURORA_COCOTB_PYTHONPATH = env.AURORA_COCOTB_PYTHONPATH
-        ? `${env.AURORA_COCOTB_PYTHONPATH}${sep}${site}`
-        : site;
-    }
-  }
+  // NOTA sobre as bibliotecas Python do painel: elas NAO entram aqui.
+  //
+  // Houve uma versao deste arquivo que acrescentava components/PyLibs/site ao
+  // AURORA_COCOTB_PYTHONPATH. Funcionava, mas so para o cocotb — um `.py` solto
+  // ou uma linha digitada no TCMD nao via biblioteca nenhuma.
+  //
+  // A ligacao passou a ser feita por um arquivo `.pth` dentro do site-packages
+  // do proprio interpretador embarcado (ver main/python/pylib_paths.js). O
+  // Python le esse arquivo na inicializacao, entao as bibliotecas valem para
+  // QUALQUER execucao dele, sem variavel de ambiente — e continuam invisiveis
+  // para o Python que o usuario tenha instalado na maquina.
+  //
+  // Manter as duas coisas seria dois mecanismos para o mesmo fim, com o risco de
+  // divergirem. Ficou so o `.pth`.
   return env;
-}
-
-/**
- * Diretorio das bibliotecas instaladas, ou '' quando nada foi instalado ainda.
- * Resolvido a cada chamada (o usuario pode instalar com o app aberto) e sempre
- * defensivo: uma falha aqui nao pode derrubar uma compilacao.
- */
-function pylibSitePath() {
-  try {
-    const { pylibSite } = require('../python/pylib_paths');
-    const site = pylibSite();
-    return fs.existsSync(site) ? site : '';
-  } catch (_) {
-    return '';
-  }
 }
 
 // Toolchain children get more CPU than the rest of the desktop's normal-

@@ -51,6 +51,80 @@ try {
 /** @type {Map<string, { proc: any, dispose: () => void }>} */
 const sessions = new Map();
 
+/**
+ * Trecho de PowerShell que ensina a sessao a alcancar o Python da AURORA.
+ *
+ * O PROBLEMA QUE ELE RESOLVE SEM CRIAR OUTRO
+ * ------------------------------------------
+ * O TCMD e um shell de verdade: `python` ali significa o Python que o usuario
+ * instalou na maquina, com os pacotes que ele instalou por pip. Isso e desejavel
+ * e nao pode ser tomado dele.
+ *
+ * A tentacao seria exportar PYTHONPATH apontando para o nosso PyLibs. Seria
+ * errado: essa variavel e lida por QUALQUER python que rode no terminal,
+ * inclusive o do usuario, e as nossas bibliotecas passariam a se misturar com as
+ * dele. E exatamente a colisao a evitar.
+ *
+ * Aqui nao se toca em PATH nem em PYTHONPATH. Define-se:
+ *
+ *   apython           — invoca SEMPRE o interpretador embarcado. As bibliotecas
+ *                       do painel chegam nele por um arquivo `.pth` dentro do
+ *                       proprio site-packages dele (ver pylib_paths.js), nunca
+ *                       por variavel de ambiente.
+ *   Use-Python aurora — faz `python` significar o nosso NESTA sessao, definindo
+ *                       uma funcao com esse nome (funcao tem precedencia sobre
+ *                       executavel do PATH em PowerShell).
+ *   Use-Python system — apaga essa funcao, e `python` volta a ser o do usuario.
+ *   Use-Python        — mostra qual esta valendo.
+ *
+ * O padrao e `system`: o terminal comeca sendo o shell que o usuario espera, e a
+ * troca e um ato explicito dele.
+ *
+ * @param {string} exe caminho do python.exe embarcado ('' se o bundle nao existe)
+ */
+function pythonBridgeScript(exe) {
+  if (!exe) return '';
+  const q = exe.replace(/'/g, "''");
+  return `
+$env:AURORA_PYTHON_EXE = '${q}'
+function apython { & $env:AURORA_PYTHON_EXE @args }
+# A deteccao usa Get-Command -CommandType Function, e a remocao usa
+# 'function:python' SEM o prefixo global: e COM -Force. Medido na pratica:
+# 'Remove-Item function:global:python' nao remove nada (e Test-Path continua
+# dizendo que existe), o que fazia 'Use-Python system' anunciar a troca sem
+# efetua-la — o pior tipo de defeito, porque mente para o usuario.
+function Test-AuroraPythonActive {
+  [bool](Get-Command python -CommandType Function -ErrorAction SilentlyContinue)
+}
+function Use-Python {
+  param([ValidateSet('aurora','system','')] [string] $Which = '')
+  if ($Which -eq 'aurora') {
+    Set-Item -Path function:global:python -Value { & $env:AURORA_PYTHON_EXE @args }
+    Write-Host 'python -> AURORA (bibliotecas do painel disponiveis)' -ForegroundColor Cyan
+  } elseif ($Which -eq 'system') {
+    if (Test-AuroraPythonActive) { Remove-Item -LiteralPath 'function:python' -Force }
+    Write-Host 'python -> o do sistema (suas bibliotecas do pip)' -ForegroundColor Cyan
+  } else {
+    if (Test-AuroraPythonActive) { Write-Host 'python -> AURORA' }
+    else { Write-Host 'python -> o do sistema' }
+    Write-Host 'troque com: Use-Python aurora | Use-Python system' -ForegroundColor DarkGray
+    Write-Host 'ou chame o da AURORA direto com: apython script.py' -ForegroundColor DarkGray
+  }
+}
+`.trim();
+}
+
+/** Caminho do interpretador embarcado, ou '' se o bundle nao esta instalado. */
+function bundledPythonExe() {
+  try {
+    const { getBundledPythonPath } = require('../compile/python_locator');
+    const exe = getBundledPythonPath();
+    return fs.existsSync(exe) ? exe : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 function shellCommand() {
   if (process.platform === 'win32') {
     const base = ['-NoLogo'];
@@ -59,10 +133,18 @@ function shellCommand() {
     // global $PROFILE is untouched and (b) it sidesteps the script-file
     // ExecutionPolicy (Restricted/RemoteSigned machines still get the prompt).
     // -NoExit keeps the session interactive after the bootstrap runs.
+    const parts = [];
     if (fs.existsSync(PROMPT_SCRIPT)) {
       const q = PROMPT_SCRIPT.replace(/'/g, "''");
-      const bootstrap = `$p = '${q}'; if (Test-Path -LiteralPath $p) { . ([ScriptBlock]::Create((Get-Content -Raw -LiteralPath $p))) }`;
-      const encoded = Buffer.from(bootstrap, 'utf16le').toString('base64');
+      parts.push(`$p = '${q}'; if (Test-Path -LiteralPath $p) { . ([ScriptBlock]::Create((Get-Content -Raw -LiteralPath $p))) }`);
+    }
+    // A ponte para o Python entra no MESMO bootstrap, pelo mesmo motivo: vale so
+    // nesta sessao e nao encosta no $PROFILE do usuario.
+    const bridge = pythonBridgeScript(bundledPythonExe());
+    if (bridge) parts.push(bridge);
+
+    if (parts.length) {
+      const encoded = Buffer.from(parts.join('\n'), 'utf16le').toString('base64');
       base.push('-NoExit', '-EncodedCommand', encoded);
     }
     return { file: 'powershell.exe', args: base };

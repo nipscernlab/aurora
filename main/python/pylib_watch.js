@@ -121,6 +121,19 @@ function preRunCheck() {
 function start() {
   if (timer) return;
 
+  // Reescreve a ligacao do PyLibs com o interpretador, se preciso. Roda aqui
+  // porque uma re-instalacao da toolchain apaga o `.pth` junto com o bundle: sem
+  // isto, as bibliotecas continuariam no disco e o Python pararia de ve-las, o
+  // que apareceria como ImportError sem causa aparente.
+  try {
+    const r = pylibs.ensureSitePth();
+    if (!r.ok && r.reason !== 'nenhuma biblioteca instalada') {
+      log.warn(`[pylibs] nao deu para ligar o PyLibs ao interpretador: ${r.reason}`);
+    }
+  } catch (e) {
+    log.error('[pylibs] falha ao ligar o PyLibs:', e);
+  }
+
   // Primeira ronda um pouco depois da abertura, para nao disputar disco com o
   // carregamento da janela.
   setTimeout(() => sweep({ reason: 'startup' }), 8000).unref?.();

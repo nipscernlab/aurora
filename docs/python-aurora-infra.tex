@@ -364,6 +364,12 @@ fixado. Não há resolvedor de dependências, e isso é proposital: sem \texttt{
 no runtime não existe resolvedor, então o catálogo já traz o fecho completo
 pronto e o instalador apenas obedece à lista.
 
+\subsection{Para que servem, e onde ficam}
+
+As bibliotecas instaladas pelo painel valem para \emph{qualquer} arquivo Python
+executado pelo interpretador embarcado: um testbench cocotb, um script solto do
+projeto, uma linha digitada no terminal. Não são um recurso do fluxo cocotb.
+
 \subsection{Onde as bibliotecas são instaladas}
 
 Em \texttt{components/PyLibs/site/}, e não no \texttt{site-packages} do bundle.
@@ -374,15 +380,54 @@ faltando ou desatualizado, e o \texttt{components/Packages/} inteiro é
 significaria perdê-lo num \texttt{--force} ou quando alguém apaga a pasta para
 consertar a toolchain, que é o conserto documentado.
 
-Sem \texttt{pip} nem \texttt{ensurepip}, \texttt{venv} não é uma opção real; o
-isolamento é por diretório mais \texttt{PYTHONPATH}. O diretório entra no
-\texttt{AURORA\_COCOTB\_PYTHONPATH} pelo processo principal, em
-\texttt{main/compile/executor.js}, e não onde o renderer monta a variável: assim
-vale sempre, e o valor final é o nosso mesmo que um \emph{override} tenha mexido
-na variável. Pela mesma razão, o \texttt{AURORA\_COCOTB\_PYTHONPATH} passou a
-integrar as chaves protegidas do passo \texttt{cocotb-run} — depois que ele
-carrega código instalado, reescrevê-lo passa a ser escolher de onde o Python
-importa módulo.
+\subsection{Como o interpretador encontra as bibliotecas}
+
+Sem \texttt{pip} nem \texttt{ensurepip}, \texttt{venv} não é uma opção real. A
+ligação é feita por um arquivo \texttt{aurora-pylibs.pth} escrito dentro do
+\texttt{site-packages} do próprio interpretador embarcado. O Python lê, na
+inicialização, todo \texttt{.pth} que encontra ali e acrescenta ao
+\texttt{sys.path} as pastas listadas. Isso resolve os dois requisitos de uma vez:
+
+\begin{itemize}
+  \item \textbf{Alcance.} Vale para qualquer execução deste interpretador, sem
+        depender de quem o chamou nem de exportar variável de ambiente.
+  \item \textbf{Isolamento.} Vale só para este interpretador. O \texttt{site.py}
+        de cada Python lê apenas os \texttt{.pth} do \texttt{site-packages} dele,
+        então o Python que o usuário tem instalado na máquina nunca enxerga o
+        nosso \texttt{PyLibs} e não há colisão com o que ele instalou por
+        \texttt{pip}.
+\end{itemize}
+
+Uma variável \texttt{PYTHONPATH} no ambiente do terminal faria o oposto: seria
+lida por qualquer Python que rodasse ali, inclusive o do usuário. Houve uma versão
+que acrescentava o diretório ao \texttt{AURORA\_COCOTB\_PYTHONPATH} em
+\texttt{main/compile/executor.js}; funcionava, mas só para o cocotb, e foi
+substituída pelo \texttt{.pth} para não manter dois mecanismos com o mesmo fim. O
+\texttt{AURORA\_COCOTB\_PYTHONPATH} segue nas chaves protegidas do passo
+\texttt{cocotb-run}, porque continua sendo um caminho de carregamento de código.
+
+O arquivo é reescrito na abertura do app (\texttt{main/python/pylib\_watch.js}),
+porque uma reinstalação da toolchain o apaga junto com o bundle. Ele não é estado:
+é um ponteiro de uma linha, e nada se perde se desaparecer.
+
+\subsection{Escolher o Python no terminal}
+
+O TCMD é um shell de verdade, e \texttt{python} ali significa o Python que o
+usuário instalou. Isso não lhe é tomado. A sessão ganha três comandos, definidos
+no mesmo \emph{bootstrap} que carrega o \emph{prompt}, sem tocar em
+\texttt{PATH} nem em \texttt{PYTHONPATH}:
+
+\begin{itemize}
+  \item \texttt{apython} — invoca sempre o interpretador embarcado.
+  \item \texttt{Use-Python aurora} — faz \texttt{python} significar o nosso nesta
+        sessão, definindo uma função com esse nome (em PowerShell, função tem
+        precedência sobre executável do \texttt{PATH}).
+  \item \texttt{Use-Python system} — apaga a função, e \texttt{python} volta a ser
+        o do usuário.
+\end{itemize}
+
+O padrão é \texttt{system}: o terminal começa sendo o shell que o usuário espera,
+e a troca é um ato explícito dele.
 
 \subsection{Instalar, remover, reparar}
 

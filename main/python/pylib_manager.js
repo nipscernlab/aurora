@@ -38,7 +38,9 @@ const path = require('path');
 const crypto = require('crypto');
 
 const fetcher = require('../net/fetcher');
-const { pylibRoot, pylibSite, manifestFile, stagingDir, ensureDirs } = require('./pylib_paths');
+const {
+  pylibRoot, pylibSite, manifestFile, stagingDir, ensureDirs, sitePthFile,
+} = require('./pylib_paths');
 const catalogSource = require('./pylib_catalog');
 
 /**
@@ -269,6 +271,46 @@ function verifyFiles(rec, opts = {}) {
   };
 }
 
+/* ── Ligacao com o interpretador ──────────────────────────────────────────── */
+
+/**
+ * Garante que o `.pth` que aponta para o PyLibs existe e esta correto.
+ *
+ * Idempotente e barato (uma leitura e, no maximo, uma escrita de uma linha), de
+ * modo que pode rodar na abertura do app e depois de cada instalacao. E o que
+ * faz as bibliotecas valerem para qualquer arquivo Python, e nao so para o
+ * fluxo do cocotb — ver o comentario em pylib_paths.sitePthFile.
+ *
+ * @returns {{ok:boolean, path?:string, reason?:string}}
+ */
+function ensureSitePth() {
+  const pth = sitePthFile();
+  if (!pth) return { ok: false, reason: 'bundle do Python nao encontrado' };
+
+  const site = pylibSite();
+  if (!fs.existsSync(site)) return { ok: false, reason: 'nenhuma biblioteca instalada' };
+
+  // O Python precisa do caminho no formato nativo do Windows.
+  const line = `${path.normalize(site)}\n`;
+  try {
+    if (fs.existsSync(pth) && fs.readFileSync(pth, 'utf8') === line) {
+      return { ok: true, path: pth };
+    }
+    fs.writeFileSync(pth, line);
+    log.info(`[pylibs] ligacao com o interpretador escrita em ${pth}`);
+    return { ok: true, path: pth };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Desfaz a ligacao. Usado quando a ultima biblioteca e removida. */
+function removeSitePth() {
+  const pth = sitePthFile();
+  if (!pth) return;
+  try { fs.rmSync(pth, { force: true }); } catch (_) { /* best-effort */ }
+}
+
 /* ── Estado para o painel ─────────────────────────────────────────────────── */
 
 /**
@@ -417,6 +459,7 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
       hashes,
     };
     writeManifest(manifest);
+    ensureSitePth();
 
     onProgress({ id, phase: 'done', pct: 100 });
     log.info(`[pylibs] instalada ${id} ${entry.version} (${files.length} arquivos)`);
@@ -471,6 +514,9 @@ function uninstall(id) {
   delete manifest.installed[id];
   writeManifest(manifest);
   pruneEmptyDirs(site);
+  // Sem biblioteca nenhuma, o ponteiro nao tem mais razao de existir: deixa o
+  // interpretador exatamente como estava antes do painel ser usado.
+  if (!Object.keys(manifest.installed).length) removeSitePth();
 
   log.info(`[pylibs] removida ${id} (${removed} arquivos, ${kept} preservados por outra lib)`);
   return { id, removed, kept };
@@ -739,6 +785,8 @@ module.exports = {
   listExternal,
   doctor,
   sentinelCheck,
+  ensureSitePth,
+  removeSitePth,
   verifyFiles,
   parseRecord,
   readManifest,

@@ -428,3 +428,105 @@ describe('indice de icones', () => {
     expect(faltando).toEqual([]);
   });
 });
+
+describe('ligacao com o interpretador (.pth)', () => {
+  let tmp;
+  let fakeSitePackages;
+  let manager;
+  let paths;
+
+  beforeEach(async () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-pylibs-pth-'));
+    fakeSitePackages = path.join(tmp, 'bundle-site-packages');
+    fs.mkdirSync(fakeSitePackages, { recursive: true });
+    process.env.AURORA_PYLIBS_ROOT = tmp;
+    process.env.AURORA_BUNDLE_SITE = fakeSitePackages;
+    manager = await import('../../main/python/pylib_manager.js');
+    paths = await import('../../main/python/pylib_paths.js');
+  });
+
+  afterEach(() => {
+    delete process.env.AURORA_PYLIBS_ROOT;
+    delete process.env.AURORA_BUNDLE_SITE;
+    fs.rmSync(tmp, { recursive: true, force: true });
+  });
+
+  it('o ponteiro mora no site-packages do NOSSO interpretador', () => {
+    // E disso que vem o isolamento: o site.py de cada Python le apenas os .pth
+    // do site-packages dele. O Python do usuario nunca alcanca o nosso PyLibs,
+    // entao nao ha colisao com o que ele instalou por pip.
+    expect(paths.sitePthFile()).toBe(path.join(fakeSitePackages, 'aurora-pylibs.pth'));
+  });
+
+  it('nao escreve ponteiro quando nao ha biblioteca instalada', () => {
+    const r = manager.ensureSitePth();
+    expect(r.ok).toBe(false);
+    expect(fs.existsSync(paths.sitePthFile())).toBe(false);
+  });
+
+  it('escreve o caminho do PyLibs, no formato do Windows', () => {
+    fs.mkdirSync(path.join(tmp, 'site'), { recursive: true });
+    const r = manager.ensureSitePth();
+    expect(r.ok).toBe(true);
+    const content = fs.readFileSync(paths.sitePthFile(), 'utf8');
+    expect(content.trim()).toBe(path.normalize(path.join(tmp, 'site')));
+  });
+
+  it('e idempotente: rodar de novo nao reescreve', () => {
+    fs.mkdirSync(path.join(tmp, 'site'), { recursive: true });
+    manager.ensureSitePth();
+    const before = fs.statSync(paths.sitePthFile()).mtimeMs;
+    manager.ensureSitePth();
+    expect(fs.statSync(paths.sitePthFile()).mtimeMs).toBe(before);
+  });
+
+  it('conserta um ponteiro que aponta para o lugar errado', () => {
+    fs.mkdirSync(path.join(tmp, 'site'), { recursive: true });
+    fs.writeFileSync(paths.sitePthFile(), 'C:\\lugar\\errado\n');
+    manager.ensureSitePth();
+    expect(fs.readFileSync(paths.sitePthFile(), 'utf8').trim())
+      .toBe(path.normalize(path.join(tmp, 'site')));
+  });
+
+  it('remover a ULTIMA biblioteca desfaz a ligacao', () => {
+    const site = path.join(tmp, 'site');
+    fs.mkdirSync(path.join(site, 'solo'), { recursive: true });
+    fs.writeFileSync(path.join(site, 'solo', 'mod.py'), 'x');
+    fs.writeFileSync(path.join(tmp, 'installed.json'), JSON.stringify({
+      schemaVersion: 1,
+      installed: { solo: { version: '1', installedAt: '', wheels: [], files: ['solo/mod.py'], hashes: {} } },
+    }));
+    manager.ensureSitePth();
+    expect(fs.existsSync(paths.sitePthFile())).toBe(true);
+
+    manager.uninstall('solo');
+    // O interpretador volta exatamente ao estado anterior ao uso do painel.
+    expect(fs.existsSync(paths.sitePthFile())).toBe(false);
+  });
+
+  it('remover UMA de duas mantem a ligacao', () => {
+    const site = path.join(tmp, 'site');
+    fs.mkdirSync(path.join(site, 'a'), { recursive: true });
+    fs.mkdirSync(path.join(site, 'b'), { recursive: true });
+    fs.writeFileSync(path.join(site, 'a', 'mod.py'), 'x');
+    fs.writeFileSync(path.join(site, 'b', 'mod.py'), 'y');
+    fs.writeFileSync(path.join(tmp, 'installed.json'), JSON.stringify({
+      schemaVersion: 1,
+      installed: {
+        a: { version: '1', installedAt: '', wheels: [], files: ['a/mod.py'], hashes: {} },
+        b: { version: '1', installedAt: '', wheels: [], files: ['b/mod.py'], hashes: {} },
+      },
+    }));
+    manager.ensureSitePth();
+    manager.uninstall('a');
+    expect(fs.existsSync(paths.sitePthFile())).toBe(true);
+  });
+
+  it('sem bundle do Python, falha limpo em vez de estourar', () => {
+    delete process.env.AURORA_BUNDLE_SITE;
+    fs.mkdirSync(path.join(tmp, 'site'), { recursive: true });
+    const r = manager.ensureSitePth();
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/bundle/i);
+  });
+});

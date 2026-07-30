@@ -35,6 +35,11 @@ components/Backup/
 components/Packages/
 saphoComponents/Packages/
 
+# Bibliotecas Python instaladas pelo painel, mais o manifesto e o cache do
+# catalogo remoto. Tudo estado POR MAQUINA: o que se versiona e a LISTA
+# (resources/pylib-catalog.json), nunca o que foi instalado nesta copia.
+components/PyLibs/
+
 # Version manifest kept by scripts/verify-components.js — per-machine record of
 # which toolchain tag is installed for each component, used to detect a version
 # bump on `npm install` / `npm run components:verify`. Never commit it.

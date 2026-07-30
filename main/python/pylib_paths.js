@@ -72,4 +72,78 @@ function ensureDirs() {
   return { root: pylibRoot(), site: pylibSite() };
 }
 
-module.exports = { pylibRoot, pylibSite, manifestFile, stagingDir, ensureDirs };
+/**
+ * O site-packages do interpretador embarcado.
+ *
+ * Varre por `python3.*` em vez de fixar `python3.12` para sobreviver a um bump
+ * de versao menor do bundle. Devolve '' quando o bundle nao esta instalado.
+ */
+function bundleSitePackages() {
+  // Valvula de teste, no mesmo padrao de AURORA_PYLIBS_ROOT e AURORA_CLI_CACHE:
+  // fora do Electron o `main/paths.js` nao resolve, e sem isto nao havia como
+  // exercitar a ligacao com o interpretador em teste nenhum.
+  if (process.env.AURORA_BUNDLE_SITE) return process.env.AURORA_BUNDLE_SITE;
+
+  let componentsPath;
+  try {
+    ({ componentsPath } = require('../paths'));
+  } catch (_) {
+    return '';
+  }
+  const libBase = path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'lib');
+  let entries;
+  try {
+    entries = fs.readdirSync(libBase);
+  } catch (_) {
+    return '';
+  }
+  for (const name of entries) {
+    if (!/^python3\./i.test(name)) continue;
+    const sp = path.join(libBase, name, 'site-packages');
+    if (fs.existsSync(sp)) return sp;
+  }
+  return '';
+}
+
+/**
+ * O arquivo `.pth` que liga o PyLibs ao interpretador.
+ *
+ * POR QUE UM .pth E NAO UMA VARIAVEL DE AMBIENTE
+ * ---------------------------------------------
+ * O Python le, na inicializacao, todo arquivo `.pth` que encontra no proprio
+ * site-packages, e acrescenta ao sys.path as pastas listadas neles. Isso resolve
+ * de uma vez os dois requisitos:
+ *
+ *   ALCANCE  — vale para QUALQUER execucao deste interpretador: o runner do
+ *              cocotb, um `.py` solto do projeto, uma linha digitada no TCMD.
+ *              Nao depende de quem chamou nem de exportar variavel.
+ *
+ *   ISOLAMENTO — vale SO para este interpretador. O `site.py` de cada Python le
+ *              apenas os `.pth` do site-packages dele. O Python que o usuario
+ *              tem instalado na maquina nunca enxerga o nosso PyLibs, entao nao
+ *              ha colisao possivel com o que ele instalou por pip.
+ *
+ * Uma variavel PYTHONPATH no ambiente do terminal faria o oposto: seria lida por
+ * QUALQUER python que rodasse ali, inclusive o do usuario. E exatamente a
+ * colisao que se quer evitar.
+ *
+ * O arquivo mora dentro do bundle, que e artefato descartavel — de proposito.
+ * Ele nao e estado: e um ponteiro de uma linha, recriado na abertura do app. Se
+ * a toolchain for re-baixada e levar o ponteiro embora, ele volta sozinho. O
+ * argumento que mantem as BIBLIOTECAS fora do bundle nao se aplica aqui, porque
+ * nada se perde se este arquivo desaparecer.
+ */
+function sitePthFile() {
+  const sp = bundleSitePackages();
+  return sp ? path.join(sp, 'aurora-pylibs.pth') : '';
+}
+
+module.exports = {
+  pylibRoot,
+  pylibSite,
+  manifestFile,
+  stagingDir,
+  ensureDirs,
+  bundleSitePackages,
+  sitePthFile,
+};

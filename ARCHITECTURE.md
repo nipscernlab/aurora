@@ -263,6 +263,8 @@ Before merging any change to this layer, walk through:
 - [ ] Did you add a `DOMContentLoaded` listener? Verify it doesn't depend on later listeners having run.
 - [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §9 — if the path bypasses `_resolveWaveSelection` / `validateSelection`, you're recreating a class of bug we've already fixed.
 - [ ] Did you rename a symbol mentioned in this doc? Grep ARCHITECTURE.md for the old name and update it — and grep the codebase for `ARCHITECTURE.md §` to keep section cross-references in code comments honest.
+- [ ] Did you hardcode `.cmm` in a processor path? See §11 — the processor front end is about to become language-dispatched, and every new literal `.cmm` is one more site to untangle.
+- [ ] Did you add a processor capability as a button only? See §11 — it lands in `aurora_api.js` and `main/ai/tools.js` first, then in the UI.
 
 Smoke test (manual, ~2 min):
 1. Open Aurora. Last project should auto-load.
@@ -273,3 +275,26 @@ Smoke test (manual, ~2 min):
 
 Smoke test (automated, runs in CI):
 - [tests/e2e/smoke.test.js](tests/e2e/smoke.test.js) launches a real Aurora via Playwright's Electron API and asserts Monaco initializes without the failure markers we've hit (notably "EditorManager has not been initialized" and the Monaco 0.53 contribution-module crash). Run locally with `npm run test:e2e`.
+
+## 11. Processor front end is language-dispatched (planned)
+
+A SAPHO processor's source is a `.cmm` today, but the yanc toolchain also has a C++ front end
+(`cpppp` + `cppcomp`) that converges on the same `Software/<proc>.asm` + `cmm_log.txt`. From
+`appcomp` onward the pipeline is identical, so the split is confined to one step at the front.
+
+Two invariants govern that work, and they apply to code written before it lands:
+
+The front-end step is chosen from the processor's source language, not assumed. Sites that currently
+assume `.cmm` and will have to dispatch: [spec_factory.ts](js/compilation/spec_factory.ts) (the
+`step === 'cmm'` branch and both `replace(/\.cmm$/i, '')` calls),
+[processor_compiler.js](js/compilation/processor_compiler.js) (`cmmCompilation`),
+[compilation_flow.js](js/compilation/compilation_flow.js) (`STEP_TERMINALS`, `STEP_CLEARS`,
+`resolveFallbackCmmPath`, `handleCmmStep`), and [file_mode.js](js/project/file_mode.js)
+(`SOFTWARE_EXTENSIONS`). Don't add a fifth.
+
+Every processor capability is an AI-callable API before it is a button.
+[aurora_api.js](js/api/aurora_api.js) → [main/ai/tools.js](main/ai/tools.js) → MCP, then the panel,
+and the panel calls the same API the model calls. A capability reachable only through a click is a
+bug in this layer.
+
+Full plan and gap inventory: [docs/ESTUDO_CPP_PROCESSADORES.md](docs/ESTUDO_CPP_PROCESSADORES.md).

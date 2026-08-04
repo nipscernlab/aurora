@@ -15,6 +15,11 @@
 
 ## Next (capability)
 
+- C++ as a second processor source language, alongside C±. The yanc front end
+  (`cpppp` + `cppcomp`) already exists and converges on the same assembly, so the
+  work is AURORA-side integration plus a dedicated C++ processor-creation panel.
+  Every capability ships as an AI-callable API before it ships as a button.
+  Plan and gap inventory: [docs/ESTUDO_CPP_PROCESSADORES.md](docs/ESTUDO_CPP_PROCESSADORES.md).
 - Persistent AI process per conversation (kill the per-turn CLI cold-start);
   retire the legacy spawn paths once the SDK engines have live mileage.
 - Style consolidation (single button/card system, tokenised panels — ESTUDO §15).

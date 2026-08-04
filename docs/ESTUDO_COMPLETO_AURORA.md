@@ -2825,6 +2825,26 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 - [~] **O1** Surfer embarcado (WASM em iframe + sync WCP editor↔onda) — **due diligence FEITA 19/06/2026, BLOQUEADO no dev** (ver §16 do surfer-feasibility): (1) iframe WASM sem bundle web baixável (GitLab packages só nativo) + remoto descartado por CSP/sandbox/offline/privacidade; (2) `surfer.exe` v0.7.0 suporta `--wcp-initiate` (confirmado), mas o spec WCP está 404/instável e o handshake TCP não é validável aqui. Precisa de máquina com Rust+`trunk` (build do bundle) e/ou o app rodando ao vivo (iterar WCP). Viewer externo (§9–§15) cobre o uso; embed é conveniência, não bloqueia nada. · [x] **`<aurora-panel>` dockável** — FEITO 19/06/2026: shell semântico seguro (role=region + aria-label landmark + helper puro nextCollapseState), sidebar embrulhado como `<aurora-panel class="file-tree-container">`, resize.js usa o helper; NÃO o docking-rewrite arriscado (mesma decisão do aurora-tree passo 2). +3 testes; 9 E2E. Ver §14.45. **Surfer-polish:** tag (procType) nas variáveis multi-proc (Surfer+GTKWave, single-proc byte-idêntico; +4 testes; §14.46). **Git badges:** alinhados à direita nas 2 file trees (margin-left:auto + host .verilog-file-content; §14.47).
 - [ ] **O5** YoWASP · **B11** cross-platform (Linux/Mac).
 
+**Frente nova — processadores em C++ (aberta 04/08/2026):**
+Estudo completo em [ESTUDO_CPP_PROCESSADORES.md](ESTUDO_CPP_PROCESSADORES.md). Resumo: o front-end C++
+do yanc (`cpppp` + `cppcomp`) já existe, é maduro (66 testes no `regress.sh`, classes/herança/vtable/
+templates/lambdas/RAII/STL parcial) e converge no mesmo `.asm` + `cmm_log.txt` do cmmcomp — do appcomp
+em diante o pipeline é byte a byte o mesmo. Os binários **já são distribuídos** em `components/bin/` e os
+headers em `components/Header/`; falta só a integração na AURORA. Regra de execução: **cada capacidade
+nasce como API** (`aurora_api.js` → `tools.js` → MCP) **antes de virar botão** — a IA tem que conseguir
+fazer tudo que o painel faz. E a criação de processadores C++ ganha **painel próprio**, não um seletor
+enfiado no Processor Hub atual.
+- [ ] **Fase 1 (só AURORA)** — allowlist (`cpppp.exe`/`cppcomp.exe`), `builders/cpp.ts`, ramo `cpp` no
+  `spec_factory`, `cppCompilation` no `processor_compiler`, despacho por linguagem no `compilation_flow`,
+  `.cpp` em `SOFTWARE_EXTENSIONS`/detector, `compile.compileStep('cpp')` + tool. Entrega: `.cpp` → `.v`.
+- [ ] **Fase 2 (painel + API completa)** — painel C++ próprio sobre módulo comum de validação, template
+  com `#pragma yanc`, parser irmão do `parseCmmHeader`, `language` em create/get/listProcessors,
+  `setProcessorSource`, seção `pragmas` no `sapho_rules.json` + `list_pragmas`/`get_pragma`/`get_cpp_stdlib`,
+  parágrafo C++ no system prompt (com os limites declarados).
+- [ ] **Fase 3 (no yanc)** — `#pragma yanc toaqui`/`praca` (desbloqueia o botão Verilator p/ C++),
+  builtins `fin`/`fout`, `<cmath>` como casca sobre as macros `float_*.asm`, `#line` no `cpppp`.
+  Fora de escopo declarado: complexos e notação de Dirac em C++.
+
 **Externo/manual:** [ ] B2 code signing (cert) · [ ] mídia real do README · [ ] toggles do GitHub.
 
 ---
@@ -3120,3 +3140,29 @@ Claude/Codex (attempt loop gated pelo flag anyEvent — só re-tenta se NADA che
 caminho API (streamText maxRetries:3). Timeouts migrados em 6 consumidores (tool_bridge, chat,
 2 bridges, 2 engines); watchdogs do renderer documentados + testados cross-boundary. +8 testes
 (533 unit no total), 13 E2E, lint/tsc/knip verdes. ROADMAP.md refrescado (Now/Next).
+
+### 14.53 Sessão 04/08/2026 — estudo: processadores SAPHO em C++ (nada implementado)
+
+Sessão de estudo, sem código. Mapeamento dos dois repositórios para responder se dá para criar
+processadores em C++ no pipeline atual. Resposta: o front-end já existe no yanc e é maduro; o gap é
+todo na AURORA. Achados que valem registro fora do estudo dedicado:
+
+- `cpppp.exe` e `cppcomp.exe` **já estão em `components/bin/`** e os headers C++ em `components/Header/`
+  — o empacotamento foi feito e parou antes da integração. Nenhum dos dois está no
+  `binary_allowlist.js`, então hoje o spawn seria recusado pelo gate.
+- O `cppcomp` emite `Software/<proc>.asm` + `cmm_log.txt` no mesmo formato do cmmcomp. Do `appcomp`
+  em diante o pipeline não muda. A única diferença estrutural é um passo a mais na frente (`cpppp`),
+  e o compilador ler o `pp.cpp` de `Temp/<proc>/`, não o fonte original.
+- Parâmetros de hardware em C++ vêm por `#pragma yanc <chave> <valor>` (prname/nubits/nbmant/nbexpo/
+  nugain/ndstac/sdepth/nuioin/nuioou/fftsiz/itradd), não por `#DIRETIVA`. O `parseCmmHeader` e o
+  renomeador de `#PRNAME` em `main/ipc/project.js` precisam de irmãos que leiam a forma pragma.
+- Limites reais do `cppcomp` hoje: só os builtins `in`/`out` (sem `fin`/`fout`); `<cmath>` só tem
+  `fabs` + `sqrt` por software (24 iterações Newton-Raphson), sem sin/cos/tan/exp/log/atan/pow, que
+  em C± vêm das macros `float_*.asm`; sem complexos nem notação de Dirac; sem `#TOAQUI`/`#PRACA`
+  (logo, o botão Verilator não funciona p/ C++); sem `-pt`/`-en` (mensagens só em inglês); e o
+  `cpppp` não emite `#line` (erros numerados sobre o arquivo expandido quando há `#include`).
+- Consequência de escopo: processadores de controle, protocolo, máquina de estados e aritmética
+  inteira/ponto-fixo cabem em C++ hoje. DSP com transcendentais ou complexos continua exclusivo do C±.
+
+Plano em 3 fases e inventário de gaps com arquivo:linha em
+[ESTUDO_CPP_PROCESSADORES.md](ESTUDO_CPP_PROCESSADORES.md); itens no quadro vivo (§17).

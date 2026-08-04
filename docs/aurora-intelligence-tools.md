@@ -914,3 +914,88 @@ On failure:
 ```
 
 Always check `ok` before using the data. If `ok === false`, report the error and explain the remediation step.
+
+---
+
+## Planned — C++ processor support (not implemented yet)
+
+> Design note, 04/08/2026. SAPHO processors can be written in C++ as well as C±: the yanc
+> front end (`cpppp` + `cppcomp`) already exists and converges on the same `.asm` + `cmm_log.txt`
+> the C± path produces. The AURORA integration is planned in three phases and is specified in
+> [ESTUDO_CPP_PROCESSADORES.md](ESTUDO_CPP_PROCESSADORES.md).
+>
+> The governing rule for that work: **every C++ capability lands as an API tool before it lands as
+> a button.** Anything a user can do from the new C++ processor panel, Aurora Intelligence must be
+> able to do from here. The tool surface below is the contract to build against.
+
+### Changes to existing tools
+
+`compile_step` — the `step` enum gains `"cpp"`, which runs `cpppp` → `cppcomp` → `appcomp` →
+`asmcomp`, mirroring what `"cmm"` does today. The same enum in `run_in_background` gains it too.
+
+`create_processor` — gains `language`, enum `["cmm", "cpp"]`, default `"cmm"`. The nine hardware
+fields are unchanged; only the generated source file differs (`#DIRECTIVE value` header for C±,
+`#pragma yanc key value` for C++).
+
+`list_processors` and `get_processor_config` — each entry gains `language` and `sourceFile`, so the
+model knows which language it is editing before it writes a line.
+
+`compile_all` — dispatches per processor language, making a mixed project (some C±, some C++)
+buildable in one call.
+
+### New tools
+
+#### `list_pragmas` (read)
+Names of every `#pragma yanc` setting the C++ front end accepts. The C++ counterpart of
+`list_directives`.
+
+```jsonc
+// output:
+{ "ok": true, "pragmas": ["prname","nubits","nbmant","nbexpo","nugain",
+                          "ndstac","sdepth","nuioin","nuioou","fftsiz","itradd"] }
+```
+
+#### `get_pragma` (read)
+Full entry for one pragma: meaning, default from `config.h`, valid range, and the C± directive it
+corresponds to.
+
+```jsonc
+// input: { "name": "nubits" }
+// output:
+{ "ok": true, "name": "nubits", "cmmDirective": "NUBITS", "default": 32,
+  "description": "Overall data word width in bits." }
+```
+
+#### `get_cpp_stdlib` (read)
+What the bundled C++ headers in `components/Header/` actually provide. This exists specifically to
+stop the model from emitting `std::sin` — the bundled `<cmath>` has only `fabs`, `sqrt` (software
+Newton-Raphson) and the finite-domain predicates.
+
+```jsonc
+// output:
+{ "ok": true, "headers": [
+    { "name": "cmath", "provides": ["fabs","fabsf","sqrt","sqrtf","isfinite","isnan","isinf"] },
+    { "name": "vector", "provides": ["std::vector<T>"] },
+    { "name": "array",  "provides": ["std::array<T,N>"] }
+    /* bit, cstddef, cstdint, cstring, limits */
+  ] }
+```
+
+#### `set_processor_source` (write)
+Point a processor at a different canonical source file, inferring the language from the extension.
+This is how a processor migrates from C± to C++ without hand-editing the `.spf`.
+
+```jsonc
+// input: { "processorName": "proc", "sourceFile": "proc.cpp" }
+// output:
+{ "ok": true, "processorName": "proc", "sourceFile": "proc.cpp", "language": "cpp" }
+```
+
+### Limits the model must be told about
+
+Until phase 3 of the plan lands, the C++ front end has no `fin()`/`fout()`, no transcendental math
+(no `sin`/`cos`/`tan`/`exp`/`log`/`atan`/`pow` — those are C±-only, via the `float_*.asm` macros), no
+complex numbers or Dirac notation, and no `#TOAQUI`/`#PRACA`, which means `run_verilator_proc` does
+not work for a C++ processor. Compiler messages come out in English only, and line numbers refer to
+the preprocessed file when the source uses `#include`. These belong in the system prompt, not only
+here.

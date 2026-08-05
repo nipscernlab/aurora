@@ -1245,6 +1245,24 @@
                     <div class="settings-card">
                         <h4 class="about-card-title" data-i18n="modal.settings.aboutLinks">Links</h4>
                         <div class="about-links">
+                            <a class="about-link" href="#" data-href="https://www.nipscern.com/docs/sapho/">
+                                <i class="ph ph-book-open" aria-hidden="true"></i>
+                                <span class="about-link-text">
+                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOnline">Manual online</span>
+                                    <span class="about-link-url">nipscern.com/docs/sapho</span>
+                                </span>
+                                <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
+                            </a>
+                            <!-- Sem documentação empacotada este item fica oculto; quem o
+                                 revela é aurora_settings.js, consultando docs:status. -->
+                            <a class="about-link" href="#" id="about-docs-offline" hidden>
+                                <i class="ph ph-hard-drives" aria-hidden="true"></i>
+                                <span class="about-link-text">
+                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOffline">Manual offline</span>
+                                    <span class="about-link-url" id="about-docs-offline-meta">—</span>
+                                </span>
+                                <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
+                            </a>
                             <a class="about-link" href="#" data-href="https://nipscern.com">
                                 <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i>
                                 <span class="about-link-text">

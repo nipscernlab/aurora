@@ -15,7 +15,7 @@
   "homepage": "https://github.com/nipscernlab/aurora#readme",
   "main": "main.js",
   "scripts": {
-    "bootstrap": "node scripts/sync-cli-manifest.js && node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/download-norse-font.js && node components/Scripts/download-surfer.js && node components/Scripts/download-verible.js && node components/Scripts/download-clang-format.js && node components/Scripts/download-slang-server.js && node components/Scripts/download-tree-sitter-grammars.js && node components/Scripts/copy-components.js",
+    "bootstrap": "node scripts/sync-cli-manifest.js && node scripts/check-pinned-versions.js && node components/Scripts/download-toolchain.js && node components/Scripts/download-yanc.js && node components/Scripts/download-gtkwave-nipscern.js && node components/Scripts/download-norse-font.js && node components/Scripts/download-surfer.js && node components/Scripts/download-verible.js && node components/Scripts/download-clang-format.js && node components/Scripts/download-slang-server.js && node components/Scripts/download-tree-sitter-grammars.js && node components/Scripts/download-docs.js && node components/Scripts/copy-components.js",
     "build:ts": "tsc",
     "build:renderer": "vite build",
     "predev": "npm run build:ts",
@@ -128,6 +128,10 @@
           "!**/*.spf.bak",
           "!**/*.log"
         ]
+      },
+      {
+        "from": "resources/docs",
+        "to": "docs"
       }
     ],
     "directories": {

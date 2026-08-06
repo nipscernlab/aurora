@@ -124,22 +124,63 @@ parecem bug da aplicação.
 O diretório de trabalho `components\Temp\` também precisa permitir
 execução, por causa do executável gerado pelo Verilator (§3, item 1).
 
-### 4.3 SmartScreen
+### 4.3 SmartScreen e Smart App Control
 
 Na primeira execução do instalador o SmartScreen exibe "O Windows protegeu
-o computador", porque o executável não é assinado (§5). O caminho é
-*Mais informações* → *Executar assim mesmo*. Se a política bloquear isso
-sem alternativa, o instalador precisa ser distribuído por um canal
-confiável configurado pela TI.
+o computador", porque o executável ainda não é assinado (§5). Normalmente o
+caminho é *Mais informações* → *Executar assim mesmo*.
+
+Dois casos em que isso não basta, e que são justamente os de máquina
+gerenciada:
+
+**Política pode remover o "Executar assim mesmo".** A documentação da
+Microsoft registra que ambientes corporativos podem desabilitar a
+possibilidade de contornar o aviso. Aí o SmartScreen deixa de ser aviso e
+vira bloqueio absoluto, sem saída pelo lado do usuário.
+
+**Smart App Control (Windows 11).** Se estiver ativo, ele bloqueia a
+execução de arquivos não assinados independentemente do SmartScreen, e
+vale para **todo executável, não só os baixados da internet**. Isso atinge
+também os binários que o Verilator compila durante a simulação (§3, item
+1), que são criados na hora e nunca serão assinados. Numa máquina com
+Smart App Control ligado, a simulação por Verilator não roda. Verifique o
+estado em *Segurança do Windows → Controle de aplicativos e navegador*.
+
+### 4.4 Acelerar a reputação: submissão à Microsoft
+
+Assinar o instalador (§5) não faz o aviso sumir de imediato. A reputação
+do SmartScreen se acumula por volume de downloads limpos, tipicamente
+algumas semanas e centenas de instalações. Um laboratório com algumas
+dezenas de máquinas nunca vai gerar esse volume, então esperar reputação
+orgânica não é um plano.
+
+A saída existe e é feita pela TI, não por nós. A documentação da Microsoft
+afirma que administradores podem submeter arquivos para análise pelo
+[Microsoft Security Intelligence portal](https://www.microsoft.com/en-us/wdsi/filesubmission),
+e que isso acelera a confiança em implantações internas ou gerenciadas.
+
+Recomendação: submeter o instalador de cada versão nova por esse portal,
+como parte do procedimento de atualização do laboratório. É a ação de
+maior efeito e não depende da assinatura estar pronta.
+
+Referência:
+[SmartScreen reputation for Windows app developers](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation).
 
 ---
 
 ## 5. Assinatura digital
 
-O instalador **não é assinado** hoje. Está em curso a solicitação ao
-programa gratuito da SignPath Foundation, ao qual o projeto se qualifica
-por ser software livre sob licença MIT. Detalhes e o estado do processo em
-[CODE_SIGNING.md](CODE_SIGNING.md).
+O instalador **ainda não é assinado**. O projeto foi aceito no programa
+gratuito da SignPath Foundation em 06/08/2026 (organização `SAPHO [OSS]`,
+projeto `aurora`), mas a integração com o pipeline de release ainda não foi
+feita. Estado e detalhes em [CODE_SIGNING.md](CODE_SIGNING.md).
+
+Quando estiver assinado, o editor exibido pelo Windows será **"SignPath
+Foundation"**, não NIPSCERN nem UFJF: o certificado é emitido para a
+Foundation, que é quem responde por ele. Isso é esperado, não é sinal de
+adulteração, e vale avisar quem for validar a instalação.
+
+Assinar também não elimina o aviso do SmartScreen de imediato. Ver §4.4.
 
 Até lá, a verificação de integridade possível é o hash. Cada versão
 publica o `sha512` do instalador no arquivo `latest.yml`, ao lado do

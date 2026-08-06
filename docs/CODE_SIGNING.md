@@ -15,15 +15,81 @@ verifies the `sha512` in `latest.yml`. This doc is the full runbook to fix that.
 
 | Path | Cost | Fit for us |
 |------|------|------------|
-| **SignPath Foundation (OSS)** | **free** | ✅ recommended — Aurora qualifies (MIT, maintained, released, documented) |
-| **Azure Trusted/Artifact Signing** | ~US$10/mo | ⚠️ available only to **US/CA individuals** or **EU/UK orgs** — **Brazil isn't listed**, so likely unavailable to us |
-| Traditional OV / **EV** cert (DigiCert/Sectigo) | OV ~US$200–400/yr · EV ~US$300–700/yr + USB token | 💸 paid; only if SignPath falls through |
+| **SignPath Foundation (OSS)** | **free** | ✅ recommended — Aurora qualifies (MIT, maintained, released, documented). Approved 2026-08-06; org `SAPHO [OSS]`, project `aurora`. |
+| **Azure Trusted/Artifact Signing** | ~US$10/mo | ⚠️ availability is geo-limited (US/CA individuals or EU/UK orgs when last checked) — verify before counting on it from Brazil |
+| Traditional OV / **EV** cert (DigiCert/Sectigo) | OV ~US$200–400/yr · EV ~US$300–700/yr + USB token | 💸 paid, and see the note below: EV buys nothing extra for SmartScreen |
 
-> **SmartScreen reality check:** signing removes the "unknown publisher" line, but
-> the SmartScreen *reputation* prompt fades **gradually** for OV-class certs
-> (SignPath included) as downloads accrue. Only an **EV** cert (the priciest, with a
-> hardware token) earns reputation **instantly**. So SignPath fixes the signature at
-> zero cost; SmartScreen may still warn briefly until reputation builds.
+> **SmartScreen reality check (corrected 2026-08-06).** An earlier version of this
+> doc said an EV certificate "earns reputation instantly" while OV fades in
+> gradually. **That stopped being true in March 2024** and the claim was pushing us
+> toward a purchase that buys nothing. Microsoft's own documentation now states it
+> plainly:
+>
+> > EV certificates no longer bypass SmartScreen. Years ago, signing files with an
+> > Extended Validation (EV) code signing certificate would result in positive
+> > SmartScreen reputation by default, but this behavior no longer exists. […]
+> > Paying a premium for EV solely to avoid SmartScreen warnings is no longer
+> > justified.
+> > — [SmartScreen reputation for Windows app developers](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation)
+>
+> So OV and EV now behave identically here, which makes the free SignPath OV
+> certificate the best available option, not a compromise.
+>
+> **What signing actually buys:** reputation accrues against the *publisher
+> certificate* as well as each file hash. Unsigned, every release starts from zero
+> reputation. Signed with a consistent certificate, later releases inherit the
+> reputation the certificate has already earned. That inheritance is the real win
+> for a project that ships often.
+>
+> **How long:** no published threshold. Field reports put it at roughly 2–8 weeks
+> and hundreds of clean installs (one documented case: 18 days, ~430 installs).
+> There is **no** mechanism to request review for consumer endpoints.
+>
+> **But for the lab there is a shortcut.** Microsoft's doc says enterprise IT admins
+> may submit files through the
+> [Security Intelligence portal](https://www.microsoft.com/en-us/wdsi/filesubmission),
+> which "can accelerate trust for internal or managed deployments". A 30-machine lab
+> will never generate the download volume organic reputation needs, so this is the
+> path that actually works there. See
+> [IMPLANTACAO_LABORATORIO.md](IMPLANTACAO_LABORATORIO.md) §4.
+
+## What the Foundation requires from us
+
+The certificate is free, the obligations are not zero. From
+[signpath.org/terms.html](https://signpath.org/terms.html):
+
+- **Two-factor authentication for every contributor.**
+- **Defined roles** — Author, Reviewer, Approver — and **every signing request must
+  be authorised by an Approver.** This one collides with the fully automatic release
+  pipeline: either a human approves each signature, or we negotiate a policy that
+  waives approval for verified-origin builds. Settle this before wiring signing into
+  `release.yml`.
+- **A public "Code signing policy" page** on the project homepage, listing those
+  roles and privacy information. This does not exist yet and must be written before
+  the first signed release.
+- **File metadata** (product name and version) enforced on every signed binary.
+- Sign only what is built from our own source. Bundled third-party binaries
+  (GTKWave, the YANC toolchain, Surfer, Verible, slang) may ship unsigned — the
+  terms allow upstream libraries to be included that way.
+- No tooling meant to identify or exploit vulnerabilities; no features that
+  compromise user privacy or security; uninstall must be available.
+
+Violations allow suspension without notice and revocation "effective immediately or
+retroactively".
+
+**Two consequences worth stating plainly:**
+
+1. **The publisher shown to users will be "SignPath Foundation", not NIPSCERN or
+   UFJF.** The certificate is issued to the Foundation. If institutional attribution
+   in the Windows publisher line matters, this is the cost of the free programme.
+2. **The project is listed publicly** on signpath.org and in
+   [SignPath/fdn-website](https://github.com/SignPath/fdn-website).
+
+**Data collected:** from maintainers, name / business email / job title (admins),
+plus IP, session and request timestamps, hosted on Azure (EU + US, SCCs), retained
+6 months after account termination. **Nothing is collected about end users of the
+signed software** — a signature is an offline cryptographic property; it does not
+phone home.
 
 ### Eligibility note (read once)
 SignPath Foundation requires the project's **own** code to be OSS with no

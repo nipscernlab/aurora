@@ -90,6 +90,7 @@ import {
   parseCocotbToplevelDirective,
   isVerilogLikeFile, assertPythonModuleName, safeNamePart,
 } from './compilation_helpers.js';
+import { COCOTB_RUNNER_SOURCE, COCOTB_TESTS_FAILED } from './cocotb_runner_source.js';
 
 // i18n shim — falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -1163,67 +1164,10 @@ async _waveValidateCocotbConfig(config) {
 
 async _writeCocotbRunnerScript(tempBaseDir) {
     const scriptPath = await electronAPI.joinPath(tempBaseDir, 'aurora_cocotb_runner.py');
-    const source = [
-        'import json',
-        'import os',
-        'import sys',
-        'from pathlib import Path',
-        '',
-        'try:',
-        '    from cocotb_tools.runner import get_runner',
-        'except ModuleNotFoundError:',
-        '    from cocotb.runner import get_runner',
-        '',
-        'def _json_env(name, default):',
-        '    try:',
-        '        return json.loads(os.environ.get(name, default))',
-        '    except Exception as exc:',
-        '        raise SystemExit(f"Invalid {name}: {exc}") from exc',
-        '',
-        'def main():',
-        '    sources = _json_env("AURORA_COCOTB_SOURCES_JSON", "[]")',
-        '    build_args = _json_env("AURORA_COCOTB_BUILD_ARGS_JSON", "[]")',
-        '    test_args = _json_env("AURORA_COCOTB_TEST_ARGS_JSON", "[]")',
-        '    top = os.environ["AURORA_COCOTB_TOP"]',
-        '    test_module = os.environ["AURORA_COCOTB_TEST_MODULE"]',
-        '    build_dir = os.environ["AURORA_COCOTB_BUILD_DIR"]',
-        '    test_dir = os.environ.get("AURORA_COCOTB_TEST_DIR", build_dir)',
-        '',
-        '    for entry in os.environ.get("AURORA_COCOTB_PYTHONPATH", "").split(os.pathsep):',
-        '        if entry and entry not in sys.path:',
-        '            sys.path.insert(0, entry)',
-        '',
-        '    Path(build_dir).mkdir(parents=True, exist_ok=True)',
-        '    os.environ.setdefault("SIM", "icarus")',
-        '    os.environ.setdefault("TOPLEVEL_LANG", "verilog")',
-        '    os.environ.setdefault("WAVES", "1")',
-        '    wav = os.environ.get("WAVES", "1") == "1"',
-        '    sim = os.environ["SIM"]',
-        '',
-        '    runner = get_runner(sim)',
-        '    runner.build(',
-        '        sources=sources,',
-        '        hdl_toplevel=top,',
-        '        build_dir=build_dir,',
-        '        build_args=build_args,',
-        '        timescale=("1ns", "1ps"),',
-        '        always=True,',
-        '        waves=wav,',
-        '    )',
-        '    runner.test(',
-        '        hdl_toplevel=top,',
-        '        test_module=test_module,',
-        '        build_dir=build_dir,',
-        '        test_dir=test_dir,',
-        '        test_args=test_args,',
-        '        waves=wav,',
-        '        results_xml=str(Path(build_dir) / "results.xml"),',
-        '    )',
-        '',
-        'if __name__ == "__main__":',
-        '    main()',
-        '',
-    ].join('\n');
+    // Fonte unica com o teste: js/compilation/cocotb_runner_source.js.
+    // Antes eram ~80 linhas de literais aqui dentro, impossiveis de testar;
+    // agora tests/toolchain/pipeline.test.js executa exatamente estes bytes.
+    const source = COCOTB_RUNNER_SOURCE;
     await electronAPI.writeFile(scriptPath, source);
     return scriptPath;
 }
@@ -1568,8 +1512,26 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     } finally {
         if (unsubscribe) unsubscribe();
     }
-    if (code !== 0) {
+    // Two distinct outcomes, deliberately handled differently.
+    //
+    // COCOTB_TESTS_FAILED (2): the simulation itself ran to completion and the
+    // dump exists — some @cocotb.test() asserted false. Aborting here would
+    // deny the student the waveform at the exact moment it is most useful, so
+    // report the failure loudly and CONTINUE to adopt/open the wave.
+    //
+    // Any other non-zero: infrastructure failure (build error, missing module,
+    // interpreter crash). There is nothing to show; fail hard.
+    //
+    // Before this, ONLY `code !== 0` was checked and the runner exited 0 even
+    // when tests failed, so a failing testbench was reported as a successful
+    // simulation — the single verdict a testbench exists to produce, silently
+    // discarded.
+    if (code !== 0 && code !== COCOTB_TESTS_FAILED) {
         throw new Error(tr('error.compilation.cocotbFailed', { code }));
+    }
+    if (code === COCOTB_TESTS_FAILED) {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.cocotbTestsFailed'), 'error');
+        statusUpdater.compilationError('verilog', 'cocotb tests failed');
     }
 
     // Fast Sim nao tem onda pra adotar nem abrir — so o resultado dos testes.

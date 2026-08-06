@@ -575,6 +575,7 @@
       "cocotbToplevelDirective": "DUT do cocotb via '# aurora-toplevel': {{module}}.",
       "cocotbToplevelFallback": "Sem diretiva '# aurora-toplevel: <modulo>' em {{file}} — usando o top-level do projeto '{{module}}' como DUT do cocotb. Adicione esse comentario no .py para mirar um modulo especifico.",
       "runningCocotb": "Executando testbench cocotb com {{sim}}...",
+      "cocotbTestsFailed": "cocotb: um ou mais testes FALHARAM. A forma de onda vai abrir mesmo assim, para você inspecionar o que aconteceu — veja no log acima qual asserção falhou.",
       "cocotbVcd": "VCD do cocotb gerado: {{name}}",
       "procPicked": "Vários processadores ({{count}}); usando \"{{name}}\". Defina o top-level pra escolher outro.",
       "procPorts": "Verilator (processador CMM) — descobrindo pinos de \"{{name}}\" (--json-only)",

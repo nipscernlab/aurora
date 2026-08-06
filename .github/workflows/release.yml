@@ -29,6 +29,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preflight only — verify publish access, build and publish nothing'
+        type: boolean
+        default: false
 
 # Never let two publishes race onto the same distribution channel — a partial
 # asset set on the release is what a client sees as a corrupt update.
@@ -42,18 +47,18 @@ env:
   DIST_REPO: nipscernlab/sapho
 
 jobs:
-  release:
-    name: Build & publish (windows-latest)
-    runs-on: windows-latest
-
-    permissions:
-      contents: read   # this job never writes to `aurora`; it publishes to DIST_REPO
+  # ── Fail fast ─────────────────────────────────────────────────────────────
+  # A missing or underpowered token used to surface only after the ~20 min
+  # build, at the very last step. Prove it in the first few seconds instead.
+  # `workflow_dispatch` with dry_run stops here, so this doubles as a cheap
+  # "is the release pipeline ready?" check that builds and publishes nothing.
+  preflight:
+    name: Preflight — publish access
+    runs-on: ubuntu-latest
+    permissions: {}
 
     steps:
-      # ── Fail fast ───────────────────────────────────────────────────────
-      # A missing/underpowered token used to surface only after the ~20 min
-      # build, at the very last step. Check it in the first 5 seconds instead.
-      - name: Preflight — verify publish access to the distribution repo
+      - name: Verify publish access to the distribution repo
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -73,7 +78,7 @@ jobs:
             $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$env:DIST_REPO" -Headers $headers
           } catch {
             Write-Host "::error::SAPHO_RELEASE_TOKEN cannot read $env:DIST_REPO ($($_.Exception.Message))."
-            Write-Host "::error::Check that the PAT lists that repository and has not expired."
+            Write-Host "::error::Check that the PAT lists that repository, is approved by the org, and has not expired."
             exit 1
           }
           if (-not $repo.permissions.push) {
@@ -82,7 +87,22 @@ jobs:
             exit 1
           }
           Write-Host "Publish access to $env:DIST_REPO confirmed."
+          if ('${{ inputs.dry_run }}' -eq 'true') {
+            Write-Host "Dry run: stopping here. Nothing was built or published."
+          }
 
+  release:
+    name: Build & publish (windows-latest)
+    runs-on: windows-latest
+    needs: preflight
+    # A dry run proves the token and stops; only a real release event (or a
+    # dispatch with dry_run off) is allowed to touch the distribution channel.
+    if: ${{ inputs.dry_run != true }}
+
+    permissions:
+      contents: read   # this job never writes to `aurora`; it publishes to DIST_REPO
+
+    steps:
       - name: Checkout
         uses: actions/checkout@v5
 

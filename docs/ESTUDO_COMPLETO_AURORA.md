@@ -3166,3 +3166,228 @@ todo na AURORA. Achados que valem registro fora do estudo dedicado:
 
 Plano em 3 fases e inventário de gaps com arquivo:linha em
 [ESTUDO_CPP_PROCESSADORES.md](ESTUDO_CPP_PROCESSADORES.md); itens no quadro vivo (§17).
+
+---
+
+## 19. Preparação para o laboratório de DLP e para a assinatura — sessão 06/08/2026
+
+Frente aberta com um objetivo concreto: instalar a AURORA **uma vez** nas máquinas do
+laboratório de Dispositivos Lógicos Programáveis (Engenharia Elétrica — Sistemas
+Eletrônicos, UFJF) e atualizar tudo remotamente pelo auto-updater, sem voltar
+presencialmente. Isso muda a régua: falha silenciosa é pior que falha barulhenta, porque
+ninguém está na frente da máquina para perceber.
+
+### 19.1 O que estava quebrado e ninguém sabia
+
+**O pipeline de release nunca funcionou.** O último run do `release.yml` (19/05) morreu com
+`403 Forbidden — Resource not accessible by integration` ao criar a release em
+`nipscernlab/sapho`: o `GITHUB_TOKEN` é escopado no repo `aurora` e não escreve no repo de
+distribuição. A v6.3.2 publicada foi buildada e enviada à mão, 20 minutos depois da falha.
+Corrigido com o secret `SAPHO_RELEASE_TOKEN` e três portões (ver `RELEASE.md`).
+
+**O `gtkwave-nipscern` estava arquivado e privado** desde 17/07, então qualquer
+`npm run bootstrap` falhava ao baixá-lo e o release parava na verificação de sentinelas.
+Desarquivado e tornado público (é um fork do GTKWave, GPL).
+
+**O `@openai/codex-sdk` não ia para o pacote.** O padrão de exclusão
+`!node_modules/@openai/codex-*/**`, criado para tirar o binário de plataforma de 390 MB,
+engolia o SDK junto. Em produção o `import('@openai/codex-sdk')` falhava e a ponte caía
+calada no caminho legado de spawn — o motor SDK do Codex, que o §18 descreve como a
+arquitetura atual, **só rodava em desenvolvimento**.
+
+**Um testbench cocotb reprovado era reportado como simulação bem-sucedida.** O
+`runner.test()` do cocotb sai com código 0 tanto faz se passou ou falhou, e o
+`_waveRunCocotbSimulation` checava apenas `code !== 0`. O único veredito que um testbench
+existe para dar era descartado. Contrato novo em §19.4.
+
+**O `logger.js` mandava procurar o log no lugar errado** (`%APPDATA%/Aurora-IDE/logs`, de
+vários renomes atrás). O real é `%APPDATA%/SAPHO/logs/main.log`, porque `app.getName()` usa
+o `productName` do package.json e não o `build.productName`.
+
+**O `patch-latest-yml.js` usava `js-yaml` sem declará-lo.** Só resolvia por hoisting de
+dependência alheia. Esse script fica no caminho da assinatura, onde a falha seria um
+`latest.yml` que não casa com o instalador assinado — atualização quebrada para a frota
+inteira. Declarado como devDependency.
+
+### 19.2 Auto-updater: o que mudou e por quê
+
+Antes: **uma** checagem, 6 s após o boot, e qualquer erro era registrado no log e esquecido
+até o próximo lançamento. Três situações comuns derrotavam isso num laboratório: a rede não
+estar pronta 6 s após o boot (proxy, portal cativo), a máquina ficar aberta horas depois da
+única checagem, e um 5xx passageiro ser indistinguível de "sem atualização".
+
+Agora todo desfecho arma a próxima tentativa: falha faz backoff 1 min, 5 min, 15 min, depois
+de hora em hora; sucesso reagenda para 3 h. Download que cai é retomado 2 vezes. A decisão de
+quando tentar vive em [`main/update_schedule.js`](../main/update_schedule.js), puro e testado
+(12 testes).
+
+Dois furos fechados no caminho, ambos deixariam o agendador morto em silêncio:
+`checkForUpdates` rejeitando SEM emitir o evento `error` nunca rearmava o ciclo, e um tick
+silencioso que encontrasse outra checagem em andamento voltava sem reagendar.
+
+`autoInstallOnAppQuit` passou a `true`: fechar o app sem clicar em "Reiniciar e Instalar"
+jogava fora a atualização já baixada, e fechar o app no fim da aula é justamente o caminho
+comum. Baixar continua sendo escolha do usuário.
+
+Painel *Configurações → Sobre → Atualizações* mostra situação, última e próxima verificação,
+canal, último erro, e botões de verificar agora e abrir o log — existe para diagnóstico
+remoto.
+
+### 19.3 Delta update: o que NÃO fazer
+
+Investigado a fundo porque o instalador tem ~500 MB e a preocupação era o custo por
+atualização. Duas hipóteses testadas e **descartadas com evidência**:
+
+- Subir a compressão seria inútil. O `configureDifferentialAwareArchiveOptions` do
+  app-builder-lib **força** `compression: normal`, `solid: false`, `dictSize: 1MB` em
+  qualquer pacote NSIS differential-aware, com comentário no próprio código dizendo para não
+  mexer. Compressão sólida, aliás, destruiria o delta.
+- Podar a toolchain não se sustenta: dos 634 MB do msys, 106 MB são `.a` e 68 MB são `.h`,
+  necessários para o `g++` ligar o C++ que o Verilator gera.
+
+O delta funciona e é a resposta: o `NsisUpdater` compara contra `<cacheDir>/installer.exe`,
+que o **próprio instalador NSIS grava em toda instalação**, inclusive a primeira feita à mão.
+Verificado no código e na máquina.
+
+**Invariante descoberto:** o nome do diretório de cache vem do `"name"` do package.json
+(`sapho` produz `%LOCALAPPDATA%\sapho-updater`). Renomear o pacote faz cada cópia instalada
+procurar a base do delta num diretório inexistente — sem erro, sem aviso, só download
+completo para a frota inteira. Registrado no `RELEASE.md`.
+
+**Corolário de planejamento:** uma versão que sobe a toolchain troca quase todo o payload,
+então o delta dela é praticamente um download completo. Versões só de aplicação são baratas.
+Vale separar as duas coisas em releases distintas.
+
+### 19.4 Cobertura nova: 24 testes de integração com a toolchain real
+
+Antes desta sessão a cobertura automática era **zero** no pipeline de compilação: nem teste
+de integração, nem teste dos builders de argumento, nem fixture `.cmm`. Para uma disciplina
+de DLP o pipeline é o produto.
+
+`npm run test:toolchain` ([tests/toolchain/](../tests/toolchain/)) roda em ~18 s e é exigido
+pelo `release.yml`. Cobre: C± para ASM para Verilog com `.mif` e testbench; Icarus (build,
+simulação, decodificação por `fst2vcd`); Verilator (transpila para C++, compila com g++,
+roda, e produz a **mesma hierarquia** do Icarus); cocotb (teste que passa, teste que falha,
+onda existindo na falha); PRISM (Yosys, netlist, SVG com células); os 7 binários do bundle
+realmente executando; e o handshake LSP completo com verible e slang.
+
+**Princípio de desenho:** os testes chamam os **builders e scripts do próprio app**, nunca
+cópias. Um teste que redeclara a linha de comando segue verde enquanto o app quebra. Isso
+obrigou a extrair duas coisas presas em arquivos gigantes:
+[`cocotb_runner_source.js`](../js/compilation/cocotb_runner_source.js) (85 linhas dentro de
+uma classe de 3 mil) e [`prism_yosys_script.js`](../main/ipc/prism_yosys_script.js).
+
+**Contrato novo do cocotb.** Código de saída 2 (`COCOTB_TESTS_FAILED`) significa "a simulação
+rodou inteira e algum teste falhou": a AURORA reporta erro em vermelho **e segue abrindo a
+onda**, porque é justamente quando o aluno precisa dela. Qualquer outro não-zero é falha de
+infraestrutura e aborta. Também trata "nenhum teste coletado" como falha — uma simulação que
+passou sem verificar nada não pode ler como aprovação.
+
+**Armadilhas fixadas por asserção**, todas descobertas errando na prática:
+
+- `clk` no `.spf` está em **MHz**, não Hz. Passar Hz gera um meio período de clock que
+  subestoura o timescale `1ps` e vira zero, e o Icarus rejeita com "always process does not
+  have any delay" — falha confusa, causa distante.
+- O dump é **FST dentro de um arquivo `.vcd`**. O `-fst` escolhe o container, mas o nome vem
+  do `$dumpfile` que o asmcomp escreve. A extensão mente, e é por isso que o
+  `_extractFstHeaderVcd` detecta o formato por magic bytes.
+- No Verilator, `--timing` é obrigatório (o testbench dirige o clock por `#delay`) e
+  `OBJCACHE=` desliga o ccache do MSYS, que falha ao exec do compilador (make erro 127) e
+  aborta o build inteiro.
+
+**Limite declarado:** não é possível afirmar por teste que o desenho do GTKWave ou do Surfer
+está visualmente correto. A geração dos arquivos já tem teste unitário; o que faltava era
+saber se o executável sobe. O resto é teste manual.
+
+Confirmado de passagem: o bundle msys traz os dois VPIs (`libcocotbvpi_icarus.vpl` e
+`libcocotbvpi_verilator.a`) com Python 3.12.11 e cocotb 2.0.1 — o bloqueio antigo de
+cocotb+Verilator no Windows não existe mais.
+
+### 19.5 Identidade e nomes — decisão de 06/08/2026
+
+**Decisão do usuário: o instalador e tudo relacionado devem se chamar SAPHO, e em alguns
+lugares "SAPHO & AURORA".** SAPHO é o projeto (a plataforma de soft-processors); AURORA é a
+IDE. Os repositórios já refletem isso (`aurora` = fonte, `sapho` = distribuição).
+
+Estado atual dos campos e o que cada um controla:
+
+| Campo | Valor hoje | Controla |
+|---|---|---|
+| `package.json` `name` | `sapho` | **cache do updater** (`%LOCALAPPDATA%\sapho-updater`) — não renomear, §19.3 |
+| `package.json` `productName` | `SAPHO` | `app.getName()`, logo `%APPDATA%\SAPHO` (userData, logs) |
+| `build.productName` | `Aurora-IDE` | nome do `.exe`, `INSTDIR`, atalhos |
+| `build.appId` | `com.nipscern.auroraide` | AppUserModelID dos atalhos, chave de desinstalação |
+| `build.win.artifactName` | `sapho-aurora-Setup-v${version}.exe` | nome do instalador publicado |
+
+**Bug encontrado:** o `main.js` chama `app.setAppUserModelId('com.nipscern.sapho')`, que
+**não bate** com o `build.appId` (`com.nipscern.auroraide`). O electron-builder grava o
+AppUserModelID dos atalhos a partir do `appId`, então a janela em execução e o atalho fixado
+carregam identidades diferentes — agrupamento na barra de tarefas e jumplist ficam presos ao
+alvo errado. O comentário no main.js diz que a chamada foi movida para cedo justamente para
+consertar isso; o conserto está pela metade. Renomear alinha os dois.
+
+**Risco de migração, e por que a hora é agora.** Mudar `build.productName` muda o `INSTDIR`.
+Uma máquina que já tenha `%LOCALAPPDATA%\Programs\Aurora-IDE` receberia a nova versão em
+`%LOCALAPPDATA%\Programs\SAPHO`, deixando ~1,1 GB órfãos, atalhos duplicados e uma entrada de
+desinstalação velha. Como o laboratório **ainda não foi instalado**, fazer a renomeação antes
+do primeiro deploy evita isso inteiro. Depois do deploy, custaria uma migração no NSIS.
+
+O cache do updater **não** é afetado (vem do `name`, que não muda), então o delta sobrevive à
+renomeação.
+
+### 19.6 Fonte Norse — licença
+
+Pergunta levantada: podemos vendorizar a fonte no repositório? **Não.** A licença de Joël
+Carrouché (`assets/fonts/NORSE-LICENSE.txt`) concede *"You may embed the font file in pdf
+documents, applications, web pages"* mas proíbe *"You may not redistribute or share this font
+without written permission... you cannot make the font available for download on your
+website"*. Commitar num repositório público é redistribuição.
+
+O arranjo atual já é o correto: baixa do dafont no bootstrap, fica gitignored, e o build
+embute (o que a licença permite). Se falhar, o app abre e só a marca d'água do Dagr cai para a
+fonte padrão.
+
+Para eliminar a dependência do dafont — o único download fora de GitHub/GitLab e o mais
+sujeito a bloqueio de rede institucional — há dois caminhos: pedir permissão escrita ao autor,
+ou trocar por uma fonte rúnica sob SIL OFL, que permite redistribuição.
+
+### 19.7 Assinatura — estado e pendências
+
+Projeto aceito na **SignPath Foundation** em 06/08/2026: organização `SAPHO [OSS]`, projeto
+`aurora`, políticas `release-signing` (INVALID) e `test-signing`. Custo zero, certificado OV.
+Detalhes, obrigações e a correção sobre EV/SmartScreen em [CODE_SIGNING.md](CODE_SIGNING.md).
+
+Já cumprido, verificado: os metadados de arquivo exigidos pelos termos (ProductName,
+FileVersion, CompanyName, FileDescription, LegalCopyright) já são preenchidos pelo
+electron-builder no instalador real.
+
+Pendente do usuário: resolver o `release-signing` INVALID; criar a Artifact Configuration
+apontando para um único PE (`sapho-aurora-Setup-v<versão>.exe`); decidir o modelo de aprovação
+(os termos exigem um Approver por requisição, e nosso pipeline é automático); conferir o
+Trusted Build Systems (o build roda em `aurora` e publica em `sapho`); ativar 2FA para todos
+os contribuidores; e escrever a página pública de *Code signing policy*.
+
+Efeito colateral a saber: **o primeiro release assinado será download completo para todos**,
+porque a assinatura muda os bytes e invalida todos os blocos do delta.
+
+Nota: `terms-of-service.txt` na raiz é o documento da **SignPath**, não da AURORA. Vale mover
+para `docs/` com nome que deixe isso claro.
+
+### 19.8 Instalação limpa (versão dev) — conferido em 06/08/2026
+
+Os nove downloads do bootstrap respondem 200: msys, yanc, gtkwave-nipscern, surfer, verible,
+clang-format, slang-server, gramáticas tree-sitter e a fonte Norse.
+
+Pré-requisitos: Node 20+ (o `engines` diz 18, mas Electron 39 e o CI usam 20) e Git.
+
+```
+git clone https://github.com/nipscernlab/aurora.git
+cd aurora
+npm ci
+npm start          # ou: npm run dev  (Vite com hot reload)
+```
+
+O `npm ci` já dispara o `postinstall`, que começa a baixar componentes; depois o `npm start`
+roda o `prestart` completo. A primeira execução leva vários minutos e baixa perto de 1 GB.
+Reserve ~3 GB somando `node_modules` e `components`. Sem exclusão no Defender, a varredura de
+cada binário extraído deixa o bootstrap bem mais lento.

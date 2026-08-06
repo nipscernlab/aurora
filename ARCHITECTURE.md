@@ -11,7 +11,8 @@ Maintenance rules (the doc is only useful while it's trustworthy):
 3. **Link the `.ts` source for migrated modules**, not the compiled `.js` sitting next to it (tsconfig compiles in-place). The `.ts` is what you edit.
 4. **In-source JSDoc is the authoritative contract** for any function mentioned here. This doc is the bird's-eye map; if it disagrees with the JSDoc, the JSDoc wins and this doc has a bug — fix it.
 
-Last full audit against the code: 2026-06-13.
+Last full audit against the code: 2026-06-13. §11–§12 added 2026-08-06 (identity fields and
+the cocotb verdict contract) — see [docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md) §19.
 
 ---
 
@@ -263,8 +264,11 @@ Before merging any change to this layer, walk through:
 - [ ] Did you add a `DOMContentLoaded` listener? Verify it doesn't depend on later listeners having run.
 - [ ] Did you add a path that decides what gets `$dumpvars`'d or what goes into the .gtkw? Re-read §9 — if the path bypasses `_resolveWaveSelection` / `validateSelection`, you're recreating a class of bug we've already fixed.
 - [ ] Did you rename a symbol mentioned in this doc? Grep ARCHITECTURE.md for the old name and update it — and grep the codebase for `ARCHITECTURE.md §` to keep section cross-references in code comments honest.
-- [ ] Did you hardcode `.cmm` in a processor path? See §11 — the processor front end is about to become language-dispatched, and every new literal `.cmm` is one more site to untangle.
-- [ ] Did you add a processor capability as a button only? See §11 — it lands in `aurora_api.js` and `main/ai/tools.js` first, then in the UI.
+- [ ] Did you hardcode `.cmm` in a processor path? See §13 — the processor front end is about to become language-dispatched, and every new literal `.cmm` is one more site to untangle.
+- [ ] Did you add a processor capability as a button only? See §13 — it lands in `aurora_api.js` and `main/ai/tools.js` first, then in the UI.
+- [ ] Did you touch `package.json` `name`, `productName`, `build.productName` or `build.appId`? Re-read §11 — each one moves state that installed copies already depend on, and `name` silently costs the whole fleet a full download.
+- [ ] Did you change how a cocotb run's outcome is decided? See §12 — the exit code carries a verdict, and collapsing it back onto "non-zero means broken" reintroduces "failing testbench reported as success".
+- [ ] Did you change a compile step's arguments? [tests/toolchain/](tests/toolchain/) runs the real binaries through the same builders; run `npm run test:toolchain` before merging.
 
 Smoke test (manual, ~2 min):
 1. Open Aurora. Last project should auto-load.
@@ -276,7 +280,65 @@ Smoke test (manual, ~2 min):
 Smoke test (automated, runs in CI):
 - [tests/e2e/smoke.test.js](tests/e2e/smoke.test.js) launches a real Aurora via Playwright's Electron API and asserts Monaco initializes without the failure markers we've hit (notably "EditorManager has not been initialized" and the Monaco 0.53 contribution-module crash). Run locally with `npm run test:e2e`.
 
-## 11. Processor front end is language-dispatched (planned)
+Toolchain test (automated, gates every release):
+- [tests/toolchain/pipeline.test.js](tests/toolchain/pipeline.test.js) drives the REAL binaries — a C± source becomes a Verilog processor, elaborates, simulates under Icarus, Verilator and cocotb, synthesises to a PRISM schematic, and the language servers answer an LSP handshake. It builds every command with the same builders the app uses, so a changed flag fails here instead of in a lab. Not part of `npm test` (it needs `components/`, ~1 GB); run `npm run test:toolchain`. It skips with a message naming the missing binaries when the toolchain is absent.
+
+## 11. Product identity — four names, four different consequences
+
+Four fields spell the product's name, and each one lands somewhere different on disk.
+Changing any of them moves state that installed copies are already using.
+
+| Field | Value | What it controls |
+|---|---|---|
+| `package.json` `name` | `sapho` | **The updater cache dir**: `%LOCALAPPDATA%\<name>-updater`. |
+| `package.json` `productName` | `SAPHO` | `app.getName()` → userData and logs at `%APPDATA%\SAPHO`. |
+| `build.productName` | `Aurora-IDE` | The `.exe` name, `INSTDIR`, Start Menu and desktop shortcuts. |
+| `build.appId` | `com.nipscern.auroraide` | Shortcut AppUserModelID and the uninstall registry key. |
+
+**`name` is the one you must not rename.** `updaterCacheDirName` is
+`sanitizeFileName(name).toLowerCase() + "-updater"`, and that directory holds
+`installer.exe` — the base file the differential downloader diffs against (see
+[RELEASE.md](RELEASE.md)). Rename the package and every installed copy looks for its delta
+base in a directory that does not exist: no error, no warning, just a silent fall back to a
+full ~500 MB download for the whole fleet. A stale `aurora-ide-updater` folder from the
+April 2026 rename is what that leftover looks like on disk.
+
+**`build.productName` moves the install directory.** A machine installed under
+`%LOCALAPPDATA%\Programs\Aurora-IDE` that receives a build with a different
+`build.productName` installs *alongside* the old one rather than over it — orphaned files,
+duplicate shortcuts, a stale uninstall entry. Do renames before a deployment, never after.
+
+**`build.appId` and `app.setAppUserModelId` must agree.** [main.js](main.js) sets the
+AppUserModelID at boot; electron-builder stamps the shortcuts with `build.appId`. When they
+differ, Windows treats the running window and the pinned shortcut as different applications,
+and taskbar grouping plus the jumplist attach to the wrong identity. **They currently differ**
+(`com.nipscern.sapho` vs `com.nipscern.auroraide`) — see
+[docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md) §19.5.
+
+## 12. cocotb reports a verdict, not just an exit code
+
+A cocotb testbench exists to answer one question: did the design pass? `runner.test()` does
+**not** encode that in its exit status — it returns 0 whether every test passed or every test
+failed. Checking only `code !== 0`, as `_waveRunCocotbSimulation` used to, reported a failing
+testbench as a successful simulation.
+
+The runner ([cocotb_runner_source.js](js/compilation/cocotb_runner_source.js)) therefore reads
+`results.xml` and encodes the verdict itself:
+
+| Exit code | Meaning | What Aurora does |
+|---|---|---|
+| `0` | all tests passed | normal success path |
+| `2` (`COCOTB_TESTS_FAILED`) | simulation completed, tests failed | reports the failure **and still opens the waveform** |
+| anything else | infrastructure failure (build, missing module, crash) | aborts; there is nothing to show |
+
+The middle row is the point. Aborting on a failed test would deny the student the waveform at
+the exact moment it is most useful. "No tests collected" counts as a failure too: a simulation
+that finished without checking anything must not read as a pass.
+
+**If you add a fourth outcome, it needs its own code and its own row here** — reusing `1` would
+make a test failure indistinguishable from a broken build.
+
+## 13. Processor front end is language-dispatched (planned)
 
 A SAPHO processor's source is a `.cmm` today, but the yanc toolchain also has a C++ front end
 (`cpppp` + `cppcomp`) that converges on the same `Software/<proc>.asm` + `cmm_log.txt`. From

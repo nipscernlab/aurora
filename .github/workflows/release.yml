@@ -139,6 +139,14 @@ jobs:
           }
           Write-Host "All toolchain sentinels present."
 
+      # The toolchain is on disk at this point and nowhere else in CI, so this
+      # is the one opportunity to prove it actually works before we ship it.
+      # Compiles a real C± processor, elaborates it, simulates it, and decodes
+      # the dump — using the same argument builders the app calls. A release
+      # whose compiler pipeline is broken must never reach a lab machine.
+      - name: Toolchain integration (C± -> Verilog -> simulation)
+        run: npm run test:toolchain
+
       - name: Build main/preload (tsc)
         # electron-builder runs directly below (not via `npm run build`), so the
         # `prebuild` hook (bootstrap && build:ts && build:renderer) does NOT fire.

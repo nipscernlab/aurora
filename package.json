@@ -27,6 +27,8 @@
     "test:coverage": "vitest run --coverage",
     "pretest:e2e": "npm run build:renderer",
     "test:e2e": "vitest run --config vitest.config.e2e.js",
+    "pretest:toolchain": "npm run build:ts",
+    "test:toolchain": "vitest run --config vitest.config.toolchain.js",
     "deadcode": "knip --include files,dependencies --no-config-hints",
     "deadcode:all": "knip --no-config-hints",
     "rules:sync": "node scripts/sync-sapho-rules.js",

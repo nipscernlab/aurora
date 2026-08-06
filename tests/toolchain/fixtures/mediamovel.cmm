@@ -1,0 +1,38 @@
+// Fixture do teste de integracao da toolchain.
+//
+// Media movel de 4 amostras, tirada do manual do SAPHO
+// (docs/manual-sapho/capitulos/07-cmm-fundamentos.tex). Escolhida de
+// proposito por ser pequena e por exercitar, mesmo assim, um caminho
+// largo do compilador: array indexado, leitura de porta de entrada,
+// soma inteira, deslocamento e escrita em porta de saida. O asmcomp
+// relata "somador inteiro" e "operador >>" como recursos da ULA, o que
+// confirma que a geracao de hardware reagiu ao codigo.
+//
+// A restricao estrutural NUBITS = NBMANT + NBEXPO + 1 vale aqui:
+// 16 = 10 + 5 + 1.
+
+#PRNAME mediamovel
+#NUBITS 16
+#NDSTAC 4
+#SDEPTH 2
+#NUIOIN 1
+#NUIOOU 1
+#NBMANT 10
+#NBEXPO 5
+
+void main()
+{
+    int x[4];
+    int soma;
+
+    while (1)
+    {
+        x[3] = x[2];
+        x[2] = x[1];
+        x[1] = x[0];
+        x[0] = in(0);
+
+        soma = x[0] + x[1] + x[2] + x[3];
+        out(0, soma >> 2);
+    }
+}

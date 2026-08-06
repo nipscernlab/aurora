@@ -1,12 +1,23 @@
 name: Release
 
-# Builds the Windows installer and publishes it to a GitHub Release.
-# The auto-updater (electron-updater) reads `latest.yml` + the .exe directly
-# from these release assets — see `main/updater.js`.
+# Builds the Windows installer and publishes it to the SAPHO distribution
+# channel. Two repos, two roles:
 #
-# Trigger: fires automatically when a GitHub Release is *published* (the single
-# flow — release-please opens the release PR; merging it publishes the release,
-# which kicks off this build). `workflow_dispatch` stays as a manual fallback.
+#   nipscernlab/aurora  — SOURCE. release-please keeps a release PR open here;
+#                         merging it tags the commit and publishes a GitHub
+#                         Release, which is what triggers this workflow.
+#   nipscernlab/sapho   — DISTRIBUTION. The installer, `latest.yml` and the
+#                         `.blockmap` land here. `main/updater.js` and
+#                         `package.json#build.publish` both point at it, so
+#                         this is the feed every installed copy polls.
+#
+# Because the two repos differ, the default GITHUB_TOKEN is NOT enough: it is
+# scoped to `aurora` and gets `403 Resource not accessible by integration` when
+# electron-builder POSTs to /repos/nipscernlab/sapho/releases. That is exactly
+# how the 2026-05-19 run died, and why v6.3.2 had to be published by hand.
+# The publish therefore uses SAPHO_RELEASE_TOKEN — a fine-grained PAT with
+# `Contents: read and write` on nipscernlab/sapho — and the first step below
+# fails fast, in seconds, if that secret is missing or lacks write access.
 #
 # The build needs the bundled SAPHO toolchain under `components/`, which is NOT
 # committed to the source tree — `npm run bootstrap` downloads it: the unified
@@ -19,15 +30,59 @@ on:
     types: [published]
   workflow_dispatch:
 
+# Never let two publishes race onto the same distribution channel — a partial
+# asset set on the release is what a client sees as a corrupt update.
+concurrency:
+  group: release-sapho
+  cancel-in-progress: false
+
+env:
+  # Single source of truth for the distribution channel. Keep in sync with
+  # package.json#build.publish and REPO_OWNER/REPO_NAME in main/updater.js.
+  DIST_REPO: nipscernlab/sapho
+
 jobs:
   release:
     name: Build & publish (windows-latest)
     runs-on: windows-latest
 
     permissions:
-      contents: write   # needed to create the GitHub Release
+      contents: read   # this job never writes to `aurora`; it publishes to DIST_REPO
 
     steps:
+      # ── Fail fast ───────────────────────────────────────────────────────
+      # A missing/underpowered token used to surface only after the ~20 min
+      # build, at the very last step. Check it in the first 5 seconds instead.
+      - name: Preflight — verify publish access to the distribution repo
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+        run: |
+          if (-not $env:GH_TOKEN) {
+            Write-Host "::error::Secret SAPHO_RELEASE_TOKEN is not set."
+            Write-Host "::error::Create a fine-grained PAT with 'Contents: read and write' on $env:DIST_REPO,"
+            Write-Host "::error::then add it under nipscernlab/aurora -> Settings -> Secrets and variables -> Actions."
+            exit 1
+          }
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept        = 'application/vnd.github+json'
+            'User-Agent'  = 'aurora-release-workflow'
+          }
+          try {
+            $repo = Invoke-RestMethod -Uri "https://api.github.com/repos/$env:DIST_REPO" -Headers $headers
+          } catch {
+            Write-Host "::error::SAPHO_RELEASE_TOKEN cannot read $env:DIST_REPO ($($_.Exception.Message))."
+            Write-Host "::error::Check that the PAT lists that repository and has not expired."
+            exit 1
+          }
+          if (-not $repo.permissions.push) {
+            Write-Host "::error::SAPHO_RELEASE_TOKEN can read $env:DIST_REPO but cannot write to it."
+            Write-Host "::error::The PAT needs the 'Contents: read and write' permission."
+            exit 1
+          }
+          Write-Host "Publish access to $env:DIST_REPO confirmed."
+
       - name: Checkout
         uses: actions/checkout@v5
 
@@ -84,5 +139,103 @@ jobs:
       - name: Build & publish
         run: npx electron-builder --win --x64 --publish always
         env:
-          # electron-builder uses GH_TOKEN to create the release + upload assets
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # electron-builder reads GH_TOKEN to create the release + upload assets
+          # on DIST_REPO (package.json#build.publish). The default GITHUB_TOKEN
+          # is scoped to `aurora` and would 403 here — see the header comment.
+          GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+
+      # ── Post-publish integrity gate ─────────────────────────────────────
+      # Everything an installed copy does on update is driven by `latest.yml`:
+      # it names the installer and carries the sha512 the client verifies before
+      # running it. If that file and the uploaded .exe ever disagree, EVERY
+      # machine fails with "checksum mismatch" and the only fix is a new
+      # release. So we re-download what the release actually serves and compare
+      # it against the bytes we just built, from the outside, as a client would.
+      - name: Verify the published update feed
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag     = "v$version"
+          $exeName = "sapho-aurora-Setup-v$version.exe"
+
+          $localExe = Join-Path 'dist' $exeName
+          if (-not (Test-Path $localExe)) {
+            Write-Host "::error::Local installer $localExe is missing — the build did not produce what we expect to publish."
+            exit 1
+          }
+          $localSha = [Convert]::ToBase64String(
+            [System.Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($localExe)))
+          $localSize = (Get-Item $localExe).Length
+
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept        = 'application/vnd.github+json'
+            'User-Agent'  = 'aurora-release-workflow'
+          }
+          $rel = Invoke-RestMethod -Headers $headers `
+            -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/tags/$tag"
+
+          # 1. Every asset the updater needs must be on the release. The
+          #    .blockmap is what makes a delta download possible — without it
+          #    each client re-downloads the whole installer.
+          foreach ($needed in @($exeName, "$exeName.blockmap", 'latest.yml')) {
+            if (-not ($rel.assets | Where-Object { $_.name -eq $needed })) {
+              Write-Host "::error::Release $tag on $env:DIST_REPO is missing asset '$needed'."
+              exit 1
+            }
+          }
+
+          # 2. The published latest.yml must describe the published installer.
+          #    Fetch it the way a client does, over plain HTTPS.
+          $ymlUrl = "https://github.com/$env:DIST_REPO/releases/download/$tag/latest.yml"
+          $yml    = (Invoke-WebRequest -Uri $ymlUrl -UseBasicParsing).Content
+
+          $ymlVersion = ([regex]::Match($yml, '(?m)^version:\s*(\S+)')).Groups[1].Value
+          $ymlPath    = ([regex]::Match($yml, '(?m)^path:\s*(\S+)')).Groups[1].Value
+          $ymlSha     = ([regex]::Match($yml, '(?m)^sha512:\s*(\S+)')).Groups[1].Value
+
+          $problems = @()
+          if ($ymlVersion -ne $version) { $problems += "version: feed says '$ymlVersion', package.json says '$version'" }
+          if ($ymlPath    -ne $exeName) { $problems += "path: feed says '$ymlPath', built '$exeName'" }
+          if ($ymlSha     -ne $localSha) { $problems += "sha512 does not match the installer we built" }
+          if ($problems) {
+            Write-Host "::error::The published update feed does not match the published installer:"
+            $problems | ForEach-Object { Write-Host "::error::  - $_" }
+            Write-Host "::error::Every client would fail this update with a checksum mismatch. Delete release $tag on $env:DIST_REPO and re-run."
+            exit 1
+          }
+
+          Write-Host "Update feed verified: $tag -> $exeName ($([math]::Round($localSize/1MB,1)) MB), sha512 matches, blockmap present."
+
+      # The release body lives on the `aurora` release (release-please writes the
+      # changelog there). electron-builder creates the DIST_REPO release with an
+      # empty body, so the update window — which reads release notes from
+      # DIST_REPO via main/updater.js `fetchReleaseNotes` — would show a blank
+      # changelog. Copy the notes across so users see what changed.
+      - name: Mirror release notes to the distribution channel
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+          SOURCE_NOTES: ${{ github.event.release.body }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if (-not $env:SOURCE_NOTES) {
+            Write-Host "Source release has no body — leaving the distribution release notes as-is."
+            exit 0
+          }
+          $headers = @{
+            Authorization = "Bearer $env:GH_TOKEN"
+            Accept        = 'application/vnd.github+json'
+            'User-Agent'  = 'aurora-release-workflow'
+          }
+          $rel = Invoke-RestMethod -Headers $headers `
+            -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/tags/$env:TAG"
+          $body = @{ body = $env:SOURCE_NOTES; name = "SAPHO $env:TAG" } | ConvertTo-Json
+          Invoke-RestMethod -Method Patch -Headers $headers `
+            -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/$($rel.id)" `
+            -ContentType 'application/json' -Body $body | Out-Null
+          Write-Host "Release notes mirrored to $env:DIST_REPO $env:TAG."

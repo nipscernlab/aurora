@@ -126,7 +126,12 @@
           "!**/*.bak",
           "!**/*.aurora_backup",
           "!**/*.spf.bak",
-          "!**/*.log"
+          "!**/*.log",
+          "!Packages/verilator/**",
+          "!Packages/iverilog/**",
+          "!Packages/python/**",
+          "!Packages/PRISM/**",
+          "!Packages/7-Zip/**"
         ]
       }
     ],

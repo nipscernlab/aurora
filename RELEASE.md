@@ -88,13 +88,62 @@ gh release create "msys-v1" ..\..\aurora-msys-v1.zip `
 Bump `MSYS_TAG` / `MSYS_FILENAME` in `components/Scripts/download-toolchain.js`
 when cutting a new version.
 
+### Two repos, two roles
+
+SAPHO is the project (the soft-processor platform); AURORA is its IDE. The
+release split follows that naming:
+
+| Repo | Role | What lives there |
+|------|------|------------------|
+| `nipscernlab/aurora` | **source** | code, CI, tags, `CHANGELOG.md`, the release-please Release (the changelog of record) |
+| `nipscernlab/sapho` | **distribution** | the installer `.exe`, its `.blockmap`, and `latest.yml` — the feed every installed copy polls |
+
+`package.json#build.publish` and `REPO_OWNER`/`REPO_NAME` in
+[`main/updater.js`](main/updater.js) both point at the distribution repo, and
+`DIST_REPO` in `release.yml` mirrors them. **Those three must agree** — an
+installed copy polls whatever `main/updater.js` was built with, so changing one
+without the others silently strands every machine already in the field.
+
+### The token (why releases used to fail)
+
+Because the build runs in `aurora` but publishes to `sapho`, the default
+`GITHUB_TOKEN` is not enough: it is scoped to `aurora` and returns
+`403 Resource not accessible by integration` when electron-builder POSTs to
+`/repos/nipscernlab/sapho/releases`. That is exactly how the 2026-05-19 run
+died — and why v6.3.2 ended up published by hand.
+
+The fix is a repo secret **`SAPHO_RELEASE_TOKEN`**: a fine-grained PAT scoped
+to `nipscernlab/sapho` with `Contents: read and write`. The first step of
+`release.yml` probes it and fails in seconds if it is missing, expired or
+read-only — rather than after the ~20 min build, at the last step, as before.
+
 ### Cut an app release
 
 The single flow is **release-please** (`.github/workflows/release-please.yml`):
 every push to `main` keeps a release PR open that bumps the version + manifest
-and updates `CHANGELOG.md`. Merge that PR to publish the GitHub Release, which
-**triggers `release.yml`** (`on: release: published`) to build the installer and
-upload the `.exe` + `latest.yml`. The auto-updater takes it from there.
+and updates `CHANGELOG.md`. Merge that PR to publish the GitHub Release on
+`aurora`, which **triggers `release.yml`** (`on: release: published`) to build
+the installer and upload the `.exe`, `.blockmap` and `latest.yml` to `sapho`.
+The auto-updater takes it from there.
+
+`release.yml` gates the publish at three points, in order:
+
+1. **Preflight** — can `SAPHO_RELEASE_TOKEN` actually write to the
+   distribution repo? Runs before anything is built.
+2. **Toolchain sentinels** — the `download-*.js` exit 0 on failure so an
+   offline dev can still start the IDE; a release must never ship without the
+   toolchain, so missing sentinels fail the job.
+3. **Update-feed verification** — after publishing, the workflow re-downloads
+   `latest.yml` over plain HTTPS, exactly as a client would, and checks that
+   its `version`, `path` and `sha512` describe the installer that was actually
+   uploaded, and that the `.blockmap` is present. A feed that disagrees with
+   its installer makes **every** installed copy fail with "checksum mismatch",
+   recoverable only by cutting another release — so it must never reach users.
+
+The release notes are then mirrored from the `aurora` release onto the `sapho`
+release, because the update window reads them from the distribution repo
+(`fetchReleaseNotes` in `main/updater.js`) and electron-builder creates that
+release with an empty body.
 
 Manual fallback: run the **Release** workflow via `workflow_dispatch`, or
 

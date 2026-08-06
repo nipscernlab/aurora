@@ -53,5 +53,9 @@ module.exports = {
     '@openai/codex',                 // bundled CLI, spawned as a subprocess
     '@phosphor-icons/web',           // <link> straight to node_modules in index.html (icons)
     'katex',                         // <link> + <script> straight to node_modules (AI-chat math)
+    'material-icon-theme',           // vendored at BUILD time by vite-plugin-static-copy
+                                     //   (vite.config.mjs -> dist/vendor/material-icons/);
+                                     //   js/tree/material_icons.js then fetches it by URL, so
+                                     //   there is no import edge for knip to follow.
   ],
 };

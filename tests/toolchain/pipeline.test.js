@@ -36,6 +36,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 
 import { buildCmmSpec } from '../../js/compilation/builders/cmm.js';
 import { buildAsmPreSpec, buildAsmSpec } from '../../js/compilation/builders/asm.js';
@@ -46,6 +47,9 @@ import {
   buildVerilatorRunSpec,
 } from '../../js/compilation/builders/verilator.js';
 import { buildCocotbRunSpec } from '../../js/compilation/builders/cocotb.js';
+import { buildPrismYosysSpec } from '../../js/compilation/builders/yosys.js';
+// main/ é CommonJS; createRequire dá acesso a ele a partir deste módulo ESM.
+const { buildPrismYosysScript } = createRequire(import.meta.url)('../../main/ipc/prism_yosys_script.js');
 import {
   COCOTB_RUNNER_SOURCE,
   COCOTB_TESTS_FAILED,
@@ -649,4 +653,206 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
     const dumps = fs.readdirSync(buildFail).filter((f) => /\.(fst|vcd)$/i.test(f));
     expect(dumps.length).toBeGreaterThan(0);
   });
+});
+
+// ===========================================================================
+//  PRISM — the RTL schematic viewer
+//
+//  Two halves, both testable without opening a window:
+//    1. Yosys synthesises the design to a JSON netlist.
+//    2. @silimate/netlistsvg (in-process, from npm) turns that netlist into
+//       the SVG the viewer displays.
+//
+//  What cannot be asserted here is whether the drawing LOOKS right; that stays
+//  a manual check. What can be asserted is that the chain runs on the real
+//  generated processor and produces a schematic with actual cells in it —
+//  which is what breaks when Yosys is bumped or a pass is reordered.
+// ===========================================================================
+
+const yosysBin = path.join(MINGW_BIN, 'yosys.exe');
+const prismReady = toolchainReady && fs.existsSync(yosysBin);
+
+describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
+  let workdir;
+  let tempPath;
+  let netlistPath;
+  let sources;
+
+  beforeAll(() => {
+    workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-prism-'));
+    const projectPath = path.join(workdir, PROC);
+    const softwarePath = path.join(projectPath, 'Software');
+    const hardwarePath = path.join(projectPath, 'Hardware');
+    tempPath = path.join(workdir, 'Temp', PROC);
+    fs.mkdirSync(softwarePath, { recursive: true });
+    fs.mkdirSync(hardwarePath, { recursive: true });
+    fs.mkdirSync(tempPath, { recursive: true });
+
+    fs.copyFileSync(
+      path.join(HERE, 'fixtures', `${PROC}.cmm`),
+      path.join(softwarePath, `${PROC}.cmm`),
+    );
+    const asmFile = path.join(softwarePath, `${PROC}.asm`);
+    const macrosPath = path.join(COMPONENTS, 'Macros');
+    const hdlPath = path.join(COMPONENTS, 'HDL');
+
+    runSpec(buildCmmSpec({
+      cmmCompPath: REQUIRED_BINARIES.cmmcomp,
+      inputFile: `${PROC}.cmm`,
+      baseName: PROC,
+      projectPath,
+      macrosPath,
+      tempPath,
+      processorName: PROC,
+      lang: 'pt',
+      showArrays: false,
+    }));
+    runSpec(buildAsmPreSpec({
+      appCompPath: REQUIRED_BINARIES.appcomp,
+      asmFile,
+      tempPath,
+      processorName: PROC,
+      lang: 'pt',
+    }));
+    runSpec(buildAsmSpec({
+      asmCompPath: REQUIRED_BINARIES.asmcomp,
+      asmFile,
+      projectPath,
+      hdlPath,
+      macrosPath,
+      tempPath,
+      freq: 100,
+      clocks: 2000,
+      processorName: PROC,
+      lang: 'pt',
+    }));
+
+    // Forward slashes: yosys.exe is a native Windows binary and rejects the
+    // MSYS-style `/c/...` form a shell may hand it.
+    const fwd = (p) => p.split(path.sep).join('/');
+    sources = [fwd(path.join(hardwarePath, `${PROC}.v`))];
+    for (const name of fs.readdirSync(hdlPath)) {
+      if (name.endsWith('.v') && !name.includes('_tb')) {
+        sources.push(fwd(path.join(hdlPath, name)));
+      }
+    }
+    netlistPath = fwd(path.join(tempPath, 'hierarchy.json'));
+  });
+
+  it('synthesises the processor into a JSON netlist', () => {
+    // Script from main/ipc/prism_yosys_script.js — the same one the viewer
+    // writes — so a change to any pass is exercised here.
+    const script = buildPrismYosysScript(sources, PROC, netlistPath);
+    // The passes that exist for a visual reason, pinned so they cannot be
+    // dropped as "cleanup": see the module's JSDoc for why each matters.
+    expect(script).toMatch(/read_verilog -setattr src/);
+    expect(script).toMatch(/^setundef -zero$/m);
+    expect(script).toMatch(/^opt_clean -purge$/m);
+
+    const scriptPath = path.join(tempPath, 'yosys_script.ys');
+    fs.writeFileSync(scriptPath, script);
+
+    runSpec(buildPrismYosysSpec({
+      yosysPath: yosysBin,
+      scriptPath,
+      cwd: tempPath,
+    }));
+
+    expect(fs.existsSync(netlistPath)).toBe(true);
+    const netlist = JSON.parse(fs.readFileSync(netlistPath, 'utf8'));
+    expect(netlist.modules).toBeTruthy();
+    expect(netlist.modules[PROC]).toBeTruthy();
+    // A netlist with no cells would still be valid JSON and would render as an
+    // empty schematic — the failure that looks like "PRISM opened but is blank".
+    expect(Object.keys(netlist.modules[PROC].cells || {}).length).toBeGreaterThan(0);
+  }, 300_000);
+
+  it('renders that netlist to an SVG schematic with real cells', async () => {
+    const netlistsvg = (await import('@silimate/netlistsvg')).default
+      ?? await import('@silimate/netlistsvg');
+    const libIndex = createRequire(import.meta.url).resolve('@silimate/netlistsvg');
+    const skin = fs.readFileSync(
+      path.join(path.dirname(libIndex), '..', 'lib', 'default.svg'),
+      'utf8',
+    );
+
+    const netlist = JSON.parse(fs.readFileSync(netlistPath, 'utf8'));
+    // PRISM renders ONE module at a time; isolate the top the same way.
+    const single = { modules: { [PROC]: netlist.modules[PROC] } };
+
+    const svg = await new Promise((resolve, reject) => {
+      netlistsvg.render(skin, single, (err, out) => (err ? reject(err) : resolve(out)));
+    });
+
+    expect(svg).toMatch(/<svg[\s>]/);
+    // Cells actually drawn, not just a valid but empty canvas.
+    const cells = svg.match(/<g[^>]*id="cell_/g) || [];
+    expect(cells.length).toBeGreaterThan(0);
+  }, 300_000);
+});
+
+// ===========================================================================
+//  Bundled binaries — do they actually RUN on this machine?
+//
+//  Existence checks (the release workflow's sentinels) prove a file is on
+//  disk. They do not prove it can execute. On Windows the common bundling
+//  failure is a binary that ships without one of its runtime DLLs: the
+//  process dies immediately with STATUS_DLL_NOT_FOUND (0xC0000135) and prints
+//  nothing at all. To a sentinel check that bundle looks perfect; to a student
+//  in the lab the feature is simply dead.
+//
+//  So: launch each one and require it to behave like a program.
+//
+//  These are the tools with no coverage anywhere else — the language servers,
+//  the formatter, the wave viewers. Their file-generation halves ARE unit
+//  tested (gtkwProcWriter, surferLayoutWriter, selectionValidator …); what was
+//  never checked is whether the executable they hand off to can start.
+// ===========================================================================
+
+describe('SAPHO toolchain — bundled binaries are executable', () => {
+  /**
+   * Every entry: a binary and an argument that makes it exit quickly.
+   * `optional` marks tools a partial bootstrap may legitimately lack.
+   */
+  const BINARIES = [
+    { name: 'gtkwave', file: path.join(GTKWAVE_DIR, 'gtkwave.exe'), args: ['--version'] },
+    { name: 'fst2vcd', file: path.join(GTKWAVE_DIR, 'fst2vcd.exe'), args: ['-h'] },
+    { name: 'surfer', file: path.join(COMPONENTS, 'Packages', 'surfer', 'surfer-aurora.exe'), args: ['--version'] },
+    { name: 'verible-verilog-ls', file: path.join(COMPONENTS, 'Packages', 'verible', 'bin', 'verible-verilog-ls.exe'), args: ['--version'] },
+    { name: 'slang-server', file: path.join(COMPONENTS, 'Packages', 'slang-server', 'bin', 'slang-server.exe'), args: ['--version'] },
+    { name: 'clang-format', file: path.join(COMPONENTS, 'Packages', 'clang-format', 'bin', 'clang-format.exe'), args: ['--version'] },
+    { name: 'comp2gtkw', file: path.join(COMPONENTS, 'bin', 'comp2gtkw.exe'), args: [] },
+  ];
+
+  for (const bin of BINARIES) {
+    it.skipIf(!fs.existsSync(bin.file))(`${bin.name} starts and exits like a program`, () => {
+      let status = 0;
+      let output = '';
+      try {
+        output = execFileSync(bin.file, bin.args, {
+          encoding: 'utf8',
+          timeout: 60_000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          // gtkwave and surfer link GTK/graphics runtimes that live beside
+          // them; give each its own directory on PATH so a dependent DLL
+          // resolves the same way it does when Aurora launches it.
+          env: { ...process.env, PATH: `${path.dirname(bin.file)}${path.delimiter}${process.env.PATH}` },
+        });
+      } catch (e) {
+        status = e.status ?? -1;
+        output = `${e.stdout || ''}${e.stderr || ''}`;
+      }
+
+      // A Windows loader failure (missing DLL, wrong architecture) surfaces as
+      // a large negative NTSTATUS, never as a normal small exit code. `--help`
+      // style flags legitimately return small non-zero values, so the check is
+      // on the MAGNITUDE, not on success.
+      expect(status).toBeGreaterThan(-1000);
+      expect(status).toBeLessThan(128);
+
+      // And it must have produced *something*, or exited cleanly. Silence plus
+      // a non-zero status is what a dead binary looks like.
+      expect(output.length > 0 || status === 0).toBe(true);
+    }, 90_000);
+  }
 });

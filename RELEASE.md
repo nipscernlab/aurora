@@ -154,6 +154,46 @@ git push --follow-tags
 
 then publish a GitHub Release at that tag.
 
+## Differential updates — what actually keeps the fleet cheap
+
+The installer is ~500 MB, almost all of it the bundled toolchain. That is a
+one-time cost per machine, **not** a per-update cost: electron-updater fetches
+only the changed blocks. Three things make that work, and each is easy to
+break by accident.
+
+**1. The blockmap is already tuned; do not "optimise" the compression.**
+`configureDifferentialAwareArchiveOptions` in app-builder-lib forces
+`compression: normal`, `solid: false`, `dictSize: 1 MB` for any
+differential-aware NSIS package, with the comment *"do not allow to change
+compression level to avoid different packages"*. Setting
+`build.compression: "maximum"` in package.json is therefore **ignored** for
+the inner archive — it buys nothing. Worse, solid compression is precisely
+what would destroy delta efficiency: one changed byte early in a solid stream
+invalidates every block after it.
+
+**2. The delta base is the *previous installer*, cached locally.**
+`NsisUpdater` looks for `<cacheDir>/installer.exe` and diffs against it; it
+never re-downloads the old installer. That file is written by the NSIS
+installer itself (`copyFile "$EXEPATH" "$LOCALAPPDATA\${APP_INSTALLER_STORE_FILE}"`),
+so **every** install seeds it — including the very first one, done by hand from
+the release page. Verified on a real machine: `%LOCALAPPDATA%\sapho-updater\`
+contains `installer.exe`.
+
+**3. `package.json` `name` is load-bearing for the updater cache.**
+`updaterCacheDirName` is `sanitizeFileName(metadata.name).toLowerCase() + "-updater"`
+— today `sapho` → `%LOCALAPPDATA%\sapho-updater`. Rename the package and every
+installed copy looks for its delta base in a directory that does not exist:
+no error, no warning, just a silent fall back to a full ~500 MB download for
+the whole fleet. (A machine here still carries an `aurora-ide-updater` folder
+from before the April 2026 rename — that is what the leftover looks like.)
+**Do not rename it.**
+
+**Corollary for release planning:** a release that bumps the toolchain changes
+most of the payload, so its delta is close to a full download. App-only
+releases are cheap. When both are pending and the fleet is on a metered or
+slow link, cut them as separate releases rather than one — the toolchain bump
+costs the full download either way, but the app fix reaches everyone quickly.
+
 ## Why not just commit the binaries?
 
 We did, originally. The git history grew to **~550 MiB** (vs. ~7 MiB of

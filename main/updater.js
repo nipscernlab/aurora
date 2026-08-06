@@ -57,8 +57,20 @@ const REPO_OWNER = 'nipscernlab';
 const REPO_NAME = 'sapho';
 
 autoUpdater.logger = log;
+
+// Downloading is always the user's choice: the installer is large and a lab
+// network is shared, so nothing is fetched until someone clicks Download.
 autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = false;
+
+// But once it IS downloaded, applying it at quit is not a second decision —
+// the user already consented by starting the download. This used to be false,
+// which meant closing the app without clicking "Restart & Install" threw the
+// finished download away and started over on the next launch. In a teaching
+// lab, where closing the app at the end of class is the normal way to leave,
+// that was the common path: the update was fetched over and over and never
+// applied. NSIS runs the per-user install silently and without elevation, so
+// there is nothing to prompt for at quit.
+autoUpdater.autoInstallOnAppQuit = true;
 
 // Last "available" payload — kept so we can re-send it once the update
 // window's renderer has finished loading (the event can fire before the
@@ -680,8 +692,10 @@ function initializeUpdateSystem() {
   state.updateSystemInitialized = true;
   log.info('Initializing update system...');
 
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  // NOTE: autoDownload / autoInstallOnAppQuit are set once at module scope,
+  // above. They used to be re-assigned here too, which meant editing the
+  // declaration at the top had no effect — the copy down here won. One
+  // assignment, one place.
 
   // Set explicitly so checks work even if the packaged app-update.yml
   // ever drifts from package.json#build.publish.

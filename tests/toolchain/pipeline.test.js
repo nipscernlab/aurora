@@ -34,7 +34,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
@@ -855,4 +855,121 @@ describe('SAPHO toolchain — bundled binaries are executable', () => {
       expect(output.length > 0 || status === 0).toBe(true);
     }, 90_000);
   }
+});
+
+// ===========================================================================
+//  Language servers — do they SPEAK, not just start?
+//
+//  The smoke test above proves verible-verilog-ls and slang-server launch. A
+//  process that starts and then answers nothing is indistinguishable from a
+//  working one at that level, and it is a real failure mode: a version bump
+//  that changes the startup flags, or a binary built against a different
+//  protocol revision, leaves the editor with no diagnostics, no hover and no
+//  completion — silently, because main/lsp/*.js degrades quietly by design
+//  (it must never break editing).
+//
+//  So perform the actual LSP handshake: Content-Length-framed JSON-RPC over
+//  stdio, `initialize`, and wait for a result carrying capabilities. That is
+//  the same exchange main/lsp/verible_lsp.js does before the editor can use
+//  the server for anything.
+// ===========================================================================
+
+/**
+ * Send `initialize` to a language server over stdio and resolve with its
+ * result. Mirrors the hand-rolled framing in main/lsp/*.js (no
+ * vscode-jsonrpc dependency in this project, by design).
+ *
+ * @param {string} bin  absolute path to the language server
+ * @param {string[]} args
+ * @param {number} timeoutMs
+ * @returns {Promise<any>} the `result` object of the initialize response
+ */
+function lspInitialize(bin, args, timeoutMs = 60_000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(bin, args, { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    let buffer = Buffer.alloc(0);
+    let settled = false;
+
+    const done = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { child.kill(); } catch { /* already gone */ }
+      fn(arg);
+    };
+
+    const timer = setTimeout(
+      () => done(reject, new Error(`${path.basename(bin)}: no initialize response in ${timeoutMs}ms`)),
+      timeoutMs,
+    );
+
+    child.on('error', (e) => done(reject, e));
+    child.on('exit', (code) => done(reject, new Error(`${path.basename(bin)} exited (code ${code}) before responding`)));
+
+    child.stdout.on('data', (chunk) => {
+      buffer = Buffer.concat([buffer, chunk]);
+      // Drain every complete Content-Length frame currently buffered.
+      for (;;) {
+        const headerEnd = buffer.indexOf('\r\n\r\n');
+        if (headerEnd < 0) return;
+        const header = buffer.subarray(0, headerEnd).toString('ascii');
+        const len = Number(/Content-Length:\s*(\d+)/i.exec(header)?.[1]);
+        if (!Number.isFinite(len)) return done(reject, new Error('malformed LSP header'));
+        const start = headerEnd + 4;
+        if (buffer.length < start + len) return; // frame not complete yet
+        const body = buffer.subarray(start, start + len).toString('utf8');
+        buffer = buffer.subarray(start + len);
+        let msg;
+        try { msg = JSON.parse(body); } catch { continue; }
+        // Servers may emit log/progress notifications first; we want the
+        // response to our id 1.
+        if (msg.id === 1) {
+          if (msg.error) return done(reject, new Error(msg.error.message || 'initialize failed'));
+          return done(resolve, msg.result);
+        }
+      }
+    });
+
+    const payload = JSON.stringify({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        processId: process.pid,
+        rootUri: null,
+        capabilities: {
+          textDocument: {
+            synchronization: { dynamicRegistration: false, didSave: false },
+            publishDiagnostics: {},
+          },
+        },
+        clientInfo: { name: 'Aurora toolchain test', version: '1' },
+      },
+    });
+    const body = Buffer.from(payload, 'utf8');
+    child.stdin.write(`Content-Length: ${body.length}\r\n\r\n`);
+    child.stdin.write(body);
+  });
+}
+
+describe('SAPHO toolchain — language servers answer the LSP handshake', () => {
+  const VERIBLE = path.join(COMPONENTS, 'Packages', 'verible', 'bin', 'verible-verilog-ls.exe');
+  const SLANG = path.join(COMPONENTS, 'Packages', 'slang-server', 'bin', 'slang-server.exe');
+
+  it.skipIf(!fs.existsSync(VERIBLE))('verible-verilog-ls initializes and advertises capabilities', async () => {
+    // Same flags main/lsp/verible_lsp.js spawns it with, so a flag the server
+    // stops accepting fails here instead of silently disabling hover.
+    const result = await lspInitialize(VERIBLE, ['--lsp_enable_hover', '--rules_config_search']);
+    expect(result).toBeTruthy();
+    expect(result.capabilities).toBeTruthy();
+    // The editor relies on incremental/full text sync being offered; without
+    // it, nothing downstream (diagnostics, formatting) can work.
+    expect(result.capabilities.textDocumentSync).toBeDefined();
+  }, 90_000);
+
+  it.skipIf(!fs.existsSync(SLANG))('slang-server initializes and advertises capabilities', async () => {
+    const result = await lspInitialize(SLANG, []);
+    expect(result).toBeTruthy();
+    expect(result.capabilities).toBeTruthy();
+  }, 90_000);
 });

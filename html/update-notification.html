@@ -253,6 +253,15 @@
       font-family: var(--font-mono); font-size: 12.5px;
       color: var(--text); font-variant-numeric: tabular-nums;
     }
+    /* Auto-retry notice — only visible while a dropped download is being
+       resumed, so it reads as a transient state rather than a failure. */
+    .retry-note {
+      margin-top: 14px; padding: 9px 12px; border-radius: 9px;
+      background: var(--bg-1); border: 1px solid var(--border);
+      font-size: 11.5px; color: var(--text-soft); text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    .retry-note[hidden] { display: none; }
 
     /* ---- done ---- */
     .done { flex: 1; display: flex; flex-direction: column;
@@ -358,6 +367,9 @@
               <div class="v" id="dl-eta">—</div>
             </div>
           </div>
+          <!-- Auto-retry notice. Hidden until a download actually drops; the
+               progress bar would otherwise just freeze with no explanation. -->
+          <div class="retry-note" id="dl-retry" hidden></div>
         </div>
       </div>
 
@@ -406,6 +418,9 @@
         later2: 'Install later', install: 'Restart & Install',
         calc: 'Calculating…', noNotes: 'No release notes provided for this version.',
         secs: (s) => `${s}s`, mins: (m) => `${m} min`,
+        retrying: (a, of, s) =>
+          `Connection lost — retrying in ${s}s (attempt ${a} of ${of})`,
+        resuming: 'Reconnecting…',
       },
       pt: {
         avTitle: 'Uma nova versão está disponível',
@@ -419,6 +434,9 @@
         later2: 'Instalar depois', install: 'Reiniciar e Instalar',
         calc: 'Calculando…', noNotes: 'Nenhuma nota de versão informada para esta versão.',
         secs: (s) => `${s}s`, mins: (m) => `${m} min`,
+        retrying: (a, of, s) =>
+          `Conexão caiu — nova tentativa em ${s}s (tentativa ${a} de ${of})`,
+        resuming: 'Reconectando…',
       },
     };
 
@@ -636,6 +654,40 @@
       return T.mins(Math.ceil(sec / 60));
     }
 
+    // ---- retry notice -------------------------------------------------
+    // Main retries a dropped download on its own; without this the window
+    // would sit on a motionless progress bar and look hung.
+    let retryTimer = null;
+
+    function clearRetryNotice() {
+      if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+      const el = $('dl-retry');
+      el.hidden = true;
+      el.textContent = '';
+    }
+
+    function startRetryCountdown(attempt, ofAttempts, seconds) {
+      if (retryTimer) clearInterval(retryTimer);
+      const el = $('dl-retry');
+      el.hidden = false;
+      let left = Math.max(0, Number(seconds) || 0);
+      const paint = () => {
+        const T = UI[locale];
+        el.textContent = left > 0
+          ? T.retrying(attempt, ofAttempts, left)
+          : T.resuming;
+      };
+      paint();
+      retryTimer = setInterval(() => {
+        left -= 1;
+        if (left <= 0) { clearInterval(retryTimer); retryTimer = null; }
+        paint();
+      }, 1000);
+      // The speed/ETA readings are stale the moment the transfer stops.
+      $('dl-speed').textContent = '—';
+      $('dl-eta').textContent   = '—';
+    }
+
     // ============================================================
     //  IPC
     // ============================================================
@@ -656,6 +708,8 @@
 
       window.updateAPI.onProgress((p) => {
         showState('downloading');
+        // Bytes are flowing again — clear any retry countdown still on screen.
+        clearRetryNotice();
         $('dl-pct').textContent  = Math.round(p.percent) + '%';
         $('dl-fill').style.width = p.percent + '%';
         $('dl-transferred').textContent = `${p.transferredMB} / ${p.totalMB} MB`;
@@ -663,7 +717,15 @@
         $('dl-eta').textContent   = fmtEta(p.etaSec);
       });
 
+      // The download dropped and main is about to retry. Count down so the
+      // frozen progress bar reads as "recovering", not "hung".
+      window.updateAPI.onRetrying((r) => {
+        showState('downloading');
+        startRetryCountdown(r.attempt, r.ofAttempts, r.inSeconds);
+      });
+
       window.updateAPI.onError((e) => {
+        clearRetryNotice();
         $('changelog').innerHTML =
           `<p style="color:var(--danger)"><strong>${e.message || 'Update error'}</strong></p>`;
         showState('available');

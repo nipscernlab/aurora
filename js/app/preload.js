@@ -254,6 +254,13 @@ const updateOperations = {
   // and returns { justUpdated, previousVersion, currentVersion }. The
   // renderer uses it to surface a "you're up to date" toast.
   getPostUpdateStatus: () => ipcRenderer.invoke('updates:post-update-status'),
+
+  // Health of the update system: when it last checked, against which feed,
+  // what the last error was, when the next check is due. Read-only; drives
+  // the About panel so a machine that is not updating can be diagnosed
+  // without opening main.log by hand.
+  getUpdateDiagnostics: () => ipcRenderer.invoke('updates:diagnostics'),
+  openUpdateLog:        () => ipcRenderer.invoke('updates:open-log'),
 };
 
 /* ============================================================================

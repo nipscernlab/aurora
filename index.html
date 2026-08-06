@@ -1228,6 +1228,46 @@
                         </div>
                     </div>
 
+                    <!-- Update-system health. Exists for remote diagnosis: when a
+                         machine is not updating, the questions are always "is it even
+                         checking?", "against what?", "what failed?" — answering them
+                         here beats walking to the machine and reading main.log. -->
+                    <div class="settings-card">
+                        <h4 class="about-card-title" data-i18n="modal.settings.aboutUpdates">Updates</h4>
+                        <dl class="about-updates" id="about-updates">
+                            <div class="about-update-row">
+                                <dt data-i18n="modal.settings.updStatus">Status</dt>
+                                <dd id="upd-status">—</dd>
+                            </div>
+                            <div class="about-update-row">
+                                <dt data-i18n="modal.settings.updLastCheck">Last check</dt>
+                                <dd id="upd-last-check">—</dd>
+                            </div>
+                            <div class="about-update-row">
+                                <dt data-i18n="modal.settings.updNextCheck">Next check</dt>
+                                <dd id="upd-next-check">—</dd>
+                            </div>
+                            <div class="about-update-row">
+                                <dt data-i18n="modal.settings.updChannel">Channel</dt>
+                                <dd id="upd-channel">—</dd>
+                            </div>
+                            <div class="about-update-row about-update-error" id="upd-error-row" hidden>
+                                <dt data-i18n="modal.settings.updLastError">Last error</dt>
+                                <dd id="upd-last-error">—</dd>
+                            </div>
+                        </dl>
+                        <div class="about-update-actions">
+                            <button type="button" class="about-update-btn" id="upd-check-now">
+                                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.updCheckNow">Check now</span>
+                            </button>
+                            <button type="button" class="about-update-btn" id="upd-open-log">
+                                <i class="ph ph-file-text" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.updOpenLog">Open log</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="settings-card">
                         <h4 class="about-card-title" data-i18n="modal.settings.aboutTeam">Team</h4>
                         <div class="about-people">

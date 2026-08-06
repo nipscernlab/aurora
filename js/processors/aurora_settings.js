@@ -381,6 +381,93 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(() => { /* keep the placeholder */ });
     }
 
+    // ---- Update-system health ----
+    //
+    // Why this panel exists: SAPHO is installed once on a fleet of lab
+    // machines and updated only over the network. When one of them stops
+    // updating, the maintainer is not standing at it — so "is it checking at
+    // all, against which channel, and what failed last?" has to be readable
+    // from inside the app instead of from main.log on that machine's disk.
+    //
+    // Everything here is a snapshot pulled on demand; there is no live
+    // subscription, because the panel is only visible while the modal is open.
+    const updatesCard = document.getElementById('about-updates');
+    if (updatesCard && electronAPI?.getUpdateDiagnostics) {
+        const tr = (key, fallback, vars) => {
+            const s = window.t ? window.t(key, vars) : null;
+            if (s && s !== key) return s;
+            return String(fallback).replace(/\{\{(\w+)\}\}/g, (m, k) => (vars && k in vars ? vars[k] : m));
+        };
+
+        /** "3 min ago" / "in 2 h" — coarse on purpose; exact clock times add noise. */
+        const relative = (timestamp, future) => {
+            if (!timestamp) return tr('modal.settings.updNever', 'Never');
+            const deltaMs = future ? timestamp - Date.now() : Date.now() - timestamp;
+            const mins = Math.round(deltaMs / 60000);
+            if (mins <= 0) return tr('modal.settings.updJustNow', 'Just now');
+            if (mins < 60) {
+                return future
+                    ? tr('modal.settings.updInMinutes', 'in {{n}} min', { n: mins })
+                    : tr('modal.settings.updMinutesAgo', '{{n}} min ago', { n: mins });
+            }
+            const hours = Math.round(mins / 60);
+            return future
+                ? tr('modal.settings.updInHours', 'in {{n}} h', { n: hours })
+                : tr('modal.settings.updHoursAgo', '{{n}} h ago', { n: hours });
+        };
+
+        const statusLabel = (d) => {
+            if (d.isDev) return tr('modal.settings.updStateDev', 'Disabled in development mode');
+            if (d.downloading) return tr('modal.settings.updStateDownloading', 'Downloading update');
+            if (d.updateAvailable) return tr('modal.settings.updStateAvailable', 'Update available');
+            if (d.checking) return tr('modal.settings.updStateChecking', 'Checking…');
+            // A single blip is normal and self-heals via the backoff; only a
+            // repeated failure is worth alarming the user about.
+            if (d.consecutiveFailures > 1) {
+                return tr('modal.settings.updStateFailing', 'Cannot reach the update server');
+            }
+            return tr('modal.settings.updStateIdle', 'Up to date');
+        };
+
+        const setText = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+
+        const refreshDiagnostics = () => electronAPI.getUpdateDiagnostics()
+            .then((d) => {
+                if (!d) return;
+                setText('upd-status', statusLabel(d));
+                setText('upd-last-check', relative(d.lastCheckAt, false));
+                setText('upd-next-check', d.nextCheckAt ? relative(d.nextCheckAt, true) : '—');
+                setText('upd-channel', d.feed || '—');
+                const errRow = document.getElementById('upd-error-row');
+                if (errRow) {
+                    // Only show the error row when the error is still the most
+                    // recent thing that happened — a stale error under a
+                    // successful check reads as a live problem when it is not.
+                    const errIsCurrent = !!d.lastError && d.lastCheckResult === 'error';
+                    errRow.hidden = !errIsCurrent;
+                    if (errIsCurrent) setText('upd-last-error', d.lastError);
+                }
+            })
+            .catch(() => { /* diagnostics are informational; never break the modal */ });
+
+        // Refresh whenever the modal opens, so the numbers are never stale.
+        settingsButton.addEventListener('click', refreshDiagnostics);
+        refreshDiagnostics();
+
+        document.getElementById('upd-check-now')?.addEventListener('click', () => {
+            electronAPI.checkForUpdates?.();
+            // The check is asynchronous; re-read shortly after so the panel
+            // reflects the attempt rather than the pre-click state.
+            setTimeout(refreshDiagnostics, 1500);
+        });
+        document.getElementById('upd-open-log')?.addEventListener('click', () => {
+            electronAPI.openUpdateLog?.();
+        });
+    }
+
     // External links: a plain <a href> would navigate this renderer
     // window (Electron treats it as a navigation, not a "open in browser"
     // intent). Each .about-link stores its destination in data-href and

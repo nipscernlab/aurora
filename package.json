@@ -111,8 +111,10 @@
       "!node_modules/@types/**",
       "!node_modules/@anthropic-ai/claude-code/**",
       "!node_modules/@anthropic-ai/claude-code-*/**",
+      "!node_modules/@anthropic-ai/claude-agent-sdk-*/**",
       "!node_modules/@openai/codex/**",
-      "!node_modules/@openai/codex-*/**"
+      "!node_modules/@openai/codex-*/**",
+      "node_modules/@openai/codex-sdk/**"
     ],
     "extraResources": [
       {
@@ -142,6 +144,30 @@
   "keywords": [
     "Aurora"
   ],
+  "//overrides": [
+    "Transitive-only security fixes. None of these is a direct dependency, so",
+    "the version we get is whatever an upstream package happens to ask for —",
+    "these pins raise the floor to the patched release without waiting for",
+    "each upstream to bump its own range.",
+    "Prefer this over `npm audit fix`: that command rewrote ~30 packages here,",
+    "including a DOWNGRADE of unzipper, which is far more churn than a security",
+    "patch should cost on a build that ships to lab machines.",
+    "Each entry stays inside the current major so no API changes ride along.",
+    "brace-expansion is pinned per-major because three majors coexist in the",
+    "tree (minimatch@3 and filelist need the 1.x/2.x API); forcing everything",
+    "to 5.x would break them.",
+    "Remove an entry once every upstream demands the fixed version on its own —",
+    "`npm ls <pkg>` shows whether the override is still doing anything."
+  ],
+  "overrides": {
+    "brace-expansion@1": "^1.1.18",
+    "brace-expansion@2": "^2.1.4",
+    "brace-expansion@5": "^5.0.9",
+    "fast-uri": "^3.1.5",
+    "hono": "^4.12.34",
+    "ip-address": "^10.4.0",
+    "undici": "^6.28.0"
+  },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.86",
     "@ai-sdk/deepseek": "^2.0.39",

@@ -17,6 +17,24 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    ignore:
+      # monaco-editor esta pinado em 0.52.2 no package.json por um motivo
+      # concreto: a 0.53.0 lanca excecao dentro do proprio
+      # monaco.contribution.js durante a init, travando
+      # EditorManager.initialize() e deixando o editor pela metade (cursor
+      # aparece, digitacao morre). O historico esta em
+      # scripts/check-pinned-versions.js.
+      #
+      # Aquele guarda NAO cobre este caso. Ele compara o declarado no
+      # package.json com o instalado em node_modules, e o Dependabot sobe os
+      # dois juntos — a checagem passaria. Como 0.52 -> 0.55 e classificado
+      # como minor, o auto-merge de patch/minor engoliria o bump sozinho e
+      # quebraria o editor sem ninguem olhar. Por isso a barreira vive aqui,
+      # no ponto onde o PR nem chega a nascer.
+      #
+      # Para destravar: subir manualmente, abrir o editor, digitar, e so
+      # entao remover estas linhas junto com o pin no package.json.
+      - dependency-name: "monaco-editor"
 
   - package-ecosystem: "github-actions"
     directory: "/"

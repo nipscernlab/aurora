@@ -189,6 +189,40 @@ Depois dele, volta ao incremental.
 
 ---
 
+## 7. Split dos god files
+
+Três arquivos concentram 3478 linhas e continuam crescendo: `main/ai/tools.js`
+com 1532, `main/ipc/project.js` com 982 e `main/ipc/prism.js` com 964. Nenhum
+deles tem divisão interna por assunto, e cada funcionalidade nova de IA, de
+projeto ou de PRISM entra empilhando no mesmo lugar.
+
+**A planta baixa já existe.** A branch local `backup/a2-godfiles` propôs a
+divisão em agosto e foi arquivada na tag `archive/a2-godfiles` (ponta
+`de38e4a6`), recuperável com `git checkout archive/a2-godfiles`. O desenho dela:
+`tools.js` vira nove módulos por namespace (compile, editor, misc, project,
+rules, settings, terminal, wave, mais um index que remonta o manifesto);
+`prism.js` vira cinco (index, module_names, pipeline, svg, window); `project.js`
+vira cinco (helpers, index, lifecycle, processors, rename). A soma das linhas dos
+módulos bate com a do arquivo original em cada caso, com diferença só do
+boilerplate de import e export, o que confirma que era movimentação pura, sem
+mudança de comportamento.
+
+**Por que a branch não foi mergeada.** Ela partiu de `9bd05e80`, e desde essa
+base 21 commits da main tocaram exatamente esses três arquivos, somando 682
+linhas: a memória de projeto da IA, as tools de git, a simulação DigitalJS no
+PRISM, o fork do Surfer. Reaplicar o split daquela época conflitaria com tudo
+isso e correria risco de reverter funcionalidade. Das cinco suítes de teste que
+ela trazia, quatro já estão na main; a quinta exercita um método `initialize()`
+que a main não tem, porque a main chegou ao mesmo construtor puro por outro
+desenho de API.
+
+**O caminho, quando for a hora.** Refazer a divisão sobre a main do dia, usando
+a tag apenas como mapa de qual função vai para qual módulo. É refactor mecânico
+com os testes atuais como rede, e cabe em três commits, um por arquivo. Não
+depende de nada e não bloqueia nada, mas quanto mais tarde, maior o arquivo.
+
+---
+
 ## Ordem recomendada
 
 1. **Ensaio de atualização** (item 1). Valida a promessa central e exige
@@ -200,3 +234,6 @@ Depois dele, volta ao incremental.
    AppLocker sem ela.
 4. **Interface e performance** (itens 2 e 3), com calma, já que o release
    definitivo não tem pressa.
+5. **Split dos god files** (item 7), quando houver folga entre funcionalidades.
+   É o único item que fica mais caro a cada semana que passa, porque os três
+   arquivos crescem junto com o resto.

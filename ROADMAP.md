@@ -8,8 +8,9 @@
 ## Now (lab deployment + signing)
 
 The near-term goal is concrete: install once on the DLP teaching lab's machines and
-update them remotely, for good. Detail in
-[docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md) §19.
+update them remotely, for good. What was done is in
+[docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md) §19; what is still
+open, and in which order, is in [docs/PENDENCIAS.md](docs/PENDENCIAS.md).
 
 - Release pipeline unblocked (done): it had never worked — cross-repo publish was
   403-ing and every release was cut by hand. Now gated on publish access, toolchain

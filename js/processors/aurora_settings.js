@@ -479,4 +479,49 @@ document.addEventListener('DOMContentLoaded', () => {
             if (href) electronAPI?.openExternal?.(href);
         });
     });
+
+    // Manual offline. Fica fora do esquema data-href acima porque openExternal
+    // recusa file:// de proposito: o destino e montado no processo principal,
+    // que nao recebe caminho nenhum daqui.
+    const offlineLink = modalOverlay.querySelector('#about-docs-offline');
+    if (offlineLink && electronAPI?.docsStatus) {
+        const meta = modalOverlay.querySelector('#about-docs-offline-meta');
+
+        electronAPI.docsStatus()
+            .then((s) => {
+                // Sem pacote instalado o item continua oculto, e sobra apenas o
+                // manual online — melhor do que um botao que nao faz nada.
+                if (!s?.hasOffline) return;
+                offlineLink.hidden = false;
+                if (meta) meta.textContent = s.version ? `versão ${s.version}` : 'no computador';
+            })
+            .catch(() => { /* mantem oculto */ });
+
+        offlineLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            electronAPI.docsOpenOffline?.();
+        });
+    }
+
+    // Procura documentacao mais nova uma vez por sessao, quando o painel abre.
+    // Nao roda na inicializacao para nao competir por rede com o que o usuario
+    // esta esperando ao abrir o aplicativo. Se achar versao nova, ela vale na
+    // proxima vez que o manual for aberto.
+    let updateChecked = false;
+    if (electronAPI?.docsCheckUpdate) {
+        settingsButton.addEventListener('click', () => {
+            if (updateChecked) return;
+            updateChecked = true;
+            electronAPI.docsCheckUpdate()
+                .then((r) => {
+                    if (!r?.updated || !offlineLink) return;
+                    // A copia trocou embaixo do painel ja aberto; reflete agora
+                    // para o rotulo nao mentir a versao.
+                    offlineLink.hidden = false;
+                    const m = modalOverlay.querySelector('#about-docs-offline-meta');
+                    if (m && r.version) m.textContent = `versão ${r.version}`;
+                })
+                .catch(() => { /* segue com o que ja tem */ });
+        });
+    }
 });

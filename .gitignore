@@ -40,6 +40,12 @@ saphoComponents/Packages/
 # (resources/pylib-catalog.json), nunca o que foi instalado nesta copia.
 components/PyLibs/
 
+# Manual do SAPHO. E gerado e publicado pelo repositorio nipscernlab/docs_aurora;
+# download-docs.js traz o pacote da Release a cada bootstrap, como a toolchain.
+# Versionar aqui duplicaria alguns megabytes de HTML, imagens e PDF, e a copia
+# envelheceria em silencio a cada correcao de texto feita la.
+resources/docs/
+
 # Version manifest kept by scripts/verify-components.js — per-machine record of
 # which toolchain tag is installed for each component, used to detect a version
 # bump on `npm install` / `npm run components:verify`. Never commit it.

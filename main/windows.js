@@ -7,12 +7,83 @@
  */
 
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { app, BrowserWindow, ipcMain } = require('electron');
 const log = require('electron-log');
 const state = require('./state');
 const recents = require('./recents');
 const { stopAllToolchain } = require('./process_registry');
 const { loadPage } = require('./render_loader');
+
+/**
+ * Whether Windows will accept a *custom* jumplist category right now.
+ * `null` = not probed yet; cached for the rest of the process.
+ * @type {boolean|null}
+ */
+let customCategoryAllowed = null;
+let loggedCustomCategoryDenied = false;
+
+/**
+ * Ask Windows whether it tracks recently-opened documents before we try
+ * to push a custom category at it.
+ *
+ * Why this exists: when "Show recently opened items in Start, Jump Lists
+ * and File Explorer" is off (Settings → Personalization → Start), the
+ * shell rejects custom categories outright. Electron surfaces that as a
+ * `customCategoryAccessDeniedError` return — but only *after* Chromium
+ * has already printed
+ *
+ *   ERROR:...jump_list.cc:305] Failed to append custom category
+ *   'Recent Projects' to Jump List due to system privacy settings.
+ *
+ * to stderr from native code we can't intercept. Since rebuildJumpList
+ * runs on startup, on window creation and on every project open, that
+ * error scrolled past three times before the splash even cleared, and
+ * read like a crash while being a user preference we must respect.
+ *
+ * So we ask first and skip the category when the answer is no. Two keys
+ * matter: the per-user toggle (Start_TrackDocs) and the group-policy
+ * override (NoRecentDocsHistory), the latter being the one likely to
+ * appear on managed lab machines.
+ *
+ * Fails *open*: any error reading the registry returns true and we let
+ * setJumpList decide, which is the pre-existing behaviour.
+ *
+ * @returns {boolean}
+ */
+function probeRecentDocsTracking() {
+  /** @param {string} key @param {string} value */
+  const readDword = (key, value) => {
+    const out = execFileSync('reg', ['query', key, '/v', value], {
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 2000,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const m = out.match(/REG_DWORD\s+0x([0-9a-f]+)/i);
+    return m ? parseInt(m[1], 16) : null;
+  };
+
+  // Group policy wins over the user toggle when present.
+  try {
+    const policy = readDword(
+      'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer',
+      'NoRecentDocsHistory',
+    );
+    if (policy === 1) return false;
+  } catch (_e) { /* key absent — no policy set, fall through */ }
+
+  try {
+    const track = readDword(
+      'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced',
+      'Start_TrackDocs',
+    );
+    // Absent means "never touched it", and the Windows default is on.
+    return track !== 0;
+  } catch (_e) {
+    return true;
+  }
+}
 
 /**
  * (Re)build the Windows taskbar jumplist for SAPHO.
@@ -64,15 +135,7 @@ function rebuildJumpList() {
       iconIndex: 0,
     }));
 
-    const categories = [];
-    if (recentItems.length > 0) {
-      categories.push({
-        type: 'custom',
-        name: 'Recent Projects',
-        items: recentItems,
-      });
-    }
-    categories.push({
+    const tasksCategory = {
       type: 'tasks',
       items: [
         {
@@ -85,7 +148,29 @@ function rebuildJumpList() {
           iconIndex: 0,
         },
       ],
-    });
+    };
+
+    if (customCategoryAllowed === null) customCategoryAllowed = probeRecentDocsTracking();
+
+    const categories = [];
+    if (recentItems.length > 0 && customCategoryAllowed) {
+      categories.push({
+        type: 'custom',
+        name: 'Recent Projects',
+        items: recentItems,
+      });
+    }
+    categories.push(tasksCategory);
+
+    if (!customCategoryAllowed && !loggedCustomCategoryDenied) {
+      loggedCustomCategoryDenied = true;
+      log.info(
+        'jumplist: "Recent Projects" omitted — Windows is not tracking recently-opened '
+        + 'items. Tasks still render. To get recents back, enable Settings → '
+        + 'Personalization → Start → "Show recently opened items in Start, Jump Lists '
+        + 'and File Explorer".',
+      );
+    }
 
     // setJumpList returns a string status on Windows: 'ok' on success,
     // anything else (e.g. 'invalidSeparatorError', 'fileTypeRegistrationError',
@@ -93,9 +178,21 @@ function rebuildJumpList() {
     // rejected. Surface that in the log so a future "my jumplist is
     // empty" debugging session lands on the actual reason instead of
     // a silent miss.
-    const status = app.setJumpList(/** @type {Electron.JumpListCategory[]} */ (categories));
+    let status = app.setJumpList(/** @type {Electron.JumpListCategory[]} */ (categories));
+
+    // Second net: the probe can be wrong (setting flipped mid-session, or
+    // a policy path we don't read). Windows rejects the *whole* call in
+    // that case, so retry with Tasks only — otherwise the jumplist would
+    // be left empty — and remember, so no later rebuild tries again.
+    if (status === 'customCategoryAccessDeniedError') {
+      customCategoryAllowed = false;
+      status = app.setJumpList(/** @type {Electron.JumpListCategory[]} */ ([tasksCategory]));
+      log.info('jumplist: custom category denied by Windows; re-applied with Tasks only.');
+    }
+
     log.info('jumplist set:', {
       status: status || 'ok',
+      customCategoryAllowed,
       isPackaged,
       execPath: exe,
       appPath,

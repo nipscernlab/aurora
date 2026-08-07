@@ -106,6 +106,18 @@ export default defineConfig([
   },
 
   {
+    // Toolchain integration tests: ES modules running in plain Node, where
+    // they spawn the real compilers and simulators. No `window`/`document`
+    // here on purpose — nothing in this suite touches a renderer, and leaving
+    // them undeclared keeps that boundary enforced by the linter.
+    files: ["tests/toolchain/**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      sourceType: "module",
+      globals: { ...globals.node },
+    },
+  },
+
+  {
     files: ["js/app/preload*.js"],
     languageOptions: {
       sourceType: "commonjs",

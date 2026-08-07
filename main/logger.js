@@ -9,12 +9,20 @@
  * to make the configuration deterministic — before that point `log.X(...)`
  * still works, just with the library defaults.
  *
- * Log file location (per electron-log defaults):
- *   Windows:  %APPDATA%/Aurora-IDE/logs/main.log
- *   macOS:    ~/Library/Logs/Aurora-IDE/main.log
- *   Linux:    ~/.config/Aurora-IDE/logs/main.log
+ * Log file location. electron-log derives it from Electron's `app.getName()`,
+ * which resolves to package.json `productName` — NOT to `build.productName`,
+ * which names the installed application and its directory. Both read "SAPHO"
+ * since 2026-08-06, but they are separate fields and can drift again, so:
+ *   Windows:  %APPDATA%/SAPHO/logs/main.log
+ *   macOS:    ~/Library/Logs/SAPHO/main.log
+ *   Linux:    ~/.config/SAPHO/logs/main.log
  *
- * Bug reports: ask the user to attach `main.log` from the path above.
+ * (This block used to say Aurora-IDE, which sent bug reporters to a directory
+ * that is either empty or holds logs from a build several renames old.)
+ *
+ * Bug reports: ask the user to attach `main.log` from the path above — or have
+ * them click "Open log" in Settings → About, which reveals the real file and
+ * cannot go stale.
  */
 
 const log = require('electron-log');

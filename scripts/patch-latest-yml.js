@@ -18,6 +18,11 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+// js-yaml is a real devDependency of this repo. It used to be undeclared, and
+// this require only resolved because npm happened to hoist the copy that
+// electron-updater/electron-builder pull in. Any hoisting change would have
+// broken this script — on the signing path, where the failure mode is a
+// latest.yml that no longer matches the signed installer.
 const yaml = require('js-yaml');
 
 const [distDir, exeName] = process.argv.slice(2);

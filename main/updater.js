@@ -2,7 +2,7 @@
  * Auto-updater wiring for SAPHO.
  *
  * Flow (production only — skipped in dev):
- *   1. ~8 s after the main window appears, silently check GitHub
+ *   1. ~6 s after the main window appears, silently check GitHub
  *      releases of nipscernlab/sapho.
  *   2. On `update-available`, open the custom update window
  *      (html/update-notification.html) showing the bilingual
@@ -13,12 +13,32 @@
  *      "Restart & Install" state.
  *   5. `quitAndInstall(false, true)` installs and relaunches straight
  *      into the new version.
+ *
+ * Why the check is scheduled rather than fired once
+ * -------------------------------------------------
+ * This used to be a single `checkForUpdates` 6 s after boot: one attempt,
+ * and any failure was logged and forgotten until the next launch. That is
+ * too fragile for the deployment this app is built for — a teaching lab
+ * where a fleet of machines is installed once and updated only over the
+ * network. Three ordinary situations defeated the single shot:
+ *
+ *   - the network is not ready 6 s into boot (captive portal, proxy,
+ *     roaming Wi-Fi), so the one attempt fails and the session never
+ *     sees the update;
+ *   - the machine stays open for hours, long past the only check;
+ *   - a transient 5xx or DNS blip reads exactly like "no update".
+ *
+ * So a failed silent check now backs off and retries, and a successful one
+ * schedules a periodic re-check. Both are silent: nothing is shown to the
+ * user until an update actually exists. `getDiagnostics()` exposes what the
+ * schedule has been doing so a failure in the field is diagnosable without
+ * physical access to the machine.
  */
 
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { app, ipcMain, dialog } = require('electron');
+const { app, ipcMain, dialog, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
@@ -26,17 +46,72 @@ const state = require('./state');
 const { isDev } = require('./paths');
 const { createUpdateWindow } = require('./windows');
 
+const {
+  STARTUP_CHECK_DELAY_MS,
+  PERIODIC_CHECK_MS,
+  nextSilentCheckDelay,
+  nextDownloadRetry,
+} = require('./update_schedule');
+
 const REPO_OWNER = 'nipscernlab';
 const REPO_NAME = 'sapho';
 
 autoUpdater.logger = log;
+
+// Downloading is always the user's choice: the installer is large and a lab
+// network is shared, so nothing is fetched until someone clicks Download.
 autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = false;
+
+// But once it IS downloaded, applying it at quit is not a second decision —
+// the user already consented by starting the download. This used to be false,
+// which meant closing the app without clicking "Restart & Install" threw the
+// finished download away and started over on the next launch. In a teaching
+// lab, where closing the app at the end of class is the normal way to leave,
+// that was the common path: the update was fetched over and over and never
+// applied. NSIS runs the per-user install silently and without elevation, so
+// there is nothing to prompt for at quit.
+autoUpdater.autoInstallOnAppQuit = true;
 
 // Last "available" payload — kept so we can re-send it once the update
 // window's renderer has finished loading (the event can fire before the
 // window's webContents is ready to receive IPC).
 let pendingPayload = null;
+
+/* ============================================================
+ *  Silent-check scheduling state
+ * ========================================================== */
+
+/** Pending silent check, if any. Exactly one is ever outstanding. */
+let checkTimer = null;
+/** Consecutive silent-check failures; indexes SILENT_RETRY_SCHEDULE_MS. */
+let silentFailureStreak = 0;
+/** True while the in-flight check was started by the scheduler, not the user. */
+let silentCheckInFlight = false;
+/** Consecutive download failures; indexes DOWNLOAD_RETRY_DELAYS_MS. */
+let downloadFailureStreak = 0;
+/** Pending download retry, if any. */
+let downloadRetryTimer = null;
+
+/**
+ * What the update system has been doing. Surfaced over IPC so a machine that
+ * is not updating can be diagnosed from the About panel — the alternative is
+ * walking to it and reading main.log by hand.
+ *
+ * @type {{
+ *   lastCheckAt: number|null, lastCheckResult: 'available'|'up-to-date'|'error'|null,
+ *   lastError: string|null, lastErrorAt: number|null, nextCheckAt: number|null,
+ *   checksAttempted: number, consecutiveFailures: number,
+ * }}
+ */
+const diagnostics = {
+  lastCheckAt: null,
+  lastCheckResult: null,
+  lastError: null,
+  lastErrorAt: null,
+  nextCheckAt: null,
+  checksAttempted: 0,
+  consecutiveFailures: 0,
+};
 
 /* ============================================================
  *  Helpers
@@ -110,6 +185,89 @@ function friendlyError(error) {
   return msg;
 }
 
+/* ============================================================
+ *  Silent-check scheduler
+ * ========================================================== */
+
+/** Cancel the pending silent check, if any. */
+function clearCheckTimer() {
+  if (checkTimer) {
+    clearTimeout(checkTimer);
+    checkTimer = null;
+  }
+  diagnostics.nextCheckAt = null;
+}
+
+/**
+ * Arm the next silent check. Replaces any pending one, so callers never
+ * have to reason about overlapping timers.
+ *
+ * The timer is `unref`'d: a pending update check must never be the reason
+ * the process stays alive at quit.
+ *
+ * @param {number} delayMs
+ * @param {string} reason  short label, for the log only
+ */
+function scheduleSilentCheck(delayMs, reason) {
+  clearCheckTimer();
+  checkTimer = setTimeout(() => {
+    checkTimer = null;
+    runSilentCheck();
+  }, delayMs);
+  if (typeof checkTimer.unref === 'function') checkTimer.unref();
+  diagnostics.nextCheckAt = Date.now() + delayMs;
+  log.info(
+    `Next update check in ${Math.round(delayMs / 1000)}s (${reason})`,
+  );
+}
+
+/**
+ * Run one silent check, unless something more important is already going on.
+ *
+ * Skipped (and re-armed on the periodic cadence) when an update is already
+ * available or downloading — the user is looking at the update window, and a
+ * background check would only race it.
+ */
+function runSilentCheck() {
+  if (isDev) return;
+  if (state.downloadInProgress || state.updateAvailable) {
+    scheduleSilentCheck(PERIODIC_CHECK_MS, 'update already pending');
+    return;
+  }
+  if (state.updateCheckInProgress) {
+    // A user-driven check is already running. Don't stack a second one — but
+    // DO re-arm, or this silent tick would be the last one ever scheduled and
+    // the update system would go quiet for the rest of the session.
+    scheduleSilentCheck(PERIODIC_CHECK_MS, 'a check was already running');
+    return;
+  }
+  silentCheckInFlight = true;
+  checkForUpdates(false);
+}
+
+/**
+ * Terminal handler for a silent check. Advances the backoff on failure and
+ * returns to the periodic cadence on success.
+ *
+ * @param {boolean} failed
+ */
+function onSilentCheckSettled(failed) {
+  if (!silentCheckInFlight) return;
+  silentCheckInFlight = false;
+
+  if (failed) {
+    const delay = nextSilentCheckDelay('failed', silentFailureStreak);
+    silentFailureStreak += 1;
+    diagnostics.consecutiveFailures = silentFailureStreak;
+    scheduleSilentCheck(delay, `retry after failure #${silentFailureStreak}`);
+    return;
+  }
+
+  silentFailureStreak = 0;
+  diagnostics.consecutiveFailures = 0;
+  scheduleSilentCheck(nextSilentCheckDelay('ok', 0), 'periodic');
+}
+
 /** Send an IPC message to the update window if it is alive. */
 function sendToUpdateWindow(channel, payload) {
   const w = state.updateWindow;
@@ -142,12 +300,21 @@ function setupAutoUpdaterEvents() {
   autoUpdater.on('checking-for-update', () => {
     log.info('Checking for update...');
     state.updateCheckInProgress = true;
+    diagnostics.lastCheckAt = Date.now();
+    diagnostics.checksAttempted += 1;
   });
 
   autoUpdater.on('update-available', async (info) => {
     state.updateCheckInProgress = false;
     state.updateAvailable = true;
     state.updateInfo = info;
+    diagnostics.lastCheckResult = 'available';
+    // An update was found: stop polling. The update window owns the flow now,
+    // and re-checking behind it would only race the download.
+    silentCheckInFlight = false;
+    silentFailureStreak = 0;
+    diagnostics.consecutiveFailures = 0;
+    clearCheckTimer();
     log.info(`Update available: ${info.version} (current ${app.getVersion()})`);
 
     let notes = normalizeNotes(info.releaseNotes);
@@ -175,6 +342,8 @@ function setupAutoUpdaterEvents() {
   autoUpdater.on('update-not-available', () => {
     state.updateCheckInProgress = false;
     state.updateAvailable = false;
+    diagnostics.lastCheckResult = 'up-to-date';
+    onSilentCheckSettled(false);
     log.info('No updates available');
 
     // Only surface "you're up to date" for an explicit, user-driven check.
@@ -194,6 +363,9 @@ function setupAutoUpdaterEvents() {
   });
 
   autoUpdater.on('download-progress', (p) => {
+    // Bytes are moving again — a retry that got this far has recovered, so
+    // don't hold its failures against the next hiccup.
+    downloadFailureStreak = 0;
     const bps = p.bytesPerSecond || 0;
     sendToUpdateWindow('update:progress', {
       percent: Math.min(100, Math.max(0, p.percent || 0)),
@@ -215,9 +387,49 @@ function setupAutoUpdaterEvents() {
   });
 
   autoUpdater.on('error', (error) => {
+    // Snapshot before resetting: which phase failed decides how we recover.
+    const wasDownloading = state.downloadInProgress;
     state.updateCheckInProgress = false;
     state.downloadInProgress = false;
+
+    diagnostics.lastError = (error && error.message) || String(error);
+    diagnostics.lastErrorAt = Date.now();
     log.error('Update error:', error);
+
+    if (wasDownloading) {
+      // The user already opted in and bytes were moving; a transient network
+      // fault should not cost them the whole download. Retry a couple of
+      // times before admitting failure.
+      const plan = nextDownloadRetry(downloadFailureStreak);
+      if (plan.shouldRetry) {
+        downloadFailureStreak += 1;
+        log.warn(
+          `Download failed (attempt ${plan.attempt}/${plan.ofAttempts}) — retrying in ${plan.delayMs / 1000}s`,
+        );
+        sendToUpdateWindow('update:retrying', {
+          attempt: plan.attempt,
+          ofAttempts: plan.ofAttempts,
+          inSeconds: Math.round(plan.delayMs / 1000),
+        });
+        if (downloadRetryTimer) clearTimeout(downloadRetryTimer);
+        downloadRetryTimer = setTimeout(() => {
+          downloadRetryTimer = null;
+          startUpdateDownload({ isRetry: true });
+        }, plan.delayMs);
+        if (typeof downloadRetryTimer.unref === 'function') downloadRetryTimer.unref();
+        return;
+      }
+      log.error('Download failed after all retries — surfacing to the user');
+      downloadFailureStreak = 0;
+      sendToUpdateWindow('update:error', { message: friendlyError(error) });
+      return;
+    }
+
+    diagnostics.lastCheckResult = 'error';
+    // A silent check that failed backs off and tries again; a user-driven one
+    // is reported by `checkForUpdates`'s own catch, so only tell the update
+    // window if it is actually open.
+    onSilentCheckSettled(true);
     sendToUpdateWindow('update:error', { message: friendlyError(error) });
   });
 
@@ -230,7 +442,15 @@ function setupAutoUpdaterEvents() {
  *  Download / check
  * ========================================================== */
 
-function startUpdateDownload() {
+/**
+ * Begin (or resume) downloading the available update.
+ *
+ * electron-updater resumes a partial download from its cache, so a retry is
+ * not necessarily a restart from zero.
+ *
+ * @param {{isRetry?: boolean}} [opts]
+ */
+function startUpdateDownload(opts = {}) {
   if (state.downloadInProgress) {
     log.info('Download already in progress');
     return;
@@ -239,12 +459,27 @@ function startUpdateDownload() {
     log.info('No update available to download');
     return;
   }
+  // A fresh, user-initiated download starts from a clean retry budget; an
+  // automatic retry keeps the streak so the budget can actually run out.
+  if (!opts.isRetry) {
+    downloadFailureStreak = 0;
+    if (downloadRetryTimer) {
+      clearTimeout(downloadRetryTimer);
+      downloadRetryTimer = null;
+    }
+  }
   state.downloadInProgress = true;
-  log.info('Starting update download...');
+  log.info(opts.isRetry ? 'Retrying update download...' : 'Starting update download...');
   autoUpdater.downloadUpdate().catch((error) => {
-    state.downloadInProgress = false;
+    // `downloadUpdate` rejecting and the 'error' event are two paths out of
+    // the SAME failure — electron-updater usually does both. The event
+    // handler owns recovery, and it clears `downloadInProgress` as its first
+    // act, so a still-set flag here means the event did not fire and this is
+    // the only report we will get. Otherwise the failure is already handled
+    // and re-emitting would double-count the retry budget.
+    if (!state.downloadInProgress) return;
     log.error('Failed to start download:', error);
-    sendToUpdateWindow('update:error', { message: friendlyError(error) });
+    autoUpdater.emit('error', error);
   });
 }
 
@@ -273,6 +508,15 @@ function checkForUpdates(interactive = false) {
   autoUpdater.checkForUpdates().catch((err) => {
     state.updateCheckInProgress = false;
     log.error('Failed to start update check:', err);
+    diagnostics.lastCheckResult = 'error';
+    diagnostics.lastError = (err && err.message) || String(err);
+    diagnostics.lastErrorAt = Date.now();
+    // A rejection here can arrive WITHOUT the 'error' event (e.g. the feed URL
+    // fails to resolve before the updater gets going). `onSilentCheckSettled`
+    // is a no-op unless a silent check is actually in flight, and it is what
+    // re-arms the schedule — without this call a silent check that failed this
+    // way would never be retried.
+    onSilentCheckSettled(true);
     if (interactive && state.mainWindow && !state.mainWindow.isDestroyed()) {
       dialog.showMessageBox(state.mainWindow, {
         type: 'error',
@@ -348,8 +592,57 @@ function getPostUpdateStatus() {
  *  IPC
  * ========================================================== */
 
+/**
+ * A snapshot of what the update system has been doing, for the About panel.
+ *
+ * The point is remote diagnosis: when a machine in a lab is not updating, the
+ * question is always one of "is it even checking?", "what did it check
+ * against?", "what was the last error?". Reading that off the screen beats
+ * walking to the machine and opening main.log.
+ */
+function getDiagnostics() {
+  let logPath = null;
+  try {
+    logPath = log.transports.file.getFile().path;
+  } catch (_) { /* the log path is a nicety, not a requirement */ }
+
+  return {
+    currentVersion: app.getVersion(),
+    feed: `${REPO_OWNER}/${REPO_NAME}`,
+    isDev,
+    // Where the schedule stands right now.
+    checking: !!state.updateCheckInProgress,
+    downloading: !!state.downloadInProgress,
+    updateAvailable: !!state.updateAvailable,
+    lastCheckAt: diagnostics.lastCheckAt,
+    lastCheckResult: diagnostics.lastCheckResult,
+    lastError: diagnostics.lastError,
+    lastErrorAt: diagnostics.lastErrorAt,
+    nextCheckAt: diagnostics.nextCheckAt,
+    checksAttempted: diagnostics.checksAttempted,
+    consecutiveFailures: diagnostics.consecutiveFailures,
+    logPath,
+  };
+}
+
 function registerIpc() {
   ipcMain.handle('get-app-version', () => app.getVersion());
+
+  // Update-system health, for the About panel. Read-only.
+  ipcMain.handle('updates:diagnostics', () => getDiagnostics());
+
+  // Reveal main.log in the file manager so a user can attach it to a report
+  // without being told where Electron hides userData.
+  ipcMain.handle('updates:open-log', () => {
+    try {
+      const p = log.transports.file.getFile().path;
+      shell.showItemInFolder(p);
+      return { ok: true, path: p };
+    } catch (e) {
+      log.warn('could not reveal the log file:', e);
+      return { ok: false, error: String((e && e.message) || e) };
+    }
+  });
 
   // One-shot: did SAPHO just relaunch into a newer version? The
   // renderer pulls this on boot and, if true, surfaces a toast.
@@ -399,8 +692,10 @@ function initializeUpdateSystem() {
   state.updateSystemInitialized = true;
   log.info('Initializing update system...');
 
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  // NOTE: autoDownload / autoInstallOnAppQuit are set once at module scope,
+  // above. They used to be re-assigned here too, which meant editing the
+  // declaration at the top had no effect — the copy down here won. One
+  // assignment, one place.
 
   // Set explicitly so checks work even if the packaged app-update.yml
   // ever drifts from package.json#build.publish.
@@ -413,16 +708,17 @@ function initializeUpdateSystem() {
 
   setupAutoUpdaterEvents();
 
-  // Silent background check a few seconds after the window settles, so
-  // the update panel never competes with the splash → main handoff.
-  setTimeout(() => {
-    if (isDev) {
-      log.info('Skipping startup update check — dev mode');
-      return;
-    }
-    log.info('Starting silent startup update check...');
-    checkForUpdates(false);
-  }, 6000);
+  if (isDev) {
+    log.info('Skipping update scheduling — dev mode');
+    return;
+  }
+
+  // First silent check a few seconds after the window settles, so the update
+  // panel never competes with the splash → main handoff. From there the
+  // schedule is self-sustaining: every outcome arms the next check (periodic
+  // on success, backoff on failure), so there is no path where the app stops
+  // looking for updates while it is running.
+  scheduleSilentCheck(STARTUP_CHECK_DELAY_MS, 'startup');
 }
 
 module.exports = {
@@ -431,4 +727,5 @@ module.exports = {
   initializeUpdateSystem,
   registerIpc,
   checkForUpdates,
+  getDiagnostics,
 };

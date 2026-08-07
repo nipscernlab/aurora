@@ -20,6 +20,14 @@ contextBridge.exposeInMainWorld('updateAPI', {
   /** Falha durante check/download: { message }. */
   onError: (cb) => ipcRenderer.on('update:error', (_e, d) => cb(d)),
 
+  /**
+   * Download caiu e vai ser retomado automaticamente:
+   * { attempt, ofAttempts, inSeconds }. Chega ANTES do onError — este só
+   * dispara quando as tentativas acabam. Sem isto a janela ficaria parada
+   * numa barra de progresso congelada, sem explicar nada.
+   */
+  onRetrying: (cb) => ipcRenderer.on('update:retrying', (_e, d) => cb(d)),
+
   /** Tentativa de fechar a janela durante o download — feedback visual. */
   onShake: (cb) => ipcRenderer.on('update:shake', () => cb()),
 

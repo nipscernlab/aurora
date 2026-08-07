@@ -5,13 +5,28 @@
 > (§17 = quadro vivo de execução; §15–16 = estudos de interface e file tree).
 > AURORA is built by NIPSCERN / UFJF — context at <https://www.nipscern.com>.
 
-## Now (hardening + professionalisation)
+## Now (lab deployment + signing)
 
-- AI bridges modernised (done): Claude Agent SDK + Codex SDK engines with
-  automatic legacy fallback, transient retry/backoff, unified timeout table.
+The near-term goal is concrete: install once on the DLP teaching lab's machines and
+update them remotely, for good. What was done is in
+[docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md) §19; what is still
+open, and in which order, is in [docs/PENDENCIAS.md](docs/PENDENCIAS.md).
+
+- Release pipeline unblocked (done): it had never worked — cross-repo publish was
+  403-ing and every release was cut by hand. Now gated on publish access, toolchain
+  sentinels, and verification that the published `latest.yml` matches the published
+  installer.
+- Auto-updater hardened (done): retry with backoff, periodic re-check, resumable
+  download, install-on-quit, and an update-health panel for remote diagnosis.
+- Toolchain integration tests (done): the compile + simulate pipeline had **zero**
+  automated coverage; now 24 tests run the real binaries and gate every release.
+- Code signing via SignPath Foundation (in progress): approved, wiring pending —
+  see [docs/CODE_SIGNING.md](docs/CODE_SIGNING.md).
+- Rename the installer and app identity to SAPHO before the first lab deploy
+  (§19.5) — after deployment it would cost an NSIS migration.
+- Lab IT package (done): [docs/IMPLANTACAO_LABORATORIO.md](docs/IMPLANTACAO_LABORATORIO.md)
+  covers Defender exclusions, AppLocker rules and the SmartScreen shortcut.
 - Residual security follow-ups (MCP auth, AI-CLI tool allowlists, allowlisted launches).
-- Build/DX: release-integrity (SHA256SUMS), incremental component copy, CI startup budget.
-- Repository: CODEOWNERS, commitlint, CodeQL, CITATION, release-please as the single flow.
 
 ## Next (capability)
 

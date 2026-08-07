@@ -14,6 +14,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const log = require('electron-log');
 // @ts-ignore -- @silimate/netlistsvg ships no type declarations
 const netlistsvgLib = require('@silimate/netlistsvg');
+const { buildPrismYosysScript } = require('./prism_yosys_script');
 
 const state = require('../state');
 const { componentsPath } = require('../paths');
@@ -299,28 +300,9 @@ async function runYosysCompilationWithPaths(
   const fileList = [...fileSet];
   if (fileList.length === 0) throw new Error('No Verilog files found for compilation');
 
-  // -setattr src faz o yosys gravar `src="arquivo.v:linha.col-linha.col"` em
-  // cada celula derivada do source. O fork @silimate/netlistsvg le esse
-  // atributo e emite um SVG com `onclick="gotosrc(...)"` por cell — o
-  // renderer do Prism aproveita pra abrir o source no editor via
-  // duplo-clique (clique simples continua sendo navegacao entre modulos).
-  const readCommands = fileList.map((file) => `read_verilog -setattr src "${file}"`).join('\n');
-  // setundef -zero: substitui valores don't-care (x) por 0 constante.
-  // Sem isso, $pmux com `full_case` produz A=[x,x] como ramo default
-  // unreachable, e o netlistsvg renderiza esses don't-cares como
-  // "linhas fantasma" diagonais (uma constante invisivel com fanout
-  // alimentando varios muxes), confundindo o usuario. Trocar x por 0
-  // nao muda a semantica porque o ramo default e unreachable.
-  // opt_clean -purge: remove fios e celulas que sobraram desconectados
-  // depois da substituicao.
-  const yosysScript = `
-${readCommands}
-hierarchy -top ${topLevelModule}
-proc
-setundef -zero
-opt_clean -purge
-write_json "${hierarchyJsonPath}"
-`;
+  // Script (e o porque de cada passe) em ./prism_yosys_script.js — fonte unica
+  // com o teste de integracao, que roda exatamente este script.
+  const yosysScript = buildPrismYosysScript(fileList, topLevelModule, hierarchyJsonPath);
 
   const yosysScriptPath = path.join(tempDir, 'yosys_script.ys');
   await fse.writeFile(yosysScriptPath, yosysScript);

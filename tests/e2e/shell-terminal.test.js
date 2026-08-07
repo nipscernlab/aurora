@@ -2,8 +2,16 @@
 //
 // End-to-end for the TCMD terminal (xterm.js + a real PTY). Launches Aurora,
 // opens the TCMD tab, and drives the PowerShell session through xterm over the
-// real IPC/PTY path — proving the user's needs: run the user's python, navigate
-// folders, and see live output, with a true terminal (inline input via the PTY).
+// real IPC/PTY path: the prompt renders, external programs run, `cd` persists,
+// and output streams as it is produced.
+//
+// These tests are HERMETIC — they only invoke PowerShell built-ins and programs
+// that ship with Windows. Two of them used to shell out to `python`, which made
+// them pass on CI (windows-latest bundles Python) and fail on any developer
+// machine without Python on PATH. That is a property of the machine, not of
+// Aurora: the cocotb flow uses the PYTHON BUNDLED in components/Packages/msys,
+// resolved by main/compile/python_locator.js, never the one on PATH. So the old
+// tests were environment-coupled without covering anything Aurora owns.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { _electron as electron } from 'playwright';
@@ -92,10 +100,13 @@ describe('Aurora E2E — TCMD terminal (xterm + pty)', () => {
     expect(await screenText()).toMatch(/❯/);
   }, 30_000);
 
-  it("runs the user's python and shows the version", async () => {
-    await runCommand('python --version');
-    await waitForText(/Python \d+\.\d+/);
-    expect(await screenText()).toMatch(/Python \d+\.\d+/);
+  it('runs an external program and shows its output', async () => {
+    // Proves the PTY spawns real child processes and pipes their stdout back
+    // into xterm. `cmd /c ver` ships with every Windows and prints a stable,
+    // matchable banner, so this stays true on any machine.
+    await runCommand('cmd /c ver');
+    await waitForText(/Microsoft Windows \[/i);
+    expect(await screenText()).toMatch(/Microsoft Windows \[/i);
   }, 30_000);
 
   it('navigates folders (cd persists, prompt updates)', async () => {
@@ -107,9 +118,23 @@ describe('Aurora E2E — TCMD terminal (xterm + pty)', () => {
     expect(await screenText()).toMatch(/~/);
   }, 30_000);
 
-  it('streams live output (unbuffered python)', async () => {
-    await runCommand("python -c \"import time,sys;[(print('tick',k),sys.stdout.flush(),time.sleep(0.3)) for k in range(3)]\"");
-    await waitForText(/tick 2/);
-    expect(await screenText()).toMatch(/tick 2/);
-  }, 30_000);
+  it('streams output as it is produced, not buffered until the command exits', async () => {
+    // The previous version of this test only waited for the LAST line and then
+    // asserted it was present — which a fully buffered terminal would also
+    // pass, since the text still shows up once the command ends. It could not
+    // fail for the reason it existed.
+    //
+    // Real streaming means an EARLY line is on screen while a LATER one has not
+    // been produced yet. Eight ticks, 500 ms apart, span ~3.5 s; the assertion
+    // below runs right after tick 1 appears, so the last tick is ~3 s away —
+    // wide enough that a slow machine does not turn this into a flake.
+    await runCommand('1..8 | ForEach-Object { Write-Host "tick $_"; Start-Sleep -Milliseconds 500 }');
+
+    await waitForText(/tick 1/, 15_000);
+    expect(await screenText()).not.toMatch(/tick 8/);
+
+    // And it does finish, so nothing is lost between the two states.
+    await waitForText(/tick 8/, 15_000);
+    expect(await screenText()).toMatch(/tick 8/);
+  }, 45_000);
 });

@@ -98,6 +98,71 @@ bundled third-party binaries (GTKWave GPL, Surfer EUPL, the SAPHO toolchain, Ver
 slang/clang-format/tree-sitter, etc.) are **arms-length tools we redistribute**, not
 our proprietary code — that's fine. The AI CLIs download on demand and aren't shipped.
 
+## Reading of the Terms of Service (2026-08-06)
+
+Two documents apply at once: the **signpath.io Terms of Service**, which govern use of
+the service, and the **Foundation conditions** at
+[signpath.org/terms.html](https://signpath.org/terms.html), which add the OSS
+obligations listed above. What follows is a maintainer's reading of the ToS, not legal
+advice — but the first item has real operational consequences and shaped two decisions
+in this repo.
+
+### Retroactive revocation is the one to plan around
+
+ToS §6.3 lets SignPath suspend or terminate access at their sole discretion on a terms
+violation, and the Foundation conditions go further: they allow revoking the certificate
+*"effective immediately or retroactively"*.
+
+Retroactive revocation invalidates signatures on installers **already distributed**.
+Windows would start flagging binaries that were fine yesterday, across the whole lab
+fleet, with nothing changed on our side. Unlikely, but it is the only clause with a
+classroom-visible consequence.
+
+**Two mitigations, both deliberate:**
+
+1. **The unsigned path stays documented and working.**
+   [IMPLANTACAO_LABORATORIO.md](IMPLANTACAO_LABORATORIO.md) covers Defender exclusions,
+   AppLocker rules and the SmartScreen route without any signature. Do not let that
+   document rot once signing works.
+2. **Signing must be conditional in the pipeline, never a hard gate.** The YAML below is
+   gated on `SIGNPATH_API_TOKEN` existing precisely so a missing, expired or revoked
+   credential degrades to an unsigned build instead of blocking the release. ToS §9/§10
+   disclaim any availability guarantee, so the service being down must not stop an urgent
+   fix from shipping.
+
+### The admin is personally accountable for what gets signed
+
+ToS §2.1: the Administrator of an Organization is responsible for the actions performed
+in it. §2.5: the user is solely responsible for uploaded Content and any harm resulting
+from it. And the Foundation states it accepts no liability for damages caused by software
+signed with its certificates.
+
+The whole exposure therefore sits with the organization's admin. Normal for a free
+programme, but it changes how access should be granted: whatever a student or assistant
+signs answers to the admin personally.
+
+### One account per person — no shared logins
+
+ToS §2.3 is explicit: one account per person, no sharing a login between people, and at
+most one free account per person or legal entity. Since the Foundation conditions require
+an **Approver** to authorise each signing request, this needs **at least two individual
+accounts**. A single shared lab login is not an option.
+
+### Not worth worrying about
+
+- **Austrian law, exclusive jurisdiction in Vienna** (§13.1). Awkward on paper for a
+  Brazilian public university; practically theoretical for a free programme with no
+  financial consideration. Worth a heads-up to UFJF legal if they ask.
+- **Terms assignable to third parties without consent** (§13.2) and **unilateral
+  amendment** with 30 days' notice for material changes (§12). Industry standard.
+- **Employee access to Content** (§2.7), limited to support with consent or security
+  reasons. Our "Content" is open-source binaries; there is nothing confidential in it.
+- **All of §5 (payment)** does not apply under the Foundation programme. One check
+  though: confirm in the panel that the organization is `SAPHO [OSS]` and that **no trial
+  subscription is active**. The "free trial" page on signpath.io is the commercial
+  product, and that is the door through which §5 would apply.
+- **§3.6 throttling** for excessive use. A handful of releases a year is nowhere near it.
+
 ---
 
 ## Option A — SignPath.io (free for OSS, **recommended**)

@@ -137,6 +137,13 @@ programa está na §19.7.
   aprova-se cada release no painel (releases são raras, é aceitável), ou
   configura-se dispensa para build de origem verificada. **Precisa estar
   decidido antes de ligar a assinatura no CI.**
+- Criar **contas individuais** para quem for participar do fluxo. O ToS §2.3
+  proíbe compartilhar login, e como é preciso um Approver por requisição, são
+  necessárias **pelo menos duas contas**. Login coletivo de laboratório não é
+  opção. Ver a leitura do ToS no [CODE_SIGNING.md](CODE_SIGNING.md).
+- Confirmar no painel que a organização é a `SAPHO [OSS]` e que **não há
+  assinatura de avaliação ativa**. A trial é do produto comercial, e é por ela
+  que as cláusulas de pagamento do ToS passariam a valer.
 - Conferir o **Trusted Build Systems**. O build roda em `nipscernlab/aurora` e
   publica em `nipscernlab/sapho`; a verificação de origem olha onde o binário
   foi construído, então `aurora` deve bastar, mas vale confirmar na tela deles.
@@ -150,6 +157,14 @@ informações de privacidade. É pré-requisito do primeiro release assinado.
 assinatura no `release.yml`. O YAML pronto está no CODE_SIGNING.md, e o
 `scripts/patch-latest-yml.js` já existe para re-hashear o `latest.yml` — sem
 esse passo, a assinatura muda os bytes e toda atualização falha por checksum.
+
+**Restrição de projeto, decidida a partir da leitura do ToS:** a assinatura
+entra **condicionada** à existência do token, degradando para build não assinado
+em vez de bloquear o release. Dois motivos: o serviço não tem garantia de
+disponibilidade (§9/§10), e o certificado pode ser revogado inclusive de forma
+retroativa. Assinatura não pode virar bloqueio duro para uma correção urgente, e
+o caminho não assinado do [IMPLANTACAO_LABORATORIO.md](IMPLANTACAO_LABORATORIO.md)
+precisa continuar válido mesmo depois de a assinatura funcionar.
 
 **Efeito colateral a comunicar:** o primeiro release assinado será download
 completo para todo mundo, porque a assinatura invalida todos os blocos do delta.

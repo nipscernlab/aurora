@@ -354,9 +354,18 @@ electron-log writes it to the platform-standard user data directory:
 
 | OS      | Path                                            |
 |---------|-------------------------------------------------|
-| Windows | `%APPDATA%\Aurora-IDE\logs\main.log`            |
-| macOS   | `~/Library/Logs/Aurora-IDE/main.log`            |
-| Linux   | `~/.config/Aurora-IDE/logs/main.log`            |
+| Windows | `%APPDATA%\SAPHO\logs\main.log`                 |
+| macOS   | `~/Library/Logs/SAPHO/main.log`                 |
+| Linux   | `~/.config/SAPHO/logs/main.log`                 |
+
+The directory comes from `app.getName()`, which resolves to package.json
+`productName` (`SAPHO`) — **not** to `build.productName`, which only names the
+installer and the install directory. This table said `Aurora-IDE` until
+2026-08-06 and sent bug reporters to a folder that is either empty or holds
+logs from several renames ago.
+
+Easier still: **Settings → About → Updates → Open log** reveals the real file,
+and cannot go stale.
 
 The file rolls over at ~5 MB (older content moves to `main.old.log`).
 Default level is `info`; flip to `debug` in

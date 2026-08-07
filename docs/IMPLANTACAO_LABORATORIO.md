@@ -16,10 +16,11 @@ intervenção presencial.
 | Item | Valor |
 |------|-------|
 | Instalação | Por usuário. **Não requer administrador.** |
-| Diretório do programa | `%LOCALAPPDATA%\Programs\Aurora-IDE\` |
+| Diretório do programa | `%LOCALAPPDATA%\Programs\SAPHO\` |
+| Executável | `SAPHO.exe` |
 | Dados do usuário e logs | `%APPDATA%\SAPHO\` |
 | Cache do atualizador | `%LOCALAPPDATA%\sapho-updater\` |
-| Toolchain (compiladores) | `%LOCALAPPDATA%\Programs\Aurora-IDE\components\` |
+| Toolchain (compiladores) | `%LOCALAPPDATA%\Programs\SAPHO\components\` |
 | Espaço em disco, por usuário | ~1,6 GB (≈1,1 GB instalado + ≈0,5 GB de instalador em cache) |
 | Rede | HTTPS para `github.com` e `objects.githubusercontent.com` |
 | Assinatura digital | **Ausente hoje.** Ver §5. |
@@ -92,7 +93,7 @@ Aplicar por GPO, ou via PowerShell administrativo em cada máquina:
 
 ```powershell
 # Ajuste <USUARIO> ou aplique por GPO com variavel de ambiente por usuario.
-Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs\Aurora-IDE"
+Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\Programs\SAPHO"
 Add-MpPreference -ExclusionPath "$env:APPDATA\SAPHO"
 Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\sapho-updater"
 ```
@@ -113,8 +114,8 @@ regra padrão "permitir execução apenas em `%ProgramFiles%` e
 São necessárias regras de exceção por caminho:
 
 ```
-%LOCALAPPDATA%\Programs\Aurora-IDE\*
-%LOCALAPPDATA%\Programs\Aurora-IDE\components\*
+%LOCALAPPDATA%\Programs\SAPHO\*
+%LOCALAPPDATA%\Programs\SAPHO\components\*
 ```
 
 A segunda é indispensável e costuma ser esquecida: sem ela a IDE abre

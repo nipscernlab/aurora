@@ -292,8 +292,13 @@ Changing any of them moves state that installed copies are already using.
 |---|---|---|
 | `package.json` `name` | `sapho` | **The updater cache dir**: `%LOCALAPPDATA%\<name>-updater`. |
 | `package.json` `productName` | `SAPHO` | `app.getName()` → userData and logs at `%APPDATA%\SAPHO`. |
-| `build.productName` | `Aurora-IDE` | The `.exe` name, `INSTDIR`, Start Menu and desktop shortcuts. |
-| `build.appId` | `com.nipscern.auroraide` | Shortcut AppUserModelID and the uninstall registry key. |
+| `build.productName` | `SAPHO` | The `.exe` name, `INSTDIR`, Start Menu and desktop shortcuts. |
+| `build.appId` | `com.nipscern.sapho` | Shortcut AppUserModelID and the uninstall registry key. |
+| `build.win.artifactName` | `sapho-aurora-Setup-v${version}.exe` | The published installer's file name. |
+
+Anything that becomes a **file or a directory** uses `SAPHO` alone. "SAPHO & AURORA" is
+display text only (the About panel, the wordmark): an `&` is legal in Windows paths but
+breaks any unquoted script that touches them.
 
 **`name` is the one you must not rename.** `updaterCacheDirName` is
 `sanitizeFileName(name).toLowerCase() + "-updater"`, and that directory holds
@@ -311,9 +316,14 @@ duplicate shortcuts, a stale uninstall entry. Do renames before a deployment, ne
 **`build.appId` and `app.setAppUserModelId` must agree.** [main.js](main.js) sets the
 AppUserModelID at boot; electron-builder stamps the shortcuts with `build.appId`. When they
 differ, Windows treats the running window and the pinned shortcut as different applications,
-and taskbar grouping plus the jumplist attach to the wrong identity. **They currently differ**
-(`com.nipscern.sapho` vs `com.nipscern.auroraide`) — see
-[docs/ESTUDO_COMPLETO_AURORA.md](docs/ESTUDO_COMPLETO_AURORA.md) §19.5.
+and taskbar grouping plus the jumplist attach to the wrong identity. They **did** differ
+(`com.nipscern.sapho` in main.js vs `com.nipscern.auroraide` in the build config) until
+2026-08-06 — which is why the jumplist fix documented in main.js never fully took. Both are
+`com.nipscern.sapho` now; keep them in lockstep.
+
+**Comments do not go inside the `build` block.** electron-builder validates it against a
+strict schema and rejects unknown keys, including `//`-prefixed ones. The identity notes live
+at package.json top level as `//build-identity`.
 
 ## 12. cocotb reports a verdict, not just an exit code
 

@@ -44,9 +44,28 @@
   "lint-staged": {
     "*.{js,mjs,cjs}": "eslint --max-warnings=0 --no-warn-ignored"
   },
+  "//build-identity": [
+    "Notes for the `build` block below. They live OUT here because",
+    "electron-builder validates `build` against a strict schema and rejects",
+    "any key it does not know, comment or not.",
+    "SAPHO is the project (the soft-processor platform); AURORA is its IDE.",
+    "Anything that becomes a FILE or a DIRECTORY uses 'SAPHO' alone. An '&' is",
+    "legal in Windows paths but breaks unquoted scripts, so 'SAPHO & AURORA'",
+    "stays where it is display text (About panel, wordmark).",
+    "build.appId MUST match app.setAppUserModelId() in main.js: shortcuts are",
+    "stamped with appId, and when the two disagree Windows treats the running",
+    "window and the pinned shortcut as different applications, so taskbar",
+    "grouping and the jumplist attach to the wrong identity. They diverged",
+    "until 2026-08-06.",
+    "build.productName drives the .exe name, INSTDIR and the shortcuts, so",
+    "changing it MOVES the install directory: an already-installed machine",
+    "gets the new version ALONGSIDE the old one, not over it.",
+    "The npm `name` above is the one never to rename — the updater cache dir",
+    "derives from it and holds the delta base. See ARCHITECTURE.md section 11."
+  ],
   "build": {
-    "appId": "com.nipscern.auroraide",
-    "productName": "Aurora-IDE",
+    "appId": "com.nipscern.sapho",
+    "productName": "SAPHO",
     "fileAssociations": [
       {
         "ext": "spf",

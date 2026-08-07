@@ -41,8 +41,21 @@ O \file{package.json} define a identidade do projeto e o conjunto de
 \noindent
 Há uma distinção importante entre o \texttt{name}/\texttt{productName} do pacote
 npm (\enquote{sapho}/\enquote{SAPHO}) e o \texttt{productName} do bloco
-\texttt{build} do \tool{electron-builder} (\enquote{Aurora-IDE}): o primeiro
-identifica o projeto npm; o segundo nomeia o aplicativo instalado.
+\texttt{build} do \tool{electron-builder} (também \enquote{SAPHO} desde
+06/08/2026, antes \enquote{Aurora-IDE}): o primeiro identifica o projeto npm; o
+segundo nomeia o aplicativo instalado.
+
+Cada um desses campos aterrissa num lugar diferente do disco, e trocá-los move
+estado que cópias já instaladas usam. O \texttt{name} é o mais delicado: dele
+sai o diretório de cache do atualizador
+(\path{%LOCALAPPDATA%/sapho-updater}), que guarda o \path{installer.exe} usado
+como base da atualização incremental. Renomeá-lo faz cada máquina procurar essa
+base num diretório inexistente, sem erro e sem aviso, e cair para download
+completo. O \texttt{build.productName} move o diretório de instalação, então
+mudá-lo depois de uma implantação instala a versão nova \emph{ao lado} da
+antiga. E o \texttt{appId} precisa coincidir com o \texttt{setAppUserModelId}
+do \path{main.js}, ou o Windows trata a janela em execução e o atalho fixado
+como aplicativos distintos.
 
 \subsection{Os scripts npm}
 \label{sec:16-scripts}
@@ -457,8 +470,8 @@ O bloco \texttt{build} do \file{package.json} configura o \tool{electron-builder
 \toprule
 \textbf{Chave} & \textbf{Valor} \\
 \midrule
-\texttt{appId}        & \lstinline|com.nipscern.auroraide| \\
-\texttt{productName}  & \texttt{Aurora-IDE} \\
+\texttt{appId}        & \lstinline|com.nipscern.sapho| \\
+\texttt{productName}  & \texttt{SAPHO} \\
 \texttt{win.target}   & \texttt{nsis}, \texttt{arch: ["x64"]} \\
 \texttt{win.icon}     & \path{./assets/icons/sapho_aurora_icon.ico} \\
 \texttt{win.artifactName} & \path{sapho-aurora-Setup-v${version}.${ext}} \\

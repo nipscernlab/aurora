@@ -10,9 +10,9 @@
  * still works, just with the library defaults.
  *
  * Log file location. electron-log derives it from Electron's `app.getName()`,
- * which resolves to package.json `productName` ("SAPHO") — NOT to
- * `build.productName` ("Aurora-IDE"), which only names the installer and the
- * install directory. The two differ, so:
+ * which resolves to package.json `productName` — NOT to `build.productName`,
+ * which names the installed application and its directory. Both read "SAPHO"
+ * since 2026-08-06, but they are separate fields and can drift again, so:
  *   Windows:  %APPDATA%/SAPHO/logs/main.log
  *   macOS:    ~/Library/Logs/SAPHO/main.log
  *   Linux:    ~/.config/SAPHO/logs/main.log

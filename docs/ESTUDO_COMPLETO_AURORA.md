@@ -3311,20 +3311,39 @@ IDE. Os repositórios já refletem isso (`aurora` = fonte, `sapho` = distribuiç
 
 Estado atual dos campos e o que cada um controla:
 
-| Campo | Valor hoje | Controla |
-|---|---|---|
-| `package.json` `name` | `sapho` | **cache do updater** (`%LOCALAPPDATA%\sapho-updater`) — não renomear, §19.3 |
-| `package.json` `productName` | `SAPHO` | `app.getName()`, logo `%APPDATA%\SAPHO` (userData, logs) |
-| `build.productName` | `Aurora-IDE` | nome do `.exe`, `INSTDIR`, atalhos |
-| `build.appId` | `com.nipscern.auroraide` | AppUserModelID dos atalhos, chave de desinstalação |
-| `build.win.artifactName` | `sapho-aurora-Setup-v${version}.exe` | nome do instalador publicado |
+Aplicado em 06/08/2026. Estado final dos campos:
 
-**Bug encontrado:** o `main.js` chama `app.setAppUserModelId('com.nipscern.sapho')`, que
-**não bate** com o `build.appId` (`com.nipscern.auroraide`). O electron-builder grava o
+| Campo | Antes | Agora | Controla |
+|---|---|---|---|
+| `package.json` `name` | `sapho` | `sapho` (intocado) | **cache do updater** (`%LOCALAPPDATA%\sapho-updater`) — não renomear, §19.3 |
+| `package.json` `productName` | `SAPHO` | `SAPHO` | `app.getName()`, logo `%APPDATA%\SAPHO` (userData, logs) |
+| `build.productName` | `Aurora-IDE` | **`SAPHO`** | nome do `.exe`, `INSTDIR`, atalhos |
+| `build.appId` | `com.nipscern.auroraide` | **`com.nipscern.sapho`** | AppUserModelID dos atalhos, chave de desinstalação |
+| `build.win.artifactName` | `sapho-aurora-Setup-v${version}.exe` | inalterado | nome do instalador publicado |
+
+O nome do instalador ficou como estava por decisão do usuário: `sapho-aurora-Setup-` já
+carrega os dois nomes e é o que o manual (`02-instalacao.tex`) e o site já divulgam.
+
+**Bug corrigido de quebra:** o `main.js` chamava `app.setAppUserModelId('com.nipscern.sapho')`
+enquanto o `build.appId` era `com.nipscern.auroraide`. O electron-builder grava o
 AppUserModelID dos atalhos a partir do `appId`, então a janela em execução e o atalho fixado
-carregam identidades diferentes — agrupamento na barra de tarefas e jumplist ficam presos ao
-alvo errado. O comentário no main.js diz que a chamada foi movida para cedo justamente para
-consertar isso; o conserto está pela metade. Renomear alinha os dois.
+carregavam identidades diferentes — agrupamento na barra de tarefas e jumplist presos ao alvo
+errado. O comentário no main.js diz que a chamada foi movida para cedo justamente para
+consertar isso; o conserto estava pela metade. Agora os dois são `com.nipscern.sapho`.
+
+**Onde "SAPHO & AURORA" fica:** só em texto de interface (painel Sobre, wordmark). Tudo que
+vira arquivo ou diretório usa `SAPHO` puro — o `&` é legal em caminhos do Windows mas quebra
+qualquer script que não cite o caminho, e a busca do menu Iniciar por "SAPHO" acha igual.
+
+**Detalhe do electron-builder:** comentários não podem entrar no bloco `build` — ele valida
+contra um schema estrito e rejeita chave desconhecida, inclusive com prefixo `//`. As notas de
+identidade ficam no topo do package.json como `//build-identity`.
+
+Verificado com empacotamento real: sai `SAPHO.exe` com `ProductName: SAPHO`, sem resíduo
+`Aurora-IDE`.
+
+**Para quem já tem a versão antiga instalada** (desenvolvedores, não o laboratório):
+desinstale o `Aurora-IDE` antes de instalar a nova, ou as duas cópias vão conviver.
 
 **Risco de migração, e por que a hora é agora.** Mudar `build.productName` muda o `INSTDIR`.
 Uma máquina que já tenha `%LOCALAPPDATA%\Programs\Aurora-IDE` receberia a nova versão em
@@ -3370,8 +3389,9 @@ os contribuidores; e escrever a página pública de *Code signing policy*.
 Efeito colateral a saber: **o primeiro release assinado será download completo para todos**,
 porque a assinatura muda os bytes e invalida todos os blocos do delta.
 
-Nota: `terms-of-service.txt` na raiz é o documento da **SignPath**, não da AURORA. Vale mover
-para `docs/` com nome que deixe isso claro.
+Nota: um `terms-of-service.txt` da **SignPath** chegou a ficar na raiz do repositório e foi
+removido pelo usuário em 06/08/2026 — era o documento deles, não os termos da AURORA, e na
+raiz dava a entender o contrário.
 
 ### 19.8 Instalação limpa (versão dev) — conferido em 06/08/2026
 

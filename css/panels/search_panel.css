@@ -40,7 +40,18 @@
   font-size: var(--text-sm);
 }
 .search-input::placeholder { color: var(--text-muted); }
-.search-input:focus { outline: none; border-color: var(--accent); }
+/* Foco com o gradiente da marca (DESIGN §5), e não com a borda de acento chapada.
+   Gradiente não pode ser `border-color`, e `border-image` ignoraria o
+   border-radius, quadrando os cantos. O truque de dois fundos resolve: o fundo
+   sólido ocupa a caixa de padding e o gradiente ocupa a de borda, com a borda
+   transparente por cima. Preserva o raio e não precisa de marcação extra. */
+.search-input:focus {
+  outline: none;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg-sunken, var(--bg)), var(--bg-sunken, var(--bg))) padding-box,
+    var(--focus-ray) border-box;
+}
 
 .search-toggles { display: flex; gap: var(--space-1); flex: 0 0 auto; }
 .search-toggle {

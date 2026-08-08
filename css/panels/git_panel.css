@@ -298,7 +298,16 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 .git-pat-input::placeholder { color: var(--text-faint, var(--text-muted)); }
-.git-pat-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft, rgba(142, 131, 232, 0.10)); }
+/* Foco com o gradiente da marca (DESIGN §5). Ver a explicação do truque de dois
+   fundos em search_panel.css; aqui vale a mesma razão. O halo de 3px sai junto:
+   a seção 4 do manifesto pede luz e borda no lugar de sombra. */
+.git-pat-input:focus {
+  outline: none;
+  border-color: transparent;
+  background:
+    linear-gradient(var(--bg-sunken, var(--bg)), var(--bg-sunken, var(--bg))) padding-box,
+    var(--focus-ray) border-box;
+}
 
 /* =============================================================================
  * 3. ACCOUNT BAR — clean header strip (avatar + @login | actions)

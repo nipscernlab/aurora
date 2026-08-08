@@ -317,6 +317,26 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   color: var(--text);
 }
 
+/* Raio de foco à esquerda (DESIGN §5). A árvore de hierarquia já marcava o item
+   ativo assim; esta regra dá à árvore de arquivos a mesma linguagem, e as duas
+   passam a usar o gradiente da marca em vez do acento chapado.
+
+   O fundo tingido continua: o `--surface-raised` que o manifesto pede resolve
+   para `--bg-elev`, que é exatamente o fundo do painel, então seguir a letra
+   deixaria a linha selecionada sem fundo algum e a seleção dependeria de dois
+   pixels. O raio lidera, o tingimento apoia. */
+.file-item.selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: var(--ray-width);
+  background: var(--focus-ray);
+  border-radius: 0 1px 1px 0;
+  pointer-events: none;
+}
+
 /* Entry sitting on the clipboard as a CUT — dimmed like VS Code. */
 .file-item.cut-pending {
   opacity: 0.5;

@@ -119,6 +119,34 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     if (g.terminal) expect(g.ai.left).toBeGreaterThanOrEqual(g.terminal.right - 1);
   }, 30_000);
 
+  it('nada do terminal aparece dentro do painel', async () => {
+    // A regra, na palavra do usuario: a borda direita do terminal fica COLADA
+    // na borda esquerda do painel, nunca dentro dele. As abas eram o furo: a
+    // lista nao encolhia, entao as ultimas eram cortadas exatamente naquela
+    // borda, o que na tela e indistinguivel do painel estar por cima.
+    const r = await window.evaluate(() => {
+      const ai = document.querySelector('.ai-assistant-container');
+      const term = document.querySelector('.terminal-container');
+      const aiLeft = ai.getBoundingClientRect().left;
+      const fora = [];
+      const visitar = (el, prof) => {
+        const b = el.getBoundingClientRect();
+        if (b.width > 0 && b.right > aiLeft + 1) {
+          fora.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]}`
+            + ` passa ${Math.round(b.right - aiLeft)}px`);
+        }
+        if (prof < 4) for (const f of el.children) visitar(f, prof + 1);
+      };
+      visitar(term, 0);
+      return {
+        colado: Math.round(term.getBoundingClientRect().right) === Math.round(aiLeft),
+        fora,
+      };
+    });
+    expect(r.colado, 'a borda do terminal tem que encostar na do painel').toBe(true);
+    expect(r.fora, 'nada do terminal pode entrar na faixa do painel').toEqual([]);
+  }, 30_000);
+
   it('forcar uma largura absurda nao espreme o editor a zero', async () => {
     // É exatamente o caso que quebrava: largura salva de uma janela maior,
     // ou um arrasto forçado até o fim.

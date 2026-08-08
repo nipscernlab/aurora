@@ -107,6 +107,11 @@
   align-items: center;
   gap: 0;
   flex: 1 1 auto;
+  /* Sem isto a lista nunca encolhe abaixo do conteudo dela: as abas ficam no
+     tamanho cheio e as ultimas sao cortadas na borda da barra, que e a mesma
+     borda do painel de IA quando ele esta aberto. Na tela isso e
+     indistinguivel do painel estar por cima, e foi confundido com isso. */
+  min-width: 0;
   margin-left: var(--space-2);
   padding-left: var(--space-2);
   border-left: 1px solid var(--border);
@@ -141,6 +146,14 @@
   gap: var(--space-2);
   padding: 0 10px;
   height: 22px;
+  /* As abas cedem largura antes de serem cortadas. O piso deixa o glifo e um
+     pedaco do nome sempre visiveis, entao a aba continua reconhecivel e
+     clicavel; passando disso, a barra volta a rolar, que e o comportamento
+     que ja existia. */
+  flex-shrink: 1;
+  min-width: 52px;
+  overflow: hidden;
+  white-space: nowrap;
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
@@ -157,6 +170,8 @@
 }
 
 .terminal-tabs .tab .glyph {
+  /* O glifo nunca encolhe: e ele que identifica a aba quando o nome some. */
+  flex-shrink: 0;
   font-size: var(--icon-sm);
   color: currentColor;
   flex-shrink: 0;

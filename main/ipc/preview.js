@@ -115,7 +115,12 @@ const MIME = {
   '.map': 'application/json; charset=utf-8',
 };
 
-/** @param {string} p @returns {string} */
+/**
+ * Tipo MIME pela extensao, com `application/octet-stream` como queda.
+ * Exportado para teste: um MIME errado num esquema proprio muda como o
+ * Chromium trata a resposta. Ver tests/unit/previewScheme.test.js.
+ * @param {string} p @returns {string}
+ */
 function mimeFor(p) {
   return MIME[path.extname(p).toLowerCase()] || 'application/octet-stream';
 }
@@ -206,4 +211,4 @@ function register() {
   ipcMain.handle('preview:unregister', (_e, id) => previews.delete(id));
 }
 
-module.exports = { register, registerScheme, installProtocol, isPreviewUrl, SCHEME, PREVIEW_CSP };
+module.exports = { register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, PREVIEW_CSP };

@@ -40,6 +40,10 @@
         overflow: visible;
       }
       .glyph-cpm svg { stroke-width: 1.7; }
+      /* Bicolor: o C azul, o mais-menos ouro. Sobrescreve o currentColor
+         herdado, entao vale onde quer que o glifo apareca. */
+      .glyph-cpm .cpm-c  { stroke: var(--color-cmm-c,  #5BB8E8); }
+      .glyph-cpm .cpm-pm { stroke: var(--color-cmm-pm, #F4D35E); }
     </style>
 </head>
 <body class="theme-dark">
@@ -104,11 +108,11 @@
               <span class="glyph glyph-cpm" aria-hidden="true">
                 <svg viewBox="0 0 24 16">
                   <!-- C arc: open to the right, centred on x=7 y=8 -->
-                  <path d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
+                  <path class="cpm-c" d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
                   <!-- Plus sign, centred on x=18 y=6 -->
-                  <path d="M18 4.2 v3.6 M16.2 6 h3.6"/>
+                  <path class="cpm-pm" d="M18 4.2 v3.6 M16.2 6 h3.6"/>
                   <!-- Minus sign, centred on x=18 y=11.2 (no divider between them) -->
-                  <path d="M16.2 11.2 h3.6"/>
+                  <path class="cpm-pm" d="M16.2 11.2 h3.6"/>
                 </svg>
               </span>
           </button>
@@ -434,9 +438,9 @@
                   <button class="tab active" data-terminal="tcmm" data-tooltip="C± terminal" data-i18n-tooltip="toolbar.termTab.cmm">
                       <span class="glyph glyph-cpm" aria-hidden="true">
                         <svg viewBox="0 0 24 16">
-                          <path d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
-                          <path d="M18 4.2 v3.6 M16.2 6 h3.6"/>
-                          <path d="M16.2 11.2 h3.6"/>
+                          <path class="cpm-c" d="M11 4.4 a4.2 4.2 0 1 0 0 7.2"/>
+                          <path class="cpm-pm" d="M18 4.2 v3.6 M16.2 6 h3.6"/>
+                          <path class="cpm-pm" d="M16.2 11.2 h3.6"/>
                         </svg>
                       </span>
                       TCMM

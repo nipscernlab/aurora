@@ -215,6 +215,12 @@
    *  two surfaces stay in lock-step.
    * ======================================================================= */
   --color-cmm:    #F4D35E;               /* C±   — ouro */
+  /* O glifo do C± e bicolor: o arco do C em azul e o mais-menos em ouro. Sao
+     dois tracos do mesmo SVG, entao precisam de duas cores nomeadas em vez de
+     um `currentColor` so. --color-cmm continua valendo para onde o C± aparece
+     como uma cor unica (arvore, aba). */
+  --color-cmm-c:  var(--aurora-cyan);    /* o arco do C */
+  --color-cmm-pm: #F4D35E;               /* o mais-menos */
   --color-asm:    var(--aurora-purple);  /* ASM  — purple */
   --color-veri:   var(--aurora-pink);    /* VERI — pink */
   --color-wave:   var(--aurora-mint);    /* WAVE — mint */

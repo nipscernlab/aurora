@@ -57,6 +57,19 @@ export default defineConfig([
     plugins: { js },
     extends: ["js/recommended"],
     rules: {
+      // Entra no `js/recommended` a partir do @eslint/js 10 e nao combina com
+      // o estilo daqui. As 20 ocorrencias que ela acusa sao todas inicializacao
+      // defensiva deliberada: `let entries = []` antes de um try/catch que
+      // retorna cedo, `let failure = ''` com os dois ramos atribuindo, e
+      // defaults de interface como `let title = 'Checking…'` antes de uma
+      // cadeia de if/else.
+      //
+      // Remover esses valores iniciais nao muda nada em execucao (por
+      // definicao da regra, eles nunca sao lidos hoje) e troca robustez por
+      // nada: basta alguem acrescentar um ramo sem atribuicao para a variavel
+      // chegar `undefined` na tela. O default e a rede.
+      "no-useless-assignment": "off",
+
       // Lenient on params and caught errors (the Electron/forEach/try-catch
       // callback patterns generate a lot of "we have to declare this but
       // don't read it" cases). Still flag unused *declared* variables, since

@@ -317,7 +317,8 @@
       "aiModel": "Model",
       "aiModelSet": "Model updated.",
       "auroraBg": "Aurora Borealis on the Welcome screen",
-      "auroraBgDescription": "Animated aurora background behind the Welcome screen. It renders on the GPU in a continuous loop; off by default to save battery and to keep weaker machines responsive."
+      "auroraBgDescription": "Animated aurora background behind the Welcome screen. It renders on the GPU in a continuous loop; off by default to save battery and to keep weaker machines responsive.",
+      "aboutLicense": "NIPS-CERN License 1.1"
     }
   },
   "shortcuts": {

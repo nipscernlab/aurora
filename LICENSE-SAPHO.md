@@ -240,64 +240,58 @@ Or through the contact page at **nipscern.com**.
 
 ---
 
-# Anexo: AURORA
+# Anexo: SAPHO
 
-Este anexo trata do que só diz respeito à AURORA. Ele acrescenta à licença base
+Este anexo trata do que só diz respeito ao SAPHO. Ele acrescenta à licença base
 acima e não a contraria; havendo divergência, a base prevalece.
 
-## A1. O que é a Obra, aqui
+## S1. O que é a Obra, aqui
 
-A AURORA é o ambiente de desenvolvimento do SAPHO: a interface, o empacotamento
-e a integração com as ferramentas de compilação, simulação e visualização. O
-código de autoria do Laboratório está neste repositório.
+O SAPHO (Scalable-Architecture Processor for Hardware Optimization) é um
+processador de arquitetura própria para processamento de sinais em
+instrumentação científica. A Obra abrange o projeto do processador, o Verilog
+gerado e escrito à mão, a linguagem C± e a cadeia de compilação YANC
+(`cmmcomp`, `asmcomp`, `appcomp`, `comp2gtkw`).
 
-A AURORA não é distribuída sozinha. O instalador carrega dentro dele um conjunto
-de ferramentas de terceiros, sem as quais ela não compila nem simula nada.
+A AURORA, o ambiente de desenvolvimento, tem licença própria com o mesmo texto
+base e anexo distinto.
 
-## A2. Ferramentas de terceiros que acompanham a AURORA
+## S2. Hardware
 
-Cada uma continua sob a própria licença, conforme a seção 6 da base. A licença
-do Laboratório não alcança nenhuma delas, e distribuir a AURORA significa
-cumprir também os termos abaixo.
+A licença base fala de Obra incluindo projetos de hardware, e é o caso aqui. O
+Verilog do SAPHO pode ser lido, estudado, simulado, sintetizado e modificado nos
+termos da seção 2 da base.
 
-O inventário completo, com versão e origem de cada componente, está em
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), que é o documento de
-referência. O resumo aqui existe para quem precisa da informação sem sair deste
-arquivo.
+Sintetizar o SAPHO em FPGA ou levá-lo a silício para uso próprio, em pesquisa,
+ensino ou dentro de uma empresa, está coberto pela seção 2.b e não exige
+autorização. Vender o processador, licenciá-lo, ou vender produto cujo valor
+esteja no próprio processador, é Exploração comercial e depende da seção 4.
 
-| Componente | Licença | Como acompanha a AURORA |
-|---|---|---|
-| Icarus Verilog | GNU GPL v2 | Executável no pacote, chamado como processo separado |
-| GTKWave (build NIPS-CERN) | GNU GPL v2 | Executável no pacote, chamado como processo separado |
-| Verilator | LGPL v3 / Artistic 2.0 | Executável no pacote, sem modificação |
-| Yosys | ISC | Executável no pacote |
-| Surfer (fork `surfer-aurora`) | EUPL-1.2 | Executável no pacote, janela externa; o fork permanece público |
-| Python e cocotb | PSF e BSD-3 | Interpretador e biblioteca no pacote |
-| Electron, Monaco Editor, netlistsvg | MIT | Bibliotecas do aplicativo |
-| Inter, JetBrains Mono, Metamorphous, Noto Sans Runic | SIL OFL 1.1 | Fontes no pacote |
-| Phosphor Icons, Material Icon Theme | MIT | Ícones no pacote |
+Esta distinção existe porque hardware embute: o processador vai dentro de um
+equipamento, e o que separa os dois casos é se o SAPHO é a ferramenta ou é o
+produto.
 
-Os componentes sob GPL e sob EUPL são executados como processos separados, a
-distância de um braço: a AURORA não faz ligação de código com eles, apenas os
-invoca e lê a saída. Os componentes sob LGPL entram sem modificação.
+## S3. A linguagem C±
 
-## A3. O compilador
+O C± é a linguagem de entrada do SAPHO. A gramática, os compiladores e as
+mensagens de erro são obra do Laboratório.
 
-A cadeia de compilação do SAPHO (`cmmcomp`, `asmcomp`, `appcomp`, `comp2gtkw`),
-conhecida como YANC, é obra do Laboratório e vive em repositório próprio, sob
-esta mesma licença. A AURORA a distribui como binário.
+Programas escritos por terceiros em C± pertencem a quem os escreveu. Compilar um
+programa com o YANC não coloca esse programa sob esta licença, do mesmo modo que
+compilar com um compilador não licencia o que foi compilado.
 
-## A4. Assinatura
+## S4. Ferramentas de terceiros
 
-As versões publicadas da AURORA são assinadas pela SignPath Foundation. A
-assinatura atesta a origem do binário; não altera nada desta licença nem
-constitui garantia, e a seção 7 da base continua valendo por inteiro.
+O fluxo do SAPHO se apoia em ferramentas externas (Icarus Verilog, Verilator,
+Yosys, GTKWave, Surfer, Python e cocotb), cada uma sob a própria licença,
+conforme a seção 6 da base. Elas são invocadas como processos separados; o
+código do Laboratório não faz ligação com nenhuma delas.
 
-## A5. Uso acadêmico
+## S5. Uso acadêmico
 
-A AURORA é usada em disciplina de graduação e em trabalhos de conclusão,
-mestrado e doutorado. Nada nesta licença exige autorização para isso: usar,
-estudar e modificar em ensino e pesquisa está coberto pela seção 2 da base. O
+O SAPHO nasceu de pesquisa e é usado em ensino, trabalhos de conclusão, mestrado
+e doutorado. Isso está coberto pela seção 2 da base e não exige autorização. O
 aviso da seção 3 continua sendo pedido, e é apenas um aviso.
 
-Ao citar a AURORA em trabalho acadêmico, cite o Laboratório e o repositório.
+Ao publicar resultado obtido com o SAPHO, cite o Laboratório e o trabalho de
+origem.

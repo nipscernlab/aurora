@@ -35,18 +35,25 @@
    mora; as do sistema ficam de reserva. Acesa no acento com um brilho suave. */
 .dagr-rune {
   font-family: 'Noto Sans Runic', 'Segoe UI Historic', 'Segoe UI Symbol', sans-serif;
-  font-size: 1.5em;
+  /* Absoluto pelo mesmo motivo do letreiro: as duas partes da marca devem ser
+     reguladas uma de cada vez, sem uma arrastar a outra. */
+  font-size: var(--text-xl, 20px);
   line-height: 1;
   color: var(--accent, #5FE0B0);
   text-shadow: 0 0 12px rgba(95, 224, 176, 0.55);   /* a soft aurora glow */
 }
-/* O letreiro: "Dagr" na Metamorphous, no tamanho que le como marca e nao como
-   rotulo. */
+/* O letreiro: "Dagr" na Metamorphous.
+   Duas coisas aqui foram aprendidas na troca da fonte. O tamanho e ABSOLUTO, e
+   nao `em`: em `em` ele herdava do .modal-title, entao mexer no titulo mexia no
+   letreiro e o letreiro brigava com a runa ao lado. E `line-height: 1` nao
+   serve para esta face: a Metamorphous tem descida funda no "g", que escapava
+   da caixa da linha. A Norse, estreita e pequena no corpo, escondia os dois
+   problemas; a Metamorphous desenha bem maior no mesmo corpo e os revelou. */
 .dagr-name {
   font-family: 'Metamorphous', var(--font-sans, 'Inter'), serif;
-  font-size: 1.62em;
-  line-height: 1;
-  letter-spacing: 0.015em;
+  font-size: var(--text-lg, 16px);
+  line-height: 1.35;
+  letter-spacing: 0.01em;
   color: var(--text-bright, #fff);
 }
 /* Keep "Source Control" as a quiet descriptor so the panel stays findable. */
@@ -83,14 +90,19 @@
 }
 .dagr-wm-rune {
   font-family: 'Noto Sans Runic', 'Segoe UI Historic', 'Segoe UI Symbol', sans-serif;
-  font-size: clamp(160px, 22vw, 300px);
-  line-height: 0.82;
+  font-size: clamp(120px, 15vw, 210px);
+  line-height: 0.9;
 }
+/* Menor que a runa, e de proposito: a runa e a marca, a palavra so acompanha.
+   Antes as duas competiam. O `vw` aqui mede o VIEWPORT e nao o painel, entao
+   numa tela larga a palavra crescia muito alem do que o painel comporta; os
+   valores novos deixam folga mesmo no monitor mais largo, e o overflow:hidden
+   do .dagr-watermark segue como rede. */
 .dagr-wm-name {
   font-family: 'Metamorphous', var(--font-sans, 'Inter'), serif;
-  font-size: clamp(96px, 14vw, 200px);
-  letter-spacing: 0.06em;
-  line-height: 0.82;
+  font-size: clamp(44px, 5.5vw, 84px);
+  letter-spacing: 0.14em;
+  line-height: 1.1;
   white-space: nowrap;
 }
 

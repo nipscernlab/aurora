@@ -17,7 +17,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showConfirm } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
-import { constrainTerminalHeight, persistTerminalHeight } from '../utils/resize.js';
+import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis } from '../utils/resize.js';
 // Mesma regra de tamanho da árvore de arquivos e do terminal.
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -164,14 +164,19 @@ class AIAssistantManager {
 
   toggle() {
     if (!this.container) this.initialize();
-    const opening = !this.container.classList.contains('open');
-    this.container.classList.toggle('open', opening);
-    document.body.classList.toggle('ai-assistant-open', opening);
-    try { localStorage.setItem('aurora-ai-panel-open', opening ? '1' : '0'); } catch (_) { /* ignore */ }
+    // O sentido sai da largura ALVO, e não da classe `open`. Enquanto saía da
+    // classe, um painel fechado pelo arrasto ainda a carregava, e o clique
+    // mandava fechar de novo.
+    //
+    // Alvo, e não medida: o `offsetWidth` de um painel fechado é 1, não 0,
+    // porque a borda esquerda de 1 px entra na conta da caixa, e durante os
+    // 240 ms da transição ele devolve um valor do meio do caminho. A largura
+    // inline é escrita pelo `_aplicarLargura` de forma síncrona e é o que o
+    // painel vai ter, então é a única leitura que não mente em nenhum instante.
+    const opening = !(parseInt(this.container.style.width, 10) > 0);
     // v3 layout: panel is a flex sibling that pushes the editor area.
     // The CSS `width` transition (240ms) drives the open/close anim;
-    // we just set the target width here. Read the persisted user
-    // width (default 480px) so re-opening lands on the same size.
+    // we just set the target width here.
     this._applyOpenWidth(opening);
     if (opening) {
       this.refreshProviders().then(() => this.inputEl?.focus());
@@ -180,33 +185,57 @@ class AIAssistantManager {
   }
 
   /**
-   * Set the inline `width` driving the open/close animation. CSS leaves
-   * the closed state at 0; opening sets it to the user's saved width
-   * (or 480 default). Single helper so toggle() and the boot-time
-   * "panel was open" restore both stay in sync.
+   * O único lugar que decide a largura do painel e TODO o estado que anda com
+   * ela: `open`, `is-collapsed`, o `ai-assistant-open` do body, o `inert` e o
+   * `ai-collapsed` que acende o trilho da direita.
+   *
+   * Existe porque esses estados discordavam entre si. O arrasto mexia só na
+   * largura e no `is-collapsed`, e o `toggle()` decide o sentido lendo `open`:
+   * depois de fechar o painel arrastando o divisor até o fim, o painel ficava
+   * com largura zero e `open` ainda posto, então o primeiro clique no botão da
+   * barra "fechava" o que já estava fechado e não acontecia nada. Era preciso
+   * clicar duas vezes, e como o divisor colapsado fica com 3 px agarráveis
+   * colados na borda da janela, na prática o painel não voltava.
+   *
+   * @param {number} w largura final, já passada pelo limite
    */
-  _applyOpenWidth(opening) {
-    if (!this.container) return;
-    if (!opening) {
-      this.container.style.width = '0px';
-      // P17 a11y: prevent Tab + screen reader from reaching the hidden panel.
-      this.container.setAttribute('inert', '');
-      return;
-    }
-    this.container.removeAttribute('inert');
+  _aplicarLargura(w) {
+    const c = this.container;
+    if (!c) return;
+    const aberto = w > 0;
+    c.style.width = w + 'px';
+    c.classList.toggle('open', aberto);
+    c.classList.toggle('is-collapsed', !aberto);
+    document.body.classList.toggle('ai-assistant-open', aberto);
+    document.body.classList.toggle('ai-collapsed', !aberto);
+    // P17 a11y: com largura zero o painel continua no DOM, e sem isto o Tab e o
+    // leitor de tela entram nele.
+    if (aberto) c.removeAttribute('inert');
+    else c.setAttribute('inert', '');
+    try { localStorage.setItem('aurora-ai-panel-open', aberto ? '1' : '0'); } catch (_) { /* ignore */ }
+  }
+
+  /**
+   * Largura de abertura: a que o usuário salvou, ou 480, sempre passada pelo
+   * mesmo limite do arrasto. A largura salva pode ter vindo de uma janela maior
+   * do que a de agora, e era por aqui que o painel voltava a invadir o terminal.
+   */
+  _larguraDeAbertura() {
     let target = 480;
     try {
       const saved = parseInt(localStorage.getItem('aurora-ai-panel-width'), 10);
       if (saved >= 320) target = saved;
     } catch (_) { /* ignore */ }
-    // Pelo mesmo limite do arrasto. A largura salva pode ter vindo de uma
-    // janela maior do que a de agora, e era exatamente por aqui que o painel
-    // voltava a invadir o terminal.
-    this.container.style.width = this._larguraPermitida(target) + 'px';
-    // Limpa o estado de colapso: o painel pode ter sido fechado arrastando o
-    // divisor até o fim, e o botão da barra é o caminho de volta. A largura
-    // salva nunca fica envenenada porque o arrasto só persiste acima do mínimo.
-    this.container.classList.remove('is-collapsed');
+    return this._larguraPermitida(target);
+  }
+
+  /**
+   * Abre ou fecha aplicando a largura correspondente. Mantido com o nome antigo
+   * porque o restore do arranque também o chama.
+   */
+  _applyOpenWidth(opening) {
+    if (!this.container) return;
+    this._aplicarLargura(opening ? this._larguraDeAbertura() : 0);
   }
 
   /** Bring the panel up if it isn't already open (idempotent). */
@@ -272,6 +301,14 @@ class AIAssistantManager {
     // o `if (!this.container) this.initialize()` do toggle, e quem chegar
     // primeiro nao impedia o segundo.
     if (this.container && this.container.isConnected) return;
+
+    // Lido AQUI, e nao no restore la embaixo: montar o painel passa por
+    // `_aplicarLargura(0)`, que grava esta mesma chave, entao ler depois leria
+    // o que nos mesmos acabamos de escrever e o painel nunca reabriria sozinho.
+    let abertoNaSessaoAnterior = false;
+    try {
+      abertoNaSessaoAnterior = localStorage.getItem('aurora-ai-panel-open') === '1';
+    } catch (_) { /* modo privado */ }
     this.container = document.createElement('div');
     this.container.className = 'ai-assistant-container';
     this.container.innerHTML = `
@@ -429,10 +466,14 @@ class AIAssistantManager {
     // edge case where main-container hasn't rendered yet (unlikely —
     // initialize() runs on first toggle, well after DOMContentLoaded).
     const mountTarget = document.querySelector('.main-container') || document.body;
-    mountTarget.appendChild(this.container);
+    // Antes do trilho da direita, para a ordem visual ficar trilho, arvore,
+    // editor, painel, trilho. Sem projeto no DOM o insertBefore vira append.
+    mountTarget.insertBefore(this.container, mountTarget.querySelector('.edge-rail-right'));
     try { window.i18nApplyDOM?.(this.container); } catch (_) { /* i18n optional */ }
-    // P17: panel starts closed (width 0) — mark inert so Tab can't reach it.
-    this.container.setAttribute('inert', '');
+    // Nasce fechado, pelo mesmo caminho de todo mundo: e o que poe o `inert`,
+    // para o Tab nao alcancar o painel de largura zero, e o `ai-collapsed`, que
+    // acende o trilho da direita ja no arranque.
+    this._aplicarLargura(0);
 
     this.providerIcon  = this.container.querySelector('#ai-provider-icon');
     this.messagesEl    = this.container.querySelector('#ai-messages');
@@ -499,15 +540,13 @@ class AIAssistantManager {
 
     // Restore open state — if the panel was open when the user last closed
     // the app, re-open it now so they land right back where they left off.
-    try {
-      if (localStorage.getItem('aurora-ai-panel-open') === '1') {
-        this.container.classList.add('open');
-        document.body.classList.add('ai-assistant-open');
-        this._applyOpenWidth(true);
-        this.refreshProviders().then(() => this.inputEl?.focus());
-        this.refreshChatList();
-      }
-    } catch (_) { /* ignore */ }
+    if (abertoNaSessaoAnterior) {
+      // `open`, `ai-assistant-open` e o `inert` saem todos daqui: eram tres
+      // linhas soltas antes, e eram elas que podiam discordar da largura.
+      this._applyOpenWidth(true);
+      this.refreshProviders().then(() => this.inputEl?.focus());
+      this.refreshChatList();
+    }
   }
 
   attachListeners() {
@@ -3228,16 +3267,14 @@ class AIAssistantManager {
    */
   _larguraPermitida(desejado) {
     const tree = document.querySelector('.file-tree-container');
-    // A faixa disputada e a do .main-container, e nao a janela: os tres paineis
-    // dividem ELE. Hoje os dois batem, mas medir a janela sempre foi a medida
-    // errada da coisa certa, e qualquer coluna que apareca ao lado passaria a
-    // mentir o espaco disponivel.
-    const faixa = document.querySelector('.main-container');
+    // A faixa vem de `faixaDosPaineis`, compartilhada com o resize.js: e a do
+    // `.main-container` menos os trilhos de borda. A coluna que aquele
+    // comentario antigo temia passou a existir, e e o trilho.
     return resolvePaneSize(desejado, {
       min: PANE.MIN_AI,
       collapseAt: PANE.COLLAPSE_AI,
       max: maxLateralWidth(
-        faixa ? faixa.clientWidth : window.innerWidth,
+        faixaDosPaineis(),
         tree ? tree.offsetWidth : 0, PANE.MIN_EDITOR, PANE.MIN_AI,
       ),
     });
@@ -3255,8 +3292,7 @@ class AIAssistantManager {
     if (!Number.isFinite(atual) || atual <= 0) return;
     const permitida = this._larguraPermitida(atual);
     if (permitida === atual) return;
-    c.style.width = permitida + 'px';
-    c.classList.toggle('is-collapsed', permitida === 0);
+    this._aplicarLargura(permitida);
   }
 
   setupResize(handle, container) {
@@ -3273,9 +3309,7 @@ class AIAssistantManager {
         if (!active) return;
         if (raf) cancelAnimationFrame(raf);
         raf = requestAnimationFrame(() => {
-          const newWidth = this._larguraPermitida(startWidth + (startX - ev.clientX));
-          container.style.width = newWidth + 'px';
-          container.classList.toggle('is-collapsed', newWidth === 0);
+          this._aplicarLargura(this._larguraPermitida(startWidth + (startX - ev.clientX)));
         });
       };
 
@@ -3377,10 +3411,8 @@ class AIAssistantManager {
       if (dragRaf) cancelAnimationFrame(dragRaf);
       dragRaf = requestAnimationFrame(() => {
         // AI panel is on the right: dragging left (smaller X) grows it.
-        const w = this._larguraPermitida(startW + (startX - e.clientX));
         const h = constrainTerminalHeight(startH - (e.clientY - startY));
-        aiContainer.style.width = w + 'px';
-        aiContainer.classList.toggle('is-collapsed', w === 0);
+        this._aplicarLargura(this._larguraPermitida(startW + (startX - e.clientX)));
         terminalContainer.style.height = h + 'px';
         position();
       });

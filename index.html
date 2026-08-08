@@ -319,6 +319,19 @@
        MAIN — file tree + editor/terminal stack
        ============================================================ -->
   <div class="main-container">
+    <!-- Trilhos de borda. Um painel colapsado tem largura zero, e o divisor
+         dele mora DENTRO do painel: com `overflow: hidden` no container, o que
+         sobra para agarrar sao 8 px da arvore e 3 px do painel de IA, colados
+         na borda da janela, e nenhum dos dois responde a clique. Estes dois
+         botoes sao a volta: existem fora dos paineis, aparecem so quando o
+         painel ao lado esta colapsado, e chamam o MESMO alternador do botao da
+         barra de ferramentas. -->
+    <button class="edge-rail edge-rail-left" id="railLeft" type="button"
+            data-tooltip="Show file tree" data-i18n-tooltip="fileTree.show"
+            aria-label="Show file tree" data-i18n-aria-label="fileTree.show">
+      <i class="ph ph-sidebar-simple"></i>
+    </button>
+
     <aurora-panel class="file-tree-container" role="region" aria-label="File tree" data-i18n-aria-label="fileTree.label">
         <div class="resizer-vertical"></div>
         <div class="file-tree-header">
@@ -531,6 +544,14 @@
             </div>
         </aurora-terminal>
     </div>
+
+    <!-- O painel de IA e montado por JS e entra ANTES deste trilho, para a
+         ordem do DOM ficar trilho, arvore, editor, painel, trilho. -->
+    <button class="edge-rail edge-rail-right" id="railRight" type="button"
+            data-tooltip="Show Aurora Intelligence" data-i18n-tooltip="ai.show"
+            aria-label="Show Aurora Intelligence" data-i18n-aria-label="ai.show">
+      <i class="ph ph-sparkle"></i>
+    </button>
   </div>
 </div>
 

@@ -199,6 +199,82 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     expect(estreito.empilhadas, 'as abas tem que ficar uma sobre a outra').toBe(true);
   }, 40_000);
 
+  it('painel colapsado volta com UM clique no trilho da borda', async () => {
+    // O relato do usuario: colapsado por inteiro, nao consigo recuperar nem a
+    // arvore nem o painel de IA. Medido em 08/08/2026, colapsado o divisor de
+    // cada painel fica com 8 px (arvore) e 3 px (IA) agarraveis colados na
+    // borda da janela, porque ele mora DENTRO do painel e os dois containers
+    // tem `overflow: hidden` — e nenhum dos dois responde a clique, so a
+    // arrasto. Os trilhos existem fora dos paineis e por isso sobrevivem ao
+    // colapso, que e a propriedade que o divisor do terminal sempre teve.
+    //
+    // O segundo defeito era de estado: o arrasto colapsava mexendo so na
+    // largura e no `is-collapsed`, e o `toggle()` lia a classe `open`, que o
+    // arrasto nunca tirava. O primeiro clique no botao mandava fechar o que ja
+    // estava fechado. Por isso o teste exige UM clique, e nao dois.
+    const estado = () => window.evaluate(() => {
+      // clientWidth, e nao offsetWidth: o painel de IA tem borda esquerda de
+      // 1 px, entao fechado ele mede 1 na caixa de borda e nunca 0.
+      const caixa = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        return { largura: el.clientWidth, visivel: el.clientWidth > 0 };
+      };
+      return {
+        tree: caixa('.file-tree-container'),
+        ai: caixa('.ai-assistant-container'),
+        railLeft: caixa('.edge-rail-left'),
+        railRight: caixa('.edge-rail-right'),
+        bodyClasses: document.body.className,
+      };
+    });
+
+    // Deixa os dois paineis abertos e sem animacao.
+    await window.evaluate(() => {
+      for (const s of ['.file-tree-container', '.ai-assistant-container']) {
+        const e = document.querySelector(s);
+        if (e) e.style.transition = 'none';
+      }
+      const m = window.aiAssistantManager;
+      if (document.querySelector('.ai-assistant-container').clientWidth === 0) m.toggle();
+      if (document.querySelector('.file-tree-container').clientWidth === 0) window.toggleSidebar();
+    });
+    await window.waitForTimeout(400);
+    const aberto = await estado();
+    expect(aberto.tree.largura, 'a arvore precisa comecar aberta').toBeGreaterThan(0);
+    expect(aberto.ai.largura, 'o painel precisa comecar aberto').toBeGreaterThan(0);
+    expect(aberto.railLeft.visivel, 'trilho escondido com a arvore aberta').toBe(false);
+    expect(aberto.railRight.visivel, 'trilho escondido com o painel aberto').toBe(false);
+
+    // Colapsa os dois pelo MESMO caminho que o arrasto usa: a largura passada
+    // pelo limite, que devolve 0 quando o arrasto forca alem do limiar.
+    await window.evaluate(() => {
+      window.aiAssistantManager._aplicarLargura(
+        window.aiAssistantManager._larguraPermitida(-500));
+      window.toggleSidebar();
+    });
+    await window.waitForTimeout(400);
+    const fechado = await estado();
+    expect(fechado.tree.largura, 'a arvore tinha que ter colapsado').toBe(0);
+    expect(fechado.ai.largura, 'o painel tinha que ter colapsado').toBe(0);
+    expect(fechado.railLeft.visivel, 'o trilho da esquerda tem que aparecer').toBe(true);
+    expect(fechado.railRight.visivel, 'o trilho da direita tem que aparecer').toBe(true);
+
+    // Um clique em cada trilho, e os dois voltam.
+    await window.click('.edge-rail-left');
+    await window.waitForTimeout(400);
+    expect((await estado()).tree.largura, 'um clique tem que trazer a arvore')
+      .toBeGreaterThan(0);
+
+    await window.click('.edge-rail-right');
+    await window.waitForTimeout(500);
+    const volta = await estado();
+    expect(volta.ai.largura, 'um clique tem que trazer o painel de IA')
+      .toBeGreaterThanOrEqual(320);
+    expect(volta.railLeft.visivel, 'o trilho some quando a arvore volta').toBe(false);
+    expect(volta.railRight.visivel, 'o trilho some quando o painel volta').toBe(false);
+  }, 60_000);
+
   it('com o divisor no maximo nao sobra vao acima do terminal', async () => {
     // Medido em 08/08/2026, com o aplicativo de pé: numa janela de 912 px o
     // arrasto pedia 795 px de altura e a caixa desenhava 730, porque o

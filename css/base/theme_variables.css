@@ -256,6 +256,14 @@
   --h-tree-item:  24px;
 
   /* =========================================================================
+   *  Widths — só o que precisa ser lido de dois lados
+   * ======================================================================= */
+  /* Trilho de borda que traz de volta um painel lateral colapsado. Largo o
+     bastante para ser alvo de clique confortável, e estreito o bastante para
+     não competir com o painel que ele substitui. */
+  --w-edge-rail:  24px;
+
+  /* =========================================================================
    *  Motion — "deriva de aurora" (ver docs/DESIGN.md §6)
    *  A aurora escorre: fluxo contínuo e eased, NUNCA spring/bounce.
    *  Regra: animar só transform/opacity (orçamento ~6ms/frame @165Hz).

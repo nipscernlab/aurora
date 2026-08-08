@@ -69,13 +69,28 @@ document.head.appendChild(style);
  * colapsa, como no VS Code. O teto também passou a descontar o painel de IA,
  * quando ele está aberto, e o mínimo do editor.
  */
+/**
+ * Largura que os painéis de fato disputam.
+ *
+ * É a do `.main-container`, e não a da janela, porque os três painéis dividem
+ * ELE. Descontados os trilhos de borda: eles são irmãos em flex, então quando
+ * um aparece a faixa disponível encolhe de verdade, e sem este desconto o teto
+ * calculado ficaria generoso pela largura do trilho e o editor pagaria a
+ * diferença. O comentário do `_larguraPermitida` já previa isto ao dizer que
+ * qualquer coluna ao lado passaria a mentir o espaço disponível.
+ */
+function faixaDosPaineis() {
+  const faixaEl = document.querySelector('.main-container');
+  const faixa = faixaEl ? faixaEl.clientWidth : window.innerWidth;
+  let trilhos = 0;
+  for (const t of document.querySelectorAll('.edge-rail')) trilhos += t.offsetWidth;
+  return Math.max(0, faixa - trilhos);
+}
+
 function constrainFileTreeWidth(w) {
   const ai = document.querySelector('.ai-assistant-container');
   const larguraAi = ai ? ai.offsetWidth : 0;
-  // A faixa disputada e a do .main-container, e nao a janela: os tres paineis
-  // dividem ELE.
-  const faixaEl = document.querySelector('.main-container');
-  const faixa = faixaEl ? faixaEl.clientWidth : window.innerWidth;
+  const faixa = faixaDosPaineis();
   return resolvePaneSize(w, {
     min: MIN_FILE_TREE_WIDTH,
     collapseAt: PANE.COLLAPSE_LATERAL,
@@ -129,10 +144,20 @@ function persistTerminalHeight(h) {
   }
 }
 
+/**
+ * Aplica a largura da árvore e o estado que anda junto com ela.
+ *
+ * O `body.tree-collapsed` é o que acende o trilho da esquerda. Ele fica aqui, e
+ * não em cada arrastador, porque esta é a única função que decide se a árvore
+ * está colapsada; era assim que o painel de IA discordava de si mesmo, com o
+ * arrasto mexendo num estado e o botão lendo outro.
+ */
 function applyFileTreeWidth(w) {
   if (!fileTreeContainer) return;
+  const colapsada = nextCollapseState(w, COLLAPSED_THRESHOLD);
   fileTreeContainer.style.width = w + 'px';
-  fileTreeContainer.classList.toggle('is-collapsed', nextCollapseState(w, COLLAPSED_THRESHOLD));
+  fileTreeContainer.classList.toggle('is-collapsed', colapsada);
+  document.body.classList.toggle('tree-collapsed', colapsada);
 }
 
 // Public toggle for the sidebar — exposed on window so the toolbar button
@@ -358,14 +383,20 @@ function initPanelSizes() {
   }
 }
 
+// O trilho da esquerda chama o MESMO alternador do botao da barra de
+// ferramentas. Uma copia da logica de reabrir aqui seria a terceira.
+const railLeft = document.querySelector('.edge-rail-left');
+if (railLeft) railLeft.addEventListener('click', () => toggleSidebar());
+
 if (verticalResizer && fileTreeContainer)   setupVerticalResizer();
 if (horizontalResizer && terminalContainer) setupHorizontalResizer();
 if (fileTreeContainer && terminalContainer) setupCornerHandle();
 
 window.addEventListener('resize', () => {
   if (fileTreeContainer && !fileTreeContainer.classList.contains('is-collapsed')) {
-    const w = constrainFileTreeWidth(fileTreeContainer.offsetWidth);
-    fileTreeContainer.style.width = w + 'px';
+    // Pelo mesmo caminho do arrasto: escrever a largura direto aqui deixava o
+    // `is-collapsed` e o trilho para tras se a conta devolvesse zero.
+    applyFileTreeWidth(constrainFileTreeWidth(fileTreeContainer.offsetWidth));
   }
   if (terminalContainer) {
     const h = constrainTerminalHeight(terminalContainer.offsetHeight);
@@ -375,4 +406,9 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('DOMContentLoaded', initPanelSizes);
 
-export { constrainFileTreeWidth, constrainTerminalHeight, persistTerminalHeight };
+export {
+  constrainFileTreeWidth,
+  constrainTerminalHeight,
+  persistTerminalHeight,
+  faixaDosPaineis,
+};

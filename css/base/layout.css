@@ -155,6 +155,49 @@
   border-right-width: 0;
 }
 
+/* ---------------------------------------------------------------------------
+ *  Trilhos de borda — o caminho de volta de um painel colapsado.
+ *
+ *  O divisor de cada painel lateral mora DENTRO do painel, e os dois containers
+ *  têm `overflow: hidden`. Com largura zero sobram 8 px agarráveis na árvore e
+ *  3 px no painel de IA, colados na borda da janela, e nenhum dos dois responde
+ *  a clique: só a arrasto. Medido em 08/08/2026. O terminal nunca teve esse
+ *  problema porque o divisor dele é irmão do painel, não filho, e por isso
+ *  sobrevive ao colapso; estes trilhos dão aos laterais a mesma propriedade.
+ *
+ *  Eles são irmãos em flex, e não sobreposição, para não cobrir conteúdo do
+ *  editor. Em compensação ocupam largura de verdade, e é por isso que a conta
+ *  do teto dos painéis passou a descontá-los (`faixaDosPaineis` em
+ *  js/utils/resize.js).
+ * ------------------------------------------------------------------------- */
+.edge-rail {
+  display: none;
+  flex-shrink: 0;
+  width: var(--w-edge-rail);
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: var(--space-3);
+  background-color: var(--bg-elev);
+  border: 0;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--icon-lg);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+/* Só aparece quando o painel do lado está fora. As classes são postas no
+   `body` porque o trilho não é descendente do painel que ele representa. */
+body.tree-collapsed .edge-rail-left,
+body.ai-collapsed  .edge-rail-right { display: flex; }
+
+.edge-rail-left  { border-right: 1px solid var(--border); }
+.edge-rail-right { border-left:  1px solid var(--border); }
+
+.edge-rail:hover {
+  color: var(--accent);
+  background-color: var(--bg-elev-2);
+}
+
 /* Action bar (overlay-title) sits between header and tree */
 .overlay-title {
   display: flex;

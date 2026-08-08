@@ -155,9 +155,12 @@ window.onload = () => {
     initMonaco();
     aiAssistantManager.initialize();
 
-    const aiBtn = document.getElementById('aiButton');
-    if (aiBtn) {
-        aiBtn.addEventListener('click', () => aiAssistantManager.toggle());
+    // O botao da barra e o trilho da direita chamam o MESMO alternador: o
+    // trilho e o caminho de volta quando o painel foi fechado arrastando o
+    // divisor ate o fim, e ali sobram 3 px agarraveis colados na borda.
+    for (const id of ['aiButton', 'railRight']) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('click', () => aiAssistantManager.toggle());
     }
 
     // Tell the splash screen the renderer finished booting so it can

@@ -20,10 +20,15 @@ a linha selecionada na árvore continua como a seção critica, com preenchiment
 sólido de `--overlay-selected`.
 
 Ou seja, não é um documento ignorado. É um documento cuja ideia central foi
-testada, e em parte rejeitada por quem desenha. Os tokens `--focus-ray` e
-`--accent-veil` seguem definidos e com zero uso, assim como `--surface-overlay` e
-`--surface-raised`; `--border-hairline`, `--border-luminous` e `--accent-glow`
-chegaram ao código, com 17, 5 e 10 usos.
+testada, e em parte rejeitada por quem desenha.
+
+Os tokens estão em melhor estado do que a primeira medição sugeria, porque ela
+esqueceu de olhar o `js/`, onde vivem os componentes Lit. Hoje `--focus-ray` tem
+cinco usos, `--surface-overlay` sete, `--surface-raised` dois,
+`--border-hairline` dezessete, `--border-luminous` cinco e `--accent-glow` dez. O
+único que estava mesmo sem uso era o `--accent-veil`, alias idêntico ao
+`--focus-ray`, e ele foi removido em 08/08/2026: dois nomes para o mesmo
+gradiente só produzem a dúvida de qual usar.
 
 Ele também está velho nos dois sentidos. A meta da seção 4 era derrubar os 71
 `box-shadow`; hoje são 99, então essa foi na direção contrária. Já a escala de
@@ -137,12 +142,11 @@ componentes **nunca** referenciam a camada base direto; só a semântica.
 
 /* Acento / interação */
 --accent             /* = --spectrum-green, o verde-assinatura */
---accent-veil        /* = --aurora-veil, o gradiente de marca  */
+--focus-ray          /* = --ray, o gradiente de marca, e o raio de foco (§5) */
 --accent-glow        /* sombra luminosa do acento (§4)         */
 
 /* Estado */
 --state-ok  --state-warn  --state-error  --state-info
---focus-ray          /* o raio luminoso de foco (§5)         */
 --border-hairline    /* borda de 1px, baixa opacidade        */
 --border-luminous    /* borda que brilha no hover/ativo      */
 ```

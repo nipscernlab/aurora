@@ -33,7 +33,10 @@
   --text-faint:   var(--text-disabled); /* placeholders, disabled */
 
   /* Accent / interaction (--accent and --accent-glow are already canonical) */
-  --accent-veil: var(--ray);  /* the aurora brand gradient */
+  /* --accent-veil foi removido em 08/08/2026: era alias identico a --focus-ray,
+     os dois apontando para --ray, e nunca teve um uso. Um nome so evita a
+     duvida de qual usar. Quem quiser o gradiente da marca usa --focus-ray, ou
+     --ray direto quando nao for foco. */
   --focus-ray:   var(--ray);  /* the vertical luminous focus beam (DESIGN §5) */
 
   /* State */

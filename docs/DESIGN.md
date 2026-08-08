@@ -1,10 +1,30 @@
-# AURORA — Design Manifesto
+# Manifesto de desenho da AURORA
 
-> Fonte da verdade visual e de movimento da AURORA IDE. Tudo que for desenhado, animado ou
-> componentizado responde a este documento. Se o código discordar daqui, o código tem um bug.
->
-> **Stack de referência do revamp:** Vite (build/HMR) + Lit (Web Components encapsulados) +
-> o sistema de tokens consolidado abaixo. Decidido em 13/06/2026.
+Escrito em 13/06/2026 como proposta, e reenquadrado em 08/08/2026 depois de
+conferido contra o CSS.
+
+Este documento dizia ser a fonte da verdade visual, e que se o código discordasse
+dele o código teria um bug. A conferência mostrou o contrário no ponto central: o
+raio de foco, que a seção 5 chama de assinatura estrutural do desenho inteiro,
+tem seus tokens definidos e usados zero vez. O mesmo vale para `--accent-veil`,
+`--surface-overlay` e `--surface-raised`. Só `--border-hairline`,
+`--border-luminous` e `--accent-glow` chegaram ao código, com 17, 5 e 10 usos.
+
+Ele também está velho nos dois sentidos. A meta da seção 4 era derrubar os 71
+`box-shadow`; hoje são 99, então essa foi na direção contrária. Já a escala de
+z-index furada que a seção 5 reclama foi resolvida: dos nove literais fora da
+escala sobraram quatro no CSS inteiro.
+
+Então o que este arquivo é, de verdade: um bom raciocínio de desenho que nunca
+foi executado. Ele não descreve a interface da AURORA, descreve uma que se
+pretendia construir. Como a interface definitiva ficou de fora do escopo desta
+versão, por decisão registrada no [PENDENCIAS.md](PENDENCIAS.md), ele passa a ser
+o que sempre foi na prática: o material de partida para o desenho do SAPHO
+seguinte, e não uma regra que o código atual esteja violando.
+
+Fica inteiro por isso, e não por inércia. O pensamento continua bom, e é mais
+barato herdar um manifesto pensado do que redesenhar do zero. O que muda é que
+ninguém deve ler daqui uma descrição do que está na tela.
 
 ---
 
@@ -121,8 +141,10 @@ vocabulário só**.
 
 ## 4. Elevação por luz, não por sombra
 
-Hoje são **71 `box-shadow`** e **12 `backdrop-filter`** — caros de pintar e estranhos à identidade
-(aurora não faz sombra). Nova regra de profundidade:
+Eram 71 `box-shadow` e 12 `backdrop-filter` quando isto foi escrito. Em 08/08/2026
+são 99 e 11: a sombra cresceu em vez de diminuir, o que mostra que esta seção
+nunca saiu do papel. Ambos são caros de pintar e estranhos à identidade, porque
+aurora não faz sombra. A regra de profundidade proposta:
 
 1. **Elevação = luminosidade + borda, não offset escuro.** Um painel "sobe" ficando levemente mais
    claro que o céu e ganhando uma `--border-hairline`. Modais ganham `--border-luminous`.
@@ -148,9 +170,10 @@ Em vez de preencher o item ativo com um fundo sólido (genérico), a AURORA marc
 - **Linha selecionada na árvore / lista:** raio à esquerda, fundo apenas `--surface-raised` sutil.
 - **Input em foco:** borda vira `--focus-ray` (gradiente), não um anel azul de sistema.
 
-Isso resolve, de quebra, a **escala de z-index furada** (token `--z-0..--z-max:100` convive com
-literais `10001/10000/1000`): tudo passa a usar a escala tokenizada; os 9 literais fora dela são
-eliminados na migração dos componentes.
+A escala de z-index furada que esta seção citava, com o token convivendo com
+literais como `10001` e `10000`, foi resolvida por outro caminho: em 08/08/2026
+sobraram quatro literais numéricos no CSS inteiro, e o maior é um só. Este
+parágrafo fica como registro de um problema que deixou de existir.
 
 ---
 

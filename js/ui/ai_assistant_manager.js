@@ -2481,7 +2481,7 @@ class AIAssistantManager {
    * Build a tool-group shell — `{ el, body, summaryEl }` — with the
    * expand/collapse header wired up. Shared by the live group
    * (_ensureToolGroup) and the static group rebuilt when replaying a saved
-   * chat, so both render the identical "✓ N actions" collapsible bubble.
+   * chat, so both render the identical "N actions" collapsible bubble.
    */
   _createToolGroupEl() {
     const el = document.createElement('div');
@@ -2541,7 +2541,7 @@ class AIAssistantManager {
   /**
    * Finalise the current batch: swap the wrench for a check and collapse the
    * whole sequence into its own bubble — even a single action — so a finished
-   * turn reads as a tidy, modern "✓ N actions" pill the user can expand.
+   * turn reads as a tidy, modern "N actions" pill the user can expand.
    */
   _closeToolGroup() {
     const g = this._toolGroup;
@@ -2552,7 +2552,7 @@ class AIAssistantManager {
 
   /**
    * Collapse a finished tool batch into its tidy "N actions" pill: set the
-   * summary, pick a green check or a red ✗ depending on whether any chip
+   * summary, pick a green check or a red cross depending on whether any chip
    * failed/was denied, and collapse it (even a single action). Shared by the
    * live group (_closeToolGroup) and the static group rebuilt on chat replay
    * so both look identical.
@@ -3123,7 +3123,7 @@ class AIAssistantManager {
     this._lastMsgRole = null;
     if (this.chatEmptyHint) this.messagesEl.appendChild(this.chatEmptyHint);
     if (this.chatEmptyHint) this.chatEmptyHint.classList.toggle('hidden', this.messages.length > 0);
-    // Consecutive tool calls are rebuilt into one collapsed "✓ N actions"
+    // Consecutive tool calls are rebuilt into one collapsed "N actions"
     // group, matching the live look so a reopened chat reads the same way.
     let staticGroup = null;
     const closeStaticGroup = () => {

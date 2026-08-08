@@ -142,9 +142,9 @@ class ProjectTreeManager {
             // injetados em runtime via injectStyles(), o que criava
             // uma terceira definicao de .confirm-modal brigando com a
             // canonica.
-            console.log('✅ ProjectTreeManager initialized');
+            console.log('ProjectTreeManager initialized');
         } catch (error) {
-            console.error('❌ Failed to initialize ProjectTreeManager:', error);
+            console.error('Failed to initialize ProjectTreeManager:', error);
         }
     }
 
@@ -155,7 +155,7 @@ class ProjectTreeManager {
             refreshButton: document.getElementById('refresh-button'),
         };
 
-        console.log('📦 Cached elements:', { fileTree: !!this.elements.fileTree });
+        console.log('Cached elements:', { fileTree: !!this.elements.fileTree });
     }
 
     setupEventListeners() {
@@ -639,21 +639,21 @@ class ProjectTreeManager {
             // — proxima chamada (apos setProject) precisa fazer
             // setup full.
             if (!ProjectStore.hasProject()) {
-                console.log('⏸ No project yet — deferring refresh');
+                console.log('No project yet, deferring refresh');
                 return;
             }
 
             const wasActive = this.isTreeActive;
             this.isTreeActive = true;
             if (!wasActive) {
-                console.log('🚀 Activating Verilog tree...');
-                console.log('📂 Project path:', ProjectStore.getProjectPath());
+                console.log('Activating Verilog tree...');
+                console.log('Project path:', ProjectStore.getProjectPath());
             }
 
             // ----- Loop de load + render -----
             do {
                 this._refreshPending = false;
-                console.log('🔄 Refreshing Verilog tree...');
+                console.log('Refreshing Verilog tree...');
                 await this.loadConfiguration();
                 this.renderTree();
             } while (this._refreshPending);
@@ -664,7 +664,7 @@ class ProjectTreeManager {
             // sync, drives o label e direcao do toggle button.
             if (!wasActive) {
                 window.fileTreeViewController?.showFileMode?.();
-                console.log('✅ Verilog tree active with', this.verilogFiles.length, 'files');
+                console.log('Verilog tree active with', this.verilogFiles.length, 'files');
             }
         })();
 
@@ -865,7 +865,7 @@ class ProjectTreeManager {
             // new project's own refresh — already queued via refreshTree's
             // _refreshPending loop — populates the tree correctly.
             if (epoch !== this._projectEpoch) {
-                console.log('⏭ loadConfiguration: project switched mid-load, discarding stale read of', spfPath);
+                console.log('loadConfiguration: project switched mid-load, discarding stale read of', spfPath);
                 return;
             }
 
@@ -923,7 +923,7 @@ class ProjectTreeManager {
                 // the CAPTURED spfPath. This is the line that, pre-fix,
                 // wrote project A's files into project B's .spf.
                 if (epoch !== this._projectEpoch) {
-                    console.log('⏭ loadConfiguration: project switched before save, skipping persist to', spfPath);
+                    console.log('loadConfiguration: project switched before save, skipping persist to', spfPath);
                     return;
                 }
                 await this.saveConfiguration(spfPath);

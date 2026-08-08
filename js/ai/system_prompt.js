@@ -203,9 +203,9 @@ export const SYSTEM_PROMPT = [
   "\n1. PRNAME MUST EXACTLY MATCH THE FILE BASENAME.\n" +
   "   The processor name in `#PRNAME <name>` must equal the .cmm filename minus the\n" +
   "   .cmm extension (case-sensitive, no path).\n" +
-  "     ✓ file `Sqrt.cmm` → `#PRNAME Sqrt`\n" +
-  "     ✗ file `Sqrt.cmm` → `#PRNAME sqrt`  (case mismatch)\n" +
-  "     ✗ file `MyProc.cmm` → `#PRNAME Proc`  (different name)\n" +
+  "     ok:   file `Sqrt.cmm` → `#PRNAME Sqrt`\n" +
+  "     bad:  file `Sqrt.cmm` → `#PRNAME sqrt`  (case mismatch)\n" +
+  "     bad:  file `MyProc.cmm` → `#PRNAME Proc`  (different name)\n" +
   "   When renaming a .cmm file: update BOTH the filename AND the #PRNAME directive.\n" +
 
   "\n2. EVERY .cmm FILE MUST DECLARE THE FULL DIRECTIVE BLOCK.\n" +

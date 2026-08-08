@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     SplitEditorManager.initialize();
     window.SplitEditorManager = SplitEditorManager;
 
-    // ✅ Expor globalmente para o Command Palette
+    // Expor globalmente para o Command Palette
     window.compilationFlowManager = compilationFlowManager;
     
     // Initialize managers that depend on the DOM
@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ✅ Command Palette is auto-initialized via its own DOMContentLoaded listener
+    // Command Palette is auto-initialized via its own DOMContentLoaded listener
 
     // window.AuroraAPI — Phase A facade. Behaviour-neutral: nothing in
     // the UI is rewired yet, the surface is just *available* for the

@@ -906,7 +906,9 @@
 }
 
 .ai-pc-getkey::after {
-  content: ' \2197';      /* ↗ */
+  content: '\e092';       /* ph-arrow-up-right */
+  font-family: 'Phosphor';
+  margin-left: 2px;
   font-size: 0.9em;
 }
 

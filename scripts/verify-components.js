@@ -321,7 +321,7 @@ function runDownload(row, { force }) {
   const args = [row.scriptPath];
   if (force) args.push('--force');
   console.log('');
-  console.log(bold(`  ▶ ${row.key}: node components/Scripts/${row.script}${force ? ' --force' : ''}`));
+  console.log(bold(`  RUN   ${row.key}: node components/Scripts/${row.script}${force ? ' --force' : ''}`));
   const res = spawnSync(process.execPath, args, { cwd: REPO_ROOT, stdio: 'inherit' });
   const okExit = res.status === 0;
   // Reavalia a sentinela apos rodar (os download-*.js saem 0 mesmo em falha de

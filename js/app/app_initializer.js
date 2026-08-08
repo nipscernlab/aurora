@@ -30,11 +30,11 @@ class AppInitializer {
 
     async initialize() {
         if (this.isInitialized) {
-            console.warn('⚠️ AppInitializer already initialized');
+            console.warn('AppInitializer already initialized');
             return;
         }
 
-        console.log('🚀 Initializing Aurora IDE...');
+        console.log('Initializing Aurora IDE...');
 
         try {
             await this.restoreLastSession();
@@ -43,9 +43,9 @@ class AppInitializer {
             // mark via performance.getEntriesByName('aurora-interactive'); sem ele
             // caia no fallback domInteractive (menos preciso). Non-critical.
             try { performance.mark('aurora-interactive'); } catch { /* perf API ausente */ }
-            console.log('✅ Aurora IDE initialized successfully');
+            console.log('Aurora IDE initialized successfully');
         } catch (error) {
-            console.error('❌ Failed to initialize Aurora IDE:', error);
+            console.error('Failed to initialize Aurora IDE:', error);
             await showDialog({
                 title: tr('dialog.session.initErrorTitle'),
                 message: tr('dialog.session.initErrorMessage', { error: error.message }),
@@ -55,12 +55,12 @@ class AppInitializer {
     }
 
     async restoreLastSession() {
-        console.log('🔄 Attempting to restore last session...');
+        console.log('Attempting to restore last session...');
 
         const lastProjectPath = localStorage.getItem(this.STORAGE_KEYS.LAST_PROJECT);
 
         if (!lastProjectPath) {
-            console.log('ℹ️ No previous project found');
+            console.log('No previous project found');
             return;
         }
 
@@ -68,7 +68,7 @@ class AppInitializer {
             const exists = await electronAPI.fileExists(lastProjectPath);
 
             if (!exists) {
-                console.warn('⚠️ Last project file not found');
+                console.warn('Last project file not found');
                 localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
                 this._resetProjectNameLabel();
 
@@ -80,14 +80,14 @@ class AppInitializer {
                 return;
             }
 
-            console.log(`📂 Loading last project: ${lastProjectPath}`);
+            console.log(`Loading last project: ${lastProjectPath}`);
             await projectManager.loadProject(lastProjectPath);
             this.lastProjectPath = lastProjectPath;
 
-            console.log('✅ Session restored successfully');
+            console.log('Session restored successfully');
 
         } catch (error) {
-            console.error('❌ Failed to restore session:', error);
+            console.error('Failed to restore session:', error);
             localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
             this._resetProjectNameLabel();
 

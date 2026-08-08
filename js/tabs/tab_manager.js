@@ -1744,7 +1744,7 @@ export function showUnsavedChangesDialog(fileName) {
             <div class="confirm-modal" id="unsaved-changes-modal">
                 <div class="confirm-modal-content">
                     <div class="confirm-modal-header">
-                        <div class="confirm-modal-icon">⚠</div>
+                        <div class="confirm-modal-icon"><i class="ph ph-warning" aria-hidden="true"></i></div>
                         <h3 class="confirm-modal-title">Unsaved Changes</h3>
                     </div>
                     <div class="confirm-modal-message">

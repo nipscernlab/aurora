@@ -352,7 +352,11 @@ body.ai-assistant-open {
   border-bottom-color: var(--accent-hover);
 }
 .ai-message a.ai-link::after {
-  content: '↗';
+  /* ph-arrow-up-right, o mesmo glifo que os links do painel Sobre usam como
+     marca de "abre fora". Vem da fonte Phosphor em vez do caractere Unicode
+     para acompanhar o resto da interface e nao depender da fonte do sistema. */
+  content: '\e092';
+  font-family: 'Phosphor';
   margin-left: 2px;
   font-size: 0.85em;
   opacity: 0.7;

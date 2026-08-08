@@ -51,6 +51,23 @@ updates:
       # entao remover estas linhas junto com o pin no package.json.
       - dependency-name: "monaco-editor"
 
+      # jQuery preso na 3.x pelo digitaljs, que e quem desenha a simulacao
+      # interativa do PRISM. O digitaljs 0.14.2 declara `jquery: ^3.7.1`, entao
+      # subir a raiz para a 4 faz o npm instalar duas copias, a 4 no topo e a 3
+      # aninhada. O html/prism/prism.js importa jquery, publica em window.jQuery
+      # e carrega o jquery-ui COMPLETO nesse global antes do digitaljs; com duas
+      # instancias o digitaljs resolveria a sua propria jquery 3, sem jquery-ui
+      # anexado, e voltaria o "e.widget is not a function" que o commit 52696d9c
+      # corrigiu.
+      #
+      # O jquery-ui aceita ">=1.12.0 <5.0.0", ou seja, ele nao e o obstaculo. O
+      # bloqueio e o digitaljs. Destravar quando ele publicar suporte a 4:
+      # remover estas linhas, subir os dois juntos e abrir o modo Simular do
+      # PRISM num design real. Patch e minor da 3.x continuam entrando.
+      - dependency-name: "jquery"
+        update-types:
+          - "version-update:semver-major"
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

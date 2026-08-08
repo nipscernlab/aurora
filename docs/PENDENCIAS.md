@@ -36,11 +36,17 @@ A promessa para o laboratório é "instala uma vez e atualiza remotamente, sem
 voltar presencialmente". Essa promessa nunca foi exercitada. Se ela falhar, vai
 falhar em 30 máquinas ao mesmo tempo, com aula acontecendo.
 
+**Decidido em 07/08/2026:** não sai release enquanto isso. Versionar e preparar
+tudo, sim; publicar, não. A release que for publicada será a definitiva, a mesma
+que vai ser instalada no laboratório. O PR #12 (`chore(main): release 6.4.0`)
+fica aberto até lá, e o ensaio abaixo acontece com ela, não com uma versão
+intermediária.
+
 **O ensaio, em ordem:**
 
-1. Merge do PR de release da v6.4.0 (aberto desde 29/07). Isso publica a
-   release no `aurora`, que dispara o `release.yml`, que constrói e publica o
-   instalador em `nipscernlab/sapho`.
+1. Merge do PR de release, quando a versão definitiva estiver fechada. Isso
+   publica a release no `aurora`, que dispara o `release.yml`, que constrói e
+   publica o instalador em `nipscernlab/sapho`.
 2. Instalar essa 6.4.0 numa máquina limpa.
 3. Fazer uma alteração trivial e publicar uma 6.4.1.
 4. Abrir o app na máquina limpa e observar o ciclo inteiro.
@@ -174,8 +180,13 @@ Depois dele, volta ao incremental.
 
 ## 6. Itens externos, pequenos
 
-- **Merge do PR de release v6.4.0**, aberto desde 29/07. É o gatilho do ensaio
-  do item 1.
+- **jQuery preso na 3.x pelo digitaljs.** O digitaljs 0.14.2, que desenha a
+  simulação interativa do PRISM, declara `jquery: ^3.7.1`. Subir a raiz para a 4
+  instala duas cópias e o digitaljs resolveria a sua própria, sem o jquery-ui
+  anexado, trazendo de volta o `e.widget is not a function` do commit `52696d9c`.
+  O jquery-ui aceita até a 5, então ele não é o obstáculo. O `dependabot.yml`
+  ignora só a major; destravar quando o digitaljs publicar suporte, subindo os
+  dois juntos e abrindo o modo Simular num design real.
 - **Fonte Norse**: hoje vem do dafont no bootstrap, que é o único download fora
   de GitHub/GitLab e o mais sujeito a bloqueio de rede institucional. A licença
   permite embutir no app mas **proíbe** redistribuir, então não pode ser

@@ -318,7 +318,8 @@
       "aiModelSet": "Modelo atualizado.",
       "auroraBg": "Aurora Boreal na tela de Boas-vindas",
       "auroraBgDescription": "Fundo animado de aurora atrás da tela de Boas-vindas. É desenhado na GPU em laço contínuo; vem desligado para poupar bateria e não pesar em máquina mais fraca.",
-      "aboutLicense": "Licenca NIPS-CERN 1.1"
+      "aboutLicense": "Licenca NIPS-CERN 1.1",
+      "aboutBugReport": "Relatar um problema"
     }
   },
   "shortcuts": {

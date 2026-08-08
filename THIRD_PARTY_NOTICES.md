@@ -59,6 +59,7 @@ and shipped in the installer; they are not part of the source tree.
 | JetBrains Mono | SIL Open Font License 1.1 |
 | Metamorphous, by James Grieshaber (the "Dagr" wordmark) | SIL Open Font License 1.1 |
 | Noto Sans Runic, by Google (the Dagaz rune) | SIL Open Font License 1.1 |
+| Simple Icons (Gmail, Outlook, Proton Mail and Yandex brand marks) | CC0 1.0. The marks themselves belong to Google, Microsoft, Proton AG and Yandex; they appear only to identify each service in the bug-report picker. |
 
 ---
 

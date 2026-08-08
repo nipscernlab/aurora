@@ -8,6 +8,7 @@ import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { initTerminalTabOverflow } from '../terminal/tab_overflow.js';
+import '../ui/bug_report.js';   // botao Relatar um problema, no painel Sobre
 // Side-effect import: boots the TCMD tab's embedded interactive shell (PowerShell)
 // and self-initializes on DOMContentLoaded.
 import '../terminal/shell_terminal.js';

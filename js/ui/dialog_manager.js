@@ -40,7 +40,10 @@ export function showDialog({ title, message, buttons, variant }) {
         const buttonsHTML = (buttons || []).map(btn => {
             const safeType = ['cancel', 'save', 'dont-save', 'danger'].includes(btn.type)
                 ? btn.type : 'cancel';
-            return `<button class="confirm-btn ${safeType}" data-action="${btn.action}">${btn.label}</button>`;
+            // `iconHtml` e opcional e vem de quem chama (hoje so o relatorio de
+            // problema, que mostra a marca de cada provedor de e-mail).
+            const icone = btn.iconHtml ? `${btn.iconHtml}` : '';
+            return `<button class="confirm-btn ${safeType}" data-action="${btn.action}">${icone}${btn.label}</button>`;
         }).join('');
 
         const modal = document.createElement('div');

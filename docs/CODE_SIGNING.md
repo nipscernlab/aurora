@@ -15,9 +15,9 @@ verifies the `sha512` in `latest.yml`. This doc is the full runbook to fix that.
 
 | Path | Cost | Fit for us |
 |------|------|------------|
-| **SignPath Foundation (OSS)** | **free** | ✅ recommended — Aurora qualifies (MIT, maintained, released, documented). Approved 2026-08-06; org `SAPHO [OSS]`, project `aurora`. |
+| **SignPath Foundation (OSS)** | **free** | recommended — Aurora qualifies (MIT, maintained, released, documented). Approved 2026-08-06; org `SAPHO [OSS]`, project `aurora`. |
 | **Azure Trusted/Artifact Signing** | ~US$10/mo | ⚠️ availability is geo-limited (US/CA individuals or EU/UK orgs when last checked) — verify before counting on it from Brazil |
-| Traditional OV / **EV** cert (DigiCert/Sectigo) | OV ~US$200–400/yr · EV ~US$300–700/yr + USB token | 💸 paid, and see the note below: EV buys nothing extra for SmartScreen |
+| Traditional OV / **EV** cert (DigiCert/Sectigo) | OV ~US$200–400/yr · EV ~US$300–700/yr + USB token | paid, and see the note below: EV buys nothing extra for SmartScreen |
 
 > **SmartScreen reality check (corrected 2026-08-06).** An earlier version of this
 > doc said an EV certificate "earns reputation instantly" while OV fades in

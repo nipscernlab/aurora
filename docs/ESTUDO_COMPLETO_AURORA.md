@@ -4,7 +4,7 @@
 > de agentes de leitura + auditoria, em 13/06/2026, sobre `nipscernlab/aurora` na versão **6.3.2**.
 > Cobre: filosofia/lógica, fluxo de informação, vulnerabilidades, performance (meta **165 FPS**),
 > melhorias ativas/passivas, revamp visual, ferramentas open-source, instalação/DX e
-> profissionalização do repositório. Cada item é classificado em **🔴 Radical / 🟡 Moderado / 🟢 Leve**.
+> profissionalização do repositório. Cada item é classificado em **Radical / Moderado / Leve**.
 
 ---
 
@@ -33,9 +33,9 @@ Os problemas que impedem o salto de qualidade se concentram em **cinco frentes**
    assinatura, instalador não assinado, e releases divididas entre dois repositórios
    (`aurora` vs `sapho`) deixando o usuário baixar a versão errada.
 
-O caminho recomendado é **incremental**: ~15 correções 🟢 leves de alto retorno imediato (segurança
-e FPS), depois a introdução de um **bundler (Vite)** como mudança 🟡 moderada que destrava metade da
-agenda de performance e DX, e por fim a 🔴 reescrita dos god-files e do design system como projeto
+O caminho recomendado é **incremental**: ~15 correções leves de alto retorno imediato (segurança
+e FPS), depois a introdução de um **bundler (Vite)** como mudança moderada que destrava metade da
+agenda de performance e DX, e por fim a reescrita dos god-files e do design system como projeto
 de médio prazo.
 
 ---
@@ -71,9 +71,9 @@ sim-completa vs verilog-only via `window.availableProcessors`.
   verdade no main (`project.js` escreve, `files.js`/`prism.js`/`claude_code.js`/`codex_cli.js`
   leem).
 
-**🟢 Leve:** documentar explicitamente no ARCHITECTURE.md a decisão "renderer orquestra, main
+**Leve:** documentar explicitamente no ARCHITECTURE.md a decisão "renderer orquestra, main
 executa" e marcar os dois caminhos legados como deprecados com data de remoção.
-**🟡 Moderado:** colapsar `global.currentProject*` para um único getter sobre `state`.
+**Moderado:** colapsar `global.currentProject*` para um único getter sobre `state`.
 
 ---
 
@@ -103,7 +103,7 @@ para 6 provedores com chave; (2) **CLIs por assinatura** (`claude -p --output-fo
 `codex exec --json`) que falam com um **servidor MCP HTTP local** (`127.0.0.1:porta-efêmera`). Todas
 as 75 ferramentas voltam ao renderer pelo `tool_bridge` (`ai:tool-exec` → `ai:tool-result`).
 
-**🟡 Moderado:** o `preload_prism.js` genérico deve voltar ao modelo de canais enumerados — é a
+**Moderado:** o `preload_prism.js` genérico deve voltar ao modelo de canais enumerados — é a
 maior brecha estrutural do fluxo IPC.
 
 ---
@@ -115,35 +115,35 @@ maior brecha estrutural do fluxo IPC.
 
 | # | Severidade | Tier | Achado | Arquivo / símbolo |
 |---|---|---|---|---|
-| V1 | 🔴 Crítica | 🟢 Leve | **XSS no LaTeX do chat.** `_renderMath()` guarda a fonte da matemática *antes* do `escapeHtml()` e a restaura **sem re-escapar**, injetando em `<span class=ai-math>` via `innerHTML`. `$$<img src=x onerror=...>$$` numa resposta do modelo executa. | `js/ui/ai_assistant_manager.js` `_renderMath`/`renderInline` |
-| V2 | 🔴 Crítica | 🟢 Leve | **Canal `exec-command` legado** roda `exec(string)` com shell cru do renderer, sem allowlist. Sem callers reais, mas **ainda registrado e exposto no preload** — injeção de comando completa para um renderer comprometido. | `main/ipc/compile.js` (`exec-command`), `preload.js:111` |
-| V3 | 🟠 Alta | 🟢 Leve | **`webviewTag:true`** na main window com comentário desatualizado e **nenhum** `will-attach-webview`/`will-navigate`/`setWindowOpenHandler`. Config morta que amplia superfície. | `main/windows.js:144` |
-| V4 | 🟠 Alta | 🟡 Moderado | **CLIs de IA com permissões abertas.** `permissionFlag()` sempre retorna `bypassPermissions`; Codex roda `--dangerously-bypass-approvals-and-sandbox`. As ferramentas **nativas** de escrita (Edit/Write do Claude, shell do Codex) **não** passam pelo card Allow/Deny do renderer. | `main/ai/claude_code.js`, `main/ai/codex_cli.js` |
-| V5 | 🟠 Alta | 🟢 Leve | **Path traversal em `create-processor-project`.** `formData.processorName` entra direto em `path.join` **sem** a regex `^[A-Za-z0-9_-]+$` que rename-processor/project aplicam — `..\..` cria árvore fora do projeto. | `main/ipc/project.js:432` |
-| V6 | 🟡 Média | 🟢 Leve | **`shell.openExternal` sem validação de protocolo** (aceita `file://` etc.); `folder:open` é o único path handler sem `safePath`; `get-file-stats` idem. | `main/ipc/files.js:293/303/469` |
-| V7 | 🟡 Média | 🟡 Moderado | **MCP local sem autenticação.** As 75 tools (incl. `delete_file`, `set_command_override`) ficam em `127.0.0.1:efêmera`; defesa só por loopback + Host check. Tools `read` rodam sem prompt; no modo de permissão `allow`, tools de write também. | `main/ai/aurora_mcp_server.js` |
-| V8 | 🟡 Média | 🟢 Leve | **`launch-gtkwave-only`** faz `spawn` de binário vindo do renderer **sem** passar pela `binary_allowlist` (diferente do `exec-spec`). | `main/ipc/compile.js:66` |
-| V9 | 🟡 Média | 🟢 Leve | **Renames pré-autorizados.** `confirmToolCall` retorna `true` para `rename_project`/`rename_processor` em **todos** os modos, pulando o card — writes destrutivos sem confirmação. | `js/ui/ai_assistant_manager.js` `confirmToolCall` |
-| V10 | 🟢 Baixa | 🟢 Leve | **`exec(string)` com interpolação** em utils de kill/check (`taskkill /PID ${pid}`, `IMAGENAME eq ${name}`). Inputs hoje internos, padrão frágil a caller futuro. | `main/utils.js:47/69/146` |
-| V11 | 🟢 Baixa | 🟢 Leve | **`set_command_override`** dá ao agente reescrita da linha de comando da toolchain. Há allowlist + flags protegidas, mas combinado com modo `allow` é superfície ampla dirigida por IA. | `main/ai/tools.js` |
-| V12 | 🟢 Baixa | 🟢 Leve | `spec.env`/`prependPath` do renderer entram no env do filho **sem filtro** (afeta grandchildren do make/verilator). | `main/compile/executor.js:51` |
+| V1 | Crítica | Leve | **XSS no LaTeX do chat.** `_renderMath()` guarda a fonte da matemática *antes* do `escapeHtml()` e a restaura **sem re-escapar**, injetando em `<span class=ai-math>` via `innerHTML`. `$$<img src=x onerror=...>$$` numa resposta do modelo executa. | `js/ui/ai_assistant_manager.js` `_renderMath`/`renderInline` |
+| V2 | Crítica | Leve | **Canal `exec-command` legado** roda `exec(string)` com shell cru do renderer, sem allowlist. Sem callers reais, mas **ainda registrado e exposto no preload** — injeção de comando completa para um renderer comprometido. | `main/ipc/compile.js` (`exec-command`), `preload.js:111` |
+| V3 | Alta | Leve | **`webviewTag:true`** na main window com comentário desatualizado e **nenhum** `will-attach-webview`/`will-navigate`/`setWindowOpenHandler`. Config morta que amplia superfície. | `main/windows.js:144` |
+| V4 | Alta | Moderado | **CLIs de IA com permissões abertas.** `permissionFlag()` sempre retorna `bypassPermissions`; Codex roda `--dangerously-bypass-approvals-and-sandbox`. As ferramentas **nativas** de escrita (Edit/Write do Claude, shell do Codex) **não** passam pelo card Allow/Deny do renderer. | `main/ai/claude_code.js`, `main/ai/codex_cli.js` |
+| V5 | Alta | Leve | **Path traversal em `create-processor-project`.** `formData.processorName` entra direto em `path.join` **sem** a regex `^[A-Za-z0-9_-]+$` que rename-processor/project aplicam — `..\..` cria árvore fora do projeto. | `main/ipc/project.js:432` |
+| V6 | Média | Leve | **`shell.openExternal` sem validação de protocolo** (aceita `file://` etc.); `folder:open` é o único path handler sem `safePath`; `get-file-stats` idem. | `main/ipc/files.js:293/303/469` |
+| V7 | Média | Moderado | **MCP local sem autenticação.** As 75 tools (incl. `delete_file`, `set_command_override`) ficam em `127.0.0.1:efêmera`; defesa só por loopback + Host check. Tools `read` rodam sem prompt; no modo de permissão `allow`, tools de write também. | `main/ai/aurora_mcp_server.js` |
+| V8 | Média | Leve | **`launch-gtkwave-only`** faz `spawn` de binário vindo do renderer **sem** passar pela `binary_allowlist` (diferente do `exec-spec`). | `main/ipc/compile.js:66` |
+| V9 | Média | Leve | **Renames pré-autorizados.** `confirmToolCall` retorna `true` para `rename_project`/`rename_processor` em **todos** os modos, pulando o card — writes destrutivos sem confirmação. | `js/ui/ai_assistant_manager.js` `confirmToolCall` |
+| V10 | Baixa | Leve | **`exec(string)` com interpolação** em utils de kill/check (`taskkill /PID ${pid}`, `IMAGENAME eq ${name}`). Inputs hoje internos, padrão frágil a caller futuro. | `main/utils.js:47/69/146` |
+| V11 | Baixa | Leve | **`set_command_override`** dá ao agente reescrita da linha de comando da toolchain. Há allowlist + flags protegidas, mas combinado com modo `allow` é superfície ampla dirigida por IA. | `main/ai/tools.js` |
+| V12 | Baixa | Leve | `spec.env`/`prependPath` do renderer entram no env do filho **sem filtro** (afeta grandchildren do make/verilator). | `main/compile/executor.js:51` |
 
 **Pontos fortes a preservar:** chaves de API via `safeStorage`/DPAPI sem canal de leitura; env
 `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` removidos antes do `spawn` das CLIs; allowlist de 13 binários +
 flags protegidas no caminho moderno; isolamento de contexto universal.
 
 ### Plano de segurança recomendado (ordem)
-1. 🟢 **(V1)** escapar a saída do `_renderMath` (ou trocar por **KaTeX** com `trust:false`, ver §7).
-2. 🟢 **(V2/V8)** remover `exec-command` do main e do preload; rotear gtkwave pela allowlist.
-3. 🟢 **(V3)** `webviewTag:false` + `setWindowOpenHandler(() => ({action:'deny'}))` +
+1. **(V1)** escapar a saída do `_renderMath` (ou trocar por **KaTeX** com `trust:false`, ver §7).
+2. **(V2/V8)** remover `exec-command` do main e do preload; rotear gtkwave pela allowlist.
+3. **(V3)** `webviewTag:false` + `setWindowOpenHandler(() => ({action:'deny'}))` +
    `will-navigate` que bloqueia navegação externa, em todas as janelas.
-4. 🟢 **(V5/V6)** aplicar `sanitizeFileName`/regex em `create-processor-project`; validar protocolo
+4. **(V5/V6)** aplicar `sanitizeFileName`/regex em `create-processor-project`; validar protocolo
    em `openExternal`; passar `folder:open`/`get-file-stats` por `safePath`.
-5. 🟡 **(V4/V7)** dar um token de sessão ao MCP local (header `Authorization`) e fechar as tools
+5. **(V4/V7)** dar um token de sessão ao MCP local (header `Authorization`) e fechar as tools
    nativas das CLIs por allowlist explícita, mantendo só `mcp__aurora__*`.
-6. 🟢 **Habilitar `sandbox:true`** onde o preload não precisar de Node — hoje não está setado
+6. **Habilitar `sandbox:true`** onde o preload não precisar de Node — hoje não está setado
    (cai no default). Avaliar por janela.
-7. 🟢 Adicionar uma **CSP** (`<meta http-equip="Content-Security-Policy">` ou via
+7. Adicionar uma **CSP** (`<meta http-equip="Content-Security-Policy">` ou via
    `onHeadersReceived`) — hoje inexistente; fecha a maior parte das classes de XSS de uma vez.
 
 ---
@@ -171,36 +171,36 @@ flags protegidas no caminho moderno; isolamento de contexto universal.
   ETW (`chrome://tracing`) e um overlay interno que mede **delta de `rAF` e `longtask`**, expresso
   como **p99 de jank / frames estourados**, não como "FPS médio".
 
-### 4.2 Achados estruturais (🔴/🟡) — onde está o jank de verdade
-*(✔ = confirmado por verificação adversarial)*
+### 4.2 Achados estruturais (radical/moderado) — onde está o jank de verdade
+*(ok = confirmado por verificação adversarial)*
 
 | # | Tier | Gargalo | Impacto | Correção |
 |---|---|---|---|---|
-| P1 ✔ | 🔴 XL | **Um editor Monaco COMPLETO por arquivo aberto** (`editors` Map), cada um com `automaticLayout:true`. Memória/criação ∝ nº de tabs; cada resize/drag de painel dispara relayout em **todos** os editores live de uma vez (>6 ms fácil num split 3× com várias tabs). | Pico de jank ao abrir muitos arquivos e ao redimensionar | Padrão VS Code: **um editor por pane com `editor.setModel`**. Os models já são compartilhados (`SharedModelRegistry`); falta reusar a *view*. Trocar `automaticLayout:true` por **um** `ResizeObserver` coalescido. |
-| P2 ✔ | 🟡 L | **Chat de IA re-parseia markdown e reescreve o `innerHTML` da bolha inteira por frame** de stream (`_renderStreamingBubble`/`_renderWithReveal`). Custo O(n²) **por segmento** (o `segmentBuffer` zera a cada tool-call). `scrollToBottom` ainda lê `scrollHeight` por frame. | Trava scroll/typing no fim de respostas longas | Renderizar **só o delta**: blocos fechados viram DOM estático; reparsear apenas o bloco em andamento (ou só ao fechar bloco). |
-| P9 ✔ | 🟡 L | **Standard tree SEM virtualização** — `innerHTML=''` + rebuild síncrono de toda a subárvore expandida (`standard_tree_render.js` `_doRender`, 6–7 `createElement`/nó). (A *verilog* tree já é reconciliada; a *standard* não.) | Freeze ao expandir pasta grande (build/Temp/libs) | Reconciliação key-based (mesma técnica da verilog tree) **ou** virtualização (só viewport). No mínimo `DocumentFragment` + chunking. |
-| P10 ✔ | 🟡 L | **Terminal re-caminha os ~5.000 nós** (`recountMessages` + `applyFilter`, querySelector aninhado) **a cada frame** durante simulação streamada. Pior cenário real de jank (vvp/verilator cuspindo dezenas de linhas/seg). | Trava o terminal e qualquer animação concorrente na simulação | **Otimizar no lugar** (contadores incrementais ao inserir/remover; filtro por classe CSS no container; reduzir cap p/ 1–2k ou virtualizar). **NÃO migrar para xterm.js** — perderia line-numbers clicáveis e cards por tipo (ver §7). |
-| P3 | 🟡 M | **N+1 IPC na árvore.** `loadConfiguration`/`_discoverProcessorFiles`/`_classifyAll` fazem `await` serial por arquivo e **leem o conteúdo inteiro de cada `.v`** a cada refresh. | Refresh trava em projetos grandes | Um handler no main que devolve árvore + classificação em **batch**; cachear classificação por mtime. |
-| P11 ✔ | 🟡 M | **Scans regex de modelo inteiro por edição** (`decorateBraKet`, debounced 150 ms) + **`document.querySelector` por keystroke** (find-widget). O `\|` é onipresente em Verilog (OR), então `decorateVerticalBar` aplica centenas de decorations. | Stutter ao digitar rápido em `.v` grandes (ula.v ~48 KB) | Restringir `findMatches` ao range visível (`getVisibleRanges`), re-rodar só on-scroll; tirar a query `.find-widget` do `onDidChangeModelContent` (rastrear estado por variável). |
+| P1 ok | XL | **Um editor Monaco COMPLETO por arquivo aberto** (`editors` Map), cada um com `automaticLayout:true`. Memória/criação ∝ nº de tabs; cada resize/drag de painel dispara relayout em **todos** os editores live de uma vez (>6 ms fácil num split 3× com várias tabs). | Pico de jank ao abrir muitos arquivos e ao redimensionar | Padrão VS Code: **um editor por pane com `editor.setModel`**. Os models já são compartilhados (`SharedModelRegistry`); falta reusar a *view*. Trocar `automaticLayout:true` por **um** `ResizeObserver` coalescido. |
+| P2 ok | L | **Chat de IA re-parseia markdown e reescreve o `innerHTML` da bolha inteira por frame** de stream (`_renderStreamingBubble`/`_renderWithReveal`). Custo O(n²) **por segmento** (o `segmentBuffer` zera a cada tool-call). `scrollToBottom` ainda lê `scrollHeight` por frame. | Trava scroll/typing no fim de respostas longas | Renderizar **só o delta**: blocos fechados viram DOM estático; reparsear apenas o bloco em andamento (ou só ao fechar bloco). |
+| P9 ok | L | **Standard tree SEM virtualização** — `innerHTML=''` + rebuild síncrono de toda a subárvore expandida (`standard_tree_render.js` `_doRender`, 6–7 `createElement`/nó). (A *verilog* tree já é reconciliada; a *standard* não.) | Freeze ao expandir pasta grande (build/Temp/libs) | Reconciliação key-based (mesma técnica da verilog tree) **ou** virtualização (só viewport). No mínimo `DocumentFragment` + chunking. |
+| P10 ok | L | **Terminal re-caminha os ~5.000 nós** (`recountMessages` + `applyFilter`, querySelector aninhado) **a cada frame** durante simulação streamada. Pior cenário real de jank (vvp/verilator cuspindo dezenas de linhas/seg). | Trava o terminal e qualquer animação concorrente na simulação | **Otimizar no lugar** (contadores incrementais ao inserir/remover; filtro por classe CSS no container; reduzir cap p/ 1–2k ou virtualizar). **NÃO migrar para xterm.js** — perderia line-numbers clicáveis e cards por tipo (ver §7). |
+| P3 | M | **N+1 IPC na árvore.** `loadConfiguration`/`_discoverProcessorFiles`/`_classifyAll` fazem `await` serial por arquivo e **leem o conteúdo inteiro de cada `.v`** a cada refresh. | Refresh trava em projetos grandes | Um handler no main que devolve árvore + classificação em **batch**; cachear classificação por mtime. |
+| P11 ok | M | **Scans regex de modelo inteiro por edição** (`decorateBraKet`, debounced 150 ms) + **`document.querySelector` por keystroke** (find-widget). O `\|` é onipresente em Verilog (OR), então `decorateVerticalBar` aplica centenas de decorations. | Stutter ao digitar rápido em `.v` grandes (ula.v ~48 KB) | Restringir `findMatches` ao range visível (`getVisibleRanges`), re-rodar só on-scroll; tirar a query `.find-widget` do `onDidChangeModelContent` (rastrear estado por variável). |
 
-### 4.3 Quick-wins (🟢) — alto retorno, baixo risco
+### 4.3 Quick-wins (leve) — alto retorno, baixo risco
 
 | # | Gargalo | Correção |
 |---|---|---|
-| P4 ✔ | **First paint depende de rede:** 2 folhas Phosphor de `unpkg.com` + 3 fontes de `fonts.googleapis.com` + `import.css` com **22 @imports seriais**. Offline = ícones/fontes somem. | Bundlar fontes/ícones **locais** (woff2 + sprite SVG) e concatenar o CSS no build. (Resolve §6 também.) |
+| P4 ok | **First paint depende de rede:** 2 folhas Phosphor de `unpkg.com` + 3 fontes de `fonts.googleapis.com` + `import.css` com **22 @imports seriais**. Offline = ícones/fontes somem. | Bundlar fontes/ícones **locais** (woff2 + sprite SVG) e concatenar o CSS no build. (Resolve §6 também.) |
 | P5 | **Init dupla:** `TabManager.initialize()` 2×, `initMonaco()` 2×, `onFileChanged` 2×, refresh-button com 2 listeners → cada refresh força um `loadConfiguration` extra. | Um único ponto de init; tornar `initMonaco` idempotente. |
-| P6 ✔ | **`transition: width`** no file-tree (`layout.css:148`) e no painel de IA (`ai_assistant.css:36`) anima **propriedade de LAYOUT** → ~13–16 frames de relayout de **todos** os Monaco a cada toggle de sidebar. | Animar `transform: translateX` num wrapper de largura fixa, **nunca** `width`. |
-| P12 ✔ | **Vazamento de listener = bug de perf.** `setupContentChangeListener` descarta o `IDisposable` de `onDidChangeModelContent`; como `addTab` re-chama ao reabrir um arquivo, cada reabertura **empilha** um listener no mesmo editor → callback roda **N× por tecla**. | Capturar o disposable e descartar em `closeEditor`, ou registrar só 1× por `filePath`. |
-| P7 ✔ | **Zero `will-change` e zero `contain`/`content-visibility`** em todo o CSS — reflows cruzam fronteiras de painel (append no terminal recalcula a tree). | `contain: layout style paint` nos containers raiz de cada painel; `content-visibility:auto` nas listas (terminal/árvore). |
-| P8b ✔ | **`backdrop-filter` em tooltip (hover frequente) e context-menu** — blur reamostrado toda vez que aparecem. | Trocar por `background` semi-opaco sólido (quase idêntico no dark, zero custo). Manter blur só em overlays grandes. |
-| P13 ✔ | **`ResizeObserver` no `body`** chama `updateResponsiveSettings` iterando **todos** os editores com `updateOptions` **sem throttle** a cada frame de resize. | Coalescer via rAF; só chamar `updateOptions` quando o breakpoint **realmente** cruza. |
-| P14 ✔ | **FontAwesome completo** (~265 KB: 106 KB CSS + 158 KB woff2) para ~35 ícones, parseado no boot. | Migrar os ~35 `fa-solid` para Phosphor/SVG e **remover** o FontAwesome (ou subsetar). |
+| P6 ok | **`transition: width`** no file-tree (`layout.css:148`) e no painel de IA (`ai_assistant.css:36`) anima **propriedade de LAYOUT** → ~13–16 frames de relayout de **todos** os Monaco a cada toggle de sidebar. | Animar `transform: translateX` num wrapper de largura fixa, **nunca** `width`. |
+| P12 ok | **Vazamento de listener = bug de perf.** `setupContentChangeListener` descarta o `IDisposable` de `onDidChangeModelContent`; como `addTab` re-chama ao reabrir um arquivo, cada reabertura **empilha** um listener no mesmo editor → callback roda **N× por tecla**. | Capturar o disposable e descartar em `closeEditor`, ou registrar só 1× por `filePath`. |
+| P7 ok | **Zero `will-change` e zero `contain`/`content-visibility`** em todo o CSS — reflows cruzam fronteiras de painel (append no terminal recalcula a tree). | `contain: layout style paint` nos containers raiz de cada painel; `content-visibility:auto` nas listas (terminal/árvore). |
+| P8b ok | **`backdrop-filter` em tooltip (hover frequente) e context-menu** — blur reamostrado toda vez que aparecem. | Trocar por `background` semi-opaco sólido (quase idêntico no dark, zero custo). Manter blur só em overlays grandes. |
+| P13 ok | **`ResizeObserver` no `body`** chama `updateResponsiveSettings` iterando **todos** os editores com `updateOptions` **sem throttle** a cada frame de resize. | Coalescer via rAF; só chamar `updateOptions` quando o breakpoint **realmente** cruza. |
+| P14 ok | **FontAwesome completo** (~265 KB: 106 KB CSS + 158 KB woff2) para ~35 ícones, parseado no boot. | Migrar os ~35 `fa-solid` para Phosphor/SVG e **remover** o FontAwesome (ou subsetar). |
 | P15 | **Polling de mtime** de todos os arquivos abertos em paralelo ao watcher chokidar (redundante). | Manter só o watcher push. |
 | P16 | 2 `setInterval(30s)` de health-check de watchers no main **nunca limpos**. | Agendar só com watcher ativo; `clearInterval` no teardown. |
 | P17 | **Modais/painéis sempre montados** (4 modais inline + painel IA), togglados por `display`/`width` — style recalc percorre subárvores ocultas. | `display:none` (não `opacity`/`visibility`) + `contain:content`; montar sob demanda. (Converge com a11y — ver §10.) |
 
-**Sequência sugerida:** quick-wins 🟢 (P4–P8b, P12–P17) → estruturais 🟡 (P2, P3, P9, P10, P11) →
-🔴 P1 (editor por modelo). O P12 (vazamento de listener) é o de melhor relação esforço/impacto:
+**Sequência sugerida:** quick-wins (P4–P8b, P12–P17) → estruturais (P2, P3, P9, P10, P11) →
+P1 (editor por modelo). O P12 (vazamento de listener) é o de melhor relação esforço/impacto:
 conserta um leak **e** um custo por-tecla de uma vez.
 
 ### 4.4 Como medir (e impedir regressão)
@@ -209,7 +209,7 @@ como **p99 de jank**, não FPS médio. Marcar o boot com `performance.mark/measu
 **baseline de time-to-interactive** (hoje inexistente — ver lacuna §10) e adicionar um **smoke de
 startup com orçamento** no CI, senão cada otimização regride sem aviso.
 
-**✅ Implementado (15/06/2026, commit `d4f7735`):** o overlay existe — `js/dev/jank_overlay.js`. HUD
+**Implementado (15/06/2026, commit `d4f7735`):** o overlay existe — `js/dev/jank_overlay.js`. HUD
 com FPS, **p99** de frame vs orçamento de 165 Hz (6,06 ms), **taxa de jank** (% de frames > 2× orçamento),
 contagem de **longtask** (`PerformanceObserver`) e **TTI** aproximado (mark `aurora-interactive` → fallback
 `navigation.domInteractive`). Buffer circular de 300 frames; **custo zero quando inativo** (o loop de rAF e
@@ -223,14 +223,14 @@ o observer só rodam com o overlay visível). Aberto por **import dinâmico** na
 
 | # | Tier | Achado | Recomendação |
 |---|---|---|---|
-| A1 | 🔴 Radical | **Sem bundler.** Ordem de 34 `<script>` em `index.html` é contrato implícito; managers fazem I/O no construtor; `.ts` compila in-place gerando `.js` commitado ao lado (vetor de drift). | Adotar **Vite** (ou esbuild). Elimina o contrato de ordem de carga, dá HMR, tree-shaking, code-splitting, e mata o problema do `.js` in-place. **Destrava metade de §4 e §8.** |
-| A2 | 🔴 Radical | **God-files:** `compilation_module.js` 3.927, `ai_assistant_manager.js` 3.873, `aurora_api.js` 2.383. | Decompor por responsabilidade: compilação → por etapa (cmm/asm/wave/verilator/cocotb); IA → (transporte / render de chat / permissões / markdown); AuroraAPI → por namespace. |
-| A3 | 🟡 Moderado | **Acoplamento a globais:** 431 `window.electronAPI`, 105 `window.t`, 48 `window.currentProjectPath`, ~40 globais distintos. | Migrar leituras legadas para imports ES; manter espelhos só durante a transição. Testabilidade hoje é refém disso. |
-| A4 | 🟡 Moderado | **Estado duplicado** `global.currentProject*` vs `state.currentOpenProjectPath`. | Um único getter sobre `state`. |
-| A5 | 🟢 Leve | **Bugs reais achados no mapeamento:** (a) `getActiveFilePath` lê `dataset.file` mas as tabs gravam `data-path` → find-state nunca funciona por arquivo; (b) `editorNs.openFile` usa `tree.value` mas `getTree` retorna `{ok,data}` → fallback morto; (c) snapshot de estado do PDF lê `activeTab` já sobrescrito; (d) código morto com `ReferenceError` latente (`saveEditorState`/`formatCurrentFile`). | Corrigir os 4; são pequenos e de alto valor. |
-| A6 | ✅ **FEITO** | **`exec-command` legado REMOVIDO** (sink de command-injection, sem callers — tudo via executor estruturado em `main/compile/executor.js`; ver comentário em `main/ipc/compile.js:26`). | — |
-| A7 | ✅ **FEITO** | **`preload_prism.js` endurecido** — removidos os `send`/`removeAllListeners` genéricos; os 14 canais da janela PRISM já têm wrappers nomeados (allowlist intacta). | — |
-| A8 | ✅ **FEITO** | **152 linhas de código morto removidas** (view de hierarquia pré-PRISM no fim do `compilation_module.js`). Confirmado por **refutação adversarial** (zero callers; chamava um `this.enableHierarchicalTreeToggle()` inexistente; toggle é do `file_tree_view_controller`). O `cleanModuleName` **vivo** do `prism.js` foi preservado. | — |
+| A1 | Radical | **Sem bundler.** Ordem de 34 `<script>` em `index.html` é contrato implícito; managers fazem I/O no construtor; `.ts` compila in-place gerando `.js` commitado ao lado (vetor de drift). | Adotar **Vite** (ou esbuild). Elimina o contrato de ordem de carga, dá HMR, tree-shaking, code-splitting, e mata o problema do `.js` in-place. **Destrava metade de §4 e §8.** |
+| A2 | Radical | **God-files:** `compilation_module.js` 3.927, `ai_assistant_manager.js` 3.873, `aurora_api.js` 2.383. | Decompor por responsabilidade: compilação → por etapa (cmm/asm/wave/verilator/cocotb); IA → (transporte / render de chat / permissões / markdown); AuroraAPI → por namespace. |
+| A3 | Moderado | **Acoplamento a globais:** 431 `window.electronAPI`, 105 `window.t`, 48 `window.currentProjectPath`, ~40 globais distintos. | Migrar leituras legadas para imports ES; manter espelhos só durante a transição. Testabilidade hoje é refém disso. |
+| A4 | Moderado | **Estado duplicado** `global.currentProject*` vs `state.currentOpenProjectPath`. | Um único getter sobre `state`. |
+| A5 | Leve | **Bugs reais achados no mapeamento:** (a) `getActiveFilePath` lê `dataset.file` mas as tabs gravam `data-path` → find-state nunca funciona por arquivo; (b) `editorNs.openFile` usa `tree.value` mas `getTree` retorna `{ok,data}` → fallback morto; (c) snapshot de estado do PDF lê `activeTab` já sobrescrito; (d) código morto com `ReferenceError` latente (`saveEditorState`/`formatCurrentFile`). | Corrigir os 4; são pequenos e de alto valor. |
+| A6 | **FEITO** | **`exec-command` legado REMOVIDO** (sink de command-injection, sem callers — tudo via executor estruturado em `main/compile/executor.js`; ver comentário em `main/ipc/compile.js:26`). | — |
+| A7 | **FEITO** | **`preload_prism.js` endurecido** — removidos os `send`/`removeAllListeners` genéricos; os 14 canais da janela PRISM já têm wrappers nomeados (allowlist intacta). | — |
+| A8 | **FEITO** | **152 linhas de código morto removidas** (view de hierarquia pré-PRISM no fim do `compilation_module.js`). Confirmado por **refutação adversarial** (zero callers; chamava um `this.enableHierarchicalTreeToggle()` inexistente; toggle é do `file_tree_view_controller`). O `cleanModuleName` **vivo** do `prism.js` foi preservado. | — |
 
 ---
 
@@ -260,7 +260,7 @@ respeitado. O problema é **fragmentação de identidade**, não ausência de si
 
 ### 6.2 Proposta em três níveis
 
-**🟢 Leve — "polish" sem mudar estrutura (1–2 semanas)**
+**Leve — "polish" sem mudar estrutura (1–2 semanas)**
 - **Bundlar fontes e Phosphor localmente** (woff2 + sprite SVG) → mata CDN, conserta offline e o
   first paint (também P4).
 - Unificar os 3 sistemas de ícones em **um sprite SVG** (Phosphor *ou* Lucide); remover FontAwesome
@@ -269,7 +269,7 @@ respeitado. O problema é **fragmentação de identidade**, não ausência de si
 - Normalizar z-index para a escala tokenizada; podar os ~50 aliases legados com um codemod.
 - Tipografia: manter **Inter** (UI) + **JetBrains Mono** (código), agora locais.
 
-**🟡 Moderado — design system formal (3–5 semanas)**
+**Moderado — design system formal (3–5 semanas)**
 - Tokens em **camadas semânticas**: `base` (cor crua) → `semantic` (`--surface-raised`,
   `--text-muted`) → `component`. Hoje há mistura de canônicos + aliases.
 - **Reintroduzir o tema light de verdade** (e high-contrast) via troca de classe no `<body>`, com
@@ -279,7 +279,7 @@ respeitado. O problema é **fragmentação de identidade**, não ausência de si
 - **Command palette** (Ctrl+P/Ctrl+Shift+P) como superfície primária de navegação/ações.
 - Extrair os 4 modais inline do `index.html` para componentes e matar o sistema de modais paralelo.
 
-**🔴 Radical — redesign do shell (projeto de médio prazo)**
+**Radical — redesign do shell (projeto de médio prazo)**
 - Após o bundler (A1), adotar **Web Components (Lit)** para os componentes do shell (titlebar,
   painéis dockáveis, status bar) — encapsula CSS, mata vazamento de `!important`, e dá base para
   layout dockável estilo Fleet/Zed.
@@ -289,35 +289,35 @@ respeitado. O problema é **fragmentação de identidade**, não ausência de si
 ### 6.3 Bibliotecas (custo/benefício, todas funcionam offline)
 | Biblioteca | Uso | Custo | Tier |
 |---|---|---|---|
-| **Lucide** (SVG) | Ícones unificados, sprite local | ~poucos KB por ícone usado | 🟢 |
-| **KaTeX** | Substitui o `_renderMath` artesanal (conserta V1) | ~150 KB, local | 🟢 |
-| **Lit** | Web Components do shell | ~5 KB runtime | 🔴 |
-| **Floating UI** | Tooltips/menus/posicionamento (substitui CSS+JS ad-hoc) | ~10 KB | 🟡 |
+| **Lucide** (SVG) | Ícones unificados, sprite local | ~poucos KB por ícone usado | |
+| **KaTeX** | Substitui o `_renderMath` artesanal (conserta V1) | ~150 KB, local | |
+| **Lit** | Web Components do shell | ~5 KB runtime | |
+| **Floating UI** | Tooltips/menus/posicionamento (substitui CSS+JS ad-hoc) | ~10 KB | |
 
 ---
 
 ## 7. Ferramentas open-source para integrar
 
-> Avaliado contra o **código real** do repo por auditoria com verificação adversarial. ✔ = a
+> Avaliado contra o **código real** do repo por auditoria com verificação adversarial. ok = a
 > recomendação foi confrontada com o código e se sustenta. Duas correções importantes destacadas
 > abaixo (xterm.js e monaco-languageclient). ⚠️ = versão a revalidar via web.
 
 | # | Ferramenta | O que entrega | Licença | Tier | Esforço |
 |---|---|---|---|---|---|
-| O1 ✔ | **Surfer** (Rust→WASM) | **Ondas dentro da IDE** — substitui o GTKWave externo, embutível via iframe WASM; lê VCD/FST. **ESTUDO DE VIABILIDADE FEITO → `docs/surfer-feasibility.md`:** VIÁVEL, **phased-go, em paralelo** (toggle como iverilog/verilator). Trilhas de assembly/linha-fonte + view curada mapeiam limpo; único gap = `comp2gtkw` (complexos), resolvível por **pre-pass** reusando o `.exe`. **EUPL não trava** (já bundlamos GPL/GTKWave; embutir≠derivar). MVP pode **ignorar complexos**. | EUPL ✓ | 🔴 | L |
-| O2 ✔ | **Verible** (`verible-verilog-ls`) | Lint + format + **language server** de Verilog → diagnostics inline no Monaco. **Conectar via shim manual** (LS como subprocesso no main → `setModelMarkers`), **não** via `monaco-languageclient` (ver O6). | Apache-2.0 | 🟡 | M |
-| O3 ✔ | **Verilator** (já no bundle) | Promover a simulador de regressão. ⚠️ Correção: o **Fast Sim já usa Verilator** exclusivamente; o ganho real é (a) dar feedback streamado no build (~10–60 s hoje mudo) e (b) consolidar a duplicação `waveBuildVvp`/`_prepareWaveBuild`. | LGPL/Artistic | 🟡 | M |
-| O4 ✔ | **xterm.js + node-pty** | ⚠️ **NÃO migrar o terminal de output atual** — seria over-engineering e perderia features (line-numbers clicáveis ligados a arquivos, cards por tipo). Reservar **só** para um **shell interativo novo** (PTY), se desejado. O terminal atual se conserta no lugar (P10). | MIT | 🟡 | L |
-| O5 ✔ | **YoWASP (`@yowasp/yosys`)** ⚠️ | Roda o Yosys do PRISM **in-process** (sem spawn/allowlist). Benefício **diluído**: iverilog/vvp/verilator seguem nativos, então o download msys não some. Verificar `write_json` compatível com o netlistsvg atual. | ISC | 🔴 | L |
-| O6 ✔ | **monaco-languageclient** | ⚠️ **NÃO adotar** para o caso atual — trocaria a base do editor (Monaco puro pinado 0.52.2) por risco alto. Preferir o shim manual fino de O2. | MIT | 🔵 evitar | — |
-| O7 | **tree-sitter** (grammar C±/ASM) ⚠️ | Folding/outline/breadcrumbs e highlight semântico que o Monarch regex nunca dá; parser reutilizável p/ indexar símbolos (busca). `web-tree-sitter` (WASM). | MIT | 🔴 | XL |
-| O8 ✔ | **cocotb + Verilator** (no bundle) | Formalizar testbench Python como fluxo de teste de 1ª classe (UI p/ `SIM=verilator`); alinha com o branch `cocotbtest` do Arthur. | BSD | 🟡 | M |
-| O9 ✔ | **DigitalJS** + `yosys2digitaljs` ⚠️ | Simulação **visual interativa** na janela PRISM (valor pedagógico no contexto universitário). ⚠️ Exige um passo Yosys além do atual (`hierarchy`/`proc`), não é drop-in sobre o JSON existente. | — | 🟡 | L |
-| O10 ✔ | **ripgrep** (`@vscode/ripgrep`) | **Find-in-files** inexistente hoje — busca instantânea por sinal/símbolo no projeto multiprocessador (`.cmm`/`.asm`/`.v`). IPC `search-in-project` com `spawn` shell:false. | MIT | 🟡 | M |
-| O11 ✔ | **slang-server** (LSP) | Alternativa/complemento ao Verible: análise **semântica** (elaboração completa), mais preciso que lint sintático. Recomendação: **Verible primeiro**, slang depois. | MIT | 🟡 | L |
-| O12 ✔ | **simple-git** | Integração Git na IDE (status/diff/commit). ⚠️ Preferir **`simple-git`** (wrapper do git nativo) a `isomorphic-git` no caso desktop. | MIT | 🟡 | M |
-| O13 | **KaTeX** | (também §6) renderização de matemática **segura** — conserta o XSS V1. | MIT | 🟢 | S |
-| O14 ✔ | **WaveDrom** | Diagramas de timing **só para docs/specs** — não substitui visualização de simulação (isso é o Surfer). | MIT | 🟢 | S |
+| O1 ok | **Surfer** (Rust→WASM) | **Ondas dentro da IDE** — substitui o GTKWave externo, embutível via iframe WASM; lê VCD/FST. **ESTUDO DE VIABILIDADE FEITO → `docs/surfer-feasibility.md`:** VIÁVEL, **phased-go, em paralelo** (toggle como iverilog/verilator). Trilhas de assembly/linha-fonte + view curada mapeiam limpo; único gap = `comp2gtkw` (complexos), resolvível por **pre-pass** reusando o `.exe`. **EUPL não trava** (já bundlamos GPL/GTKWave; embutir≠derivar). MVP pode **ignorar complexos**. | EUPL ok | | L |
+| O2 ok | **Verible** (`verible-verilog-ls`) | Lint + format + **language server** de Verilog → diagnostics inline no Monaco. **Conectar via shim manual** (LS como subprocesso no main → `setModelMarkers`), **não** via `monaco-languageclient` (ver O6). | Apache-2.0 | | M |
+| O3 ok | **Verilator** (já no bundle) | Promover a simulador de regressão. ⚠️ Correção: o **Fast Sim já usa Verilator** exclusivamente; o ganho real é (a) dar feedback streamado no build (~10–60 s hoje mudo) e (b) consolidar a duplicação `waveBuildVvp`/`_prepareWaveBuild`. | LGPL/Artistic | | M |
+| O4 ok | **xterm.js + node-pty** | ⚠️ **NÃO migrar o terminal de output atual** — seria over-engineering e perderia features (line-numbers clicáveis ligados a arquivos, cards por tipo). Reservar **só** para um **shell interativo novo** (PTY), se desejado. O terminal atual se conserta no lugar (P10). | MIT | | L |
+| O5 ok | **YoWASP (`@yowasp/yosys`)** ⚠️ | Roda o Yosys do PRISM **in-process** (sem spawn/allowlist). Benefício **diluído**: iverilog/vvp/verilator seguem nativos, então o download msys não some. Verificar `write_json` compatível com o netlistsvg atual. | ISC | | L |
+| O6 ok | **monaco-languageclient** | ⚠️ **NÃO adotar** para o caso atual — trocaria a base do editor (Monaco puro pinado 0.52.2) por risco alto. Preferir o shim manual fino de O2. | MIT | evitar | — |
+| O7 | **tree-sitter** (grammar C±/ASM) ⚠️ | Folding/outline/breadcrumbs e highlight semântico que o Monarch regex nunca dá; parser reutilizável p/ indexar símbolos (busca). `web-tree-sitter` (WASM). | MIT | | XL |
+| O8 ok | **cocotb + Verilator** (no bundle) | Formalizar testbench Python como fluxo de teste de 1ª classe (UI p/ `SIM=verilator`); alinha com o branch `cocotbtest` do Arthur. | BSD | | M |
+| O9 ok | **DigitalJS** + `yosys2digitaljs` ⚠️ | Simulação **visual interativa** na janela PRISM (valor pedagógico no contexto universitário). ⚠️ Exige um passo Yosys além do atual (`hierarchy`/`proc`), não é drop-in sobre o JSON existente. | — | | L |
+| O10 ok | **ripgrep** (`@vscode/ripgrep`) | **Find-in-files** inexistente hoje — busca instantânea por sinal/símbolo no projeto multiprocessador (`.cmm`/`.asm`/`.v`). IPC `search-in-project` com `spawn` shell:false. | MIT | | M |
+| O11 ok | **slang-server** (LSP) | Alternativa/complemento ao Verible: análise **semântica** (elaboração completa), mais preciso que lint sintático. Recomendação: **Verible primeiro**, slang depois. | MIT | | L |
+| O12 ok | **simple-git** | Integração Git na IDE (status/diff/commit). ⚠️ Preferir **`simple-git`** (wrapper do git nativo) a `isomorphic-git` no caso desktop. | MIT | | M |
+| O13 | **KaTeX** | (também §6) renderização de matemática **segura** — conserta o XSS V1. | MIT | | S |
+| O14 ok | **WaveDrom** | Diagramas de timing **só para docs/specs** — não substitui visualização de simulação (isso é o Surfer). | MIT | | S |
 
 **Maior alavanca (priorizado):** O1 (ondas embutidas) e O2 (LSP Verible via shim) mudam mais a
 experiência; O10 (busca no projeto) é um quick-win de UX; O5/O3/O8 consolidam a base.
@@ -331,19 +331,19 @@ WASM/LSPs que competem com o orçamento de frame e o tamanho do instalador — d
 
 | # | Tier | Achado | Recomendação |
 |---|---|---|---|
-| B1 | 🟡 Moderado | **Downloads sem integridade.** 3 zips (msys, yanc, gtkwave) baixados por HTTPS de GitHub Releases **sem checksum/assinatura**; verificação só por sentinela de arquivo. | Publicar `SHA256SUMS` por release e validar no downloader antes de extrair. |
-| B2 | 🟡 Moderado | **Sem code signing.** Instalador NSIS e auto-update não assinados → SmartScreen; updater valida só sha512 do `latest.yml`. | **SignPath.io** (grátis p/ OSS) ou Azure Trusted Signing; anexar `SHA256SUMS.txt` no release. |
-| B3 | 🟡 Moderado | **O split de repos é INTENCIONAL** (corrigido após esclarecimento): `sapho` = repo de **distribuição** (releases estáveis da suíte SAPHO = YANC + AURORA, baixadas no site); `aurora` = repo de **desenvolvimento** da GUI (+ toolchain bundlada). O problema real é só **o README/badges do `aurora` apontarem para releases do próprio `aurora` (v6.2.0, defasado)** em vez do canal `sapho` (v6.3.2). | Manter o split; corrigir README/badges para apontar ao canal `sapho`; documentar a estratégia dos 2 repos no CONTRIBUTING. |
-| B4 | 🟢 Leve | **CI não roda `tsc`.** `ci.yml` chama `electron-builder` direto, pulando `build:ts`; os 28 `.ts` nunca são type-checados; testes importam os `.js` **commitados**. | Adicionar `npx tsc --noEmit` no CI + step que falha se `git diff` mostrar `.js` dessincronizado. |
-| B5 | 🟡 Moderado | **`.js` gerados commitados in-place** (`outDir:"."`) → drift silencioso. | `.gitignore` nos gerados (já que `prebuild` os regenera) **ou** check de sincronização no CI (B4). |
-| B6 | 🟢 Leve | `copy-components.js` faz `remove`+`copy` do bundle msys (centenas de MB) **a cada `npm start`** sem check incremental. | Copiar só se faltando/mtime mudou. |
-| B7 | 🟢 Leve | **Bootstrap silencioso no release:** os downloaders saem com `exit 0` em falha (bom p/ dev offline), mas `release.yml` reusa o mesmo bootstrap **sem checar sentinelas** → release pode empacotar sem toolchain. | Validar sentinelas após bootstrap no `release.yml`. |
-| B8 | 🟢 Leve | **Três caminhos de release sobrepostos** (`build.ps1` interativo, `npm version`+`release.yml`, release-please). | Escolher **release-please** como único; `release.yml` por `on: release: published`; aposentar `build.ps1`. |
-| B9 | 🟢 Leve | Refs mortas: `tests/e2e/smoke.test.js` aponta para `check-monaco-version.js` (renomeado); `scripts/yanc-managed-files.txt` lista arquivos hoje gitignored; `package.json` tem bloco `win` top-level inerte; `RELEASE.md` desatualizado em 2 pontos. | Limpeza pontual. |
-| B10 | 🟡 Moderado | **Cobertura de teste só nos módulos puros** (18 unit + 3 e2e). `main/ipc/`, `main/compile/`, `main/ai/`, `updater.js` e os builders TS **sem teste**. | Cobrir builders (puros, fáceis) e adicionar teste de contrato dos handlers IPC; medir cobertura com `--coverage` + Codecov. |
-| B11 | 🔴 Radical | **Windows-only** (NSIS, binários win64, paths). 140 ocorrências Windows-específicas em 16 arquivos do main; allowlist hardcoded a `*.exe`. | Avaliar Linux/macOS: a maior trava é a toolchain bundlada por SO. Parametrizar allowlist por `process.platform`, trocar `Expand-Archive`/`taskkill` por libs node (yauzl/tree-kill). YoWASP (O5) reduz a dependência de binário. |
-| B12 ✔ | 🟡 Moderado | **Instalador provavelmente >1,5 GB.** `asarUnpack` empacota os CLIs de IA gigantes (**@anthropic-ai ~437 MB + @openai ~238 MB = ~675 MB**) + toolchain ~1 GB. Download/instalação lentos para estudantes; ~675 MB de CLIs que muitos não usam. | Tornar os **CLIs de IA download opcional sob demanda** (como o toolchain já é); exclusões agressivas em `files` (`*.md`, `/test/`, `.d.ts`, sourcemaps); bundler para o código próprio. |
-| B13 ✔ | 🟢 Leve | **`copy-components` recopia ~1 GB a cada `npm start`** (`remove`+`copy`, sem check incremental), e mantém o toolchain **duplicado** em disco. | Check incremental por mtime/contagem, **ou junction** (`mklink /J`) em vez de cópia física. |
+| B1 | Moderado | **Downloads sem integridade.** 3 zips (msys, yanc, gtkwave) baixados por HTTPS de GitHub Releases **sem checksum/assinatura**; verificação só por sentinela de arquivo. | Publicar `SHA256SUMS` por release e validar no downloader antes de extrair. |
+| B2 | Moderado | **Sem code signing.** Instalador NSIS e auto-update não assinados → SmartScreen; updater valida só sha512 do `latest.yml`. | **SignPath.io** (grátis p/ OSS) ou Azure Trusted Signing; anexar `SHA256SUMS.txt` no release. |
+| B3 | Moderado | **O split de repos é INTENCIONAL** (corrigido após esclarecimento): `sapho` = repo de **distribuição** (releases estáveis da suíte SAPHO = YANC + AURORA, baixadas no site); `aurora` = repo de **desenvolvimento** da GUI (+ toolchain bundlada). O problema real é só **o README/badges do `aurora` apontarem para releases do próprio `aurora` (v6.2.0, defasado)** em vez do canal `sapho` (v6.3.2). | Manter o split; corrigir README/badges para apontar ao canal `sapho`; documentar a estratégia dos 2 repos no CONTRIBUTING. |
+| B4 | Leve | **CI não roda `tsc`.** `ci.yml` chama `electron-builder` direto, pulando `build:ts`; os 28 `.ts` nunca são type-checados; testes importam os `.js` **commitados**. | Adicionar `npx tsc --noEmit` no CI + step que falha se `git diff` mostrar `.js` dessincronizado. |
+| B5 | Moderado | **`.js` gerados commitados in-place** (`outDir:"."`) → drift silencioso. | `.gitignore` nos gerados (já que `prebuild` os regenera) **ou** check de sincronização no CI (B4). |
+| B6 | Leve | `copy-components.js` faz `remove`+`copy` do bundle msys (centenas de MB) **a cada `npm start`** sem check incremental. | Copiar só se faltando/mtime mudou. |
+| B7 | Leve | **Bootstrap silencioso no release:** os downloaders saem com `exit 0` em falha (bom p/ dev offline), mas `release.yml` reusa o mesmo bootstrap **sem checar sentinelas** → release pode empacotar sem toolchain. | Validar sentinelas após bootstrap no `release.yml`. |
+| B8 | Leve | **Três caminhos de release sobrepostos** (`build.ps1` interativo, `npm version`+`release.yml`, release-please). | Escolher **release-please** como único; `release.yml` por `on: release: published`; aposentar `build.ps1`. |
+| B9 | Leve | Refs mortas: `tests/e2e/smoke.test.js` aponta para `check-monaco-version.js` (renomeado); `scripts/yanc-managed-files.txt` lista arquivos hoje gitignored; `package.json` tem bloco `win` top-level inerte; `RELEASE.md` desatualizado em 2 pontos. | Limpeza pontual. |
+| B10 | Moderado | **Cobertura de teste só nos módulos puros** (18 unit + 3 e2e). `main/ipc/`, `main/compile/`, `main/ai/`, `updater.js` e os builders TS **sem teste**. | Cobrir builders (puros, fáceis) e adicionar teste de contrato dos handlers IPC; medir cobertura com `--coverage` + Codecov. |
+| B11 | Radical | **Windows-only** (NSIS, binários win64, paths). 140 ocorrências Windows-específicas em 16 arquivos do main; allowlist hardcoded a `*.exe`. | Avaliar Linux/macOS: a maior trava é a toolchain bundlada por SO. Parametrizar allowlist por `process.platform`, trocar `Expand-Archive`/`taskkill` por libs node (yauzl/tree-kill). YoWASP (O5) reduz a dependência de binário. |
+| B12 ok | Moderado | **Instalador provavelmente >1,5 GB.** `asarUnpack` empacota os CLIs de IA gigantes (**@anthropic-ai ~437 MB + @openai ~238 MB = ~675 MB**) + toolchain ~1 GB. Download/instalação lentos para estudantes; ~675 MB de CLIs que muitos não usam. | Tornar os **CLIs de IA download opcional sob demanda** (como o toolchain já é); exclusões agressivas em `files` (`*.md`, `/test/`, `.d.ts`, sourcemaps); bundler para o código próprio. |
+| B13 ok | Leve | **`copy-components` recopia ~1 GB a cada `npm start`** (`remove`+`copy`, sem check incremental), e mantém o toolchain **duplicado** em disco. | Check incremental por mtime/contagem, **ou junction** (`mklink /J`) em vez de cópia física. |
 
 ---
 
@@ -355,35 +355,35 @@ WASM/LSPs que competem com o orçamento de frame e o tamanho do instalador — d
 
 **Delta para padrão profissional (achados verificados via `gh`/git):**
 
-1. 🟡 **Ponteiro de release errado** (= B3) — o split `aurora` (dev da GUI) / `sapho` (distribuição
+1. **Ponteiro de release errado** (= B3) — o split `aurora` (dev da GUI) / `sapho` (distribuição
    estável) é **intencional**, mas README/badges do `aurora` apontam para releases do próprio
    `aurora` (v6.2.0) em vez do canal `sapho` (v6.3.2). Corrigir só o ponteiro, manter o split.
-2. 🟡 **release-please abandonado** — PR de release v6.4.0 **aberto desde maio/2026**; v6.3.x cortadas
+2. **release-please abandonado** — PR de release v6.4.0 **aberto desde maio/2026**; v6.3.x cortadas
    manualmente por fora; `CHANGELOG.md` só tem "Unreleased". Escolher um fluxo e segui-lo.
-3. 🟡 **`main` sem proteção** — `branch protection` 404; 150 commits diretos. Criar ruleset
+3. **`main` sem proteção** — `branch protection` 404; 150 commits diretos. Criar ruleset
    (PR + status check "Lint + smoke build" obrigatório; bloquear force-push).
-4. 🟡 **Naming precisa de decisão canônica** (não é simples bug). Modelo agora explícito:
+4. **Naming precisa de decisão canônica** (não é simples bug). Modelo agora explícito:
    **SAPHO = plataforma (YANC + AURORA); AURORA = a GUI**. O produto *instalado* é a suíte SAPHO,
    então `productName:"SAPHO"` pode ser intencional — **decidir** e alinhar os 6 pontos (`name`,
    `productName`, `build.productName`, artefato, repo, publish) a essa decisão.
-5. 🟡 **Sem code signing / sem checksums publicados** (= B2).
-6. 🟢 **CI não roda typecheck** (= B4).
-7. 🟡 **`.js` gerados commitados** (= B5).
-8. 🟡 **Dependabot acumulando** (10+ PRs desde maio; fechados sem merge). Triagem quinzenal +
+5. **Sem code signing / sem checksums publicados** (= B2).
+6. **CI não roda typecheck** (= B4).
+7. **`.js` gerados commitados** (= B5).
+8. **Dependabot acumulando** (10+ PRs desde maio; fechados sem merge). Triagem quinzenal +
    auto-merge de patch/minor com CI verde.
-9. 🟢 **Licença não detectada** (NOASSERTION — MIT + atribuições no mesmo arquivo). Mover atribuições
+9. **Licença não detectada** (NOASSERTION — MIT + atribuições no mesmo arquivo). Mover atribuições
    para `THIRD_PARTY_NOTICES.md`; adicionar `license`/`repository`/`bugs` no `package.json`.
-10. 🟢 **README sem mídia** — adicionar screenshot hero + GIFs (split editor, compilação, PRISM/onda);
+10. **README sem mídia** — adicionar screenshot hero + GIFs (split editor, compilação, PRISM/onda);
     corrigir badge electron-38→39 e nome do instalador.
-11. 🟢 **Sem CodeQL / secret scanning** — adicionar `codeql.yml` + push protection.
-12. 🟢 **Discussions referenciado mas desabilitado** (link morto no CONTRIBUTING).
-13. 🟢 **Metadados vazios** (topics `[]`, sem homepage/social preview) — descoberta zero.
-14. 🟢 **Conventional commits seguidos mas não enforced** — `@commitlint/config-conventional` +
+11. **Sem CodeQL / secret scanning** — adicionar `codeql.yml` + push protection.
+12. **Discussions referenciado mas desabilitado** (link morto no CONTRIBUTING).
+13. **Metadados vazios** (topics `[]`, sem homepage/social preview) — descoberta zero.
+14. **Conventional commits seguidos mas não enforced** — `@commitlint/config-conventional` +
     hook `commit-msg`.
-15. 🟢 **Sem CODEOWNERS** (roteamento de review p/ Arthur).
-16. 🟢 **Cobertura não medida** — `vitest --coverage` + Codecov + badge.
-17. 🟢 **Releases poluídas** — 5 drafts órfãos de 2025 + prereleases de toolchain misturadas.
-18. 🟢 **Sem CITATION.cff / roadmap público** — relevante para laboratório acadêmico (NIPSCERN/UFJF).
+15. **Sem CODEOWNERS** (roteamento de review p/ Arthur).
+16. **Cobertura não medida** — `vitest --coverage` + Codecov + badge.
+17. **Releases poluídas** — 5 drafts órfãos de 2025 + prereleases de toolchain misturadas.
+18. **Sem CITATION.cff / roadmap público** — relevante para laboratório acadêmico (NIPSCERN/UFJF).
 
 ---
 
@@ -395,21 +395,21 @@ Lacunas que nenhuma das 6 dimensões cobriu sozinha, levantadas por um agente cr
 | # | Tier | Ângulo | Estado real | Recomendação |
 |---|---|---|---|---|
 | G1 | — | **Premissa dos "165 FPS"** | Já corrigida em §4: vsync limita o renderer; `main.js` desativou o cap de propósito. | Tratar como **orçamento de frame / p99 de jank**, não FPS-alvo. |
-| G2 | 🟢 Leve | **Sem rede de segurança de erro** no renderer | `grep` por `window.onerror`/`unhandledrejection`/`crashReporter` em `js/` e `main/` = **vazio**. Um `throw` em qualquer init derruba a IDE silenciosamente. | Handler global de `error`+`unhandledrejection` no renderer + `crashReporter` no main. Barato, alto impacto. |
-| G3 | 🟢 Leve | **Vazamento de listeners** (memória) | **336 `addEventListener` vs 22 `removeEventListener`.** Caso concreto = P12 (`setupContentChangeListener` descarta o `IDisposable`). | Auditar pares; descartar disposables; ver P12. |
-| G4 | 🟡 Moderado | **i18n não auditado** | Camada real existe (`js/i18n/`, 138 `data-i18n`), mas só **19 chaves** top-level e **~55 call sites** de notificação/terminal/IA **fora** de `t()`. Só 2 locales (pt/en) num projeto CERN. Largura PT vs EN quebra layout. | O **revamp visual e os empty-states nascem i18n-aware**; processo de extração/validação de chaves faltantes. |
-| G5 | 🟡 Moderado | **Acessibilidade** | Parcial: há roles/aria mas **17 `outline:none`**, sem `prefers-contrast`/`forced-colors`, e os 4 modais sempre montados **não fazem focus-trap/`inert`** quando ocultos (leitor de tela e Tab vazam para UI escondida). | **Mesmo problema que P17** — `inert` + `content-visibility` resolve a11y e perf juntos. O tema `aurora-contrast` (DESIGN §1) entra aqui. |
-| G6 | 🟡 Moderado | **Governança de modelos de IA** | `DEFAULT_MODELS` hardcoded e `Object.freeze` (`provider.js:61-66`); quando um provider aposenta um id, a chamada **falha em runtime sem fallback**. Sem painel de custo/tokens. | Estratégia de migração de modelo (alias "latest"/checagem de disponibilidade) + indicador de custo/tokens por conversa. |
-| G7 | 🟢 Leve | **Cold start sem baseline** | 3 handlers `DOMContentLoaded` em série com awaits + I/O em construtores; **TTI nunca medido**. | Instrumentar TTI (§4.4) + smoke de startup com orçamento no CI. |
-| G8 | 🟡 Moderado | **Contradição OSS pesado × FPS/tamanho** | §7 propõe Surfer/Verible/slang/tree-sitter/YoWASP (WASM+LSPs) enquanto §8 já sofre com instalador **>1,5 GB**. | **Priorizar:** o que é default-on vs **plugin baixado sob demanda** (como o toolchain já é); orçamento de RAM/CPU por integração. |
-| G9 | 🟡 Moderado | **Processos zumbis da toolchain** | `process_registry.js` é maduro (tree-kill), mas o backstop só varre `vvp.exe`/`gtkwave.exe` + `Temp/`. Qualquer spawn que esqueça `trackChild` e rode fora do Temp (yosys/verilator/g++/make e OSS futuro) vira zumbi. | Tornar o registry o **único ponto de spawn** (wrapper obrigatório) — fecha o buraco por construção. |
-| G10 | 🟢 Leve | **Higiene de watchers/caches** | chokidar por-arquivo (depth 0) e por-diretório (**depth 10**, `ReadDirectoryChangesW`) + `fileStatsCache`/`directoryStatsCache` sem limite/expurgo evidente entre projetos. | Confirmar que trocar de projeto não deixa watchers órfãos nem infla caches; TTL/limite nos Maps. |
+| G2 | Leve | **Sem rede de segurança de erro** no renderer | `grep` por `window.onerror`/`unhandledrejection`/`crashReporter` em `js/` e `main/` = **vazio**. Um `throw` em qualquer init derruba a IDE silenciosamente. | Handler global de `error`+`unhandledrejection` no renderer + `crashReporter` no main. Barato, alto impacto. |
+| G3 | Leve | **Vazamento de listeners** (memória) | **336 `addEventListener` vs 22 `removeEventListener`.** Caso concreto = P12 (`setupContentChangeListener` descarta o `IDisposable`). | Auditar pares; descartar disposables; ver P12. |
+| G4 | Moderado | **i18n não auditado** | Camada real existe (`js/i18n/`, 138 `data-i18n`), mas só **19 chaves** top-level e **~55 call sites** de notificação/terminal/IA **fora** de `t()`. Só 2 locales (pt/en) num projeto CERN. Largura PT vs EN quebra layout. | O **revamp visual e os empty-states nascem i18n-aware**; processo de extração/validação de chaves faltantes. |
+| G5 | Moderado | **Acessibilidade** | Parcial: há roles/aria mas **17 `outline:none`**, sem `prefers-contrast`/`forced-colors`, e os 4 modais sempre montados **não fazem focus-trap/`inert`** quando ocultos (leitor de tela e Tab vazam para UI escondida). | **Mesmo problema que P17** — `inert` + `content-visibility` resolve a11y e perf juntos. O tema `aurora-contrast` (DESIGN §1) entra aqui. |
+| G6 | Moderado | **Governança de modelos de IA** | `DEFAULT_MODELS` hardcoded e `Object.freeze` (`provider.js:61-66`); quando um provider aposenta um id, a chamada **falha em runtime sem fallback**. Sem painel de custo/tokens. | Estratégia de migração de modelo (alias "latest"/checagem de disponibilidade) + indicador de custo/tokens por conversa. |
+| G7 | Leve | **Cold start sem baseline** | 3 handlers `DOMContentLoaded` em série com awaits + I/O em construtores; **TTI nunca medido**. | Instrumentar TTI (§4.4) + smoke de startup com orçamento no CI. |
+| G8 | Moderado | **Contradição OSS pesado × FPS/tamanho** | §7 propõe Surfer/Verible/slang/tree-sitter/YoWASP (WASM+LSPs) enquanto §8 já sofre com instalador **>1,5 GB**. | **Priorizar:** o que é default-on vs **plugin baixado sob demanda** (como o toolchain já é); orçamento de RAM/CPU por integração. |
+| G9 | Moderado | **Processos zumbis da toolchain** | `process_registry.js` é maduro (tree-kill), mas o backstop só varre `vvp.exe`/`gtkwave.exe` + `Temp/`. Qualquer spawn que esqueça `trackChild` e rode fora do Temp (yosys/verilator/g++/make e OSS futuro) vira zumbi. | Tornar o registry o **único ponto de spawn** (wrapper obrigatório) — fecha o buraco por construção. |
+| G10 | Leve | **Higiene de watchers/caches** | chokidar por-arquivo (depth 0) e por-diretório (**depth 10**, `ReadDirectoryChangesW`) + `fileStatsCache`/`directoryStatsCache` sem limite/expurgo evidente entre projetos. | Confirmar que trocar de projeto não deixa watchers órfãos nem infla caches; TTL/limite nos Maps. |
 
 ---
 
 ## 11. Roadmap consolidado por tier
 
-### 🟢 Sprint 1 — "Quick wins" (alto retorno, baixo risco)
+### Sprint 1 — "Quick wins" (alto retorno, baixo risco)
 **Segurança:** V1 (XSS LaTeX), V2 (exec-command), V3 (webviewTag), V5 (traversal), V6 (openExternal)
 + **CSP**. **FPS:** P4 (CDN→local), P5 (init dupla), P6 (`transition:width`), P7 (`contain`),
 P8b (backdrop tooltip), P12 (leak de listener), P13/P14 (ResizeObserver/FontAwesome), P15/P16.
@@ -418,7 +418,7 @@ P8b (backdrop tooltip), P12 (leak de listener), P13/P14 (ResizeObserver/FontAwes
 → *Fecha os XSS/RCE óbvios, tira a IDE da dependência de CDN, conserta leaks e trabalho duplicado
 por frame, e dá uma rede de segurança de erro — sem mexer em estrutura.*
 
-### 🟡 Sprint 2 — "Estrutura" (médio prazo)
+### Sprint 2 — "Estrutura" (médio prazo)
 **Pivô: adotar Vite (A1).** FPS estrutural: P2 (markdown incremental), P3 (árvore em batch),
 P9 (standard tree reconciliada), P10 (terminal otimizado **no lugar**), P11 (decorations por range).
 **Visual:** design system semântico + `aurora-night`/`aurora-contrast` (§6.2; cobre G5 a11y + P17).
@@ -428,7 +428,7 @@ O10 (busca/ripgrep), O2 (Verible via shim), O1 (Surfer). **Repo:** branch protec
 → *Mata o jank estrutural, profissionaliza a distribuição e moderniza o editor de hardware.
 Resolver a tensão G8 (default-on vs plugin sob demanda) aqui.*
 
-### 🔴 Sprint 3 — "Reescrita" (projeto)
+### Sprint 3 — "Reescrita" (projeto)
 P1 (Monaco por troca de model); A2 (decompor os 3 god-files); **DESIGN.md radical** (Lit + shell
 dockável + command palette + `<aurora-canvas>` WebGL); G9 (registry como único ponto de spawn);
 O5 (YoWASP) + O7 (tree-sitter) + O9 (DigitalJS no PRISM); B11 (cross-platform).
@@ -438,7 +438,7 @@ produto maduro — alinhado ao [Design Manifesto](DESIGN.md).*
 ---
 
 *Documento enriquecido em 13/06/2026 por auditoria multi-agente com verificação adversarial
-(43 agentes; achados marcados ✔ foram confrontados com o código). O revamp visual segue o
+(43 agentes; achados marcados ok foram confrontados com o código). O revamp visual segue o
 [DESIGN.md](DESIGN.md).*
 
 ---
@@ -461,7 +461,7 @@ produto maduro — alinhado ao [Design Manifesto](DESIGN.md).*
   adversarial, incl. **perda de dados** (Ctrl+S sobrescrevia edições externas em abas inativas).
   Revertido. Checklist de armadilhas salvo na memória pra uma futura retomada bem-feita.
 
-### ✅ Feito
+### Feito
 **Segurança/robustez:** V1 (XSS LaTeX → **KaTeX** trust:false), V2, V3, V5, V6; G2 (error boundary +
 crashReporter), P12 (leak de listener), P13 (ResizeObserver throttled).
 **Performance (trilha praticamente fechada no seguro):** P4 (Phosphor+fontes locais, fim dos CDNs);
@@ -484,7 +484,7 @@ unificado** (abertura realocada pro `modal_system.js`); **foco no editor → aba
 splits); ícone de onda (senoide) no Wave Config.
 **IA/robustez:** busca recursiva de arquivo pela IA; compile da IA chega ao terminal (singleton real +
 processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao receber pasta).
-**Fundação (A1 — Vite, renderer-only, flag-gated): Stages 0–4 ✅.**
+**Fundação (A1 — Vite, renderer-only, flag-gated): Stages 0–4 feito.**
 - **Stage 0–2** (main window): `vite.config.mjs` (`base:'./'` p/ `file://`; `vite-plugin-static-copy` vendoriza
   Monaco/KaTeX/Phosphor em `dist/vendor/*` via `rename.stripBase`, sem comitar 70 MB); `scripts/dev.js`
   (`npm run dev`: Vite 5273 + Electron por `AURORA_RENDERER_URL`, HMR); `dist/**` empacotado. Monaco no loader
@@ -509,11 +509,11 @@ processador persistido + auto-cura da ref); fix do `project:getInfo` (EISDIR ao 
 - **Verde:** 208 unit + e2e (7/8) + ESLint + knip + `vite build` self-contained + dev-server (curl 200 nas 4
   páginas/vendors/recursos). Revisão adversarial multi-agente (packaging/asar, load-logic, config, CI) limpa.
   **Boot/visual do Electron a verificar pelo usuário.** Plano em `~/.claude/plans/ancient-snacking-wand.md`.
-- ✅ **Fontes duplicadas → bold/medium REAIS (corrigido nesta sessão):** as woff2 eram variáveis com 1 `@font-face`
+- **Fontes duplicadas → bold/medium REAIS (corrigido nesta sessão):** as woff2 eram variáveis com 1 `@font-face`
   por peso apontando pro mesmo arquivo (4 conteúdos p/ 14 faces, lia como peso único). Agora 1 face por subset com
   `font-weight` em **faixa** sobre 1 arquivo variável + 10 duplicados removidos (~600 KB). Ver "Resto da Fase C" abaixo.
 
-**Camada semântica de tokens (DESIGN §3 — Fase A do Lit shell) ✅.** `css/base/semantic_tokens.css`
+**Camada semântica de tokens (DESIGN §3 — Fase A do Lit shell) feito.** `css/base/semantic_tokens.css`
 (importado após `theme_variables.css`): aliases dos nomes do DESIGN §3 sobre a base — `--surface-*`,
 `--text-bright/default/faint`, `--state-*`, `--accent-veil`, `--focus-ray`, `--motion-*` — **puro aliasing,
 zero mudança de valor** (tema único intacto). `--text-muted` **não** re-aliasado (já existe na base; evita
@@ -523,7 +523,7 @@ base→semantic dos ~600 usos existentes fica para a migração por-componente. 
 `vite build` verdes; **paridade visual** (aliases). Próximo: **Fase B** (instalar Lit + `<aurora-statusbar>`
 + Design Lab).
 
-**Fundação Lit + Design Lab (Fase B) ✅.** **Lit 3** instalado. Primeiro componente
+**Fundação Lit + Design Lab (Fase B) feito.** **Lit 3** instalado. Primeiro componente
 `js/components/aurora-statusbar.js` (LitElement + **Shadow DOM** + só **tokens semânticos**, que atravessam o
 shadow do `:root`; status dot com glow por estado, raio de foco no chip de processador, reduced-motion). É o
 **molde** dos demais. **Design Lab** (`html/design-lab.html`, input multi-page Vite + `js/components/design-lab.js`):
@@ -533,7 +533,7 @@ design-lab** — o `index.html` não importa nada de Lit, então o fallback raw 
 migração ao vivo, que retira o raw, é a Fase C). 208 unit + ESLint + knip + `vite build` + dev-server (200)
 verdes; aditivo, **zero mudança no app ao vivo**.
 
-**1ª migração ao vivo — `<aurora-toast>` (Fase C) ✅.** O sistema de notificações virou Lit:
+**1ª migração ao vivo — `<aurora-toast>` (Fase C) feito.** O sistema de notificações virou Lit:
 `js/components/aurora-toast.js` (Shadow DOM + tokens semânticos; **self-managing** — entrada/saída, progress
 bar de auto-dismiss, pause no hover, auto-remoção; glifo Phosphor por tipo via `--toast-glyph`). `notification.js`
 agora só cria o `<aurora-toast>` e seta props — **API pública intacta** (`showCardNotification`/`notify`/
@@ -545,7 +545,7 @@ carrega; o **fallback raw do index agora degrada** (import bare de `lit` não re
 documentada da Fase C (raw das janelas secundárias segue OK). **Smoke e2e: 3/3** confirma que o index bundled com
 Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
 
-**Resto da Fase C — sessão 14/06/2026 ✅.** Migração progressiva do shell + 2 quick-wins. Todos com `vite build`
+**Resto da Fase C — sessão 14/06/2026 feito.** Migração progressiva do shell + 2 quick-wins. Todos com `vite build`
 + **smoke e2e (3/3)** verdes (e 208 unit onde aplicável); verificação visual pelo usuário a cada peça (via prints).
 - **Componentes Lit ao vivo** (LitElement + Shadow DOM + tokens semânticos, todos na Design Lab):
   - `<aurora-tooltip>` — `tooltip.js` (descoberta/timing/posição) dirige por `content`/`placement`/`--arrow-x`;
@@ -581,7 +581,7 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
   drop-in por sinal de classe). Restam com ganho **distinto**: `<aurora-editor>` (mata os 30 `!important`; mas
   Monaco-em-Shadow-DOM é arriscado) e `<aurora-panel>` dockável (capacidade nova).
 
-**Sessão 14/06/2026 (parte 2 — IA, segurança, correções) ✅.** Tudo com `node --check` + ESLint + **smoke e2e
+**Sessão 14/06/2026 (parte 2 — IA, segurança, correções) feito.** Tudo com `node --check` + ESLint + **smoke e2e
 (3/3)** verde; revisões adversariais por workflow onde o código é sensível; verificação ao vivo pelo usuário.
 - **Anexos no chat da IA (imagens + arquivos) + lightbox** — clipe/drag-drop/paste no composer, chips de preview,
   envio aos 3 transportes (SDK multimodal · Claude Code via temp+Read · Codex inline/degrada imagem); clique-pra-
@@ -605,7 +605,7 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
   misclassificadas). Identidade já estava correta. Condensação de tokens avaliada e **deferida** (system já
   cacheado: Anthropic ephemeral + auto-cache dos providers + `--resume` dos CLIs). §13.K.
 
-**Sessão 14/06/2026 (parte 3 — UX, limpeza, segurança, bugs) ✅.** Tudo com ESLint + `vite build` + smoke e2e
+**Sessão 14/06/2026 (parte 3 — UX, limpeza, segurança, bugs) feito.** Tudo com ESLint + `vite build` + smoke e2e
 (3/3); investigações/dead-code com **refutação adversarial** por workflow; verificação ao vivo pelo usuário.
 - **3 quick-wins de UX (§13.K):** syntax highlight do `.spf` (→ linguagem `json` built-in); **hover** num projeto
   recente no welcome → **preview dos processadores** (popover no `document.body`, viewport-relative, escapa o
@@ -627,20 +627,20 @@ Lit ainda boota. 208 unit + lint + knip + dev-server verdes.
   box-shadow → glow (§4) e display font (§8) = refinamentos abertos; os componentes de shell restantes
   (titlebar/activity-bar/tabs/tree/terminal) seguem **adiados** (maus alvos de Shadow DOM — ver §13.A).
 
-**Sessão 15/06/2026 (Opus — do mais rápido ao mais lento) ✅.** Continuação do backlog §13 na ordem
+**Sessão 15/06/2026 (Opus — do mais rápido ao mais lento) feito.** Continuação do backlog §13 na ordem
 fastest→slowest. Tudo com **243 unit** + ESLint (lint-staged) + `commit`+`pull` por item (sem push);
 **verificação adversarial multi-agente** do estado real (git + arquivos) antes de marcar feito aqui — os
 11 itens abaixo voltaram "committed, zero discrepâncias".
-- **Overlay de jank (§4.4/G7) ✅** — `js/dev/jank_overlay.js`: HUD dev (FPS · **p99** de frame vs orçamento
+- **Overlay de jank (§4.4/G7) feito** — `js/dev/jank_overlay.js`: HUD dev (FPS · **p99** de frame vs orçamento
   165 Hz de 6,06 ms · taxa de jank = % de frames > 2× orçamento · longtask via `PerformanceObserver` · TTI
   aproximado). Buffer circular de 300 frames; **custo zero quando inativo**. Import dinâmico na command
   palette (grupo novo **"Dev"** → "Toggle Jank Overlay"). Commit `d4f7735`.
-- **Stage 5 / B5 ✅** — os 14 testes que importavam os `.js` gerados passam a importar o `.ts` direto
+- **Stage 5 / B5 feito** — os 14 testes que importavam os `.js` gerados passam a importar o `.ts` direto
   (vitest resolve TS nativo via esbuild); os **29** `.js` de saída do `tsc` saíram do tracking (`git rm
   --cached`) e entraram no `.gitignore` (seção "TypeScript compiler output"). Só o `.ts` é fonte daqui pra
   frente; 243 unit verdes com os imports novos. Commit `29ebbab`. *(Ainda falta B4 — `tsc --noEmit` no CI
   pra pegar drift; §13.I.)*
-- **3 shells semânticos em Lit (passo 1 — wrapper fino) ✅** — `<aurora-tabs>` (`fb0e943`),
+- **3 shells semânticos em Lit (passo 1 — wrapper fino) feito** — `<aurora-tabs>` (`fb0e943`),
   `<aurora-terminal>` (`67306c8`), `<aurora-tree>` (`31287b7`): cada um é um LitElement cujo `render()`
   devolve só um `<slot>` passthrough — **registra o custom element** e nada mais. Os filhos (`.tab`,
   `.terminal-content`/`.log-entry`, `.file-tree-item`) seguem em **light DOM**, gerenciados imperativamente
@@ -648,16 +648,16 @@ fastest→slowest. Tudo com **243 unit** + ESLint (lint-staged) + `commit`+`pull
   estilos vêm do CSS global pela classe no host. Reabre essas barras "ADIADAS" como **enhancement
   progressivo**: o passo 2 (render declarativo + tokens no `::slotted` + virtual scroll) fica pra quando o
   manager virar data-driven. `index.html`: `<div id=…>` → `<aurora-… id=…>` nos 3 pontos.
-- **Higiene de memória do chat IA (base64) ✅** — `ai_assistant_manager.js` solta o `dataUrl` base64 das
+- **Higiene de memória do chat IA (base64) feito** — `ai_assistant_manager.js` solta o `dataUrl` base64 das
   attachments de `this.messages` logo após `apiMessages` ser montado pro turn → imagens de até 8 MB **não**
   são reenviadas a cada turno seguinte (mantém nome/mime/tam pra exibição). Commit `64b3ae7`. *(Era item de
   §13.D escrito na sessão anterior mas que tinha ficado **sem commit** — capturado e commitado agora; daí o
   valor da verificação adversarial antes de documentar.)*
 - **Empty-states / `<aurora-statusbar>` ao vivo — não mexidos (motivo registrado):** o "4 skins → 1" segue
-  🟡 subjetivo (precisa de prints do usuário); religar a statusbar segue **bloqueado** porque `zoom.js` faz
+  subjetivo (precisa de prints do usuário); religar a statusbar segue **bloqueado** porque `zoom.js` faz
   `editorStatus.parentNode.insertBefore` — quebraria se `#editorStatus` virasse Shadow DOM. Ambos seguem em §13.A.
 
-**Sessão 16/07/2026 (preview de HTML branco · card de permissão) ✅.** Verificado com **540 unit** + ESLint +
+**Sessão 16/07/2026 (preview de HTML branco · card de permissão) feito.** Verificado com **540 unit** + ESLint +
 `tsc --noEmit`, e com bancadas Electron descartáveis: uma carregou o **arquivo real** do usuário
 (`pmu_plots.html`, export do Plotly) pelo módulo real e inspecionou o frame por dentro; a outra renderizou o
 card de permissão com o CSS real, antes vs depois.
@@ -701,7 +701,7 @@ card de permissão com o CSS real, antes vs depois.
   Tudo por `textContent` — é saída de modelo, nunca vira markup. Prosa capada em 1000 (o JSON segue em 500);
   `note` não-string ou em branco cai como dado, não como prosa. **+7 testes** (17 no arquivo).
 
-**Sessão 16/07/2026 (parte 2 — memória de projeto pra IA) ✅.** **563 unit** + ESLint + `tsc --noEmit`.
+**Sessão 16/07/2026 (parte 2 — memória de projeto pra IA) feito.** **563 unit** + ESLint + `tsc --noEmit`.
 - **A IA não conseguia gravar memória — CORRIGIDO com tool própria.** O `Write` está em `DISALLOWED_TOOLS`
   (`main/ai/claude_agent.js`), então a memória nativa do Claude Code (que grava por arquivo) morria com
   "Write failed". **Isso não era bug:** toda escrita passa pelas tools MCP da Aurora de propósito, pra bater no
@@ -745,7 +745,7 @@ card de permissão com o CSS real, antes vs depois.
   fila) — o `promptStream()` já está em streaming-input, mas mantê-lo aberto mexe no ciclo de vida do turno,
   no timeout de inatividade e no watchdog (§13.K, a área que custou a sessão de freezes). Passo separado.
 
-**Sessão 16/07/2026 (parte 3 — AskUserQuestion nunca renderizava) ✅.** 563 unit + ESLint + `tsc --noEmit`, e
+**Sessão 16/07/2026 (parte 3 — AskUserQuestion nunca renderizava) feito.** 563 unit + ESLint + `tsc --noEmit`, e
 duas sondas contra o **CLI real** (assinatura do usuário, com autorização explícita dele pro gasto).
 - **O card de pergunta nunca aparecia no caminho do SDK — CORRIGIDO.** O `npm start` do usuário cuspia 4× o aviso
   `[CLAUDE_SDK_CAN_USE_TOOL_SHADOWED] canUseTool will not be invoked: permissionMode 'bypassPermissions'
@@ -765,7 +765,7 @@ duas sondas contra o **CLI real** (assinatura do usuário, com autorização exp
   fica**: a Aurora gateia as próprias tools no renderer e não quer o sistema de permissão do CLI por cima.
 - **Verificado no CLI real:** a lista de tools do `system/init` passou a **não conter** `AskUserQuestion`, sem o
   aviso `CAN_USE_TOOL_SHADOWED`, turno concluindo `success`.
-- **🟡 Achado colateral (decisão pendente do usuário):** o `DISALLOWED_TOOLS` foi escrito quando o CLI era menor.
+- **Achado colateral (decisão pendente do usuário):** o `DISALLOWED_TOOLS` foi escrito quando o CLI era menor.
   A sonda listou o que **segue habilitado** hoje no painel: `Task` e `Workflow` (spawnam subagentes — custo),
   `Artifact` (**publica página na claude.ai** — superfície pra fora), `CronCreate/Delete/List` (agenda agentes na
   nuvem), `RemoteTrigger`, `PushNotification`, `SendMessage`, `DesignSync`, `EnterWorktree/ExitWorktree`,
@@ -773,7 +773,7 @@ duas sondas contra o **CLI real** (assinatura do usuário, com autorização exp
   passa pelo card da Aurora. Revisar a lista item a item.
 - **Fora desta parte:** injeção mid-turn (sonda já feita, ver parte 4).
 
-**Sessão 16/07/2026 (parte 4 — injeção mid-turn) ✅.** 563 unit + ESLint + `tsc --noEmit`, e **3 sondas contra o
+**Sessão 16/07/2026 (parte 4 — injeção mid-turn) feito.** 563 unit + ESLint + `tsc --noEmit`, e **3 sondas contra o
 CLI real** (assinatura do usuário, gasto autorizado por ele explicitamente). As sondas não foram cerimônia: **duas
 das três premissas do desenho estavam erradas**, e as duas teriam pendurado o chat em produção.
 - **Mandar mensagem durante o turno agora entra na sessão viva.** Antes ela só ia pra fila do renderer e esperava
@@ -808,9 +808,9 @@ das três premissas do desenho estavam erradas**, e as duas teriam pendurado o c
 - **Caminhos de saída cobertos:** `stop`, `markAborted` e o timer de inatividade agora chamam `wakeInputNow()` — sem
   isso o generator ficaria `await`-ando pra sempre e o turno não morreria nem no abort.
 
-**Sessão 16/07/2026 (parte 5 — superfície de tools nativas: blocklist → allowlist) ✅.** 588 unit + ESLint +
+**Sessão 16/07/2026 (parte 5 — superfície de tools nativas: blocklist → allowlist) feito.** 588 unit + ESLint +
 `tsc --noEmit`, e sonda contra o CLI real.
-- **O 🟡 da parte 3 fechado, mas o conserto não foi "revisar a lista" — foi inverter o mecanismo.** O
+- **O da parte 3 fechado, mas o conserto não foi "revisar a lista" — foi inverter o mecanismo.** O
   `DISALLOWED_TOOLS` nomeava o que **bloquear**, e isso **falha aberto por construção**: toda tool que o CLI passa
   a shippar entra habilitada na Aurora sozinha, em silêncio, num `npm install`. Não era uma lista desatualizada;
   era uma lista que **não tem como** ficar atualizada. Agora o `Options.tools` (SDK) / `--tools` (CLI legado) define
@@ -835,12 +835,12 @@ das três premissas do desenho estavam erradas**, e as duas teriam pendurado o c
   qualquer permission mode** e bloqueia também invocação interna do harness, não só `tool_use` do modelo.
 - **+25 testes** (`native_tools.test.js`): as duas listas nunca se contradizem, e **cada** tool perigosa é negada
   nominalmente com o motivo junto — reabrir uma quebra o teste ali, com a explicação do lado, em vez de passar batido.
-- **🟡 Achado colateral (não mexido, decisão pendente):** o `settingSources` não é passado, e o default do SDK é
+- **Achado colateral (não mexido, decisão pendente):** o `settingSources` não é passado, e o default do SDK é
   *"When omitted, all sources are loaded"* — ou seja, o `~/.claude/settings.json` **pessoal** do usuário (hooks
   inclusive) é carregado dentro do painel da Aurora. Um hook escrito pro Claude Code do terminal dispara aqui.
   Decidir se a Aurora quer isolar (`settingSources: []`) ou manter.
 
-**Sessão 16/07/2026 (parte 6 — card de pergunta: visual + registro permanente) ✅.** 591 unit + ESLint, e render
+**Sessão 16/07/2026 (parte 6 — card de pergunta: visual + registro permanente) feito.** 591 unit + ESLint, e render
 do card com o CSS real (antes/depois).
 - **Registro permanente da pergunta no chat.** O card sumia em 180 ms e o que foi perguntado/escolhido sobrevivia
   só dentro do JSON do chip da tool — um chat reaberto **perdia a decisão**, que costuma ser a coisa mais
@@ -852,7 +852,7 @@ do card com o CSS real (antes/depois).
 - **`buildApiMessages` ganhou `DISPLAY_ONLY_ROLES` (`tool` + `question`).** A entrada não tem `content`; sem o
   filtro o modelo receberia `{role:'question', content: undefined}`. E ele **já** sabe a resposta — ela voltou como
   retorno da tool; reenviar seria repetir.
-- **🔴 Bug de CSS que falhava em silêncio — CORRIGIDO.** A escala de elevação é `--bg` / **`--bg-elev`** /
+- **Bug de CSS que falhava em silêncio — CORRIGIDO.** A escala de elevação é `--bg` / **`--bg-elev`** /
   `--bg-elev-2` / `--bg-elev-3`: o primeiro degrau **não tem número**. Alguém assumiu `elev-1/2/3` e escreveu
   `var(--bg-elev-1)`, que **nunca foi definido em lugar nenhum** — em **7 lugares**. `var()` sem fallback pra token
   inexistente é *invalid at computed-value time*: a declaração inteira cai, sem erro de build e sem warning. As
@@ -867,8 +867,8 @@ do card com o CSS real (antes/depois).
   escala é `--border-subtle`/`--border`/`--border-strong`. Corrigidos. Essa classe de bug agora quebra o teste em
   vez de renderizar torto pra sempre.
 
-### ⬜ Falta
-**Fundação (Vite — Stage 5 ✅ nesta sessão):**
+### Falta
+**Fundação (Vite — Stage 5 nesta sessão):**
 - [x] **Stage 5 (B5):** testes importam `.ts` direto; os 29 `.js` gerados saíram do git + foram gitignorados
       (commit `29ebbab`). Falta só **B4** (`tsc --noEmit` no CI) pra travar o drift — item separado em §13.I.
 
@@ -878,7 +878,7 @@ do card com o CSS real (antes/depois).
 - [x] **Fundação Lit + Design Lab (Fase B)** — feita (ver acima): Lit 3, `<aurora-statusbar>` (molde),
       Design Lab + launcher. Aditivo, app ao vivo intacto.
 - [x] **1ª migração ao vivo — `<aurora-toast>` (Fase C)** — feita (ver acima): driver único, API intacta.
-- [~] 🔴 **Shell em Lit (Fase C+).** FEITO: overlays (toast · tooltip · command-palette), welcome + redesenho da
+- [~] **Shell em Lit (Fase C+).** FEITO: overlays (toast · tooltip · command-palette), welcome + redesenho da
       aurora, e os **4 modais** (ver "Resto da Fase C" acima). **PASSO 1 (15/06):** `<aurora-tabs>`,
       `<aurora-terminal>` e `<aurora-tree>` ganharam o **shell semântico** (custom element wrapper fino, `<slot>`
       passthrough; filhos seguem em light DOM, managers intactos) — tira essas 3 do "adiado" e as deixa prontas
@@ -896,9 +896,9 @@ do card com o CSS real (antes/depois).
       (MutationObserver → `_syncInert`) + `ai_assistant_manager.js`. Commit `bd5271e`.
 - [x] **P7 completo** (`content-visibility:auto` + `contain-intrinsic-size` em `.log-entry` e `.file-tree-item`;
       `contain:layout style paint` no `.terminal-body`). Commit `bd5271e`.
-- [ ] 🔴 ~~**P1** (um Monaco por pane)~~ — **revertido** (ver decisão acima); retomar só sob pressão real
+- [ ] ~~**P1** (um Monaco por pane)~~ — **revertido** (ver decisão acima); retomar só sob pressão real
       de memória com dezenas de abas, usando o checklist da memória.
-- [~] Medição (§4.4/G7): **overlay de jank (p99) ✅** (`d4f7735`); falta o mark de **TTI** no fim do init e o
+- [~] Medição (§4.4/G7): **overlay de jank (p99) feito** (`d4f7735`); falta o mark de **TTI** no fim do init e o
       **smoke de orçamento no CI** (pareia com B4).
 
 **Fora das 2 trilhas (parking lot):** segurança restante (V4/V7/V8/V9/V10–V12 — **CSP + sandbox FEITOS** nesta
@@ -915,10 +915,10 @@ sessão, ver acima); OSS (Surfer/Verible/ripgrep/…); build/DX (B1–B13); repo
 > performance, §5 arquitetura, §6/§9 visual+Lit, §7 OSS, §8 build/DX) e os achados pré-existentes.
 > **Regra de ouro: qualquer bug encontrado no caminho é corrigido NA HORA** (não vira item de backlog).
 > Convenção de trabalho: ao concluir cada item → commit + pull (sem push) + marcar `[x]` aqui.
-> Tiers: 🔴 radical · 🟡 moderado · 🟢 leve. Sequência: o bloco **A (Lit shell)** é o trabalho ativo;
+> Tiers: radical · moderado · leve. Sequência: o bloco **A (Lit shell)** é o trabalho ativo;
 > o resto (D em diante) é parking lot, atacado por decisão de prioridade.
 
-### A. 🔴 Lit shell — migração progressiva da casca (TRABALHO ATIVO)
+### A. Lit shell — migração progressiva da casca (TRABALHO ATIVO)
 Cada peça: LitElement + Shadow DOM + **só tokens semânticos** + codemod base→semantic daquela peça +
 entrada na Design Lab + checklist visual (anima só transform/opacity, respeita reduced-motion, raio de foco).
 - [x] `<aurora-toast>` — notificações (1ª migração ao vivo).
@@ -933,25 +933,25 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       `recent_projects.js` virou **dados+ações** e dirige o componente (`projects` ↔ `project-open`/`project-remove`);
       botões New/Open **delegam** à toolbar. CSS morto em `recent_projects.css` (chrome do welcome) a podar depois.
 - [ ] **Empty-states "4 skins → 1"** — falta unificar os OUTROS estados vazios (tree/AI/wave) num só.
-      Subjetivo (redesenho) → fazer com prints do usuário. 🟡
+      Subjetivo (redesenho) → fazer com prints do usuário. (moderado)
 - [~] `<aurora-titlebar>` — **ADIADO (mau alvo p/ Shadow DOM).** O sistema de tooltip e o i18n usam
       `document.querySelectorAll` + listeners por elemento ([tooltip.js:116/211]) → não entram no shadow;
       e os botões são referenciados por ID pelo compile-flow/command-palette/modal_system/delegação do welcome.
       Migrar quebra tudo isso por payoff ~zero (não tem os 30 `!important`). Retomar só com reescrita transversal
-      (ensinar tooltip+i18n a varrer shadow roots) — fora do caminho ativo. 🟡
+      (ensinar tooltip+i18n a varrer shadow roots) — fora do caminho ativo. (moderado)
 - [~] `<aurora-activity-bar>` — **ADIADO (mesmo motivo, pior):** os botões de compilação são habilitados/
-      desabilitados e clicados por ID pelo fluxo de compilação. Idem titlebar. 🟡
-- [~] `<aurora-tree>` (file-tree) — **PASSO 1 ✅** (`31287b7`): `js/components/aurora-tree.js` (wrapper fino,
+      desabilitados e clicados por ID pelo fluxo de compilação. Idem titlebar. (moderado)
+- [~] `<aurora-tree>` (file-tree) — **PASSO 1 feito** (`31287b7`): `js/components/aurora-tree.js` (wrapper fino,
       `<slot>`) registra o custom element; `#file-tree` virou `<aurora-tree>`; `file_tree_manager.js` importa.
       Filhos em light DOM, lógica intacta. **Passo 2 (pendente):** render declarativo das **3 subárvores +
-      reconciliação key-based** + `zoom`/views. 🔴
-- [~] `<aurora-tabs>` — **PASSO 1 ✅** (`fb0e943`): `js/components/aurora-tabs.js` (wrapper fino); `#tabs-container`
+      reconciliação key-based** + `zoom`/views. (radical)
+- [~] `<aurora-tabs>` — **PASSO 1 feito** (`fb0e943`): `js/components/aurora-tabs.js` (wrapper fino); `#tabs-container`
       virou `<aurora-tabs>`; `tab_manager.js` importa. **Passo 2 (pendente):** render declarativo data-driven
-      (mover `.tab` create/drag/preview do `tab_manager` pro componente). 🟡
-- [ ] `<aurora-editor>` — host do Monaco; **dropa os 30 `!important`** via Shadow DOM. 🔴 maior ganho.
-- [~] `<aurora-terminal>` — **PASSO 1 ✅** (`67306c8`): `js/components/aurora-terminal.js` (wrapper fino);
+      (mover `.tab` create/drag/preview do `tab_manager` pro componente). (moderado)
+- [ ] `<aurora-editor>` — host do Monaco; **dropa os 30 `!important`** via Shadow DOM. maior ganho.
+- [~] `<aurora-terminal>` — **PASSO 1 feito** (`67306c8`): `js/components/aurora-terminal.js` (wrapper fino);
       `#terminal-container` virou `<aurora-terminal>`; `terminal_module.js` importa. **Passo 2 (pendente):**
-      `.terminal-body` data-driven com virtual scroll (otimizado no lugar; não xterm). 🟡
+      `.terminal-body` data-driven com virtual scroll (otimizado no lugar; não xterm). (moderado)
 - [x] `<aurora-modal>` + os 4 modais inline (new project, processor hub, wave config, settings) — **FEITO.**
       Base `<aurora-modal>` (chrome em Shadow DOM + tokens; título/corpo/footer + ✕-próprio SLOTADOS em
       light-DOM → forms/IDs/handlers/i18n preservados). É **drop-in**: reage a `aria-hidden`/`.show`/`.visible`
@@ -965,34 +965,34 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       como **irmão** do `#editorStatus`; se a statusbar virar Shadow DOM, esse `insertBefore` (e os drivers que
       fazem `getElementById('status-text'/'editorStatus'/...)` em `project_manager`/`close_project`/`status_updater`/
       `monaco_editor`) não alcançam o shadow. Religar exige reescrever esses 7+ pontos pra dirigir o componente por
-      props/eventos primeiro. 🔴
-- [ ] `<aurora-panel>` **dockável** + layout dockável estilo Fleet/Zed + densidade/hierarquia revisadas. 🔴
+      props/eventos primeiro. (radical)
+- [ ] `<aurora-panel>` **dockável** + layout dockável estilo Fleet/Zed + densidade/hierarquia revisadas. (radical)
 
-### B. 🟡 Tokens — terminar a estratificação
+### B. Tokens — terminar a estratificação
 - [ ] Codemod base→semantic dos ~600 usos existentes (feito por-componente junto de A).
 - [x] Resolver o gap do nível "secondary" (#9CA1AE) — **resolvido por decisão documentada** (`bd5271e`):
       `semantic_tokens.css` registra a escala de 4 paradas (faint → muted → secondary → default/bright) e
       explicita que `--text-secondary`/`--text-muted` **não** são re-aliasados (já são tokens-base canônicos;
       re-aliasar clobraria os ~40 usos). Sem nome semântico novo de propósito.
-- [ ] Consolidar `ai_assistant.css` (2.150 linhas) nos tokens. 🟢 baixa prioridade.
+- [ ] Consolidar `ai_assistant.css` (2.150 linhas) nos tokens. baixa prioridade.
 
 ### C. Fundação Vite + dívidas pequenas
 - [x] **Stage 5 / B5 — FEITO** (`29ebbab`): testes importam `.ts` direto (vitest resolve TS nativo), 29 `.js`
-      gerados saíram do `git` (`rm --cached`) + gitignorados. Só falta **B4** (`tsc --noEmit` no CI; §13.I). 🟡
+      gerados saíram do `git` (`rm --cached`) + gitignorados. Só falta **B4** (`tsc --noEmit` no CI; §13.I). (moderado)
 - [x] Limpar o CSS morto de `.notification-card` em `notification.css` — **FEITO** (`bd5271e`): 193 linhas do
       sistema antigo de toast removidas; `.confirm-modal` (vivo) preservado; header reescrito p/ apontar o
-      `<aurora-toast>`. 🟢
+      `<aurora-toast>`. (leve)
 - [x] **Podar o CSS morto das migrações Lit — FEITO.** `command_palette.css` (`.cmdk-*`) e `tooltip.css`
       (`.custom-tooltip`/`.tooltip-*`) removidos (arquivos inteiros + `@import`); `recent_projects.css` gutado
       ao essencial (só `.empty-state`); e o card morto do toast em `notification.css` agora também podado
       (`bd5271e` — ver acima). `modal_config.css` **NÃO** é podável: `.modal-content`/`.modal-container` ainda
-      em uso por diálogos não migrados. 🟢
+      em uso por diálogos não migrados. (leve)
 - [x] Silenciar (cosmético) o warning do Vite "can't be bundled without type=module" — **FEITO** (`bd5271e`):
       `customLogger` (`createLogger`) em `vite.config.mjs` filtra a mensagem dos 2 scripts não-módulo vendados
-      (Monaco `loader.js` AMD + KaTeX UMD). Benigno (resolvidos em runtime via `vendor/`), só limpa o output. 🟢
-- [ ] Decidir o fallback raw do `index.html` (degradado pós-Lit) — remover ou aceitar. 🟢
+      (Monaco `loader.js` AMD + KaTeX UMD). Benigno (resolvidos em runtime via `vendor/`), só limpa o output. (leve)
+- [ ] Decidir o fallback raw do `index.html` (degradado pós-Lit) — remover ou aceitar. (leve)
 
-### D. 🟡 Performance (sobrou o arriscado / baixo-ROI)
+### D. Performance (sobrou o arriscado / baixo-ROI)
 - [ ] **P6** — `transition:width`→`transform` no toggle de sidebar/IA. **Único P aberto.**
 - [x] **P17 — FEITO** (`bd5271e`): atributo `inert` nos modais (`aurora-modal.js` via MutationObserver →
       `_syncInert`) + no painel IA quando fechado (`ai_assistant_manager.js`). Tab + leitor de tela não
@@ -1000,7 +1000,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
 - [x] **P7 completo — FEITO** (`bd5271e`): `content-visibility:auto` + `contain-intrinsic-size` em `.log-entry`
       (terminal, `auto 36px`) e `.file-tree-item` (tree, `auto 22px`); `.terminal-body` subiu p/ `contain:layout
       style paint`. Off-screen não pinta; altura lembrada → scrollbar estável.
-- [~] **Medição** (§4.4/G7) — **overlay de jank (p99) ✅** (`d4f7735`, `js/dev/jank_overlay.js`, command palette
+- [~] **Medição** (§4.4/G7) — **overlay de jank (p99) feito** (`d4f7735`, `js/dev/jank_overlay.js`, command palette
       grupo "Dev"). **Falta:** mark `performance.mark('aurora-interactive')` no fim do init (baseline de TTI sai do
       fallback) + **smoke de orçamento no CI** (pareia com B4).
 - [~] **Higiene de memória — limitar o que fica RETIDO nas superfícies-chave** (NÃO um "GC manual": o V8 já
@@ -1009,9 +1009,9 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       enviar** (mantém nome/mime/tam) → imagens de até 8 MB não reenviadas a cada turno. **FALTA auditar/bound:**
       `this.messages` cresce sem limite (só o base64 sai), buffer de saída do terminal, decorations/markers do
       Monaco, nós DOM destacados, listeners (já houve P12/P13/P16). Limpeza por **gatilho** (trocar de chat/
-      projeto, fechar painel) costuma ser melhor que timer periódico. Medir com heap snapshots antes/depois. 🟡
+      projeto, fechar painel) costuma ser melhor que timer periódico. Medir com heap snapshots antes/depois. (moderado)
 - [x] ~~P9 (standard tree sem virtualização)~~ — **já feito** (DocumentFragment; fim do freeze ao expandir
-      pasta grande — ver §12 ✅ Feito). Listado aqui só pra fechar a dúvida.
+      pasta grande — ver §12 Feito). Listado aqui só pra fechar a dúvida.
 - [ ] ~~P1 (um Monaco por pane)~~ — **adiado/revertido** (causou perda de dados nos commits da tentativa);
       retomar só sob pressão real de memória, com o checklist da memória. Por decisão, fora do backlog ativo.
 
@@ -1035,7 +1035,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       `css/modals/pdf_image.css`): panear pela própria transform (`translate(panX,panY) scale(zoom)`), com clamp
       ±(tamanho-ampliado − viewport)/2 (toda borda alcançável, sem jogar a imagem pro vazio); `overflow: hidden`;
       transição inline só nos botões de zoom (drag/wheel imediatos). *(Verificação visual pelo usuário: abrir
-      imagem → zoom → arrastar até os 4 cantos.)* ✅
+      imagem → zoom → arrastar até os 4 cantos.)* (feito)
 - [x] **Fechar a IDE estava LENTO — CORRIGIDO.** Causa raiz (regressão da mudança "fechar todas as janelas
       quando a principal fecha"): o `mainWindow.on('close')` passou a chamar `stopAllToolchain()` em **todo**
       fechamento, e a rotina rodava **incondicionalmente** — mesmo numa sessão que só editou arquivos — duas
@@ -1047,34 +1047,34 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       `stopAllToolchain()` **memoizado** (os dois caminhos compartilham 1 teardown); (c) removido o `before-quit`
       duplicado de `windows.js` (o de `lifecycle.js` é o autoritativo). Sessão só-edição agora fecha na hora.
       *(Verificação de runtime pelo usuário: abrir → editar → fechar = instantâneo; após compilar/simular o
-      teardown ainda mata os órfãos.)* ✅
-- [x] **A5 — FEITO ✅** (a) `getActiveFilePath` lia `dataset.file` → corrigido p/ `dataset.path` (o find-state
+      teardown ainda mata os órfãos.)* (feito)
+- [x] **A5 — FEITO feito** (a) `getActiveFilePath` lia `dataset.file` → corrigido p/ `dataset.path` (o find-state
       por arquivo volta a funcionar); (b) `tree.value` **já estava corrigido** (o `resolveProjectFile` usa
       `tree.ok`/`tree.data`); (c) snapshot do PDF lia `this.activeTab` **já sobrescrito** → captura `previousTab`
       antes de trocar; (d) `saveEditorState`/`restoreEditorState` (código morto, `ReferenceError` latente em
-      `editor` não-declarado, sem callers) → **removidos**. 🟢
+      `editor` não-declarado, sem callers) → **removidos**. (leve)
 
-### F. 🔴 Arquitetura (god-files)
+### F. Arquitetura (god-files)
 - [ ] **A2** — decompor `compilation_module.js` (3.927), `ai_assistant_manager.js` (3.873), `aurora_api.js` (2.383) por responsabilidade.
-- [ ] **A3** — migrar leituras de globais (`window.electronAPI`×431 etc.) p/ imports ES. 🟡
-- [ ] **A4** — colapsar `global.currentProject*` p/ um getter sobre `state`. 🟡
-- [x] **A7 — FEITO ✅** — removidos os `send`/`removeAllListeners` genéricos do `preload_prism.js` (os 14 canais
+- [ ] **A3** — migrar leituras de globais (`window.electronAPI`×431 etc.) p/ imports ES. (moderado)
+- [ ] **A4** — colapsar `global.currentProject*` p/ um getter sobre `state`. (moderado)
+- [x] **A7 — FEITO feito** — removidos os `send`/`removeAllListeners` genéricos do `preload_prism.js` (os 14 canais
       já têm wrappers nomeados; allowlist enumerada intacta — fim do escape de canais).
-- [x] **A8 — FEITO ✅** — 152 linhas de código morto (view de hierarquia pré-PRISM) removidas do
+- [x] **A8 — FEITO feito** — 152 linhas de código morto (view de hierarquia pré-PRISM) removidas do
       `compilation_module.js`, confirmadas por **refutação adversarial**; `cleanModuleName` vivo do `prism.js` preservado.
-- [x] **GC universal de temps — FEITO ✅** — novo `main/temp_gc.js` (best-effort, non-blocking no startup) limpa os
+- [x] **GC universal de temps — FEITO feito** — novo `main/temp_gc.js` (best-effort, non-blocking no startup) limpa os
       `aurora-mcp-<pid>.json` órfãos no tmpdir (vazavam — eram criados por turno e **nunca** limpos) + consolida a
-      limpeza dos anexos. Ligado no `main.js`. (`components/Temp` já é limpo no quit; o GC fecha o buraco do MCP.) 🟢
-- [ ] **A8** — `npm run deadcode` no CI + podar código morto. 🟢
+      limpeza dos anexos. Ligado no `main.js`. (`components/Temp` já é limpo no quit; o GC fecha o buraco do MCP.) (leve)
+- [ ] **A8** — `npm run deadcode` no CI + podar código morto. (leve)
 
 ### G. Segurança (parking lot)
-- [ ] **V4** — CLIs de IA com permissões abertas → allowlist + fechar tools nativas. 🟡
-- [ ] **V7** — token de sessão no MCP local (`Authorization`). 🟡
-- [ ] **V8** — `launch-gtkwave-only` pela `binary_allowlist`. 🟢
-- [ ] **V9** — renames (`rename_project`/`rename_processor`) passam pelo card Allow/Deny. 🟢
-- [ ] **V10** — tirar `exec(string)` com interpolação dos utils de kill/check. 🟢
-- [ ] **V11** — revisar superfície do `set_command_override` no modo `allow`. 🟢
-- [ ] **V12** — filtrar `spec.env`/`prependPath` antes do `spawn`. 🟢
+- [ ] **V4** — CLIs de IA com permissões abertas → allowlist + fechar tools nativas. (moderado)
+- [ ] **V7** — token de sessão no MCP local (`Authorization`). (moderado)
+- [ ] **V8** — `launch-gtkwave-only` pela `binary_allowlist`. (leve)
+- [ ] **V9** — renames (`rename_project`/`rename_processor`) passam pelo card Allow/Deny. (leve)
+- [ ] **V10** — tirar `exec(string)` com interpolação dos utils de kill/check. (leve)
+- [ ] **V11** — revisar superfície do `set_command_override` no modo `allow`. (leve)
+- [ ] **V12** — filtrar `spec.env`/`prependPath` antes do `spawn`. (leve)
 - [x] **CSP — FEITO** (auditado por diretiva via workflow). Header no `main.js` whenReady via
       `session.defaultSession.webRequest.onHeadersReceived` (cobre file:// + dev). Cada token é load-bearing:
       `unsafe-eval` (loader AMD do Monaco), `unsafe-inline` (inline `<script>`+`onclick`:82 + estilos
@@ -1087,31 +1087,31 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       importam só `'electron'` (contextBridge/ipcRenderer/webUtils, disponíveis sandboxed); fs/spawn/IA já no MAIN.
 
 ### H. OSS a integrar (parking lot — resolver G8: default-on vs plugin sob demanda)
-- [ ] **O1 Surfer** — ondas embutidas (remove GTKWave externo). 🔴 maior alavanca.
-- [x] **O2 Verible** — LSP de Verilog (diagnostics + format + outline + hover + def/refs) via shim manual. ✅ 19/06/2026 (§14.32; aguarda teste ao vivo)
-- [ ] **O10 ripgrep** — find-in-files no projeto. 🟡 quick-win de UX.
-- [ ] **O3 Verilator** — feedback streamado no build + consolidar `waveBuild`. 🟡
-- [ ] **O8 cocotb** — fluxo de teste de 1ª classe (alinha com branch do Arthur). 🟡
-- [ ] **O5 YoWASP** — Yosys in-process (sem spawn). 🔴
-- [x] **O7 tree-sitter** — highlight preciso (semantic tokens) p/ Verilog/SV/C/C++ via web-tree-sitter. ✅ 19/06/2026 (§14.35; aguarda teste ao vivo). NOTA: CMM/ASM não têm gramática tree-sitter → seguem Monarch; folding/outline já vêm do Monaco/Verible.
-- [ ] **O9 DigitalJS** — simulação visual no PRISM. 🟡
-- [x] **O11 slang-server** — análise semântica de SystemVerilog (diagnostics + autocompletar, toggle). ✅ 19/06/2026 (§14.34; aguarda teste ao vivo) · [ ] **O12 simple-git** · **O14 WaveDrom (docs)**. 🟡/🟢
+- [ ] **O1 Surfer** — ondas embutidas (remove GTKWave externo). maior alavanca.
+- [x] **O2 Verible** — LSP de Verilog (diagnostics + format + outline + hover + def/refs) via shim manual. 19/06/2026 (§14.32; aguarda teste ao vivo)
+- [ ] **O10 ripgrep** — find-in-files no projeto. quick-win de UX.
+- [ ] **O3 Verilator** — feedback streamado no build + consolidar `waveBuild`. (moderado)
+- [ ] **O8 cocotb** — fluxo de teste de 1ª classe (alinha com branch do Arthur). (moderado)
+- [ ] **O5 YoWASP** — Yosys in-process (sem spawn). (radical)
+- [x] **O7 tree-sitter** — highlight preciso (semantic tokens) p/ Verilog/SV/C/C++ via web-tree-sitter. 19/06/2026 (§14.35; aguarda teste ao vivo). NOTA: CMM/ASM não têm gramática tree-sitter → seguem Monarch; folding/outline já vêm do Monaco/Verible.
+- [ ] **O9 DigitalJS** — simulação visual no PRISM. (moderado)
+- [x] **O11 slang-server** — análise semântica de SystemVerilog (diagnostics + autocompletar, toggle). 19/06/2026 (§14.34; aguarda teste ao vivo) · [ ] **O12 simple-git** · **O14 WaveDrom (docs)**. moderado/ (leve)
 
 ### I. Build / DX (parking lot)
-- [ ] **B1** SHA256SUMS por release + validar no downloader. 🟡
-- [ ] **B2** code signing (SignPath/Azure) — fim do SmartScreen. 🟡
-- [ ] **B3** README/badges → canal de release `sapho`. 🟡
-- [x] **B4 — FEITO** `tsc --noEmit` já roda no CI; e `scripts/check-no-generated-js.js` (passo novo no `ci.yml`) falha se algum `.js` gerado (com irmão `.ts`) for commitado — trava o B5. 🟢
-- [ ] **B6/B13** `copy-components` incremental / junction (não recopiar ~1 GB a cada start). 🟢
-- [ ] **B7** validar sentinelas após bootstrap no `release.yml`. 🟢
-- [ ] **B8** escolher release-please como fluxo único; aposentar `build.ps1`. 🟢
-- [ ] **B9** limpar refs mortas (smoke.test, yanc-managed-files, bloco `win`, RELEASE.md). 🟢
+- [ ] **B1** SHA256SUMS por release + validar no downloader. (moderado)
+- [ ] **B2** code signing (SignPath/Azure) — fim do SmartScreen. (moderado)
+- [ ] **B3** README/badges → canal de release `sapho`. (moderado)
+- [x] **B4 — FEITO** `tsc --noEmit` já roda no CI; e `scripts/check-no-generated-js.js` (passo novo no `ci.yml`) falha se algum `.js` gerado (com irmão `.ts`) for commitado — trava o B5. (leve)
+- [ ] **B6/B13** `copy-components` incremental / junction (não recopiar ~1 GB a cada start). (leve)
+- [ ] **B7** validar sentinelas após bootstrap no `release.yml`. (leve)
+- [ ] **B8** escolher release-please como fluxo único; aposentar `build.ps1`. (leve)
+- [ ] **B9** limpar refs mortas (smoke.test, yanc-managed-files, bloco `win`, RELEASE.md). (leve)
 - [x] **B10 — FEITO** `@vitest/coverage-v8` + bloco `coverage` no `vitest.config.js` (`all:false`, lcov),
       script `test:coverage`, passo "Unit tests (with coverage)" + upload Codecov (tokenless) no `ci.yml`,
       badge de cobertura no README. ~66% statements / 68% lines do que a suíte atual exercita. (Aumentar a
-      cobertura de ipc/compile/ai/updater = escrever mais testes, fica pra depois.) 🟡
-- [ ] **B11** cross-platform (Linux/macOS): allowlist por `process.platform`, libs node no lugar de `taskkill`/`Expand-Archive`. 🔴
-- [ ] **B12** CLIs de IA (~675 MB) como download opcional sob demanda. 🟡
+      cobertura de ipc/compile/ai/updater = escrever mais testes, fica pra depois.) (moderado)
+- [ ] **B11** cross-platform (Linux/macOS): allowlist por `process.platform`, libs node no lugar de `taskkill`/`Expand-Archive`. (radical)
+- [ ] **B12** CLIs de IA (~675 MB) como download opcional sob demanda. (moderado)
 
 ### J. Repositório / profissionalização (§9, parking lot)
 - [ ] Branch protection na `main` (PR + status check obrigatório).
@@ -1148,7 +1148,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       fica FORA do projeto → o modo de permissão do Claude Code pode pedir confirmação pra ler. Opções: passar
       `--add-dir <tempdir>` ao `claude -p` (lê sem prompt) OU — mais elegante — servir a imagem como **MCP image
       content** (sem arquivo temp, sem permissão, sem lixo). Também: apagar o temp **logo após o turno** (mais
-      preciso que TTL). Avaliar quando testar imagem com Claude Code. 🟢
+      preciso que TTL). Avaliar quando testar imagem com Claude Code. (leve)
   - **DECISÃO (imagens session-scoped) — feita:** imagens são referenciáveis DENTRO do chat ativo (o SDK reenvia
     o histórico todo turno; o Claude Code lembra na sessão `--resume`), mas **não persistem após restart** — o
     registro salvo em `conversations.js` é só `{role, content}` (sem base64) → **zero inchaço de storage**
@@ -1162,7 +1162,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       injetados como `[Tool result for "x"]: ${JSON.stringify(res)}` (`chat.js`) — JSON **inteiro**, pode ser
       enorme; (e) o inline de anexos novo. Ideias: system mais enxuto + só o **delta** por-turno; **resumir/truncar**
       tool-results volumosos; estender o **Anthropic prompt-cache** (já existe no `chat.js`) e equivalentes nos CLIs;
-      medir tokens antes/depois. Meta: **menos tokens/turno** mantendo a qualidade. 🟡 (valor: custo + velocidade)
+      medir tokens antes/depois. Meta: **menos tokens/turno** mantendo a qualidade. (valor: custo + velocidade)
   - **FEITO (refresh + parte do enxugamento):** reestudo completo do **YANC v5.2** (workflow de 4 scouts) →
     SYSTEM_PROMPT atualizado (versão v5.0→**v5.2**, ISA **112→116 opcodes** + F_SCL/SF_SCL/XPO/XPO_M, stdlib
     completa: cosh/sinh/tanh/floor/ceil/round/conj + nota de transcendentais-complexas) + **dedup** (RESERVED
@@ -1185,15 +1185,15 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
     chip de tool preso. **Fix (A–E):** timeout de inatividade **tool-aware** (Set de ids) no `chat.js` + nos 2
     CLIs, `Promise.race` de 5s no usage, watchdog com **teto-duro de 12 min**, guard `_isStreaming` no `send()`,
     cap nos tool-results. Revisado por workflow adversarial (2 achados HIGH corrigidos: Set em vez de contador).
-    *(Verificação ao vivo do usuário: turnos longos/com tools não travam; freeze raro se recupera sozinho.)* ✅
-- [x] **Welcome: hover num projeto recente → preview dos processadores — FEITO ✅** (popover `position:fixed`,
+    *(Verificação ao vivo do usuário: turnos longos/com tools não travam; freeze raro se recupera sozinho.)* (feito)
+- [x] **Welcome: hover num projeto recente → preview dos processadores — FEITO feito** (popover `position:fixed`,
       sem clipping da lista; processadores lidos do `.spf` e enriquecidos/cacheados em `recent_projects.js`,
       exibidos pelo `<aurora-welcome>` no hover). Passar o
       mouse por cima de um card de "projeto recente" na tela de welcome mostra (tooltip/popover) **todos os
       processadores** definidos naquele projeto, sem precisar abri-lo. Fonte: ler o `.spf`/estrutura do projeto
       (a lista de processadores já é conhecida pelo project store / parsing do projeto). Bom pra escolher o
-      projeto certo de relance. Pareia com o `<aurora-tooltip>` (já migrado) p/ o popover. 🟢 (UX, baixo risco)
-- [x] **Syntax highlight para o arquivo `.spf` — FEITO ✅** (mapeado → linguagem `json` built-in nos 2 mapas de
+      projeto certo de relance. Pareia com o `<aurora-tooltip>` (já migrado) p/ o popover. (UX, baixo risco)
+- [x] **Syntax highlight para o arquivo `.spf` — FEITO feito** (mapeado → linguagem `json` built-in nos 2 mapas de
       extensão: `monaco_editor.js` + `split_editor.js`). Hoje o `.spf` (que é **JSON** — config canônica do projeto:
       `metadata` + `structure` com `processors[]`, listas de arquivos, `commandOverrides`) abre no Monaco como
       **plaintext** (os dois mapas de extensão — `getLanguageFromPath` em `js/editor/monaco_editor.js` e
@@ -1204,8 +1204,8 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       (Monarch; molde = a linguagem ASM em `monaco_editor.js:974-1123`) que colore o **schema** semanticamente
       (nomes de processador, chaves de `structure`, `commandOverrides`), reusando os theme tokens (defs
       `cmm-dark`/`asm-dark` + base em `theme_variables.css`). Nota: o `.spf` é gerido atômico pelo `SpfStore`/main
-      → o highlight serve p/ **inspeção** (editar à mão arrisca corromper o projeto). 🟢 (começar pelo mapa→json)
-- [x] **Mensagens follow-up no chat de IA (fila, estilo VSCode) — FEITO ✅** (`_messageQueue` no
+      → o highlight serve p/ **inspeção** (editar à mão arrisca corromper o projeto). (começar pelo mapa→json)
+- [x] **Mensagens follow-up no chat de IA (fila, estilo VSCode) — FEITO feito** (`_messageQueue` no
       `ai_assistant_manager.js`: `send()` enfileira se streaming; drena no `setStreaming(false)` priorizando a
       msg do usuário sobre o auto-continue; chips canceláveis acima do composer; `stop()`/`newChat()` limpam).
       Enviar uma nova mensagem enquanto a anterior
@@ -1220,7 +1220,7 @@ entrada na Design Lab + checklist visual (anima só transform/opacity, respeita 
       enfileira se `_isStreaming`; `setStreaming(false)` drena em sequência; `newChat()`/`stop()` decidem limpar a
       fila; UI com chips das mensagens enfileiradas + cancelar uma. **FORA de escopo:** streaming **paralelo** de
       verdade (o `currentSessionId`/`segmentBuffer`/`pendingConfirms` únicos exigiriam refactor por-sessão de
-      ~300+ LOC, e os `--resume` dos CLIs se atropelariam) — e não é o que o VSCode faz. 🟡 (alto valor de UX)
+      ~300+ LOC, e os `--resume` dos CLIs se atropelariam) — e não é o que o VSCode faz. (alto valor de UX)
 
 ---
 
@@ -1883,7 +1883,7 @@ vivo do usuário. Sequência de correções (todas verdes + commitadas):
      símbolo do gate fica; nomes de porta a/b/sum permanecem).
    - **Centralizar/zoom/pan/drag** com os MESMOS valores do esquemático (fator `exp(-deltaY*0.0016)`, clamp
      0.1–5, fit ~90%) — via transform CSS num `.djs-wrapper` em volta do paper, em estado separado (não toca o
-     pan/zoom do esquemático). Botões Fit/＋/－/🏠 + roda + arrastar-vazio funcionam nos dois modos.
+     pan/zoom do esquemático). Botões Fit/＋/－/+ roda + arrastar-vazio funcionam nos dois modos.
    - **Fundo uniforme** — forço o paper transparente (`!important`, vence o `joint-theme-default { #FFFFFF }`) →
      superfície única, sem a "caixa branca".
    - **Dígito 0/1/x ao vivo** em cada caixinha de I/O de 1 bit (`_buildValueOverlays`): overlay dentro do
@@ -2010,7 +2010,7 @@ fiéis à gramática (nome de módulo vs instância, direção de porta, tipo, m
 
 **Pesquisa/de-risco (spikes em Node antes de qualquer linha de integração):**
 - web-tree-sitter **0.26.9** (runtime WASM). Gramáticas pré-compiladas **.wasm**: SystemVerilog do
-  `gmlarumbe/tree-sitter-systemverilog` v0.3.1 (cobre .v e .sv, **20,5MB**, ABI 15 ✓), C do `tree-sitter-c` v0.24.2
+  `gmlarumbe/tree-sitter-systemverilog` v0.3.1 (cobre .v e .sv, **20,5MB**, ABI 15 ok), C do `tree-sitter-c` v0.24.2
   (0,6MB) e C++ do `tree-sitter-cpp` v0.23.4 (3,3MB). O `tree-sitter-wasms` (npm) **não** tem verilog e suas
   C/C++ falham o ABI do 0.26 → usei os .wasm oficiais das releases (ABI compatível, validado).
 - Validado de ponta a ponta: **carregar por BYTES** (`Parser.init({wasmBinary})` + `Language.load(bytes)`) — o
@@ -2737,7 +2737,7 @@ Explorer — ficaram como próximos passos aqui.
 > desatualizada — **este snapshot vence.** `main = feature/aurora-revamp`; os 8 commits paralelos
 > descartados (splits de god-files + 3 testes) ficam salvos na tag `main-pre-revamp-20260617`.
 
-#### ✅ Feito (checado)
+#### Feito (checado)
 
 **Fundação:** [x] Vite (renderer, stage 0–4) · [x] 301 testes (27 unit + 3 e2e) · [x] B4 (tsc no CI + guard
 de `.js` gerado) · [x] B5 (`.js` gerado gitignored) · [x] B10 (cobertura vitest-v8 + Codecov + badge) ·
@@ -2766,7 +2766,7 @@ persistente · [x] glow na 1ª msg · [x] LaTeX `\text` · [x] error boundary ·
 **Repo/infra:** [x] naming SAPHO/Aurora-IDE · [x] CODEOWNERS · [x] CodeQL · [x] dependabot auto-merge ·
 [x] CITATION/ROADMAP · [x] disclosure de terceiros · [x] README+badges.
 
-#### ⬜ Aberto — do mais fácil ao mais difícil
+#### Aberto — do mais fácil ao mais difícil
 
 **Decisões suas (decidir, não implementar):**
 - [x] **Codecov** — conectado ao `nipscernlab/aurora` (mostrou ~68% de cobertura); upload + guard no CI
@@ -2894,7 +2894,7 @@ modal/toast a11y, command-palette (Ctrl+Shift+P), i18n em PT, O4 (toggles do fin
 - **O8 cocotb** — fluxo de teste completo (builders/runner/UI).
 - **Features de IA** — anexos (imagens+arquivos), hover do welcome, highlight `.spf`, fila de follow-up (`016230c`+).
 
-> Nota: o doc marcava **B12 `✔`**, mas o download sob demanda dos CLIs **não** foi implementado
+> Nota: o doc marcava **B12 `ok`**, mas o download sob demanda dos CLIs **não** foi implementado
 > (ainda no `asarUnpack`). Reclassificado como aberto (rank 41).
 
 ---
@@ -3007,10 +3007,10 @@ cap 400 mensagens.
 
 **Causa raiz** — existem DOIS mecanismos de pergunta e só um mostra card:
 1. `mcp__aurora__ask_user_question` (tool MCP da AURORA) → `tool_runner.js` pula o gate de permissão
-   (a pergunta É o prompt) → `showAskUserQuestionInline` → **card interativo**. ✔
+   (a pergunta É o prompt) → `showAskUserQuestionInline` → **card interativo**. ok
 2. `AskUserQuestion` NATIVO do CLI → em `-p` + bypass sem TTY não há como perguntar a um humano; o
    evento chegava como `tool-call` genérico → `startToolChip` → **chip inerte girando**, sem card e sem
-   como responder. ✘
+   como responder. nao
 
 Como `permissionFlag()` força bypass em todo turno e a tool nativa não estava bloqueada nem havia
 qualquer menção a `ask_user_question` nas MCP_TOOL_RULES, o modelo usava a nativa e o card NUNCA

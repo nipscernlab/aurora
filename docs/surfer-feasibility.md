@@ -71,15 +71,15 @@ externo (complexos), o formato `.gtkw`, a detecção multi-processador, e o pars
 
 | Feature YANC/GTKWave | Surfer | Status |
 |---|---|---|
-| Load VCD/FST | `wellen` (FST nativo) | ✅ paridade — artefato idêntico, sem mudança |
-| Embutir na IDE | iframe WASM + postMessage/WCP | ✅ **melhor** (hoje é janela externa) |
-| Trilha de Assembly (valr2 + `trad_opcode.txt`) | **mapping translator** (já é a tabela certa) | ✅ paridade |
-| Trilha de linha-fonte (linetabs + `trad_cmm.txt`) | mapping translator (idêntico) | ✅ paridade |
-| Variáveis vivas (int/float) | formatos built-in + `group_marked`/`divider_add` | ✅ paridade |
-| **Números complexos (`comp2gtkw`)** | sem filtro externo; config não faz aritmética | ❌ **GAP** (ver §5) |
-| View curada (`.gtkw`) | `.sucl` command file (ou estado, ou WCP) | ✅ paridade (mais rica) |
-| Multi-processador | detecção fica no AURORA → grupos `.sucl` | ✅ paridade |
-| Navegação IDE↔ondas | WCP (`set_viewport_to` ao clicar numa linha) | ✅ **bônus** (GTKWave nunca deu) |
+| Load VCD/FST | `wellen` (FST nativo) | paridade — artefato idêntico, sem mudança |
+| Embutir na IDE | iframe WASM + postMessage/WCP | **melhor** (hoje é janela externa) |
+| Trilha de Assembly (valr2 + `trad_opcode.txt`) | **mapping translator** (já é a tabela certa) | paridade |
+| Trilha de linha-fonte (linetabs + `trad_cmm.txt`) | mapping translator (idêntico) | paridade |
+| Variáveis vivas (int/float) | formatos built-in + `group_marked`/`divider_add` | paridade |
+| **Números complexos (`comp2gtkw`)** | sem filtro externo; config não faz aritmética | **GAP** (ver §5) |
+| View curada (`.gtkw`) | `.sucl` command file (ou estado, ou WCP) | paridade (mais rica) |
+| Multi-processador | detecção fica no AURORA → grupos `.sucl` | paridade |
+| Navegação IDE↔ondas | WCP (`set_viewport_to` ao clicar numa linha) | **bônus** (GTKWave nunca deu) |
 
 ---
 
@@ -277,7 +277,7 @@ decode de mnemônico/linha-fonte tem o risco de **descoberta do mapping no Windo
 cores, formatos, aliases, analógico). O binário não é bundlado — o usuário coloca
 `components/Packages/surfer/surfer.exe` (sem ele → fallback GTKWave). Já instalado/testado em campo.
 
-### ✅ v2 CONCLUÍDO (ver §13) — mapping translators: decode Assembly / linha-fonte
+### v2 CONCLUÍDO (ver §13) — mapping translators: decode Assembly / linha-fonte
 > O plano abaixo foi executado em `25d258a`. Mantido como registro histórico.
 
 Hoje `valr2` (alias "Assembly") e `linetabs` ("C+-") abrem em **decimal cru**. O decode mnemônico/
@@ -297,9 +297,9 @@ linha-fonte usa o **mapping translator** do Surfer:
 escrita dos mappings).
 
 ### Depois (v3+)
-- ✅ **Complexo** (`comp_me3_*`/`comp_arr_me3_*`) — **FEITO em §13** (`e037184`): pre-pass reusando
+- **Complexo** (`comp_me3_*`/`comp_arr_me3_*`) — **FEITO em §13** (`e037184`): pre-pass reusando
   `comp2gtkw.exe` (fonte em `yanc/Scripts/comp2gtkw.c`). (era: degradava pra `Binary`.)
-- ✅ **Grupos colapsáveis reais** — **FEITO em §13** (`1b1ba48`): serialização **CONFIRMADA** (via
+- **Grupos colapsáveis reais** — **FEITO em §13** (`1b1ba48`): serialização **CONFIRMADA** (via
   `save_state_as` do próprio Surfer). Cada processador é um `Group` dobrável; o agrupamento vem dos
   `level` do `items_tree`, não do `content` (que fica `[]`).
 - **Embed WASM por iframe** (viewer dentro da IDE) — Fase grande, ver §6/§7.
@@ -360,7 +360,7 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 ### Entregue
 | Item | O quê |
 |---|---|
-| **Auto-reload** ❌ | **NÃO funciona no Windows v0.7.0 — REVERTIDO.** Tentado primeiro no `.surf.ron` (campo errado, inerte) e depois no `config.toml` (campo certo, `SurferConfig.autoreload_files`); em ambos o file-watcher do Surfer **não pega a reescrita do FST no Windows** (testado pelo usuário, tanto via `copy` quanto re-simulando). Substituído por **fechar+reabrir** (ver `launch-surfer`, commit `a67002e`): a AURORA fecha a janela anterior e abre a nova centralizada → uma janela só, sempre com dado fresco (perde zoom/posição a cada simulação — preservar isso exigiria WCP). |
+| **Auto-reload** | **NÃO funciona no Windows v0.7.0 — REVERTIDO.** Tentado primeiro no `.surf.ron` (campo errado, inerte) e depois no `config.toml` (campo certo, `SurferConfig.autoreload_files`); em ambos o file-watcher do Surfer **não pega a reescrita do FST no Windows** (testado pelo usuário, tanto via `copy` quanto re-simulando). Substituído por **fechar+reabrir** (ver `launch-surfer`, commit `a67002e`): a AURORA fecha a janela anterior e abre a nova centralizada → uma janela só, sempre com dado fresco (perde zoom/posição a cada simulação — preservar isso exigiria WCP). |
 | **Uma janela por simulação** | `launch-surfer` rastreia o `ChildProcess` do Surfer que a AURORA abriu e o fecha (`taskkill /F /T`) antes de lançar o próximo — não empilha mais janelas. Só mata o processo rastreado (sem PID-reuse, sem tocar janelas abertas à mão). |
 | **Label do terminal** | As mensagens de abertura do Surfer reusavam as chaves do GTKWave (`Launching GTKWave...`). Chaves i18n próprias `surferLaunching`/`surferLaunched` (en+pt) → `Abrindo Surfer...`. (confirmado) |
 | **Folding curado** | Cada seção (Top-level, I/O, Instructions, Variables, Flags) virou um **`Group` colapsável aninhado** em vez de `divider`. Arrays viram um Group **fechado** por padrão; Stack/ULA viram Groups dentro de **Flags** (também fechado). `pushSection`/`pushArrays`/`buildFlags` usam `mkGroup`; `DIVIDER_COLOR`→`SECTION_COLOR`. Aninhamento profundo (proc→seção→sinal = level 1/2/3) **validado por round-trip** (Surfer carrega, reconstrói a árvore, re-salva idêntico). |
@@ -372,10 +372,10 @@ O `.surf.ron` agrupa via **`items_tree` (níveis)**, NÃO via `content`:
 - Folding com `level>1` (não só 0→1) carrega e preserva fold no v0.7.0 — confirmado por round-trip com `proc(0)→seção(1)→sinal(2)`.
 
 ### Backlog restante (priorizado pela análise)
-✅ **FEITO:** bundlar `surfer.exe` (`ab87463`) · robustez (`d59b225`) · e2e do complexo sobre FST real (`1e3ae0c`) · `heightScale` clk/rst (`f8b2e5b`) · toggle multi-janela (`43f315b`).
-⏳ **Resta:** 🎨 cores por opcode (DEFERIDO — sintaxe de cor no mapping incerta + risco de panic; precisa validação visual), `field_formats` (bit-slicing), `display_name_type`/`active_scope` · 🚀 WCP ao vivo (editor↔waveform — única forma de reload-sem-perder-zoom), embed WASM.
+**FEITO:** bundlar `surfer.exe` (`ab87463`) · robustez (`d59b225`) · e2e do complexo sobre FST real (`1e3ae0c`) · `heightScale` clk/rst (`f8b2e5b`) · toggle multi-janela (`43f315b`).
+**Resta:** cores por opcode (DEFERIDO — sintaxe de cor no mapping incerta + risco de panic; precisa validação visual), `field_formats` (bit-slicing), `display_name_type`/`active_scope` · WCP ao vivo (editor↔waveform — única forma de reload-sem-perder-zoom), embed WASM.
 
-**🎯 Markers de latência (FEITO):** `event_markers.ts` (`EventScanner`) streama o `fst2vcd` e acha o 1º `req_in_sim_*`=1 (entrada) e o 1º `out_en_sim_*`=1 (saída), parando cedo. Vira `markers: { 0:(1,[tEntr]), 1:(1,[tSaida]) }` + `show_cursor_window: true` (janela de delta) no `.surf.ron`. Formato derivado por ground-truth (`marker_set <id> <tempo-raw>` + `show_marker_window`→`show_cursor_window:true`); tempo = `#N` cru do dump; round-trip confirmado. Gated em `hasIoEventSignals`.
+**Markers de latência (FEITO):** `event_markers.ts` (`EventScanner`) streama o `fst2vcd` e acha o 1º `req_in_sim_*`=1 (entrada) e o 1º `out_en_sim_*`=1 (saída), parando cedo. Vira `markers: { 0:(1,[tEntr]), 1:(1,[tSaida]) }` + `show_cursor_window: true` (janela de delta) no `.surf.ron`. Formato derivado por ground-truth (`marker_set <id> <tempo-raw>` + `show_marker_window`→`show_cursor_window:true`); tempo = `#N` cru do dump; round-trip confirmado. Gated em `hasIoEventSignals`.
 
 ### §15 — Lote autônomo (16/06/2026)
 | Item | Commit | Nota |

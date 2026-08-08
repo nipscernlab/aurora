@@ -195,7 +195,7 @@
     "undici": "^6.28.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.86",
+    "@ai-sdk/anthropic": "^4.0.30",
     "@ai-sdk/deepseek": "^2.0.39",
     "@ai-sdk/google": "^3.0.83",
     "@ai-sdk/groq": "^3.0.39",

@@ -44,6 +44,13 @@ jobs:
       - name: i18n consistency (en/pt sync + no undefined keys)
         run: node scripts/check-i18n.js
 
+      # A referencia das ferramentas da IA e gerada do TOOL_MANIFEST. Escrita a
+      # mao, ela chegou a documentar 49 das 103, faltando funcionalidades
+      # inteiras. Este check falha quando alguem acrescenta ou muda uma
+      # ferramenta sem regerar.
+      - name: AI tools reference is up to date
+        run: node scripts/gen-ai-tools-doc.js --check
+
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode
 

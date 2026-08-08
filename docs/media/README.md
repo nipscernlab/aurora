@@ -1,7 +1,8 @@
 # README media assets
 
-Drop the README screenshots and demo GIFs here, then uncomment the
-`## Screenshots` block in the root [README.md](../../README.md).
+Screenshots and demo recordings for the root [README.md](../../README.md) go
+here. The README currently says they are pending and points at this folder; when
+the files exist, replace that sentence with the images.
 
 Recommended shot list:
 

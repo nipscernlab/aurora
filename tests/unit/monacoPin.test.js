@@ -60,7 +60,7 @@ describe('check-pinned-versions.js guard (§8)', () => {
         } catch (err) {
             // Non-zero exit means some pinned dep drifted — surface the guard's
             // own diagnostics so the failure is actionable.
-            throw new Error(`guard exited non-zero:\n${err.stdout ?? ''}\n${err.stderr ?? ''}`);
+            throw new Error(`guard exited non-zero:\n${err.stdout ?? ''}\n${err.stderr ?? ''}`, { cause: err });
         }
         // Proves monaco-editor is in the set the guard actually verifies
         // (installed === declared), not silently dropped from watching.

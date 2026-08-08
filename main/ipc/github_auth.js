@@ -130,12 +130,12 @@ async function createRepo(name, isPrivate) {
     const msg = e instanceof Error ? e.message : String(e);
     // Fine-grained tokens (and classic ones without `repo`) can't create repos.
     if (/not accessible|forbidden|403/i.test(msg)) {
-      throw new Error('O token não pode criar repositórios. Use um token CLÁSSICO com o escopo "repo" — github.com/settings/tokens/new');
+      throw new Error('O token não pode criar repositórios. Use um token CLÁSSICO com o escopo "repo" — github.com/settings/tokens/new', { cause: e });
     }
     if (/already exists|name already/i.test(msg)) {
-      throw new Error(`Já existe um repositório "${name}" na sua conta.`);
+      throw new Error(`Já existe um repositório "${name}" na sua conta.`, { cause: e });
     }
-    throw new Error(msg);
+    throw new Error(msg, { cause: e });
   }
 }
 

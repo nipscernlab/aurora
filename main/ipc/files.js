@@ -127,7 +127,7 @@ function register() {
       return { success: true };
     } catch (error) {
       log.error('Error writing file:', error);
-      throw new Error(`Failed to write file: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to write file: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   });
 
@@ -190,7 +190,7 @@ function register() {
         if (se.code === 'ENOENT') {
           return { success: true, alreadyDeleted: true };
         }
-        throw new Error(`Cannot access path: ${se.message}`);
+        throw new Error(`Cannot access path: ${se.message}`, { cause: statError });
       }
 
       // fs.rm retenta automaticamente em EPERM/EBUSY/EMFILE/ENFILE/
@@ -210,7 +210,7 @@ function register() {
       return { success: true, path: normalizedPath };
     } catch (error) {
       log.error(`Error deleting ${filePath}:`, error);
-      throw new Error(`Failed to delete: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to delete: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   });
 
@@ -306,7 +306,7 @@ function register() {
       }));
     } catch (error) {
       log.error('Error reading folder:', error);
-      throw new Error('Failed to read folder');
+      throw new Error('Failed to read folder', { cause: error });
     }
   });
 
@@ -533,7 +533,7 @@ function register() {
 
       return watcherId;
     } catch (error) {
-      throw new Error(`Failed to watch directory: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to watch directory: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   });
 
@@ -581,7 +581,7 @@ function register() {
       state.fileStatsCache.set(filePath, result);
       return result;
     } catch (error) {
-      throw new Error(`Failed to get file stats: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to get file stats: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   });
 
@@ -597,7 +597,7 @@ function register() {
       const stats = await handle.stat();
       return stats.size;
     } catch (error) {
-      throw new Error(`Failed to get live file size: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to get live file size: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     } finally {
       if (handle) {
         try { await handle.close(); } catch (_closeErr) { /* ignore */ }
@@ -655,7 +655,7 @@ function register() {
 
       return watcherId;
     } catch (error) {
-      throw new Error(`Failed to start file watcher: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`Failed to start file watcher: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
   });
 

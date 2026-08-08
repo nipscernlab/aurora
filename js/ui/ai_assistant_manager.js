@@ -264,6 +264,14 @@ class AIAssistantManager {
   }
 
   initialize() {
+    // Idempotente de proposito. Sem esta guarda, uma segunda chamada criava um
+    // SEGUNDO painel no .main-container: o gerenciador passava a governar o
+    // novo, o antigo ficava orfao no DOM ainda ocupando espaco na faixa, e a
+    // largura ia para um elemento enquanto a tela mostrava o outro. Acontece de
+    // verdade porque ha dois caminhos de entrada, o window.onload do renderer e
+    // o `if (!this.container) this.initialize()` do toggle, e quem chegar
+    // primeiro nao impedia o segundo.
+    if (this.container && this.container.isConnected) return;
     this.container = document.createElement('div');
     this.container.className = 'ai-assistant-container';
     this.container.innerHTML = `

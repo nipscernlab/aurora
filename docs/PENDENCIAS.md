@@ -234,10 +234,10 @@ Depois dele, volta ao incremental.
 
 ## 7. Split dos god files
 
-Três arquivos concentram 3478 linhas e continuam crescendo: `main/ai/tools.js`
-com 1532, `main/ipc/project.js` com 982 e `main/ipc/prism.js` com 964. Nenhum
-deles tem divisão interna por assunto, e cada funcionalidade nova de IA, de
-projeto ou de PRISM entra empilhando no mesmo lugar.
+Quatro arquivos concentravam o problema quando isto foi escrito: `main/ai/tools.js`
+com 1532, `main/ipc/project.js` com 982, `main/ipc/prism.js` com 964 e, no
+renderer, os dois maiores de todos. Nenhum tinha divisão interna por assunto, e
+cada funcionalidade nova entrava empilhando no mesmo lugar.
 
 **A planta baixa já existe.** A branch local `backup/a2-godfiles` propôs a
 divisão em agosto e foi arquivada na tag `archive/a2-godfiles` (ponta
@@ -259,10 +259,44 @@ ela trazia, quatro já estão na main; a quinta exercita um método `initialize(
 que a main não tem, porque a main chegou ao mesmo construtor puro por outro
 desenho de API.
 
-**O caminho, quando for a hora.** Refazer a divisão sobre a main do dia, usando
-a tag apenas como mapa de qual função vai para qual módulo. É refactor mecânico
-com os testes atuais como rede, e cabe em três commits, um por arquivo. Não
-depende de nada e não bloqueia nada, mas quanto mais tarde, maior o arquivo.
+**O que foi feito em 08/08/2026, e o método que funcionou.** A divisão só vale a
+pena quando serve para alguma coisa, e o que ela serve é tornar o código
+alcançável por teste. O procedimento que deu certo, três vezes, é sempre o
+mesmo: achar o núcleo que não depende de nada, tirar para um módulo próprio,
+escrever teste em cima.
+
+Saíram assim, com CI verde em cada passo, `main/ipc/project_paths.js` com a
+leitura tolerante do `.spf` e a reescrita de caminhos no rename, com 22 testes;
+`main/ipc/surfer_config.js` com a geometria da janela e a higienização do nome de
+mapping, com 16; e `js/api/api_core.js` com o envelope de resposta e o barramento
+de eventos, com 18. O `project.js` caiu de 982 para 887 linhas.
+
+A extração do `api_core` revelou por que o `aurora_api.js`, com 2957 linhas,
+nunca teve um teste sequer: importar aquele arquivo inicializa a IDE inteira,
+porque a cadeia de imports chega ao `tab_manager`, que se auto-inicializa em
+tempo de carga e chama IPC que não existe fora do Electron. É a fragilidade dos
+construtores que fazem entrada e saída, descrita na seção 8 do
+[ARCHITECTURE.md](../ARCHITECTURE.md), agora com consequência medida.
+
+**O que NÃO dá para dividir agora, e por quê.** Os dois maiores,
+`js/ui/ai_assistant_manager.js` com 3416 linhas e
+`js/compilation/compilation_module.js` com 3122, são cada um uma classe só, e uma
+varredura em 08/08/2026 não achou neles um único método que não toque em `this`.
+Não há núcleo puro para extrair: dividir esses dois significa mover estado e
+mudar pontos de chamada, com zero teste embaixo, na véspera de congelar a versão
+que vai para trinta máquinas. É a mesma troca que fez a interface definitiva
+ficar de fora, e a resposta é a mesma.
+
+O `main/ai/tools.js` também fica. Ele é um vetor de dados, não lógica, e não está
+agrupado por assunto: são 25 blocos contíguos para 10 namespaces. Dividir por
+namespace mudaria a ordem em que as ferramentas chegam ao modelo, que é mudança
+de comportamento sutil, e não destrava teste nenhum, porque o manifesto já é
+verificado pelo `tool_manifest.test.js` e pelo gerador da documentação.
+
+**O que destrava.** Para os dois grandes, o caminho é o inverso do que parece:
+primeiro cobrir por fora, com teste de ponta a ponta que exercite o painel de IA
+e o fluxo de compilação pela interface, e só então mover código por dentro, com a
+rede já no lugar. Isso é trabalho do SAPHO seguinte, não desta versão.
 
 ---
 

@@ -215,7 +215,7 @@
     "chokidar": "^5.0.0",
     "diff2html": "^3.4.56",
     "digitaljs": "^0.14.2",
-    "electron-log": "^5.4.0",
+    "electron-log": "^5.4.4",
     "electron-updater": "^6.8.9",
     "fs-extra": "^11.4.0",
     "jquery": "^3.7.1",

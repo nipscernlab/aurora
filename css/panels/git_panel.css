@@ -28,9 +28,34 @@
  *    arquivo dentro, e isso e distribuicao. Sob OFL o problema nao existe e as
  *    fontes sao commitadas como as outras.
  * ========================================================================== */
-.modal-title.dagr-title { display: inline-flex; align-items: center; gap: 0.55ch; }
-/* The classic source-control glyph — kept, just quieted so the wordmark leads. */
-.dagr-title .dagr-sc-icon { font-size: 1em; color: var(--text-muted); opacity: 0.9; }
+/* A marca mora no canto superior DIREITO, encostada no botao de fechar. O
+   .title do aurora-modal e `flex: 1 1 auto` e o fechar vem logo depois, entao
+   basta encher a faixa e alinhar o conteudo a direita; o componente nao muda.
+   O seletor duplo vence o `::slotted([slot='title'])` do shadow DOM, que define
+   `align-items: center`.
+
+   O alinhamento e por LINHA DE BASE, e nao pelo centro das caixas. Centrando,
+   as duas caixas ficam alinhadas mas os glifos nao: a Noto Sans Runic tem
+   ascendente e descendente generosos, padrao das Noto, entao a linha de base
+   dela cai cerca de 3 px abaixo da linha de base da Metamorphous e a runa
+   parece afundada. Pela base os dois glifos assentam juntos, que e o certo para
+   duas partes que se leem como uma marca so. */
+.modal-title.dagr-title {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  width: 100%;
+  gap: 0.55ch;
+  padding-right: var(--space-1, 4px);
+}
+/* The classic source-control glyph — kept, just quieted so the wordmark leads.
+   Sem linha de base util, entao ele continua centrado. */
+.dagr-title .dagr-sc-icon {
+  font-size: 1em;
+  color: var(--text-muted);
+  opacity: 0.9;
+  align-self: center;
+}
 /* A runa Dagaz — a marca. Noto Sans Runic cobre U+16A0-16F8, que e onde o ᛞ
    mora; as do sistema ficam de reserva. Acesa no acento com um brilho suave. */
 .dagr-rune {

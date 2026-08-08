@@ -405,7 +405,7 @@ body.editor-has-focus .verilog-file-item.editor-focused .verilog-file-name {
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--elev-overlay);
   padding: var(--space-1);
   min-width: 180px;
   z-index: var(--z-popover);

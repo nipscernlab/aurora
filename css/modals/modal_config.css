@@ -300,7 +300,7 @@
   background: var(--bg-elev-2, #1a1d27);
   color: var(--text, #e8ecf3);
   border: 1px solid var(--border, #1f2532);
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.45));
+  box-shadow: var(--elev-overlay);
   font-size: var(--text-xs);
   font-weight: var(--font-normal, 400);
   line-height: var(--leading-snug, 1.4);

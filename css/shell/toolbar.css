@@ -514,7 +514,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--elev-overlay);
   padding: 4px;
 }
 
@@ -870,7 +870,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   padding: var(--space-6);
   max-width: 480px;
   z-index: var(--z-40);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--elev-overlay);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   animation: fadeInScale var(--transition-normal) var(--ease-out-quart) both;

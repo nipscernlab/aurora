@@ -117,26 +117,6 @@ body.window-maximized {
               box-shadow var(--transition-fast);
 }
 
-/* Suspende a animação de largura enquanto o usuário arrasta um divisor.
-
-   Isto era dado como existente por dois comentários, o do topo de
-   js/utils/resize.js e o do .file-tree-container em css/base/layout.css, que
-   aponta para cá. A regra nunca existiu: o CSS injetado pelo resize.js só
-   definia cursor e user-select. O efeito era que cada mousemove reiniciava uma
-   transição de 220 ms (240 ms no painel de IA), então o painel arrastava atrás
-   do cursor e cada quadro forçava relayout de todos os editores Monaco abertos.
-
-   As classes já eram aplicadas ao body pelos dois arrastadores, o do file tree
-   (resize.js) e o do painel de IA (ai_assistant_manager.js), que usa a mesma
-   resizing-vertical. Faltava só consumi-las. Fora do arrasto a transição
-   continua valendo, que é o que dá o movimento suave ao abrir e fechar. */
-body.resizing-vertical .file-tree-container,
-body.resizing-corner   .file-tree-container,
-body.resizing-vertical .ai-assistant-container,
-body.resizing-ai-corner .ai-assistant-container {
-  transition: none;
-}
-
 /* The vertical (file-tree) resizer lights on direct interaction AND when the
    corner handle is grabbed/dragged — so the file-tree↔terminal corner frames
    BOTH of its edges in purple, exactly like the AI↔terminal corner does. */
@@ -205,6 +185,16 @@ body.resizing-horizontal .terminal-container,
 body.resizing-corner .terminal-container {
   transition: none !important;
 }
+/* O painel de IA faltava nesta lista, e ele anima `width` por 240 ms. O
+   arrastador dele (ai_assistant_manager.js) usa a mesma classe
+   `resizing-vertical` do file tree, mais a sua própria `resizing-ai-corner`,
+   então bastava incluí-lo aqui. Sem isso, cada mousemove reiniciava a
+   transição: o painel arrastava atrás do cursor e cada quadro forçava relayout
+   dos editores Monaco abertos. */
+body.resizing-vertical .ai-assistant-container,
+body.resizing-ai-corner .ai-assistant-container {
+  transition: none !important;
+}
 
 /* While dragging the corner, thicken both lit edges so they read as a clear
    purple border (parity with the AI↔terminal corner). */
@@ -219,7 +209,7 @@ body.resizing-corner .resizer-horizontal::after { height: 2px; }
      right-click for nothing visible — dropped (P8b). */
   background-color: var(--bg-elev-2);
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg), var(--shadow-inset-line);
+  box-shadow: var(--elev-overlay), var(--shadow-inset-line);
   padding: var(--space-1);
   border-radius: var(--radius-md);
   z-index: var(--z-max);

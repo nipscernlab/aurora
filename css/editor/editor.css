@@ -382,7 +382,7 @@
  * =================================================================================== */
 .monaco-editor .find-widget {
   z-index: var(--z-50) !important;
-  box-shadow: var(--shadow-lg) !important;
+  box-shadow: var(--elev-overlay) !important;
   border-radius: var(--radius-md);
   border: 1px solid var(--border) !important;
   background-color: var(--bg-elev-2) !important;
@@ -481,7 +481,7 @@
   color: var(--accent-hover);
   background: var(--bg-elev-3);
   border: 1px solid var(--border-luminous);
-  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--elev-overlay);
   cursor: pointer;
   user-select: none;
   opacity: 0.96;
@@ -508,7 +508,7 @@
   background: var(--bg-elev-2);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--elev-overlay);
   animation: editorFadeIn 0.12s ease;
 }
 .ai-selection-menu-item {

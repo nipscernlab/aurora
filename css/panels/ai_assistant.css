@@ -397,7 +397,7 @@ body.ai-assistant-open {
   border-radius: var(--radius-lg);
   background: var(--bg-elev-2);
   border: 1px solid var(--border-luminous);
-  box-shadow: 0 16px 50px -12px rgba(0, 0, 0, 0.6), 0 0 40px -12px var(--accent-glow);
+  box-shadow: var(--elev-overlay);
 }
 .ai-link-warning-head {
   display: flex;
@@ -1048,7 +1048,7 @@ body.ai-assistant-open {
   max-height: 94vh;
   object-fit: contain;
   border-radius: var(--radius-lg);
-  box-shadow: 0 24px 80px -12px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--elev-overlay);
   cursor: default;
   transform: scale(0.98);
   transition: transform 160ms var(--ease-out-quart, ease);
@@ -1412,7 +1412,7 @@ body.ai-assistant-open {
   background: var(--bg-elev-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 -8px 36px rgba(0, 0, 0, 0.52);
+  box-shadow: var(--elev-overlay);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -1903,7 +1903,7 @@ body.ai-assistant-open {
   flex-direction: column;
   background: var(--bg-elev-2);
   border-bottom: 1px solid var(--border);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--elev-overlay);
   overflow: hidden;
   animation: ai-msg-in 140ms var(--ease-out-quart);
 }
@@ -2445,7 +2445,7 @@ body.resizing-ai-corner * {
   font-size: var(--text-xs);
   cursor: pointer;
   z-index: var(--z-10);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--elev-overlay);
   /* Hidden by default; `.visible` fades it in. Both in AND out animate via
      this single transition so it never pops out abruptly. */
   opacity: 0;

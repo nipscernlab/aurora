@@ -50,7 +50,7 @@
   background-color: var(--bg-elev-2);
   border-radius: 0;
   border: 1px solid var(--border);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--elev-overlay);
   overflow: hidden;
 }
 

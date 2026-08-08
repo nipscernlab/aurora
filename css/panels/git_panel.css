@@ -375,7 +375,7 @@
   min-width: 250px; max-width: 360px;
   max-height: min(60vh, 440px); overflow-y: auto;
   background: var(--bg-elev-3, var(--bg-elev)); border: 1px solid var(--border);
-  border-radius: var(--radius-lg); box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.55));
+  border-radius: var(--radius-lg); box-shadow: var(--elev-overlay);
   padding: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1);
   animation: gitCtxIn 120ms var(--ease-out, ease) both;
 }
@@ -941,7 +941,7 @@
   position: fixed; z-index: calc(var(--z-modal, 1000) + 20);
   min-width: 210px; padding: 4px;
   background: var(--bg-elev-3, var(--bg-elev)); border: 1px solid var(--border);
-  border-radius: var(--radius-md); box-shadow: var(--shadow-lg, 0 16px 40px rgba(0, 0, 0, 0.55));
+  border-radius: var(--radius-md); box-shadow: var(--elev-overlay);
   animation: gitCtxIn 120ms var(--ease-out, ease) both;
 }
 .git-ctx-item {
@@ -1067,7 +1067,7 @@
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 9px; font-weight: var(--font-bold); line-height: 1;
   border-radius: 999px; border: 1.5px solid var(--bg-titlebar, var(--bg, #0A0D14));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--elev-raised);
   pointer-events: none;
 }
 .git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }
@@ -1081,7 +1081,7 @@
   background-size: cover; background-position: center; background-repeat: no-repeat;
   background-color: var(--bg-elev, #1a1f2b);
   border: 1.5px solid var(--bg-titlebar, var(--bg, #0A0D14));
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--elev-raised);
   pointer-events: none;
 }
 .git-avatar-badge[hidden] { display: none !important; }

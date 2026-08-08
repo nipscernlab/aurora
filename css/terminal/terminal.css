@@ -726,3 +726,62 @@
   color: var(--accent-hover);
   background: var(--accent-soft);
 }
+
+
+/* ---------------------------------------------------------------------------
+ *  Excedente das abas (js/terminal/tab_overflow.js)
+ *
+ *  Comprimir aba tem fim: passado o piso elas ficam ilegiveis e encavalam os
+ *  botoes de acao da direita. Dali em diante o excedente vai para esta lista.
+ * ------------------------------------------------------------------------ */
+
+/* As acoes das duas pontas nunca cedem: eram elas que a lista encavalava. */
+.terminal-tabs-actions { flex-shrink: 0; }
+
+.tab.tab-overflowed { display: none; }
+
+.terminal-tab-overflow-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+}
+.terminal-tab-overflow-btn.hidden { display: none; }
+.terminal-tab-overflow-btn:hover { color: var(--text); background: var(--overlay-hover); }
+.terminal-tab-overflow-count { font-size: var(--text-2xs); line-height: 1; }
+
+.terminal-tab-overflow-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: var(--z-30);
+  min-width: 160px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-elev);
+  box-shadow: var(--elev-overlay);
+}
+.terminal-tab-overflow-menu.hidden { display: none; }
+
+.terminal-tab-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.terminal-tab-overflow-item:hover { background: var(--overlay-hover); color: var(--text); }

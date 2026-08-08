@@ -7,6 +7,7 @@ import { initMonaco } from '../editor/monaco_editor.js';
 import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
+import { initTerminalTabOverflow } from '../terminal/tab_overflow.js';
 // Side-effect import: boots the TCMD tab's embedded interactive shell (PowerShell)
 // and self-initializes on DOMContentLoaded.
 import '../terminal/shell_terminal.js';
@@ -152,6 +153,9 @@ document.addEventListener('DOMContentLoaded', () => {
 window.onload = () => {
     initMonaco();
     aiAssistantManager.initialize();
+    // As abas do terminal que nao couberem vao para uma lista, em vez de serem
+    // comprimidas ate encavalar os botoes de acao.
+    initTerminalTabOverflow();
 
     const aiBtn = document.getElementById('aiButton');
     if (aiBtn) {

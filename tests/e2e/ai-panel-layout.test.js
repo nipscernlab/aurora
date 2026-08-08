@@ -147,6 +147,51 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     expect(r.fora, 'nada do terminal pode entrar na faixa do painel').toEqual([]);
   }, 30_000);
 
+  it('apertando muito, as abas que sobram vao para a lista', async () => {
+    // O limite seguinte do aperto: comprimir tem fim, e depois dele as abas
+    // encavalavam os botoes de acao. Aqui o painel de IA e alargado ate o teto
+    // e o esperado e ver o botao de excedente, nao abas em cima dos botoes.
+    await window.evaluate(() => {
+      const c = document.querySelector('.ai-assistant-container');
+      c.style.transition = 'none';
+      c.style.width = window.aiAssistantManager._larguraPermitida(99999) + 'px';
+    });
+    // Esperar pela CONDICAO, e nao por um tempo fixo: o ResizeObserver reage no
+    // proximo quadro, mas prender o teste a um numero de milissegundos e o que
+    // produz teste intermitente.
+    await window.waitForFunction(() => {
+      const b = document.querySelector('.terminal-tab-overflow-btn');
+      return !!b && !b.classList.contains('hidden');
+    }, null, { timeout: 5_000 });
+
+    const r = await window.evaluate(() => {
+      const btn = document.querySelector('.terminal-tab-overflow-btn');
+      const abas = [...document.querySelectorAll('.terminal-tabs .tab')];
+      const ativa = abas.find((t) => t.classList.contains('active'));
+      const acoes = [...document.querySelectorAll('.terminal-tabs-actions')];
+      const visiveis = abas.filter((t) => !t.classList.contains('tab-overflowed'));
+
+      // Nenhuma aba visivel pode invadir a area das acoes.
+      const invade = visiveis.some((t) => acoes.some((a) => {
+        const rt = t.getBoundingClientRect();
+        const ra = a.getBoundingClientRect();
+        return rt.right > ra.left + 1 && rt.left < ra.right - 1;
+      }));
+
+      return {
+        temBotao: !!btn && !btn.classList.contains('hidden'),
+        escondidas: abas.length - visiveis.length,
+        ativaVisivel: !!ativa && !ativa.classList.contains('tab-overflowed'),
+        invade,
+      };
+    });
+
+    expect(r.escondidas, 'com o painel no maximo alguma aba tem que sair').toBeGreaterThan(0);
+    expect(r.temBotao, 'havendo aba oculta, o botao da lista aparece').toBe(true);
+    expect(r.ativaVisivel, 'a aba ativa nunca pode ser escondida').toBe(true);
+    expect(r.invade, 'nenhuma aba pode encavalar os botoes de acao').toBe(false);
+  }, 30_000);
+
   it('forcar uma largura absurda nao espreme o editor a zero', async () => {
     // É exatamente o caso que quebrava: largura salva de uma janela maior,
     // ou um arrasto forçado até o fim.

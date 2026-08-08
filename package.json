@@ -243,7 +243,7 @@
     "husky": "^9.1.7",
     "js-yaml": "^4.3.1",
     "knip": "6.31.0",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.3.0",
     "playwright": "^1.62.1",
     "typescript": "^6.0.3",
     "vite": "^8.2.0",

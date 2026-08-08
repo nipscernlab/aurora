@@ -1,12 +1,19 @@
 # O que falta
 
-Backlog honesto do que ainda não foi feito para a AURORA/SAPHO entrar no
-laboratório de Dispositivos Lógicos Programáveis. Escrito em 06/08/2026, ao
-fim da sessão de preparação registrada em
-[ESTUDO_COMPLETO_AURORA.md](ESTUDO_COMPLETO_AURORA.md) §19.
+Backlog honesto do que ainda não foi feito para a AURORA e o SAPHO entrarem no
+laboratório de Dispositivos Lógicos Programáveis. Escrito em 06/08/2026 e
+consolidado em 07/08/2026, quando passou a ser o único backlog do projeto:
+o `ROADMAP.md` e as duas listas que viviam dentro do estudo guarda-chuva foram
+fundidos aqui.
 
-A regra deste documento: só entra aqui o que **não** foi feito. O que foi feito
-está no §19. Ao concluir um item, mova o registro para lá e apague daqui.
+A regra é uma só: entra aqui o que não foi feito. Ao concluir um item, apague o
+registro; o git guarda a história melhor do que uma lista de coisas feitas.
+
+Aquelas listas antigas mostraram por que a regra importa. Numa amostra de nove
+itens que elas marcavam como abertos, oito já estavam prontos, entre eles o
+`deadcode` no CI, o token de sessão do MCP local e a allowlist das ferramentas
+das CLIs de IA. Um backlog em que não se pode confiar é pior do que backlog
+nenhum, porque ele custa releitura e produz decisão errada.
 
 ---
 
@@ -98,8 +105,15 @@ Monaco completo por arquivo aberto, terminal e árvore sem virtualização, e
 `transition: width` que força relayout. Nada disso foi medido nem atacado nesta
 sessão.
 
-Recomendação: medir antes de mexer. A §4 foi escrita em junho e vários itens
-podem já ter sido resolvidos pelas otimizações registradas na §17.
+Recomendação: medir antes de mexer. O diagnóstico de performance é de junho e
+vários itens já foram resolvidos desde então.
+
+Um item concreto sobreviveu à conferência de 07/08/2026 e continua aberto:
+`transition: width` anima propriedade de layout, o que força relayout de todos os
+editores Monaco a cada alternância de painel. Restam três ocorrências, em
+`css/base/layout.css` linha 160 e em `css/panels/ai_assistant.css` linhas 36 e
+1668. A correção é animar `transform: translateX` num invólucro de largura fixa,
+nunca a largura em si.
 
 ---
 

@@ -5,7 +5,7 @@
      `description` dela em main/ai/tools.js, que e o mesmo texto que o
      modelo le ao decidir se a chama. -->
 
-A AURORA expoe 103 ferramentas ao modelo. Elas chegam ate ele por dois
+A AURORA expoe 104 ferramentas ao modelo. Elas chegam ate ele por dois
 caminhos, descritos no [estudo do codigo](ESTUDO_CODIGO_AURORA.md).
 
 Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel
@@ -60,6 +60,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 | Ferramenta | Acesso | Parametros | O que faz |
 |---|---|---|---|
 | `create_split` | write | nenhum | Create a new editor split pane. |
+| `format_file` | write | `filePath`? | Reformat a file using Aurora's own formatter — the same one behind the wand button and Shift+Alt+F. Routes by language: clang-format for C, C++ and C± (C± borrows C rules), black for Python, Verible for Verilog. PREFER THIS over rewriting a file yourself when the only problem is layout: indentation, brace style, line breaks, spacing, alignment. Rewriting a whole file to fix its formatting is slow, risks dropping code, and buries the real change in a huge diff. Formats the buffer and saves. Omit filePath to format the focused file. Returns changed:false when the file was already formatted. |
 | `get_active_file` | read | nenhum | Get the path of the file currently focused in the editor. |
 | `get_cursor` | read | nenhum | Get the current cursor position (1-indexed line and column) in the active editor. |
 | `get_open_files` | read | nenhum | List the file paths of every open editor tab. |

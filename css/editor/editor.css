@@ -269,8 +269,13 @@
  * Floating markdown/HTML preview (magnifier) button. Same treatment as the
  * split button, parked immediately to its left in the focused pane
  * (28px button + 6px gap). Shown only for .md/.html files.
+ *
+ * A varinha de formatar divide esta vaga. Ela aparece só quando o buffer tem
+ * provedor de formatação (código) e a lupa só para markdown e HTML, então as
+ * duas nunca disputam o mesmo lugar.
  */
-.md-preview-float-btn {
+.md-preview-float-btn,
+.format-float-btn {
   position: absolute;
   top: 8px;
   right: 48px;
@@ -291,15 +296,18 @@
   transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
-.md-preview-float-btn:hover {
+.md-preview-float-btn:hover,
+.format-float-btn:hover {
   opacity: 1;
   color: var(--accent);
   border-color: var(--accent);
 }
 
-.md-preview-float-btn.hidden { display: none; }
+.md-preview-float-btn.hidden,
+.format-float-btn.hidden { display: none; }
 
-.md-preview-float-btn i { font-size: 16px; line-height: 1; }
+.md-preview-float-btn i,
+.format-float-btn i { font-size: 16px; line-height: 1; }
 
 /* Rendered Markdown preview: breathing room on both sides so the text
  * doesn't touch the pane edges. */

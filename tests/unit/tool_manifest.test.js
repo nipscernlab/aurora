@@ -1,4 +1,7 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, it, expect } from 'vitest';
+
 import pkg from '../../main/ai/tools.js';
 
 const { TOOL_MANIFEST } = pkg;
@@ -90,6 +93,59 @@ describe('TOOL_MANIFEST', () => {
         });
         expect(by('list_memories')).toMatchObject({
             access: 'read', api: ['project', 'listMemories'], argStyle: 'none',
+        });
+    });
+
+    // O comentário no topo deste arquivo diz que o manifesto e a função da API
+    // são ligados por convenção, e não por tipos. Este é o teste dessa
+    // convenção: um `api: [ns, fn]` que não existe do outro lado vira uma
+    // ferramenta anunciada ao modelo que falha só quando o usuário a usa.
+    //
+    // O mapa NAMESPACES de js/api/aurora_api.js é a lista canônica do que a
+    // API expõe, então é contra ele que conferimos. Lemos como texto de
+    // propósito: aurora_api.js importa o Monaco e não carrega no Node.
+    it('every api pair exists in the AuroraAPI namespace it names', () => {
+        // Lemos como texto de propósito: aurora_api.js importa o Monaco e não
+        // carrega no Node. Os objetos são `const <ns>Ns = { ... }` e é contra
+        // eles que o runtime despacha.
+        const fontes = ['../../js/api/aurora_api.js', '../../js/api/git_ns.js']
+            .map((p) => readFileSync(new URL(p, import.meta.url), 'utf8'))
+            .join('\n');
+
+        /** Métodos declarados no literal `const <ns>Ns = {` . */
+        const metodosDe = (ns) => {
+            const marca = `const ${ns}Ns = {`;
+            const i = fontes.indexOf(marca);
+            if (i < 0) return null;
+            const abre = i + marca.length - 1;
+            let nivel = 0, fim = -1;
+            for (let j = abre; j < fontes.length; j++) {
+                if (fontes[j] === '{') nivel++;
+                else if (fontes[j] === '}') { nivel--; if (nivel === 0) { fim = j; break; } }
+            }
+            if (fim < 0) return null;
+            // Só o primeiro nível: um método é `  nome(` ou `  async nome(`,
+            // com exatamente dois espaços de indentação.
+            return new Set([...fontes.slice(abre, fim)
+                .matchAll(/^ {2}(?:async\s+)?(\w+)\s*\(/gm)].map((m) => m[1]));
+        };
+
+        const cache = new Map();
+        const faltando = [];
+        for (const def of TOOL_MANIFEST) {
+            const [ns, fn] = def.api;
+            if (!cache.has(ns)) cache.set(ns, metodosDe(ns));
+            const metodos = cache.get(ns);
+            if (!metodos) { faltando.push(`${def.name} -> namespace ${ns} nao encontrado`); continue; }
+            if (!metodos.has(fn)) faltando.push(`${def.name} -> ${ns}.${fn}`);
+        }
+        expect(faltando).toEqual([]);
+    });
+
+    // A varinha e a IA compartilham um caminho só de formatação.
+    it('wires format_file to the editor namespace', () => {
+        expect(TOOL_MANIFEST.find((d) => d.name === 'format_file')).toMatchObject({
+            access: 'write', api: ['editor', 'formatFile'], argStyle: 'object',
         });
     });
 });

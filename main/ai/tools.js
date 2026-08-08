@@ -1332,6 +1332,27 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'format_file',
+    description:
+      'Reformat a file using Aurora\'s own formatter — the same one behind the wand '
+      + 'button and Shift+Alt+F. Routes by language: clang-format for C, C++ and C± '
+      + '(C± borrows C rules), black for Python, Verible for Verilog. PREFER THIS over '
+      + 'rewriting a file yourself when the only problem is layout: indentation, brace '
+      + 'style, line breaks, spacing, alignment. Rewriting a whole file to fix its '
+      + 'formatting is slow, risks dropping code, and buries the real change in a huge '
+      + 'diff. Formats the buffer and saves. Omit filePath to format the focused file. '
+      + 'Returns changed:false when the file was already formatted.',
+    access: 'write',
+    api: ['editor', 'formatFile'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Absolute or project-relative path. Defaults to the focused file.' },
+      },
+    },
+  },
+  {
     name: 'create_split',
     description: 'Create a new editor split pane.',
     access: 'write',

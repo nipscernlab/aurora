@@ -331,6 +331,69 @@ const editorNs = {
     }
   },
 
+  /**
+   * Formata um arquivo pelo formatador da própria AURORA, o mesmo da varinha
+   * e do Shift+Alt+F.
+   *
+   * Isto existe para a IA não precisar reescrever um arquivo inteiro só para
+   * arrumar indentação e espaçamento. Reescrever é caro, arrisca perder código
+   * e produz um diff enorme onde o certo seria um diff de formatação. Aqui ela
+   * delega ao clang-format (C, C++ e C±), ao black (Python) ou ao Verible
+   * (Verilog), conforme o idioma do arquivo, e o resultado é exatamente o que
+   * o usuário obteria clicando na varinha.
+   */
+  async formatFile({ filePath } = {}) {
+    let alvo = filePath || TabManager?.activeTab || null;
+    if (!alvo) return err('No file given and no active file');
+
+    // Aceita o mesmo tipo de caminho aproximado que openFile aceita.
+    if (filePath) {
+      const root = window.currentProjectPath || '';
+      const abs = root ? await resolveProjectFile(filePath, root) : null;
+      if (!abs) return err(`"${filePath}" not found anywhere in the project.`);
+      alvo = abs;
+    }
+
+    // O provedor de formatação mora no Monaco, então o arquivo precisa de um
+    // modelo. Se não estiver aberto, abrimos.
+    let ed = EditorManager.getEditorForFile?.(alvo) ?? null;
+    if (!ed) {
+      const r = await editorNs.openFile({ filePath: alvo });
+      if (!r?.success) return r;
+      ed = EditorManager.getEditorForFile?.(alvo) ?? null;
+    }
+    if (!ed?.getModel) return err(`Could not open an editor for "${alvo}"`);
+
+    const model = ed.getModel();
+    const antes = model.getValue();
+    const action = ed.getAction?.('editor.action.formatDocument');
+    if (!action) return err('Format action unavailable');
+    let suportado = false;
+    try { suportado = action.isSupported(); } catch { suportado = false; }
+    if (!suportado) {
+      return err(`No formatter is registered for "${model.getLanguageId()}". `
+        + 'Aurora formats C, C++, C± (clang-format), Python (black) and Verilog (Verible).');
+    }
+
+    try { await action.run(); } catch (e) {
+      return err(e?.message || 'format failed');
+    }
+
+    const depois = model.getValue();
+    if (depois === antes) {
+      return ok({ filePath: alvo, changed: false, message: 'Already formatted' });
+    }
+    try {
+      await TabManager.saveFile(alvo);
+    } catch (e) {
+      // A formatação está no buffer; só o salvamento falhou. Dizer isso é mais
+      // útil do que fingir que nada aconteceu.
+      return err(`Formatted the buffer but could not save: ${e?.message || e}`);
+    }
+    emit('editor:saved', { filePath: alvo });
+    return ok({ filePath: alvo, changed: true, language: model.getLanguageId() });
+  },
+
   async saveAll() {
     try {
       await TabManager.saveAllFiles();
@@ -2777,6 +2840,7 @@ const NAMESPACES = Object.freeze({
     closeTab:          'Close a tab (the active one by default)',
     reopenLastTab:     'Reopen the most recently closed tab',
     openFile:          'Open any project file in the editor (optionally in a new split)',
+    formatFile:        'Format a file with Aurora’s own formatter instead of rewriting it',
     createSplit:       'Create a new editor split pane',
   },
   terminal: {

@@ -105,6 +105,9 @@
     },
     "pylibs": {
       "tooltip": "Python libraries"
+    },
+    "format": {
+      "tooltip": "Format this file"
     }
   },
   "windowControls": {

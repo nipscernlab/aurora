@@ -583,6 +583,10 @@ const SplitEditorManager = {
     // The markdown/HTML preview (magnifier) button — same floating pattern as
     // splitFloatBtn, parked in the focused pane, shown only for .md/.html.
     lupaBtn: null,
+    // A varinha de formatar — mesmo padrão flutuante, à esquerda do split.
+    // Ela e a lupa nunca aparecem juntas (uma é para código, a outra para
+    // markdown e HTML), então dividem a mesma vaga ao lado do split.
+    formatBtn: null,
     // Cross-pane tab drag state. Set at dragstart (by main tab_drag.js and by
     // split tabs here), read by pane drop targets so they only accept Aurora's
     // own tab drags and know which pane the tab came from (for move semantics).
@@ -948,6 +952,18 @@ const SplitEditorManager = {
         return pane?.activeFile ?? TabManager.activeTab;
     },
 
+    /** Instância do Monaco do pane focado, ou null. O shell principal guarda
+     *  seus editores no EditorManager; um split guarda no próprio pane. */
+    getFocusedEditor() {
+        if (this.focusedPane === 0) {
+            const f = TabManager.activeTab;
+            return f ? (EditorManager.getEditorForFile?.(f) ?? null) : null;
+        }
+        const pane = this.panes.find(p => p.paneIndex === this.focusedPane);
+        if (!pane?.activeFile) return null;
+        return pane.tabs.get(pane.activeFile)?.editor ?? null;
+    },
+
     /** Lazily build the single floating split button (icon only). */
     _ensureSplitFloatBtn() {
         if (this.splitFloatBtn) return this.splitFloatBtn;
@@ -1017,6 +1033,7 @@ const SplitEditorManager = {
         btn.removeAttribute('title');
         delete btn.dataset.originalTitle;
         this._updateLupaButton();
+        this._updateFormatButton();
     },
 
     /**
@@ -1089,6 +1106,60 @@ const SplitEditorManager = {
         });
         this.lupaBtn = btn;
         return btn;
+    },
+
+    /** Varinha: formata o buffer do pane focado.
+     *
+     *  Não escolhemos o formatador aqui. Cada idioma registra o seu provedor no
+     *  Monaco (clang-format para C, C++ e C±, com C± pegando as regras de C;
+     *  black para Python; Verible pelo LSP para Verilog) e a ação padrão do
+     *  editor despacha para o provedor do buffer em foco. Assim a varinha é a
+     *  mesma coisa que Shift+Alt+F, e um idioma novo aparece sozinho no botão. */
+    _ensureFormatBtn() {
+        if (this.formatBtn) return this.formatBtn;
+        const btn = document.createElement('button');
+        btn.id = 'format-float-btn';
+        btn.type = 'button';
+        btn.className = 'format-float-btn toolbar-button icon-only';
+        btn.innerHTML = '<i class="ph ph-magic-wand"></i>';
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.formatFocused();
+        });
+        this.formatBtn = btn;
+        return btn;
+    },
+
+    /** Roda a ação de formatar no editor em foco. */
+    async formatFocused() {
+        const editor = this.getFocusedEditor();
+        const action = editor?.getAction?.('editor.action.formatDocument');
+        if (!action) return;
+        editor.focus();
+        try { await action.run(); } catch (e) {
+            console.warn('[format] falhou:', e);
+        }
+    },
+
+    /** Estaciona a varinha no pane focado; some quando o idioma não tem quem
+     *  o formate. `isSupported()` da ação já reflete os provedores registrados,
+     *  então nada aqui precisa saber a lista de idiomas. */
+    _updateFormatButton() {
+        const btn = this._ensureFormatBtn();
+        const host = this._focusedPaneEl();
+        if (!host) { btn.remove(); return; }
+        if (btn.parentElement !== host) host.appendChild(btn);
+
+        const editor = this.getFocusedEditor();
+        const action = editor?.getAction?.('editor.action.formatDocument');
+        let podeFormatar = false;
+        try { podeFormatar = !!action && action.isSupported(); } catch { podeFormatar = false; }
+        btn.classList.toggle('hidden', !podeFormatar);
+        btn.setAttribute('data-i18n-tooltip', 'toolbar.format.tooltip');
+        btn.setAttribute('data-tooltip',
+            window.t ? window.t('toolbar.format.tooltip') : 'Format this file');
+        btn.removeAttribute('title');
+        delete btn.dataset.originalTitle;
     },
 
     /** Park the preview button in the focused pane; show it only for md/html. */

@@ -7,6 +7,7 @@ import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
 import { initVerilogLSP } from './lsp_integration.js';
 import { initClangFormat } from './clang_format_integration.js';
+import { initPythonFormat } from './python_format_integration.js';
 import { initSlang } from './slang_integration.js';
 import { initTreeSitter } from './treesitter_highlight.js';
 
@@ -872,6 +873,9 @@ function initMonaco() {
             // (CMM borrows C rules). Verilog formats via Verible above; Monaco
             // dispatches by the focused buffer's language automatically.
             initClangFormat();
+            // Python fecha a lista de idiomas formatáveis: black pelo
+            // interpretador que o localizador já descobre para o cocotb.
+            initPythonFormat();
             // O11: slang semantic analysis for Verilog/SystemVerilog —
             // elaboration diagnostics + completion, complementing Verible.
             // Toggleable (command palette); only wires providers here.

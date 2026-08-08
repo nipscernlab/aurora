@@ -514,6 +514,21 @@ const clangFormatOperations = {
 };
 
 /* ============================================================================
+ *  BLACK (window.pythonFormatAPI) — backed by main/format/python_format.js
+ *
+ *  Formatador de Python da varinha. Diferente do clang-format, aqui não há
+ *  binário empacotado: main chama `python -m black -` no interpretador que o
+ *  localizador já descobre para o cocotb. Devolve
+ *  `{ok, text}` ou `{ok:false, reason}` com reason em 'no-python' | 'no-black'
+ *  | 'failed', para o editor dizer ao usuário o que falta em vez de não fazer
+ *  nada em silêncio.
+ * ========================================================================= */
+const pythonFormatOperations = {
+  status: () => ipcRenderer.invoke('format:python-status'),
+  format: (text) => ipcRenderer.invoke('format:python', { text }),
+};
+
+/* ============================================================================
  *  TREE-SITTER (window.treeSitterAPI) — backed by main/treesitter/grammars.js
  *
  *  Serves WASM bytes (web-tree-sitter runtime + grammar parsers) to the
@@ -664,6 +679,7 @@ contextBridge.exposeInMainWorld('gitAPI', gitOperations);
 contextBridge.exposeInMainWorld('lspAPI', lspOperations);
 
 contextBridge.exposeInMainWorld('clangFormatAPI', clangFormatOperations);
+contextBridge.exposeInMainWorld('pythonFormatAPI', pythonFormatOperations);
 
 contextBridge.exposeInMainWorld('slangAPI', slangOperations);
 

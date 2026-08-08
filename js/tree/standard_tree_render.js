@@ -80,6 +80,8 @@ class StandardTreeRenderer {
         this._expanded = new Set();
         // Guard against overlapping renders racing on the same container.
         this._rendering = false;
+        /** Chegou pedido durante o render? Uma passada extra ao terminar. */
+        this._sujo = false;
         // Compiled `.inv` rules for the current project (loaded per full render).
         // Entries matching these are dropped from the view (still git-tracked).
         this._invRules = [];
@@ -165,8 +167,25 @@ class StandardTreeRenderer {
      * the in-flight promise when a render is already running, so callers
      * (e.g. revealFolder) can await actual completion instead of racing.
      */
+    /**
+     * Redesenha a arvore, coalescendo pedidos.
+     *
+     * O guarda antigo devolvia o render EM VOO e ia embora, o que tem dois
+     * problemas. A mudanca que chegou durante o render era perdida, entao a
+     * arvore podia terminar desatualizada ate o proximo evento. E, fora da
+     * sobreposicao, pedidos em sequencia faziam cada um a reconstrucao
+     * completa: uma compilacao que escreve dezenas de arquivos vira uma rajada
+     * de renders, cada um limpando e remontando todas as linhas.
+     *
+     * Agora um pedido que chega durante o render marca a arvore como suja, e ao
+     * terminar ela roda MAIS UMA vez, uma so, por mais pedidos que tenham
+     * chegado. Nada se perde e nada se repete a toa.
+     */
     render() {
-        if (this._rendering) return this._renderPromise;
+        if (this._rendering) {
+            this._sujo = true;
+            return this._renderPromise;
+        }
         this._renderPromise = this._doRender();
         return this._renderPromise;
     }
@@ -201,6 +220,13 @@ class StandardTreeRenderer {
             console.error('StandardTreeRenderer.render failed:', err);
         } finally {
             this._rendering = false;
+        }
+        // Chegou pedido enquanto desenhavamos: uma passada extra, so uma,
+        // fecha a diferenca sem repetir por cada pedido que se acumulou.
+        if (this._sujo) {
+            this._sujo = false;
+            this._renderPromise = this._doRender();
+            await this._renderPromise;
         }
     }
 

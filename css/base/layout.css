@@ -127,27 +127,12 @@
 .status-icon-error   { color: var(--status-error); }
 .status-icon-success { color: var(--status-success); }
 
-/* Indicator dot for #ready */
-.status-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  flex-shrink: 0;
-  transition: background-color var(--transition-fast),
-              box-shadow var(--transition-fast);
-}
-
-.status-dot-error {
-  background: var(--status-error);
-  box-shadow: 0 0 6px rgba(226, 108, 108, 0.45);
-}
-
-#ready.is-ready .status-dot {
-  background: var(--status-success);
-  box-shadow: 0 0 6px rgba(93, 212, 168, 0.45);
-}
+/* O estado de prontidao vive no proprio rotulo.
+   Antes havia um ponto colorido ao lado, que foi removido: ele repetia em cor o
+   que a palavra ja dizia, e piscava no rodape o tempo todo. Sem o ponto, quem
+   carrega o estado e o texto. */
+#ready { color: var(--status-error); transition: color var(--transition-fast); }
+#ready.is-ready { color: var(--status-success); }
 
 /* ---------------------------------------------------------------------------
  *  File Tree Container

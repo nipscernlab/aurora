@@ -67,3 +67,36 @@
   cursor: not-allowed;
   transform: none;
 }
+
+/* ---------------------------------------------------------------------------
+ *  Emblema de contagem — um desenho só para os dois lugares que contam coisas
+ *
+ *  O emblema do git (arquivos modificados) e os das abas do terminal (mensagens
+ *  por tipo) eram dois desenhos diferentes para a mesma ideia: um numero pequeno
+ *  grudado num ícone. Tamanhos, raios e pesos distintos faziam a interface
+ *  parecer montada por duas pessoas. Agora a forma é uma só e o que muda é a
+ *  cor, que é o que de fato difere entre eles.
+ *
+ *  O anel da cor do fundo é o que faz o emblema se destacar do ícone embaixo,
+ *  em vez de se misturar com ele. E `font-variant-numeric: tabular-nums` evita
+ *  o emblema pular de largura quando a contagem passa de 1 para 11.
+ * ------------------------------------------------------------------------ */
+.git-badge,
+.filter-btn .message-count {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1.5px solid var(--bg-titlebar, var(--bg, #0A0D14));
+  box-shadow: var(--elev-raised);
+  font-size: 9px;
+  font-weight: var(--font-bold);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  pointer-events: none;
+}

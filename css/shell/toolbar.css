@@ -316,9 +316,15 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* Right zone keeps a slightly larger inter-group gap; zones own the
-   layout now (no margin-left:auto trick). */
+   layout now (no margin-left:auto trick).
+
+   O vao aqui nao e estetico: os botoes desta zona carregam emblemas que
+   ESTOURAM a propria caixa. O avatar do git fica em `right: -5px` com 18 px,
+   entao com 4 px de vao ele encostava no botao seguinte e parecia colado no
+   icone do Python. O vao tem que ser maior do que o quanto o emblema
+   transborda. */
 .toolbar-zone-right > .toolbar-group {
-  gap: var(--space-1);
+  gap: var(--space-3, 12px);
 }
 
 .compile-all-group { gap: 1px; }

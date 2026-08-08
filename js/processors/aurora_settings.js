@@ -59,6 +59,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentShortcuts = {};
     let currentSettings = {};
+    /** Esta abertura terminou em Salvar? Fechar sem isso descarta. */
+    let salvouNestaAbertura = false;
+    /** Valor do trust-links quando o painel abriu, para poder ser devolvido. */
+    let trustLinksSnapshot = null;
 
     /**
      * Carrega configurações do localStorage (ou usa defaults) e aplica ao UI.
@@ -322,6 +326,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         loadSettings();
         renderShortcuts();
+        // O que reverter, se esta abertura terminar sem salvar.
+        salvouNestaAbertura = false;
+        trustLinksSnapshot = localStorage.getItem(TRUST_LINKS_KEY);
         // Display BEFORE picking the pane so the nav items have a real layout —
         // otherwise the sliding pill measures offsetTop/Height on a display:none
         // modal (both 0) and lands nowhere on first open.
@@ -335,8 +342,38 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => modalOverlay.classList.add('visible'), 10);
     };
 
+    /**
+     * Devolve tudo ao que esta gravado em disco.
+     *
+     * Vários toggles aqui têm efeito imediato, de propósito: o usuário liga e vê
+     * na hora. O problema era que fechar sem salvar deixava aquele efeito
+     * valendo, então "não salvei" e "não mudou" deixavam de ser a mesma coisa, e
+     * na abertura seguinte o painel mostrava o estado gravado enquanto a
+     * interface mostrava o descartado. Descartar de verdade é reler o disco e
+     * reaplicar, que é exatamente o que loadSettings faz.
+     */
+    const descartarAlteracoes = () => {
+        // O trust-links mora numa chave própria e é escrito no ato, para ficar
+        // em sincronia com a caixa equivalente no painel de IA. Por isso ele
+        // precisa ser devolvido à mão, e a sincronia reavisada.
+        if (trustLinksSnapshot !== null) {
+            localStorage.setItem(TRUST_LINKS_KEY, trustLinksSnapshot);
+            window.dispatchEvent(new CustomEvent('aurora:trust-external-links-changed',
+                { detail: { value: trustLinksSnapshot === '1' } }));
+        }
+        currentShortcuts = {
+            ...JSON.parse(JSON.stringify(defaultShortcuts)),
+            ...(JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) || {}),
+        };
+        loadSettings();
+        renderShortcuts();
+    };
+
     const closeModal = () => {
         stopRecording();
+        // Fechar sem salvar descarta. Sair pelo X, pelo Esc ou clicando fora
+        // são todos "não salvei".
+        if (!salvouNestaAbertura) descartarAlteracoes();
         modalOverlay.classList.remove('visible');
         setTimeout(() => modalOverlay.style.display = 'none', 300);
     };
@@ -346,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(SHORTCUTS_STORAGE_KEY, JSON.stringify(currentShortcuts));
             saveSettings();
             window.dispatchEvent(new CustomEvent('aurora-shortcuts-updated'));
+            salvouNestaAbertura = true;
             closeModal();
         });
     }

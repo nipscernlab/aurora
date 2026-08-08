@@ -26,6 +26,7 @@ const WATERMARK_SRC = new URL('assets/icons/sapho_aurora_icon.svg', document.bas
 class AuroraWelcome extends LitElement {
   static properties = {
     projects: { attribute: false },
+    missingCount: { attribute: false },
     version: { type: String },
     auroraBg: { attribute: false },
   };
@@ -33,6 +34,7 @@ class AuroraWelcome extends LitElement {
   constructor() {
     super();
     this.projects = [];
+    this.missingCount = 0;
     this.version = 'v6.3.2';
     this._removing = new Set();
     this._onLocale = () => this.requestUpdate();
@@ -259,6 +261,29 @@ class AuroraWelcome extends LitElement {
       border-radius: var(--radius-full);
       font-family: var(--font-mono);
     }
+    /* Projeto que nao existe mais no disco. Riscado e apagado, mas ainda
+       clicavel: quem quiser tentar abrir ve o erro de sempre, e quem quiser
+       limpar usa o botao do cabecalho. A lista nao apaga nada por conta. */
+    .project-item.missing .project-name,
+    .project-item.missing .project-path {
+      text-decoration: line-through;
+      opacity: 0.45;
+    }
+    .forget-missing {
+      /* O .section-title e inline-flex, entao margin-left auto nao empurraria
+         nada: o container encolhe ate o conteudo. O gap dele ja separa. */
+      padding: 2px 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: transparent;
+      color: var(--text-dim);
+      font-size: 11px;
+      font-family: inherit;
+      cursor: pointer;
+      transition: color 160ms ease, border-color 160ms ease;
+    }
+    .forget-missing:hover { color: var(--text); border-color: var(--text-dim); }
+
     .recent-list {
       display: grid;
       grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
@@ -441,6 +466,12 @@ class AuroraWelcome extends LitElement {
             <h2 class="section-title">
               <span>${this._t('welcome.sectionRecent', 'Recent')}</span>
               ${this.projects.length ? html`<span class="count">${this.projects.length}</span>` : ''}
+              ${this.missingCount ? html`
+                <button
+                  class="forget-missing"
+                  title=${this._t('welcome.forgetMissingTitle', 'Remove the projects that no longer exist')}
+                  @click=${this._forgetMissing}
+                >${this._t('welcome.forgetMissing', 'Forget missing')} (${this.missingCount})</button>` : ''}
             </h2>
             <div class="recent-list">${this._renderRecent()}</div>
           </section>
@@ -463,8 +494,9 @@ class AuroraWelcome extends LitElement {
     }
     return this.projects.map((p, i) => html`
       <div
-        class="project-item ${this._removing.has(p.path) ? 'removing' : ''}"
-        title=${p.path}
+        class="project-item ${this._removing.has(p.path) ? 'removing' : ''} ${p.missing ? 'missing' : ''}"
+        title=${p.missing ? `${p.path}
+${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.path}
         style="animation-delay:${i * 50}ms"
         @click=${(e) => this._open(p.path, e)}
         @mouseenter=${(e) => this._onHover(p, e)}
@@ -480,6 +512,12 @@ class AuroraWelcome extends LitElement {
         ><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
     `);
+  }
+
+  /** O usuario decide esquecer; a lista nunca apaga nada sozinha. */
+  _forgetMissing(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('recent-forget-missing', { bubbles: true, composed: true }));
   }
 
   _delegate(id) {

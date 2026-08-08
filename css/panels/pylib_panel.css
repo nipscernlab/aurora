@@ -34,8 +34,11 @@
 
 /* Ícone SVG na toolbar, alinhado com os <i class="ph"> vizinhos. */
 .toolbar-svg-icon {
-  width: 17px;
-  height: 17px;
+  /* Mesma medida dos <i class="ph"> vizinhos. `font-size` nao dimensiona SVG,
+     entao a regra generica .toolbar-button > svg nao alcanca este icone: sem
+     largura e altura explicitas ele destoava dos outros. */
+  width: var(--icon-lg, 16px);
+  height: var(--icon-lg, 16px);
   color: currentColor;
 }
 

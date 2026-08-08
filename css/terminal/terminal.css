@@ -237,28 +237,29 @@
 .filter-tip.has-messages,
 .filter-tip.active       { color: var(--status-info); }
 
+/* Ativo assume a COR DO PROPRIO FILTRO, e nao um cinza neutro. Com o fundo
+   neutro os quatro botoes ficavam iguais quando ligados, e so o tom do icone
+   dizia qual era qual — o que se perde de relance. `color-mix` sobre a cor
+   corrente mantem uma regra so para os quatro. */
 .filter-btn.active {
-  background-color: var(--overlay-active);
+  background-color: color-mix(in srgb, currentColor 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent);
 }
 
+/* A forma vem de css/base/controls.css, compartilhada com o emblema do git.
+   Aqui ficam so a posicao e a cor, que e o que difere de verdade: cada filtro
+   carrega a propria cor semantica, entao da para ler a contagem sem precisar
+   identificar o icone embaixo. */
 .filter-btn .message-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: absolute;
-  top: 0;
-  right: 0;
-  min-width: 13px;
-  height: 13px;
-  padding: 0 3px;
+  top: -3px;
+  right: -3px;
   background: var(--bg-elev-3);
   color: var(--text);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-semibold);
-  font-family: var(--font-mono);
-  border-radius: 7px;
-  line-height: 1;
 }
+.filter-error   .message-count { background: var(--status-error);   color: #2A0E0E; }
+.filter-warning .message-count { background: var(--status-warning); color: #2A1D08; }
+.filter-success .message-count { background: var(--status-success); color: #062018; }
+.filter-tip     .message-count { background: var(--status-info);    color: #06202A; }
 
 .filter-btn .message-count.hidden { display: none; }
 

@@ -198,9 +198,10 @@ function enableCompileButtons() {
 
         // 2. Adiciona a classe visual de pronto. Class name has to be
         // `is-ready` (with the `is-` prefix) — that's what the CSS rule
-        // `#ready.is-ready .status-dot` expects to flip the dot from
-        // red to green. A previous version added plain `ready` here,
-        // which silently failed the selector match.
+        // `#ready.is-ready` expects to flip the LABEL from red to green.
+        // (Havia um ponto colorido ali; ele saiu, e o rotulo assumiu o
+        // estado.) A previous version added plain `ready` here, which
+        // silently failed the selector match.
         statusElement.classList.add('is-ready');
         statusElement.classList.remove('fading'); // Remove caso tenha sobrado de alguma tentativa anterior
 

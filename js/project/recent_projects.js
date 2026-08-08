@@ -19,11 +19,16 @@ export class RecentProjectsManager {
     if (this.welcomeEl) {
       this.welcomeEl.addEventListener('project-open', (e) => this._handleOpenByPath(e.detail));
       this.welcomeEl.addEventListener('project-remove', (e) => this.removeProject(e.detail));
+      this.welcomeEl.addEventListener('recent-forget-missing', () => {
+        const n = this.forgetMissing();
+        if (n) this._enrichProcessors();
+      });
     }
 
     this.loadFromStorage();
     this.render();
     this._enrichProcessors(); // async: read each .spf's processor list for the hover preview
+    this._checkExistence();   // async: risca os que sumiram do disco
   }
 
   // Read a project's processor names from its .spf (JSON) for the welcome hover
@@ -44,6 +49,40 @@ export class RecentProjectsManager {
       if (p._procs === undefined) p._procs = await this._readProcessors(p.path);
     }));
     this.render();
+  }
+
+  /**
+   * Marca os projetos cujo .spf nao existe mais.
+   *
+   * A lista era so memoria: um projeto movido ou apagado continuava ali, com
+   * cara de bom, e so ao clicar aparecia o erro. Marcar antes do clique e
+   * honesto e barato, e e o que permite o "esquecer os ausentes".
+   *
+   * Isto NAO remove nada sozinho. Um disco de rede fora do ar, ou um pendrive
+   * desconectado, deixariam o projeto ausente por um momento; apagar por conta
+   * propria perderia a entrada de quem so precisava reconectar.
+   */
+  async _checkExistence() {
+    await Promise.all(this.projects.map(async (p) => {
+      try { p._missing = !(await electronAPI?.fileExists?.(p.path)); }
+      catch (_) { p._missing = false; }
+    }));
+    this.render();
+  }
+
+  /** Quantos estao ausentes agora. Zero esconde o botao de esquecer. */
+  countMissing() {
+    return this.projects.filter((p) => p._missing).length;
+  }
+
+  /** Tira da lista todos os ausentes. So o usuario dispara isto. */
+  forgetMissing() {
+    const antes = this.projects.length;
+    this.projects = this.projects.filter((p) => !p._missing);
+    if (this.projects.length === antes) return 0;
+    this.saveProjects();
+    this.render();
+    return antes - this.projects.length;
   }
 
   // Load the recent-projects list from localStorage.
@@ -218,7 +257,9 @@ export class RecentProjectsManager {
       path: p.path,
       displayPath: this.truncatePath(p.path),
       processors: p._procs || [],
+      missing: !!p._missing,
     }));
+    this.welcomeEl.missingCount = this.countMissing();
   }
 
   // Other methods (clearAll, getProjects, etc.) remain the same...

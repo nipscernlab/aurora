@@ -214,7 +214,7 @@
    *  Used by .toolbar-button glyphs and matching terminal-tab glyphs so the
    *  two surfaces stay in lock-step.
    * ======================================================================= */
-  --color-cmm:    var(--aurora-cyan);    /* C±   — cyan */
+  --color-cmm:    #F4D35E;               /* C±   — ouro */
   --color-asm:    var(--aurora-purple);  /* ASM  — purple */
   --color-veri:   var(--aurora-pink);    /* VERI — pink */
   --color-wave:   var(--aurora-mint);    /* WAVE — mint */

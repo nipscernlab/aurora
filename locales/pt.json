@@ -725,7 +725,10 @@
     "newProject": "Novo Projeto",
     "openProject": "Abrir Projeto",
     "sectionRecent": "Recentes",
-    "noRecent": "Nenhum projeto recente"
+    "noRecent": "Nenhum projeto recente",
+    "forgetMissing": "Esquecer ausentes",
+    "forgetMissingTitle": "Remove da lista os projetos que nao existem mais",
+    "missingHint": "Este projeto nao foi encontrado no disco."
   },
   "terminalWelcome": {
     "tcmm": "Bem-vindo ao terminal TCMM!",

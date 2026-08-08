@@ -1107,15 +1107,9 @@
  *      travels with the panel styles.
  * ========================================================================== */
 #gitButton { position: relative; overflow: visible; }
-.git-badge {
-  position: absolute; top: -2px; right: -2px;
-  min-width: 14px; height: 14px; padding: 0 3px;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: 9px; font-weight: var(--font-bold); line-height: 1;
-  border-radius: 999px; border: 1.5px solid var(--bg-titlebar, var(--bg, #0A0D14));
-  box-shadow: var(--elev-raised);
-  pointer-events: none;
-}
+/* A forma vem de css/base/controls.css, compartilhada com os emblemas de
+   contagem das abas do terminal. Aqui ficam so a posicao e a cor. */
+.git-badge { top: -3px; right: -3px; }
 .git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }
 .git-badge[data-kind="ahead"]   { background: var(--status-success, #5DD4A8); color: #062018; }
 

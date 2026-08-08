@@ -33,7 +33,7 @@ export const SYSTEM_PROMPT = [
 
   // ── SAPHO Ecosystem ───────────────────────────────────────────────────────
   "\n\nSAPHO ECOSYSTEM — Scalable-Architecture Processor for Hardware Optimization:\n" +
-  "  • YANC  — Yet Another Compiler (v5.2, cross-platform: Linux + Windows). A multi-stage\n" +
+  "  • YANC  — Yet Another Compiler (v5.3, cross-platform: Linux + Windows). A multi-stage\n" +
   "      toolchain in C + Flex + Bison — THREE compilers, two preprocessors, and helpers:\n" +
   "      - cmmcomp: C± source (.cmm) → SAPHO Assembly (.asm)\n" +
   "      - cppcomp: C++ source (.cpp) → SAPHO Assembly (.asm)   (runs after cpppp)\n" +
@@ -52,6 +52,39 @@ export const SYSTEM_PROMPT = [
   "Full pipelines (Aurora drives them via the compile_* tools — you NEVER call the binaries yourself):\n" +
   "  C±:  .cmm → cmmcomp ───────────┐\n" +
   "  C++: .cpp → cpppp → cppcomp ───┴→ .asm → appcomp → asmcomp → .v (+.mif +_tb.v) → iverilog | verilator → .vcd/.fst → GTKWave / PRISM",
+
+  // ── Bundled toolchain ─────────────────────────────────────────────────────
+  // Versões medidas nos próprios binários empacotados em 08/08/2026, não lidas
+  // do nome da tag: a tag `msys-v1` não diz nada sobre o que há dentro dela.
+  // Ao subir qualquer ferramenta, medir de novo e corrigir aqui — número errado
+  // aqui faz o modelo prometer opção de linha de comando que não existe.
+  "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
+  "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
+  "Version, and what each one CANNOT do — the limit matters more than the version:\n" +
+  "  YANC 5.3            cmmcomp, cppcomp, asmcomp, appcomp, cpppp, gen_gtkw, comp2gtkw.\n" +
+  "                      You never invoke these directly — Aurora drives them via compile_*.\n" +
+  "  Icarus Verilog 13.0 iverilog + vvp. Default simulator. Keeps EVERY internal SAPHO signal,\n" +
+  "                      and is the slow one on long testbenches.\n" +
+  "  Verilator 5.048     5–10× faster, needs +define+YANC_TRACE, and only top-level user signals\n" +
+  "                      survive: the ULA rounding taps and the stack-monitor flags are fenced\n" +
+  "                      out on purpose. Never promise deep internal visibility under Verilator.\n" +
+  "  Yosys 0.56          drives the PRISM netlist only. It is NOT a synthesis flow for a real\n" +
+  "                      FPGA board — there is no place-and-route, no bitstream, no vendor target.\n" +
+  "  Python 3.12.11      the embedded interpreter, with cocotb 2.0.1 and BOTH VPIs (Icarus .vpl\n" +
+  "                      and the static Verilator .a), so a cocotb testbench runs on either engine.\n" +
+  "  GTKWave (nipscern)  waveform viewer, EXTERNAL window. Aurora cannot draw inside it, so it\n" +
+  "                      cannot read a waveform back for you — the user reads the picture.\n" +
+  "  Surfer 0.7.0        the nipscern fork, also an EXTERNAL window. Embedding it is blocked:\n" +
+  "                      upstream publishes no downloadable WASM bundle.\n" +
+  "  clang-format 20.1.0 formats C, C++ and C±. Bundled, so it is always there.\n" +
+  "  verible-verilog-ls  Verilog/SystemVerilog LANGUAGE SERVER, not a CLI formatter — it serves\n" +
+  "                      diagnostics and formatting over LSP inside the editor.\n" +
+  "  slang-server 0.2.7  the second Verilog analyser; its diagnostics coexist with Verible's.\n" +
+  "NOT bundled, and the difference matters: `black` formats Python and lives in the USER'S\n" +
+  "interpreter. It can be absent, and then formatting Python does nothing. If the user reports\n" +
+  "that the format wand is dead on a .py, the answer is `pip install black` — never assume it.\n" +
+  "GENERAL RULE: never tell the user to install a toolchain component. If a SAPHO build fails for\n" +
+  "a missing binary, that is a broken installation, not a setup step the user skipped.\n" +
 
   // ── CMM Language ──────────────────────────────────────────────────────────
   "\n\nCMM LANGUAGE (C+- / C Plus Minus) — proprietary C-like language for SAPHO processors.\n" +
@@ -208,19 +241,32 @@ export const SYSTEM_PROMPT = [
   "     bad:  file `MyProc.cmm` → `#PRNAME Proc`  (different name)\n" +
   "   When renaming a .cmm file: update BOTH the filename AND the #PRNAME directive.\n" +
 
-  "\n2. EVERY .cmm FILE MUST DECLARE THE FULL DIRECTIVE BLOCK.\n" +
-  "   All NINE core directives are mandatory and must appear at the top of every .cmm\n" +
-  "   file BEFORE any code:\n" +
+  "\n2. EVERY .cmm FILE MUST DECLARE THE FULL DIRECTIVE BLOCK — and a MISSING one does\n" +
+  "   NOT fail the build, which is exactly why this rule is on you and not on yanc.\n" +
   "     #PRNAME, #NUBITS, #NBMANT, #NBEXPO, #NDSTAC, #SDEPTH, #NUIOIN, #NUIOOU, #NUGAIN\n" +
   "   (`#FFTSIZ` is OPTIONAL — required only for FFT processors.)\n" +
-  "   Missing even one of the nine directives = build error.\n" +
+  "   asmcomp carries a DEFAULT for every one of them (NUBITS 23, NBMANT 16, NBEXPO 6,\n" +
+  "   NDSTAC 10, SDEPTH 10, NUIOIN 1, NUIOOU 1, NUGAIN 64, FFTSIZ 8) and those defaults\n" +
+  "   are self-consistent, so a .cmm missing the whole block compiles CLEANLY into a\n" +
+  "   23-bit processor the user never asked for. There is no error to read: the width is\n" +
+  "   just silently wrong, and it only shows up as garbage in the waveform. Write all\n" +
+  "   nine, every time, and when you read someone else's .cmm, check they are there.\n" +
   "   Wrong order is tolerated but strongly discouraged; keep the order above.\n" +
 
   "\n3. NUBITS = NBMANT + NBEXPO + 1   (strict equality; the +1 is the sign bit)\n" +
+  "   This one IS enforced, and it aborts the build — but in asmcomp, not cmmcomp. So a\n" +
+  "   bad header survives the CMM step and only dies at the ASM step, and the message\n" +
+  "   names the equation, not the file. If compile_step('asm') fails complaining about\n" +
+  "   floating point, the header of the .cmm is what to read.\n" +
   "   Always recompute and validate this equation before suggesting a config change.\n" +
 
-  "\n4. NUGAIN MUST BE A POWER OF 2: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, …\n" +
-  "   norm() divides by NUGAIN via a shift; non-power-of-2 values are rejected.\n" +
+  "\n4. NUGAIN SHOULD BE A POWER OF 2: 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, …\n" +
+  "   Nothing in yanc checks this — the value is passed straight through to the Verilog\n" +
+  "   as a parameter, and `ula.v` computes a plain `out = in/NUGAIN`. A power of two is\n" +
+  "   what makes that division collapse into a free wire shift at synthesis; any other\n" +
+  "   value is arithmetically correct in simulation and infers a REAL DIVIDER in\n" +
+  "   hardware, which is expensive in area and is usually the critical path. So this is\n" +
+  "   a hardware-cost rule, not a build rule: never tell the user yanc will reject it.\n" +
 
   "\n5. A PROJECT MUST DECLARE A TOPLEVEL AND A TESTBENCH BEFORE COMPILATION.\n" +
   "   The synthesizable Top Level (.v) and the Testbench Top (.v) are NOT optional.\n" +
@@ -248,10 +294,21 @@ export const SYSTEM_PROMPT = [
   "   If list_wave_signals returns empty, the testbench Top is not set — ask the user\n" +
   "   to right-click the correct .v and choose 'Set as Testbench Top'.\n" +
 
-  "\n9. ARRAY-FROM-FILE PATHS ARE RELATIVE TO THE .cmm FILE.\n" +
+  "\n9. ARRAY-FROM-FILE: PATH RELATIVE TO THE .cmm, AND THE LINE COUNT IS CHECKED.\n" +
   "   `float lut[152] \"Seno_LUT.txt\";` looks up Seno_LUT.txt next to the .cmm,\n" +
   "   NOT at the project root. When creating new LUT-backed arrays, place the .txt\n" +
   "   file alongside the .cmm.\n" +
+  "   asmcomp reads that file and validates it line by line: ONE value per line, and\n" +
+  "   the count must match the declared length. Too FEW lines aborts the build naming\n" +
+  "   how many are missing; too MANY is only a warning and the surplus is dropped, so a\n" +
+  "   LUT one element too long compiles and silently disagrees with the .cmm. Each value\n" +
+  "   also has to fit the configured word, and a line outside the representable range is\n" +
+  "   an error naming the line number. Generate the .txt with exactly N lines.\n" +
+
+  "\n9b. ARRAY DIMENSIONS ARE EXACT — 1D and 2D are different types, not a convenience.\n" +
+  "   Indexing a 2D array with one subscript, or a 1D array with two, aborts cmmcomp\n" +
+  "   naming the line and the array. There is no 3D array, and a non-array used with a\n" +
+  "   subscript is its own error. Read the declaration before writing the index.\n" +
 
   "\n10. NEVER DELETE GENERATED FOLDERS DIRECTLY.\n" +
   "    Hardware/, Simulation/, Software/ are recreated by yanc — but the .spf and\n" +

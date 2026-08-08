@@ -20,6 +20,7 @@ const log = require('electron-log');
 const pylibs = require('../python/pylib_manager');
 const watch = require('../python/pylib_watch');
 const catalog = require('../python/pylib_catalog');
+const { urlHomepagePermitida } = require('./files_ops');
 
 /** Envia progresso de volta para quem pediu, ignorando janela ja fechada. */
 function progressSender(/** @type {any} */ event) {
@@ -88,12 +89,13 @@ function register() {
   // wheel. Custa I/O, entao e sempre uma acao explicita do usuario.
   ipcMain.handle('pylibs:verify-deep', () => guard(async () => watch.sweep({ reason: 'manual-deep', deep: true })));
 
-  // Abrir a pagina do projeto no navegador do sistema. Restrito a https para o
-  // painel nao virar um vetor de abertura de esquema arbitrario.
+  // Abrir a pagina do projeto no navegador do sistema. A allowlist mora em
+  // files_ops, ao lado da do open-external, para a diferenca entre as duas ser
+  // deliberada; aqui e so https, porque a URL vem do catalogo de pacotes e nao
+  // de quem escreveu o link.
   ipcMain.handle('pylibs:open-homepage', (_event, url) => guard(async () => {
-    const u = String(url || '');
-    if (!/^https:\/\//i.test(u)) throw new Error('apenas https');
-    await shell.openExternal(u);
+    if (!urlHomepagePermitida(url)) throw new Error('apenas https');
+    await shell.openExternal(url);
     return true;
   }));
 }

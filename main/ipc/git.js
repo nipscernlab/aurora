@@ -18,6 +18,16 @@ const { ipcMain } = require('electron');
 const simpleGit = require('simple-git');
 
 const state = require('../state');
+const {
+  limitarDiff,
+  acumularNumstat,
+  separarCaminhosNUL,
+  envelopeOk,
+  envelopeErro,
+  linhaDeArquivo,
+  cabecalhoDeToken,
+  normalizarArquivos,
+} = require('./git_parse');
 
 let githubAuth = null;
 try { githubAuth = require('./github_auth'); } catch (_) { /* optional */ }
@@ -61,25 +71,11 @@ function gitFor(opts) {
 function safe(fn) {
   return async (/** @type {any} */ _event, /** @type {any} */ ...args) => {
     try {
-      const data = await fn(...args);
-      return { ok: true, ...(data && typeof data === 'object' ? data : { value: data }) };
+      return envelopeOk(await fn(...args));
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      return { ok: false, error: message };
+      return envelopeErro(e);
     }
   };
-}
-
-// A single commit's diff can be megabytes (generated .mif/.hex data, vendored
-// blobs). Rendering that synchronously froze the panel — so we cap the diff TEXT
-// we ship to the renderer at a line boundary and flag it as truncated.
-const MAX_DIFF_BYTES = 600 * 1024; // ~600 KB of unified-diff text
-function capDiff(text) {
-  const s = String(text == null ? '' : text);
-  if (s.length <= MAX_DIFF_BYTES) return { diff: s, truncated: false };
-  let cut = s.lastIndexOf('\n', MAX_DIFF_BYTES);
-  if (cut < 0) cut = MAX_DIFF_BYTES;
-  return { diff: s.slice(0, cut), truncated: true };
 }
 
 /**
@@ -92,13 +88,10 @@ function capDiff(text) {
 function remoteGit() {
   const dir = projectDir();
   if (!dir) throw new Error('No project is open.');
-  const config = [];
+  let config = [];
   try {
     const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
-    if (token) {
-      const basic = Buffer.from(`x-access-token:${token}`).toString('base64');
-      config.push(`http.extraHeader=Authorization: Basic ${basic}`);
-    }
+    config = cabecalhoDeToken(token);
   } catch (_) { /* fall back to the system credential helper */ }
   return simpleGit({ baseDir: dir, trimmed: true, config });
 }
@@ -107,19 +100,8 @@ function remoteGit() {
 // Changes list. Two cheap numstat diffs, merged by path.
 async function workNumstat(git) {
   const map = {};
-  const add = (raw) => {
-    for (const line of String(raw || '').split('\n')) {
-      const m = line.replace(/\r$/, '').match(/^(-|\d+)\t(-|\d+)\t(.+)$/);
-      if (!m) continue;
-      const bin = m[1] === '-' && m[2] === '-';
-      const p = m[3];
-      const cur = map[p] || { additions: 0, deletions: 0, binary: false };
-      if (bin) cur.binary = true; else { cur.additions += Number(m[1]); cur.deletions += Number(m[2]); }
-      map[p] = cur;
-    }
-  };
-  add(await git.diff(['--numstat']));             // unstaged
-  add(await git.diff(['--staged', '--numstat'])); // staged
+  acumularNumstat(map, await git.diff(['--numstat']));             // unstaged
+  acumularNumstat(map, await git.diff(['--staged', '--numstat'])); // staged
   return map;
 }
 
@@ -146,10 +128,7 @@ function register() {
       ahead: s.ahead,
       behind: s.behind,
       // Per-file index/working flags (M/A/D/?/U) + optional +/- counts.
-      files: s.files.map((f) => {
-        const ns = nmap[f.path] || {};
-        return { path: f.path, index: f.index, working: f.working_dir, additions: ns.additions || 0, deletions: ns.deletions || 0, binary: !!ns.binary };
-      }),
+      files: s.files.map((f) => linhaDeArquivo(f, nmap[f.path])),
       staged: s.staged,
       modified: s.modified,
       notAdded: s.not_added,
@@ -171,7 +150,7 @@ function register() {
     const git = gitFor(opts);
     if (!(await git.checkIsRepo())) return { isRepo: false, paths: [] };
     const raw = await git.raw(['ls-files', '-o', '-i', '--exclude-standard', '--directory', '-z']);
-    const paths = String(raw || '').split('\0').filter(Boolean);
+    const paths = separarCaminhosNUL(raw);
     return { isRepo: true, paths };
   }));
 
@@ -181,7 +160,7 @@ function register() {
     const args = opts && opts.staged ? ['--staged'] : [];
     if (opts && opts.file) args.push('--', opts.file);
     const raw = await git.diff(args);
-    return capDiff(raw);
+    return limitarDiff(raw);
   }));
 
   // The list of files touched by a commit, with +/- counts and a binary flag.
@@ -219,7 +198,7 @@ function register() {
     const args = ['show', '--no-color', '--format=', String(opts.hash)];
     if (opts.file) args.push('--', String(opts.file));
     const raw = await gitFor(opts).raw(args);
-    return capDiff(raw);
+    return limitarDiff(raw);
   }));
 
   ipcMain.handle('git:log', safe(async (/** @type {{maxCount?:number, dir?:string}} */ opts = {}) => {
@@ -295,7 +274,7 @@ function register() {
 
   ipcMain.handle('git:stage', safe(async (/** @type {string[]|string} */ files) => {
     const git = gitForProject();
-    await git.add(Array.isArray(files) ? files : [files]);
+    await git.add(normalizarArquivos(files));
     return {};
   }));
 
@@ -307,8 +286,7 @@ function register() {
 
   ipcMain.handle('git:unstage', safe(async (/** @type {string[]|string} */ files) => {
     const git = gitForProject();
-    const list = Array.isArray(files) ? files : [files];
-    await git.reset(['HEAD', '--', ...list]);
+    await git.reset(['HEAD', '--', ...normalizarArquivos(files)]);
     return {};
   }));
 
@@ -316,8 +294,7 @@ function register() {
   // are left alone here (deleting them is a separate, more dangerous op).
   ipcMain.handle('git:discard', safe(async (/** @type {string[]|string} */ files) => {
     const git = gitForProject();
-    const list = Array.isArray(files) ? files : [files];
-    await git.checkout(['--', ...list]);
+    await git.checkout(['--', ...normalizarArquivos(files)]);
     return {};
   }));
 

@@ -16,6 +16,18 @@ const { execFile } = require('child_process');
 
 const state = require('../state');
 const { debounce, safePath, formatTimestamp } = require('../utils');
+const {
+  compararEntradas,
+  planoDeRenomear,
+  comandoCompactar,
+  nomesDoBackup,
+  entraNoBackup,
+  urlExternaPermitida,
+  comandoTerminalNativo,
+  pastaInicialDoDialogo,
+  acharWatcher,
+  ausenciaEsperada,
+} = require('./files_ops');
 
 // Recursively scan a directory and return a tree of {name, path, type, children?}.
 async function scanDirectory(/** @type {string} */ dirPath) {
@@ -41,11 +53,7 @@ async function scanDirectory(/** @type {string} */ dirPath) {
       const items = await fs.readdir(currentPath, { withFileTypes: true });
       const result = [];
 
-      items.sort((a, b) => {
-        if (a.isDirectory() && !b.isDirectory()) return -1;
-        if (!a.isDirectory() && b.isDirectory()) return 1;
-        return a.name.localeCompare(b.name);
-      });
+      items.sort(compararEntradas);
 
       for (const item of items) {
         if (item.isSymbolicLink()) continue;
@@ -107,9 +115,8 @@ function register() {
       // opcional e tratam a ausencia. Registrar como erro enchia o log de linha
       // vermelha para condicao esperada e escondia a falha de verdade no meio.
       // O throw continua, porque quem chamou precisa saber; so o nivel muda.
-      const code = error && error.code;
       const msg = error instanceof Error ? error.message : String(error);
-      if (code === 'ENOENT') log.debug(`read-file: ausente (esperado em arquivo opcional): ${msg}`);
+      if (ausenciaEsperada(error)) log.debug(`read-file: ausente (esperado em arquivo opcional): ${msg}`);
       else log.error(`Error reading file: ${msg}`);
       throw error;
     }
@@ -233,15 +240,13 @@ function register() {
     newPath = safePath(newPath, 'newPath');
     const overwrite = !!(opts && opts.overwrite);
     try {
-      const sameCaseInsensitive =
-        oldPath.toLowerCase() === newPath.toLowerCase() && oldPath !== newPath;
-      if (sameCaseInsensitive) {
-        const tmp = `${oldPath}.__aurora_case_tmp__`;
-        await fs.rename(oldPath, tmp);
-        await fs.rename(tmp, newPath);
+      const plano = planoDeRenomear(oldPath, newPath, overwrite);
+      if (plano.via === 'temporario') {
+        await fs.rename(oldPath, plano.tmp);
+        await fs.rename(plano.tmp, newPath);
         return { success: true, path: newPath };
       }
-      if (!overwrite) {
+      if (plano.checarDestino) {
         try {
           await fs.access(newPath);
           return { success: false, code: 'EEXIST', error: 'Destination already exists' };
@@ -300,7 +305,7 @@ function register() {
       // Mesmo raciocinio do read-file: diretorio que nao existe e resposta
       // valida (vetor vazio), nao falha. Este handler ja engolia o erro e
       // devolvia [], mas registrava como erro, o que enchia o log.
-      if (error && error.code === 'ENOENT') log.debug(`list-files-directory: ausente ${directoryPath}`);
+      if (ausenciaEsperada(error)) log.debug(`list-files-directory: ausente ${directoryPath}`);
       else log.error('Error listing files:', error);
       return [];
     }
@@ -337,9 +342,7 @@ function register() {
     // accidentally nests new projects inside existing ones. Renderer
     // passes the last "new project location" from localStorage; we
     // fall back to the user's Documents folder when there isn't one.
-    const defaultPath = (options.defaultPath && typeof options.defaultPath === 'string')
-      ? options.defaultPath
-      : app.getPath('documents');
+    const defaultPath = pastaInicialDoDialogo(options, app.getPath('documents'));
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory', 'createDirectory'],
       defaultPath,
@@ -375,11 +378,10 @@ function register() {
 
   ipcMain.handle('open-external', async (_event, url) => {
     try {
-      // SECURITY: only hand http(s)/mailto URLs to the OS. shell.openExternal
-      // will happily launch file://, and other schemes can hit registered
-      // protocol handlers — both are foot-guns when `url` originates in the
-      // renderer (e.g. a link in an AI message). Anything else is rejected.
-      if (typeof url !== 'string' || !/^(https?:|mailto:)/i.test(url)) {
+      // A allowlist mora em files_ops.urlExternaPermitida, com teste em cima:
+      // e o que separa abrir um link de entregar `file://` ou um esquema
+      // registrado na maquina ao sistema, com a URL vindo do renderer.
+      if (!urlExternaPermitida(url)) {
         log.warn('Blocked open-external for non-web URL:', url);
         return false;
       }
@@ -407,18 +409,15 @@ function register() {
       if (!dirPath || typeof dirPath !== 'string') throw new Error('dir required');
       if (!fse.existsSync(dirPath)) throw new Error('Directory not found');
       const cp = require('child_process');
-      if (process.platform === 'win32') {
-        // `start "" cmd` opens a NEW console window; the empty title keeps the
-        // path from being swallowed as the window title.
-        cp.spawn('cmd.exe', ['/c', 'start', '""', 'cmd.exe'], {
-          cwd: dirPath, detached: true, stdio: 'ignore', windowsHide: false,
-        }).unref();
-      } else if (process.platform === 'darwin') {
-        cp.spawn('open', ['-a', 'Terminal', dirPath], { detached: true, stdio: 'ignore' }).unref();
-      } else {
-        const term = process.env.TERMINAL || 'x-terminal-emulator';
-        cp.spawn(term, [], { cwd: dirPath, detached: true, stdio: 'ignore' }).unref();
-      }
+      const { comando, args, usaCwd } = comandoTerminalNativo(
+        process.platform, dirPath, process.env.TERMINAL,
+      );
+      cp.spawn(comando, args, {
+        ...(usaCwd ? { cwd: dirPath } : {}),
+        detached: true,
+        stdio: 'ignore',
+        ...(process.platform === 'win32' ? { windowsHide: false } : {}),
+      }).unref();
       return { success: true };
     } catch (error) {
       log.error('Error opening terminal:', error);
@@ -431,17 +430,16 @@ function register() {
   ipcMain.handle('create-backup', async (_event, folderPath) => {
     folderPath = safePath(folderPath, 'folderPath');
 
-    const folderName = path.basename(folderPath);
-    const backupFolderPath = path.join(folderPath, 'Backup');
-    const timestamp = formatTimestamp();
-    const tempBackupFolderName = `backup_${timestamp}`;
-    const tempBackupFolderPath = path.join(folderPath, tempBackupFolderName);
-    // .zip via PowerShell's Compress-Archive — ships natively on every
-    // supported Windows build, so the backup no longer depends on a 7-Zip
-    // install on PATH (the previous default `7z` command was almost never
-    // present, which left the temp folder behind with no archive next to it).
-    const zipFileName = `${folderName}_${timestamp}.zip`;
-    const zipFilePath = path.join(backupFolderPath, zipFileName);
+    // Nomes, filtro e linha de comando em files_ops, com teste em cima. O zip
+    // sai pelo Compress-Archive do PowerShell, que vem em toda instalacao do
+    // Windows suportada; o `7z` de antes quase nunca estava no PATH e deixava
+    // a pasta de preparo para tras sem arquivo nenhum ao lado.
+    const {
+      pastaBackup: backupFolderPath,
+      nomePreparo: tempBackupFolderName,
+      pastaPreparo: tempBackupFolderPath,
+      zip: zipFilePath,
+    } = nomesDoBackup(folderPath, formatTimestamp());
 
     try {
       await fse.ensureDir(backupFolderPath);
@@ -449,18 +447,11 @@ function register() {
 
       const entries = await fse.readdir(folderPath);
       for (const entry of entries) {
-        if (entry === 'Backup' || entry === tempBackupFolderName) continue;
+        if (!entraNoBackup(entry, tempBackupFolderName)) continue;
         await fse.copy(path.join(folderPath, entry), path.join(tempBackupFolderPath, entry));
       }
 
-      // Quote escaping for PowerShell single-quoted strings: ' → ''. The
-      // outer `execFile` call already passes -Command as a single argv
-      // entry, so we don't have to defend against the second-layer
-      // shell-quoting that the old `exec(string)` form needed.
-      const psQuote = (/** @type {any} */ s) => `'${String(s).replace(/'/g, "''")}'`;
-      const psCommand =
-        `Compress-Archive -Path ${psQuote(path.join(tempBackupFolderPath, '*'))} ` +
-        `-DestinationPath ${psQuote(zipFilePath)} -Force`;
+      const psCommand = comandoCompactar(tempBackupFolderPath, zipFilePath);
 
       return await new Promise((resolve) => {
         execFile(
@@ -672,14 +663,7 @@ function register() {
 
   ipcMain.handle('stop-watching-file', async (_event, watcherIdOrPath) => {
     try {
-      let watcherInfo = null;
-      for (const [filePath, info] of state.activeWatchers.entries()) {
-        if (info.id === watcherIdOrPath || filePath === watcherIdOrPath) {
-          watcherInfo = info;
-          break;
-        }
-      }
-
+      const watcherInfo = acharWatcher(state.activeWatchers, watcherIdOrPath);
       if (watcherInfo) {
         await watcherInfo.watcher.close();
         state.activeWatchers.delete(watcherInfo.filePath);

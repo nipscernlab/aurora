@@ -108,12 +108,30 @@ sessão.
 Recomendação: medir antes de mexer. O diagnóstico de performance é de junho e
 vários itens já foram resolvidos desde então.
 
-Um item concreto sobreviveu à conferência de 07/08/2026 e continua aberto:
-`transition: width` anima propriedade de layout, o que força relayout de todos os
-editores Monaco a cada alternância de painel. Restam três ocorrências, em
-`css/base/layout.css` linha 160 e em `css/panels/ai_assistant.css` linhas 36 e
-1668. A correção é animar `transform: translateX` num invólucro de largura fixa,
-nunca a largura em si.
+Ao atacar isso em 08/08/2026 apareceu um bug de verdade, maior que o item
+original, e ele foi corrigido.
+
+Dois comentários afirmavam que a animação de largura era suspensa durante o
+arrasto de um divisor: o do topo do `js/utils/resize.js` e o do
+`.file-tree-container` em `css/base/layout.css`, que apontava para o
+`styles.css`. A regra nunca existiu; o CSS que o `resize.js` injeta só definia
+cursor e seleção de texto. O resultado é que cada movimento do mouse reiniciava
+uma transição de 220 ms, e de 240 ms no painel de IA, então o painel arrastava
+atrás do cursor e cada quadro forçava relayout de todos os editores Monaco
+abertos. As classes já eram postas no `body` pelos dois arrastadores; faltava
+apenas consumi-las, e é o que a regra nova em `styles.css` faz.
+
+Também estava errada a minha própria anotação de que eram três ocorrências. A
+terceira, em `ai_assistant.css:1668`, é a barra de progresso do medidor de uso:
+animar largura ali não relayouta editor nenhum, e trocar por `scaleX`
+distorceria a barra. Ela fica como está.
+
+Continua aberto, e agora com escopo honesto: as duas transições de painel ainda
+animam largura ao abrir e fechar pelo botão, fora do arrasto. Trocar por
+`transform: translateX` exige um invólucro de largura fixa em volta de cada
+painel, que é mudança estrutural nos dois painéis principais. Não cabe antes de
+congelar a versão; fica para depois, e o custo hoje é uma alternância ocasional,
+não um arrasto contínuo.
 
 ---
 

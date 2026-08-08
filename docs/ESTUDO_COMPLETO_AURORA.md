@@ -23,8 +23,21 @@ Para entender como a aplicação é montada, leia o
 [ESTUDO_CODIGO_AURORA.md](ESTUDO_CODIGO_AURORA.md). Para os contratos que quebram
 em silêncio, o [ARCHITECTURE.md](../ARCHITECTURE.md).
 
-Os estudos abaixo são de 14/07/2026 e não foram reconferidos contra o código
-nesta limpeza.
+Os estudos abaixo são de 14/07/2026. As afirmações mensuráveis do estudo de
+interface foram reconferidas contra o CSS em 08/08/2026, e o diagnóstico central
+continua de pé: os 73 `!important` no total e os 30 concentrados no `editor.css`
+batem exatamente, e os dois arquivos que concentram valor mágico continuam sendo
+o `ai_assistant.css` e o `git_panel.css`.
+
+Três números envelheceram, e vale ler com eles em mente. A adoção de tokens
+melhorou bastante, de cerca de 2400 usos de `var(--)` para 3543. Os dois arquivos
+grandes cresceram um pouco, para 80 KB e 64 KB. E os `box-shadow` foram de 71
+para 99, ou seja, a meta de reduzi-los não só não foi cumprida como andou para
+trás; o [DESIGN.md](DESIGN.md) registra o mesmo.
+
+Os estudos de árvore de arquivos e de sistema de IA não foram remedidos. A
+arquitetura de ambos está descrita, com números atuais, no
+[ESTUDO_CODIGO_AURORA.md](ESTUDO_CODIGO_AURORA.md).
 
 ---
 

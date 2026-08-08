@@ -54,7 +54,7 @@ jobs:
       - name: Upload coverage to Codecov
         # Uses the repo's CODECOV_TOKEN secret (GitHub → Settings → Secrets and
         # variables → Actions). Never fails CI — coverage is informational here.
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info

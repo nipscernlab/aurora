@@ -103,7 +103,14 @@ function register() {
     try {
       return await fs.readFile(filePath, 'utf8');
     } catch (error) {
-      log.error(`Error reading file: ${error instanceof Error ? error.message : String(error)}`);
+      // "Nao existe" nao e erro do aplicativo: varios chamadores leem arquivo
+      // opcional e tratam a ausencia. Registrar como erro enchia o log de linha
+      // vermelha para condicao esperada e escondia a falha de verdade no meio.
+      // O throw continua, porque quem chamou precisa saber; so o nivel muda.
+      const code = error && error.code;
+      const msg = error instanceof Error ? error.message : String(error);
+      if (code === 'ENOENT') log.debug(`read-file: ausente (esperado em arquivo opcional): ${msg}`);
+      else log.error(`Error reading file: ${msg}`);
       throw error;
     }
   });
@@ -290,7 +297,11 @@ function register() {
     try {
       return await fs.readdir(safePath(directoryPath, 'directoryPath'));
     } catch (error) {
-      log.error('Error listing files:', error);
+      // Mesmo raciocinio do read-file: diretorio que nao existe e resposta
+      // valida (vetor vazio), nao falha. Este handler ja engolia o erro e
+      // devolvia [], mas registrava como erro, o que enchia o log.
+      if (error && error.code === 'ENOENT') log.debug(`list-files-directory: ausente ${directoryPath}`);
+      else log.error('Error listing files:', error);
       return [];
     }
   });

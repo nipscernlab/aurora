@@ -272,10 +272,16 @@ class StandardTreeRenderer {
         if (!root) return;
         try {
             const invPath = await electronAPI.joinPath(root, '.inv');
+            // Pergunta antes de ler. O `.inv` e opcional, entao nao existir e o
+            // caso NORMAL, e tentar ler direto fazia o handler read-file logar
+            // um erro e relancar a cada render da arvore: duas entradas de erro
+            // no log por projeto aberto, para uma condicao esperada. Era a maior
+            // fonte de ruido em %APPDATA%\SAPHO\logs.
+            if (!(await electronAPI.fileExists(invPath))) return;
             const txt = await electronAPI.readFile(invPath);
             this._invRules = parseInv(txt);
         } catch (_) {
-            this._invRules = []; // no .inv (ENOENT) or unreadable — hide nothing
+            this._invRules = []; // ilegivel ou malformado — nao esconde nada
         }
     }
 

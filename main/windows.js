@@ -22,6 +22,8 @@ const { loadPage } = require('./render_loader');
  */
 let customCategoryAllowed = null;
 let loggedCustomCategoryDenied = false;
+/** Assinatura do último resultado registrado, para não repetir log idêntico. */
+let ultimoJumplist = '';
 
 /**
  * Ask Windows whether it tracks recently-opened documents before we try
@@ -190,15 +192,25 @@ function rebuildJumpList() {
       log.info('jumplist: custom category denied by Windows; re-applied with Tasks only.');
     }
 
-    log.info('jumplist set:', {
-      status: status || 'ok',
-      customCategoryAllowed,
-      isPackaged,
-      execPath: exe,
-      appPath,
-      recentCount: recentItems.length,
-      categories: categories.map((c) => ({ type: c.type, name: c.name, items: c.items?.length ?? 0 })),
-    });
+    // Só registra quando o resultado MUDA. Esta função roda no arranque, na
+    // criação de cada janela e a cada projeto aberto, e o despejo completo do
+    // objeto ocupava 63% do main.log (924 entradas de nove linhas). O conteúdo
+    // continua disponível para depurar "minha jumplist está vazia": ele sai na
+    // primeira vez e sempre que status, permissão ou contagem de recentes
+    // mudarem, que são as três coisas capazes de explicar o problema.
+    const assinatura = `${status || 'ok'}|${customCategoryAllowed}|${recentItems.length}`;
+    if (assinatura !== ultimoJumplist) {
+      ultimoJumplist = assinatura;
+      log.info('jumplist set:', {
+        status: status || 'ok',
+        customCategoryAllowed,
+        isPackaged,
+        execPath: exe,
+        appPath,
+        recentCount: recentItems.length,
+        categories: categories.map((c) => ({ type: c.type, name: c.name, items: c.items?.length ?? 0 })),
+      });
+    }
   } catch (e) {
     log.warn('rebuildJumpList failed:', e);
   }

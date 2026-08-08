@@ -17,6 +17,15 @@ const { execFile } = require('child_process');
 const log = require('electron-log');
 
 const state = require('../state');
+
+// Parte pura do que escrevemos na config do Surfer. Extraida daqui em
+// 08/08/2026 para ficar testavel; ver main/ipc/surfer_config.js.
+const {
+  surferWindowGeometry,
+  surferConfigToml,
+  podeSobrescreverConfig,
+  safeMappingName,
+} = require('./surfer_config');
 const {
   killProcessSilently,
 } = require('../utils');
@@ -41,30 +50,12 @@ let lastSurferChild = null;
 function writeSurferCenteredWindowConfig() {
   try {
     const wa = screen.getPrimaryDisplay().workArea; // logical (DIP) units
-    const w = Math.max(800, Math.round(wa.width * 0.85));
-    const h = Math.max(600, Math.round(wa.height * 0.85));
-    const x = wa.x + Math.round((wa.width - w) / 2);
-    const y = wa.y + Math.round((wa.height - h) / 2);
     const dir = path.join(app.getPath('appData'), 'surfer-project', 'surfer', 'config');
     const file = path.join(dir, 'config.toml');
-    const MARKER = '# Managed by AURORA';
-    if (fs.existsSync(file) && !fs.readFileSync(file, 'utf8').includes(MARKER)) {
-      return; // respect a hand-authored Surfer config
-    }
+    const atual = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+    if (!podeSobrescreverConfig(atual)) return; // respeita config escrita a mao
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(file,
-      `${MARKER} — Surfer opens centered on your screen; maximize it yourself.\n` +
-      '# Delete this file (or remove the line above) to manage the window yourself.\n' +
-      // NB: o auto-reload (SurferConfig.autoreload_files) NAO dispara no Windows
-      // v0.7.0 — o watcher de arquivo nao pega a reescrita do FST. Por isso a
-      // AURORA fecha a janela anterior e reabre (ver launch-surfer), em vez de
-      // depender do reload automatico.
-      '[layout]\n' +
-      `window_width = ${w}\n` +
-      `window_height = ${h}\n` +
-      `window_x_position = ${x}\n` +
-      `window_y_position = ${y}\n`,
-      'utf8');
+    fs.writeFileSync(file, surferConfigToml(surferWindowGeometry(wa)), 'utf8');
   } catch (error) {
     log.warn('Surfer window-config write skipped:', error?.message);
   }
@@ -86,9 +77,7 @@ function writeSurferMappings(mappings) {
     fs.mkdirSync(dir, { recursive: true });
     for (const m of mappings) {
       if (!m || typeof m.name !== 'string' || typeof m.content !== 'string') continue;
-      // The name is already FS-safe (built by mappingName), but harden against
-      // path separators so a name can never escape the mappings dir.
-      const safe = m.name.replace(/[^A-Za-z0-9_.-]/g, '_');
+      const safe = safeMappingName(m.name);
       if (!safe) continue;
       try {
         // Atomic write: grava num .tmp e renomeia. O Surfer (processo separado)

@@ -329,24 +329,29 @@ Executada de cima para baixo, sem desvio. Cada passo termina com CI verde.
 3. **P6, o único item concreto de performance** (item 3). Trocar `transition:
    width` por `transform` em `css/base/layout.css:160` e
    `css/panels/ai_assistant.css:36` e `:1668`.
-4. **Assinatura no `release.yml`** (item 5, a parte de código). O YAML pronto
-   está no [CODE_SIGNING.md](CODE_SIGNING.md) e o `scripts/patch-latest-yml.js`
-   já existe. Entra condicionada à existência do token, degradando para build não
-   assinado, conforme a restrição já decidida.
+4. **Correção dos bugs conhecidos.** O SAPHO tem vários, e eles são a razão de a
+   assinatura ficar por último: assinar uma versão que ainda vai mudar gasta o
+   ritual à toa. A lista de bugs vem do uso, não de auditoria minha; conforme
+   forem aparecendo, entram aqui com o caminho para reproduzir.
 5. **Itens pequenos de código** (item 6): mídia real do README e a fonte Norse.
 6. **Fechar a documentação**: conferir o `DESIGN.md` contra o CSS, revisar
    `SECURITY.md` e `THIRD_PARTY_NOTICES.md`, e reconferir os três estudos
    temáticos que sobraram, que são de julho e não foram revalidados.
+7. **Assinatura no `release.yml`** (item 5, a parte de código), por último e só
+   quando o resto estiver fechado. O YAML pronto está no
+   [CODE_SIGNING.md](CODE_SIGNING.md) e o `scripts/patch-latest-yml.js` já
+   existe. Entra condicionada à existência do token, degradando para build não
+   assinado, conforme a restrição já decidida.
 
 ### Trilha B, que depende de você
 
-7. **Painel da SignPath**: resolver a política `release-signing`, criar a
+8. **Painel da SignPath**: resolver a política `release-signing`, criar a
    Artifact Configuration, decidir o modelo de aprovação e criar as contas
    individuais. Detalhes no item 5.
-8. **Release definitiva**, quando a trilha A fechar.
-9. **Ensaio de atualização em máquina limpa** (item 1). É o passo que a frota do
+9. **Release definitiva**, quando a trilha A fechar.
+10. **Ensaio de atualização em máquina limpa** (item 1). É o passo que a frota do
    laboratório não pode ser a primeira a fazer.
-10. **Verificação ao vivo** (itens 4 e 8), na mesma máquina: uma conversa
+11. **Verificação ao vivo** (itens 4 e 8), na mesma máquina: uma conversa
     completa por provedor de IA configurado e uma chamada de ferramenta, instalar
     e remover uma biblioteca no PyLibs, e um ciclo de git de ponta a ponta.
 

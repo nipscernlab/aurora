@@ -167,4 +167,7 @@ function register() {
   });
 }
 
-module.exports = { register };
+// buildRegex e escapeRegExp sao exportados para teste. Eles transformam o que o
+// usuario digita na caixa de busca em RegExp, e sao o ponto onde um caractere
+// especial vira comportamento inesperado. Ver tests/unit/searchQuery.test.js.
+module.exports = { register, buildRegex, escapeRegExp };

@@ -3220,11 +3220,17 @@ class AIAssistantManager {
    */
   _larguraPermitida(desejado) {
     const tree = document.querySelector('.file-tree-container');
+    // A faixa disputada e a do .main-container, e nao a janela: os tres paineis
+    // dividem ELE. Hoje os dois batem, mas medir a janela sempre foi a medida
+    // errada da coisa certa, e qualquer coluna que apareca ao lado passaria a
+    // mentir o espaco disponivel.
+    const faixa = document.querySelector('.main-container');
     return resolvePaneSize(desejado, {
       min: PANE.MIN_AI,
       collapseAt: PANE.COLLAPSE_AI,
       max: maxLateralWidth(
-        window.innerWidth, tree ? tree.offsetWidth : 0, PANE.MIN_EDITOR, PANE.MIN_AI,
+        faixa ? faixa.clientWidth : window.innerWidth,
+        tree ? tree.offsetWidth : 0, PANE.MIN_EDITOR, PANE.MIN_AI,
       ),
     });
   }
@@ -3314,8 +3320,12 @@ class AIAssistantManager {
       document.body.classList.remove('ai-corner-hovering');
     });
 
-    const MIN_AI_W = 320; // matches setupResize / _applyOpenWidth
-    const constrainAiWidth = (w) => Math.max(MIN_AI_W, Math.min(w, window.innerWidth * 0.7));
+    // Este canto tinha a PROPRIA copia da regra de largura, com o antigo
+    // `innerWidth * 0.7`, que nao descontava a arvore nem reservava espaco para
+    // o editor. Como ele fica por cima do divisor de largura no encontro com o
+    // terminal, era ele que a mao pegava, e por isso o painel continuava
+    // invadindo mesmo depois de o outro caminho ter sido corrigido. Duas copias
+    // da mesma regra e uma delas errada: agora ha uma so, _larguraPermitida.
     const isOpen = () => parseInt(aiContainer.style.width, 10) > 0;
 
     let posRaf = null, lastL = null, lastT = null;
@@ -3359,9 +3369,10 @@ class AIAssistantManager {
       if (dragRaf) cancelAnimationFrame(dragRaf);
       dragRaf = requestAnimationFrame(() => {
         // AI panel is on the right: dragging left (smaller X) grows it.
-        const w = constrainAiWidth(startW + (startX - e.clientX));
+        const w = this._larguraPermitida(startW + (startX - e.clientX));
         const h = constrainTerminalHeight(startH - (e.clientY - startY));
         aiContainer.style.width = w + 'px';
+        aiContainer.classList.toggle('is-collapsed', w === 0);
         terminalContainer.style.height = h + 'px';
         position();
       });
@@ -3376,7 +3387,7 @@ class AIAssistantManager {
       if (dragRaf) cancelAnimationFrame(dragRaf);
       try {
         const w = parseInt(aiContainer.style.width, 10);
-        if (w >= MIN_AI_W) localStorage.setItem('aurora-ai-panel-width', String(w));
+        if (w >= PANE.MIN_AI) localStorage.setItem('aurora-ai-panel-width', String(w));
         localStorage.setItem('terminalHeight', String(terminalContainer.offsetHeight));
       } catch (_) { /* storage full / private mode — ignore */ }
     };

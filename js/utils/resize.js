@@ -68,12 +68,16 @@ document.head.appendChild(style);
 function constrainFileTreeWidth(w) {
   const ai = document.querySelector('.ai-assistant-container');
   const larguraAi = ai ? ai.offsetWidth : 0;
+  // A faixa disputada e a do .main-container, e nao a janela: os tres paineis
+  // dividem ELE.
+  const faixaEl = document.querySelector('.main-container');
+  const faixa = faixaEl ? faixaEl.clientWidth : window.innerWidth;
   return resolvePaneSize(w, {
     min: MIN_FILE_TREE_WIDTH,
     collapseAt: PANE.COLLAPSE_LATERAL,
     max: Math.min(
-      window.innerWidth * MAX_FILE_TREE_RATIO,
-      maxLateralWidth(window.innerWidth, larguraAi, PANE.MIN_EDITOR, MIN_FILE_TREE_WIDTH),
+      faixa * MAX_FILE_TREE_RATIO,
+      maxLateralWidth(faixa, larguraAi, PANE.MIN_EDITOR, MIN_FILE_TREE_WIDTH),
     ),
   });
 }

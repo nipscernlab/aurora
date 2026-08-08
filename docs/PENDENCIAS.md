@@ -158,6 +158,24 @@ exatamente o pedido.
 
 ---
 
+## 2.2 Aberto: a lista de abas do terminal não dispara
+
+A compressão das abas funciona e resolveu o caso visível. A lista para o
+excedente (`js/terminal/tab_overflow.js`) está implementada, tem nove testes na
+parte pura e passa no e2e, onde o botão aparece com o painel de IA no máximo.
+Na máquina do Chrysthofer ela não dispara, e eu não identifiquei o motivo antes
+de ele decidir seguir adiante, em 08/08/2026.
+
+Não é bloqueante: sem disparar, o comportamento é o de antes dela, que é
+aceitável. Mas é código que não faz o que promete, então antes de congelar a
+versão ou se resolve ou se remove. O caminho para retomar é o console do
+renderer com o painel de IA aberto e o terminal estreito, olhando se
+`initTerminalTabOverflow` chegou a instalar o botão e o que
+`document.querySelector('.terminal-tabs-list').clientWidth` devolve naquele
+momento.
+
+---
+
 ## 3. Otimização de runtime
 
 Pedido como "devemos otimizar muito o software". O que foi feito é otimização

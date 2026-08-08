@@ -113,3 +113,17 @@
   flex-shrink: 0;
 }
 .confirm-btn { display: inline-flex; align-items: center; }
+
+/* Com doze provedores a fileira de botoes nao cabe numa linha, entao ela
+   quebra em grade. So quando ha muitos: o dialogo comum, de dois ou tres
+   botoes, continua como era. */
+.confirm-modal-actions:has(.confirm-btn:nth-child(6)) {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+.confirm-modal-actions:has(.confirm-btn:nth-child(6)) .confirm-btn {
+  flex: 1 1 30%;
+  min-width: 128px;
+  justify-content: flex-start;
+}

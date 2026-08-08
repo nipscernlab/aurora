@@ -14,7 +14,7 @@
  *
  * Os nomes e as marcas dos provedores pertencem a eles. Os ícones são os
  * logotipos oficiais, vindos da biblioteca Simple Icons (CC0), e aparecem só
- * para identificar o serviço na lista.
+ * para identificar cada serviço na lista.
  */
 
 import { electronAPI } from '../app/electron_api.js';
@@ -53,6 +53,44 @@ export const PROVEDORES = [
     url: (p) => `https://mail.yandex.com/compose?to=${p.to}&subject=${p.subject}&body=${p.body}`,
   },
   {
+    id: 'icloud',
+    nome: 'iCloud Mail',
+    url: (p) => `https://www.icloud.com/mail/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+  },
+  {
+    id: 'zoho',
+    nome: 'Zoho Mail',
+    url: (p) => 'https://mail.zoho.com/zm/#compose'
+      + `?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+  },
+  {
+    id: 'gmx',
+    nome: 'GMX',
+    url: (p) => `https://www.gmx.com/mail/compose/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+  },
+  {
+    id: 'aol',
+    nome: 'AOL Mail',
+    url: (p) => `https://mail.aol.com/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+  },
+  {
+    id: 'mailru',
+    nome: 'Mail.ru',
+    url: (p) => `https://e.mail.ru/compose/?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+  },
+  {
+    id: 'tutanota',
+    nome: 'Tuta',
+    url: (p) => `https://app.tuta.com/mailto?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+  },
+  {
+    id: 'hey',
+    nome: 'HEY',
+    url: (p) => `https://app.hey.com/mailto?to=${p.to}&subject=${p.subject}&body=${p.body}`,
+  },
+  {
+    // Thunderbird, Outlook instalado, Apple Mail e afins. Ultima opcao porque
+    // depende de haver cliente configurado na maquina.
     id: 'mailto',
     nome: 'Cliente instalado',
     url: (p) => `mailto:${p.to}?subject=${p.subject}&body=${p.body}`,
@@ -131,15 +169,22 @@ export function urlDoProvedor(id, { assunto, corpo, para = BUG_EMAIL }) {
  * monocromáticos e viriam pretos, invisíveis no tema escuro. Como máscara, a cor
  * da marca é aplicada por cima e o desenho continua sendo o oficial.
  *
- * As marcas pertencem a Google, Microsoft, Proton AG e Yandex. Aparecem aqui
- * apenas para identificar o serviço na lista.
+ * As marcas pertencem aos respectivos servicos. Aparecem aqui apenas para
+ * identificar cada um na lista.
  */
 const ICONES = {
-  gmail:   { arquivo: 'mail_gmail.svg', cor: '#EA4335' },
-  outlook: { arquivo: 'mail_microsoftoutlook.svg', cor: '#0078D4' },
-  proton:  { arquivo: 'mail_protonmail.svg', cor: '#6D4AFF' },
-  yandex:  { arquivo: 'mail_yandex.svg', cor: '#FC3F1D' },
-  mailto:  null,
+  gmail:    { arquivo: 'mail_gmail.svg', cor: '#EA4335' },
+  outlook:  { arquivo: 'mail_microsoftoutlook.svg', cor: '#0078D4' },
+  proton:   { arquivo: 'mail_protonmail.svg', cor: '#6D4AFF' },
+  yandex:   { arquivo: 'mail_yandex.svg', cor: '#FC3F1D' },
+  icloud:   { arquivo: 'mail_icloud.svg', cor: '#3693F3' },
+  zoho:     { arquivo: 'mail_zoho.svg', cor: '#E42527' },
+  gmx:      { arquivo: 'mail_gmx.svg', cor: '#1C449B' },
+  aol:      { arquivo: 'mail_aol.svg', cor: '#3399FF' },
+  mailru:   { arquivo: 'mail_maildotru.svg', cor: '#005FF9' },
+  tutanota: { arquivo: 'mail_tutanota.svg', cor: '#850122' },
+  hey:      { arquivo: 'mail_hey.svg', cor: '#5522FA' },
+  mailto:   { arquivo: 'mail_thunderbird.svg', cor: '#0A84FF' },
 };
 
 /** Marcação do ícone, como máscara colorida. */

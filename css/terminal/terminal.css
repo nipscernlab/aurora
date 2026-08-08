@@ -786,3 +786,73 @@
   cursor: pointer;
 }
 .terminal-tab-overflow-item:hover { background: var(--overlay-hover); color: var(--text); }
+
+/* ---------------------------------------------------------------------------
+ *  Abas em coluna, quando o terminal fica estreito
+ *
+ *  Abaixo de LARGURA_VIRA_COLUNA (js/terminal/tab_overflow.js) as abas saem da
+ *  faixa horizontal e viram uma coluna a direita, empilhadas, como no VS Code.
+ *  Comprimir tem fim; empilhar nao, e em coluna o nome inteiro volta a caber.
+ * ------------------------------------------------------------------------ */
+.terminal-container.tabs-vertical {
+  /* row-reverse poe a coluna a direita sem mexer na ordem do HTML. */
+  flex-direction: row-reverse;
+}
+
+.terminal-container.tabs-vertical .terminal-tabs {
+  flex-direction: column;
+  align-items: stretch;
+  width: 132px;
+  height: auto;
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-1);
+  gap: var(--space-1);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-bottom: 0;
+  border-left: 1px solid var(--border);
+}
+
+/* As acoes viram linhas dentro da coluna, e continuam agrupadas. */
+.terminal-container.tabs-vertical .terminal-tabs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.terminal-container.tabs-vertical .terminal-tabs-list {
+  flex-direction: column;
+  align-items: stretch;
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+  gap: 1px;
+}
+
+/* Em coluna a aba tem a largura toda, entao o nome cabe inteiro: nada de
+   min-width apertado nem de corte. */
+.terminal-container.tabs-vertical .terminal-tabs .tab,
+.terminal-container.tabs-vertical .terminal-tabs button.tab {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  justify-content: flex-start;
+  flex-shrink: 0;
+}
+
+/* O indicador deslizante e horizontal por natureza; em coluna ele mentiria. */
+.terminal-container.tabs-vertical .terminal-tab-indicator { display: none; }
+.terminal-container.tabs-vertical .terminal-tabs .tab.active {
+  background: var(--overlay-active);
+  border-radius: var(--radius-sm);
+}
+
+/* O conteudo fica com o resto da largura. */
+.terminal-container.tabs-vertical .terminal-content { flex: 1 1 0; min-width: 0; }

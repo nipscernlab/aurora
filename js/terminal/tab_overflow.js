@@ -20,6 +20,17 @@ import { switchTerminal } from './terminal.js';
 
 const CLASSE_ESCONDIDA = 'tab-overflowed';
 
+/**
+ * Abaixo desta largura do TERMINAL, as abas deixam de ser uma faixa horizontal e
+ * viram uma coluna a direita, empilhadas, como no VS Code.
+ *
+ * O valor sai da conta do pior caso, e nao de gosto: os dois grupos de acoes
+ * ocupam cerca de 196 px e as seis abas nao encolhem abaixo de 52 px cada, o que
+ * da 508 px so para caber espremido. Abaixo de 560 px as abas ja estao coladas
+ * umas nas outras, e e ali que a coluna passa a ser melhor.
+ */
+const LARGURA_VIRA_COLUNA = 560;
+
 let barra = null;
 let lista = null;
 let botao = null;
@@ -71,8 +82,29 @@ function abrirMenu(abas, escondidas) {
 }
 
 /** Mede o estado atual e aplica o plano. */
+/**
+ * Decide entre faixa horizontal e coluna a direita, pela largura do terminal.
+ * Devolve true quando esta em coluna, porque ai nao ha excedente a esconder:
+ * a coluna cabe todas, rolando se precisar.
+ */
+function ajustarOrientacao() {
+  const term = document.querySelector('.terminal-container');
+  if (!term) return false;
+  const coluna = term.getBoundingClientRect().width < LARGURA_VIRA_COLUNA;
+  term.classList.toggle('tabs-vertical', coluna);
+  return coluna;
+}
+
 function aplicar() {
   if (!barra || !lista || !botao) return;
+
+  // Em coluna todas as abas cabem, entao o botao de excedente nao tem papel.
+  if (ajustarOrientacao()) {
+    [...lista.querySelectorAll('.tab')].forEach((t) => t.classList.remove(CLASSE_ESCONDIDA));
+    botao.classList.add('hidden');
+    fecharMenu();
+    return;
+  }
   const abas = [...lista.querySelectorAll('.tab')];
   if (!abas.length) return;
 
@@ -141,8 +173,14 @@ export function initTerminalTabOverflow() {
 
   // O painel de IA e a árvore mudam a largura da barra sem a janela mudar de
   // tamanho, então observar a barra pega mais casos do que ouvir `resize`.
-  try { new ResizeObserver(agendar).observe(barra); }
-  catch (_) { window.addEventListener('resize', agendar); }
+  // Observa o TERMINAL, e nao so a barra: e a largura dele que decide entre
+  // faixa e coluna, e em coluna a barra deixa de acompanhar essa largura.
+  try {
+    const ro = new ResizeObserver(agendar);
+    ro.observe(barra);
+    const term = document.querySelector('.terminal-container');
+    if (term) ro.observe(term);
+  } catch (_) { window.addEventListener('resize', agendar); }
 
   // Trocar de aba muda quem não pode ser escondida.
   lista.addEventListener('click', (e) => {

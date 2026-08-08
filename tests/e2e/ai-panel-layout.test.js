@@ -147,50 +147,57 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     expect(r.fora, 'nada do terminal pode entrar na faixa do painel').toEqual([]);
   }, 30_000);
 
-  it('apertando muito, as abas que sobram vao para a lista', async () => {
-    // O limite seguinte do aperto: comprimir tem fim, e depois dele as abas
-    // encavalavam os botoes de acao. Aqui o painel de IA e alargado ate o teto
-    // e o esperado e ver o botao de excedente, nao abas em cima dos botoes.
-    await window.evaluate(() => {
-      const c = document.querySelector('.ai-assistant-container');
-      c.style.transition = 'none';
-      c.style.width = window.aiAssistantManager._larguraPermitida(99999) + 'px';
-    });
-    // Esperar pela CONDICAO, e nao por um tempo fixo: o ResizeObserver reage no
-    // proximo quadro, mas prender o teste a um numero de milissegundos e o que
-    // produz teste intermitente.
-    await window.waitForFunction(() => {
-      const b = document.querySelector('.terminal-tab-overflow-btn');
-      return !!b && !b.classList.contains('hidden');
-    }, null, { timeout: 5_000 });
+  // O caso "apertou muito" e coberto pelo teste da coluna, logo abaixo: abaixo
+  // do limiar as abas empilham e o botao de excedente sai de cena de proposito.
+  // O botao continua valendo na faixa intermediaria, larga o bastante para
+  // ficar horizontal e com abas demais para caberem.
 
-    const r = await window.evaluate(() => {
-      const btn = document.querySelector('.terminal-tab-overflow-btn');
+  it('terminal estreito empilha as abas numa coluna a direita', async () => {
+    // O gatilho e a largura do TERMINAL, nao a da janela. Aqui ele e forcado
+    // pelos dois lados: largo tem que ficar em faixa, estreito em coluna.
+    const medir = () => window.evaluate(() => {
+      const term = document.querySelector('.terminal-container');
+      const lista = document.querySelector('.terminal-tabs-list');
       const abas = [...document.querySelectorAll('.terminal-tabs .tab')];
-      const ativa = abas.find((t) => t.classList.contains('active'));
-      const acoes = [...document.querySelectorAll('.terminal-tabs-actions')];
-      const visiveis = abas.filter((t) => !t.classList.contains('tab-overflowed'));
-
-      // Nenhuma aba visivel pode invadir a area das acoes.
-      const invade = visiveis.some((t) => acoes.some((a) => {
-        const rt = t.getBoundingClientRect();
-        const ra = a.getBoundingClientRect();
-        return rt.right > ra.left + 1 && rt.left < ra.right - 1;
-      }));
-
+      const cs = window.getComputedStyle(document.querySelector('.terminal-tabs'));
       return {
-        temBotao: !!btn && !btn.classList.contains('hidden'),
-        escondidas: abas.length - visiveis.length,
-        ativaVisivel: !!ativa && !ativa.classList.contains('tab-overflowed'),
-        invade,
+        larguraTerminal: Math.round(term.getBoundingClientRect().width),
+        coluna: term.classList.contains('tabs-vertical'),
+        direcao: cs.flexDirection,
+        // Em coluna as abas ficam empilhadas: mesma esquerda, alturas diferentes.
+        empilhadas: abas.length > 1
+          && Math.abs(abas[0].getBoundingClientRect().left - abas[1].getBoundingClientRect().left) < 2
+          && abas[1].getBoundingClientRect().top > abas[0].getBoundingClientRect().top,
+        listaVisivel: !!lista && lista.getBoundingClientRect().width > 0,
       };
     });
 
-    expect(r.escondidas, 'com o painel no maximo alguma aba tem que sair').toBeGreaterThan(0);
-    expect(r.temBotao, 'havendo aba oculta, o botao da lista aparece').toBe(true);
-    expect(r.ativaVisivel, 'a aba ativa nunca pode ser escondida').toBe(true);
-    expect(r.invade, 'nenhuma aba pode encavalar os botoes de acao').toBe(false);
-  }, 30_000);
+    // Largo: faixa horizontal.
+    await window.evaluate(() => {
+      const c = document.querySelector('.ai-assistant-container');
+      c.style.transition = 'none';
+      c.style.width = '0px';
+    });
+    await window.waitForTimeout(250);
+    const largo = await medir();
+    expect(largo.larguraTerminal).toBeGreaterThan(560);
+    expect(largo.coluna, 'terminal largo deve ficar em faixa').toBe(false);
+
+    // Estreito: o painel de IA come a largura ate o terminal cair do limiar.
+    await window.evaluate(() => {
+      const c = document.querySelector('.ai-assistant-container');
+      c.style.width = window.aiAssistantManager._larguraPermitida(99999) + 'px';
+    });
+    await window.waitForFunction(
+      () => document.querySelector('.terminal-container')?.classList.contains('tabs-vertical'),
+      null, { timeout: 5_000 },
+    );
+    const estreito = await medir();
+    expect(estreito.larguraTerminal).toBeLessThan(560);
+    expect(estreito.coluna, 'terminal estreito deve virar coluna').toBe(true);
+    expect(estreito.direcao, 'a barra tem que virar coluna de verdade').toBe('column');
+    expect(estreito.empilhadas, 'as abas tem que ficar uma sobre a outra').toBe(true);
+  }, 40_000);
 
   it('forcar uma largura absurda nao espreme o editor a zero', async () => {
     // É exatamente o caso que quebrava: largura salva de uma janela maior,

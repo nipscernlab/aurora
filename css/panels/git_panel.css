@@ -28,26 +28,34 @@
  *    arquivo dentro, e isso e distribuicao. Sob OFL o problema nao existe e as
  *    fontes sao commitadas como as outras.
  * ========================================================================== */
-/* A marca mora no canto superior DIREITO, encostada no botao de fechar. O
-   .title do aurora-modal e `flex: 1 1 auto` e o fechar vem logo depois, entao
-   basta encher a faixa e alinhar o conteudo a direita; o componente nao muda.
-   O seletor duplo vence o `::slotted([slot='title'])` do shadow DOM, que define
-   `align-items: center`.
+/* O cabecalho tem dois grupos, um em cada ponta.
+   A ESQUERDA o descritor, que e onde o titulo de um modal e procurado: o icone
+   de branch e "Source Control". A DIREITA a marca, runa e "Dagr", encostada no
+   botao de fechar, funcionando como assinatura.
 
-   O alinhamento e por LINHA DE BASE, e nao pelo centro das caixas. Centrando,
-   as duas caixas ficam alinhadas mas os glifos nao: a Noto Sans Runic tem
-   ascendente e descendente generosos, padrao das Noto, entao a linha de base
-   dela cai cerca de 3 px abaixo da linha de base da Metamorphous e a runa
-   parece afundada. Pela base os dois glifos assentam juntos, que e o certo para
-   duas partes que se leem como uma marca so. */
+   O DOM vem na ordem icone, runa, letreiro, descritor, que nao e a ordem visual
+   nem agrupa os dois lados. `order` reordena, e a margem automatica na runa
+   abre o vao: ela empurra a si mesma e tudo que vem depois para a direita. Isso
+   evita mexer no markup e no aurora-modal, cujo .title ja e `flex: 1 1 auto`.
+   O seletor duplo vence o `::slotted([slot='title'])` do shadow DOM.
+
+   O alinhamento da marca e por LINHA DE BASE, e nao pelo centro das caixas.
+   Centrando, as duas caixas ficam alinhadas mas os glifos nao: a Noto Sans
+   Runic tem ascendente e descendente generosos, padrao das Noto, entao a linha
+   de base dela cai cerca de 3 px abaixo da linha de base da Metamorphous e a
+   runa parece afundada. Pela base os dois glifos assentam juntos, que e o certo
+   para duas partes que se leem como uma marca so. */
 .modal-title.dagr-title {
   display: inline-flex;
   align-items: baseline;
-  justify-content: flex-end;
   width: 100%;
   gap: 0.55ch;
   padding-right: var(--space-1, 4px);
 }
+.dagr-title .dagr-sc-icon { order: 1; }
+.dagr-title .dagr-sub     { order: 2; }
+.dagr-title .dagr-rune    { order: 3; margin-left: auto; }
+.dagr-title .dagr-name    { order: 4; }
 /* The classic source-control glyph — kept, just quieted so the wordmark leads.
    Sem linha de base util, entao ele continua centrado. */
 .dagr-title .dagr-sc-icon {
@@ -81,15 +89,19 @@
   letter-spacing: 0.01em;
   color: var(--text-bright, #fff);
 }
-/* Keep "Source Control" as a quiet descriptor so the panel stays findable. */
+/* "Source Control" agora e o titulo da esquerda, e nao mais um sufixo do
+   letreiro. Por isso cresceu um degrau da escala: em 0.66em dava 9 px, que
+   servia como aposto da marca mas e pequeno demais para carregar o titulo
+   sozinho. Absoluto pelo mesmo motivo das outras partes.
+   O ponto separador saiu junto: ele existia para ligar "Dagr" a "Source
+   Control", e agora eles estao em pontas opostas do cabecalho. */
 .dagr-sub {
-  font-size: 0.66em;
+  font-size: var(--text-sm, 12px);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-muted);
   align-self: center;
 }
-.dagr-sub::before { content: '·'; margin: 0 0.55ch 0 0.25ch; opacity: 0.5; }
 
 /* A big, MUTED "ᛞ DAGR" watermark filling the panel's empty space — as marcas
    da secao 0, centralizadas e atras do conteudo. `isolation:isolate` makes the

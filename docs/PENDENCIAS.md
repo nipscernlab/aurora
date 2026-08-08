@@ -158,21 +158,20 @@ exatamente o pedido.
 
 ---
 
-## 2.2 Aberto: a lista de abas do terminal não dispara
+## 2.2 Abas do terminal: resolvido virando coluna
 
-A compressão das abas funciona e resolveu o caso visível. A lista para o
-excedente (`js/terminal/tab_overflow.js`) está implementada, tem nove testes na
-parte pura e passa no e2e, onde o botão aparece com o painel de IA no máximo.
-Na máquina do Chrysthofer ela não dispara, e eu não identifiquei o motivo antes
-de ele decidir seguir adiante, em 08/08/2026.
+A lista de excedente, que escondia as abas que não coubessem atrás de um botão,
+passava no e2e e nunca disparou em uso real. Ela foi removida em 08/08/2026, e
+não por não funcionar: foi porque a solução certa era outra.
 
-Não é bloqueante: sem disparar, o comportamento é o de antes dela, que é
-aceitável. Mas é código que não faz o que promete, então antes de congelar a
-versão ou se resolve ou se remove. O caminho para retomar é o console do
-renderer com o painel de IA aberto e o terminal estreito, olhando se
-`initTerminalTabOverflow` chegou a instalar o botão e o que
-`document.querySelector('.terminal-tabs-list').clientWidth` devolve naquele
-momento.
+Abaixo de 780 px de largura do terminal as abas saem da faixa horizontal e viram
+uma coluna à direita, empilhadas. Empilhar resolve o mesmo aperto sem esconder
+nada de ninguém, e o limiar entra enquanto ainda há folga, não no limite. O
+gatilho tem teste e2e nos dois sentidos, medindo o retângulo das abas.
+
+Com a coluna entrando tão cedo, a faixa em que a lista ainda teria função ficou
+estreita demais para justificar código que não se sabia por que não rodava.
+Saíram 350 linhas entre módulo, plano e testes.
 
 ---
 

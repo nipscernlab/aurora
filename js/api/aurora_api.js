@@ -753,6 +753,23 @@ async function _runRenameJob(job) {
 }
 
 const projectNs = {
+  /**
+   * Fecha o projeto aberto, devolvendo a IDE ao estado sem projeto.
+   *
+   * Passa pelo botao da interface de proposito, e nao por uma rotina paralela:
+   * o fechamento pergunta sobre arquivos nao salvos, limpa a arvore, o terminal
+   * e o estado de compilacao, e duplicar isso aqui seria duplicar a chance de
+   * esquecer um passo. O dialogo de confirmacao continua aparecendo, entao o
+   * usuario segue com a ultima palavra.
+   */
+  async close() {
+    if (!window.ProjectStore?.getProjectPath?.()) return err('No project open');
+    const botao = document.querySelector('#close-button');
+    if (!botao) return err('Close-project control not available');
+    botao.click();
+    return ok({ requested: true, message: 'Close requested; the user confirms in the dialog.' });
+  },
+
   async getCurrent() {
     const path = window.currentProjectPath || window.currentOpenProjectPath || null;
     if (!path) return ok(null);
@@ -2533,6 +2550,52 @@ const waveNs = {
     return ok({ active: filePath || null });
   },
 
+  /**
+   * Cria um arquivo de comandos do Surfer e, se pedido, abre o Surfer com ele.
+   *
+   * Sobre o formato, que e a decisao que importa aqui: a IA escreve um `.sucl`,
+   * e nao um `.surf.ron`. O `.surf.ron` e a serializacao RON do estado interno
+   * do Surfer, feita pelo serde, e nao tem esquema publicado: escrever um a mao
+   * e apostar na forma privada de uma struct que muda entre versoes. O `.sucl` e
+   * o oposto, e documentado (docs/commands do surfer-aurora), e feito para ser
+   * escrito a mao e faz a mesma coisa do ponto de vista de quem usa: monta a
+   * visao. Por isso o caminho de criacao passa por ele.
+   *
+   * O arquivo entra na lista de layouts do testbench ativo, entao aparece no
+   * seletor junto com os que ja existiam.
+   *
+   * @param {{name: string, commands: string[]|string, open?: boolean, setActive?: boolean}} p
+   */
+  async createSurferLayout({ name, commands, open = false, setActive = true } = {}) {
+    if (!name) return err('name required');
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    if (!projectPath) return err('No project open');
+
+    const linhas = Array.isArray(commands) ? commands : String(commands || '').split('\n');
+    const corpo = linhas.map((l) => String(l).trim()).filter(Boolean);
+    if (!corpo.length) return err('commands required — one Surfer command per line');
+
+    const base = String(name).replace(/[^\w.-]+/g, '_').replace(/\.sucl$/i, '');
+    const alvo = await electronAPI.joinPath(projectPath, `${base}.sucl`);
+    const texto = [
+      '# Gerado pela Aurora Intelligence.',
+      '# Arquivo de comandos do Surfer (.sucl): um comando por linha.',
+      ...corpo,
+      '',
+    ].join('\n');
+
+    try { await electronAPI.writeFile(alvo, texto); }
+    catch (e) { return err(`Could not write ${alvo}: ${e?.message || e}`); }
+
+    const add = await this.addSurferFile({ filePath: alvo, setActive });
+    if (!add?.success) return add;
+    if (open) {
+      const r = await this.openSurfer({ file: undefined, layout: alvo });
+      if (!r?.success) return ok({ filePath: alvo, opened: false, openError: r?.error });
+    }
+    return ok({ filePath: alvo, opened: !!open, commands: corpo.length });
+  },
+
   /** Drop one Surfer layout entry from the active testbench's list. */
   async removeSurferFile(filePath) {
     if (!filePath) return err('filePath required');
@@ -2847,6 +2910,7 @@ const NAMESPACES = Object.freeze({
     clear:   'Clear a terminal panel',
   },
   project: {
+    close:              'Close the open project and return to the empty state',
     getCurrent:         'Path and metadata of the open project',
     getTree:            'Files and folders of the open project',
     readFile:           'Read any file inside the project folder, at any depth',
@@ -2895,6 +2959,7 @@ const NAMESPACES = Object.freeze({
     addGtkwFile:        'Register a .gtkw file from the project for the active testbench',
     setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
+    createSurferLayout: 'Write a .sucl Surfer layout and register it for the testbench',
     listSurferFiles:    'List Surfer layouts (.surf.ron/.sucl) registered for the active testbench',
     findSurferFiles:    'Find Surfer layout files (.surf.ron/.sucl) in the project by name',
     useSurferByName:    'Locate a Surfer layout by name and set it active for the testbench in one step',

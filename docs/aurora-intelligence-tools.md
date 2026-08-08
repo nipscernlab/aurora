@@ -5,7 +5,7 @@
      `description` dela em main/ai/tools.js, que e o mesmo texto que o
      modelo le ao decidir se a chama. -->
 
-A AURORA expoe 104 ferramentas ao modelo. Elas chegam ate ele por dois
+A AURORA expoe 106 ferramentas ao modelo. Elas chegam ate ele por dois
 caminhos, descritos no [estudo do codigo](ESTUDO_CODIGO_AURORA.md).
 
 Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel
@@ -23,6 +23,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 |---|---|---|---|
 | `analyze_asm` | read | `filePath`?, `processorName`? | Parse a SAPHO assembly (.asm) file and return a structured summary: total instruction count, count per opcode, count per family (memory/arith_float/arith_int/control/io/...), labels with line numbers, and detected loops (back-jumps with body size). Use this to find optimisation targets (the largest loops) and to verify an optimisation actually reduced the instruction count. Provide either filePath OR processorName; if neither, the active editor file is used (must be .asm). |
 | `backup_project` | write | nenhum | Create a timestamped backup (.zip) of the currently open SAPHO project. Returns the absolute path of the archive. |
+| `close_project` | write | nenhum | Close the project currently open and return the IDE to its empty state. The user still confirms in a dialog, and unsaved files are handled there, so this REQUESTS the close rather than forcing it. |
 | `create_file` | write | `filePath`, `content`? | Create a new file (or overwrite an existing one) with the given content. |
 | `create_folder` | write | `dirPath` | Create a directory, including any missing parent folders. Use a project-relative path; creating one that already exists is not an error. |
 | `create_processor` | write | `processorName`, `nBits`?, `nbMantissa`?, `nbExponent`?, `dataStackSize`?, `instructionStackSize`?, `inputPorts`?, `outputPorts`?, `gain`? | Generate a processor in the open project. Hardware widths (nBits/nbMantissa/nbExponent) are in bits. |
@@ -95,6 +96,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 |---|---|---|---|
 | `add_gtkw_file` | write | `filePath`, `setActive`? | Register a .gtkw save file from anywhere inside the project tree for the active testbench. The file must exist and end in .gtkw. By default the freshly added entry becomes the active one. |
 | `add_surfer_file` | write | `filePath`, `setActive`? | Register a Surfer layout from inside the project tree for the active testbench: a .surf.ron saved state (loaded with -s) or a .sucl command file (loaded with -c). The file must exist. By default the freshly added entry becomes the active one. |
+| `create_surfer_layout` | write | `name`, `commands`, `open`?, `setActive`? | Create a Surfer command file (.sucl) that sets up a waveform view, register it for the active testbench and optionally open Surfer with it. Write ONE Surfer command per line (load_file, add_variable, zoom_fit, ...); see the Surfer command reference. NOTE: this deliberately writes .sucl and not .surf.ron — .surf.ron is the RON serialisation of Surfer's internal state, it has no published schema and changes between versions, while .sucl is documented and meant to be hand-written. To drop a layout later, use remove_surfer_file. |
 | `find_gtkw_files` | read | `query`? | Find .gtkw save files anywhere inside the open project by name. The user only needs to give the file name — this resolves the full path. Pass a name fragment to filter, or omit it to list every .gtkw in the project. Returns project-relative and absolute paths. |
 | `find_surfer_files` | read | `query`? | Find Surfer layout files (.surf.ron saved state, or .sucl command files) anywhere inside the open project by name. The user only needs to give the file name — this resolves the full path. Pass a name fragment to filter, or omit it to list every Surfer layout. Returns project-relative and absolute paths. |
 | `get_simulator` | read | nenhum | Read which Verilog simulator the Wave button runs. Returns "iverilog" (bundled vvp/iverilog, default — slower but preserves every internal SAPHO signal) or "verilator" (bundled Verilator — 5-10x faster on long testbenches but elides internal signals; only top-level testbench signals stay visible). |

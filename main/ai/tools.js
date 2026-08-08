@@ -1357,6 +1357,41 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'close_project',
+    description:
+      'Close the project currently open and return the IDE to its empty state. '
+      + 'The user still confirms in a dialog, and unsaved files are handled there, '
+      + 'so this REQUESTS the close rather than forcing it.',
+    access: 'write',
+    api: ['project', 'close'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'create_surfer_layout',
+    description:
+      'Create a Surfer command file (.sucl) that sets up a waveform view, register it '
+      + 'for the active testbench and optionally open Surfer with it. Write ONE Surfer '
+      + 'command per line (load_file, add_variable, zoom_fit, ...); see the Surfer command '
+      + 'reference. NOTE: this deliberately writes .sucl and not .surf.ron — .surf.ron is '
+      + "the RON serialisation of Surfer's internal state, it has no published schema and "
+      + 'changes between versions, while .sucl is documented and meant to be hand-written. '
+      + 'To drop a layout later, use remove_surfer_file.',
+    access: 'write',
+    api: ['wave', 'createSurferLayout'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Layout name, without extension. Becomes <name>.sucl at the project root.' },
+        commands: { type: 'array', items: { type: 'string' }, description: 'Surfer commands, one per entry, in the order they should run.' },
+        open: { type: 'boolean', description: 'true also launches Surfer with this layout. Default false.' },
+        setActive: { type: 'boolean', description: 'true (default) makes it the active layout for the testbench.' },
+      },
+      required: ['name', 'commands'],
+    },
+  },
+  {
     name: 'create_split',
     description: 'Create a new editor split pane.',
     access: 'write',

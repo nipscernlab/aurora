@@ -118,6 +118,46 @@ DOM. E a decisão de marca entre SAPHO, AURORA e Dagr continua aberta.
 
 ---
 
+## 2.1 Os oito pedidos de 08/08/2026
+
+Todos executados, e um deles rendeu mais do que parecia.
+
+Os resizers da árvore, do painel de IA e do terminal passaram a se comportar como
+os do VS Code: encolhem até um mínimo e colapsam se você forçar além do limiar.
+Antes o arrasto travava no mínimo e colapsar só era possível pelo botão. O painel
+de IA sobrepunha o terminal e os splits porque o teto dele era
+`window.innerWidth * 0.7`, sem descontar a árvore nem reservar espaço para o
+editor; como o container do editor tem `min-width: 0`, ele era espremido até
+zero. A regra virou aritmética pura em `js/utils/pane_size.js`, com teste.
+
+O log de atualização estava gigantesco por dois motivos, e os dois viraram um
+`debug`: o `.inv` inexistente era lido sem checar antes, e a jumplist logava a
+cada ronda mesmo sem nada mudar, o que sozinho dava 924 entradas, 63% do
+`main.log`.
+
+A varinha de formatar ficou à esquerda do botão de split e dispara a ação padrão
+do Monaco, então não escolhe formatador: cada idioma registra o seu. C, C++ e C±
+já tinham o clang-format empacotado e o Verilog já tinha o Verible; faltava o
+Python, que agora vai pelo black. A mesma formatação virou ferramenta da Aurora
+Intelligence (`format_file`), porque sem ela a IA reescreve o arquivo inteiro só
+para arrumar indentação.
+
+O manual offline passou a perguntar onde abrir. No navegador vêm abas, busca e
+favoritos de graça; na AURORA abre uma janela nossa, frameless e com a barra
+desenhada por nós, para quem não tem navegador ou está numa máquina com a
+associação de `.html` removida.
+
+A visão Folder ganhou arrastar e soltar, com Ctrl para copiar, e o ícone do input
+de criação passou a seguir o que está sendo digitado, então dá para ver que
+`main.py` vira um Python antes de o arquivo existir.
+
+Sobre o bump de versão: não há o que mudar. O `release-please` acumula os commits
+convencionais e propõe a versão numa PR; só o merge dela cria a tag e dispara o
+build do instalador. Enquanto essa PR não for aceita, nenhum release sai. Era
+exatamente o pedido.
+
+---
+
 ## 3. Otimização de runtime
 
 Pedido como "devemos otimizar muito o software". O que foi feito é otimização

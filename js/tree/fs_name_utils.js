@@ -119,3 +119,41 @@ export function nextCopyName(name, siblings) {
     }
     return candidate;
 }
+
+/**
+ * Para onde vai o que foi solto na árvore.
+ *
+ * Soltar sobre uma pasta joga dentro dela; soltar sobre um arquivo joga na
+ * pasta desse arquivo, que é o que a pessoa quer dizer ao mirar num item
+ * qualquer de uma pasta aberta; soltar na área vazia joga na raiz do projeto.
+ *
+ * @param {{path: string, isDir: boolean}|null} sobre linha sob o cursor, ou
+ *   null quando o cursor está na área vazia
+ * @param {string} raiz raiz do projeto
+ * @returns {string} pasta de destino, ou '' quando não há destino possível
+ */
+export function resolveDropTarget(sobre, raiz) {
+    if (!sobre || !sobre.path) return raiz || '';
+    return sobre.isDir ? sobre.path : parentDir(sobre.path);
+}
+
+/**
+ * O arrasto é um não-movimento? Soltar algo na pasta onde já está, ou uma
+ * pasta dentro de si mesma ou da própria subárvore, não é operação nenhuma.
+ *
+ * A guarda da subárvore é a que importa: mover `a/b` para dentro de `a/b/c`
+ * arrastaria a pasta para dentro dela mesma e, dependendo do sistema de
+ * arquivos, ou falha ou destrói o conteúdo.
+ *
+ * @param {string} origem caminho arrastado
+ * @param {string} destino pasta de destino
+ * @param {boolean} ehPasta a origem é uma pasta
+ */
+export function isNoOpDrop(origem, destino, ehPasta) {
+    if (!origem || !destino) return true;
+    const o = normSlash(origem).toLowerCase();
+    const d = normSlash(destino).toLowerCase();
+    if (normSlash(parentDir(origem)).toLowerCase() === d) return true;
+    if (!ehPasta) return false;
+    return o === d || isUnder(destino, origem);
+}

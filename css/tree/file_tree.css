@@ -342,6 +342,14 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   opacity: 0.5;
 }
 
+/* Pasta que vai receber o que esta sendo arrastado. O realce e na pasta
+   inteira, e nao so na linha, porque o que sera solto vai para dentro dela. */
+.file-tree-item.drop-target > .file-item {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  border-radius: 4px;
+}
+
 /* Original row hides while its inline rename editor is mounted in its place. */
 .file-item.hidden-during-rename,
 .file-tree-item > .file-item.hidden-during-rename {

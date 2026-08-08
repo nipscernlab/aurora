@@ -327,6 +327,9 @@ class StandardTreeRenderer {
         wrapper.setAttribute('data-path', entry.path);
         // Consumed by the CRUD layer (context menu / paste-target resolution).
         wrapper.dataset.isDir = entry.isDirectory ? '1' : '';
+        // Arrastar e soltar é do CRUD (standard_tree_crud._wireDragAndDrop);
+        // aqui só marcamos a linha como arrastável.
+        wrapper.draggable = true;
         wrapper.style.setProperty('--depth', String(level));
 
         const row = document.createElement('div');

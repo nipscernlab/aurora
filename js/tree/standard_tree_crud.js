@@ -11,7 +11,12 @@
  *     .gitignore) the old empty-area menu offered.
  *   - Inline create/rename inputs with LIVE validation (VS Code behaviour:
  *     duplicate names, invalid/reserved names, Enter commits, Esc cancels,
- *     blur commits-if-valid). Nested create ("a/b/c.txt") works.
+ *     blur commits-if-valid). Nested create ("a/b/c.txt") works. O ícone à
+ *     esquerda acompanha o que está sendo digitado, então dá para ver que
+ *     "main.py" vira um Python antes de o arquivo existir.
+ *   - Arrastar e soltar: arrastar move, com Ctrl copia, soltar na área vazia
+ *     joga na raiz. Tudo termina em paste(), que já resolve conflito de nome,
+ *     aba aberta, buffer sujo e pasta arrastada para dentro de si mesma.
  *   - Open-editor awareness: renaming or deleting files that are open in
  *     tabs migrates/closes those tabs; dirty buffers are saved (rename) or
  *     explicitly confirmed as lost (delete) BEFORE touching the disk.
@@ -34,10 +39,12 @@ import { electronAPI } from '../app/electron_api.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { standardTreeRenderer } from './standard_tree_render.js';
 import { treeView } from './tree_view.js';
+import { iconUrlForFile, iconUrlForFolder } from './material_icons.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { showCardNotification } from '../ui/notification.js';
 import {
     validateEntryName, nextCopyName, normSlash, baseName, parentDir, isUnder,
+    resolveDropTarget, isNoOpDrop,
 } from './fs_name_utils.js';
 
 // i18n with English fallback (same pattern as file_tree_toggler.js) — the
@@ -184,6 +191,98 @@ class StandardTreeCrud {
                 e.preventDefault(); this.paste(this._pasteTargetDir());
             }
         });
+
+        this._wireDragAndDrop(host);
+    }
+
+    /**
+     * Arrastar e soltar, como no VS Code: arrastar move, arrastar com Ctrl
+     * copia, e soltar na área vazia joga na raiz do projeto.
+     *
+     * Tudo aqui termina em `paste()`, que já sabe o que fazer com conflito de
+     * nome, aba aberta, buffer sujo e pasta arrastada para dentro de si mesma.
+     * Reimplementar mover seria repetir essas quatro decisões e errar uma.
+     */
+    _wireDragAndDrop(host) {
+        /** Linha sob o cursor no momento, para limpar o realce depois. */
+        let realce = null;
+        const realcar = (el) => {
+            if (realce === el) return;
+            realce?.classList.remove('drop-target');
+            realce = el;
+            realce?.classList.add('drop-target');
+        };
+
+        host.addEventListener('dragstart', (e) => {
+            if (!this._isStandardView()) return;
+            const row = e.target.closest?.('.file-tree-item[data-path]');
+            if (!row) return;
+            const entry = this._entryFromRow(row);
+            // Marcador próprio: sem ele, qualquer arrasto de fora (uma imagem
+            // do navegador, texto selecionado) cairia como se fosse da árvore.
+            e.dataTransfer.setData('application/x-aurora-tree-path', entry.path);
+            e.dataTransfer.effectAllowed = 'copyMove';
+            this.select(entry.path);
+        });
+
+        host.addEventListener('dragover', (e) => {
+            if (!this._isStandardView()) return;
+            if (!e.dataTransfer.types.includes('application/x-aurora-tree-path')) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = (e.ctrlKey || e.metaKey) ? 'copy' : 'move';
+            // Soltar sobre um arquivo significa soltar na pasta dele, que é o
+            // que o usuário quer dizer ao mirar num item qualquer da pasta.
+            const row = e.target.closest?.('.file-tree-item[data-path]');
+            realcar(row?.dataset.isDir === '1' ? row : null);
+        });
+
+        host.addEventListener('dragleave', (e) => {
+            if (!host.contains(e.relatedTarget)) realcar(null);
+        });
+
+        host.addEventListener('drop', async (e) => {
+            if (!this._isStandardView()) return;
+            const origem = e.dataTransfer.getData('application/x-aurora-tree-path');
+            realcar(null);
+            if (!origem) return;
+            e.preventDefault();
+
+            const row = e.target.closest?.('.file-tree-item[data-path]');
+            const alvo = resolveDropTarget(
+                row ? { path: row.getAttribute('data-path'), isDir: row.dataset.isDir === '1' } : null,
+                this._root(),
+            );
+            if (!alvo) return;
+            await this.dropOnto(origem, alvo, { copy: e.ctrlKey || e.metaKey });
+        });
+
+        host.addEventListener('dragend', () => realcar(null));
+    }
+
+    /**
+     * Move (ou copia) `origem` para dentro de `alvo`, reaproveitando `paste`.
+     *
+     * O clipboard do usuário é preservado: arrastar um arquivo não pode comer
+     * um Ctrl+X que estava pendente.
+     */
+    async dropOnto(origem, alvo, { copy = false } = {}) {
+        const row = this._rowFor(origem);
+        const ehPasta = row ? row.dataset.isDir === '1' : false;
+        if (isNoOpDrop(origem, alvo, ehPasta)) return;
+
+        const anterior = this.clipboard;
+        this.clipboard = {
+            path: origem,
+            name: baseName(origem),
+            isDir: ehPasta,
+            cut: !copy,
+        };
+        try {
+            await this.paste(alvo);
+        } finally {
+            this.clipboard = anterior;
+            this._refreshDecorations();
+        }
     }
 
     _entryFromRow(row) {
@@ -385,7 +484,7 @@ class StandardTreeCrud {
      * with an <input> and a validation bubble), wires validation + commit /
      * cancel semantics and returns the input element.
      */
-    _mountInline({ mountEl, before, depth, iconClass, initial, selectRange, validate, commit, onClose }) {
+    _mountInline({ mountEl, before, depth, kind, initial, selectRange, validate, commit, onClose }) {
         this._cancelInline();
 
         const wrapper = document.createElement('div');
@@ -395,7 +494,7 @@ class StandardTreeCrud {
             <div class="file-item">
                 <div class="file-item-row">
                     <span class="folder-toggle-spacer"></span>
-                    <span class="file-item-icon"><i class="ph ${iconClass}"></i></span>
+                    <span class="file-item-icon"></span>
                     <input class="tree-inline-input" type="text" spellcheck="false" />
                 </div>
             </div>
@@ -403,6 +502,29 @@ class StandardTreeCrud {
         `;
         const input = wrapper.querySelector('input');
         const errorBox = wrapper.querySelector('.tree-inline-error');
+        const iconEl = wrapper.querySelector('.file-item-icon');
+
+        // O icone acompanha o que esta sendo digitado, em vez de esperar o
+        // arquivo existir. Assim da para ver, ainda durante a digitacao, que
+        // "main.py" vai virar um Python e "main.v" um Verilog, e um erro de
+        // extensao aparece antes de criar o arquivo e nao depois.
+        const pintarIcone = () => {
+            const nome = baseName(input.value.trim()) || (kind === 'folder' ? 'nova-pasta' : 'novo-arquivo');
+            iconEl.style.backgroundImage = '';
+            iconEl.classList.remove('aurora-icon-cmm');
+            if (kind === 'folder') {
+                iconEl.style.backgroundImage = `url("${iconUrlForFolder(nome)}")`;
+                return;
+            }
+            // .cmm nao tem equivalente no tema Material e mantem o glifo
+            // proprio da AURORA, como nas abas e no resto da arvore.
+            if (nome.toLowerCase().endsWith('.cmm')) {
+                iconEl.classList.add('aurora-icon-cmm');
+                return;
+            }
+            iconEl.style.backgroundImage = `url("${iconUrlForFile(nome)}")`;
+        };
+        pintarIcone();
 
         if (before) mountEl.insertBefore(wrapper, before);
         else mountEl.prepend(wrapper);
@@ -430,7 +552,7 @@ class StandardTreeCrud {
             return res.ok ? null : VALIDATION_MSGS[res.error]?.() || res.error;
         };
 
-        input.addEventListener('input', () => showError(currentError()));
+        input.addEventListener('input', () => { showError(currentError()); pintarIcone(); });
 
         const tryCommit = async () => {
             const err = currentError();
@@ -483,13 +605,12 @@ class StandardTreeCrud {
         }
 
         const siblings = await this._siblingNames(dir);
-        const iconClass = kind === 'folder' ? 'ph-folder' : 'ph-file';
 
         this._mountInline({
             mountEl,
             before: mountEl.firstChild,
             depth,
-            iconClass,
+            kind,
             initial: '',
             validate: (v) => validateEntryName(v, { siblings, allowSeparators: true }),
             commit: async (name) => {
@@ -545,7 +666,7 @@ class StandardTreeCrud {
             mountEl: row.parentNode,
             before: row,
             depth,
-            iconClass: entry.isDir ? 'ph-folder' : 'ph-file',
+            kind: entry.isDir ? 'folder' : 'file',
             initial: entry.name,
             selectRange,
             validate: (v) => validateEntryName(v, {

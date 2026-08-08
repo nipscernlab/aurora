@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     validateEntryName, nextCopyName, normSlash, baseName, parentDir, isUnder,
+    resolveDropTarget, isNoOpDrop,
 } from '../../js/tree/fs_name_utils.js';
 
 // Pure helpers behind the file-tree CRUD (standard_tree_crud.js). The rules
@@ -87,5 +88,50 @@ describe('nextCopyName', () => {
     });
     it('is case-insensitive against siblings', () => {
         expect(nextCopyName('Foo.txt', ['foo.txt', 'FOO COPY.TXT'])).toBe('Foo copy 2.txt');
+    });
+});
+
+describe('resolveDropTarget', () => {
+    it('soltar sobre uma pasta joga dentro dela', () => {
+        expect(resolveDropTarget({ path: 'C:/p/src', isDir: true }, 'C:/p')).toBe('C:/p/src');
+    });
+
+    it('soltar sobre um arquivo joga na pasta dele', () => {
+        // E o que a pessoa quer dizer ao mirar num item qualquer de uma pasta
+        // aberta: o alvo e a pasta, nao o arquivo.
+        expect(resolveDropTarget({ path: 'C:/p/src/main.c', isDir: false }, 'C:/p')).toBe('C:/p/src');
+    });
+
+    it('soltar na area vazia joga na raiz do projeto', () => {
+        expect(resolveDropTarget(null, 'C:/p')).toBe('C:/p');
+    });
+});
+
+describe('isNoOpDrop', () => {
+    it('soltar na pasta onde ja esta nao e movimento', () => {
+        expect(isNoOpDrop('C:/p/src/main.c', 'C:/p/src', false)).toBe(true);
+    });
+
+    it('mover para outra pasta e movimento', () => {
+        expect(isNoOpDrop('C:/p/src/main.c', 'C:/p/lib', false)).toBe(false);
+    });
+
+    it('uma pasta nao pode ser solta dentro de si mesma', () => {
+        expect(isNoOpDrop('C:/p/src', 'C:/p/src', true)).toBe(true);
+    });
+
+    it('nem dentro da propria subarvore', () => {
+        // Esta e a guarda que importa: sem ela, mover src para src/deep ou
+        // falha ou destroi o conteudo, dependendo do sistema de arquivos.
+        expect(isNoOpDrop('C:/p/src', 'C:/p/src/deep', true)).toBe(true);
+    });
+
+    it('uma pasta irma nao e subarvore, mesmo com nome parecido', () => {
+        expect(isNoOpDrop('C:/p/src', 'C:/p/src2', true)).toBe(false);
+    });
+
+    it('nao quebra com entrada vazia', () => {
+        expect(isNoOpDrop('', 'C:/p', false)).toBe(true);
+        expect(isNoOpDrop('C:/p/a.c', '', false)).toBe(true);
     });
 });

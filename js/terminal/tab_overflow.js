@@ -119,7 +119,10 @@ function agendar() {
 export function initTerminalTabOverflow() {
   barra = document.querySelector('.terminal-tabs');
   lista = document.querySelector('.terminal-tabs-list');
-  if (!barra || !lista || lista.querySelector('.terminal-tab-overflow-btn')) return;
+  // Sem a barra ainda no DOM nao ha o que fazer, mas tambem nao ha por que
+  // desistir: quem chama de novo mais tarde encontra.
+  if (!barra || !lista) return false;
+  if (lista.querySelector('.terminal-tab-overflow-btn')) return true;
 
   botao = document.createElement('button');
   botao.type = 'button';
@@ -147,4 +150,33 @@ export function initTerminalTabOverflow() {
   });
 
   agendar();
+  return true;
+}
+
+/**
+ * Auto-instalacao, sem depender de ordem de inicializacao.
+ *
+ * Isto ficava pendurado no `window.onload` do renderer, atras do initMonaco e
+ * do painel de IA. Depender daquela ordem significa que qualquer excecao antes
+ * daqui mata esta funcao em silencio, e foi o que aconteceu: as abas continuavam
+ * comprimidas e cortadas porque o botao da lista nunca chegou a existir.
+ *
+ * O modulo passa a se instalar sozinho assim que a barra aparece no DOM, e
+ * desiste depois de um tempo para nao ficar sondando para sempre num layout que
+ * nao tem terminal.
+ */
+function autoInstalar() {
+  if (initTerminalTabOverflow()) return;
+  let tentativas = 0;
+  const timer = setInterval(() => {
+    if (initTerminalTabOverflow() || ++tentativas > 40) clearInterval(timer);
+  }, 150);
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', autoInstalar);
+  } else {
+    autoInstalar();
+  }
 }

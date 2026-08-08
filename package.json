@@ -201,7 +201,7 @@
     "@ai-sdk/groq": "^3.0.39",
     "@ai-sdk/openai": "^3.0.64",
     "@anthropic-ai/claude-agent-sdk": "^0.3.210",
-    "@anthropic-ai/claude-code": "^2.1.202",
+    "@anthropic-ai/claude-code": "^2.1.222",
     "@lydell/node-pty": "^1.2.0-beta.12",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@openai/codex": "0.144.3",

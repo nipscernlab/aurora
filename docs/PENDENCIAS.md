@@ -77,43 +77,44 @@ sozinha, em vez de congelar a barra de progresso.
 
 ---
 
-## 2. Interface: o que sobrou de aberto, item a item
+## 2. Interface: feito em 08/08/2026, e o que sobrou
 
-O insumo é o [DESIGN.md](DESIGN.md) e o estudo de interface no
-[ESTUDO_COMPLETO_AURORA.md](ESTUDO_COMPLETO_AURORA.md). A conferência de
-08/08/2026 mostrou que boa parte do manifesto ou já foi atendida, ou foi tentada
-e revertida de propósito, então o que resta é pequeno e específico. Cada item
-abaixo precisa de uma decisão sua antes de virar código, e nenhum é obrigatório.
+Os cinco pontos que restavam do [DESIGN.md](DESIGN.md) e do estudo de interface
+foram executados. Nada aqui mudou marcação: é tudo CSS, e tudo reversível commit
+a commit.
 
-**Raio de foco na linha selecionada da árvore.** É o único dos quatro pontos da
-seção 5 do manifesto que nunca foi tentado. Hoje a linha selecionada usa
-preenchimento sólido (`--overlay-selected` em `file_tree.css`), e a proposta é
-raio à esquerda com fundo sutil. Custo: CSS apenas, reversível. Antes de fazer,
-saiba que o mesmo raio foi implementado na aba ativa e removido por você no
-commit `c08692ef` (`drop tab beam`), então há evidência de que essa marca não
-agradou num lugar; pode não agradar noutro.
+**Raio de foco na árvore.** A árvore de hierarquia já marcava o item ativo com um
+raio de 2 px à esquerda, em acento chapado; a de arquivos não tinha nada. As duas
+passaram a usar a mesma forma com o gradiente da marca. O tingimento de fundo
+ficou, contra a letra do manifesto: o `--surface-raised` que ele manda usar
+resolve para `--bg-elev`, o próprio fundo do painel, e seguir a letra deixaria a
+seleção dependendo de dois pixels.
 
-**Foco de input com o gradiente.** O manifesto pede que a borda do input em foco
-vire o gradiente `--focus-ray`. O objetivo, que era não ter anel azul de sistema,
-já está atingido por outro caminho: 37 regras de `:focus-visible` usando
-`--accent`, e nenhum contorno solto. Fazer aqui é preferência estética, não
-correção.
+**Foco de input com o gradiente.** Feito pelo truque de dois fundos, porque
+gradiente não pode ser `border-color` e `border-image` quadraria os cantos
+arredondados dos campos.
 
-**Sombra para luz.** A seção 4 do manifesto queria derrubar os `box-shadow`; eles
-foram de 71 para 99. Trocar sombra por borda e brilho é trabalho amplo e mexe em
-muitos arquivos.
+**Sombra para luz.** Sobrou zero `box-shadow` escuro no CSS. O substituto já
+existia definido e nunca usado, `--elev-overlay` e `--elev-raised`, que agora têm
+17 usos. Ficaram de propósito os nove `inset`, que fazem papel de divisor, e os
+onze brilhos de acento, que a seção 4 manda manter.
 
-**Consolidar botões, cards e pills.** O estudo de interface aponta três sistemas
-paralelos para o mesmo trabalho visual, um no `modal_config`, um no `git_panel` e
-um no `settings`. É o item de maior impacto visual do conjunto, e o de maior
-diff.
+**Botões.** A base compartilhada foi para `css/base/controls.css`, com os cinco
+seletores existentes. Os nomes de classe não mudaram: são 37 usos espalhados por
+`index.html` e pelo JS, sem teste visual embaixo. A duplicação que custava caro,
+três lugares para editar quando o botão muda, acabou.
 
-**Tokenizar os valores mágicos.** 346 literais de pixel no `ai_assistant.css` e
-258 no `git_panel.css`, ignorando as escalas `--space-*` e `--radius-*`.
+**Valores mágicos.** Aqui o estudo inflava o número por dez. Dos 573 literais de
+pixel contados, apenas 46 eram de fato espaçamento com valor existente na escala,
+e esses foram trocados. O resto é borda de 1 px, tamanho de ícone, altura de
+controle e posicionamento absoluto, onde usar `--space-*` mentiria sobre a
+intenção.
 
-Os quatro tokens definidos e nunca usados (`--focus-ray`, `--accent-veil`,
-`--surface-overlay`, `--surface-raised`) ou entram com os itens acima, ou saem do
-`semantic_tokens.css` para não ficarem prometendo o que não existe.
+**O que sobrou, e é pouco.** Noventa e seis valores estão em propriedade de
+espaçamento mas fora da escala, como 10 px, 14 px e 18 px; ou a escala ganha esses
+degraus, ou eles ficam. Os 73 `!important` continuam, e trinta deles vivem no
+`editor.css` contra o CSS do próprio Monaco, o que só sai com o editor em Shadow
+DOM. E a decisão de marca entre SAPHO, AURORA e Dagr continua aberta.
 
 ---
 

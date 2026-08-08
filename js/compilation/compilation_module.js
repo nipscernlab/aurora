@@ -42,6 +42,7 @@
  *      ARCHITECTURE.md §9 pro racional.
  */
 import { electronAPI } from '../app/electron_api.js';
+import { applyResolved } from './command_overrides.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
@@ -2743,7 +2744,6 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
         gtkwSaveFile: gtkwSaveFile || undefined,
         cwd: tools.tempBaseDir,
     });
-    const { applyResolved } = await import('./command_overrides.js');
     const resolved = await applyResolved(baseSpec, { consumeEphemeral: true });
     const finalSpec = resolved.appliedSpec;
     // Pass the resolved spec's binary + tokenized args straight through.

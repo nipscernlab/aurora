@@ -37,6 +37,14 @@ const fileOperations = {
   deleteFile:             (p) => ipcRenderer.invoke('delete-file', p),
   deleteFileOrDirectory:  (p) => ipcRenderer.invoke('file:delete', p),
 
+  // Desfazer da arvore (js/tree/tree_history.js). O que a arvore remove vai
+  // para uma area de espera em vez da Lixeira, porque de la da para voltar;
+  // undoDiscard e o que finalmente manda para a Lixeira.
+  undoStage:   (p) => ipcRenderer.invoke('undo:stage', p),
+  undoRestore: (token, dest) => ipcRenderer.invoke('undo:restore', token, dest),
+  undoDiscard: (token) => ipcRenderer.invoke('undo:discard', token),
+  undoDrain:   () => ipcRenderer.invoke('undo:drain'),
+
   // File-tree CRUD (js/tree/standard_tree_crud.js)
   renamePath:  (oldP, newP, opts) => ipcRenderer.invoke('file:rename', oldP, newP, opts),
   trashPath:   (p) => ipcRenderer.invoke('file:trash', p),

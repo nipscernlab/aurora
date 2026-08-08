@@ -36,6 +36,9 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { listOverrides, setOverride, clearOverride } from '../compilation/command_overrides.js';
+import { resolveSpec } from '../compilation/spec_runner.js';
+import { STEP_IDS, STEP_DESCRIPTIONS } from '../compilation/command_spec.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SharedModelRegistry } from '../editor/shared_models.js';
@@ -1955,7 +1958,6 @@ const compileNs = {
   /** Enumerate every step the override system knows about. */
   async listSteps() {
     try {
-      const { STEP_IDS, STEP_DESCRIPTIONS } = await import('../compilation/command_spec.js');
       return ok({ steps: STEP_IDS.map((id) => ({ id, description: STEP_DESCRIPTIONS[id] })) });
     } catch (e) { return err(e?.message || 'listSteps failed'); }
   },
@@ -1967,7 +1969,6 @@ const compileNs = {
   async inspectCommand(step, processorName) {
     try {
       const { buildSpecForStep } = await import('../compilation/spec_factory.js');
-      const { resolveSpec } = await import('../compilation/spec_runner.js');
       const base = await buildSpecForStep(step, processorName);
       const resolved = await resolveSpec(base);
       return ok({
@@ -1992,7 +1993,6 @@ const compileNs = {
   async previewCommand(step, override, processorName) {
     try {
       const { buildSpecForStep } = await import('../compilation/spec_factory.js');
-      const { resolveSpec } = await import('../compilation/spec_runner.js');
       const base = await buildSpecForStep(step, processorName);
       const resolved = await resolveSpec(base, override || null);
       return ok({
@@ -2010,7 +2010,6 @@ const compileNs = {
   /** List every registered override across both layers. */
   async listOverrides() {
     try {
-      const { listOverrides } = await import('../compilation/command_overrides.js');
       const items = await listOverrides();
       return ok({ overrides: items });
     } catch (e) { return err(e?.message || 'listOverrides failed'); }
@@ -2026,7 +2025,6 @@ const compileNs = {
    */
   async setOverride(payload) {
     try {
-      const { setOverride } = await import('../compilation/command_overrides.js');
       const { step, processorName, persist, note, ...rest } = payload || {};
       const result = await setOverride({
         step, processorName, override: rest, persist: !!persist, note,
@@ -2038,7 +2036,6 @@ const compileNs = {
 
   async clearOverride(step, processorName, scope) {
     try {
-      const { clearOverride } = await import('../compilation/command_overrides.js');
       const result = await clearOverride({ step, processorName, scope: scope || 'both' });
       emit('compile:override-cleared', { step, processorName });
       return ok(result);

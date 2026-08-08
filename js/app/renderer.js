@@ -2,6 +2,7 @@
 
 // --- Module Imports ---
 import { electronAPI } from './electron_api.js';
+import { setAuditHook, setTerminalHook } from '../compilation/spec_runner.js';
 import { initMonaco } from '../editor/monaco_editor.js';
 import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -126,18 +127,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Hook the spec_runner audit/terminal callbacks. Done here (not in
     // spec_runner.js itself) so the module stays pure-importable from
     // tests and CLI tooling — only the live renderer wires the IPC.
-    import('../compilation/spec_runner.js').then(({ setAuditHook, setTerminalHook }) => {
-        setAuditHook((entry) => {
-            try { window.aiAPI?.auditOverrideApplied?.(entry); } catch (_) { /* fire-and-forget */ }
-        });
-        setTerminalHook((channel, message, level) => {
-            try {
-                // Reuse TerminalManager from compilation_module.js — same
-                // 'tips' (blue) styling we use for AI-driven hints elsewhere.
-                window._latestCompilationModule?.terminalManager?.appendToTerminal?.(channel, message, level || 'tips');
-            } catch (_) { /* terminal not ready — skip silently */ }
-        });
-    }).catch(() => { /* spec_runner unavailable — pipeline still runs */ });
+    setAuditHook((entry) => {
+        try { window.aiAPI?.auditOverrideApplied?.(entry); } catch (_) { /* fire-and-forget */ }
+    });
+    setTerminalHook((channel, message, level) => {
+        try {
+            // Reuse TerminalManager from compilation_module.js — same
+            // 'tips' (blue) styling we use for AI-driven hints elsewhere.
+            window._latestCompilationModule?.terminalManager?.appendToTerminal?.(channel, message, level || 'tips');
+        } catch (_) { /* terminal not ready — skip silently */ }
+    });
 
     // Toolbar badges + right-click-to-clear for active overrides.
     import('../compilation/override_badges.js').then(({ initOverrideBadges }) => {

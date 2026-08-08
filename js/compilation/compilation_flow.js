@@ -24,6 +24,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { resolveOverride } from './command_overrides.js';
 import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -653,7 +654,6 @@ async function handlePrismStep() {
         // anexamos ao payload. main aplica antes de spawn.
         const paths = await buildPrismCompilationPaths(projectPath);
         try {
-            const { resolveOverride } = await import('./command_overrides.js');
             const resolved = await resolveOverride('prism-yosys', null);
             if (resolved && resolved.override) {
                 paths.yosysOverride = resolved.override;

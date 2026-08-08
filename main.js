@@ -90,6 +90,7 @@ const previewIpc = require('./main/ipc/preview');
 const pylibsIpc = require('./main/ipc/pylibs');
 const docsIpc = require('./main/ipc/docs');
 const docsWindowIpc = require('./main/ipc/docs_window');
+const treeUndoIpc = require('./main/ipc/tree_undo');
 const pylibWatch = require('./main/python/pylib_watch');
 
 // Scheme privileges are read once, at Chromium startup — this MUST stay above
@@ -122,6 +123,7 @@ if (acquiredLock) {
   pylibsIpc.register();
   docsIpc.register();
   docsWindowIpc.register();
+  treeUndoIpc.register();
   // Vigia das bibliotecas Python: ronda periodica + ao recuperar o foco.
   // Verificar so no boot nao bastaria — a corrupcao acontece com o app aberto.
   pylibWatch.start();
@@ -152,6 +154,13 @@ if (acquiredLock) {
       const { componentsPath } = require('./main/paths');
       require('./main/temp_gc').clearTempFolderSync(componentsPath);
     } catch (_) { /* best-effort */ }
+
+    // Rede de segurança da mesma família: se a sessão anterior caiu, o que a
+    // árvore tinha removido ficou esperando em userData em vez de estar na
+    // Lixeira. Não é perda, é lugar errado — mandamos para onde deveria ter
+    // chegado. Sem await: nada depende disto para a janela subir.
+    require('./main/ipc/tree_undo').drain()
+      .catch((e) => log.warn('[main] falha ao esvaziar a espera do desfazer:', e));
 
     // Universal startup temp hygiene (best-effort, non-blocking, startup ONLY —
     // synchronous fs at quit would slow the close). Clears the AI image-attachment

@@ -79,6 +79,13 @@ function register() {
   app.on('before-quit', async () => {
     state.isQuitting = true;
 
+    // O que a árvore removeu está esperando em userData para poder ser
+    // desfeito. Fechando o aplicativo não há mais o que desfazer, então vai
+    // para a Lixeira, que é onde o usuário espera encontrar. Best-effort: a
+    // limpeza de boot pega o que sobrar se isto não terminar.
+    try { await require('./ipc/tree_undo').drain(); }
+    catch (e) { log.warn('[lifecycle] falha ao esvaziar a espera do desfazer:', e); }
+
     // Fase 1: solta tudo que pode segurar handle em Temp/ — watchers
     // (file + dir) e processos filhos (vvp.exe, gtkwave.exe).
     const releasePromises = [];

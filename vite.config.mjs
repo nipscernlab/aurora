@@ -1,16 +1,33 @@
 import { defineConfig, createLogger } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 
-// Suppress the cosmetic "can't be bundled without type=module" warning emitted
-// for the Monaco AMD loader and KaTeX UMD script. Both are vendored via
-// viteStaticCopy and resolved correctly at runtime — Vite just can't analyse
-// their AMD/UMD format, which is expected and harmless.
+// Cala os avisos que sao corretos por desenho, para que um aviso NOVO apareca
+// em vez de se perder no meio de doze esperados. Cada padrao aqui tem que ter
+// um motivo escrito; sem isso vira um tapete para esconder problema.
+//
+// A lista anterior tinha um furo instrutivo: procurava `without type=module` e
+// a mensagem real traz aspas, `without type="module"`, entao nunca casava e o
+// aviso continuava aparecendo desde sempre.
+const ESPERADOS = [
+  // Monaco (loader AMD) e KaTeX (UMD) sao <script> classicos de proposito. O
+  // Vite nao consegue analisar o formato, o que e esperado; os dois vem pelo
+  // viteStaticCopy e resolvem em runtime.
+  'without type="module"',
+  // As arvores vendor/ (vs, katex, phosphor, material-icons) nao existem
+  // durante o build: sao encenadas pelo viteStaticCopy para dentro de dist/.
+  // O aviso descreve exatamente o desenho.
+  "doesn't exist at build time",
+  // web-tree-sitter (node_modules) importa `module` e `fs/promises` nos ramos
+  // dele que rodam no Node. No navegador esses ramos nao sao tomados.
+  'has been externalized for browser compatibility',
+];
+
 const logger = createLogger();
 const _warn = logger.warn.bind(logger);
-logger.warn = (msg, opts) => {
-  if (msg.includes('without type=module')) return;
-  _warn(msg, opts);
-};
+const _warnOnce = logger.warnOnce.bind(logger);
+const esperado = (msg) => ESPERADOS.some((p) => String(msg).includes(p));
+logger.warn = (msg, opts) => { if (!esperado(msg)) _warn(msg, opts); };
+logger.warnOnce = (msg, opts) => { if (!esperado(msg)) _warnOnce(msg, opts); };
 
 // Rewrite the node_modules/ asset paths in the HTML to the vendor/ trees that
 // vite-plugin-static-copy stages. The SOURCE html keeps node_modules/ refs so
@@ -74,7 +91,18 @@ export default defineConfig({
     // The renderer loads CSS from local disk/asar, so minification saves nothing
     // meaningful — turn it off. JS is still minified.
     cssMinify: false,
+    // O bundle grande e conhecido e ja esta documentado; avisar a cada build
+    // so treina a gente a ignorar o log. Com o teto logo acima do tamanho de
+    // hoje, o aviso deixa de ser ruido e passa a ser sinal de crescimento.
+    chunkSizeWarningLimit: 2100,
     rollupOptions: {
+      // `eval` vem do web-tree-sitter, dentro do node_modules. Nao e nosso e
+      // nao da para consertar daqui; calamos so o que vem de la, para um eval
+      // que aparecesse no NOSSO codigo continuar gritando.
+      onLog(level, log, handler) {
+        if (log.code === 'EVAL' && String(log.id || log.message || '').includes('node_modules')) return;
+        handler(level, log);
+      },
       // Multi-page: the main window plus the three secondary BrowserWindows.
       // Vite emits each at its source-relative path (dist/index.html,
       // dist/html/splash.html, dist/html/prism/prism.html, …) and rewrites

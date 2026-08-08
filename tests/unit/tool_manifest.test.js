@@ -142,6 +142,52 @@ describe('TOOL_MANIFEST', () => {
         expect(faltando).toEqual([]);
     });
 
+    // O modelo NAO ve o codigo: ele ve estes textos e so eles. Um parametro sem
+    // descricao vira valor chutado, e uma descricao de tres palavras vira
+    // ferramenta usada na hora errada. A auditoria de 08/08/2026 achou 50
+    // parametros mudos e duas descricoes curtas demais; isto impede a volta.
+    it('every tool description actually says something', () => {
+        const magras = TOOL_MANIFEST
+            .filter((d) => !d.description || d.description.trim().length < 25)
+            .map((d) => d.name);
+        expect(magras).toEqual([]);
+    });
+
+    it('every tool parameter is described', () => {
+        const mudos = [];
+        for (const def of TOOL_MANIFEST) {
+            for (const [k, v] of Object.entries(def.inputSchema?.properties || {})) {
+                if (!v.description || !String(v.description).trim()) mudos.push(`${def.name}.${k}`);
+            }
+        }
+        expect(mudos).toEqual([]);
+    });
+
+    it('no required arg points at a property that does not exist', () => {
+        const orfaos = [];
+        for (const def of TOOL_MANIFEST) {
+            const props = def.inputSchema?.properties || {};
+            for (const r of def.inputSchema?.required || []) {
+                if (!(r in props)) orfaos.push(`${def.name}.${r}`);
+            }
+        }
+        expect(orfaos).toEqual([]);
+    });
+
+    // Uma ferramenta citada no prompt e que nao existe ensina o modelo a
+    // inventar chamadas que vao falhar.
+    it('the system prompt never names a tool that does not exist', () => {
+        const prompt = readFileSync(
+            new URL('../../js/ai/system_prompt.js', import.meta.url), 'utf8');
+        const nomes = new Set(TOOL_MANIFEST.map((d) => d.name));
+        const verbo = /^(get|set|list|read|write|create|delete|open|run|compile|add|remove|rename|import|select|ask|save|close|insert|replace|move|reopen|backup|toggle|search|format|remember|forget|clear|stage|unstage|commit|discard|fetch|pull|push|stash|switch)_/;
+        const candidatos = [...new Set(
+            [...prompt.matchAll(/\b([a-z][a-z0-9]*(?:_[a-z0-9]+){1,4})\b/g)].map((m) => m[1]),
+        )];
+        const fantasmas = candidatos.filter((n) => verbo.test(n) && !nomes.has(n));
+        expect(fantasmas).toEqual([]);
+    });
+
     // A varinha e a IA compartilham um caminho só de formatação.
     it('wires format_file to the editor namespace', () => {
         expect(TOOL_MANIFEST.find((d) => d.name === 'format_file')).toMatchObject({

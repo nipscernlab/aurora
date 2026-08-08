@@ -24,7 +24,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 | `analyze_asm` | read | `filePath`?, `processorName`? | Parse a SAPHO assembly (.asm) file and return a structured summary: total instruction count, count per opcode, count per family (memory/arith_float/arith_int/control/io/...), labels with line numbers, and detected loops (back-jumps with body size). Use this to find optimisation targets (the largest loops) and to verify an optimisation actually reduced the instruction count. Provide either filePath OR processorName; if neither, the active editor file is used (must be .asm). |
 | `backup_project` | write | nenhum | Create a timestamped backup (.zip) of the currently open SAPHO project. Returns the absolute path of the archive. |
 | `create_file` | write | `filePath`, `content`? | Create a new file (or overwrite an existing one) with the given content. |
-| `create_folder` | write | `dirPath` | Create a directory. |
+| `create_folder` | write | `dirPath` | Create a directory, including any missing parent folders. Use a project-relative path; creating one that already exists is not an error. |
 | `create_processor` | write | `processorName`, `nBits`?, `nbMantissa`?, `nbExponent`?, `dataStackSize`?, `instructionStackSize`?, `inputPorts`?, `outputPorts`?, `gain`? | Generate a processor in the open project. Hardware widths (nBits/nbMantissa/nbExponent) are in bits. |
 | `create_project` | write | `name`, `location` | Create a new SAPHO project under location/name and open it. The name may contain only letters, numbers, underscore or hyphen. |
 | `delete_file` | write | `filePath` | Delete a file or directory. |
@@ -128,7 +128,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 | Ferramenta | Acesso | Parametros | O que faz |
 |---|---|---|---|
 | `get_settings` | read | nenhum | Read the user-facing IDE settings: locale, tooltips, verbose mode. |
-| `set_setting` | write | `key`, `value` | Change one IDE setting. |
+| `set_setting` | write | `key`, `value` | Change one IDE setting and apply it immediately. Call list_settings first to see the valid keys and their current values — an unknown key is rejected rather than silently stored. |
 
 ## Regras da linguagem
 

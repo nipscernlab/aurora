@@ -347,10 +347,14 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        text: { type: 'string' },
+        text: { type: 'string', description: 'Text to insert, verbatim. Include any newlines you want.' },
         position: {
           type: 'object',
-          properties: { line: { type: 'number' }, column: { type: 'number' } },
+          description: '1-indexed {line, column}. Omit to insert at the cursor.',
+          properties: {
+            line: { type: 'number', description: '1-indexed line.' },
+            column: { type: 'number', description: '1-indexed column.' },
+          },
         },
       },
       required: ['text'],
@@ -365,11 +369,11 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        startLine: { type: 'number' },
-        startColumn: { type: 'number' },
-        endLine: { type: 'number' },
-        endColumn: { type: 'number' },
-        text: { type: 'string' },
+        startLine: { type: 'number', description: 'First line of the range, 1-indexed.' },
+        startColumn: { type: 'number', description: 'First column of the range, 1-indexed.' },
+        endLine: { type: 'number', description: 'Last line of the range, 1-indexed and inclusive.' },
+        endColumn: { type: 'number', description: 'Column just past the last character to replace, 1-indexed.' },
+        text: { type: 'string', description: 'Replacement text. Empty string deletes the range.' },
       },
       required: ['startLine', 'startColumn', 'endLine', 'endColumn', 'text'],
     },
@@ -406,7 +410,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        task: { type: 'string', enum: ['compile_all', 'compile_step'] },
+        task: { type: 'string', enum: ['compile_all', 'compile_step'], description: 'Short description of what is running, shown to the user in the status bar.' },
         step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Required when task is compile_step' },
         note: { type: 'string', description: 'Short description of the goal, echoed back to you on completion' },
       },
@@ -431,7 +435,7 @@ const TOOL_MANIFEST = [
     argNames: ['step'],
     inputSchema: {
       type: 'object',
-      properties: { step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'] } },
+      properties: { step: { type: 'string', enum: ['cmm', 'asm', 'verilog', 'wave', 'prism', 'verilator-proc', 'verilator-fast'], description: 'Which pipeline step to run. Call list_compile_steps for the valid ids.' } },
       required: ['step'],
     },
   },
@@ -492,7 +496,7 @@ const TOOL_MANIFEST = [
   },
   {
     name: 'create_folder',
-    description: 'Create a directory.',
+    description: 'Create a directory, including any missing parent folders. Use a project-relative path; creating one that already exists is not an error.',
     access: 'write',
     api: ['project', 'createFolder'],
     argStyle: 'positional',
@@ -512,7 +516,7 @@ const TOOL_MANIFEST = [
     argNames: ['filePath'],
     inputSchema: {
       type: 'object',
-      properties: { filePath: { type: 'string' } },
+      properties: { filePath: { type: 'string', description: 'Absolute or project-relative path of the file to delete.' } },
       required: ['filePath'],
     },
   },
@@ -525,7 +529,7 @@ const TOOL_MANIFEST = [
     argNames: ['fromPath', 'toPath'],
     inputSchema: {
       type: 'object',
-      properties: { fromPath: { type: 'string' }, toPath: { type: 'string' } },
+      properties: { fromPath: { type: 'string', description: 'Current path of the file.' }, toPath: { type: 'string', description: 'New path. Renaming across folders moves the file.' } },
       required: ['fromPath', 'toPath'],
     },
   },
@@ -538,15 +542,15 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        processorName: { type: 'string' },
+        processorName: { type: 'string', description: 'Name of the processor. Becomes the folder name and the .cmm basename, so keep it a valid identifier.' },
         nBits: { type: 'number', description: 'NUBITS — overall data width' },
         nbMantissa: { type: 'number', description: 'NBMANT — mantissa width' },
         nbExponent: { type: 'number', description: 'NBEXPO — exponent width' },
-        dataStackSize: { type: 'number' },
-        instructionStackSize: { type: 'number' },
-        inputPorts: { type: 'number' },
-        outputPorts: { type: 'number' },
-        gain: { type: 'number' },
+        dataStackSize: { type: 'number', description: 'Depth of the data stack, in words.' },
+        instructionStackSize: { type: 'number', description: 'Depth of the instruction (call) stack, in words.' },
+        inputPorts: { type: 'number', description: 'How many input ports the processor exposes.' },
+        outputPorts: { type: 'number', description: 'How many output ports the processor exposes.' },
+        gain: { type: 'number', description: 'Fixed-point gain: the number of fractional bits.' },
       },
       required: ['processorName'],
     },
@@ -560,7 +564,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        name: { type: 'string' },
+        name: { type: 'string', description: 'Project name. Becomes the folder name and the .spf basename.' },
         location: { type: 'string', description: 'Parent directory for the new project folder' },
       },
       required: ['name', 'location'],
@@ -664,7 +668,7 @@ const TOOL_MANIFEST = [
     access: 'write',
     api: ['git', 'stage'],
     argStyle: 'object',
-    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } } }, required: ['files'] },
+    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' }, description: 'Paths to stage, project-relative. Pass an empty list to stage everything.' } }, required: ['files'] },
   },
   {
     name: 'git_unstage',
@@ -672,7 +676,7 @@ const TOOL_MANIFEST = [
     access: 'write',
     api: ['git', 'unstage'],
     argStyle: 'object',
-    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } } }, required: ['files'] },
+    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' }, description: 'Paths to unstage, project-relative. The changes are kept in the working tree.' } }, required: ['files'] },
   },
   {
     name: 'git_commit',
@@ -684,7 +688,7 @@ const TOOL_MANIFEST = [
     argStyle: 'object',
     inputSchema: {
       type: 'object',
-      properties: { message: { type: 'string' }, amend: { type: 'boolean' } },
+      properties: { message: { type: 'string', description: 'Commit message. First line is the subject; blank line then body for detail.' }, amend: { type: 'boolean', description: 'true rewrites the previous commit instead of creating a new one.' } },
       required: ['message'],
     },
   },
@@ -696,7 +700,7 @@ const TOOL_MANIFEST = [
     access: 'write',
     api: ['git', 'discard'],
     argStyle: 'object',
-    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' } } }, required: ['files'] },
+    inputSchema: { type: 'object', properties: { files: { type: 'array', items: { type: 'string' }, description: 'Paths whose changes are thrown away. THIS CANNOT BE UNDONE.' } }, required: ['files'] },
   },
   {
     name: 'git_create_branch',
@@ -704,7 +708,7 @@ const TOOL_MANIFEST = [
     access: 'write',
     api: ['git', 'createBranch'],
     argStyle: 'object',
-    inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+    inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'Name of the new branch. It is created from the current HEAD and checked out.' } }, required: ['name'] },
   },
   {
     name: 'git_switch_branch',
@@ -712,7 +716,7 @@ const TOOL_MANIFEST = [
     access: 'write',
     api: ['git', 'switchBranch'],
     argStyle: 'object',
-    inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] },
+    inputSchema: { type: 'object', properties: { name: { type: 'string', description: 'Branch to check out. Uncommitted changes may block the switch.' } }, required: ['name'] },
   },
   {
     name: 'git_fetch',
@@ -744,7 +748,7 @@ const TOOL_MANIFEST = [
     access: 'write',
     api: ['git', 'stash'],
     argStyle: 'object',
-    inputSchema: { type: 'object', properties: { message: { type: 'string' } } },
+    inputSchema: { type: 'object', properties: { message: { type: 'string', description: 'Label for the stash, so it can be recognised later.' } } },
   },
   {
     name: 'open_project',
@@ -755,7 +759,7 @@ const TOOL_MANIFEST = [
     argNames: ['spfPath'],
     inputSchema: {
       type: 'object',
-      properties: { spfPath: { type: 'string' } },
+      properties: { spfPath: { type: 'string', description: 'Absolute path of the .spf file to open.' } },
       required: ['spfPath'],
     },
   },
@@ -784,7 +788,7 @@ const TOOL_MANIFEST = [
     argNames: ['processorName'],
     inputSchema: {
       type: 'object',
-      properties: { processorName: { type: 'string' } },
+      properties: { processorName: { type: 'string', description: 'Processor to delete, with its folder and sources. THIS CANNOT BE UNDONE.' } },
       required: ['processorName'],
     },
   },
@@ -836,8 +840,8 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        fromPath: { type: 'string' },
-        toPath:   { type: 'string' },
+        fromPath: { type: 'string', description: 'Current path of the imported file.' },
+        toPath:   { type: 'string', description: 'New path for it.' },
       },
       required: ['fromPath', 'toPath'],
     },
@@ -851,8 +855,8 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        filePath: { type: 'string' },
-        deleteFromDisk: { type: 'boolean', default: false },
+        filePath: { type: 'string', description: 'Imported file to remove from the project.' },
+        deleteFromDisk: { type: 'boolean', default: false, description: 'true also erases the file; false (default) only drops it from the project.' },
       },
       required: ['filePath'],
     },
@@ -892,14 +896,14 @@ const TOOL_MANIFEST = [
             required: ['label'],
           },
         },
-        multiSelect: { type: 'boolean', default: false },
+        multiSelect: { type: 'boolean', default: false, description: 'true lets the user pick more than one option.' },
       },
       required: ['question'],
     },
   },
   {
     name: 'set_setting',
-    description: 'Change one IDE setting.',
+    description: 'Change one IDE setting and apply it immediately. Call list_settings first to see the valid keys and their current values — an unknown key is rejected rather than silently stored.',
     access: 'write',
     api: ['settings', 'set'],
     argStyle: 'positional',
@@ -907,7 +911,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        key: { type: 'string', enum: ['locale', 'tooltipsEnabled', 'verboseMode'] },
+        key: { type: 'string', enum: ['locale', 'tooltipsEnabled', 'verboseMode'], description: 'Setting id. Call list_settings for the valid keys.' },
         value: {
           type: ['string', 'boolean'],
           description: 'For locale: "pt" or "en". For the toggles: true/false.',
@@ -1010,7 +1014,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        processorName: { type: 'string' },
+        processorName: { type: 'string', description: 'Processor whose configuration changes.' },
         clk:           { type: 'number', description: 'Clock frequency in MHz (positive)' },
         numClocks:     { type: 'number', description: 'Total clock cycles to simulate (positive int)' },
         showArrays:    { type: 'boolean', description: 'Dump array contents into the waveform' },
@@ -1040,7 +1044,7 @@ const TOOL_MANIFEST = [
     argNames: ['mode'],
     inputSchema: {
       type: 'object',
-      properties: { mode: { type: 'string', enum: ['file', 'hierarchy'] } },
+      properties: { mode: { type: 'string', enum: ['file', 'hierarchy'], description: 'Which file-tree view to show.' } },
       required: ['mode'],
     },
   },
@@ -1124,7 +1128,7 @@ const TOOL_MANIFEST = [
     argNames: ['filePath'],
     inputSchema: {
       type: 'object',
-      properties: { filePath: { type: 'string' } },
+      properties: { filePath: { type: 'string', description: 'The .gtkw save file GTKWave should open with the waveform.' } },
     },
   },
   {
@@ -1136,7 +1140,7 @@ const TOOL_MANIFEST = [
     argNames: ['filePath'],
     inputSchema: {
       type: 'object',
-      properties: { filePath: { type: 'string' } },
+      properties: { filePath: { type: 'string', description: 'The .gtkw entry to drop from the list.' } },
       required: ['filePath'],
     },
   },
@@ -1214,7 +1218,7 @@ const TOOL_MANIFEST = [
     argNames: ['filePath'],
     inputSchema: {
       type: 'object',
-      properties: { filePath: { type: 'string' } },
+      properties: { filePath: { type: 'string', description: 'The Surfer state file to load with the waveform.' } },
     },
   },
   {
@@ -1226,7 +1230,7 @@ const TOOL_MANIFEST = [
     argNames: ['filePath'],
     inputSchema: {
       type: 'object',
-      properties: { filePath: { type: 'string' } },
+      properties: { filePath: { type: 'string', description: 'The Surfer state entry to drop from the list.' } },
       required: ['filePath'],
     },
   },
@@ -1257,7 +1261,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        simulator: { type: 'string', enum: ['iverilog', 'verilator'] },
+        simulator: { type: 'string', enum: ['iverilog', 'verilator'], description: 'Which simulator runs the testbench.' },
       },
       required: ['simulator'],
     },
@@ -1289,7 +1293,7 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        viewer: { type: 'string', enum: ['gtkwave', 'surfer'] },
+        viewer: { type: 'string', enum: ['gtkwave', 'surfer'], description: 'Which viewer opens the resulting waveform.' },
       },
       required: ['viewer'],
     },
@@ -1411,9 +1415,10 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        step: { type: 'string' },
+        step: { type: 'string', description: 'Pipeline step whose command line you want to see.' },
         override: {
           type: 'object',
+          description: 'Override applied to the PREVIEW only. Nothing is saved.',
           properties: {
             appendArgs:  { type: 'array', items: { type: 'string' } },
             prependArgs: { type: 'array', items: { type: 'string' } },
@@ -1422,7 +1427,7 @@ const TOOL_MANIFEST = [
             envUnset:    { type: 'array', items: { type: 'string' } },
           },
         },
-        processorName: { type: 'string' },
+        processorName: { type: 'string', description: 'Processor to preview for. Omit for the active one.' },
       },
       required: ['step', 'override'],
     },
@@ -1449,7 +1454,7 @@ const TOOL_MANIFEST = [
     argNames: ['step'],
     inputSchema: {
       type: 'object',
-      properties: { step: { type: 'string' } },
+      properties: { step: { type: 'string', description: 'Pipeline step whose protected flags you want listed.' } },
     },
   },
   {
@@ -1506,9 +1511,9 @@ const TOOL_MANIFEST = [
     inputSchema: {
       type: 'object',
       properties: {
-        step:          { type: 'string' },
-        processorName: { type: 'string' },
-        scope:         { type: 'string', enum: ['ephemeral', 'persisted', 'both'] },
+        step:          { type: 'string', description: 'Pipeline step whose override is removed.' },
+        processorName: { type: 'string', description: 'Processor the override belongs to. Omit for the active one.' },
+        scope:         { type: 'string', enum: ['ephemeral', 'persisted', 'both'], description: 'Which override to clear: this processor\'s, or the project-wide one.' },
       },
       required: ['step'],
     },

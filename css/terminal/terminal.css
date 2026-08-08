@@ -803,7 +803,10 @@
 .terminal-container.tabs-vertical .terminal-tabs {
   flex-direction: column;
   align-items: stretch;
-  width: 132px;
+  /* Largura pensada para o grupo de acoes: cinco botoes de 26 px cabem numa
+     linha so. Em 132 px o quinto caia sozinho para baixo e a coluna comecava
+     com uma sobra torta. */
+  width: 156px;
   height: auto;
   flex-shrink: 0;
   padding: var(--space-2) var(--space-1);
@@ -814,12 +817,19 @@
   border-left: 1px solid var(--border);
 }
 
-/* As acoes viram linhas dentro da coluna, e continuam agrupadas. */
+/* As acoes viram uma grade dentro da coluna. Grade, e nao flex-wrap: com wrap
+   a ultima sobra caia sozinha e a linha ficava desalinhada da de cima. Cinco
+   colunas iguais acomodam o grupo da esquerda inteiro, e o da direita, que tem
+   dois, ocupa as duas primeiras celulas sem desalinhar. */
 .terminal-container.tabs-vertical .terminal-tabs-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   gap: 2px;
+  justify-items: center;
+}
+.terminal-container.tabs-vertical .terminal-tabs-actions .toolbar-button {
+  width: 26px;
+  height: 26px;
 }
 
 .terminal-container.tabs-vertical .terminal-tabs-list {
@@ -833,8 +843,10 @@
   border-left: 0;
   border-top: 1px solid var(--border);
   padding-top: var(--space-2);
-  margin-top: var(--space-1);
-  gap: var(--space-2);
+  margin-top: var(--space-2);
+  /* Menos que na faixa: em coluna cada aba ja ocupa a largura toda, entao o
+     vao grande so espalhava o olho por vao morto. */
+  gap: var(--space-1);
 }
 
 /* Em coluna a aba tem a largura toda, entao o nome cabe inteiro: nada de
@@ -843,9 +855,22 @@
 .terminal-container.tabs-vertical .terminal-tabs button.tab {
   width: 100%;
   min-width: 0;
-  height: 26px;
+  height: 28px;
+  padding: 0 8px;
+  gap: 9px;
   justify-content: flex-start;
   flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+.terminal-container.tabs-vertical .terminal-tabs .tab:hover {
+  background: var(--overlay-hover);
+}
+
+/* Em coluna os filtros ficam lado a lado e pequenos; o fundo colorido cheio,
+   que na faixa horizontal le bem, ali vira um bloco pesado. So a borda. */
+.terminal-container.tabs-vertical .filter-btn.active {
+  background-color: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 55%, transparent);
 }
 
 /* O indicador deslizante e horizontal por natureza; em coluna ele mentiria. */

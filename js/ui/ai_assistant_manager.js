@@ -199,7 +199,10 @@ class AIAssistantManager {
       const saved = parseInt(localStorage.getItem('aurora-ai-panel-width'), 10);
       if (saved >= 320) target = saved;
     } catch (_) { /* ignore */ }
-    this.container.style.width = target + 'px';
+    // Pelo mesmo limite do arrasto. A largura salva pode ter vindo de uma
+    // janela maior do que a de agora, e era exatamente por aqui que o painel
+    // voltava a invadir o terminal.
+    this.container.style.width = this._larguraPermitida(target) + 'px';
     // Limpa o estado de colapso: o painel pode ter sido fechado arrastando o
     // divisor até o fim, e o botão da barra é o caminho de volta. A largura
     // salva nunca fica envenenada porque o arrasto só persiste acima do mínimo.
@@ -512,6 +515,14 @@ class AIAssistantManager {
 
     // Re-sync providers whenever the AI settings panel changes model/key.
     window.addEventListener('aurora-ai-settings-changed', () => this.refreshProviders());
+
+    // Encolher a janela pode tornar invasiva uma largura que era legitima.
+    // Sem isto o painel so era reavaliado ao ser arrastado, entao bastava
+    // diminuir a janela para ele voltar a cobrir o terminal.
+    window.addEventListener('resize', () => {
+      if (this._reclampRaf) cancelAnimationFrame(this._reclampRaf);
+      this._reclampRaf = requestAnimationFrame(() => this.reclampWidth());
+    });
 
     this.mpProviders.addEventListener('change', (e) => {
       const radio = e.target.closest('input[name="ai-provider"]');
@@ -3190,6 +3201,50 @@ class AIAssistantManager {
 
   /* ---------------- resize ---------------- */
 
+  /**
+   * A largura que o painel PODE ter, dado o que ele pediu.
+   *
+   * Esta e a autoridade unica, e ela existir e o conserto. A regra morava
+   * dentro do arrasto, entao so o arrasto a respeitava: reabrir o painel
+   * restaurava a largura salva com um piso e nenhum teto, e redimensionar a
+   * janela nao reavaliava nada. Bastava salvar a largura numa janela larga e
+   * abrir numa estreita para o painel voltar a comer o terminal.
+   *
+   * O teto nao e uma fracao da janela: e o que sobra depois da arvore de
+   * arquivos e do minimo que o editor precisa. Calcular sobre `innerWidth`
+   * deixava o painel crescer por cima do editor, que tem `min-width: 0` e por
+   * isso era espremido ate zero, parecendo sobreposicao.
+   *
+   * @param {number} desejado
+   * @returns {number} 0 quando colapsa, senao entre o minimo e o teto
+   */
+  _larguraPermitida(desejado) {
+    const tree = document.querySelector('.file-tree-container');
+    return resolvePaneSize(desejado, {
+      min: PANE.MIN_AI,
+      collapseAt: PANE.COLLAPSE_AI,
+      max: maxLateralWidth(
+        window.innerWidth, tree ? tree.offsetWidth : 0, PANE.MIN_EDITOR, PANE.MIN_AI,
+      ),
+    });
+  }
+
+  /**
+   * Reaplica o limite a largura atual. Chamado quando a janela muda de tamanho:
+   * uma largura legitima numa janela grande passa a invadir o editor numa
+   * janela menor, e sem isto ninguem percebia.
+   */
+  reclampWidth() {
+    const c = this.container;
+    if (!c || !c.classList.contains('open')) return;
+    const atual = parseInt(document.defaultView.getComputedStyle(c).width, 10);
+    if (!Number.isFinite(atual) || atual <= 0) return;
+    const permitida = this._larguraPermitida(atual);
+    if (permitida === atual) return;
+    c.style.width = permitida + 'px';
+    c.classList.toggle('is-collapsed', permitida === 0);
+  }
+
   setupResize(handle, container) {
     handle.addEventListener('mousedown', (e) => {
       e.preventDefault();
@@ -3204,20 +3259,7 @@ class AIAssistantManager {
         if (!active) return;
         if (raf) cancelAnimationFrame(raf);
         raf = requestAnimationFrame(() => {
-          // O teto era `window.innerWidth * 0.7`, calculado sobre a janela
-          // inteira: não descontava a árvore de arquivos nem reservava espaço
-          // para o editor. Como `.editor-terminal-container` tem `min-width:0`,
-          // ele era espremido até zero e o painel parecia sobrepor o terminal e
-          // os splits. Agora o teto é o que sobra depois dos vizinhos, e forçar
-          // para a direita colapsa o painel, como no VS Code.
-          const tree = document.querySelector('.file-tree-container');
-          const newWidth = resolvePaneSize(startWidth + (startX - ev.clientX), {
-            min: PANE.MIN_AI,
-            collapseAt: PANE.COLLAPSE_AI,
-            max: maxLateralWidth(
-              window.innerWidth, tree ? tree.offsetWidth : 0, PANE.MIN_EDITOR, PANE.MIN_AI,
-            ),
-          });
+          const newWidth = this._larguraPermitida(startWidth + (startX - ev.clientX));
           container.style.width = newWidth + 'px';
           container.classList.toggle('is-collapsed', newWidth === 0);
         });

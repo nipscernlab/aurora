@@ -89,3 +89,39 @@ describe('os limiares fazem sentido entre si', () => {
     expect(PANE.MIN_AI).toBeGreaterThan(PANE.MIN_LATERAL);
   });
 });
+
+describe('a largura salva tem que passar pelo mesmo limite', () => {
+    // A regressao que este bloco guarda: a regra existia, mas so o ARRASTO a
+    // aplicava. Reabrir o painel restaurava a largura salva checando so o piso,
+    // e nada reavaliava ao encolher a janela. Bastava salvar numa janela larga
+    // e abrir numa estreita para o painel comer o terminal de novo.
+    it('largura salva numa janela larga nao cabe numa estreita', () => {
+        const salva = 900; // legitima numa janela de 2560
+        const teto = maxLateralWidth(1280, 260, PANE.MIN_EDITOR, PANE.MIN_AI);
+        const aplicada = resolvePaneSize(salva, {
+            min: PANE.MIN_AI, collapseAt: PANE.COLLAPSE_AI, max: teto,
+        });
+        expect(aplicada).toBe(700);
+        expect(aplicada).toBeLessThan(salva);
+        // E o editor continua com o espaco dele, que era o ponto.
+        expect(1280 - 260 - aplicada).toBeGreaterThanOrEqual(PANE.MIN_EDITOR);
+    });
+
+    it('o painel cede ate o proprio minimo antes de invadir o editor', () => {
+        // Janela apertada: o teto cai abaixo do minimo do painel, e ai vence o
+        // teto. Melhor um painel menor que o piso do que um editor a zero.
+        const teto = maxLateralWidth(700, 260, PANE.MIN_EDITOR, PANE.MIN_AI);
+        expect(resolvePaneSize(900, {
+            min: PANE.MIN_AI, collapseAt: PANE.COLLAPSE_AI, max: teto,
+        })).toBe(PANE.MIN_AI);
+    });
+
+    it('a arvore desconta o painel de IA, e nao so a janela', () => {
+        // O mesmo de mao trocada: com a IA aberta em 480, reabrir a arvore com
+        // 600 salvos nao pode devolver 600.
+        const teto = maxLateralWidth(1280, 480, PANE.MIN_EDITOR, PANE.MIN_LATERAL);
+        expect(resolvePaneSize(600, {
+            min: PANE.MIN_LATERAL, collapseAt: PANE.COLLAPSE_LATERAL, max: teto,
+        })).toBe(480);
+    });
+});

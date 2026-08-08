@@ -111,7 +111,11 @@ function toggleSidebar() {
                    fileTreeContainer.offsetWidth < COLLAPSED_THRESHOLD;
   if (isHidden) {
     const last = parseInt(localStorage.getItem(STORAGE_FT_WIDTH), 10);
-    const target = (!isNaN(last) && last >= MIN_FILE_TREE_WIDTH) ? last : DEFAULT_OPEN_WIDTH;
+    const bruto = (!isNaN(last) && last >= MIN_FILE_TREE_WIDTH) ? last : DEFAULT_OPEN_WIDTH;
+    // Pelo mesmo limite do arrasto e do boot. A largura salva pode ter vindo de
+    // uma janela maior, ou o painel de IA pode ter aberto desde entao: sem isto
+    // reabrir a arvore devolvia uma largura que nao cabe mais.
+    const target = constrainFileTreeWidth(bruto);
     applyFileTreeWidth(target);
     localStorage.setItem(STORAGE_FT_WIDTH, target);
   } else {

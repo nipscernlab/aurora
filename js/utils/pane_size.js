@@ -52,6 +52,29 @@ export function maxLateralWidth(larguraJanela, larguraVizinho, minEditor, minPro
   return Math.max(Number(minProprio), sobra);
 }
 
+/**
+ * Altura máxima do terminal: o que sobra da faixa que ele divide com o editor,
+ * depois do divisor e do mínimo que o editor precisa para continuar utilizável.
+ *
+ * É o `maxLateralWidth` virado para o eixo vertical, e existe pelo mesmo motivo:
+ * o container do editor tem `min-height: 0`, então sem reservar nada para ele o
+ * terminal cresce até engoli-lo. A faixa é a do `.editor-terminal-container`,
+ * medida, e não a janela: derivar de `innerHeight` obriga a subtrair barra de
+ * ferramentas e barra de estado de cabeça, e errar por um pixel ali vira folga
+ * que o divisor nunca alcança.
+ *
+ * @param {number} alturaFaixa altura do container que o editor e o terminal
+ *   dividem
+ * @param {number} alturaDivisor altura do resizer entre os dois
+ * @param {number} minEditor espaço mínimo reservado para o editor
+ * @param {number} minProprio piso do próprio terminal, para o teto nunca ficar
+ *   abaixo dele em janela baixa
+ */
+export function maxTerminalHeight(alturaFaixa, alturaDivisor, minEditor, minProprio) {
+  const sobra = Number(alturaFaixa) - Number(alturaDivisor || 0) - Number(minEditor);
+  return Math.max(Number(minProprio), sobra);
+}
+
 /** Limiares do painel lateral, em pixels. Um lugar só para os três painéis. */
 export const PANE = Object.freeze({
   /** Largura mínima de um painel lateral enquanto aberto. */
@@ -64,8 +87,17 @@ export const PANE = Object.freeze({
   COLLAPSE_AI: 160,
   /** Espaço que o editor sempre mantém, para nunca ser espremido a zero. */
   MIN_EDITOR: 320,
-  /** Altura mínima do terminal aberto. */
-  MIN_TERMINAL: 30,
+  /**
+   * Altura mínima do terminal aberto: a faixa de abas (34 px) mais a borda de
+   * cima, que é o ponto em que ele ainda mostra alguma coisa. Era 30 aqui e
+   * 40 no `min-height` do `terminal.css`, e quem desenhava era o CSS.
+   */
+  MIN_TERMINAL: 35,
   /** Abaixo disto, arrastar o terminal para baixo o colapsa. */
   COLLAPSE_TERMINAL: 16,
+  /**
+   * Altura que o editor sempre mantém. A faixa de abas mais três linhas de
+   * código: abaixo disso o editor deixa de ser editor e vira uma tarja.
+   */
+  MIN_EDITOR_HEIGHT: 120,
 });

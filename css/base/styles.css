@@ -294,8 +294,18 @@ button:disabled,
 }
 
 /* ---------------------------------------------------------------------------
- *  Focus ring
+ *  Focus ring — todo ele aqui, e só aqui.
+ *
+ *  Eram duas regras, esta e uma universal no theme_variables.css, com cores e
+ *  recuos diferentes. A universal ficou porque sem ela o Chromium desenha o
+ *  anel dele, `outline-style: auto`, que é o risco azul de aparência de sistema.
  * ------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
@@ -305,4 +315,23 @@ select:focus-visible,
   outline: 1px solid var(--accent-hover);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
+}
+
+/* Região que só rola não desenha anel.
+ *
+ * O Chromium torna toda região rolável alcançável pelo teclado, mesmo sem
+ * `tabindex`: é como ele deixa o teclado rolar uma caixa que não tem controle
+ * dentro. O efeito colateral é que o corpo do terminal e a lista de mensagens
+ * do chat casam `:focus-visible` e recebem um anel em volta do painel inteiro;
+ * como os dois painéis têm `overflow: hidden`, o anel sai recortado e o que
+ * chega à tela é um risco colado na borda, indistinguível de anel de seleção
+ * do sistema. Medido com o aplicativo de pé em 08/08/2026.
+ *
+ * Nenhum dos dois perde indicação de foco com isto: o que o usuário opera ali
+ * são as abas e os botões do painel, e esses continuam com o anel acima. */
+.terminal-body:focus,
+.terminal-body:focus-visible,
+.ai-messages:focus,
+.ai-messages:focus-visible {
+  outline: none;
 }

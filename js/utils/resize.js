@@ -11,7 +11,7 @@
 import { nextCollapseState } from '../components/aurora-panel.js';
 // Regra de tamanho compartilhada com o painel de IA: mínimo, colapso ao forçar,
 // e teto que desconta os vizinhos. Ver js/utils/pane_size.js.
-import { resolvePaneSize, maxLateralWidth, PANE } from './pane_size.js';
+import { resolvePaneSize, maxLateralWidth, maxTerminalHeight, PANE } from './pane_size.js';
 
 const verticalResizer   = document.querySelector('.resizer-vertical');
 const horizontalResizer = document.querySelector('.resizer-horizontal');
@@ -24,8 +24,12 @@ const terminalContainer = document.querySelector('.terminal-container');
 const MIN_FILE_TREE_WIDTH  = 180;
 const COLLAPSED_THRESHOLD  = 24;
 const DEFAULT_OPEN_WIDTH   = 260;
-const MIN_TERMINAL_HEIGHT  = 30;
 const MAX_FILE_TREE_RATIO  = 0.5;
+
+// Altura do `.resizer-horizontal`, que fica entre o editor e o terminal e
+// portanto sai do que sobra para os dois. Casa com o `height` dele no
+// `css/base/styles.css`.
+const RESIZER_HEIGHT = 6;
 
 const STORAGE_FT_WIDTH = 'fileTreeWidth';
 const STORAGE_TERM_H   = 'terminalHeight';
@@ -82,23 +86,47 @@ function constrainFileTreeWidth(w) {
   });
 }
 
+/**
+ * Teto do terminal, medido na faixa que ele divide com o editor.
+ *
+ * Antes isto derivava de `window.innerHeight` menos a barra de ferramentas,
+ * a barra de estado e o divisor, e não reservava nada para o editor. Duas
+ * consequências, as duas medidas: o terminal podia crescer até engolir o
+ * editor, e o número devolvido não batia com o `max-height: 80vh` que o
+ * `terminal.css` também impunha. Quando o arrasto pedia mais que 80vh a caixa
+ * parava de crescer e o resto virava vão acima do terminal, que nenhum arrasto
+ * fechava. O CSS não impõe mais teto nenhum; a conta é esta, e é uma só.
+ */
 function getMaxTerminalHeight() {
-  const toolbar  = document.querySelector('.toolbar');
-  const statusBar = document.querySelector('.status-bar');
-  const toolbarH = toolbar ? toolbar.offsetHeight : 44;
-  const statusH  = statusBar ? statusBar.offsetHeight : 22;
-  const resizerH = 6;
-  return window.innerHeight - toolbarH - statusH - resizerH;
+  const faixaEl = document.querySelector('.editor-terminal-container');
+  const faixa = faixaEl ? faixaEl.clientHeight : window.innerHeight;
+  return maxTerminalHeight(
+    faixa, RESIZER_HEIGHT, PANE.MIN_EDITOR_HEIGHT, PANE.MIN_TERMINAL,
+  );
 }
 
 /** Mesma regra do painel lateral, no eixo vertical: encosta no mínimo, e
     colapsa quando o arrasto força além do limiar. */
 function constrainTerminalHeight(h) {
   return resolvePaneSize(h, {
-    min: MIN_TERMINAL_HEIGHT,
+    min: PANE.MIN_TERMINAL,
     collapseAt: PANE.COLLAPSE_TERMINAL,
     max: getMaxTerminalHeight(),
   });
+}
+
+/**
+ * Guarda a altura do terminal, e só quando ela é utilizável.
+ *
+ * Mesma regra da largura da árvore, pelo mesmo motivo: colapsar arrastando não
+ * pode apagar a altura de volta, senão o terminal reabre no padrão em vez de
+ * voltar ao tamanho em que estava. Havia três cópias desta linha, e só a do
+ * canto tinha a guarda; as outras duas gravavam o colapso.
+ */
+function persistTerminalHeight(h) {
+  if (h >= PANE.MIN_TERMINAL) {
+    try { localStorage.setItem(STORAGE_TERM_H, String(h)); } catch (_) { /* modo privado */ }
+  }
 }
 
 function applyFileTreeWidth(w) {
@@ -211,7 +239,7 @@ function setupHorizontalResizer() {
   function onUp() {
     if (!active) return;
     active = false;
-    localStorage.setItem(STORAGE_TERM_H, terminalContainer.offsetHeight);
+    persistTerminalHeight(terminalContainer.offsetHeight);
     document.body.classList.remove('resizing-horizontal');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
@@ -299,8 +327,7 @@ function setupCornerHandle() {
     const finalW = fileTreeContainer.offsetWidth;
     applyFileTreeWidth(finalW);
     if (finalW >= MIN_FILE_TREE_WIDTH) localStorage.setItem(STORAGE_FT_WIDTH, finalW);
-    const finalH = terminalContainer.offsetHeight;
-    if (finalH >= MIN_TERMINAL_HEIGHT) localStorage.setItem(STORAGE_TERM_H, finalH);
+    persistTerminalHeight(terminalContainer.offsetHeight);
     document.body.classList.remove('resizing-corner');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
@@ -348,4 +375,4 @@ window.addEventListener('resize', () => {
 
 document.addEventListener('DOMContentLoaded', initPanelSizes);
 
-export { constrainFileTreeWidth, constrainTerminalHeight };
+export { constrainFileTreeWidth, constrainTerminalHeight, persistTerminalHeight };

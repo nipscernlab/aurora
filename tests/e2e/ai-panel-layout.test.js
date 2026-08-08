@@ -199,6 +199,92 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     expect(estreito.empilhadas, 'as abas tem que ficar uma sobre a outra').toBe(true);
   }, 40_000);
 
+  it('com o divisor no maximo nao sobra vao acima do terminal', async () => {
+    // Medido em 08/08/2026, com o aplicativo de pé: numa janela de 912 px o
+    // arrasto pedia 795 px de altura e a caixa desenhava 730, porque o
+    // `terminal.css` impunha um `max-height: 80vh` que o `resize.js` não
+    // conhecia. A diferença virava faixa morta acima do terminal, e empurrar o
+    // divisor não fechava, porque para o JS ele já estava no fim do curso.
+    //
+    // O invariante é o que o usuário enxerga: o que o arrasto pediu é o que a
+    // caixa tem, e entre o divisor e o topo do terminal não sobra nada.
+    await window.evaluate(() => {
+      const t = document.querySelector('.terminal-container');
+      if (t) t.style.transition = 'none';
+      const c = document.querySelector('.ai-assistant-container');
+      if (c) { c.style.transition = 'none'; c.style.width = '0px'; }
+    });
+    await window.waitForTimeout(250);
+
+    const r = await window.evaluate(() => {
+      const b = document.querySelector('.resizer-horizontal').getBoundingClientRect();
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+    });
+    await window.mouse.move(r.x, r.y);
+    await window.mouse.down();
+    for (let y = r.y; y > 0; y -= 40) {
+      await window.mouse.move(r.x, Math.max(0, y));
+      await window.waitForTimeout(16);
+    }
+    await window.mouse.move(r.x, 0);
+    await window.waitForTimeout(60);
+    await window.mouse.up();
+    await window.waitForTimeout(300);
+
+    const g = await window.evaluate(() => {
+      const t = document.querySelector('.terminal-container');
+      const res = document.querySelector('.resizer-horizontal');
+      const faixa = document.querySelector('.editor-terminal-container');
+      const tr = t.getBoundingClientRect();
+      const rr = res.getBoundingClientRect();
+      const fr = faixa.getBoundingClientRect();
+      return {
+        pedido: parseFloat(t.style.height),
+        desenhado: tr.height,
+        topoTerminal: tr.top,
+        baseDivisor: rr.bottom,
+        baseTerminal: tr.bottom,
+        baseFaixa: fr.bottom,
+        alturaFaixa: fr.height,
+      };
+    });
+
+    // O CSS não pode mais cortar o que o JS decidiu.
+    expect(Math.abs(g.pedido - g.desenhado), 'a altura pedida tem que ser a desenhada')
+      .toBeLessThanOrEqual(1);
+    // E o terminal encosta no divisor em cima e no fim da faixa embaixo.
+    expect(Math.abs(g.topoTerminal - g.baseDivisor)).toBeLessThanOrEqual(1);
+    expect(Math.abs(g.baseTerminal - g.baseFaixa)).toBeLessThanOrEqual(1);
+    // O editor continua de pé: o terminal não pode tomar a faixa inteira.
+    expect(g.alturaFaixa - g.desenhado).toBeGreaterThanOrEqual(100);
+  }, 40_000);
+
+  it('regiao rolavel que nao e controle nao pinta anel de foco', async () => {
+    // O Chromium torna toda região rolável alcançável pelo teclado, mesmo sem
+    // `tabindex`. Com um `:focus-visible` de seletor universal no CSS, o corpo
+    // do terminal e as áreas de rolagem do chat e do editor ganhavam um anel de
+    // 1 px em volta do painel inteiro; recortado pelo `overflow: hidden` do
+    // painel, ele aparecia como um risco de acento colado na borda.
+    const infratores = [];
+    for (let i = 0; i < 60; i++) {
+      await window.keyboard.press('Tab');
+      const quem = await window.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || el === document.body) return null;
+        const cs = window.getComputedStyle(el);
+        const pinta = cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0;
+        if (!pinta) return null;
+        const eControle = /^(a|button|input|select|textarea)$/i.test(el.tagName)
+          || el.hasAttribute('tabindex');
+        if (eControle) return null;
+        return `${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]}`
+          + ` [${cs.outlineStyle} ${cs.outlineWidth} ${cs.outlineColor}]`;
+      });
+      if (quem) infratores.push(quem);
+    }
+    expect([...new Set(infratores)], 'so controle pode desenhar anel de foco').toEqual([]);
+  }, 40_000);
+
   it('forcar uma largura absurda nao espreme o editor a zero', async () => {
     // É exatamente o caso que quebrava: largura salva de uma janela maior,
     // ou um arrasto forçado até o fim.

@@ -11,7 +11,9 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { resolvePaneSize, maxLateralWidth, PANE } from '../../js/utils/pane_size.js';
+import {
+  resolvePaneSize, maxLateralWidth, maxTerminalHeight, PANE,
+} from '../../js/utils/pane_size.js';
 
 const lateral = { min: PANE.MIN_LATERAL, collapseAt: PANE.COLLAPSE_LATERAL, max: 800 };
 
@@ -78,6 +80,45 @@ describe('maxLateralWidth', () => {
   });
 });
 
+describe('maxTerminalHeight', () => {
+  // O bug que este bloco guarda foi medido com o aplicativo de pé, em
+  // 08/08/2026: numa janela de 912 px o arrasto pedia 795 px de terminal e a
+  // caixa desenhava 730, porque o `terminal.css` tinha um `max-height: 80vh`
+  // que ninguém no JS conhecia. Os 65 px de diferença ficavam como vão acima do
+  // terminal, e empurrar o divisor não fechava, porque para o JS ele já estava
+  // no máximo.
+  it('desconta o divisor e o minimo do editor da faixa', () => {
+    // Faixa de 848, divisor de 6, editor precisa de 120 -> sobram 722.
+    expect(maxTerminalHeight(848, 6, PANE.MIN_EDITOR_HEIGHT, PANE.MIN_TERMINAL)).toBe(722);
+  });
+
+  it('o que ele devolve sempre deixa o editor de pe', () => {
+    for (const faixa of [400, 848, 1400, 2160]) {
+      const teto = maxTerminalHeight(faixa, 6, PANE.MIN_EDITOR_HEIGHT, PANE.MIN_TERMINAL);
+      expect(faixa - 6 - teto).toBeGreaterThanOrEqual(PANE.MIN_EDITOR_HEIGHT);
+    }
+  });
+
+  it('a regra antiga entregava a faixa inteira ao terminal', () => {
+    // Ela era `innerHeight - toolbar - status - divisor`, ou seja, exatamente a
+    // faixa menos o divisor: nao sobrava nada para o editor, que tem
+    // `min-height: 0` e portanto era espremido a zero.
+    const antigo = 848 - 6;
+    const novo = maxTerminalHeight(848, 6, PANE.MIN_EDITOR_HEIGHT, PANE.MIN_TERMINAL);
+    expect(antigo).toBe(842);
+    expect(novo).toBeLessThan(antigo);
+  });
+
+  it('nunca devolve abaixo do proprio piso, mesmo em janela baixa', () => {
+    expect(maxTerminalHeight(100, 6, PANE.MIN_EDITOR_HEIGHT, PANE.MIN_TERMINAL))
+      .toBe(PANE.MIN_TERMINAL);
+  });
+
+  it('trata divisor ausente como zero', () => {
+    expect(maxTerminalHeight(500, null, 120, 35)).toBe(380);
+  });
+});
+
 describe('os limiares fazem sentido entre si', () => {
   it('o ponto de colapso e sempre menor que o minimo', () => {
     expect(PANE.COLLAPSE_LATERAL).toBeLessThan(PANE.MIN_LATERAL);
@@ -87,6 +128,13 @@ describe('os limiares fazem sentido entre si', () => {
 
   it('o painel de IA tem piso maior que o lateral comum, porque e um chat', () => {
     expect(PANE.MIN_AI).toBeGreaterThan(PANE.MIN_LATERAL);
+  });
+
+  it('o piso do terminal ainda mostra a faixa de abas inteira', () => {
+    // 34 px de faixa (`--h-tab` no theme_variables.css) mais a borda de cima.
+    // Abaixo disso o terminal encolhe cortando a propria barra de abas, que e
+    // o unico jeito de voltar a crescer.
+    expect(PANE.MIN_TERMINAL).toBeGreaterThanOrEqual(35);
   });
 });
 

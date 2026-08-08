@@ -12,12 +12,17 @@
 /* ---------------------------------------------------------------------------
  *  Container
  * ------------------------------------------------------------------------- */
+/* A altura inicial é a única coisa que o CSS decide aqui. Os limites do arrasto
+   são de `js/utils/pane_size.js`, e ficam lá porque dependem da faixa que o
+   terminal divide com o editor, que só o layout sabe. Havia um `max-height:
+   80vh` e um `min-height: 40px` nesta regra, e os dois discordavam do JS: no
+   máximo o arrasto pedia mais do que 80vh e a diferença virava vão acima do
+   terminal, que nenhum arrasto fechava; no colapso o JS zerava a altura e o
+   `min-height` desenhava 40 px assim mesmo. */
 .terminal-container {
   display: flex;
   flex-direction: column;
   height: 240px;
-  max-height: 80vh;
-  min-height: 40px;
   flex-shrink: 0;
   background-color: var(--bg);
   border-top: 1px solid var(--border);

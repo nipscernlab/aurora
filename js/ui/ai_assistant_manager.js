@@ -17,7 +17,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showConfirm } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
-import { constrainTerminalHeight } from '../utils/resize.js';
+import { constrainTerminalHeight, persistTerminalHeight } from '../utils/resize.js';
 // Mesma regra de tamanho da árvore de arquivos e do terminal.
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -3396,8 +3396,10 @@ class AIAssistantManager {
       try {
         const w = parseInt(aiContainer.style.width, 10);
         if (w >= PANE.MIN_AI) localStorage.setItem('aurora-ai-panel-width', String(w));
-        localStorage.setItem('terminalHeight', String(terminalContainer.offsetHeight));
       } catch (_) { /* storage full / private mode — ignore */ }
+      // Pela mesma guarda dos outros dois arrastadores: esta cópia gravava o
+      // colapso, e era a que fazia o terminal reabrir no padrão.
+      persistTerminalHeight(terminalContainer.offsetHeight);
     };
 
     // Keep the handle glued to the junction as either dimension (or the open

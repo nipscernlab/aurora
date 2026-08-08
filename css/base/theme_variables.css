@@ -362,11 +362,8 @@ body {
   color: #FFFFFF;
 }
 
-:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: 1px;
-  border-radius: var(--radius-sm);
-}
+/* O anel de foco mora em `css/base/styles.css`, todo ele. Aqui havia uma
+ * segunda cópia, universal, com cor e recuo diferentes da de lá. */
 
 /* Scrollbars */
 ::-webkit-scrollbar {

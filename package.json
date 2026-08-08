@@ -212,7 +212,7 @@
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
     "ai": "^6.0.184",
-    "chokidar": "^4.0.3",
+    "chokidar": "^5.0.0",
     "diff2html": "^3.4.56",
     "digitaljs": "^0.14.2",
     "electron-log": "^5.4.0",

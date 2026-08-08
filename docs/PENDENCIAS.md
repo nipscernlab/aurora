@@ -234,35 +234,29 @@ depende de nada e não bloqueia nada, mas quanto mais tarde, maior o arquivo.
 
 ---
 
-## 8. Migração do Vercel AI SDK para a geração 7
+## 8. Vercel AI SDK na geração 7, ainda sem prova ao vivo
 
-O projeto está no `ai` 6.0.184 com os cinco provedores na geração anterior:
-`@ai-sdk/anthropic`, `@ai-sdk/openai`, `@ai-sdk/google` e `@ai-sdk/groq` em 3.x,
-`@ai-sdk/deepseek` em 2.x. A geração nova já existe inteira, e todos os cinco
-provedores novos falam a interface `@ai-sdk/provider` 4.x.
+A migração foi feita em 07/08/2026 (PR #52): `ai` de 6.0.184 para 7.0.52 e os
+cinco provedores para a geração nova, `@ai-sdk/anthropic`, `@ai-sdk/openai`,
+`@ai-sdk/google` e `@ai-sdk/groq` em 4.x, `@ai-sdk/deepseek` em 3.x. O CI passou,
+o que cobre lint, tipos e os 645 testes unitários.
 
-**Por que não dá para fazer aos pedaços.** O núcleo `ai` fixa a versão da
-interface: o 6 depende de `@ai-sdk/provider` 3.0.10, o 7 depende de 4.0.7. Cada
-provedor é compilado contra uma delas. Subir um provedor sozinho instala duas
-cópias da interface na árvore e entrega ao núcleo um objeto de modelo que ele não
-sabe consumir. A falha é de execução, não de build, então nem o `tsc` nem o lint
-acusam, e o CI passa verde.
-
-Foi exatamente o que os PRs #50, #41 e #43 propunham, e por isso foram fechados.
-O `.github/dependabot.yml` ganhou o grupo `ai-sdk` juntando `ai` e `@ai-sdk/*`,
-de forma que a próxima proposta chegue como um PR único, que é a única forma
-correta de fazer a troca.
-
-**O que a migração exige.** Subir os seis pacotes juntos, ler o guia de migração
-da versão 7, conferir o que muda em `createOpenAI`, `createAnthropic`,
+**O que falta.** Nenhum provedor foi exercitado de verdade depois da troca. Uma
+mudança de comportamento que não apareça na tipagem passa por esse CI sem
+resistência, porque não existe teste com provedor real (é o mesmo buraco do item
+4). Falta uma conversa completa por provedor configurado e uma chamada de
+ferramenta que toque a IDE, com atenção a `createOpenAI`, `createAnthropic`,
 `createGoogleGenerativeAI`, `createDeepSeek` e `createGroq`, que
-`main/ai/provider.js` carrega por `tryRequire` nas linhas 51 a 55, e então
-exercitar cada provedor configurado com uma conversa real e uma chamada de
-ferramenta. Esse teste ao vivo é o mesmo pedido no item 4 e pode ser feito na
-mesma sessão.
+`main/ai/provider.js` carrega por `tryRequire` nas linhas 51 a 55.
 
-Não é urgente e não bloqueia nada, mas quanto mais gerações de distância, mais
-cara fica, e as correções de segurança do SDK param de chegar.
+**Por que ela teve de ser feita de uma vez.** O núcleo `ai` fixa a versão da
+interface: o 6 dependia de `@ai-sdk/provider` 3.0.10, o 7 depende de 4.0.7. Cada
+provedor é compilado contra uma delas. Subir um provedor sozinho instalaria duas
+cópias da interface e entregaria ao núcleo um objeto de modelo que ele não sabe
+consumir, falhando em execução com o CI verde. Foi o que os PRs #50, #41 e #43
+propunham separadamente, e por isso foram fechados. O `.github/dependabot.yml`
+ganhou o grupo `ai-sdk` juntando `ai` e `@ai-sdk/*`, e foi ele que produziu o #52
+com a família inteira. A regra fica: essa família nunca sobe em pedaços.
 
 ---
 

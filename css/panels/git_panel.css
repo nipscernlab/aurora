@@ -18,34 +18,32 @@
  *    — time and history made visible. The mark is his rune, Dagaz (ᛞ, "day/dawn"),
  *    which also nods to AURORA's dawn theme. The classic git-branch icon stays as
  *    the source-control glyph everywhere else (activity bar + status bar); this
- *    only brands the panel header. "Dagr" is set in the Norse face by Joël
- *    Carrouché (free for commercial use + app embedding; its license forbids
- *    REDISTRIBUTION, so it is NOT committed — download-norse-font.js fetches it at
- *    bootstrap into assets/fonts/, gitignored; see assets/fonts/NORSE-LICENSE.txt).
- *    Falls back to the UI font if the font hasn't been fetched.
+ *    only brands the panel header.
+ *
+ *    "Dagr" e a runa sao servidas por Metamorphous e Noto Sans Runic, as duas
+ *    sob SIL OFL 1.1, vindas com as demais em css/base/fonts.css. Antes era a
+ *    Norse de Joël Carrouché, gratuita para embutir mas com redistribuicao
+ *    PROIBIDA: ela era gitignorada e baixada no bootstrap, o que respeitava a
+ *    licenca quanto ao repositorio, mas o instalador publicado carregava o
+ *    arquivo dentro, e isso e distribuicao. Sob OFL o problema nao existe e as
+ *    fontes sao commitadas como as outras.
  * ========================================================================== */
-@font-face {
-  font-family: 'Norse';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('../../assets/fonts/Norse.otf') format('opentype');
-}
 .modal-title.dagr-title { display: inline-flex; align-items: center; gap: 0.55ch; }
 /* The classic source-control glyph — kept, just quieted so the wordmark leads. */
 .dagr-title .dagr-sc-icon { font-size: 1em; color: var(--text-muted); opacity: 0.9; }
-/* The Dagaz rune — the brand mark, in the same Norse face (it carries the runic
-   block) with system runic fallbacks, lit in the accent with a soft aurora glow. */
+/* A runa Dagaz — a marca. Noto Sans Runic cobre U+16A0-16F8, que e onde o ᛞ
+   mora; as do sistema ficam de reserva. Acesa no acento com um brilho suave. */
 .dagr-rune {
-  font-family: 'Norse', 'Segoe UI Historic', 'Noto Sans Runic', 'Segoe UI Symbol', sans-serif;
+  font-family: 'Noto Sans Runic', 'Segoe UI Historic', 'Segoe UI Symbol', sans-serif;
   font-size: 1.5em;
   line-height: 1;
   color: var(--accent, #5FE0B0);
   text-shadow: 0 0 12px rgba(95, 224, 176, 0.55);   /* a soft aurora glow */
 }
-/* The wordmark: "Dagr" in the Norse face, sized to read as a brand, not a label. */
+/* O letreiro: "Dagr" na Metamorphous, no tamanho que le como marca e nao como
+   rotulo. */
 .dagr-name {
-  font-family: 'Norse', var(--font-sans, 'Inter'), serif;
+  font-family: 'Metamorphous', var(--font-sans, 'Inter'), serif;
   font-size: 1.62em;
   line-height: 1;
   letter-spacing: 0.015em;
@@ -61,8 +59,8 @@
 }
 .dagr-sub::before { content: '·'; margin: 0 0.55ch 0 0.25ch; opacity: 0.5; }
 
-/* A big, MUTED "ᛞ DAGR" watermark filling the panel's empty space — the Norse
-   face, centered, sitting BEHIND the content. `isolation:isolate` makes the
+/* A big, MUTED "ᛞ DAGR" watermark filling the panel's empty space — as marcas
+   da secao 0, centralizadas e atras do conteudo. `isolation:isolate` makes the
    panel its own stacking context so the watermark's z-index:-1 stays inside it
    (behind the rows, above the modal background) instead of sinking out of view.
    pointer-events:none so it never eats a click; overflow:hidden clips the
@@ -84,12 +82,12 @@
   color: var(--text-bright, #fff);
 }
 .dagr-wm-rune {
-  font-family: 'Norse', 'Segoe UI Historic', 'Noto Sans Runic', 'Segoe UI Symbol', sans-serif;
+  font-family: 'Noto Sans Runic', 'Segoe UI Historic', 'Segoe UI Symbol', sans-serif;
   font-size: clamp(160px, 22vw, 300px);
   line-height: 0.82;
 }
 .dagr-wm-name {
-  font-family: 'Norse', var(--font-sans, 'Inter'), serif;
+  font-family: 'Metamorphous', var(--font-sans, 'Inter'), serif;
   font-size: clamp(96px, 14vw, 200px);
   letter-spacing: 0.06em;
   line-height: 0.82;

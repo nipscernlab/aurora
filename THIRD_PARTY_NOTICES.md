@@ -57,7 +57,8 @@ and shipped in the installer; they are not part of the source tree.
 |---|---|
 | Inter | SIL Open Font License 1.1 |
 | JetBrains Mono | SIL Open Font License 1.1 |
-| Norse, the "Dagr" Source Control wordmark, by Joël Carrouché | Free for commercial use and app embedding. Fetched at bootstrap by `download-norse-font.js` and kept out of the repository. See the note below: it currently ships inside the installer, which the pending review has to settle. |
+| Metamorphous, by James Grieshaber (the "Dagr" wordmark) | SIL Open Font License 1.1 |
+| Noto Sans Runic, by Google (the Dagaz rune) | SIL Open Font License 1.1 |
 
 ---
 
@@ -67,12 +68,15 @@ GTKWave) and the EUPL-licensed Surfer are invoked as separate, arm's-length
 processes, so AURORA does not link against them, and the LGPL components are used
 unmodified. Their licenses still accompany the distribution as required.
 
-**Open point, before the next published release.** This file said until
-2026-08-08 that the Norse font is "not redistributed". That was checked and it is
-not accurate: Vite copies the font into `dist/assets/` and electron-builder does
-not exclude `assets/`, so the published installer carries the file. Keeping it
-out of the git repository is not the same as keeping it out of the distribution.
-The font is used for a single wordmark, so the ways out are cheap: written
-permission from the author, a runic face under the SIL Open Font License, or
-drawing the wordmark as SVG and dropping the font from the package. Tracked as
-item 6 of [docs/PENDENCIAS.md](docs/PENDENCIAS.md).
+**Closed on 2026-08-08: the Dagr wordmark font.** Until that date this file
+said the Norse font by Joël Carrouché was "not redistributed". That was checked
+and it was not accurate. Vite copied the font into `dist/assets/` and
+electron-builder does not exclude `assets/`, so the published installer carried
+the file. Keeping a font out of the git repository is not the same as keeping it
+out of the distribution, and the Norse license forbids redistribution.
+
+The wordmark now uses Metamorphous for the Latin letters and Noto Sans Runic for
+the Dagaz rune, both under the SIL Open Font License 1.1, which permits
+redistribution and embedding. They are fetched by `scripts/fetch-fonts.js` and
+committed alongside Inter and JetBrains Mono, so there is no bootstrap download
+and nothing to keep out of the repository.

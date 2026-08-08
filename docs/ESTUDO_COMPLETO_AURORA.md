@@ -84,7 +84,7 @@ valor mágico (hex/rgba/px literais) concentram-se em DOIS arquivos:
 1. **Três sistemas de botão/card/pill paralelos** para o mesmo trabalho visual: `.btn*` (modal_config),
    `.git-btn/.git-mini/.git-icon-btn/.git-act` (git_panel), cards/rows/pill do settings. → unificar em UM.
 2. **Magia numérica** nos dois arquivos acima ignorando `--space-*`/`--radius-*`/`--shadow-*` (346+258 px).
-3. **Três identidades visuais numa janela:** título "SAPHO", design system "AURORA", Git "Dagr" (fonte Norse +
+3. **Três identidades visuais numa janela:** título "SAPHO", design system "AURORA", Git "Dagr" (Metamorphous + Noto Sans Runic +
    marca d'água próprias). Decidir a hierarquia de marca (sugestão: Dagr vira só um wordmark discreto).
 4. **Guerra de `!important`:** 73 no total; 30 só em `editor.css` contra o Monaco (sai apenas com Monaco em
    Shadow DOM — deferido, risco alto), 19 no git_panel, 10 no ai_assistant.

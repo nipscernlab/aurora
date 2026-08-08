@@ -186,7 +186,6 @@ A tabela resume cada \emph{downloader}, sua origem e seu destino.
   & \emph{release} de \repo{gtkwave-nipscern}
   & \path{components/Packages/gtkwave-nipscern/} \\
 \addlinespace
-\texttt{download-norse-font.js} \newline (\file{Norse.otf})
   & dafont (\lstinline|dl.dafont.com|)
   & \path{assets/fonts/} \\
 \addlinespace
@@ -293,11 +292,10 @@ biblioteca), o que evita contaminação de licença:
         \path{node_modules} para casar exatamente com a versão do JS empacotado.
 \end{description}
 
-A fonte \enquote{Norse} (\file{download-norse-font.js}) é caso à parte: a
-licença permite \emph{embutir} a fonte no aplicativo, mas \textbf{proíbe
-redistribuição}, então ela não é versionada --- é buscada da fonte original
-(dafont) no \emph{bootstrap} e fica \emph{gitignored}; o \emph{build} a embute,
-o que a licença permite.
+As fontes não são caso à parte: as quatro estão sob SIL OFL 1.1, que permite
+redistribuir e embutir, e são versionadas como \code{.woff2}. Foram caso à parte
+até 08/08/2026, quando o letreiro \enquote{Dagr} usava a fonte Norse, cuja
+licença proíbe redistribuição; ver \autoref{cap:catalogo-terceiros}.
 
 \subsection{Verificação de integridade (checksum)}
 \label{sec:16-checksum}
@@ -641,7 +639,6 @@ O \emph{workflow} \file{.github/workflows/ci.yml} roda em \texttt{push} e
   \item \lstinline|node --check| em todo \texttt{.js} de \path{js/} e \path{main/};
   \item testes unitários com cobertura + \emph{upload} ao Codecov
         (informativo, nunca falha o CI);
-  \item \emph{download} da fonte Norse;
   \item testes e2e (\emph{smoke} Electron);
   \item \texttt{build:renderer} (Vite);
   \item \emph{build} de \emph{smoke} com

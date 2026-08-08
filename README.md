@@ -112,7 +112,7 @@ into the Electron distribution so the running app can reach the toolchain.
 
 What gets downloaded, each with a sentinel so it is skipped when already present:
 the MSYS toolchain bundle with Icarus Verilog, Yosys and cocotb; the YANC
-compilers; the NIPS-CERN build of GTKWave; the Norse display font; Surfer; the
+compilers; the NIPS-CERN build of GTKWave; Surfer; the
 Verible language server; clang-format; the Slang language server; the tree-sitter
 grammars; and the SAPHO manual. Any of them can be re-fetched with `--force`, for
 example:

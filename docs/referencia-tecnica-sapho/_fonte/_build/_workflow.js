@@ -312,11 +312,11 @@ consome (download-toolchain.js: tag, sentinelas verificadas). Tabela do manifest
     scope: `Produza o CATALOGO COMPLETO das ferramentas de terceiros que o SAPHO usa, orquestra ou
 empacota. FONTE PRIMARIA: aurora/package.json (dependencies E devDependencies, com versoes EXATAS),
 aurora-toolchain/manifest.txt, aurora/components/Scripts/download-*.js (toolchain, yanc, gtkwave,
-surfer, verible, clang-format, slang-server, tree-sitter-grammars, norse-font), aurora/THIRD_PARTY_
+surfer, verible, clang-format, slang-server, tree-sitter-grammars), aurora/THIRD_PARTY_
 NOTICES.md (pista) e aurora/LICENSE. Para CADA ferramenta: nome, versao (do package.json/manifest —
 nao chute), licenca (confirme), e PAPEL no SAPHO. Organize em LONGTABLES por categoria: (a) runtime da
 app (Electron 39, Node); (b) editor/UI (Monaco 0.52.2, Lit, KaTeX, jQuery/jQuery-UI, Phosphor icons,
-diff2html, fonte Norse); (c) toolchain EDA (Icarus Verilog 13, Verilator 5.048, Yosys 0.56, GTKWave
+diff2html, fontes); (c) toolchain EDA (Icarus Verilog 13, Verilator 5.048, Yosys 0.56, GTKWave
 fork, cocotb 2.0.1, netlistsvg fork, DigitalJS, yosys2digitaljs, 7-Zip); (d) linguagem/LSP/format
 (Verible, slang-server, web-tree-sitter + gramaticas, clang-format); (e) ondas (Surfer); (f) IA
 (@ai-sdk/anthropic|openai|google|groq|deepseek, ai, @anthropic-ai/claude-code, @openai/codex,

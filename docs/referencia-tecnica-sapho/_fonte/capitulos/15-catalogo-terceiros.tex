@@ -134,12 +134,19 @@ runtime \lstinline|web-tree-sitter| com gramáticas \code{.wasm} (catalogadas em
 
 \subsection{Fontes tipográficas}
 
-As fontes ficam em \path{assets/fonts/}. Inter e JetBrains Mono são versionadas
-no repositório como \code{.woff2}; a fonte Norse \emph{não} é versionada porque
-sua licença proíbe redistribuição --- é baixada da fonte original (dafont) pelo
-\file{download-norse-font.js} no bootstrap e embutida no aplicativo construído
-(o que a licença permite). Em caso de falha de download, o letreiro
-\enquote{Dagr} (controle de versão) recai sobre a fonte da UI.
+As fontes ficam em \path{assets/fonts/} e todas são versionadas no repositório
+como \code{.woff2}: Inter e JetBrains Mono na interface, Metamorphous e Noto
+Sans Runic no letreiro \enquote{Dagr} do controle de versão. As quatro estão sob
+SIL OFL 1.1 e são buscadas pelo \file{scripts/fetch-fonts.js}, que não faz parte
+do build --- roda à mão apenas para atualizá-las.
+
+Até 08/08/2026 o letreiro usava a fonte Norse, de Joël Carrouché, que não era
+versionada porque sua licença proíbe redistribuição. O arranjo parecia correto,
+mas não era: o Vite copiava a fonte para \path{dist/assets/} e o
+\file{electron-builder} não exclui \path{assets/}, então o instalador publicado
+levava o arquivo dentro. Manter uma fonte fora do repositório não é o mesmo que
+mantê-la fora da distribuição. Sob OFL o problema deixa de existir, e com ele
+sumiram o \file{download-norse-font.js} e o passo correspondente no CI.
 
 \begin{longtable}{>{\raggedright\arraybackslash}p{0.22\linewidth} >{\raggedright\arraybackslash}p{0.18\linewidth} >{\raggedright\arraybackslash}p{0.50\linewidth}}
 \caption{Fontes}\label{tab:cat-fonts}\\
@@ -157,7 +164,8 @@ sua licença proíbe redistribuição --- é baixada da fonte original (dafont) 
 \endlastfoot
 Inter & SIL OFL 1.1 & Fonte de interface (texto da UI). Versionada (\file{inter-latin.woff2}, \file{inter-latin-ext.woff2}). \\
 JetBrains Mono & SIL OFL 1.1 & Fonte monoespaçada (editor/terminal). Versionada (\file{jetbrains-mono-latin.woff2}, \file{jetbrains-mono-latin-ext.woff2}). \\
-Norse (Joël Carrouché) & Livre para uso comercial e embutimento; redistribuição proibida & Letreiro \enquote{Dagr} do painel de controle de versão. Baixada no bootstrap (\file{download-norse-font.js}); não versionada. Licença em \file{assets/fonts/NORSE-LICENSE.txt}. \\
+Metamorphous (James Grieshaber) & SIL OFL 1.1 & Letreiro \enquote{Dagr} do painel de controle de versão. Versionada como \code{.woff2}. \\
+Noto Sans Runic (Google) & SIL OFL 1.1 & A runa Dagaz (\code{U+16DE}) da mesma marca; é a única das quatro que cobre o bloco rúnico. Versionada como \code{.woff2}. \\
 \end{longtable}
 
 \section{Toolchain EDA}
@@ -471,7 +479,6 @@ GNU GPL v2 & Icarus Verilog; GTKWave (\emph{fork}) & Processo externo separado, 
 GNU GPL v3 & GCC/G++ (runtime com exceção), \code{ccache}, \code{make} & Toolchain no \emph{bundle}; runtime de compilação. \\
 EUPL-1.2 & Surfer & Processo externo separado, sem \emph{link}. \\
 PSF & Python & Interpretador no \emph{bundle}. \\
-SIL OFL 1.1 & Inter; JetBrains Mono & Embutimento de fonte. \\
-Licença própria (sem redistribuição) & Norse & Embutida no app; baixada no bootstrap, não versionada. \\
+SIL OFL 1.1 & Inter; JetBrains Mono; Metamorphous; Noto Sans Runic & Embutimento de fonte. \\
 Termos comerciais & Claude Code (Anthropic) & CLI on-demand; não empacotada. \\
 \end{longtable}

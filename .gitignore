@@ -69,14 +69,6 @@ components/HDL/
 components/Header/
 components/Macros/
 
-# --- Dagr wordmark font (Norse, by Joël Carrouché) ---
-# Free for commercial use + app embedding, but its license FORBIDS redistribution
-# ("you may not make the font available for download"). So it is NOT committed —
-# download-norse-font.js fetches it at bootstrap into assets/fonts/ (like the
-# toolchain binaries above), and the built app embeds it.
-assets/fonts/Norse.otf
-assets/fonts/NORSE-LICENSE.txt
-
 # --- Test scratch ---
 coverage/
 .nyc_output/

@@ -274,10 +274,10 @@ O empacotamento é feito pelo electron-builder, alvo NSIS x64, produto SAPHO,
 publicação aponta para o repositório `nipscernlab/sapho`, que é o canal de
 release, separado do `aurora`, onde o desenvolvimento acontece.
 
-A toolchain não é versionada. O `npm run bootstrap` encadeia treze etapas, das
-quais dez são downloads, cada um com sentinela para não baixar de novo: toolchain
-com cocotb, yanc, GTKWave do NIPSCERN, fonte Norse, Surfer, verible,
-clang-format, slang-server, gramáticas do tree-sitter e o manual do SAPHO. As
+A toolchain não é versionada. O `npm run bootstrap` encadeia doze etapas, das
+quais nove são downloads, cada um com sentinela para não baixar de novo:
+toolchain com cocotb, yanc, GTKWave do NIPSCERN, Surfer, verible, clang-format,
+slang-server, gramáticas do tree-sitter e o manual do SAPHO. As
 outras três são a sincronia do manifesto das CLIs, a checagem de versões pinadas
 e a ligação da pasta `components` para dentro do Electron. O
 `scripts/verify-components.js` mantém um manifesto por máquina de qual tag está

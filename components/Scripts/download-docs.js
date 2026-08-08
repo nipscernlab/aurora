@@ -13,7 +13,7 @@
  * chega às instalações já feitas, sem esperar uma release da AURORA.
  *
  * A pasta resources/docs é gitignorada: o conteúdo vem da origem a cada
- * bootstrap, como a toolchain e a fonte Norse.
+ * bootstrap, como a toolchain.
  *
  * Sai com 0 em qualquer falha, para nunca travar o bootstrap — sem o pacote, o
  * aplicativo simplesmente mostra apenas o botão da documentação online.

@@ -180,7 +180,7 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     });
     await window.waitForTimeout(250);
     const largo = await medir();
-    expect(largo.larguraTerminal).toBeGreaterThan(560);
+    expect(largo.larguraTerminal).toBeGreaterThan(780);
     expect(largo.coluna, 'terminal largo deve ficar em faixa').toBe(false);
 
     // Estreito: o painel de IA come a largura ate o terminal cair do limiar.
@@ -193,7 +193,7 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
       null, { timeout: 5_000 },
     );
     const estreito = await medir();
-    expect(estreito.larguraTerminal).toBeLessThan(560);
+    expect(estreito.larguraTerminal).toBeLessThan(780);
     expect(estreito.coluna, 'terminal estreito deve virar coluna').toBe(true);
     expect(estreito.direcao, 'a barra tem que virar coluna de verdade').toBe('column');
     expect(estreito.empilhadas, 'as abas tem que ficar uma sobre a outra').toBe(true);

@@ -105,7 +105,8 @@
 .terminal-tabs-list {
   display: inline-flex;
   align-items: center;
-  gap: 0;
+  /* Respiro entre as abas. Era zero, e elas encostavam. */
+  gap: var(--space-2);
   flex: 1 1 auto;
   /* Sem isto a lista nunca encolhe abaixo do conteudo dela: as abas ficam no
      tamanho cheio e as ultimas sao cortadas na borda da barra, que e a mesma
@@ -833,7 +834,7 @@
   border-top: 1px solid var(--border);
   padding-top: var(--space-2);
   margin-top: var(--space-1);
-  gap: 1px;
+  gap: var(--space-2);
 }
 
 /* Em coluna a aba tem a largura toda, entao o nome cabe inteiro: nada de

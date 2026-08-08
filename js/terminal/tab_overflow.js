@@ -24,12 +24,12 @@ const CLASSE_ESCONDIDA = 'tab-overflowed';
  * Abaixo desta largura do TERMINAL, as abas deixam de ser uma faixa horizontal e
  * viram uma coluna a direita, empilhadas, como no VS Code.
  *
- * O valor sai da conta do pior caso, e nao de gosto: os dois grupos de acoes
- * ocupam cerca de 196 px e as seis abas nao encolhem abaixo de 52 px cada, o que
- * da 508 px so para caber espremido. Abaixo de 560 px as abas ja estao coladas
- * umas nas outras, e e ali que a coluna passa a ser melhor.
+ * O primeiro valor foi 560 px, tirado do minimo em que as abas ainda CABEM. Era
+ * a conta errada: caber e ficar bom nao sao a mesma coisa, e entre 560 e 780 as
+ * abas cabiam encostadas umas nas outras, sem respiro. O sarrafo desceu para que
+ * a coluna entre antes, enquanto ainda ha folga, e nao no limite do aperto.
  */
-const LARGURA_VIRA_COLUNA = 560;
+const LARGURA_VIRA_COLUNA = 780;
 
 let barra = null;
 let lista = null;

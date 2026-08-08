@@ -195,15 +195,15 @@
 }
 
 /* --- prominent buttons -------------------------------------------------- */
+/* Só o delta; a base vem de css/base/controls.css. O `:active` logo abaixo
+   sobrescreve o rebote da base de propósito: este botão levanta e volta, em vez
+   de encolher. */
 .git-btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  gap: var(--space-2);
   padding: var(--space-2) 14px; min-height: 34px;
   background: var(--bg-elev-2, var(--bg-elev)); border: 1px solid var(--border);
-  border-radius: var(--radius-md); color: var(--text);
-  font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--font-medium);
-  cursor: pointer; white-space: nowrap; user-select: none;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  color: var(--text);
+  font-size: var(--text-sm);
 }
 .git-btn:hover { background: var(--bg-elev-3, var(--bg-elev)); border-color: var(--border-strong); transform: translateY(-1px); }
 .git-btn:active { transform: translateY(0); }
@@ -228,15 +228,14 @@
 .git-commit-btn:disabled, .git-commit-btn[disabled] { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
 
 /* --- compact pill buttons (Fetch / Pull / Push / Stage all / …) --------- */
+/* Só o delta: a base (flex, raio, fonte, cursor, transição) vem de
+   css/base/controls.css. */
 .git-mini {
-  display: inline-flex; align-items: center; gap: 5px;
+  gap: 5px;
   height: 28px; padding: 0 10px;
-  background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: transparent; border: 1px solid var(--border);
   color: var(--text-secondary, var(--text-muted));
-  font-family: var(--font-sans); font-size: var(--text-xs); font-weight: var(--font-medium);
-  cursor: pointer; white-space: nowrap; user-select: none;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast), transform var(--transition-fast);
+  font-size: var(--text-xs);
 }
 .git-mini i { font-size: 14px; }
 .git-mini:hover { background: var(--overlay-hover); color: var(--text); border-color: var(--border-strong); transform: translateY(-1px); }

@@ -1,0 +1,69 @@
+/* =============================================================================
+ *  controls.css — a base compartilhada dos botões.
+ *
+ *  Por que existe. O estudo de interface apontou "três sistemas de botão
+ *  paralelos para o mesmo trabalho visual": `.btn*` no modal_config,
+ *  `.git-btn`/`.git-mini`/`.git-act`/`.git-icon-btn` no git_panel, e os
+ *  controles do settings. Comparados lado a lado, os três têm a MESMA base:
+ *  inline-flex centrado, `--radius-md`, fonte sans, peso medium, cursor de
+ *  ponteiro, sem quebra de linha, e a mesma transição. O que de fato os
+ *  distingue é altura, fundo e tamanho de fonte.
+ *
+ *  O que este arquivo faz, e o que deliberadamente NÃO faz. Ele reúne a base
+ *  numa regra só, com os três seletores existentes. Não renomeia classe nem
+ *  toca em marcação: são 37 usos espalhados por index.html e pelo JS, sem
+ *  nenhum teste visual embaixo, e trocá-los seria risco alto para ganho
+ *  cosmético. A duplicação que custava caro era ter três lugares para editar
+ *  quando o botão muda, e essa acabou.
+ *
+ *  Cada arquivo de painel mantém apenas o seu delta: altura, fundo, cor e
+ *  tamanho de fonte. Se você criar um botão novo, use `.btn` e um modificador;
+ *  os prefixados por `git-` existem por história, não por necessidade.
+ * ========================================================================== */
+
+.btn,
+.git-btn,
+.git-mini,
+.git-act,
+.git-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-weight: var(--font-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              color var(--transition-fast),
+              transform var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+/* Rebote tátil no clique. Estava só no `.btn`; passa a valer para os cinco,
+   que é o tipo de incoerência que três sistemas paralelos produzem. */
+.btn:active,
+.git-btn:active,
+.git-mini:active,
+.git-act:active,
+.git-icon-btn:active {
+  transform: scale(0.94);
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              color var(--transition-fast),
+              transform 60ms ease-out,
+              box-shadow var(--transition-fast);
+}
+
+/* Botão desabilitado tem uma aparência só, em qualquer painel. */
+.btn:disabled,
+.git-btn:disabled,
+.git-mini:disabled,
+.git-act:disabled,
+.git-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}

@@ -77,19 +77,43 @@ sozinha, em vez de congelar a barra de progresso.
 
 ---
 
-## 2. Interface definitiva (o Nível 4 do plano original)
+## 2. Interface: o que sobrou de aberto, item a item
 
-Pedido na primeira mensagem da sessão e **não iniciado**. Nenhuma linha de UI
-foi tocada. As quatro sessões foram gastas em pipeline de release, updater,
-empacotamento e auditoria funcional, porque a cada etapa apareceram bugs reais
-que valiam mais.
+O insumo é o [DESIGN.md](DESIGN.md) e o estudo de interface no
+[ESTUDO_COMPLETO_AURORA.md](ESTUDO_COMPLETO_AURORA.md). A conferência de
+08/08/2026 mostrou que boa parte do manifesto ou já foi atendida, ou foi tentada
+e revertida de propósito, então o que resta é pequeno e específico. Cada item
+abaixo precisa de uma decisão sua antes de virar código, e nenhum é obrigatório.
 
-O que existe de insumo: o estudo consolidado de interface na §15 do ESTUDO
-(sistema de botões e cards, tokens de painel) e a migração da casca para Lit,
-~40% feita, com o inventário de componentes na §17.
+**Raio de foco na linha selecionada da árvore.** É o único dos quatro pontos da
+seção 5 do manifesto que nunca foi tentado. Hoje a linha selecionada usa
+preenchimento sólido (`--overlay-selected` em `file_tree.css`), e a proposta é
+raio à esquerda com fundo sutil. Custo: CSS apenas, reversível. Antes de fazer,
+saiba que o mesmo raio foi implementado na aba ativa e removido por você no
+commit `c08692ef` (`drop tab beam`), então há evidência de que essa marca não
+agradou num lugar; pode não agradar noutro.
 
-Não há decisão tomada sobre escopo. Antes de começar, vale definir se a "versão
-definitiva" significa consolidar o que existe ou redesenhar.
+**Foco de input com o gradiente.** O manifesto pede que a borda do input em foco
+vire o gradiente `--focus-ray`. O objetivo, que era não ter anel azul de sistema,
+já está atingido por outro caminho: 37 regras de `:focus-visible` usando
+`--accent`, e nenhum contorno solto. Fazer aqui é preferência estética, não
+correção.
+
+**Sombra para luz.** A seção 4 do manifesto queria derrubar os `box-shadow`; eles
+foram de 71 para 99. Trocar sombra por borda e brilho é trabalho amplo e mexe em
+muitos arquivos.
+
+**Consolidar botões, cards e pills.** O estudo de interface aponta três sistemas
+paralelos para o mesmo trabalho visual, um no `modal_config`, um no `git_panel` e
+um no `settings`. É o item de maior impacto visual do conjunto, e o de maior
+diff.
+
+**Tokenizar os valores mágicos.** 346 literais de pixel no `ai_assistant.css` e
+258 no `git_panel.css`, ignorando as escalas `--space-*` e `--radius-*`.
+
+Os quatro tokens definidos e nunca usados (`--focus-ray`, `--accent-veil`,
+`--surface-overlay`, `--surface-raised`) ou entram com os itens acima, ou saem do
+`semantic_tokens.css` para não ficarem prometendo o que não existe.
 
 ---
 

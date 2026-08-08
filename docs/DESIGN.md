@@ -4,27 +4,40 @@ Escrito em 13/06/2026 como proposta, e reenquadrado em 08/08/2026 depois de
 conferido contra o CSS.
 
 Este documento dizia ser a fonte da verdade visual, e que se o código discordasse
-dele o código teria um bug. A conferência mostrou o contrário no ponto central: o
-raio de foco, que a seção 5 chama de assinatura estrutural do desenho inteiro,
-tem seus tokens definidos e usados zero vez. O mesmo vale para `--accent-veil`,
-`--surface-overlay` e `--surface-raised`. Só `--border-hairline`,
-`--border-luminous` e `--accent-glow` chegaram ao código, com 17, 5 e 10 usos.
+dele o código teria um bug. A conferência mostrou uma relação mais interessante
+que essa.
+
+O raio de foco da seção 5 pede quatro coisas, e cada uma teve um destino
+diferente. Na aba ativa ele foi implementado, com o código até anotado como
+`DESIGN §5 focus-ray`, e depois removido de propósito no commit `c08692ef`, de
+20/06/2026, cujo título diz `drop tab beam`. Hoje a aba ativa se distingue só
+pelo contraste de fundo, e há um comentário no `tabs.css` dizendo exatamente
+isso. No pane focado do split o problema foi resolvido por outro caminho, com
+escurecimento dos panes sem foco (`.split-pane-dim`) em vez do raio, e funciona.
+No foco de input o objetivo foi atendido sem o gradiente: são 37 regras de
+`:focus-visible` e nenhum contorno azul de sistema solto, usando `--accent`. Só
+a linha selecionada na árvore continua como a seção critica, com preenchimento
+sólido de `--overlay-selected`.
+
+Ou seja, não é um documento ignorado. É um documento cuja ideia central foi
+testada, e em parte rejeitada por quem desenha. Os tokens `--focus-ray` e
+`--accent-veil` seguem definidos e com zero uso, assim como `--surface-overlay` e
+`--surface-raised`; `--border-hairline`, `--border-luminous` e `--accent-glow`
+chegaram ao código, com 17, 5 e 10 usos.
 
 Ele também está velho nos dois sentidos. A meta da seção 4 era derrubar os 71
 `box-shadow`; hoje são 99, então essa foi na direção contrária. Já a escala de
 z-index furada que a seção 5 reclama foi resolvida: dos nove literais fora da
 escala sobraram quatro no CSS inteiro.
 
-Então o que este arquivo é, de verdade: um bom raciocínio de desenho que nunca
-foi executado. Ele não descreve a interface da AURORA, descreve uma que se
-pretendia construir. Como a interface definitiva ficou de fora do escopo desta
-versão, por decisão registrada no [PENDENCIAS.md](PENDENCIAS.md), ele passa a ser
-o que sempre foi na prática: o material de partida para o desenho do SAPHO
-seguinte, e não uma regra que o código atual esteja violando.
+Então a forma certa de ler este arquivo é como proposta com histórico, e não como
+descrição do que está na tela nem como regra que o código esteja violando. Onde
+ele foi tentado e revertido, a reversão é a decisão mais recente e vale mais que
+o texto. Onde o objetivo foi atingido por outro caminho, como o escurecimento do
+pane e o `:focus-visible` com acento, o objetivo é que importava.
 
-Fica inteiro por isso, e não por inércia. O pensamento continua bom, e é mais
-barato herdar um manifesto pensado do que redesenhar do zero. O que muda é que
-ninguém deve ler daqui uma descrição do que está na tela.
+O que sobra de fato aberto é pouco e está listado no item 2 do
+[PENDENCIAS.md](PENDENCIAS.md), para ser decidido e não presumido.
 
 ---
 

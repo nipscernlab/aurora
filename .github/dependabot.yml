@@ -17,6 +17,21 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      # O Vercel AI SDK so funciona com a familia inteira na mesma geracao.
+      # O nucleo `ai` fixa a versao da interface @ai-sdk/provider (ai 6 fala
+      # a 3.x, ai 7 fala a 4.x) e cada provedor e compilado contra uma delas.
+      # Subir um provedor sozinho instala duas copias da interface e entrega
+      # ao nucleo um modelo que ele nao sabe consumir — quebra em execucao,
+      # nao em build, e o CI nao pega porque nao existe teste com provedor
+      # real (ver docs/PENDENCIAS.md §4).
+      #
+      # Aconteceu: os PRs #50, #41 e #43 subiam anthropic, openai e deepseek
+      # para a interface 4 com o `ai` ainda em 6. Agrupados, viram um PR so,
+      # que e a unica forma correta de fazer essa migracao.
+      ai-sdk:
+        patterns:
+          - "ai"
+          - "@ai-sdk/*"
     ignore:
       # monaco-editor esta pinado em 0.52.2 no package.json por um motivo
       # concreto: a 0.53.0 lanca excecao dentro do proprio

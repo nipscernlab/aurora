@@ -223,6 +223,38 @@ depende de nada e não bloqueia nada, mas quanto mais tarde, maior o arquivo.
 
 ---
 
+## 8. Migração do Vercel AI SDK para a geração 7
+
+O projeto está no `ai` 6.0.184 com os cinco provedores na geração anterior:
+`@ai-sdk/anthropic`, `@ai-sdk/openai`, `@ai-sdk/google` e `@ai-sdk/groq` em 3.x,
+`@ai-sdk/deepseek` em 2.x. A geração nova já existe inteira, e todos os cinco
+provedores novos falam a interface `@ai-sdk/provider` 4.x.
+
+**Por que não dá para fazer aos pedaços.** O núcleo `ai` fixa a versão da
+interface: o 6 depende de `@ai-sdk/provider` 3.0.10, o 7 depende de 4.0.7. Cada
+provedor é compilado contra uma delas. Subir um provedor sozinho instala duas
+cópias da interface na árvore e entrega ao núcleo um objeto de modelo que ele não
+sabe consumir. A falha é de execução, não de build, então nem o `tsc` nem o lint
+acusam, e o CI passa verde.
+
+Foi exatamente o que os PRs #50, #41 e #43 propunham, e por isso foram fechados.
+O `.github/dependabot.yml` ganhou o grupo `ai-sdk` juntando `ai` e `@ai-sdk/*`,
+de forma que a próxima proposta chegue como um PR único, que é a única forma
+correta de fazer a troca.
+
+**O que a migração exige.** Subir os seis pacotes juntos, ler o guia de migração
+da versão 7, conferir o que muda em `createOpenAI`, `createAnthropic`,
+`createGoogleGenerativeAI`, `createDeepSeek` e `createGroq`, que
+`main/ai/provider.js` carrega por `tryRequire` nas linhas 51 a 55, e então
+exercitar cada provedor configurado com uma conversa real e uma chamada de
+ferramenta. Esse teste ao vivo é o mesmo pedido no item 4 e pode ser feito na
+mesma sessão.
+
+Não é urgente e não bloqueia nada, mas quanto mais gerações de distância, mais
+cara fica, e as correções de segurança do SDK param de chegar.
+
+---
+
 ## Ordem recomendada
 
 1. **Ensaio de atualização** (item 1). Valida a promessa central e exige

@@ -17,32 +17,11 @@ const log = require('electron-log');
 
 const state = require('../state');
 
-/**
- * Parse .spf content tolerantly. A .spf is JSON, but real files pick up a BOM,
- * trailing commas or stray comments (hand-edits, other tools, partial writes /
- * cloned-from-another-machine). Strict first; on failure, one lenient pass so a
- * recoverable project opens instead of failing. Mirrors spf_store.ts.
- * @param {string} content
- */
-function parseSpfTolerant(content) {
-  try {
-    return JSON.parse(content);
-  } catch (_strictErr) {
-    let inStr = false; let strCh = ''; let inLine = false; let inBlock = false; let out = '';
-    for (let i = 0; i < content.length; i++) {
-      const c = content[i]; const n = content[i + 1];
-      if (inLine) { if (c === '\n') { inLine = false; out += c; } continue; }
-      if (inBlock) { if (c === '*' && n === '/') { inBlock = false; i++; } continue; }
-      if (inStr) { out += c; if (c === '\\') { out += content[i + 1] || ''; i++; } else if (c === strCh) inStr = false; continue; }
-      if (c === '"') { inStr = true; strCh = c; out += c; continue; }
-      if (c === '/' && n === '/') { inLine = true; i++; continue; }
-      if (c === '/' && n === '*') { inBlock = true; i++; continue; }
-      out += c;
-    }
-    const cleaned = out.replace(/^\s+/, '').replace(/,\s*([}\]])/g, '$1');
-    return JSON.parse(cleaned);
-  }
-}
+// Leitura tolerante do .spf e reescrita de caminhos no rename. Extraidas daqui
+// em 08/08/2026 para ficarem testaveis: sao puras, mas este modulo carrega o
+// Electron no topo e nenhum teste as alcancava. Ver main/ipc/project_paths.js.
+// remapRootPath nao entra aqui: quem o usa e o deepRemapPaths, que foi junto.
+const { parseSpfTolerant, remapProcessorPath, deepRemapPaths } = require('./project_paths');
 
 // ---- ProjectFile schema ----
 
@@ -72,80 +51,6 @@ class ProjectFile {
       metadata: this.metadata,
       structure: this.structure,
     };
-  }
-}
-
-/**
- * Remap a single absolute path that lived under a processor's working
- * directory when that processor is renamed `oldName` → `newName`.
- *
- * Only paths *inside* `<projectDir>/<oldName>/` are touched. The directory
- * prefix is rewritten, and the basename is swapped only when it is one of
- * SAPHO's processor-named build artifacts (`<old>.cmm`, `<old>.asm`,
- * `<old>.v`, `<old>_tb.v`). User-named files inside the folder keep their
- * basename — they just follow the folder to its new location. Paths outside
- * the processor folder are returned unchanged.
- */
-function remapProcessorPath(/** @type {any} */ p, /** @type {any} */ projectDir, /** @type {any} */ oldName, /** @type {any} */ newName) {
-  if (!p || typeof p !== 'string') return p;
-  const toNative = (/** @type {any} */ s) => s.replace(/\//g, path.sep);
-  const native = toNative(p);
-  const oldDir = toNative(path.join(projectDir, oldName));
-  const lower = native.toLowerCase();
-  const oldLower = oldDir.toLowerCase();
-  const inside = lower === oldLower || lower.startsWith(oldLower + path.sep.toLowerCase());
-  if (!inside) return p;
-
-  const rest = native.slice(oldDir.length); // '' or '\Hardware\old.v'
-  let out = path.join(projectDir, newName) + rest;
-
-  // Swap the proc-named SAPHO artifacts in the basename only.
-  const dir = path.dirname(out);
-  const base = path.basename(out);
-  const escaped = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const swapped = base.replace(
-    new RegExp(`^${escaped}(_tb)?(\\.v|\\.sv|\\.asm|\\.cmm)$`, 'i'),
-    (_m, tb, ext) => `${newName}${tb || ''}${ext}`,
-  );
-  return out === native && swapped === base ? out : path.join(dir, swapped);
-}
-
-/**
- * Rewrite an absolute path that lived under `oldRoot` to sit under
- * `newRoot` instead. Case-insensitive prefix match (Windows). Anything
- * outside `oldRoot` is returned verbatim. Used when a whole project folder
- * is renamed.
- */
-function remapRootPath(/** @type {any} */ p, /** @type {any} */ oldRoot, /** @type {any} */ newRoot) {
-  if (!p || typeof p !== 'string') return p;
-  const native = p.replace(/\//g, path.sep);
-  const oldN = oldRoot.replace(/\//g, path.sep);
-  const lower = native.toLowerCase();
-  const oldLower = oldN.toLowerCase();
-  if (lower === oldLower) return newRoot;
-  if (lower.startsWith(oldLower + path.sep.toLowerCase())) {
-    return newRoot + native.slice(oldN.length);
-  }
-  return p;
-}
-
-/**
- * Deep-walk an object and remap every string value that points inside
- * `oldRoot` to `newRoot`. Catches every persisted absolute path in the
- * .spf (file lists, command-override cwd/env, …) so a project rename
- * leaves no stale path behind — "em todos os lugares necessários".
- */
-function deepRemapPaths(/** @type {any} */ obj, /** @type {any} */ oldRoot, /** @type {any} */ newRoot) {
-  if (Array.isArray(obj)) {
-    for (let i = 0; i < obj.length; i++) {
-      if (typeof obj[i] === 'string') obj[i] = remapRootPath(obj[i], oldRoot, newRoot);
-      else deepRemapPaths(obj[i], oldRoot, newRoot);
-    }
-  } else if (obj && typeof obj === 'object') {
-    for (const k of Object.keys(obj)) {
-      if (typeof obj[k] === 'string') obj[k] = remapRootPath(obj[k], oldRoot, newRoot);
-      else deepRemapPaths(obj[k], oldRoot, newRoot);
-    }
   }
 }
 

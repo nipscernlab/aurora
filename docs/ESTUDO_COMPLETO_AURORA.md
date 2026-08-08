@@ -6,6 +6,13 @@
 > melhorias ativas/passivas, revamp visual, ferramentas open-source, instalação/DX e
 > profissionalização do repositório. Cada item é classificado em **Radical / Moderado / Leve**.
 
+Este documento responde "o que está errado e o que fazer". A pergunta vizinha,
+"como a coisa é montada", tem documento próprio desde 07/08/2026:
+[ESTUDO_CODIGO_AURORA.md](ESTUDO_CODIGO_AURORA.md), que descreve o modelo de
+processo, a fronteira de IPC, o pipeline de compilação, o editor, a árvore, o
+terminal, as ondas, o PRISM, a Aurora Intelligence e o empacotamento, lendo o
+código e não a documentação.
+
 ---
 
 ## Sumário executivo

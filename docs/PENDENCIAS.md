@@ -487,11 +487,12 @@ As duas correm em paralelo, e nenhuma espera a outra.
 
 Executada de cima para baixo, sem desvio. Cada passo termina com CI verde.
 
-1. **Rede de testes na fronteira** (item 4). Os 14 arquivos de `main/ipc` não têm
-   nenhum teste, e é por ali que a interface fala com o sistema. O método é
-   sempre o mesmo: extrair a lógica pura que está presa dentro dos handlers de
-   `ipcMain`, que é o que a torna testável, e escrever teste em cima. Começado em
-   08/08 com `project_paths.js`, 22 testes.
+1. **Rede de testes na fronteira** (item 4). O método é sempre o mesmo: extrair
+   a lógica pura que está presa dentro dos handlers de `ipcMain`, que é o que a
+   torna testável, e escrever teste em cima. Já saíram `project_paths.js`,
+   `surfer_config.js`, `files_ops.js` e `git_parse.js`. Continuam sem teste seis
+   arquivos de `main/ipc`: `ai.js`, `github_auth.js`, `shell.js`, `system.js`,
+   `docs_window.js` e `tree_undo.js`.
 2. **Split dos god files** (item 7). É o mesmo movimento do passo 1, continuado
    até os três arquivos grandes caírem. Não é refactor por estética: cada
    extração é o que permite o teste do passo 1 existir.
@@ -502,6 +503,14 @@ Executada de cima para baixo, sem desvio. Cada passo termina com CI verde.
    assinatura ficar por último: assinar uma versão que ainda vai mudar gasta o
    ritual à toa. A lista de bugs vem do uso, não de auditoria minha; conforme
    forem aparecendo, entram aqui com o caminho para reproduzir.
+
+   Fica registrado um que ficou pela metade, para ninguém achar que foi visto
+   inteiro. O anel de foco que riscava a borda foi medido e corrigido no corpo do
+   terminal e na lista de mensagens do chat, mas o Monaco nunca chegou a ser
+   medido: a sonda abriu o projeto e não abriu o arquivo no editor, então não há
+   medida do que acontece lá. Se a linha continuar aparecendo no editor, o
+   caminho é abrir um `.v` de verdade pelo harness e varrer o foco com o Monaco
+   montado, e não repetir a varredura com a tela de boas-vindas.
 5. **Itens pequenos de código** (item 6): mídia real do README. A fonte saiu
    daqui em 08/08/2026, trocada por Metamorphous e Noto Sans Runic, as duas OFL.
 6. **Fechar a documentação**: conferir o `DESIGN.md` contra o CSS, revisar

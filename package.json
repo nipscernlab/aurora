@@ -39,7 +39,7 @@
     "prepare": "husky"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.22.1"
   },
   "lint-staged": {
     "*.{js,mjs,cjs}": "eslint --max-warnings=0 --no-warn-ignored"

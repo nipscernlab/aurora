@@ -106,10 +106,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup Node.js 20
+      # Mesma versao do ci.yml. O piso do projeto e 22.22.1 (lint-staged 17);
+      # ver a nota la e o engines do package.json.
+      - name: Setup Node.js 22
         uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies

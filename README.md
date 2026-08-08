@@ -79,9 +79,10 @@ GUI is developed, and `nipscernlab/sapho` is what end users download.
 
 ## Building from source
 
-You need Windows 10 or 11, Git, and Node.js. Node 22.12 or newer is the safe
-floor: that is what the bundled Electron requires. Older versions may appear to
-work and will emit engine warnings during install.
+You need Windows 10 or 11, Git, and Node.js 22.22.1 or newer. That floor is not
+arbitrary: `lint-staged` sets it, and Electron, commitlint and the Claude Code
+CLI each demand something close behind. Older versions may appear to work and
+will emit engine warnings during install.
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e --source winget

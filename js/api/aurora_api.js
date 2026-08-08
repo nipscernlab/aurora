@@ -59,14 +59,11 @@ import {
 
 import { memorySlug } from '../ai/memory.js';
 
-/* ============================================================
- *  Result helpers
- * ========================================================== */
+// Envelope de resposta e barramento de eventos. Moram em api_core.js, que nao
+// importa nada, porque importar ESTE arquivo inicializa a IDE inteira e por
+// isso nenhum teste alcancava o nucleo. Ver js/api/api_core.js.
+import { ok, err, on, off, emit, WINDOW_EVENT_BRIDGE } from './api_core.js';
 
-function ok(data) { return { ok: true, data: data === undefined ? null : data }; }
-function err(message, code) {
-  return { ok: false, error: { message: String(message || 'Unknown error'), code: code || null } };
-}
 
 
 /**
@@ -127,25 +124,6 @@ async function resolveProjectFile(filePath, root) {
  *  to emit here as well.
  * ========================================================== */
 
-const listeners = new Map();
-
-function on(event, fn) {
-  if (typeof fn !== 'function') return () => {};
-  if (!listeners.has(event)) listeners.set(event, new Set());
-  listeners.get(event).add(fn);
-  return () => off(event, fn);
-}
-function off(event, fn) {
-  listeners.get(event)?.delete(fn);
-}
-function emit(event, payload) {
-  const subs = listeners.get(event);
-  if (!subs) return;
-  for (const fn of subs) {
-    try { fn(payload); }
-    catch (e) { console.warn(`[AuroraAPI.events] handler for "${event}" threw:`, e); }
-  }
-}
 
 /* ============================================================
  *  Legacy window-event bridge
@@ -160,15 +138,6 @@ function emit(event, payload) {
  *  `AuroraAPI.events.on(...)`.
  * ========================================================== */
 
-const WINDOW_EVENT_BRIDGE = Object.freeze({
-  'aurora:locale-changed':       'locale:changed',
-  'aurora:editing-file-changed': 'editor:active-file-changed',
-  'aurora-editor-focused':       'editor:focused',
-  'aurora:spf-changed':          'project:spf-changed',
-  'aurora-settings-updated':     'settings:updated',
-  'aurora-shortcuts-updated':    'settings:shortcuts-updated',
-  'aurora-tooltips-updated':     'settings:tooltips-updated',
-});
 
 function bridgeWindowEvents() {
   for (const [domEvent, busEvent] of Object.entries(WINDOW_EVENT_BRIDGE)) {

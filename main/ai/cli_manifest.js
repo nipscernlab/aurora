@@ -33,7 +33,7 @@
 'use strict';
 
 // Base versions — keep in lockstep with package.json dependencies.
-const CLAUDE_VERSION = '2.1.202'; // @anthropic-ai/claude-code
+const CLAUDE_VERSION = '2.1.222'; // @anthropic-ai/claude-code
 const CODEX_VERSION = '0.144.3';  // @openai/codex
 
 const REGISTRY = 'https://registry.npmjs.org';
@@ -58,7 +58,7 @@ const MANIFEST = {
         pkg: '@anthropic-ai/claude-code-win32-x64',
         version: CLAUDE_VERSION,
         tarball: `${REGISTRY}/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-${CLAUDE_VERSION}.tgz`,
-        integrity: 'sha512-Bss85HFpxFtIAwIpw5sG+r91S4PpcanckZ3Ei1zRO0RM71NMzQ2LDONmS/eSfhsAFEQuSVBQlx7O5c7D2d7Otw==',
+        integrity: 'sha512-Bvvun2cU+ANm34NBq1AzKvKE393u/PS62PQZKXBr3XyyUhfn29lkYBPMPvITfaYFoOvEO3qikUglFs2dxM2gYQ==',
         exe: 'claude.exe',
         rg: null,
       },

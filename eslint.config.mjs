@@ -42,6 +42,14 @@ export default defineConfig([
       // docs/ holds LaTeX sources and their Node build/lint helpers (CommonJS,
       // top-level return) — documentation tooling, not the app surface.
       "docs/**",
+      // resources/docs/ is the SAPHO manual, downloaded from the
+      // docs_aurora Release by `npm run bootstrap` and gitignored. It ships
+      // Sphinx's own vendored JS (clipboard, copybutton, language stemmers),
+      // which trips no-undef on globals it defines elsewhere. CI never saw
+      // it — `npm ci` doesn't run bootstrap — but `npm start` does, so
+      // anyone who launched the app once had 225 lint errors from files
+      // that aren't ours.
+      "resources/docs/**",
     ],
   },
   {

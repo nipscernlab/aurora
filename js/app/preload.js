@@ -59,7 +59,7 @@ const fileOperations = {
   // Manual do SAPHO (main/ipc/docs.js). Nenhuma delas recebe caminho: o destino
   // e montado no main, porque openExternal recusa file:// de proposito.
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
-  docsOpenOffline: () => ipcRenderer.invoke('docs:open-offline'),
+  docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
 };
 

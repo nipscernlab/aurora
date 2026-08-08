@@ -139,11 +139,29 @@ function openInAppWindow(/** @type {string} */ indexPath) {
   return win;
 }
 
-async function openOffline() {
+/**
+ * Abre o manual local.
+ *
+ * @param {'browser'|'aurora'} [onde] Escolha do usuário. Com 'aurora' vai
+ *   direto para a janela própria (main/ipc/docs_window.js). Sem escolha, ou com
+ *   'browser', tenta o navegador do sistema e cai para a janela própria se a
+ *   associação de .html estiver quebrada, que é o caso real de falha.
+ */
+async function openOffline(onde) {
   const dir = activeDir();
   if (!dir) return { ok: false, reason: 'missing' };
 
   const indexPath = path.join(dir, 'index.html');
+
+  if (onde === 'aurora') {
+    try {
+      require('./docs_window').open(dir);
+      return { ok: true, where: 'window', dir };
+    } catch (e) {
+      log.error('[docs] falha ao abrir a janela do manual:', e instanceof Error ? e.message : e);
+      return { ok: false, reason: 'open-failed' };
+    }
+  }
 
   // shell.openPath devolve '' em sucesso e a mensagem de erro em falha. O caso
   // real nao e "nao existe navegador" (todo Windows traz o Edge), e sim a
@@ -159,7 +177,14 @@ async function openOffline() {
 
   log.warn('[docs] navegador indisponivel, abrindo na propria janela:', failure);
   try {
-    openInAppWindow(indexPath);
+    // A janela completa é melhor do que a crua, e é o mesmo destino que o
+    // usuário escolheria; openInAppWindow fica como último recurso se ela
+    // falhar por qualquer motivo.
+    try {
+      require('./docs_window').open(dir);
+    } catch (_) {
+      openInAppWindow(indexPath);
+    }
     return { ok: true, where: 'window', dir };
   } catch (e) {
     log.error('[docs] falha ao abrir a janela interna:', e instanceof Error ? e.message : e);
@@ -259,7 +284,7 @@ function register() {
   ipcMain.handle('docs:status', () => status());
 
   /** Abre o manual local. Não recebe caminho: o destino é montado aqui. */
-  ipcMain.handle('docs:open-offline', () => openOffline());
+  ipcMain.handle('docs:open-offline', (_e, onde) => openOffline(onde));
 
   /**
    * Procura versão nova. Disparado uma vez por sessão pelo renderer, bem depois

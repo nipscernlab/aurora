@@ -83,6 +83,7 @@ export default defineConfig({
         index: 'index.html',
         splash: 'html/splash.html',
         update: 'html/update-notification.html',
+        'docs-browser': 'html/docs-browser.html',
         prism: 'html/prism/prism.html',
         'design-lab': 'html/design-lab.html', // DESIGN §11 — internal component gallery
       },

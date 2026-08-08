@@ -1,6 +1,7 @@
 // aurora_settings.js
 import { electronAPI } from '../app/electron_api.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
+import { showDialog } from '../ui/dialog_manager.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const settingsButton = document.getElementById('aurora-settings');
@@ -497,9 +498,26 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(() => { /* mantem oculto */ });
 
-        offlineLink.addEventListener('click', (e) => {
+        offlineLink.addEventListener('click', async (e) => {
             e.preventDefault();
-            electronAPI.docsOpenOffline?.();
+            // Quem tem navegador ganha abas, busca e favoritos de graca; quem
+            // nao tem, ou esta numa maquina com a associacao de .html removida,
+            // le na janela propria da AURORA. Como nao da para saber qual e o
+            // caso daqui, quem escolhe e o usuario.
+            const onde = await showDialog({
+                title: 'Abrir o manual',
+                message: 'No navegador voce ganha abas, busca e favoritos. '
+                    + 'Na AURORA o manual abre numa janela nossa, sem depender '
+                    + 'de navegador nenhum.',
+                variant: 'info',
+                buttons: [
+                    { label: 'Na AURORA',    action: 'aurora',  type: 'cancel' },
+                    { label: 'No navegador', action: 'browser', type: 'save' },
+                ],
+            });
+            // Fechar no X ou no Esc nao e escolha: nao abre nada.
+            if (onde !== 'aurora' && onde !== 'browser') return;
+            electronAPI.docsOpenOffline?.(onde);
         });
     }
 

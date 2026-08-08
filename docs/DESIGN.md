@@ -180,7 +180,7 @@ sobra vira borda; sombra animada vira `transform`/`opacity` (§6).
 ## 5. O raio de foco — a assinatura estrutural
 
 Em vez de preencher o item ativo com um fundo sólido (genérico), a AURORA marca foco/seleção com um
-**raio luminoso vertical fino** — um feixe de 2px com o `--accent-veil`, à esquerda do item:
+**raio luminoso vertical fino** — um feixe de 2px com o `--focus-ray`, à esquerda do item:
 
 - **Aba ativa:** raio na base + texto `--text-bright`.
 - **Pane focado (split):** raio na borda esquerda do pane.
@@ -272,7 +272,7 @@ afinados ao vivo num protótipo e ficam como constantes no `FRAG` de [aurora_can
 - **Remover FontAwesome** (hoje carregado inteiro, usado por 13 módulos) e os **glifos duplicados**
   (`.glyph` no `index.html` *e* `.aglyph` em `theme_variables.css` — o SVG do C± está colado 2× no
   DOM). Os ícones de compilação viram entradas do mesmo sprite.
-- Ícone herda `currentColor` → pode receber o `--accent-veil` via `mask` quando precisar brilhar.
+- Ícone herda `currentColor` → pode receber o `--focus-ray` via `mask` quando precisar brilhar.
 
 ---
 

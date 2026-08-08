@@ -595,7 +595,7 @@ body.ai-assistant-open {
 .ai-message {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   max-width: 100%;
   animation: ai-msg-in 360ms var(--ease-out-quart) both;
 }
@@ -871,11 +871,11 @@ body.ai-assistant-open {
 .ai-composer {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 8px 8px 8px 10px;
+  padding: var(--space-2) var(--space-2) var(--space-2) 10px;
   transition: border-color var(--transition-fast),
               background-color var(--transition-fast);
 }
@@ -919,7 +919,7 @@ body.ai-assistant-open {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0 2px 8px;
+  padding: 0 2px var(--space-2);
 }
 .ai-attachments[hidden] { display: none; }
 
@@ -928,8 +928,8 @@ body.ai-assistant-open {
 .ai-msg-queue {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 2px 8px;
+  gap: var(--space-1);
+  padding: 0 2px var(--space-2);
 }
 .ai-msg-queue[hidden] { display: none; }
 .ai-queued-chip {
@@ -937,10 +937,10 @@ body.ai-assistant-open {
   align-items: center;
   gap: 6px;
   max-width: 100%;
-  padding: 4px 4px 4px 9px;
+  padding: var(--space-1) var(--space-1) var(--space-1) 9px;
   background: var(--bg-elev);
   border: 1px dashed var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   color: var(--text-secondary);
   font-size: var(--text-xs);
 }
@@ -961,10 +961,10 @@ body.ai-assistant-open {
   gap: 6px;
   max-width: 220px;
   height: 32px;
-  padding: 0 4px 0 7px;
+  padding: 0 var(--space-1) 0 7px;
   background: var(--bg-elev-2);
   border: 1px solid var(--border-subtle);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   color: var(--text-secondary);
   font-size: var(--text-xs);
 }
@@ -1013,14 +1013,14 @@ body.ai-assistant-open {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 .ai-att-thumb-lg {
   width: auto;
   max-width: 160px;
   height: 96px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   cursor: zoom-in;
   transition: filter var(--transition-fast);
 }
@@ -1034,7 +1034,7 @@ body.ai-assistant-open {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 32px;
+  padding: var(--space-8);
   background: rgba(3, 5, 12, 0.86);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -1047,7 +1047,7 @@ body.ai-assistant-open {
   max-width: 94vw;
   max-height: 94vh;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   box-shadow: 0 24px 80px -12px rgba(0, 0, 0, 0.7);
   cursor: default;
   transform: scale(0.98);
@@ -1102,7 +1102,7 @@ body.ai-assistant-open {
 .ai-model-chip-icon {
   width: 16px;
   height: 16px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -1518,8 +1518,8 @@ body.ai-assistant-open {
   font-size: 8px;
   font-weight: var(--font-bold);
   letter-spacing: 0.06em;
-  padding: 1px 4px;
-  border-radius: 4px;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
   color: var(--aurora-mint);
   background: rgba(95, 224, 176, 0.14);
   border: 1px solid rgba(95, 224, 176, 0.30);
@@ -1628,7 +1628,7 @@ body.ai-assistant-open {
 .ai-usage {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
 }
 
 .ai-usage-top {
@@ -1710,7 +1710,7 @@ body.ai-assistant-open {
   flex: 1 1 auto;
   min-width: 52px;
   height: 26px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
   background: transparent;
   border: 0;
   border-radius: var(--radius-sm);
@@ -1792,7 +1792,7 @@ body.ai-assistant-open {
 .ai-cc-detail code {
   font-family: var(--font-mono);
   font-size: 10px;
-  padding: 1px 4px;
+  padding: 1px var(--space-1);
   border-radius: 3px;
   background: var(--bg-elev-2);
   color: var(--accent-hover);
@@ -2150,7 +2150,7 @@ body.resizing-ai-corner .ai-resize-handle::after {
  *  completion, click the header to expand.
  * ------------------------------------------------------------------------- */
 .ai-tool-group {
-  margin: 4px 0;
+  margin: var(--space-1) 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--bg-elev);
@@ -2160,7 +2160,7 @@ body.resizing-ai-corner .ai-resize-handle::after {
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border: 0;
   background: transparent;
   color: var(--text-secondary);
@@ -2199,8 +2199,8 @@ body.resizing-ai-corner .ai-resize-handle::after {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 8px 0 2px;
-  padding: 3px 8px;
+  margin: var(--space-2) 0 2px;
+  padding: 3px var(--space-2);
   align-self: flex-start;
   border: 1px dashed var(--accent-border);
   border-radius: var(--radius-full);
@@ -2215,8 +2215,8 @@ body.resizing-ai-corner .ai-resize-handle::after {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  margin: 4px 0;
-  padding: 4px 10px;
+  margin: var(--space-1) 0;
+  padding: var(--space-1) 10px;
   border: 1px solid var(--accent-border);
   border-left-width: 3px;
   border-radius: var(--radius-md);
@@ -2328,7 +2328,7 @@ body.resizing-ai-corner * {
 /* Blockquotes + GFM callouts */
 .ai-msg-content blockquote {
   margin: var(--space-2) 0;
-  padding: 6px 12px;
+  padding: 6px var(--space-3);
   border-left: 3px solid var(--accent);
   background: var(--bg-elev);
   color: var(--text-muted);
@@ -2346,7 +2346,7 @@ body.resizing-ai-corner * {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 6px var(--space-3);
   font-weight: 600;
   font-size: var(--text-xs);
   text-transform: uppercase;
@@ -2417,7 +2417,7 @@ body.resizing-ai-corner * {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  margin-left: -16px;
+  margin-left: -var(--space-4);
 }
 .ai-msg-content li.ai-task i {
   margin-top: 2px;
@@ -2437,7 +2437,7 @@ body.resizing-ai-corner * {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 6px var(--space-3);
   background: var(--bg-elev-3, #1e1e22);
   color: var(--text);
   border: 1px solid var(--border-subtle);
@@ -2529,8 +2529,8 @@ body.resizing-ai-corner * {
 .ai-askq-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -2545,13 +2545,13 @@ body.resizing-ai-corner * {
 .ai-askq-options {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   margin-bottom: 10px;
 }
 .ai-askq-opt {
   display: flex;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: var(--space-2);
+  padding: var(--space-2) 10px;
   background: var(--bg-elev);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -2610,7 +2610,7 @@ body.resizing-ai-corner * {
 .ai-askq-record.cancelled .ai-askq-record-head i { color: var(--text-muted); }
 
 .ai-askq-record-q {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   font-size: var(--text-xs);
   color: var(--text-secondary);
   line-height: var(--leading-snug);
@@ -2619,15 +2619,15 @@ body.resizing-ai-corner * {
 .ai-askq-record-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
   margin-top: 6px;
 }
 
 .ai-askq-record-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
   background: var(--accent-soft);
   border: 1px solid var(--accent-border);
   border-radius: var(--radius-full);
@@ -2652,11 +2652,11 @@ body.resizing-ai-corner * {
   display: block;
   font-size: var(--text-xs);
   color: var(--text-muted);
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 .ai-askq-other-input {
   width: 100%;
-  padding: 8px 10px;
+  padding: var(--space-2) 10px;
   background: var(--bg-elev);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
@@ -2674,7 +2674,7 @@ body.resizing-ai-corner * {
 .ai-askq-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
   margin-top: 10px;
 }
 .ai-askq-cancel, .ai-askq-submit {

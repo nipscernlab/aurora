@@ -197,7 +197,7 @@
 /* --- prominent buttons -------------------------------------------------- */
 .git-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
-  padding: 8px 14px; min-height: 34px;
+  padding: var(--space-2) 14px; min-height: 34px;
   background: var(--bg-elev-2, var(--bg-elev)); border: 1px solid var(--border);
   border-radius: var(--radius-md); color: var(--text);
   font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--font-medium);
@@ -219,7 +219,7 @@
    it to share the primary look + sizing of the panel system. */
 .git-commit-btn {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
-  padding: 8px 16px; min-height: 34px; border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4); min-height: 34px; border-radius: var(--radius-md);
   font-weight: var(--font-semibold); white-space: nowrap;
   transition: background-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -562,7 +562,7 @@
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
   font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-wide, 0.05em);
   font-weight: var(--font-semibold); color: var(--text-muted);
-  padding: 2px 2px 4px;
+  padding: 2px 2px var(--space-1);
 }
 .git-file-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .git-file {
@@ -978,7 +978,7 @@
 .git-token-help code {
   font-family: var(--font-mono); font-size: 0.92em;
   background: var(--overlay-hover); color: var(--accent-hover, var(--accent));
-  padding: 0 4px; border-radius: var(--radius-sm, 4px);
+  padding: 0 var(--space-1); border-radius: var(--radius-sm, 4px);
 }
 .git-help-table { width: 100%; border-collapse: collapse; margin: var(--space-1) 0; }
 .git-help-table th, .git-help-table td {

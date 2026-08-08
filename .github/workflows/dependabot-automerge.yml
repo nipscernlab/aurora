@@ -1,10 +1,26 @@
 name: Dependabot auto-merge
 
-# Auto-merges Dependabot patch/minor PRs once CI passes.
-# NOTE: requires "Allow auto-merge" enabled in repo settings (Settings → General).
-# Without a required status check the merge happens as soon as auto-merge is armed.
+# Merges Dependabot patch/minor PRs, but only after CI has gone green on
+# that exact PR.
+#
+# Why the trigger is `workflow_run` and not `pull_request_target`:
+# the previous version armed `gh pr merge --auto` as soon as the PR
+# opened. GitHub's auto-merge only waits when the branch has *required*
+# status checks, and `main` here is unprotected on purpose — the repo
+# owner pushes to it directly. So "--auto" meant "merge right now", and
+# fs-extra 11.4.0 landed on main without a single check having run.
+# Worse, the merge commit itself never ran CI either: pushes made with
+# GITHUB_TOKEN don't trigger new workflow runs, by design, to avoid
+# recursion. The bump was invisible to CI from both sides.
+#
+# Reacting to CI completion instead makes the green run the precondition
+# rather than a race. The `pull_request` event builds the PR merged into
+# main, so a success here means main-with-this-bump is what passed.
 
-on: pull_request_target
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -12,18 +28,57 @@ permissions:
 
 jobs:
   auto-merge:
-    if: ${{ github.actor == 'dependabot[bot]' }}
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch Dependabot metadata
+      - name: Resolve PR and update type
         id: meta
-        uses: dependabot/fetch-metadata@v2
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Enable auto-merge for patch & minor updates
-        if: ${{ steps.meta.outputs.update-type == 'version-update:semver-patch' || steps.meta.outputs.update-type == 'version-update:semver-minor' }}
-        run: gh pr merge --auto --squash "$PR_URL"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+
+          pr=$(gh pr list --repo "$REPO" --state open --head "$HEAD_BRANCH" \
+                 --json number --jq '.[0].number // empty')
+          if [ -z "$pr" ]; then
+            echo "No open PR for $HEAD_BRANCH — nothing to merge."
+            echo "merge=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Dependabot stamps machine-readable metadata into the commit
+          # message body — the same source dependabot/fetch-metadata
+          # parses. That action only runs on pull_request events, so on
+          # workflow_run we read the commit directly.
+          msg=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '.commit.message')
+
+          # Grouped PRs carry one block per dependency. A single major
+          # anywhere in the set disqualifies the whole PR.
+          if grep -q 'version-update:semver-major' <<<"$msg"; then
+            echo "PR #$pr contains a major bump — leaving it for review."
+            echo "merge=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if grep -qE 'version-update:semver-(patch|minor)' <<<"$msg"; then
+            echo "PR #$pr is patch/minor and CI is green — merging."
+            echo "merge=true" >> "$GITHUB_OUTPUT"
+            echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          else
+            echo "PR #$pr has no recognizable update-type — leaving it for review."
+            echo "merge=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Merge
+        if: steps.meta.outputs.merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ steps.meta.outputs.pr }}
+        run: gh pr merge --repo "$REPO" --squash --delete-branch "$PR"

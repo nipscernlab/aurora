@@ -15,62 +15,64 @@ PRISM cell; without a skin it renders as a plain `generic` box.
 
 | module | source | ports | skin | port list (→in ←out) |
 | ------ | ------ | ----: | ---- | -------------------- |
-| `addr_dec` | `addr_dec.v` | 3 | ✅ hand-crafted (`addr_dec.svg`) | →valid_in →index ←valid_out |
-| `core` | `core.v` | 16 | ✅ hand-crafted (`core.svg`) | →clk →rst →instr ←instr_addr ←mem_wr ←mem_addr_rd ←mem_addr_wr →mem_data_rd ←mem_data_wr →io_in ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
-| `instr_dec` | `instr_dec.v` | 14 | ✅ hand-crafted (`instr_dec.svg`) | →clk →rst →opcode ←push ←pop ←ula_op ←mem_wr ←req_in ←out_en ←ldi ←sti ←fft ←lda ←sta |
-| `instr_fetch` | `core.v` | 9 | 🆕 baseline | →clk →rst →itr ←cheguei →instr ←addr →acc ←opcode ←operand |
-| `io_ctrl` | `core.v` | 8 | 🆕 baseline | →clk →req_in →out_en →addr ←en_in ←addr_in ←en_out ←addr_out |
-| `mem_ctrl` | `core.v` | 13 | 🆕 baseline | →sti →ldi →fft →wr →lda →sta →ula →base_addr →stk_ofst ←mem_wr ←mem_addr_rd ←mem_addr_wr ←mem_data_wr |
-| `mem_data` | `processor.v` | 6 | 🆕 baseline | →clk →wr →addr_rd →addr_wr →data_in ←data_out |
-| `mem_instr` | `processor.v` | 3 | 🆕 baseline | →clk →addr ←data |
-| `myFIFO` | `myFIFO.v` | 10 | ✅ hand-crafted (`myFIFO.svg`) | →clk →data →rdreq →sclr →wrreq ←almost_empty ←empty ←full ←q ←usedw |
-| `norm_mux` | `ula.v` | 8 | 🆕 baseline | →op →fadd →fmlt →fdiv →i2f →i2fm →frot ←out |
-| `pc` | `core.v` | 5 | 🆕 baseline | →clk →rst →load →data ←addr |
-| `prefetch` | `core.v` | 12 | 🆕 baseline | →rst →pc_instr ←opcode ←operand →mem_instr ←instr_addr ←pc_l →is_um ←isp_push ←isp_pop →itr ←cheguei |
-| `processor` | `processor.v` | 10 | ✅ hand-crafted (`processor.svg`) | →clk →rst →io_in ←io_out ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
-| `rel_addr` | `core.v` | 5 | 🆕 baseline | →use_oft →fft →offset →addr ←out |
-| `stack` | `core.v` | 6 | 🆕 baseline | →clk →rst →push →pop →in ←out |
-| `ula` | `ula.v` | 4 | ✅ hand-crafted (`ula.svg`) | →op →in1 →in2 ←out |
-| `ula_abs` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_add` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_and` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_denorm` | `ula.v` | 7 | 🆕 baseline | →neg1 →neg2 →in1 →in2 ←e_out ←sm1_out ←sm2_out |
-| `ula_div` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_equ` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_f2i` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_fabs` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_fadd` | `ula.v` | 4 | 🆕 baseline | →e_in →sm1_in →sm2_in ←out |
-| `ula_fdiv` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_fgre` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_fles` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_fmlt` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_fneg` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_fpst` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_frot` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_fsgn` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_gre` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_i2f` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_in1_ctrl` | `core.v` | 5 | 🆕 baseline | →clk →pop →mem →stack ←out |
-| `ula_in2_ctrl` | `core.v` | 5 | 🆕 baseline | →clk →req_in →acc →io_in ←out |
-| `ula_inv` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_lan` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_les` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_lin` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_lor` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_mlt` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_mod` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_mux` | `ula.v` | 44 | 🆕 baseline | →op →in1 →in2 →add →mlt →div →mod →sgn →fsgn →neg →negm →fneg →fnegm →abs →absm →fabs →fabsm →pst →pstm →fpst →fpstm →nrm →nrmm →f2i →f2im →ann →orr →cor →inv →invm →lan →lor →lin →linm →les →fles →gre →fgre →equ →shl →shr →srs →smx ←out |
-| `ula_neg` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_nmux` | `ula.v` | 5 | 🆕 baseline | →A →B →in1 →in2 ←out |
-| `ula_norm` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_nrm` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_or` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_pst` | `ula.v` | 2 | 🆕 baseline | →in ←out |
-| `ula_sgn` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_shl` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_shr` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_srs` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
-| `ula_xor` | `ula.v` | 3 | 🆕 baseline | →in1 →in2 ←out |
+| `addr_dec` | `addr_dec.v` | 3 | hand-crafted (`addr_dec.svg`) | →valid_in →index ←valid_out |
+| `core` | `core.v` | 16 | hand-crafted (`core.svg`) | →clk →rst →instr ←instr_addr ←mem_wr ←mem_addr_rd ←mem_addr_wr →mem_data_rd ←mem_data_wr →io_in ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
+| `instr_dec` | `instr_dec.v` | 14 | hand-crafted (`instr_dec.svg`) | →clk →rst →opcode ←push ←pop ←ula_op ←mem_wr ←req_in ←out_en ←ldi ←sti ←fft ←lda ←sta |
+| `instr_fetch` | `core.v` | 9 | hand-crafted (`instr_fetch.svg`) | →clk →rst →itr ←cheguei →instr ←addr →acc ←opcode ←operand |
+| `io_ctrl` | `core.v` | 9 | hand-crafted (`io_ctrl.svg`) | →clk →rst →req_in →out_en →addr ←en_in ←addr_in ←en_out ←addr_out |
+| `mem_ctrl` | `core.v` | 13 | hand-crafted (`mem_ctrl.svg`) | →sti →ldi →fft →wr →lda →sta →ula →base_addr →stk_ofst ←mem_wr ←mem_addr_rd ←mem_addr_wr ←mem_data_wr |
+| `mem_data` | `processor.v` | 6 | hand-crafted (`mem_data.svg`) | →clk →wr →addr_rd →addr_wr →data_in ←data_out |
+| `mem_instr` | `processor.v` | 3 | hand-crafted (`mem_instr.svg`) | →clk →addr ←data |
+| `myFIFO` | `myFIFO.v` | 10 | hand-crafted (`myFIFO.svg`) | →clk →data →rdreq →sclr →wrreq ←almost_empty ←empty ←full ←q ←usedw |
+| `norm_mux` | `ula.v` | 8 | hand-crafted (`norm_mux.svg`) | →op →fadd →fmlt →fdiv →i2f →i2fm →frot ←out |
+| `pc` | `core.v` | 5 | hand-crafted (`pc.svg`) | →clk →rst →load →data ←addr |
+| `prefetch` | `core.v` | 12 | hand-crafted (`prefetch.svg`) | →rst →pc_instr ←opcode ←operand →mem_instr ←instr_addr ←pc_l →is_um ←isp_push ←isp_pop →itr ←cheguei |
+| `processor` | `processor.v` | 10 | hand-crafted (`processor.svg`) | →clk →rst →io_in ←io_out ←addr_in ←addr_out ←req_in ←out_en →itr ←cheguei |
+| `rel_addr` | `core.v` | 5 | hand-crafted (`rel_addr.svg`) | →use_oft →fft →offset →addr ←out |
+| `stack` | `core.v` | 6 | hand-crafted (`stack.svg`) | →clk →rst →push →pop →in ←out |
+| `ula` | `ula.v` | 4 | hand-crafted (`ula.svg`) | →op →in1 →in2 ←out |
+| `ula_abs` | `ula.v` | 2 | hand-crafted (`ula_abs.svg`) | →in ←out |
+| `ula_add` | `ula.v` | 3 | hand-crafted (`ula_add.svg`) | →in1 →in2 ←out |
+| `ula_and` | `ula.v` | 3 | hand-crafted (`ula_and.svg`) | →in1 →in2 ←out |
+| `ula_denorm` | `ula.v` | 7 | hand-crafted (`ula_denorm.svg`) | →neg1 →neg2 →in1 →in2 ←e_out ←sm1_out ←sm2_out |
+| `ula_div` | `ula.v` | 3 | hand-crafted (`ula_div.svg`) | →in1 →in2 ←out |
+| `ula_equ` | `ula.v` | 3 | hand-crafted (`ula_equ.svg`) | →in1 →in2 ←out |
+| `ula_f2i` | `ula.v` | 2 | hand-crafted (`ula_f2i.svg`) | →in ←out |
+| `ula_fabs` | `ula.v` | 2 | hand-crafted (`ula_fabs.svg`) | →in ←out |
+| `ula_fadd` | `ula.v` | 4 | hand-crafted (`ula_fadd.svg`) | →e_in →sm1_in →sm2_in ←out |
+| `ula_fdiv` | `ula.v` | 3 | hand-crafted (`ula_fdiv.svg`) | →in1 →in2 ←out |
+| `ula_fgre` | `ula.v` | 3 | hand-crafted (`ula_fgre.svg`) | →in1 →in2 ←out |
+| `ula_fles` | `ula.v` | 3 | hand-crafted (`ula_fles.svg`) | →in1 →in2 ←out |
+| `ula_fmlt` | `ula.v` | 3 | hand-crafted (`ula_fmlt.svg`) | →in1 →in2 ←out |
+| `ula_fneg` | `ula.v` | 2 | hand-crafted (`ula_fneg.svg`) | →in ←out |
+| `ula_fpst` | `ula.v` | 2 | hand-crafted (`ula_fpst.svg`) | →in ←out |
+| `ula_frot` | `ula.v` | 2 | hand-crafted (`ula_frot.svg`) | →in ←out |
+| `ula_fsgn` | `ula.v` | 3 | hand-crafted (`ula_fsgn.svg`) | →in1 →in2 ←out |
+| `ula_gre` | `ula.v` | 3 | hand-crafted (`ula_gre.svg`) | →in1 →in2 ←out |
+| `ula_i2f` | `ula.v` | 2 | hand-crafted (`ula_i2f.svg`) | →in ←out |
+| `ula_in1_ctrl` | `core.v` | 6 | hand-crafted (`ula_in1_ctrl.svg`) | →clk →rst →pop →mem →stack ←out |
+| `ula_in2_ctrl` | `core.v` | 6 | hand-crafted (`ula_in2_ctrl.svg`) | →clk →rst →req_in →acc →io_in ←out |
+| `ula_inv` | `ula.v` | 2 | hand-crafted (`ula_inv.svg`) | →in ←out |
+| `ula_lan` | `ula.v` | 3 | hand-crafted (`ula_lan.svg`) | →in1 →in2 ←out |
+| `ula_les` | `ula.v` | 3 | hand-crafted (`ula_les.svg`) | →in1 →in2 ←out |
+| `ula_lin` | `ula.v` | 2 | hand-crafted (`ula_lin.svg`) | →in ←out |
+| `ula_lor` | `ula.v` | 3 | hand-crafted (`ula_lor.svg`) | →in1 →in2 ←out |
+| `ula_mlt` | `ula.v` | 3 | hand-crafted (`ula_mlt.svg`) | →in1 →in2 ←out |
+| `ula_mod` | `ula.v` | 3 | hand-crafted (`ula_mod.svg`) | →in1 →in2 ←out |
+| `ula_mux` | `ula.v` | 47 | hand-crafted (`ula_mux.svg`) | →op →in1 →in2 →add →mlt →div →mod →sgn →fsgn →neg →negm →fneg →fnegm →abs →absm →fabs →fabsm →pst →pstm →fpst →fpstm →nrm →nrmm →f2i →f2im →ann →orr →cor →inv →invm →lan →lor →lin →linm →les →fles →gre →fgre →equ →shl →shr →srs →smx →fscl →xpo →xpom ←out |
+| `ula_neg` | `ula.v` | 2 | hand-crafted (`ula_neg.svg`) | →in ←out |
+| `ula_nmux` | `ula.v` | 5 | hand-crafted (`ula_nmux.svg`) | →A →B →in1 →in2 ←out |
+| `ula_norm` | `ula.v` | 2 | hand-crafted (`ula_norm.svg`) | →in ←out |
+| `ula_nrm` | `ula.v` | 2 | hand-crafted (`ula_nrm.svg`) | →in ←out |
+| `ula_or` | `ula.v` | 3 | hand-crafted (`ula_or.svg`) | →in1 →in2 ←out |
+| `ula_pst` | `ula.v` | 2 | hand-crafted (`ula_pst.svg`) | →in ←out |
+| `ula_scl` | `ula.v` | 3 | baseline | →in1 →in2 ←out |
+| `ula_sgn` | `ula.v` | 3 | hand-crafted (`ula_sgn.svg`) | →in1 →in2 ←out |
+| `ula_shl` | `ula.v` | 3 | hand-crafted (`ula_shl.svg`) | →in1 →in2 ←out |
+| `ula_shr` | `ula.v` | 3 | hand-crafted (`ula_shr.svg`) | →in1 →in2 ←out |
+| `ula_srs` | `ula.v` | 3 | hand-crafted (`ula_srs.svg`) | →in1 →in2 ←out |
+| `ula_xor` | `ula.v` | 3 | hand-crafted (`ula_xor.svg`) | →in1 →in2 ←out |
+| `ula_xpo` | `ula.v` | 2 | baseline | →in ←out |
 
 ## 2. netlistsvg built-in primitives (`lib/default.svg`)
 

@@ -122,10 +122,10 @@ for (const [kind, cli] of Object.entries(manifest.MANIFEST || {})) {
 
 // --- Write back ---------------------------------------------------------------
 if (changes.length === 0) {
-  console.log('  ✓ cli manifest already in sync with package.json + package-lock.json');
+  console.log('  OK  cli manifest already in sync with package.json + package-lock.json');
   process.exit(0);
 }
 
 fs.writeFileSync(MANIFEST_PATH, src);
-console.log('  ✓ cli manifest synced from package.json + package-lock.json:');
+console.log('  OK  cli manifest synced from package.json + package-lock.json:');
 for (const c of changes) console.log(`      - ${c}`);

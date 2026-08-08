@@ -331,9 +331,9 @@ function runDownload(row, { force }) {
     // Registra a versao instalada no manifesto do doctor — e isso que permite
     // detectar o PROXIMO bump deste componente.
     writeManifestEntry(row.key, row.pinnedTag);
-    console.log(green(`  ✓ ${row.key}: OK (${row.pinnedTag || 'instalado'})`));
+    console.log(green(`  OK    ${row.key}: ${row.pinnedTag || 'instalado'}`));
   } else {
-    console.log(red(`  ✗ ${row.key}: ainda ausente apos a tentativa (veja o log acima)`));
+    console.log(red(`  FALHA ${row.key}: ainda ausente apos a tentativa (veja o log acima)`));
   }
   return nowPresent;
 }

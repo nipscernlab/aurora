@@ -34,7 +34,7 @@ const PKG_PATH = path.join(REPO_ROOT, 'package.json');
 const EXACT_SEMVER_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/;
 
 function fail(lines) {
-  console.error('\n  ✗ Pinned-version check failed.\n');
+  console.error('\n  FAILED: pinned-version check.\n');
   for (const line of lines) {
     console.error('    ' + line);
   }
@@ -100,7 +100,7 @@ if (failures.length > 0) {
 }
 
 for (const { name, version } of passed) {
-  console.log(`  ✓ ${name} ${version}`);
+  console.log(`  OK  ${name} ${version}`);
 }
 
 // --- B12: on-demand AI CLI manifest must track the declared base versions ----
@@ -150,7 +150,7 @@ if (manifestFailures.length > 0) {
 }
 
 for (const { label, manifestVer } of cliChecks) {
-  console.log(`  ✓ cli manifest ${label} ${manifestVer}`);
+  console.log(`  OK  cli manifest ${label} ${manifestVer}`);
 }
 
 // Cross-check the manifest's integrity + tarball against package-lock.json — the
@@ -189,5 +189,5 @@ if (lock && lock.packages) {
       'main/ai/cli_manifest.js.',
     ]);
   }
-  if (checked > 0) console.log(`  ✓ cli manifest integrity matches package-lock.json (${checked} pkg)`);
+  if (checked > 0) console.log(`  OK  cli manifest integrity matches package-lock.json (${checked} pkg)`);
 }

@@ -274,10 +274,10 @@ function writeInventory(allModules, covered, written) {
   const writtenSet = new Set(written.map((m) => m.name));
   const row = (m) => {
     const hit = covered.get(m.name);
-    const status = writtenSet.has(m.name) ? '🆕 baseline'
-      : hit && !hit.auto ? `✅ hand-crafted (\`${hit.file}\`)`
-      : hit && hit.auto ? '🆕 baseline'
-      : '—';
+    const status = writtenSet.has(m.name) ? 'baseline'
+      : hit && !hit.auto ? `hand-crafted (\`${hit.file}\`)`
+      : hit && hit.auto ? 'baseline'
+      : 'none';
     const ports = m.ports.map((p) => `${p.dir === 'output' ? '←' : '→'}${p.name}`).join(' ');
     return `| \`${m.name}\` | \`${m.file}\` | ${m.ports.length} | ${status} | ${ports || '—'} |`;
   };

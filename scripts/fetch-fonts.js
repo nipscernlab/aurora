@@ -88,7 +88,7 @@ async function main() {
         (range ? `  unicode-range: ${range.trim()};\n` : '') +
         `}`,
       );
-      console.log(`  ✓ ${fileName} (${(buf.length / 1024).toFixed(1)} KB)`);
+      console.log(`  OK  ${fileName} (${(buf.length / 1024).toFixed(1)} KB)`);
     }
   }
 

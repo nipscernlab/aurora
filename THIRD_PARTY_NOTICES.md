@@ -38,18 +38,18 @@ and shipped in the installer; they are not part of the source tree.
 | Package | Version | License |
 |---|---|---|
 | `monaco-editor` | 0.52.2 | MIT |
-| `katex` | ^0.17 | MIT |
+| `katex` | ^0.18 | MIT |
 | `lit` | ^3.3 | BSD-3-Clause |
 | `@phosphor-icons/web` | ^2.1 | MIT |
 | `@silimate/netlistsvg` (nipscern fork) | git | MIT |
-| `ai` + `@ai-sdk/*` (Anthropic/OpenAI/Google/Groq/DeepSeek) | ^6 / ^3 | Apache-2.0 |
+| `ai` + `@ai-sdk/*` (Anthropic/OpenAI/Google/Groq/DeepSeek) | ^7 / ^4 | Apache-2.0 |
 | `@modelcontextprotocol/sdk` | ^1.29 | MIT |
-| `chokidar` | ^4 | MIT |
+| `chokidar` | ^5 | MIT |
 | `electron-log` | ^5.4 | MIT |
-| `electron-updater` | ^6.6 | MIT |
-| `fs-extra` | ^11.3 | MIT |
-| `zod` | ^3.25 | MIT |
-| Electron | ^39 | MIT |
+| `electron-updater` | ^6.8 | MIT |
+| `fs-extra` | ^11.4 | MIT |
+| `zod` | ^4.4 | MIT |
+| Electron | ^43 | MIT |
 
 ## Fonts
 
@@ -57,12 +57,22 @@ and shipped in the installer; they are not part of the source tree.
 |---|---|
 | Inter | SIL Open Font License 1.1 |
 | JetBrains Mono | SIL Open Font License 1.1 |
-| Norse — the "Dagr" Source Control wordmark, by Joël Carrouché | Free for commercial use + app embedding; not redistributed (fetched at bootstrap by download-norse-font.js) |
+| Norse, the "Dagr" Source Control wordmark, by Joël Carrouché | Free for commercial use and app embedding. Fetched at bootstrap by `download-norse-font.js` and kept out of the repository. See the note below: it currently ships inside the installer, which the pending review has to settle. |
 
 ---
 
 Distributions of SAPHO/AURORA that include these tools must comply with the terms
 of their respective licenses. The GPL-licensed components (Icarus Verilog,
 GTKWave) and the EUPL-licensed Surfer are invoked as separate, arm's-length
-processes — AURORA does not link against them — and the LGPL components are used
-unmodified; their licenses still accompany the distribution as required.
+processes, so AURORA does not link against them, and the LGPL components are used
+unmodified. Their licenses still accompany the distribution as required.
+
+**Open point, before the next published release.** This file said until
+2026-08-08 that the Norse font is "not redistributed". That was checked and it is
+not accurate: Vite copies the font into `dist/assets/` and electron-builder does
+not exclude `assets/`, so the published installer carries the file. Keeping it
+out of the git repository is not the same as keeping it out of the distribution.
+The font is used for a single wordmark, so the ways out are cheap: written
+permission from the author, a runic face under the SIL Open Font License, or
+drawing the wordmark as SVG and dropping the font from the package. Tracked as
+item 6 of [docs/PENDENCIAS.md](docs/PENDENCIAS.md).

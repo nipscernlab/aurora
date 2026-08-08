@@ -2,46 +2,34 @@
 
 ## Supported versions
 
-Only the latest released version of AURORA receives security fixes.
-
-| Version | Supported          |
-|---------|--------------------|
-| Latest  | :white_check_mark: |
-| Older   | :x:                |
+Only the latest released version of AURORA receives security fixes. Older
+versions are not patched; upgrading is the fix.
 
 ## Reporting a vulnerability
 
-**Please do not open a public GitHub issue for security problems.**
+Please do not open a public GitHub issue for a security problem. Email
+<nipscern@ufjf.br> instead, with a description of the issue and its impact,
+steps to reproduce or a proof-of-concept project, and the AURORA version, which
+you will find under Settings, then About. Your Windows build and the versions of
+any toolchain component involved help too.
 
-Instead, email **nipscern@ufjf.br** with:
-
-* A description of the issue and its impact.
-* Steps to reproduce, or a proof-of-concept project.
-* The AURORA version (`Help ▸ About` or `package.json#version`), Windows
-  build, and any relevant toolchain versions (Icarus, GTKWave, Yosys).
-
-We aim to acknowledge reports within **5 working days** and to publish a
-fix or mitigation within **30 days** for issues we can reproduce.
+We aim to acknowledge a report within five working days, and to publish a fix or
+a mitigation within thirty days for anything we can reproduce.
 
 ## Scope
 
-In scope:
+In scope: local privilege escalation through AURORA's main process; arbitrary
+file read or write triggered by an untrusted `.spf` project; code execution
+through prepared C±, assembly or Verilog inputs; and manipulation of the
+auto-update channel.
 
-* Local privilege escalation through AURORA's main process.
-* Arbitrary file read/write triggered by an untrusted `.spf` project.
-* Code execution through prepared C±/ASM/Verilog inputs.
-* Auto-update channel manipulation.
-
-Out of scope:
-
-* Vulnerabilities in third-party tools we ship (Icarus, GTKWave, Yosys,
-  netlistsvg). Please report those upstream and let us know so we can
-  pin or patch our bundled version.
-* Issues that require an attacker to already have arbitrary code
-  execution on the user's machine.
+Out of scope: vulnerabilities in the third-party tools we bundle, which today are
+Icarus Verilog, Verilator, GTKWave, Surfer, Yosys, netlistsvg, cocotb and the
+Verible and Slang language servers. Report those upstream, and tell us as well so
+we can pin or patch the version we ship. Also out of scope are issues that
+require an attacker to already have arbitrary code execution on the machine.
 
 ## Coordinated disclosure
 
-We will credit reporters in the release notes unless they ask to remain
-anonymous, and we will hold off on public discussion until a fix is
-shipped.
+We credit reporters in the release notes unless they ask to stay anonymous, and
+we hold off on public discussion until a fix ships.

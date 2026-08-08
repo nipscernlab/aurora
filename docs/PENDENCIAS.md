@@ -304,17 +304,55 @@ empacotada é só de Windows.
 
 ---
 
-## Ordem recomendada
+## O plano
 
-1. **Ensaio de atualização** (item 1). Valida a promessa central e exige
-   justamente a máquina limpa que já está sendo preparada. É o teste que a frota
-   do laboratório não pode ser a primeira a fazer.
-2. **Verificação ao vivo das áreas do item 4**, aproveitando a mesma máquina.
-3. **Assinatura** (item 5), conforme os slugs forem existindo. Não bloqueia o
-   uso em laboratório, já que o documento de implantação cobre Defender e
-   AppLocker sem ela.
-4. **Interface e performance** (itens 2 e 3), com calma, já que o release
-   definitivo não tem pressa.
-5. **Split dos god files** (item 7), quando houver folga entre funcionalidades.
-   É o único item que fica mais caro a cada semana que passa, porque os três
-   arquivos crescem junto com o resto.
+Escrito em 08/08/2026. A meta é uma só: fechar a versão definitiva, assinada, que
+vai para o laboratório de DLP e depois entra em manutenção. Nada fora desta lista
+entra no projeto; capacidade nova é escopo do SAPHO seguinte, e está no item 9.
+
+O plano tem duas trilhas porque metade do trabalho depende de máquina limpa, do
+painel da SignPath e de você usando a IDE, e a outra metade não depende de nada.
+As duas correm em paralelo, e nenhuma espera a outra.
+
+### Trilha A, que não depende de ninguém
+
+Executada de cima para baixo, sem desvio. Cada passo termina com CI verde.
+
+1. **Rede de testes na fronteira** (item 4). Os 14 arquivos de `main/ipc` não têm
+   nenhum teste, e é por ali que a interface fala com o sistema. O método é
+   sempre o mesmo: extrair a lógica pura que está presa dentro dos handlers de
+   `ipcMain`, que é o que a torna testável, e escrever teste em cima. Começado em
+   08/08 com `project_paths.js`, 22 testes.
+2. **Split dos god files** (item 7). É o mesmo movimento do passo 1, continuado
+   até os três arquivos grandes caírem. Não é refactor por estética: cada
+   extração é o que permite o teste do passo 1 existir.
+3. **P6, o único item concreto de performance** (item 3). Trocar `transition:
+   width` por `transform` em `css/base/layout.css:160` e
+   `css/panels/ai_assistant.css:36` e `:1668`.
+4. **Assinatura no `release.yml`** (item 5, a parte de código). O YAML pronto
+   está no [CODE_SIGNING.md](CODE_SIGNING.md) e o `scripts/patch-latest-yml.js`
+   já existe. Entra condicionada à existência do token, degradando para build não
+   assinado, conforme a restrição já decidida.
+5. **Itens pequenos de código** (item 6): mídia real do README e a fonte Norse.
+6. **Fechar a documentação**: conferir o `DESIGN.md` contra o CSS, revisar
+   `SECURITY.md` e `THIRD_PARTY_NOTICES.md`, e reconferir os três estudos
+   temáticos que sobraram, que são de julho e não foram revalidados.
+
+### Trilha B, que depende de você
+
+7. **Painel da SignPath**: resolver a política `release-signing`, criar a
+   Artifact Configuration, decidir o modelo de aprovação e criar as contas
+   individuais. Detalhes no item 5.
+8. **Release definitiva**, quando a trilha A fechar.
+9. **Ensaio de atualização em máquina limpa** (item 1). É o passo que a frota do
+   laboratório não pode ser a primeira a fazer.
+10. **Verificação ao vivo** (itens 4 e 8), na mesma máquina: uma conversa
+    completa por provedor de IA configurado e uma chamada de ferramenta, instalar
+    e remover uma biblioteca no PyLibs, e um ciclo de git de ponta a ponta.
+
+### O que fica de fora, e por quê
+
+A interface definitiva (item 2) e o resto do item 9 não entram. Redesenhar a
+interface às vésperas de congelar a versão que vai para trinta máquinas troca
+risco conhecido por risco desconhecido, sem ganho para a aula. Vão para o SAPHO
+seguinte.

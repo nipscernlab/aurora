@@ -112,18 +112,21 @@ export class TreeHistory {
             }
 
             if (op.kind === 'existence') {
-                // `presente` diz se o caminho existe DEPOIS da operação. Desfazer
-                // inverte: o que passou a existir sai, o que saiu volta.
+                // `presente` descreve a operação original: o caminho passou a
+                // existir, ou deixou de existir. É constante, não muda de volta
+                // para volta. Só o token muda, porque ele é onde a coisa está
+                // agora. Inverter `presente` aqui foi um erro que fazia refazer
+                // uma criação guardar o arquivo de novo em vez de trazê-lo.
                 const deveExistir = desfazendo ? !op.presente : op.presente;
                 if (deveExistir) {
                     if (!op.token) return { ok: false, erro: 'nada guardado para restaurar' };
                     const ok = await this.exec.restaurar(op.token, op.caminho);
                     if (!ok) return { ok: false, erro: 'nao foi possivel restaurar' };
-                    return { ok: true, op: { ...op, presente: true, token: null }, foco: op.caminho };
+                    return { ok: true, op: { ...op, token: null }, foco: op.caminho };
                 }
                 const token = await this.exec.guardar(op.caminho);
                 if (!token) return { ok: false, erro: 'nao foi possivel remover' };
-                return { ok: true, op: { ...op, presente: false, token }, foco: op.caminho };
+                return { ok: true, op: { ...op, token }, foco: op.caminho };
             }
 
             return { ok: false, erro: `operacao desconhecida: ${op.kind}` };

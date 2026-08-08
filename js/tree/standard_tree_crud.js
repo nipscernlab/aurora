@@ -23,12 +23,19 @@
  *   - Paste conflicts: paste-into-same-folder auto-suffixes "name copy.ext";
  *     cross-folder conflicts ask Replace / Keep both / Cancel (move offers
  *     Replace / Cancel, like VS Code).
- *   - Keyboard: F2 rename, Delete (Shift+Delete = permanent), Ctrl+C/X/V
- *     while the tree has focus.
+ *   - Keyboard: F2 rename, Delete (Shift+Delete = permanent), Ctrl+C/X/V,
+ *     Ctrl+Z e Ctrl+Shift+Z (ou Ctrl+Y), while the tree has focus.
+ *   - Desfazer e refazer criar, renomear, mover, copiar e deletar. A pilha
+ *     está em tree_history.js; aqui ficam só os executores, porque quem toca
+ *     disco é esta camada. Vale só para a árvore: o Ctrl+Z do editor continua
+ *     sendo do Monaco, e as duas pilhas nunca se cruzam porque isto só escuta
+ *     com o foco na árvore.
  *
- * Deletes go to the OS trash by default (file:trash IPC → shell.trashItem),
- * mirroring VS Code; permanent delete is the Shift+Delete path or the
- * fallback offered when trashing fails.
+ * Deletar NÃO vai direto para a Lixeira, e é isso que torna o Ctrl+Z possível:
+ * `shell.trashItem` não tem volta por API. O que sai da árvore passa pela área
+ * de espera de main/ipc/tree_undo.js, e de lá vai para a Lixeira quando sai da
+ * pilha, quando o projeto fecha ou quando o aplicativo encerra. Delete
+ * permanente (Shift+Delete) continua sem volta, por definição.
  *
  * The routing hook lives in project_tree_actions.handleTreeContextMenu: when
  * the active view is 'standard' it delegates here instead of the verilog
@@ -40,6 +47,8 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { standardTreeRenderer } from './standard_tree_render.js';
 import { treeView } from './tree_view.js';
 import { iconUrlForFile, iconUrlForFolder } from './material_icons.js';
+import { TreeHistory, Op } from './tree_history.js';
+import { ProjectStore } from '../project/project_store.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { showCardNotification } from '../ui/notification.js';
 import {
@@ -75,6 +84,45 @@ class StandardTreeCrud {
         this.clipboard = null;
         this._inlineCleanup = null;
 
+        // Ctrl+Z e Ctrl+Shift+Z da arvore. Os executores ficam aqui porque a
+        // pilha nao toca disco: ela so sabe a forma das operacoes.
+        this.history = new TreeHistory({
+            mover: async (de, para) => {
+                const ehPasta = await this._ehPasta(de);
+                const abertas = this._affectedTabs(de, ehPasta);
+                const res = await electronAPI.renamePath(de, para);
+                if (!res?.success) return false;
+                await this._migrateOpenTabs(de, para, abertas);
+                this._remapExpanded(de, para);
+                return true;
+            },
+            guardar: async (caminho) => {
+                // Fechar as abas antes: o arquivo vai sair do lugar.
+                for (const t of this._affectedTabs(caminho, await this._ehPasta(caminho))) {
+                    TabManager.unsavedChanges?.delete?.(t);
+                    await TabManager.closeTab(t);
+                }
+                const res = await electronAPI.undoStage(caminho);
+                return res?.success ? res.token : null;
+            },
+            restaurar: async (token, caminho) => {
+                const res = await electronAPI.undoRestore(token, caminho);
+                return !!res?.success;
+            },
+            descartar: (token) => electronAPI.undoDiscard(token),
+        });
+
+        // Desfazer nao atravessa projeto: os caminhos guardados apontariam para
+        // fora do que esta aberto. Trocar de projeto devolve a Lixeira o que
+        // estava esperando e zera a pilha.
+        let projetoAtual = null;
+        ProjectStore.subscribe(() => {
+            const novo = ProjectStore.getProjectPath();
+            if (novo === projetoAtual) return;
+            projetoAtual = novo;
+            this.history.limpar();
+        });
+
         // Re-apply selection / cut-pending decorations after every re-render
         // (renders rebuild the rows from scratch).
         document.addEventListener('aurora:standard-tree-rendered', () => this._refreshDecorations());
@@ -109,6 +157,52 @@ class StandardTreeCrud {
             const list = await electronAPI.getFolderFiles(dir);
             return Array.isArray(list) ? list.map((e) => e.name) : [];
         } catch (_) { return []; }
+    }
+
+    /** A linha ainda existe na arvore? Senao, pergunta ao disco. */
+    async _ehPasta(caminho) {
+        const row = this._rowFor(caminho);
+        if (row) return row.dataset.isDir === '1';
+        try {
+            const st = await electronAPI.getFileStats(caminho);
+            return !!(st?.isDirectory ?? st?.isDir);
+        } catch (_) { return false; }
+    }
+
+    // ------------------------------------------------------ desfazer/refazer
+
+    /**
+     * Desfaz a ultima operacao da arvore. So a arvore: o Ctrl+Z do editor
+     * continua sendo do Monaco, e as duas pilhas nunca se cruzam porque isto
+     * so e chamado com o foco na arvore.
+     */
+    async desfazer() { await this._passo('desfazer'); }
+
+    async refazer() { await this._passo('refazer'); }
+
+    async _passo(qual) {
+        const h = this.history;
+        if (qual === 'desfazer' && !h.podeDesfazer()) {
+            showCardNotification(tr('fileTree.crud.nothingToUndo', 'Nothing to undo.'), 'info', 1800);
+            return;
+        }
+        if (qual === 'refazer' && !h.podeRefazer()) {
+            showCardNotification(tr('fileTree.crud.nothingToRedo', 'Nothing to redo.'), 'info', 1800);
+            return;
+        }
+        const r = qual === 'desfazer' ? await h.desfazer() : await h.refazer();
+        if (!r.ok) {
+            showCardNotification(
+                tr('fileTree.crud.undoFailed', 'Could not undo: {error}', { error: r.erro || 'unknown' }),
+                'error', 4000,
+            );
+            return;
+        }
+        await standardTreeRenderer.render();
+        // O caminho pode ter deixado de existir (desfazer uma criacao), e ai
+        // nao ha o que selecionar.
+        if (r.foco && await electronAPI.fileExists(r.foco)) this.select(r.foco);
+        else { this.selectedPath = null; this._refreshDecorations(); }
     }
 
     _openTabPaths() {
@@ -189,6 +283,13 @@ class StandardTreeCrud {
                 e.preventDefault(); this.copy(sel, true);
             } else if (ctrl && (e.key === 'v' || e.key === 'V')) {
                 e.preventDefault(); this.paste(this._pasteTargetDir());
+            } else if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+                e.preventDefault(); this.refazer();
+            } else if (ctrl && (e.key === 'z' || e.key === 'Z')) {
+                e.preventDefault(); this.desfazer();
+            } else if (ctrl && (e.key === 'y' || e.key === 'Y')) {
+                // Ctrl+Y tambem refaz, porque metade do mundo Windows usa isso.
+                e.preventDefault(); this.refazer();
             }
         });
 
@@ -630,6 +731,7 @@ class StandardTreeCrud {
                         standardTreeRenderer._expanded.add(cursor);
                     }
                     if (kind === 'folder') standardTreeRenderer._expanded.add(target);
+                    this.history.registrar(Op.criado(target));
                     await standardTreeRenderer.render();
                     this.select(target);
                     if (kind === 'file') TabManager.addTab(target, '');
@@ -729,6 +831,7 @@ class StandardTreeCrud {
 
         await this._migrateOpenTabs(entry.path, newPath, affected);
         this._remapExpanded(entry.path, newPath);
+        this.history.registrar(Op.move(entry.path, newPath));
         if (this.clipboard && normSlash(this.clipboard.path).toLowerCase() === normSlash(entry.path).toLowerCase()) {
             this.clipboard = null; // stale — the source moved
         }
@@ -789,7 +892,8 @@ class StandardTreeCrud {
                 'Unsaved changes in {count} file(s) will be LOST.', { count: dirtyCount });
         }
         if (!permanent) {
-            message += '\n' + tr('fileTree.crud.trashNote', 'You can restore it from the Recycle Bin.');
+            message += '\n' + tr('fileTree.crud.trashNote',
+                'Ctrl+Z undoes this. Afterwards it goes to the Recycle Bin.');
         }
 
         const action = await this._dialog({
@@ -827,14 +931,19 @@ class StandardTreeCrud {
                 );
             }
         } else {
-            const res = await electronAPI.trashPath(entry.path);
-            if (res?.success) ok = true;
-            else {
+            // Nao vai direto para a Lixeira: passa pela area de espera, de onde
+            // o Ctrl+Z consegue trazer de volta. De la vai para a Lixeira quando
+            // sai da pilha, quando o projeto fecha ou quando o app encerra.
+            const res = await electronAPI.undoStage(entry.path);
+            if (res?.success) {
+                ok = true;
+                this.history.registrar(Op.removido(entry.path, res.token));
+            } else {
                 // Trash unavailable (e.g. network drive) — offer permanent.
                 const retry = await this._dialog({
                     title: tr('fileTree.crud.deleteTitle', 'Delete'),
                     message: tr('fileTree.crud.trashFailed',
-                        'Could not move to the Recycle Bin ({error}). Delete permanently instead?',
+                        'Could not stage the deletion ({error}). Delete permanently instead?',
                         { error: res?.error || 'unknown' }),
                     variant: 'warning',
                     buttons: [
@@ -954,6 +1063,7 @@ class StandardTreeCrud {
             }
             await this._migrateOpenTabs(clip.path, dest, affected);
             this._remapExpanded(clip.path, dest);
+            this.history.registrar(Op.move(clip.path, dest));
             this.clipboard = null;
         } else {
             const res = await electronAPI.copyAnyPath(clip.path, dest, { overwrite });
@@ -964,6 +1074,8 @@ class StandardTreeCrud {
                 );
                 return;
             }
+            // Sobrescrevendo nao da para desfazer: o que estava ali ja se foi.
+            if (!overwrite) this.history.registrar(Op.criado(dest));
         }
 
         if (clip.isDir) standardTreeRenderer._expanded.add(dest);

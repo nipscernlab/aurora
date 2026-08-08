@@ -219,11 +219,24 @@ Depois dele, volta ao incremental.
   O jquery-ui aceita até a 5, então ele não é o obstáculo. O `dependabot.yml`
   ignora só a major; destravar quando o digitaljs publicar suporte, subindo os
   dois juntos e abrindo o modo Simular num design real.
-- **Fonte Norse**: hoje vem do dafont no bootstrap, que é o único download fora
-  de GitHub/GitLab e o mais sujeito a bloqueio de rede institucional. A licença
-  permite embutir no app mas **proíbe** redistribuir, então não pode ser
-  commitada (§19.6). Para eliminar a dependência: pedir permissão escrita ao
-  autor, ou trocar por uma fonte rúnica sob SIL OFL.
+- **Fonte Norse, e ela é mais séria do que parecia.** Verificado em 08/08/2026:
+  a fonte entra no instalador. O Vite a copia para `dist/assets/` e o
+  `electron-builder` não exclui `assets/`, então o `.exe` que vai para as
+  máquinas do laboratório carrega o arquivo dentro. Ela é gitignorada, o que
+  respeita a licença quanto ao repositório, mas publicar um instalador com ela
+  dentro é distribuição, e é exatamente o que a licença proíbe.
+
+  O resto do arranjo é sólido e não precisa de conserto: o
+  `download-norse-font.js` sai com código zero quando o download falha, então
+  rede institucional bloqueando o dafont não impede o bootstrap, e cada uso no
+  `git_panel.css` tem pilha de reserva com fontes rúnicas do sistema. Sem a
+  fonte, a palavra "Dagr" só perde o desenho.
+
+  A superfície é minúscula: a fonte serve para uma palavra, o wordmark do painel
+  de git. As saídas são pedir autorização escrita ao autor, trocar por uma fonte
+  rúnica sob SIL OFL, ou desenhar o wordmark como SVG e remover a fonte do
+  pacote. Qualquer uma resolve; a decisão é de marca e é sua. Precisa estar
+  resolvida antes da release definitiva, porque é ela que vai ser distribuída.
 - **Mídia real do README**: os GIFs continuam sendo scaffold.
 - **Submissão do instalador ao Microsoft Security Intelligence portal**, pela
   TI do laboratório, quando houver instalador definitivo. É a ação de maior

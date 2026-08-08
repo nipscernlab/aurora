@@ -170,11 +170,29 @@ Quando não há seleção salva, o padrão é todo sinal no escopo do módulo de
 testbench, que espelha o comportamento implícito antigo de `$dumpvars(1, tb)`.
 Quem nunca abrir o seletor continua tendo uma disposição de ondas sensata.
 
-Existem dois visualizadores, GTKWave e Surfer, e a escolha é preferência do
-usuário, lida por `simulator_preference.js`. Cada um tem seu escritor de
-configuração próprio, `gtkw_proc_writer.ts` e `surfer_layout_writer.ts`, ambos em
-TypeScript, o que é incomum no projeto e sugere que a geração desses arquivos foi
-considerada delicada o bastante para merecer tipos.
+O botão Wave carrega duas escolhas independentes, e é fácil confundi-las porque
+os módulos são espelhados de propósito.
+
+A primeira é qual simulador roda, em `simulator_preference.js`. O padrão é o
+iverilog da toolchain empacotada. A alternativa é o Verilator, que transpila para
+C++, compila com g++ e executa um binário nativo, tipicamente de dez a cem vezes
+mais rápido que o `vvp` em testbench longo, ao custo de análise mais estrita e da
+dependência adicional do g++.
+
+A segunda é qual visualizador abre, em `viewer_preference.js`. O padrão é o fork
+NIPSCERN do GTKWave, que é janela externa acompanhada por sondagem. A alternativa
+é o Surfer, escrito em Rust e compilado para WASM, embutível na própria IDE, e
+que lê o mesmo VCD ou FST.
+
+Ambas são globais e persistem em `localStorage`. A decisão de não guardar por
+projeto ou por testbench está escrita no código: é escolha de ferramenta do
+usuário, não propriedade da testbench, e guardá-la por testbench só inflaria o
+WaveStore.
+
+Cada visualizador tem seu escritor de configuração próprio, `gtkw_proc_writer.ts`
+e `surfer_layout_writer.ts`, ambos em TypeScript, o que é incomum no projeto e
+sugere que a geração desses arquivos foi considerada delicada o bastante para
+merecer tipos.
 
 ## PRISM
 

@@ -41,11 +41,16 @@ simulation and opens the viewer. PRISM adds Yosys. In a pure Verilog project the
 C± and assembly steps disappear on their own, without any conditional in the
 pipeline, because they iterate over a processor list that is simply empty.
 
-Waveforms open in either GTKWave or Surfer, chosen in the settings. Before
-simulating, a hierarchical picker walks the project's Verilog and lets you choose
-which signals get dumped; the choice is stored per testbench, so it survives
-across sessions. Without a saved choice, every signal at the testbench scope is
-dumped, which matches what a plain `$dumpvars` would have given you.
+Two independent choices sit behind the Wave button. You pick which simulator
+runs, Icarus Verilog by default or Verilator, which transpiles to C++ and is
+typically ten to a hundred times faster on long testbenches. And you pick which
+viewer opens, the bundled GTKWave or Surfer. Both settings are global and
+remembered.
+
+Before simulating, a hierarchical picker walks the project's Verilog and lets you
+choose which signals get dumped. That choice is stored per testbench, so it
+survives across sessions. Without a saved choice, every signal at the testbench
+scope is dumped, which matches what a plain `$dumpvars` would have given you.
 
 PRISM is the RTL viewer. It synthesises with Yosys and draws the schematic with
 netlistsvg, using per-module skins kept in the repository. It also has an

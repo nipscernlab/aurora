@@ -18,6 +18,8 @@ import { electronAPI } from '../app/electron_api.js';
 import { showConfirm } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
 import { constrainTerminalHeight } from '../utils/resize.js';
+// Mesma regra de tamanho da árvore de arquivos e do terminal.
+import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
@@ -198,6 +200,10 @@ class AIAssistantManager {
       if (saved >= 320) target = saved;
     } catch (_) { /* ignore */ }
     this.container.style.width = target + 'px';
+    // Limpa o estado de colapso: o painel pode ter sido fechado arrastando o
+    // divisor até o fim, e o botão da barra é o caminho de volta. A largura
+    // salva nunca fica envenenada porque o arrasto só persiste acima do mínimo.
+    this.container.classList.remove('is-collapsed');
   }
 
   /** Bring the panel up if it isn't already open (idempotent). */
@@ -3198,11 +3204,22 @@ class AIAssistantManager {
         if (!active) return;
         if (raf) cancelAnimationFrame(raf);
         raf = requestAnimationFrame(() => {
-          const newWidth = Math.max(
-            320,
-            Math.min(startWidth + (startX - ev.clientX), window.innerWidth * 0.7),
-          );
+          // O teto era `window.innerWidth * 0.7`, calculado sobre a janela
+          // inteira: não descontava a árvore de arquivos nem reservava espaço
+          // para o editor. Como `.editor-terminal-container` tem `min-width:0`,
+          // ele era espremido até zero e o painel parecia sobrepor o terminal e
+          // os splits. Agora o teto é o que sobra depois dos vizinhos, e forçar
+          // para a direita colapsa o painel, como no VS Code.
+          const tree = document.querySelector('.file-tree-container');
+          const newWidth = resolvePaneSize(startWidth + (startX - ev.clientX), {
+            min: PANE.MIN_AI,
+            collapseAt: PANE.COLLAPSE_AI,
+            max: maxLateralWidth(
+              window.innerWidth, tree ? tree.offsetWidth : 0, PANE.MIN_EDITOR, PANE.MIN_AI,
+            ),
+          });
           container.style.width = newWidth + 'px';
+          container.classList.toggle('is-collapsed', newWidth === 0);
         });
       };
 

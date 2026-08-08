@@ -9,6 +9,9 @@
 // Registers <aurora-panel> (the file-tree sidebar's semantic shell) and supplies
 // the shared collapse-threshold rule used by applyFileTreeWidth below.
 import { nextCollapseState } from '../components/aurora-panel.js';
+// Regra de tamanho compartilhada com o painel de IA: mínimo, colapso ao forçar,
+// e teto que desconta os vizinhos. Ver js/utils/pane_size.js.
+import { resolvePaneSize, maxLateralWidth, PANE } from './pane_size.js';
 
 const verticalResizer   = document.querySelector('.resizer-vertical');
 const horizontalResizer = document.querySelector('.resizer-horizontal');
@@ -19,7 +22,6 @@ const terminalContainer = document.querySelector('.terminal-container');
 // vertical resizer is reachable. Use the toolbar sidebar toggle to fully
 // hide / restore the panel.
 const MIN_FILE_TREE_WIDTH  = 180;
-const SNAP_THRESHOLD       = 0;
 const COLLAPSED_THRESHOLD  = 24;
 const DEFAULT_OPEN_WIDTH   = 260;
 const MIN_TERMINAL_HEIGHT  = 30;
@@ -53,10 +55,27 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
 
+/**
+ * Largura final da árvore a partir do que o arrasto pediu.
+ *
+ * Antes era um clamp simples entre o mínimo e metade da janela, o que travava
+ * o arrasto no mínimo e tornava o `is-collapsed` inalcançável pelo divisor:
+ * fechar só era possível pelo botão da barra. Agora forçar além do limiar
+ * colapsa, como no VS Code. O teto também passou a descontar o painel de IA,
+ * quando ele está aberto, e o mínimo do editor.
+ */
 function constrainFileTreeWidth(w) {
-  return clamp(w, MIN_FILE_TREE_WIDTH, window.innerWidth * MAX_FILE_TREE_RATIO);
+  const ai = document.querySelector('.ai-assistant-container');
+  const larguraAi = ai ? ai.offsetWidth : 0;
+  return resolvePaneSize(w, {
+    min: MIN_FILE_TREE_WIDTH,
+    collapseAt: PANE.COLLAPSE_LATERAL,
+    max: Math.min(
+      window.innerWidth * MAX_FILE_TREE_RATIO,
+      maxLateralWidth(window.innerWidth, larguraAi, PANE.MIN_EDITOR, MIN_FILE_TREE_WIDTH),
+    ),
+  });
 }
 
 function getMaxTerminalHeight() {
@@ -68,8 +87,14 @@ function getMaxTerminalHeight() {
   return window.innerHeight - toolbarH - statusH - resizerH;
 }
 
+/** Mesma regra do painel lateral, no eixo vertical: encosta no mínimo, e
+    colapsa quando o arrasto força além do limiar. */
 function constrainTerminalHeight(h) {
-  return clamp(h, MIN_TERMINAL_HEIGHT, getMaxTerminalHeight());
+  return resolvePaneSize(h, {
+    min: MIN_TERMINAL_HEIGHT,
+    collapseAt: PANE.COLLAPSE_TERMINAL,
+    max: getMaxTerminalHeight(),
+  });
 }
 
 function applyFileTreeWidth(w) {
@@ -131,12 +156,15 @@ function setupVerticalResizer() {
     if (!active) return;
     active = false;
 
-    // Snap se estiver muito perto do colapso
-    let finalW = fileTreeContainer.offsetWidth;
-    if (finalW < SNAP_THRESHOLD) finalW = 0;
+    // O colapso já foi decidido durante o arrasto, por constrainFileTreeWidth:
+    // aqui só consolidamos a largura final e o estado da classe. O antigo
+    // SNAP_THRESHOLD valia 0 e portanto nunca disparava.
+    const finalW = lastW;
     applyFileTreeWidth(finalW);
 
-    localStorage.setItem(STORAGE_FT_WIDTH, finalW);
+    // Só persiste largura utilizável. Colapsar arrastando não pode apagar a
+    // largura de volta, senão reabrir pelo botão cairia no padrão.
+    if (finalW >= MIN_FILE_TREE_WIDTH) localStorage.setItem(STORAGE_FT_WIDTH, finalW);
     document.body.classList.remove('resizing-vertical');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);
@@ -259,11 +287,12 @@ function setupCornerHandle() {
   function onUp() {
     if (!active) return;
     active = false;
-    let finalW = fileTreeContainer.offsetWidth;
-    if (finalW < SNAP_THRESHOLD) finalW = 0;
+    // O colapso já vem decidido do arrasto; aqui só consolidamos.
+    const finalW = fileTreeContainer.offsetWidth;
     applyFileTreeWidth(finalW);
-    localStorage.setItem(STORAGE_FT_WIDTH, finalW);
-    localStorage.setItem(STORAGE_TERM_H, terminalContainer.offsetHeight);
+    if (finalW >= MIN_FILE_TREE_WIDTH) localStorage.setItem(STORAGE_FT_WIDTH, finalW);
+    const finalH = terminalContainer.offsetHeight;
+    if (finalH >= MIN_TERMINAL_HEIGHT) localStorage.setItem(STORAGE_TERM_H, finalH);
     document.body.classList.remove('resizing-corner');
     document.removeEventListener('mousemove', onMove);
     document.removeEventListener('mouseup', onUp);

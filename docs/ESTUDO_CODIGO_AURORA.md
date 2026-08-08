@@ -180,9 +180,16 @@ mais rápido que o `vvp` em testbench longo, ao custo de análise mais estrita e
 dependência adicional do g++.
 
 A segunda é qual visualizador abre, em `viewer_preference.js`. O padrão é o fork
-NIPSCERN do GTKWave, que é janela externa acompanhada por sondagem. A alternativa
-é o Surfer, escrito em Rust e compilado para WASM, embutível na própria IDE, e
-que lê o mesmo VCD ou FST.
+NIPSCERN do GTKWave. A alternativa é o Surfer, escrito em Rust, no fork
+`surfer-aurora`, que lê o mesmo VCD ou FST.
+
+Os dois são janela externa. O comentário do `viewer_preference.js` chama o Surfer
+de embutível, e até 07/08/2026 a dica da barra de ferramentas dizia ao usuário
+"embedded (waves inside the IDE)", mas o `compilation_module.js` o lança com
+`spawnTracked` como `surfer-aurora.exe` e a própria tradução fala em manter
+janelas abertas para comparar execuções. Embutir o Surfer chegou a ser estudado e
+está registrado como bloqueado, porque depende de um bundle WASM que o projeto
+upstream não publica em formato baixável. A dica foi corrigida.
 
 Ambas são globais e persistem em `localStorage`. A decisão de não guardar por
 projeto ou por testbench está escrita no código: é escolha de ferramenta do
@@ -193,6 +200,14 @@ Cada visualizador tem seu escritor de configuração próprio, `gtkw_proc_writer
 e `surfer_layout_writer.ts`, ambos em TypeScript, o que é incomum no projeto e
 sugere que a geração desses arquivos foi considerada delicada o bastante para
 merecer tipos.
+
+A entrada do Surfer foi decidida por um estudo de viabilidade que recomendava
+adotá-lo ao lado do GTKWave, escolhível por um botão, e não no lugar dele, e que
+apontava um único obstáculo real: a decodificação de números complexos que o
+`comp2gtkw` fazia. Tudo isso está feito. Os dois visualizadores convivem, e a
+decodificação virou `js/wave/complex_decode.ts` com o canal `decode-complex` e
+dez testes. O documento do estudo foi removido em 07/08/2026 por ter cumprido a
+função; quem quiser o raciocínio original o encontra no histórico do git.
 
 ## PRISM
 

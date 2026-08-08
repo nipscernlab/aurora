@@ -3097,12 +3097,15 @@ async _buildSurferEventMarkers(fstPath, tempBaseDir) {
 
         const markers = scanner.markers();
         if (markers.length === 0) return null;
-        const times = markers.map((m) => m.time);
+        // Os marcadores vao INTEIROS, com o rotulo. Ate 08/08/2026 so o tempo
+        // atravessava, e o Surfer entao nomeava as colunas da janela pelo indice
+        // cru, o que num painel de dois numeros nao diz qual e a entrada.
         if (markers.length >= 2) {
+            const [a, b] = markers;
             this.terminalManager.appendToTerminal('twave',
-                `Surfer: markers de latencia — entrada @${times[0]}, saida @${times[1]} (Δ ${times[1] - times[0]}). Janela de delta aberta.`, 'info');
+                `Surfer: markers de latencia — entrada @${a.time}, saida @${b.time} (Δ ${b.time - a.time}). Janela de delta aberta.`, 'info');
         }
-        return times;
+        return markers;
     } catch {
         return null; // sem markers nao e' erro
     }

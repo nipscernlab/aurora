@@ -357,3 +357,144 @@ describe('buildSurferLayout — mapping translators (decode Assembly/C+-)', () =
         expect(src.content).toContain('0xFFFFF INTERNAL');  // negativo convertido
     });
 });
+
+// ---------------------------------------------------------------------------
+// Marcadores.
+//
+// Um marcador do Surfer sao DUAS metades: o tempo no mapa `markers`, e um
+// `DisplayedItem::Marker` com um no no `items_tree`. Ate 08/08/2026 a AURORA
+// emitia so a primeira, e por isso o recurso nao produzia meio efeito: produzia
+// efeito nenhum. Quem desenha a caixa numerada sobre a onda
+// (`draw_marker_number_boxes`) e quem monta a lista da janela
+// (`draw_marker_window`) percorrem o `items_tree` atras daquele item, entao o
+// tempo ficava no arquivo sem nada aparecer — e a janela de Markers abria vazia
+// a cada simulacao, que foi como o usuario reportou.
+// ---------------------------------------------------------------------------
+
+/** Indices dos `DisplayedItem::Marker` presentes no RON, na ordem em que aparecem. */
+function idxDosMarcadores(ron) {
+    return [...ron.matchAll(/\):\s*Marker\(\(([\s\S]*?)\)\),/g)]
+        .map((m) => Number(/idx:\s*(\d+)/.exec(m[1])[1]));
+}
+
+/** Chaves do mapa `markers:` do RON. */
+function chavesDoMapa(ron) {
+    const bloco = /markers:\s*\{([\s\S]*?)\n\s*\}/.exec(ron);
+    if (!bloco) return [];
+    return [...bloco[1].matchAll(/^\s*(\d+):/gm)].map((m) => Number(m[1]));
+}
+
+describe('marcadores do Surfer', () => {
+    const comDois = buildSurferState({
+        vcdPath: 'C:\\tmp\\dump.vcd',
+        items: [{ kind: 'variable', scope: ['tb'], name: 'clk' }],
+        markers: [{ time: 165000, label: 'input' }, { time: 980000, label: 'output' }],
+        showCursorWindow: true,
+    });
+
+    it('emite as DUAS metades, e nao so o tempo', () => {
+        expect(chavesDoMapa(comDois)).toEqual([0, 1]);
+        expect(idxDosMarcadores(comDois)).toEqual([0, 1]);
+    });
+
+    it('o idx do item bate com a chave do mapa, que e o que liga um ao outro', () => {
+        // `numbered_marker_time(marker.idx)` e a ligacao: idx que nao existe no
+        // mapa desenha um marcador sem tempo.
+        expect(idxDosMarcadores(comDois)).toEqual(chavesDoMapa(comDois));
+    });
+
+    it('cada marcador ganha um no no items_tree, senao nada o percorre', () => {
+        const nos = (/items_tree:[\s\S]*?\n\s*\],/.exec(comDois) || [''])[0];
+        const refsNaArvore = [...nos.matchAll(/item_ref:\s*\((\d+)\)/g)].map((m) => Number(m[1]));
+        const refsDeMarcador = [...comDois.matchAll(/\((\d+)\):\s*Marker\(\(/g)].map((m) => Number(m[1]));
+        expect(refsDeMarcador).toHaveLength(2);
+        for (const r of refsDeMarcador) expect(refsNaArvore).toContain(r);
+    });
+
+    it('o contador de refs conta os marcadores tambem', () => {
+        // display_item_ref_counter e o proximo ref livre; abaixo do numero de
+        // itens, o Surfer reusa um ref ja ocupado ao adicionar algo a mao.
+        const contador = Number(/display_item_ref_counter:\s*(\d+)/.exec(comDois)[1]);
+        const refs = [...comDois.matchAll(/\((\d+)\):\s*(?:Variable|Group|Divider|TimeLine|Marker)\(\(/g)]
+            .map((m) => Number(m[1]));
+        expect(contador).toBeGreaterThan(Math.max(...refs));
+    });
+
+    it('leva o rotulo verbatim: quem traduz e a camada de curadoria', () => {
+        expect(comDois).toContain('name: Some("input")');
+        expect(comDois).toContain('name: Some("output")');
+    });
+
+    it('sem rotulo emite None, e o Surfer cai no indice', () => {
+        const ron = buildSurferState({
+            vcdPath: 'C:\\tmp\\d.vcd',
+            items: [{ kind: 'variable', scope: ['tb'], name: 'clk' }],
+            markers: [{ time: 10 }],
+        });
+        expect(/Marker\(\([\s\S]*?name: None/.test(ron)).toBe(true);
+    });
+
+    it('tempo vira o inteiro cru do dump', () => {
+        expect(comDois).toContain('0: (1, [165000]),');
+        expect(comDois).toContain('1: (1, [980000]),');
+    });
+
+    it('sem marcador, mapa vazio e nenhum item', () => {
+        const sem = buildSurferState({
+            vcdPath: 'C:\\tmp\\d.vcd',
+            items: [{ kind: 'variable', scope: ['tb'], name: 'clk' }],
+        });
+        expect(sem).toContain('markers: {}');
+        expect(idxDosMarcadores(sem)).toEqual([]);
+        expect(sem).toContain('show_cursor_window: false');
+    });
+
+    it('descarta tempo que nao e numero em vez de emitir NaN', () => {
+        const ron = buildSurferState({
+            vcdPath: 'C:\\tmp\\d.vcd',
+            items: [{ kind: 'variable', scope: ['tb'], name: 'clk' }],
+            markers: [{ time: 10 }, { time: undefined }, { time: NaN }, null],
+        });
+        expect(chavesDoMapa(ron)).toEqual([0]);
+        expect(ron).not.toContain('NaN');
+    });
+});
+
+describe('a janela de Markers so abre quando ha delta para ler', () => {
+    const scopes = [scope('tb.u_proc', [
+        { name: 'req_in_sim_0' }, { name: 'out_en_sim_0' },
+    ])];
+
+    const comEventos = (eventMarkers) => buildSurferLayout({
+        vcdPath: 'C:\\tmp\\dump.vcd', scopes, tbModule: 'tb', eventMarkers,
+    }).content;
+
+    it('dois eventos abrem a janela, com as colunas nomeadas', () => {
+        const ron = comEventos([{ time: 100, label: 'input' }, { time: 900, label: 'output' }]);
+        expect(ron).toContain('show_cursor_window: true');
+        // A curadoria capitaliza: numa janela de dois numeros, "0" e "1" nao
+        // dizem qual e a entrada.
+        expect(ron).toContain('name: Some("Input")');
+        expect(ron).toContain('name: Some("Output")');
+    });
+
+    it('UM evento nao abre: o numero ja aparece na caixa sobre a onda', () => {
+        // Era este o caso do relato. O dump tinha so o evento de entrada, a
+        // janela abria assim mesmo, e abria vazia porque o item visivel nunca
+        // era emitido. Agora o marcador aparece na onda e a janela fica quieta.
+        const ron = comEventos([{ time: 165000, label: 'input' }]);
+        expect(ron).toContain('show_cursor_window: false');
+        expect(idxDosMarcadores(ron)).toEqual([0]);
+    });
+
+    it('nenhum evento nao abre nada', () => {
+        expect(comEventos(null)).toContain('show_cursor_window: false');
+        expect(comEventos([])).toContain('show_cursor_window: false');
+    });
+
+    it('aceita tempo solto de quem so tinha o numero', () => {
+        const ron = comEventos([100, 900]);
+        expect(chavesDoMapa(ron)).toEqual([0, 1]);
+        expect(ron).toContain('show_cursor_window: true');
+    });
+});

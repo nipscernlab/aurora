@@ -89,13 +89,20 @@ export interface BuildSurferStateInput {
   sourceFormat?: 'Vcd' | 'Fst';
   items: SurferItem[];
   /**
-   * Tempos (em unidades do timescale, = o `#N` cru do dump) onde cravar
-   * MARCADORES automaticos — ex.: [tEntrada, tSaida] pra medir latencia. Cada
-   * tempo vira `<id>: (1, [tempo])` no campo `markers`. Vazio/omit = sem markers.
+   * Marcadores automaticos — ex.: [entrada, saida] pra medir latencia. O tempo
+   * e' em unidades do timescale, o `#N` cru do dump; o rotulo e' o que aparece
+   * na coluna da janela de Markers. Vazio/omit = sem markers.
    */
-  markerTimes?: number[];
-  /** Abre a janela de cursor/delta do Surfer (mede o intervalo entre markers). */
+  markers?: SurferMarker[];
+  /** Abre a janela de Markers do Surfer (a que mostra o delta entre eles). */
   showCursorWindow?: boolean;
+}
+
+/** Um marcador automatico: onde crava e como se chama. */
+export interface SurferMarker {
+  time: number;
+  /** Nome mostrado na janela de Markers. Sem nome, o Surfer mostra so o indice. */
+  label?: string | null;
 }
 
 // --- helpers de RON ---------------------------------------------------------
@@ -188,6 +195,27 @@ function emitTimeline(ref: number, item: SurferTimelineItem): string {
 }
 
 /**
+ * Teto de marcadores. O `idx` do Surfer e' um u8 e o proprio `add_marker` dele
+ * varre `0..=MAX_MARKER_INDEX`, que la vale 254. A AURORA crava dois (entrada e
+ * saida), entao o teto e' folga, nao limite de uso.
+ */
+const MAX_MARKERS = 255;
+
+/**
+ * DisplayedItem::Marker — a metade VISIVEL de um marcador. O `idx` amarra este
+ * item ao tempo guardado no mapa `markers`; `name` e o rotulo da coluna na
+ * janela de Markers, e sem ele o Surfer mostra so o numero.
+ */
+function emitMarker(ref: number, idx: number, name: string | null): string {
+  return `            (${ref}): Marker((\n`
+    + `                color: None,\n`
+    + `                background_color: None,\n`
+    + `                name: ${ronOptStr(name)},\n`
+    + `                idx: ${idx},\n`
+    + `            )),`;
+}
+
+/**
  * DisplayedItem::Group. `name` e String (sempre Some-less). `content: []` SEMPRE
  * — a hierarquia vem dos `level` do items_tree, nao desta lista (ground truth do
  * save nativo do Surfer). `is_open` = estado dobrado persistido.
@@ -246,17 +274,36 @@ export function buildSurferState(input: BuildSurferStateInput): string {
 
   for (const item of input.items) visit(item, 0);
 
+  // Um marcador do Surfer sao DUAS metades, e emitir so uma nao produz metade do
+  // efeito: produz efeito nenhum. O mapa `markers` guarda o tempo por indice,
+  // mas quem desenha a caixa numerada na tela (`draw_marker_number_boxes`) e
+  // quem monta a lista da janela (`draw_marker_window`) percorrem o
+  // `items_tree` atras de `DisplayedItem::Marker`. Sem esse item o tempo fica
+  // no arquivo sem nada aparecer — e era esse o estado: a janela de Markers
+  // abria a cada simulacao e abria VAZIA. O proprio `add_marker` do Surfer faz
+  // as duas coisas, `insert_item` mais `markers.insert`, e e isso que espelhamos.
+  //
+  // O `idx` do item e a chave do mapa sao o MESMO numero: e por ele que o
+  // `numbered_marker_time` liga um ao outro.
+  const marcadores = (Array.isArray(input.markers) ? input.markers : [])
+    .filter((m) => m && Number.isFinite(m.time))
+    .slice(0, MAX_MARKERS);
+  for (let i = 0; i < marcadores.length; i++) {
+    const ref = nextRef++;
+    nodes.push({ ref, level: 0, unfolded: true });
+    entries.push(emitMarker(ref, i, marcadores[i].label ?? null));
+  }
+
   const itemsTree = emitItemsTree(nodes);
   const displayed = entries.join('\n');
   const counter = nextRef;
 
-  // Markers automaticos (tempos de evento) + janela de delta. Formato nativo do
-  // Surfer v0.7.0 (derivado de marker_set + save_state): `markers: { <id>: (1,
-  // [<tempo>]) }`. O `1` interno e' fixo (id da fonte); o tempo e' o #N cru.
-  const mTimes = Array.isArray(input.markerTimes) ? input.markerTimes : [];
-  const markersRon = mTimes.length === 0
+  // Formato nativo do Surfer v0.7.0: `markers: { <idx>: (1, [<tempo>]) }`. O
+  // mapa e' HashMap<u8, BigInt>, e o `(1, [...])` e a forma serde do BigInt,
+  // sinal mais digitos; o tempo e' o #N cru do dump.
+  const markersRon = marcadores.length === 0
     ? '{}'
-    : `{\n${mTimes.map((t, i) => `            ${i}: (1, [${Math.trunc(t)}]),`).join('\n')}\n        }`;
+    : `{\n${marcadores.map((m, i) => `            ${i}: (1, [${Math.trunc(m.time)}]),`).join('\n')}\n        }`;
   const cursorWindow = input.showCursorWindow ? 'true' : 'false';
 
   // Esqueleto externo = defaults estaveis do UserState (todos os toggles None,
@@ -429,12 +476,15 @@ export interface BuildSurferLayoutInput {
    */
   complexMapping?: { name: string; content: string } | null;
   /**
-   * Tempos (= `#N` cru do dump) dos eventos de I/O pra cravar MARCADORES
-   * automaticos e medir latencia (ex.: [tEntrada, tSaida]). Pre-computado pelo
-   * renderer via EventScanner (event_markers.ts). Vazio/omit = sem markers (e a
-   * janela de delta nao abre).
+   * Eventos de I/O pra cravar MARCADORES automaticos e medir latencia: a
+   * entrada e a saida. Pre-computado pelo renderer via EventScanner
+   * (event_markers.ts), que ja devolve `{ time, label }`. Vazio/omit = sem
+   * markers, e a janela de Markers nao abre.
+   *
+   * Aceita numero solto por compatibilidade com quem so tinha o tempo; nesse
+   * caso o marcador entra sem rotulo e o Surfer mostra so o indice.
    */
-  eventMarkers?: number[] | null;
+  eventMarkers?: Array<number | { time: number; label?: string | null }> | null;
 }
 
 /** Display analogico equivalente ao "Analog Step" do GTKWave. */
@@ -789,14 +839,36 @@ export function buildSurferLayout(input: BuildSurferLayoutInput): { content: str
   }
   if (complexMapping) mappings.push(complexMapping); // 1 mapping compartilhado por todos os complexos
 
-  const markerTimes = Array.isArray(eventMarkers) ? eventMarkers : [];
+  const marcadores: SurferMarker[] = (Array.isArray(eventMarkers) ? eventMarkers : [])
+    .map((m) => (typeof m === 'number'
+      ? { time: m, label: null }
+      : { time: m?.time, label: rotuloDeEvento(m?.label) }))
+    .filter((m) => Number.isFinite(m.time));
+
   return {
     content: buildSurferState({
       vcdPath, sourceFormat: 'Vcd', items,
-      markerTimes,
-      showCursorWindow: markerTimes.length > 0, // janela de delta so quando ha markers
+      markers: marcadores,
+      // A janela so abre quando ha DOIS ou mais marcadores, porque o que ela
+      // serve e a diferenca entre eles. Com um so, o numero ja aparece na caixa
+      // desenhada sobre a onda, e abrir um painel flutuante por cima do trace
+      // para repetir esse mesmo numero e' so estorvo. Antes ela abria sempre que
+      // havia qualquer marcador, e como o item visivel nunca era emitido, abria
+      // vazia toda simulacao.
+      showCursorWindow: marcadores.length >= 2,
     }),
     processorCount: procs.length,
     mappings,
   };
+}
+
+/**
+ * Rotulo que aparece na coluna da janela de Markers. O EventScanner classifica
+ * o evento como 'input' ou 'output'; o resto passa verbatim, e a ausencia vira
+ * null para o Surfer cair no indice.
+ */
+function rotuloDeEvento(label: string | null | undefined): string | null {
+  if (label === 'input') return 'Input';
+  if (label === 'output') return 'Output';
+  return label ? String(label) : null;
 }

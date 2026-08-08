@@ -160,6 +160,34 @@ não um arrasto contínuo.
 
 ---
 
+## 3.1 Caçada de bugs por varredura estática, 08/08/2026
+
+Antes de esperar a lista de bugs vinda do uso, vale registrar o que uma varredura
+sistemática procurou e o que ela achou, para ninguém refazer o mesmo caminho.
+
+Quatro verificações passaram limpas, e cada uma é uma classe inteira de bug
+descartada. A superfície de IPC está perfeitamente casada: 184 canais chamados
+pelo renderer, 184 registrados no processo principal, zero de cada lado sem par;
+um descompasso ali deixaria um `invoke` pendurado na mão do usuário sem erro de
+build. Não sobrou `exec` de string para montar comando, então caminho com espaço
+não quebra invocação. Os marcadores de pendência no código são três, e nenhum
+descreve defeito. E a toolchain foi provada com caminho acentuado, que era a
+lacuna mais provável de morder no laboratório.
+
+Uma coisa ficou registrada como imprecisão, não como bug. O barramento de eventos
+da AuroraAPI não tem nenhum assinante: cada nome de evento aparece uma única vez,
+na própria tabela da ponte. O comentário no código diz que a Aurora Intelligence
+consome essa superfície, e ela não consegue, porque não existe ferramenta no
+manifesto que permita ao modelo assinar evento. A ponte funciona e custa sete
+`addEventListener` no arranque, então não há urgência; o que está errado é a
+afirmação.
+
+O que a varredura estática não alcança continua sendo o que precisa de uso real:
+comportamento errado que compila, mensagem de erro que não ajuda, e qualquer
+coisa que dependa de sequência de cliques.
+
+---
+
 ## 4. Áreas com cobertura mais fina do que parece
 
 Todas têm testes unitários. Nenhuma foi exercitada ao vivo, de ponta a ponta.

@@ -305,11 +305,70 @@ class SplitPane {
         }
         editorArea.appendChild(div);
 
+        // Rolagem casada entre o codigo e o texto renderizado, como no VS Code:
+        // rolar um leva o outro. Vale so para o markdown; o HTML e um iframe em
+        // outra origem (aurora-preview://) e a rolagem dele nao e legivel daqui,
+        // que e justamente o isolamento que queremos.
+        //
+        // A correspondencia e proporcional, e nao linha a linha. Mapear linha do
+        // fonte para no renderizado exigiria carimbar cada bloco na conversao e
+        // ainda erraria em tabela, bloco de codigo e imagem, onde uma linha do
+        // fonte vira muita ou pouca altura. Proporcional acerta o suficiente e
+        // nao mente sobre precisao.
+        let sincronia = null;
+        if (kind !== 'html') {
+            const fonte = () => window.EditorManager?.getEditorForFile?.(sourcePath) || null;
+            // Quem esta mexendo agora. Sem isto, um lado move o outro, que
+            // dispara o evento de volta, e os dois entram em cabo de guerra.
+            let mexendo = null;
+            const solta = () => { mexendo = null; };
+
+            const doCodigoParaOTexto = () => {
+                if (mexendo === 'texto') return;
+                mexendo = 'codigo';
+                const ed = fonte();
+                if (ed) {
+                    const alturaRolavel = ed.getScrollHeight() - ed.getLayoutInfo().height;
+                    const fracao = alturaRolavel > 0 ? ed.getScrollTop() / alturaRolavel : 0;
+                    div.scrollTop = fracao * Math.max(0, div.scrollHeight - div.clientHeight);
+                }
+                requestAnimationFrame(solta);
+            };
+            const doTextoParaOCodigo = () => {
+                if (mexendo === 'codigo') return;
+                mexendo = 'texto';
+                const ed = fonte();
+                if (ed) {
+                    const sobra = Math.max(0, div.scrollHeight - div.clientHeight);
+                    const fracao = sobra > 0 ? div.scrollTop / sobra : 0;
+                    const alturaRolavel = ed.getScrollHeight() - ed.getLayoutInfo().height;
+                    ed.setScrollTop(fracao * Math.max(0, alturaRolavel));
+                }
+                requestAnimationFrame(solta);
+            };
+
+            div.addEventListener('scroll', doTextoParaOCodigo, { passive: true });
+            // O editor do fonte pode ainda nao existir quando o preview abre.
+            const ligar = () => {
+                const ed = fonte();
+                if (!ed?.onDidScrollChange) return false;
+                sincronia = ed.onDidScrollChange(doCodigoParaOTexto);
+                return true;
+            };
+            if (!ligar()) {
+                let tentativas = 0;
+                const t = setInterval(() => {
+                    if (ligar() || ++tentativas > 20) clearInterval(t);
+                }, 150);
+            }
+        }
+
         const stub = {
             layout() { /* CSS-sized — nothing to relayout */ },
             focus() { /* not a text input */ },
             dispose() {
                 try { sub?.dispose?.(); } catch (_) { /* noop */ }
+                try { sincronia?.dispose?.(); } catch (_) { /* noop */ }
                 // Release the aurora-preview:// slot so its directory stops
                 // being reachable the moment the tab closes.
                 if (previewId) {

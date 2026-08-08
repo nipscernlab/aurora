@@ -28,9 +28,14 @@ Walk through what you tried. For UI/compile work, please confirm:
 
 ## Checklist
 
-- [ ] My code follows the style of this project (4-space JS, single quotes,
-      ES modules)
+- [ ] My code follows the style of this project (indentation per `.editorconfig`:
+      4 spaces under `js/`, 2 under `main/`; single quotes; ES modules)
 - [ ] I have added comments where the *why* is non-obvious
-- [ ] I have updated `CHANGELOG.md` under `## [Unreleased]`
-- [ ] I have not committed bundled toolchain binaries (they live in
-      releases — see `RELEASE.md`)
+- [ ] My commits follow Conventional Commits (release-please reads them to pick
+      the next version and write the changelog, so do NOT edit `CHANGELOG.md`
+      by hand)
+- [ ] I have run `npx eslint .` on the files I touched
+- [ ] If I changed the editor, tabs, tree or wave flow, I walked the checklist
+      in `ARCHITECTURE.md`
+- [ ] I have not committed bundled toolchain binaries (they live in releases;
+      see CONTRIBUTING.md)

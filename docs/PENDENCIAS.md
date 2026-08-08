@@ -260,6 +260,36 @@ com a família inteira. A regra fica: essa família nunca sobe em pedaços.
 
 ---
 
+## 9. Depois do laboratório: capacidades e fundação
+
+Esta seção veio do `ROADMAP.md`, que foi removido em 07/08/2026 por duplicar este
+documento. O backlog passa a ser um só, e o que segue é o que vem depois de os
+itens acima estarem resolvidos. É de propósito grosso: prioridade muda conforme a
+necessidade do laboratório.
+
+**C++ como segunda linguagem de processador**, ao lado do C±. O front end do yanc
+já existe, `cpppp` mais `cppcomp`, e converge no mesmo assembly, então o trabalho é
+integração do lado da AURORA mais um painel próprio de criação de processador C++.
+Vale a regra do §13 do [ARCHITECTURE.md](../ARCHITECTURE.md): toda capacidade sai
+como API chamável pela IA antes de sair como botão. Plano e inventário de lacunas
+em [ESTUDO_CPP_PROCESSADORES.md](ESTUDO_CPP_PROCESSADORES.md).
+
+**Processo de IA persistente por conversa**, para matar o arranque frio da CLI a
+cada turno, e aposentar os caminhos antigos de spawn quando os motores de SDK
+tiverem rodagem.
+
+**Surfer embutido**, saindo de opção para padrão. Hoje ele é janela externa como o
+GTKWave; embutir depende de um bundle WASM que o projeto de origem não publica em
+formato baixável, e isso está registrado como bloqueado.
+
+**Terminar a migração da casca para Lit**, levando abas, árvore, terminal e barra
+de estado para declarativo, com o editor como hospedeiro. Conversa com o item 2.
+
+**Multiplataforma**, avaliando Linux e macOS, hoje impedido porque a toolchain
+empacotada é só de Windows.
+
+---
+
 ## Ordem recomendada
 
 1. **Ensaio de atualização** (item 1). Valida a promessa central e exige

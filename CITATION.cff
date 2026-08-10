@@ -25,6 +25,8 @@ keywords:
   - FPGA
   - Electron
   - Monaco
-license: MIT
+# The NIPS-CERN Licence 1.1 has no SPDX identifier, so CFF's `license:` key
+# (SPDX-only) cannot carry it. `license-url` is the spec's escape hatch.
+license-url: "https://github.com/nipscernlab/aurora/blob/main/LICENSE"
 version: 6.3.2
 date-released: "2026-06-16"

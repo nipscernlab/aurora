@@ -4,7 +4,7 @@
   "description": "Scalable-Architecture Processor for Hardware Optimization",
   "author": "NIPSCERN",
   "version": "6.3.2",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nipscernlab/aurora.git"
@@ -62,6 +62,18 @@
     "gets the new version ALONGSIDE the old one, not over it.",
     "The npm `name` above is the one never to rename — the updater cache dir",
     "derives from it and holds the delta base. See ARCHITECTURE.md section 11."
+  ],
+  "//build-fonts": [
+    "The two `!assets/fonts/*.otf` / `*-LICENSE.txt` lines in build.files are a",
+    "guard, not housekeeping. `files` starts at `**/*` and never excluded",
+    "assets/, so ANY font left in that directory ships inside the installer.",
+    "That already happened once with the Norse wordmark font, whose licence",
+    "forbids redistribution: gitignoring it kept it out of the REPO and did",
+    "nothing about the DISTRIBUTION (THIRD_PARTY_NOTICES.md records the whole",
+    "episode). The wordmark now uses Metamorphous + Noto Sans Runic, both OFL",
+    "and both committed as .woff2, so the app needs no .otf at all — anything",
+    "with that extension appearing here is a leftover, and these lines keep a",
+    "leftover on someone's disk from becoming a licence breach in the .exe."
   ],
   "build": {
     "appId": "com.nipscern.sapho",
@@ -128,6 +140,8 @@
       "!.nvmrc",
       "!.release-please-manifest.json",
       "!release-please-config.json",
+      "!assets/fonts/*.otf",
+      "!assets/fonts/*-LICENSE.txt",
       "!node_modules/material-icon-theme/**",
       "!node_modules/monaco-editor/dev/**",
       "!node_modules/monaco-editor/esm/**",

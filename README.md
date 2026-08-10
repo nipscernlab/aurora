@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/nipscernlab/sapho/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/nipscernlab/sapho?style=flat-square"></a>
   <a href="https://github.com/nipscernlab/aurora/actions"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/nipscernlab/aurora/ci.yml?branch=main&style=flat-square"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License: NIPS-CERN 1.1" src="https://img.shields.io/badge/license-NIPS--CERN%201.1-blue.svg?style=flat-square"></a>
 </p>
 
 AURORA is a desktop IDE that covers the whole SAPHO hardware-design workflow
@@ -59,7 +59,7 @@ interactive simulation mode built on DigitalJS.
 Aurora Intelligence is the assistant panel. It talks to models through two
 different paths: directly by API, for provider keys you supply, and through the
 Claude Code and Codex command-line tools, for people who already pay for those
-subscriptions. Either way the model gets the same 103 IDE actions, because a
+subscriptions. Either way the model gets the same 106 IDE actions, because a
 local MCP server hands the subscription CLIs the same tool surface the API path
 gets. Without it those CLIs would fall back to shelling out to the compilers by
 hand.
@@ -213,8 +213,13 @@ Bug reports, feature requests and pull requests are welcome. Read
 Security issues should not be opened as public issues. Follow the disclosure
 process in [SECURITY.md](SECURITY.md).
 
-AURORA is released under the [MIT License](LICENSE). The bundled third-party
-toolchain keeps its own licences, listed in that file.
+AURORA is released under the [NIPS-CERN Licence 1.1](LICENSE), the laboratory's
+base licence plus a product annex. Reading, using, modifying and redistributing
+are free; commercial exploitation, meaning selling the work itself or charging
+for it, needs prior written authorisation. Using AURORA as a tool inside
+commercial activity is not commercial exploitation. The bundled third-party
+toolchain keeps its own licences, listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## About NIPS-CERN
 

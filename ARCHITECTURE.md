@@ -32,8 +32,9 @@ Sobrou uma restrição de ordem que ainda sustenta peso. O carregador AMD do Mon
 `node_modules/monaco-editor/min/vs/loader.js`, é o único script não modular que
 resta, e precisa vir antes de qualquer tag `type="module"`. Ele instala o
 `require()` global que o [monaco_editor.js](js/editor/monaco_editor.js) chama em
-tempo de import; sem ele, `initMonaco()` rejeita. Hoje ele está na linha 1502 e a
-primeira tag de módulo na 1515. Nunca dê `type="module"` a ele.
+tempo de import; sem ele, `initMonaco()` rejeita. No [index.html](index.html) ele
+é a tag `<script src=".../vs/loader.js">`, e a primeira tag `type="module"` vem
+depois dela. Nunca dê `type="module"` a ele.
 
 Para tudo que é alcançado por `import`, a ordem das tags é irrelevante, porque o
 grafo é resolvido pelo bundler.

@@ -253,7 +253,7 @@ ferramentas embutidas, então sem ponte o modelo cairia para shell, chamando
 resolver isso: é um servidor HTTP MCP local que entrega o mesmo manifesto de
 ferramentas para a CLI.
 
-O manifesto declara 103 ferramentas, com nomes planos do tipo `get_active_file` e
+O manifesto declara 106 ferramentas, com nomes planos do tipo `get_active_file` e
 `get_current_project`, agrupadas por assunto apenas pela ordem no arquivo. São os
 mesmos grupos que a proposta de divisão arquivada em `archive/a2-godfiles` queria
 transformar em módulos separados: compilação, editor, projeto, terminal, ondas,

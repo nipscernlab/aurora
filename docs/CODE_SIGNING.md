@@ -6,16 +6,39 @@ verifies the `sha512` in `latest.yml`. This doc is the full runbook to fix that.
 
 ---
 
+> **BLOQUEADO desde 08/08/2026 — a premissa deste documento caiu.** Tudo abaixo
+> foi escrito quando a AURORA era MIT. O commit `58529a62`, de 08/08/2026, trocou
+> a licença pela Licença NIPS-CERN 1.1, cuja seção 4 exige autorização prévia e
+> por escrito para exploração comercial. Isso não é detalhe: os termos da
+> SignPath dizem, com estas palavras, *"The project must use an OSI-approved Open
+> Source license without commercial dual-licensing for all components"*. Uma
+> licença não comercial não é aprovada pela OSI, porque contraria o item 6 da
+> Open Source Definition, que proíbe discriminar campo de atuação.
+>
+> A aprovação de 06/08/2026 é anterior à troca e foi concedida sobre a licença
+> antiga. Ou seja, a organização `SAPHO [OSS]` existe no painel deles apoiada num
+> fato que deixou de ser verdade dois dias depois.
+>
+> São três saídas, e a escolha é do laboratório, não deste documento: manter a
+> licença nova e abandonar o programa gratuito, pagando certificado ou aceitando
+> o SmartScreen; relicenciar a AURORA de volta para uma licença aprovada pela OSI,
+> mantendo a NIPS-CERN 1.1 só no SAPHO, que é hardware e linguagem; ou escrever
+> para a SignPath expondo a licença e perguntando se ela é aceitável, o que é o
+> passo mais barato e deve vir primeiro. **Nada de ligar assinatura no CI antes
+> disso estar resolvido**, porque assinar sob uma elegibilidade vencida é pior do
+> que não assinar.
+
 ## TL;DR — do you have to pay?
 
-**No, not for Aurora.** Aurora-IDE is **MIT-licensed open source** (`package.json`
-`"license": "MIT"`, repo `nipscernlab/aurora`), so it **qualifies for the free
+**Superseded by the blocker above; kept for the reasoning.** Aurora-IDE *was*
+**MIT-licensed open source** (`package.json` `"license": "MIT"`, repo
+`nipscernlab/aurora`), and on that basis it **qualified for the free
 [SignPath Foundation OSS program](https://signpath.org/)** → **R$0**. The only
-"cost" is the application + approval wait (days to a few weeks).
+"cost" was the application + approval wait (days to a few weeks).
 
 | Path | Cost | Fit for us |
 |------|------|------------|
-| **SignPath Foundation (OSS)** | **free** | recommended — Aurora qualifies (MIT, maintained, released, documented). Approved 2026-08-06; org `SAPHO [OSS]`, project `aurora`. |
+| **SignPath Foundation (OSS)** | **free** | era a recomendação enquanto a AURORA era MIT. Aprovado em 06/08/2026, org `SAPHO [OSS]`, projeto `aurora` — mas ver o bloqueio no topo: a licença mudou em 08/08/2026 e a elegibilidade caiu com ela. |
 | **Azure Trusted/Artifact Signing** | ~US$10/mo | ⚠️ availability is geo-limited (US/CA individuals or EU/UK orgs when last checked) — verify before counting on it from Brazil |
 | Traditional OV / **EV** cert (DigiCert/Sectigo) | OV ~US$200–400/yr · EV ~US$300–700/yr + USB token | paid, and see the note below: EV buys nothing extra for SmartScreen |
 
@@ -93,7 +116,9 @@ phone home.
 
 ### Eligibility note (read once)
 SignPath Foundation requires the project's **own** code to be OSS with no
-proprietary components published by the maintainer. Aurora is MIT throughout. The
+proprietary components published by the maintainer, and specifically an
+OSI-approved licence — which the NIPS-CERN 1.1 is not; see the blocker at the top
+of this file, which is now the deciding constraint on this whole section. The
 bundled third-party binaries (GTKWave GPL, Surfer EUPL, the SAPHO toolchain, Verible/
 slang/clang-format/tree-sitter, etc.) are **arms-length tools we redistribute**, not
 our proprietary code — that's fine. The AI CLIs download on demand and aren't shipped.

@@ -45,7 +45,7 @@ falhar em 30 máquinas ao mesmo tempo, com aula acontecendo.
 
 **Decidido em 07/08/2026:** não sai release enquanto isso. Versionar e preparar
 tudo, sim; publicar, não. A release que for publicada será a definitiva, a mesma
-que vai ser instalada no laboratório. O PR #12 (`chore(main): release 6.4.0`)
+que vai ser instalada no laboratório. O PR #63 (`chore(main): release 6.4.0`)
 fica aberto até lá, e o ensaio abaixo acontece com ela, não com uma versão
 intermediária.
 
@@ -272,6 +272,15 @@ sendo teste manual.
 
 Estado e obrigações completos em [CODE_SIGNING.md](CODE_SIGNING.md); o resumo do
 programa está na §19.7.
+
+**Antes de qualquer item desta seção, resolver a elegibilidade.** A troca de
+licença de 08/08/2026 derrubou a premissa do programa gratuito da SignPath, que
+exige licença aprovada pela OSI e a NIPS-CERN 1.1 não é, por ser não comercial. A
+aprovação que existe no painel deles é de 06/08 e vale para a licença antiga. As
+três saídas possíveis estão no bloco de bloqueio no topo do
+[CODE_SIGNING.md](CODE_SIGNING.md), e a mais barata, escrever para eles e
+perguntar, vem primeiro. Enquanto isso não estiver decidido, os itens abaixo são
+trabalho que pode não ter serventia.
 
 **Pendente de ação no painel da SignPath (só o usuário faz):**
 

@@ -1,0 +1,94 @@
+name: Deriva de componentes
+
+# Vigia os sete componentes que a AURORA baixa por tag fixada a mao dentro dos
+# `components/Scripts/download-*.js`. O dependabot cobre npm e github-actions e
+# nao alcanca nenhum deles; o `verify-components.js` compara a MAQUINA com o
+# declarado, e nao o declarado com o upstream. Era o buraco por onde o fork do
+# Surfer ficou cinco versoes atras sem ninguem notar, em 10/08/2026.
+#
+# NAO roda no CI de pull request, de proposito. Uma release nova la fora nao e
+# defeito do codigo que esta sendo revisado, e reprovar o PR por causa dela
+# treinaria todo mundo a ignorar o vermelho. Aqui e semanal, e o resultado vira
+# UMA issue: criada quando aparece deriva, atualizada enquanto durar, e fechada
+# sozinha quando o ultimo pin voltar a estar em dia.
+
+on:
+  schedule:
+    # Segunda-feira, 06:00 UTC (03:00 em Brasilia) — antes de a semana comecar.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  # Duas rodadas ao mesmo tempo brigariam pela mesma issue.
+  group: component-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: Consultar o upstream de cada componente fixado
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Sem `npm ci`: o script usa so modulos nativos do Node e o `fetch`
+      # global, e os download-*.js que ele le tambem. Instalar dependencia aqui
+      # seria minuto de runner por nada.
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Consultar
+        id: drift
+        env:
+          # So para subir o limite de requisicoes da API do GitHub. Leitura de
+          # repositorio publico funciona sem ele, ate o limite por IP acabar.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          node scripts/check-component-drift.js --markdown --fail-on-drift > corpo.md && rc=0 || rc=$?
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          cat corpo.md
+
+      # rc=2 e o script tendo quebrado, nao deriva. Falha o job para alguem
+      # olhar, e nao mexe na issue: um corpo pela metade seria pior que nenhum.
+      - name: O proprio guarda quebrou
+        if: steps.drift.outputs.rc == '2'
+        run: |
+          echo "::error::check-component-drift.js falhou. Veja o log acima."
+          exit 1
+
+      - name: Abrir, atualizar ou fechar a issue
+        if: steps.drift.outputs.rc == '0' || steps.drift.outputs.rc == '1'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RC: ${{ steps.drift.outputs.rc }}
+        run: |
+          TITULO="Componentes fixados atras do upstream"
+          # Sem `--search`: casar o titulo exato em jq evita a sintaxe de busca
+          # do GitHub, que faz correspondencia por palavra e pegaria issue alheia.
+          NUM=$(gh issue list --state open --limit 100 --json number,title \
+                  --jq "map(select(.title==\"$TITULO\")) | .[0].number // empty")
+
+          if [ "$RC" = "1" ]; then
+            if [ -n "$NUM" ]; then
+              echo "Deriva continua; atualizando a issue #$NUM."
+              gh issue edit "$NUM" --body-file corpo.md
+            else
+              echo "Deriva nova; abrindo issue."
+              gh issue create --title "$TITULO" --body-file corpo.md
+            fi
+          else
+            if [ -n "$NUM" ]; then
+              echo "Tudo em dia; fechando a issue #$NUM."
+              gh issue comment "$NUM" --body "Todos os componentes fixados voltaram a estar em dia. Fechando sozinho; reabre na proxima deriva."
+              gh issue close "$NUM"
+            else
+              echo "Tudo em dia, e nao havia issue aberta."
+            fi
+          fi

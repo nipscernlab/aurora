@@ -343,6 +343,17 @@ Depois dele, volta ao incremental.
 
 ## 6. Itens externos, pequenos
 
+- **Verible e slang-server atrás do upstream.** Achado em 10/08/2026 pelo guarda
+  novo, `scripts/check-component-drift.js`, na primeira vez que alguma coisa
+  olhou o outro lado. O Verible está fixado na `v0.0-4080-ga0a8d8eb` e o
+  chipsalliance já publicou doze releases depois; o slang-server está na `v0.2.7`
+  contra a `v0.2.9`. Nenhum dos dois é urgente, porque são servidores de
+  linguagem e a falha deles degrada para o realce do Monaco, mas os dois são
+  binários que rodam na máquina do aluno e vale saber o que mudou antes de
+  congelar a versão. Subir exige tag nova, `sha256` novo no
+  `components/Scripts/download-*.js`, e `npm run test:toolchain`, que já
+  exercita o handshake LSP dos dois. O workflow semanal mantém uma issue aberta
+  enquanto isso durar.
 - **jQuery preso na 3.x pelo digitaljs.** O digitaljs 0.14.2, que desenha a
   simulação interativa do PRISM, declara `jquery: ^3.7.1`. Subir a raiz para a 4
   instala duas cópias e o digitaljs resolveria a sua própria, sem o jquery-ui

@@ -419,3 +419,26 @@ export function buildHierarchyTree(modules: Map<string, ModuleInfo>, topModuleNa
 
     return visit(topModuleName, null, null, new Set());
 }
+
+/**
+ * Achata a hierarquia na lista plana de caminhos pontuados que o `$dumpvars`
+ * consome — `tb.dut.core.pc` e assim por diante.
+ *
+ * Isto vivia dentro do `aurora_api.js`, e o lugar dele é aqui: quem constrói a
+ * árvore é o {@link buildHierarchyTree}, logo acima, e achatá-la é a operação
+ * irmã. Enterrada lá, ela não tinha teste, e é a função que decide QUAIS sinais
+ * a AURORA oferece para dumpar — errar nela não dá erro, dá forma de onda com o
+ * sinal faltando, que o usuário só descobre olhando.
+ *
+ * Um nó sem `signals` ou sem `children` é normal e não é erro: um módulo pode
+ * não declarar sinal nenhum, e uma folha não tem filhos. Recursão que assumisse
+ * os dois campos presentes quebraria na primeira caixa-preta da hierarquia,
+ * porque `buildHierarchyTree` devolve `signals: []` justamente para o módulo
+ * cujo corpo ele não encontrou.
+ */
+export function flattenSignalPaths(node: HierarchyNode | null | undefined, out: string[] = []): string[] {
+    if (!node) return out;
+    for (const sig of (node.signals || [])) out.push(`${node.scopePath}.${sig.name}`);
+    for (const child of (node.children || [])) flattenSignalPaths(child, out);
+    return out;
+}

@@ -59,6 +59,9 @@ import {
   getSurferMultiWindow,
   setSurferMultiWindow,
 } from '../wave/surfer_window_preference.js';
+// Achatar a hierarquia mora ao lado de quem a constroi (buildHierarchyTree), e
+// nao aqui: e a operacao irma dela, e enterrada neste arquivo nao tinha teste.
+import { flattenSignalPaths } from '../wave/signal_parser.js';
 
 import { memorySlug } from '../ai/memory.js';
 
@@ -2080,14 +2083,6 @@ const compileNs = {
  *  wave — GTKWave signal selection (the Wave Configuration modal)
  * ========================================================== */
 
-function collectWaveSignalPaths(node, out) {
-  if (!node) return;
-  for (const sig of (node.signals || [])) {
-    out.push(`${node.scopePath}.${sig.name}`);
-  }
-  for (const child of (node.children || [])) collectWaveSignalPaths(child, out);
-}
-
 const waveNs = {
   /**
    * Every signal discovered for the current testbench, plus which are
@@ -2099,7 +2094,7 @@ const waveNs = {
     if (!wc.tree) { try { await wc.refresh(); } catch (_) { /* handled below */ } }
     if (!wc.tree) return ok({ all: [], selected: [] });
     const all = [];
-    collectWaveSignalPaths(wc.tree, all);
+    flattenSignalPaths(wc.tree, all);
     return ok({ all: all.sort(), selected: [...(wc.selected || [])].sort() });
   },
 
@@ -2118,7 +2113,7 @@ const waveNs = {
     }
     if (!wc.tree) return err('no signals discovered — open a project with a testbench');
     const valid = [];
-    collectWaveSignalPaths(wc.tree, valid);
+    flattenSignalPaths(wc.tree, valid);
     const validSet = new Set(valid);
     const list = Array.isArray(paths) ? paths : [];
     const selected = list.filter((p) => validSet.has(p));

@@ -427,10 +427,21 @@ tempo de carga e chama IPC que não existe fora do Electron. É a fragilidade do
 construtores que fazem entrada e saída, descrita na seção 8 do
 [ARCHITECTURE.md](../ARCHITECTURE.md), agora com consequência medida.
 
+**Do `aurora_api.js` saiu mais um pedaço em 10/08/2026.** O
+`collectWaveSignalPaths`, que achata a hierarquia na lista de caminhos pontuados
+do `$dumpvars`, foi para o `js/wave/signal_parser.ts`, ao lado do
+`buildHierarchyTree` que constrói a árvore que ele achata. É a operação irmã e o
+lugar dela é lá; enterrada no `aurora_api` ela não tinha teste, e é a função que
+decide QUAIS sinais a AURORA oferece para dumpar — errar nela não dá erro, dá
+forma de onda com o sinal faltando, que o usuário só descobre olhando. Ganhou
+seis testes e virou tipada de graça.
+
 **O que NÃO dá para dividir agora, e por quê.** Os dois maiores,
-`js/ui/ai_assistant_manager.js` com 3416 linhas e
-`js/compilation/compilation_module.js` com 3122, são cada um uma classe só, e uma
-varredura em 08/08/2026 não achou neles um único método que não toque em `this`.
+`js/ui/ai_assistant_manager.js` com 3528 linhas e
+`js/compilation/compilation_module.js` com 3125, são cada um uma classe só. A
+varredura de 08/08/2026 continua valendo, e foi remedida em 10/08: os dois têm
+ZERO funções em nível de módulo, ou seja, não existe nem um pedaço fora da
+classe para tirar sem mover estado.
 Não há núcleo puro para extrair: dividir esses dois significa mover estado e
 mudar pontos de chamada, com zero teste embaixo, na véspera de congelar a versão
 que vai para trinta máquinas. É a mesma troca que fez a interface definitiva
@@ -519,12 +530,16 @@ As duas correm em paralelo, e nenhuma espera a outra.
 
 Executada de cima para baixo, sem desvio. Cada passo termina com CI verde.
 
-1. **Rede de testes na fronteira** (item 4). O método é sempre o mesmo: extrair
-   a lógica pura que está presa dentro dos handlers de `ipcMain`, que é o que a
-   torna testável, e escrever teste em cima. Já saíram `project_paths.js`,
-   `surfer_config.js`, `files_ops.js` e `git_parse.js`. Continuam sem teste seis
-   arquivos de `main/ipc`: `ai.js`, `github_auth.js`, `shell.js`, `system.js`,
-   `docs_window.js` e `tree_undo.js`.
+1. ~~**Rede de testes na fronteira**~~ — **feito em 10/08/2026.** Os seis que
+   faltavam saíram: `shell_bootstrap.js`, `docs_nav.js`, `github_api.js`,
+   `undo_store.js`, `ai_routing.js` e a regra do `join-path` em `main/utils.js`,
+   com 82 testes. A extração achou três coisas que a leitura não tinha achado:
+   duas regras diferentes clampando a grade do terminal, de modo que iniciar e
+   redimensionar com o mesmo valor davam terminais diferentes; o mapeamento da
+   lista de repositórios do GitHub caindo inteiro por causa de um repositório
+   sem `owner`; e o esvaziamento da área de espera parando na primeira falha.
+   O que continua sem teste em `main/ipc` é só o que fala rede ou abre janela,
+   e isso é limite do método, não descuido.
 2. **Split dos god files** (item 7). É o mesmo movimento do passo 1, continuado
    até os três arquivos grandes caírem. Não é refactor por estética: cada
    extração é o que permite o teste do passo 1 existir.

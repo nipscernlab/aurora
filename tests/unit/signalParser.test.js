@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
     parseVerilogModules,
     buildHierarchyTree,
+    flattenSignalPaths,
 } from '../../js/wave/signal_parser.ts';
 
 describe('parseVerilogModules', () => {
@@ -328,5 +329,57 @@ describe('buildHierarchyTree', () => {
 
         const x = modules.get('proc').signals.find((s) => s.name === 'me2_f_global_v_x_e_');
         expect(x.kind).toBe('real');
+    });
+});
+
+describe('flattenSignalPaths', () => {
+    // Achatar a hierarquia é o que decide QUAIS sinais a AURORA oferece para
+    // dumpar. Errar aqui não dá erro: dá forma de onda com o sinal faltando, e o
+    // usuário só descobre olhando. Vivia dentro do aurora_api.js, sem teste,
+    // porque importar aquele arquivo inicializa a IDE inteira.
+    const no = (scopePath, signals, children = []) => ({
+        name: 'm', instanceName: null, scopePath,
+        signals: signals.map((n) => ({ name: n })), children,
+    });
+
+    it('monta o caminho pontuado de cada sinal, na ordem da hierarquia', () => {
+        const raiz = no('tb', ['clk', 'rst'], [
+            no('tb.dut', ['pc'], [no('tb.dut.ula', ['a', 'b'])]),
+        ]);
+        expect(flattenSignalPaths(raiz)).toEqual([
+            'tb.clk', 'tb.rst', 'tb.dut.pc', 'tb.dut.ula.a', 'tb.dut.ula.b',
+        ]);
+    });
+
+    it('desce antes de passar para o irmao seguinte', () => {
+        // A ordem importa para o usuário: é a ordem em que os sinais aparecem no
+        // seletor, e ela precisa espelhar a árvore.
+        const raiz = no('tb', [], [
+            no('tb.a', ['x'], [no('tb.a.f', ['y'])]),
+            no('tb.b', ['z']),
+        ]);
+        expect(flattenSignalPaths(raiz)).toEqual(['tb.a.x', 'tb.a.f.y', 'tb.b.z']);
+    });
+
+    it('aceita no sem sinais e no sem filhos', () => {
+        // Os dois são normais: um módulo pode não declarar sinal nenhum, e folha
+        // não tem filho. O buildHierarchyTree devolve `signals: []` justamente
+        // para o módulo cujo corpo ele não achou, então uma recursão que assumisse
+        // os campos presentes quebraria na primeira caixa-preta da hierarquia.
+        expect(flattenSignalPaths(no('tb', []))).toEqual([]);
+        expect(flattenSignalPaths({ scopePath: 'tb' })).toEqual([]);
+        expect(flattenSignalPaths({ scopePath: 'tb', signals: [{ name: 'clk' }] })).toEqual(['tb.clk']);
+    });
+
+    it('devolve lista vazia para arvore ausente, em vez de lancar', () => {
+        expect(flattenSignalPaths(null)).toEqual([]);
+        expect(flattenSignalPaths(undefined)).toEqual([]);
+    });
+
+    it('acumula na lista que recebe, que e como os dois chamadores usam', () => {
+        const fora = ['ja.estava.aqui'];
+        const r = flattenSignalPaths(no('tb', ['clk']), fora);
+        expect(r).toBe(fora);
+        expect(fora).toEqual(['ja.estava.aqui', 'tb.clk']);
     });
 });

@@ -47,10 +47,10 @@ const PUBLISHED = true;
 // CI publica -> atualizar tag/filename/sha256/url aqui.
 /** @type {{ url: string, sha256: string, filename: string, tag: string } | null} */
 const FORK_ARTIFACT = PUBLISHED ? {
-    tag:      'v0.7.0-nips.2',
-    filename: 'surfer-aurora_win_v0.7.0-nips.2.zip',
-    sha256:   'a27dac113e0b74b2bcc6ec477beab040102ad1889720b7d8b15047cd37efa8ba',
-    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.2/surfer-aurora_win_v0.7.0-nips.2.zip',
+    tag:      'v0.7.0-nips.7',
+    filename: 'surfer-aurora_win_v0.7.0-nips.7.zip',
+    sha256:   'f9c6cedbe00ebee349be8c21707c705e96a3e97f67150741e63e09134f512515',
+    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.7/surfer-aurora_win_v0.7.0-nips.7.zip',
 } : null;
 
 const ROOT_DIR      = path.join(__dirname, '..', '..');

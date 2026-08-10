@@ -55,8 +55,10 @@ describe('o inventario do toolchain bate com o que o instalador baixa', () => {
     it('a versao do Surfer citada e a do artefato do fork', () => {
         const fonte = readFileSync(
             new URL('../../components/Scripts/download-surfer.js', import.meta.url), 'utf8');
-        // A tag do fork e `v0.7.0-nips.2`; o que o prompt cita e a versao do
-        // Surfer de origem, `0.7.0`, que e o prefixo dela.
+        // A tag do fork tem a forma `v<upstream>-nips.<n>`; o que o prompt cita e
+        // a versao do Surfer de origem, que e o prefixo dela. O sufixo `-nips.<n>`
+        // anda sozinho a cada build do fork, entao NAO se escreve ele aqui: e o
+        // regex que extrai o prefixo, e so um bump de upstream mexe no prompt.
         const m = fonte.match(/tag:\s*'v?([0-9]+\.[0-9]+\.[0-9]+)/);
         expect(m, 'a tag do fork saiu do download-surfer.js').toBeTruthy();
         expect(SYSTEM_PROMPT).toContain(`Surfer ${m[1]}`);

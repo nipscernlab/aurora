@@ -232,8 +232,38 @@ function getExecutablePath(/** @type {string} */ executableName, /** @type {stri
   return executableName;
 }
 
+/**
+ * A regra do canal `join-path`, que o renderer usa para montar caminho sem
+ * saber onde a aplicação foi instalada.
+ *
+ * Junta os pedaços como um `path.join` comum, com UMA exceção: quando o
+ * primeiro pedaço é `components`, o diretório de instalação entra na frente.
+ * Isso existe porque a árvore da toolchain é a única coisa que o renderer
+ * referencia por nome relativo e que não fica ao lado dele — em build
+ * empacotada ela vive fora do asar, e um `path.join('components', ...)` cru
+ * resolveria contra o diretório de trabalho do processo, que não é lugar
+ * nenhum em particular.
+ *
+ * Argumento que não seja string é erro, e não algo a ignorar: `path.join`
+ * lançaria de qualquer forma, e a mensagem daqui diz de onde veio.
+ *
+ * @param {string} rootPath diretório de instalação
+ * @param {string[]} parts
+ * @returns {string}
+ */
+function joinAppPath(rootPath, parts) {
+  const pedacos = Array.isArray(parts) ? parts : [];
+  if (!pedacos.every((p) => typeof p === 'string')) {
+    throw new TypeError('All arguments to join-path must be strings');
+  }
+  if (pedacos.length === 0) return '';
+  if (pedacos[0] === 'components') return path.join(rootPath, ...pedacos);
+  return path.join(...pedacos);
+}
+
 module.exports = {
   debounce,
+  joinAppPath,
   getCPUCount,
   getTotalMemory,
   filterGtkWaveOutput,

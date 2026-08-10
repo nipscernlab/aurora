@@ -9,6 +9,7 @@ const log = require('electron-log');
 
 const { componentsPath, rootPath } = require('../paths');
 const { getPythonStatus } = require('../compile/python_locator');
+const { joinAppPath } = require('../utils');
 
 function register() {
   ipcMain.handle('get-components-path', () => componentsPath);
@@ -19,15 +20,9 @@ function register() {
     return path.dirname(p);
   });
 
-  // Special-case: callers asking for a 'components' path get the install-dir
-  // root prepended. Everything else just joins as-is.
-  ipcMain.handle('join-path', (_event, ...paths) => {
-    if (!paths.every((p) => typeof p === 'string')) {
-      throw new TypeError('All arguments to join-path must be strings');
-    }
-    if (paths[0] === 'components') return path.join(rootPath, ...paths);
-    return path.join(...paths);
-  });
+  // A regra (incluindo o caso especial do 'components') vive em main/utils.js,
+  // onde da para prova-la sem subir o Electron.
+  ipcMain.handle('join-path', (_event, ...paths) => joinAppPath(rootPath, paths));
 
   ipcMain.on('app:reload', () => {
     app.relaunch();

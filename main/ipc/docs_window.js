@@ -29,6 +29,9 @@ const { app, shell, ipcMain, BrowserWindow, WebContentsView } = require('electro
 const log = require('electron-log');
 
 const { loadPage } = require('../render_loader');
+// A fronteira de navegacao mora ao lado, em docs_nav.js: e a unica decisao de
+// seguranca deste arquivo e e pura, entao da para prova-la sem abrir janela.
+const { decidirNavegacao } = require('./docs_nav');
 
 /** Altura da barra de cima, em pixels de layout. Espelha o CSS da página. */
 const CHROME_H = 44;
@@ -39,13 +42,6 @@ let win = null;
 let view = null;
 /** Pasta do manual desta sessão, para decidir o que é navegação interna. */
 let raizDocs = '';
-
-/** O caminho está dentro da pasta do manual? Compara resolvido, para `..` não escapar. */
-function dentroDoManual(/** @type {string} */ alvo) {
-  if (!raizDocs) return false;
-  const rel = path.relative(raizDocs, path.resolve(alvo));
-  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
-}
 
 /** Reposiciona o view sob a barra sempre que a janela muda de tamanho. */
 function ajustarView() {
@@ -127,14 +123,12 @@ function open(dir) {
     return { action: 'deny' };
   });
   view.webContents.on('will-navigate', (e, url) => {
-    let interno = false;
-    try {
-      const u = new URL(url);
-      interno = u.protocol === 'file:' && dentroDoManual(decodeURIComponent(u.pathname).replace(/^\//, ''));
-    } catch (_) { interno = false; }
-    if (interno) return;
+    const { acao } = decidirNavegacao(raizDocs, url);
+    if (acao === 'seguir') return;
     e.preventDefault();
-    if (/^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => { /* ignore */ });
+    if (acao === 'externa') shell.openExternal(url).catch(() => { /* ignore */ });
+    // 'bloquear' nao abre nada, e e o desfecho de file: fora da pasta do manual
+    // e de esquemas como javascript: e data:.
   });
 
   const wc = view.webContents;

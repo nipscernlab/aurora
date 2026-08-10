@@ -36,11 +36,11 @@ const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
-// Pinned SHA-256 of verible-v0.0-4080-ga0a8d8eb-win64.zip (GitHub release
+// Pinned SHA-256 of verible-v0.0-4135-g7807ee1a-win64.zip (GitHub release
 // asset, immutable per tag). Verified before extraction; a mismatch aborts.
-const EXPECTED_SHA256 = 'e4c5314de06b3c6b641624fbefaa94b0d07486a462f0a2511b03db156c1bc3a0';
+const EXPECTED_SHA256 = '2e7098e6e60783062edd10701f8a10620b226050caea39fe092e8fbd8f35e2c5';
 
-const VERIBLE_TAG      = 'v0.0-4080-ga0a8d8eb';
+const VERIBLE_TAG      = 'v0.0-4135-g7807ee1a';
 const VERIBLE_FILENAME = `verible-${VERIBLE_TAG}-win64.zip`;
 const DOWNLOAD_URL     = `https://github.com/chipsalliance/verible/releases/download/${VERIBLE_TAG}/${VERIBLE_FILENAME}`;
 

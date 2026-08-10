@@ -276,11 +276,23 @@ programa está na §19.7.
 **Antes de qualquer item desta seção, resolver a elegibilidade.** A troca de
 licença de 08/08/2026 derrubou a premissa do programa gratuito da SignPath, que
 exige licença aprovada pela OSI e a NIPS-CERN 1.1 não é, por ser não comercial. A
-aprovação que existe no painel deles é de 06/08 e vale para a licença antiga. As
-três saídas possíveis estão no bloco de bloqueio no topo do
-[CODE_SIGNING.md](CODE_SIGNING.md), e a mais barata, escrever para eles e
-perguntar, vem primeiro. Enquanto isso não estiver decidido, os itens abaixo são
-trabalho que pode não ter serventia.
+aprovação que existe no painel deles é de 06/08 e vale para a licença antiga.
+
+A análise está em [LICENCIAMENTO.md](LICENCIAMENTO.md), que também traz o
+rascunho do e-mail para a SignPath, e o passo um é mandá-lo, porque custa dez
+minutos e a resposta encurta o resto. A proposta, em uma linha, é EUPL-1.2 na
+AURORA e CERN-OHL-S-2.0 no Verilog do SAPHO, as duas aprovadas pela OSI, com o
+yanc ficando em MIT e a NIPS-CERN 1.1 seguindo como base do laboratório para o
+que não entra no instalador. Nada disso foi executado, e a decisão é do
+orientador e possivelmente do NIT da UFJF, não minha.
+
+Um item de lá vale mesmo que o resto seja recusado: o anexo A3 do `LICENSE` e a
+seção S1 do `LICENSE-SAPHO.md` dizem que a cadeia YANC está sob a NIPS-CERN 1.1,
+e o repositório `nipscernlab/yanc` tem um LICENSE MIT. Dois documentos afirmando
+o oposto sobre o mesmo código, e o MIT já publicado no v5.3 não volta atrás.
+
+Enquanto a elegibilidade não estiver decidida, os itens abaixo são trabalho que
+pode não ter serventia.
 
 **Pendente de ação no painel da SignPath (só o usuário faz):**
 

@@ -19,12 +19,12 @@ verifies the `sha512` in `latest.yml`. This doc is the full runbook to fix that.
 > antiga. Ou seja, a organização `SAPHO [OSS]` existe no painel deles apoiada num
 > fato que deixou de ser verdade dois dias depois.
 >
-> São três saídas, e a escolha é do laboratório, não deste documento: manter a
-> licença nova e abandonar o programa gratuito, pagando certificado ou aceitando
-> o SmartScreen; relicenciar a AURORA de volta para uma licença aprovada pela OSI,
-> mantendo a NIPS-CERN 1.1 só no SAPHO, que é hardware e linguagem; ou escrever
-> para a SignPath expondo a licença e perguntando se ela é aceitável, o que é o
-> passo mais barato e deve vir primeiro. **Nada de ligar assinatura no CI antes
+> A análise completa, com o que de fato vai dentro do binário assinado e uma
+> proposta de licença por artefato, está em
+> [LICENCIAMENTO.md](LICENCIAMENTO.md), que traz também o rascunho pronto do
+> e-mail para a SignPath. O resumo: escrever para eles primeiro, porque custa dez
+> minutos e a resposta encurta o resto; depois decidir as bases com o orientador
+> e, se for o caso, com o NIT da UFJF. **Nada de ligar assinatura no CI antes
 > disso estar resolvido**, porque assinar sob uma elegibilidade vencida é pior do
 > que não assinar.
 

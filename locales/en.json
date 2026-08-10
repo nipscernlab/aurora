@@ -171,6 +171,7 @@
     "noProject": "No project open",
     "loading": "Loading…",
     "toggleAll": "Collapse / expand all",
+    "show": "Show file tree",
     "empty": {
       "noProjectTitle": "No project open",
       "noProjectCta": "Click here to create a new project"
@@ -755,6 +756,7 @@
       "body": "The AI backend could not be reached. Restart Aurora, or open Settings to configure a provider."
     },
     "emptyHint": "Ask Aurora Intelligence about your project, Verilog, or SAPHO/CMM",
+    "show": "Show Aurora Intelligence",
     "provider": "Provider",
     "model": "Model",
     "effort": "Effort & reasoning",

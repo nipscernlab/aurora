@@ -79,7 +79,7 @@ export const SYSTEM_PROMPT = [
   "  clang-format 20.1.0 formats C, C++ and C±. Bundled, so it is always there.\n" +
   "  verible-verilog-ls  Verilog/SystemVerilog LANGUAGE SERVER, not a CLI formatter — it serves\n" +
   "                      diagnostics and formatting over LSP inside the editor.\n" +
-  "  slang-server 0.2.7  the second Verilog analyser; its diagnostics coexist with Verible's.\n" +
+  "  slang-server 0.2.9  the second Verilog analyser; its diagnostics coexist with Verible's.\n" +
   "NOT bundled, and the difference matters: `black` formats Python and lives in the USER'S\n" +
   "interpreter. It can be absent, and then formatting Python does nothing. If the user reports\n" +
   "that the format wand is dead on a .py, the answer is `pip install black` — never assume it.\n" +

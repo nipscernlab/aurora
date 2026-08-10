@@ -22,6 +22,19 @@ import { _electron as electron } from 'playwright';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
+/**
+ * O limiar sai do próprio `js/terminal/tab_orientation.js`, lido do fonte em vez
+ * de copiado: importar o módulo aqui não dá, porque ele se instala sozinho no
+ * `DOMContentLoaded` e este arquivo roda em Node. Copiar o número deixaria o
+ * teste passar a medir um limiar que o produto não usa mais.
+ */
+const LIMIAR_COLUNA = (() => {
+  const fonte = fs.readFileSync(path.join(REPO_ROOT, 'js', 'terminal', 'tab_orientation.js'), 'utf8');
+  const m = fonte.match(/LARGURA_VIRA_COLUNA\s*=\s*(\d+)/);
+  if (!m) throw new Error('nao achei LARGURA_VIRA_COLUNA em js/terminal/tab_orientation.js');
+  return Number(m[1]);
+})();
+
 function stripElectronNodeMode(env) {
   const out = {};
   for (const [k, v] of Object.entries(env)) {
@@ -172,15 +185,36 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
       };
     });
 
-    // Largo: faixa horizontal.
+    // Largo: faixa horizontal. Os DOIS vizinhos saem do caminho, e não só o
+    // painel de IA. A largura do terminal é o que sobra da janela depois da
+    // árvore, do painel e dos trilhos, e o limiar é 780: numa tela de 900 px
+    // úteis, com a árvore aberta o terminal chega a 615 e nunca passa, então o
+    // teste media a tela da máquina em vez do comportamento. Falhou nas duas
+    // pontas por isso, com 639 na máquina de quem escreve e 763 no runner do CI.
     await window.evaluate(() => {
       const c = document.querySelector('.ai-assistant-container');
       c.style.transition = 'none';
       c.style.width = '0px';
+      const t = document.querySelector('.file-tree-container');
+      if (t) {
+        t.style.transition = 'none';
+        if (t.clientWidth > 0) window.toggleSidebar();
+      }
     });
-    await window.waitForTimeout(250);
+    // Esperar a CLASSE sair, e não um tempo fixo: quem decide a orientação é um
+    // ResizeObserver coalescido por quadro, então 250 ms era um chute que às
+    // vezes media antes de o observador ter rodado.
+    await window.waitForFunction(
+      () => !document.querySelector('.terminal-container')?.classList.contains('tabs-vertical'),
+      null, { timeout: 5_000 },
+    );
     const largo = await medir();
-    expect(largo.larguraTerminal).toBeGreaterThan(780);
+    expect(
+      largo.larguraTerminal,
+      `com árvore e painel colapsados o terminal mede ${largo.larguraTerminal} px;`
+      + ` abaixo de ${LIMIAR_COLUNA} não dá para exercitar a faixa horizontal`
+      + ' (tela de trabalho estreita demais para este teste)',
+    ).toBeGreaterThan(LIMIAR_COLUNA);
     expect(largo.coluna, 'terminal largo deve ficar em faixa').toBe(false);
 
     // Estreito: o painel de IA come a largura ate o terminal cair do limiar.
@@ -193,10 +227,18 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
       null, { timeout: 5_000 },
     );
     const estreito = await medir();
-    expect(estreito.larguraTerminal).toBeLessThan(780);
+    expect(estreito.larguraTerminal).toBeLessThan(LIMIAR_COLUNA);
     expect(estreito.coluna, 'terminal estreito deve virar coluna').toBe(true);
     expect(estreito.direcao, 'a barra tem que virar coluna de verdade').toBe('column');
     expect(estreito.empilhadas, 'as abas tem que ficar uma sobre a outra').toBe(true);
+
+    // Devolve a árvore, porque os testes seguintes partem do estado montado e um
+    // deles mede a faixa que ela ocupa.
+    await window.evaluate(() => {
+      const t = document.querySelector('.file-tree-container');
+      if (t && t.clientWidth === 0) window.toggleSidebar();
+    });
+    await window.waitForTimeout(250);
   }, 40_000);
 
   it('painel colapsado volta com UM clique no trilho da borda', async () => {
@@ -213,12 +255,17 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     // arrasto nunca tirava. O primeiro clique no botao mandava fechar o que ja
     // estava fechado. Por isso o teste exige UM clique, e nao dois.
     const estado = () => window.evaluate(() => {
-      // clientWidth, e nao offsetWidth: o painel de IA tem borda esquerda de
-      // 1 px, entao fechado ele mede 1 na caixa de borda e nunca 0.
+      // Duas medidas, porque as duas perguntas são diferentes. `clientWidth`
+      // responde "está colapsado?", e tem que ser ele: o painel de IA tem borda
+      // esquerda de 1 px, então fechado mede 1 na caixa de borda e nunca 0.
+      // `offsetWidth` responde "abriu pelo menos o mínimo?", e tem que ser ele
+      // porque PANE.MIN_AI é medida de caixa de borda — comparar o clientWidth
+      // contra 320 reprovava por exatamente 1 px sempre que a janela fosse
+      // estreita a ponto de o painel abrir colado no piso.
       const caixa = (sel) => {
         const el = document.querySelector(sel);
         if (!el) return null;
-        return { largura: el.clientWidth, visivel: el.clientWidth > 0 };
+        return { largura: el.clientWidth, caixaBorda: el.offsetWidth, visivel: el.clientWidth > 0 };
       };
       return {
         tree: caixa('.file-tree-container'),
@@ -269,7 +316,7 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     await window.click('.edge-rail-right');
     await window.waitForTimeout(500);
     const volta = await estado();
-    expect(volta.ai.largura, 'um clique tem que trazer o painel de IA')
+    expect(volta.ai.caixaBorda, 'um clique tem que trazer o painel de IA')
       .toBeGreaterThanOrEqual(320);
     expect(volta.railLeft.visivel, 'o trilho some quando a arvore volta').toBe(false);
     expect(volta.railRight.visivel, 'o trilho some quando o painel volta').toBe(false);

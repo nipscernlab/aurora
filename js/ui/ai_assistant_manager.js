@@ -17,7 +17,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showConfirm } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
-import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis } from '../utils/resize.js';
+import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis, semAnimar } from '../utils/resize.js';
 // Mesma regra de tamanho da árvore de arquivos e do terminal.
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
 import { TabManager } from '../tabs/tab_manager.js';
@@ -543,7 +543,12 @@ class AIAssistantManager {
     if (abertoNaSessaoAnterior) {
       // `open`, `ai-assistant-open` e o `inert` saem todos daqui: eram tres
       // linhas soltas antes, e eram elas que podiam discordar da largura.
-      this._applyOpenWidth(true);
+      //
+      // Sem animar: no arranque nao ha interacao para acompanhar, a largura
+      // salva vem de 0, e os 240 ms de animacao caem exatamente na janela em
+      // que o Monaco esta inicializando — com `automaticLayout` ele observa o
+      // proprio contorno, entao cada quadro dali e um relayout de editor.
+      semAnimar(this.container, () => this._applyOpenWidth(true));
       this.refreshProviders().then(() => this.inputEl?.focus());
       this.refreshChatList();
     }

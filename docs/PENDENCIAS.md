@@ -543,9 +543,29 @@ Executada de cima para baixo, sem desvio. Cada passo termina com CI verde.
 2. **Split dos god files** (item 7). É o mesmo movimento do passo 1, continuado
    até os três arquivos grandes caírem. Não é refactor por estética: cada
    extração é o que permite o teste do passo 1 existir.
-3. **P6, o único item concreto de performance** (item 3). Trocar `transition:
-   width` por `transform` em `css/base/layout.css:160` e
-   `css/panels/ai_assistant.css:36` e `:1668`.
+3. **P6, o único item concreto de performance** (item 3). Restam as transições de
+   largura da árvore (`.file-tree-container`) e do painel de IA
+   (`.ai-assistant-container`), e só na abertura e no fechamento pelo botão. O
+   `.ai-usage-fill` sai da lista: a §3 já tinha decidido que ele fica, porque
+   animar largura ali não relayouta editor nenhum e trocar por `scaleX`
+   distorceria as pontas arredondadas da barra — a lista pedia o contrário do
+   que a análise concluiu, e quem manda é a análise.
+
+   Duas coisas medidas em 10/08/2026 antes de mexer. A primeira: o arranque
+   também animava, restaurando a largura salva a partir de zero, o que gastava
+   220 ou 240 ms de relayout de Monaco em toda abertura do aplicativo sem
+   ninguém ter pedido animação nenhuma. Isso foi corrigido, e é a parte do P6
+   que dava para fazer sem mudar estrutura.
+
+   A segunda: **o custo do que sobrou não é mensurável pelo harness**. Numa
+   janela que o compositor considera não visível, como a que o Playwright sobe,
+   o Chromium pausa a animação e o `requestAnimationFrame` não dispara — a
+   sonda de quadro devolve zero amostras. Medir isso exige janela visível, ou
+   seja, você com o aplicativo aberto e arquivos no editor. Enquanto não houver
+   essa medida, trocar por `transform` continua sendo mudança estrutural (exige
+   invólucro de largura fixa em volta dos dois painéis, e muda o
+   comportamento: hoje o editor cresce junto com o colapso, e com `translateX`
+   ele passaria a saltar no fim) apostada num ganho que ninguém viu.
 4. **Correção dos bugs conhecidos.** O SAPHO tem vários, e eles são a razão de a
    assinatura ficar por último: assinar uma versão que ainda vai mudar gasta o
    ritual à toa. A lista de bugs vem do uso, não de auditoria minha; conforme

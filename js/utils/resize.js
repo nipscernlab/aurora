@@ -371,15 +371,45 @@ function setupCornerHandle() {
   positionCorner();
 }
 
+/**
+ * Aplica um tamanho SEM animar.
+ *
+ * As transições de largura e altura dos painéis existem para a interação: o
+ * usuário clica no botão e o painel escorre. No arranque não há interação
+ * nenhuma, e animar ali é só custo — a largura salva vem de 0, então cada
+ * abertura de aplicativo pagava 220 ou 240 ms de animação restaurando um estado
+ * que o usuário nem viu mudar. Pior: é exatamente a janela em que o Monaco está
+ * inicializando, e como ele observa o próprio contêiner com `automaticLayout`,
+ * cada quadro daquela animação é um relayout de editor.
+ *
+ * O `void el.offsetWidth` no meio não é enfeite. Sem ele, apagar e repor a
+ * transição no mesmo tique deixa o navegador coalescer as duas escritas e a
+ * animação acontece assim mesmo; ler uma propriedade de layout força o reflow e
+ * torna o tamanho novo o ponto de partida, e não o destino.
+ *
+ * @param {HTMLElement|null} el
+ * @param {() => void} aplicar
+ */
+function semAnimar(el, aplicar) {
+  if (!el) { aplicar(); return; }
+  const antes = el.style.transition;
+  el.style.transition = 'none';
+  aplicar();
+  void el.offsetWidth;
+  el.style.transition = antes;
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────
 function initPanelSizes() {
   const savedW = parseInt(localStorage.getItem(STORAGE_FT_WIDTH), 10);
   if (!isNaN(savedW) && fileTreeContainer) {
-    applyFileTreeWidth(constrainFileTreeWidth(savedW));
+    semAnimar(fileTreeContainer, () => applyFileTreeWidth(constrainFileTreeWidth(savedW)));
   }
   const savedH = parseInt(localStorage.getItem(STORAGE_TERM_H), 10);
   if (!isNaN(savedH) && terminalContainer) {
-    terminalContainer.style.height = constrainTerminalHeight(savedH) + 'px';
+    semAnimar(terminalContainer, () => {
+      terminalContainer.style.height = constrainTerminalHeight(savedH) + 'px';
+    });
   }
 }
 
@@ -411,4 +441,5 @@ export {
   constrainTerminalHeight,
   persistTerminalHeight,
   faixaDosPaineis,
+  semAnimar,
 };

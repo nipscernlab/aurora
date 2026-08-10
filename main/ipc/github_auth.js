@@ -21,6 +21,13 @@ const https = require('https');
 const { app, safeStorage, ipcMain, shell, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
+// As decisoes (o que a resposta significa) moram ao lado, em github_api.js, sem
+// conhecer https nem safeStorage. Aqui fica o que fala rede e guarda segredo.
+const {
+  nomeRepoValido, mapRepo, fimDaPaginacao, erroDeCriacao,
+  intervaloInicialMs, decidirPolling,
+} = require('./github_api');
+
 // GitHub OAuth App (Device Flow). The Client ID is PUBLIC — it ships in the app
 // and the device flow needs NO client secret, so this is safe to commit. Fill it
 // in after registering the OAuth App at github.com/settings/developers with
@@ -122,20 +129,13 @@ function apiPost(apiPath, token, payload) {
 async function createRepo(name, isPrivate) {
   const token = getToken();
   if (!token) throw new Error('Conecte sua conta GitHub primeiro.');
-  if (!name || !/^[A-Za-z0-9._-]+$/.test(name)) throw new Error('Nome de repositório inválido.');
+  if (!nomeRepoValido(name)) throw new Error('Nome de repositório inválido.');
   try {
     const repo = await apiPost('/user/repos', token, { name, private: !!isPrivate, auto_init: false });
     return { fullName: repo.full_name, cloneUrl: repo.clone_url, htmlUrl: repo.html_url };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    // Fine-grained tokens (and classic ones without `repo`) can't create repos.
-    if (/not accessible|forbidden|403/i.test(msg)) {
-      throw new Error('O token não pode criar repositórios. Use um token CLÁSSICO com o escopo "repo" — github.com/settings/tokens/new', { cause: e });
-    }
-    if (/already exists|name already/i.test(msg)) {
-      throw new Error(`Já existe um repositório "${name}" na sua conta.`, { cause: e });
-    }
-    throw new Error(msg, { cause: e });
+    throw new Error(erroDeCriacao(msg, name), { cause: e });
   }
 }
 
@@ -216,22 +216,10 @@ async function listRepos() {
       `/user/repos?per_page=${perPage}&sort=updated&affiliation=owner,collaborator,organization_member&page=${page}`,
       token,
     );
-    if (!Array.isArray(repos) || repos.length === 0) break;
-    all.push(...repos);
-    if (repos.length < perPage) break;
+    if (Array.isArray(repos)) all.push(...repos);
+    if (fimDaPaginacao(repos, perPage)) break;
   }
-  return all.map((r) => ({
-    name: r.name,
-    fullName: r.full_name,
-    cloneUrl: r.clone_url,
-    htmlUrl: r.html_url,
-    private: r.private,
-    description: r.description || '',
-    updatedAt: r.updated_at,
-    owner: r.owner ? r.owner.login : null,
-    ownerType: r.owner ? r.owner.type : null, // 'User' | 'Organization'
-    fork: !!r.fork,
-  }));
+  return all.map(mapRepo);
 }
 
 /** The connected user (no token), or null. */
@@ -309,7 +297,7 @@ async function deviceFlowLogin(sender) {
   } catch (_) { /* window gone */ }
   try { await shell.openExternal(start.verification_uri); } catch (_) { /* user can open it manually */ }
 
-  let intervalMs = ((start.interval || 5) + 1) * 1000;
+  let intervalMs = intervaloInicialMs(start);
   const deadline = Date.now() + ((start.expires_in || 900) * 1000);
   while (Date.now() < deadline) {
     await sleep(intervalMs);
@@ -318,19 +306,17 @@ async function deviceFlowLogin(sender) {
       device_code: start.device_code,
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
     });
-    if (tok && tok.access_token) {
-        const me = await apiGet('/user', tok.access_token);
-        const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
-      const user = { login: me.login, name: me.name || me.login, avatarDataUrl, avatarUrl: me.avatar_url };
-      writeVault({ token: safeStorage.encryptString(tok.access_token).toString('base64'), user });
-      return user;
-    }
-    const err = tok && tok.error;
-    if (err === 'authorization_pending') continue;
-    if (err === 'slow_down') { intervalMs += ((tok.interval ? tok.interval : 5) * 1000); continue; }
-    if (err === 'expired_token') throw new Error('The code expired — please try again.');
-    if (err === 'access_denied') throw new Error('Authorization was denied.');
-    throw new Error((tok && tok.error_description) || err || 'OAuth failed.');
+    // A decisao (o que a resposta significa) esta em github_api.js, com teste.
+    const passo = decidirPolling(tok);
+    if (passo.acao === 'esperar') continue;
+    if (passo.acao === 'desacelerar') { intervalMs += passo.acrescimoMs; continue; }
+    if (passo.acao === 'falhar') throw new Error(passo.mensagem);
+
+    const me = await apiGet('/user', passo.token);
+    const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
+    const user = { login: me.login, name: me.name || me.login, avatarDataUrl, avatarUrl: me.avatar_url };
+    writeVault({ token: safeStorage.encryptString(passo.token).toString('base64'), user });
+    return user;
   }
   throw new Error('Timed out waiting for authorization.');
 }

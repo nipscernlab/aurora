@@ -34,6 +34,14 @@ const tools = require('../ai/tools');
 const toolBridge = require('../ai/tool_bridge');
 const conversations = require('../ai/conversations');
 const audit = require('../ai/audit');
+const { runnerDe } = require('./ai_routing');
+
+/**
+ * Os tres motores, pelo nome que o `runnerDe` devolve. A regra que escolhe
+ * entre eles mora em ai_routing.js, com teste; aqui fica so o mapa de quem e
+ * quem, que e a unica parte que depende dos modulos.
+ */
+const RUNNERS = { 'claude-code': claudeCode, chatgpt: codexCli, api: chat };
 
 /** @param {any} [data] */
 function ok(data) {
@@ -117,7 +125,7 @@ function register() {
   // one-shot isn't wired yet — provider.generateOneshot returns a clear error.)
   ipcMain.handle('ai:generate-oneshot', async (_event, payload) => {
     try {
-      if (payload?.provider === 'claude-code') {
+      if (runnerDe(payload?.provider) === 'claude-code') {
         return await claudeCode.generateOneshot(payload || {});
       }
       return await provider.generateOneshot(payload || {});
@@ -161,9 +169,8 @@ function register() {
   // bridges; everything else goes through the Vercel-AI-SDK chat loop.
   ipcMain.handle('ai:chat-start', (event, payload) => {
     try {
-      /** @type {any} */ let runner = chat;
-      if (payload?.provider === 'claude-code') runner = claudeCode;
-      else if (payload?.provider === 'chatgpt') runner = codexCli;
+      /** @type {any} */
+      const runner = RUNNERS[runnerDe(payload?.provider)];
       runner.start(payload, event.sender).catch((/** @type {any} */ e) => {
         log.warn('[ai] chat start crashed:', e?.message || e);
       });

@@ -210,85 +210,32 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
 - [ ] **3.6 Escrever a página pública de Code signing policy** no site do
       projeto, listando os papéis (Autor, Revisor, Aprovador) e as informações
       de privacidade. É pré-requisito do primeiro release assinado.
-- [ ] **3.7 Ligar a assinatura no `release.yml`.** A assinatura acontece depois
-      do build e antes da publicação, e como a SignPath devolve bytes novos o
-      `latest.yml` precisa ser re-hasheado, senão toda atualização falha por
-      checksum; o [scripts/patch-latest-yml.js](scripts/patch-latest-yml.js) já
-      existe para isso e está órfão de propósito, esperando este passo. O
-      trecho entra condicionado ao `SIGNPATH_API_TOKEN`, degradando para build
-      não assinado em vez de bloquear, porque o serviço não garante
-      disponibilidade (ToS §9/§10) e o certificado pode ser revogado inclusive
-      retroativamente, o que invalidaria assinaturas de instaladores já
-      distribuídos. Assinatura não pode virar bloqueio duro para uma correção
-      urgente, e o caminho não assinado da seção 2 precisa continuar válido.
+- [x] ~~**3.7 Ligar a assinatura no `release.yml`.**~~ Feito em 11/08/2026. O
+      workflow tem dois caminhos escolhidos pela existência do
+      `SIGNPATH_API_TOKEN`: sem o secret, o build publica sem assinatura
+      exatamente como antes, então commitar isso não mudou nada nas releases de
+      hoje. Com o secret, ele constrói sem publicar, submete à SignPath, troca o
+      instalador pelo assinado, refaz o manifesto e publica.
 
-      ```yaml
-      # No nível do job, para os steps ramificarem conforme o token exista:
-      jobs:
-        release:
-          runs-on: windows-latest
-          permissions: { contents: write }
-          env:
-            SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
-          steps:
-            # checkout / node / npm ci / bootstrap / sentinelas / build:ts /
-            # build:renderer permanecem exatamente como estão hoje.
+      Duas correções entraram junto, e as duas só apareceriam na primeira
+      release assinada. O `patch-latest-yml.js` apagava o `.blockmap` em vez de
+      refazê-lo, o que tornaria toda release assinada um download completo de
+      ~500 MB para o laboratório inteiro, não só a primeira; e o portão de
+      integridade do próprio workflow exige o `.blockmap` entre os assets, então
+      a release teria falhado no último passo. Agora o blockmap é reconstruído a
+      partir dos bytes assinados com a implementação do próprio electron-builder
+      (`buildBlockMap`), o que foi verificado num ensaio: o mapa antigo descrevia
+      8388608 bytes e o novo descreve os 8392704 do arquivo assinado.
 
-            - name: Build & publish (unsigned)
-              if: ${{ env.SIGNPATH_API_TOKEN == '' }}
-              run: npx electron-builder --win --x64 --publish always
-              env:
-                GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+      Falta só criar o secret e as três `vars` (`SIGNPATH_ORG_ID`,
+      `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_POLICY_SLUG`) depois do item 3.5, e
+      conferir os nomes dos inputs contra o README da action.
 
-            - name: Build installer (no publish)
-              if: ${{ env.SIGNPATH_API_TOKEN != '' }}
-              run: npx electron-builder --win --x64 --publish never
-
-            - name: Upload unsigned installer for SignPath
-              if: ${{ env.SIGNPATH_API_TOKEN != '' }}
-              id: upload-unsigned
-              uses: actions/upload-artifact@v4
-              with:
-                name: unsigned-installer
-                path: dist/sapho-aurora-Setup-*.exe
-
-            - name: Sign with SignPath
-              if: ${{ env.SIGNPATH_API_TOKEN != '' }}
-              uses: signpath/github-action-submit-signing-request@v2
-              with:
-                api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-                organization-id: ${{ vars.SIGNPATH_ORG_ID }}
-                project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
-                signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
-                github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
-                wait-for-completion: true
-                output-artifact-directory: dist-signed
-
-            - name: Swap in the signed .exe + refresh latest.yml
-              if: ${{ env.SIGNPATH_API_TOKEN != '' }}
-              shell: pwsh
-              run: |
-                $signed = Get-ChildItem dist-signed -Recurse -Filter *.exe | Select-Object -First 1
-                Copy-Item $signed.FullName (Join-Path 'dist' $signed.Name) -Force
-                node scripts/patch-latest-yml.js dist $signed.Name
-
-            - name: Publish signed assets
-              if: ${{ env.SIGNPATH_API_TOKEN != '' }}
-              shell: pwsh
-              env:
-                GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
-              run: |
-                $tag = '${{ github.event.release.tag_name }}'
-                if (-not $tag) { $tag = (git describe --tags --abbrev=0) }
-                $exe = (Get-ChildItem dist -Filter sapho-aurora-Setup-*.exe | Select-Object -First 1).FullName
-                gh release upload $tag $exe dist/latest.yml --repo nipscernlab/sapho --clobber
-      ```
-
-      Alternativa, se a publicação entre repositórios se mostrar chata: o hook
-      `win.sign` do electron-builder pode chamar a SignPath de forma síncrona
-      durante o build, e aí `latest.yml` e o `--publish always` ficam
-      intocados. Custa um cliente REST próprio e não é o caminho documentado
-      pela SignPath, então é o plano B.
+      Plano B, se a submissão pela action se mostrar chata: o hook `win.sign` do
+      electron-builder pode chamar a SignPath de forma síncrona durante o build,
+      e aí o `latest.yml` e o `.blockmap` já nascem dos bytes assinados, sem
+      remendo depois. Custa um cliente REST próprio e não é o caminho
+      documentado pela SignPath.
 - [ ] **3.8 Verificar o primeiro release assinado**: `signtool verify /pa`
       passando, o updater aceitando o instalador sem erro de checksum, e o
       SmartScreen deixando de dizer "unknown publisher". Avisar a quem valida a

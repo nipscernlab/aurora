@@ -102,6 +102,11 @@ jobs:
     permissions:
       contents: read   # this job never writes to `aurora`; it publishes to DIST_REPO
 
+    env:
+      # Read by the step-level `if`s that pick the signed or the unsigned path.
+      # An unset secret expands to the empty string, which is the whole switch.
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -162,17 +167,99 @@ jobs:
         # index.html inside the asar.
         run: npm run build:renderer
 
-      # NOTE: the installer is currently unsigned (SmartScreen warns on first
-      # run). See TODO.md section 3 to enable it — SignPath (free for OSS)
-      # or Azure Trusted Signing (set CSC_LINK/CSC_KEY_PASSWORD as env here and
-      # electron-builder signs the NSIS target inline).
-      - name: Build & publish
+      # ── Signing ───────────────────────────────────────────────────────────
+      # Two paths below, picked by whether SIGNPATH_API_TOKEN exists. Until that
+      # secret is created the first path runs and behaves exactly as before, so
+      # committing this changes nothing about today's releases.
+      #
+      # Signing is deliberately NOT a hard gate. SignPath disclaims availability
+      # (ToS §9/§10) and can revoke a certificate, so a missing or dead
+      # credential degrades to an unsigned build instead of blocking an urgent
+      # fix. The unsigned install path in TODO.md section 2 stays valid forever.
+      #
+      # Before creating the secret, check the action's own README for its input
+      # names, and set the three `vars` (SIGNPATH_ORG_ID, SIGNPATH_PROJECT_SLUG,
+      # SIGNPATH_POLICY_SLUG) from the SignPath panel. TODO.md section 3 lists
+      # what has to be decided there first, including that the free programme
+      # requires a human Approver per signing request.
+      - name: Build & publish (unsigned)
+        if: ${{ env.SIGNPATH_API_TOKEN == '' }}
         run: npx electron-builder --win --x64 --publish always
         env:
           # electron-builder reads GH_TOKEN to create the release + upload assets
           # on DIST_REPO (package.json#build.publish). The default GITHUB_TOKEN
           # is scoped to `aurora` and would 403 here — see the header comment.
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+
+      # Signing replaces the installer's bytes, so nothing may be published
+      # until after it: latest.yml and the .blockmap both describe the bytes
+      # electron-builder produced, and both are rewritten further down.
+      - name: Build installer (no publish)
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        run: npx electron-builder --win --x64 --publish never
+
+      - name: Upload the unsigned installer for SignPath
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        id: upload-unsigned
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-installer
+          path: dist/sapho-aurora-Setup-*.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORG_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_POLICY_SLUG }}
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: dist-signed
+
+      # The signed .exe goes back where electron-builder left the unsigned one,
+      # then latest.yml (sha512 + size) and the .blockmap are rebuilt from it.
+      # Skipping the blockmap rebuild would not break the update, it would make
+      # every signed release a full ~500 MB download for the whole lab, and the
+      # integrity gate below would then fail on the missing asset.
+      - name: Swap in the signed installer and refresh the update manifest
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $signed = Get-ChildItem dist-signed -Recurse -Filter *.exe | Select-Object -First 1
+          if (-not $signed) {
+            Write-Host "::error::SignPath returned no .exe in dist-signed."
+            exit 1
+          }
+          Copy-Item $signed.FullName (Join-Path 'dist' $signed.Name) -Force
+          node scripts/patch-latest-yml.js dist $signed.Name
+
+      - name: Publish the signed assets
+        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag     = "v$version"
+          $exe     = "sapho-aurora-Setup-v$version.exe"
+
+          # `--publish never` above means electron-builder did NOT create the
+          # release on the distribution channel, so create it when absent. The
+          # body is filled in by the mirror step at the end of this job.
+          gh release view $tag --repo $env:DIST_REPO *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo $env:DIST_REPO --title "SAPHO $tag" --notes "Signed release $tag."
+          }
+          gh release upload $tag `
+            (Join-Path 'dist' $exe) `
+            (Join-Path 'dist' "$exe.blockmap") `
+            (Join-Path 'dist' 'latest.yml') `
+            --repo $env:DIST_REPO --clobber
 
       # ── Post-publish integrity gate ─────────────────────────────────────
       # Everything an installed copy does on update is driven by `latest.yml`:

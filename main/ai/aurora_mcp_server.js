@@ -336,7 +336,4 @@ async function stop() {
   });
 }
 
-/** Current URL, or null if the server has not been started yet. */
-function getUrl() { return serverUrl; }
-
-module.exports = { ensureStarted, stop, getUrl };
+module.exports = { ensureStarted, stop };

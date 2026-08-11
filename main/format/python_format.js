@@ -47,11 +47,6 @@ async function resolvePython() {
   return cachedPython;
 }
 
-/** Esquece o interpretador em cache (o usuário pode instalar o black depois). */
-function resetCache() {
-  cachedPython = null;
-}
-
 /**
  * O black avisa que falta o módulo com esta cara. Distinguir isto de um erro
  * de sintaxe é o que permite dar ao usuário a instrução certa.
@@ -149,4 +144,4 @@ function register() {
   ipcMain.handle('format:python-status', () => status());
 }
 
-module.exports = { format, status, register, resetCache };
+module.exports = { format, status, register };

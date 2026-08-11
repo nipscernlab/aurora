@@ -127,9 +127,6 @@ export function ensureManifest() {
 /** True once a load attempt has settled (manifest may still be null on failure). */
 export function ready() { return ensureManifest(); }
 
-/** Test seam: inject a manifest directly (used by unit tests / never in prod). */
-export function _setManifestForTest(m) { _manifest = m; _loadPromise = m ? Promise.resolve(m) : null; }
-
 /** Folder icon URL (default glyph until the manifest is loaded). */
 export function iconUrlForFolder(folderName, { open = false } = {}) {
   if (!_manifest) return `${VENDOR_BASE}${open ? 'folder-open' : 'folder'}.svg`;

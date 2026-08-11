@@ -42,7 +42,6 @@
 'use strict';
 
 const fs = require('fs');
-const os = require('os');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
@@ -297,13 +296,6 @@ function getJson(url, opts = {}) {
   });
 }
 
-/** Diretorio temporario da AURORA para downloads em andamento. */
-function tempRoot() {
-  const dir = path.join(os.tmpdir(), 'aurora-fetch');
-  fs.mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
 /** rm -rf que nunca lanca. Um arquivo travado pelo Windows fica para a proxima. */
 function rmrf(/** @type {string} */ p) {
   try { fs.rmSync(p, { recursive: true, force: true }); } catch (_) { /* best-effort */ }
@@ -316,7 +308,6 @@ module.exports = {
   listArchive,
   getJson,
   tarBinary,
-  tempRoot,
   rmrf,
   IDLE_TIMEOUT_MS,
 };

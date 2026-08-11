@@ -97,26 +97,6 @@ function latest() {
   return lastResult;
 }
 
-/**
- * Checagem barata para o caminho de simulacao. Retorna a lista de bibliotecas
- * que parecem quebradas, ou lista vazia. Nao bloqueia nem interrompe nada:
- * quem chama decide o que fazer com a informacao.
- */
-function preRunCheck() {
-  try {
-    const r = pylibs.sentinelCheck();
-    if (!r.ok) {
-      log.warn(`[pylibs] antes de simular: ${r.broken.join(', ')} parece(m) quebrada(s)`);
-      broadcast({ ok: false, reason: 'pre-run', issues: r.broken.map((id) => ({
-        kind: 'missing-files', id, message: `${id}: arquivos faltando. Use Reparar.`,
-      })) });
-    }
-    return r;
-  } catch (_) {
-    return { ok: true, broken: [] };
-  }
-}
-
 /** Liga o vigia. Idempotente. */
 function start() {
   if (timer) return;
@@ -152,4 +132,4 @@ function stop() {
   if (timer) { clearInterval(timer); timer = null; }
 }
 
-module.exports = { start, stop, sweep, latest, preRunCheck, SWEEP_MS };
+module.exports = { start, stop, sweep, latest, SWEEP_MS };

@@ -24,7 +24,6 @@ function debounce(func, wait) {
 }
 
 const getCPUCount = () => os.cpus().length;
-const getTotalMemory = () => Math.floor(os.totalmem() / (1024 * 1024 * 1024));
 
 function filterGtkWaveOutput(/** @type {string} */ output) {
   const noisePrefixes = [
@@ -143,21 +142,6 @@ function killProcessesByPathPrefix(prefix, timeout = 5000) {
   });
 }
 
-function checkProcessRunning(/** @type {string} */ processName) {
-  return new Promise((resolve) => {
-    // /FI recebe o filtro como UM arg (sem aspas — o execFile nao re-parseia).
-    execFile('tasklist', ['/FI', `IMAGENAME eq ${processName}`, '/NH', '/FO', 'CSV'],
-      { windowsHide: true, timeout: 3000 }, (error, stdout) => {
-      if (error) {
-        resolve(false);
-        return;
-      }
-      const isRunning = stdout.includes(processName) && !stdout.includes('INFO: No tasks');
-      resolve(isRunning);
-    });
-  });
-}
-
 /**
  * Defensive path normalization for IPC inputs. Doesn't confine to any
  * specific root (the IDE legitimately reads from project roots, toolchain,
@@ -223,15 +207,6 @@ function formatTimestamp(now = new Date()) {
   );
 }
 
-function getExecutablePath(/** @type {string} */ executableName, /** @type {string} */ appRoot) {
-  if (executableName === 'yosys') {
-    return path.join(appRoot, 'components', 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
-  }
-  // netlistsvg is no longer a bundled .exe — it runs in-process from
-  // @silimate/netlistsvg (node_modules), so there is no path to resolve.
-  return executableName;
-}
-
 /**
  * A regra do canal `join-path`, que o renderer usa para montar caminho sem
  * saber onde a aplicação foi instalada.
@@ -265,13 +240,10 @@ module.exports = {
   debounce,
   joinAppPath,
   getCPUCount,
-  getTotalMemory,
   filterGtkWaveOutput,
   killProcessSilently,
   killProcessesByName,
   killProcessesByPathPrefix,
-  checkProcessRunning,
-  getExecutablePath,
   safePath,
   sanitizeFileName,
   formatTimestamp,

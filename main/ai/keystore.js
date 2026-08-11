@@ -124,16 +124,10 @@ function clearKey(/** @type {string} */ provider) {
   return true;
 }
 
-/** Providers that currently have a key stored. Order is stable (read order). */
-function listConfiguredProviders() {
-  return Object.keys(readVault()).filter((p) => SUPPORTED_PROVIDERS.includes(p));
-}
-
 module.exports = {
   SUPPORTED_PROVIDERS,
   setKey,
   getKey,
   hasKey,
   clearKey,
-  listConfiguredProviders,
 };

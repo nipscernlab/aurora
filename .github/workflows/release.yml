@@ -163,7 +163,7 @@ jobs:
         run: npm run build:renderer
 
       # NOTE: the installer is currently unsigned (SmartScreen warns on first
-      # run). See docs/CODE_SIGNING.md to enable it — SignPath (free for OSS)
+      # run). See TODO.md section 3 to enable it — SignPath (free for OSS)
       # or Azure Trusted Signing (set CSC_LINK/CSC_KEY_PASSWORD as env here and
       # electron-builder signs the NSIS target inline).
       - name: Build & publish

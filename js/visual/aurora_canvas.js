@@ -1,5 +1,5 @@
 /**
- * <aurora-canvas> — the signature ambient aurora (docs/DESIGN.md §7).
+ * <aurora-canvas> — the signature ambient aurora (TODO.md, design principles).
  *
  * Sky-spanning aurora-borealis curtains seen in perspective: a volumetric ray
  * march whose depth reads as 3D sheets receding into the night sky, coloured by

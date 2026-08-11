@@ -80,7 +80,7 @@ class StandardTreeCrud {
     constructor() {
         this.selectedPath = null;
         // { path, name, isDir, cut } — single-entry clipboard (multi-select is
-        // a future step; documented in docs/ESTUDO_COMPLETO_AURORA.md).
+        // a future step; documented in TODO.md, secao 5).
         this.clipboard = null;
         this._inlineCleanup = null;
 

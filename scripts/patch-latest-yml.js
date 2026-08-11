@@ -10,7 +10,7 @@
 // falls back to a full (always-valid) download instead of a broken delta.
 //
 // Not needed if you sign DURING the build (electron-builder `win.sign` hook) —
-// only for the post-build SignPath-Action flow. See docs/CODE_SIGNING.md.
+// only for the post-build SignPath-Action flow. See TODO.md, section 3.
 //
 // Usage:  node scripts/patch-latest-yml.js <distDir> <signedExeName>
 //   e.g.  node scripts/patch-latest-yml.js dist sapho-aurora-Setup-v6.4.0.exe

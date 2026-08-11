@@ -25,7 +25,7 @@ collaboration with CERN. The project page is
 [nipscern.com/projects/aurora](https://www.nipscern.com/projects/aurora).
 
 Screenshots and demo recordings are still pending; the shot list lives in
-[docs/media/](docs/media/).
+[TODO.md](TODO.md).
 
 ## What it does
 
@@ -197,11 +197,10 @@ always reveals the real file. The log rolls over around 5 MB and defaults to the
 
 ## Documentation
 
-[ESTUDO_CODIGO_AURORA.md](docs/ESTUDO_CODIGO_AURORA.md) describes how the
-application is built: the process model, the IPC boundary, the compilation
-pipeline, and each subsystem, all read from the code.
-[ARCHITECTURE.md](ARCHITECTURE.md) covers the state contracts.
-[TODO.md](TODO.md) is the honest backlog of what has not been done yet.
+[ARCHITECTURE.md](ARCHITECTURE.md) covers the state contracts the renderer
+depends on but does not enforce, each one learned from something breaking
+subtly. [TODO.md](TODO.md) is the single implementation guide and the honest
+backlog of what has not been done yet.
 
 ## Contributing, security, licence
 

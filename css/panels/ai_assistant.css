@@ -300,7 +300,7 @@ body.ai-assistant-open {
 }
 /* Reveal once on the first message, then breathe. The breathing starts after the
    reveal (equal delay) and the reveal SETTLES to the breathing's baseline (0.82)
-   so the hand-off has no visible jump. No overshoot — DESIGN.md forbids bounce. */
+   so the hand-off has no visible jump. No overshoot: aurora drifts, never bounces. */
 .ai-aurora-glow.revealed {
   animation:
     aiArcReveal 2200ms var(--ease-reveal, cubic-bezier(0.16, 1, 0.3, 1)) forwards,

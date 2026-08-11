@@ -264,7 +264,7 @@
   --w-edge-rail:  24px;
 
   /* =========================================================================
-   *  Motion — "deriva de aurora" (ver docs/DESIGN.md §6)
+   *  Motion — "deriva de aurora" (ver TODO.md, Princípios de desenho)
    *  A aurora escorre: fluxo contínuo e eased, NUNCA spring/bounce.
    *  Regra: animar só transform/opacity (orçamento ~6ms/frame @165Hz).
    * ======================================================================= */

@@ -70,7 +70,7 @@ linhas.push('     `description` dela em main/ai/tools.js, que e o mesmo texto qu
 linhas.push('     modelo le ao decidir se a chama. -->');
 linhas.push('');
 linhas.push(`A AURORA expoe ${TOOL_MANIFEST.length} ferramentas ao modelo. Elas chegam ate ele por dois`);
-linhas.push('caminhos, descritos no [estudo do codigo](ESTUDO_CODIGO_AURORA.md).');
+linhas.push('caminhos, descritos abaixo.');
 linhas.push('');
 linhas.push('Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel');
 linhas.push('AI SDK. Pelo caminho de assinatura, as CLIs do Claude Code e do Codex so');

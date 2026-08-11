@@ -1,8 +1,7 @@
 # Invariantes do renderer
 
 Isto não é visão geral nem documento de introdução; para isso leia o
-[README.md](README.md), e para entender como a aplicação é montada leia o
-[estudo do código](docs/ESTUDO_CODIGO_AURORA.md).
+[README.md](README.md), e para o que ainda falta fazer, o [TODO.md](TODO.md).
 
 O que está aqui são os contratos que o renderer depende mas não impõe. Cada um
 foi aprendido com alguma coisa quebrando de forma sutil. Leia antes de refatorar
@@ -360,5 +359,4 @@ O caminho é [aurora_api.js](js/api/aurora_api.js), depois
 a mesma API que o modelo chama. Capacidade alcançável só por clique é um bug nesta
 camada.
 
-O plano completo está em
-[ESTUDO_CPP_PROCESSADORES.md](docs/ESTUDO_CPP_PROCESSADORES.md).
+O plano completo está na seção 7 do [TODO.md](TODO.md).

@@ -379,9 +379,9 @@ class AuroraWelcome extends LitElement {
 
   /* Stylesheet for the body-level processor popover (see _onHover for why it
      can't live in this shadow root). Injected ONCE into document.head. Token-
-     based — no inline hex — so it tracks the theme and honours DESIGN.md:
-     elevation by light + luminous border (§4), reveal not fly (§6), and pills
-     coloured as aurora bands from the 16 processor slots (§2). */
+     based — no inline hex — so it tracks the theme and honours the design
+     principles in TODO.md: elevation by light and luminous border, reveal not
+     fly, and pills coloured as aurora bands from the 16 processor slots. */
   static procPopCSS = `
     .aurora-proc-pop {
       position: fixed;

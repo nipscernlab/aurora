@@ -6,7 +6,7 @@
      modelo le ao decidir se a chama. -->
 
 A AURORA expoe 106 ferramentas ao modelo. Elas chegam ate ele por dois
-caminhos, descritos no [estudo do codigo](ESTUDO_CODIGO_AURORA.md).
+caminhos, descritos abaixo.
 
 Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel
 AI SDK. Pelo caminho de assinatura, as CLIs do Claude Code e do Codex so

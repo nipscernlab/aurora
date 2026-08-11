@@ -175,20 +175,21 @@ jobs:
       # SIGNPATH_POLICY_SLUG) from the SignPath panel. TODO.md section 3 lists
       # what has to be decided there first, including that the free programme
       # requires a human Approver per signing request.
-      - name: Build & publish (unsigned)
-        if: ${{ env.SIGNPATH_API_TOKEN == '' }}
-        run: npx electron-builder --win --x64 --publish always
-        env:
-          # electron-builder reads GH_TOKEN to create the release + upload assets
-          # on DIST_REPO (package.json#build.publish). The default GITHUB_TOKEN
-          # is scoped to `aurora` and would 403 here — see the header comment.
-          GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
-
-      # Signing replaces the installer's bytes, so nothing may be published
-      # until after it: latest.yml and the .blockmap both describe the bytes
-      # electron-builder produced, and both are rewritten further down.
-      - name: Build installer (no publish)
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+      # Always `--publish never`. electron-builder's own GitHub publisher used to
+      # do the upload, and it is the wrong tool for a CROSS-repo release: it
+      # half-published 6.4.0, putting the 550 MB installer on the release and
+      # then dying with "Published releases must have a valid tag" before
+      # `latest.yml` and the `.blockmap` went up. An installer without
+      # `latest.yml` is worse than no release at all — every client polls that
+      # file, so the channel looks alive and updates nothing. It is very likely
+      # the same reason v6.3.2 had to be published by hand.
+      #
+      # `--publish never` still writes `latest.yml` and the `.blockmap`: for an
+      # NSIS target electron-builder sets `isWriteUpdateInfo` regardless of the
+      # publish policy, so only the upload is ours to do. Doing it explicitly
+      # below also means the signed and unsigned paths publish through the same
+      # step, instead of two publishers that can disagree.
+      - name: Build installer
         run: npx electron-builder --win --x64 --publish never
 
       - name: Upload the unsigned installer for SignPath
@@ -230,8 +231,11 @@ jobs:
           Copy-Item $signed.FullName (Join-Path 'dist' $signed.Name) -Force
           node scripts/patch-latest-yml.js dist $signed.Name
 
-      - name: Publish the signed assets
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+      # The single publish path, signed or not. Uploading all three assets in
+      # one command is deliberate: the updater needs `latest.yml` to see the
+      # release at all and the `.blockmap` to download only what changed, so
+      # partial success is the failure mode worth designing against.
+      - name: Publish to the distribution channel
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -241,18 +245,27 @@ jobs:
           $tag     = "v$version"
           $exe     = "sapho-aurora-Setup-v$version.exe"
 
-          # `--publish never` above means electron-builder did NOT create the
-          # release on the distribution channel, so create it when absent. The
-          # body is filled in by the mirror step at the end of this job.
+          $assets = @(
+            (Join-Path 'dist' $exe),
+            (Join-Path 'dist' "$exe.blockmap"),
+            (Join-Path 'dist' 'latest.yml')
+          )
+          $absent = $assets | Where-Object { -not (Test-Path $_) }
+          if ($absent) {
+            Write-Host "::error::The build did not produce: $($absent -join ', ')"
+            exit 1
+          }
+
+          # The release may already exist: release-please creates one on THIS
+          # repo, but the distribution channel is a different repo, so it has
+          # to be created there. A re-run after a failed publish finds it and
+          # just replaces the assets. The body is filled in by the mirror step.
           gh release view $tag --repo $env:DIST_REPO *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --repo $env:DIST_REPO --title "SAPHO $tag" --notes "Signed release $tag."
+            gh release create $tag --repo $env:DIST_REPO --title "SAPHO $tag" --notes "SAPHO $tag"
           }
-          gh release upload $tag `
-            (Join-Path 'dist' $exe) `
-            (Join-Path 'dist' "$exe.blockmap") `
-            (Join-Path 'dist' 'latest.yml') `
-            --repo $env:DIST_REPO --clobber
+          gh release upload $tag $assets --repo $env:DIST_REPO --clobber
+          Write-Host "Published $tag to $env:DIST_REPO: $($assets.Count) assets."
 
       # ── Post-publish integrity gate ─────────────────────────────────────
       # Everything an installed copy does on update is driven by `latest.yml`:

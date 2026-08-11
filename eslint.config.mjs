@@ -102,6 +102,18 @@ export default defineConfig([
   },
 
   {
+    // Same situation as the E2E block below, for the one script that drives
+    // Playwright: its page.evaluate() callbacks are Node source that executes
+    // in the renderer. Scoped to the single file so `scripts/**` keeps its
+    // Node-only globals.
+    files: ["scripts/capture-media.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: { ...globals.node, window: "readonly", document: "readonly" },
+    },
+  },
+
+  {
     // E2E tests: ES modules, Node globals (vitest + playwright), plus
     // a few `window.*` references inside page.evaluate() callbacks where
     // the body actually runs in the renderer. Mark `window` readonly so

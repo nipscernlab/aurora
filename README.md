@@ -24,8 +24,13 @@ It is developed by [NIPS-CERN](https://www.nipscern.com), a research group at th
 collaboration with CERN. The project page is
 [nipscern.com/projects/aurora](https://www.nipscern.com/projects/aurora).
 
-Screenshots and demo recordings are still pending; the shot list lives in
-[TODO.md](TODO.md).
+<p align="center">
+  <img src="docs/media/hero.png" alt="AURORA with a SAPHO project open: the file tree, a C± processor in the editor, and the terminal" width="100%">
+</p>
+
+The screenshot is taken from the running application by
+[scripts/capture-media.js](scripts/capture-media.js), so it can be retaken
+whenever the interface changes. Demo recordings are still pending.
 
 ## What it does
 

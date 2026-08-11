@@ -331,15 +331,23 @@ Pós-release, com a regra de sempre: medir antes de mexer.
 
 ## 6. Profissionalizar o repositório
 
-- [ ] **Mídia real do README**, hoje inexistente. Capturar do app de verdade,
-      sem fabricar arte, e guardar em `docs/media/`: `hero.png` com a IDE de
-      projeto aberto, editor, árvore e terminal, ~1600 px de largura;
-      `split-editor.gif` mostrando o split e o modelo compartilhado entre
-      panes; `compile.gif` com uma corrida C± → ASM → Verilog → simulação e o
-      terminal transmitindo; `prism.gif` com zoom e pan no visualizador RTL;
-      `waveform.gif` com uma forma de onda no Surfer ou GTKWave. GIFs de poucos
-      MB, otimizados com `gifsicle -O3` ou exportados como MP4 mudo. Quando
-      existirem, trocar a frase do README que diz que estão pendentes.
+- [x] ~~**`hero.png` do README.**~~ Feito em 11/08/2026 e já no README. Sai do
+      aplicativo de verdade pelo [scripts/capture-media.js](scripts/capture-media.js),
+      que monta um projeto descartável com a média móvel do manual, abre a
+      AURORA nele, expande o terminal e captura 1600x1000. É script e não
+      PrtScn porque a foto precisa ser refeita a cada mudança de interface, e
+      uma tirada à mão carrega o desktop de quem tirou. Duas armadilhas ficaram
+      registradas lá dentro: emular métrica por CDP não reflowa o layout, e a
+      janela só aceita tamanho maior que o monitor depois de `unmaximize()`.
+- [ ] **Os quatro GIFs do README.** `split-editor.gif` e `compile.gif` são
+      alcançáveis pelo mesmo script (o segundo precisa de uma compilação real,
+      que a toolchain local roda). `prism.gif` exige síntese com Yosys e a
+      janela do PRISM. `waveform.gif` **não é automatizável por aqui**: o
+      GTKWave e o Surfer são janelas externas, fora do alcance do Playwright,
+      então ou é gravação de tela sua, ou o Surfer embutido da seção 8 resolve
+      junto. Vale um encoder: o `ffmpeg` existe nesta máquina mas não é
+      dependência do projeto, então o script precisa degradar com recado claro
+      em vez de estourar.
 - [x] ~~**CITATION.cff** com `date-released` defasado.~~ Resolvido na raiz em
       11/08/2026: o arquivo entrou no `extra-files` do release-please e as duas
       linhas ganharam as anotações `x-release-please-version` e

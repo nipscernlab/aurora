@@ -64,6 +64,17 @@ const GTKWAVE_DIR = path.join(COMPONENTS, 'Packages', 'gtkwave-nipscern');
 
 const PROC = 'mediamovel';
 
+// Windows can hand back the 8.3 short form of a path, and os.tmpdir() does
+// exactly that on the GitHub runner, whose user is `runneradmin`:
+// C:\Users\RUNNER~1\AppData\Local\Temp. Verilator runs as a Perl script under
+// msys, and the tilde does not survive the trip — it failed with "Can't write
+// file" plus "The system cannot find the path specified" while creating its
+// own obj_dir, which reads as a Verilator bug and is really a path that no
+// longer points anywhere. It never reproduces on a developer machine whose
+// user name is already short enough to need no 8.3 form. realpathSync.native
+// asks Windows for the long name, which every tool in the chain handles.
+const TMP_ROOT = fs.realpathSync.native(os.tmpdir());
+
 /** Everything this test shells out to. Missing any of them means "skip". */
 const REQUIRED_BINARIES = {
   cmmcomp: path.join(COMPONENTS, 'bin', 'cmmcomp.exe'),
@@ -114,7 +125,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
   let asmPath;
 
   beforeAll(() => {
-    workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-toolchain-'));
+    workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-toolchain-'));
     projectPath = path.join(workdir, PROC);
     softwarePath = path.join(projectPath, 'Software');
     hardwarePath = path.join(projectPath, 'Hardware');
@@ -344,7 +355,7 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
     // A processor to simulate. Repeats the C±→Verilog steps rather than
     // reusing the other describe's state, so the two suites stay independent
     // and either can be run alone with `-t`.
-    workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-verilator-'));
+    workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-verilator-'));
     const projectPath = path.join(workdir, PROC);
     const softwarePath = path.join(projectPath, 'Software');
     const hardwarePath = path.join(projectPath, 'Hardware');
@@ -551,7 +562,7 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
   }
 
   beforeAll(() => {
-    workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-cocotb-'));
+    workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-cocotb-'));
     const projectPath = path.join(workdir, PROC);
     const softwarePath = path.join(projectPath, 'Software');
     const hardwarePath = path.join(projectPath, 'Hardware');
@@ -679,7 +690,7 @@ describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
   let sources;
 
   beforeAll(() => {
-    workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-prism-'));
+    workdir = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-prism-'));
     const projectPath = path.join(workdir, PROC);
     const softwarePath = path.join(projectPath, 'Software');
     const hardwarePath = path.join(projectPath, 'Hardware');

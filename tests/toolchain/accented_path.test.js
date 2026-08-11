@@ -33,11 +33,18 @@ const faltando = Object.entries(BIN).filter(([, p]) => !fs.existsSync(p)).map(([
 /** O nome de pasta que uma máquina brasileira produz sem ninguém pedir. */
 const PASTA_ACENTUADA = path.join('Área de Trabalho', 'Meu Projeto');
 
+// O Windows devolve caminho no formato curto 8.3 quando o nome do usuário é
+// longo, e o os.tmpdir() do runner do CI faz exatamente isso:
+// C:\Users\RUNNER~1\AppData\Local\Temp. Misturar o til com acento e espaço é
+// pedir para alguma etapa da toolchain se perder, e o objetivo daqui é provar
+// o acento, não descobrir de novo o caminho curto. Ver a nota no pipeline.test.js.
+const TMP_ROOT = fs.realpathSync.native(os.tmpdir());
+
 describe.skipIf(faltando.length)('toolchain sob caminho com acento e espaço', () => {
   let base; let projectPath; let softwarePath; let tempPath;
 
   beforeAll(() => {
-    base = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-acento-'));
+    base = fs.mkdtempSync(path.join(TMP_ROOT, 'aurora-acento-'));
     projectPath = path.join(base, PASTA_ACENTUADA, PROC);
     softwarePath = path.join(projectPath, 'Software');
     tempPath = path.join(base, PASTA_ACENTUADA, 'Temp', PROC);

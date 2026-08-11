@@ -237,7 +237,7 @@
     "fs-extra": "^11.4.0",
     "jquery": "^3.7.1",
     "jquery-ui": "^1.14.2",
-    "katex": "^0.18.1",
+    "katex": "^0.18.2",
     "lit": "^3.3.3",
     "material-icon-theme": "^5.37.0",
     "monaco-editor": "0.52.2",

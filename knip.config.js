@@ -57,5 +57,14 @@ module.exports = {
                                      //   (vite.config.mjs -> dist/vendor/material-icons/);
                                      //   js/tree/material_icons.js then fetches it by URL, so
                                      //   there is no import edge for knip to follow.
+    'app-builder-lib',               // scripts/patch-latest-yml.js reaches into it for
+                                     //   electron-builder's own buildBlockMap, to rebuild the
+                                     //   .blockmap from the SIGNED installer. Deliberately NOT
+                                     //   declared as a dependency: it must be exactly the copy
+                                     //   electron-builder just used, and pinning our own would
+                                     //   let the two drift into different blockmap formats —
+                                     //   a delta that fails only on the user's machine. The
+                                     //   script runs in CI moments after electron-builder, and
+                                     //   degrades with a warning if the internal path moves.
   ],
 };

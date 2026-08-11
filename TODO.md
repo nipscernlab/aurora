@@ -33,8 +33,21 @@ ninguém nunca viu uma atualização acontecer. A promessa para o laboratório �
 falhar em 30 máquinas ao mesmo tempo, com aula acontecendo. Este ensaio é o
 passo que a frota não pode ser a primeira a fazer.
 
-- [ ] Merge do PR #63, que cria a tag v6.4.0, dispara o `release.yml` e publica
-      `sapho-aurora-Setup-v6.4.0.exe` em `nipscernlab/sapho`.
+- [x] ~~Merge do PR #63 e publicação da 6.4.0.~~ Feito em 11/08/2026. Está em
+      `nipscernlab/sapho` com os três assets, e o portão de integridade conferiu
+      por fora, como um cliente faria: 525 MB, sha512 batendo, blockmap
+      presente, e 79 mil caracteres de changelog espelhados.
+
+      O pipeline nunca tinha rodado inteiro, e quatro defeitos só apareceram
+      aqui, todos corrigidos. A verificação da toolchain procurava `surfer.exe`
+      quando o binário do fork é `surfer-aurora.exe`. O Verilator quebrava no
+      runner porque o `os.tmpdir()` de lá volta em formato curto 8.3 e o til não
+      sobrevive ao Perl do msys. O electron-builder publicava num repositório
+      diferente do que constrói, subiu o instalador e morreu antes do
+      `latest.yml`, deixando uma release publicada e inútil, que é quase
+      certamente a razão de a v6.3.2 ter ido à mão. E o portão que confere o
+      feed lia o `latest.yml` como bytes, então acusava divergência num arquivo
+      correto e ainda mandava apagar a release.
 - [ ] Instalar a 6.4.0 na máquina do LABEL e rodar o roteiro da seção 2.7.
 - [ ] Fazer uma alteração trivial, mergear o novo PR de release, publicar a
       6.4.1.
@@ -311,14 +324,29 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       Ctrl e Shift, undo com Ctrl+Z, auto-refresh por watcher na visão Folders,
       preservar cursor e scroll no rename, awareness do `.spf`. O drag and drop
       já saiu em 08/08.
-- [ ] **Restos de design.** Noventa e seis valores em propriedade de espaçamento
-      fora da escala, como 10, 14 e 18 px: ou a escala ganha esses degraus, ou
-      eles ficam. Setenta e quatro `!important`, dos quais cerca de trinta
-      vivem no `editor.css` contra o CSS do próprio Monaco e só saem com o
-      editor em Shadow DOM. Consolidar as paletas divergentes de `splash.html`
-      e `update-notification.html` na fonte única de tokens. Avaliar um lint de
-      design no CI, que falhe em hex cravado, `!important` novo e duração fora
-      de token. Decidir a marca entre SAPHO, AURORA e Dagr.
+- [ ] **Consolidar os estilos.** Pedido em 11/08/2026, e a lista concreta é
+      esta. Consolidar as paletas divergentes de `splash.html` e
+      `update-notification.html`, que redeclaram cores próprias em vez de ler os
+      tokens, e é assim que as três se afastam. Noventa e seis valores em
+      propriedade de espaçamento fora da escala, como 10, 14 e 18 px: ou a
+      escala ganha esses degraus, ou eles ficam, mas decidido e não por omissão.
+      Setenta e quatro `!important`, dos quais cerca de trinta vivem no
+      `editor.css` contra o CSS do próprio Monaco e só saem com o editor em
+      Shadow DOM. Os dois vocabulários de token ainda convivem, os aliases
+      legados ao lado dos semânticos. Fechar com um lint de design no CI, que
+      falhe em hex cravado, `!important` novo e duração fora de token, senão a
+      deriva volta sozinha. Decidir a marca entre SAPHO, AURORA e Dagr.
+- [ ] **Varredura de código morto.** Pedido em 11/08/2026. O estado medido no
+      mesmo dia já é bom e vale registrar para não se repetir a medição:
+      `npm run deadcode:all` não acusa nenhum arquivo órfão nem dependência sem
+      uso, e o `deadcode` do CI passa limpo. O que sobra são 175 exports sem
+      consumidor, e a maior parte deles é deliberada: são funções expostas só
+      para o teste alcançar, que é o método que esta base usa para tornar
+      código testável (`main/updater.js`, `main/recents.js`, `main/temp_gc.js`
+      e companhia exportam exatamente assim). O trabalho, então, não é apagar os
+      175: é separar os que existem para teste dos que ninguém chama mais, e só
+      os segundos somem. Feito isso, avaliar subir `exports` para o `--include`
+      do CI, para a lista não crescer de novo.
 - [ ] **jQuery preso na 3.x pelo digitaljs.** O digitaljs 0.14.2, que desenha a
       simulação interativa do PRISM, declara `jquery: ^3.7.1`. Subir a raiz
       para a 4 instala duas cópias e o digitaljs resolveria a sua própria, sem

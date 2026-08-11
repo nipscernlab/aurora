@@ -332,27 +332,54 @@ jobs:
       # empty body, so the update window — which reads release notes from
       # DIST_REPO via main/updater.js `fetchReleaseNotes` — would show a blank
       # changelog. Copy the notes across so users see what changed.
+      #
+      # This used to run only `if: github.event_name == 'release'`, reading the
+      # body straight off the event payload, and that made it dead code. The
+      # release is created by release-please using GITHUB_TOKEN, and GitHub does
+      # not fire workflow triggers for events raised with that token — it is how
+      # it stops workflows from setting each other off in a loop. So `on:
+      # release: published` never fires here, this workflow is always started by
+      # hand (which is what the README describes), the event was never 'release',
+      # and the step never ran. Every published update would have shown an empty
+      # changelog. Fetch the notes by tag instead, and let the payload be a
+      # shortcut for the day the trigger does fire.
       - name: Mirror release notes to the distribution channel
-        if: github.event_name == 'release'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
+          SOURCE_REPO: ${{ github.repository }}
           SOURCE_NOTES: ${{ github.event.release.body }}
-          TAG: ${{ github.event.release.tag_name }}
+          EVENT_TAG: ${{ github.event.release.tag_name }}
         run: |
-          if (-not $env:SOURCE_NOTES) {
-            Write-Host "Source release has no body — leaving the distribution release notes as-is."
-            exit 0
-          }
+          $ErrorActionPreference = 'Stop'
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = if ($env:EVENT_TAG) { $env:EVENT_TAG } else { "v$version" }
+
           $headers = @{
             Authorization = "Bearer $env:GH_TOKEN"
             Accept        = 'application/vnd.github+json'
             'User-Agent'  = 'aurora-release-workflow'
           }
+
+          $notes = $env:SOURCE_NOTES
+          if (-not $notes) {
+            try {
+              $src = Invoke-RestMethod -Headers $headers `
+                -Uri "https://api.github.com/repos/$env:SOURCE_REPO/releases/tags/$tag"
+              $notes = $src.body
+            } catch {
+              Write-Host "::warning::Could not read release $tag on $env:SOURCE_REPO — $($_.Exception.Message)"
+            }
+          }
+          if (-not $notes) {
+            Write-Host "::warning::No release notes found for $tag. The update window will show an empty changelog."
+            exit 0
+          }
+
           $rel = Invoke-RestMethod -Headers $headers `
-            -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/tags/$env:TAG"
-          $body = @{ body = $env:SOURCE_NOTES; name = "SAPHO $env:TAG" } | ConvertTo-Json
+            -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/tags/$tag"
+          $body = @{ body = $notes; name = "SAPHO $tag" } | ConvertTo-Json
           Invoke-RestMethod -Method Patch -Headers $headers `
             -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/$($rel.id)" `
             -ContentType 'application/json' -Body $body | Out-Null
-          Write-Host "Release notes mirrored to $env:DIST_REPO $env:TAG."
+          Write-Host "Release notes mirrored to $env:DIST_REPO $tag ($($notes.Length) chars)."

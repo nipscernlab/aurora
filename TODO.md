@@ -324,29 +324,36 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       Ctrl e Shift, undo com Ctrl+Z, auto-refresh por watcher na visão Folders,
       preservar cursor e scroll no rename, awareness do `.spf`. O drag and drop
       já saiu em 08/08.
-- [ ] **Consolidar os estilos.** Pedido em 11/08/2026, e a lista concreta é
-      esta. Consolidar as paletas divergentes de `splash.html` e
-      `update-notification.html`, que redeclaram cores próprias em vez de ler os
-      tokens, e é assim que as três se afastam. Noventa e seis valores em
-      propriedade de espaçamento fora da escala, como 10, 14 e 18 px: ou a
-      escala ganha esses degraus, ou eles ficam, mas decidido e não por omissão.
-      Setenta e quatro `!important`, dos quais cerca de trinta vivem no
-      `editor.css` contra o CSS do próprio Monaco e só saem com o editor em
-      Shadow DOM. Os dois vocabulários de token ainda convivem, os aliases
-      legados ao lado dos semânticos. Fechar com um lint de design no CI, que
-      falhe em hex cravado, `!important` novo e duração fora de token, senão a
-      deriva volta sozinha. Decidir a marca entre SAPHO, AURORA e Dagr.
-- [ ] **Varredura de código morto.** Pedido em 11/08/2026. O estado medido no
-      mesmo dia já é bom e vale registrar para não se repetir a medição:
-      `npm run deadcode:all` não acusa nenhum arquivo órfão nem dependência sem
-      uso, e o `deadcode` do CI passa limpo. O que sobra são 175 exports sem
-      consumidor, e a maior parte deles é deliberada: são funções expostas só
-      para o teste alcançar, que é o método que esta base usa para tornar
-      código testável (`main/updater.js`, `main/recents.js`, `main/temp_gc.js`
-      e companhia exportam exatamente assim). O trabalho, então, não é apagar os
-      175: é separar os que existem para teste dos que ninguém chama mais, e só
-      os segundos somem. Feito isso, avaliar subir `exports` para o `--include`
-      do CI, para a lista não crescer de novo.
+- [x] ~~**Consolidar as paletas divergentes.**~~ Feito em 11/08/2026. As três
+      janelas tinham derivado para três céus noturnos, o app em `#0A0D14`, o
+      splash em `#03060F` e a janela de atualização em `#060A14`, cada uma com
+      a sua rampa de texto. As superfícies, o texto e a cor de erro passaram
+      para o `brand_tokens.css`, onde os acentos já estavam, e as duas janelas
+      isoladas leem de lá. Fechado com uma catraca no CI
+      ([scripts/check-design-tokens.js](scripts/check-design-tokens.js)), que
+      não exige limpar as 163 cores e 172 durações cravadas de hoje, só que o
+      número não suba; quando um arquivo melhora, ela pede que a linha desça.
+- [ ] **O resto dos estilos.** Noventa e seis valores em propriedade de
+      espaçamento fora da escala, como 10, 14 e 18 px: ou a escala ganha esses
+      degraus, ou eles ficam, mas decidido e não por omissão. Setenta e quatro
+      `!important`, dos quais cerca de trinta vivem no `editor.css` contra o CSS
+      do próprio Monaco e só saem com o editor em Shadow DOM. Os dois
+      vocabulários de token ainda convivem, os aliases legados ao lado dos
+      semânticos. O `git_panel.css` sozinho concentra 70 das cores cravadas e é
+      por onde a catraca desce mais rápido. Decidir a marca entre SAPHO, AURORA
+      e Dagr.
+- [x] ~~**Varredura de código morto.**~~ Feita em 11/08/2026. Nenhum arquivo
+      órfão, nenhuma dependência sem uso. Dos 175 exports sem consumidor, 37
+      existem para o teste alcançar o código, que é o método desta base para
+      tornar módulo testável, e 129 são exportação supérflua com o código vivo
+      dentro do próprio arquivo. Sobraram nove funções que ninguém chamava, e
+      saíram; o lint achou a cascata sozinho, porque sem o `tempRoot` o
+      `require('os')` do fetcher ficou sem uso.
+- [ ] **Aparar as 129 exportações supérfluas.** É superfície de API, não código
+      morto, então não urge; o ganho é a lista do knip voltar a significar
+      alguma coisa. Em CommonJS é tirar o nome do `module.exports`; em ESM é
+      tirar a palavra `export` da definição. Depois disso, avaliar subir
+      `exports` para o `--include` do `deadcode` no CI.
 - [ ] **jQuery preso na 3.x pelo digitaljs.** O digitaljs 0.14.2, que desenha a
       simulação interativa do PRISM, declara `jquery: ^3.7.1`. Subir a raiz
       para a 4 instala duas cópias e o digitaljs resolveria a sua própria, sem

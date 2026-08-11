@@ -3,8 +3,17 @@
 SAPHO / AURORA bundles, downloads at bootstrap, or links against the third-party
 software listed below. Each component remains under its own license; those
 licenses apply to their respective files in addition to AURORA's own
-[LICENSE](LICENSE) (MIT). Full license texts are available from each project's
-upstream repository.
+[LICENSE](LICENSE) (NIPS-CERN Licence 1.1). Full license texts are available
+from each project's upstream repository.
+
+**The YANC compiler chain is not on this page, and that is deliberate.**
+`cmmcomp`, `asmcomp`, `appcomp`, `cpppp`, `cppcomp`, `comp2gtkw` and `gen_gtkw`
+ship in the installer as binaries, but they are the laboratory's own work,
+written here from scratch, and they live in
+[`nipscernlab/yanc`](https://github.com/nipscernlab/yanc) under the MIT licence.
+A separate repository and a permissive licence do not make software third-party;
+listing them here would say the compilers came from somewhere else. Annex A3 of
+the [LICENSE](LICENSE) covers them.
 
 This file is generated/maintained from `package.json` and the toolchain download
 manifests (`components/Scripts/download-*.js`). When you add or bump a bundled
@@ -24,7 +33,6 @@ and shipped in the installer; they are not part of the source tree.
 | Verilator | Fast Verilog simulation | LGPL-3.0 or Artistic-2.0 |
 | Python + cocotb | Cocotb test flow | PSF (Python) · BSD-3-Clause (cocotb) |
 | MSYS2 / MinGW runtime | Hosts the GTK/Yosys binaries on Windows | various (GPL/LGPL/MIT per package) |
-| YANC (`cmmcomp`, `asmcomp`, `appcomp`, `cpppp`, `cppcomp`, `comp2gtkw`, `gen_gtkw`) | The SAPHO compiler chain, plus complex-number decode for waveforms | MIT, from [`nipscernlab/yanc`](https://github.com/nipscernlab/yanc) |
 
 ## AI command-line tools (bundled via npm)
 

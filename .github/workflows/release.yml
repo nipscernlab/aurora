@@ -130,21 +130,14 @@ jobs:
       - name: Verify toolchain sentinels
         # The downloaders exit 0 on failure (so a dev offline can still start the
         # IDE). A *release* must NOT ship without the toolchain, so fail loudly
-        # if bootstrap left any sentinel missing.
-        shell: pwsh
-        run: |
-          $sentinels = @(
-            'components/Packages/msys/mingw64/bin/verilator_bin.exe',
-            'components/bin/cppcomp.exe',
-            'components/Packages/gtkwave-nipscern/gtkwave.exe',
-            'components/Packages/surfer/surfer.exe'
-          )
-          $missing = $sentinels | Where-Object { -not (Test-Path $_) }
-          if ($missing) {
-            Write-Error "Bootstrap left toolchain sentinels missing:`n  $($missing -join "`n  ")"
-            exit 1
-          }
-          Write-Host "All toolchain sentinels present."
+        # if bootstrap left any component missing.
+        #
+        # The list used to live here, and it drifted: it named `surfer.exe`
+        # while the fork's binary is `surfer-aurora.exe`, so this gate failed a
+        # release for a file that was present under the name everything else in
+        # the repo already used. The script asks each downloader where its
+        # binary lands, so renaming one cannot desynchronise this again.
+        run: node scripts/verify-toolchain-sentinels.js
 
       # The toolchain is on disk at this point and nowhere else in CI, so this
       # is the one opportunity to prove it actually works before we ship it.

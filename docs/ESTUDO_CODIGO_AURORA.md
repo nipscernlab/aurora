@@ -21,7 +21,7 @@ renderer concentram quase 9,5 mil linhas sozinhos: `js/ui/ai_assistant_manager.j
 com 3416, `js/compilation/compilation_module.js` com 3122 e `js/api/aurora_api.js`
 com 2957. No processo principal a concentração se repete em menor escala, com
 `main/ai/tools.js` em 1532, `main/ipc/project.js` em 982 e `main/ipc/prism.js` em
-964. É o mesmo problema anotado como item 7 do [PENDENCIAS.md](PENDENCIAS.md), e
+964. É o mesmo problema anotado na seção 5 do [TODO.md](../TODO.md), e
 ele aparece aqui porque muda como se lê o projeto: a maior parte dos arquivos é
 pequena e focada, e a dificuldade se concentra em meia dúzia deles.
 

@@ -2,8 +2,8 @@
 
 > Estudo dedicado, gerado por análise dos dois repositórios reais (`aurora` e `yanc`) em 04/08/2026.
 > Nada aqui foi implementado ainda. O backlog do projeto é o
-> [PENDENCIAS.md](PENDENCIAS.md), que desde 07/08/2026 é o único; este arquivo é a fonte
-> de verdade do tema C++ e é referenciado de lá, no item 9.
+> [TODO.md](../TODO.md), que é o único; este arquivo é a fonte
+> de verdade do tema C++ e é referenciado de lá, na seção 7.
 >
 > Duas restrições de projeto valem para tudo que está descrito abaixo, e foram incorporadas ao
 > desenho: toda capacidade nova nasce como API antes de virar botão, de modo que a Aurora

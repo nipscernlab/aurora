@@ -23,7 +23,7 @@ updates:
       # Subir um provedor sozinho instala duas copias da interface e entrega
       # ao nucleo um modelo que ele nao sabe consumir — quebra em execucao,
       # nao em build, e o CI nao pega porque nao existe teste com provedor
-      # real (ver docs/PENDENCIAS.md §4).
+      # real (ver TODO.md, seção 4).
       #
       # Aconteceu: os PRs #50, #41 e #43 subiam anthropic, openai e deepseek
       # para a interface 4 com o `ai` ainda em 6. Agrupados, viram um PR so,

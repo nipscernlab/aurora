@@ -9,7 +9,7 @@
  * — e elas sao a parte perigosa do arquivo: renomear um projeto move a pasta
  * inteira e reescreve todo caminho absoluto guardado no `.spf`, de modo que um
  * erro aqui corrompe o projeto de quem estava usando. A segunda razao e que
- * este e o primeiro corte da divisao pedida no item 7 do PENDENCIAS.
+ * este e o primeiro corte da divisao dos god files pedida no TODO.md.
  *
  * Quem usa: main/ipc/project.js (rename de projeto e de processador).
  */

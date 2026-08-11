@@ -201,8 +201,7 @@ always reveals the real file. The log rolls over around 5 MB and defaults to the
 application is built: the process model, the IPC boundary, the compilation
 pipeline, and each subsystem, all read from the code.
 [ARCHITECTURE.md](ARCHITECTURE.md) covers the state contracts.
-[PENDENCIAS.md](docs/PENDENCIAS.md) is the honest backlog of what has not been
-done yet.
+[TODO.md](TODO.md) is the honest backlog of what has not been done yet.
 
 ## Contributing, security, licence
 

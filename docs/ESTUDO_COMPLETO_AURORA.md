@@ -10,14 +10,14 @@ agosto, mais o checklist de implementação da branch `feature/aurora-revamp`,
 somavam 2064 linhas de história que o git guarda melhor do que um markdown; a
 branch em questão foi verificada como inteiramente mergeada e apagada no mesmo
 dia. Os dois backlogs, o "TODO oficial" e o "quadro vivo", saíram porque
-duplicavam o [PENDENCIAS.md](PENDENCIAS.md) e porque não eram mais confiáveis:
+duplicavam o backlog único (hoje o [TODO.md](../TODO.md)) e porque não eram mais confiáveis:
 numa amostra de nove itens marcados como abertos, oito já estavam feitos, entre
 eles o `deadcode` no CI, o token de sessão do MCP, a allowlist das ferramentas
 das CLIs de IA e os três componentes Lit que a lista dizia faltar. O backlog
-passa a ser um só, o PENDENCIAS.
+passa a ser um só, hoje o TODO.md na raiz.
 
 A auditoria original de junho também saiu. O que ela achou e continua aberto está
-no PENDENCIAS; o que ela achou e foi corrigido está no código.
+no backlog; o que ela achou e foi corrigido está no código.
 
 Para entender como a aplicação é montada, leia o
 [ESTUDO_CODIGO_AURORA.md](ESTUDO_CODIGO_AURORA.md). Para os contratos que quebram

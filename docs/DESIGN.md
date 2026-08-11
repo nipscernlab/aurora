@@ -41,8 +41,8 @@ ele foi tentado e revertido, a reversão é a decisão mais recente e vale mais 
 o texto. Onde o objetivo foi atingido por outro caminho, como o escurecimento do
 pane e o `:focus-visible` com acento, o objetivo é que importava.
 
-O que sobra de fato aberto é pouco e está listado no item 2 do
-[PENDENCIAS.md](PENDENCIAS.md), para ser decidido e não presumido.
+O que sobra de fato aberto é pouco e está listado na seção 5 do
+[TODO.md](../TODO.md), para ser decidido e não presumido.
 
 ---
 

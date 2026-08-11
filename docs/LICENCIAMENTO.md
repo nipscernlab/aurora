@@ -232,8 +232,8 @@ independentemente do resto.
 
 Quarto, aplicar, com um commit por repositório e a reescrita dos três anexos.
 
-O trabalho de assinatura só começa depois disso, e continua sendo o penúltimo
-item do [PENDENCIAS.md](PENDENCIAS.md), antes só da release.
+O trabalho de assinatura só começa depois disso, conforme a ordem da seção 3
+do [TODO.md](../TODO.md).
 
 ---
 

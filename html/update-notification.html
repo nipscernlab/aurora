@@ -9,20 +9,24 @@
   <link rel="stylesheet" href="../css/base/brand_tokens.css">
   <style>
     :root {
-      --bg-0:      #060A14;
-      --bg-1:      #0C1322;
-      --bg-2:      #121C30;
-      --bg-3:      #18243C;
-      --text:      #EAF0F8;
-      --text-soft: #9AA6BC;
-      --text-dim:  #5E6A80;
-      /* Brand accents alias the canonical palette (brand_tokens.css). */
+      /* Surfaces, text, accents and the error colour all come from
+         brand_tokens.css. This window used to carry its own night sky, a
+         shade lighter than the app's, plus its own text ramp and its own
+         pink for failure — three private palettes in a window whose whole job
+         is to look like the application that opened it. The names below are
+         local aliases so the rules keep reading the way they did. */
+      --bg-0:      var(--bg);
+      --bg-1:      var(--bg-elev);
+      --bg-2:      var(--bg-elev-2);
+      --bg-3:      var(--bg-elev-3);
+      --text-soft: var(--text-secondary);
+      --text-dim:  var(--text-muted);
       --green:     var(--aurora-mint);
       --teal:      var(--aurora-teal);
       --cyan:      var(--aurora-cyan);
       --violet:    var(--aurora-violet);
       --purple:    var(--aurora-purple);
-      --danger:    #FF6B8A;
+      --danger:    var(--status-error);
       --border:    rgba(142,131,232,0.16);
       --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
       --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;

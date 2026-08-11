@@ -14,4 +14,32 @@
   --aurora-violet: #8E83E8;   /* primary aurora */
   --aurora-purple: #B98AE0;   /* magenta corona */
   --aurora-pink:   #E68FB8;   /* sub-storm pink */
+
+  /* -------------------------------------------------------------------------
+   *  Surfaces and text, moved here for the same reason as the accents above.
+   *
+   *  The accents were shared already; these were not, and the three windows had
+   *  drifted into three different night skies: the app on #0A0D14, the splash on
+   *  #03060F and the update window on #060A14, with a different text ramp under
+   *  each. Nobody chose that, and it shows on a projector, where the splash
+   *  handing over to the app was a visible step in brightness.
+   *
+   *  #0A0D14 is the one that was actually decided: it is the `aurora-night`
+   *  background the design principles name. The other two were drift, so they
+   *  resolve here now.
+   * ---------------------------------------------------------------------- */
+  --bg:           #0A0D14;   /* canvas */
+  --bg-elev:      #0F131C;   /* sidebars, status bar */
+  --bg-elev-2:    #151A25;   /* hover, popovers */
+  --bg-elev-3:    #1B2130;   /* modals, active rows */
+
+  --text:           #E8ECF3;
+  --text-secondary: #9CA1AE;
+  --text-muted:     #6A6F7C;
+  --text-disabled:  #3F434E;
+
+  /* The one status colour the standalone windows need (the update window
+     reports a failed download). The rest of the status ramp stays in
+     theme_variables.css, where nothing outside the app reads it. */
+  --status-error:   #E26C6C;
 }

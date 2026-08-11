@@ -23,11 +23,12 @@
 :root {
   /* =========================================================================
    *  Surface — night sky depths
+   *
+   *  --bg, --bg-elev, --bg-elev-2 and --bg-elev-3 now live in brand_tokens.css
+   *  (imported above), together with the text ramp, because the splash and the
+   *  update window need the same values and used to carry their own. Only what
+   *  is app-only stays here.
    * ======================================================================= */
-  --bg:           #0A0D14;   /* canvas */
-  --bg-elev:      #0F131C;   /* sidebars, status bar */
-  --bg-elev-2:    #151A25;   /* hover, popovers */
-  --bg-elev-3:    #1B2130;   /* modals, active rows */
   --bg-overlay:   rgba(6, 8, 12, 0.72);
 
   /* Borders — barely there */
@@ -35,11 +36,7 @@
   --border:        #1F2532;
   --border-strong: #2A3040;
 
-  /* Text — 4 stops */
-  --text:           #E8ECF3;
-  --text-secondary: #9CA1AE;
-  --text-muted:     #6A6F7C;
-  --text-disabled:  #3F434E;
+  /* Text — 4 stops, in brand_tokens.css for the same reason as the surfaces. */
 
   /* Aurora palette — defined in brand_tokens.css (imported above), the single
      source of truth shared with the splash / update-notification windows. */
@@ -77,10 +74,10 @@
   --accent-border: rgba(142, 131, 232, 0.28);
   --accent-glow:   rgba(142, 131, 232, 0.42);
 
-  /* Status — desaturated, not loud */
+  /* Status — desaturated, not loud. --status-error is in brand_tokens.css,
+     because the update window reports failed downloads with it. */
   --status-success: #5DD4A8;
   --status-warning: #E8B86C;
-  --status-error:   #E26C6C;
   --status-info:    #5BB8E8;
 
   --status-success-bg: rgba(93, 212, 168, 0.08);

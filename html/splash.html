@@ -9,13 +9,14 @@
   <link rel="stylesheet" href="../css/base/brand_tokens.css">
   <style>
     :root {
-      --bg-0:        #03060F;
-      --bg-1:        #061021;
-      --text:        #EAF0F8;
-      --text-soft:   #95A0B4;
-      --text-dim:    #5C6678;
-      /* Brand accents alias the canonical palette (brand_tokens.css) so the
-         splash never drifts from the app's colours. */
+      /* Surfaces, text and accents all come from brand_tokens.css, so the
+         splash cannot drift from the window it hands over to. The two
+         background tokens that used to sit here were declared and never read,
+         and the text ramp was a shade off the app's for no reason anyone
+         recorded. What is left are local aliases, which exist only to keep the
+         rules below readable. */
+      --text-soft:   var(--text-secondary);
+      --text-dim:    var(--text-muted);
       --green:       var(--aurora-mint);
       --teal:        var(--aurora-teal);
       --cyan:        var(--aurora-cyan);
@@ -48,10 +49,13 @@
       grid-template-rows: 1fr auto;
       border-radius: 18px;
       overflow: hidden;
+      /* O céu de baixo é o mesmo do aplicativo, para a passagem do splash para
+         a janela principal não ter degrau de brilho. Os dois brilhos radiais
+         ficam locais de propósito: são a aurora desta tela, não superfície. */
       background:
         radial-gradient(ellipse 90% 70% at 50% 8%,  #0E2138 0%, transparent 60%),
         radial-gradient(ellipse 80% 60% at 50% 112%, #122A44 0%, transparent 55%),
-        linear-gradient(180deg, #03060F 0%, #050B18 55%, #03060F 100%);
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-elev) 55%, var(--bg) 100%);
       box-shadow:
         0 40px 90px rgba(0,0,0,0.7),
         inset 0 0 0 1px rgba(142,131,232,0.10),

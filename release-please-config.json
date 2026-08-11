@@ -20,7 +20,8 @@
   "packages": {
     ".": {
       "package-name": "aurora-ide",
-      "changelog-path": "CHANGELOG.md"
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": ["CITATION.cff"]
     }
   }
 }

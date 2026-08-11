@@ -28,5 +28,9 @@ keywords:
 # The NIPS-CERN Licence 1.1 has no SPDX identifier, so CFF's `license:` key
 # (SPDX-only) cannot carry it. `license-url` is the spec's escape hatch.
 license-url: "https://github.com/nipscernlab/aurora/blob/main/LICENSE"
-version: 6.3.2
-date-released: "2026-06-16"
+# Both lines are rewritten by release-please on every release (the file is
+# listed under `extra-files` in release-please-config.json). Editing them by
+# hand is how they drifted before: the version tracked the releases and the
+# date stayed at the day someone last remembered it.
+version: 6.3.2 # x-release-please-version
+date-released: "2026-06-16" # x-release-please-date

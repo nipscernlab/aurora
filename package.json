@@ -75,6 +75,17 @@
     "with that extension appearing here is a leftover, and these lines keep a",
     "leftover on someone's disk from becoming a licence breach in the .exe."
   ],
+  "//build-licences": [
+    "build.files excludes `!*.md` and then re-includes exactly three: LICENSE,",
+    "LICENSE-SAPHO.md and THIRD_PARTY_NOTICES.md. LICENSE-BASE.md is left out",
+    "on purpose and is NOT an oversight: it holds the laboratory's base licence",
+    "alone, and that same text is already the first 239 lines of LICENSE, which",
+    "ships. Adding it would put the same clauses in the installer twice, which",
+    "is how two copies drift apart and start contradicting each other.",
+    "The three that ship are the ones a user needs to know what they received:",
+    "the AURORA terms, the SAPHO annex (the Verilog under components/HDL rides",
+    "along in extraResources), and the third-party inventory."
+  ],
   "build": {
     "appId": "com.nipscern.sapho",
     "productName": "SAPHO",

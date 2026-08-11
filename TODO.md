@@ -393,19 +393,27 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       `waveform.gif` com uma forma de onda no Surfer ou GTKWave. GIFs de poucos
       MB, otimizados com `gifsicle -O3` ou exportados como MP4 mudo. Quando
       existirem, trocar a frase do README que diz que estão pendentes.
-- [ ] **CITATION.cff**: `date-released` está em 2026-06-16, defasado. Atualizar
-      junto com a release.
-- [ ] **release-please-config.json** declara `package-name: "aurora-ide"`
-      enquanto o `package.json` tem `name: "sapho"`. Alinhar, ou registrar por
-      que divergem.
+- [x] ~~**CITATION.cff** com `date-released` defasado.~~ Resolvido na raiz em
+      11/08/2026: o arquivo entrou no `extra-files` do release-please e as duas
+      linhas ganharam as anotações `x-release-please-version` e
+      `x-release-please-date`, então versão e data passam a ser reescritas a
+      cada release em vez de depender de alguém lembrar.
+- [x] ~~**release-please-config.json** com `package-name` divergente.~~
+      Decidido em 11/08/2026 manter `aurora-ide`. O nome não é o do pacote npm
+      de propósito: identifica o componente no release-please, e é ele que
+      compõe o nome da branch (`release-please--branches--main--components--aurora-ide`).
+      Mudar agora abandonaria o PR #63 e abriria outro do zero, na véspera da
+      release. Se um dia for mudar, mude logo depois de uma release sair, nunca
+      com PR de release aberto.
 - [ ] **`docs/referencia-tecnica-sapho/_fonte/apendices/referencias.tex`** cita
       `ROADMAP.md` e `RELEASE.md`, que não existem, e agora também os
       documentos removidos nesta consolidação. Limpar na próxima edição do
       relatório.
-- [ ] **Verificar o `LICENSE-BASE.md` fora do instalador.** O bloco `files` do
-      electron-builder re-inclui `LICENSE`, `LICENSE-SAPHO.md` e
-      `THIRD_PARTY_NOTICES.md`, mas o `LICENSE-BASE.md` cai no `!*.md` e não vai
-      junto. Decidir se é intencional.
+- [x] ~~**Verificar o `LICENSE-BASE.md` fora do instalador.**~~ Decidido em
+      11/08/2026 que fica fora, e a razão está registrada no bloco
+      `//build-licences` do package.json: o texto da base já são as primeiras
+      239 linhas do `LICENSE`, que vai no instalador, e embarcar as duas cópias
+      é como elas divergem e passam a se contradizer.
 
 ---
 

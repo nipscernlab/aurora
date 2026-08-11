@@ -54,6 +54,14 @@ jobs:
       - name: Dead code (unused files + dependencies)
         run: npm run deadcode
 
+      # Catraca de desenho. Nao exige limpar as 163 cores e 172 duracoes
+      # cravadas que existem hoje; exige apenas que o numero nao suba. Foi uma
+      # regra de cada vez que as tres janelas terminaram com tres ceus noturnos
+      # diferentes, e limpar tudo de uma vez para so entao ligar o check e como
+      # nunca ligar.
+      - name: Design tokens (no new hardcoded colours or durations)
+        run: node scripts/check-design-tokens.js
+
       - name: Sanity check JS modules
         shell: pwsh
         run: |

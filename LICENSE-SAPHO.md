@@ -250,8 +250,13 @@ acima e não a contraria; havendo divergência, a base prevalece.
 O SAPHO (Scalable-Architecture Processor for Hardware Optimization) é um
 processador de arquitetura própria para processamento de sinais em
 instrumentação científica. A Obra abrange o projeto do processador, o Verilog
-gerado e escrito à mão, a linguagem C± e a cadeia de compilação YANC
-(`cmmcomp`, `asmcomp`, `appcomp`, `comp2gtkw`).
+gerado e escrito à mão, e a linguagem C±.
+
+A cadeia de compilação YANC (`cmmcomp`, `asmcomp`, `appcomp`, `cpppp`,
+`cppcomp`, `comp2gtkw`, `gen_gtkw`) também é obra do Laboratório, mas não está
+sob esta licença: ela vive em repositório próprio, `nipscernlab/yanc`, sob a
+licença MIT, e é assim que ela é distribuída, inclusive dentro do instalador da
+AURORA.
 
 A AURORA, o ambiente de desenvolvimento, tem licença própria com o mesmo texto
 base e anexo distinto.
@@ -273,8 +278,9 @@ produto.
 
 ## S3. A linguagem C±
 
-O C± é a linguagem de entrada do SAPHO. A gramática, os compiladores e as
-mensagens de erro são obra do Laboratório.
+O C± é a linguagem de entrada do SAPHO. A gramática e o catálogo de mensagens de
+erro são obra do Laboratório e estão cobertos por esta licença; os compiladores
+que implementam a linguagem estão no repositório do YANC, sob MIT, conforme S1.
 
 Programas escritos por terceiros em C± pertencem a quem os escreveu. Compilar um
 programa com o YANC não coloca esse programa sob esta licença, do mesmo modo que

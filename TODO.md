@@ -176,14 +176,14 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       `components/bin`, e o Verilog do SAPHO em `components/HDL`. Terceiros
       (Icarus e GTKWave GPL v2, Verilator LGPL v3, Yosys ISC, Surfer EUPL-1.2)
       entram como processo separado e ficam como estão.
-- [ ] **3.3 Corrigir as duas afirmações falsas nos arquivos de licença.** Não
-      depende de nada e pode ser feito já:
-  - o anexo A3 do [LICENSE](LICENSE) e a seção S1 do
-    [LICENSE-SAPHO.md](LICENSE-SAPHO.md) dizem que a cadeia YANC está sob a
-    NIPS-CERN 1.1, mas o repositório `nipscernlab/yanc` tem LICENSE MIT, e o
-    MIT publicado no v5.3 não retroage;
-  - o anexo A4 do LICENSE afirma que as versões publicadas são assinadas pela
-    SignPath Foundation, o que não é verdade hoje.
+- [x] ~~**3.3 Corrigir as duas afirmações falsas nos arquivos de licença.**~~
+      Feito em 11/08/2026. O anexo A3 do LICENSE e as seções S1 e S3 do
+      LICENSE-SAPHO.md agora dizem que a cadeia YANC está sob MIT, em
+      repositório próprio, e listam os sete binários que de fato vão no
+      instalador, não os quatro de antes (faltavam `cpppp`, `cppcomp` e
+      `gen_gtkw`). O anexo A4 deixou de afirmar que as versões publicadas são
+      assinadas, e descreve o `sha512` como a verificação existente hoje. O
+      THIRD_PARTY_NOTICES trocou o "per the YANC project" pela licença real.
 - [ ] **3.4 Aplicar as trocas decididas**, um commit por repositório, com a
       reescrita dos anexos A2 e A3 e do correspondente no LICENSE-SAPHO.md. No
       mesmo movimento: transformar a cessão da seção 5 da base num CLA assinado

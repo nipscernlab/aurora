@@ -24,7 +24,7 @@ and shipped in the installer; they are not part of the source tree.
 | Verilator | Fast Verilog simulation | LGPL-3.0 or Artistic-2.0 |
 | Python + cocotb | Cocotb test flow | PSF (Python) · BSD-3-Clause (cocotb) |
 | MSYS2 / MinGW runtime | Hosts the GTK/Yosys binaries on Windows | various (GPL/LGPL/MIT per package) |
-| comp2gtkw (YANC) | Complex-number decode for waveforms | per the YANC project |
+| YANC (`cmmcomp`, `asmcomp`, `appcomp`, `cpppp`, `cppcomp`, `comp2gtkw`, `gen_gtkw`) | The SAPHO compiler chain, plus complex-number decode for waveforms | MIT, from [`nipscernlab/yanc`](https://github.com/nipscernlab/yanc) |
 
 ## AI command-line tools (bundled via npm)
 

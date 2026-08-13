@@ -253,7 +253,7 @@
     "material-icon-theme": "^5.37.0",
     "monaco-editor": "0.52.2",
     "simple-git": "^3.36.0",
-    "web-tree-sitter": "0.26.11",
+    "web-tree-sitter": "0.26.12",
     "yosys2digitaljs": "^0.10.3",
     "zod": "^4.4.3"
   },

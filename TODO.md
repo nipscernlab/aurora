@@ -85,7 +85,7 @@ onde o aluno não é admin a atualização nunca aconteceria.
 | Dados e logs | `%APPDATA%\SAPHO\` |
 | Cache do atualizador | `%LOCALAPPDATA%\sapho-updater\` |
 | Toolchain | `%LOCALAPPDATA%\Programs\SAPHO\components\` |
-| Disco por usuário | ~1,6 GB (≈1,1 GB instalado + ≈0,5 GB de instalador em cache) |
+| Disco por usuário | ~2,3 GB em repouso, ~3,3 GB durante uma atualização (medido em 14/08/2026) |
 | Rede | HTTPS para `github.com` e `objects.githubusercontent.com`, nenhuma obrigatória para compilar |
 
 O que costuma travar: a IDE executa compiladores a partir do perfil do usuário,
@@ -164,8 +164,26 @@ Python 3.12, e as ferramentas de linguagem (`verible-verilog-ls`,
          Icarus/Verilator, GTKWave e a execução a partir de `components\Temp\`).
       4. Configurações > Sobre > Atualizações não deve dizer que não alcança o
          servidor.
-- [ ] **2.8 Conferir disco e proxy**: ~1,6 GB por perfil, e o updater usa a
-      configuração de proxy do sistema (Electron/Chromium).
+- [ ] **2.8 Conferir disco e proxy.** O updater usa a configuração de proxy do
+      sistema (Electron/Chromium). O disco é a conta que precisa ser feita
+      antes, porque no LABEL cada aluno tem perfil próprio e a instalação é por
+      perfil: o mesmo SAPHO cabe uma vez para cada aluno que usar aquela
+      máquina. Medido em 14/08/2026, numa instalação real:
+
+      | | |
+      |---|---|
+      | `%LOCALAPPDATA%\Programs\SAPHO` | 2135 MB |
+      | `%APPDATA%\SAPHO` (dados, logs) | 153 MB |
+      | `%LOCALAPPDATA%\sapho-updater` | até 1051 MB durante uma atualização |
+
+      São ~2,3 GB em repouso e ~3,3 GB no pico, por aluno, por máquina. Trinta
+      alunos numa máquina são cerca de 70 GB. O pico é o dobro do instalador
+      porque o electron-updater mantém o arquivo baixado em `pending\` e uma
+      cópia em `installer.exe` para aplicar na saída; some depois de instalar.
+
+      Se a conta não fechar, a saída não é instalar em `%ProgramFiles%` sem
+      pensar: ali toda atualização passa a pedir elevação, e a promessa de
+      atualizar sem visita morre. Ver 2.3.1.
 
 Diagnóstico remoto, quando uma máquina parar de atualizar: peça ao aluno para
 abrir Configurações > Sobre > Atualizações, que mostra situação, última e

@@ -116,11 +116,32 @@ Python 3.12, e as ferramentas de linguagem (`verible-verilog-ls`,
 
       %LOCALAPPDATA%\Programs\SAPHO\*
       %LOCALAPPDATA%\Programs\SAPHO\components\*
+      %LOCALAPPDATA%\sapho-updater\pending\*
 
       A segunda é indispensável e é a que costuma ser esquecida: sem ela a IDE
       abre normalmente e só falha ao compilar, com erro que parece bug da
       aplicação. O diretório `components\Temp\` também precisa permitir
       execução, por causa do executável que o Verilator compila na hora.
+
+      A terceira decide se o laboratório poderá ser atualizado sem visita. O
+      atualizador baixa o instalador para `%LOCALAPPDATA%\sapho-updater\pending\`
+      e o executa de lá ao fechar a IDE, o que foi conferido no código do
+      electron-updater. Sem essa regra a atualização baixa os 500 MB, valida o
+      hash e morre no último passo, calada, e a máquina fica na versão velha
+      para sempre.
+- [ ] **2.3.1 Não instalar com "Executar como administrador".** O instalador é
+      por usuário e sem elevação, de propósito. Rodado sob uma conta de
+      administrador, ele instala no perfil daquela conta: o aluno faz login
+      depois e não encontra nada, e o atalho aponta para um caminho que não é o
+      dele. A senha de administrador serve para criar a exceção de política na
+      máquina, não para rodar o instalador. Quem executa o instalador é a conta
+      que vai usar o programa.
+
+      Se a exceção não for possível e a única saída for instalar para todos, o
+      instalador precisa virar `perMachine`, e a consequência tem que ser
+      aceita antes: em `%ProgramFiles%` toda atualização passa a exigir
+      elevação, ou seja, um administrador presente em cada máquina a cada
+      versão. É exatamente a promessa que este projeto fez para não fazer.
 - [ ] **2.4 Smart App Control (Windows 11)**: verificar em Segurança do Windows
       > Controle de aplicativos e navegador. Ativo, ele bloqueia todo
       executável não assinado, inclusive os que o Verilator gera durante a

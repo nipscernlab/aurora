@@ -112,17 +112,15 @@
     .state { display: none; flex: 1; min-height: 0; flex-direction: column; }
     .state.active { display: flex; animation: fade 280ms ease both; }
 
-    /* ---- hero (icon + headline + versions) ---- */
-    .hero { text-align: center; flex-shrink: 0; padding: 6px 0 14px; }
-    .hero .icon {
-      width: 72px; height: 72px; margin: 0 auto 12px;
-      filter: drop-shadow(0 0 18px rgba(79,200,240,0.4));
-    }
+    /* ---- cabecalho do estado ----
+       Sem o icone de 72px que ficava aqui: a barra de titulo, dois centimetros
+       acima, ja traz a mesma marca. Repetir logotipo em cada estado empurra o
+       conteudo para baixo e faz a janela parecer um anuncio do proprio
+       aplicativo, quando o que interessa e o que mudou e o botao. */
+    .hero { text-align: center; flex-shrink: 0; padding: 2px 0 12px; }
     .hero h1 {
-      font-size: 19px; font-weight: 800; letter-spacing: -0.01em;
-      margin-bottom: 4px;
+      font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
     }
-    .hero p { font-size: 12.5px; color: var(--text-soft); }
 
     .vbadge {
       display: inline-flex; align-items: center; gap: 9px;
@@ -204,29 +202,31 @@
     .btn svg { width: 15px; height: 15px; }
     .btn.ghost { background: var(--bg-2); color: var(--text-soft); }
     .btn.ghost:hover { background: var(--bg-3); color: var(--text); }
+    /* Uma cor, nao tres. O gradiente de menta a azul com brilho por baixo
+       chamava mais atencao que o changelog, e a decisao aqui e ler e clicar,
+       nao admirar o botao. */
     .btn.primary {
       flex: 1.6;
-      background: linear-gradient(135deg, var(--green) 0%, var(--teal) 50%, var(--cyan) 100%);
-      color: #04121C; border-color: transparent;
-      box-shadow: 0 8px 22px rgba(47,217,195,0.28);
+      background: var(--teal);
+      color: var(--bg); border-color: transparent;
     }
-    .btn.primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn.primary:hover { filter: brightness(1.08); }
     .btn.primary:active { transform: translateY(0); }
 
     /* ---- downloading ---- */
     .dl { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    /* O numero era 52px em gradiente de tres cores, e o que ele informava cabe
+       ao lado da barra: a barra ja mostra a proporcao, que e a pergunta real de
+       quem espera. */
+    .dl .dl-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      margin-bottom: 8px;
+    }
     .dl .pct {
-      font-size: 52px; font-weight: 800; text-align: center;
-      letter-spacing: -0.02em; line-height: 1;
-      background: linear-gradient(135deg, var(--green), var(--cyan), var(--violet));
-      -webkit-background-clip: text; background-clip: text;
-      -webkit-text-fill-color: transparent;
-      font-variant-numeric: tabular-nums;
+      font-family: var(--font-mono); font-size: 15px; font-weight: 600;
+      color: var(--text); font-variant-numeric: tabular-nums;
     }
-    .dl .dl-sub {
-      text-align: center; font-size: 12px; color: var(--text-soft);
-      margin: 6px 0 22px;
-    }
+    .dl .dl-sub { font-size: 12px; color: var(--text-soft); }
     .track {
       height: 6px;
       background: var(--bg-2);
@@ -241,22 +241,15 @@
       background: linear-gradient(90deg, var(--green), var(--cyan));
       transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1);
     }
+    /* Eram tres cartoes com moldura e rotulo em versalete para tres numeros
+       curtos. Viraram uma linha: mesma informacao, sem tres caixas para o olho
+       percorrer. */
     .stats {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 10px; margin-top: 20px;
+      display: flex; gap: 8px; margin-top: 10px;
+      font-family: var(--font-mono); font-size: 11.5px;
+      color: var(--text-soft); font-variant-numeric: tabular-nums;
     }
-    .stat {
-      background: var(--bg-1); border: 1px solid var(--border);
-      border-radius: 10px; padding: 11px 10px; text-align: center;
-    }
-    .stat .k {
-      font-size: 9.5px; font-weight: 700; letter-spacing: 0.10em;
-      text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px;
-    }
-    .stat .v {
-      font-family: var(--font-mono); font-size: 12.5px;
-      color: var(--text); font-variant-numeric: tabular-nums;
-    }
+    .stats .sep { color: var(--text-dim); }
     /* Auto-retry notice — only visible while a dropped download is being
        resumed, so it reads as a transient state rather than a failure. */
     .retry-note {
@@ -319,9 +312,7 @@
       <!-- ============ STATE: AVAILABLE ============ -->
       <div class="state active" id="state-available">
         <div class="hero">
-          <img class="icon" src="../assets/icons/sapho_aurora_icon.svg" alt="">
           <h1 id="t-av-title">A new version is available</h1>
-          <p id="t-av-sub">See what's new before you update</p>
           <div class="vbadge">
             <span class="from" id="v-from">v0.0.0</span>
             <span class="arrow">→</span>
@@ -348,28 +339,22 @@
 
       <!-- ============ STATE: DOWNLOADING ============ -->
       <div class="state" id="state-downloading">
-        <div class="hero" style="padding-bottom:8px">
-          <img class="icon" src="../assets/icons/sapho_aurora_icon.svg" alt="">
+        <div class="hero" style="padding-bottom:6px">
           <h1 id="t-dl-title">Downloading update</h1>
-          <p id="t-dl-sub">Please keep this window open</p>
+          <p id="t-dl-sub" style="font-size:12px;color:var(--text-soft)">Please keep this window open</p>
         </div>
         <div class="dl">
-          <div class="pct" id="dl-pct">0%</div>
-          <div class="dl-sub" id="dl-version">v0.0.0</div>
+          <div class="dl-head">
+            <span class="dl-sub" id="dl-version">v0.0.0</span>
+            <span class="pct" id="dl-pct">0%</span>
+          </div>
           <div class="track"><div class="fill" id="dl-fill"></div></div>
           <div class="stats">
-            <div class="stat">
-              <div class="k" id="t-st-downloaded">Downloaded</div>
-              <div class="v" id="dl-transferred">0 / 0 MB</div>
-            </div>
-            <div class="stat">
-              <div class="k" id="t-st-speed">Speed</div>
-              <div class="v" id="dl-speed">0 MB/s</div>
-            </div>
-            <div class="stat">
-              <div class="k" id="t-st-eta">Time left</div>
-              <div class="v" id="dl-eta">—</div>
-            </div>
+            <span id="dl-transferred">0 / 0 MB</span>
+            <span class="sep">|</span>
+            <span id="dl-speed">0 MB/s</span>
+            <span class="sep">|</span>
+            <span id="dl-eta">-</span>
           </div>
           <!-- Auto-retry notice. Hidden until a download actually drops; the
                progress bar would otherwise just freeze with no explanation. -->
@@ -412,11 +397,9 @@
     const UI = {
       en: {
         avTitle: 'A new version is available',
-        avSub: "See what's new before you update",
         whatsNew: "What's new",
         later: 'Later', download: 'Download & Install',
         dlTitle: 'Downloading update', dlSub: 'Please keep this window open',
-        stDownloaded: 'Downloaded', stSpeed: 'Speed', stEta: 'Time left',
         dnTitle: 'Update ready to install',
         dnSub: 'SAPHO will restart and reopen on the new version.',
         later2: 'Install later', install: 'Restart & Install',
@@ -428,11 +411,9 @@
       },
       pt: {
         avTitle: 'Uma nova versão está disponível',
-        avSub: 'Veja as novidades antes de atualizar',
         whatsNew: 'Novidades',
         later: 'Depois', download: 'Baixar e Instalar',
         dlTitle: 'Baixando atualização', dlSub: 'Mantenha esta janela aberta',
-        stDownloaded: 'Baixado', stSpeed: 'Velocidade', stEta: 'Tempo restante',
         dnTitle: 'Atualização pronta para instalar',
         dnSub: 'O SAPHO será reiniciado e reaberto na nova versão.',
         later2: 'Instalar depois', install: 'Reiniciar e Instalar',
@@ -615,15 +596,11 @@
       const T = UI[locale];
       document.documentElement.lang = locale;
       $('t-av-title').textContent     = T.avTitle;
-      $('t-av-sub').textContent       = T.avSub;
       $('t-whatsnew').firstChild.textContent = T.whatsNew + ' ';
       $('t-later').textContent        = T.later;
       $('t-download').textContent     = T.download;
       $('t-dl-title').textContent     = T.dlTitle;
       $('t-dl-sub').textContent       = T.dlSub;
-      $('t-st-downloaded').textContent= T.stDownloaded;
-      $('t-st-speed').textContent     = T.stSpeed;
-      $('t-st-eta').textContent       = T.stEta;
       $('t-dn-title').textContent     = T.dnTitle;
       $('t-dn-sub').textContent       = T.dnSub;
       $('t-later2').textContent       = T.later2;

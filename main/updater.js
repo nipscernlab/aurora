@@ -6,7 +6,9 @@
  *      releases of nipscernlab/sapho.
  *   2. On `update-available`, open the custom update window
  *      (html/update-notification.html) showing the bilingual
- *      changelog and a Download choice — never a native dialog.
+ *      changelog and a Download choice, never a native dialog. The same rule
+ *      now covers the short notices ("up to date", "check failed"): a modal
+ *      dialog freezes the whole interface until someone clicks.
  *   3. The user starts the download; `download-progress` drives a
  *      real progress bar in that same window.
  *   4. On `update-downloaded`, the window switches to the
@@ -38,7 +40,7 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
-const { app, ipcMain, dialog, shell } = require('electron');
+const { app, ipcMain, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log');
 
@@ -269,6 +271,24 @@ function onSilentCheckSettled(failed) {
 }
 
 /** Send an IPC message to the update window if it is alive. */
+/**
+ * Aviso curto na janela principal, no lugar de um dialog nativo.
+ *
+ * O dialog do sistema e modal: ele congela a interface inteira ate alguem
+ * clicar, e um "esta tudo atualizado" nao vale prender o usuario no meio do
+ * que estava fazendo. O renderer mostra isso como toast, que e a mesma forma
+ * usada pela confirmacao depois de uma atualizacao.
+ */
+function notifyMainWindow(kind, titleKey, bodyKey, vars) {
+  const w = state.mainWindow;
+  if (!w || w.isDestroyed()) return;
+  try {
+    w.webContents.send('updates:notice', { kind, titleKey, bodyKey, vars: vars || {} });
+  } catch (e) {
+    log.warn('[updater] nao consegui avisar a janela principal:', e);
+  }
+}
+
 function sendToUpdateWindow(channel, payload) {
   const w = state.updateWindow;
   if (w && !w.isDestroyed()) {
@@ -347,17 +367,9 @@ function setupAutoUpdaterEvents() {
     log.info('No updates available');
 
     // Only surface "you're up to date" for an explicit, user-driven check.
-    const mainWindow = state.mainWindow;
-    if (autoUpdater.showNoUpdateDialog && mainWindow && !mainWindow.isDestroyed()) {
-      dialog
-        .showMessageBox(mainWindow, {
-          type: 'info',
-          title: 'No Updates Available',
-          message: 'SAPHO is up to date',
-          detail: `You are running the latest version (${app.getVersion()}).`,
-          buttons: ['OK'],
-        })
-        .catch((e) => log.error('no-update dialog failed:', e));
+    if (autoUpdater.showNoUpdateDialog) {
+      notifyMainWindow('info', 'updates.noUpdateTitle', 'updates.noUpdateBody',
+        { version: app.getVersion() });
     }
     autoUpdater.showNoUpdateDialog = false;
   });
@@ -491,13 +503,8 @@ function startUpdateDownload(opts = {}) {
 function checkForUpdates(interactive = false) {
   if (isDev) {
     log.info('Skipping update check — dev mode');
-    if (interactive && state.mainWindow && !state.mainWindow.isDestroyed()) {
-      dialog.showMessageBox(state.mainWindow, {
-        type: 'info',
-        title: 'Updates Disabled',
-        message: 'Update checks are disabled in development mode.',
-        buttons: ['OK'],
-      });
+    if (interactive) {
+      notifyMainWindow('info', 'updates.devDisabledTitle', 'updates.devDisabledBody');
     }
     return;
   }
@@ -518,14 +525,9 @@ function checkForUpdates(interactive = false) {
     // re-arms the schedule — without this call a silent check that failed this
     // way would never be retried.
     onSilentCheckSettled(true);
-    if (interactive && state.mainWindow && !state.mainWindow.isDestroyed()) {
-      dialog.showMessageBox(state.mainWindow, {
-        type: 'error',
-        title: 'Update Check Failed',
-        message: 'Could not check for updates.',
-        detail: err.message,
-        buttons: ['OK'],
-      });
+    if (interactive) {
+      notifyMainWindow('error', 'updates.checkFailedTitle', null,
+        { detail: (err && err.message) || String(err) });
     }
   });
 }

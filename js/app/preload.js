@@ -269,6 +269,15 @@ const updateOperations = {
   // renderer uses it to surface a "you're up to date" toast.
   getPostUpdateStatus: () => ipcRenderer.invoke('updates:post-update-status'),
 
+  // Avisos curtos do sistema de atualizacao (nada encontrado, verificacao
+  // falhou). Vem como toast, e nao como dialog do sistema: dialog e modal e
+  // prende a interface inteira ate alguem clicar.
+  onUpdateNotice: (cb) => {
+    const h = (_e, payload) => cb(payload);
+    ipcRenderer.on('updates:notice', h);
+    return () => ipcRenderer.removeListener('updates:notice', h);
+  },
+
   // Health of the update system: when it last checked, against which feed,
   // what the last error was, when the next check is due. Read-only; drives
   // the About panel so a machine that is not updating can be diagnosed

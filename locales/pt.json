@@ -748,7 +748,12 @@
   },
   "updates": {
     "upToDateTitle": "Tudo atualizado",
-    "upToDateBody": "O SAPHO foi atualizado para a versão <strong>{{version}}</strong>."
+    "upToDateBody": "O SAPHO foi atualizado para a versão <strong>{{version}}</strong>.",
+    "noUpdateTitle": "O SAPHO está atualizado",
+    "noUpdateBody": "Você está na versão mais recente ({{version}}).",
+    "checkFailedTitle": "Não foi possível verificar atualizações",
+    "devDisabledTitle": "Verificação de atualização desligada",
+    "devDisabledBody": "Atualizações ficam desligadas rodando a partir do código."
   },
   "ai": {
     "offline": {

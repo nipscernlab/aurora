@@ -748,7 +748,12 @@
   },
   "updates": {
     "upToDateTitle": "You're up to date",
-    "upToDateBody": "SAPHO has been updated to version <strong>{{version}}</strong>."
+    "upToDateBody": "SAPHO has been updated to version <strong>{{version}}</strong>.",
+    "noUpdateTitle": "SAPHO is up to date",
+    "noUpdateBody": "You are running the latest version ({{version}}).",
+    "checkFailedTitle": "Could not check for updates",
+    "devDisabledTitle": "Update checks are off",
+    "devDisabledBody": "Updates are disabled when running from source."
   },
   "ai": {
     "offline": {

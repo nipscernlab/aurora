@@ -190,6 +190,18 @@ window.onload = () => {
             window.showNotification?.(body, 'success', 8000, title);
         }, 2800);
     }).catch(() => { /* IPC failure here shouldn't break boot */ });
+
+    // Avisos do verificador de atualizacao. O "Verificar agora" das
+    // configuracoes respondia com dialog do sistema, que e modal e trava tudo
+    // ate o usuario clicar; agora responde no mesmo lugar em que o aplicativo
+    // fala o resto do tempo.
+    electronAPI?.onUpdateNotice?.(({ kind, titleKey, bodyKey, vars }) => {
+        const title = window.t ? window.t(titleKey, vars) : titleKey;
+        const body = bodyKey
+            ? (window.t ? window.t(bodyKey, vars) : bodyKey)
+            : (vars && vars.detail) || '';
+        window.showNotification?.(body, kind === 'error' ? 'error' : 'info', 7000, title);
+    });
 };
 
 // --- Global Keyboard Shortcuts ---

@@ -378,6 +378,7 @@ function setupAutoUpdaterEvents() {
 
   autoUpdater.on('update-downloaded', (info) => {
     state.downloadInProgress = false;
+    state.updateDownloaded = true;
     log.info(`Update ${info.version} downloaded — ready to install`);
     sendToUpdateWindow('update:state', {
       state: 'downloaded',

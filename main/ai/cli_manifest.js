@@ -33,8 +33,8 @@
 'use strict';
 
 // Base versions — keep in lockstep with package.json dependencies.
-const CLAUDE_VERSION = '2.1.222'; // @anthropic-ai/claude-code
-const CODEX_VERSION = '0.146.0';  // @openai/codex
+const CLAUDE_VERSION = '2.1.226'; // @anthropic-ai/claude-code
+const CODEX_VERSION = '0.147.0';  // @openai/codex
 
 const REGISTRY = 'https://registry.npmjs.org';
 
@@ -58,7 +58,7 @@ const MANIFEST = {
         pkg: '@anthropic-ai/claude-code-win32-x64',
         version: CLAUDE_VERSION,
         tarball: `${REGISTRY}/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-${CLAUDE_VERSION}.tgz`,
-        integrity: 'sha512-Bvvun2cU+ANm34NBq1AzKvKE393u/PS62PQZKXBr3XyyUhfn29lkYBPMPvITfaYFoOvEO3qikUglFs2dxM2gYQ==',
+        integrity: 'sha512-GKsVA35zgwzoYNjZIlw09aaiBwlRp6e/EJxsGX6sTv2HQQ8r3JicQy1RS1bJUoMgb/J6c8W5lY25kEQQkbv/2g==',
         exe: 'claude.exe',
         rg: null,
       },
@@ -74,7 +74,7 @@ const MANIFEST = {
         pkg: '@openai/codex-win32-x64',
         version: `${CODEX_VERSION}-win32-x64`,
         tarball: `${REGISTRY}/@openai/codex/-/codex-${CODEX_VERSION}-win32-x64.tgz`,
-        integrity: 'sha512-b3lxMYeR0+IhstNo4JjX1P9cPc1xwVcCVkPd1lD1wpWPJ0SBhpIkPczwbu3ZRkJcdyl342+rgyf4DUrbZLdrGA==',
+        integrity: 'sha512-oT7Ss5fAPf2fiWE9QNURqZcQGAAawSVxmIUdgPzckq4KFZAM+pRz9JbM4Rr498CjtbNgTOjWvDJ+DXvIBSfOPA==',
         exe: 'vendor/x86_64-pc-windows-msvc/codex/codex.exe',
         rg: 'vendor/x86_64-pc-windows-msvc/path',
       },

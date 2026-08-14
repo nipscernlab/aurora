@@ -11,7 +11,7 @@ const log = require('electron-log');
 
 const state = require('./state');
 const { componentsPath } = require('./paths');
-const { stopAllToolchain } = require('./process_registry');
+const { stopAllToolchain, reapOrphans } = require('./process_registry');
 
 function register() {
   // Detect a .spf passed on the command line; the main window will pick it
@@ -39,6 +39,11 @@ function register() {
     app.quit();
     return false;
   }
+
+  // Somos a unica instancia a partir daqui, entao qualquer processo rodando de
+  // dentro de components/ e sobra de uma sessao anterior que nao morreu bem.
+  // Nao esperamos o resultado: e faxina, e o arranque nao deve nada a ela.
+  reapOrphans();
 
   app.on('second-instance', (_event, commandLine) => {
     // Each subsequent SAPHO launch opens a NEW window in the same process
@@ -78,6 +83,21 @@ function register() {
   // quit em caso de hang.
   app.on('before-quit', async () => {
     state.isQuitting = true;
+
+    // Rede de seguranca da saida. Um filho que ignora o taskkill, um rm que
+    // encalha num arquivo travado pelo antivirus: qualquer um deles deixa a
+    // faxina abaixo pendurada, e um SAPHO.exe sem janela e pior que um
+    // encerramento sujo, porque bloqueia a proxima abertura e a proxima
+    // instalacao. Dez segundos e folgado para tudo que ha aqui; passou disso,
+    // o processo morre de qualquer jeito. O unref evita que este timer seja,
+    // ele proprio, o motivo de o processo continuar vivo.
+    if (!state.updateDownloaded) {
+      const t = setTimeout(() => {
+        log.warn('[lifecycle] faxina passou de 10s; encerrando a forca.');
+        app.exit(0);
+      }, 10000);
+      if (typeof t.unref === 'function') t.unref();
+    }
 
     // O que a árvore removeu está esperando em userData para poder ser
     // desfeito. Fechando o aplicativo não há mais o que desfazer, então vai
@@ -155,6 +175,29 @@ function register() {
     } catch (error) {
       log.error('Failed to clear Temp folder on app exit:', error);
     }
+
+    // ── Saida garantida ───────────────────────────────────────────────────
+    // O Electron NAO espera promessa devolvida por handler de evento, entao
+    // tudo acima corre em paralelo com o encerramento. Quando um filho demora
+    // a morrer, o processo do SAPHO pode ficar de pe sem janela nenhuma: ele
+    // segura o bloqueio de instancia unica, e a partir dai um duplo clique no
+    // atalho nao abre nada, porque a segunda instancia encontra o bloqueio e
+    // sai calada. E o mesmo processo pendurado que faz o instalador nao
+    // conseguir substituir arquivo em uso e terminar deixando a pasta vazia.
+    //
+    // Depois da faxina, matamos o processo em vez de torcer para ele morrer.
+    //
+    // Com uma excecao que nao pode ser esquecida: se ha atualizacao baixada,
+    // quem a instala e o electron-updater, no caminho normal de quit, e
+    // app.exit() pula justamente os eventos que ele escuta. Nesse caso saimos
+    // do caminho e deixamos o encerramento seguir sozinho, senao a promessa de
+    // atualizar sem visita presencial morre aqui.
+    if (state.updateDownloaded) {
+      log.info('[lifecycle] atualizacao pendente: saida normal, quem instala e o updater.');
+      return;
+    }
+    log.info('[lifecycle] faxina concluida, encerrando o processo.');
+    app.exit(0);
   });
 
   return true;

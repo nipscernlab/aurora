@@ -275,4 +275,29 @@ async function runStopAllToolchain() {
   state.currentGtkwaveProcesses.clear();
 }
 
-module.exports = { GROUP, trackChild, spawnTracked, stopAllToolchain, stopToolchainRun };
+/**
+ * Mata o que sobrou de uma sessao anterior. Roda no arranque, DEPOIS de o
+ * bloqueio de instancia unica ter sido obtido: nesse ponto somos o unico
+ * aplicativo vivo, entao qualquer processo rodando de dentro da nossa pasta de
+ * componentes so pode ser orfao de uma execucao que morreu mal.
+ *
+ * Por que existe: um vvp.exe, um gtkwave ou um servidor de linguagem que
+ * sobreviva ao fechamento continua segurando arquivo dentro de components/, e
+ * arquivo em uso e o que faz uma instalacao terminar pela metade, com a pasta
+ * de destino vazia e o instalador sem conseguir substituir o que estava
+ * travado. Limpar na saida e o certo, e e o que o stopAllToolchain faz; isto
+ * aqui e a rede para quando a saida nao foi limpa, que e justamente o caso em
+ * que ninguem estava olhando.
+ */
+async function reapOrphans() {
+  if (process.platform !== 'win32') return;
+  try {
+    const prefix = componentsPath;
+    if (!prefix) return;
+    await killProcessesByPathPrefix(prefix, 8000);
+  } catch (_err) {
+    // Faxina nunca impede o arranque.
+  }
+}
+
+module.exports = { GROUP, trackChild, spawnTracked, stopAllToolchain, stopToolchainRun, reapOrphans };

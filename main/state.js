@@ -21,6 +21,7 @@
  * @property {boolean} downloadInProgress
  * @property {boolean} updateCheckInProgress
  * @property {boolean} updateAvailable
+ * @property {boolean} updateDownloaded
  * @property {unknown} updateInfo - electron-updater's UpdateInfo; opaque here.
  * @property {boolean} updateSystemInitialized
  * @property {string | null} currentOpenProjectPath
@@ -48,6 +49,10 @@ const state = {
   downloadInProgress: false,
   updateCheckInProgress: false,
   updateAvailable: false,
+  // Atualizacao baixada, esperando a saida do aplicativo para se instalar. O
+  // encerramento le isto: com update pendente ele NAO pode forcar a saida,
+  // porque quem instala e o electron-updater, no caminho normal de quit.
+  updateDownloaded: false,
   updateInfo: null,
   updateSystemInitialized: false,
 

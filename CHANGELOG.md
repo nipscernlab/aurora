@@ -4,6 +4,39 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.4.1](https://github.com/nipscernlab/aurora/compare/v6.4.0...v6.4.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* **lifecycle:** garante que fechar a AURORA mate o processo, e varre orfaos ao abrir ([401ce9b](https://github.com/nipscernlab/aurora/commit/401ce9b550bd658914271b42020c21461670a599))
+* **release:** a publicacao sai das maos do electron-builder e vira um passo so ([ea2be9b](https://github.com/nipscernlab/aurora/commit/ea2be9b4a3a6d7457427714caeb9374d9e739728))
+* **release:** a sentinela procurava um surfer.exe que foi renomeado ha tempo ([bd45142](https://github.com/nipscernlab/aurora/commit/bd4514230c8ec1a7e51d1ce81ef0d9b0c14c4766))
+* **release:** o espelhamento das notas nunca rodou, e ninguem tinha visto ([45b1d64](https://github.com/nipscernlab/aurora/commit/45b1d64632947d61156b5e3951eb22837bf2edd1))
+* **release:** o portao de integridade lia bytes e acusava um feed que estava certo ([690d5d7](https://github.com/nipscernlab/aurora/commit/690d5d7ee087f2abf092336cf1ced6cb4bce1b63))
+* **updates:** "verificar agora" responde na interface, e nao num dialog modal ([6dc3b4e](https://github.com/nipscernlab/aurora/commit/6dc3b4e559f45e3dc7af5724cb35b072fe3bcaf3))
+
+
+### Refactor
+
+* remove as nove funcoes que ninguem chamava ([22421e3](https://github.com/nipscernlab/aurora/commit/22421e31ae07392fcb04b01bfca1c4f9f5bae561))
+
+
+### Documentation
+
+* **licenca:** o YANC nao e software de terceiros, e obra do laboratorio ([41845fe](https://github.com/nipscernlab/aurora/commit/41845fe7beee3b59b934723d7e84c2e51b684e4d))
+* **todo:** risca a release publicada e registra codigo morto e estilos ([fbd768a](https://github.com/nipscernlab/aurora/commit/fbd768a549505fe7ca1e0c090d1e5cbec8eaf55b))
+* **todo:** risca as paletas e a varredura de codigo morto, com o que sobrou de cada uma ([e4e4368](https://github.com/nipscernlab/aurora/commit/e4e43683ed5bb2c62cf7e0acc7096b90cbca468b))
+
+
+### Build
+
+* **deps:** bump @anthropic-ai/claude-code from 2.1.222 to 2.1.226 ([#69](https://github.com/nipscernlab/aurora/issues/69)) ([1a863ca](https://github.com/nipscernlab/aurora/commit/1a863ca436d35dec18c5465e9e6060424f78b2a1))
+* **deps:** bump @openai/codex from 0.146.0 to 0.147.0 ([#71](https://github.com/nipscernlab/aurora/issues/71)) ([58523e0](https://github.com/nipscernlab/aurora/commit/58523e05488a4a208867c6f8bcfbee5f34657e5f))
+* **deps:** bump actions/upload-artifact from 4 to 7 ([#76](https://github.com/nipscernlab/aurora/issues/76)) ([96473bd](https://github.com/nipscernlab/aurora/commit/96473bdb6adf2d2faff17dcf3b13bda05853d8ca))
+* **deps:** bump katex from 0.18.2 to 0.18.3 ([#74](https://github.com/nipscernlab/aurora/issues/74)) ([afa632d](https://github.com/nipscernlab/aurora/commit/afa632db2da78c305902b6bfeeed02742ad3b872))
+* **deps:** bump web-tree-sitter from 0.26.11 to 0.26.12 ([#75](https://github.com/nipscernlab/aurora/issues/75)) ([18f9781](https://github.com/nipscernlab/aurora/commit/18f97816ff947060201d4debac721364720a2683))
+
 ## [6.4.0](https://github.com/nipscernlab/aurora/compare/v6.3.2...v6.4.0) (2026-08-11)
 
 

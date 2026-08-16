@@ -4,7 +4,7 @@
  *
  * A documentação é escrita e gerada em outro repositório
  * (nipscernlab/docs_aurora), que publica cada versão em dois lugares: o site em
- * nipscern.com/docs/sapho e um pacote .zip anexado a uma Release. Aqui baixamos
+ * nipscern.com/library/sapho e um pacote .zip anexado a uma Release. Aqui baixamos
  * esse pacote, para que o botão "documentação offline" funcione sem rede.
  *
  * O manifesto é a fonte da verdade sobre qual é a versão corrente. Ele também é

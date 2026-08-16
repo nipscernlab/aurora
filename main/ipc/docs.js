@@ -3,7 +3,7 @@
  * docs.js — abre o manual do SAPHO e o mantém atualizado.
  *
  * A documentação vive em outro repositório (nipscernlab/docs_aurora), que a
- * publica em dois canais: o site em nipscern.com/docs/sapho e um pacote .zip
+ * publica em dois canais: o site em nipscern.com/library/sapho e um pacote .zip
  * anexado a uma Release. O instalador traz uma cópia desse pacote, para que o
  * manual abra na primeira execução e sem rede.
  *
@@ -31,7 +31,7 @@ const crypto = require('crypto');
 const { app, shell, ipcMain, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
-const ONLINE_URL = 'https://www.nipscern.com/docs/sapho/';
+const ONLINE_URL = 'https://www.nipscern.com/library/sapho/';
 const MANIFEST_URL = 'https://nipscernlab.github.io/docs_aurora/docs-manifest.json';
 
 /** Cópia que veio no instalador (extraResources), somente leitura. */

@@ -3,7 +3,7 @@
   "productName": "SAPHO",
   "description": "Scalable-Architecture Processor for Hardware Optimization",
   "author": "NIPSCERN",
-  "version": "6.4.2",
+  "version": "6.4.3",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",

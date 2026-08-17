@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.5.0](https://github.com/nipscernlab/aurora/compare/v6.4.3...v6.5.0) (2026-08-17)
+
+
+### Features
+
+* **installer:** licenca com aceite obrigatorio antes de instalar ([44a5bfb](https://github.com/nipscernlab/aurora/commit/44a5bfb9d657fe22e363274672e2456414e28932))
+
 ## [6.4.3](https://github.com/nipscernlab/aurora/compare/v6.4.2...v6.4.3) (2026-08-16)
 
 

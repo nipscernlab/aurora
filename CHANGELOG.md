@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.4.3](https://github.com/nipscernlab/aurora/compare/v6.4.2...v6.4.3) (2026-08-16)
+
+
+### Bug Fixes
+
+* **docs:** manual online muda para nipscern.com/library/sapho ([1534f43](https://github.com/nipscernlab/aurora/commit/1534f433ea0c334392514fef5be4facf048c6c50))
+
+
+### Documentation
+
+* **todo:** a atualizacao precisa do caminho do updater liberado, e o instalador nao pode rodar como admin ([52a11ac](https://github.com/nipscernlab/aurora/commit/52a11ac3c4ebb51f915abd6cb77db19837338089))
+* **todo:** o disco por perfil era 1,6 GB no papel e e 2,3 GB medido ([df8a3ca](https://github.com/nipscernlab/aurora/commit/df8a3ca4a79ff9322449662fd1770a48863531ef))
+
 ## [6.4.2](https://github.com/nipscernlab/aurora/compare/v6.4.1...v6.4.2) (2026-08-14)
 
 

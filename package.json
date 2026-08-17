@@ -84,11 +84,16 @@
     "is how two copies drift apart and start contradicting each other.",
     "The three that ship are the ones a user needs to know what they received:",
     "the AURORA terms, the SAPHO annex (the Verilog under components/HDL rides",
-    "along in extraResources), and the third-party inventory."
+    "along in extraResources), and the third-party inventory.",
+    "nsis.license points at build/license.txt, which does NOT exist in the",
+    "repo: beforePack generates it (LICENSE + LICENSE-SAPHO.md, UTF-8 BOM) on",
+    "every build — see scripts/gen-installer-license.js for why. The licence",
+    "page keeps the installer per-user with no admin prompt (TODO.md sec. 2)."
   ],
   "build": {
     "appId": "com.nipscern.sapho",
     "productName": "SAPHO",
+    "beforePack": "./scripts/gen-installer-license.js",
     "fileAssociations": [
       {
         "ext": "spf",
@@ -132,6 +137,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "license": "build/license.txt",
       "include": "build/installer.nsh"
     },
     "asarUnpack": [

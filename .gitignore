@@ -136,3 +136,6 @@ docs/**/*.xdv
 .env
 .env.*
 !.env.example
+
+# Gerado por scripts/gen-installer-license.js a cada build (beforePack)
+build/license.txt

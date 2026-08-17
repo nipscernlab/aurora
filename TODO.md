@@ -79,6 +79,11 @@ porque o instalador é NSIS `oneClick` sem elevação: instalar em Arquivos de
 Programas exigiria consentimento de admin a cada atualização, e numa máquina
 onde o aluno não é admin a atualização nunca aconteceria.
 
+Desde a v6.5.0 o instalador abre mostrando a licença (LICENSE + anexo SAPHO,
+gerados a cada build por `scripts/gen-installer-license.js`) e só instala se o
+usuário aceitar. A página é só um portão de leitura: não muda a elevação nem o
+diretório — tudo acima continua valendo.
+
 | Item | Valor |
 |---|---|
 | Diretório do programa | `%LOCALAPPDATA%\Programs\SAPHO\` (executável `SAPHO.exe`) |

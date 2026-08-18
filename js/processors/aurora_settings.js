@@ -2,6 +2,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import { avisoLigado, definirAviso, CHAVE_AVISO } from '../ui/network_watch.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const settingsButton = document.getElementById('aurora-settings');
@@ -16,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tooltipsToggle = document.getElementById('tooltips-toggle');
     const auroraBgToggle = document.getElementById('aurora-bg-toggle');
     const trustLinksToggle = document.getElementById('trust-links-toggle');
+    const networkWarnToggle = document.getElementById('network-warning-toggle');
 
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
     const SETTINGS_STORAGE_KEY = 'aurora-settings';
@@ -63,6 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let salvouNestaAbertura = false;
     /** Valor do trust-links quando o painel abriu, para poder ser devolvido. */
     let trustLinksSnapshot = null;
+    /** Idem para o aviso de rede, que tambem escreve no ato. */
+    let networkWarnSnapshot = null;
 
     /**
      * Carrega configurações do localStorage (ou usa defaults) e aplica ao UI.
@@ -77,6 +81,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Trust-external-links lives on its own shared key (not the settings
         // JSON) so the AI link-warning checkbox and this toggle are linked.
         if (trustLinksToggle) trustLinksToggle.checked = localStorage.getItem(TRUST_LINKS_KEY) === '1';
+        // O aviso de rede tem chave propria e efeito imediato, como o
+        // trust-links: nao ha o que "aplicar" ao salvar, ele so passa a valer
+        // na proxima queda.
+        if (networkWarnToggle) networkWarnToggle.checked = avisoLigado();
 
         // Aplica estado dos tooltips imediatamente
         setTooltipsEnabled(!!currentSettings.tooltipsEnabled);
@@ -130,6 +138,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Trust-external-links: applies immediately (a bypass preference), writing
     // the SAME key the AI link-warning checkbox uses and broadcasting so both
     // stay in sync without a Save round-trip.
+    if (networkWarnToggle) {
+        networkWarnToggle.addEventListener('change', () => definirAviso(networkWarnToggle.checked));
+    }
+
     if (trustLinksToggle) {
         trustLinksToggle.addEventListener('change', () => {
             localStorage.setItem(TRUST_LINKS_KEY, trustLinksToggle.checked ? '1' : '0');
@@ -329,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // O que reverter, se esta abertura terminar sem salvar.
         salvouNestaAbertura = false;
         trustLinksSnapshot = localStorage.getItem(TRUST_LINKS_KEY);
+        networkWarnSnapshot = localStorage.getItem(CHAVE_AVISO);
         // Display BEFORE picking the pane so the nav items have a real layout —
         // otherwise the sliding pill measures offsetTop/Height on a display:none
         // modal (both 0) and lands nowhere on first open.
@@ -356,6 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // O trust-links mora numa chave própria e é escrito no ato, para ficar
         // em sincronia com a caixa equivalente no painel de IA. Por isso ele
         // precisa ser devolvido à mão, e a sincronia reavisada.
+        if (networkWarnSnapshot !== null) definirAviso(networkWarnSnapshot !== '0');
         if (trustLinksSnapshot !== null) {
             localStorage.setItem(TRUST_LINKS_KEY, trustLinksSnapshot);
             window.dispatchEvent(new CustomEvent('aurora:trust-external-links-changed',

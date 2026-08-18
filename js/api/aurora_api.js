@@ -1963,8 +1963,37 @@ const compileNs = {
   async cancel() {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
-    try { cf.cancelAll(); emit('compile:cancelled', null); return ok(); }
+    // O evento sai de dentro do cancelAll, e nao daqui: cancelar pelo botao da
+    // interface nao passa por esta funcao, e emitir nos dois lugares faria a
+    // ferramenta da IA disparar o evento duas vezes.
+    try { cf.cancelAll(); return ok(); }
     catch (e) { return err(e?.message || 'cancel failed'); }
+  },
+
+  /**
+   * Como terminou a ultima execucao: rodando, concluida ou cancelada.
+   *
+   * A IA sabia quando uma compilacao ACABAVA, mas nao quando era cancelada, e a
+   * diferenca importa: um turno que pediu para compilar e ficava sem resposta
+   * concluia sozinho que algo travou, e seguia investigando um problema que nao
+   * existia. Com isto ela pergunta e descobre que o usuario simplesmente parou.
+   *
+   * O estado e lido do gerenciador de compilacao, que ja o mantem; nao ha
+   * estado novo para desincronizar.
+   */
+  async runStatus() {
+    const cf = window.compilationFlowManager;
+    if (!cf) return err('compilation flow not initialised');
+    const cancelada = !!cf.wasCancelled?.();
+    const rodando = !!cf.isRunning?.();
+    return ok({
+      running: rodando,
+      cancelled: cancelada,
+      state: rodando ? 'running' : (cancelada ? 'cancelled' : 'idle'),
+      note: cancelada
+        ? 'The user cancelled the last run. Do not treat the missing result as a failure or a hang.'
+        : undefined,
+    });
   },
 
   // -----------------------------------------------------------------
@@ -2935,6 +2964,7 @@ const NAMESPACES = Object.freeze({
     compileAll:  'Run the full CMM→ASM→Verilog→wave→PRISM pipeline',
     compileStep: 'Run one pipeline step (cmm|asm|verilog|wave|prism|verilator|verilator-proc|verilator-fast)',
     cancel:      'Cancel a running compilation or simulation',
+    runStatus:   'Whether the last run is running, finished or was cancelled by the user',
     listSteps:           'List every toolchain step the override system knows about',
     inspectCommand:      'Show the CommandSpec (base + override-applied) for a step',
     previewCommand:      'Dry-run a hypothetical override on top of the current spec',

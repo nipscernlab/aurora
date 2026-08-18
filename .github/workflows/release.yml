@@ -55,6 +55,12 @@ jobs:
   preflight:
     name: Preflight — publish access
     runs-on: ubuntu-latest
+    # Somente a conta do dono publica. O bot cobre o caminho normal, em que a
+    # release e criada pelo release-please, ja gated pelo mesmo ator no outro
+    # workflow. Uma release criada a mao por outra conta para aqui, antes de
+    # gastar os ~20 min de build. O job `release` herda via needs: preflight
+    # pulado pula os dependentes.
+    if: github.actor == 'Chrysthofer' || github.actor == 'github-actions[bot]'
     permissions: {}
 
     steps:

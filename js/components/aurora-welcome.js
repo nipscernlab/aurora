@@ -35,7 +35,11 @@ class AuroraWelcome extends LitElement {
     super();
     this.projects = [];
     this.missingCount = 0;
-    this.version = 'v6.3.2';
+    // Preenchida no connectedCallback pelo mesmo IPC que abastece o painel
+    // Sobre. Ficou meses gravada aqui como texto e mentiu a versao a cada
+    // release; vazia, o rodape simplesmente nao mostra numero ate a resposta
+    // chegar, o que leva milissegundos.
+    this.version = '';
     this._removing = new Set();
     this._onLocale = () => this.requestUpdate();
     // Fundo aurora: desligado por padrao (ver defaultSettings em
@@ -57,6 +61,11 @@ class AuroraWelcome extends LitElement {
     window.addEventListener('aurora:locale-changed', this._onLocale);
     window.addEventListener('aurora:background-toggled', this._onBgToggle);
     this.auroraBg = AuroraWelcome._bgEnabled();
+    if (!this.version) {
+      window.electronAPI?.getAppVersion?.()
+        .then((v) => { if (v) this.version = `v${String(v).replace(/^v/, '')}`; })
+        .catch(() => { /* sem IPC (design-lab), o rodape fica sem numero */ });
+    }
   }
 
   disconnectedCallback() {

@@ -13,6 +13,7 @@
 
 import { electronAPI } from './electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import { showCardNotification } from '../ui/notification.js';
 import { projectManager } from '../project/project_manager.js';
 
 // i18n shim — fallback pra key path se i18n nao bootou ainda.
@@ -68,15 +69,19 @@ class AppInitializer {
             const exists = await electronAPI.fileExists(lastProjectPath);
 
             if (!exists) {
+                // O projeto sumiu do disco entre uma sessao e outra: apagado,
+                // movido, ou num drive que nao montou. Nao e erro do usuario e
+                // nao ha decisao a tomar, entao um dialogo modal na cara, antes
+                // mesmo de a janela assentar, so atrapalha. Um aviso no canto
+                // conta o que houve e a lista de recentes ja mostra o projeto
+                // riscado.
                 console.warn('Last project file not found');
                 localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
                 this._resetProjectNameLabel();
-
-                await showDialog({
-                    title: tr('dialog.session.projectNotFoundTitle'),
-                    message: tr('dialog.session.projectNotFoundMessage'),
-                    buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
-                });
+                showCardNotification(
+                    tr('dialog.session.projectNotFoundToast'),
+                    'warning', 8000,
+                );
                 return;
             }
 
@@ -87,15 +92,16 @@ class AppInitializer {
             console.log('Session restored successfully');
 
         } catch (error) {
+            // Mesmo criterio do caminho de cima: restaurar sessao e cortesia,
+            // e cortesia que falha nao pode custar um modal. O aviso carrega o
+            // motivo resumido; o log guarda o resto.
             console.error('Failed to restore session:', error);
             localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
             this._resetProjectNameLabel();
-
-            await showDialog({
-                title: tr('dialog.session.restoreErrorTitle'),
-                message: tr('dialog.session.restoreErrorMessage', { error: error.message }),
-                buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
-            });
+            showCardNotification(
+                tr('dialog.session.restoreErrorToast', { error: error.message }),
+                'warning', 8000,
+            );
         }
     }
 

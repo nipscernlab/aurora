@@ -101,6 +101,20 @@
         "description": "SAPHO Project File",
         "role": "Editor",
         "icon": "./assets/icons/sapho_aurora_icon.ico"
+      },
+      {
+        "ext": "cmm",
+        "name": "C± Source File",
+        "description": "SAPHO C± Source File",
+        "role": "Editor",
+        "icon": "./assets/icons/sapho_aurora_icon.ico"
+      },
+      {
+        "ext": "v",
+        "name": "Verilog Source File",
+        "description": "Verilog Source File",
+        "role": "Editor",
+        "icon": "./assets/icons/sapho_aurora_icon.ico"
       }
     ],
     "protocols": [

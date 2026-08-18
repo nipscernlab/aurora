@@ -403,6 +403,20 @@ class ProjectManager {
             }
         });
 
+        // Duplo clique num .cmm ou .v associado no Windows. Abre o arquivo
+        // solto no editor, sem projeto: um fonte avulso nao tem .spf para
+        // carregar junto, e obrigar um projeto so para ler um arquivo seria
+        // pior que abrir vazio.
+        electronAPI.onOpenLooseFile?.(async ({ filePath }) => {
+            if (!filePath) return;
+            try {
+                const content = await electronAPI.readFile(filePath);
+                window.TabManager?.addTab?.(filePath, content ?? '');
+            } catch (e) {
+                console.warn('open-loose-file falhou:', e?.message || e);
+            }
+        });
+
         // Right-click numa cell do Prism abre o .v aqui no editor principal
         // na linha exata. Reusa o pipeline existente (readFile + TabManager
         // ou SplitEditorManager) pra parity com clique no file tree, depois

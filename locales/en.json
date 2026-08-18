@@ -320,7 +320,9 @@
       "auroraBg": "Aurora Borealis on the Welcome screen",
       "auroraBgDescription": "Animated aurora background behind the Welcome screen. It renders on the GPU in a continuous loop; off by default to save battery and to keep weaker machines responsive.",
       "aboutLicense": "NIPS-CERN License 1.1",
-      "aboutBugReport": "Report a problem"
+      "aboutBugReport": "Report a problem",
+      "networkWarning": "Warn when the internet drops",
+      "networkWarningDescription": "Shows a corner notice on every connection drop. Compiling and simulating do not need the network."
     }
   },
   "shortcuts": {
@@ -371,7 +373,9 @@
       "projectNotFoundTitle": "Project Not Found",
       "projectNotFoundMessage": "The previously opened project could not be found.",
       "restoreErrorTitle": "Error Restoring Session",
-      "restoreErrorMessage": "Could not restore your previous session: {{error}}"
+      "restoreErrorMessage": "Could not restore your previous session: {{error}}",
+      "projectNotFoundToast": "The last project was not found on disk and was not reopened. It shows struck through in the recent list.",
+      "restoreErrorToast": "Could not reopen the last project: {{error}}"
     },
     "project": {
       "loadErrorTitle": "Error Loading Project",
@@ -1004,5 +1008,9 @@
   },
   "common": {
     "cancel": "Cancel"
+  },
+  "network": {
+    "offlineTitle": "No internet",
+    "offlineMessage": "The internet connection dropped. Compiling and simulating still work, since the toolchain is local; updates, the online manual, AI and git stay unavailable until the network returns."
   }
 }

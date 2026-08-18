@@ -16,7 +16,9 @@ const { stopAllToolchain, reapOrphans } = require('./process_registry');
 function register() {
   // Detect a .spf passed on the command line; the main window will pick it
   // up after did-finish-load.
-  state.fileToOpen = process.argv.find((arg) => arg.endsWith('.spf')) ?? null;
+  // .spf abre o projeto; .cmm e .v abrem soltos no editor (associacoes de
+  // arquivo do instalador). O renderer decide pelo sufixo.
+  state.fileToOpen = process.argv.find((arg) => /\.(spf|cmm|v)$/i.test(arg)) ?? null;
 
   // Single-instance lock — pass any .spf the second instance had to the
   // first, then quit the second instance. Tests run with their own
@@ -56,10 +58,16 @@ function register() {
     const { createMainWindow } = require('./windows');
     const newWin = createMainWindow();
 
-    const spfFile = commandLine.find((arg) => arg.endsWith('.spf'));
-    if (spfFile && newWin) {
+    const fileArg = commandLine.find((arg) => /\.(spf|cmm|v)$/i.test(arg));
+    if (fileArg && newWin) {
+      // Espera o load nos dois casos: mandar antes de o renderer registrar o
+      // listener e falar com ninguem.
       newWin.webContents.once('did-finish-load', () => {
-        newWin.webContents.send('open-spf-file', { filePaths: [spfFile] });
+        if (/\.spf$/i.test(fileArg)) {
+          newWin.webContents.send('open-spf-file', { filePaths: [fileArg] });
+        } else {
+          newWin.webContents.send('aurora:open-loose-file', { filePath: fileArg });
+        }
       });
     }
   });

@@ -1357,6 +1357,19 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'get_run_status',
+    description:
+      'Check whether the last compilation or simulation is still running, finished, '
+      + 'or was CANCELLED by the user. Call this when a compile_* tool returned but no '
+      + 'result ever appeared in the terminal: a cancelled run is not a failure and not '
+      + 'a hang, so do not go looking for a bug that is not there. Returns '
+      + 'state: running | cancelled | idle.',
+    access: 'read',
+    api: ['compile', 'runStatus'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'close_project',
     description:
       'Close the project currently open and return the IDE to its empty state. '

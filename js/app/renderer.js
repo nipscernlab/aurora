@@ -8,6 +8,7 @@ import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import '../terminal/tab_orientation.js';   // abas em coluna quando o terminal fica estreito
+import '../ui/network_watch.js';  // aviso de queda de internet
 import '../ui/bug_report.js';   // botao Relatar um problema, no painel Sobre
 // Side-effect import: boots the TCMD tab's embedded interactive shell (PowerShell)
 // and self-initializes on DOMContentLoaded.

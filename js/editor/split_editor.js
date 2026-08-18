@@ -180,7 +180,11 @@ class SplitPane {
             fontLigatures: true,
             fontSize: 12,
             minimap: { enabled: false },
-            scrollBeyondLastLine: false,
+            // Igual ao editor principal: rolar alem da ultima linha deixa o fim
+            // do arquivo subir ate o meio da tela em vez de ficar colado na
+            // borda de baixo. Os splits estavam sem isso e cada pane parava
+            // seco na ultima linha.
+            scrollBeyondLastLine: true,
             cursorSmoothCaretAnimation: 'on',
             cursorBlinking: 'smooth',
         });

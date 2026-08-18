@@ -908,6 +908,21 @@ class CompilationFlowManager {
         }
     }
 
+    /**
+     * Uma execucao esta em curso? `activeRunStep` ja guardava isso; faltava
+     * quem lesse de fora.
+     */
+    isRunning() { return activeRunStep !== null; }
+
+    /**
+     * A ultima execucao foi cancelada pelo usuario?
+     *
+     * A bandeira zera no inicio da proxima compilacao, entao ela responde
+     * sobre a ultima, que e exatamente a pergunta que a IA precisa fazer
+     * quando um resultado nao chegou.
+     */
+    wasCancelled() { return compilationCanceled; }
+
     cancelAll() {
         const tm = getTM();
         const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
@@ -941,6 +956,17 @@ class CompilationFlowManager {
         );
 
         statusUpdater.cancelRun();
+
+        // A IA precisa saber. Ela ja recebia o fim normal de uma compilacao,
+        // mas nao o cancelamento, entao um turno que pediu para compilar ficava
+        // esperando um resultado que nunca viria e concluia sozinho que algo
+        // travou. O evento sai daqui, do ponto onde o usuario cancela, e nao do
+        // compileNs.cancel, porque este e o caminho do BOTAO: cancelar pela
+        // ferramenta da IA ja passava por la, cancelar clicando nao passava.
+        try {
+            window.AuroraAPI?.events?.emit?.('compile:cancelled', { by: 'user' });
+        } catch (_) { /* a API pode nao ter subido ainda */ }
+
         electronAPI.cancelVvpProcess()
             .then((result) => {
                 // Main reports "no compilation process running" when the

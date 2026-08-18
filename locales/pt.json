@@ -320,7 +320,9 @@
       "auroraBg": "Aurora Boreal na tela de Boas-vindas",
       "auroraBgDescription": "Fundo animado de aurora atrás da tela de Boas-vindas. É desenhado na GPU em laço contínuo; vem desligado para poupar bateria e não pesar em máquina mais fraca.",
       "aboutLicense": "Licenca NIPS-CERN 1.1",
-      "aboutBugReport": "Relatar um problema"
+      "aboutBugReport": "Relatar um problema",
+      "networkWarning": "Avisar quando a internet cair",
+      "networkWarningDescription": "Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede."
     }
   },
   "shortcuts": {
@@ -371,7 +373,9 @@
       "projectNotFoundTitle": "Projeto Não Encontrado",
       "projectNotFoundMessage": "O projeto aberto anteriormente não pôde ser encontrado.",
       "restoreErrorTitle": "Erro ao Restaurar Sessão",
-      "restoreErrorMessage": "Não foi possível restaurar sua sessão anterior: {{error}}"
+      "restoreErrorMessage": "Não foi possível restaurar sua sessão anterior: {{error}}",
+      "projectNotFoundToast": "O último projeto não foi encontrado no disco e não foi reaberto. Ele aparece riscado na lista de recentes.",
+      "restoreErrorToast": "Não foi possível reabrir o último projeto: {{error}}"
     },
     "project": {
       "loadErrorTitle": "Erro ao Carregar Projeto",
@@ -1004,5 +1008,9 @@
   },
   "common": {
     "cancel": "Cancelar"
+  },
+  "network": {
+    "offlineTitle": "Sem internet",
+    "offlineMessage": "A conexão com a internet caiu. Compilar e simular continuam funcionando, porque o toolchain é local; atualizações, manual online, IA e git ficam indisponíveis até a rede voltar."
   }
 }

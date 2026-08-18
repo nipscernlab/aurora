@@ -18,6 +18,13 @@ permissions:
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    # Somente a conta do dono cria releases. O job faz duas coisas: atualiza a
+    # PR de release a cada push e, quando o push e o merge dela, cria a tag e
+    # publica a Release. Travar pelo ator cobre as duas: um push de outro
+    # colaborador nao atualiza a PR (o proximo push do dono atualiza), e um
+    # merge da PR por outra conta nao vira release. A trava de verdade fica nas
+    # configuracoes do GitHub (ruleset de tag); esta aqui e a do codigo.
+    if: github.actor == 'Chrysthofer'
     steps:
       - uses: googleapis/release-please-action@v5
         with:

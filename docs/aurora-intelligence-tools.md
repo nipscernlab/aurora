@@ -5,7 +5,7 @@
      `description` dela em main/ai/tools.js, que e o mesmo texto que o
      modelo le ao decidir se a chama. -->
 
-A AURORA expoe 106 ferramentas ao modelo. Elas chegam ate ele por dois
+A AURORA expoe 107 ferramentas ao modelo. Elas chegam ate ele por dois
 caminhos, descritos abaixo.
 
 Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel
@@ -80,6 +80,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 | `clear_command_override` | write | `step`, `processorName`?, `scope`? | Remove a registered override. `scope` controls which layer: "ephemeral" (in-memory only), "persisted" (.spf only), or "both" (default). |
 | `compile_all` | write | nenhum | Run the full SAPHO compilation pipeline (CMM, ASM, Verilog, wave, PRISM). |
 | `compile_step` | write | `step` | Run a single compilation step. "cmm" regenerates the .asm from .cmm and assembles; "asm" SKIPS cmmcomp and runs asmcomp + iverilog -tnull (use this to test an .asm you hand-optimised — typically combined with a `set_command_override` on the asm step's -i flag pointing at <proc>/Software/_aurora_opt/<proc>.asm); "verilog" elaborates the project Verilog; "wave" opens GTKWave; "prism" opens the PRISM RTL viewer; "verilator-proc" runs the ACTIVE processor's generated top-level under Verilator as a hardware test; "verilator-fast" runs the testbench headless under Verilator (no waveform, fastest). For the two Verilator simulations the dedicated run_verilator_proc / run_fast_sim tools are equivalent and clearer. |
+| `get_run_status` | read | nenhum | Check whether the last compilation or simulation is still running, finished, or was CANCELLED by the user. Call this when a compile_* tool returned but no result ever appeared in the terminal: a cancelled run is not a failure and not a hang, so do not go looking for a bug that is not there. Returns state: running \| cancelled \| idle. |
 | `inspect_compile_command` | read | `step`, `processorName`? | Return the structured CommandSpec ({binary, args, cwd, env, prependPath}) that would be executed for one toolchain step RIGHT NOW, including any override the AI or the user has registered. Includes a printable command line and a diff vs. the base spec. |
 | `list_allowed_compile_binaries` | read | nenhum | List the binaries the main-process executor will spawn. Aurora Intelligence cannot redirect a step to a binary outside this allowlist — only flags and env are editable. |
 | `list_command_overrides` | read | nenhum | List every registered command override across the ephemeral (in-memory, consumed on next run) and persisted (.spf, survives sessions) layers. |

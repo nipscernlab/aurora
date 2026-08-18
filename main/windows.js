@@ -294,10 +294,15 @@ function createMainWindow(opts = {}) {
   mainWindow.on('leave-full-screen', sendWindowState);
   mainWindow.webContents.on('did-finish-load', sendWindowState);
 
-  // If the app was launched with an .spf file argument, ask the renderer to open it.
+  // Arquivo passado na linha de comando (duplo clique numa associacao do
+  // Windows): .spf abre o projeto inteiro; .cmm e .v abrem soltos no editor,
+  // sem projeto, porque um fonte avulso nao tem .spf para carregar junto.
   mainWindow.webContents.on('did-finish-load', () => {
-    if (state.fileToOpen) {
+    if (!state.fileToOpen) return;
+    if (/\.spf$/i.test(state.fileToOpen)) {
       mainWindow.webContents.send('open-spf-file', { filePaths: [state.fileToOpen] });
+    } else {
+      mainWindow.webContents.send('aurora:open-loose-file', { filePath: state.fileToOpen });
     }
   });
 

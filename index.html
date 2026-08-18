@@ -782,13 +782,13 @@
     <span slot="title" class="modal-title dagr-title">
         <i class="ph ph-git-branch dagr-sc-icon" aria-hidden="true"></i>
         <span class="dagr-rune" aria-hidden="true">&#5854;</span>
-        <span class="dagr-name">Dagr</span>
+        <span class="dagr-name">Git-D</span>
         <span class="dagr-sub" data-i18n="modal.git.title">Source Control</span>
     </span>
     <main class="modal-body git-panel">
         <div class="dagr-watermark" aria-hidden="true">
             <span class="dagr-wm-rune">&#5854;</span>
-            <span class="dagr-wm-name">DAGR</span>
+            <span class="dagr-wm-name">GIT-D</span>
         </div>
         <div class="git-account" id="git-account"></div>
         <div class="git-clone" id="git-clone" hidden>
@@ -1078,6 +1078,18 @@
                         <h3 data-i18n="modal.settings.sectionGeneral">General</h3>
                     </header>
                     <div class="settings-card">
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label for="network-warning-toggle" data-i18n="modal.settings.networkWarning">Avisar quando a internet cair</label>
+                                <p class="setting-description" data-i18n="modal.settings.networkWarningDescription">
+                                    Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede.
+                                </p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="network-warning-toggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                         <div class="setting-row">
                             <div class="setting-row-text">
                                 <label for="tooltips-toggle" data-i18n="modal.settings.tooltips">Enable Tooltips</label>
@@ -1407,7 +1419,7 @@
                             <li><span class="about-lic-name">Phosphor Icons</span><span class="about-lic-tag">MIT</span></li>
                             <li><span class="about-lic-name">Lit</span><span class="about-lic-tag">BSD-3-Clause</span></li>
                             <li><span class="about-lic-name">Inter &middot; JetBrains Mono</span><span class="about-lic-tag">OFL-1.1</span></li>
-                            <li><span class="about-lic-name">Metamorphous (Dagr wordmark)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
+                            <li><span class="about-lic-name">Metamorphous (letreiro Git-D)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
                             <li><span class="about-lic-name">Simple Icons (marcas de e-mail)</span><span class="about-lic-tag">CC0 1.0</span></li>
                             <li><span class="about-lic-name">Noto Sans Runic (Dagaz rune)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
                         </ul>

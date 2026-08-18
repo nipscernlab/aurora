@@ -2611,10 +2611,14 @@ const waveNs = {
     try { await electronAPI.writeFile(alvo, texto); }
     catch (e) { return err(`Could not write ${alvo}: ${e?.message || e}`); }
 
-    const add = await this.addSurferFile({ filePath: alvo, setActive });
+    // Chama por `waveNs`, e NAO por `this`: o tool_runner invoca os metodos de
+    // namespace como funcao solta, entao `this` chega indefinido e a chamada
+    // morria com "Cannot read properties of undefined". O resto do arquivo ja
+    // avisava disso em compileNs, e eu repeti o erro aqui.
+    const add = await waveNs.addSurferFile({ filePath: alvo, setActive });
     if (!add?.success) return add;
     if (open) {
-      const r = await this.openSurfer({ file: undefined, layout: alvo });
+      const r = await waveNs.openSurfer({ file: undefined, layout: alvo });
       if (!r?.success) return ok({ filePath: alvo, opened: false, openError: r?.error });
     }
     return ok({ filePath: alvo, opened: !!open, commands: corpo.length });

@@ -735,6 +735,14 @@ class StandardTreeCrud {
                     await standardTreeRenderer.render();
                     this.select(target);
                     if (kind === 'file') TabManager.addTab(target, '');
+                    // Avisa quem classifica arquivo por extensao. Sem isto, um
+                    // .v criado aqui so aparecia na visao Verilog depois de um
+                    // refresh forte: aquela visao so escutava `file-saved`, e
+                    // criar nao e salvar.
+                    try {
+                        window.dispatchEvent(new CustomEvent('aurora:file-created',
+                            { detail: { path: target, kind } }));
+                    } catch (_) { /* melhor esforco */ }
                     showCardNotification(
                         tr('notification.tree.created', 'Created "{name}"', { name: baseName(target) }),
                         'success', 2000,

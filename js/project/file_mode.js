@@ -203,6 +203,17 @@ class ProjectTreeManager {
             if (tracked) this.refreshTree();
         });
 
+        // Arquivo NOVO. O ouvinte acima so reage ao que ja esta rastreado, o que
+        // por definicao nunca inclui o que acabou de nascer: um .v criado pela
+        // visao Pastas ficava fora da lista de fontes ate um refresh forte.
+        // Aqui a decisao e pela extensao, que e o que classifica um fonte.
+        window.addEventListener('aurora:file-created', (event) => {
+            const p = event?.detail?.path;
+            if (!p || !this.isTreeActive) return;
+            const ext = String(p).slice(String(p).lastIndexOf('.')).toLowerCase();
+            if (this.ALLOWED_EXTENSIONS.includes(ext)) this.refreshTree();
+        });
+
         // Highlight da row do arquivo em foco no Monaco. TabManager e
         // SplitEditorManager despacham este evento toda vez que o file
         // ativo muda (tab clicked, split pane focused, tab closed, etc).

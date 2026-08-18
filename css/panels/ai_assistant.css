@@ -563,11 +563,20 @@ body.ai-assistant-open {
   user-select: none;
 }
 
-.ai-chat-empty-hint i {
+/* O símbolo entra como .ai-mark (SVG, duas estrelas) e não como fonte de
+   ícone, mas dimensiona igual: .ai-mark tem 1em de lado, então o font-size
+   daqui é que define o tamanho, e o fill segue o color por currentColor. */
+.ai-chat-empty-hint i,
+.ai-chat-empty-hint .ai-mark {
   font-size: 40px;
   color: var(--text-faint, var(--text-muted));
   margin-bottom: var(--space-1);
 }
+
+/* 48 e não os 40 dos irmãos: as duas estrelas são vazadas e deixam muito ar
+   dentro da caixa, então na mesma medida do glifo cheio que estava aqui antes
+   elas pesam menos e o bloco parece desalinhado. 48 iguala o peso óptico. */
+.ai-chat-empty-hint .ai-mark { font-size: 48px; }
 
 .ai-chat-empty-hint p {
   margin: 0;

@@ -17,6 +17,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showConfirm } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
+import { aiMarkSvg } from './ai_mark.js';
 import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis, semAnimar } from '../utils/resize.js';
 // Mesma regra de tamanho da árvore de arquivos e do terminal.
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
@@ -358,7 +359,7 @@ class AIAssistantManager {
 
         <div class="ai-messages" id="ai-messages" role="log" aria-live="polite">
           <div class="ai-chat-empty-hint" id="ai-chat-empty-hint" aria-hidden="true">
-            <i class="ph ph-brain" aria-hidden="true"></i>
+            ${aiMarkSvg('ai-empty-hint-mark')}
             <p data-i18n="ai.emptyHint">Ask Aurora Intelligence about your project, Verilog, or SAPHO/CMM</p>
           </div>
         </div>

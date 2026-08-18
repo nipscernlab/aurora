@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.6.1](https://github.com/nipscernlab/aurora/compare/v6.6.0...v6.6.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* create_surfer_layout, .v novo na visao Verilog, e caminho de projeto validado ([cf4efe3](https://github.com/nipscernlab/aurora/commit/cf4efe385b9456c88afb14817952958c66f954de))
+* **css:** o botao destrutivo usa o token de texto sobre fundo forte ([b29f4b2](https://github.com/nipscernlab/aurora/commit/b29f4b2b8409ba33970add3ed1de691a77c01c3f))
+* **editor:** o realce do C+- caia inteiro na notacao de Dirac ([4b5add6](https://github.com/nipscernlab/aurora/commit/4b5add603f5fdd7fc908bdfdbc328ca620015256))
+* **release:** fecha a cadeia entre criar a Release e construir o instalador ([4577dac](https://github.com/nipscernlab/aurora/commit/4577dac0ad3b7a98bac3be37b2e98d1c503265b9))
+* **update:** janela do tamanho do conteudo, e o aviso do boot deixa de mostrar a chave ([31c66a8](https://github.com/nipscernlab/aurora/commit/31c66a89c32c5f46f95330b70dd23b8517b7d013))
+
+
+### Documentation
+
+* **ai:** regenera a referencia de ferramentas, que a CI acusou desatualizada ([2fe056d](https://github.com/nipscernlab/aurora/commit/2fe056db1e1c073b91a67c6b6aa4ccee3838d3c3))
+
 ## [6.6.0](https://github.com/nipscernlab/aurora/compare/v6.5.0...v6.6.0) (2026-08-18)
 
 

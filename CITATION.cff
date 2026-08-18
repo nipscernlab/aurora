@@ -32,5 +32,5 @@ license-url: "https://github.com/nipscernlab/aurora/blob/main/LICENSE"
 # listed under `extra-files` in release-please-config.json). Editing them by
 # hand is how they drifted before: the version tracked the releases and the
 # date stayed at the day someone last remembered it.
-version: 6.6.0 # x-release-please-version
+version: 6.6.1 # x-release-please-version
 date-released: "2026-08-18" # x-release-please-date

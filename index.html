@@ -1080,9 +1080,21 @@
                     <div class="settings-card">
                         <div class="setting-row">
                             <div class="setting-row-text">
-                                <label data-i18n="modal.settings.githubForget">Sair do GitHub e limpar esta máquina</label>
+                                <label for="github-forget-on-exit" data-i18n="modal.settings.githubForgetOnExit">Limpar o acesso ao GitHub ao fechar a AURORA</label>
+                                <p class="setting-description" data-i18n="modal.settings.githubForgetOnExitDescription">
+                                    Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar.
+                                </p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="github-forget-on-exit">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label data-i18n="modal.settings.githubForget">Sair do GitHub e limpar agora</label>
                                 <p class="setting-description" data-i18n="modal.settings.githubForgetDescription">
-                                    Remove o acesso salvo pela AURORA e também o que o git do Windows guardou. Use antes de deixar um computador compartilhado.
+                                    Remove o acesso salvo pela AURORA e também o que o git do Windows guardou, sem esperar você fechar.
                                 </p>
                             </div>
                             <button id="github-forget-btn" class="btn danger" type="button" data-i18n="modal.settings.githubForgetAction">Limpar agora</button>

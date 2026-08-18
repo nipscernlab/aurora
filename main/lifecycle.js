@@ -107,6 +107,12 @@ function register() {
       if (typeof t.unref === 'function') t.unref();
     }
 
+    // Credenciais do GitHub, se o usuário pediu que saiam ao fechar. Vem antes
+    // da faxina de arquivos porque é a parte que protege alguém: um encerramento
+    // que trava depois disto ainda deixou a máquina limpa.
+    try { await require('./ipc/github_forget').aoEncerrar(); }
+    catch (e) { log.warn('[lifecycle] falha ao limpar credenciais ao sair:', e); }
+
     // O que a árvore removeu está esperando em userData para poder ser
     // desfeito. Fechando o aplicativo não há mais o que desfazer, então vai
     // para a Lixeira, que é onde o usuário espera encontrar. Best-effort: a

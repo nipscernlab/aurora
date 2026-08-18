@@ -150,14 +150,29 @@ function apagarArquivoDeCredenciais() {
   };
 }
 
-/** Um alvo do Gerenciador de Credenciais é do GitHub? */
+/**
+ * Um alvo do Gerenciador de Credenciais é do GitHub?
+ *
+ * Extrai o HOST e compara por igualdade, em vez de procurar o texto dentro do
+ * alvo. Comparar por substring parecia bastar e não bastava: um alvo forjado
+ * como `git:https://github.com.exemplo.net` contém `//github.com` e passava,
+ * então a limpeza apagaria a credencial de um domínio de terceiro. Apagar o que
+ * não é nosso é o único erro aqui que não dá para desfazer.
+ */
 function alvoEhDoGitHub(alvo) {
-  const t = String(alvo || '').toLowerCase();
+  const t = String(alvo == null ? '' : alvo).trim().toLowerCase();
   if (!t) return false;
-  // Estreito de proposito: `git:https://github.com`, `github.com` e as formas
-  // que o GCM cria. Nada que apenas contenha "git" entra, senao um alvo como
-  // `gitlab.com` ou `digit...` viria junto.
-  return HOSTS.some((h) => t === h || t.endsWith(`/${h}`) || t.endsWith(`:${h}`) || t.includes(`//${h}`));
+
+  // Formas reais do Gerenciador: `github.com`, `https://github.com`,
+  // `git:https://github.com`, `LegacyGeneric:target=git:https://github.com`.
+  let resto = t;
+  const barras = resto.lastIndexOf('//');
+  if (barras >= 0) resto = resto.slice(barras + 2);
+  else if (resto.includes('=')) resto = resto.slice(resto.lastIndexOf('=') + 1);
+
+  // Corta porta, caminho e credencial embutida; sobra o host.
+  const host = resto.split('/')[0].split('?')[0].split('@').pop().split(':')[0];
+  return HOSTS.includes(host);
 }
 
 /**
@@ -227,9 +242,52 @@ function identidadeQueFica() {
   };
 }
 
+/**
+ * A preferencia de limpar ao sair mora do lado do MAIN, e nao no localStorage.
+ *
+ * Quem executa a limpeza no encerramento e o processo principal, no before-quit,
+ * quando o renderer ja pode ter ido embora. Guardar a escolha no localStorage
+ * significaria pedi-la a uma janela que talvez nao exista mais, no exato momento
+ * em que ela precisa ser lida.
+ */
+function caminhoPreferencia() {
+  return path.join(app.getPath('userData'), 'aurora-github-exit.json');
+}
+
+function limparAoSair() {
+  try {
+    const raw = fs.readFileSync(caminhoPreferencia(), 'utf8');
+    return JSON.parse(raw)?.limparAoSair === true;
+  } catch (_) {
+    return false;   // padrao desligado: apagar acesso sem o usuario pedir seria pior
+  }
+}
+
+function definirLimparAoSair(ligado) {
+  try {
+    fs.writeFileSync(caminhoPreferencia(), JSON.stringify({ limparAoSair: !!ligado }, null, 2));
+    return true;
+  } catch (e) {
+    log.warn('[github-forget] nao consegui gravar a preferencia:', e);
+    return false;
+  }
+}
+
+/** Chamado no encerramento. Nao faz nada se a preferencia estiver desligada. */
+async function aoEncerrar() {
+  if (!limparAoSair()) return { ok: true, pulado: true };
+  log.info('[github-forget] limpando ao sair, conforme a preferencia');
+  return esquecerTudo();
+}
+
 function register() {
   ipcMain.handle('github:forget-everything', () => esquecerTudo());
   ipcMain.handle('github:forget-scope', () => identidadeQueFica());
+  ipcMain.handle('github:forget-on-exit-get', () => limparAoSair());
+  ipcMain.handle('github:forget-on-exit-set', (_e, ligado) => definirLimparAoSair(ligado));
 }
 
-module.exports = { register, esquecerTudo, alvoEhDoGitHub, HOSTS };
+module.exports = {
+  register, esquecerTudo, alvoEhDoGitHub, HOSTS,
+  limparAoSair, definirLimparAoSair, aoEncerrar,
+};

@@ -323,9 +323,11 @@
       "aboutBugReport": "Relatar um problema",
       "networkWarning": "Avisar quando a internet cair",
       "networkWarningDescription": "Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede.",
-      "githubForget": "Sair do GitHub e limpar esta máquina",
-      "githubForgetDescription": "Remove o acesso salvo pela AURORA e também o que o git do Windows guardou. Use antes de deixar um computador compartilhado.",
-      "githubForgetAction": "Limpar agora"
+      "githubForget": "Sair do GitHub e limpar agora",
+      "githubForgetDescription": "Remove o acesso salvo pela AURORA e também o que o git do Windows guardou, sem esperar você fechar.",
+      "githubForgetAction": "Limpar agora",
+      "githubForgetOnExit": "Limpar o acesso ao GitHub ao fechar a AURORA",
+      "githubForgetOnExitDescription": "Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar."
     }
   },
   "shortcuts": {

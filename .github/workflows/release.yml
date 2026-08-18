@@ -25,9 +25,25 @@ name: Release
 # Release, plus the gtkwave-nipscern fork, the YANC compilers, and Surfer from
 # their own Releases. netlistsvg rides in via `npm ci` (in-process).
 
+# O gatilho `release: published` NAO basta, e descobrir isso custou uma release.
+# O release-please cria a Release com o GITHUB_TOKEN, e o GitHub deliberadamente
+# nao dispara workflow a partir de evento criado por aquele token, para evitar
+# recursao. Resultado: a Release aparecia e o instalador nunca era construido, e
+# as versoes anteriores acabaram publicadas a mao.
+#
+# Por isso o `workflow_call`: o proprio release-please.yml chama este workflow
+# quando acabou de criar uma Release. O gatilho `release` fica para o caso de
+# alguem criar a Release a mao pela interface do GitHub, e o dispatch fica para
+# o dry run.
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Preflight only, build and publish nothing'
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry_run:

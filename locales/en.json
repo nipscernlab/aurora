@@ -323,9 +323,11 @@
       "aboutBugReport": "Report a problem",
       "networkWarning": "Warn when the internet drops",
       "networkWarningDescription": "Shows a corner notice on every connection drop. Compiling and simulating do not need the network.",
-      "githubForget": "Sign out of GitHub and clean this machine",
-      "githubForgetDescription": "Removes the access AURORA saved and also what the Windows git kept. Use it before leaving a shared computer.",
-      "githubForgetAction": "Clean now"
+      "githubForget": "Sign out of GitHub and clean now",
+      "githubForgetDescription": "Removes the access AURORA saved and also what the Windows git kept, without waiting for you to close it.",
+      "githubForgetAction": "Clean now",
+      "githubForgetOnExit": "Clear GitHub access when AURORA closes",
+      "githubForgetOnExitDescription": "On a shared computer, leave this on: closing signs the account out of here and of the Windows git, without anyone having to remember."
     }
   },
   "shortcuts": {

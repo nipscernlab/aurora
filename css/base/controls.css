@@ -127,3 +127,19 @@
   min-width: 128px;
   justify-content: flex-start;
 }
+
+/* Acao destrutiva.
+   O botao de limpar credenciais saia com a aparencia de um botao comum, e um
+   botao que apaga acesso nao pode parecer igual a um que salva. Contorno na
+   cor, e nao preenchimento: preenchido ele competiria com o Salvar do rodape,
+   que e a acao primaria do painel. */
+.btn.danger {
+  color: var(--status-error);
+  border-color: color-mix(in srgb, var(--status-error) 45%, transparent);
+  background: color-mix(in srgb, var(--status-error) 10%, transparent);
+}
+.btn.danger:hover:not(:disabled) {
+  color: #fff;
+  background: var(--status-error);
+  border-color: var(--status-error);
+}

@@ -25,8 +25,13 @@ jobs:
     # merge da PR por outra conta nao vira release. A trava de verdade fica nas
     # configuracoes do GitHub (ruleset de tag); esta aqui e a do codigo.
     if: github.actor == 'Chrysthofer'
+    # Consumido pelo job `build` abaixo.
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
         with:
           # Pin to a major so unrelated changes upstream don't surprise us;
           # release-please-action follows semver, so we get patch + minor
@@ -34,3 +39,16 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # Acabou de sair uma Release? Entao constroi e publica o instalador.
+  #
+  # Isto existe porque o gatilho `release: published` do release.yml nunca
+  # dispara para uma Release criada pelo GITHUB_TOKEN, que e o caso aqui. Chamar
+  # o workflow diretamente e o caminho que nao depende de um PAT novo: `secrets:
+  # inherit` passa o SAPHO_RELEASE_TOKEN adiante, que e o que publica no repo de
+  # distribuicao.
+  build:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/release.yml
+    secrets: inherit

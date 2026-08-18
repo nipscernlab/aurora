@@ -70,6 +70,8 @@ const fileOperations = {
   // Nao devolve credencial nenhuma: so o relatorio do que foi removido.
   githubForgetEverything: () => ipcRenderer.invoke('github:forget-everything'),
   githubForgetScope:      () => ipcRenderer.invoke('github:forget-scope'),
+  githubForgetOnExitGet:  () => ipcRenderer.invoke('github:forget-on-exit-get'),
+  githubForgetOnExitSet:  (v) => ipcRenderer.invoke('github:forget-on-exit-set', v),
 
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
   docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),

@@ -72,10 +72,37 @@ export async function limparGitHub() {
   try { window.dispatchEvent(new CustomEvent('aurora:github-disconnected')); } catch (_) { /* opcional */ }
 }
 
+/**
+ * O toggle de limpar ao fechar.
+ *
+ * A preferencia mora do lado do main, e nao no localStorage, porque quem limpa
+ * no encerramento e o processo principal, quando o renderer ja pode ter ido
+ * embora. Aqui so lemos e escrevemos por IPC.
+ *
+ * Fora do ciclo de Salvar, como os outros toggles de efeito imediato: uma
+ * preferencia de seguranca que so vale depois de clicar em Salvar seria uma
+ * armadilha justamente para quem esta com pressa de sair.
+ */
+async function ligarToggleAoSair() {
+  const el = document.getElementById('github-forget-on-exit');
+  if (!el) return;
+  try { el.checked = !!(await electronAPI.githubForgetOnExitGet?.()); }
+  catch (_) { el.checked = false; }
+  el.addEventListener('change', async () => {
+    try { await electronAPI.githubForgetOnExitSet?.(el.checked); }
+    catch (e) {
+      el.checked = !el.checked;
+      showCardNotification(
+        `Nao foi possivel gravar a preferencia: ${e?.message || e}`, 'error', 6000, 'GitHub');
+    }
+  });
+}
+
 if (typeof window !== 'undefined') {
   window.auroraLimparGitHub = limparGitHub;
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('github-forget-btn')
       ?.addEventListener('click', (e) => { e.preventDefault(); limparGitHub(); });
+    ligarToggleAoSair();
   });
 }

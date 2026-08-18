@@ -1,12 +1,12 @@
 // @ts-check
 /**
- * project_paths.js — leitura tolerante do `.spf` e reescrita de caminhos
+ * project_paths.js: leitura tolerante do `.spf` e reescrita de caminhos
  * absolutos quando um projeto ou um processador e renomeado.
  *
  * Extraido de main/ipc/project.js em 08/08/2026, sem mudanca de comportamento.
  * Duas razoes. Estas quatro funcoes sao puras e nao dependem do Electron, mas
  * viviam num modulo que carrega `app` no topo, entao nenhum teste as alcancava
- * — e elas sao a parte perigosa do arquivo: renomear um projeto move a pasta
+ *, e elas sao a parte perigosa do arquivo: renomear um projeto move a pasta
  * inteira e reescreve todo caminho absoluto guardado no `.spf`, de modo que um
  * erro aqui corrompe o projeto de quem estava usando. A segunda razao e que
  * este e o primeiro corte da divisao dos god files pedida no TODO.md.

@@ -7,12 +7,12 @@
  * opt-in (toggle GTKWave<->Surfer); sem ele, o botao Wave cai pro GTKWave.
  *
  * Fork: gitlab.com/nips-cern/surfer-aurora (fork de surfer-project/surfer),
- * onde ficam as melhorias da NIPSCERN. Licenca EUPL-1.2 — atribuicao no
+ * onde ficam as melhorias da NIPSCERN. Licenca EUPL-1.2, atribuicao no
  * LICENSE da raiz; spawn arm's-length (a AURORA so executa o .exe, nao linka)
  * nao contamina a AURORA. O fork fica PUBLICO por exigencia da EUPL.
  *
  * PUBLICACAO DO ARTEFATO: enquanto o CI do fork nao publicar o zip do binario
- * (PUBLISHED=false abaixo), este script NAO baixa nada — deliberadamente. Ele
+ * (PUBLISHED=false abaixo), este script NAO baixa nada, deliberadamente. Ele
  * jamais baixa o surfer.exe do upstream pra renomear como nosso, o que
  * mascararia as melhorias do fork por um binario sem elas. Ate la, o
  * surfer-aurora.exe e provido pelo build local (cargo build --release no fork
@@ -37,7 +37,7 @@ const { verifyChecksum } = require('./lib/checksum');
 
 // Vira true quando o CI do fork (gitlab.com/nips-cern/surfer-aurora) publicar
 // um zip do binario Windows no registro de pacotes. Enquanto false, o
-// surfer-aurora.exe vem do build local — nunca do upstream (ver header).
+// surfer-aurora.exe vem do build local, nunca do upstream (ver header).
 const PUBLISHED = true;
 
 // O pacote publicado pelo CI do fork (.gitlab-ci-aurora.yml). `url` aponta pro
@@ -56,7 +56,7 @@ const FORK_ARTIFACT = PUBLISHED ? {
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'surfer');
 // O binario do fork. A AURORA resolve/allowlista EXATAMENTE este nome
-// (wave_toolchain.js, binary_allowlist.js) — manter em sync.
+// (wave_toolchain.js, binary_allowlist.js), manter em sync.
 const SENTINEL_FILE = path.join(INSTALL_DIR, 'surfer-aurora.exe');
 const TMP_ZIP       = FORK_ARTIFACT ? path.join(ROOT_DIR, FORK_ARTIFACT.filename) : '';
 
@@ -114,7 +114,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
             }).on('error', reject);
         }
 
-        // Resolve apenas depois que o stream e fechado — caso contrario
+        // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
         file.on('finish', () => file.close(resolve));
         file.on('error', reject);
@@ -167,7 +167,7 @@ async function main() {
     // Ate o CI do fork publicar um artefato, NAO ha de onde baixar o binario
     // COM as melhorias do fork. Nao caimos pro upstream (isso instalaria um
     // Surfer sem as nossas mudancas, mascarado com o nosso nome). Instrui e sai
-    // limpo — o build local prove o surfer-aurora.exe nesse meio-tempo.
+    // limpo, o build local prove o surfer-aurora.exe nesse meio-tempo.
     if (!FORK_ARTIFACT) {
         log(`surfer-aurora nao encontrado e o CI do fork ainda nao publica binario.`);
         log(`Providencie o build local:`);

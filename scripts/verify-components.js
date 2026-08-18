@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * verify-components.js — Aurora toolchain "doctor".
+ * verify-components.js: Aurora toolchain "doctor".
  *
  * Verifica os EXECUTAVEIS instalados em components/ (verilator, os compiladores
  * YANC, gtkwave, surfer, verible, slang-server, clang-format) e, para cada
@@ -23,7 +23,7 @@
  * COMO FUNCIONA (resiliente a mudanca de arquivos)
  * ------------------------------------------------
  * Nao checa arquivo-por-arquivo (a lista muda entre versoes). Em vez disso usa
- * a MESMA sentinela que cada download-*.js usa como prova-de-instalacao — 1
+ * a MESMA sentinela que cada download-*.js usa como prova-de-instalacao, 1
  * sentinela por componente. Cada modulo e carregado via require() (seguro: o
  * main() deles e gated por `require.main === module`, entao nada baixa no
  * import) so pra ler a TAG pinada, a sentinela e a funcao de checagem.
@@ -32,7 +32,7 @@
  * ------
  * So o YANC grava um marcador da versao instalada (bin/.yanc-version), entao so
  * ele permite comparacao real "instalada vs pinada" e deteccao de bump. Os
- * demais nao registram versao no disco — mostramos a TAG pinada e, mesmo quando
+ * demais nao registram versao no disco, mostramos a TAG pinada e, mesmo quando
  * o componente ja esta presente, oferecemos re-download (--force) pra cobrir um
  * bump silencioso.
  *
@@ -58,7 +58,7 @@ const SCRIPTS_DIR = path.join(REPO_ROOT, 'components', 'Scripts');
 
 // Manifesto de versoes que o DOCTOR mantem: { key: tag_instalada }. Existe pra
 // detectar BUMP nos componentes que nao gravam versao no disco (todos menos o
-// YANC, que tem seu proprio bin/.yanc-version). Fica dentro de components/ —
+// YANC, que tem seu proprio bin/.yanc-version). Fica dentro de components/:
 // gitignored (nunca comitado; e estado por-maquina) e some junto se voce apagar
 // a toolchain, o que e o certo (ai tudo re-baixa).
 const MANIFEST_FILE = path.join(REPO_ROOT, 'components', '.aurora-versions.json');
@@ -147,7 +147,7 @@ const COMPONENTS = [
       isPresent: () => m.alreadyInstalled(),
       installedVer: null,
       // Quando o CI do fork ainda nao publicou o binario, o download nao ocorre
-      // de proposito — o exe vem de build local. Sinalizamos isso.
+      // de proposito, o exe vem de build local. Sinalizamos isso.
       unavailable: !m.PUBLISHED ? 'nao publicado (build local; nada a baixar)' : null,
       extraNote: null,
     }),
@@ -325,10 +325,10 @@ function runDownload(row, { force }) {
   const res = spawnSync(process.execPath, args, { cwd: REPO_ROOT, stdio: 'inherit' });
   const okExit = res.status === 0;
   // Reavalia a sentinela apos rodar (os download-*.js saem 0 mesmo em falha de
-  // rede pra nao travar o npm start — entao o exit code sozinho nao basta).
+  // rede pra nao travar o npm start, entao o exit code sozinho nao basta).
   const nowPresent = row.sentinel ? fs.existsSync(row.sentinel) : okExit;
   if (nowPresent) {
-    // Registra a versao instalada no manifesto do doctor — e isso que permite
+    // Registra a versao instalada no manifesto do doctor, e isso que permite
     // detectar o PROXIMO bump deste componente.
     writeManifestEntry(row.key, row.pinnedTag);
     console.log(green(`  OK    ${row.key}: ${row.pinnedTag || 'instalado'}`));
@@ -358,7 +358,7 @@ async function interactive(rows) {
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    // 1) Faltando / desatualizado — pergunta um a um.
+    // 1) Faltando / desatualizado, pergunta um a um.
     for (const row of actionable) {
       const verb = row.status === 'missing' ? 'Baixar' : 'Atualizar';
       const detail =
@@ -376,7 +376,7 @@ async function interactive(rows) {
       }
     }
 
-    // 2) Ja instalados e OK — oferece re-download mesmo assim (bump silencioso).
+    // 2) Ja instalados e OK, oferece re-download mesmo assim (bump silencioso).
     if (okRows.length > 0) {
       console.log('');
       const a = await ask(
@@ -418,7 +418,7 @@ function nonInteractive(rows) {
 
 // ── Modo postinstall (chamado pelo hook do npm) ───────────────────────────────
 // Objetivo: depois de `npm install`, restaurar automaticamente qualquer
-// executavel que esteja FALTANDO (ex.: apagado a mao) — sem prompts, sem
+// executavel que esteja FALTANDO (ex.: apagado a mao), sem prompts, sem
 // upgrade de quem ja esta la, silencioso quando nao ha nada a fazer, e SEMPRE
 // exit 0 pra jamais quebrar o `npm install`.
 function runPostinstall() {
@@ -438,7 +438,7 @@ function runPostinstall() {
 
   const todo = [...missing, ...outdated];
   if (todo.length === 0) {
-    // Tudo presente e na versao pinada — so uma linha discreta (nao polui o log).
+    // Tudo presente e na versao pinada, so uma linha discreta (nao polui o log).
     console.log(dim('  [aurora] componentes: OK (nada a baixar)'));
     return;
   }

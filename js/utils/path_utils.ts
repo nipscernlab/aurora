@@ -1,5 +1,5 @@
 /**
- * path_utils.ts — Tiny path-separator helpers.
+ * path_utils.ts: Tiny path-separator helpers.
  *
  * Aurora has ~5 ad-hoc `replace(/\//g, '\\')` (and inverse) calls scattered
  * across drag&drop handlers and the compilation pipeline. They do the same
@@ -12,7 +12,7 @@
  *   2. Convert to forward-slash form for tools that don't tolerate backslashes
  *      (cygwin-flavoured shells, makefile-style command lines).
  *
- * Behaviour matches the existing inline calls exactly — this is a
+ * Behaviour matches the existing inline calls exactly, this is a
  * readability/discoverability fix, not a portability change.
  */
 

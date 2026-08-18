@@ -1,5 +1,5 @@
 /**
- * aurora_api.js — `window.AuroraAPI`, the single async, JSON-serialisable
+ * aurora_api.js, `window.AuroraAPI`, the single async, JSON-serialisable
  * surface for every IDE operation.
  *
  * Phase A (this file). A thin *facade* that delegates to the existing
@@ -73,7 +73,7 @@ import { ok, err, on, off, emit, WINDOW_EVENT_BRIDGE } from './api_core.js';
 
 
 /**
- * Resolve a file the AI named to an absolute path inside the open project —
+ * Resolve a file the AI named to an absolute path inside the open project:
  * even when it passes just a basename or a partial nested path, and even when
  * casing differs (Windows is case-insensitive; a plain endsWith match is not).
  * Strategy, in order:
@@ -93,7 +93,7 @@ async function resolveProjectFile(filePath, root) {
     ? filePath
     : `${root}\\${String(filePath).replace(/^[\\/]+/, '').replace(/\//g, '\\')}`;
 
-  // 1. Try the path as given first — cheapest, and the usual hit.
+  // 1. Try the path as given first, cheapest, and the usual hit.
   try {
     await electronAPI.readFile(direct);
     return direct;
@@ -152,7 +152,7 @@ function bridgeWindowEvents() {
 }
 
 /* ============================================================
- *  editor — Monaco interactions
+ *  editor, Monaco interactions
  * ========================================================== */
 
 function activeEditor() {
@@ -177,7 +177,7 @@ function flashLines(ed, startLine, endLine) {
  *   2. a fading purple tint over every freshly-written line
  *      (.aurora-edit-reveal) so the new text reads as being *revealed*
  *      over the old rather than abruptly swapped.
- * Purely cosmetic — guarded so it can never break the underlying write.
+ * Purely cosmetic, guarded so it can never break the underlying write.
  */
 function magicWandReveal(ed) {
   if (!ed) return;
@@ -483,7 +483,7 @@ const editorNs = {
 };
 
 /* ============================================================
- *  terminal — read/clear the per-area panels at the bottom
+ *  terminal, read/clear the per-area panels at the bottom
  *
  *  Terminals are addressed by their content id: 'tcmm', 'tasm',
  *  'tveri', 'twave', 'tprism' (the panes wired by the
@@ -557,11 +557,11 @@ const terminalNs = {
   },
 
   /**
-   * Type — and optionally run — a command in the user's TCMD shell (their real
+   * Type, and optionally run, a command in the user's TCMD shell (their real
    * PowerShell/bash, the one they see). `execute:false` just places the command
    * on the input line for the user to review and run; `execute:true` (default)
    * runs it and returns a best-effort snapshot of the output. `cd` persists in
-   * the user's shell. This is the HUMAN shell — not the sandboxed compile path;
+   * the user's shell. This is the HUMAN shell, not the sandboxed compile path;
    * prefer compile_all / compile_step / run_fast_sim for real builds.
    */
   async runInShell(args = {}) {
@@ -584,7 +584,7 @@ const terminalNs = {
 };
 
 /* ============================================================
- *  project — current project, filesystem tree, file/processor/
+ *  project, current project, filesystem tree, file/processor/
  *  project lifecycle
  * ========================================================== */
 
@@ -594,7 +594,7 @@ async function refreshTree() {
 }
 
 /**
- * Close `filePath` in every pane that shows it — the main TabManager pane
+ * Close `filePath` in every pane that shows it, the main TabManager pane
  * and any split panes. Used when a file's on-disk path changes underneath
  * the editor (e.g. a processor rename) so no tab is left pointing at a
  * path that no longer exists.
@@ -616,14 +616,14 @@ async function closeFileEverywhere(filePath) {
 }
 
 /* ============================================================
- *  Project rename — job-based, observable, timeout-proof
+ *  Project rename, job-based, observable, timeout-proof
  *
  *  Renaming a project moves the whole project folder on disk,
  *  rewrites every path stored in the .spf, and then reopens the
  *  project (a slow full-tree rescan + watcher re-attach). Doing all
  *  of that inside a single AI tool call used to blow past the tool
  *  timeout: the model saw "timed out" even when the rename had
- *  actually succeeded — it only showed up after a manual refresh.
+ *  actually succeeded, it only showed up after a manual refresh.
  *
  *  Instead, `renameProject` registers a JOB and returns its id at
  *  once (it never blocks, so it never times out). The job runs the
@@ -659,12 +659,12 @@ function _finishRenameJob(job) {
  * job as it goes. Phases: prepare (save+close everything under the root) →
  * the main-process on-disk rename → reopen the project (the slow part, now
  * awaited here so we learn whether it truly took). A failed reopen does NOT
- * mean the rename failed — only that the tree couldn't auto-refresh.
+ * mean the rename failed, only that the tree couldn't auto-refresh.
  */
 async function _runRenameJob(job) {
   const newNm = job.newName;
   try {
-    // 1. Prepare: persist edits and drop tabs/panes — every file under the
+    // 1. Prepare: persist edits and drop tabs/panes, every file under the
     //    project root is about to move, so nothing may keep pointing at it.
     try { await TabManager.saveAllFiles(); } catch (_) { /* best-effort */ }
     const sem = window.SplitEditorManager;
@@ -709,7 +709,7 @@ async function _runRenameJob(job) {
     // 3. Reopen the project (full tree rescan + watcher re-attach). This is the
     //    slow part; because we are OFF the tool-call path we can AWAIT it and
     //    learn whether it truly succeeded, instead of firing it blind.
-    //    NOTE: we deliberately do NOT pre-call ProjectStore.setProject here —
+    //    NOTE: we deliberately do NOT pre-call ProjectStore.setProject here:
     //    loadProject sets it itself. An extra setProject fires the file tree's
     //    ProjectStore subscriber (an out-of-band refreshTree) that RACES with
     //    loadProject's own render and left the tree un-clickable until a manual
@@ -821,7 +821,7 @@ const projectNs = {
   /**
    * Read the full text of any file inside the open project folder, at
    * any nesting depth. `filePath` may be absolute or relative to the
-   * project root. Reads are scoped to the project folder — paths
+   * project root. Reads are scoped to the project folder, paths
    * outside it (or containing "..") are refused. Very large files are
    * returned truncated with `truncated: true`.
    */
@@ -870,7 +870,7 @@ const projectNs = {
     try {
       return await readAt(target);
     } catch (e) {
-      // Literal path missed — search the whole project by name / partial path
+      // Literal path missed, search the whole project by name / partial path
       // / casing before giving up, so a file in a nested folder still opens.
       const found = await resolveProjectFile(filePath, root);
       if (found && found.toLowerCase() !== target.toLowerCase()) {
@@ -915,7 +915,7 @@ const projectNs = {
     const isAbsolute = /^[a-zA-Z]:[\\/]/.test(target) || target.startsWith('\\\\');
     if (!isAbsolute && root) target = `${root}\\${target.replace(/^[\\/]+/, '')}`;
 
-    // Stay inside the project folder — same boundary as readFile.
+    // Stay inside the project folder, same boundary as readFile.
     if (root) {
       const norm = (p) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase();
       const r = norm(root);
@@ -925,7 +925,7 @@ const projectNs = {
       }
     }
 
-    // Read text (live model wins if the file is open in Monaco — so the
+    // Read text (live model wins if the file is open in Monaco, so the
     // analysis tracks unsaved edits, same contract as readFile).
     let text;
     const liveModel = SharedModelRegistry.getModel(target);
@@ -1048,7 +1048,7 @@ const projectNs = {
       // Magic-wand sweep across the editor when the AI rewrites a file
       // the user has open. We call setActiveText through the underlying
       // model so the editor view reflects the new content AND triggers
-      // the purple sweep — without this, the file on disk changed but
+      // the purple sweep, without this, the file on disk changed but
       // Monaco still shows the previous buffer until the user re-opens it.
       try {
         const norm = String(filePath).replace(/\\/g, '/').toLowerCase();
@@ -1133,7 +1133,7 @@ const projectNs = {
   },
 
   /**
-   * The project's MISSING files — paths the .spf still references but that no
+   * The project's MISSING files, paths the .spf still references but that no
    * longer exist on disk (moved, renamed, or deleted outside Aurora). This is
    * the same list the file tree surfaces in its "missing files" warning, kept
    * current by every project load / .spf change / disk-watch refresh. Returns
@@ -1157,9 +1157,9 @@ const projectNs = {
    * Dismiss the missing-files warning by pruning every dangling reference
    * from the .spf (the synthesizable / testbench lists, and the top-level /
    * testbench pointers if they point at a missing file). The on-disk files are
-   * already gone — this only cleans up the project's references. No
+   * already gone, this only cleans up the project's references. No
    * confirmation: the caller (the AI, on the user's explicit request) owns
-   * that decision. Returns { removed } — how many references were pruned.
+   * that decision. Returns { removed }, how many references were pruned.
    */
   async dismissMissingFiles() {
     const mgr = window.projectTreeManager;
@@ -1176,10 +1176,10 @@ const projectNs = {
   },
 
   /**
-   * PROJECT MEMORY — `<root>/.aurora/memory/<name>.md`, one fact per file.
+   * PROJECT MEMORY, `<root>/.aurora/memory/<name>.md`, one fact per file.
    *
    * Why a first-class Aurora tool and not the CLI's own file-based memory:
-   * `Write` is in DISALLOWED_TOOLS (main/ai/claude_agent.js) on purpose — every
+   * `Write` is in DISALLOWED_TOOLS (main/ai/claude_agent.js) on purpose, every
    * write goes through Aurora's MCP tools so it hits the permission card and the
    * audit log, and the native tool would bypass both. Routing memory through the
    * API keeps that gate AND makes it work on all three transports (Agent SDK,
@@ -1187,7 +1187,7 @@ const projectNs = {
    *
    * In-project (not userData) so memories survive moving the folder and the user
    * can read, version, or gitignore them. Keying off an absolute path has
-   * already bitten this codebase — a stale testbench sidecar still points at a
+   * already bitten this codebase, a stale testbench sidecar still points at a
    * project that moved.
    */
   async listMemories() {
@@ -1255,7 +1255,7 @@ const projectNs = {
     const name = config.processorName;
     try {
       // Anti-duplicata pela FILE TREE (a pasta real no disco), nao so o .spf:
-      // se a pasta <root>/<name> existe, e um processador REAL ja feito —
+      // se a pasta <root>/<name> existe, e um processador REAL ja feito:
       // bloqueia, NAO duplica. Se o nome so consta no .spf mas a pasta sumiu
       // (referencia "morta"/processador morto), deixa criar (revive a entrada).
       const procDir = await electronAPI.joinPath(root, name);
@@ -1264,7 +1264,7 @@ const projectNs = {
           + 'Pick a different name, or delete/rename the existing processor first.');
       }
       // O nome esta no .spf mas sem pasta? Entao a criacao revive uma referencia
-      // morta — sinaliza isso na resposta (informa o usuario, sem bloquear).
+      // morta, sinaliza isso na resposta (informa o usuario, sem bloquear).
       let revivedDanglingReference = false;
       try {
         const procs = await electronAPI.getAvailableProcessors(root);
@@ -1309,14 +1309,14 @@ const projectNs = {
   },
 
   /**
-   * Rename the currently open project — folder + .spf + every stored path —
+   * Rename the currently open project, folder + .spf + every stored path:
    * as a tracked background JOB so a slow rename can never time out the AI
    * tool call. Returns a jobId immediately; the model then polls
    * `get_rename_status(jobId)` for step-by-step progress and the final
    * verdict. The user sees a start toast now and a success/failure toast when
    * the job finishes, and the project reopens itself.
    *
-   * Processor folders move with the root — a project rename never touches
+   * Processor folders move with the root, a project rename never touches
    * #PRNAME or per-processor names (use rename_processor for those).
    */
   async renameProject({ newName } = {}) {
@@ -1340,7 +1340,7 @@ const projectNs = {
     _renameJobs.set(jobId, job);
     try { window.showNotification?.(_renameMsg('rename.started', `Renomeando projeto para "${newNm}"…`, { name: newNm }), 'info'); } catch (_) { /* best-effort */ }
 
-    // Fire and forget — the rename runs OFF this call so we return at once
+    // Fire and forget, the rename runs OFF this call so we return at once
     // (no blocking → no tool-call timeout). The model reads the outcome back
     // with get_rename_status.
     _runRenameJob(job).catch((e) => {
@@ -1359,7 +1359,7 @@ const projectNs = {
   /**
    * Report the progress and final verdict of a rename started by
    * `renameProject`. Safe to call repeatedly. While running it returns the
-   * steps completed so far; once terminal it returns the verdict —
+   * steps completed so far; once terminal it returns the verdict:
    * { ok:true, newName, warning? } on success (a `warning` means only the
    * editor auto-reload failed; the rename itself is fine) or
    * { ok:false, failedStep, reason } on failure.
@@ -1389,7 +1389,7 @@ const projectNs = {
   /**
    * Mark a synthesizable Verilog file as the project's Top Level module.
    * Adds the file to synthesizableFiles if not yet tracked. The flag is
-   * exclusive — any previous top-level loses the mark automatically.
+   * exclusive, any previous top-level loses the mark automatically.
    * The file tree refreshes via the aurora:spf-changed event.
    */
   async setTopLevel(filePath) {
@@ -1560,7 +1560,7 @@ const projectNs = {
    * staring at a tab whose file just moved.
    *
    * Only SAPHO-internal files are renamed. Custom user toplevels/testbenches
-   * at the project root are left untouched — rename those with rename_file.
+   * at the project root are left untouched, rename those with rename_file.
    */
   async renameProcessor({ processorName, newName } = {}) {
     const oldNm = String(processorName || '').trim();
@@ -1624,8 +1624,8 @@ const projectNs = {
 
     // The rename released the project's directory watcher so Windows would let
     // the processor folder move. Re-establish it on the (unchanged) project
-    // root — main creates a fresh chokidar since releaseWatchersUnder dropped
-    // the entry — so file-system changes are detected again, no reopen needed.
+    // root, main creates a fresh chokidar since releaseWatchersUnder dropped
+    // the entry, so file-system changes are detected again, no reopen needed.
     try { await electronAPI.watchDirectory?.(window.currentProjectPath); }
     catch (_) { /* best-effort; a project reopen would also restore it */ }
 
@@ -1713,7 +1713,7 @@ const projectNs = {
     if (!spfPath || !window.SpfStore) return err('No project open');
     try {
       const fromNorm = fromPath.replace(/\\/g, '/').toLowerCase();
-      // Copy + delete (matches renameFile above — true rename can fail
+      // Copy + delete (matches renameFile above, true rename can fail
       // across drives on Windows).
       await electronAPI.copyFile(fromPath, toPath);
       await electronAPI.deleteFileOrDirectory(fromPath);
@@ -1764,7 +1764,7 @@ const projectNs = {
           simTime_us: numClocks > 0 && clk > 0 ? numClocks / clk : null,
         };
         // Also surface the .cmm header directives (NUBITS / NBMANT / NBEXPO …)
-        // for the named processor — same enrichment the Verilog flow uses.
+        // for the named processor, same enrichment the Verilog flow uses.
         if (project && name) {
           try {
             const cmm = `${project}\\${name}\\Software\\${name}.cmm`;
@@ -1898,7 +1898,7 @@ const projectNs = {
 };
 
 /* ============================================================
- *  compile — pipeline triggers (the same ones the toolbar uses)
+ *  compile, pipeline triggers (the same ones the toolbar uses)
  * ========================================================== */
 
 const compileNs = {
@@ -1914,7 +1914,7 @@ const compileNs = {
   /**
    * Run a single pipeline step.
    *   - 'cmm'   : cmmcomp + asmcomp (regenerates .asm from .cmm)
-   *   - 'asm'   : asmcomp + iverilog + vvp (SKIPS cmmcomp — used by Aurora
+   *   - 'asm'   : asmcomp + iverilog + vvp (SKIPS cmmcomp, used by Aurora
    *               Intelligence to test a hand-optimised .asm without losing it)
    *   - 'verilog'/'wave'/'prism'/'verilator-proc': existing
    *   - 'verilator-fast': Verilator headless run (no waveform), Verilator-only
@@ -1932,11 +1932,11 @@ const compileNs = {
 
   /**
    * Run the ACTIVE SAPHO processor's generated top-level (`<proc>.v`) under
-   * Verilator as a hardware test — the `verilatorproc` toolbar button. Drives
+   * Verilator as a hardware test, the `verilatorproc` toolbar button. Drives
    * SAPHO's predictable wiring (req_in/out_en one-hot, decimal
    * input_<N>.txt/output_<N>.txt under the processor's Simulation/ folder) and
    * recompiles cmm+asm first so the .v/_tb.v/.mif are fresh. Acts on the
-   * processor currently shown in the status bar — fails if none is active.
+   * processor currently shown in the status bar, fails if none is active.
    * Thin wrapper over compileStep('verilator-proc') so validation + the
    * compile:started event stay single-sourced. Calls through `compileNs`
    * (not `this`): the AI tool_runner invokes namespace methods as bare
@@ -1947,8 +1947,8 @@ const compileNs = {
   },
 
   /**
-   * Run the project's testbench headless via Verilator — NO waveform, NO
-   * GTKWave — the `fastsim` toolbar button, optimised purely for speed.
+   * Run the project's testbench headless via Verilator, NO waveform, NO
+   * GTKWave, the `fastsim` toolbar button, optimised purely for speed.
    * Needs a testbench set; a Verilog testbench requires the simulator to be
    * Verilator (see wave.setSimulator), while a Python cocotb (.py) testbench
    * runs headless on any engine. Recompiles cmm+asm first when the top-level
@@ -2109,7 +2109,7 @@ const compileNs = {
 };
 
 /* ============================================================
- *  wave — GTKWave signal selection (the Wave Configuration modal)
+ *  wave, GTKWave signal selection (the Wave Configuration modal)
  * ========================================================== */
 
 const waveNs = {
@@ -2129,7 +2129,7 @@ const waveNs = {
 
   /**
    * Replace the GTKWave signal selection with exactly `paths` and
-   * persist it — the same effect as ticking boxes in the Wave
+   * persist it, the same effect as ticking boxes in the Wave
    * Configuration modal and pressing Save. Paths not present in the
    * discovered signal tree are ignored (returned under `ignored`).
    */
@@ -2164,10 +2164,10 @@ const waveNs = {
 
   /**
    * Read which Verilog simulator the Wave button runs. One of:
-   *   - 'iverilog'  — vvp/iverilog (bundled, default). Preserves every
+   *   - 'iverilog' , vvp/iverilog (bundled, default). Preserves every
    *                   internal SAPHO signal, slower on long testbenches.
-   *   - 'verilator' — Verilator (bundled, opt-in). Transpiles to C++ and
-   *                   builds a native .exe — 5–10× faster on long runs,
+   *   - 'verilator', Verilator (bundled, opt-in). Transpiles to C++ and
+   *                   builds a native .exe, 5–10× faster on long runs,
    *                   but aggressively elides internal SAPHO signals
    *                   (only top-level testbench signals are visible).
    * The choice persists per-user (localStorage `aurora.waveSimulator`).
@@ -2231,7 +2231,7 @@ const waveNs = {
    * one window (AURORA closes the previous Surfer before each launch); true =
    * keep windows open so you can compare different simulation runs side by
    * side. Persists per-user (localStorage `aurora.surferMultiWindow`).
-   * Surfer-only — GTKWave has its own window lifecycle.
+   * Surfer-only, GTKWave has its own window lifecycle.
    */
   async getSurferMultiWindow() {
     return ok({ multiWindow: getSurferMultiWindow() });
@@ -2282,7 +2282,7 @@ const waveNs = {
 
   /**
    * Find every .gtkw save file inside the open project folder, optionally
-   * filtered by a name fragment. The user only has to say the file's name —
+   * filtered by a name fragment. The user only has to say the file's name:
    * this resolves the absolute path for them (and for the AI). Returns each
    * match with both project-relative and absolute paths.
    */
@@ -2307,7 +2307,7 @@ const waveNs = {
   /**
    * One-shot: the user names a .gtkw (with or without the extension, or a
    * path fragment) and Aurora locates it in the project, registers it for the
-   * active testbench, and marks it active — so the next Wave run loads it.
+   * active testbench, and marks it active, so the next Wave run loads it.
    * If the name is ambiguous (several .gtkw match) the candidates are reported
    * instead of guessing.
    */
@@ -2645,7 +2645,7 @@ const waveNs = {
 };
 
 /* ============================================================
- *  rules — static yanc knowledge base
+ *  rules, static yanc knowledge base
  *
  *  `resources/sapho_rules.json` is regenerated by
  *  `scripts/sync-sapho-rules.js` whenever the yanc source tree
@@ -2653,7 +2653,7 @@ const waveNs = {
  *  with the installer, so the AI never depends on yanc being
  *  present on the user's machine.
  *
- *  Loaded lazily on first access — boot time stays unaffected if
+ *  Loaded lazily on first access, boot time stays unaffected if
  *  Aurora Intelligence is never opened.
  * ========================================================== */
 
@@ -2727,7 +2727,7 @@ const rulesNs = {
 };
 
 /* ============================================================
- *  ui — notifications, modals, locale
+ *  ui, notifications, modals, locale
  * ========================================================== */
 
 const uiNs = {
@@ -2786,7 +2786,7 @@ const uiNs = {
 };
 
 /* ============================================================
- *  ai — drive the Aurora Intelligence chat panel
+ *  ai, drive the Aurora Intelligence chat panel
  * ========================================================== */
 
 const aiNs = {
@@ -2800,7 +2800,7 @@ const aiNs = {
 
   /**
    * Open the panel and seed the composer with a code snippet the user
-   * selected in the editor — the backing call for the Monaco selection
+   * selected in the editor, the backing call for the Monaco selection
    * "star" widget. With a concrete `intent` and `send:true` the message is
    * dispatched immediately; otherwise the composer is just pre-filled.
    *
@@ -2830,7 +2830,7 @@ const aiNs = {
   /**
    * Start a long task in the background and return IMMEDIATELY so the current
    * turn can end. When the task finishes, the assistant auto-continues the
-   * conversation with the result — i.e. it runs the work "under the hood",
+   * conversation with the result, i.e. it runs the work "under the hood",
    * lets the chat finish, then posts a follow-up message on its own.
    *
    * @param {{task:'compile_all'|'compile_step', step?:string, note?:string}} p
@@ -2846,7 +2846,7 @@ const aiNs = {
 };
 
 /* ============================================================
- *  settings — read/update the user-facing IDE settings
+ *  settings, read/update the user-facing IDE settings
  * ========================================================== */
 
 const SETTINGS_KEY = 'aurora-settings';
@@ -2894,16 +2894,16 @@ const settingsNs = {
 };
 
 /* ============================================================
- *  _meta — introspection
+ *  _meta, introspection
  *
  *  `schema()` describes the whole surface: every namespace, each
  *  function with a one-line description, and the event catalog.
  *  It is the canonical, machine-readable description of AuroraAPI
- *  — handy for docs, for tests asserting coverage, and for the AI
+ * , handy for docs, for tests asserting coverage, and for the AI
  *  runner to reason about what the IDE can do.
  *
- *  (The AI's *executable* tool schemas — JSON Schema for function
- *  calling — live separately in main/ai/tools.js, a curated subset
+ *  (The AI's *executable* tool schemas, JSON Schema for function
+ *  calling, live separately in main/ai/tools.js, a curated subset
  *  with access levels. This `schema()` is the full developer view.)
  * ========================================================== */
 

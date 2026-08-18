@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * claude_agent.js — Claude Agent SDK engine for the Claude Code bridge.
+ * claude_agent.js: Claude Agent SDK engine for the Claude Code bridge.
  *
  * Modernization step 2 of the AI-system roadmap (ESTUDO §18.5): instead of
  * shelling out to `claude -p --output-format stream-json` and re-parsing
@@ -14,7 +14,7 @@
  *   - Structured SDKMessages (same shapes as stream-json, pre-parsed).
  *
  * The engine keeps FULL event parity with the legacy spawn path in
- * claude_code.js — same `ai:chat-event` packets, same convSessions /
+ * claude_code.js: same `ai:chat-event` packets, same convSessions /
  * usage / rate-limit bookkeeping (shared via the `host` bag claude_code
  * passes in). claude_code.start() calls tryStart() first and falls back
  * to the legacy spawn when the SDK is unavailable (import failure,
@@ -22,7 +22,7 @@
  *
  * NOTE (kept in sync with claude_code.js): the disallowed-tools list and the
  * MCP rules text below MIRROR the legacy constants. They used to differ on
- * AskUserQuestion — this engine kept the native tool enabled on the premise
+ * AskUserQuestion, this engine kept the native tool enabled on the premise
  * that `canUseTool` still fires for interaction-required tools under
  * bypassPermissions. That premise is FALSE, and the SDK says so out loud:
  *
@@ -31,7 +31,7 @@
  *   (except explicit deny rules) before the callback is consulted.
  *
  * So the native question tool self-resolved CLI-side with no human involved
- * and Aurora only ever saw an inert chip — exactly the "no question card in
+ * and Aurora only ever saw an inert chip, exactly the "no question card in
  * bypass mode" bug the legacy path had already diagnosed and fixed by
  * disallowing it (see claude_code.js). This engine now does the same, and
  * asking is routed through mcp__aurora__ask_user_question, which reaches the
@@ -53,7 +53,7 @@ const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS } = require('./timeo
 const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
 
 // ---------------------------------------------------------------------------
-//  SDK loading (ESM-only package — dynamic import from CJS, memoized)
+//  SDK loading (ESM-only package, dynamic import from CJS, memoized)
 // ---------------------------------------------------------------------------
 
 /** @type {Promise<any>|null} */
@@ -69,10 +69,10 @@ function loadSdk() {
 }
 
 // ---------------------------------------------------------------------------
-//  Constants (SDK-path variants — see module header note)
+//  Constants (SDK-path variants, see module header note)
 // ---------------------------------------------------------------------------
 
-// Both lists now live in native_tools.js — one source of truth shared with the
+// Both lists now live in native_tools.js, one source of truth shared with the
 // legacy engine, which is what stops the two from drifting apart again.
 const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
 
@@ -156,7 +156,7 @@ async function tryStart(p, webContents, host) {
 
   if (process.env.AURORA_CLAUDE_LEGACY_CLI === '1') return false;
   // The SDK spawns the executable directly; a .cmd shim needs cmd.exe
-  // (CVE-2024-27980) which the SDK doesn't do — legacy path handles shims.
+  // (CVE-2024-27980) which the SDK doesn't do, legacy path handles shims.
   if (!bin || !bin.exe || bin.viaShim) return false;
 
   let sdk;
@@ -217,7 +217,7 @@ async function tryStart(p, webContents, host) {
   let finished = false;
   let aborted = false;
   let stalled = false;
-  // True once ANY message reached us this attempt — the retry gate: a turn
+  // True once ANY message reached us this attempt, the retry gate: a turn
   // may only be replayed while the user has seen nothing (§18.5 item 4).
   let anyEvent = false;
   const seenToolCalls = new Set();
@@ -249,7 +249,7 @@ async function tryStart(p, webContents, host) {
   let wakeInput = null;
   let inputClosed = false;
   // True while a user message is in flight (yielded, `result` not back yet).
-  // Exactly ONE may be in flight — see promptStream for why that is load-bearing
+  // Exactly ONE may be in flight, see promptStream for why that is load-bearing
   // and not just tidiness.
   let awaitingResult = false;
   const wakeInputNow = () => { const w = wakeInput; wakeInput = null; w?.(); };
@@ -366,13 +366,13 @@ async function tryStart(p, webContents, host) {
           });
           inputClosed = true;
         } else {
-          // `more` tells the renderer to seal this segment but KEEP streaming —
+          // `more` tells the renderer to seal this segment but KEEP streaming:
           // a follow-up is waiting and answers next in this same session.
           sendEvent(webContents, sessionId, 'finish', { text, usage: { totalTokens }, more });
           if (!more) inputClosed = true;
         }
         // Always wake: either to release the next follow-up, or to let
-        // promptStream see inputClosed and RETURN — which is the only thing
+        // promptStream see inputClosed and RETURN, which is the only thing
         // that ends the output stream and lets the for-await below exit.
         wakeInputNow();
         // Reset the per-segment accumulator so the next in-session turn does not
@@ -391,21 +391,21 @@ async function tryStart(p, webContents, host) {
   // Streaming-input prompt. This generator IS the input channel, and three
   // facts about it were measured against the real CLI, not assumed:
   //
-  //  1. The SDK ends the output stream when this generator RETURNS — NOT at
+  //  1. The SDK ends the output stream when this generator RETURNS, NOT at
   //     `result`. Left open with nothing to close it, the for-await below never
   //     exits, `finish` never reaches the renderer and the panel streams
   //     forever. Closing on the last outstanding result is what prevents that.
   //  2. priority:'next' lets the in-flight turn finish cleanly and runs the
   //     follow-up right after, in-session (measured: full output, result
   //     success, then a fresh turn for the follow-up).
-  //  3. priority:'now' would ABORT the in-flight turn — it comes back
+  //  3. priority:'now' would ABORT the in-flight turn, it comes back
   //     `error_during_execution` and the work in progress is thrown away. That
   //     is an interrupt, not a follow-up, so it is deliberately not used here.
   //
   // Hence ONE message in flight at a time (`awaitingResult`), releasing the
   // next only once the previous result lands. Yielding them eagerly looks
   // fine and is not: the CLI COALESCES queued async messages into a single
-  // turn, so three messages came back as two results — one answer silently
+  // turn, so three messages came back as two results, one answer silently
   // dropped, and the counter that was supposed to close the input never
   // reached zero, hanging the turn until the 60s backstop. Serialising costs
   // nothing (the user is typing far slower than a turn) and makes the
@@ -442,7 +442,7 @@ async function tryStart(p, webContents, host) {
     additionalDirectories,
     mcpServers,
     strictMcpConfig: true,
-    // The built-in surface, as an ALLOWLIST — anything absent does not exist for
+    // The built-in surface, as an ALLOWLIST, anything absent does not exist for
     // the model. MCP is untouched by this: mcp__aurora__* stays available and
     // keeps going through the renderer's card. See native_tools.js for why this
     // is not a blocklist.
@@ -453,7 +453,7 @@ async function tryStart(p, webContents, host) {
     // disallowed above, so the CLI's own permission system is redundant here.
     //
     // No canUseTool: bypassPermissions auto-approves every call BEFORE the
-    // callback is consulted, so one would be dead code that reads as a gate —
+    // callback is consulted, so one would be dead code that reads as a gate:
     // which is exactly how AskUserQuestion ended up silently broken. The SDK
     // warns about this (CLAUDE_SDK_CAN_USE_TOOL_SHADOWED). If a native tool
     // ever needs a human, disallow it here and expose an mcp__aurora__ tool.
@@ -478,7 +478,7 @@ async function tryStart(p, webContents, host) {
     // Attempt loop (§18.5 item 4): a TRANSIENT failure (429/5xx/network)
     // before ANYTHING was emitted replays the whole turn after a
     // full-jitter backoff. Once a single event reached the renderer,
-    // retrying would duplicate output — so anyEvent gates it off.
+    // retrying would duplicate output, so anyEvent gates it off.
     for (let attempt = 1; ; attempt++) {
       // Fresh per-attempt turn state (invisible: nothing was emitted yet).
       fullText = ''; finished = false; stalled = false; anyEvent = false;

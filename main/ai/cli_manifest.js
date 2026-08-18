@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * cli_manifest.js — pinned download manifest for the on-demand AI CLIs (B12).
+ * cli_manifest.js: pinned download manifest for the on-demand AI CLIs (B12).
  *
  * Aurora used to BUNDLE the Claude Code and Codex native binaries inside the
  * installer (~460 MB unpacked between the two). They are now fetched on first
@@ -32,7 +32,7 @@
 
 'use strict';
 
-// Base versions — keep in lockstep with package.json dependencies.
+// Base versions, keep in lockstep with package.json dependencies.
 const CLAUDE_VERSION = '2.1.226'; // @anthropic-ai/claude-code
 const CODEX_VERSION = '0.147.0';  // @openai/codex
 
@@ -82,7 +82,7 @@ const MANIFEST = {
   },
 };
 
-/** `process.platform:process.arch` — the manifest's platform key. */
+/** `process.platform:process.arch`, the manifest's platform key. */
 function platformKey() {
   return `${process.platform}:${process.arch}`;
 }

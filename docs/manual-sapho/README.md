@@ -1,4 +1,4 @@
-# SAPHO — Manual do Usuário
+# SAPHO, Manual do Usuário
 
 Documentação viva da plataforma SAPHO (AURORA + YANC + toolchain), em formato de livro,
 para o usuário final que parte do zero. Português brasileiro.
@@ -31,8 +31,8 @@ Segue as CONVENCOES-GERAIS do grupo (`C:\Users\chrys\Desktop\ENMC-2026\CONVENCOE
 
 ## Estrutura
 
-- `main.tex` — preâmbulo, capa e ordem dos capítulos.
-- `capitulos/NN-*.tex` — um arquivo por capítulo; `A-`–`D-` são os apêndices.
+- `main.tex`, preâmbulo, capa e ordem dos capítulos.
+- `capitulos/NN-*.tex`, um arquivo por capítulo; `A-`–`D-` são os apêndices.
 - Módulos (Partes): Primeiros passos · Projetos e processadores · Linguagem C± ·
   Editor · Compilação e simulação · Visualização · Aurora Intelligence ·
   Ferramentas de apoio · Manutenção · Apêndices.

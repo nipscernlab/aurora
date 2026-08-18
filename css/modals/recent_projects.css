@@ -4,13 +4,13 @@
  *
  *  This file was the Welcome screen v4 chrome (two-column Start + Recent layout).
  *  The welcome migrated to the <aurora-welcome> Lit component (Shadow DOM + semantic
- *  tokens), which now owns ALL of that chrome — so it lived here as dead CSS and was
+ *  tokens), which now owns ALL of that chrome, so it lived here as dead CSS and was
  *  pruned. Only the shared `.empty-state` remains: it still styles other light-DOM
  *  empty states (e.g. the Wave Config "no signals" state) that set class="empty-state".
  * =====================================================================================
  */
 
-/* UNIFIED EMPTY STATE — one of four "nothing here" screens across the app
+/* UNIFIED EMPTY STATE, one of four "nothing here" screens across the app
    (file tree, verilog tree, AI panel, welcome / "no recent" + other light-DOM
    empty states) deliberately kept visually consistent: centered column, large
    muted icon, title, muted body, generous padding. Keep in sync with

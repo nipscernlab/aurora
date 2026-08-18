@@ -1,8 +1,8 @@
 // @ts-check
 /**
- * git.js — source-control IPC, backed by simple-git (a thin wrapper over the
+ * git.js: source-control IPC, backed by simple-git (a thin wrapper over the
  * native `git` binary). Operates on the OPEN PROJECT'S directory (derived from
- * state.currentOpenProjectPath, the single source of truth — see A4). Because
+ * state.currentOpenProjectPath, the single source of truth, see A4). Because
  * it drives real `git`, .gitignore, diffs, merges and credentials all behave
  * exactly as they do on the command line.
  *
@@ -51,7 +51,7 @@ function gitForProject() {
 /**
  * The directory a READ op should run in: an explicit `opts.dir` (used by the
  * panel to browse a cloned repo that has no open .spf) when it exists, else the
- * open project's dir. Only read handlers honour this — mutations always act on
+ * open project's dir. Only read handlers honour this, mutations always act on
  * the open project.
  */
 function resolveDir(opts) {
@@ -81,7 +81,7 @@ function safe(fn) {
 /**
  * A simple-git instance for REMOTE ops. The stored GitHub token is injected as a
  * ONE-SHOT `-c http.extraHeader` (never written to the repo config). We do NOT
- * pass a custom env — passing process.env (which usually has EDITOR set) trips
+ * pass a custom env, passing process.env (which usually has EDITOR set) trips
  * simple-git's editor-safety guard ("Use of EDITOR is not permitted"), which is
  * exactly what broke fetch/pull/push. git inherits the real env on its own.
  */
@@ -140,7 +140,7 @@ function register() {
     };
   }));
 
-  // Paths that git IGNORES and does NOT track — i.e. matched by .gitignore and
+  // Paths that git IGNORES and does NOT track, i.e. matched by .gitignore and
   // never added. (git never reports a *tracked* file as ignored, so this is
   // exactly "ignored AND untracked".) `--directory` collapses a fully-ignored
   // folder to a single "<dir>/" entry instead of listing all its contents; the
@@ -164,7 +164,7 @@ function register() {
   }));
 
   // The list of files touched by a commit, with +/- counts and a binary flag.
-  // This is FAST (numstat only — no diff bodies) and lets the renderer show a
+  // This is FAST (numstat only, no diff bodies) and lets the renderer show a
   // GitHub-Desktop-style file list, then lazy-load each file's diff on demand,
   // instead of rendering one giant diff up front (which froze the UI).
   // numstat prints "<add>\t<del>\t<path>"; a binary file shows "-\t-\t<path>".
@@ -374,7 +374,7 @@ function register() {
     if (opts && opts.create) await git.checkoutLocalBranch(opts.branch);
     // Remote-only branch: create a local tracking branch explicitly. Relying on
     // git's DWIM (`git checkout name`) failed with "pathspec did not match" when
-    // there was no local branch yet — `--track origin/name` is unambiguous.
+    // there was no local branch yet, `--track origin/name` is unambiguous.
     else if (opts && opts.track) await git.checkout(['--track', opts.branch]);
     else await git.checkout(opts.branch);
     return {};

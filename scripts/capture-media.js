@@ -1,4 +1,4 @@
-// capture-media.js — take the README's screenshots from the real application.
+// capture-media.js: take the README's screenshots from the real application.
 //
 // Maintainer tool, run by hand: `node scripts/capture-media.js`. It is not
 // wired into any npm script or workflow, because it launches a GUI and takes
@@ -6,7 +6,7 @@
 //
 // Why a script instead of someone pressing PrtScn: the shots have to be
 // retaken whenever the interface changes, and a hand-taken one carries
-// whatever the maintainer's desktop looked like that day — window size,
+// whatever the maintainer's desktop looked like that day, window size,
 // scaling, the projects they had open, their own file paths. This builds a
 // throwaway project, opens it, and captures at a fixed size, so the same
 // command produces the same framing on any machine.
@@ -47,7 +47,7 @@ function cleanEnv() {
     out[k] = v;
   }
   // main/lifecycle.js holds a single-instance lock, so this would otherwise
-  // fail whenever the maintainer has AURORA open — which, while working on
+  // fail whenever the maintainer has AURORA open, which, while working on
   // the interface, is always.
   out.SAPHO_SKIP_SINGLE_INSTANCE = '1';
   return out;
@@ -220,7 +220,7 @@ async function main() {
     await page.waitForTimeout(1500);
 
     // Sizing happens LAST. AURORA maximises itself while it settles, and an
-    // earlier setBounds was silently undone by that — the first capture came
+    // earlier setBounds was silently undone by that, the first capture came
     // out 900x1392, which is this monitor's work area, not the size asked for.
     await sizeWindow(app, WIDTH, HEIGHT);
     await page.waitForFunction((w) => window.innerWidth === w, WIDTH, { timeout: 10_000 });

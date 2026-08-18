@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  verilog_tree.css — Verilog file mode tree
+ *  verilog_tree.css: Verilog file mode tree
  *
  *  Visible when the user is in Project Mode + simulation OFF, or when
  *  explicitly switched to Verilog Mode. Lists imported .v / .gtkw / .vh files
@@ -47,7 +47,7 @@
 /* ---------------------------------------------------------------------------
  *  Empty state
  *
- *  UNIFIED EMPTY STATE — one of four "nothing here" screens across the app
+ *  UNIFIED EMPTY STATE, one of four "nothing here" screens across the app
  *  (file tree, verilog tree, AI panel, welcome "no recent") deliberately kept
  *  visually consistent: centered column, large muted icon, title, muted body,
  *  generous padding. Keep this block in sync with .tree-empty-state,
@@ -116,7 +116,7 @@
   font-size: var(--icon-sm, 14px);
 }
 
-/* Dismiss (×) button — pushed to the right of the warning headline. Pruning
+/* Dismiss (×) button, pushed to the right of the warning headline. Pruning
    the dangling .spf references is gated behind a confirm dialog (see
    confirmAndDismissMissingFiles in project_tree_actions.js). */
 .verilog-missing-dismiss {
@@ -201,7 +201,7 @@
   color: var(--text-secondary);
 }
 
-/* The "Imported" section header is decorative only — no right-click action. */
+/* The "Imported" section header is decorative only, no right-click action. */
 .verilog-imported-separator {
   cursor: default;
   opacity: 0.65;
@@ -219,7 +219,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  File rows — match the regular file tree's row metrics
+ *  File rows, match the regular file tree's row metrics
  * ------------------------------------------------------------------------- */
 .verilog-file-item {
   display: flex;
@@ -240,7 +240,7 @@
 }
 
 /* Category (synthesizable vs testbench) is now conveyed by the ICON shape, not
-   a coloured left bar — simpler, standardized palette. The accent is reserved
+   a coloured left bar, simpler, standardized palette. The accent is reserved
    for the two states that matter: top-level and the currently-open file. */
 
 .verilog-file-item.top-level-file {
@@ -262,9 +262,9 @@
    da categoria (synth/testbench/top-level) que ja existem ali. Pintada
    por project_tree_render.js#refreshEditorFocusHighlight a cada
    aurora:editing-file-changed e no fim do render. */
-/* Open file — VS Code "active editor" affordance. NEUTRAL highlight (the accent
+/* Open file, VS Code "active editor" affordance. NEUTRAL highlight (the accent
    is reserved for top-level/testbench, so the open file no longer looks the
-   same as a top-level row). BRIGHT while an editor has focus, MUTED otherwise —
+   same as a top-level row). BRIGHT while an editor has focus, MUTED otherwise:
    the last open file keeps a faint highlight when focus moved elsewhere, and it
    brightens again when the editor is refocused. Top-level keeps its own accent
    identity even when it is the open file. */
@@ -343,7 +343,7 @@ body.editor-has-focus .verilog-file-item.editor-focused .verilog-file-name {
   min-width: 0;
 }
 
-/* Uniform typography across all tree rows — top-level/hover differentiation
+/* Uniform typography across all tree rows, top-level/hover differentiation
    is carried by the row background and the colored left border, not by
    font weight or text color. */
 
@@ -351,7 +351,7 @@ body.editor-has-focus .verilog-file-item.editor-focused .verilog-file-name {
  *  Row actions
  *
  *  Synth-vs-testbench category is auto-detected from file content
- *  (js/project/verilog_classifier.js) — there's no toggle in the row.
+ *  (js/project/verilog_classifier.js), there's no toggle in the row.
  *  The category is conveyed visually by the row's synthesizable/
  *  testbench class and its icon. The only row action left is delete,
  *  kept hover-only because it's destructive (one accidental click =

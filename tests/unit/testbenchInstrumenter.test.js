@@ -73,7 +73,7 @@ describe('instrumentTestbenchSource', () => {
     });
 
     it('inserts the injection block before the LAST endmodule', () => {
-        // Two modules in one file — instrumentation goes in the second
+        // Two modules in one file, instrumentation goes in the second
         // (testbench) module, not the first.
         const src = `
             module helper;
@@ -92,7 +92,7 @@ describe('instrumentTestbenchSource', () => {
         expect(r.needsWrite).toBe(true);
         const helperEnd = r.content.indexOf('endmodule');
         const injection = r.content.indexOf('AURORA AUTO-INSTRUMENTATION');
-        // Helper's endmodule appears before the injection — proving the
+        // Helper's endmodule appears before the injection, proving the
         // injection landed inside tb_counter, not before helper.
         expect(helperEnd).toBeLessThan(injection);
     });

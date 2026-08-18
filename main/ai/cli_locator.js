@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * cli_locator.js — locates the Claude Code and Codex CLI executables.
+ * cli_locator.js: locates the Claude Code and Codex CLI executables.
  *
  * The CLIs are resolved across three runtime layouts, in priority order:
  *
@@ -18,9 +18,9 @@
  *      cannot be launched from an asar archive, so electron-builder unpacks
  *      them into a sibling `app.asar.unpacked/` tree. `require.resolve` and
  *      `fs` see the in-asar path transparently, but `child_process.spawn` does
- *      NOT — it needs the real on-disk path. `toUnpacked()` performs that rewrite.
+ *      NOT, it needs the real on-disk path. `toUnpacked()` performs that rewrite.
  *
- *   3. A global install on PATH — last-resort fallback (covers a dev with their
+ *   3. A global install on PATH, last-resort fallback (covers a dev with their
  *      own `npm i -g` copy).
  *
  * Results are cached: resolution touches the filesystem and spawns `where`,
@@ -59,7 +59,7 @@ function onPath(/** @type {string} */ name) {
     const hits = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     if (process.platform !== 'win32') return hits[0] || null;
     // On Windows `where` lists every match; a `.cmd`/`.exe` shim is
-    // spawnable, the bare POSIX shell-script shim is not — rank accordingly.
+    // spawnable, the bare POSIX shell-script shim is not, rank accordingly.
     const score = (/** @type {string} */ p) => {
       const l = p.toLowerCase();
       if (l.endsWith('.exe')) return 4;
@@ -99,7 +99,7 @@ let claudeCache;
  * Locate the Claude Code CLI. Prefers the copy bundled with Aurora.
  *
  * @returns {{exe:string, viaShim:boolean}|null}
- *   `exe` — path to spawn. `viaShim` — true when it is a `.cmd`/`.bat`/`.ps1`
+ *   `exe`, path to spawn. `viaShim`, true when it is a `.cmd`/`.bat`/`.ps1`
  *   shim that must be launched through `cmd.exe` rather than directly.
  */
 function locateClaude() {
@@ -138,7 +138,7 @@ function locateClaude() {
 
 // --- Codex -----------------------------------------------------------------
 
-// platform:arch → { triple, pkg } — mirrors @openai/codex's own bin/codex.js
+// platform:arch → { triple, pkg }, mirrors @openai/codex's own bin/codex.js
 // launcher so we can resolve the native binary without going through it.
 const CODEX_TARGETS = {
   'linux:x64':    { triple: 'x86_64-unknown-linux-musl',  pkg: '@openai/codex-linux-x64' },
@@ -156,9 +156,9 @@ let codexCache;
  * Locate the Codex CLI. Prefers the bundled native binary.
  *
  * @returns {{exe:string, rgDir:string|null, viaShim:boolean}|null}
- *   `exe` — path to spawn. `rgDir` — directory holding Codex's bundled
+ *   `exe`, path to spawn. `rgDir`, directory holding Codex's bundled
  *   ripgrep, which must be prepended to PATH so Codex's file search works
- *   (null when resolved off PATH). `viaShim` — see locateClaude.
+ *   (null when resolved off PATH). `viaShim`, see locateClaude.
  */
 function locateCodex() {
   if (codexCache !== undefined) return codexCache;

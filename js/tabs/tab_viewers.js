@@ -4,7 +4,7 @@ import { electronAPI } from '../app/electron_api.js';
  *
  * These methods used to be static members of TabManager. They're factored
  * out here as a plain object that gets `Object.assign(TabManager, viewers)`
- * back into the class — `this` inside each method still resolves to
+ * back into the class, `this` inside each method still resolves to
  * TabManager when called as `TabManager.foo()`, so no signatures or
  * call-site behaviour change.
  *
@@ -72,7 +72,7 @@ export const tabViewers = {
 
         // Pan is applied via the transform itself (translate + scale), NOT via
         // container scroll. `transform: scale()` doesn't grow the scroll box, so
-        // a scroll-based pan can never reach the edges of a zoomed image — and
+        // a scroll-based pan can never reach the edges of a zoomed image, and
         // the flex-centering on the scroll container hides the top/left overflow
         // on top of that. Translating the image directly sidesteps both.
         let currentZoom = 1;
@@ -250,7 +250,7 @@ export const tabViewers = {
 
     // PDF state preservation across tab switches.
     //
-    // setupPdfStateTracking is best-effort — same-origin policy blocks
+    // setupPdfStateTracking is best-effort, same-origin policy blocks
     // contentWindow access for many configurations. We swallow the resulting
     // throws instead of crashing the tab.
     setupPdfStateTracking(filePath, iframe) {
@@ -275,7 +275,7 @@ export const tabViewers = {
             iframe.contentWindow.addEventListener('resize', saveState);
             // Clear any prior poll for this file (the iframe 'load' handler can
             // fire more than once) and track the new one so closeTab can stop
-            // it — an untracked setInterval here leaked one 2s timer per PDF
+            // it, an untracked setInterval here leaked one 2s timer per PDF
             // open, forever, holding the detached iframe alive.
             clearInterval(this.pdfStateIntervals.get(filePath));
             this.pdfStateIntervals.set(filePath, setInterval(saveState, 2000));

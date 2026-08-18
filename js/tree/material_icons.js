@@ -1,31 +1,31 @@
 /**
- * material_icons.js — folder/file icon resolver for the Folders (standard)
+ * material_icons.js: folder/file icon resolver for the Folders (standard)
  * file-tree view, backed by the **Material Icon Theme** SVG set.
  *
  * The package's generated VSCode-icon-theme manifest (`material-icons.json`) is
  * vendored next to its SVGs at `vendor/material-icons/` (see vite.config.mjs).
  * We fetch it once and resolve names exactly the way VSCode's file-icon-theme
- * spec does — exact filename → longest compound extension → simple extension →
- * default — so a `tests` folder gets `folder-test`, `app.module.ts` gets
+ * spec does, exact filename → longest compound extension → simple extension →
+ * default, so a `tests` folder gets `folder-test`, `app.module.ts` gets
  * `react_ts`/`typescript`, etc. The icons keep **their own colours** (rendered
  * as a `background-image`, NOT recoloured): this view intentionally drops
  * Aurora's old per-extension/per-depth tinting.
  *
  * Split in two layers:
  *   - PURE (no DOM, no fetch): resolveFolderIconName / resolveFileIconName /
- *     iconUrlFromManifest — unit-tested against a small fake manifest.
+ *     iconUrlFromManifest, unit-tested against a small fake manifest.
  *   - RUNTIME: ensureManifest() loads + caches the real manifest; iconUrlForFile
  *     / iconUrlForFolder use the cached copy (falling back to the default glyph
  *     before it lands / if the fetch fails).
  *
  * SAPHO override: Material maps `.v` to the V language ("vlang"); for this
  * hardware IDE `.v`/`.vh` are Verilog, so OVERRIDES forces the verilog icon.
- * `.cmm` has no Material equivalent and keeps its custom masked glyph — that
+ * `.cmm` has no Material equivalent and keeps its custom masked glyph, that
  * special case lives in the renderer, not here.
  */
 
 // Where the vendored SVGs + manifest live, relative to the loaded document
-// (index.html). Same convention as ./locales, ./resources, ./assets/icons —
+// (index.html). Same convention as ./locales, ./resources, ./assets/icons:
 // served by vite-plugin-static-copy in dev and shipped under dist/ in prod.
 const VENDOR_BASE = './vendor/material-icons/';
 const MANIFEST_URL = `${VENDOR_BASE}material-icons.json`;
@@ -100,7 +100,7 @@ export function resolveFileIconName(manifest, fileName) {
 }
 
 // ---------------------------------------------------------------------------
-// Runtime layer — fetch + cache the real manifest, sync URL helpers.
+// Runtime layer, fetch + cache the real manifest, sync URL helpers.
 // ---------------------------------------------------------------------------
 
 let _manifest = null;       // resolved manifest object (null until loaded)

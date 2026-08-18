@@ -1,4 +1,4 @@
-// chat_turn.js — pure request-shaping for an AI chat turn, extracted from
+// chat_turn.js: pure request-shaping for an AI chat turn, extracted from
 // ai_assistant_manager.js (A2 god-file decomposition).
 //
 // No DOM, no IPC, no instance state. The class keeps _dispatchTurn (session id,
@@ -7,8 +7,8 @@
 
 // Roles that exist ONLY to render in the panel. They carry no `content`, so
 // letting one through would send the model `{role, content: undefined}`:
-//   tool     — the collapsed "N actions" chips.
-//   question — the record of an ask_user_question exchange. The model already
+//   tool    , the collapsed "N actions" chips.
+//   question, the record of an ask_user_question exchange. The model already
 //              got the answer as that tool's return value; resending it here
 //              would just repeat it back, in a role the API does not accept.
 const DISPLAY_ONLY_ROLES = new Set(['tool', 'question']);
@@ -25,7 +25,7 @@ export function buildApiMessages(messages) {
             : { role: m.role, content: m.content }));
     // A single turn can now store several assistant segments (interleaved with
     // the display-only `tool` entries just filtered out) so a reloaded chat
-    // reproduces the live layout. But the Anthropic API — and others — require
+    // reproduces the live layout. But the Anthropic API, and others, require
     // roles to ALTERNATE, so merge adjacent same-role messages back into one
     // before sending. Alternating histories are unaffected (no adjacency).
     const out = [];
@@ -52,7 +52,7 @@ const MEMORY_BUDGET = 6000;
  * Render the project-memory block, or '' when there is nothing remembered.
  *
  * Conditional on purpose. This context is rebuilt EVERY turn, so anything here
- * is paid for on every turn — and an empty "memories: none" line would be pure
+ * is paid for on every turn, and an empty "memories: none" line would be pure
  * waste on the common path. It also sits AFTER the static SYSTEM_PROMPT, which
  * is what keeps the big cacheable prefix stable while this part varies.
  *
@@ -80,7 +80,7 @@ function buildMemoryBlock(memories) {
 // The per-turn project context appended to SYSTEM_PROMPT. Injecting the active
 // project paths every turn saves the model a get_current_project tool-call and
 // stops it hallucinating paths from earlier projects; rebuilt each turn so
-// switching projects mid-chat just works. (Text is model-facing — keep verbatim.)
+// switching projects mid-chat just works. (Text is model-facing, keep verbatim.)
 export function buildProjectContext(projectPath, spfPath, memories) {
     return projectPath
         ? `\n\nACTIVE AURORA PROJECT — single source of truth, refreshed every turn:\n` +

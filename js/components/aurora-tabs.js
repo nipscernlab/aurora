@@ -1,20 +1,20 @@
 import { LitElement, html } from 'lit';
 
 /**
- * <aurora-tabs> — semantic, accessible shell for the editor tab strip.
+ * <aurora-tabs>, semantic, accessible shell for the editor tab strip.
  *
  * The `.tab` children are still created imperatively by TabManager and live in
- * light DOM (a full data-driven rewrite of that imperative DOM — addTab/closeTab/
- * drag/preview/active across tab_manager + tab_drag + tab_watchers + split_editor —
+ * light DOM (a full data-driven rewrite of that imperative DOM, addTab/closeTab/
+ * drag/preview/active across tab_manager + tab_drag + tab_watchers + split_editor:
  * is a high-risk, cross-file rearchitecture with no live E2E for the chat/tab
  * paths, so it's deliberately NOT done here; same call as <aurora-tree> passo 2).
  *
  * Passo 2 (this version) makes the component actually DO something instead of
- * being a pure slot: it turns the slotted tabs into a proper ARIA tablist —
+ * being a pure slot: it turns the slotted tabs into a proper ARIA tablist:
  * role=tablist on the host, role=tab + aria-selected on each tab (mirroring the
  * `.active` class TabManager owns), a roving tabindex so the strip is a single
  * tab stop, and Arrow/Home/End/Enter keyboard navigation. It NEVER touches
- * TabManager state or the data-loss-sensitive save logic — it only reflects the
+ * TabManager state or the data-loss-sensitive save logic, it only reflects the
  * `.active` class and activates via the tab's existing click handler.
  */
 

@@ -1,13 +1,13 @@
 /*
  * =====================================================================================
- *  modal_config.css  —  Modais AURORA unificados v3
+ *  modal_config.css ,  Modais AURORA unificados v3
  *
  *  Padrão único:
- *    .modal-overlay           — backdrop + center (fixed, blur)
- *    .modal-container         — surface (default 460, .small 360, .medium 540, .large 640)
- *    .modal-header            — 48px height
- *    .modal-body              — scroll, padding 20
- *    .modal-footer            — 56px height
+ *    .modal-overlay          , backdrop + center (fixed, blur)
+ *    .modal-container        , surface (default 460, .small 360, .medium 540, .large 640)
+ *    .modal-header           , 48px height
+ *    .modal-body             , scroll, padding 20
+ *    .modal-footer           , 56px height
  *
  *  Compat: legacy `.modal-content` reúsa todas regras de `.modal-container`.
  * =====================================================================================
@@ -87,7 +87,7 @@
   opacity: 1;
 }
 
-/* (Aurora hairline removed — modals now use a plain border for a quieter look.) */
+/* (Aurora hairline removed, modals now use a plain border for a quieter look.) */
 
 /* ---------------------------------------------------------------------------
  *  Header
@@ -238,7 +238,7 @@
 
 .full-width { grid-column: 1 / -1; }
 
-/* Info tooltip pill — sits on the right of the form label */
+/* Info tooltip pill, sits on the right of the form label */
 .info-tip {
   display: inline-flex;
   align-items: center;
@@ -263,7 +263,7 @@
 
 /* Forced, CSS-only tooltip for the ? help pills.
  *
- * These must ALWAYS appear on hover (and keyboard focus) — even when the
+ * These must ALWAYS appear on hover (and keyboard focus), even when the
  * global custom-tooltip system is switched off in Settings. The JS tooltip
  * honors that toggle; a pure-CSS bubble driven straight off `data-tooltip`
  * does not, so the explanation is never hidden. (The spans carry
@@ -286,7 +286,7 @@
   position: absolute;
   /* Below the icon: the ? pills live in the first section, and the modal
      body clips overflow, so dropping the bubble downward (over the input
-     rows) keeps it fully visible — above could be cut off at the body's
+     rows) keeps it fully visible, above could be cut off at the body's
      top edge. */
   top: calc(100% + 8px);
   left: 50%;
@@ -324,7 +324,7 @@
   visibility: visible;
 }
 
-/* Form label that hosts an info-tip — distribute name and tip nicely */
+/* Form label that hosts an info-tip, distribute name and tip nicely */
 .form-label:has(.info-tip) {
   display: inline-flex;
   align-items: center;

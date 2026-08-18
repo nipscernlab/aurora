@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * render_loader.js — picks the renderer source for any first-party window.
+ * render_loader.js: picks the renderer source for any first-party window.
  *
  * Every BrowserWindow that loads an in-repo HTML page (main, splash, update,
  * PRISM) routes through loadPage so the dev/prod/raw selection lives in one
@@ -14,7 +14,7 @@
  *
  * There is NO raw-source fallback. Post-Lit migration the raw index.html
  * carries bare `lit` imports that only resolve through the bundler, so a
- * missing dist/ is a build error — not a degraded-but-usable state. We surface
+ * missing dist/ is a build error, not a degraded-but-usable state. We surface
  * it loudly (an explicit error page) instead of silently loading a broken UI.
  * Every real flow builds dist/ first: `npm run dev` (Vite), `npm start`
  * (prestart → build:renderer), the e2e harness (pretest:e2e), and packaging.

@@ -1,5 +1,5 @@
 /**
- * git_ns.js — the `AuroraAPI.git` namespace (G1): version control over the open
+ * git_ns.js: the `AuroraAPI.git` namespace (G1): version control over the open
  * project's local git repo, exposed to Aurora Intelligence as the git_* tools.
  *
  * Thin wrappers over the window.gitAPI preload bridge (main/ipc/git.js /
@@ -13,7 +13,7 @@
  * imports `gitNs` from here and exposes it as `AuroraAPI.git`.
  */
 
-// Result helpers — same shape as aurora_api.js's ok/err, inlined so this module
+// Result helpers, same shape as aurora_api.js's ok/err, inlined so this module
 // stays standalone and testable.
 function ok(data) { return { ok: true, data: data === undefined ? null : data }; }
 function err(message, code) {

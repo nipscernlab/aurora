@@ -1,13 +1,13 @@
 /**
- * standard_tree_crud.js — VS Code-style CRUD for the Folders (standard) view.
+ * standard_tree_crud.js: VS Code-style CRUD for the Folders (standard) view.
  *
  * Owns everything the user does TO entries of the folder tree (the renderer,
- * standard_tree_render.js, owns painting them):
+ * standard_tree_render.js: owns painting them):
  *
  *   - Context menu (rows + empty area): New File / New Folder, Cut / Copy /
  *     Paste, Copy Path / Copy Relative Path, Rename, Delete, Reveal in
  *     Explorer, Open in Integrated Terminal (TCMD `cd`s there), Refresh,
- *     Collapse All — plus the legacy quick-creates (cocotb testbench,
+ *     Collapse All, plus the legacy quick-creates (cocotb testbench,
  *     .gitignore) the old empty-area menu offered.
  *   - Inline create/rename inputs with LIVE validation (VS Code behaviour:
  *     duplicate names, invalid/reserved names, Enter commits, Esc cancels,
@@ -56,7 +56,7 @@ import {
     resolveDropTarget, isNoOpDrop,
 } from './fs_name_utils.js';
 
-// i18n with English fallback (same pattern as file_tree_toggler.js) — the
+// i18n with English fallback (same pattern as file_tree_toggler.js), the
 // menu works before locales load and the keys are optional.
 const tr = (k, fb, p) => {
     const v = window.t ? window.t(k, p) : null;
@@ -79,7 +79,7 @@ const VALIDATION_MSGS = {
 class StandardTreeCrud {
     constructor() {
         this.selectedPath = null;
-        // { path, name, isDir, cut } — single-entry clipboard (multi-select is
+        // { path, name, isDir, cut }, single-entry clipboard (multi-select is
         // a future step; documented in TODO.md, secao 5).
         this.clipboard = null;
         this._inlineCleanup = null;
@@ -146,7 +146,7 @@ class StandardTreeCrud {
     }
 
     _join(dir, name) {
-        // `name` may be nested ("a/b.txt") — normalize to native separators.
+        // `name` may be nested ("a/b.txt"), normalize to native separators.
         const sep = this._sep();
         const cleanName = String(name).replace(/[\\/]+/g, sep);
         return dir.replace(/[\\/]+$/, '') + sep + cleanName;
@@ -846,7 +846,7 @@ class StandardTreeCrud {
         let newActive = null;
         for (const p of affected) {
             const newP = newBase + p.slice(oldBase.length);
-            // Buffers were saved before the rename — skip the unsaved prompt.
+            // Buffers were saved before the rename, skip the unsaved prompt.
             TabManager.unsavedChanges?.delete?.(p);
             await TabManager.closeTab(p);
             try {
@@ -914,7 +914,7 @@ class StandardTreeCrud {
         });
         if (action !== 'delete') return;
 
-        // Close affected editors WITHOUT the per-tab unsaved prompt — the user
+        // Close affected editors WITHOUT the per-tab unsaved prompt, the user
         // just confirmed the data loss above.
         for (const p of affected) {
             TabManager.unsavedChanges?.delete?.(p);
@@ -939,7 +939,7 @@ class StandardTreeCrud {
                 ok = true;
                 this.history.registrar(Op.removido(entry.path, res.token));
             } else {
-                // Trash unavailable (e.g. network drive) — offer permanent.
+                // Trash unavailable (e.g. network drive), offer permanent.
                 const retry = await this._dialog({
                     title: tr('fileTree.crud.deleteTitle', 'Delete'),
                     message: tr('fileTree.crud.trashFailed',

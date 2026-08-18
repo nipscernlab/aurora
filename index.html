@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAPHO</title>
-    <!-- Phosphor Icons (canonical, used everywhere visible) — bundled locally
+    <!-- Phosphor Icons (canonical, used everywhere visible), bundled locally
          (node_modules) instead of a render-blocking unpkg CDN fetch, so the
          first paint never waits on the network and icons work offline.
          These node_modules/ paths resolve as-is when the raw index.html is
@@ -12,7 +12,7 @@
          dev-served and built renderer (vite.config.mjs → rewriteVendorPaths). -->
     <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/regular/style.css">
     <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/bold/style.css">
-    <!-- KaTeX — real LaTeX rendering for the AI chat (bundled locally, offline). -->
+    <!-- KaTeX, real LaTeX rendering for the AI chat (bundled locally, offline). -->
     <link rel="stylesheet" href="node_modules/katex/dist/katex.min.css">
     <script defer src="node_modules/katex/dist/katex.min.js"></script>
     <link rel="stylesheet" href="./css/import.css">
@@ -49,13 +49,13 @@
 <body class="theme-dark">
 
 <!-- ============================================================
-     APP SHELL — toolbar + main pane stack on top, status bar below
+     APP SHELL, toolbar + main pane stack on top, status bar below
      ============================================================ -->
 <div class="app-shell">
 
   <!-- Toolbar = custom title bar (drag region + tools + traffic lights)
 
-       Layout: three zones — left / center / right — wrapping the groups
+       Layout: three zones, left / center / right, wrapping the groups
        below. The center zone (Processor Hub → gtkw picker) is anchored
        at the toolbar's visual midpoint via flex 1/auto/1 (same trick
        the status bar uses).
@@ -69,7 +69,7 @@
        Each cluster is wrapped in `.toolbar-group`; vertical hairlines
        between center groups use `.toolbar-separator`. -->
   <aurora-titlebar class="toolbar" id="custom-titlebar">
-    <!-- Tres zonas (left / center / right) com flex 1/auto/1 — o
+    <!-- Tres zonas (left / center / right) com flex 1/auto/1, o
          centro fica no meio absoluto da toolbar independente da largura
          dos lados. Mesmo padrao da status bar. Window-controls vivem
          dentro da zone-right pra ancorar no canto. -->
@@ -77,7 +77,7 @@
     <!-- Zone left: file / project actions -->
     <div class="toolbar-zone toolbar-zone-left">
       <!-- SAPHO mark: tiny brand icon anchored at the very left edge of the
-           toolbar, before the sidebar toggle. Pure decoration — sits inside
+           toolbar, before the sidebar toggle. Pure decoration, sits inside
            the drag region so it doesn't interrupt window dragging. -->
       <span class="toolbar-brand" aria-label="SAPHO">
         <img src="./assets/icons/sapho_aurora_icon.svg" alt="">
@@ -149,10 +149,10 @@
                one is highlighted, the inactive one dimmed. Click a segment to
                select it. Active highlight is synced by simulator_toggle.js. -->
           <div id="simulatorSwitch" class="simulator-switch" role="group" aria-label="Simulation engine" data-i18n-aria-label="toolbar.simulatorSwitch.aria">
-              <button type="button" class="sim-seg" data-sim="iverilog" aria-pressed="true" data-tooltip="Icarus Verilog — all signals visible" data-i18n-tooltip="toolbar.simulatorSwitch.iverilog">
+              <button type="button" class="sim-seg" data-sim="iverilog" aria-pressed="true" data-tooltip="Icarus Verilog, all signals visible" data-i18n-tooltip="toolbar.simulatorSwitch.iverilog">
                   <img src="assets/icons/Icarus_Verilog_logo.png" alt="Icarus Verilog" class="sim-seg-icon" aria-hidden="true">
               </button>
-              <button type="button" class="sim-seg" data-sim="verilator" aria-pressed="false" data-tooltip="Verilator — faster" data-i18n-tooltip="toolbar.simulatorSwitch.verilator">
+              <button type="button" class="sim-seg" data-sim="verilator" aria-pressed="false" data-tooltip="Verilator, faster" data-i18n-tooltip="toolbar.simulatorSwitch.verilator">
                   <img src="assets/icons/Verilator_logo.png" alt="Verilator" class="sim-seg-icon" aria-hidden="true">
               </button>
           </div>
@@ -177,10 +177,10 @@
           </button>
           <!-- Fast Sim: Verilator headless (sem onda). So habilita com o toggle
                de simulador em Verilator (compilation_flow.syncToolbarEnabledState). -->
-          <button id="fastsim" class="toolbar-button compile-btn" data-tool="verilator-fast" data-tooltip="Fast run — Verilator, no waveform" data-i18n-tooltip="toolbar.fastSim.tooltip">
+          <button id="fastsim" class="toolbar-button compile-btn" data-tool="verilator-fast" data-tooltip="Fast run, Verilator, no waveform" data-i18n-tooltip="toolbar.fastSim.tooltip">
               <span class="glyph glyph-fastsim" aria-hidden="true">
                 <svg viewBox="0 0 16 16">
-                  <!-- Double chevron ">>" — fast-forward: run quick, no waveform -->
+                  <!-- Double chevron ">>", fast-forward: run quick, no waveform -->
                   <path d="M2 4 L6.5 8 L2 12"/>
                   <path d="M8 4 L12.5 8 L8 12"/>
                 </svg>
@@ -189,10 +189,10 @@
           <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel compilation" data-i18n-tooltip="toolbar.cancel.tooltip">
               <i class="ph ph-stop-circle"></i>
           </button>
-          <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump" data-i18n-tooltip="toolbar.waveConfig.tooltip">
+          <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration, pick signals to dump" data-i18n-tooltip="toolbar.waveConfig.tooltip">
               <i class="ph ph-list-checks"></i>
           </button>
-          <div id="gtkwPicker" class="gtkw-picker" data-tooltip="Active GTKWave save file (.gtkw) — used when launching GTKWave" data-i18n-tooltip="toolbar.gtkwPicker.tooltip">
+          <div id="gtkwPicker" class="gtkw-picker" data-tooltip="Active GTKWave save file (.gtkw), used when launching GTKWave" data-i18n-tooltip="toolbar.gtkwPicker.tooltip">
             <button id="gtkwPickerButton" type="button" class="gtkw-picker-button">
               <span class="gtkw-picker-label" data-i18n="toolbar.gtkwPicker.default">default</span>
               <i class="ph ph-caret-down gtkw-picker-caret" aria-hidden="true"></i>
@@ -220,7 +220,7 @@
     </div>
 
     <!-- Zone right: Full Build + Settings + window controls.
-         Full Build e Settings ficam escondidos (display:none) hoje —
+         Full Build e Settings ficam escondidos (display:none) hoje -
          mantidos no DOM pra nao quebrar listeners legados.
          (#cancel-everything foi movido para a direita de #wavecomp.) -->
     <div class="toolbar-zone toolbar-zone-right">
@@ -232,7 +232,7 @@
               </button>
           </div>
 
-          <!-- Aurora locale toggle (PT/EN) lives in Aurora Settings now —
+          <!-- Aurora locale toggle (PT/EN) lives in Aurora Settings now -
                see the "Language" section in #settings-modal. It still
                controls both UI strings and the yanc -pt/-en flag. -->
           <!-- The split-editor control now floats inside the focused Monaco
@@ -259,7 +259,7 @@
           </button>
       </div>
 
-      <!-- Classic window controls (minimize / maximize-restore / close) — pinned right -->
+      <!-- Classic window controls (minimize / maximize-restore / close), pinned right -->
       <div class="window-controls" data-no-tooltip>
         <button class="window-ctrl ctrl-min" id="win-min" aria-label="Minimize" data-i18n-aria-label="windowControls.minimize" data-no-tooltip>
             <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
@@ -308,7 +308,7 @@
           <div class="proc-config-sim-time" id="procConfigSimTimeRow">
               <span class="proc-config-sim-time-label">Estimated simulation time</span>
               <span class="proc-config-sim-time-readout">
-                  <span class="proc-config-sim-time-value" id="procConfigSimTime">—</span>
+                  <span class="proc-config-sim-time-value" id="procConfigSimTime">-</span>
                   <i class="ph ph-clock proc-config-sim-time-icon" aria-hidden="true"></i>
               </span>
           </div>
@@ -316,7 +316,7 @@
   </div>
 
   <!-- ============================================================
-       MAIN — file tree + editor/terminal stack
+       MAIN, file tree + editor/terminal stack
        ============================================================ -->
   <div class="main-container">
     <!-- Trilhos de borda. Um painel colapsado tem largura zero, e o divisor
@@ -341,7 +341,7 @@
               // Avoid the "No project open" flash on cold start when a project
               // is about to be auto-restored. This runs synchronously during
               // HTML parse (before first paint), so the user only sees the
-              // final state — either the loading placeholder or the eventual
+              // final state, either the loading placeholder or the eventual
               // project name. AppInitializer.restoreLastSession() will replace
               // this with the actual project name once the IPC roundtrip lands.
               (function () {
@@ -366,7 +366,7 @@
             <!-- Cycles the file-tree view: Files (flat) → Hierarchy (Yosys
                  modules) → Folders (.spf dir tree). Icon/label/tooltip are
                  set per active view in file_tree_view_controller.js (uses
-                 data-tooltip, Aurora's custom tooltip; no data-i18n-tooltip —
+                 data-tooltip, Aurora's custom tooltip; no data-i18n-tooltip -
                  the controller owns the text and re-applies it on
                  aurora:locale-changed). -->
             <button id="alternate-tree-toggle" class="tree-toggle-btn disabled" data-tooltip="Open a project to browse files" disabled>
@@ -556,14 +556,14 @@
 </div>
 
 <!-- ============================================================
-     STATUS BAR — independent footer, full width edge-to-edge
+     STATUS BAR, independent footer, full width edge-to-edge
      ============================================================ -->
 <aurora-statusbar class="status-bar">
     <div class="status-zone status-zone-left">
         <div class="status-item" id="ready">
             <span id="status-text" data-i18n="statusBar.notReady">Not Ready</span>
         </div>
-        <!-- Processador "ativo" — populado por status_bar.js a partir
+        <!-- Processador "ativo", populado por status_bar.js a partir
              do .cmm em foco no Monaco (TabManager.getEditingFilePath
              cruzado com structure.processors). Hidden quando o projeto
              nao tem processadores: nao faz sentido falar de "ativo / nao
@@ -838,7 +838,7 @@
 </aurora-modal>
 
 <!-- ==========================================================================
-     Bibliotecas Python — o berço das libs que rodam no Python embarcado.
+     Bibliotecas Python, o berço das libs que rodam no Python embarcado.
      Controlado por js/python/pylib_panel.js; estilos em css/panels/pylib_panel.css.
      O conteúdo da lista é renderizado a partir de resources/pylib-catalog.json,
      então aqui ficam só o esqueleto e os pontos de ancoragem.
@@ -1023,7 +1023,7 @@
     </footer>
 </aurora-modal>
 
-<!-- Aurora Settings Modal — sidebar nav (left) + pane content (right).
+<!-- Aurora Settings Modal, sidebar nav (left) + pane content (right).
      Each .settings-nav-item maps 1:1 to a .settings-pane via data-pane.
      aurora_settings.js wires nav clicks to a setActivePane() call that
      toggles `.active` on both the button and the pane. The "Save"
@@ -1078,6 +1078,15 @@
                         <h3 data-i18n="modal.settings.sectionGeneral">General</h3>
                     </header>
                     <div class="settings-card">
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label data-i18n="modal.settings.githubForget">Sair do GitHub e limpar esta máquina</label>
+                                <p class="setting-description" data-i18n="modal.settings.githubForgetDescription">
+                                    Remove o acesso salvo pela AURORA e também o que o git do Windows guardou. Use antes de deixar um computador compartilhado.
+                                </p>
+                            </div>
+                            <button id="github-forget-btn" class="btn danger" type="button" data-i18n="modal.settings.githubForgetAction">Limpar agora</button>
+                        </div>
                         <div class="setting-row">
                             <div class="setting-row-text">
                                 <label for="network-warning-toggle" data-i18n="modal.settings.networkWarning">Avisar quando a internet cair</label>
@@ -1221,7 +1230,7 @@
                     </div>
                 </section>
 
-                <!-- AI Assistant — Aurora Intelligence BYOK key management.
+                <!-- AI Assistant, Aurora Intelligence BYOK key management.
                      One card per provider is generated by js/ai/ai_settings.js
                      into #ai-provider-cards; the user pastes their key in the
                      card for the provider they have access to. -->
@@ -1238,7 +1247,7 @@
                     <div id="ai-provider-cards" class="ai-provider-cards"></div>
                 </section>
 
-                <!-- About — version, credits, links, acknowledgements. The
+                <!-- About, version, credits, links, acknowledgements. The
                      content is intentionally static (proper names, URLs,
                      org names) except for the labels and the version, which
                      aurora_settings.js fills in via getAppVersion(). -->
@@ -1259,37 +1268,37 @@
                             <p class="about-tagline" data-i18n="modal.settings.aboutTagline">Scalable-Architecture Processor for Hardware Optimization</p>
                             <div class="about-version-badge">
                                 <span data-i18n="modal.settings.aboutVersion">Version</span>
-                                <strong id="about-version">—</strong>
+                                <strong id="about-version">-</strong>
                             </div>
                         </div>
                     </div>
 
                     <!-- Update-system health. Exists for remote diagnosis: when a
                          machine is not updating, the questions are always "is it even
-                         checking?", "against what?", "what failed?" — answering them
+                         checking?", "against what?", "what failed?", answering them
                          here beats walking to the machine and reading main.log. -->
                     <div class="settings-card">
                         <h4 class="about-card-title" data-i18n="modal.settings.aboutUpdates">Updates</h4>
                         <dl class="about-updates" id="about-updates">
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updStatus">Status</dt>
-                                <dd id="upd-status">—</dd>
+                                <dd id="upd-status">-</dd>
                             </div>
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updLastCheck">Last check</dt>
-                                <dd id="upd-last-check">—</dd>
+                                <dd id="upd-last-check">-</dd>
                             </div>
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updNextCheck">Next check</dt>
-                                <dd id="upd-next-check">—</dd>
+                                <dd id="upd-next-check">-</dd>
                             </div>
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updChannel">Channel</dt>
-                                <dd id="upd-channel">—</dd>
+                                <dd id="upd-channel">-</dd>
                             </div>
                             <div class="about-update-row about-update-error" id="upd-error-row" hidden>
                                 <dt data-i18n="modal.settings.updLastError">Last error</dt>
-                                <dd id="upd-last-error">—</dd>
+                                <dd id="upd-last-error">-</dd>
                             </div>
                         </dl>
                         <div class="about-update-actions">
@@ -1335,7 +1344,7 @@
                                 <i class="ph ph-hard-drives" aria-hidden="true"></i>
                                 <span class="about-link-text">
                                     <span class="about-link-label" data-i18n="modal.settings.aboutDocsOffline">Manual offline</span>
-                                    <span class="about-link-url" id="about-docs-offline-meta">—</span>
+                                    <span class="about-link-url" id="about-docs-offline-meta">-</span>
                                 </span>
                                 <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
                             </a>
@@ -1559,12 +1568,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // relative path. Monaco builds its web-worker URL from this and loads it via
   // importScripts inside a worker; under file:// a relative 'vendor/vs' resolved
   // against the filesystem root (file:///vendor/vs/…workerMain.js) and failed to
-  // open files. document.baseURI anchors it to the real document location —
+  // open files. document.baseURI anchors it to the real document location:
   // correct in dev (http://localhost) and in the built/packaged app (file://).
   require.config({ paths: { vs: new URL('node_modules/monaco-editor/min/vs', document.baseURI).href } });
 </script>
 
-<!-- ES modules (defer by default, dependency-resolved — order-independent) -->
+<!-- ES modules (defer by default, dependency-resolved, order-independent) -->
 <!-- Error boundary first, so it is armed before the rest of the graph runs. -->
 <script src="./js/app/error_boundary.js" type="module"></script>
 <script src="./js/i18n/i18n.js" type="module"></script>

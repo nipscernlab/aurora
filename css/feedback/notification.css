@@ -1,8 +1,8 @@
 /*
  * =====================================================================================
- *  notification.css — AURORA dialog system
+ *  notification.css: AURORA dialog system
  *
- *  Toast cards: <aurora-toast> Lit component (Shadow DOM) — the CARD is
+ *  Toast cards: <aurora-toast> Lit component (Shadow DOM), the CARD is
  *    self-styled; the STACK CONTAINER it lives in is positioned below.
  *    JS API: AuroraUI.notify(msg, type, duration)  or  showCardNotification.
  *
@@ -10,12 +10,12 @@
  *    Use only when blocking a flow (confirm destructive actions, errors).
  *    JS API: AuroraUI.dialog({title, message, buttons})  or  showDialog.
  *
- *  Anything else — inline-notification, ad-hoc alert(), confirm() — is forbidden.
+ *  Anything else, inline-notification, ad-hoc alert(), confirm(), is forbidden.
  * =====================================================================================
  */
 
 /* ===========================================================================
- *  TOAST STACK — positions the <aurora-toast> cards (created in
+ *  TOAST STACK, positions the <aurora-toast> cards (created in
  *  js/ui/notification.js as #notification-stack-container). Bottom-right,
  *  clear of the status bar; cards are width:100% of this column and slide in
  *  from the right. Without this the container falls into normal flow and the
@@ -37,9 +37,9 @@
 }
 
 /* ===========================================================================
- *  CONFIRM DIALOG — centred modal (used by AuroraUI.dialog / showDialog)
+ *  CONFIRM DIALOG, centred modal (used by AuroraUI.dialog / showDialog)
  *
- *  Compact informational modal. No internal dividers — header, message and
+ *  Compact informational modal. No internal dividers, header, message and
  *  actions are unified in a single column with tight padding so the dialog
  *  reads as one coherent block instead of three stacked sections. Icon
  *  doubles as the affordance (color carries the variant).
@@ -224,7 +224,7 @@
 }
 
 /* ===========================================================================
- *  Legacy inline-notification (DEPRECATED) — keep visually inert if still
+ *  Legacy inline-notification (DEPRECATED), keep visually inert if still
  *  injected by older code so it does not stack on top of toasts.
  * ========================================================================= */
 #notification-container,

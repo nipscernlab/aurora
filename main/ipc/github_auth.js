@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * github_auth.js — "connect your GitHub account" for the source-control panel.
+ * github_auth.js, "connect your GitHub account" for the source-control panel.
  *
  * The user pastes a GitHub Personal Access Token (classic or fine-grained with
  * `repo` scope). We validate it against the GitHub API, then store it encrypted
- * with Electron's `safeStorage` (DPAPI on Windows) — exactly like the AI API
+ * with Electron's `safeStorage` (DPAPI on Windows), exactly like the AI API
  * keys (main/ai/keystore.js). Plaintext never hits disk. The token is read
  * main-side only (git.js injects it for push/pull); the renderer can ask "who
  * is connected?" but never gets the bytes.
@@ -28,7 +28,7 @@ const {
   intervaloInicialMs, decidirPolling,
 } = require('./github_api');
 
-// GitHub OAuth App (Device Flow). The Client ID is PUBLIC — it ships in the app
+// GitHub OAuth App (Device Flow). The Client ID is PUBLIC, it ships in the app
 // and the device flow needs NO client secret, so this is safe to commit. Fill it
 // in after registering the OAuth App at github.com/settings/developers with
 // "Enable Device Flow" ticked. Empty ⇒ the "Sign in with GitHub" button is
@@ -183,7 +183,7 @@ async function connect(token) {
     throw new Error('OS keychain encryption is not available on this system.');
   }
   const me = await apiGet('/user', token.trim());
-  // Bake the avatar into a data: URL up front — the renderer CSP blocks remote
+  // Bake the avatar into a data: URL up front, the renderer CSP blocks remote
   // images, and this also makes it work offline after connecting.
   const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
   // Keep the URL too: the CSP allows avatars.githubusercontent.com, so the panel
@@ -197,7 +197,7 @@ async function connect(token) {
 }
 
 /**
- * List EVERY repository the token can reach — the user's own, ones they
+ * List EVERY repository the token can reach, the user's own, ones they
  * collaborate on, AND organization repos (when the user is an org member and the
  * token was granted access to that org). That's the `affiliation` triad
  * GitHub recommends; `/user/repos` already spans owners, so no per-org calls are
@@ -326,7 +326,7 @@ function register() {
   ipcMain.handle('github:oauth-login', async (event) => {
     try {
       const user = await deviceFlowLogin(event.sender);
-      // The user just authorized in the BROWSER — pull Aurora back to the front
+      // The user just authorized in the BROWSER, pull Aurora back to the front
       // so they don't have to alt-tab. The alwaysOnTop toggle forces Windows to
       // raise the window even when it would otherwise deny a focus-steal.
       try {

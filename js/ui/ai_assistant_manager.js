@@ -1,5 +1,5 @@
 /**
- * ai_assistant_manager.js — Aurora Intelligence side panel.
+ * ai_assistant_manager.js: Aurora Intelligence side panel.
  *
  * Replaces the previous `<webview>`-based wrapper. The panel now talks
  * directly to a Vercel-AI-SDK-driven backend via `window.aiAPI`:
@@ -8,7 +8,7 @@
  *   • each turn streams from main via `ai:chat-event` packets,
  *   • assistant text is rendered as Markdown live (token by token).
  *
- * Chat history (this version) — every conversation is auto-persisted
+ * Chat history (this version), every conversation is auto-persisted
  * to `userData/aurora-intelligence-chats/<id>.json` and listed in a
  * dropdown anchored to the history button. New / Open / Rename /
  * Delete operate on those files (see `main/ai/conversations.js`).
@@ -84,7 +84,7 @@ class AIAssistantManager {
     this.modelPopoverOpen = false;
     this.pendingConfirms = new Set();   // resolve fns of open confirmation cards
 
-    // Subscription-provider (Claude Code / ChatGPT) state — keyed by
+    // Subscription-provider (Claude Code / ChatGPT) state, keyed by
     // provider name so both CLIs share the same panel machinery.
     this.subStatus = {};                // provider → { installed, authed, … }
     this.subUsage = {};                 // provider → usage snapshot
@@ -104,7 +104,7 @@ class AIAssistantManager {
     // Smart auto-scroll: true while the viewport is glued to the bottom.
     // The user scrolling up flips this to false (frees them to read
     // earlier messages); scrolling back to the bottom flips it on again.
-    // Every appendDelta / appendBubble / tool chip respects this flag —
+    // Every appendDelta / appendBubble / tool chip respects this flag:
     // we only push the viewport when the user is already at the bottom.
     this.stickToBottom = true;
   }
@@ -132,10 +132,10 @@ class AIAssistantManager {
   }
 
   /**
-   * Glide to the bottom with ease-in-out (accelerate then decelerate) — used by
+   * Glide to the bottom with ease-in-out (accelerate then decelerate), used by
    * the "Jump to latest" pill so the jump feels deliberate, not a hard snap.
    * Re-targets the bottom each frame so it still lands if the stream is growing.
-   * (The per-token auto-scroll stays instant via scrollToBottom — smoothing it
+   * (The per-token auto-scroll stays instant via scrollToBottom, smoothing it
    * would visibly lag behind the text.)
    */
   smoothScrollToBottom() {
@@ -463,7 +463,7 @@ class AIAssistantManager {
     // v3: AI panel is a flex sibling of .file-tree-container and
     // .editor-terminal-container inside .main-container, so opening it
     // pushes (not overlays) the editor area. Fallback to body for the
-    // edge case where main-container hasn't rendered yet (unlikely —
+    // edge case where main-container hasn't rendered yet (unlikely:
     // initialize() runs on first toggle, well after DOMContentLoaded).
     const mountTarget = document.querySelector('.main-container') || document.body;
     // Antes do trilho da direita, para a ordem visual ficar trilho, arvore,
@@ -538,7 +538,7 @@ class AIAssistantManager {
     // initial value is 0; nothing to set here for the closed case.
     // (Persisted width is applied by _applyOpenWidth when opening.)
 
-    // Restore open state — if the panel was open when the user last closed
+    // Restore open state, if the panel was open when the user last closed
     // the app, re-open it now so they land right back where they left off.
     if (abertoNaSessaoAnterior) {
       // `open`, `ai-assistant-open` e o `inert` saem todos daqui: eram tres
@@ -546,7 +546,7 @@ class AIAssistantManager {
       //
       // Sem animar: no arranque nao ha interacao para acompanhar, a largura
       // salva vem de 0, e os 240 ms de animacao caem exatamente na janela em
-      // que o Monaco esta inicializando — com `automaticLayout` ele observa o
+      // que o Monaco esta inicializando, com `automaticLayout` ele observa o
       // proprio contorno, entao cada quadro dali e um relayout de editor.
       semAnimar(this.container, () => this._applyOpenWidth(true));
       this.refreshProviders().then(() => this.inputEl?.focus());
@@ -557,7 +557,7 @@ class AIAssistantManager {
   attachListeners() {
     this.container.querySelector('.ai-hbtn-close').addEventListener('click', () => this.toggle());
 
-    // Model / provider popover — opened from the composer chip.
+    // Model / provider popover, opened from the composer chip.
     this.modelChip.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleModelPopover();
@@ -585,7 +585,7 @@ class AIAssistantManager {
       if (radio) this.setPermissionMode(radio.value);
     });
 
-    // Model id — committed on Enter / blur (API providers, free text).
+    // Model id, committed on Enter / blur (API providers, free text).
     this.modelInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); this.modelInput.blur(); }
     });
@@ -607,7 +607,7 @@ class AIAssistantManager {
       if (btn) this.setClaudeCodeEffort(btn.dataset.effort);
     });
 
-    // Subscription-provider status section — "Re-check" button.
+    // Subscription-provider status section, "Re-check" button.
     this.ccStatusEl.addEventListener('click', (e) => {
       if (e.target.closest('[data-cc-recheck]')) this.refreshSubStatus();
     });
@@ -621,7 +621,7 @@ class AIAssistantManager {
       }, 60);
     });
 
-    // History popover — list of persisted chats + "New chat".
+    // History popover, list of persisted chats + "New chat".
     this.historyBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleHistory();
@@ -667,7 +667,7 @@ class AIAssistantManager {
     // Enter sends, Shift+Enter inserts a newline.
     // Enter is NOT gated on _isStreaming: send() itself decides between
     // dispatching now and queueing (see the _messageQueue branch there), so
-    // gating here just made the follow-up queue unreachable from the keyboard —
+    // gating here just made the follow-up queue unreachable from the keyboard:
     // the whole point is that a running turn does not block the composer.
     // sendBtn.disabled still guards the real blocker: no AI provider available.
     this.inputEl.addEventListener('keydown', (e) => {
@@ -681,7 +681,7 @@ class AIAssistantManager {
     // scroll). Runs on every input event.
     this.inputEl.addEventListener('input', () => this.autoGrowInput());
 
-    // External links in markdown bubbles. The anchor is just a sentinel —
+    // External links in markdown bubbles. The anchor is just a sentinel:
     // `data-href` carries the real URL. The model controls these URLs, so we
     // show a redirect warning before handing anything to the OS browser.
     this.messagesEl.addEventListener('click', (e) => {
@@ -732,7 +732,7 @@ class AIAssistantManager {
    * the live edge. The element is created once and kept in the DOM; we just
    * toggle `.visible`, so it fades both in and out via CSS (instant
    * `.remove()` used to make it pop out abruptly). Clicking it jumps to the
-   * bottom AND hides it immediately — relying on the scroll handler to hide
+   * bottom AND hides it immediately, relying on the scroll handler to hide
    * it failed because `scrollToBottom(true)` had already set
    * `stickToBottom = true`, so the handler's `stickToBottom !== atBottom`
    * guard short-circuited and the pill stayed up.
@@ -804,7 +804,7 @@ class AIAssistantManager {
     }
 
     // Claude Code and ChatGPT are synthetic, always-available providers
-    // (subscription auth — no API key). Their model is persisted locally,
+    // (subscription auth, no API key). Their model is persisted locally,
     // not by the backend.
     if (!this.claudeCodeEntry) {
       this.claudeCodeEntry = { ...CLAUDE_CODE_PROVIDER };
@@ -819,7 +819,7 @@ class AIAssistantManager {
         const key = SUB_META['chatgpt'].modelStoreKey;
         const saved = localStorage.getItem(key);
         // Drop any previously-saved id that is no longer a valid preset.
-        // Earlier versions offered `gpt-5` and `gpt-5-codex` — both fail
+        // Earlier versions offered `gpt-5` and `gpt-5-codex`, both fail
         // on ChatGPT-subscription auth with "model is not supported when
         // using Codex with a ChatGPT account". Falling back to "default"
         // avoids a stream error on the very first turn after the upgrade.
@@ -867,10 +867,10 @@ class AIAssistantManager {
     this.updateModelChip();
     if (this.modelInput) this.modelInput.value = entry?.model || '';
 
-    // Effort / usage sections stay subscription-only — they have no
+    // Effort / usage sections stay subscription-only, they have no
     // analog for API providers.
     this.ccSections.forEach((el) => el.classList.toggle('hidden', !isSub));
-    // Effort shows for any bridge with hasEffort — Claude Code (--effort)
+    // Effort shows for any bridge with hasEffort, Claude Code (--effort)
     // and Codex (-c model_reasoning_effort) share the same segmented control.
     const sm = SUB_META[this.currentProvider];
     if (this.effortSection) {
@@ -883,7 +883,7 @@ class AIAssistantManager {
       this.refreshSubStatus();
       this.refreshSubUsage();
     } else {
-      // API provider — status row is generated synchronously from the
+      // API provider, status row is generated synchronously from the
       // already-loaded providersConfigured map.
       this.renderProviderStatus();
     }
@@ -895,7 +895,7 @@ class AIAssistantManager {
     this.currentProvider = name;
     this.applyProviderState();
     this.logModelChange();
-    // Choosing an AI is the last thing the user wants from the popover —
+    // Choosing an AI is the last thing the user wants from the popover:
     // close it so they land straight back on the composer.
     this.toggleModelPopover(false);
   }
@@ -903,7 +903,7 @@ class AIAssistantManager {
   /**
    * Print a `--- Modelo: <provider> · <model> ---` divider into the
    * messages list. Called whenever the user changes the provider or the
-   * model — gives a clear in-chat marker of which model produced which
+   * model, gives a clear in-chat marker of which model produced which
    * answers, in the style of Claude's VS Code extension.
    */
   logModelChange() {
@@ -917,7 +917,7 @@ class AIAssistantManager {
   }
 
   /**
-   * The model name to show in the switch marker — faithful to what the
+   * The model name to show in the switch marker, faithful to what the
    * user actually picked. For the subscription CLIs that means the chosen
    * preset label (Default / Sonnet / Opus / Haiku); for API providers it's
    * the real model id (lightly shortened), falling back to the provider's
@@ -980,7 +980,7 @@ class AIAssistantManager {
     if ((entry?.model || '') !== before) this.logModelChange();
   }
 
-  /** Refresh the composer chip — provider icon + short model name. */
+  /** Refresh the composer chip, provider icon + short model name. */
   updateModelChip() {
     const meta = PROVIDER_META[this.currentProvider] || {};
     const entry = this.providersAvailable.find((p) => p.name === this.currentProvider);
@@ -1012,7 +1012,7 @@ class AIAssistantManager {
 
   /**
    * Friendly plan label for the status row. Raw values come straight
-   * from the CLI/JWT (`pro`, `max`, `plus`, `business`, `free`, …) — we
+   * from the CLI/JWT (`pro`, `max`, `plus`, `business`, `free`, …), we
    * uppercase them and map the few that have well-known marketing names.
    */
   formatPlanLabel(raw) {
@@ -1057,7 +1057,7 @@ class AIAssistantManager {
       title = 'Not signed in';
       detail = `Run <code>${sm.loginCmd}</code> in a terminal, then re-check.`;
     } else if (!s.installed) {
-      // B12: signed in and downloadable — ready to use; the ~230 MB binary is
+      // B12: signed in and downloadable, ready to use; the ~230 MB binary is
       // fetched on the first message (then this flips to the version detail).
       state = 'on'; icon = 'ph-check-circle';
       const plan = this.formatPlanLabel(s.plan) || 'SUBSCRIPTION';
@@ -1084,7 +1084,7 @@ class AIAssistantManager {
   }
 
   /**
-   * Connection status row for an API (BYOK) provider — OpenAI, Anthropic,
+   * Connection status row for an API (BYOK) provider, OpenAI, Anthropic,
    * Google, DeepSeek, Groq, Ollama. Mirrors renderSubStatus so the user
    * sees a uniform "what am I connected to?" badge regardless of whether
    * the provider is subscription- or key-backed.
@@ -1142,7 +1142,7 @@ class AIAssistantManager {
 
   /**
    * Redirect warning before opening a model-supplied link in the OS browser.
-   * Shows the exact destination URL (as text — no injection) and only calls
+   * Shows the exact destination URL (as text, no injection) and only calls
    * openExternal on explicit confirmation. openExternal itself also rejects
    * non-http(s)/mailto schemes in the main process (defence in depth).
    */
@@ -1185,7 +1185,7 @@ class AIAssistantManager {
           '<button class="ai-link-warning-open" type="button">Open link</button>' +
         '</div>' +
       '</div>';
-    // textContent, never innerHTML — the URL is untrusted model output.
+    // textContent, never innerHTML, the URL is untrusted model output.
     overlay.querySelector('.ai-link-warning-url').textContent = url;
 
     const close = () => {
@@ -1247,7 +1247,7 @@ class AIAssistantManager {
     this.usagePlan.textContent = u?.plan ? `${this.formatPlanLabel(u.plan)} plan` : '';
 
     // Session: the CLI's per-turn usage is the source of truth. We
-    // surface exactly what it reported — no synthetic floor — so the
+    // surface exactly what it reported, no synthetic floor, so the
     // counter never drifts from reality. The composer token pill stays
     // in sync because applyUsage() feeds the same numbers back.
     const sessTokens = Number(u?.session?.tokens) || 0;
@@ -1262,7 +1262,7 @@ class AIAssistantManager {
     // real `utilization` (0–100 %) per window plus a `resetsAt` timestamp, so we
     // plot that directly. (The previous code guessed `used`/`limit` fields the
     // SDK never sends, so `pct` was always null and every bar fell back to a
-    // coarse status heuristic — why the meter never showed real numbers.)
+    // coarse status heuristic, why the meter never showed real numbers.)
     const windows = Array.isArray(u?.windows) ? u.windows : [];
     for (const w of windows) {
       const meta = WINDOW_META[w.rateLimitType] || { label: w.rateLimitType, icon: 'ph-clock' };
@@ -1272,7 +1272,7 @@ class AIAssistantManager {
         ? (pct >= 90 ? 'high' : pct >= 60 ? 'mid' : 'ok')
         : (w.status === 'rejected' ? 'high'
             : (w.status && w.status !== 'allowed') ? 'mid' : 'ok'));
-      // resetsAt can arrive in seconds or milliseconds — untilTime wants unix
+      // resetsAt can arrive in seconds or milliseconds, untilTime wants unix
       // seconds, so fold ms down.
       const resetSecs = w.resetsAt
         ? (Number(w.resetsAt) > 1e12 ? Number(w.resetsAt) / 1000 : Number(w.resetsAt))
@@ -1290,7 +1290,7 @@ class AIAssistantManager {
     let hint = this.mpUsage.querySelector('.ai-usage-hint');
     if (!windows.length) {
       // Codex's CLI exposes only a session token tally, never rate-limit
-      // windows — so the "appears after your first message" copy was wrong
+      // windows, so the "appears after your first message" copy was wrong
       // there forever. Tell each provider the truth.
       const text = this.currentProvider === 'chatgpt'
         ? 'The Codex CLI reports only this session’s token tally, not ChatGPT plan limits.'
@@ -1326,7 +1326,7 @@ class AIAssistantManager {
    * not grow `this.messages` without bound. Keep the most recent
    * MAX_RETAINED_MESSAGES (a high cap normal chats never hit); switching/closing
    * a chat already resets the array entirely (the common path). On the rare trim
-   * the very oldest turns drop from the locally-held history — acceptable at this
+   * the very oldest turns drop from the locally-held history, acceptable at this
    * size (the subscription CLIs keep their own context via --resume).
    */
   _capMessages() {
@@ -1363,7 +1363,7 @@ class AIAssistantManager {
       card.querySelector('.ai-confirm-tool').textContent = def ? def.name : 'tool';
       card.querySelector('.ai-confirm-desc').textContent = def ? (def.description || '') : '';
       // The model's prose (note / question) reads as text; only the structural
-      // args stay in the JSON block. textContent throughout — this is model
+      // args stay in the JSON block. textContent throughout, this is model
       // output, so it is never parsed as markup.
       const { prose, rest } = splitArgs(args);
       const notes = card.querySelector('.ai-confirm-notes');
@@ -1408,14 +1408,14 @@ class AIAssistantManager {
   }
 
   /**
-   * Inline "Ask User Question" card — the AI's way of pausing a turn and
+   * Inline "Ask User Question" card, the AI's way of pausing a turn and
    * asking the human for a decision/clarification. Mirrors Claude
    * Code's `AskUserQuestion` tool: one prompt, an optional list of
    * single- or multi-select options, plus an "Other" text field.
    *
    * Resolves with `{ answer, selected }` once the user submits, or with
    * `null` if the turn is aborted before they answer (see
-   * resetTurnState — pendingAskUserQuestions is purged there).
+   * resetTurnState, pendingAskUserQuestions is purged there).
    *
    * @param {object} params
    * @param {string} params.question
@@ -1464,7 +1464,7 @@ class AIAssistantManager {
        * `record` leaves a permanent trace of the exchange in the chat. Without
        * it the card just vanished: what was asked and what you picked survived
        * only inside the tool chip's JSON, so a reopened chat lost the decision
-       * entirely — and a decision is usually the most re-readable thing in the
+       * entirely, and a decision is usually the most re-readable thing in the
        * whole conversation. Passed only for deliberate answers/dismissals; a
        * turn aborted from elsewhere resolves without one, since "the turn died"
        * is not a decision worth a record.
@@ -1501,7 +1501,7 @@ class AIAssistantManager {
         } else if (checked.length) {
           answer = multiSelect ? checked.join(', ') : checked[0];
         } else {
-          // Nothing selected and nothing typed — keep the card open and
+          // Nothing selected and nothing typed, keep the card open and
           // flash the textarea so the user knows we need an input.
           card.classList.add('shake');
           setTimeout(() => card.classList.remove('shake'), 320);
@@ -1530,7 +1530,7 @@ class AIAssistantManager {
   /**
    * The permanent trace of one ask_user_question exchange: what was asked and
    * what you picked. Rendered live in place of the card, and again from
-   * `this.messages` when the chat is reopened — same element either way, so the
+   * `this.messages` when the chat is reopened, same element either way, so the
    * reloaded chat reads exactly like the live one.
    *
    * Display-only: `question` entries are filtered out of buildApiMessages. The
@@ -1603,12 +1603,12 @@ class AIAssistantManager {
 
     // Claude Code / ChatGPT talk to the user's subscription via a local
     // CLI. If it isn't installed / signed in, fail fast with a clear
-    // notice (display-only bubble — not persisted) instead of a stream error.
+    // notice (display-only bubble, not persisted) instead of a stream error.
     if (isSubProvider(this.currentProvider)) {
       const sm = SUB_META[this.currentProvider];
       if (!this.subStatus[this.currentProvider]) await this.refreshSubStatus();
       const s = this.subStatus[this.currentProvider];
-      // B12: a downloadable-but-not-yet-installed CLI is fine to start — the
+      // B12: a downloadable-but-not-yet-installed CLI is fine to start, the
       // turn fetches it on first use (with progress). The only hard blockers
       // are "no CLI available at all" and "not signed in".
       const willFetch = !!(s && !s.installed && s.downloadable && s.authed);
@@ -1655,7 +1655,7 @@ class AIAssistantManager {
   /** Append the user bubble, record the message, and dispatch its turn. Shared
    *  by an immediate send and by draining a queued follow-up. */
   async _submitUserMessage(text, atts) {
-    // First message of a new chat — assign an id, derive a title from the
+    // First message of a new chat, assign an id, derive a title from the
     // user's text, and mark this as the conversation we'll persist.
     if (!this.currentChatId) {
       try {
@@ -1683,7 +1683,7 @@ class AIAssistantManager {
   /**
    * Try to hand a follow-up to the turn that is running right now, so the model
    * sees it in-session instead of after a fresh dispatch. Returns true when the
-   * live turn took it — the caller then does NOT queue.
+   * live turn took it, the caller then does NOT queue.
    *
    * Attachments deliberately never take this path: the live channel carries
    * plain text, and an image has to ride the normal startChat payload.
@@ -1700,7 +1700,7 @@ class AIAssistantManager {
       return false;
     }
     if (!accepted) return false;
-    // It is in the CLI's transcript now, so it belongs in ours too — in order,
+    // It is in the CLI's transcript now, so it belongs in ours too, in order,
     // as a normal message. The model answers it in a later segment of this same
     // turn, which is why no queued chip is rendered for it.
     this.messages.push({ role: 'user', content: text });
@@ -1831,7 +1831,7 @@ class AIAssistantManager {
     (content || bubble).appendChild(strip);
   }
 
-  /** Full-size image viewer for an attached chat image — dim backdrop with the
+  /** Full-size image viewer for an attached chat image, dim backdrop with the
    *  image fit to the screen; click the backdrop / × or press Esc to close. */
   _openImageLightbox(src, alt) {
     if (!src) return;
@@ -1849,7 +1849,7 @@ class AIAssistantManager {
     };
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
     overlay.addEventListener('click', (e) => {
-      // Close on the backdrop or the × — but not when clicking the image itself.
+      // Close on the backdrop or the ×, but not when clicking the image itself.
       if (e.target.closest('.ai-lightbox-img') && !e.target.closest('.ai-lightbox-close')) return;
       close();
     });
@@ -1878,7 +1878,7 @@ class AIAssistantManager {
     this._lastMsgRole = null;
     this.showThinking(true);
 
-    // Subscribe lazily so we never miss the first packet — startChat
+    // Subscribe lazily so we never miss the first packet, startChat
     // fires the work detached on main.
     if (!this.unsubChatEvent) {
       this.unsubChatEvent = window.aiAPI.onChatEvent((ev) => this.handleChatEvent(ev));
@@ -1894,7 +1894,7 @@ class AIAssistantManager {
     const apiMessages = buildApiMessages(this.messages);
 
     // Memory hygiene: the base64 dataUrls are now safely COPIED into apiMessages
-    // for this turn — strip them from the stored history so they are NOT resent
+    // for this turn, strip them from the stored history so they are NOT resent
     // on every subsequent turn (images up to 8 MB would accumulate and be
     // re-uploaded N times). Keep name/mime/size/kind for display; drop the payload.
     for (const m of this.messages) {
@@ -1908,7 +1908,7 @@ class AIAssistantManager {
 
     // Inject the current project path into the system prompt on every
     // turn. Without this, the model has to spend a `get_current_project`
-    // tool-call (and the user's tokens) just to know where it is —
+    // tool-call (and the user's tokens) just to know where it is:
     // worse, models that don't reliably call tools first sometimes
     // hallucinate paths from earlier projects. The block is rebuilt
     // per-turn so switching projects mid-chat just works.
@@ -1936,7 +1936,7 @@ class AIAssistantManager {
         modelId: isSub ? (subEntry?.model || 'default') : undefined,
         messages: apiMessages,
         system: systemPrompt,
-        // Shared effort selection — sent to any bridge that declares
+        // Shared effort selection, sent to any bridge that declares
         // hasEffort (Claude Code --effort; Codex -c model_reasoning_effort).
         effort: SUB_META[this.currentProvider]?.hasEffort ? this.claudeCodeEffort : undefined,
         permission: this.permissionMode,
@@ -1950,7 +1950,7 @@ class AIAssistantManager {
   /* ---------------- autonomous turns (Phase E) ---------------- */
 
   /**
-   * Start a turn the assistant triggered itself (not the user) — e.g. a
+   * Start a turn the assistant triggered itself (not the user), e.g. a
    * background task finished and the model should report back. `content` is
    * the synthetic user message handed to the model; a subtle "↻" note marks
    * the turn in the stream so the user sees why it appeared.
@@ -2015,7 +2015,7 @@ class AIAssistantManager {
 
     const taskId = `bg-${Date.now().toString(36)}`;
     const label = task === 'compile_step' ? `compile ${step}` : 'compile all';
-    // Pin the conversation this task belongs to — if the user switches chats
+    // Pin the conversation this task belongs to, if the user switches chats
     // before it finishes, we must NOT inject the follow-up into the new one.
     const originChatId = this.currentChatId;
     this._renderBgTask(taskId, `Running ${label} in the background…`, 'running');
@@ -2073,7 +2073,7 @@ class AIAssistantManager {
 
   async stop() {
     if (!this.currentSessionId || !window.aiAPI) return;
-    // An explicit stop cancels pending follow-ups too — otherwise the queue
+    // An explicit stop cancels pending follow-ups too, otherwise the queue
     // would auto-drain (dispatch the next) the moment the abort lands.
     this._messageQueue = [];
     this._renderQueue();
@@ -2101,12 +2101,12 @@ class AIAssistantManager {
     this._streamWatchdog = setInterval(() => {
       if (!this._isStreaming) return;
       const idle = Date.now() - (this._lastEventAt || 0);
-      // Never reap while a human is mid-answer on an ask/confirm card — those
+      // Never reap while a human is mid-answer on an ask/confirm card, those
       // are open for as long as the user takes.
       if (this.pendingAskUserQuestions && this.pendingAskUserQuestions.size) return;
       if (this.pendingConfirms && this.pendingConfirms.size) return;
       // A running tool chip normally blocks recovery (a real tool can take
-      // minutes), but only up to the hard ceiling — past that the chip is stuck
+      // minutes), but only up to the hard ceiling, past that the chip is stuck
       // and must not be able to suppress the rescue forever.
       if (this.runningChips.length && idle <= STREAM_STALL_HARD_MS) return;
       if (idle > STREAM_STALL_MS) {
@@ -2123,7 +2123,7 @@ class AIAssistantManager {
   }
 
   /**
-   * Self-heal a turn that went silent with nothing pending — the "a conversa
+   * Self-heal a turn that went silent with nothing pending, the "a conversa
    * trava" symptom. Aborts the backend, drops the spinner, and returns the
    * composer to idle so the user is never stranded. The notice is display-only
    * (not persisted into the model context).
@@ -2147,7 +2147,7 @@ class AIAssistantManager {
     switch (ev.type) {
       case 'cli-download':
         // B12: a subscription CLI is being fetched on first use. Display-only,
-        // transient status — never persisted into the conversation.
+        // transient status, never persisted into the conversation.
         this._renderCliDownload(ev);
         break;
       case 'text-delta':
@@ -2202,7 +2202,7 @@ class AIAssistantManager {
         // Pull the CLI's authoritative usage snapshot at the END of every
         // turn (not just when the model popover happens to be open) so the
         // Subscription usage bars and plan limits reflect reality the next
-        // time the user looks — this is what fixes "usage never updates".
+        // time the user looks, this is what fixes "usage never updates".
         if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
       case 'aborted':
@@ -2226,8 +2226,8 @@ class AIAssistantManager {
     // Text resuming after a run of tools closes that batch (tidy summary).
     this._closeToolGroup();
     // Wait-then-reveal: accumulate the segment silently with the thinking
-    // indicator up. The segment is rendered ONCE — with syntax highlight and a
-    // quick fade-in cascade — when it completes (at a tool call or at finish).
+    // indicator up. The segment is rendered ONCE, with syntax highlight and a
+    // quick fade-in cascade, when it completes (at a tool call or at finish).
     // Re-rendering markdown per token looked janky and left code blocks
     // unhighlighted until the very end.
     this.segmentBuffer += delta;
@@ -2246,7 +2246,7 @@ class AIAssistantManager {
     const displayText = (mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim();
 
     if (!displayText) {
-      // Pure tool-call artifact / whitespace — never leave an empty bubble.
+      // Pure tool-call artifact / whitespace, never leave an empty bubble.
       if (this.currentAssistantContentEl) {
         this.currentAssistantContentEl.closest('.ai-message')?.remove();
         this.currentAssistantContentEl = null;
@@ -2289,7 +2289,7 @@ class AIAssistantManager {
   _renderStreamingBubble() {
     // Strip tool-call artefacts that some models (Llama/Qwen) emit as inline
     // text (see tool_call_text.js). mayHaveToolArtifacts skips the three
-    // full-buffer scans on the common case (no markers — Claude & most models),
+    // full-buffer scans on the common case (no markers, Claude & most models),
     // so a long well-behaved response pays nothing; result is identical.
     const buf = this.segmentBuffer;
     const displayText = (mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim();
@@ -2301,7 +2301,7 @@ class AIAssistantManager {
       /"name"\s*:/.test(this.segmentBuffer);
     // Use the cleaned + trimmed text only. The old `|| this.segmentBuffer`
     // fallback meant a segment that trimmed to empty (whitespace, or a fully
-    // stripped tool-call artifact) still rendered the raw buffer — creating an
+    // stripped tool-call artifact) still rendered the raw buffer, creating an
     // empty assistant bubble whose top/bottom borders showed as a pair of
     // faint hairlines ("várias linhas" between real answers). With displayText
     // alone, such segments yield '' and the block below drops the bubble.
@@ -2322,12 +2322,12 @@ class AIAssistantManager {
       return;
     }
 
-    // Real text is about to render — retire the "thinking…" dots NOW (not on
+    // Real text is about to render, retire the "thinking…" dots NOW (not on
     // the first raw delta in handleChatEvent), so the dots stay on screen
     // continuously until the first words appear, with no blank gap between.
     this.showThinking(false);
 
-    // Create the segment bubble lazily — now that there is real text to show.
+    // Create the segment bubble lazily, now that there is real text to show.
     if (!this.currentAssistantContentEl) {
       const bubble = this.appendBubble('assistant', '');
       this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
@@ -2376,14 +2376,14 @@ class AIAssistantManager {
     const CLOSE = 'AI_REVEAL_CLOSE';
     const head = text.slice(0, revealOffset);
     const tail = text.slice(revealOffset);
-    // Don't slice through a code fence — if the head ends inside an open
+    // Don't slice through a code fence, if the head ends inside an open
     // ```, drop the reveal so we don't poison the highlighter. Renders
     // without animation in that case; the next delta re-tries.
     const openFences = (head.match(/```/g) || []).length;
     if (openFences % 2 !== 0) return renderMarkdown(text);
     const marked = `${head}${OPEN}${tail}${CLOSE}`;
     let html = renderMarkdown(marked);
-    // The sentinels survived rendering — convert to real spans, and
+    // The sentinels survived rendering, convert to real spans, and
     // accept stray openings that happen to land inside attributes by
     // simply stripping any unmatched pair.
     html = html.split(OPEN).join('<span class="ai-fade-reveal">');
@@ -2403,7 +2403,7 @@ class AIAssistantManager {
     this._revealSegment();
     // Persist only the FINAL segment (text produced after the last tool call);
     // any earlier segments were already stored at their tool-call boundaries
-    // above. Strip XML tool-call artifacts before storing — they confuse models
+    // above. Strip XML tool-call artifacts before storing, they confuse models
     // on subsequent turns.
     const cleanText = stripToolCallArtifacts(
       this.turnText.slice(this._committedTurnLen || 0)).trim();
@@ -2434,7 +2434,7 @@ class AIAssistantManager {
 
   /**
    * Remove assistant bubbles whose content is visually empty (no text and no
-   * element children — so image/code-only bubbles are preserved). Defensive
+   * element children, so image/code-only bubbles are preserved). Defensive
    * cleanup against empty "hairline" bars; the lazy creation in
    * _renderStreamingBubble already avoids creating them in the common case.
    */
@@ -2451,7 +2451,7 @@ class AIAssistantManager {
     this.showThinking(false);
     this._closeToolGroup();
     this.appendBubble('assistant', `Error: ${message}`, { error: true });
-    // Mark in-flight chips as failed in DOM and persist them — args
+    // Mark in-flight chips as failed in DOM and persist them, args
     // are kept so the saved transcript still shows what was attempted.
     for (const running of this.runningChips) {
       const { toolName, toolUseId, args, el } = running;
@@ -2478,11 +2478,11 @@ class AIAssistantManager {
   /**
    * Re-arm the render accumulators for the NEXT in-session turn, after
    * commitTurn() has sealed the previous one. Used only on `finish` with
-   * `more` — i.e. the user pushed a follow-up mid-turn and the CLI is about
+   * `more`, i.e. the user pushed a follow-up mid-turn and the CLI is about
    * to answer it in the same session.
    *
    * Deliberately NOT resetTurnState(): that one is turn-ENDING teardown. It
-   * nulls currentSessionId — and handleChatEvent drops any packet whose
+   * nulls currentSessionId, and handleChatEvent drops any packet whose
    * sessionId doesn't match, so every event of the follow-up turn would be
    * silently discarded and the panel would sit on the thinking dots forever.
    * It also auto-denies open confirm cards and cancels open question cards,
@@ -2505,7 +2505,7 @@ class AIAssistantManager {
   }
 
   resetTurnState() {
-    // Tear down the CLI-download status row here too — this is the chokepoint
+    // Tear down the CLI-download status row here too, this is the chokepoint
     // every turn-ending path runs through (stop()'s safety net, the stall
     // watchdog, failTurn), so a download interrupted by Stop/stall can't leave
     // an orphaned "Downloading…" row behind.
@@ -2527,7 +2527,7 @@ class AIAssistantManager {
     // (e.g. the user hit Stop while a card was waiting).
     for (const decide of this.pendingConfirms) decide(false);
     this.pendingConfirms.clear();
-    // Same for any open Ask-User-Question cards — resolve them as
+    // Same for any open Ask-User-Question cards, resolve them as
     // cancelled so the awaiting tool call doesn't hang forever.
     if (this.pendingAskUserQuestions) {
       for (const decide of this.pendingAskUserQuestions) {
@@ -2547,7 +2547,7 @@ class AIAssistantManager {
    * "N actions" summary the user can expand).
    */
   /**
-   * Build a tool-group shell — `{ el, body, summaryEl }` — with the
+   * Build a tool-group shell, `{ el, body, summaryEl }`, with the
    * expand/collapse header wired up. Shared by the live group
    * (_ensureToolGroup) and the static group rebuilt when replaying a saved
    * chat, so both render the identical "N actions" collapsible bubble.
@@ -2590,7 +2590,7 @@ class AIAssistantManager {
 
   /**
    * Live header. While a chip is spinning it names WHAT is running so the
-   * user can see the current action at a glance — "Running get terminal
+   * user can see the current action at a glance, "Running get terminal
    * output…" (or "Running N actions…" when several run in parallel). Idle →
    * "N actions".
    */
@@ -2609,7 +2609,7 @@ class AIAssistantManager {
 
   /**
    * Finalise the current batch: swap the wrench for a check and collapse the
-   * whole sequence into its own bubble — even a single action — so a finished
+   * whole sequence into its own bubble, even a single action, so a finished
    * turn reads as a tidy, modern "N actions" pill the user can expand.
    */
   _closeToolGroup() {
@@ -2652,7 +2652,7 @@ class AIAssistantManager {
     `;
     chip.querySelector('.ai-tool-name').textContent = name;
     // Args go into the chip's title so users can inspect the inputs
-    // by hovering — useful for diagnosing model behaviour without
+    // by hovering, useful for diagnosing model behaviour without
     // bloating the visible chip. Long args are clipped at 800 chars.
     if (args && Object.keys(args).length) {
       const argText = this._formatArgsForTitle(args);
@@ -2669,7 +2669,7 @@ class AIAssistantManager {
   finishToolChip(toolName, result, toolUseId) {
     const name = toolName || 'tool';
     // Prefer matching by toolUseId (carried end-to-end from the
-    // provider/CLI) — without it, two parallel calls to the same tool
+    // provider/CLI), without it, two parallel calls to the same tool
     // would collide on toolName and one chip would stay spinning
     // forever. Fall back to name-match for legacy events without ids.
     let idx = -1;
@@ -2681,7 +2681,7 @@ class AIAssistantManager {
     }
     if (idx < 0) {
       // No chip matched (already finished, or an id/name mismatch). Nothing to
-      // close — but log it: an unmatched result is how a chip can be left
+      // close, but log it: an unmatched result is how a chip can be left
       // spinning, which the watchdog hard-ceiling now reaps as a backstop.
       console.warn('[ai] tool-result with no matching running chip:', name, toolUseId);
       return;
@@ -2769,7 +2769,7 @@ class AIAssistantManager {
   }
 
   /**
-   * Builds a completed tool chip with no animation — used when replaying
+   * Builds a completed tool chip with no animation, used when replaying
    * saved conversations from history. The chip shows the final status
    * (done / failed / denied) and a tooltip with args + result. Returns the
    * element so the caller can drop it into the replay's collapsed group.
@@ -2894,7 +2894,7 @@ class AIAssistantManager {
     this.tokenCounter.textContent = formatTokens(this.cumulativeTokens);
     this.tokenCounter.title = `${this.cumulativeTokens.toLocaleString()} tokens this conversation`;
     // Refresh the usage section live for any subscription provider whose
-    // popover is open — the per-turn `applyUsage()` may have ticked the
+    // popover is open, the per-turn `applyUsage()` may have ticked the
     // CLI-reported session counter forward.
     if (isSubProvider(this.currentProvider) && this.modelPopoverOpen) {
       this.refreshSubUsage();
@@ -2919,7 +2919,7 @@ class AIAssistantManager {
     if (streaming) this._armStreamWatchdog();
     else {
       this._disarmStreamWatchdog();
-      // A turn just ended — dispatch a queued USER follow-up first (explicit
+      // A turn just ended, dispatch a queued USER follow-up first (explicit
       // intent), else an autonomous one.
       if (!this._drainMessageQueue()) this._drainAutoQueue();
     }
@@ -2934,7 +2934,7 @@ class AIAssistantManager {
     const label = role === 'user' ? 'You' : 'Aurora Intelligence';
     // Collapse the role label across a run of consecutive assistant bubbles.
     // A single turn streams as several segments split by tool calls, and a
-    // background-task chain adds more — labelling every one produced the wall
+    // background-task chain adds more, labelling every one produced the wall
     // of repeated "AURORA INTELLIGENCE" headers. Show it once per assistant
     // group; user messages, dividers and background-task chips reset the run
     // (they clear _lastMsgRole) so the label reappears for the next section.
@@ -2947,8 +2947,8 @@ class AIAssistantManager {
     if (content) {
       // Render markdown for BOTH roles. The user's own message goes through the
       // same safe (HTML-escaped) renderer, so a fenced ```code``` block they
-      // paste shows as a real, syntax-highlighted code block — and inline
-      // `code`/file paths render — instead of raw backticks. Parity with the
+      // paste shows as a real, syntax-highlighted code block, and inline
+      // `code`/file paths render, instead of raw backticks. Parity with the
       // assistant bubble; the .ai-msg-user style still sets it apart visually.
       contentEl.innerHTML = renderMarkdown(content);
       highlightCodeBlocks(contentEl);
@@ -2964,7 +2964,7 @@ class AIAssistantManager {
   }
 
   /**
-   * Inline log divider — a hairline with centered text, in the style of
+   * Inline log divider, a hairline with centered text, in the style of
    * Claude's VS Code extension when the active model changes. Used for
    * ephemeral, non-conversational notes (model switched, etc.). NOT
    * pushed to `this.messages` so the model never sees them and they
@@ -2981,7 +2981,7 @@ class AIAssistantManager {
     span.textContent = text;
     el.appendChild(span);
     this.messagesEl.appendChild(el);
-    // A divider is a visual section break — let the next assistant bubble
+    // A divider is a visual section break, let the next assistant bubble
     // re-show its label.
     this._lastMsgRole = null;
     this.scrollToBottom();
@@ -2991,7 +2991,7 @@ class AIAssistantManager {
   /**
    * Start a fresh chat. Saves the current one first so it remains in
    * the history sidebar, then clears every piece of in-memory state.
-   * Replaces the old `clearChat` — the button at the header now
+   * Replaces the old `clearChat`, the button at the header now
    * carries a "+" icon and is wired here.
    */
   async newChat() {
@@ -3099,7 +3099,7 @@ class AIAssistantManager {
   }
 
   async deleteChat(id) {
-    // Smoothly animate the deleted card out instead of a full re-render — the
+    // Smoothly animate the deleted card out instead of a full re-render, the
     // History popover stays open the whole time. We drop the row from the
     // in-memory list (and DOM) locally rather than calling refreshChatList(),
     // which would re-fetch and rebuild the whole list (the abrupt snap).
@@ -3122,7 +3122,7 @@ class AIAssistantManager {
     catch (_) { /* the card is already animating out; a later open reveals failure */ }
 
     if (id === this.currentChatId) {
-      // The visible chat was deleted — reset to a fresh state.
+      // The visible chat was deleted, reset to a fresh state.
       this.currentChatId = null;
       this.currentChatTitle = '';
       this.currentChatCreatedAt = 0;
@@ -3220,7 +3220,7 @@ class AIAssistantManager {
       } else if (typeof msg.content === 'string') {
         closeStaticGroup();
         const bubble = this.appendBubble(msg.role, msg.content);
-        // Restore the attachment chips (name/ext only — the payload was dropped)
+        // Restore the attachment chips (name/ext only, the payload was dropped)
         // so a reopened message reads with context, not as an empty bubble.
         if (Array.isArray(msg.attachments) && msg.attachments.length) {
           this._renderBubbleAttachments(bubble, msg.attachments);
@@ -3337,7 +3337,7 @@ class AIAssistantManager {
 
   /**
    * Corner handle at the junction where the AI panel's LEFT edge meets the
-   * terminal's TOP edge — the right-side mirror of the file-tree↔terminal
+   * terminal's TOP edge, the right-side mirror of the file-tree↔terminal
    * corner in resize.js. Dragging it resizes the AI panel width and the
    * terminal height at once. Only live while the panel is open.
    */
@@ -3358,7 +3358,7 @@ class AIAssistantManager {
     document.body.appendChild(corner);
 
     // Hover discovery: lighting up BOTH the AI width handle and the terminal's
-    // horizontal resizer is the cue the junction is grabbable — exactly the
+    // horizontal resizer is the cue the junction is grabbable, exactly the
     // file-tree↔terminal corner's behaviour (see styles.css / ai_assistant.css).
     corner.addEventListener('mouseenter', () => {
       if (isOpen()) document.body.classList.add('ai-corner-hovering');
@@ -3474,7 +3474,7 @@ class AIAssistantManager {
    * project sandbox: a tracked file matched by basename (handles any nesting,
    * plus absolute refs that point back into the tree), then the ref resolved
    * relative to the project root. Absolute paths and `..` segments that would
-   * climb out of the project are never resolved as such — existence is checked
+   * climb out of the project are never resolved as such, existence is checked
    * in openFileRef(), so only files that genuinely live under the project open.
    */
   _fileRefCandidates(ref) {

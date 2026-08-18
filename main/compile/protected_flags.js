@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * protected_flags.js — per-step lists of flags that override layers
+ * protected_flags.js: per-step lists of flags that override layers
  * cannot remove or replace.
  *
  * Aurora Intelligence's command-override surface lets the AI add/
@@ -9,7 +9,7 @@
  * <vvpFile>` from iverilog-build breaks the Wave pipeline because no
  * .vvp lands at the path the next step reads from.
  *
- * We don't disallow ADDING flags — that's the whole point of the AI
+ * We don't disallow ADDING flags, that's the whole point of the AI
  * having override power. We just refuse to let the AI REMOVE or
  * STOMP what Aurora's own pipeline depends on.
  *
@@ -19,7 +19,7 @@
  * unset or rebound to a different value, reject.
  *
  * Flag matching is exact-token. For flag-and-value pairs (-o file,
- * -y dir, -s tb), we check the FLAG NAME only — the value can move
+ * -y dir, -s tb), we check the FLAG NAME only, the value can move
  * (Aurora regenerates these per-run anyway). For standalone tokens
  * (--binary, --main, -fst), we check the literal.
  */

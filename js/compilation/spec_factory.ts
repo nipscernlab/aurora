@@ -1,5 +1,5 @@
 /**
- * spec_factory.ts — build a base CommandSpec for any compile step
+ * spec_factory.ts: build a base CommandSpec for any compile step
  * WITHOUT executing it.
  *
  * Powers the AI's `inspect_compile_command` / `preview_compile_command`
@@ -9,11 +9,11 @@
  * display.
  *
  * For per-processor steps (cmm, asm-pre, asm), `processorName` is
- * required — otherwise we pick the first processor in the project (or
+ * required, otherwise we pick the first processor in the project (or
  * fail with a helpful message). For pipeline-wide steps (iverilog-*,
  * vvp-*, verilator-*, gtkwave, prism-yosys), processor is ignored.
  *
- * Compilado por `tsc` (npm run build:ts) num spec_factory.js ao lado — é esse .js que o
+ * Compilado por `tsc` (npm run build:ts) num spec_factory.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -230,7 +230,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
         AURORA_COCOTB_TEST_MODULE: moduleStem(tb),
         AURORA_COCOTB_BUILD_DIR: buildDir,
         // Mirror of the wave flow: the simulation cwd (cocotb test_dir) is
-        // the project folder — the uniform relative-path base.
+        // the project folder, the uniform relative-path base.
         AURORA_COCOTB_TEST_DIR: projectPath || tbDir,
         AURORA_COCOTB_PYTHONPATH: [tbDir, projectPath, buildDir].filter(Boolean).join(';'),
         AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(['-g2012']),
@@ -251,7 +251,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
 
   const verilogSimTopModule = tb && !tbIsPython ? simTopModule : topLevelModuleName;
 
-  // Simulation-run cwd — mirror of compilation_module._waveSimCwd, so the
+  // Simulation-run cwd, mirror of compilation_module._waveSimCwd, so the
   // command preview / overrides match what the wave flow actually runs:
   // ALWAYS the project folder (the .spf directory), the same base the
   // .spf's own relative paths resolve against. Generated SAPHO memory
@@ -317,7 +317,7 @@ export async function buildSpecForStep(step: string, processorName?: string): Pr
 
   if (step === 'yosys-hierarchy' || step === 'prism-yosys') {
     const yosysPath = await joinComponents('Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
-    // Preview uses a placeholder script path — the real path is built
+    // Preview uses a placeholder script path, the real path is built
     // by the runtime invoker since the script is freshly emitted per run.
     const scriptPath = await electronAPI.joinPath(tempBaseDir, step === 'prism-yosys' ? 'yosys_script.ys' : 'hierarchy_gen.ys');
     return buildYosysHierarchySpec({ yosysPath, scriptPath, cwd: tempBaseDir });

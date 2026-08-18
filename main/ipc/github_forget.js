@@ -1,0 +1,235 @@
+// @ts-check
+/**
+ * github_forget.js: apaga da máquina tudo que identifica a conta GitHub do
+ * usuário.
+ *
+ * POR QUE EXISTE
+ * --------------
+ * A AURORA vai para as máquinas de um laboratório de graduação, compartilhadas
+ * por turmas inteiras. O aluno conecta a conta dele no Git-D para entregar o
+ * trabalho, e se sair sem limpar, a próxima pessoa que sentar naquela máquina
+ * herda o acesso: `git push` continua funcionando com a credencial dele.
+ *
+ * Desconectar dentro da AURORA não resolvia isso. O botão de desconectar apaga
+ * o cofre da própria AURORA e mais nada, e o problema não está aí: está no que
+ * o `git` do Windows guarda por fora, no Gerenciador de Credenciais, por meio
+ * do Git Credential Manager. Aquilo sobrevive a fechar a AURORA, a desinstalar
+ * a AURORA e a trocar de usuário dentro dela.
+ *
+ * O QUE É APAGADO
+ * ---------------
+ *   1. O cofre da AURORA (`userData/aurora-github.json`), que guarda o token
+ *      cifrado e o perfil.
+ *   2. A credencial do host, pelo protocolo do próprio git (`git credential
+ *      reject`). É o caminho correto porque conversa com QUALQUER helper que a
+ *      máquina tenha configurado, seja o manager, o store ou o cache, em vez de
+ *      supor um.
+ *   3. `~/.git-credentials`, o arquivo do helper `store`. É texto puro com a
+ *      senha dentro, e é o pior dos três para deixar para trás.
+ *   4. As entradas do Gerenciador de Credenciais do Windows cujo alvo é do
+ *      GitHub. Rede de segurança para quando o passo 2 não encontrou o helper.
+ *
+ * O QUE NÃO É APAGADO, E POR QUÊ
+ * ------------------------------
+ * Só entra o que é do GitHub. Um `cmdkey /delete` largo apagaria a credencial
+ * do Office, da rede da universidade e do que mais estivesse ali, e uma
+ * ferramenta de limpeza que leva junto o que não é dela é pior que não ter
+ * ferramenta.
+ *
+ * `user.name` e `user.email` do git também ficam: são identidade de autoria, e
+ * não credencial. Apagá-los não protege ninguém e quebraria o próximo commit.
+ * O painel mostra isso ao usuário para ele decidir.
+ *
+ * NENHUM SEGREDO PASSA POR AQUI
+ * -----------------------------
+ * Este módulo nunca lê o valor de uma credencial, só manda apagar. O relatório
+ * devolvido diz o que saiu, nunca o que havia dentro, de modo que um log ou um
+ * relato de erro não vaze o que a limpeza existia para proteger.
+ */
+
+'use strict';
+
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execFile } = require('child_process');
+const { app, ipcMain } = require('electron');
+const log = require('electron-log');
+
+const githubAuth = require('./github_auth');
+
+/** Hosts tratados como "do GitHub". */
+const HOSTS = ['github.com', 'gist.github.com', 'ssh.github.com'];
+
+const TEMPO_LIMITE = 15000;
+
+/**
+ * Roda um comando sem shell e devolve o resultado, sem nunca lançar.
+ *
+ * `shell: false` é deliberado: os argumentos aqui carregam nome de host e de
+ * alvo, e passar isso por um shell abriria injeção por um caminho que não tem
+ * motivo nenhum para existir.
+ */
+function rodar(cmd, args, entrada) {
+  return new Promise((resolve) => {
+    let filho;
+    try {
+      filho = execFile(cmd, args, { timeout: TEMPO_LIMITE, windowsHide: true },
+        (erro, stdout, stderr) => resolve({
+          ok: !erro,
+          stdout: String(stdout || ''),
+          stderr: String(stderr || ''),
+          erro: erro ? (erro.message || String(erro)) : null,
+        }));
+    } catch (e) {
+      resolve({ ok: false, stdout: '', stderr: '', erro: e instanceof Error ? e.message : String(e) });
+      return;
+    }
+    if (entrada !== undefined && filho.stdin) {
+      filho.stdin.on('error', () => { /* o processo morreu antes de ler */ });
+      filho.stdin.end(entrada);
+    }
+  });
+}
+
+/** 1. O cofre da própria AURORA. */
+function apagarCofre() {
+  try {
+    githubAuth.disconnect();
+    return { passo: 'cofre-aurora', ok: true, detalhe: 'token e perfil removidos' };
+  } catch (e) {
+    return { passo: 'cofre-aurora', ok: false, detalhe: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * 2. Pede ao git para esquecer a credencial de cada host.
+ *
+ * `git credential reject` fala com o helper configurado, seja qual for. Sem
+ * helper configurado o git não faz nada e sai com zero, o que aqui é sucesso:
+ * não havia o que apagar.
+ */
+async function rejeitarNoGit() {
+  const feitos = [];
+  for (const host of HOSTS) {
+    const r = await rodar('git', ['credential', 'reject'], `protocol=https\nhost=${host}\n\n`);
+    feitos.push({ host, ok: r.ok, erro: r.erro });
+  }
+  const falhou = feitos.filter((f) => !f.ok);
+  return {
+    passo: 'git-credential-reject',
+    ok: falhou.length === 0,
+    detalhe: falhou.length
+      ? `falhou em: ${falhou.map((f) => f.host).join(', ')}`
+      : `${feitos.length} hosts pedidos ao helper do git`,
+  };
+}
+
+/** 3. O arquivo do helper `store`, que guarda em texto puro. */
+function apagarArquivoDeCredenciais() {
+  const alvos = [
+    path.join(os.homedir(), '.git-credentials'),
+    path.join(os.homedir(), '.config', 'git', 'credentials'),
+  ];
+  const removidos = [];
+  for (const p of alvos) {
+    try {
+      if (fs.existsSync(p)) { fs.rmSync(p, { force: true }); removidos.push(p); }
+    } catch (e) {
+      return {
+        passo: 'arquivo-git-credentials',
+        ok: false,
+        detalhe: `nao consegui remover ${p}: ${e instanceof Error ? e.message : e}`,
+      };
+    }
+  }
+  return {
+    passo: 'arquivo-git-credentials',
+    ok: true,
+    detalhe: removidos.length ? `${removidos.length} arquivo(s) removido(s)` : 'nenhum encontrado',
+  };
+}
+
+/** Um alvo do Gerenciador de Credenciais é do GitHub? */
+function alvoEhDoGitHub(alvo) {
+  const t = String(alvo || '').toLowerCase();
+  if (!t) return false;
+  // Estreito de proposito: `git:https://github.com`, `github.com` e as formas
+  // que o GCM cria. Nada que apenas contenha "git" entra, senao um alvo como
+  // `gitlab.com` ou `digit...` viria junto.
+  return HOSTS.some((h) => t === h || t.endsWith(`/${h}`) || t.endsWith(`:${h}`) || t.includes(`//${h}`));
+}
+
+/**
+ * 4. Rede de segurança: varre o Gerenciador de Credenciais do Windows e apaga
+ * só os alvos do GitHub.
+ *
+ * `cmdkey /list` imprime "Destino: xxx" ou "Target: xxx" conforme o idioma do
+ * Windows, então a leitura aceita os dois.
+ */
+async function limparGerenciadorDoWindows() {
+  if (process.platform !== 'win32') {
+    return { passo: 'gerenciador-windows', ok: true, detalhe: 'nao se aplica fora do Windows' };
+  }
+  const lista = await rodar('cmdkey', ['/list']);
+  if (!lista.ok) {
+    return { passo: 'gerenciador-windows', ok: false, detalhe: 'nao consegui listar as credenciais' };
+  }
+  const alvos = [];
+  for (const linha of lista.stdout.split(/\r?\n/)) {
+    const m = linha.match(/^\s*(?:Destino|Target|Alvo)\s*:\s*(.+?)\s*$/i);
+    if (m && alvoEhDoGitHub(m[1])) alvos.push(m[1]);
+  }
+  let removidos = 0;
+  const falhas = [];
+  for (const alvo of alvos) {
+    const r = await rodar('cmdkey', [`/delete:${alvo}`]);
+    if (r.ok) removidos += 1; else falhas.push(alvo);
+  }
+  return {
+    passo: 'gerenciador-windows',
+    ok: falhas.length === 0,
+    detalhe: falhas.length
+      ? `${removidos} removida(s), falhou em ${falhas.length}`
+      : (removidos ? `${removidos} credencial(is) do GitHub removida(s)` : 'nenhuma encontrada'),
+  };
+}
+
+/**
+ * Executa a limpeza inteira.
+ *
+ * Um passo que falha NÃO interrompe os outros: deixar de apagar o arquivo em
+ * texto puro porque o `cmdkey` não rodou seria o pior resultado possível. O
+ * relatório volta com o que deu certo e o que não deu, para o usuário ver.
+ */
+async function esquecerTudo() {
+  const passos = [];
+  passos.push(apagarCofre());
+  passos.push(await rejeitarNoGit());
+  passos.push(apagarArquivoDeCredenciais());
+  passos.push(await limparGerenciadorDoWindows());
+
+  const falhas = passos.filter((p) => !p.ok);
+  if (falhas.length) {
+    // Sem detalhe de credencial no log: os passos so reportam contagem.
+    log.warn('[github-forget] passos com falha:', falhas.map((f) => f.passo).join(', '));
+  } else {
+    log.info('[github-forget] limpeza concluida');
+  }
+  return { ok: falhas.length === 0, passos };
+}
+
+/** O que a limpeza NÃO toca, para o painel poder dizer ao usuário. */
+function identidadeQueFica() {
+  return {
+    nota: 'user.name e user.email do git nao sao credenciais e continuam configurados.',
+    caminhoCofre: path.join(app.getPath('userData'), 'aurora-github.json'),
+  };
+}
+
+function register() {
+  ipcMain.handle('github:forget-everything', () => esquecerTudo());
+  ipcMain.handle('github:forget-scope', () => identidadeQueFica());
+}
+
+module.exports = { register, esquecerTudo, alvoEhDoGitHub, HOSTS };

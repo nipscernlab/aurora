@@ -3,10 +3,10 @@ name: Release
 # Builds the Windows installer and publishes it to the SAPHO distribution
 # channel. Two repos, two roles:
 #
-#   nipscernlab/aurora  — SOURCE. release-please keeps a release PR open here;
+#   nipscernlab/aurora , SOURCE. release-please keeps a release PR open here;
 #                         merging it tags the commit and publishes a GitHub
 #                         Release, which is what triggers this workflow.
-#   nipscernlab/sapho   — DISTRIBUTION. The installer, `latest.yml` and the
+#   nipscernlab/sapho  , DISTRIBUTION. The installer, `latest.yml` and the
 #                         `.blockmap` land here. `main/updater.js` and
 #                         `package.json#build.publish` both point at it, so
 #                         this is the feed every installed copy polls.
@@ -15,12 +15,12 @@ name: Release
 # scoped to `aurora` and gets `403 Resource not accessible by integration` when
 # electron-builder POSTs to /repos/nipscernlab/sapho/releases. That is exactly
 # how the 2026-05-19 run died, and why v6.3.2 had to be published by hand.
-# The publish therefore uses SAPHO_RELEASE_TOKEN — a fine-grained PAT with
-# `Contents: read and write` on nipscernlab/sapho — and the first step below
+# The publish therefore uses SAPHO_RELEASE_TOKEN, a fine-grained PAT with
+# `Contents: read and write` on nipscernlab/sapho, and the first step below
 # fails fast, in seconds, if that secret is missing or lacks write access.
 #
 # The build needs the bundled SAPHO toolchain under `components/`, which is NOT
-# committed to the source tree — `npm run bootstrap` downloads it: the unified
+# committed to the source tree, `npm run bootstrap` downloads it: the unified
 # mingw bundle (iverilog/yosys/verilator/python+cocotb) from the `msys-vN`
 # Release, plus the gtkwave-nipscern fork, the YANC compilers, and Surfer from
 # their own Releases. netlistsvg rides in via `npm ci` (in-process).
@@ -35,7 +35,7 @@ on:
         type: boolean
         default: false
 
-# Never let two publishes race onto the same distribution channel — a partial
+# Never let two publishes race onto the same distribution channel, a partial
 # asset set on the release is what a client sees as a corrupt update.
 concurrency:
   group: release-sapho
@@ -148,7 +148,7 @@ jobs:
       # The toolchain is on disk at this point and nowhere else in CI, so this
       # is the one opportunity to prove it actually works before we ship it.
       # Compiles a real C± processor, elaborates it, simulates it, and decodes
-      # the dump — using the same argument builders the app calls. A release
+      # the dump, using the same argument builders the app calls. A release
       # whose compiler pipeline is broken must never reach a lab machine.
       - name: Toolchain integration (C± -> Verilog -> simulation)
         run: npm run test:toolchain
@@ -161,7 +161,7 @@ jobs:
         run: npm run build:ts
 
       - name: Build renderer (Vite)
-        # Bundles the renderer into dist/. Same reason as above — without this the
+        # Bundles the renderer into dist/. Same reason as above, without this the
         # package would ship a stale/absent dist and fall back to the raw
         # index.html inside the asar.
         run: npm run build:renderer
@@ -186,7 +186,7 @@ jobs:
       # half-published 6.4.0, putting the 550 MB installer on the release and
       # then dying with "Published releases must have a valid tag" before
       # `latest.yml` and the `.blockmap` went up. An installer without
-      # `latest.yml` is worse than no release at all — every client polls that
+      # `latest.yml` is worse than no release at all, every client polls that
       # file, so the channel looks alive and updates nothing. It is very likely
       # the same reason v6.3.2 had to be published by hand.
       #
@@ -308,7 +308,7 @@ jobs:
             -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/tags/$tag"
 
           # 1. Every asset the updater needs must be on the release. The
-          #    .blockmap is what makes a delta download possible — without it
+          #    .blockmap is what makes a delta download possible, without it
           #    each client re-downloads the whole installer.
           foreach ($needed in @($exeName, "$exeName.blockmap", 'latest.yml')) {
             if (-not ($rel.assets | Where-Object { $_.name -eq $needed })) {
@@ -324,7 +324,7 @@ jobs:
           #    release assets as application/octet-stream, and for a non-text
           #    content type PowerShell hands back a byte[]. Regexing that
           #    stringifies the array to "118 101 114 …", every pattern misses,
-          #    and the step reports an empty feed and three mismatches — which
+          #    and the step reports an empty feed and three mismatches, which
           #    is what it did, against a latest.yml that was perfectly correct.
           $ymlUrl  = "https://github.com/$env:DIST_REPO/releases/download/$tag/latest.yml"
           $ymlFile = Join-Path $env:RUNNER_TEMP 'published-latest.yml'
@@ -359,14 +359,14 @@ jobs:
 
       # The release body lives on the `aurora` release (release-please writes the
       # changelog there). electron-builder creates the DIST_REPO release with an
-      # empty body, so the update window — which reads release notes from
-      # DIST_REPO via main/updater.js `fetchReleaseNotes` — would show a blank
+      # empty body, so the update window, which reads release notes from
+      # DIST_REPO via main/updater.js `fetchReleaseNotes`, would show a blank
       # changelog. Copy the notes across so users see what changed.
       #
       # This used to run only `if: github.event_name == 'release'`, reading the
       # body straight off the event payload, and that made it dead code. The
       # release is created by release-please using GITHUB_TOKEN, and GitHub does
-      # not fire workflow triggers for events raised with that token — it is how
+      # not fire workflow triggers for events raised with that token, it is how
       # it stops workflows from setting each other off in a loop. So `on:
       # release: published` never fires here, this workflow is always started by
       # hand (which is what the README describes), the event was never 'release',

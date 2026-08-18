@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * github_api.js — as decisões do `github_auth.js`, separadas do que fala rede.
+ * github_api.js: as decisões do `github_auth.js`, separadas do que fala rede.
  *
  * O `github_auth.js` faz três coisas misturadas: requisição HTTPS, guarda de
  * token cifrado, e um punhado de decisões sobre o que a resposta significa.

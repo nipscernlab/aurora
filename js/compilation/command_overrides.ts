@@ -1,5 +1,5 @@
 /**
- * command_overrides.ts — registry of pending and persisted command
+ * command_overrides.ts: registry of pending and persisted command
  * overrides for the compilation pipeline.
  *
  * Two layers, two lifetimes:
@@ -19,10 +19,10 @@
  *
  * This module is renderer-side because it needs SpfStore and lives next
  * to the builders. The main-process executor never re-reads the store
- * — the renderer applies overrides into the spec before calling
+ *, the renderer applies overrides into the spec before calling
  * `electronAPI.execSpec`.
  *
- * Compilado por `tsc` (npm run build:ts) num command_overrides.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num command_overrides.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -139,7 +139,7 @@ export interface AppliedOverride {
 /**
  * Apply any resolved override to the base spec and return both, so
  * the caller can log/diff/audit. `consumeEphemeral:true` removes the
- * ephemeral slot after read — what the actual executor wrapper does
+ * ephemeral slot after read, what the actual executor wrapper does
  * on each step invocation.
  */
 export async function applyResolved(baseSpec: CommandSpecType, options: { consumeEphemeral?: boolean } = {}): Promise<AppliedOverride> {
@@ -171,7 +171,7 @@ export interface SetOverrideArgs {
  *
  * Throws if the spec or shape is invalid. The protected-flag check
  * happens later (in the main executor) against the actual base spec
- * — we can't run it here without rebuilding the base.
+ *, we can't run it here without rebuilding the base.
  */
 export async function setOverride({ step, processorName = null, override, persist = false, note }: SetOverrideArgs): Promise<{ key: string; scope: 'persisted' | 'ephemeral' }> {
   if (!step) throw new Error('setOverride: step is required');

@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * hierarchy_parser.js — pure parsing of Yosys `write_json` output into AURORA's
+ * hierarchy_parser.js: pure parsing of Yosys `write_json` output into AURORA's
  * in-memory module-hierarchy tree.
  *
  * Extracted from compilation_module.js (A2 god-file decomposition). These
- * functions are PURE — no DOM, no `window`, no instance state — so the data
+ * functions are PURE, no DOM, no `window`, no instance state, so the data
  * model can be unit-tested in isolation and the god-file shrinks. The DOM
  * renderer that consumes the tree stays separate (in compilation_module.js for
  * now; a later extraction moves it to hierarchy_view.js).
@@ -14,7 +14,7 @@
  *     children: [ { instanceName, type:'instance', moduleDefinition: <node> } ] }
  */
 
-// Yosys cell types that are synthesis primitives / gates, not user modules —
+// Yosys cell types that are synthesis primitives / gates, not user modules:
 // filtered out so the hierarchy shows only the design's own modules.
 const PRIMITIVE_PATTERNS = [
   /^\$_/,

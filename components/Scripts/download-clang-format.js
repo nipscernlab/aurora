@@ -15,13 +15,13 @@
  * + CLANG_FORMAT_FILENAME + EXPECTED_SHA256 abaixo. Pra subir, atualizar
  * a tag/URL e recomputar o SHA-256.
  *
- * Licenca: Apache-2.0 with LLVM exception — atribuicao no LICENSE da raiz;
+ * Licenca: Apache-2.0 with LLVM exception, atribuicao no LICENSE da raiz;
  * spawn arm's-length (a AURORA so executa o .exe, nao linka) nao contamina
  * a AURORA.
  *
  * Roda no bootstrap, depois do download-verible e antes do copy-components.
  * Best-effort: se falhar, sai com 0 (a AURORA ainda compila/edita; so a
- * formatacao de C/C++/CMM fica indisponivel ate o setup — Verilog usa o
+ * formatacao de C/C++/CMM fica indisponivel ate o setup, Verilog usa o
  * Verible, que e independente).
  *
  * Usage:  node components/Scripts/download-clang-format.js [--force]

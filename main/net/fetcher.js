@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * fetcher.js — o motor UNICO de download + verificacao + extracao da AURORA.
+ * fetcher.js: o motor UNICO de download + verificacao + extracao da AURORA.
  *
  * POR QUE ISSO EXISTE
  * -------------------
@@ -18,7 +18,7 @@
  *
  * O QUE ELE GARANTE
  * -----------------
- *   - Segue redirect (ate 5) — GitHub Releases e o CDN da PyPI usam.
+ *   - Segue redirect (ate 5), GitHub Releases e o CDN da PyPI usam.
  *   - Faz o hash em streaming, sem carregar o arquivo na memoria.
  *   - Verifica o hash ANTES de extrair. Byte errado nao vira arquivo instalado.
  *   - Timeout de ociosidade: conexao que trava no meio do corpo nao deixa a

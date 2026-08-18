@@ -1,5 +1,5 @@
 /**
- * preload_splash.js — context bridge dedicado à janela de splash.
+ * preload_splash.js: context bridge dedicado à janela de splash.
  *
  * A splash não precisa de toda a superfície de `preload.js`; expõe só o
  * canal de progresso real (alimentado por main/windows.js conforme a

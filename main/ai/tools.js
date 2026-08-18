@@ -1,16 +1,16 @@
 // @ts-check
 /**
- * tools.js — the tool manifest Aurora Intelligence is allowed to call.
+ * tools.js: the tool manifest Aurora Intelligence is allowed to call.
  *
  * Each entry maps a function-calling tool to an `AuroraAPI` namespace
  * method in the renderer. The manifest is *pure data* (no closures) so
- * it can be shipped over IPC verbatim — the renderer's tool_runner
+ * it can be shipped over IPC verbatim, the renderer's tool_runner
  * pulls it and uses the same `api` / `argStyle` / `argNames` fields to
  * dispatch the call, which keeps a single source of truth.
  *
  * `access`:
- *   - 'read'  — pure inspection, runs without prompting.
- *   - 'write' — mutates the workspace; the renderer shows an
+ *   - 'read' , pure inspection, runs without prompting.
+ *   - 'write', mutates the workspace; the renderer shows an
  *               ask-before-write confirmation before executing.
  *
  * `argStyle` tells the renderer how to turn the JSON args object into
@@ -30,7 +30,7 @@
 try {
   ({ tool, jsonSchema } = require('ai'));
 } catch (_) {
-  // Silently ignored — provider.js logs the same failure once.
+  // Silently ignored, provider.js logs the same failure once.
 }
 
 /** @typedef {{ name:string, description:string, access:'read'|'write', api:[string,string], argStyle:'none'|'positional'|'object', argNames?:string[], inputSchema:object }} ToolDef */
@@ -1571,7 +1571,7 @@ const TOOL_MANIFEST = [
 /**
  * Build the Vercel-AI-SDK `tools` object. `runToolFn(name, args)` is
  * the bridge that ships the call to the renderer and resolves with the
- * AuroraAPI result — supplied by `chat.js`, bound to the right
+ * AuroraAPI result, supplied by `chat.js`, bound to the right
  * webContents.
  *
  * @param {(name:string, args:object) => Promise<unknown>} runToolFn

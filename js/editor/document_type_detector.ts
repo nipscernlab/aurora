@@ -1,9 +1,9 @@
 /**
- * document_type_detector.ts — sniff a document's language (python / verilog /
+ * document_type_detector.ts: sniff a document's language (python / verilog /
  * cmm) from its first meaningful line, plus the per-type metadata used by the
  * editor and save dialogs.
  *
- * Compilado por `tsc` (npm run build:ts) num document_type_detector.js ao lado —
+ * Compilado por `tsc` (npm run build:ts) num document_type_detector.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 

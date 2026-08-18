@@ -5,21 +5,21 @@
  * Baixa yanc-bin-vX.zip do release pinado em
  * github.com/nipscernlab/yanc e extrai em components/. O zip contem:
  *   - bin/  (cmmcomp.exe, cppcomp.exe, asmcomp.exe, cpppp.exe,
- *            appcomp.exe, comp2gtkw.exe — 6 binarios desde v4)
+ *            appcomp.exe, comp2gtkw.exe, 6 binarios desde v4)
  *   - HDL/  (processor.v, core.v, addr_dec.v, instr_dec.v, ula.v,
- *            myFIFO.v — bibliotecas verilog do toolchain SAPHO, v2+)
- *   - Macros/ (float_*.asm — helpers de ponto flutuante. v5.1 trocou as
+ *            myFIFO.v, bibliotecas verilog do toolchain SAPHO, v2+)
+ *   - Macros/ (float_*.asm, helpers de ponto flutuante. v5.1 trocou as
  *              LUTs Sin_LUT.txt/Arctan_LUT.txt por minimax; .txt removidos.)
  *   - Header/ (shims de C++ que .cpp programs incluem, v4+)
  *
- * Scripts/ NAO esta no zip a partir do v4.1 — o yanc parou de empacotar
+ * Scripts/ NAO esta no zip a partir do v4.1, o yanc parou de empacotar
  * essa pasta (proc2rtl.ys / TCLs antigos). Aurora gerencia seus proprios
  * scripts em components/Scripts/ (copy-components, download-*.js).
  *
  * Roda no prestart, depois do download do toolchain principal e antes
  * do copy-components.
  *
- * Padrao seguido do download-toolchain.js — mesma logica de download
+ * Padrao seguido do download-toolchain.js, mesma logica de download
  * com retry de redirect, extracao via PowerShell, e exit 0 em
  * falha pra nao bloquear `npm start` (devs offline ainda conseguem
  * iniciar a IDE).
@@ -28,7 +28,7 @@
  * versao nova, atualizar a tag aqui e tambem gerar/publicar o release
  * correspondente em nipscernlab/yanc (workflow `release.yml`).
  *
- * Sentinel: usamos cppcomp.exe porque foi adicionado no v4 — devs com
+ * Sentinel: usamos cppcomp.exe porque foi adicionado no v4, devs com
  * instalacao v3 antiga (so 4 binarios) tem o sentinel falhando e o
  * script re-baixa v4 automaticamente, sem precisar de --force.
  *
@@ -65,7 +65,7 @@ const SENTINEL_FILE = path.join(BIN_DIR, 'cppcomp.exe');
 // re-download on a version bump (e.g. v5.0 → v5.1, same binaries, new stdlib).
 const VERSION_SENTINEL = path.join(BIN_DIR, '.yanc-version');
 // The yanc release ships bin/ AND HDL/ (Verilog lib) AND Header/ (C++ shims)
-// AND Macros/ (float-math .asm) — all version-matched with the compilers. None
+// AND Macros/ (float-math .asm), all version-matched with the compilers. None
 // of HDL/, Header/, Macros/ is committed to the Aurora repo anymore, so a dev
 // who pulls the commit that untracked them ends up with bin/ present (gitignored,
 // persists) but those folders deleted. Gate "already installed" on a sentinel
@@ -148,7 +148,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
             }).on('error', reject);
         }
 
-        // Resolve apenas depois que o stream e fechado — caso contrario
+        // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
         file.on('finish', () => file.close(resolve));
         file.on('error', reject);
@@ -183,7 +183,7 @@ async function main() {
     if (!binariesPresent()) {
         log(`YANC binaries not found in components/bin/.`);
     } else {
-        // Binaries are there but the version doesn't match (or has no marker) —
+        // Binaries are there but the version doesn't match (or has no marker):
         // a tag bump. Re-download so the new compilers/HDL actually land.
         const have = installedTag() || 'unknown (pre-marker)';
         log(`YANC ${have} installed but ${YANC_TAG} is pinned — re-downloading.`);
@@ -193,7 +193,7 @@ async function main() {
         await downloadFile(DOWNLOAD_URL, TMP_ZIP);
         await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
         // O zip empacota como bin/cmmcomp.exe etc. Extraindo em
-        // components/ resulta em components/bin/cmmcomp.exe — perfeito.
+        // components/ resulta em components/bin/cmmcomp.exe, perfeito.
         const COMPONENTS_DIR = path.join(ROOT_DIR, 'components');
         extractZip(TMP_ZIP, COMPONENTS_DIR);
 
@@ -205,7 +205,7 @@ async function main() {
             process.exit(1);
         }
 
-        // Record the installed tag ONLY after confirming the binaries — a
+        // Record the installed tag ONLY after confirming the binaries, a
         // corrupt/partial download must not leave a marker claiming "v5.1 ok".
         fs.writeFileSync(VERSION_SENTINEL, YANC_TAG);
         log(`YANC ${YANC_TAG} installed successfully.`);

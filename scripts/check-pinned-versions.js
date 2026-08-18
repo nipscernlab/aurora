@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * check-pinned-versions.js — Guard against installed npm packages drifting
+ * check-pinned-versions.js: Guard against installed npm packages drifting
  * off their exact-pinned declared versions.
  *
  * The convention: a dependency in package.json with a bare semver
  * (no `^`, `~`, or other range modifier) is opted-in to strict checking.
- * Anything with a range stays unmanaged — npm is free to resolve it as
+ * Anything with a range stays unmanaged, npm is free to resolve it as
  * usual. To strictly pin a new package, drop its caret in package.json
  * and this script will start watching it on the next run.
  *
  * Background: monaco-editor 0.53.0 throws inside its own
  * monaco.contribution.js during init, blocking EditorManager.initialize()
- * and leaving the editor half-broken — cursor renders, typing is dead.
+ * and leaving the editor half-broken, cursor renders, typing is dead.
  * That class of upstream regression is what this guard exists to catch
  * before the user does. monaco-editor is the only one we know of today
  * (and the only one currently pinned), but the mechanism extends with
@@ -63,7 +63,7 @@ const allDeclared = {
 const pinned = Object.entries(allDeclared).filter(([, spec]) => EXACT_SEMVER_RE.test(spec));
 
 if (pinned.length === 0) {
-  // Not an error — just nothing to check. Surface it so the user can
+  // Not an error, just nothing to check. Surface it so the user can
   // see the script ran rather than silently no-opping.
   console.log('  · no exact-pinned dependencies in package.json (nothing to check)');
   process.exit(0);
@@ -104,12 +104,12 @@ for (const { name, version } of passed) {
 }
 
 // --- B12: on-demand AI CLI manifest must track the declared base versions ----
-// The Claude Code / Codex native binaries are no longer bundled — they're
+// The Claude Code / Codex native binaries are no longer bundled, they're
 // fetched at runtime from a pinned manifest (main/ai/cli_manifest.js). Its
 // versions MUST match the package.json dependency versions, or the app would
 // declare one version and download another (with a stale integrity hash).
 function baseVersion(spec) {
-  // The first plain semver in the spec — strips a leading range operator
+  // The first plain semver in the spec, strips a leading range operator
   // (^, ~, >=, …); the manifest tracks that floor version.
   const m = String(spec || '').match(/\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?/);
   return m ? m[0] : null;
@@ -153,7 +153,7 @@ for (const { label, manifestVer } of cliChecks) {
   console.log(`  OK  cli manifest ${label} ${manifestVer}`);
 }
 
-// Cross-check the manifest's integrity + tarball against package-lock.json — the
+// Cross-check the manifest's integrity + tarball against package-lock.json, the
 // authoritative, offline source npm rewrites on every dependency bump. Without
 // this, a maintainer could bump the version (which the check above rewards) but
 // forget to refresh the integrity hash; the build would ship green and EVERY

@@ -1,5 +1,5 @@
 /**
- * app_initializer.js — bootstrap do renderer.
+ * app_initializer.js: bootstrap do renderer.
  *
  * Responsabilidades:
  *   1. Restaurar a ultima sessao (auto-abre o ultimo projeto salvo em
@@ -16,7 +16,7 @@ import { showDialog } from '../ui/dialog_manager.js';
 import { showCardNotification } from '../ui/notification.js';
 import { projectManager } from '../project/project_manager.js';
 
-// i18n shim — fallback pra key path se i18n nao bootou ainda.
+// i18n shim, fallback pra key path se i18n nao bootou ainda.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 class AppInitializer {
@@ -114,7 +114,7 @@ class AppInitializer {
         const el = document.getElementById('current-spf-name');
         if (!el) return;
         // Re-instala o data-i18n pra que locale changes futuros
-        // re-traduzam — updateProjectNameUI o remove quando seta
+        // re-traduzam, updateProjectNameUI o remove quando seta
         // um nome de projeto real.
         el.setAttribute('data-i18n', 'fileTree.noProject');
         el.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';

@@ -6,7 +6,7 @@ const { evaluate, COMPONENTS } = require('../../scripts/check-component-drift.js
 
 // O decisor do guarda de deriva (scripts/check-component-drift.js). A rede fica
 // de fora de proposito: o que precisa de teste e a leitura da lista publicada,
-// porque um erro ali nao aparece como falha, aparece como silencio — que foi
+// porque um erro ali nao aparece como falha, aparece como silencio, que foi
 // exatamente como o Surfer ficou cinco versoes atras sem ninguem ver.
 //
 // A lista chega SEMPRE da mais nova para a mais velha (e assim que a API de

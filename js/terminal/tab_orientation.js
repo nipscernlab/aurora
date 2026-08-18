@@ -1,5 +1,5 @@
 /**
- * tab_orientation.js — as abas do terminal viram coluna quando ele fica estreito.
+ * tab_orientation.js: as abas do terminal viram coluna quando ele fica estreito.
  *
  * Acima do limiar as abas ficam numa faixa horizontal, como sempre foram. Abaixo
  * dele saem da faixa e viram uma coluna à direita, empilhadas, como no VS Code.

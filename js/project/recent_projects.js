@@ -223,7 +223,7 @@ export class RecentProjectsManager {
     }
   }
 
-  // A recent row was clicked in the <aurora-welcome> view — open that project.
+  // A recent row was clicked in the <aurora-welcome> view, open that project.
   // (The view escapes its own text bindings and animates the rows; this manager
   // keeps the data + the open/remove actions.)
   _handleOpenByPath(path) {
@@ -237,7 +237,7 @@ export class RecentProjectsManager {
   // form readable but doesn't have to be ultra-short.
   truncatePath(path) {
     if (!path) return '';
-    // Drop the .spf filename — VS Code shows the parent folder, not the file.
+    // Drop the .spf filename, VS Code shows the parent folder, not the file.
     let display = path.replace(/[\\/][^\\/]+\.spf$/i, '');
     // Collapse the user's home dir to ~ for compactness.
     const home = (typeof window !== 'undefined' && electronAPI?.homePath) || null;

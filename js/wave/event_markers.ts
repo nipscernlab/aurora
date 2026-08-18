@@ -1,5 +1,5 @@
 /**
- * event_markers.ts — pre-pass que acha os TEMPOS dos eventos de I/O do SAPHO no
+ * event_markers.ts: pre-pass que acha os TEMPOS dos eventos de I/O do SAPHO no
  * dump (via fst2vcd) pra cravar MARCADORES automaticos no Surfer e medir a
  * LATENCIA entrada->saida.
  *
@@ -27,7 +27,7 @@ type Kind = 'input' | 'output';
  * Scanner INCREMENTAL do stream de texto do fst2vcd. Acha o tempo do PRIMEIRO
  * `req_in_sim_*`=1 e do PRIMEIRO `out_en_sim_*`=1. O tempo e' o `#N` cru do VCD
  * (mesma unidade que o marker do Surfer usa). done() vira true quando os dois
- * foram achados — a orquestracao mata o fst2vcd cedo.
+ * foram achados, a orquestracao mata o fst2vcd cedo.
  */
 export class EventScanner {
   private buf = '';

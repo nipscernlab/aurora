@@ -1,35 +1,35 @@
 /*
- * semantic_tokens.css — the DESIGN §3 semantic layer.
+ * semantic_tokens.css: the DESIGN §3 semantic layer.
  *
- * Pure aliases over the canonical base tokens in theme_variables.css — ZERO
+ * Pure aliases over the canonical base tokens in theme_variables.css, ZERO
  * value changes, so the aurora theme is untouched (single theme; nothing here
- * recolours anything). This is the vocabulary that NEW code — especially the
- * Lit shell components (DESIGN §9) — references instead of the base layer, so a
+ * recolours anything). This is the vocabulary that NEW code, especially the
+ * Lit shell components (DESIGN §9), references instead of the base layer, so a
  * component never cites --bg / --text / etc. directly.
  *
  * Imported AFTER theme_variables.css (see css/import.css). They live on :root,
  * so they inherit across Shadow DOM boundaries into Lit components.
  *
  * Note: --text-secondary (#9CA1AE) and --text-muted (#6A6F7C) are intentionally
- * NOT re-aliased here — both already exist in the base with canonical names.
+ * NOT re-aliased here, both already exist in the base with canonical names.
  * Redefining them would clobber their 40+ existing usages. See the Text section
  * below for the full 4-stop scale documentation.
  */
 :root {
-  /* Surfaces — the 4 elevation levels, named by role (DESIGN §3) */
+  /* Surfaces, the 4 elevation levels, named by role (DESIGN §3) */
   --surface-sky:     var(--bg);        /* window background — the sky */
   --surface-raised:  var(--bg-elev);   /* panels, cards, sidebars */
   --surface-overlay: var(--bg-elev-3); /* modals, popovers, menus */
   --surface-sunken:  var(--bg);        /* inputs, wells, scroll areas (recessed vs raised) */
 
-  /* Text — 4-stop scale (lowest → highest contrast against dark backgrounds):
+  /* Text, 4-stop scale (lowest → highest contrast against dark backgrounds):
    *   faint (#3F434E) → muted (#6A6F7C) → secondary (#9CA1AE) → default/bright (#E8ECF3)
    * --text-secondary and --text-muted are already canonical base tokens with good
-   * names — not re-aliased here to avoid clobbering their ~40+ existing usages. */
+   * names, not re-aliased here to avoid clobbering their ~40+ existing usages. */
   --text-bright:  var(--text);          /* titles, focus */
   --text-default: var(--text);          /* body copy */
-  /* --text-secondary: pre-existing base token (#9CA1AE) — subdued labels, meta */
-  /* --text-muted:     pre-existing base token (#6A6F7C) — hints, secondary icons */
+  /* --text-secondary: pre-existing base token (#9CA1AE), subdued labels, meta */
+  /* --text-muted:     pre-existing base token (#6A6F7C), hints, secondary icons */
   --text-faint:   var(--text-disabled); /* placeholders, disabled */
 
   /* Accent / interaction (--accent and --accent-glow are already canonical) */
@@ -45,7 +45,7 @@
   --state-error: var(--status-error);
   --state-info:  var(--status-info);
 
-  /* Motion — durations named by role (DESIGN §6); easings already use --ease-* */
+  /* Motion, durations named by role (DESIGN §6); easings already use --ease-* */
   --motion-instant: var(--dur-instant);
   --motion-quick:   var(--dur-quick);
   --motion-flow:    var(--dur-flow);

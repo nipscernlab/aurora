@@ -5,7 +5,7 @@
  * Baixa o build Windows do slang-server (LSP de SystemVerilog baseado na
  * lib slang, da Hudson River Trading) e extrai o slang-server.exe em
  * components/Packages/slang-server/bin/. E o motor do O11: analise
- * SEMANTICA (elaboracao completa) do design — pega erros que o lint
+ * SEMANTICA (elaboracao completa) do design, pega erros que o lint
  * sintatico do Verible (O2) nao ve (sinal nao declarado, tipo errado,
  * porta errada, etc.) e oferece autocompletar. O renderer
  * (js/editor/slang_integration.js) liga via JSON-RPC stdio
@@ -17,13 +17,13 @@
  * Pinning: SLANG_SERVER_TAG + EXPECTED_SHA256 abaixo. Pra subir, atualizar
  * a tag/URL e recomputar o SHA-256.
  *
- * Licenca MIT — atribuicao no LICENSE da raiz; spawn arm's-length (a
+ * Licenca MIT, atribuicao no LICENSE da raiz; spawn arm's-length (a
  * AURORA so executa o .exe, nao linka) nao contamina a AURORA.
  *
  * Roda no bootstrap, depois do download-clang-format e antes do
  * copy-components. Best-effort: se falhar, sai com 0 (a AURORA ainda
  * compila/edita; so a analise semantica slang fica indisponivel ate o
- * setup — o Verilog ainda tem o Verible, que e independente).
+ * setup, o Verilog ainda tem o Verible, que e independente).
  *
  * Usage:  node components/Scripts/download-slang-server.js [--force]
  */

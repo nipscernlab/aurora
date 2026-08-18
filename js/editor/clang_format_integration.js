@@ -1,6 +1,6 @@
 // monaco is loaded globally via index.html (AMD vendor build).
 /**
- * clang_format_integration.js — registers a Monaco document-formatting
+ * clang_format_integration.js: registers a Monaco document-formatting
  * provider for C, C++ and CMM, backed by the bundled clang-format
  * (main/format/clang_format.js via window.clangFormatAPI).
  *
@@ -11,7 +11,7 @@
  * C rules (handled on the main side via -assume-filename).
  *
  * Best-effort: if clang-format isn't installed the call resolves null and
- * the buffer is left untouched — no error surfaces to the user.
+ * the buffer is left untouched, no error surfaces to the user.
  */
 
 const CLANG_LANGS = ['c', 'cpp', 'cmm'];
@@ -34,7 +34,7 @@ export function initClangFormat() {
           const filePath = model.uri.scheme === 'file' ? model.uri.fsPath : '';
           const formatted = await window.clangFormatAPI.format(model.getLanguageId(), filePath, text);
           if (typeof formatted !== 'string' || formatted === text) return [];
-          // Single full-document replace — clang-format returns the whole
+          // Single full-document replace, clang-format returns the whole
           // formatted buffer, not a diff.
           return [{ range: model.getFullModelRange(), text: formatted }];
         },

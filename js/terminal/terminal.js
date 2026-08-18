@@ -1,7 +1,7 @@
 /**
  * Troca a aba visivel do painel de terminais (tcmm/tasm/tveri/twave/...).
  *
- * Unica implementacao — compilation_flow.js e wave_config_manager.js
+ * Unica implementacao, compilation_flow.js e wave_config_manager.js
  * importam daqui (havia uma copia local em compilation_flow e um
  * window.switchTerminal global; consolidado em 2026-06).
  */
@@ -33,13 +33,13 @@ function positionTerminalIndicator(activeTab) {
 /**
  * Smoothly follow a scroll container to its TRUE bottom, with acceleration and
  * deceleration. One self-sustaining rAF loop per element (guarded by
- * `_followRAF`) that RE-READS scrollHeight every frame — so it stays locked to
+ * `_followRAF`) that RE-READS scrollHeight every frame, so it stays locked to
  * the bottom while text is still streaming in, and while `content-visibility:
  * auto` rows settle their real height only after the first paint. That is what
  * fixes both "stops short / cuts off content" (a single scrollTop = scrollHeight
  * lands before the bottom rows have height) and "doesn't follow while spitting
  * text". A spring drives the motion: velocity builds from rest (ease-in) and
- * decays as the gap closes (ease-out). Cheap to call on every appended line — a
+ * decays as the gap closes (ease-out). Cheap to call on every appended line, a
  * call while the loop is already running is a no-op; it stops once it reaches
  * the bottom and a later append restarts it.
  */
@@ -60,17 +60,17 @@ export function smoothFollowToBottom(el) {
       // (ease-out). The CAP keeps a big jump (tab switch) or a fast burst a
       // visible glide instead of the near-instant snap it was without it.
       // Velocity retention 0.62 (was 0.72) = MORE friction, so it brakes more
-      // gradually near the end — a softer, smoother landing.
+      // gradually near the end, a softer, smoother landing.
       el._followVel = Math.min((el._followVel + gap * 0.16) * 0.62, gap, CAP);
       el.scrollTop += Math.max(el._followVel, 1);
       el._followRAF = requestAnimationFrame(step);
       return;
     }
-    // At the bottom — but don't stop yet. content-visibility:auto rows settle
+    // At the bottom, but don't stop yet. content-visibility:auto rows settle
     // their REAL height only a few frames after we arrive (worst on a tab
     // switch, where the whole body was unrendered while hidden), which moves the
     // true bottom down. Snap exactly and keep watching until the height has held
-    // steady for a few frames — otherwise the view stops short of the last line.
+    // steady for a few frames, otherwise the view stops short of the last line.
     el.scrollTop = target;
     el._followVel = 0;
     if (stable && atBottom++ > 5) { el._followRAF = 0; return; }
@@ -83,7 +83,7 @@ export function switchTerminal(targetId) {
   const targetContent = document.getElementById(targetId);
 
   // Verificacao de seguranca: se o terminal nao existir no HTML, bail
-  // antes de esconder os outros — senao o painel inteiro fica em branco.
+  // antes de esconder os outros, senao o painel inteiro fica em branco.
   if (!targetContent) {
     console.error(`Erro: O elemento terminal com ID "${targetId}" nao foi encontrado no HTML.`);
     return;
@@ -99,7 +99,7 @@ export function switchTerminal(targetId) {
   targetContent.classList.remove('hidden');
 
   // Entering a terminal ALWAYS lands at the bottom. Content may have streamed in
-  // while this terminal was hidden — its scrollHeight was 0/stale then, so the
+  // while this terminal was hidden, its scrollHeight was 0/stale then, so the
   // per-append follow couldn't stick. Now that it's visible, glide to the end
   // (smoothFollowToBottom re-reads the height until it truly reaches the last
   // line, so it never stops short on content-visibility rows).

@@ -78,7 +78,7 @@ describe('parseVcdScopes', () => {
     it('merges signals across re-opened scopes with the same path', () => {
         // VCDs onde cada $var fica num bloco $scope/$upscope proprio
         // (caso comum quando o testbench dispara varios $dumpvars
-        // direcionados a sub-escopos especificos — formato que o
+        // direcionados a sub-escopos especificos, formato que o
         // asmcomp do SAPHO gera) precisam ter os sinais mergeados
         // dentro de UMA scope por path. Sem isso, lookup por path
         // so acha o primeiro.
@@ -153,7 +153,7 @@ describe('parseVcdScopes — VCD identifier `[` no $var', () => {
         // Iverilog usa ASCII printable (`!`..`~`) como IDs. `[` e `]`
         // sao validos. Bug antigo: regex `\[[^\]]+\]` capturava do
         // `[` (ID) ate o proximo `]` no file todo, comendo $scope/
-        // $upscope/etc — paths viravam tipo "tb.tb.tb.inst.foo".
+        // $upscope/etc, paths viravam tipo "tb.tb.tb.inst.foo".
         const vcd = `
             $scope module tb $end
             $var reg 1 [ out_en $end

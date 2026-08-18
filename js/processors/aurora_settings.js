@@ -342,11 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
         salvouNestaAbertura = false;
         trustLinksSnapshot = localStorage.getItem(TRUST_LINKS_KEY);
         networkWarnSnapshot = localStorage.getItem(CHAVE_AVISO);
-        // Display BEFORE picking the pane so the nav items have a real layout —
+        // Display BEFORE picking the pane so the nav items have a real layout:
         // otherwise the sliding pill measures offsetTop/Height on a display:none
         // modal (both 0) and lands nowhere on first open.
         modalOverlay.style.display = 'flex';
-        // Always land on General when re-opening — the previous pane is
+        // Always land on General when re-opening, the previous pane is
         // not worth persisting across sessions, and it avoids the
         // surprise of "I closed it on Shortcuts and now it opens on
         // Shortcuts forever". The pill is placed instantly here (modal not yet
@@ -438,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //
     // Why this panel exists: SAPHO is installed once on a fleet of lab
     // machines and updated only over the network. When one of them stops
-    // updating, the maintainer is not standing at it — so "is it checking at
+    // updating, the maintainer is not standing at it, so "is it checking at
     // all, against which channel, and what failed last?" has to be readable
     // from inside the app instead of from main.log on that machine's disk.
     //
@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return String(fallback).replace(/\{\{(\w+)\}\}/g, (m, k) => (vars && k in vars ? vars[k] : m));
         };
 
-        /** "3 min ago" / "in 2 h" — coarse on purpose; exact clock times add noise. */
+        /** "3 min ago" / "in 2 h", coarse on purpose; exact clock times add noise. */
         const relative = (timestamp, future) => {
             if (!timestamp) return tr('modal.settings.updNever', 'Never');
             const deltaMs = future ? timestamp - Date.now() : Date.now() - timestamp;
@@ -497,7 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const errRow = document.getElementById('upd-error-row');
                 if (errRow) {
                     // Only show the error row when the error is still the most
-                    // recent thing that happened — a stale error under a
+                    // recent thing that happened, a stale error under a
                     // successful check reads as a live problem when it is not.
                     const errIsCurrent = !!d.lastError && d.lastCheckResult === 'error';
                     errRow.hidden = !errIsCurrent;
@@ -543,7 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         electronAPI.docsStatus()
             .then((s) => {
                 // Sem pacote instalado o item continua oculto, e sobra apenas o
-                // manual online — melhor do que um botao que nao faz nada.
+                // manual online, melhor do que um botao que nao faz nada.
                 if (!s?.hasOffline) return;
                 offlineLink.hidden = false;
                 if (meta) meta.textContent = s.version ? `versão ${s.version}` : 'no computador';

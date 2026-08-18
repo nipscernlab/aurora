@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * git_parse.js — a parte pura do main/ipc/git.js: o que ele faz com o texto que
+ * git_parse.js: a parte pura do main/ipc/git.js: o que ele faz com o texto que
  * o git devolve, o envelope que atravessa o IPC e o cabecalho de autenticacao.
  *
  * Extraido de main/ipc/git.js em 08/08/2026, sem mudanca de comportamento. O

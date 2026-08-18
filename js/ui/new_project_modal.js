@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const projectName = projectNameInput.value.trim();
             const projectLocation = projectLocationInput.value.trim();
 
-            // tr() is a tiny wrapper around window.t — falls back to the
+            // tr() is a tiny wrapper around window.t, falls back to the
             // English key path if i18n hasn't booted yet (rare but possible
             // during very early renderer init).
             const tr = (k) => (window.t ? window.t(k) : k);
@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (result.success) {
                 // Remember this location so the next New Project
-                // dialog opens at the same parent directory — sibling
+                // dialog opens at the same parent directory, sibling
                 // projects are the common case.
                 try {
                     localStorage.setItem('aurora-last-new-project-location', projectLocation);

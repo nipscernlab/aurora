@@ -45,7 +45,7 @@ function cleanModuleName(/** @type {any} */ moduleName) {
   cleanName = cleanName.replace(/^[$\\]+/, '');
   // Tira prefixos `genblk<N>.` que o yosys adiciona em instancias
   // dentro de generate blocks. Sao so nomes de escopo hierarquico
-  // gerados — o usuario quer ver so o nome real ("my_f2i" em vez
+  // gerados, o usuario quer ver so o nome real ("my_f2i" em vez
   // de "genblk27.my_f2i"). Global pra cobrir genblks aninhados.
   cleanName = cleanName.replace(/(?:\\?genblk\d+\.)+/g, '');
   return cleanName;
@@ -107,7 +107,7 @@ async function createPrismWindow(compilationData = null) {
     minHeight: 700,
     autoHideMenuBar: true,
     icon: path.join(app.getAppPath(), 'assets', 'icons', 'sapho_aurora_icon.ico'),
-    // Frameless — custom titlebar rendered by the PRISM HTML (same
+    // Frameless, custom titlebar rendered by the PRISM HTML (same
     // approach as the Aurora main window). thickFrame keeps Aero snap
     // and native edge-resize working on Windows.
     frame: false,
@@ -142,7 +142,7 @@ async function createPrismWindow(compilationData = null) {
 
   try {
     // loadPage resolves dev-server → built dist → raw source. The catch below
-    // plus the did-fail-load handler surface (and clean up) any real failure —
+    // plus the did-fail-load handler surface (and clean up) any real failure:
     // no manual pre-check, which could only validate the raw artifact and would
     // false-negative once dist is the canonical source.
     await loadPage(prismWindow, 'html/prism/prism.html');
@@ -213,14 +213,14 @@ async function runYosysCompilationWithPaths(
   const yosysExe = compilationPaths.yosysPath;
 
   // Coleta unificada:
-  //   1. components/HDL/*.v  — biblioteca SAPHO (processor, addr_dec,
+  //   1. components/HDL/*.v , biblioteca SAPHO (processor, addr_dec,
   //      core, ula, myFIFO, instr_dec). Sempre incluida porque
   //      qualquer top que seja um processador SAPHO depende disso.
-  //   2. .spf structure.synthesizableFiles[].path — fonte canonica
+  //   2. .spf structure.synthesizableFiles[].path, fonte canonica
   //      de TODOS os .v do projeto (auto-descobertos pelo file
   //      tree + adicionados manualmente pelo usuario). Inclui o .v
   //      de cada processador SAPHO via _discoverProcessorFiles.
-  //   3. <proj>/TopLevel/*.v se a pasta existir — wrapper top-level
+  //   3. <proj>/TopLevel/*.v se a pasta existir, wrapper top-level
   //      (raro mas possivel).
   //
   // Dedup por path absoluto pra evitar duplicate-module errors do
@@ -236,7 +236,7 @@ async function runYosysCompilationWithPaths(
     }
   }
 
-  // Le o .spf uma unica vez — usado tanto pra synthesizableFiles
+  // Le o .spf uma unica vez, usado tanto pra synthesizableFiles
   // quanto pra lista de processadores (fallback Hardware/*.v).
   const spfPath = compilationPaths.spfPath;
   let spfStructure = null;
@@ -247,7 +247,7 @@ async function runYosysCompilationWithPaths(
     } catch (_e) { /* JSON parse fail tolerado */ }
   }
 
-  // Resolve paths relativos contra basePath (formato novo do .spf — ver
+  // Resolve paths relativos contra basePath (formato novo do .spf, ver
   // js/project/spf_store.js). SpfStore do renderer expande na leitura,
   // mas aqui em main lemos .spf raw via fse.readJson e precisamos
   // expandir por conta propria. Paths absolutos passam direto.
@@ -274,7 +274,7 @@ async function runYosysCompilationWithPaths(
 
   // Fallback defensivo: varre <proj>/<proc>/Hardware/*.v para todos os
   // processadores conhecidos do .spf. No happy-path esses .v ja estao
-  // em synthesizableFiles via auto-descoberta — o dedup faz isso ser
+  // em synthesizableFiles via auto-descoberta, o dedup faz isso ser
   // no-op. Mas em projetos antigos onde synthesizableFiles pode estar
   // vazio, esse scan garante que os modulos do processador entrem no
   // yosys de qualquer jeito.
@@ -300,7 +300,7 @@ async function runYosysCompilationWithPaths(
   const fileList = [...fileSet];
   if (fileList.length === 0) throw new Error('No Verilog files found for compilation');
 
-  // Script (e o porque de cada passe) em ./prism_yosys_script.js — fonte unica
+  // Script (e o porque de cada passe) em ./prism_yosys_script.js, fonte unica
   // com o teste de integracao, que roda exatamente este script.
   const yosysScript = buildPrismYosysScript(fileList, topLevelModule, hierarchyJsonPath);
 
@@ -308,7 +308,7 @@ async function runYosysCompilationWithPaths(
   await fse.writeFile(yosysScriptPath, yosysScript);
 
   if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-    // 'tips' (azul) — mesmo tipo usado pela compilacao do botao Verilog
+    // 'tips' (azul), mesmo tipo usado pela compilacao do botao Verilog
     // para a linha contextual "Top-level". Mantem a UX consistente entre
     // os dois fluxos (PRISM e iverilog).
     state.mainWindow.webContents.send('terminal-log', 'tveri', `Top-level: ${topLevelModule}.v`, 'tips');
@@ -338,7 +338,7 @@ async function runYosysCompilationWithPaths(
 
   return new Promise((resolve, reject) => {
     // spawnTracked so closing the main window kills an in-flight PRISM
-    // synthesis — yosys runs from the bundled mingw64/bin (not Temp/), so the
+    // synthesis, yosys runs from the bundled mingw64/bin (not Temp/), so the
     // path-prefix sweep never caught it before.
     // GROUP.RUN: PRISM synthesis is a compile stage, so Cancel must stop it.
     const yosysProcess = spawnTracked(yosysExe, finalArgs, {
@@ -483,7 +483,7 @@ async function getDefaultSkinData() {
 
 // Constroi um mapa instanceName -> moduleType a partir do JSON do
 // yosys do modulo atual. netlistsvg renderiza o label de cada cell
-// com s:attribute="ref" (o NOME DA INSTANCIA), nao com o tipo — entao
+// com s:attribute="ref" (o NOME DA INSTANCIA), nao com o tipo, entao
 // o renderer nao consegue saber pra qual modulo navegar olhando so o
 // SVG. O fix e' injetar data-cell-type=<tipo> em cada <g id="cell_<inst>">
 // abaixo, antes de devolver o SVG.
@@ -499,7 +499,7 @@ function buildInstanceTypeMap(/** @type {any} */ netlistJson) {
   return map;
 }
 
-// Escape minimo pra valor de atributo XML — basta cobrir `"`, `&` e `<`
+// Escape minimo pra valor de atributo XML, basta cobrir `"`, `&` e `<`
 // (path/identificador yosys raramente tem esses, mas defensivo).
 function xmlAttrEscape(/** @type {any} */ s) {
   return String(s)
@@ -540,11 +540,11 @@ function buildSkinPortMap(/** @type {any} */ skinData) {
 // Remove de cada cell as conexoes cujo port NAO existe na skin custom do
 // seu tipo. Sem isso, uma porta presente no RTL mas ausente da skin (ex:
 // o core ganhou `cheguei` mas core.svg nao tem o anchor) faz o netlistsvg
-// gerar uma ARESTA pra uma shape de porta que ele nunca desenhou — e o ELK
+// gerar uma ARESTA pra uma shape de porta que ele nunca desenhou, e o ELK
 // aborta com "Referenced shape does not exist: <cell>.<port>", derrubando
 // TODO o render do modulo. Podar alinha o JSON ao que a skin sabe desenhar:
 // a porta extra apenas nao aparece (com aviso), em vez de quebrar a tela.
-// Cells de tipo generico (sem skin) nao sao tocadas — la o netlistsvg cria
+// Cells de tipo generico (sem skin) nao sao tocadas, la o netlistsvg cria
 // as portas a partir das proprias conexoes, entao nunca ficam penduradas.
 function pruneNetlistToSkinPorts(/** @type {any} */ netlistJson, /** @type {any} */ skinPortMap) {
   if (!netlistJson?.modules) return;
@@ -581,11 +581,11 @@ async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @ty
   ]);
 
   // Alinha o netlist ao que as skins custom conseguem desenhar (ver
-  // pruneNetlistToSkinPorts) ANTES de renderizar — evita o abort do ELK
+  // pruneNetlistToSkinPorts) ANTES de renderizar, evita o abort do ELK
   // "Referenced shape does not exist" quando o RTL tem porta que a skin nao.
   pruneNetlistToSkinPorts(netlistJson, buildSkinPortMap(skinData));
 
-  // lib.render usa callback (err, svgString) — wrap em Promise. Sem spawn
+  // lib.render usa callback (err, svgString), wrap em Promise. Sem spawn
   // de processo, sem .exe externo: fica tudo in-process.
   const rawSvg = await new Promise((resolve, reject) => {
     netlistsvgLib.render(skinData, netlistJson, (/** @type {any} */ err, /** @type {any} */ svg) => {
@@ -596,7 +596,7 @@ async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @ty
 
   // Defensivo: se o layout falhar de outra forma e devolver vazio, falha
   // com mensagem clara em vez de estourar um TypeError no inject (.replace
-  // de undefined) — esse era o sintoma "clicar no modulo nao faz nada".
+  // de undefined), esse era o sintoma "clicar no modulo nao faz nada".
   if (typeof rawSvg !== 'string' || !rawSvg) {
     throw new Error(`netlistsvg nao produziu SVG para o modulo "${moduleName}" (falha de layout)`);
   }
@@ -725,7 +725,7 @@ async function buildDigitalJSCircuit(
   if (fileList.length === 0) throw new Error('No Verilog files found for the simulation');
 
   // Per-phase progress to the terminal so a slow/stuck build is diagnosable
-  // (which phase — yosys, convert, or the renderer — is the bottleneck).
+  // (which phase, yosys, convert, or the renderer, is the bottleneck).
   const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
       state.mainWindow.webContents.send('terminal-log', 'tveri', m, t);
@@ -794,7 +794,7 @@ write_json "${jsonPath}"
   tlog(`DigitalJS: netlist ${cellCount} cells — converting…`);
 
   // Pure convert: takes an existing yosys JSON object, returns the DigitalJS
-  // TopModule directly (no yosys spawn — we already ran ours). Required lazily
+  // TopModule directly (no yosys spawn, we already ran ours). Required lazily
   // so the (Node-only) converter isn't loaded until the user enters Sim mode.
   const tConv = Date.now();
   const { yosys2digitaljs } = require('yosys2digitaljs/core');
@@ -805,7 +805,7 @@ write_json "${jsonPath}"
   return circuit;
 }
 
-// yosys names internal cells "$xor$<src>:<line>$n" — pure clutter next to the
+// yosys names internal cells "$xor$<src>:<line>$n", pure clutter next to the
 // gate symbol (and they overlap badly). Named ports (a, b, sum…) don't start
 // with '$', so blanking only the '$'-prefixed labels keeps the useful ones.
 function stripYosysLabels(/** @type {any} */ circuit) {
@@ -868,7 +868,7 @@ function register() {
         tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
         yosysPath: path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe'),
         // netlistsvg agora vem do node_modules (@silimate/netlistsvg) e
-        // roda in-process — nao precisa mais expor binario pro renderer.
+        // roda in-process, nao precisa mais expor binario pro renderer.
         spfPath: state.currentOpenProjectPath || '',
         topLevelPath: path.join(projectPath, 'TopLevel'),
       };
@@ -880,7 +880,7 @@ function register() {
 
   // Right-click numa cell do SVG do Prism pede pra abrir o source no
   // editor principal. Aqui validamos o payload e encaminhamos pra
-  // mainWindow via webContents.send — o renderer principal escuta
+  // mainWindow via webContents.send, o renderer principal escuta
   // 'aurora:open-file-at' e faz o resto (le, abre tab, posiciona
   // cursor). Tambem focamos a mainWindow pro usuario ver o resultado.
   ipcMain.handle('prism:open-source-file', async (_event, payload) => {

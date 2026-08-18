@@ -1,6 +1,6 @@
 // monaco is loaded globally via index.html (AMD vendor build).
 /**
- * slang_integration.js — wires the bundled slang-server (main/lsp/slang_lsp.js,
+ * slang_integration.js: wires the bundled slang-server (main/lsp/slang_lsp.js,
  * exposed as window.slangAPI) into Monaco for SystemVerilog/Verilog buffers.
  *
  * Per the chosen "meio-termo" split, slang contributes only its UNIQUE

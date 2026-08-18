@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
-// cmm/asm rodam .exe externos via runSpec e dirigem status/abas — mockados aqui
+// cmm/asm rodam .exe externos via runSpec e dirigem status/abas, mockados aqui
 // pra exercitar o fluxo + o seam (lastCompiledCmmPath) sem tocar a toolchain.
 // Os builders (puros) e o insertChegueiToaqui rodam de verdade.
 vi.mock('../../js/compilation/spec_runner.js', () => ({ runSpec: vi.fn() }));

@@ -1,13 +1,13 @@
 /**
- * aurora-globals.d.ts — ambient declarations for Aurora's window-global surface.
+ * aurora-globals.d.ts: ambient declarations for Aurora's window-global surface.
  *
  * Aurora's renderer shares state through `window.*` globals (no bundler/import
  * graph). As modules migrate to TS they need these typed. This file grows
  * incrementally: add a method/global here the first time a converted .ts touches
- * it. Type-only — emits no JS.
+ * it. Type-only, emits no JS.
  */
 
-/** Result of electronAPI.getPythonStatus() — the bundled-Python probe. */
+/** Result of electronAPI.getPythonStatus(), the bundled-Python probe. */
 interface PythonStatus {
   ok: boolean;
   isBundled?: boolean;

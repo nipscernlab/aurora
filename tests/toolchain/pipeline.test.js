@@ -9,7 +9,7 @@
 // -------------
 // Before this file, the automated suites covered the shell (editor, tabs,
 // terminal, split panes) and the pure helpers, but nothing of the compiler
-// pipeline — not even the argument builders. For a course on programmable
+// pipeline, not even the argument builders. For a course on programmable
 // logic devices the pipeline IS the product, so a broken flag or a toolchain
 // bump could ship without a single test going red.
 //
@@ -67,7 +67,7 @@ const PROC = 'mediamovel';
 // Windows can hand back the 8.3 short form of a path, and os.tmpdir() does
 // exactly that on the GitHub runner, whose user is `runneradmin`:
 // C:\Users\RUNNER~1\AppData\Local\Temp. Verilator runs as a Perl script under
-// msys, and the tilde does not survive the trip — it failed with "Can't write
+// msys, and the tilde does not survive the trip, it failed with "Can't write
 // file" plus "The system cannot find the path specified" while creating its
 // own obj_dir, which reads as a Verilator bug and is really a path that no
 // longer points anywhere. It never reproduces on a developer machine whose
@@ -116,11 +116,11 @@ function runSpec(spec) {
 describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated processor', () => {
   /** Throwaway project root; the pipeline writes into it. */
   let workdir;
-  /** <workdir>/<PROC> — what the compilers receive as -p. */
+  /** <workdir>/<PROC>, what the compilers receive as -p. */
   let projectPath;
   let softwarePath;
   let hardwarePath;
-  /** components/Temp/<PROC> — the compilers' scratch dir. */
+  /** components/Temp/<PROC>, the compilers' scratch dir. */
   let tempPath;
   let asmPath;
 
@@ -139,7 +139,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
     // Two reasons. It does not clobber a developer's components/Temp, which
     // may hold artefacts they are mid-debug on. And deleting a shared
     // directory on Windows fails with EBUSY whenever anything still holds a
-    // handle on it (an open shell, an editor, the app itself) — a flake that
+    // handle on it (an open shell, an editor, the app itself), a flake that
     // would surface in CI as an unexplained failure of the whole suite.
     tempPath = path.join(workdir, 'Temp', PROC);
     fs.mkdirSync(tempPath, { recursive: true });
@@ -205,7 +205,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
       hdlPath: path.join(COMPONENTS, 'HDL'),
       macrosPath: path.join(COMPONENTS, 'Macros'),
       tempPath,
-      // MHz, not Hz — `clk` in the .spf is megahertz (processor_config_panel
+      // MHz, not Hz, `clk` in the .spf is megahertz (processor_config_panel
       // defaults to 100). Passing Hz here produces a testbench whose clock
       // half-period underflows the 1ps timescale to zero, and iverilog then
       // rejects it with "always process does not have any delay".
@@ -225,7 +225,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
     expect(fs.existsSync(path.join(hardwarePath, `${PROC}_inst.mif`))).toBe(true);
     expect(fs.existsSync(path.join(hardwarePath, `${PROC}_data.mif`))).toBe(true);
 
-    // Translation tables — GTKWave and Surfer decode Assembly/C± tracks with
+    // Translation tables, GTKWave and Surfer decode Assembly/C± tracks with
     // these, so their absence silently degrades the wave view.
     expect(fs.existsSync(path.join(tempPath, 'trad_opcode.txt'))).toBe(true);
     expect(fs.existsSync(path.join(tempPath, 'trad_cmm.txt'))).toBe(true);
@@ -270,7 +270,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
 
     // The builder passes `-fst`, which switches Icarus's dumper to the FST
     // container. THE FILE NAME STILL COMES FROM $dumpfile, and asmcomp writes
-    // `$dumpfile("<top>.vcd")` into the generated testbench — so the artefact
+    // `$dumpfile("<top>.vcd")` into the generated testbench, so the artefact
     // is FST content inside a file named `.vcd`. The extension lies.
     //
     // That is not a bug to fix here; it is why `_extractFstHeaderVcd`
@@ -311,7 +311,7 @@ describe.skipIf(!toolchainReady)('SAPHO toolchain — C± to a simulated process
     // And the clock, which every wave view keys off.
     expect(vcd).toMatch(/\$var\s+reg\s+1\s+\S+\s+clk\s+\$end/);
 
-    // Value changes after the header — the point of the whole exercise.
+    // Value changes after the header, the point of the whole exercise.
     const body = vcd.slice(vcd.indexOf('$enddefinitions'));
     expect(body.split('\n').length).toBeGreaterThan(100);
   });
@@ -327,13 +327,13 @@ function decodeDump(fst2vcd, dumpPath) {
 }
 
 // ===========================================================================
-//  Verilator — the second simulation engine
+//  Verilator, the second simulation engine
 //
 //  Opt-in in the app (Wave Config → simulator), and 5–10× faster than Icarus
 //  on long runs, which is why students reach for it. It is also a far bigger
 //  surface: instead of interpreting Verilog, it TRANSPILES the design to C++
 //  and compiles it with the bundled g++. So this suite exercises perl, make,
-//  g++, the MinGW runtime and Verilator's own headers — none of which the
+//  g++, the MinGW runtime and Verilator's own headers, none of which the
 //  Icarus path touches. A toolchain bundle can be perfectly fine for Icarus
 //  and broken for Verilator.
 //
@@ -461,7 +461,7 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
 
   it('produces a dump decodable to the same hierarchy Icarus produces', () => {
     // The two engines must be interchangeable from the wave flow's point of
-    // view — same scopes, same signals — or switching simulator would quietly
+    // view, same scopes, same signals, or switching simulator would quietly
     // change what the student sees.
     const fst2vcd = path.join(GTKWAVE_DIR, 'fst2vcd.exe');
     if (!fs.existsSync(fst2vcd)) return;
@@ -485,15 +485,15 @@ if (!toolchainReady) {
 }
 
 // ===========================================================================
-//  cocotb — Python testbenches
+//  cocotb, Python testbenches
 //
 //  The third simulation path, and the one with the most moving parts: the
 //  bundled Python 3.12, the cocotb package, its VPI shared library, and
 //  Icarus, all talking to each other across a C boundary. Aurora generates
 //  the runner script itself, so the student's .py holds only tests.
 //
-//  The runner is imported from js/compilation/cocotb_runner_source.js — the
-//  SAME string the application writes to disk — so these tests execute the
+//  The runner is imported from js/compilation/cocotb_runner_source.js, the
+//  SAME string the application writes to disk, so these tests execute the
 //  real script rather than a copy that could drift from it.
 // ===========================================================================
 
@@ -642,7 +642,7 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
 
   it('reports a FAILING testbench instead of passing it off as a success', () => {
     // The regression guard for a real bug. cocotb's own runner.test() exits 0
-    // whether tests pass or fail, and Aurora used to check only `code !== 0` —
+    // whether tests pass or fail, and Aurora used to check only `code !== 0`:
     // so a student's failing testbench was reported as a successful
     // simulation, with the waveform opened and no error anywhere. The runner
     // now reads results.xml and exits COCOTB_TESTS_FAILED.
@@ -667,7 +667,7 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
 });
 
 // ===========================================================================
-//  PRISM — the RTL schematic viewer
+//  PRISM, the RTL schematic viewer
 //
 //  Two halves, both testable without opening a window:
 //    1. Yosys synthesises the design to a JSON netlist.
@@ -676,7 +676,7 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
 //
 //  What cannot be asserted here is whether the drawing LOOKS right; that stays
 //  a manual check. What can be asserted is that the chain runs on the real
-//  generated processor and produces a schematic with actual cells in it —
+//  generated processor and produces a schematic with actual cells in it:
 //  which is what breaks when Yosys is bumped or a pass is reordered.
 // ===========================================================================
 
@@ -751,8 +751,8 @@ describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
   });
 
   it('synthesises the processor into a JSON netlist', () => {
-    // Script from main/ipc/prism_yosys_script.js — the same one the viewer
-    // writes — so a change to any pass is exercised here.
+    // Script from main/ipc/prism_yosys_script.js, the same one the viewer
+    // writes, so a change to any pass is exercised here.
     const script = buildPrismYosysScript(sources, PROC, netlistPath);
     // The passes that exist for a visual reason, pinned so they cannot be
     // dropped as "cleanup": see the module's JSDoc for why each matters.
@@ -774,7 +774,7 @@ describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
     expect(netlist.modules).toBeTruthy();
     expect(netlist.modules[PROC]).toBeTruthy();
     // A netlist with no cells would still be valid JSON and would render as an
-    // empty schematic — the failure that looks like "PRISM opened but is blank".
+    // empty schematic, the failure that looks like "PRISM opened but is blank".
     expect(Object.keys(netlist.modules[PROC].cells || {}).length).toBeGreaterThan(0);
   }, 300_000);
 
@@ -803,7 +803,7 @@ describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
 });
 
 // ===========================================================================
-//  Bundled binaries — do they actually RUN on this machine?
+//  Bundled binaries, do they actually RUN on this machine?
 //
 //  Existence checks (the release workflow's sentinels) prove a file is on
 //  disk. They do not prove it can execute. On Windows the common bundling
@@ -814,7 +814,7 @@ describe.skipIf(!prismReady)('SAPHO toolchain — PRISM schematic', () => {
 //
 //  So: launch each one and require it to behave like a program.
 //
-//  These are the tools with no coverage anywhere else — the language servers,
+//  These are the tools with no coverage anywhere else, the language servers,
 //  the formatter, the wave viewers. Their file-generation halves ARE unit
 //  tested (gtkwProcWriter, surferLayoutWriter, selectionValidator …); what was
 //  never checked is whether the executable they hand off to can start.
@@ -869,14 +869,14 @@ describe('SAPHO toolchain — bundled binaries are executable', () => {
 });
 
 // ===========================================================================
-//  Language servers — do they SPEAK, not just start?
+//  Language servers, do they SPEAK, not just start?
 //
 //  The smoke test above proves verible-verilog-ls and slang-server launch. A
 //  process that starts and then answers nothing is indistinguishable from a
 //  working one at that level, and it is a real failure mode: a version bump
 //  that changes the startup flags, or a binary built against a different
 //  protocol revision, leaves the editor with no diagnostics, no hover and no
-//  completion — silently, because main/lsp/*.js degrades quietly by design
+//  completion, silently, because main/lsp/*.js degrades quietly by design
 //  (it must never break editing).
 //
 //  So perform the actual LSP handshake: Content-Length-framed JSON-RPC over

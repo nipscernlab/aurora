@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 // Static import: wave_toolchain so toca o filesystem via window.electronAPI
-// (joinPath / listFilesInDirectory / fileExists) — o beforeEach stuba um fake
+// (joinPath / listFilesInDirectory / fileExists), o beforeEach stuba um fake
 // fresh per-test. Os helpers nao guardam estado interno, entao nao ha risco de
 // cross-test interference.
 import {
@@ -11,7 +11,7 @@ import {
  * In-memory fake do window.electronAPI usado pelos helpers de wave_toolchain.
  *  - joinPath: junta com '/' (suficiente pras asserts de path).
  *  - listFilesInDirectory: devolve `entries`; se `throwOnList`, lanca (simula
- *    diretorio inexistente/ilegivel — os helpers tratam como "sem wave").
+ *    diretorio inexistente/ilegivel, os helpers tratam como "sem wave").
  *  - fileExists: true quando o path esta em `existing` (Set).
  */
 function makeFakeElectronApi({ entries = [], throwOnList = false, existing = [] } = {}) {

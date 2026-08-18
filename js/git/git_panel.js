@@ -1,4 +1,4 @@
-// git_panel.js — Source Control panel (GitHub-Desktop-style), driven by
+// git_panel.js: Source Control panel (GitHub-Desktop-style), driven by
 // window.gitAPI (main/ipc/git.js → simple-git) + GitHub account connection.
 // The on-disk truth is real `git`, so .gitignore, diffs and merges behave
 // exactly as on the command line. Diffs render with diff2html.
@@ -39,7 +39,7 @@ let activeTab = 'changes';
 let amendOn = false;
 let lastHasChanges = false;
 let historyCommits = [];
-// "Browse mode": viewing a CLONED repo that has no open .spf — read-only, just to
+// "Browse mode": viewing a CLONED repo that has no open .spf, read-only, just to
 // inspect its commit history/diffs. When set, read git calls run in this dir.
 let browseDir = null;
 let browseName = null;
@@ -121,7 +121,7 @@ async function updateBadge() {
 // clicking it opens this panel. Kept in sync from renderAccount (which already
 // has the status) and on connect/disconnect.
 function setGithubStatusBar(s) {
-  // Small avatar dot on the Git/branch toolbar button — just signals "signed in".
+  // Small avatar dot on the Git/branch toolbar button, just signals "signed in".
   const badge = $('git-avatar-badge');
   if (badge) {
     const src = s && s.connected && s.user && (s.user.avatarDataUrl || s.user.avatarUrl);
@@ -269,7 +269,7 @@ function syncStageHeader() {
   lastHasChanges = rows.length > 0;
   updateCommitBtn();
 }
-// Optimistic stage/unstage — flips the checkbox(es) instantly and runs git in the
+// Optimistic stage/unstage, flips the checkbox(es) instantly and runs git in the
 // background (no full panel reload). If a multi-selection is active and includes
 // the clicked row, the whole selection is toggled together.
 async function toggleStage(checkBtn) {
@@ -290,7 +290,7 @@ async function toggleStage(checkBtn) {
     refreshChangesOnly(); // reconcile on failure
   }
 }
-// Re-render ONLY the changes list (status), preserving the open diff/account —
+// Re-render ONLY the changes list (status), preserving the open diff/account:
 // used for live updates when files change on disk (e.g. editing .gitignore makes
 // ignored files drop out of Changes) without the jarring full refresh.
 async function refreshChangesOnly() {
@@ -340,7 +340,7 @@ function renderRepoHeader(st, info) {
 // The branch menu is a BODY PORTAL (appended to <body>), not an in-panel
 // dropdown. The modal has a CSS transform, and a position:fixed element inside a
 // transformed ancestor is positioned relative to THAT ancestor, not the viewport
-// — which made the menu land "in the middle of nowhere". In <body> there's no
+//, which made the menu land "in the middle of nowhere". In <body> there's no
 // transform, so fixed coords from the chip's rect are correct.
 let branchMenuEl = null;
 function closeBranchMenu() {
@@ -564,7 +564,7 @@ async function renderAccount() {
 // OAuth device-flow. The device flow polls for up to ~15 min, so we deliberately
 // DON'T route it through run()/setBusy (which would lock the whole panel that
 // whole time). Instead a local guard + a sequence token let the user CANCEL or
-// RETRY at any moment — a late/failed result from a superseded attempt is
+// RETRY at any moment, a late/failed result from a superseded attempt is
 // ignored, so the interface is always free to try again.
 let oauthCodeUnsub = null;
 let oauthSeq = 0;
@@ -600,7 +600,7 @@ async function oauthLogin() {
   try { r = await api().githubOauthLogin(); }
   catch (e) { r = { ok: false, error: e?.message || String(e) }; }
 
-  // The user cancelled or started another attempt while we were polling — drop
+  // The user cancelled or started another attempt while we were polling, drop
   // this result entirely (the UI already moved on).
   if (seq !== oauthSeq) return;
   oauthBusy = false;
@@ -737,14 +737,14 @@ function isBinaryFile(f) { return !!(f && (f.binary || BINARY_EXT_RE.test(f.path
 const MAX_DIFF_LINES = 1500;
 
 // A file whose total changed lines exceed the cap is NOT auto-rendered. We know
-// the counts up front from numstat, so we gate BEFORE fetching/rendering — the
+// the counts up front from numstat, so we gate BEFORE fetching/rendering, the
 // user can still force a capped view.
 function isTooBig(f) {
   return !isBinaryFile(f) && ((Number(f && f.additions) || 0) + (Number(f && f.deletions) || 0)) > MAX_DIFF_LINES;
 }
 
 // diff2html, line-by-line. No matching:'words' (O(n²), a big part of the freeze).
-// We ALSO truncate to MAX_DIFF_LINES here as a universal safety net — whatever
+// We ALSO truncate to MAX_DIFF_LINES here as a universal safety net, whatever
 // reaches this function, diff2html never sees more than the cap.
 function diffHtml(text, byteTruncated) {
   const start = text.indexOf('diff --git');
@@ -791,7 +791,7 @@ async function showDiff(file, staged) {
   requestAnimationFrame(() => { body.innerHTML = diffHtml(text, r.truncated); });
 }
 
-// History diff — GitHub-Desktop model: a FAST file list (numstat only), then the
+// History diff, GitHub-Desktop model: a FAST file list (numstat only), then the
 // per-file diff is lazy-loaded on expand. We never render the whole commit at
 // once, so even a 10k-line commit opens instantly.
 function commitDetailHtml(commit, hash) {
@@ -844,7 +844,7 @@ async function showCommitDiff(hash) {
   const head = `<div class="git-fd-summary">${files.length} ${esc(files.length === 1 ? tt('git.fileOne', 'file') : tt('git.fileMany', 'files'))}</div>`;
   body.innerHTML = commitDetailHtml(commit, hash) + head
     + `<div class="git-filelist">${files.map((f, i) => fileDiffRow(f, i, hash)).join('')}</div>`;
-  // Auto-expand the first SMALL text file so there's something visible — never a
+  // Auto-expand the first SMALL text file so there's something visible, never a
   // binary or a too-big file (those would defeat the anti-freeze gate).
   const firstText = body.querySelector('.git-fd:not(.is-binary):not(.is-big) .git-fd-head');
   if (firstText) toggleCommitFile(firstText);
@@ -867,7 +867,7 @@ async function toggleCommitFile(btn) {
   if (body.dataset.loaded) return;
   await loadFileDiffInto(body, btn.dataset.hash, btn.dataset.file);
 }
-// "Show first part anyway" for a too-big file — loads the capped diff on demand.
+// "Show first part anyway" for a too-big file, loads the capped diff on demand.
 async function forceCommitFile(btn) {
   const fd = btn.closest('.git-fd');
   const body = fd && fd.querySelector('.git-fd-body');
@@ -995,7 +995,7 @@ async function discard(file) {
 }
 
 // Turn an opened folder into a git repo WITH its files: init, stage everything,
-// and make the initial commit — so the publish-to-GitHub step actually pushes
+// and make the initial commit, so the publish-to-GitHub step actually pushes
 // the project (not an empty repo). The publish section then offers GitHub.
 async function createRepoFromFiles() {
   await run(tt('git.createRepoFiles', 'Create repository'), async () => {
@@ -1063,8 +1063,8 @@ async function disconnectAccount() {
   });
 }
 // On disconnect, clear EVERY section from the screen so no repo/account/clone info
-// lingers. The cloned-projects history (localStorage) is intentionally kept — the
-// user asked to remember clones — but nothing is shown until they act again.
+// lingers. The cloned-projects history (localStorage) is intentionally kept, the
+// user asked to remember clones, but nothing is shown until they act again.
 function clearPanelData() {
   historyCommits = [];
   browseDir = null; browseName = null;
@@ -1311,7 +1311,7 @@ function renderCloneSpf() {
 async function openClonedSpf(spf) {
   if (!spf) return;
   try {
-    // Full loader (tree + processors), not the raw IPC — see openClonedProject.
+    // Full loader (tree + processors), not the raw IPC, see openClonedProject.
     if (window.projectManager && typeof window.projectManager.loadProject === 'function') await window.projectManager.loadProject(spf);
     else await electronAPI?.openProject(spf);
   } catch (e) { flash(e?.message || String(e), 'error'); return; }
@@ -1445,14 +1445,14 @@ async function openClonedProject(item) {
   try { scan = await api().scanSpf({ dir: item.path }); } catch (e) { scan = { ok: false, error: e?.message || String(e) }; }
   const spf = scan && scan.ok && Array.isArray(scan.spfs) && scan.spfs[0];
   if (!spf) {
-    // No .spf — but if the folder is still a git repo, let the user BROWSE its
+    // No .spf, but if the folder is still a git repo, let the user BROWSE its
     // commit history read-only. Only fail (offer remove/reclone) if it's gone.
     let rr; try { rr = await api().isRepo({ dir: item.path }); } catch (_) { rr = null; }
     if (rr && rr.ok && rr.isRepo) return enterBrowse(item);
     return clonedOpenFailed(item, tt('git.noSpfInClone', 'No SAPHO project (.spf) was found in this folder.'));
   }
   // 2) Open it through the FULL project loader (window.projectManager.loadProject)
-  // — the same path File > Open / recent-projects use. It resets the tree AND
+  //, the same path File > Open / recent-projects use. It resets the tree AND
   // seeds the processor list from the .spf, so processors/organization render
   // correctly. The raw `openProject` IPC alone only sets main-side state, which
   // left the tree without its processors. loadProject throws on failure.
@@ -1468,7 +1468,7 @@ async function openClonedProject(item) {
   try { window.showNotification?.(`${tt('git.projectOpened', 'Git project opened')}: ${item.name}`, 'success', 6000, 'Git'); } catch (_) { /* optional */ }
   close();
 }
-// Browse a cloned repo (no open .spf) read-only — just to inspect its history.
+// Browse a cloned repo (no open .spf) read-only, just to inspect its history.
 function enterBrowse(item) {
   browseDir = item.path; browseName = item.name; activeTab = 'history';
   const cl = $('git-cloned'); if (cl) cl.hidden = true;

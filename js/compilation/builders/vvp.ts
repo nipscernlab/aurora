@@ -1,17 +1,17 @@
 /**
- * builders/vvp.ts — CommandSpec builder for the vvp simulation Aurora
+ * builders/vvp.ts, CommandSpec builder for the vvp simulation Aurora
  * runs during the Wave flow.
  *
  *   vvp-run : "<vvpBin>" <vvpFile> -fst
  *             A single full simulation, FST output. The VCD header is no
- *             longer captured by a separate header-only pass — it is pulled
+ *             longer captured by a separate header-only pass, it is pulled
  *             straight from the finished FST (_extractFstHeaderVcd), so one
  *             run produces everything the Wave Config picker + auto-gtkw need.
  *
  * No shell needed: cwd handles the relative-path resolution for
  * $readmemb / $fopen that the old `cd && vvp` idiom relied on.
  *
- * Compilado por `tsc` (npm run build:ts) num vvp.js ao lado — é esse .js que o
+ * Compilado por `tsc` (npm run build:ts) num vvp.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
 

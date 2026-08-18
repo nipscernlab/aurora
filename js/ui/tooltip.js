@@ -2,16 +2,16 @@
 
 import '../components/aurora-tooltip.js';
 
-// Estado de habilitacao — era window.AURORA_TOOLTIPS_ENABLED. Default
+// Estado de habilitacao, era window.AURORA_TOOLTIPS_ENABLED. Default
 // true; quem dirige e setTooltipsEnabled (Settings modal via
-// aurora_settings.js, ou AuroraAPI settings.set('tooltipsEnabled')).
+// aurora_settings.js: ou AuroraAPI settings.set('tooltipsEnabled')).
 let tooltipsOn = true;
 
 /**
  * Liga/desliga os tooltips do app inteiro. Unico writer do estado.
  *
  * Alem do flag, marca elementos ja inicializados com data-no-tooltip e
- * esconde o tooltip flutuante. Dispara 'aurora-tooltips-updated' — esse
+ * esconde o tooltip flutuante. Dispara 'aurora-tooltips-updated', esse
  * evento e superficie publica (bridged pro catalogo do AuroraAPI como
  * 'settings:tooltips-updated'); o proprio listener deste modulo tambem
  * o usa pra limpar timeout/estado pendente.
@@ -38,7 +38,7 @@ export function setTooltipsEnabled(enabled) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Aurora tooltip — the visual surface is the <aurora-tooltip> Lit component
+    // Aurora tooltip, the visual surface is the <aurora-tooltip> Lit component
     // (Shadow DOM + semantic tokens). This controller (discovery, hover timing,
     // enable/disable, positioning) drives it via `.content`, the `placement`
     // attribute and the `--arrow-x` custom property.
@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             tooltip.content = tooltipText;
-            // Lit renders asynchronously — wait so the box is sized to the new
+            // Lit renders asynchronously, wait so the box is sized to the new
             // text before we measure and place it (avoids a stale-size flash).
             tooltip.updateComplete.then(() => {
                 if (!tooltipsEnabled()) return;

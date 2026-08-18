@@ -9,7 +9,7 @@ const {
 
 // As decisoes do painel de git contra a API do GitHub (main/ipc/github_api.js).
 // Estavam presas dentro de github_auth.js, misturadas com https e safeStorage, e
-// a mais intricada delas vivia dentro de um laco com sleep — inalcancavel por
+// a mais intricada delas vivia dentro de um laco com sleep, inalcancavel por
 // teste sem servidor falso e sem esperar minutos.
 
 describe('nomeRepoValido', () => {

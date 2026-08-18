@@ -1,4 +1,4 @@
-// verify-toolchain-sentinels.js — prove the bundled toolchain is on disk
+// verify-toolchain-sentinels.js: prove the bundled toolchain is on disk
 // before a release is allowed to package it.
 //
 // The downloaders in components/Scripts exit 0 when they fail, on purpose: a
@@ -9,7 +9,7 @@
 // It asks each downloader where its binary lands instead of repeating the
 // paths. The release workflow used to carry its own hardcoded list, and that
 // list said `surfer.exe` while the fork's binary has been called
-// `surfer-aurora.exe` ever since it was renamed — the app, the binary
+// `surfer-aurora.exe` ever since it was renamed, the app, the binary
 // allowlist and the downloader all agree on the new name, and only the
 // workflow was left behind. The gate failed the 6.4.0 release twenty minutes
 // into the build, for a file that was sitting right there under another name.

@@ -211,7 +211,7 @@ function register() {
       // ENOTEMPTY (lista do Node). Importante no Windows porque o
       // handle release de processos filhos (vvp.exe escrevendo
       // progress.txt, gtkwave segurando .fst) e do scanner de
-      // antivirus pode demorar uns ms apos o processo sair — sem
+      // antivirus pode demorar uns ms apos o processo sair, sem
       // retry, o primeiro unlink falha com EPERM. Funciona tanto pra
       // arquivo quanto pra diretorio (recursive flag so se aplica a
       // dir).
@@ -262,7 +262,7 @@ function register() {
     }
   });
 
-  // Move to the OS trash (Recycle Bin) — the default delete of the file-tree
+  // Move to the OS trash (Recycle Bin), the default delete of the file-tree
   // CRUD, mirroring VS Code. Falls back to the caller to decide on permanent
   // deletion when trashing fails (e.g. network drives without a recycle bin).
   ipcMain.handle('file:trash', async (_event, targetPath) => {
@@ -338,7 +338,7 @@ function register() {
   ipcMain.handle('dialog:openDirectory', async (_event, options = {}) => {
     // defaultPath is the directory the dialog opens at. Without it,
     // Windows falls back to the process's last-used directory, which
-    // ends up being the currently-open project folder — and the user
+    // ends up being the currently-open project folder, and the user
     // accidentally nests new projects inside existing ones. Renderer
     // passes the last "new project location" from localStorage; we
     // fall back to the user's Documents folder when there isn't one.
@@ -587,7 +587,7 @@ function register() {
     }
   });
 
-  // Live file size — bypassa o cache de metadata do diretorio do Windows
+  // Live file size, bypassa o cache de metadata do diretorio do Windows
   // abrindo um handle e usando fstat (GetFileInformationByHandle), que
   // reflete bytes ja escritos pelo writer mesmo sem close/flush dele.
   // Indispensavel pra observar arquivos ativos (ex: vvp escrevendo .fst

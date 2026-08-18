@@ -14,7 +14,7 @@ function updateProjectNameUI(projectData, spfPath) {
     if (!spfNameElement) return;
 
     const setProjectName = (name) => {
-        // Nome real de projeto nao tem traducao — remove qualquer
+        // Nome real de projeto nao tem traducao, remove qualquer
         // data-i18n pra que applyDOM no proximo locale change nao
         // reescreva por cima.
         spfNameElement.removeAttribute('data-i18n');
@@ -47,7 +47,7 @@ function updateProjectNameUI(projectData, spfPath) {
  * preview tab (TabManager.addTab) pra que o usuario veja imediatamente
  * o que sumiu.
  *
- * No-op silencioso se `missing` for vazio/invalido — o caller ja gate-ia
+ * No-op silencioso se `missing` for vazio/invalido, o caller ja gate-ia
  * a chamada, mas e idempotente por seguranca. Se a escrita ou a abertura
  * falham, propaga pra que o caller registre no console; nao quebra o
  * resto do loadProject.
@@ -119,7 +119,7 @@ async function removeMissingFilesLog(basePath) {
     const exists = await electronAPI.fileExists?.(logPath);
     if (!exists) return;
     // Fecha a tab no Monaco se o usuario tinha o log aberto, antes
-    // de apagar do disco — assim o save no exit nao recria o arquivo.
+    // de apagar do disco, assim o save no exit nao recria o arquivo.
     if (window.TabManager?.tabs?.has?.(logPath)) {
         try { await window.TabManager.closeTab?.(logPath); } catch (_) { /* best effort */ }
     }
@@ -172,7 +172,7 @@ function enableCompileButtons() {
     // Botoes nao-gated: sempre habilitados com projeto aberto. Os
     // gated (vericomp/wavecomp/prismcomp/verilatorproc, a Wave Config e o
     // cancelar-simulacao) seguem o estado do design via
-    // syncToolbarEnabledState — por isso cancel-everything NAO entra aqui:
+    // syncToolbarEnabledState, por isso cancel-everything NAO entra aqui:
     // ele acompanha o botao Wave (so habilita com testbench definido).
     const buttons = ['allcomp', 'fractalcomp', 'backupFolderBtn', 'projectInfo'];
 
@@ -197,7 +197,7 @@ function enableCompileButtons() {
         statusElement.style.cursor = 'default';
 
         // 2. Adiciona a classe visual de pronto. Class name has to be
-        // `is-ready` (with the `is-` prefix) — that's what the CSS rule
+        // `is-ready` (with the `is-` prefix), that's what the CSS rule
         // `#ready.is-ready` expects to flip the LABEL from red to green.
         // (Havia um ponto colorido ali; ele saiu, e o rotulo assumiu o
         // estado.) A previous version added plain `ready` here, which
@@ -245,7 +245,7 @@ async function loadProject(spfPath) {
             throw new Error(window.t ? window.t('error.config.noProjectBase') : 'Project base path could not be determined.');
         }
 
-        // Single source of truth — also mirrors window.currentProjectPath /
+        // Single source of truth, also mirrors window.currentProjectPath /
         // window.currentSpfPath for the dozens of existing read sites.
         ProjectStore.setProject(spfPath, basePath);
 
@@ -253,7 +253,7 @@ async function loadProject(spfPath) {
         // switch (e.g. clicking another project in the recents list / welcome
         // screen) doesn't pass through close_project, so the previous project's
         // in-memory file list and its rendered rows would otherwise still be
-        // present while the new .spf loads — surfacing the old project's
+        // present while the new .spf loads, surfacing the old project's
         // imported files in the new one. reset() wipes both.
         window.projectTreeManager?.reset?.();
 
@@ -264,7 +264,7 @@ async function loadProject(spfPath) {
         // shape: array of { name } objects or array of strings.
         // Seed da lista de processadores a partir do .spf. setAvailableProcessors
         // ja faz dedup case-insensitive e normaliza entries string-only
-        // ({name} vs "name") — ver processor_list.js.
+        // ({name} vs "name"), ver processor_list.js.
         setAvailableProcessors(projectData?.structure?.processors);
 
         updateProjectNameUI(projectData, spfPath);
@@ -310,7 +310,7 @@ async function loadProject(spfPath) {
         // stale ate alguma escrita acontecer. Sintetizar o evento aqui
         // garante que variaveis derivadas do .spf (testbenchFile,
         // topLevelFile, processors, etc) sejam reaplicadas a cada abertura
-        // — fix pro caso "abri o projeto e a status bar / picker / panel
+        //, fix pro caso "abri o projeto e a status bar / picker / panel
         // mostraram o estado do projeto anterior".
         window.dispatchEvent(new CustomEvent('aurora:spf-changed', {
             detail: { spfPath, source: 'project-loaded' },
@@ -459,7 +459,7 @@ class ProjectManager {
                     // Main pane: the editor is created on a deferred (Monaco-
                     // ready-gated) path, so getEditorForFile() would be null
                     // right here. Hand the target line to addTab, which
-                    // positions the editor the moment it's created — no race.
+                    // positions the editor the moment it's created, no race.
                     window.TabManager.addTab(filePath, content, {
                         preview: false,
                         revealPosition: { line: ln, column: col },

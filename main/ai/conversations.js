@@ -1,12 +1,12 @@
 // @ts-check
 /**
- * conversations.js — persistent chat history for Aurora Intelligence.
+ * conversations.js: persistent chat history for Aurora Intelligence.
  *
  * One JSON file per conversation under
  * `userData/aurora-intelligence-chats/<id>.json`. We keep it as
  * one-file-per-chat (rather than a single index) so adding a chat
- * never rewrites the whole history — important once a user has dozens
- * of them — and so a corrupt file only kills that one chat.
+ * never rewrites the whole history, important once a user has dozens
+ * of them, and so a corrupt file only kills that one chat.
  *
  * Shape on disk:
  *
@@ -21,8 +21,8 @@
  *       "cumulativeTokens": 4823
  *     }
  *
- * `listAll()` returns a *light* view — id/title/provider/model/dates
- * + message count — so the chat-list sidebar doesn't have to load
+ * `listAll()` returns a *light* view, id/title/provider/model/dates
+ * + message count, so the chat-list sidebar doesn't have to load
  * every message body up front. `read(id)` returns the full document
  * (used when the user clicks a chat to resume it).
  */
@@ -62,14 +62,14 @@ function readSafe(/** @type {string} */ p) {
   }
 }
 
-/** Renderer-generated ids would round-trip through IPC anyway — handing them out from main keeps everything in one place. */
+/** Renderer-generated ids would round-trip through IPC anyway, handing them out from main keeps everything in one place. */
 function generateId() {
   return `c-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 /**
  * Lightweight metadata for every saved conversation, newest first.
- * The chat sidebar consumes this directly — no message bodies, so a
+ * The chat sidebar consumes this directly, no message bodies, so a
  * huge chat doesn't pay for being listed.
  */
 function listAll() {

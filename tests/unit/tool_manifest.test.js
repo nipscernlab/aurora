@@ -15,7 +15,7 @@ const { TOOL_MANIFEST } = pkg;
 //   'positional' → fn(args[argNames[0]], args[argNames[1]], …)
 //
 // So a positional def whose argNames don't line up with its own inputSchema
-// silently hands the API `undefined` — or, if it says 'object' by mistake, the
+// silently hands the API `undefined`, or, if it says 'object' by mistake, the
 // whole args object as the first parameter. Either way the tool fails at
 // runtime, on the user, on every call, with nothing catching it earlier: the
 // manifest and the API function are wired together by convention, not by types.
@@ -80,7 +80,7 @@ describe('TOOL_MANIFEST', () => {
         expect(dupes).toEqual([]);
     });
 
-    // The three memory tools, specifically — they are what this pass added.
+    // The three memory tools, specifically, they are what this pass added.
     it('wires the memory tools to the project namespace', () => {
         const by = (n) => TOOL_MANIFEST.find((d) => d.name === n);
         expect(by('remember')).toMatchObject({

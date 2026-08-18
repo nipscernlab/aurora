@@ -1,5 +1,5 @@
 /**
- * preload_docs.js — ponte da barra da janela do manual (html/docs-browser.html).
+ * preload_docs.js: ponte da barra da janela do manual (html/docs-browser.html).
  *
  * A superfície é deliberadamente mínima: navegar, controlar a janela e ouvir o
  * estado. Aquela página não lê arquivo, não roda comando e não fala com o

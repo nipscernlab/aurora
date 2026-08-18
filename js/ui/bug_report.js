@@ -1,5 +1,5 @@
 /**
- * bug_report.js — relatar um problema por e-mail, em um clique.
+ * bug_report.js: relatar um problema por e-mail, em um clique.
  *
  * O usuário escolhe o provedor e a AURORA abre a janela de composição dele no
  * navegador, já com destinatário, assunto e um corpo pronto em português,

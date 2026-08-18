@@ -1,10 +1,10 @@
 /**
- * command_spec.ts — structured representation of a toolchain invocation.
+ * command_spec.ts: structured representation of a toolchain invocation.
  *
  * Replaces the old "concatenate a shell string" idiom that lived in
  * compilation_module.js. A CommandSpec describes WHAT to run; the
  * executor in main decides HOW (spawn with shell:false). This is the
- * shape Aurora Intelligence overrides plug into — see
+ * shape Aurora Intelligence overrides plug into, see
  * command_overrides.js + the compile.* MCP tools.
  *
  * Invariants:
@@ -15,7 +15,7 @@
  *   - `cwd` and `env` are optional but, when present, structured (no
  *     `cd "..." && cmd` idioms).
  *
- * Compilado por `tsc` (npm run build:ts) num command_spec.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num command_spec.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -98,7 +98,7 @@ export const STEP_DESCRIPTIONS: Record<CompileStepId, string> = Object.freeze({
 });
 
 /**
- * Build a copy of `spec` with the override applied. Pure — never
+ * Build a copy of `spec` with the override applied. Pure, never
  * mutates the input. Protected flag enforcement is the caller's
  * responsibility (lives in protected_flags.js, called by the
  * executor in main).
@@ -129,7 +129,7 @@ export function applyOverride(spec: CommandSpec, ov: CommandOverride | null | un
 }
 
 /**
- * Render a spec to a printable command line (display only — never fed
+ * Render a spec to a printable command line (display only, never fed
  * to a shell). Tokens with whitespace are double-quoted; backslashes
  * are escaped so the displayed string is parser-safe to read.
  */
@@ -173,7 +173,7 @@ export function diffSpecs(before: CommandSpec | null | undefined, after: Command
 }
 
 /**
- * Shallow validation — caller should still hand the spec to the main
+ * Shallow validation, caller should still hand the spec to the main
  * executor, which re-validates against the binary allowlist.
  */
 export function validateShape(spec: unknown): { ok: true } | { ok: false; error: string } {

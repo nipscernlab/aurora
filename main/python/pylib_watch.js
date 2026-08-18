@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * pylib_watch.js — o vigia das bibliotecas Python instaladas.
+ * pylib_watch.js: o vigia das bibliotecas Python instaladas.
  *
  * POR QUE ISSO EXISTE
  * -------------------
@@ -23,14 +23,14 @@
  * Rodar so na abertura do app nao basta: a corrupcao acontece com o app aberto
  * (inclusive durante o proprio download). Entao sao quatro gatilhos:
  *
- *   1. LOGO APOS INSTALAR — o antivirus costuma agir em cima de arquivo
+ *   1. LOGO APOS INSTALAR, o antivirus costuma agir em cima de arquivo
  *      recem-escrito, entao esse e o momento de maior risco. Confere so o que
  *      acabou de ser instalado.
- *   2. PERIODICO — a cada 20 minutos, checagem rapida de tudo. So `stat`, sem
+ *   2. PERIODICO, a cada 20 minutos, checagem rapida de tudo. So `stat`, sem
  *      ler conteudo: milhares de arquivos em milissegundos, custo despresivel.
- *   3. AO VOLTAR PARA A JANELA — quando o app recupera o foco depois de um
+ *   3. AO VOLTAR PARA A JANELA, quando o app recupera o foco depois de um
  *      tempo fora, que e quando uma varredura de antivirus costuma ter passado.
- *   4. ANTES DE SIMULAR — checagem de sentinela (poucos `stat`), no ponto em
+ *   4. ANTES DE SIMULAR, checagem de sentinela (poucos `stat`), no ponto em
  *      que o estrago apareceria de qualquer jeito, so que como erro obscuro.
  *
  * A verificacao FUNDA (le cada arquivo e compara o sha256 do RECORD) nunca roda

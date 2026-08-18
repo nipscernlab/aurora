@@ -3,7 +3,7 @@
  * Aurora IDE - GTKWave (nipscern fork) bootstrap
  *
  * Baixa o bundle Windows do gtkwave-nipscern e extrai em
- * components/Packages/gtkwave-nipscern/. O bundle e portatil — traz
+ * components/Packages/gtkwave-nipscern/. O bundle e portatil, traz
  * gtkwave.exe + fst2vcd.exe + todas as DLLs do GTK runtime, sem
  * dependencia de MSYS2 instalado.
  *
@@ -99,7 +99,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
             }).on('error', reject);
         }
 
-        // Resolve apenas depois que o stream e fechado — caso contrario
+        // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
         file.on('finish', () => file.close(resolve));
         file.on('error', reject);

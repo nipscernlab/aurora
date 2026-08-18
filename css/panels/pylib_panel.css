@@ -1,5 +1,5 @@
 /*
- * pylib_panel.css — o painel de bibliotecas Python.
+ * pylib_panel.css: o painel de bibliotecas Python.
  *
  * Só tokens semânticos do design system (css/base/semantic_tokens.css), como o
  * git_panel: nenhuma cor literal, para o painel acompanhar o tema sem retoque.
@@ -364,7 +364,7 @@
  * Enquanto instala, o botão vira um disco cujo preenchimento é um
  * `conic-gradient` guiado pela custom property --pct (0 a 100), escrita pelo JS
  * a cada evento de progresso. Como é a MESMA caixa do botão parado, nada no
- * layout se move quando o estado troca — só o conteúdo interno muda.
+ * layout se move quando o estado troca, só o conteúdo interno muda.
  */
 .pylib-btn[data-busy='1'] {
   position: relative;

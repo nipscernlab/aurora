@@ -1,7 +1,7 @@
 /**
  * Auto-updater wiring for SAPHO.
  *
- * Flow (production only — skipped in dev):
+ * Flow (production only, skipped in dev):
  *   1. ~6 s after the main window appears, silently check GitHub
  *      releases of nipscernlab/sapho.
  *   2. On `update-available`, open the custom update window
@@ -20,7 +20,7 @@
  * -------------------------------------------------
  * This used to be a single `checkForUpdates` 6 s after boot: one attempt,
  * and any failure was logged and forgotten until the next launch. That is
- * too fragile for the deployment this app is built for — a teaching lab
+ * too fragile for the deployment this app is built for, a teaching lab
  * where a fleet of machines is installed once and updated only over the
  * network. Three ordinary situations defeated the single shot:
  *
@@ -64,7 +64,7 @@ autoUpdater.logger = log;
 // network is shared, so nothing is fetched until someone clicks Download.
 autoUpdater.autoDownload = false;
 
-// But once it IS downloaded, applying it at quit is not a second decision —
+// But once it IS downloaded, applying it at quit is not a second decision:
 // the user already consented by starting the download. This used to be false,
 // which meant closing the app without clicking "Restart & Install" threw the
 // finished download away and started over on the next launch. In a teaching
@@ -74,7 +74,7 @@ autoUpdater.autoDownload = false;
 // there is nothing to prompt for at quit.
 autoUpdater.autoInstallOnAppQuit = true;
 
-// Last "available" payload — kept so we can re-send it once the update
+// Last "available" payload, kept so we can re-send it once the update
 // window's renderer has finished loading (the event can fire before the
 // window's webContents is ready to receive IPC).
 let pendingPayload = null;
@@ -96,7 +96,7 @@ let downloadRetryTimer = null;
 
 /**
  * What the update system has been doing. Surfaced over IPC so a machine that
- * is not updating can be diagnosed from the About panel — the alternative is
+ * is not updating can be diagnosed from the About panel, the alternative is
  * walking to it and reading main.log by hand.
  *
  * @type {{
@@ -135,7 +135,7 @@ function normalizeNotes(notes) {
 /**
  * Fallback: pull the release body straight from the GitHub API when
  * electron-updater didn't surface release notes. Resolves to '' on any
- * failure — the update flow must never block on this.
+ * failure, the update flow must never block on this.
  */
 function fetchReleaseNotes(version) {
   return new Promise((resolve) => {
@@ -227,7 +227,7 @@ function scheduleSilentCheck(delayMs, reason) {
  * Run one silent check, unless something more important is already going on.
  *
  * Skipped (and re-armed on the periodic cadence) when an update is already
- * available or downloading — the user is looking at the update window, and a
+ * available or downloading, the user is looking at the update window, and a
  * background check would only race it.
  */
 function runSilentCheck() {
@@ -237,7 +237,7 @@ function runSilentCheck() {
     return;
   }
   if (state.updateCheckInProgress) {
-    // A user-driven check is already running. Don't stack a second one — but
+    // A user-driven check is already running. Don't stack a second one, but
     // DO re-arm, or this silent tick would be the last one ever scheduled and
     // the update system would go quiet for the rest of the session.
     scheduleSilentCheck(PERIODIC_CHECK_MS, 'a check was already running');
@@ -375,7 +375,7 @@ function setupAutoUpdaterEvents() {
   });
 
   autoUpdater.on('download-progress', (p) => {
-    // Bytes are moving again — a retry that got this far has recovered, so
+    // Bytes are moving again, a retry that got this far has recovered, so
     // don't hold its failures against the next hiccup.
     downloadFailureStreak = 0;
     const bps = p.bytesPerSecond || 0;
@@ -485,7 +485,7 @@ function startUpdateDownload(opts = {}) {
   log.info(opts.isRetry ? 'Retrying update download...' : 'Starting update download...');
   autoUpdater.downloadUpdate().catch((error) => {
     // `downloadUpdate` rejecting and the 'error' event are two paths out of
-    // the SAME failure — electron-updater usually does both. The event
+    // the SAME failure, electron-updater usually does both. The event
     // handler owns recovery, and it clears `downloadInProgress` as its first
     // act, so a still-set flag here means the event did not fire and this is
     // the only report we will get. Otherwise the failure is already handled
@@ -522,7 +522,7 @@ function checkForUpdates(interactive = false) {
     // A rejection here can arrive WITHOUT the 'error' event (e.g. the feed URL
     // fails to resolve before the updater gets going). `onSilentCheckSettled`
     // is a no-op unless a silent check is actually in flight, and it is what
-    // re-arms the schedule — without this call a silent check that failed this
+    // re-arms the schedule, without this call a silent check that failed this
     // way would never be retried.
     onSilentCheckSettled(true);
     if (interactive) {
@@ -537,7 +537,7 @@ function checkForUpdates(interactive = false) {
  *
  *  We persist the running version to userData every time the app
  *  boots. On the *next* launch, a mismatch between stored and current
- *  means the user just updated — the renderer reads this status
+ *  means the user just updated, the renderer reads this status
  *  once at boot and surfaces a confirmation toast. Fresh installs
  *  have no stored version yet, so they never trigger a false
  *  "you've been updated" notification.
@@ -697,7 +697,7 @@ function initializeUpdateSystem() {
 
   // NOTE: autoDownload / autoInstallOnAppQuit are set once at module scope,
   // above. They used to be re-assigned here too, which meant editing the
-  // declaration at the top had no effect — the copy down here won. One
+  // declaration at the top had no effect, the copy down here won. One
   // assignment, one place.
 
   // Set explicitly so checks work even if the packaged app-update.yml

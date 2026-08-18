@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * cocotb_runner_source.js — the Python runner Aurora writes next to a cocotb
+ * cocotb_runner_source.js: the Python runner Aurora writes next to a cocotb
  * testbench, as a string.
  *
  * Aurora owns this script; the user's `.py` contains only cocotb tests, with
@@ -11,8 +11,8 @@
  * It lives in its own module for one reason: it used to be an ~80-line array
  * of string literals inside the 3,000-line compilation_module class, which
  * made it impossible to test. Splitting it out lets
- * tests/toolchain/pipeline.test.js execute the REAL script — the same bytes
- * the application writes — instead of a copy that could drift.
+ * tests/toolchain/pipeline.test.js execute the REAL script, the same bytes
+ * the application writes, instead of a copy that could drift.
  */
 
 /**

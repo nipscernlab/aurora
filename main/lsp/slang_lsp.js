@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * slang_lsp.js — SystemVerilog SEMANTIC language server bridge (O11).
+ * slang_lsp.js: SystemVerilog SEMANTIC language server bridge (O11).
  *
  * Spawns a single long-lived `slang-server` (hudson-trading/slang-server,
  * bundled in components/Packages/slang-server/bin via
@@ -12,7 +12,7 @@
  *
  * Per the chosen split ("meio-termo"), the renderer
  * (js/editor/slang_integration.js) only consumes slang's DIAGNOSTICS
- * (owner 'slang', coexisting with Verible's) and COMPLETION — hover,
+ * (owner 'slang', coexisting with Verible's) and COMPLETION, hover,
  * definition, references, outline and formatting stay with Verible. slang
  * can be toggled off (it elaborates on every change and can be noisy on
  * incomplete designs).
@@ -132,7 +132,7 @@ function handleMessage(/** @type {any} */ msg) {
     // Other notifications (window/logMessage, $/progress, telemetry, …) ignored.
     return;
   }
-  // Server → client REQUEST (has id + method) — slang sends a few
+  // Server → client REQUEST (has id + method), slang sends a few
   // (registerCapability, workspace/configuration, workDoneProgress/create).
   // We must reply so the server isn't left waiting.
   if (msg.id !== undefined && msg.id !== null && typeof msg.method === 'string') {
@@ -269,7 +269,7 @@ function stop(clearDiag) {
 /** If the open project changed under us, restart so slang re-indexes it. */
 function maybeRestartForProject() {
   if (ready && projectDirNow() !== currentProjectDir) {
-    // Keep openDocs — the renderer disposes old-project models (didClose) and
+    // Keep openDocs, the renderer disposes old-project models (didClose) and
     // opens the new ones, so openDocs already reflects the new set; doStart
     // re-seeds them against the new root.
     stop(false);

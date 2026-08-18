@@ -1,10 +1,10 @@
 /**
- * design-lab.js — entry module for html/design-lab.html.
+ * design-lab.js: entry module for html/design-lab.html.
  *
  * Imports every shell component so the gallery in design-lab.html renders them
  * (each component self-registers on import), and wires the few interactive
  * specimens. Add new components here as they are built. The Design Lab
- * (DESIGN §11) is dev tooling — NOT loaded into the main shell (index.html).
+ * (DESIGN §11) is dev tooling, NOT loaded into the main shell (index.html).
  */
 import './aurora-statusbar.js';
 import './aurora-toast.js';
@@ -13,7 +13,7 @@ import './aurora-command-palette.js';
 import './aurora-welcome.js';
 import './aurora-modal.js';
 
-// The command palette is a full-screen overlay — show it on a button press
+// The command palette is a full-screen overlay, show it on a button press
 // (the live app opens it with Ctrl+Shift+K via command_palette.js, which isn't
 // loaded here). Wire a sample item list + the lab's open button.
 const cmdk = document.querySelector('aurora-command-palette');
@@ -31,7 +31,7 @@ if (cmdk) {
   document.getElementById('lab-open-cmdk')?.addEventListener('click', () => { cmdk.open = true; });
 }
 
-// Welcome — fill its sized stage with a couple of sample recent projects so the
+// Welcome, fill its sized stage with a couple of sample recent projects so the
 // Recent column isn't empty. (In the app, RecentProjectsManager drives this.)
 const welcome = document.querySelector('aurora-welcome');
 if (welcome) {
@@ -46,7 +46,7 @@ if (welcome) {
   });
 }
 
-// Modal — a button opens a sample; it self-manages dismissal (backdrop + ✕)
+// Modal, a button opens a sample; it self-manages dismissal (backdrop + ✕)
 // by emitting aurora-modal-close. Title/body/footer are slotted light DOM.
 const modal = document.querySelector('aurora-modal');
 if (modal) {

@@ -1,5 +1,5 @@
 /**
- * project_tree_actions.js — ActionsMixin do ProjectTreeManager.
+ * project_tree_actions.js: ActionsMixin do ProjectTreeManager.
  *
  * Camada de interacao do usuario:
  *   - Drag-and-drop de .v na file tree
@@ -8,7 +8,7 @@
  *   - Context menu de area vazia: "New Verilog File"
  *   - Delete inline via botao da row
  *
- * A categoria synth-vs-testbench NAO e editada aqui — e derivada do
+ * A categoria synth-vs-testbench NAO e editada aqui, e derivada do
  * conteudo do arquivo por [verilog_classifier.js](verilog_classifier.js),
  * via this._classifyAll() (definido em file_mode.js).
  *
@@ -24,7 +24,7 @@
  * Os handlers `preventDefaults` / `handleDragEnter` / `handleDragLeave`
  * / `handleDrop` / `handleTreeContextMenu` / `createNewFile` /
  * `deleteFile` / `closeContextMenu` sao bindados a `this` no
- * constructor da classe — entao funcionam tanto como event handlers
+ * constructor da classe, entao funcionam tanto como event handlers
  * (passados como referencia) quanto como metodos.
  */
 
@@ -35,7 +35,7 @@ import { SpfStore } from './spf_store.js';
 import { toNativeSeparators } from '../utils/path_utils.js';
 import { classifyVerilogContent } from './verilog_classifier.js';
 
-// i18n shim — falls back to the key path if i18n didn't boot yet
+// i18n shim, falls back to the key path if i18n didn't boot yet
 // (rare; renderer hits these only after DOMContentLoaded).
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -65,7 +65,7 @@ export const ActionsMixin = {
     },
 
     /**
-     * File drop handler — itera os arquivos, valida path/extensao/
+     * File drop handler, itera os arquivos, valida path/extensao/
      * existencia e delega pra importFiles.
      */
     async handleDrop(e) {
@@ -147,7 +147,7 @@ export const ActionsMixin = {
     /**
      * Import via drag-drop. Desenho transacional:
      *
-     *   1. Captura `targetSpfPath` da entrada — toda escrita usa este
+     *   1. Captura `targetSpfPath` da entrada, toda escrita usa este
      *      handle. Trocar de projeto durante uma chamada nao reescreve
      *      o .spf errado.
      *   2. Valida + classifica os arquivos em dados LOCAIS (validFiles).
@@ -156,7 +156,7 @@ export const ActionsMixin = {
      *      mutator le o .spf fresh de dentro do write-chain, faz
      *      append-com-dedup, e devolve. SpfStore.update serializa
      *      writes per-path, entao um refresh concorrente nao corrompe.
-     *   4. SpfStore.update dispara aurora:spf-changed apos o write —
+     *   4. SpfStore.update dispara aurora:spf-changed apos o write:
      *      se ainda estamos no mesmo projeto, file_mode.js refresca
      *      a tree do disco. Se trocou de projeto, o evento e
      *      filtrado pelo listener (spfPath nao bate) e a UI fica
@@ -215,7 +215,7 @@ export const ActionsMixin = {
         }
 
         // Classifica cada arquivo lendo conteudo do disco. Atualiza
-        // os objetos LOCAIS (validFiles) — refreshs concorrentes nao
+        // os objetos LOCAIS (validFiles), refreshs concorrentes nao
         // alcancam estes flags.
         for (const f of validFiles) {
             if (/\.py$/i.test(f.name)) {
@@ -234,7 +234,7 @@ export const ActionsMixin = {
         // Transacao atomica. Le o .spf fresh dentro do write-chain
         // do SpfStore (serializado per-path), faz append-com-dedup,
         // escreve. Trocar de projeto durante a classificacao acima
-        // nao afeta esta chamada — targetSpfPath ja foi capturado.
+        // nao afeta esta chamada, targetSpfPath ja foi capturado.
         await SpfStore.update(targetSpfPath, (cfg) => {
             const synthFiles = Array.isArray(cfg.synthesizableFiles) ? cfg.synthesizableFiles : [];
             const tbFiles = Array.isArray(cfg.testbenchFiles) ? cfg.testbenchFiles : [];
@@ -275,7 +275,7 @@ export const ActionsMixin = {
      * adiciona à lista e abre na aba.
      *
      * Padrao transacional: captura `targetSpfPath` na entrada, escreve
-     * o disco e persiste no .spf via SpfStore.update — ver doc do
+     * o disco e persiste no .spf via SpfStore.update, ver doc do
      * importFiles. UI re-renderiza via aurora:spf-changed.
      */
     /**
@@ -329,7 +329,7 @@ export const ActionsMixin = {
         try {
             const projectPath = ProjectStore.getProjectPath();
 
-            // O Save Dialog do Windows nao valida nome — aceita espacos,
+            // O Save Dialog do Windows nao valida nome, aceita espacos,
             // acentos, simbolos. Como esses nomes viram identifier de
             // modulo Verilog e tambem sao passados na linha de comando
             // do iverilog/yanc, restringimos pra [a-zA-Z0-9_-]+.
@@ -487,7 +487,7 @@ async def basic_test(dut):
 
     /**
      * Apaga o arquivo do disco e remove a entry do .spf. Confirma com
-     * o usuario antes via dialog canonico. Padrao transacional — ver
+     * o usuario antes via dialog canonico. Padrao transacional, ver
      * doc do importFiles.
      */
     async deleteFile(index) {
@@ -514,7 +514,7 @@ async def basic_test(dut):
             console.error('Error deleting file:', error);
 
             if (error.code === 'ENOENT') {
-                // Arquivo ja sumiu do disco — limpa a entry stale do .spf.
+                // Arquivo ja sumiu do disco, limpa a entry stale do .spf.
                 await this._dropFileFromSpf(targetSpfPath, filePath);
                 this.showNotification(tr('notification.tree.alreadyDeleted', { name: fileName }), 'info', 2000);
             } else {
@@ -527,7 +527,7 @@ async def basic_test(dut):
         }
     },
 
-    /** Remocao sem prompt — apaga do .spf, anima a row out. */
+    /** Remocao sem prompt, apaga do .spf, anima a row out. */
     async removeFile(index) {
         if (!this.verilogFiles[index]) return;
         const filePath = this.verilogFiles[index].path;
@@ -552,7 +552,7 @@ async def basic_test(dut):
 
     // ----- path-keyed actions ------------------------------------------
 
-    /** Delete path-keyed — direto ao mutator, sem traduzir pra index. */
+    /** Delete path-keyed, direto ao mutator, sem traduzir pra index. */
     async _removeFileByPath(path) {
         const targetSpfPath = ProjectStore.getSpfPath();
         if (!targetSpfPath) return;
@@ -588,12 +588,12 @@ async def basic_test(dut):
 
     /**
      * Prune EVERY dangling reference (this.missingFiles) from the .spf in a
-     * single transaction — the synth/testbench lists plus the top-level /
+     * single transaction, the synth/testbench lists plus the top-level /
      * testbench pointers when they point at a missing path. The on-disk files
      * are already gone; this only cleans up the project's stale references so
      * the warning stops reappearing on each load.
      *
-     * No confirmation here — the caller owns that. The file-tree button calls
+     * No confirmation here, the caller owns that. The file-tree button calls
      * confirmAndDismissMissingFiles() (which asks first); AuroraAPI's
      * dismissMissingFiles() calls this directly (the AI acting on the user's
      * explicit request). Returns the count pruned; no-op (0) when none.
@@ -629,7 +629,7 @@ async def basic_test(dut):
     /**
      * File-tree "dismiss" button entry point: explain the implications, and
      * only prune if the user confirms. The AI path skips this (the user asked
-     * it directly) — see AuroraAPI.project.dismissMissingFiles.
+     * it directly), see AuroraAPI.project.dismissMissingFiles.
      */
     async confirmAndDismissMissingFiles() {
         const missing = Array.isArray(this.missingFiles) ? this.missingFiles : [];
@@ -735,7 +735,7 @@ async def basic_test(dut):
 
     /**
      * Card unico: fecha AMBOS os menus (row context + create) antes de abrir
-     * qualquer um. Sem isso os dois coexistem — eles abrem no evento
+     * qualquer um. Sem isso os dois coexistem, eles abrem no evento
      * `contextmenu` (botao direito), que nao dispara os handlers de
      * fechar-no-click (botao esquerdo), entao um right-click numa row com o
      * menu "New File" aberto deixava os dois cards na tela ao mesmo tempo.
@@ -748,7 +748,7 @@ async def basic_test(dut):
     /**
      * Monta e exibe o context menu de uma row (right-click num arquivo).
      * Para arquivos .v/.sv, ambas as opcoes (Top Level e Testbench Top)
-     * sao sempre exibidas — o usuario pode setar qualquer .v como
+     * sao sempre exibidas, o usuario pode setar qualquer .v como
      * qualquer dos dois sem ficar preso na categoria auto-detectada.
      */
     showContextMenu(event, file, index) {
@@ -773,7 +773,7 @@ async def basic_test(dut):
 
         if (canBeTestbench) {
             if (file.category === 'testbench') {
-                // Testbench file — only the testbench-top toggle is relevant.
+                // Testbench file, only the testbench-top toggle is relevant.
                 menuItems += `
                     <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
                         <i class="ph ph-flask"></i>
@@ -782,7 +782,7 @@ async def basic_test(dut):
                     <div class="context-menu-divider"></div>
                 `;
             } else if (isVerilog) {
-                // Synthesizable file — only the top-level toggle is relevant.
+                // Synthesizable file, only the top-level toggle is relevant.
                 menuItems += `
                     <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
                         <i class="ph ph-flag"></i>
@@ -840,7 +840,7 @@ async def basic_test(dut):
     async handleTreeContextMenu(event) {
         if (!this.isTreeActive) return;
 
-        // Folders (standard) view owns its own CRUD context menu — rows AND
+        // Folders (standard) view owns its own CRUD context menu, rows AND
         // empty area (New File/Folder, rename, delete, cut/copy/paste, open
         // terminal here, …). See js/tree/standard_tree_crud.js.
         if (window.fileTreeViewController?.getActiveView?.() === 'standard') {
@@ -853,7 +853,7 @@ async def basic_test(dut):
 
         // Right-click numa row → context menu per-row. Listeners
         // per-row sumiram com o render-reconciler refactor; este path
-        // delegado os substitui. Busca por data-file-path —
+        // delegado os substitui. Busca por data-file-path:
         // lookups por indice sao evitados (quebram sob sort).
         const row = event.target.closest('.verilog-file-item');
         if (row) {
@@ -885,7 +885,7 @@ async def basic_test(dut):
     },
 
     /**
-     * "New File" picker — the Verilog / Python (cocotb) chooser. Shared by
+     * "New File" picker, the Verilog / Python (cocotb) chooser. Shared by
      * the empty-area right-click on the tree and the toolbar "New File"
      * button, so both entry points offer the exact same two options.
      *
@@ -960,7 +960,7 @@ async def basic_test(dut):
     /**
      * Aplica a acao escolhida no context menu da row. set/remove
      * top-level e mark/unmark testbench compartilham o campo
-     * `isTopLevel` — o que muda e o escopo (synth vs testbench).
+     * `isTopLevel`, o que muda e o escopo (synth vs testbench).
      */
     async handleContextMenuAction(action, file, index) {
         if (action === 'remove') {
@@ -1027,7 +1027,7 @@ async def basic_test(dut):
             // o alvo nao estiver no .spf (caso de Hardware auto-
             // descoberto que nunca foi persistido), abortamos como
             // no-op. Sem isso, o ramo `setTrue` apagaria isTopLevel
-            // de TODOS os outros sem nunca encontrar o alvo —
+            // de TODOS os outros sem nunca encontrar o alvo:
             // limpando silenciosamente o top level que o usuario
             // tinha setado antes.
             const targetEntry = arr.find((f) => this._normalizePath(f.path) === targetKey);
@@ -1036,7 +1036,7 @@ async def basic_test(dut):
                 if (f === targetEntry) {
                     f.isTopLevel = setTrue;
                 } else if (setTrue) {
-                    // Exclusividade dentro da categoria — outros perdem
+                    // Exclusividade dentro da categoria, outros perdem
                     // o flag quando este ganha.
                     f.isTopLevel = false;
                 }
@@ -1057,7 +1057,7 @@ function basenameOf(filePath) {
 //   - Caracteres: letras ASCII, digitos, '_', '-'
 //   - Nao vazio
 // Mais permissivo que identifier Verilog estrito (que proibe digito
-// inicial), mas evita 100% dos problemas reais — espacos quebram a CLI
+// inicial), mas evita 100% dos problemas reais, espacos quebram a CLI
 // do iverilog/yanc, acentos quebram em alguns toolchains, e simbolos
 // como `(` `)` `&` precisariam de escape no shell.
 const VALID_VERILOG_FILENAME_RE = /^[a-zA-Z0-9_-]+$/;

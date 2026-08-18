@@ -1,5 +1,5 @@
 /**
- * Unit tests for G6 — AI model governance (main/ai/provider.js).
+ * Unit tests for G6, AI model governance (main/ai/provider.js).
  *
  * Covers the two pure helpers that make a retired/renamed model id survive
  * instead of dead-ending a turn: resolveModelId (alias + migration resolution)

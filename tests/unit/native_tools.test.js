@@ -4,7 +4,7 @@ import pkg from '../../main/ai/native_tools.js';
 const { NATIVE_TOOLS, DISALLOWED_TOOLS } = pkg;
 
 // The native surface the Claude Code engines hand the model. This list is the
-// ONLY thing standing between the assistant and the CLI's full built-in set —
+// ONLY thing standing between the assistant and the CLI's full built-in set:
 // none of it passes Aurora's Allow/Deny card, which gates mcp__aurora__* only.
 describe('NATIVE_TOOLS (allowlist)', () => {
     it('is a non-empty list of unique names', () => {
@@ -61,7 +61,7 @@ describe('DISALLOWED_TOOLS (hard deny)', () => {
         expect(new Set(DISALLOWED_TOOLS).size).toBe(DISALLOWED_TOOLS.length);
     });
 
-    // Both lists reach the CLI on the same run. A name in both is incoherent —
+    // Both lists reach the CLI on the same run. A name in both is incoherent:
     // it would say "available" and "denied" at once.
     it('never contradicts the allowlist', () => {
         const both = DISALLOWED_TOOLS.filter((t) => NATIVE_TOOLS.includes(t));

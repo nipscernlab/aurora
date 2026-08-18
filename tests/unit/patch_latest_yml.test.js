@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 
 // scripts/patch-latest-yml.js repairs the auto-updater manifest after SignPath
-// replaces the installer's bytes. It runs on exactly one occasion — a signed
-// release — and everything it gets wrong is invisible until the whole lab is
+// replaces the installer's bytes. It runs on exactly one occasion, a signed
+// release, and everything it gets wrong is invisible until the whole lab is
 // updating at once:
 //
 //   a stale sha512   -> every machine refuses the update ("checksum mismatch")
@@ -84,7 +84,7 @@ function readManifest(dist) {
   return yaml.load(fs.readFileSync(path.join(dist, 'latest.yml'), 'utf8'));
 }
 
-/** Sum of every chunk length in a .blockmap — must equal the file it describes. */
+/** Sum of every chunk length in a .blockmap, must equal the file it describes. */
 function blockmapCoverage(blockmapPath) {
   const map = JSON.parse(gunzipSync(fs.readFileSync(blockmapPath)).toString());
   return map.files.reduce((total, f) => total + f.sizes.reduce((a, b) => a + b, 0), 0);

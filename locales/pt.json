@@ -35,20 +35,20 @@
     },
     "simulatorSwitch": {
       "aria": "Motor de simulação",
-      "iverilog": "Simular com Icarus Verilog — simulações curtas",
-      "verilator": "Simular com Verilator — simulações longas"
+      "iverilog": "Simular com Icarus Verilog, simulações curtas",
+      "verilator": "Simular com Verilator, simulações longas"
     },
     "verilatorProc": {
       "tooltip": "Teste do processador sintetizado (somente I/O)"
     },
     "fastSim": {
-      "tooltip": "Execução rápida — sem onda (Verilator / cocotb)"
+      "tooltip": "Execução rápida, sem onda (Verilator / cocotb)"
     },
     "waveConfig": {
-      "tooltip": "Configuração de ondas — selecionar sinais para dump"
+      "tooltip": "Configuração de ondas, selecionar sinais para dump"
     },
     "gtkwPicker": {
-      "tooltip": "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",
+      "tooltip": "Arquivo de save GTKWave (.gtkw) ativo, usado ao abrir o GTKWave",
       "default": "padrão",
       "add": "+ Adicionar arquivo .gtkw...",
       "noProject": "Nenhum projeto carregado",
@@ -70,7 +70,7 @@
     },
     "splitEditor": {
       "tooltipDisabled": "Abra um arquivo primeiro para habilitar a divisão",
-      "tooltipEnabled": "Dividir editor — abre o arquivo atual em um novo painel",
+      "tooltipEnabled": "Dividir editor, abre o arquivo atual em um novo painel",
       "tooltipMax": "Máximo de 3 painéis atingido"
     },
     "ai": {
@@ -83,7 +83,7 @@
       "files": "Arquivos",
       "hierarchy": "Hierarquia",
       "folders": "Pastas",
-      "cycleTooltip": "Visão da árvore: {{mode}} — clique para alternar",
+      "cycleTooltip": "Visão da árvore: {{mode}}, clique para alternar",
       "disabledTooltip": "Abra um projeto para navegar pelos arquivos"
     },
     "newVerilog": {
@@ -314,7 +314,7 @@
       "aiRemoved": "Chave removida.",
       "aiTesting": "Testando conexão…",
       "aiEnterKey": "Insira uma chave primeiro.",
-      "aiTestOk": "Conectado — {{ms}} ms.",
+      "aiTestOk": "Conectado, {{ms}} ms.",
       "aiModel": "Modelo",
       "aiModelSet": "Modelo atualizado.",
       "auroraBg": "Aurora Boreal na tela de Boas-vindas",
@@ -322,7 +322,10 @@
       "aboutLicense": "Licenca NIPS-CERN 1.1",
       "aboutBugReport": "Relatar um problema",
       "networkWarning": "Avisar quando a internet cair",
-      "networkWarningDescription": "Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede."
+      "networkWarningDescription": "Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede.",
+      "githubForget": "Sair do GitHub e limpar esta máquina",
+      "githubForgetDescription": "Remove o acesso salvo pela AURORA e também o que o git do Windows guardou. Use antes de deixar um computador compartilhado.",
+      "githubForgetAction": "Limpar agora"
     }
   },
   "shortcuts": {
@@ -404,7 +407,7 @@
     },
     "dismissMissing": {
       "title": "Dispensar o aviso de arquivos faltantes?",
-      "message": "{{count}} arquivo(s) referenciado(s) por este projeto não existem mais no disco. Dispensar remove essas referências do projeto (o .spf) — faça isso apenas se você apagou os arquivos de propósito. Os arquivos já não existem; isto só faz o Aurora parar de sinalizá-los. Esta ação não pode ser desfeita.",
+      "message": "{{count}} arquivo(s) referenciado(s) por este projeto não existem mais no disco. Dispensar remove essas referências do projeto (o .spf), faça isso apenas se você apagou os arquivos de propósito. Os arquivos já não existem; isto só faz o Aurora parar de sinalizá-los. Esta ação não pode ser desfeita.",
       "fallbackPrompt": "Remover as referências de arquivos faltantes deste projeto? Esta ação não pode ser desfeita.",
       "cancel": "Manter aviso",
       "confirm": "Remover referências"
@@ -435,10 +438,10 @@
     "success": "Compilação {{name}} bem-sucedida",
     "failed": "Compilação {{name}} falhou",
     "failedWithError": "Compilação {{name}} falhou: {{error}}",
-    "cancelRequested": "Cancelamento solicitado — encerrando processos em execução...",
+    "cancelRequested": "Cancelamento solicitado, encerrando processos em execução...",
     "cancelInProgress": "Cancelamento já em andamento, aguarde...",
     "cancelledByUser": "Compilação cancelada pelo usuário.",
-    "nothingToCancel": "Nada a cancelar — nenhuma compilação ou simulação está em execução.",
+    "nothingToCancel": "Nada a cancelar, nenhuma compilação ou simulação está em execução.",
     "cancelled": "Compilação cancelada"
   },
   "editor": {
@@ -465,8 +468,8 @@
   "notification": {
     "simulator": {
       "title": "Simulador alterado",
-      "iverilog": "Agora usando <strong>Icarus Verilog</strong> (vvp) — ideal para simulações curtas; expõe os sinais internos do processador.",
-      "verilator": "Agora usando <strong>Verilator</strong> — compila um binário nativo (~5–10× mais rápido em sims longas); apenas sinais de topo da testbench ficam visíveis."
+      "iverilog": "Agora usando <strong>Icarus Verilog</strong> (vvp), ideal para simulações curtas; expõe os sinais internos do processador.",
+      "verilator": "Agora usando <strong>Verilator</strong>, compila um binário nativo (~5–10× mais rápido em sims longas); apenas sinais de topo da testbench ficam visíveis."
     },
     "ai": {
       "fileNotFound": "Arquivo não encontrado no projeto: {{name}}",
@@ -476,7 +479,7 @@
     "tree": {
       "noFilesDropped": "Nenhum arquivo arrastado",
       "cannotGetPath": "Não foi possível obter o caminho de \"{{name}}\".",
-      "rejectedExt": "\"{{name}}\" foi rejeitado — apenas arquivos Verilog (.v, .sv, .vh) e testbenches cocotb (.py) pertencem à árvore.{{hint}}",
+      "rejectedExt": "\"{{name}}\" foi rejeitado, apenas arquivos Verilog (.v, .sv, .vh) e testbenches cocotb (.py) pertencem à árvore.{{hint}}",
       "gtkwHint": " Use o seletor de .gtkw da toolbar (+ Adicionar arquivo .gtkw...).",
       "fileNotExist": "Arquivo não existe: {{path}}",
       "errorValidating": "Erro ao validar \"{{name}}\"",
@@ -520,7 +523,7 @@
     "veri": {
       "fileNotFound": "Arquivo não encontrado: {{path}}",
       "failedToOpen": "Falha ao abrir arquivo: {{message}}",
-      "hdlListWarn": "Aviso: não foi possível listar {{path}} — biblioteca SAPHO não incluída na hierarquia.",
+      "hdlListWarn": "Aviso: não foi possível listar {{path}}, biblioteca SAPHO não incluída na hierarquia.",
       "hierarchyGen": "Gerando hierarquia do projeto com Yosys...",
       "hierarchySuccess": "Hierarquia do projeto gerada com sucesso",
       "hierarchyError": "Erro ao gerar hierarquia do projeto: {{message}}",
@@ -549,15 +552,15 @@
       "noHierarchyData": "Sem dados de hierarquia. Compile o Verilog primeiro."
     },
     "htest": {
-      "start": "Teste de hardware: \"{{name}}\" — iniciando ({{clocks}} clocks)",
+      "start": "Teste de hardware: \"{{name}}\", iniciando ({{clocks}} clocks)",
       "genCpp": "Gerando o harness C++ de \"{{name}}\"...",
       "exec": "Executando",
       "reads": "leituras",
       "openFolder": "Abrir esta pasta na file tree (visão de pastas)",
-      "toaquiAdded": "Adicionei #TOAQUI antes do } que fecha o main() em {{file}} — o pino 'cheguei' agora pulsa no fim do programa, então a simulação encerra assim que o programa termina.",
-      "toaquiPresent": "{{file}} já tem um #TOAQUI — mantido como está.",
-      "toaquiNoMain": "Não encontrei o } que fecha o main() em {{file}} — #TOAQUI não adicionado; a simulação vai rodar o teto de clocks inteiro.",
-      "chegueiEnd": "Fim do programa alcançado no clock {{clock}} (pino cheguei) — simulação encerrada antes do teto."
+      "toaquiAdded": "Adicionei #TOAQUI antes do } que fecha o main() em {{file}}, o pino 'cheguei' agora pulsa no fim do programa, então a simulação encerra assim que o programa termina.",
+      "toaquiPresent": "{{file}} já tem um #TOAQUI, mantido como está.",
+      "toaquiNoMain": "Não encontrei o } que fecha o main() em {{file}}, #TOAQUI não adicionado; a simulação vai rodar o teto de clocks inteiro.",
+      "chegueiEnd": "Fim do programa alcançado no clock {{clock}} (pino cheguei), simulação encerrada antes do teto."
     },
     "cmd": {
       "placeholder": "Rode um comando (python, git, cd …) e tecle Enter"
@@ -574,32 +577,32 @@
       "sourceLabelGtkw": "do .gtkw selecionado ({{count}} sinal(is))",
       "sourceLabelWc": "da Configuração de Ondas ({{count}} sinal(is))",
       "sourceLabelTb": "testbench controla $dumpvars (escrito à mão, sem sobrescrita)",
-      "sourceLabelDefault": "padrão ($dumpvars(1, <tb>) — sinais no escopo do testbench)",
-      "overrideUserDumpvars": "Nota: $dumpfile/$dumpvars escrito à mão no testbench foi comentado — $dumpvars do Aurora assume.",
+      "sourceLabelDefault": "padrão ($dumpvars(1, <tb>), sinais no escopo do testbench)",
+      "overrideUserDumpvars": "Nota: $dumpfile/$dumpvars escrito à mão no testbench foi comentado, $dumpvars do Aurora assume.",
       "bannerSim": "Simulação & GTKWave",
       "buildingVvp": "Construindo VVP para simulação...",
       "runningVvp": "Executando simulação VVP...",
       "buildingVerilator": "Compilando design com Verilator (--binary --trace-fst)...",
       "runningVerilator": "Executando binário Verilator...",
-      "fastBanner": "Fast Sim — Verilator, sem onda.",
+      "fastBanner": "Fast Sim, Verilator, sem onda.",
       "fastBuilding": "Compilando com Verilator (sem trace)...",
       "fastDone": "Fast Sim concluído: {{name}}.",
       "verilatorSimulator": "Usando simulador: Verilator.",
       "iverilogSimulator": "Usando simulador: Icarus Verilog (vvp).",
       "cocotbSimulator": "Usando testbench: cocotb Python + {{sim}}.",
       "cocotbToplevelDirective": "DUT do cocotb via '# aurora-toplevel': {{module}}.",
-      "cocotbToplevelFallback": "Sem diretiva '# aurora-toplevel: <modulo>' em {{file}} — usando o top-level do projeto '{{module}}' como DUT do cocotb. Adicione esse comentario no .py para mirar um modulo especifico.",
+      "cocotbToplevelFallback": "Sem diretiva '# aurora-toplevel: <modulo>' em {{file}}, usando o top-level do projeto '{{module}}' como DUT do cocotb. Adicione esse comentario no .py para mirar um modulo especifico.",
       "runningCocotb": "Executando testbench cocotb com {{sim}}...",
-      "cocotbTestsFailed": "cocotb: um ou mais testes FALHARAM. A forma de onda vai abrir mesmo assim, para você inspecionar o que aconteceu — veja no log acima qual asserção falhou.",
+      "cocotbTestsFailed": "cocotb: um ou mais testes FALHARAM. A forma de onda vai abrir mesmo assim, para você inspecionar o que aconteceu, veja no log acima qual asserção falhou.",
       "cocotbVcd": "VCD do cocotb gerado: {{name}}",
       "procPicked": "Vários processadores ({{count}}); usando \"{{name}}\". Defina o top-level pra escolher outro.",
-      "procPorts": "Verilator (processador CMM) — descobrindo pinos de \"{{name}}\" (--json-only)",
-      "procNoPorts": "Aviso: o processador não declara portas de I/O — só vai dar clock (sem leitura/escrita de arquivo).",
+      "procPorts": "Verilator (processador CMM), descobrindo pinos de \"{{name}}\" (--json-only)",
+      "procNoPorts": "Aviso: o processador não declara portas de I/O, só vai dar clock (sem leitura/escrita de arquivo).",
       "procWiring": "Fiação de I/O → entradas: {{inputs}} | saídas: {{outputs}} | {{itr}}",
       "procBuilding": "Compilando o harness do processador (--cc --exe --build)...",
       "procRunning": "Rodando \"{{name}}\" por {{clocks}} clocks...",
       "procDone": "Concluído. Saídas escritas em {{dir}}: {{outputs}}",
-      "noMemFiles": "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador — rode C± pelo menos uma vez para cada processador antes de simular.",
+      "noMemFiles": "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador, rode C± pelo menos uma vez para cada processador antes de simular.",
       "couldNotList": "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
       "copyMemFailed": "Aviso: falha ao copiar {{name}} de {{path}}",
       "couldNotStageTbFile": "Aviso: não foi possível preparar \"{{name}}\" referenciado pelo testbench ({{reason}}).",
@@ -607,9 +610,9 @@
       "usingGtkwFile": "Usando arquivo GTKWave save: {{name}}",
       "staleVcdSignalOne": "Nota: {{preview}} estava marcado na Configuração de Ondas mas não está no VCD gerado; omitido do layout .gtkw.",
       "staleVcdSignalMany": "Nota: {{count}} sinais marcados na Configuração de Ondas não estão no VCD gerado e foram omitidos do layout .gtkw: {{preview}}{{more}}.",
-      "verilatorNoProcSignals": "Verilator não expõe os sinais internos de monitoramento do processador {{proc}} (stack/ULA) — use Icarus Verilog para vê-los.",
+      "verilatorNoProcSignals": "Verilator não expõe os sinais internos de monitoramento do processador {{proc}} (stack/ULA), use Icarus Verilog para vê-los.",
       "autoGtkwLayout": "Layout GTKWave gerado automaticamente ({{detail}})",
-      "autoGtkwError": "Aviso: não foi possível gerar .gtkw automaticamente — {{message}}",
+      "autoGtkwError": "Aviso: não foi possível gerar .gtkw automaticamente, {{message}}",
       "headerFallback": "Nota: captura do header por streaming indisponível; convertendo a waveform inteira para ler o header (mais lento).",
       "parseSourcesNote": "Nota: não foi possível parsear as fontes do projeto ({{message}}); caindo para heurísticas baseadas em nome de escopo para detecção de processadores.",
       "gtkwStaleVcdOne": "Nota: {{preview}} é referenciado por {{file}} mas não está no VCD gerado; GTKWave mostrará um traço vazio.",
@@ -796,11 +799,11 @@
     "fetch": "Fetch",
     "refresh": "Atualizar",
     "publish": "Publicar",
-    "publishHead": "Sem remoto — publicar no GitHub",
+    "publishHead": "Sem remoto, publicar no GitHub",
     "repoNamePlaceholder": "nome do repositório",
     "private": "Privado",
     "public": "Público",
-    "tokenHint": "Para criar repositórios o token precisa ser CLÁSSICO com o escopo repo — github.com/settings/tokens/new",
+    "tokenHint": "Para criar repositórios o token precisa ser CLÁSSICO com o escopo repo, github.com/settings/tokens/new",
     "connect": "Conectar",
     "disconnect": "Desconectar",
     "tokenPlaceholder": "Token clássico do GitHub (escopo repo)",
@@ -812,7 +815,7 @@
     "newBranchPlaceholder": "novo branch",
     "create": "Criar",
     "branches": "Branches",
-    "treeClean": "Árvore de trabalho limpa — sem alterações.",
+    "treeClean": "Árvore de trabalho limpa, sem alterações.",
     "noChanges": "Nada para commitar.",
     "openProject": "Abra um projeto para usar o controle de versão.",
     "notRepo": "Este projeto ainda não é um repositório Git.",
@@ -828,8 +831,8 @@
     "invalidPath": "O caminho não pode conter espaços ou caracteres especiais.",
     "noTextDiff": "Sem diferenças textuais.",
     "noDiffYet": "Sem diferenças (um arquivo novo aparece depois do stage, ou é binário).",
-    "binaryNotShown": "Arquivo binário — diff não exibido.",
-    "largeDiff": "Alteração grande — diff oculto para manter a interface fluida.",
+    "binaryNotShown": "Arquivo binário, diff não exibido.",
+    "largeDiff": "Alteração grande, diff oculto para manter a interface fluida.",
     "showAnyway": "Mostrar a primeira parte",
     "switchBranch": "Trocar de branch",
     "dirtySwitchMsg": "Você tem alterações não commitadas que seriam sobrescritas. Guardar (stash) e trocar? Você pode restaurá-las depois pelo menu de branches.",
@@ -842,7 +845,7 @@
     "discarded": "Stash descartado",
     "stashDropConfirm": "Descartar as alterações guardadas? Isto não pode ser desfeito.",
     "noFileChanges": "Nenhuma alteração de arquivo neste commit.",
-    "diffTruncated": "Diff grande — mostrando apenas a primeira parte.",
+    "diffTruncated": "Diff grande, mostrando apenas a primeira parte.",
     "fileOne": "arquivo",
     "fileMany": "arquivos",
     "cancel": "Cancelar",
@@ -854,7 +857,7 @@
     "howToToken": "Como obter um token do GitHub",
     "tokenStepOpen": "Abra <b>Settings → Developer settings → Personal access tokens → Tokens (classic)</b> e clique em <b>Generate new token (classic)</b>.",
     "tokenStepName": "Dê um nome (ex.: <b>AURORA</b>) e uma data de expiração.",
-    "tokenStepScope": "Marque o escopo <code>repo</code> — ele cobre clonar, pull, push, commit e criar repositórios.",
+    "tokenStepScope": "Marque o escopo <code>repo</code>, ele cobre clonar, pull, push, commit e criar repositórios.",
     "tokenStepOrg": "Para ver também repos de <b>organizações</b>, marque <code>read:org</code>.",
     "tokenStepCopy": "Gere, copie o token e cole no campo acima.",
     "tokenTableTitle": "Qual permissão cada recurso precisa",
@@ -867,11 +870,11 @@
     "featListRepos": "Listar seus repos",
     "featOrgRepos": "Repos de organização",
     "fineOrgGrant": "dar acesso à org + Metadata: Read",
-    "tokenFineNote": "Tokens fine-grained geralmente <b>não conseguem criar repositórios</b> — se o Publicar falhar, use um token <b>clássico</b> com <code>repo</code>.",
+    "tokenFineNote": "Tokens fine-grained geralmente <b>não conseguem criar repositórios</b>, se o Publicar falhar, use um token <b>clássico</b> com <code>repo</code>.",
     "openTokenPage": "Abrir a página de tokens do GitHub",
     "cloned": "Projetos",
     "clonedTitle": "Projetos clonados",
-    "clonedEmpty": "Nenhum projeto clonado ainda — clone um repositório para vê-lo aqui.",
+    "clonedEmpty": "Nenhum projeto clonado ainda, clone um repositório para vê-lo aqui.",
     "actions": "Ações",
     "copyName": "Copiar nome do repo",
     "copyPath": "Copiar caminho do repo",
@@ -881,7 +884,7 @@
     "remove": "Remover",
     "copied": "Copiado para a área de transferência",
     "noGithubUrl": "Sem URL do GitHub para este projeto.",
-    "noSpfInClone": "Nenhum projeto SAPHO encontrado — abrindo a pasta.",
+    "noSpfInClone": "Nenhum projeto SAPHO encontrado, abrindo a pasta.",
     "removeClonedMsg": "Remover <strong>{name}</strong> da lista? Você também pode apagar a pasta do disco.",
     "removeFromList": "Remover da lista",
     "deleteFromDisk": "Apagar do disco",
@@ -899,7 +902,7 @@
     "stagedWord": "em stage",
     "stashConflictMsg": "Suas alterações atuais conflitam com o stash, então ele não pode ser restaurado sem sobrescrevê-las. Descartar suas alterações atuais e restaurar a versão guardada? (O stash é mantido se ainda não der pra aplicar.)",
     "discardRestore": "Descartar atuais e restaurar",
-    "stashKept": "Stash mantido — resolva suas alterações e tente de novo.",
+    "stashKept": "Stash mantido, resolva suas alterações e tente de novo.",
     "openFailed": "Não foi possível abrir o projeto",
     "openFailedHint": "A pasta pode ter sido movida ou apagada. Remover da lista ou clonar de novo?",
     "cloneAgain": "Clonar de novo",
@@ -962,7 +965,7 @@
       "site": "site do projeto"
     },
     "why": {
-      "compiled": "Esta biblioteca tem código compilado em C. O Python embarcado da AURORA é um build MinGW e não carrega esse formato — o import falha com \"DLL load failed\". Para usá-la, abra o terminal TCMD e rode com o seu próprio Python."
+      "compiled": "Esta biblioteca tem código compilado em C. O Python embarcado da AURORA é um build MinGW e não carrega esse formato, o import falha com \"DLL load failed\". Para usá-la, abra o terminal TCMD e rode com o seu próprio Python."
     },
     "phase": {
       "download": "baixando",

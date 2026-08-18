@@ -1,14 +1,14 @@
-// untitled_docs.js — pure metadata helpers for untitled (never-saved) tabs,
+// untitled_docs.js: pure metadata helpers for untitled (never-saved) tabs,
 // extracted from tab_manager.js (A2 god-file decomposition).
 //
 // The untitled STATE stays owned by TabManager (the `untitledDocuments` Map +
 // the `untitledCounter`); these functions receive it as a parameter and never
-// mutate the counter (createNewFile writes it back — the class owns it).
+// mutate the counter (createNewFile writes it back, the class owns it).
 //
 // The monaco/DOM-heavy untitled orchestration (type detection, snippet
 // expansion, tab presentation) deliberately stays in the class: it's
 // side-effect orchestration with no clean seam, has external callers, and
-// isn't exercised by the E2E — extracting it via a deps bag would be high
+// isn't exercised by the E2E, extracting it via a deps bag would be high
 // risk for little gain.
 
 import { getExtensionForDocumentType } from '../editor/document_type_detector.js';

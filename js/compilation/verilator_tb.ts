@@ -1,5 +1,5 @@
 /**
- * verilator_tb.ts — Verilator harness generator pro modo processador CMM.
+ * verilator_tb.ts: Verilator harness generator pro modo processador CMM.
  *
  * Tudo aqui e PURO (sem I/O, sem window): parseVerilatorPorts le o AST
  * JSON do `--json-only`, parseProcessorIO extrai a fiacao de I/O direto
@@ -7,7 +7,7 @@
  * C++ do harness. A orquestracao vive em
  * CompilationModule.verilatorProcessorRun.
  *
- * Compilado por `tsc` (npm run build:ts) num verilator_tb.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num verilator_tb.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -51,7 +51,7 @@ const CLOCK_NAMES = new Set([
   'clk', 'clock', 'clk_i', 'i_clk', 'clk_in', 'clkin', 'sysclk', 'clk_sys',
 ]);
 
-/** Heuristica de deteccao de clock — driven no loop, nao lido de arquivo. */
+/** Heuristica de deteccao de clock, driven no loop, nao lido de arquivo. */
 function isClockName(name: string): boolean {
   const lower = String(name || '').toLowerCase();
   if (CLOCK_NAMES.has(lower)) return true;
@@ -143,7 +143,7 @@ export function parseVerilatorPorts(tree: unknown): VerilatorPort[] {
 }
 
 // =====================================================================
-// Botao "Verilator (processador CMM)" — top-level gerado pelo compilador
+// Botao "Verilator (processador CMM)", top-level gerado pelo compilador
 // =====================================================================
 //
 // O .v gerado pelo asmcomp tem interface previsivel (modulo processor):
@@ -153,18 +153,18 @@ export function parseVerilatorPorts(tree: unknown): VerilatorPort[] {
 // declara a fiacao dispositivo<->valor:
 //   req_in_sim_<K> = req_in == <V>;   // input_<K>.txt  alimenta `in` quando req_in==V
 //   out_en_sim_<K> = out_en == <V>;   // output_<K>.txt recebe `out` quando out_en==V
-// parseProcessorIO le ESSAS linhas direto do <proc>.v (fonte canonica) —
+// parseProcessorIO le ESSAS linhas direto do <proc>.v (fonte canonica):
 // NADA de testbench. O harness C++ replica a fiacao reusando os MESMOS
 // input_<K>.txt / output_<K>.txt (compat com o sim iverilog).
 //
 // Bloco de debug do .v (pc_sim_val, mem_addr_wr, $readmemb relativo) fica
-// sob `ifdef __ICARUS__` — Verilator nao ve, entao so os .mif (caminhos
+// sob `ifdef __ICARUS__`, Verilator nao ve, entao so os .mif (caminhos
 // absolutos de IFILE/DFILE) carregam. Sem staging.
 
 /**
  * Extrai a fiacao dispositivo<->arquivo<->valor one-hot direto do
  * <proc>.v (bloco YANC_SIM_VIS gerado pelo asmcomp). Le como TEXTO, entao
- * os `ifdef nao importam — as linhas estao sempre presentes na fonte. O
+ * os `ifdef nao importam, as linhas estao sempre presentes na fonte. O
  * indice K do sinal e tambem o numero do arquivo (input_<K>.txt /
  * output_<K>.txt), e <V> e o valor one-hot que o harness compara.
  *
@@ -240,12 +240,12 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // in/req_in: so se o tb declarar inputs (processador com entrada).
   // out/out_en: so se o tb declarar outputs (processador com saida).
   // Processadores tipo proc_fft que so computam e dumpam saidas nao
-  // tem in/req_in no .v — esses ficam opcionais aqui. (E simetrico:
+  // tem in/req_in no .v, esses ficam opcionais aqui. (E simetrico:
   // procs que so leem e nao escrevem ficariam sem out/out_en).
   const missing: string[] = [];
   if (!clk) missing.push('clk');
   // in/req_in so sao exigidos se o tb tem entradas. Processadores sem
-  // inputs (#NUIOIN 0, ex: proc_fft) geram .v sem essas portas — o loop
+  // inputs (#NUIOIN 0, ex: proc_fft) geram .v sem essas portas, o loop
   // de leitura (~linha 526) nao e emitido, entao o C++ nao referencia
   // inBus/reqBus. Mesma logica pra out/out_en quando nao ha outputs.
   // Anexa o motivo no nome do pino faltante pra que a mensagem de erro
@@ -263,7 +263,7 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   }
 
   // Verilator expoe sinais > 64 bits como VlWide (array de uint32), que NAO
-  // converte pra uint64_t — o cast `(uint64_t)top->in/out` do harness viraria
+  // converte pra uint64_t, o cast `(uint64_t)top->in/out` do harness viraria
   // erro de g++ cru la no Passo 4 (--build). Falha cedo, aqui, com mensagem
   // clara. So checamos o barramento que e REALMENTE referenciado: in/req_in so
   // sao lidos se ha inputs; out/out_en so escritos se ha outputs.
@@ -279,7 +279,7 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // Larguras dos barramentos de dado. So sao lidas dentro dos respectivos
   // loops (outW se ha outputs, inW se ha inputs), entao o barramento ausente
   // fica 0 e nunca e referenciado. Usadas pra mascarar/estender o sinal a
-  // EXATAMENTE a largura da porta — Verilator armazena in/out num tipo C
+  // EXATAMENTE a largura da porta, Verilator armazena in/out num tipo C
   // (CData/SData/IData/QData) que pode ser MAIS LARGO que a porta (ex: 18 bits
   // num IData de 32), e nao garante os bits extras zerados.
   const outW = outBus ? outBus.width : 0;
@@ -287,7 +287,7 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // Pino de fim-de-programa: o #TOAQUI no .cmm faz o asmcomp expor `cheguei`
   // como porta top-level de saida do <proc>.v. Quando presente, o harness
   // encerra o loop assim que ela pulsa (programa acabou) em vez de rodar o
-  // teto fixo de clocks. Pode nao existir (cmm sem #TOAQUI) — entao null.
+  // teto fixo de clocks. Pode nao existir (cmm sem #TOAQUI), entao null.
   const cheguei = findPort(ports, 'cheguei');
   const L: string[] = [];
 
@@ -331,8 +331,8 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   for (const p of outputs) {
     L.push(`  if(!o_out_${p.port}){ fprintf(stderr, "Aurora: nao consegui abrir ${p.file} pra escrita\\n"); return 1; }`);
   }
-  // Entrada ausente NAO e fatal — next_dec(NULL,...) ja devolve false e a sim
-  // roda sem aquele estimulo — mas avisa, senao um input_<N>.txt faltando
+  // Entrada ausente NAO e fatal, next_dec(NULL,...) ja devolve false e a sim
+  // roda sem aquele estimulo, mas avisa, senao um input_<N>.txt faltando
   // viraria "0 leituras" silencioso e dificil de diagnosticar.
   for (const p of inputs) {
     L.push(`  if(!f_in_${p.port}) fprintf(stderr, "Aurora: aviso — ${p.file} ausente; entrada nao sera alimentada\\n");`);
@@ -343,10 +343,10 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // "@@AURORA_PROG <cyc> <nclk> <reads>" no stdout a cada ~1% dos clocks.
   // Aurora consome essas linhas (nao as ecoa) pra mover a barra ASCII.
   // step = no minimo 1 pra nclk pequeno. fflush a cada marcador porque o
-  // stdout do exe e bloco-bufferizado quando vai pra um pipe — sem flush a
+  // stdout do exe e bloco-bufferizado quando vai pra um pipe, sem flush a
   // barra so apareceria no fim. ~100 flushes na sim toda: custo desprezivel.
   L.push(`  unsigned step = nclk/100; if(step==0) step=1;`);
-  // itr (linha de interrupcao) fica baixa a simulacao toda — escrever 0
+  // itr (linha de interrupcao) fica baixa a simulacao toda, escrever 0
   // uma vez antes do loop em vez de a cada ciclo. Nao muda nada no modelo
   // e tira um store do caminho quente.
   if (itr) L.push(`  top->${itr.name} = 0;`);
@@ -395,7 +395,7 @@ export function generateVerilatorProcTb({ topModule, ports, inputs, outputs, num
   // Marcador final = clocks REALMENTE rodados (ran). Em run completo ran==nclk
   // (100%); se 'cheguei' encerrou antes, reflete o clock de parada (ex: 1224).
   L.push(`  printf("@@AURORA_PROG %u %u %llu\\n", ran, nclk, reads); fflush(stdout);`);
-  // FILE* nao tem destrutor — fechar explicitamente pra dar flush das saidas
+  // FILE* nao tem destrutor, fechar explicitamente pra dar flush das saidas
   // bufferizadas antes do processo terminar.
   for (const p of inputs) L.push(`  if(f_in_${p.port}) fclose(f_in_${p.port});`);
   for (const p of outputs) L.push(`  if(o_out_${p.port}) fclose(o_out_${p.port});`);

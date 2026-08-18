@@ -5,7 +5,7 @@ import {
 } from '../../js/tree/fs_name_utils.js';
 
 // Pure helpers behind the file-tree CRUD (standard_tree_crud.js). The rules
-// mirror VS Code's Explorer — see the module doc for the full list.
+// mirror VS Code's Explorer, see the module doc for the full list.
 
 describe('path helpers', () => {
     it('normSlash converts backslashes', () => {

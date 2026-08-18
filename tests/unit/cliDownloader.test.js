@@ -48,7 +48,7 @@ describe('cli_manifest', () => {
 
   it('returns null for an unsupported platform or CLI', () => {
     expect(entryFor('claude', 'sunos:mips')).toBeNull();
-    // @ts-expect-error — exercising the unknown-kind guard
+    // @ts-expect-error, exercising the unknown-kind guard
     expect(entryFor('nope', 'win32:x64')).toBeNull();
   });
 });
@@ -105,7 +105,7 @@ describe('cli_downloader cache (no network)', () => {
     expect(hit.exe).toBe(ip.exe);
     expect(hit.viaShim).toBe(false);
 
-    // With the sentinel present, ensureCli must short-circuit to the cache —
+    // With the sentinel present, ensureCli must short-circuit to the cache:
     // it never touches the network.
     const ensured = await ensureCli('claude');
     expect(ensured.exe).toBe(ip.exe);

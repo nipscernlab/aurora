@@ -76,7 +76,7 @@ describe('parseVerilogModules', () => {
 
     it('extracts ANSI ports with shared kind keyword (input a, b)', () => {
         // Em `module my_add(input a, b, output c)`, a vírgula entre `a`
-        // e `b` separa NOMES, não declarações — ambos são input. Bug
+        // e `b` separa NOMES, não declarações, ambos são input. Bug
         // anterior: split simples por `,` deixava `b` órfão (sem kind)
         // e extractSignals ignorava. Range também deve propagar:
         // `input [3:0] a, b` → ambos 4 bits.
@@ -236,7 +236,7 @@ describe('buildHierarchyTree', () => {
         const tree = buildHierarchyTree(modules, 'host');
         // external_ip isn't declared anywhere, so the instance is dropped
         // (extractInstances filters by known names). The tree degrades to
-        // a leaf with no children. This is fine — the user can still
+        // a leaf with no children. This is fine, the user can still
         // pick host's own signals; the missing IP is a project setup
         // problem they'll see when iverilog complains.
         expect(tree.children).toEqual([]);
@@ -308,7 +308,7 @@ describe('buildHierarchyTree', () => {
     it('captura tipos non-synth: real (C± float), integer, time', () => {
         // O .v gerado pelo asmcomp declara C± float como `real foo = 0.0;`.
         // Antes, signal_parser nao reconhecia `real` como kind, entao
-        // essas vars sumiam do Wave Config picker — e por extensao do
+        // essas vars sumiam do Wave Config picker, e por extensao do
         // $dumpvars, VCD, e .gtkw final. Mesma coisa pra `integer` e
         // `time`.
         const files = [{

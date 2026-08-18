@@ -2,7 +2,7 @@
 //
 // Regression tests for the #file-tree subsystem's single controller.
 // These pin the invariants documented in ARCHITECTURE.md §8 ("Known
-// fragilities") — the ones a six-bug debugging chain settled on. Each
+// fragilities"), the ones a six-bug debugging chain settled on. Each
 // test maps to a property that, if it regresses, reopens one of those
 // historical bugs:
 //
@@ -81,7 +81,7 @@ describe('FileTreeViewController — DOM topology (§8)', () => {
         expect(verilog).toBeTruthy();
         expect(hierarchy).toBeTruthy();
         expect(standard).toBeTruthy();
-        // Distinct nodes — renderers writing into one cannot touch another.
+        // Distinct nodes, renderers writing into one cannot touch another.
         expect(verilog).not.toBe(hierarchy);
         expect(verilog).not.toBe(standard);
         expect(hierarchy).not.toBe(standard);
@@ -104,7 +104,7 @@ describe('FileTreeViewController — DOM topology (§8)', () => {
         controller.showFileMode();
         expect(fileTree.dataset.activeView).toBe('verilog');
 
-        // Inactive subtrees keep their content (display:none, not wiped) —
+        // Inactive subtrees keep their content (display:none, not wiped):
         // the whole point of the separate-subtree design.
         expect(treeView.getContainer('hierarchy').querySelector('.hier-row')).toBeTruthy();
         expect(treeView.getContainer('verilog').querySelector('.vlg-row')).toBeTruthy();
@@ -161,7 +161,7 @@ describe('FileTreeViewController — one click listener, correct cycle (§8)', (
         const { btn, controller } = await load({ projectPath: '/proj' });
         controller.setHierarchyData({ root: 'top' });
 
-        // Hammer the (idempotent) binder — the dataset guard must keep it
+        // Hammer the (idempotent) binder, the dataset guard must keep it
         // to a single listener. A stacked listener would advance the view
         // by more than one step per physical click.
         controller._installToggleListener();

@@ -31,7 +31,7 @@ class EditorManager {
 
         // State model (see editor.css): the overlay ALWAYS keeps `visible`;
         // `hidden` is what toggles the welcome off when a file is open. The
-        // old code removed `visible` here instead — which left the overlay
+        // old code removed `visible` here instead, which left the overlay
         // in a `hidden`-without-`visible` limbo that showed neither the
         // welcome NOR an editor: the "everything went grey" bug after
         // closing an (AI-)opened file.
@@ -65,7 +65,7 @@ class EditorManager {
         // Without this, racing call sites (setActiveEditor's auto-create +
         // TabManager.addTab's IIFE) end up with two editor-instance divs
         // stacked in the same container, both bound to the same shared model
-        // — typing produces visual artefacts and the user can't tell which
+        //, typing produces visual artefacts and the user can't tell which
         // pane has focus. Seed the shared model from initialContent if it
         // hasn't been seeded yet.
         const existing = this.editors.get(filePath);
@@ -193,7 +193,7 @@ class EditorManager {
                 renderCharacters: true,
                 maxColumn: 120
             },
-            // Default text smaller and tighter — matches the rest of the IDE
+            // Default text smaller and tighter, matches the rest of the IDE
             // (status bar, file tree). Mobile breakpoint scales down further.
             fontSize: window.innerWidth < 768 ? 11 : 12,
             lineNumbers: window.innerWidth < 480 ? 'off' : 'on',
@@ -206,7 +206,7 @@ class EditorManager {
             // EDITOR BEHAVIOR
             scrollBeyondLastLine: true,
             renderWhitespace: 'selection',
-            // mouseWheelZoom disabled — accidental Ctrl+wheel was blowing up the
+            // mouseWheelZoom disabled, accidental Ctrl+wheel was blowing up the
             // font and breaking the just-set defaults. Window-level zoom (zoom.js)
             // is still available as the intentional path.
             mouseWheelZoom: false,
@@ -272,7 +272,7 @@ class EditorManager {
         // INITIALIZE ENHANCED FEATURES
         this.setupEnhancedFeatures(editor);
 
-        // AI "ask about this" star — appears on any non-empty selection.
+        // AI "ask about this" star, appears on any non-empty selection.
         attachAiSelectionWidget(editor, { getFilePath: () => filePath });
 
         this.editors.set(filePath, {
@@ -302,7 +302,7 @@ class EditorManager {
         this.setupCursorListener(editor);
 
         // Font ligatures per language. Verilog uses `<=` as a non-blocking
-        // assignment, but the JetBrains Mono ligature renders it as '≤' — and a
+        // assignment, but the JetBrains Mono ligature renders it as '≤', and a
         // ligature is purely visual, so it can't tell assignment from the `<=`
         // comparison. We disable ligatures while editing Verilog (where `<=` is
         // mostly assignment) and keep them on for every other language.
@@ -315,7 +315,7 @@ class EditorManager {
         editor.onDidChangeModelLanguage(syncLigatures);
         syncLigatures();
 
-        // Re-decorate bra-ket + vertical-bar on edits AND on scroll/layout —
+        // Re-decorate bra-ket + vertical-bar on edits AND on scroll/layout:
         // both now scan only the visible range (P11), so they must re-run when
         // the visible range changes. Debounced so a burst of keystrokes or a
         // scroll fling coalesces into one visible-range scan.
@@ -342,7 +342,7 @@ class EditorManager {
         if (!model) return;
 
         try {
-            // Scan only the visible lines, not the whole model (P11) — re-run on
+            // Scan only the visible lines, not the whole model (P11), re-run on
             // scroll. Off-screen '⟩' decorations aren't visible anyway. Bail if
             // the editor isn't laid out yet; the scroll/layout listener re-runs.
             const ranges = editor.getVisibleRanges();
@@ -505,7 +505,7 @@ class EditorManager {
         });
 
         // Detect the find widget being dismissed. Guard FIRST on our own tracked
-        // state so the DOM query (.find-widget) only runs while a find is open —
+        // state so the DOM query (.find-widget) only runs while a find is open:
         // the common case is closed, so this drops a per-keystroke querySelector
         // from the hot typing path (P11).
         editor.onDidChangeModelContent(() => {
@@ -520,7 +520,7 @@ class EditorManager {
 
     static getActiveFilePath() {
         const activeTab = document.querySelector('.tab.active');
-        // Tabs store the path in `data-path` (dataset.path), not `data-file` —
+        // Tabs store the path in `data-path` (dataset.path), not `data-file`:
         // reading dataset.file always returned undefined, so the per-file find
         // state (findStates) never keyed correctly.
         return activeTab ? activeTab.dataset.path : null;
@@ -576,7 +576,7 @@ class EditorManager {
         if (!this.resizeObserver) {
             this.resizeObserver = new ResizeObserver(() => {
                 // Coalesce a burst of resize callbacks (one per frame of a window
-                // drag / panel animation) into a single update — without this,
+                // drag / panel animation) into a single update, without this,
                 // every frame iterated every editor calling updateOptions.
                 if (this._responsiveRaf) return;
                 this._responsiveRaf = requestAnimationFrame(() => {
@@ -594,7 +594,7 @@ class EditorManager {
 
         // The options below only change when one of these thresholds is crossed.
         // Skip the per-editor updateOptions entirely while the width stays in the
-        // same band — the common case during a resize is "nothing crossed".
+        // same band, the common case during a resize is "nothing crossed".
         const sig = [isMobile, isTablet, window.innerWidth > 1200, window.innerWidth < 480].join('|');
         if (sig === this._responsiveSig) return;
         this._responsiveSig = sig;
@@ -728,7 +728,7 @@ class EditorManager {
         // No auto-create here. TabManager.addTab owns editor creation (with
         // file content) via its EditorManager.ready-gated IIFE; if we forced
         // a create here we'd race that path and end up with a duplicate
-        // empty editor stacked on top. Bail quietly — the IIFE will call us
+        // empty editor stacked on top. Bail quietly, the IIFE will call us
         // again once the editor is in the map.
         const editorData = this.editors.get(filePath);
         if (!editorData) {
@@ -740,7 +740,7 @@ class EditorManager {
         this.activeEditor = editorData.editor;
 
         // Layout and restore state. requestAnimationFrame fires after the
-        // browser has applied the display:block above and computed layout —
+        // browser has applied the display:block above and computed layout:
         // exactly when editor.layout() can measure the container correctly.
         // The old setTimeout(…, 50) was a guess: too early on a slow frame
         // (mis-measured layout) and, worse, it opened a 50ms window in which
@@ -748,7 +748,7 @@ class EditorManager {
         // had since switched to (the "file always opens on the left" bug).
         requestAnimationFrame(() => {
             // A rapid close (e.g. holding Ctrl+W) can dispose this editor and
-            // null activeEditor before this deferred frame runs — bail so we
+            // null activeEditor before this deferred frame runs, bail so we
             // never call layout()/focus()/getAction() on null.
             if (!this.activeEditor) return;
             this.activeEditor.layout();
@@ -795,11 +795,11 @@ class EditorManager {
         if (editorData) {
             // Clear the dangling active-editor pointer BEFORE disposing, so
             // nothing (e.g. TabManager's "no tabs left" cleanup) ends up
-            // calling setValue()/layout() on a disposed instance — which
+            // calling setValue()/layout() on a disposed instance, which
             // throws and aborts the close mid-way, leaving the editor area
             // grey.
             if (this.activeEditor === editorData.editor) this.activeEditor = null;
-            // Dispose the editor view but NOT the model — that's the
+            // Dispose the editor view but NOT the model, that's the
             // registry's job. If a split pane is still showing this file,
             // the model has to outlive the main editor.
             editorData.editor.dispose();
@@ -855,7 +855,7 @@ async function ensureMonacoInitialized() {
 let _monacoReady = null;
 function initMonaco() {
     // Idempotent: both renderer.js and this module's own DOMContentLoaded
-    // bootstrap call initMonaco, so memoize the promise — Monaco's AMD modules
+    // bootstrap call initMonaco, so memoize the promise, Monaco's AMD modules
     // load and the languages/theme register exactly once, and both awaiters
     // share the single resolution (P5).
     if (_monacoReady) return _monacoReady;
@@ -876,7 +876,7 @@ function initMonaco() {
             // Python fecha a lista de idiomas formatáveis: black pelo
             // interpretador que o localizador já descobre para o cocotb.
             initPythonFormat();
-            // O11: slang semantic analysis for Verilog/SystemVerilog —
+            // O11: slang semantic analysis for Verilog/SystemVerilog:
             // elaboration diagnostics + completion, complementing Verible.
             // Toggleable (command palette); only wires providers here.
             initSlang();
@@ -885,11 +885,11 @@ function initMonaco() {
             // best-effort (falls back to Monarch if grammars are absent).
             initTreeSitter();
 
-            // Aurora dark theme — colors mirror theme_variables.css so the
+            // Aurora dark theme, colors mirror theme_variables.css so the
             // editor surface blends with the rest of the IDE chrome.
             // Surfaces: --bg #0A0D14, --bg-elev #0F131C, --border #1F2532
             // Accent:   --accent #8E83E8, --accent-hover #A89EF0
-            // Aurora syntax palette — calmer than VS Code defaults, tuned for
+            // Aurora syntax palette, calmer than VS Code defaults, tuned for
             // long-session legibility on the night-sky background.
             monaco.editor.defineTheme('cmm-dark', {
                 base: 'vs-dark',
@@ -913,7 +913,7 @@ function initMonaco() {
                     { token: 'keyword.special.dirac',            foreground: 'B98AE0', fontStyle: 'bold' }
                 ],
                 colors: {
-                    // Surface — match the IDE canvas so the editor disappears into the chrome
+                    // Surface, match the IDE canvas so the editor disappears into the chrome
                     'editor.background':                  '#0A0D14',
                     'editor.foreground':                  '#E8ECF3',
                     'editorGutter.background':            '#0A0D14',
@@ -925,7 +925,7 @@ function initMonaco() {
                     'editor.selectionBackground':         '#8E83E830',
                     'editor.selectionHighlightBackground':'#8E83E81C',
                     'editor.inactiveSelectionBackground': '#8E83E820',
-                    // Current line — matches --bg-elev
+                    // Current line, matches --bg-elev
                     'editor.lineHighlightBackground':     '#0F131C',
                     'editor.lineHighlightBorder':         '#0F131C',
                     // Cursor
@@ -964,7 +964,7 @@ function initMonaco() {
                 }
             });
 
-            // Aurora light theme — same Aurora hue family but inverted for
+            // Aurora light theme, same Aurora hue family but inverted for
             // a soft daytime surface. Accent stays the same violet.
             monaco.editor.defineTheme('cmm-light', {
                 base: 'vs',
@@ -1099,7 +1099,7 @@ function setupASMLanguage() {
         }
     });
 
-    // Aurora ASM Dark — same surfaces as cmm-dark for visual consistency.
+    // Aurora ASM Dark, same surfaces as cmm-dark for visual consistency.
     monaco.editor.defineTheme('asm-dark', {
         base: 'vs-dark',
         inherit: true,
@@ -1143,7 +1143,7 @@ function setupASMLanguage() {
         }
     });
 
-    // Aurora ASM Light — same surfaces as cmm-light for visual consistency.
+    // Aurora ASM Light, same surfaces as cmm-light for visual consistency.
     monaco.editor.defineTheme('asm-light', {
         base: 'vs',
         inherit: true,
@@ -1181,10 +1181,10 @@ function setupASMLanguage() {
 }
 
 // MATLAB / Octave (.m). Not shipped by the vendored Monaco build (see the
-// basic-languages folder — matlab is absent), so we register it ourselves with
+// basic-languages folder, matlab is absent), so we register it ourselves with
 // a Monarch tokenizer, exactly like CMM and ASM above. Tokens are deliberately
 // generic (keyword/string/number/comment/operator/delimiter + constant.language)
-// so the cmm-dark/cmm-light Aurora themes colour them with zero extra rules —
+// so the cmm-dark/cmm-light Aurora themes colour them with zero extra rules:
 // keeping the single canonical theme.
 //
 // The one MATLAB-specific subtlety is the apostrophe: `'` is BOTH the char-array
@@ -1192,7 +1192,7 @@ function setupASMLanguage() {
 // with a two-mode tokenizer: in `root` an apostrophe opens a string; right after
 // a value (identifier / number / closing bracket / another transpose) we sit in
 // the tiny `@transpose` state where a run of apostrophes is an operator instead.
-// Lookbehind is avoided on purpose — Monarch anchors each rule at the current
+// Lookbehind is avoided on purpose, Monarch anchors each rule at the current
 // offset, so `(?<=…)` can't see the preceding character reliably.
 function setupMatlabLanguage() {
     monaco.languages.register({
@@ -1258,7 +1258,7 @@ function setupMatlabLanguage() {
 
         tokenizer: {
             root: [
-                // Block comment `%{ … %}` / Octave `#{ … #}` — only when the
+                // Block comment `%{ … %}` / Octave `#{ … #}`, only when the
                 // opener is alone on its line (MATLAB rule). Mid-line `%{` falls
                 // through to the line-comment rule below.
                 [/^\s*%\{[ \t]*$/, { token: 'comment', next: '@blockcomment' }],
@@ -1270,7 +1270,7 @@ function setupMatlabLanguage() {
                 [/#.*$/, 'comment'],
                 [/\.\.\..*$/, 'comment'],
 
-                // Non-conjugate transpose `.'` — a value-position apostrophe run
+                // Non-conjugate transpose `.'`, a value-position apostrophe run
                 // is handled by @transpose instead (see below).
                 [/\.'/, 'operator'],
 
@@ -1299,7 +1299,7 @@ function setupMatlabLanguage() {
                 [/[([{]/, '@brackets'],
                 [/[)\]}]/, { token: '@brackets', next: '@transpose' }],
 
-                // Strings — apostrophe here (NOT after a value) opens a char array.
+                // Strings, apostrophe here (NOT after a value) opens a char array.
                 [/"/, { token: 'string.quote', bracket: '@open', next: '@dqstring' }],
                 [/'/, { token: 'string.quote', bracket: '@open', next: '@sqstring' }],
 
@@ -1344,7 +1344,7 @@ function setupMatlabLanguage() {
 // Names captured from `#define NAME ...` lines across the open .cmm models.
 // Baked into the Monarch tokenizer (the `defineConstants` attribute below) and
 // refreshed whenever a #define is added/removed, so every later use of NAME
-// lights up like a constant. We lean on Monarch for the hard part — this set is
+// lights up like a constant. We lean on Monarch for the hard part, this set is
 // ONLY consulted by the identifier rule inside `root`, so it never fires inside
 // a comment/string (those run in their own states) and reserved words / types /
 // stdlib functions are matched first, so a name can never override them.
@@ -1355,7 +1355,7 @@ function buildCMMTokenizer(defineConstants) {
         defaultToken: '',
         tokenPostfix: '.cmm',
 
-        // Live set of object-like #define names — consulted by the identifier
+        // Live set of object-like #define names, consulted by the identifier
         // rule's `@defineConstants` case (see root below).
         defineConstants,
 
@@ -1413,19 +1413,19 @@ function buildCMMTokenizer(defineConstants) {
 
                 // Array-from-file: nome[TAM] "arquivo.txt". O TAM precisa
                 // sair com cor de numero (igual a `[112]` numa declaracao
-                // comum) — englobar `[7168]` inteiro como delimiter deixava
+                // comum), englobar `[7168]` inteiro como delimiter deixava
                 // o tamanho cinza/"sem cor", visivel nos blocos de pesos.
                 [/(\[\s*)(\d+)(\s*\])(\s*)("[^"]*")/, ['delimiter.square', 'number', 'delimiter.square', 'white', 'string']],
                 [/\[\s*\w+\s*\)/, 'delimiter.square.inverted'],
 
-                // Numeros complexos — sufixo imaginario `im`. A parte
+                // Numeros complexos, sufixo imaginario `im`. A parte
                 // imaginaria e <magnitude>im: aceita inteiro (8im), decimal
                 // (9.234im) ou a parte imaginaria sozinha (4im em `9 + 4im`).
                 // A magnitude fica com cor de numero; o `im` recebe o roxo
                 // dedicado (number.complex.imaginary.cmm). O \b final impede
                 // casar `im` colado num identificador maior (4import).
                 // `im8` NAO casa (exige digitos ANTES do `im`), entao cai como
-                // identificador comum — comportamento pedido por enquanto.
+                // identificador comum, comportamento pedido por enquanto.
                 [/(\d*\.?\d+)(im)\b/, ['number', 'number.complex.imaginary.cmm']],
 
                 [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
@@ -1497,7 +1497,7 @@ function collectCMMDefineNames() {
 
 // Re-bake the Monarch tokenizer only when the #define name set actually changed
 // (re-registering re-tokenizes every cmm model, so we avoid doing it on every
-// keystroke — it fires at most when a #define line is edited).
+// keystroke, it fires at most when a #define line is edited).
 function refreshCMMDefines() {
     const names = collectCMMDefineNames();
     const changed = names.length !== cmmDefineConstants.length

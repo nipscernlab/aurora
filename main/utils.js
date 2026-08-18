@@ -6,7 +6,7 @@
 const path = require('path');
 const os = require('os');
 // execFile (nao exec): sem shell intermediario, os args vao direto pro argv do
-// binario — fim da interpolacao de string em linha de comando (V10).
+// binario, fim da interpolacao de string em linha de comando (V10).
 const { execFile } = require('child_process');
 
 /** @param {Function} func @param {number} wait */
@@ -90,7 +90,7 @@ function killProcessesByName(/** @type {string} */ processName, timeout = 5000) 
 /**
  * Kill every process whose executable path starts with `prefix`
  * (case-insensitive). Used to evict orphans launched from inside
- * `components/Temp/` — chiefly Verilator-built simulators like
+ * `components/Temp/`, chiefly Verilator-built simulators like
  * `V<top>_tb.exe`, whose name varies per testbench so a `taskkill /IM`
  * filter can't target them safely. Path-prefix matching keeps the kill
  * scoped to Aurora's own scratch tree and won't touch unrelated
@@ -149,7 +149,7 @@ function killProcessesByPathPrefix(prefix, timeout = 5000) {
  * a malicious renderer would use to smuggle non-paths through:
  *   - non-strings (null, objects, arrays)
  *   - empty strings
- *   - null bytes (Node FS truncates at \0 on some platforms — classic bypass)
+ *   - null bytes (Node FS truncates at \0 on some platforms, classic bypass)
  *
  * @param {unknown} p - Untrusted path from an IPC caller.
  * @param {string} [label='path'] - Used in the thrown error message so
@@ -174,8 +174,8 @@ function safePath(p, label = 'path') {
 
 /**
  * Strips characters that would be illegal in a Windows filename plus the
- * low-ASCII control bytes (\x00..\x1f). Replaces them — and any run of
- * whitespace — with a single underscore so the result stays a valid path
+ * low-ASCII control bytes (\x00..\x1f). Replaces them, and any run of
+ * whitespace, with a single underscore so the result stays a valid path
  * segment. Used wherever user-supplied identifiers (module names, project
  * names) are spliced into filesystem paths.
  *
@@ -183,7 +183,7 @@ function safePath(p, label = 'path') {
  * @returns {string}
  */
 function sanitizeFileName(fileName) {
-  // The control-char range is intentional — it catches bytes that can sneak
+  // The control-char range is intentional, it catches bytes that can sneak
   // in via copy-paste from PDFs/shells and which break path-handling code
   // downstream in inconsistent ways.
   // eslint-disable-next-line no-control-regex
@@ -214,7 +214,7 @@ function formatTimestamp(now = new Date()) {
  * Junta os pedaços como um `path.join` comum, com UMA exceção: quando o
  * primeiro pedaço é `components`, o diretório de instalação entra na frente.
  * Isso existe porque a árvore da toolchain é a única coisa que o renderer
- * referencia por nome relativo e que não fica ao lado dele — em build
+ * referencia por nome relativo e que não fica ao lado dele, em build
  * empacotada ela vive fora do asar, e um `path.join('components', ...)` cru
  * resolveria contra o diretório de trabalho do processo, que não é lugar
  * nenhum em particular.

@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tree_undo.js — a área de espera que torna o Ctrl+Z da árvore possível.
+ * tree_undo.js: a área de espera que torna o Ctrl+Z da árvore possível.
  *
  * O problema: `shell.trashItem` manda para a Lixeira e não existe API para
  * trazer de volta. Sem isto, desfazer uma deleção seria impossível e o Ctrl+Z

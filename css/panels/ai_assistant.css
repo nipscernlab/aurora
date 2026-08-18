@@ -1,11 +1,11 @@
 /*
  * =====================================================================================
- *  ai_assistant.css — AURORA AI Assistant side panel v3
+ *  ai_assistant.css: AURORA AI Assistant side panel v3
  *
  *  Design intent:
  *    • Lives as a flex sibling inside .main-container (rightmost child).
  *      Animated `width` transitions push/pull the editor area instead of
- *      overlaying it — same gesture as the file tree on the left.
+ *      overlaying it, same gesture as the file tree on the left.
  *    • No backdrop, no blur. User keeps coding while panel is open.
  *    • Header is compact, blends with the toolbar palette.
  *
@@ -17,7 +17,7 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  Container — flex item on the right of .main-container
+ *  Container, flex item on the right of .main-container
  * ------------------------------------------------------------------------- */
 .ai-assistant-container {
   /* Width is the SOLE driver of the open/close animation. JS sets the
@@ -41,7 +41,7 @@
   -webkit-app-region: no-drag;
 }
 
-/* `.open` is informational here — actual width is set inline by JS.
+/* `.open` is informational here, actual width is set inline by JS.
    Kept so other CSS / scripts can query state without touching JS. */
 .ai-assistant-container.open {}
 
@@ -52,7 +52,7 @@ body.resizing-vertical .ai-assistant-container {
   transition: none;
 }
 
-/* While open: nudge nothing — the user keeps editing freely */
+/* While open: nudge nothing, the user keeps editing freely */
 body.ai-assistant-open {
   /* intentionally empty: no overflow lock, no shift */
 }
@@ -89,7 +89,7 @@ body.ai-assistant-open {
   z-index: var(--z-1);
 }
 
-/* Prevent icon elements from consuming pointer events — clicks anywhere
+/* Prevent icon elements from consuming pointer events, clicks anywhere
    on the button (including the icon) always register on the <button>. */
 .ai-hbtn i,
 .ai-model-chip > * {
@@ -97,7 +97,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Header icon buttons — one shared definition (history / new / terminal /
+ *  Header icon buttons, one shared definition (history / new / terminal /
  *  close). 28px hit target, muted until hover.
  * ------------------------------------------------------------------------- */
 .ai-hbtn {
@@ -231,7 +231,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Focus discipline — the only purple focus ring in the panel belongs to
+ *  Focus discipline, the only purple focus ring in the panel belongs to
  *  the composer (and only when the textarea itself is focused). Buttons,
  *  chips and popover rows never paint an outline on click.
  * ------------------------------------------------------------------------- */
@@ -245,7 +245,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Content layout — flex column: messages scroll, input is pinned bottom
+ *  Content layout, flex column: messages scroll, input is pinned bottom
  * ------------------------------------------------------------------------- */
 .ai-assistant-content {
   flex: 1 1 0;
@@ -257,7 +257,7 @@ body.ai-assistant-open {
   min-height: 0;
 }
 
-/* Aurora glow — a large, thin LILAC ARCHED glow hugging the bottom of the panel
+/* Aurora glow, a large, thin LILAC ARCHED glow hugging the bottom of the panel
    (a wide, shallow ellipse → its upper edge curves like an arch). CALM: it only
    breathes in brightness, with NO moving highlight/ball. Chat/composer ride
    above on z-1. */
@@ -275,8 +275,8 @@ body.ai-assistant-open {
       rgba(176, 158, 252, 0.14) 42%,
       transparent 72%);
   /* OFF until the user's first message. `.revealed` (added once, in-memory) then
-     plays the reveal — the arch RISES from the bottom and brightens across its
-     full width — and settles into the calm breathing. Closing/reopening the
+     plays the reveal, the arch RISES from the bottom and brightens across its
+     full width, and settles into the calm breathing. Closing/reopening the
      panel keeps `.revealed`; only a fresh app start brings it back to OFF. */
   opacity: 0;
   transform: translateY(22%) scaleY(0.6);
@@ -284,7 +284,7 @@ body.ai-assistant-open {
   will-change: opacity, transform;
   animation: none;
 }
-/* Brighter, slightly tighter core of the arch — static, breathes only. */
+/* Brighter, slightly tighter core of the arch, static, breathes only. */
 .ai-aurora-glow::before {
   content: "";
   position: absolute;
@@ -325,7 +325,7 @@ body.ai-assistant-open {
 @media (prefers-reduced-motion: reduce) {
   .ai-aurora-glow,
   .ai-aurora-glow::before { animation: none; }
-  /* No animated reveal/breathing under reduced motion — but a revealed glow must
+  /* No animated reveal/breathing under reduced motion, but a revealed glow must
      still show. Snap it on (core included) without any movement. */
   .ai-aurora-glow.revealed { opacity: 1; transform: none; }
   .ai-aurora-glow.revealed::before { opacity: 1; }
@@ -338,7 +338,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  External links in chat — clearly clickable, with a redirect warning.
+ *  External links in chat, clearly clickable, with a redirect warning.
  * ------------------------------------------------------------------------- */
 .ai-message a.ai-link {
   color: var(--accent-hover);
@@ -468,14 +468,14 @@ body.ai-assistant-open {
 .ai-link-warning-open:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
 /* ---------------------------------------------------------------------------
- *  Empty state — no provider configured
+ *  Empty state, no provider configured
  *
- *  UNIFIED EMPTY STATE — one of four "nothing here" screens across the app
+ *  UNIFIED EMPTY STATE, one of four "nothing here" screens across the app
  *  (file tree, verilog tree, AI panel, welcome "no recent") deliberately kept
  *  visually consistent: centered column, large muted icon, title, muted body,
  *  generous padding. Keep in sync with .tree-empty-state, .verilog-empty-state
- *  and .empty-state. (The AI icon keeps a faint accent tint — it's the panel's
- *  own identity — but matches the others in size and rhythm.)
+ *  and .empty-state. (The AI icon keeps a faint accent tint, it's the panel's
+ *  own identity, but matches the others in size and rhythm.)
  * ------------------------------------------------------------------------- */
 .ai-empty-state {
   flex: 1 1 0;
@@ -543,9 +543,9 @@ body.ai-assistant-open {
 .ai-messages.hidden { display: none; }
 
 /* ---------------------------------------------------------------------------
- *  Chat empty hint — shown when a provider is ready but no messages exist
+ *  Chat empty hint, shown when a provider is ready but no messages exist
  *
- *  UNIFIED EMPTY STATE — shares the centered-column language of the other three
+ *  UNIFIED EMPTY STATE, shares the centered-column language of the other three
  *  (.tree-empty-state, .verilog-empty-state, .ai-empty-state, .empty-state):
  *  large muted icon, muted body, generous padding. Kept slightly dimmer overall
  *  since it only whispers over an otherwise-ready, empty chat.
@@ -605,7 +605,7 @@ body.ai-assistant-open {
   to   { opacity: 1; transform: translateY(0);    filter: blur(0);   }
 }
 
-/* Content bubble reveal — fades in slightly after the role label */
+/* Content bubble reveal, fades in slightly after the role label */
 .ai-msg-assistant .ai-msg-content,
 .ai-msg-user .ai-msg-content {
   animation: ai-content-in 420ms var(--ease-out-quart) 60ms both;
@@ -674,7 +674,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Inline divider — hairline with centered label, in the spirit of Claude's
+ *  Inline divider, hairline with centered label, in the spirit of Claude's
  *  VS Code extension. Used by appendDivider() for ephemeral, non-conversational
  *  markers (e.g. "Modelo: ChatGPT · Codex" after a model switch).
  * ------------------------------------------------------------------------- */
@@ -707,10 +707,10 @@ body.ai-assistant-open {
   white-space: nowrap;
 }
 
-/* Sine-wave divider — used for the model-switch marker. Instead of flat
+/* Sine-wave divider, used for the model-switch marker. Instead of flat
    hairlines, each side draws a static, higher-frequency sine wave in a
    muted grey (no accent, no animation), tapering toward the outer edge so
-   it reads as a quiet ripple — not a highlight. */
+   it reads as a quiet ripple, not a highlight. */
 .ai-divider-wave::before,
 .ai-divider-wave::after {
   background: none;
@@ -845,7 +845,7 @@ body.ai-assistant-open {
 .ai-msg-content a:hover { color: var(--accent); }
 
 /* ---------------------------------------------------------------------------
- *  Composer — one elastic row: model chip · textarea · tokens · send
+ *  Composer, one elastic row: model chip · textarea · tokens · send
  * ------------------------------------------------------------------------- */
 .ai-input-area {
   position: relative;
@@ -880,7 +880,7 @@ body.ai-assistant-open {
               background-color var(--transition-fast);
 }
 
-/* Focus state: subtle neutral border lift — NO purple ring. The cursor
+/* Focus state: subtle neutral border lift, NO purple ring. The cursor
    in the textarea is the unambiguous focus indicator; the old accent
    glow doubled-up and felt aggressive at this composer size. */
 .ai-composer:hover {
@@ -1073,7 +1073,7 @@ body.ai-assistant-open {
 }
 .ai-lightbox-close:hover { background: var(--overlay-active); color: var(--text); }
 
-/* Model / provider chip — opens the popover */
+/* Model / provider chip, opens the popover */
 .ai-model-chip {
   display: inline-flex;
   align-items: center;
@@ -1154,7 +1154,7 @@ body.ai-assistant-open {
   padding: 0 2px;
 }
 
-/* Send — filled accent circle */
+/* Send, filled accent circle */
 .ai-send-btn {
   display: inline-flex;
   align-items: center;
@@ -1185,7 +1185,7 @@ body.ai-assistant-open {
 
 .ai-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-/* Stop — same footprint as send, signalled red */
+/* Stop, same footprint as send, signalled red */
 .ai-stop-btn {
   display: inline-flex;
   align-items: center;
@@ -1214,7 +1214,7 @@ body.ai-assistant-open {
 .ai-stop-btn.hidden { display: none; }
 
 /* ---------------------------------------------------------------------------
- *  Tool activity chips — one per AuroraAPI call the assistant makes
+ *  Tool activity chips, one per AuroraAPI call the assistant makes
  * ------------------------------------------------------------------------- */
 .ai-tool-chip {
   display: inline-flex;
@@ -1257,11 +1257,11 @@ body.ai-assistant-open {
 @keyframes ai-spin { to { transform: rotate(360deg); } }
 
 /* ---------------------------------------------------------------------------
- *  "Thinking…" placeholder — three pulsing dots + rotating witty label
+ *  "Thinking…" placeholder, three pulsing dots + rotating witty label
  * ------------------------------------------------------------------------- */
 
 /* Outer wrapper: dots box on top, witty word below */
-/* Funny word + three loading dots, sharing one line. No bordered pill —
+/* Funny word + three loading dots, sharing one line. No bordered pill:
    the dots sit inline, the same height as the text, and carry the same
    foil/sheen sweep as the word. */
 .ai-thinking-wrap {
@@ -1346,7 +1346,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Ask-before-write confirmation — the model's prose args (note / question).
+ *  Ask-before-write confirmation, the model's prose args (note / question).
  *  These are the AI's own words about WHY it wants the call, so they read as
  *  text: proportional font, normal wrapping, the model's line breaks kept.
  *  Inside .ai-confirm-args they were quoted, backslash-escaped and broken
@@ -1379,7 +1379,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Ask-before-write confirmation — args preview inside the shared dialog
+ *  Ask-before-write confirmation, args preview inside the shared dialog
  * ------------------------------------------------------------------------- */
 .ai-confirm-args {
   margin: var(--space-2) 0 0;
@@ -1397,7 +1397,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Model / provider popover — opens upward from the composer chip.
+ *  Model / provider popover, opens upward from the composer chip.
  *  Holds: provider picker · model id · Claude Code usage · permissions.
  * ------------------------------------------------------------------------- */
 .ai-model-popover {
@@ -1599,7 +1599,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Claude Code subscription usage — session + weekly token bars
+ *  Claude Code subscription usage, session + weekly token bars
  * ------------------------------------------------------------------------- */
 .ai-mp-usage.hidden { display: none; }
 
@@ -1694,7 +1694,7 @@ body.ai-assistant-open {
 .ai-model-popover .hidden { display: none; }
 
 /* ---------------------------------------------------------------------------
- *  Segmented control — Claude Code model presets + effort levels
+ *  Segmented control, Claude Code model presets + effort levels
  * ------------------------------------------------------------------------- */
 .ai-mp-seg {
   display: flex;
@@ -1799,7 +1799,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  Inline tool-permission card — appears in the message stream, not as a
+ *  Inline tool-permission card, appears in the message stream, not as a
  *  full-screen modal, and removes itself once the user decides
  * ------------------------------------------------------------------------- */
 .ai-confirm {
@@ -1889,7 +1889,7 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  History popover — list of saved conversations
+ *  History popover, list of saved conversations
  * ------------------------------------------------------------------------- */
 .ai-history-popover {
   position: absolute;
@@ -2115,15 +2115,15 @@ body.ai-assistant-open {
 }
 
 /* ---------------------------------------------------------------------------
- *  AI ↔ terminal corner resizer — the right-side mirror of the file-tree↔
+ *  AI ↔ terminal corner resizer, the right-side mirror of the file-tree↔
  *  terminal corner. JS (setupTerminalCorner) toggles `ai-corner-hovering` on
  *  hover and `resizing-ai-corner` while dragging. Hovering/dragging the corner
  *  lights BOTH the AI panel's width handle and the terminal's horizontal
- *  resizer — the same accent glow the left corner gives its two resizers.
+ *  resizer, the same accent glow the left corner gives its two resizers.
  * ------------------------------------------------------------------------- */
 /* The corner cue lights BOTH edges that meet at the junction: the terminal's
    top (horizontal resizer) and the AI panel's LEFT edge (its width handle).
-   The purple border on the AI panel's left side is the explicit ask — so,
+   The purple border on the AI panel's left side is the explicit ask, so,
    unlike the file-tree corner, we DO light the full-height handle here. The
    pair of accent lines reads as an L-shaped purple border framing the corner. */
 body.ai-corner-hovering .resizer-horizontal::after,
@@ -2144,7 +2144,7 @@ body.resizing-ai-corner .ai-resize-handle::after {
 }
 
 /* ---------------------------------------------------------------------------
- *  Tool-call group — a collapsible batch of consecutive tool chips so a busy
+ *  Tool-call group, a collapsible batch of consecutive tool chips so a busy
  *  turn doesn't flood the chat. JS (_ensureToolGroup / _closeToolGroup) wraps
  *  the chips; multi-step batches auto-collapse to a "N actions" summary on
  *  completion, click the header to expand.
@@ -2191,7 +2191,7 @@ body.resizing-ai-corner .ai-resize-handle::after {
 .ai-tool-group.collapsed .ai-tool-group-body { display: none; }
 
 /* ---------------------------------------------------------------------------
- *  Autonomous turn marker — a subtle "↻ background task finished" note that
+ *  Autonomous turn marker, a subtle "↻ background task finished" note that
  *  precedes a turn the assistant started on its own (Phase E). Distinct from a
  *  normal user bubble so the user can see why a new turn appeared.
  * ------------------------------------------------------------------------- */
@@ -2267,7 +2267,7 @@ body.resizing-ai-corner * {
 
 /* Block pointer-events on everything during the drag so the terminal (xterm)
    and any AI webview (e.g. the embedded ChatGPT frame) can't swallow the
-   mousemove/mouseup — the document-level drag listeners still fire. This is
+   mousemove/mouseup, the document-level drag listeners still fire. This is
    exactly what body.resizing-corner does for the file-tree side, and it's what
    makes that corner feel rock-solid instead of stuttering over those panels.
    The corner handle drives the drag from document listeners, so disabling its
@@ -2288,7 +2288,7 @@ body.resizing-ai-corner * {
 }
 
 /* ===========================================================================
- *  Rich markdown rendering — tables, callouts, math, task lists, hr
+ *  Rich markdown rendering, tables, callouts, math, task lists, hr
  * ========================================================================= */
 
 /* GFM tables */
@@ -2378,7 +2378,7 @@ body.resizing-ai-corner * {
   font-size: 1.05em;
 }
 .ai-math sup, .ai-math sub { font-size: 0.75em; font-style: normal; }
-/* When KaTeX rendered, it owns its own fonts/italics — don't let the fallback
+/* When KaTeX rendered, it owns its own fonts/italics, don't let the fallback
    wrapper's serif italic leak in. KaTeX's display markup already centers. */
 .ai-math .katex { font-style: normal; }
 .ai-math-display .katex-display { margin: 0; }
@@ -2427,7 +2427,7 @@ body.resizing-ai-corner * {
 .ai-msg-content li.ai-task.done span { text-decoration: line-through; color: var(--text-muted); }
 
 /* ===========================================================================
- *  Smart auto-scroll — "Jump to latest" pill
+ *  Smart auto-scroll, "Jump to latest" pill
  * ========================================================================= */
 .ai-scroll-resume {
   position: absolute;
@@ -2469,7 +2469,7 @@ body.resizing-ai-corner * {
 }
 
 /* ===========================================================================
- *  Aurora fade-reveal — "magic wand" purple sweep for assistant output
+ *  Aurora fade-reveal, "magic wand" purple sweep for assistant output
  *  and file edits. Words appear in soft light-purple, then fade to the
  *  normal text colour after the highlight passes.
  * ========================================================================= */
@@ -2491,7 +2491,7 @@ body.resizing-ai-corner * {
   .ai-fade-reveal { animation-duration: 1ms; }
 }
 
-/* Monaco / editor fade-reveal — applied as a decoration. The wand sweep
+/* Monaco / editor fade-reveal, applied as a decoration. The wand sweep
    tints freshly-written ranges light purple, then fades back to normal. */
 @keyframes auroraEditorReveal {
   0%   { background: rgba(196, 168, 255, 0.34); box-shadow: inset 3px 0 0 rgba(208, 188, 255, 0.85); }
@@ -2503,7 +2503,7 @@ body.resizing-ai-corner * {
 }
 
 /* ===========================================================================
- *  Inline "Ask user a question" card — emitted by the ask_user_question
+ *  Inline "Ask user a question" card, emitted by the ask_user_question
  *  tool. Sits in the message stream like the confirm card, but with
  *  options + a free-form "Other" answer.
  * ========================================================================= */
@@ -2565,8 +2565,8 @@ body.resizing-ai-corner * {
 .ai-askq-opt-desc  { color: var(--text-muted); font-size: var(--text-xs); }
 
 /* A CHOSEN option has to read as chosen from across the card. Without this the
- * row looked identical checked or not — the only thing that changed was the
- * 14px native box — and with multiSelect, where the whole point is picking
+ * row looked identical checked or not, the only thing that changed was the
+ * 14px native box, and with multiSelect, where the whole point is picking
  * several, there was no way to scan what you had marked. */
 .ai-askq-opt:has(input:checked) {
   border-color: var(--accent-border);
@@ -2581,7 +2581,7 @@ body.resizing-ai-corner * {
 
 /* ---------------------------------------------------------------------------
  *  The permanent record left behind after a question is answered. Quieter than
- *  the live card on purpose — it is history, not a thing to act on — but the
+ *  the live card on purpose, it is history, not a thing to act on, but the
  *  chosen options stay in accent so the decision is still scannable when you
  *  reopen the chat weeks later.
  * ------------------------------------------------------------------------- */
@@ -2637,7 +2637,7 @@ body.resizing-ai-corner * {
 
 .ai-askq-record-chip i { font-size: var(--icon-xs); }
 
-/* The user's own free text — quoted, so it reads as words rather than a label. */
+/* The user's own free text, quoted, so it reads as words rather than a label. */
 .ai-askq-record-custom {
   margin-top: 6px;
   padding-left: var(--space-2);

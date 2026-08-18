@@ -10,7 +10,7 @@ import '../components/aurora-tree.js';
 // until 2026-05, when they were removed (fossil of the IDE-mode toggle,
 // and the source of a duplicate file-open handler bug).
 
-// --- Tree View State — façade over fileTreeViewController -------
+// --- Tree View State, façade over fileTreeViewController -------
 //
 // Pre-controller, TreeViewState owned isHierarchical / hierarchyData /
 // isToggleEnabled / compilationModule and a copy lived in BOTH this
@@ -25,7 +25,7 @@ import '../components/aurora-tree.js';
 //     controller enables the toggle automatically when hierarchyData
 //     is set; disables when it's null. Lifecycle calls (e.g. on each
 //     CompilationModule construction) used to re-disable the toggle
-//     blindly — that's the bug class we just removed.
+//     blindly, that's the bug class we just removed.
 //   - setCompilationModule / compilationModule        → no-ops. The
 //     controller's hierarchy renderer always reads from
 //     window._latestCompilationModule (set in the constructor) so
@@ -33,7 +33,7 @@ import '../components/aurora-tree.js';
 //
 // New code should call window.fileTreeViewController directly. The
 // façade exists so the dozens of legacy reads/writes don't all have
-// to migrate at once — and so any future drift between TreeViewState
+// to migrate at once, and so any future drift between TreeViewState
 // and the controller is impossible by construction (there's no
 // "TreeViewState" state to drift).
 const TreeViewState = {
@@ -89,7 +89,7 @@ const TreeViewState = {
 //
 // "No project open" state → a click-to-create-project card. It renders
 // into the verilog view subcontainer (the only file view now) and owns
-// the whole pane. Intentionally one large tap target — the previous
+// the whole pane. Intentionally one large tap target, the previous
 // "empty file tree with just the header" left the user looking at a
 // blank pane with no obvious next step.
 //
@@ -129,7 +129,7 @@ function buildEmptyStateCard() {
 /**
  * Drop a full-replacement empty-state card into the verilog view
  * container (the active file view). Used for the "no project open"
- * state — there are no files to compete with, so the card owns the
+ * state, there are no files to compete with, so the card owns the
  * whole pane. When a project later loads, renderTree() strips this
  * card before painting the file rows.
  */
@@ -204,7 +204,7 @@ class FileTreeManager {
             window.projectTreeManager?.refreshTree();
         });
 
-        // Hierarchy toggle e owned por file_tree_view_controller.js —
+        // Hierarchy toggle e owned por file_tree_view_controller.js:
         // um unico click listener instalado la cuida do flip file ↔
         // hierarchy. Nao re-attachar aqui; ja tivemos dois listeners
         // brigando no mesmo botao.
@@ -212,7 +212,7 @@ class FileTreeManager {
         electronAPI.onDirectoryChanged((dir, _files) => {
             if (dir !== this.directoryWatcher.currentWatchedDirectory) return;
             if (TreeViewState.isHierarchical) return;
-            // Standard (folder) view mirrors the disk — re-render it so
+            // Standard (folder) view mirrors the disk, re-render it so
             // created/deleted files show up; the renderer restores the
             // currently-expanded folders.
             if (window.fileTreeViewController?.isShowingStandard?.()) {
@@ -225,7 +225,7 @@ class FileTreeManager {
         });
 
         // Directory watcher errors used to be emitted by main but never
-        // consumed (the renderer had no listener) — the error was silently
+        // consumed (the renderer had no listener), the error was silently
         // lost. Mirror the file-watcher's handling: surface it to the console.
         electronAPI.onDirectoryWatcherError?.((dir, error) => {
             console.error(`Directory watcher error for ${dir}:`, error);
@@ -240,7 +240,7 @@ class FileTreeManager {
      * projectTreeManager terminou seu init.
      *
      * O nome "initializeTreeBasedOnMode" e historico (era um branch
-     * sobre IDE mode). Modo unico hoje — chama activateTree
+     * sobre IDE mode). Modo unico hoje, chama activateTree
      * direto. A coalescencia em activateTree garante que isso
      * + projectManager.loadProject nao gerem duplo loadConfiguration.
      */
@@ -257,7 +257,7 @@ class FileTreeManager {
 
 
 toggleHierarchyView() {
-    // Delegate to the file-tree view controller — it owns the
+    // Delegate to the file-tree view controller, it owns the
     // toggle button and the view-switch state. Kept this stub so
     // legacy callers (command palette, etc.) that still call
     // `fileTreeManager.toggleHierarchyView()` keep working.
@@ -289,13 +289,13 @@ export { fileTreeManager, TreeViewState };
 //      no-project card immediately instead of leaving a blank pane.
 //
 // Both converge on `renderTreeEmptyState()` (no-project card) /
-// projectTreeManager.refreshTree() (live tree) — defined above /
+// projectTreeManager.refreshTree() (live tree), defined above /
 // in file_mode.js. The "project open but zero processors" hint is
 // owned by the verilog view's own empty state.
 function bootstrapTreeEmptyStateWiring() {
     const onProjectChange = (snapshot) => {
         if (snapshot?.projectPath) {
-            // Switched into a project — render the verilog tree so files
+            // Switched into a project, render the verilog tree so files
             // populate (it strips the no-project card on the way in).
             window.projectTreeManager?.refreshTree?.();
         } else {
@@ -310,7 +310,7 @@ function bootstrapTreeEmptyStateWiring() {
     // Cold start with no project: paint the empty card immediately so
     // the user is never staring at a blank file-tree pane. Skipped
     // when a project auto-restore is in flight (signalled by the
-    // localStorage key index.html's inline boot script reads) — in
+    // localStorage key index.html's inline boot script reads), in
     // that case the user briefly sees the "Loading…" header and the
     // ProjectStore subscriber above will refresh into the live tree
     // once the IPC roundtrip lands.

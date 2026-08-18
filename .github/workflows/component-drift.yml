@@ -14,7 +14,7 @@ name: Deriva de componentes
 
 on:
   schedule:
-    # Segunda-feira, 06:00 UTC (03:00 em Brasilia) — antes de a semana comecar.
+    # Segunda-feira, 06:00 UTC (03:00 em Brasilia), antes de a semana comecar.
     - cron: '0 6 * * 1'
   workflow_dispatch:
 

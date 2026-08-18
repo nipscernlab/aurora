@@ -140,7 +140,7 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         // seria uma reta inutil e o usuario perderia o valor).
         expect(content).toContain('manual_name: Some("float acc in soma()")');
         expect(content).not.toContain('y_axis_scale: Global'); // ANALOG_FLOAT removido
-        // clk/rst ficam levemente menores (0.8) — 0.5 encavalava o rotulo (ilegivel).
+        // clk/rst ficam levemente menores (0.8), 0.5 encavalava o rotulo (ilegivel).
         expect(content).toContain('height_scaling_factor: Some(0.8)');
     });
 
@@ -158,7 +158,7 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         // I/O / Instructions / Variables / Flags / Top-level sao Groups (nao dividers).
         expect(content).toMatch(/Group\(\(\s*name: "I\/O",/);
         expect(content).toMatch(/Group\(\(\s*name: "Variables",/);
-        // Flags fecha por padrao (is_open: false) — debug secundario.
+        // Flags fecha por padrao (is_open: false), debug secundario.
         expect(content).toMatch(/Group\(\(\s*name: "Flags",\s*color: Some\("Red"\),\s*background_color: None,\s*content: \[\],\s*is_open: false/);
         // Aninhamento profundo: proc(level 1) -> secao(level 2) -> sinal(level 3).
         expect(content).toMatch(/level: 2,/);
@@ -219,7 +219,7 @@ describe('buildSurferLayout (camada de curadoria)', () => {
         expect(content).toMatch(/Group\(\(\s*name: "proc",\s*color: Some\("Red"\),\s*background_color: None,\s*content: \[\],\s*is_open: true,/);
         // O no do grupo (level 0) e seguido por filhos em level 1 no items_tree.
         expect(content).toMatch(/level: 1,/);
-        // O Top-level tambem e um Group (name String, sem Some) — tudo dobravel.
+        // O Top-level tambem e um Group (name String, sem Some), tudo dobravel.
         expect(content).toContain('name: "Top-level"');
     });
 });
@@ -367,7 +367,7 @@ describe('buildSurferLayout — mapping translators (decode Assembly/C+-)', () =
 // efeito nenhum. Quem desenha a caixa numerada sobre a onda
 // (`draw_marker_number_boxes`) e quem monta a lista da janela
 // (`draw_marker_window`) percorrem o `items_tree` atras daquele item, entao o
-// tempo ficava no arquivo sem nada aparecer — e a janela de Markers abria vazia
+// tempo ficava no arquivo sem nada aparecer, e a janela de Markers abria vazia
 // a cada simulacao, que foi como o usuario reportou.
 // ---------------------------------------------------------------------------
 

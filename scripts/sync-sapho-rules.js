@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sync-sapho-rules.js — dev-only generator for `resources/sapho_rules.json`.
+ * sync-sapho-rules.js: dev-only generator for `resources/sapho_rules.json`.
  *
  * Reads the yanc compiler sources (default `C:\Users\LCOM\Documents\Github\yanc`,
  * overridable via `--yanc <path>` or `$YANC_PATH`) and consolidates the
@@ -10,7 +10,7 @@
  *
  * Why this exists
  * ---------------
- * yanc is *not* bundled into the AURORA installer — the binaries are
+ * yanc is *not* bundled into the AURORA installer, the binaries are
  * pulled at runtime/setup, and the source tree only lives on a
  * maintainer's machine. Without this sync, the AI would have no idea
  * which directives exist, what their defaults are, or what error
@@ -65,7 +65,7 @@ function gitCommit(yancPath) {
  *      "literal"     return TOKEN;
  *      "literal"    {... return TOKEN; ...}
  *  We pull `literal` and `TOKEN`, then classify the literal by
- *  hand-curated sets — the lexer is the single source of truth
+ *  hand-curated sets, the lexer is the single source of truth
  *  for which strings the parser will ever see.
  * ========================================================== */
 
@@ -83,7 +83,7 @@ const STDLIB_FUNCTIONS      = new Set([
 ]);
 const MACRO_DIRECTIVES      = new Set(['#PRACA']);
 // Single-character operators get caught by the {CARES} class in the
-// lexer, not by a named rule — they never reach this scraper.
+// lexer, not by a named rule, they never reach this scraper.
 const OPERATOR_SHAPE_RE = /^[<>=!&|+\-*/%~^?:]+$/;
 
 function parseLexer(src) {
@@ -101,7 +101,7 @@ function parseLexer(src) {
 
   // The lexer keeps each rule on its own line. We capture every quoted
   // literal followed by either a bare `return X;` or an action block
-  // that returns X. `[^"]+` is intentional — no escaped quotes appear
+  // that returns X. `[^"]+` is intentional, no escaped quotes appear
   // in CMMComp.l, and trying to handle them here would only invite
   // false positives off legitimate code in actions.
   const ruleRe = /^\s*"([^"]+)"\s+(?:return\s+(\w+)\s*;|\{[^}]*?return\s+(\w+)\s*;[^}]*\})/gm;
@@ -132,9 +132,9 @@ function parseLexer(src) {
 
   // `#define` is handled by a lexer start-condition (`"#define" BEGIN(DEFNAME)`),
   // not a `return TOKEN;` rule, so the ruleRe above never sees it. Detect it
-  // directly and record it as the object-like macro directive it is — the AI
+  // directly and record it as the object-like macro directive it is, the AI
   // needs to know C± has `#define NAME body` (and only object-like, no
-  // function-like macros / #ifdef / #include — those live in the C++ front-end).
+  // function-like macros / #ifdef / #include, those live in the C++ front-end).
   if (/^\s*"#define"/m.test(src)) {
     result.macroDirectives.push({
       symbol: '#define',
@@ -175,7 +175,7 @@ function parseDirectiveSource(src) {
 }
 
 function buildDirectives(lexResult, ...sources) {
-  // Merge information from every directive source in order — first hit
+  // Merge information from every directive source in order, first hit
   // wins for `description`, later sources still fill in missing
   // `default`s where they appear.
   const merged = {};
@@ -224,7 +224,7 @@ const SECTION_RE = /^\s*\/\/\s+(.+?)\s+-{3,}\s*$/gm;
 
 function decodeC(s) {
   // Convert C-escape sequences relevant to message strings. We don't
-  // need a full C unescape — printf format specifiers (%d, %s, …)
+  // need a full C unescape, printf format specifiers (%d, %s, …)
   // stay verbatim because the AI surfaces them as patterns.
   return s
     .replace(/\\\\/g, '\\')
@@ -245,7 +245,7 @@ function skipString(src, i) {
   return i + 1; // past closing "
 }
 
-// Split the body of `M(...)` on its single top-level comma — the C
+// Split the body of `M(...)` on its single top-level comma, the C
 // preprocessor allows commas inside string literals and parens
 // (think `MSG_CLI_HELP` with "cmmcomp (YANC)" in the body), so a
 // naive `body.split(',')` would mangle them.
@@ -369,10 +369,10 @@ function parseGrammar(src) {
  *    - the opcode number (machine code position)
  *    - the operand kind (decoded into a human label)
  *    - the HDL name (empty for opcodes that share encoding with
- *      another mnemonic — JMP/RET/NOP all reuse a sibling slot)
+ *      another mnemonic, JMP/RET/NOP all reuse a sibling slot)
  *    - the one-line description of what the instruction does
  *
- *  Naming conventions (extracted from prefixes/suffixes — used to
+ *  Naming conventions (extracted from prefixes/suffixes, used to
  *  group the ISA in the system prompt):
  *      F_*    floating-point variant
  *      S_*    stack-based variant (operand on data stack instead of mem)
@@ -436,7 +436,7 @@ function classifyMnemonic(mne) {
   // Conversion (I2F/F2I)
   if (/(I2F|F2I)/.test(mne)) return 'conversion';
 
-  // Normalisation (NRM — divide-by-NUGAIN)
+  // Normalisation (NRM, divide-by-NUGAIN)
   if (/^(P_)?NRM/.test(mne)) return 'arith_norm';
 
   // Floating-point arithmetic

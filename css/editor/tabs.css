@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  tabs.css  —  Editor tabs AURORA v3
+ *  tabs.css ,  Editor tabs AURORA v3
  *
  *  34px tabs with subtle dividers, accent indicator on active, dirty dot,
  *  drag/drop support, and clean preview state.
@@ -28,7 +28,7 @@
    `scrollbar-width: thin` + `scrollbar-color`; Chromium uses the
    ::-webkit-scrollbar pseudo. The thumb only paints on hover so the bar
    stays invisible at rest (no horizontal line under the tabs).
-   Targets the class AND the #tabs-container id AND the bare .tabs — the live
+   Targets the class AND the #tabs-container id AND the bare .tabs, the live
    main strip is `id="tabs-container"`, which previously missed these rules and
    fell back to the global 10px scrollbar (the thick bar over the tab names). */
 .tabs-container,
@@ -118,7 +118,7 @@
   font-weight: var(--font-medium);
 }
 
-/* No accent border on active tab — relies only on background contrast. */
+/* No accent border on active tab, relies only on background contrast. */
 .tab.active::before { content: none; }
 
 /* Dirty marker */
@@ -209,7 +209,7 @@
  *  - The dragged tab dims slightly so the user can see they grabbed it
  *    (native drag image is suppressed in JS).
  *  - The drop indicator is a thin solid accent bar, vertically centered in
- *    the tab bar — no glow, no pulse, no shadow. Small and quiet.
+ *    the tab bar, no glow, no pulse, no shadow. Small and quiet.
  * ------------------------------------------------------------------------- */
 .tab.dragging {
   opacity: 0.55;

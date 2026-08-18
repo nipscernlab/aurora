@@ -1,5 +1,5 @@
 /**
- * tree_history.js — a pilha de desfazer e refazer da árvore de arquivos.
+ * tree_history.js: a pilha de desfazer e refazer da árvore de arquivos.
  *
  * Ctrl+Z e Ctrl+Shift+Z valem para o que a árvore fez com os arquivos: criar,
  * renomear, mover, copiar e deletar. Só isso: o Ctrl+Z do editor continua sendo

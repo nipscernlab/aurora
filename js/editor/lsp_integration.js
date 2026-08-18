@@ -1,6 +1,6 @@
 // monaco is loaded globally via index.html (AMD vendor build).
 /**
- * lsp_integration.js — wires the bundled verible-verilog-ls (main side,
+ * lsp_integration.js: wires the bundled verible-verilog-ls (main side,
  * exposed as window.lspAPI) into Monaco for Verilog/SystemVerilog buffers.
  *
  * What the user gets (O2, "completo"):
@@ -12,7 +12,7 @@
  *
  * Everything is best-effort: if Verible isn't installed the IPC resolves
  * to null/empty and the editor behaves exactly as before (static Monaco
- * highlight, no diagnostics) — no errors surface to the user.
+ * highlight, no diagnostics), no errors surface to the user.
  *
  * Lifecycle is driven at the Monaco *model* level (mirroring
  * setupCMMLanguage in monaco_editor.js): every .v/.sv model that appears
@@ -35,7 +35,7 @@ export function initVerilogLSP() {
 
   // Best-effort: the LSP is a bonus on top of the editor. A failure here
   // (missing Monaco API, provider registration error) must NEVER bubble up
-  // and break Monaco boot — initVerilogLSP() runs inside initMonaco's
+  // and break Monaco boot, initVerilogLSP() runs inside initMonaco's
   // editor.main callback right before it resolves.
   try {
     registerProviders();

@@ -1,12 +1,12 @@
 // @ts-check
 /**
- * undo_store.js — a mecânica da área de espera que torna o Ctrl+Z da árvore
+ * undo_store.js: a mecânica da área de espera que torna o Ctrl+Z da árvore
  * possível.
  *
  * Isto saiu do `tree_undo.js` para poder ser provado. O que ficou lá é a cola
  * com o Electron: onde fica a pasta de espera (`app.getPath('userData')`) e o
  * que significa "mandar para a Lixeira" (`shell.trashItem`). Aqui não há
- * import de electron, e as duas coisas entram por parâmetro — o que também
+ * import de electron, e as duas coisas entram por parâmetro, o que também
  * documenta a fronteira: esta camada nunca decide ONDE guardar nem COMO
  * descartar, só faz.
  *

@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * docs_nav.js — a fronteira da janela do manual.
+ * docs_nav.js: a fronteira da janela do manual.
  *
  * Isto saiu de dentro do `docs_window.js` porque é a única decisão de segurança
  * daquele arquivo e é inteiramente pura: dada a pasta do manual e uma URL para
@@ -10,15 +10,15 @@
  *
  * A janela do manual hospeda um `WebContentsView` que carrega HTML de disco. Sem
  * fronteira, um link dentro do manual levaria esse view para qualquer lugar, e a
- * janela viraria um navegador irrestrito embutido no aplicativo — com a barra da
+ * janela viraria um navegador irrestrito embutido no aplicativo, com a barra da
  * AURORA em volta, o que é pior do que um navegador, porque parece nosso.
  *
  * TRÊS DESFECHOS, E CADA UM POR UM MOTIVO
  *
- *   'seguir'   — `file:` dentro da pasta do manual. É navegação interna.
- *   'externa'  — `http:` ou `https:`. Link externo é assunto do navegador do
+ *   'seguir'  , `file:` dentro da pasta do manual. É navegação interna.
+ *   'externa' , `http:` ou `https:`. Link externo é assunto do navegador do
  *                sistema, que tem abas, histórico e sandbox de verdade.
- *   'bloquear' — todo o resto, em silêncio. Aqui moram `file:` fora da pasta,
+ *   'bloquear', todo o resto, em silêncio. Aqui moram `file:` fora da pasta,
  *                que é a tentativa de escapar, e esquemas como `javascript:` e
  *                `data:`, que não têm por que existir num manual.
  *

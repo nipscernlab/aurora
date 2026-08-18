@@ -1,5 +1,5 @@
 /**
- * python_format_integration.js — liga o black ao Monaco como provedor de
+ * python_format_integration.js: liga o black ao Monaco como provedor de
  * formatação de Python (main/format/python_format.js via window.pythonFormatAPI).
  *
  * Espelha o que clang_format_integration.js faz para C, C++ e C±, com uma

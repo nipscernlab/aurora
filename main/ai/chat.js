@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * chat.js — streaming chat + tool loop for Aurora Intelligence.
+ * chat.js: streaming chat + tool loop for Aurora Intelligence.
  *
  * One concurrent stream per session, identified by a renderer-generated
  * `sessionId`. The renderer subscribes to `ai:chat-event` (multicast),
@@ -50,13 +50,13 @@ const { AI_SDK_MAX_RETRIES } = require('./retry');
 /** sessionId → { abort: AbortController } */
 const sessions = new Map();
 
-// Upper bound on tool round-trips per turn — keeps a runaway model
+// Upper bound on tool round-trips per turn, keeps a runaway model
 // from looping forever. Each "step" is one model generation; a step
 // that calls tools is followed by another step to use the results.
 const MAX_STEPS = 24;
 
 // If the model stream goes silent for this long with NO tool round-trip in
-// flight, treat the provider connection as wedged and end the turn — otherwise
+// flight, treat the provider connection as wedged and end the turn, otherwise
 // a hung stream leaves the renderer spinning until its 3-minute watchdog. Tool
 // execution is exempt (it has its own backstop in tool_bridge), so a slow
 // compile never trips this; only a model that stopped emitting does.
@@ -111,7 +111,7 @@ function toSdkMessage(m) {
 
 /**
  * Start a streaming chat for `payload`. Resolves once the stream
- * finishes, errors, or is aborted — the IPC handler does not await
+ * finishes, errors, or is aborted, the IPC handler does not await
  * this, so callers fire-and-forget.
  *
  * @param {object} payload
@@ -150,7 +150,7 @@ async function start(payload, webContents) {
   const abort = new AbortController();
   sessions.set(sessionId, { abort });
 
-  // Anti-freeze state — read in the catch/finally below, set by the stream
+  // Anti-freeze state, read in the catch/finally below, set by the stream
   // inactivity timer armed inside the loop.
   let stalled = false;
   /** @type {ReturnType<typeof setTimeout>|null} */
@@ -184,7 +184,7 @@ async function start(payload, webContents) {
     // Aurora's system prompt is large (SAPHO knowledge base) and ~the
     // same every turn. Without caching, each follow-up turn pays the
     // full input-token cost again. Anthropic's ephemeral cache TTL is
-    // 5 minutes — well within typical chat cadence — and cuts repeat
+    // 5 minutes, well within typical chat cadence, and cuts repeat
     // input tokens by ~90%. We only attach `cacheControl` for the
     // Anthropic provider; other SDKs ignore it.
     const useAnthropicCache = providerName === 'anthropic' && system && system.length > 1024;
@@ -218,7 +218,7 @@ async function start(payload, webContents) {
       stopWhen: stepCountIs(MAX_STEPS),
       abortSignal: abort.signal,
       // Transient 429/5xx/network failures retry with exponential backoff at
-      // the REQUEST level (never mid-stream, so no duplicated output) —
+      // the REQUEST level (never mid-stream, so no duplicated output):
       // ESTUDO §18.5 item 4. The SDK's default is 2; made explicit + raised.
       maxRetries: AI_SDK_MAX_RETRIES,
     });
@@ -239,7 +239,7 @@ async function start(payload, webContents) {
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    // Extract complete tool-call JSON objects from a text string — used as a
+    // Extract complete tool-call JSON objects from a text string, used as a
     // fallback for models that output {"name":"…","arguments":{…}} as plain
     // text instead of via the OpenAI tool_calls API field.
     // Handles empty args `{}` as well as single-level nested objects.
@@ -259,14 +259,14 @@ async function start(payload, webContents) {
     let earlyExit = false;
     let nativeToolCallCount = 0;
     // Tool IDs the model is currently awaiting a result for. A Set (not a
-    // counter) so a duplicate or out-of-order tool event can't desync it — an
+    // counter) so a duplicate or out-of-order tool event can't desync it, an
     // imbalance would either pause the timer forever or fire it during a legit
     // tool. While it's non-empty the SDK is awaiting tool_bridge (which has its
     // own backstop), so the model-silence timer stays paused.
     const pendingTools = new Set();
 
-    // (Re)arm the inactivity timer. When it fires we abort — which unblocks the
-    // for-await — and flag `stalled` so the terminal event is an explicit
+    // (Re)arm the inactivity timer. When it fires we abort, which unblocks the
+    // for-await, and flag `stalled` so the terminal event is an explicit
     // "stopped responding" rather than a silent hang.
     const armInactivity = () => {
       if (inactivityTimer) clearTimeout(inactivityTimer);
@@ -324,7 +324,7 @@ async function start(payload, webContents) {
           throw part.error || new Error('stream error');
         }
         default:
-          // step-start, step-finish, finish, reasoning, ... — ignored.
+          // step-start, step-finish, finish, reasoning, ..., ignored.
           break;
       }
     }
@@ -373,7 +373,7 @@ async function start(payload, webContents) {
     // happens, nativeToolCallCount stays 0 and the tools are never executed.
     // We detect the JSON in fullText, execute the tools via the bridge, inject
     // the results into a follow-up generateText call, and stream its reply as
-    // additional text-delta events — all before sending the finish event.
+    // additional text-delta events, all before sending the finish event.
     if (!abort.signal.aborted && nativeToolCallCount === 0) {
       const textCalls = extractTextToolCalls(fullText, aiTools);
       if (textCalls.length > 0) {
@@ -445,7 +445,7 @@ async function start(payload, webContents) {
       let message = e instanceof Error ? e.message : String(e);
       // G6: a retired/invalid model id yields a cryptic SDK error. The
       // alias/migration map already covers known renames; this is the residual
-      // "your selected model is gone" case — give actionable guidance.
+      // "your selected model is gone" case, give actionable guidance.
       if (provider.isModelUnavailableError(e)) {
         const def = provider.getDefaultModel(providerName);
         message = `The model "${modelKey}" isn't available for ${providerName} ` +
@@ -471,7 +471,7 @@ function abort(/** @type {string} */ sessionId) {
 
 /**
  * Abort EVERY in-flight session. Called on teardown (main window close /
- * app quit) so a long AI generation — e.g. a gemini stream — stops the
+ * app quit) so a long AI generation, e.g. a gemini stream, stops the
  * instant the interface closes instead of running on detached. Returns the
  * number of sessions aborted.
  */

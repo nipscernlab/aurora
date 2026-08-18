@@ -1,6 +1,6 @@
 import { electronAPI } from './electron_api.js';
 /**
- * error_boundary.js — the renderer's last line of defence.
+ * error_boundary.js: the renderer's last line of defence.
  *
  * Aurora's renderer is a graph of ES modules with an implicit load order
  * (ARCHITECTURE.md §1) and managers that do I/O in their constructors. Before
@@ -12,7 +12,7 @@ import { electronAPI } from './electron_api.js';
  * staring at a half-dead UI.
  *
  * Loaded FIRST among the module scripts so it is armed before the rest of the
- * graph evaluates. Intentionally dependency-free and defensive — it must never
+ * graph evaluates. Intentionally dependency-free and defensive, it must never
  * be the thing that throws.
  */
 
@@ -36,7 +36,7 @@ function forwardToMain(kind, message, stack) {
 }
 
 function showToastOnce(message) {
-  // Surface ONE unobtrusive toast — repeated errors shouldn't spam the user.
+  // Surface ONE unobtrusive toast, repeated errors shouldn't spam the user.
   if (_toastShown) return;
   _toastShown = true;
   try {
@@ -72,7 +72,7 @@ function handle(kind, err, stack) {
 /**
  * Monaco/VS Code routinely reject their in-flight async work (tokenization,
  * hovers, model/link resolution) with a benign "Canceled" CancellationError when
- * an editor or model is DISPOSED — e.g. when Aurora closes every tab and reopens
+ * an editor or model is DISPOSED, e.g. when Aurora closes every tab and reopens
  * the project during a rename. That is normal teardown, NOT a crash, so it must
  * not raise the error overlay (VS Code itself swallows these). Let it pass.
  */

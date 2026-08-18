@@ -1,5 +1,5 @@
 /**
- * i18n.js — Internationalization layer for Aurora.
+ * i18n.js: Internationalization layer for Aurora.
  *
  * Pattern
  * -------
@@ -21,13 +21,13 @@
  *
  * Default: `pt` (matches the previous yanc toggle default). If a key
  * is missing from the active locale, falls back to `en`; if still
- * missing, returns the key path itself (loud failure — surfaces
+ * missing, returns the key path itself (loud failure, surfaces
  * untranslated strings during development).
  *
  * Interpolation
  * -------------
  * `t('errors.compile.failed', { code: 1 })` resolves `{{code}}` in
- * the template. Missing params become empty string (no throw — a
+ * the template. Missing params become empty string (no throw, a
  * blank is more useful in the UI than a stack trace).
  *
  * Events
@@ -87,7 +87,7 @@ function interpolate(template, params) {
 
 /**
  * Translate a dotted key against the active locale, with EN fallback.
- * Returns the key itself when no translation is found anywhere — that
+ * Returns the key itself when no translation is found anywhere, that
  * makes missing strings loud in the UI instead of silently empty.
  */
 function t(key, params) {
@@ -118,7 +118,7 @@ function applyDOM(root) {
         const key = el.getAttribute('data-i18n');
         const val = t(key);
         // Only overwrite when we actually have a translation distinct
-        // from the key path — preserves the HTML-authored fallback if
+        // from the key path, preserves the HTML-authored fallback if
         // i18n hasn't loaded yet or the key is missing in both locales.
         if (val !== key) el.textContent = val;
     });
@@ -133,7 +133,7 @@ function applyDOM(root) {
     // Auto-tooltip by element ID: any element with id="X" gets its
     // data-tooltip filled from `tooltip.extended.X` when the key exists.
     // Runs AFTER the explicit data-i18n-tooltip bindings above and
-    // intentionally overrides them — the extended description is the
+    // intentionally overrides them, the extended description is the
     // canonical tooltip wherever a registered ID exists. Short labels
     // that may be set via data-i18n-tooltip apply only to elements
     // without an extended-description key (the auto-resolve is a no-op
@@ -177,7 +177,7 @@ async function setLocale(lng) {
 async function boot() {
     if (booted) return;
     booted = true;
-    // Load both locales upfront — they're tiny and pre-loading kills
+    // Load both locales upfront, they're tiny and pre-loading kills
     // the flicker that would happen on first toggle. Load active first
     // so the initial paint isn't blocked on a network of fallbacks.
     await loadLocale(currentLocale);

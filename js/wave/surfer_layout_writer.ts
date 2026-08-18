@@ -1,5 +1,5 @@
 /**
- * surfer_layout_writer.ts — emite um state file do Surfer (.surf.ron) pra o
+ * surfer_layout_writer.ts: emite um state file do Surfer (.surf.ron) pra o
  * viewer Surfer abrir JA com uma curadoria de sinais (cores, formatos,
  * aliases, analogico). E a contraparte DECLARATIVA do .gtkw que o
  * gtkw_proc_writer gera pro GTKWave.
@@ -7,14 +7,14 @@
  * Por que .surf.ron e nao um command-file .sucl: o .sucl nao consegue montar
  * grupos curados, nao seta display analogico, e o targeting por-item (item_focus
  * por um indice base-16 minusculo fragil) erra silenciosamente. O .surf.ron e
- * declarativo — cada item carrega sua propria cor/formato/analog/nome — e o
+ * declarativo, cada item carrega sua propria cor/formato/analog/nome, e o
  * Surfer RE-RESOLVE os itens por caminho hierarquico + nome no load (os IDs
  * Wellen sao dica de performance, recomputados), entao um state gerado com IDs
  * placeholder fica portavel entre re-runs. Lancado por `surfer <vcd> -s <file>`.
  *
  * Este modulo e a CAMADA DE FORMATO (buildSurferState): transforma uma lista
  * ordenada de itens em RON valido. A CAMADA DE CURADORIA (quais sinais, quais
- * cores/formatos — reusando detectProcessors etc. do gtkw_proc_writer) alimenta
+ * cores/formatos, reusando detectProcessors etc. do gtkw_proc_writer) alimenta
  * esta. Compilado por tsc -> surfer_layout_writer.js (carregado pelo runtime).
  */
 
@@ -64,14 +64,14 @@ export interface SurferTimelineItem {
 
 /**
  * Grupo colapsavel (DisplayedItem::Group do Surfer). Os filhos NAO sao listados
- * em `content` — confirmado contra o save nativo do Surfer v0.7.0 (scope_add_as_
+ * em `content`, confirmado contra o save nativo do Surfer v0.7.0 (scope_add_as_
  * group serializa `content: []`): a hierarquia e definida SO pelos `level` do
  * items_tree (filhos vem logo apos o no do grupo com level+1). `isOpen` espelha
  * o `unfolded` do no (true = expandido). Suporta aninhamento (grupo em grupo).
  */
 export interface SurferGroupItem {
   kind: 'group';
-  /** Nome do header do grupo (obrigatorio no Surfer — String, nao Option). */
+  /** Nome do header do grupo (obrigatorio no Surfer, String, nao Option). */
   name: string;
   color?: SurferColor | null;
   backgroundColor?: SurferColor | null;
@@ -85,11 +85,11 @@ export type SurferItem = SurferVariableItem | SurferDividerItem | SurferTimeline
 export interface BuildSurferStateInput {
   /** Path absoluto do waveform; o VCD posicional da CLI o sobrescreve, entao e so dica. */
   vcdPath: string;
-  /** 'Vcd' | 'Fst' — o Surfer magic-detecta de qualquer jeito; default 'Vcd'. */
+  /** 'Vcd' | 'Fst', o Surfer magic-detecta de qualquer jeito; default 'Vcd'. */
   sourceFormat?: 'Vcd' | 'Fst';
   items: SurferItem[];
   /**
-   * Marcadores automaticos — ex.: [entrada, saida] pra medir latencia. O tempo
+   * Marcadores automaticos, ex.: [entrada, saida] pra medir latencia. O tempo
    * e' em unidades do timescale, o `#N` cru do dump; o rotulo e' o que aparece
    * na coluna da janela de Markers. Vazio/omit = sem markers.
    */
@@ -202,7 +202,7 @@ function emitTimeline(ref: number, item: SurferTimelineItem): string {
 const MAX_MARKERS = 255;
 
 /**
- * DisplayedItem::Marker — a metade VISIVEL de um marcador. O `idx` amarra este
+ * DisplayedItem::Marker, a metade VISIVEL de um marcador. O `idx` amarra este
  * item ao tempo guardado no mapa `markers`; `name` e o rotulo da coluna na
  * janela de Markers, e sem ele o Surfer mostra so o numero.
  */
@@ -217,7 +217,7 @@ function emitMarker(ref: number, idx: number, name: string | null): string {
 
 /**
  * DisplayedItem::Group. `name` e String (sempre Some-less). `content: []` SEMPRE
- * — a hierarquia vem dos `level` do items_tree, nao desta lista (ground truth do
+ *, a hierarquia vem dos `level` do items_tree, nao desta lista (ground truth do
  * save nativo do Surfer). `is_open` = estado dobrado persistido.
  */
 function emitGroup(ref: number, item: SurferGroupItem): string {
@@ -279,7 +279,7 @@ export function buildSurferState(input: BuildSurferStateInput): string {
   // mas quem desenha a caixa numerada na tela (`draw_marker_number_boxes`) e
   // quem monta a lista da janela (`draw_marker_window`) percorrem o
   // `items_tree` atras de `DisplayedItem::Marker`. Sem esse item o tempo fica
-  // no arquivo sem nada aparecer — e era esse o estado: a janela de Markers
+  // no arquivo sem nada aparecer, e era esse o estado: a janela de Markers
   // abria a cada simulacao e abria VAZIA. O proprio `add_marker` do Surfer faz
   // as duas coisas, `insert_item` mais `markers.insert`, e e isso que espelhamos.
   //
@@ -333,7 +333,7 @@ export function buildSurferState(input: BuildSurferStateInput): string {
     hierarchy_style: None,
     autoload_sibling_state_files: None,
     // NB: o auto-reload e ligado pelo config.toml (SurferConfig.autoreload_files),
-    // NAO por este campo do state — aqui ele e inerte. Ver writeSurferCenteredWindowConfig.
+    // NAO por este campo do state, aqui ele e inerte. Ver writeSurferCenteredWindowConfig.
     autoreload_files: None,
     waves: Some((
         source: File(${ronStr(input.vcdPath)}),
@@ -427,7 +427,7 @@ ${displayed}
 }
 
 // ===========================================================================
-//  CAMADA DE CURADORIA — buildSurferLayout
+//  CAMADA DE CURADORIA, buildSurferLayout
 //  Espelha buildAuroraGtkw (gtkw_proc_writer.ts): mesma deteccao de
 //  processador e mesma ordem de secoes (Top-level -> por-proc: banner ->
 //  clk/rst/itr -> I/O -> Instructions -> Variables -> Flags), mas emite
@@ -441,7 +441,7 @@ ${displayed}
 //
 //  v1 NAO traduz valr2/linetabs por mapping translator (Assembly/linha-fonte
 //  ficam em decimal cru, igual ao GTKWave sem os trad files) nem decodifica
-//  complexos (comp2gtkw) — esses dependem do mecanismo de mapping translator
+//  complexos (comp2gtkw), esses dependem do mecanismo de mapping translator
 //  do Surfer (.surfer/mappings), uma fase 2 com risco de descoberta no Windows
 //  a validar. Tudo o mais (cores, formatos, analog, aliases, secoes, arrays,
 //  flags) tem paridade.
@@ -452,11 +452,11 @@ export interface BuildSurferLayoutInput {
   vcdPath: string;
   /** Scope tree parseado do VCD (parseVcdHeaderFromContent). */
   scopes: VcdScope[];
-  /** Scope do testbench top — fallback de clk/rst/itr. */
+  /** Scope do testbench top, fallback de clk/rst/itr. */
   tbModule?: string | null;
   /** Filtro: full-paths selecionados no picker. Vazio = layout completo. */
   selectedSignals?: string[] | null;
-  /** Modules parseados (parseVerilogModules) — procType correto + signedSet. */
+  /** Modules parseados (parseVerilogModules), procType correto + signedSet. */
   modules?: Map<string, ModuleInfo> | null;
   /**
    * Conteudo cru dos trad files do YANC por procType (lidos do
@@ -470,7 +470,7 @@ export interface BuildSurferLayoutInput {
   /**
    * Mapping translator dos numeros COMPLEXOS (comp_me3_/comp_arr_me3_), pre-
    * computado pelo renderer (extrai os valores do dump + decodifica via
-   * comp2gtkw.exe — ver complex_decode.ts). { name, content } compartilhado por
+   * comp2gtkw.exe, ver complex_decode.ts). { name, content } compartilhado por
    * todos os sinais complexos (o decode depende so do bitpattern). null = sem
    * decode (complexos abrem em Binary cru).
    */
@@ -493,7 +493,7 @@ const ANALOG_STEP: SurferAnalog = { renderStyle: 'Step', yAxisScale: 'TypeLimits
 /**
  * Cor de TODOS os labels curados (grupos de secao + banner de processador).
  * Vermelho por contraste: I/O e Yellow, Variables e Orange, Instructions e
- * Violet — vermelho nao colide com nenhuma trilha e bate com os headers
+ * Violet, vermelho nao colide com nenhuma trilha e bate com os headers
  * vermelhos do GTKWave. O Surfer renderiza o header do grupo em italico; a cor
  * e adicional. Trocar aqui (ex.: 'Yellow') muda todos de uma vez.
  */
@@ -502,7 +502,7 @@ const SECTION_COLOR: SurferColor = 'Red';
 /**
  * Cria um GRUPO colapsavel de secao (header vermelho). `isOpen` controla o fold
  * inicial: secoes principais abertas, blocos volumosos (arrays/Flags) fechados.
- * Substitui os antigos `divider` de cabecalho — agora cada secao DOBRA.
+ * Substitui os antigos `divider` de cabecalho, agora cada secao DOBRA.
  */
 function mkGroup(name: string, children: SurferItem[], isOpen = true): SurferGroupItem {
   return { kind: 'group', name, color: SECTION_COLOR, isOpen, children };
@@ -547,11 +547,11 @@ function mappingName(kind: 'asm' | 'src', namespace: string, procType: string): 
  *  - header `Name = <nome>` (+ `Bits = <n>` quando a largura e conhecida);
  *  - o Surfer casa a chave pelo VALOR NUMERICO dos bits (radix livre);
  *  - chaves NEGATIVAS (linetabs: -1/-2/-3) viram o padrao de bits UNSIGNED na
- *    largura do sinal (ex.: 20-bit -1 → 0xFFFFF) — o Surfer nao casa assinado;
+ *    largura do sinal (ex.: 20-bit -1 → 0xFFFFF), o Surfer nao casa assinado;
  *  - linhas SEM texto sao PULADAS: o Surfer rejeita ("Missing mapping") e a
  *    falha derruba o arquivo inteiro, o que faz o Surfer DAR PANIC quando o
  *    .surf.ron referencia um translator que nao carregou;
- *  - o texto vai verbatim (espacos e '#' OK — '#' so e comentario no inicio
+ *  - o texto vai verbatim (espacos e '#' OK, '#' so e comentario no inicio
  *    da linha no Surfer, e aqui a linha sempre comeca pela chave numerica).
  */
 export function convertTradToSurferMapping(name: string, bits: number, tradText: string): string {
@@ -644,14 +644,14 @@ function pushClk(items: SurferItem[], filter: Set<string> | null, scopes: VcdSco
   if (!sig && tbModule) { sig = slFindSignal(scopes, tbModule, name); scopePath = tbModule; }
   if (!sig || !scopePath) return;
   if (!passesFilter(filter, sig.fullName)) return;
-  // clk/rst/itr sao 1-bit e aparecem em todo proc — uma altura levemente
+  // clk/rst/itr sao 1-bit e aparecem em todo proc, uma altura levemente
   // reduzida deixa os sinais de dado (variaveis/instrucoes) mais proeminentes.
-  // NB: 0.5 era curto demais — o rotulo da linha nao cabia e "encavalava" com a
+  // NB: 0.5 era curto demais, o rotulo da linha nao cabia e "encavalava" com a
   // linha vizinha (ilegivel). 0.8 mantem clk/rst um pouco menores, mas legiveis.
   // format 'Bit' (nao 'Binary'): o BitTranslator do Surfer reporta
   // VariableInfo::Bool e desenha o sinal como ONDA QUADRADA (dois niveis).
   // 'Binary' usa o BinaryTranslator (VariableInfo::Bits), que desenha caixa de
-  // valor por segmento — o clk virava "numero" 1/0 em vez de onda. 'Bit' e o
+  // valor por segmento, o clk virava "numero" 1/0 em vez de onda. 'Bit' e o
   // tradutor que o proprio Surfer ja prefere para 1 bit.
   items.push({ kind: 'variable', scope: scopePath.split('.'), name, format: 'Bit', heightScale: 0.8 });
 }
@@ -680,12 +680,12 @@ function buildIo(scopes: VcdScope[], instancePath: string, filter: Set<string> |
 
 /**
  * Os tracks de instrucao (Assembly/valr2 + C+-/linetabs) sao a ASSINATURA
- * curada do SAPHO e sao SEMPRE emitidos quando os sinais existem — de proposito
+ * curada do SAPHO e sao SEMPRE emitidos quando os sinais existem, de proposito
  * NAO passam pelo filtro do picker (o usuario quer que "sempre que ha
  * processadores eles aparecem no Surfer"). Como sao chamados SO de dentro do
  * loop por-processador, quando nao ha processador detectado eles nao aparecem.
  * O label carrega o NOME DO PROCESSADOR (`procName`, ex.: "Assembly (ProcDTW)")
- * pra distinguir as instrucoes de cada proc em designs multi-processador — o
+ * pra distinguir as instrucoes de cada proc em designs multi-processador, o
  * divider acima ja traz o instanceName, entao os dois se complementam.
  * asmFormat/srcFormat = nome do mapping translator (decode de mnemonico/linha-
  * fonte) ou o fallback decimal cru.
@@ -739,7 +739,7 @@ function pushArrays(out: SurferItem[], scopes: VcdScope[], instancePath: string,
       i++;
     }
     if (elemItems.length > 0) {
-      // Array vira um grupo FECHADO por padrao (volumoso — N elementos).
+      // Array vira um grupo FECHADO por padrao (volumoso, N elementos).
       out.push(mkGroup(groupLabel, elemItems, false));
     }
   }
@@ -749,7 +749,7 @@ function buildVariables(scopes: VcdScope[], instancePath: string, procName: stri
   const out: SurferItem[] = [];
   const cpx = complexFormat || 'Binary'; // mapping de decode complexo, ou Binary cru
   // Em designs MULTI-processador a MESMA variavel ("float acc in global") repete
-  // entre procs sem rotulo que diga de qual proc e — so o grupo dobravel ajudava.
+  // entre procs sem rotulo que diga de qual proc e, so o grupo dobravel ajudava.
   // A tag (procType) desambigua, espelhando a das instrucoes (buildInstructions).
   // Em single-proc procName e null e o sufixo some (sem ruido onde nao ha duvida).
   const tag = procName ? ` (${procName})` : '';
@@ -806,7 +806,7 @@ function buildFlags(scopes: VcdScope[], corePath: string | null, filter: Set<str
  * curadoria SAPHO (reusa detectProcessors/resolveScopeModules/buildSignedSet
  * verbatim do gtkw_proc_writer). Mesma ordem/selecao de sinais que o .gtkw.
  *
- * @returns { content, processorCount } — content=null so quando scopes vazio.
+ * @returns { content, processorCount }, content=null so quando scopes vazio.
  */
 export function buildSurferLayout(input: BuildSurferLayoutInput): { content: string | null; processorCount: number; mappings: Array<{ name: string; content: string }> } {
   const { vcdPath, scopes, tbModule = null, selectedSignals = null, modules = null, tradByProcType = null, mappingNamespace = '', complexMapping = null, eventMarkers = null } = input;
@@ -824,7 +824,7 @@ export function buildSurferLayout(input: BuildSurferLayoutInput): { content: str
   pushSection(items, 'Top-level', buildTopLevel(scopes, procs.map((p) => p.instancePath), filter, signedSet));
   for (const proc of procs) {
     // Cada processador vira um GRUPO COLAPSAVEL (header = instanceName, vermelho)
-    // contendo toda a sua secao — em designs multi-proc o usuario pode dobrar os
+    // contendo toda a sua secao, em designs multi-proc o usuario pode dobrar os
     // processadores que nao interessam. is_open: true = expandido por padrao.
     const procItems: SurferItem[] = [];
     pushClk(procItems, filter, scopes, proc.corePath, tbModule, 'clk');

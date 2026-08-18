@@ -1,11 +1,11 @@
 /**
- * compilation_helpers.ts — funções PURAS de apoio à compilação, sem estado e
+ * compilation_helpers.ts: funções PURAS de apoio à compilação, sem estado e
  * sem dependência de `this`/DOM/electronAPI. Vivem fora da god class
  * CompilationModule pra (a) encolher o arquivo principal e (b) poderem ser
  * testadas isoladamente. Compartilhadas pelo compilation_module.js e por
  * qualquer mixin de etapa que venha a ser extraído dele.
  *
- * Compilado por `tsc` (npm run build:ts) num compilation_helpers.js ao lado —
+ * Compilado por `tsc` (npm run build:ts) num compilation_helpers.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -24,7 +24,7 @@ export function isPythonFile(filePath: string): boolean {
 // Reads an optional `# aurora-toplevel: <module>` directive from a cocotb .py.
 // It tells Aurora which Verilog module is the DUT (cocotb's hdl_toplevel) so a
 // test can target ANY module without re-marking the project top-level in the
-// .spf. Crucially it's a plain COMMENT — pytest, a Makefile or bare cocotb
+// .spf. Crucially it's a plain COMMENT, pytest, a Makefile or bare cocotb
 // running the same .py outside Aurora ignore it entirely. Accepts ':' or '='
 // and is case-insensitive; the value must be a valid identifier. Returns the
 // module name, or null when the directive is absent.
@@ -35,7 +35,7 @@ export function parseCocotbToplevelDirective(pySource: string): string | null {
 
 // Insere a diretiva `#TOAQUI` logo antes do `}` que fecha a funcao main()
 // de um fonte C±. O #TOAQUI faz o compilador pulsar o pino `cheguei` no fim
-// do programa — usado pelo harness do botao Verilator pra encerrar a sim
+// do programa, usado pelo harness do botao Verilator pra encerrar a sim
 // assim que o programa termina. Acha o `}` casando chaves a partir de
 // `main(`, ignorando `//` e `/* */`. Retorna o texto original inalterado se
 // nao achar o main ou se as chaves nao fecharem (nao instrumenta as cegas).

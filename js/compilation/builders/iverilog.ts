@@ -1,5 +1,5 @@
 /**
- * builders/iverilog.ts — CommandSpec builders for the two iverilog
+ * builders/iverilog.ts, CommandSpec builders for the two iverilog
  * invocations Aurora uses:
  *
  *   iverilog-check : -tnull (syntax + elab, no .vvp emitted)
@@ -11,7 +11,7 @@
  * library modules (processor.v, ula.v, myFIFO.v, etc.) resolve
  * without the user listing them. See ARCHITECTURE.md.
  *
- * Compilado por `tsc` (npm run build:ts) num iverilog.js ao lado — é esse .js que o
+ * Compilado por `tsc` (npm run build:ts) num iverilog.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -21,7 +21,7 @@ import type { CommandSpec } from '../command_spec.js';
  * iverilog.exe and the modules it dlopens are MinGW-linked and depend on the
  * runtime DLLs in mingw64/bin (where iverilog.exe itself lives). Returning
  * `{ prependPath: [mingw64/bin] }` keeps that dir on the child's PATH so those
- * loads resolve. Pure string op — no IO. Returns `{}` if the path is empty.
+ * loads resolve. Pure string op, no IO. Returns `{}` if the path is empty.
  */
 function prependBinDir(binaryPath: string): { prependPath?: string[] } {
   const dir = String(binaryPath || '').replace(/[\\/][^\\/]*$/, '');
@@ -51,7 +51,7 @@ export function buildIverilogCheckSpec(ctx: IverilogCheckBuilderCtx): CommandSpe
     args,
     cwd: ctx.cwd,
     // mingw64/bin on PATH so iverilog's MinGW-linked target/preprocessor
-    // modules (and their runtime DLLs) load — same reason as vvp/system.vpi.
+    // modules (and their runtime DLLs) load, same reason as vvp/system.vpi.
     ...prependBinDir(ctx.iveriCompPath),
     label: `iverilog -tnull -s ${ctx.simTopModule}`,
   };

@@ -1,4 +1,4 @@
-// PRELOAD SCRIPT — PRISM window
+// PRELOAD SCRIPT, PRISM window
 const { contextBridge, ipcRenderer } = require('electron');
 
 try {
@@ -28,7 +28,7 @@ try {
     prismRecompile: (compilationPaths) =>
       ipcRenderer.invoke('prism-recompile', compilationPaths),
 
-    // O9 — build the DigitalJS interactive-simulation circuit for the current top.
+    // O9, build the DigitalJS interactive-simulation circuit for the current top.
     buildDigitalJS: (compilationPaths) =>
       ipcRenderer.invoke('prism:build-digitaljs', compilationPaths),
 
@@ -57,7 +57,7 @@ try {
     },
     // NOTE: deliberately NO generic `send` / `removeAllListeners` here. Every
     // channel the PRISM window uses has an explicit wrapper above, so the
-    // enumerated-channel allowlist stays intact — a generic passthrough would
+    // enumerated-channel allowlist stays intact, a generic passthrough would
     // let this renderer reach ANY ipc channel (the escape this preload avoids).
   });
 

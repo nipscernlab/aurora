@@ -153,7 +153,7 @@ describe('clampGrid', () => {
   it('da a MESMA resposta que o outro caminho dava, que era o defeito', () => {
     // Antes havia duas regras para a mesma coisa: shell:start usava
     // `isFinite(x) ? max(2, x|0) : 80` e shell:resize usava
-    // `max(2, (x|0) || 80)`. Para 0, uma devolvia 2 e a outra 80 — iniciar e
+    // `max(2, (x|0) || 80)`. Para 0, uma devolvia 2 e a outra 80, iniciar e
     // redimensionar com o mesmo valor produziam terminais diferentes.
     for (const v of [0, -1, 1, 2, 80, 200, NaN]) {
       const a = clampGrid({ cols: v, rows: v });

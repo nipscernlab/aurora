@@ -1,15 +1,15 @@
 /**
- * simulator_preference.js — Qual simulador roda no botao Wave.
+ * simulator_preference.js: Qual simulador roda no botao Wave.
  *
  * Default: iverilog (toolchain bundlada em components/Packages/msys).
- * Alternativa: verilator — transpila pra C++, builda com g++, executa
+ * Alternativa: verilator, transpila pra C++, builda com g++, executa
  * binario nativo. Tipicamente 10-100x mais rapido que vvp em testbenches
  * longos, ao custo de stricter linting e dependencia adicional
  * (verilator + g++).
  *
  * Escopo: global (uma flag pro app inteiro), persistida em localStorage.
  * Per-projeto/per-testbench foi descartado pra evitar inflar o WaveStore
- * — a escolha de toolchain e do usuario, nao da testbench.
+ *, a escolha de toolchain e do usuario, nao da testbench.
  *
  * Quem le: js/compilation/compilation_module.js (branch em runGtkWave).
  * Quem escreve: js/wave/wave_config_manager.js (toggle no modal).
@@ -20,7 +20,7 @@ const VALID = new Set(['iverilog', 'verilator']);
 
 /**
  * Le a escolha atual. Retorna 'iverilog' como fallback se nada estiver
- * salvo ou o valor for desconhecido. Nunca lanca — chamado em hot paths
+ * salvo ou o valor for desconhecido. Nunca lanca, chamado em hot paths
  * (cada clique no Wave), entao defensivo a corrupcao do storage.
  */
 export function getSimulator() {

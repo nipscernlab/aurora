@@ -1,7 +1,7 @@
 /**
- * status_bar.js — Renderiza tres indicadores do projeto na status bar.
+ * status_bar.js: Renderiza tres indicadores do projeto na status bar.
  *
- * Zona direita (design — top-level + testbench):
+ * Zona direita (design, top-level + testbench):
  *   Le `structure.topLevelFile` e `structure.testbenchFile` do .spf.
  *   - ambos vazios (ou sem projeto): mostra apenas #designEmptyStatus
  *     com X "No top-level or testbench yet";
@@ -12,7 +12,7 @@
  *
  * Zona esquerda (processador ativo):
  *   Cruza `structure.processors` do .spf com o .cmm em foco no Monaco
- *   (TabManager.getEditingFilePath — mesmo sinal que gate-ia o botao
+ *   (TabManager.getEditingFilePath, mesmo sinal que gate-ia o botao
  *   C±). Tres estados:
  *   - projeto sem processadores: #activeProcessorStatus hidden. Nao faz
  *     sentido falar de ativo/inativo sem candidatos.
@@ -22,24 +22,24 @@
  *     nome do processador.
  *
  * Refresh hooks:
- *   - ProjectStore.subscribe — captura open/close de projeto.
- *   - aurora:editing-file-changed — captura mudanca do .cmm em foco.
- *   - electronAPI.onProcessorCreated / onProcessorsUpdated — captura
+ *   - ProjectStore.subscribe, captura open/close de projeto.
+ *   - aurora:editing-file-changed, captura mudanca do .cmm em foco.
+ *   - electronAPI.onProcessorCreated / onProcessorsUpdated, captura
  *     criar/deletar processadores em runtime (o .spf ja foi reescrito
  *     pelo main process quando esses chegam).
- *   - aurora:spf-changed — disparado por SpfStore.update apos cada
+ *   - aurora:spf-changed, disparado por SpfStore.update apos cada
  *     escrita com mudanca real (e sintetizado pelo project_manager no
- *     load). Cobre saveConfiguration / registerProcessor / AuroraAPI —
+ *     load). Cobre saveConfiguration / registerProcessor / AuroraAPI:
  *     ninguem precisa (nem deve) chamar refresh() direto.
  *
- * Observador puro: este modulo nao e importado por ninguem — toda
+ * Observador puro: este modulo nao e importado por ninguem, toda
  * atualizacao chega por evento ou subscribe. A logica de dominio
  * "qual processador esta ativo" mora em project/active_processor.js;
  * aqui so se renderiza o resultado.
  */
 
 // Registers the <aurora-statusbar> custom element that wraps this bar in
-// index.html (thin shell — same pattern as <aurora-tabs>). This manager keeps
+// index.html (thin shell, same pattern as <aurora-tabs>). This manager keeps
 // driving the light-DOM items inside it by id, unchanged.
 import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-statusbar.js';
@@ -48,7 +48,7 @@ import { SpfStore } from '../project/spf_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 
-// Nomes de exibicao dos motores de simulacao (nomes proprios — nao
+// Nomes de exibicao dos motores de simulacao (nomes proprios, nao
 // traduzidos). A chave casa com getSimulator() / simulator_preference.
 const ENGINE_LABELS = { iverilog: 'Icarus Verilog', verilator: 'Verilator' };
 
@@ -61,7 +61,7 @@ class StatusBarManager {
         this.engineEl = null;
         // _refreshSeq guarda a ultima refresh disparada. Se uma segunda
         // refresh chega enquanto a primeira esta no await SpfStore.read,
-        // a primeira nao pode mais pintar — ficaria stale. Comparar
+        // a primeira nao pode mais pintar, ficaria stale. Comparar
         // contra _refreshSeq descarta o resultado obsoleto.
         this._refreshSeq = 0;
 
@@ -87,7 +87,7 @@ class StatusBarManager {
         // Mudanca do arquivo em foco no Monaco (mesmo evento que gate-ia
         // o botao C±).
         document.addEventListener('aurora:editing-file-changed', () => this.refresh());
-        // Criacao/delete de processadores no main process — o .spf ja
+        // Criacao/delete de processadores no main process, o .spf ja
         // foi reescrito quando esses eventos chegam aqui.
         electronAPI?.onProcessorCreated?.(() => this.refresh());
         electronAPI?.onProcessorsUpdated?.(() => this.refresh());
@@ -100,7 +100,7 @@ class StatusBarManager {
         window.addEventListener('aurora:spf-changed', () => this.refresh());
         // Simulator engine flipped on the toolbar switch (or via AuroraAPI).
         window.addEventListener('aurora:wave-simulator-changed', () => this.refresh());
-        // Pintura inicial — caso o app abra direto num projeto (auto-
+        // Pintura inicial, caso o app abra direto num projeto (auto-
         // reopen) o setProject pode ja ter rodado antes do nosso init.
         this.refresh();
     }
@@ -145,8 +145,8 @@ class StatusBarManager {
     /**
      * Mostra o motor que vai simular o testbench (Icarus Verilog /
      * Verilator), logo apos o slot do testbench. So aparece quando ha um
-     * testbench configurado — sem testbench nao ha o que simular. Usa a
-     * preferencia global (getSimulator, de simulator_preference) —
+     * testbench configurado, sem testbench nao ha o que simular. Usa a
+     * preferencia global (getSimulator, de simulator_preference):
      * espelha o switch da toolbar. Vale tanto para testbench .v quanto cocotb
      * (.py): desde que cocotb passou a rodar no simulador escolhido (icarus OU
      * verilator), o motor mostrado segue o switch nos dois casos.
@@ -171,7 +171,7 @@ class StatusBarManager {
         }
         this._toggle(this.activeProcEl, true);
 
-        // Passa a lista fresca recem-lida do .spf — mais atual que a
+        // Passa a lista fresca recem-lida do .spf, mais atual que a
         // sincrona do processor_list durante a 1a pintura.
         const activeName = getActiveProcessorName(processors);
         this._pushShellContext(activeName || '');
@@ -191,7 +191,7 @@ class StatusBarManager {
     /**
      * Mirror the active processor into the TCMD shell prompt (aurora-prompt.ps1
      * reads it from a context file). Guarded so we only touch disk when the value
-     * actually changes — this runs on every status-bar render.
+     * actually changes, this runs on every status-bar render.
      */
     _pushShellContext(name) {
         if (name === this._lastShellProc) return;

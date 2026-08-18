@@ -1,5 +1,5 @@
 /**
- * wave_config_manager.js — Wave Configuration modal.
+ * wave_config_manager.js: Wave Configuration modal.
  *
  * Hierarchical signal picker: walks the project's Verilog files, builds
  * a tree rooted at the testbench module, lets the user check which
@@ -43,11 +43,11 @@ class WaveConfigManager {
         this.collapsedScopes = new Set();
         this._initialized = false;
         // Snapshot da selecao no momento em que o modal abre. Usado em
-        // save() pra detectar se o usuario mudou algo — qualquer
+        // save() pra detectar se o usuario mudou algo, qualquer
         // diferenca seta wcCustomized=true no WaveStore e o compile
         // flow passa a injetar o proprio $dumpvars (override do testbench).
         this._initialSelection = new Set();
-        // Filtro visual "Show processor signals only" — quando ligado,
+        // Filtro visual "Show processor signals only", quando ligado,
         // mostra apenas signals "codificados" do processador (os que
         // tem alias no aliasMap, renderizados em negrito + cor accent
         // pelo .signal-alias). Engloba Stack/ULA, Assembly/C+-, e
@@ -63,14 +63,14 @@ class WaveConfigManager {
         // Find widget state. Monaco-style text filter: literal substring
         // by default, regex via toggle; case-insensitive by default.
         // Reset on every open(). When `_filterRegex` is null the filter
-        // is inactive — the tree renders normally.
+        // is inactive, the tree renders normally.
         this._filterText = '';
         this._filterCaseSensitive = false;
         this._filterIsRegex = false;
         this._filterRegex = null;
         // Pre-computed match sets, refreshed on every filter/text change.
         // `_filterScopesOnPath` is the set of scopePaths that themselves
-        // match OR have a matching descendant — used to keep ancestors
+        // match OR have a matching descendant, used to keep ancestors
         // visible (path-preservation) and to auto-expand them.
         // `_filterMatchedSignals` is the exact set of `scope.sig` full
         // names that pass the filter.
@@ -122,7 +122,7 @@ class WaveConfigManager {
         this.elements.selectAllBtn?.addEventListener('click', () => this.selectAll());
         this.elements.selectNoneBtn?.addEventListener('click', () => this.selectNone());
         // Preferencia GLOBAL persistida (localStorage), independente do Save/Cancel
-        // do modal — espelha o toggle de viewer. Off = uma janela do Surfer (fecha
+        // do modal, espelha o toggle de viewer. Off = uma janela do Surfer (fecha
         // a anterior); On = varias janelas (comparar simulacoes lado a lado).
         this.elements.surferMultiWindowCb?.addEventListener('change', (e) => {
             setSurferMultiWindow(!!e.target.checked);
@@ -135,7 +135,7 @@ class WaveConfigManager {
                 // niveis (top_level_inst → DTWv4_inst → p_ProcDTW →
                 // core → sp/ula...). Quando o filtro liga, abrimos o
                 // caminho ate cada module com signal aliased pra que
-                // o usuario veja imediatamente o que pediu — caso
+                // o usuario veja imediatamente o que pediu, caso
                 // contrario a tela parece vazia.
                 for (const path of this._scopesWithAliasedSignal) {
                     this.collapsedScopes.delete(path);
@@ -144,14 +144,14 @@ class WaveConfigManager {
             this.renderTree();
         });
 
-        // Toolbar button — primary entry point for the modal. Also
+        // Toolbar button, primary entry point for the modal. Also
         // wired up here (rather than in renderer.js / compilation_flow)
         // so the manager owns its full lifecycle.
         document.getElementById('waveConfigBtn')?.addEventListener('click', () => this.open());
 
         // Esc closes when modal is open. But if the focus is in the
         // filter input AND there's filter text, Esc clears the filter
-        // first — Monaco-style two-step Esc (clear, then close).
+        // first, Monaco-style two-step Esc (clear, then close).
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.isOpen()) {
                 if (document.activeElement === this.elements.filterInput && this._filterText) {
@@ -163,13 +163,13 @@ class WaveConfigManager {
             }
         });
 
-        // Click on overlay (outside the container) closes — same as
+        // Click on overlay (outside the container) closes, same as
         // every other modal in Aurora.
         this.modal.addEventListener('click', (e) => {
             if (e.target === this.modal) this.close();
         });
 
-        // Ctrl/Cmd+F focuses the find input — like Monaco. Scoped to the
+        // Ctrl/Cmd+F focuses the find input, like Monaco. Scoped to the
         // modal so it doesn't intercept the shortcut globally.
         this.modal.addEventListener('keydown', (e) => {
             if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
@@ -182,7 +182,7 @@ class WaveConfigManager {
             }
         });
 
-        // Find widget — input, case/regex toggles, clear button.
+        // Find widget, input, case/regex toggles, clear button.
         this.elements.filterInput?.addEventListener('input', (e) => {
             this._setFilterText(e.target.value);
         });
@@ -209,7 +209,7 @@ class WaveConfigManager {
     }
 
     /**
-     * Centralised filter-text setter — updates state, DOM, compiles the
+     * Centralised filter-text setter, updates state, DOM, compiles the
      * matcher, recomputes match sets, and re-renders. Called from the
      * input handler, from Esc-clear, and from the clear button.
      */
@@ -229,7 +229,7 @@ class WaveConfigManager {
     /**
      * Build the matcher RegExp from `_filterText` + toggles. Falls back
      * to literal substring if the user typed an invalid regex with the
-     * `.*` toggle on — keeps the UI responsive instead of throwing.
+     * `.*` toggle on, keeps the UI responsive instead of throwing.
      */
     _compileFilter() {
         const text = this._filterText.trim();
@@ -241,7 +241,7 @@ class WaveConfigManager {
                 ? new RegExp(text, flags)
                 : new RegExp(literalEscape(text), flags);
         } catch (_) {
-            // Invalid regex — fall back to a literal-text match of the
+            // Invalid regex, fall back to a literal-text match of the
             // raw input so the picker keeps filtering "somehow" instead
             // of going blank while the user finishes typing.
             this._filterRegex = new RegExp(literalEscape(text), flags);
@@ -251,22 +251,22 @@ class WaveConfigManager {
     /**
      * Walk the hierarchy and decide which signals match. Side effects:
      * populates `_filterScopesOnPath`, `_filterMatchedSignals`,
-     * `_filterMatchCount`. Cheap O(n) — recomputed on every keystroke.
+     * `_filterMatchCount`. Cheap O(n), recomputed on every keystroke.
      *
      * Matching rule: only leaf signals can be "matched", and the match
-     * is tested ONLY against the signal's own identifier — `sig.name`
+     * is tested ONLY against the signal's own identifier, `sig.name`
      * and the SAPHO alias (so searching "Assembly" finds `valr2`).
      *
      * Scope/full-path matching is deliberately NOT used: it would pull
      * every signal under a matching scope into the result (search "ula"
      * → every signal inside the `ula` module appears, even ones whose
      * names have no "ula" in them), defeating the point of the filter.
-     * Modules show up purely as ancestors of matched signals — path
+     * Modules show up purely as ancestors of matched signals, path
      * preservation, never themselves a match source.
      *
      * Processor-internal plumbing (the raw `me3_*` / `arr_me3_*` memory
      * regs/wires that combine to produce the `comp_me3_*` value the user
-     * actually reads) is excluded from match results unconditionally —
+     * actually reads) is excluded from match results unconditionally:
      * those are infra, not signals worth presenting to the picker. They
      * remain visible in hierarchical mode if the user navigates there.
      */
@@ -306,12 +306,12 @@ class WaveConfigManager {
     }
 
     /**
-     * True for SAPHO processor "plumbing" signals — the raw memory
+     * True for SAPHO processor "plumbing" signals, the raw memory
      * registers/wires that feed the aliased `comp_me3_*` view but carry
      * no standalone meaning for the user. Currently:
      *   - `me3_*`     (without `comp_` prefix): scalar comp-var mem
      *   - `arr_me3_*` (without `comp_` prefix): array comp-var mem
-     * Keep this list narrow — it's a hard-coded skip in the find widget
+     * Keep this list narrow, it's a hard-coded skip in the find widget
      * results, so over-inclusion would silently hide useful signals.
      */
     _isProcessorInternal(sigName) {
@@ -353,7 +353,7 @@ class WaveConfigManager {
             const compiler = new CompilationModule(projectPath);
             await compiler.loadConfig();
 
-            // STEP 1 — local cleanup: validate the saved waveSignals
+            // STEP 1, local cleanup: validate the saved waveSignals
             // against the current Verilog hierarchy and auto-prune
             // entries that no longer exist. Cheap regex parse, runs
             // BEFORE any iverilog work so a stale selection from a
@@ -373,7 +373,7 @@ class WaveConfigManager {
             // instr_dec, myFIFO, ...). Without these, _validateWaveSelection
             // doesn't see signals inside the processor core (e.g.
             // "Data Stack Max", "Rounding Error") and would auto-prune
-            // them as "stale" — the WaveStore loses the user's selection
+            // them as "stale", the WaveStore loses the user's selection
             // every time the modal opens. Mirrors the same widening done
             // for the compile-time path in waveBuildVvp.
             try {
@@ -387,7 +387,7 @@ class WaveConfigManager {
                         }
                     }
                 }
-            } catch (_e) { /* HDL unavailable — validate proceeds without it */ }
+            } catch (_e) { /* HDL unavailable, validate proceeds without it */ }
             const moduleNameFromPath = (p) => p && p.split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
             const tbModule = (cocotb ? moduleNameFromPath(cfg.topLevelFile) : moduleNameFromPath(cfg.testbenchFile))
                 || moduleNameFromPath(cfg.topLevelFile);
@@ -399,12 +399,12 @@ class WaveConfigManager {
                 await compiler._validateWaveSelection(rawSelected, filePaths, tbModule, tbKey);
             }
 
-            // STEP 2 — informational iverilog syntax check. Used to
+            // STEP 2, informational iverilog syntax check. Used to
             // gate the modal but that created a dead-end (if a stale
             // selection caused the iverilog failure, the user
             // couldn't reach the picker to clean it up). Now purely
             // informational; modal opens regardless. Roda pros dois
-            // fluxos (com e sem processador) — syntaxCheck usa
+            // fluxos (com e sem processador), syntaxCheck usa
             // -y components/HDL que resolve a biblioteca SAPHO, entao
             // funciona em projeto com processador tambem.
             // Limpa o tveri antes de re-rodar o syntax check. Cada open()
@@ -418,20 +418,20 @@ class WaveConfigManager {
             }
         }
 
-        // O filtro "processor only" e UI-only e nao persiste — comeca
+        // O filtro "processor only" e UI-only e nao persiste, comeca
         // desligado a cada open(). Mantemos o estado interno em sync
         // com o DOM checkbox antes do refresh pra evitar render duplo.
         this._processorOnly = false;
         if (this.elements.processorOnlyCb) {
             this.elements.processorOnlyCb.checked = false;
         }
-        // Multi-janela do Surfer: preferencia PERSISTIDA — reflete o valor salvo
+        // Multi-janela do Surfer: preferencia PERSISTIDA, reflete o valor salvo
         // a cada open() (nao reseta como o filtro UI-only acima).
         if (this.elements.surferMultiWindowCb) {
             this.elements.surferMultiWindowCb.checked = getSurferMultiWindow();
         }
         // Find widget: also UI-only, also reset on each open(). Toggles
-        // (case/regex) reset too — fresh slate every time the user
+        // (case/regex) reset too, fresh slate every time the user
         // re-enters the modal.
         this._filterText = '';
         this._filterCaseSensitive = false;
@@ -486,12 +486,12 @@ class WaveConfigManager {
             .filter((f) => !cocotb || !/\.py$/i.test(f?.path || ''))
             .forEach((f) => f?.path && filePaths.add(f.path));
 
-        // components/HDL/*.v — biblioteca SAPHO (core.v, myFIFO.v,
+        // components/HDL/*.v, biblioteca SAPHO (core.v, myFIFO.v,
         // processor.v, ula.v, etc). Esses modulos sao instanciados
         // dentro do .v gerado pelo asmcomp mas nao aparecem em
         // synthesizableFiles. Sem incluir aqui, o Wave Config picker
         // nao mostra sinais tipo `core.sp.pointeri`, `core.ula.delta_int`
-        // — e ai o $dumpvars gerado nao inclui esses sinais no VCD,
+        //, e ai o $dumpvars gerado nao inclui esses sinais no VCD,
         // sumindo a secao Flags do .gtkw final.
         try {
             const componentsPath = await electronAPI.getComponentsPath();
@@ -506,7 +506,7 @@ class WaveConfigManager {
                 }
             }
         } catch (_e) {
-            // HDL nao acessivel — segue sem (picker fica sem sinais
+            // HDL nao acessivel, segue sem (picker fica sem sinais
             // SAPHO mas resto do projeto continua).
         }
 
@@ -552,14 +552,14 @@ class WaveConfigManager {
         this.aliasMap = buildAliasMap(flatScopes);
 
         // Pre-computa o set de scopePaths que carregam (em si ou em
-        // descendentes) pelo menos um signal com alias — alimenta o
+        // descendentes) pelo menos um signal com alias, alimenta o
         // filtro "Show processor signals only". Inclui os scopes que
         // sao ancestrais de signals aliased pra que a arvore mantenha
         // contiguidade visual (caso contrario um filho aliased ficaria
         // sem pai renderizado).
         this._scopesWithAliasedSignal = this._computeScopesWithAliasedSignal();
 
-        // Estrategia de selecao inicial — usando WaveStore per-tb:
+        // Estrategia de selecao inicial, usando WaveStore per-tb:
         //  1. state.wcCustomized = true  -> usa state.waveSignals
         //     (usuario assumiu o controle para ESTE testbench).
         //  2. testbench tem $dumpfile/$dumpvars hand-written E VCD
@@ -642,7 +642,7 @@ class WaveConfigManager {
     /**
      * Quando o testbench tem $dumpfile/$dumpvars hand-written, a primeira
      * vez que o modal abre pra um projeto nao-customizado mostramos o
-     * que ESTA efetivamente sendo dumpado — i.e., parseamos o VCD
+     * que ESTA efetivamente sendo dumpado, i.e., parseamos o VCD
      * gerado pela ultima simulacao e marcamos os sinais correspondentes.
      *
      * Devolve um Set<string> com os paths ou null se:
@@ -702,7 +702,7 @@ class WaveConfigManager {
             this.renderTree();
             return;
         }
-        // Filtro ligado: o usuario ve so signals aliased — "Select all"
+        // Filtro ligado: o usuario ve so signals aliased, "Select all"
         // opera sobre o que ele esta vendo (signals do processador),
         // preservando o estado dos outros pra nao mexer no que esta
         // escondido. Filtro desligado: comportamento classico (todos).
@@ -755,7 +755,7 @@ class WaveConfigManager {
         treeEl.innerHTML = '';
 
         // O checkbox "Show processor signals only" so faz sentido quando
-        // o .spf tem de fato um processador — i.e., existe pelo menos um
+        // o .spf tem de fato um processador, i.e., existe pelo menos um
         // signal aliased (plumbing SAPHO). Esconde caso contrario.
         this._updateProcessorFilterVisibility();
 
@@ -809,7 +809,7 @@ class WaveConfigManager {
                 }
             }
             for (const child of node.children) {
-                // Mantem o depth do filho mesmo se o pai foi escondido —
+                // Mantem o depth do filho mesmo se o pai foi escondido:
                 // assim a indentacao reflete a hierarquia real, nao a
                 // posicao visual no filtro. Filtro afeta visibilidade,
                 // nao geometria.
@@ -854,10 +854,10 @@ class WaveConfigManager {
     /**
      * Constroi o set de scopePaths que tem (em si OU em descendentes)
      * pelo menos um signal aliased. O walk bottom-up garante que se um
-     * filho qualifica, todos os ancestrais tambem qualificam — assim a
+     * filho qualifica, todos os ancestrais tambem qualificam, assim a
      * arvore mantem caminho do root ate o signal aliased sem buracos.
      *
-     * Roda uma vez por refresh() — depois cada renderTree consulta o
+     * Roda uma vez por refresh(), depois cada renderTree consulta o
      * set em O(1).
      *
      * @returns {Set<string>}
@@ -1032,7 +1032,7 @@ class WaveConfigManager {
         if (!this.elements.counter) return;
         const n = this.selected.size;
         const tr = (k, p) => (window.t ? window.t(k, p) : k);
-        // Two keys instead of an ICU plural — fine for {0/1, many}; if a
+        // Two keys instead of an ICU plural, fine for {0/1, many}; if a
         // third locale lands with more plural forms (Slavic, Arabic) we
         // promote to a plural-aware helper at that point.
         this.elements.counter.textContent = n === 1
@@ -1082,7 +1082,7 @@ class WaveConfigManager {
         const cfg = await SpfStore.read(spfPath);
         const tbKey = tbKeyFromPath(cfg.testbenchFile);
         if (!tbKey) {
-            // Sem testbench definido — nao temos onde persistir.
+            // Sem testbench definido, nao temos onde persistir.
             this.close();
             return;
         }

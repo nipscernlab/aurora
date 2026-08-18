@@ -7,13 +7,13 @@
  *  - Stack: múltiplos modais abrem/fecham na ordem correta
  *  - data-modal-close="id" / data-dismiss-modal fecham via delegação
  *
- * Não substitui handlers existentes — é aditivo. Se outro JS já controla um
+ * Não substitui handlers existentes, é aditivo. Se outro JS já controla um
  * modal, esse continua funcionando; aqui apenas garantimos comportamento
  * consistente em modais que ainda não têm handler.
  *
  * Módulo de side-effect: importar/carregar já instala os listeners. O
  * antigo objeto `window.SaphoModal` (open/close/closeAll/... com
- * auto-focus no open) foi removido na conversão pra módulo ES — não
+ * auto-focus no open) foi removido na conversão pra módulo ES, não
  * tinha nenhum consumidor. Se um dia precisar abrir modal por aqui,
  * exporte uma função deste módulo em vez de recriar um global.
  */
@@ -117,7 +117,7 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Sync stack on load — qualquer modal já aberto via classe `show` ou
+// Sync stack on load, qualquer modal já aberto via classe `show` ou
 // aria-hidden="false" entra no stack.
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll(MODAL_OVERLAY_SELECTOR).forEach((modal) => {
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
  *  Opener + trigger wiring
  *
  *  Relocated here from a parallel modal script that used to live inline in
- *  index.html — so there is now ONE modal system. The buttons that open the
+ *  index.html: so there is now ONE modal system. The buttons that open the
  *  New Project and Processor Hub modals open them authoritatively on the
  *  capture phase (before any other click handler on the same button, e.g.
  *  processor_hub.js), exactly as the old inline code did. ESC / backdrop now

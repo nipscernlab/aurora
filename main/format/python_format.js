@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * python_format.js — formatador de Python para o editor Monaco.
+ * python_format.js: formatador de Python para o editor Monaco.
  *
  * Os outros idiomas já tinham dono: C, C++ e C± vão para o clang-format
  * empacotado (main/format/clang_format.js, com C± pegando as regras de C), e

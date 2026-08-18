@@ -1,5 +1,5 @@
 /**
- * Panel Resizer — file tree (vertical) + terminal (horizontal) + corner.
+ * Panel Resizer, file tree (vertical) + terminal (horizontal) + corner.
  *
  * Fix: durante o drag, desabilitamos transitions de width/height nos containers
  * (via `body.resizing-*`), evitando o lag de 280ms causado pelo
@@ -18,7 +18,7 @@ const horizontalResizer = document.querySelector('.resizer-horizontal');
 const fileTreeContainer = document.querySelector('.file-tree-container');
 const terminalContainer = document.querySelector('.terminal-container');
 
-// File tree always keeps a minimum width while visible — guarantees the
+// File tree always keeps a minimum width while visible, guarantees the
 // vertical resizer is reachable. Use the toolbar sidebar toggle to fully
 // hide / restore the panel.
 const MIN_FILE_TREE_WIDTH  = 180;
@@ -160,7 +160,7 @@ function applyFileTreeWidth(w) {
   document.body.classList.toggle('tree-collapsed', colapsada);
 }
 
-// Public toggle for the sidebar — exposed on window so the toolbar button
+// Public toggle for the sidebar, exposed on window so the toolbar button
 // `<button id="sidebarMenu" onclick="toggleSidebar()">` can reach it.
 function toggleSidebar() {
   if (!fileTreeContainer) return;
@@ -290,7 +290,7 @@ function setupCornerHandle() {
     const top  = termRect.top  - half;
     // Idempotent: skip the style writes when the junction hasn't moved. The
     // MutationObserver below fires on every width/height change during ANY
-    // drag — without this guard each vertical/horizontal resize frame paid a
+    // drag, without this guard each vertical/horizontal resize frame paid a
     // pointless corner reflow.
     if (left === lastLeft && top === lastTop) return;
     lastLeft = left;
@@ -362,8 +362,8 @@ function setupCornerHandle() {
   // ResizeObserver (not a style MutationObserver): it fires on the INITIAL
   // layout pass too, so the handle lands on the junction from the start. The old
   // style-observer only caught explicit inline-style writes, so on a fresh
-  // profile (no saved sizes) the handle stayed mispositioned — and therefore not
-  // hoverable — until the first manual resize.
+  // profile (no saved sizes) the handle stayed mispositioned, and therefore not
+  // hoverable, until the first manual resize.
   const ro = new ResizeObserver(schedulePositionCorner);
   if (fileTreeContainer) ro.observe(fileTreeContainer);
   if (terminalContainer) ro.observe(terminalContainer);
@@ -376,7 +376,7 @@ function setupCornerHandle() {
  *
  * As transições de largura e altura dos painéis existem para a interação: o
  * usuário clica no botão e o painel escorre. No arranque não há interação
- * nenhuma, e animar ali é só custo — a largura salva vem de 0, então cada
+ * nenhuma, e animar ali é só custo, a largura salva vem de 0, então cada
  * abertura de aplicativo pagava 220 ou 240 ms de animação restaurando um estado
  * que o usuário nem viu mudar. Pior: é exatamente a janela em que o Monaco está
  * inicializando, e como ele observa o próprio contêiner com `automaticLayout`,

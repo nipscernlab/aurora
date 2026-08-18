@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  h_tree.css — Hierarchy tree (post-synthesis module tree)
+ *  h_tree.css: Hierarchy tree (post-synthesis module tree)
  *
  *  Activated by the "Alternate" toggle in the file-tree header. Replaces the
  *  filesystem view with a synthesized module hierarchy: top-level → modules
@@ -9,7 +9,7 @@
  *  Visual language matches file_tree.css: 22px rows, depth-based indent
  *  via padding-left (no left-border guides), accent bar on the active row,
  *  hover overlay tint. Type info is carried by the icon color and a single
- *  font-weight bump on the top-level row — no gradients, no card frames.
+ *  font-weight bump on the top-level row, no gradients, no card frames.
  * =====================================================================================
  */
 
@@ -107,7 +107,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Hierarchy rows — match the regular file-tree row metrics
+ *  Hierarchy rows, match the regular file-tree row metrics
  * ------------------------------------------------------------------------- */
 .hierarchy-item {
   --depth: 0;
@@ -206,7 +206,7 @@
               box-shadow var(--transition-fast);
 }
 
-/* Expanded node: filled accent, soft glow — reads as "this branch is
+/* Expanded node: filled accent, soft glow, reads as "this branch is
    open, walk down the trunk". */
 .hierarchy-toggle.expanded::before {
   background: var(--accent);
@@ -241,7 +241,7 @@
 }
 
 /* Non-last siblings continue the trunk past their own subtree so it
-   reaches the next sibling. Last sibling has no trunk past itself —
+   reaches the next sibling. Last sibling has no trunk past itself:
    the curve closes the branch. */
 .hierarchy-children > .hierarchy-item:not(:last-child)::before {
   content: '';
@@ -271,7 +271,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Icon — type-specific colors keep the hierarchy info readable at a glance
+ *  Icon, type-specific colors keep the hierarchy info readable at a glance
  * ------------------------------------------------------------------------- */
 .hierarchy-icon {
   width: 16px;
@@ -286,7 +286,7 @@
 }
 
 /* Standardized with the verilog/standard trees: icons are neutral (muted) by
- * default and the brand accent is reserved for the two states that matter —
+ * default and the brand accent is reserved for the two states that matter:
  * the top-level root and the currently-open file. Node ROLE is still carried by
  * indentation + the tree connectors, not by an icon rainbow (less AI-slop). */
 .hierarchy-item[data-type="top-level"] .hierarchy-icon {
@@ -311,12 +311,12 @@
   line-height: var(--leading-snug);
 }
 
-/* Uniform typography across hierarchy rows — type info is carried by the
+/* Uniform typography across hierarchy rows, type info is carried by the
    icon color (see above), not by font weight or color. Keeps every tree
    visually consistent with the standard file tree. */
 
 /* ---------------------------------------------------------------------------
- *  Children container — depth carried by left padding so each nested level
+ *  Children container, depth carried by left padding so each nested level
  *  cascades 14px deeper. The compilation hierarchy renderer doesn't set a
  *  --depth variable per item, so we lean on CSS containment instead.
  * ------------------------------------------------------------------------- */
@@ -327,7 +327,7 @@
               opacity 140ms;
 }
 
-/* Collapsed: `max-height:0; overflow:hidden` only CLIPS — the browser still
+/* Collapsed: `max-height:0; overflow:hidden` only CLIPS, the browser still
    lays out the whole hidden subtree. `content-visibility: hidden` makes it skip
    layout+paint of the collapsed descendants entirely, so a 1000+ module
    hierarchy collapsed to its top level costs almost nothing. Only affects

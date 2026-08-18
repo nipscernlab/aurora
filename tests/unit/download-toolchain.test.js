@@ -1,11 +1,11 @@
 /**
  * Tests for the toolchain bootstrap script. Covers the bits that don't
  * require touching the network:
- *   • `alreadyInstalled(path)` — sentinel file detection.
- *   • `extractZip(zip, dest)` — round-trip a known-good fixture zip.
- *   • Constants — DOWNLOAD_URL points at the pinned release.
+ *   • `alreadyInstalled(path)`, sentinel file detection.
+ *   • `extractZip(zip, dest)`, round-trip a known-good fixture zip.
+ *   • Constants, DOWNLOAD_URL points at the pinned release.
  *
- * downloadFile() is deliberately not exercised here — it would need an
+ * downloadFile() is deliberately not exercised here, it would need an
  * HTTP mock (nock) which is overkill for the first test pass. It's the
  * obvious next test to add when we have a proper integration suite.
  */
@@ -120,7 +120,7 @@ describe('extractZip', () => {
   // Expand-Archive), e so o custo de iniciar cada um ja passa de 2 s no
   // Windows. Com o timeout padrao de 5 s do vitest ele cabia por pouco quando
   // rodava sozinho e estourava quando a suite ficou maior e os arquivos de
-  // teste passaram a competir por CPU — falha intermitente que nao dizia nada
+  // teste passaram a competir por CPU, falha intermitente que nao dizia nada
   // sobre o codigo. 30 s da folga sem esconder um travamento de verdade.
   }, 30000);
 

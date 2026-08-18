@@ -1,11 +1,11 @@
 /*
  * =====================================================================================
- *  aurora_settings.css  —  Specifics of the Aurora Settings modal.
+ *  aurora_settings.css ,  Specifics of the Aurora Settings modal.
  *  Base modal styles live in modal_config.css.
  * =====================================================================================
  */
 
-/* aurora_settings.js uses .visible — map it to the standard show state */
+/* aurora_settings.js uses .visible, map it to the standard show state */
 .modal-overlay.visible {
   opacity: 1;
   visibility: visible;
@@ -84,7 +84,7 @@
   display: grid;
   grid-template-columns: 200px 1fr;
   /* A single explicit row that fills the body so the panes column
-     gets a *definite* height — without this the row collapses to its
+     gets a *definite* height, without this the row collapses to its
      content size and the overflow:auto below never has anything to
      scroll, leaving long panes (About) clipped. */
   grid-template-rows: 1fr;
@@ -144,7 +144,7 @@
 }
 
 /* Single highlight pill that GLIDES to the active section (positioned by
-   aurora_settings.js) — replaces the per-item accent bar so the highlight
+   aurora_settings.js), replaces the per-item accent bar so the highlight
    slides smoothly between sections, like the terminal tab indicator. */
 .settings-nav-indicator {
   position: absolute;
@@ -186,7 +186,7 @@
   padding: var(--space-5) var(--space-6);
   overflow-y: auto;
   background: var(--bg-elev);
-  /* See .settings-nav above — grid items default to min-height:auto,
+  /* See .settings-nav above, grid items default to min-height:auto,
      which would expand this column to fit the active pane and disable
      scrolling. Forcing 0 unlocks overflow. */
   min-height: 0;
@@ -291,7 +291,7 @@
   line-height: var(--leading-snug);
 }
 
-/* ---- Switch (already standardised elsewhere — keep the size consistent) -- */
+/* ---- Switch (already standardised elsewhere, keep the size consistent) -- */
 .settings-body .switch { flex-shrink: 0; }
 
 /* ---------------------------------------------------------------------------
@@ -342,7 +342,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Settings <select> — Language dropdown. Styled to match the toolbar
+ *  Settings <select>, Language dropdown. Styled to match the toolbar
  *  select so the locale chooser feels native to Aurora's chrome.
  * ------------------------------------------------------------------------- */
 .settings-select {
@@ -385,7 +385,7 @@
 }
 
 /* ============================================================================
- *  ABOUT pane — identity, credits, links, acknowledgements.
+ *  ABOUT pane, identity, credits, links, acknowledgements.
  *  Sits on the same .settings-card surface as the other panes so the
  *  visual rhythm (card spacing, label hierarchy) stays consistent.
  * ========================================================================= */
@@ -733,7 +733,7 @@
 }
 
 /* ============================================================================
- *  AI Assistant pane — one BYOK key card per provider.
+ *  AI Assistant pane, one BYOK key card per provider.
  * ========================================================================= */
 .ai-provider-cards {
   display: flex;

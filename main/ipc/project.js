@@ -71,14 +71,14 @@ async function releaseWatchersUnder(/** @type {any} */ rootDir) {
   // chokidar's close() can hang on Windows while the watched tree is mid-change;
   // if it wedges, a rename would stall until the IPC's tool timeout (the
   // "renomeação excedeu o tempo limite" symptom). Bound each close so handle
-  // release is best-effort but never blocks the rename — moveWithRetry below
+  // release is best-effort but never blocks the rename, moveWithRetry below
   // absorbs a lock that wasn't quite released in time.
   const closeBounded = (/** @type {any} */ watcher) => Promise.race([
     Promise.resolve().then(() => watcher.close()).catch(() => {}),
     new Promise((resolve) => setTimeout(resolve, 1500)),
   ]);
   // Close ALL matching watchers concurrently. Awaiting them one-at-a-time
-  // serialized N watchers into N×1.5s of wedge time — on a project with many
+  // serialized N watchers into N×1.5s of wedge time, on a project with many
   // files that alone overran the tool timeout, so the rename only "finished"
   // around the 120s mark and its success reply lost the race to the timer
   // (the "spins forever / false timeout" symptom). Firing them together
@@ -103,7 +103,7 @@ async function releaseWatchersUnder(/** @type {any} */ rootDir) {
   await Promise.all(jobs);
 }
 
-/** fse.move with a few quick retries — Windows AV/indexer can briefly lock. */
+/** fse.move with a few quick retries, Windows AV/indexer can briefly lock. */
 async function moveWithRetry(/** @type {any} */ from, /** @type {any} */ to, options = {}) {
   let lastErr;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -131,7 +131,7 @@ function register() {
     const stat = await fse.stat(spfPath).catch(() => null);
     if (!stat) throw new Error(`Project file not found at: ${spfPath}`);
     let target = spfPath;
-    // Tolerate a project FOLDER being passed instead of its .spf — resolve to
+    // Tolerate a project FOLDER being passed instead of its .spf, resolve to
     // the .spf inside it. (The old code passed a directory straight to readJSON
     // and crashed the handler with EISDIR.)
     if (stat.isDirectory()) {
@@ -212,13 +212,13 @@ function register() {
 
       // A4: the open .spf in state is the SINGLE source of truth for "which
       // project is open". The project DIRECTORY is derived from it on demand
-      // (path.dirname) — no duplicated global.currentProject* to keep in sync.
+      // (path.dirname), no duplicated global.currentProject* to keep in sync.
       state.currentOpenProjectPath = spfPath;
 
       // Track in our own recents store + refresh the Windows jumplist.
       // We don't use Windows' shell-managed `frequent`/`recent` lists
       // anymore (they surfaced stale "Electron" entries from earlier
-      // dev runs) — instead `main/recents.js` owns the list and
+      // dev runs), instead `main/recents.js` owns the list and
       // `rebuildJumpList()` re-renders the "Recent Projects" custom
       // category every time a project opens. `addRecentDocument` is
       // still called so the file shows up in Win+E and File Explorer's
@@ -255,7 +255,7 @@ function register() {
         // Relocate every absolute path the .spf still pins to the OLD root so a
         // copied/backed-up project keeps working. The file lists are stored
         // relative (untouched here), but command overrides keep freeform
-        // absolutes — appendArgs/prependArgs tokens, envSet values — that the
+        // absolutes, appendArgs/prependArgs tokens, envSet values, that the
         // relative-on-disk scheme can't safely round-trip (it can't tell a path
         // from `-O2` or `2`). A root prefix-swap can: remapRootPath only rewrites
         // strings genuinely under oldRoot, leaving flags and out-of-project paths
@@ -291,8 +291,8 @@ function register() {
       }));
 
       // Prefer the window that actually sent the request. During a startup
-      // auto-open the main window isn't focused yet — the splash is still on
-      // top and the main window is created hidden (deferShow) — so
+      // auto-open the main window isn't focused yet, the splash is still on
+      // top and the main window is created hidden (deferShow), so
       // getFocusedWindow() returns null. Falling back to the sender keeps the
       // processor list flowing AND, crucially, keeps the return shape
       // consistent: the renderer reads result.projectData.structure.processors
@@ -368,7 +368,7 @@ function register() {
       if (!formData.projectLocation) throw new Error('Project location is required');
 
       // SECURITY: processorName goes straight into path.join below, so it must
-      // be confined to a single path segment — same allowlist the rename
+      // be confined to a single path segment, same allowlist the rename
       // handlers use. Without this, "..\\.." would create the Software/Hardware/
       // Simulation tree outside the project (path traversal).
       if (!/^[A-Za-z0-9_-]+$/.test(formData.processorName || '')) {
@@ -436,7 +436,7 @@ void main()
         await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));
 
         if (state.mainWindow) {
-          // Channel `processor:created` — preload.js (onProcessorCreated)
+          // Channel `processor:created`, preload.js (onProcessorCreated)
           // escuta com esse nome (colon-separated, mesmo padrao de
           // `project:opened` e `project:processors`). O nome anterior
           // `processor-created` era um typo: o listener nunca disparava,
@@ -494,7 +494,7 @@ void main()
     }
 
     try {
-      // Prefer the currently open project — most reliable source of truth.
+      // Prefer the currently open project, most reliable source of truth.
       if (state.currentOpenProjectPath && (await fse.pathExists(state.currentOpenProjectPath))) {
         const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
         const projectData = parseSpfTolerant(spfData);
@@ -590,7 +590,7 @@ void main()
    * Rename a processor across every SAPHO-internal surface:
    *   - the processor working directory  <root>/<old>  →  <root>/<new>
    *   - the source file  Software/<old>.cmm  →  Software/<new>.cmm
-   *   - the `#PRNAME` directive inside that .cmm (directive line ONLY —
+   *   - the `#PRNAME` directive inside that .cmm (directive line ONLY:
    *     user comments and code are never touched)
    *   - the auto-generated build artifacts (asm / Hardware .v / Simulation
    *     _tb.v) so stale-named files don't linger; they regenerate on the
@@ -600,7 +600,7 @@ void main()
    *     synthesizableFiles / testbenchFiles) that pointed inside the folder.
    *
    * Custom user toplevels / testbenches that live at the project root are
-   * intentionally left alone — the user renames those explicitly.
+   * intentionally left alone, the user renames those explicitly.
    */
   ipcMain.handle('rename-processor', async (_event, oldName, newName) => {
     try {
@@ -647,7 +647,7 @@ void main()
       // Release the project's file/dir watchers FIRST. chokidar
       // (ReadDirectoryChangesW) keeps a handle on the watched tree, so moving
       // a watched subfolder otherwise fails with EPERM ("operation not
-      // permitted") — exactly the processor-rename failure. The renderer
+      // permitted"), exactly the processor-rename failure. The renderer
       // re-establishes watching after the rename.
       await releaseWatchersUnder(projectDir);
 
@@ -679,7 +679,7 @@ void main()
         }
       }
 
-      // 3. Patch the #PRNAME directive in the .cmm — directive line ONLY.
+      // 3. Patch the #PRNAME directive in the .cmm, directive line ONLY.
       const cmmPath = path.join(newDir, 'Software', `${newNm}.cmm`);
       if (await fse.pathExists(cmmPath)) {
         const raw = await fse.readFile(cmmPath, 'utf8');
@@ -746,7 +746,7 @@ void main()
    * renderer reopens the project there.
    *
    * Processor folders are subdirectories of the root, so they move with it
-   * — their #PRNAME directives and per-processor names are unaffected by a
+   *, their #PRNAME directives and per-processor names are unaffected by a
    * project rename (use rename_processor for those).
    */
   ipcMain.handle('rename-project', async (_event, newName) => {
@@ -829,7 +829,7 @@ void main()
       spfData.metadata.lastModified = new Date().toISOString();
       spfData.structure = spfData.structure || {};
       spfData.structure.basePath = movedRoot;
-      // Remap the ENTIRE .spf — not just structure — so no absolute path
+      // Remap the ENTIRE .spf, not just structure, so no absolute path
       // anywhere is left pointing at the old root: the synth/testbench file
       // lists, the top-level/testbench pointers, per-processor entries,
       // persisted command-override cwd/env (structure.commandOverrides),

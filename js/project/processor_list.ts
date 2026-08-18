@@ -1,5 +1,5 @@
 /**
- * processor_list.ts — single owner of `window.availableProcessors`.
+ * processor_list.ts: single owner of `window.availableProcessors`.
  *
  * Pre-refactor, four sites mutated `window.availableProcessors` with
  * their own dedup logic (project_manager.loadProject e os listeners
@@ -12,8 +12,8 @@
  *
  * Qualquer caminho novo que esquecesse uma dessas etapas reintroduzia
  * o bug das rows fantasma na file tree. Esse modulo encapsula as duas
- * operacoes que importam — set (substitui a lista inteira) e add
- * (acrescenta um nome) — pra que esse cuidado fique num lugar so.
+ * operacoes que importam, set (substitui a lista inteira) e add
+ * (acrescenta um nome), pra que esse cuidado fique num lugar so.
  *
  * O array continua em `window.availableProcessors` por compatibilidade
  * com consumidores que ainda fazem read direto (file_tree_manager,
@@ -21,7 +21,7 @@
  * subscriber pattern no futuro, troca o backing store aqui sem
  * tocar nos call sites.
  *
- * Compilado por `tsc` (npm run build:ts) num processor_list.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num processor_list.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  *
  * Window.availableProcessors é declarado em js/types/aurora-globals.d.ts.

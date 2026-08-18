@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  layout.css  —  File tree container + status bar
+ *  layout.css ,  File tree container + status bar
  *
  *  The status bar lives at the BODY level (sibling of .app-shell) so it spans
  *  edge-to-edge horizontally and is never affected by any inner resizer.
@@ -8,7 +8,7 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  Status Bar — independent footer
+ *  Status Bar, independent footer
  *
  *  HTML (index.html):
  *    <body>
@@ -40,7 +40,7 @@
   position: relative;
 }
 
-/* Aurora line above status bar — purely decorative */
+/* Aurora line above status bar, purely decorative */
 .status-bar::before {
   content: '';
   position: absolute;
@@ -156,7 +156,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Trilhos de borda — o caminho de volta de um painel colapsado.
+ *  Trilhos de borda, o caminho de volta de um painel colapsado.
  *
  *  O divisor de cada painel lateral mora DENTRO do painel, e os dois containers
  *  têm `overflow: hidden`. Com largura zero sobram 8 px agarráveis na árvore e

@@ -1,10 +1,10 @@
 /**
- * @file Toast notification system — bottom-right card stack.
+ * @file Toast notification system, bottom-right card stack.
  *       This is one of TWO canonical UI surfaces (the other is showDialog).
  *       All other ad-hoc inline-notifications, alert(), confirm() are forbidden.
  *
  *       Each card is an <aurora-toast> Lit component (Shadow DOM + semantic
- *       tokens). This module owns the stack — the container and the cull — plus
+ *       tokens). This module owns the stack, the container and the cull, plus
  *       the public API; the component owns a card's own lifecycle (entry/exit,
  *       the auto-dismiss progress bar, hover-pause, and self-removal).
  * @module notification
@@ -71,7 +71,7 @@ export const notify = {
 
 /**
  * Global bridge for non-module legacy callers.
- * window.showNotification(message, type, duration) — same semantics.
+ * window.showNotification(message, type, duration), same semantics.
  */
 if (typeof window !== 'undefined') {
     window.showNotification = (message, type = 'info', duration = 5000, title) => {

@@ -1,5 +1,5 @@
 /**
- * preload.js — Electron context bridge para o renderer principal.
+ * preload.js: Electron context bridge para o renderer principal.
  *
  * Este arquivo expõe apenas as APIs IPC que o renderer realmente consome.
  * Funções não utilizadas foram removidas (auditoria automática contra
@@ -66,6 +66,11 @@ const fileOperations = {
 
   // Manual do SAPHO (main/ipc/docs.js). Nenhuma delas recebe caminho: o destino
   // e montado no main, porque openExternal recusa file:// de proposito.
+  // Sair do GitHub e apagar o que ficou na maquina (main/ipc/github_forget.js).
+  // Nao devolve credencial nenhuma: so o relatorio do que foi removido.
+  githubForgetEverything: () => ipcRenderer.invoke('github:forget-everything'),
+  githubForgetScope:      () => ipcRenderer.invoke('github:forget-scope'),
+
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
   docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
@@ -141,7 +146,7 @@ const compilationOperations = {
   // (js/compilation/command_spec.js + builders/*), the main process
   // validates {binary, args} against the toolchain allowlist and
   // spawns with shell:false. This is the path Aurora Intelligence's
-  // command-override system rides on — overrides mutate the spec
+  // command-override system rides on, overrides mutate the spec
   // before it crosses this IPC.
   execSpec: (payload) => ipcRenderer.invoke('exec-spec', payload),
   execSpecStreamed: (payload) => ipcRenderer.invoke('exec-spec-streamed', payload),
@@ -190,7 +195,7 @@ const dialogOperations = {
   showSaveDialog:    (opts) => ipcRenderer.invoke('show-save-dialog', opts),
   selectDirectory:   (opts) => ipcRenderer.invoke('dialog:openDirectory', opts),
   // Forward the caller's options so per-call filters (e.g. .gtkw only)
-  // actually reach the main process — without this, the IPC handler
+  // actually reach the main process, without this, the IPC handler
   // falls back to its "All Files" default no matter what the renderer
   // asked for.
   showOpenDialogImport: (opts) => ipcRenderer.invoke('dialog:show-open-import', opts),
@@ -206,7 +211,7 @@ const uiOperations = {
   reloadApp: () => ipcRenderer.send('app:reload'),
   openDesignLab: () => ipcRenderer.invoke('open-design-lab'), // DESIGN §11 component gallery
 
-  // Custom title bar — frameless window controls
+  // Custom title bar, frameless window controls
   windowMinimize:       () => ipcRenderer.send('window:minimize'),
   windowMaximizeToggle: () => ipcRenderer.send('window:maximize-toggle'),
   windowClose:          () => ipcRenderer.send('window:close'),
@@ -229,7 +234,7 @@ const uiOperations = {
 const terminalOperations = {
   onTerminalLog: (cb) => ipcRenderer.on('terminal-log', cb),
 
-  // Embedded interactive shell (TCMD tab). Human-driven only — NOT wired to the
+  // Embedded interactive shell (TCMD tab). Human-driven only, NOT wired to the
   // AI tool bridge. start streams `shell:data` / `shell:exit`; input feeds stdin.
   shellStart: (opts) => ipcRenderer.invoke('shell:start', opts || {}),
   shellInput: (id, data) => ipcRenderer.invoke('shell:input', { id, data }),
@@ -260,7 +265,7 @@ const updateOperations = {
   getAppVersion:     () => ipcRenderer.invoke('get-app-version'),
 
   // Manual control for the in-app "Check for updates" affordance. The
-  // silent startup check still runs ~10 s after launch — these are for
+  // silent startup check still runs ~10 s after launch, these are for
   // explicit user-driven flows (e.g. settings panel, About dialog).
   checkForUpdates:  () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate:   () => ipcRenderer.invoke('download-update'),
@@ -294,7 +299,7 @@ const updateOperations = {
  *
  *  Separate contextBridge namespace so the chat surface stays out of
  *  `electronAPI`'s already-large grab bag. Plaintext API keys travel
- *  renderer → main only — there is intentionally no `getKey` channel,
+ *  renderer → main only, there is intentionally no `getKey` channel,
  *  since the keystore lives entirely in the main process and reading
  *  decrypted bytes from the renderer would defeat the whole point.
  * ========================================================================= */
@@ -321,7 +326,7 @@ const aiAPI = {
   /**
    * Run a minimal generateText() against the stored key for `provider`
    * (optionally overriding the default model). Returns a structured
-   * result — `{ ok, sample, latencyMs, usage }` on success, or
+   * result, `{ ok, sample, latencyMs, usage }` on success, or
    * `{ ok:false, error }` on any failure.
    */
   testConnection: (provider, modelId) =>
@@ -330,7 +335,7 @@ const aiAPI = {
   /**
    * One-shot generation (prompt -> text, no tools/streaming). Resolves with
    * `{ ok, text, usage, model }` or `{ ok:false, error }`. Only API providers
-   * (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) — not the CLI bridges.
+   * (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama), not the CLI bridges.
    */
   generateOneshot: ({ provider, model, system, prompt, maxOutputTokens }) =>
     ipcRenderer.invoke('ai:generate-oneshot', { provider, model, system, prompt, maxOutputTokens }),
@@ -339,7 +344,7 @@ const aiAPI = {
    * Kick off a streaming chat. The renderer must subscribe to chat
    * events via `onChatEvent` *before* calling startChat so it doesn't
    * miss early text-delta packets. Returns immediately with the
-   * sessionId — the actual streaming work runs detached on main.
+   * sessionId, the actual streaming work runs detached on main.
    *
    * `conversationId`, `effort` and `permission` are only consumed by
    * the `claude-code` provider (the CLI bridge); API providers ignore
@@ -354,7 +359,7 @@ const aiAPI = {
   abortChat: (sessionId) => ipcRenderer.invoke('ai:chat-abort', { sessionId }),
 
   // Push a follow-up into a LIVE turn instead of queueing it in the renderer.
-  // Resolves { ok, data:{ accepted } } — accepted:false just means this runner
+  // Resolves { ok, data:{ accepted } }, accepted:false just means this runner
   // has no open input channel, so the caller should queue it as before.
   pushChatMessage: (sessionId, content) =>
     ipcRenderer.invoke('ai:chat-push', { sessionId, content }),
@@ -369,7 +374,7 @@ const aiAPI = {
   getClaudeCodeStatus: () => ipcRenderer.invoke('ai:claude-code-status'),
 
   /**
-   * Live subscription usage — accumulated session tokens/cost plus the
+   * Live subscription usage, accumulated session tokens/cost plus the
    * latest rate-limit windows reported by the CLI. Resolves with
    * `{ ok, usage: { plan, session, windows } }`.
    */
@@ -393,7 +398,7 @@ const aiAPI = {
   /**
    * Subscribe to chat events (text-delta, tool-call, tool-result,
    * finish, aborted, error). Events from *every* session are broadcast
-   * — filter by sessionId in your handler. Returns an unsubscribe fn.
+   *, filter by sessionId in your handler. Returns an unsubscribe fn.
    */
   onChatEvent: (callback) => {
     const handler = (_e, payload) => callback(payload);
@@ -403,7 +408,7 @@ const aiAPI = {
 
   /* ---- tool execution (renderer runs the AuroraAPI calls) ---- */
 
-  /** The tool manifest — names, descriptions, schemas, access level. */
+  /** The tool manifest, names, descriptions, schemas, access level. */
   getToolManifest: () => ipcRenderer.invoke('ai:get-tool-manifest'),
 
   /**
@@ -453,7 +458,7 @@ const aiAPI = {
 };
 
 /* ============================================================================
- *  SEARCH (find in files) — backed by main/ipc/search.js
+ *  SEARCH (find in files), backed by main/ipc/search.js
  * ========================================================================= */
 const searchOperations = {
   /**
@@ -465,13 +470,13 @@ const searchOperations = {
 };
 
 /* ============================================================================
- *  VERILOG LSP (window.lspAPI) — backed by main/lsp/verible_lsp.js
+ *  VERILOG LSP (window.lspAPI), backed by main/lsp/verible_lsp.js
  *
  *  Thin bridge to the bundled verible-verilog-ls. The renderer
  *  (js/editor/lsp_integration.js) drives the document lifecycle
  *  (open/change/close) and pulls on-demand features (format, symbols,
  *  hover, definition, references); diagnostics are pushed the other way
- *  via onDiagnostics. Every channel is best-effort — if Verible isn't
+ *  via onDiagnostics. Every channel is best-effort, if Verible isn't
  *  installed the main side no-ops and these resolve to null/undefined.
  * ========================================================================= */
 const lspOperations = {
@@ -494,13 +499,13 @@ const lspOperations = {
 };
 
 /* ============================================================================
- *  SLANG (window.slangAPI) — backed by main/lsp/slang_lsp.js
+ *  SLANG (window.slangAPI), backed by main/lsp/slang_lsp.js
  *
  *  SystemVerilog SEMANTIC language server (O11). The renderer
  *  (js/editor/slang_integration.js) drives the document lifecycle and
  *  pulls completion; semantic diagnostics are pushed back via
  *  onDiagnostics. setEnabled toggles the whole feature (it elaborates the
- *  project on every change). Best-effort — no-op when the binary is
+ *  project on every change). Best-effort, no-op when the binary is
  *  missing or the toggle is off. Complements Verible (window.lspAPI).
  * ========================================================================= */
 const slangOperations = {
@@ -519,12 +524,12 @@ const slangOperations = {
 };
 
 /* ============================================================================
- *  CLANG-FORMAT (window.clangFormatAPI) — backed by main/format/clang_format.js
+ *  CLANG-FORMAT (window.clangFormatAPI), backed by main/format/clang_format.js
  *
  *  One-shot C/C++/CMM document formatter (Shift+Alt+F). The renderer
  *  (js/editor/clang_format_integration.js) sends the buffer + languageId +
  *  filePath; main pipes it through the bundled clang-format and returns the
- *  formatted text. Best-effort — resolves null if clang-format isn't
+ *  formatted text. Best-effort, resolves null if clang-format isn't
  *  installed or errors, leaving the buffer untouched.
  * ========================================================================= */
 const clangFormatOperations = {
@@ -534,7 +539,7 @@ const clangFormatOperations = {
 };
 
 /* ============================================================================
- *  BLACK (window.pythonFormatAPI) — backed by main/format/python_format.js
+ *  BLACK (window.pythonFormatAPI), backed by main/format/python_format.js
  *
  *  Formatador de Python da varinha. Diferente do clang-format, aqui não há
  *  binário empacotado: main chama `python -m black -` no interpretador que o
@@ -549,11 +554,11 @@ const pythonFormatOperations = {
 };
 
 /* ============================================================================
- *  TREE-SITTER (window.treeSitterAPI) — backed by main/treesitter/grammars.js
+ *  TREE-SITTER (window.treeSitterAPI), backed by main/treesitter/grammars.js
  *
  *  Serves WASM bytes (web-tree-sitter runtime + grammar parsers) to the
  *  renderer's semantic highlighter (js/editor/treesitter_highlight.js),
- *  which feeds them into web-tree-sitter directly — no URL/fetch under the
+ *  which feeds them into web-tree-sitter directly, no URL/fetch under the
  *  sandboxed file:// renderer. Best-effort: if a grammar isn't installed,
  *  the editor keeps Monaco's Monarch highlighting.
  * ========================================================================= */
@@ -584,10 +589,10 @@ const utilityOperations = {
 };
 
 /* ============================================================================
- *  EXPOSE — bridge para o renderer
+ *  EXPOSE, bridge para o renderer
  * ========================================================================= */
 /* ============================================================================
- *  GIT / SOURCE CONTROL  (window.gitAPI) — backed by main/ipc/git.js (simple-git)
+ *  GIT / SOURCE CONTROL  (window.gitAPI), backed by main/ipc/git.js (simple-git)
  *  + main/ipc/github_auth.js (account connection). Enumerated channels only.
  * ========================================================================= */
 const gitOperations = {
@@ -640,8 +645,8 @@ const gitOperations = {
 };
 
 /* ============================================================================
- *  BIBLIOTECAS PYTHON  (window.pyLibsAPI) — main/ipc/pylibs.js
- *  Todo handler responde { ok, data } ou { ok:false, error } — o painel nunca
+ *  BIBLIOTECAS PYTHON  (window.pyLibsAPI), main/ipc/pylibs.js
+ *  Todo handler responde { ok, data } ou { ok:false, error }, o painel nunca
  *  precisa de try/catch por chamada.
  * ========================================================================= */
 const pyLibsOperations = {

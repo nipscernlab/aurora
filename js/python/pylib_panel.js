@@ -1,9 +1,9 @@
 /**
- * pylib_panel.js — o painel de bibliotecas Python da AURORA.
+ * pylib_panel.js: o painel de bibliotecas Python da AURORA.
  *
  * Estrutura, seguindo o git_panel: o markup vive no index.html, este módulo
  * preenche a lista a partir do catálogo e trata os cliques por delegação (um
- * listener no contêiner, não um por botão — a lista é redesenhada a cada
+ * listener no contêiner, não um por botão, a lista é redesenhada a cada
  * mudança de estado e handlers presos a nós antigos vazariam).
  *
  * Feedback ao usuário usa o que a AURORA já tem, sem inventar superfície nova:
@@ -12,7 +12,7 @@
  *   - conclusão e falha: `notify.*` (js/ui/notification.js), a superfície
  *     canônica de toast;
  *   - confirmação de desinstalar: `showDialog` (js/ui/dialog_manager.js), a
- *     outra superfície canônica — `confirm()` é proibido no projeto;
+ *     outra superfície canônica, `confirm()` é proibido no projeto;
  *   - a linha de status do rodapé conta o que está acontecendo agora.
  */
 
@@ -64,7 +64,7 @@ let health = null;
  *
  * Existe por causa do catalogo remoto: a lista pode citar um icone que so vai
  * existir numa AURORA futura, e um <use> apontando para simbolo inexistente nao
- * desenha nada nem reclama — vira um buraco silencioso na linha. Com o indice em
+ * desenha nada nem reclama, vira um buraco silencioso na linha. Com o indice em
  * maos, o desconhecido cai no generico.
  */
 let knownIcons = null;
@@ -167,7 +167,7 @@ function renderRuntime() {
        <span>${esc(tt('pylibs.verify.deep', 'Verificacao completa'))}</span>
      </button>`);
 
-  // Veredito do vigia. So aparece quando ha problema — quando esta tudo bem, a
+  // Veredito do vigia. So aparece quando ha problema, quando esta tudo bem, a
   // ausencia de aviso ja e a mensagem.
   if (health && !health.ok && health.issues?.length) {
     const lines = health.issues.map((i) => esc(i.message)).join('<br>');
@@ -405,7 +405,7 @@ async function doRepair(id, lib) {
 
 /**
  * Confirmação de remoção. `showConfirm` injeta a mensagem via innerHTML, então o
- * nome vai escapado — no caso de uma lib externa, ele veio da PyPI.
+ * nome vai escapado, no caso de uma lib externa, ele veio da PyPI.
  */
 function confirmRemoval(name) {
   return showConfirm(
@@ -530,7 +530,7 @@ function updateBadge() {
   const badge = $('pylib-badge');
   if (!badge) return;
   // O emblema acende por QUALQUER sinal de problema: o estado do catalogo, as
-  // externas, ou o veredito do vigia — que e o unico que chega sozinho, sem o
+  // externas, ou o veredito do vigia, que e o unico que chega sozinho, sem o
   // painel estar aberto.
   const broken = (state?.libraries || []).some((l) => l.broken)
     || externalList.some((x) => x.broken)
@@ -607,7 +607,7 @@ function wire() {
     renderRuntime();
   });
 
-  // O painel vive enquanto a janela viver, entao a inscricao nunca e desfeita —
+  // O painel vive enquanto a janela viver, entao a inscricao nunca e desfeita:
   // o retorno de onProgress (a funcao de desinscricao) e descartado de proposito.
   api()?.onProgress(onProgress);
 

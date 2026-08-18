@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  toolbar.css  —  AURORA toolbar v4
+ *  toolbar.css ,  AURORA toolbar v4
  *
  *  Cursor/Linear-style flat toolbar. Subtle separators, generous breathing,
  *  uniform 28px buttons, accent on hover only.
@@ -11,7 +11,7 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  Container — also serves as the custom title bar (drag region).
+ *  Container, also serves as the custom title bar (drag region).
  *  All interactive children flip back to no-drag below.
  * ------------------------------------------------------------------------- */
 .toolbar {
@@ -20,7 +20,7 @@
   gap: var(--space-1);
   width: 100%;
   height: var(--h-toolbar);
-  /* No right padding — the close button is anchored flush to the right
+  /* No right padding, the close button is anchored flush to the right
      edge of the window so its hit zone reaches the corner (Windows-style
      "throw the cursor at the corner to close"). The right-zone group
      adds its own breathing room for everything else. */
@@ -48,7 +48,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Window controls — classic Windows-style minimize / maximize / close.
+ *  Window controls, classic Windows-style minimize / maximize / close.
  *  Rectangular hit zones, monochrome stroke icons, red on close hover.
  * ------------------------------------------------------------------------- */
 .window-controls {
@@ -157,7 +157,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* ---------------------------------------------------------------------------
- *  Zones — left / center / right.
+ *  Zones, left / center / right.
  *
  *  Three zones with flex 1/auto/1 keep the center cluster anchored at
  *  the toolbar's visual midpoint regardless of how wide the left/right
@@ -179,14 +179,14 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 /* overflow:hidden nas tres zonas: em janela estreita o conteudo das
    zonas laterais (flex-shrink:0) transbordaria da caixa (base 0) e
    pintaria POR CIMA do centro (ex.: PRISM sobre Verilog). Clipando as
-   tres, nenhum item pinta fora da sua zona — pior caso vira corte, nunca
+   tres, nenhum item pinta fora da sua zona, pior caso vira corte, nunca
    sobreposicao. */
 .toolbar-zone-left   { flex: 1 1 0; justify-content: flex-start; overflow: hidden; }
 .toolbar-zone-center { flex: 0 1 auto; justify-content: center; overflow: hidden; }
 .toolbar-zone-right  { flex: 1 1 0; justify-content: flex-end; overflow: hidden; }
 
 /* ---------------------------------------------------------------------------
- *  Janela estreita — a toolbar vira duas linhas.
+ *  Janela estreita, a toolbar vira duas linhas.
  *
  *  O clipping acima resolve a SOBREPOSICAO, mas em janela estreita ele cobra
  *  um preco alto: os botoes da zona central simplesmente somem, cortados pela
@@ -208,7 +208,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
    *
    * A diferenca importa. Os filhos DIRETOS da toolbar sao so as tres zonas: a
    * marca SAPHO vive dentro da zona esquerda, e os controles de janela vivem
-   * dentro da DIREITA — e o que os ancora no canto. Com wrap + `order`, os
+   * dentro da DIREITA, e o que os ancora no canto. Com wrap + `order`, os
    * controles de janela nao sao itens desta caixa e portanto nao respondem a
    * ordem nenhuma; eles acompanham a zona direita e, quando ela encolhe, o
    * `overflow: hidden` dela some com minimizar, maximizar e fechar. Foi
@@ -266,7 +266,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* ---------------------------------------------------------------------------
- *  Brand mark — tiny SAPHO icon anchored at the far-left of the toolbar.
+ *  Brand mark, tiny SAPHO icon anchored at the far-left of the toolbar.
  *  pointer-events: none so the drag region passes through and the toolbar
  *  still drags the window.
  * ------------------------------------------------------------------------- */
@@ -330,7 +330,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .compile-all-group { gap: 1px; }
 
 /* ---------------------------------------------------------------------------
- *  Button base — 28px, consistent rhythm
+ *  Button base, 28px, consistent rhythm
  * ------------------------------------------------------------------------- */
 .toolbar-button {
   display: inline-flex;
@@ -424,14 +424,14 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* Waveform-viewer segments reuse the .sim-seg / .sim-seg-icon chrome with the
-   real GTKWave / Surfer logos (assets/icons/*_logo.svg) — same colored-when-
+   real GTKWave / Surfer logos (assets/icons/*_logo.svg), same colored-when-
    active, grayscale-and-dimmed-when-inactive behaviour as the simulator switch. */
 
 /* ============================================================
  * Custom GTKWave picker dropdown.
  *
  * Native <select> can't host per-option buttons, and the user
- * wants a hover-revealed remove (X) inline with each entry — same
+ * wants a hover-revealed remove (X) inline with each entry, same
  * gesture as the file tree's per-row delete. So the picker is a
  * button + custom menu styled like the toolbar buttons while
  * letting us drop arbitrary HTML in each row. The menu is
@@ -572,7 +572,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   white-space: nowrap;
 }
 
-/* Per-row remove (X). Hidden until the row is hovered — mirrors the
+/* Per-row remove (X). Hidden until the row is hovered, mirrors the
    file tree affordance so users don't trigger a delete by accident. */
 .gtkw-picker-row-remove {
   flex: 0 0 auto;
@@ -639,7 +639,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* Compile buttons disabled: o glyph/img tem cor propria (#vericomp .glyph
-   etc.), que sobrescreveria o cinza herdado — entao apagamos explicitamente
+   etc.), que sobrescreveria o cinza herdado, entao apagamos explicitamente
    pra o botao desabilitado realmente parecer desabilitado. */
 .compile-btn:disabled .glyph { color: var(--text-disabled); opacity: 0.45; }
 .compile-btn:disabled:hover .glyph { filter: none; }
@@ -696,18 +696,18 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   height: 16px;
 }
 
-/* Semantic color per tool — single source of truth in theme_variables.css.
-   Verilog/iverilog is drawn as a red feather (quill) — explicit red so it
+/* Semantic color per tool, single source of truth in theme_variables.css.
+   Verilog/iverilog is drawn as a red feather (quill), explicit red so it
    reads as the synthesizer signature even when the theme variable shifts. */
 #cmmcomp .glyph    { color: var(--color-cmm); }
 #vericomp .glyph   { color: #E25C5C; }
 #wavecomp .glyph   { color: var(--color-wave); }
-/* Verilator processador CMM — chip teal com nucleo. */
+/* Verilator processador CMM, chip teal com nucleo. */
 #verilatorproc .glyph { color: #59C2B0; }
 .glyph-verilatorproc svg { stroke-width: 1.3; }
 .glyph-verilatorproc svg rect:nth-of-type(2) { fill: currentColor; }
 
-/* Fast Sim — Verilator headless (sem onda). Chevron duplo ">>" ambar de
+/* Fast Sim, Verilator headless (sem onda). Chevron duplo ">>" ambar de
    "fast-forward". fill/stroke explicitos: os paths sao abertos (linha), nunca
    preenchidos. */
 #fastsim .glyph { color: #E0A45C; }
@@ -722,7 +722,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   filter: drop-shadow(0 0 5px currentColor);
 }
 
-/* PRISM — text + img */
+/* PRISM, text + img */
 .prism-btn {
   padding: 0 var(--space-3);
   gap: var(--space-2);
@@ -753,7 +753,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   font-size: var(--text-xs);
 }
 
-/* Active state — accent indicator at the bottom */
+/* Active state, accent indicator at the bottom */
 .compile-btn.active::after {
   content: '';
   position: absolute;
@@ -811,7 +811,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 
 #sidebarMenu { margin-right: var(--space-1); }
 
-/* Toolbar wordmark removed — the SAPHO & AURORA signature now lives
+/* Toolbar wordmark removed, the SAPHO & AURORA signature now lives
    only on the welcome screen footer (see .welcome-signature in
    recent_projects.css). Kept this comment block so future grep for
    "toolbar-wordmark" lands on the rationale instead of returning empty. */
@@ -830,7 +830,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 }
 
 /* ---------------------------------------------------------------------------
- *  Filter buttons (terminal toolbar — uses .toolbar-button)
+ *  Filter buttons (terminal toolbar, uses .toolbar-button)
  * ------------------------------------------------------------------------- */
 .filter-btn {
   position: relative;
@@ -903,7 +903,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .info-box-close:hover { color: var(--text); }
 
 /* ---------------------------------------------------------------------------
- *  Responsive — collapse text labels and decorative cluster separators
+ *  Responsive, collapse text labels and decorative cluster separators
  *  before the center groups overlap. The cascade goes:
  *
  *    1440px → drop the SAPHO & AURORA wordmark (decorative)

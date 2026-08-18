@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * pylib_paths.js — onde as bibliotecas Python instaladas moram.
+ * pylib_paths.js: onde as bibliotecas Python instaladas moram.
  *
  * A DECISAO E O MOTIVO
  * --------------------
@@ -39,7 +39,7 @@ const fs = require('fs');
 /**
  * Raiz de tudo que o instalador de bibliotecas possui.
  *
- * A variavel AURORA_PYLIBS_ROOT redireciona a arvore inteira — e o mesmo recurso
+ * A variavel AURORA_PYLIBS_ROOT redireciona a arvore inteira, e o mesmo recurso
  * que o cli_downloader expoe via AURORA_CLI_CACHE, e existe pelo mesmo motivo:
  * os testes precisam de um destino descartavel, e `main/paths.js` depende do
  * `app.getAppPath()` do Electron, que nao existe fora do app.
@@ -51,7 +51,7 @@ function pylibRoot() {
   return path.join(componentsPath, 'PyLibs');
 }
 
-/** O diretorio importavel — e ele que entra no PYTHONPATH. */
+/** O diretorio importavel, e ele que entra no PYTHONPATH. */
 function pylibSite() {
   return path.join(pylibRoot(), 'site');
 }
@@ -114,11 +114,11 @@ function bundleSitePackages() {
  * site-packages, e acrescenta ao sys.path as pastas listadas neles. Isso resolve
  * de uma vez os dois requisitos:
  *
- *   ALCANCE  — vale para QUALQUER execucao deste interpretador: o runner do
+ *   ALCANCE , vale para QUALQUER execucao deste interpretador: o runner do
  *              cocotb, um `.py` solto do projeto, uma linha digitada no TCMD.
  *              Nao depende de quem chamou nem de exportar variavel.
  *
- *   ISOLAMENTO — vale SO para este interpretador. O `site.py` de cada Python le
+ *   ISOLAMENTO, vale SO para este interpretador. O `site.py` de cada Python le
  *              apenas os `.pth` do site-packages dele. O Python que o usuario
  *              tem instalado na maquina nunca enxerga o nosso PyLibs, entao nao
  *              ha colisao possivel com o que ele instalou por pip.
@@ -127,7 +127,7 @@ function bundleSitePackages() {
  * QUALQUER python que rodasse ali, inclusive o do usuario. E exatamente a
  * colisao que se quer evitar.
  *
- * O arquivo mora dentro do bundle, que e artefato descartavel — de proposito.
+ * O arquivo mora dentro do bundle, que e artefato descartavel, de proposito.
  * Ele nao e estado: e um ponteiro de uma linha, recriado na abertura do app. Se
  * a toolchain for re-baixada e levar o ponteiro embora, ele volta sozinho. O
  * argumento que mantem as BIBLIOTECAS fora do bundle nao se aplica aqui, porque

@@ -1,5 +1,5 @@
 /**
- * signal_parser.ts — Lightweight Verilog parser for the Wave
+ * signal_parser.ts: Lightweight Verilog parser for the Wave
  * Configuration picker.
  *
  * Why not Yosys?
@@ -16,10 +16,10 @@
  *     not types/expressions/timing. A real parser would be overkill.
  *   - Aurora's domain is small-to-medium FPGA designs; macros and
  *     `ifdef branches are rare. When they do break us, the user can
- *     still hand-craft a .gtkw via Project Settings — we degrade
+ *     still hand-craft a .gtkw via Project Settings, we degrade
  *     gracefully, not catastrophically.
  *
- * Compilado por `tsc` (npm run build:ts) num signal_parser.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num signal_parser.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  *
  * Limitations (acceptable for Phase 2):
@@ -52,7 +52,7 @@ export interface ModuleInfo {
     instances: ModuleInstance[];
 }
 
-/** A soft parse error — collected, never thrown. */
+/** A soft parse error, collected, never thrown. */
 export interface ParseError {
     file: string;
     message: string;
@@ -130,7 +130,7 @@ function extractModules(stripped: string): Array<{ name: string; body: string }>
     while ((m = re.exec(stripped)) !== null) {
         const [, name, portHeader, bodyRaw] = m;
         // Treat the header port list as part of the body for signal
-        // extraction — ANSI-style declarations live there. Wrap each
+        // extraction, ANSI-style declarations live there. Wrap each
         // port entry as semi-terminated so the same kind regex works.
         const headerLines = expandPortHeader(portHeader);
         out.push({ name, body: headerLines + '\n' + bodyRaw });
@@ -139,7 +139,7 @@ function extractModules(stripped: string): Array<{ name: string; body: string }>
 }
 
 /**
- * Em Verilog ANSI, `input a, b, c` declara TRÊS ports do mesmo kind —
+ * Em Verilog ANSI, `input a, b, c` declara TRÊS ports do mesmo kind:
  * a vírgula separa nomes, não declarações. Split simples por `,` deixa
  * `b` e `c` sem kind keyword e `extractSignals` ignora. Aqui propagamos
  * o último prefixo (kind + range) visto pras entradas seguintes que
@@ -179,7 +179,7 @@ function extractSignals(body: string): VerilogSignal[] {
         `(?:(\\[[^\\]]+\\])\\s*)?` +
         // 3: comma-separated names, lazy so we stop at the terminator
         `([A-Za-z_][\\w$,\\s]*?)` +
-        // terminator: ; or = (init), but NOT ( — that's a function/task
+        // terminator: ; or = (init), but NOT (, that's a function/task
         `\\s*(?=[;=])`,
         'g',
     );
@@ -210,7 +210,7 @@ function extractSignals(body: string): VerilogSignal[] {
         }
     }
 
-    // De-dup: uma port pode ser re-declarada no body (non-ANSI) — manter
+    // De-dup: uma port pode ser re-declarada no body (non-ANSI), manter
     // uma entry, preferindo o kind de maior prioridade. Se qualquer
     // declaracao for `signed`, propaga.
     const dedup = new Map<string, VerilogSignal>();
@@ -237,7 +237,7 @@ function extractSignals(body: string): VerilogSignal[] {
  * o instanceName subsequente, fazendo o regex de extractInstances
  * pular a instance.
  *
- * Estrategia conservadora: nao avalia condicionais — apenas remove
+ * Estrategia conservadora: nao avalia condicionais, apenas remove
  * as diretivas e mantem TODOS os ramos. Vira "both branches active"
  * no source virtual, e dedup-amos instances depois por nome.
  */
@@ -246,7 +246,7 @@ function stripDirectives(body: string): string {
 }
 
 /**
- * Remove blocos `generate if (...)` e `generate case (...)` —
+ * Remove blocos `generate if (...)` e `generate case (...)`:
  * elaboracao Verilog so instancia esses corpos quando a condicao e
  * verdade na compilacao. O signal_parser nao avalia parameters,
  * entao captura instancias condicionais como se sempre existissem.
@@ -254,7 +254,7 @@ function stripDirectives(body: string): string {
  * referencia paths que so seriam validos sob certo param value.
  *
  * Estrategia: stripar de `generate if/case` ate o `endgenerate`
- * mais proximo (non-greedy). Ignora aninhamento — raros na pratica;
+ * mais proximo (non-greedy). Ignora aninhamento, raros na pratica;
  * pior caso e stripar um bloco interno maior. Generates SEM
  * condicao (e.g. `generate for (...) ...`) sao preservados porque
  * elaboram sempre.
@@ -274,7 +274,7 @@ function stripConditionalGenerates(body: string): string {
  * ..., .IFILE("..."))` faz o regex casar `processor` + `dec_in` (que
  * eh instance do addr_dec, nao de processor).
  *
- * Stripping #(...) antes do regex elimina o ambiguity — fica
+ * Stripping #(...) antes do regex elimina o ambiguity, fica
  * `processor#() p_ProcDTW(...)`, regex captura sem confusao.
  */
 function stripParamLists(body: string): string {
@@ -290,7 +290,7 @@ function stripParamLists(body: string): string {
                 if (c === '(') depth++;
                 else if (c === ')') depth--;
                 else if (c === '"') {
-                    // String literal — pula ate fechar (com escape)
+                    // String literal, pula ate fechar (com escape)
                     i++;
                     while (i < body.length && body[i] !== '"') {
                         if (body[i] === '\\' && i + 1 < body.length) i++;
@@ -330,7 +330,7 @@ function extractInstances(body: string, knownModuleNames: Set<string>): ModuleIn
         if (RESERVED_KEYWORDS.has(instName)) continue;
         // Dedup: blocos `ifdef/`else duplicados podem gerar a mesma
         // instance duas vezes apos stripDirectives. Manter o primeiro
-        // match e o suficiente — a hierarquia logica e a mesma.
+        // match e o suficiente, a hierarquia logica e a mesma.
         if (!seen.has(instName)) seen.set(instName, typeName);
     }
     return [...seen.entries()].map(([instanceName, moduleType]) => ({ instanceName, moduleType }));
@@ -368,7 +368,7 @@ export function parseVerilogModules(files: VerilogFile[]): ParseResult {
             //  - blocos `generate if/case` → whitespace (eliminados
             //    se a condicao falha em elaboracao). Tanto signals
             //    quanto instances declarados dentro sao tratados como
-            //    "podem nao existir" e descartados aqui — melhor que
+            //    "podem nao existir" e descartados aqui, melhor que
             //    iverilog falhar com "Unable to bind".
             const cleanBody = stripConditionalGenerates(stripDirectives(block.body));
             modules.set(block.name, {
@@ -385,7 +385,7 @@ export function parseVerilogModules(files: VerilogFile[]): ParseResult {
 /**
  * Build a tree rooted at `topModuleName`, descending through each
  * instantiation. Cycles (illegal in real Verilog) are broken by tracking
- * a visited set — depth-first stops re-entering a module already on the
+ * a visited set, depth-first stops re-entering a module already on the
  * current path.
  */
 export function buildHierarchyTree(modules: Map<string, ModuleInfo>, topModuleName: string): HierarchyNode {
@@ -422,12 +422,12 @@ export function buildHierarchyTree(modules: Map<string, ModuleInfo>, topModuleNa
 
 /**
  * Achata a hierarquia na lista plana de caminhos pontuados que o `$dumpvars`
- * consome — `tb.dut.core.pc` e assim por diante.
+ * consome, `tb.dut.core.pc` e assim por diante.
  *
  * Isto vivia dentro do `aurora_api.js`, e o lugar dele é aqui: quem constrói a
  * árvore é o {@link buildHierarchyTree}, logo acima, e achatá-la é a operação
  * irmã. Enterrada lá, ela não tinha teste, e é a função que decide QUAIS sinais
- * a AURORA oferece para dumpar — errar nela não dá erro, dá forma de onda com o
+ * a AURORA oferece para dumpar, errar nela não dá erro, dá forma de onda com o
  * sinal faltando, que o usuário só descobre olhando.
  *
  * Um nó sem `signals` ou sem `children` é normal e não é erro: um módulo pode

@@ -1,15 +1,15 @@
 import { electronAPI } from '../app/electron_api.js';
 /**
- * ai_settings.js — the "AI Assistant" pane of the Settings modal.
+ * ai_settings.js: the "AI Assistant" pane of the Settings modal.
  *
  * Bring-your-own-key (BYOK) management: one card per provider. The user
- * doesn't choose "which AI" in a separate step — each card *is* a
+ * doesn't choose "which AI" in a separate step, each card *is* a
  * provider, so they just paste the key into the card for the service
  * they have an account with and hit Save.
  *
  * The key flows renderer → main once (on Save), where `keystore`
  * encrypts it with the OS keychain. It is never read back into the
- * renderer — the UI only ever learns "configured / not configured".
+ * renderer, the UI only ever learns "configured / not configured".
  */
 
 const PROVIDER_META = {
@@ -156,7 +156,7 @@ function buildCard(provider, model, defaultModel) {
 
   // i18n: bind via data-i18n + a real English fallback (NOT the raw key). These
   // cards are built imperatively, possibly BEFORE the locale catalog finishes
-  // loading — so a plain tr() would bake the key path in. data-i18n lets
+  // loading, so a plain tr() would bake the key path in. data-i18n lets
   // applyDOM() (called on the host below, and again on every locale change)
   // resolve them once the catalog is ready, while the fallback shows clean
   // English in the meantime instead of a raw `modal.settings.aiSave` string.
@@ -171,7 +171,7 @@ function buildCard(provider, model, defaultModel) {
 
   setBadge(card, false);
 
-  // Model override — committed on change (blur / Enter).
+  // Model override, committed on change (blur / Enter).
   modelInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); modelInput.blur(); }
   });
@@ -190,7 +190,7 @@ function buildCard(provider, model, defaultModel) {
     }
   });
 
-  // Detect button (Ollama only) — fetches available models and fills the datalist.
+  // Detect button (Ollama only), fetches available models and fills the datalist.
   if (detectBtn && datalist) {
     detectBtn.addEventListener('click', async () => {
       detectBtn.disabled = true;
@@ -208,7 +208,7 @@ function buildCard(provider, model, defaultModel) {
     });
   }
 
-  // Save — for local providers persists the base URL (keeps it visible so the
+  // Save, for local providers persists the base URL (keeps it visible so the
   // user can edit it); for cloud providers clears the field after saving.
   saveBtn.addEventListener('click', async () => {
     const raw = input.value.trim();
@@ -236,7 +236,7 @@ function buildCard(provider, model, defaultModel) {
     }
   });
 
-  // Test — exercises the *stored* configuration with a tiny request.
+  // Test, exercises the *stored* configuration with a tiny request.
   testBtn.addEventListener('click', async () => {
     busy(card, true);
     setFeedback(card, 'info', tr('modal.settings.aiTesting'));
@@ -270,7 +270,7 @@ function buildCard(provider, model, defaultModel) {
     }
   });
 
-  // "Get a key" / site link — opens in system browser.
+  // "Get a key" / site link, opens in system browser.
   getKey.addEventListener('click', (e) => {
     e.preventDefault();
     electronAPI?.openExternal?.(meta.console);
@@ -295,7 +295,7 @@ async function refreshStatuses() {
 
 /**
  * Build the provider cards and start tracking key status. Safe to call
- * once at renderer boot — the cards live inside the (always-present,
+ * once at renderer boot, the cards live inside the (always-present,
  * just-hidden) Settings modal markup.
  */
 export async function initAiSettings() {
@@ -315,12 +315,12 @@ export async function initAiSettings() {
   }
   // Resolve the data-i18n bindings on the freshly-built cards. applyDOM is a
   // no-op for keys whose catalog isn't loaded yet (the English fallback stays),
-  // and boot()/locale-change run it again — so the labels are always correct.
+  // and boot()/locale-change run it again, so the labels are always correct.
   try { window.i18nApplyDOM?.(host); } catch (_) { /* i18n optional */ }
 
   await refreshStatuses();
 
-  // Re-sync the badges each time the user lands on the AI tab — a key
+  // Re-sync the badges each time the user lands on the AI tab, a key
   // could have been changed from DevTools or another window.
   document
     .querySelector('.settings-nav-item[data-pane="ai"]')

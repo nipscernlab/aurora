@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Rule B: Positive Integers (> 0). Empty strings are rejected explicitly
-    // — `Number("")` is 0 which would otherwise pass the >0 guard for fields
+    //, `Number("")` is 0 which would otherwise pass the >0 guard for fields
     // whose JS check is non-negative; we don't want any field accepting empty.
     const checkPositiveInteger = (element) => {
         return validateField(element, (val) => {
@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!checkGain()) isValid = false;
         if (!checkPositiveInteger(inputs.iStack)) isValid = false;
         if (!checkPositiveInteger(inputs.dStack)) isValid = false;
-        // Ports must be a positive integer like every other numeric field —
+        // Ports must be a positive integer like every other numeric field:
         // we used to accept 0 (and silently empty) which let users submit
         // a half-blank Processor Hub form.
         if (!checkPositiveInteger(inputs.inPorts)) isValid = false;
@@ -241,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const tr = (k, p) => (window.t ? window.t(k, p) : k);
                 await showDialog({
                     title: tr('dialog.processorHub.errorTitle'),
-                    // Technical detail (error.message) stays as-is — it may
+                    // Technical detail (error.message) stays as-is, it may
                     // come from the main process (where i18n isn't loaded)
                     // and contains paths/codes that don't need translating.
                     message: tr('dialog.processorHub.errorMessage', { detail: error.message }),

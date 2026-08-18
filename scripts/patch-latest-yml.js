@@ -1,4 +1,4 @@
-// patch-latest-yml.js — fix the auto-updater manifest after an installer was
+// patch-latest-yml.js: fix the auto-updater manifest after an installer was
 // re-signed OUTSIDE electron-builder (e.g. by SignPath, post-build).
 //
 // electron-builder writes `dist/latest.yml` with the sha512 + size of the
@@ -6,10 +6,10 @@
 // same bytes chunk by chunk. Signing after the build replaces the bytes, so BOTH
 // artefacts stop matching the file they describe:
 //
-//   latest.yml  — electron-updater verifies sha512 before running the installer,
+//   latest.yml , electron-updater verifies sha512 before running the installer,
 //                 so a stale hash fails every auto-update with "checksum
 //                 mismatch", and the only fix is a new release.
-//   .blockmap   — the updater fetches the old and the new blockmap to work out
+//   .blockmap  , the updater fetches the old and the new blockmap to work out
 //                 which chunks to download. A blockmap describing pre-signature
 //                 bytes yields a file that fails the final hash check, and the
 //                 update falls back to downloading the whole ~500 MB.
@@ -24,7 +24,7 @@
 // workflow's own integrity gate requires, so the release would have failed at
 // the last step. Neither would have shown up before the first signed release.
 //
-// Not needed if you sign DURING the build (electron-builder `win.sign` hook) —
+// Not needed if you sign DURING the build (electron-builder `win.sign` hook):
 // only for the post-build SignPath-Action flow. See TODO.md, section 3.
 //
 // Usage:  node scripts/patch-latest-yml.js <distDir> <signedExeName>
@@ -36,7 +36,7 @@ const crypto = require('crypto');
 // js-yaml is a real devDependency of this repo. It used to be undeclared, and
 // this require only resolved because npm happened to hoist the copy that
 // electron-updater/electron-builder pull in. Any hoisting change would have
-// broken this script — on the signing path, where the failure mode is a
+// broken this script, on the signing path, where the failure mode is a
 // latest.yml that no longer matches the signed installer.
 const yaml = require('js-yaml');
 
@@ -76,7 +76,7 @@ async function main() {
 
   if (buildBlockMap) {
     // Writes <exe>.blockmap and returns the hash/size of the file as it is now,
-    // which is the signed file — the two can never disagree.
+    // which is the signed file, the two can never disagree.
     const info = await buildBlockMap(exePath, 'gzip', `${exePath}.blockmap`);
     sha512 = info.sha512;
     size = info.size;
@@ -107,7 +107,7 @@ async function main() {
       }
     }
   }
-  // Update the top-level path/sha512 — the primary file electron-updater verifies.
+  // Update the top-level path/sha512, the primary file electron-updater verifies.
   if (!doc.path || doc.path === exeName) {
     doc.path = exeName;
     doc.sha512 = sha512;

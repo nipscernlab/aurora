@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 //
-// Unit tests for the AuroraAPI.git namespace (G1 — the git_* AI tools backend,
+// Unit tests for the AuroraAPI.git namespace (G1, the git_* AI tools backend,
 // js/api/git_ns.js). The namespace is thin wrappers over the window.gitAPI
 // preload bridge; these pin the bits with real logic: result shaping, argument
 // validation, file-list normalisation, and error / not-a-repo handling.

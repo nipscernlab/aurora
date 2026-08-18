@@ -3,7 +3,7 @@
  *
  * The module also has side-effects (window.t, fetch, applyDOM), but those
  * are guarded by `typeof window !== 'undefined'` so importing it from
- * Node doesn't run them — leaves the helpers safe to exercise directly.
+ * Node doesn't run them, leaves the helpers safe to exercise directly.
  */
 
 import { describe, expect, it, beforeEach } from 'vitest';
@@ -28,7 +28,7 @@ beforeEach(() => {
     _setTranslations('pt', {
         toolbar: {
             newProject: { label: 'Novo Projeto' },
-            // 'cancel' missing on purpose — falls back to EN
+            // 'cancel' missing on purpose, falls back to EN
         },
     });
 });

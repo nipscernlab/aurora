@@ -5,9 +5,9 @@
 //   1. Clicking a project .v in the tree always opened in the MAIN pane,
 //      ignoring a focused split. The Verilog tree's click handler
 //      (file_mode.js) routed straight to TabManager.addTab without checking
-//      SplitEditorManager.focusedPane — unlike the generic file tree.
+//      SplitEditorManager.focusedPane, unlike the generic file tree.
 //
-//   2. Dragging a tab from the main pane onto a split pane did nothing — the
+//   2. Dragging a tab from the main pane onto a split pane did nothing, the
 //      split panes were never wired as HTML5 drop targets; drag/drop only
 //      reordered tabs inside the main #tabs-container.
 //
@@ -104,7 +104,7 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     // with the other waits in this file (15-45s).
     await window.waitForSelector('.tab[data-path]', { timeout: 15_000 });
 
-    // 2. Click the split button — it now floats inside the focused Monaco
+    // 2. Click the split button, it now floats inside the focused Monaco
     //    pane (see SplitEditorManager._updateButton) rather than the toolbar.
     const splitBtnState = await window.evaluate(() => {
       const btn = document.getElementById('split-editor-float-btn');
@@ -154,7 +154,7 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     // tb_counter.v is in the split (from the previous test). Drag counter.v's
     // MAIN tab onto the split pane and assert it moves (lands in split, leaves
     // main). We simulate the HTML5 DnD by firing the events with a shared
-    // DataTransfer — Playwright's dragTo doesn't drive native DnD reliably.
+    // DataTransfer, Playwright's dragTo doesn't drive native DnD reliably.
     const moved = await window.evaluate(async () => {
       const sem = window.SplitEditorManager;
       const counterPath = [...window.TabManager.tabs.keys()].find(p => p.endsWith('counter.v') && !p.endsWith('tb_counter.v'));
@@ -217,7 +217,7 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     expect(state.cardClearedByRenderTree).toBe(true); // and is stripped on file render
   });
 
-  // RE-ENABLED (2026-06-18): this used to open at line 1 — but it was a test
+  // RE-ENABLED (2026-06-18): this used to open at line 1, but it was a test
   // ISOLATION bug, not a feature bug. The split-pane tests above leave a split
   // focused, so addTab routes a new file into the focused split (tab_manager.js
   // ~1031, which doesn't run revealPosition) and returns early, instead of the
@@ -231,7 +231,7 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
     //
     // A long file is essential here: with a 5-line file every line is on screen,
     // so a broken reveal (cursor set but viewport not scrolled) still "passes".
-    // We target a line well below the fold and assert it's actually VISIBLE —
+    // We target a line well below the fold and assert it's actually VISIBLE:
     // catching the layout/scroll race, not just the cursor position.
     const TARGET = 180;
     const lines = Array.from({ length: 300 }, (_, i) => `module m${i + 1}; endmodule`);
@@ -260,7 +260,7 @@ describe('Aurora E2E — split pane routing + drag-and-drop', () => {
         return vis && pos && pos.lineNumber === target;
       };
       // Poll until the deferred (Monaco-ready-gated) editor is created AND the
-      // rAF reveal has settled — instead of a fixed 600ms sleep that raced on
+      // rAF reveal has settled, instead of a fixed 600ms sleep that raced on
       // slow CI runners. Generous cap so it never flakes; returns the moment
       // it settles so the happy path stays fast.
       const deadline = Date.now() + 12_000;

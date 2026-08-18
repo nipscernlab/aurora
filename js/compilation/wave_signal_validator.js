@@ -1,4 +1,4 @@
-// wave_signal_validator.js — wave-selection resolution for the wave/sim flow.
+// wave_signal_validator.js: wave-selection resolution for the wave/sim flow.
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #4). These
 // functions decide WHICH signals end up in the $dumpvars / .gtkw / .surf layout:
@@ -6,12 +6,12 @@
 // against the freshly-parsed Verilog hierarchy, and pick the dump source
 // (active .gtkw > Wave Config > hand-written $dumpvars > default).
 //
-// They are NOT pure — they touch the WaveStore, the terminal, and (for source
+// They are NOT pure, they touch the WaveStore, the terminal, and (for source
 // parsing) the project config. Rather than capture instance state, each takes a
 // `deps` bag: { projectPath, terminalManager, projectConfig, componentsPath }.
 // CompilationModule keeps thin delegator methods (see _instanceDeps()) so every
-// caller — including the external js/wave/wave_config_manager.js, which calls
-// compiler._validateWaveSelection — is unchanged.
+// caller, including the external js/wave/wave_config_manager.js, which calls
+// compiler._validateWaveSelection, is unchanged.
 //
 // IMPORTANT: the instance field `_validatedWaveSelection` (cache consumed by the
 // auto-gtkw / auto-surfer generators) stays OWNED by CompilationModule.
@@ -21,7 +21,7 @@
 //
 // Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
-// `globalThis.window = { electronAPI: fake }` pattern (same as WaveStore) —
+// `globalThis.window = { electronAPI: fake }` pattern (same as WaveStore):
 // migrating these globals belongs to A3, not this extraction.
 
 import { electronAPI } from '../app/electron_api.js';
@@ -32,7 +32,7 @@ import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { hasUserDumpCalls } from '../wave/testbench_instrumenter.js';
 import { moduleStemFromPath, isVerilogLikeFile } from './compilation_helpers.js';
 
-// i18n shim — falls back to the key path if i18n didn't boot yet.
+// i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 /**
@@ -48,7 +48,7 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  * in tveri and lets the build proceed with the still-valid subset.
  *
  * Returns the pruned selection. On parse failure, falls back to the
- * raw selection — better to let iverilog produce a real error than
+ * raw selection, better to let iverilog produce a real error than
  * to silently strip the user's choice on a transient parse hiccup.
  *
  * @param {{ projectPath: string, terminalManager: object }} deps
@@ -73,7 +73,7 @@ export async function validateWaveSelection(deps, rawSelected, filePaths, simTop
             const msg = dropped.length === 1
                 ? tr('terminal.wave.staleSignalOne', { preview })
                 : tr('terminal.wave.staleSignalMany', { count: dropped.length, preview, more });
-            // Goes to twave — this is a Wave Configuration concern,
+            // Goes to twave, this is a Wave Configuration concern,
             // even though it's detected during the iverilog
             // instrumentation step (the wave button is the only flow
             // that triggers buildVvp; the plain Compile button never
@@ -82,11 +82,11 @@ export async function validateWaveSelection(deps, rawSelected, filePaths, simTop
 
             // Auto-prune the persisted selection so the warning fires
             // once, not on every compile. We can't tell the user to
-            // "uncheck" a stale entry — the picker only shows signals
+            // "uncheck" a stale entry, the picker only shows signals
             // that exist in the parsed hierarchy, so a missing path
             // has no UI to remove it from. waveSignals agora vive
             // per-testbench no WaveStore; sem tbKey resolvido (caso
-            // raro: topLevelFile sem testbenchFile) skip o write — o
+            // raro: topLevelFile sem testbenchFile) skip o write, o
             // run em si ja procede com `valid`.
             if (tbKey) {
                 try {
@@ -117,14 +117,14 @@ export async function validateWaveSelection(deps, rawSelected, filePaths, simTop
  *      Aurora le o arquivo, extrai signal refs com extractSignalRefs,
  *      valida contra a hierarquia do source atual e usa esse conjunto.
  *      Signals referenciados no .gtkw mas que sumiram do source geram
- *      twave warning + toast — o build segue sem eles.
+ *      twave warning + toast, o build segue sem eles.
  *   2. **Wave Configuration customizada** (state.wcCustomized=true).
  *      state.waveSignals dita o $dumpvars. Override do $dumpvars
- *      do usuario se houver — o WC e a fonte canonica nesse caso.
+ *      do usuario se houver, o WC e a fonte canonica nesse caso.
  *   3. **Testbench com $dumpvars hand-written na 1a visita**
  *      (state.hadOriginalDumpvars). NAO injetamos nada; o testbench
  *      domina o que vai pro VCD.
- *   4. **Default**: `$dumpvars(1, tbModule)` — signals so do scope
+ *   4. **Default**: `$dumpvars(1, tbModule)`, signals so do scope
  *      do testbench, sem descer no DUT. Sem override.
  *
  * Side effects: registra o tb no WaveStore na 1a visita (snapshot
@@ -146,7 +146,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
     const tbKey = moduleStemFromPath(config.testbenchFile);
 
     // 1a visita: snapshot do estado original do testbench. Idempotente
-    // — re-chamadas nao mudam o flag.
+    //, re-chamadas nao mudam o flag.
     const tbContent = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
     const hadOriginalDumpvars = hasUserDumpCalls(tbContent);
     await WaveStore.ensureRegistered(deps.projectPath, tbKey, {
@@ -156,7 +156,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
     });
     const state = await WaveStore.read(deps.projectPath, tbKey);
 
-    // Parse de source on-demand — so se precisarmos validar um conjunto
+    // Parse de source on-demand, so se precisarmos validar um conjunto
     // de signals (vem do .gtkw ou do WC).
     let cachedTree = null;
     const buildTree = async () => {
@@ -174,7 +174,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
         return cachedTree;
     };
 
-    // (d) .gtkw ativo vence — varredura do arquivo dita o $dumpvars.
+    // (d) .gtkw ativo vence, varredura do arquivo dita o $dumpvars.
     const activeGtkw = (state.gtkwFiles || []).find((f) => f && f.isActive === true);
     if (activeGtkw && activeGtkw.path) {
         try {
@@ -236,7 +236,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
         };
     }
 
-    // (default) $dumpvars(1, tbModule) — signals do escopo do tb.
+    // (default) $dumpvars(1, tbModule), signals do escopo do tb.
     return {
         signalsToDump: [],
         overrideUserDumpvars: false,
@@ -249,7 +249,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
  * Resolve a selecao de signals pro fluxo cocotb (testbench Python). Le o
  * WaveStore do testbench e valida a selecao salva contra as fontes HDL.
  *
- * RETORNA o conjunto validado — NAO escreve `_validatedWaveSelection`. O
+ * RETORNA o conjunto validado, NAO escreve `_validatedWaveSelection`. O
  * delegador em CompilationModule e quem persiste o campo (o ciclo de vida
  * do cache fica todo na classe).
  *
@@ -302,7 +302,7 @@ export async function parseProjectSources(deps) {
                 .filter((p) => p && isVerilogLikeFile(p)),
         );
 
-        // components/HDL/*.v — biblioteca SAPHO. Inclui pra que
+        // components/HDL/*.v, biblioteca SAPHO. Inclui pra que
         // buildSignedSet/resolveScopeModules conhecam modulos como
         // `core`, `ula`, `myFIFO`. Sem isso, sinais dentro de
         // <inst>.core.sp.pointeri ficam com moduleType=null e nao
@@ -317,7 +317,7 @@ export async function parseProjectSources(deps) {
                     }
                 }
             }
-        } catch (_e) { /* HDL nao acessivel — segue sem */ }
+        } catch (_e) { /* HDL nao acessivel, segue sem */ }
 
         if (paths.size === 0) return null;
 

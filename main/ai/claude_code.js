@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * claude_code.js — Claude Code CLI bridge for Aurora Intelligence.
+ * claude_code.js: Claude Code CLI bridge for Aurora Intelligence.
  *
  * Lets the AI panel talk to the user's Claude Pro/MAX *subscription*
  * instead of a metered API key. It does this by shelling out to the
@@ -40,7 +40,7 @@ const { locateClaude } = cliLocator;
 const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
 const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS, MCP_STARTUP_MS, ONESHOT_MS } = require('./timeouts');
-// Agent SDK engine (ESTUDO §18.5 step 2) — preferred transport; this module's
+// Agent SDK engine (ESTUDO §18.5 step 2), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
 const claudeAgent = require('./claude_agent');
 
@@ -62,7 +62,7 @@ let sessionCostUsd = 0;
 /**
  * Locate the `claude` executable: the copy bundled with Aurora
  * (`@anthropic-ai/claude-code` dependency) first, then a global install
- * on PATH. See `cli_locator.js` — it owns the dev / packaged-app /
+ * on PATH. See `cli_locator.js`, it owns the dev / packaged-app /
  * `.cmd`-shim resolution and caches the result.
  *
  * @returns {{exe:string, viaShim:boolean}|null}
@@ -101,7 +101,7 @@ function execFileText(/** @type {string} */ binPath, /** @type {string[]} */ arg
 }
 
 /**
- * Probe the local Claude Code install + subscription login. Cheap — it
+ * Probe the local Claude Code install + subscription login. Cheap, it
  * reads the credentials file rather than spending tokens on a ping.
  *
  * @returns {Promise<{installed:boolean, path?:string, version?:string,
@@ -113,7 +113,7 @@ async function detect() {
   if (!bin) {
     // Not on disk yet. Report whether we CAN fetch it on demand (B12) and
     // whether the subscription is already signed in (creds are independent of
-    // the binary — they come from the user's external `claude login`), so the
+    // the binary, they come from the user's external `claude login`), so the
     // panel can offer "downloads on first use" instead of a dead "not installed".
     const creds = readCredentials();
     return {
@@ -180,7 +180,7 @@ function sendEvent(/** @type {any} */ webContents, /** @type {string} */ session
  * user's inline card would never appear. That's the bug we're fixing.
  *
  * Resolution: always pass `bypassPermissions` to the CLI. The CLI's
- * own permission UI doesn't fit in our headless flow anyway — let the
+ * own permission UI doesn't fit in our headless flow anyway, let the
  * renderer's inline card be the single source of truth.
  */
 function permissionFlag(/** @type {any} */ _mode) {
@@ -199,7 +199,7 @@ function workspaceDir() {
   return os.homedir();
 }
 
-/** A neutral scratch directory for the CLI's working dir — deliberately NOT the
+/** A neutral scratch directory for the CLI's working dir, deliberately NOT the
  *  project folder. On Windows a process whose cwd is a folder LOCKS it, so with
  *  the project as cwd a `rename_project` couldn't complete until the turn ended.
  *  The project stays fully readable via --add-dir, and every Aurora tool uses
@@ -217,7 +217,7 @@ function agentScratchDir() {
 /**
  * Reinforcement injected into the first user turn. The MCP server
  * already advertises Aurora's tools to the CLI via `tools/list`, so the
- * model *sees* them regardless — this text tells it to PREFER them and
+ * model *sees* them regardless, this text tells it to PREFER them and
  * never shell out to the SAPHO toolchain. Without it, a model used to
  * running compilers from a terminal will reach for the (now disabled)
  * Bash tool first.
@@ -265,17 +265,17 @@ const MCP_TOOL_RULES = [
  *  - Bash/BashOutput/KillShell/KillBash → can't run SAPHO compilers via a shell.
  *  - Edit/Write/MultiEdit/NotebookEdit (V4) → can't write files directly,
  *    bypassing the renderer's Allow/Deny card. File writes must go through
- *    mcp__aurora__create_file, which IS gated. (Read stays enabled — the image
+ *    mcp__aurora__create_file, which IS gated. (Read stays enabled, the image
  *    attachment flow writes a temp file in main and the model reads it.)
  *  - AskUserQuestion → the CLI's NATIVE question tool cannot reach a human
  *    here: we run `-p` + bypassPermissions with no TTY and no canUseTool
  *    callback, so a native AskUserQuestion self-resolves CLI-side and Aurora
- *    only ever saw an inert chip — the "no question card in bypass mode"
+ *    only ever saw an inert chip, the "no question card in bypass mode"
  *    bug. Disallowing it forces the model onto mcp__aurora__ask_user_question
  *    (also steered by MCP_TOOL_RULES), which renders the real interactive
  *    card and pipes the answer back through the MCP bridge.
  */
-// Shared with the Agent SDK engine (claude_agent.js) — one list, two consumers.
+// Shared with the Agent SDK engine (claude_agent.js), one list, two consumers.
 // Two hand-kept copies is exactly how AskUserQuestion drifted back on over
 // there and silently stopped rendering its card. See native_tools.js.
 const { NATIVE_TOOLS, DISALLOWED_TOOLS } = require('./native_tools');
@@ -337,7 +337,7 @@ async function start(payload, webContents) {
 
   let bin = resolveBinary();
   if (!bin) {
-    // B12: the installer no longer bundles the CLI — fetch it on first use.
+    // B12: the installer no longer bundles the CLI, fetch it on first use.
     if (!cliDownloader.isDownloadable('claude')) {
       sendEvent(webContents, sessionId, 'error', {
         message: 'Claude Code CLI not found. Install it, then reopen this panel.',
@@ -359,7 +359,7 @@ async function start(payload, webContents) {
 
   // ---- Agent SDK engine (preferred) ----------------------------------------
   // Drives the SAME native binary through @anthropic-ai/claude-agent-sdk:
-  // clean aborts, no argv limits, and canUseTool — which is what lets the
+  // clean aborts, no argv limits, and canUseTool, which is what lets the
   // native AskUserQuestion render Aurora's interactive card even under
   // bypassPermissions. Returns false (→ fall through to the legacy spawn)
   // when the SDK can't run: import failure, .cmd-shim-only binary, or the
@@ -381,7 +381,7 @@ async function start(payload, webContents) {
     log.info('[ai.claude-code] Agent SDK unavailable — using legacy CLI spawn');
   } catch (e) {
     // tryStart reports its own TURN errors as chat-events; reaching here
-    // means the engine wiring itself blew up — surface it rather than
+    // means the engine wiring itself blew up, surface it rather than
     // double-running the turn through the legacy path.
     sendEvent(webContents, sessionId, 'error', {
       message: `Claude engine error: ${e instanceof Error ? e.message : e}`,
@@ -397,7 +397,7 @@ async function start(payload, webContents) {
   const last = messages[messages.length - 1];
   let prompt = (last && last.content) || '';
   // Composer attachments: inline file text; write images to temp files and
-  // reference their paths — Claude Code reads images natively with its Read tool.
+  // reference their paths, Claude Code reads images natively with its Read tool.
   prompt += attachments.buildPromptSuffix(last && last.attachments, { imagesAsFiles: true });
 
   // No CLI session to resume but the renderer handed us history (user
@@ -412,7 +412,7 @@ async function start(payload, webContents) {
 
   // Large system prompts ride along inside the prompt body (the CLI
   // reads it via stdin, so it can be arbitrarily long). Resumed
-  // sessions skip this — the prior turn already taught the model the
+  // sessions skip this, the prior turn already taught the model the
   // rules, sending them again costs tokens for no gain.
   // (Set below, after we know whether inlineSystem was deferred.)
 
@@ -433,7 +433,7 @@ async function start(payload, webContents) {
   // select_wave_signals, get_terminal_output, …) as an MCP server, so
   // the model drives Aurora's pipeline instead of shelling out to
   // cmmcomp / iverilog / gtkwave. `--strict-mcp-config` makes the CLI
-  // ignore any user/project .mcp.json — only Aurora's bridge is in
+  // ignore any user/project .mcp.json, only Aurora's bridge is in
   // scope, so behaviour is deterministic across machines.
   //
   // If the MCP server fails to come up we deliberately DON'T disable
@@ -448,7 +448,7 @@ async function start(payload, webContents) {
     // Comma-separated is the form `--help` documents for this flag.
     args.push('--tools', NATIVE_TOOLS.join(','));
     // Redundant with --tools, kept anyway: disallowed-tools wins over every
-    // permission mode, including `bypassPermissions` — so even "allow" turns
+    // permission mode, including `bypassPermissions`, so even "allow" turns
     // cannot PowerShell their way around Aurora's compile pipeline. Space-
     // separated, which is what this flag has always been given here.
     args.push('--disallowed-tools', DISALLOWED_TOOLS.join(' '));
@@ -461,7 +461,7 @@ async function start(payload, webContents) {
   // ---------------------
   // On Windows, command-line args are capped at 32767 chars (cmd.exe is
   // even stricter at ~8191). Aurora's SYSTEM_PROMPT carries the full
-  // SAPHO knowledge base — it overflows that cap and we hit
+  // SAPHO knowledge base, it overflows that cap and we hit
   // "The command line is too long" / ENAMETOOLONG. Anything past a
   // conservative threshold gets folded into the prompt body instead of
   // being passed through `--append-system-prompt`, so the shell never
@@ -490,14 +490,14 @@ async function start(payload, webContents) {
   args.push('--add-dir', attachments.ATT_DIR);   // so native Read can open attached images
 
   // Stitch the deferred system prompt onto the user message so the
-  // shell never sees its bulk. Only on a fresh session — resumed CLI
+  // shell never sees its bulk. Only on a fresh session, resumed CLI
   // sessions already have the rules in context.
   if (inlineSystem && !resumeId) {
     prompt = `<aurora_system_rules>\n${inlineSystem}\n</aurora_system_rules>\n\n${prompt}`;
   }
 
   // Tell the model to prefer the mcp__aurora__* tools over the shell.
-  // Fresh sessions only — a resumed CLI session already has this in
+  // Fresh sessions only, a resumed CLI session already has this in
   // context, and re-sending it would cost a prompt-cache miss.
   if (mcpReady && !resumeId) {
     prompt = `<aurora_mcp_tools>\n${MCP_TOOL_RULES}\n</aurora_mcp_tools>\n\n${prompt}`;
@@ -512,13 +512,13 @@ async function start(payload, webContents) {
   // MCP tool-call read timeout.
   // ---------------------------
   // The CLI's MCP client cuts a `tools/call` off after 120s by default and
-  // reports `timed out awaiting tools/call after 120s` to the model — which
+  // reports `timed out awaiting tools/call after 120s` to the model, which
   // then marks the tool FAILED even when Aurora's side finished the work.
   // That's the "rename_project failed but the project actually got renamed"
   // bug: rename_project / rename_processor release watchers → move the folder
   // → rewrite the .spf → reopen, and on a large project or busy disk that
   // runs past 120s. tool_bridge already gives those tools a 5-min leash
-  // (SLOW_TIMEOUT_MS), so the renderer resolves correctly — the CLI was just
+  // (SLOW_TIMEOUT_MS), so the renderer resolves correctly, the CLI was just
   // hanging up first. Raise MCP_TOOL_TIMEOUT above that bridge ceiling so the
   // CLI waits for tool_bridge to settle (success or its own timeout) instead
   // of inventing a false failure. Respect an explicit user override if set.
@@ -529,7 +529,7 @@ async function start(payload, webContents) {
   try {
     // On Windows, npm installs the CLI as `claude.cmd` (a batch shim).
     // Since Node v20.12 (CVE-2024-27980) `.bat`/`.cmd` files cannot be
-    // launched directly via `spawn(bin, args)` — they need `shell:true`
+    // launched directly via `spawn(bin, args)`, they need `shell:true`
     // OR you have to invoke cmd.exe explicitly. We pick the explicit
     // route because it sidesteps the per-arg shell-quoting hazard:
     // arguments stay as a real array (not concatenated into a single
@@ -600,8 +600,8 @@ async function start(payload, webContents) {
   // task (a large refactor, several slow compiles, deep reasoning) can run for a
   // long time and must NOT be cut off by an arbitrary clock. Orphans are handled
   // by OWNERSHIP instead (see killAll / the renderer-reload reaper in
-  // windows.js): a turn is reaped when nobody is listening for it anymore — the
-  // panel was abandoned, the renderer reloaded, or the app is quitting — never
+  // windows.js): a turn is reaped when nobody is listening for it anymore, the
+  // panel was abandoned, the renderer reloaded, or the app is quitting, never
   // because it "took too long". The inactivity reaper above only fires on pure
   // silence with no tool in flight (a genuinely wedged CLI), which is a liveness
   // signal, not a deadline.
@@ -660,7 +660,7 @@ async function start(payload, webContents) {
       case 'user': {
         // Results of the CLI's own tool runs. Each tool_result block
         // carries a `tool_use_id` that points back to the matching
-        // tool_use block from the prior assistant turn — we look up the
+        // tool_use block from the prior assistant turn, we look up the
         // original toolName from that map so the renderer's chip can
         // close on the right one. Content of the result is forwarded
         // so the saved conversation preserves the full transcript.
@@ -762,7 +762,7 @@ async function start(payload, webContents) {
     if (fullText) {
       sendEvent(webContents, sessionId, 'finish', { text: fullText, usage: null });
     } else {
-      // Crash before any output — a stale --resume target is the usual
+      // Crash before any output, a stale --resume target is the usual
       // cause; clear it so a retry starts clean.
       if (resumeId && conversationId) convSessions.delete(conversationId);
       const msg = stderrBuf.trim() || `Claude Code exited (code ${code}) without a response.`;
@@ -771,7 +771,7 @@ async function start(payload, webContents) {
   });
 }
 
-/** Stop one session handle — SDK turns expose stop() (AbortController);
+/** Stop one session handle, SDK turns expose stop() (AbortController);
  *  legacy spawns expose proc (tree-killed via taskkill on Windows). */
 function stopSession(/** @type {any} */ s) {
   if (!s) return false;
@@ -799,7 +799,7 @@ function abort(/** @type {string} */ sessionId) {
 /**
  * Push a follow-up into a LIVE turn so it runs in the same CLI session instead
  * of waiting for a fresh dispatch. Only the Agent SDK engine registers a
- * `pushUserMessage` (claude_agent.js) — the legacy spawn path has no input
+ * `pushUserMessage` (claude_agent.js), the legacy spawn path has no input
  * channel once `-p` is running, so this returns false there and the renderer
  * falls back to its own follow-up queue. Also returns false once the turn is
  * winding down, which is what keeps a late message from vanishing.
@@ -819,7 +819,7 @@ function pushUserMessage(sessionId, content) {
 }
 
 /** Kill every in-flight session. Called on app quit so Claude Code CLI
- *  subprocesses (and their children, via taskkill /T) aren't orphaned —
+ *  subprocesses (and their children, via taskkill /T) aren't orphaned:
  *  abort() only ever fired for a single renderer-requested session. */
 function killAll() {
   for (const [, s] of sessions) stopSession(s);
@@ -833,7 +833,7 @@ function forgetConversation(/** @type {string} */ conversationId) {
 
 /**
  * One-shot text generation via the Claude Code CLI (subscription) in print
- * mode — no streaming, no Aurora MCP/tool bridge, no session. Lets the AI
+ * mode, no streaming, no Aurora MCP/tool bridge, no session. Lets the AI
  * harness generator use the subscription instead of requiring an API key.
  * The prompt rides on stdin (it can be large). Same shape as
  * provider.generateOneshot: { ok, text, finishReason } or { ok:false, error }.
@@ -846,7 +846,7 @@ async function generateOneshot({ system, prompt, model } = /** @type {any} */ ({
   let bin = resolveBinary();
   if (!bin) {
     // B12: fetch the CLI on first use here too (no progress channel on the
-    // one-shot path — the harness generator already shows its own pending UI).
+    // one-shot path, the harness generator already shows its own pending UI).
     if (!cliDownloader.isDownloadable('claude')) {
       return { ok: false, error: 'Claude Code CLI not found. Install it, or pick an API provider.' };
     }
@@ -883,7 +883,7 @@ async function generateOneshot({ system, prompt, model } = /** @type {any} */ ({
       return;
     }
     // The CLI in text mode is slow (it returns only after the whole answer is
-    // generated — measured ~4 min for a harness). Generous timeout so a real
+    // generated, measured ~4 min for a harness). Generous timeout so a real
     // hang doesn't wait forever, without cutting a legitimate generation.
     const TIMEOUT_MS = ONESHOT_MS; // 7 min
     const timer = setTimeout(() => {

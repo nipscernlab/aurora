@@ -1,15 +1,15 @@
 /*
- * import.css — single CSS entrypoint
+ * import.css: single CSS entrypoint
  *
  * Files are grouped by domain. Order matters:
- *   1. base       — design tokens + reset + global layout
- *   2. shell      — toolbar, status bar, top-level UI state
- *   3. editor     — Monaco editor + tabs
- *   4. tree       — file tree + hierarchy tree
- *   5. terminal   — terminal panel + progress
- *   6. modals     — overlays/dialogs
- *   7. panels     — side/auxiliary panels
- *   8. feedback   — notifications + tooltips
+ *   1. base      , design tokens + reset + global layout
+ *   2. shell     , toolbar, status bar, top-level UI state
+ *   3. editor    , Monaco editor + tabs
+ *   4. tree      , file tree + hierarchy tree
+ *   5. terminal  , terminal panel + progress
+ *   6. modals    , overlays/dialogs
+ *   7. panels    , side/auxiliary panels
+ *   8. feedback  , notifications + tooltips
  */
 
 /* 1. base */

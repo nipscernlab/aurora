@@ -1,12 +1,12 @@
 // @ts-check
 /**
- * binary_allowlist.js — the closed set of executables Aurora's
+ * binary_allowlist.js: the closed set of executables Aurora's
  * structured-spec executor will spawn.
  *
  * Why: the new `exec-spec` IPC lets the renderer (and through it,
  * Aurora Intelligence) pick {binary, args[]} for a toolchain step. The
  * AI's surface for editing command lines deliberately does NOT expose
- * a way to swap the binary — but a buggy or compromised renderer
+ * a way to swap the binary, but a buggy or compromised renderer
  * could still send anything. This allowlist is the trust boundary:
  * any spec whose `binary` is not in the table is rejected with a clear
  * error, regardless of what the args say.
@@ -55,24 +55,24 @@ const RAW_ALLOWLIST = [
   ['gtkwave.exe',   ['Packages/gtkwave-nipscern']],
   ['fst2vcd.exe',   ['Packages/gtkwave-nipscern']],
 
-  // Surfer — the opt-in embedded waveform viewer (launch-surfer). NIPSCERN
+  // Surfer, the opt-in embedded waveform viewer (launch-surfer). NIPSCERN
   // fork build (surfer-aurora.exe) from gitlab.com/nips-cern/surfer-aurora.
   ['surfer-aurora.exe', ['Packages/surfer']],
-  // Verible language server — the Verilog LSP backend (O2). Long-lived
+  // Verible language server, the Verilog LSP backend (O2). Long-lived
   // stdio process spawned by main/lsp/verible_lsp.js for diagnostics,
   // formatting, outline, hover and definition/references in Monaco.
   ['verible-verilog-ls.exe', ['Packages/verible/bin']],
-  // clang-format — the C/C++/CMM formatter (Shift+Alt+F). One-shot stdin->
+  // clang-format, the C/C++/CMM formatter (Shift+Alt+F). One-shot stdin->
   // stdout process spawned by main/format/clang_format.js.
   ['clang-format.exe', ['Packages/clang-format/bin']],
-  // slang-server — the SystemVerilog SEMANTIC language server (O11).
+  // slang-server, the SystemVerilog SEMANTIC language server (O11).
   // Long-lived stdio process spawned by main/lsp/slang_lsp.js for
   // elaboration diagnostics + completion in Monaco (complements Verible).
   ['slang-server.exe', ['Packages/slang-server/bin']],
-  // comp2gtkw — the complex-number decoder pre-pass (decode-complex). Ships
+  // comp2gtkw, the complex-number decoder pre-pass (decode-complex). Ships
   // with the YANC compilers in components/bin.
   ['comp2gtkw.exe', ['bin']],
-  // (netlistsvg is no longer a bundled .exe — it runs in-process from
+  // (netlistsvg is no longer a bundled .exe, it runs in-process from
   //  @silimate/netlistsvg, so it needs no allowlist entry.)
 ];
 
@@ -129,7 +129,7 @@ function isAllowed(binaryPath) {
     if (baseName.toLowerCase() !== allowedName.toLowerCase()) continue;
     for (const sub of allowedDirs) {
       const expected = path.posix.join(toPosix(componentsPath), sub);
-      // Case-insensitive on Windows — paths from electronAPI.joinPath
+      // Case-insensitive on Windows, paths from electronAPI.joinPath
       // can vary in drive-letter casing depending on how the user
       // launched the app.
       if (dir.toLowerCase() === expected.toLowerCase()) {

@@ -9,6 +9,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import '../terminal/tab_orientation.js';   // abas em coluna quando o terminal fica estreito
 import '../ui/network_watch.js';  // aviso de queda de internet
+import '../ui/github_forget.js'; // sair do GitHub e limpar a maquina
 import '../ui/bug_report.js';   // botao Relatar um problema, no painel Sobre
 // Side-effect import: boots the TCMD tab's embedded interactive shell (PowerShell)
 // and self-initializes on DOMContentLoaded.
@@ -24,7 +25,7 @@ import '../tree/standard_tree_render.js';
 // (coloured M/A/D/R badges + folder dots). Self-starts on DOMContentLoaded.
 import '../tree/git_decorations.js';
 // Side-effect import: registers the <aurora-titlebar> custom element (the top
-// toolbar / window chrome). No Shadow DOM — see the component for why.
+// toolbar / window chrome). No Shadow DOM, see the component for why.
 import '../components/aurora-titlebar.js';
 // Make sure the view subcontainers exist before any renderer runs.
 treeView.initialize();
@@ -68,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     compilationFlowManager.initialize();
 
     // Split editor: initialize layout. (It keeps the split button in sync by
-    // listening to TabManager's aurora:editing-file-changed event — no
+    // listening to TabManager's aurora:editing-file-changed event, no
     // monkey-patching of activateTab / _closePreviewSilently.)
     SplitEditorManager.initialize();
     window.SplitEditorManager = SplitEditorManager;
@@ -83,18 +84,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize the main CompilationModule. Its constructor pins
     // itself as window._latestCompilationModule, which is what the
     // file-tree view controller reads to find the renderer for the
-    // hierarchy view — no explicit registration needed.
+    // hierarchy view, no explicit registration needed.
     if (typeof CompilationModule !== 'undefined') {
         const compilationModule = new CompilationModule(window.currentProjectPath);
         window.compilationModule = compilationModule;
     }
 
-    // Initialize global terminal manager and expose the instance — the
+    // Initialize global terminal manager and expose the instance, the
     // AuroraAPI's terminal namespace reaches for it through window so
     // it doesn't need to be wired through every constructor.
     window.globalTerminalManager = window.initializeGlobalTerminalManager();
 
-    // "New File" button — opens the same Verilog / Python (cocotb) picker
+    // "New File" button, opens the same Verilog / Python (cocotb) picker
     // as right-clicking empty space in the file tree, anchored just below
     // the button. A generic save dialog "create any file" makes no sense
     // here: the tree only groups Verilog and CMM/Python sources, so the
@@ -116,26 +117,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Command Palette is auto-initialized via its own DOMContentLoaded listener
 
-    // window.AuroraAPI — Phase A facade. Behaviour-neutral: nothing in
+    // window.AuroraAPI, Phase A facade. Behaviour-neutral: nothing in
     // the UI is rewired yet, the surface is just *available* for the
     // upcoming Aurora Intelligence panel and for incremental migration
     // of toolbar handlers in Phase B.
     initAuroraAPI();
 
-    // Aurora Intelligence tool runner — listens for tool-exec requests
+    // Aurora Intelligence tool runner, listens for tool-exec requests
     // from the chat backend and dispatches them against AuroraAPI
     // (with ask-before-write confirmation). Must run after initAuroraAPI.
     initToolRunner();
 
     // Hook the spec_runner audit/terminal callbacks. Done here (not in
     // spec_runner.js itself) so the module stays pure-importable from
-    // tests and CLI tooling — only the live renderer wires the IPC.
+    // tests and CLI tooling, only the live renderer wires the IPC.
     setAuditHook((entry) => {
         try { window.aiAPI?.auditOverrideApplied?.(entry); } catch (_) { /* fire-and-forget */ }
     });
     setTerminalHook((channel, message, level) => {
         try {
-            // Reuse TerminalManager from compilation_module.js — same
+            // Reuse TerminalManager from compilation_module.js, same
             // 'tips' (blue) styling we use for AI-driven hints elsewhere.
             window._latestCompilationModule?.terminalManager?.appendToTerminal?.(channel, message, level || 'tips');
         } catch (_) { /* terminal not ready — skip silently */ }
@@ -171,7 +172,7 @@ window.onload = () => {
         electronAPI?.splashNotifyReady?.();
     }));
 
-    // Post-update confirmation toast — main/updater.js persists the
+    // Post-update confirmation toast, main/updater.js persists the
     // running version to userData; a mismatch on the next launch means
     // SAPHO just installed an update. The handler is one-shot in main
     // (clears the flag after first read), so subsequent windows don't

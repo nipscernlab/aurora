@@ -1,6 +1,6 @@
 // monaco is loaded globally via index.html (AMD vendor build).
 /**
- * treesitter_highlight.js — precise syntax highlighting via tree-sitter (O7).
+ * treesitter_highlight.js: precise syntax highlighting via tree-sitter (O7).
  *
  * web-tree-sitter (WASM) parses the buffer and a grammar's highlights query
  * produces captures; we map those to Monaco SEMANTIC TOKENS, which overlay
@@ -10,13 +10,13 @@
  * CMM/ASM have no tree-sitter grammar and keep their Monarch tokenizers.
  *
  * Robustness: WASM bytes are pulled from the main process
- * (window.treeSitterAPI) and fed to web-tree-sitter directly — no URL/fetch
+ * (window.treeSitterAPI) and fed to web-tree-sitter directly, no URL/fetch
  * under the sandboxed file:// renderer. If anything is missing or fails, the
  * provider returns no tokens and Monaco's Monarch highlighting stands
  * (no regression). Loading is lazy: a grammar is fetched + compiled only the
  * first time a buffer of that language is highlighted.
  *
- * tree-sitter positions are BYTE offsets; Monaco wants UTF-16 columns — we
+ * tree-sitter positions are BYTE offsets; Monaco wants UTF-16 columns, we
  * convert per line (ASCII fast-path) so accented comments/strings (e.g.
  * Portuguese) don't shift the highlighting after them.
  */
@@ -26,7 +26,7 @@ import svScm from './treesitter/queries/systemverilog.scm?raw';
 import cScm from './treesitter/queries/c.scm?raw';
 import cppScm from './treesitter/queries/cpp.scm?raw';
 
-// Monaco semantic token legend — standard VS Code token types, so the active
+// Monaco semantic token legend, standard VS Code token types, so the active
 // theme colors them out of the box (vs-dark / cmm-dark inherit those).
 const TOKEN_TYPES = [
   'namespace', 'type', 'class', 'struct', 'parameter', 'variable', 'property',
@@ -214,7 +214,7 @@ function makeProvider(cfg) {
         tree = parser.parse(model.getValue());
         return { data: buildTokens(model, tree, query) };
       } catch (e) {
-        // A missing runtime kills all grammars — stop trying after the first.
+        // A missing runtime kills all grammars, stop trying after the first.
         if (/runtime/.test(String(e && e.message))) unavailable = true;
         return { data: new Uint32Array(0) };
       } finally {

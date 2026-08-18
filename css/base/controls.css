@@ -1,5 +1,5 @@
 /* =============================================================================
- *  controls.css — a base compartilhada dos botões.
+ *  controls.css: a base compartilhada dos botões.
  *
  *  Por que existe. O estudo de interface apontou "três sistemas de botão
  *  paralelos para o mesmo trabalho visual": `.btn*` no modal_config,
@@ -69,7 +69,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Emblema de contagem — um desenho só para os dois lugares que contam coisas
+ *  Emblema de contagem, um desenho só para os dois lugares que contam coisas
  *
  *  O emblema do git (arquivos modificados) e os das abas do terminal (mensagens
  *  por tipo) eram dois desenhos diferentes para a mesma ideia: um numero pequeno

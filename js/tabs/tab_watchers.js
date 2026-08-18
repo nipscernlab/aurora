@@ -41,8 +41,8 @@ export const tabWatchers = {
 
         // chokidar (push) is the primary change signal; this stat poll is only a
         // fallback for the Windows race where OS events lag (P15). It now runs
-        // ONLY while the window is focused — chokidar keeps pushing while you're
-        // away, so the poll's disk churn isn't needed in the background — and we
+        // ONLY while the window is focused, chokidar keeps pushing while you're
+        // away, so the poll's disk churn isn't needed in the background, and we
         // do a single catch-up check the moment focus returns, so nothing edited
         // externally while away is missed.
         this.periodicCheckInterval = setInterval(() => {
@@ -95,7 +95,7 @@ export const tabWatchers = {
             }
         } catch (error) {
             // ENOENT = file deleted while we held a tab on it. Don't yank the
-            // tab — the user might still want to save back to that path.
+            // tab, the user might still want to save back to that path.
             if (error.message.includes('ENOENT') || error.message.includes('no such file')) {
                 this.stopWatchingFile(filePath);
             } else {
@@ -150,8 +150,8 @@ export const tabWatchers = {
         if (!watcher) return;
         // Drop local state synchronously so it's consistent even while the
         // close is in flight. The IPC resolves only when the main process has
-        // awaited chokidar's watcher.close() — i.e. the OS handle is actually
-        // released — so awaiting this is the real "stopped" signal a restart
+        // awaited chokidar's watcher.close(), i.e. the OS handle is actually
+        // released, so awaiting this is the real "stopped" signal a restart
         // can rely on (vs the old blind setTimeout(500)).
         this.fileWatchers.delete(filePath);
         this.lastModifiedTimes.delete(filePath);
@@ -277,7 +277,7 @@ export const tabWatchers = {
                 { label: tr('dialog.fileConflict.saveAndReload'), action: 'save-and-reload', type: 'save'      },
             ],
         });
-        // showDialog resolves to 'cancel' on Esc — map that to keep-editor
+        // showDialog resolves to 'cancel' on Esc, map that to keep-editor
         // since that's the safest default (no overwrite of user's work).
         return action === 'cancel' ? 'keep-editor' : action;
     },

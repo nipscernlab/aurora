@@ -1,5 +1,5 @@
 /**
- * preload_update.js — context bridge da janela de atualização.
+ * preload_update.js: context bridge da janela de atualização.
  *
  * Janela única que percorre os três estados do fluxo de update
  * (available → downloading → downloaded). Espelha 1:1 os canais IPC
@@ -22,13 +22,13 @@ contextBridge.exposeInMainWorld('updateAPI', {
 
   /**
    * Download caiu e vai ser retomado automaticamente:
-   * { attempt, ofAttempts, inSeconds }. Chega ANTES do onError — este só
+   * { attempt, ofAttempts, inSeconds }. Chega ANTES do onError, este só
    * dispara quando as tentativas acabam. Sem isto a janela ficaria parada
    * numa barra de progresso congelada, sem explicar nada.
    */
   onRetrying: (cb) => ipcRenderer.on('update:retrying', (_e, d) => cb(d)),
 
-  /** Tentativa de fechar a janela durante o download — feedback visual. */
+  /** Tentativa de fechar a janela durante o download, feedback visual. */
   onShake: (cb) => ipcRenderer.on('update:shake', () => cb()),
 
   /* ---- renderer → main ---- */

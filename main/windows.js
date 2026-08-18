@@ -32,7 +32,7 @@ let ultimoJumplist = '';
  * Why this exists: when "Show recently opened items in Start, Jump Lists
  * and File Explorer" is off (Settings → Personalization → Start), the
  * shell rejects custom categories outright. Electron surfaces that as a
- * `customCategoryAccessDeniedError` return — but only *after* Chromium
+ * `customCategoryAccessDeniedError` return, but only *after* Chromium
  * has already printed
  *
  *   ERROR:...jump_list.cc:305] Failed to append custom category
@@ -91,9 +91,9 @@ function probeRecentDocsTracking() {
  * (Re)build the Windows taskbar jumplist for SAPHO.
  *
  * Layout (top → bottom, as Windows renders it):
- *   - Custom category "Recent Projects" — up to 5 most-recent .spf
+ *   - Custom category "Recent Projects", up to 5 most-recent .spf
  *     files, each launching SAPHO and opening the project.
- *   - Tasks — single "New SAPHO Window" entry that re-launches the app.
+ *   - Tasks, single "New SAPHO Window" entry that re-launches the app.
  *
  * Two important pieces:
  *
@@ -106,7 +106,7 @@ function probeRecentDocsTracking() {
  * 2. In dev (`npm start`), `process.execPath` is `electron.exe` and
  *    just running it produces a blank Electron prompt. So when we're
  *    not packaged we hand the app path through as the first argv to
- *    electron.exe — that's exactly what `electron .` does manually, and
+ *    electron.exe, that's exactly what `electron .` does manually, and
  *    it gets a real SAPHO window. Packaged builds skip the app-path
  *    arg because SAPHO.exe already knows where the bundle lives.
  */
@@ -123,7 +123,7 @@ function rebuildJumpList() {
     const joinArgs = (/** @type {string[]} */ ...extra) => [baseArgs, ...extra].filter(Boolean).join(' ');
 
     // Recent projects, pruned to entries that still exist on disk. Max
-    // 5 so the jumplist stays scannable on a single glance — Windows
+    // 5 so the jumplist stays scannable on a single glance, Windows
     // would happily render 10 but it pushes "New SAPHO Window" off the
     // visible area.
     const recentSpfs = recents.prune().slice(0, 5);
@@ -184,8 +184,8 @@ function rebuildJumpList() {
 
     // Second net: the probe can be wrong (setting flipped mid-session, or
     // a policy path we don't read). Windows rejects the *whole* call in
-    // that case, so retry with Tasks only — otherwise the jumplist would
-    // be left empty — and remember, so no later rebuild tries again.
+    // that case, so retry with Tasks only, otherwise the jumplist would
+    // be left empty, and remember, so no later rebuild tries again.
     if (status === 'customCategoryAccessDeniedError') {
       customCategoryAllowed = false;
       status = app.setJumpList(/** @type {Electron.JumpListCategory[]} */ ([tasksCategory]));
@@ -218,7 +218,7 @@ function rebuildJumpList() {
 
 /**
  * @param {{ deferShow?: boolean }} [opts] When `deferShow` is true the
- *   window stays hidden after `ready-to-show` — the splash coordinator
+ *   window stays hidden after `ready-to-show`, the splash coordinator
  *   owns the maximize/show handoff. Second-instance windows (no splash)
  *   pass nothing and show themselves.
  */
@@ -230,7 +230,7 @@ function createMainWindow(opts = {}) {
     minWidth: 720,
     minHeight: 480,
     title: 'SAPHO',
-    // Custom title bar — disable native chrome.
+    // Custom title bar, disable native chrome.
     // `frame: false` removes default frame; `thickFrame: true` keeps thick
     // borders so Aero snap, edge-resize, and animations still work on every
     // Windows version (Win7 → Win11). `titleBarStyle: 'hidden'` is a no-op
@@ -242,11 +242,11 @@ function createMainWindow(opts = {}) {
     icon: path.join(app.getAppPath(), 'assets/icons/sapho_aurora_icon.ico'),
     webPreferences: {
       // Renderer must not have direct Node access. The preload script
-      // exposes a curated `electronAPI` via contextBridge — that is the
+      // exposes a curated `electronAPI` via contextBridge, that is the
       // only path the renderer can take to reach main-process capabilities.
       contextIsolation: true,
       // OS-level renderer sandbox. Free here: preload.js imports only 'electron'
-      // (contextBridge/ipcRenderer/webUtils — all available sandboxed); every
+      // (contextBridge/ipcRenderer/webUtils, all available sandboxed); every
       // fs/spawn/AI capability already lives in main behind IPC.
       sandbox: true,
       nodeIntegration: false,
@@ -270,7 +270,7 @@ function createMainWindow(opts = {}) {
   // Navigation lockdown. Aurora is a single-page file:// shell: the top frame
   // is only ever index.html, and links that should open externally go through
   // shell.openExternal (ipc 'open-external'). So deny window.open entirely and
-  // cancel any in-frame navigation — a stray <a target=_blank>, a dragged URL,
+  // cancel any in-frame navigation, a stray <a target=_blank>, a dragged URL,
   // or a compromised renderer trying to load remote content all get blocked.
   // (programmatic loadFile/loadURL above does NOT trigger 'will-navigate'.)
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -307,13 +307,13 @@ function createMainWindow(opts = {}) {
   });
 
   // Orphan reaper (ownership-based, NOT time-based). A Claude Code / Codex turn
-  // streams its events to THIS renderer document. If the document goes away — a
-  // reload (Ctrl+R in dev), a navigation, or a renderer crash — every in-flight
+  // streams its events to THIS renderer document. If the document goes away, a
+  // reload (Ctrl+R in dev), a navigation, or a renderer crash, every in-flight
   // AI turn is abandoned: nobody will ever consume its events or abort it, so the
   // CLI subprocess would linger as a zombie child of the still-alive app and pile
   // up across the session. Reap them the instant the document is replaced. This
   // is the correct anti-orphan signal precisely because it is about OWNERSHIP, not
-  // elapsed time — a long-but-healthy agentic turn (big refactor, slow compiles)
+  // elapsed time, a long-but-healthy agentic turn (big refactor, slow compiles)
   // keeps running untouched as long as its panel is alive.
   const reapAbandonedAi = (why) => {
     try { require('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
@@ -330,7 +330,7 @@ function createMainWindow(opts = {}) {
 
   // Register the sapho: protocol and .spf extension on Windows.
   // AppUserModelID + initial jumplist are set in main.js / on
-  // app-ready — too early for createMainWindow to be involved.
+  // app-ready, too early for createMainWindow to be involved.
   if (process.platform === 'win32') {
     app.setAsDefaultProtocolClient('sapho');
     // Rebuild on every window creation in case the recents list
@@ -343,9 +343,9 @@ function createMainWindow(opts = {}) {
   // the background. When this is the LAST main window, stop every toolchain
   // child (compiles, simulations, yosys/PRISM, gtkwave, cocotb) plus any
   // in-flight AI (gemini) stream, then close the auxiliary PRISM window so the
-  // app actually proceeds to quit — window-all-closed → before-quit then runs
+  // app actually proceeds to quit, window-all-closed → before-quit then runs
   // the awaited, authoritative cleanup. Without this, PRISM (or a running
-  // yosys/compile) keeps the process — and itself — alive after the user
+  // yosys/compile) keeps the process, and itself, alive after the user
   // closed the IDE.
   mainWindow.on('close', () => {
     if (state.isQuitting) return;
@@ -360,7 +360,7 @@ function createMainWindow(opts = {}) {
 
   // NOTE: the authoritative Temp wipe + toolchain teardown live in
   // lifecycle.js's single before-quit handler. A second before-quit here used
-  // to fs.rm the SAME Temp/ folder concurrently — two recursive deletes racing
+  // to fs.rm the SAME Temp/ folder concurrently, two recursive deletes racing
   // on one directory (EBUSY → maxRetries backoff), pure added close latency for
   // no benefit. Removed; lifecycle.js owns it.
 
@@ -447,7 +447,7 @@ function createSplashScreen() {
     state.splashWindow = null;
   };
 
-  // `handoff` only drives the bar to 100% — the main window must NOT
+  // `handoff` only drives the bar to 100%, the main window must NOT
   // appear until the splash bar has *visually* filled. The splash
   // reports back via `splash:filled`; only then do we wait 2s and reveal.
   const handoff = () => {
@@ -485,7 +485,7 @@ function createSplashScreen() {
     });
   });
 
-  // Absolute safety net — if a milestone or the splash's `splash:filled`
+  // Absolute safety net, if a milestone or the splash's `splash:filled`
   // signal never fires, force the reveal so the user is never stuck.
   setTimeout(() => {
     handoff();
@@ -498,8 +498,8 @@ function createSplashScreen() {
 
 /**
  * The single update window. It carries the whole flow through three
- * states — "available" (changelog + download choice), "downloading"
- * (real progress bar), "downloaded" (restart-to-install) — driven by
+ * states, "available" (changelog + download choice), "downloading"
+ * (real progress bar), "downloaded" (restart-to-install), driven by
  * main/updater.js over IPC. Replaces the old separate progress window.
  */
 function createUpdateWindow() {
@@ -540,7 +540,7 @@ function createUpdateWindow() {
     state.updateWindow = null;
   });
 
-  // While a download is running the window must not be dismissed —
+  // While a download is running the window must not be dismissed:
   // closing it would orphan the in-flight autoUpdater download.
   updateWindow.on('close', (event) => {
     if (state.downloadInProgress) {
@@ -557,12 +557,12 @@ function createUpdateWindow() {
 // Window controls used by the custom (frameless) title bar.
 //
 // We support multiple SAPHO windows in the same process (see
-// lifecycle.js — `second-instance` creates a new window instead of just
+// lifecycle.js, `second-instance` creates a new window instead of just
 // focusing). So every window-scoped IPC routes to the window that sent
 // it (BrowserWindow.fromWebContents), not the singleton `state.mainWindow`
 // which only tracks the most recently created window. Without this fix,
 // minimizing/closing the second window would have acted on the first.
-// Design Lab — the internal component gallery (DESIGN §11). Dev tooling, opened
+// Design Lab, the internal component gallery (DESIGN §11). Dev tooling, opened
 // from the command palette ("Open Design Lab"). A normal framed window (OS
 // controls) and a singleton so it never clutters. No preload: the gallery is a
 // static page that talks to nothing.
@@ -604,7 +604,7 @@ function registerWindowControls() {
     const w = senderWin(event) || state.mainWindow;
     if (!w || w.isDestroyed()) return;
     // If the window is in fullscreen (e.g. toggled via F11), the maximize
-    // button must first drop out of fullscreen — otherwise it would toggle
+    // button must first drop out of fullscreen, otherwise it would toggle
     // the maximized state *underneath* the fullscreen overlay, which looks
     // like the button "does nothing". Leaving fullscreen restores the
     // previous (maximized/normal) chrome, which is what the user expects.

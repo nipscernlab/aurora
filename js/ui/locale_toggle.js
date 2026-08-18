@@ -1,5 +1,5 @@
 /**
- * locale_toggle.js — Binds the language <select> in Aurora Settings to
+ * locale_toggle.js: Binds the language <select> in Aurora Settings to
  * the active locale (PT ↔ EN).
  *
  * The locale toggle used to live in the toolbar as a PT/EN button; it was
@@ -31,7 +31,7 @@ class LocaleToggle {
         this.select = document.getElementById('settings-language-select');
         if (!this.select) {
             // Settings modal is part of index.html so the select is always
-            // in the DOM — a missing element here means a structural
+            // in the DOM, a missing element here means a structural
             // regression, not a normal "feature off" path. Log loudly.
             console.warn('LocaleToggle: #settings-language-select not found');
             return;

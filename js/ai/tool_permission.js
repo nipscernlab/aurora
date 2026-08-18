@@ -1,4 +1,4 @@
-// tool_permission.js — pure tool-permission logic for the AI assistant,
+// tool_permission.js: pure tool-permission logic for the AI assistant,
 // extracted from ai_assistant_manager.js (A2 god-file decomposition).
 //
 // Pure: no DOM, no instance state. The class keeps confirmToolCall (the public
@@ -11,7 +11,7 @@
 // AI-driven surface) so it always gets an explicit human OK (V11).
 const ALWAYS_CONFIRM = new Set(['set_command_override']);
 
-// Pre-authorized tools — never routed through the blocking card. Renames are
+// Pre-authorized tools, never routed through the blocking card. Renames are
 // explicit (the user asked) and reversible, and run DECOUPLED from the AI (the
 // tool dispatches the move + reopen in the background and returns at once); a
 // blocking card would just hang the MCP call until timeout. get_rename_status
@@ -32,19 +32,19 @@ export function decideToolPermission(def, mode) {
 // Args the model writes as PROSE for the human reading the card, not as data:
 // `note` (run_in_background, set_command_override) and `question`
 // (ask_user_question). They used to go through previewArgs like everything
-// else, which buried the one human-readable field in the JSON block — quoted,
+// else, which buried the one human-readable field in the JSON block, quoted,
 // backslash-escaped (C:\\Users\\…) and broken mid-word by the code wrapping.
 // splitArgs pulls them out so the card can render them as text.
 const PROSE_ARGS = new Set(['note', 'question']);
 
-// A note is meant to be read, so the cap is loose (the JSON's is 500) — but
+// A note is meant to be read, so the cap is loose (the JSON's is 500), but
 // still bounded, since the text comes from the model.
 const PROSE_CAP = 1000;
 
 /**
  * Split tool args into the prose a human should READ and the structural rest
  * that belongs in the JSON block. Returns `{ prose: [{key, text}], rest }`.
- * Non-string or blank prose fields fall through to `rest` — a `note: 42` is
+ * Non-string or blank prose fields fall through to `rest`, a `note: 42` is
  * data, whatever the schema says.
  */
 export function splitArgs(args) {
@@ -63,7 +63,7 @@ export function splitArgs(args) {
 }
 
 // Pretty-print tool args for the confirm card / tool chip, capped at 500 chars.
-// Feed it splitArgs().rest — the prose fields render separately.
+// Feed it splitArgs().rest, the prose fields render separately.
 export function previewArgs(args) {
     if (!args || Object.keys(args).length === 0) return '';
     let json;

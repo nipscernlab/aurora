@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * pylib_manager.js — instalar, desinstalar, reparar e listar as bibliotecas
+ * pylib_manager.js: instalar, desinstalar, reparar e listar as bibliotecas
  * Python do painel da AURORA.
  *
  * COMO FUNCIONA
@@ -25,7 +25,7 @@
  * O QUE ELE RECUSA
  * ----------------
  * Wheel com extensao em C. O Python embarcado e um build MinGW e nao carrega o
- * .pyd compilado para o CPython da Microsoft — verificado na pratica, o erro e
+ * .pyd compilado para o CPython da Microsoft, verificado na pratica, o erro e
  * "DLL load failed". Entao a checagem acontece ANTES do download, tanto para o
  * catalogo quanto para uma biblioteca arbitraria pedida pelo usuario, e a
  * resposta explica o motivo em vez de deixar quebrar no import.
@@ -140,7 +140,7 @@ function filesOwnedByOthers(/** @type {any} */ manifest, /** @type {string} */ e
   return set;
 }
 
-/** O primeiro segmento de cada caminho — os diretorios de topo que a wheel criou. */
+/** O primeiro segmento de cada caminho, os diretorios de topo que a wheel criou. */
 function topLevelDirs(/** @type {string[]} */ files) {
   const set = new Set();
   for (const f of files || []) {
@@ -215,12 +215,12 @@ function fileHash(/** @type {string} */ abs) {
  *
  * Dois niveis, porque tem custo bem diferente:
  *
- *   rapido — so `stat`: o arquivo existe e o tamanho bate. Nao le conteudo
+ *   rapido, so `stat`: o arquivo existe e o tamanho bate. Nao le conteudo
  *            nenhum, entao roda sobre milhares de arquivos em milissegundos.
  *            Pega o caso comum: o antivirus removeu ou pos em quarentena, o
  *            disco encheu no meio da extracao, alguem apagou a pasta.
  *
- *   fundo  — le cada arquivo e compara o sha256 com o do RECORD. Pega
+ *   fundo , le cada arquivo e compara o sha256 com o do RECORD. Pega
  *            corrupcao silenciosa, em que o tamanho continua certo mas o
  *            conteudo mudou. Custa I/O de verdade, entao nao roda sozinho:
  *            e o botao "verificacao completa" do painel.
@@ -279,7 +279,7 @@ function verifyFiles(rec, opts = {}) {
  * Idempotente e barato (uma leitura e, no maximo, uma escrita de uma linha), de
  * modo que pode rodar na abertura do app e depois de cada instalacao. E o que
  * faz as bibliotecas valerem para qualquer arquivo Python, e nao so para o
- * fluxo do cocotb — ver o comentario em pylib_paths.sitePthFile.
+ * fluxo do cocotb, ver o comentario em pylib_paths.sitePthFile.
  *
  * @returns {{ok:boolean, path?:string, reason?:string}}
  */
@@ -442,7 +442,7 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
       }
       // O inventario da propria wheel (sha256 + tamanho por arquivo), lido do
       // RECORD que ela ja traz. E o que permite ao doutor dizer depois se um
-      // arquivo sumiu, encolheu ou mudou de conteudo — sem isso, "instalada"
+      // arquivo sumiu, encolheu ou mudou de conteudo, sem isso, "instalada"
       // seria so uma anotacao de fe.
       Object.assign(hashes, readRecordFor(entries));
       try { fs.unlinkSync(whl); } catch (_) { /* best-effort */ }
@@ -544,7 +544,7 @@ async function repair(id, opts = {}) {
  *
  * Este e o segundo nivel do painel: fora da lista curada, o usuario digita um
  * nome e a AURORA responde na hora, com o motivo. E uma condicao verificavel,
- * nao um palpite — se a PyPI publica wheel `*-none-any.whl`, roda; se so publica
+ * nao um palpite, se a PyPI publica wheel `*-none-any.whl`, roda; se so publica
  * wheel compilada, nao roda de jeito nenhum e o caminho e o TCMD.
  *
  * @param {string} name

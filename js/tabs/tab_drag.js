@@ -5,7 +5,7 @@
  * shows a vertical drop indicator at the prospective insertion point, and
  * persists the new order to localStorage so it survives reloads.
  *
- * Mixin shape: same pattern as tab_viewers — methods reference `this` and
+ * Mixin shape: same pattern as tab_viewers, methods reference `this` and
  * are installed on TabManager via Object.assign at the bottom of
  * tab_manager.js.
  */
@@ -28,7 +28,7 @@ export const tabDrag = {
 
         // FLIP: remember each tab's position, mutate the DOM, then play every
         // displaced tab from its old spot to the new one with a short transform
-        // transition — so neighbours GLIDE to make room instead of snapping.
+        // transition, so neighbours GLIDE to make room instead of snapping.
         const flip = (mutate) => {
             const tabs = Array.from(tabsContainer.querySelectorAll('.tab'));
             const before = tabs.map((t) => t.getBoundingClientRect().left);
@@ -90,7 +90,7 @@ export const tabDrag = {
             // Custom MIME so Monaco doesn't treat the drop as text and
             // paste the file path into the buffer when the user drops a
             // tab onto the editor area. Drop targets (split panes + main
-            // shell) read this same key — see split_editor.js.
+            // shell) read this same key, see split_editor.js.
             e.dataTransfer.setData('application/x-aurora-tab-path', draggedTabPath);
 
             // Flag the drag as an Aurora tab drag originating in the main pane
@@ -101,7 +101,7 @@ export const tabDrag = {
                 window.SplitEditorManager._dragSourcePane = 0;
             }
 
-            // Suppress the native ghost image — our own .dragging style on the
+            // Suppress the native ghost image, our own .dragging style on the
             // source plus the live FLIP reorder carry the visual feedback.
             const dragImage = document.createElement('div');
             dragImage.style.opacity = '0';
@@ -148,7 +148,7 @@ export const tabDrag = {
             tabsContainer.classList.remove('dragging-active');
             clearTabTransforms();
 
-            // The live reorder already produced the final order — persist it.
+            // The live reorder already produced the final order, persist it.
             if (draggedTab) this.saveTabOrder();
 
             draggedTab = null;

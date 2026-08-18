@@ -1,19 +1,19 @@
 // @ts-check
 /**
- * executor.js — spawn-shell-false runner for structured CommandSpec.
+ * executor.js: spawn-shell-false runner for structured CommandSpec.
  *
  * Replaces the `exec-command` + raw-shell-string idiom that the old
  * compile pipeline used (see TODO at top of main/ipc/compile.js). A
  * spec describes WHAT to run; this module is the only thing that
  * actually fires `spawn(binary, args, { cwd, env, shell:false })`.
- * With shell:false, every arg goes to the child as-is — there is no
+ * With shell:false, every arg goes to the child as-is, there is no
  * shell parsing, so no quoting bugs and no injection vector. That is
  * the whole reason the AI-driven override system can exist safely.
  *
  * The executor enforces, in order:
  *   1) the binary is on the toolchain allowlist (binary_allowlist.js),
  *   2) any registered command override has been applied by the
- *      renderer (the spec is already merged on arrival — we don't
+ *      renderer (the spec is already merged on arrival, we don't
  *      re-merge here), and
  *   3) the *resulting* spec preserves protected flags
  *      (protected_flags.js).
@@ -50,7 +50,7 @@ const protectedFlags = require('./protected_flags');
 function buildChildEnv(spec) {
   const cpuCount = getCPUCount();
   const sep = process.platform === 'win32' ? ';' : ':';
-  // V12: sanitiza spec.env/prependPath ANTES de mesclar — defesa contra um spec
+  // V12: sanitiza spec.env/prependPath ANTES de mesclar, defesa contra um spec
   // adulterado. Aceita so chaves de env validas (`^[A-Za-z_][A-Za-z0-9_]*$`) com
   // valor string sem null byte; specs legitimos (OMP_*, MAKEFLAGS, OBJCACHE...)
   // passam intactos.
@@ -82,13 +82,13 @@ function buildChildEnv(spec) {
   // NOTA sobre as bibliotecas Python do painel: elas NAO entram aqui.
   //
   // Houve uma versao deste arquivo que acrescentava components/PyLibs/site ao
-  // AURORA_COCOTB_PYTHONPATH. Funcionava, mas so para o cocotb — um `.py` solto
+  // AURORA_COCOTB_PYTHONPATH. Funcionava, mas so para o cocotb, um `.py` solto
   // ou uma linha digitada no TCMD nao via biblioteca nenhuma.
   //
   // A ligacao passou a ser feita por um arquivo `.pth` dentro do site-packages
   // do proprio interpretador embarcado (ver main/python/pylib_paths.js). O
   // Python le esse arquivo na inicializacao, entao as bibliotecas valem para
-  // QUALQUER execucao dele, sem variavel de ambiente — e continuam invisiveis
+  // QUALQUER execucao dele, sem variavel de ambiente, e continuam invisiveis
   // para o Python que o usuario tenha instalado na maquina.
   //
   // Manter as duas coisas seria dois mecanismos para o mesmo fim, com o risco de
@@ -98,13 +98,13 @@ function buildChildEnv(spec) {
 
 // Toolchain children get more CPU than the rest of the desktop's normal-
 // priority work WITHOUT starving the UI. ABOVE_NORMAL is the safe step: HIGH /
-// REALTIME can make the whole desktop — and Aurora's own renderer — stutter,
+// REALTIME can make the whole desktop, and Aurora's own renderer, stutter,
 // which would undo the FPS work. Best-effort only; os.setPriority can throw
 // EPERM on locked-down systems, never fatal.
 //
 // Windows note: a process's priority class is NOT inherited by grandchildren,
 // so this directly speeds the single-process tools (iverilog, vvp, yosys, the
-// V<top>.exe simulation run — often the longest step) and the build
+// V<top>.exe simulation run, often the longest step) and the build
 // coordinators. The g++ workers that `make` fans out under Verilator stay at
 // NORMAL; their parallelism already comes from `verilator -j 0`.
 // Default ABOVE_NORMAL (safe). Override via env AURORA_TOOLCHAIN_PRIORITY =
@@ -181,7 +181,7 @@ function register() {
    * Like the streamed handler, the child is parked in
    * state.currentVvpProcess so `cancel-vvp-process` can kill it. The
    * pipeline runs steps sequentially (only one child alive at a time),
-   * so a single slot is enough — and without this, one-shot steps like
+   * so a single slot is enough, and without this, one-shot steps like
    * the Verilator build/run (perl/verilator/g++/make + the harness exe)
    * are uncancellable: cancel kills currentVvpProcess + vvp/gtkwave by
    * name, none of which match those processes.
@@ -214,7 +214,7 @@ function register() {
       state.vvpProcessPid = child.pid ?? null;
       boostPriority(child.pid);
 
-      // Only clear the shared slot if it still points at *this* child —
+      // Only clear the shared slot if it still points at *this* child:
       // a faster sequential step could already have claimed it.
       const releaseSlot = () => {
         if (state.currentVvpProcess === child) {
@@ -246,7 +246,7 @@ function register() {
    *
    * The child is parked in state.currentVvpProcess so `cancel-vvp-
    * process` can kill it (works for any long-running toolchain step,
-   * not just vvp — the slot name is historical).
+   * not just vvp, the slot name is historical).
    */
   ipcMain.handle('exec-spec-streamed', async (event, payload) => {
     const spec = payload?.spec;
@@ -296,7 +296,7 @@ function register() {
   });
 
   /**
-   * Diagnostic — lets the renderer (and via tool_bridge, the AI)
+   * Diagnostic, lets the renderer (and via tool_bridge, the AI)
    * fetch the list of allowed binaries without trying to spawn one.
    * Used by the `list_allowed_binaries` MCP tool.
    */
@@ -306,7 +306,7 @@ function register() {
   });
 
   /**
-   * Diagnostic — protected flag table per step. Used by the
+   * Diagnostic, protected flag table per step. Used by the
    * `list_allowed_flags` MCP tool so the AI can introspect WHAT it
    * is and is not allowed to mutate before attempting an override.
    */

@@ -2,16 +2,16 @@ import { LitElement, html, css } from 'lit';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 
 /**
- * <aurora-toast> — a single toast card (DESIGN §9).
+ * <aurora-toast>, a single toast card (DESIGN §9).
  *
  * Self-managing: it plays its own entry/exit, runs its own auto-dismiss with a
- * progress bar, and pauses on hover — then removes itself from the DOM. The
+ * progress bar, and pauses on hover, then removes itself from the DOM. The
  * notification.js stack just creates one, sets its properties and appends it;
  * trimStack() culls via the exposed dismiss()/dismissing. The public API
  * (showCardNotification / notify / window.showNotification) is unchanged.
  *
  * Shadow DOM + only the semantic tokens (DESIGN §3). The type icon uses the
- * Phosphor webfont — an @font-face is document-global, so it resolves inside the
+ * Phosphor webfont, an @font-face is document-global, so it resolves inside the
  * shadow tree (the live app always loads Phosphor; the Design Lab links it too).
  * The per-type glyph is set via the --toast-glyph custom property below.
  */

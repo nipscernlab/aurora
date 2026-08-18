@@ -1,5 +1,5 @@
 /**
- * spec_runner.ts — the renderer-side wrapper that turns a base
+ * spec_runner.ts: the renderer-side wrapper that turns a base
  * CommandSpec into a real exec call.
  *
  * Pipeline:
@@ -12,10 +12,10 @@
  *
  * Each step's invocation through this wrapper is the single chokepoint
  * the AI's override system uses. Anything that bypasses spec_runner
- * (legacy execCommand calls, the prism IPC) won't honor overrides —
+ * (legacy execCommand calls, the prism IPC) won't honor overrides:
  * intentional: those are non-toolchain or main-managed paths.
  *
- * Compilado por `tsc` (npm run build:ts) num spec_runner.js ao lado — é esse .js que o
+ * Compilado por `tsc` (npm run build:ts) num spec_runner.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -131,7 +131,7 @@ export async function runSpecStreamed(baseSpec: CommandSpecType, options: { cons
   });
 }
 
-/** Result of {@link resolveSpec} — an override-applied spec without running it. */
+/** Result of {@link resolveSpec}, an override-applied spec without running it. */
 export interface ResolvedSpecPreview {
   baseSpec: CommandSpecType;
   appliedSpec: CommandSpecType;
@@ -147,7 +147,7 @@ export interface ResolvedSpecPreview {
  * AI's inspect_compile_command / preview_compile_command tools.
  *
  * Pass `extraOverride` to layer a hypothetical AI-proposed override
- * on top of what's already registered — that's preview semantics.
+ * on top of what's already registered, that's preview semantics.
  */
 export async function resolveSpec(baseSpec: CommandSpecType, extraOverride: CommandOverride | null = null): Promise<ResolvedSpecPreview> {
   const { appliedSpec, override, sources } = await applyResolved(baseSpec);

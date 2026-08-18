@@ -1,21 +1,21 @@
 /* =============================================================================
- * git_panel.css — the Source Control modal ("GitHub Desktop, but for Aurora").
+ * git_panel.css: the Source Control modal ("GitHub Desktop, but for Aurora").
  * Driven by js/git/git_panel.js (the source of truth for every class/markup)
  * over the static shell in index.html (<aurora-modal id="gitModal">).
  *
  * Design language: a real desktop app pane, not a cramped dialog. One cohesive
  * button system, a two-column work area (list ⟷ diff) that collapses to a
  * single full-width column when no diff is open, slim native scrollbars, and a
- * quiet status bar. Dark theme ONLY — tokens from theme_variables.css /
- * semantic_tokens.css, with var(--x, fallback) where a token is optional.
+ * quiet status bar. Dark theme ONLY, tokens from theme_variables.css /
+ * semantic_tokens.css: with var(--x, fallback) where a token is optional.
  *
  * Motion is GPU-composited (transform/opacity) and respects reduced-motion.
  * ========================================================================== */
 
 /* =============================================================================
- * 0. DAGR — the brand of the version-control feature (a named "software à part",
+ * 0. DAGR, the brand of the version-control feature (a named "software à part",
  *    like PRISM). Named for the Norse god Dagr, who drives the day across the sky
- *    — time and history made visible. The mark is his rune, Dagaz (ᛞ, "day/dawn"),
+ *   , time and history made visible. The mark is his rune, Dagaz (ᛞ, "day/dawn"),
  *    which also nods to AURORA's dawn theme. The classic git-branch icon stays as
  *    the source-control glyph everywhere else (activity bar + status bar); this
  *    only brands the panel header.
@@ -56,7 +56,7 @@
 .dagr-title .dagr-sub     { order: 2; }
 .dagr-title .dagr-rune    { order: 3; margin-left: auto; }
 .dagr-title .dagr-name    { order: 4; }
-/* The classic source-control glyph — kept, just quieted so the wordmark leads.
+/* The classic source-control glyph, kept, just quieted so the wordmark leads.
    Sem linha de base util, entao ele continua centrado. */
 .dagr-title .dagr-sc-icon {
   font-size: 1em;
@@ -64,7 +64,7 @@
   opacity: 0.9;
   align-self: center;
 }
-/* A runa Dagaz — a marca. Noto Sans Runic cobre U+16A0-16F8, que e onde o ᛞ
+/* A runa Dagaz, a marca. Noto Sans Runic cobre U+16A0-16F8, que e onde o ᛞ
    mora; as do sistema ficam de reserva. Acesa no acento com um brilho suave. */
 .dagr-rune {
   font-family: 'Noto Sans Runic', 'Segoe UI Historic', 'Segoe UI Symbol', sans-serif;
@@ -103,7 +103,7 @@
   align-self: center;
 }
 
-/* A big, MUTED "ᛞ DAGR" watermark filling the panel's empty space — as marcas
+/* A big, MUTED "ᛞ DAGR" watermark filling the panel's empty space, as marcas
    da secao 0, centralizadas e atras do conteudo. `isolation:isolate` makes the
    panel its own stacking context so the watermark's z-index:-1 stays inside it
    (behind the rows, above the modal background) instead of sinking out of view.
@@ -144,7 +144,7 @@
 }
 
 /* =============================================================================
- * 1. SHELL — the modal body as an app pane
+ * 1. SHELL, the modal body as an app pane
  * ========================================================================== */
 .git-panel {
   display: flex;
@@ -161,7 +161,7 @@
   font-family: var(--font-sans);
 }
 
-/* The active tab pane — sized to content (the panel scrolls), not flex-filled. */
+/* The active tab pane, sized to content (the panel scrolls), not flex-filled. */
 .git-tabpane { display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
 .git-tabpane[hidden] { display: none !important; }
 
@@ -215,11 +215,11 @@
 .git-fd-body::-webkit-scrollbar-thumb:hover { background: var(--text-muted, #6A6F7C); background-clip: content-box; }
 
 /* =============================================================================
- * 2. BUTTON SYSTEM — one cohesive, designed language
- *    .git-btn / .git-btn-primary  — prominent CTA buttons
- *    .git-mini / .git-mini-primary — compact pill toolbar buttons
- *    .git-icon-btn                 — square icon-only buttons
- *    .git-act / .git-act-danger    — per-row hover actions
+ * 2. BUTTON SYSTEM, one cohesive, designed language
+ *    .git-btn / .git-btn-primary , prominent CTA buttons
+ *    .git-mini / .git-mini-primary, compact pill toolbar buttons
+ *    .git-icon-btn                , square icon-only buttons
+ *    .git-act / .git-act-danger   , per-row hover actions
  *    Shared timing + focus-ring so everything feels like one app.
  * ========================================================================== */
 
@@ -301,9 +301,9 @@
   transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast);
 }
 .git-icon-btn:hover { color: var(--text); background: var(--overlay-hover); border-color: var(--border); }
-/* The help (?) button is an .git-icon-btn — keep it quiet, neutral on hover. */
+/* The help (?) button is an .git-icon-btn, keep it quiet, neutral on hover. */
 .git-help-btn { color: var(--text-faint, var(--text-muted)); }
-/* The sign-out stays subtle — danger only on hover. */
+/* The sign-out stays subtle, danger only on hover. */
 .git-disconnect { color: var(--text-faint, var(--text-muted)); }
 .git-disconnect:hover {
   color: var(--status-error, #E26C6C);
@@ -356,7 +356,7 @@
 }
 
 /* =============================================================================
- * 3. ACCOUNT BAR — clean header strip (avatar + @login | actions)
+ * 3. ACCOUNT BAR, clean header strip (avatar + @login | actions)
  * ========================================================================== */
 .git-account {
   display: flex; align-items: center; justify-content: space-between;
@@ -388,7 +388,7 @@
 .git-connect[hidden] { display: none !important; }
 
 /* =============================================================================
- * 4. REPO HEADER — name + branch chip + ahead/behind + remote actions
+ * 4. REPO HEADER, name + branch chip + ahead/behind + remote actions
  * ========================================================================== */
 .git-repo {
   display: flex; align-items: center; justify-content: space-between;
@@ -482,7 +482,7 @@
 .git-track-none { font-style: italic; }
 
 /* =============================================================================
- * 5. TABS — Changes / History with an active underline + count chip
+ * 5. TABS, Changes / History with an active underline + count chip
  * ========================================================================== */
 .git-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); }
 .git-tabs[hidden] { display: none !important; }
@@ -506,7 +506,7 @@
 .git-tab-count[hidden] { display: none !important; }
 
 /* =============================================================================
- * 6. TWO-COLUMN WORK AREA — the GitHub-Desktop signature
+ * 6. TWO-COLUMN WORK AREA, the GitHub-Desktop signature
  *    #git-pane-changes:  list (top-left) + commit box (bottom-left) | diff (right)
  *    #git-pane-history:  list (left) | diff (right)
  *    Collapses to a single full-width list column when the diff is [hidden].
@@ -556,7 +556,7 @@
 }
 
 /* =============================================================================
- * 7. COMMIT COMPOSER — anchored, important (GitHub-Desktop bottom-left)
+ * 7. COMMIT COMPOSER, anchored, important (GitHub-Desktop bottom-left)
  * ========================================================================== */
 .git-commitbox {
   display: flex; flex-direction: column; gap: var(--space-2);
@@ -573,7 +573,7 @@
 }
 .git-commit-title::placeholder { color: var(--text-faint, var(--text-muted)); }
 .git-commit-title:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft, rgba(142, 131, 232, 0.10)); }
-/* description box — auto-grows (JS), no resize handle */
+/* description box, auto-grows (JS), no resize handle */
 .git-commit-desc {
   width: 100%; min-height: 34px; max-height: 160px; resize: none; overflow-y: auto;
   padding: var(--space-2) var(--space-3);
@@ -586,7 +586,7 @@
 .git-commit-actions { display: flex; align-items: center; gap: var(--space-2); }
 .git-commit-actions .git-commit-btn { margin-left: auto; }
 
-/* amend toggle — clear pressed state (accent when active) */
+/* amend toggle, clear pressed state (accent when active) */
 .git-amend-toggle {
   display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px;
   background: transparent; border: 1px solid var(--border); border-radius: var(--radius-md);
@@ -600,7 +600,7 @@
 }
 
 /* =============================================================================
- * 8. CHANGES LIST — sections + file rows + status flags
+ * 8. CHANGES LIST, sections + file rows + status flags
  * ========================================================================== */
 .git-changes { display: flex; flex-direction: column; gap: var(--space-4); }
 .git-section { display: flex; flex-direction: column; gap: 2px; }
@@ -673,7 +673,7 @@
 .git-empty-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); justify-content: center; margin-top: var(--space-1); }
 
 /* =============================================================================
- * 9. DIFF PANE — sticky header + clean mono surface + own scroll
+ * 9. DIFF PANE, sticky header + clean mono surface + own scroll
  * ========================================================================== */
 .git-diff {
   display: flex; flex-direction: column; min-height: 0;
@@ -698,7 +698,7 @@
 .git-diff-empty i { font-size: 26px; color: var(--text-faint, var(--text-muted)); }
 .git-diff-loading { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-4); color: var(--text-muted); font-size: var(--text-sm); }
 
-/* diff2html (dark colorScheme) — blend its chrome into the panel. */
+/* diff2html (dark colorScheme), blend its chrome into the panel. */
 .git-diff-body .d2h-wrapper { background: transparent; }
 .git-diff-body .d2h-file-wrapper { border: none; margin: 0; border-radius: 0; }
 .git-diff-body .d2h-file-header { display: none; }
@@ -714,7 +714,7 @@
 }
 
 /* =============================================================================
- * 10. HISTORY — commit rows + commit detail + per-file lazy diffs
+ * 10. HISTORY, commit rows + commit detail + per-file lazy diffs
  * ========================================================================== */
 .git-history { display: flex; flex-direction: column; gap: var(--space-1); }
 .git-history-list { list-style: none; margin: 0; padding: 0; }
@@ -790,7 +790,7 @@
 .git-fd-body > * { animation: gitFdReveal var(--motion-flow, 200ms) var(--ease-out, ease) both; }
 
 /* =============================================================================
- * 11. PUBLISH — create repo when there's no remote
+ * 11. PUBLISH, create repo when there's no remote
  * ========================================================================== */
 .git-publish {
   display: flex; flex-direction: column; gap: var(--space-2);
@@ -821,7 +821,7 @@
 .git-hint code { font-family: var(--font-mono); color: var(--accent-hover, #A89EF0); }
 
 /* =============================================================================
- * 12. CLONE PANEL — repo list (grouped) + location picker + actions + progress
+ * 12. CLONE PANEL, repo list (grouped) + location picker + actions + progress
  * ========================================================================== */
 .git-clone {
   display: flex; flex-direction: column; gap: var(--space-2);
@@ -1043,7 +1043,7 @@
 .git-help-note > i { flex-shrink: 0; font-size: 15px; margin-top: 2px; }
 .git-help-open { margin-top: var(--space-2); }
 
-/* OAuth device flow: BIG, copyable user_code — content centered in the card. */
+/* OAuth device flow: BIG, copyable user_code, content centered in the card. */
 .git-oauth-code {
   display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2);
   margin-top: var(--space-2); padding: var(--space-3);
@@ -1072,7 +1072,7 @@
 }
 
 /* =============================================================================
- * 15. FOOTER / STATUS BAR — stable height (must NOT resize the modal)
+ * 15. FOOTER / STATUS BAR, stable height (must NOT resize the modal)
  * ========================================================================== */
 .git-footer { width: 100%; min-height: 36px; display: flex; align-items: center; }
 .git-status {
@@ -1094,7 +1094,7 @@
 }
 
 /* =============================================================================
- * 16. BUSY STATE — dim + lock actions while an op runs
+ * 16. BUSY STATE, dim + lock actions while an op runs
  * ========================================================================== */
 .git-busy .git-mini,
 .git-busy .git-btn,
@@ -1103,7 +1103,7 @@
 .git-busy .git-vis-opt { pointer-events: none; opacity: 0.55; }
 
 /* =============================================================================
- * 17. TOOLBAR BADGE (change count on the Git button) — defined here so it
+ * 17. TOOLBAR BADGE (change count on the Git button), defined here so it
  *      travels with the panel styles.
  * ========================================================================== */
 #gitButton { position: relative; overflow: visible; }
@@ -1113,7 +1113,7 @@
 .git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }
 .git-badge[data-kind="ahead"]   { background: var(--status-success, #5DD4A8); color: #062018; }
 
-/* signed-in avatar dot — bottom-right of the Git/branch button (opposite the
+/* signed-in avatar dot, bottom-right of the Git/branch button (opposite the
    change-count badge at top-right). Just indicates "connected to GitHub". */
 .git-avatar-badge {
   position: absolute; bottom: -4px; right: -5px;
@@ -1127,7 +1127,7 @@
 .git-avatar-badge[hidden] { display: none !important; }
 
 /* =============================================================================
- * 18. MOTION — GPU-composited reveals + reduced-motion guard
+ * 18. MOTION, GPU-composited reveals + reduced-motion guard
  * ========================================================================== */
 @keyframes git-spin { to { transform: rotate(360deg); } }
 @keyframes gitCtxIn { from { opacity: 0; transform: scale(0.97) translateY(-4px); } to { opacity: 1; transform: scale(1) translateY(0); } }

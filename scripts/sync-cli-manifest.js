@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * sync-cli-manifest.js — Auto-heal the on-demand AI CLI manifest so it never
+ * sync-cli-manifest.js: Auto-heal the on-demand AI CLI manifest so it never
  * drifts off the declared dependency versions.
  *
  * Background: the Claude Code / Codex native binaries are fetched at runtime
  * from main/ai/cli_manifest.js, which pins version + tarball URL + integrity
  * hash per platform. Those values are baked in as literals because the manifest
- * runs inside the shipped app, where package-lock.json does not exist — so they
+ * runs inside the shipped app, where package-lock.json does not exist, so they
  * cannot be read at runtime and MUST be code-generated at build time.
  *
- * The catch: the version lives in TWO places — package.json (the real
+ * The catch: the version lives in TWO places, package.json (the real
  * dependency, which Dependabot bumps) and the manifest (which nobody bumps).
  * When they diverge, scripts/check-pinned-versions.js fails the build. This
  * script closes that gap: it rewrites the manifest's version constants and
@@ -38,14 +38,14 @@ const PKG_PATH = path.join(REPO_ROOT, 'package.json');
 const LOCK_PATH = path.join(REPO_ROOT, 'package-lock.json');
 const MANIFEST_PATH = path.join(REPO_ROOT, 'main', 'ai', 'cli_manifest.js');
 
-/** The first plain semver in a spec — strips a leading range operator (^, ~, >=, …). */
+/** The first plain semver in a spec, strips a leading range operator (^, ~, >=, …). */
 function baseVersion(spec) {
   const m = String(spec || '').match(/\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?/);
   return m ? m[0] : null;
 }
 
 function warnSkip(reason) {
-  // Not a hard failure — check-pinned-versions.js is the authoritative guard
+  // Not a hard failure, check-pinned-versions.js is the authoritative guard
   // and will fail loudly if the manifest is genuinely out of sync. This script
   // is a best-effort self-heal; if its inputs are missing, step aside quietly.
   console.log(`  · sync-cli-manifest skipped: ${reason}`);

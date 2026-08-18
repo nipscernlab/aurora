@@ -1,9 +1,9 @@
 /**
- * project_tree_render.js — RenderMixin do ProjectTreeManager.
+ * project_tree_render.js: RenderMixin do ProjectTreeManager.
  *
  * Camada de DOM/rendering: dado o state da classe (this.verilogFiles,
  * helpers de path), monta e atualiza as rows da file tree no
- * subcontainer .tree-view-verilog. Idempotente — uma key-based
+ * subcontainer .tree-view-verilog. Idempotente, uma key-based
  * reconciliation por path mantem rows existentes em lugar e so
  * adiciona/remove o delta.
  *
@@ -13,7 +13,7 @@
  *   - this._getProcessorForFile    (state mixin)
  *   - this.getFileExtension        (state mixin)
  *
- * NAO importa nada externo — render puro, sem IO.
+ * NAO importa nada externo, render puro, sem IO.
  */
 
 export const RenderMixin = {
@@ -38,7 +38,7 @@ export const RenderMixin = {
      */
     renderTree() {
         // Render no subcontainer dedicado. O estado active/visible da
-        // view e owned pelo file-tree view controller — NAO chame
+        // view e owned pelo file-tree view controller, NAO chame
         // setActive('verilog') aqui, isso sincronizaria o DOM sem
         // avisar o controller, deixando _activeView dele preso no
         // valor inicial. Callers externos que queiram TANTO renderizar
@@ -50,11 +50,11 @@ export const RenderMixin = {
 
         // Se chegamos aqui, ha um projeto ativo (renderTree so roda com
         // projeto). O card "no-project" (renderTreeEmptyState) vive neste
-        // mesmo container quando nao ha projeto — limpa-o antes de pintar
+        // mesmo container quando nao ha projeto, limpa-o antes de pintar
         // a tree pra ele nao sobrar grudado acima dos arquivos.
         container.querySelector('.tree-empty-state')?.remove();
 
-        // Card de arquivos faltantes — o .spf lista paths que nao
+        // Card de arquivos faltantes, o .spf lista paths que nao
         // existem mais no disco (movidos / renomeados fora do Aurora /
         // deletados). loadConfiguration ja loga no console + filtra
         // pra nao quebrar a tree; este card surface o aviso pro usuario
@@ -63,7 +63,7 @@ export const RenderMixin = {
         // topo, acima dos separadores.
         this._renderMissingFilesNotice?.(container);
 
-        // Empty state — dropa data rows + separadores e mostra o
+        // Empty state, dropa data rows + separadores e mostra o
         // placeholder. Os separadores de processador PRECISAM sair aqui
         // tambem: este early-return pula a fase de reconciliacao la
         // embaixo (a unica que normalmente os remove), entao sem isso
@@ -173,7 +173,7 @@ export const RenderMixin = {
         };
 
         // Show an "IMPORTED" section header before user files only when
-        // there are also processor groups — without them the label is noise.
+        // there are also processor groups, without them the label is noise.
         // If the separator is NOT placed, it stays in existingSeparators and
         // the end-of-function cleanup removes it from the DOM automatically.
         const IMPORTED_KEY = '__imported__';
@@ -248,7 +248,7 @@ export const RenderMixin = {
         container.insertBefore(card, container.firstChild);
     },
 
-    /** Mesma escape policy usada por recent_projects.js — defensiva
+    /** Mesma escape policy usada por recent_projects.js, defensiva
      * pra paths/nomes com caracteres especiais. */
     _escapeHtml(s) {
         const div = document.createElement('div');
@@ -258,7 +258,7 @@ export const RenderMixin = {
 
     /**
      * Marca a row do arquivo atualmente em foco no Monaco (considerando
-     * split focado via TabManager.getEditingFilePath). Idempotente —
+     * split focado via TabManager.getEditingFilePath). Idempotente:
      * limpa highlight anterior e aplica no novo, no-op se path nao tem
      * row na tree (arquivo fora do projeto).
      */
@@ -277,7 +277,7 @@ export const RenderMixin = {
     /**
      * Atualiza as partes mutaveis de uma row existente (category class,
      * badge, top-level highlight) sem recria-la. O slot estrutural
-     * keyed-por-path fica em lugar — so os diferenciadores visuais
+     * keyed-por-path fica em lugar, so os diferenciadores visuais
      * mudam. Pura mutacao de DOM; nao precisa re-attachar listeners
      * porque a delegacao no nivel da tree (setupEventListeners)
      * dispatcha pelo handler certo via data-file-path, nao por indice.
@@ -292,7 +292,7 @@ export const RenderMixin = {
         const info = row.querySelector('.verilog-file-info');
         if (!info) return;
 
-        // Icone — recalcula porque depende de isTopLevel + category.
+        // Icone, recalcula porque depende de isTopLevel + category.
         // So mexe no DOM se a classe efetivamente mudou.
         const iconEl = info.querySelector('.verilog-file-icon');
         if (iconEl) {
@@ -306,7 +306,7 @@ export const RenderMixin = {
             }
         }
 
-        // Filename — so toca DOM se mudou (e.g. rename fora do Aurora).
+        // Filename, so toca DOM se mudou (e.g. rename fora do Aurora).
         // Re-escrever o textNode a cada render flicka selecao em alguns
         // browsers.
         const nameEl = info.querySelector('.verilog-file-name');
@@ -317,14 +317,14 @@ export const RenderMixin = {
         }
 
         // Badges legados: se uma versao anterior tinha desenhado um
-        // .file-badge nesta linha, remove — o icone agora carrega
+        // .file-badge nesta linha, remove, o icone agora carrega
         // esse significado.
         const legacyBadge = info.querySelector('.file-badge');
         if (legacyBadge) legacyBadge.remove();
 
         // Toggle legado: versoes anteriores tinham um botao de toggle
         // synth/testbench na row. A categoria agora e auto-detectada
-        // ([verilog_classifier.js](verilog_classifier.js)) — remove o
+        // ([verilog_classifier.js](verilog_classifier.js)), remove o
         // botao se uma row antiga ainda o tiver.
         const legacyToggle = row.querySelector('.category-toggle-wrapper');
         if (legacyToggle) legacyToggle.remove();
@@ -333,7 +333,7 @@ export const RenderMixin = {
     /**
      * Monta a DOM de uma row, sem listener per-row attachado. Todo
      * click / contextmenu e tratado pelo listener delegado em
-     * setupEventListeners — esse listener acha o file por
+     * setupEventListeners, esse listener acha o file por
      * `data-file-path`, entao reordenar, sortear ou updates parciais
      * nao precisam de listener bookkeeping.
      *
@@ -360,7 +360,7 @@ export const RenderMixin = {
         // processador). Apenas o icone + nome. Clicar abre o arquivo,
         // igual aos demais.
         //
-        // A categoria synth/testbench NAO tem mais um toggle na row —
+        // A categoria synth/testbench NAO tem mais um toggle na row:
         // e auto-detectada do conteudo ([verilog_classifier.js]
         // (verilog_classifier.js)) e comunicada visualmente pela classe
         // synthesizable/testbench da row + pelo icone.
@@ -410,7 +410,7 @@ export const RenderMixin = {
     /**
      * Tooltip do icone na linha. Para arquivos "top" (synth top ou
      * testbench top) conta o papel de top; para os demais .v/.sv
-     * conta a categoria auto-detectada — sem o toggle na row, o
+     * conta a categoria auto-detectada, sem o toggle na row, o
      * tooltip do icone e a unica forma de confirmar synth vs tb.
      */
     _getIconTooltip(file) {
@@ -431,7 +431,7 @@ export const RenderMixin = {
     /**
      * Icone de uma linha. Delega para TabManager.getFileIcon (a MESMA fonte de
      * verdade das abas do Monaco) para que um arquivo mostre exatamente o mesmo
-     * icone na arvore e na aba — invariante pedido pelo usuario. Isso tambem
+     * icone na arvore e na aba, invariante pedido pelo usuario. Isso tambem
      * herda os mapeamentos que faltavam aqui (.h -> ph-file-c, .hpp -> ph-file-
      * cpp, .c/.cpp, .cmm -> C± customizado, etc.). A categoria synth/testbench
      * ja e comunicada pelo agrupamento da arvore, nao pelo formato do icone.

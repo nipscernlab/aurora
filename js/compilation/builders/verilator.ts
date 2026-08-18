@@ -1,5 +1,5 @@
 /**
- * builders/verilator.ts — CommandSpec builders for the Verilator
+ * builders/verilator.ts, CommandSpec builders for the Verilator
  * pipeline (build + 2-pass run).
  *
  * The verilator script is Perl; we always invoke it as
@@ -7,14 +7,14 @@
  * with the bundle's mingw64/bin + usr/bin prepended onto PATH so
  * perl, g++, make, and the verilated.mk's bash/coreutils all
  * resolve. PATH manipulation rides through CommandSpec.prependPath
- * (the executor in main builds the child env from it) — no more
+ * (the executor in main builds the child env from it), no more
  * `cmd.exe && set "PATH=..."` shell trickery.
  *
  * The generated V<top>.exe is allowed by binary_allowlist's
  * Verilator-generated prefix rule (it lives under components/Temp/
  * obj_dir_* directories, which the allowlist accepts).
  *
- * Compilado por `tsc` (npm run build:ts) num verilator.js ao lado — é esse .js que o
+ * Compilado por `tsc` (npm run build:ts) num verilator.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -25,13 +25,13 @@ import type { CommandSpec } from '../command_spec.js';
 // '0' = one job per CPU core ("use everything"). This is the build-speed lever.
 const VERILATOR_BUILD_JOBS = '0';
 // g++ optimization level for the generated model. -O3 builds slower but the
-// .exe runs faster — the right trade for long SAPHO processor sims. Drop to
+// .exe runs faster, the right trade for long SAPHO processor sims. Drop to
 // '-O2' here for quicker builds at some runtime cost.
 const VERILATOR_OPT_LEVEL = '-O3';
 // Multithreaded SIMULATION (NOT the build). 0 = single-thread. SAPHO processor
 // sims are mostly sequential, so N>1 usually loses to thread-sync overhead and
 // is left OFF by default. Set to a small N (2–4) only for large, parallelizable
-// designs — and measure, because it can be slower. Wired, ready, opt-in.
+// designs, and measure, because it can be slower. Wired, ready, opt-in.
 const VERILATOR_SIM_THREADS: number = 0;
 
 /** `['--threads', N]` when multithreaded sim is enabled, else `[]`. */
@@ -66,11 +66,11 @@ export function buildVerilatorBuildSpec(ctx: VerilatorBuildBuilderCtx): CommandS
   ];
   // Trace ligado por padrao (fluxo Wave -> FST). O Fast Sim passa false: sem
   // --trace-fst o runtime nao instrumenta dump nenhum (o maior custo de I/O da
-  // sim some) e --no-trace-top vira irrelevante. --timing FICA — o testbench
+  // sim some) e --no-trace-top vira irrelevante. --timing FICA, o testbench
   // original dirige o clock por #delay.
   const trace = ctx.trace !== false;
 
-  // -CFLAGS takes ONE token per occurrence — wrapping "-O3 -fstrict-
+  // -CFLAGS takes ONE token per occurrence, wrapping "-O3 -fstrict-
   // aliasing" in quotes is lost by cmd.exe and Verilator misreads
   // -fstrict-aliasing as its own flag. So we pass two -CFLAGS pairs.
   const args = [
@@ -96,13 +96,13 @@ export function buildVerilatorBuildSpec(ctx: VerilatorBuildBuilderCtx): CommandS
     // <proc>.v gerado e `ifdef YANC_SIM_VIS`, ativado por __ICARUS__ (Icarus)
     // OU por este define. Cada decl mirrored e /* verilator public_flat */,
     // entao proc.valr10 resolve hierarquicamente e o $finish de fim-de-programa
-    // funciona — e por isso o strip workaround foi removido. Verilator-only:
+    // funciona, e por isso o strip workaround foi removido. Verilator-only:
     // o fluxo Icarus NAO recebe (ja liga via __ICARUS__ predefinido).
     '+define+YANC_TRACE',
     // Build runtime-first: as sims SAPHO sao de processador embarcado e podem
     // rodar muito tempo, entao priorizamos a velocidade do .exe mesmo as custas
     // de build mais lento. -O3 + -march=native (compila pras instrucoes EXATAS
-    // da CPU host — seguro porque o Aurora compila e executa o binario na MESMA
+    // da CPU host, seguro porque o Aurora compila e executa o binario na MESMA
     // maquina, host == target, e nunca o redistribui; o obj_dir fica em cache so
     // pra build incremental local). NAO usamos -ffast-math/-Ofast: alteram
     // semantica de ponto flutuante, e o SAPHO tem float.
@@ -133,7 +133,7 @@ export function buildVerilatorBuildSpec(ctx: VerilatorBuildBuilderCtx): CommandS
     cwd: ctx.cwd,
     prependPath: [ctx.mingwBin, ctx.usrBin],
     // LC_ALL=C silencia o "perl: warning: Setting locale failed" do perl
-    // MSYS2 (LANG/LC_* do Windows nao resolvem) — e os mesmos avisos de
+    // MSYS2 (LANG/LC_* do Windows nao resolvem), e os mesmos avisos de
     // make/bash/g++. Locale C nao afeta a compilacao.
     env: { LC_ALL: 'C' },
     label: `verilator build --top-module ${ctx.simTopModule}`,
@@ -167,7 +167,7 @@ export function buildVerilatorRunSpec(ctx: VerilatorRunBuilderCtx): CommandSpec 
 // Top-level harness pipeline (botao "Verilator (top-level)").
 //
 // Diferente do fluxo Wave (--binary --main): aqui rodamos o Verilator
-// em 3 passos —
+// em 3 passos:
 //   1. --json-only   dumpa V<top>.tree.json (portas do top-level)
 //   2. --cc --exe --build  compila NOSSO testbench C++ (gerado em
 //      verilator_tb.js) junto com as fontes → V<top>.exe nativo
@@ -197,7 +197,7 @@ export interface VerilatorTbBuildBuilderCtx {
 }
 
 /**
- * Passo 1 — dumpa o AST (portas do top-level) com --json-only. Nenhum
+ * Passo 1, dumpa o AST (portas do top-level) com --json-only. Nenhum
  * C++ e gerado; so V<top>.tree.json no objDir. parseVerilatorPorts
  * (verilator_tb.js) consome esse arquivo.
  */
@@ -223,7 +223,7 @@ export function buildVerilatorJsonSpec(ctx: VerilatorTbBuildBuilderCtx): Command
 }
 
 /**
- * Passo 2 — compila o harness C++ manual (incluido em sourceFiles)
+ * Passo 2, compila o harness C++ manual (incluido em sourceFiles)
  * junto com as fontes. SEM --main / --binary: o main e o nosso .cpp.
  * `--cc --exe --build` faz o Verilator gerar C++, escrever o Makefile e
  * invocar o make → V<top>.exe.
@@ -239,13 +239,13 @@ export function buildVerilatorTbBuildSpec(ctx: VerilatorTbBuildBuilderCtx): Comm
       '--exe',
       '--build',
       '-j', VERILATOR_BUILD_JOBS,
-      // Compile WITHOUT ccache — the bundled MSYS ccache can fail to exec the
+      // Compile WITHOUT ccache, the bundled MSYS ccache can fail to exec the
       // compiler (make error 127), aborting the build. See the note in
       // buildVerilatorBuildSpec; `-MAKEFLAGS OBJCACHE=` forces `g++ …` direct.
       '-MAKEFLAGS', 'OBJCACHE=',
       ...warnings,
       // SEM --timing aqui (diferente do fluxo Wave). O clock e dirigido a
-      // mao pelo harness C++ e o que compilamos — <proc>.v + libs HDL — e
+      // mao pelo harness C++ e o que compilamos, <proc>.v + libs HDL, e
       // RTL 100% sintetizavel (zero #delay/wait/fork). Pedir --timing so faz
       // o Verilator gerar o escalonador de timing (corrotinas) que nunca
       // roda: peso morto no build e em cada eval(). O fluxo Wave mantem
@@ -286,7 +286,7 @@ export interface VerilatorTbRunBuilderCtx {
 }
 
 /**
- * Passo 3 — roda o V<top>.exe no diretorio de I/O. cwd e o dir onde os
+ * Passo 3, roda o V<top>.exe no diretorio de I/O. cwd e o dir onde os
  * <pino>.in vivem e onde os <pino>.out serao escritos. A simulacao
  * termina quando a 1a entrada se esgota; +cycles=N e so o teto.
  */

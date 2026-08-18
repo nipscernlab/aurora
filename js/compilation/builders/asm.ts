@@ -1,12 +1,12 @@
 /**
- * builders/asm.ts — CommandSpec builders for the two ASM steps:
+ * builders/asm.ts, CommandSpec builders for the two ASM steps:
  * appcomp (macro preprocessor) and asmcomp (final compiler).
  *
  * Mirror the call sites in compilation_module.js asmCompilation().
  * Lang flag (-pt/-en) goes first; the rest are named options
  * (APP/Sources/args.c and ASM/Sources/args.c).
  *
- * Compilado por `tsc` (npm run build:ts) num asm.js ao lado — é esse .js que o
+ * Compilado por `tsc` (npm run build:ts) num asm.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
 

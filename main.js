@@ -84,6 +84,7 @@ const systemIpc = require('./main/ipc/system');
 const aiIpc = require('./main/ipc/ai');
 const gitIpc = require('./main/ipc/git');
 const githubAuthIpc = require('./main/ipc/github_auth');
+const githubForgetIpc = require('./main/ipc/github_forget');
 const searchIpc = require('./main/ipc/search');
 const shellIpc = require('./main/ipc/shell');
 const previewIpc = require('./main/ipc/preview');
@@ -116,6 +117,7 @@ if (acquiredLock) {
   systemIpc.register();
   aiIpc.register();
   githubAuthIpc.register();
+  githubForgetIpc.register();
   gitIpc.register();
   searchIpc.register();
   shellIpc.register();

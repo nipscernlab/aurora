@@ -20,7 +20,7 @@ function register() {
   // arquivo do instalador). O renderer decide pelo sufixo.
   state.fileToOpen = process.argv.find((arg) => /\.(spf|cmm|v)$/i.test(arg)) ?? null;
 
-  // Single-instance lock — pass any .spf the second instance had to the
+  // Single-instance lock, pass any .spf the second instance had to the
   // first, then quit the second instance. Tests run with their own
   // user-data-dir but Electron's lock is per app name, so a test instance
   // would still collide with a real Aurora the developer has open.
@@ -85,7 +85,7 @@ function register() {
 
   // Cleanup em duas fases serializadas pra evitar EBUSY no rmdir de Temp:
   // file watchers do chokidar (ReadDirectoryChangesW no Windows) e vvp/
-  // gtkwave seguram handles em Temp/ — se a fase 2 (rm) rodar antes da
+  // gtkwave seguram handles em Temp/, se a fase 2 (rm) rodar antes da
   // fase 1 terminar, o Windows bloqueia o rmdir e a Temp/ acumula lixo
   // de runs anteriores. 5s de safety timeout por fase pra nao travar
   // quit em caso de hang.
@@ -114,7 +114,7 @@ function register() {
     try { await require('./ipc/tree_undo').drain(); }
     catch (e) { log.warn('[lifecycle] falha ao esvaziar a espera do desfazer:', e); }
 
-    // Fase 1: solta tudo que pode segurar handle em Temp/ — watchers
+    // Fase 1: solta tudo que pode segurar handle em Temp/, watchers
     // (file + dir) e processos filhos (vvp.exe, gtkwave.exe).
     const releasePromises = [];
 
@@ -154,7 +154,7 @@ function register() {
     // cocotb) + the Verilator scratch-tree sweep + the AI agent CLIs + any
     // in-flight AI (gemini) stream. Centralised in process_registry so this
     // quit path and the main-window close path tear everything down the same
-    // way — releasing the Temp/ handles before the phase-2 rmdir below.
+    // way, releasing the Temp/ handles before the phase-2 rmdir below.
     releasePromises.push(stopAllToolchain());
 
     // Close the Aurora MCP bridge (the localhost HTTP server that hands

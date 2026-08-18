@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * codex_agent.js — Codex SDK engine for the ChatGPT/Codex bridge.
+ * codex_agent.js: Codex SDK engine for the ChatGPT/Codex bridge.
  *
  * Modernization step 3 of the AI-system roadmap (ESTUDO §18.5): instead of
  * shelling out to `codex exec --json` and re-parsing JSONL, this engine
@@ -8,23 +8,23 @@
  * `@openai/codex-sdk` (Thread API), which owns the process, the flag
  * mapping and the event parsing. What that buys us:
  *
- *   - Clean aborts via AbortSignal (TurnOptions.signal — no taskkill trees).
+ *   - Clean aborts via AbortSignal (TurnOptions.signal, no taskkill trees).
  *   - Incremental assistant text when the CLI emits `item.updated` for
  *     agent messages (the engine diffs and streams real deltas; whole-message
  *     turns degrade to exactly the legacy behaviour).
  *   - `resumeThread(id)` instead of hand-rolled `exec resume` argv juggling.
  *   - Typed thread options (sandboxMode/approvalPolicy) instead of the
- *     monolithic --dangerously-bypass-approvals-and-sandbox flag — same
+ *     monolithic --dangerously-bypass-approvals-and-sandbox flag, same
  *     effective posture (see below), but explicit.
  *
  * The engine keeps FULL event parity with the legacy spawn path in
- * codex_cli.js — same `ai:chat-event` packets, same convThreads / usage
+ * codex_cli.js: same `ai:chat-event` packets, same convThreads / usage
  * bookkeeping (shared via the `host` bag codex_cli passes in).
  * codex_cli.start() calls tryStart() first and falls back to the legacy
  * spawn when the SDK is unavailable (import failure, shim-only binary) or
  * when AURORA_CODEX_LEGACY_CLI=1 is set.
  *
- * Sandbox/approvals posture — unchanged from the legacy path on purpose:
+ * Sandbox/approvals posture, unchanged from the legacy path on purpose:
  * `approvalPolicy:'never'` + `sandboxMode:'danger-full-access'` is what the
  * legacy `--dangerously-bypass-approvals-and-sandbox` flag expands to, and
  * it remains the ONLY combination where mcp__aurora__* calls run at all in
@@ -48,7 +48,7 @@ const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
 const { TRANSIENT_MAX_ATTEMPTS, isTransientAiError, backoffDelay, sleep } = require('./retry');
 
 // ---------------------------------------------------------------------------
-//  SDK loading (ESM-only package — dynamic import from CJS, memoized)
+//  SDK loading (ESM-only package, dynamic import from CJS, memoized)
 // ---------------------------------------------------------------------------
 
 /** @type {Promise<any>|null} */
@@ -64,7 +64,7 @@ function loadSdk() {
 }
 
 // ---------------------------------------------------------------------------
-//  Constants (kept in sync with codex_cli.js — see module header)
+//  Constants (kept in sync with codex_cli.js, see module header)
 // ---------------------------------------------------------------------------
 
 const MCP_TOOL_RULES = [
@@ -199,7 +199,7 @@ async function tryStart(p, webContents, host) {
       e instanceof Error ? e.message : e);
   }
 
-  // Reasoning effort — via config (accepts `max` on the GPT-5.6 family,
+  // Reasoning effort, via config (accepts `max` on the GPT-5.6 family,
   // which the SDK's narrower ThreadOptions type doesn't list yet).
   if (effort && VALID_EFFORT.has(String(effort))) {
     config.model_reasoning_effort = String(effort);
@@ -233,7 +233,7 @@ async function tryStart(p, webContents, host) {
   let finished = false;
   let aborted = false;
   let stalled = false;
-  // True once ANY event reached us this attempt — the retry gate: a turn
+  // True once ANY event reached us this attempt, the retry gate: a turn
   // may only be replayed while the user has seen nothing (§18.5 item 4).
   let anyEvent = false;
   const itemTools = new Map();
@@ -269,11 +269,11 @@ async function tryStart(p, webContents, host) {
     if (text.startsWith(already)) {
       delta = text.slice(already.length);
     } else if (isFinal && text) {
-      // Rewritten wholesale (rare) — emit the final text as one block.
+      // Rewritten wholesale (rare), emit the final text as one block.
       delta = already ? `\n\n${text}` : text;
     }
     if (!delta) return;
-    // Blank line between consecutive agent messages (legacy behaviour) —
+    // Blank line between consecutive agent messages (legacy behaviour):
     // only when this is a NEW item starting after prior text.
     if (!already && fullText && !fullText.endsWith('\n\n')) {
       delta = `\n\n${delta}`;
@@ -314,7 +314,7 @@ async function tryStart(p, webContents, host) {
 
       case 'item.updated': {
         const item = obj.item || {};
-        // Incremental assistant text — the SDK-path upgrade over exec --json.
+        // Incremental assistant text, the SDK-path upgrade over exec --json.
         if (item.type === 'agent_message') emitAgentText(item, false);
         break;
       }
@@ -376,7 +376,7 @@ async function tryStart(p, webContents, host) {
       case 'turn.failed': {
         finished = true;
         const msg = rewriteModelError(String((obj.error && obj.error.message) || 'Codex turn failed'));
-        // A failed resume usually means the thread is gone — start fresh next turn.
+        // A failed resume usually means the thread is gone, start fresh next turn.
         if (resumeId && conversationId) convThreads.delete(conversationId);
         sendEvent(webContents, sessionId, 'error', { message: msg });
         break;
@@ -391,7 +391,7 @@ async function tryStart(p, webContents, host) {
       }
 
       default:
-        // turn.started, reasoning/todo/web_search items — ignored (parity).
+        // turn.started, reasoning/todo/web_search items, ignored (parity).
         break;
     }
     armInactivity();
@@ -411,7 +411,7 @@ async function tryStart(p, webContents, host) {
     // Attempt loop (§18.5 item 4): a TRANSIENT failure (429/5xx/network)
     // before ANYTHING was emitted replays the whole turn after a
     // full-jitter backoff. Once a single event reached the renderer,
-    // retrying would duplicate output — so anyEvent gates it off.
+    // retrying would duplicate output, so anyEvent gates it off.
     for (let attempt = 1; ; attempt++) {
       // Fresh per-attempt turn state (invisible: nothing was emitted yet).
       fullText = ''; finished = false; stalled = false; anyEvent = false;

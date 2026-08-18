@@ -7,7 +7,7 @@ import {
 import { parseVerilogModules } from '../../js/wave/signal_parser.ts';
 
 /**
- * Scope shape esperado pelos helpers — espelha o que o vcd_parser
+ * Scope shape esperado pelos helpers, espelha o que o vcd_parser
  * entrega: { name, path, signals: [{ name, width, range, type }, ...] }.
  */
 function scope(path, signals) {
@@ -85,7 +85,7 @@ describe('detectProcessors', () => {
 
 describe('buildAuroraGtkw', () => {
     it('emite secao top-level com todos sinais nao-processador', () => {
-        // Projeto puramente verilog (zero processadores) — esperamos
+        // Projeto puramente verilog (zero processadores), esperamos
         // so a secao top-level com tudo flat.
         const scopes = [
             scope('tb', [
@@ -242,7 +242,7 @@ describe('buildAuroraGtkw', () => {
         //   ^N  <path>  → file filter (translation table .txt)
         //   ^>N <path>  → process filter (executable que traduz)
         // Aurora estava emitindo `^^N` (errado), entao o comp2gtkw
-        // nao era invocado pelo GTKWave — variaveis comp viravam
+        // nao era invocado pelo GTKWave, variaveis comp viravam
         // binario bruto na visualizacao.
         const scopes = [
             scope('tb.proc', [
@@ -281,7 +281,7 @@ describe('buildAuroraGtkw', () => {
     it('banner usa o instanceName (nao o procType) pra distinguir instancias', () => {
         // Wrapper "ProcDTWv4" instancia o core "ProcDTW". O VCD ve o
         // scope no fim como DTWv4_inst. O banner deve usar o
-        // instanceName (DTWv4_inst) — porque o mesmo procType pode
+        // instanceName (DTWv4_inst), porque o mesmo procType pode
         // ter varias instancias em designs multi-proc.
         const { modules } = parseVerilogModules([{
             path: 'p.v',
@@ -439,7 +439,7 @@ describe('detectProcessors with scopeModules', () => {
     it('NAO emite o comentario "Flags" quando nao ha sinais de Stack/ULA (ex: Verilator)', () => {
         // Sob Verilator os sinais internos (sp/isp/ula) ficam fenced fora do
         // trace, entao o proc aparece (valr2/linetabs) mas sem .core.sp/.ula.
-        // A secao Flags inteira deve ser pulada — nada de comentario orfao.
+        // A secao Flags inteira deve ser pulada, nada de comentario orfao.
         const scopes = [
             scope('tb.proc', [
                 { name: 'valr2' }, { name: 'linetabs' },

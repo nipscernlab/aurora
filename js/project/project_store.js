@@ -1,5 +1,5 @@
 /**
- * project_store.js — Single source of truth for "which project is open".
+ * project_store.js: Single source of truth for "which project is open".
  *
  * Aurora used to track the current project in three places that drifted:
  *   - window.currentProjectPath / window.currentSpfPath (set by loadProject)

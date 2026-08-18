@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * docs.js — abre o manual do SAPHO e o mantém atualizado.
+ * docs.js: abre o manual do SAPHO e o mantém atualizado.
  *
  * A documentação vive em outro repositório (nipscernlab/docs_aurora), que a
  * publica em dois canais: o site em nipscern.com/library/sapho e um pacote .zip
@@ -18,7 +18,7 @@
  * ---------
  * O IPC `open-external` (main/ipc/files.js) recusa file:// de propósito: a URL
  * vem do renderer e pode ter origem, por exemplo, numa mensagem da IA. Este
- * módulo não afrouxa aquela guarda nem aceita caminho do renderer — ele monta o
+ * módulo não afrouxa aquela guarda nem aceita caminho do renderer, ele monta o
  * caminho a partir de constantes e só então entrega ao sistema.
  */
 
@@ -48,7 +48,7 @@ function userDir() {
 
 /**
  * Remove um BOM inicial. JSON.parse o recusa, e ferramentas do Windows gravam
- * UTF-8 com BOM por padrão — como o manifesto vem da rede, toleramos aqui.
+ * UTF-8 com BOM por padrão, como o manifesto vem da rede, toleramos aqui.
  */
 function stripBom(/** @type {string} */ text) {
   return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;

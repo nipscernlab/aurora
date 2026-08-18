@@ -7,16 +7,16 @@ import { LitElement, html, css } from 'lit';
 const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.baseURI).href;
 
 /**
- * <aurora-command-palette> — the Ctrl+Shift+K action surface (DESIGN §9/§11).
+ * <aurora-command-palette>, the Ctrl+Shift+K action surface (DESIGN §9/§11).
  *
  * View only: command_palette.js keeps the command registry, the fuzzy scoring
  * and the global keyboard handling (open shortcut + while-open nav). It drives
  * this element via `.items` (the filtered list, in display order) + `.selected`
  * + `.open`, and listens for the events it emits:
- *   • cmdk-input  (detail: query)  — the user typed
- *   • cmdk-run    (detail: index)  — an item was clicked
- *   • cmdk-hover  (detail: index)  — pointer moved over an item
- *   • cmdk-close                   — the backdrop was clicked
+ *   • cmdk-input  (detail: query) , the user typed
+ *   • cmdk-run    (detail: index) , an item was clicked
+ *   • cmdk-hover  (detail: index) , pointer moved over an item
+ *   • cmdk-close                  , the backdrop was clicked
  * Shadow DOM + semantic tokens; the input is focused/cleared on open.
  */
 class AuroraCommandPalette extends LitElement {
@@ -38,7 +38,7 @@ class AuroraCommandPalette extends LitElement {
       position: fixed;
       inset: 0;
       z-index: var(--z-command, 10050);
-      /* Closed, the host still spans the screen at a huge z-index — without this
+      /* Closed, the host still spans the screen at a huge z-index, without this
          it would be an invisible click-wall over the whole IDE. Only the open
          state is interactive (and catches the backdrop click). */
       pointer-events: none;

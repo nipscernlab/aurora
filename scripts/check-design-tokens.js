@@ -1,4 +1,4 @@
-// check-design-tokens.js — impede que o desenho volte a derivar.
+// check-design-tokens.js: impede que o desenho volte a derivar.
 //
 // A AURORA tem uma paleta e uma escala de movimento em tokens, e mesmo assim
 // cor cravada e duração cravada foram reaparecendo por anos, uma regra de cada

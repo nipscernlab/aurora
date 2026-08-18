@@ -8,20 +8,20 @@ const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.
 const WATERMARK_SRC = new URL('assets/icons/sapho_aurora_icon.svg', document.baseURI).href;
 
 /**
- * <aurora-welcome> — the empty-project welcome screen (DESIGN §6/§9), the
+ * <aurora-welcome>, the empty-project welcome screen (DESIGN §6/§9), the
  * "Start + Recent" stage shown inside #editor-overlay when no project is open.
  *
  * View + chrome only. It does NOT own state:
  *   • the New / Open Project buttons delegate to the toolbar buttons
- *     (#newProjectBtn / #openProjectBtn), which carry the real handlers — so
+ *     (#newProjectBtn / #openProjectBtn), which carry the real handlers, so
  *     the welcome can't drift from the toolbar and needs no wiring of its own.
  *   • the Recent list is driven by RecentProjectsManager: it sets `.projects`
  *     (each { name, path, displayPath }) and listens for the events emitted here:
- *       project-open   (detail: path) — a row was clicked
- *       project-remove (detail: path) — the row's × was clicked
+ *       project-open   (detail: path), a row was clicked
+ *       project-remove (detail: path), the row's × was clicked
  * Strings come from window.t(); it re-renders on `aurora:locale-changed`.
  * #editor-overlay stays in the light DOM (TabManager toggles it, and a sibling
- * selector hides the editor behind it) — only its content moved into the shadow.
+ * selector hides the editor behind it), only its content moved into the shadow.
  */
 class AuroraWelcome extends LitElement {
   static properties = {
@@ -96,7 +96,7 @@ class AuroraWelcome extends LitElement {
          icons) to the theme's light gray. The purple accents use --accent-hover and
          are untouched. */
       --text-faint: var(--text-secondary);
-      /* "cortina que clareia" — the aurora reveal (DESIGN §6). */
+      /* "cortina que clareia", the aurora reveal (DESIGN §6). */
       animation: welcomeFadeIn var(--motion-curtain, 480ms) var(--ease-reveal, ease) both;
     }
     @keyframes welcomeFadeIn {
@@ -109,7 +109,7 @@ class AuroraWelcome extends LitElement {
 
     /* Ambient aurora canvas, behind everything. aurora_canvas.css styles the host
        + upscales the half-res GL canvas, but those rules can't cross this shadow
-       boundary — so restate them here (without the fill rule the inner canvas
+       boundary, so restate them here (without the fill rule the inner canvas
        paints at its half-res buffer size, anchored top-left, "off-axis"). */
     .bg-canvas {
       position: absolute;
@@ -117,7 +117,7 @@ class AuroraWelcome extends LitElement {
       z-index: var(--z-0, 0);
       pointer-events: none;
       overflow: hidden;
-      /* Quiet static base the WebGL layer paints over — and the no-GL /
+      /* Quiet static base the WebGL layer paints over, and the no-GL /
          reduced-motion fallback look. */
       background:
         radial-gradient(120% 80% at 50% 108%,
@@ -154,7 +154,7 @@ class AuroraWelcome extends LitElement {
           rgba(10, 13, 20, 0.0) 80%);
     }
 
-    /* Watermark — large dimmed SAPHO logo as a brand backdrop, centred on both
+    /* Watermark, large dimmed SAPHO logo as a brand backdrop, centred on both
        axes so it stays balanced as the welcome area is resized. */
     .watermark {
       position: absolute;
@@ -185,7 +185,7 @@ class AuroraWelcome extends LitElement {
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.65);
     }
 
-    /* Topbar — wordmark + tagline */
+    /* Topbar, wordmark + tagline */
     .topbar {
       display: flex;
       align-items: baseline;
@@ -388,7 +388,7 @@ class AuroraWelcome extends LitElement {
 
   /* Stylesheet for the body-level processor popover (see _onHover for why it
      can't live in this shadow root). Injected ONCE into document.head. Token-
-     based — no inline hex — so it tracks the theme and honours the design
+     based, no inline hex, so it tracks the theme and honours the design
      principles in TODO.md: elevation by light and luminous border, reveal not
      fly, and pills coloured as aurora bands from the 16 processor slots. */
   static procPopCSS = `
@@ -552,7 +552,7 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
   // anchored to the right of the row and clamped to the viewport.
   // The processor preview lives at the document-body level (NOT in this shadow):
   // the welcome's :host carries a transform (from its fade-in animation's `both`
-  // fill), which makes :host a containing block for position:fixed — so a popover
+  // fill), which makes :host a containing block for position:fixed, so a popover
   // in the shadow is positioned relative to the (AI-panel-shrunk) welcome box, not
   // the viewport, and flies off-screen. A body-level fixed element is truly
   // viewport-relative.
@@ -583,7 +583,7 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
     const el = this._ensureProcPop();
     const label = esc(this._t('welcome.processors', 'Processors'));
     // Each pill is coloured by its slot in the 16-colour processor spectrum
-    // (positional, wrapping at 16) — a project's processors read as several
+    // (positional, wrapping at 16), a project's processors read as several
     // aurora bands rather than a flat list (DESIGN §2).
     el.innerHTML =
       `<div class="app-header">${label} · ${procs.length}</div>` +
@@ -602,7 +602,7 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
     if (left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
     el.style.left = `${Math.max(8, left)}px`;
     el.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - ph - 8))}px`;
-    // Reveal on the next frame — opacity + a 4px lift, never a fly-in (DESIGN §6).
+    // Reveal on the next frame, opacity + a 4px lift, never a fly-in (DESIGN §6).
     requestAnimationFrame(() => el.classList.add('visible'));
   }
 

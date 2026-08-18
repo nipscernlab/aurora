@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * clang_format.js — C/C++/CMM document formatter for the Monaco editor.
+ * clang_format.js: C/C++/CMM document formatter for the Monaco editor.
  *
  * clang-format isn't a language server: it's a one-shot CLI that reads a
  * buffer on stdin and writes the formatted buffer on stdout. So this module
- * is much thinner than the Verible LSP bridge — per Shift+Alt+F, the
+ * is much thinner than the Verible LSP bridge, per Shift+Alt+F, the
  * renderer (js/editor/clang_format_integration.js) sends the buffer here,
  * we spawn the bundled clang-format (components/Packages/clang-format/bin,
  * via download-clang-format.js), pipe the text through, and return the
@@ -110,7 +110,7 @@ function format({ languageId, filePath, text } = {}) {
     });
 
     // Feed the buffer on stdin. Guard against EPIPE if clang-format bailed
-    // before reading (e.g. bad args) — the 'error'/'close' path resolves it.
+    // before reading (e.g. bad args), the 'error'/'close' path resolves it.
     try {
       child.stdin.on('error', () => { /* EPIPE handled via close */ });
       child.stdin.write(text);

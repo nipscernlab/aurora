@@ -1,9 +1,9 @@
 // @ts-check
 /**
- * search.js — project-wide "Find in Files" IPC (VS Code's Search panel).
+ * search.js: project-wide "Find in Files" IPC (VS Code's Search panel).
  *
  * A dependency-free, synchronous recursive scan rooted at the OPEN PROJECT'S
- * directory (state.currentOpenProjectPath, the single source of truth — see A4).
+ * directory (state.currentOpenProjectPath, the single source of truth, see A4).
  * Synchronous fs is fine at project scale and keeps the walk simple; the caps
  * below bound the worst case so a huge tree can never freeze the main process.
  *
@@ -30,7 +30,7 @@ const PREVIEW_MAX = 240;                  // trim each preview line to ~240 char
 const MAX_MATCHES = 2000;                 // stop after this many matches total
 const MAX_FILES = 500;                    // …or after this many matching files
 
-// Directories we never descend into — VCS, deps, build output, vendored assets.
+// Directories we never descend into, VCS, deps, build output, vendored assets.
 const SKIP_DIRS = new Set([
   '.git', 'node_modules', 'dist', 'build', 'components', 'Temp', 'Backup', '.vite',
 ]);
@@ -42,7 +42,7 @@ function escapeRegExp(s) {
 
 /**
  * Build the search RegExp from the user's query + toggles.
- * Throws on an invalid user-supplied pattern (regex mode) — the caller turns
+ * Throws on an invalid user-supplied pattern (regex mode), the caller turns
  * that into { ok:false, error }.
  */
 function buildRegex(query, { caseSensitive, wholeWord, regex }) {

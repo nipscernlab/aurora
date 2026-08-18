@@ -5,7 +5,7 @@
 // real IPC/PTY path: the prompt renders, external programs run, `cd` persists,
 // and output streams as it is produced.
 //
-// These tests are HERMETIC — they only invoke PowerShell built-ins and programs
+// These tests are HERMETIC, they only invoke PowerShell built-ins and programs
 // that ship with Windows. Two of them used to shell out to `python`, which made
 // them pass on CI (windows-latest bundles Python) and fail on any developer
 // machine without Python on PATH. That is a property of the machine, not of
@@ -113,20 +113,20 @@ describe('Aurora E2E — TCMD terminal (xterm + pty)', () => {
     await runCommand('Set-Location $env:USERPROFILE; Get-Location');
     await waitForText(/Path/i);
     // The aurora prompt collapses the home directory to ~, so landing in the
-    // user profile shows a ~ segment — proof the prompt tracks the new cwd.
+    // user profile shows a ~ segment, proof the prompt tracks the new cwd.
     await waitForText(/~/);
     expect(await screenText()).toMatch(/~/);
   }, 30_000);
 
   it('streams output as it is produced, not buffered until the command exits', async () => {
     // The previous version of this test only waited for the LAST line and then
-    // asserted it was present — which a fully buffered terminal would also
+    // asserted it was present, which a fully buffered terminal would also
     // pass, since the text still shows up once the command ends. It could not
     // fail for the reason it existed.
     //
     // Real streaming means an EARLY line is on screen while a LATER one has not
     // been produced yet. Eight ticks, 500 ms apart, span ~3.5 s; the assertion
-    // below runs right after tick 1 appears, so the last tick is ~3 s away —
+    // below runs right after tick 1 appears, so the last tick is ~3 s away:
     // wide enough that a slow machine does not turn this into a flake.
     await runCommand('1..8 | ForEach-Object { Write-Host "tick $_"; Start-Sleep -Milliseconds 500 }');
 

@@ -63,7 +63,7 @@ function bundleInstalled(sentinelPath = MSYS_SENTINEL) {
 }
 
 // cocotb marker: the static Verilator VPI baked into the bundle's Python.
-// Lives under msys/mingw64/lib/python3.<minor>/site-packages — scan for any
+// Lives under msys/mingw64/lib/python3.<minor>/site-packages, scan for any
 // python3.* so this survives a future Python minor bump. A bundle missing it
 // (e.g. an older snapshot) triggers a re-download to upgrade in place.
 function cocotbInstalled() {
@@ -127,7 +127,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
             }).on('error', reject);
         }
 
-        // Resolve only after the file is fully flushed and closed — otherwise
+        // Resolve only after the file is fully flushed and closed, otherwise
         // PowerShell's Expand-Archive races us and hits the zip while it's
         // still locked by this writer (silent corruption: the zip vanishes,
         // Packages/ ends up empty).

@@ -1,7 +1,7 @@
 import { LitElement, html } from 'lit';
 
 /**
- * <aurora-editor> — semantic shell for the code editor pane.
+ * <aurora-editor>, semantic shell for the code editor pane.
  *
  * Same thin-wrapper strategy as <aurora-tabs> / <aurora-terminal>: the tab
  * strip (<aurora-tabs>) and the Monaco mount (#monaco-editor) are slotted
@@ -15,10 +15,10 @@ import { LitElement, html } from 'lit';
  * Shadow DOM is used purely to register a semantic element and project the
  * light-DOM children through the <slot> unchanged. EditorManager.editorContainer
  * still resolves to #monaco-editor by id, and `.editor-container` selectors
- * (split_editor.js, aurora_api.js) still match the host by class — so Monaco
+ * (split_editor.js, aurora_api.js) still match the host by class, so Monaco
  * mounts into the same node and nothing downstream changes.
  *
- * Future: progressive enhancement — declarative editor/split-pane state once
+ * Future: progressive enhancement, declarative editor/split-pane state once
  * EditorManager is refactored to be data-driven.
  */
 class AuroraEditor extends LitElement {

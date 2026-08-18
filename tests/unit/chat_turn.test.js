@@ -44,7 +44,7 @@ describe('buildProjectContext', () => {
     });
 
     // The block is rebuilt every turn, so an empty one would be paid for on
-    // every turn of every project — it has to cost nothing on the common path.
+    // every turn of every project, it has to cost nothing on the common path.
     describe('project memory', () => {
         const mem = (n) => Array.from({ length: n }, (_, i) => ({ name: `m${i}`, content: `fact ${i}` }));
 

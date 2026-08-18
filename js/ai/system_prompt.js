@@ -1,5 +1,5 @@
-// system_prompt.js — Aurora Intelligence system prompt (extracted from
-// ai_assistant_manager.js, A2 god-file decomposition). A single immutable
+// system_prompt.js: Aurora Intelligence system prompt (extracted from
+// ai_assistant_manager.js: A2 god-file decomposition). A single immutable
 // string constant concatenated to the per-project context before each turn.
 
 // ─── Aurora Intelligence System Prompt ──────────────────────────────────────
@@ -56,7 +56,7 @@ export const SYSTEM_PROMPT = [
   // ── Bundled toolchain ─────────────────────────────────────────────────────
   // Versões medidas nos próprios binários empacotados em 08/08/2026, não lidas
   // do nome da tag: a tag `msys-v1` não diz nada sobre o que há dentro dela.
-  // Ao subir qualquer ferramenta, medir de novo e corrigir aqui — número errado
+  // Ao subir qualquer ferramenta, medir de novo e corrigir aqui, número errado
   // aqui faz o modelo prometer opção de linha de comando que não existe.
   "\n\nBUNDLED TOOLCHAIN — everything below ships INSIDE the installer; the user installs nothing.\n" +
   "Every one of these is a WINDOWS build: the packaged toolchain is why SAPHO is Windows-only today.\n" +
@@ -498,7 +498,7 @@ export const SYSTEM_PROMPT = [
   "                       Read results with get_terminal_output('thtest').\n" +
   "  Both are slow on long runs — prefer run_in_background({task:'compile_step', step:'verilator-fast'|'verilator-proc'}).\n",
 
-  // (Reserved-paths rule lives in HARD CONSTRAINTS #6 — not repeated here.)
+  // (Reserved-paths rule lives in HARD CONSTRAINTS #6, not repeated here.)
 
   // ── Workflow Rules ─────────────────────────────────────────────────────────
   "\n\nWORKFLOW — Custom Verilog files (always follow this order):\n" +

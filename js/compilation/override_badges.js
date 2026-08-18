@@ -1,5 +1,5 @@
 /**
- * override_badges.js — toolbar UX for active command overrides.
+ * override_badges.js: toolbar UX for active command overrides.
  *
  * Adds a small "✱" marker to compile-toolbar buttons (cmmcomp,
  * vericomp, wavecomp, prismcomp) whenever the corresponding pipeline
@@ -81,7 +81,7 @@ async function repaint() {
       btn.dataset.aiOverrideKeys = matching.map((m) => m.key + '|' + m.scope).join(',');
     } else {
       btn.classList.remove('has-ai-override');
-      // Preserve the original tooltip — toolbar bootstrap sets data-tooltip
+      // Preserve the original tooltip, toolbar bootstrap sets data-tooltip
       // (and i18n re-applies). We only restored when we last set one.
       if (btn.dataset.aiOverrideKeys) {
         btn.title = '';
@@ -92,14 +92,14 @@ async function repaint() {
 }
 
 function attachClearHandler() {
-  // Single delegated handler — buttons may be re-mounted by other
+  // Single delegated handler, buttons may be re-mounted by other
   // managers; document-level delegation survives re-renders.
   document.addEventListener('contextmenu', async (ev) => {
     const btn = ev.target?.closest?.('.toolbar-button.has-ai-override');
     if (!btn) return;
     const keys = btn.dataset.aiOverrideKeys;
     if (!keys) return;
-    // Only intercept when the right-click landed near the badge —
+    // Only intercept when the right-click landed near the badge:
     // upper-right corner. Otherwise let the user keep the normal
     // context menu (if any).
     const rect = btn.getBoundingClientRect();

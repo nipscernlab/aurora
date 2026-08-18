@@ -1,5 +1,5 @@
 /**
- * file_tree_view_controller.js — single owner do par "qual file-tree
+ * file_tree_view_controller.js: single owner do par "qual file-tree
  * view esta visivel agora" + listener do toggle button.
  *
  * Pre-controller, esse estado estava espalhado por 6+ lugares
@@ -19,16 +19,16 @@
  * toggle nem o estado de view direto.
  *
  * API publica:
- *   showFileMode()             — vai pra 'verilog' (a view de
+ *   showFileMode()            , vai pra 'verilog' (a view de
  *                                 arquivos do projeto)
- *   showHierarchyMode()        — vai pra hierarchy (no-op se
+ *   showHierarchyMode()       , vai pra hierarchy (no-op se
  *                                 nao ha hierarchyData)
  *   isShowingHierarchy()
  *   isShowingFileMode()
- *   setHierarchyData(data)     — compile flow avisa que ha (ou
+ *   setHierarchyData(data)    , compile flow avisa que ha (ou
  *                                 nao ha mais) hierarchy data
  *   getHierarchyData()
- *   registerRenderer(name, fn) — view registra sua render fn
+ *   registerRenderer(name, fn), view registra sua render fn
  *
  * Path de um clique: user clica toggle → controller decide direcao
  * via isShowingHierarchy() → chama showHierarchyMode() ou
@@ -49,7 +49,7 @@ class FileTreeViewController {
     }
 
     /**
-     * Idempotent. Safe to call from multiple init paths — only the
+     * Idempotent. Safe to call from multiple init paths, only the
      * first call attaches the click listener.
      */
     initialize() {
@@ -85,17 +85,17 @@ class FileTreeViewController {
         if (window.ProjectStore?.subscribe) {
             window.ProjectStore.subscribe(onChange);
         } else {
-            // ProjectStore module may not have loaded yet — retry once.
+            // ProjectStore module may not have loaded yet, retry once.
             queueMicrotask(() => window.ProjectStore?.subscribe?.(onChange));
         }
     }
 
     /**
      * @param {'verilog'|'hierarchy'|'standard'} name
-     * @param {() => void} renderFn — invoked when this view becomes
+     * @param {() => void} renderFn, invoked when this view becomes
      *   active. Should be idempotent (renderer-decides-what-to-do
      *   based on its own state). If the render throws, the controller
-     *   logs and continues — view is still set active.
+     *   logs and continues, view is still set active.
      */
     registerRenderer(name, renderFn) {
         this._renderers[name] = renderFn;
@@ -111,7 +111,7 @@ class FileTreeViewController {
 
     /**
      * Flip to hierarchy view. No-op (returns false) if there's no
-     * hierarchy data — the toggle button should already be disabled
+     * hierarchy data, the toggle button should already be disabled
      * in that case, but we double-check so direct callers behave
      * correctly too.
      */
@@ -123,7 +123,7 @@ class FileTreeViewController {
 
     /**
      * Flip to the standard folder tree (rooted at the .spf directory).
-     * No-op (returns false) if no project is open — there are no folders
+     * No-op (returns false) if no project is open, there are no folders
      * to browse, and the toggle skips this view in that case.
      */
     showStandardMode() {
@@ -145,7 +145,7 @@ class FileTreeViewController {
     setHierarchyData(data) {
         this._hierarchyData = data ?? null;
         // Hierarchy data went away while we were showing it (e.g. a new
-        // compile invalidated the old tree) — drop back to the file view
+        // compile invalidated the old tree), drop back to the file view
         // so we're never stuck on an empty hierarchy pane.
         if (!this._hierarchyData && this.isShowingHierarchy()) {
             this._showView('verilog');
@@ -204,7 +204,7 @@ class FileTreeViewController {
     _installToggleListener() {
         const btn = document.getElementById(TOGGLE_BTN_ID);
         if (!btn) return;
-        // Idempotent — multiple initialize() calls won't stack
+        // Idempotent, multiple initialize() calls won't stack
         // listeners.
         if (btn.dataset.ftvcBound === 'true') return;
         btn.dataset.ftvcBound = 'true';
@@ -233,10 +233,10 @@ class FileTreeViewController {
         if (icon) icon.className = view.icon;
         if (text) text.textContent = tr(view.labelKey) ?? view.label;
 
-        // The button reflects the CURRENT view (not the next one) — with
+        // The button reflects the CURRENT view (not the next one), with
         // three modes a "switch to X" label can't name the single next
         // target cleanly. The tooltip says it cycles. We set data-tooltip
-        // (Aurora's custom tooltip wins over native title — see
+        // (Aurora's custom tooltip wins over native title, see
         // js/ui/tooltip.js) rather than .title.
         btn.classList.toggle('active', this._activeView !== 'verilog');
         if (enabled) {
@@ -275,7 +275,7 @@ if (document.readyState === 'loading') {
 // is shared with the controller. Here we wire delegating renderer
 // functions: each one looks up the relevant manager at call time and
 // invokes its renderer. That sidesteps the "manager is reconstructed
-// per compile" issue (CompilationModule especially) — we always use
+// per compile" issue (CompilationModule especially), we always use
 // the freshest instance.
 
 fileTreeViewController.registerRenderer('verilog', () => {
@@ -286,14 +286,14 @@ fileTreeViewController.registerRenderer('hierarchy', () => {
     // The latest CompilationModule's renderHierarchicalTree falls
     // back to the controller's own hierarchyData when its instance
     // copy is null (see compilation_module.js renderHierarchicalTree
-    // — it consults fileTreeViewController.getHierarchyData()).
+    //, it consults fileTreeViewController.getHierarchyData()).
     const cm = window._latestCompilationModule;
     if (cm?.renderHierarchicalTree) cm.renderHierarchicalTree();
 });
 
 fileTreeViewController.registerRenderer('standard', () => {
     // Folder tree rooted at the .spf directory. render() is async but
-    // the controller's renderer contract is fire-and-forget — the view
+    // the controller's renderer contract is fire-and-forget, the view
     // is already active; the rows paint when the lazy reads land.
     window.standardTreeRenderer?.render();
 });

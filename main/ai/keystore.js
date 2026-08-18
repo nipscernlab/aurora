@@ -1,11 +1,11 @@
 // @ts-check
 /**
- * keystore.js — encrypted vault for per-provider API keys.
+ * keystore.js: encrypted vault for per-provider API keys.
  *
  * Keys are encrypted with Electron's `safeStorage`, which delegates to
  * the OS keychain (DPAPI on Windows, Keychain on macOS, libsecret on
  * Linux). Plaintext never lives on disk and never crosses the IPC
- * boundary — the renderer can only ask "is a key set for provider X?"
+ * boundary, the renderer can only ask "is a key set for provider X?"
  * and "test that key against the provider"; reading the bytes is a
  * main-process-only operation.
  *
@@ -18,7 +18,7 @@
  *     }
  *
  * A fresh install just doesn't have the file. If `safeStorage` reports
- * encryption is unavailable (rare — typically a misconfigured Linux
+ * encryption is unavailable (rare, typically a misconfigured Linux
  * session without a working keyring), `setKey()` throws so the caller
  * can surface a useful error to the user instead of writing plaintext.
  */
@@ -91,7 +91,7 @@ function setKey(provider, apiKey) {
 
 /**
  * Decrypt and return the API key for `provider`, or `null` if no key
- * is stored. Returns `null` (not throws) on decryption failure — a
+ * is stored. Returns `null` (not throws) on decryption failure, a
  * mis-keychained vault is something the caller wants to surface to
  * the user, not crash on.
  * @param {string} provider

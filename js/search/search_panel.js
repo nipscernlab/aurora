@@ -1,5 +1,5 @@
 import { electronAPI } from '../app/electron_api.js';
-// search_panel.js — "Find in Files" panel (VS Code's Search), driven by
+// search_panel.js, "Find in Files" panel (VS Code's Search), driven by
 // electronAPI.searchInProject (main/ipc/search.js). Results are grouped
 // by file: a collapsible file header + match rows. Clicking a row opens the
 // file at that line via TabManager and closes the modal.
@@ -102,7 +102,7 @@ async function runSearch() {
 /**
  * Build a preview line with every match wrapped in <mark>. We re-run the same
  * RegExp the main process used so the highlighted spans line up exactly, and we
- * escape each segment ourselves — only <mark> is injected by us.
+ * escape each segment ourselves, only <mark> is injected by us.
  */
 function highlight(preview, re) {
   if (!re) return esc(preview);

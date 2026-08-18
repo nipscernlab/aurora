@@ -41,4 +41,13 @@ contextBridge.exposeInMainWorld('updateAPI', {
 
   /** Fecha a janela sem atualizar agora. */
   dismiss: () => ipcRenderer.send('update:dismiss'),
+
+  /**
+   * Pede que a janela fique com a altura do conteudo.
+   *
+   * Quem mede e o renderer, porque so ele sabe quanto o estado atual ocupa
+   * depois de o texto quebrar e o changelog carregar; quem redimensiona e o
+   * main, porque a janela e dele.
+   */
+  resizeToContent: (altura) => ipcRenderer.send('update:resize', altura),
 });

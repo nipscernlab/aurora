@@ -681,6 +681,29 @@ function registerIpc() {
     const w = state.updateWindow;
     if (w && !w.isDestroyed() && !state.downloadInProgress) w.close();
   });
+
+  /**
+   * Ajusta a altura da janela ao conteudo do estado atual.
+   *
+   * A janela nascia com 540x660 fixos e os tres estados dividiam aquela caixa.
+   * O de download tem tres linhas e ficava com metade da janela vazia embaixo.
+   * Quem mede e o renderer, porque so ele sabe quanto o estado ocupa depois de
+   * o texto quebrar e o changelog carregar.
+   *
+   * O limite existe para o main nao aceitar qualquer numero de um renderer:
+   * abaixo do minimo a janela sumiria, e acima do maximo passaria da tela.
+   */
+  ipcMain.on('update:resize', (_e, alturaPedida) => {
+    const w = state.updateWindow;
+    if (!w || w.isDestroyed()) return;
+    const h = Math.round(Number(alturaPedida));
+    if (!Number.isFinite(h)) return;
+    const altura = Math.max(220, Math.min(h, 820));
+    const [larguraAtual, atual] = w.getSize();
+    if (Math.abs(atual - altura) < 2) return;   // ja esta la; evita tremer
+    w.setSize(larguraAtual, altura, false);
+    w.center();
+  });
 }
 
 /* ============================================================

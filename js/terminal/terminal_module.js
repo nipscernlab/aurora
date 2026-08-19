@@ -605,6 +605,18 @@ class TerminalManager {
                 `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
                 `${match}</span>`;
         });
+
+        // Componente ausente: a mensagem sozinha manda a pessoa navegar ate
+        // Configuracoes; um clique vale mais que a instrucao. O marcador cobre
+        // as duas linguas e as duas formas da frase (a do portao de execucao e
+        // a dos erros de toolchain).
+        const FALTA_COMPONENTE =
+            /não está instalad[ao] nesta máquina|not installed on this machine|Configurações, Componentes|Settings, Components/i;
+        if (FALTA_COMPONENTE.test(text)) {
+            const rotulo = (window.t && window.t('terminal.openComponents') !== 'terminal.openComponents')
+                ? window.t('terminal.openComponents') : 'Abrir Componentes';
+            out += ` <span class="componente-link" role="button" tabindex="0">${rotulo}</span>`;
+        }
         return out;
     }
 
@@ -706,6 +718,13 @@ class TerminalManager {
      */
     _attachLineLinkClicks(scopeEl) {
         if (!scopeEl) return;
+        // O link de componente ausente abre direto o painel de Componentes.
+        scopeEl.querySelectorAll('.componente-link').forEach((link) => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.auroraAbrirConfiguracoes?.('componentes');
+            });
+        });
         const lineLinks = scopeEl.querySelectorAll('.line-link');
         if (lineLinks.length === 0) return;
         lineLinks.forEach(link => {

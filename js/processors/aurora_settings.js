@@ -355,6 +355,18 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => modalOverlay.classList.add('visible'), 10);
     };
 
+    // Abrir as configuracoes ja numa aba, de fora deste modulo. Existe para o
+    // terminal poder transformar "componente ausente" num clique que leva
+    // direto ao painel de Componentes, em vez de instrucao para navegar a mao.
+    // O clique no item da navegacao (e nao setActivePane) e proposital: os
+    // paineis que se redesenham ao ganhar foco escutam esse clique.
+    window.auroraAbrirConfiguracoes = (pane) => {
+        openModal();
+        if (pane) {
+            document.querySelector(`[data-pane="${pane}"].settings-nav-item`)?.click();
+        }
+    };
+
     /**
      * Devolve tudo ao que esta gravado em disco.
      *

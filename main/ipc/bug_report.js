@@ -56,6 +56,33 @@ function endpoint() {
   return ENDPOINT_PADRAO;
 }
 
+/**
+ * Remove o que identifica a pessoa dos caminhos que aparecem no log.
+ *
+ * O log carrega caminhos como C:\Users\fulano\Documents\..., e o nome da conta
+ * do Windows costuma ser o nome da pessoa. Minimizar aqui vale mais do que
+ * avisar depois: o dado que não sai da máquina é o único que dispensa
+ * proteção (LGPD, art. 6º III — coletar só o necessário). O nome vira o
+ * marcador <usuario>, que preserva a estrutura do caminho para depuração.
+ *
+ * Não é perfeito, e o consentimento diz isso: um caminho de projeto com nome
+ * próprio ("C:\...\tcc-do-joao") ainda passa, porque não há como saber o que é
+ * nome de gente no meio de nomes de pasta.
+ */
+function anonimizar(texto) {
+  let saida = String(texto || '');
+  const candidatos = new Set();
+  try { candidatos.add(path.basename(os.homedir())); } catch (_) { /* segue */ }
+  try { candidatos.add(os.userInfo().username); } catch (_) { /* pode falhar em conta restrita */ }
+  for (const nome of candidatos) {
+    if (!nome || nome.length < 2) continue;
+    // Escapa o nome para uso literal em regex (pontos, hifens etc.).
+    const literal = nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    saida = saida.replace(new RegExp(literal, 'gi'), '<usuario>');
+  }
+  return saida;
+}
+
 /** As últimas linhas do log, ou uma explicação de por que não vieram. */
 function caudaDoLog() {
   try {
@@ -63,7 +90,7 @@ function caudaDoLog() {
     if (!fs.existsSync(p)) return '(sem arquivo de log)';
     const bruto = fs.readFileSync(p, 'utf8');
     const linhas = bruto.split(/\r?\n/);
-    return linhas.slice(-LINHAS_DE_LOG).join('\n').trim() || '(log vazio)';
+    return anonimizar(linhas.slice(-LINHAS_DE_LOG).join('\n').trim()) || '(log vazio)';
   } catch (e) {
     return `(nao foi possivel ler o log: ${e instanceof Error ? e.message : e})`;
   }
@@ -182,6 +209,6 @@ function register() {
 }
 
 module.exports = {
-  register, coletarDiagnostico, enviar, encolherParaCaber, endpoint,
+  register, coletarDiagnostico, enviar, encolherParaCaber, endpoint, anonimizar,
   LINHAS_DE_LOG, LIMITE_BYTES,
 };

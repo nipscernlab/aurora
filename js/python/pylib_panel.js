@@ -181,7 +181,7 @@ function renderRuntime() {
     parts.push(`<span class="pylib-runtime-warn">
       <i class="ph ph-warning" aria-hidden="true"></i>
       <span>${esc(tt('pylibs.runtime.missing',
-        'O Python embarcado não foi encontrado. Rode `npm run bootstrap` para baixar a toolchain.'))}</span>
+        'O Python embarcado não foi encontrado. Abra Configurações, Componentes, e baixe a Cadeia de compilação.'))}</span>
     </span>`);
   }
 

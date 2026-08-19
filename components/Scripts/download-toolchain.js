@@ -157,7 +157,7 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
     // zip + falsely log "installed" before the sentinel check trips).
     execSync(
         `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit' }
+        { stdio: 'inherit', windowsHide: true }
     );
 }
 

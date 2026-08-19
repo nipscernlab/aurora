@@ -165,7 +165,7 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
     // pensa que deu certo e a gente apaga o zip antes do sentinel check).
     execSync(
         `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit' }
+        { stdio: 'inherit', windowsHide: true }
     );
 }
 

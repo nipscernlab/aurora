@@ -330,7 +330,31 @@
       "githubForgetDescription": "Remove o acesso salvo pela AURORA e também o que o git do Windows guardou, sem esperar você fechar.",
       "githubForgetAction": "Limpar agora",
       "githubForgetOnExit": "Limpar o acesso ao GitHub ao fechar a AURORA",
-      "githubForgetOnExitDescription": "Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar."
+      "githubForgetOnExitDescription": "Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar.",
+      "componentsInstalled": "Instalado",
+      "componentsMissing": "Não instalado",
+      "componentsAlways": "Sempre instalado",
+      "componentsNeededToCompile": "Necessário para compilar",
+      "componentsDownload": "Baixar",
+      "componentsRemove": "Remover",
+      "componentsAllInstalled": "Tudo instalado.",
+      "componentsAvailable": "{n} disponíveis para baixar, {mb} no total.",
+      "componentsDownloadOf": "download de {mb}",
+      "componentsInstalledOk": "Componente instalado.",
+      "componentsInstallFailed": "Não foi possível baixar: {erro}",
+      "componentsRemoveTitle": "Remover {nome}",
+      "componentsRemoveBody": "Os arquivos de {nome} saem do disco. O que depende dele para de funcionar até você baixar de novo, e a AURORA vai avisar quando isso acontecer.\n\nSeus projetos não são tocados.",
+      "componentsRemoveConfirm": "Remover",
+      "componentsRemoved": "{nome} removido, {mb} livres.",
+      "componentsRemoveFailed": "Não foi possível remover: {erro}",
+      "componentsBusy": "Já há um download em andamento.",
+      "componentsMissingTitle": "Componente não instalado",
+      "componentsNotNow": "Agora não",
+      "componentsDownloadNow": "Baixar agora",
+      "componentsCancel": "Cancelar",
+      "componentsReadFailed": "Não foi possível ler os componentes: {erro}",
+      "componentsCompileMissing": "Esta máquina ainda não compila: a cadeia de compilação ({mb} de download) não foi instalada. Abra Configurações, Componentes, para baixá-la.",
+      "componentsCompileMissingTitle": "Cadeia de compilação ausente"
     }
   },
   "shortcuts": {
@@ -630,7 +654,8 @@
       "hierarchyGen": "Gerando hierarquia com Yosys...",
       "yosysRun": "Executando comando Yosys: {{cmd}}",
       "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}"
-    }
+    },
+    "openComponents": "Abrir Componentes"
   },
   "error": {
     "config": {
@@ -658,9 +683,9 @@
       "pythonTbInVerilogMode": "Testbench Python selecionado. A simulacao Wave usa cocotb automaticamente; selecione um testbench Verilog para usar o fluxo VVP/Verilog.",
       "cocotbRequiresPythonTb": "O modo cocotb exige um testbench .py marcado como top-level de testbench.",
       "cocotbRequiresTop": "O modo cocotb exige um arquivo Verilog top-level sintetizavel marcado como top-level.",
-      "cocotbPythonMissing": "Runtime Python interno da AURORA nao foi encontrado. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/msys.",
-      "cocotbPackageMissing": "Python foi encontrado em {{path}}, mas o pacote cocotb nao esta instalado no runtime usado. Execute npm run bootstrap para restaurar o Python interno da AURORA.",
-      "cocotbVersionMismatch": "O Python interno da AURORA encontrou cocotb {{found}}, mas a versao esperada e {{expected}}. Execute npm run bootstrap para restaurar a versao encapsulada.",
+      "cocotbPythonMissing": "O Python embarcado da AURORA não foi encontrado. Abra Configurações, Componentes, e baixe a Cadeia de compilação para restaurá-lo.",
+      "cocotbPackageMissing": "Python foi encontrado em {{path}}, mas o pacote cocotb não está instalado nesse runtime. Abra Configurações, Componentes, e baixe a Cadeia de compilação de novo para restaurar o Python interno.",
+      "cocotbVersionMismatch": "O Python interno encontrou cocotb {{found}}, mas a versão esperada é {{expected}}. Abra Configurações, Componentes, e baixe a Cadeia de compilação de novo para restaurar a versão encapsulada.",
       "cocotbFailed": "Simulacao cocotb falhou com codigo {{code}}.",
       "cocotbNoWave": "cocotb terminou, mas nenhum waveform .fst/.vcd foi encontrado em {{path}}.",
       "cocotbFst2vcdFailed": "fst2vcd falhou com codigo {{code}} ao converter o waveform do cocotb.",
@@ -678,8 +703,8 @@
       "procTbMissing": "Testbench do processador não encontrado: {{path}}. Rode C± primeiro para gerar o _tb.v."
     },
     "toolchain": {
-      "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO bundle da toolchain não está instalado. Rode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-msys-v1.zip ~285 MB).",
-      "verilatorNotFound": "Bundle Verilator não encontrado:\n{{paths}}\n\nRode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-msys-v1.zip ~285 MB)."
+      "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nA Cadeia de compilação não está instalada nesta máquina.",
+      "verilatorNotFound": "Bundle Verilator não encontrado:\n{{paths}}\n\nA Cadeia de compilação não está instalada nesta máquina."
     },
     "user": {
       "cancelled": "Compilação cancelada pelo usuário"
@@ -951,7 +976,7 @@
     "runtime": {
       "python": "Python embarcado",
       "abi": "ABI",
-      "missing": "O Python embarcado não foi encontrado. Rode `npm run bootstrap` para baixar a toolchain."
+      "missing": "O Python embarcado não foi encontrado. Abra Configurações, Componentes, e baixe a Cadeia de compilação."
     },
     "tag": {
       "installed": "instalada",
@@ -1020,5 +1045,39 @@
   "network": {
     "offlineTitle": "Sem internet",
     "offlineMessage": "A conexão com a internet caiu. Compilar e simular continuam funcionando, porque o toolchain é local; atualizações, manual online, IA e git ficam indisponíveis até a rede voltar."
+  },
+  "bugReport": {
+    "title": "Relatar um problema",
+    "close": "Fechar",
+    "whatHappened": "O que aconteceu",
+    "whatHappenedHint": "Ex.: ao compilar um .cmm com matriz, o terminal para em 40% e nada acontece.",
+    "expected": "O que você esperava",
+    "expectedHint": "Ex.: que a compilação terminasse e abrisse a forma de onda.",
+    "reproduce": "Como reproduzir",
+    "reproduceHint": "1. Abrir o projeto\n2. Clicar em Compilar\n3. Esperar",
+    "diagTitle": "Ver o diagnóstico que vai junto",
+    "consent": "Ao enviar, você concorda em compartilhar com o NIPS-CERN o texto que escreveu acima e o diagnóstico abaixo. Não coletamos o conteúdo dos seus arquivos, senhas ou credenciais, nem conversas com a Aurora Intelligence, e o seu nome de usuário é removido dos caminhos antes do envio. Ainda assim, algum trecho do log pode, indiretamente, identificar você ou a máquina. O NIPS-CERN trata esses dados conforme a LGPD (Lei 13.709/2018): eles servem apenas para investigar o problema relatado e são apagados a seu pedido.",
+    "sendEmail": "Enviar por e-mail",
+    "cancel": "Cancelar",
+    "send": "Enviar relato",
+    "sent": "Relato enviado. Obrigado: é assim que os problemas chegam até nós.",
+    "sentTitle": "Problema relatado",
+    "noEndpoint": "O envio direto ainda não está configurado nesta versão.",
+    "failed": "Não foi possível enviar ({erro}).",
+    "fallbackEmail": "{motivo} Abrindo o e-mail com o seu texto.",
+    "diagUnavailable": "(não foi possível reunir o diagnóstico)"
+  },
+  "componentSummary": {
+    "msys": "A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.",
+    "yanc": "O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.",
+    "gtkwave": "O visualizador de formas de onda clássico, em janela própria.",
+    "surfer": "O visualizador de formas de onda embutido, dentro da AURORA.",
+    "verible": "Diagnósticos, formatação e navegação em Verilog, dentro do editor.",
+    "slang": "Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.",
+    "clang-format": "Formatação de C, C++ e C± com Shift+Alt+F."
+  },
+  "componentName": {
+    "msys": "MSYS Toolchain",
+    "yanc": "YANC"
   }
 }

@@ -13,8 +13,13 @@
 
 import { describe, it, expect, afterEach } from 'vitest';
 
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import {
-  encolherParaCaber, endpoint, LIMITE_BYTES,
+  encolherParaCaber, endpoint, anonimizar, LIMITE_BYTES,
 } from '../../main/ipc/bug_report.js';
 
 function cargaCom(log) {
@@ -81,5 +86,47 @@ describe('endpoint', () => {
   it('variavel preenchida aponta para outro Worker', () => {
     process.env.AURORA_BUGREPORT_URL = 'https://exemplo.invalid/teste';
     expect(endpoint()).toBe('https://exemplo.invalid/teste');
+  });
+});
+
+
+describe('anonimizar', () => {
+  const usuario = path.basename(os.homedir());
+
+  it('tira o nome da conta dos caminhos', () => {
+    const log = 'lendo C:\\Users\\' + usuario + '\\Documents\\proj\\a.cmm';
+    const limpo = anonimizar(log);
+    expect(limpo).not.toContain(usuario);
+    expect(limpo).toContain('<usuario>');
+    // A estrutura do caminho sobrevive, que e o que a depuracao precisa.
+    expect(limpo).toContain('Documents');
+  });
+
+  it('pega o nome em qualquer caixa', () => {
+    const limpo = anonimizar(`c:/users/${usuario.toUpperCase()}/x.log`);
+    expect(limpo.toLowerCase()).not.toContain(usuario.toLowerCase());
+  });
+
+  it('nao mexe em texto sem o nome', () => {
+    expect(anonimizar('erro na linha 12 do core.v')).toBe('erro na linha 12 do core.v');
+  });
+});
+
+describe('o consentimento e uma promessa so', () => {
+  it('a reserva do formulario e identica ao pt.json', () => {
+    // O texto do consentimento existe em dois lugares: locales/pt.json e a
+    // reserva usada antes de as locales carregarem. Se divergirem, usuarios
+    // diferentes leem promessas diferentes, e isso nao e um bug de interface,
+    // e um problema juridico.
+    const raiz = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+    const locales = JSON.parse(fs.readFileSync(path.join(raiz, 'locales', 'pt.json'), 'utf8'));
+    const fonte = fs.readFileSync(path.join(raiz, 'js', 'ui', 'bug_report_form.js'), 'utf8');
+    // A reserva esta partida em varias linhas concatenadas; remonta por eval
+    // do trecho literal seria fragil, entao comparamos por fragmentos que so
+    // aparecem no consentimento.
+    for (const trecho of ['LGPD (Lei 13.709/2018)', 'nome de usuário é removido', 'apagados a seu pedido']) {
+      expect(locales.bugReport.consent).toContain(trecho);
+      expect(fonte).toContain(trecho);
+    }
   });
 });

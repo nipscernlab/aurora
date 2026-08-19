@@ -840,3 +840,24 @@
 
 /* O conteudo fica com o resto da largura. */
 .terminal-container.tabs-vertical .terminal-content { flex: 1 1 0; min-width: 0; }
+
+/* Link "Abrir Componentes" nas linhas de componente ausente
+   (terminal_module.makeLineNumbersClickable). Pilula, e nao texto sublinhado:
+   no meio de um erro vermelho, um link discreto some. */
+.componente-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.componente-link:hover { background: var(--accent-strong); }

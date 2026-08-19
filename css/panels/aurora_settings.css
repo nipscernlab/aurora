@@ -1016,6 +1016,14 @@
   border-color: var(--accent-border);
 }
 
+/* O que compila e nao esta na maquina nao e recurso a menos, e urgencia. */
+.componente-selo.urgente {
+  color: var(--status-warning);
+  border-color: var(--status-warning);
+}
+
+.componente-urgente { border-color: var(--status-warning); }
+
 .componente-tamanho {
   margin-left: auto;
   font-family: var(--font-mono);

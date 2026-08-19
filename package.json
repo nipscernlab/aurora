@@ -202,7 +202,13 @@
           "!Packages/iverilog/**",
           "!Packages/python/**",
           "!Packages/PRISM/**",
-          "!Packages/7-Zip/**"
+          "!Packages/7-Zip/**",
+          "!Packages/msys/**",
+          "!Packages/gtkwave-nipscern/**",
+          "!Packages/surfer/**",
+          "!Packages/verible/**",
+          "!Packages/slang-server/**",
+          "!Packages/clang-format/**"
         ]
       },
       {

@@ -330,7 +330,31 @@
       "githubForgetDescription": "Removes the access AURORA saved and also what the Windows git kept, without waiting for you to close it.",
       "githubForgetAction": "Clean now",
       "githubForgetOnExit": "Clear GitHub access when AURORA closes",
-      "githubForgetOnExitDescription": "On a shared computer, leave this on: closing signs the account out of here and of the Windows git, without anyone having to remember."
+      "githubForgetOnExitDescription": "On a shared computer, leave this on: closing signs the account out of here and of the Windows git, without anyone having to remember.",
+      "componentsInstalled": "Installed",
+      "componentsMissing": "Not installed",
+      "componentsAlways": "Always installed",
+      "componentsNeededToCompile": "Needed to compile",
+      "componentsDownload": "Download",
+      "componentsRemove": "Remove",
+      "componentsAllInstalled": "Everything installed.",
+      "componentsAvailable": "{n} available to download, {mb} in total.",
+      "componentsDownloadOf": "download of {mb}",
+      "componentsInstalledOk": "Component installed.",
+      "componentsInstallFailed": "Could not download: {erro}",
+      "componentsRemoveTitle": "Remove {nome}",
+      "componentsRemoveBody": "The files of {nome} leave the disk. Whatever depends on it stops working until you download it again, and AURORA will tell you when that happens.\n\nYour projects are not touched.",
+      "componentsRemoveConfirm": "Remove",
+      "componentsRemoved": "{nome} removed, {mb} freed.",
+      "componentsRemoveFailed": "Could not remove: {erro}",
+      "componentsBusy": "A download is already in progress.",
+      "componentsMissingTitle": "Component not installed",
+      "componentsNotNow": "Not now",
+      "componentsDownloadNow": "Download now",
+      "componentsCancel": "Cancel",
+      "componentsReadFailed": "Could not read the components: {erro}",
+      "componentsCompileMissing": "This machine cannot compile yet: the compilation chain ({mb} download) has not been installed. Open Settings, Components, to download it.",
+      "componentsCompileMissingTitle": "Compilation chain missing"
     }
   },
   "shortcuts": {
@@ -630,7 +654,8 @@
       "hierarchyGen": "Generating hierarchy with Yosys...",
       "yosysRun": "Running Yosys command: {{cmd}}",
       "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}"
-    }
+    },
+    "openComponents": "Open Components"
   },
   "error": {
     "config": {
@@ -658,9 +683,9 @@
       "pythonTbInVerilogMode": "Python testbench selected. Wave simulation uses cocotb automatically; select a Verilog testbench to use the VVP/Verilog flow.",
       "cocotbRequiresPythonTb": "cocotb mode requires a .py testbench marked as testbench top-level.",
       "cocotbRequiresTop": "cocotb mode requires a synthesizable Verilog top-level file marked as top-level.",
-      "cocotbPythonMissing": "Aurora's bundled Python runtime was not found. Run npm run bootstrap or reinstall Aurora to restore components/Packages/msys.",
-      "cocotbPackageMissing": "Python was found at {{path}}, but cocotb is not installed in that runtime. Run npm run bootstrap to restore Aurora's bundled Python.",
-      "cocotbVersionMismatch": "Aurora's bundled Python found cocotb {{found}}, but the expected version is {{expected}}. Run npm run bootstrap to restore the encapsulated version.",
+      "cocotbPythonMissing": "Aurora's bundled Python runtime was not found. Open Settings, Components, and download the Compilation chain to restore it.",
+      "cocotbPackageMissing": "Python was found at {{path}}, but cocotb is not installed in that runtime. Open Settings, Components, and download the Compilation chain again to restore the bundled Python.",
+      "cocotbVersionMismatch": "The bundled Python found cocotb {{found}}, but the expected version is {{expected}}. Open Settings, Components, and download the Compilation chain again to restore the encapsulated version.",
       "cocotbFailed": "cocotb simulation failed with exit code {{code}}.",
       "cocotbNoWave": "cocotb finished but no .fst/.vcd waveform was found in {{path}}.",
       "cocotbFst2vcdFailed": "fst2vcd failed with exit code {{code}} while converting the cocotb waveform.",
@@ -678,8 +703,8 @@
       "procTbMissing": "Processor testbench not found: {{path}}. Run C± first to generate the _tb.v."
     },
     "toolchain": {
-      "iverilogNotFound": "Icarus Verilog binary not found at:\n  {{path}}\n\nThe toolchain bundle is not installed. Run `npm run bootstrap` at the project root to download and install (aurora-msys-v1.zip ~285 MB).",
-      "verilatorNotFound": "Verilator bundle not found:\n{{paths}}\n\nRun `npm run bootstrap` at the project root to download and install (aurora-msys-v1.zip ~285 MB)."
+      "iverilogNotFound": "Icarus Verilog binary not found at:\n  {{path}}\n\nThe Compilation chain is not installed on this machine.",
+      "verilatorNotFound": "Verilator bundle not found:\n{{paths}}\n\nThe Compilation chain is not installed on this machine."
     },
     "user": {
       "cancelled": "Compilation canceled by user"
@@ -951,7 +976,7 @@
     "runtime": {
       "python": "Bundled Python",
       "abi": "ABI",
-      "missing": "The bundled Python was not found. Run `npm run bootstrap` to download the toolchain."
+      "missing": "The bundled Python was not found. Open Settings, Components, and download the Compilation chain."
     },
     "tag": {
       "installed": "installed",
@@ -1020,5 +1045,39 @@
   "network": {
     "offlineTitle": "No internet",
     "offlineMessage": "The internet connection dropped. Compiling and simulating still work, since the toolchain is local; updates, the online manual, AI and git stay unavailable until the network returns."
+  },
+  "bugReport": {
+    "title": "Report a problem",
+    "close": "Close",
+    "whatHappened": "What happened",
+    "whatHappenedHint": "E.g.: compiling a .cmm with a matrix, the terminal stops at 40% and nothing happens.",
+    "expected": "What you expected",
+    "expectedHint": "E.g.: the build would finish and open the waveform.",
+    "reproduce": "How to reproduce",
+    "reproduceHint": "1. Open the project\n2. Click Compile\n3. Wait",
+    "diagTitle": "See the diagnostics that go along",
+    "consent": "By sending, you agree to share with NIPS-CERN the text you wrote above and the diagnostics below. We do not collect the contents of your files, passwords or credentials, nor Aurora Intelligence conversations, and your username is removed from file paths before sending. Even so, some part of the log may still indirectly identify you or the machine. NIPS-CERN handles this data under the LGPD (Brazilian law 13.709/2018): it is used only to investigate the reported problem and is deleted at your request.",
+    "sendEmail": "Send by e-mail",
+    "cancel": "Cancel",
+    "send": "Send report",
+    "sent": "Report sent. Thank you: this is how problems reach us.",
+    "sentTitle": "Problem reported",
+    "noEndpoint": "Direct sending is not configured in this build yet.",
+    "failed": "Could not send ({erro}).",
+    "fallbackEmail": "{motivo} Opening e-mail with your text.",
+    "diagUnavailable": "(diagnostics could not be gathered)"
+  },
+  "componentSummary": {
+    "msys": "The compilation chain: Icarus Verilog, Verilator, Yosys and the bundled Python.",
+    "yanc": "The SAPHO compiler: cmmcomp, asmcomp, appcomp and comp2gtkw, which turn C± into a processor.",
+    "gtkwave": "The classic waveform viewer, in its own window.",
+    "surfer": "The embedded waveform viewer, inside AURORA.",
+    "verible": "Verilog diagnostics, formatting and navigation, inside the editor.",
+    "slang": "SystemVerilog semantic analysis, which sees what syntax alone cannot.",
+    "clang-format": "C, C++ and C± formatting with Shift+Alt+F."
+  },
+  "componentName": {
+    "msys": "MSYS Toolchain",
+    "yanc": "YANC"
   }
 }

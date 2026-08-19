@@ -117,7 +117,7 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
     // PowerShell Expand-Archive (ships on every Win 10+).
     execSync(
         `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit' }
+        { stdio: 'inherit', windowsHide: true }
     );
 }
 

@@ -126,12 +126,14 @@ export async function resolveVerilatorTools(componentsPath) {
 
     if (!await electronAPI.fileExists(verilatorScript)) {
         throw new Error(tr('error.toolchain.verilatorNotFound', {
-            paths: `  ${verilatorScript}\n  (bundle nao instalado — rode "npm run bootstrap" pra baixar)`,
+            paths: `  ${verilatorScript}`,
         }));
     }
     if (!await electronAPI.fileExists(perlExe)) {
+        // Perl ausente com o resto presente e bundle corrompido; a cura e a
+        // mesma da ausencia: baixar a Cadeia de compilacao de novo.
         throw new Error(tr('error.toolchain.verilatorNotFound', {
-            paths: `  ${perlExe}\n  (bundle corrompido — apague components/Packages/msys/ e rode "npm run bootstrap")`,
+            paths: `  ${perlExe}`,
         }));
     }
 

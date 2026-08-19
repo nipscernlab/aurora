@@ -29,11 +29,32 @@
  * componente baixado durante a sessão continuaria invisível, e o componente
  * apagado com o aplicativo aberto continuaria "presente" até fechar.
  *
- * O QUE NÃO É COMPONENTE
- * ----------------------
- * O MSYS, com Icarus, Verilator e o Python embarcado, e os compiladores do
- * YANC. Sem eles não se compila, e não compilar não é uma AURORA reduzida, é
- * uma AURORA quebrada. Ficam marcados como `essencial` e viajam no instalador.
+ * O QUE FICA NO INSTALADOR, E O QUE NÃO FICA
+ * ------------------------------------------
+ * Só os compiladores do YANC, que são doze megabytes e são o SAPHO em si.
+ *
+ * A cadeia de compilação NÃO fica, e essa é a decisão que sustenta a ideia
+ * inteira: ela sozinha são 272 MB de download e 955 MB em disco, mais da
+ * metade do instalador. Mantê-la dentro seria o mesmo que não ter
+ * componentizado nada.
+ *
+ * O preço disso é honesto e precisa ser dito: numa máquina recém-instalada não
+ * se compila até esse download terminar. Quem tenta é barrado pelo portão, com
+ * a frase que diz o que baixar, e não com um erro de ferramenta não encontrada.
+ *
+ * `essencial` marca o que não pode ser removido. `requerParaCompilar` marca o
+ * que a AURORA precisa para compilar qualquer coisa, e é o que faz a interface
+ * tratar a ausência dele como assunto urgente em vez de recurso a menos. As
+ * duas coisas eram uma só antes, e confundi-las foi o que quase deixou 955 MB
+ * presos dentro do instalador.
+ *
+ * O PRÓXIMO CORTE
+ * ---------------
+ * A cadeia é hoje um pacote só, e não precisaria ser. Icarus, que é o que
+ * simula, é pequeno; o volume está no mingw (g++, perl, cabeçalhos) que só o
+ * Verilator usa, e no Python do cocotb. Separá-los faria o primeiro download
+ * cair de 272 MB para algumas dezenas. Depende de publicar artefatos separados
+ * no aurora-toolchain, que é fora deste repositório.
  */
 
 'use strict';
@@ -61,32 +82,43 @@ const VALIDADE_MS = 3000;
 /**
  * O catálogo.
  *
- * `sentinela` é relativa a components/. `tamanhoMB` é o tamanho instalado, para
- * o painel dizer quanto custa antes de a pessoa aceitar. `essencial` marca o que
- * vem no instalador e não pode ser removido.
+ * `sentinela` é relativa a components/. `tamanhoMB` é o tamanho em disco e
+ * `downloadMB` o que trafega, que são números bem diferentes e os dois
+ * importam: um é o espaço que a pessoa cede, o outro é o tempo que ela espera.
+ * `essencial` marca o que não pode ser removido. `requerParaCompilar` marca o
+ * que a AURORA precisa para compilar qualquer coisa.
  *
  * @type {Array<{
  *   chave: string, nome: string, resumo: string, sentinela: string,
- *   tamanhoMB: number, essencial: boolean, script: string|null,
+ *   tamanhoMB: number, downloadMB: number, essencial: boolean,
+ *   requerParaCompilar?: boolean, script: string|null,
  * }>}
  */
 const COMPONENTES = [
   {
     chave: 'msys',
-    nome: 'Cadeia de compilação',
-    resumo: 'Icarus Verilog, Verilator, Yosys e o Python embarcado. É o que compila e simula.',
+    nome: 'MSYS Toolchain',
+    resumo: 'A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.',
     sentinela: 'Packages/msys/mingw64/bin/verilator_bin.exe',
     tamanhoMB: 955,
-    essencial: true,
+    downloadMB: 272,
+    // Fora do instalador de propósito. É mais da metade dele, e mantê-la
+    // dentro seria não ter componentizado nada. Removível como qualquer outro:
+    // quem só edita e lê código não precisa de 955 MB parados no disco.
+    essencial: false,
+    requerParaCompilar: true,
     script: 'download-toolchain.js',
   },
   {
     chave: 'yanc',
-    nome: 'Compiladores do SAPHO',
-    resumo: 'cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.',
+    nome: 'YANC',
+    resumo: 'O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.',
     sentinela: 'bin/cppcomp.exe',
     tamanhoMB: 12,
+    downloadMB: 5,
+    // O único que fica no instalador. São doze megabytes, e é o SAPHO em si.
     essencial: true,
+    requerParaCompilar: true,
     script: 'download-yanc.js',
   },
   {
@@ -95,6 +127,7 @@ const COMPONENTES = [
     resumo: 'O visualizador de formas de onda clássico, em janela própria.',
     sentinela: 'Packages/gtkwave-nipscern/gtkwave.exe',
     tamanhoMB: 88,
+    downloadMB: 30,
     essencial: false,
     script: 'download-gtkwave-nipscern.js',
   },
@@ -104,6 +137,7 @@ const COMPONENTES = [
     resumo: 'O visualizador de formas de onda embutido, dentro da AURORA.',
     sentinela: 'Packages/surfer/surfer-aurora.exe',
     tamanhoMB: 43,
+    downloadMB: 16,
     essencial: false,
     script: 'download-surfer.js',
   },
@@ -113,6 +147,7 @@ const COMPONENTES = [
     resumo: 'Diagnósticos, formatação e navegação em Verilog, dentro do editor.',
     sentinela: 'Packages/verible/bin/verible-verilog-ls.exe',
     tamanhoMB: 3,
+    downloadMB: 2,
     essencial: false,
     script: 'download-verible.js',
   },
@@ -122,6 +157,7 @@ const COMPONENTES = [
     resumo: 'Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.',
     sentinela: 'Packages/slang-server/bin/slang-server.exe',
     tamanhoMB: 8,
+    downloadMB: 3,
     essencial: false,
     script: 'download-slang-server.js',
   },
@@ -131,6 +167,7 @@ const COMPONENTES = [
     resumo: 'Formatação de C, C++ e C± com Shift+Alt+F.',
     sentinela: 'Packages/clang-format/bin/clang-format.exe',
     tamanhoMB: 3,
+    downloadMB: 2,
     essencial: false,
     script: 'download-clang-format.js',
   },
@@ -205,8 +242,10 @@ function listar() {
 function mensagemDeAusencia(chave) {
   const c = PORCHAVE.get(chave);
   const nome = c ? c.nome : chave;
+  // O numero citado e o do download, nao o do disco: neste momento a pessoa
+  // quer saber quanto vai esperar, nao quanto vai ceder.
   return `${nome} não está instalado. Abra Configurações, Componentes, e baixe ${nome}`
-    + `${c ? ` (${c.tamanhoMB} MB)` : ''} para usar este recurso.`;
+    + `${c ? ` (${c.downloadMB} MB)` : ''} para usar este recurso.`;
 }
 
 module.exports = {

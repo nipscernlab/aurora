@@ -20,6 +20,12 @@
  * Baixar custa tempo e se refaz. Remover apaga, e o que se apaga por engano
  * volta só com outro download, que numa rede de laboratório pode ser a tarde
  * inteira.
+ *
+ * TEXTO VEM DO i18n, COM RESERVA EM PORTUGUÊS
+ * -------------------------------------------
+ * O nome e o resumo de cada componente vêm por chave (componentName.*,
+ * componentSummary.*) para a lista falar a língua da interface; o catálogo do
+ * main continua sendo a fonte do resto.
  */
 
 import { electronAPI } from '../app/electron_api.js';
@@ -27,6 +33,61 @@ import { showDialog } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
 
 let baixando = null;
+
+/** Reservas em português para antes de as locales carregarem. */
+const RESERVA = {
+  'modal.settings.componentsInstalled': 'Instalado',
+  'modal.settings.componentsMissing': 'Não instalado',
+  'modal.settings.componentsAlways': 'Sempre instalado',
+  'modal.settings.componentsNeededToCompile': 'Necessário para compilar',
+  'modal.settings.componentsDownload': 'Baixar',
+  'modal.settings.componentsRemove': 'Remover',
+  'modal.settings.componentsAllInstalled': 'Tudo instalado.',
+  'modal.settings.componentsAvailable': '{n} disponíveis para baixar, {mb} no total.',
+  'modal.settings.componentsDownloadOf': 'download de {mb}',
+  'modal.settings.componentsInstalledOk': 'Componente instalado.',
+  'modal.settings.componentsInstallFailed': 'Não foi possível baixar: {erro}',
+  'modal.settings.componentsRemoveTitle': 'Remover {nome}',
+  'modal.settings.componentsRemoveBody':
+    'Os arquivos de {nome} saem do disco. O que depende dele para de funcionar até você '
+    + 'baixar de novo, e a AURORA vai avisar quando isso acontecer.\n\nSeus projetos não são tocados.',
+  'modal.settings.componentsRemoveConfirm': 'Remover',
+  'modal.settings.componentsRemoved': '{nome} removido, {mb} livres.',
+  'modal.settings.componentsRemoveFailed': 'Não foi possível remover: {erro}',
+  'modal.settings.componentsBusy': 'Já há um download em andamento.',
+  'modal.settings.componentsMissingTitle': 'Componente não instalado',
+  'modal.settings.componentsNotNow': 'Agora não',
+  'modal.settings.componentsDownloadNow': 'Baixar agora',
+  'modal.settings.componentsCancel': 'Cancelar',
+  'modal.settings.componentsReadFailed': 'Não foi possível ler os componentes: {erro}',
+  'modal.settings.componentsCompileMissing':
+    'Esta máquina ainda não compila: a cadeia de compilação ({mb} de download) não foi '
+    + 'instalada. Abra Configurações, Componentes, para baixá-la.',
+  'modal.settings.componentsCompileMissingTitle': 'Cadeia de compilação ausente',
+};
+
+/** t() com reserva e {placeholders}. */
+function tr(chave, valores) {
+  const cru = window.t ? window.t(chave) : null;
+  let texto = cru && cru !== chave ? cru : (RESERVA[chave] || chave);
+  for (const [k, v] of Object.entries(valores || {})) {
+    texto = texto.split(`{${k}}`).join(String(v));
+  }
+  return texto;
+}
+
+/** Nome e resumo traduzidos, com o catálogo como reserva. */
+function nomeDe(c) {
+  const k = `componentName.${c.chave}`;
+  const v = window.t ? window.t(k) : null;
+  return v && v !== k ? v : c.nome;
+}
+
+function resumoDe(c) {
+  const k = `componentSummary.${c.chave}`;
+  const v = window.t ? window.t(k) : null;
+  return v && v !== k ? v : c.resumo;
+}
 
 function elemento(html) {
   const d = document.createElement('div');
@@ -44,27 +105,44 @@ function tamanhoLegivel(mb) {
 }
 
 function cartao(c) {
-  const estado = c.essencial
-    ? '<span class="componente-selo essencial">Sempre instalado</span>'
-    : c.instalado
-      ? '<span class="componente-selo instalado">Instalado</span>'
-      : '<span class="componente-selo ausente">Não instalado</span>';
+  const selos = [];
+  if (c.essencial) {
+    selos.push(`<span class="componente-selo essencial">${escapar(tr('modal.settings.componentsAlways'))}</span>`);
+  } else if (c.instalado) {
+    selos.push(`<span class="componente-selo instalado">${escapar(tr('modal.settings.componentsInstalled'))}</span>`);
+  } else {
+    selos.push(`<span class="componente-selo ausente">${escapar(tr('modal.settings.componentsMissing'))}</span>`);
+  }
+  // O que compila e nao esta aqui e assunto urgente, nao recurso a menos.
+  if (c.requerParaCompilar && !c.instalado) {
+    selos.push(`<span class="componente-selo urgente">${escapar(tr('modal.settings.componentsNeededToCompile'))}</span>`);
+  }
 
-  const acao = c.essencial
+  // Sem botao de remover, de proposito. Em laboratorio compartilhado, um
+  // clique de um aluno deixaria o proximo sem compilar, e re-baixar 272 MB
+  // numa rede de universidade custa a tarde. O IPC de remocao existe no main
+  // para um futuro modo de administracao; quem precisar hoje usa Abrir a
+  // pasta. Disco parado e mais barato que banda de laboratorio.
+  const acao = (c.essencial || c.instalado)
     ? ''
-    : c.instalado
-      ? `<button class="btn" type="button" data-remover="${escapar(c.chave)}">Remover</button>`
-      : `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}">Baixar</button>`;
+    : `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}">`
+      + `<i class="ph ph-download-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsDownload'))}</button>`;
+
+  // Instalado mostra o que ocupa; ausente mostra o que vai trafegar, que e o
+  // numero que responde "quanto vou esperar".
+  const tamanho = c.instalado
+    ? tamanhoLegivel(c.tamanhoMB)
+    : tr('modal.settings.componentsDownloadOf', { mb: tamanhoLegivel(c.downloadMB) });
 
   return elemento(`
-    <div class="componente" data-chave="${escapar(c.chave)}">
+    <div class="componente${c.requerParaCompilar && !c.instalado ? ' componente-urgente' : ''}" data-chave="${escapar(c.chave)}">
       <div class="componente-texto">
         <div class="componente-titulo">
-          <span class="componente-nome">${escapar(c.nome)}</span>
-          ${estado}
-          <span class="componente-tamanho">${tamanhoLegivel(c.tamanhoMB)}</span>
+          <span class="componente-nome">${escapar(nomeDe(c))}</span>
+          ${selos.join('\n          ')}
+          <span class="componente-tamanho">${escapar(tamanho)}</span>
         </div>
-        <p class="componente-resumo">${escapar(c.resumo)}</p>
+        <p class="componente-resumo">${escapar(resumoDe(c))}</p>
         <div class="componente-progresso" hidden>
           <div class="componente-barra"><span></span></div>
           <span class="componente-linha"></span>
@@ -82,7 +160,7 @@ async function desenhar() {
   let dados;
   try { dados = await electronAPI.componentesListar(); }
   catch (e) {
-    caixa.innerHTML = `<p class="componentes-erro">Não foi possível ler os componentes: ${escapar(e?.message || e)}</p>`;
+    caixa.innerHTML = `<p class="componentes-erro">${escapar(tr('modal.settings.componentsReadFailed', { erro: e?.message || e }))}</p>`;
     return;
   }
 
@@ -93,10 +171,10 @@ async function desenhar() {
   const ausentes = lista.filter((c) => !c.instalado && !c.essencial);
   const rodape = document.getElementById('componentes-espaco');
   if (rodape) {
-    const soma = ausentes.reduce((s, c) => s + c.tamanhoMB, 0);
+    const soma = ausentes.reduce((s, c) => s + (c.downloadMB || 0), 0);
     rodape.textContent = ausentes.length
-      ? `${ausentes.length} disponíveis para baixar, ${tamanhoLegivel(soma)} no total.`
-      : 'Tudo instalado.';
+      ? tr('modal.settings.componentsAvailable', { n: ausentes.length, mb: tamanhoLegivel(soma) })
+      : tr('modal.settings.componentsAllInstalled');
   }
 
   // Um download já em curso quando o painel abriu continua sendo um download:
@@ -130,7 +208,7 @@ function aplicarProgresso(d) {
 
 async function instalar(chave) {
   if (baixando) {
-    showCardNotification('Já há um download em andamento.', 'info', 4000, 'Componentes');
+    showCardNotification(tr('modal.settings.componentsBusy'), 'info', 4000, 'Componentes');
     return;
   }
   marcarBaixando(chave);
@@ -138,38 +216,9 @@ async function instalar(chave) {
     .catch((e) => ({ ok: false, erro: e?.message }));
   baixando = null;
 
-  if (r?.ok) showCardNotification('Componente instalado.', 'success', 5000, 'Componentes');
-  else showCardNotification(`Não foi possível baixar: ${r?.erro || 'erro desconhecido'}`,
+  if (r?.ok) showCardNotification(tr('modal.settings.componentsInstalledOk'), 'success', 5000, 'Componentes');
+  else showCardNotification(tr('modal.settings.componentsInstallFailed', { erro: r?.erro || '?' }),
     'error', 9000, 'Componentes');
-  await desenhar();
-}
-
-async function remover(chave) {
-  const alvo = document.querySelector(`.componente[data-chave="${chave}"] .componente-nome`);
-  const nome = alvo?.textContent || chave;
-  const escolha = await showDialog({
-    title: `Remover ${nome}`,
-    message:
-      `Os arquivos de ${nome} saem do disco. O que depende dele para de funcionar `
-      + 'até você baixar de novo, e a AURORA vai avisar quando isso acontecer.\n\n'
-      + 'Seus projetos não são tocados.',
-    variant: 'warning',
-    buttons: [
-      { label: 'Cancelar', action: 'cancel', type: 'cancel' },
-      { label: 'Remover', action: 'remover', type: 'danger' },
-    ],
-  });
-  if (escolha !== 'remover') return;
-
-  const r = await electronAPI.componentesRemover(chave)
-    .catch((e) => ({ ok: false, erro: e?.message }));
-  if (r?.ok) {
-    showCardNotification(`${nome} removido, ${tamanhoLegivel(r.liberadoMB || 0)} livres.`,
-      'success', 5000, 'Componentes');
-  } else {
-    showCardNotification(`Não foi possível remover: ${r?.erro || 'erro desconhecido'}`,
-      'error', 8000, 'Componentes');
-  }
   await desenhar();
 }
 
@@ -184,16 +233,35 @@ async function remover(chave) {
  */
 async function aoSerBarrado({ chave, mensagem }) {
   const escolha = await showDialog({
-    title: 'Componente não instalado',
+    title: tr('modal.settings.componentsMissingTitle'),
     message: mensagem,
     variant: 'warning',
     buttons: [
-      { label: 'Agora não', action: 'cancel', type: 'cancel' },
-      { label: 'Baixar agora', action: 'baixar', type: 'primary' },
+      { label: tr('modal.settings.componentsNotNow'), action: 'cancel', type: 'cancel' },
+      { label: tr('modal.settings.componentsDownloadNow'), action: 'baixar', type: 'primary' },
     ],
   });
   if (escolha !== 'baixar') return;
   await instalar(chave);
+}
+
+/**
+ * Aviso de boot: instalação nova ainda não compila.
+ *
+ * Só quando falta algo que compila. Sem isto, a primeira notícia da cadeia
+ * ausente seria o primeiro Compilar falhar, e o primeiro contato de um aluno
+ * com o SAPHO seria um erro.
+ */
+async function avisarSeNaoCompila() {
+  try {
+    const dados = await electronAPI.componentesListar?.();
+    const falta = (dados?.componentes || [])
+      .find((c) => c.requerParaCompilar && !c.instalado);
+    if (!falta) return;
+    showCardNotification(
+      tr('modal.settings.componentsCompileMissing', { mb: tamanhoLegivel(falta.downloadMB) }),
+      'warning', 12000, tr('modal.settings.componentsCompileMissingTitle'));
+  } catch (_) { /* cortesia de boot; o portao continua segurando */ }
 }
 
 function ligar() {
@@ -207,12 +275,10 @@ function ligar() {
   // Delegação: a lista se refaz inteira a cada mudança, e ouvintes presos a
   // cada botão morreriam junto com ela.
   caixa.addEventListener('click', (e) => {
-    const alvo = e.target instanceof Element ? e.target.closest('[data-instalar], [data-remover]') : null;
+    const alvo = e.target instanceof Element ? e.target.closest('[data-instalar]') : null;
     if (!alvo) return;
-    const paraInstalar = alvo.getAttribute('data-instalar');
-    if (paraInstalar) { instalar(paraInstalar); return; }
-    const paraRemover = alvo.getAttribute('data-remover');
-    if (paraRemover) remover(paraRemover);
+    const chave = alvo.getAttribute('data-instalar');
+    if (chave) instalar(chave);
   });
 
   document.getElementById('componentes-abrir-pasta')
@@ -230,6 +296,7 @@ if (typeof window !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     ligar();
     desenhar();
+    avisarSeNaoCompila();
   });
 }
 

@@ -103,7 +103,7 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
   fs.mkdirSync(destDir, { recursive: true });
   execSync(
     `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-    { stdio: 'inherit' },
+    { stdio: 'inherit', windowsHide: true },
   );
 }
 

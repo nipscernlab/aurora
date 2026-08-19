@@ -38,16 +38,26 @@ describe('catalogo de componentes', () => {
     expect(new Set(chaves).size).toBe(chaves.length);
   });
 
-  it('marca como essencial exatamente o que compila', () => {
-    // Sem cadeia de compilacao e sem os compiladores do SAPHO nao ha AURORA,
-    // so uma janela. Estes dois nunca podem virar download opcional.
-    const essenciais = COMPONENTES.filter((c) => c.essencial).map((c) => c.chave).sort();
-    expect(essenciais).toEqual(['msys', 'yanc']);
+  it('so o YANC e essencial: e o unico que viaja no instalador', () => {
+    // A cadeia de compilacao NAO e essencial de proposito. Sao 955 MB em
+    // disco, mais da metade do instalador, e mante-la dentro seria nao ter
+    // componentizado nada. Se alguem promover o msys a essencial de volta,
+    // este teste e o lugar onde a decisao tem que ser discutida de novo.
+    const essenciais = COMPONENTES.filter((c) => c.essencial).map((c) => c.chave);
+    expect(essenciais).toEqual(['yanc']);
   });
 
-  it('todo componente declara tamanho, para o painel poder avisar o custo', () => {
+  it('o que compila esta marcado, para a interface tratar como urgente', () => {
+    const compilam = COMPONENTES.filter((c) => c.requerParaCompilar).map((c) => c.chave).sort();
+    expect(compilam).toEqual(['msys', 'yanc']);
+  });
+
+  it('todo componente declara tamanho em disco e de download', () => {
     for (const c of COMPONENTES) {
       expect(c.tamanhoMB, c.chave).toBeGreaterThan(0);
+      expect(c.downloadMB, c.chave).toBeGreaterThan(0);
+      // O zip nunca e maior que o extraido; se ficar, alguem trocou os campos.
+      expect(c.downloadMB, c.chave).toBeLessThanOrEqual(c.tamanhoMB);
     }
   });
 });
@@ -112,10 +122,41 @@ describe('mensagemDeAusencia', () => {
     const m = mensagemDeAusencia('gtkwave');
     expect(m).toContain('GTKWave');
     expect(m).toContain('Componentes');
-    expect(m).toContain('88 MB');
+    // O tamanho citado e o do download, que e o que a pessoa vai esperar.
+    expect(m).toContain('30 MB');
   });
 
   it('nao quebra com chave desconhecida', () => {
     expect(mensagemDeAusencia('xpto')).toContain('xpto');
+  });
+});
+
+
+describe('instalador e catalogo andam juntos', () => {
+  // O que o registry diz que e opcional TEM que estar excluido do
+  // extraResources, senao o instalador volta a carregar tudo; e o que e
+  // essencial NAO pode estar excluido, senao a AURORA sai de fabrica quebrada.
+  const build = JSON.parse(
+    fs.readFileSync(path.join(RAIZ, 'package.json'), 'utf8')).build;
+  const filtro = build.extraResources[0].filter;
+
+  it('todo componente opcional esta fora do instalador', () => {
+    for (const c of COMPONENTES.filter((x) => !x.essencial)) {
+      const pasta = c.sentinela.split('/')[1];
+      expect(filtro, `${c.chave} deveria estar excluido`).toContain(`!Packages/${pasta}/**`);
+    }
+  });
+
+  it('nenhum componente essencial esta excluido', () => {
+    for (const c of COMPONENTES.filter((x) => x.essencial)) {
+      const partes = c.sentinela.split('/');
+      if (partes[0] !== 'Packages') return; // yanc mora em bin/, nunca excluivel
+      expect(filtro).not.toContain(`!Packages/${partes[1]}/**`);
+    }
+  });
+
+  it('os instaladores continuam dentro do pacote', () => {
+    // Sem components/Scripts a maquina do aluno nao teria COMO baixar nada.
+    expect(filtro.some((f) => f.startsWith('!Scripts'))).toBe(false);
   });
 });

@@ -210,6 +210,9 @@ without commercial dual-licensing for all components", e a NIPS-CERN 1.1 não é
 aprovada pela OSI, porque a seção 4 exige autorização prévia por escrito para
 exploração comercial, contrariando o item 6 da Open Source Definition. O e-mail
 perguntando isso a eles foi enviado em 10/08 e a resposta trava o resto.
+Reconferido em 18/08: ainda sem resposta. Se passar de uma semana, vale
+reenviar citando o numero da organizacao, porque pedido sem resposta some na
+fila deles.
 
 Vale saber, para não gastar dinheiro à toa: certificado EV deixou de dar
 reputação instantânea no SmartScreen em março de 2024, então OV e EV se
@@ -334,6 +337,34 @@ na máquina do ensaio, com o app de verdade.
 ## 5. Melhorias na AURORA
 
 Pós-release, com a regra de sempre: medir antes de mexer.
+
+- [ ] **Toolchain como componentes baixados depois da instalação.** Pedido em
+      18/08/2026, com o software já em produção. O instalador carrega 542 MB
+      porque leva MSYS, Icarus, Verilator, Yosys, GTKWave, Surfer e Python
+      dentro; a proposta é levar só a AURORA e o YANC, e cada ferramenta virar
+      um componente baixado na primeira vez que for preciso, como o manual e as
+      CLIs de IA já fazem. O bootstrap de dev já funciona assim (download-*.js
+      com sentinela); falta a mesma ideia no aplicativo instalado, com hash e
+      retomada. Além do instalador menor, desacopla o ciclo de release da
+      AURORA do ciclo das ferramentas, que é o que reduz o risco de quebrar
+      todo mundo de uma vez. É mudança grande: não entra às vésperas de uma
+      release, entra planejada.
+
+- [ ] **Report de bug em um clique, de dentro da AURORA.** O caminho por
+      e-mail existe e fica como reserva, mas exige conta aberta e vontade. A
+      proposta: um botão que junta sozinho o diagnóstico e o fim do main.log e
+      envia para um Worker do Cloudflare (a infra já existe no nipscernweb),
+      que cria uma issue num repo privado com um token guardado no próprio
+      Worker. O aluno não precisa de conta em nada, o relato chega estruturado,
+      e o limite de tamanho e de frequência fica no Worker. Depende de dois
+      passos do Chrysthofer: decidir o repo de destino e criar o token.
+
+- [ ] **Suporte a GitLab no Git-D.** Pedido em 18/08/2026. O painel fala só com
+      GitHub (OAuth, criar e listar repos); o laboratório também vive no GitLab
+      (grupo nips-cern, fork do Surfer). Clonar, puxar e enviar já funcionam
+      pela credencial do próprio git, então o grosso é conta e criação de
+      repositório: autenticação por token pessoal, e a limpeza de credenciais
+      do github_forget ganhando os hosts do GitLab.
 
 - [ ] **P6, o que sobrou de performance.** Restam as transições de largura da
       árvore (`.file-tree-container`) e do painel de IA

@@ -518,11 +518,31 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   stroke-width: 1.5 !important;
 }
 
-/* Bus-width tags (the "/32/" boxes netlistsvg drops on every bus). Hidden by
- * request — they read as clutter and the wires already imply the bus. Both the
- * box <rect> and the "/N/" <text> carry a busLabel_<n> class, so one rule
- * removes the whole tag. Re-enable by deleting this rule. */
-.svg-content svg [class*="busLabel_"] { display: none; }
+/* Marcadores de largura do barramento (as caixinhas "/32/" que o netlistsvg
+ * poe em cada barramento).
+ *
+ * Foram escondidos em 04/06/2026 por parecerem poluicao, e voltaram a pedido.
+ * Num diagrama de processador a largura e informacao de projeto, e nao enfeite:
+ * quem le o esquematico precisa saber se aquele fio leva 1 bit ou 32 sem ir
+ * conferir no Verilog.
+ *
+ * Voltam ajustados ao tema, e nao como o netlistsvg os desenha. A caixa recebe
+ * o fundo do painel para o numero se ler sobre o fio, em vez de virar um bloco
+ * claro competindo com as celulas. */
+.svg-content svg [class*="busLabel_"] { display: inline; }
+
+.svg-content svg rect[class*="busLabel_"] {
+  fill: var(--bg) !important;
+  stroke: var(--prism-wire) !important;
+  stroke-width: 0.6 !important;
+}
+
+.svg-content svg text[class*="busLabel_"] {
+  font-size: 8px !important;
+  font-weight: 600 !important;
+  fill: var(--prism-wire-hi) !important;
+  stroke: none !important;
+}
 
 /* Generic netlistsvg module cells (the stock box-and-label, no custom skin).
  *

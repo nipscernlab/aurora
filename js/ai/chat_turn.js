@@ -77,17 +77,45 @@ function buildMemoryBlock(memories) {
     return out;
 }
 
+/**
+ * Render the missing-components block, or '' when everything is installed.
+ *
+ * The gate that actually blocks a missing component lives in the main process
+ * (main/compile/binary_allowlist.js), and it holds regardless of what the model
+ * believes. This block exists so the model does not waste a turn proposing a
+ * tool that is guaranteed to fail: without it, the first sign of a missing
+ * component is a failed tool call, and a failed call invites a retry before a
+ * report.
+ *
+ * Only the missing ones are listed. Naming the installed ones every turn would
+ * cost tokens on the common path to say nothing.
+ *
+ * @param {Array<{nome:string, resumo:string, instalado:boolean}>} componentes
+ */
+export function buildComponentsBlock(componentes) {
+    if (!Array.isArray(componentes)) return '';
+    const missing = componentes.filter((c) => c && !c.instalado);
+    if (missing.length === 0) return '';
+    return `\nCOMPONENTS NOT INSTALLED ON THIS MACHINE — tools that need them WILL fail:\n` +
+        missing.map((c) => `  ${c.nome} — ${c.resumo}`).join('\n') +
+        `\nDo not call tools that depend on these. If the user asks for one, say the component is\n` +
+        `not installed and that it can be downloaded in Settings, Components. Do not retry.\n`;
+}
+
 // The per-turn project context appended to SYSTEM_PROMPT. Injecting the active
 // project paths every turn saves the model a get_current_project tool-call and
 // stops it hallucinating paths from earlier projects; rebuilt each turn so
 // switching projects mid-chat just works. (Text is model-facing, keep verbatim.)
-export function buildProjectContext(projectPath, spfPath, memories) {
-    return projectPath
+export function buildProjectContext(projectPath, spfPath, memories, componentes) {
+    return (projectPath
         ? `\n\nACTIVE AURORA PROJECT — single source of truth, refreshed every turn:\n` +
           `  project_root: ${projectPath}\n` +
           (spfPath ? `  spf_file:     ${spfPath}\n` : '') +
           `Use these exact paths when calling tools (read_file, create_file, set_top_level, …).\n` +
           `Do not hallucinate a different root, do not assume cwd. If you need the full file list, call get_project_tree.\n` +
           buildMemoryBlock(memories)
-        : '\n\nNO PROJECT IS CURRENTLY OPEN — ask the user to open one before running any project-scoped tool.\n';
+        : '\n\nNO PROJECT IS CURRENTLY OPEN — ask the user to open one before running any project-scoped tool.\n')
+        // Fora do bloco do projeto: um componente ausente atrapalha igual, com
+        // projeto aberto ou fechado.
+        + buildComponentsBlock(componentes);
 }

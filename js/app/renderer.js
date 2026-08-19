@@ -11,6 +11,7 @@ import '../terminal/tab_orientation.js';   // abas em coluna quando o terminal f
 import '../ui/network_watch.js';  // aviso de queda de internet
 import '../ui/github_forget.js'; // sair do GitHub e limpar a maquina
 import '../ui/bug_report.js';   // botao Relatar um problema, no painel Sobre
+import '../ui/components_panel.js'; // painel de componentes baixaveis
 // Side-effect import: boots the TCMD tab's embedded interactive shell (PowerShell)
 // and self-initializes on DOMContentLoaded.
 import '../terminal/shell_terminal.js';

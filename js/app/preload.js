@@ -82,6 +82,21 @@ const fileOperations = {
   bugReportDiagnostico: () => ipcRenderer.invoke('bugreport:diagnostico'),
   bugReportEnviar:      (texto) => ipcRenderer.invoke('bugreport:enviar', texto),
   bugReportDisponivel:  () => ipcRenderer.invoke('bugreport:disponivel'),
+
+  // Componentes baixaveis (main/ipc/components.js). O bloqueio de verdade fica
+  // no allowlist do main; estas chamadas sao para o painel e para a interface
+  // poder avisar antes de a pessoa clicar.
+  componentesListar:    () => ipcRenderer.invoke('componentes:listar'),
+  componentesInstalar:  (chave) => ipcRenderer.invoke('componentes:instalar', chave),
+  componentesRemover:   (chave) => ipcRenderer.invoke('componentes:remover', chave),
+  componentesInstalado: (chave) => ipcRenderer.invoke('componentes:instalado', chave),
+  componentesAbrirPasta: () => ipcRenderer.invoke('componentes:abrirPasta'),
+  onComponenteProgresso: (cb) =>
+    ipcRenderer.on('componentes:progresso', (_e, dados) => cb(dados)),
+  // Disparado pelo portao do main quando algo foi barrado por falta de
+  // componente, venha de onde vier: botao, API, IA ou servidor de linguagem.
+  onComponenteAusente: (cb) =>
+    ipcRenderer.on('componentes:ausente', (_e, dados) => cb(dados)),
 };
 
 /* ============================================================================

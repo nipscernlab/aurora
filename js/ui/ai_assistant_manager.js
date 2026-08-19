@@ -1927,7 +1927,18 @@ class AIAssistantManager {
     } catch (e) {
       console.warn('[ai] could not load project memories:', e);  // never block a turn over this
     }
-    const systemPrompt = SYSTEM_PROMPT + buildProjectContext(projectPath, spfPath, memories);
+    // Componentes ausentes, lidos do disco a cada turno pelo mesmo motivo das
+    // memorias: a pessoa pode ter baixado o componente no meio da conversa, e um
+    // valor guardado faria a IA continuar recusando o que ja esta instalado.
+    let componentes = [];
+    try {
+      const r = await window.electronAPI?.componentesListar?.();
+      componentes = r?.componentes || [];
+    } catch (e) {
+      console.warn('[ai] could not read components:', e);  // never block a turn over this
+    }
+    const systemPrompt = SYSTEM_PROMPT
+      + buildProjectContext(projectPath, spfPath, memories, componentes);
 
     try {
       const r = await window.aiAPI.startChat({

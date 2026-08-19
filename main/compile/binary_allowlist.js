@@ -145,11 +145,16 @@ function isAllowed(binaryPath) {
         // onde botao, API, IA e servidor de linguagem passam, entao barrar aqui
         // barra em todos, inclusive nos caminhos que ainda nao existem.
         if (!componentes.estaInstalado(dono)) {
+          const mensagem = componentes.mensagemDeAusencia(dono);
+          // Avisa a janela do MESMO ponto que barrou. Quem chamou continua
+          // recebendo o erro abaixo; sao coisas diferentes, e as duas precisam
+          // acontecer. Ver main/components/notify.js.
+          require('../components/notify').anunciarAusencia(dono, mensagem);
           return {
             ok: false,
             motivo: 'componente-ausente',
             componente: dono,
-            error: componentes.mensagemDeAusencia(dono),
+            error: mensagem,
           };
         }
         return { ok: true };

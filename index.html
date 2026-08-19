@@ -1064,6 +1064,10 @@
                     <i class="ph ph-sparkle" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAI">AI Assistant</span>
                 </button>
+                <button class="settings-nav-item" data-pane="componentes" role="tab" aria-selected="false">
+                    <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionComponents">Components</span>
+                </button>
                 <button class="settings-nav-item" data-pane="about" role="tab" aria-selected="false">
                     <i class="ph ph-info" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAbout">About</span>
@@ -1257,6 +1261,25 @@
                         </p>
                     </div>
                     <div id="ai-provider-cards" class="ai-provider-cards"></div>
+                </section>
+
+                <!-- Componentes. A lista e o estado vem do main a cada
+                     abertura (js/ui/components_panel.js): presenca se le do
+                     disco, nunca de um valor guardado, senao o que o usuario
+                     acabou de baixar continuaria invisivel. -->
+                <section class="settings-pane" data-pane="componentes" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionComponents">Components</h3>
+                    </header>
+                    <p class="settings-pane-intro" data-i18n="modal.settings.componentsIntro">
+                        O que compila e simula vem no instalador. O resto voce baixa quando for usar, e pode remover para recuperar espaco.
+                    </p>
+                    <div id="componentes-lista" class="componentes-lista"></div>
+                    <div class="componentes-rodape">
+                        <span id="componentes-espaco" class="componentes-espaco"></span>
+                        <button id="componentes-abrir-pasta" class="btn" type="button" data-i18n="modal.settings.componentsOpenFolder">Abrir a pasta</button>
+                    </div>
                 </section>
 
                 <!-- About, version, credits, links, acknowledgements. The

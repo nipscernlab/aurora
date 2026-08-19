@@ -12,8 +12,17 @@ const { app } = require('electron');
 
 const isDev = process.env.NODE_ENV === 'development';
 
-const appRoot = app.getAppPath();
-const componentsPath = isDev
+/**
+ * Fora do Electron nao existe `app`, e este modulo e requerido por quase tudo
+ * em main/. Sem a reserva, qualquer teste que encostasse num modulo do processo
+ * principal morria no import, e o efeito pratico era que a parte da AURORA com
+ * mais consequencia era justamente a menos testavel. A reserva usa a raiz do
+ * repositorio, que e onde `components/` fica em desenvolvimento. Dentro do
+ * Electron nada muda: `app` existe e responde primeiro.
+ */
+const temApp = !!(app && typeof app.getAppPath === 'function');
+const appRoot = temApp ? app.getAppPath() : path.join(__dirname, '..');
+const componentsPath = (isDev || !temApp)
   ? path.join(appRoot, 'components')
   : path.join(path.dirname(app.getPath('exe')), 'components');
 

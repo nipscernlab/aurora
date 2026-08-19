@@ -18,6 +18,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { abrirFormulario, diagnosticoEmTexto } from './bug_report_form.js';
 
 export const BUG_EMAIL = 'contact@nipscern.com';
 
@@ -107,21 +108,22 @@ export const PROVEDORES = [
  * @param {{versao?: string, so?: string, electron?: string, chrome?: string,
  *          node?: string, projeto?: string, arquivo?: string, locale?: string}} d
  */
-export function montarCorpo(d = {}) {
+export function montarCorpo(d = {}, texto = {}) {
   const val = (x) => (x === undefined || x === null || x === '' ? 'não informado' : String(x));
+  // Quando o formulario ja recolheu o texto, ele vem preenchido; quando o
+  // usuario chamou o e-mail direto, ficam os cabecalhos vazios para preencher.
+  const ou = (v, vazio) => (String(v || '').trim() || vazio);
   return [
     'Descreva o problema abaixo. Quanto mais concreto, mais rápido de resolver.',
     '',
     'O QUE ACONTECEU',
-    '',
+    ou(texto.oQueAconteceu, ''),
     '',
     'O QUE VOCÊ ESPERAVA QUE ACONTECESSE',
-    '',
+    ou(texto.oQueEsperava, ''),
     '',
     'COMO REPRODUZIR, PASSO A PASSO',
-    '1. ',
-    '2. ',
-    '3. ',
+    ou(texto.comoReproduzir, '1. \n2. \n3. '),
     '',
     'Se puder, anexe o arquivo de log. Ele fica em:',
     '%APPDATA%\\SAPHO\\logs\\main.log',
@@ -217,16 +219,27 @@ async function coletar() {
   return d;
 }
 
-/** Abre o seletor de provedor e manda para o navegador. */
-export async function abrirRelatorio() {
+/**
+ * Abre o webmail escolhido, com o texto do usuário já dentro.
+ *
+ * É o caminho de reserva do formulário, e também o caminho inteiro quando o
+ * envio direto não está configurado. Recebe o texto para o e-mail não sair
+ * vazio pedindo que a pessoa escreva tudo de novo.
+ */
+export async function enviarPorEmail(texto = {}, diagDoMain = null) {
   const dados = await coletar();
+  if (diagDoMain) {
+    // O diagnóstico do main é mais completo (log, memória, núcleos). Quando ele
+    // veio, é ele que vale, para o e-mail levar o mesmo que a tela mostrou.
+    dados.diagCompleto = diagnosticoEmTexto(diagDoMain);
+  }
   const assunto = montarAssunto(dados.versao);
-  const corpo = montarCorpo(dados);
+  const corpo = montarCorpo(dados, texto);
 
   const escolha = await window.AuroraUI?.dialog?.({
-    title: 'Relatar um problema',
-    message: 'A AURORA abre a janela de composição do seu e-mail já preenchida, '
-      + 'com o diagnóstico incluído. Escolha por onde enviar.',
+    title: 'Enviar por e-mail',
+    message: 'A AURORA abre a janela de composição do seu e-mail já preenchida. '
+      + 'Escolha por onde enviar.',
     variant: 'info',
     buttons: PROVEDORES.map((p) => ({
       label: p.nome,
@@ -241,6 +254,11 @@ export async function abrirRelatorio() {
   if (!url) return;
   try { await electronAPI.openExternal(url); }
   catch (e) { window.showNotification?.(`Não foi possível abrir: ${e?.message || e}`, 'error'); }
+}
+
+/** Ponto de entrada do botão: o formulário, com o e-mail como reserva. */
+export async function abrirRelatorio() {
+  await abrirFormulario(enviarPorEmail);
 }
 
 if (typeof window !== 'undefined') {

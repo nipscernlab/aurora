@@ -45,6 +45,7 @@
 @import url("./modals/project_info.css");
 @import url("./modals/pdf_image.css");
 @import url("./modals/wave_config.css");
+@import url("./modals/bug_report.css");
 
 /* 7. panels */
 @import url("./panels/processor_config.css");

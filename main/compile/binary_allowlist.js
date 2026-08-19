@@ -28,50 +28,56 @@ const {
   getBundledPythonPath,
   isBundledPythonPath,
 } = require('./python_locator');
+const componentes = require('../components/registry');
 
 /**
- * Each entry: [basename, [allowed-subdirs-under-components]].
- * Subdir uses forward slashes; we normalize before comparing.
+ * Each entry: [basename, [allowed-subdirs-under-components], componentKey].
+ *
+ * A terceira coluna diz de qual componente o binario faz parte. Ela existe
+ * porque o instalador deixou de carregar tudo: um binario pode estar no lugar
+ * certo e mesmo assim nao existir na maquina, e este e o unico ponto por onde
+ * todos os caminhos de execucao passam antes de nascer um processo. Ver
+ * main/components/registry.js.
  */
-/** @type {Array<[string, string[]]>} */
+/** @type {Array<[string, string[], string]>} */
 const RAW_ALLOWLIST = [
-  ['cmmcomp.exe',   ['bin']],
-  ['appcomp.exe',   ['bin']],
-  ['asmcomp.exe',   ['bin']],
+  ['cmmcomp.exe',   ['bin'], 'yanc'],
+  ['appcomp.exe',   ['bin'], 'yanc'],
+  ['asmcomp.exe',   ['bin'], 'yanc'],
 
   // Unified mingw bundle: iverilog, vvp, verilator, perl, g++, make, yosys
   // (+ python, handled by the python branch in isAllowed) all live in
   // Packages/msys/mingw64/bin.
-  ['iverilog.exe',  ['Packages/msys/mingw64/bin']],
-  ['vvp.exe',       ['Packages/msys/mingw64/bin']],
-  ['verilator',     ['Packages/msys/mingw64/bin']],
-  ['verilator.exe', ['Packages/msys/mingw64/bin']],
-  ['perl.exe',      ['Packages/msys/mingw64/bin']],
-  ['g++.exe',       ['Packages/msys/mingw64/bin']],
-  ['make.exe',      ['Packages/msys/mingw64/bin']],
-  ['yosys.exe',     ['Packages/msys/mingw64/bin']],
+  ['iverilog.exe',  ['Packages/msys/mingw64/bin'], 'msys'],
+  ['vvp.exe',       ['Packages/msys/mingw64/bin'], 'msys'],
+  ['verilator',     ['Packages/msys/mingw64/bin'], 'msys'],
+  ['verilator.exe', ['Packages/msys/mingw64/bin'], 'msys'],
+  ['perl.exe',      ['Packages/msys/mingw64/bin'], 'msys'],
+  ['g++.exe',       ['Packages/msys/mingw64/bin'], 'msys'],
+  ['make.exe',      ['Packages/msys/mingw64/bin'], 'msys'],
+  ['yosys.exe',     ['Packages/msys/mingw64/bin'], 'msys'],
 
   // fst2vcd (and the display GTKWave) ship in the gtkwave-nipscern fork.
-  ['gtkwave.exe',   ['Packages/gtkwave-nipscern']],
-  ['fst2vcd.exe',   ['Packages/gtkwave-nipscern']],
+  ['gtkwave.exe',   ['Packages/gtkwave-nipscern'], 'gtkwave'],
+  ['fst2vcd.exe',   ['Packages/gtkwave-nipscern'], 'gtkwave'],
 
   // Surfer, the opt-in embedded waveform viewer (launch-surfer). NIPSCERN
   // fork build (surfer-aurora.exe) from gitlab.com/nips-cern/surfer-aurora.
-  ['surfer-aurora.exe', ['Packages/surfer']],
+  ['surfer-aurora.exe', ['Packages/surfer'], 'surfer'],
   // Verible language server, the Verilog LSP backend (O2). Long-lived
   // stdio process spawned by main/lsp/verible_lsp.js for diagnostics,
   // formatting, outline, hover and definition/references in Monaco.
-  ['verible-verilog-ls.exe', ['Packages/verible/bin']],
+  ['verible-verilog-ls.exe', ['Packages/verible/bin'], 'verible'],
   // clang-format, the C/C++/CMM formatter (Shift+Alt+F). One-shot stdin->
   // stdout process spawned by main/format/clang_format.js.
-  ['clang-format.exe', ['Packages/clang-format/bin']],
+  ['clang-format.exe', ['Packages/clang-format/bin'], 'clang-format'],
   // slang-server, the SystemVerilog SEMANTIC language server (O11).
   // Long-lived stdio process spawned by main/lsp/slang_lsp.js for
   // elaboration diagnostics + completion in Monaco (complements Verible).
-  ['slang-server.exe', ['Packages/slang-server/bin']],
+  ['slang-server.exe', ['Packages/slang-server/bin'], 'slang'],
   // comp2gtkw, the complex-number decoder pre-pass (decode-complex). Ships
   // with the YANC compilers in components/bin.
-  ['comp2gtkw.exe', ['bin']],
+  ['comp2gtkw.exe', ['bin'], 'yanc'],
   // (netlistsvg is no longer a bundled .exe, it runs in-process from
   //  @silimate/netlistsvg, so it needs no allowlist entry.)
 ];
@@ -125,7 +131,7 @@ function isAllowed(binaryPath) {
   }
 
   // Static allowlist.
-  for (const [allowedName, allowedDirs] of RAW_ALLOWLIST) {
+  for (const [allowedName, allowedDirs, dono] of RAW_ALLOWLIST) {
     if (baseName.toLowerCase() !== allowedName.toLowerCase()) continue;
     for (const sub of allowedDirs) {
       const expected = path.posix.join(toPosix(componentsPath), sub);
@@ -133,6 +139,19 @@ function isAllowed(binaryPath) {
       // can vary in drive-letter casing depending on how the user
       // launched the app.
       if (dir.toLowerCase() === expected.toLowerCase()) {
+        // O binario esta onde deveria. Falta saber se ele existe: desde que os
+        // componentes passaram a ser baixados sob demanda, estar no lugar certo
+        // e nao estar instalado sao coisas diferentes. Este e o unico ponto por
+        // onde botao, API, IA e servidor de linguagem passam, entao barrar aqui
+        // barra em todos, inclusive nos caminhos que ainda nao existem.
+        if (!componentes.estaInstalado(dono)) {
+          return {
+            ok: false,
+            motivo: 'componente-ausente',
+            componente: dono,
+            error: componentes.mensagemDeAusencia(dono),
+          };
+        }
         return { ok: true };
       }
     }
@@ -162,4 +181,11 @@ function listAllowedBinaries() {
   return staticRows.concat(pythonRows);
 }
 
-module.exports = { isAllowed, listAllowedBinaries };
+/** O componente dono de um binario, pelo nome do arquivo. */
+function donoDoBinario(baseName) {
+  const alvo = String(baseName || '').toLowerCase();
+  const achado = RAW_ALLOWLIST.find(([nome]) => nome.toLowerCase() === alvo);
+  return achado ? achado[2] : null;
+}
+
+module.exports = { isAllowed, listAllowedBinaries, donoDoBinario, RAW_ALLOWLIST };

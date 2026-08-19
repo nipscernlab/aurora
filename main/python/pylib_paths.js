@@ -79,10 +79,18 @@ function ensureDirs() {
  * de versao menor do bundle. Devolve '' quando o bundle nao esta instalado.
  */
 function bundleSitePackages() {
-  // Valvula de teste, no mesmo padrao de AURORA_PYLIBS_ROOT e AURORA_CLI_CACHE:
-  // fora do Electron o `main/paths.js` nao resolve, e sem isto nao havia como
-  // exercitar a ligacao com o interpretador em teste nenhum.
-  if (process.env.AURORA_BUNDLE_SITE) return process.env.AURORA_BUNDLE_SITE;
+  // Valvula de teste, no mesmo padrao de AURORA_PYLIBS_ROOT e AURORA_CLI_CACHE,
+  // para exercitar a ligacao com o interpretador sem depender do bundle real.
+  //
+  // A existencia e conferida mesmo aqui. Um caminho apontado e inexistente
+  // significa a mesma coisa que bundle ausente, e devolve-lo faria o resto do
+  // codigo trabalhar sobre um diretorio que nao esta la, trocando uma falha
+  // limpa por um erro de escrita mais adiante.
+  if (process.env.AURORA_BUNDLE_SITE) {
+    return fs.existsSync(process.env.AURORA_BUNDLE_SITE)
+      ? process.env.AURORA_BUNDLE_SITE
+      : '';
+  }
 
   let componentsPath;
   try {

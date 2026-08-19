@@ -1,0 +1,167 @@
+/*
+ * bug_report.css: o painel de relato de problema (js/ui/bug_report_form.js).
+ *
+ * A escolha visual que importa aqui é o peso do bloco de consentimento. Ele não
+ * é aviso legal em letra miúda: é a frase que a pessoa precisa ler antes de
+ * decidir, então tem contraste de texto normal e fica logo acima dos botões, no
+ * caminho do olhar de quem vai clicar em enviar.
+ */
+
+.bug-report-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-50);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.bug-report-overlay.visivel { opacity: 1; }
+
+.bug-report {
+  width: 100%;
+  max-width: 620px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  box-shadow: var(--elev-overlay);
+  transform: translateY(8px);
+  transition: transform var(--transition-normal);
+}
+
+.bug-report-overlay.visivel .bug-report { transform: translateY(0); }
+
+/* ── Cabeçalho ─────────────────────────────────────────────────────────── */
+.bug-report-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.bug-report-head i.ph { color: var(--accent); font-size: var(--text-lg); }
+
+.bug-report-head h2 {
+  margin: 0;
+  flex: 1;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bug-report-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.bug-report-x:hover { color: var(--text); background: var(--bg-elev-3); }
+
+/* ── Corpo ─────────────────────────────────────────────────────────────── */
+.bug-report-corpo {
+  padding: var(--space-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.bug-report-campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bug-report-campo > span {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.bug-report-campo > span b { color: var(--accent); font-weight: 600; }
+
+.bug-report-campo textarea {
+  width: 100%;
+  resize: vertical;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  transition: border-color var(--transition-fast);
+}
+
+.bug-report-campo textarea:focus {
+  outline: none;
+  border-color: var(--accent-border);
+}
+
+.bug-report-campo textarea::placeholder { color: var(--text-muted); }
+
+/* ── Diagnóstico ───────────────────────────────────────────────────────── */
+.bug-report-diag > summary {
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  padding: var(--space-1) 0;
+  user-select: none;
+}
+
+.bug-report-diag > summary:hover { color: var(--text); }
+
+.bug-report-diag pre {
+  margin: var(--space-2) 0 0;
+  max-height: 220px;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bug-report-consentimento {
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 2px solid var(--accent-border);
+  background: var(--accent-soft);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* ── Rodapé ────────────────────────────────────────────────────────────── */
+.bug-report-pe {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.bug-report-espaco { flex: 1; }
+
+.bug-report-pe .btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

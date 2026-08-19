@@ -338,17 +338,38 @@ na máquina do ensaio, com o app de verdade.
 
 Pós-release, com a regra de sempre: medir antes de mexer.
 
-- [ ] **Toolchain como componentes baixados depois da instalação.** Pedido em
-      18/08/2026, com o software já em produção. O instalador carrega 542 MB
-      porque leva MSYS, Icarus, Verilator, Yosys, GTKWave, Surfer e Python
-      dentro; a proposta é levar só a AURORA e o YANC, e cada ferramenta virar
-      um componente baixado na primeira vez que for preciso, como o manual e as
-      CLIs de IA já fazem. O bootstrap de dev já funciona assim (download-*.js
-      com sentinela); falta a mesma ideia no aplicativo instalado, com hash e
-      retomada. Além do instalador menor, desacopla o ciclo de release da
-      AURORA do ciclo das ferramentas, que é o que reduz o risco de quebrar
-      todo mundo de uma vez. É mudança grande: não entra às vésperas de uma
-      release, entra planejada.
+- [x] **Toolchain como componentes baixados depois da instalação.** Pedido em
+      18/08/2026, com o software já em produção, e feito em 19/08/2026. O
+      catálogo está em `main/components/registry.js`, o painel em
+      Configurações, e o bloqueio de quem tenta usar o que não baixou fica no
+      `binary_allowlist`, o ponto por onde botão, API, IA e servidor de
+      linguagem já passavam antes de nascer um processo. MSYS e YANC ficaram
+      marcados como essenciais e continuam no instalador: sem eles não se
+      compila, e não compilar não é uma AURORA reduzida, é uma AURORA quebrada.
+
+      Falta o passo que de fato encolhe o instalador, que é tirar do
+      `extraResources` do electron-builder o que agora é opcional. É o passo
+      com mais consequência de todos, porque uma release que sai sem os
+      componentes e sem o download funcionando na máquina do aluno deixa todo
+      mundo sem ferramenta. Antes dele: verificar hash do que foi baixado e
+      permitir retomada de download interrompido, que numa rede de laboratório
+      acontece.
+
+- [ ] **Estimativa do instalador componentizado.** Medido em 18/08/2026:
+      msys 955 MB, gtkwave 88, surfer 43, tree-sitter 25, slang 8, verible 3,
+      clang-format 3, dist 109. Tirando só o que não é essencial, o instalador
+      cai de 542 MB para algo entre 130 e 160 MB.
+
+- [x] **Report de bug em um clique, de dentro da AURORA.** Feito em
+      19/08/2026. O painel está em `js/ui/bug_report_form.js`, a coleta em
+      `main/ipc/bug_report.js` e o Worker em
+      `nipscernweb/workers/sapho-bugreport.js`. O texto de consentimento diz
+      exatamente o que vai junto, e o diagnóstico fica visível na tela antes de
+      enviar, vindo da mesma função que o envio usa. Falta o Chrysthofer criar
+      o token e registrar a rota `nipscern.com/api/sapho/bugreport`; até lá o
+      envio falha e cai no e-mail, que continua funcionando.
+
+      Descrição original:
 
 - [ ] **Report de bug em um clique, de dentro da AURORA.** O caminho por
       e-mail existe e fica como reserva, mas exige conta aberta e vontade. A

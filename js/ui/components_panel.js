@@ -174,7 +174,7 @@ function cartao(c) {
       <div class="componente-texto">
         <div class="componente-titulo">
           <span class="componente-nome">${escapar(nomeDe(c))}</span>
-          ${selos.join('\n          ')}
+          <span class="componente-selos">${selos.join('')}</span>
           <span class="componente-tamanho">${escapar(tamanho)}</span>
         </div>
         <p class="componente-resumo">${escapar(resumoDe(c))}</p>

@@ -970,7 +970,15 @@
   line-height: var(--leading-snug);
 }
 
-.componentes-lista { display: grid; gap: var(--space-2); }
+/* Container de consulta para a regra de largura estreita mais abaixo. O que
+   importa e a largura da LISTA, nao a da janela: o modal e min(880px, 92vw),
+   entao a viewport nao diz quanto sobrou para o cartao. */
+.componentes-lista {
+  display: grid;
+  gap: var(--space-2);
+  container-type: inline-size;
+  container-name: componentes;
+}
 
 .componente {
   display: grid;
@@ -983,14 +991,45 @@
   border-radius: var(--radius-lg);
 }
 
+/* Grid e nao flex por causa do alinhamento ENTRE cartoes. Em flex o selo
+   comecava logo depois do nome, e como "MSYS Toolchain" e "slang" tem larguras
+   bem diferentes, a coluna de selos saia serrilhada ao descer a lista. Com a
+   primeira faixa de largura fixa todos os selos comecam no mesmo x.
+   A faixa e uma variavel para quem traduzir nomes mais longos poder afrouxar
+   num lugar so; nomes maiores que ela quebram a linha em vez de empurrar o
+   selo, que e o que preserva o alinhamento. */
 .componente-titulo {
+  --componente-nome-col: 168px;
+  display: grid;
+  /* A faixa elastica e a DOS SELOS, nao a do tamanho. Com o tamanho em 1fr ele
+     era o primeiro a ser espremido e "Baixar 48 MB" quebrava em duas linhas no
+     unico cartao com dois selos. Em `auto` ele nunca encolhe, e quem cede
+     espaco sao os selos, que ja sabem se empilhar. */
+  grid-template-columns: var(--componente-nome-col) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Os selos vivem num invólucro proprio para ocuparem UMA celula do grid: sao
+   ate dois (ausente + urgente) e soltos virariam duas colunas, desalinhando a
+   linha inteira. */
+.componente-selos {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   flex-wrap: wrap;
 }
 
-.componente-nome { font-size: var(--text-base); color: var(--text); font-weight: 600; }
+/* min-width: 0 deixa a faixa fixa valer mesmo com nome comprido: sem ele o
+   conteudo minimo empurra a coluna e o alinhamento se perde justamente no
+   cartao de nome maior. */
+.componente-nome {
+  font-size: var(--text-base);
+  color: var(--text);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
 
 .componente-selo {
   font-size: var(--text-2xs);
@@ -999,6 +1038,9 @@
   padding: 2px 8px;
   border-radius: var(--radius-full);
   border: 1px solid transparent;
+  /* Um selo com o texto partido em duas linhas dentro da capsula parece
+     defeito, nao aperto. Preferimos que a LINHA quebre, nao a palavra. */
+  white-space: nowrap;
 }
 
 .componente-selo.instalado {
@@ -1022,10 +1064,27 @@
   border-color: var(--status-warning);
 }
 
+/* Abaixo desta largura nao cabem as tres faixas, e insistir nelas faz o selo
+   montar em cima do tamanho. O alinhamento entre cartoes so vale enquanto ha
+   espaco para ele; sem espaco, volta o empilhamento do flex, que degrada bem.
+   Acontece so em tela pequena, porque o modal tem 880px ate a viewport apertar. */
+@container componentes (max-width: 560px) {
+  .componente-titulo {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .componente-tamanho {
+    justify-self: auto;
+    margin-left: auto;
+  }
+}
+
 .componente-urgente { border-color: var(--status-warning); }
 
+/* justify-self no lugar do antigo margin-left: auto, que era o empurrao certo
+   no flex e aqui seria redundante com a faixa 1fr. */
 .componente-tamanho {
-  margin-left: auto;
+  justify-self: end;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--text-muted);

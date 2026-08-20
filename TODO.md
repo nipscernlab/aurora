@@ -208,11 +208,20 @@ que era MIT.
 O bloqueio: os termos da SignPath exigem "an OSI-approved Open Source license
 without commercial dual-licensing for all components", e a NIPS-CERN 1.1 não é
 aprovada pela OSI, porque a seção 4 exige autorização prévia por escrito para
-exploração comercial, contrariando o item 6 da Open Source Definition. O e-mail
-perguntando isso a eles foi enviado em 10/08 e a resposta trava o resto.
-Reconferido em 18/08: ainda sem resposta. Se passar de uma semana, vale
-reenviar citando o numero da organizacao, porque pedido sem resposta some na
-fila deles.
+exploração comercial, contrariando o item 6 da Open Source Definition. Em 19/08 a SignPath respondeu (Phillip): o projeto foi considerado elegível e
+o convite para a organização OSS chegou e foi aceito. A resposta não menciona
+a licença — tudo indica que é o desfecho da revisão original, feita quando o
+projeto ainda era MIT. O e-mail sobre a NIPS-CERN 1.1 (rascunho pronto, com a
+licença anexada) deve ser enviado NA MESMA THREAD do Phillip antes do
+certificado de produção, porque eles revisam o setup de novo nessa etapa.
+
+O caminho operacional que o Phillip descreveu: criar projeto e Artifact
+Configuration (o GitHub entrega o artefato num zip — a configuração é
+zip-file com pe-file dentro, o CONTRÁRIO do que o 3.5 assumia), configurar o
+Trusted Build System, assinar com o certificado de teste autoassinado, e só
+depois da revisão deles vem o certificado de produção. Assinar com o de teste
+exige um modo do release.yml que construa e assine SEM publicar (hoje não
+existe: ou dry-run que para no preflight, ou release completa).
 
 Vale saber, para não gastar dinheiro à toa: certificado EV deixou de dar
 reputação instantânea no SmartScreen em março de 2024, então OV e EV se
@@ -459,6 +468,40 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       juntos e abrindo o modo Simular num design real.
 
 ---
+
+- [ ] **Monitor da pilha de instrução (isp) no layout.** Os monitores de
+      pilha/ULA voltaram em 20/08 como espelhos no testbench (ver commit
+      ae9659b1: dumpvars profundo quebra o Icarus com generate e é ignorado
+      pelo Verilator; módulo public arrasta o mem — 854 MB medidos). Ficou de
+      fora exatamente o isp, porque ele vive num `generate if (CAL) : isp_blk`
+      e o parser de Verilog da AURORA pula generate blocks — espelho de nome
+      fabricado foi o que derrubou a elaboração do Icarus. Ensinar o parser a
+      ler generate nomeado destrava o espelho do isp pelo caminho
+      `.isp_blk.isp`.
+
+- [ ] **Salvar estado do Surfer de dentro da aba.** Implementação completa
+      está no stash "monitores stack/ULA + save-state da aba" (fork já tem o
+      comando state_save_url_set publicado na nips.10): o save do cliente WASM
+      POSTa o .surf.ron para o servidor local, que grava em
+      testbench/<tb>.tab.surf.ron e registra como layout ativo no WaveStore.
+      Ficou fora da 6.7.0 pelo congelamento de 20/08; retomar um item por vez,
+      com teste do usuário entre eles.
+
+- [ ] **Seleção do picker sob Verilator não limita o dump.** Descoberto em
+      20/08: sob --binary o Verilator ignora os argumentos do $dumpvars e
+      rastreia a hierarquia visível inteira (por isso a seleção de 424
+      sinais "dumpou" só os 41 públicos). O picker continua valendo para o
+      LAYOUT (o que aparece), mas não para o TAMANHO do FST sob Verilator.
+      Documentar no modal ou investigar --trace-depth/tracing_off por escopo
+      no .vlt gerado.
+
+- [ ] **Tags meio-publicadas no registro do fork.** As tags v0.7.0-nips.8 e
+      .9 do surfer-aurora têm só o exe no registro (o job do bundle web
+      falhou nas duas: o zip do runner "adicionava" arquivos e não
+      materializava o archive — não reproduz localmente; a nips.10 saiu pelo
+      fallback python3 -m zipfile, que imprime diagnóstico). Limpar os
+      pacotes órfãos das duas tags, e na próxima tag olhar o diagnóstico
+      impresso para aposentar o mistério.
 
 ## 6. Profissionalizar o repositório
 

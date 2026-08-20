@@ -47,10 +47,10 @@ const PUBLISHED = true;
 // CI publica -> atualizar tag/filename/sha256/url aqui.
 /** @type {{ url: string, sha256: string, filename: string, tag: string } | null} */
 const FORK_ARTIFACT = PUBLISHED ? {
-    tag:      'v0.7.0-nips.7',
-    filename: 'surfer-aurora_win_v0.7.0-nips.7.zip',
-    sha256:   'f9c6cedbe00ebee349be8c21707c705e96a3e97f67150741e63e09134f512515',
-    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.7/surfer-aurora_win_v0.7.0-nips.7.zip',
+    tag:      'v0.7.0-nips.10',
+    filename: 'surfer-aurora_win_v0.7.0-nips.10.zip',
+    sha256:   '60fb1940082358e389c53d0a8eacad6c881b67e0d61c8ec0facebfdf69290a8d',
+    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.10/surfer-aurora_win_v0.7.0-nips.10.zip',
 } : null;
 
 // O bundle web (cliente WASM) do MESMO fork e da MESMA tag: e ele que roda
@@ -58,7 +58,11 @@ const FORK_ARTIFACT = PUBLISHED ? {
 // publish_wasm do .gitlab-ci.yml do fork. null enquanto a tag nova nao sai;
 // nesse meio-tempo o build local (trunk) prove components/Packages/surfer/web.
 /** @type {{ url: string, sha256: string, filename: string } | null} */
-const FORK_WEB_ARTIFACT = null;
+const FORK_WEB_ARTIFACT = {
+    filename: 'surfer-aurora_web_v0.7.0-nips.10.zip',
+    sha256:   '159c6c1dc3d378d6474e7c86ea6d937f9d1c740006bc3af33304e1fd6727d092',
+    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.10/surfer-aurora_web_v0.7.0-nips.10.zip',
+};
 
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'surfer');

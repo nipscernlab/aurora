@@ -65,6 +65,11 @@ const RESERVA = {
   'bugReport.failed': 'Não foi possível enviar ({erro}).',
   'bugReport.fallbackEmail': '{motivo} Abrindo o e-mail com o seu texto.',
   'bugReport.diagUnavailable': '(não foi possível reunir o diagnóstico)',
+  'bugReport.tooMany': 'Você já enviou alguns relatos seguidos. Aguarde {tempo} para enviar outro. O que você escreveu ficou salvo.',
+  'bugReport.waitSeconds': '{n} segundos',
+  'bugReport.waitOneSecond': '1 segundo',
+  'bugReport.waitOneMinute': '1 minuto',
+  'bugReport.waitMinutes': '{n} minutos',
 };
 
 /** t() com reserva e {placeholders}. */
@@ -94,6 +99,20 @@ function limparRascunho() {
 function escapar(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Segundos viram um prazo que se lê.
+ *
+ * Arredonda para cima: dizer "1 minuto" e a pessoa voltar aos 61 segundos e
+ * ser barrada de novo é pior do que ter pedido 2 desde o começo.
+ */
+export function emMinutos(segundos) {
+  const s = Math.max(1, Math.ceil(Number(segundos) || 0));
+  if (s === 1) return tr('bugReport.waitOneSecond');
+  if (s < 60) return tr('bugReport.waitSeconds', { n: s });
+  const m = Math.ceil(s / 60);
+  return m === 1 ? tr('bugReport.waitOneMinute') : tr('bugReport.waitMinutes', { n: m });
 }
 
 /** Placeholder multilinha vira &#10; para sobreviver dentro do atributo. */
@@ -236,6 +255,17 @@ export async function abrirFormulario(porEmail) {
   if (r?.ok) {
     limparRascunho();
     showCardNotification(tr('bugReport.sent'), 'success', 7000, tr('bugReport.sentTitle'));
+    return;
+  }
+
+  // Limite de frequência não é falha, é "ainda não", e por isso não cai no
+  // e-mail: quem chegou aqui já mandou três relatos, e abrir o webmail seria
+  // insistir num caminho que a pessoa não pediu. O rascunho fica salvo (não
+  // chamamos limparRascunho), então o texto espera junto.
+  if (r?.erro === 'muitos-relatos') {
+    showCardNotification(
+      tr('bugReport.tooMany', { tempo: emMinutos(r.esperar) }),
+      'warning', 10000, tr('bugReport.title'));
     return;
   }
 

@@ -1067,7 +1067,12 @@
     "fallbackEmail": "{motivo} Opening e-mail with your text.",
     "diagUnavailable": "(diagnostics could not be gathered)",
     "email": "Your e-mail (optional)",
-    "emailHint": "So we can tell you when it is fixed, or ask for a detail."
+    "emailHint": "So we can tell you when it is fixed, or ask for a detail.",
+    "tooMany": "You have sent several reports in a row. Wait {tempo} before sending another. What you wrote has been saved.",
+    "waitSeconds": "{n} seconds",
+    "waitOneMinute": "1 minute",
+    "waitMinutes": "{n} minutes",
+    "waitOneSecond": "1 second"
   },
   "componentSummary": {
     "msys": "The compilation chain: Icarus Verilog, Verilator, Yosys and the bundled Python.",

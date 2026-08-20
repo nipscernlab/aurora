@@ -152,13 +152,23 @@ function postar(url, corpo, saltos = 0) {
       let txt = '';
       res.on('data', (c) => { txt += c; });
       res.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(txt); } catch (_) { /* resposta sem corpo */ }
         if (statusCode >= 200 && statusCode < 300) {
-          let json = null;
-          try { json = JSON.parse(txt); } catch (_) { /* resposta sem corpo */ }
           resolve({ ok: true, url: json?.url || null });
-        } else {
-          resolve({ ok: false, erro: `HTTP ${statusCode}`, detalhe: txt.slice(0, 300) });
+          return;
         }
+        // Limite de frequencia nao e falha: e "ainda nao". Sobe com codigo
+        // proprio e com o prazo, porque "aguarde" sem prazo faz a pessoa
+        // clicar de novo em seguida e ser barrada de novo.
+        if (statusCode === 429) {
+          const doCorpo = Number(json?.esperar);
+          const doCabecalho = Number(res.headers['retry-after']);
+          const esperar = [doCorpo, doCabecalho].find((n) => Number.isFinite(n) && n > 0) || 300;
+          resolve({ ok: false, erro: 'muitos-relatos', esperar });
+          return;
+        }
+        resolve({ ok: false, erro: `HTTP ${statusCode}`, detalhe: txt.slice(0, 300) });
       });
     });
     req.on('timeout', () => { req.destroy(); resolve({ ok: false, erro: 'tempo esgotado' }); });

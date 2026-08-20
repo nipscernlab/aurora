@@ -1067,7 +1067,12 @@
     "fallbackEmail": "{motivo} Abrindo o e-mail com o seu texto.",
     "diagUnavailable": "(não foi possível reunir o diagnóstico)",
     "email": "Seu e-mail (opcional)",
-    "emailHint": "Para avisarmos quando corrigirmos, ou pedirmos um detalhe."
+    "emailHint": "Para avisarmos quando corrigirmos, ou pedirmos um detalhe.",
+    "tooMany": "Você já enviou alguns relatos seguidos. Aguarde {tempo} para enviar outro. O que você escreveu ficou salvo.",
+    "waitSeconds": "{n} segundos",
+    "waitOneMinute": "1 minuto",
+    "waitMinutes": "{n} minutos",
+    "waitOneSecond": "1 segundo"
   },
   "componentSummary": {
     "msys": "A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.",

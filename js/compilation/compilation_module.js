@@ -591,13 +591,14 @@ async _resolveWaveSelection({ config, simTopModule, filePaths }) {
     return resolveWaveSelection(this._instanceDeps(), { config, simTopModule, filePaths });
 }
 
-async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false) {
+async instrumentTestbench(testbenchPath, tbModule, tempBaseDir, selectedSignals = [], overrideUserDumpvars = false, monitorScopes = []) {
     const originalContent = await electronAPI.readFile(testbenchPath, { encoding: 'utf8' });
     const result = instrumentTestbenchSource({
         originalContent,
         tbModule,
         selectedSignals,
         overrideUserDumpvars,
+        monitorScopes,
     });
     if (!result.needsWrite) return { path: testbenchPath, reason: result.reason };
 
@@ -672,6 +673,7 @@ async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
         tempBaseDir,
         decision.signalsToDump,
         decision.overrideUserDumpvars,
+        decision.monitorScopes || [],
     );
 
     this._validatedWaveSelection = reason === 'user-defined'
@@ -905,6 +907,7 @@ async waveBuildVvp() {
             tempBaseDir,
             decision.signalsToDump,
             decision.overrideUserDumpvars,
+            decision.monitorScopes || [],
         );
         fileSet.add(tbPath);
 
@@ -1798,6 +1801,26 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     // Expor um signal cercado sob Verilator exigiria um .vlt per-proc do
     // lado do yanc.
     const buildSources = [...prep.fileSet];
+    // Monitores (stack/ULA) sob Verilator: variaveis nao-publicas somem do
+    // $dumpvars em silencio. Este .vlt marca exatamente as cinco variaveis de
+    // monitoramento como public_flat_rd, por MODULO (vale para toda instancia
+    // sp/isp/ula de qualquer processador) — o "per-proc do lado do yanc" do
+    // comentario acima nunca foi necessario: regra por modulo resolve.
+    try {
+        const vltPath = await electronAPI.joinPath(tempBaseDir, 'aurora_monitors.vlt');
+        await electronAPI.writeFile(vltPath, [
+            '`verilator_config',
+            '// Gerado pela AURORA a cada build: expoe os monitores de pilha e',
+            '// ULA para o $dumpvars do testbench instrumentado.',
+            'public_flat_rd -module "stack" -var "pointeri"',
+            'public_flat_rd -module "stack" -var "fl_max"',
+            'public_flat_rd -module "stack" -var "fl_full"',
+            'public_flat_rd -module "ula" -var "delta_int"',
+            'public_flat_rd -module "ula" -var "delta_float"',
+            '',
+        ].join('\n'));
+        buildSources.push(vltPath);
+    } catch (_e) { /* sem .vlt os monitores so ficam de fora do FST Verilator */ }
     // Builder monta tokens individuais (sem aspas, sem shell). Executor
     // em main faz spawn(perlExe, args, { shell:false }), cada token vai
     // direto pro child sem reparse. -CFLAGS aparece duas vezes (O3 +

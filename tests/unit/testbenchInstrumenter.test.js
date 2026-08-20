@@ -107,3 +107,51 @@ describe('instrumentTestbenchSource', () => {
         expect(r.content).toBe('module tb;\n    reg x;\n');
     });
 });
+
+// ─── monitores do processador no $dumpvars ───────────────────────────────────
+describe('instrumentTestbenchSource: monitorScopes', () => {
+    const tb = 'module tb; reg clk; endmodule\n';
+
+    it('injeta o dumpvars dos monitores junto do principal', () => {
+        const r = instrumentTestbenchSource({
+            originalContent: tb,
+            tbModule: 'tb',
+            selectedSignals: ['tb.u.sig'],
+            monitorScopes: [
+                { ref: 'u.p_x.core.sp.fl_max', mirror: 'aurora_sp_fl_max__u_p_x_core', kind: 'integer' },
+                { ref: 'u.p_x.core.ula.delta_int', mirror: 'aurora_ula_delta_int__u_p_x_core', kind: 'real' },
+            ],
+        });
+        expect(r.needsWrite).toBe(true);
+        expect(r.content).toContain('$dumpvars(0, tb.u.sig);');
+        // Declaracoes-espelho no corpo do modulo + a lista deles no dumpvars.
+        expect(r.content).toContain(
+            'integer aurora_sp_fl_max__u_p_x_core; always @ (*) aurora_sp_fl_max__u_p_x_core = u.p_x.core.sp.fl_max;',
+        );
+        expect(r.content).toContain(
+            'real aurora_ula_delta_int__u_p_x_core; always @ (*) aurora_ula_delta_int__u_p_x_core = u.p_x.core.ula.delta_int;',
+        );
+        expect(r.content).toContain(
+            '$dumpvars(0, aurora_sp_fl_max__u_p_x_core, aurora_ula_delta_int__u_p_x_core); // SAPHO stack/ULA monitors',
+        );
+    });
+
+    it('sem monitores, o bloco fica exatamente como era', () => {
+        const r = instrumentTestbenchSource({
+            originalContent: tb,
+            tbModule: 'tb',
+            selectedSignals: [],
+        });
+        expect(r.content).not.toContain('SAPHO stack/ULA monitors');
+    });
+
+    it('dump do usuario continua intocado mesmo com monitores', () => {
+        const userTb = 'module tb; initial begin $dumpfile("x.vcd"); $dumpvars(0, tb); end endmodule\n';
+        const r = instrumentTestbenchSource({
+            originalContent: userTb,
+            tbModule: 'tb',
+            monitorScopes: [{ ref: 'p.core.sp.fl_full', mirror: 'aurora_sp_fl_full__p_core', kind: 'reg' }],
+        });
+        expect(r.needsWrite).toBe(false);
+    });
+});

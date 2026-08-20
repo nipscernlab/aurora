@@ -94,6 +94,8 @@ interface BuildAuroraGtkwInput {
 }
 
 // Color codes used after [color] directives.
+import { monitorMirrorName } from './signal_parser.js';
+
 const COLOR_NORMAL = 0;
 // const COLOR_RED = 1;
 const COLOR_ORANGE = 2;
@@ -360,6 +362,19 @@ function findSignal(scopes: ScopeLike[], scopePath: string, name: string): Enric
     return { ...sig, fullName: `${scope.path}.${sig.name}` };
 }
 
+/**
+ * Um sinal de monitor (stack/ULA): primeiro no caminho interno real (era
+ * Icarus antiga / dumps completos), senao no ESPELHO aurora_* que a
+ * instrumentacao declara no escopo raiz — a unica forma que os dois
+ * simuladores de hoje enxergam (ver deriveMonitorScopes no signal_parser).
+ */
+function findMonitorSignal(scopes: ScopeLike[], corePath: string, inst: string, name: string): EnrichedSignal | null {
+    const direct = findSignal(scopes, corePath + '.' + inst, name);
+    if (direct) return direct;
+    const root = corePath.split('.')[0];
+    const rel = corePath.startsWith(root + '.') ? corePath.slice(root.length + 1) : corePath;
+    return findSignal(scopes, root, monitorMirrorName(rel, inst, name));
+}
 function rangeSuffix(sig: EnrichedSignal | null): string {
     return sig && sig.range ? `[${sig.range}]` : '';
 }
@@ -656,12 +671,12 @@ function emitFlagsSection(lines: string[], scopes: ScopeLike[], corePath: string
         { path: `${corePath}.isp`, name: 'fl_full',  fmt: FMT_BIN,           alias: 'Inst Stack Overflow' },
     ];
     const stackResolved = stackEntries
-        .map((e) => ({ ...e, sig: findSignal(scopes, e.path, e.name) }))
+        .map((e) => ({ ...e, sig: findMonitorSignal(scopes, corePath, e.path.endsWith('.isp') ? 'isp' : 'sp', e.name) }))
         .filter((e) => e.sig);
     // ULA: delta_int + delta_float renderizados como analog step + hex
     // (GTKWave default pra reals).
-    const deltaInt = findSignal(scopes, `${corePath}.ula`, 'delta_int');
-    const deltaFloat = findSignal(scopes, `${corePath}.ula`, 'delta_float');
+    const deltaInt = findMonitorSignal(scopes, corePath, 'ula', 'delta_int');
+    const deltaFloat = findMonitorSignal(scopes, corePath, 'ula', 'delta_float');
 
     // Nenhum sinal de Stack/ULA presente (ex: sob Verilator esses sinais
     // internos do processador ficam fenced fora do trace), pula a secao

@@ -18,6 +18,7 @@
  * esta. Compilado por tsc -> surfer_layout_writer.js (carregado pelo runtime).
  */
 
+import { monitorMirrorName } from './signal_parser.js';
 import { detectProcessors, resolveScopeModules, buildSignedSet } from './gtkw_proc_writer.js';
 import type { VcdScope } from './vcd_parser.js';
 import type { ModuleInfo } from './signal_parser.js';
@@ -772,7 +773,21 @@ function buildVariables(scopes: VcdScope[], instancePath: string, procName: stri
 
 function buildFlags(scopes: VcdScope[], corePath: string | null, filter: Set<string> | null): SurferItem[] {
   if (!corePath) return [];
-  const stackSpec = [
+  // Monitor de stack/ULA: caminho interno real primeiro, senao o espelho
+// aurora_* no escopo raiz (ver deriveMonitorScopes). Devolve o scope como
+// array (forma que o .surf.ron usa) + o nome resolvido.
+function slFindMonitor(scopes: VcdScope[], corePath: string, inst: string, name: string): { sig: EnrichedSig, scope: string[], name: string } | null {
+  const direct = slFindSignal(scopes, corePath + '.' + inst, name);
+  if (direct) return { sig: direct, scope: (corePath + '.' + inst).split('.'), name };
+  const root = corePath.split('.')[0];
+  const rel = corePath.startsWith(root + '.') ? corePath.slice(root.length + 1) : corePath;
+  const mirror = monitorMirrorName(rel, inst, name);
+  const viaMirror = slFindSignal(scopes, root, mirror);
+  if (viaMirror) return { sig: viaMirror, scope: [root], name: mirror };
+  return null;
+}
+
+const stackSpec = [
     { path: `${corePath}.sp`,  name: 'pointeri', format: 'Signed',   analog: true,  alias: 'Data Stack Pointer' },
     { path: `${corePath}.sp`,  name: 'fl_max',   format: 'Unsigned', analog: false, alias: 'Data Stack Max' },
     { path: `${corePath}.sp`,  name: 'fl_full',  format: 'Bit',      analog: false, alias: 'Data Stack Overflow' },
@@ -782,15 +797,16 @@ function buildFlags(scopes: VcdScope[], corePath: string | null, filter: Set<str
   ];
   const stackItems: SurferItem[] = [];
   for (const e of stackSpec) {
-    const sig = slFindSignal(scopes, e.path, e.name);
-    if (!sig || !passesFilter(filter, sig.fullName)) continue;
-    stackItems.push({ kind: 'variable', scope: e.path.split('.'), name: e.name, format: e.format, manualName: e.alias, analog: e.analog ? ANALOG_STEP : null });
+    const inst = e.path.endsWith('.isp') ? 'isp' : 'sp';
+    const res = slFindMonitor(scopes, corePath, inst, e.name);
+    if (!res || !passesFilter(filter, res.sig.fullName)) continue;
+    stackItems.push({ kind: 'variable', scope: res.scope, name: res.name, format: e.format, manualName: e.alias, analog: e.analog ? ANALOG_STEP : null });
   }
   const ulaItems: SurferItem[] = [];
   const pushUla = (name: string, alias: string): void => {
-    const sig = slFindSignal(scopes, `${corePath}.ula`, name);
-    if (!sig || !passesFilter(filter, sig.fullName)) return;
-    ulaItems.push({ kind: 'variable', scope: `${corePath}.ula`.split('.'), name, format: 'Hexadecimal', manualName: alias, analog: ANALOG_STEP });
+    const res = slFindMonitor(scopes, corePath, 'ula', name);
+    if (!res || !passesFilter(filter, res.sig.fullName)) return;
+    ulaItems.push({ kind: 'variable', scope: res.scope, name: res.name, format: 'Hexadecimal', manualName: alias, analog: ANALOG_STEP });
   };
   pushUla('delta_int', 'Rounding Error (int)');
   pushUla('delta_float', 'Rounding Error (float)');

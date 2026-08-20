@@ -325,7 +325,10 @@ export const tabViewers = {
         viewer.className = 'surfer-viewer';
         const iframe = document.createElement('iframe');
         iframe.className = 'surfer-frame';
-        iframe.setAttribute('title', 'Surfer');
+        // aria-label e nao title: title vira tooltip nativo, e um "Surfer"
+        // pipocando a cada passada de mouse sobre a onda e ruido. O aria-label
+        // preserva o nome acessivel sem o balao.
+        iframe.setAttribute('aria-label', 'Surfer');
         // Sem allow-same-origin nao ha fetch da propria origem (o .wasm e o
         // load_url); o esquema aurora-surfer:// e outra origem, entao isso nao
         // devolve ao conteudo o alcance do DOM do app.

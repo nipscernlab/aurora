@@ -45,6 +45,14 @@ export interface InstrumentInput {
     /** Picker selection. */
     selectedSignals?: string[];
     /**
+     * Escopos de monitoramento do processador (core.sp/isp/ula), derivados da
+     * hierarquia dos fontes por deriveMonitorScopes. Ganham um $dumpvars(1,..)
+     * proprio: os flags de pilha e o erro da ULA moram fundo demais para o
+     * dump raso default e nao sao opcao do picker — sem isto os grupos
+     * Stack/ULA do layout automatico ficam vazios em silencio.
+     */
+    monitorScopes?: import('./signal_parser.js').MonitorMirror[];
+    /**
      * Se true, e o testbench tem $dumpfile/$dumpvars hand-written, NAO cede o
      * controle: comenta as linhas originais e injeta o $dumpvars do Aurora
      * baseado em selectedSignals. Usado quando o usuario customiza a Wave
@@ -181,6 +189,7 @@ export function instrumentTestbenchSource({
     tbModule,
     selectedSignals = [],
     overrideUserDumpvars = false,
+    monitorScopes = [],
 }: InstrumentInput): InstrumentResult {
     const hasUserDump = hasUserDumpCalls(originalContent);
 
@@ -226,13 +235,34 @@ export function instrumentTestbenchSource({
     // escreve em blocos grandes (mais rapido). Os $display do usuario
     // saem em bloco quando a sim termina (sem o $fflush ao vivo), trade
     // deliberado por velocidade, junto com a remocao do overlay de progresso.
+    // Monitores do processador como ESPELHOS: variaveis declaradas AQUI no
+    // tb copiando (always @(*)) os sinais internos por referencia
+    // hierarquica. E o unico desenho que funciona nos dois simuladores sem
+    // custo: o Verilator ignora argumentos de $dumpvars e rastreia so a
+    // hierarquia visivel (o tb sempre e), e expor os modulos internos
+    // arrastava o array mem das pilhas (854 MB de FST no ensaio). O .vlt
+    // gerado pelo fluxo Verilator marca os alvos como public_flat_rd para
+    // as referencias resolverem; no Icarus referencias hierarquicas sao
+    // nativas.
+    const mirrorDecls = monitorScopes.map((mo) =>
+        mo.kind + ' ' + mo.mirror + '; always @ (*) ' + mo.mirror + ' = ' + mo.ref + ';');
+    const mirrorBlock = mirrorDecls.length > 0
+        ? '// --- AURORA MONITOR MIRRORS (stack/ULA) ---\n' + mirrorDecls.join('\n') + '\n'
+        : '';
+    // No modo picker o $dumpvars lista sinais explicitos e os espelhos
+    // precisam entrar na lista; no modo default (1, tb) ja estao cobertos,
+    // e a linha extra e inofensiva. Nomes locais do tb: sem hierarquia,
+    // sem risco de elaboracao.
+    const monitorLine = monitorScopes.length > 0
+        ? '    $dumpvars(0, ' + monitorScopes.map((mo) => mo.mirror).join(', ') + '); // SAPHO stack/ULA monitors\n'
+        : '';
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
 // ${headerComment} ${note}
-initial begin
+${mirrorBlock}initial begin
     $dumpfile("${tbModule}.vcd");
     $dumpvars(${dumpvarsArgs});
-end
+${monitorLine}end
 // --------------------------------------------------
 `;
 

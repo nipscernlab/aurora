@@ -442,3 +442,97 @@ export function flattenSignalPaths(node: HierarchyNode | null | undefined, out: 
     for (const child of (node.children || [])) flattenSignalPaths(child, out);
     return out;
 }
+
+/**
+ * Escopos de monitoramento do processador SAPHO, derivados da arvore de
+ * hierarquia DOS FONTES (pre-simulacao, entao sem ovo-e-galinha com o FST).
+ *
+ * O core (components/HDL/core.v) mantem, atras do guard YANC_SIM_VIS, os
+ * flags das pilhas (sp/isp: pointeri, fl_max, fl_full) e os erros de
+ * arredondamento da ULA (delta_int, delta_float). Eles existem em TODA
+ * simulacao (Icarus liga o guard via __ICARUS__; o builder do Verilator passa
+ * +define+YANC_TRACE), mas nunca chegavam ao dump: o $dumpvars da
+ * instrumentacao cobria so a selecao do picker ou o escopo raso do tb, e o
+ * layout automatico (grupos Stack/ULA do gtkw_proc_writer) ficava faminto.
+ *
+ * Devolve caminhos de ESCOPO ('tb.u_x.p_t.core.sp') para um
+ * $dumpvars(1, ...) proprio, verificado sob Verilator 5.048 sem tags
+ * public: instancia interna referida por caminho hierarquico e dumpada.
+ *
+ * @param tree arvore de buildHierarchyTree (raiz = modulo do testbench)
+ * @returns escopos de monitor, [] sem processador na arvore
+ */
+/**
+ * Nome deterministico do espelho de um monitor no escopo do testbench.
+ * Compartilhado entre o instrumentador (que DECLARA o espelho) e os
+ * escritores de layout (que o PROCURAM no dump): qualquer divergencia aqui
+ * quebra o encontro em silencio, entao ha um unico dono do formato.
+ * @param corePathRel caminho do core RELATIVO ao tb (sem o modulo raiz)
+ */
+export function monitorMirrorName(corePathRel: string, inst: string, varName: string): string {
+    return `aurora_${inst}_${varName}__${corePathRel.replace(/[^A-Za-z0-9]/g, '_')}`;
+}
+
+export interface MonitorMirror {
+    /** referencia hierarquica RELATIVA ao tb (ex: dut.u.p_x.core.sp.fl_max) */
+    ref: string;
+    /** nome da variavel-espelho declarada no proprio tb */
+    mirror: string;
+    /** tipo verilog da declaracao do espelho */
+    kind: 'integer' | 'reg' | 'real';
+}
+
+/**
+ * Monitores do processador SAPHO (pilha + erro da ULA) como ESPELHOS no
+ * testbench, derivados da arvore de hierarquia DOS FONTES.
+ *
+ * Por que espelhos e nao $dumpvars profundos: sob Verilator --binary os
+ * argumentos do $dumpvars sao ignorados e o trace cobre apenas a
+ * hierarquia visivel (nao-inlineada) — variaveis internas nunca aparecem,
+ * e tornar os modulos publicos arrasta junto o array mem das pilhas
+ * (854 MB de FST no ensaio de 20/08). Um always @(*) no tb copiando cada
+ * monitor para uma variavel local poe os cinco sinais no unico escopo que
+ * os DOIS simuladores sempre rastreiam, por ~3 MB de FST.
+ *
+ * SOMENTE instancias e variaveis que o parser viu de fato, nunca nomes
+ * fabricados: o isp vive num generate if (CAL) e uma referencia a escopo
+ * inexistente e erro de ELABORACAO no Icarus. O parser pula generate
+ * blocks, entao o isp fica de fora ate ele aprender a le-los.
+ */
+export function deriveMonitorScopes(tree: HierarchyNode | null | undefined): MonitorMirror[] {
+    if (!tree) return [];
+    const out: MonitorMirror[] = [];
+    const WANTED: Record<string, string[]> = {
+        sp: ['pointeri', 'fl_max', 'fl_full'],
+        isp: ['pointeri', 'fl_max', 'fl_full'],
+        ula: ['delta_int', 'delta_float'],
+    };
+    const rootPrefix = tree.scopePath + '.';
+    const walk = (node: HierarchyNode | null | undefined): void => {
+        if (!node) return;
+        if (node.name === 'core') {
+            const corePathRel = node.scopePath.startsWith(rootPrefix)
+                ? node.scopePath.slice(rootPrefix.length)
+                : node.scopePath;
+            for (const child of node.children || []) {
+                const inst = child?.instanceName;
+                if (!inst) continue;
+                const wanted = WANTED[inst];
+                if (!wanted) continue;
+                const declared = new Set((child.signals || []).map((s) => s.name));
+                for (const v of wanted) {
+                    if (!declared.has(v)) continue;
+                    out.push({
+                        ref: corePathRel + '.' + inst + '.' + v,
+                        mirror: monitorMirrorName(corePathRel, inst, v),
+                        kind: v.startsWith('delta') ? 'real' : (v === 'fl_full' ? 'reg' : 'integer'),
+                    });
+                }
+            }
+            return; // dentro do core nao ha outro core
+        }
+        for (const child of node.children || []) walk(child);
+    };
+    walk(tree);
+    return out;
+}

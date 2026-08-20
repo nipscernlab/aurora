@@ -25,7 +25,7 @@
 // migrating these globals belongs to A3, not this extraction.
 
 import { electronAPI } from '../app/electron_api.js';
-import { parseVerilogModules, buildHierarchyTree } from '../wave/signal_parser.js';
+import { parseVerilogModules, buildHierarchyTree, deriveMonitorScopes } from '../wave/signal_parser.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
@@ -159,6 +159,12 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
     // Parse de source on-demand, so se precisarmos validar um conjunto
     // de signals (vem do .gtkw ou do WC).
     let cachedTree = null;
+    // Monitores do processador (pilhas + erro da ULA): dumpados SEMPRE que a
+    // AURORA controla o $dumpvars, independente da selecao do picker — sao a
+    // telemetria de saude do processador e os grupos Stack/ULA do layout
+    // automatico dependem deles. Fora do caso 'tb' (dump do proprio usuario),
+    // em que nao mexemos.
+    const monitorScopes = async () => deriveMonitorScopes(await buildTree());
     const buildTree = async () => {
         if (cachedTree !== null) return cachedTree;
         const contents = await Promise.all(
@@ -200,6 +206,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
                     overrideUserDumpvars: true,
                     source: 'gtkw',
                     tbKey,
+                    monitorScopes: await monitorScopes(),
                 };
             }
         } catch (err) {
@@ -223,6 +230,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
             overrideUserDumpvars: true,
             source: 'wc',
             tbKey,
+            monitorScopes: await monitorScopes(),
         };
     }
 
@@ -236,12 +244,14 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
         };
     }
 
-    // (default) $dumpvars(1, tbModule), signals do escopo do tb.
+    // (default) $dumpvars(1, tbModule), signals do escopo do tb — mais os
+    // monitores do processador, que moram fundo demais para o escopo raso.
     return {
         signalsToDump: [],
         overrideUserDumpvars: false,
         source: 'default',
         tbKey,
+        monitorScopes: await monitorScopes(),
     };
 }
 

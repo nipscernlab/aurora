@@ -1084,6 +1084,18 @@
                     <div class="settings-card">
                         <div class="setting-row">
                             <div class="setting-row-text">
+                                <label data-i18n="modal.settings.bugReportRow">Relatar um problema</label>
+                                <p class="setting-description" data-i18n="modal.settings.bugReportRowDescription">
+                                    Descreva o que aconteceu e envie direto para o NIPS-CERN. A tela mostra tudo que vai junto antes de enviar.
+                                </p>
+                            </div>
+                            <button id="bug-report-btn" class="btn btn-secondary" type="button">
+                                <i class="ph ph-bug-beetle" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.bugReportAction">Relatar</span>
+                            </button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-row-text">
                                 <label for="github-forget-on-exit" data-i18n="modal.settings.githubForgetOnExit">Limpar o acesso ao GitHub ao fechar a AURORA</label>
                                 <p class="setting-description" data-i18n="modal.settings.githubForgetOnExitDescription">
                                     Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar.
@@ -1380,14 +1392,6 @@
                                 <span class="about-link-text">
                                     <span class="about-link-label" data-i18n="modal.settings.aboutDocsOffline">Manual offline</span>
                                     <span class="about-link-url" id="about-docs-offline-meta">-</span>
-                                </span>
-                                <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
-                            </a>
-                            <a class="about-link" href="#" id="about-bug-report">
-                                <i class="ph ph-bug-beetle" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutBugReport">Relatar um problema</span>
-                                    <span class="about-link-url">abre o e-mail com o diagnostico pronto</span>
                                 </span>
                                 <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
                             </a>

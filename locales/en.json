@@ -323,7 +323,6 @@
       "auroraBg": "Aurora Borealis on the Welcome screen",
       "auroraBgDescription": "Animated aurora background behind the Welcome screen. It renders on the GPU in a continuous loop; off by default to save battery and to keep weaker machines responsive.",
       "aboutLicense": "NIPS-CERN License 1.1",
-      "aboutBugReport": "Report a problem",
       "networkWarning": "Warn when the internet drops",
       "networkWarningDescription": "Shows a corner notice on every connection drop. Compiling and simulating do not need the network.",
       "githubForget": "Sign out of GitHub and clean now",
@@ -354,7 +353,10 @@
       "componentsCancel": "Cancel",
       "componentsReadFailed": "Could not read the components: {erro}",
       "componentsCompileMissing": "This machine cannot compile yet: {nome} has not been downloaded ({mb}). Without it, the compile and simulate buttons will not work. Everything is in Settings, Components.",
-      "componentsCompileMissingTitle": "Compilation chain missing"
+      "componentsCompileMissingTitle": "Compilation chain missing",
+      "bugReportRow": "Report a problem",
+      "bugReportRowDescription": "Describe what happened and send it straight to NIPS-CERN. The screen shows everything that goes along before you send.",
+      "bugReportAction": "Report"
     }
   },
   "shortcuts": {

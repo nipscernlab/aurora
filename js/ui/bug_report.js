@@ -264,7 +264,10 @@ export async function abrirRelatorio() {
 if (typeof window !== 'undefined') {
   window.auroraBugReport = abrirRelatorio;
   document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('about-bug-report')
+    // O botao vive em Geral, entre as outras acoes das configuracoes. Ficava
+    // no Sobre, no meio dos links de leitura, onde relatar parecia mais um
+    // documento para consultar do que algo para fazer.
+    document.getElementById('bug-report-btn')
       ?.addEventListener('click', (e) => { e.preventDefault(); abrirRelatorio(); });
   });
 }

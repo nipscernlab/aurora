@@ -244,14 +244,22 @@ export async function abrirFormulario(porEmail) {
   if (acao === 'cancelar') return;
 
   if (acao === 'email') {
+    // O rascunho NAO e limpo aqui. Abrir o webmail nao e prova de envio: a
+    // pessoa pode fechar a aba, o cliente pode nem abrir, e apagar o texto
+    // nesse ponto seria destruir o relato exatamente de quem teve mais
+    // trabalho para faze-lo chegar.
     await porEmail?.(texto, diag);
-    limparRascunho();
     return;
   }
 
   const r = await electronAPI.bugReportEnviar?.(texto)
     .catch((e) => ({ ok: false, erro: e?.message }));
 
+  // O UNICO ponto que apaga o que a pessoa escreveu, e so com o envio
+  // confirmado pelo servidor. Cancelar, fechar clicando fora, bater no limite
+  // de frequencia ou cair a rede preservam tudo: o rascunho e a rede de
+  // seguranca de quem escreveu, e apaga-lo sem certeza de entrega custaria
+  // justamente o relato.
   if (r?.ok) {
     limparRascunho();
     showCardNotification(tr('bugReport.sent'), 'success', 7000, tr('bugReport.sentTitle'));

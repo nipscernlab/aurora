@@ -323,7 +323,6 @@
       "auroraBg": "Aurora Boreal na tela de Boas-vindas",
       "auroraBgDescription": "Fundo animado de aurora atrás da tela de Boas-vindas. É desenhado na GPU em laço contínuo; vem desligado para poupar bateria e não pesar em máquina mais fraca.",
       "aboutLicense": "Licenca NIPS-CERN 1.1",
-      "aboutBugReport": "Relatar um problema",
       "networkWarning": "Avisar quando a internet cair",
       "networkWarningDescription": "Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede.",
       "githubForget": "Sair do GitHub e limpar agora",
@@ -354,7 +353,10 @@
       "componentsCancel": "Cancelar",
       "componentsReadFailed": "Não foi possível ler os componentes: {erro}",
       "componentsCompileMissing": "Esta máquina ainda não compila: falta baixar {nome} ({mb} de download). Sem ele, os botões de compilar e simular não funcionam. Você encontra tudo em Configurações, Componentes.",
-      "componentsCompileMissingTitle": "Cadeia de compilação ausente"
+      "componentsCompileMissingTitle": "Cadeia de compilação ausente",
+      "bugReportRow": "Relatar um problema",
+      "bugReportRowDescription": "Descreva o que aconteceu e envie direto para o NIPS-CERN. A tela mostra tudo que vai junto antes de enviar.",
+      "bugReportAction": "Relatar"
     }
   },
   "shortcuts": {

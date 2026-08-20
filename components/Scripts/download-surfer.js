@@ -53,11 +53,22 @@ const FORK_ARTIFACT = PUBLISHED ? {
     url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.7/surfer-aurora_win_v0.7.0-nips.7.zip',
 } : null;
 
+// O bundle web (cliente WASM) do MESMO fork e da MESMA tag: e ele que roda
+// dentro da aba do editor (main/ipc/surfer_tab.js). Publicado pelo job
+// publish_wasm do .gitlab-ci.yml do fork. null enquanto a tag nova nao sai;
+// nesse meio-tempo o build local (trunk) prove components/Packages/surfer/web.
+/** @type {{ url: string, sha256: string, filename: string } | null} */
+const FORK_WEB_ARTIFACT = null;
+
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'surfer');
 // O binario do fork. A AURORA resolve/allowlista EXATAMENTE este nome
 // (wave_toolchain.js, binary_allowlist.js), manter em sync.
 const SENTINEL_FILE = path.join(INSTALL_DIR, 'surfer-aurora.exe');
+// A aba do Surfer exige web/index.html; sem ele o botao Wave continua
+// funcionando, so que em janela nativa (a preferencia degrada sozinha).
+const WEB_DIR       = path.join(INSTALL_DIR, 'web');
+const WEB_SENTINEL  = path.join(WEB_DIR, 'index.html');
 const TMP_ZIP       = FORK_ARTIFACT ? path.join(ROOT_DIR, FORK_ARTIFACT.filename) : '';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -154,13 +165,41 @@ function flattenIfNested(/** @type {string} */ dir) {
     try { fs.rmdirSync(found); } catch { /* nao-vazia / em uso — ignora */ }
 }
 
+// Baixa e instala o bundle web (cliente WASM) quando o CI do fork o publica.
+// Falha aqui NUNCA derruba o bootstrap: sem web/ a aba degrada para a janela
+// nativa com aviso no terminal, que e um estado utilizavel.
+async function installWebBundle() {
+    if (!FORK_WEB_ARTIFACT) {
+        log('bundle web do Surfer ainda nao publicado pelo CI do fork — o modo aba fica indisponivel ate o build local:');
+        log('  1) cd surfer-aurora && trunk build --config=surfer/Trunk.toml index.html --release --public-url ./');
+        log('  2) copie surfer/dist/* -> components/Packages/surfer/web/');
+        return;
+    }
+    const tmp = path.join(ROOT_DIR, FORK_WEB_ARTIFACT.filename);
+    try {
+        await downloadFile(FORK_WEB_ARTIFACT.url, tmp);
+        await verifyChecksum(tmp, FORK_WEB_ARTIFACT.sha256, log);
+        extractZip(tmp, WEB_DIR);
+        fs.unlinkSync(tmp);
+        if (!fs.existsSync(WEB_SENTINEL)) {
+            err(`web/index.html ausente apos extracao — o zip mudou de estrutura?`);
+            return;
+        }
+        log('bundle web do Surfer instalado (modo aba disponivel).');
+    } catch (e) {
+        err(e instanceof Error ? e.message : String(e));
+        err('Nao consegui instalar o bundle web; o Surfer segue disponivel em janela nativa.');
+    }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
     const force = process.argv.includes('--force');
 
     if (alreadyInstalled() && !force) {
-        log(`surfer-aurora already present — skipping.`);
+        if (!fs.existsSync(WEB_SENTINEL)) await installWebBundle();
+        else log(`surfer-aurora already present — skipping.`);
         return;
     }
 
@@ -185,6 +224,7 @@ async function main() {
         flattenIfNested(INSTALL_DIR);
         fs.unlinkSync(TMP_ZIP);
         log(`surfer-aurora installed successfully.`);
+        await installWebBundle();
 
         if (!alreadyInstalled()) {
             err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);

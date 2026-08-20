@@ -206,6 +206,7 @@
       "clear": "Limpar",
       "emptyState": "Nenhum sinal descoberto. Verifique se o projeto tem um arquivo top-level sintetizável (e idealmente um testbench).",
       "showProcessorOnly": "Mostrar apenas sinais do processador",
+      "surferInTab": "Surfer: abrir a onda como aba do editor",
       "surferMultiWindow": "Surfer: manter janelas abertas para comparar simulações (várias janelas)",
       "selectedCountOne": "1 sinal selecionado",
       "selectedCountOther": "{{count}} sinais selecionados",
@@ -661,6 +662,8 @@
       "launched": "GTKWave aberto com sucesso",
       "surferLaunching": "Abrindo Surfer...",
       "surferLaunched": "Surfer aberto com sucesso",
+      "surferTabOpened": "Onda aberta na aba do Surfer",
+      "surferTabNoBundle": "O modo aba do Surfer precisa do componente web (Configurações, Componentes) — abrindo a janela nativa.",
       "hierarchyGen": "Gerando hierarquia com Yosys...",
       "yosysRun": "Executando comando Yosys: {{cmd}}",
       "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}"

@@ -192,6 +192,11 @@ const compilationOperations = {
 
   launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
   launchSurfer: (opts) => ipcRenderer.invoke('launch-surfer', opts),
+  // Surfer numa aba do editor (main/ipc/surfer_tab.js): sobe o servidor de
+  // onda headless e devolve a URL da pagina WASM que o iframe da aba carrega.
+  surferTabServe: (opts) => ipcRenderer.invoke('surfer-tab:serve', opts),
+  surferTabStop: (tabId) => ipcRenderer.invoke('surfer-tab:stop', tabId),
+  surferTabAvailable: () => ipcRenderer.invoke('surfer-tab:available'),
   writeSurferMappings: (mappings) => ipcRenderer.invoke('write-surfer-mappings', mappings),
   decodeComplex: (payload) => ipcRenderer.invoke('decode-complex', payload),
 };

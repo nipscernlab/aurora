@@ -90,6 +90,7 @@ const componentsIpc = require('./main/ipc/components');
 const searchIpc = require('./main/ipc/search');
 const shellIpc = require('./main/ipc/shell');
 const previewIpc = require('./main/ipc/preview');
+const surferTabIpc = require('./main/ipc/surfer_tab');
 const pylibsIpc = require('./main/ipc/pylibs');
 const docsIpc = require('./main/ipc/docs');
 const docsWindowIpc = require('./main/ipc/docs_window');
@@ -126,6 +127,7 @@ if (acquiredLock) {
   searchIpc.register();
   shellIpc.register();
   previewIpc.register();
+  surferTabIpc.register();
   pylibsIpc.register();
   docsIpc.register();
   docsWindowIpc.register();
@@ -217,7 +219,9 @@ if (acquiredLock) {
         // (main/ipc/preview.js), so it ships its own policy and inherits none of
         // this one — which is exactly why the preview can host a CDN-backed plot
         // without any of these directives being loosened for the app itself.
-        `frame-src 'self' blob: data: ${previewIpc.SCHEME}:`,
+        // http://127.0.0.1:* e o servidor local da aba do Surfer
+        // (main/ipc/surfer_tab.js), que manda a propria CSP em cada resposta.
+        `frame-src 'self' blob: data: http://127.0.0.1:* ${previewIpc.SCHEME}:`,
         "object-src 'none'",
         "base-uri 'self'",
         "form-action 'self'",
@@ -229,6 +233,7 @@ if (acquiredLock) {
         // blank plot, and `frame-ancestors 'none'` would then block the app from
         // framing it at all. It sends its own CSP; leave the response alone.
         if (previewIpc.isPreviewUrl(details.url)) return callback({});
+        if (surferTabIpc.isSurferTabUrl(details.url)) return callback({});
         const headers = { ...details.responseHeaders };
         // Replace (don't append): drop any CSP a dev server set so ours is authoritative.
         for (const k of Object.keys(headers)) {

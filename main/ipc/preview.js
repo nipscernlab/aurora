@@ -139,11 +139,19 @@ function isPreviewUrl(url) {
  *   supportFetchAPI/corsEnabled/stream → fetch/XHR of sibling data files, which
  *                    plot exports routinely do.
  */
-function registerScheme() {
-  protocol.registerSchemesAsPrivileged([{
-    scheme: SCHEME,
-    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true },
-  }]);
+const SCHEME_SPEC = {
+  scheme: SCHEME,
+  privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true },
+};
+
+/**
+ * Chromium le o registro de esquemas UMA vez, e a chamada seguinte SUBSTITUI a
+ * lista em vez de somar. Todo esquema privilegiado do app entra portanto nesta
+ * unica chamada: os specs dos demais modulos chegam por parametro.
+ * @param {Electron.CustomScheme[]} [extraSpecs]
+ */
+function registerScheme(extraSpecs = []) {
+  protocol.registerSchemesAsPrivileged([SCHEME_SPEC, ...extraSpecs]);
 }
 
 /** Install the protocol handler. Must run after `app.whenReady`. */
@@ -211,4 +219,4 @@ function register() {
   ipcMain.handle('preview:unregister', (_e, id) => previews.delete(id));
 }
 
-module.exports = { register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, PREVIEW_CSP };
+module.exports = { register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, SCHEME_SPEC, PREVIEW_CSP };

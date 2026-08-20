@@ -310,6 +310,41 @@ export const tabViewers = {
         });
     },
 
+    // -- Surfer viewer --------------------------------------------------------
+    //
+    // A onda numa aba: um iframe com o cliente WASM do Surfer, apontado para a
+    // URL aurora-surfer:// que o main montou (bundle web + load_url do servidor
+    // local daquela onda). Nao ha estado a salvar aqui: o proprio Surfer guarda
+    // sua visao enquanto o iframe viver, e o iframe vive enquanto a aba viver.
+    createSurferViewer(filePath, pageUrl) {
+        if (this.viewerInstances.has(filePath)) {
+            return this.viewerInstances.get(filePath);
+        }
+
+        const viewer = document.createElement('div');
+        viewer.className = 'surfer-viewer';
+        const iframe = document.createElement('iframe');
+        iframe.className = 'surfer-frame';
+        iframe.setAttribute('title', 'Surfer');
+        // Sem allow-same-origin nao ha fetch da propria origem (o .wasm e o
+        // load_url); o esquema aurora-surfer:// e outra origem, entao isso nao
+        // devolve ao conteudo o alcance do DOM do app.
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        iframe.src = pageUrl;
+        viewer.appendChild(iframe);
+
+        this.viewerInstances.set(filePath, viewer);
+        return viewer;
+    },
+
+    // Recompilou a mesma onda: o servidor e outro (porta/token novos), entao o
+    // iframe recarrega na URL nova. A aba e o viewer continuam os mesmos.
+    refreshSurferViewer(filePath, pageUrl) {
+        const viewer = this.viewerInstances.get(filePath);
+        const iframe = viewer && viewer.querySelector('iframe.surfer-frame');
+        if (iframe) iframe.src = pageUrl;
+    },
+
     savePdfViewerState(filePath) {
         const viewer = this.viewerInstances.get(filePath);
         if (!viewer) return;

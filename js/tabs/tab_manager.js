@@ -49,6 +49,12 @@ export class TabManager {
     static periodicCheckInterval = null;
     static isCheckingFiles = false;
     static viewerInstances = new Map();
+
+    // Abas do Surfer: caminho da onda → { tabId, pageUrl }. O tabId amarra o
+    // servidor headless no main (surfer-tab:serve/stop); fechar a aba derruba
+    // o servidor. Registrado por openSurferWave ANTES do addTab, porque o
+    // roteamento (isSurferView) e consultado dentro do proprio addTab.
+    static surferViews = new Map();
     static pdfViewerStates = new Map();
     static untitledCounter = 0;
     static untitledDocuments = new Map();
@@ -524,6 +530,10 @@ async def basic_test(dut):
         return isPdfFile(filePath);
     }
 
+    static isSurferView(filePath) {
+        return this.surferViews.has(filePath);
+    }
+
     static isBinaryFile(filePath) {
         return isBinaryFile(filePath);
     }
@@ -675,8 +685,9 @@ async def basic_test(dut):
         html += `<span class="context-path-filename">${fileName}</span>`;
 
         // Add file type indicator for binary files
-        if (this.isBinaryFile(filePath)) {
-            const fileType = this.isImageFile(filePath) ? 'Image' : 'PDF';
+        if (this.isBinaryFile(filePath) || this.isSurferView(filePath)) {
+            const fileType = this.isSurferView(filePath) ? 'Wave'
+                : this.isImageFile(filePath) ? 'Image' : 'PDF';
             html += `<span class="file-type-indicator">${fileType}</span>`;
         }
 
@@ -775,6 +786,32 @@ async def basic_test(dut):
         if (tab) tab.classList.remove('preview');
     }
 
+    /**
+     * Abre (ou reusa) a aba do Surfer para uma onda.
+     *
+     * Quem chama ja subiu o servidor via electronAPI.surferTabServe e traz a
+     * pageUrl pronta; aqui e so gerencia de aba. Reuso e o caso comum: o aluno
+     * recompila com a aba aberta, o main ja derrubou o servidor anterior e
+     * subiu outro (porta/token novos), entao o iframe recarrega na URL nova e
+     * a aba apenas volta para a frente.
+     *
+     * @param {string} wavePath caminho real do .vcd/.fst (vira o titulo da aba)
+     * @param {string} pageUrl  aurora-surfer://web/index.html?load_url=...
+     * @param {string} tabId    id que amarra o servidor no main (stop ao fechar)
+     */
+    static openSurferWave(wavePath, pageUrl, tabId) {
+        if (this.surferViews.has(wavePath)) {
+            this.surferViews.set(wavePath, { tabId, pageUrl });
+            this.refreshSurferViewer(wavePath, pageUrl);
+            this.activateTab(wavePath);
+            return;
+        }
+        // Registrado ANTES do addTab: o roteamento (isSurferView) e consultado
+        // dentro dele para pular editor de texto e file watcher.
+        this.surferViews.set(wavePath, { tabId, pageUrl });
+        this.addTab(wavePath);
+    }
+
     // Enhanced addTab method with binary file support
     // options: { preview: false } , preview=true opens as italic preview tab (VS Code style)
     static addTab(filePath, content = null, options = {}) {
@@ -820,8 +857,9 @@ async def basic_test(dut):
         tab.setAttribute('draggable', 'true');
         tab.setAttribute('title', this.isUntitledPath(filePath) ? this.getDisplayName(filePath) : filePath);
 
-        // Add binary file indicator
-        const isBinary = this.isBinaryFile(filePath);
+        // Add binary file indicator. A aba do Surfer entra pelo mesmo
+        // caminho das binarias: nada de editor de texto para uma onda.
+        const isBinary = this.isBinaryFile(filePath) || this.isSurferView(filePath);
         if (isBinary) {
             tab.classList.add('binary-file');
         }
@@ -887,8 +925,11 @@ async def basic_test(dut):
         // Add to container
         tabContainer.appendChild(tab);
 
-        // Start watching file and periodic checking if this is the first tab
-        this.startWatchingFile(filePath);
+        // Start watching file and periodic checking if this is the first tab.
+        // A onda do Surfer fica de fora: recompilar REESCREVE o arquivo, e o
+        // fluxo de re-serve (openSurferWave) ja recarrega o iframe; o dialogo
+        // de "mudou no disco" so atrapalharia.
+        if (!this.isSurferView(filePath)) this.startWatchingFile(filePath);
         if (this.tabs.size === 0) {
             this.startPeriodicFileCheck();
         }
@@ -977,7 +1018,7 @@ async def basic_test(dut):
             this.hideOverlay();
 
             // Handle binary files
-            if (this.isBinaryFile(filePath)) {
+            if (this.isBinaryFile(filePath) || this.isSurferView(filePath)) {
                 // Save the OUTGOING tab's PDF state before switching away.
                 if (previousTab && previousTab !== filePath && this.isPdfFile(previousTab)) {
                     this.savePdfViewerState(previousTab);
@@ -991,7 +1032,7 @@ async def basic_test(dut):
                 });
 
                 // Hide all viewers first
-                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer');
+                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer');
                 allViewers.forEach(viewer => {
                     viewer.style.display = 'none';
                 });
@@ -999,7 +1040,9 @@ async def basic_test(dut):
                 // Get or create appropriate viewer
                 let viewer = this.viewerInstances.get(filePath);
                 if (!viewer) {
-                    if (this.isImageFile(filePath)) {
+                    if (this.isSurferView(filePath)) {
+                        viewer = this.createSurferViewer(filePath, this.surferViews.get(filePath).pageUrl);
+                    } else if (this.isImageFile(filePath)) {
                         viewer = this.createImageViewer(filePath, editorContainer);
                     } else if (this.isPdfFile(filePath)) {
                         viewer = this.createPdfViewer(filePath, editorContainer);
@@ -1023,7 +1066,7 @@ async def basic_test(dut):
 
             } else {
                 // Hide all viewers for text files
-                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer');
+                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer');
                 allViewers.forEach(viewer => {
                     viewer.style.display = 'none';
                 });
@@ -1270,6 +1313,14 @@ async def basic_test(dut):
                 }
             }
 
+            // A aba do Surfer leva o servidor junto: o processo headless so
+            // existe para servir esta aba, e sem isto ele viraria orfao ate o
+            // fechamento da IDE.
+            if (this.surferViews.has(filePath)) {
+                const { tabId } = this.surferViews.get(filePath);
+                this.surferViews.delete(filePath);
+                try { window.electronAPI?.surferTabStop?.(tabId); } catch (_) { /* best-effort */ }
+            }
             // Clean up viewer instance
             if (this.viewerInstances.has(filePath)) {
                 const viewer = this.viewerInstances.get(filePath);

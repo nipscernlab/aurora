@@ -59,6 +59,7 @@ import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
+import { getSurferInTab } from '../wave/surfer_tab_preference.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -2786,6 +2787,16 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  */
 async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferLaunching'), 'info');
+
+    // Preferencia "Surfer em aba" (default): a onda abre dentro do editor, via
+    // servidor headless + cliente WASM (main/ipc/surfer_tab.js). Se qualquer
+    // ponta faltar (bundle web nao instalado, servidor nao sobe), cai para a
+    // janela nativa logo abaixo, que e o caminho de sempre — o botao Wave
+    // nunca fica sem resposta.
+    if (getSurferInTab()) {
+        const opened = await this._waveOpenSurferTab(vcdFile, surferLayoutFile, tools);
+        if (opened) return;
+    }
     // Load the active layout after the positional VCD: .surf.ron (saved
     // state) via -s, .sucl (command file) via -c. The CLI VCD takes
     // precedence over any path embedded in a state file, so a registered
@@ -2819,6 +2830,51 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
 }
 
 /**
+ * Open the wave as an editor tab (Surfer WASM client + local headless server).
+ *
+ * Returns true when the tab is up; false means "use the native window path",
+ * with the reason already printed to the terminal. Layouts ride in whole:
+ * a .sucl command file via startup_commands, and a .surf.ron saved state via
+ * load_state_from_url — the command our fork added to the WASM client for
+ * exactly this, so the curated layout (sections, colors, formats, analog)
+ * loads in the tab the same as in the native window.
+ *
+ * Inputs: vcdFile (absolute), surferLayoutFile (.surf.ron/.sucl or null), tools
+ * Returns: Promise<boolean>
+ */
+async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools) {
+    const available = await electronAPI.surferTabAvailable?.();
+    if (!available) {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.surferTabNoBundle'), 'tips');
+        return false;
+    }
+
+    const isSucl = surferLayoutFile && /.sucl$/i.test(surferLayoutFile);
+
+    // Um id estavel por onda: recompilar reusa a aba e o main troca o servidor.
+    const tabId = 'wave:' + vcdFile;
+    const result = await electronAPI.surferTabServe({
+        surferBin: tools.surferBin,
+        waveFile: vcdFile,
+        tabId,
+        suclFile: isSucl ? surferLayoutFile : null,
+        stateFile: !isSucl ? surferLayoutFile : null,
+        mappings: this._surferTabMappings || [],
+    });
+    if (!result?.success) {
+        this.terminalManager.appendToTerminal('twave',
+            `Surfer tab unavailable (${result?.message || 'unknown'}) — opening the window instead.`,
+            'tips');
+        return false;
+    }
+
+    TabManager.openSurferWave(vcdFile, result.pageUrl, tabId);
+    this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferTabOpened'), 'success');
+    return true;
+}
+
+/**
  * Resolve which Surfer layout file the Surfer viewer should load.
  *   Source 1 (user-curated): the surferFiles[] entry marked isActive in the
  *     WaveStore (a .surf.ron saved state or a .sucl command file).
@@ -2835,6 +2891,10 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
 async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
     const tbKey = (this.projectConfig.testbenchFile || '')
         .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+
+    // Layout do usuario nao passa pela geracao, entao nao ha mappings novos; o
+    // fluxo da aba le este campo e nao pode herdar os da simulacao anterior.
+    this._surferTabMappings = [];
 
     // Source 1: user-curated .surf.ron/.sucl (active entry).
     if (tbKey) {
@@ -2950,6 +3010,10 @@ async _waveResolveSurferSaveFile(simTopModule, vcdFile, tempBaseDir) {
             eventMarkers,
         });
         if (!content) return null;
+        // O fluxo da aba (WASM) nao le o config/mappings do disco: os decode
+        // maps vao por HTTP local via load_mapping_translator_from_url (comando
+        // nosso no fork). Guardados aqui porque este metodo so devolve o path.
+        this._surferTabMappings = Array.isArray(mappings) ? mappings : [];
         await electronAPI.writeFile(autoSurfer, content);
         // Surfer scans its global config/mappings dir at startup; write the
         // decode maps now (before launch) so valr2/linetabs render decoded.

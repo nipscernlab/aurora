@@ -412,3 +412,10 @@
 .wave-tree.flat-mode .wave-tree-row.signal-row {
     padding-left: var(--space-2);
 }
+
+/* O checkbox de multi-janela do Surfer fica inerte enquanto "abrir em aba"
+   esta marcado: multi-janela descreve o modo janela e nada mais. */
+.wave-tree-filter.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}

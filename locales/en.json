@@ -206,6 +206,7 @@
       "clear": "Clear",
       "emptyState": "No signals discovered. Make sure the project has a top-level synthesizable file (and ideally a testbench).",
       "showProcessorOnly": "Show processor signals only",
+      "surferInTab": "Surfer: open the wave as an editor tab",
       "surferMultiWindow": "Surfer: keep windows open to compare runs (multiple windows)",
       "selectedCountOne": "1 signal selected",
       "selectedCountOther": "{{count}} signals selected",
@@ -661,6 +662,8 @@
       "launched": "GTKWave launched successfully",
       "surferLaunching": "Launching Surfer...",
       "surferLaunched": "Surfer launched successfully",
+      "surferTabOpened": "Wave opened in the Surfer tab",
+      "surferTabNoBundle": "The Surfer tab mode needs the web component (Settings, Components) — opening the native window instead.",
       "hierarchyGen": "Generating hierarchy with Yosys...",
       "yosysRun": "Running Yosys command: {{cmd}}",
       "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}"

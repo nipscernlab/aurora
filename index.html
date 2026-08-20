@@ -714,6 +714,12 @@
                         <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
                     </label>
                     <label class="wave-tree-filter">
+                        <input type="checkbox" id="waveConfigSurferInTab" checked>
+                        <span data-i18n="modal.waveConfig.surferInTab">Surfer: open the wave as an editor tab</span>
+                    </label>
+                    <!-- So faz sentido no modo janela; o wave_config_manager
+                         desabilita este quando o de cima esta marcado. -->
+                    <label class="wave-tree-filter">
                         <input type="checkbox" id="waveConfigSurferMultiWindow">
                         <span data-i18n="modal.waveConfig.surferMultiWindow">Surfer: keep windows open to compare runs (multiple windows)</span>
                     </label>

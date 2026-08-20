@@ -24,6 +24,7 @@ import { SpfStore } from '../project/spf_store.js';
 import { CompilationModule } from '../compilation/compilation_module.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getSurferMultiWindow, setSurferMultiWindow } from './surfer_window_preference.js';
+import { getSurferInTab, setSurferInTab } from './surfer_tab_preference.js';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
@@ -103,6 +104,7 @@ class WaveConfigManager {
             selectNoneBtn:     document.getElementById('waveConfigSelectNone'),
             processorOnlyCb:   document.getElementById('waveConfigProcessorOnly'),
             processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest('.wave-tree-filter'),
+            surferInTabCb:     document.getElementById('waveConfigSurferInTab'),
             surferMultiWindowCb: document.getElementById('waveConfigSurferMultiWindow'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
@@ -112,6 +114,16 @@ class WaveConfigManager {
             filterRegexBtn:    document.getElementById('waveConfigFilterRegex'),
             filterClearBtn:    document.getElementById('waveConfigFilterClear'),
         };
+    }
+
+    // Multi-janela e um conceito do modo janela; com a aba ligada o checkbox
+    // fica desabilitado (mantendo o valor salvo para quando a aba desligar).
+    _syncSurferMultiWindowEnabled() {
+        const cb = this.elements.surferMultiWindowCb;
+        if (!cb) return;
+        const inTab = this.elements.surferInTabCb ? this.elements.surferInTabCb.checked : getSurferInTab();
+        cb.disabled = inTab;
+        cb.closest('.wave-tree-filter')?.classList.toggle('is-disabled', inTab);
     }
 
     bindListeners() {
@@ -126,6 +138,13 @@ class WaveConfigManager {
         // a anterior); On = varias janelas (comparar simulacoes lado a lado).
         this.elements.surferMultiWindowCb?.addEventListener('change', (e) => {
             setSurferMultiWindow(!!e.target.checked);
+        });
+        // Aba x janela do Surfer: tambem GLOBAL e persistida. A opcao de
+        // multi-janela so descreve o modo janela, entao ela desabilita
+        // enquanto a aba esta ligada, em vez de fingir que se aplica.
+        this.elements.surferInTabCb?.addEventListener('change', (e) => {
+            setSurferInTab(!!e.target.checked);
+            this._syncSurferMultiWindowEnabled();
         });
         this.elements.processorOnlyCb?.addEventListener('change', (e) => {
             this._processorOnly = !!e.target.checked;
@@ -430,6 +449,10 @@ class WaveConfigManager {
         if (this.elements.surferMultiWindowCb) {
             this.elements.surferMultiWindowCb.checked = getSurferMultiWindow();
         }
+        if (this.elements.surferInTabCb) {
+            this.elements.surferInTabCb.checked = getSurferInTab();
+        }
+        this._syncSurferMultiWindowEnabled();
         // Find widget: also UI-only, also reset on each open(). Toggles
         // (case/regex) reset too, fresh slate every time the user
         // re-enters the modal.

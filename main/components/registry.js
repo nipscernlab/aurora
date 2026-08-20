@@ -91,7 +91,7 @@ const VALIDADE_MS = 3000;
  * @type {Array<{
  *   chave: string, nome: string, resumo: string, sentinela: string,
  *   tamanhoMB: number, downloadMB: number, essencial: boolean,
- *   requerParaCompilar?: boolean, script: string|null,
+ *   requerParaCompilar?: boolean, script: string|null, arquivosChave: string[],
  * }>}
  */
 const COMPONENTES = [
@@ -100,6 +100,12 @@ const COMPONENTES = [
     nome: 'MSYS Toolchain',
     resumo: 'A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.',
     sentinela: 'Packages/msys/mingw64/bin/verilator_bin.exe',
+    arquivosChave: [
+      'Packages/msys/mingw64/bin/iverilog.exe',
+      'Packages/msys/mingw64/bin/vvp.exe',
+      'Packages/msys/mingw64/bin/g++.exe',
+      'Packages/msys/mingw64/bin/perl.exe',
+    ],
     tamanhoMB: 955,
     downloadMB: 272,
     // Fora do instalador de propósito. É mais da metade dele, e mantê-la
@@ -114,6 +120,7 @@ const COMPONENTES = [
     nome: 'YANC',
     resumo: 'O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.',
     sentinela: 'bin/cppcomp.exe',
+    arquivosChave: ['bin/cmmcomp.exe', 'bin/asmcomp.exe', 'bin/appcomp.exe'],
     tamanhoMB: 12,
     downloadMB: 5,
     // O único que fica no instalador. São doze megabytes, e é o SAPHO em si.
@@ -126,6 +133,7 @@ const COMPONENTES = [
     nome: 'GTKWave',
     resumo: 'O visualizador de formas de onda clássico, em janela própria.',
     sentinela: 'Packages/gtkwave-nipscern/gtkwave.exe',
+    arquivosChave: ['Packages/gtkwave-nipscern/fst2vcd.exe'],
     tamanhoMB: 88,
     downloadMB: 30,
     essencial: false,
@@ -136,6 +144,7 @@ const COMPONENTES = [
     nome: 'Surfer',
     resumo: 'O visualizador de formas de onda embutido, dentro da AURORA.',
     sentinela: 'Packages/surfer/surfer-aurora.exe',
+    arquivosChave: [],
     tamanhoMB: 43,
     downloadMB: 16,
     essencial: false,
@@ -146,6 +155,7 @@ const COMPONENTES = [
     nome: 'Verible',
     resumo: 'Diagnósticos, formatação e navegação em Verilog, dentro do editor.',
     sentinela: 'Packages/verible/bin/verible-verilog-ls.exe',
+    arquivosChave: [],
     tamanhoMB: 3,
     downloadMB: 2,
     essencial: false,
@@ -156,6 +166,7 @@ const COMPONENTES = [
     nome: 'slang',
     resumo: 'Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.',
     sentinela: 'Packages/slang-server/bin/slang-server.exe',
+    arquivosChave: [],
     tamanhoMB: 8,
     downloadMB: 3,
     essencial: false,
@@ -166,6 +177,7 @@ const COMPONENTES = [
     nome: 'clang-format',
     resumo: 'Formatação de C, C++ e C± com Shift+Alt+F.',
     sentinela: 'Packages/clang-format/bin/clang-format.exe',
+    arquivosChave: [],
     tamanhoMB: 3,
     downloadMB: 2,
     essencial: false,
@@ -222,6 +234,43 @@ function estaInstalado(chave) {
   return presente;
 }
 
+/**
+ * Diagnostica um componente com mais rigor do que `estaInstalado`.
+ *
+ * A sentinela responde "a instalação terminou?". Ela não responde "a
+ * instalação terminou INTEIRA?", e a diferença aparece justamente no caso que
+ * mais acontece: download interrompido, zip truncado, extração pela metade.
+ * Por isso o diagnóstico olha também os arquivos-chave, que são os binários
+ * sem os quais o componente não serve para nada.
+ *
+ * Não executa nada. Rodar cada binário para ver se responde custaria segundos
+ * por componente e dispararia antivírus em máquina de laboratório; a presença
+ * dos arquivos pega o defeito real sem esse preço.
+ *
+ * @returns {{chave: string, estado: 'ok'|'ausente'|'incompleto', faltando: string[]}}
+ */
+function diagnosticar(chave) {
+  const c = PORCHAVE.get(chave);
+  if (!c) return { chave, estado: 'ausente', faltando: [] };
+
+  if (!estaInstalado(chave)) return { chave, estado: 'ausente', faltando: [c.sentinela] };
+
+  const faltando = (c.arquivosChave || []).filter((rel) => {
+    try { return !fs.existsSync(path.join(raiz(), ...rel.split('/'))); }
+    catch (_) { return true; }
+  });
+  return {
+    chave,
+    estado: faltando.length ? 'incompleto' : 'ok',
+    faltando,
+  };
+}
+
+/** O diagnóstico de todos, na ordem do catálogo. */
+function diagnosticarTudo() {
+  return COMPONENTES.map((c) => ({ ...diagnosticar(c.chave), essencial: c.essencial, nome: c.nome }));
+}
+
 /** O catálogo com o estado de cada um, para o painel. */
 function listar() {
   return COMPONENTES.map((c) => ({
@@ -253,6 +302,8 @@ module.exports = {
   listar,
   obter,
   estaInstalado,
+  diagnosticar,
+  diagnosticarTudo,
   caminhoDaSentinela,
   invalidarCache,
   mensagemDeAusencia,

@@ -160,3 +160,27 @@ describe('instalador e catalogo andam juntos', () => {
     expect(filtro.some((f) => f.startsWith('!Scripts'))).toBe(false);
   });
 });
+
+
+describe('arquivos-chave', () => {
+  // O doctor diagnostica por eles; um caminho errado aqui faria um componente
+  // saudavel parecer eternamente quebrado, e o doctor re-baixaria 272 MB a
+  // cada rodada.
+  it('todo arquivo-chave mora dentro da pasta do proprio componente', () => {
+    for (const c of COMPONENTES) {
+      const base = c.sentinela.split('/').slice(0, -1).join('/').split('/')[0] === 'Packages'
+        ? c.sentinela.split('/').slice(0, 2).join('/')
+        : c.sentinela.split('/')[0];
+      for (const rel of c.arquivosChave) {
+        expect(rel.startsWith(base), `${c.chave}: ${rel} fora de ${base}`).toBe(true);
+      }
+    }
+  });
+
+  it('quem compila declara os binarios que o allowlist conhece', () => {
+    const msys = COMPONENTES.find((c) => c.chave === 'msys');
+    expect(msys.arquivosChave.some((a) => a.endsWith('iverilog.exe'))).toBe(true);
+    const yanc = COMPONENTES.find((c) => c.chave === 'yanc');
+    expect(yanc.arquivosChave.some((a) => a.endsWith('cmmcomp.exe'))).toBe(true);
+  });
+});

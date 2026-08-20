@@ -76,7 +76,7 @@ function lerPercentual(linha) {
  * @param {string} chave
  * @param {import('electron').BrowserWindow|null} janela
  */
-function instalar(chave, janela) {
+function instalar(chave, janela, forcar = false) {
   const comp = registro.obter(chave);
   if (!comp) return Promise.resolve({ ok: false, erro: 'componente desconhecido' });
   if (emAndamento) return Promise.resolve({ ok: false, erro: 'ja-ha-download', chave: emAndamento });
@@ -90,7 +90,10 @@ function instalar(chave, janela) {
   avisar(janela, { chave, estado: 'iniciando', percentual: 0, linha: `Baixando ${comp.nome}` });
 
   return new Promise((resolve) => {
-    const filho = spawn(process.execPath, [script], {
+    // --force: o doctor re-baixa componente INCOMPLETO, cuja sentinela existe;
+    // sem a flag o script veria a sentinela e sairia dizendo que esta tudo la.
+    const argumentos = forcar ? [script, '--force'] : [script];
+    const filho = spawn(process.execPath, argumentos, {
       cwd: path.dirname(componentsPath),
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
       windowsHide: true,
@@ -179,6 +182,76 @@ async function remover(chave) {
   }
 }
 
+/**
+ * O doctor: verifica todos os componentes e conserta o que estiver quebrado.
+ *
+ * O QUE ELE FAZ, EM ORDEM
+ * -----------------------
+ * 1. Limpa o cache de compilação (components/Temp) e os zips parciais que um
+ *    download interrompido deixou para trás.
+ * 2. Diagnostica cada componente pelos arquivos-chave, não só pela sentinela:
+ *    a sentinela diz que a instalação terminou, os arquivos-chave dizem se
+ *    terminou inteira.
+ * 3. Re-baixa com --force o que estiver INCOMPLETO, e baixa o que estiver
+ *    ausente sendo necessário para compilar.
+ *
+ * O QUE ELE NÃO FAZ, DE PROPÓSITO
+ * -------------------------------
+ * Não apaga tudo para baixar tudo. Numa máquina saudável isso seria trocar
+ * dez segundos de verificação por uma hora de download em rede de
+ * laboratório, e um doctor caro é um doctor que ninguém roda. Quem quiser a
+ * reinstalação total de um componente saudável tem o caminho: remover e
+ * baixar de novo pelo painel. E não baixa componente opcional que o usuário
+ * nunca instalou: ausência escolhida não é defeito.
+ *
+ * @param {import('electron').BrowserWindow|null} janela
+ */
+async function doctor(janela) {
+  if (emAndamento) return { ok: false, erro: 'ja-ha-download', chave: emAndamento };
+
+  const resultado = {
+    ok: true,
+    cacheLimpo: false,
+    saudaveis: /** @type {string[]} */ ([]),
+    consertados: /** @type {string[]} */ ([]),
+    falharam: /** @type {string[]} */ ([]),
+    ausentesOpcionais: /** @type {string[]} */ ([]),
+  };
+
+  // 1. Caches. O components/Temp guarda artefatos de compilacao; zip parcial
+  // e resto de download que morreu no meio.
+  try {
+    require('../temp_gc').clearTempFolderSync(componentsPath);
+    for (const arquivo of fs.readdirSync(path.dirname(componentsPath))) {
+      if (/^(aurora-|surfer-aurora).*\.zip$/i.test(arquivo)) {
+        fs.rmSync(path.join(path.dirname(componentsPath), arquivo), { force: true });
+      }
+    }
+    resultado.cacheLimpo = true;
+  } catch (e) {
+    log.warn('[doctor] limpeza de cache falhou:', e);
+  }
+
+  // 2 e 3. Diagnostico e conserto, um componente por vez: dois downloads
+  // juntos so disputam a mesma banda.
+  registro.invalidarCache();
+  for (const d of registro.diagnosticarTudo()) {
+    if (d.estado === 'ok') { resultado.saudaveis.push(d.chave); continue; }
+
+    const comp = registro.obter(d.chave);
+    const precisaConsertar = d.estado === 'incompleto'
+      || (d.estado === 'ausente' && (comp?.essencial || comp?.requerParaCompilar));
+    if (!precisaConsertar) { resultado.ausentesOpcionais.push(d.chave); continue; }
+
+    log.info(`[doctor] ${d.chave} ${d.estado}; faltando: ${d.faltando.join(', ')}`);
+    const r = await instalar(d.chave, janela, d.estado === 'incompleto');
+    (r.ok ? resultado.consertados : resultado.falharam).push(d.chave);
+  }
+
+  resultado.ok = resultado.falharam.length === 0;
+  return resultado;
+}
+
 function register() {
   ipcMain.handle('componentes:listar', () => ({
     componentes: registro.listar(),
@@ -190,6 +263,9 @@ function register() {
     instalar(chave, BrowserWindow.fromWebContents(evento.sender)));
 
   ipcMain.handle('componentes:remover', (_e, chave) => remover(chave));
+
+  ipcMain.handle('componentes:doctor', (evento) =>
+    doctor(BrowserWindow.fromWebContents(evento.sender)));
 
   // Usado pela interface para decidir se mostra o aviso num botao, e pelo
   // prompt da Aurora Intelligence. Le do disco, entao acompanha o que o

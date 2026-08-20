@@ -80,6 +80,17 @@ const RESERVA = {
     + 'Sem ele, os botões de compilar e simular não funcionam. Você encontra '
     + 'tudo em Configurações, Componentes.',
   'modal.settings.componentsCompileMissingTitle': 'Cadeia de compilação ausente',
+  'modal.settings.componentsDoctor': 'Verificar e consertar',
+  'modal.settings.componentsDoctorTitle': 'Verificar os componentes',
+  'modal.settings.componentsDoctorBody':
+    'A AURORA vai limpar os caches de compilação, conferir os arquivos de cada '
+    + 'componente e re-baixar o que estiver incompleto ou quebrado. Componente '
+    + 'saudável não é tocado, e componente opcional que você nunca baixou continua '
+    + 'de fora.\n\nSe algo estiver quebrado, o conserto pode ser um download grande.',
+  'modal.settings.componentsDoctorGo': 'Verificar agora',
+  'modal.settings.componentsDoctorHealthy': 'Tudo em ordem: caches limpos e todos os componentes íntegros.',
+  'modal.settings.componentsDoctorFixed': 'Verificação concluída: {n} componente(s) consertado(s).',
+  'modal.settings.componentsDoctorFailed': 'A verificação não conseguiu consertar: {lista}. Confira a internet e tente de novo.',
 };
 
 /** t() com reserva e {placeholders}. */
@@ -123,15 +134,19 @@ function tamanhoLegivel(mb) {
 function cartao(c) {
   const selos = [];
   if (c.essencial) {
+    // Essencial vem no instalador e nao sai. Um cartao assim nao mostra estado
+    // de instalacao nem tamanho de download, porque nao ha decisao a tomar: a
+    // tela estava dizendo "sempre instalado" e oferecendo um download ao mesmo
+    // tempo, que e contraditorio e nao ajuda ninguem.
     selos.push(`<span class="componente-selo essencial">${escapar(tr('modal.settings.componentsAlways'))}</span>`);
   } else if (c.instalado) {
     selos.push(`<span class="componente-selo instalado">${escapar(tr('modal.settings.componentsInstalled'))}</span>`);
   } else {
     selos.push(`<span class="componente-selo ausente">${escapar(tr('modal.settings.componentsMissing'))}</span>`);
-  }
-  // O que compila e nao esta aqui e assunto urgente, nao recurso a menos.
-  if (c.requerParaCompilar && !c.instalado) {
-    selos.push(`<span class="componente-selo urgente">${escapar(tr('modal.settings.componentsNeededToCompile'))}</span>`);
+    // O que compila e nao esta aqui e assunto urgente, nao recurso a menos.
+    if (c.requerParaCompilar) {
+      selos.push(`<span class="componente-selo urgente">${escapar(tr('modal.settings.componentsNeededToCompile'))}</span>`);
+    }
   }
 
   // Remover existe, mas com a cara de acao destrutiva (contorno vermelho, o
@@ -146,14 +161,15 @@ function cartao(c) {
       : `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}">`
         + `<i class="ph ph-download-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsDownload'))}</button>`;
 
-  // Instalado mostra o que ocupa; ausente mostra o que vai trafegar, que e o
-  // numero que responde "quanto vou esperar".
-  const tamanho = c.instalado
+  // Presente mostra o que ocupa em disco; ausente mostra o que vai trafegar,
+  // que e o numero que responde "quanto vou esperar". Essencial conta sempre
+  // pelo disco: ele nunca sera baixado pelo painel.
+  const tamanho = (c.essencial || c.instalado)
     ? tamanhoLegivel(c.tamanhoMB)
     : tr('modal.settings.componentsDownloadOf', { mb: tamanhoLegivel(c.downloadMB) });
 
   return elemento(`
-    <div class="componente${c.requerParaCompilar && !c.instalado ? ' componente-urgente' : ''}" data-chave="${escapar(c.chave)}">
+    <div class="componente${c.requerParaCompilar && !c.instalado && !c.essencial ? ' componente-urgente' : ''}" data-chave="${escapar(c.chave)}">
       <div class="componente-texto">
         <div class="componente-titulo">
           <span class="componente-nome">${escapar(nomeDe(c))}</span>
@@ -350,6 +366,54 @@ async function avisarSeNaoCompila() {
   } catch (_) { /* cortesia de boot; o portao continua segurando */ }
 }
 
+/**
+ * O doctor: verifica tudo e conserta o que estiver quebrado.
+ *
+ * A confirmação diz o que ele vai fazer ANTES, porque o conserto pode custar
+ * um download grande, e ninguém deve entrar num download de 272 MB por ter
+ * clicado num botão que parecia só verificar.
+ */
+async function rodarDoctor() {
+  if (baixando) {
+    showCardNotification(tr('modal.settings.componentsBusy'), 'info', 4000, 'Componentes');
+    return;
+  }
+  const escolha = await showDialog({
+    title: tr('modal.settings.componentsDoctorTitle'),
+    message: tr('modal.settings.componentsDoctorBody'),
+    variant: 'info',
+    buttons: [
+      { label: tr('modal.settings.componentsCancel'), action: 'cancel', type: 'cancel' },
+      { label: tr('modal.settings.componentsDoctorGo'), action: 'rodar', type: 'primary' },
+    ],
+  });
+  if (escolha !== 'rodar') return;
+
+  const botao = document.getElementById('componentes-doctor');
+  if (botao) botao.disabled = true;
+  const r = await electronAPI.componentesDoctor?.()
+    .catch((e) => ({ ok: false, falharam: [], erro: e?.message }));
+  if (botao) botao.disabled = false;
+
+  if (r?.erro === 'ja-ha-download') {
+    showCardNotification(tr('modal.settings.componentsBusy'), 'info', 4000, 'Componentes');
+    return;
+  }
+
+  const consertados = r?.consertados?.length || 0;
+  if (r?.ok && consertados === 0) {
+    showCardNotification(tr('modal.settings.componentsDoctorHealthy'), 'success', 6000, 'Componentes');
+  } else if (r?.ok) {
+    showCardNotification(
+      tr('modal.settings.componentsDoctorFixed', { n: consertados }), 'success', 8000, 'Componentes');
+  } else {
+    showCardNotification(
+      tr('modal.settings.componentsDoctorFailed', { lista: (r?.falharam || []).join(', ') || '?' }),
+      'error', 10000, 'Componentes');
+  }
+  await desenhar();
+}
+
 function ligar() {
   // Este ouvinte não depende do painel estar montado: o bloqueio acontece
   // enquanto a pessoa trabalha, com as configurações fechadas.
@@ -371,6 +435,9 @@ function ligar() {
 
   document.getElementById('componentes-abrir-pasta')
     ?.addEventListener('click', () => electronAPI.componentesAbrirPasta?.());
+
+  document.getElementById('componentes-doctor')
+    ?.addEventListener('click', () => rodarDoctor());
 
   electronAPI.onComponenteProgresso?.(aplicarProgresso);
 

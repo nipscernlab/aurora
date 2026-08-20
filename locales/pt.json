@@ -356,7 +356,14 @@
       "componentsCompileMissingTitle": "Cadeia de compilação ausente",
       "bugReportRow": "Relatar um problema",
       "bugReportRowDescription": "Descreva o que aconteceu e envie direto para o NIPS-CERN. A tela mostra tudo que vai junto antes de enviar.",
-      "bugReportAction": "Relatar"
+      "bugReportAction": "Relatar",
+      "componentsDoctor": "Verificar e consertar",
+      "componentsDoctorTitle": "Verificar os componentes",
+      "componentsDoctorBody": "A AURORA vai limpar os caches de compilação, conferir os arquivos de cada componente e re-baixar o que estiver incompleto ou quebrado. Componente saudável não é tocado, e componente opcional que você nunca baixou continua de fora.\n\nSe algo estiver quebrado, o conserto pode ser um download grande.",
+      "componentsDoctorGo": "Verificar agora",
+      "componentsDoctorHealthy": "Tudo em ordem: caches limpos e todos os componentes íntegros.",
+      "componentsDoctorFixed": "Verificação concluída: {n} componente(s) consertado(s).",
+      "componentsDoctorFailed": "A verificação não conseguiu consertar: {lista}. Confira a internet e tente de novo."
     }
   },
   "shortcuts": {

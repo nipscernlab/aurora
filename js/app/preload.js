@@ -91,6 +91,10 @@ const fileOperations = {
   componentesRemover:   (chave) => ipcRenderer.invoke('componentes:remover', chave),
   componentesInstalado: (chave) => ipcRenderer.invoke('componentes:instalado', chave),
   componentesAbrirPasta: () => ipcRenderer.invoke('componentes:abrirPasta'),
+  // O doctor: limpa caches, diagnostica pelos arquivos-chave e re-baixa o que
+  // estiver quebrado. Demorado quando conserta algo; o progresso chega pelo
+  // mesmo canal componentes:progresso.
+  componentesDoctor: () => ipcRenderer.invoke('componentes:doctor'),
   onComponenteProgresso: (cb) =>
     ipcRenderer.on('componentes:progresso', (_e, dados) => cb(dados)),
   // Disparado pelo portao do main quando algo foi barrado por falta de

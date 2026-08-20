@@ -356,7 +356,14 @@
       "componentsCompileMissingTitle": "Compilation chain missing",
       "bugReportRow": "Report a problem",
       "bugReportRowDescription": "Describe what happened and send it straight to NIPS-CERN. The screen shows everything that goes along before you send.",
-      "bugReportAction": "Report"
+      "bugReportAction": "Report",
+      "componentsDoctor": "Check and repair",
+      "componentsDoctorTitle": "Check the components",
+      "componentsDoctorBody": "AURORA will clear the build caches, check the files of every component and re-download whatever is incomplete or broken. Healthy components are not touched, and optional components you never downloaded stay out.\n\nIf something is broken, the repair may be a large download.",
+      "componentsDoctorGo": "Check now",
+      "componentsDoctorHealthy": "All good: caches cleared and every component intact.",
+      "componentsDoctorFixed": "Check finished: {n} component(s) repaired.",
+      "componentsDoctorFailed": "The check could not repair: {lista}. Check the internet and try again."
     }
   },
   "shortcuts": {

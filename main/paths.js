@@ -61,10 +61,22 @@ function componentesPersistentes(exePath, localAppData, userData) {
   return path.join(base, 'SAPHO', 'components');
 }
 
-const componentsPath = (isDev || !temApp)
-  ? path.join(appRoot, 'components')
-  : componentesPersistentes(
-    app.getPath('exe'), process.env.LOCALAPPDATA, app.getPath('userData'));
+/**
+ * A pasta persistente vale so para a instalacao EMPACOTADA.
+ *
+ * O sinal e `app.isPackaged`, e nao `isDev`. Nada no projeto define
+ * NODE_ENV=development, entao `isDev` e falso durante o `npm start` tambem, e
+ * usa-lo aqui mandou o desenvolvimento procurar componentes no LOCALAPPDATA,
+ * onde nunca houve nada: a AURORA subia com tudo marcado como ausente. Antes
+ * isso passava despercebido porque o caminho de producao caia em
+ * `node_modules/electron/dist/components`, que e uma juncao para a pasta do
+ * repositorio; o acerto era por acidente.
+ */
+const empacotado = temApp && app.isPackaged;
+const componentsPath = empacotado
+  ? componentesPersistentes(
+    app.getPath('exe'), process.env.LOCALAPPDATA, app.getPath('userData'))
+  : path.join(appRoot, 'components');
 
 const rootPath = path.join(appRoot, '..', '..');
 

@@ -4,6 +4,47 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.7.0](https://github.com/nipscernlab/aurora/compare/v6.6.1...v6.7.0) (2026-08-20)
+
+
+### Features
+
+* **ai:** duas estrelas no lugar do cerebro como simbolo da Aurora Intelligence ([89edc62](https://github.com/nipscernlab/aurora/commit/89edc62fa6d7bbe1aa3dd0118ab24b472136546f))
+* **componentes:** doctor que verifica pelos arquivos-chave e conserta o que falta ([3089a46](https://github.com/nipscernlab/aurora/commit/3089a46eacf05a186796d346d3f54e36bbb258f2))
+* **componentes:** MSYS sai do instalador, e o resto acompanha a decisao ([eb4d886](https://github.com/nipscernlab/aurora/commit/eb4d8861c383927f002cffa4a77af4ce6be4c2be))
+* **componentes:** painel para baixar e remover, e aviso vindo do portao ([db687c7](https://github.com/nipscernlab/aurora/commit/db687c72da3a3cdd882aee19a5535c17c1cd73d0))
+* **componentes:** portao unico que barra ferramenta de componente ausente ([5fd3b7c](https://github.com/nipscernlab/aurora/commit/5fd3b7ca68f7e78d5c35e48f4a4ebd321a1a2a36))
+* **componentes:** remover volta com o preco na cara, e o primeiro teste real corrige dois furos ([b00353c](https://github.com/nipscernlab/aurora/commit/b00353c61eeea85a70aa914a217cf7027cf67aaf))
+* **doctor:** o YANC inteiro entra no diagnostico, e a falta dos Scripts vira resposta clara ([41b497c](https://github.com/nipscernlab/aurora/commit/41b497ceb579c8f40c7aacdee9bb6922292827e4))
+* **github:** limpar o acesso ao fechar passa a ser o padrao ([757cf00](https://github.com/nipscernlab/aurora/commit/757cf007637110fd447cc4a987631cc4c81ee047))
+* **relato:** o terminal vai junto, recortado em volta dos erros ([707184d](https://github.com/nipscernlab/aurora/commit/707184db43961b63a913b35a53b1d8bf4cdde76a))
+* **relato:** quem bate no limite le quanto falta, em vez de um HTTP 429 ([9e51dec](https://github.com/nipscernlab/aurora/commit/9e51decdb2d5e9cf335fcdac0a9c8e12b86de15b))
+* **wave:** monitores de pilha e ULA de volta no layout, via espelhos no tb ([ae9659b](https://github.com/nipscernlab/aurora/commit/ae9659b1100a7d1fb19775b3b29c9635d8185612))
+* **wave:** Surfer abre como aba do editor ([b989673](https://github.com/nipscernlab/aurora/commit/b989673807329187f2b8b72e0cd76b7a43f6f11b))
+
+
+### Bug Fixes
+
+* **bootstrap:** surfer nips.10, exe e bundle web baixados do registro ([5f7bd1d](https://github.com/nipscernlab/aurora/commit/5f7bd1d54c781829c50953a1cc2acd451f3c0fb7))
+* **componentes:** a barra de progresso sobrevive a troca de aba e some no fim ([ab3acd5](https://github.com/nipscernlab/aurora/commit/ab3acd51a6aabcd8095a71557cd993f14b79035e))
+* **componentes:** o que foi baixado sobrevive a atualizacao ([48211fd](https://github.com/nipscernlab/aurora/commit/48211fd3060d406ca39c4d1bd84fef90506f363c))
+* **prism:** volta o marcador de bits do barramento, ajustado ao tema ([1af5841](https://github.com/nipscernlab/aurora/commit/1af58416ddc4ae271f563b107a86d35fd95f39db))
+* **settings:** selos dos componentes alinhados em coluna propria ([7820942](https://github.com/nipscernlab/aurora/commit/7820942291a2427e8c3181f84de5e5f1d74bfbb2))
+
+
+### Documentation
+
+* **todo:** componentes e report de bug saem do backlog, com o que ainda falta ([9692046](https://github.com/nipscernlab/aurora/commit/9692046480295c79e832d0d5f8b66c4af9c1cf67))
+* **todo:** estado da SignPath pos-resposta e pendencias do dia 20/08 ([12f1635](https://github.com/nipscernlab/aurora/commit/12f1635ad9b6c3632c34e0a296d30bd29aff8fc9))
+* **todo:** producao muda o custo de errar; tres frentes novas e o estado da SignPath ([dd57a1f](https://github.com/nipscernlab/aurora/commit/dd57a1f6ec74116ea18ae91e6b1226a7126db483))
+
+
+### Build
+
+* **deps-dev:** bump the dev-dependencies group across 1 directory with 5 updates ([#84](https://github.com/nipscernlab/aurora/issues/84)) ([f3905a6](https://github.com/nipscernlab/aurora/commit/f3905a6e72f5c8b9d4ccbbf11d07df510974d73d))
+* **deps:** bump @anthropic-ai/claude-agent-sdk from 0.3.226 to 0.3.233 ([#88](https://github.com/nipscernlab/aurora/issues/88)) ([285513d](https://github.com/nipscernlab/aurora/commit/285513dc1938d69b8b0117f7781fd5165a7860a8))
+* **deps:** bump the ai-sdk group across 1 directory with 6 updates ([#85](https://github.com/nipscernlab/aurora/issues/85)) ([3c0443c](https://github.com/nipscernlab/aurora/commit/3c0443c6ef48510629967dfda31ad52b408e11f8))
+
 ## [6.6.1](https://github.com/nipscernlab/aurora/compare/v6.6.0...v6.6.1) (2026-08-18)
 
 

@@ -37,6 +37,17 @@ let baixando = null;
 /** A ultima leitura do catalogo, por chave. */
 const catalogo = new Map();
 
+/**
+ * O ultimo progresso recebido, por chave.
+ *
+ * A lista se redesenha inteira ao trocar de aba, e o cartao novo nasce com a
+ * barra zerada e escondida. Durante o download os eventos chegam e repovoam
+ * em segundos, mas durante a EXTRACAO nao chega nada por minutos, e a barra
+ * simplesmente sumia para quem saiu e voltou. Guardar o ultimo evento e
+ * reaplicar no redesenho e o que mantem a barra viva.
+ */
+const ultimoProgresso = new Map();
+
 /** Reservas em português para antes de as locales carregarem. */
 const RESERVA = {
   'modal.settings.componentsInstalled': 'Instalado',
@@ -188,8 +199,13 @@ async function desenhar() {
   }
 
   // Um download já em curso quando o painel abriu continua sendo um download:
-  // o painel precisa mostrá-lo, e não oferecer um segundo.
-  if (dados?.baixando) marcarBaixando(dados.baixando);
+  // o painel precisa mostrá-lo, e não oferecer um segundo. O último progresso
+  // volta para a barra, senão sair e voltar de aba a zeraria.
+  if (dados?.baixando) {
+    marcarBaixando(dados.baixando);
+    const p = ultimoProgresso.get(dados.baixando);
+    if (p) aplicarProgresso(p);
+  }
 }
 
 function marcarBaixando(chave) {
@@ -202,12 +218,20 @@ function marcarBaixando(chave) {
 }
 
 function aplicarProgresso(d) {
+  const acabou = d.estado === 'pronto' || d.estado === 'erro';
+  if (acabou) ultimoProgresso.delete(d.chave);
+  else ultimoProgresso.set(d.chave, d);
   const alvo = document.querySelector(`.componente[data-chave="${d.chave}"]`);
   if (!alvo) return;
   const bloco = alvo.querySelector('.componente-progresso');
   const barra = alvo.querySelector('.componente-barra span');
   const linha = alvo.querySelector('.componente-linha');
   if (!bloco) return;
+  // Terminou: a barra sai de cena. O desfecho quem conta e a notificacao e o
+  // selo do cartao; uma barra parada em 100% parece download travado. O
+  // evento final pode chegar DEPOIS do redesenho, entao esconder aqui e o que
+  // impede a barra de reaparecer num cartao ja pronto.
+  if (acabou) { bloco.hidden = true; return; }
   bloco.hidden = false;
   if (typeof d.percentual === 'number') barra.style.width = `${d.percentual}%`;
   // Sem percentual, a barra fica como estava em vez de voltar a zero: a

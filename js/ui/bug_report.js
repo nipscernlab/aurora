@@ -137,6 +137,12 @@ export function montarCorpo(d = {}, texto = {}) {
     `Idioma: ${val(d.locale)}`,
     `Projeto aberto: ${val(d.projeto)}`,
     `Arquivo em foco: ${val(d.arquivo)}`,
+    // O recorte do terminal, quando houver, entra aqui também: os dois
+    // caminhos de envio precisam levar a mesma coisa, senão o relato que chega
+    // por e-mail vale menos do que o que chega pelo painel.
+    ...(String(texto.terminal || '').trim()
+      ? ['', 'TERMINAL (erros e o que estava em volta)', texto.terminal]
+      : []),
   ].join('\n');
 }
 

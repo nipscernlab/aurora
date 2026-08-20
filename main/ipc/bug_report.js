@@ -9,19 +9,23 @@
  * se o painel diz que vai o fim do log, é o fim do log que vai, e o usuário
  * consegue conferir na tela o que está mandando.
  *
- * O RECORTE DO LOG
- * ----------------
- * Vão as últimas linhas, não o arquivo inteiro. Um `main.log` de sessão longa
- * passa de um megabyte, e o que interessa a um relato é o que aconteceu perto
- * da falha. Além disso, quanto menor o recorte, menor a chance de carregar
- * junto um caminho de projeto ou nome de arquivo que o usuário não pretendia
+ * OS DOIS LOGS, E POR QUE SÃO DOIS
+ * --------------------------------
+ * O `main.log` fala do aplicativo; o recorte do terminal fala da compilação.
+ * Quase todo relato vai ser sobre uma compilação que falhou, e a resposta está
+ * no segundo, não no primeiro. Nenhum dos dois vai inteiro: do `main.log` vão
+ * as últimas linhas, e do terminal vão os erros com a vizinhança deles
+ * (js/terminal/terminal_excerpt.js). Além de caber no envio, recorte menor é
+ * menos chance de carregar junto um caminho que o usuário não pretendia
  * mandar.
  *
  * O QUE NÃO É COLETADO
  * --------------------
  * Nada de conteúdo de arquivo do usuário, nada de credencial, nada de conversa
- * com a IA, nada de identificador de máquina. O relato leva o que descreve o
- * ambiente e o que a própria pessoa escreveu.
+ * com a IA, nada de nome de máquina ou de conta. O nome de usuário que aparece
+ * nos caminhos é removido antes do envio (`anonimizar`). O relato leva o que
+ * descreve o ambiente, o que aconteceu na compilação, e o que a própria pessoa
+ * escreveu.
  */
 
 'use strict';
@@ -100,6 +104,39 @@ function caudaDoLog() {
 }
 
 /**
+ * Espaço livre onde os componentes moram.
+ *
+ * Explica sozinho uma classe inteira de relatos: extração que falha no fim,
+ * build que morre sem mensagem clara. Uma linha, e nada dela identifica quem
+ * quer que seja.
+ */
+function espacoLivreGB() {
+  try {
+    const { componentsPath } = require('../paths');
+    // statfsSync existe no Node 18+; se faltar, o relato segue sem o numero.
+    if (typeof fs.statfsSync !== 'function') return null;
+    const s = fs.statfsSync(componentsPath);
+    return Math.round((s.bavail * s.bsize) / 1073741824);
+  } catch (_) { return null; }
+}
+
+/**
+ * Quais componentes esta máquina tem.
+ *
+ * "Não compila" com a cadeia ausente é o relato mais provável agora que ela é
+ * baixada depois, e esta linha responde a pergunta antes de alguém precisar
+ * perguntar.
+ */
+function componentesInstalados() {
+  try {
+    const registro = require('../components/registry');
+    return registro.listar()
+      .map((c) => `${c.chave}${c.instalado ? '' : ' (ausente)'}`)
+      .join(', ');
+  } catch (_) { return ''; }
+}
+
+/**
  * Tudo que acompanha o relato, além do que a pessoa escreveu.
  *
  * Devolvido também para a interface poder MOSTRAR antes de enviar. Coletar e
@@ -111,6 +148,8 @@ function coletarDiagnostico() {
     sistema: `${os.platform()} ${os.release()} ${os.arch()}`,
     memoriaGB: Math.round(os.totalmem() / 1073741824),
     nucleos: os.cpus()?.length || 0,
+    discoLivreGB: espacoLivreGB(),
+    componentes: componentesInstalados(),
     electron: process.versions.electron,
     chrome: process.versions.chrome,
     node: process.versions.node,
@@ -177,24 +216,44 @@ function postar(url, corpo, saltos = 0) {
   });
 }
 
+/** O tamanho da carga, em bytes, como ela vai pela rede. */
+function tamanhoDa(carga) {
+  return Buffer.byteLength(JSON.stringify(carga), 'utf8');
+}
+
 /**
  * Corta o log ate a carga caber no limite.
  *
  * Corta em vez de recusar o envio: um relato sem as ultimas linhas ainda vale,
- * um relato recusado nao vale nada. Fica de fora do `enviar` porque e a unica
- * parte com laco, e um laco que encolhe a propria condicao de parada e o tipo
- * de coisa que trava calada em producao.
+ * um relato recusado nao vale nada.
  *
- * Sempre termina: cada volta descarta metade do log, e a volta para quando
- * sobra pouco log, mesmo que o resto da carga por si so ja passe do limite.
+ * A ORDEM DO SACRIFICIO
+ * ---------------------
+ * Nem todo campo vale o mesmo. O `main.log` fala do aplicativo e e o primeiro
+ * a encolher; o recorte do terminal fala da compilacao que falhou, que e o
+ * assunto do relato, e so cede depois. O que a pessoa escreveu nunca e
+ * tocado: e a unica parte que ninguem consegue recuperar depois.
  *
- * @param {{diagnostico: {log: string}}} carga mutada no lugar.
+ * O corte guarda o FIM de cada um, porque e onde a falha aparece.
+ *
+ * @param {{diagnostico: {log: string}, terminal?: string}} carga mutada no lugar.
  */
 function encolherParaCaber(carga) {
-  let bytes = Buffer.byteLength(JSON.stringify(carga), 'utf8');
-  while (bytes > LIMITE_BYTES && carga.diagnostico.log.length > 500) {
-    carga.diagnostico.log = carga.diagnostico.log.slice(Math.floor(carga.diagnostico.log.length / 2));
-    bytes = Buffer.byteLength(JSON.stringify(carga), 'utf8');
+  // Do menos precioso para o mais precioso.
+  const campos = [
+    { ler: () => carga.diagnostico.log, gravar: (v) => { carga.diagnostico.log = v; }, piso: 500 },
+    { ler: () => carga.terminal || '', gravar: (v) => { carga.terminal = v; }, piso: 1000 },
+  ];
+
+  for (const campo of campos) {
+    // Corta pela metade ate caber, ou ate chegar ao piso deste campo; so
+    // entao passa para o proximo. O laco sempre termina porque o valor
+    // encolhe a cada volta e o piso e o fundo.
+    while (tamanhoDa(carga) > LIMITE_BYTES && campo.ler().length > campo.piso) {
+      const atual = campo.ler();
+      campo.gravar(atual.slice(Math.floor(atual.length / 2)));
+    }
+    if (tamanhoDa(carga) <= LIMITE_BYTES) return carga;
   }
   return carga;
 }
@@ -234,6 +293,9 @@ async function enviar(texto = {}) {
     // Opcional, e dado pelo proprio usuario: o consentimento diz que ele so
     // serve para responder sobre este relato.
     email: emailDeContato(texto.email),
+    // O recorte vem do renderer, que e quem tem o terminal. Passa pelo mesmo
+    // anonimizar do log: caminho de compilacao carrega o nome da conta igual.
+    terminal: anonimizar(String(texto.terminal || '')).slice(0, 40000),
     diagnostico: diag,
   };
 

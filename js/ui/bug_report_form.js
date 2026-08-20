@@ -30,6 +30,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { showCardNotification } from './notification.js';
+import { recorteEmTexto } from '../terminal/terminal_excerpt.js';
 
 const CHAVE_RASCUNHO = 'aurora-bugreport-rascunho';
 
@@ -121,21 +122,27 @@ function escaparAtributo(s) {
 }
 
 /** O diagnóstico como texto, na mesma ordem em que é mostrado e enviado. */
-export function diagnosticoEmTexto(d) {
+export function diagnosticoEmTexto(d, terminal) {
   if (!d) return tr('bugReport.diagUnavailable');
   const linhasDeLog = String(d.log || '').split('\n').length;
-  return [
+  const disco = d.discoLivreGB == null ? '?' : `${d.discoLivreGB} GB livres`;
+  const partes = [
     `AURORA: ${d.versao}${d.empacotado ? '' : ' (dev)'}`,
     `Sistema: ${d.sistema}`,
-    `Máquina: ${d.nucleos} núcleos, ${d.memoriaGB} GB`,
+    `Máquina: ${d.nucleos} núcleos, ${d.memoriaGB} GB, ${disco}`,
     `Electron ${d.electron} · Chromium ${d.chrome} · Node ${d.node}`,
-    '',
-    `Últimas ${linhasDeLog} linhas do log:`,
-    d.log || '(sem log)',
-  ].join('\n');
+  ];
+  if (d.componentes) partes.push(`Componentes: ${d.componentes}`);
+
+  // O terminal vem primeiro porque é o que explica a falha; o log do
+  // aplicativo é contexto de segunda ordem.
+  if (terminal) partes.push('', 'Terminal (erros e o que estava em volta):', terminal);
+
+  partes.push('', `Últimas ${linhasDeLog} linhas do log do aplicativo:`, d.log || '(sem log)');
+  return partes.join('\n');
 }
 
-function montar(diag) {
+function montar(diag, terminal) {
   const rascunho = rascunhoSalvo();
   const overlay = document.createElement('div');
   overlay.className = 'bug-report-overlay';
@@ -162,7 +169,7 @@ function montar(diag) {
     `    <input id="bug-email" type="email" autocomplete="email" placeholder="${escaparAtributo(tr('bugReport.emailHint'))}"></label>`,
     '  <details class="bug-report-diag">',
     `    <summary><i class="ph ph-caret-right" aria-hidden="true"></i>${escapar(tr('bugReport.diagTitle'))}</summary>`,
-    `    <pre>${escapar(diagnosticoEmTexto(diag))}</pre></details>`,
+    `    <pre>${escapar(diagnosticoEmTexto(diag, terminal))}</pre></details>`,
     '  <p class="bug-report-consentimento">',
     '    <i class="ph ph-shield-check" aria-hidden="true"></i>',
     `    <span>${escapar(tr('bugReport.consent'))}</span></p>`,
@@ -206,9 +213,9 @@ function montar(diag) {
 }
 
 /** Abre o painel e resolve com a ação escolhida e o texto escrito. */
-function perguntar(diag) {
+function perguntar(diag, terminal) {
   return new Promise((resolve) => {
-    const { overlay, ler } = montar(diag);
+    const { overlay, ler } = montar(diag, terminal);
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visivel'));
     overlay.querySelector('#bug-o-que')?.focus();
@@ -240,7 +247,15 @@ export async function abrirFormulario(porEmail) {
   let diag = null;
   try { diag = await electronAPI.bugReportDiagnostico?.(); } catch (_) { /* segue sem */ }
 
-  const { acao, texto } = await perguntar(diag);
+  // Colhido do DOM AGORA, antes de a pessoa começar a escrever: o terminal
+  // continua recebendo linhas enquanto o painel está aberto, e o que interessa
+  // é o estado do momento em que ela decidiu relatar.
+  let terminal = '';
+  try { terminal = recorteEmTexto(); } catch (_) { /* relato sem terminal ainda vale */ }
+
+  const { acao, texto } = await perguntar(diag, terminal);
+  // O recorte viaja junto com o que a pessoa escreveu, pelos dois caminhos.
+  texto.terminal = terminal;
   if (acao === 'cancelar') return;
 
   if (acao === 'email') {

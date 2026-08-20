@@ -47,7 +47,10 @@ const LIMITE_BYTES = 60 * 1024;
  * limitar tamanho e frequência, nunca o cliente ser secreto. A variável de
  * ambiente existe para apontar um Worker de teste sem gerar build.
  */
-const ENDPOINT_PADRAO = 'https://nipscern.com/api/sapho/bugreport';
+// Com www: o apex responde 301 para www, e um POST que precisa de redirect e
+// um POST que pode se perder. O apex continua funcionando pelo seguidor de
+// redirects do postar(), mas o padrao vai direto ao destino.
+const ENDPOINT_PADRAO = 'https://www.nipscern.com/api/sapho/bugreport';
 
 function endpoint() {
   const v = process.env.AURORA_BUGREPORT_URL;
@@ -116,8 +119,15 @@ function coletarDiagnostico() {
   };
 }
 
-/** POST em JSON, sem dependência nova. */
-function postar(url, corpo) {
+/**
+ * POST em JSON, sem dependência nova.
+ *
+ * Segue redirects (até 3) re-enviando o corpo. O https.request não segue
+ * nenhum, e foi assim que o primeiro envio real morreu: o apex do site
+ * responde 301 para www, o POST parava ali e o usuário via "HTTP 301" sem
+ * ter feito nada de errado.
+ */
+function postar(url, corpo, saltos = 0) {
   return new Promise((resolve) => {
     let alvo;
     try { alvo = new URL(url); } catch (_) {
@@ -131,15 +141,23 @@ function postar(url, corpo) {
       headers: { 'Content-Type': 'application/json', 'Content-Length': dados.length },
       timeout: 20000,
     }, (res) => {
+      const { statusCode } = res;
+      if ([301, 302, 307, 308].includes(statusCode) && res.headers.location) {
+        res.resume();
+        if (saltos >= 3) { resolve({ ok: false, erro: 'redirects demais' }); return; }
+        const destino = new URL(res.headers.location, alvo).toString();
+        resolve(postar(destino, corpo, saltos + 1));
+        return;
+      }
       let txt = '';
       res.on('data', (c) => { txt += c; });
       res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
+        if (statusCode >= 200 && statusCode < 300) {
           let json = null;
           try { json = JSON.parse(txt); } catch (_) { /* resposta sem corpo */ }
           resolve({ ok: true, url: json?.url || null });
         } else {
-          resolve({ ok: false, erro: `HTTP ${res.statusCode}`, detalhe: txt.slice(0, 300) });
+          resolve({ ok: false, erro: `HTTP ${statusCode}`, detalhe: txt.slice(0, 300) });
         }
       });
     });
@@ -172,9 +190,21 @@ function encolherParaCaber(carga) {
 }
 
 /**
+ * O e-mail de contato, se houver e se tiver cara de e-mail.
+ *
+ * Validacao de forma, nao de existencia: o campo e opcional e um endereco
+ * digitado errado so custa a resposta, nunca o relato. Um valor sem @ e
+ * descartado em silencio pelo mesmo motivo.
+ */
+function emailDeContato(valor) {
+  const v = String(valor || '').trim().slice(0, 120);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : '';
+}
+
+/**
  * Envia o relato.
  *
- * @param {{oQueAconteceu: string, oQueEsperava?: string, comoReproduzir?: string}} texto
+ * @param {{oQueAconteceu: string, oQueEsperava?: string, comoReproduzir?: string, email?: string}} texto
  */
 async function enviar(texto = {}) {
   const oQue = String(texto.oQueAconteceu || '').trim();
@@ -191,6 +221,9 @@ async function enviar(texto = {}) {
     oQueAconteceu: oQue.slice(0, 8000),
     oQueEsperava: String(texto.oQueEsperava || '').trim().slice(0, 4000),
     comoReproduzir: String(texto.comoReproduzir || '').trim().slice(0, 4000),
+    // Opcional, e dado pelo proprio usuario: o consentimento diz que ele so
+    // serve para responder sobre este relato.
+    email: emailDeContato(texto.email),
     diagnostico: diag,
   };
 
@@ -210,5 +243,6 @@ function register() {
 
 module.exports = {
   register, coletarDiagnostico, enviar, encolherParaCaber, endpoint, anonimizar,
+  emailDeContato,
   LINHAS_DE_LOG, LIMITE_BYTES,
 };

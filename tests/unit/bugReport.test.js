@@ -19,7 +19,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  encolherParaCaber, endpoint, anonimizar, LIMITE_BYTES,
+  encolherParaCaber, endpoint, anonimizar, emailDeContato, LIMITE_BYTES,
 } from '../../main/ipc/bug_report.js';
 
 function cargaCom(log) {
@@ -75,7 +75,8 @@ describe('endpoint', () => {
 
   it('sem variavel, usa o Worker do NIPS-CERN', () => {
     delete process.env.AURORA_BUGREPORT_URL;
-    expect(endpoint()).toBe('https://nipscern.com/api/sapho/bugreport');
+    // Com www: o apex responde 301, e um POST nao deve nascer precisando de redirect.
+    expect(endpoint()).toBe('https://www.nipscern.com/api/sapho/bugreport');
   });
 
   it('variavel vazia desliga o envio direto', () => {
@@ -127,6 +128,21 @@ describe('o consentimento e uma promessa so', () => {
     for (const trecho of ['LGPD (Lei 13.709/2018)', 'nome de usuário é removido', 'apagados a seu pedido']) {
       expect(locales.bugReport.consent).toContain(trecho);
       expect(fonte).toContain(trecho);
+    }
+  });
+});
+
+
+describe('emailDeContato', () => {
+  it('aceita um endereco comum', () => {
+    expect(emailDeContato(' aluno@estudante.ufjf.br ')).toBe('aluno@estudante.ufjf.br');
+  });
+
+  it('descarta em silencio o que nao tem cara de e-mail', () => {
+    // O campo e opcional: um valor ruim nao pode custar o relato, entao ele
+    // vira vazio em vez de erro.
+    for (const ruim of ['', null, 'sem-arroba', 'a@b', 'a @b.com', 'x'.repeat(200) + '@a.br']) {
+      expect(emailDeContato(ruim), String(ruim)).toBe('');
     }
   });
 });

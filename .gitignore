@@ -139,3 +139,10 @@ docs/**/*.xdv
 
 # Gerado por scripts/gen-installer-license.js a cada build (beforePack)
 build/license.txt
+
+# Zips temporarios dos instaladores de componentes (components/Scripts/
+# download-*.js baixam para a raiz e apagam ao extrair; um download em
+# andamento nao pode entrar num commit).
+aurora-msys-*.zip
+aurora-*-nipscern*.zip
+surfer-aurora*.zip

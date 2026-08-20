@@ -131,12 +131,16 @@ function instalar(chave, janela) {
         resolve({ ok: true, chave });
         return;
       }
-      const erro = instalado
+      // A causa tecnica vai para o log; para o usuario vai o que ele pode
+      // fazer. "Terminou sem deixar a sentinela" nao diz nada a um aluno; a
+      // causa de longe mais comum e a conexao cair no meio do download.
+      const detalheTecnico = instalado
         ? `o instalador saiu com codigo ${codigo}`
         : `o instalador terminou sem deixar ${comp.sentinela}`;
-      log.warn(`[componentes] ${chave} falhou: ${erro} | ultima linha: ${ultimaLinha}`);
-      avisar(janela, { chave, estado: 'erro', linha: ultimaLinha || erro });
-      resolve({ ok: false, erro, detalhe: ultimaLinha });
+      log.warn(`[componentes] ${chave} falhou: ${detalheTecnico} | ultima linha: ${ultimaLinha}`);
+      const erro = 'o download não chegou ao fim. Confira a internet e clique em Baixar de novo';
+      avisar(janela, { chave, estado: 'erro', linha: erro });
+      resolve({ ok: false, erro, detalhe: `${detalheTecnico} | ${ultimaLinha}` });
     });
   });
 }

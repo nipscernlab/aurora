@@ -343,7 +343,7 @@
       "componentsInstalledOk": "Componente instalado.",
       "componentsInstallFailed": "Não foi possível baixar: {erro}",
       "componentsRemoveTitle": "Remover {nome}",
-      "componentsRemoveBody": "Os arquivos de {nome} saem do disco. O que depende dele para de funcionar até você baixar de novo, e a AURORA vai avisar quando isso acontecer.\n\nSeus projetos não são tocados.",
+      "componentsRemoveBody": "Os arquivos de {nome} saem do disco, e o que depende dele para de funcionar. Para ter {nome} de volta é preciso baixar de novo ({mb} de download), e numa rede lenta isso custa tempo.\n\nSeus projetos não são tocados.",
       "componentsRemoveConfirm": "Remover",
       "componentsRemoved": "{nome} removido, {mb} livres.",
       "componentsRemoveFailed": "Não foi possível remover: {erro}",
@@ -353,7 +353,7 @@
       "componentsDownloadNow": "Baixar agora",
       "componentsCancel": "Cancelar",
       "componentsReadFailed": "Não foi possível ler os componentes: {erro}",
-      "componentsCompileMissing": "Esta máquina ainda não compila: a cadeia de compilação ({mb} de download) não foi instalada. Abra Configurações, Componentes, para baixá-la.",
+      "componentsCompileMissing": "Esta máquina ainda não compila: falta baixar {nome} ({mb} de download). Sem ele, os botões de compilar e simular não funcionam. Você encontra tudo em Configurações, Componentes.",
       "componentsCompileMissingTitle": "Cadeia de compilação ausente"
     }
   },
@@ -1056,7 +1056,7 @@
     "reproduce": "Como reproduzir",
     "reproduceHint": "1. Abrir o projeto\n2. Clicar em Compilar\n3. Esperar",
     "diagTitle": "Ver o diagnóstico que vai junto",
-    "consent": "Ao enviar, você concorda em compartilhar com o NIPS-CERN o texto que escreveu acima e o diagnóstico abaixo. Não coletamos o conteúdo dos seus arquivos, senhas ou credenciais, nem conversas com a Aurora Intelligence, e o seu nome de usuário é removido dos caminhos antes do envio. Ainda assim, algum trecho do log pode, indiretamente, identificar você ou a máquina. O NIPS-CERN trata esses dados conforme a LGPD (Lei 13.709/2018): eles servem apenas para investigar o problema relatado e são apagados a seu pedido.",
+    "consent": "Ao enviar, você concorda em compartilhar com o NIPS-CERN o texto que escreveu acima e o diagnóstico abaixo. Não coletamos o conteúdo dos seus arquivos, senhas ou credenciais, nem conversas com a Aurora Intelligence, e o seu nome de usuário é removido dos caminhos antes do envio. Ainda assim, algum trecho do log pode, indiretamente, identificar você ou a máquina. O NIPS-CERN trata esses dados conforme a LGPD (Lei 13.709/2018): eles servem apenas para investigar o problema relatado e são apagados a seu pedido. Se você informar um e-mail, ele é usado somente para falar com você sobre este relato.",
     "sendEmail": "Enviar por e-mail",
     "cancel": "Cancelar",
     "send": "Enviar relato",
@@ -1065,7 +1065,9 @@
     "noEndpoint": "O envio direto ainda não está configurado nesta versão.",
     "failed": "Não foi possível enviar ({erro}).",
     "fallbackEmail": "{motivo} Abrindo o e-mail com o seu texto.",
-    "diagUnavailable": "(não foi possível reunir o diagnóstico)"
+    "diagUnavailable": "(não foi possível reunir o diagnóstico)",
+    "email": "Seu e-mail (opcional)",
+    "emailHint": "Para avisarmos quando corrigirmos, ou pedirmos um detalhe."
   },
   "componentSummary": {
     "msys": "A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.",

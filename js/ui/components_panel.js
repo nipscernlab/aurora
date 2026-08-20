@@ -34,6 +34,9 @@ import { showCardNotification } from './notification.js';
 
 let baixando = null;
 
+/** A ultima leitura do catalogo, por chave. */
+const catalogo = new Map();
+
 /** Reservas em português para antes de as locales carregarem. */
 const RESERVA = {
   'modal.settings.componentsInstalled': 'Instalado',
@@ -49,8 +52,9 @@ const RESERVA = {
   'modal.settings.componentsInstallFailed': 'Não foi possível baixar: {erro}',
   'modal.settings.componentsRemoveTitle': 'Remover {nome}',
   'modal.settings.componentsRemoveBody':
-    'Os arquivos de {nome} saem do disco. O que depende dele para de funcionar até você '
-    + 'baixar de novo, e a AURORA vai avisar quando isso acontecer.\n\nSeus projetos não são tocados.',
+    'Os arquivos de {nome} saem do disco, e o que depende dele para de funcionar. '
+    + 'Para ter {nome} de volta é preciso baixar de novo ({mb} de download), e numa '
+    + 'rede lenta isso custa tempo.\n\nSeus projetos não são tocados.',
   'modal.settings.componentsRemoveConfirm': 'Remover',
   'modal.settings.componentsRemoved': '{nome} removido, {mb} livres.',
   'modal.settings.componentsRemoveFailed': 'Não foi possível remover: {erro}',
@@ -61,8 +65,9 @@ const RESERVA = {
   'modal.settings.componentsCancel': 'Cancelar',
   'modal.settings.componentsReadFailed': 'Não foi possível ler os componentes: {erro}',
   'modal.settings.componentsCompileMissing':
-    'Esta máquina ainda não compila: a cadeia de compilação ({mb} de download) não foi '
-    + 'instalada. Abra Configurações, Componentes, para baixá-la.',
+    'Esta máquina ainda não compila: falta baixar {nome} ({mb} de download). '
+    + 'Sem ele, os botões de compilar e simular não funcionam. Você encontra '
+    + 'tudo em Configurações, Componentes.',
   'modal.settings.componentsCompileMissingTitle': 'Cadeia de compilação ausente',
 };
 
@@ -118,15 +123,17 @@ function cartao(c) {
     selos.push(`<span class="componente-selo urgente">${escapar(tr('modal.settings.componentsNeededToCompile'))}</span>`);
   }
 
-  // Sem botao de remover, de proposito. Em laboratorio compartilhado, um
-  // clique de um aluno deixaria o proximo sem compilar, e re-baixar 272 MB
-  // numa rede de universidade custa a tarde. O IPC de remocao existe no main
-  // para um futuro modo de administracao; quem precisar hoje usa Abrir a
-  // pasta. Disco parado e mais barato que banda de laboratorio.
-  const acao = (c.essencial || c.instalado)
+  // Remover existe, mas com a cara de acao destrutiva (contorno vermelho, o
+  // mesmo desenho do botao de limpar credenciais) e confirmacao que avisa o
+  // custo: em laboratorio compartilhado, apagar a cadeia deixa o proximo
+  // aluno re-baixando 272 MB.
+  const acao = c.essencial
     ? ''
-    : `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}">`
-      + `<i class="ph ph-download-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsDownload'))}</button>`;
+    : c.instalado
+      ? `<button class="btn danger" type="button" data-remover="${escapar(c.chave)}">`
+        + `<i class="ph ph-trash-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsRemove'))}</button>`
+      : `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}">`
+        + `<i class="ph ph-download-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsDownload'))}</button>`;
 
   // Instalado mostra o que ocupa; ausente mostra o que vai trafegar, que e o
   // numero que responde "quanto vou esperar".
@@ -165,6 +172,9 @@ async function desenhar() {
   }
 
   const lista = dados?.componentes || [];
+  // O catalogo da ultima leitura fica guardado para os dialogos poderem citar
+  // nome e tamanho de download sem outra ida ao main.
+  lista.forEach((c) => catalogo.set(c.chave, c));
   caixa.innerHTML = '';
   lista.forEach((c) => caixa.appendChild(cartao(c)));
 
@@ -223,6 +233,42 @@ async function instalar(chave) {
 }
 
 /**
+ * Remove um componente, com o preco dito antes.
+ *
+ * O botao existe porque nem toda maquina e de laboratorio: em casa, 955 MB
+ * parados sao da pessoa. A protecao contra o clique errado nao e esconder o
+ * botao, e a confirmacao dizer exatamente o que se perde e quanto custa
+ * voltar atras.
+ */
+async function remover(chave) {
+  const c = catalogo.get(chave);
+  const nome = c ? nomeDe(c) : chave;
+  const escolha = await showDialog({
+    title: tr('modal.settings.componentsRemoveTitle', { nome }),
+    message: tr('modal.settings.componentsRemoveBody',
+      { nome, mb: tamanhoLegivel(c?.downloadMB || 0) }),
+    variant: 'warning',
+    buttons: [
+      { label: tr('modal.settings.componentsCancel'), action: 'cancel', type: 'cancel' },
+      { label: tr('modal.settings.componentsRemoveConfirm'), action: 'remover', type: 'danger' },
+    ],
+  });
+  if (escolha !== 'remover') return;
+
+  const r = await electronAPI.componentesRemover(chave)
+    .catch((e) => ({ ok: false, erro: e?.message }));
+  if (r?.ok) {
+    showCardNotification(
+      tr('modal.settings.componentsRemoved', { nome, mb: tamanhoLegivel(r.liberadoMB || 0) }),
+      'success', 5000, 'Componentes');
+  } else {
+    showCardNotification(tr('modal.settings.componentsRemoveFailed', { erro: r?.erro || '?' }),
+      'error', 8000, 'Componentes');
+  }
+  await desenhar();
+}
+
+/**
  * O aviso que chega quando o main barrou alguma coisa por falta de componente.
  *
  * Vem de um canal só porque foi barrado num ponto só, e é por isso que ele
@@ -255,12 +301,28 @@ async function aoSerBarrado({ chave, mensagem }) {
 async function avisarSeNaoCompila() {
   try {
     const dados = await electronAPI.componentesListar?.();
+    (dados?.componentes || []).forEach((c) => catalogo.set(c.chave, c));
     const falta = (dados?.componentes || [])
       .find((c) => c.requerParaCompilar && !c.instalado);
     if (!falta) return;
-    showCardNotification(
-      tr('modal.settings.componentsCompileMissing', { mb: tamanhoLegivel(falta.downloadMB) }),
-      'warning', 12000, tr('modal.settings.componentsCompileMissingTitle'));
+    // Dialogo, e nao toast: um aviso que some sozinho em segundos e um aviso
+    // que da para nao ver, e sem este componente a maquina nao compila NADA.
+    // Reaparece a cada boot ate o download acontecer, de proposito.
+    const escolha = await showDialog({
+      title: tr('modal.settings.componentsCompileMissingTitle'),
+      message: tr('modal.settings.componentsCompileMissing',
+        { nome: nomeDe(falta), mb: tamanhoLegivel(falta.downloadMB) }),
+      variant: 'warning',
+      buttons: [
+        { label: tr('modal.settings.componentsNotNow'), action: 'cancel', type: 'cancel' },
+        { label: tr('modal.settings.componentsDownloadNow'), action: 'baixar', type: 'primary' },
+      ],
+    });
+    if (escolha !== 'baixar') return;
+    // Abre o painel antes de baixar, para a barra de progresso ter onde
+    // aparecer e a pessoa ver que algo esta acontecendo.
+    window.auroraAbrirConfiguracoes?.('componentes');
+    await instalar(falta.chave);
   } catch (_) { /* cortesia de boot; o portao continua segurando */ }
 }
 
@@ -275,10 +337,12 @@ function ligar() {
   // Delegação: a lista se refaz inteira a cada mudança, e ouvintes presos a
   // cada botão morreriam junto com ela.
   caixa.addEventListener('click', (e) => {
-    const alvo = e.target instanceof Element ? e.target.closest('[data-instalar]') : null;
+    const alvo = e.target instanceof Element ? e.target.closest('[data-instalar], [data-remover]') : null;
     if (!alvo) return;
-    const chave = alvo.getAttribute('data-instalar');
-    if (chave) instalar(chave);
+    const paraInstalar = alvo.getAttribute('data-instalar');
+    if (paraInstalar) { instalar(paraInstalar); return; }
+    const paraRemover = alvo.getAttribute('data-remover');
+    if (paraRemover) remover(paraRemover);
   });
 
   document.getElementById('componentes-abrir-pasta')

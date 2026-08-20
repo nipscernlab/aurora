@@ -343,7 +343,7 @@
       "componentsInstalledOk": "Component installed.",
       "componentsInstallFailed": "Could not download: {erro}",
       "componentsRemoveTitle": "Remove {nome}",
-      "componentsRemoveBody": "The files of {nome} leave the disk. Whatever depends on it stops working until you download it again, and AURORA will tell you when that happens.\n\nYour projects are not touched.",
+      "componentsRemoveBody": "The files of {nome} leave the disk, and whatever depends on it stops working. Getting {nome} back means downloading it again ({mb}), and on a slow network that takes a while.\n\nYour projects are not touched.",
       "componentsRemoveConfirm": "Remove",
       "componentsRemoved": "{nome} removed, {mb} freed.",
       "componentsRemoveFailed": "Could not remove: {erro}",
@@ -353,7 +353,7 @@
       "componentsDownloadNow": "Download now",
       "componentsCancel": "Cancel",
       "componentsReadFailed": "Could not read the components: {erro}",
-      "componentsCompileMissing": "This machine cannot compile yet: the compilation chain ({mb} download) has not been installed. Open Settings, Components, to download it.",
+      "componentsCompileMissing": "This machine cannot compile yet: {nome} has not been downloaded ({mb}). Without it, the compile and simulate buttons will not work. Everything is in Settings, Components.",
       "componentsCompileMissingTitle": "Compilation chain missing"
     }
   },
@@ -1056,7 +1056,7 @@
     "reproduce": "How to reproduce",
     "reproduceHint": "1. Open the project\n2. Click Compile\n3. Wait",
     "diagTitle": "See the diagnostics that go along",
-    "consent": "By sending, you agree to share with NIPS-CERN the text you wrote above and the diagnostics below. We do not collect the contents of your files, passwords or credentials, nor Aurora Intelligence conversations, and your username is removed from file paths before sending. Even so, some part of the log may still indirectly identify you or the machine. NIPS-CERN handles this data under the LGPD (Brazilian law 13.709/2018): it is used only to investigate the reported problem and is deleted at your request.",
+    "consent": "By sending, you agree to share with NIPS-CERN the text you wrote above and the diagnostics below. We do not collect the contents of your files, passwords or credentials, nor Aurora Intelligence conversations, and your username is removed from file paths before sending. Even so, some part of the log may still indirectly identify you or the machine. NIPS-CERN handles this data under the LGPD (Brazilian law 13.709/2018): it is used only to investigate the reported problem and is deleted at your request. If you provide an e-mail address, it is used only to contact you about this report.",
     "sendEmail": "Send by e-mail",
     "cancel": "Cancel",
     "send": "Send report",
@@ -1065,7 +1065,9 @@
     "noEndpoint": "Direct sending is not configured in this build yet.",
     "failed": "Could not send ({erro}).",
     "fallbackEmail": "{motivo} Opening e-mail with your text.",
-    "diagUnavailable": "(diagnostics could not be gathered)"
+    "diagUnavailable": "(diagnostics could not be gathered)",
+    "email": "Your e-mail (optional)",
+    "emailHint": "So we can tell you when it is fixed, or ask for a detail."
   },
   "componentSummary": {
     "msys": "The compilation chain: Icarus Verilog, Verilator, Yosys and the bundled Python.",

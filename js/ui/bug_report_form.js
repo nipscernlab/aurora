@@ -52,7 +52,10 @@ const RESERVA = {
     + 'nem conversas com a Aurora Intelligence, e o seu nome de usuário é removido dos caminhos '
     + 'antes do envio. Ainda assim, algum trecho do log pode, indiretamente, identificar você ou '
     + 'a máquina. O NIPS-CERN trata esses dados conforme a LGPD (Lei 13.709/2018): eles servem '
-    + 'apenas para investigar o problema relatado e são apagados a seu pedido.',
+    + 'apenas para investigar o problema relatado e são apagados a seu pedido. Se você informar '
+    + 'um e-mail, ele é usado somente para falar com você sobre este relato.',
+  'bugReport.email': 'Seu e-mail (opcional)',
+  'bugReport.emailHint': 'Para avisarmos quando corrigirmos, ou pedirmos um detalhe.',
   'bugReport.sendEmail': 'Enviar por e-mail',
   'bugReport.cancel': 'Cancelar',
   'bugReport.send': 'Enviar relato',
@@ -136,6 +139,8 @@ function montar(diag) {
     `    <textarea id="bug-esperava" rows="2" placeholder="${escaparAtributo(tr('bugReport.expectedHint'))}"></textarea></label>`,
     `  <label class="bug-report-campo"><span>${escapar(tr('bugReport.reproduce'))}</span>`,
     `    <textarea id="bug-reproduzir" rows="3" placeholder="${escaparAtributo(tr('bugReport.reproduceHint'))}"></textarea></label>`,
+    `  <label class="bug-report-campo"><span>${escapar(tr('bugReport.email'))}</span>`,
+    `    <input id="bug-email" type="email" autocomplete="email" placeholder="${escaparAtributo(tr('bugReport.emailHint'))}"></label>`,
     '  <details class="bug-report-diag">',
     `    <summary><i class="ph ph-caret-right" aria-hidden="true"></i>${escapar(tr('bugReport.diagTitle'))}</summary>`,
     `    <pre>${escapar(diagnosticoEmTexto(diag))}</pre></details>`,
@@ -158,11 +163,13 @@ function montar(diag) {
   campo('bug-o-que').value = rascunho.oQueAconteceu || '';
   campo('bug-esperava').value = rascunho.oQueEsperava || '';
   campo('bug-reproduzir').value = rascunho.comoReproduzir || '';
+  campo('bug-email').value = rascunho.email || '';
 
   const ler = () => ({
     oQueAconteceu: campo('bug-o-que').value,
     oQueEsperava: campo('bug-esperava').value,
     comoReproduzir: campo('bug-reproduzir').value,
+    email: campo('bug-email').value,
   });
 
   const btEnviar = overlay.querySelector('[data-acao="enviar"]');
@@ -173,7 +180,7 @@ function montar(diag) {
     btEnviar.disabled = !d.oQueAconteceu.trim();
     salvarRascunho(d);
   };
-  overlay.querySelectorAll('textarea').forEach((t) => t.addEventListener('input', sincronizar));
+  overlay.querySelectorAll('textarea, input').forEach((t) => t.addEventListener('input', sincronizar));
   sincronizar();
 
   return { overlay, ler };

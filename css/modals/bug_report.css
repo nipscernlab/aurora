@@ -121,7 +121,8 @@
 
 .bug-report-campo > span b { color: var(--accent); font-weight: 600; }
 
-.bug-report-campo textarea {
+.bug-report-campo textarea,
+.bug-report-campo input {
   width: 100%;
   resize: vertical;
   padding: var(--space-2) var(--space-3);
@@ -135,13 +136,15 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.bug-report-campo textarea:focus {
+.bug-report-campo textarea:focus,
+.bug-report-campo input:focus {
   outline: none;
   border-color: var(--accent-border);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.bug-report-campo textarea::placeholder { color: var(--text-muted); }
+.bug-report-campo textarea::placeholder,
+.bug-report-campo input::placeholder { color: var(--text-muted); }
 
 /* ── Diagnóstico ───────────────────────────────────────────────────────── */
 .bug-report-diag > summary {

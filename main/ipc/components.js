@@ -209,6 +209,14 @@ async function remover(chave) {
 async function doctor(janela) {
   if (emAndamento) return { ok: false, erro: 'ja-ha-download', chave: emAndamento };
 
+  // Sem os instaladores nao ha conserto possivel: eles SAO a ferramenta de
+  // reparo. E o unico estado que o doctor nao alcanca, e a resposta certa e
+  // dizer isso de uma vez, nao falhar sete vezes com "instalador ausente".
+  if (!fs.existsSync(pastaDosScripts())) {
+    log.warn('[doctor] components/Scripts ausente; reinstalar e o unico caminho');
+    return { ok: false, erro: 'sem-scripts' };
+  }
+
   const resultado = {
     ok: true,
     cacheLimpo: false,

@@ -363,7 +363,8 @@
       "componentsDoctorGo": "Check now",
       "componentsDoctorHealthy": "All good: caches cleared and every component intact.",
       "componentsDoctorFixed": "Check finished: {n} component(s) repaired.",
-      "componentsDoctorFailed": "The check could not repair: {lista}. Check the internet and try again."
+      "componentsDoctorFailed": "The check could not repair: {lista}. Check the internet and try again.",
+      "componentsDoctorNoScripts": "The installers folder (components/Scripts) is not on this machine, and without it the doctor cannot repair anything. Reinstall SAPHO from the website installer."
     }
   },
   "shortcuts": {

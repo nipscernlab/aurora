@@ -91,6 +91,7 @@ const RESERVA = {
   'modal.settings.componentsDoctorHealthy': 'Tudo em ordem: caches limpos e todos os componentes íntegros.',
   'modal.settings.componentsDoctorFixed': 'Verificação concluída: {n} componente(s) consertado(s).',
   'modal.settings.componentsDoctorFailed': 'A verificação não conseguiu consertar: {lista}. Confira a internet e tente de novo.',
+  'modal.settings.componentsDoctorNoScripts': 'A pasta de instaladores (components/Scripts) não está nesta máquina, e sem ela o doctor não consegue consertar nada. Reinstale o SAPHO pelo instalador do site.',
 };
 
 /** t() com reserva e {placeholders}. */
@@ -397,6 +398,11 @@ async function rodarDoctor() {
 
   if (r?.erro === 'ja-ha-download') {
     showCardNotification(tr('modal.settings.componentsBusy'), 'info', 4000, 'Componentes');
+    return;
+  }
+  if (r?.erro === 'sem-scripts') {
+    showCardNotification(
+      tr('modal.settings.componentsDoctorNoScripts'), 'error', 12000, 'Componentes');
     return;
   }
 

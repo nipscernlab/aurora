@@ -363,7 +363,8 @@
       "componentsDoctorGo": "Verificar agora",
       "componentsDoctorHealthy": "Tudo em ordem: caches limpos e todos os componentes íntegros.",
       "componentsDoctorFixed": "Verificação concluída: {n} componente(s) consertado(s).",
-      "componentsDoctorFailed": "A verificação não conseguiu consertar: {lista}. Confira a internet e tente de novo."
+      "componentsDoctorFailed": "A verificação não conseguiu consertar: {lista}. Confira a internet e tente de novo.",
+      "componentsDoctorNoScripts": "A pasta de instaladores (components/Scripts) não está nesta máquina, e sem ela o doctor não consegue consertar nada. Reinstale o SAPHO pelo instalador do site."
     }
   },
   "shortcuts": {

@@ -166,14 +166,35 @@ describe('arquivos-chave', () => {
   // O doctor diagnostica por eles; um caminho errado aqui faria um componente
   // saudavel parecer eternamente quebrado, e o doctor re-baixaria 272 MB a
   // cada rodada.
-  it('todo arquivo-chave mora dentro da pasta do proprio componente', () => {
+  it('todo arquivo-chave mora numa area do proprio componente', () => {
+    // O YANC e a excecao declarada: o release dele espalha quatro areas
+    // (bin, HDL, Header, Macros), todas instaladas e conferidas pelo
+    // download-yanc.js. Qualquer outro componente vive numa pasta so, e um
+    // arquivo-chave fora dela seria o doctor diagnosticando o componente
+    // errado.
+    const AREAS = { yanc: ['bin/', 'HDL/', 'Header/', 'Macros/'] };
     for (const c of COMPONENTES) {
-      const base = c.sentinela.split('/').slice(0, -1).join('/').split('/')[0] === 'Packages'
-        ? c.sentinela.split('/').slice(0, 2).join('/')
-        : c.sentinela.split('/')[0];
+      const bases = AREAS[c.chave]
+        || [c.sentinela.split('/')[0] === 'Packages'
+          ? c.sentinela.split('/').slice(0, 2).join('/') + '/'
+          : c.sentinela.split('/')[0] + '/'];
       for (const rel of c.arquivosChave) {
-        expect(rel.startsWith(base), `${c.chave}: ${rel} fora de ${base}`).toBe(true);
+        expect(
+          bases.some((b) => rel.startsWith(b)),
+          `${c.chave}: ${rel} fora de ${bases.join(', ')}`,
+        ).toBe(true);
       }
+    }
+  });
+
+  it('os arquivos-chave do yanc sao as sentinelas do proprio instalador', () => {
+    // download-yanc.js confere HDL/core.v, Header/cmath e Macros/float_sin.asm
+    // como prova de instalacao completa. O catalogo tem que olhar os mesmos
+    // arquivos, senao o instalador e o doctor discordam sobre o que e uma
+    // instalacao inteira.
+    const yanc = COMPONENTES.find((c) => c.chave === 'yanc');
+    for (const rel of ['HDL/core.v', 'Header/cmath', 'Macros/float_sin.asm']) {
+      expect(yanc.arquivosChave).toContain(rel);
     }
   });
 

@@ -1101,8 +1101,13 @@
                                     Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar.
                                 </p>
                             </div>
+                            <!-- `checked` aqui espelha o padrao do main
+                                 (github_forget.js limparAoSair). O valor real
+                                 chega logo depois por IPC e sobrescreve; o
+                                 atributo evita o piscar de desligado para
+                                 ligado na abertura das Configuracoes. -->
                             <label class="switch">
-                                <input type="checkbox" id="github-forget-on-exit">
+                                <input type="checkbox" id="github-forget-on-exit" checked>
                                 <span class="slider"></span>
                             </label>
                         </div>

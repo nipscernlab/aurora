@@ -254,13 +254,48 @@ function caminhoPreferencia() {
   return path.join(app.getPath('userData'), 'aurora-github-exit.json');
 }
 
-function limparAoSair() {
+/**
+ * LIGADO por padrao, e a escolha e do cenario de uso, nao uma preferencia de
+ * gosto. A AURORA roda em laboratorio, onde a mesma maquina passa por muitos
+ * alunos no mesmo dia; deixar a credencial do GitHub ativa depende de cada um
+ * lembrar de limpa-la, e quem esquece expoe a propria conta ao proximo que
+ * sentar ali. O custo de errar para o lado de limpar e refazer o login; o de
+ * errar para o outro lado e a conta de um aluno na mao de outro.
+ *
+ * Ausencia do arquivo significa "ninguem escolheu ainda", e ai vale o padrao.
+ * So um `false` gravado explicitamente desliga a limpeza, o que preserva a
+ * escolha de quem usa a IDE na propria maquina e foi ate as Configuracoes
+ * desmarcar. Arquivo ilegivel tambem cai no padrao, de proposito: nesse estado
+ * nao da para afirmar que alguem pediu para manter o acesso.
+ */
+/**
+ * A decisao, separada da leitura do disco para poder ser testada sem Electron.
+ * E o pedaco que regride em silencio: trocar o `!== false` por `=== true` numa
+ * limpeza de codigo devolveria o padrao antigo sem falhar nada.
+ *
+ * @param {string|null} raw conteudo do arquivo, ou null se nao ha arquivo
+ */
+function decidirLimparAoSair(raw) {
+  if (raw == null) return true;
   try {
-    const raw = fs.readFileSync(caminhoPreferencia(), 'utf8');
-    return JSON.parse(raw)?.limparAoSair === true;
+    return JSON.parse(raw)?.limparAoSair !== false;
   } catch (_) {
-    return false;   // padrao desligado: apagar acesso sem o usuario pedir seria pior
+    return true;
   }
+}
+
+function limparAoSair() {
+  let raw = null;
+  try {
+    raw = fs.readFileSync(caminhoPreferencia(), 'utf8');
+  } catch (e) {
+    // ENOENT e o caso normal (instalacao nova, ninguem mexeu). Qualquer outro
+    // erro e anomalia e merece registro, mas nao muda a decisao.
+    if (e && e.code !== 'ENOENT') {
+      log.warn('[github-forget] preferencia ilegivel, usando o padrao (limpar):', e);
+    }
+  }
+  return decidirLimparAoSair(raw);
 }
 
 function definirLimparAoSair(ligado) {
@@ -289,5 +324,5 @@ function register() {
 
 module.exports = {
   register, esquecerTudo, alvoEhDoGitHub, HOSTS,
-  limparAoSair, definirLimparAoSair, aoEncerrar,
+  limparAoSair, definirLimparAoSair, decidirLimparAoSair, aoEncerrar,
 };

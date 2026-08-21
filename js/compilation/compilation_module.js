@@ -831,6 +831,7 @@ async verilogSyntaxCheck() {
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
         this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('verilog', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -965,6 +966,7 @@ async waveBuildVvp() {
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
         this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('verilog', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -1090,6 +1092,7 @@ async runGtkWave() {
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
         console.error(error);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -2057,6 +2060,7 @@ async runFastSim() {
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
         console.error(error);
+        error.jaNoTerminal = true;
         throw error;
     }
 }

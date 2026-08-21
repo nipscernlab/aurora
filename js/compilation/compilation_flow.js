@@ -207,9 +207,20 @@ function logFatalError(terminalId, error) {
         );
         return;
     }
-    getTM()?.appendToTerminal?.(
-        terminalId, `Erro Fatal: ${error.message}`, 'error',
-    );
+    // O passo que falhou ja mostrou este mesmo texto ao usuario, e repeti-lo
+    // aqui era o "Erro: <msg>" seguido de "Erro Fatal: <msg>" que aparecia em
+    // TODA falha: a mesma frase, duas vezes, uma delas com um prefixo mais
+    // assustador. Quem falhou tem o contexto (o terminal certo, o passo certo),
+    // entao a mensagem e dele; aqui fica so o que ele nao cobre.
+    //
+    // A marca viaja no proprio erro, e nao num estado deste modulo, porque um
+    // passo pode ser chamado de mais de um lugar (botao, Full Build, API da
+    // Aurora Intelligence) e o erro atravessa todos eles.
+    if (!error?.jaNoTerminal) {
+        getTM()?.appendToTerminal?.(
+            terminalId, `Erro Fatal: ${error.message}`, 'error',
+        );
+    }
     // No-op se um passo interno ja mostrou o erro (isCompiling vira false).
     statusUpdater.compilationError(activeRunStep, error.message);
 }

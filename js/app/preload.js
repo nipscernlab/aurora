@@ -248,6 +248,15 @@ const uiOperations = {
   windowMaximizeToggle: () => ipcRenderer.send('window:maximize-toggle'),
   windowClose:          () => ipcRenderer.send('window:close'),
   windowGetState:       () => ipcRenderer.invoke('window:get-state'),
+  // Tecla interceptada no main antes de chegar a pagina (hoje so Ctrl+W, ver
+  // main/windows.js). Chega aqui como o atalho chegaria por keydown, para o
+  // shortcut_manager tratar pelo mesmo caminho, inclusive quando o foco esta
+  // num iframe que o documento principal nao enxerga.
+  onTecla: (cb) => {
+    const h = (_e, tecla) => cb(tecla);
+    ipcRenderer.on('aurora:tecla', h);
+    return () => ipcRenderer.removeListener('aurora:tecla', h);
+  },
   onWindowState: (cb) => {
     const handler = (_e, state) => cb(state);
     ipcRenderer.on('window-state', handler);

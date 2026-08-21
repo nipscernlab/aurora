@@ -276,6 +276,38 @@ function createMainWindow(opts = {}) {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
 
+  // Ctrl+W nao pode chegar ao acelerador nativo.
+  //
+  // Sem menu de aplicacao proprio, o Electron instala o menu padrao, e nele
+  // Ctrl+W e "fechar janela". No caminho comum isso nao aparece porque o
+  // atalho e tratado no renderer, que chama preventDefault e mata o
+  // acelerador junto. Mas a aba do Surfer e um <iframe> de outra origem: com o
+  // foco dentro dele, o keydown pertence ao documento do iframe, o ouvinte do
+  // renderer nunca roda, ninguem chama preventDefault, e o acelerador fecha a
+  // AURORA inteira em vez de fechar a aba.
+  //
+  // O `before-input-event` roda antes de o keydown ser despachado para a
+  // pagina e, segundo o contrato do Electron, o preventDefault dele impede
+  // TAMBEM os atalhos de menu. Entao aqui a tecla e sempre interceptada e
+  // sempre reenviada ao renderer, que continua sendo o unico dono do que
+  // Ctrl+W significa (o atalho e configuravel). Um caminho so, valha o foco
+  // onde valer: nada de tratar no renderer quando o foco esta no editor e
+  // aqui quando esta no iframe, que dobraria a acao no primeiro caso.
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    if (input.alt || !(input.control || input.meta)) return;
+    if (String(input.key || '').toLowerCase() !== 'w') return;
+    event.preventDefault();
+    if (mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('aurora:tecla', {
+      key: 'W',
+      ctrlKey: !!input.control,
+      metaKey: !!input.meta,
+      shiftKey: !!input.shift,
+      altKey: false,
+    });
+  });
+
   // Notify renderer of maximize/restore state so the [□] / [❐] icon updates.
   const sendWindowState = () => {
     if (mainWindow.isDestroyed() || !mainWindow.webContents) return;

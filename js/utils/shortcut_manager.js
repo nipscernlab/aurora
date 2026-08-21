@@ -87,6 +87,15 @@
     // Adiciona o listener de evento principal
     document.addEventListener('keydown', handleKeyDown);
 
+    // Ctrl+W chega por aqui, e nao pelo keydown: o main intercepta a tecla
+    // antes de a pagina ve-la (main/windows.js), porque com o foco dentro do
+    // iframe do Surfer o keydown nunca alcancava este documento e o acelerador
+    // nativo fechava a janela inteira. O objeto tem a mesma forma que o
+    // handleKeyDown le; repeat e falso porque o main so reenvia keyDown.
+    window.electronAPI?.onTecla?.((tecla) => {
+        handleKeyDown({ ...tecla, repeat: false, preventDefault() {} });
+    });
+
     // Ouve por atualizações do modal de configurações
     window.addEventListener('aurora-shortcuts-updated', loadShortcuts);
 

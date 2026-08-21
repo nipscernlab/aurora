@@ -25,6 +25,21 @@ const { parseSpfTolerant, remapProcessorPath, deepRemapPaths } = require('./proj
 
 // ---- ProjectFile schema ----
 
+/**
+ * A versao do aplicativo, ou uma reserva fora do Electron.
+ *
+ * Mesmo motivo da reserva em main/paths.js: este e o unico gerador de `.spf`
+ * do projeto, e amarra-lo ao `app` o tornava impossivel de exercitar em teste,
+ * ou de reusar num caminho que rode antes de o app existir. A versao entra no
+ * `metadata`, que e informativo; nenhuma decisao e tomada a partir dela.
+ */
+function versaoDoApp() {
+  try {
+    if (app && typeof app.getVersion === 'function') return app.getVersion();
+  } catch (_) { /* fora do Electron */ }
+  return '0.0.0';
+}
+
 class ProjectFile {
   constructor(/** @type {any} */ projectPath) {
     this.metadata = {
@@ -32,7 +47,7 @@ class ProjectFile {
       createdAt: new Date().toISOString(),
       lastModified: new Date().toISOString(),
       computerName: process.env.COMPUTERNAME || os.hostname(),
-      appVersion: app.getVersion(),
+      appVersion: versaoDoApp(),
       projectPath,
     };
     this.structure = {

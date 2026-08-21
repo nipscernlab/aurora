@@ -786,7 +786,12 @@
     "noRecent": "No recent projects",
     "forgetMissing": "Forget missing",
     "forgetMissingTitle": "Remove the projects that no longer exist",
-    "missingHint": "This project was not found on disk."
+    "missingHint": "This project was not found on disk.",
+    "examples": "Example projects",
+    "examplesDone": "Example projects created in",
+    "examplesSkipped": "already existed",
+    "examplesAllSkipped": "The examples were already in that folder.",
+    "examplesFailed": "Could not create the example projects."
   },
   "terminalWelcome": {
     "tcmm": "Welcome to the terminal TCMM!",

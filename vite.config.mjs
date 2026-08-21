@@ -151,7 +151,11 @@ export default defineConfig({
         // resources/docs fica de fora: a documentacao offline (39 MB) ja viaja
         // como extraResources e e lida de process.resourcesPath/docs; copiada
         // para dist/ ela so duplicava o peso dentro do asar.
-        { src: ['resources/**/*', '!resources/docs/**'], dest: 'resources', rename: { stripBase: 1 } },
+        // resources/exemplos fica de fora pelo mesmo motivo de resources/docs:
+        // quem le os projetos de exemplo e o processo PRINCIPAL, a partir da
+        // raiz da instalacao, e nao o renderer. Copia-los para dist/ poria uma
+        // segunda copia dentro do asar sem nenhum leitor.
+        { src: ['resources/**/*', '!resources/docs/**', '!resources/exemplos/**'], dest: 'resources', rename: { stripBase: 1 } },
         { src: 'assets/icons/**/*', dest: 'assets/icons', rename: { stripBase: 2 } },
       ],
     }),

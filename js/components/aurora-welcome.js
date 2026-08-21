@@ -41,6 +41,8 @@ class AuroraWelcome extends LitElement {
     // chegar, o que leva milissegundos.
     this.version = '';
     this._removing = new Set();
+    /** Um clique de cada vez, senao dois dialogos nativos abrem empilhados. */
+    this._baixandoExemplos = false;
     this._onLocale = () => this.requestUpdate();
     // Fundo aurora: desligado por padrao (ver defaultSettings em
     // js/processors/aurora_settings.js). O estado vive num atributo do <html>
@@ -73,6 +75,47 @@ class AuroraWelcome extends LitElement {
     window.removeEventListener('aurora:background-toggled', this._onBgToggle);
     if (this._procPopEl) { this._procPopEl.remove(); this._procPopEl = null; }
     super.disconnectedCallback();
+  }
+
+  /**
+   * Cria os projetos de exemplo onde o usuario escolher.
+   *
+   * O botao so pede o lugar: quem pergunta e o processo principal, que e o dono
+   * do dialogo nativo, e quem copia e escreve os `.spf` tambem. Aqui fica so o
+   * estado de "clicou e esta indo", para dois cliques seguidos nao dispararem
+   * dois dialogos, e o recado do que aconteceu.
+   */
+  async _baixarExemplos() {
+    if (this._baixandoExemplos) return;
+    this._baixandoExemplos = true;
+    this.requestUpdate();
+    try {
+      const r = await window.electronAPI?.exemplosInstalar?.();
+      if (!r || r.cancelado) return;
+      if (!r.ok) {
+        window.showNotification?.(
+          this._t('welcome.examplesFailed', 'Could not create the example projects.')
+          + (r.erro ? ` ${r.erro}` : ''), 'error', 8000);
+        return;
+      }
+      const criados = r.criados?.length || 0;
+      const pulados = r.pulados?.length || 0;
+      // O aviso conta os dois numeros. Uma segunda instalacao na mesma pasta
+      // cria zero e pula cinco, e sem o segundo numero a tela pareceria nao ter
+      // feito nada.
+      const corpo = criados
+        ? this._t('welcome.examplesDone', 'Example projects created in')
+          + ` ${r.destino}` + (pulados ? ` (${pulados} ${this._t('welcome.examplesSkipped', 'already existed')})` : '')
+        : this._t('welcome.examplesAllSkipped', 'The examples were already in that folder.');
+      window.showNotification?.(corpo, criados ? 'success' : 'info', 9000);
+    } catch (e) {
+      window.showNotification?.(
+        this._t('welcome.examplesFailed', 'Could not create the example projects.')
+        + ` ${e?.message || e}`, 'error', 8000);
+    } finally {
+      this._baixandoExemplos = false;
+      this.requestUpdate();
+    }
   }
 
   /** Translate via the global i18n helper, falling back to the English string. */
@@ -466,6 +509,12 @@ class AuroraWelcome extends LitElement {
                 <button class="link" @click=${() => this._delegate('openProjectBtn')}>
                   <i class="ph ph-folder-open" aria-hidden="true"></i>
                   <span>${this._t('welcome.openProject', 'Open Project')}<span class="link-dim">...</span></span>
+                </button>
+              </li>
+              <li>
+                <button class="link" ?disabled=${this._baixandoExemplos} @click=${this._baixarExemplos}>
+                  <i class="ph ph-graduation-cap" aria-hidden="true"></i>
+                  <span>${this._t('welcome.examples', 'Example projects')}<span class="link-dim">...</span></span>
                 </button>
               </li>
             </ul>

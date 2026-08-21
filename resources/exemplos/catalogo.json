@@ -1,0 +1,65 @@
+{
+  "_nota": [
+    "O catalogo dos projetos de exemplo. Cada entrada descreve uma pasta ao",
+    "lado deste arquivo, e main/exemplos/instalar.js a copia para onde o",
+    "usuario escolher, escrevendo o .spf com caminhos absolutos.",
+    "",
+    "`processadores` sao as pastas <proc>/Software/<proc>.cmm que a AURORA",
+    "reconhece como processador SAPHO. `testbench` e o .v que o botao Wave",
+    "usa. `topLevel` so existe no exemplo de Verilog puro: num projeto com",
+    "processador o .v e gerado pela compilacao, e a arvore o descobre sozinha",
+    "depois do primeiro C±, entao registra-lo aqui apontaria para um arquivo",
+    "que ainda nao existe e o projeto abriria acusando arquivo faltante.",
+    "",
+    "Os quatro exemplos em C± foram compilados com a toolchain de verdade e os",
+    "testbenches elaborados e simulados no Icarus antes de entrarem aqui; os",
+    "valores citados nos comentarios sao os que a simulacao imprimiu."
+  ],
+  "exemplos": [
+    {
+      "chave": "contador",
+      "nome": "Contador em Verilog",
+      "resumo": "Verilog puro, sem processador: um contador de 8 bits com carga e estouro. O caminho mais curto para ver a AURORA elaborar e simular.",
+      "linguagem": "verilog",
+      "processadores": [],
+      "topLevel": "Hardware/contador.v",
+      "testbench": "Testbench/tb_contador.v"
+    },
+    {
+      "chave": "media-movel",
+      "nome": "Média móvel",
+      "resumo": "Processador C± com aritmética inteira: média das quatro últimas amostras. É o exemplo do manual, e o menor programa que ainda exercita vetor, porta de entrada e deslocamento.",
+      "linguagem": "cmm",
+      "processadores": ["mediamovel"],
+      "topLevel": null,
+      "testbench": "Testbench/tb_mediamovel.v"
+    },
+    {
+      "chave": "trigonometria",
+      "nome": "Trigonometria",
+      "resumo": "Processador C± em ponto flutuante: seno, cosseno e arco-tangente por polinômio minimax, sem tabela e sem laço. O processador nasce sem porta de entrada, porque o programa nunca lê uma.",
+      "linguagem": "cmm",
+      "processadores": ["trigonometria"],
+      "topLevel": null,
+      "testbench": "Testbench/tb_trigonometria.v"
+    },
+    {
+      "chave": "dirac",
+      "nome": "Notação de Dirac",
+      "resumo": "A marca do C±: álgebra linear escrita como na física. Matriz por vetor, produto externo e escalar por vetor, cada um em uma linha, com o compilador gerando os laços.",
+      "linguagem": "cmm",
+      "processadores": ["dirac"],
+      "topLevel": null,
+      "testbench": "Testbench/tb_dirac.v"
+    },
+    {
+      "chave": "zerocross",
+      "nome": "Cruzamento por zero",
+      "resumo": "Processador C± com duas entradas e cinco saídas: filtros IIR e contagem de cruzamentos por zero. É onde se vê o endereçamento de porta em código um-de-N.",
+      "linguagem": "cmm",
+      "processadores": ["zerocross"],
+      "topLevel": null,
+      "testbench": "Testbench/tb_zerocross.v"
+    }
+  ]
+}

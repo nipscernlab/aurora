@@ -43,6 +43,14 @@ contextBridge.exposeInMainWorld('updateAPI', {
   dismiss: () => ipcRenderer.send('update:dismiss'),
 
   /**
+   * Abre um link das notas de release no navegador do sistema.
+   *
+   * A janela nao navega para lugar nenhum (main/windows.js bloqueia), entao
+   * este e o unico caminho de um link do changelog ate a tela.
+   */
+  openExternal: (url) => ipcRenderer.send('update:open-external', String(url || '')),
+
+  /**
    * Pede que a janela fique com a altura do conteudo.
    *
    * Quem mede e o renderer, porque so ele sabe quanto o estado atual ocupa

@@ -531,6 +531,14 @@ function createUpdateWindow() {
 
   loadPage(updateWindow, 'html/update-notification.html');
 
+  // As notas de release trazem um link por commit. Sem isto, o clique
+  // navegava ESTA janela (transparente, sempre no topo, sem moldura) para o
+  // github.com, e a pagina aparecia sem estilo por cima do editor. O link
+  // abre no navegador pelo IPC 'update:open-external'; aqui nada navega e
+  // nada abre janela nova, pelo mesmo motivo da janela principal.
+  updateWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  updateWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+
   updateWindow.once('ready-to-show', () => {
     updateWindow.show();
     updateWindow.focus();

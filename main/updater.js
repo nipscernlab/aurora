@@ -47,6 +47,7 @@ const log = require('electron-log');
 const state = require('./state');
 const { isDev } = require('./paths');
 const { createUpdateWindow } = require('./windows');
+const { urlExternaPermitida } = require('./ipc/files_ops');
 
 const {
   STARTUP_CHECK_DELAY_MS,
@@ -680,6 +681,18 @@ function registerIpc() {
   ipcMain.on('update:dismiss', () => {
     const w = state.updateWindow;
     if (w && !w.isDestroyed() && !state.downloadInProgress) w.close();
+  });
+
+  // Link clicado nas notas de release (o commit de cada item). A janela de
+  // atualizacao nao navega (main/windows.js), entao o destino e o navegador,
+  // e so para http(s)/mailto, a mesma regra do open-external da janela
+  // principal.
+  ipcMain.on('update:open-external', (_e, url) => {
+    if (!urlExternaPermitida(url)) {
+      log.warn('[updater] blocked open-external for non-web URL:', url);
+      return;
+    }
+    shell.openExternal(url).catch((e) => log.warn('[updater] openExternal failed:', e));
   });
 
   /**

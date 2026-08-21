@@ -600,6 +600,17 @@
     // ============================================================
     const $ = (id) => document.getElementById(id);
 
+    // Todo link do changelog (o commit de cada item) abre no navegador. O
+    // main bloqueia a navegacao desta janela, entao sem este desvio o clique
+    // simplesmente nao faria nada; e antes do bloqueio ele fazia pior, trazia
+    // o github.com para dentro da janela transparente.
+    document.addEventListener('click', (e) => {
+      const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
+      if (!a) return;
+      e.preventDefault();
+      window.updateAPI?.openExternal?.(a.getAttribute('href'));
+    });
+
     function applyLocale() {
       const T = UI[locale];
       document.documentElement.lang = locale;

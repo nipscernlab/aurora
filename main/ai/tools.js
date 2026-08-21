@@ -1381,6 +1381,53 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'create_gtkw_layout',
+    description:
+      'Create a GTKWave layout (.gtkw) from an explicit signal list, write it at the '
+      + 'project root and register it for the active testbench. This is the GTKWave '
+      + 'sibling of create_surfer_layout, and the counterpart of add_gtkw_file (which '
+      + 'only registers a file that already exists). Note the division of labour: when '
+      + 'no .gtkw is active, Aurora GENERATES a curated layout from the dump on every '
+      + 'run (processors grouped, colours, decoded Assembly/C+- traces). Prefer that '
+      + 'default; create a layout here when the user asked for specific signals in a '
+      + 'specific order. Signals must exist in the dump — check with list_wave_signals '
+      + 'first, since GTKWave silently omits a path it cannot find.',
+    access: 'write',
+    api: ['wave', 'createGtkwLayout'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Layout name, without extension. Becomes <name>.gtkw at the project root.' },
+        signals: {
+          type: 'array',
+          description: 'Signals top to bottom. Either a full path string, or an object for control over base and grouping.',
+          items: {
+            oneOf: [
+              { type: 'string', description: 'Full signal path, e.g. "tb.dut.acc".' },
+              {
+                type: 'object',
+                properties: {
+                  path: { type: 'string', description: 'Full signal path, e.g. "tb.dut.acc".' },
+                  // A lista tem que ser a mesma do RADIX_VALIDOS em
+                  // js/wave/gtkw_custom.js, que e quem de fato aceita ou
+                  // recusa. Copiada, e nao importada, porque este manifesto e
+                  // CommonJS no processo principal e aquele modulo e ESM do
+                  // renderer; o tool_manifest.test.js compara as duas.
+                  radix: { type: 'string', enum: ['bin', 'dec', 'signed', 'hex', 'real', 'ascii'], description: 'Display base. Default dec; use bin for single-bit signals and signed for two-complement buses.' },
+                  group: { type: 'string', description: 'Consecutive signals sharing this name land in one collapsible group.' },
+                },
+                required: ['path'],
+              },
+            ],
+          },
+        },
+        setActive: { type: 'boolean', description: 'true (default) makes it the layout GTKWave opens for this testbench.' },
+      },
+      required: ['name', 'signals'],
+    },
+  },
+  {
     name: 'create_surfer_layout',
     description:
       'Create a Surfer command file (.sucl) that sets up a waveform view, register it '

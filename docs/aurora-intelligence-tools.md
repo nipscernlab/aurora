@@ -5,7 +5,7 @@
      `description` dela em main/ai/tools.js, que e o mesmo texto que o
      modelo le ao decidir se a chama. -->
 
-A AURORA expoe 107 ferramentas ao modelo. Elas chegam ate ele por dois
+A AURORA expoe 108 ferramentas ao modelo. Elas chegam ate ele por dois
 caminhos, descritos abaixo.
 
 Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel
@@ -97,6 +97,7 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 |---|---|---|---|
 | `add_gtkw_file` | write | `filePath`, `setActive`? | Register a .gtkw save file from anywhere inside the project tree for the active testbench. The file must exist and end in .gtkw. By default the freshly added entry becomes the active one. |
 | `add_surfer_file` | write | `filePath`, `setActive`? | Register a Surfer layout from inside the project tree for the active testbench: a .surf.ron saved state (loaded with -s) or a .sucl command file (loaded with -c). The file must exist. By default the freshly added entry becomes the active one. |
+| `create_gtkw_layout` | write | `name`, `signals`, `setActive`? | Create a GTKWave layout (.gtkw) from an explicit signal list, write it at the project root and register it for the active testbench. This is the GTKWave sibling of create_surfer_layout, and the counterpart of add_gtkw_file (which only registers a file that already exists). Note the division of labour: when no .gtkw is active, Aurora GENERATES a curated layout from the dump on every run (processors grouped, colours, decoded Assembly/C+- traces). Prefer that default; create a layout here when the user asked for specific signals in a specific order. Signals must exist in the dump — check with list_wave_signals first, since GTKWave silently omits a path it cannot find. |
 | `create_surfer_layout` | write | `name`, `commands`, `open`?, `setActive`? | Create a Surfer command file (.sucl) that sets up a waveform view, register it for the active testbench and optionally open Surfer with it. Write ONE Surfer command per line (load_file, add_variable, zoom_fit, ...); see the Surfer command reference. NOTE: this deliberately writes .sucl and not .surf.ron — .surf.ron is the RON serialisation of Surfer's internal state, it has no published schema and changes between versions, while .sucl is documented and meant to be hand-written. To drop a layout later, use remove_surfer_file. |
 | `find_gtkw_files` | read | `query`? | Find .gtkw save files anywhere inside the open project by name. The user only needs to give the file name — this resolves the full path. Pass a name fragment to filter, or omit it to list every .gtkw in the project. Returns project-relative and absolute paths. |
 | `find_surfer_files` | read | `query`? | Find Surfer layout files (.surf.ron saved state, or .sucl command files) anywhere inside the open project by name. The user only needs to give the file name — this resolves the full path. Pass a name fragment to filter, or omit it to list every Surfer layout. Returns project-relative and absolute paths. |

@@ -62,6 +62,7 @@ import {
 // Achatar a hierarquia mora ao lado de quem a constroi (buildHierarchyTree), e
 // nao aqui: e a operacao irma dela, e enterrada neste arquivo nao tinha teste.
 import { flattenSignalPaths } from '../wave/signal_parser.js';
+import { buildCustomGtkw } from '../wave/gtkw_custom.js';
 
 import { memorySlug } from '../ai/memory.js';
 
@@ -2373,6 +2374,47 @@ const waveNs = {
   },
 
   /**
+   * Escreve um .gtkw com os sinais pedidos e registra para o testbench ativo.
+   *
+   * O irmao do `createSurferLayout`, do lado do GTKWave. Ate aqui dava para
+   * registrar um .gtkw que ja existisse no disco (`addGtkwFile`), nunca para
+   * criar um: quem quisesse um layout proprio tinha que abrir o GTKWave,
+   * montar a vista na mao e salvar. O layout AUTOMATICO continua sendo outra
+   * coisa, e continua sendo o padrao (ver ARCHITECTURE secao 9): este caminho
+   * e o do pedido explicito, quando ja se sabe quais sinais olhar.
+   *
+   * O formato fica no `gtkw_custom.js`, que e puro e testado; aqui so se
+   * resolve o caminho, escreve e registra.
+   *
+   * @param {{
+   *   name: string,
+   *   signals: Array<string|{path:string, radix?:string, group?:string}>,
+   *   setActive?: boolean,
+   * }} p
+   */
+  async createGtkwLayout({ name, signals, setActive = true } = {}) {
+    if (!name) return err('name required');
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    if (!projectPath) return err('No project open');
+
+    const { conteudo, sinais, ignorados } = buildCustomGtkw({ signals });
+    if (!sinais) {
+      return err('signals required — one signal path per entry, e.g. "tb.dut.acc"');
+    }
+
+    const base = String(name).replace(/[^\w.-]+/g, '_').replace(/\.gtkw$/i, '');
+    const alvo = await electronAPI.joinPath(projectPath, `${base}.gtkw`);
+    try { await electronAPI.writeFile(alvo, conteudo); }
+    catch (e) { return err(`Could not write ${alvo}: ${e?.message || e}`); }
+
+    // Por `waveNs`, e nao por `this`: o tool_runner chama os metodos de
+    // namespace como funcao solta, entao `this` chegaria indefinido.
+    const add = await waveNs.addGtkwFile({ filePath: alvo, setActive });
+    if (!add?.ok) return add;
+    return ok({ filePath: alvo, signals: sinais, ignored: ignorados, isActive: !!setActive });
+  },
+
+  /**
    * Mark one of the registered .gtkw files as active (the one that
    * GTKWave will open). Pass `null` / no path to revert to the default
    * (Aurora auto-generates a layout).
@@ -2989,6 +3031,7 @@ const NAMESPACES = Object.freeze({
     setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
     createSurferLayout: 'Write a .sucl Surfer layout and register it for the testbench',
+    createGtkwLayout: 'Write a .gtkw layout from a signal list and register it for the testbench',
     listSurferFiles:    'List Surfer layouts (.surf.ron/.sucl) registered for the active testbench',
     findSurferFiles:    'Find Surfer layout files (.surf.ron/.sucl) in the project by name',
     useSurferByName:    'Locate a Surfer layout by name and set it active for the testbench in one step',

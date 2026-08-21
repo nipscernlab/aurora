@@ -25,9 +25,10 @@ const require = createRequire(import.meta.url);
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BASE = path.join(RAIZ, 'resources', 'exemplos');
 
-const { lerCatalogo, listar, instalar, montarSpf } = require('../../main/exemplos/instalar.js');
+const { lerCatalogo, lerDocumento, listar, instalar, montarSpf } = require('../../main/exemplos/instalar.js');
 
 const CATALOGO = lerCatalogo(BASE);
+const PASTA = lerDocumento(BASE).pasta;
 
 describe('catalogo', () => {
   it('tem os cinco exemplos, com chave unica e sem campo vazio', () => {
@@ -141,25 +142,52 @@ describe('instalar', () => {
   beforeEach(() => { destino = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-ex-')); });
   afterEach(() => { fs.rmSync(destino, { recursive: true, force: true }); });
 
+  it('poe tudo dentro de UMA pasta, e nao solto no destino escolhido', () => {
+    // O destino costuma ser Documentos ou a area de trabalho, onde a pessoa ja
+    // tem coisas. Cinco pastas soltas ali sao cinco coisas para limpar depois.
+    const r = instalar(destino, { base: BASE });
+    expect(r.pasta).toBe(path.join(destino, PASTA));
+    expect(fs.readdirSync(destino)).toEqual([PASTA]);
+    expect(fs.readdirSync(r.pasta).sort()).toEqual(CATALOGO.map((e) => e.chave).sort());
+  });
+
+  it('o nome da pasta-mae nao tem espaco', () => {
+    // O caminho do projeto entra na linha de comando do Verilator, que constroi
+    // por make e perl do MSYS, e espaco em caminho e como essa cadeia quebra.
+    expect(PASTA).toMatch(/^[A-Za-z0-9._-]+$/);
+  });
+
   it('cria uma pasta por exemplo, cada uma com o seu .spf', () => {
     const r = instalar(destino, { base: BASE });
     expect(r.criados.length).toBe(CATALOGO.length);
     expect(r.pulados).toEqual([]);
     for (const e of CATALOGO) {
-      const spf = path.join(destino, e.chave, `${e.chave}.spf`);
+      const spf = path.join(r.pasta, e.chave, `${e.chave}.spf`);
       expect(fs.existsSync(spf), e.chave).toBe(true);
       const doc = JSON.parse(fs.readFileSync(spf, 'utf8'));
       // As duas metades que a AURORA le, e o basePath apontando para onde o
       // projeto de fato ficou.
       expect(doc.metadata.projectName).toBe(e.chave);
-      expect(doc.structure.basePath).toBe(path.join(destino, e.chave));
+      expect(doc.structure.basePath).toBe(path.join(r.pasta, e.chave));
       expect(fs.existsSync(doc.structure.testbenchFile), `${e.chave}: testbench`).toBe(true);
     }
   });
 
+  it('devolve o .spf de cada exemplo, que e o que vai para os recentes', () => {
+    // A interface e o processo principal percorrem esta lista para decorar os
+    // recentes; um caminho errado aqui poria na tela inicial uma entrada que
+    // nao abre.
+    const r = instalar(destino, { base: BASE });
+    expect(r.criados.map((c) => c.chave)).toEqual(CATALOGO.map((e) => e.chave));
+    for (const c of r.criados) {
+      expect(c.spf.endsWith(`${c.chave}.spf`), c.chave).toBe(true);
+      expect(fs.existsSync(c.spf), c.chave).toBe(true);
+    }
+  });
+
   it('instalar de novo na mesma pasta nao sobrescreve o que o aluno mexeu', () => {
-    instalar(destino, { base: BASE });
-    const alvo = path.join(destino, 'media-movel', 'mediamovel', 'Software', 'mediamovel.cmm');
+    const primeira = instalar(destino, { base: BASE });
+    const alvo = path.join(primeira.pasta, 'media-movel', 'mediamovel', 'Software', 'mediamovel.cmm');
     fs.writeFileSync(alvo, '// editado pelo aluno\n');
 
     const r = instalar(destino, { base: BASE });

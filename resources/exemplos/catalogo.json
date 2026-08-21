@@ -15,6 +15,18 @@
     "testbenches elaborados e simulados no Icarus antes de entrarem aqui; os",
     "valores citados nos comentarios sao os que a simulacao imprimiu."
   ],
+  "_nota-pasta": [
+    "Os cinco projetos ficam DENTRO desta pasta, e nao soltos no lugar que o",
+    "usuario escolheu: cinco pastas despejadas em Documentos, no meio do que a",
+    "pessoa ja tinha, sao cinco coisas para ela limpar depois uma a uma.",
+    "",
+    "Sem espaco no nome de proposito. O caminho do projeto entra na linha de",
+    "comando do Verilator, que constroi por make e perl vindos do MSYS, e",
+    "espaco em caminho e a forma classica de essa cadeia quebrar. Acento o",
+    "teste de toolchain ja provou que passa; espaco ninguem provou, e um",
+    "exemplo existe justamente para funcionar de primeira."
+  ],
+  "pasta": "exemplos-sapho",
   "exemplos": [
     {
       "chave": "contador",

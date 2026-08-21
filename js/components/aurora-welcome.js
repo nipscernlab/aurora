@@ -98,6 +98,15 @@ class AuroraWelcome extends LitElement {
           + (r.erro ? ` ${r.erro}` : ''), 'error', 8000);
         return;
       }
+      // Os cinco entram na lista de recentes daqui, alem da lista do processo
+      // principal (que alimenta a jumplist): sao duas listas, e esta e a que a
+      // tela inicial mostra. De tras para frente porque cada uma vai para o
+      // topo, entao o catalogo termina na ordem em que foi escrito.
+      for (const item of [...(r.criados || [])].reverse()) {
+        try { window.recentProjectsManager?.addProject?.(item.spf); }
+        catch (_) { /* decorar a lista nao pode derrubar a instalacao */ }
+      }
+
       const criados = r.criados?.length || 0;
       const pulados = r.pulados?.length || 0;
       // O aviso conta os dois numeros. Uma segunda instalacao na mesma pasta
@@ -105,7 +114,7 @@ class AuroraWelcome extends LitElement {
       // feito nada.
       const corpo = criados
         ? this._t('welcome.examplesDone', 'Example projects created in')
-          + ` ${r.destino}` + (pulados ? ` (${pulados} ${this._t('welcome.examplesSkipped', 'already existed')})` : '')
+          + ` ${r.pasta}` + (pulados ? ` (${pulados} ${this._t('welcome.examplesSkipped', 'already existed')})` : '')
         : this._t('welcome.examplesAllSkipped', 'The examples were already in that folder.');
       window.showNotification?.(corpo, criados ? 'success' : 'info', 9000);
     } catch (e) {

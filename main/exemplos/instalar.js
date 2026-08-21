@@ -38,14 +38,21 @@ function raiz() {
   return path.join(require('../paths').appRoot, 'resources', 'exemplos');
 }
 
-/** Le o catalogo. Lanca quando ele falta, porque sem ele nao ha o que instalar. */
-function lerCatalogo(base = raiz()) {
+/** O catalogo inteiro, com a pasta-mae e a lista. */
+function lerDocumento(base = raiz()) {
   const bruto = fs.readFileSync(path.join(base, 'catalogo.json'), 'utf8');
   const doc = JSON.parse(bruto);
   if (!Array.isArray(doc.exemplos) || doc.exemplos.length === 0) {
     throw new Error('catalogo de exemplos vazio');
   }
-  return doc.exemplos;
+  // A pasta-mae e declarada la, e nao aqui, para o nome existir num lugar so.
+  // A reserva cobre um catalogo antigo que ainda nao a declarasse.
+  return { pasta: doc.pasta || 'exemplos-sapho', exemplos: doc.exemplos };
+}
+
+/** Le o catalogo. Lanca quando ele falta, porque sem ele nao ha o que instalar. */
+function lerCatalogo(base = raiz()) {
+  return lerDocumento(base).exemplos;
 }
 
 /** O catalogo para a interface: o que mostrar, sem caminho de disco. */
@@ -105,29 +112,35 @@ function montarSpf(destinoProjeto, exemplo) {
 }
 
 /**
- * Instala todos os exemplos em `destino`.
+ * Instala todos os exemplos dentro de UMA pasta em `destino`.
  *
- * Cada um vira uma pasta propria com o `.spf` dentro, entao o destino escolhido
- * fica com cinco projetos lado a lado e nenhum deles engole o outro.
+ * A pasta-mae existe porque o destino que a pessoa escolhe costuma ser
+ * Documentos, ou a area de trabalho, onde ela ja tem coisas: cinco pastas
+ * despejadas ali sao cinco coisas para limpar depois, uma a uma. Dentro da
+ * pasta-mae, cada exemplo vira um projeto proprio com o seu `.spf`, e nenhum
+ * engole o outro.
  *
  * Nao lanca por causa de um exemplo: um que falhe e relatado e os outros
  * seguem. Quem clicou no botao prefere quatro exemplos e um recado a nenhum
  * exemplo e um recado.
  *
- * @param {string} destino
+ * @param {string} destino  onde a pasta-mae sera criada
  * @param {{ base?: string }} [opcoes]
- * @returns {{ criados: Array<{chave:string, nome:string, spf:string}>,
+ * @returns {{ pasta: string,
+ *             criados: Array<{chave:string, nome:string, spf:string}>,
  *             pulados: Array<{chave:string, motivo:string}> }}
  */
 function instalar(destino, opcoes = {}) {
   const base = opcoes.base || raiz();
   if (!destino) throw new Error('destino obrigatorio');
-  fs.mkdirSync(destino, { recursive: true });
+  const doc = lerDocumento(base);
+  const raizExemplos = path.join(destino, doc.pasta);
+  fs.mkdirSync(raizExemplos, { recursive: true });
 
   const criados = [];
   const pulados = [];
-  for (const exemplo of lerCatalogo(base)) {
-    const pasta = path.join(destino, exemplo.chave);
+  for (const exemplo of doc.exemplos) {
+    const pasta = path.join(raizExemplos, exemplo.chave);
     try {
       if (fs.existsSync(pasta)) {
         pulados.push({ chave: exemplo.chave, motivo: 'ja existe' });
@@ -141,7 +154,7 @@ function instalar(destino, opcoes = {}) {
       pulados.push({ chave: exemplo.chave, motivo: e instanceof Error ? e.message : String(e) });
     }
   }
-  return { criados, pulados };
+  return { pasta: raizExemplos, criados, pulados };
 }
 
-module.exports = { listar, instalar, lerCatalogo, montarSpf, raiz };
+module.exports = { listar, instalar, lerCatalogo, lerDocumento, montarSpf, raiz };

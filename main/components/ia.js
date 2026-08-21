@@ -53,6 +53,7 @@ const CATALOGO = [
     resumo: 'O agente de programação da Anthropic, usado pela Aurora Intelligence no modo Claude Code.',
     tamanhoMB: 287,
     downloadMB: 90,
+    icone: 'ai_claude.svg',
   },
   {
     chave: 'codex',
@@ -60,6 +61,7 @@ const CATALOGO = [
     resumo: 'O agente de programação da OpenAI, usado pela Aurora Intelligence no modo Codex.',
     tamanhoMB: 370,
     downloadMB: 132,
+    icone: 'ai_codex.svg',
   },
 ];
 

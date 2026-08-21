@@ -982,13 +982,44 @@
 
 .componente {
   display: grid;
-  grid-template-columns: 1fr auto;
+  /* Marca, texto, acao. A coluna da marca e fixa, e e ela que faz a lista ler
+     como uma grade: o quadro tem sempre o mesmo tamanho, entao logotipo
+     colorido e glifo monocromatico ocupam exatamente o mesmo lugar e todos os
+     nomes comecam na mesma vertical. */
+  grid-template-columns: 40px 1fr auto;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
   background: var(--bg);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
+}
+
+.componente-marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border-subtle);
+  /* O quadro nao encolhe nem cresce com o conteudo do cartao. */
+  flex-shrink: 0;
+  align-self: start;
+}
+
+.componente-marca img {
+  /* contain, e nao cover: logotipo cortado e logotipo desrespeitado, e as
+     proporcoes originais variam bastante entre as marcas. */
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.componente-marca i {
+  font-size: 20px;
+  color: var(--text-secondary);
 }
 
 /* Grid e nao flex por causa do alinhamento ENTRE cartoes. Em flex o selo

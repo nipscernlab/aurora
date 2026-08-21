@@ -185,8 +185,17 @@ function cartao(c) {
     ? tamanhoLegivel(c.tamanhoMB)
     : tr('modal.settings.componentsDownloadOf', { mb: tamanhoLegivel(c.downloadMB) });
 
+  // Coluna propria e de tamanho fixo para o icone. Marca de verdade quando ela
+  // existe; glifo do Phosphor quando nao existe, porque inventar um logotipo
+  // seria pior do que nao ter. O que alinha a lista e o quadro, nao a arte:
+  // assim marca colorida e glifo monocromatico ocupam exatamente o mesmo lugar.
+  const marca = c.icone
+    ? `<img src="./assets/icons/${escapar(c.icone)}" alt="" loading="lazy">`
+    : `<i class="ph ${escapar(c.glifo || 'ph-puzzle-piece')}" aria-hidden="true"></i>`;
+
   return elemento(`
     <div class="componente${c.requerParaCompilar && !c.instalado && !c.essencial ? ' componente-urgente' : ''}" data-chave="${escapar(c.chave)}">
+      <div class="componente-marca">${marca}</div>
       <div class="componente-texto">
         <div class="componente-titulo">
           <span class="componente-nome">${escapar(nomeDe(c))}</span>

@@ -235,6 +235,16 @@ const crc32 = typeof zlib.crc32 === 'function' ? zlib.crc32 : null;
  * @param {import('fs/promises').FileHandle} fd @param {string} zipPath @param {Entrada} entrada @param {string} alvo
  */
 async function extrairEntrada(fd, zipPath, entrada, alvo) {
+  // Rede de seguranca para a pasta sem marcador que a regra estrutural nao
+  // alcanca: uma pasta VAZIA, que nao e ancestral de ninguem. Ela nao carrega
+  // conteudo nenhum, entao pular nao perde byte, e escrever levaria ao EISDIR
+  // que derrubava a extracao inteira por causa de uma entrada de zero byte.
+  if (entrada.tamanho === 0) {
+    try {
+      if (fs.statSync(alvo).isDirectory()) return;
+    } catch (_) { /* nao existe: e arquivo vazio mesmo, segue */ }
+  }
+
   const inicio = await inicioDosDados(fd, entrada);
 
   if (entrada.tamanhoComprimido <= LIMITE_EM_MEMORIA) {
@@ -294,6 +304,26 @@ async function extrairEmParalelo(zipPath, destDir, opcoes = {}) {
     // Os caminhos sao validados TODOS antes de escrever o primeiro byte: um
     // zip malicioso nao ganha nem uma extracao parcial.
     const plano = entradas.map((e) => ({ entrada: e, alvo: caminhoSeguro(destino, e.nome) }));
+
+    // Nem todo zip marca as pastas. O gtkwave-nipscern traz entradas como
+    // `lib/gdk-pixbuf-2.0` sem barra final, sem o bit 0x10 do DOS e sem
+    // S_IFDIR no modo Unix, e elas chegavam aqui classificadas como arquivo
+    // vazio. A pasta era criada de qualquer forma, porque outra entrada morava
+    // dentro dela, e a escrita entao batia numa pasta existente: EISDIR, a
+    // extracao rapida abortava e o instalador caia no Expand-Archive.
+    //
+    // A prova que nao depende de marcador nenhum e estrutural: se algo mora
+    // dentro de X, X e pasta. Montamos o conjunto dos ancestrais de todas as
+    // entradas e reclassificamos por ele.
+    const ancestrais = new Set();
+    for (const { entrada } of plano) {
+      const partes = entrada.nome.replace(/\/+$/, '').split('/');
+      for (let i = 1; i < partes.length; i++) ancestrais.add(partes.slice(0, i).join('/'));
+    }
+    for (const item of plano) {
+      if (item.entrada.diretorio) continue;
+      if (ancestrais.has(item.entrada.nome.replace(/\/+$/, ''))) item.entrada.diretorio = true;
+    }
 
     // Pastas primeiro, de uma vez, para os arquivos nao disputarem mkdir.
     const pastas = new Set();

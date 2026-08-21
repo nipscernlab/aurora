@@ -104,12 +104,16 @@ const VALIDADE_MS = 3000;
  *   chave: string, nome: string, resumo: string, sentinela: string,
  *   tamanhoMB: number, downloadMB: number, essencial: boolean,
  *   requerParaCompilar?: boolean, script: string|null, arquivosChave: string[],
+ *   icone?: string, glifo?: string,
  *   versao: string, carimbo: string,
  * }>}
  */
 const COMPONENTES = [
   {
     chave: 'msys',
+    // Um pacote de varias ferramentas (Icarus, Verilator, Yosys, Python). Nao ha
+    // marca unica que o represente sem dar credito errado a um dos vendors.
+    glifo: 'ph-toolbox',
     nome: 'MSYS Toolchain',
     resumo: 'A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.',
     sentinela: 'Packages/msys/mingw64/bin/verilator_bin.exe',
@@ -132,6 +136,7 @@ const COMPONENTES = [
   },
   {
     chave: 'yanc',
+    icone: 'yanc.svg',
     nome: 'YANC',
     resumo: 'O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.',
     sentinela: 'bin/cppcomp.exe',
@@ -159,6 +164,7 @@ const COMPONENTES = [
   },
   {
     chave: 'gtkwave',
+    icone: 'GTKWave_logo.svg',
     nome: 'GTKWave',
     resumo: 'O visualizador de formas de onda clássico, em janela própria.',
     sentinela: 'Packages/gtkwave-nipscern/gtkwave.exe',
@@ -172,6 +178,7 @@ const COMPONENTES = [
   },
   {
     chave: 'surfer',
+    icone: 'Surfer_logo.svg',
     nome: 'Surfer',
     resumo: 'O visualizador de formas de onda embutido, dentro da AURORA.',
     sentinela: 'Packages/surfer/surfer-aurora.exe',
@@ -185,6 +192,8 @@ const COMPONENTES = [
   },
   {
     chave: 'verible',
+    // Sem marca publicada; o glifo diz o que a ferramenta faz.
+    glifo: 'ph-list-checks',
     nome: 'Verible',
     resumo: 'Diagnósticos, formatação e navegação em Verilog, dentro do editor.',
     sentinela: 'Packages/verible/bin/verible-verilog-ls.exe',
@@ -198,6 +207,7 @@ const COMPONENTES = [
   },
   {
     chave: 'slang',
+    glifo: 'ph-tree-structure',
     nome: 'slang',
     resumo: 'Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.',
     sentinela: 'Packages/slang-server/bin/slang-server.exe',
@@ -211,6 +221,7 @@ const COMPONENTES = [
   },
   {
     chave: 'clang-format',
+    glifo: 'ph-text-indent',
     nome: 'clang-format',
     resumo: 'Formatação de C, C++ e C± com Shift+Alt+F.',
     sentinela: 'Packages/clang-format/bin/clang-format.exe',

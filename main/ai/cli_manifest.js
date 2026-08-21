@@ -13,7 +13,7 @@
  *   - Claude:  @anthropic-ai/claude-code-win32-x64   → claude.exe at the root
  *   - Codex:   @openai/codex @ <ver>-win32-x64       → the alias target of the
  *              @openai/codex-win32-x64 optional dep; the native binary lives at
- *              vendor/<triple>/codex/codex.exe with bundled ripgrep alongside.
+ *              vendor/<triple>/bin/codex.exe with bundled ripgrep em codex-path/.
  *
  * Versions MUST track the base packages declared in package.json
  * (@anthropic-ai/claude-code, @openai/codex). scripts/check-pinned-versions.js
@@ -75,8 +75,14 @@ const MANIFEST = {
         version: `${CODEX_VERSION}-win32-x64`,
         tarball: `${REGISTRY}/@openai/codex/-/codex-${CODEX_VERSION}-win32-x64.tgz`,
         integrity: 'sha512-oT7Ss5fAPf2fiWE9QNURqZcQGAAawSVxmIUdgPzckq4KFZAM+pRz9JbM4Rr498CjtbNgTOjWvDJ+DXvIBSfOPA==',
-        exe: 'vendor/x86_64-pc-windows-msvc/codex/codex.exe',
-        rg: 'vendor/x86_64-pc-windows-msvc/path',
+        // O layout do pacote mudou na 0.147.0: o binario saiu de
+        // vendor/<triple>/codex/ para vendor/<triple>/bin/, e o ripgrep de
+        // vendor/<triple>/path/ para vendor/<triple>/codex-path/. Conferido no
+        // tarball publicado, nao so no cache local. Como os dois caminhos vem
+        // daqui, o download passava e a instalacao falhava depois, procurando
+        // um arquivo que o upstream nao publica mais.
+        exe: 'vendor/x86_64-pc-windows-msvc/bin/codex.exe',
+        rg: 'vendor/x86_64-pc-windows-msvc/codex-path',
       },
     },
   },

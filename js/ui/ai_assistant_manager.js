@@ -2035,8 +2035,29 @@ class AIAssistantManager {
     const stillSameChat = () => this.currentChatId === originChatId;
 
     Promise.resolve(job).then(async (res) => {
-      const okJob = !(res && res.ok === false);
+      // Cancelar nao e terminar. O fluxo de compilacao trata o cancelamento
+      // por dentro (mostra o cartao amigavel e volta normalmente), entao a
+      // promessa aqui RESOLVE, e a tarefa era relatada ao modelo como
+      // "finished". Ele entao resumia um resultado que nao existe, ou saia
+      // investigando por que a onda nao abriu. `runStatus` ja sabe a diferenca;
+      // faltava perguntar antes de dar a noticia.
+      let cancelada = false;
+      try {
+        const st = await api.compile?.runStatus?.();
+        cancelada = !!(st && st.ok && st.data && st.data.cancelled);
+      } catch (_) { /* sem resposta, segue pelo desfecho da promessa */ }
+      const okJob = !cancelada && !(res && res.ok === false);
       if (!stillSameChat()) return;   // user moved on — drop the auto-continue
+      if (cancelada) {
+        this._renderBgTask(taskId, `${label} cancelled`, 'failed');
+        this.autoContinue(
+          `[AUTONOMOUS BACKGROUND TASK] "${label}" (${taskId}) was CANCELLED by the user `
+          + 'before it finished. Nothing ran to completion, so there is no result to report. '
+          + 'Do not retry on your own: acknowledge briefly and ask what they want to do next.',
+          { label: `Background task: ${label} cancelled` },
+        );
+        return;
+      }
       // Pull the compiler terminals for context so the follow-up turn can
       // actually report what happened.
       let terminals = '';

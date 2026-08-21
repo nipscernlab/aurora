@@ -134,6 +134,10 @@
         "publishAutoUpdate": true
       }
     ],
+    "electronLanguages": [
+      "en-US",
+      "pt-BR"
+    ],
     "win": {
       "target": [
         {
@@ -160,6 +164,12 @@
     "files": [
       "**/*",
       "dist/**",
+      "!dist/win-unpacked/**",
+      "!dist/*.exe",
+      "!dist/*.yml",
+      "!dist/*.blockmap",
+      "!dist/resources/docs/**",
+      "!resources/docs/**",
       "!components/**",
       "!tests/**",
       "!docs/**",
@@ -174,9 +184,13 @@
       "!assets/fonts/*.otf",
       "!assets/fonts/*-LICENSE.txt",
       "!node_modules/material-icon-theme/**",
-      "!node_modules/monaco-editor/dev/**",
-      "!node_modules/monaco-editor/esm/**",
-      "!node_modules/monaco-editor/min-maps/**",
+      "!node_modules/monaco-editor/**",
+      "!node_modules/katex/**",
+      "!node_modules/@phosphor-icons/**",
+      "!node_modules/digitaljs/**",
+      "!node_modules/@joint/**",
+      "!node_modules/jquery/**",
+      "!node_modules/jquery-ui/**",
       "!node_modules/@types/**",
       "!node_modules/@anthropic-ai/claude-code/**",
       "!node_modules/@anthropic-ai/claude-code-*/**",
@@ -217,7 +231,8 @@
       }
     ],
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     }
   },
   "keywords": [

@@ -148,7 +148,10 @@ export default defineConfig({
         //   • SAPHO rules: fetch('./resources/sapho_rules.json') (js/api/aurora_api.js)
         //   • icons: img.src = './assets/icons/<name>'  (AI providers etc.)
         { src: 'locales/**/*', dest: 'locales', rename: { stripBase: 1 } },
-        { src: 'resources/**/*', dest: 'resources', rename: { stripBase: 1 } },
+        // resources/docs fica de fora: a documentacao offline (39 MB) ja viaja
+        // como extraResources e e lida de process.resourcesPath/docs; copiada
+        // para dist/ ela so duplicava o peso dentro do asar.
+        { src: ['resources/**/*', '!resources/docs/**'], dest: 'resources', rename: { stripBase: 1 } },
         { src: 'assets/icons/**/*', dest: 'assets/icons', rename: { stripBase: 2 } },
       ],
     }),

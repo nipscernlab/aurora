@@ -220,7 +220,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: unsigned-installer
-          path: dist/sapho-aurora-Setup-*.exe
+          path: release/sapho-aurora-Setup-*.exe
           if-no-files-found: error
 
       - name: Sign with SignPath
@@ -250,8 +250,8 @@ jobs:
             Write-Host "::error::SignPath returned no .exe in dist-signed."
             exit 1
           }
-          Copy-Item $signed.FullName (Join-Path 'dist' $signed.Name) -Force
-          node scripts/patch-latest-yml.js dist $signed.Name
+          Copy-Item $signed.FullName (Join-Path 'release' $signed.Name) -Force
+          node scripts/patch-latest-yml.js release $signed.Name
 
       # The single publish path, signed or not. Uploading all three assets in
       # one command is deliberate: the updater needs `latest.yml` to see the
@@ -268,9 +268,9 @@ jobs:
           $exe     = "sapho-aurora-Setup-v$version.exe"
 
           $assets = @(
-            (Join-Path 'dist' $exe),
-            (Join-Path 'dist' "$exe.blockmap"),
-            (Join-Path 'dist' 'latest.yml')
+            (Join-Path 'release' $exe),
+            (Join-Path 'release' "$exe.blockmap"),
+            (Join-Path 'release' 'latest.yml')
           )
           $absent = $assets | Where-Object { -not (Test-Path $_) }
           if ($absent) {
@@ -306,7 +306,7 @@ jobs:
           $tag     = "v$version"
           $exeName = "sapho-aurora-Setup-v$version.exe"
 
-          $localExe = Join-Path 'dist' $exeName
+          $localExe = Join-Path 'release' $exeName
           if (-not (Test-Path $localExe)) {
             Write-Host "::error::Local installer $localExe is missing — the build did not produce what we expect to publish."
             exit 1

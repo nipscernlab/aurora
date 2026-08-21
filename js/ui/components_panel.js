@@ -127,8 +127,11 @@ function elemento(html) {
 }
 
 function escapar(t) {
+  // As aspas tambem, porque o resultado entra em atributos (`src`, `data-*`)
+  // e nao so em texto: uma aspa no valor fecharia o atributo no meio.
   return String(t == null ? '' : t)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function tamanhoLegivel(mb) {
@@ -189,8 +192,12 @@ function cartao(c) {
   // existe; glifo do Phosphor quando nao existe, porque inventar um logotipo
   // seria pior do que nao ter. O que alinha a lista e o quadro, nao a arte:
   // assim marca colorida e glifo monocromatico ocupam exatamente o mesmo lugar.
+  // Sem `loading="lazy"`: sao nove imagens locais de poucos KB numa lista
+  // curta, e a lista e montada com o painel fechado, onde uma imagem
+  // preguicosa nao tem caixa e so e buscada ao abrir a aba, um quadro depois
+  // do texto. O que o lazy evitaria (banda em pagina longa) nao existe aqui.
   const marca = c.icone
-    ? `<img src="./assets/icons/${escapar(c.icone)}" alt="" loading="lazy">`
+    ? `<img src="./assets/icons/${escapar(c.icone)}" alt="" decoding="async">`
     : `<i class="ph ${escapar(c.glifo || 'ph-puzzle-piece')}" aria-hidden="true"></i>`;
 
   return elemento(`

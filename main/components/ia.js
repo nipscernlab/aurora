@@ -39,9 +39,14 @@ const path = require('path');
 const downloader = require('../ai/cli_downloader');
 
 /**
+ * Os dois campos de imagem sao os mesmos do catalogo de registry.js, porque o
+ * painel desenha as duas listas com o mesmo cartao: `icone` e um arquivo em
+ * assets/icons, `glifo` uma classe do Phosphor para quando nao ha marca.
+ *
  * @typedef {{
  *   chave: 'claude'|'codex', nome: string, resumo: string,
  *   tamanhoMB: number, downloadMB: number,
+ *   icone?: string, glifo?: string,
  * }} ComponenteIA
  */
 
@@ -114,8 +119,15 @@ function diagnosticar(chave) {
   // Outra versao com o binario dentro: instalado, mas nao o que esta AURORA
   // espera. Pasta sem o binario e resto de download interrompido, e conta
   // como ausente: o proximo download limpa.
-  const relativo = ip.entry.exe.split('/');
-  const antiga = pastasDoCache(chave).find((p) => existe(path.join(p.pasta, ...relativo)));
+  //
+  // O binario de uma versao antiga pode morar em outro caminho dentro da
+  // pasta (o Codex mudou o dele na 0.147.0), e e a lista `exeLegado` do
+  // manifesto que lembra quais. Procurando so pelo caminho atual, o cache de
+  // uma release anterior lia como ausente, e o painel oferecia um download
+  // novo em vez de uma atualizacao, com 370 MB da versao velha ainda no disco.
+  const relativos = [ip.entry.exe, ...(ip.entry.exeLegado || [])].map((r) => r.split('/'));
+  const antiga = pastasDoCache(chave)
+    .find((p) => relativos.some((rel) => existe(path.join(p.pasta, ...rel))));
   if (antiga) return { chave, estado: 'desatualizado', faltando: [], versaoInstalada: antiga.versao };
   return { chave, estado: 'ausente', faltando: [], versaoInstalada: null };
 }

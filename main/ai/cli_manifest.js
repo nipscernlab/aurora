@@ -46,6 +46,11 @@ const REGISTRY = 'https://registry.npmjs.org';
  * @property {string} integrity  Subresource-Integrity string ("sha512-…").
  * @property {string} exe        Executable path inside the extracted root (POSIX-relative).
  * @property {string|null} rg    ripgrep dir inside the extracted root, or null.
+ * @property {string[]} [exeLegado]  Where `exe` lived in versions this AURORA
+ *   already shipped. A cache folder of an older version is only recognised as
+ *   "installed, but outdated" if the binary is found at one of these; without
+ *   the list an old download reads as absent, and the panel offers a fresh
+ *   download instead of an update while the old tree still sits on disk.
  */
 
 /** @type {Record<'claude'|'codex', {base:string, baseVersion:string, platforms:Record<string, PlatformEntry>}>} */
@@ -83,6 +88,9 @@ const MANIFEST = {
         // um arquivo que o upstream nao publica mais.
         exe: 'vendor/x86_64-pc-windows-msvc/bin/codex.exe',
         rg: 'vendor/x86_64-pc-windows-msvc/codex-path',
+        // As releases ate a 6.4.0 fixavam o Codex em 0.131, 0.144 e 0.146,
+        // todos com o binario no caminho antigo. Ha maquinas com esse cache.
+        exeLegado: ['vendor/x86_64-pc-windows-msvc/codex/codex.exe'],
       },
     },
   },

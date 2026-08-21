@@ -172,7 +172,70 @@ async function lerDiretorioCentral(fd, tamanhoArquivo) {
     entradas.push({ nome, metodo, crc, tamanhoComprimido, tamanho, deslocamentoLocal, diretorio });
     p += 46 + tamNome + tamExtra + tamComentario;
   }
+  classificarPelaEstrutura(entradas);
   return entradas;
+}
+
+/**
+ * O nome de uma entrada na forma em que dois nomes que apontam para o mesmo
+ * lugar ficam iguais: barra normal, sem barra no fim, sem segmento vazio.
+ *
+ * E a mesma normalizacao que o `caminhoSeguro` aplica antes de montar o
+ * destino, e precisa ser a mesma: se a classificacao usar uma regra e o disco
+ * outra, um zip com `lib\x` e `lib\x\a.dll` passa pela reclassificacao sem ser
+ * reclassificado e volta o EISDIR que ela existe para evitar.
+ *
+ * @param {string} nome
+ */
+function nomeCanonico(nome) {
+  return nome.replace(/\\/g, '/').split('/').filter((s) => s.length > 0).join('/');
+}
+
+/**
+ * Reclassifica como pasta toda entrada que tem alguem morando dentro dela.
+ *
+ * Nem todo zip marca as pastas. O gtkwave-nipscern traz entradas como
+ * `lib/gdk-pixbuf-2.0` sem barra final, sem o bit 0x10 do DOS e sem S_IFDIR no
+ * modo Unix, e elas chegavam classificadas como arquivo vazio. A pasta era
+ * criada de qualquer forma, porque outra entrada morava dentro dela, e a
+ * escrita entao batia numa pasta existente: EISDIR, a extracao rapida abortava
+ * e o instalador caia no Expand-Archive.
+ *
+ * A prova que nao depende de marcador nenhum e estrutural: se algo mora dentro
+ * de X, X e pasta. So entrada de zero byte pode ser reclassificada assim. Uma
+ * entrada COM conteudo que tambem e ancestral de outra e um zip pedindo
+ * arquivo e pasta no mesmo caminho, para o que nao existe extracao correta:
+ * recusar manda o instalador para o Expand-Archive, enquanto reclassificar
+ * descartaria os bytes dela em silencio e ainda assim relataria sucesso.
+ *
+ * Mora aqui, ao lado de onde `diretorio` nasce, para a lista que
+ * `lerDiretorioCentral` devolve ser a verdade unica: quem so lista o zip enxerga
+ * a mesma classificacao de quem extrai.
+ *
+ * @param {Entrada[]} entradas
+ */
+function classificarPelaEstrutura(entradas) {
+  const ancestrais = new Set();
+  for (const e of entradas) {
+    const nome = nomeCanonico(e.nome);
+    // De baixo para cima, parando no primeiro ancestral ja conhecido. O
+    // diretorio central costuma vir em ordem, entao o pai imediato quase sempre
+    // ja esta no conjunto e o laco termina no primeiro passo, em vez de
+    // remontar todos os prefixos de cada um dos dezessete mil nomes.
+    for (let i = nome.lastIndexOf('/'); i > 0; i = nome.lastIndexOf('/', i - 1)) {
+      const pai = nome.slice(0, i);
+      if (ancestrais.has(pai)) break;
+      ancestrais.add(pai);
+    }
+  }
+  for (const e of entradas) {
+    if (e.diretorio) continue;
+    if (!ancestrais.has(nomeCanonico(e.nome))) continue;
+    if (e.tamanho !== 0) {
+      throw new ZipNaoSuportado(`arquivo e pasta no mesmo caminho dentro do zip: ${e.nome}`);
+    }
+    e.diretorio = true;
+  }
 }
 
 /**
@@ -235,16 +298,6 @@ const crc32 = typeof zlib.crc32 === 'function' ? zlib.crc32 : null;
  * @param {import('fs/promises').FileHandle} fd @param {string} zipPath @param {Entrada} entrada @param {string} alvo
  */
 async function extrairEntrada(fd, zipPath, entrada, alvo) {
-  // Rede de seguranca para a pasta sem marcador que a regra estrutural nao
-  // alcanca: uma pasta VAZIA, que nao e ancestral de ninguem. Ela nao carrega
-  // conteudo nenhum, entao pular nao perde byte, e escrever levaria ao EISDIR
-  // que derrubava a extracao inteira por causa de uma entrada de zero byte.
-  if (entrada.tamanho === 0) {
-    try {
-      if (fs.statSync(alvo).isDirectory()) return;
-    } catch (_) { /* nao existe: e arquivo vazio mesmo, segue */ }
-  }
-
   const inicio = await inicioDosDados(fd, entrada);
 
   if (entrada.tamanhoComprimido <= LIMITE_EM_MEMORIA) {
@@ -285,11 +338,61 @@ async function extrairEntrada(fd, zipPath, entrada, alvo) {
 }
 
 /**
+ * Cria uma pasta, tirando do caminho o arquivo vazio que uma instalacao
+ * anterior possa ter deixado ali.
+ *
+ * O caso e concreto e so aparece na SEGUNDA instalacao. Um zip traz
+ * `lib/vazia` como entrada de zero byte sem marcador de pasta, e como nada
+ * mora dentro dela naquela versao, ela vira um arquivo, que e o que o
+ * Expand-Archive tambem faria. A versao seguinte passa a por conteudo dentro,
+ * e agora o `mkdir` encontra um arquivo onde precisa de pasta: `EEXIST` no
+ * proprio caminho, `ENOTDIR` quando o estorvo e um ancestral. Sem conserto a
+ * extracao rapida aborta, o Expand-Archive tropeca no mesmo arquivo, e aquela
+ * maquina fica sem o componente ate alguem apagar a pasta a mao.
+ *
+ * So arquivo VAZIO e removido. Qualquer outra coisa no caminho propaga o erro,
+ * porque ai o zip esta pedindo para apagar dado de alguem, e a decisao de fazer
+ * isso nao e deste modulo.
+ *
+ * @param {string} destino  raiz da extracao, o limite de ate onde subir
+ * @param {string} pasta    caminho absoluto a criar
+ * @param {(m: string) => void} avisar
+ */
+function criarPasta(destino, pasta, avisar) {
+  try {
+    fs.mkdirSync(pasta, { recursive: true });
+    return;
+  } catch (e) {
+    const erro = /** @type {NodeJS.ErrnoException} */ (e);
+    if (erro.code !== 'EEXIST' && erro.code !== 'ENOTDIR') throw e;
+  }
+
+  // Do destino para baixo, tirando os arquivos vazios que estiverem no meio.
+  // O caminho ja passou pelo caminhoSeguro, entao esta dentro do destino.
+  const partes = path.relative(destino, pasta).split(path.sep).filter(Boolean);
+  let atual = destino;
+  for (const parte of partes) {
+    atual = path.join(atual, parte);
+    const st = fs.statSync(atual, { throwIfNoEntry: false });
+    if (!st || st.isDirectory()) continue;
+    if (st.size !== 0) {
+      throw new Error(`${path.relative(destino, atual)}: arquivo no lugar de uma pasta`);
+    }
+    fs.rmSync(atual);
+    avisar(`${path.relative(destino, atual)}: era um arquivo vazio de uma instalacao anterior, virou pasta`);
+  }
+  fs.mkdirSync(pasta, { recursive: true });
+}
+
+/**
  * Extrai o zip inteiro, em paralelo.
  *
  * @param {string} zipPath
  * @param {string} destDir
- * @param {{ onProgress?: (p: {feitos: number, total: number}) => void }} [opcoes]
+ * @param {{
+ *   onProgress?: (p: {feitos: number, total: number}) => void,
+ *   onAviso?: (mensagem: string) => void,
+ * }} [opcoes]
  * @returns {Promise<{entradas: number}>}
  */
 async function extrairEmParalelo(zipPath, destDir, opcoes = {}) {
@@ -305,32 +408,36 @@ async function extrairEmParalelo(zipPath, destDir, opcoes = {}) {
     // zip malicioso nao ganha nem uma extracao parcial.
     const plano = entradas.map((e) => ({ entrada: e, alvo: caminhoSeguro(destino, e.nome) }));
 
-    // Nem todo zip marca as pastas. O gtkwave-nipscern traz entradas como
-    // `lib/gdk-pixbuf-2.0` sem barra final, sem o bit 0x10 do DOS e sem
-    // S_IFDIR no modo Unix, e elas chegavam aqui classificadas como arquivo
-    // vazio. A pasta era criada de qualquer forma, porque outra entrada morava
-    // dentro dela, e a escrita entao batia numa pasta existente: EISDIR, a
-    // extracao rapida abortava e o instalador caia no Expand-Archive.
+    // A regra estrutural (classificarPelaEstrutura) resolve a pasta sem
+    // marcador que TEM filhos. Sobra a que esta vazia: sem ninguem morando
+    // dentro dela, ela e indistinguivel de um arquivo de zero byte, e na
+    // primeira instalacao vira arquivo mesmo, que e o que o Expand-Archive
+    // sempre fez. O caso que precisa de decisao e a reinstalacao por cima de
+    // uma instalacao anterior, onde ja existe uma PASTA nesse caminho: escrever
+    // daria EISDIR e derrubaria a extracao inteira por causa de uma entrada sem
+    // conteudo, entao a pasta fica. Nenhum byte se perde, mas e uma escolha, e
+    // quem instala fica sabendo dela pelo aviso, em vez de a diferenca entre
+    // duas maquinas ficar invisivel.
     //
-    // A prova que nao depende de marcador nenhum e estrutural: se algo mora
-    // dentro de X, X e pasta. Montamos o conjunto dos ancestrais de todas as
-    // entradas e reclassificamos por ele.
-    const ancestrais = new Set();
-    for (const { entrada } of plano) {
-      const partes = entrada.nome.replace(/\/+$/, '').split('/');
-      for (let i = 1; i < partes.length; i++) ancestrais.add(partes.slice(0, i).join('/'));
-    }
-    for (const item of plano) {
-      if (item.entrada.diretorio) continue;
-      if (ancestrais.has(item.entrada.nome.replace(/\/+$/, ''))) item.entrada.diretorio = true;
-    }
+    // A sondagem e assincrona, so para as entradas de zero byte, e acontece
+    // aqui, fora do laco de extracao: um statSync por entrada vazia bloqueava
+    // o laco de eventos no meio de dezesseis extracoes em voo.
+    const notificar = opcoes.onAviso || (() => {});
+    await Promise.all(plano.map(async (item) => {
+      if (item.entrada.diretorio || item.entrada.tamanho !== 0) return;
+      try {
+        if (!(await fs.promises.stat(item.alvo)).isDirectory()) return;
+      } catch (_) { return; /* nao existe: e arquivo vazio mesmo, segue */ }
+      item.entrada.diretorio = true;
+      notificar(`${item.entrada.nome}: ja existe como pasta no destino, mantida como pasta`);
+    }));
 
     // Pastas primeiro, de uma vez, para os arquivos nao disputarem mkdir.
     const pastas = new Set();
     for (const { entrada, alvo } of plano) {
       pastas.add(entrada.diretorio ? alvo : path.dirname(alvo));
     }
-    for (const pasta of pastas) fs.mkdirSync(pasta, { recursive: true });
+    for (const pasta of pastas) criarPasta(destino, pasta, notificar);
 
     const arquivos = plano.filter((p) => !p.entrada.diretorio);
     // Os maiores primeiro: um arquivo de 60 MB que comecasse por ultimo
@@ -392,6 +499,10 @@ async function extractZip(zipPath, destDir, opcoes = {}) {
   let ultimoAviso = 0;
   try {
     const r = await extrairEmParalelo(zipPath, destDir, {
+      // Sai no log do instalador, e nao no `process.stdout.write` da barra:
+      // um aviso escrito na mesma linha da porcentagem seria apagado pela
+      // atualizacao seguinte, meio segundo depois.
+      onAviso: (m) => log(`${tag}${m}`),
       onProgress: ({ feitos, total }) => {
         const agora = Date.now();
         if (feitos !== total && agora - ultimoAviso < 250) return;
@@ -415,6 +526,7 @@ module.exports = {
   extrairEmParalelo,
   extrairComPowerShell,
   lerDiretorioCentral,
+  classificarPelaEstrutura,
   caminhoSeguro,
   ZipNaoSuportado,
   FIOS,

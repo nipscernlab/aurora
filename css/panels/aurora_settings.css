@@ -1019,12 +1019,6 @@
   object-fit: contain;
 }
 
-/* O favicon do slang e 16x16 de verdade. Ampliar borraria, e um icone borrado
-   ao lado de vetores nitidos chama mais atencao que a falta dele. */
-.componente-marca img[src$=".png"] {
-  image-rendering: -webkit-optimize-contrast;
-}
-
 .componente-marca i {
   font-size: 22px;
   color: var(--text-secondary);
@@ -1112,8 +1106,11 @@
 /* Abaixo desta largura nao cabem as tres faixas, e insistir nelas faz o selo
    montar em cima do tamanho. O alinhamento entre cartoes so vale enquanto ha
    espaco para ele; sem espaco, volta o empilhamento do flex, que degrada bem.
-   Acontece so em tela pequena, porque o modal tem 880px ate a viewport apertar. */
-@container componentes (max-width: 560px) {
+   Acontece so em tela pequena, porque o modal tem 880px ate a viewport apertar.
+   O limiar foi calibrado com o cartao de duas colunas; a coluna da marca e o
+   espaco dela tiraram uns 56px do texto, e o limiar subiu junto, senao o selo
+   voltava a montar no tamanho numa faixa de largura que o ponto antigo nao via. */
+@container componentes (max-width: 620px) {
   .componente-titulo {
     display: flex;
     flex-wrap: wrap;

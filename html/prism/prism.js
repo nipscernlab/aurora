@@ -301,12 +301,32 @@ class PRISMViewer {
     }
   }
 
+  /**
+   * Ajusta as marcas de largura do barramento (o "/32/" em cima do fio).
+   *
+   * O netlistsvg desenha o numero dentro de um retangulo dimensionado por
+   * contagem de caracteres, e antes daqui saia um `dx` fixo por cima disso: o
+   * numero ficava empurrado para a direita e sobrava um vao a esquerda, dentro
+   * de uma caixa que nao era do tamanho de nada. O retangulo agora e so a
+   * mascara que impede o fio de cruzar os digitos, medida no proprio texto
+   * depois de ele existir na tela; a borda dele sai no CSS.
+   */
   _adjustBusLabels() {
     const labels = this.svgContent.querySelectorAll('text[class*="busLabel_"]');
     labels.forEach((label) => {
-      label.setAttribute('dx', '5');
+      label.removeAttribute('dx');
       const rect = label.previousElementSibling;
-      if (rect && rect.tagName.toLowerCase() === 'rect') rect.setAttribute('width', '20');
+      if (!rect || rect.tagName.toLowerCase() !== 'rect') return;
+      let caixa;
+      // getBBox exige o elemento renderizado; num SVG ainda sem layout ele
+      // lanca, e ai a caixa fica como o netlistsvg a deixou.
+      try { caixa = label.getBBox(); } catch (_) { return; }
+      if (!caixa || !caixa.width) return;
+      const folga = 1;
+      rect.setAttribute('x', String(caixa.x - folga));
+      rect.setAttribute('y', String(caixa.y - folga));
+      rect.setAttribute('width', String(caixa.width + folga * 2));
+      rect.setAttribute('height', String(caixa.height + folga * 2));
     });
   }
 

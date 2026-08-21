@@ -443,8 +443,23 @@ function extractTopLevelGBlocks(/** @type {any} */ svgText) {
 }
 
 async function loadCustomSkinBlocks(/** @type {any} */ customSkinDir) {
-  if (!(await fse.pathExists(customSkinDir))) return [];
-  const entries = (await fse.readdir(customSkinDir))
+  // Ler a pasta E JA TRATAR a falta dela, em vez de perguntar antes se ela
+  // existe. `pathExists` responde NAO para uma pasta dentro do app.asar (ele
+  // usa `fs.access`, que o Electron nao resolve dentro do arquivo, embora
+  // `readdir` e `readFile` funcionem), e era exatamente por isso que nenhuma
+  // skin do SAPHO aparecia na versao INSTALADA enquanto todas apareciam em
+  // desenvolvimento: o PRISM saia calado, com as formas de fabrica do
+  // netlistsvg, e nada no log dizia que as skins tinham ficado de fora.
+  let arquivos;
+  try {
+    arquivos = await fse.readdir(customSkinDir);
+  } catch (err) {
+    if (err && err.code !== 'ENOENT') {
+      log.warn(`[PRISM] nao consegui ler ${customSkinDir}:`, err instanceof Error ? err.message : String(err));
+    }
+    return [];
+  }
+  const entries = arquivos
     .filter((f) => f.toLowerCase().endsWith('.svg') && !f.startsWith('_'))
     .sort();
 
@@ -469,7 +484,16 @@ async function getDefaultSkinData() {
 
   const customSkinDir = path.join(app.getAppPath(), 'assets', 'prism-skins');
   const customBlocks = await loadCustomSkinBlocks(customSkinDir);
-  if (customBlocks.length === 0) return skin;
+  if (customBlocks.length === 0) {
+    // Sem as skins custom o PRISM ainda desenha, so que com as formas de
+    // fabrica do netlistsvg, e o esquematico fica irreconhecivel para quem
+    // conhece o SAPHO. Isso e diferente de "o PRISM falhou": nada quebra, o
+    // desenho so fica generico, e por isso um aviso aqui e a unica forma de
+    // saber que aconteceu numa maquina que nao e a de quem desenvolve.
+    log.warn(`[PRISM] nenhuma skin custom carregada de ${customSkinDir}; o esquematico sai com as formas de fabrica do netlistsvg`);
+    return skin;
+  }
+  log.info(`[PRISM] ${customBlocks.length} skins custom carregadas de ${customSkinDir}`);
 
   // Pra cada custom, remove `<g s:type="X">` existente na skin default e
   // injeta o customizado logo antes de `</svg>`.
@@ -961,4 +985,11 @@ function register() {
   });
 }
 
-module.exports = { register, createPrismWindow };
+module.exports = {
+  register,
+  createPrismWindow,
+  // Exposto para o teste: e o ponto onde as skins do SAPHO entram (ou nao) no
+  // esquematico, e a diferenca entre desenvolvimento e instalado passou por
+  // aqui uma vez, calada.
+  __loadCustomSkinBlocks: loadCustomSkinBlocks,
+};

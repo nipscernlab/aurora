@@ -526,15 +526,16 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
  * quem le o esquematico precisa saber se aquele fio leva 1 bit ou 32 sem ir
  * conferir no Verilog.
  *
- * Voltam ajustados ao tema, e nao como o netlistsvg os desenha. A caixa recebe
- * o fundo do painel para o numero se ler sobre o fio, em vez de virar um bloco
- * claro competindo com as celulas. */
+ * Voltam ajustados ao tema, e nao como o netlistsvg os desenha. O retangulo
+ * ficou sendo so a mascara que impede o fio de passar por tras dos digitos: a
+ * borda em volta do numero desenhava uma caixinha que competia com as celulas
+ * e nao dizia nada que o numero ja nao dissesse. O tamanho dele e medido no
+ * texto, em prism.js. */
 .svg-content svg [class*="busLabel_"] { display: inline; }
 
 .svg-content svg rect[class*="busLabel_"] {
   fill: var(--bg) !important;
-  stroke: var(--prism-wire) !important;
-  stroke-width: 0.6 !important;
+  stroke: none !important;
 }
 
 .svg-content svg text[class*="busLabel_"] {

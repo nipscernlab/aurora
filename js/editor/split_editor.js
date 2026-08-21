@@ -187,6 +187,10 @@ class SplitPane {
             scrollBeyondLastLine: true,
             cursorSmoothCaretAnimation: 'on',
             cursorBlinking: 'smooth',
+            // Igual ao editor principal: o balao de erro sai do editor em vez
+            // de ficar preso sob a toolbar. Num pane estreito ele escapa
+            // tambem pela lateral, que e onde mais falta espaco.
+            fixedOverflowWidgets: true,
         });
 
         // Font ligatures per language (see monaco_editor.js): kill them in

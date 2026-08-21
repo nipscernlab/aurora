@@ -105,6 +105,18 @@ class EditorManager {
             model,
             automaticLayout: true,
 
+            // O balao de erro (hover) precisa poder sair do editor.
+            //
+            // Sem isto o Monaco desenha o balao DENTRO do proprio editor, que
+            // vive num contexto de empilhamento abaixo da barra de ferramentas
+            // e das abas: passar o mouse numa ondinha de erro na primeira linha
+            // mostrava o texto por baixo da toolbar, que e justamente onde ele
+            // aparece com mais frequencia. Com `fixedOverflowWidgets` o balao
+            // vai para uma camada fixa fora do editor, e o CSS
+            // (css/editor/editor.css, .monaco-editor .overflowingContentWidgets)
+            // a coloca acima da casca.
+            fixedOverflowWidgets: true,
+
             // SMOOTH CURSOR ANIMATION - Enhancement #2
             cursorSmoothCaretAnimation: 'on',
             cursorStyle: 'line',

@@ -385,6 +385,23 @@
   background: var(--overlay-active);
 }
 
+/* Balao de erro, sugestao e dica de parametro: acima da casca.
+ *
+ * Com `fixedOverflowWidgets` (js/editor/monaco_editor.js) o Monaco tira esses
+ * baloes de dentro do editor e os desenha numa camada propria, presa ao corpo
+ * da pagina. Isso resolve o recorte, mas nao a ordem: a camada nasce com o
+ * z-index do Monaco, que perde para a barra de ferramentas (--z-30) e para as
+ * abas, e o texto do erro aparecia POR BAIXO delas justamente quando a ondinha
+ * estava nas primeiras linhas do arquivo.
+ *
+ * Fica abaixo de --z-modal (80), entao um dialogo aberto continua cobrindo o
+ * balao, que e a ordem certa: o dialogo tem o foco.
+ */
+.monaco-editor .overflowingContentWidgets,
+.monaco-editor .overflowingOverlayWidgets {
+  z-index: var(--z-50);
+}
+
 /* ===================================================================================
  *  Monaco refinements, clean scrollbar, hide ruler dots
  * =================================================================================== */

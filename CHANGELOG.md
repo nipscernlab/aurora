@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.8.0](https://github.com/nipscernlab/aurora/compare/v6.7.0...v6.8.0) (2026-08-21)
+
+
+### Features
+
+* **componentes:** versao carimbada, extracao paralela e a IA sob demanda ([6f6a92e](https://github.com/nipscernlab/aurora/commit/6f6a92e1194cea6b0dcc3915c2c5de302f24e302))
+
+
+### Bug Fixes
+
+* **componentes:** o aviso de boot nao rouba o ponteiro dos testes ([eceb768](https://github.com/nipscernlab/aurora/commit/eceb768feafd551506eaf1f3fafdccfd52837db2))
+* **editor:** o realce do C+- nao quebra na notacao de Dirac ([46a44ca](https://github.com/nipscernlab/aurora/commit/46a44caa39407a454c0346ac724ce7053c055aef))
+* **prism:** as skins voltam na versao instalada, e a largura perde a caixa ([8daaaa0](https://github.com/nipscernlab/aurora/commit/8daaaa007dd1ec22bb7b2fd2e1c37be1ad01de96))
+* **update:** o link do commit abre no navegador, e nao dentro da janela ([aa40813](https://github.com/nipscernlab/aurora/commit/aa40813550ed9cb62074afee3aa967c006d0db10))
+
+
+### Build
+
+* o instalador cai de 500 MB para 140 MB ([815faef](https://github.com/nipscernlab/aurora/commit/815faeffd6f30b428859fec1545a2d6deab8df6a))
+
 ## [6.7.0](https://github.com/nipscernlab/aurora/compare/v6.6.1...v6.7.0) (2026-08-20)
 
 

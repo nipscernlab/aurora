@@ -669,7 +669,9 @@
       "surferTabNoBundle": "O modo aba do Surfer precisa do componente web (Configurações, Componentes) — abrindo a janela nativa.",
       "hierarchyGen": "Gerando hierarquia com Yosys...",
       "yosysRun": "Executando comando Yosys: {{cmd}}",
-      "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}"
+      "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}",
+      "progress": "Simulação",
+      "progressBuild": "Compilação"
     },
     "openComponents": "Abrir Componentes"
   },

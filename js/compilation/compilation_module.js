@@ -45,6 +45,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { applyResolved } from './command_overrides.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
+import { lerProgresso } from '../terminal/progress_line.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
@@ -139,6 +140,35 @@ class CompilationModule {
                 });
             }
         }
+    }
+
+    /**
+     * A linha e um contador subindo? Entao ela move a barra e nao vai para o
+     * terminal.
+     *
+     * Um so ponto de decisao para todos os caminhos de saida (Icarus,
+     * Verilator, cocotb, teste de hardware). Antes cada um trazia o seu
+     * reconhecedor, entao um formato novo precisava ser ensinado quatro vezes,
+     * e na pratica era ensinado a um so: o resto continuava despejando uma
+     * linha por atualizacao no terminal.
+     *
+     * @param {string} terminalId
+     * @param {string} linha
+     * @param {string} rotuloPadrao  o que a barra mostra quando a linha nao se nomeia
+     * @returns {boolean} true quando a linha foi consumida pela barra
+     */
+    _consumirProgresso(terminalId, linha, rotuloPadrao) {
+        const p = lerProgresso(linha, { rotuloPadrao });
+        if (!p) return false;
+        this.terminalManager.renderHardwareProgress?.(terminalId, {
+            pct: p.pct,
+            cyc: p.cyc,
+            total: p.total,
+            reads: p.reads,
+            label: p.label,
+            done: p.done,
+        });
+        return true;
     }
 
     async initializeComponentsPath() {
@@ -1487,27 +1517,17 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     }), 'info');
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
-    // cocotb testbenches log progress as "<name>: N/M samples processed (...)"
-    // via dut._log.info(...). Collapse that climbing counter into the single
-    // updatable hw-progress bar (same widget THTEST uses) instead of echoing
-    // every line raw. Matches regardless of the "<ns> INFO cocotb.<x> " prefix.
-    const COCOTB_PROG_RE = /(\w+):\s*(\d+)\s*\/\s*(\d+)\s+samples\s+processed/i;
+    // Um contador que sobe vira a barra, e nao uma linha por atualizacao. Os
+    // formatos reconhecidos moram no progress_line.js, junto com a regra de
+    // quando NAO engolir a linha; aqui so se decide o que fazer com o que ele
+    // devolve. Ver _consumirProgresso.
     let unsubscribe = null;
     if (typeof electronAPI.onExecSpecStream === 'function') {
         unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
-                const m = line.match(COCOTB_PROG_RE);
-                if (m) {
-                    const cyc = +m[2];
-                    const total = +m[3];
-                    this.terminalManager.renderHardwareProgress?.('twave', {
-                        pct: total ? Math.round((cyc / total) * 100) : 0,
-                        cyc, total, label: m[1], done: cyc >= total,
-                    });
-                    continue;   // consume — don't also echo the raw counter line
-                }
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
@@ -1667,6 +1687,9 @@ async _waveRunVvpSimulation(simTopModule, tools) {
                 // of twave entirely avoids the verbose-mode toggle
                 // sync issue altogether.
                 if (isVvpNoise(line)) continue;
+                // Um `$display` de contador escrito pelo aluno no testbench
+                // vira a barra em vez de mil linhas. Ver _consumirProgresso.
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
@@ -1853,7 +1876,11 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
         buildUnsub = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
-                if (line.trim()) this.terminalManager.appendToTerminal('twave', line, 'raw');
+                if (!line.trim()) continue;
+                // O make que o Verilator dispara conta em "[ 42%]". Uma barra
+                // subindo diz o mesmo que as dezenas de linhas, e diz melhor.
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progressBuild'))) continue;
+                this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
     }
@@ -1933,6 +1960,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
                 if (isVvpNoise(line)) continue;
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, isVerilatorReport(line) ? 'plain' : 'raw');
             }
         });
@@ -2256,15 +2284,14 @@ async verilatorProcessorRun() {
     });
     this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(runProcSpec), 'info', { internal: true });
 
-    // O harness imprime "@@AURORA_PROG <cyc> <nclk> <reads>" no stdout a
-    // cada ~1% dos clocks (com fflush). A gente consome essas linhas pra
-    // mover a barra ASCII inline e NAO as ecoa; o resto do stdout (relatorio
-    // do Verilator, etc) vai como plain (so no verbose).
-    // @@AURORA_PROG move a barra; @@AURORA_CHEGUEI <clock> sinaliza que o
-    // pino `cheguei` (#TOAQUI) encerrou a sim, guardamos o clock pra avisar
-    // o usuario. Ambos sao consumidos (nao ecoados); o resto do stdout vai
-    // como plain (so no verbose).
-    const PROG_RE = /^@@AURORA_PROG\s+(\d+)\s+(\d+)\s+(\d+)/;
+    // O harness imprime "@@AURORA_PROG <cyc> <nclk> <reads>" no stdout a cada
+    // ~1% dos clocks (com fflush). Essas linhas movem a barra e NAO sao
+    // ecoadas; o formato mora no progress_line.js, junto com os demais, e a
+    // barra e alimentada pelo mesmo _consumirProgresso dos outros caminhos.
+    // O @@AURORA_CHEGUEI <clock> nao e progresso e sim o fim: o pino `cheguei`
+    // (#TOAQUI) encerrou a simulacao, e guardamos o clock para avisar o
+    // usuario. Tambem e consumido; o resto do stdout vai como plain (so no
+    // verbose).
     const CHEGUEI_RE = /^@@AURORA_CHEGUEI\s+(\d+)/;
     const execLabel = tr('terminal.htest.exec');
     let chegueiClock = null;
@@ -2274,14 +2301,15 @@ async verilatorProcessorRun() {
         unsub = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
-                const m = line.match(PROG_RE);
-                if (m) {
-                    const cyc = +m[1];
-                    const total = +m[2] || numClocks;
-                    const reads = +m[3];
-                    lastReads = reads;
-                    const pct = total ? Math.round((cyc / total) * 100) : 0;
-                    this.terminalManager.renderHardwareProgress?.(T, { pct, cyc, total, reads, label: execLabel });
+                const p = lerProgresso(line, { rotuloPadrao: execLabel });
+                if (p) {
+                    // O total do harness manda; numClocks e a reserva para o
+                    // caso de ele imprimir zero.
+                    if (p.reads != null) lastReads = p.reads;
+                    this.terminalManager.renderHardwareProgress?.(T, {
+                        pct: p.pct, cyc: p.cyc, total: p.total || numClocks,
+                        reads: p.reads, label: execLabel,
+                    });
                     continue;
                 }
                 const ch = line.match(CHEGUEI_RE);

@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.9.0](https://github.com/nipscernlab/aurora/compare/v6.8.0...v6.9.0) (2026-08-21)
+
+
+### Features
+
+* **componentes:** as marcas de verdade dos quatro que faltavam, sem moldura ([4bfbb19](https://github.com/nipscernlab/aurora/commit/4bfbb19aa55af022a91ac9cd1043295e33b62d6c))
+
+
+### Bug Fixes
+
+* **componentes:** EISDIR na extracao, caminho do Codex e um icone para cada cartao ([545c620](https://github.com/nipscernlab/aurora/commit/545c6200e3cd1e848e265dd898a744b1194a3162))
+
 ## [6.8.0](https://github.com/nipscernlab/aurora/compare/v6.7.0...v6.8.0) (2026-08-21)
 
 

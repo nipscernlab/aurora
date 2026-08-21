@@ -10,6 +10,7 @@ import { initClangFormat } from './clang_format_integration.js';
 import { initPythonFormat } from './python_format_integration.js';
 import { initSlang } from './slang_integration.js';
 import { initTreeSitter } from './treesitter_highlight.js';
+import { registrarSnippetsDirac } from './dirac_snippets.js';
 
 class EditorManager {
     static editors = new Map();
@@ -1527,6 +1528,11 @@ function refreshCMMDefines() {
 function setupCMMLanguage() {
     monaco.languages.register({ id: 'cmm' });
     monaco.languages.setMonarchTokensProvider('cmm', buildCMMTokenizer(cmmDefineConstants));
+
+    // Os simbolos da notacao de Dirac nao estao no teclado, e o compilador so
+    // aceita eles: digitar `ket` e aceitar a sugestao e o caminho. Ver
+    // js/editor/dirac_snippets.js.
+    registrarSnippetsDirac(monaco);
 
     // Keep the dynamic #define set in sync with the open .cmm buffers. A short
     // debounce coalesces bursts of keystrokes; refreshCMMDefines() itself is a

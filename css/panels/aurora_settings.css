@@ -996,29 +996,37 @@
 }
 
 .componente-marca {
+  /* Sem moldura: so a marca. O alinhamento continua vindo da COLUNA, que tem
+     largura fixa, e nao de um retangulo desenhado atras de cada logotipo. */
   display: flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--bg-elev-2);
-  border: 1px solid var(--border-subtle);
-  /* O quadro nao encolhe nem cresce com o conteudo do cartao. */
   flex-shrink: 0;
   align-self: start;
 }
 
 .componente-marca img {
   /* contain, e nao cover: logotipo cortado e logotipo desrespeitado, e as
-     proporcoes originais variam bastante entre as marcas. */
-  width: 24px;
-  height: 24px;
+     proporcoes originais variam bastante entre as marcas (o do Verible e bem
+     mais largo que alto, o do MSYS2 e quadrado). A caixa de 28 e o limite;
+     cada marca ocupa dentro dela o que a propria proporcao permitir. */
+  max-width: 28px;
+  max-height: 28px;
+  width: auto;
+  height: auto;
   object-fit: contain;
 }
 
+/* O favicon do slang e 16x16 de verdade. Ampliar borraria, e um icone borrado
+   ao lado de vetores nitidos chama mais atencao que a falta dele. */
+.componente-marca img[src$=".png"] {
+  image-rendering: -webkit-optimize-contrast;
+}
+
 .componente-marca i {
-  font-size: 20px;
+  font-size: 22px;
   color: var(--text-secondary);
 }
 

@@ -111,9 +111,9 @@ const VALIDADE_MS = 3000;
 const COMPONENTES = [
   {
     chave: 'msys',
-    // Um pacote de varias ferramentas (Icarus, Verilator, Yosys, Python). Nao ha
-    // marca unica que o represente sem dar credito errado a um dos vendors.
-    glifo: 'ph-toolbox',
+    // A marca do proprio MSYS2, que e a distribuicao empacotada aqui dentro.
+    // De msys2/msys2.github.io (web/logo.svg).
+    icone: 'msys2.svg',
     nome: 'MSYS Toolchain',
     resumo: 'A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.',
     sentinela: 'Packages/msys/mingw64/bin/verilator_bin.exe',
@@ -192,8 +192,8 @@ const COMPONENTES = [
   },
   {
     chave: 'verible',
-    // Sem marca publicada; o glifo diz o que a ferramenta faz.
-    glifo: 'ph-list-checks',
+    // De chipsalliance/verible (img/verible-logo.svg), o repositorio oficial.
+    icone: 'verible.svg',
     nome: 'Verible',
     resumo: 'Diagnósticos, formatação e navegação em Verilog, dentro do editor.',
     sentinela: 'Packages/verible/bin/verible-verilog-ls.exe',
@@ -207,7 +207,11 @@ const COMPONENTES = [
   },
   {
     chave: 'slang',
-    glifo: 'ph-tree-structure',
+    // A unica marca que o projeto publica e o favicon de 16x16 do sv-lang.com.
+    // Vai no tamanho nativo, e nao ampliado: ampliar 16px para 24 borra, e um
+    // icone borrado ao lado de vetores nitidos chama mais atencao que a falta
+    // dele. O quadro da coluna e que alinha, entao tamanho menor nao desalinha.
+    icone: 'slang.png',
     nome: 'slang',
     resumo: 'Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.',
     sentinela: 'Packages/slang-server/bin/slang-server.exe',
@@ -221,7 +225,9 @@ const COMPONENTES = [
   },
   {
     chave: 'clang-format',
-    glifo: 'ph-text-indent',
+    // O clang-format e parte do LLVM, e o wyvern e a marca do projeto.
+    // De devicons/devicon (icons/llvm/llvm-original.svg).
+    icone: 'llvm.svg',
     nome: 'clang-format',
     resumo: 'Formatação de C, C++ e C± com Shift+Alt+F.',
     sentinela: 'Packages/clang-format/bin/clang-format.exe',

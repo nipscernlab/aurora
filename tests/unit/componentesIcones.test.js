@@ -44,12 +44,28 @@ describe('icones dos componentes', () => {
     }
   });
 
-  it('os arquivos declarados sao SVG de verdade', () => {
+  it('o conteudo de cada arquivo bate com a extensao', () => {
     // Um .svg que na verdade e outra coisa renderiza como quadro quebrado, e o
-    // painel nao tem como saber.
+    // painel nao tem como saber. Vetor e o padrao; PNG so entra quando o
+    // projeto nao publica vetor nenhum, como o slang, que so tem o favicon.
     for (const c of TODOS.filter((x) => x.icone)) {
-      const conteudo = fs.readFileSync(path.join(ICONES, c.icone), 'utf8').slice(0, 400);
-      expect(conteudo, `${c.chave}: ${c.icone} nao parece SVG`).toMatch(/<svg[\s>]/i);
+      const alvo = path.join(ICONES, c.icone);
+      if (c.icone.endsWith('.svg')) {
+        const texto = fs.readFileSync(alvo, 'utf8').slice(0, 600);
+        expect(texto, `${c.chave}: ${c.icone} nao parece SVG`).toMatch(/<svg[\s>]/i);
+      } else {
+        const bytes = fs.readFileSync(alvo).subarray(0, 8);
+        expect(
+          bytes.equals(Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])),
+          `${c.chave}: ${c.icone} nao parece PNG`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('so aceita svg e png, que e o que o painel sabe desenhar', () => {
+    for (const c of TODOS.filter((x) => x.icone)) {
+      expect(c.icone, c.chave).toMatch(/\.(svg|png)$/);
     }
   });
 

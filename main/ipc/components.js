@@ -359,11 +359,31 @@ async function doctor(janela) {
   return resultado;
 }
 
+/**
+ * A janela esta sendo dirigida por um teste?
+ *
+ * Serve para uma coisa so: nao deixar o aviso de boot, que e um modal, nascer
+ * por cima de quem esta clicando. Um modal nao pedido no boot rouba o ponteiro
+ * da suite e2e inteira, e o runner nunca tem componentes baixados, entao o
+ * aviso aparecia sempre e reprovava tudo.
+ *
+ * O marcador e o SAPHO_SKIP_SINGLE_INSTANCE que o proprio harness ja define em
+ * todo teste e2e (tests/e2e/*.js). Reaproveita-lo evita a armadilha de um flag
+ * novo que cada teste futuro teria que lembrar de setar, e cujo esquecimento
+ * apareceria como falha intermitente e confusa. AURORA_SEM_AVISO_DE_BOOT fica
+ * como desligamento explicito, para quem quiser o efeito sem mexer no lock.
+ */
+function sobAutomacao() {
+  return process.env.SAPHO_SKIP_SINGLE_INSTANCE === '1'
+    || process.env.AURORA_SEM_AVISO_DE_BOOT === '1';
+}
+
 function register() {
   ipcMain.handle('componentes:listar', () => ({
     componentes: [...registro.listar(), ...ia.listar()],
     baixando: emAndamento,
     pasta: componentsPath,
+    avisoDeBootPermitido: !sobAutomacao(),
   }));
 
   // `forcar` vem do botao Atualizar: o instalador ve a sentinela de uma
@@ -387,4 +407,6 @@ function register() {
   });
 }
 
-module.exports = { register, instalar, remover, doctor, decidirConserto, lerPercentual };
+module.exports = {
+  register, instalar, remover, doctor, decidirConserto, lerPercentual, sobAutomacao,
+};

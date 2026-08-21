@@ -365,6 +365,12 @@ async function avisarSeNaoCompila() {
   try {
     const dados = await electronAPI.componentesListar?.();
     (dados?.componentes || []).forEach((c) => catalogo.set(c.chave, c));
+    // Sob automacao o aviso nao aparece. Ele e um modal, e um modal que nasce
+    // sozinho no boot rouba os cliques de quem estiver dirigindo a janela: foi
+    // exatamente assim que ele derrubou a suite e2e inteira, que roda num
+    // runner onde nenhum componente foi baixado. Quem decide e o main, que e
+    // quem enxerga o ambiente.
+    if (dados?.avisoDeBootPermitido === false) return;
     const falta = (dados?.componentes || [])
       .find((c) => c.requerParaCompilar && !c.instalado);
     if (!falta) return;

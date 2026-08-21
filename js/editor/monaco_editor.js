@@ -1394,14 +1394,19 @@ function buildCMMTokenizer(defineConstants) {
 
                 [/\b(in|fin|out|fout|norm|sign|pset|abs|copy|sqrt|atan|sin|cos|tan|exp|log|pow|real|imag|fase|mod2|complex|vtv)\b(?=\s*\()/, 'keyword.function.stdlib.cmm'],
                 
-                // Dirac notation patterns
-                [/(\w+)(\s*)(#)(\s*)([^⟨|⟩]+)?(\s*)(\|)([^⟨|⟩\s]+)(\|)(\s*)([^⟨|⟩\s]+)?(\s*)(⟩)/, ['identifier', 'white', 'operator', 'white', 'identifier', 'white', 'dirac.bar', 'identifier', 'dirac.bar', 'white', 'identifier', 'white', 'dirac.bracket']],
-                [/(\w+)(\s*)(#)(\s*)([^⟨|⟩]+)?(\s*)(\|)([BI])(\|)/, ['identifier', 'white', 'operator', 'white', 'identifier', 'white', 'dirac.bar', 'keyword.special.dirac', 'dirac.bar']],
+                // Dirac notation patterns. Os grupos que podem ficar vazios sao
+                // `(...*)`, nunca `(...+)?`: numa regra com acao por grupos o
+                // Monarch soma o comprimento de CADA grupo capturado, e um grupo
+                // opcional que nao participa chega como undefined e derruba o
+                // tokenizer inteiro ("Cannot read properties of undefined
+                // (reading 'length')") na primeira linha que case sem ele.
+                [/(\w+)(\s*)(#)(\s*)([^⟨|⟩]*)(\s*)(\|)([^⟨|⟩\s]+)(\|)(\s*)([^⟨|⟩\s]*)(\s*)(⟩)/, ['identifier', 'white', 'operator', 'white', 'identifier', 'white', 'dirac.bar', 'identifier', 'dirac.bar', 'white', 'identifier', 'white', 'dirac.bracket']],
+                [/(\w+)(\s*)(#)(\s*)([^⟨|⟩]*)(\s*)(\|)([BI])(\|)/, ['identifier', 'white', 'operator', 'white', 'identifier', 'white', 'dirac.bar', 'keyword.special.dirac', 'dirac.bar']],
                 [/(\w+)(\s*)(#)(\s*)(\|)([^⟨|⟩\s]+)(⟩⟨)([^⟨|⟩\s]+)(\|)/, ['identifier', 'white', 'operator', 'white', 'dirac.bar', 'identifier', 'dirac.bracket', 'identifier', 'dirac.bar']],
                 [/(\w+)(\s*)(#)(\s*)(\|)([^⟨|⟩\s]+)(\|)(\s*)(-)(\s*)(\|)([^⟨|⟩\s]+)(⟩⟨)([^⟨|⟩\s]+)(\|)/, ['identifier', 'white', 'operator', 'white', 'dirac.bar', 'identifier', 'dirac.bar', 'white', 'operator', 'white', 'dirac.bar', 'identifier', 'dirac.bracket', 'identifier', 'dirac.bar']],
                 [/(\w+)(\s*)(#)(\s*)(\|)(0)(⟩)/, ['identifier', 'white', 'operator', 'white', 'dirac.bar', 'keyword.special.dirac', 'dirac.bracket']],
                 [/(\w+)(\s*)(#)(\s*)([^⟨|⟩\s]+)(\s*)(\|)(in\([^)]+\))(⟩)/, ['identifier', 'white', 'operator', 'white', 'identifier', 'white', 'dirac.bar', 'keyword.function.stdlib.cmm', 'dirac.bracket']],
-                [/(out)(\s*)(\()(\s*)([^,]+)(\s*)(,)(\s*)([^⟨|⟩\s]+)?(\s*)(\|)([^⟨|⟩\s]+)(⟩)(\s*)(\))/, ['keyword.function.stdlib.cmm', 'white', 'delimiter.parenthesis', 'white', 'identifier', 'white', 'delimiter', 'white', 'identifier', 'white', 'dirac.bar', 'identifier', 'dirac.bracket', 'white', 'delimiter.parenthesis']],
+                [/(out)(\s*)(\()(\s*)([^,]+)(\s*)(,)(\s*)([^⟨|⟩\s]*)(\s*)(\|)([^⟨|⟩\s]+)(⟩)(\s*)(\))/, ['keyword.function.stdlib.cmm', 'white', 'delimiter.parenthesis', 'white', 'identifier', 'white', 'delimiter', 'white', 'identifier', 'white', 'dirac.bar', 'identifier', 'dirac.bracket', 'white', 'delimiter.parenthesis']],
                 [/(⟨)([^⟨⟩|]+)(\|)([^⟨⟩|]+)(⟩)/, ['dirac.bracket', 'identifier', 'dirac.bar', 'identifier', 'dirac.bracket']],
                 [/(\|)([^⟨⟩|\s]+)(⟩)/, ['dirac.bar', 'identifier', 'dirac.bracket']],
                 [/(⟨)([^⟨⟩|]+)(\|)/, ['dirac.bracket', 'identifier', 'dirac.bar']],

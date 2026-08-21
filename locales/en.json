@@ -332,6 +332,9 @@
       "githubForgetOnExit": "Clear GitHub access when AURORA closes",
       "githubForgetOnExitDescription": "On a shared computer, leave this on: closing signs the account out of here and of the Windows git, without anyone having to remember.",
       "componentsInstalled": "Installed",
+      "componentsOutdated": "Update available",
+      "componentsUpdate": "Update",
+      "componentsUpdatesAvailable": "{n} with an update available ({mb} download).",
       "componentsMissing": "Not installed",
       "componentsAlways": "Always installed",
       "componentsNeededToCompile": "Needed to compile",
@@ -1094,10 +1097,14 @@
     "surfer": "The embedded waveform viewer, inside AURORA.",
     "verible": "Verilog diagnostics, formatting and navigation, inside the editor.",
     "slang": "SystemVerilog semantic analysis, which sees what syntax alone cannot.",
-    "clang-format": "C, C++ and C± formatting with Shift+Alt+F."
+    "clang-format": "C, C++ and C± formatting with Shift+Alt+F.",
+    "claude": "Anthropic's coding agent, used by Aurora Intelligence in Claude Code mode.",
+    "codex": "OpenAI's coding agent, used by Aurora Intelligence in Codex mode."
   },
   "componentName": {
     "msys": "MSYS Toolchain",
-    "yanc": "YANC"
+    "yanc": "YANC",
+    "claude": "Claude Code",
+    "codex": "Codex"
   }
 }

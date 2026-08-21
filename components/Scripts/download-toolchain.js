@@ -28,7 +28,10 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+// extract.js precisa vir antes de qualquer I/O: e ele que dimensiona o pool
+// de threads do Node pelo numero de nucleos, e o pool nasce no primeiro uso.
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -52,6 +55,10 @@ const PACKAGES_DIR = path.join(ROOT_DIR, 'components', 'Packages');
 // Sentinel: a binary deep in the bundle, proving a full extraction.
 const MSYS_SENTINEL = path.join(PACKAGES_DIR, 'msys', 'mingw64', 'bin', 'verilator_bin.exe');
 const TMP_ZIP       = path.join(ROOT_DIR, MSYS_FILENAME);
+// O carimbo da versao instalada (lib/version_stamp.js). O catalogo do main
+// (main/components/registry.js) le este mesmo arquivo para dizer "atualizacao
+// disponivel"; os dois caminhos sao amarrados por teste.
+const VERSION_STAMP = path.join(PACKAGES_DIR, 'msys', NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,28 +144,12 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    // Preflight: o zip precisa existir. Sem essa checagem, um zipPath
-    // invalido entra no subprocess PowerShell que so ai
-    // emite o erro. Custa muito tempo no CI (Windows runner: ~2s so
-    // pra spinar powershell.exe, e Expand-Archive num arquivo inexistente
-    // estourava o timeout de 5s do vitest) e produz mensagem opaca
-    // pra quem chama. Falha rapido com mensagem clara.
-    if (!fs.existsSync(zipPath)) {
-        throw new Error(`Zip file not found: ${zipPath}`);
-    }
-
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // Extract with PowerShell Expand-Archive (ships on every Win 10+).
-    // $ErrorActionPreference = 'Stop' so a cmdlet failure propagates as a
-    // non-zero exit code (otherwise execSync sees success and we delete the
-    // zip + falsely log "installed" before the sentinel check trips).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit', windowsHide: true }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado. Levava
+    // mais de dois minutos nos dezessete mil arquivos do bundle; agora sao
+    // segundos, e a barra do painel anda durante a extracao.
+    await extrairZip(zipPath, destDir, { log, tag: 'toolchain' });
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -168,12 +159,15 @@ async function main() {
 
     const haveBundle = bundleInstalled();
     const haveCocotb = cocotbInstalled();
-    if (haveBundle && haveCocotb && !force) {
-        log('Toolchain bundle (with cocotb) already present — skipping download.');
+    const carimbo = decidir({ instalado: haveBundle && haveCocotb, carimbo: VERSION_STAMP, tag: MSYS_TAG });
+    if (carimbo.pular && !force) {
+        log(`Toolchain bundle ${MSYS_TAG} (with cocotb) already present — skipping download.`);
         log('(Run with --force to re-download.)');
         return;
     }
-    if (haveBundle && !haveCocotb) {
+    if (carimbo.motivo === 'outra-versao') {
+        log(`Toolchain bundle ${carimbo.gravada} installed but ${MSYS_TAG} is pinned — re-downloading.`);
+    } else if (haveBundle && !haveCocotb) {
         log('Toolchain bundle present but missing cocotb support — upgrading.');
     } else if (!haveBundle) {
         log('Toolchain bundle not found in components/Packages/msys.');
@@ -182,7 +176,7 @@ async function main() {
     try {
         await downloadFile(MSYS_DOWNLOAD_URL, TMP_ZIP);
         await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
-        extractZip(TMP_ZIP, PACKAGES_DIR);
+        await extractZip(TMP_ZIP, PACKAGES_DIR);
         fs.unlinkSync(TMP_ZIP);
         log('Toolchain bundle installed successfully.');
         if (!bundleInstalled()) {
@@ -190,6 +184,9 @@ async function main() {
             err('The ZIP may have an unexpected internal layout. Check components/Packages/msys/ manually.');
             process.exit(1);
         }
+        // So depois de a sentinela confirmar: um zip truncado nao pode deixar no
+        // disco uma promessa de versao que nao esta la.
+        escreverCarimbo(VERSION_STAMP, MSYS_TAG);
         if (!cocotbInstalled()) {
             err('Bundle extracted but cocotb support is missing — the cocotb Wave flow will be unavailable.');
         }
@@ -220,4 +217,5 @@ module.exports = {
     MSYS_TAG,
     MSYS_FILENAME,
     MSYS_SENTINEL,
+    VERSION_STAMP,
 };

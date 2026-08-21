@@ -31,6 +31,7 @@ const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
 const { verifyChecksum } = require('./lib/checksum');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -47,6 +48,8 @@ const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'clang-forma
 const BIN_DIR       = path.join(INSTALL_DIR, 'bin');
 const SENTINEL_FILE = path.join(BIN_DIR, 'clang-format.exe');
 const TMP_FILE      = path.join(INSTALL_DIR, '_clang-format.download');
+// Carimbo da versao instalada; o catalogo do main le o mesmo arquivo.
+const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -118,12 +121,15 @@ function rmf(/** @type {string} */ p) {
 async function main() {
     const force = process.argv.includes('--force');
 
-    if (alreadyInstalled() && !force) {
-        log(`clang-format already present — skipping download.`);
+    const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: CLANG_FORMAT_TAG });
+    if (carimbo.pular && !force) {
+        log(`clang-format ${CLANG_FORMAT_TAG} already present — skipping download.`);
         return;
     }
 
-    if (!alreadyInstalled()) {
+    if (carimbo.motivo === 'outra-versao') {
+        log(`clang-format ${carimbo.gravada} installed but ${CLANG_FORMAT_TAG} is pinned — re-downloading.`);
+    } else if (!alreadyInstalled()) {
         log(`clang-format not found in components/Packages/clang-format/bin/.`);
     }
 
@@ -141,6 +147,8 @@ async function main() {
             err(`Sentinel file not found after install: ${SENTINEL_FILE}`);
             process.exit(1);
         }
+        // So depois de a sentinela confirmar.
+        escreverCarimbo(VERSION_STAMP, CLANG_FORMAT_TAG);
     } catch (e) {
         rmf(TMP_FILE);
         err(e instanceof Error ? e.message : String(e));
@@ -167,4 +175,5 @@ module.exports = {
     INSTALL_DIR,
     BIN_DIR,
     SENTINEL_FILE,
+    VERSION_STAMP,
 };

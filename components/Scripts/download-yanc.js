@@ -39,7 +39,8 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -156,17 +157,10 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // PowerShell Expand-Archive (ships on every Win 10+). ErrorActionPreference
-    // =Stop pra que falha de cmdlet propague exit code != 0 (sem isso, execSync
-    // pensa que deu certo e a gente apaga o zip antes do sentinel check).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit', windowsHide: true }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado.
+    await extrairZip(zipPath, destDir, { log, tag: 'yanc' });
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -195,7 +189,7 @@ async function main() {
         // O zip empacota como bin/cmmcomp.exe etc. Extraindo em
         // components/ resulta em components/bin/cmmcomp.exe, perfeito.
         const COMPONENTS_DIR = path.join(ROOT_DIR, 'components');
-        extractZip(TMP_ZIP, COMPONENTS_DIR);
+        await extractZip(TMP_ZIP, COMPONENTS_DIR);
 
         fs.unlinkSync(TMP_ZIP);
 
@@ -207,7 +201,7 @@ async function main() {
 
         // Record the installed tag ONLY after confirming the binaries, a
         // corrupt/partial download must not leave a marker claiming "v5.1 ok".
-        fs.writeFileSync(VERSION_SENTINEL, YANC_TAG);
+        escreverCarimbo(VERSION_SENTINEL, YANC_TAG);
         log(`YANC ${YANC_TAG} installed successfully.`);
     } catch (e) {
         err(e instanceof Error ? e.message : String(e));

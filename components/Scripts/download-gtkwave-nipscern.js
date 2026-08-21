@@ -24,7 +24,8 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -44,6 +45,8 @@ const ROOT_DIR      = path.join(__dirname, '..', '..');
 const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'gtkwave-nipscern');
 const SENTINEL_FILE = path.join(INSTALL_DIR, 'gtkwave.exe');
 const TMP_ZIP       = path.join(ROOT_DIR, GTKWAVE_FILENAME);
+// Carimbo da versao instalada; o catalogo do main le o mesmo arquivo.
+const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -107,18 +110,10 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    if (!fs.existsSync(zipPath)) {
-        throw new Error(`Zip file not found: ${zipPath}`);
-    }
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // PowerShell Expand-Archive (ships on every Win 10+).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit', windowsHide: true }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado.
+    await extrairZip(zipPath, destDir, { log, tag: 'gtkwave-nipscern' });
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -126,12 +121,15 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
 async function main() {
     const force = process.argv.includes('--force');
 
-    if (alreadyInstalled() && !force) {
-        log(`gtkwave-nipscern already present — skipping download.`);
+    const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: GTKWAVE_TAG });
+    if (carimbo.pular && !force) {
+        log(`gtkwave-nipscern ${GTKWAVE_TAG} already present — skipping download.`);
         return;
     }
 
-    if (!alreadyInstalled()) {
+    if (carimbo.motivo === 'outra-versao') {
+        log(`gtkwave-nipscern ${carimbo.gravada} installed but ${GTKWAVE_TAG} is pinned — re-downloading.`);
+    } else if (!alreadyInstalled()) {
         log(`gtkwave-nipscern not found in components/Packages/gtkwave-nipscern/.`);
     }
 
@@ -141,7 +139,7 @@ async function main() {
         // Zip nao tem prefixo de pasta (gtkwave.exe esta na raiz),
         // entao extraimos direto no INSTALL_DIR e fica
         // components/Packages/gtkwave-nipscern/gtkwave.exe.
-        extractZip(TMP_ZIP, INSTALL_DIR);
+        await extractZip(TMP_ZIP, INSTALL_DIR);
         fs.unlinkSync(TMP_ZIP);
         log(`gtkwave-nipscern installed successfully.`);
 
@@ -150,6 +148,8 @@ async function main() {
             err(`The ZIP may have a different internal structure.`);
             process.exit(1);
         }
+        // So depois de a sentinela confirmar.
+        escreverCarimbo(VERSION_STAMP, GTKWAVE_TAG);
     } catch (e) {
         err(e instanceof Error ? e.message : String(e));
         err(`\nCould not download gtkwave-nipscern automatically.`);
@@ -175,4 +175,5 @@ module.exports = {
     GTKWAVE_FILENAME,
     INSTALL_DIR,
     SENTINEL_FILE,
+    VERSION_STAMP,
 };

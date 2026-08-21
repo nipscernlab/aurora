@@ -39,12 +39,14 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 const { ipcMain, BrowserWindow, shell } = require('electron');
 const log = require('electron-log');
 
 const registro = require('../components/registry');
+const ia = require('../components/ia');
 const { componentsPath } = require('../paths');
 
 /** Um download por vez. Dois puxando ao mesmo tempo só disputam a mesma banda. */
@@ -77,9 +79,12 @@ function lerPercentual(linha) {
  * @param {import('electron').BrowserWindow|null} janela
  */
 function instalar(chave, janela, forcar = false) {
+  if (emAndamento) return Promise.resolve({ ok: false, erro: 'ja-ha-download', chave: emAndamento });
+  // Os agentes de IA nao passam por script: quem baixa e o cli_downloader, em
+  // processo, e a versao nova substitui a antiga sozinha (forcar nao se aplica).
+  if (ia.conhece(chave)) return instalarIA(chave, janela);
   const comp = registro.obter(chave);
   if (!comp) return Promise.resolve({ ok: false, erro: 'componente desconhecido' });
-  if (emAndamento) return Promise.resolve({ ok: false, erro: 'ja-ha-download', chave: emAndamento });
 
   const script = path.join(pastaDosScripts(), comp.script);
   if (!fs.existsSync(script)) {
@@ -95,7 +100,16 @@ function instalar(chave, janela, forcar = false) {
     const argumentos = forcar ? [script, '--force'] : [script];
     const filho = spawn(process.execPath, argumentos, {
       cwd: path.dirname(componentsPath),
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        // A extracao (components/Scripts/lib/extract.js) descompacta muitas
+        // entradas ao mesmo tempo no pool de threads do Node, que tem 4 fios
+        // por padrao. Dimensionar pelo numero de nucleos e o que faz os
+        // dezessete mil arquivos da cadeia de compilacao usarem a maquina
+        // inteira em vez de um fio so.
+        UV_THREADPOOL_SIZE: String(Math.min(16, Math.max(4, os.cpus().length))),
+      },
       windowsHide: true,
     });
 
@@ -127,8 +141,9 @@ function instalar(chave, janela, forcar = false) {
       // instalado?" para o resto da AURORA e o mesmo arquivo que o allowlist
       // consulta. Conferir aqui e conferir com o mesmo criterio.
       registro.invalidarCache(chave);
-      const instalado = registro.estaInstalado(chave);
-      if (codigo === 0 && instalado) {
+      const diagnostico = registro.diagnosticar(chave);
+      const instalado = diagnostico.estado !== 'ausente';
+      if (codigo === 0 && diagnostico.estado === 'ok') {
         log.info(`[componentes] ${chave} instalado`);
         avisar(janela, { chave, estado: 'pronto', percentual: 100, linha: `${comp.nome} instalado` });
         resolve({ ok: true, chave });
@@ -137,9 +152,12 @@ function instalar(chave, janela, forcar = false) {
       // A causa tecnica vai para o log; para o usuario vai o que ele pode
       // fazer. "Terminou sem deixar a sentinela" nao diz nada a um aluno; a
       // causa de longe mais comum e a conexao cair no meio do download.
-      const detalheTecnico = instalado
-        ? `o instalador saiu com codigo ${codigo}`
-        : `o instalador terminou sem deixar ${comp.sentinela}`;
+      const detalheTecnico = !instalado
+        ? `o instalador terminou sem deixar ${comp.sentinela}`
+        : diagnostico.estado !== 'ok'
+          ? `o instalador terminou com o componente ${diagnostico.estado}`
+            + ` (faltando: ${diagnostico.faltando.join(', ') || '-'}; versao gravada: ${diagnostico.versaoInstalada || '-'})`
+          : `o instalador saiu com codigo ${codigo}`;
       log.warn(`[componentes] ${chave} falhou: ${detalheTecnico} | ultima linha: ${ultimaLinha}`);
       const erro = 'o download não chegou ao fim. Confira a internet e clique em Baixar de novo';
       avisar(janela, { chave, estado: 'erro', linha: erro });
@@ -149,12 +167,49 @@ function instalar(chave, janela, forcar = false) {
 }
 
 /**
+ * Baixa um agente de IA pelo mesmo canal de progresso dos outros componentes.
+ *
+ * @param {'claude'|'codex'} chave
+ * @param {import('electron').BrowserWindow|null} janela
+ */
+async function instalarIA(chave, janela) {
+  const nome = ia.obter(chave)?.nome || chave;
+  emAndamento = chave;
+  avisar(janela, { chave, estado: 'iniciando', percentual: 0, linha: `Baixando ${nome}` });
+  try {
+    await ia.instalar(chave, (linha, percentual) =>
+      avisar(janela, { chave, estado: 'baixando', percentual, linha }));
+    // A prova e o diagnostico, nao a promessa resolvida: o mesmo criterio dos
+    // outros componentes.
+    const d = ia.diagnosticar(chave);
+    if (d.estado !== 'ok') throw new Error(`terminou com o componente ${d.estado}`);
+    log.info(`[componentes] ${chave} instalado`);
+    avisar(janela, { chave, estado: 'pronto', percentual: 100, linha: `${nome} instalado` });
+    return { ok: true, chave };
+  } catch (e) {
+    const detalhe = e instanceof Error ? e.message : String(e);
+    log.warn(`[componentes] ${chave} falhou: ${detalhe}`);
+    const erro = 'o download não chegou ao fim. Confira a internet e clique em Baixar de novo';
+    avisar(janela, { chave, estado: 'erro', linha: erro });
+    return { ok: false, erro, detalhe };
+  } finally {
+    emAndamento = null;
+  }
+}
+
+/**
  * Remove um componente, para recuperar espaço.
  *
  * O caminho apagado é o diretório do componente, derivado da sentinela do
  * catálogo. Nada vem do renderer além da chave.
  */
 async function remover(chave) {
+  if (ia.conhece(chave)) {
+    if (emAndamento === chave) return { ok: false, erro: 'ja-ha-download', chave };
+    const r = await ia.remover(chave);
+    if (r.ok) log.info(`[componentes] ${chave} removido`);
+    return r;
+  }
   const comp = registro.obter(chave);
   if (!comp) return { ok: false, erro: 'componente desconhecido' };
   if (comp.essencial) return { ok: false, erro: 'componente essencial' };
@@ -183,6 +238,41 @@ async function remover(chave) {
 }
 
 /**
+ * O doctor conserta este componente, e forçando o download?
+ *
+ * Está aqui fora, como função de uma linha de raciocínio só, porque é a regra
+ * inteira do doctor: tudo o mais naquele laço é limpeza de cache, log e
+ * contagem. Errar aqui não quebra nada visivelmente, custa 272 MB de download
+ * numa rede de laboratório, ou deixa um componente quebrado parecendo são.
+ *
+ * `forcar` acompanha a decisão em vez de ser escolhido por quem chama: o
+ * `--force` é o que faz o instalador re-baixar apesar da sentinela, e ele é
+ * necessário exatamente quando o componente ESTÁ lá e mesmo assim precisa ser
+ * baixado de novo (incompleto ou de outra versão). Numa instalação ausente ele
+ * não teria efeito nenhum, e mandá-lo assim mesmo confundiria a leitura do log.
+ *
+ * @param {{estado: string}} diagnostico
+ * @param {{essencial?: boolean, requerParaCompilar?: boolean}|undefined} comp
+ * @returns {{conserta: boolean, forcar: boolean}}
+ */
+function decidirConserto(diagnostico, comp) {
+  const estado = diagnostico?.estado;
+  // Instalado e defeituoso, ou instalado e de outra versão: conserta sempre,
+  // mesmo sendo opcional. Opcional que a pessoa baixou é opcional que ela usa,
+  // e o que ela usa tem que ser a versão que esta AURORA espera.
+  if (estado === 'incompleto' || estado === 'desatualizado') {
+    return { conserta: true, forcar: true };
+  }
+  // Ausente: só o que a AURORA precisa para funcionar. Ausência de componente
+  // opcional é escolha do usuário, não defeito, e um doctor que baixa o que
+  // ninguém pediu é um doctor que ninguém roda.
+  if (estado === 'ausente' && (comp?.essencial || comp?.requerParaCompilar)) {
+    return { conserta: true, forcar: false };
+  }
+  return { conserta: false, forcar: false };
+}
+
+/**
  * O doctor: verifica todos os componentes e conserta o que estiver quebrado.
  *
  * O QUE ELE FAZ, EM ORDEM
@@ -192,8 +282,9 @@ async function remover(chave) {
  * 2. Diagnostica cada componente pelos arquivos-chave, não só pela sentinela:
  *    a sentinela diz que a instalação terminou, os arquivos-chave dizem se
  *    terminou inteira.
- * 3. Re-baixa com --force o que estiver INCOMPLETO, e baixa o que estiver
- *    ausente sendo necessário para compilar.
+ * 3. Re-baixa com --force o que estiver INCOMPLETO ou DESATUALIZADO (carimbo
+ *    de outra versão), e baixa o que estiver ausente sendo necessário para
+ *    compilar.
  *
  * O QUE ELE NÃO FAZ, DE PROPÓSITO
  * -------------------------------
@@ -246,13 +337,21 @@ async function doctor(janela) {
   for (const d of registro.diagnosticarTudo()) {
     if (d.estado === 'ok') { resultado.saudaveis.push(d.chave); continue; }
 
-    const comp = registro.obter(d.chave);
-    const precisaConsertar = d.estado === 'incompleto'
-      || (d.estado === 'ausente' && (comp?.essencial || comp?.requerParaCompilar));
-    if (!precisaConsertar) { resultado.ausentesOpcionais.push(d.chave); continue; }
+    const veredito = decidirConserto(d, registro.obter(d.chave));
+    if (!veredito.conserta) { resultado.ausentesOpcionais.push(d.chave); continue; }
 
-    log.info(`[doctor] ${d.chave} ${d.estado}; faltando: ${d.faltando.join(', ')}`);
-    const r = await instalar(d.chave, janela, d.estado === 'incompleto');
+    log.info(`[doctor] ${d.chave} ${d.estado}; faltando: ${d.faltando.join(', ') || '-'}; versao gravada: ${d.versaoInstalada || '-'}`);
+    const r = await instalar(d.chave, janela, veredito.forcar);
+    (r.ok ? resultado.consertados : resultado.falharam).push(d.chave);
+  }
+
+  // Os agentes de IA: so o que esta em OUTRA versao e consertado. Ausente e
+  // escolha (a pessoa nunca usou), e ausente fica.
+  for (const d of ia.diagnosticarTudo()) {
+    if (d.estado === 'ok') { resultado.saudaveis.push(d.chave); continue; }
+    if (d.estado !== 'desatualizado') { resultado.ausentesOpcionais.push(d.chave); continue; }
+    log.info(`[doctor] ${d.chave} desatualizado; versao gravada: ${d.versaoInstalada || '-'}`);
+    const r = await instalar(d.chave, janela);
     (r.ok ? resultado.consertados : resultado.falharam).push(d.chave);
   }
 
@@ -262,13 +361,15 @@ async function doctor(janela) {
 
 function register() {
   ipcMain.handle('componentes:listar', () => ({
-    componentes: registro.listar(),
+    componentes: [...registro.listar(), ...ia.listar()],
     baixando: emAndamento,
     pasta: componentsPath,
   }));
 
-  ipcMain.handle('componentes:instalar', (evento, chave) =>
-    instalar(chave, BrowserWindow.fromWebContents(evento.sender)));
+  // `forcar` vem do botao Atualizar: o instalador ve a sentinela de uma
+  // versao antiga e so re-baixa com --force.
+  ipcMain.handle('componentes:instalar', (evento, chave, opcoes) =>
+    instalar(chave, BrowserWindow.fromWebContents(evento.sender), Boolean(opcoes && opcoes.forcar)));
 
   ipcMain.handle('componentes:remover', (_e, chave) => remover(chave));
 
@@ -286,4 +387,4 @@ function register() {
   });
 }
 
-module.exports = { register, instalar, remover, lerPercentual };
+module.exports = { register, instalar, remover, doctor, decidirConserto, lerPercentual };

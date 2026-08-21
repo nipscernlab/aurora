@@ -20,15 +20,22 @@
  */
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { RAW_ALLOWLIST, donoDoBinario } from '../../main/compile/binary_allowlist.js';
 import {
   COMPONENTES, obter, estaInstalado, mensagemDeAusencia,
+  diagnosticar, listar, definirRaizParaTestes,
 } from '../../main/components/registry.js';
+import { createRequire } from 'node:module';
+
+const criarRequire = createRequire(import.meta.url);
+const { COMPONENTS: DERIVA } = criarRequire('../../scripts/check-component-drift.js');
+const { NOME_PADRAO } = criarRequire('../../components/Scripts/lib/version_stamp.js');
 
 const RAIZ = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -203,5 +210,114 @@ describe('arquivos-chave', () => {
     expect(msys.arquivosChave.some((a) => a.endsWith('iverilog.exe'))).toBe(true);
     const yanc = COMPONENTES.find((c) => c.chave === 'yanc');
     expect(yanc.arquivosChave.some((a) => a.endsWith('cmmcomp.exe'))).toBe(true);
+  });
+});
+
+
+describe('versao: o catalogo e o instalador fixam a MESMA tag', () => {
+  // O painel diz "atualizacao disponivel" comparando o carimbo que o
+  // instalador gravou com a `versao` daqui. Se alguem subir a tag num lado so,
+  // ou o painel pede atualizacao para sempre, ou nunca pede. O guarda de deriva
+  // (scripts/check-component-drift.js) ja sabe ler a tag de cada script; e a
+  // mesma leitura que amarra os dois lados aqui.
+  const CHAVE_DA_DERIVA = { toolchain: 'msys' };
+
+  for (const d of DERIVA) {
+    const chave = CHAVE_DA_DERIVA[d.key] || d.key;
+    it(`${chave}: registry.versao == tag de ${d.script}`, () => {
+      const c = obter(chave);
+      expect(c, `${chave} nao esta no catalogo`).toBeDefined();
+      // require, e nao import(): o caminho e montado da tabela de deriva, e o
+      // import dinamico com variavel nao passa pelo analisador do Vite.
+      const mod = criarRequire(path.join(RAIZ, 'components', 'Scripts', d.script));
+      expect(c.versao).toBe(d.tagOf(mod));
+    });
+  }
+
+  it('todo componente declara versao e carimbo, e o instalador grava o mesmo carimbo', () => {
+    for (const c of COMPONENTES) {
+      expect(c.versao, c.chave).toBeTruthy();
+      expect(c.carimbo, c.chave).toBeTruthy();
+      const fonte = fs.readFileSync(path.join(RAIZ, 'components', 'Scripts', c.script), 'utf8');
+      const arquivo = c.carimbo.split('/').pop();
+      // Ou o nome padrao (vindo de lib/version_stamp.js) ou o nome proprio do
+      // YANC; nos dois casos o script tem que escrever o carimbo.
+      const mencionado = arquivo === NOME_PADRAO ? /NOME_PADRAO/.test(fonte) : fonte.includes(arquivo);
+      expect(mencionado, `${c.script} nao usa o carimbo ${c.carimbo}`).toBe(true);
+      expect(fonte, `${c.script} nao grava o carimbo`).toContain('escreverCarimbo(');
+    }
+  });
+});
+
+
+describe('diagnosticar le o disco e o carimbo', () => {
+  let raiz;
+  beforeEach(() => {
+    raiz = fs.mkdtempSync(path.join(os.tmpdir(), 'aurora-registro-'));
+    definirRaizParaTestes(raiz);
+  });
+  afterEach(() => {
+    definirRaizParaTestes(null);
+    fs.rmSync(raiz, { recursive: true, force: true });
+  });
+
+  const gravar = (rel, conteudo = 'x') => {
+    const p = path.join(raiz, ...rel.split('/'));
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, conteudo);
+  };
+
+  it('ausente quando a sentinela nao esta la', () => {
+    expect(diagnosticar('surfer')).toEqual({
+      chave: 'surfer', estado: 'ausente', faltando: [obter('surfer').sentinela], versaoInstalada: null,
+    });
+  });
+
+  it('ok sem carimbo: instalacao de antes do carimbo nao e desatualizada', () => {
+    gravar(obter('surfer').sentinela);
+    definirRaizParaTestes(raiz);
+    expect(diagnosticar('surfer')).toEqual({ chave: 'surfer', estado: 'ok', faltando: [], versaoInstalada: null });
+  });
+
+  it('ok com o carimbo da versao fixada', () => {
+    const c = obter('surfer');
+    gravar(c.sentinela);
+    gravar(c.carimbo, `${c.versao}\n`);
+    definirRaizParaTestes(raiz);
+    expect(diagnosticar('surfer')).toEqual({ chave: 'surfer', estado: 'ok', faltando: [], versaoInstalada: c.versao });
+  });
+
+  it('desatualizado com carimbo de outra versao, e o painel ve isso', () => {
+    const c = obter('surfer');
+    gravar(c.sentinela);
+    gravar(c.carimbo, 'v0.7.0-nips.2');
+    definirRaizParaTestes(raiz);
+    expect(diagnosticar('surfer')).toEqual({
+      chave: 'surfer', estado: 'desatualizado', faltando: [], versaoInstalada: 'v0.7.0-nips.2',
+    });
+    const surfer = listar().find((x) => x.chave === 'surfer');
+    expect(surfer.instalado).toBe(true);
+    expect(surfer.estado).toBe('desatualizado');
+    expect(surfer.versaoInstalada).toBe('v0.7.0-nips.2');
+  });
+
+  it('incompleto vence desatualizado: sentinela la, arquivo-chave faltando', () => {
+    const c = obter('msys');
+    gravar(c.sentinela);
+    gravar(c.carimbo, 'msys-v0');
+    definirRaizParaTestes(raiz);
+    const d = diagnosticar('msys');
+    expect(d.estado).toBe('incompleto');
+    expect(d.faltando).toEqual(c.arquivosChave);
+    expect(d.versaoInstalada).toBe('msys-v0');
+  });
+
+  it('ok quando sentinela, arquivos-chave e carimbo estao todos certos', () => {
+    const c = obter('msys');
+    gravar(c.sentinela);
+    for (const rel of c.arquivosChave) gravar(rel);
+    gravar(c.carimbo, c.versao);
+    definirRaizParaTestes(raiz);
+    expect(diagnosticar('msys').estado).toBe('ok');
   });
 });

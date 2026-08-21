@@ -27,7 +27,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
 
 const MANIFEST_URL = 'https://nipscernlab.github.io/docs_aurora/docs-manifest.json';
 
@@ -98,13 +98,9 @@ function sha256(/** @type {string} */ filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
   fs.rmSync(destDir, { recursive: true, force: true });
-  fs.mkdirSync(destDir, { recursive: true });
-  execSync(
-    `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-    { stdio: 'inherit', windowsHide: true },
-  );
+  await extrairZip(zipPath, destDir, { log, tag: 'docs' });
 }
 
 function installedVersion() {
@@ -139,7 +135,7 @@ async function main() {
       throw new Error(`SHA-256 nao confere: esperado ${manifest.sha256}, obtido ${got}`);
     }
 
-    extractZip(TMP_ZIP, DOCS_DIR);
+    await extractZip(TMP_ZIP, DOCS_DIR);
     fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2), 'utf8');
     fs.rmSync(TMP_ZIP, { force: true });
 

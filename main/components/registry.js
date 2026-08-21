@@ -76,6 +76,12 @@ function raiz() {
   return raizGuardada;
 }
 
+/** Aponta o catalogo para outra pasta. So os testes chamam. */
+function definirRaizParaTestes(pasta) {
+  raizGuardada = pasta;
+  memoria.clear();
+}
+
 /** Quanto tempo a leitura do disco vale antes de ser refeita. */
 const VALIDADE_MS = 3000;
 
@@ -88,10 +94,17 @@ const VALIDADE_MS = 3000;
  * `essencial` marca o que não pode ser removido. `requerParaCompilar` marca o
  * que a AURORA precisa para compilar qualquer coisa.
  *
+ * `versao` é a tag que o instalador do componente fixa, e `carimbo` é o
+ * arquivo onde ele grava a tag que instalou (components/Scripts/lib/
+ * version_stamp.js). Os dois lados são amarrados por teste: a versão daqui
+ * tem que ser a mesma que o download-*.js declara, senão o painel diria
+ * "atualização disponível" para sempre, ou nunca.
+ *
  * @type {Array<{
  *   chave: string, nome: string, resumo: string, sentinela: string,
  *   tamanhoMB: number, downloadMB: number, essencial: boolean,
  *   requerParaCompilar?: boolean, script: string|null, arquivosChave: string[],
+ *   versao: string, carimbo: string,
  * }>}
  */
 const COMPONENTES = [
@@ -114,6 +127,8 @@ const COMPONENTES = [
     essencial: false,
     requerParaCompilar: true,
     script: 'download-toolchain.js',
+    versao: 'msys-v1',
+    carimbo: 'Packages/msys/.aurora-version',
   },
   {
     chave: 'yanc',
@@ -138,6 +153,9 @@ const COMPONENTES = [
     essencial: true,
     requerParaCompilar: true,
     script: 'download-yanc.js',
+    versao: 'v5.3',
+    // O YANC ja tinha carimbo proprio antes dos outros; o nome fica.
+    carimbo: 'bin/.yanc-version',
   },
   {
     chave: 'gtkwave',
@@ -149,6 +167,8 @@ const COMPONENTES = [
     downloadMB: 30,
     essencial: false,
     script: 'download-gtkwave-nipscern.js',
+    versao: 'v0.1.2-nipscern',
+    carimbo: 'Packages/gtkwave-nipscern/.aurora-version',
   },
   {
     chave: 'surfer',
@@ -160,6 +180,8 @@ const COMPONENTES = [
     downloadMB: 16,
     essencial: false,
     script: 'download-surfer.js',
+    versao: 'v0.7.0-nips.10',
+    carimbo: 'Packages/surfer/.aurora-version',
   },
   {
     chave: 'verible',
@@ -171,6 +193,8 @@ const COMPONENTES = [
     downloadMB: 2,
     essencial: false,
     script: 'download-verible.js',
+    versao: 'v0.0-4135-g7807ee1a',
+    carimbo: 'Packages/verible/.aurora-version',
   },
   {
     chave: 'slang',
@@ -182,6 +206,8 @@ const COMPONENTES = [
     downloadMB: 3,
     essencial: false,
     script: 'download-slang-server.js',
+    versao: 'v0.2.9',
+    carimbo: 'Packages/slang-server/.aurora-version',
   },
   {
     chave: 'clang-format',
@@ -193,6 +219,8 @@ const COMPONENTES = [
     downloadMB: 2,
     essencial: false,
     script: 'download-clang-format.js',
+    versao: 'master-796e77c',
+    carimbo: 'Packages/clang-format/.aurora-version',
   },
 ];
 
@@ -246,6 +274,23 @@ function estaInstalado(chave) {
 }
 
 /**
+ * A versão que o instalador do componente carimbou, ou null.
+ *
+ * Null é "não se sabe", e não "errada": toda instalação anterior ao carimbo
+ * está assim, e tratá-la como desatualizada mandaria laboratórios inteiros
+ * re-baixar 272 MB por nada.
+ */
+function versaoInstalada(chave) {
+  const c = PORCHAVE.get(chave);
+  if (!c || !c.carimbo) return null;
+  try {
+    return fs.readFileSync(path.join(raiz(), ...c.carimbo.split('/')), 'utf8').trim() || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
  * Diagnostica um componente com mais rigor do que `estaInstalado`.
  *
  * A sentinela responde "a instalação terminou?". Ela não responde "a
@@ -254,27 +299,35 @@ function estaInstalado(chave) {
  * Por isso o diagnóstico olha também os arquivos-chave, que são os binários
  * sem os quais o componente não serve para nada.
  *
+ * E não responde "terminou NA VERSÃO que esta AURORA espera?", porque o mesmo
+ * binário existe em todas as versões. Essa pergunta quem responde é o carimbo
+ * que o instalador deixa: carimbo de outra tag é `desatualizado`, e é o que
+ * faz o painel oferecer Atualizar e o doctor re-baixar.
+ *
  * Não executa nada. Rodar cada binário para ver se responde custaria segundos
  * por componente e dispararia antivírus em máquina de laboratório; a presença
  * dos arquivos pega o defeito real sem esse preço.
  *
- * @returns {{chave: string, estado: 'ok'|'ausente'|'incompleto', faltando: string[]}}
+ * @returns {{chave: string, estado: 'ok'|'ausente'|'incompleto'|'desatualizado', faltando: string[], versaoInstalada: string|null}}
  */
 function diagnosticar(chave) {
   const c = PORCHAVE.get(chave);
-  if (!c) return { chave, estado: 'ausente', faltando: [] };
+  if (!c) return { chave, estado: 'ausente', faltando: [], versaoInstalada: null };
 
-  if (!estaInstalado(chave)) return { chave, estado: 'ausente', faltando: [c.sentinela] };
+  if (!estaInstalado(chave)) {
+    return { chave, estado: 'ausente', faltando: [c.sentinela], versaoInstalada: null };
+  }
 
   const faltando = (c.arquivosChave || []).filter((rel) => {
     try { return !fs.existsSync(path.join(raiz(), ...rel.split('/'))); }
     catch (_) { return true; }
   });
-  return {
-    chave,
-    estado: faltando.length ? 'incompleto' : 'ok',
-    faltando,
-  };
+  const gravada = versaoInstalada(chave);
+  if (faltando.length) return { chave, estado: 'incompleto', faltando, versaoInstalada: gravada };
+  if (gravada !== null && c.versao && gravada !== c.versao) {
+    return { chave, estado: 'desatualizado', faltando: [], versaoInstalada: gravada };
+  }
+  return { chave, estado: 'ok', faltando: [], versaoInstalada: gravada };
 }
 
 /** O diagnóstico de todos, na ordem do catálogo. */
@@ -282,13 +335,23 @@ function diagnosticarTudo() {
   return COMPONENTES.map((c) => ({ ...diagnosticar(c.chave), essencial: c.essencial, nome: c.nome }));
 }
 
-/** O catálogo com o estado de cada um, para o painel. */
+/**
+ * O catálogo com o estado de cada um, para o painel.
+ *
+ * `instalado` continua sendo a sentinela, que é o que o portão consulta;
+ * `estado` é o diagnóstico completo, que é o que decide qual botão aparece.
+ */
 function listar() {
-  return COMPONENTES.map((c) => ({
-    ...c,
-    instalado: estaInstalado(c.chave),
-    caminho: caminhoDaSentinela(c.chave),
-  }));
+  return COMPONENTES.map((c) => {
+    const d = diagnosticar(c.chave);
+    return {
+      ...c,
+      instalado: d.estado !== 'ausente',
+      estado: d.estado,
+      versaoInstalada: d.versaoInstalada,
+      caminho: caminhoDaSentinela(c.chave),
+    };
+  });
 }
 
 /**
@@ -315,8 +378,10 @@ module.exports = {
   estaInstalado,
   diagnosticar,
   diagnosticarTudo,
+  versaoInstalada,
   caminhoDaSentinela,
   invalidarCache,
+  definirRaizParaTestes,
   mensagemDeAusencia,
   VALIDADE_MS,
 };

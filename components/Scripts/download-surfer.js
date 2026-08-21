@@ -30,7 +30,8 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -74,6 +75,9 @@ const SENTINEL_FILE = path.join(INSTALL_DIR, 'surfer-aurora.exe');
 const WEB_DIR       = path.join(INSTALL_DIR, 'web');
 const WEB_SENTINEL  = path.join(WEB_DIR, 'index.html');
 const TMP_ZIP       = FORK_ARTIFACT ? path.join(ROOT_DIR, FORK_ARTIFACT.filename) : '';
+// Carimbo da versao instalada; o catalogo do main le o mesmo arquivo. Foi a
+// falta dele que deixou o Surfer cinco versoes atras sem ninguem ver.
+const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,18 +141,10 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    if (!fs.existsSync(zipPath)) {
-        throw new Error(`Zip file not found: ${zipPath}`);
-    }
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // PowerShell Expand-Archive (ships on every Win 10+).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit', windowsHide: true }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado.
+    await extrairZip(zipPath, destDir, { log, tag: 'surfer' });
 }
 
 // Se o zip do fork trouxe o binario dentro de uma subpasta, sobe os arquivos
@@ -183,7 +179,7 @@ async function installWebBundle() {
     try {
         await downloadFile(FORK_WEB_ARTIFACT.url, tmp);
         await verifyChecksum(tmp, FORK_WEB_ARTIFACT.sha256, log);
-        extractZip(tmp, WEB_DIR);
+        await extractZip(tmp, WEB_DIR);
         fs.unlinkSync(tmp);
         if (!fs.existsSync(WEB_SENTINEL)) {
             err(`web/index.html ausente apos extracao — o zip mudou de estrutura?`);
@@ -201,10 +197,16 @@ async function installWebBundle() {
 async function main() {
     const force = process.argv.includes('--force');
 
-    if (alreadyInstalled() && !force) {
+    const carimbo = decidir({
+        instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: FORK_ARTIFACT ? FORK_ARTIFACT.tag : '',
+    });
+    if (carimbo.pular && !force) {
         if (!fs.existsSync(WEB_SENTINEL)) await installWebBundle();
         else log(`surfer-aurora already present — skipping.`);
         return;
+    }
+    if (carimbo.motivo === 'outra-versao') {
+        log(`surfer-aurora ${carimbo.gravada} installed but ${FORK_ARTIFACT ? FORK_ARTIFACT.tag : '?'} is pinned — re-downloading.`);
     }
 
     // Ate o CI do fork publicar um artefato, NAO ha de onde baixar o binario
@@ -224,7 +226,7 @@ async function main() {
     try {
         await downloadFile(FORK_ARTIFACT.url, TMP_ZIP);
         await verifyChecksum(TMP_ZIP, FORK_ARTIFACT.sha256, log);
-        extractZip(TMP_ZIP, INSTALL_DIR);
+        await extractZip(TMP_ZIP, INSTALL_DIR);
         flattenIfNested(INSTALL_DIR);
         fs.unlinkSync(TMP_ZIP);
         log(`surfer-aurora installed successfully.`);
@@ -235,6 +237,9 @@ async function main() {
             err(`The ZIP may have a different internal structure.`);
             process.exit(1);
         }
+        // So depois de a sentinela confirmar. O bundle web nao entra na conta:
+        // sem ele o Surfer degrada para a janela nativa, que e um estado util.
+        escreverCarimbo(VERSION_STAMP, FORK_ARTIFACT.tag);
     } catch (e) {
         err(e instanceof Error ? e.message : String(e));
         err(`\nCould not download surfer-aurora automatically.`);
@@ -260,4 +265,5 @@ module.exports = {
     FORK_ARTIFACT,
     INSTALL_DIR,
     SENTINEL_FILE,
+    VERSION_STAMP,
 };

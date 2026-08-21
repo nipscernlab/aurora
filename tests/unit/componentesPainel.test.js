@@ -1,0 +1,192 @@
+// @vitest-environment happy-dom
+/**
+ * O painel de componentes (js/ui/components_panel.js).
+ *
+ * O painel é o que dezenas de alunos e pesquisadores olham para decidir se
+ * baixam 272 MB. Um rótulo errado aqui não quebra nada e não aparece em log
+ * nenhum: aparece como alguém achando que tem uma coisa que não tem, ou
+ * re-baixando o que já está no disco. Por isso o que este teste prende é o mapa
+ * ESTADO → o que o cartão mostra e o que o botão faz:
+ *
+ *   ausente        → selo "Não instalado", botão Baixar (sem --force)
+ *   ok             → selo "Instalado",     botão Remover
+ *   desatualizado  → selo "Atualização disponível", Atualizar (com --force)
+ *                    E Remover, porque a pessoa tem o componente instalado
+ *   essencial      → selo "Sempre instalado", nenhum botão
+ *
+ * E o rodapé, que é onde a soma dos downloads pendentes aparece.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+/** O IPC do painel, trocado por um espião. */
+const electronAPI = {
+  componentesListar: vi.fn(),
+  componentesInstalar: vi.fn(async () => ({ ok: true })),
+  componentesRemover: vi.fn(async () => ({ ok: true, liberadoMB: 43 })),
+  componentesDoctor: vi.fn(async () => ({ ok: true, consertados: [] })),
+  componentesAbrirPasta: vi.fn(),
+  onComponenteProgresso: vi.fn(),
+  onComponenteAusente: vi.fn(),
+};
+
+vi.mock('../../js/app/electron_api.js', () => ({ electronAPI }));
+vi.mock('../../js/ui/dialog_manager.js', () => ({ showDialog: vi.fn(async () => 'remover') }));
+vi.mock('../../js/ui/notification.js', () => ({ showCardNotification: vi.fn() }));
+
+const { desenhar, ligar } = await import('../../js/ui/components_panel.js');
+
+/** Um componente do catálogo, com o que o painel realmente lê. */
+function comp(over = {}) {
+  return {
+    chave: 'surfer',
+    nome: 'Surfer',
+    resumo: 'O visualizador de formas de onda embutido.',
+    tamanhoMB: 43,
+    downloadMB: 16,
+    essencial: false,
+    estado: 'ausente',
+    instalado: false,
+    versaoInstalada: null,
+    ...over,
+  };
+}
+
+function montarDom() {
+  document.body.innerHTML = '<div id="componentes-lista"></div><span id="componentes-espaco"></span>';
+}
+
+async function pintar(lista) {
+  montarDom();
+  // `ligar` depois do DOM existir: a delegacao de clique mora na caixa da
+  // lista, e no aplicativo isso acontece no DOMContentLoaded.
+  ligar();
+  electronAPI.componentesListar.mockResolvedValue({ componentes: lista, baixando: null });
+  await desenhar();
+}
+
+const cartao = (chave) => document.querySelector(`.componente[data-chave="${chave}"]`);
+const selos = (chave) => [...cartao(chave).querySelectorAll('.componente-selo')].map((s) => s.textContent.trim());
+const botoes = (chave) => [...cartao(chave).querySelectorAll('button')].map((b) => ({
+  texto: b.textContent.trim(),
+  instalar: b.getAttribute('data-instalar'),
+  remover: b.getAttribute('data-remover'),
+  forcar: b.hasAttribute('data-forcar'),
+}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  electronAPI.componentesInstalar.mockResolvedValue({ ok: true });
+  electronAPI.componentesRemover.mockResolvedValue({ ok: true, liberadoMB: 43 });
+});
+
+describe('o cartão diz a verdade sobre cada estado', () => {
+  it('ausente: só Baixar, e o tamanho citado é o do download', async () => {
+    await pintar([comp()]);
+    expect(selos('surfer')).toEqual(['Não instalado']);
+    expect(botoes('surfer')).toEqual([
+      { texto: 'Baixar', instalar: 'surfer', remover: null, forcar: false },
+    ]);
+    expect(cartao('surfer').querySelector('.componente-tamanho').textContent).toContain('16 MB');
+  });
+
+  it('instalado e em dia: só Remover, e o tamanho citado é o do disco', async () => {
+    await pintar([comp({ estado: 'ok', instalado: true, versaoInstalada: 'v0.7.0-nips.10' })]);
+    expect(selos('surfer')).toEqual(['Instalado']);
+    expect(botoes('surfer')).toEqual([
+      { texto: 'Remover', instalar: null, remover: 'surfer', forcar: false },
+    ]);
+    expect(cartao('surfer').querySelector('.componente-tamanho').textContent).toContain('43 MB');
+  });
+
+  it('desatualizado: Atualizar (com --force) e Remover, e cita o download', async () => {
+    await pintar([comp({ estado: 'desatualizado', instalado: true, versaoInstalada: 'v0.7.0-nips.2' })]);
+    expect(selos('surfer')).toEqual(['Atualização disponível']);
+    expect(botoes('surfer')).toEqual([
+      { texto: 'Atualizar', instalar: 'surfer', remover: null, forcar: true },
+      { texto: 'Remover', instalar: null, remover: 'surfer', forcar: false },
+    ]);
+    expect(cartao('surfer').querySelector('.componente-tamanho').textContent).toContain('16 MB');
+  });
+
+  it('essencial: nenhum botão, porque não há decisão a tomar', async () => {
+    await pintar([comp({ chave: 'yanc', nome: 'YANC', essencial: true, estado: 'ok', instalado: true })]);
+    expect(selos('yanc')).toEqual(['Sempre instalado']);
+    expect(botoes('yanc')).toEqual([]);
+  });
+
+  it('essencial desatualizado: Atualizar, e nunca Remover', async () => {
+    // O YANC vem no instalador e não sai; oferecer Remover aqui deixaria a
+    // AURORA sem o compilador do SAPHO com um clique.
+    await pintar([comp({
+      chave: 'yanc', nome: 'YANC', essencial: true, estado: 'desatualizado',
+      instalado: true, versaoInstalada: 'v5.2',
+    })]);
+    expect(botoes('yanc')).toEqual([
+      { texto: 'Atualizar', instalar: 'yanc', remover: null, forcar: true },
+    ]);
+  });
+
+  it('o que compila e não está aqui é urgente, não recurso a menos', async () => {
+    await pintar([comp({ chave: 'msys', nome: 'MSYS', requerParaCompilar: true, downloadMB: 272 })]);
+    expect(selos('msys')).toEqual(['Não instalado', 'Necessário para compilar']);
+    expect(cartao('msys').classList.contains('componente-urgente')).toBe(true);
+  });
+});
+
+describe('o clique chega ao main com o que o botão prometeu', () => {
+  it('Baixar instala sem forçar', async () => {
+    await pintar([comp()]);
+    cartao('surfer').querySelector('[data-instalar]').click();
+    await vi.waitFor(() => expect(electronAPI.componentesInstalar).toHaveBeenCalled());
+    expect(electronAPI.componentesInstalar).toHaveBeenCalledWith('surfer', { forcar: false });
+  });
+
+  it('Atualizar instala COM --force: sem isso o instalador veria a sentinela e sairia', async () => {
+    await pintar([comp({ estado: 'desatualizado', instalado: true, versaoInstalada: 'v1' })]);
+    cartao('surfer').querySelector('[data-instalar]').click();
+    await vi.waitFor(() => expect(electronAPI.componentesInstalar).toHaveBeenCalled());
+    expect(electronAPI.componentesInstalar).toHaveBeenCalledWith('surfer', { forcar: true });
+  });
+
+  it('Remover pede confirmação antes, e só então remove', async () => {
+    const { showDialog } = await import('../../js/ui/dialog_manager.js');
+    await pintar([comp({ estado: 'ok', instalado: true })]);
+    cartao('surfer').querySelector('[data-remover]').click();
+    await vi.waitFor(() => expect(electronAPI.componentesRemover).toHaveBeenCalled());
+    expect(showDialog).toHaveBeenCalled();
+    expect(electronAPI.componentesRemover).toHaveBeenCalledWith('surfer');
+  });
+
+  it('Cancelar na confirmação não remove nada', async () => {
+    const { showDialog } = await import('../../js/ui/dialog_manager.js');
+    showDialog.mockResolvedValueOnce('cancel');
+    await pintar([comp({ estado: 'ok', instalado: true })]);
+    cartao('surfer').querySelector('[data-remover]').click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(electronAPI.componentesRemover).not.toHaveBeenCalled();
+  });
+});
+
+describe('o rodapé soma o que falta baixar', () => {
+  it('conta os ausentes e os desatualizados separadamente', async () => {
+    await pintar([
+      comp({ chave: 'surfer', downloadMB: 16 }),
+      comp({ chave: 'gtkwave', downloadMB: 30 }),
+      comp({ chave: 'verible', estado: 'desatualizado', instalado: true, downloadMB: 2 }),
+    ]);
+    const texto = document.getElementById('componentes-espaco').textContent;
+    expect(texto).toContain('2 disponíveis para baixar, 46 MB');
+    expect(texto).toContain('1 com atualização disponível (2 MB de download)');
+  });
+
+  it('tudo instalado e em dia: uma frase só, e nenhuma soma', async () => {
+    await pintar([comp({ estado: 'ok', instalado: true })]);
+    expect(document.getElementById('componentes-espaco').textContent).toBe('Tudo instalado.');
+  });
+
+  it('componente essencial não entra na conta do que falta baixar', async () => {
+    await pintar([comp({ chave: 'yanc', essencial: true, estado: 'ok', instalado: true })]);
+    expect(document.getElementById('componentes-espaco').textContent).toBe('Tudo instalado.');
+  });
+});

@@ -93,7 +93,7 @@ describe('extractZip', () => {
     }
   })();
 
-  it.skipIf(!hasPowerShell)('round-trips a small fixture zip', () => {
+  it.skipIf(!hasPowerShell)('round-trips a small fixture zip', async () => {
     // 1. Build a fixture: scratch/src/{file.txt, sub/nested.txt}
     const src = path.join(scratch, 'src');
     fs.mkdirSync(path.join(src, 'sub'), { recursive: true });
@@ -111,7 +111,7 @@ describe('extractZip', () => {
 
     // 3. Extract via the function under test.
     const dest = path.join(scratch, 'extracted');
-    extractZip(zip, dest);
+    await extractZip(zip, dest);
 
     // 4. Verify expected files landed at the expected paths with intact contents.
     expect(fs.readFileSync(path.join(dest, 'file.txt'), 'utf8')).toBe('top-level content');
@@ -124,8 +124,8 @@ describe('extractZip', () => {
   // sobre o codigo. 30 s da folga sem esconder um travamento de verdade.
   }, 30000);
 
-  it.skipIf(!hasPowerShell)('throws when given a non-existent zip', () => {
+  it('rejects when given a non-existent zip', async () => {
     const dest = path.join(scratch, 'extracted');
-    expect(() => extractZip(path.join(scratch, 'does-not-exist.zip'), dest)).toThrow();
+    await expect(extractZip(path.join(scratch, 'does-not-exist.zip'), dest)).rejects.toThrow();
   });
 });

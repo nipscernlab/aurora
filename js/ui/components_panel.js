@@ -52,6 +52,9 @@ const ultimoProgresso = new Map();
 const RESERVA = {
   'modal.settings.componentsInstalled': 'Instalado',
   'modal.settings.componentsMissing': 'Não instalado',
+  'modal.settings.componentsOutdated': 'Atualização disponível',
+  'modal.settings.componentsUpdate': 'Atualizar',
+  'modal.settings.componentsUpdatesAvailable': '{n} com atualização disponível ({mb} de download).',
   'modal.settings.componentsAlways': 'Sempre instalado',
   'modal.settings.componentsNeededToCompile': 'Necessário para compilar',
   'modal.settings.componentsDownload': 'Baixar',
@@ -134,7 +137,14 @@ function tamanhoLegivel(mb) {
 
 function cartao(c) {
   const selos = [];
-  if (c.essencial) {
+  // Instalado, inteiro, mas de outra versao: a sentinela esta la, e e por isso
+  // que so o carimbo do instalador enxerga. E o unico estado em que o cartao
+  // oferece baixar E remover ao mesmo tempo, porque a pessoa tem o componente
+  // e a AURORA instalada espera outro.
+  const desatualizado = c.estado === 'desatualizado';
+  if (desatualizado) {
+    selos.push(`<span class="componente-selo desatualizado">${escapar(tr('modal.settings.componentsOutdated'))}</span>`);
+  } else if (c.essencial) {
     // Essencial vem no instalador e nao sai. Um cartao assim nao mostra estado
     // de instalacao nem tamanho de download, porque nao ha decisao a tomar: a
     // tela estava dizendo "sempre instalado" e oferecendo um download ao mesmo
@@ -154,18 +164,24 @@ function cartao(c) {
   // mesmo desenho do botao de limpar credenciais) e confirmacao que avisa o
   // custo: em laboratorio compartilhado, apagar a cadeia deixa o proximo
   // aluno re-baixando 272 MB.
-  const acao = c.essencial
-    ? ''
-    : c.instalado
-      ? `<button class="btn danger" type="button" data-remover="${escapar(c.chave)}">`
-        + `<i class="ph ph-trash-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsRemove'))}</button>`
-      : `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}">`
-        + `<i class="ph ph-download-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsDownload'))}</button>`;
+  const botaoRemover = `<button class="btn danger" type="button" data-remover="${escapar(c.chave)}">`
+    + `<i class="ph ph-trash-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsRemove'))}</button>`;
+  const botaoBaixar = `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}">`
+    + `<i class="ph ph-download-simple" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsDownload'))}</button>`;
+  // Atualizar e um download com --force: sem a flag o instalador veria a
+  // sentinela da versao antiga e sairia dizendo que esta tudo la.
+  const botaoAtualizar = `<button class="btn btn-primary" type="button" data-instalar="${escapar(c.chave)}" data-forcar="1">`
+    + `<i class="ph ph-arrow-circle-up" aria-hidden="true"></i> ${escapar(tr('modal.settings.componentsUpdate'))}</button>`;
+  const acao = desatualizado
+    ? botaoAtualizar + (c.essencial ? '' : botaoRemover)
+    : c.essencial
+      ? ''
+      : c.instalado ? botaoRemover : botaoBaixar;
 
-  // Presente mostra o que ocupa em disco; ausente mostra o que vai trafegar,
-  // que e o numero que responde "quanto vou esperar". Essencial conta sempre
-  // pelo disco: ele nunca sera baixado pelo painel.
-  const tamanho = (c.essencial || c.instalado)
+  // Presente mostra o que ocupa em disco; ausente (ou por atualizar) mostra o
+  // que vai trafegar, que e o numero que responde "quanto vou esperar".
+  // Essencial conta sempre pelo disco: ele nunca sera baixado pelo painel.
+  const tamanho = (c.essencial || c.instalado) && !desatualizado
     ? tamanhoLegivel(c.tamanhoMB)
     : tr('modal.settings.componentsDownloadOf', { mb: tamanhoLegivel(c.downloadMB) });
 
@@ -207,12 +223,18 @@ async function desenhar() {
   lista.forEach((c) => caixa.appendChild(cartao(c)));
 
   const ausentes = lista.filter((c) => !c.instalado && !c.essencial);
+  const desatualizados = lista.filter((c) => c.estado === 'desatualizado');
   const rodape = document.getElementById('componentes-espaco');
   if (rodape) {
-    const soma = ausentes.reduce((s, c) => s + (c.downloadMB || 0), 0);
-    rodape.textContent = ausentes.length
-      ? tr('modal.settings.componentsAvailable', { n: ausentes.length, mb: tamanhoLegivel(soma) })
-      : tr('modal.settings.componentsAllInstalled');
+    const somaMB = (xs) => tamanhoLegivel(xs.reduce((s, c) => s + (c.downloadMB || 0), 0));
+    const frases = [];
+    if (ausentes.length) {
+      frases.push(tr('modal.settings.componentsAvailable', { n: ausentes.length, mb: somaMB(ausentes) }));
+    }
+    if (desatualizados.length) {
+      frases.push(tr('modal.settings.componentsUpdatesAvailable', { n: desatualizados.length, mb: somaMB(desatualizados) }));
+    }
+    rodape.textContent = frases.length ? frases.join(' ') : tr('modal.settings.componentsAllInstalled');
   }
 
   // Um download já em curso quando o painel abriu continua sendo um download:
@@ -257,13 +279,13 @@ function aplicarProgresso(d) {
   if (linha) linha.textContent = d.linha || '';
 }
 
-async function instalar(chave) {
+async function instalar(chave, forcar = false) {
   if (baixando) {
     showCardNotification(tr('modal.settings.componentsBusy'), 'info', 4000, 'Componentes');
     return;
   }
   marcarBaixando(chave);
-  const r = await electronAPI.componentesInstalar(chave)
+  const r = await electronAPI.componentesInstalar(chave, { forcar: Boolean(forcar) })
     .catch((e) => ({ ok: false, erro: e?.message }));
   baixando = null;
 
@@ -434,7 +456,7 @@ function ligar() {
     const alvo = e.target instanceof Element ? e.target.closest('[data-instalar], [data-remover]') : null;
     if (!alvo) return;
     const paraInstalar = alvo.getAttribute('data-instalar');
-    if (paraInstalar) { instalar(paraInstalar); return; }
+    if (paraInstalar) { instalar(paraInstalar, alvo.hasAttribute('data-forcar')); return; }
     const paraRemover = alvo.getAttribute('data-remover');
     if (paraRemover) remover(paraRemover);
   });
@@ -461,4 +483,6 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { desenhar, tamanhoLegivel };
+// `ligar` sai daqui para o teste poder prender os ouvintes DEPOIS de montar o
+// DOM: no aplicativo quem chama e o DOMContentLoaded acima, uma vez so.
+export { desenhar, ligar, tamanhoLegivel };

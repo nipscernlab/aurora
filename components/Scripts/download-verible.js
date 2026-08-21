@@ -31,7 +31,8 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -53,6 +54,8 @@ const BIN_DIR       = path.join(INSTALL_DIR, 'bin');
 const SENTINEL_FILE = path.join(BIN_DIR, LS_EXE_NAME);
 const TMP_ZIP       = path.join(ROOT_DIR, VERIBLE_FILENAME);
 const TMP_EXTRACT   = path.join(INSTALL_DIR, '_extract');
+// Carimbo da versao instalada; o catalogo do main le o mesmo arquivo.
+const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,18 +119,10 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    if (!fs.existsSync(zipPath)) {
-        throw new Error(`Zip file not found: ${zipPath}`);
-    }
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // PowerShell Expand-Archive (ships on every Win 10+).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit', windowsHide: true }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado.
+    await extrairZip(zipPath, destDir, { log, tag: 'verible' });
 }
 
 // O zip traz tudo numa subpasta `verible-<tag>-win64/`. Procura o
@@ -163,12 +158,15 @@ function rmrf(/** @type {string} */ p) {
 async function main() {
     const force = process.argv.includes('--force');
 
-    if (alreadyInstalled() && !force) {
-        log(`verible-verilog-ls already present — skipping download.`);
+    const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: VERIBLE_TAG });
+    if (carimbo.pular && !force) {
+        log(`verible-verilog-ls ${VERIBLE_TAG} already present — skipping download.`);
         return;
     }
 
-    if (!alreadyInstalled()) {
+    if (carimbo.motivo === 'outra-versao') {
+        log(`verible-verilog-ls ${carimbo.gravada} installed but ${VERIBLE_TAG} is pinned — re-downloading.`);
+    } else if (!alreadyInstalled()) {
         log(`verible-verilog-ls not found in components/Packages/verible/bin/.`);
     }
 
@@ -176,7 +174,7 @@ async function main() {
         rmrf(TMP_EXTRACT);
         await downloadFile(DOWNLOAD_URL, TMP_ZIP);
         await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
-        extractZip(TMP_ZIP, TMP_EXTRACT);
+        await extractZip(TMP_ZIP, TMP_EXTRACT);
         extractLsOnly();
         rmrf(TMP_EXTRACT);
         fs.unlinkSync(TMP_ZIP);
@@ -187,6 +185,8 @@ async function main() {
             err(`The ZIP may have a different internal structure.`);
             process.exit(1);
         }
+        // So depois de a sentinela confirmar.
+        escreverCarimbo(VERSION_STAMP, VERIBLE_TAG);
     } catch (e) {
         rmrf(TMP_EXTRACT);
         try { if (fs.existsSync(TMP_ZIP)) fs.unlinkSync(TMP_ZIP); } catch { /* ignore */ }
@@ -217,4 +217,5 @@ module.exports = {
     INSTALL_DIR,
     BIN_DIR,
     SENTINEL_FILE,
+    VERSION_STAMP,
 };

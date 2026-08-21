@@ -1048,6 +1048,12 @@
   border-color: var(--status-success);
 }
 
+/* Instalado, inteiro, mas de outra versao: informacao, nao alarme. */
+.componente-selo.desatualizado {
+  color: var(--status-info);
+  border-color: var(--status-info);
+}
+
 .componente-selo.ausente {
   color: var(--text-muted);
   border-color: var(--border-strong);

@@ -87,7 +87,7 @@ const fileOperations = {
   // no allowlist do main; estas chamadas sao para o painel e para a interface
   // poder avisar antes de a pessoa clicar.
   componentesListar:    () => ipcRenderer.invoke('componentes:listar'),
-  componentesInstalar:  (chave) => ipcRenderer.invoke('componentes:instalar', chave),
+  componentesInstalar:  (chave, opcoes) => ipcRenderer.invoke('componentes:instalar', chave, opcoes || {}),
   componentesRemover:   (chave) => ipcRenderer.invoke('componentes:remover', chave),
   componentesInstalado: (chave) => ipcRenderer.invoke('componentes:instalado', chave),
   componentesAbrirPasta: () => ipcRenderer.invoke('componentes:abrirPasta'),

@@ -333,6 +333,9 @@
       "githubForgetOnExitDescription": "Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar.",
       "componentsInstalled": "Instalado",
       "componentsMissing": "Não instalado",
+      "componentsOutdated": "Atualização disponível",
+      "componentsUpdate": "Atualizar",
+      "componentsUpdatesAvailable": "{n} com atualização disponível ({mb} de download).",
       "componentsAlways": "Sempre instalado",
       "componentsNeededToCompile": "Necessário para compilar",
       "componentsDownload": "Baixar",
@@ -1094,10 +1097,14 @@
     "surfer": "O visualizador de formas de onda embutido, dentro da AURORA.",
     "verible": "Diagnósticos, formatação e navegação em Verilog, dentro do editor.",
     "slang": "Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.",
-    "clang-format": "Formatação de C, C++ e C± com Shift+Alt+F."
+    "clang-format": "Formatação de C, C++ e C± com Shift+Alt+F.",
+    "claude": "O agente de programação da Anthropic, usado pela Aurora Intelligence no modo Claude Code.",
+    "codex": "O agente de programação da OpenAI, usado pela Aurora Intelligence no modo Codex."
   },
   "componentName": {
     "msys": "MSYS Toolchain",
-    "yanc": "YANC"
+    "yanc": "YANC",
+    "claude": "Claude Code",
+    "codex": "Codex"
   }
 }

@@ -1174,3 +1174,52 @@
 .componentes-espaco { flex: 1; font-size: var(--text-xs); color: var(--text-muted); }
 
 .componentes-erro { font-size: var(--text-sm); color: var(--status-error); }
+
+/* ── Manual ─────────────────────────────────────────────────────────────────
+   O manual era dois links no meio da lista de Sobre e ninguem os achava. Como
+   secao propria ele segue o desenho da de componentes: um cartao que diz o
+   estado, e os botoes embaixo. */
+.manual-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.manual-estado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.manual-estado > i {
+  font-size: 28px;
+  color: var(--text-secondary);
+  flex: none;
+}
+
+.manual-estado-texto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.manual-estado-titulo {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.manual-estado-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Os botoes quebram a linha em vez de espremerem, porque o painel encolhe com
+   a viewport e "Procurar atualizacao" e um rotulo comprido. */
+.manual-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

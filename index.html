@@ -1074,6 +1074,10 @@
                     <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionComponents">Components</span>
                 </button>
+                <button class="settings-nav-item" data-pane="manual" role="tab" aria-selected="false">
+                    <i class="ph ph-book-open" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionManual">Manual</span>
+                </button>
                 <button class="settings-nav-item" data-pane="about" role="tab" aria-selected="false">
                     <i class="ph ph-info" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAbout">About</span>
@@ -1313,6 +1317,56 @@
                      content is intentionally static (proper names, URLs,
                      org names) except for the labels and the version, which
                      aurora_settings.js fills in via getAppVersion(). -->
+                <!-- O manual tinha virado dois links escondidos no meio da lista
+                     de Sobre, ao lado da licenca e do repositorio, e ninguem os
+                     achava. Agora e secao propria, no mesmo desenho da de
+                     componentes: um cartao que diz o estado e botoes que fazem
+                     alguma coisa. -->
+                <section class="settings-pane" data-pane="manual" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-book-open" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionManual">Manual</h3>
+                    </header>
+                    <p class="settings-pane-intro" data-i18n="modal.settings.manualIntro">
+                        O manual do SAPHO vem junto com a AURORA e abre sem internet. Ele se atualiza sozinho quando saem correcoes, sem esperar uma versao nova do programa.
+                    </p>
+
+                    <div class="settings-card manual-card">
+                        <div class="manual-estado">
+                            <i class="ph ph-hard-drives" aria-hidden="true"></i>
+                            <div class="manual-estado-texto">
+                                <span class="manual-estado-titulo" id="manual-estado-titulo" data-i18n="modal.settings.manualChecking">Verificando…</span>
+                                <span class="manual-estado-meta" id="manual-estado-meta"></span>
+                            </div>
+                        </div>
+                        <div class="manual-acoes">
+                            <button id="manual-abrir-aurora" class="btn btn-primary" type="button" hidden>
+                                <i class="ph ph-book-open" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualOpenHere">Abrir na AURORA</span>
+                            </button>
+                            <button id="manual-abrir-navegador" class="btn btn-secondary" type="button" hidden>
+                                <i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualOpenBrowser">Abrir no navegador</span>
+                            </button>
+                            <button id="manual-atualizar" class="btn btn-secondary" type="button">
+                                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualCheckUpdate">Procurar atualizacao</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="about-links">
+                        <a class="about-link" href="#" data-href="https://www.nipscern.com/library/sapho/">
+                            <i class="ph ph-globe" aria-hidden="true"></i>
+                            <span class="about-link-text">
+                                <span class="about-link-label" data-i18n="modal.settings.aboutDocsOnline">Manual online</span>
+                                <span class="about-link-url">nipscern.com/library/sapho</span>
+                            </span>
+                            <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                </section>
+
                 <section class="settings-pane" data-pane="about" role="tabpanel" hidden>
                     <header class="settings-pane-header">
                         <i class="ph ph-info" aria-hidden="true"></i>
@@ -1392,24 +1446,6 @@
                     <div class="settings-card">
                         <h4 class="about-card-title" data-i18n="modal.settings.aboutLinks">Links</h4>
                         <div class="about-links">
-                            <a class="about-link" href="#" data-href="https://www.nipscern.com/library/sapho/">
-                                <i class="ph ph-book-open" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOnline">Manual online</span>
-                                    <span class="about-link-url">nipscern.com/library/sapho</span>
-                                </span>
-                                <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
-                            </a>
-                            <!-- Sem documentação empacotada este item fica oculto; quem o
-                                 revela é aurora_settings.js, consultando docs:status. -->
-                            <a class="about-link" href="#" id="about-docs-offline" hidden>
-                                <i class="ph ph-hard-drives" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOffline">Manual offline</span>
-                                    <span class="about-link-url" id="about-docs-offline-meta">-</span>
-                                </span>
-                                <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
-                            </a>
                             <a class="about-link" href="#" data-href="https://github.com/nipscernlab/aurora/blob/main/LICENSE">
                                 <i class="ph ph-scales" aria-hidden="true"></i>
                                 <span class="about-link-text">

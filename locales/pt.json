@@ -368,7 +368,19 @@
       "componentsDoctorHealthy": "Tudo em ordem: caches limpos e todos os componentes íntegros.",
       "componentsDoctorFixed": "Verificação concluída: {n} componente(s) consertado(s).",
       "componentsDoctorFailed": "A verificação não conseguiu consertar: {lista}. Confira a internet e tente de novo.",
-      "componentsDoctorNoScripts": "A pasta de instaladores (components/Scripts) não está nesta máquina, e sem ela o doctor não consegue consertar nada. Reinstale o SAPHO pelo instalador do site."
+      "componentsDoctorNoScripts": "A pasta de instaladores (components/Scripts) não está nesta máquina, e sem ela o doctor não consegue consertar nada. Reinstale o SAPHO pelo instalador do site.",
+      "sectionManual": "Manual",
+      "manualIntro": "O manual do SAPHO vem junto com a AURORA e abre sem internet. Ele se atualiza sozinho quando saem correções, sem esperar uma versão nova do programa.",
+      "manualChecking": "Verificando…",
+      "manualInstalled": "Neste computador",
+      "manualMissing": "Não está neste computador",
+      "manualVersion": "versão {v}",
+      "manualOpenHere": "Abrir na AURORA",
+      "manualOpenBrowser": "Abrir no navegador",
+      "manualCheckUpdate": "Procurar atualização",
+      "manualUpdated": "Manual atualizado para a versão {v}.",
+      "manualUpToDate": "O manual já está atualizado.",
+      "manualUpdateFailed": "Não foi possível alcançar o servidor da documentação. O manual deste computador continua funcionando."
     }
   },
   "shortcuts": {

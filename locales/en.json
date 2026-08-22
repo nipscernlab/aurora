@@ -368,7 +368,19 @@
       "componentsDoctorHealthy": "All good: caches cleared and every component intact.",
       "componentsDoctorFixed": "Check finished: {n} component(s) repaired.",
       "componentsDoctorFailed": "The check could not repair: {lista}. Check the internet and try again.",
-      "componentsDoctorNoScripts": "The installers folder (components/Scripts) is not on this machine, and without it the doctor cannot repair anything. Reinstall SAPHO from the website installer."
+      "componentsDoctorNoScripts": "The installers folder (components/Scripts) is not on this machine, and without it the doctor cannot repair anything. Reinstall SAPHO from the website installer.",
+      "sectionManual": "Manual",
+      "manualIntro": "The SAPHO manual ships with AURORA and opens without internet. It updates itself when corrections are published, without waiting for a new version of the program.",
+      "manualChecking": "Checking…",
+      "manualInstalled": "On this computer",
+      "manualMissing": "Not installed on this computer",
+      "manualVersion": "version {v}",
+      "manualOpenHere": "Open in AURORA",
+      "manualOpenBrowser": "Open in the browser",
+      "manualCheckUpdate": "Check for updates",
+      "manualUpdated": "Manual updated to version {v}.",
+      "manualUpToDate": "The manual is already up to date.",
+      "manualUpdateFailed": "Could not reach the documentation server. The manual on this computer still works."
     }
   },
   "shortcuts": {

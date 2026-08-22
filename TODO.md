@@ -273,9 +273,12 @@ O caminho operacional que o Phillip descreveu: criar projeto e Artifact
 Configuration (o GitHub entrega o artefato num zip — a configuração é
 zip-file com pe-file dentro, o CONTRÁRIO do que o 3.5 assumia), configurar o
 Trusted Build System, assinar com o certificado de teste autoassinado, e só
-depois da revisão deles vem o certificado de produção. Assinar com o de teste
-exige um modo do release.yml que construa e assine SEM publicar (hoje não
-existe: ou dry-run que para no preflight, ou release completa).
+depois da revisão deles vem o certificado de produção. O modo que faltava no
+release.yml, construir e assinar SEM publicar, entrou em 22/08/2026 como a
+entrada `sign_only` do `workflow_dispatch`: ela constrói, assina, guarda o
+instalador como anexo da execução para conferência e pula os três passos que
+falam com o canal de distribuição. O certificado de teste é autoassinado e o
+instalador que ele produz não pode ir para os alunos.
 
 Vale saber, para não gastar dinheiro à toa: certificado EV deixou de dar
 reputação instantânea no SmartScreen em março de 2024, então OV e EV se

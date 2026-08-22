@@ -44,10 +44,18 @@ on:
         description: 'Preflight only, build and publish nothing'
         type: boolean
         default: false
+      sign_only:
+        description: 'Build and sign, publish nothing'
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'Preflight only — verify publish access, build and publish nothing'
+        type: boolean
+        default: false
+      sign_only:
+        description: 'Build and SIGN, publish nothing — for exercising the SignPath test certificate'
         type: boolean
         default: false
 
@@ -253,11 +261,37 @@ jobs:
           Copy-Item $signed.FullName (Join-Path 'release' $signed.Name) -Force
           node scripts/patch-latest-yml.js release $signed.Name
 
+      # Ensaio da assinatura: construiu, assinou, e para aqui.
+      #
+      # O certificado de TESTE da SignPath e autoassinado, entao o instalador
+      # que ele produz NAO pode ir para o canal de distribuicao: um cliente que
+      # o baixasse veria um publicador em que a maquina dele nao confia, que e
+      # pior do que o nao assinado de hoje. O que se quer deste modo e provar o
+      # caminho, credencial, Artifact Configuration, politica e a troca do
+      # instalador com o manifesto refeito, sem tocar em ninguem la fora.
+      #
+      # O .exe assinado sai como anexo da execucao, para ser baixado e conferido
+      # com `signtool verify /pa` e com o `Get-AuthenticodeSignature` do
+      # PowerShell. Com o certificado de teste, os dois devem dizer que a
+      # assinatura existe e que a cadeia nao e confiavel; e esse o resultado
+      # certo, e nao um erro.
+      - name: Upload the signed installer for inspection (sign_only)
+        if: ${{ inputs.sign_only == true }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-installer
+          path: |
+            release/sapho-aurora-Setup-*.exe
+            release/sapho-aurora-Setup-*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+
       # The single publish path, signed or not. Uploading all three assets in
       # one command is deliberate: the updater needs `latest.yml` to see the
       # release at all and the `.blockmap` to download only what changed, so
       # partial success is the failure mode worth designing against.
       - name: Publish to the distribution channel
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -297,6 +331,7 @@ jobs:
       # release. So we re-download what the release actually serves and compare
       # it against the bytes we just built, from the outside, as a client would.
       - name: Verify the published update feed
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -390,6 +425,7 @@ jobs:
       # changelog. Fetch the notes by tag instead, and let the payload be a
       # shortcut for the day the trigger does fire.
       - name: Mirror release notes to the distribution channel
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}

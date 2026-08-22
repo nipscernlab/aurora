@@ -652,21 +652,245 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       22/08/2026, e é o item de maior consequência para as trinta máquinas,
       porque é o único que pode estar quebrando coisas hoje sem ninguém saber.
 
-      O levantamento inicial, para não recomeçar do zero: 49 `setTimeout` com
-      número literal em `js/` e `main/`, concentrados em
-      `ai_assistant_manager.js` (6), `aurora_settings.js` (4), `ipc/project.js`
-      (3), `project_tree_actions.js` (3) e `git_panel.js` (3). Há ainda laços
-      com teto de tentativa em `split_editor.js:367` (20 tentativas) e
-      `tab_orientation.js:66` (40), além dos limites de IA em `ai/retry.js` e
-      das esperas de fase do `lifecycle.js`.
-
       O método combinado: RELATÓRIO primeiro, com cada achado, o que acontece
       quando ele falha e se o estado se perde, e só depois as correções, porque
-      boa parte vai ser decisão de produto e não conserto óbvio. O que procurar,
-      em ordem de gravidade: espera fixa usada como sincronização, onde o certo
-      é observar o sinal; teto de tentativa que desiste calado; `catch` de
-      melhor esforço que engole perda de estado; e cancelamento que deixa
-      processo ou arquivo para trás.
+      boa parte vai ser decisão de produto e não conserto óbvio.
+
+      **Relatório de 22/08/2026.** Foram lidos os 49 `setTimeout` com número
+      literal, os 14 `setInterval`, os três `Promise.race`, os laços com teto de
+      tentativa, e os caminhos de rede, de processo filho e de encerramento do
+      processo principal. São dezenove achados, agrupados pelo que acontece
+      quando falham e ordenados por consequência, não por arquivo. Nenhum deles
+      está no yanc, então o `NOTAS-YANC.md` não muda.
+
+      **A. Espera sem teto nenhum.** É a classe pior, porque não falha: pendura,
+      e nada no log diz que aconteceu.
+
+      1. O arranque do editor pode não terminar nunca.
+      `ensureMonacoInitialized`, em [monaco_editor.js](js/editor/monaco_editor.js),
+      sonda `window.monaco` a cada 100 ms sem teto, e o `require([...])` do
+      `initMonaco` é chamado sem errback. Se o carregador AMD falhar, que é o
+      modo de falha do monaco 0.53.0 já registrado no ARCHITECTURE §8, ou se o
+      `dist/` sair incompleto, nenhuma das duas promessas se resolve, o `finally`
+      que resolve `EditorManager.ready` nunca roda, e todo `addTab` fica preso no
+      `await`. A aba aparece, o editor não, sem erro, sem log e sem fim. Estado:
+      nada se perde no disco, mas a sessão inteira fica inútil e o aluno só
+      descobre fechando. Isto contradiz o ARCHITECTURE §7, que afirma que a
+      promessa resolve mesmo quando a inicialização falha: ela resolve quando a
+      inicialização falha rejeitando, não quando ela não termina. Ou o código
+      ganha teto e rejeição, ou o §7 tem um bug.
+
+      2. As chamadas ao GitHub não têm prazo. `apiGet`, `apiPost` e
+      `oauthPostJson`, em [github_auth.js](main/ipc/github_auth.js), montam o
+      `https.request` sem `req.setTimeout`. Numa rede que aceita a conexão e não
+      responde, que é o portal cativo de laboratório, o handler IPC nunca
+      resolve e o painel gira para sempre. Estado: não se perde, porque o vault
+      só é escrito no fim; o usuário refaz o login. O
+      [fetcher.js](main/net/fetcher.js) já resolve isso com `IDLE_TIMEOUT_MS`, e
+      é de lá que a solução deve vir.
+
+      3. O git remoto não tem prazo, e trava o painel inteiro. O `simpleGit(...)`
+      é construído sem a opção `timeout` em todos os pontos de
+      [git.js](main/ipc/git.js), inclusive no `git:clone`. Um push contra um
+      remoto inalcançável, ou um clone grande num link ruim, não tem prazo nem
+      cancelamento. O agravante é o `run()` do
+      [git_panel.js](js/git/git_panel.js): ele marca `busy = true` na entrada e
+      só desmarca no `finally`, e todo outro botão do painel começa com
+      `if (busy) return`. Uma operação remota pendurada mata o painel de Git
+      inteiro, calado, até reiniciar a AURORA. Soma-se que nada define
+      `GIT_TERMINAL_PROMPT=0`, então um repositório privado sem credencial pode
+      ficar esperando uma resposta que ninguém vai digitar. Estado: o clone
+      parcial fica no disco e não entra na lista de clonados, porque o
+      `recordCloned` só roda quando a promessa volta.
+
+      **B. Espera fixa usada como sincronização.** Onde o certo é observar o
+      sinal, que em todos estes casos existe.
+
+      4. O arranque decide a hora de mostrar a janela por relógio. O
+      `app:renderer-ready` sai do [renderer.js](js/app/renderer.js) dois
+      `requestAnimationFrame` depois do `window.onload`, e o comentário ali diz
+      que isso espera o primeiro layout do Monaco; não espera, porque o
+      `initMonaco()` da linha de cima é chamado sem `await` e os módulos AMD
+      carregam depois. O [windows.js](main/windows.js) ainda arma
+      `setTimeout(handoff, 2200)` no `ready-to-show` como reserva, e o
+      `splash:filled` espera outros 2000 antes de revelar. Numa máquina fria a
+      janela aparece com o editor ainda subindo, e o sintoma é o do
+      ARCHITECTURE §5: clicar num arquivo abre a aba e não abre o editor.
+      Estado: nada se perde, mas é o primeiro contato do aluno com a AURORA.
+
+      5. O PRISM recebe o esquemático por temporizador. O
+      [prism.js](main/ipc/prism.js) manda o `compilation-complete` 1000 ms
+      depois de o `loadPage` resolver. Como o `loadPage` resolve no
+      `did-finish-load`, que vem depois do `DOMContentLoaded` em que o
+      `PRISMViewer` registra o ouvinte, esse segundo é latência morta em toda
+      abertura. E como o envio é empurrado e não puxado, se algum dia o registro
+      atrasar mais que isso o esquemático se perde sem erro nenhum, porque não
+      há reenvio. Os outros três pontos de envio do mesmo canal já fazem certo,
+      esperando o `did-finish-load`. O certo é o renderer pedir o payload quando
+      estiver pronto.
+
+      6. Criar projeto e criar processador dormem um segundo cada. O
+      [processor_hub.js](js/processors/processor_hub.js) dorme 1000 ms depois de
+      `createProcessorProject` resolver e antes de mandar atualizar a árvore; o
+      [new_project_modal.js](js/ui/new_project_modal.js) dorme os mesmos 1000 ms
+      entre `createProjectStructure` e `loadProject`; e o próprio
+      `project:createStructure` em [project.js](main/ipc/project.js) tem um
+      `setTimeout(0)` entre escrever o `.spf` e conferir que ele existe. Nos
+      três, o IPC já resolveu, ou seja o arquivo já está escrito, e a espera não
+      protege de nada. Se o intuito era dar tempo ao vigia de diretório, então
+      numa máquina lenta 1000 ms também não bastam e a árvore sai vazia. Estado:
+      nada se perde; o custo são dois segundos somados nos dois fluxos que o
+      aluno percorre no primeiro dia.
+
+      7. A árvore declara projeto ausente por relógio. O
+      [file_tree_manager.js](js/tree/file_tree_manager.js) desenha o cartão de
+      "nenhum projeto" 3000 ms depois do arranque se a restauração automática
+      ainda não tiver terminado. Num projeto grande em disco lento é exatamente
+      o que acontece, e a AURORA diz que não há projeto enquanto carrega o
+      projeto. Estado: não se perde, mas convida ao clique errado, que é criar
+      outro projeto por cima.
+
+      8. O "verificar agora" das Configurações relê o diagnóstico 1500 ms
+      depois de pedir a checagem ([aurora_settings.js](js/processors/aurora_settings.js)).
+      Uma checagem mais lenta que isso deixa os números velhos na tela e o
+      usuário conclui que o botão não funcionou. O updater já publica evento; o
+      painel deveria ouvir em vez de reler no escuro.
+
+      9. O `clearTerminal` anima por 200 ms e só então zera o `innerHTML`
+      ([terminal_module.js](js/terminal/terminal_module.js)). Qualquer linha que
+      outro produtor escreva nessa janela é apagada antes de ser vista. Hoje os
+      dois chamadores esperam o `await` antes de escrever, e o comentário do
+      `asmCompilation` registra que essa perda já aconteceu uma vez com a
+      mensagem de preâmbulo. É armadilha aberta, não bug ativo.
+
+      **C. Teto de tentativa ou de tempo que desiste calado.**
+
+      10. Formatar não avisa quando desiste. O
+      [clang_format.js](main/format/clang_format.js) e o
+      [python_format.js](main/format/python_format.js) matam o processo em 15 s
+      e devolvem `null`, e o provedor do Monaco devolve zero edições. Shift+Alt+F
+      num arquivo grande simplesmente não faz nada, sem aviso e sem linha no
+      terminal. Estado: nada se perde, mas o usuário não distingue "já estava
+      formatado" de "desistiu".
+
+      11. O shell da IA devolve saída truncada como se fosse completa. O
+      `runCommand` do [shell_terminal.js](js/terminal/shell_terminal.js) decide
+      que o comando acabou por 500 ms de silêncio, com teto de 4000 ms, e nos
+      dois casos devolve `ok: true` com o que juntou até ali. Qualquer comando de
+      mais de quatro segundos, um build ou um `pip install`, volta cortado e
+      indistinguível de um que terminou, e a `runInShell` do
+      [aurora_api.js](js/api/aurora_api.js) entrega isso ao modelo. Estado:
+      nenhum estado do usuário se perde, mas a decisão seguinte da IA é tomada
+      sobre dado incompleto, e é isto que a faz afirmar resultado que não houve.
+
+      12. O Surfer desiste em 30 s de um dump que ainda está sendo lido. O
+      `waitForServer` do [surfer_tab.js](main/ipc/surfer_tab.js) dá 30 s para o
+      servidor dizer que carregou a onda, e ao estourar derruba o servidor e
+      devolve erro. O tempo de parse do FST cresce com o dump, e esta mesma
+      seção registra medida de 854 MB. Nesse tamanho 30 s não chegam, e o
+      usuário recebe "o servidor não subiu" para um servidor que estava subindo.
+      Estado: perde-se o servidor, que é morto; a simulação está no disco, então
+      é retrabalho e não perda.
+
+      13. Duas instalações por sondagem desistem sem dizer. O
+      [split_editor.js](js/editor/split_editor.js) tenta 20 vezes a cada 150 ms
+      ligar a sincronia de rolagem do preview, e o
+      [tab_orientation.js](js/terminal/tab_orientation.js) tenta 40 vezes
+      instalar a orientação das abas do terminal. Os dois desistem chamando
+      `clearInterval` e mais nada. Três e seis segundos são folgados hoje, e o
+      que se perde é conforto, não função; falta a linha de log, porque no dia em
+      que isso passar a acontecer ninguém terá por onde começar.
+
+      14. A contabilidade de um turno de IA some em silêncio. O
+      [chat.js](main/ai/chat.js) corre a promessa de `usage` contra 5000 ms e,
+      perdendo, manda o `finish` com `usage: null`. A decisão está certa, porque
+      segurar o `finish` congelaria a conversa por três minutos. O que falta é
+      registrar: hoje o consumo daquele turno desaparece da barra sem uma linha
+      no log.
+
+      **D. Cancelamento que deixa processo ou arquivo para trás.**
+
+      15. O instalador de componentes está fora do registro de processos. O
+      [components.js](main/ipc/components.js) sobe o script de download com
+      `spawn(process.execPath, ...)` puro, e não com o `spawnTracked` do
+      [process_registry.js](main/process_registry.js). Consequência: o
+      `stopAllToolchain` do encerramento não o mata, e o `reapOrphans` do
+      arranque também não, porque ele casa por prefixo de caminho e o executável
+      desse filho é o da instalação, não o de `components/`. Fechar a AURORA no
+      meio do download do MSYS deixa um processo Node baixando e extraindo dentro
+      de `components/`, sem janela nenhuma. É exatamente o cenário que o
+      cabeçalho do `process_registry.js` descreve como o que faz uma instalação
+      terminar pela metade, e é o mais grave da lista, porque coincide com o
+      momento de implantar na frota.
+
+      16. A extração não tem prazo nem dono. O `extractArchive` e o `listArchive`
+      do [fetcher.js](main/net/fetcher.js), e o `execFile('tar', ...)` do
+      [cli_downloader.js](main/ai/cli_downloader.js), chamam o bsdtar sem
+      timeout e sem `spawnTracked`. Um tar que encalha num arquivo travado pelo
+      antivírus, que em laboratório acontece, pendura a promessa para sempre e o
+      painel fica em "instalando" até reiniciar. Estado: a pasta de destino fica
+      meio extraída, mas a sentinela impede a AURORA de usar o que está
+      incompleto e o doctor sabe reinstalar com `--force`, então não há uso de
+      binário quebrado; sobram o processo vivo e o lixo em disco.
+
+      17. Nenhum filho do git passa pelo registro. Fechar a AURORA durante um
+      clone não mata o `git.exe`, que segue escrevendo na pasta de destino de uma
+      AURORA que não existe mais. Estado: a pasta clonada fica no disco sem
+      entrar na lista de clonados, pelo mesmo motivo do achado 3.
+
+      18. O fluxo de dispositivo do GitHub não é cancelável. O `deviceFlowLogin`
+      fica no laço até o `expires_in`, tipicamente quinze minutos, e nada o
+      interrompe. Quem desiste e fecha a janela deixa a AURORA batendo no GitHub
+      a cada poucos segundos por um quarto de hora. Estado: nada se perde.
+
+      19. A remoção de arquivo da árvore pode não chegar ao `.spf`. Em
+      [project_tree_actions.js](js/project/project_tree_actions.js), o
+      `removeFile` agenda o `doRemove` para 300 ms depois, pela animação, e não
+      espera pelo resultado. Fechar o projeto ou a AURORA nesses 300 ms significa
+      que a linha sumiu da tela e o `.spf` nunca mudou, então o arquivo volta ao
+      reabrir. E como o `setTimeout` recebe uma função `async`, qualquer erro
+      dentro dela vira rejeição não tratada, sem notificação. Estado: é o único
+      achado da lista em que a tela mente sobre o disco.
+
+      **O que foi conferido e está certo**, para não ser reaberto: o
+      [retry.js](main/ai/retry.js), com jitter completo, teto de três tentativas
+      e checagem de `aborted` depois do sono; o
+      [timeouts.js](main/ai/timeouts.js), que é o modelo a seguir, uma tabela só
+      com hierarquia declarada e autoverificação que estoura no carregamento se
+      alguém quebrar a ordem; o [updater.js](main/updater.js), com o backoff
+      nomeado em [update_schedule.js](main/update_schedule.js) e temporizadores
+      com `unref`; o [process_registry.js](main/process_registry.js), com grupos
+      de cancelamento e coalescência do desligamento; o `download` do
+      [fetcher.js](main/net/fetcher.js), com abort, timeout de ociosidade,
+      arquivo temporário e verificação de digest; o
+      [lifecycle.js](main/lifecycle.js), com a rede de dez segundos, a saída
+      forçada e a exceção correta quando há atualização baixada; o
+      [tree_undo.js](main/ipc/tree_undo.js), que sobrevive a queda por desenho; o
+      [tool_bridge.js](main/ai/tool_bridge.js), que falha por evento quando o
+      renderer some em vez de esperar o backstop; e o `stopToolchainRun` com o
+      `cancelAll` do [compilation_flow.js](js/compilation/compilation_flow.js),
+      que mata por grupo e avisa a IA de que o cancelamento partiu do botão.
+
+      **As decisões que são suas**, antes de qualquer correção:
+
+      a. Teto para o arranque do Monaco. Se ele não subir em N segundos, a
+      AURORA mostra o quê? Erro dentro da janela, ou um diálogo pedindo
+      reinstalação? Hoje ela não mostra nada.
+      b. Prazo de rede padrão no processo principal. Adotar uma tabela única no
+      estilo do `timeouts.js` cobrindo GitHub, git e componentes, ou decidir
+      caso a caso?
+      c. Cancelar clone e cancelar download de componente: viram botão, ou basta
+      garantir que não fica processo para trás no encerramento?
+      d. O `runCommand` da IA: subir o teto, ou passar a devolver "truncado" e
+      deixar o modelo decidir se espera mais?
+      e. O Surfer: subir os 30 s, ou torná-los proporcionais ao tamanho do FST?
+      f. Sinal de editor pronto no arranque: atrasar o splash até o
+      `EditorManager.ready`, aceitando splash mais longo, ou revelar antes e
+      segurar a árvore até o editor existir?
+
+      Ordem sugerida quando você decidir: 15, 3 e 1 primeiro, porque são os que
+      quebram a máquina do aluno; 19 em seguida, porque é o único que perde
+      estado; 11 e 5 depois, por serem baratos; e o resto conforme a decisão.
 
       Já corrigidos nesta linha, como precedente do que fazer: o disjuntor do
       slang, a espera de uma hora pela aprovação da SignPath e a rede de

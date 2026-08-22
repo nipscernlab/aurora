@@ -332,20 +332,42 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       aprovação da OSI e como pedido custa zero; e manter declaração explícita
       de que nome e logotipo SAPHO e AURORA não são concedidos pela licença de
       software.
-- [ ] **3.5 Painel da SignPath**, que só o usuário faz: resolver a política
-      `release-signing`, hoje INVALID (costuma ser Artifact Configuration
-      ausente ou revisão pendente); criar a Artifact Configuration apontando
-      para um único PE do Windows, `sapho-aurora-Setup-v<versão>.exe`, porque
-      se ela esperar `.zip` a submissão falha; decidir o modelo de aprovação
-      antes de ligar o CI, já que os termos exigem um Approver por requisição e
-      o pipeline é automático (ou aprova-se cada release no painel, aceitável
-      porque releases são raras, ou negocia-se dispensa para build de origem
-      verificada); criar pelo menos duas contas individuais, porque o ToS §2.3
-      proíbe login compartilhado e é preciso um Approver além do submissor;
-      ativar 2FA para todos os contribuidores; confirmar que a organização é a
-      `SAPHO [OSS]` e que não há trial ativa, que é a porta pela qual as
-      cláusulas de pagamento passariam a valer; conferir o Trusted Build
-      Systems, lembrando que o build roda em `aurora` e publica em `sapho`.
+- [ ] **3.5 Painel da SignPath**, que só o usuário faz. Na ordem, porque um
+      passo depende do anterior:
+
+      1. Confirmar que a organização é a `SAPHO [OSS]` e que NÃO há trial
+         ativa. A trial é a porta pela qual as cláusulas de pagamento passam a
+         valer.
+      2. Criar as contas individuais, no mínimo duas. O ToS §2.3 proíbe login
+         compartilhado, e é preciso um Approver além de quem submete. Ativar
+         2FA em todas.
+      3. Criar a Artifact Configuration com o XML de
+         [build/signpath-artifact-configuration.xml](build/signpath-artifact-configuration.xml),
+         que já está versionado com o motivo de cada linha. A forma é
+         `zip-file` com `pe-file` dentro, e não um PE solto, porque o
+         `upload-artifact` do GitHub empacota tudo num zip. O padrão do nome
+         usa `*` porque a versão vive no nome do arquivo.
+      4. Resolver a política `release-signing`, hoje INVALID. Costuma ser
+         exatamente a Artifact Configuration ausente do passo anterior.
+      5. Decidir o modelo de aprovação. O programa gratuito exige um Approver
+         humano por requisição, e o pipeline é automático: ou se aprova cada
+         release no painel, o que é aceitável porque release é raro, ou se
+         negocia dispensa para build de origem verificada. O workflow já espera
+         uma hora pela aprovação (`wait-for-completion-timeout-in-seconds`),
+         então há tempo de receber a notificação e clicar.
+      6. Conferir o Trusted Build System, lembrando que o build roda em
+         `aurora` e publica em `sapho`.
+      7. Criar o secret `SIGNPATH_API_TOKEN` e as três `vars`
+         (`SIGNPATH_ORG_ID`, `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_POLICY_SLUG`)
+         no repositório `aurora`. Sem o secret, o workflow publica sem assinar,
+         exatamente como hoje.
+      8. Disparar o `release.yml` pelo `workflow_dispatch` com `sign_only`
+         marcado. Ele constrói, assina com o certificado de teste, guarda o
+         instalador como anexo da execução e não publica nada. Baixar o anexo e
+         conferir com `signtool verify /pa` e `Get-AuthenticodeSignature`: com
+         certificado de teste o esperado é a assinatura existir e a cadeia não
+         ser confiável. Esse é o resultado certo.
+
 - [ ] **3.6 Escrever a página pública de Code signing policy** no site do
       projeto, listando os papéis (Autor, Revisor, Aprovador) e as informações
       de privacidade. É pré-requisito do primeiro release assinado.

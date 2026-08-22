@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Artifact Configuration da SignPath para o instalador da AURORA.
+
+  POR QUE ESTE ARQUIVO EXISTE AQUI
+  --------------------------------
+  A configuracao de verdade e editada no painel da SignPath, nao lida daqui. O
+  que se ganha versionando uma copia e memoria: quando a assinatura falhar
+  daqui a um ano, com outra pessoa no comando, a pergunta vai ser "o que estava
+  configurado la?", e a resposta precisa existir em algum lugar que nao seja a
+  lembranca de alguem. Se mudar no painel, mude aqui no mesmo dia.
+
+  A FORMA E ZIP COM UM PE DENTRO, E NAO UM PE SOLTO
+  -------------------------------------------------
+  O passo `actions/upload-artifact` empacota o que sobe num zip, sempre, mesmo
+  quando e um arquivo so. Entao o que chega na SignPath e um zip, e uma
+  configuracao que esperasse um `pe-file` na raiz recusa a submissao com uma
+  mensagem que nao explica isso. E o contrario do que parece natural, e ja
+  custou tempo: veja o TODO.md, secao 3.
+
+  O NOME DO ARQUIVO CARREGA A VERSAO
+  ----------------------------------
+  O instalador sai como `sapho-aurora-Setup-v6.9.0.exe`, com a versao no nome
+  (build.win.artifactName no package.json). Por isso o padrao usa `*`: fixar o
+  nome exato obrigaria a editar esta configuracao a cada release, e esquecer
+  disso quebraria a assinatura exatamente na hora de publicar.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file path="sapho-aurora-Setup-v*.exe">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

@@ -200,11 +200,18 @@ jobs:
       # credential degrades to an unsigned build instead of blocking an urgent
       # fix. The unsigned install path in TODO.md section 2 stays valid forever.
       #
-      # Before creating the secret, check the action's own README for its input
-      # names, and set the three `vars` (SIGNPATH_ORG_ID, SIGNPATH_PROJECT_SLUG,
-      # SIGNPATH_POLICY_SLUG) from the SignPath panel. TODO.md section 3 lists
-      # what has to be decided there first, including that the free programme
-      # requires a human Approver per signing request.
+      # Os nomes dos inputs abaixo foram conferidos em 22/08/2026 contra o
+      # action.yml publicado da action (branch main): `api-token`,
+      # `organization-id`, `project-slug`, `signing-policy-slug`,
+      # `github-artifact-id`, `wait-for-completion`, `output-artifact-directory`
+      # e `wait-for-completion-timeout-in-seconds` existem e estao escritos
+      # assim. Ha um `artifact-configuration-slug` OPCIONAL, que so e preciso
+      # quando o projeto tem mais de uma Artifact Configuration; com uma so,
+      # deixar de fora e o correto.
+      #
+      # Falta criar o secret e as tres `vars` (SIGNPATH_ORG_ID,
+      # SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG) no painel. TODO.md secao 3
+      # lista o que precisa ser decidido la primeiro.
       # Always `--publish never`. electron-builder's own GitHub publisher used to
       # do the upload, and it is the wrong tool for a CROSS-repo release: it
       # half-published 6.4.0, putting the 550 MB installer on the release and
@@ -242,6 +249,15 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: dist-signed
+          # Uma hora, e nao os 600 s padrao da action.
+          #
+          # O programa gratuito da Foundation exige um Approver HUMANO por
+          # requisicao de assinatura (ToS 2.3). Com o padrao, o passo desiste
+          # depois de dez minutos, e uma release feita fora do horario de quem
+          # aprova falharia sozinha, deixando a tag publicada sem instalador.
+          # Uma hora e folgado para alguem receber a notificacao e clicar, e
+          # nao custa nada quando a aprovacao e automatica.
+          wait-for-completion-timeout-in-seconds: '3600'
 
       # The signed .exe goes back where electron-builder left the unsigned one,
       # then latest.yml (sha512 + size) and the .blockmap are rebuilt from it.

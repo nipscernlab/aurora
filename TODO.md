@@ -190,7 +190,15 @@ atualizado sem visita, e é o único do 2.3 que continua no escuro.
       a cada versão nova, como parte do procedimento de atualização. É tarefa
       da TI e é a ação de maior efeito contra o SmartScreen: a reputação
       orgânica exige semanas e centenas de instalações limpas, volume que
-      algumas dezenas de máquinas nunca geram. Não depende da assinatura.
+      algumas dezenas de máquinas nunca geram.
+
+      QUANDO submeter, decidido em 22/08/2026: só a partir do primeiro
+      instalador assinado. Reputação de SmartScreen se acumula no certificado,
+      e um envio sem assinatura constrói no máximo algo preso ao hash daquele
+      arquivo, que evapora na versão seguinte. A exceção é falso positivo: se o
+      Defender começar a barrar ou colocar em quarentena, submeter na hora,
+      porque aí o assunto é o arquivo e não o publicador. Até hoje isso não
+      aconteceu em nenhuma máquina do LABEL.
 - [ ] **2.7 Roteiro de verificação** em cada máquina instalada. Falhando algum
       passo, o problema é quase sempre o 2.3. Em 22/08/2026 os passos 1 a 3
       passaram no LABEL, com a cadeia de compilação rodando inteira; sobra
@@ -290,12 +298,25 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       Foundation exige licença aprovada pela OSI, a MIT servia, a NIPS-CERN 1.1
       não é aceita automaticamente, e há revisão interna em curso. Assinar com
       o certificado de teste segue liberado.
-- [ ] **3.1.1 Acompanhar a revisão interna da SignPath**, sem forçar. A decisão
-      do grupo é esperar e seguir a orientação que vier. Se eles pedirem
-      informação, o material já está pronto nesta seção: a divisão de licenças
-      proposta no 3.2 e a lista do que viaja dentro do binário assinado. Se a
-      revisão demorar a ponto de atrasar a frota, aí sim vale um e-mail curto
-      na mesma thread perguntando prazo, e não argumentando licença.
+- [ ] **3.1.1 Responder ao Phillip pedindo a emissão do certificado de
+      produção.** Decidido em 22/08/2026, depois do ensaio. Não é forçar a
+      revisão da licença: é o passo seguinte no procedimento que ele mesmo
+      descreveu no primeiro e-mail, que era assinar com o certificado de teste
+      e avisar quando estivesse tudo pronto, para eles revisarem a configuração
+      e encomendarem o certificado de verdade.
+
+      O que contar na mensagem, tudo verificável do lado deles: a Artifact
+      Configuration está criada e válida, o `CI builds` submete pela política
+      `test-signing`, a requisição 432e4179 saiu do commit `eba504a` em `main`
+      pela integração do GitHub, e o instalador voltou assinado, com carimbo de
+      tempo da DigiCert, cadeia terminando em raiz não confiável como é
+      esperado de certificado de teste. A página pública de política de
+      assinatura está no ar em nipscern.com/code-signing, que é pré-requisito
+      deles.
+
+      Mencionar que a revisão da licença segue em aberto e que vocês aguardam a
+      orientação, sem pedir desfecho. As duas coisas correm em paralelo, e
+      misturá-las só atrasa a que já está pronta.
 
 - [ ] **3.2 Decidir as bases de licença** com o orientador e, pela Lei de
       Inovação, provavelmente com o NIT da UFJF. Desde 22/08/2026 isto NÃO

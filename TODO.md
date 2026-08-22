@@ -115,16 +115,24 @@ Icarus (`iverilog`, `vvp`), Verilator com `g++`/`make`/`perl`, Yosys, GTKWave,
 Python 3.12, e as ferramentas de linguagem (`verible-verilog-ls`,
 `slang-server`, `clang-format`). Qualquer binário fora dela é recusado.
 
-Em 22/08/2026 o SAPHO foi instalado em todas as máquinas do LABEL. Os itens
-abaixo continuam abertos porque instalar e configurar são coisas diferentes: a
-IDE abrir não prova que o Defender tem as exclusões, que o AppLocker libera o
-caminho do updater, nem que uma compilação de verdade roda até o fim. O que
-fecha cada um é a verificação da 2.7 em cada máquina.
+Em 22/08/2026 o SAPHO foi instalado em todas as máquinas do LABEL e a cadeia de
+compilação rodou inteira lá dentro. Isso é a prova que faltava para o risco
+principal desta seção: os compiladores executam a partir do perfil do usuário,
+então nenhuma política do tipo "só executa em Arquivos de Programas" está
+barrando o caminho do programa nem o de `components\`, inclusive o
+`components\Temp\` que o Verilator usa para o binário que compila na hora.
+
+O que a compilação NÃO prova é o terceiro caminho, o
+`%LOCALAPPDATA%\sapho-updater\pending\`, porque ele só é exercitado durante
+uma atualização de verdade. É o caminho que decide se o laboratório poderá ser
+atualizado sem visita, e é o único do 2.3 que continua no escuro.
 
 - [ ] **2.1 Decidir o modelo de implantação**, antes de instalar: se o perfil é
       descartado no logoff (imagem congelada), a IDE entra na imagem base e não
       é instalada por aluno.
-- [ ] **2.2 Exclusões do Defender.** Sem elas o efeito é lentidão, não bloqueio:
+- [ ] **2.2 Exclusões do Defender**, agora sabidamente uma questão de tempo e
+      não de funcionamento: a compilação roda no LABEL com o que estiver
+      configurado hoje. Sem elas o efeito é lentidão, não bloqueio:
       uma compilação com Verilator gera centenas de intermediários, e cada um
       passa pela varredura em tempo real. Por GPO, ou por PowerShell
       administrativo em cada máquina:
@@ -146,6 +154,10 @@ fecha cada um é a verificação da 2.7 em cada máquina.
       abre normalmente e só falha ao compilar, com erro que parece bug da
       aplicação. O diretório `components\Temp\` também precisa permitir
       execução, por causa do executável que o Verilator compila na hora.
+
+      Em 22/08/2026 as duas primeiras ficaram provadas na prática: a cadeia de
+      compilação rodou inteira nas máquinas do LABEL, o que só acontece se a
+      execução a partir do perfil estiver liberada.
 
       A terceira decide se o laboratório poderá ser atualizado sem visita. O
       atualizador baixa o instalador para `%LOCALAPPDATA%\sapho-updater\pending\`
@@ -180,12 +192,15 @@ fecha cada um é a verificação da 2.7 em cada máquina.
       orgânica exige semanas e centenas de instalações limpas, volume que
       algumas dezenas de máquinas nunca geram. Não depende da assinatura.
 - [ ] **2.7 Roteiro de verificação** em cada máquina instalada. Falhando algum
-      passo, o problema é quase sempre o 2.3.
-      1. A IDE abre e mostra a tela inicial.
-      2. Abrir um projeto de exemplo e compilar, sem erro (exercita os
-         compiladores SAPHO).
-      3. Executar a simulação e abrir as formas de onda (exercita
-         Icarus/Verilator, GTKWave e a execução a partir de `components\Temp\`).
+      passo, o problema é quase sempre o 2.3. Em 22/08/2026 os passos 1 a 3
+      passaram no LABEL, com a cadeia de compilação rodando inteira; sobra
+      confirmar o passo 4 e repetir a passagem em cada máquina, não só nas que
+      já foram usadas.
+      1. ~~A IDE abre e mostra a tela inicial.~~
+      2. ~~Abrir um projeto de exemplo e compilar, sem erro (exercita os
+         compiladores SAPHO).~~
+      3. ~~Executar a simulação e abrir as formas de onda (exercita
+         Icarus/Verilator, GTKWave e a execução a partir de `components\Temp\`).~~
       4. Configurações > Sobre > Atualizações não deve dizer que não alcança o
          servidor.
 - [ ] **2.8 Conferir disco e proxy.** O updater usa a configuração de proxy do
@@ -237,22 +252,22 @@ aceita automaticamente; eles vão revisar internamente. E uma quarta que dá
 folga: "You can still do signings", ou seja, a conta continua servindo com o
 certificado de teste enquanto a revisão corre.
 
-O que isso significa, sem rodeio. O programa da Foundation existe para projetos
-que abrem mão de exploração comercial, e a licença do laboratório existe
-justamente para preservar essa possibilidade. As duas coisas se contradizem, e
-nenhuma redação esperta resolve isso: ou a licença do que vai dentro do binário
-assinado passa a ser aprovada pela OSI, ou o certificado gratuito sai de cena e
-entra um comprado. Decidir por qual dos dois lados ceder é do grupo, não é
-conclusão técnica, e é o que trava a assinatura hoje.
+A DECISÃO, tomada em 22/08/2026: assinar agora com o que a SignPath já liberou,
+esperar a revisão interna deles sobre a licença, e seguir a orientação que
+vier. Não se muda licença por antecipação, nem se compra certificado antes de
+saber se será preciso.
 
-Vale lembrar o que já está medido nesta mesma seção: certificado EV não compra
-mais reputação instantânea desde março de 2024, então um OV comprado se comporta
-igual ao gratuito da Foundation. A diferença é dinheiro por ano e a burocracia
-de emissão, não o comportamento do SmartScreen.
+Isso reordena a seção. O que estava travado esperando a licença passa a ser o
+plano B, e o caminho principal é o operacional, que não depende de decisão
+nenhuma: fechar o setup do painel, assinar com o certificado de teste, publicar
+a página de política de assinatura. Tudo isso é exigido nos dois desfechos, e é
+exatamente o que o Phillip liberou ao escrever "You can still do signings".
 
-O caminho que não depende dessa decisão e pode andar já: fechar o setup do
-painel com o certificado de TESTE (itens 3.5 a 3.7), que é exigido nos dois
-desfechos e é o que o Phillip liberou explicitamente.
+Sobre o SmartScreen, para calibrar a expectativa de quem for validar: o aviso
+não some no dia em que a primeira release assinada sair. O que a assinatura
+constrói é reputação acumulada no certificado do publicador, e ela chega com o
+tempo e com downloads; as primeiras instalações assinadas ainda podem avisar.
+Isso é esperado e não é sinal de problema no certificado.
 
 O caminho operacional que o Phillip descreveu: criar projeto e Artifact
 Configuration (o GitHub entrega o artefato num zip — a configuração é
@@ -272,26 +287,19 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       Foundation exige licença aprovada pela OSI, a MIT servia, a NIPS-CERN 1.1
       não é aceita automaticamente, e há revisão interna em curso. Assinar com
       o certificado de teste segue liberado.
-- [ ] **3.1.1 Responder ao Phillip na mesma thread, com a pergunta concreta.**
-      A revisão interna deles vai demorar menos, e decidir melhor, com a
-      proposta na mesa em vez de só a licença atual. Perguntar duas coisas, sem
-      dourar: se a divisão do item 3.2 (AURORA sob licença aprovada pela OSI,
-      Verilog do SAPHO sob CERN-OHL, yanc em MIT) satisfaz o "for all
-      components", já que o instalador assinado carrega os três; e se a
-      intenção declarada de preservar opcionalidade comercial para o
-      PROCESSADOR conflita com o "without commercial dual-licensing" dos termos
-      deles, mesmo com a AURORA sob licença livre. A segunda pergunta é
-      desconfortável e é exatamente por isso que precisa ser feita agora, e não
-      depois de montar o pipeline inteiro em cima de uma premissa que eles
-      podem recusar na revisão do certificado de produção.
-- [ ] **3.1.2 Levantar o custo do plano B**, para a decisão do 3.2 ser tomada
-      com o número na mão e não no escuro: um certificado OV de assinatura de
-      código, anual, em nome da UFJF ou do laboratório, mais o tempo de
-      validação da autoridade certificadora. Se o valor for pequeno diante do
-      que a licença protege, a discussão inteira muda de tom.
+- [ ] **3.1.1 Acompanhar a revisão interna da SignPath**, sem forçar. A decisão
+      do grupo é esperar e seguir a orientação que vier. Se eles pedirem
+      informação, o material já está pronto nesta seção: a divisão de licenças
+      proposta no 3.2 e a lista do que viaja dentro do binário assinado. Se a
+      revisão demorar a ponto de atrasar a frota, aí sim vale um e-mail curto
+      na mesma thread perguntando prazo, e não argumentando licença.
+
 - [ ] **3.2 Decidir as bases de licença** com o orientador e, pela Lei de
-      Inovação, provavelmente com o NIT da UFJF, antes de publicar qualquer
-      mudança. A proposta: AURORA em EUPL-1.2 (ou Apache-2.0, se quiserem
+      Inovação, provavelmente com o NIT da UFJF. Desde 22/08/2026 isto NÃO
+      trava mais a assinatura: a decisão é esperar a orientação da SignPath e
+      segui-la. O que está abaixo continua valendo como a proposta já estudada,
+      pronta para quando a resposta chegar, e não como movimento a fazer agora.
+      A proposta: AURORA em EUPL-1.2 (ou Apache-2.0, se quiserem
       alcance máximo sem copyleft); Verilog do SAPHO em CERN-OHL-S-2.0 (ou a
       variante W, fracamente recíproca, com mais adoção e menos proteção; a P
       está descartada por ser generosa demais para a joia da casa); yanc

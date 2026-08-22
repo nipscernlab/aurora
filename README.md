@@ -230,11 +230,15 @@ AURORA is developed and maintained by NIPS-CERN, the research and development
 group of the Department of Electrical Engineering at the
 [Universidade Federal de Juiz de Fora](https://www.ufjf.br), Brazil.
 
-The group operates two laboratories, one at CERN in Geneva and one in the
-graduate programme building at UFJF, with students and researchers working at
+The group operates two laboratories, with students and researchers working at
 both. The department is a
 [member institution of the ATLAS Collaboration](https://atlaspo.cern.ch/public/institutions/),
 with system membership in the Tile Calorimeter and the Liquid-Argon Calorimeter.
+
+| | |
+|---|---|
+| **NIPS**, UFJF | Depto. de Engenharia Elétrica, PPEE<br>R. José Lourenço Kelmer, s/n<br>Juiz de Fora, MG 36036-900, Brasil |
+| **Route Salam**, CERN | Espl. des Particules 1<br>CH-1211 Genève 23, Suisse |
 
 | | |
 |---|---|

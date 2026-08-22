@@ -6,11 +6,11 @@ authors:
   # Luciano Manhães de Andrade Filho — advisor (orientador).
   - given-names: "Luciano M. de A."
     family-names: "Filho"
-    affiliation: "NIPSCERN — Universidade Federal de Juiz de Fora"
+    affiliation: "NIPS-CERN — Universidade Federal de Juiz de Fora"
   # Chrysthofer Arthur Amaro Afonso — undergraduate (graduando).
   - given-names: "Chrysthofer A. A."
     family-names: "Afonso"
-    affiliation: "NIPSCERN — Universidade Federal de Juiz de Fora"
+    affiliation: "NIPS-CERN — Universidade Federal de Juiz de Fora"
 repository-code: "https://github.com/nipscernlab/aurora"
 url: "https://www.nipscern.com"
 abstract: >-

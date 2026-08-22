@@ -2825,7 +2825,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  *
  * Surfer (https://surfer-project.org/) is a Rust/egui waveform viewer that
  * reads the same VCD/FST. Aurora treats it as an optional standalone
- * surfer-aurora.exe under components/Packages/surfer/ (the NIPSCERN fork
+ * surfer-aurora.exe under components/Packages/surfer/ (the NIPS-CERN fork
  * build, gitlab.com/nips-cern/surfer-aurora). It opens as an external
  * window on the VCD, loading the active Surfer layout when one is set: a
  * .surf.ron saved state (via -s) or a .sucl command file (via -c). If the

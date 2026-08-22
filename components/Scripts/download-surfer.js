@@ -7,7 +7,7 @@
  * opt-in (toggle GTKWave<->Surfer); sem ele, o botao Wave cai pro GTKWave.
  *
  * Fork: gitlab.com/nips-cern/surfer-aurora (fork de surfer-project/surfer),
- * onde ficam as melhorias da NIPSCERN. Licenca EUPL-1.2, atribuicao no
+ * onde ficam as melhorias da NIPS-CERN. Licenca EUPL-1.2, atribuicao no
  * LICENSE da raiz; spawn arm's-length (a AURORA so executa o .exe, nao linka)
  * nao contamina a AURORA. O fork fica PUBLICO por exigencia da EUPL.
  *

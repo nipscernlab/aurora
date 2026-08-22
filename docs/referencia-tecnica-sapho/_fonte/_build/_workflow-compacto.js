@@ -43,7 +43,7 @@ LaTeX (classe article; o preambulo ja existe em main-compacto.tex):
 
 const SECTIONS = [
   { id: 'S01-visao-geral', title: 'Visão geral e contexto', src: ['01-contexto-visao-geral.tex'], budget: 450,
-    focus: 'NIPSCERN/UFJF; o que e SAPHO (e a sigla); modelo SAPHO = AURORA(IDE)+YANC(compiladores)+toolchain; subsistemas PRISM e Aurora Intelligence; publico-alvo; fluxo de alto nivel em 1 frase ou mini-diagrama; plataforma suportada (Windows p/ a IDE). 1 frase de que POLARIS foi sucessor descontinuado.' },
+    focus: 'NIPS-CERN/UFJF; o que e SAPHO (e a sigla); modelo SAPHO = AURORA(IDE)+YANC(compiladores)+toolchain; subsistemas PRISM e Aurora Intelligence; publico-alvo; fluxo de alto nivel em 1 frase ou mini-diagrama; plataforma suportada (Windows p/ a IDE). 1 frase de que POLARIS foi sucessor descontinuado.' },
   { id: 'S02-soft-processor', title: 'A arquitetura do soft-processor SAPHO', src: ['02-arquitetura-soft-processor-sapho.tex'], budget: 600,
     focus: 'estilo de datapath/registradores; memorias Harvard programa/dados; larguras configuraveis; ULA (int/fixo/float/complexo); I/O e FIFOs; .mif e _tb.v gerados; UM trecho Verilog minusculo OU uma tabela de modulos HDL (core/ula/processor/instr_dec/addr_dec/myFIFO) e seus papeis; nocao do ISA/opcodes.' },
   { id: 'S03-linguagem-cmm', title: 'A linguagem C±', src: ['03-linguagem-cmm.tex'], budget: 650,

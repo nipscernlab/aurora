@@ -95,7 +95,7 @@ onde o aluno não é admin a atualização nunca aconteceria.
 Desde a v6.5.0 o instalador abre mostrando a licença (LICENSE + anexo SAPHO,
 gerados a cada build por `scripts/gen-installer-license.js`) e só instala se o
 usuário aceitar. A página é só um portão de leitura: não muda a elevação nem o
-diretório — tudo acima continua valendo.
+diretório, e tudo acima continua valendo.
 
 | Item | Valor |
 |---|---|
@@ -270,7 +270,7 @@ tempo e com downloads; as primeiras instalações assinadas ainda podem avisar.
 Isso é esperado e não é sinal de problema no certificado.
 
 O caminho operacional que o Phillip descreveu: criar projeto e Artifact
-Configuration (o GitHub entrega o artefato num zip — a configuração é
+Configuration (o GitHub entrega o artefato num zip, e a configuração é
 zip-file com pe-file dentro, o CONTRÁRIO do que o 3.5 assumia), configurar o
 Trusted Build System, assinar com o certificado de teste autoassinado, e só
 depois da revisão deles vem o certificado de produção. O modo que faltava no
@@ -421,7 +421,7 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       `release-signing`. Enquanto ela não trocar, a trava do primeiro passo do
       job impede qualquer publicação assinada com o certificado de teste. Avisar a quem valida a
       instalação que o publicador exibido será "SignPath Foundation", não
-      NIPSCERN nem UFJF, porque o certificado é emitido para a Foundation. Isso
+      NIPS-CERN nem UFJF, porque o certificado é emitido para a Foundation. Isso
       é esperado, não é sinal de adulteração. Comunicar também que essa release
       será download completo para todo mundo.
 
@@ -588,9 +588,9 @@ Pós-release, com a regra de sempre: medir antes de mexer.
 - [ ] **Monitor da pilha de instrução (isp) no layout.** Os monitores de
       pilha/ULA voltaram em 20/08 como espelhos no testbench (ver commit
       ae9659b1: dumpvars profundo quebra o Icarus com generate e é ignorado
-      pelo Verilator; módulo public arrasta o mem — 854 MB medidos). Ficou de
+      pelo Verilator; módulo public arrasta o mem, 854 MB medidos). Ficou de
       fora exatamente o isp, porque ele vive num `generate if (CAL) : isp_blk`
-      e o parser de Verilog da AURORA pula generate blocks — espelho de nome
+      e o parser de Verilog da AURORA pula generate blocks; espelho de nome
       fabricado foi o que derrubou a elaboração do Icarus. Ensinar o parser a
       ler generate nomeado destrava o espelho do isp pelo caminho
       `.isp_blk.isp`.
@@ -614,7 +614,7 @@ Pós-release, com a regra de sempre: medir antes de mexer.
 - [ ] **Tags meio-publicadas no registro do fork.** As tags v0.7.0-nips.8 e
       .9 do surfer-aurora têm só o exe no registro (o job do bundle web
       falhou nas duas: o zip do runner "adicionava" arquivos e não
-      materializava o archive — não reproduz localmente; a nips.10 saiu pelo
+      materializava o archive, e não reproduz localmente; a nips.10 saiu pelo
       fallback python3 -m zipfile, que imprime diagnóstico). Limpar os
       pacotes órfãos das duas tags, e na próxima tag olhar o diagnóstico
       impresso para aposentar o mistério.

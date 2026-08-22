@@ -13,7 +13,7 @@ export const meta = {
 const SHARED = `
 == PROJETO ==
 Voce esta documentando o NUCLEO da plataforma SAPHO ("Scalable-Architecture Processor for Hardware
-Optimization"), desenvolvida pelo laboratorio NIPSCERN na UFJF (Universidade Federal de Juiz de
+Optimization"), desenvolvida pelo laboratorio NIPS-CERN na UFJF (Universidade Federal de Juiz de
 Fora, Brasil). SAPHO = a suite que une AURORA + YANC + um toolchain bundle.
 
 - AURORA: a IDE desktop (Electron + Monaco) onde o usuario projeta soft-processors. REPO ATUAL/VIVO.
@@ -102,8 +102,8 @@ const CHAPTERS = [
   {
     id: '01-contexto-visao-geral', file: '01-contexto-visao-geral.tex',
     title: 'Contexto e visão geral',
-    scope: `Apresente: (a) o laboratorio NIPSCERN e a UFJF (use o repo nipscernweb e o arquivo
-CITATION.cff do aurora como fontes; WebSearch APENAS para enriquecer contexto sobre NIPSCERN/UFJF e
+    scope: `Apresente: (a) o laboratorio NIPS-CERN e a UFJF (use o repo nipscernweb e o arquivo
+CITATION.cff do aurora como fontes; WebSearch APENAS para enriquecer contexto sobre NIPS-CERN/UFJF e
 sobre soft-processors em FPGA/arquitetura de computadores — inclua so fatos bem suportados, nao
 invente); (b) o que e a plataforma SAPHO e o significado da sigla (verifique as expansoes que
 aparecem no codigo/README — pode haver mais de uma); (c) o modelo conceitual SAPHO = AURORA (IDE) +

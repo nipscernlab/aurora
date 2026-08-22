@@ -640,6 +640,38 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       pacotes órfãos das duas tags, e na próxima tag olhar o diagnóstico
       impresso para aposentar o mistério.
 
+- [ ] **Clicar num componente do PRISM abre a representação interna dele.**
+      Pedido em 22/08/2026. Hoje o clique no NOME abre, e o clique no retângulo
+      dá realce de conexão, que também é útil e não pode ser perdido. O trabalho
+      é escolher a interação antes de escrever código: a área clicável inteira
+      abrindo com o realce indo para outro gesto, ou abrir no duplo clique em
+      qualquer ponto. Mexe em `html/prism/prism.js`, que desenha com netlistsvg
+      e jointjs, então o risco é de interface e não de dado.
+
+- [ ] **Caça a valores fracos de tempo, tentativa e cancelamento.** Pedido em
+      22/08/2026, e é o item de maior consequência para as trinta máquinas,
+      porque é o único que pode estar quebrando coisas hoje sem ninguém saber.
+
+      O levantamento inicial, para não recomeçar do zero: 49 `setTimeout` com
+      número literal em `js/` e `main/`, concentrados em
+      `ai_assistant_manager.js` (6), `aurora_settings.js` (4), `ipc/project.js`
+      (3), `project_tree_actions.js` (3) e `git_panel.js` (3). Há ainda laços
+      com teto de tentativa em `split_editor.js:367` (20 tentativas) e
+      `tab_orientation.js:66` (40), além dos limites de IA em `ai/retry.js` e
+      das esperas de fase do `lifecycle.js`.
+
+      O método combinado: RELATÓRIO primeiro, com cada achado, o que acontece
+      quando ele falha e se o estado se perde, e só depois as correções, porque
+      boa parte vai ser decisão de produto e não conserto óbvio. O que procurar,
+      em ordem de gravidade: espera fixa usada como sincronização, onde o certo
+      é observar o sinal; teto de tentativa que desiste calado; `catch` de
+      melhor esforço que engole perda de estado; e cancelamento que deixa
+      processo ou arquivo para trás.
+
+      Já corrigidos nesta linha, como precedente do que fazer: o disjuntor do
+      slang, a espera de uma hora pela aprovação da SignPath e a rede de
+      segurança de dez segundos no encerramento.
+
 - [ ] **`glifo` é superfície de API que ninguém usa.** Achado em 21/08/2026.
       O catálogo de componentes aceita `icone` (arquivo) ou `glifo` (classe do
       Phosphor), há teste garantindo que os dois não coexistem, e o painel

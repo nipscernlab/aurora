@@ -48,13 +48,23 @@ passo que a frota não pode ser a primeira a fazer.
       certamente a razão de a v6.3.2 ter ido à mão. E o portão que confere o
       feed lia o `latest.yml` como bytes, então acusava divergência num arquivo
       correto e ainda mandava apagar a release.
-- [ ] Instalar a 6.4.0 na máquina do LABEL e rodar o roteiro da seção 2.7.
+- [x] ~~Instalar a 6.4.0 na máquina do LABEL e rodar o roteiro da seção 2.7.~~
+      Superado em 22/08/2026: o SAPHO está instalado em TODAS as máquinas do
+      LABEL, e numa versão bem posterior à 6.4.0. Falta confirmar o roteiro da
+      2.7 em cada uma, que é verificação e não instalação.
 - [x] ~~Fazer uma alteração trivial, mergear o novo PR de release, publicar a
       6.4.1.~~ Feito, e muitas vezes: da 6.4.1 à 6.9.0 saíram nove releases
       pelo mesmo caminho, todas com tag no repositório. O passo do ensaio que
       ainda falta não é publicar, é OBSERVAR uma dessas atualizações chegar
       sozinha numa máquina do LABEL, que é o item seguinte.
-- [ ] Abrir o app na máquina do LABEL e observar o ciclo inteiro:
+- [ ] Abrir o app na máquina do LABEL e observar o ciclo inteiro. Isto continua
+      aberto mesmo com a boa notícia de 22/08/2026, de que TODOS os alunos viram
+      a atualização funcionar nos laptops de casa. Essa evidência vale muito e
+      derruba a hipótese mais provável, a de um defeito no próprio updater, mas
+      não cobre o que é específico do laboratório: perfil sem privilégio,
+      AppLocker restringindo `%LOCALAPPDATA%`, proxy da universidade e o
+      Defender corporativo. É justamente ali que a atualização silenciosa falha,
+      e falharia em trinta máquinas ao mesmo tempo. O ciclo a observar:
   - a checagem silenciosa dispara ~6 s após o boot e a janela de atualização
     aparece com o changelog preenchido; corpo vazio significa que o
     espelhamento de release notes falhou;
@@ -104,6 +114,12 @@ compiladores SAPHO (`cmmcomp`, `appcomp`, `asmcomp`, `cppcomp`, `cpppp`),
 Icarus (`iverilog`, `vvp`), Verilator com `g++`/`make`/`perl`, Yosys, GTKWave,
 Python 3.12, e as ferramentas de linguagem (`verible-verilog-ls`,
 `slang-server`, `clang-format`). Qualquer binário fora dela é recusado.
+
+Em 22/08/2026 o SAPHO foi instalado em todas as máquinas do LABEL. Os itens
+abaixo continuam abertos porque instalar e configurar são coisas diferentes: a
+IDE abrir não prova que o Defender tem as exclusões, que o AppLocker libera o
+caminho do updater, nem que uma compilação de verdade roda até o fim. O que
+fecha cada um é a verificação da 2.7 em cada máquina.
 
 - [ ] **2.1 Decidir o modelo de implantação**, antes de instalar: se o perfil é
       descartado no logoff (imagem congelada), a IDE entra na imagem base e não
@@ -211,12 +227,32 @@ que era MIT.
 O bloqueio: os termos da SignPath exigem "an OSI-approved Open Source license
 without commercial dual-licensing for all components", e a NIPS-CERN 1.1 não é
 aprovada pela OSI, porque a seção 4 exige autorização prévia por escrito para
-exploração comercial, contrariando o item 6 da Open Source Definition. Em 19/08 a SignPath respondeu (Phillip): o projeto foi considerado elegível e
-o convite para a organização OSS chegou e foi aceito. A resposta não menciona
-a licença — tudo indica que é o desfecho da revisão original, feita quando o
-projeto ainda era MIT. O e-mail sobre a NIPS-CERN 1.1 (rascunho pronto, com a
-licença anexada) deve ser enviado NA MESMA THREAD do Phillip antes do
-certificado de produção, porque eles revisam o setup de novo nessa etapa.
+exploração comercial, contrariando o item 6 da Open Source Definition.
+
+A previsão se confirmou. O e-mail sobre a troca de licença foi enviado em 19/08
+e o Phillip respondeu, registrado aqui em 22/08/2026, com três frases que
+decidem o resto da seção: para o programa da Foundation o projeto precisa estar
+sob licença aprovada pela OSI; a MIT servia e a NIPS-CERN 1.1 não pode ser
+aceita automaticamente; eles vão revisar internamente. E uma quarta que dá
+folga: "You can still do signings", ou seja, a conta continua servindo com o
+certificado de teste enquanto a revisão corre.
+
+O que isso significa, sem rodeio. O programa da Foundation existe para projetos
+que abrem mão de exploração comercial, e a licença do laboratório existe
+justamente para preservar essa possibilidade. As duas coisas se contradizem, e
+nenhuma redação esperta resolve isso: ou a licença do que vai dentro do binário
+assinado passa a ser aprovada pela OSI, ou o certificado gratuito sai de cena e
+entra um comprado. Decidir por qual dos dois lados ceder é do grupo, não é
+conclusão técnica, e é o que trava a assinatura hoje.
+
+Vale lembrar o que já está medido nesta mesma seção: certificado EV não compra
+mais reputação instantânea desde março de 2024, então um OV comprado se comporta
+igual ao gratuito da Foundation. A diferença é dinheiro por ano e a burocracia
+de emissão, não o comportamento do SmartScreen.
+
+O caminho que não depende dessa decisão e pode andar já: fechar o setup do
+painel com o certificado de TESTE (itens 3.5 a 3.7), que é exigido nos dois
+desfechos e é o que o Phillip liberou explicitamente.
 
 O caminho operacional que o Phillip descreveu: criar projeto e Artifact
 Configuration (o GitHub entrega o artefato num zip — a configuração é
@@ -232,7 +268,27 @@ comportam igual hoje e o certificado gratuito da SignPath é a melhor opção
 disponível, não um consolo. O que a assinatura compra de verdade é a reputação
 acumulada no certificado do publicador, herdada pelas releases seguintes.
 
-- [ ] **3.1 Resposta da SignPath.** Trava 3.2 e 3.5 em diante.
+- [x] ~~**3.1 Resposta da SignPath.**~~ Chegou, registrada em 22/08/2026: a
+      Foundation exige licença aprovada pela OSI, a MIT servia, a NIPS-CERN 1.1
+      não é aceita automaticamente, e há revisão interna em curso. Assinar com
+      o certificado de teste segue liberado.
+- [ ] **3.1.1 Responder ao Phillip na mesma thread, com a pergunta concreta.**
+      A revisão interna deles vai demorar menos, e decidir melhor, com a
+      proposta na mesa em vez de só a licença atual. Perguntar duas coisas, sem
+      dourar: se a divisão do item 3.2 (AURORA sob licença aprovada pela OSI,
+      Verilog do SAPHO sob CERN-OHL, yanc em MIT) satisfaz o "for all
+      components", já que o instalador assinado carrega os três; e se a
+      intenção declarada de preservar opcionalidade comercial para o
+      PROCESSADOR conflita com o "without commercial dual-licensing" dos termos
+      deles, mesmo com a AURORA sob licença livre. A segunda pergunta é
+      desconfortável e é exatamente por isso que precisa ser feita agora, e não
+      depois de montar o pipeline inteiro em cima de uma premissa que eles
+      podem recusar na revisão do certificado de produção.
+- [ ] **3.1.2 Levantar o custo do plano B**, para a decisão do 3.2 ser tomada
+      com o número na mão e não no escuro: um certificado OV de assinatura de
+      código, anual, em nome da UFJF ou do laboratório, mais o tempo de
+      validação da autoridade certificadora. Se o valor for pequeno diante do
+      que a licença protege, a discussão inteira muda de tom.
 - [ ] **3.2 Decidir as bases de licença** com o orientador e, pela Lei de
       Inovação, provavelmente com o NIT da UFJF, antes de publicar qualquer
       mudança. A proposta: AURORA em EUPL-1.2 (ou Apache-2.0, se quiserem
@@ -615,7 +671,10 @@ base de projetos.
       `rules.getCppStdlib` e a tool `get_cpp_stdlib`; parágrafo C++ no
       `system_prompt.js` com os limites declarados; ícone de `.cpp` na árvore;
       `showArrays` escondido para processadores C++.
-- [ ] **Fase 3, paridade de linguagem, no repositório yanc.**
+- [ ] **Fase 3, paridade de linguagem, no repositório yanc.** Dono definido em
+      22/08/2026: é o orientador quem mexe no yanc. As fases 1 e 2 são da
+      AURORA e não dependem desta, tirando os limites já anotados no fim da
+      seção. Detalhes do que falta, do lado do compilador:
       `#pragma yanc toaqui` e `praca` no `cppcomp`, com o `ensureChegueiToaqui`
       da AURORA emitindo a forma pragma; builtins `fin()` e `fout()`; `<cmath>`
       como casca sobre as macros `float_*.asm`, substituindo o `sqrt` por

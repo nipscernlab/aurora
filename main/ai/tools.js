@@ -772,6 +772,54 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'search_manual',
+    description:
+      'Search the SAPHO manual that ships with AURORA and get the closest pages, each with a '
+      + 'title, a path and a snippet. The manual covers the C+- language, the compile flow, '
+      + 'waveforms, cocotb, PRISM and the IDE itself, in Portuguese. Prefer it over answering '
+      + 'from memory whenever the question is about how SAPHO or AURORA work, then read the page '
+      + 'with read_manual_page and answer from what it actually says. Accents in the query are '
+      + 'optional.',
+    access: 'read',
+    api: ['manual', 'search'],
+    argStyle: 'positional',
+    argNames: ['query', 'options'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words to look for. Every word must appear on the page.' },
+        options: {
+          type: 'object',
+          description: 'Optional. { limite: number } caps how many pages come back (default 5).',
+          properties: { limite: { type: 'number' } },
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'read_manual_page',
+    description:
+      'Read one page of the SAPHO manual as plain text, by the path that search_manual returned '
+      + '(for example "avancado/dirac.html"). Long pages come back truncated, with truncated:true.',
+    access: 'read',
+    api: ['manual', 'read'],
+    argStyle: 'positional',
+    argNames: ['pagePath', 'options'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pagePath: { type: 'string', description: 'Page path inside the manual, as returned by search_manual.' },
+        options: {
+          type: 'object',
+          description: 'Optional. { limite: number } caps how many characters come back.',
+          properties: { limite: { type: 'number' } },
+        },
+      },
+      required: ['pagePath'],
+    },
+  },
+  {
     name: 'list_example_projects',
     description:
       'List the five ready-made example projects that ship with AURORA: key, name, what each one '

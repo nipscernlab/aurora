@@ -31,6 +31,8 @@ const crypto = require('crypto');
 const { app, shell, ipcMain, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
+const busca = require('../docs/busca');
+
 const ONLINE_URL = 'https://www.nipscern.com/library/sapho/';
 const MANIFEST_URL = 'https://nipscernlab.github.io/docs_aurora/docs-manifest.json';
 
@@ -291,6 +293,35 @@ function register() {
    * da inicialização, para não competir com o que o usuário está esperando.
    */
   ipcMain.handle('docs:check-update', () => checkForUpdate());
+
+  /**
+   * Procurar e ler o manual, para a Aurora Intelligence.
+   *
+   * O caminho da pasta NAO vem do renderer: sai do `activeDir()` daqui, que ja
+   * decide entre a copia atualizada e a do instalador. O modelo escolhe o que
+   * procurar e qual pagina ler, nunca onde procurar.
+   */
+  ipcMain.handle('docs:buscar', (_e, consulta, opcoes) => {
+    try {
+      const dir = activeDir();
+      if (!dir) return { ok: false, erro: 'manual nao esta instalado nesta maquina' };
+      return { ok: true, resultados: busca.buscar(dir, consulta, opcoes || {}), online: ONLINE_URL };
+    } catch (e) {
+      log.warn('[docs] busca falhou:', e);
+      return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  ipcMain.handle('docs:ler', (_e, caminho, opcoes) => {
+    try {
+      const dir = activeDir();
+      if (!dir) return { ok: false, erro: 'manual nao esta instalado nesta maquina' };
+      return busca.ler(dir, caminho, opcoes || {});
+    } catch (e) {
+      log.warn('[docs] leitura falhou:', e);
+      return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+    }
+  });
 }
 
 // isNewer e stripBom sao exportados para teste. Sao puros e decidem se o manual

@@ -69,6 +69,10 @@ const fileOperations = {
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
   docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
+  // Procurar e ler o manual, para a Aurora Intelligence. Nenhuma das duas
+  // recebe pasta: quem resolve onde o manual esta e o processo principal.
+  docsBuscar: (consulta, opcoes) => ipcRenderer.invoke('docs:buscar', consulta, opcoes),
+  docsLer: (caminho, opcoes) => ipcRenderer.invoke('docs:ler', caminho, opcoes),
 
   // Sair do GitHub e apagar o que ficou na maquina (main/ipc/github_forget.js).
   // Nao devolve credencial nenhuma: so o relatorio do que foi removido.

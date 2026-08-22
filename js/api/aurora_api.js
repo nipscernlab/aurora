@@ -2951,6 +2951,49 @@ const examplesNs = {
   },
 };
 
+/* ============================================================
+ *  O manual do SAPHO
+ *
+ *  O manual responde boa parte do que um aluno pergunta, e ate agora a IA nao
+ *  sabia que ele existia. Despejar o conteudo no prompt nao e opcao: sao 1,2 MB
+ *  de texto, mais do que a janela de varios modelos e caro em todos. Entao ela
+ *  usa o mesmo caminho de uma pessoa, procurar e ler so a pagina que interessa.
+ *
+ *  Nenhuma das duas recebe pasta. O processo principal decide onde o manual
+ *  esta, entre a copia atualizada e a que veio no instalador, e o modelo
+ *  escolhe apenas o que procurar e qual pagina abrir.
+ * ========================================================== */
+const manualNs = {
+  /**
+   * Procura no manual e devolve as paginas mais proximas, com um trecho de
+   * cada uma. Acento na consulta e opcional.
+   */
+  async search(query, options) {
+    try {
+      const r = await electronAPI.docsBuscar?.(query, options || {});
+      if (!r?.ok) return err(r?.erro || 'Manual search failed');
+      return ok({ results: r.resultados || [], online: r.online });
+    } catch (e) { return err(e?.message || 'manual search failed'); }
+  },
+
+  /** O texto de uma pagina do manual, pelo caminho que a busca devolveu. */
+  async read(pagePath, options) {
+    try {
+      const r = await electronAPI.docsLer?.(pagePath, options || {});
+      if (!r?.ok) return err(r?.erro || 'Manual page not found');
+      return ok({ path: r.caminho, title: r.titulo, text: r.texto, truncated: r.truncado });
+    } catch (e) { return err(e?.message || 'manual read failed'); }
+  },
+
+  /** O manual esta instalado nesta maquina, e em que versao. */
+  async status() {
+    try {
+      const r = await electronAPI.docsStatus?.();
+      return ok(r || null);
+    } catch (e) { return err(e?.message || 'manual status failed'); }
+  },
+};
+
 const settingsNs = {
   /** Snapshot of every user-facing setting Aurora exposes. */
   async getAll() {
@@ -3098,6 +3141,11 @@ const NAMESPACES = Object.freeze({
     list:    'The five ready-made example projects: what each one teaches and which processor it carries',
     install: 'Create all five in a folder the user picks, and return the .spf path of each',
   },
+  manual: {
+    search: 'Search the offline SAPHO manual and get the closest pages with a snippet of each',
+    read:   'Read one page of the manual as plain text, by the path search returned',
+    status: 'Whether the manual is installed on this machine, and which version',
+  },
   settings: {
     getAll: 'Snapshot of every user-facing IDE setting',
     set:    'Update one setting (locale / tooltipsEnabled / verboseMode)',
@@ -3167,6 +3215,7 @@ export function initAuroraAPI() {
     wave:     Object.freeze(waveNs),
     rules:    Object.freeze(rulesNs),
     examples: Object.freeze(examplesNs),
+    manual:   Object.freeze(manualNs),
     settings: Object.freeze(settingsNs),
     ui:       Object.freeze(uiNs),
     ai:       Object.freeze(aiNs),

@@ -5,7 +5,7 @@
      `description` dela em main/ai/tools.js, que e o mesmo texto que o
      modelo le ao decidir se a chama. -->
 
-A AURORA expoe 110 ferramentas ao modelo. Elas chegam ate ele por dois
+A AURORA expoe 112 ferramentas ao modelo. Elas chegam ate ele por dois
 caminhos, descritos abaixo.
 
 Pelo caminho de API, o `main/ai/chat.js` liga este manifesto direto no Vercel
@@ -170,4 +170,6 @@ passam pelo cartao de permissao do painel, conforme o modo configurado.
 | `ask_user_question` | read | `question`, `options`?, `multiSelect`? | Pause the turn and ask the human a question with optional choices. Use this only when truly ambiguous — prefer doing things autonomously. Returns { answer, selected }. Use sparingly; do not chain. |
 | `install_example_projects` | write | nenhum | Create all five example projects on disk. The user picks the destination folder in a native dialog, so this never writes to a path chosen by the model; if they cancel, the result is { cancelled: true } and nothing was written. On success it returns the .spf path of each project, which open_project then opens. Existing projects are never overwritten. |
 | `list_example_projects` | read | nenhum | List the five ready-made example projects that ship with AURORA: key, name, what each one teaches, the language, and which processors it carries. Use this to answer "what can I study here?" or to pick a starting point for a beginner, instead of describing a project from memory. |
+| `read_manual_page` | read | `pagePath`, `options`? | Read one page of the SAPHO manual as plain text, by the path that search_manual returned (for example "avancado/dirac.html"). Long pages come back truncated, with truncated:true. |
 | `run_in_background` | write | `task`, `step`?, `note`? | Run a long compile task in the BACKGROUND and return immediately so the current turn can end. When the task finishes, YOU are automatically given the result as a new turn and should report it to the user — i.e. start the work, tell the user you will report back, let the turn finish, and Aurora re-invokes you on completion. Use this for long compiles/simulations instead of blocking on compile_all/compile_step. task is "compile_all" or "compile_step" (then pass step); optionally pass a short note describing the intent so your follow-up turn has context. |
+| `search_manual` | read | `query`, `options`? | Search the SAPHO manual that ships with AURORA and get the closest pages, each with a title, a path and a snippet. The manual covers the C+- language, the compile flow, waveforms, cocotb, PRISM and the IDE itself, in Portuguese. Prefer it over answering from memory whenever the question is about how SAPHO or AURORA work, then read the page with read_manual_page and answer from what it actually says. Accents in the query are optional. |

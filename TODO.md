@@ -49,8 +49,11 @@ passo que a frota não pode ser a primeira a fazer.
       feed lia o `latest.yml` como bytes, então acusava divergência num arquivo
       correto e ainda mandava apagar a release.
 - [ ] Instalar a 6.4.0 na máquina do LABEL e rodar o roteiro da seção 2.7.
-- [ ] Fazer uma alteração trivial, mergear o novo PR de release, publicar a
-      6.4.1.
+- [x] ~~Fazer uma alteração trivial, mergear o novo PR de release, publicar a
+      6.4.1.~~ Feito, e muitas vezes: da 6.4.1 à 6.9.0 saíram nove releases
+      pelo mesmo caminho, todas com tag no repositório. O passo do ensaio que
+      ainda falta não é publicar, é OBSERVAR uma dessas atualizações chegar
+      sozinha numa máquina do LABEL, que é o item seguinte.
 - [ ] Abrir o app na máquina do LABEL e observar o ciclo inteiro:
   - a checagem silenciosa dispara ~6 s após o boot e a janela de atualização
     aparece com o changelog preenchido; corpo vazio significa que o
@@ -364,10 +367,13 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       permitir retomada de download interrompido, que numa rede de laboratório
       acontece.
 
-- [ ] **Estimativa do instalador componentizado.** Medido em 18/08/2026:
-      msys 955 MB, gtkwave 88, surfer 43, tree-sitter 25, slang 8, verible 3,
-      clang-format 3, dist 109. Tirando só o que não é essencial, o instalador
-      cai de 542 MB para algo entre 130 e 160 MB.
+- [x] ~~**Estimativa do instalador componentizado.**~~ Deixou de ser
+      estimativa em 20/08/2026: o instalador saiu de ~542 MB para ~140 MB
+      (commit `815faeff`), e o `extraResources` do package.json passou a
+      excluir todos os pacotes opcionais, que agora são baixados pelo painel.
+      A medida de 18/08 que originou o item, msys 955 MB, gtkwave 88, surfer
+      43, tree-sitter 25, slang 8, verible 3, clang-format 3 e dist 109, ficou
+      dentro da faixa prevista de 130 a 160 MB.
 
 - [x] **Report de bug em um clique, de dentro da AURORA.** Feito em
       19/08/2026. O painel está em `js/ui/bug_report_form.js`, a coleta em
@@ -378,16 +384,15 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       o token e registrar a rota `nipscern.com/api/sapho/bugreport`; até lá o
       envio falha e cai no e-mail, que continua funcionando.
 
-      Descrição original:
+      Descrição original, mantida porque explica o desenho:
 
-- [ ] **Report de bug em um clique, de dentro da AURORA.** O caminho por
-      e-mail existe e fica como reserva, mas exige conta aberta e vontade. A
-      proposta: um botão que junta sozinho o diagnóstico e o fim do main.log e
-      envia para um Worker do Cloudflare (a infra já existe no nipscernweb),
-      que cria uma issue num repo privado com um token guardado no próprio
-      Worker. O aluno não precisa de conta em nada, o relato chega estruturado,
-      e o limite de tamanho e de frequência fica no Worker. Depende de dois
-      passos do Chrysthofer: decidir o repo de destino e criar o token.
+  > **Report de bug em um clique, de dentro da AURORA.** O caminho por
+  > e-mail existe e fica como reserva, mas exige conta aberta e vontade. A
+  > proposta: um botão que junta sozinho o diagnóstico e o fim do main.log e
+  > envia para um Worker do Cloudflare (a infra já existe no nipscernweb),
+  > que cria uma issue num repo privado com um token guardado no próprio
+  > Worker. O aluno não precisa de conta em nada, o relato chega estruturado,
+  > e o limite de tamanho e de frequência fica no Worker.
 
 - [ ] **Suporte a GitLab no Git-D.** Pedido em 18/08/2026. O painel fala só com
       GitHub (OAuth, criar e listar repos); o laboratório também vive no GitLab
@@ -426,9 +431,11 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       núcleo que não depende de nada, tirar para um módulo próprio, escrever
       teste em cima.
 - [ ] **CRUD da árvore de arquivos**, lacunas remanescentes: multi-select com
-      Ctrl e Shift, undo com Ctrl+Z, auto-refresh por watcher na visão Folders,
-      preservar cursor e scroll no rename, awareness do `.spf`. O drag and drop
-      já saiu em 08/08.
+      Ctrl e Shift, preservar cursor e scroll no rename, awareness do `.spf`.
+      O drag and drop saiu em 08/08. O desfazer com Ctrl+Z e o refazer com
+      Ctrl+Shift+Z (e Ctrl+Y) estão no `standard_tree_crud.js`, com o que foi
+      removido esperando em userData; e a visão Pastas já se redesenha sozinha
+      pelo vigia de diretório (`file_tree_manager.js`).
 - [x] ~~**Consolidar as paletas divergentes.**~~ Feito em 11/08/2026. As três
       janelas tinham derivado para três céus noturnos, o app em `#0A0D14`, o
       splash em `#03060F` e a janela de atualização em `#060A14`, cada uma com
@@ -503,40 +510,12 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       pacotes órfãos das duas tags, e na próxima tag olhar o diagnóstico
       impresso para aposentar o mistério.
 
-- [ ] **Codex não é encontrado em desenvolvimento.** Achado em 21/08/2026 por
-      revisão de código. O commit `545c6200` corrigiu o caminho do Codex 0.147
-      no `main/ai/cli_manifest.js`, que passou de `vendor/<alvo>/codex/` para
-      `vendor/<alvo>/bin/`, mas o `main/ai/cli_locator.js` continua procurando
-      no caminho antigo (linhas 170 a 179, incluindo o comentário). Com o
-      pacote instalado no `node_modules` e o cache vazio, o passo 1 falha, cai
-      no PATH e o Codex aparece como ausente; achando um Codex global, ele roda
-      sem o ripgrep empacotado. Só afeta `npm start`, porque o build empacotado
-      exclui `@openai/codex-*` e passa pelo download, que usa o manifesto
-      certo. O conserto de raiz é o localizador ler `entryFor('codex')` em vez
-      de repetir o caminho à mão, e um teste comparando o caminho declarado com
-      o que existe no `node_modules` impediria a volta.
-
-- [ ] **Entrada de pasta vazia sem marcador vira arquivo de zero byte.** Achado
-      em 21/08/2026 por revisão de código, em
-      `components/Scripts/lib/extract.js`. A regra estrutural que classifica
-      pasta por ancestralidade não alcança a pasta VAZIA sem barra final: ela
-      não é ancestral de ninguém, ninguém a cria antes, e a rede de segurança
-      da linha 242 só funciona se o caminho já existir em disco. O resultado é
-      um arquivo de zero byte com nome de pasta. Numa instalação por cima da
-      anterior, se a versão nova puser algo dentro dela, o `mkdirSync` bate no
-      arquivo e o instalador cai no Expand-Archive, que falha igual. A mesma
-      rede de segurança tem o problema espelhado: com uma pasta velha no
-      caminho, um arquivo vazio legítimo é pulado em silêncio e a extração
-      relata sucesso.
-
 - [ ] **`glifo` é superfície de API que ninguém usa.** Achado em 21/08/2026.
       O catálogo de componentes aceita `icone` (arquivo) ou `glifo` (classe do
       Phosphor), há teste garantindo que os dois não coexistem, e o painel
       ainda tem um terceiro caminho, o `ph-puzzle-piece` de reserva. Nenhum
       componente declara `glifo`, então são três estados para uma decisão que
-      hoje só tem um. Ou cai o campo, ou cai a reserva. No mesmo lote, o
-      `ComponenteIA` de `main/components/ia.js` não declara `icone`, embora as
-      duas entradas o usem, e o arquivo é `@ts-check`.
+      hoje só tem um. Ou cai o campo, ou cai a reserva.
 
 - [ ] **O `bad allocation` do slang continua existindo.** Em 21/08/2026 entrou
       o disjuntor (`main/lsp/disjuntor.js`), que para de perguntar depois de

@@ -503,6 +503,49 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       pacotes órfãos das duas tags, e na próxima tag olhar o diagnóstico
       impresso para aposentar o mistério.
 
+- [ ] **Codex não é encontrado em desenvolvimento.** Achado em 21/08/2026 por
+      revisão de código. O commit `545c6200` corrigiu o caminho do Codex 0.147
+      no `main/ai/cli_manifest.js`, que passou de `vendor/<alvo>/codex/` para
+      `vendor/<alvo>/bin/`, mas o `main/ai/cli_locator.js` continua procurando
+      no caminho antigo (linhas 170 a 179, incluindo o comentário). Com o
+      pacote instalado no `node_modules` e o cache vazio, o passo 1 falha, cai
+      no PATH e o Codex aparece como ausente; achando um Codex global, ele roda
+      sem o ripgrep empacotado. Só afeta `npm start`, porque o build empacotado
+      exclui `@openai/codex-*` e passa pelo download, que usa o manifesto
+      certo. O conserto de raiz é o localizador ler `entryFor('codex')` em vez
+      de repetir o caminho à mão, e um teste comparando o caminho declarado com
+      o que existe no `node_modules` impediria a volta.
+
+- [ ] **Entrada de pasta vazia sem marcador vira arquivo de zero byte.** Achado
+      em 21/08/2026 por revisão de código, em
+      `components/Scripts/lib/extract.js`. A regra estrutural que classifica
+      pasta por ancestralidade não alcança a pasta VAZIA sem barra final: ela
+      não é ancestral de ninguém, ninguém a cria antes, e a rede de segurança
+      da linha 242 só funciona se o caminho já existir em disco. O resultado é
+      um arquivo de zero byte com nome de pasta. Numa instalação por cima da
+      anterior, se a versão nova puser algo dentro dela, o `mkdirSync` bate no
+      arquivo e o instalador cai no Expand-Archive, que falha igual. A mesma
+      rede de segurança tem o problema espelhado: com uma pasta velha no
+      caminho, um arquivo vazio legítimo é pulado em silêncio e a extração
+      relata sucesso.
+
+- [ ] **`glifo` é superfície de API que ninguém usa.** Achado em 21/08/2026.
+      O catálogo de componentes aceita `icone` (arquivo) ou `glifo` (classe do
+      Phosphor), há teste garantindo que os dois não coexistem, e o painel
+      ainda tem um terceiro caminho, o `ph-puzzle-piece` de reserva. Nenhum
+      componente declara `glifo`, então são três estados para uma decisão que
+      hoje só tem um. Ou cai o campo, ou cai a reserva. No mesmo lote, o
+      `ComponenteIA` de `main/components/ia.js` não declara `icone`, embora as
+      duas entradas o usem, e o arquivo é `@ts-check`.
+
+- [ ] **O `bad allocation` do slang continua existindo.** Em 21/08/2026 entrou
+      o disjuntor (`main/lsp/disjuntor.js`), que para de perguntar depois de
+      três falhas seguidas e volta sozinho. Isso resolve a insistência e o log
+      cheio, não a causa: o servidor segue sem responder ao completar código
+      com o buffer no meio de uma edição. A causa é dele, em C++. Se voltar a
+      incomodar, o caminho é reproduzir com um arquivo pequeno e abrir a
+      questão no `hudson-trading/slang-server`, com o `.v` gerado em anexo.
+
 ## 6. Profissionalizar o repositório
 
 - [x] ~~**`hero.png` do README.**~~ Feito em 11/08/2026 e já no README. Sai do

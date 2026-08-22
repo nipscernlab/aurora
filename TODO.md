@@ -385,9 +385,18 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       (`buildBlockMap`), o que foi verificado num ensaio: o mapa antigo descrevia
       8388608 bytes e o novo descreve os 8392704 do arquivo assinado.
 
-      Falta só criar o secret e as três `vars` (`SIGNPATH_ORG_ID`,
-      `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_POLICY_SLUG`) depois do item 3.5, e
-      conferir os nomes dos inputs contra o README da action.
+      Fechado em 22/08/2026. O secret e as três `vars` existem, os nomes dos
+      inputs foram conferidos contra o `action.yml` publicado da action, e o
+      ensaio provou o caminho inteiro.
+
+      Duas coisas entraram junto e valem ser lembradas. A espera pela
+      assinatura subiu de 600 s para uma hora, porque o programa gratuito exige
+      aprovação humana e uma release feita fora do horário de quem aprova
+      falharia sozinha, deixando a tag publicada sem instalador. E o primeiro
+      passo do job recusa assinar quando há segredo, a execução publica e a
+      política é a de teste: sem essa trava, bastaria a variável ficar em
+      `test-signing` depois de um ensaio para a próxima release de verdade sair
+      assinada com certificado autoassinado, que é PIOR do que não assinada.
 
       Plano B, se a submissão pela action se mostrar chata: o hook `win.sign` do
       electron-builder pode chamar a SignPath de forma síncrona durante o build,
@@ -396,7 +405,21 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       documentado pela SignPath.
 - [ ] **3.8 Verificar o primeiro release assinado**: `signtool verify /pa`
       passando, o updater aceitando o instalador sem erro de checksum, e o
-      SmartScreen deixando de dizer "unknown publisher". Avisar a quem valida a
+      SmartScreen deixando de dizer "unknown publisher".
+
+      O ensaio de 22/08/2026 já cobriu a mecânica com o certificado de teste: o
+      `Get-AuthenticodeSignature` no anexo da execução #17 mostrou assinatura
+      Authenticode, carimbo de tempo da DigiCert e a cadeia terminando numa raiz
+      não confiável, que é o desfecho correto para certificado autoassinado. O
+      que resta verificar de verdade é só o que muda com o certificado de
+      produção: a corrente fechando numa raiz do Windows, e o comportamento do
+      SmartScreen ao longo do tempo.
+
+      Quando o certificado sair, a passagem para produção é curta: a
+      `release-signing` deixa de estar INVALID sozinha, liga-se o 3.5.1, e a
+      variável `SIGNPATH_POLICY_SLUG` troca de `test-signing` para
+      `release-signing`. Enquanto ela não trocar, a trava do primeiro passo do
+      job impede qualquer publicação assinada com o certificado de teste. Avisar a quem valida a
       instalação que o publicador exibido será "SignPath Foundation", não
       NIPSCERN nem UFJF, porque o certificado é emitido para a Foundation. Isso
       é esperado, não é sinal de adulteração. Comunicar também que essa release

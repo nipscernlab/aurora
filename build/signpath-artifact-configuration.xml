@@ -24,6 +24,15 @@
   (build.win.artifactName no package.json). Por isso o padrao usa `*`: fixar o
   nome exato obrigaria a editar esta configuracao a cada release, e esquecer
   disso quebraria a assinatura exatamente na hora de publicar.
+
+  O CURINGA PRECISA CASAR COM UM ARQUIVO SO
+  -----------------------------------------
+  Conferido na documentacao da SignPath em 22/08/2026: `path` aceita curinga, e
+  sem `min-matches` ou `max-matches` a expressao tem que casar com EXATAMENTE um
+  arquivo, senao a submissao falha. Aqui isso e qualidade, e nao limitacao: o
+  zip carrega um instalador so, e no dia em que carregar dois a assinatura para
+  alto em vez de assinar o errado calada. Nao acrescente `max-matches` para
+  "deixar mais tolerante" sem antes decidir o que fazer com o segundo arquivo.
 -->
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
   <zip-file>

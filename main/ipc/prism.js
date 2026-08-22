@@ -155,12 +155,14 @@ async function createPrismWindow(compilationData = null) {
     }
 
     if (compilationData) {
-      // Tiny delay so the renderer has DOM ready before processing the payload.
-      setTimeout(() => {
-        if (state.prismWindow && !state.prismWindow.isDestroyed()) {
-          state.prismWindow.webContents.send('compilation-complete', compilationData);
-        }
-      }, 1000);
+      // loadPage resolved on did-finish-load, which comes after the
+      // DOMContentLoaded in which PRISMViewer registers its listener, so the
+      // payload can go now. The old one-second timer was a guess that cost a
+      // second on every open and, being push-only, would have lost the
+      // schematic without a trace had the listener ever come later.
+      if (state.prismWindow && !state.prismWindow.isDestroyed()) {
+        state.prismWindow.webContents.send('compilation-complete', compilationData);
+      }
     }
   } catch (error) {
     log.error('Failed to load prism/prism.html:', error);

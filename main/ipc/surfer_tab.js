@@ -59,6 +59,7 @@ const { componentsPath } = require('../paths');
 const { isAllowed } = require('../compile/binary_allowlist');
 const { spawnTracked } = require('../process_registry');
 const { killProcessSilently } = require('../utils');
+const { surferBootDeadlineMs } = require('../net/timeouts');
 
 /** Raiz do bundle web do Surfer (cliente WASM). */
 function webRoot() {
@@ -291,7 +292,7 @@ function waitForServer(port, token, timeoutMs) {
     };
     const retry = () => {
       if (Date.now() > deadline) {
-        resolve({ ok: false, error: 'timeout waiting for surfer server' });
+        resolve({ ok: false, error: `surfer server did not load the wave within ${Math.round(timeoutMs / 1000)}s` });
         return;
       }
       setTimeout(tick, 250);
@@ -362,7 +363,11 @@ function register() {
       servers.set(tabId, { child, proxyId });
       proxies.set(proxyId, `http://127.0.0.1:${port}/${token}`);
 
-      const up = await waitForServer(port, token, 30_000);
+      // Prazo proporcional ao dump: o parse do FST cresce com o arquivo, e 30 s
+      // fixos derrubavam um servidor que ainda estava subindo num dump grande.
+      let tamanho = 0;
+      try { tamanho = fs.statSync(waveFile).size; } catch (_) { /* fica o piso */ }
+      const up = await waitForServer(port, token, surferBootDeadlineMs(tamanho));
       if (!up.ok) {
         await stopServer(tabId);
         return { success: false, message: up.error || 'surfer server did not come up' };

@@ -688,6 +688,7 @@ const gitOperations = {
   githubCreateRepo: (opts) => ipcRenderer.invoke('github:create-repo', opts),
   githubOauthConfigured: () => ipcRenderer.invoke('github:oauth-configured'),
   githubOauthLogin: () => ipcRenderer.invoke('github:oauth-login'),
+  githubOauthCancel: () => ipcRenderer.invoke('github:oauth-cancel'),
   onGithubOauthCode: (cb) => {
     const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
     ipcRenderer.on('github:oauth-code', h);

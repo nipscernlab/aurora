@@ -41,13 +41,20 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
 const { ipcMain, BrowserWindow, shell } = require('electron');
 const log = require('electron-log');
 
 const registro = require('../components/registry');
 const ia = require('../components/ia');
 const { componentsPath } = require('../paths');
+// Pelo registro, e nao pelo spawn puro: o filho fica visivel ao encerramento.
+// Antes, fechar a AURORA no meio do download do MSYS deixava um Node baixando
+// e extraindo dentro de components/ sem janela nenhuma, que e justamente o
+// que faz uma instalacao seguinte terminar pela metade. E o reap do arranque
+// nao o alcancava, porque casa por prefixo de caminho e o executavel deste
+// filho e o da instalacao, nao o de components/. Grupo SERVICE: o Cancelar
+// da compilacao nao tem nada a ver com um download.
+const { spawnTracked, GROUP } = require('../process_registry');
 
 /** Um download por vez. Dois puxando ao mesmo tempo só disputam a mesma banda. */
 let emAndamento = null;
@@ -98,7 +105,7 @@ function instalar(chave, janela, forcar = false) {
     // --force: o doctor re-baixa componente INCOMPLETO, cuja sentinela existe;
     // sem a flag o script veria a sentinela e sairia dizendo que esta tudo la.
     const argumentos = forcar ? [script, '--force'] : [script];
-    const filho = spawn(process.execPath, argumentos, {
+    const filho = spawnTracked(process.execPath, argumentos, {
       cwd: path.dirname(componentsPath),
       env: {
         ...process.env,
@@ -111,7 +118,7 @@ function instalar(chave, janela, forcar = false) {
         UV_THREADPOOL_SIZE: String(Math.min(16, Math.max(4, os.cpus().length))),
       },
       windowsHide: true,
-    });
+    }, GROUP.SERVICE);
 
     let ultimaLinha = '';
     const digerir = (buf) => {

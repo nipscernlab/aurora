@@ -32,6 +32,43 @@ const {
 let githubAuth = null;
 try { githubAuth = require('./github_auth'); } catch (_) { /* optional */ }
 
+const { GIT_IDLE_MS } = require('../net/timeouts');
+
+/**
+ * Um sinal de aborto para todo git vivo. O simple-git nao passa pelo registro
+ * de processos, entao sem isto fechar a AURORA durante um clone deixava o
+ * git.exe escrevendo numa pasta de destino de um aplicativo que ja nao
+ * existia. O encerramento chama abortAll(), e o controlador e trocado em
+ * seguida para que um git posterior (uma segunda janela na mesma instancia)
+ * nao nasca ja abortado.
+ */
+let abortos = new AbortController();
+
+/**
+ * Opcoes comuns a toda instancia do simple-git. O prazo e de OCIOSIDADE: o
+ * plugin zera o contador a cada byte em stdout ou stderr, entao um clone vivo
+ * nunca estoura; estoura o remoto que aceitou a conexao e calou, e o pedido de
+ * senha que ninguem vai digitar. Sem prazo nenhum, uma operacao pendurada
+ * deixava o `busy` do painel ligado e o painel de Git inteiro morto ate
+ * reiniciar.
+ * @param {Partial<import('simple-git').SimpleGitOptions>} [extra]
+ * @returns {Partial<import('simple-git').SimpleGitOptions>}
+ */
+function opcoesGit(extra = {}) {
+  return {
+    trimmed: true,
+    timeout: { block: GIT_IDLE_MS },
+    abort: abortos.signal,
+    ...extra,
+  };
+}
+
+/** Aborta todo git em andamento. Chamado pelo encerramento da AURORA. */
+function abortAll() {
+  abortos.abort();
+  abortos = new AbortController();
+}
+
 /** The open project's directory, or null when no project is open. */
 function projectDir() {
   return state.currentOpenProjectPath ? path.dirname(state.currentOpenProjectPath) : null;
@@ -45,7 +82,7 @@ function gitForProject() {
   const dir = projectDir();
   if (!dir) throw new Error('No project is open.');
   if (!fs.existsSync(dir)) throw new Error(`Project directory not found: ${dir}`);
-  return simpleGit({ baseDir: dir, trimmed: true });
+  return simpleGit(opcoesGit({ baseDir: dir }));
 }
 
 /**
@@ -64,7 +101,7 @@ function gitFor(opts) {
   const dir = resolveDir(opts);
   if (!dir) throw new Error('No project is open.');
   if (!fs.existsSync(dir)) throw new Error(`Directory not found: ${dir}`);
-  return simpleGit({ baseDir: dir, trimmed: true });
+  return simpleGit(opcoesGit({ baseDir: dir }));
 }
 
 /** Wrap a handler so it always resolves to { ok, ... } instead of throwing across IPC. */
@@ -93,7 +130,7 @@ function remoteGit() {
     const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
     config = cabecalhoDeToken(token);
   } catch (_) { /* fall back to the system credential helper */ }
-  return simpleGit({ baseDir: dir, trimmed: true, config });
+  return simpleGit(opcoesGit({ baseDir: dir, config }));
 }
 
 // Per-file +/- for the WORKING tree (staged + unstaged combined), for the
@@ -110,7 +147,7 @@ function register() {
   ipcMain.handle('git:is-repo', safe(async (opts) => {
     const dir = resolveDir(opts);
     if (!dir || !fs.existsSync(dir)) return { isRepo: false, dir: dir || null };
-    const isRepo = await simpleGit({ baseDir: dir }).checkIsRepo();
+    const isRepo = await simpleGit(opcoesGit({ baseDir: dir })).checkIsRepo();
     return { isRepo, dir };
   }));
 
@@ -337,7 +374,7 @@ function register() {
       const progress = (/** @type {{method:string, stage:string, progress:number}} */ p) => {
         try { event.sender.send('git:clone-progress', { stage: p.stage, progress: p.progress }); } catch (_) { /* window gone */ }
       };
-      await simpleGit({ config, progress }).clone(opts.url, opts.dest, ['--progress']);
+      await simpleGit(opcoesGit({ config, progress })).clone(opts.url, opts.dest, ['--progress']);
       try { event.sender.send('git:clone-progress', { stage: 'done', progress: 100 }); } catch (_) { /* ignore */ }
       return { ok: true, dest: opts.dest };
     } catch (e) {
@@ -441,4 +478,4 @@ function register() {
   log.info('[ipc.git] handlers registered');
 }
 
-module.exports = { register, projectDir };
+module.exports = { register, projectDir, abortAll };

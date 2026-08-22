@@ -619,10 +619,11 @@ async function oauthLogin() {
   statusTimer = setTimeout(() => setStatus('', null), 4000);
   refresh();
 }
-// Abort the in-flight attempt and free the UI immediately (the main-side poll is
-// left to expire harmlessly; the sequence bump makes its result a no-op).
+// Abort the in-flight attempt and free the UI immediately. Main is told to stop
+// polling GitHub too; the sequence bump makes any late result a no-op.
 function oauthCancel() {
   oauthSeq++;
+  try { api()?.githubOauthCancel?.(); } catch (_) { /* main may be gone */ }
   oauthBusy = false;
   clearOauthSub();
   const codeBox = $('git-oauth-code');

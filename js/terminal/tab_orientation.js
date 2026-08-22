@@ -65,7 +65,13 @@ function autoInstalar() {
   if (initTerminalTabOrientation()) return;
   let tentativas = 0;
   const timer = setInterval(() => {
-    if (initTerminalTabOrientation() || ++tentativas > 40) clearInterval(timer);
+    if (initTerminalTabOrientation()) { clearInterval(timer); return; }
+    if (++tentativas > 40) {
+      clearInterval(timer);
+      // Seis segundos sem barra de terminal e anomalia, nao layout sem
+      // terminal; fica a linha para haver por onde comecar.
+      console.warn('[tab_orientation] barra do terminal nao apareceu em 6 s; orientacao das abas desligada');
+    }
   }, 150);
 }
 

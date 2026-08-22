@@ -57,7 +57,14 @@ class AppInitializer {
         console.log('Initializing Aurora IDE...');
 
         try {
-            await this.restoreLastSession();
+            try {
+                await this.restoreLastSession();
+            } finally {
+                // The file tree waits on this to decide between "loading" and
+                // the no-project card. Fired whether the restore found a
+                // project, found none, or failed, so nobody waits on a clock.
+                document.dispatchEvent(new CustomEvent('aurora:session-restore-settled'));
+            }
             this.isInitialized = true;
             // Baseline de TTI (time-to-interactive): o overlay de jank (Dev) le este
             // mark via performance.getEntriesByName('aurora-interactive'); sem ele

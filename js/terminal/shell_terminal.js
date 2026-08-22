@@ -182,7 +182,7 @@ class ShellTerminal {
    * @param {{execute?: boolean, idleMs?: number, maxMs?: number}} [opts]
    * @returns {Promise<{ok:boolean, executed?:boolean, command?:string, output?:string, error?:string}>}
    */
-  async runCommand(command, { execute = true, idleMs = 500, maxMs = 4000 } = {}) {
+  async runCommand(command, { execute = true, idleMs = 500, maxMs = 15000 } = {}) {
     const cmd = String(command ?? '');
     if (!cmd.trim()) return { ok: false, error: 'empty command' };
     this._ensureTerm();
@@ -202,19 +202,24 @@ class ShellTerminal {
       let idle = null;
       let hard = null;
       let unsub = null;
-      const finish = () => {
+      // `complete` tells the caller WHICH timer ended the capture. Idle means
+      // the shell went quiet, so the command most likely finished; the hard
+      // cap means it was still talking, so the output is a prefix and the
+      // command may still be running. Before this flag both looked identical
+      // (`ok: true`), and the AI took a truncated build log for a finished one.
+      const finish = (complete) => {
         if (idle) clearTimeout(idle);
         if (hard) clearTimeout(hard);
         try { unsub?.(); } catch (_) { /* already gone */ }
-        resolve({ ok: true, executed: true, command: cmd, output: stripAnsi(chunks.join('')) });
+        resolve({ ok: true, executed: true, complete, command: cmd, output: stripAnsi(chunks.join('')) });
       };
       unsub = electronAPI.onShellData(({ id, data }) => {
         if (id !== SESSION_ID) return;
         chunks.push(data);
         if (idle) clearTimeout(idle);
-        idle = setTimeout(finish, idleMs);   // idle stream ⇒ command likely done
+        idle = setTimeout(() => finish(true), idleMs);   // idle stream: command likely done
       });
-      hard = setTimeout(finish, maxMs);       // safety cap for long/interactive cmds
+      hard = setTimeout(() => finish(false), maxMs);       // cap for long/interactive cmds
       electronAPI.shellInput(SESSION_ID, cmd + '\r');
     });
   }

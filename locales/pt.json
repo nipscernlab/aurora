@@ -500,7 +500,9 @@
     "cancelled": "Compilação cancelada"
   },
   "editor": {
-    "lineCol": "Ln {{line}}, Col {{col}}"
+    "lineCol": "Ln {{line}}, Col {{col}}",
+    "formatTimeout": "Formatar desistiu: o formatador não terminou a tempo. O arquivo ficou como estava.",
+    "bootFailed": "O editor de código não conseguiu iniciar ({{error}}). Reinicie o SAPHO; se repetir, reinstale."
   },
   "tabs": {
     "close": "Fechar",
@@ -551,6 +553,7 @@
       "alreadyDeleted": "Arquivo \"{{name}}\" já havia sido excluído",
       "errorDeleting": "Erro ao excluir \"{{name}}\": {{error}}",
       "removed": "\"{{name}}\" removido",
+      "removeFailed": "Não foi possível remover \"{{name}}\" do projeto: {{error}}",
       "setAsTop": "\"{{name}}\" definido como Top Level",
       "topRemoved": "Top Level removido de \"{{name}}\"",
       "markedTb": "\"{{name}}\" marcado como Testbench",

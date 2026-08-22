@@ -524,9 +524,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('upd-check-now')?.addEventListener('click', () => {
             electronAPI.checkForUpdates?.();
-            // The check is asynchronous; re-read shortly after so the panel
-            // reflects the attempt rather than the pre-click state.
-            setTimeout(refreshDiagnostics, 1500);
+            // Re-read at once so the panel shows the attempt started. The
+            // OUTCOME arrives by event below, not by a timer: the old 1.5 s
+            // re-read left stale numbers on screen whenever the server took
+            // longer, and the button looked broken.
+            refreshDiagnostics();
+        });
+        // Every check ends in a notice (nothing new, failed) or in the update
+        // window taking over; either way the numbers changed, so refresh.
+        electronAPI.onUpdateNotice?.(() => refreshDiagnostics());
+        window.addEventListener('focus', () => {
+            if (modalOverlay.classList.contains('visible')) refreshDiagnostics();
         });
         document.getElementById('upd-open-log')?.addEventListener('click', () => {
             electronAPI.openUpdateLog?.();

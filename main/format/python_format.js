@@ -102,7 +102,9 @@ async function format({ text } = {}) {
     const timer = setTimeout(() => {
       log.warn('[python-format] tempo esgotado, encerrando');
       try { child.kill(); } catch { /* ignore */ }
-      done({ ok: false, reason: 'failed' });
+      // 'timeout', e nao 'failed': o renderer avisa o usuario neste caso, e
+      // calar deixava Shift+Alt+F parecendo que nao fez nada.
+      done({ ok: false, reason: 'timeout' });
     }, FORMAT_TIMEOUT_MS);
 
     child.stdout.on('data', (d) => { out += d.toString('utf8'); });

@@ -16,6 +16,13 @@ const { stopAllToolchain } = require('./process_registry');
 const { loadPage } = require('./render_loader');
 
 /**
+ * How long after ready-to-show the splash waits for the renderer's own
+ * "editor is usable" signal before handing off anyway. Under the 15 s absolute
+ * safety net below; above the few seconds a cold Monaco boot really takes.
+ */
+const RENDERER_READY_GRACE_MS = 8000;
+
+/**
  * Whether Windows will accept a *custom* jumplist category right now.
  * `null` = not probed yet; cached for the rest of the process.
  * @type {boolean|null}
@@ -511,9 +518,13 @@ function createSplashScreen() {
     wc.once('did-finish-load', () => progress(80, 'resources'));
     mainWindow.once('ready-to-show', () => {
       progress(90, 'editor');
-      // Give the renderer a moment to fire `app:renderer-ready`; if it
-      // doesn't (e.g. an early script error), hand off anyway.
-      setTimeout(handoff, 2200);
+      // `app:renderer-ready` now arrives only after EditorManager.ready, i.e.
+      // once Monaco is really usable, and on a cold machine that can take a
+      // few seconds past ready-to-show. This fallback exists for a renderer
+      // that never signals (an early script error); it must not fire on a
+      // healthy slow boot, or the window appears with the editor still
+      // loading, the "tab opens, editor does not" symptom.
+      setTimeout(handoff, RENDERER_READY_GRACE_MS);
     });
   });
 

@@ -577,7 +577,18 @@ const terminalNs = {
     try {
       const res = await st.runCommand(command, { execute });
       if (!res?.ok) return err(res?.error || 'shell command failed');
-      return ok({ command: res.command, executed: res.executed, output: res.output ?? '' });
+      // `complete:false` means the capture hit its cap while the shell was
+      // still talking: the output is a prefix and the command may still be
+      // running. Say so explicitly, so the model never mistakes a truncated
+      // log for a finished one.
+      const complete = res.executed ? res.complete !== false : true;
+      return ok({
+        command: res.command,
+        executed: res.executed,
+        complete,
+        output: res.output ?? '',
+        ...(complete ? {} : { note: 'output truncated: the command was still producing output when the capture window closed and may still be running; check the TCMD terminal before assuming it finished' }),
+      });
     } catch (e) {
       return err(e?.message || 'shell command failed');
     }

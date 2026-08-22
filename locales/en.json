@@ -500,7 +500,9 @@
     "cancelled": "Compilation cancelled"
   },
   "editor": {
-    "lineCol": "Ln {{line}}, Col {{col}}"
+    "lineCol": "Ln {{line}}, Col {{col}}",
+    "formatTimeout": "Formatting gave up: the formatter did not finish in time. The file was left as it was.",
+    "bootFailed": "The code editor failed to start ({{error}}). Restart SAPHO; if it happens again, reinstall it."
   },
   "tabs": {
     "close": "Close",
@@ -551,6 +553,7 @@
       "alreadyDeleted": "File \"{{name}}\" was already deleted",
       "errorDeleting": "Error deleting \"{{name}}\": {{error}}",
       "removed": "Removed \"{{name}}\"",
+      "removeFailed": "Could not remove \"{{name}}\" from the project: {{error}}",
       "setAsTop": "\"{{name}}\" set as Top Level",
       "topRemoved": "Top Level removed from \"{{name}}\"",
       "markedTb": "\"{{name}}\" marked as Testbench",

@@ -15,6 +15,15 @@ let initialized = false;
 let jaAvisou = false;
 
 function avisar(reason) {
+  // O prazo estourado avisa toda vez: e sobre ESTE arquivo, nao sobre a
+  // maquina. Os dois motivos de instalacao avisam uma vez por sessao.
+  if (reason === 'timeout') {
+    const msg = window.t
+      ? window.t('editor.formatTimeout')
+      : 'Formatar desistiu: o formatador nao terminou a tempo. O arquivo ficou como estava.';
+    try { window.showNotification?.(msg, 'warning'); } catch (_) { /* ignore */ }
+    return;
+  }
   if (jaAvisou) return;
   jaAvisou = true;
   const msg = reason === 'no-black'
@@ -37,7 +46,7 @@ export function initPythonFormat() {
         const text = model.getValue();
         const r = await window.pythonFormatAPI.format(text);
         if (!r || !r.ok) {
-          if (r && (r.reason === 'no-black' || r.reason === 'no-python')) avisar(r.reason);
+          if (r && (r.reason === 'no-black' || r.reason === 'no-python' || r.reason === 'timeout')) avisar(r.reason);
           return [];
         }
         if (typeof r.text !== 'string' || r.text === text) return [];

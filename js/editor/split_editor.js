@@ -366,7 +366,13 @@ class SplitPane {
             if (!ligar()) {
                 let tentativas = 0;
                 const t = setInterval(() => {
-                    if (ligar() || ++tentativas > 20) clearInterval(t);
+                    if (ligar()) { clearInterval(t); return; }
+                    if (++tentativas > 20) {
+                        clearInterval(t);
+                        // Desistir calado e o que deixa este tipo de falha sem
+                        // por onde comecar no dia em que acontecer.
+                        console.warn(`[split_editor] preview sem sincronia de rolagem: o editor de ${sourcePath} nao apareceu em 3 s`);
+                    }
                 }, 150);
             }
         }

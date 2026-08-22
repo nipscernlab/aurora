@@ -3,7 +3,7 @@
 // --- Module Imports ---
 import { electronAPI } from './electron_api.js';
 import { setAuditHook, setTerminalHook } from '../compilation/spec_runner.js';
-import { initMonaco } from '../editor/monaco_editor.js';
+import { EditorManager, initMonaco } from '../editor/monaco_editor.js';
 import { RecentProjectsManager } from '../project/recent_projects.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
@@ -166,12 +166,16 @@ window.onload = () => {
         if (el) el.addEventListener('click', () => aiAssistantManager.toggle());
     }
 
-    // Tell the splash screen the renderer finished booting so it can
-    // fill its real-progress bar to 100% and hand off to this window.
-    // Two rAFs = wait for Monaco's first layout/paint before signalling.
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        electronAPI?.splashNotifyReady?.();
-    }));
+    // Tell the splash screen the renderer finished booting so it can fill
+    // its real-progress bar to 100% and hand off to this window. The signal
+    // is the editor being usable, which is `EditorManager.ready`: the
+    // initMonaco() above is not awaited and the AMD modules load after
+    // onload, so two animation frames here said nothing about Monaco, and
+    // on a cold machine the window appeared with the editor still loading.
+    // ready resolves on failure too, so the handoff never waits forever.
+    EditorManager.ready.then(() => {
+        requestAnimationFrame(() => electronAPI?.splashNotifyReady?.());
+    });
 
     // Post-update confirmation toast, main/updater.js persists the
     // running version to userData; a mismatch on the next launch means

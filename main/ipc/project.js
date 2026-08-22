@@ -164,8 +164,6 @@ function register() {
       const projectFile = new ProjectFile(projectPath);
       await fse.writeFile(spfPath, JSON.stringify(projectFile.toJSON(), null, 2));
 
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
       const projectExists = await fse.pathExists(projectPath);
       const spfExists = await fse.pathExists(spfPath);
       if (!projectExists || !spfExists) {

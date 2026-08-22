@@ -318,6 +318,10 @@ class TerminalManager {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
+        // Mid-clear: park it, clearTerminal replays it after the wipe.
+        const parked = this._clearingQueues?.get(terminalId);
+        if (parked) { parked.push([terminalId, content, type, options]); return; }
+
         let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
         if (!text.trim()) return;
 
@@ -1450,6 +1454,12 @@ async clearTerminal(terminalId) {
         if (!terminal.childElementCount) return;
 
         // 1. Animate the existing entries out (fade + slide), then wipe.
+        // Anything appended during the animation would be wiped with the old
+        // entries before anyone saw it (it happened once, to the ASM preamble),
+        // so appends are parked and replayed after the wipe.
+        const parked = this._clearingQueues || (this._clearingQueues = new Map());
+        if (parked.has(terminalId)) return; // a clear is already in flight
+        parked.set(terminalId, []);
         terminal.classList.add('clearing');
         await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -1460,6 +1470,11 @@ async clearTerminal(terminalId) {
         terminal.innerHTML = '';
         terminal.classList.remove('clearing');
         this.recountMessages?.(terminalId);
+
+        // 3. Replay what arrived while the old entries were fading out.
+        const replay = parked.get(terminalId) || [];
+        parked.delete(terminalId);
+        for (const args of replay) this.appendToTerminal(...args);
     }
 
     /** Transient confirmation pill, fired by the manual clear button only. */

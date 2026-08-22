@@ -138,6 +138,26 @@ jobs:
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
 
     steps:
+      # Trava contra a pior confusao que este desenho permite: publicar para os
+      # alunos um instalador assinado com o certificado de TESTE.
+      #
+      # O certificado de teste e autoassinado, e um instalador assinado com ele
+      # e PIOR do que um nao assinado: o Windows deixa de dizer apenas
+      # "publicador desconhecido" e passa a dizer que a cadeia termina numa raiz
+      # em que ele nao confia, que soa como adulteracao. Basta a variavel
+      # SIGNPATH_POLICY_SLUG ficar em `test-signing` depois de um ensaio, e a
+      # proxima release de verdade sai assim, sem ninguem perceber, porque o
+      # fluxo teria feito tudo certo do ponto de vista dele.
+      #
+      # Primeiro passo do job de proposito: falha em segundos, e nao depois dos
+      # vinte minutos de bootstrap e build.
+      - name: Refuse to sign a real release with the test certificate
+        if: ${{ env.SIGNPATH_API_TOKEN != '' && inputs.sign_only != true && vars.SIGNPATH_POLICY_SLUG == 'test-signing' }}
+        shell: pwsh
+        run: |
+          Write-Host "::error::SIGNPATH_POLICY_SLUG esta em 'test-signing' e esta execucao PUBLICA. O certificado de teste e autoassinado e nao pode chegar a um aluno. Troque a variavel para a politica de producao, ou rode com sign_only marcado."
+          exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
 

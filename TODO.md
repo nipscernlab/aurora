@@ -332,41 +332,31 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       aprovação da OSI e como pedido custa zero; e manter declaração explícita
       de que nome e logotipo SAPHO e AURORA não são concedidos pela licença de
       software.
-- [ ] **3.5 Painel da SignPath**, que só o usuário faz. Na ordem, porque um
-      passo depende do anterior:
+- [x] ~~**3.5 Painel da SignPath.**~~ Feito em 22/08/2026, e o ensaio rodou de
+      ponta a ponta na execução #17 do `release.yml`. Ficou provado, de uma vez:
+      o token do `CI builds` funciona, ele tem permissão de submeter, a
+      configuração de artefato casa com o zip que o GitHub entrega, o curinga do
+      nome acha o instalador, a SignPath devolve o arquivo assinado, e o
+      `patch-latest-yml.js` refaz o manifesto e o blockmap a partir dos bytes
+      assinados. O `Get-AuthenticodeSignature` no anexo confirmou assinatura
+      Authenticode, carimbo de tempo da DigiCert, e a cadeia terminando numa
+      raiz não confiável, que é o desfecho correto para certificado de teste.
 
-      1. Confirmar que a organização é a `SAPHO [OSS]` e que NÃO há trial
-         ativa. A trial é a porta pela qual as cláusulas de pagamento passam a
-         valer.
-      2. Criar as contas individuais, no mínimo duas. O ToS §2.3 proíbe login
-         compartilhado, e é preciso um Approver além de quem submete. Ativar
-         2FA em todas.
-      3. Criar a Artifact Configuration com o XML de
-         [build/signpath-artifact-configuration.xml](build/signpath-artifact-configuration.xml),
-         que já está versionado com o motivo de cada linha. A forma é
-         `zip-file` com `pe-file` dentro, e não um PE solto, porque o
-         `upload-artifact` do GitHub empacota tudo num zip. O padrão do nome
-         usa `*` porque a versão vive no nome do arquivo.
-      4. Resolver a política `release-signing`, hoje INVALID. Costuma ser
-         exatamente a Artifact Configuration ausente do passo anterior.
-      5. Decidir o modelo de aprovação. O programa gratuito exige um Approver
-         humano por requisição, e o pipeline é automático: ou se aprova cada
-         release no painel, o que é aceitável porque release é raro, ou se
-         negocia dispensa para build de origem verificada. O workflow já espera
-         uma hora pela aprovação (`wait-for-completion-timeout-in-seconds`),
-         então há tempo de receber a notificação e clicar.
-      6. Conferir o Trusted Build System, lembrando que o build roda em
-         `aurora` e publica em `sapho`.
-      7. Criar o secret `SIGNPATH_API_TOKEN` e as três `vars`
-         (`SIGNPATH_ORG_ID`, `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_POLICY_SLUG`)
-         no repositório `aurora`. Sem o secret, o workflow publica sem assinar,
-         exatamente como hoje.
-      8. Disparar o `release.yml` pelo `workflow_dispatch` com `sign_only`
-         marcado. Ele constrói, assina com o certificado de teste, guarda o
-         instalador como anexo da execução e não publica nada. Baixar o anexo e
-         conferir com `signtool verify /pa` e `Get-AuthenticodeSignature`: com
-         certificado de teste o esperado é a assinatura existir e a cadeia não
-         ser confiável. Esse é o resultado certo.
+      Valores em uso: organização `f709b0ef-a08f-4cbb-ae62-60d18e4f96a2`,
+      projeto `aurora`, configuração `initial`, política `test-signing`. Os três
+      primeiros não mudam; o último vira `release-signing` quando o certificado
+      de produção sair.
+
+      Não foi preciso decidir modelo de aprovação: a `test-signing` já vinha com
+      `Use approval process` desligado e com o `CI builds` entre os submitters.
+
+- [ ] **3.5.1 Ligar as garantias na política de produção.** A `test-signing`
+      está com `Require trusted build system` e `Verify origin policy`
+      desligados, o que é aceitável num ensaio. Na `release-signing` os dois
+      precisam ficar LIGADOS, porque são eles que tornam verdadeira a frase da
+      página pública de que uma requisição só carrega o que o fluxo do projeto
+      construiu. Sem isso, a página promete uma garantia que o painel não
+      impõe.
 
 - [x] ~~**3.6 Escrever a página pública de Code signing policy.**~~ Feita em
       22/08/2026, no repositório `nipscernweb`, em `nipscern.com/code-signing`

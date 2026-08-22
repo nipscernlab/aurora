@@ -368,9 +368,16 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
          certificado de teste o esperado é a assinatura existir e a cadeia não
          ser confiável. Esse é o resultado certo.
 
-- [ ] **3.6 Escrever a página pública de Code signing policy** no site do
-      projeto, listando os papéis (Autor, Revisor, Aprovador) e as informações
-      de privacidade. É pré-requisito do primeiro release assinado.
+- [x] ~~**3.6 Escrever a página pública de Code signing policy.**~~ Feita em
+      22/08/2026, no repositório `nipscernweb`, em `nipscern.com/code-signing`
+      e ligada no rodapé de todas as páginas. Conta a cadeia como ela é:
+      revisão, etiqueta, build do fluxo público a partir daquele commit,
+      submissão à SignPath, aprovação humana, publicação. Lista os três papéis
+      com nome, e diz as duas coisas que surpreendem quem confere: o publicador
+      exibido será SignPath Foundation, e o SmartScreen só acumula reputação
+      com o tempo. Inglês e português completos; francês e norueguês caem no
+      inglês do HTML, que é como o carregador do site se comporta.
+
 - [x] ~~**3.7 Ligar a assinatura no `release.yml`.**~~ Feito em 11/08/2026. O
       workflow tem dois caminhos escolhidos pela existência do
       `SIGNPATH_API_TOKEN`: sem o secret, o build publica sem assinatura

@@ -84,6 +84,33 @@ function isBenignCancellation(err) {
     || message === 'Canceled' || message === 'Cancelled';
 }
 
+/**
+ * O sticky scroll do Monaco rejeita sozinho quando o arquivo encolhe.
+ *
+ * O widget que fixa o `module`/`always` no topo decide de forma assincrona qual
+ * linha grudar. Se o texto encolher entre a decisao e o desenho, ele pergunta
+ * pelo fim de uma linha que nao existe mais e o Monaco recusa com "Illegal
+ * value for lineNumber". Como o caminho e `async` e ninguem espera por ele, a
+ * rejeicao sobe sem dono e caia aqui, mostrando um "algo deu errado" para quem
+ * so estava apagando uma linha.
+ *
+ * E defeito do Monaco 0.52.2, que esta fixado por outro motivo (ver
+ * ARCHITECTURE secao 8), e nao ha o que corrigir do lado da AURORA: o widget e
+ * dele, o calculo e dele e o erro morre nele. O filtro e estreito de proposito,
+ * exige a mensagem exata E a assinatura do widget na pilha, para nao virar um
+ * tapete embaixo do qual um erro nosso de numero de linha se esconderia.
+ *
+ * O balao sai de cena; o console e o log continuam recebendo tudo, porque
+ * silenciar o aviso ao usuario nao e o mesmo que apagar o rastro.
+ */
+function isStickyScrollLineNumber(err) {
+  if (!err) return false;
+  const message = typeof err === 'string' ? err : (err && err.message);
+  if (message !== 'Illegal value for lineNumber') return false;
+  const stack = (err && err.stack) || '';
+  return stack.includes('StickyScroll') || stack.includes('_renderStickyScroll');
+}
+
 window.addEventListener('error', (event) => {
   const err = event.error || event.message;
   if (isBenignCancellation(err)) { try { event.preventDefault(); } catch { /* noop */ } return; }
@@ -93,5 +120,16 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
   if (isBenignCancellation(reason)) { try { event.preventDefault(); } catch { /* noop */ } return; }
+  if (isStickyScrollLineNumber(reason)) {
+    // Sem o balao, mas com o rastro: o console e o main.log seguem recebendo.
+    console.warn(`${PREFIX} sticky scroll do Monaco rejeitou (defeito conhecido do 0.52.2):`, reason);
+    forwardToMain('monaco sticky scroll', describe(reason), reason && reason.stack);
+    try { event.preventDefault(); } catch { /* noop */ }
+    return;
+  }
   handle('unhandled promise rejection', reason, reason && reason.stack);
 });
+
+// Exportados para o teste alcancar as duas regras de filtragem. Elas decidem o
+// que o usuario ve, e uma regra larga demais esconderia defeito nosso.
+export { isBenignCancellation, isStickyScrollLineNumber };

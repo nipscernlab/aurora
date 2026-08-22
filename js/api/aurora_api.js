@@ -2902,6 +2902,55 @@ function readSettingsStore() {
   catch (_) { return {}; }
 }
 
+/* ============================================================
+ *  Projetos de exemplo
+ *
+ *  Os cinco projetos prontos que o botao da tela inicial cria. A IA precisa
+ *  deles por dois motivos. Primeiro, para responder "o que eu posso estudar
+ *  aqui?" sem inventar: a lista sai do catalogo, com o que cada um ensina e
+ *  qual processador traz. Segundo, para levar o aluno do assunto ate o codigo
+ *  rodando, que hoje exige achar um botao que ele talvez nao saiba que existe.
+ *
+ *  `install` NAO recebe caminho de proposito. Ela chama o mesmo canal do botao,
+ *  que abre o seletor de pasta do sistema, entao quem decide onde os arquivos
+ *  nascem continua sendo a pessoa. Uma ferramenta de IA que escrevesse cinco
+ *  projetos num caminho escolhido pelo modelo seria uma escrita em disco sem
+ *  dono, e o ganho de conveniencia nao paga isso.
+ * ========================================================== */
+const examplesNs = {
+  /**
+   * O catalogo dos exemplos: chave, nome, resumo, linguagem, e os
+   * processadores que cada um traz.
+   */
+  async list() {
+    try {
+      const r = await electronAPI.exemplosListar?.();
+      if (!r?.ok) return err(r?.erro || 'Could not read the example catalogue');
+      return ok({ examples: r.exemplos || [] });
+    } catch (e) { return err(e?.message || 'list examples failed'); }
+  },
+
+  /**
+   * Cria os cinco numa pasta que o usuario escolhe, e devolve o caminho do
+   * `.spf` de cada um, que e o que `project.openProject` precisa em seguida.
+   *
+   * Cancelar o seletor nao e erro: devolve `cancelled: true`.
+   */
+  async install() {
+    try {
+      const r = await electronAPI.exemplosInstalar?.();
+      if (!r?.ok) return err(r?.erro || 'Could not create the example projects');
+      if (r.cancelado) return ok({ cancelled: true, created: [], skipped: [] });
+      return ok({
+        cancelled: false,
+        folder: r.pasta,
+        created: r.criados || [],
+        skipped: r.pulados || [],
+      });
+    } catch (e) { return err(e?.message || 'install examples failed'); }
+  },
+};
+
 const settingsNs = {
   /** Snapshot of every user-facing setting Aurora exposes. */
   async getAll() {
@@ -3045,6 +3094,10 @@ const NAMESPACES = Object.freeze({
     getSurferMultiWindow: 'Whether Surfer keeps multiple windows open (false = single window, default)',
     setSurferMultiWindow: 'Enable/disable multiple Surfer windows to compare runs ({ enabled: boolean })',
   },
+  examples: {
+    list:    'The five ready-made example projects: what each one teaches and which processor it carries',
+    install: 'Create all five in a folder the user picks, and return the .spf path of each',
+  },
   settings: {
     getAll: 'Snapshot of every user-facing IDE setting',
     set:    'Update one setting (locale / tooltipsEnabled / verboseMode)',
@@ -3113,6 +3166,7 @@ export function initAuroraAPI() {
     compile:  Object.freeze(compileNs),
     wave:     Object.freeze(waveNs),
     rules:    Object.freeze(rulesNs),
+    examples: Object.freeze(examplesNs),
     settings: Object.freeze(settingsNs),
     ui:       Object.freeze(uiNs),
     ai:       Object.freeze(aiNs),

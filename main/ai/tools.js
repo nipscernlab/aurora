@@ -772,6 +772,29 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'list_example_projects',
+    description:
+      'List the five ready-made example projects that ship with AURORA: key, name, what each one '
+      + 'teaches, the language, and which processors it carries. Use this to answer "what can I study '
+      + 'here?" or to pick a starting point for a beginner, instead of describing a project from memory.',
+    access: 'read',
+    api: ['examples', 'list'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'install_example_projects',
+    description:
+      'Create all five example projects on disk. The user picks the destination folder in a native '
+      + 'dialog, so this never writes to a path chosen by the model; if they cancel, the result is '
+      + '{ cancelled: true } and nothing was written. On success it returns the .spf path of each '
+      + 'project, which open_project then opens. Existing projects are never overwritten.',
+    access: 'write',
+    api: ['examples', 'install'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'backup_project',
     description: 'Create a timestamped backup (.zip) of the currently open SAPHO project. Returns the absolute path of the archive.',
     access: 'write',

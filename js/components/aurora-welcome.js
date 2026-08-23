@@ -355,7 +355,7 @@ class AuroraWelcome extends LitElement {
     }
     .locate-spinner {
       width: 11px; height: 11px; border-radius: 50%;
-      border: 2px solid var(--border); border-top-color: var(--aurora-mint, #5FE0B0);
+      border: 2px solid var(--border); border-top-color: var(--aurora-mint);
       animation: locate-spin 0.8s linear infinite; flex-shrink: 0;
     }
     .locate-spinner.row { margin-right: 4px; align-self: center; }
@@ -422,7 +422,7 @@ class AuroraWelcome extends LitElement {
     }
     .project-item:hover .project-remove { opacity: 1; }
     .project-remove:hover { background: rgba(226, 108, 108, 0.10); color: var(--state-error); }
-    .project-locate:hover { background: rgba(95, 224, 176, 0.10); color: var(--aurora-mint, #5FE0B0); }
+    .project-locate:hover { background: var(--status-success-bg); color: var(--aurora-mint); }
 
     .project-actions {
       display: inline-flex; align-items: center; gap: 2px;

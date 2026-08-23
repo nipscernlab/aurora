@@ -108,8 +108,8 @@
    nao depende de hover. Verde conectado e presenca discreta. */
 .status-power { cursor: pointer; }
 .status-power:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.status-power.on-battery i { color: var(--status-error, #E5484D); }
-.status-power.plugged i { color: var(--status-success, #5DD4A8); }
+.status-power.on-battery i { color: var(--status-error); }
+.status-power.plugged i { color: var(--status-success); }
 .status-github { display: inline-flex; align-items: center; gap: var(--space-2); }
 
 .status-item i {

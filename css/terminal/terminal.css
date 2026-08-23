@@ -362,7 +362,7 @@
   color: var(--text-secondary);
   font-family: var(--font-mono); font-size: var(--text-xs);
 }
-.dump-size i { color: var(--aurora-mint, #5FE0B0); font-size: 13px; }
+.dump-size i { color: var(--aurora-mint); font-size: 13px; }
 .dump-size.done { opacity: 0.75; }
 
 /* A mesma linha repetida em seguida vira este contador, em vez de mil nos de

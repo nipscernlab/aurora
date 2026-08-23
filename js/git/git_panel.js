@@ -15,11 +15,23 @@ const api = () => window.gitAPI;
 // i18n: window.t returns the dotted key itself when a string is missing.
 // `tt` swaps that loud key for a sensible English fallback so users never
 // see a raw `git.foo` path if a locale entry is absent.
-function tt(key, fallback) {
+/**
+ * Texto traduzido, com o ingles como reserva.
+ *
+ * O terceiro argumento sao os valores a interpolar, e ele existe porque sem
+ * ele o botao saia escrito "Sign in with {{name}}" na tela: a chave existia,
+ * o `window.t` recebia so o nome dela, e o marcador chegava cru ao usuario. A
+ * reserva tambem interpola, senao a mesma frase quebraria antes de os idiomas
+ * carregarem.
+ */
+function tt(key, fallback, params) {
   const fn = window.t;
-  if (typeof fn !== 'function') return fallback;
-  const v = fn(key);
-  return (v && v !== key) ? v : fallback;
+  const aplicar = (texto) => (params
+    ? String(texto).replace(/\{\{?(\w+)\}?\}/g, (m, k) => (k in params ? String(params[k]) : m))
+    : texto);
+  if (typeof fn !== 'function') return aplicar(fallback);
+  const v = fn(key, params);
+  return (v && v !== key) ? aplicar(v) : aplicar(fallback);
 }
 function relDate(iso) {
   try {
@@ -123,33 +135,54 @@ async function updateBadge() {
 // Shows a GitHub icon when signed out and the user's AVATAR when signed in;
 // clicking it opens this panel. Kept in sync from renderAccount (which already
 // has the status) and on connect/disconnect.
-function setGithubStatusBar(s) {
-  // Small avatar dot on the Git/branch toolbar button, just signals "signed in".
+/**
+ * O indicador da barra de baixo, com as DUAS forjas.
+ *
+ * Uma ficha por forja, sempre as duas: conectada mostra a foto e o @usuario,
+ * desconectada mostra so o icone, apagado. Mostrar so o GitHub quando ninguem
+ * esta conectado esconderia do aluno que existe o outro caminho, e mostrar so
+ * quem esta conectado faria a barra mudar de largura a cada login.
+ *
+ * @param {any} gh estado do GitHub
+ * @param {any} gl estado do GitLab
+ */
+function setForgeStatusBar(gh, gl) {
+  // O pontinho no botao da barra de ferramentas so sinaliza "tem conta": a
+  // primeira que estiver conectada serve, porque ali cabe uma foto so.
   const badge = $('git-avatar-badge');
   if (badge) {
-    const src = s && s.connected && s.user && (s.user.avatarDataUrl || s.user.avatarUrl);
+    const conectado = [gh, gl].find((s) => s && s.connected && s.user);
+    const src = conectado && (conectado.user.avatarDataUrl || conectado.user.avatarUrl);
     if (src) { badge.style.backgroundImage = `url("${src}")`; badge.hidden = false; }
     else { badge.style.backgroundImage = ''; badge.hidden = true; }
   }
   const item = $('githubStatusItem');
   if (!item) return;
-  if (s && s.connected && s.user) {
-    const src = s.user.avatarDataUrl || s.user.avatarUrl;
-    const avatar = src
-      ? `<img class="status-gh-avatar" src="${esc(src)}" alt="" referrerpolicy="no-referrer">`
-      : '<i class="ph ph-github-logo"></i>';
-    item.innerHTML = `${avatar}<span class="status-gh-login">@${esc(s.user.login)}</span>`;
-    item.classList.add('connected');
-    item.dataset.tooltip = `GitHub: @${s.user.login}`;
-  } else {
-    item.innerHTML = '<i class="ph ph-github-logo"></i>';
-    item.classList.remove('connected');
-    item.dataset.tooltip = tt('git.signIn', 'Sign in with GitHub');
-  }
+
+  const ficha = (s, icone, nome) => {
+    if (s && s.connected && s.user) {
+      const src = s.user.avatarDataUrl || s.user.avatarUrl;
+      const foto = src
+        ? `<img class="status-gh-avatar" src="${esc(src)}" alt="" referrerpolicy="no-referrer">`
+        : `<i class="ph ${icone}"></i>`;
+      return `<span class="status-forge connected">${foto}<span class="status-gh-login">@${esc(s.user.login)}</span></span>`;
+    }
+    return `<span class="status-forge"><i class="ph ${icone}" title="${esc(nome)}"></i></span>`;
+  };
+
+  item.innerHTML = ficha(gh, 'ph-github-logo', 'GitHub') + ficha(gl, 'ph-gitlab-logo-simple', 'GitLab');
+  const contas = [];
+  if (gh && gh.connected && gh.user) contas.push(`GitHub: @${gh.user.login}`);
+  if (gl && gl.connected && gl.user) contas.push(`GitLab: @${gl.user.login}`);
+  item.classList.toggle('connected', contas.length > 0);
+  item.dataset.tooltip = contas.length ? contas.join(' · ') : tt('git.signInAny', 'Sign in to GitHub or GitLab');
 }
 async function updateGithubStatusBar() {
-  let s; try { s = await api().githubStatus(); } catch (_) { s = { connected: false }; }
-  setGithubStatusBar(s);
+  const [gh, gl] = await Promise.all([
+    api().githubStatus().catch(() => ({ connected: false })),
+    api().gitlabStatus ? api().gitlabStatus().catch(() => ({ connected: false })) : Promise.resolve({ connected: false }),
+  ]);
+  setForgeStatusBar(gh, gl);
 }
 
 // The Commit button needs BOTH a non-empty title AND something to commit
@@ -596,11 +629,11 @@ const FORJAS = {
 async function renderAccount() {
   // Em paralelo: sao duas leituras locais (o cofre no disco), e uma nao
   // precisa esperar a outra para desenhar.
-  const [gh] = await Promise.all([
+  const [gh, gl] = await Promise.all([
     renderForgeAccount(FORJAS.github),
     renderForgeAccount(FORJAS.gitlab),
   ]);
-  setGithubStatusBar(gh); // o indicador da barra de baixo segue o GitHub
+  setForgeStatusBar(gh, gl);
 }
 
 /**

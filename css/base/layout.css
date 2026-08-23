@@ -99,6 +99,11 @@
   background: var(--bg-elev, #1a1f2b);
 }
 .status-gh-login { font-size: var(--text-xs); }
+/* Uma ficha por forja, sempre as duas. A desconectada fica so com o icone,
+   apagado: some da atencao sem sumir da tela, para o aluno saber que existe. */
+.status-forge { display: inline-flex; align-items: center; gap: 4px; opacity: 0.45; }
+.status-forge.connected { opacity: 1; }
+.status-github { display: inline-flex; align-items: center; gap: var(--space-2); }
 
 .status-item i {
   font-size: var(--icon-xs);

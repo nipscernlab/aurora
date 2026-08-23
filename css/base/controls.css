@@ -91,7 +91,7 @@
   height: 15px;
   padding: 0 4px;
   border-radius: 999px;
-  border: 1.5px solid var(--bg-titlebar, var(--bg, #0A0D14));
+  border: 1.5px solid var(--bg-titlebar, var(--bg));
   box-shadow: var(--elev-raised);
   font-size: 9px;
   font-weight: var(--font-bold);

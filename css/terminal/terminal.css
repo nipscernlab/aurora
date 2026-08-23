@@ -94,7 +94,7 @@
  * rests visible and strengthens on hover. */
 .terminal-body {
   scrollbar-width: thin;
-  scrollbar-color: rgba(142, 131, 232, 0.42) transparent;
+  scrollbar-color: var(--accent-glow) transparent;
 }
 .terminal-body:hover {
   scrollbar-color: rgba(142, 131, 232, 0.72) transparent;
@@ -194,7 +194,7 @@
 .terminal-tabs .tab[data-terminal="tasm"] .glyph    { color: var(--color-asm); }
 .terminal-tabs .tab[data-terminal="tveri"] .glyph   { color: #E25C5C; }
 .terminal-tabs .tab[data-terminal="twave"] .glyph   { color: var(--color-wave); }
-.terminal-tabs .tab[data-terminal="thtest"] .glyph  { color: var(--aurora-mint, #4ec9b0); }
+.terminal-tabs .tab[data-terminal="thtest"] .glyph  { color: var(--aurora-mint); }
 
 .terminal-tabs .tab:hover {
   background-color: var(--overlay-hover);
@@ -724,7 +724,7 @@
 #terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar { width: 8px; }
 #terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 #terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar-thumb {
-  background: var(--border-strong, #3a3f55); border-radius: 4px;
+  background: var(--border-strong); border-radius: 4px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -746,7 +746,7 @@
 }
 
 .hw-progress-line.done {
-  color: var(--aurora-mint, #4ec9b0);
+  color: var(--aurora-mint);
 }
 
 /* Clicavel: diretorio de saida na mensagem final do THTEST. Clicar abre a

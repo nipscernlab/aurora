@@ -376,7 +376,7 @@
 .settings-select:focus-visible {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(142, 131, 232, 0.18);
+  box-shadow: 0 0 0 2px var(--accent-strong);
 }
 
 .settings-select option {
@@ -423,7 +423,7 @@
   font-size: var(--text-md);
   font-weight: var(--font-bold);
   background: linear-gradient(95deg,
-    #45E0A0 0%, #2FD9C3 35%, #4FC8F0 65%, #8E83E8 100%);
+    #45E0A0 0%, #2FD9C3 35%, #4FC8F0 65%, var(--accent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -943,7 +943,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: 5px 0;
-  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.05));
+  border-bottom: 1px solid var(--border-hairline);
   font-size: var(--text-sm);
 }
 .about-licenses li:last-child { border-bottom: none; }

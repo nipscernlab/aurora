@@ -51,7 +51,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(142, 131, 232, 0.18) 35%,
+    var(--accent-strong) 35%,
     rgba(95, 224, 176, 0.16) 65%,
     transparent 100%
   );
@@ -96,7 +96,7 @@
 .status-gh-avatar {
   width: 16px; height: 16px; border-radius: 50%;
   object-fit: cover; border: 1px solid var(--border);
-  background: var(--bg-elev, #1a1f2b);
+  background: var(--bg-elev);
 }
 .status-gh-login { font-size: var(--text-xs); }
 /* Uma ficha por forja, sempre as duas. A desconectada fica so com o icone,

@@ -640,13 +640,14 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       pacotes órfãos das duas tags, e na próxima tag olhar o diagnóstico
       impresso para aposentar o mistério.
 
-- [ ] **Clicar num componente do PRISM abre a representação interna dele.**
-      Pedido em 22/08/2026. Hoje o clique no NOME abre, e o clique no retângulo
-      dá realce de conexão, que também é útil e não pode ser perdido. O trabalho
-      é escolher a interação antes de escrever código: a área clicável inteira
-      abrindo com o realce indo para outro gesto, ou abrir no duplo clique em
-      qualquer ponto. Mexe em `html/prism/prism.js`, que desenha com netlistsvg
-      e jointjs, então o risco é de interface e não de dado.
+- [x] ~~**Clicar num componente do PRISM abre a representação interna dele.**~~
+      Pedido e feito em 22/08/2026. A causa era mecânica: o corpo da célula é
+      um `<path>`, e o ouvinte genérico de fios o capturava antes de o clique
+      chegar ao grupo do módulo, então o nome abria e o retângulo destacava.
+      Decisão: a célula inteira abre com um clique; o realce das conexões da
+      célula ganhou gesto próprio, Shift+clique, e entrada no menu de contexto;
+      duplo clique segue abrindo o fonte; clique num fio solto segue destacando
+      só aquele fio. O manual (capítulo 16) descreve os quatro gestos.
 
 - [x] ~~**Caça a valores fracos de tempo, tentativa e cancelamento.**~~ Pedido
       em 22/08/2026 e fechado no mesmo dia, em dois commits: o relatório

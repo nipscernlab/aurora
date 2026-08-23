@@ -733,6 +733,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   margin: var(--space-1) 0;
 }
 
+/* Entries that only make sense on a module cell (prism.js toggles `hidden`);
+   `display: flex` above would otherwise win over the hidden attribute. */
+.context-item[hidden],
+.context-separator[hidden] {
+  display: none;
+}
+
 /* ---------------------------------------------------------------------------
  *  Scrollbars
  * --------------------------------------------------------------------------- */

@@ -23,8 +23,9 @@ const PRISM_STRINGS = {
     recompile:   'Recompile',
     fitToScreen: 'Fit to Screen',
     resetZoom:   'Reset Zoom',
-    clickModule: 'Click to open · double-click for source: ',
+    clickModule: 'Click to open · Shift+click highlights connections · double-click for source: ',
     clickWire:   'Click to highlight connection',
+    highlightCell: 'Highlight connections',
     simulate:    'Simulate',
     schematic:   'Schematic',
     building:    'Building simulation…',
@@ -41,8 +42,9 @@ const PRISM_STRINGS = {
     recompile:   'Recompilar',
     fitToScreen: 'Ajustar à Tela',
     resetZoom:   'Resetar Zoom',
-    clickModule: 'Clique para abrir · duplo-clique p/ o código: ',
+    clickModule: 'Clique para abrir · Shift+clique destaca conexões · duplo-clique p/ o código: ',
     clickWire:   'Clique para destacar conexão',
+    highlightCell: 'Destacar conexões',
     simulate:    'Simular',
     schematic:   'Esquemático',
     building:    'Montando a simulação…',
@@ -464,9 +466,16 @@ class PRISMViewer {
       group.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        // Shift+click keeps the old "what does this cell connect to" gesture
+        // that used to live, by accident, on the cell body: the body is a
+        // <path>, and the generic wire listener caught it before the click
+        // reached this group, so the name opened the module and the rectangle
+        // highlighted. Now the whole cell opens, and the highlight has a
+        // gesture of its own (also in the context menu).
+        if (e.shiftKey) { clearTimeout(this._navTimer); this._highlightCellConnections(group); return; }
         // Single click navigates, but a double click on the SAME cell opens
         // its source. Defer navigation by one dblclick window so the dblclick
-        // handler below can cancel it — otherwise the first click of a
+        // handler below can cancel it, otherwise the first click of a
         // double-click would navigate away before the source ever opens.
         clearTimeout(this._navTimer);
         this._navTimer = setTimeout(() => this.navigateToModule(type), 250);
@@ -487,8 +496,11 @@ class PRISMViewer {
       });
     });
 
-    // Wire highlighting
+    // Wire highlighting. Anything drawn inside a clickable module cell (its
+    // body, pins, skin strokes) is part of the cell's click area and must let
+    // the click bubble up to the group above, so it gets no listener here.
     svg.querySelectorAll('path, line, polyline').forEach((wire) => {
+      if (wire.closest('g.module-clickable')) return;
       wire.style.cursor = 'pointer';
       wire.addEventListener('click', (e) => { e.stopPropagation(); this._highlightWireConnection(wire); });
       wire.addEventListener('mouseenter', (e) => { this._showTooltip(e, T.clickWire); });
@@ -520,6 +532,24 @@ class PRISMViewer {
     const pts = this._wireEndpoints(clicked);
     this._findConnectedWires(pts, svg).forEach((w) => this._applyHighlight(w));
     this._applyHighlight(clicked);
+  }
+
+  /**
+   * Highlight every wire that touches a module cell. The cell's own strokes
+   * (body, pins) give the starting points; the flood fill in
+   * _findConnectedWires does the rest, exactly as a click on a wire would.
+   * The cell's strokes are not themselves highlighted: the glow belongs to
+   * the connections, the cell already has its hover affordance.
+   */
+  _highlightCellConnections(group) {
+    const svg = this.svgContent.querySelector('svg');
+    if (!svg) return;
+    this._clearWireHighlights();
+    const pts = [];
+    group.querySelectorAll('path, line, polyline').forEach((s) => pts.push(...this._wireEndpoints(s)));
+    this._findConnectedWires(pts, svg)
+      .filter((w) => !group.contains(w))
+      .forEach((w) => this._applyHighlight(w));
   }
 
   _wireEndpoints(wire) {
@@ -841,12 +871,20 @@ class PRISMViewer {
     // so the zoom/recompile menu is available everywhere on the canvas.
     e.preventDefault();
 
+    // Right-click on a module cell offers the cell's connection highlight, the
+    // same thing Shift+click does; elsewhere that entry stays hidden.
+    this._ctxCell = e.target.closest?.('g.module-clickable') || null;
+
     let menu = document.getElementById('contextMenu');
     if (!menu) {
       menu = document.createElement('div');
       menu.id = 'contextMenu';
       menu.className = 'context-menu';
       menu.innerHTML = `
+        <div class="context-item" data-action="highlight-cell">
+          <span>${T.highlightCell}</span><span class="shortcut">Shift+Click</span>
+        </div>
+        <div class="context-separator" data-for="highlight-cell"></div>
         <div class="context-item" data-action="fit">
           <span>${T.fitToScreen}</span><span class="shortcut">Ctrl+F</span>
         </div>
@@ -863,10 +901,14 @@ class PRISMViewer {
         if (action === 'fit')       this.fitToScreen();
         if (action === 'reset')     this.resetView();
         if (action === 'recompile') this.recompile();
+        if (action === 'highlight-cell' && this._ctxCell) this._highlightCellConnections(this._ctxCell);
         menu.classList.remove('show');
       });
       document.body.appendChild(menu);
     }
+    const onCell = !!this._ctxCell;
+    menu.querySelector('[data-action="highlight-cell"]').hidden = !onCell;
+    menu.querySelector('[data-for="highlight-cell"]').hidden = !onCell;
 
     menu.style.left = e.pageX + 'px';
     menu.style.top  = e.pageY + 'px';

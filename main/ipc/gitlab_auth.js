@@ -53,15 +53,17 @@ const { GITLAB_API_MS, GITLAB_AVATAR_MS } = require('../net/timeouts');
 /**
  * OAuth App do GitLab, para o login de um clique. O identificador e PUBLICO,
  * como o do GitHub: o fluxo de dispositivo nao usa segredo de cliente, entao
- * pode ser versionado.
+ * ele viaja dentro do aplicativo instalado e pode ser versionado. O `Secret`
+ * que o GitLab mostra ao lado NAO e usado por este fluxo e nao entra aqui.
  *
- * Vazio ate alguem registrar o aplicativo (em gitlab.com, Settings >
- * Applications, com "Device authorization flow" marcado e o escopo `api`).
- * Vazio significa: sem botao de um clique, so o token, que e o que o
- * github_auth.js faz quando o dele esta vazio. A variavel de ambiente permite
- * testar antes de fixar no codigo.
+ * Registrado em 23/08/2026 pelo Chrysthofer, em gitlab.com, com
+ * "Device authorization grant" marcado, "Confidential" desmarcado e o escopo
+ * `api`. Vazio (o estado anterior) significa: sem botao de um clique, so o
+ * token, que e o que o github_auth.js faz quando o dele esta vazio. A variavel
+ * de ambiente continua valendo para testar outro aplicativo sem mexer aqui.
  */
-const OAUTH_CLIENT_ID = process.env.AURORA_GITLAB_CLIENT_ID || '';
+const OAUTH_CLIENT_ID = process.env.AURORA_GITLAB_CLIENT_ID
+  || 'b70359b267755ce70d4ebbb61ca9f801ab7f1cb6220e30d8def9ff34098ea450';
 /** `api` cobre listar, criar projeto e as operacoes de repositorio. */
 const OAUTH_SCOPE = 'api';
 

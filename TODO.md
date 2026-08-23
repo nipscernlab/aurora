@@ -538,13 +538,12 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       ela não prefere nenhuma, e a escolha é de quem usa.
 
       O fluxo de dispositivo (entrar de um clique) também existe nas duas, com
-      as regras da RFC 8628 compartilhadas em `main/ipc/oauth_device.js`. O que
-      falta no GitLab não é código: é registrar um OAuth App em gitlab.com
-      (Settings > Applications, com "Device authorization flow" e escopo `api`)
-      e pôr o identificador em `OAUTH_CLIENT_ID` do `gitlab_auth.js`, ou na
-      variável `AURORA_GITLAB_CLIENT_ID` para testar antes. Vazio, o botão não
-      aparece e sobra o token, que é como o `github_auth.js` já se comporta
-      quando o dele está vazio.
+      as regras da RFC 8628 compartilhadas em `main/ipc/oauth_device.js`. O
+      aplicativo do GitLab foi registrado em 23/08 e o identificador está no
+      `gitlab_auth.js`, então as duas forjas têm os dois caminhos de entrada.
+      Falta o teste ao vivo, que exige conta de verdade: entrar de um clique,
+      entrar por token, listar os projetos do grupo e enviar para um remoto do
+      GitLab.
 
       Junto saiu um defeito que já existia: o cabeçalho com o token do GitHub
       era injetado em QUALQUER remoto, então um push para o GitLab levava 401

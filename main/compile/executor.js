@@ -35,6 +35,32 @@ const log = require('electron-log');
 
 const state = require('../state');
 const { spawnTracked, GROUP } = require('../process_registry');
+
+/**
+ * Impede a tela (e com ela a suspensao) de apagar enquanto um passo LONGO da
+ * toolchain roda. Contado por referencia: passos streamed podem se sobrepor,
+ * e o bloqueio so cai quando o ultimo termina. Falha em silencio de
+ * proposito: nao poder segurar a tela nunca pode impedir uma compilacao.
+ */
+let _telaBloqueioId = null;
+let _telaRefs = 0;
+function segurarTela() {
+  _telaRefs++;
+  if (_telaBloqueioId !== null) return;
+  try {
+    const { powerSaveBlocker } = require('electron');
+    _telaBloqueioId = powerSaveBlocker.start('prevent-display-sleep');
+  } catch (_e) { _telaBloqueioId = null; }
+}
+function soltarTela() {
+  _telaRefs = Math.max(0, _telaRefs - 1);
+  if (_telaRefs > 0 || _telaBloqueioId === null) return;
+  try {
+    const { powerSaveBlocker } = require('electron');
+    powerSaveBlocker.stop(_telaBloqueioId);
+  } catch (_e) { /* ja caiu */ }
+  _telaBloqueioId = null;
+}
 const { getCPUCount } = require('../utils');
 const { isAllowed } = require('./binary_allowlist');
 const protectedFlags = require('./protected_flags');
@@ -213,6 +239,11 @@ function register() {
       state.currentVvpProcess = child;
       state.vvpProcessPid = child.pid ?? null;
       boostPriority(child.pid);
+      // A tela nao pode apagar no meio de uma simulacao longa: em laptop, o
+      // Windows pode levar a suspensao junto e matar a corrida. Segura so
+      // ENQUANTO um passo streamed roda (sao os longos), com contagem de
+      // referencia porque passos podem se sobrepor.
+      segurarTela();
 
       // Only clear the shared slot if it still points at *this* child:
       // a faster sequential step could already have claimed it.
@@ -282,14 +313,18 @@ function register() {
       child.stderr?.on('data', (data) => {
         event.sender.send('exec-spec-stream', { type: 'stderr', data: data.toString() });
       });
+      let soltou = false;
+      const soltar = () => { if (!soltou) { soltou = true; soltarTela(); } };
       child.on('close', (code) => {
         state.currentVvpProcess = null;
         state.vvpProcessPid = null;
+        soltar();
         resolve({ code });
       });
       child.on('error', (err) => {
         state.currentVvpProcess = null;
         state.vvpProcessPid = null;
+        soltar();
         resolve({ code: -1, error: err?.message || String(err) });
       });
     });

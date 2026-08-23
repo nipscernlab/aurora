@@ -5,6 +5,7 @@ import { electronAPI } from './electron_api.js';
 import { setAuditHook, setTerminalHook } from '../compilation/spec_runner.js';
 import { EditorManager, initMonaco } from '../editor/monaco_editor.js';
 import { RecentProjectsManager } from '../project/recent_projects.js';
+import { initPowerStatus } from '../ui/power_status.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import '../terminal/tab_orientation.js';   // abas em coluna quando o terminal fica estreito
@@ -80,6 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize managers that depend on the DOM
     const recentProjectsManager = new RecentProjectsManager(projectManager.loadProject);
+    initPowerStatus();
     window.recentProjectsManager = recentProjectsManager;
 
     // Initialize the main CompilationModule. Its constructor pins

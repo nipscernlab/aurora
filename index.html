@@ -609,6 +609,14 @@
             <i class="ph ph-text-align-left"></i>
             <span>Ln 3, Col 3</span>
         </div>
+        <!-- Indicador de energia: verde conectado, vermelho na bateria, com a
+             porcentagem no balao. Escondido ate a Battery API responder (e some
+             de vez onde ela nao existe). Preenchido por js/ui/power_status.js;
+             o clique abre um dialogo com a explicacao e o caminho para as
+             configuracoes de energia do Windows. -->
+        <div class="status-item status-power" id="powerStatusItem" role="button" tabindex="0" hidden data-tooltip="Power">
+            <i class="ph ph-battery-charging"></i>
+        </div>
         <!-- Indicador de controle de versao: uma ficha por forja, sempre as
              duas. Icone apagado quando desconectada, foto e @usuario quando
              conectada. Clicar abre o painel. Preenchido por

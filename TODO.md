@@ -540,10 +540,17 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       O fluxo de dispositivo (entrar de um clique) também existe nas duas, com
       as regras da RFC 8628 compartilhadas em `main/ipc/oauth_device.js`. O
       aplicativo do GitLab foi registrado em 23/08 e o identificador está no
-      `gitlab_auth.js`, então as duas forjas têm os dois caminhos de entrada.
-      Falta o teste ao vivo, que exige conta de verdade: entrar de um clique,
-      entrar por token, listar os projetos do grupo e enviar para um remoto do
-      GitLab.
+      `gitlab_auth.js`. Conferido ao vivo no mesmo dia, com as duas contas
+      conectadas.
+
+      Três correções vieram desse uso, e valem como lembrete: o `tt()` do
+      painel não interpolava, e o botão saiu com `{{name}}` cru na tela; a
+      barra de baixo mostrava só o GitHub, e agora traz uma ficha por forja,
+      sempre as duas, apagada quando desconectada; e o "limpar ao sair" das
+      Configurações prometia só o GitHub, embora o processo principal já
+      apagasse os dois cofres. Texto que promete menos do que o código faz é
+      tão ruim quanto o contrário, porque quem lê decide errado sobre o que
+      sobrou na máquina.
 
       Junto saiu um defeito que já existia: o cabeçalho com o token do GitHub
       era injetado em QUALQUER remoto, então um push para o GitLab levava 401

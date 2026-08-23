@@ -192,6 +192,7 @@
       "close": "Fechar Modal",
       "sectionSignals": "Sinais para Dump",
       "hint": "Selecione quais sinais serão escritos no VCD e mostrados no GTKWave ao clicar em Wave. Padrão (sem seleção): todos declarados no escopo do módulo testbench.",
+      "hintVerilator": "Verilator selecionado: ele ignora os argumentos do $dumpvars e grava todos os sinais públicos do projeto, então esta seleção decide o que o visualizador mostra, não o tamanho do dump.",
       "filterPlaceholder": "Filtrar sinais (Ctrl+F)",
       "filterAriaLabel": "Filtrar sinais",
       "filterCase": "Diferenciar maiúsc./minúsc.",

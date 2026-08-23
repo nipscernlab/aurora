@@ -25,6 +25,7 @@ import { CompilationModule } from '../compilation/compilation_module.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getSurferMultiWindow, setSurferMultiWindow } from './surfer_window_preference.js';
 import { getSurferInTab, setSurferInTab } from './surfer_tab_preference.js';
+import { getSimulator } from './simulator_preference.js';
 
 function tbKeyFromPath(tbPath) {
     if (!tbPath) return '';
@@ -106,6 +107,7 @@ class WaveConfigManager {
             processorOnlyFilter: document.getElementById('waveConfigProcessorOnly')?.closest('.wave-tree-filter'),
             surferInTabCb:     document.getElementById('waveConfigSurferInTab'),
             surferMultiWindowCb: document.getElementById('waveConfigSurferMultiWindow'),
+            hintVerilator:     document.getElementById('waveConfigHintVerilator'),
             tree:              document.getElementById('waveConfigTree'),
             counter:           document.getElementById('waveConfigSelectedCount'),
             filterInput:       document.getElementById('waveConfigFilterInput'),
@@ -367,6 +369,16 @@ class WaveConfigManager {
     async open() {
         const projectPath = ProjectStore.getProjectPath();
         const spfPath = ProjectStore.getSpfPath();
+
+        // Under Verilator (--binary) the $dumpvars arguments are ignored and
+        // every public signal is recorded, so this selection shapes the
+        // viewer layout, not the dump size (found 20/08/2026: a 424-signal
+        // selection produced the same 41-signal FST as no selection). Say so
+        // where the choice is made, instead of letting the user shrink the
+        // selection to speed up a simulation it cannot speed up.
+        if (this.elements.hintVerilator) {
+            this.elements.hintVerilator.hidden = getSimulator() !== 'verilator';
+        }
 
         if (projectPath && spfPath) {
             const compiler = new CompilationModule(projectPath);

@@ -643,6 +643,11 @@
                     Pick which signals are dumped to the VCD and shown in GTKWave on Wave click.
                     Default (no selection): everything declared at the testbench module scope.
                 </p>
+                <p class="form-hint" id="waveConfigHintVerilator" hidden data-i18n="modal.waveConfig.hintVerilator">
+                    Verilator is selected: it ignores the $dumpvars arguments and records every
+                    public signal of the design, so this selection decides what the viewer shows,
+                    not the size of the dump.
+                </p>
 
                 <div class="wave-tree-find" role="search">
                     <span class="find-icon" aria-hidden="true">

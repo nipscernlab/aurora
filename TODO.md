@@ -624,13 +624,17 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       Ficou fora da 6.7.0 pelo congelamento de 20/08; retomar um item por vez,
       com teste do usuário entre eles.
 
-- [ ] **Seleção do picker sob Verilator não limita o dump.** Descoberto em
-      20/08: sob --binary o Verilator ignora os argumentos do $dumpvars e
-      rastreia a hierarquia visível inteira (por isso a seleção de 424
-      sinais "dumpou" só os 41 públicos). O picker continua valendo para o
-      LAYOUT (o que aparece), mas não para o TAMANHO do FST sob Verilator.
-      Documentar no modal ou investigar --trace-depth/tracing_off por escopo
-      no .vlt gerado.
+- [x] ~~**Seleção do picker sob Verilator não limita o dump.**~~ Descoberto em
+      20/08, fechado em 22/08 pelo lado da documentação: o modal de ondas mostra,
+      com o Verilator selecionado, que a seleção decide o que o visualizador
+      mostra e não o tamanho do FST, e o capítulo 14 do manual diz o mesmo.
+      Investigado e deixado de fora: o Verilator 5.048 embarcado aceita
+      `tracing_off -scope "<hierarquia>" [-levels N]` no `.vlt`, então limitar
+      o dump por escopo é possível, gerando regras no `aurora_monitors.vlt` que
+      o `compilation_module.js` já escreve a cada build, para os escopos sem
+      nenhum sinal selecionado. Não foi feito porque exige build real para
+      provar e porque sob Verilator só os sinais públicos entram no dump, que é
+      pequeno por construção; retomar se um projeto grande trouxer FST pesado.
 
 - [ ] **Tags meio-publicadas no registro do fork.** As tags v0.7.0-nips.8 e
       .9 do surfer-aurora têm só o exe no registro (o job do bundle web

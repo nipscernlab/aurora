@@ -7,10 +7,11 @@
  * na mesma coisa, com o agravante de que a falha e um 404 no console que
  * ninguem le.
  *
- * A escolha entre marca e glifo e deliberada: logotipo de verdade onde existe,
- * glifo do Phosphor onde nao existe. Inventar um logotipo seria pior do que
- * nao ter, entao o teste aceita as duas formas e exige apenas que uma delas
- * esteja preenchida.
+ * O icone e um arquivo em assets/icons, e so. Existiu um `glifo` alternativo
+ * (classe do Phosphor) e uma reserva no painel, para o caso de um componente
+ * sem marca; nenhum componente os usou, e em 22/08/2026 os dois sairam. Um
+ * componente sem marca e um componente mal cadastrado, e e este teste que
+ * acusa, antes de chegar ao painel.
  */
 
 import fs from 'node:fs';
@@ -28,17 +29,14 @@ const ICONES = path.join(RAIZ, 'assets', 'icons');
 const TODOS = [...COMPONENTES, ...CATALOGO_IA];
 
 describe('icones dos componentes', () => {
-  it('nenhum componente fica sem icone', () => {
+  it('todo componente declara um icone', () => {
     for (const c of TODOS) {
-      expect(
-        Boolean(c.icone || c.glifo),
-        `${c.chave} nao declara nem icone nem glifo`,
-      ).toBe(true);
+      expect(typeof c.icone === 'string' && c.icone.length > 0, `${c.chave} nao declara icone`).toBe(true);
     }
   });
 
   it('todo arquivo de icone declarado existe no disco', () => {
-    for (const c of TODOS.filter((x) => x.icone)) {
+    for (const c of TODOS) {
       const alvo = path.join(ICONES, c.icone);
       expect(fs.existsSync(alvo), `${c.chave}: assets/icons/${c.icone} nao existe`).toBe(true);
     }
@@ -48,7 +46,7 @@ describe('icones dos componentes', () => {
     // Um .svg que na verdade e outra coisa renderiza como quadro quebrado, e o
     // painel nao tem como saber. Vetor e o padrao; PNG so entra quando o
     // projeto nao publica vetor nenhum, como o slang, que so tem o favicon.
-    for (const c of TODOS.filter((x) => x.icone)) {
+    for (const c of TODOS) {
       const alvo = path.join(ICONES, c.icone);
       if (c.icone.endsWith('.svg')) {
         const texto = fs.readFileSync(alvo, 'utf8').slice(0, 600);
@@ -64,25 +62,14 @@ describe('icones dos componentes', () => {
   });
 
   it('so aceita svg e png, que e o que o painel sabe desenhar', () => {
-    for (const c of TODOS.filter((x) => x.icone)) {
+    for (const c of TODOS) {
       expect(c.icone, c.chave).toMatch(/\.(svg|png)$/);
     }
   });
 
-  it('os glifos usam o prefixo do Phosphor, que e a fonte que o app carrega', () => {
-    for (const c of TODOS.filter((x) => x.glifo)) {
-      expect(c.glifo, `${c.chave}: ${c.glifo}`).toMatch(/^ph-[a-z0-9-]+$/);
-    }
-  });
-
-  it('nenhum componente declara os dois ao mesmo tempo', () => {
-    // Declarar os dois esconde qual deles a interface usa, e a resposta so
-    // apareceria lendo o cartao.
+  it('o campo glifo nao existe mais; quem precisar de marca poe o arquivo', () => {
     for (const c of TODOS) {
-      expect(
-        Boolean(c.icone && c.glifo),
-        `${c.chave} declara icone E glifo`,
-      ).toBe(false);
+      expect('glifo' in c, `${c.chave} declara glifo, que foi removido`).toBe(false);
     }
   });
 });

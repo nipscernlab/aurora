@@ -188,17 +188,16 @@ function cartao(c) {
     ? tamanhoLegivel(c.tamanhoMB)
     : tr('modal.settings.componentsDownloadOf', { mb: tamanhoLegivel(c.downloadMB) });
 
-  // Coluna propria e de tamanho fixo para o icone. Marca de verdade quando ela
-  // existe; glifo do Phosphor quando nao existe, porque inventar um logotipo
-  // seria pior do que nao ter. O que alinha a lista e o quadro, nao a arte:
-  // assim marca colorida e glifo monocromatico ocupam exatamente o mesmo lugar.
-  // Sem `loading="lazy"`: sao nove imagens locais de poucos KB numa lista
-  // curta, e a lista e montada com o painel fechado, onde uma imagem
-  // preguicosa nao tem caixa e so e buscada ao abrir a aba, um quadro depois
-  // do texto. O que o lazy evitaria (banda em pagina longa) nao existe aqui.
-  const marca = c.icone
-    ? `<img src="./assets/icons/${escapar(c.icone)}" alt="" decoding="async">`
-    : `<i class="ph ${escapar(c.glifo || 'ph-puzzle-piece')}" aria-hidden="true"></i>`;
+  // Coluna propria e de tamanho fixo para o icone. Todo componente declara
+  // a sua marca em assets/icons, e o teste de icones garante que o arquivo
+  // existe; nao ha reserva, porque um componente sem marca e um componente
+  // mal cadastrado, e o teste acusa antes de chegar ao painel. O que alinha a
+  // lista e o quadro, nao a arte. Sem `loading="lazy"`: sao nove imagens
+  // locais de poucos KB numa lista curta, e a lista e montada com o painel
+  // fechado, onde uma imagem preguicosa nao tem caixa e so e buscada ao abrir
+  // a aba, um quadro depois do texto. O que o lazy evitaria (banda em pagina
+  // longa) nao existe aqui.
+  const marca = `<img src="./assets/icons/${escapar(c.icone)}" alt="" decoding="async">`;
 
   return elemento(`
     <div class="componente${c.requerParaCompilar && !c.instalado && !c.essencial ? ' componente-urgente' : ''}" data-chave="${escapar(c.chave)}">

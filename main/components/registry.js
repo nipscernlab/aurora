@@ -104,7 +104,7 @@ const VALIDADE_MS = 3000;
  *   chave: string, nome: string, resumo: string, sentinela: string,
  *   tamanhoMB: number, downloadMB: number, essencial: boolean,
  *   requerParaCompilar?: boolean, script: string|null, arquivosChave: string[],
- *   icone?: string, glifo?: string,
+ *   icone: string,
  *   versao: string, carimbo: string,
  * }>}
  */

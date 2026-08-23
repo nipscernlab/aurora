@@ -39,14 +39,16 @@ const path = require('path');
 const downloader = require('../ai/cli_downloader');
 
 /**
- * Os dois campos de imagem sao os mesmos do catalogo de registry.js, porque o
- * painel desenha as duas listas com o mesmo cartao: `icone` e um arquivo em
- * assets/icons, `glifo` uma classe do Phosphor para quando nao ha marca.
+ * O campo de imagem e o mesmo do catalogo de registry.js, porque o painel
+ * desenha as duas listas com o mesmo cartao: `icone` e um arquivo em
+ * assets/icons, obrigatorio. Houve um `glifo` alternativo (classe do
+ * Phosphor) e uma reserva no painel; nenhum componente os usou, e tres
+ * estados para uma decisao que so tinha um sairam em 22/08/2026.
  *
  * @typedef {{
  *   chave: 'claude'|'codex', nome: string, resumo: string,
  *   tamanhoMB: number, downloadMB: number,
- *   icone?: string, glifo?: string,
+ *   icone: string,
  * }} ComponenteIA
  */
 

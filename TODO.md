@@ -693,12 +693,11 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       senha que ninguém vai digitar. E o Surfer continua sendo derrubado ao
       estourar o prazo, só que agora o prazo é honesto.
 
-- [ ] **`glifo` é superfície de API que ninguém usa.** Achado em 21/08/2026.
-      O catálogo de componentes aceita `icone` (arquivo) ou `glifo` (classe do
-      Phosphor), há teste garantindo que os dois não coexistem, e o painel
-      ainda tem um terceiro caminho, o `ph-puzzle-piece` de reserva. Nenhum
-      componente declara `glifo`, então são três estados para uma decisão que
-      hoje só tem um. Ou cai o campo, ou cai a reserva.
+- [x] ~~**`glifo` é superfície de API que ninguém usa.**~~ Achado em 21/08/2026,
+      fechado em 22/08. Caíram o campo e a reserva: `icone` é obrigatório nos
+      dois catálogos, o painel só desenha arquivo, e o teste de ícones acusa
+      componente sem marca antes de chegar à tela, que é onde a decisão de
+      "um estado só" fica guardada.
 
 - [ ] **O `bad allocation` do slang continua existindo.** Em 21/08/2026 entrou
       o disjuntor (`main/lsp/disjuntor.js`), que para de perguntar depois de

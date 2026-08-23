@@ -822,6 +822,7 @@
     "locateCancel": "Cancel",
     "locateFound": "Found: {{path}}",
     "locateNotFound": "Some projects were not found on this machine.",
+    "removeRecent": "Remove from recents",
     "forgetMissingTitle": "Remove the projects that no longer exist",
     "missingHint": "This project was not found on disk.",
     "examples": "Example projects",

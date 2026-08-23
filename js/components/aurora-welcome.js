@@ -422,6 +422,44 @@ class AuroraWelcome extends LitElement {
     }
     .project-item:hover .project-remove { opacity: 1; }
     .project-remove:hover { background: rgba(226, 108, 108, 0.10); color: var(--state-error); }
+    .project-locate:hover { background: rgba(95, 224, 176, 0.10); color: var(--aurora-mint, #5FE0B0); }
+
+    .project-actions {
+      display: inline-flex; align-items: center; gap: 2px;
+      justify-self: end; flex-shrink: 0; position: relative;
+    }
+    /* Balao decorado dos botoes de acao, irmao visual do <aurora-tooltip>:
+       mesma superficie, borda e tipografia. Abre ABAIXO do botao, com seta
+       para cima, porque a primeira linha da lista fica rente ao topo do
+       contêiner rolavel e um balao para cima seria cortado. */
+    .project-actions [data-tip] { position: relative; }
+    .project-actions [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; top: calc(100% + 9px); right: -4px;
+      background: var(--surface-overlay, #161B28);
+      border: 1px solid var(--border-hairline, var(--border));
+      border-radius: var(--radius-md, 6px);
+      padding: var(--space-2, 8px) var(--space-3, 12px);
+      font-size: var(--text-xs, 11px); font-family: var(--font-sans);
+      color: var(--text-secondary); white-space: nowrap;
+      opacity: 0; transform: translateY(-2px); pointer-events: none;
+      transition: opacity 120ms ease 250ms, transform 120ms ease 250ms;
+      z-index: 5;
+    }
+    .project-actions [data-tip]::before {
+      content: ''; position: absolute; top: calc(100% + 3px); right: 4px;
+      border: 6px solid transparent;
+      border-bottom-color: var(--border-hairline, var(--border));
+      opacity: 0; pointer-events: none;
+      transition: opacity 120ms ease 250ms;
+      z-index: 6;
+    }
+    .project-actions [data-tip]:hover::after,
+    .project-actions [data-tip]:focus-visible::after,
+    .project-actions [data-tip]:hover::before,
+    .project-actions [data-tip]:focus-visible::before {
+      opacity: 1; transform: translateY(0);
+    }
 
     .empty-state { grid-column: 1 / -1; padding: var(--space-3) 0; color: var(--text-faint); }
     .empty-state p { margin: 0; font-size: var(--text-sm); color: var(--text-faint); font-style: italic; }
@@ -599,20 +637,22 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
       >
         <span class="project-name">${p.name}</span>
         <span class="project-path">${p.displayPath ?? p.path}</span>
-        ${p.missing && !p.locating ? html`
-        <button
-          class="project-remove project-locate"
-          title=${this._t('welcome.locate', 'Find this project on disk')}
-          aria-label=${this._t('welcome.locate', 'Find this project on disk')}
-          @click=${(e) => this._locate(p.path, e)}
-        ><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>` : ''}
-        ${p.locating ? html`<span class="locate-spinner row" aria-hidden="true"></span>` : ''}
-        <button
-          class="project-remove"
-          title="Remove from recent projects"
-          aria-label="Remove from recent projects"
-          @click=${(e) => this._remove(p.path, e)}
-        ><i class="ph ph-x" aria-hidden="true"></i></button>
+        <span class="project-actions">
+          ${p.missing && !p.locating ? html`
+          <button
+            class="project-remove project-locate"
+            data-tip=${this._t('welcome.locate', 'Find this project on disk')}
+            aria-label=${this._t('welcome.locate', 'Find this project on disk')}
+            @click=${(e) => this._locate(p.path, e)}
+          ><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>` : ''}
+          ${p.locating ? html`<span class="locate-spinner row" aria-hidden="true"></span>` : ''}
+          <button
+            class="project-remove"
+            data-tip=${this._t('welcome.removeRecent', 'Remove from recents')}
+            aria-label=${this._t('welcome.removeRecent', 'Remove from recents')}
+            @click=${(e) => this._remove(p.path, e)}
+          ><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
     `);
   }

@@ -617,7 +617,7 @@ body.ai-assistant-open {
 /* Content bubble reveal, fades in slightly after the role label */
 .ai-msg-assistant .ai-msg-content,
 .ai-msg-user .ai-msg-content {
-  animation: ai-content-in 420ms var(--ease-out-quart) 60ms both;
+  animation: ai-content-in var(--motion-curtain) var(--ease-out-quart) 60ms both;
 }
 
 @keyframes ai-content-in {
@@ -1914,7 +1914,7 @@ body.ai-assistant-open {
   border-bottom: 1px solid var(--border);
   box-shadow: var(--elev-overlay);
   overflow: hidden;
-  animation: ai-msg-in 140ms var(--ease-out-quart);
+  animation: ai-msg-in var(--motion-quick) var(--ease-out-quart);
 }
 
 .ai-history-popover.hidden { display: none; }

@@ -237,7 +237,7 @@ body.ai-collapsed  .edge-rail-right { display: flex; }
   font-size: var(--icon-sm);
   transition: color var(--transition-fast),
               background-color var(--transition-fast),
-              transform 80ms var(--ease-out-quart);
+              transform var(--motion-instant) var(--ease-out-quart);
 }
 
 .overlay-title span i,

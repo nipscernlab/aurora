@@ -235,7 +235,7 @@
   pointer-events: none;
   opacity: 0;
   z-index: var(--z-10);
-  transition: left 80ms ease, opacity var(--transition-fast);
+  transition: left var(--motion-instant) ease, opacity var(--transition-fast);
 }
 
 .drop-indicator.active {

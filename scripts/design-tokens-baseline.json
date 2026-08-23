@@ -5,10 +5,6 @@
   },
   "css/base/layout.css": {
     "hex": 0,
-    "duration": 2
-  },
-  "css/base/styles.css": {
-    "hex": 0,
     "duration": 1
   },
   "css/base/theme_variables.css": {
@@ -19,13 +15,9 @@
     "hex": 0,
     "duration": 12
   },
-  "css/editor/tabs.css": {
-    "hex": 0,
-    "duration": 1
-  },
   "css/feedback/notification.css": {
     "hex": 0,
-    "duration": 5
+    "duration": 3
   },
   "css/modals/close_project.css": {
     "hex": 0,
@@ -41,15 +33,15 @@
   },
   "css/panels/ai_assistant.css": {
     "hex": 25,
-    "duration": 46
+    "duration": 44
   },
   "css/panels/aurora_settings.css": {
     "hex": 3,
-    "duration": 8
+    "duration": 4
   },
   "css/panels/git_panel.css": {
     "hex": 3,
-    "duration": 12
+    "duration": 11
   },
   "css/panels/pylib_panel.css": {
     "hex": 0,
@@ -73,11 +65,11 @@
   },
   "css/tree/file_tree.css": {
     "hex": 0,
-    "duration": 7
+    "duration": 6
   },
   "css/tree/h_tree.css": {
     "hex": 0,
-    "duration": 6
+    "duration": 4
   },
   "css/tree/verilog_tree.css": {
     "hex": 0,

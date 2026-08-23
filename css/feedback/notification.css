@@ -82,7 +82,7 @@
   transform: scale(0.96) translateY(4px);
   opacity: 0;
   transition: transform 180ms var(--ease-out-quart),
-              opacity 140ms var(--ease-out-quart);
+              opacity var(--motion-quick) var(--ease-out-quart);
 }
 
 .confirm-modal.show .confirm-modal-content {
@@ -174,7 +174,7 @@
   transition: background-color var(--transition-fast),
               border-color var(--transition-fast),
               color var(--transition-fast),
-              transform 80ms var(--ease-out-quart);
+              transform var(--motion-instant) var(--ease-out-quart);
 }
 
 .confirm-btn:active { transform: scale(0.98); }

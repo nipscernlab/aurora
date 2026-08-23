@@ -737,7 +737,7 @@
   display: flex; align-items: baseline; gap: var(--space-2);
   padding: 7px var(--space-2); border-bottom: 1px solid var(--border-hairline);
   cursor: pointer; position: relative; border-left: 2px solid transparent;
-  transition: background-color var(--transition-fast, 140ms ease), border-color var(--transition-fast, 140ms ease);
+  transition: background-color var(--transition-fast, var(--motion-quick) ease), border-color var(--transition-fast, var(--motion-quick) ease);
 }
 .git-commit:last-child { border-bottom: none; }
 .git-commit:hover { background: var(--overlay-hover); border-left-color: var(--accent); }
@@ -748,7 +748,7 @@
   content: "›";
   margin-left: 2px; color: var(--accent); opacity: 0; flex-shrink: 0;
   transform: translateX(-4px);
-  transition: opacity var(--transition-fast, 140ms ease), transform var(--transition-fast, 140ms ease);
+  transition: opacity var(--transition-fast, var(--motion-quick) ease), transform var(--transition-fast, var(--motion-quick) ease);
   font-size: var(--text-sm); line-height: 1;
 }
 .git-commit:hover::after, .git-commit.selected::after { opacity: 1; transform: translateX(0); }
@@ -776,11 +776,11 @@
   display: flex; align-items: center; gap: var(--space-2); width: 100%;
   padding: 6px var(--space-3); background: transparent; border: none; cursor: pointer;
   color: var(--text); font-family: var(--font-mono); font-size: var(--text-xs); text-align: left;
-  transition: background-color var(--transition-fast, 140ms ease);
+  transition: background-color var(--transition-fast, var(--motion-quick) ease);
 }
 .git-fd-head:hover:not(:disabled) { background: var(--overlay-hover); }
 .git-fd-head:disabled { cursor: default; opacity: 0.7; }
-.git-fd-caret { flex-shrink: 0; color: var(--text-muted); font-size: var(--text-sm); transition: transform var(--transition-fast, 140ms ease); }
+.git-fd-caret { flex-shrink: 0; color: var(--text-muted); font-size: var(--text-sm); transition: transform var(--transition-fast, var(--motion-quick) ease); }
 .git-fd.expanded .git-fd-caret { transform: rotate(90deg); }
 .git-fd.is-binary .git-fd-caret { visibility: hidden; }
 .git-fd-path {
@@ -925,7 +925,7 @@
   display: flex; align-items: center; gap: var(--space-2);
   margin-top: var(--space-1);
   /* smooth fade-out: JS adds .git-fadeout, then hides. */
-  transition: opacity 420ms var(--ease-out, ease);
+  transition: opacity var(--motion-curtain) var(--ease-out, ease);
   animation: gitPanelReveal var(--motion-flow, 200ms) var(--ease-out, ease) both;
 }
 .git-clone-progress[hidden] { display: none !important; }
@@ -979,7 +979,7 @@
   padding: var(--space-2); cursor: pointer;
   border-bottom: 1px solid var(--border-hairline);
   border-left: 2px solid transparent;
-  transition: background-color var(--transition-fast, 140ms ease), border-color var(--transition-fast, 140ms ease);
+  transition: background-color var(--transition-fast, var(--motion-quick) ease), border-color var(--transition-fast, var(--motion-quick) ease);
   animation: gitRowIn var(--motion-flow, 200ms) var(--ease-out, ease) both;
 }
 .git-cloned-item:last-child { border-bottom: none; }
@@ -992,7 +992,7 @@
   flex-shrink: 0; width: 28px; height: 28px; padding: 0; border-radius: var(--radius-md);
   background: transparent; border: none; color: var(--text-muted); cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
-  opacity: 0; transition: opacity var(--transition-fast, 140ms ease), background-color var(--transition-fast, 140ms ease), color var(--transition-fast);
+  opacity: 0; transition: opacity var(--transition-fast, var(--motion-quick) ease), background-color var(--transition-fast, var(--motion-quick) ease), color var(--transition-fast);
 }
 .git-cloned-item:hover .git-cloned-kebab, .git-cloned-item:focus-within .git-cloned-kebab { opacity: 1; }
 .git-cloned-kebab:hover { background: var(--overlay-hover); color: var(--text); }

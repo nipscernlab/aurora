@@ -239,4 +239,4 @@ function limparCache() {
   cache.clear();
 }
 
-module.exports = { buscar, ler, contar, indexar, limparCache, textoDe, tituloDe, normalizar };
+module.exports = { buscar, ler, contar, indexar, limparCache, normalizar };

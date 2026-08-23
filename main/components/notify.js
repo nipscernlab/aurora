@@ -58,10 +58,4 @@ function anunciarAusencia(chave, mensagem) {
   } catch (_) { /* avisar e cortesia; barrar ja aconteceu */ }
 }
 
-/** Para os testes, e para depois de uma instalação. */
-function limparSilencio(chave) {
-  if (chave) ultimoAviso.delete(chave);
-  else ultimoAviso.clear();
-}
-
-module.exports = { anunciarAusencia, limparSilencio, SILENCIO_MS };
+module.exports = { anunciarAusencia };

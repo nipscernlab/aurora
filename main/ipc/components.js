@@ -415,5 +415,5 @@ function register() {
 }
 
 module.exports = {
-  register, instalar, remover, doctor, decidirConserto, lerPercentual, sobAutomacao,
+  register, instalar, remover, doctor, decidirConserto, lerPercentual,
 };

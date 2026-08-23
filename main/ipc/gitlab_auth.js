@@ -508,6 +508,6 @@ function register() {
 }
 
 module.exports = {
-  register, getToken, getUser, getHost, connect, disconnect, createProject, listProjects,
+  register, getToken, getUser, getHost, connect, disconnect, createProject,
   cancelarFluxo,
 };

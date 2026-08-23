@@ -998,4 +998,4 @@ class CompilationFlowManager {
 }
 
 const compilationFlowManager = new CompilationFlowManager();
-export { compilationFlowManager, checkCancellation };
+export { compilationFlowManager };

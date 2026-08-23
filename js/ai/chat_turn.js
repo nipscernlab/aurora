@@ -92,7 +92,7 @@ function buildMemoryBlock(memories) {
  *
  * @param {Array<{nome:string, resumo:string, instalado:boolean}>} componentes
  */
-export function buildComponentsBlock(componentes) {
+function buildComponentsBlock(componentes) {
     if (!Array.isArray(componentes)) return '';
     const missing = componentes.filter((c) => c && !c.instalado);
     if (missing.length === 0) return '';

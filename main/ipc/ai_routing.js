@@ -51,4 +51,4 @@ function ehAssinatura(provider) {
   return runnerDe(provider) !== 'api';
 }
 
-module.exports = { PONTES_DE_ASSINATURA, runnerDe, ehAssinatura };
+module.exports = { runnerDe, ehAssinatura };

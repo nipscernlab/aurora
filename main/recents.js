@@ -79,4 +79,4 @@ function prune() {
   return kept;
 }
 
-module.exports = { read, push, prune, MAX_RECENTS };
+module.exports = { read, push, prune };

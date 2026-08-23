@@ -29,7 +29,7 @@ import { getAvailableProcessors } from './processor_list.js';
  * pro basename como fallback. Retorna null se o arquivo em foco
  * nao for .cmm ou nao casar com nenhum processador.
  */
-export function matchProcessorFromPath(filePath, processors) {
+function matchProcessorFromPath(filePath, processors) {
     if (!filePath || !filePath.toLowerCase().endsWith('.cmm')) return null;
     const parts = filePath.split(/[\\/]/);
     const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');

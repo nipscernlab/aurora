@@ -357,6 +357,6 @@ function register() {
 }
 
 module.exports = {
-  register, esquecerTudo, alvoEhDeForja, HOSTS, HOSTS_GITLAB, hostsDeForja,
-  limparAoSair, definirLimparAoSair, decidirLimparAoSair, aoEncerrar,
+  register, alvoEhDeForja, HOSTS, HOSTS_GITLAB,
+  limparAoSair, decidirLimparAoSair, aoEncerrar,
 };

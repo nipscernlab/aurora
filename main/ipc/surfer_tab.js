@@ -429,4 +429,4 @@ function register() {
   ipcMain.handle('surfer-tab:available', () => hasWebBundle());
 }
 
-module.exports = { register, isSurferTabUrl, hasWebBundle };
+module.exports = { register, isSurferTabUrl };

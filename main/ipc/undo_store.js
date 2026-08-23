@@ -163,4 +163,4 @@ async function esvaziar(raiz, paraLixeira) {
   return { descartadas, falhas };
 }
 
-module.exports = { moverOuCopiar, itemDe, guardar, devolver, descartar, esvaziar };
+module.exports = { itemDe, guardar, devolver, descartar, esvaziar };

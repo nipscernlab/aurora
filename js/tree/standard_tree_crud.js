@@ -1457,4 +1457,4 @@ if (typeof window !== 'undefined') {
     window.standardTreeCrud = standardTreeCrud;
 }
 
-export { standardTreeCrud, StandardTreeCrud };
+export { standardTreeCrud };

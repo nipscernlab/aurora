@@ -90,7 +90,7 @@ export function analisarNomeDeProjeto(nome) {
 }
 
 /** Mensagens em português, prontas para a interface. */
-export const MOTIVOS = {
+const MOTIVOS = {
   vazio: () => 'Informe um caminho.',
   controle: () => 'O caminho tem caracteres invisíveis. Digite-o de novo.',
   caractere: (d) => `O caminho não pode conter ${d}. `

@@ -56,7 +56,7 @@ function tipoDa(entrada) {
  * @param {Element} terminal
  * @returns {Array<{tipo: string, texto: string}>}
  */
-export function linhasDoTerminal(terminal) {
+function linhasDoTerminal(terminal) {
   if (!terminal) return [];
   const linhas = [];
   terminal.querySelectorAll('.log-entry').forEach((entrada) => {

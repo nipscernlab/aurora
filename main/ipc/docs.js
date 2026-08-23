@@ -327,4 +327,4 @@ function register() {
 // isNewer e stripBom sao exportados para teste. Sao puros e decidem se o manual
 // baixado substitui o que veio no instalador; errar ali serve documentacao velha
 // em silencio. Ver tests/unit/docsVersion.test.js.
-module.exports = { register, status, ONLINE_URL, isNewer, stripBom };
+module.exports = { register, status, isNewer, stripBom };

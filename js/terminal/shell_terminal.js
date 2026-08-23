@@ -331,4 +331,3 @@ function initShellTerminal() {
 // Self-initialize on import (renderer.js pulls this in as a side-effect).
 initShellTerminal();
 
-export { ShellTerminal, initShellTerminal };

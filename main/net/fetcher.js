@@ -326,7 +326,5 @@ module.exports = {
   extractArchive,
   listArchive,
   getJson,
-  tarBinary,
   rmrf,
-  IDLE_TIMEOUT_MS,
 };

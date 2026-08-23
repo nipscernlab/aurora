@@ -396,9 +396,7 @@ module.exports = {
   diagnosticar,
   diagnosticarTudo,
   versaoInstalada,
-  caminhoDaSentinela,
   invalidarCache,
   definirRaizParaTestes,
   mensagemDeAusencia,
-  VALIDADE_MS,
 };

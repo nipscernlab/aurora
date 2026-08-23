@@ -761,10 +761,7 @@ function initializeUpdateSystem() {
 }
 
 module.exports = {
-  setupAutoUpdaterEvents,
-  startUpdateDownload,
   initializeUpdateSystem,
   registerIpc,
   checkForUpdates,
-  getDiagnostics,
 };

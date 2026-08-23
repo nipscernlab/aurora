@@ -25,7 +25,7 @@ export const LARGURA_VIRA_COLUNA = 780;
 let agendado = null;
 
 /** Decide entre faixa horizontal e coluna, pela largura do terminal. */
-export function ajustarOrientacao() {
+function ajustarOrientacao() {
   const term = document.querySelector('.terminal-container');
   if (!term) return false;
   const coluna = term.getBoundingClientRect().width < LARGURA_VIRA_COLUNA;
@@ -39,7 +39,7 @@ function agendar() {
   agendado = requestAnimationFrame(() => { agendado = null; ajustarOrientacao(); });
 }
 
-export function initTerminalTabOrientation() {
+function initTerminalTabOrientation() {
   const term = document.querySelector('.terminal-container');
   if (!term) return false;
 

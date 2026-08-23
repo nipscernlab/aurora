@@ -107,8 +107,8 @@ export function typeFromExtension(filePath) {
 // called internally as this.X).
 
 // Image and PDF extensions
-export const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
-export const pdfExtensions = new Set(['pdf']);
+const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+const pdfExtensions = new Set(['pdf']);
 
 // Utility method to check if file is an image
 export function isImageFile(filePath) {

@@ -714,4 +714,4 @@ function register() {
   healthCheck.unref?.();
 }
 
-module.exports = { register, scanDirectory };
+module.exports = { register };

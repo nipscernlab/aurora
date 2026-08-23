@@ -142,4 +142,4 @@ function parseYosysHierarchy(jsonData, topLevelModule) {
   return hierarchyTree;
 }
 
-export { parseYosysIdentifier, extractFileInfoFromSource, parseYosysHierarchy, PRIMITIVE_PATTERNS };
+export { parseYosysIdentifier, extractFileInfoFromSource, parseYosysHierarchy };

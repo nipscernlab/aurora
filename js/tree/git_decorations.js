@@ -266,4 +266,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { gitDecorations, GitDecorations, computeDecorations, letterOf, computeIgnored, isIgnoredPath };
+export { computeDecorations, letterOf, computeIgnored, isIgnoredPath };

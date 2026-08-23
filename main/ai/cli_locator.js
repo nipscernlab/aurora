@@ -229,4 +229,4 @@ function invalidate() {
   codexCache = undefined;
 }
 
-module.exports = { locateClaude, locateCodex, toUnpacked, invalidate };
+module.exports = { locateClaude, locateCodex, invalidate };

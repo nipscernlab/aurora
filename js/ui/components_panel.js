@@ -506,4 +506,4 @@ if (typeof window !== 'undefined') {
 
 // `ligar` sai daqui para o teste poder prender os ouvintes DEPOIS de montar o
 // DOM: no aplicativo quem chama e o DOMContentLoaded acima, uma vez so.
-export { desenhar, ligar, tamanhoLegivel };
+export { desenhar, ligar };

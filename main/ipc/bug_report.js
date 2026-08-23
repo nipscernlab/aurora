@@ -314,7 +314,7 @@ function register() {
 }
 
 module.exports = {
-  register, coletarDiagnostico, enviar, encolherParaCaber, endpoint, anonimizar,
+  register, enviar, encolherParaCaber, endpoint, anonimizar,
   emailDeContato,
-  LINHAS_DE_LOG, LIMITE_BYTES,
+  LIMITE_BYTES,
 };

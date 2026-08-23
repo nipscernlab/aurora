@@ -153,7 +153,6 @@ module.exports = {
   promptBootstrapLine,
   encodeBootstrap,
   clampGrid,
-  MIN_GRID,
   DEFAULT_COLS,
   DEFAULT_ROWS,
 };

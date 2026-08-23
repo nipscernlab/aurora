@@ -73,4 +73,4 @@ const gitNs = {
   async stash({ message } = {}) { return gitCall('stash', { message: String(message || '').trim() || undefined }); },
 };
 
-export { gitNs, gitCall };
+export { gitNs };

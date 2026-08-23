@@ -98,4 +98,4 @@ function melhorAlvo(chaves, achado) {
   return melhor;
 }
 
-module.exports = { PASTAS_FORA, dirEntra, ordenarRaizes, melhorAlvo };
+module.exports = { dirEntra, ordenarRaizes, melhorAlvo };

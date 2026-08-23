@@ -97,7 +97,6 @@ function erroDeCriacao(mensagem, nome) {
 const { intervaloInicialMs, decidirPolling } = require('./oauth_device');
 
 module.exports = {
-  NOME_REPO,
   nomeRepoValido,
   mapRepo,
   fimDaPaginacao,

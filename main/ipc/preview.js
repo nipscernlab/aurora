@@ -219,4 +219,4 @@ function register() {
   ipcMain.handle('preview:unregister', (_e, id) => previews.delete(id));
 }
 
-module.exports = { register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, SCHEME_SPEC, PREVIEW_CSP };
+module.exports = { register, registerScheme, installProtocol, isPreviewUrl, mimeFor, SCHEME, PREVIEW_CSP };

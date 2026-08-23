@@ -25,7 +25,7 @@ const ROTULOS = {
   'gerenciador-windows': 'Gerenciador de Credenciais do Windows',
 };
 
-export async function limparGitHub() {
+async function limparGitHub() {
   const escolha = await showDialog({
     title: 'Sair do GitHub e do GitLab e limpar esta máquina',
     message:

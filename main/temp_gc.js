@@ -80,4 +80,4 @@ function runStartupGC() {
   });
 }
 
-module.exports = { runStartupGC, pruneMcpConfigs, clearTempFolderSync };
+module.exports = { runStartupGC, clearTempFolderSync };

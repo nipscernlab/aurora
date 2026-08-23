@@ -515,4 +515,4 @@ if (typeof window !== 'undefined') {
     window.standardTreeRenderer = standardTreeRenderer;
 }
 
-export { standardTreeRenderer, StandardTreeRenderer };
+export { standardTreeRenderer };

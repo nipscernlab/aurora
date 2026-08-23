@@ -226,5 +226,4 @@ module.exports = {
   listar,
   instalar,
   remover,
-  pastasDoCache,
 };

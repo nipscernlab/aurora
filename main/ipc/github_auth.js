@@ -440,4 +440,4 @@ function register() {
   log.info('[ipc.github_auth] handlers registered');
 }
 
-module.exports = { register, getToken, getUser, connect, disconnect, createRepo, listRepos, cancelarFluxo };
+module.exports = { register, getToken, getUser, connect, disconnect, listRepos, cancelarFluxo };

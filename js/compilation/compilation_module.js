@@ -61,7 +61,9 @@ import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
 import { getSurferInTab } from '../wave/surfer_tab_preference.js';
-import { verilatorTraceRules, contarEscopos } from '../wave/verilator_trace_rules.js';
+import {
+    verilatorTraceRules, defaultScopeRules, rulesFromDumpvars, contarEscopos,
+} from '../wave/verilator_trace_rules.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -70,7 +72,7 @@ import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_vie
 import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
   validateWaveSelection, resolveWaveSelection,
-  resolveCocotbWaveSelection, parseProjectSources,
+  resolveCocotbWaveSelection, parseProjectSources, buildHierarchyFromFiles,
 } from './wave_signal_validator.js';
 import {
   cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
@@ -1469,7 +1471,31 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     await this._stageProcessorMemoryFilesForCocotb(tools.tempBaseDir, buildDir);
 
     const sources = await this._collectCocotbSources(config);
-    await this._resolveCocotbWaveSelection(ctx, config, sources);
+    const selecao = await this._resolveCocotbWaveSelection(ctx, config, sources);
+    // Sob Verilator a selecao do picker vira regras de escopo num .vlt, como
+    // no fluxo nativo; aqui ele entra pelos argumentos de build, porque o
+    // runner do cocotb recusa um .vlt na lista de fontes. Sem selecao o dump
+    // fica como o cocotb faz nos dois simuladores: tudo a partir do topo.
+    const buildArgs = [...profile.buildArgs];
+    if (profile.sim === 'verilator' && wave && selecao.length > 0) {
+        try {
+            const arvore = await buildHierarchyFromFiles(sources, ctx.hdlTopModule);
+            const regras = verilatorTraceRules(arvore, selecao);
+            if (regras.length) {
+                const vltPath = await electronAPI.joinPath(buildDir, 'aurora_scopes.vlt');
+                await electronAPI.writeFile(vltPath, [
+                    '`verilator_config',
+                    '// Gerado pela AURORA a cada build: a selecao do picker por escopo.',
+                    ...regras,
+                    '',
+                ].join('\n'));
+                buildArgs.unshift(vltPath);
+                const { ligados, desligados } = contarEscopos(arvore, regras);
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.verilatorScopeRules', { on: ligados, off: desligados }), 'info');
+            }
+        } catch (_e) { /* sem o .vlt o dump sai inteiro, como antes */ }
+    }
     const tbDir = await electronAPI.dirname(ctx.testbenchFile);
     const runnerScript = await this._writeCocotbRunnerScript(tools.tempBaseDir);
     const pythonPathSep = ';';
@@ -1484,7 +1510,7 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
         // e do HDL resolvem contra ela, e o dump cai la.
         AURORA_COCOTB_TEST_DIR: this.projectPath || tbDir,
         AURORA_COCOTB_PYTHONPATH: [tbDir, this.projectPath, buildDir].filter(Boolean).join(pythonPathSep),
-        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(profile.buildArgs),
+        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(buildArgs),
         AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),
         SIM: profile.sim,
         TOPLEVEL_LANG: 'verilog',
@@ -1845,22 +1871,29 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
             'public_flat_rd -module "ula" -var "delta_int"',
             'public_flat_rd -module "ula" -var "delta_float"',
         ];
-        // A selecao do picker como regras de escopo. O Verilator ignora os
-        // argumentos do $dumpvars e gravaria a hierarquia publica inteira; o
-        // .vlt e o unico lugar em que ele obedece, e a granularidade dele e o
-        // escopo. So quando a selecao e do usuario (Wave Configuration ou
-        // .gtkw ativo): no padrao e no testbench com $dumpvars proprio, o
-        // dump fica como o Verilator faz. Semantica provada em 22/08/2026,
-        // ver verilator_trace_rules.js.
-        const decisao = prep.decision;
-        const selecaoDoUsuario = decisao && (decisao.source === 'wc' || decisao.source === 'gtkw');
-        const regras = selecaoDoUsuario
-            ? verilatorTraceRules(decisao.hierarchyTree, decisao.signalsToDump)
-            : [];
+        // O que o usuario pediu para gravar, como regras de escopo. O
+        // Verilator ignora os argumentos do $dumpvars e gravaria a hierarquia
+        // publica inteira; o .vlt e o unico lugar em que ele obedece, e a
+        // granularidade dele e o escopo. As mesmas tres origens do Icarus:
+        // a selecao do picker (Wave Configuration ou .gtkw ativo), os
+        // $dumpvars do proprio testbench (o gerado pelo yanc cita sinal por
+        // sinal), e o padrao $dumpvars(1, tb). Semantica provada em
+        // 22/08/2026, ver verilator_trace_rules.js.
+        const decisao = prep.decision || {};
+        const arvore = decisao.hierarchyTree;
+        let regras = [];
+        if (decisao.source === 'wc' || decisao.source === 'gtkw') {
+            regras = verilatorTraceRules(arvore, decisao.signalsToDump);
+        } else if (decisao.source === 'tb') {
+            const fonteTb = await electronAPI.readFile(prep.instrumentedTbPath, { encoding: 'utf8' });
+            regras = rulesFromDumpvars(arvore, fonteTb);
+        } else if (decisao.source === 'default') {
+            regras = defaultScopeRules(arvore);
+        }
         if (regras.length) {
-            linhas.push('// Selecao do picker por escopo: a ordem importa, a ultima regra vence.');
+            linhas.push('// O pedido do usuario por escopo: a ordem importa, a ultima regra vence.');
             linhas.push(...regras);
-            const { ligados, desligados } = contarEscopos(decisao.hierarchyTree, decisao.signalsToDump);
+            const { ligados, desligados } = contarEscopos(arvore, regras);
             this.terminalManager.appendToTerminal('twave',
                 tr('terminal.wave.verilatorScopeRules', { on: ligados, off: desligados }), 'info');
         }

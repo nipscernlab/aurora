@@ -53,19 +53,31 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  *
  * @param {{ projectPath: string, terminalManager: object }} deps
  */
+/**
+ * Le e parseia `filePaths` e monta a arvore de hierarquia enraizada em
+ * `topModule`; null quando o topo nao esta nos fontes. E a mesma arvore que
+ * o validador usa, exposta para quem precisa dela sem a validacao (o fluxo
+ * cocotb sob Verilator, que a traduz em regras de escopo).
+ * @param {string[]} filePaths
+ * @param {string} topModule
+ */
+export async function buildHierarchyFromFiles(filePaths, topModule) {
+    const fileContents = await Promise.all(
+        filePaths.map(async (path) => ({
+            path,
+            content: await electronAPI.readFile(path, { encoding: 'utf8' }),
+        })),
+    );
+    const { modules } = parseVerilogModules(fileContents);
+    return topModule && modules.has(topModule)
+        ? buildHierarchyTree(modules, topModule)
+        : null;
+}
+
 export async function validateWaveSelection(deps, rawSelected, filePaths, simTopModule, tbKey = null) {
     if (!Array.isArray(rawSelected) || rawSelected.length === 0) return [];
     try {
-        const fileContents = await Promise.all(
-            filePaths.map(async (path) => ({
-                path,
-                content: await electronAPI.readFile(path, { encoding: 'utf8' }),
-            })),
-        );
-        const { modules } = parseVerilogModules(fileContents);
-        const tree = simTopModule && modules.has(simTopModule)
-            ? buildHierarchyTree(modules, simTopModule)
-            : null;
+        const tree = await buildHierarchyFromFiles(filePaths, simTopModule);
         const { valid, dropped } = validateSelection(rawSelected, tree);
         if (dropped.length > 0) {
             const preview = dropped.slice(0, 5).map((s) => `"${s}"`).join(', ');
@@ -246,6 +258,10 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
             overrideUserDumpvars: false,
             source: 'tb',
             tbKey,
+            // Sob Verilator os $dumpvars do proprio testbench sao lidos e
+            // viram regras de escopo; a arvore e o que permite resolver cada
+            // referencia.
+            hierarchyTree: await buildTree(),
         };
     }
 
@@ -257,6 +273,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
         source: 'default',
         tbKey,
         monitorScopes: await monitorScopes(),
+        hierarchyTree: await buildTree(),
     };
 }
 

@@ -606,7 +606,7 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
    * Run the generated runner against one test module.
    * @returns {{code:number, output:string}}
    */
-  function runCocotb(testModule, buildDir) {
+  function runCocotb(testModule, buildDir, opts = {}) {
     fs.mkdirSync(buildDir, { recursive: true });
     const spec = buildCocotbRunSpec({
       pythonPath: path.join(MINGW_BIN, 'python.exe'),
@@ -619,13 +619,16 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
         AURORA_COCOTB_BUILD_DIR: buildDir,
         AURORA_COCOTB_TEST_DIR: tempPath,
         AURORA_COCOTB_PYTHONPATH: tempPath,
-        SIM: 'icarus',
+        ...(opts.buildArgs ? { AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(opts.buildArgs) } : {}),
+        ...(opts.sim === 'verilator' ? { PYTHONHOME: path.dirname(MINGW_BIN), COCOTB_TRUST_INERTIAL_WRITES: '1' } : {}),
+        SIM: opts.sim || 'icarus',
         TOPLEVEL_LANG: 'verilog',
         WAVES: '1',
         PYTHONUTF8: '1',
         PYTHONIOENCODING: 'utf-8',
       },
-      prependPath: [MINGW_BIN],
+      // Verilator is a perl script that calls make, and make lives in usr/bin.
+      prependPath: opts.sim === 'verilator' ? [MINGW_BIN, USR_BIN] : [MINGW_BIN],
     });
 
     const env = { ...process.env, ...spec.env };
@@ -748,6 +751,50 @@ describe.skipIf(!cocotbReady)('SAPHO toolchain — cocotb testbenches', () => {
     const dumps = fs.readdirSync(buildFail).filter((f) => /\.(fst|vcd)$/i.test(f));
     expect(dumps.length).toBeGreaterThan(0);
   });
+
+  it('under Verilator, scope rules handed through the build args shape the dump', () => {
+    // The cocotb runner refuses a .vlt in the sources list ("can't determine
+    // source file type"), so the app passes it through the build args. This
+    // drives that path for real: rules that turn the DUT off and its memory
+    // array back on must leave the DUT scope empty and the array intact.
+    // Scope names under cocotb are rooted at the HDL top (no TOP prefix),
+    // pinned against this Verilator on 22/08/2026.
+    const fst2vcd = path.join(GTKWAVE_DIR, 'fst2vcd.exe');
+    const verilator = path.join(MINGW_BIN, 'verilator');
+    if (!fs.existsSync(fst2vcd) || !fs.existsSync(verilator)) return;
+
+    const buildDir = path.join(tempPath, 'build_verilator_rules');
+    fs.mkdirSync(buildDir, { recursive: true });
+    const vlt = path.join(buildDir, 'aurora_scopes.vlt');
+    fs.writeFileSync(vlt, [
+      '`verilator_config',
+      `tracing_off -scope "${PROC}"`,
+      `tracing_on -scope "${PROC}.min"`,
+      '',
+    ].join('\n'));
+    const buildArgs = [
+      vlt,
+      '-Wno-fatal', '-Wno-TIMESCALEMOD', '-Wno-DECLFILENAME', '-Wno-STMTDLY',
+      '-Wno-WIDTHTRUNC', '-Wno-WIDTHEXPAND', '+define+YANC_TRACE', '--trace-fst',
+    ];
+    const { code, output } = runCocotb('tb_cocotb_pass', buildDir, { sim: 'verilator', buildArgs });
+    expect(code, output.slice(-1500)).toBe(0);
+
+    // The runner's test_dir is tempPath, so that is where dump.fst lands.
+    const dump = path.join(tempPath, 'dump.fst');
+    expect(fs.existsSync(dump)).toBe(true);
+    const header = decodeDump(fst2vcd, dump).split('$enddefinitions')[0];
+    const stack = [];
+    const vars = new Map();
+    for (const line of header.split('\n')) {
+      const s = line.match(/^\$scope\s+\w+\s+(\S+)/);
+      if (s) { stack.push(s[1]); vars.set(stack.join('.'), 0); continue; }
+      if (/^\$upscope/.test(line)) { stack.pop(); continue; }
+      if (/^\$var/.test(line)) { const k = stack.join('.'); vars.set(k, (vars.get(k) || 0) + 1); }
+    }
+    expect(vars.get(PROC) || 0).toBe(0);                  // DUT scope turned off
+    expect(vars.get(`${PROC}.min`)).toBeGreaterThan(0);   // array turned back on
+  }, 600_000);
 });
 
 // ===========================================================================

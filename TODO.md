@@ -625,19 +625,21 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       com teste do usuário entre eles.
 
 - [x] ~~**Seleção do picker sob Verilator não limita o dump.**~~ Descoberto em
-      20/08, fechado em 22/08 nas duas pontas. O Verilator ignora os argumentos
-      do `$dumpvars`, mas obedece ao `.vlt`, e a granularidade dele é o escopo:
-      a seleção vira regras `tracing_off`/`tracing_on -scope` no
-      `aurora_monitors.vlt` que o build já escrevia, só quando a seleção é do
-      usuário (Wave Configuration ou `.gtkw` ativo). Todo sinal público de um
-      módulo com ao menos um sinal selecionado entra; módulo sem nada
-      selecionado fica fora; o escopo do testbench, onde vivem os espelhos dos
-      monitores, fica sempre. O modal e o capítulo 14 explicam a regra.
-      Semântica provada com nove builds do `mediamovel` no Verilator 5.048
-      embarcado (caminho completo a partir do topo, sem curinga, sem `-levels`,
-      última regra vence) e fixada por teste de toolchain com build real. Fora:
-      o fluxo cocotb sob Verilator, que monta os próprios argumentos e não
-      passa pelo `.vlt`; entra se alguém sentir falta.
+      20/08, fechado em 22/08 em todos os casos. O Verilator ignora os
+      argumentos do `$dumpvars`, mas obedece ao `.vlt`, e a granularidade dele
+      é o escopo: o pedido do usuário vira regras `tracing_off`/`tracing_on
+      -scope` (`js/wave/verilator_trace_rules.js`). Três origens, as mesmas do
+      Icarus: a seleção do picker (Wave Configuration ou `.gtkw` ativo), os
+      `$dumpvars` do próprio testbench (o gerado pelo yanc cita sinal a sinal;
+      referência desconhecida ou chamada sem argumentos desiste e grava tudo),
+      e o padrão `$dumpvars(1, tb)`, que passa a valer sob Verilator como vale
+      no Icarus. O escopo do testbench, onde vivem os espelhos dos monitores,
+      fica sempre ligado. No cocotb o `.vlt` entra pelos argumentos de build,
+      porque o runner recusa o arquivo na lista de fontes. Semântica provada
+      com doze builds do `mediamovel` no Verilator 5.048 embarcado (caminho
+      completo a partir do topo, sem curinga, sem `-levels`, última regra
+      vence) e fixada por testes de toolchain com build real nos dois fluxos.
+      O modal e o capítulo 14 explicam a regra por escopo.
 
 - [ ] **Tags meio-publicadas no registro do fork.** As tags v0.7.0-nips.8 e
       .9 do surfer-aurora têm só o exe no registro (o job do bundle web

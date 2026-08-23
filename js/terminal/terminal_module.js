@@ -870,7 +870,7 @@ class TerminalManager {
      * alguma coisa?" numa simulacao longa. Um no' so, atualizado no lugar,
      * mesma mecanica da barra de progresso.
      */
-    renderDumpSize(terminalId, { name, bytes, done = false }) {
+    renderDumpSize(terminalId, { name, path = '', bytes, done = false }) {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
         this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
@@ -887,6 +887,12 @@ class TerminalManager {
             terminal.appendChild(el);
         }
         el._text.textContent = `${name} · ${formatarBytes(bytes)}`;
+        // O hover mostra ONDE o arquivo esta nascendo: o basename sozinho
+        // nao diz a pasta, e a extensao muda por corrida (.vcd no Icarus,
+        // .fst no cocotb e no Verilator conforme o modo). O balao decorado
+        // do app le data-tooltip; o observador dele inicializa o no' porque
+        // o atributo ja esta posto quando a insercao e processada.
+        if (path) el.dataset.tooltip = path;
         // 'done' congela o numero final, e o pill FICA no terminal como
         // registro da corrida, junto do resto do log: e assim que se compara
         // o tamanho entre execucoes sem refazer nada. Ele so sai quando o

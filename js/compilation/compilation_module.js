@@ -220,6 +220,7 @@ class CompilationModule {
                 if (!vivo && !final) return; // stat resolveu depois do stop
                 this.terminalManager.renderDumpSize?.('twave', {
                     name: alvo.split(/[\\/]/).pop(),
+                    path: alvo,
                     bytes: st?.size ?? 0,
                     done: final,
                 });

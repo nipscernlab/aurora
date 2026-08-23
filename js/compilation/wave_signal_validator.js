@@ -26,6 +26,7 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { parseVerilogModules, buildHierarchyTree, deriveMonitorScopes } from '../wave/signal_parser.js';
+import { getSimulator } from '../wave/simulator_preference.js';
 import { validateSelection } from '../wave/selection_validator.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
@@ -176,7 +177,10 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
     // telemetria de saude do processador e os grupos Stack/ULA do layout
     // automatico dependem deles. Fora do caso 'tb' (dump do proprio usuario),
     // em que nao mexemos.
-    const monitorScopes = async () => deriveMonitorScopes(await buildTree());
+    // O simulador escolhido entra na decisao: sob Verilator, monitor cujo
+    // caminho atravessa um escopo de generate (o da pilha de instrucao) nao
+    // elabora, e emiti-lo quebraria a build em vez de faltar um traco.
+    const monitorScopes = async () => deriveMonitorScopes(await buildTree(), { simulator: getSimulator() });
     const buildTree = async () => {
         if (cachedTree !== null) return cachedTree;
         const contents = await Promise.all(

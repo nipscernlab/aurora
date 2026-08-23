@@ -100,6 +100,16 @@ export interface HierarchyNode {
     scopePath: string;
     signals: VerilogSignal[];
     children: HierarchyNode[];
+    /**
+     * Escopo que veio de um `generate if` nomeado, e não de uma instanciação.
+     *
+     * Marcado porque os dois simuladores discordam sobre ele: o Icarus resolve
+     * uma referência hierárquica que atravessa esse escopo, e o Verilator não
+     * (medido em 23/08/2026 com o 5.048, que responde "Known scopes under
+     * ...isp_blk: <no instances found>" mesmo com a condição verdadeira).
+     * Quem monta espelho precisa saber disso antes de escrever o testbench.
+     */
+    fromGenerate?: boolean;
 }
 
 /** Input file pair fed to {@link parseVerilogModules}. */
@@ -506,6 +516,7 @@ export function buildHierarchyTree(modules: Map<string, ModuleInfo>, topModuleNa
                 scopePath: condPath,
                 signals: cond.signals,
                 children: cond.instances.map((inst) => filhoDe(inst, condPath)),
+                fromGenerate: true,
             });
         }
 
@@ -594,15 +605,32 @@ export interface MonitorMirror {
  * Icarus, e foi o que derrubou a primeira tentativa.
  *
  * O isp entrou em 23/08/2026, quando o parser aprendeu a ler generate
- * nomeado (generate_blocks.ts). Ele e diferente dos outros dois: vive em
- * `core.instr_fetch.isp_blk.isp`, dois niveis abaixo, e SO existe quando o
- * parametro CAL e diferente de zero, ou seja, quando o programa C+- usa
- * funcao. Num programa sem funcao nao ha pilha de instrucao para monitorar,
- * e o escopo nem e criado; por isso a busca e pela arvore de fato, e nao por
- * um caminho montado a mao.
+ * nomeado (generate_blocks.ts). Ele e diferente dos outros dois de DUAS
+ * formas, e a segunda custou um build quebrado no mesmo dia:
+ *
+ *   1. vive em `core.instr_fetch.isp_blk.isp`, dois niveis abaixo, e SO
+ *      existe quando CAL e diferente de zero, ou seja, quando o programa C+-
+ *      usa funcao. Por isso a busca e pela arvore de fato, e nao por um
+ *      caminho montado a mao.
+ *   2. o caminho ATRAVESSA um escopo de generate, e os dois simuladores
+ *      discordam sobre isso. O Icarus resolve e elabora; o Verilator 5.048
+ *      recusa com "Known scopes under ...isp_blk: <no instances found>",
+ *      mesmo com a condicao verdadeira e o escopo do generate existindo.
+ *      Medido em 23/08/2026 com um design minimo, nos dois simuladores.
+ *
+ * Dai o parametro `simulator`: sob Verilator, monitor cujo caminho passa por
+ * generate fica de fora. Emiti-lo assim mesmo nao da forma de onda incompleta,
+ * da BUILD QUEBRADO, que e' o pior desfecho possivel para quem so queria
+ * simular.
  */
-export function deriveMonitorScopes(tree: HierarchyNode | null | undefined): MonitorMirror[] {
+export function deriveMonitorScopes(
+    tree: HierarchyNode | null | undefined,
+    opts: { simulator?: string } = {},
+): MonitorMirror[] {
     if (!tree) return [];
+    // Sob Verilator, caminho que atravessa generate nao elabora. Ver o
+    // cabecalho: a medida esta la, com os dois simuladores.
+    const permiteGenerate = opts.simulator !== 'verilator';
     const out: MonitorMirror[] = [];
     const WANTED: Record<string, string[]> = {
         sp: ['pointeri', 'fl_max', 'fl_full'],
@@ -614,7 +642,8 @@ export function deriveMonitorScopes(tree: HierarchyNode | null | undefined): Mon
         (caminho.startsWith(rootPrefix) ? caminho.slice(rootPrefix.length) : caminho);
 
     /** Anota os monitores de um no' que e' sp, isp ou ula. */
-    const anotar = (node: HierarchyNode, corePathRel: string): void => {
+    const anotar = (node: HierarchyNode, corePathRel: string, viaGenerate: boolean): void => {
+        if (viaGenerate && !permiteGenerate) return;
         const inst = node.instanceName;
         if (!inst) return;
         const wanted = WANTED[inst];
@@ -640,11 +669,12 @@ export function deriveMonitorScopes(tree: HierarchyNode | null | undefined): Mon
             const corePathRel = relativo(node.scopePath);
             // Desce a subarvore inteira do core: sp e ula sao filhos diretos,
             // o isp esta dois niveis abaixo, dentro do generate nomeado.
-            const descer = (n: HierarchyNode): void => {
-                anotar(n, corePathRel);
-                for (const c of n.children || []) descer(c);
+            const descer = (n: HierarchyNode, viaGenerate: boolean): void => {
+                const marcado = viaGenerate || !!n.fromGenerate;
+                anotar(n, corePathRel, marcado);
+                for (const c of n.children || []) descer(c, marcado);
             };
-            for (const c of node.children || []) descer(c);
+            for (const c of node.children || []) descer(c, false);
             return; // dentro do core nao ha outro core
         }
         for (const child of node.children || []) walk(child);

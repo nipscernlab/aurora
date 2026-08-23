@@ -65,6 +65,19 @@ describe.skipIf(!temHdl)('monitor do isp contra o HDL do SAPHO', () => {
         expect(acharEscopo(arvoreCom(0), '.isp_blk.isp')).toBeNull();
     });
 
+    it('sob Verilator o monitor do isp NAO sai, porque o caminho nao elabora', () => {
+        // Medido em 23/08/2026 nos dois simuladores com um design minimo: o
+        // Icarus resolve uma referencia que atravessa escopo de generate, o
+        // Verilator 5.048 recusa com "Known scopes under ...isp_blk: <no
+        // instances found>". Emitir assim mesmo nao da onda incompleta, da
+        // build quebrado, que foi o que aconteceu no projeto do CNN.
+        const refs = deriveMonitorScopes(arvoreCom(1), { simulator: 'verilator' }).map((m) => m.ref);
+        expect(refs.some((r) => r.includes('isp'))).toBe(false);
+        // Os que nao atravessam generate continuam, nos dois simuladores.
+        expect(refs).toContain('proc.core.sp.pointeri');
+        expect(refs).toContain('proc.core.ula.delta_int');
+    });
+
     it('o monitor do isp entra com CAL ligado, junto com os da pilha e da ULA', () => {
         const refs = deriveMonitorScopes(arvoreCom(1)).map((m) => m.ref);
         expect(refs).toContain('proc.core.instr_fetch.isp_blk.isp.pointeri');

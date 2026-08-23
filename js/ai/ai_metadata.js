@@ -168,15 +168,109 @@ export const WINDOW_META = {
   weekly:           { label: 'This week',          icon: 'ph-calendar-dots'    },
 };
 
-/** Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp. */
-export function untilTime(unixSeconds) {
-  const ms = Number(unixSeconds) * 1000 - Date.now();
+/**
+ * Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp.
+ * @param {number} unixSeconds
+ * @param {number} [agora] instante de referencia; existe para o teste nao
+ *        depender do relogio da maquina.
+ */
+export function untilTime(unixSeconds, agora = Date.now()) {
+  const ms = Number(unixSeconds) * 1000 - agora;
   if (!Number.isFinite(ms) || ms <= 0) return 'now';
   const m = Math.round(ms / 60000);
   if (m < 60)   return `in ${m}m`;
   const h = Math.floor(m / 60);
   if (h < 24)   return `in ${h}h ${m % 60}m`;
   return `in ${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+/**
+ * O rotulo do plano como o painel mostra: MAX, PRO, TEAM.
+ *
+ * O mesmo plano chega com nomes diferentes conforme o payload
+ * (`pro_max`, `claude_max`), e o que o usuario le tem que ser um so.
+ * Nome desconhecido sobe para maiuscula em vez de sumir: e melhor mostrar
+ * algo estranho que esconder o plano de quem paga por ele.
+ */
+export function formatPlanLabel(raw) {
+  if (!raw) return '';
+  const v = String(raw).toLowerCase().trim();
+  const conhecidos = {
+    pro: 'PRO',
+    max: 'MAX',
+    plus: 'PLUS',
+    free: 'FREE',
+    team: 'TEAM',
+    business: 'BUSINESS',
+    edu: 'EDU',
+    enterprise: 'ENTERPRISE',
+    // Alguns payloads do Claude usam subscriptionType: 'pro_max' / 'claude_max'.
+    pro_max: 'MAX',
+    claude_max: 'MAX',
+    claude_pro: 'PRO',
+  };
+  return conhecidos[v] || v.toUpperCase();
+}
+
+/**
+ * O painel de uso sem DOM: o relatorio cru do provedor virando as linhas
+ * que a barra desenha.
+ *
+ * Aqui ficam as regras que o desenho escondia e que nenhum teste alcancava.
+ * A utilizacao vem em 0 a 100 e e recortada nesse intervalo, porque um
+ * provedor que reporte 120 nao pode pintar uma barra maior que a pista. A
+ * cor vira alerta em 90 e atencao em 60. E `resetsAt` chega ora em
+ * segundos ora em milissegundos, o que so aparece na tela como uma
+ * contagem regressiva de mil anos quando se erra a unidade.
+ *
+ * Sem janela de limite reportada, sobra a linha da sessao, que e o unico
+ * numero que todo provedor sabe dar.
+ *
+ * @param {object} u relatorio de uso do provedor
+ * @param {object} [opcoes]
+ * @param {number} [opcoes.agora] instante de referencia, para o teste
+ * @returns {Array<{label: string, icon: string, valText: string, sev: string, pct: number}>}
+ */
+export function usageRows(u, { agora = Date.now() } = {}) {
+  const linhas = [];
+
+  // Sessao: o numero do proprio CLI, sem piso sintetico, para o contador
+  // nunca divergir do que o provedor cobrou.
+  const tokens = Number(u?.session?.tokens) || 0;
+  const custo = Number(u?.session?.costUsd) || 0;
+  linhas.push({
+    label: 'This session',
+    icon: 'ph-lightning',
+    valText: `${formatTokens(tokens)} tokens${custo > 0 ? ` · $${custo.toFixed(2)}` : ''}`,
+    sev: 'count',
+    pct: 0,
+  });
+
+  const janelas = Array.isArray(u?.windows) ? u.windows : [];
+  for (const w of janelas) {
+    const meta = WINDOW_META[w.rateLimitType] || { label: w.rateLimitType, icon: 'ph-clock' };
+    const util = Number(w.utilization);
+    const pct = Number.isFinite(util) ? Math.max(0, Math.min(100, util)) : null;
+    const sev = pct != null
+      ? (pct >= 90 ? 'high' : pct >= 60 ? 'mid' : 'ok')
+      : (w.status === 'rejected' ? 'high'
+        : (w.status && w.status !== 'allowed') ? 'mid' : 'ok');
+    const segundos = w.resetsAt
+      ? (Number(w.resetsAt) > 1e12 ? Number(w.resetsAt) / 1000 : Number(w.resetsAt))
+      : null;
+    const reset = segundos ? `resets ${untilTime(segundos, agora)}` : '';
+    linhas.push({
+      label: meta.label,
+      icon: meta.icon,
+      valText: pct != null
+        ? `${Math.round(pct)}%${reset ? ` · ${reset}` : ''}`
+        : (reset || w.status || ''),
+      sev,
+      // Sem numero, a barra ainda precisa de uma largura que combine com a cor.
+      pct: pct != null ? pct : (sev === 'high' ? 100 : sev === 'mid' ? 66 : 22),
+    });
+  }
+  return linhas;
 }
 
 /**

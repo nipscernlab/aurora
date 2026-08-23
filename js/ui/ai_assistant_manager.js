@@ -37,7 +37,7 @@ import {
 import {
   PROVIDER_META, CLAUDE_CODE_PROVIDER, CLAUDE_CODE_EFFORT, CHATGPT_PROVIDER, CHATGPT_MODELS,
   SUB_META, isSubProvider, STREAM_STALL_MS, STREAM_STALL_HARD_MS,
-  shortModelName, formatTokens, WINDOW_META, untilTime, usageRowHTML,
+  shortModelName, formatTokens, usageRowHTML, usageRows, formatPlanLabel,
   PERMISSION_STORE_KEY, PERMISSION_MODES, readPermissionMode,
 } from '../ai/ai_metadata.js';
 
@@ -1016,26 +1016,6 @@ class AIAssistantManager {
    * from the CLI/JWT (`pro`, `max`, `plus`, `business`, `free`, …), we
    * uppercase them and map the few that have well-known marketing names.
    */
-  formatPlanLabel(raw) {
-    if (!raw) return '';
-    const v = String(raw).toLowerCase().trim();
-    const known = {
-      'pro':         'PRO',
-      'max':         'MAX',
-      'plus':        'PLUS',
-      'free':        'FREE',
-      'team':        'TEAM',
-      'business':    'BUSINESS',
-      'edu':         'EDU',
-      'enterprise':  'ENTERPRISE',
-      // Some Claude payloads use `subscriptionType: 'pro_max'` / `claude_max`.
-      'pro_max':     'MAX',
-      'claude_max':  'MAX',
-      'claude_pro':  'PRO',
-    };
-    return known[v] || v.toUpperCase();
-  }
-
   renderSubStatus() {
     if (!this.ccStatusEl) return;
     const sm = SUB_META[this.currentProvider];
@@ -1061,12 +1041,12 @@ class AIAssistantManager {
       // B12: signed in and downloadable, ready to use; the ~230 MB binary is
       // fetched on the first message (then this flips to the version detail).
       state = 'on'; icon = 'ph-check-circle';
-      const plan = this.formatPlanLabel(s.plan) || 'SUBSCRIPTION';
+      const plan = formatPlanLabel(s.plan) || 'SUBSCRIPTION';
       title = `${meta.label || sm.cliName} · ${plan}`;
       detail = 'Downloads on first message';
     } else {
       state = 'on'; icon = 'ph-check-circle';
-      const plan = this.formatPlanLabel(s.plan) || 'SUBSCRIPTION';
+      const plan = formatPlanLabel(s.plan) || 'SUBSCRIPTION';
       title = `${meta.label || sm.cliName} · ${plan}`;
       detail = s.version || sm.cliName;
     }
@@ -1245,49 +1225,16 @@ class AIAssistantManager {
     if (!this.usageBars) return;
     const u = this.subUsage[this.currentProvider];
 
-    this.usagePlan.textContent = u?.plan ? `${this.formatPlanLabel(u.plan)} plan` : '';
+    this.usagePlan.textContent = u?.plan ? `${formatPlanLabel(u.plan)} plan` : '';
 
-    // Session: the CLI's per-turn usage is the source of truth. We
-    // surface exactly what it reported, no synthetic floor, so the
-    // counter never drifts from reality. The composer token pill stays
-    // in sync because applyUsage() feeds the same numbers back.
-    const sessTokens = Number(u?.session?.tokens) || 0;
-    const cost = Number(u?.session?.costUsd) || 0;
-    const rows = [
-      usageRowHTML('This session', 'ph-lightning',
-        `${formatTokens(sessTokens)} tokens${cost > 0 ? ` · $${cost.toFixed(2)}` : ''}`,
-        'count', 0),
-    ];
+    // A decisao (recorte da utilizacao, limiar de cor, segundo contra
+    // milissegundo no resetsAt) vive em ai_metadata.usageRows, com teste;
+    // aqui fica so o desenho.
+    this.usageBars.innerHTML = usageRows(u)
+      .map((l) => usageRowHTML(l.label, l.icon, l.valText, l.sev, l.pct))
+      .join('');
 
-    // Rate-limit windows (5-hour, 7-day, …). The Claude Agent SDK reports a
-    // real `utilization` (0–100 %) per window plus a `resetsAt` timestamp, so we
-    // plot that directly. (The previous code guessed `used`/`limit` fields the
-    // SDK never sends, so `pct` was always null and every bar fell back to a
-    // coarse status heuristic, why the meter never showed real numbers.)
     const windows = Array.isArray(u?.windows) ? u.windows : [];
-    for (const w of windows) {
-      const meta = WINDOW_META[w.rateLimitType] || { label: w.rateLimitType, icon: 'ph-clock' };
-      const util = Number(w.utilization);
-      const pct = Number.isFinite(util) ? Math.max(0, Math.min(100, util)) : null;
-      const sev = (pct != null
-        ? (pct >= 90 ? 'high' : pct >= 60 ? 'mid' : 'ok')
-        : (w.status === 'rejected' ? 'high'
-            : (w.status && w.status !== 'allowed') ? 'mid' : 'ok'));
-      // resetsAt can arrive in seconds or milliseconds, untilTime wants unix
-      // seconds, so fold ms down.
-      const resetSecs = w.resetsAt
-        ? (Number(w.resetsAt) > 1e12 ? Number(w.resetsAt) / 1000 : Number(w.resetsAt))
-        : null;
-      const reset = resetSecs ? `resets ${untilTime(resetSecs)}` : '';
-      const valText = (pct != null)
-        ? `${Math.round(pct)}%${reset ? ` · ${reset}` : ''}`
-        : (reset || w.status || '');
-      rows.push(usageRowHTML(meta.label, meta.icon, valText, sev,
-        pct != null ? pct : (sev === 'high' ? 100 : sev === 'mid' ? 66 : 22)));
-    }
-
-    this.usageBars.innerHTML = rows.join('');
-
     let hint = this.mpUsage.querySelector('.ai-usage-hint');
     if (!windows.length) {
       // Codex's CLI exposes only a session token tally, never rate-limit

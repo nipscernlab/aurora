@@ -469,6 +469,14 @@ na máquina do ensaio, com o app de verdade.
       desenho na tela está certo, e isso é limite do método. O Surfer subiu
       cinco tags em 10/08 e ganhou um painel lateral retrátil com atalho de
       teclado; vale abrir uma forma de onda e olhar.
+- [ ] Entrar de um clique no GitLab com conta de verdade: o fluxo de
+      dispositivo está provado por teste unitário e o aplicativo OAuth do
+      grupo nips-cern está registrado, mas ninguém ainda percorreu o ciclo
+      completo (código na tela, autorização no navegador, ficha e foto na
+      barra). O mesmo dia trouxe o botão Localizar, o indicador de energia e
+      o marcador de tamanho do dump, que também só se confirmam usando: um
+      recente movido de pasta reencontrado pela lupa, o ícone vermelho num
+      laptop desligado da tomada, e o marcador subindo numa simulação longa.
 - [ ] Anel de foco no Monaco: a sonda anterior varreu o foco sem arquivo aberto
       no editor, então não há medida de lá. Abrir um `.v` de verdade pelo
       harness e varrer com o Monaco montado. O corpo do terminal e a lista de
@@ -694,6 +702,81 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       completo a partir do topo, sem curinga, sem `-levels`, última regra
       vence) e fixada por testes de toolchain com build real nos dois fluxos.
       O modal e o capítulo 14 explicam a regra por escopo.
+
+- [x] ~~**Erro do `$fscanf` que parecia loop de compilação.**~~ Relatado e
+      fechado em 23/08/2026. A causa no projeto do usuário era uma
+      diretiva `` `define PROJ `` apontando para uma pasta que não existe
+      mais, então o `$fopen` devolvia zero e o `$fscanf` reclamava a cada ciclo
+      de clock; o terminal
+      com milhares de linhas idênticas foi lido como travamento. Os arquivos
+      dele foram corrigidos, e vieram três defesas para que a classe inteira
+      de erro não volte a se disfarçar de loop.
+
+      A primeira é antes de compilar: `js/wave/fopen_paths.js` lê os `$fopen`
+      de leitura do testbench, resolve `` `define `` e concatenação
+      (`` {`PROJ, "/x.txt"} ``), e avisa o que não existe no disco. Avisa, não
+      bloqueia: caminho montado em tempo de execução é legítimo e recusar
+      compilar por heurística seria pior que o erro. A segunda é durante:
+      a primeira ocorrência de descritor inválido ganha uma explicação em
+      linguagem de gente, uma vez só. A terceira é o terminal, que passou a
+      juntar linha repetida consecutiva num contador (`x1000`) em vez de
+      empilhar mil nós de DOM, que era o que engasgava a interface.
+
+- [x] ~~**Reencontrar no disco os projetos recentes que sumiram.**~~ Pedido e
+      feito em 23/08/2026. A lista já marcava o ausente com risco; faltava o
+      caminho de volta para quem só moveu a pasta. Cada linha riscada ganhou
+      lupa, e o cabeçalho um "Localizar ausentes (N)", com progresso e
+      cancelar. A varredura vive no main (`main/ipc/spf_locator.js`), é uma
+      busca em largura com lista de pastas que não entra (`node_modules`,
+      `.git`, `Windows`, `$Recycle.Bin`), teto de profundidade e de
+      diretórios, e ignora atalho simbólico para não andar em círculo.
+
+      Duas decisões que o código não conta. Uma varredura só atende TODOS os
+      alvos ao mesmo tempo, porque quem perdeu uma pasta costuma ter perdido
+      várias e varrer o disco uma vez por projeto multiplicaria o custo; os
+      achados chegam por evento, à medida que aparecem. E não embutimos o
+      Everything nem índice de terceiro: seria dependência nova, com serviço
+      e privilégio, para uma busca que roda uma vez a cada muitos meses. A
+      escolha do melhor candidato (`spf_locator_rules.js`) é a maior cauda
+      comum de caminho, que é o que distingue a cópia certa de um homônimo.
+
+- [x] ~~**Clicar num recente sumido apagava a entrada.**~~ Relatado em duas
+      etapas, 23/08/2026. Primeiro o clique estourava `TypeError` porque o
+      diálogo de erro nunca tinha sido injetado no gerenciador; depois, com o
+      erro visível, apareceu o comportamento errado por trás dele: a sonda de
+      existência removia a entrada por conta própria, inclusive quando a
+      própria sonda falhava, então um projeto em pendrive desconectado custava
+      o atalho inteiro. Agora `checkProjectExists` só responde, o clique
+      marca o risco e o diálogo aponta a lupa. Apagar é gesto do usuário, e
+      falha genérica de abertura também deixou de apagar.
+
+- [x] ~~**Tamanho do arquivo de onda, ao vivo, em toda compilação.**~~ Pedido
+      e feito em 23/08/2026. O dump crescia fora da vista e a única notícia
+      era o tamanho final; ver o número subir é o que permite cancelar cedo
+      uma simulação que vai encher o disco, e é o que responde "está fazendo
+      alguma coisa?" numa corrida longa. Um nó só no terminal do TWAVE,
+      atualizado no lugar a cada 700 ms, nos três fluxos (Icarus, Verilator e
+      cocotb), que adota o primeiro candidato que aparecer no disco porque o
+      nome vem do `$dumpfile` e a extensão muda por simulador. Ele fica no
+      terminal depois do fim, como registro da corrida, e o hover mostra o
+      caminho completo do arquivo. Tentei fazê-lo desaparecer um minuto
+      depois; era o oposto do pedido e foi revertido no mesmo dia.
+
+- [x] ~~**Bateria e velocidade de simulação.**~~ Pedido e feito em
+      23/08/2026. Na bateria o Windows corta o clock da CPU, e a diferença
+      numa simulação longa é de minutos para meia hora; o aluno não vê a
+      causa, vê "a AURORA está lenta". A barra de baixo ganhou indicador de
+      energia, verde na tomada e vermelho na bateria, com a porcentagem no
+      balão, alimentado pela Battery API do próprio Chromium (máquina sem
+      bateria reporta carregando e o indicador fica quieto). O clique explica
+      a situação e leva às configurações de energia do Windows. Além disso, a
+      tela não apaga enquanto um passo longo da toolchain roda
+      (`powerSaveBlocker`, contado por referência).
+
+      O que NÃO fazemos, de propósito: mudar o plano de energia. Mexer na
+      configuração do sistema por conta própria é o tipo de surpresa que faz
+      um administrador de laboratório desconfiar do aplicativo inteiro. A
+      AURORA leva até a porta; a escolha é do dono da máquina.
 
 - [ ] **Tags meio-publicadas no registro do fork.** As tags v0.7.0-nips.8 e
       .9 do surfer-aurora têm só o exe no registro (o job do bundle web
@@ -998,6 +1081,15 @@ formalmente, não consertado.
   (`_cutWiresUnderLabels`). Para conferir rendering sem abrir a AURORA: janela
   oculta do Electron com o SVG de `components/Temp/PRISM` e o CSS de `dist/`,
   `capturePage` e leitura de pixels; a sessão de 22/08 fez assim.
+- O tooltip global do app (`js/ui/tooltip.js`) NÃO atravessa shadow DOM: um
+  `data-tooltip` dentro de um componente Lit, como a tela de boas-vindas,
+  nunca é descoberto pelo observador. Ou o balão é reimplementado em CSS
+  dentro do próprio componente, como ficou na lista de recentes, ou o
+  elemento vive fora do shadow. Em nó de DOM comum, como o marcador de
+  tamanho do dump no terminal, o `data-tooltip` funciona sozinho.
+- Botão novo numa linha da lista de recentes: os controles precisam estar
+  dentro de UMA célula da grade. A lista é uma subgrade de três colunas, e um
+  quarto filho joga o × para a linha seguinte em toda entrada riscada.
 - PRISM, a grade dentro dos cartões de memória é símbolo da família (linhas por
   colunas = células armazenadas), gerada por `scripts/prism-skin-standard.js`
   com opacidade 0,16 a 0,22. Decidido em 22/08 manter; se incomodar, ajustar

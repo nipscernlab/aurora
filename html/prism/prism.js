@@ -314,7 +314,10 @@ class PRISMViewer {
    * depois de ele existir na tela; a borda dele sai no CSS.
    */
   _adjustBusLabels() {
+    const svg = this.svgContent.querySelector('svg');
+    if (!svg) return;
     const labels = this.svgContent.querySelectorAll('text[class*="busLabel_"]');
+    const caixas = [];
     labels.forEach((label) => {
       label.removeAttribute('dx');
       const rect = label.previousElementSibling;
@@ -325,10 +328,63 @@ class PRISMViewer {
       try { caixa = label.getBBox(); } catch (_) { return; }
       if (!caixa || !caixa.width) return;
       const folga = 1;
-      rect.setAttribute('x', String(caixa.x - folga));
-      rect.setAttribute('y', String(caixa.y - folga));
-      rect.setAttribute('width', String(caixa.width + folga * 2));
-      rect.setAttribute('height', String(caixa.height + folga * 2));
+      const x = caixa.x - folga;
+      const y = caixa.y - folga;
+      const width = caixa.width + folga * 2;
+      const height = caixa.height + folga * 2;
+      rect.setAttribute('x', String(x));
+      rect.setAttribute('y', String(y));
+      rect.setAttribute('width', String(width));
+      rect.setAttribute('height', String(height));
+      caixas.push({ x, y, width, height });
+    });
+    this._cutWiresUnderLabels(svg, caixas);
+  }
+
+  /**
+   * O fio nao passa por tras do numero, e o fundo continua sendo o fundo.
+   *
+   * A versao anterior pintava o retangulo da etiqueta com a cor do fundo. So
+   * que o canvas nao e uma cor: e a cor mais a grade de pontos e a vinheta,
+   * e uma caixa solida por cima deles aparecia como um retangulo de outro
+   * tom em volta de cada "/32/". Aqui o retangulo fica invisivel (CSS) e o
+   * corte e feito no proprio fio, com uma mascara do SVG que tem um buraco
+   * em cada etiqueta. So os fios que cruzam uma etiqueta recebem a mascara,
+   * porque mascara tem custo de pintura e um processador tem muitos fios.
+   * A mascara vive dentro do SVG, entao o Download leva o corte junto.
+   */
+  _cutWiresUnderLabels(svg, caixas) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const ID = 'aurora-bus-label-mask';
+    svg.querySelector(`#${ID}`)?.remove();
+    if (!caixas.length) return;
+
+    const mask = document.createElementNS(NS, 'mask');
+    mask.setAttribute('id', ID);
+    mask.setAttribute('maskUnits', 'userSpaceOnUse');
+    // Area grande o bastante para qualquer diagrama: fora dela nada pinta.
+    for (const [k, v] of [['x', -1e5], ['y', -1e5], ['width', 2e5], ['height', 2e5]]) mask.setAttribute(k, String(v));
+    const tudo = document.createElementNS(NS, 'rect');
+    for (const [k, v] of [['x', -1e5], ['y', -1e5], ['width', 2e5], ['height', 2e5], ['fill', 'white']]) tudo.setAttribute(k, String(v));
+    mask.appendChild(tudo);
+    for (const c of caixas) {
+      const furo = document.createElementNS(NS, 'rect');
+      for (const [k, v] of [['x', c.x], ['y', c.y], ['width', c.width], ['height', c.height], ['fill', 'black']]) furo.setAttribute(k, String(v));
+      mask.appendChild(furo);
+    }
+    let defs = svg.querySelector('defs');
+    if (!defs) { defs = document.createElementNS(NS, 'defs'); svg.insertBefore(defs, svg.firstChild); }
+    defs.appendChild(mask);
+
+    const cruza = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    svg.querySelectorAll('path, line, polyline').forEach((fio) => {
+      if (fio.closest('g[data-cell-type]')) return;
+      let bb;
+      try { bb = fio.getBBox(); } catch (_) { return; }
+      // Um fio reto tem caixa de largura ou altura zero; um pouco de folga
+      // faz a intersecao valer para ele tambem.
+      const caixaFio = { x: bb.x - 1, y: bb.y - 1, width: bb.width + 2, height: bb.height + 2 };
+      if (caixas.some((c) => cruza(caixaFio, c))) fio.setAttribute('mask', `url(#${ID})`);
     });
   }
 

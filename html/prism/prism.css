@@ -527,14 +527,16 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
  * conferir no Verilog.
  *
  * Voltam ajustados ao tema, e nao como o netlistsvg os desenha. O retangulo
- * ficou sendo so a mascara que impede o fio de passar por tras dos digitos: a
- * borda em volta do numero desenhava uma caixinha que competia com as celulas
- * e nao dizia nada que o numero ja nao dissesse. O tamanho dele e medido no
- * texto, em prism.js. */
+ * nao pinta nada: ate 22/08/2026 ele era pintado com a cor do fundo para
+ * esconder o fio atras do numero, mas o canvas tem grade de pontos e vinheta,
+ * e a caixa solida aparecia como um retangulo de outro tom em volta de cada
+ * "/32/". O corte do fio agora e uma mascara do SVG, montada em prism.js
+ * (_cutWiresUnderLabels) a partir da geometria deste retangulo, que por isso
+ * continua existindo e sendo medido no texto. */
 .svg-content svg [class*="busLabel_"] { display: inline; }
 
 .svg-content svg rect[class*="busLabel_"] {
-  fill: var(--bg) !important;
+  fill: none !important;
   stroke: none !important;
 }
 

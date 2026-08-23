@@ -636,6 +636,7 @@
       "verilatorScopeRules": "Verilator: dump limited to the selected scopes ({{on}} kept, {{off}} turned off via .vlt)",
       "fopenMissing": "The testbench opens {{path}} for reading and that file does not exist. $fopen will return 0 and the simulation will read empty input.",
       "invalidFd": "The simulator is reading or writing through a file it never opened ($fopen returned 0). Check the $fopen paths in the testbench; this error repeats every clock cycle.",
+      "onBattery": "This laptop is running on battery: Windows lowers the CPU clock, so the simulation will take longer. Plugging in (and picking a performance power mode) speeds it up.",
       "sourceLabelGtkw": "from selected .gtkw ({{count}} signal(s))",
       "sourceLabelWc": "from Wave Configuration ({{count}} signal(s))",
       "sourceLabelTb": "testbench owns $dumpvars (hand-written, no override)",

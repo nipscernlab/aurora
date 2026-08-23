@@ -351,6 +351,20 @@
 /* ---------------------------------------------------------------------------
  *  Log entries, compact rows with a semantic left stripe
  * ------------------------------------------------------------------------- */
+/* O tamanho do arquivo de onda, ao vivo. Um no' so, atualizado no lugar;
+   'done' congela o numero final como registro da corrida. */
+.dump-size {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin: 4px 10px; padding: 3px 10px;
+  border-radius: 999px; width: fit-content;
+  background: var(--bg-elev-1, var(--bg-elev));
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: var(--text-xs);
+}
+.dump-size i { color: var(--aurora-mint, #5FE0B0); font-size: 13px; }
+.dump-size.done { opacity: 0.75; }
+
 /* A mesma linha repetida em seguida vira este contador, em vez de mil nos de
    DOM: e o caso do $fscanf com $fopen falhado, que imprime o MESMO erro a
    cada ciclo de clock e fazia o terminal parecer um loop. */

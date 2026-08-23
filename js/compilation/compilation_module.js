@@ -175,6 +175,64 @@ class CompilationModule {
         return true;
     }
 
+    /**
+     * Um lembrete quando a simulacao comeca com o laptop na bateria.
+     *
+     * Na bateria o Windows corta o clock da CPU, e uma simulacao longa fica
+     * visivelmente mais lenta; quem nao sabe disso conclui que a AURORA e
+     * lenta. Uma linha de dica, no inicio, uma vez por corrida: sem alerta
+     * modal e sem mexer no plano de energia do sistema, que e escolha do
+     * dono da maquina. Num desktop o main responde false e nada aparece.
+     */
+    async _avisarSeNaBateria(terminalId) {
+        try {
+            if (typeof electronAPI.isOnBattery !== 'function') return;
+            if (await electronAPI.isOnBattery()) {
+                this.terminalManager.appendToTerminal(terminalId,
+                    tr('terminal.wave.onBattery'), 'tips');
+            }
+        } catch (_e) { /* dica e cortesia */ }
+    }
+
+    /**
+     * Vigia o tamanho do arquivo de onda enquanto a simulacao roda.
+     *
+     * Recebe os caminhos CANDIDATOS (o nome vem do $dumpfile do testbench, e
+     * a extensao varia por simulador), adota o primeiro que aparecer no disco
+     * e atualiza o pill do twave ate stop() ser chamado. Melhor esforco por
+     * inteiro: falha de stat nao para o vigia nem a simulacao.
+     *
+     * @param {string[]} candidatos caminhos absolutos possiveis do dump
+     * @returns {() => Promise<void>} stop: ultima leitura e marca 'done'
+     */
+    _vigiarTamanhoDoDump(candidatos) {
+        let alvo = null;
+        let vivo = true;
+        const medir = async (final = false) => {
+            try {
+                if (!alvo) {
+                    for (const c of candidatos) {
+                        if (await electronAPI.fileExists(c)) { alvo = c; break; }
+                    }
+                    if (!alvo) return;
+                }
+                const st = await electronAPI.getFileStats(alvo);
+                if (!vivo && !final) return; // stat resolveu depois do stop
+                this.terminalManager.renderDumpSize?.('twave', {
+                    name: alvo.split(/[\\/]/).pop(),
+                    bytes: st?.size ?? 0,
+                    done: final,
+                });
+            } catch (_e) { /* dump ainda nao existe, ou sumiu no meio */ }
+        };
+        const timer = setInterval(() => { if (vivo) medir(false); }, 700);
+        return async () => {
+            vivo = false;
+            clearInterval(timer);
+            await medir(true);
+        };
+    }
+
     async initializeComponentsPath() {
         if (!this.componentsPath) {
             this.componentsPath = await electronAPI.getComponentsPath();
@@ -1560,6 +1618,7 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb', {
         sim: profile.sim === 'verilator' ? 'Verilator' : 'Icarus',
     }), 'info');
+    await this._avisarSeNaBateria('twave');
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
     // Um contador que sobe vira a barra, e nao uma linha por atualizacao. Os
@@ -1579,11 +1638,19 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     }
 
     let code;
+    // O runner do cocotb sob Verilator escreve dump.fst no test_dir (a pasta
+    // do projeto); sob Icarus o nome vem do runner tambem como dump.
+    const pararVigia = this._vigiarTamanhoDoDump([
+        await electronAPI.joinPath(this.projectPath || tbDir, 'dump.fst'),
+        await electronAPI.joinPath(buildDir, 'dump.fst'),
+        await electronAPI.joinPath(this.projectPath || tbDir, 'dump.vcd'),
+    ]);
     try {
         const result = await runSpecStreamed(spec, { consumeEphemeral: true });
         code = result.code;
     } finally {
         if (unsubscribe) unsubscribe();
+        await pararVigia();
     }
     // Two distinct outcomes, deliberately handled differently.
     //
@@ -1694,6 +1761,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // where the +AURORA_HEADER_ONLY plusarg was a no-op and pass 1 ran the FULL
     // simulation twice.
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
+    await this._avisarSeNaBateria('twave');
 
     // Stream sim output to twave live so $display lines from the
     // testbench show up as the simulation progresses. User $display
@@ -1749,6 +1817,10 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         });
     }
     let code;
+    const pararVigia = this._vigiarTamanhoDoDump([
+        await electronAPI.joinPath(simCwd, `${simTopModule}.vcd`),
+        await electronAPI.joinPath(simCwd, `${simTopModule}.fst`),
+    ]);
     try {
         const vvpRunSpec = buildVvpRunSpec({
             vvpBin: tools.vvpBin,
@@ -1759,6 +1831,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         code = r.code;
     } finally {
         if (unsubscribe) unsubscribe();
+        await pararVigia();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));
@@ -2009,6 +2082,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     }
 
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'plain');
+    await this._avisarSeNaBateria('twave');
 
     // Full sim. Stream output pro twave live (igual vvp).
     const isVvpNoise = (line) => {
@@ -2047,6 +2121,10 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         });
     }
     let code;
+    const pararVigia = this._vigiarTamanhoDoDump([
+        await electronAPI.joinPath(simCwd, `${simTopModule}.vcd`),
+        await electronAPI.joinPath(simCwd, `${simTopModule}.fst`),
+    ]);
     try {
         // PATH precisa incluir bundle mingw64+usr bin: o .exe gerado pelo
         // Verilator linka dinamicamente contra libstdc++-6.dll / libgcc /
@@ -2063,6 +2141,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         code = r.code;
     } finally {
         if (unsubscribe) unsubscribe();
+        await pararVigia();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.verilatorRunFailed', { code }));

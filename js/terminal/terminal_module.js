@@ -21,6 +21,17 @@ const MAX_TERMINAL_ENTRIES = 5000;
 // grouped lines past this limit so one card can't grow without bound.
 const MAX_GROUPED_MESSAGES = 5000;
 
+/** 1234567 -> "1.2 MB": o pill do dump atualiza varias vezes por segundo. */
+function formatarBytes(n) {
+    if (!Number.isFinite(n) || n < 0) return '0 B';
+    if (n < 1024) return `${n} B`;
+    const kb = n / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(2)} GB`;
+}
+
 class TerminalManager {
     constructor() {
         this.terminals = {
@@ -850,7 +861,37 @@ class TerminalManager {
         });
     }
 
-createLogEntry(terminal, text, type, timestamp) {
+/**
+     * O tamanho do arquivo de onda, ao vivo, enquanto a simulacao roda.
+     *
+     * Pedido de 23/08/2026. O dump cresce fora da vista, e a unica noticia
+     * era o tamanho final; ver o numero subir e o que permite cancelar cedo
+     * uma simulacao que vai encher o disco, e e o que responde "esta fazendo
+     * alguma coisa?" numa simulacao longa. Um no' so, atualizado no lugar,
+     * mesma mecanica da barra de progresso.
+     */
+    renderDumpSize(terminalId, { name, bytes, done = false }) {
+        const terminal = this._resolveTerminal(terminalId);
+        if (!terminal) return;
+        this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
+        let el = this.updatableCards[terminalId].dumpSize;
+        if (!el || !el.isConnected) {
+            el = document.createElement('div');
+            el.className = 'dump-size';
+            el.innerHTML = '<i class="ph ph-wave-sine" aria-hidden="true"></i><span class="dump-size-text"></span>';
+            el._text = el.querySelector('.dump-size-text');
+            terminal.appendChild(el);
+            this.updatableCards[terminalId].dumpSize = el;
+        } else if (!done && terminal.lastElementChild !== el) {
+            // Cola embaixo, como a barra: linhas novas nao a empurram pro meio.
+            terminal.appendChild(el);
+        }
+        el._text.textContent = `${name} · ${formatarBytes(bytes)}`;
+        el.classList.toggle('done', !!done);
+        this.scrollToBottom(terminalId);
+    }
+
+    createLogEntry(terminal, text, type, timestamp) {
         // A mesma linha, repetida logo em seguida, vira um contador na linha
         // que ja esta na tela. E o caso do $fscanf com $fopen falhado: o vvp
         // imprime o MESMO erro a cada ciclo de clock, milhares de vezes, e o

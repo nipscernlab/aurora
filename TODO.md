@@ -524,12 +524,26 @@ Pós-release, com a regra de sempre: medir antes de mexer.
   > Worker. O aluno não precisa de conta em nada, o relato chega estruturado,
   > e o limite de tamanho e de frequência fica no Worker.
 
-- [ ] **Suporte a GitLab no Git-D.** Pedido em 18/08/2026. O painel fala só com
-      GitHub (OAuth, criar e listar repos); o laboratório também vive no GitLab
-      (grupo nips-cern, fork do Surfer). Clonar, puxar e enviar já funcionam
-      pela credencial do próprio git, então o grosso é conta e criação de
-      repositório: autenticação por token pessoal, e a limpeza de credenciais
-      do github_forget ganhando os hosts do GitLab.
+- [x] ~~**Suporte a GitLab no Git-D.**~~ Pedido em 18/08/2026, feito em
+      23/08. Conta por token pessoal, com a instância junto (o grupo nips-cern
+      vive no gitlab.com, mas uma universidade pode subir a própria), listar e
+      criar projeto, e o painel mostra as duas contas ao mesmo tempo, porque o
+      laboratório vive nas duas e obrigar a escolher seria obrigar a
+      desconectar para trocar. A lista de clonar mistura as duas origens
+      ordenada por atividade, com selo dizendo de onde cada linha vem.
+
+      Sem fluxo de dispositivo de propósito: o do GitHub existe porque a
+      AURORA tem um OAuth App registrado lá, e no GitLab isso exigiria
+      registrar um aplicativo em cada instância.
+
+      Junto saiu um defeito que já existia: o cabeçalho com o token do GitHub
+      era injetado em QUALQUER remoto, então um push para o GitLab levava 401
+      num caminho que funcionaria sozinho pelo gerenciador de credenciais. A
+      escolha passou a ser pelo host do remoto (`forjaDoRemoto`), e o usuário
+      do Basic acompanha, porque o GitLab exige `oauth2` onde o GitHub aceita
+      qualquer um. O `github_forget` ganhou os hosts do GitLab e o segundo
+      cofre, e a função de casar alvo virou `alvoEhDeForja`, porque o nome
+      antigo passou a mentir sobre o que ela decide.
 
 - [ ] **P6, o que sobrou de performance.** Restam as transições de largura da
       árvore (`.file-tree-container`) e do painel de IA

@@ -30,6 +30,15 @@ const GITHUB_API_MS = 20_000;
 const GITHUB_AVATAR_MS = 10_000;
 
 /**
+ * O GitLab tem as mesmas caracteristicas: pedido pequeno, resposta pequena, e
+ * um avatar que e decoracao. Mesmos numeros de proposito, e escritos como
+ * derivacao para que mexer num prazo mexa nos dois: nao ha razao para a
+ * paciencia com uma forja ser diferente da paciencia com a outra.
+ */
+const GITLAB_API_MS = GITHUB_API_MS;
+const GITLAB_AVATAR_MS = GITHUB_AVATAR_MS;
+
+/**
  * Qualquer comando git: ociosidade. O simple-git zera o contador a cada byte
  * em stdout ou stderr, e o git com --progress escreve no stderr o tempo todo
  * durante um clone ou um push, entao um transferencia viva nunca estoura; so
@@ -76,6 +85,8 @@ if (SURFER_BOOT_BASE_MS > SURFER_BOOT_MAX_MS) {
 module.exports = {
   GITHUB_API_MS,
   GITHUB_AVATAR_MS,
+  GITLAB_API_MS,
+  GITLAB_AVATAR_MS,
   GIT_IDLE_MS,
   EXTRACT_MS,
   SURFER_BOOT_BASE_MS,

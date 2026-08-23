@@ -35,6 +35,9 @@ function relDate(iso) {
 let modal = null;
 let busy = false;
 let publishPrivate = true;
+// Em qual forja o botao Publicar cria. So muda quando o usuario tem as duas
+// contas conectadas e escolhe; com uma so, a conectada vale.
+let publishForge = 'github';
 let activeTab = 'changes';
 let amendOn = false;
 let lastHasChanges = false;
@@ -505,22 +508,33 @@ function positionBranchMenu() {
   branchMenuEl.style.top = `${top}px`;
 }
 
-function renderPublish(info) {
+function renderPublish(info, contas = { github: true, gitlab: false }) {
   const el = $('git-publish');
   if (!el) return;
   if (browseDir || info.hasOrigin) { el.hidden = true; el.innerHTML = ''; return; }
   el.hidden = false;
+  // Com uma conta so, ela e o alvo, sem perguntar nada.
+  const alvo = (contas.github && contas.gitlab)
+    ? publishForge
+    : (contas.gitlab && !contas.github ? 'gitlab' : 'github');
   el.innerHTML = `
-    <div class="git-publish-head"><i class="ph ph-cloud-arrow-up"></i> ${esc(tt('git.publishHead', 'No remote — publish to GitHub'))}</div>
+    <div class="git-publish-head"><i class="ph ph-cloud-arrow-up"></i> ${esc(tt('git.publishHead', 'No remote yet'))}</div>
+    ${contas.github && contas.gitlab ? `
+    <div class="git-visibility git-forge-pick" role="group" aria-label="Forge">
+      <button class="git-vis-opt ${publishForge !== 'gitlab' ? 'active' : ''}" data-action="set-forge" data-forge="github"><i class="ph ph-github-logo"></i> GitHub</button>
+      <button class="git-vis-opt ${publishForge === 'gitlab' ? 'active' : ''}" data-action="set-forge" data-forge="gitlab"><i class="ph ph-gitlab-logo-simple"></i> GitLab</button>
+    </div>` : ''}
     <div class="git-publish-form">
       <input type="text" id="git-repo-name" class="git-pat-input" value="${esc(info.folder || '')}" placeholder="${esc(tt('git.repoNamePlaceholder', 'repository name'))}" spellcheck="false" />
       <div class="git-visibility" role="group" aria-label="Visibility">
         <button class="git-vis-opt ${publishPrivate ? 'active' : ''}" data-action="set-private" data-private="true"><i class="ph ph-lock-simple"></i> ${esc(tt('git.private', 'Private'))}</button>
         <button class="git-vis-opt ${!publishPrivate ? 'active' : ''}" data-action="set-private" data-private="false"><i class="ph ph-globe-hemisphere-west"></i> ${esc(tt('git.public', 'Public'))}</button>
       </div>
-      <button class="git-mini git-mini-primary" data-action="publish"><i class="ph ph-github-logo"></i> ${esc(tt('git.publish', 'Publish'))}</button>
+      <button class="git-mini git-mini-primary" data-action="publish"><i class="ph ${alvo === 'gitlab' ? 'ph-gitlab-logo-simple' : 'ph-github-logo'}"></i> ${esc(tt('git.publish', 'Publish'))}</button>
     </div>
-    <div class="git-hint">${tt('git.tokenHint', 'To create repositories, the token must be <b>classic</b> with the <code>repo</code> scope — github.com/settings/tokens/new')}</div>`;
+    <div class="git-hint">${alvo === 'gitlab'
+      ? tt('git.tokenHintGitlab', 'To create projects, the GitLab token needs the <code>api</code> scope.')
+      : tt('git.tokenHint', 'To create repositories, the token must be <b>classic</b> with the <code>repo</code> scope, em github.com/settings/tokens/new')}</div>`;
 }
 
 async function renderAccount() {
@@ -559,6 +573,79 @@ async function renderAccount() {
       <div class="git-oauth-code" id="git-oauth-code" hidden></div>
       <div class="git-token-help" id="git-token-help" hidden></div>`;
   }
+  await renderGitlabAccount();
+}
+
+/**
+ * A conta GitLab, embaixo da do GitHub.
+ *
+ * Sao duas contas independentes de proposito: o laboratorio vive nas duas ao
+ * mesmo tempo (o codigo no GitHub, o fork do Surfer no grupo nips-cern do
+ * GitLab), e obrigar a escolher uma seria obrigar a desconectar para trocar.
+ *
+ * So token pessoal: o fluxo de dispositivo do GitHub existe porque a AURORA
+ * tem um OAuth App registrado la, e no GitLab isso exigiria registrar um
+ * aplicativo em cada instancia.
+ */
+async function renderGitlabAccount() {
+  const el = $('git-account-gitlab');
+  if (!el) return;
+  let s;
+  try { s = await api().gitlabStatus?.(); } catch (_) { s = null; }
+  if (!s) { el.innerHTML = ''; return; }
+  if (s.connected && s.user) {
+    const avatarSrc = s.user.avatarDataUrl || s.user.avatarUrl;
+    const avatar = avatarSrc
+      ? `<img class="git-avatar" src="${esc(avatarSrc)}" alt="" referrerpolicy="no-referrer" />`
+      : '<i class="ph ph-gitlab-logo-simple git-avatar-icon"></i>';
+    el.innerHTML = `<span class="git-user">${avatar}<span class="git-user-name">@${esc(s.user.login)}</span>
+        <span class="git-user-host" title="${esc(s.host || 'gitlab.com')}">${esc(s.host || 'gitlab.com')}</span>
+        <span class="git-user-ok"><i class="ph ph-check-circle"></i></span></span>
+      <span class="git-account-actions">
+        <button class="git-icon-btn git-disconnect" data-action="gitlab-disconnect" title="${esc(tt('git.disconnect', 'Disconnect'))}" aria-label="${esc(tt('git.disconnect', 'Disconnect'))}"><i class="ph ph-sign-out"></i></button>
+      </span>`;
+  } else {
+    el.innerHTML = `
+      <div class="git-signin-advanced">
+        <button class="git-linklike" data-action="gitlab-toggle-form"><i class="ph ph-gitlab-logo-simple"></i> ${esc(tt('git.connectGitlab', 'Connect GitLab'))}</button>
+        <button class="git-icon-btn git-help-btn" data-action="open-gitlab-token-page" title="${esc(tt('git.howToTokenGitlab', 'Get a GitLab token'))}" aria-label="${esc(tt('git.howToTokenGitlab', 'Get a GitLab token'))}"><i class="ph ph-question"></i></button>
+      </div>
+      <div class="git-connect" id="git-gitlab-connect" hidden>
+        <input type="text" id="git-gitlab-host" class="git-pat-input" placeholder="gitlab.com" autocomplete="off" spellcheck="false" />
+        <input type="password" id="git-gitlab-pat" class="git-pat-input" placeholder="${esc(tt('git.tokenPlaceholderGitlab', 'GitLab token (api scope)'))}" autocomplete="off" spellcheck="false" />
+        <button class="git-btn git-btn-primary" data-action="gitlab-connect"><i class="ph ph-gitlab-logo-simple"></i> ${esc(tt('git.connect', 'Connect'))}</button>
+      </div>`;
+  }
+}
+
+async function connectGitlab() {
+  const token = $('git-gitlab-pat')?.value?.trim();
+  const host = $('git-gitlab-host')?.value?.trim();
+  if (!token) { flash(tt('git.pasteToken', 'Paste a token first.'), 'error'); return; }
+  await run(tt('git.connect', 'Connect'), async () => {
+    const r = await api().gitlabConnect({ token, host });
+    if (!r.ok) throw new Error(r.error);
+    await renderAccount();
+    return `@${r.user.login}`;
+  });
+}
+
+async function disconnectGitlab() {
+  const action = await window.AuroraUI?.dialog?.({
+    title: tt('git.disconnect', 'Disconnect'),
+    message: tt('git.disconnectConfirmGitlab', 'Disconnect your GitLab account from Aurora? The stored token will be removed from secure storage.'),
+    variant: 'warning',
+    buttons: [
+      { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('git.disconnect', 'Disconnect'), action: 'confirm', type: 'danger' },
+    ],
+  });
+  if (action !== 'confirm') return;
+  await run(tt('git.disconnect', 'Disconnect'), async () => {
+    await api().gitlabDisconnect();
+    await renderAccount();
+    return tt('git.disconnect', 'Account disconnected');
+  });
 }
 
 // OAuth device-flow. The device flow polls for up to ~15 min, so we deliberately
@@ -716,7 +803,13 @@ async function refresh() {
   let info = { hasOrigin: false, name: null, folder: null };
   try { const r = await api().info(withDir()); if (r && r.ok) info = r; } catch (_) { /* keep */ }
   renderRepoHeader(st, info);
-  renderPublish(info);
+  // Quem esta conectado decide se o Publicar mostra escolha de forja. As duas
+  // chamadas sao locais (leem o cofre no disco), entao nao custam rede.
+  const [ghS, glS] = await Promise.all([
+    api().githubStatus().catch(() => ({ connected: false })),
+    api().gitlabStatus ? api().gitlabStatus().catch(() => ({ connected: false })) : Promise.resolve({ connected: false }),
+  ]);
+  renderPublish(info, { github: !!ghS?.connected, gitlab: !!glS?.connected });
   renderChanges(st);
   lastHasChanges = !!st.files.length;
   updateCommitBtn();
@@ -927,7 +1020,27 @@ async function onClick(e) {
         document.querySelectorAll('#git-publish .git-vis-opt').forEach((b) => b.classList.toggle('active', b.dataset.private === String(publishPrivate)));
         return undefined;
       }
+      case 'set-forge': {
+        publishForge = actEl.dataset.forge === 'gitlab' ? 'gitlab' : 'github';
+        document.querySelectorAll('#git-publish .git-forge-pick .git-vis-opt')
+          .forEach((b) => b.classList.toggle('active', b.dataset.forge === publishForge));
+        return refresh();
+      }
       case 'connect':    return connect();
+      case 'gitlab-connect': return connectGitlab();
+      case 'gitlab-disconnect': return disconnectGitlab();
+      case 'gitlab-toggle-form': {
+        const c = $('git-gitlab-connect');
+        if (c) c.hidden = !c.hidden;
+        const inp = $('git-gitlab-pat');
+        if (c && !c.hidden && inp) inp.focus();
+        return undefined;
+      }
+      case 'open-gitlab-token-page': {
+        try { electronAPI?.openExternal?.('https://gitlab.com/-/user_settings/personal_access_tokens'); }
+        catch (_) { /* ignore */ }
+        return undefined;
+      }
       case 'oauth-login': return oauthLogin();
       case 'oauth-cancel': return oauthCancel();
       case 'toggle-pat': { const c = $('git-connect'); if (c) c.hidden = !c.hidden; const inp = $('git-pat'); if (c && !c.hidden && inp) inp.focus(); return undefined; }
@@ -1122,13 +1235,27 @@ async function loadCloneRepos() {
   const list = $('git-clone-list');
   if (list) list.innerHTML = `<li class="git-clone-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</li>`;
   try { const s = await api().githubStatus(); cloneState.myLogin = s?.user?.login || null; } catch (_) { /* group still works without it */ }
-  let r;
-  try { r = await api().listRepos(); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
-  if (!r || !r.ok) {
-    if (list) list.innerHTML = `<li class="git-clone-empty">${esc(r?.error || tt('git.connectFirst', 'Connect your GitHub account first.'))}</li>`;
+  // As duas forjas em paralelo. Uma conta desconectada nao e erro: e a metade
+  // que o usuario nao usa, e travar a lista inteira por causa dela esconderia
+  // os repositorios da que ele conectou.
+  const [gh, gl] = await Promise.all([
+    api().listRepos().catch((e) => ({ ok: false, error: e?.message || String(e) })),
+    api().gitlabListRepos ? api().gitlabListRepos().catch((e) => ({ ok: false, error: e?.message || String(e) })) : Promise.resolve(null),
+  ]);
+  const repos = [];
+  if (gh && gh.ok && Array.isArray(gh.repos)) repos.push(...gh.repos);
+  if (gl && gl.ok && Array.isArray(gl.repos)) repos.push(...gl.repos);
+  if (!repos.length) {
+    // A mensagem util e a da forja que o usuario TENTOU usar; sem nenhuma
+    // conectada, o convite para conectar.
+    const erro = (gh && !gh.ok && gh.error) || (gl && !gl.ok && gl.error) || null;
+    if (list) list.innerHTML = `<li class="git-clone-empty">${esc(erro || tt('git.connectFirst', 'Connect an account first.'))}</li>`;
     return;
   }
-  cloneState.repos = Array.isArray(r.repos) ? r.repos : [];
+  // Mais recente primeiro, misturando as duas origens: quem procura o que
+  // mexeu ontem nao quer saber em qual servidor aquilo estava.
+  repos.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  cloneState.repos = repos;
   renderCloneList();
 }
 
@@ -1161,6 +1288,8 @@ function cloneItemHtml(repo) {
   return `<li class="git-clone-item ${sel ? 'selected' : ''}" data-action="clone-list-select"
       data-url="${esc(repo.cloneUrl)}" data-name="${esc(repo.name)}">
     <i class="ph ${icon} git-clone-vis" title="${repo.private ? esc(tt('git.private', 'Private')) : esc(tt('git.public', 'Public'))}"></i>
+    <i class="ph ${repo.forge === 'gitlab' ? 'ph-gitlab-logo-simple' : 'ph-github-logo'} git-clone-forge"
+       title="${repo.forge === 'gitlab' ? 'GitLab' : 'GitHub'}"></i>
     <span class="git-clone-name">${esc(repo.name)}</span>
     ${desc}
   </li>`;
@@ -1169,7 +1298,7 @@ function renderCloneList() {
   const list = $('git-clone-list');
   if (!list) return;
   if (!cloneState.repos.length) {
-    list.innerHTML = `<li class="git-clone-empty">${esc(tt('git.connectFirst', 'Connect your GitHub account first.'))}</li>`;
+    list.innerHTML = `<li class="git-clone-empty">${esc(tt('git.connectFirst', 'Connect an account first.'))}</li>`;
     return;
   }
   // Group by owner so organization repos sit under their org header (your repos
@@ -1543,12 +1672,23 @@ async function publish() {
   const name = $('git-repo-name')?.value?.trim();
   const priv = publishPrivate;
   if (!name) { flash(tt('git.repoNameRequired', 'Give the repository a name.'), 'error'); return; }
-  const gh = await api().githubStatus();
-  if (!gh || !gh.connected) { flash(tt('git.connectFirst', 'Connect your GitHub account first.'), 'error'); return; }
+  // Onde criar. Com as duas contas conectadas a escolha e do usuario, e ela
+  // fica no proprio botao (Publicar no GitHub / no GitLab), porque perguntar
+  // depois do clique seria uma janela a mais para uma decisao que ele ja tomou
+  // ao escolher o botao.
+  const [gh, gl] = await Promise.all([
+    api().githubStatus().catch(() => ({ connected: false })),
+    api().gitlabStatus ? api().gitlabStatus().catch(() => ({ connected: false })) : Promise.resolve({ connected: false }),
+  ]);
+  const forja = publishForge === 'gitlab' && gl?.connected ? 'gitlab'
+    : (gh?.connected ? 'github' : (gl?.connected ? 'gitlab' : null));
+  if (!forja) { flash(tt('git.connectFirst', 'Connect an account first.'), 'error'); return; }
   await run(tt('git.publish', 'Publish'), async () => {
     const isRepo = await api().isRepo();
     if (isRepo.ok && !isRepo.isRepo) { const ir = await api().init(); if (!ir.ok) throw new Error(ir.error); }
-    const r = await api().githubCreateRepo({ name, private: priv });
+    const r = forja === 'gitlab'
+      ? await api().gitlabCreateRepo({ name, private: priv })
+      : await api().githubCreateRepo({ name, private: priv });
     if (!r.ok) throw new Error(r.error);
     const add = await api().addRemote({ name: 'origin', url: r.cloneUrl });
     if (!add.ok) throw new Error(add.error);

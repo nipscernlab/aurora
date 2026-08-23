@@ -802,6 +802,10 @@
             <span class="dagr-wm-name">GIT-D</span>
         </div>
         <div class="git-account" id="git-account"></div>
+        <!-- Conta GitLab, embaixo da do GitHub. Sao duas contas independentes:
+             o laboratorio vive nas duas ao mesmo tempo. Preenchida por
+             js/git/git_panel.js (renderGitlabAccount). -->
+        <div class="git-account git-account-gitlab" id="git-account-gitlab"></div>
         <div class="git-clone" id="git-clone" hidden>
             <input type="text" id="git-clone-url" class="git-pat-input" placeholder="https://github.com/owner/repo.git" spellcheck="false" />
             <button class="git-mini git-mini-primary" data-action="clone"><i class="ph ph-download-simple"></i> Clonar</button>

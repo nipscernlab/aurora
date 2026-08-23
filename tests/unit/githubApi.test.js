@@ -48,6 +48,9 @@ describe('mapRepo', () => {
       htmlUrl: 'https://github.com/nipscernlab/aurora',
       private: false, description: 'AURORA IDE', updatedAt: '2026-08-09T02:43:14Z',
       owner: 'nipscernlab', ownerType: 'Organization', fork: false,
+      // Desde 23/08/2026 o painel lista GitHub e GitLab juntos, e a linha
+      // precisa dizer de onde veio.
+      forge: 'github',
     });
   });
 

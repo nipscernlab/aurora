@@ -689,6 +689,13 @@ const gitOperations = {
   githubOauthConfigured: () => ipcRenderer.invoke('github:oauth-configured'),
   githubOauthLogin: () => ipcRenderer.invoke('github:oauth-login'),
   githubOauthCancel: () => ipcRenderer.invoke('github:oauth-cancel'),
+  // GitLab: so token pessoal, e a instancia entra junto (o laboratorio tem
+  // grupo no gitlab.com, e uma universidade pode subir a propria).
+  gitlabListRepos:   () => ipcRenderer.invoke('gitlab:list-repos'),
+  gitlabStatus:      () => ipcRenderer.invoke('gitlab:status'),
+  gitlabConnect:     (opts) => ipcRenderer.invoke('gitlab:connect', opts),
+  gitlabDisconnect:  () => ipcRenderer.invoke('gitlab:disconnect'),
+  gitlabCreateRepo:  (opts) => ipcRenderer.invoke('gitlab:create-repo', opts),
   onGithubOauthCode: (cb) => {
     const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
     ipcRenderer.on('github:oauth-code', h);

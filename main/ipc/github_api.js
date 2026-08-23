@@ -47,6 +47,9 @@ function mapRepo(r) {
     owner: dono ? dono.login : null,
     ownerType: dono ? dono.type : null, // 'User' | 'Organization'
     fork: !!r.fork,
+    // De qual forja veio. O painel lista GitHub e GitLab na mesma lista, e sem
+    // isto ele nao teria como dizer ao usuario de onde cada linha vem.
+    forge: 'github',
   };
 }
 

@@ -26,11 +26,14 @@ const {
   envelopeErro,
   linhaDeArquivo,
   cabecalhoDeToken,
+  forjaDoRemoto,
   normalizarArquivos,
 } = require('./git_parse');
 
 let githubAuth = null;
 try { githubAuth = require('./github_auth'); } catch (_) { /* optional */ }
+let gitlabAuth = null;
+try { gitlabAuth = require('./gitlab_auth'); } catch (_) { /* optional */ }
 
 const { GIT_IDLE_MS } = require('../net/timeouts');
 
@@ -122,15 +125,33 @@ function safe(fn) {
  * simple-git's editor-safety guard ("Use of EDITOR is not permitted"), which is
  * exactly what broke fetch/pull/push. git inherits the real env on its own.
  */
-function remoteGit() {
+async function remoteGit() {
   const dir = projectDir();
   if (!dir) throw new Error('No project is open.');
   let config = [];
   try {
-    const token = githubAuth && typeof githubAuth.getToken === 'function' ? githubAuth.getToken() : null;
-    config = cabecalhoDeToken(token);
+    // Qual token, decidido pelo REMOTO e nao pelo que houver guardado: mandar
+    // o cabecalho do GitHub para um remoto do GitLab e levar 401 num push que
+    // funcionaria sozinho pelo gerenciador de credenciais do sistema. Sem
+    // remoto conhecido, nada e injetado e o caminho de sempre vale.
+    const url = await urlDoRemoto(dir);
+    const hostGitlab = gitlabAuth && typeof gitlabAuth.getHost === 'function' ? gitlabAuth.getHost() : 'gitlab.com';
+    const forja = forjaDoRemoto(url, hostGitlab);
+    const dono = forja === 'gitlab' ? gitlabAuth : (forja === 'github' ? githubAuth : null);
+    const token = dono && typeof dono.getToken === 'function' ? dono.getToken() : null;
+    config = cabecalhoDeToken(token, forja || 'github');
   } catch (_) { /* fall back to the system credential helper */ }
   return simpleGit(opcoesGit({ baseDir: dir, config }));
+}
+
+/** O endereco do `origin`, ou do primeiro remoto que houver. Vazio sem remoto. */
+async function urlDoRemoto(dir) {
+  try {
+    const remotos = await simpleGit(opcoesGit({ baseDir: dir })).getRemotes(true);
+    if (!Array.isArray(remotos) || !remotos.length) return '';
+    const escolhido = remotos.find((r) => r && r.name === 'origin') || remotos[0];
+    return escolhido?.refs?.push || escolhido?.refs?.fetch || '';
+  } catch (_) { return ''; }
 }
 
 // Per-file +/- for the WORKING tree (staged + unstaged combined), for the
@@ -449,7 +470,7 @@ function register() {
 
   // --- remote (needs credentials/token) -----------------------------------
   ipcMain.handle('git:fetch', safe(async () => {
-    await remoteGit().fetch();
+    await (await remoteGit()).fetch();
     return {};
   }));
 
@@ -458,12 +479,12 @@ function register() {
     // uncommitted local file (e.g. fractal_proc.spf) is stashed before the pull
     // and re-applied after, instead of aborting with "local changes would be
     // overwritten by merge".
-    const out = await remoteGit().raw(['pull', '--no-edit', '--autostash']);
+    const out = await (await remoteGit()).raw(['pull', '--no-edit', '--autostash']);
     return { summary: typeof out === 'string' ? out.trim() : '' };
   }));
 
   ipcMain.handle('git:push', safe(async (/** @type {{setUpstream?:boolean}} */ opts = {}) => {
-    const git = remoteGit();
+    const git = await remoteGit();
     const status = await git.status();
     // Only set upstream when there isn't one yet (a fresh branch); otherwise a
     // plain push.

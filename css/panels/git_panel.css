@@ -377,6 +377,21 @@
 .git-user-ok { color: var(--status-success, #5DD4A8); display: inline-flex; font-size: 14px; }
 .git-account-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 
+/* Conta GitLab: mesmo cartao da do GitHub, logo abaixo. Vazio quando o IPC do
+   GitLab nao respondeu, e ai o cartao nao pode desenhar uma faixa vazia. */
+.git-account-gitlab { margin-top: var(--space-2); }
+.git-account-gitlab:empty { display: none; padding: 0; border: 0; }
+.git-account-gitlab:has(.git-signin-advanced) { flex-direction: column; align-items: stretch; }
+/* A instancia ao lado do @usuario: e informacao de contexto (gitlab.com ou a
+   propria da universidade), entao pesa menos que o nome. */
+.git-user-host {
+  font-size: var(--text-xs); color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Selo da forja na linha de um repositorio da lista de clonar, que agora
+   mistura as duas origens. */
+.git-clone-forge { font-size: 13px; color: var(--text-muted); flex-shrink: 0; }
+
 /* --- disconnected: an inviting, centered sign-in area ------------------- */
 .git-signin {
   display: flex; flex-direction: column; align-items: center; gap: var(--space-2);

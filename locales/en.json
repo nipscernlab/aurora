@@ -822,6 +822,8 @@
     "locateCancel": "Cancel",
     "locateFound": "Found: {{path}}",
     "locateNotFound": "Some projects were not found on this machine.",
+    "clickMissingTitle": "Project not found",
+    "clickMissingMessage": "The project file \"{{name}}\" was not found on disk. It stays struck through in the recents list; use the magnifier button to search this computer for it.",
     "removeRecent": "Remove from recents",
     "forgetMissingTitle": "Remove the projects that no longer exist",
     "missingHint": "This project was not found on disk.",

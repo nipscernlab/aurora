@@ -822,6 +822,8 @@
     "locateCancel": "Cancelar",
     "locateFound": "Encontrado: {{path}}",
     "locateNotFound": "Alguns projetos não foram encontrados nesta máquina.",
+    "clickMissingTitle": "Projeto não encontrado",
+    "clickMissingMessage": "O arquivo do projeto \"{{name}}\" não foi encontrado no disco. Ele fica riscado na lista de recentes; use a lupa para procurá-lo neste computador.",
     "removeRecent": "Tirar dos recentes",
     "forgetMissingTitle": "Remove da lista os projetos que nao existem mais",
     "missingHint": "Este projeto nao foi encontrado no disco.",

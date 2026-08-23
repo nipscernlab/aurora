@@ -272,22 +272,21 @@ export class RecentProjectsManager {
   }
 
   // Check if project file exists and remove if not
+  /**
+   * So responde SE o .spf existe; nunca mexe na lista. A versao antiga
+   * apagava a entrada aqui dentro, entao um clique em projeto de pendrive
+   * desconectado (ou uma sonda que falhou) custava o atalho inteiro.
+   * Ausencia se marca com o risco (_missing); apagar e gesto do usuario.
+   */
   async checkProjectExists(project) {
     try {
       // electronAPI expõe `fileExists` / `pathExists` (não `checkFileExists`).
       const probe = electronAPI?.fileExists ?? electronAPI?.pathExists;
-      if (probe) {
-        const exists = await probe(project.path);
-        if (!exists) {
-          this.removeProject(project.path);
-          return false;
-        }
-      }
+      if (probe) return !!(await probe(project.path));
       return true;
     } catch (error) {
       console.error('Error checking project existence:', error);
-      this.removeProject(project.path);
-      return false;
+      return true; // erro de sonda nao e prova de ausencia
     }
   }
 
@@ -296,8 +295,18 @@ export class RecentProjectsManager {
     try {
       const exists = await this.checkProjectExists(project);
       if (!exists) {
-        // MODIFIED: Use the injected function
-        this.showErrorDialog('Project Not Found', `The project file "${project.name}" could not be found and has been removed from recent projects.`);
+        // Riscar, nunca apagar: a entrada fica na lista com a lupa ao lado,
+        // que e o caminho para reencontrar um projeto so movido de pasta.
+        project._missing = true;
+        this.render();
+        const tr = (k, fb) => {
+          const v = window.t ? window.t(k) : null;
+          return (v && v !== k) ? v : fb;
+        };
+        this.showErrorDialog(
+          tr('welcome.clickMissingTitle', 'Project not found'),
+          tr('welcome.clickMissingMessage', 'The project file "{{name}}" was not found on disk. It stays struck through in the recents list; use the magnifier button to search this computer for it.').replace('{{name}}', project.name),
+        );
         return;
       }
 
@@ -314,9 +323,11 @@ export class RecentProjectsManager {
       console.log(`Opened recent project: ${project.name}`);
     } catch (error) {
       console.error('Error opening project:', error);
-      // MODIFIED: Use the injected function
       this.showErrorDialog('Error Opening Project', error.message);
-      this.removeProject(project.path);
+      // Falha de abertura tambem nao apaga a entrada: um erro transitorio
+      // (disco de rede, permissao) nao pode custar o atalho. Reavalia o
+      // risco na lista e a decisao fica com o usuario.
+      this._checkExistence();
     }
   }
 

@@ -94,7 +94,7 @@ import {
 import * as CommandSpec from './command_spec.js';
 import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
-  parseCocotbToplevelDirective,
+  decideCocotbDut,
   isVerilogLikeFile, assertPythonModuleName, safeNamePart,
 } from './compilation_helpers.js';
 import { COCOTB_RUNNER_SOURCE, COCOTB_TESTS_FAILED } from './cocotb_runner_source.js';
@@ -1235,40 +1235,20 @@ _waveDeriveSimTopModule(config) {
 }
 
 async _waveValidateCocotbConfig(config) {
-    if (!config.testbenchFile || !isPythonFile(config.testbenchFile)) {
-        throw new Error(tr('error.compilation.cocotbRequiresPythonTb'));
-    }
-
-    // The cocotb DUT, the Verilog module cocotb elaborates and binds `dut` to.
-    // It is NOT inherently the project top-level: a .py can unit-test any
-    // module. Resolution order:
-    //   1. an explicit `# aurora-toplevel: <module>` directive in the .py
-    //      (lets the test target any module; inert outside Aurora);
-    //   2. else the .spf top-level (with a warning, surfaced by the caller).
-    // The chosen module must still be among the compiled sources
-    // (_collectCocotbSources gathers synthesizableFiles + the .spf top-level +
-    // the bundled HDL), or the simulator won't find it.
+    // Quem e o DUT, e o motivo quando nao da: a regra vive em
+    // compilation_helpers.decideCocotbDut, com teste. Aqui fica a leitura do
+    // arquivo (que pode falhar, e ai a diretiva simplesmente nao existe) e a
+    // traducao do motivo. O modulo escolhido ainda precisa estar entre as
+    // fontes compiladas por _collectCocotbSources, ou o simulador nao acha.
     let pySource = '';
-    try {
-        pySource = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
-    } catch { /* unreadable here — fall back to the .spf top-level below */ }
-    const directiveTop = parseCocotbToplevelDirective(pySource);
-
-    let hdlTopModule;
-    let hdlTopFile;
-    let toplevelSource;
-    if (directiveTop) {
-        hdlTopModule = directiveTop;
-        hdlTopFile = config.topLevelFile || '';   // optional when the directive drives the DUT
-        toplevelSource = 'directive';
-    } else {
-        if (!config.topLevelFile || !/\.(v|sv)$/i.test(config.topLevelFile)) {
-            throw new Error(tr('error.compilation.cocotbRequiresTop'));
-        }
-        hdlTopModule = moduleStemFromPath(config.topLevelFile);
-        hdlTopFile = config.topLevelFile;
-        toplevelSource = 'spf';
+    if (config.testbenchFile) {
+        try {
+            pySource = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+        } catch { /* ilegivel aqui, cai no topo do .spf abaixo */ }
     }
+    const dut = decideCocotbDut(config, pySource);
+    if (!dut.ok) throw new Error(tr(`error.compilation.${dut.motivo}`));
+    const { hdlTopFile, hdlTopModule, toplevelSource } = dut;
 
     return {
         hdlTopFile,

@@ -80,6 +80,53 @@ export function assertPythonModuleName(filePath: string): string {
     return stem;
 }
 
+/**
+ * Quem e o DUT de uma corrida cocotb, e por que.
+ *
+ * O `dut` que o teste recebe NAO e necessariamente o topo do projeto: um
+ * .py pode exercitar qualquer modulo. A ordem de resolucao e a diretiva
+ * `# aurora-toplevel: <modulo>` dentro do proprio .py, que deixa o teste
+ * escolher o alvo sem remarcar o topo no .spf e que e comentario inerte
+ * fora da AURORA; sem ela, o topo do .spf, que precisa ser mesmo um fonte
+ * Verilog.
+ *
+ * Decide e devolve o motivo em vez de lancar texto traduzido: a mensagem
+ * na tela e do chamador, e assim a regra pode ser verificada sem i18n,
+ * sem DOM e sem disco.
+ *
+ * @param config topo e testbench como o .spf os descreve
+ * @param pySource fonte do testbench, ou vazio quando ilegivel
+ */
+export function decideCocotbDut(
+    config: { topLevelFile?: string; testbenchFile?: string },
+    pySource: string,
+): { ok: true; hdlTopModule: string; hdlTopFile: string; toplevelSource: 'directive' | 'spf' }
+ | { ok: false; motivo: 'cocotbRequiresPythonTb' | 'cocotbRequiresTop' } {
+    const tb = config?.testbenchFile || '';
+    if (!tb || !isPythonFile(tb)) return { ok: false, motivo: 'cocotbRequiresPythonTb' };
+
+    const daDiretiva = parseCocotbToplevelDirective(pySource);
+    if (daDiretiva) {
+        return {
+            ok: true,
+            hdlTopModule: daDiretiva,
+            // O arquivo do topo e opcional quando a diretiva manda: o modulo
+            // dela ja vem entre as fontes compiladas.
+            hdlTopFile: config.topLevelFile || '',
+            toplevelSource: 'directive',
+        };
+    }
+
+    const topo = config?.topLevelFile || '';
+    if (!topo || !/\.(v|sv)$/i.test(topo)) return { ok: false, motivo: 'cocotbRequiresTop' };
+    return {
+        ok: true,
+        hdlTopModule: moduleStemFromPath(topo),
+        hdlTopFile: topo,
+        toplevelSource: 'spf',
+    };
+}
+
 export function safeNamePart(name: string): string {
     return String(name || 'cocotb')
         .replace(/[^A-Za-z0-9_-]+/g, '_')

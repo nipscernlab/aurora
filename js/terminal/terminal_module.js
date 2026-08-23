@@ -888,6 +888,25 @@ class TerminalManager {
         }
         el._text.textContent = `${name} · ${formatarBytes(bytes)}`;
         el.classList.toggle('done', !!done);
+        // Uma corrida nova reusando o pill cancela a despedida da anterior.
+        if (el._hideTimer) { clearTimeout(el._hideTimer); el._hideTimer = null; }
+        if (el._removeTimer) { clearTimeout(el._removeTimer); el._removeTimer = null; }
+        el.classList.remove('hiding');
+        if (done) {
+            // O numero final fica um tempo como registro da corrida e depois
+            // sai sozinho: um pill morto morando para sempre no terminal
+            // viraria mobilia, e a proxima corrida ja traz o seu. Mesmo
+            // padrao de despedida da barra de progresso.
+            el._hideTimer = setTimeout(() => {
+                el.classList.add('hiding');
+                el._removeTimer = setTimeout(() => {
+                    el.remove();
+                    if (this.updatableCards[terminalId]?.dumpSize === el) {
+                        this.updatableCards[terminalId].dumpSize = null;
+                    }
+                }, 450);
+            }, 60000);
+        }
         this.scrollToBottom(terminalId);
     }
 

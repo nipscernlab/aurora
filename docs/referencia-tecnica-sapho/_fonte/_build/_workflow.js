@@ -36,8 +36,8 @@ Para git/history use Bash (Git Bash; caminhos estilo /c/Users/chrys/...). Pode u
 
 == REGRA DE OURO: A FONTE DA VERDADE E O CODIGO-FONTE ==
 NAO confie na documentacao existente. Os arquivos .md (README.md, ARCHITECTURE.md, CHANGELOG.md,
-docs/ESTUDO_COMPLETO_AURORA.md, docs/aurora-intelligence-tools.md, docs/surfer-feasibility.md,
-docs/DESIGN.md, etc.) podem estar DESATUALIZADOS, ASPIRACIONAIS ou ERRADOS. Trate-os apenas como
+TODO.md, docs/aurora-intelligence-tools.md, etc.) podem estar DESATUALIZADOS, ASPIRACIONAIS ou
+ERRADOS. Trate-os apenas como
 PISTAS para localizar onde as coisas estao. VERIFIQUE cada afirmacao lendo o codigo real
 (.js, .ts, .v, .c, .l, .y, .h, .bat, .sh, .json, configs). Onde doc e codigo divergirem, O CODIGO
 VENCE. Nao copie prosa de documentacao. So afirme o que voce confirmou abrindo o arquivo. Cite os
@@ -331,14 +331,14 @@ happy-dom, husky, knip, commitlint, release-please). Confirme cada versao lendo 
 bloco "build"), aurora/vite.config.mjs, aurora/scripts/* (check-pinned-versions, dev.js, launch-
 electron.js, sync-sapho-rules.js), aurora/components/Scripts/* (os downloaders + copy-components),
 aurora/.github/workflows/* (ci.yml, release.yml, release-please.yml), aurora/build/* (installer.nsh),
-aurora/docs/CODE_SIGNING.md (pista). Cubra: o BOOTSTRAP (npm run bootstrap: check de versoes pinadas +
+aurora/TODO.md, secao 3 (pista: e la que vive o estado da assinatura de codigo). Cubra: o BOOTSTRAP (npm run bootstrap: check de versoes pinadas +
 9 downloaders + copy-components — o que cada downloader baixa e de onde); o build do renderer com Vite
 (vite.config: base ./ para file://, vendorizacao de Monaco/KaTeX/Phosphor em dist/vendor) e o tsc
 in-place; o electron-builder (config build: appId, target NSIS x64, asarUnpack, listas files/
 extraResources, fileAssociations .spf, protocolo sapho://); o instalador NSIS (installer.nsh); o
 auto-updater (electron-updater; feed apontando para o canal de release; latest.yml + blockmap); os
-workflows de CI e de release e o release-please; a assinatura de codigo (status segundo CODE_SIGNING.md
-e configs — descritivo); e o SPLIT INTENCIONAL de repos: aurora = desenvolvimento da IDE, sapho = canal
+workflows de CI e de release e o release-please; a assinatura de codigo (status segundo a secao 3 do TODO.md
+e as configs — descritivo); e o SPLIT INTENCIONAL de repos: aurora = desenvolvimento da IDE, sapho = canal
 de distribuicao estavel (o instalador sapho-aurora-Setup-vX.Y.Z.exe sai do repo sapho). Diagrama do
 fluxo de build.`,
   },

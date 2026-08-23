@@ -649,6 +649,18 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       duplo clique segue abrindo o fonte; clique num fio solto segue destacando
       só aquele fio. O manual (capítulo 16) descreve os quatro gestos.
 
+      No mesmo dia, duas correções que o uso trouxe. O Shift+clique só acendia
+      o `clk`: o netlistsvg põe cada célula num `<g transform>`, e os traços
+      da célula estavam em coordenadas locais; a caixa da célula passou a ser
+      convertida para o espaço do SVG e todo fio que termina encostado nela
+      vira semente. E a etiqueta de barramento (`/32/`) desenhava um retângulo
+      de outro tom: era a máscara pintada com `--bg` sobre um canvas que tem
+      grade de pontos e vinheta. A primeira tentativa, uma `<mask>` do SVG,
+      cortava também o brilho do fio destacado, com borda reta. O que ficou: o
+      retângulo sai do DOM e o fio é cortado na geometria, em dois segmentos
+      com o mesmo `data-cut-group`, pelo qual o realce atravessa o vão.
+      Provado em janela oculta do Electron com o SVG real e o CSS do bundle.
+
 - [x] ~~**Caça a valores fracos de tempo, tentativa e cancelamento.**~~ Pedido
       em 22/08/2026 e fechado no mesmo dia, em dois commits: o relatório
       (`53dece8b`, dezenove achados agrupados pelo que acontece na falha) e as
@@ -907,3 +919,13 @@ formalmente, não consertado.
   coisa que dependa de sequência de cliques.
 - A lista de bugs vem do uso, não de auditoria. Conforme aparecerem, entram
   aqui com o caminho para reproduzir.
+- PRISM, etiquetas de barramento: não esconder fio com retângulo pintado nem
+  com `<mask>`. O canvas não é uma cor (grade de pontos e vinheta), e a máscara
+  corta o brilho do realce com borda reta. O corte é na geometria do `<line>`
+  (`_cutWiresUnderLabels`). Para conferir rendering sem abrir a AURORA: janela
+  oculta do Electron com o SVG de `components/Temp/PRISM` e o CSS de `dist/`,
+  `capturePage` e leitura de pixels; a sessão de 22/08 fez assim.
+- PRISM, a grade dentro dos cartões de memória é símbolo da família (linhas por
+  colunas = células armazenadas), gerada por `scripts/prism-skin-standard.js`
+  com opacidade 0,16 a 0,22. Decidido em 22/08 manter; se incomodar, ajustar
+  no gerador e regerar, nunca editar o SVG à mão.

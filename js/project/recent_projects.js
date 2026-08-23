@@ -1,4 +1,5 @@
 import { electronAPI } from '../app/electron_api.js';
+import { showAlert } from '../ui/dialog_manager.js';
 import '../components/aurora-welcome.js';
 
 // ADDED: Export the class to make it importable
@@ -7,7 +8,13 @@ export class RecentProjectsManager {
     // openProject = injected function that actually opens a .spf in the IDE.
     // Kept under a distinct name so it does not shadow loadFromStorage().
     this.openProject = loadProjectCallback;
-    this.showErrorDialog = showErrorDialogCallback;
+    // O segundo parametro e opcional, e o unico chamador (renderer.js) nunca
+    // o passou: showErrorDialog ficava undefined e explodia com "is not a
+    // function" exatamente na hora de AVISAR o usuario, clicar num recente
+    // cuja pasta foi apagada. A reserva e o dialogo padrao do aplicativo.
+    this.showErrorDialog = typeof showErrorDialogCallback === 'function'
+      ? showErrorDialogCallback
+      : (title, message) => showAlert(message, 'warning', title);
 
     this.projects = [];
     this.maxProjects = 10;

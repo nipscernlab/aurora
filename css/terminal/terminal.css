@@ -351,6 +351,21 @@
 /* ---------------------------------------------------------------------------
  *  Log entries, compact rows with a semantic left stripe
  * ------------------------------------------------------------------------- */
+/* A mesma linha repetida em seguida vira este contador, em vez de mil nos de
+   DOM: e o caso do $fscanf com $fopen falhado, que imprime o MESMO erro a
+   cada ciclo de clock e fazia o terminal parecer um loop. */
+.log-entry .repeat-count {
+  margin-left: var(--space-2);
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  white-space: nowrap;
+}
+
 .log-entry {
   margin: 0;
   padding: 5px 10px 5px 12px;

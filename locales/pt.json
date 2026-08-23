@@ -634,6 +634,8 @@
       "gtkwReadError": "Não foi possível ler o .gtkw selecionado ({{file}}): {{message}}. Caindo para Configuração de Ondas / padrão.",
       "waveSource": "Fonte das ondas: {{label}}",
       "verilatorScopeRules": "Verilator: dump limitado aos escopos selecionados ({{on}} mantidos, {{off}} desligados pelo .vlt)",
+      "fopenMissing": "O testbench abre {{path}} para leitura e esse arquivo não existe. O $fopen vai devolver 0 e a simulação lerá entrada vazia.",
+      "invalidFd": "O simulador está lendo ou escrevendo num arquivo que nunca abriu ($fopen devolveu 0). Confira os caminhos dos $fopen no testbench; esse erro se repete a cada ciclo de clock.",
       "sourceLabelGtkw": "do .gtkw selecionado ({{count}} sinal(is))",
       "sourceLabelWc": "da Configuração de Ondas ({{count}} sinal(is))",
       "sourceLabelTb": "testbench controla $dumpvars (escrito à mão, sem sobrescrita)",

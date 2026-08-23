@@ -851,6 +851,28 @@ class TerminalManager {
     }
 
 createLogEntry(terminal, text, type, timestamp) {
+        // A mesma linha, repetida logo em seguida, vira um contador na linha
+        // que ja esta na tela. E o caso do $fscanf com $fopen falhado: o vvp
+        // imprime o MESMO erro a cada ciclo de clock, milhares de vezes, e o
+        // terminal inundado foi lido como "a compilacao entrou em loop".
+        // Mil copias nao informam mais que uma com "x1000" do lado; e mil nos
+        // de DOM a mais por segundo e o que faz a interface engasgar.
+        // So a REPETICAO IMEDIATA agrupa: linhas intercaladas continuam
+        // aparecendo na ordem em que chegaram.
+        const anterior = this._ultimaLinha?.get(terminal.id);
+        if (anterior && anterior.text === text && anterior.type === type
+            && anterior.el.isConnected && anterior.el === terminal.lastElementChild) {
+            anterior.count++;
+            let chip = anterior.el.querySelector('.repeat-count');
+            if (!chip) {
+                chip = document.createElement('span');
+                chip.className = 'repeat-count';
+                anterior.el.appendChild(chip);
+            }
+            chip.textContent = `x${anterior.count}`;
+            return anterior.el;
+        }
+
         const logEntry = document.createElement('div');
         logEntry.classList.add('log-entry', type); // Sem animações extras aqui
 
@@ -887,6 +909,9 @@ createLogEntry(terminal, text, type, timestamp) {
         // end of each appendToTerminal batch handles counting from DOM
         // truth, including the grouped-message case where one card
         // contains several sub-messages of the same type.
+
+        if (!this._ultimaLinha) this._ultimaLinha = new Map();
+        this._ultimaLinha.set(terminal.id, { text, type, el: logEntry, count: 1 });
 
         // --- AQUI ESTÁ O TRUQUE DE REVELAÇÃO ---
         // Se o terminal estiver apagado (pós-clear), revelamos agora.

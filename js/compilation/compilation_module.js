@@ -64,6 +64,7 @@ import { getSurferInTab } from '../wave/surfer_tab_preference.js';
 import {
     verilatorTraceRules, defaultScopeRules, rulesFromDumpvars, contarEscopos,
 } from '../wave/verilator_trace_rules.js';
+import { extractFopenReads } from '../wave/fopen_paths.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -729,6 +730,23 @@ async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
 
     const fileSet = new Set(config.synthesizableFiles);
     fileSet.add(tbPath);
+
+    // Os $fopen de leitura do testbench, conferidos ANTES de simular. Um
+    // `define apontando para a pasta antiga do projeto fez um $fopen devolver
+    // 0 e a simulacao rodar 90 segundos lendo entrada vazia, com o $fscanf
+    // reclamando a cada ciclo; o simulador nao tem como avisar antes, a
+    // AURORA tem. So caminhos que resolvem para literal entram (fopen_paths),
+    // porque um aviso errado ensina a ignorar o certo. Aviso, nunca bloqueio:
+    // o dono do testbench pode saber algo que nos nao sabemos.
+    try {
+        const fonteTb = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+        for (const { path: alvo } of extractFopenReads(fonteTb)) {
+            if (!(await electronAPI.fileExists(alvo))) {
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.fopenMissing', { path: alvo }), 'warning');
+            }
+        }
+    } catch (_e) { /* conferencia e cortesia; sem ela a simulacao segue igual */ }
 
     return { fileSet, instrumentedTbPath: tbPath, decision };
 }
@@ -1700,6 +1718,10 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // Guard a ausencia de onExecSpecStream (degrada sem streaming ao vivo)
     //, consistente com os fluxos cocotb e Verilator, que ja checam.
     let unsubscribe = null;
+    // Uma explicacao SO por corrida: o vvp repete "invalid file descriptor"
+    // a cada ciclo de clock quando um $fopen falhou, e mil copias do erro nao
+    // dizem mais que uma. A primeira dispara a dica com a causa e o que fazer.
+    let avisouDescritor = false;
     if (typeof electronAPI.onExecSpecStream === 'function') {
         unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
@@ -1714,6 +1736,11 @@ async _waveRunVvpSimulation(simTopModule, tools) {
                 // of twave entirely avoids the verbose-mode toggle
                 // sync issue altogether.
                 if (isVvpNoise(line)) continue;
+                if (!avisouDescritor && /invalid file descriptor/i.test(line)) {
+                    avisouDescritor = true;
+                    this.terminalManager.appendToTerminal('twave',
+                        tr('terminal.wave.invalidFd'), 'warning');
+                }
                 // Um `$display` de contador escrito pelo aluno no testbench
                 // vira a barra em vez de mil linhas. Ver _consumirProgresso.
                 if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;

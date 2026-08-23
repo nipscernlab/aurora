@@ -634,6 +634,8 @@
       "gtkwReadError": "Could not read selected .gtkw ({{file}}): {{message}}. Falling back to Wave Configuration / default.",
       "waveSource": "Wave source: {{label}}",
       "verilatorScopeRules": "Verilator: dump limited to the selected scopes ({{on}} kept, {{off}} turned off via .vlt)",
+      "fopenMissing": "The testbench opens {{path}} for reading and that file does not exist. $fopen will return 0 and the simulation will read empty input.",
+      "invalidFd": "The simulator is reading or writing through a file it never opened ($fopen returned 0). Check the $fopen paths in the testbench; this error repeats every clock cycle.",
       "sourceLabelGtkw": "from selected .gtkw ({{count}} signal(s))",
       "sourceLabelWc": "from Wave Configuration ({{count}} signal(s))",
       "sourceLabelTb": "testbench owns $dumpvars (hand-written, no override)",

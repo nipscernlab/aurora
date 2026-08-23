@@ -61,6 +61,7 @@ import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
 import { getSurferInTab } from '../wave/surfer_tab_preference.js';
+import { verilatorTraceRules, contarEscopos } from '../wave/verilator_trace_rules.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -1834,7 +1835,7 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     // comentario acima nunca foi necessario: regra por modulo resolve.
     try {
         const vltPath = await electronAPI.joinPath(tempBaseDir, 'aurora_monitors.vlt');
-        await electronAPI.writeFile(vltPath, [
+        const linhas = [
             '`verilator_config',
             '// Gerado pela AURORA a cada build: expoe os monitores de pilha e',
             '// ULA para o $dumpvars do testbench instrumentado.',
@@ -1843,8 +1844,28 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
             'public_flat_rd -module "stack" -var "fl_full"',
             'public_flat_rd -module "ula" -var "delta_int"',
             'public_flat_rd -module "ula" -var "delta_float"',
-            '',
-        ].join('\n'));
+        ];
+        // A selecao do picker como regras de escopo. O Verilator ignora os
+        // argumentos do $dumpvars e gravaria a hierarquia publica inteira; o
+        // .vlt e o unico lugar em que ele obedece, e a granularidade dele e o
+        // escopo. So quando a selecao e do usuario (Wave Configuration ou
+        // .gtkw ativo): no padrao e no testbench com $dumpvars proprio, o
+        // dump fica como o Verilator faz. Semantica provada em 22/08/2026,
+        // ver verilator_trace_rules.js.
+        const decisao = prep.decision;
+        const selecaoDoUsuario = decisao && (decisao.source === 'wc' || decisao.source === 'gtkw');
+        const regras = selecaoDoUsuario
+            ? verilatorTraceRules(decisao.hierarchyTree, decisao.signalsToDump)
+            : [];
+        if (regras.length) {
+            linhas.push('// Selecao do picker por escopo: a ordem importa, a ultima regra vence.');
+            linhas.push(...regras);
+            const { ligados, desligados } = contarEscopos(decisao.hierarchyTree, decisao.signalsToDump);
+            this.terminalManager.appendToTerminal('twave',
+                tr('terminal.wave.verilatorScopeRules', { on: ligados, off: desligados }), 'info');
+        }
+        linhas.push('');
+        await electronAPI.writeFile(vltPath, linhas.join('\n'));
         buildSources.push(vltPath);
     } catch (_e) { /* sem .vlt os monitores so ficam de fora do FST Verilator */ }
     // Builder monta tokens individuais (sem aspas, sem shell). Executor

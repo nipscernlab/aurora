@@ -48,6 +48,8 @@ import {
 } from '../../js/compilation/builders/verilator.js';
 import { buildCocotbRunSpec } from '../../js/compilation/builders/cocotb.js';
 import { buildPrismYosysSpec } from '../../js/compilation/builders/yosys.js';
+import { parseVerilogModules, buildHierarchyTree } from '../../js/wave/signal_parser.js';
+import { verilatorTraceRules } from '../../js/wave/verilator_trace_rules.js';
 // main/ é CommonJS; createRequire dá acesso a ele a partir deste módulo ESM.
 const { buildPrismYosysScript } = createRequire(import.meta.url)('../../main/ipc/prism_yosys_script.js');
 import {
@@ -473,6 +475,88 @@ describe.skipIf(!verilatorReady)('SAPHO toolchain — Verilator simulation', () 
     const body = vcd.slice(vcd.indexOf('$enddefinitions'));
     expect(body.split('\n').length).toBeGreaterThan(100);
   }, 120_000);
+
+  // Verilator ignores the $dumpvars arguments, so the picker selection is
+  // turned into tracing_on/off scope rules (verilator_trace_rules.js). The two
+  // tests below drive the real binary with those rules. The semantics they
+  // rely on (full path from the top, last rule wins, no -levels) were pinned
+  // against this same Verilator on 22/08/2026; this is the regression net.
+  //
+  // Hierarchy of the fixture: <tb> -> proc (mediamovel) -> p_mediamovel ->
+  // core. Only tb and proc carry public signals (the processor internals are
+  // fenced), and proc owns a memory array, `min`, that Verilator traces as a
+  // sub-scope of proc.
+  function buildWithRules(label, rules) {
+    const vlt = path.join(tempPath, `aurora_${label}.vlt`);
+    fs.writeFileSync(vlt, ['`verilator_config', ...rules, ''].join('\n'));
+    const dir = path.join(tempPath, `obj_dir_${label}`);
+    fs.mkdirSync(dir, { recursive: true });
+    runSpec(buildVerilatorBuildSpec({
+      perlExe: path.join(MINGW_BIN, 'perl.exe'),
+      verilatorScript: path.join(MINGW_BIN, 'verilator'),
+      mingwBin: MINGW_BIN,
+      usrBin: USR_BIN,
+      hdlPath: path.join(COMPONENTS, 'HDL'),
+      simTopModule: `${PROC}_tb`,
+      objDir: dir,
+      sourceFiles: [`${PROC}_tb.v`, `${PROC}.v`, path.basename(vlt)],
+      cwd: tempPath,
+    }));
+    const dump = path.join(tempPath, `${PROC}_tb.vcd`);
+    fs.rmSync(dump, { force: true });
+    runSpec(buildVerilatorRunSpec({
+      exePath: path.join(dir, `V${PROC}_tb.exe`),
+      cwd: tempPath,
+      mingwBin: MINGW_BIN,
+      usrBin: USR_BIN,
+    }));
+    // $var count per scope, from the decoded header.
+    const header = decodeDump(path.join(GTKWAVE_DIR, 'fst2vcd.exe'), dump).split('$enddefinitions')[0];
+    const stack = [];
+    const vars = new Map();
+    for (const line of header.split('\n')) {
+      const s = line.match(/^\$scope\s+\w+\s+(\S+)/);
+      if (s) { stack.push(s[1]); vars.set(stack.join('.'), 0); continue; }
+      if (/^\$upscope/.test(line)) { stack.pop(); continue; }
+      if (/^\$var/.test(line)) { const k = stack.join('.'); vars.set(k, (vars.get(k) || 0) + 1); }
+    }
+    return vars;
+  }
+
+  function parsedTree() {
+    const hdlDir = path.join(COMPONENTS, 'HDL');
+    const hdl = fs.readdirSync(hdlDir)
+      .filter((n) => n.endsWith('.v') && !n.includes('_tb'))
+      .map((n) => path.join(hdlDir, n));
+    const files = [path.join(tempPath, `${PROC}_tb.v`), path.join(tempPath, `${PROC}.v`), ...hdl]
+      .map((p) => ({ path: p, content: fs.readFileSync(p, 'utf8') }));
+    return buildHierarchyTree(parseVerilogModules(files).modules, `${PROC}_tb`);
+  }
+
+  it('a selection confined to the testbench empties every processor scope', () => {
+    if (!fs.existsSync(path.join(GTKWAVE_DIR, 'fst2vcd.exe'))) return;
+    const tree = parsedTree();
+    const selected = [`${tree.scopePath}.${tree.signals[0].name}`];
+    const rules = verilatorTraceRules(tree, selected);
+    expect(rules).toEqual([`tracing_off -scope "${PROC}_tb.proc"`]);
+    const vars = buildWithRules('tbonly', rules);
+    expect(vars.get(`${PROC}_tb`)).toBeGreaterThan(0);   // root always on
+    expect(vars.get(`${PROC}_tb.proc`) || 0).toBe(0);    // processor gone
+    expect(vars.has(`${PROC}_tb.proc.min`)).toBe(false); // its memory array too
+  }, 600_000);
+
+  it('a selection inside the processor keeps that whole scope and cuts below it', () => {
+    if (!fs.existsSync(path.join(GTKWAVE_DIR, 'fst2vcd.exe'))) return;
+    const tree = parsedTree();
+    const proc = tree.children.find((c) => c.instanceName === 'proc');
+    expect(proc && proc.signals.length).toBeGreaterThan(0);
+    const selected = [`${proc.scopePath}.${proc.signals[0].name}`];
+    const rules = verilatorTraceRules(tree, selected);
+    expect(rules[0]).toMatch(new RegExp(`^tracing_off -scope "${PROC}_tb\\.proc\\.`));
+    const vars = buildWithRules('procsel', rules);
+    expect(vars.get(`${PROC}_tb.proc`)).toBeGreaterThan(0);     // scope kept whole
+    expect(vars.get(`${PROC}_tb.proc.min`)).toBeGreaterThan(0); // array included
+  }, 600_000);
 });
 
 if (!toolchainReady) {

@@ -625,16 +625,19 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       com teste do usuário entre eles.
 
 - [x] ~~**Seleção do picker sob Verilator não limita o dump.**~~ Descoberto em
-      20/08, fechado em 22/08 pelo lado da documentação: o modal de ondas mostra,
-      com o Verilator selecionado, que a seleção decide o que o visualizador
-      mostra e não o tamanho do FST, e o capítulo 14 do manual diz o mesmo.
-      Investigado e deixado de fora: o Verilator 5.048 embarcado aceita
-      `tracing_off -scope "<hierarquia>" [-levels N]` no `.vlt`, então limitar
-      o dump por escopo é possível, gerando regras no `aurora_monitors.vlt` que
-      o `compilation_module.js` já escreve a cada build, para os escopos sem
-      nenhum sinal selecionado. Não foi feito porque exige build real para
-      provar e porque sob Verilator só os sinais públicos entram no dump, que é
-      pequeno por construção; retomar se um projeto grande trouxer FST pesado.
+      20/08, fechado em 22/08 nas duas pontas. O Verilator ignora os argumentos
+      do `$dumpvars`, mas obedece ao `.vlt`, e a granularidade dele é o escopo:
+      a seleção vira regras `tracing_off`/`tracing_on -scope` no
+      `aurora_monitors.vlt` que o build já escrevia, só quando a seleção é do
+      usuário (Wave Configuration ou `.gtkw` ativo). Todo sinal público de um
+      módulo com ao menos um sinal selecionado entra; módulo sem nada
+      selecionado fica fora; o escopo do testbench, onde vivem os espelhos dos
+      monitores, fica sempre. O modal e o capítulo 14 explicam a regra.
+      Semântica provada com nove builds do `mediamovel` no Verilator 5.048
+      embarcado (caminho completo a partir do topo, sem curinga, sem `-levels`,
+      última regra vence) e fixada por teste de toolchain com build real. Fora:
+      o fluxo cocotb sob Verilator, que monta os próprios argumentos e não
+      passa pelo `.vlt`; entra se alguém sentir falta.
 
 - [ ] **Tags meio-publicadas no registro do fork.** As tags v0.7.0-nips.8 e
       .9 do surfer-aurora têm só o exe no registro (o job do bundle web

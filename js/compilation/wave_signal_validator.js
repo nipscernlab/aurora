@@ -207,6 +207,10 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
                     source: 'gtkw',
                     tbKey,
                     monitorScopes: await monitorScopes(),
+                    // A arvore vai junto: sob Verilator a selecao vira regras
+                    // de escopo no .vlt (verilator_trace_rules), e o builder
+                    // precisa dela sem reparsear as fontes.
+                    hierarchyTree: tree,
                 };
             }
         } catch (err) {
@@ -231,6 +235,7 @@ export async function resolveWaveSelection(deps, { config, simTopModule, filePat
             source: 'wc',
             tbKey,
             monitorScopes: await monitorScopes(),
+            hierarchyTree: await buildTree(),
         };
     }
 

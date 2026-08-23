@@ -644,9 +644,9 @@
                     Default (no selection): everything declared at the testbench module scope.
                 </p>
                 <p class="form-hint" id="waveConfigHintVerilator" hidden data-i18n="modal.waveConfig.hintVerilator">
-                    Verilator is selected: it ignores the $dumpvars arguments and records every
-                    public signal of the design, so this selection decides what the viewer shows,
-                    not the size of the dump.
+                    Verilator is selected: it records by scope, not by signal. Every public signal
+                    of a module that has at least one selected signal is dumped; modules with
+                    nothing selected stay out of the dump. The testbench scope is always recorded.
                 </p>
 
                 <div class="wave-tree-find" role="search">

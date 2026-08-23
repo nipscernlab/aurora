@@ -25,6 +25,7 @@ const fileOperations = {
 
   getFileStats:    (p) => ipcRenderer.invoke('get-file-stats', p),
   isOnBattery:     () => ipcRenderer.invoke('system:on-battery'),
+  openPowerSettings: () => ipcRenderer.invoke('system:open-power-settings'),
   getFileSizeLive: (p) => ipcRenderer.invoke('get-file-size-live', p),
   fileExists:      (p) => ipcRenderer.invoke('file-exists', p),
 
@@ -160,6 +161,20 @@ const projectOperations = {
 
   createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
   listRecentProjects: () => ipcRenderer.invoke('list-recent-projects'),
+  // Localizar recentes sumidos: uma varredura para varios alvos, resultados
+  // por evento (found / progress / done), cancelavel.
+  locateRecentsStart:  (targets) => ipcRenderer.invoke('recents:locate-start', targets),
+  locateRecentsCancel: () => ipcRenderer.invoke('recents:locate-cancel'),
+  onRecentsLocate: (cb) => {
+    const mk = (type) => (_e, data) => { try { cb({ type, ...data }); } catch (_) { /* ignore */ } };
+    const hs = [
+      ['recents:locate-found', mk('found')],
+      ['recents:locate-progress', mk('progress')],
+      ['recents:locate-done', mk('done')],
+    ];
+    for (const [ch, h] of hs) ipcRenderer.on(ch, h);
+    return () => { for (const [ch, h] of hs) ipcRenderer.removeListener(ch, h); };
+  },
 
   // Listeners
   onProcessorCreated:   (cb) => ipcRenderer.on('processor:created', (_, data) => cb(data)),

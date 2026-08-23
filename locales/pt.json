@@ -797,6 +797,16 @@
       "generateProcessor": "Cria o processador com a configuração especificada."
     }
   },
+  "statusbar": {
+    "power": {
+      "onBattery": "Na bateria ({{level}}%): o Windows reduz o clock da CPU e a simulação fica mais lenta. Clique para detalhes.",
+      "plugged": "Na tomada ({{level}}%): desempenho completo disponível.",
+      "dialogTitle": "Energia e velocidade de simulação",
+      "dialogOnBattery": "Este laptop está na bateria. O Windows reduz o clock da CPU para economizar energia, então compilações e simulações demoram visivelmente mais, e uma corrida longa pode ser interrompida se a máquina suspender. Conectar na tomada devolve a velocidade completa; nas configurações de energia do Windows dá para escolher um modo de desempenho e manter a tela ligada em corridas longas. A AURORA já mantém a máquina acordada enquanto uma compilação roda.",
+      "dialogPlugged": "Esta máquina está na tomada, então a CPU roda na velocidade completa. Para simulações longas ainda dá para escolher um modo de desempenho nas configurações de energia do Windows. A AURORA já mantém a máquina acordada enquanto uma compilação roda.",
+      "openSettings": "Abrir configurações de energia do Windows"
+    }
+  },
   "welcome": {
     "tagline": "Processador de Arquitetura Escalável para Otimização de Hardware",
     "sectionStart": "Início",
@@ -805,6 +815,13 @@
     "sectionRecent": "Recentes",
     "noRecent": "Nenhum projeto recente",
     "forgetMissing": "Esquecer ausentes",
+    "locateMissing": "Localizar ausentes",
+    "locateMissingTitle": "Procura neste computador os arquivos .spf que sumiram",
+    "locate": "Localizar este projeto no disco",
+    "locating": "Procurando…",
+    "locateCancel": "Cancelar",
+    "locateFound": "Encontrado: {{path}}",
+    "locateNotFound": "Alguns projetos não foram encontrados nesta máquina.",
     "forgetMissingTitle": "Remove da lista os projetos que nao existem mais",
     "missingHint": "Este projeto nao foi encontrado no disco.",
     "examples": "Projetos de exemplo",

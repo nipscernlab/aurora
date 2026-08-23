@@ -27,6 +27,8 @@ class AuroraWelcome extends LitElement {
   static properties = {
     projects: { attribute: false },
     missingCount: { attribute: false },
+    locatingCount: { attribute: false },
+    locateScanned: { attribute: false },
     version: { type: String },
     auroraBg: { attribute: false },
   };
@@ -35,6 +37,8 @@ class AuroraWelcome extends LitElement {
     super();
     this.projects = [];
     this.missingCount = 0;
+    this.locatingCount = 0;
+    this.locateScanned = 0;
     // Preenchida no connectedCallback pelo mesmo IPC que abastece o painel
     // Sobre. Ficou meses gravada aqui como texto e mentiu a versao a cada
     // release; vazia, o rodape simplesmente nao mostra numero ate a resposta
@@ -344,6 +348,18 @@ class AuroraWelcome extends LitElement {
       transition: color 160ms ease, border-color 160ms ease;
     }
     .forget-missing:hover { color: var(--text); border-color: var(--text-dim); }
+    .forget-missing .ph { font-size: 11px; }
+    .locate-progress {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-muted); font-weight: 400;
+    }
+    .locate-spinner {
+      width: 11px; height: 11px; border-radius: 50%;
+      border: 2px solid var(--border); border-top-color: var(--aurora-mint, #5FE0B0);
+      animation: locate-spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    .locate-spinner.row { margin-right: 4px; align-self: center; }
+    @keyframes locate-spin { to { transform: rotate(360deg); } }
 
     .recent-list {
       display: grid;
@@ -533,12 +549,24 @@ class AuroraWelcome extends LitElement {
             <h2 class="section-title">
               <span>${this._t('welcome.sectionRecent', 'Recent')}</span>
               ${this.projects.length ? html`<span class="count">${this.projects.length}</span>` : ''}
+              ${this.missingCount && !this.locatingCount ? html`
+                <button
+                  class="forget-missing"
+                  title=${this._t('welcome.locateMissingTitle', 'Search this computer for the missing .spf files')}
+                  @click=${this._locateMissing}
+                ><i class="ph ph-magnifying-glass" aria-hidden="true"></i> ${this._t('welcome.locateMissing', 'Find missing')} (${this.missingCount})</button>` : ''}
               ${this.missingCount ? html`
                 <button
                   class="forget-missing"
                   title=${this._t('welcome.forgetMissingTitle', 'Remove the projects that no longer exist')}
                   @click=${this._forgetMissing}
                 >${this._t('welcome.forgetMissing', 'Forget missing')} (${this.missingCount})</button>` : ''}
+              ${this.locatingCount ? html`
+                <span class="locate-progress">
+                  <span class="locate-spinner" aria-hidden="true"></span>
+                  ${this._t('welcome.locating', 'Searching…')}${this.locateScanned ? ` ${this.locateScanned}` : ''}
+                  <button class="forget-missing" @click=${this._locateCancel}>${this._t('welcome.locateCancel', 'Cancel')}</button>
+                </span>` : ''}
             </h2>
             <div class="recent-list">${this._renderRecent()}</div>
           </section>
@@ -571,6 +599,14 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
       >
         <span class="project-name">${p.name}</span>
         <span class="project-path">${p.displayPath ?? p.path}</span>
+        ${p.missing && !p.locating ? html`
+        <button
+          class="project-remove project-locate"
+          title=${this._t('welcome.locate', 'Find this project on disk')}
+          aria-label=${this._t('welcome.locate', 'Find this project on disk')}
+          @click=${(e) => this._locate(p.path, e)}
+        ><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>` : ''}
+        ${p.locating ? html`<span class="locate-spinner row" aria-hidden="true"></span>` : ''}
         <button
           class="project-remove"
           title="Remove from recent projects"
@@ -587,12 +623,29 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
     this.dispatchEvent(new CustomEvent('recent-forget-missing', { bubbles: true, composed: true }));
   }
 
+  /** Localizar UM projeto sumido. A varredura de verdade vive no main. */
+  _locate(path, e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('project-locate', { detail: path, bubbles: true, composed: true }));
+  }
+
+  /** Localizar todos os ausentes de uma vez: quem perdeu um, perdeu varios. */
+  _locateMissing(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('recent-locate-missing', { bubbles: true, composed: true }));
+  }
+
+  _locateCancel(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('recent-locate-cancel', { bubbles: true, composed: true }));
+  }
+
   _delegate(id) {
     document.getElementById(id)?.click();
   }
 
   _open(path, e) {
-    if (e.target.closest('.project-remove')) return;
+    if (e.target.closest('.project-remove') || e.target.closest('.project-locate')) return;
     this.dispatchEvent(new CustomEvent('project-open', { detail: path, bubbles: true, composed: true }));
   }
 

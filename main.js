@@ -86,6 +86,7 @@ const gitIpc = require('./main/ipc/git');
 const githubAuthIpc = require('./main/ipc/github_auth');
 const githubForgetIpc = require('./main/ipc/github_forget');
 const gitlabAuthIpc = require('./main/ipc/gitlab_auth');
+const spfLocatorIpc = require('./main/ipc/spf_locator');
 const bugReportIpc = require('./main/ipc/bug_report');
 const componentsIpc = require('./main/ipc/components');
 const exemplosIpc = require('./main/ipc/exemplos');
@@ -124,6 +125,7 @@ if (acquiredLock) {
   githubAuthIpc.register();
   githubForgetIpc.register();
   gitlabAuthIpc.register();
+  spfLocatorIpc.register();
   bugReportIpc.register();
   componentsIpc.register();
   exemplosIpc.register();

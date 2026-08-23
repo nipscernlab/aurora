@@ -797,6 +797,16 @@
       "generateProcessor": "Create the processor with the specified configuration."
     }
   },
+  "statusbar": {
+    "power": {
+      "onBattery": "On battery ({{level}}%): Windows lowers the CPU clock and simulations run slower. Click for details.",
+      "plugged": "Plugged in ({{level}}%): full performance available.",
+      "dialogTitle": "Power and simulation speed",
+      "dialogOnBattery": "This laptop is running on battery. Windows lowers the CPU clock to save energy, so compilations and simulations take noticeably longer, and a long run may be interrupted if the machine sleeps. Plugging in restores full speed; in Windows power settings you can also pick a performance power mode and keep the screen on for long runs. The AURORA already keeps the machine awake while a compilation is running.",
+      "dialogPlugged": "This machine is plugged in, so the CPU runs at full speed. For long simulations you can still pick a performance power mode in Windows power settings. The AURORA already keeps the machine awake while a compilation is running.",
+      "openSettings": "Open Windows power settings"
+    }
+  },
   "welcome": {
     "tagline": "Scalable-Architecture Processor for Hardware Optimization",
     "sectionStart": "Start",
@@ -805,6 +815,13 @@
     "sectionRecent": "Recent",
     "noRecent": "No recent projects",
     "forgetMissing": "Forget missing",
+    "locateMissing": "Find missing",
+    "locateMissingTitle": "Search this computer for the missing .spf files",
+    "locate": "Find this project on disk",
+    "locating": "Searching…",
+    "locateCancel": "Cancel",
+    "locateFound": "Found: {{path}}",
+    "locateNotFound": "Some projects were not found on this machine.",
     "forgetMissingTitle": "Remove the projects that no longer exist",
     "missingHint": "This project was not found on disk.",
     "examples": "Example projects",

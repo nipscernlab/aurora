@@ -190,6 +190,19 @@ class StandardTreeRenderer {
         return this._renderPromise;
     }
 
+    /**
+     * O elemento que de fato rola. Hoje é `.file-tree-actions`, mas procurar
+     * pelo `overflow-y` em vez de fixar a classe faz isto sobreviver a uma
+     * mudança de CSS em vez de virar um no-op silencioso.
+     */
+    _scroller(container) {
+        for (let el = container; el && el !== document.body; el = el.parentElement) {
+            const y = getComputedStyle(el).overflowY;
+            if (y === 'auto' || y === 'scroll') return el;
+        }
+        return null;
+    }
+
     async _doRender() {
         const container = treeView.getContainer('standard');
         if (!container) return;
@@ -210,8 +223,18 @@ class StandardTreeRenderer {
             // Drop expanded paths that no longer exist under the root so
             // the Set doesn't grow unbounded across project switches.
             this._pruneExpanded(root);
+            // Cada desenho reconstrói as linhas do zero, e com elas a altura
+            // rolável: sem guardar a posição, renomear um arquivo no fim de
+            // uma árvore grande jogava o usuário de volta ao topo, longe do
+            // que ele estava fazendo. Guardar antes de esvaziar, porque o
+            // container vazio tem rolagem zero.
+            const scroller = this._scroller(container);
+            const scrollTop = scroller ? scroller.scrollTop : 0;
             container.innerHTML = '';
             await this._renderLevel(entries, container, 0);
+            // Quem restaura é o mesmo elemento de onde veio; se a árvore
+            // encolheu, o navegador limita sozinho ao novo fim.
+            if (scroller && scrollTop) scroller.scrollTop = scrollTop;
             this.refreshFocusHighlight();
             // Renders rebuild every row, let the CRUD layer re-apply its
             // selection / cut-pending decorations on the fresh DOM.
@@ -410,7 +433,12 @@ class StandardTreeRenderer {
             wrapper.appendChild(childBox);
         }
 
-        row.addEventListener('click', () => {
+        row.addEventListener('click', (e) => {
+            // Ctrl e Shift são gestos de SELEÇÃO (standard_tree_crud cuida
+            // deles). Abrir o arquivo ou abrir a pasta no meio de uma seleção
+            // múltipla tiraria da tela justamente as linhas que o usuário está
+            // marcando, e o Ctrl+clique para desmarcar reabriria o arquivo.
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             if (entry.isDirectory) {
                 this._toggleFolder(entry, wrapper, level);
             } else {

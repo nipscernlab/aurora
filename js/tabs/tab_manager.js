@@ -975,6 +975,20 @@ async def basic_test(dut):
                             editor.revealLineInCenter(ln);
                             editor.focus();
                         });
+                    } else if (options.viewState && typeof editor.restoreViewState === 'function') {
+                        // Cursor, seleção e rolagem de um editor que foi
+                        // fechado e reaberto no mesmo gesto (renomear pela
+                        // árvore). Mesmo lugar e mesmo adiamento do
+                        // revealPosition acima, porque o problema é o mesmo:
+                        // antes daqui o editor não existe, e sem o layout()
+                        // ele ainda não tem altura para rolar até a linha.
+                        // Um revealPosition explícito ganha, porque é um
+                        // pedido de ir a outro lugar.
+                        requestAnimationFrame(() => {
+                            editor.layout();
+                            try { editor.restoreViewState(options.viewState); }
+                            catch (_) { /* estado de outra versão do Monaco */ }
+                        });
                     }
                 } catch (error) {
                     console.error('Error creating editor:', error);

@@ -560,12 +560,26 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       documentação. O método que funcionou três vezes e vale repetir: achar o
       núcleo que não depende de nada, tirar para um módulo próprio, escrever
       teste em cima.
-- [ ] **CRUD da árvore de arquivos**, lacunas remanescentes: multi-select com
-      Ctrl e Shift, preservar cursor e scroll no rename, awareness do `.spf`.
-      O drag and drop saiu em 08/08. O desfazer com Ctrl+Z e o refazer com
-      Ctrl+Shift+Z (e Ctrl+Y) estão no `standard_tree_crud.js`, com o que foi
-      removido esperando em userData; e a visão Pastas já se redesenha sozinha
-      pelo vigia de diretório (`file_tree_manager.js`).
+- [x] ~~**CRUD da árvore de arquivos**~~, lacunas fechadas em 23/08/2026.
+      Seleção múltipla com Ctrl e Shift: a regra de qual clique produz qual
+      conjunto é pura (`js/tree/tree_selection.js`), a âncora do Shift é o
+      último clique SEM Shift, e cortar, copiar, apagar e arrastar valem para
+      tudo que está marcado. O gesto inteiro é UMA entrada na pilha, pela
+      forma `grupo` nova no `tree_history.js`, que desfaz ao contrário e
+      descarta o membro que falhou. Renomear segue de um só.
+
+      Cursor e rolagem: renomear um arquivo aberto fecha e reabre a aba, e
+      isso devolvia o editor na linha 1; agora o `addTab` aceita `viewState`
+      e restaura no mesmo lugar em que já restaurava o `revealPosition`, que
+      é depois de o editor existir. A rolagem da própria árvore também era
+      perdida a cada desenho, porque ele reconstrói as linhas do zero.
+
+      Awareness do `.spf`: renomear, mover ou apagar um arquivo que ele
+      referencia arruma o topo de síntese, o topo de simulação e as duas
+      listas no mesmo gesto (`js/project/spf_paths.js`), e o Ctrl+Z devolve o
+      que foi tirado, inclusive a marca de topo. A pasta de um processador é
+      recusada, com a razão na tela: renomeá-la é o primeiro de cinco passos e
+      quem faz os cinco é o `renameProcessor`.
 - [x] ~~**Consolidar as paletas divergentes.**~~ Feito em 11/08/2026. As três
       janelas tinham derivado para três céus noturnos, o app em `#0A0D14`, o
       splash em `#03060F` e a janela de atualização em `#060A14`, cada uma com

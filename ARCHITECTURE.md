@@ -90,8 +90,19 @@ escritor canônico é o `ProjectTreeManager`, que chama `SpfStore.update(spfPath
 mutator)`, serializando leitura, mutação e escrita por caminho e preservando o
 `metadata`. Cada mutador toca só os campos que seu manager possui, e o resto vem
 dos padrões do `SpfStore`, de modo que campos desconhecidos que um escritor futuro
-acrescente sobrevivem ao ciclo. Se você adicionar um segundo escritor do lado do
-renderer, use `update()` e não escreva o arquivo direto. O processo principal
+acrescente sobrevivem ao ciclo. Se você adicionar um escritor novo do lado do
+renderer, use `update()` e não escreva o arquivo direto.
+
+O segundo escritor é o CRUD da visão Pastas
+([standard_tree_crud.js](js/tree/standard_tree_crud.js)), desde 23/08/2026. Ele
+escreve por um motivo estreito e só esse: quando a árvore renomeia, move ou
+apaga um arquivo que o `.spf` referencia, a referência tem que acompanhar no
+mesmo gesto, senão ela aponta para um caminho que não existe e o usuário só
+descobre dois passos depois, quando o arquivo some da visão Verilog ou a
+compilação reclama de um nome que ele acabou de mudar. As regras de reescrita
+são puras e vivem em [spf_paths.js](js/project/spf_paths.js); o CRUD só chama
+`SpfStore.update` com elas. Ele não classifica arquivo nem decide topo, que
+continua sendo do `ProjectTreeManager`. O processo principal
 também escreve o `.spf` em eventos de ciclo de vida, e a corrida teórica com o
 renderer é aceitável porque os dois são disparados por interação sequencial.
 

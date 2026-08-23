@@ -696,6 +696,14 @@ const gitOperations = {
   gitlabConnect:     (opts) => ipcRenderer.invoke('gitlab:connect', opts),
   gitlabDisconnect:  () => ipcRenderer.invoke('gitlab:disconnect'),
   gitlabCreateRepo:  (opts) => ipcRenderer.invoke('gitlab:create-repo', opts),
+  gitlabOauthConfigured: () => ipcRenderer.invoke('gitlab:oauth-configured'),
+  gitlabOauthLogin:  (opts) => ipcRenderer.invoke('gitlab:oauth-login', opts),
+  gitlabOauthCancel: () => ipcRenderer.invoke('gitlab:oauth-cancel'),
+  onGitlabOauthCode: (cb) => {
+    const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
+    ipcRenderer.on('gitlab:oauth-code', h);
+    return () => ipcRenderer.removeListener('gitlab:oauth-code', h);
+  },
   onGithubOauthCode: (cb) => {
     const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
     ipcRenderer.on('github:oauth-code', h);

@@ -159,7 +159,7 @@ describe('decidirPolling', () => {
 
   it('falha com frase propria nos dois desfechos definitivos', () => {
     expect(decidirPolling({ error: 'expired_token' }))
-      .toEqual({ acao: 'falhar', mensagem: 'The code expired — please try again.' });
+      .toEqual({ acao: 'falhar', mensagem: 'The code expired, please try again.' });
     expect(decidirPolling({ error: 'access_denied' }))
       .toEqual({ acao: 'falhar', mensagem: 'Authorization was denied.' });
   });

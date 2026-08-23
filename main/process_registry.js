@@ -274,6 +274,7 @@ async function runStopAllToolchain() {
   //    GitHub device-flow poll, which has no process but keeps hitting the API.
   try { require('./ipc/git').abortAll(); } catch (_) { /* not loaded */ }
   try { require('./ipc/github_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
+  try { require('./ipc/gitlab_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
 
   await Promise.all(tasks);
 

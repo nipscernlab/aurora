@@ -537,85 +537,201 @@ function renderPublish(info, contas = { github: true, gitlab: false }) {
       : tt('git.tokenHint', 'To create repositories, the token must be <b>classic</b> with the <code>repo</code> scope, em github.com/settings/tokens/new')}</div>`;
 }
 
+/**
+ * As duas contas, com o MESMO bloco.
+ *
+ * Antes o GitHub tinha botao grande com icone e o GitLab um link de texto
+ * embaixo, o que dizia ao usuario qual forja a AURORA prefere. Ela nao
+ * prefere nenhuma: o laboratorio usa as duas, o codigo no GitHub e o fork do
+ * Surfer no grupo nips-cern do GitLab, e a escolha e de quem usa. O que muda
+ * entre elas e so o que a forja de fato oferece, e isso e o `oauthOn` abaixo,
+ * que vem do main e nao de opiniao daqui.
+ */
+const FORJAS = {
+  github: {
+    id: 'github',
+    nome: 'GitHub',
+    icone: 'ph-github-logo',
+    idConta: 'git-account',
+    idForm: 'git-connect',
+    idPat: 'git-pat',
+    idCodigo: 'git-oauth-code',
+    idAjuda: 'git-token-help',
+    acaoEntrar: 'oauth-login',
+    acaoForm: 'toggle-pat',
+    acaoConectar: 'connect',
+    acaoDesconectar: 'disconnect',
+    acaoAjuda: 'token-help',
+    // O GitHub nao pergunta a instancia: so existe uma.
+    pedeHost: false,
+    dicaToken: () => tt('git.tokenPlaceholder', 'GitHub classic token (repo scope)'),
+    ajudaTitulo: () => tt('git.howToToken', 'How to get a GitHub token'),
+    status: () => api().githubStatus(),
+    configurado: () => api().githubOauthConfigured?.(),
+  },
+  gitlab: {
+    id: 'gitlab',
+    nome: 'GitLab',
+    icone: 'ph-gitlab-logo-simple',
+    idConta: 'git-account-gitlab',
+    idForm: 'git-gitlab-connect',
+    idPat: 'git-gitlab-pat',
+    idHost: 'git-gitlab-host',
+    idCodigo: 'git-gitlab-oauth-code',
+    idAjuda: 'git-gitlab-token-help',
+    acaoEntrar: 'gitlab-oauth-login',
+    acaoForm: 'gitlab-toggle-pat',
+    acaoConectar: 'gitlab-connect',
+    acaoDesconectar: 'gitlab-disconnect',
+    acaoAjuda: 'gitlab-token-help',
+    // A instancia faz parte da conta: gitlab.com e so a mais comum.
+    pedeHost: true,
+    dicaToken: () => tt('git.tokenPlaceholderGitlab', 'GitLab token (api scope)'),
+    ajudaTitulo: () => tt('git.howToTokenGitlab', 'How to get a GitLab token'),
+    status: () => api().gitlabStatus?.(),
+    configurado: () => api().gitlabOauthConfigured?.(),
+  },
+};
+
 async function renderAccount() {
-  const el = $('git-account');
-  if (!el) return;
-  let s;
-  try { s = await api().githubStatus(); } catch (_) { s = { connected: false }; }
-  setGithubStatusBar(s); // keep the bottom status-bar indicator in sync
-  if (s && s.connected && s.user) {
-    const avatarSrc = s.user.avatarDataUrl || s.user.avatarUrl;
-    const avatar = avatarSrc
-      ? `<img class="git-avatar" src="${esc(avatarSrc)}" alt="" referrerpolicy="no-referrer" />`
-      : `<i class="ph ph-github-logo git-avatar-icon"></i>`;
-    el.innerHTML = `<span class="git-user">${avatar}<span class="git-user-name">@${esc(s.user.login)}</span>
-        <span class="git-user-ok" title="${esc(tt('git.connect', 'Connect'))}"><i class="ph ph-check-circle"></i></span></span>
-      <span class="git-account-actions">
-        <button class="git-mini" data-action="clone-toggle"><i class="ph ph-download-simple"></i> ${esc(tt('git.clone', 'Clone'))}</button>
-        <button class="git-mini" data-action="cloned-toggle"><i class="ph ph-folders"></i> ${esc(tt('git.cloned', 'Projects'))}</button>
-        <button class="git-icon-btn git-disconnect" data-action="disconnect" title="${esc(tt('git.disconnect', 'Disconnect'))}" aria-label="${esc(tt('git.disconnect', 'Disconnect'))}"><i class="ph ph-sign-out"></i></button>
-      </span>`;
-  } else {
-    let oauthOn = false;
-    try { const c = await api().githubOauthConfigured?.(); oauthOn = !!(c && c.configured); } catch (_) { /* fall back to PAT only */ }
-    el.innerHTML = `
-      <div class="git-signin">
-        ${oauthOn ? `<button class="git-btn git-btn-primary git-signin-btn" data-action="oauth-login"><i class="ph ph-github-logo"></i> ${esc(tt('git.signIn', 'Sign in with GitHub'))}</button>` : ''}
-        <div class="git-signin-advanced">
-          <button class="git-linklike" data-action="toggle-pat"><i class="ph ph-key"></i> ${esc(tt('git.useToken', 'Use a token instead'))}</button>
-          <button class="git-icon-btn git-help-btn" data-action="token-help" title="${esc(tt('git.howToToken', 'How to get a token'))}" aria-label="${esc(tt('git.howToToken', 'How to get a token'))}"><i class="ph ph-question"></i></button>
-        </div>
-      </div>
-      <div class="git-connect" id="git-connect" ${oauthOn ? 'hidden' : ''}>
-        <input type="password" id="git-pat" class="git-pat-input" placeholder="${esc(tt('git.tokenPlaceholder', 'GitHub classic token (repo scope)'))}" autocomplete="off" spellcheck="false" />
-        <button class="git-btn git-btn-primary" data-action="connect"><i class="ph ph-github-logo"></i> ${esc(tt('git.connect', 'Connect'))}</button>
-      </div>
-      <div class="git-oauth-code" id="git-oauth-code" hidden></div>
-      <div class="git-token-help" id="git-token-help" hidden></div>`;
-  }
-  await renderGitlabAccount();
+  // Em paralelo: sao duas leituras locais (o cofre no disco), e uma nao
+  // precisa esperar a outra para desenhar.
+  const [gh] = await Promise.all([
+    renderForgeAccount(FORJAS.github),
+    renderForgeAccount(FORJAS.gitlab),
+  ]);
+  setGithubStatusBar(gh); // o indicador da barra de baixo segue o GitHub
 }
 
 /**
- * A conta GitLab, embaixo da do GitHub.
- *
- * Sao duas contas independentes de proposito: o laboratorio vive nas duas ao
- * mesmo tempo (o codigo no GitHub, o fork do Surfer no grupo nips-cern do
- * GitLab), e obrigar a escolher uma seria obrigar a desconectar para trocar.
- *
- * So token pessoal: o fluxo de dispositivo do GitHub existe porque a AURORA
- * tem um OAuth App registrado la, e no GitLab isso exigiria registrar um
- * aplicativo em cada instancia.
+ * O bloco de uma conta. Conectada: avatar, @usuario e as acoes. Desconectada:
+ * o botao de entrar (quando a forja tem login de um clique configurado), o
+ * caminho do token, e a ajuda de como obter um.
  */
-async function renderGitlabAccount() {
-  const el = $('git-account-gitlab');
-  if (!el) return;
+async function renderForgeAccount(forja) {
+  const el = $(forja.idConta);
+  if (!el) return { connected: false };
   let s;
-  try { s = await api().gitlabStatus?.(); } catch (_) { s = null; }
-  if (!s) { el.innerHTML = ''; return; }
+  try { s = await forja.status(); } catch (_) { s = null; }
+  if (!s) { el.innerHTML = ''; return { connected: false }; }
+
   if (s.connected && s.user) {
     const avatarSrc = s.user.avatarDataUrl || s.user.avatarUrl;
     const avatar = avatarSrc
       ? `<img class="git-avatar" src="${esc(avatarSrc)}" alt="" referrerpolicy="no-referrer" />`
-      : '<i class="ph ph-gitlab-logo-simple git-avatar-icon"></i>';
-    el.innerHTML = `<span class="git-user">${avatar}<span class="git-user-name">@${esc(s.user.login)}</span>
-        <span class="git-user-host" title="${esc(s.host || 'gitlab.com')}">${esc(s.host || 'gitlab.com')}</span>
-        <span class="git-user-ok"><i class="ph ph-check-circle"></i></span></span>
+      : `<i class="ph ${forja.icone} git-avatar-icon"></i>`;
+    // A instancia so aparece quando NAO e a publica: escrever "gitlab.com" ao
+    // lado de toda conta seria ruido, e escrever a propria e informacao.
+    const host = (s.host && s.host !== 'gitlab.com')
+      ? `<span class="git-user-host" title="${esc(s.host)}">${esc(s.host)}</span>` : '';
+    el.innerHTML = `<span class="git-user">${avatar}<span class="git-user-name">@${esc(s.user.login)}</span>${host}
+        <span class="git-user-ok" title="${esc(forja.nome)}"><i class="ph ph-check-circle"></i></span></span>
       <span class="git-account-actions">
-        <button class="git-icon-btn git-disconnect" data-action="gitlab-disconnect" title="${esc(tt('git.disconnect', 'Disconnect'))}" aria-label="${esc(tt('git.disconnect', 'Disconnect'))}"><i class="ph ph-sign-out"></i></button>
+        <button class="git-mini" data-action="clone-toggle"><i class="ph ph-download-simple"></i> ${esc(tt('git.clone', 'Clone'))}</button>
+        <button class="git-mini" data-action="cloned-toggle"><i class="ph ph-folders"></i> ${esc(tt('git.cloned', 'Projects'))}</button>
+        <button class="git-icon-btn git-disconnect" data-action="${forja.acaoDesconectar}" title="${esc(tt('git.disconnect', 'Disconnect'))}" aria-label="${esc(tt('git.disconnect', 'Disconnect'))}"><i class="ph ph-sign-out"></i></button>
       </span>`;
-  } else {
-    el.innerHTML = `
-      <div class="git-signin-advanced">
-        <button class="git-linklike" data-action="gitlab-toggle-form"><i class="ph ph-gitlab-logo-simple"></i> ${esc(tt('git.connectGitlab', 'Connect GitLab'))}</button>
-        <button class="git-icon-btn git-help-btn" data-action="open-gitlab-token-page" title="${esc(tt('git.howToTokenGitlab', 'Get a GitLab token'))}" aria-label="${esc(tt('git.howToTokenGitlab', 'Get a GitLab token'))}"><i class="ph ph-question"></i></button>
-      </div>
-      <div class="git-connect" id="git-gitlab-connect" hidden>
-        <input type="text" id="git-gitlab-host" class="git-pat-input" placeholder="gitlab.com" autocomplete="off" spellcheck="false" />
-        <input type="password" id="git-gitlab-pat" class="git-pat-input" placeholder="${esc(tt('git.tokenPlaceholderGitlab', 'GitLab token (api scope)'))}" autocomplete="off" spellcheck="false" />
-        <button class="git-btn git-btn-primary" data-action="gitlab-connect"><i class="ph ph-gitlab-logo-simple"></i> ${esc(tt('git.connect', 'Connect'))}</button>
-      </div>`;
+    return s;
   }
+
+  let oauthOn = false;
+  try { const c = await forja.configurado(); oauthOn = !!(c && c.configured); } catch (_) { /* so token */ }
+  const campoHost = forja.pedeHost
+    ? `<input type="text" id="${forja.idHost}" class="git-pat-input" placeholder="gitlab.com" autocomplete="off" spellcheck="false" />`
+    : '';
+  el.innerHTML = `
+    <div class="git-signin">
+      ${oauthOn ? `<button class="git-btn git-btn-primary git-signin-btn" data-action="${forja.acaoEntrar}"><i class="ph ${forja.icone}"></i> ${esc(tt('git.signInWith', 'Sign in with {name}', { name: forja.nome }))}</button>` : ''}
+      <div class="git-signin-advanced">
+        <button class="git-linklike" data-action="${forja.acaoForm}"><i class="ph ph-key"></i> ${esc(oauthOn ? tt('git.useToken', 'Use a token instead') : tt('git.connectWith', 'Connect {name}', { name: forja.nome }))}</button>
+        <button class="git-icon-btn git-help-btn" data-action="${forja.acaoAjuda}" title="${esc(forja.ajudaTitulo())}" aria-label="${esc(forja.ajudaTitulo())}"><i class="ph ph-question"></i></button>
+      </div>
+    </div>
+    <div class="git-connect" id="${forja.idForm}" ${oauthOn ? 'hidden' : ''}>
+      ${campoHost}
+      <input type="password" id="${forja.idPat}" class="git-pat-input" placeholder="${esc(forja.dicaToken())}" autocomplete="off" spellcheck="false" />
+      <button class="git-btn git-btn-primary" data-action="${forja.acaoConectar}"><i class="ph ${forja.icone}"></i> ${esc(tt('git.connect', 'Connect'))}</button>
+    </div>
+    <div class="git-oauth-code" id="${forja.idCodigo}" hidden></div>
+    <div class="git-token-help" id="${forja.idAjuda}" hidden></div>`;
+  return s;
+}
+
+/**
+ * Entrar de um clique no GitLab, o mesmo gesto do GitHub.
+ *
+ * O laco pergunta por ate quinze minutos, entao NAO passa pelo run(), que
+ * travaria o painel inteiro esse tempo todo; a guarda local mais o numero de
+ * sequencia deixam cancelar e tentar de novo a qualquer momento, e o resultado
+ * de uma tentativa superada e ignorado.
+ */
+let oauthGitlabUnsub = null;
+let oauthGitlabSeq = 0;
+let oauthGitlabBusy = false;
+function limparSubGitlab() {
+  if (oauthGitlabUnsub) { try { oauthGitlabUnsub(); } catch (_) { /* ignore */ } oauthGitlabUnsub = null; }
+}
+function cartaoEsperaGitlab(inner) {
+  const box = $('git-gitlab-oauth-code');
+  if (!box) return;
+  box.hidden = false;
+  box.innerHTML = inner;
+}
+async function oauthLoginGitlab() {
+  if (oauthGitlabBusy) return;
+  oauthGitlabBusy = true;
+  const seq = ++oauthGitlabSeq;
+  limparSubGitlab();
+  const host = $('git-gitlab-host')?.value?.trim() || '';
+  cartaoEsperaGitlab(`<div class="git-oauth-wait"><span class="git-spinner"></span> ${esc(tt('git.signingIn', 'Starting sign-in…'))}
+      <button class="git-mini" data-action="gitlab-oauth-cancel">${esc(tt('git.cancel', 'Cancel'))}</button></div>`);
+  oauthGitlabUnsub = api()?.onGitlabOauthCode?.((data) => {
+    if (seq !== oauthGitlabSeq) return;
+    cartaoEsperaGitlab(`
+      <div class="git-oauth-step"><i class="ph ph-arrow-square-out"></i> ${esc(tt('git.oauthOpenedGitlab', 'We opened GitLab in your browser. Enter this code:'))}</div>
+      <div class="git-oauth-codebox"><span class="git-oauth-codeval">${esc(data.userCode || '')}</span>
+        <button class="git-icon-btn" data-action="oauth-copy-code" data-code="${esc(data.userCode || '')}" title="${esc(tt('git.copied', 'Copy'))}"><i class="ph ph-copy"></i></button></div>
+      <div class="git-oauth-wait"><span class="git-spinner"></span> ${esc(tt('git.oauthWaiting', 'Waiting for authorization…'))}
+        <button class="git-mini" data-action="gitlab-oauth-cancel">${esc(tt('git.cancel', 'Cancel'))}</button></div>`);
+  });
+  setStatus(`${tt('git.signIn', 'Sign in')}…`, 'busy');
+
+  let r;
+  try { r = await api().gitlabOauthLogin({ host }); }
+  catch (e) { r = { ok: false, error: e?.message || String(e) }; }
+  finally { oauthGitlabBusy = false; limparSubGitlab(); }
+  if (seq !== oauthGitlabSeq) return;   // cancelado ou superado
+  const box = $('git-gitlab-oauth-code');
+  if (box) { box.hidden = true; box.innerHTML = ''; }
+  if (!r || !r.ok) { setStatus(r?.error || 'sign-in failed', 'error'); return; }
+  setStatus(`@${r.user.login}`, 'ok');
+  await renderAccount();
+  refresh();
+}
+function oauthCancelGitlab() {
+  oauthGitlabSeq++;              // invalida a tentativa em andamento
+  oauthGitlabBusy = false;
+  limparSubGitlab();
+  try { api()?.gitlabOauthCancel?.(); } catch (_) { /* main pode ter ido */ }
+  const box = $('git-gitlab-oauth-code');
+  if (box) { box.hidden = true; box.innerHTML = ''; }
+  setStatus('', null);
+}
+
+/** A ajuda de como obter um token do GitLab, irma da do GitHub. */
+function renderTokenHelpGitlab() {
+  const el = $('git-gitlab-token-help');
+  if (!el) return;
+  el.innerHTML = `
+    <div class="git-help-title"><i class="ph ph-key"></i> ${esc(tt('git.howToTokenGitlab', 'How to get a GitLab token'))}</div>
+    <ol class="git-help-steps">
+      <li>${tt('git.glStepOpen', 'Open <b>Preferences → Access tokens</b> and click <b>Add new token</b>.')}</li>
+      <li>${tt('git.glStepName', 'Give it a name (e.g. <b>AURORA</b>) and an expiration date.')}</li>
+      <li>${tt('git.glStepScope', 'Tick the <code>api</code> scope, it covers listing, cloning, pushing and creating projects.')}</li>
+      <li>${tt('git.glStepCopy', 'Create it, copy the token, and paste it in the field above.')}</li>
+      <li>${tt('git.glStepHost', 'On your own instance, type its address in the field above the token.')}</li>
+    </ol>
+    <button class="git-mini" data-action="open-gitlab-token-page"><i class="ph ph-arrow-square-out"></i> ${esc(tt('git.openTokenPage', 'Open the token page'))}</button>`;
 }
 
 async function connectGitlab() {
@@ -1029,11 +1145,20 @@ async function onClick(e) {
       case 'connect':    return connect();
       case 'gitlab-connect': return connectGitlab();
       case 'gitlab-disconnect': return disconnectGitlab();
-      case 'gitlab-toggle-form': {
+      case 'gitlab-oauth-login': return oauthLoginGitlab();
+      case 'gitlab-oauth-cancel': return oauthCancelGitlab();
+      case 'gitlab-toggle-pat': {
         const c = $('git-gitlab-connect');
         if (c) c.hidden = !c.hidden;
         const inp = $('git-gitlab-pat');
         if (c && !c.hidden && inp) inp.focus();
+        return undefined;
+      }
+      case 'gitlab-token-help': {
+        const help = $('git-gitlab-token-help');
+        if (!help) return undefined;
+        if (help.hidden) { renderTokenHelpGitlab(); help.hidden = false; }
+        else { help.hidden = true; }
         return undefined;
       }
       case 'open-gitlab-token-page': {

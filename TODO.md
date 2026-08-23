@@ -532,9 +532,19 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       desconectar para trocar. A lista de clonar mistura as duas origens
       ordenada por atividade, com selo dizendo de onde cada linha vem.
 
-      Sem fluxo de dispositivo de propósito: o do GitHub existe porque a
-      AURORA tem um OAuth App registrado lá, e no GitLab isso exigiria
-      registrar um aplicativo em cada instância.
+      As duas contas têm o MESMO bloco, sem hierarquia: um renderizador só,
+      parametrizado pela forja. A primeira versão dava botão grande ao GitHub e
+      link de texto ao GitLab, o que dizia ao usuário qual a AURORA prefere;
+      ela não prefere nenhuma, e a escolha é de quem usa.
+
+      O fluxo de dispositivo (entrar de um clique) também existe nas duas, com
+      as regras da RFC 8628 compartilhadas em `main/ipc/oauth_device.js`. O que
+      falta no GitLab não é código: é registrar um OAuth App em gitlab.com
+      (Settings > Applications, com "Device authorization flow" e escopo `api`)
+      e pôr o identificador em `OAUTH_CLIENT_ID` do `gitlab_auth.js`, ou na
+      variável `AURORA_GITLAB_CLIENT_ID` para testar antes. Vazio, o botão não
+      aparece e sobra o token, que é como o `github_auth.js` já se comporta
+      quando o dele está vazio.
 
       Junto saiu um defeito que já existia: o cabeçalho com o token do GitHub
       era injetado em QUALQUER remoto, então um push para o GitLab levava 401

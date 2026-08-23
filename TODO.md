@@ -650,15 +650,25 @@ Pós-release, com a regra de sempre: medir antes de mexer.
 
 ---
 
-- [ ] **Monitor da pilha de instrução (isp) no layout.** Os monitores de
-      pilha/ULA voltaram em 20/08 como espelhos no testbench (ver commit
-      ae9659b1: dumpvars profundo quebra o Icarus com generate e é ignorado
-      pelo Verilator; módulo public arrasta o mem, 854 MB medidos). Ficou de
-      fora exatamente o isp, porque ele vive num `generate if (CAL) : isp_blk`
-      e o parser de Verilog da AURORA pula generate blocks; espelho de nome
-      fabricado foi o que derrubou a elaboração do Icarus. Ensinar o parser a
-      ler generate nomeado destrava o espelho do isp pelo caminho
-      `.isp_blk.isp`.
+- [x] ~~**Monitor da pilha de instrução (isp) no layout.**~~ Pedido em 20/08,
+      feito em 23/08. O parser aprendeu a ler `generate if` NOMEADO
+      (`js/wave/generate_blocks.ts`), e com isso o caminho
+      `core.instr_fetch.isp_blk.isp` passou a existir.
+
+      O que fazia isso ser arriscado era o motivo de o bloco ser descartado:
+      o parser não avaliava parâmetros, e capturar as instâncias de dentro
+      como se sempre existissem produzia caminho que a elaboração recusa. A
+      saída não foi adivinhar, foi resolver: os parâmetros declarados de cada
+      módulo, os que a instanciação sobrescreve, e o repasse por nome
+      (`.CAL(CAL)`, que é como o `processor.v` desce o valor até o `core`).
+      Condição que não dá para decidir continua descartando o bloco, como
+      antes: um escopo a menos custa um monitor ausente, um escopo a mais
+      custa uma simulação que não elabora.
+
+      Programa C± sem função não tem pilha de instrução, `CAL` fica no padrão
+      zero, e nenhum monitor de isp é emitido. Fixado por 29 testes, sendo
+      cinco contra o `components/HDL` de verdade, e a suíte de toolchain
+      inteira segue verde, incluindo a elaboração no Icarus.
 
 - [ ] **Salvar estado do Surfer de dentro da aba.** Implementação completa
       está no stash "monitores stack/ULA + save-state da aba" (fork já tem o

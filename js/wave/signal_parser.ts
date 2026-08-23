@@ -30,6 +30,10 @@
  */
 
 /** A single declared signal/port pulled from a module body. */
+import {
+    extractNamedGenerates, declaredParams, overriddenParams, evaluateCondition, resolveParamValue,
+} from './generate_blocks.js';
+
 export interface VerilogSignal {
     name: string;
     /** Primary kind keyword (input/output/reg/wire/...), by priority. */
@@ -43,6 +47,27 @@ export interface VerilogSignal {
 export interface ModuleInstance {
     instanceName: string;
     moduleType: string;
+    /**
+     * Parâmetros que a instanciação sobrescreve, como TEXTO: pode ser um
+     * inteiro ou o nome de um parâmetro de quem instancia (`.CAL(CAL)`), e
+     * quem resolve isso é a hierarquia, que conhece os dois escopos.
+     */
+    params?: Map<string, string>;
+}
+
+/**
+ * Um ramo NOMEADO de `generate if`, já com o que ele declara dentro.
+ *
+ * Vive fora de `signals`/`instances` porque ele SÓ existe quando a condição
+ * é verdadeira: quem constrói a hierarquia resolve isso com os parâmetros da
+ * instância e só então decide se o escopo entra. Ver generate_blocks.ts.
+ */
+export interface ConditionalScope {
+    label: string;
+    condition: string;
+    negated: boolean;
+    signals: VerilogSignal[];
+    instances: ModuleInstance[];
 }
 
 /** Everything the parser knows about one module. */
@@ -50,6 +75,10 @@ export interface ModuleInfo {
     file: string;
     signals: VerilogSignal[];
     instances: ModuleInstance[];
+    /** Valores padrão dos parâmetros declarados, só os que são inteiros. */
+    params: Map<string, number>;
+    /** Ramos nomeados de `generate if`, resolvidos na hierarquia. */
+    conditionals: ConditionalScope[];
 }
 
 /** A soft parse error, collected, never thrown. */
@@ -123,17 +152,17 @@ function stripComments(source: string): string {
  * parameter list `#(...)` and the optional port list `(...)` are
  * supported; modules that omit one or both (e.g. `module tb;`) parse.
  */
-function extractModules(stripped: string): Array<{ name: string; body: string }> {
-    const out: Array<{ name: string; body: string }> = [];
-    const re = /\bmodule\s+([A-Za-z_][\w$]*)\s*(?:#\s*\([\s\S]*?\)\s*)?(?:\(([\s\S]*?)\))?\s*;([\s\S]*?)\bendmodule\b/g;
+function extractModules(stripped: string): Array<{ name: string; body: string; paramHeader: string }> {
+    const out: Array<{ name: string; body: string; paramHeader: string }> = [];
+    const re = /\bmodule\s+([A-Za-z_][\w$]*)\s*(?:#\s*\(([\s\S]*?)\)\s*)?(?:\(([\s\S]*?)\))?\s*;([\s\S]*?)\bendmodule\b/g;
     let m: RegExpExecArray | null;
     while ((m = re.exec(stripped)) !== null) {
-        const [, name, portHeader, bodyRaw] = m;
+        const [, name, paramHeader, portHeader, bodyRaw] = m;
         // Treat the header port list as part of the body for signal
         // extraction, ANSI-style declarations live there. Wrap each
         // port entry as semi-terminated so the same kind regex works.
         const headerLines = expandPortHeader(portHeader);
-        out.push({ name, body: headerLines + '\n' + bodyRaw });
+        out.push({ name, body: headerLines + '\n' + bodyRaw, paramHeader: paramHeader || '' });
     }
     return out;
 }
@@ -315,6 +344,20 @@ function stripParamLists(body: string): string {
  */
 function extractInstances(body: string, knownModuleNames: Set<string>): ModuleInstance[] {
     const seen = new Map<string, string>();   // instanceName → moduleType, pra dedup
+    // Os `#(...)` originais, na ordem, para casar com os `#()` que o
+    // stripParamLists deixa: é de lá que sai o `.CAL(1)` que decide se um
+    // escopo condicional existe.
+    const listas = [...String(body || '').matchAll(/#\s*\(/g)].map((m) => {
+        const abre = m.index! + m[0].length - 1;
+        let nivel = 0;
+        for (let i = abre; i < body.length; i++) {
+            if (body[i] === '(') nivel++;
+            else if (body[i] === ')') { nivel--; if (nivel === 0) return body.slice(abre + 1, i); }
+        }
+        return '';
+    });
+    let usadas = 0;
+    const paramsPorInstancia = new Map<string, Map<string, string>>();
     // `body` ja vem stripado de diretivas e blocos generate-if (feito
     // em parseVerilogModules pra que signals/instances vejam a mesma
     // view). Aqui so resta stripar parameter lists com parens aninhados
@@ -325,15 +368,27 @@ function extractInstances(body: string, knownModuleNames: Set<string>): ModuleIn
     let m: RegExpExecArray | null;
     while ((m = re.exec(stripped)) !== null) {
         const [, typeName, instName] = m;
+        // Toda `#()` que o stripParamLists deixou corresponde, em ordem, a uma
+        // lista original; consumimos uma aqui mesmo quando a instância é
+        // descartada abaixo, senão o pareamento sai do lugar.
+        const temParams = /#\s*\(\)/.test(m[0]);
+        const listaCrua = temParams ? (listas[usadas++] ?? '') : '';
         if (!knownModuleNames.has(typeName)) continue;
         if (RESERVED_KEYWORDS.has(typeName)) continue;
         if (RESERVED_KEYWORDS.has(instName)) continue;
+        if (listaCrua && !paramsPorInstancia.has(instName)) {
+            paramsPorInstancia.set(instName, overriddenParams(listaCrua));
+        }
         // Dedup: blocos `ifdef/`else duplicados podem gerar a mesma
         // instance duas vezes apos stripDirectives. Manter o primeiro
         // match e o suficiente, a hierarquia logica e a mesma.
         if (!seen.has(instName)) seen.set(instName, typeName);
     }
-    return [...seen.entries()].map(([instanceName, moduleType]) => ({ instanceName, moduleType }));
+    return [...seen.entries()].map(([instanceName, moduleType]) => ({
+        instanceName,
+        moduleType,
+        params: paramsPorInstancia.get(instanceName),
+    }));
 }
 
 /**
@@ -370,11 +425,24 @@ export function parseVerilogModules(files: VerilogFile[]): ParseResult {
             //    quanto instances declarados dentro sao tratados como
             //    "podem nao existir" e descartados aqui, melhor que
             //    iverilog falhar com "Unable to bind".
-            const cleanBody = stripConditionalGenerates(stripDirectives(block.body));
+            const semDiretivas = stripDirectives(block.body);
+            const cleanBody = stripConditionalGenerates(semDiretivas);
+            // Os ramos nomeados saem do corpo ANTES do strip: eles continuam
+            // fora de `signals`/`instances` (o strip garante isso), e entram
+            // na hierarquia só quando a condição resolver verdadeira.
+            const conditionals = extractNamedGenerates(semDiretivas).map((ramo) => ({
+                label: ramo.label,
+                condition: ramo.condition,
+                negated: ramo.negated,
+                signals: extractSignals(ramo.body),
+                instances: extractInstances(ramo.body, knownModuleNames),
+            }));
             modules.set(block.name, {
                 file: path,
                 signals: extractSignals(cleanBody),
                 instances: extractInstances(cleanBody, knownModuleNames),
+                params: declaredParams(block.paramHeader, cleanBody),
+                conditionals,
             });
         }
     }
@@ -394,6 +462,7 @@ export function buildHierarchyTree(modules: Map<string, ModuleInfo>, topModuleNa
         instanceName: string | null,
         parentPath: string | null,
         ancestors: Set<string>,
+        overrides: Map<string, number>,
     ): HierarchyNode => {
         const info = modules.get(moduleType);
         const scopePath = parentPath
@@ -406,18 +475,44 @@ export function buildHierarchyTree(modules: Map<string, ModuleInfo>, topModuleNa
             return { name: moduleType, instanceName, scopePath, signals: info.signals, children: [] };
         }
         const nextAncestors = new Set(ancestors).add(moduleType);
-        return {
-            name: moduleType,
-            instanceName,
-            scopePath,
-            signals: info.signals,
-            children: info.instances.map((inst) =>
-                visit(inst.moduleType, inst.instanceName, scopePath, nextAncestors),
-            ),
+        // Os parâmetros que valem AQUI: o padrão declarado do módulo, com o
+        // que a instanciação sobrescreveu por cima. É isso que faz `.CAL(1)`
+        // no `<proc>.v` chegar ao `generate if (CAL)` lá dentro do core,
+        // atravessando o repasse `.CAL(CAL)` que o processor.v faz no meio.
+        const efetivos = new Map(info.params ?? []);
+        for (const [k, v] of overrides) efetivos.set(k, v);
+
+        const filhoDe = (inst: ModuleInstance, sob: string) => {
+            const resolvidos = new Map<string, number>();
+            for (const [nome, texto] of inst.params ?? []) {
+                const v = resolveParamValue(texto, efetivos);
+                if (v !== undefined) resolvidos.set(nome, v);
+            }
+            return visit(inst.moduleType, inst.instanceName, sob, nextAncestors, resolvidos);
         };
+
+        const children = info.instances.map((inst) => filhoDe(inst, scopePath));
+
+        // Escopos condicionais: entram só quando a condição resolve VERDADEIRA
+        // com os parâmetros efetivos. Indecidível fica de fora, que é o
+        // comportamento de sempre e o lado seguro: um escopo a menos custa um
+        // monitor ausente, um escopo a mais custa uma elaboração que falha.
+        for (const cond of info.conditionals ?? []) {
+            if (evaluateCondition(cond.condition, efetivos, cond.negated) !== true) continue;
+            const condPath = `${scopePath}.${cond.label}`;
+            children.push({
+                name: cond.label,
+                instanceName: cond.label,
+                scopePath: condPath,
+                signals: cond.signals,
+                children: cond.instances.map((inst) => filhoDe(inst, condPath)),
+            });
+        }
+
+        return { name: moduleType, instanceName, scopePath, signals: info.signals, children };
     };
 
-    return visit(topModuleName, null, null, new Set());
+    return visit(topModuleName, null, null, new Set(), new Map<string, number>());
 }
 
 /**
@@ -495,9 +590,16 @@ export interface MonitorMirror {
  * os DOIS simuladores sempre rastreiam, por ~3 MB de FST.
  *
  * SOMENTE instancias e variaveis que o parser viu de fato, nunca nomes
- * fabricados: o isp vive num generate if (CAL) e uma referencia a escopo
- * inexistente e erro de ELABORACAO no Icarus. O parser pula generate
- * blocks, entao o isp fica de fora ate ele aprender a le-los.
+ * fabricados: uma referencia a escopo inexistente e erro de ELABORACAO no
+ * Icarus, e foi o que derrubou a primeira tentativa.
+ *
+ * O isp entrou em 23/08/2026, quando o parser aprendeu a ler generate
+ * nomeado (generate_blocks.ts). Ele e diferente dos outros dois: vive em
+ * `core.instr_fetch.isp_blk.isp`, dois niveis abaixo, e SO existe quando o
+ * parametro CAL e diferente de zero, ou seja, quando o programa C+- usa
+ * funcao. Num programa sem funcao nao ha pilha de instrucao para monitorar,
+ * e o escopo nem e criado; por isso a busca e pela arvore de fato, e nao por
+ * um caminho montado a mao.
  */
 export function deriveMonitorScopes(tree: HierarchyNode | null | undefined): MonitorMirror[] {
     if (!tree) return [];
@@ -508,27 +610,41 @@ export function deriveMonitorScopes(tree: HierarchyNode | null | undefined): Mon
         ula: ['delta_int', 'delta_float'],
     };
     const rootPrefix = tree.scopePath + '.';
+    const relativo = (caminho: string) =>
+        (caminho.startsWith(rootPrefix) ? caminho.slice(rootPrefix.length) : caminho);
+
+    /** Anota os monitores de um no' que e' sp, isp ou ula. */
+    const anotar = (node: HierarchyNode, corePathRel: string): void => {
+        const inst = node.instanceName;
+        if (!inst) return;
+        const wanted = WANTED[inst];
+        if (!wanted) return;
+        const declared = new Set((node.signals || []).map((s) => s.name));
+        // O caminho relativo ao core carrega os escopos do meio (o
+        // `instr_fetch.isp_blk` do isp), porque e' o caminho REAL que o
+        // espelho vai referenciar.
+        const dentroDoCore = relativo(node.scopePath).slice(corePathRel.length + 1);
+        for (const v of wanted) {
+            if (!declared.has(v)) continue;
+            out.push({
+                ref: corePathRel + '.' + dentroDoCore + '.' + v,
+                mirror: monitorMirrorName(corePathRel, inst, v),
+                kind: v.startsWith('delta') ? 'real' : (v === 'fl_full' ? 'reg' : 'integer'),
+            });
+        }
+    };
+
     const walk = (node: HierarchyNode | null | undefined): void => {
         if (!node) return;
         if (node.name === 'core') {
-            const corePathRel = node.scopePath.startsWith(rootPrefix)
-                ? node.scopePath.slice(rootPrefix.length)
-                : node.scopePath;
-            for (const child of node.children || []) {
-                const inst = child?.instanceName;
-                if (!inst) continue;
-                const wanted = WANTED[inst];
-                if (!wanted) continue;
-                const declared = new Set((child.signals || []).map((s) => s.name));
-                for (const v of wanted) {
-                    if (!declared.has(v)) continue;
-                    out.push({
-                        ref: corePathRel + '.' + inst + '.' + v,
-                        mirror: monitorMirrorName(corePathRel, inst, v),
-                        kind: v.startsWith('delta') ? 'real' : (v === 'fl_full' ? 'reg' : 'integer'),
-                    });
-                }
-            }
+            const corePathRel = relativo(node.scopePath);
+            // Desce a subarvore inteira do core: sp e ula sao filhos diretos,
+            // o isp esta dois niveis abaixo, dentro do generate nomeado.
+            const descer = (n: HierarchyNode): void => {
+                anotar(n, corePathRel);
+                for (const c of n.children || []) descer(c);
+            };
+            for (const c of node.children || []) descer(c);
             return; // dentro do core nao ha outro core
         }
         for (const child of node.children || []) walk(child);

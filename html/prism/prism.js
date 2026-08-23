@@ -545,11 +545,59 @@ class PRISMViewer {
     const svg = this.svgContent.querySelector('svg');
     if (!svg) return;
     this._clearWireHighlights();
-    const pts = [];
-    group.querySelectorAll('path, line, polyline').forEach((s) => pts.push(...this._wireEndpoints(s)));
-    this._findConnectedWires(pts, svg)
-      .filter((w) => !group.contains(w))
-      .forEach((w) => this._applyHighlight(w));
+    // netlistsvg puts every cell inside a <g transform="translate(...)">, so
+    // the cell's own strokes are in LOCAL coordinates and the wires in the
+    // SVG's; comparing the two raw only matched by coincidence (the clk pin
+    // and nothing else). The cell's box is converted to the SVG's space, and
+    // every wire that ENDS against that box is a seed; the usual flood fill
+    // then follows each seed to the far end of its net.
+    const box = this._rootBBox(group, svg);
+    if (!box) return;
+    const TOL = 5;
+    const touchesBox = (w) => {
+      const m = this._toRoot(w, svg);
+      return this._wireEndpoints(w).some((p) => {
+        const q = m ? new DOMPoint(p.x, p.y).matrixTransform(m) : p;
+        return q.x >= box.x - TOL && q.x <= box.x + box.width + TOL
+            && q.y >= box.y - TOL && q.y <= box.y + box.height + TOL;
+      });
+    };
+    const found = new Set();
+    svg.querySelectorAll('path, line, polyline').forEach((w) => {
+      if (group.contains(w) || !touchesBox(w)) return;
+      found.add(w);
+      this._findConnectedWires(this._wireEndpoints(w), svg).forEach((c) => {
+        if (!group.contains(c)) found.add(c);
+      });
+    });
+    found.forEach((w) => this._applyHighlight(w));
+  }
+
+  /** Matrix taking `el`'s local coordinates to the SVG root's, or null. */
+  _toRoot(el, svg) {
+    try {
+      const root = svg.getScreenCTM();
+      const own = el.getScreenCTM();
+      if (!root || !own) return null;
+      return root.inverse().multiply(own);
+    } catch (_) { return null; }
+  }
+
+  /** `group`'s bounding box in the SVG root's coordinates, or null. */
+  _rootBBox(group, svg) {
+    let local;
+    try { local = group.getBBox(); } catch (_) { return null; }
+    const m = this._toRoot(group, svg);
+    if (!m) return local;
+    const corners = [
+      [local.x, local.y], [local.x + local.width, local.y],
+      [local.x, local.y + local.height], [local.x + local.width, local.y + local.height],
+    ].map(([x, y]) => new DOMPoint(x, y).matrixTransform(m));
+    const xs = corners.map((p) => p.x);
+    const ys = corners.map((p) => p.y);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
   }
 
   _wireEndpoints(wire) {

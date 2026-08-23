@@ -51,7 +51,6 @@ export const SYSTEM_PROMPT = [
   "                 label addresses BEFORE asmcomp runs\n" +
   "      - gen_gtkw / comp2gtkw: build the formatted GTKWave save view (.gtkw) from a VCD header\n" +
   "  • AURORA — Windows IDE (Electron): editor, compiler UI, file tree, Aurora Intelligence (you).\n" +
-  "  • POLARIS — Cross-platform IDE (Tauri + Rust): successor to AURORA, also uses YANC.\n" +
   "  • PRISM  — RTL viewer: visualises the processor datapath from the generated Verilog.\n" +
   "  • Simulators — Icarus Verilog (iverilog + vvp, DEFAULT; keeps every internal SAPHO signal) OR\n" +
   "      Verilator (--binary --timing, 5–10× faster, needs +define+YANC_TRACE; only top-level user\n" +

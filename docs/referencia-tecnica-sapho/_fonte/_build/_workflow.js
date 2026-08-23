@@ -44,8 +44,8 @@ VENCE. Nao copie prosa de documentacao. So afirme o que voce confirmou abrindo o
 nomes de arquivo/simbolo que voce realmente abriu.
 
 == CORRECOES IMPORTANTES (do dono do projeto) ==
-- POLARIS esta DESCONTINUADO (projeto morto). NAO documente POLARIS. No maximo UMA frase de contexto
-  historico se for inevitavel.
+- NAO mencione POLARIS em lugar nenhum, nem como contexto historico. Se aparecer no codigo ou em
+  comentario, ignore.
 - Aurora Intelligence esta COMPLETAMENTE IMPLEMENTADO. Porem o provider e os modelos PROPRIOS do
   laboratorio ainda NAO foram treinados (e item de roadmap). Declare esse status com precisao.
 
@@ -111,7 +111,7 @@ YANC (compiladores) + toolchain bundle, e os subsistemas PRISM (RTL) e Aurora In
 (d) o publico-alvo (pesquisa e ensino em arquitetura de computadores / projeto de soft-processors);
 (e) um panorama de ALTO NIVEL do fluxo (projeto -> C+- -> compilacao -> simulacao -> ondas/RTL),
 deixando o detalhe para os capitulos seguintes; (f) a convencao de nomes (AURORA, YANC, SAPHO, PRISM,
-Aurora Intelligence) e uma unica frase de que POLARIS foi um sucessor descontinuado. Termine com um
+Aurora Intelligence). Termine com um
 "mapa do documento" listando os 18 capitulos. Plataforma suportada hoje (verifique no codigo:
 electron-builder so faz target Windows/NSIS; YANC roda Win+Linux).`,
   },

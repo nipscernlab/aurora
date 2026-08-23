@@ -288,8 +288,10 @@ class PRISMViewer {
 
       this._updateModuleInfo(moduleName, svgPath);
       this._updateBreadcrumbs();
-      this._setupSVGInteractions();
+      // Labels first: cutting a wire around a label replaces it by two
+      // segments, and the listeners below must land on the segments.
       this._adjustBusLabels();
+      this._setupSVGInteractions();
       this._hideStatus();
 
       // An SVG is now on screen — allow downloading it. Enabled on every
@@ -328,15 +330,16 @@ class PRISMViewer {
       try { caixa = label.getBBox(); } catch (_) { return; }
       if (!caixa || !caixa.width) return;
       const folga = 1;
-      const x = caixa.x - folga;
-      const y = caixa.y - folga;
-      const width = caixa.width + folga * 2;
-      const height = caixa.height + folga * 2;
-      rect.setAttribute('x', String(x));
-      rect.setAttribute('y', String(y));
-      rect.setAttribute('width', String(width));
-      rect.setAttribute('height', String(height));
-      caixas.push({ x, y, width, height });
+      caixas.push({
+        x: caixa.x - folga,
+        y: caixa.y - folga,
+        width: caixa.width + folga * 2,
+        height: caixa.height + folga * 2,
+      });
+      // O retangulo do netlistsvg sai do documento. Ele so existia para
+      // esconder o fio, e o corte abaixo faz isso na geometria; um elemento
+      // que nao precisa existir nao pode ser pintado por regra nenhuma.
+      rect.remove();
     });
     this._cutWiresUnderLabels(svg, caixas);
   }
@@ -344,48 +347,61 @@ class PRISMViewer {
   /**
    * O fio nao passa por tras do numero, e o fundo continua sendo o fundo.
    *
-   * A versao anterior pintava o retangulo da etiqueta com a cor do fundo. So
-   * que o canvas nao e uma cor: e a cor mais a grade de pontos e a vinheta,
-   * e uma caixa solida por cima deles aparecia como um retangulo de outro
-   * tom em volta de cada "/32/". Aqui o retangulo fica invisivel (CSS) e o
-   * corte e feito no proprio fio, com uma mascara do SVG que tem um buraco
-   * em cada etiqueta. So os fios que cruzam uma etiqueta recebem a mascara,
-   * porque mascara tem custo de pintura e um processador tem muitos fios.
-   * A mascara vive dentro do SVG, entao o Download leva o corte junto.
+   * Duas versoes anteriores erraram de jeitos diferentes. A primeira pintava
+   * o retangulo da etiqueta com a cor do fundo; mas o canvas nao e uma cor, e
+   * a caixa solida aparecia por cima da grade de pontos e da vinheta. A
+   * segunda escondia o retangulo e cortava o fio com uma mascara do SVG; so
+   * que a mascara corta tambem o brilho do fio destacado, com borda reta, e
+   * a caixa voltava como um buraco retangular no meio do realce.
+   *
+   * Aqui o corte e na GEOMETRIA: cada <line> que cruza uma etiqueta vira
+   * dois segmentos, um que termina na borda de ca e outro que comeca na
+   * borda de la. Nao ha nada a pintar nem a mascarar, entao o brilho de
+   * cada ponta se desfaz sozinho, como o de qualquer ponta de fio. Os dois
+   * segmentos carregam o mesmo `data-cut-group`, e o preenchimento do
+   * realce (_findConnectedWires) atravessa o vao por ele, senao o destaque
+   * pararia na etiqueta. O netlistsvg desenha fio como <line>; um fio de
+   * outro tipo que cruze uma etiqueta fica como esta, que e raro e so
+   * custa o numero por cima da linha.
    */
   _cutWiresUnderLabels(svg, caixas) {
-    const NS = 'http://www.w3.org/2000/svg';
-    const ID = 'aurora-bus-label-mask';
-    svg.querySelector(`#${ID}`)?.remove();
     if (!caixas.length) return;
-
-    const mask = document.createElementNS(NS, 'mask');
-    mask.setAttribute('id', ID);
-    mask.setAttribute('maskUnits', 'userSpaceOnUse');
-    // Area grande o bastante para qualquer diagrama: fora dela nada pinta.
-    for (const [k, v] of [['x', -1e5], ['y', -1e5], ['width', 2e5], ['height', 2e5]]) mask.setAttribute(k, String(v));
-    const tudo = document.createElementNS(NS, 'rect');
-    for (const [k, v] of [['x', -1e5], ['y', -1e5], ['width', 2e5], ['height', 2e5], ['fill', 'white']]) tudo.setAttribute(k, String(v));
-    mask.appendChild(tudo);
-    for (const c of caixas) {
-      const furo = document.createElementNS(NS, 'rect');
-      for (const [k, v] of [['x', c.x], ['y', c.y], ['width', c.width], ['height', c.height], ['fill', 'black']]) furo.setAttribute(k, String(v));
-      mask.appendChild(furo);
+    let grupo = 0;
+    const linhas = Array.from(svg.querySelectorAll('line')).filter((l) => !l.closest('g[data-cell-type]'));
+    for (const caixa of caixas) {
+      const x0 = caixa.x, x1 = caixa.x + caixa.width, y0 = caixa.y, y1 = caixa.y + caixa.height;
+      for (const linha of linhas) {
+        if (!linha.isConnected) continue;
+        const a = { x: +linha.getAttribute('x1'), y: +linha.getAttribute('y1') };
+        const b = { x: +linha.getAttribute('x2'), y: +linha.getAttribute('y2') };
+        let partes = null;
+        if (a.y === b.y && a.y >= y0 && a.y <= y1) {
+          // Horizontal: sobrevive o que fica fora de [x0, x1], em cada lado.
+          const esq = Math.min(a.x, b.x), dir = Math.max(a.x, b.x);
+          if (dir <= x0 || esq >= x1) continue;
+          partes = [];
+          if (esq < x0) partes.push([{ x: esq, y: a.y }, { x: x0, y: a.y }]);
+          if (dir > x1) partes.push([{ x: x1, y: a.y }, { x: dir, y: a.y }]);
+        } else if (a.x === b.x && a.x >= x0 && a.x <= x1) {
+          const topo = Math.min(a.y, b.y), base = Math.max(a.y, b.y);
+          if (base <= y0 || topo >= y1) continue;
+          partes = [];
+          if (topo < y0) partes.push([{ x: a.x, y: topo }, { x: a.x, y: y0 }]);
+          if (base > y1) partes.push([{ x: a.x, y: y1 }, { x: a.x, y: base }]);
+        }
+        if (!partes) continue;
+        const id = `cut-${++grupo}`;
+        for (const [p, q] of partes) {
+          const seg = /** @type {SVGLineElement} */ (linha.cloneNode(false));
+          seg.setAttribute('x1', String(p.x)); seg.setAttribute('y1', String(p.y));
+          seg.setAttribute('x2', String(q.x)); seg.setAttribute('y2', String(q.y));
+          seg.dataset.cutGroup = id;
+          linha.parentNode.insertBefore(seg, linha);
+          linhas.push(seg);
+        }
+        linha.remove();
+      }
     }
-    let defs = svg.querySelector('defs');
-    if (!defs) { defs = document.createElementNS(NS, 'defs'); svg.insertBefore(defs, svg.firstChild); }
-    defs.appendChild(mask);
-
-    const cruza = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-    svg.querySelectorAll('path, line, polyline').forEach((fio) => {
-      if (fio.closest('g[data-cell-type]')) return;
-      let bb;
-      try { bb = fio.getBBox(); } catch (_) { return; }
-      // Um fio reto tem caixa de largura ou altura zero; um pouco de folga
-      // faz a intersecao valer para ele tambem.
-      const caixaFio = { x: bb.x - 1, y: bb.y - 1, width: bb.width + 2, height: bb.height + 2 };
-      if (caixas.some((c) => cruza(caixaFio, c))) fio.setAttribute('mask', `url(#${ID})`);
-    });
   }
 
   // -------------------------------------------------------------------------
@@ -691,9 +707,22 @@ class PRISMViewer {
         if (hits) {
           connected.add(w);
           checked.add(w);
-          wPts.forEach((p) => {
+          const pushPts = (pts) => pts.forEach((p) => {
             if (!toCheck.some((q) => Math.abs(q.x - p.x) <= TOL && Math.abs(q.y - p.y) <= TOL)) toCheck.push(p);
           });
+          pushPts(wPts);
+          // A wire cut around a bus label is two segments with a gap wider
+          // than TOL between them; the shared cut group carries the flood
+          // across the gap, so the highlight does not stop at the label.
+          const grupo = w.dataset && w.dataset.cutGroup;
+          if (grupo) {
+            svg.querySelectorAll(`[data-cut-group="${grupo}"]`).forEach((irmao) => {
+              if (checked.has(irmao)) return;
+              connected.add(irmao);
+              checked.add(irmao);
+              pushPts(this._wireEndpoints(irmao));
+            });
+          }
         }
       });
     }

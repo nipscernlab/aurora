@@ -527,12 +527,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
  * conferir no Verilog.
  *
  * Voltam ajustados ao tema, e nao como o netlistsvg os desenha. O retangulo
- * nao pinta nada: ate 22/08/2026 ele era pintado com a cor do fundo para
- * esconder o fio atras do numero, mas o canvas tem grade de pontos e vinheta,
- * e a caixa solida aparecia como um retangulo de outro tom em volta de cada
- * "/32/". O corte do fio agora e uma mascara do SVG, montada em prism.js
- * (_cutWiresUnderLabels) a partir da geometria deste retangulo, que por isso
- * continua existindo e sendo medido no texto. */
+ * que o netlistsvg poe atras do numero e REMOVIDO do documento em prism.js
+ * (_adjustBusLabels): ate 22/08/2026 ele era pintado com a cor do fundo para
+ * esconder o fio, e aparecia como uma caixa de outro tom por cima da grade de
+ * pontos e da vinheta. O fio nao passa mais por tras do numero porque e
+ * cortado em dois segmentos em volta da etiqueta (_cutWiresUnderLabels). A
+ * regra abaixo e so a rede para o instante entre o SVG entrar e o retangulo
+ * sair. */
 .svg-content svg [class*="busLabel_"] { display: inline; }
 
 .svg-content svg rect[class*="busLabel_"] {

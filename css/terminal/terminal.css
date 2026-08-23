@@ -364,7 +364,6 @@
 }
 .dump-size i { color: var(--aurora-mint, #5FE0B0); font-size: 13px; }
 .dump-size.done { opacity: 0.75; }
-.dump-size.hiding { opacity: 0; transition: opacity 400ms ease; }
 
 /* A mesma linha repetida em seguida vira este contador, em vez de mil nos de
    DOM: e o caso do $fscanf com $fopen falhado, que imprime o MESMO erro a

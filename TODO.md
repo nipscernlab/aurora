@@ -982,6 +982,16 @@ formalmente, não consertado.
   coisa que dependa de sequência de cliques.
 - A lista de bugs vem do uso, não de auditoria. Conforme aparecerem, entram
   aqui com o caminho para reproduzir.
+- Mudou código do renderer? `npm run build:ts` NÃO basta: o renderer roda do
+  `dist/`, e sem `npx vite build` a AURORA continua executando o bundle
+  antigo. O `prestart` do `npm start` faz os dois, então quem sobe pelo
+  atalho ou reabre a janela fica com o velho. Custou duas correções que
+  pareciam não ter efeito em 23/08/2026.
+- Referência hierárquica que ATRAVESSA escopo de `generate` elabora no Icarus
+  e NÃO no Verilator 5.048, que responde "Known scopes under <escopo>: <no
+  instances found>" mesmo com a condição verdadeira e o escopo existindo.
+  Medido nos dois com design mínimo em 23/08/2026; é por isso que o monitor da
+  pilha de instrução só sai sob Icarus. Vale para qualquer espelho futuro.
 - PRISM, etiquetas de barramento: não esconder fio com retângulo pintado nem
   com `<mask>`. O canvas não é uma cor (grade de pontos e vinheta), e a máscara
   corta o brilho do realce com borda reta. O corte é na geometria do `<line>`

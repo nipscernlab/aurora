@@ -925,6 +925,33 @@ formalmente, não consertado.
   (`_cutWiresUnderLabels`). Para conferir rendering sem abrir a AURORA: janela
   oculta do Electron com o SVG de `components/Temp/PRISM` e o CSS de `dist/`,
   `capturePage` e leitura de pixels; a sessão de 22/08 fez assim.
+- Relato #5 do canal (Vinicius, 24/08): "o consumo de RAM aumenta sem parar"
+  ao abrir a tela do Git ou o painel de bibliotecas Python, em modo
+  desenvolvedor. A investigação de 24/08 NÃO reproduziu o vazamento, e
+  descartou duas hipóteses. Não refazer estas duas:
+  1. O `AbortController` de vida longa de `main/ipc/git.js` (`abortos`,
+     compartilhado por toda a sessão) NÃO acumula ouvintes. O abort-plugin do
+     simple-git registra no `spawn.before` e remove no `close`, e o par fecha:
+     30 `git status` seguidos deixaram o sinal com zero ouvintes.
+  2. As duas rondas periódicas (`git_panel.js:1629`, de 8 s, e
+     `git_decorations.js:150`, de 10 s) rodam de fato, mas NÃO fazem a memória
+     subir. Com um projeto git aberto e sujo (15 arquivos), painel de Git
+     aberto e painel de PyLibs aberto, 90 s por fase: heap +0,00 MB, nós do DOM
+     constantes, ouvintes de evento constantes, RSS do main constante.
+  O que ficou INCONCLUSIVO, e é por onde continuar: a tempestade de eventos de
+  arquivo. O relato vem de uma máquina cujo clone mora no OneDrive (o caminho
+  aparece no log da issue), e o OneDrive toca arquivo o tempo todo. O ensaio
+  escreveu 444 vezes no projeto durante 90 s e nada subiu, mas o watcher não
+  estava armado: quem chama `watchDirectory` é o `file_tree_manager` ao
+  carregar a árvore, e o harness abriu o projeto por IPC direto, sem passar por
+  ele. Além disso `file_tree_manager.js:213` descarta o evento quando `dir !==
+  currentWatchedDirectory`. Refazer com a árvore carregada de verdade antes de
+  concluir qualquer coisa sobre esse caminho.
+  As sondas usadas (Playwright + CDP, `HeapProfiler.collectGarbage` seguido de
+  `Performance.getMetrics`, medindo heap, nós, ouvintes e RSS do main) são o
+  jeito certo de medir isto e levam ~5 min por rodada; o padrão de launch é o
+  de `tests/e2e/smoke.test.js`. Antes de investir mais, perguntar ao relator:
+  quanto tempo até aparecer, e qual processo cresce no Gerenciador de Tarefas.
 - PRISM, a grade dentro dos cartões de memória é símbolo da família (linhas por
   colunas = células armazenadas), gerada por `scripts/prism-skin-standard.js`
   com opacidade 0,16 a 0,22. Decidido em 22/08 manter; se incomodar, ajustar

@@ -1181,6 +1181,42 @@ formalmente, não consertado.
 - Botão novo numa linha da lista de recentes: os controles precisam estar
   dentro de UMA célula da grade. A lista é uma subgrade de três colunas, e um
   quarto filho joga o × para a linha seguinte em toda entrada riscada.
+- Relato #5 do canal (Vinicius, 24/08): "o consumo de RAM aumenta sem parar" ao
+  abrir a tela do Git ou o painel de bibliotecas Python, em modo desenvolvedor.
+  A investigacao de 24/08 NAO reproduziu o vazamento em nenhuma configuracao, e
+  fechou as tres hipoteses que existiam. Nao refazer:
+  1. O `AbortController` de vida longa de `main/ipc/git.js` (`abortos`,
+     compartilhado por toda a sessao) NAO acumula ouvintes. O abort-plugin do
+     simple-git registra no `spawn.before` e remove no `close`, e o par fecha:
+     30 `git status` seguidos deixaram o sinal com zero ouvintes.
+  2. As duas rondas periodicas (`git_panel.js`, de 8 s, e `git_decorations.js`,
+     de 10 s) rodam, mas NAO fazem a memoria subir. Projeto git aberto e sujo,
+     painel de Git aberto, painel de PyLibs aberto, 90 s por fase: heap
+     +0,00 MB, nos do DOM e ouvintes constantes.
+  3. A tempestade de eventos de arquivo, que era a hipotese do OneDrive, tambem
+     NAO vaza. Desta vez o ensaio valeu: o projeto foi aberto pelo carregador
+     completo (`projectManager.loadProject`, que e quem arma o vigia em
+     `project_manager.js:281`) e a sonda contou os `directory-changed` que
+     chegaram ao renderer. Com 8 eventos entregues, os nos subiram 152 e os
+     ouvintes 96 UMA VEZ, que sao as 8 linhas novas da lista de alteracoes, e
+     depois ficaram parados; a fase seguinte, com o disco quieto, nao devolveu
+     nada nem continuou subindo. Se vazasse por evento, subiria a cada um.
+  Detalhe que vale guardar: o debounce de 500 ms de `main/ipc/files.js` engole
+  tempestade CONTINUA. Escrita a cada 200 ms durante 90 s gerou 442 escritas e
+  UM unico evento. Para exercitar esse caminho e preciso espacar acima do
+  debounce (800 ms deu 8 eventos em 112 escritas). Um ensaio com escrita rapida
+  nao testa nada e parece um resultado limpo.
+  Ferramenta: Playwright + CDP, `HeapProfiler.collectGarbage` seguido de
+  `Performance.getMetrics`, medindo heap, nos, ouvintes e RSS do main a cada
+  15 s; padrao de launch igual ao de `tests/e2e/smoke.test.js`. ~5 min por
+  rodada. Sempre instrumentar a contagem de eventos: sem ela nao da para
+  separar "nao vazou" de "o ensaio nao exercitou nada".
+  Como o vazamento nao reproduz, o que sobra e a maquina do relator, nao o
+  codigo: o clone dele estava no OneDrive e a instalacao tinha sido feita a
+  mao. O `setup.bat` agora recusa pasta sincronizada, caminho de rede e avisa
+  sobre caminho fundo. Se o relato voltar depois disso, pedir duas informacoes
+  antes de investigar de novo: quanto tempo ate aparecer, e qual processo
+  cresce no Gerenciador de Tarefas (principal, renderer ou GPU).
 - PRISM, a grade dentro dos cartões de memória é símbolo da família (linhas por
   colunas = células armazenadas), gerada por `scripts/prism-skin-standard.js`
   com opacidade 0,16 a 0,22. Decidido em 22/08 manter; se incomodar, ajustar

@@ -598,6 +598,19 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       documentação. O método que funcionou três vezes e vale repetir: achar o
       núcleo que não depende de nada, tirar para um módulo próprio, escrever
       teste em cima.
+
+      Em 23/08/2026 o método foi aplicado mais duas vezes, sem esperar pelo
+      E2E, porque núcleo puro não precisa de rede para ser mexido com
+      segurança. Saiu de `renderUsage` o `ai_metadata.usageRows`, com as
+      regras que o desenho escondia (utilização recortada em 0 a 100, cor em 90
+      e 60, e o `resetsAt` que chega ora em segundos ora em milissegundos), e
+      junto o rótulo do plano, que unifica `pro_max` e `claude_max` num MAX
+      só. Saiu de `_waveValidateCocotbConfig` o `decideCocotbDut`, que responde
+      quem é o dut e devolve o motivo da recusa como código, deixando a
+      tradução para o chamador. Vinte e cinco testes novos, e os dois arquivos
+      juntos perderam cerca de oitenta linhas. O que sobra neles é orquestração
+      de verdade, com disco e IPC no meio, e para essa parte o E2E continua
+      sendo o caminho.
 - [x] ~~**CRUD da árvore de arquivos**~~, lacunas fechadas em 23/08/2026.
       Seleção múltipla com Ctrl e Shift: a regra de qual clique produz qual
       conjunto é pura (`js/tree/tree_selection.js`), a âncora do Shift é o
@@ -627,15 +640,37 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       ([scripts/check-design-tokens.js](scripts/check-design-tokens.js)), que
       não exige limpar as 163 cores e 172 durações cravadas de hoje, só que o
       número não suba; quando um arquivo melhora, ela pede que a linha desça.
-- [ ] **O resto dos estilos.** Noventa e seis valores em propriedade de
-      espaçamento fora da escala, como 10, 14 e 18 px: ou a escala ganha esses
-      degraus, ou eles ficam, mas decidido e não por omissão. Setenta e quatro
-      `!important`, dos quais cerca de trinta vivem no `editor.css` contra o CSS
-      do próprio Monaco e só saem com o editor em Shadow DOM. Os dois
-      vocabulários de token ainda convivem, os aliases legados ao lado dos
-      semânticos. O `git_panel.css` sozinho concentra 70 das cores cravadas e é
-      por onde a catraca desce mais rápido. Decidir a marca entre SAPHO, AURORA
-      e Dagr.
+- [x] ~~**O resto dos estilos, a parte verificável por máquina.**~~ Feito em
+      23/08/2026. A catraca desceu de 163 para 57 cores cravadas e de 172 para
+      157 durações, e o `git_panel.css` sozinho caiu de 70 para 3.
+
+      A descoberta que explica o tamanho da queda: a maior parte das cores
+      cravadas não era cor solta, era RESERVA dentro do próprio `var()`, como
+      `var(--status-error, #E26C6C)`. A reserva só valeria se o token não
+      existisse, e todos existem, porque o `import.css` carrega
+      `theme_variables` (que importa `brand_tokens`) antes de qualquer painel.
+      O que ela faz de fato é guardar uma cópia que ninguém atualiza quando a
+      paleta muda, que foi exatamente como as três janelas terminaram com três
+      céus noturnos diferentes. Saíram as reservas e os hex soltos de valor
+      IDÊNTICO a um token.
+
+      O que FICOU, decidido e não por omissão. Cor sem token equivalente fica
+      como está: trocá-la pela parecida mudaria o desenho por baixo do pano, e
+      são poucas, quase todas texto escuro sobre ficha colorida. As durações
+      fora da escala também ficam: 200 ms virar 260 ms seria uma transição
+      trinta por cento mais lenta na interface inteira, mudança visível que
+      ninguém pediu e que nenhum teste pega. E os espaçamentos de 10, 14 e 18
+      px ficam: a escala existe para o ritmo do layout, não para proibir ajuste
+      óptico em cromo denso como abas, fichas e barra de estado; uma escala que
+      ganha meio degrau a cada aperto deixa de ser escala. Os 74 `!important`
+      continuam, e os trinta do `editor.css` continuam presos ao CSS do Monaco:
+      só saem com o editor em Shadow DOM.
+
+- [ ] **Os dois vocabulários de token, e a marca.** Os aliases legados ainda
+      convivem com os semânticos, e consolidar é mecânico só onde o alias
+      aponta para o token equivalente; onde ele carrega valor próprio, é
+      decisão de desenho. Junto disto, e antes dele, decidir a marca entre
+      SAPHO, AURORA e Dagr, que é o que dá nome ao vocabulário que sobra.
 - [x] ~~**Varredura de código morto.**~~ Feita em 11/08/2026. Nenhum arquivo
       órfão, nenhuma dependência sem uso. Dos 175 exports sem consumidor, 37
       existem para o teste alcançar o código, que é o método desta base para
@@ -643,11 +678,19 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       dentro do próprio arquivo. Sobraram nove funções que ninguém chamava, e
       saíram; o lint achou a cascata sozinho, porque sem o `tempRoot` o
       `require('os')` do fetcher ficou sem uso.
-- [ ] **Aparar as 129 exportações supérfluas.** É superfície de API, não código
-      morto, então não urge; o ganho é a lista do knip voltar a significar
-      alguma coisa. Em CommonJS é tirar o nome do `module.exports`; em ESM é
-      tirar a palavra `export` da definição. Depois disso, avaliar subir
-      `exports` para o `--include` do `deadcode` no CI.
+- [x] ~~**Aparar as exportações supérfluas.**~~ Feito em 23/08/2026. A lista do
+      knip sozinha não autorizava nada: ele não enxerga os testes, que ficam
+      fora do `project`, nem as globais do renderer, que não têm aresta de
+      importação para seguir. Cada nome dos 233 que ele acusa foi conferido por
+      uso real no repositório inteiro, testes incluídos; 67 não apareciam em
+      lugar nenhum fora do próprio arquivo e perderam a exportação, com o
+      código seguindo vivo lá dentro. Dois não eram superfície e sim código
+      morto, e saíram: `aiMarkElement`, irmão em nó de DOM que ninguém monta,
+      e `limparSilencio`, que dizia servir aos testes e nenhum teste chamava.
+
+      Ficou decidido NÃO subir `exports` para o `--include` do CI: os 166
+      restantes são falso positivo por construção, e uma catraca que acusa
+      falso positivo é uma catraca que se aprende a ignorar.
 - [ ] **jQuery preso na 3.x pelo digitaljs.** O digitaljs 0.14.2, que desenha a
       simulação interativa do PRISM, declara `jquery: ^3.7.1`. Subir a raiz
       para a 4 instala duas cópias e o digitaljs resolveria a sua própria, sem
@@ -875,15 +918,22 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       uma tirada à mão carrega o desktop de quem tirou. Duas armadilhas ficaram
       registradas lá dentro: emular métrica por CDP não reflowa o layout, e a
       janela só aceita tamanho maior que o monitor depois de `unmaximize()`.
-- [ ] **Os quatro GIFs do README.** `split-editor.gif` e `compile.gif` são
-      alcançáveis pelo mesmo script (o segundo precisa de uma compilação real,
-      que a toolchain local roda). `prism.gif` exige síntese com Yosys e a
-      janela do PRISM. `waveform.gif` **não é automatizável por aqui**: o
-      GTKWave e o Surfer são janelas externas, fora do alcance do Playwright,
-      então ou é gravação de tela sua, ou o Surfer embutido da seção 8 resolve
-      junto. Vale um encoder: o `ffmpeg` existe nesta máquina mas não é
-      dependência do projeto, então o script precisa degradar com recado claro
-      em vez de estourar.
+- [ ] **Os quatro GIFs do README.** O script já sabe gravar os três que são
+      alcançáveis, desde 23/08/2026: `node scripts/capture-media.js tudo`
+      grava `split-editor.gif`, `compile.gif` (compilação de verdade, com a
+      toolchain local) e `prism.gif` (síntese e a janela do esquematico, com
+      zoom e arrasto), além do `hero.png`. Os quadros saem de
+      `page.screenshot` em intervalo fixo e o `ffmpeg` monta o GIF com paleta
+      em dois passos; sem `ffmpeg` no PATH os quadros ficam no disco e o
+      script imprime o comando que os transforma em GIF, em vez de estourar.
+      A montagem foi provada com uma page falsa, nos dois caminhos.
+
+      Falta RODAR, o que precisa da máquina livre: o script abre a AURORA de
+      verdade e a compilação leva dezenas de segundos. Depois, apontar o README
+      para os arquivos gerados. `waveform.gif` continua **não automatizável por
+      aqui**: GTKWave e Surfer são janelas externas, fora do alcance do
+      Playwright, então ou é gravação de tela sua, ou o Surfer embutido da
+      seção 8 resolve junto.
 - [x] ~~**CITATION.cff** com `date-released` defasado.~~ Resolvido na raiz em
       11/08/2026: o arquivo entrou no `extra-files` do release-please e as duas
       linhas ganharam as anotações `x-release-please-version` e
@@ -896,10 +946,14 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       Mudar agora abandonaria o PR #63 e abriria outro do zero, na véspera da
       release. Se um dia for mudar, mude logo depois de uma release sair, nunca
       com PR de release aberto.
-- [ ] **`docs/referencia-tecnica-sapho/_fonte/apendices/referencias.tex`** cita
-      `ROADMAP.md` e `RELEASE.md`, que não existem, e agora também os
-      documentos removidos nesta consolidação. Limpar na próxima edição do
-      relatório.
+- [x] ~~**Citações do relatório apontando para documentos que não existem.**~~
+      Limpas em 23/08/2026. O apêndice citava `ROADMAP.md`, `RELEASE.md`,
+      `docs/DESIGN.md` e `docs/CODE_SIGNING.md`, todos removidos na
+      consolidação, e as mesmas pistas mortas estavam no gerador do relatório.
+      Passaram a apontar para o que existe, com o `TODO.md` como único registro
+      de pendências e decisões. Junto, uma afirmação que envelheceu: a seção de
+      build dizia que instalador e updater não são assinados, o que deixou de
+      ser verdade em 22/08.
 - [x] ~~**Verificar o `LICENSE-BASE.md` fora do instalador.**~~ Decidido em
       11/08/2026 que fica fora, e a razão está registrada no bloco
       `//build-licences` do package.json: o texto da base já são as primeiras
@@ -1081,6 +1135,19 @@ formalmente, não consertado.
   (`_cutWiresUnderLabels`). Para conferir rendering sem abrir a AURORA: janela
   oculta do Electron com o SVG de `components/Temp/PRISM` e o CSS de `dist/`,
   `capturePage` e leitura de pixels; a sessão de 22/08 fez assim.
+- Os portões antes de um commit não são quatro, são seis, e os dois esquecidos
+  mordem no CI: além de `npx eslint . --max-warnings=0`, `npx vitest run`,
+  `npx tsc --noEmit` e `node scripts/check-i18n.js`, o CI roda
+  `node scripts/check-design-tokens.js` (catraca de cor e duração) e
+  `node scripts/check-no-generated-js.js` (nenhum `.js` gerado de `.ts` pode
+  estar versionado). Em 23/08/2026 os dois estavam vermelhos em `main` sem
+  ninguém saber: cores de reserva entraram no `var()` de um recurso novo, e o
+  `generate_blocks.js`, gerado do `.ts`, tinha sido commitado. O CI também
+  roda `npm run deadcode`, `node scripts/gen-ai-tools-doc.js --check` e
+  `node scripts/check-pinned-versions.js`, que são baratos e valem no fim.
+- Módulo `.ts` novo em `js/`: o `.js` que o `tsc` emite ao lado precisa entrar
+  na lista do `.gitignore` NO MESMO commit. A lista é explícita, arquivo por
+  arquivo, então um módulo novo não é coberto por padrão nenhum.
 - O tooltip global do app (`js/ui/tooltip.js`) NÃO atravessa shadow DOM: um
   `data-tooltip` dentro de um componente Lit, como a tela de boas-vindas,
   nunca é descoberto pelo observador. Ou o balão é reimplementado em CSS

@@ -186,7 +186,8 @@ function temFfmpeg() {
 async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = GIF_LARGURA } = {}, durante) {
   const quadrosDir = fs.mkdtempSync(path.join(os.tmpdir(), `aurora-gif-${nome}-`));
   const intervalo = Math.round(1000 / fps);
-  const limite = Date.now() + segundos * 1000;
+  const comeco = Date.now();
+  const limite = comeco + segundos * 1000;
   let i = 0;
   let gravando = true;
 
@@ -210,9 +211,22 @@ async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = G
 
   if (!i) { console.warn(`capture-media: nenhum quadro capturado para ${nome}.`); return null; }
 
+  // A taxa PEDIDA nao e a taxa obtida: cada quadro custa uma captura de tela
+  // da janela inteira, que numa maquina ocupada leva mais que o intervalo.
+  // O GIF e montado na taxa MEDIDA, senao ele conta a historia mais rapido
+  // do que ela aconteceu, e uma compilacao parece mais curta do que e.
+  const duracaoReal = (Date.now() - comeco) / 1000;
+  const taxaReal = Math.max(1, Math.min(30, i / Math.max(0.001, duracaoReal)));
+
   const saida = path.join(OUT_DIR, `${nome}.gif`);
-  const filtro = `fps=${fps},scale=${largura}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3`;
-  const args = ['-y', '-framerate', String(fps), '-i', path.join(quadrosDir, 'q-%04d.png'), '-vf', filtro, saida];
+  // Sem dithering e com paleta curta, por medida e nao por gosto. Numa
+  // sequencia de 60 quadros de interface de verdade, o bayer deu 974 KB com
+  // PSNR 40,3 dB e este ajuste deu 705 KB com 42,3 dB: menor E mais fiel,
+  // porque o dithering gasta bytes espalhando ruido que afasta o pixel do
+  // original. Faz sentido para foto, nao para interface, que e cor chapada
+  // com texto em cima; 64 cores sobram para um tema escuro.
+  const filtro = `scale=${largura}:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64:stats_mode=diff[p];[b][p]paletteuse=dither=none`;
+  const args = ['-y', '-framerate', taxaReal.toFixed(2), '-i', path.join(quadrosDir, 'q-%04d.png'), '-vf', filtro, saida];
 
   if (!temFfmpeg()) {
     console.warn(`capture-media: ffmpeg nao esta no PATH, entao ${nome}.gif nao foi montado.`);
@@ -232,8 +246,49 @@ async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = G
   }
   fs.rmSync(quadrosDir, { recursive: true, force: true });
   const kb = Math.round(fs.statSync(saida).size / 1024);
-  console.log(`capture-media: ${nome}.gif escrito (${i} quadros, ${kb} KB)`);
+  // Conferir o que saiu, e nao supor: em 23/08/2026 um GIF anunciado com 114
+  // quadros tinha 38 e corria tres vezes mais rapido que a gravacao, e o
+  // script nao tinha como perceber porque so contava o que entrava.
+  const dentro = conferirGif(saida);
+  const resumo = dentro
+    ? `${dentro.quadros} quadros, ${dentro.segundos.toFixed(1)} s, ${kb} KB`
+    : `${i} quadros capturados, ${kb} KB`;
+  console.log(`capture-media: ${nome}.gif escrito (${resumo})`);
+  if (dentro && Math.abs(dentro.segundos - duracaoReal) > Math.max(2, duracaoReal * 0.25)) {
+    console.warn(`capture-media: ${nome}.gif dura ${dentro.segundos.toFixed(1)} s, mas a gravacao levou ${duracaoReal.toFixed(1)} s.`);
+  }
+  if (dentro && dentro.quadros < i * 0.9) {
+    console.warn(`capture-media: o ffmpeg gravou ${dentro.quadros} dos ${i} quadros capturados.`);
+  }
+  // Um GIF pesado no README custa a cada visita da pagina, e custa para
+  // sempre no historico do repositorio. O aviso existe porque a primeira
+  // gravacao do compile passou de 5 MB sem ninguem notar.
+  if (kb > 2500) {
+    console.warn(`capture-media: ${nome}.gif esta pesado para um README (${kb} KB).`);
+    console.warn('  Encolha a tomada: menos segundos, menos quadros por segundo, ou menos largura.');
+  }
   return saida;
+}
+
+/**
+ * Quantos quadros e quantos segundos o GIF tem DE FATO. Usa o ffprobe, que
+ * vem junto do ffmpeg; sem ele, devolve null e quem chama segue sem a
+ * conferencia, que e informativa e nao pode derrubar a captura.
+ */
+function conferirGif(arquivo) {
+  try {
+    const r = require('child_process').spawnSync('ffprobe', [
+      '-v', 'error', '-count_frames', '-select_streams', 'v:0',
+      '-show_entries', 'stream=nb_read_frames,duration',
+      '-of', 'default=nw=1:nk=0', arquivo,
+    ], { encoding: 'utf8' });
+    if (r.status !== 0) return null;
+    const texto = String(r.stdout || '');
+    const quadros = Number((texto.match(/nb_read_frames=(\d+)/) || [])[1]);
+    const segundos = Number((texto.match(/duration=([\d.]+)/) || [])[1]);
+    if (!Number.isFinite(quadros) || !Number.isFinite(segundos)) return null;
+    return { quadros, segundos };
+  } catch { return null; }
 }
 
 /** A janela do PRISM, que nasce depois da sintese, em processo de renderer proprio. */
@@ -374,15 +429,16 @@ async function main() {
       // terminal recebendo saida, e um projeto grande encheria o arquivo.
       await openInEditor(page, 'mediamovel.cmm');
       await page.waitForTimeout(800);
-      // Menos quadros e menos largura que as outras tomadas: a primeira
-      // gravacao saiu com 5 MB, que e pesado demais para um README, e o que
-      // esta acontecendo na tela e texto aparecendo, que sobrevive bem a
-      // cinco quadros por segundo.
-      await gravarGif(page, 'compile', { segundos: 24, fps: 5, largura: 800 }, async () => {
+      // Menos quadros, menos tempo e menos largura que as outras tomadas.
+      // Aqui a tela inteira muda a cada linha nova, entao cada quadro custa
+      // quase um quadro cheio: a 8 q/s por 30 s o arquivo passou de 5 MB. O
+      // que o GIF precisa contar e "o terminal enche de saida", e doze
+      // segundos a quatro quadros por segundo contam isso.
+      await gravarGif(page, 'compile', { segundos: 12, fps: 4, largura: 800 }, async () => {
         await page.click('#cmmcomp').catch(() => {
           console.warn('capture-media: botao de compilar C+- nao encontrado.');
         });
-        await page.waitForTimeout(23_000);
+        await page.waitForTimeout(11_000);
       });
     }
 

@@ -76,7 +76,20 @@ const TOMADAS = {
 // O top level e o testbench do projeto descartavel. Ficam aqui em cima, e
 // nao embutidos no meio da funcao, porque sao Verilog de verdade: a
 // elaboracao os le e reclama de qualquer porta inventada.
-const TOP_LEVEL_V = "`timescale 1ns/1ps\n// Top level: liga o processador SAPHO aos pinos da placa.\n//\n// A interface do processador NAO e escolha deste arquivo: o yanc a gera a\n// partir do .cmm e da configuracao do .spf. Sao clk e rst, a porta de\n// entrada `in` e a de saida `out` com a largura da palavra, `req_in`\n// pedindo a proxima amostra e `out_en` marcando saida valida. Inventar\n// nome de porta aqui custa uma elaboracao que falha antes de qualquer\n// sintese, que foi o que aconteceu em 23/08/2026.\nmodule top_mediamovel (\n  input  wire               clk,\n  input  wire               rst,\n  input  wire signed [15:0] sample_in,\n  output wire signed [15:0] sample_out,\n  output wire               sample_req,\n  output wire               sample_valid\n);\n  mediamovel proc (\n    .clk    (clk),\n    .rst    (rst),\n    .in     (sample_in),\n    .out    (sample_out),\n    .req_in (sample_req),\n    .out_en (sample_valid)\n  );\nendmodule\n";
+//
+// A interface do processador NAO e escolha deste arquivo: o yanc a gera a
+// partir do .cmm e da configuracao do .spf, e hoje sao clk, rst, a porta de
+// entrada `in` e a de saida `out` com a largura da palavra, `req_in`
+// pedindo a proxima amostra e `out_en` marcando saida valida. Inventar nome
+// de porta aqui custa uma elaboracao que falha antes de qualquer sintese, e
+// o sintoma aparece longe, como uma janela do PRISM que nao abre. Conferir
+// sem abrir a aplicacao:
+//   iverilog -y components/HDL -tnull -s top_mediamovel <topo.v> <gerado.v>
+//
+// Os comentarios DENTRO destes fontes ficam curtos de proposito: eles
+// aparecem no editor durante a captura, e uma parede de prosa e o que o
+// leitor do README veria no lugar do codigo.
+const TOP_LEVEL_V = "`timescale 1ns/1ps\n// Top level: liga o processador SAPHO aos pinos da placa.\nmodule top_mediamovel (\n  input  wire               clk,\n  input  wire               rst,\n  input  wire signed [15:0] sample_in,\n  output wire signed [15:0] sample_out,\n  output wire               sample_req,\n  output wire               sample_valid\n);\n  mediamovel proc (\n    .clk    (clk),\n    .rst    (rst),\n    .in     (sample_in),\n    .out    (sample_out),\n    .req_in (sample_req),\n    .out_en (sample_valid)\n  );\nendmodule\n";
 
 const TESTBENCH_V = "`timescale 1ns/1ps\nmodule tb_mediamovel;\n  reg                clk = 0;\n  reg                rst = 1;\n  reg  signed [15:0] sample_in = 0;\n  wire signed [15:0] sample_out;\n  wire               sample_req;\n  wire               sample_valid;\n\n  top_mediamovel dut (\n    .clk(clk), .rst(rst),\n    .sample_in(sample_in), .sample_out(sample_out),\n    .sample_req(sample_req), .sample_valid(sample_valid)\n  );\n\n  always #5 clk = ~clk;\n\n  initial begin\n    $dumpfile(\"tb_mediamovel.vcd\");\n    $dumpvars(0, tb_mediamovel);\n    #20 rst = 0;\n    repeat (16) begin\n      @(posedge clk) sample_in <= $random % 512;\n    end\n    #100 $finish;\n  end\nendmodule\n";
 
@@ -468,19 +481,30 @@ async function main() {
         console.warn('  Olhe o terminal TVERI da janela: a sintese pode ter falhado antes.');
       } else {
         await prism.waitForTimeout(6000); // desenho do esquematico
+        // Ajustar ANTES de gravar. O desenho nasce no tamanho natural, que
+        // num top level pequeno e um punhado de caixas perdidas num canvas
+        // grande: o GIF ficava com noventa por cento de fundo vazio.
+        await prism.click('#fitBtn').catch(() => {
+          console.warn('capture-media: botao de ajustar do PRISM nao encontrado.');
+        });
+        await prism.waitForTimeout(1200);
         await gravarGif(prism, 'prism', { segundos: 12 }, async () => {
-          // Um passeio curto pelo esquematico: aproximar e arrastar, que e
-          // o que o usuario faz e o que mostra que o desenho e interativo.
-          await prism.mouse.move(700, 400);
-          await prism.mouse.wheel(0, -300);
+          // Um passeio curto pelo esquematico: aproximar num ponto, arrastar
+          // e voltar a ajustar. E o que o usuario faz, e mostra que o desenho
+          // e interativo em vez de uma figura parada.
+          await prism.waitForTimeout(1500);
+          await prism.mouse.move(650, 380);
+          await prism.mouse.wheel(0, -400);
           await prism.waitForTimeout(1500);
           await prism.mouse.down();
-          for (let dx = 0; dx < 240; dx += 20) {
-            await prism.mouse.move(700 - dx, 400 + dx / 3);
+          for (let dx = 0; dx < 200; dx += 20) {
+            await prism.mouse.move(650 - dx, 380 + dx / 4);
             await prism.waitForTimeout(60);
           }
           await prism.mouse.up();
-          await prism.waitForTimeout(3000);
+          await prism.waitForTimeout(2000);
+          await prism.click('#fitBtn').catch(() => {});
+          await prism.waitForTimeout(2500);
         });
       }
     }

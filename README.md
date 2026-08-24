@@ -28,15 +28,20 @@ collaboration with CERN. The project page is
   <img src="docs/media/hero.png" alt="AURORA with a SAPHO project open: the file tree, a C± processor in the editor, and the terminal" width="100%">
 </p>
 
-The screenshot is taken from the running application by
-[scripts/capture-media.js](scripts/capture-media.js), so it can be retaken
-whenever the interface changes. Demo recordings are still pending.
+The screenshot and the recordings below come from the running application,
+taken by [scripts/capture-media.js](scripts/capture-media.js) against a
+throwaway project it builds itself, so they can be retaken whenever the
+interface changes and none of them carries anyone's desktop.
 
 ## What it does
 
 The editor is Monaco, split into up to three panes. Panes share the underlying
 model, so an edit in one pane appears live in every other pane showing the same
 file.
+
+<p align="center">
+  <img src="docs/media/split-editor.gif" alt="Splitting the editor and opening the top-level Verilog in the second pane, beside the C± source" width="100%">
+</p>
 
 The compile buttons are deliberately self-contained. You never have to remember
 to compile before opening waveforms or the RTL viewer, because each button
@@ -45,6 +50,10 @@ runs C± and assembly and then Icarus Verilog over the top level. Wave adds the
 simulation and opens the viewer. PRISM adds Yosys. In a pure Verilog project the
 C± and assembly steps disappear on their own, without any conditional in the
 pipeline, because they iterate over a processor list that is simply empty.
+
+<p align="center">
+  <img src="docs/media/compile.gif" alt="One click compiling a C± processor: the terminals fill with the compiler and assembler output and the generated Verilog appears in the tree" width="100%">
+</p>
 
 Two independent choices sit behind the Wave button. You pick which simulator
 runs, Icarus Verilog by default or Verilator, which transpiles to C++ and is
@@ -60,6 +69,10 @@ scope is dumped, which matches what a plain `$dumpvars` would have given you.
 PRISM is the RTL viewer. It synthesises with Yosys and draws the schematic with
 netlistsvg, using per-module skins kept in the repository. It also has an
 interactive simulation mode built on DigitalJS.
+
+<p align="center">
+  <img src="docs/media/prism.gif" alt="The PRISM schematic of the synthesised top level, zoomed and panned" width="100%">
+</p>
 
 Aurora Intelligence is the assistant panel. It talks to models through two
 different paths: directly by API, for provider keys you supply, and through the

@@ -12,7 +12,14 @@ pnpm-debug.log*
 .yarn/
 
 # --- Local user state ---
-.vscode/
+# .vscode: as configuracoes COMPARTILHADAS (tasks, launch, settings,
+# extensions) sao versionadas de proposito - fazem parte do setup de dev.
+# Qualquer outro arquivo local do editor continua fora.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 .claude/
 *.iml

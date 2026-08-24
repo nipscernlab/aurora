@@ -1,0 +1,7 @@
+{
+  // Extensoes que o repositorio recomenda; o VS Code oferece instala-las
+  // ao abrir a pasta pela primeira vez.
+  "recommendations": [
+    "dbaeumer.vscode-eslint"
+  ]
+}

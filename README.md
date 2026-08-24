@@ -89,22 +89,36 @@ GUI is developed, and `nipscernlab/sapho` is what end users download.
 
 ## Building from source
 
-You need Windows 10 or 11, Git, and Node.js 22.22.1 or newer. That floor is not
-arbitrary: `lint-staged` sets it, and Electron, commitlint and the Claude Code
-CLI each demand something close behind. Older versions may appear to work and
-will emit engine warnings during install.
+You need Windows 10 or 11. Everything else the setup script installs for you.
+
+Clone the repository and run `setup.bat`. It can also be double-clicked from
+Explorer, and it runs fine inside the VS Code integrated terminal:
+
+```powershell
+git clone https://github.com/nipscernlab/aurora.git
+cd aurora
+.\setup.bat
+```
+
+The script checks and installs, in order: Git, Node.js LTS, and (after asking)
+VS Code, all through `winget`, which ships with Windows 10 and 11. It then runs
+`npm install` and the toolchain bootstrap, and offers to start the app. Every
+step detects what is already in place and skips it, so running it again is
+always safe, and it stops with a clear message on the first real failure.
+
+If you would rather do it by hand, the requirements are Git and Node.js 22.22.1
+or newer. That floor is not arbitrary: `lint-staged` sets it, and Electron,
+commitlint and the Claude Code CLI each demand something close behind. Older
+versions may appear to work and will emit engine warnings during install.
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e --source winget
 winget install --id Git.Git           -e --source winget
 ```
 
-Reopen PowerShell so the new executables are on your `PATH`, then clone and
-install:
+Reopen PowerShell so the new executables are on your `PATH`, then:
 
 ```powershell
-git clone https://github.com/nipscernlab/aurora.git
-cd aurora
 npm install
 npm start
 ```
@@ -128,6 +142,15 @@ node components/Scripts/download-toolchain.js --force
 
 If a download fails behind a corporate proxy, the script prints the URL it tried,
 so you can fetch the archive in a browser and extract it by hand.
+
+### Working in VS Code
+
+The repository carries its shared editor configuration in [.vscode/](.vscode/),
+so a fresh clone opens ready to work. `F5` runs the app (either plain or with
+renderer hot-reload), and the Command Palette's *Run Task* lists the setup, the
+two run modes, the tests and the component doctor. The settings file also keeps
+the downloaded toolchain out of VS Code's search index and file watcher, which
+otherwise spends memory and CPU tracking about a gigabyte of binaries.
 
 To produce an installer, `npm run build` runs the bootstrap again and then
 electron-builder, leaving the NSIS installer, its blockmap, and the updater

@@ -1,0 +1,22 @@
+{
+  // A toolchain baixada pelo bootstrap (~1 GB) e os artefatos de build nao
+  // devem entrar na busca nem no watcher do VS Code: sem estas exclusoes o
+  // proprio VS Code gasta RAM e CPU vigiando milhares de binarios.
+  "search.exclude": {
+    "components/Packages": true,
+    "components/PyLibs": true,
+    "components/bin": true,
+    "resources/docs": true,
+    "dist": true,
+    "coverage": true
+  },
+  "files.watcherExclude": {
+    "**/components/Packages/**": true,
+    "**/components/PyLibs/**": true,
+    "**/components/bin/**": true,
+    "**/resources/docs/**": true,
+    "**/dist/**": true,
+    "**/coverage/**": true
+  },
+  "eslint.validate": ["javascript"]
+}

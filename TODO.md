@@ -918,34 +918,31 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       uma tirada à mão carrega o desktop de quem tirou. Duas armadilhas ficaram
       registradas lá dentro: emular métrica por CDP não reflowa o layout, e a
       janela só aceita tamanho maior que o monitor depois de `unmaximize()`.
-- [ ] **Os quatro GIFs do README.** O script já sabe gravar os três que são
-      alcançáveis, desde 23/08/2026: `node scripts/capture-media.js tudo`
-      grava `split-editor.gif`, `compile.gif` (compilação de verdade, com a
-      toolchain local) e `prism.gif` (síntese e a janela do esquematico, com
-      zoom e arrasto), além do `hero.png`. Os quadros saem de
-      `page.screenshot` em intervalo fixo e o `ffmpeg` monta o GIF com paleta
-      em dois passos; sem `ffmpeg` no PATH os quadros ficam no disco e o
-      script imprime o comando que os transforma em GIF, em vez de estourar.
-      A montagem foi provada com uma page falsa, nos dois caminhos.
+- [x] ~~**Os GIFs do README.**~~ Feitos em 23/08/2026, três dos quatro. O
+      `split-editor.gif`, o `compile.gif` e o `prism.gif` estão no README, cada
+      um ao lado do parágrafo que ilustra, e o `hero.png` foi refeito na
+      interface de hoje. Os quatro somam 400 KB. Saem de
+      `node scripts/capture-media.js tudo`, que abre a aplicação de verdade
+      sobre um projeto que ele mesmo monta.
 
-      Rodado uma primeira vez em 23/08/2026, e a corrida ensinou três coisas.
-      O `hero.png` saiu atualizado e já está no README. O `split-editor.gif`
-      saiu bom, com 192 KB. O `compile.gif` saiu com 5 MB, pesado demais para
-      um README, e por isso a tomada baixou para cinco quadros por segundo e
-      800 px: o que acontece na tela é texto aparecendo, que sobrevive bem a
-      menos quadros. E o `prism.gif` não saiu, por um defeito do próprio
-      projeto descartável: o top level instanciava o processador com `io_in` e
-      `io_out`, portas que não existem, então a elaboração falhava antes da
-      síntese e a janela do PRISM nunca abria. Corrigido com a interface real
-      lida de um processador gerado, e provado com o iverilog embarcado.
+      O que custou, e que vale saber antes de mexer nisso de novo. A primeira
+      corrida falhou inteira na tomada do PRISM porque o top level do projeto
+      descartável instanciava o processador com portas inventadas, e a
+      elaboração morre antes da síntese; a interface é o que o yanc gera, hoje
+      `clk`, `rst`, `in`, `out`, `req_in` e `out_en`. O `compile.gif` saiu com
+      5,6 MB e terminou com 64 KB, porque o dithering, que faz sentido em
+      fotografia, gasta bytes espalhando ruído numa interface de cor chapada:
+      medido em sessenta quadros reais, a paleta de 64 cores sem dithering deu
+      um arquivo 28% menor E mais fiel (PSNR 42,3 contra 40,3 dB). E todos os
+      GIFs corriam mais rápido que a realidade, porque eram montados na taxa
+      PEDIDA e não na obtida: uma captura de tela da janela inteira custa mais
+      que o intervalo pedido. O script agora mede a taxa, monta com ela,
+      confere o arquivo pronto com o ffprobe e guarda os quadros quando o que
+      saiu não bate com o que entrou.
 
-      Falta RODAR de novo `node scripts/capture-media.js compile prism`, o que
-      precisa da máquina livre, e depois apontar o README para o conjunto. Os
-      dois GIFs de agora estão no disco mas fora do versionamento de propósito,
-      esperando o conjunto fechar num commit só. `waveform.gif` continua **não automatizável por
-      aqui**: GTKWave e Surfer são janelas externas, fora do alcance do
-      Playwright, então ou é gravação de tela sua, ou o Surfer embutido da
-      seção 8 resolve junto.
+      Falta o `waveform.gif`, que continua **não automatizável por aqui**:
+      GTKWave e Surfer são janelas externas, fora do alcance do Playwright.
+      Ou é gravação de tela sua, ou o Surfer embutido da seção 8 resolve junto.
 - [x] ~~**CITATION.cff** com `date-released` defasado.~~ Resolvido na raiz em
       11/08/2026: o arquivo entrou no `extra-files` do release-please e as duas
       linhas ganharam as anotações `x-release-please-version` e
@@ -1157,6 +1154,14 @@ formalmente, não consertado.
   `generate_blocks.js`, gerado do `.ts`, tinha sido commitado. O CI também
   roda `npm run deadcode`, `node scripts/gen-ai-tools-doc.js --check` e
   `node scripts/check-pinned-versions.js`, que são baratos e valem no fim.
+- GIF de interface não se codifica como vídeo: dithering, que existe para
+  disfarçar banda em fotografia, gasta bytes espalhando ruído sobre cor chapada
+  e ainda afasta o pixel do original. Medido em 23/08/2026 com sessenta quadros
+  reais: bayer deu 974 KB e PSNR 40,3 dB, e `palettegen=max_colors=64` com
+  `paletteuse=dither=none` deu 705 KB e 42,3 dB. Menor e mais fiel ao mesmo
+  tempo. E a taxa de montagem tem que ser a MEDIDA: capturar a janela inteira
+  custa mais que o intervalo pedido, então montar na taxa pedida faz o filme
+  correr mais rápido que a gravação.
 - O projeto descartável do `capture-media` é Verilog de verdade e a elaboração
   o lê: a interface do processador NÃO é escolha do top level, é o que o yanc
   gera a partir do `.cmm` e do `.spf`, hoje `clk`, `rst`, `in`, `out`,

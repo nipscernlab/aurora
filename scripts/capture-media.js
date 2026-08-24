@@ -244,7 +244,6 @@ async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = G
     console.error(String(r.stderr || '').split('\n').slice(-6).join('\n'));
     return null;
   }
-  fs.rmSync(quadrosDir, { recursive: true, force: true });
   const kb = Math.round(fs.statSync(saida).size / 1024);
   // Conferir o que saiu, e nao supor: em 23/08/2026 um GIF anunciado com 114
   // quadros tinha 38 e corria tres vezes mais rapido que a gravacao, e o
@@ -257,8 +256,15 @@ async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = G
   if (dentro && Math.abs(dentro.segundos - duracaoReal) > Math.max(2, duracaoReal * 0.25)) {
     console.warn(`capture-media: ${nome}.gif dura ${dentro.segundos.toFixed(1)} s, mas a gravacao levou ${duracaoReal.toFixed(1)} s.`);
   }
-  if (dentro && dentro.quadros < i * 0.9) {
+  // Os quadros so vao embora quando o GIF bate com a gravacao. Quando nao
+  // bate, eles ficam: sem eles a investigacao vira teoria, e foi o que
+  // aconteceu com o compile.gif que anunciava 114 quadros e tinha 38.
+  const bate = dentro && dentro.quadros >= i * 0.9;
+  if (dentro && !bate) {
     console.warn(`capture-media: o ffmpeg gravou ${dentro.quadros} dos ${i} quadros capturados.`);
+    console.warn(`  Os quadros ficaram para exame em: ${quadrosDir}`);
+  } else {
+    fs.rmSync(quadrosDir, { recursive: true, force: true });
   }
   // Um GIF pesado no README custa a cada visita da pagina, e custa para
   // sempre no historico do repositorio. O aviso existe porque a primeira

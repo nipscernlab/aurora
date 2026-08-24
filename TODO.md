@@ -928,9 +928,21 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       script imprime o comando que os transforma em GIF, em vez de estourar.
       A montagem foi provada com uma page falsa, nos dois caminhos.
 
-      Falta RODAR, o que precisa da máquina livre: o script abre a AURORA de
-      verdade e a compilação leva dezenas de segundos. Depois, apontar o README
-      para os arquivos gerados. `waveform.gif` continua **não automatizável por
+      Rodado uma primeira vez em 23/08/2026, e a corrida ensinou três coisas.
+      O `hero.png` saiu atualizado e já está no README. O `split-editor.gif`
+      saiu bom, com 192 KB. O `compile.gif` saiu com 5 MB, pesado demais para
+      um README, e por isso a tomada baixou para cinco quadros por segundo e
+      800 px: o que acontece na tela é texto aparecendo, que sobrevive bem a
+      menos quadros. E o `prism.gif` não saiu, por um defeito do próprio
+      projeto descartável: o top level instanciava o processador com `io_in` e
+      `io_out`, portas que não existem, então a elaboração falhava antes da
+      síntese e a janela do PRISM nunca abria. Corrigido com a interface real
+      lida de um processador gerado, e provado com o iverilog embarcado.
+
+      Falta RODAR de novo `node scripts/capture-media.js compile prism`, o que
+      precisa da máquina livre, e depois apontar o README para o conjunto. Os
+      dois GIFs de agora estão no disco mas fora do versionamento de propósito,
+      esperando o conjunto fechar num commit só. `waveform.gif` continua **não automatizável por
       aqui**: GTKWave e Surfer são janelas externas, fora do alcance do
       Playwright, então ou é gravação de tela sua, ou o Surfer embutido da
       seção 8 resolve junto.
@@ -1145,6 +1157,13 @@ formalmente, não consertado.
   `generate_blocks.js`, gerado do `.ts`, tinha sido commitado. O CI também
   roda `npm run deadcode`, `node scripts/gen-ai-tools-doc.js --check` e
   `node scripts/check-pinned-versions.js`, que são baratos e valem no fim.
+- O projeto descartável do `capture-media` é Verilog de verdade e a elaboração
+  o lê: a interface do processador NÃO é escolha do top level, é o que o yanc
+  gera a partir do `.cmm` e do `.spf`, hoje `clk`, `rst`, `in`, `out`,
+  `req_in` e `out_en`. Nome de porta inventado ali derruba a verificação antes
+  de qualquer síntese, e o sintoma aparece longe, como uma janela do PRISM que
+  não abre. Para conferir sem abrir a aplicação: `iverilog -y components/HDL
+  -tnull -s top_mediamovel <topo.v> <processador gerado.v>`.
 - Módulo `.ts` novo em `js/`: o `.js` que o `tsc` emite ao lado precisa entrar
   na lista do `.gitignore` NO MESMO commit. A lista é explícita, arquivo por
   arquivo, então um módulo novo não é coberto por padrão nenhum.

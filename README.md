@@ -100,6 +100,42 @@ cd aurora
 .\setup.bat
 ```
 
+### Where the clone must not live
+
+The first thing `setup.bat` does is refuse to run from the wrong place, because
+every problem in this list shows up long after the install, disguised as
+something else.
+
+**Cloud-synced folders are the important one.** OneDrive, Dropbox, Google Drive,
+iCloud Drive and Creative Cloud all break this project in three separate ways.
+With Files On-Demand, toolchain binaries and `node_modules` entries turn into
+cloud placeholders and fail to execute. The synchroniser holds files open, so
+extracting the toolchain fails part-way and leaves the install half-finished.
+And it rewrites files while the application is working, which AURORA sees as
+project changes and answers by re-reading git status and repainting the tree,
+over and over, for edits nobody made. Move the clone somewhere local, such as
+`C:\Dev\aurora`. The script stops with that instruction rather than letting you
+find out later.
+
+**Network shares (UNC paths) do not work either.** The bootstrap links
+`components/` into the Electron distribution with a directory junction, and
+junctions do not exist on a network share.
+
+**Removable drives formatted FAT32 or exFAT** fail for the same reason: no
+junctions.
+
+Two more the script warns about instead of blocking. A **very long path** leaves
+too little headroom under Windows' 260-character limit once `node_modules`
+nesting is added. And an **`&` anywhere in the path** breaks any script that
+does not quote it, which is why the packaging identity avoids it too.
+
+Finally, one that no script can detect: **antivirus software quarantining
+`components/`**. The toolchain is a few hundred megabytes of freshly extracted
+executables, which is exactly the shape real-time scanners act on. AURORA already
+watches for this and can repair itself, but if the bootstrap keeps failing on
+files that were there a moment ago, add an exclusion for the `components/`
+directory.
+
 The script checks and installs, in order: Git, Node.js LTS, and (after asking)
 VS Code, all through `winget`, which ships with Windows 10 and 11. It then runs
 `npm install` and the toolchain bootstrap, and offers to start the app. Every

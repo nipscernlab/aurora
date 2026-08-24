@@ -925,33 +925,42 @@ formalmente, não consertado.
   (`_cutWiresUnderLabels`). Para conferir rendering sem abrir a AURORA: janela
   oculta do Electron com o SVG de `components/Temp/PRISM` e o CSS de `dist/`,
   `capturePage` e leitura de pixels; a sessão de 22/08 fez assim.
-- Relato #5 do canal (Vinicius, 24/08): "o consumo de RAM aumenta sem parar"
-  ao abrir a tela do Git ou o painel de bibliotecas Python, em modo
-  desenvolvedor. A investigação de 24/08 NÃO reproduziu o vazamento, e
-  descartou duas hipóteses. Não refazer estas duas:
+- Relato #5 do canal (Vinicius, 24/08): "o consumo de RAM aumenta sem parar" ao
+  abrir a tela do Git ou o painel de bibliotecas Python, em modo desenvolvedor.
+  A investigacao de 24/08 NAO reproduziu o vazamento em nenhuma configuracao, e
+  fechou as tres hipoteses que existiam. Nao refazer:
   1. O `AbortController` de vida longa de `main/ipc/git.js` (`abortos`,
-     compartilhado por toda a sessão) NÃO acumula ouvintes. O abort-plugin do
+     compartilhado por toda a sessao) NAO acumula ouvintes. O abort-plugin do
      simple-git registra no `spawn.before` e remove no `close`, e o par fecha:
      30 `git status` seguidos deixaram o sinal com zero ouvintes.
-  2. As duas rondas periódicas (`git_panel.js:1629`, de 8 s, e
-     `git_decorations.js:150`, de 10 s) rodam de fato, mas NÃO fazem a memória
-     subir. Com um projeto git aberto e sujo (15 arquivos), painel de Git
-     aberto e painel de PyLibs aberto, 90 s por fase: heap +0,00 MB, nós do DOM
-     constantes, ouvintes de evento constantes, RSS do main constante.
-  O que ficou INCONCLUSIVO, e é por onde continuar: a tempestade de eventos de
-  arquivo. O relato vem de uma máquina cujo clone mora no OneDrive (o caminho
-  aparece no log da issue), e o OneDrive toca arquivo o tempo todo. O ensaio
-  escreveu 444 vezes no projeto durante 90 s e nada subiu, mas o watcher não
-  estava armado: quem chama `watchDirectory` é o `file_tree_manager` ao
-  carregar a árvore, e o harness abriu o projeto por IPC direto, sem passar por
-  ele. Além disso `file_tree_manager.js:213` descarta o evento quando `dir !==
-  currentWatchedDirectory`. Refazer com a árvore carregada de verdade antes de
-  concluir qualquer coisa sobre esse caminho.
-  As sondas usadas (Playwright + CDP, `HeapProfiler.collectGarbage` seguido de
-  `Performance.getMetrics`, medindo heap, nós, ouvintes e RSS do main) são o
-  jeito certo de medir isto e levam ~5 min por rodada; o padrão de launch é o
-  de `tests/e2e/smoke.test.js`. Antes de investir mais, perguntar ao relator:
-  quanto tempo até aparecer, e qual processo cresce no Gerenciador de Tarefas.
+  2. As duas rondas periodicas (`git_panel.js`, de 8 s, e `git_decorations.js`,
+     de 10 s) rodam, mas NAO fazem a memoria subir. Projeto git aberto e sujo,
+     painel de Git aberto, painel de PyLibs aberto, 90 s por fase: heap
+     +0,00 MB, nos do DOM e ouvintes constantes.
+  3. A tempestade de eventos de arquivo, que era a hipotese do OneDrive, tambem
+     NAO vaza. Desta vez o ensaio valeu: o projeto foi aberto pelo carregador
+     completo (`projectManager.loadProject`, que e quem arma o vigia em
+     `project_manager.js:281`) e a sonda contou os `directory-changed` que
+     chegaram ao renderer. Com 8 eventos entregues, os nos subiram 152 e os
+     ouvintes 96 UMA VEZ, que sao as 8 linhas novas da lista de alteracoes, e
+     depois ficaram parados; a fase seguinte, com o disco quieto, nao devolveu
+     nada nem continuou subindo. Se vazasse por evento, subiria a cada um.
+  Detalhe que vale guardar: o debounce de 500 ms de `main/ipc/files.js` engole
+  tempestade CONTINUA. Escrita a cada 200 ms durante 90 s gerou 442 escritas e
+  UM unico evento. Para exercitar esse caminho e preciso espacar acima do
+  debounce (800 ms deu 8 eventos em 112 escritas). Um ensaio com escrita rapida
+  nao testa nada e parece um resultado limpo.
+  Ferramenta: Playwright + CDP, `HeapProfiler.collectGarbage` seguido de
+  `Performance.getMetrics`, medindo heap, nos, ouvintes e RSS do main a cada
+  15 s; padrao de launch igual ao de `tests/e2e/smoke.test.js`. ~5 min por
+  rodada. Sempre instrumentar a contagem de eventos: sem ela nao da para
+  separar "nao vazou" de "o ensaio nao exercitou nada".
+  Como o vazamento nao reproduz, o que sobra e a maquina do relator, nao o
+  codigo: o clone dele estava no OneDrive e a instalacao tinha sido feita a
+  mao. O `setup.bat` agora recusa pasta sincronizada, caminho de rede e avisa
+  sobre caminho fundo. Se o relato voltar depois disso, pedir duas informacoes
+  antes de investigar de novo: quanto tempo ate aparecer, e qual processo
+  cresce no Gerenciador de Tarefas (principal, renderer ou GPU).
 - PRISM, a grade dentro dos cartões de memória é símbolo da família (linhas por
   colunas = células armazenadas), gerada por `scripts/prism-skin-standard.js`
   com opacidade 0,16 a 0,22. Decidido em 22/08 manter; se incomodar, ajustar

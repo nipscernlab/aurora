@@ -73,6 +73,13 @@ const TOMADAS = {
   prism: 'prism.gif, a sintese e o esquematico do PRISM',
 };
 
+// O top level e o testbench do projeto descartavel. Ficam aqui em cima, e
+// nao embutidos no meio da funcao, porque sao Verilog de verdade: a
+// elaboracao os le e reclama de qualquer porta inventada.
+const TOP_LEVEL_V = "`timescale 1ns/1ps\n// Top level: liga o processador SAPHO aos pinos da placa.\n//\n// A interface do processador NAO e escolha deste arquivo: o yanc a gera a\n// partir do .cmm e da configuracao do .spf. Sao clk e rst, a porta de\n// entrada `in` e a de saida `out` com a largura da palavra, `req_in`\n// pedindo a proxima amostra e `out_en` marcando saida valida. Inventar\n// nome de porta aqui custa uma elaboracao que falha antes de qualquer\n// sintese, que foi o que aconteceu em 23/08/2026.\nmodule top_mediamovel (\n  input  wire               clk,\n  input  wire               rst,\n  input  wire signed [15:0] sample_in,\n  output wire signed [15:0] sample_out,\n  output wire               sample_req,\n  output wire               sample_valid\n);\n  mediamovel proc (\n    .clk    (clk),\n    .rst    (rst),\n    .in     (sample_in),\n    .out    (sample_out),\n    .req_in (sample_req),\n    .out_en (sample_valid)\n  );\nendmodule\n";
+
+const TESTBENCH_V = "`timescale 1ns/1ps\nmodule tb_mediamovel;\n  reg                clk = 0;\n  reg                rst = 1;\n  reg  signed [15:0] sample_in = 0;\n  wire signed [15:0] sample_out;\n  wire               sample_req;\n  wire               sample_valid;\n\n  top_mediamovel dut (\n    .clk(clk), .rst(rst),\n    .sample_in(sample_in), .sample_out(sample_out),\n    .sample_req(sample_req), .sample_valid(sample_valid)\n  );\n\n  always #5 clk = ~clk;\n\n  initial begin\n    $dumpfile(\"tb_mediamovel.vcd\");\n    $dumpvars(0, tb_mediamovel);\n    #20 rst = 0;\n    repeat (16) begin\n      @(posedge clk) sample_in <= $random % 512;\n    end\n    #100 $finish;\n  end\nendmodule\n";
+
 /** Electron refuses to start in Node-only mode; strip it if the shell has it. */
 function cleanEnv() {
   const out = {};
@@ -115,49 +122,10 @@ function writeProject(rootDir) {
     + body);
 
   const topPath = path.join(topDir, 'top_mediamovel.v');
-  fs.writeFileSync(topPath,
-    '`timescale 1ns/1ps\n'
-    + '// Top level: wires the SAPHO processor to the board pins.\n'
-    + 'module top_mediamovel (\n'
-    + '  input  wire        clk,\n'
-    + '  input  wire        rst,\n'
-    + '  input  wire [15:0] sample_in,\n'
-    + '  output wire [15:0] sample_out\n'
-    + ');\n'
-    + '  mediamovel proc (\n'
-    + '    .clk        (clk),\n'
-    + '    .rst        (rst),\n'
-    + '    .io_in      (sample_in),\n'
-    + '    .io_out     (sample_out)\n'
-    + '  );\n'
-    + 'endmodule\n');
+  fs.writeFileSync(topPath, TOP_LEVEL_V);
 
   const tbPath = path.join(tbDir, 'tb_mediamovel.v');
-  fs.writeFileSync(tbPath,
-    '`timescale 1ns/1ps\n'
-    + 'module tb_mediamovel;\n'
-    + '  reg         clk = 0;\n'
-    + '  reg         rst = 1;\n'
-    + '  reg  [15:0] sample_in = 0;\n'
-    + '  wire [15:0] sample_out;\n'
-    + '\n'
-    + '  top_mediamovel dut (\n'
-    + '    .clk(clk), .rst(rst),\n'
-    + '    .sample_in(sample_in), .sample_out(sample_out)\n'
-    + '  );\n'
-    + '\n'
-    + '  always #5 clk = ~clk;\n'
-    + '\n'
-    + '  initial begin\n'
-    + '    $dumpfile("tb_mediamovel.vcd");\n'
-    + '    $dumpvars(0, tb_mediamovel);\n'
-    + '    #20 rst = 0;\n'
-    + '    repeat (16) begin\n'
-    + '      @(posedge clk) sample_in <= $random % 512;\n'
-    + '    end\n'
-    + '    #100 $finish;\n'
-    + '  end\n'
-    + 'endmodule\n');
+  fs.writeFileSync(tbPath, TESTBENCH_V);
 
   const spfPath = path.join(rootDir, 'mediamovel.spf');
   fs.writeFileSync(spfPath, JSON.stringify({
@@ -406,11 +374,15 @@ async function main() {
       // terminal recebendo saida, e um projeto grande encheria o arquivo.
       await openInEditor(page, 'mediamovel.cmm');
       await page.waitForTimeout(800);
-      await gravarGif(page, 'compile', { segundos: 30 }, async () => {
+      // Menos quadros e menos largura que as outras tomadas: a primeira
+      // gravacao saiu com 5 MB, que e pesado demais para um README, e o que
+      // esta acontecendo na tela e texto aparecendo, que sobrevive bem a
+      // cinco quadros por segundo.
+      await gravarGif(page, 'compile', { segundos: 24, fps: 5, largura: 800 }, async () => {
         await page.click('#cmmcomp').catch(() => {
           console.warn('capture-media: botao de compilar C+- nao encontrado.');
         });
-        await page.waitForTimeout(29_000);
+        await page.waitForTimeout(23_000);
       });
     }
 
@@ -421,13 +393,17 @@ async function main() {
       await page.click('#vericomp').catch(() => {
         console.warn('capture-media: botao de sintetizar nao encontrado.');
       });
-      await page.waitForTimeout(3000);
-      await page.click('#prismcomp').catch(() => {
-        console.warn('capture-media: botao do PRISM nao encontrado.');
-      });
-      const prism = await esperarJanelaPrism(app);
+      // A sintese com Yosys leva o tempo que leva, e o PRISM so abre depois
+      // dela. Em vez de apostar num numero, insiste: clica, espera, repete.
+      let prism = null;
+      for (let tentativa = 0; tentativa < 4 && !prism; tentativa++) {
+        await page.waitForTimeout(4000);
+        await page.click('#prismcomp').catch(() => {});
+        prism = await esperarJanelaPrism(app, 30_000);
+      }
       if (!prism) {
         console.warn('capture-media: a janela do PRISM nao apareceu; prism.gif nao foi gravado.');
+        console.warn('  Olhe o terminal TVERI da janela: a sintese pode ter falhado antes.');
       } else {
         await prism.waitForTimeout(6000); // desenho do esquematico
         await gravarGif(prism, 'prism', { segundos: 12 }, async () => {

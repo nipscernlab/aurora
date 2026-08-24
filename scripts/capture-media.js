@@ -1,8 +1,28 @@
-// capture-media.js: take the README's screenshots from the real application.
+// capture-media.js: take the README's screenshots and GIFs from the real
+// application.
 //
-// Maintainer tool, run by hand: `node scripts/capture-media.js`. It is not
-// wired into any npm script or workflow, because it launches a GUI and takes
-// tens of seconds.
+// Maintainer tool, run by hand:
+//
+//   node scripts/capture-media.js                 hero.png (o padrao)
+//   node scripts/capture-media.js split-editor    split-editor.gif
+//   node scripts/capture-media.js compile         compile.gif
+//   node scripts/capture-media.js prism           prism.gif
+//   node scripts/capture-media.js tudo            todas as anteriores
+//   node scripts/capture-media.js --help
+//
+// Nao esta em nenhum script do npm nem em workflow: abre uma janela de
+// verdade, toma dezenas de segundos e, no caso do compile, roda a toolchain.
+//
+// waveform.gif NAO sai daqui, e nao e esquecimento: o GTKWave e o Surfer sao
+// janelas externas, fora do alcance do Playwright, que so enxerga superficie
+// de renderer do proprio Electron. Ou e gravacao de tela feita a mao, ou
+// espera o Surfer embutido.
+//
+// O GIF sai de quadros PNG capturados em intervalo fixo e montados pelo
+// ffmpeg, que NAO e dependencia do projeto. Sem ffmpeg no PATH, os quadros
+// ficam no disco e o script imprime o comando que os transforma em GIF, em
+// vez de estourar: quem esta atras de uma imagem para o README nao deveria
+// descobrir uma dependencia nova por stack trace.
 //
 // Why a script instead of someone pressing PrtScn: the shots have to be
 // retaken whenever the interface changes, and a hand-taken one carries
@@ -38,6 +58,20 @@ const FIXTURE_CMM = path.join(REPO_ROOT, 'tests', 'toolchain', 'fixtures', 'medi
 
 const WIDTH = 1600;
 const HEIGHT = 1000;
+
+// O GIF entra no README, onde a coluna e estreita: 900 px de largura ja
+// mostra o que interessa e evita um arquivo de dezenas de megabytes. Oito
+// quadros por segundo bastam para interface (nao ha animacao continua a
+// preservar) e cada quadro custa uma captura de tela do renderer.
+const GIF_LARGURA = 900;
+const GIF_FPS = 8;
+
+const TOMADAS = {
+  hero: 'hero.png, a foto do editor com arvore e terminal',
+  'split-editor': 'split-editor.gif, abrir o segundo painel e levar um arquivo para ele',
+  compile: 'compile.gif, uma compilacao C+- de verdade enchendo o terminal',
+  prism: 'prism.gif, a sintese e o esquematico do PRISM',
+};
 
 /** Electron refuses to start in Node-only mode; strip it if the shell has it. */
 function cleanEnv() {
@@ -160,7 +194,121 @@ function writeProject(rootDir) {
   return { spfPath, cmmPath, topPath, tbPath };
 }
 
+/** O ffmpeg existe nesta maquina? Ele nao e dependencia do projeto. */
+function temFfmpeg() {
+  try {
+    const r = require('child_process').spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' });
+    return r.status === 0;
+  } catch { return false; }
+}
+
+/**
+ * Grava a janela enquanto `durante` acontece e monta um GIF.
+ *
+ * Os quadros saem de `page.screenshot()`, e nao de captura de video: o
+ * Playwright grava video so ao criar o contexto, o que aqui significaria
+ * relancar a aplicacao por tomada. Capturar quadro a quadro custa mais
+ * por quadro e por isso a taxa e baixa, mas mostra exatamente a superficie
+ * do renderer, sem barra de titulo nem area de trabalho de quem gravou.
+ *
+ * A gravacao para quando `durante` termina ou quando o teto de tempo
+ * estoura, o que vier primeiro, para uma compilacao lenta nao virar um
+ * arquivo de cem megabytes.
+ */
+async function gravarGif(page, nome, { segundos = 12, fps = GIF_FPS, largura = GIF_LARGURA } = {}, durante) {
+  const quadrosDir = fs.mkdtempSync(path.join(os.tmpdir(), `aurora-gif-${nome}-`));
+  const intervalo = Math.round(1000 / fps);
+  const limite = Date.now() + segundos * 1000;
+  let i = 0;
+  let gravando = true;
+
+  const laco = (async () => {
+    while (gravando && Date.now() < limite) {
+      const inicio = Date.now();
+      try {
+        await page.screenshot({ path: path.join(quadrosDir, `q-${String(++i).padStart(4, '0')}.png`) });
+      } catch { break; } // janela fechou no meio: o que ja foi capturado vale
+      const resto = intervalo - (Date.now() - inicio);
+      if (resto > 0) await new Promise((r) => setTimeout(r, resto));
+    }
+  })();
+
+  try {
+    if (durante) await durante();
+  } finally {
+    gravando = false;
+    await laco;
+  }
+
+  if (!i) { console.warn(`capture-media: nenhum quadro capturado para ${nome}.`); return null; }
+
+  const saida = path.join(OUT_DIR, `${nome}.gif`);
+  const filtro = `fps=${fps},scale=${largura}:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=3`;
+  const args = ['-y', '-framerate', String(fps), '-i', path.join(quadrosDir, 'q-%04d.png'), '-vf', filtro, saida];
+
+  if (!temFfmpeg()) {
+    console.warn(`capture-media: ffmpeg nao esta no PATH, entao ${nome}.gif nao foi montado.`);
+    console.warn(`  Os ${i} quadros ficaram em: ${quadrosDir}`);
+    // O filtro carrega ';' e colchetes, que qualquer shell interpretaria, e o
+    // caminho pode ter espaco: aspas em tudo que nao for flag simples.
+    const citar = (a) => (/^[A-Za-z0-9._:/\\-]+$/.test(a) ? a : `"${a}"`);
+    console.warn(`  Para montar depois:  ffmpeg ${args.map(citar).join(' ')}`);
+    return null;
+  }
+
+  const r = require('child_process').spawnSync('ffmpeg', args, { stdio: 'pipe' });
+  if (r.status !== 0) {
+    console.error(`capture-media: ffmpeg falhou ao montar ${nome}.gif; os quadros ficaram em ${quadrosDir}`);
+    console.error(String(r.stderr || '').split('\n').slice(-6).join('\n'));
+    return null;
+  }
+  fs.rmSync(quadrosDir, { recursive: true, force: true });
+  const kb = Math.round(fs.statSync(saida).size / 1024);
+  console.log(`capture-media: ${nome}.gif escrito (${i} quadros, ${kb} KB)`);
+  return saida;
+}
+
+/** A janela do PRISM, que nasce depois da sintese, em processo de renderer proprio. */
+async function esperarJanelaPrism(app, timeoutMs = 90_000) {
+  const prazo = Date.now() + timeoutMs;
+  while (Date.now() < prazo) {
+    for (const w of app.windows()) {
+      if (w.url().includes('prism.html')) return w;
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return null;
+}
+
+/** Quais tomadas foram pedidas na linha de comando. */
+function tomadasPedidas(argv) {
+  const pedidos = argv.filter((a) => !a.startsWith('-'));
+  if (!pedidos.length) return ['hero'];
+  if (pedidos.includes('tudo')) return Object.keys(TOMADAS);
+  const desconhecidas = pedidos.filter((x) => !TOMADAS[x]);
+  if (desconhecidas.length) {
+    console.error(`capture-media: tomada desconhecida: ${desconhecidas.join(', ')}`);
+    console.error(`  disponiveis: ${Object.keys(TOMADAS).join(', ')}, tudo`);
+    process.exit(2);
+  }
+  return pedidos;
+}
+
+function ajuda() {
+  console.log('capture-media: fotos e GIFs do README, tirados da aplicacao de verdade.\n');
+  console.log('  node scripts/capture-media.js [tomada...]\n');
+  for (const [nome, oque] of Object.entries(TOMADAS)) console.log(`  ${nome.padEnd(14)} ${oque}`);
+  console.log(`  ${'tudo'.padEnd(14)} todas as anteriores\n`);
+  console.log('  Sem argumento, tira so o hero.png.');
+  console.log('  waveform.gif nao sai daqui: GTKWave e Surfer sao janelas externas.');
+  console.log('  O GIF precisa do ffmpeg no PATH; sem ele, os quadros ficam no disco.');
+}
+
 async function main() {
+  const argv = process.argv.slice(2);
+  if (argv.includes('--help') || argv.includes('-h')) { ajuda(); return; }
+  const tomadas = tomadasPedidas(argv);
+
   // playwright is a devDependency; require lazily so the failure message is
   // about the tool, not about a missing module at the top of the file.
   let electron;
@@ -186,6 +334,7 @@ async function main() {
   fs.mkdirSync(projectDir, { recursive: true });
   const project = writeProject(projectDir);
 
+  console.log(`capture-media: tomadas pedidas: ${tomadas.join(', ')}`);
   console.log('capture-media: launching AURORA…');
   const app = await electron.launch({
     args: ['.', `--user-data-dir=${userDataDir}`, project.spfPath],
@@ -228,10 +377,75 @@ async function main() {
     // frame or two past the resize rather than screenshotting on the call.
     await page.waitForTimeout(2000);
 
-    const heroPath = path.join(OUT_DIR, 'hero.png');
-    await page.screenshot({ path: heroPath });
-    const kb = Math.round(fs.statSync(heroPath).size / 1024);
-    console.log(`capture-media: hero.png written (${WIDTH}x${HEIGHT}, ${kb} KB)`);
+    if (tomadas.includes('hero')) {
+      const heroPath = path.join(OUT_DIR, 'hero.png');
+      await page.screenshot({ path: heroPath });
+      const kb = Math.round(fs.statSync(heroPath).size / 1024);
+      console.log(`capture-media: hero.png written (${WIDTH}x${HEIGHT}, ${kb} KB)`);
+    }
+
+    if (tomadas.includes('split-editor')) {
+      // O gesto que o GIF conta: dividir o editor e levar OUTRO arquivo para
+      // o painel novo, que e o que mostra para que serve a divisao. Comeca
+      // com um painel so, senao a primeira metade do filme e um editor ja
+      // dividido e o gesto se perde.
+      await gravarGif(page, 'split-editor', { segundos: 14 }, async () => {
+        await page.waitForTimeout(1200);
+        await page.click('#split-editor-float-btn').catch(() => {
+          console.warn('capture-media: botao de dividir nao encontrado.');
+        });
+        await page.waitForTimeout(2500);
+        await openInEditor(page, 'top_mediamovel.v');
+        await page.waitForTimeout(4000);
+      });
+    }
+
+    if (tomadas.includes('compile')) {
+      // Compilacao de verdade, com a toolchain local. O teto de tempo existe
+      // porque o GIF nao precisa da compilacao inteira: o que ele mostra e o
+      // terminal recebendo saida, e um projeto grande encheria o arquivo.
+      await openInEditor(page, 'mediamovel.cmm');
+      await page.waitForTimeout(800);
+      await gravarGif(page, 'compile', { segundos: 30 }, async () => {
+        await page.click('#cmmcomp').catch(() => {
+          console.warn('capture-media: botao de compilar C+- nao encontrado.');
+        });
+        await page.waitForTimeout(29_000);
+      });
+    }
+
+    if (tomadas.includes('prism')) {
+      // Duas etapas: a sintese (Yosys) e a janela do PRISM, que e renderer
+      // proprio. Grava-se a janela do PRISM, nao a principal, porque o
+      // esquematico e o assunto.
+      await page.click('#vericomp').catch(() => {
+        console.warn('capture-media: botao de sintetizar nao encontrado.');
+      });
+      await page.waitForTimeout(3000);
+      await page.click('#prismcomp').catch(() => {
+        console.warn('capture-media: botao do PRISM nao encontrado.');
+      });
+      const prism = await esperarJanelaPrism(app);
+      if (!prism) {
+        console.warn('capture-media: a janela do PRISM nao apareceu; prism.gif nao foi gravado.');
+      } else {
+        await prism.waitForTimeout(6000); // desenho do esquematico
+        await gravarGif(prism, 'prism', { segundos: 12 }, async () => {
+          // Um passeio curto pelo esquematico: aproximar e arrastar, que e
+          // o que o usuario faz e o que mostra que o desenho e interativo.
+          await prism.mouse.move(700, 400);
+          await prism.mouse.wheel(0, -300);
+          await prism.waitForTimeout(1500);
+          await prism.mouse.down();
+          for (let dx = 0; dx < 240; dx += 20) {
+            await prism.mouse.move(700 - dx, 400 + dx / 3);
+            await prism.waitForTimeout(60);
+          }
+          await prism.mouse.up();
+          await prism.waitForTimeout(3000);
+        });
+      }
+    }
   } finally {
     await app.close().catch(() => {});
     fs.rmSync(userDataDir, { recursive: true, force: true });
@@ -273,7 +487,13 @@ async function openInEditor(page, fileName) {
   }
 }
 
-main().catch((err) => {
-  console.error(`capture-media: ${err && err.stack ? err.stack : err}`);
-  process.exit(1);
-});
+// Exportado para o arnes de verificacao exercitar a montagem do GIF sem abrir
+// a aplicacao: e a unica parte que depende de ferramenta externa.
+module.exports = { gravarGif, temFfmpeg, tomadasPedidas };
+
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(`capture-media: ${err && err.stack ? err.stack : err}`);
+    process.exit(1);
+  });
+}

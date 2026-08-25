@@ -1181,6 +1181,20 @@ formalmente, não consertado.
 - Botão novo numa linha da lista de recentes: os controles precisam estar
   dentro de UMA célula da grade. A lista é uma subgrade de três colunas, e um
   quarto filho joga o × para a linha seguinte em toda entrada riscada.
+- Dump de simulação em máquina travada (laboratório, 25/08): o `.vcd`/`.fst`
+  não era substituído e os alunos deletavam à mão. Medido no Windows real:
+  sobrescrever um dump bloqueado faz o vvp falhar com exit 1 e um `FST Error`
+  que se perde na saída; criar arquivo novo funciona porque criar e
+  sobrescrever são operações diferentes para antivírus/política (por isso a
+  árvore da AURORA cria normalmente e por isso deletar à mão resolvia). Também
+  medido: GTKWave aberto no dump NÃO bloqueia a sobreposição (fopen compartilha
+  escrita), mas bloqueia a deleção. Consequência de desenho: a blindagem testa
+  ESCRITA (open 'r+' via `file:check-writable`), nunca deleção. Duas defesas em
+  `js/compilation/dump_guard.js` + `compilation_module`: antes de simular,
+  dump existente e não gravável aborta na hora nomeando o arquivo e a correção
+  (EBUSY manda fechar o viewer; EPERM manda destravar/abrir exceção); depois de
+  resolver o dump, mtime anterior ao início da corrida vira erro em vez de
+  abrir onda velha. Cobre vvp, Verilator e cocotb.
 - Relato #5 do canal (Vinicius, 24/08): "o consumo de RAM aumenta sem parar" ao
   abrir a tela do Git ou o painel de bibliotecas Python, em modo desenvolvedor.
   A investigacao de 24/08 NAO reproduziu o vazamento em nenhuma configuracao, e

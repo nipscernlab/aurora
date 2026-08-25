@@ -38,6 +38,8 @@ const fileOperations = {
 
   deleteFile:             (p) => ipcRenderer.invoke('delete-file', p),
   deleteFileOrDirectory:  (p) => ipcRenderer.invoke('file:delete', p),
+  // O dump da simulacao pode ser sobrescrito? (viewer/antivirus/readonly)
+  checkFileWritable:      (p) => ipcRenderer.invoke('file:check-writable', p),
 
   // Desfazer da arvore (js/tree/tree_history.js). O que a arvore remove vai
   // para uma area de espera em vez da Lixeira, porque de la da para voltar;

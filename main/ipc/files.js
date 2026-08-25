@@ -228,6 +228,28 @@ function register() {
     }
   });
 
+  // O arquivo pode ser SOBRESCRITO por outro processo? A pergunta certa e
+  // "da para abrir em escrita", nao "da para deletar": o GTKWave segurando o
+  // .fst bloqueia a delecao mas NAO a sobreposicao (fopen no Windows abre com
+  // compartilhamento de leitura e escrita), entao um teste por delecao
+  // acusaria bloqueio num caso que funcionaria. O open 'r+' nao altera nem
+  // trunca nada; so pede o mesmo acesso que o simulador vai pedir.
+  // Respostas: { exists:false } quando nao ha arquivo (criar e outra
+  // operacao, com outras permissoes); { exists, writable, code } nos demais.
+  // EPERM = somente-leitura ou politica; EBUSY = preso por outro processo.
+  ipcMain.handle('file:check-writable', async (_event, filePath) => {
+    const normalizedPath = safePath(filePath, 'filePath');
+    try {
+      const handle = await fs.open(normalizedPath, 'r+');
+      await handle.close();
+      return { exists: true, writable: true };
+    } catch (error) {
+      const code = /** @type {NodeJS.ErrnoException} */ (error).code || null;
+      if (code === 'ENOENT') return { exists: false, writable: true };
+      return { exists: true, writable: false, code };
+    }
+  });
+
   // ---------- file-tree CRUD (rename / trash / copy) ----------
 
   // Rename OR move a file/directory. `overwrite:false` (default) fails with

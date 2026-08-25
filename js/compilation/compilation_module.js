@@ -47,6 +47,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
 import { lerProgresso } from '../terminal/progress_line.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
+import { nomesDeDumpEsperados, NOMES_DE_DUMP_COCOTB, dumpEstaFresco } from './dump_guard.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
@@ -1122,6 +1123,9 @@ async runGtkWave() {
         const tools = await resolveWaveToolchain(this.componentsPath);
         let simTopModule = this._waveDeriveSimTopModule(config);
         let vcdFile = null;
+        // Ancora do teste de frescor la embaixo: qualquer dump legitimo desta
+        // corrida tem mtime depois deste instante (folga em dumpEstaFresco).
+        const inicioDaSimulacao = Date.now();
 
         if (isPythonFile(config.testbenchFile)) {
             const cocotbCtx = await this._waveValidateCocotbConfig(config);
@@ -1178,6 +1182,11 @@ async runGtkWave() {
             // in the cwd (_waveSimCwd: the project folder).
             vcdFile = await this._waveResolveVcdFile(simTopModule, simDir);
         }
+        // Defesa 2 (dump_guard.js): o dump tem de ser DESTA corrida. Sem
+        // isto, um escritor que falhe sem exit code, ou um $dumpfile custom
+        // adotado pelo resolver, abre a onda da rodada ANTERIOR como se fosse
+        // nova, que foi exatamente o sintoma do laboratorio.
+        await this._waveExigirDumpNovo(vcdFile, inicioDaSimulacao);
         // Unified header capture, ONE extraction for all four wave paths
         // (iverilog, Verilator, cocotb+iverilog, cocotb+Verilator). Replaces the
         // old per-flow two-pass: the non-cocotb flows used to run a throwaway
@@ -1618,6 +1627,12 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
         });
     }
 
+    // Mesma blindagem dos fluxos vvp/Verilator (defesa 1 de dump_guard.js).
+    // So no modo wave: o Fast Sim (wave=false) nao escreve dump nenhum.
+    if (wave) {
+        await this._waveExigirDumpGravavel(this.projectPath || tbDir, NOMES_DE_DUMP_COCOTB);
+    }
+
     let code;
     // O runner do cocotb sob Verilator escreve dump.fst no test_dir (a pasta
     // do projeto); sob Icarus o nome vem do runner tambem como dump.
@@ -1732,6 +1747,12 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     if (config.testbenchFile) {
         await this._stageTestbenchDataFiles(simCwd, config.testbenchFile);
     }
+
+    // Defesa 1 (dump_guard.js): dump da rodada anterior preso ou
+    // somente-leitura aborta AGORA, nomeando o arquivo e a correcao, em vez
+    // de gastar a simulacao para o vvp morrer com um "Unable to open"
+    // perdido no meio da saida.
+    await this._waveExigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
 
     const vvpFile = await electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
 
@@ -2061,6 +2082,9 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
     if (config.testbenchFile) {
         await this._stageTestbenchDataFiles(simCwd, config.testbenchFile);
     }
+
+    // Mesma blindagem do fluxo vvp (defesa 1 de dump_guard.js).
+    await this._waveExigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
 
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'plain');
     await this._avisarSeNaBateria('twave');
@@ -2681,6 +2705,55 @@ async _waveResolveVcdFile(simTopModule, simDir) {
         `${detail}\n` +
         `Aurora looks for a .fst (or .vcd) named after the testbench module.`,
     );
+}
+
+/**
+ * Defesa 1 de dump_guard.js: cada nome em `nomes` que JA exista em `simDir`
+ * precisa aceitar abertura em escrita, o mesmo acesso que o simulador vai
+ * pedir ao sobrescrever. O veredito vem do IPC file:check-writable (um open
+ * 'r+' que nao altera nada). Medido no Windows real: viewer prendendo o
+ * arquivo devolve EBUSY; somente-leitura/politica devolve EPERM. Teste de
+ * ESCRITA de proposito, nunca de delecao: o GTKWave aberto bloqueia deletar
+ * mas nao sobrescrever, e um pre-delete acusaria erro num caso que simularia
+ * normalmente.
+ *
+ * Inputs:  simDir (cwd da simulacao), nomes (basenames de dump esperados)
+ * Throws:  quando um dump existente esta bloqueado para escrita; a mensagem
+ *          separa EBUSY (feche o viewer) do resto (destrave o arquivo).
+ *          Falha do proprio IPC nao bloqueia (fail-open): a defesa primaria
+ *          continua sendo o exit code do simulador.
+ */
+async _waveExigirDumpGravavel(simDir, nomes) {
+    if (typeof electronAPI.checkFileWritable !== 'function') return;
+    for (const nome of nomes) {
+        let veredito = null;
+        try {
+            const alvo = await electronAPI.joinPath(simDir, nome);
+            veredito = await electronAPI.checkFileWritable(alvo);
+        } catch (_) { continue; }
+        if (!veredito || !veredito.exists || veredito.writable) continue;
+        const chave = veredito.code === 'EBUSY'
+            ? 'error.compilation.dumpLockedBusy'
+            : 'error.compilation.dumpLockedDenied';
+        throw new Error(tr(chave, { file: nome, code: veredito.code || '?' }));
+    }
+}
+
+/**
+ * Defesa 2 de dump_guard.js: o dump resolvido precisa ser DESTA corrida.
+ * `inicioMs` vem de runGtkWave, capturado antes de qualquer build/sim; um
+ * mtime anterior a ele (com a folga de dumpEstaFresco) significa que o
+ * simulador NAO reescreveu o arquivo e o que esta ali e onda velha.
+ *
+ * Inputs:  vcdFile (path absoluto do dump resolvido), inicioMs (Date.now())
+ * Throws:  quando o dump e de uma corrida anterior. Stat quebrado nao
+ *          bloqueia (fail-open), mesmo racional da defesa 1.
+ */
+async _waveExigirDumpNovo(vcdFile, inicioMs) {
+    let stats = null;
+    try { stats = await electronAPI.getFileStats(vcdFile); } catch (_) { return; }
+    if (dumpEstaFresco(stats ? stats.mtime : NaN, inicioMs)) return;
+    throw new Error(tr('error.compilation.dumpStale', { file: basenameOfPath(vcdFile) }));
 }
 
 /**

@@ -672,9 +672,17 @@ async function renderForgeAccount(forja) {
   const campoHost = forja.pedeHost
     ? `<input type="text" id="${forja.idHost}" class="git-pat-input" placeholder="gitlab.com" autocomplete="off" spellcheck="false" />`
     : '';
+  // O cartao de entrar: a marca da forja, o nome, o botao e o caminho do
+  // token. O nome fica no cabecalho e nao dentro do botao, para os dois
+  // cartoes terem botoes do mesmo tamanho quando ficam lado a lado; a frase
+  // inteira continua existindo para quem le por leitor de tela.
   el.innerHTML = `
     <div class="git-signin">
-      ${oauthOn ? `<button class="git-btn git-btn-primary git-signin-btn" data-action="${forja.acaoEntrar}"><i class="ph ${forja.icone}"></i> ${esc(tt('git.signInWith', 'Sign in with {name}', { name: forja.nome }))}</button>` : ''}
+      <div class="git-signin-head">
+        <span class="git-forge-mark"><i class="ph ${forja.icone}"></i></span>
+        <span class="git-forge-name">${esc(forja.nome)}</span>
+      </div>
+      ${oauthOn ? `<button class="git-btn git-btn-primary git-signin-btn" data-action="${forja.acaoEntrar}" aria-label="${esc(tt('git.signInWith', 'Sign in with {name}', { name: forja.nome }))}"><i class="ph ph-sign-in"></i> ${esc(tt('git.signIn', 'Sign in'))}</button>` : ''}
       <div class="git-signin-advanced">
         <button class="git-linklike" data-action="${forja.acaoForm}"><i class="ph ph-key"></i> ${esc(oauthOn ? tt('git.useToken', 'Use a token instead') : tt('git.connectWith', 'Connect {name}', { name: forja.nome }))}</button>
         <button class="git-icon-btn git-help-btn" data-action="${forja.acaoAjuda}" title="${esc(forja.ajudaTitulo())}" aria-label="${esc(forja.ajudaTitulo())}"><i class="ph ph-question"></i></button>

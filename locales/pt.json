@@ -1010,7 +1010,7 @@
     "openFailedHint": "A pasta pode ter sido movida ou apagada. Remover da lista ou clonar de novo?",
     "cloneAgain": "Clonar de novo",
     "pickRepoToClone": "Escolha o repositório para clonar de novo.",
-    "signIn": "Entrar com GitHub",
+    "signIn": "Entrar",
     "signInWith": "Entrar com {{name}}",
     "signInAny": "Entrar no GitHub ou no GitLab",
     "connectWith": "Conectar {{name}}",

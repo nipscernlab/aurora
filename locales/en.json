@@ -1010,7 +1010,7 @@
     "openFailedHint": "The folder may have been moved or deleted. Remove it from the list or clone it again?",
     "cloneAgain": "Clone again",
     "pickRepoToClone": "Pick the repository to clone again.",
-    "signIn": "Sign in with GitHub",
+    "signIn": "Sign in",
     "signInWith": "Sign in with {{name}}",
     "signInAny": "Sign in to GitHub or GitLab",
     "connectWith": "Connect {{name}}",

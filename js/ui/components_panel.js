@@ -242,10 +242,34 @@ const TEXTO_DO_SELO = {
   urgente: 'modal.settings.componentsNeededToCompile',
 };
 
+/**
+ * Onde cada selo mora, e são lugares diferentes porque os papéis são
+ * diferentes.
+ *
+ * O do essencial existe para explicar por que aquele cartão NÃO tem botão,
+ * então ele vai para a coluna da AÇÃO, ocupando exatamente o lugar onde o
+ * Remover ou o Baixar apareceriam nos outros. Ali ele é lido como "aqui não há
+ * o que fazer, e este é o motivo", que é o recado. Ao lado do nome, em cápsula
+ * de caixa alta, ele virava o elemento mais forte da tela para dizer a coisa
+ * mais mansa dela.
+ *
+ * O de urgência é o contrário: é alerta, fica junto do nome e continua
+ * chamando atenção.
+ *
+ * O selo da ação só sai quando NÃO há botão, e a condição é essa mesma, não
+ * "é essencial": um essencial DESATUALIZADO tem botão Atualizar, e ali o selo
+ * apareceria ao lado dele dizendo que não há o que fazer, contradizendo o
+ * botão que está logo à esquerda.
+ */
+const LUGAR_DO_SELO = { essencial: 'acao', urgente: 'nome' };
+
 function cartao(c) {
-  const selos = selosDe(c).map((tipo) => (
+  const marcar = (tipo) => (
     `<span class="componente-selo ${tipo}">${escapar(tr(TEXTO_DO_SELO[tipo]))}</span>`
-  ));
+  );
+  const tipos = selosDe(c);
+  const selos = tipos.filter((t) => LUGAR_DO_SELO[t] === 'nome').map(marcar);
+  const seloDaAcao = tipos.filter((t) => LUGAR_DO_SELO[t] === 'acao').map(marcar).join('');
   // Instalado, inteiro, mas de outra versao: a sentinela esta la, e e por isso
   // que so o carimbo do instalador enxerga. E o unico estado em que o cartao
   // oferece baixar E remover ao mesmo tempo, porque a pessoa tem o componente
@@ -312,7 +336,7 @@ function cartao(c) {
           <span class="componente-linha"></span>
         </div>
       </div>
-      <div class="componente-acao">${caixa}${acao}</div>
+      <div class="componente-acao">${caixa}${acao}${acao ? '' : seloDaAcao}</div>
     </div>
   `);
 }

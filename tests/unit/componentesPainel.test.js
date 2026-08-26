@@ -328,3 +328,37 @@ describe('a fila de download', () => {
     expect(texto).toContain('B');   // e o que ficou de fora vai pelo nome
   });
 });
+
+/**
+ * Onde cada selo mora. São lugares diferentes porque os papéis são diferentes:
+ * o do essencial explica um botão que não existe e ocupa o lugar dele; o de
+ * urgência é alerta e fica junto do nome.
+ */
+describe('o lugar de cada selo', () => {
+  const naAcao = (k) => [...cartao(k).querySelectorAll('.componente-acao .componente-selo')]
+    .map((s) => s.textContent.trim());
+  const noNome = (k) => [...cartao(k).querySelectorAll('.componente-selos .componente-selo')]
+    .map((s) => s.textContent.trim());
+
+  it('o do essencial fica na coluna da ação, onde estaria o botão', async () => {
+    await pintar([comp({ chave: 'yanc', essencial: true, instalado: true, estado: 'ok' })]);
+    expect(naAcao('yanc')).toEqual(['Vem no instalador']);
+    expect(noNome('yanc')).toEqual([]);
+  });
+
+  it('o de urgência fica junto do nome, porque é alerta', async () => {
+    await pintar([comp({ chave: 'msys', requerParaCompilar: true })]);
+    expect(noNome('msys')).toEqual(['Necessário para compilar']);
+    expect(naAcao('msys')).toEqual([]);
+  });
+
+  it('essencial DESATUALIZADO tem botão, então o selo não aparece', async () => {
+    // Sem esta regra o cartão mostraria "Vem no instalador" ao lado de um botão
+    // Atualizar, ou seja o selo negaria o botão que está logo à esquerda.
+    await pintar([comp({
+      chave: 'yanc', essencial: true, instalado: true, estado: 'desatualizado',
+    })]);
+    expect(naAcao('yanc')).toEqual([]);
+    expect(botoes('yanc').map((b) => b.texto)).toEqual(['Atualizar']);
+  });
+});

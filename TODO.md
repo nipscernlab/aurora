@@ -974,18 +974,19 @@ Pós-release, com a regra de sempre: medir antes de mexer.
 Três pedidos que vieram juntos do uso, 26/08. Estão aqui como pendência, sem
 implementação ainda.
 
-- [ ] Refazer os selos do painel de Componentes ("Instalado", "Não instalado",
-      "Sempre instalado", "Atualização disponível", "Necessário para compilar").
-      Eles enchem linguiça em vez de informar, e o problema é de conteúdo, não
-      de estilo. Três casos concretos, em
-      [js/ui/components_panel.js](js/ui/components_panel.js) por volta da linha
-      150: o selo "Instalado" aparece num cartão que já tem botão Remover, e o
-      botão sozinho já diz que está instalado; "Não instalado" vem colado com
-      "Necessário para compilar", dois selos dizendo pedaços da mesma coisa; e
-      "Sempre instalado" é uma tentativa canhota de dizer "vem no instalador e
-      não dá para tirar". Selo deve carregar o que o resto do cartão NÃO diz, e
-      hoje quase todos repetem o botão ao lado. Provavelmente sobram dois: um
-      para o que falta e faz falta agora, e um para o que tem atualização.
+- [x] ~~Refazer os selos do painel de Componentes.~~ Feito em 26/08/2026. Dos
+      cinco selos sobraram dois, pela regra de que um selo só existe se disser o
+      que o resto do cartão não diz: "Instalado" repetia o botão Remover, "Não
+      instalado" repetia o botão Baixar E o tamanho escrito "download de 16 MB",
+      e "Atualização disponível" repetia o botão Atualizar. Ficaram o do
+      essencial, que explica por que aquele cartão não tem botão nenhum (e
+      virou "Vem no instalador", em vez do canhoto "Sempre instalado"), e o de
+      "Necessário para compilar", que é o único com urgência. O efeito é que
+      quase todo cartão fica sem selo e o único que tem um salta aos olhos.
+      A regra virou função pura `selosDe`, com teste próprio, porque os estados
+      que ela separa quase nunca aparecem juntos numa máquina só: numa máquina
+      com tudo instalado a interface fica igual esteja a regra certa ou errada,
+      e foi essa a dificuldade ao tentar conferir na AURORA rodando.
 
 - [ ] Refazer o painel de PyLibs. O desenho atual é uma lista de cartões com
       ação por linha, e não acompanha bem quando há muita biblioteca; decidir a

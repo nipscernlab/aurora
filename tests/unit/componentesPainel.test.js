@@ -8,11 +8,17 @@
  * re-baixando o que já está no disco. Por isso o que este teste prende é o mapa
  * ESTADO → o que o cartão mostra e o que o botão faz:
  *
- *   ausente        → selo "Não instalado", botão Baixar (sem --force)
- *   ok             → selo "Instalado",     botão Remover
- *   desatualizado  → selo "Atualização disponível", Atualizar (com --force)
- *                    E Remover, porque a pessoa tem o componente instalado
- *   essencial      → selo "Sempre instalado", nenhum botão
+ *   ausente        → sem selo, botão Baixar (sem --force)
+ *   ok             → sem selo, botão Remover
+ *   desatualizado  → sem selo, Atualizar (com --force) E Remover, porque a
+ *                    pessoa tem o componente instalado
+ *   essencial      → selo "Vem no instalador", nenhum botão
+ *
+ * Os selos de "Instalado", "Não instalado" e "Atualização disponível" saíram em
+ * 26/08/2026: cada um repetia o botão ao lado, e o "Não instalado" repetia
+ * também o tamanho, que já vinha escrito "download de 16 MB". A regra que
+ * sobrou está em `selosDe`, com teste próprio em componentSelos.test.js; aqui
+ * o que se prende é que o CARTÃO reflete essa regra.
  *
  * E o rodapé, que é onde a soma dos downloads pendentes aparece.
  */
@@ -83,7 +89,7 @@ beforeEach(() => {
 describe('o cartão diz a verdade sobre cada estado', () => {
   it('ausente: só Baixar, e o tamanho citado é o do download', async () => {
     await pintar([comp()]);
-    expect(selos('surfer')).toEqual(['Não instalado']);
+    expect(selos('surfer')).toEqual([]);   // o botão Baixar e o "download de" já dizem
     expect(botoes('surfer')).toEqual([
       { texto: 'Baixar', instalar: 'surfer', remover: null, forcar: false },
     ]);
@@ -92,7 +98,7 @@ describe('o cartão diz a verdade sobre cada estado', () => {
 
   it('instalado e em dia: só Remover, e o tamanho citado é o do disco', async () => {
     await pintar([comp({ estado: 'ok', instalado: true, versaoInstalada: 'v0.7.0-nips.10' })]);
-    expect(selos('surfer')).toEqual(['Instalado']);
+    expect(selos('surfer')).toEqual([]);   // o botão Remover já diz
     expect(botoes('surfer')).toEqual([
       { texto: 'Remover', instalar: null, remover: 'surfer', forcar: false },
     ]);
@@ -101,7 +107,7 @@ describe('o cartão diz a verdade sobre cada estado', () => {
 
   it('desatualizado: Atualizar (com --force) e Remover, e cita o download', async () => {
     await pintar([comp({ estado: 'desatualizado', instalado: true, versaoInstalada: 'v0.7.0-nips.2' })]);
-    expect(selos('surfer')).toEqual(['Atualização disponível']);
+    expect(selos('surfer')).toEqual([]);   // o botão Atualizar já diz
     expect(botoes('surfer')).toEqual([
       { texto: 'Atualizar', instalar: 'surfer', remover: null, forcar: true },
       { texto: 'Remover', instalar: null, remover: 'surfer', forcar: false },
@@ -111,7 +117,7 @@ describe('o cartão diz a verdade sobre cada estado', () => {
 
   it('essencial: nenhum botão, porque não há decisão a tomar', async () => {
     await pintar([comp({ chave: 'yanc', nome: 'YANC', essencial: true, estado: 'ok', instalado: true })]);
-    expect(selos('yanc')).toEqual(['Sempre instalado']);
+    expect(selos('yanc')).toEqual(['Vem no instalador']);
     expect(botoes('yanc')).toEqual([]);
   });
 
@@ -129,7 +135,11 @@ describe('o cartão diz a verdade sobre cada estado', () => {
 
   it('o que compila e não está aqui é urgente, não recurso a menos', async () => {
     await pintar([comp({ chave: 'msys', nome: 'MSYS', requerParaCompilar: true, downloadMB: 272 })]);
-    expect(selos('msys')).toEqual(['Não instalado', 'Necessário para compilar']);
+    // Era "Não instalado" + "Necessário para compilar", dois selos dizendo
+    // pedaços da mesma coisa. Sobrou o que carrega a urgência, e ele ficou
+    // MAIS visível por isso: agora é o único selo da lista inteira, porque
+    // nenhum outro estado tem um.
+    expect(selos('msys')).toEqual(['Necessário para compilar']);
     expect(cartao('msys').classList.contains('componente-urgente')).toBe(true);
   });
 });

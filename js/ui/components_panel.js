@@ -50,12 +50,9 @@ const ultimoProgresso = new Map();
 
 /** Reservas em português para antes de as locales carregarem. */
 const RESERVA = {
-  'modal.settings.componentsInstalled': 'Instalado',
-  'modal.settings.componentsMissing': 'Não instalado',
-  'modal.settings.componentsOutdated': 'Atualização disponível',
   'modal.settings.componentsUpdate': 'Atualizar',
   'modal.settings.componentsUpdatesAvailable': '{n} com atualização disponível ({mb} de download).',
-  'modal.settings.componentsAlways': 'Sempre instalado',
+  'modal.settings.componentsAlways': 'Vem no instalador',
   'modal.settings.componentsNeededToCompile': 'Necessário para compilar',
   'modal.settings.componentsDownload': 'Baixar',
   'modal.settings.componentsRemove': 'Remover',
@@ -138,30 +135,58 @@ function tamanhoLegivel(mb) {
   return mb >= 1000 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
 }
 
+/**
+ * Quais selos um componente merece. Pura, exportada e testada
+ * (tests/unit/componentSelos.test.js), porque a regra abaixo é fácil de
+ * quebrar sem ninguém notar: os estados que ela separa quase nunca aparecem
+ * todos na mesma máquina, e numa máquina com tudo instalado a interface fica
+ * igual esteja a regra certa ou errada.
+ *
+ * A REGRA: um selo só existe se disser o que o resto do cartão não diz. Eram
+ * cinco, e três não passavam nesse teste.
+ *
+ *   "Instalado" ficava ao lado de um botão Remover. Remover só aparece no que
+ *   está instalado, então o selo repetia o botão.
+ *   "Não instalado" ficava ao lado de um botão Baixar E de um tamanho escrito
+ *   "download de 12 MB". Dois sinais já diziam a mesma coisa.
+ *   "Atualização disponível" ficava ao lado de um botão Atualizar, e a
+ *   contagem no topo do painel já anuncia quantos têm atualização.
+ *
+ * Sobraram os dois que carregam informação própria. O do essencial explica por
+ * que aquele cartão NÃO tem botão nenhum, que sem ele parece cartão quebrado.
+ * O de "necessário para compilar" é o único com urgência: sem ele, um
+ * componente que impede o aluno de compilar fica com a mesma cara de um
+ * opcional que ele nunca vai querer.
+ *
+ * O efeito colateral é o que se queria: como quase todo cartão fica sem selo,
+ * o único que tem um passa a saltar aos olhos.
+ *
+ * @param {{essencial?:boolean, instalado?:boolean, estado?:string, requerParaCompilar?:boolean}} c
+ * @returns {Array<'essencial'|'urgente'>}
+ */
+export function selosDe(c) {
+  if (!c) return [];
+  if (c.essencial) return ['essencial'];
+  const desatualizado = c.estado === 'desatualizado';
+  if (!c.instalado && !desatualizado && c.requerParaCompilar) return ['urgente'];
+  return [];
+}
+
+/** Texto de cada selo, na ordem em que `selosDe` os devolve. */
+const TEXTO_DO_SELO = {
+  essencial: 'modal.settings.componentsAlways',
+  urgente: 'modal.settings.componentsNeededToCompile',
+};
+
 function cartao(c) {
-  const selos = [];
+  const selos = selosDe(c).map((tipo) => (
+    `<span class="componente-selo ${tipo}">${escapar(tr(TEXTO_DO_SELO[tipo]))}</span>`
+  ));
   // Instalado, inteiro, mas de outra versao: a sentinela esta la, e e por isso
   // que so o carimbo do instalador enxerga. E o unico estado em que o cartao
   // oferece baixar E remover ao mesmo tempo, porque a pessoa tem o componente
   // e a AURORA instalada espera outro.
   const desatualizado = c.estado === 'desatualizado';
-  if (desatualizado) {
-    selos.push(`<span class="componente-selo desatualizado">${escapar(tr('modal.settings.componentsOutdated'))}</span>`);
-  } else if (c.essencial) {
-    // Essencial vem no instalador e nao sai. Um cartao assim nao mostra estado
-    // de instalacao nem tamanho de download, porque nao ha decisao a tomar: a
-    // tela estava dizendo "sempre instalado" e oferecendo um download ao mesmo
-    // tempo, que e contraditorio e nao ajuda ninguem.
-    selos.push(`<span class="componente-selo essencial">${escapar(tr('modal.settings.componentsAlways'))}</span>`);
-  } else if (c.instalado) {
-    selos.push(`<span class="componente-selo instalado">${escapar(tr('modal.settings.componentsInstalled'))}</span>`);
-  } else {
-    selos.push(`<span class="componente-selo ausente">${escapar(tr('modal.settings.componentsMissing'))}</span>`);
-    // O que compila e nao esta aqui e assunto urgente, nao recurso a menos.
-    if (c.requerParaCompilar) {
-      selos.push(`<span class="componente-selo urgente">${escapar(tr('modal.settings.componentsNeededToCompile'))}</span>`);
-    }
-  }
 
   // Remover existe, mas com a cara de acao destrutiva (contorno vermelho, o
   // mesmo desenho do botao de limpar credenciais) e confirmacao que avisa o

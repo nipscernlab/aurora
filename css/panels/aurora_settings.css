@@ -1043,9 +1043,11 @@
   gap: var(--space-2);
 }
 
-/* Os selos vivem num invólucro proprio para ocuparem UMA celula do grid: sao
-   ate dois (ausente + urgente) e soltos virariam duas colunas, desalinhando a
-   linha inteira. */
+/* Os selos vivem num invólucro proprio para ocuparem UMA celula do grid. Hoje
+   e no maximo UM (ver a regra em components_panel.js: so sobrevive o selo que
+   diz o que o resto do cartao nao diz), mas o involucro fica: solto, um selo
+   viraria coluna propria e desalinharia a linha inteira, e um segundo selo
+   futuro entra aqui sem mexer no grid. */
 .componente-selos {
   display: flex;
   align-items: center;
@@ -1074,22 +1076,6 @@
   /* Um selo com o texto partido em duas linhas dentro da capsula parece
      defeito, nao aperto. Preferimos que a LINHA quebre, nao a palavra. */
   white-space: nowrap;
-}
-
-.componente-selo.instalado {
-  color: var(--status-success);
-  border-color: var(--status-success);
-}
-
-/* Instalado, inteiro, mas de outra versao: informacao, nao alarme. */
-.componente-selo.desatualizado {
-  color: var(--status-info);
-  border-color: var(--status-info);
-}
-
-.componente-selo.ausente {
-  color: var(--text-muted);
-  border-color: var(--border-strong);
 }
 
 .componente-selo.essencial {

@@ -920,6 +920,52 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       incomodar, o caminho é reproduzir com um arquivo pequeno e abrir a
       questão no `hudson-trading/slang-server`, com o `.v` gerado em anexo.
 
+- [ ] **A aurora da splash está no meio do caminho.** Sessão de 25/08/2026,
+      interrompida com o desenho melhor do que estava e ainda não aprovado.
+      O que já entrou está commitado e funciona; o que falta está aqui para
+      não se perder.
+
+      Feito: o céu virou o catálogo HYG de verdade
+      ([js/ui/sky.js](js/ui/sky.js), seção própria em THIRD_PARTY_NOTICES.md);
+      a aurora saiu do SVG e virou emissão em colunas
+      ([js/ui/aurora.js](js/ui/aurora.js)); e o letreiro desceu para o canto
+      inferior esquerdo, com o ícone em 66 px, para o fundo ficar com os dois
+      terços de cima.
+
+      O veredito dele sobre a primeira versão da aurora, e o que foi feito
+      depois: "extremamente rápido" (a deriva caiu cinco vezes e o cintilar
+      três), "formato bem feio" (a faixa horizontal de ponta a ponta virou três
+      FITAS com trecho próprio da largura, pontas afinando, inclinação e curva
+      de senoides), "sem brilho" (uma passagem de desfoque virou escada de
+      três, halo largo, brilho médio e cortina nítida). A última captura já
+      mostra estriação fina, debrum em manchas e halo, mas ele não chegou a
+      julgar essa versão.
+
+      O que falta, em ordem de importância:
+
+      1. Custo. A escada de desfoques derrubou de 144 para 45 quadros por
+         segundo numa janela de 720x480. Continua acima de 30, mas é uma
+         regressão de três vezes numa tela que divide a CPU com a
+         inicialização da IDE. O caminho certo é borrar o BUFFER pequeno
+         (0,54 da tela) em vez de borrar a tela cheia três vezes, ou empilhar
+         um segundo canvas com `filter` de CSS, que é composição de GPU e sai
+         de graça.
+      2. A borda de baixo ainda lê como horizonte em alguns quadros, que é a
+         armadilha registrada no cabeçalho do módulo. Ajudaria variar a
+         LARGURA da fita ao longo dela, e não só a altura dos raios.
+      3. Nunca foi visto em movimento por olho humano, só em capturas paradas.
+         O ritmo pode estar lento demais agora.
+      4. Ideias não tentadas: perspectiva, com os raios convergindo para um
+         ponto de fuga, que é o que dá a coroa quando a aurora passa pelo
+         zênite; uma surge ocasional, o clarão que percorre a fita; e variação
+         de temperatura de cor ao longo do comprimento.
+
+      Onde mexer: os parâmetros ficam todos no vetor `FITAS`, um objeto por
+      fita, e cada campo tem comentário dizendo o que move. A verificação é por
+      captura isolada, sem abrir a AURORA, pelo procedimento que está na
+      memória do projeto; o script mede junto os quadros por segundo, então
+      qualquer ajuste de brilho já sai com o custo medido ao lado.
+
 ## 6. Profissionalizar o repositório
 
 - [x] ~~**`hero.png` do README.**~~ Feito em 11/08/2026 e já no README. Sai do

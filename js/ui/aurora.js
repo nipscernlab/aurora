@@ -125,8 +125,22 @@ function tiraDeDebrum(altura, cor) {
   return c;
 }
 
-/* As fitas. Tres, em profundidades diferentes: a de tras e fria, baixa, longa e
+/* As fitas. Cinco, em profundidades diferentes: as de tras sao frias, longas e
  * quase sem relevo, e as da frente sao mais curtas, mais verdes e mais vivas.
+ *
+ * Eram tres, e a cortina toda vivia mais baixa. Duas mudancas aqui, e as duas
+ * sao de composicao. As bases subiram cerca de um decimo da altura, o que abre
+ * o terco de baixo: e ali que ficam o letreiro e a barra, e e ali que as
+ * estrelas apareciam menos porque a luz passava por cima delas. E entraram uma
+ * camada bem ao fundo e uma bem a frente.
+ *
+ * As duas novas nao sao mais do mesmo. A do fundo e larga, fria e quase plana,
+ * e existe para as outras estarem na frente de ALGUMA COISA em vez de flutuarem
+ * no preto; ela usa passo 3, um terco das colunas, porque naquele contraste
+ * ninguem distingue uma coluna da vizinha e pagar por ela seria desperdicio. A
+ * da frente cobre so um trecho estreito da largura e e a mais viva das cinco,
+ * para o olho ter UM lugar mais aceso onde pousar: cortina pareja de ponta a
+ * ponta e o que faz um ceu desenhado parecer papel de parede.
  *
  * `trecho` e onde a fita existe na largura, em fracao da tela, e as pontas
  * afinam sozinhas. Fitas curtas e sobrepostas sao o que faz o ceu parecer ter
@@ -136,13 +150,51 @@ function tiraDeDebrum(altura, cor) {
  * numero de ciclos ao longo da tela inteira, e velocidade da fase em radianos
  * por segundo. A segunda, mais curta e mais rapida, e o que tira a curva da
  * cara de senoide unica.
+ *
+ * `corrida` e a velocidade do cintilar que corre de lado, e ela foi medida em
+ * vez de sentida: em 0,28 rad/s com 5 ciclos na largura, a onda andava 6,4
+ * pixels por segundo e levava CENTO E DOZE SEGUNDOS para atravessar a tela. A
+ * splash vive por volta de oito. O movimento que o texto acima chama de "o que
+ * mais identifica uma aurora" existia no codigo e nao chegava aos olhos de
+ * ninguem: em toda a vida da tela ele andava meia dezena de pixels. Os valores
+ * de hoje atravessam em uns quarenta segundos, entao numa abertura tipica a
+ * onda percorre perto de um quinto da largura, que se ve sem esperar e ainda
+ * assim nao tem pressa.
+ *
+ * `pulso` e `velPulso` sao o brilho da fita subindo e descendo devagar, com
+ * periodo de vinte a trinta segundos e fase propria por fita. Aurora de verdade
+ * nao tem brilho constante: a precipitacao de eletrons vai e volta, e por isso
+ * uma cortina acende e esmaece enquanto a vizinha faz o contrario. Amplitude
+ * baixa de proposito. O que se quer e que a luz pareca viva, nao que a tela
+ * pisque enquanto alguem espera a IDE abrir.
  */
 const FITAS = [
   {
+    /* A mais distante. Quase sem relevo, fria e alta: e o brilho de fundo que
+       poe as outras a frente de alguma coisa, em vez de flutuarem no preto.
+       Passo 3 de proposito, um terco das colunas das da frente: nesta faixa de
+       contraste ninguem distingue a coluna individual, entao pagar por ela e
+       desperdicio. */
+    semente: 47,
+    trecho: [-0.24, 1.10], afina: 0.34,
+    base: 0.50, inclina: -0.04, onda: [[0.040, 0.55, 0.038], [0.016, 1.35, -0.062]],
+    freq: 22, deriva: 0.0025, corrida: 0.52, ondaCorrida: 4,
+    pulso: 0.08, velPulso: 0.17,
+    altura: 0.34, alfa: 0.13, largura: 4, contraste: 0.92,
+    debrum: null,
+    tom: [
+      [0.00, 'rgba(74,104,190,0.14)'],
+      [0.18, 'rgba(66,150,196,0.22)'],
+      [0.46, 'rgba(72,126,200,0.12)'],
+      [0.80, 'rgba(96,110,205,0)'],
+    ],
+  },
+  {
     semente: 3,
     trecho: [-0.18, 0.92], afina: 0.30,
-    base: 0.56, inclina: 0.07, onda: [[0.055, 0.75, 0.055], [0.022, 1.9, 0.085]],
-    freq: 34, deriva: 0.004, corrida: 0.28, ondaCorrida: 5,
+    base: 0.465, inclina: 0.07, onda: [[0.055, 0.75, 0.055], [0.022, 1.9, 0.085]],
+    freq: 34, deriva: 0.004, corrida: 0.78, ondaCorrida: 5,
+    pulso: 0.10, velPulso: 0.29,
     altura: 0.42, alfa: 0.20, largura: 2, contraste: 1.12,
     debrum: null,
     tom: [
@@ -156,8 +208,9 @@ const FITAS = [
   {
     semente: 11,
     trecho: [0.06, 1.14], afina: 0.24,
-    base: 0.50, inclina: -0.11, onda: [[0.085, 0.62, -0.075], [0.030, 1.55, 0.11]],
-    freq: 52, deriva: -0.006, corrida: 0.42, ondaCorrida: 7,
+    base: 0.405, inclina: -0.11, onda: [[0.085, 0.62, -0.075], [0.030, 1.55, 0.11]],
+    freq: 52, deriva: -0.006, corrida: 1.15, ondaCorrida: 7,
+    pulso: 0.13, velPulso: 0.22,
     altura: 0.60, alfa: 0.40, largura: 1, contraste: 1.30,
     debrum: 'rgba(238,96,178,',
     tom: [
@@ -172,8 +225,9 @@ const FITAS = [
   {
     semente: 29,
     trecho: [-0.10, 0.62], afina: 0.28,
-    base: 0.455, inclina: 0.09, onda: [[0.065, 0.9, 0.10], [0.026, 2.3, -0.13]],
-    freq: 68, deriva: 0.009, corrida: 0.55, ondaCorrida: 9,
+    base: 0.36, inclina: 0.09, onda: [[0.065, 0.9, 0.10], [0.026, 2.3, -0.13]],
+    freq: 68, deriva: 0.009, corrida: 1.50, ondaCorrida: 9,
+    pulso: 0.11, velPulso: 0.35,
     altura: 0.50, alfa: 0.26, largura: 1, contraste: 1.45,
     debrum: 'rgba(246,108,192,',
     tom: [
@@ -181,6 +235,27 @@ const FITAS = [
       [0.10, 'rgba(122,242,178,0.82)'],
       [0.34, 'rgba(62,208,222,0.24)'],
       [0.78, 'rgba(120,140,235,0)'],
+    ],
+  },
+  {
+    /* A da frente, e a mais curta das cinco: um trecho estreito da largura, bem
+       a direita de onde a segunda esta mais forte. Serve para o olho achar UM
+       lugar mais aceso em vez de uma cortina pareja, que e como uma aurora de
+       verdade se apresenta. Curta e cara por coluna (passo 1, contraste alto),
+       mas cobre pouco mais de um terco da tela. */
+    semente: 71,
+    trecho: [0.44, 1.06], afina: 0.32,
+    base: 0.345, inclina: -0.06, onda: [[0.052, 1.15, -0.115], [0.020, 2.7, 0.145]],
+    freq: 84, deriva: -0.011, corrida: 1.85, ondaCorrida: 11,
+    pulso: 0.14, velPulso: 0.41,
+    altura: 0.46, alfa: 0.22, largura: 2, contraste: 1.55,
+    debrum: 'rgba(240,120,200,',
+    tom: [
+      [0.00, 'rgba(152,246,190,0.26)'],
+      [0.09, 'rgba(134,248,184,0.70)'],
+      [0.30, 'rgba(78,220,214,0.30)'],
+      [0.62, 'rgba(110,152,238,0.09)'],
+      [0.86, 'rgba(150,138,236,0)'],
     ],
   },
 ];
@@ -196,6 +271,11 @@ export function aurora(canvas) {
     ruido: Math.random() * 500,
     onda: [Math.random() * TAU, Math.random() * TAU],
     corrida: Math.random() * TAU,
+    /* A fase do pulso tambem e sorteada, e e o que impede as tres fitas de
+       acenderem e apagarem juntas. Em fase, o quadro inteiro respiraria como um
+       so, que le como a tela mudando de brilho e nao como cortinas
+       independentes. */
+    pulso: Math.random() * TAU,
   }));
 
   /* Resolucao de trabalho. A ampliacao seguinte suaviza o degrau das colunas e
@@ -239,6 +319,10 @@ export function aurora(canvas) {
       const desl = fase.ruido + t * f.deriva * 100;
       const [u0, u1] = f.trecho;
 
+      /* O brilho da fita inteira, subindo e descendo devagar. Fora do laco das
+         colunas de proposito: e uma propriedade da cortina, nao de cada raio. */
+      const respira = 1 + f.pulso * Math.sin(t * f.velPulso + fase.pulso);
+
       const xIni = Math.max(-passo, Math.floor(u0 * bw));
       const xFim = Math.min(bw + passo, Math.ceil(u1 * bw));
 
@@ -267,7 +351,7 @@ export function aurora(canvas) {
            ser parelho de ponta a ponta. */
         const env = 0.42 + 0.72 * fbm(u * f.freq * 0.09 + desl * 0.3, f.semente + 31);
 
-        const forca = Math.min(0.85, Math.pow(acordo, 1.6) * 2.0 * env * ponta * corrida);
+        const forca = Math.min(0.85, Math.pow(acordo, 1.6) * 2.0 * env * ponta * corrida * respira);
         if (forca <= 0.02) continue;
 
         /* A borda de baixo: duas senoides de periodos diferentes, mais um

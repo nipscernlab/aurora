@@ -966,6 +966,22 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       memória do projeto; o script mede junto os quadros por segundo, então
       qualquer ajuste de brilho já sai com o custo medido ao lado.
 
+## 5b. Painel de bibliotecas Python e instalação de componentes
+
+Três pedidos que vieram juntos do uso, 26/08. Estão aqui como pendência, sem
+implementação ainda.
+
+- [ ] Refazer o painel de PyLibs. O desenho atual é uma lista de cartões com
+      ação por linha, e não acompanha bem quando há muita biblioteca; decidir a
+      forma nova antes de mexer no código.
+- [ ] Realocar o botão de Components. Onde está hoje, ele não é achado por quem
+      precisa dele, que é justamente quem está com uma instalação quebrada.
+- [ ] Botão para baixar e instalar VÁRIOS componentes em sequência, a partir de
+      uma seleção do usuário na lista. Hoje é um de cada vez, e quem monta uma
+      máquina do zero repete o gesto sete vezes. A fila precisa de progresso por
+      item e de continuar até o fim quando um item falha, dizendo no fim o que
+      entrou e o que não entrou.
+
 ## 6. Profissionalizar o repositório
 
 - [x] ~~**`hero.png` do README.**~~ Feito em 11/08/2026 e já no README. Sai do
@@ -1239,6 +1255,37 @@ formalmente, não consertado.
 - Botão novo numa linha da lista de recentes: os controles precisam estar
   dentro de UMA célula da grade. A lista é uma subgrade de três colunas, e um
   quarto filho joga o × para a linha seguinte em toda entrada riscada.
+- Splash, custo de CPU medido em 26/08. O renderer da splash ocupa: 12% só com
+  o céu, 29% com o céu mais as três fitas originais da aurora, 45% quando as
+  fitas viraram cinco com passo 1 nas novas, e 36% depois de abrir o passo da
+  camada de fundo para 4 e o da frente para 2. Isso importa porque a splash
+  divide a CPU com a inicialização da IDE, mas o número que decide não é a
+  ocupação e sim o tempo até a janela principal aparecer: com as cinco camadas
+  ele ficou em 8,9 a 9,1 s, contra 9,4 s antes delas, ou seja dentro do ruído.
+  Se um dia precisar cortar custo aqui, a ordem barata é: abrir o passo das
+  fitas de menor contraste, depois baixar o ESCALA de 0,54 (mas não abaixo de
+  meia tela, que é onde a borda de baixo passa a mostrar a grade).
+  Para medir, o intervalo entre quadros NÃO serve: com vsync os dois casos dão
+  16,7 ms e a diferença some. O que mede é ScriptDuration/TaskDuration do
+  protocolo do Chrome, lidos duas vezes e subtraídos.
+- Splash, medições da rodada de 26/08, para não refazer. O cintilar que corre
+  de lado nas fitas da aurora andava 6,4 px/s e levava 112 SEGUNDOS para
+  atravessar a tela, enquanto o splash vive por volta de 9 s: o movimento que o
+  cabeçalho de `js/ui/aurora.js` chama de "o que mais identifica uma aurora"
+  existia e não chegava aos olhos de ninguém. Os valores de `corrida` agora
+  atravessam em uns 40 s. Também foi TESTADA E DESCARTADA a ideia de sortear
+  várias direções de céu e ficar com a mais rica: em mil sorteios, a diferença
+  entre o decil 10 e o decil 90 é de só 1,5x (626 contra 948 estrelas na metade
+  de cima) e o pior caso tem 541, então não existe "céu vazio" a evitar. Quando
+  uma abertura parece ter poucas estrelas, é a aurora cobrindo elas, porque o
+  canvas da aurora fica ACIMA do das estrelas de propósito.
+  Para comparar antes/depois é obrigatório fixar a semente: a aurora sorteia as
+  fases das fitas e o céu sorteia a direção do olhar a cada abertura, então dois
+  quadros de execuções diferentes nunca mostram a mesma coisa. O jeito que
+  funcionou foi injetar um `Math.random` com semente num `<script>` clássico
+  antes dos módulos, numa cópia temporária de `dist/html/splash.html` (tem de
+  ser a construída: o catálogo de estrelas entra por `?inline`, que só o Vite
+  resolve, e a fonte crua cai no campo aleatório de 130 pontos sem avisar).
 - Dump de simulação em máquina travada (laboratório, 25/08): o `.vcd`/`.fst`
   não era substituído e os alunos deletavam à mão. Medido no Windows real:
   sobrescrever um dump bloqueado faz o vvp falhar com exit 1 e um `FST Error`

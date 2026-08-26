@@ -79,17 +79,27 @@
     /* As estrelas rareiam para baixo, onde ficam o letreiro e a barra de
        progresso. O campo antigo fazia isso sorteando y só nos 78% de cima; o
        céu de verdade cobre a tela inteira, então quem afina é a máscara. */
+    /* O trecho cheio ia até 46% da altura, que era logo acima de onde as fitas
+       começavam. Com a aurora mais alta, a faixa entre 46% e 65% virou céu
+       aberto e as estrelas continuavam sendo apagadas ali por um motivo que
+       deixou de existir. O cheio vai até 56%; o fim da rampa não se mexeu,
+       porque quem manda nele é onde o letreiro começa (perto de 70%), e não
+       onde a aurora está. */
     #stars {
-      -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0,0,0,0.58) 64%, rgba(0,0,0,0.22) 78%, transparent 90%);
-      mask-image: linear-gradient(180deg, #000 0%, #000 46%, rgba(0,0,0,0.58) 64%, rgba(0,0,0,0.22) 78%, transparent 90%);
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 56%, rgba(0,0,0,0.55) 68%, rgba(0,0,0,0.20) 79%, transparent 90%);
+      mask-image: linear-gradient(180deg, #000 0%, #000 56%, rgba(0,0,0,0.55) 68%, rgba(0,0,0,0.20) 79%, transparent 90%);
     }
 
-    /* vinheta superior/inferior */
+    /* Vinheta superior/inferior. A de cima era 0,55 de preto e foi para 0,40:
+       ela foi calibrada quando as fitas viviam mais baixo, e depois que subiram
+       cerca de um décimo da altura eram as PONTAS DOS RAIOS que caíam dentro do
+       escurecimento mais forte. A de baixo fica como estava, porque o trabalho
+       dela é outro: assentar o letreiro e a barra sobre o céu. */
     .stage::after {
       content: ''; position: absolute; inset: 0; z-index: 2;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 120% 55% at 50% 0%,   rgba(0,0,0,0.55) 0%, transparent 55%),
+        radial-gradient(ellipse 120% 55% at 50% 0%,   rgba(0,0,0,0.40) 0%, transparent 55%),
         radial-gradient(ellipse 120% 45% at 50% 100%, rgba(0,0,0,0.45) 0%, transparent 60%);
     }
 
@@ -102,12 +112,20 @@
        inteiros e o letreiro vira legenda no rodapé, alinhado à esquerda, na
        mesma margem da barra de progresso. O ícone encolheu de 116 para 66 pelo
        mesmo motivo: ele deixa de ser o assunto e passa a ser a assinatura. */
+    /* A margem esquerda é 36px, a MESMA do rodapé. Eram 38 aqui e 36 lá, e os
+       dois pixels de diferença puseram o ícone fora de prumo com a barra, que é
+       a linha vertical mais forte desta tela.
+
+       O respiro embaixo era de 8px, e com ele a tagline encostava na barra: a
+       frase em português corre quase toda a largura, então a barra logo abaixo
+       lia como sublinhado dela, e não como progresso. 22px separam os dois
+       blocos o bastante para cada um voltar a ser uma coisa. */
     .content {
       position: relative; z-index: 3;
       align-self: end;
       display: flex; align-items: center;
       gap: 18px;
-      padding: 0 38px 8px;
+      padding: 0 36px 22px;
     }
 
     .mark {
@@ -117,22 +135,47 @@
       display: flex; align-items: center; justify-content: center;
       animation: rise 700ms cubic-bezier(0.19,1,0.22,1) both;
     }
+    /* O ícone é roxo-azulado e a cena atrás dele é verde-ciano, então ele
+       chegava como adesivo colado sobre a foto. Os brilhos agora saem na cor da
+       aurora: o de perto no verde do corpo da cortina, o largo no ciano. Isso
+       não repinta o ícone, só faz o ar em volta dele acender como acende em
+       volta de tudo mais aqui. */
     .mark img {
       width: 66px; height: 66px;
       filter:
-        drop-shadow(0 0 16px rgba(79,200,240,0.42))
-        drop-shadow(0 0 34px rgba(142,131,232,0.26));
+        drop-shadow(0 0 14px color-mix(in srgb, var(--green) 30%, transparent))
+        drop-shadow(0 0 30px color-mix(in srgb, var(--cyan) 34%, transparent))
+        drop-shadow(0 0 52px color-mix(in srgb, var(--violet) 20%, transparent));
     }
-    /* halo estático atrás do ícone */
+    /* O halo respira no MESMO período de 7s do gradiente do letreiro. Os dois
+       eram estáticos e independentes; no mesmo compasso, ícone e palavra passam
+       a ler como uma assinatura só. Amplitude baixa de propósito: é respiração,
+       não pulsação. */
     .mark::before {
       content: ''; position: absolute;
-      width: 150%; height: 150%;
+      width: 165%; height: 165%;
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(79,200,240,0.16) 0%, transparent 65%);
+      background: radial-gradient(circle,
+        color-mix(in srgb, var(--green) 13%, transparent) 0%,
+        color-mix(in srgb, var(--cyan) 10%, transparent) 38%,
+        transparent 68%);
+      /* Mesma duração do `shift` do letreiro, e é esse o ponto: o halo e a
+         palavra respiram no mesmo compasso. Se um dos dois mudar, mude o
+         outro junto. */
+      animation: halo 7s ease-in-out infinite;
     }
 
-    /* Letreiro e tagline andam juntos, à direita do ícone. */
-    .lockup { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    /* Letreiro e tagline andam juntos, à direita do ícone.
+
+       A sombra existe por legibilidade, não por enfeite: a borda de baixo da
+       aurora desce até onde o letreiro está quando as fitas sorteiam uma fase
+       baixa, e aí o texto cinza cai sobre verde aceso. A sombra é escura e
+       larga o bastante para o texto sempre ter um degrau contra o céu, e fraca
+       o bastante para não virar contorno quando o fundo já está preto. */
+    .lockup {
+      display: flex; flex-direction: column; gap: 6px; min-width: 0;
+      text-shadow: 0 1px 12px rgba(4,8,16,0.75), 0 0 3px rgba(4,8,16,0.55);
+    }
 
     .wordmark {
       display: flex; align-items: baseline;
@@ -155,19 +198,30 @@
       font-size: 17px; font-weight: 500;
       color: var(--text-dim);
     }
+    /* AURORA subiu de --text-secondary para --text. Metade do nome do produto
+       estava na cor de legenda, o que deixava "SAPHO" sozinho como marca e
+       "AURORA" como comentário sobre ele. No branco do texto os dois viram um
+       letreiro só, e a diferença de tamanho (40 contra 21) já dá a hierarquia
+       sem precisar apagar um deles. */
     .wordmark .aurora {
       font-size: 21px; font-weight: 600;
       letter-spacing: 0.26em;
-      color: var(--text-soft);
+      color: var(--text);
     }
 
     /* 9,5px com 0,22em de entreletra cabem numa linha só na largura que sobra ao
        lado do ícone, nos dois idiomas. Era 11px com 0,30em, que quebrava a frase
        em duas e deixava "HARDWARE" sozinha na segunda. */
+    /* A cor era --text-muted, a mais apagada da rampa. A 9,5px, em maiúsculas e
+       com 0,22em de entreletra, sobre um céu com estrelas, isso fica no piso da
+       legibilidade:
+       é a única frase da tela que explica o que o produto é, e era a mais
+       difícil de ler. --text-secondary a devolve sem competir com o letreiro,
+       que agora está em branco. */
     .tagline {
       font-size: 9.5px; font-weight: 500;
       letter-spacing: 0.22em; text-transform: uppercase;
-      color: var(--text-dim);
+      color: var(--text-secondary);
       white-space: nowrap;
       animation: rise 700ms 180ms cubic-bezier(0.19,1,0.22,1) both;
     }
@@ -223,6 +277,7 @@
        ============================================================ */
     @keyframes rise   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes shift  { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    @keyframes halo   { 0%,100% { opacity: 0.72; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.04); } }
     @keyframes blink  { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
     @keyframes sheen  { 0% { transform: translateX(-100%); } 60%,100% { transform: translateX(100%); } }
   </style>
@@ -301,6 +356,13 @@
     })();
     const T = STRINGS[locale] || STRINGS.pt;
     document.getElementById('tagline').textContent = T.tagline;
+    /* A fase também, e não só a tagline. O rótulo inicial está cravado em
+       inglês no markup e só era traduzido quando o PRIMEIRO evento de progresso
+       chegava com uma fase conhecida — o que acontece uns instantes depois de a
+       janela aparecer. Numa máquina em português, a splash abria com
+       "Starting SAPHO" embaixo de uma tagline em português, e voltava ao normal
+       tão rápido que passava por defeito de renderização. */
+    document.getElementById('phase').textContent = T.boot;
 
     // ============================================================
     //  Progresso real — alimentado por main/windows.js via IPC.

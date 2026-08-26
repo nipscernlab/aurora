@@ -23,6 +23,22 @@ const { loadPage } = require('./render_loader');
 const RENDERER_READY_GRACE_MS = 8000;
 
 /**
+ * Beat between the bar visually filling and the main window appearing.
+ *
+ * This used to be 2000 ms, and it was two seconds of nothing: `splash:filled`
+ * only fires once the bar has ALREADY reached 100% on screen, and it is only
+ * sent after `app:renderer-ready`, which the renderer emits after Monaco is
+ * usable. So the application was sitting fully loaded behind a splash reading
+ * "Ready — 100%", waiting on a timer, on every single launch.
+ *
+ * It is not zero either: the eye needs a moment to register that the bar
+ * completed, and cutting straight from a filling bar to a maximised IDE reads
+ * as a glitch rather than as an arrival. 650 ms is that moment and nothing
+ * more.
+ */
+const SPLASH_HOLD_MS = 650;
+
+/**
  * Whether Windows will accept a *custom* jumplist category right now.
  * `null` = not probed yet; cached for the rest of the process.
  * @type {boolean|null}
@@ -429,7 +445,7 @@ function createMainWindow(opts = {}) {
  *   1. splash loads → create main window hidden (`deferShow`)
  *   2. main window's webContents events drive `splash:progress`
  *   3. renderer signals `app:renderer-ready` once Monaco/UI booted
- *   4. once the bar visually fills, coordinator waits 2s, then shows the
+ *   4. once the bar visually fills, coordinator holds SPLASH_HOLD_MS, then
  *      main window and closes the splash outright (no fade)
  *
  * A 15s safety cap forces the handoff if some milestone never fires.
@@ -488,7 +504,7 @@ function createSplashScreen() {
 
   // `handoff` only drives the bar to 100%, the main window must NOT
   // appear until the splash bar has *visually* filled. The splash
-  // reports back via `splash:filled`; only then do we wait 2s and reveal.
+  // reports back via `splash:filled`; only then do we hold the beat and reveal.
   const handoff = () => {
     if (handedOff) return;
     handedOff = true;
@@ -496,7 +512,7 @@ function createSplashScreen() {
   };
 
   ipcMain.once('splash:filled', () => {
-    setTimeout(reveal, 2000);
+    setTimeout(reveal, SPLASH_HOLD_MS);
   });
 
   // Renderer reports it finished booting (Monaco + UI). `.once` so a

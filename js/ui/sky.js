@@ -106,8 +106,14 @@ export function sky(canvas) {
      tambem e verdade: as mais fracas estao no limite de serem vistas. */
   const TWINKLE_MAG = 5.5;
 
-  const radiusFor = (mag) => Math.max(0.55, 0.55 + (6 - mag) * 0.27);
-  const alphaFor = (mag) => Math.max(0.42, Math.min(1, 0.42 + (6 - mag) * 0.105));
+  /* A inclinacao subiu de 0,27 para 0,32 no raio e de 0,105 para 0,12 no alfa,
+     e os dois pisos ficaram onde estavam. Isso mexe quase so nas brilhantes: a
+     de magnitude 6 continua com 0,55px e 0,42 de alfa, e a de magnitude 0 vai
+     de 2,17 para 2,47px e ja saturava em alfa. O ceu ganha topo sem ganhar
+     ruido, que e o contrario do que subir o piso faria: piso alto embranquece
+     o fundo inteiro e as constelacoes somem dentro do proprio brilho. */
+  const radiusFor = (mag) => Math.max(0.55, 0.55 + (6 - mag) * 0.32);
+  const alphaFor = (mag) => Math.max(0.42, Math.min(1, 0.42 + (6 - mag) * 0.12));
 
   function build() {
     twinklers = [];
@@ -159,8 +165,15 @@ export function sky(canvas) {
      isso a forma tem direito de ser esta e nao um circulo.
 
      Quem ganha o que segue a magnitude, entao o ceu se ordena sozinho: abaixo
-     da magnitude 4 so ha nucleo, em 2,4 entra o brilho, e as espiculas comecam
-     em 1,8 com o comprimento vindo do proprio brilho da estrela. */
+     da magnitude 4 so ha nucleo, em 2,9 entra o brilho, e as espiculas comecam
+     em 2,3 com o comprimento vindo do proprio brilho da estrela.
+
+     Os dois limiares eram 2,4 e 1,8, e nessa altura quase nenhuma estrela do
+     campo os alcancava: dava para contar as que tinham espicula. Meia
+     magnitude a mais em cada um multiplica por volta de duas vezes a conta de
+     estrelas com estrutura, o que e o que faz o campo ler como CEU e nao como
+     poeira. Continua sendo um criterio de brilho, e nao um enfeite espalhado:
+     a de magnitude 3 segue sendo um ponto. */
   /* A cor do nucleo, montada uma vez por cor. TWINKLE_MAG deixa cerca de mil e
      seiscentas estrelas sendo redesenhadas a cada quadro, e cada uma montava um
      'rgba(...)' com toFixed(3) para pintar um ponto cuja cor nunca muda. O alfa
@@ -187,7 +200,7 @@ export function sky(canvas) {
        rasterizador monta o gradiente numa tabela de 256 entradas, e quantizar
        uma tabela que vai ate 0,42a nao da o mesmo que quantizar uma que vai ate
        0,42 e depois multiplicar por a. */
-    if (mag < 2.4) {
+    if (mag < 2.9) {
       const gr = r * (mag < 1.0 ? 6.5 : 4.4);
       const gl = c.createRadialGradient(px, py, 0, px, py, gr);
       gl.addColorStop(0, col(a * 0.42));
@@ -197,8 +210,8 @@ export function sky(canvas) {
       c.beginPath(); c.arc(px, py, gr, 0, 6.283185); c.fill();
     }
 
-    if (mag < 1.8) {
-      const len = r * (3.4 + (1.8 - mag) * 2.6);
+    if (mag < 2.3) {
+      const len = r * (3.4 + (2.3 - mag) * 2.6);
       c.lineCap = 'round';
       for (const [dx, dy] of [[1, 0], [0, 1]]) {
         const g2 = c.createLinearGradient(px - dx * len, py - dy * len, px + dx * len, py + dy * len);

@@ -920,56 +920,61 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       incomodar, o caminho é reproduzir com um arquivo pequeno e abrir a
       questão no `hudson-trading/slang-server`, com o `.v` gerado em anexo.
 
-- [ ] **A aurora da splash está no meio do caminho.** Sessão de 25/08/2026,
-      interrompida com o desenho melhor do que estava e ainda não aprovado.
-      O que já entrou está commitado e funciona; o que falta está aqui para
-      não se perder.
+- [ ] **A aurora da splash, o que sobrou.** A sessão de 26/08 foi aprovada pelo
+      Chrysthofer olhando a tela em movimento, então o grosso saiu. Ficam aqui
+      só as pontas, todas de acabamento.
 
-      Feito: o céu virou o catálogo HYG de verdade
-      ([js/ui/sky.js](js/ui/sky.js), seção própria em THIRD_PARTY_NOTICES.md);
-      a aurora saiu do SVG e virou emissão em colunas
-      ([js/ui/aurora.js](js/ui/aurora.js)); e o letreiro desceu para o canto
-      inferior esquerdo, com o ícone em 66 px, para o fundo ficar com os dois
-      terços de cima.
+      O que a sessão de 26/08 resolveu: o cintilar lateral, que levava 112 s
+      para atravessar a tela numa splash que vive 9 s e portanto nunca tinha
+      sido visto por ninguém; a respiração lenta de brilho por fita; as fitas
+      subindo cerca de um décimo da altura; duas camadas novas de profundidade;
+      máscara do céu e vinheta superior recalibradas para a aurora mais alta; e
+      o custo medido de ponta a ponta (ver a nota em "Notas que evitam
+      retrabalho").
 
-      O veredito dele sobre a primeira versão da aurora, e o que foi feito
-      depois: "extremamente rápido" (a deriva caiu cinco vezes e o cintilar
-      três), "formato bem feio" (a faixa horizontal de ponta a ponta virou três
-      FITAS com trecho próprio da largura, pontas afinando, inclinação e curva
-      de senoides), "sem brilho" (uma passagem de desfoque virou escada de
-      três, halo largo, brilho médio e cortina nítida). A última captura já
-      mostra estriação fina, debrum em manchas e halo, mas ele não chegou a
-      julgar essa versão.
+      O item de CUSTO da lista antiga está respondido e não precisa da obra que
+      ele propunha. A regressão de quadros por segundo que ele descrevia não
+      reaparece: o intervalo entre quadros fica preso no vsync em 16,7 ms com
+      três ou com cinco fitas, e o tempo até a IDE aparecer não mudou (8,9 a
+      9,1 s contra 9,4 s). Borrar o buffer pequeno em vez da tela cheia, ou
+      empilhar um canvas com `filter` de CSS, continuam sendo as saídas certas
+      SE um dia o custo apertar, mas hoje não aperta e mexer nisso é otimizar
+      no escuro.
 
-      O que falta, em ordem de importância:
+      O que de fato falta:
 
-      1. Custo. A escada de desfoques derrubou de 144 para 45 quadros por
-         segundo numa janela de 720x480. Continua acima de 30, mas é uma
-         regressão de três vezes numa tela que divide a CPU com a
-         inicialização da IDE. O caminho certo é borrar o BUFFER pequeno
-         (0,54 da tela) em vez de borrar a tela cheia três vezes, ou empilhar
-         um segundo canvas com `filter` de CSS, que é composição de GPU e sai
-         de graça.
-      2. A borda de baixo ainda lê como horizonte em alguns quadros, que é a
-         armadilha registrada no cabeçalho do módulo. Ajudaria variar a
-         LARGURA da fita ao longo dela, e não só a altura dos raios.
-      3. Nunca foi visto em movimento por olho humano, só em capturas paradas.
-         O ritmo pode estar lento demais agora.
-      4. Ideias não tentadas: perspectiva, com os raios convergindo para um
+      1. A borda de baixo ainda lê como horizonte em alguns quadros, que é a
+         armadilha registrada no cabeçalho do módulo. Foi observada de novo em
+         26/08 e não piorou nem melhorou. Ajudaria variar a LARGURA da fita ao
+         longo dela, e não só a altura dos raios.
+      2. Ideias não tentadas: perspectiva, com os raios convergindo para um
          ponto de fuga, que é o que dá a coroa quando a aurora passa pelo
          zênite; uma surge ocasional, o clarão que percorre a fita; e variação
          de temperatura de cor ao longo do comprimento.
 
       Onde mexer: os parâmetros ficam todos no vetor `FITAS`, um objeto por
-      fita, e cada campo tem comentário dizendo o que move. A verificação é por
-      captura isolada, sem abrir a AURORA, pelo procedimento que está na
-      memória do projeto; o script mede junto os quadros por segundo, então
-      qualquer ajuste de brilho já sai com o custo medido ao lado.
+      fita, e cada campo tem comentário dizendo o que move. Para comparar
+      antes/depois é OBRIGATÓRIO fixar a semente, senão as fases sorteadas
+      mudam o quadro e a comparação não vale nada; o procedimento está na nota
+      de "Notas que evitam retrabalho".
 
 ## 5b. Painel de bibliotecas Python e instalação de componentes
 
 Três pedidos que vieram juntos do uso, 26/08. Estão aqui como pendência, sem
 implementação ainda.
+
+- [ ] Refazer os selos do painel de Componentes ("Instalado", "Não instalado",
+      "Sempre instalado", "Atualização disponível", "Necessário para compilar").
+      Eles enchem linguiça em vez de informar, e o problema é de conteúdo, não
+      de estilo. Três casos concretos, em
+      [js/ui/components_panel.js](js/ui/components_panel.js) por volta da linha
+      150: o selo "Instalado" aparece num cartão que já tem botão Remover, e o
+      botão sozinho já diz que está instalado; "Não instalado" vem colado com
+      "Necessário para compilar", dois selos dizendo pedaços da mesma coisa; e
+      "Sempre instalado" é uma tentativa canhota de dizer "vem no instalador e
+      não dá para tirar". Selo deve carregar o que o resto do cartão NÃO diz, e
+      hoje quase todos repetem o botão ao lado. Provavelmente sobram dois: um
+      para o que falta e faz falta agora, e um para o que tem atualização.
 
 - [ ] Refazer o painel de PyLibs. O desenho atual é uma lista de cartões com
       ação por linha, e não acompanha bem quando há muita biblioteca; decidir a

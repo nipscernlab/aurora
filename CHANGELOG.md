@@ -4,6 +4,105 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.10.0](https://github.com/nipscernlab/aurora/compare/v6.9.0...v6.10.0) (2026-08-26)
+
+
+### Features
+
+* **editor:** o editor escreve os simbolos de Dirac, que o teclado nao tem ([1dc2a24](https://github.com/nipscernlab/aurora/commit/1dc2a24d614791c1407ff3addef6ee8f4987baa3))
+* **exemplos:** cinco projetos prontos, criados por um botao so ([8f8eab1](https://github.com/nipscernlab/aurora/commit/8f8eab189e8b687bae0c5a598bdb4ccf231d2f52))
+* **exemplos:** tudo numa pasta so, e os cinco entram nos recentes ([7ac525e](https://github.com/nipscernlab/aurora/commit/7ac525e0524c578e54be051ac1e5167d946c845d))
+* **git:** as duas contas dividem uma fileira, e o cartao muda de forma ([fa935e0](https://github.com/nipscernlab/aurora/commit/fa935e0e92cc9f811a0555a8c88a3f106c315a94))
+* **git:** conta, listar e criar no GitLab, ao lado do GitHub ([b37643e](https://github.com/nipscernlab/aurora/commit/b37643e1888b7127b253da4591bdaed17782fa64))
+* **git:** liga o login de um clique no GitLab ([9e675df](https://github.com/nipscernlab/aurora/commit/9e675df9673a14e1d304e11e40da23e358387519))
+* **ia:** a Aurora Intelligence conhece e cria os projetos de exemplo ([10f0bbc](https://github.com/nipscernlab/aurora/commit/10f0bbc790a041ec2caf2bdb4b9d3569c7ff8505))
+* **ia:** a Aurora Intelligence procura e le o manual do SAPHO ([f3fb814](https://github.com/nipscernlab/aurora/commit/f3fb814d08c9cec8b831e8edc44b1e95978cb254))
+* **media:** o script do README grava os GIFs, e degrada sem ffmpeg ([4dafe35](https://github.com/nipscernlab/aurora/commit/4dafe351ca4fc9920204570e7306b5803f02e75d))
+* **onda:** criar um .gtkw sob encomenda, como ja se criava o layout do Surfer ([cd9fc8d](https://github.com/nipscernlab/aurora/commit/cd9fc8d6b2c275cd8ddbafddacc3f604512edaa1))
+* **prism:** a celula inteira abre o modulo; o realce vai para Shift+clique ([4c08a1b](https://github.com/nipscernlab/aurora/commit/4c08a1bbfbbf58619ccbac96c6231ef23a5f44e9))
+* **project:** botao Localizar reencontra no disco os recentes que sumiram ([6f90794](https://github.com/nipscernlab/aurora/commit/6f907947c3dbdc1a9131413aef9cd414031c939d))
+* **settings:** o manual sai de dentro do Sobre e vira secao propria ([b4c5b45](https://github.com/nipscernlab/aurora/commit/b4c5b45984593d2531c5ca6e8a874812374d3ade))
+* **setup:** clonar e rodar um script basta para desenvolver no Windows ([6a74e92](https://github.com/nipscernlab/aurora/commit/6a74e9285262d038366217395a4b3c2c396390a3))
+* **setup:** recusa pasta sincronizada, e o vazamento de RAM nao reproduz ([f921d4a](https://github.com/nipscernlab/aurora/commit/f921d4ae3e5011110ac4975fde38d10968b42143))
+* **sim:** indicador de energia na barra, e a tela nao apaga durante um passo ([e3270f0](https://github.com/nipscernlab/aurora/commit/e3270f051006877023e815824e93379acb63a545))
+* **sim:** tamanho do dump ao vivo e lembrete de bateria nas simulacoes ([25cad82](https://github.com/nipscernlab/aurora/commit/25cad823dfed63e030de71bf4c9ec127d5ab178d))
+* **terminal:** hover no marcador de tamanho mostra o caminho do dump ([4a9fa02](https://github.com/nipscernlab/aurora/commit/4a9fa02c3ab20c96cfab60f43bcb4a197898887a))
+* **terminal:** o marcador de tamanho fica um minuto depois do fim e se despede ([7a76e6d](https://github.com/nipscernlab/aurora/commit/7a76e6d2da68a30ad944f27a1ef275784ee4030a))
+* **terminal:** todo contador que sobe vira a barra de progresso ([bb29f55](https://github.com/nipscernlab/aurora/commit/bb29f55d03cb38d9584fe598635f7379dc771fcb))
+* **tree:** selecao multipla, cursor preservado no renomear e .spf acompanhando ([cc6235e](https://github.com/nipscernlab/aurora/commit/cc6235e2aa272f0db8a9da59fcbf54aefa0b58c6))
+* **wave:** dump bloqueado aborta com instrucao, e onda velha nunca abre como nova ([08b55dc](https://github.com/nipscernlab/aurora/commit/08b55dc9522dfd97355c442bdbb98f1774a8434a))
+* **wave:** o modal de ondas avisa que, sob Verilator, a selecao nao limita o dump ([ea990db](https://github.com/nipscernlab/aurora/commit/ea990db31c2ba67a9dd51312799c3b9929a0ed86))
+* **wave:** o monitor da pilha de instrucao, com o parser lendo generate nomeado ([c61ed75](https://github.com/nipscernlab/aurora/commit/c61ed75a5a94d9750b9d4c6f3e9b3496618fa5cd))
+* **wave:** sob Verilator, a selecao do picker limita o dump por escopo ([a9399fa](https://github.com/nipscernlab/aurora/commit/a9399fa9118c929f25e918f3bd7a7847225a78ef))
+* **wave:** sob Verilator, todo pedido de gravacao limita o dump por escopo ([cc9e246](https://github.com/nipscernlab/aurora/commit/cc9e2461058162066f35c96c9b12afb7bee3526d))
+* **wave:** tres defesas contra o $fopen falhado que parecia loop de compilacao ([d6e6a39](https://github.com/nipscernlab/aurora/commit/d6e6a399fe692d8a3f7de79b3c36f508c6938848))
+
+
+### Bug Fixes
+
+* **atalhos:** Ctrl+W fecha a aba, e nao a AURORA, com o foco no Surfer ([ae5ae11](https://github.com/nipscernlab/aurora/commit/ae5ae11342a0e1719c4f98760943fe15f2b720de))
+* **componentes:** extracao sobrevive a reinstalacao, e o Codex e achado onde mora ([fdc9ef0](https://github.com/nipscernlab/aurora/commit/fdc9ef06e3ad3df29b11d420d555051fb1092b31))
+* **css:** as cores de hoje saem dos tokens, e a catraca volta ao verde ([c130208](https://github.com/nipscernlab/aurora/commit/c1302081ee5653041be0d64b54db54745bb7c888))
+* **editor:** o balao de erro deixa de sair por baixo da barra de ferramentas ([9a74fa4](https://github.com/nipscernlab/aurora/commit/9a74fa4a4f3c792756303e4844aa5d260a83e983))
+* **editor:** o sticky scroll do Monaco para de mostrar "algo deu errado" ([fc25b4f](https://github.com/nipscernlab/aurora/commit/fc25b4fd73882bfbb084d7675e89a764c4062cd1))
+* **git:** o {{name}} cru no botao, e as duas forjas na barra e na limpeza ([6ef9a9b](https://github.com/nipscernlab/aurora/commit/6ef9a9b42b6b01565f5a92b943f13c293f99142f))
+* **ia:** cancelar a simulacao avisa a IA em vez de parecer que terminou ([2231e86](https://github.com/nipscernlab/aurora/commit/2231e86014fe0420cc6ea4982e6c06c08d4a7fa3))
+* **media:** o esquematico entra ajustado, e o Verilog da vitrine fica limpo ([c039938](https://github.com/nipscernlab/aurora/commit/c039938ffb1aeb2f2f6246b2482bdf70fbc2c387))
+* **media:** o GIF sai na taxa medida, com paleta chapada, e e conferido ([765d9e7](https://github.com/nipscernlab/aurora/commit/765d9e75dabfebc00a8c32d225be6884a4d2a393))
+* **media:** o projeto da captura elabora, com as portas que o yanc gera ([ba44e69](https://github.com/nipscernlab/aurora/commit/ba44e692b9092a51e61fbc5ccd7d267e41f79ad3))
+* **media:** quando o GIF nao bate com a gravacao, os quadros ficam ([e7e4ca6](https://github.com/nipscernlab/aurora/commit/e7e4ca6dc7577152dd6c6f931e36735b0d327685))
+* prazos, cancelamento e sinais no lugar de esperas fixas ([b74d749](https://github.com/nipscernlab/aurora/commit/b74d749b294a05e4322c3964699776e560a091ee))
+* **prism:** a etiqueta do barramento deixa de pintar um retangulo no fundo ([0be95e6](https://github.com/nipscernlab/aurora/commit/0be95e6362646d5be4829644264a1f744823ecb9))
+* **prism:** celulas com nome inventado pelo Yosys ganham rotulo pelo tipo ([aee2766](https://github.com/nipscernlab/aurora/commit/aee276621c5600ea9325aa7e7ab1a1c9d23ad3fc))
+* **prism:** corta o fio na geometria em volta da etiqueta do barramento ([05589dd](https://github.com/nipscernlab/aurora/commit/05589dd242a1055426ecdaee8f080c183506f4f9))
+* **prism:** Shift+clique acende todas as conexoes da celula, nao so o clk ([3ae5916](https://github.com/nipscernlab/aurora/commit/3ae5916f2eff26f9778699e40b27f2cede93c9ce))
+* **project:** clicar num recente apagado avisa, em vez de estourar TypeError ([d48f2d8](https://github.com/nipscernlab/aurora/commit/d48f2d8c6065d0210634f3efd72e030169a9c492))
+* **slang:** parar de insistir com o completar codigo que esta falhando ([8f59e32](https://github.com/nipscernlab/aurora/commit/8f59e3233979c288f209a9273c92f20548d3e4ed))
+* **terminal:** a mesma falha deixa de ser impressa duas vezes ([f4768c7](https://github.com/nipscernlab/aurora/commit/f4768c7004860004800652c2eb7a4361fd1c2327))
+* **terminal:** o marcador de tamanho mora no terminal, sem despedida ([e02f0d3](https://github.com/nipscernlab/aurora/commit/e02f0d32b5801fd30a3f543c5412c4b83bc4a2b1))
+* **wave:** sob Verilator, o monitor do isp nao sai, porque o caminho nao elabora ([ede6bcd](https://github.com/nipscernlab/aurora/commit/ede6bcd444a04809fce10ebe38853b3f2d3187d8))
+* **welcome:** a lupa nao empurra mais o x, e ganhou balao decorado ([1ee76ae](https://github.com/nipscernlab/aurora/commit/1ee76ae5bd8fbb71e726c95ef8411d5ac2a769bb))
+* **welcome:** clicar num recente sumido risca a entrada em vez de apagar ([9d5f753](https://github.com/nipscernlab/aurora/commit/9d5f753f3bcc46a2761de417b5b440a3a2e39294))
+
+
+### Refactor
+
+* **ai:** o painel de uso ganha nucleo puro e treze testes ([472c6e3](https://github.com/nipscernlab/aurora/commit/472c6e3567d703f1eb9bd98bd831e076d0a67c1a))
+* apara 67 exportacoes que ninguem alcancava, e some o codigo morto ([5bbd070](https://github.com/nipscernlab/aurora/commit/5bbd0707b392f9b87e01eb3bd88356082e5c5add))
+* **components:** icone obrigatorio; caem o glifo e a reserva do painel ([fb519d2](https://github.com/nipscernlab/aurora/commit/fb519d2e2ff2f22bbd7f4a803fae5ed16513508f))
+* **css:** as cores do desenho voltam a sair dos tokens, 162 para 57 ([b97b31d](https://github.com/nipscernlab/aurora/commit/b97b31d18573607bad4fb2cefeb3edb7589f36a9))
+* **css:** as duracoes de valor identico ao papel viram token ([835a8ab](https://github.com/nipscernlab/aurora/commit/835a8ab25205658c1f000dd49fe1f073e3622b1d))
+* **git:** as duas contas com o mesmo bloco, sem hierarquia entre forjas ([397e031](https://github.com/nipscernlab/aurora/commit/397e0317c754c3f7b2c13da5df2d103087995201))
+* **sim:** a escolha do DUT do cocotb vira regra testavel, e o CI volta ao verde ([4bd5962](https://github.com/nipscernlab/aurora/commit/4bd5962e7670abf534a60fe8f606e43c88d398b4))
+
+
+### Documentation
+
+* NIPS-CERN com hifen, os dois enderecos, e regra de escrita para a IA ([831703a](https://github.com/nipscernlab/aurora/commit/831703abdd88c8de68ae4ebe2a17dde5a034dcd6))
+* notas sobre o compilador YANC, para ler depois ([16236b9](https://github.com/nipscernlab/aurora/commit/16236b9c0e90443193cf0042f55e1abe92265858))
+* o instalador sai do mesmo merge, e nao de um disparo a mao ([70e27d3](https://github.com/nipscernlab/aurora/commit/70e27d386cf27cd56003bc48a437bd5c83b728f8))
+* **readme:** as tres gravacoes entram, cada uma ao lado do que mostra ([23dac2d](https://github.com/nipscernlab/aurora/commit/23dac2d90c25021c84d2675c3062117ee4e7a394))
+* **readme:** o hero.png sai da interface de hoje ([b714d70](https://github.com/nipscernlab/aurora/commit/b714d704cd3ca74935a35051b0bce8ceb30a2b38))
+* **referencia:** as citacoes apontam para documentos que existem ([7411b3a](https://github.com/nipscernlab/aurora/commit/7411b3a5f3c9c22151f5013e248602742d490aae))
+* **signpath:** registra a regra de casamento do curinga, conferida na fonte ([4154845](https://github.com/nipscernlab/aurora/commit/4154845da188c7f4c5f4786ca4e250e8edfad2a1))
+* **todo:** a politica de assinatura de codigo esta publicada ([eba504a](https://github.com/nipscernlab/aurora/commit/eba504a0b3d28ed4a1fce5675ec1c2b6db852a5a))
+* **todo:** a resposta da SignPath, a frota instalada e o dono da fase 3 ([cad7372](https://github.com/nipscernlab/aurora/commit/cad73729d10e3ee920de9455ce6b2ad6c4d965c2))
+* **todo:** assinar agora e esperar a licenca; a compilacao no LABEL fecha o 2.3 ([217be3a](https://github.com/nipscernlab/aurora/commit/217be3a6f8e7693cfd50463c4cfd4f0cd833a435))
+* **todo:** duas notas que custaram retrabalho, o dist e o generate sob Verilator ([ef89dd0](https://github.com/nipscernlab/aurora/commit/ef89dd023db8456678ce42cc7925a5cbb83ae95f))
+* **todo:** fecha o 3.7 e registra o que o ensaio ja provou do 3.8 ([9f13738](https://github.com/nipscernlab/aurora/commit/9f13738184d434f2c270bde54a35fa77e7f46790))
+* **todo:** o GitLab foi conferido ao vivo, com as tres correcoes que vieram do uso ([acc6d59](https://github.com/nipscernlab/aurora/commit/acc6d59773a33a250cdc3baab13ba36b1d7577da))
+* **todo:** o que a primeira corrida das capturas ensinou ([2997148](https://github.com/nipscernlab/aurora/commit/2997148bba4bed9b495e562d27e824d2400db451))
+* **todo:** o que a revisao de codigo achou e ficou em aberto ([dace265](https://github.com/nipscernlab/aurora/commit/dace26505bfd49d304bbfae4f72461e4832808e2))
+* **todo:** o vazamento de RAM do relato [#5](https://github.com/nipscernlab/aurora/issues/5) nao reproduziu, e o que ja foi descartado ([923fbbb](https://github.com/nipscernlab/aurora/commit/923fbbb700becfe45857f15e7ac0a34b7c0abb31))
+* **todo:** os GIFs do README fecham, com o que a medicao ensinou ([f42c9f7](https://github.com/nipscernlab/aurora/commit/f42c9f7bc53d6251f495d138b3b4774fcd60d4ac))
+* **todo:** pedir a emissao do certificado, e quando submeter a Microsoft ([2e27761](https://github.com/nipscernlab/aurora/commit/2e27761ec77adeadaf4c1f69d9b272b01ddc05e4))
+* **todo:** registra a rodada de limpeza, com o que ficou e por que ([6f9bc44](https://github.com/nipscernlab/aurora/commit/6f9bc4431074fe8699e8e54f00382ecfea30962f))
+* **todo:** registra a sessao de 23/08, cinco entradas e duas notas ([d83c5dd](https://github.com/nipscernlab/aurora/commit/d83c5dd7e1fc388f1a0949d840b854d5a70d4fc8))
+* **todo:** registra as correcoes do PRISM de 22/08 e duas notas que evitam retrabalho ([b8761c0](https://github.com/nipscernlab/aurora/commit/b8761c01207fa9a25960ffee8a62dc676d4c3163))
+* **todo:** registra os dois itens que sobraram da lista de 22/08 ([b8db1f4](https://github.com/nipscernlab/aurora/commit/b8db1f4aff6d95aee7de085cd64ed728c7848236))
+* **todo:** relatorio da caca a valores fracos de tempo, tentativa e cancelamento ([53dece8](https://github.com/nipscernlab/aurora/commit/53dece8b55d54a8f0f55734f37a3276c05850abf))
+* **todo:** risca o que os commits provam feito, e tira dois itens que eu errei ([d5f389f](https://github.com/nipscernlab/aurora/commit/d5f389f65c1e5d16d4efbf49008a40e7c12129b0))
+
 ## [6.9.0](https://github.com/nipscernlab/aurora/compare/v6.8.0...v6.9.0) (2026-08-21)
 
 

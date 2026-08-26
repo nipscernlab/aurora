@@ -135,35 +135,30 @@
       display: flex; align-items: center; justify-content: center;
       animation: rise 700ms cubic-bezier(0.19,1,0.22,1) both;
     }
-    /* O ícone é roxo-azulado e a cena atrás dele é verde-ciano, então ele
-       chegava como adesivo colado sobre a foto. Os brilhos agora saem na cor da
-       aurora: o de perto no verde do corpo da cortina, o largo no ciano. Isso
-       não repinta o ícone, só faz o ar em volta dele acender como acende em
-       volta de tudo mais aqui. */
+    /* UM brilho, e na cor da própria marca.
+
+       Eram três, empilhados em verde, ciano e violeta, com raios de 14, 30 e
+       52px sobre um ícone de 66. O resultado era uma nuvem esverdeada do dobro
+       do tamanho do ícone, sem forma nenhuma e de cor que não era a dele: lia
+       como borrão, não como luz. A ideia por trás era boa (fazer a marca
+       pertencer à cena) e a execução era o erro: cor de cena em objeto de
+       marca não integra, briga.
+
+       O que integra é o contrário. O brilho sai na cor do PRÓPRIO ícone, curto
+       o bastante para acompanhar o contorno em vez de virar halo, e a sombra
+       escura logo abaixo é o que de fato separa a marca de um fundo aceso,
+       porque é o que um objeto real faz contra luz. */
     .mark img {
       width: 66px; height: 66px;
       filter:
-        drop-shadow(0 0 14px color-mix(in srgb, var(--green) 30%, transparent))
-        drop-shadow(0 0 30px color-mix(in srgb, var(--cyan) 34%, transparent))
-        drop-shadow(0 0 52px color-mix(in srgb, var(--violet) 20%, transparent));
+        drop-shadow(0 1px 3px rgba(4, 8, 16, 0.85))
+        drop-shadow(0 0 10px color-mix(in srgb, var(--violet) 38%, transparent));
     }
-    /* O halo respira no MESMO período de 7s do gradiente do letreiro. Os dois
-       eram estáticos e independentes; no mesmo compasso, ícone e palavra passam
-       a ler como uma assinatura só. Amplitude baixa de propósito: é respiração,
-       não pulsação. */
-    .mark::before {
-      content: ''; position: absolute;
-      width: 165%; height: 165%;
-      border-radius: 50%;
-      background: radial-gradient(circle,
-        color-mix(in srgb, var(--green) 13%, transparent) 0%,
-        color-mix(in srgb, var(--cyan) 10%, transparent) 38%,
-        transparent 68%);
-      /* Mesma duração do `shift` do letreiro, e é esse o ponto: o halo e a
-         palavra respiram no mesmo compasso. Se um dos dois mudar, mude o
-         outro junto. */
-      animation: halo 7s ease-in-out infinite;
-    }
+    /* Sem halo atrás do ícone. Havia um círculo pulsante de 165% do tamanho
+       dele, e ele era o segundo problema: círculo não é a forma da marca, então
+       o que se via era um disco de luz com um desenho por cima. A marca já
+       tem gradiente próprio e já está sobre um céu que se move; mais uma coisa
+       respirando aqui é ruído competindo com a aurora, que é o assunto. */
 
     /* Letreiro e tagline andam juntos, à direita do ícone.
 
@@ -277,7 +272,6 @@
        ============================================================ */
     @keyframes rise   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes shift  { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-    @keyframes halo   { 0%,100% { opacity: 0.72; transform: scale(0.97); } 50% { opacity: 1; transform: scale(1.04); } }
     @keyframes blink  { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
     @keyframes sheen  { 0% { transform: translateX(-100%); } 60%,100% { transform: translateX(100%); } }
   </style>

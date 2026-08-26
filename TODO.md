@@ -991,8 +991,17 @@ implementação ainda.
 - [ ] Refazer o painel de PyLibs. O desenho atual é uma lista de cartões com
       ação por linha, e não acompanha bem quando há muita biblioteca; decidir a
       forma nova antes de mexer no código.
-- [ ] Realocar o botão de Components. Onde está hoje, ele não é achado por quem
-      precisa dele, que é justamente quem está com uma instalação quebrada.
+- [x] ~~Realocar o botão de Components.~~ Feito em 26/08/2026, e virou duas
+      coisas, porque o problema tinha duas metades. A aba saiu do sétimo lugar
+      de nove para o segundo, logo depois de Geral: todas as outras são
+      preferência, e esta é a única onde algo pode estar QUEBRADO. E a
+      engrenagem da toolbar ganhou um ponto de aviso quando falta um componente
+      sem o qual a máquina não compila, gêmeo do que o PyLibs já tem ao lado.
+      O ponto existe porque o aviso de boot é um DIÁLOGO, e diálogo se fecha:
+      quem clicava "Agora não" ficava sem compilar e sem nenhum sinal na tela
+      até o próximo boot. Só acende para o que impede de compilar; componente
+      opcional ausente é escolha, não defeito.
+
 - [ ] Botão para baixar e instalar VÁRIOS componentes em sequência, a partir de
       uma seleção do usuário na lista. Hoje é um de cada vez, e quem monta uma
       máquina do zero repete o gesto sete vezes. A fila precisa de progresso por

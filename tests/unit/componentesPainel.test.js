@@ -200,3 +200,49 @@ describe('o rodapé soma o que falta baixar', () => {
     expect(document.getElementById('componentes-espaco').textContent).toBe('Tudo instalado.');
   });
 });
+
+/**
+ * O ponto de aviso na engrenagem da toolbar.
+ *
+ * O aviso de boot é um diálogo, e diálogo se fecha. Quem clica "Agora não" fica
+ * com uma máquina que não compila e, sem este ponto, nenhum sinal na tela até o
+ * próximo boot.
+ */
+describe('o ponto de aviso na engrenagem', () => {
+  const ponto = () => document.getElementById('settings-badge');
+
+  async function pintarComBadge(lista) {
+    document.body.innerHTML = '<div id="componentes-lista"></div>'
+      + '<span id="componentes-espaco"></span>'
+      + '<button id="aurora-settings"><span id="settings-badge" hidden></span></button>';
+    ligar();
+    electronAPI.componentesListar.mockResolvedValue({ componentes: lista, baixando: null });
+    await desenhar();
+  }
+
+  it('acende quando falta o que a máquina precisa para compilar', async () => {
+    await pintarComBadge([comp({ chave: 'msys', requerParaCompilar: true })]);
+    expect(ponto().hidden).toBe(false);
+  });
+
+  it('fica apagado quando o que falta é opcional, porque isso é escolha', async () => {
+    await pintarComBadge([comp({ requerParaCompilar: false })]);
+    expect(ponto().hidden).toBe(true);
+  });
+
+  it('apaga assim que o que faltava aparece', async () => {
+    await pintarComBadge([comp({ chave: 'msys', requerParaCompilar: true })]);
+    expect(ponto().hidden).toBe(false);
+    electronAPI.componentesListar.mockResolvedValue({
+      componentes: [comp({ chave: 'msys', requerParaCompilar: true, instalado: true, estado: 'ok' })],
+      baixando: null,
+    });
+    await desenhar();
+    expect(ponto().hidden).toBe(true);
+  });
+
+  it('não quebra numa tela sem o ponto (a splash, ou um teste sem toolbar)', async () => {
+    await pintar([comp({ chave: 'msys', requerParaCompilar: true })]);
+    expect(ponto()).toBeNull();
+  });
+});

@@ -5,6 +5,23 @@
  * =====================================================================================
  */
 
+/* Ponto de aviso no botão da toolbar quando falta um componente sem o qual a
+   máquina não compila. Gêmeo do .pylib-badge, e de propósito: são o mesmo tipo
+   de recado (algo está faltando aqui dentro) e o usuário já aprendeu a ler um
+   deles. O aviso de boot é um diálogo, e diálogo se fecha; este fica. */
+#aurora-settings { position: relative; }
+
+.settings-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-warning);
+  box-shadow: 0 0 0 2px var(--bg-elev);
+}
+
 /* aurora_settings.js uses .visible, map it to the standard show state */
 .modal-overlay.visible {
   opacity: 1;

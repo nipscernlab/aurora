@@ -253,6 +253,9 @@
           </button>
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
+              <!-- Ponto de aviso quando falta um componente sem o qual a máquina
+                   não compila. Mesmo desenho do aviso do PyLibs, ao lado. -->
+              <span class="settings-badge" id="settings-badge" hidden></span>
           </button>
           <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant" data-i18n-tooltip="toolbar.ai.tooltip">
               <i class="ph ph-sparkle"></i>
@@ -1075,6 +1078,17 @@
                     <i class="ph ph-house" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionGeneral">General</span>
                 </button>
+                <!-- Componentes vem em segundo, logo depois de Geral, e nao no
+                     fim da lista. Todas as outras abas sao preferencia: mudam
+                     como a AURORA se parece ou se comporta, e quem nao as abre
+                     nunca fica sem nada. Esta e a unica onde algo pode estar
+                     QUEBRADO, e quem precisa dela e justamente quem esta com a
+                     maquina sem compilar, ou seja a pessoa com menos paciencia
+                     para varrer uma lista de nove itens. -->
+                <button class="settings-nav-item" data-pane="componentes" role="tab" aria-selected="false">
+                    <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionComponents">Components</span>
+                </button>
                 <button class="settings-nav-item" data-pane="appearance" role="tab" aria-selected="false">
                     <i class="ph ph-palette" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAppearance">Appearance</span>
@@ -1094,10 +1108,6 @@
                 <button class="settings-nav-item" data-pane="ai" role="tab" aria-selected="false">
                     <i class="ph ph-sparkle" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAI">AI Assistant</span>
-                </button>
-                <button class="settings-nav-item" data-pane="componentes" role="tab" aria-selected="false">
-                    <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
-                    <span data-i18n="modal.settings.sectionComponents">Components</span>
                 </button>
                 <button class="settings-nav-item" data-pane="manual" role="tab" aria-selected="false">
                     <i class="ph ph-book-open" aria-hidden="true"></i>

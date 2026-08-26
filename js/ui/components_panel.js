@@ -164,6 +164,25 @@ function tamanhoLegivel(mb) {
  * @param {{essencial?:boolean, instalado?:boolean, estado?:string, requerParaCompilar?:boolean}} c
  * @returns {Array<'essencial'|'urgente'>}
  */
+/**
+ * Acende ou apaga o ponto de aviso na engrenagem da toolbar.
+ *
+ * Existe porque o aviso de boot é um DIÁLOGO, e diálogo se fecha: quem clica
+ * "Agora não" fica com uma máquina que não compila e nenhum sinal na tela até
+ * o próximo boot. O ponto fica, e é o mesmo desenho do aviso do PyLibs ao
+ * lado, que o usuário já sabe ler.
+ *
+ * Só acende para o que impede de compilar. Componente opcional ausente é
+ * escolha, não defeito, e um ponto permanente por causa dele seria um aviso
+ * que ninguém pode desligar.
+ */
+function marcarFaltaNaToolbar(lista) {
+  const ponto = document.getElementById('settings-badge');
+  if (!ponto) return;
+  const falta = (lista || []).some((c) => c.requerParaCompilar && !c.instalado);
+  ponto.hidden = !falta;
+}
+
 export function selosDe(c) {
   if (!c) return [];
   if (c.essencial) return ['essencial'];
@@ -261,6 +280,8 @@ async function desenhar() {
   lista.forEach((c) => catalogo.set(c.chave, c));
   caixa.innerHTML = '';
   lista.forEach((c) => caixa.appendChild(cartao(c)));
+
+  marcarFaltaNaToolbar(lista);
 
   const ausentes = lista.filter((c) => !c.instalado && !c.essencial);
   const desatualizados = lista.filter((c) => c.estado === 'desatualizado');
@@ -410,6 +431,9 @@ async function avisarSeNaoCompila() {
     // exatamente assim que ele derrubou a suite e2e inteira, que roda num
     // runner onde nenhum componente foi baixado. Quem decide e o main, que e
     // quem enxerga o ambiente.
+    // O ponto acende ANTES do portao do aviso: quem esta sob automacao, ou
+    // quem ja disse "Agora nao" antes, continua precisando ver que falta algo.
+    marcarFaltaNaToolbar(dados?.componentes || []);
     if (dados?.avisoDeBootPermitido === false) return;
     const falta = (dados?.componentes || [])
       .find((c) => c.requerParaCompilar && !c.instalado);

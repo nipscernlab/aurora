@@ -1053,7 +1053,8 @@
     "title": "Libraries",
     "filter": {
       "placeholder": "Filter libraries",
-      "all": "All"
+      "all": "All",
+      "installed": "Installed"
     },
     "empty": "No library matches the filter.",
     "runtime": {

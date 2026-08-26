@@ -1053,7 +1053,8 @@
     "title": "Bibliotecas",
     "filter": {
       "placeholder": "Filtrar bibliotecas",
-      "all": "Todas"
+      "all": "Todas",
+      "installed": "Instaladas"
     },
     "empty": "Nenhuma biblioteca corresponde ao filtro.",
     "runtime": {

@@ -183,12 +183,18 @@
 
 .pylib-list { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* Colapsado o cartao e uma LINHA, entao o que manda na altura passou a ser o
+   icone e o respiro, e nao mais o texto. Por isso a coluna do icone caiu de 40
+   para 30 e o respiro vertical de --space-3 para --space-2: com a prosa fora,
+   os valores antigos deixavam cada linha com 74px de altura para mostrar um
+   nome e um botao. E `align-items: center`, e nao `start`, porque com uma linha
+   so nao ha o que alinhar pelo topo. Expandido, o cartao volta a respirar. */
 .pylib-card {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 30px 1fr auto;
   gap: var(--space-3);
-  align-items: start;
-  padding: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
   background: var(--bg-elev);
@@ -209,10 +215,17 @@
 .pylib-card[data-state='unavailable'] { opacity: 0.72; }
 
 .pylib-icon {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   color: var(--accent);
-  margin-top: 2px;
+}
+
+/* Expandido, o cartao volta ao alinhamento pelo topo e ao respiro maior: ali
+   ha varias linhas, e o icone ao lado do nome (nao no meio de um paragrafo) e
+   o que mantem a leitura. */
+.pylib-card.expanded {
+  align-items: start;
+  padding: var(--space-3);
 }
 
 .pylib-card[data-state='unavailable'] .pylib-icon { color: var(--text-faint); }
@@ -262,11 +275,21 @@
   color: var(--status-info);
 }
 
+/* O RESUMO SO APARECE EXPANDIDO, e essa e a mudanca que muda o painel.
+   Com 29 bibliotecas, cada cartao carregando duas linhas de prosa, a lista
+   media 3244px de altura e cabiam SEIS na tela: achar uma biblioteca era
+   rolar. Colapsada, a linha guarda o que decide (nome, versao, estado,
+   tamanho) e a prosa vai para a expansao que ja existia, junto dos usos. A
+   lista cai para perto de um terco e passam a caber umas quinze.
+
+   O resumo continua no DOM colapsado, e nao removido, porque e ele que o
+   filtro por texto pesquisa: escondido por CSS, a busca acha; ausente, nao. */
 .pylib-summary {
   margin: 4px 0 0;
   font-size: var(--text-xs);
   line-height: 1.55;
   color: var(--text-secondary);
+  display: none;
 }
 
 .pylib-uses {
@@ -275,7 +298,16 @@
   display: none; /* revelado ao expandir */
 }
 
+.pylib-card.expanded .pylib-summary { display: block; }
 .pylib-card.expanded .pylib-uses { display: block; }
+
+/* O tamanho na linha colapsada. Fica ao lado da versao, na mesma discricao. */
+.pylib-size {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
 
 .pylib-uses li {
   font-size: var(--text-xs);
@@ -294,6 +326,14 @@
 
 .pylib-meta a { color: var(--text-muted); text-decoration: none; }
 .pylib-meta a:hover { color: var(--accent); text-decoration: underline; }
+
+/* A meta recolhe junto com o resumo. Esta regra mora AQUI, e nao junto das
+   outras de recolhimento la em cima, porque `.pylib-meta { display: flex }`
+   acima tem a mesma especificidade: escrita antes, ela venceria por ser a
+   ultima a aparecer. Licenca, contagem de pacotes e link do site interessam a
+   quem ja parou naquela biblioteca, e nao a quem esta varrendo a lista. */
+.pylib-meta { display: none; }
+.pylib-card.expanded .pylib-meta { display: flex; }
 
 /* Explicação de por que a biblioteca compilada não instala. */
 .pylib-why {

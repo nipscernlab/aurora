@@ -988,35 +988,24 @@ implementação ainda.
       com tudo instalado a interface fica igual esteja a regra certa ou errada,
       e foi essa a dificuldade ao tentar conferir na AURORA rodando.
 
-- [ ] Refazer o painel de PyLibs. O desenho atual é uma lista de cartões com
-      ação por linha, e não acompanha bem quando há muita biblioteca; decidir a
-      forma nova antes de mexer no código.
-- [x] ~~Realocar o botão de Components.~~ Feito em 26/08/2026, e virou duas
-      coisas, porque o problema tinha duas metades. A aba saiu do sétimo lugar
-      de nove para o segundo, logo depois de Geral: todas as outras são
-      preferência, e esta é a única onde algo pode estar QUEBRADO. E a
-      engrenagem da toolbar ganhou um ponto de aviso quando falta um componente
-      sem o qual a máquina não compila, gêmeo do que o PyLibs já tem ao lado.
-      O ponto existe porque o aviso de boot é um DIÁLOGO, e diálogo se fecha:
-      quem clicava "Agora não" ficava sem compilar e sem nenhum sinal na tela
-      até o próximo boot. Só acende para o que impede de compilar; componente
-      opcional ausente é escolha, não defeito.
+- [x] ~~Refazer o painel de PyLibs.~~ Feito em 26/08/2026. O problema era
+      densidade, e foi medido antes de mexer: 29 bibliotecas, cada cartão
+      carregando duas linhas de prosa, a lista media 3244px e cabiam SEIS na
+      tela. Agora a linha colapsada guarda o que decide (nome, versão, estado,
+      tamanho) e a prosa desceu para a expansão que já existia, junto dos usos;
+      a lista foi para 1807px e cabem catorze. O tamanho subiu da meta para a
+      linha porque é o único número que decide sem abrir nada. Entrou também um
+      filtro "Instaladas", com a contagem no próprio chip, que responde sem
+      clique a pergunta mais frequente de uma lista de 29.
 
-- [x] ~~Botão para baixar e instalar VÁRIOS componentes em sequência.~~ Feito em
-      26/08/2026. Caixa de seleção nos cartões que têm o que baixar, barra no
-      rodapé que só aparece com algo marcado e soma o download, e a fila roda um
-      de cada vez. Duas decisões que valem registro: em SEQUÊNCIA e não em
-      paralelo, porque o gargalo é a rede do laboratório e o disco, e quatro
-      barras andando juntas terminam mais tarde do que teriam terminado em fila;
-      e NÃO PARA no primeiro erro, porque quem marcou quatro e foi tomar café
-      espera achar instalado o que deu, não a fila parada no segundo. O que
-      falhou é dito no fim, pelo nome.
+      O resumo continua no DOM quando colapsado, só escondido por CSS, porque é
+      ele que o filtro por texto pesquisa: escondido, a busca acha; removido,
+      não acharia.
 
-      A regra de quem pode entrar na fila (`selecionavel`) é exatamente "o
-      cartão dele tem botão Baixar ou Atualizar", e está escrita em vez de
-      deduzida do DOM. A invariante é que caixa e botão apareçam e sumam
-      juntos: caixa sem botão não faz nada quando marcada, botão sem caixa fica
-      de fora do lote.
+      Fica em aberto, se um dia incomodar: a mesma fila de download em lote que
+      o painel de Componentes ganhou hoje. Aqui ela é menos urgente, porque as
+      bibliotecas são pequenas (dezenas de KB, não centenas de MB) e ninguém
+      instala sete de uma vez.
 
 ## 6. Profissionalizar o repositório
 

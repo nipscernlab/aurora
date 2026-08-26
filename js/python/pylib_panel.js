@@ -195,9 +195,16 @@ function renderChips() {
   if (!el || !state) return;
   const cats = state.categories || {};
   const used = new Set(state.libraries.map((l) => l.category));
+  // "Instaladas" vem logo depois de "Todas" e leva a contagem junto. Com 29
+  // bibliotecas na lista, "quais eu tenho?" e a pergunta mais frequente, e ela
+  // so tinha resposta rolando tudo procurando a etiqueta verde. A contagem no
+  // proprio chip ja responde a metade dela sem nem clicar.
+  const quantasInstaladas = state.libraries.filter((l) => l.installed).length;
   const chips = [
     `<button class="pylib-chip ${filterCat === 'all' ? 'active' : ''}" data-cat="all">
        ${esc(tt('pylibs.filter.all', 'Todas'))}</button>`,
+    `<button class="pylib-chip ${filterCat === 'installed' ? 'active' : ''}" data-cat="installed">
+       ${esc(tt('pylibs.filter.installed', 'Instaladas'))} ${quantasInstaladas}</button>`,
   ];
   for (const [key, label] of Object.entries(cats)) {
     if (!used.has(key)) continue;
@@ -211,7 +218,10 @@ function visibleLibraries() {
   if (!state) return [];
   const q = filterText.trim().toLowerCase();
   return state.libraries.filter((lib) => {
-    if (filterCat !== 'all' && lib.category !== filterCat) return false;
+    // 'installed' nao e categoria do catalogo, e um recorte por estado, entao
+    // vem antes da comparacao por categoria.
+    if (filterCat === 'installed') { if (!lib.installed) return false; }
+    else if (filterCat !== 'all' && lib.category !== filterCat) return false;
     if (!q) return true;
     const hay = `${lib.id} ${lib.name} ${lib.summary?.[lang()] || ''}`.toLowerCase();
     return hay.includes(q);
@@ -259,9 +269,15 @@ function renderCard(lib) {
     tags.push(`<span class="pylib-tag pylib-tag-compiled">${esc(tt('pylibs.tag.compiled', 'compilada'))}</span>`);
   }
 
+  // O tamanho SAI da meta e sobe para a linha do nome: é o único número que
+  // decide sem abrir nada ("cabe no meu tempo de rede?"). O resto da meta só
+  // interessa a quem já parou naquela biblioteca, e vive na expansão.
+  const tamanho = lib.downloadSize
+    ? `<span class="pylib-size">${esc(fmtSize(lib.downloadSize))}</span>`
+    : '';
+
   const meta = [];
   if (lib.license) meta.push(esc(lib.license));
-  if (lib.downloadSize) meta.push(esc(fmtSize(lib.downloadSize)));
   if (lib.wheels?.length > 1) {
     meta.push(esc(tt('pylibs.meta.deps', '{{n}} pacotes', { n: lib.wheels.length })));
   }
@@ -284,6 +300,7 @@ function renderCard(lib) {
           <span class="pylib-lib-name">${esc(lib.name)}</span>
           ${lib.version ? `<span class="pylib-version">${esc(lib.installedVersion || lib.version)}</span>` : ''}
           ${tags.join('')}
+          ${tamanho}
         </div>
         <p class="pylib-summary">${esc(lib.summary?.[l] || '')}</p>
         ${uses ? `<ul class="pylib-uses">${uses}</ul>` : ''}

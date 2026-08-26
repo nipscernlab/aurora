@@ -69,7 +69,7 @@ passo que a frota não pode ser a primeira a fazer.
     aparece com o changelog preenchido; corpo vazio significa que o
     espelhamento de release notes falhou;
   - o download é incremental, e dá para medir acompanhando os MB transferidos
-    na própria janela contra os ~500 MB do instalador completo;
+    na própria janela contra os ~140 MB do instalador completo;
   - fechar o app aplica a atualização em silêncio, sem elevação, e a próxima
     abertura mostra a 6.4.1 com o toast de confirmação;
   - Configurações > Sobre > Atualizações reflete o que aconteceu.
@@ -141,7 +141,7 @@ atualizado sem visita, e é o único do 2.3 que continua no escuro.
       Add-MpPreference -ExclusionPath "$env:APPDATA\SAPHO"
       Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\sapho-updater"
 
-      A terceira evita revarrer o instalador de ~500 MB a cada atualização.
+      A terceira evita revarrer o instalador de ~140 MB a cada atualização.
 - [ ] **2.3 Regras AppLocker/SRP**, o ponto crítico. Com a regra padrão de
       permitir execução só em `%ProgramFiles%` e `%SystemRoot%`, nada dentro de
       `%LOCALAPPDATA%` executa. São necessárias duas exceções por caminho:
@@ -162,7 +162,7 @@ atualizado sem visita, e é o único do 2.3 que continua no escuro.
       A terceira decide se o laboratório poderá ser atualizado sem visita. O
       atualizador baixa o instalador para `%LOCALAPPDATA%\sapho-updater\pending\`
       e o executa de lá ao fechar a IDE, o que foi conferido no código do
-      electron-updater. Sem essa regra a atualização baixa os 500 MB, valida o
+      electron-updater. Sem essa regra a atualização baixa os ~140 MB, valida o
       hash e morre no último passo, calada, e a máquina fica na versão velha
       para sempre.
 - [ ] **2.3.1 Não instalar com "Executar como administrador".** O instalador é
@@ -399,7 +399,7 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       Duas correções entraram junto, e as duas só apareceriam na primeira
       release assinada. O `patch-latest-yml.js` apagava o `.blockmap` em vez de
       refazê-lo, o que tornaria toda release assinada um download completo de
-      ~500 MB para o laboratório inteiro, não só a primeira; e o portão de
+      ~140 MB para o laboratório inteiro, não só a primeira; e o portão de
       integridade do próprio workflow exige o `.blockmap` entre os assets, então
       a release teria falhado no último passo. Agora o blockmap é reconstruído a
       partir dos bytes assinados com a implementação do próprio electron-builder

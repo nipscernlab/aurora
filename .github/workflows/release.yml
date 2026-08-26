@@ -294,7 +294,7 @@ jobs:
       # The signed .exe goes back where electron-builder left the unsigned one,
       # then latest.yml (sha512 + size) and the .blockmap are rebuilt from it.
       # Skipping the blockmap rebuild would not break the update, it would make
-      # every signed release a full ~500 MB download for the whole lab, and the
+      # every signed release a full ~140 MB download for the whole lab, and the
       # integrity gate below would then fail on the missing asset.
       - name: Swap in the signed installer and refresh the update manifest
         if: ${{ env.SIGN == 'true' }}

@@ -12,7 +12,7 @@
 //   .blockmap  , the updater fetches the old and the new blockmap to work out
 //                 which chunks to download. A blockmap describing pre-signature
 //                 bytes yields a file that fails the final hash check, and the
-//                 update falls back to downloading the whole ~500 MB.
+//                 update falls back to downloading the whole ~140 MB.
 //
 // This script recomputes both from the SIGNED file. The blockmap is rebuilt with
 // electron-builder's own implementation, not a reimplementation, so the format

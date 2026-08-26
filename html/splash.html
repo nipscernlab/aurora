@@ -69,7 +69,15 @@
       pointer-events: none;
     }
     .aurora-svg { z-index: 0; }
-    #stars     { z-index: 1; }
+
+    /* As estrelas rareiam para baixo, onde ficam o letreiro e a barra de
+       progresso. O campo antigo fazia isso sorteando y só nos 78% de cima; o
+       céu de verdade cobre a tela inteira, então quem afina é a máscara. */
+    #stars {
+      z-index: 1;
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 38%, rgba(0,0,0,0.55) 58%, rgba(0,0,0,0.20) 72%, transparent 84%);
+      mask-image: linear-gradient(180deg, #000 0%, #000 38%, rgba(0,0,0,0.55) 58%, rgba(0,0,0,0.20) 72%, transparent 84%);
+    }
 
     /* vinheta superior/inferior */
     .stage::after {
@@ -330,80 +338,6 @@
     document.getElementById('tagline').textContent = T.tagline;
 
     // ============================================================
-    //  Starfield em canvas — cintilância + estrelas cadentes
-    //  (adaptado do site institucional NIPS-CERN / projects/aurora)
-    // ============================================================
-    (function starfield() {
-      const canvas = document.getElementById('stars');
-      const ctx = canvas.getContext('2d');
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      let W = 0, H = 0, stars = [], shooting = null, shootIn = 2.5, last = 0;
-
-      function resize() {
-        W = canvas.clientWidth; H = canvas.clientHeight;
-        canvas.width = W * dpr; canvas.height = H * dpr;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        stars = [];
-        const n = Math.round(W * H / 4200);
-        for (let i = 0; i < n; i++) {
-          stars.push({
-            x: Math.random() * W,
-            y: Math.random() * H * 0.78,
-            r: 0.3 + Math.random() * 1.3,
-            base: 0.12 + Math.random() * 0.55,
-            freq: 0.3 + Math.random() * 1.2,
-            phase: Math.random() * Math.PI * 2,
-          });
-        }
-      }
-      function newShooter() {
-        return {
-          x: Math.random() * W * 0.65,
-          y: Math.random() * H * 0.32,
-          vx: 360 + Math.random() * 220,
-          vy: 150 + Math.random() * 120,
-          life: 1, tail: [],
-        };
-      }
-      function frame(ts) {
-        const dt = Math.min((ts - last) / 1000, 0.05); last = ts;
-        ctx.clearRect(0, 0, W, H);
-        for (const s of stars) {
-          let op = s.base + 0.30 * Math.sin(ts * 0.001 * s.freq * Math.PI * 2 + s.phase);
-          op = Math.max(0.04, Math.min(1, op));
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(214,234,255,' + op.toFixed(2) + ')';
-          ctx.fill();
-        }
-        shootIn -= dt;
-        if (shootIn <= 0 && !shooting) { shooting = newShooter(); shootIn = 6 + Math.random() * 9; }
-        if (shooting) {
-          shooting.x += shooting.vx * dt;
-          shooting.y += shooting.vy * dt;
-          shooting.life -= dt * 1.15;
-          shooting.tail.push({ x: shooting.x, y: shooting.y });
-          if (shooting.tail.length > 16) shooting.tail.shift();
-          ctx.lineCap = 'round';
-          for (let j = 1; j < shooting.tail.length; j++) {
-            const p0 = shooting.tail[j - 1], p1 = shooting.tail[j];
-            const a = (j / shooting.tail.length) * Math.max(0, shooting.life) * 0.8;
-            ctx.beginPath();
-            ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
-            ctx.strokeStyle = 'rgba(220,242,255,' + a.toFixed(2) + ')';
-            ctx.lineWidth = 1.5 * (j / shooting.tail.length);
-            ctx.stroke();
-          }
-          if (shooting.life <= 0 || shooting.x > W + 60 || shooting.y > H + 60) shooting = null;
-        }
-        requestAnimationFrame(frame);
-      }
-      resize();
-      window.addEventListener('resize', resize);
-      requestAnimationFrame(frame);
-    })();
-
-    // ============================================================
     //  Progresso real — alimentado por main/windows.js via IPC.
     //  `target` é o último marco recebido; `shown` persegue o
     //  alvo suavemente para a barra nunca travar de forma seca.
@@ -443,6 +377,16 @@
         .then((v) => { if (v) versionEl.textContent = v.startsWith('v') ? v : 'v' + v; })
         .catch(() => {});
     }
+  </script>
+
+  <!-- O céu, do catálogo HYG, em módulo à parte.
+       Ele cresceu além do que cabe numa página, e o catálogo entra embutido no
+       bundle porque a splash abre por file://, onde fetch de caminho não passa.
+       js/ui/sky.js conta o resto. -->
+  <script type="module">
+    import { sky } from '../js/ui/sky.js';
+    const c = document.getElementById('stars');
+    if (c) sky(c);
   </script>
 </body>
 </html>

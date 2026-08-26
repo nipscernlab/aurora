@@ -77,6 +77,12 @@ export default defineConfig({
   customLogger: logger,
   root: import.meta.dirname,
   base: './',
+  // O catálogo de estrelas da splash (assets/data/hyg-mag6.bin) é um binário
+  // empacotado à mão, e `.bin` não está entre as extensões que o Vite trata
+  // como asset por conta própria. Sem esta linha o import com `?inline` não
+  // vira data URL, e js/ui/sky.js cairia no campo aleatório em produção, sem
+  // erro visível: a splash abre por file://, onde fetch de caminho não passa.
+  assetsInclude: ['**/*.bin'],
   build: {
     outDir: 'dist',
     emptyOutDir: true,

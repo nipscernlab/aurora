@@ -70,6 +70,20 @@ and shipped in the installer; they are not part of the source tree.
 | Simple Icons (brand marks of the twelve mail providers offered) | CC0 1.0. The marks themselves belong to their services (Google, Microsoft, Proton AG, Yandex, Apple, Zoho, GMX, AOL, VK, Tuta, 37signals, Mozilla); they appear only to identify each service in the bug-report picker. |
 | Component brand marks shown in Settings, Components | Each mark belongs to its project and appears only to identify the component it names: MSYS2 (msys2/msys2.github.io, web/logo.svg), Verible (chipsalliance/verible, img/verible-logo.svg), LLVM, for clang-format (the wyvern, from devicons/devicon), slang (the favicon published at sv-lang.com). No mark was redrawn or altered. |
 
+## Data
+
+| Dataset | License |
+|---|---|
+| HYG Stellar Database (Hipparcos, Yale and Gliese combined), by David Nash, [astronexus.com/projects/hyg](https://astronexus.com/projects/hyg) | CC BY-SA 4.0 |
+
+The sky on the splash screen is this catalogue drawn as it is: 5,044 stars down
+to magnitude 6, each at its catalogued position, with its catalogued brightness
+and the colour its B-V index implies. It ships as `assets/data/hyg-mag6.bin`,
+30 KB, taken in the packed form d3-celestial distributes, cut to magnitude 6 and
+reduced to six bytes a star. Cutting and repacking makes it an adapted database,
+so that one file travels under CC BY-SA 4.0 rather than under the AURORA licence,
+and anything redistributing it carries the same terms forward.
+
 ---
 
 Distributions of SAPHO/AURORA that include these tools must comply with the terms

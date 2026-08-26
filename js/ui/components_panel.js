@@ -52,6 +52,9 @@ const ultimoProgresso = new Map();
 const RESERVA = {
   'modal.settings.componentsUpdate': 'Atualizar',
   'modal.settings.componentsUpdatesAvailable': '{n} com atualização disponível ({mb} de download).',
+  'modal.settings.componentsInstalled': 'Instalado',
+  'modal.settings.componentsMissing': 'Não instalado',
+  'modal.settings.componentsOutdated': 'Atualização disponível',
   'modal.settings.componentsAlways': 'Vem no instalador',
   'modal.settings.componentsNeededToCompile': 'Necessário para compilar',
   'modal.settings.componentsSelectOne': 'Selecionar {nome} para baixar em lote',
@@ -142,35 +145,6 @@ function tamanhoLegivel(mb) {
 }
 
 /**
- * Quais selos um componente merece. Pura, exportada e testada
- * (tests/unit/componentSelos.test.js), porque a regra abaixo é fácil de
- * quebrar sem ninguém notar: os estados que ela separa quase nunca aparecem
- * todos na mesma máquina, e numa máquina com tudo instalado a interface fica
- * igual esteja a regra certa ou errada.
- *
- * A REGRA: um selo só existe se disser o que o resto do cartão não diz. Eram
- * cinco, e três não passavam nesse teste.
- *
- *   "Instalado" ficava ao lado de um botão Remover. Remover só aparece no que
- *   está instalado, então o selo repetia o botão.
- *   "Não instalado" ficava ao lado de um botão Baixar E de um tamanho escrito
- *   "download de 12 MB". Dois sinais já diziam a mesma coisa.
- *   "Atualização disponível" ficava ao lado de um botão Atualizar, e a
- *   contagem no topo do painel já anuncia quantos têm atualização.
- *
- * Sobraram os dois que carregam informação própria. O do essencial explica por
- * que aquele cartão NÃO tem botão nenhum, que sem ele parece cartão quebrado.
- * O de "necessário para compilar" é o único com urgência: sem ele, um
- * componente que impede o aluno de compilar fica com a mesma cara de um
- * opcional que ele nunca vai querer.
- *
- * O efeito colateral é o que se queria: como quase todo cartão fica sem selo,
- * o único que tem um passa a saltar aos olhos.
- *
- * @param {{essencial?:boolean, instalado?:boolean, estado?:string, requerParaCompilar?:boolean}} c
- * @returns {Array<'essencial'|'urgente'>}
- */
-/**
  * Acende ou apaga o ponto de aviso na engrenagem da toolbar.
  *
  * Existe porque o aviso de boot é um DIÁLOGO, e diálogo se fecha: quem clica
@@ -178,9 +152,10 @@ function tamanhoLegivel(mb) {
  * o próximo boot. O ponto fica, e é o mesmo desenho do aviso do PyLibs ao
  * lado, que o usuário já sabe ler.
  *
- * Só acende para o que impede de compilar. Componente opcional ausente é
- * escolha, não defeito, e um ponto permanente por causa dele seria um aviso
- * que ninguém pode desligar.
+ * Só acende para o que impede de compilar (hoje o MSYS Toolchain e o YANC, os
+ * dois com `requerParaCompilar` em main/components/registry.js). Componente
+ * opcional ausente é escolha, não defeito, e um ponto permanente por causa
+ * dele seria um aviso que ninguém pode desligar.
  */
 function marcarFaltaNaToolbar(lista) {
   const ponto = document.getElementById('settings-badge');
@@ -189,25 +164,35 @@ function marcarFaltaNaToolbar(lista) {
   ponto.hidden = !falta;
 }
 
+/**
+ * O selo de estado de um componente. Sempre exatamente um, nunca dois.
+ *
+ * Os cinco estados que o painel conhece sao mutuamente exclusivos, e o selo
+ * diz QUAL DELES vale. Ele nao repete o botao: o botao diz o que voce pode
+ * FAZER ("Baixar"), o selo diz onde a coisa ESTA ("Nao instalado"). Sao
+ * respostas a perguntas diferentes, e por isso os dois cabem na mesma linha.
+ *
+ * A ordem importa e nao e alfabetica. `desatualizado` vem primeiro porque um
+ * componente desatualizado tambem esta instalado, e dizer "Instalado" nele
+ * esconderia justamente a novidade. `essencial` vem antes de `instalado` pelo
+ * mesmo motivo: dizer que o YANC esta instalado e verdade e e inutil, porque
+ * ele sempre esta; o que vale dizer e que ele veio no instalador e nao sai.
+ *
+ * Pura, exportada e testada (tests/unit/componentSelos.test.js), porque os
+ * estados que ela separa quase nunca aparecem juntos numa maquina so: numa
+ * maquina com tudo instalado a tela fica igual esteja a regra certa ou errada.
+ *
+ * @param {{essencial?:boolean, instalado?:boolean, estado?:string, requerParaCompilar?:boolean}} c
+ * @returns {Array<'desatualizado'|'essencial'|'instalado'|'urgente'|'ausente'>}
+ */
 export function selosDe(c) {
   if (!c) return [];
+  if (c.estado === 'desatualizado') return ['desatualizado'];
   if (c.essencial) return ['essencial'];
-  const desatualizado = c.estado === 'desatualizado';
-  if (!c.instalado && !desatualizado && c.requerParaCompilar) return ['urgente'];
-  return [];
+  if (c.instalado) return ['instalado'];
+  return c.requerParaCompilar ? ['urgente'] : ['ausente'];
 }
 
-/**
- * Este componente pode entrar numa fila de download?
- *
- * A regra é exatamente "o cartão dele tem botão Baixar ou Atualizar", e está
- * escrita aqui em vez de deduzida do DOM para não sair de sincronia com a
- * montagem do cartão. Essencial em dia não entra porque não tem botão nenhum:
- * ele vem no instalador e não sai. Essencial DESATUALIZADO entra, porque
- * atualizar é a única coisa que se faz com ele.
- *
- * @param {{essencial?:boolean, instalado?:boolean, estado?:string}} c
- */
 export function selecionavel(c) {
   if (!c) return false;
   if (c.estado === 'desatualizado') return true;
@@ -236,40 +221,21 @@ export function resumoDaFila(resultados) {
   };
 }
 
-/** Texto de cada selo, na ordem em que `selosDe` os devolve. */
+/** Texto de cada selo. */
 const TEXTO_DO_SELO = {
-  essencial: 'modal.settings.componentsAlways',
-  urgente: 'modal.settings.componentsNeededToCompile',
+  desatualizado: 'modal.settings.componentsOutdated',
+  essencial:     'modal.settings.componentsAlways',
+  instalado:     'modal.settings.componentsInstalled',
+  urgente:       'modal.settings.componentsNeededToCompile',
+  ausente:       'modal.settings.componentsMissing',
 };
 
-/**
- * Onde cada selo mora, e são lugares diferentes porque os papéis são
- * diferentes.
- *
- * O do essencial existe para explicar por que aquele cartão NÃO tem botão,
- * então ele vai para a coluna da AÇÃO, ocupando exatamente o lugar onde o
- * Remover ou o Baixar apareceriam nos outros. Ali ele é lido como "aqui não há
- * o que fazer, e este é o motivo", que é o recado. Ao lado do nome, em cápsula
- * de caixa alta, ele virava o elemento mais forte da tela para dizer a coisa
- * mais mansa dela.
- *
- * O de urgência é o contrário: é alerta, fica junto do nome e continua
- * chamando atenção.
- *
- * O selo da ação só sai quando NÃO há botão, e a condição é essa mesma, não
- * "é essencial": um essencial DESATUALIZADO tem botão Atualizar, e ali o selo
- * apareceria ao lado dele dizendo que não há o que fazer, contradizendo o
- * botão que está logo à esquerda.
- */
-const LUGAR_DO_SELO = { essencial: 'acao', urgente: 'nome' };
+
 
 function cartao(c) {
-  const marcar = (tipo) => (
+  const selos = selosDe(c).map((tipo) => (
     `<span class="componente-selo ${tipo}">${escapar(tr(TEXTO_DO_SELO[tipo]))}</span>`
-  );
-  const tipos = selosDe(c);
-  const selos = tipos.filter((t) => LUGAR_DO_SELO[t] === 'nome').map(marcar);
-  const seloDaAcao = tipos.filter((t) => LUGAR_DO_SELO[t] === 'acao').map(marcar).join('');
+  ));
   // Instalado, inteiro, mas de outra versao: a sentinela esta la, e e por isso
   // que so o carimbo do instalador enxerga. E o unico estado em que o cartao
   // oferece baixar E remover ao mesmo tempo, porque a pessoa tem o componente
@@ -336,7 +302,7 @@ function cartao(c) {
           <span class="componente-linha"></span>
         </div>
       </div>
-      <div class="componente-acao">${caixa}${acao}${acao ? '' : seloDaAcao}</div>
+      <div class="componente-acao">${caixa}${acao}</div>
     </div>
   `);
 }

@@ -1132,40 +1132,58 @@
   overflow-wrap: break-word;
 }
 
+/* OS SELOS DE ESTADO.
+
+   Fundo tingido em vez de borda, e caixa normal em vez de caixa alta. A versao
+   com contorno e VERSALETE ESPACADO gritava: numa lista de nove linhas, nove
+   capsulas de borda viva competiam com os proprios nomes dos componentes, que
+   sao a informacao que a pessoa procura. Um fundo a 12% da cor da mesma
+   familia diz a mesma coisa em voz baixa, e continua legivel de longe porque a
+   cor faz o trabalho que o contorno fazia.
+
+   A cor e o unico eixo que separa os cinco: verde para o que esta pronto, azul
+   para o que tem novidade, roxo da marca para o que veio no instalador,
+   ambar para o que impede de compilar, e cinza para o que simplesmente nao
+   esta ali. Sao familias que o resto da AURORA ja usa com esses sentidos. */
 .componente-selo {
   font-size: var(--text-2xs);
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  font-weight: 500;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  border: 1px solid transparent;
   /* Um selo com o texto partido em duas linhas dentro da capsula parece
      defeito, nao aperto. Preferimos que a LINHA quebre, nao a palavra. */
   white-space: nowrap;
 }
 
-/* O selo do essencial mora na coluna da ACAO, no lugar onde os outros cartoes
-   poem Remover ou Baixar, e por isso NAO tem capsula: ali ele nao e etiqueta,
-   e a explicacao de um botao que nao existe. Em caixa alta e com borda, como
-   estava, ele virava o elemento mais forte da tela para dizer a coisa mais
-   mansa dela, e competia com o proprio nome do componente. */
-.componente-selo.essencial {
-  color: var(--text-muted);
-  border-color: transparent;
-  padding: 0;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: var(--text-xs);
-  font-style: italic;
-  white-space: normal;
-  text-align: right;
-  line-height: 1.35;
+.componente-selo.instalado {
+  color: var(--status-success);
+  background: color-mix(in srgb, var(--status-success) 12%, transparent);
 }
 
-/* O que compila e nao esta na maquina nao e recurso a menos, e urgencia. */
+/* Instalado, inteiro, mas de outra versao: informacao, nao alarme. */
+.componente-selo.desatualizado {
+  color: var(--status-info);
+  background: color-mix(in srgb, var(--status-info) 14%, transparent);
+}
+
+/* Ausente e opcional: a mais discreta das cinco, porque nao e problema. E o
+   unico selo sem cor propria, e isso e o recado. */
+.componente-selo.ausente {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+}
+
+.componente-selo.essencial {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* O que compila e nao esta na maquina nao e recurso a menos, e urgencia: e o
+   unico dos cinco que a pessoa precisa resolver hoje, e o unico com peso. */
 .componente-selo.urgente {
   color: var(--status-warning);
-  border-color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+  font-weight: 600;
 }
 
 /* Abaixo desta largura nao cabem as tres faixas, e insistir nelas faz o selo

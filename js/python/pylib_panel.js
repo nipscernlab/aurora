@@ -253,6 +253,19 @@ function renderList() {
   for (const [id, p] of busy) paintProgress(id, p);
 }
 
+/**
+ * Abre ou fecha os detalhes de um cartão.
+ *
+ * A animação é toda do CSS (`.pylib-detalhe`, com grid-template-rows indo de
+ * 0fr a 1fr). Aqui só cai a classe e o estado acessível da seta, que precisa
+ * acompanhar: sem `aria-expanded` correto, um leitor de tela anuncia "recolhido"
+ * num cartão aberto.
+ */
+function alternarDetalhe(card) {
+  const aberto = card.classList.toggle('expanded');
+  card.querySelector('[data-action="toggle"]')?.setAttribute('aria-expanded', String(aberto));
+}
+
 function renderCard(lib) {
   const st = cardState(lib);
   const l = lang();
@@ -302,10 +315,12 @@ function renderCard(lib) {
           ${tags.join('')}
           ${tamanho}
         </div>
-        <p class="pylib-summary">${esc(lib.summary?.[l] || '')}</p>
-        ${uses ? `<ul class="pylib-uses">${uses}</ul>` : ''}
-        ${meta.length ? `<div class="pylib-meta">${meta.join('<span>·</span>')}</div>` : ''}
-        ${why}
+        <div class="pylib-detalhe"><div class="pylib-detalhe-interno">
+          <p class="pylib-summary">${esc(lib.summary?.[l] || '')}</p>
+          ${uses ? `<ul class="pylib-uses">${uses}</ul>` : ''}
+          ${meta.length ? `<div class="pylib-meta">${meta.join('<span>·</span>')}</div>` : ''}
+          ${why}
+        </div></div>
       </div>
       <div class="pylib-actions">${renderActions(lib, st)}</div>
     </div>`;
@@ -319,6 +334,7 @@ function renderActions(lib, st) {
   }
 
   const detail = `<button class="pylib-btn pylib-btn-ghost pylib-btn-icon" data-action="toggle"
+      aria-expanded="false"
       title="${esc(tt('pylibs.action.details', 'Ver usos'))}">
       <i class="ph ph-caret-down" aria-hidden="true"></i></button>`;
 
@@ -588,10 +604,15 @@ function wire() {
       await api().openHomepage(e.target.closest('[data-url]').dataset.url);
       return;
     }
-    if (action === 'toggle') { card.classList.toggle('expanded'); return; }
     if (action === 'install') { await doInstall(id, lib); return; }
     if (action === 'repair') { await doRepair(id, lib); return; }
-    if (action === 'uninstall') { await doUninstall(id, lib); }
+    if (action === 'uninstall') { await doUninstall(id, lib); return; }
+
+    // Abrir e fechar: a seta continua funcionando, mas o CARTAO INTEIRO virou
+    // alvo. A seta tem 28px de lado numa linha de 50; mirar nela para ler uma
+    // descricao e trabalho a toa, e ninguem descobre que ela existe sem tentar.
+    // Qualquer clique que nao tenha caido num controle (botao, link) alterna.
+    if (!action) alternarDetalhe(card);
   });
 
   $('pylib-external-check')?.addEventListener('click', checkExternal);

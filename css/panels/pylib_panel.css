@@ -203,6 +203,24 @@
 
 .pylib-card:hover { border-color: var(--border-strong); background: var(--bg-elev-2); }
 
+/* O cartao inteiro abre e fecha, entao ele se anuncia como alvo. Os controles
+   dentro dele voltam ao cursor normal, senao um botao Instalar herdaria o
+   ponteiro de "isto abre" e prometeria a coisa errada. */
+.pylib-card { cursor: pointer; }
+.pylib-card button,
+.pylib-card a { cursor: default; }
+.pylib-card button:not(:disabled),
+.pylib-card a[href] { cursor: pointer; }
+
+/* A seta gira ao abrir: e o unico sinal de que o cartao esta aberto quando o
+   detalhe esta fora da area visivel. */
+.pylib-card [data-action="toggle"] i { transition: transform var(--motion-flow) var(--ease-out-quart); }
+.pylib-card.expanded [data-action="toggle"] i { transform: rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pylib-card [data-action="toggle"] i { transition: none; }
+}
+
 .pylib-card[data-state='installed'] {
   border-color: color-mix(in srgb, var(--status-success) 35%, var(--border-hairline));
 }
@@ -284,22 +302,52 @@
 
    O resumo continua no DOM colapsado, e nao removido, porque e ele que o
    filtro por texto pesquisa: escondido por CSS, a busca acha; ausente, nao. */
+/* O DETALHE ABRE ANIMADO, e por isso ele existe como involucro.
+   `display: none` para `block` nao tem meio-termo: o cartao dava um pulo e o
+   resto da lista saltava junto. `height: auto` tambem nao anima. O que anima e
+   uma grade de UMA linha indo de 0fr a 1fr, com o filho em overflow hidden: o
+   navegador interpola a fracao e a altura sai de graca, sem ninguem precisar
+   medir o conteudo em JavaScript nem cravar um max-height que mente quando a
+   descricao e maior do que o palpite. */
+.pylib-detalhe {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--motion-flow) var(--ease-out-quart);
+}
+
+.pylib-detalhe-interno {
+  overflow: hidden;
+  min-height: 0;   /* sem isto o filho da grade recusa encolher abaixo do conteudo */
+}
+
+.pylib-card.expanded .pylib-detalhe { grid-template-rows: 1fr; }
+
+/* O conteudo tambem esmaece, um pouco atras da altura: so a altura mexendo
+   parece uma persiana, e o texto aparecendo junto parece a linha respirando. */
+.pylib-detalhe-interno > * {
+  opacity: 0;
+  transition: opacity var(--motion-quick) var(--ease-out-quart);
+}
+.pylib-card.expanded .pylib-detalhe-interno > * { opacity: 1; }
+
+/* Quem pediu menos movimento troca a animacao por um corte seco, que e o
+   comportamento antigo, e nao fica sem o conteudo. */
+@media (prefers-reduced-motion: reduce) {
+  .pylib-detalhe,
+  .pylib-detalhe-interno > * { transition: none; }
+}
+
 .pylib-summary {
   margin: 4px 0 0;
   font-size: var(--text-xs);
   line-height: 1.55;
   color: var(--text-secondary);
-  display: none;
 }
 
 .pylib-uses {
   margin: var(--space-2) 0 0;
   padding-left: 16px;
-  display: none; /* revelado ao expandir */
 }
-
-.pylib-card.expanded .pylib-summary { display: block; }
-.pylib-card.expanded .pylib-uses { display: block; }
 
 /* O tamanho na linha colapsada. Fica ao lado da versao, na mesma discricao. */
 .pylib-size {
@@ -327,13 +375,10 @@
 .pylib-meta a { color: var(--text-muted); text-decoration: none; }
 .pylib-meta a:hover { color: var(--accent); text-decoration: underline; }
 
-/* A meta recolhe junto com o resumo. Esta regra mora AQUI, e nao junto das
-   outras de recolhimento la em cima, porque `.pylib-meta { display: flex }`
-   acima tem a mesma especificidade: escrita antes, ela venceria por ser a
-   ultima a aparecer. Licenca, contagem de pacotes e link do site interessam a
-   quem ja parou naquela biblioteca, e nao a quem esta varrendo a lista. */
-.pylib-meta { display: none; }
-.pylib-card.expanded .pylib-meta { display: flex; }
+/* Licenca, contagem de pacotes e link do site interessam a quem ja parou
+   naquela biblioteca, e nao a quem esta varrendo a lista; por isso vivem dentro
+   do `.pylib-detalhe`, que os recolhe junto com o resumo. Nao ha regra de
+   display aqui: quem esconde e o involucro. */
 
 /* Explicação de por que a biblioteca compilada não instala. */
 .pylib-why {

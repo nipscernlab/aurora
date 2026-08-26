@@ -413,11 +413,22 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       Duas coisas entraram junto e valem ser lembradas. A espera pela
       assinatura subiu de 600 s para uma hora, porque o programa gratuito exige
       aprovação humana e uma release feita fora do horário de quem aprova
-      falharia sozinha, deixando a tag publicada sem instalador. E o primeiro
-      passo do job recusa assinar quando há segredo, a execução publica e a
-      política é a de teste: sem essa trava, bastaria a variável ficar em
-      `test-signing` depois de um ensaio para a próxima release de verdade sair
-      assinada com certificado autoassinado, que é PIOR do que não assinada.
+      falharia sozinha, deixando a tag publicada sem instalador. E uma execução
+      que publica não assina enquanto a política for a de teste: sem isso,
+      bastaria a variável ficar em `test-signing` depois de um ensaio para a
+      próxima release de verdade sair assinada com certificado autoassinado,
+      que é PIOR do que não assinada.
+
+      Corrigido em 25/08/2026, ao preparar a 6.10.0. Isso era uma trava que
+      derrubava o job no primeiro passo, e o efeito não era o pretendido: com o
+      segredo criado em 22/08 e a variável ainda na política de teste, QUALQUER
+      release de verdade morria ali, e mesclar a PR de release deixaria a tag
+      publicada sem instalador, que é justamente o desfecho contra o qual o
+      workflow foi desenhado. A trava nunca chegou a rodar, porque o ensaio de
+      22/08 foi às 15:37 e ela entrou às 16:02 do mesmo dia. Agora a decisão
+      mora numa variável `SIGN` no bloco `env` do job, credencial presente e
+      destino em que a assinatura seja aceitável, e a política de teste faz a
+      release sair sem assinatura, com aviso no log, em vez de não sair.
 
       Plano B, se a submissão pela action se mostrar chata: o hook `win.sign` do
       electron-builder pode chamar a SignPath de forma síncrona durante o build,
@@ -439,8 +450,9 @@ acumulada no certificado do publicador, herdada pelas releases seguintes.
       Quando o certificado sair, a passagem para produção é curta: a
       `release-signing` deixa de estar INVALID sozinha, liga-se o 3.5.1, e a
       variável `SIGNPATH_POLICY_SLUG` troca de `test-signing` para
-      `release-signing`. Enquanto ela não trocar, a trava do primeiro passo do
-      job impede qualquer publicação assinada com o certificado de teste. Avisar a quem valida a
+      `release-signing`. Enquanto ela não trocar, o `SIGN` do job deixa os passos
+      de assinatura de fora em toda execução que publica, então nenhuma release
+      sai assinada com o certificado de teste. Avisar a quem valida a
       instalação que o publicador exibido será "SignPath Foundation", não
       NIPS-CERN nem UFJF, porque o certificado é emitido para a Foundation. Isso
       é esperado, não é sinal de adulteração. Comunicar também que essa release

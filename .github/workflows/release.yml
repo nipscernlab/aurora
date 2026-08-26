@@ -136,27 +136,37 @@ jobs:
       # Read by the step-level `if`s that pick the signed or the unsigned path.
       # An unset secret expands to the empty string, which is the whole switch.
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      # A pergunta que decide os passos de assinatura la embaixo: esta execucao
+      # PODE assinar? Sao duas condicoes, credencial presente e um destino em
+      # que a assinatura seja aceitavel. Com a politica de teste so o ensaio
+      # assina, porque o instalador dele fica no anexo da execucao e nao chega a
+      # ninguem; uma execucao que publica sai sem assinatura.
+      SIGN: ${{ secrets.SIGNPATH_API_TOKEN != '' && (inputs.sign_only == true || vars.SIGNPATH_POLICY_SLUG != 'test-signing') }}
 
     steps:
-      # Trava contra a pior confusao que este desenho permite: publicar para os
-      # alunos um instalador assinado com o certificado de TESTE.
+      # A pior confusao que este desenho permite e publicar para os alunos um
+      # instalador assinado com o certificado de TESTE. Esse certificado e
+      # autoassinado, e um instalador assinado com ele e PIOR do que um nao
+      # assinado: o Windows deixa de dizer apenas "publicador desconhecido" e
+      # passa a dizer que a cadeia termina numa raiz em que ele nao confia, que
+      # soa como adulteracao. E acontece por esquecimento, porque basta a
+      # variavel SIGNPATH_POLICY_SLUG ficar em `test-signing` depois de um
+      # ensaio. Quem impede e o `SIGN` do bloco env acima: numa execucao que
+      # publica com a politica de teste, os passos de assinatura ficam de fora.
       #
-      # O certificado de teste e autoassinado, e um instalador assinado com ele
-      # e PIOR do que um nao assinado: o Windows deixa de dizer apenas
-      # "publicador desconhecido" e passa a dizer que a cadeia termina numa raiz
-      # em que ele nao confia, que soa como adulteracao. Basta a variavel
-      # SIGNPATH_POLICY_SLUG ficar em `test-signing` depois de um ensaio, e a
-      # proxima release de verdade sai assim, sem ninguem perceber, porque o
-      # fluxo teria feito tudo certo do ponto de vista dele.
-      #
-      # Primeiro passo do job de proposito: falha em segundos, e nao depois dos
-      # vinte minutos de bootstrap e build.
-      - name: Refuse to sign a real release with the test certificate
-        if: ${{ env.SIGNPATH_API_TOKEN != '' && inputs.sign_only != true && vars.SIGNPATH_POLICY_SLUG == 'test-signing' }}
+      # Ate 25/08/2026 isto era uma trava que derrubava o job, e o efeito real
+      # nao era o pretendido. Com o secret criado em 22/08 e a variavel ainda na
+      # politica de teste, QUALQUER release de verdade morria neste passo, e
+      # mesclar a PR de release deixaria a tag publicada sem instalador, que e o
+      # desfecho contra o qual este workflow inteiro foi desenhado. Assinatura
+      # nunca foi portao duro, ver a nota do bloco Signing mais abaixo, entao a
+      # politica de teste agora degrada para uma release sem assinatura, que e o
+      # que todas as versoes ate aqui foram.
+      - name: Announce the unsigned path
+        if: ${{ env.SIGNPATH_API_TOKEN != '' && env.SIGN != 'true' }}
         shell: pwsh
         run: |
-          Write-Host "::error::SIGNPATH_POLICY_SLUG esta em 'test-signing' e esta execucao PUBLICA. O certificado de teste e autoassinado e nao pode chegar a um aluno. Troque a variavel para a politica de producao, ou rode com sign_only marcado."
-          exit 1
+          Write-Host "::warning::SIGNPATH_POLICY_SLUG esta em 'test-signing' e esta execucao PUBLICA, entao o instalador sai SEM assinatura, como todos os anteriores. O certificado de teste e autoassinado e nao pode chegar a um aluno. Para publicar assinado, troque a variavel para a politica de producao; para ensaiar a assinatura, rode com sign_only marcado."
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -211,9 +221,10 @@ jobs:
         run: npm run build:renderer
 
       # ── Signing ───────────────────────────────────────────────────────────
-      # Two paths below, picked by whether SIGNPATH_API_TOKEN exists. Until that
-      # secret is created the first path runs and behaves exactly as before, so
-      # committing this changes nothing about today's releases.
+      # Two paths below, picked by `SIGN` (env block at the top of this job):
+      # credencial presente E um destino em que a assinatura seja aceitavel.
+      # Sem as duas, os tres passos ficam de fora e a release sai sem
+      # assinatura, que e o caminho de todas as versoes ate aqui.
       #
       # Signing is deliberately NOT a hard gate. SignPath disclaims availability
       # (ToS §9/§10) and can revoke a certificate, so a missing or dead
@@ -229,9 +240,10 @@ jobs:
       # quando o projeto tem mais de uma Artifact Configuration; com uma so,
       # deixar de fora e o correto.
       #
-      # Falta criar o secret e as tres `vars` (SIGNPATH_ORG_ID,
-      # SIGNPATH_PROJECT_SLUG, SIGNPATH_POLICY_SLUG) no painel. TODO.md secao 3
-      # lista o que precisa ser decidido la primeiro.
+      # O secret e as tres `vars` (SIGNPATH_ORG_ID, SIGNPATH_PROJECT_SLUG,
+      # SIGNPATH_POLICY_SLUG) existem desde 22/08/2026. O que falta e o
+      # certificado de producao: enquanto a politica for `test-signing`, so o
+      # ensaio assina. TODO.md secao 3 acompanha isso.
       # Always `--publish never`. electron-builder's own GitHub publisher used to
       # do the upload, and it is the wrong tool for a CROSS-repo release: it
       # half-published 6.4.0, putting the 550 MB installer on the release and
@@ -250,7 +262,7 @@ jobs:
         run: npx electron-builder --win --x64 --publish never
 
       - name: Upload the unsigned installer for SignPath
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         id: upload-unsigned
         uses: actions/upload-artifact@v7
         with:
@@ -259,7 +271,7 @@ jobs:
           if-no-files-found: error
 
       - name: Sign with SignPath
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -285,7 +297,7 @@ jobs:
       # every signed release a full ~500 MB download for the whole lab, and the
       # integrity gate below would then fail on the missing asset.
       - name: Swap in the signed installer and refresh the update manifest
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

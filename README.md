@@ -228,9 +228,10 @@ directly.
 
 Every push to `main` keeps a release pull request open, aggregating the
 conventional commits since the last release and preparing the version bump and
-changelog. Merging that pull request creates the tag and the GitHub release.
-Building and publishing the installer is a separate, manually triggered workflow,
-so cutting a version and shipping a binary stay independent.
+changelog. Merging that pull request creates the tag and the GitHub release, and
+the same workflow then builds the Windows installer and publishes it, so one
+merge takes a version from commit history to installed machines. The build can
+also be triggered by hand, which is how a failed publish is retried.
 
 Releases go to `nipscernlab/sapho`, not to this repository. The updater reads the
 same place, so the two never disagree.

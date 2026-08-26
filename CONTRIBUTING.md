@@ -113,8 +113,10 @@ Every push to `main` keeps a release pull request open, aggregating the
 conventional commits since the last release and preparing the version bump and
 the changelog. Merging that pull request creates the tag and the GitHub release.
 
-Building and publishing the installer is a separate, manually triggered workflow,
-so cutting a version and shipping a binary stay independent. Releases publish to
+Building and publishing the installer follows from that same merge: the release
+workflow chains into the build, which produces the Windows installer and uploads
+it along with `latest.yml` and the blockmap. It can also be triggered by hand,
+which is how a failed publish is retried. Releases publish to
 `nipscernlab/sapho`, which is the distribution channel; this repository is where
 development happens. The updater reads the same place, so the two cannot
 disagree.

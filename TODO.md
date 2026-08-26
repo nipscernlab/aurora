@@ -57,8 +57,15 @@ passo que a frota não pode ser a primeira a fazer.
       pelo mesmo caminho, todas com tag no repositório. O passo do ensaio que
       ainda falta não é publicar, é OBSERVAR uma dessas atualizações chegar
       sozinha numa máquina do LABEL, que é o item seguinte.
-- [ ] Abrir o app na máquina do LABEL e observar o ciclo inteiro. Isto continua
-      aberto mesmo com a boa notícia de 22/08/2026, de que TODOS os alunos viram
+- [x] ~~Abrir o app na máquina do LABEL e observar o ciclo inteiro.~~ Feito em
+      26/08/2026: o Chrysthofer implantou no LABEL e viu a atualização
+      acontecer. Isto fecha o risco que a seção inteira existia para cobrir, e
+      que nenhuma evidência de fora do laboratório alcançava: perfil sem
+      privilégio, AppLocker sobre `%LOCALAPPDATA%`, proxy da universidade e
+      Defender corporativo, todos no caminho ao mesmo tempo.
+
+      O detalhe abaixo era o roteiro do ensaio e fica como registro do que foi
+      observado. A notícia de 22/08/2026, de que TODOS os alunos viram
       a atualização funcionar nos laptops de casa. Essa evidência vale muito e
       derruba a hipótese mais provável, a de um defeito no próprio updater, mas
       não cobre o que é específico do laboratório: perfil sem privilégio,
@@ -73,10 +80,13 @@ passo que a frota não pode ser a primeira a fazer.
   - fechar o app aplica a atualização em silêncio, sem elevação, e a próxima
     abertura mostra a 6.4.1 com o toast de confirmação;
   - Configurações > Sobre > Atualizações reflete o que aconteceu.
-- [ ] Resiliência, no mesmo ensaio: derrubar a rede no meio do download e
-      confirmar que a janela mostra a contagem regressiva e retoma sozinha, em
-      vez de congelar a barra.
-- [ ] Passando tudo, liberar a implantação na frota (seção 2).
+- [ ] Resiliência: derrubar a rede no meio do download e confirmar que a janela
+      mostra a contagem regressiva e retoma sozinha, em vez de congelar a barra.
+      NÃO foi coberto pelo ensaio de 26/08, que viu o caminho feliz. É o único
+      pedaço do ensaio do updater que continua por fazer, e agora é um teste
+      isolado, não mais um bloqueio para a frota.
+- [x] ~~Passando tudo, liberar a implantação na frota (seção 2).~~ Liberada e
+      executada em 26/08/2026.
 
 Essas duas releases saem sem assinatura, o que é esperado. A assinatura entra
 depois (seção 3), e o primeiro release assinado será download completo para
@@ -122,14 +132,15 @@ então nenhuma política do tipo "só executa em Arquivos de Programas" está
 barrando o caminho do programa nem o de `components\`, inclusive o
 `components\Temp\` que o Verilator usa para o binário que compila na hora.
 
-O que a compilação NÃO prova é o terceiro caminho, o
-`%LOCALAPPDATA%\sapho-updater\pending\`, porque ele só é exercitado durante
-uma atualização de verdade. É o caminho que decide se o laboratório poderá ser
-atualizado sem visita, e é o único do 2.3 que continua no escuro.
+O terceiro caminho, `%LOCALAPPDATA%\sapho-updater\pending\`, saiu do escuro em
+26/08/2026: a atualização foi observada funcionando no LABEL, e ela só termina
+executando o instalador de lá. Com isso os três caminhos de execução desta
+seção estão provados em campo, e o laboratório pode ser atualizado sem visita,
+que era a promessa que o projeto fez.
 
-- [ ] **2.1 Decidir o modelo de implantação**, antes de instalar: se o perfil é
-      descartado no logoff (imagem congelada), a IDE entra na imagem base e não
-      é instalada por aluno.
+- [x] ~~**2.1 Decidir o modelo de implantação.**~~ Resolvido na prática em
+      26/08/2026: a implantação foi feita e a atualização chegou, então o perfil
+      não é descartado no logoff e a instalação por usuário se sustenta.
 - [ ] **2.2 Exclusões do Defender**, agora sabidamente uma questão de tempo e
       não de funcionamento: a compilação roda no LABEL com o que estiver
       configurado hoje. Sem elas o efeito é lentidão, não bloqueio:
@@ -142,7 +153,7 @@ atualizado sem visita, e é o único do 2.3 que continua no escuro.
       Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\sapho-updater"
 
       A terceira evita revarrer o instalador de ~140 MB a cada atualização.
-- [ ] **2.3 Regras AppLocker/SRP**, o ponto crítico. Com a regra padrão de
+- [x] ~~**2.3 Regras AppLocker/SRP**, o ponto crítico.~~ Fechado em 26/08/2026: os três caminhos executam no LABEL. Com a regra padrão de
       permitir execução só em `%ProgramFiles%` e `%SystemRoot%`, nada dentro de
       `%LOCALAPPDATA%` executa. São necessárias duas exceções por caminho:
 
@@ -159,12 +170,11 @@ atualizado sem visita, e é o único do 2.3 que continua no escuro.
       compilação rodou inteira nas máquinas do LABEL, o que só acontece se a
       execução a partir do perfil estiver liberada.
 
-      A terceira decide se o laboratório poderá ser atualizado sem visita. O
-      atualizador baixa o instalador para `%LOCALAPPDATA%\sapho-updater\pending\`
-      e o executa de lá ao fechar a IDE, o que foi conferido no código do
-      electron-updater. Sem essa regra a atualização baixa os ~140 MB, valida o
-      hash e morre no último passo, calada, e a máquina fica na versão velha
-      para sempre.
+      A terceira também ficou provada, em 26/08/2026, quando a atualização foi
+      vista acontecendo no LABEL: ela termina executando o instalador baixado
+      para `%LOCALAPPDATA%\sapho-updater\pending\`, então esse caminho executa.
+      Era o risco de a atualização baixar os ~140 MB, validar o hash e morrer
+      calada no último passo, deixando a máquina na versão velha para sempre.
 - [ ] **2.3.1 Não instalar com "Executar como administrador".** O instalador é
       por usuário e sem elevação, de propósito. Rodado sob uma conta de
       administrador, ele instala no perfil daquela conta: o aluno faz login
@@ -199,7 +209,7 @@ atualizado sem visita, e é o único do 2.3 que continua no escuro.
       Defender começar a barrar ou colocar em quarentena, submeter na hora,
       porque aí o assunto é o arquivo e não o publicador. Até hoje isso não
       aconteceu em nenhuma máquina do LABEL.
-- [ ] **2.7 Roteiro de verificação** em cada máquina instalada. Falhando algum
+- [x] ~~**2.7 Roteiro de verificação.**~~ Os quatro passos passaram no LABEL até 26/08/2026. Repetir em cada máquina nova continua sendo bom hábito, não pendência. Falhando algum
       passo, o problema é quase sempre o 2.3. Em 22/08/2026 os passos 1 a 3
       passaram no LABEL, com a cadeia de compilação rodando inteira; sobra
       confirmar o passo 4 e repetir a passagem em cada máquina, não só nas que
@@ -209,8 +219,9 @@ atualizado sem visita, e é o único do 2.3 que continua no escuro.
          compiladores SAPHO).~~
       3. ~~Executar a simulação e abrir as formas de onda (exercita
          Icarus/Verilator, GTKWave e a execução a partir de `components\Temp\`).~~
-      4. Configurações > Sobre > Atualizações não deve dizer que não alcança o
-         servidor.
+      4. ~~Configurações > Sobre > Atualizações não deve dizer que não alcança o
+         servidor.~~ Coberto em 26/08/2026: a atualização chegou e foi aplicada,
+         o que exige alcançar o servidor.
 - [ ] **2.8 Conferir disco e proxy.** O updater usa a configuração de proxy do
       sistema (Electron/Chromium). O disco é a conta que precisa ser feita
       antes, porque no LABEL cada aluno tem perfil próprio e a instalação é por
@@ -1291,7 +1302,10 @@ formalmente, não consertado.
   antes dos módulos, numa cópia temporária de `dist/html/splash.html` (tem de
   ser a construída: o catálogo de estrelas entra por `?inline`, que só o Vite
   resolve, e a fonte crua cai no campo aleatório de 130 pontos sem avisar).
-- Dump de simulação em máquina travada (laboratório, 25/08): o `.vcd`/`.fst`
+- Dump de simulação em máquina travada: CONFIRMADO CORRIGIDO no LABEL em
+  26/08/2026, com o relato de campo do Chrysthofer. O que segue é o registro do
+  diagnóstico, que continua valendo como referência para sintomas parecidos.
+  (laboratório, 25/08): o `.vcd`/`.fst`
   não era substituído e os alunos deletavam à mão. Medido no Windows real:
   sobrescrever um dump bloqueado faz o vvp falhar com exit 1 e um `FST Error`
   que se perde na saída; criar arquivo novo funciona porque criar e

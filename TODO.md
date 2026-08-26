@@ -844,13 +844,31 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       um administrador de laboratório desconfiar do aplicativo inteiro. A
       AURORA leva até a porta; a escolha é do dono da máquina.
 
-- [ ] **Tags meio-publicadas no registro do fork.** As tags v0.7.0-nips.8 e
-      .9 do surfer-aurora têm só o exe no registro (o job do bundle web
-      falhou nas duas: o zip do runner "adicionava" arquivos e não
-      materializava o archive, e não reproduz localmente; a nips.10 saiu pelo
-      fallback python3 -m zipfile, que imprime diagnóstico). Limpar os
-      pacotes órfãos das duas tags, e na próxima tag olhar o diagnóstico
-      impresso para aposentar o mistério.
+- [x] ~~**Tags meio-publicadas no registro do fork.**~~ Limpo em 26/08/2026, e o
+      levantamento contou outra história. Não eram duas tags: NOVE (nips.1 a
+      nips.9) tinham só o exe, e as sete primeiras nunca deveriam ter o bundle
+      web, porque o job `publish_wasm` ainda não existia quando saíram. Só a
+      nips.8 e a nips.9 foram falha de verdade. A nips.4 ainda tinha QUATRO zips
+      de mesmo nome e sha256 diferentes, quatro rebuilds subidos por cima; o
+      registro serve o último, os outros eram peso morto.
+
+      O que decidiu o recorte foi checar quais tags alguma AURORA publicada
+      chegou a fixar em `download-surfer.js`. Em toda a história do repositório
+      são duas: a nips.7 (AURORA 6.4.0 a 6.6.1) e a nips.10 (6.7.0 em diante).
+      Apagar a nips.7 daria 404 no doctor de quem ainda estivesse numa 6.4 a
+      6.6, então ela ficou. Foram removidos 7 pacotes e os 3 rebuilds antigos da
+      nips.4, 152,7 MB; o registro caiu de 10 pacotes para 3, e as três URLs que
+      a AURORA usa foram conferidas respondendo depois.
+
+      A regra para a próxima limpeza: antes de apagar qualquer tag, rodar sobre
+      as tags do git um `git show <tag>:components/Scripts/download-surfer.js` e
+      recolher os `nips.N` citados. O que aparece ali é contrato com máquina
+      instalada, não histórico.
+
+      Continua em aberto o mistério do job: por que o zip do runner "adicionava"
+      arquivos sem materializar o archive. A nips.10 saiu pelo fallback
+      `python3 -m zipfile`, que imprime diagnóstico; na próxima tag, ler esse
+      diagnóstico.
 
 - [x] ~~**Clicar num componente do PRISM abre a representação interna dele.**~~
       Pedido e feito em 22/08/2026. A causa era mecânica: o corpo da célula é

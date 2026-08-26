@@ -744,13 +744,30 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       cinco contra o `components/HDL` de verdade, e a suíte de toolchain
       inteira segue verde, incluindo a elaboração no Icarus.
 
-- [ ] **Salvar estado do Surfer de dentro da aba.** Implementação completa
-      está no stash "monitores stack/ULA + save-state da aba" (fork já tem o
-      comando state_save_url_set publicado na nips.10): o save do cliente WASM
-      POSTa o .surf.ron para o servidor local, que grava em
+- [ ] **Salvar estado do Surfer de dentro da aba.** O que existe está no ramo
+      `wip/surfer-savestate` (commit 0fc1ba71), no GitHub. O fork já tem o
+      comando `state_save_url_set` publicado na nips.10, e a ideia é: o save do
+      cliente WASM POSTa o .surf.ron para o servidor local, que grava em
       testbench/<tb>.tab.surf.ron e registra como layout ativo no WaveStore.
-      Ficou fora da 6.7.0 pelo congelamento de 20/08; retomar um item por vez,
-      com teste do usuário entre eles.
+      São 12 arquivos, 355 linhas, com testes.
+
+      DUAS RESSALVAS que a versão anterior desta nota escondia, e que custaram
+      uma ida e volta entre máquinas.
+
+      Não é "implementação completa": o próprio nome do stash de onde ela veio
+      dizia "em revisão após regressões". Não mergeie sem testar.
+
+      E não é "só retomar". O ramo está na BASE ORIGINAL (b9896738, 20/08), com
+      117 commits de main em cima e todos os 12 arquivos alterados nesse
+      intervalo; o patch não aplica direto, 8 dos 12 conflitam. A base original
+      é de propósito: é dela que o `git rebase` consegue mostrar conflito por
+      conflito, em vez de recusar o arquivo inteiro. O caminho é
+      `git rebase main wip/surfer-savestate`, resolver, testar, e só então
+      trazer um item por vez com teste do usuário entre eles.
+
+      Lição para o próximo trabalho parado: stash é LOCAL e não vai no push.
+      Trabalho que precisa sobreviver a uma troca de máquina vira ramo, não
+      stash.
 
 - [x] ~~**Seleção do picker sob Verilator não limita o dump.**~~ Descoberto em
       20/08, fechado em 22/08 em todos os casos. O Verilator ignora os

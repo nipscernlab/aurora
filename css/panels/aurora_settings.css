@@ -1178,6 +1178,37 @@
 
 .componentes-erro { font-size: var(--text-sm); color: var(--status-error); }
 
+/* A caixa de seleção do download em lote. Mora dentro da coluna de ação, à
+   esquerda do botão, porque é ali que a pessoa já está olhando quando decide
+   baixar. Só existe em cartão que tem o que baixar (ver `selecionavel`). */
+.componente-marcar {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* A barra da fila. Fica ACIMA do rodapé e só aparece com algo marcado, então
+   ela empurra o rodapé para baixo quando surge; isso é deliberado, é o que
+   torna o aparecimento perceptível sem precisar de animação. */
+.componentes-fila {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.componentes-fila-resumo {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
 /* ── Manual ─────────────────────────────────────────────────────────────────
    O manual era dois links no meio da lista de Sobre e ninguem os achava. Como
    secao propria ele segue o desenho da de componentes: um cartao que diz o

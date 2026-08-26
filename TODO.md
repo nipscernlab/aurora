@@ -1002,11 +1002,21 @@ implementação ainda.
       até o próximo boot. Só acende para o que impede de compilar; componente
       opcional ausente é escolha, não defeito.
 
-- [ ] Botão para baixar e instalar VÁRIOS componentes em sequência, a partir de
-      uma seleção do usuário na lista. Hoje é um de cada vez, e quem monta uma
-      máquina do zero repete o gesto sete vezes. A fila precisa de progresso por
-      item e de continuar até o fim quando um item falha, dizendo no fim o que
-      entrou e o que não entrou.
+- [x] ~~Botão para baixar e instalar VÁRIOS componentes em sequência.~~ Feito em
+      26/08/2026. Caixa de seleção nos cartões que têm o que baixar, barra no
+      rodapé que só aparece com algo marcado e soma o download, e a fila roda um
+      de cada vez. Duas decisões que valem registro: em SEQUÊNCIA e não em
+      paralelo, porque o gargalo é a rede do laboratório e o disco, e quatro
+      barras andando juntas terminam mais tarde do que teriam terminado em fila;
+      e NÃO PARA no primeiro erro, porque quem marcou quatro e foi tomar café
+      espera achar instalado o que deu, não a fila parada no segundo. O que
+      falhou é dito no fim, pelo nome.
+
+      A regra de quem pode entrar na fila (`selecionavel`) é exatamente "o
+      cartão dele tem botão Baixar ou Atualizar", e está escrita em vez de
+      deduzida do DOM. A invariante é que caixa e botão apareçam e sumam
+      juntos: caixa sem botão não faz nada quando marcada, botão sem caixa fica
+      de fora do lote.
 
 ## 6. Profissionalizar o repositório
 

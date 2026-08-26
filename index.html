@@ -1338,6 +1338,19 @@
                         O que compila e simula vem no instalador. O resto voce baixa quando for usar, e pode remover para recuperar espaco.
                     </p>
                     <div id="componentes-lista" class="componentes-lista"></div>
+                    <!-- Barra da fila. Só aparece com algo marcado: um botão
+                         permanente dizendo "Baixar 0 selecionados" é ruído em
+                         todas as aberturas para servir em poucas. -->
+                    <div class="componentes-fila" id="componentes-fila" hidden>
+                        <span id="componentes-fila-resumo" class="componentes-fila-resumo"></span>
+                        <button id="componentes-fila-limpar" class="btn btn-secondary" type="button">
+                            <span data-i18n="modal.settings.componentsQueueClear">Limpar seleção</span>
+                        </button>
+                        <button id="componentes-fila-baixar" class="btn btn-primary" type="button">
+                            <i class="ph ph-download-simple" aria-hidden="true"></i>
+                            <span data-i18n="modal.settings.componentsQueueGo">Baixar selecionados</span>
+                        </button>
+                    </div>
                     <div class="componentes-rodape">
                         <span id="componentes-espaco" class="componentes-espaco"></span>
                         <button id="componentes-doctor" class="btn btn-secondary" type="button">

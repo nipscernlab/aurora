@@ -246,3 +246,85 @@ describe('o ponto de aviso na engrenagem', () => {
     expect(ponto()).toBeNull();
   });
 });
+
+/**
+ * A fila de download.
+ *
+ * O que este bloco prende, e que é o ponto do recurso: quem marca quatro
+ * componentes e vai tomar café espera encontrar instalado o que deu, não a
+ * fila parada no segundo.
+ */
+describe('a fila de download', () => {
+  async function pintarComFila(lista) {
+    document.body.innerHTML = '<div id="componentes-lista"></div>'
+      + '<span id="componentes-espaco"></span>'
+      + '<div id="componentes-fila" hidden><span id="componentes-fila-resumo"></span>'
+      + '<button id="componentes-fila-limpar"></button>'
+      + '<button id="componentes-fila-baixar"></button></div>';
+    ligar();
+    electronAPI.componentesListar.mockResolvedValue({ componentes: lista, baixando: null });
+    await desenhar();
+  }
+  const marcar = (chave) => {
+    const c = document.querySelector(`[data-marcar="${chave}"]`);
+    c.checked = true;
+    c.dispatchEvent(new Event('click', { bubbles: true }));
+  };
+  const barra = () => document.getElementById('componentes-fila');
+
+  it('a caixa de seleção só existe onde há o que baixar', async () => {
+    await pintarComFila([
+      comp({ chave: 'surfer' }),                                            // ausente
+      comp({ chave: 'msys', instalado: true, estado: 'ok' }),               // em dia
+      comp({ chave: 'yanc', essencial: true, instalado: true, estado: 'ok' }),
+      comp({ chave: 'gtkwave', instalado: true, estado: 'desatualizado' }),
+    ]);
+    const temCaixa = (k) => !!document.querySelector(`[data-marcar="${k}"]`);
+    expect(temCaixa('surfer')).toBe(true);
+    expect(temCaixa('gtkwave')).toBe(true);
+    expect(temCaixa('msys')).toBe(false);
+    expect(temCaixa('yanc')).toBe(false);
+  });
+
+  it('a barra aparece só com algo marcado, e soma o download', async () => {
+    await pintarComFila([comp({ chave: 'surfer', downloadMB: 16 }), comp({ chave: 'x', downloadMB: 24 })]);
+    expect(barra().hidden).toBe(true);
+    marcar('surfer');
+    marcar('x');
+    expect(barra().hidden).toBe(false);
+    expect(document.getElementById('componentes-fila-resumo').textContent).toContain('40 MB');
+  });
+
+  it('instala um de cada vez, na ordem, e força só quem está desatualizado', async () => {
+    await pintarComFila([
+      comp({ chave: 'surfer' }),
+      comp({ chave: 'gtkwave', instalado: true, estado: 'desatualizado' }),
+    ]);
+    marcar('surfer');
+    marcar('gtkwave');
+    document.getElementById('componentes-fila-baixar').click();
+    await vi.waitFor(() => expect(electronAPI.componentesInstalar).toHaveBeenCalledTimes(2));
+    expect(electronAPI.componentesInstalar.mock.calls).toEqual([
+      ['surfer', { forcar: false }],
+      ['gtkwave', { forcar: true }],
+    ]);
+  });
+
+  it('NÃO para no primeiro erro, e diz no fim quem ficou de fora', async () => {
+    const { showCardNotification } = await import('../../js/ui/notification.js');
+    await pintarComFila([
+      comp({ chave: 'a', nome: 'A' }),
+      comp({ chave: 'b', nome: 'B' }),
+      comp({ chave: 'c', nome: 'C' }),
+    ]);
+    electronAPI.componentesInstalar.mockImplementation(async (chave) => (
+      chave === 'b' ? { ok: false, erro: 'rede' } : { ok: true }
+    ));
+    marcar('a'); marcar('b'); marcar('c');
+    document.getElementById('componentes-fila-baixar').click();
+    await vi.waitFor(() => expect(electronAPI.componentesInstalar).toHaveBeenCalledTimes(3));
+    const texto = showCardNotification.mock.calls.at(-1)[0];
+    expect(texto).toContain('2');   // dois entraram
+    expect(texto).toContain('B');   // e o que ficou de fora vai pelo nome
+  });
+});

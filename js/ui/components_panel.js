@@ -54,6 +54,12 @@ const RESERVA = {
   'modal.settings.componentsUpdatesAvailable': '{n} com atualização disponível ({mb} de download).',
   'modal.settings.componentsAlways': 'Vem no instalador',
   'modal.settings.componentsNeededToCompile': 'Necessário para compilar',
+  'modal.settings.componentsSelectOne': 'Selecionar {nome} para baixar em lote',
+  'modal.settings.componentsQueueSummary': '{n} selecionados, {mb} no total.',
+  'modal.settings.componentsQueueGo': 'Baixar selecionados',
+  'modal.settings.componentsQueueClear': 'Limpar seleção',
+  'modal.settings.componentsQueueDone': '{n} componente(s) instalado(s).',
+  'modal.settings.componentsQueuePartial': '{ok} de {total} instalados. Não entraram: {lista}. Marque de novo para tentar só esses.',
   'modal.settings.componentsDownload': 'Baixar',
   'modal.settings.componentsRemove': 'Remover',
   'modal.settings.componentsAllInstalled': 'Tudo instalado.',
@@ -191,6 +197,45 @@ export function selosDe(c) {
   return [];
 }
 
+/**
+ * Este componente pode entrar numa fila de download?
+ *
+ * A regra é exatamente "o cartão dele tem botão Baixar ou Atualizar", e está
+ * escrita aqui em vez de deduzida do DOM para não sair de sincronia com a
+ * montagem do cartão. Essencial em dia não entra porque não tem botão nenhum:
+ * ele vem no instalador e não sai. Essencial DESATUALIZADO entra, porque
+ * atualizar é a única coisa que se faz com ele.
+ *
+ * @param {{essencial?:boolean, instalado?:boolean, estado?:string}} c
+ */
+export function selecionavel(c) {
+  if (!c) return false;
+  if (c.estado === 'desatualizado') return true;
+  return !c.essencial && !c.instalado;
+}
+
+/**
+ * O que a fila responde no fim.
+ *
+ * Separado do laço de propósito: a mensagem é o único registro que sobra
+ * depois de uma fila longa, e é o que a pessoa lê para saber se pode fechar a
+ * janela. Uma fila de sete itens onde o quinto falhou não pode terminar com um
+ * "pronto" genérico.
+ *
+ * @param {Array<{nome:string, ok:boolean}>} resultados
+ * @returns {{tudoBem:boolean, instalados:number, total:number, falharam:string[]}}
+ */
+export function resumoDaFila(resultados) {
+  const lista = resultados || [];
+  const falharam = lista.filter((r) => !r.ok).map((r) => r.nome);
+  return {
+    tudoBem: falharam.length === 0,
+    instalados: lista.length - falharam.length,
+    total: lista.length,
+    falharam,
+  };
+}
+
 /** Texto de cada selo, na ordem em que `selosDe` os devolve. */
 const TEXTO_DO_SELO = {
   essencial: 'modal.settings.componentsAlways',
@@ -243,6 +288,15 @@ function cartao(c) {
   // longa) nao existe aqui.
   const marca = `<img src="./assets/icons/${escapar(c.icone)}" alt="" decoding="async">`;
 
+  // A caixa de selecao so existe onde ha o que baixar. Num cartao ja em dia ela
+  // seria uma caixa que nao faz nada, e a pessoa marcaria esperando alguma
+  // coisa. O rotulo acessivel cita o nome, senao um leitor de tela anuncia sete
+  // caixas identicas.
+  const caixa = selecionavel(c)
+    ? `<input type="checkbox" class="componente-marcar" data-marcar="${escapar(c.chave)}"`
+      + ` aria-label="${escapar(tr('modal.settings.componentsSelectOne', { nome: nomeDe(c) }))}">`
+    : '';
+
   return elemento(`
     <div class="componente${c.requerParaCompilar && !c.instalado && !c.essencial ? ' componente-urgente' : ''}" data-chave="${escapar(c.chave)}">
       <div class="componente-marca">${marca}</div>
@@ -258,7 +312,7 @@ function cartao(c) {
           <span class="componente-linha"></span>
         </div>
       </div>
-      <div class="componente-acao">${acao}</div>
+      <div class="componente-acao">${caixa}${acao}</div>
     </div>
   `);
 }
@@ -282,6 +336,9 @@ async function desenhar() {
   lista.forEach((c) => caixa.appendChild(cartao(c)));
 
   marcarFaltaNaToolbar(lista);
+  // A lista acabou de ser refeita, entao nenhuma caixa esta marcada; a barra
+  // some junto, senao ficaria falando de uma selecao que nao existe mais.
+  atualizarBarraDaFila();
 
   const ausentes = lista.filter((c) => !c.instalado && !c.essencial);
   const desatualizados = lista.filter((c) => c.estado === 'desatualizado');
@@ -338,6 +395,88 @@ function aplicarProgresso(d) {
   // extracao no fim do download nao reporta progresso, e zerar ali daria a
   // impressao de que tudo recomecou.
   if (linha) linha.textContent = d.linha || '';
+}
+
+/** As chaves marcadas agora, na ordem em que aparecem na lista. */
+function marcados() {
+  return [...document.querySelectorAll('.componente-marcar:checked')]
+    .map((e) => e.getAttribute('data-marcar'))
+    .filter(Boolean);
+}
+
+/**
+ * Mostra (ou esconde) a barra da fila conforme o que está marcado, com a conta
+ * do download somado. A soma é a informação que decide: baixar quatro coisas
+ * numa rede de laboratório é uma decisão diferente de baixar uma.
+ */
+function atualizarBarraDaFila() {
+  const barra = document.getElementById('componentes-fila');
+  if (!barra) return;
+  const chaves = marcados();
+  barra.hidden = chaves.length === 0;
+  const resumo = document.getElementById('componentes-fila-resumo');
+  if (!resumo) return;
+  const somaMB = chaves.reduce((s, k) => s + (catalogo.get(k)?.downloadMB || 0), 0);
+  resumo.textContent = tr('modal.settings.componentsQueueSummary', {
+    n: chaves.length, mb: tamanhoLegivel(somaMB),
+  });
+}
+
+/**
+ * Baixa a fila inteira, um de cada vez.
+ *
+ * UM DE CADA VEZ, e não em paralelo: são downloads de dezenas a centenas de
+ * megabytes que terminam extraindo milhares de arquivos, e o gargalo é a rede
+ * do laboratório e o disco, não a espera. Em paralelo, quatro barras andam
+ * juntas e todas terminam mais tarde do que teriam terminado em sequência.
+ *
+ * NÃO PARA NO PRIMEIRO ERRO. Quem marcou quatro componentes e foi tomar café
+ * espera encontrar o que deu para instalar, não a fila interrompida no
+ * segundo. O que falhou é dito no fim, pelo nome, para a pessoa saber o que
+ * repetir.
+ */
+async function baixarFila() {
+  if (baixando) {
+    showCardNotification(tr('modal.settings.componentsBusy'), 'info', 4000, 'Componentes');
+    return;
+  }
+  const chaves = marcados();
+  if (!chaves.length) return;
+
+  const botao = document.getElementById('componentes-fila-baixar');
+  if (botao) botao.disabled = true;
+
+  const resultados = [];
+  for (const chave of chaves) {
+    const c = catalogo.get(chave);
+    marcarBaixando(chave);
+    // `forcar` para quem está desatualizado: sem a flag o instalador vê a
+    // sentinela da versão antiga e sai dizendo que está tudo lá.
+    const r = await electronAPI.componentesInstalar(chave, { forcar: c?.estado === 'desatualizado' })
+      .catch((e) => ({ ok: false, erro: e?.message }));
+    baixando = null;
+    resultados.push({ nome: c ? nomeDe(c) : chave, ok: Boolean(r?.ok) });
+  }
+
+  if (botao) botao.disabled = false;
+
+  const resumo = resumoDaFila(resultados);
+  if (resumo.tudoBem) {
+    showCardNotification(
+      tr('modal.settings.componentsQueueDone', { n: resumo.instalados }),
+      'success', 6000, 'Componentes',
+    );
+  } else {
+    showCardNotification(
+      tr('modal.settings.componentsQueuePartial', {
+        ok: resumo.instalados, total: resumo.total, lista: resumo.falharam.join(', '),
+      }),
+      'error', 12000, 'Componentes',
+    );
+  }
+  // Redesenha depois da fila inteira, e não a cada item: cada `desenhar`
+  // refaz a lista e apagaria as marcas dos que ainda não foram baixados.
+  await desenhar();
 }
 
 async function instalar(chave, forcar = false) {
@@ -523,6 +662,12 @@ function ligar() {
   // Delegação: a lista se refaz inteira a cada mudança, e ouvintes presos a
   // cada botão morreriam junto com ela.
   caixa.addEventListener('click', (e) => {
+    // A caixa de selecao passa pelo mesmo ouvinte: a lista se refaz inteira a
+    // cada mudanca, e um ouvinte por caixa morreria junto com ela.
+    if (e.target instanceof Element && e.target.matches('[data-marcar]')) {
+      atualizarBarraDaFila();
+      return;
+    }
     const alvo = e.target instanceof Element ? e.target.closest('[data-instalar], [data-remover]') : null;
     if (!alvo) return;
     const paraInstalar = alvo.getAttribute('data-instalar');
@@ -530,6 +675,15 @@ function ligar() {
     const paraRemover = alvo.getAttribute('data-remover');
     if (paraRemover) remover(paraRemover);
   });
+
+  document.getElementById('componentes-fila-baixar')
+    ?.addEventListener('click', () => baixarFila());
+
+  document.getElementById('componentes-fila-limpar')
+    ?.addEventListener('click', () => {
+      document.querySelectorAll('.componente-marcar:checked').forEach((e) => { e.checked = false; });
+      atualizarBarraDaFila();
+    });
 
   document.getElementById('componentes-abrir-pasta')
     ?.addEventListener('click', () => electronAPI.componentesAbrirPasta?.());

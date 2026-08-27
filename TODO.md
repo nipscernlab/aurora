@@ -634,6 +634,36 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       juntos perderam cerca de oitenta linhas. O que sobra neles é orquestração
       de verdade, com disco e IPC no meio, e para essa parte o E2E continua
       sendo o caminho.
+
+      Em 26/08/2026 entrou a primeira rede do lado do `compilation_module`, e
+      antes dela o mapa que decidiu onde amarrá-la. Medindo as chamadas
+      `this.x(` a partir de cada entrada pública: são 64 métodos, catorze deles
+      chamados de fora, e o `runGtkWave` sozinho alcança 45 métodos e 2571
+      linhas, três quartos do arquivo; as catorze juntas chegam a 98%, e o
+      único método fora do alcance de qualquer uma é o construtor.
+
+      Duas medidas mudaram o plano que estava escrito aqui. A classe NÃO toca
+      no DOM (uma referência em 3459 linhas, um listener no construtor) e
+      recebe o mundo por um import só, o `electron_api.js`, que é um Proxy vivo
+      sobre `window.electronAPI`. Então a rede não precisava do Playwright:
+      [tests/unit/compilationWaveFlow.test.js](tests/unit/compilationWaveFlow.test.js)
+      dirige o fluxo inteiro com o mundo trocado, em pouco mais de um segundo,
+      e trava o que uma refatoração quebra: a ordem das ferramentas
+      (`iverilog-build`, `vvp-run`, `fst2vcd`), os argumentos que importam, a
+      captura de cabeçalho pelo caminho rápido, o layout gerado, o registro no
+      WaveStore e as duas defesas do dump.
+
+      A armadilha que quase produziu teste inútil, para não repetir: o falso
+      devolvia `mtimeMs` onde o processo principal devolve `mtime`
+      (`main/ipc/files.js`), e o `dumpEstaFresco` decide fail-open quando recebe
+      NaN. O teste de dump velho passava verde sem a defesa ter rodado uma vez.
+      Falso tem que copiar a FORMA do canal real, não a conveniência do teste.
+
+      O que falta: o E2E de janela real para o que o espião não alcança, que são
+      os botões do `compilation_flow.js` e o projeto aberto pelo
+      `projectManager.loadProject`; e a mesma rede do lado do
+      `ai_assistant_manager`, que depende de provedor real e por isso ficou para
+      depois.
 - [x] ~~**CRUD da árvore de arquivos**~~, lacunas fechadas em 23/08/2026.
       Seleção múltipla com Ctrl e Shift: a regra de qual clique produz qual
       conjunto é pura (`js/tree/tree_selection.js`), a âncora do Shift é o
@@ -745,7 +775,9 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       inteira segue verde, incluindo a elaboração no Icarus.
 
 - [ ] **Salvar estado do Surfer de dentro da aba.** O que existe está no ramo
-      `wip/surfer-savestate` (commit 0fc1ba71), no GitHub. O fork já tem o
+      `wip/surfer-savestate` (ponta em 390e88dd; a nota citava 0fc1ba71, que não
+      existe no repositório, provavelmente porque o commit foi refeito ao tirar
+      dele o `generate_blocks.js`), no GitHub. O fork já tem o
       comando `state_save_url_set` publicado na nips.10, e a ideia é: o save do
       cliente WASM POSTa o .surf.ron para o servidor local, que grava em
       testbench/<tb>.tab.surf.ron e registra como layout ativo no WaveStore.
@@ -758,7 +790,7 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       dizia "em revisão após regressões". Não mergeie sem testar.
 
       E não é "só retomar". O ramo está na BASE ORIGINAL (b9896738, 20/08), com
-      117 commits de main em cima e todos os 12 arquivos alterados nesse
+      118 commits de main em cima e todos os 12 arquivos alterados nesse
       intervalo; o patch não aplica direto, 8 dos 12 conflitam. A base original
       é de propósito: é dela que o `git rebase` consegue mostrar conflito por
       conflito, em vez de recusar o arquivo inteiro. O caminho é

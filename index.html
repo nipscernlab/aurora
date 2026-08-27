@@ -1088,6 +1088,14 @@
                 <button class="settings-nav-item" data-pane="componentes" role="tab" aria-selected="false">
                     <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionComponents">Components</span>
+                    <!-- Gemeo do ponto da engrenagem, e aceso pela MESMA regra
+                         (componente que impede de compilar e nao esta
+                         instalado). O da engrenagem diz que ha algo a resolver
+                         nas Configuracoes; dentro delas ele deixa de ajudar,
+                         porque a pessoa ja esta aqui e ainda precisa descobrir
+                         em qual das nove abas. Os dois apagam juntos, no mesmo
+                         desenho da lista, quando o componente entra. -->
+                    <span class="settings-nav-badge" id="settings-nav-badge-componentes" hidden></span>
                 </button>
                 <button class="settings-nav-item" data-pane="appearance" role="tab" aria-selected="false">
                     <i class="ph ph-palette" aria-hidden="true"></i>

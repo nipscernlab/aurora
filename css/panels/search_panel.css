@@ -87,6 +87,11 @@
 .search-summary[hidden] { display: none !important; }
 
 /* results list, grouped + scrollable */
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.search-results[hidden] { display: none; }
+
 .search-results {
   display: flex;
   flex-direction: column;

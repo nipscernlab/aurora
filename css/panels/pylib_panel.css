@@ -69,6 +69,11 @@
 
 /* ── Faixa de estado do runtime ───────────────────────────────────────────── */
 
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.pylib-runtime[hidden] { display: none; }
+
 .pylib-runtime {
   display: flex;
   flex-wrap: wrap;
@@ -155,6 +160,11 @@
 
 .pylib-filter-input::placeholder { color: var(--text-faint); }
 
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.pylib-chips[hidden] { display: none; }
+
 .pylib-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .pylib-chip {
@@ -180,6 +190,11 @@
 }
 
 /* ── Lista ────────────────────────────────────────────────────────────────── */
+
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.pylib-list[hidden] { display: none; }
 
 .pylib-list { display: flex; flex-direction: column; gap: var(--space-2); }
 
@@ -546,6 +561,11 @@
 .pylib-external-row { display: flex; gap: var(--space-2); }
 .pylib-external-row .pylib-filter-input { flex: 1 1 auto; }
 
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.pylib-external-result[hidden] { display: none; }
+
 .pylib-external-result {
   margin-top: var(--space-3);
   padding: var(--space-3);
@@ -573,6 +593,11 @@
   font-weight: var(--font-semibold);
   color: var(--text-bright);
 }
+
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.pylib-external-list[hidden] { display: none; }
 
 .pylib-external-list {
   display: flex;

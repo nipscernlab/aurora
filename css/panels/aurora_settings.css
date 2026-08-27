@@ -195,6 +195,48 @@
   overflow-y: auto;
 }
 
+/* "Relatar um problema" na barra de navegacao. Herda a forma dos itens de aba
+   para nao virar um corpo estranho na coluna, mas se distingue nos dois pontos
+   que importam: nao recebe o realce de aba ativa, porque ele nunca fica ativo,
+   e leva um filete acima separando-o do grupo das abas, porque e uma ACAO e
+   nao um destino. Sem essa separacao ele leria como uma decima aba que some
+   quando clicada. */
+.settings-nav-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 34px;
+  padding: 0 var(--space-3);
+  margin: var(--space-2) 0;
+  background: transparent;
+  border: 0;
+  /* Filete em CIMA e EMBAIXO: com um so, ele lia como o primeiro item do grupo
+     de baixo em vez de uma coisa a parte entre os dois grupos. */
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  border-radius: 0;
+  padding: var(--space-3) var(--space-3);
+  height: auto;
+  min-height: 34px;
+  /* Mesma cor dos itens de aba, e nao --text-muted: mais apagado que os
+     vizinhos, ele parecia desabilitado, e botao que parece desabilitado nao e
+     clicado. */
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.settings-nav-action:hover { color: var(--text); }
+
+.settings-nav-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .settings-nav-item {
   display: inline-flex;
   align-items: center;
@@ -1297,6 +1339,13 @@
 /* A barra da fila. Fica ACIMA do rodapé e só aparece com algo marcado, então
    ela empurra o rodapé para baixo quando surge; isso é deliberado, é o que
    torna o aparecimento perceptível sem precisar de animação. */
+/* `display` de autor VENCE o `[hidden]` do navegador, entao sem esta regra a
+   barra ficava na tela dizendo "0 selecionados, 0 MB no total" mesmo com o
+   atributo hidden posto pelo JavaScript. O mesmo tropeco ja tinha acontecido
+   com .about-update-row, mais acima neste arquivo. Regra: todo elemento com
+   `display` proprio que o codigo esconde por atributo precisa desta linha. */
+.componentes-fila[hidden] { display: none; }
+
 .componentes-fila {
   display: flex;
   align-items: center;

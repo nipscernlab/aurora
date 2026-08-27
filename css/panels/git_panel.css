@@ -674,6 +674,11 @@
 /* =============================================================================
  * 8. CHANGES LIST, sections + file rows + status flags
  * ========================================================================== */
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.git-changes[hidden] { display: none; }
+
 .git-changes { display: flex; flex-direction: column; gap: var(--space-4); }
 .git-section { display: flex; flex-direction: column; gap: 2px; }
 .git-section-head {
@@ -1147,6 +1152,11 @@
  * 15. FOOTER / STATUS BAR, stable height (must NOT resize the modal)
  * ========================================================================== */
 .git-footer { width: 100%; min-height: 36px; display: flex; align-items: center; }
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.git-status[hidden] { display: none; }
+
 .git-status {
   display: inline-flex; align-items: center; gap: var(--space-2);
   padding: 5px 10px; border-radius: var(--radius-md);
@@ -1181,6 +1191,11 @@
 #gitButton { position: relative; overflow: visible; }
 /* A forma vem de css/base/controls.css, compartilhada com os emblemas de
    contagem das abas do terminal. Aqui ficam so a posicao e a cor. */
+/* `display` de autor vence o `[hidden]` do navegador: sem esta linha o
+   elemento continua na tela mesmo com o atributo posto pelo codigo.
+   Guardado por tests/unit/hiddenRespeitado.test.js. */
+.git-badge[hidden] { display: none; }
+
 .git-badge { top: -3px; right: -3px; }
 .git-badge[data-kind="changes"] { background: #f0a050; color: #1a1206; }
 .git-badge[data-kind="ahead"]   { background: var(--status-success); color: #062018; }

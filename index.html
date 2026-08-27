@@ -1103,6 +1103,17 @@
                          desenho da lista, quando o componente entra. -->
                     <span class="settings-nav-badge" id="settings-nav-badge-componentes" hidden></span>
                 </button>
+                <!-- Relatar um problema NAO e uma aba: nao troca de painel, abre um
+                     dialogo. Por isso fica fora da lista de abas (sem role=tab, para
+                     as setas do teclado nao pararem nele como se fosse uma) e logo
+                     abaixo de Componentes, que e o vizinho certo: as duas coisas que
+                     alguem procura quando a AURORA nao esta funcionando sao ver o que
+                     falta instalar e contar o que aconteceu. -->
+                <button id="bug-report-btn" class="settings-nav-action" type="button">
+                    <i class="ph ph-bug-beetle" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.bugReportRow">Relatar um problema</span>
+                </button>
+
                 <button class="settings-nav-item" data-pane="appearance" role="tab" aria-selected="false">
                     <i class="ph ph-palette" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAppearance">Appearance</span>
@@ -1141,18 +1152,6 @@
                         <h3 data-i18n="modal.settings.sectionGeneral">General</h3>
                     </header>
                     <div class="settings-card">
-                        <div class="setting-row">
-                            <div class="setting-row-text">
-                                <label data-i18n="modal.settings.bugReportRow">Relatar um problema</label>
-                                <p class="setting-description" data-i18n="modal.settings.bugReportRowDescription">
-                                    Descreva o que aconteceu e envie direto para o NIPS-CERN. A tela mostra tudo que vai junto antes de enviar.
-                                </p>
-                            </div>
-                            <button id="bug-report-btn" class="btn btn-secondary" type="button">
-                                <i class="ph ph-bug-beetle" aria-hidden="true"></i>
-                                <span data-i18n="modal.settings.bugReportAction">Relatar</span>
-                            </button>
-                        </div>
                         <div class="setting-row">
                             <div class="setting-row-text">
                                 <label for="github-forget-on-exit" data-i18n="modal.settings.githubForgetOnExit">Limpar o acesso ao GitHub e ao GitLab ao fechar a AURORA</label>

@@ -270,9 +270,13 @@ async function abrirRelatorio() {
 if (typeof window !== 'undefined') {
   window.auroraBugReport = abrirRelatorio;
   document.addEventListener('DOMContentLoaded', () => {
-    // O botao vive em Geral, entre as outras acoes das configuracoes. Ficava
+    // O botao vive na BARRA LATERAL das configuracoes, logo abaixo de
+    // Componentes, e nao dentro de um painel. Passou por dois lugares antes:
     // no Sobre, no meio dos links de leitura, onde relatar parecia mais um
-    // documento para consultar do que algo para fazer.
+    // documento para consultar do que algo para fazer; e depois em Geral, onde
+    // so era encontrado por quem ja estivesse naquele painel. Na barra ele
+    // aparece em qualquer aba aberta, ao lado de Componentes, que e o outro
+    // lugar que se procura quando a AURORA nao esta funcionando.
     document.getElementById('bug-report-btn')
       ?.addEventListener('click', (e) => { e.preventDefault(); abrirRelatorio(); });
   });

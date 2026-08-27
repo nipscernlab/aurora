@@ -158,10 +158,16 @@ function tamanhoLegivel(mb) {
  * dele seria um aviso que ninguém pode desligar.
  */
 function marcarFaltaNaToolbar(lista) {
-  const ponto = document.getElementById('settings-badge');
-  if (!ponto) return;
   const falta = (lista || []).some((c) => c.requerParaCompilar && !c.instalado);
-  ponto.hidden = !falta;
+  // Dois pontos, uma regra so. O da engrenagem leva a pessoa ate as
+  // Configuracoes; o da aba Components diz em qual das nove abas esta o
+  // problema, que o da engrenagem nao consegue dizer. Acender um sem o outro
+  // seria a mesma falha em duas versoes: um aviso que aponta para o lugar
+  // errado, ou um lugar sem aviso.
+  for (const id of ['settings-badge', 'settings-nav-badge-componentes']) {
+    const ponto = document.getElementById(id);
+    if (ponto) ponto.hidden = !falta;
+  }
 }
 
 /**

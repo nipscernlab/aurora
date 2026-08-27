@@ -434,6 +434,9 @@ async function start(payload, webContents) {
     ]);
     let usage = await usageOrNull(result.totalUsage);
     if (usage == null) usage = await usageOrNull(result.usage);
+    // The turn still finishes, but its cost vanishes from the usage bar; say so
+    // in the log, otherwise the gap is invisible.
+    if (usage == null) log.warn(`[ai.chat] usage for session ${sessionId} did not arrive in time; turn accounted as unknown`);
 
     sendEvent(webContents, sessionId, 'finish', { text: stripToolXml(fullText), usage });
   } catch (e) {

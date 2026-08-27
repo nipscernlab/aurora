@@ -253,6 +253,9 @@
           </button>
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
+              <!-- Ponto de aviso quando falta um componente sem o qual a máquina
+                   não compila. Mesmo desenho do aviso do PyLibs, ao lado. -->
+              <span class="settings-badge" id="settings-badge" hidden></span>
           </button>
           <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant" data-i18n-tooltip="toolbar.ai.tooltip">
               <i class="ph ph-sparkle"></i>
@@ -609,11 +612,21 @@
             <i class="ph ph-text-align-left"></i>
             <span>Ln 3, Col 3</span>
         </div>
-        <!-- GitHub / Source Control indicator. Icon when disconnected; the user's
-             avatar once signed in. Click opens the Source Control panel. Populated
-             by js/git/git_panel.js (setGithubStatusBar). -->
+        <!-- Indicador de energia: verde conectado, vermelho na bateria, com a
+             porcentagem no balao. Escondido ate a Battery API responder (e some
+             de vez onde ela nao existe). Preenchido por js/ui/power_status.js;
+             o clique abre um dialogo com a explicacao e o caminho para as
+             configuracoes de energia do Windows. -->
+        <div class="status-item status-power" id="powerStatusItem" role="button" tabindex="0" hidden data-tooltip="Power">
+            <i class="ph ph-battery-charging"></i>
+        </div>
+        <!-- Indicador de controle de versao: uma ficha por forja, sempre as
+             duas. Icone apagado quando desconectada, foto e @usuario quando
+             conectada. Clicar abre o painel. Preenchido por
+             js/git/git_panel.js (setForgeStatusBar). -->
         <div class="status-item status-github" id="githubStatusItem" role="button" tabindex="0" data-tooltip="Source Control">
-            <i class="ph ph-github-logo"></i>
+            <span class="status-forge"><i class="ph ph-github-logo"></i></span>
+            <span class="status-forge"><i class="ph ph-gitlab-logo-simple"></i></span>
         </div>
     </div>
 </aurora-statusbar>
@@ -642,6 +655,11 @@
                 <p class="form-hint" data-i18n="modal.waveConfig.hint">
                     Pick which signals are dumped to the VCD and shown in GTKWave on Wave click.
                     Default (no selection): everything declared at the testbench module scope.
+                </p>
+                <p class="form-hint" id="waveConfigHintVerilator" hidden data-i18n="modal.waveConfig.hintVerilator">
+                    Verilator is selected: it records by scope, not by signal. Every public signal
+                    of a module that has at least one selected signal is dumped; modules with
+                    nothing selected stay out of the dump. The testbench scope is always recorded.
                 </p>
 
                 <div class="wave-tree-find" role="search">
@@ -796,7 +814,17 @@
             <span class="dagr-wm-rune">&#5854;</span>
             <span class="dagr-wm-name">GIT-D</span>
         </div>
-        <div class="git-account" id="git-account"></div>
+        <!-- As duas contas, lado a lado. Sao independentes e tem o MESMO
+             bloco: o laboratorio vive nas duas ao mesmo tempo (o codigo no
+             GitHub, o fork do Surfer no grupo nips-cern do GitLab), e a AURORA
+             nao prefere nenhuma. Quem decide se o cartao divide a linha ou fica
+             com ela inteira e o proprio conteudo, pelo CSS: entrar cabe em
+             meia largura, conta conectada e formulario de token nao.
+             Preenchidas pelo mesmo renderForgeAccount de js/git/git_panel.js. -->
+        <div class="git-accounts">
+            <div class="git-account" id="git-account"></div>
+            <div class="git-account git-account-gitlab" id="git-account-gitlab"></div>
+        </div>
         <div class="git-clone" id="git-clone" hidden>
             <input type="text" id="git-clone-url" class="git-pat-input" placeholder="https://github.com/owner/repo.git" spellcheck="false" />
             <button class="git-mini git-mini-primary" data-action="clone"><i class="ph ph-download-simple"></i> Clonar</button>
@@ -1050,6 +1078,25 @@
                     <i class="ph ph-house" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionGeneral">General</span>
                 </button>
+                <!-- Componentes vem em segundo, logo depois de Geral, e nao no
+                     fim da lista. Todas as outras abas sao preferencia: mudam
+                     como a AURORA se parece ou se comporta, e quem nao as abre
+                     nunca fica sem nada. Esta e a unica onde algo pode estar
+                     QUEBRADO, e quem precisa dela e justamente quem esta com a
+                     maquina sem compilar, ou seja a pessoa com menos paciencia
+                     para varrer uma lista de nove itens. -->
+                <button class="settings-nav-item" data-pane="componentes" role="tab" aria-selected="false">
+                    <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionComponents">Components</span>
+                    <!-- Gemeo do ponto da engrenagem, e aceso pela MESMA regra
+                         (componente que impede de compilar e nao esta
+                         instalado). O da engrenagem diz que ha algo a resolver
+                         nas Configuracoes; dentro delas ele deixa de ajudar,
+                         porque a pessoa ja esta aqui e ainda precisa descobrir
+                         em qual das nove abas. Os dois apagam juntos, no mesmo
+                         desenho da lista, quando o componente entra. -->
+                    <span class="settings-nav-badge" id="settings-nav-badge-componentes" hidden></span>
+                </button>
                 <button class="settings-nav-item" data-pane="appearance" role="tab" aria-selected="false">
                     <i class="ph ph-palette" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAppearance">Appearance</span>
@@ -1070,9 +1117,9 @@
                     <i class="ph ph-sparkle" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAI">AI Assistant</span>
                 </button>
-                <button class="settings-nav-item" data-pane="componentes" role="tab" aria-selected="false">
-                    <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
-                    <span data-i18n="modal.settings.sectionComponents">Components</span>
+                <button class="settings-nav-item" data-pane="manual" role="tab" aria-selected="false">
+                    <i class="ph ph-book-open" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionManual">Manual</span>
                 </button>
                 <button class="settings-nav-item" data-pane="about" role="tab" aria-selected="false">
                     <i class="ph ph-info" aria-hidden="true"></i>
@@ -1102,9 +1149,9 @@
                         </div>
                         <div class="setting-row">
                             <div class="setting-row-text">
-                                <label for="github-forget-on-exit" data-i18n="modal.settings.githubForgetOnExit">Limpar o acesso ao GitHub ao fechar a AURORA</label>
+                                <label for="github-forget-on-exit" data-i18n="modal.settings.githubForgetOnExit">Limpar o acesso ao GitHub e ao GitLab ao fechar a AURORA</label>
                                 <p class="setting-description" data-i18n="modal.settings.githubForgetOnExitDescription">
-                                    Em computador compartilhado, deixe ligado: ao fechar, a conta sai daqui e do git do Windows, sem depender de alguém lembrar.
+                                    Em computador compartilhado, deixe ligado: ao fechar, as duas contas saem daqui e do git do Windows, sem depender de alguém lembrar.
                                 </p>
                             </div>
                             <!-- `checked` aqui espelha o padrao do main
@@ -1119,9 +1166,9 @@
                         </div>
                         <div class="setting-row">
                             <div class="setting-row-text">
-                                <label data-i18n="modal.settings.githubForget">Sair do GitHub e limpar agora</label>
+                                <label data-i18n="modal.settings.githubForget">Sair do GitHub e do GitLab e limpar agora</label>
                                 <p class="setting-description" data-i18n="modal.settings.githubForgetDescription">
-                                    Remove o acesso salvo pela AURORA e também o que o git do Windows guardou, sem esperar você fechar.
+                                    Remove o acesso das duas contas salvo pela AURORA e também o que o git do Windows guardou, sem esperar você fechar.
                                 </p>
                             </div>
                             <button id="github-forget-btn" class="btn danger" type="button" data-i18n="modal.settings.githubForgetAction">Limpar agora</button>
@@ -1299,6 +1346,19 @@
                         O que compila e simula vem no instalador. O resto voce baixa quando for usar, e pode remover para recuperar espaco.
                     </p>
                     <div id="componentes-lista" class="componentes-lista"></div>
+                    <!-- Barra da fila. Só aparece com algo marcado: um botão
+                         permanente dizendo "Baixar 0 selecionados" é ruído em
+                         todas as aberturas para servir em poucas. -->
+                    <div class="componentes-fila" id="componentes-fila" hidden>
+                        <span id="componentes-fila-resumo" class="componentes-fila-resumo"></span>
+                        <button id="componentes-fila-limpar" class="btn btn-secondary" type="button">
+                            <span data-i18n="modal.settings.componentsQueueClear">Limpar seleção</span>
+                        </button>
+                        <button id="componentes-fila-baixar" class="btn btn-primary" type="button">
+                            <i class="ph ph-download-simple" aria-hidden="true"></i>
+                            <span data-i18n="modal.settings.componentsQueueGo">Baixar selecionados</span>
+                        </button>
+                    </div>
                     <div class="componentes-rodape">
                         <span id="componentes-espaco" class="componentes-espaco"></span>
                         <button id="componentes-doctor" class="btn btn-secondary" type="button">
@@ -1313,6 +1373,56 @@
                      content is intentionally static (proper names, URLs,
                      org names) except for the labels and the version, which
                      aurora_settings.js fills in via getAppVersion(). -->
+                <!-- O manual tinha virado dois links escondidos no meio da lista
+                     de Sobre, ao lado da licenca e do repositorio, e ninguem os
+                     achava. Agora e secao propria, no mesmo desenho da de
+                     componentes: um cartao que diz o estado e botoes que fazem
+                     alguma coisa. -->
+                <section class="settings-pane" data-pane="manual" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-book-open" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionManual">Manual</h3>
+                    </header>
+                    <p class="settings-pane-intro" data-i18n="modal.settings.manualIntro">
+                        O manual do SAPHO vem junto com a AURORA e abre sem internet. Ele se atualiza sozinho quando saem correcoes, sem esperar uma versao nova do programa.
+                    </p>
+
+                    <div class="settings-card manual-card">
+                        <div class="manual-estado">
+                            <i class="ph ph-hard-drives" aria-hidden="true"></i>
+                            <div class="manual-estado-texto">
+                                <span class="manual-estado-titulo" id="manual-estado-titulo" data-i18n="modal.settings.manualChecking">Verificando…</span>
+                                <span class="manual-estado-meta" id="manual-estado-meta"></span>
+                            </div>
+                        </div>
+                        <div class="manual-acoes">
+                            <button id="manual-abrir-aurora" class="btn btn-primary" type="button" hidden>
+                                <i class="ph ph-book-open" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualOpenHere">Abrir na AURORA</span>
+                            </button>
+                            <button id="manual-abrir-navegador" class="btn btn-secondary" type="button" hidden>
+                                <i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualOpenBrowser">Abrir no navegador</span>
+                            </button>
+                            <button id="manual-atualizar" class="btn btn-secondary" type="button">
+                                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualCheckUpdate">Procurar atualizacao</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="about-links">
+                        <a class="about-link" href="#" data-href="https://www.nipscern.com/library/sapho/">
+                            <i class="ph ph-globe" aria-hidden="true"></i>
+                            <span class="about-link-text">
+                                <span class="about-link-label" data-i18n="modal.settings.aboutDocsOnline">Manual online</span>
+                                <span class="about-link-url">nipscern.com/library/sapho</span>
+                            </span>
+                            <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                </section>
+
                 <section class="settings-pane" data-pane="about" role="tabpanel" hidden>
                     <header class="settings-pane-header">
                         <i class="ph ph-info" aria-hidden="true"></i>
@@ -1392,24 +1502,6 @@
                     <div class="settings-card">
                         <h4 class="about-card-title" data-i18n="modal.settings.aboutLinks">Links</h4>
                         <div class="about-links">
-                            <a class="about-link" href="#" data-href="https://www.nipscern.com/library/sapho/">
-                                <i class="ph ph-book-open" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOnline">Manual online</span>
-                                    <span class="about-link-url">nipscern.com/library/sapho</span>
-                                </span>
-                                <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
-                            </a>
-                            <!-- Sem documentação empacotada este item fica oculto; quem o
-                                 revela é aurora_settings.js, consultando docs:status. -->
-                            <a class="about-link" href="#" id="about-docs-offline" hidden>
-                                <i class="ph ph-hard-drives" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOffline">Manual offline</span>
-                                    <span class="about-link-url" id="about-docs-offline-meta">-</span>
-                                </span>
-                                <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
-                            </a>
                             <a class="about-link" href="#" data-href="https://github.com/nipscernlab/aurora/blob/main/LICENSE">
                                 <i class="ph ph-scales" aria-hidden="true"></i>
                                 <span class="about-link-text">
@@ -1421,7 +1513,7 @@
                             <a class="about-link" href="#" data-href="https://nipscern.com">
                                 <i class="ph ph-globe-hemisphere-west" aria-hidden="true"></i>
                                 <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutWebsite">NIPSCERN website</span>
+                                    <span class="about-link-label" data-i18n="modal.settings.aboutWebsite">NIPS-CERN website</span>
                                     <span class="about-link-url">nipscern.com</span>
                                 </span>
                                 <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
@@ -1457,7 +1549,7 @@
                         <div class="about-lab">
                             <i class="ph ph-flask" aria-hidden="true"></i>
                             <div class="about-lab-text">
-                                <strong>NIPSCERN</strong>
+                                <strong>NIPS-CERN</strong>
                                 <span>Núcleo de Instrumentação e Processamento de Sinais &middot; CERN</span>
                             </div>
                         </div>
@@ -1470,7 +1562,7 @@
                             <li><span class="about-lic-name">Icarus Verilog</span><span class="about-lic-tag">GPL-2.0</span></li>
                             <li><span class="about-lic-name">Yosys + ABC</span><span class="about-lic-tag">ISC / MIT</span></li>
                             <li><span class="about-lic-name">Verilator</span><span class="about-lic-tag">LGPL-3.0 / Artistic-2.0</span></li>
-                            <li><span class="about-lic-name">GTKWave (NIPSCERN fork)</span><span class="about-lic-tag">GPL-2.0</span></li>
+                            <li><span class="about-lic-name">GTKWave (NIPS-CERN fork)</span><span class="about-lic-tag">GPL-2.0</span></li>
                             <li><span class="about-lic-name">Surfer</span><span class="about-lic-tag">EUPL-1.2</span></li>
                             <li><span class="about-lic-name">Python &middot; cocotb</span><span class="about-lic-tag">PSF / BSD-3-Clause</span></li>
                             <li><span class="about-lic-name">MSYS2 / mingw-w64</span><span class="about-lic-tag">GPL / LGPL / MIT</span></li>
@@ -1484,7 +1576,9 @@
                             <li><span class="about-lic-name">Inter &middot; JetBrains Mono</span><span class="about-lic-tag">OFL-1.1</span></li>
                             <li><span class="about-lic-name">Metamorphous (letreiro Git-D)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
                             <li><span class="about-lic-name">Simple Icons (marcas de e-mail)</span><span class="about-lic-tag">CC0 1.0</span></li>
+                            <li><span class="about-lic-name">Marcas dos componentes (MSYS2, Verible, LLVM, slang)</span><span class="about-lic-tag">dos respectivos projetos</span></li>
                             <li><span class="about-lic-name">Noto Sans Runic (Dagaz rune)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
+                            <li><span class="about-lic-name">HYG Stellar Database (o céu da splash)</span><span class="about-lic-tag">CC BY-SA 4.0</span></li>
                         </ul>
                         <p class="about-thanks-text about-licenses-note" data-i18n="modal.settings.aboutThirdPartyNote">Full notices ship in THIRD_PARTY_NOTICES.md.</p>
                     </div>

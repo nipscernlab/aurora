@@ -48,6 +48,9 @@ describe('mapRepo', () => {
       htmlUrl: 'https://github.com/nipscernlab/aurora',
       private: false, description: 'AURORA IDE', updatedAt: '2026-08-09T02:43:14Z',
       owner: 'nipscernlab', ownerType: 'Organization', fork: false,
+      // Desde 23/08/2026 o painel lista GitHub e GitLab juntos, e a linha
+      // precisa dizer de onde veio.
+      forge: 'github',
     });
   });
 
@@ -156,7 +159,7 @@ describe('decidirPolling', () => {
 
   it('falha com frase propria nos dois desfechos definitivos', () => {
     expect(decidirPolling({ error: 'expired_token' }))
-      .toEqual({ acao: 'falhar', mensagem: 'The code expired — please try again.' });
+      .toEqual({ acao: 'falhar', mensagem: 'The code expired, please try again.' });
     expect(decidirPolling({ error: 'access_denied' }))
       .toEqual({ acao: 'falhar', mensagem: 'Authorization was denied.' });
   });

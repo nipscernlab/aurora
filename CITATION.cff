@@ -6,11 +6,11 @@ authors:
   # Luciano Manhães de Andrade Filho — advisor (orientador).
   - given-names: "Luciano M. de A."
     family-names: "Filho"
-    affiliation: "NIPSCERN — Universidade Federal de Juiz de Fora"
+    affiliation: "NIPS-CERN — Universidade Federal de Juiz de Fora"
   # Chrysthofer Arthur Amaro Afonso — undergraduate (graduando).
   - given-names: "Chrysthofer A. A."
     family-names: "Afonso"
-    affiliation: "NIPSCERN — Universidade Federal de Juiz de Fora"
+    affiliation: "NIPS-CERN — Universidade Federal de Juiz de Fora"
 repository-code: "https://github.com/nipscernlab/aurora"
 url: "https://www.nipscern.com"
 abstract: >-
@@ -32,5 +32,5 @@ license-url: "https://github.com/nipscernlab/aurora/blob/main/LICENSE"
 # listed under `extra-files` in release-please-config.json). Editing them by
 # hand is how they drifted before: the version tracked the releases and the
 # date stayed at the day someone last remembered it.
-version: 6.7.0 # x-release-please-version
-date-released: "2026-08-20" # x-release-please-date
+version: 6.10.0 # x-release-please-version
+date-released: "2026-08-26" # x-release-please-date

@@ -16,7 +16,8 @@ contextBridge.exposeInMainWorld('splashAPI', {
   },
   /**
    * Avisa o main que a barra atingiu 100% visualmente. O coordenador
-   * espera 1s após esse sinal para então revelar a janela principal.
+   * espera uma batida curta (SPLASH_HOLD_MS, em main/windows.js) após esse
+   * sinal para então revelar a janela principal.
    */
   notifyFilled: () => ipcRenderer.send('splash:filled'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),

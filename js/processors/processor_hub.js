@@ -224,8 +224,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await electronAPI.createProcessorProject(formData);
 
                 if (result && result.success) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
+                    // The IPC resolved, so the folder and files are already on
+                    // disk; a fixed sleep here protected nothing and cost a
+                    // second on every new processor.
                     try {
                         await electronAPI.triggerFileTreeRefresh();
                     } catch (err) { console.error(err); }

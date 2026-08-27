@@ -188,6 +188,20 @@ describe('TOOL_MANIFEST', () => {
         expect(fantasmas).toEqual([]);
     });
 
+    // A lista de bases do create_gtkw_layout e copiada no manifesto, porque
+    // ele e CommonJS no processo principal e o escritor e ESM do renderer.
+    // Copia sem catraca diverge: o modelo passaria uma base que o esquema
+    // aceita e o escritor troca por decimal em silencio, ou o esquema recusaria
+    // uma base que funciona.
+    it('the create_gtkw_layout radix list matches the writer that enforces it', async () => {
+        const { RADIX_VALIDOS } = await import('../../js/wave/gtkw_custom.js');
+        const def = TOOL_MANIFEST.find((d) => d.name === 'create_gtkw_layout');
+        expect(def).toMatchObject({ access: 'write', api: ['wave', 'createGtkwLayout'], argStyle: 'object' });
+        const objeto = def.inputSchema.properties.signals.items.oneOf
+            .find((v) => v.type === 'object');
+        expect([...objeto.properties.radix.enum].sort()).toEqual([...RADIX_VALIDOS].sort());
+    });
+
     // A varinha e a IA compartilham um caminho só de formatação.
     it('wires format_file to the editor namespace', () => {
         expect(TOOL_MANIFEST.find((d) => d.name === 'format_file')).toMatchObject({

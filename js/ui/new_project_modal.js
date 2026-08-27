@@ -157,8 +157,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 closeNewProjectModal();
 
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
+                // The .spf is on disk once createProjectStructure resolves;
+                // the fixed one-second sleep that used to sit here only made
+                // the first project of the day feel slow.
                 await projectManager.loadProject(spfPath);
 
             } else {

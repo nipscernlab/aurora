@@ -24,7 +24,19 @@
  *     cross-folder conflicts ask Replace / Keep both / Cancel (move offers
  *     Replace / Cancel, like VS Code).
  *   - Keyboard: F2 rename, Delete (Shift+Delete = permanent), Ctrl+C/X/V,
- *     Ctrl+Z e Ctrl+Shift+Z (ou Ctrl+Y), while the tree has focus.
+ *     Ctrl+A, Ctrl+Z e Ctrl+Shift+Z (ou Ctrl+Y), while the tree has focus.
+ *   - Seleção múltipla com Ctrl e Shift. Cortar, copiar, apagar e arrastar
+ *     valem para tudo que está marcado, e o gesto inteiro é UMA entrada na
+ *     pilha de desfazer: quem apagou cinco arquivos de uma vez não quer
+ *     apertar Ctrl+Z cinco vezes. Renomear continua sendo de um só, porque
+ *     dois nomes novos ao mesmo tempo não são um gesto, são dois. A regra de
+ *     qual clique produz qual conjunto é pura e mora em tree_selection.js.
+ *   - O `.spf` acompanha: renomear, mover ou apagar um arquivo que ele
+ *     referencia (topo de síntese, topo de simulação, as duas listas) arruma
+ *     a referência no mesmo gesto, e o Ctrl+Z devolve o que foi tirado. As
+ *     regras estão em ../project/spf_paths.js. A pasta de um processador é
+ *     recusada: renomeá-la é o primeiro de cinco passos, e fazer só o
+ *     primeiro deixa um projeto que não compila sem dizer por quê.
  *   - Desfazer e refazer criar, renomear, mover, copiar e deletar. A pilha
  *     está em tree_history.js; aqui ficam só os executores, porque quem toca
  *     disco é esta camada. Vale só para a árvore: o Ctrl+Z do editor continua
@@ -55,6 +67,10 @@ import {
     validateEntryName, nextCopyName, normSlash, baseName, parentDir, isUnder,
     resolveDropTarget, isNoOpDrop,
 } from './fs_name_utils.js';
+import { nextSelection, pruneSelection, topMostPaths } from './tree_selection.js';
+import { SpfStore } from '../project/spf_store.js';
+import { renomearNoSpf, removerDoSpf, reporNoSpf, processadorEm } from '../project/spf_paths.js';
+import { EditorManager } from '../editor/monaco_editor.js';
 
 // i18n with English fallback (same pattern as file_tree_toggler.js), the
 // menu works before locales load and the keys are optional.
@@ -78,11 +94,16 @@ const VALIDATION_MSGS = {
 
 class StandardTreeCrud {
     constructor() {
-        this.selectedPath = null;
-        // { path, name, isDir, cut }, single-entry clipboard (multi-select is
-        // a future step; documented in TODO.md, secao 5).
+        /** Seleção, na ordem em que foi feita. Vazia quando nada está marcado. */
+        this.selectedPaths = [];
+        /** Âncora do Shift: o último clique SEM Shift. Ver tree_selection.js. */
+        this._anchor = null;
+        // { items: [{ path, name, isDir }], cut }, vários, porque a seleção é
+        // múltipla. Um Ctrl+C de cinco arquivos cola os cinco.
         this.clipboard = null;
         this._inlineCleanup = null;
+        /** caminho apagado -> o que ele tinha no .spf, para o Ctrl+Z repor. */
+        this._spfRetirado = new Map();
 
         // Ctrl+Z e Ctrl+Shift+Z da arvore. Os executores ficam aqui porque a
         // pilha nao toca disco: ela so sabe a forma das operacoes.
@@ -94,6 +115,11 @@ class StandardTreeCrud {
                 if (!res?.success) return false;
                 await this._migrateOpenTabs(de, para, abertas);
                 this._remapExpanded(de, para);
+                // Desfazer também é um movimento, e o `.spf` tem que voltar
+                // junto: sem isto, o Ctrl+Z devolvia o arquivo ao nome antigo
+                // e deixava a referência no nome novo, que é pior do que o
+                // problema original, porque agora ninguém mais mexeu nela.
+                await this._spfRenomeou(de, para);
                 return true;
             },
             guardar: async (caminho) => {
@@ -103,10 +129,12 @@ class StandardTreeCrud {
                     await TabManager.closeTab(t);
                 }
                 const res = await electronAPI.undoStage(caminho);
+                if (res?.success) await this._spfRemoveu([caminho]);
                 return res?.success ? res.token : null;
             },
             restaurar: async (token, caminho) => {
                 const res = await electronAPI.undoRestore(token, caminho);
+                if (res?.success) await this._spfRepos(caminho);
                 return !!res?.success;
             },
             descartar: (token) => electronAPI.undoDiscard(token),
@@ -121,6 +149,12 @@ class StandardTreeCrud {
             if (novo === projetoAtual) return;
             projetoAtual = novo;
             this.history.limpar();
+            // As anotações do .spf morrem com a pilha que as usaria: elas
+            // descrevem o projeto que acabou de sair, e guardá-las faria uma
+            // restauração no projeto novo escrever a escolha do antigo.
+            this._spfRetirado.clear();
+            this.selectedPaths = [];
+            this._anchor = null;
         });
 
         // Re-apply selection / cut-pending decorations after every re-render
@@ -218,6 +252,93 @@ class StandardTreeCrud {
         });
     }
 
+    // ------------------------------------------------------------ .spf
+
+    /**
+     * O `.spf` acompanha o que a árvore fez com o arquivo.
+     *
+     * Ele guarda o topo de síntese, o topo de simulação e as duas listas de
+     * arquivos. Mexer no disco sem mexer nele deixava a referência apontando
+     * para um caminho que não existe, e o usuário só descobria dois passos
+     * depois, quando o arquivo sumia da visão Verilog ou a compilação
+     * reclamava de um nome que ele acabara de mudar.
+     *
+     * Melhor esforço de propósito: o arquivo já mudou de lugar no disco, e uma
+     * falha ao anotar isso não pode desfazer o que o usuário pediu. A regra em
+     * si é pura e está em spf_paths.js.
+     */
+    async _spfRenomeou(de, para) {
+        const spf = ProjectStore.getSpfPath?.();
+        if (!spf) return;
+        try { await SpfStore.update(spf, (cfg) => { renomearNoSpf(cfg, de, para); }); }
+        catch (err) { console.error('spf rename bookkeeping failed:', err); }
+    }
+
+    /**
+     * O que sai do `.spf` fica guardado por caminho, porque apagar pela árvore
+     * é desfazível: sem isto o Ctrl+Z traria o arquivo de volta como um
+     * arquivo qualquer, sem a marca de topo que ele tinha, e ninguém veria
+     * erro nenhum, só o botão Verilog deixando de achar o topo.
+     *
+     * @param {string[]} caminhos
+     */
+    async _spfRemoveu(caminhos) {
+        const spf = ProjectStore.getSpfPath?.();
+        if (!spf || !caminhos?.length) return;
+        try {
+            await SpfStore.update(spf, (cfg) => {
+                for (const caminho of caminhos) {
+                    const retirado = removerDoSpf(cfg, [caminho]);
+                    if (retirado.total) this._spfRetirado.set(normSlash(caminho).toLowerCase(), retirado);
+                }
+            });
+        } catch (err) { console.error('spf delete bookkeeping failed:', err); }
+    }
+
+    /** O outro lado do Ctrl+Z: devolve ao `.spf` o que o apagar tirou. */
+    async _spfRepos(caminho) {
+        const spf = ProjectStore.getSpfPath?.();
+        const chave = normSlash(caminho).toLowerCase();
+        const retirado = this._spfRetirado.get(chave);
+        if (!spf || !retirado) return;
+        this._spfRetirado.delete(chave);
+        try { await SpfStore.update(spf, (cfg) => { reporNoSpf(cfg, retirado); }); }
+        catch (err) { console.error('spf restore bookkeeping failed:', err); }
+    }
+
+    /**
+     * O nome do processador cuja pasta é `caminho`, ou null.
+     *
+     * A árvore recusa renomear e apagar essa pasta. Renomear é o primeiro de
+     * cinco passos (pasta, `.cmm`, `#PRNAME`, `.spf` e artefatos), e fazer só o
+     * primeiro deixa um projeto que não compila sem dizer por quê; quem faz os
+     * cinco é o `renameProcessor` da API.
+     */
+    async _processadorEm(caminho) {
+        const spf = ProjectStore.getSpfPath?.();
+        const raiz = this._root();
+        if (!spf || !raiz) return null;
+        try {
+            const cfg = await SpfStore.read(spf);
+            return processadorEm(cfg, raiz, caminho);
+        } catch (_) { return null; }
+    }
+
+    /** Avisa e recusa quando o alvo é a pasta de um processador. */
+    async _barradoPorSerProcessador(caminho, acao) {
+        const nome = await this._processadorEm(caminho);
+        if (!nome) return false;
+        await this._dialog({
+            title: acao,
+            message: tr('fileTree.crud.procFolder',
+                '"{name}" is a processor folder. Use the processor tools to rename or remove it, '
+                + 'so its .cmm, #PRNAME and .spf entry stay in sync.', { name: nome }),
+            variant: 'warning',
+            buttons: [{ label: tr('dialog.common.understood', 'Got it'), action: 'ok', type: 'primary' }],
+        });
+        return true;
+    }
+
     _dialog(opts) {
         const dialog = window.AuroraUI?.dialog;
         if (typeof dialog === 'function') return dialog(opts);
@@ -229,22 +350,74 @@ class StandardTreeCrud {
 
     // ------------------------------------------------------- selection state
 
+    /**
+     * O último caminho selecionado, que é onde as ações de um alvo só operam
+     * (renomear, "abrir terminal aqui", destino do colar).
+     *
+     * Continua existindo como propriedade porque metade do módulo pergunta
+     * "qual está selecionado?" e a resposta certa para essas perguntas segue
+     * sendo uma só, mesmo com vários marcados.
+     */
+    get selectedPath() {
+        return this.selectedPaths.length ? this.selectedPaths[this.selectedPaths.length - 1] : null;
+    }
+
+    set selectedPath(path) {
+        this.selectedPaths = path ? [path] : [];
+        this._anchor = path || null;
+    }
+
+    /** Os caminhos das linhas visíveis, na ordem da tela (que é a do DOM). */
+    _visiblePaths() {
+        const container = this._container();
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('.file-tree-item[data-path]'))
+            .map((el) => el.getAttribute('data-path'))
+            .filter(Boolean);
+    }
+
+    /**
+     * A seleção sobre a qual uma ação em lote opera: sem filho de pasta também
+     * selecionada, porque mover ou apagar a pasta já leva o filho junto e
+     * operar nos dois faria a segunda tentativa falhar num caminho que não
+     * existe mais.
+     */
+    _actionPaths() {
+        return topMostPaths(this.selectedPaths);
+    }
+
     select(path) {
         this.selectedPath = path;
+        this._refreshDecorations();
+    }
+
+    /** Marca vários de uma vez (usado ao colar e ao desfazer em lote). */
+    selectMany(paths) {
+        this.selectedPaths = (paths || []).filter(Boolean);
+        this._anchor = this.selectedPaths[this.selectedPaths.length - 1] || null;
         this._refreshDecorations();
     }
 
     _refreshDecorations() {
         const container = this._container();
         if (!container) return;
-        const selected = this.selectedPath ? normSlash(this.selectedPath).toLowerCase() : null;
-        const cut = this.clipboard?.cut ? normSlash(this.clipboard.path).toLowerCase() : null;
+        // Um redesenho pode ter levado embora o que estava marcado (o vigia de
+        // diretório, um desfazer): a seleção fica só com quem ainda está lá.
+        const visiveis = this._visiblePaths();
+        if (this.selectedPaths.length) this.selectedPaths = pruneSelection(this.selectedPaths, visiveis);
+        const selecionados = new Set(this.selectedPaths.map((p) => normSlash(p).toLowerCase()));
+        const recortados = this.clipboard?.cut
+            ? this.clipboard.items.map((i) => ({ key: normSlash(i.path).toLowerCase(), isDir: i.isDir }))
+            : [];
         container.querySelectorAll('.file-tree-item[data-path]').forEach((w) => {
             const p = normSlash(w.getAttribute('data-path')).toLowerCase();
             const row = w.querySelector(':scope > .file-item');
             if (!row) return;
-            row.classList.toggle('selected', p === selected);
-            row.classList.toggle('cut-pending', !!cut && (p === cut || (this.clipboard?.isDir && isUnder(p, cut))));
+            row.classList.toggle('selected', selecionados.has(p));
+            row.classList.toggle(
+                'cut-pending',
+                recortados.some((c) => p === c.key || (c.isDir && isUnder(p, c.key))),
+            );
         });
     }
 
@@ -260,7 +433,20 @@ class StandardTreeCrud {
             if (!this._isStandardView()) return;
             const row = e.target.closest('.file-tree-item[data-path]');
             if (row) {
-                this.select(row.getAttribute('data-path'));
+                // Ctrl soma e tira, Shift pega o intervalo desde a âncora. A
+                // regra inteira mora em tree_selection.js, que é puro e tem
+                // teste; aqui só entram a ordem da tela e o estado atual.
+                const r = nextSelection({
+                    visible: this._visiblePaths(),
+                    selected: this.selectedPaths,
+                    anchor: this._anchor,
+                    path: row.getAttribute('data-path'),
+                    ctrl: e.ctrlKey || e.metaKey,
+                    shift: e.shiftKey,
+                });
+                this.selectedPaths = r.selected;
+                this._anchor = r.anchor;
+                this._refreshDecorations();
                 // Focus the tree so F2/Delete/Ctrl+C-X-V shortcuts work. Opening
                 // a file still wins focus afterwards (activateTab's deferred
                 // editor.focus()), so typing is never hijacked.
@@ -272,15 +458,22 @@ class StandardTreeCrud {
             if (!this._isStandardView()) return;
             if (this._inlineCleanup) return; // inline input owns the keyboard
             const sel = this.selectedPath;
+            const varios = this._actionPaths();
             const ctrl = e.ctrlKey || e.metaKey;
-            if (e.key === 'F2' && sel) {
+            if (ctrl && (e.key === 'a' || e.key === 'A')) {
+                // Selecionar tudo é só o que está VISÍVEL: uma pasta fechada
+                // não entra, porque o usuário não pode ver o que apagaria.
+                e.preventDefault(); this.selectMany(this._visiblePaths());
+            } else if (e.key === 'F2' && sel) {
+                // Renomear continua sendo de um: dois nomes novos ao mesmo
+                // tempo não são um gesto, são dois.
                 e.preventDefault(); this.startRename(sel);
-            } else if (e.key === 'Delete' && sel) {
-                e.preventDefault(); this.deleteEntry(sel, { permanent: e.shiftKey });
-            } else if (ctrl && (e.key === 'c' || e.key === 'C') && sel) {
-                e.preventDefault(); this.copy(sel, false);
-            } else if (ctrl && (e.key === 'x' || e.key === 'X') && sel) {
-                e.preventDefault(); this.copy(sel, true);
+            } else if (e.key === 'Delete' && varios.length) {
+                e.preventDefault(); this.deleteEntries(varios, { permanent: e.shiftKey });
+            } else if (ctrl && (e.key === 'c' || e.key === 'C') && varios.length) {
+                e.preventDefault(); this.copy(varios, false);
+            } else if (ctrl && (e.key === 'x' || e.key === 'X') && varios.length) {
+                e.preventDefault(); this.copy(varios, true);
             } else if (ctrl && (e.key === 'v' || e.key === 'V')) {
                 e.preventDefault(); this.paste(this._pasteTargetDir());
             } else if (ctrl && e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
@@ -319,11 +512,18 @@ class StandardTreeCrud {
             const row = e.target.closest?.('.file-tree-item[data-path]');
             if (!row) return;
             const entry = this._entryFromRow(row);
+            // Arrastar uma linha que já está na seleção arrasta a seleção
+            // inteira; arrastar uma de fora troca a seleção por ela, que é o
+            // que o gesto quer dizer.
+            const naSelecao = this.selectedPaths.some(
+                (p) => normSlash(p).toLowerCase() === normSlash(entry.path).toLowerCase(),
+            );
+            if (!naSelecao) this.select(entry.path);
+            const arrastados = this._actionPaths();
             // Marcador próprio: sem ele, qualquer arrasto de fora (uma imagem
             // do navegador, texto selecionado) cairia como se fosse da árvore.
-            e.dataTransfer.setData('application/x-aurora-tree-path', entry.path);
+            e.dataTransfer.setData('application/x-aurora-tree-path', JSON.stringify(arrastados));
             e.dataTransfer.effectAllowed = 'copyMove';
-            this.select(entry.path);
         });
 
         host.addEventListener('dragover', (e) => {
@@ -343,10 +543,21 @@ class StandardTreeCrud {
 
         host.addEventListener('drop', async (e) => {
             if (!this._isStandardView()) return;
-            const origem = e.dataTransfer.getData('application/x-aurora-tree-path');
+            const carga = e.dataTransfer.getData('application/x-aurora-tree-path');
             realcar(null);
-            if (!origem) return;
+            if (!carga) return;
             e.preventDefault();
+
+            // A carga é uma lista desde que arrastar passou a levar a seleção
+            // inteira; um caminho solto ainda é aceito, porque é o que uma
+            // versão anterior colocava aí.
+            let origens;
+            try {
+                const lido = JSON.parse(carga);
+                origens = Array.isArray(lido) ? lido : [String(lido)];
+            } catch (_) { origens = [carga]; }
+            origens = origens.filter(Boolean);
+            if (!origens.length) return;
 
             const row = e.target.closest?.('.file-tree-item[data-path]');
             const alvo = resolveDropTarget(
@@ -354,7 +565,7 @@ class StandardTreeCrud {
                 this._root(),
             );
             if (!alvo) return;
-            await this.dropOnto(origem, alvo, { copy: e.ctrlKey || e.metaKey });
+            await this.dropOnto(origens, alvo, { copy: e.ctrlKey || e.metaKey });
         });
 
         host.addEventListener('dragend', () => realcar(null));
@@ -367,20 +578,25 @@ class StandardTreeCrud {
      * um Ctrl+X que estava pendente.
      */
     async dropOnto(origem, alvo, { copy = false } = {}) {
-        const row = this._rowFor(origem);
-        const ehPasta = row ? row.dataset.isDir === '1' : false;
-        if (isNoOpDrop(origem, alvo, ehPasta)) return;
+        const origens = (Array.isArray(origem) ? origem : [origem]).filter(Boolean);
+        const items = [];
+        for (const p of origens) {
+            const row = this._rowFor(p);
+            const ehPasta = row ? row.dataset.isDir === '1' : false;
+            // Soltar onde já está não é operação nenhuma, e sem esta guarda
+            // viraria um "colar" que renomeia o arquivo para "nome copy".
+            if (isNoOpDrop(p, alvo, ehPasta)) continue;
+            items.push({ path: p, name: baseName(p), isDir: ehPasta });
+        }
+        if (!items.length) return;
 
         const anterior = this.clipboard;
-        this.clipboard = {
-            path: origem,
-            name: baseName(origem),
-            isDir: ehPasta,
-            cut: !copy,
-        };
+        this.clipboard = { items, cut: !copy };
         try {
             await this.paste(alvo);
         } finally {
+            // O clipboard do usuário é preservado: arrastar um arquivo não
+            // pode comer um Ctrl+X que estava pendente.
             this.clipboard = anterior;
             this._refreshDecorations();
         }
@@ -420,7 +636,16 @@ class StandardTreeCrud {
 
         const row = event.target.closest('.file-tree-item[data-path]');
         const entry = row ? this._entryFromRow(row) : null;
-        if (entry) this.select(entry.path);
+        if (entry) {
+            // Clique direito DENTRO da seleção mantém a seleção: é o gesto de
+            // "faça isto com tudo que marquei". Fora dela, troca, porque foi
+            // outra linha que a pessoa mirou.
+            const dentro = this.selectedPaths.some(
+                (p) => normSlash(p).toLowerCase() === normSlash(entry.path).toLowerCase(),
+            );
+            if (!dentro) this.select(entry.path);
+            else this._refreshDecorations();
+        }
 
         const items = entry ? this._rowMenuItems(entry) : this._emptyAreaMenuItems(root);
         this._renderMenu(items, event.pageX, event.pageY);
@@ -428,6 +653,12 @@ class StandardTreeCrud {
 
     _rowMenuItems(entry) {
         const items = [];
+        // Com vários marcados, cortar, copiar e apagar valem para todos, e o
+        // rótulo diz isso: um "Delete" seco depois de marcar cinco arquivos
+        // esconde exatamente a informação que decide o clique.
+        const alvos = this._actionPaths();
+        const varios = alvos.length > 1;
+        const sufixo = varios ? ` (${alvos.length})` : '';
         const dirForNew = entry.isDir ? entry.path : null;
         if (dirForNew) {
             items.push(
@@ -437,8 +668,8 @@ class StandardTreeCrud {
             );
         }
         items.push(
-            { icon: 'ph-scissors', label: tr('fileTree.crud.cut', 'Cut'), run: () => this.copy(entry.path, true) },
-            { icon: 'ph-copy', label: tr('fileTree.crud.copy', 'Copy'), run: () => this.copy(entry.path, false) },
+            { icon: 'ph-scissors', label: tr('fileTree.crud.cut', 'Cut') + sufixo, run: () => this.copy(alvos, true) },
+            { icon: 'ph-copy', label: tr('fileTree.crud.copy', 'Copy') + sufixo, run: () => this.copy(alvos, false) },
             {
                 icon: 'ph-clipboard-text', label: tr('fileTree.crud.paste', 'Paste'),
                 disabled: !this.clipboard,
@@ -448,10 +679,12 @@ class StandardTreeCrud {
             { icon: 'ph-link', label: tr('fileTree.crud.copyPath', 'Copy Path'), run: () => this._copyText(entry.path) },
             { icon: 'ph-link-simple', label: tr('fileTree.crud.copyRelPath', 'Copy Relative Path'), run: () => this._copyRelPath(entry.path) },
             'divider',
+            // Renomear continua sendo de um só, mesmo com vários marcados:
+            // dois nomes novos ao mesmo tempo não são um gesto, são dois.
             { icon: 'ph-pencil-simple', label: tr('fileTree.crud.rename', 'Rename...'), run: () => this.startRename(entry.path) },
             {
-                icon: 'ph-trash', label: tr('fileTree.crud.delete', 'Delete'), danger: true,
-                run: () => this.deleteEntry(entry.path),
+                icon: 'ph-trash', label: tr('fileTree.crud.delete', 'Delete') + sufixo, danger: true,
+                run: () => this.deleteEntries(alvos),
             },
             'divider',
             {
@@ -762,6 +995,8 @@ class StandardTreeCrud {
         const row = this._rowFor(path);
         if (!row) return;
         const entry = this._entryFromRow(row);
+        if (entry.isDir && await this._barradoPorSerProcessador(
+            entry.path, tr('fileTree.crud.renameTitle', 'Rename'))) return;
         const dir = parentDir(path);
         const siblings = await this._siblingNames(dir);
 
@@ -839,8 +1074,11 @@ class StandardTreeCrud {
 
         await this._migrateOpenTabs(entry.path, newPath, affected);
         this._remapExpanded(entry.path, newPath);
+        await this._spfRenomeou(entry.path, newPath);
         this.history.registrar(Op.move(entry.path, newPath));
-        if (this.clipboard && normSlash(this.clipboard.path).toLowerCase() === normSlash(entry.path).toLowerCase()) {
+        if (this.clipboard?.items?.some(
+            (i) => normSlash(i.path).toLowerCase() === normSlash(entry.path).toLowerCase(),
+        )) {
             this.clipboard = null; // stale — the source moved
         }
         await standardTreeRenderer.render();
@@ -854,12 +1092,17 @@ class StandardTreeCrud {
         let newActive = null;
         for (const p of affected) {
             const newP = newBase + p.slice(oldBase.length);
+            // Onde o cursor estava, o que estava selecionado e para onde a
+            // rolagem tinha ido. Sem isto, renomear um arquivo aberto o
+            // devolvia na linha 1: o mesmo texto, mas o usuário perdia o
+            // lugar, que numa fonte de mil linhas é a parte que dói.
+            const viewState = EditorManager.getEditorForFile?.(p)?.saveViewState?.() ?? null;
             // Buffers were saved before the rename, skip the unsaved prompt.
             TabManager.unsavedChanges?.delete?.(p);
             await TabManager.closeTab(p);
             try {
                 const content = await electronAPI.readFile(newP);
-                TabManager.addTab(newP, content);
+                TabManager.addTab(newP, content, viewState ? { viewState } : {});
                 if (activeBefore === p) newActive = newP;
             } catch (err) {
                 console.error('tab migration failed for', newP, err);
@@ -882,15 +1125,44 @@ class StandardTreeCrud {
 
     // --------------------------------------------------------------- delete
 
-    async deleteEntry(path, { permanent = false } = {}) {
-        const row = this._rowFor(path);
-        const entry = row ? this._entryFromRow(row) : { path, isDir: false, name: baseName(path) };
-        const affected = this._affectedTabs(entry.path, entry.isDir);
+    /** Um alvo só. Mantido porque é o que a maioria dos chamadores quer dizer. */
+    async deleteEntry(path, opts = {}) {
+        return this.deleteEntries([path], opts);
+    }
+
+    /**
+     * Apaga um ou vários, com UMA confirmação e UM grupo na pilha: quem
+     * selecionou cinco arquivos e apertou Delete fez um gesto, e desfazer tem
+     * que devolver os cinco de uma vez.
+     *
+     * @param {string[]} paths
+     */
+    async deleteEntries(paths, { permanent = false } = {}) {
+        const alvos = topMostPaths((paths || []).filter(Boolean));
+        if (!alvos.length) return;
+
+        const entries = alvos.map((p) => {
+            const row = this._rowFor(p);
+            return row ? this._entryFromRow(row) : { path: p, isDir: false, name: baseName(p) };
+        });
+        for (const e of entries) {
+            if (e.isDir && await this._barradoPorSerProcessador(
+                e.path, tr('fileTree.crud.deleteTitle', 'Delete'))) return;
+        }
+
+        const affected = entries.flatMap((e) => this._affectedTabs(e.path, e.isDir));
         const dirtyCount = affected.filter((p) => TabManager.unsavedChanges?.has?.(p)).length;
 
-        let message = entry.isDir
-            ? tr('fileTree.crud.deleteFolderMsg', 'Delete "{name}" and all its contents?', { name: entry.name })
-            : tr('fileTree.crud.deleteFileMsg', 'Delete "{name}"?', { name: entry.name });
+        const entry = entries[0];
+        let message;
+        if (entries.length > 1) {
+            message = tr('fileTree.crud.deleteManyMsg',
+                'Delete these {count} items and everything inside them?', { count: entries.length });
+        } else {
+            message = entry.isDir
+                ? tr('fileTree.crud.deleteFolderMsg', 'Delete "{name}" and all its contents?', { name: entry.name })
+                : tr('fileTree.crud.deleteFileMsg', 'Delete "{name}"?', { name: entry.name });
+        }
         if (affected.length) {
             message += '\n' + tr('fileTree.crud.deleteOpenTabs',
                 '{count} open editor(s) will be closed.', { count: affected.length });
@@ -929,7 +1201,61 @@ class StandardTreeCrud {
             await TabManager.closeTab(p);
         }
 
+        const apagados = [];
+        const ops = [];
+        for (const alvo of entries) {
+            const r = await this._deleteOne(alvo, permanent);
+            if (r.cancelado) break;
+            if (r.ok) {
+                apagados.push(alvo.path);
+                if (r.op) ops.push(r.op);
+            }
+        }
+        if (ops.length) this.history.registrar(Op.grupo(ops));
+        if (!apagados.length) return;
+
+        // O `.spf` perde as referências ao que saiu: se um deles era o topo, o
+        // topo fica vazio, que é como o `.spf` diz "nenhum escolhido".
+        await this._spfRemoveu(apagados);
+
+        // Housekeeping: expansion state, selection, clipboard.
+        const expanded = standardTreeRenderer._expanded;
+        for (const alvo of apagados) {
+            for (const p of Array.from(expanded)) {
+                if (normSlash(p).toLowerCase() === normSlash(alvo).toLowerCase() || isUnder(p, alvo)) {
+                    expanded.delete(p);
+                }
+            }
+        }
+        const sumiu = (p) => apagados.some(
+            (a) => normSlash(p).toLowerCase() === normSlash(a).toLowerCase() || isUnder(p, a),
+        );
+        this.selectedPaths = this.selectedPaths.filter((p) => !sumiu(p));
+        if (this._anchor && sumiu(this._anchor)) this._anchor = null;
+        if (this.clipboard?.items?.some((i) => sumiu(i.path))) this.clipboard = null;
+
+        await standardTreeRenderer.render();
+        showCardNotification(
+            apagados.length > 1
+                ? tr('notification.tree.deletedMany', 'Deleted {count} items', { count: apagados.length })
+                // O nome vem do que REALMENTE saiu: com vários alvos e um só
+                // sucesso, anunciar o primeiro da lista nomearia um arquivo
+                // que continua no lugar.
+                : tr('notification.tree.deleted', 'Deleted "{name}"', { name: baseName(apagados[0]) }),
+            'success', 2000,
+        );
+    }
+
+    /**
+     * Um alvo do apagar. O diálogo de confirmação já aconteceu; aqui só se
+     * decide entre a área de espera (que o Ctrl+Z alcança) e o apagar
+     * definitivo, e o que fazer quando a espera não está disponível.
+     *
+     * @returns {Promise<{ ok?: boolean, op?: object, cancelado?: boolean }>}
+     */
+    async _deleteOne(entry, permanent) {
         let ok = false;
+        let op = null;
         if (permanent) {
             try { await electronAPI.deleteFileOrDirectory(entry.path); ok = true; }
             catch (err) {
@@ -945,7 +1271,7 @@ class StandardTreeCrud {
             const res = await electronAPI.undoStage(entry.path);
             if (res?.success) {
                 ok = true;
-                this.history.registrar(Op.removido(entry.path, res.token));
+                op = Op.removido(entry.path, res.token);
             } else {
                 // Trash unavailable (e.g. network drive), offer permanent.
                 const retry = await this._dialog({
@@ -967,129 +1293,161 @@ class StandardTreeCrud {
                             'error', 4000,
                         );
                     }
+                } else {
+                    // Cancelar aqui é desistir do gesto, não só deste arquivo:
+                    // continuar apagaria os outros depois de a pessoa ter dito
+                    // não à única pergunta que apareceu.
+                    return { cancelado: true };
                 }
             }
         }
-        if (!ok) return;
-
-        // Housekeeping: expansion state, selection, clipboard.
-        const expanded = standardTreeRenderer._expanded;
-        for (const p of Array.from(expanded)) {
-            if (normSlash(p).toLowerCase() === normSlash(entry.path).toLowerCase() || isUnder(p, entry.path)) {
-                expanded.delete(p);
-            }
-        }
-        if (this.selectedPath === entry.path) this.selectedPath = null;
-        if (this.clipboard && normSlash(this.clipboard.path).toLowerCase() === normSlash(entry.path).toLowerCase()) {
-            this.clipboard = null;
-        }
-        await standardTreeRenderer.render();
-        showCardNotification(
-            tr('notification.tree.deleted', 'Deleted "{name}"', { name: entry.name }),
-            'success', 2000,
-        );
+        return { ok, op };
     }
 
     // ----------------------------------------------------------- cut / paste
 
-    copy(path, cut) {
-        const row = this._rowFor(path);
-        const entry = row ? this._entryFromRow(row) : { path, isDir: false, name: baseName(path) };
-        this.clipboard = { path: entry.path, name: entry.name, isDir: entry.isDir, cut: !!cut };
+    /** @param {string|string[]} paths um caminho ou a seleção inteira */
+    copy(paths, cut) {
+        const lista = (Array.isArray(paths) ? paths : [paths]).filter(Boolean);
+        const items = lista.map((path) => {
+            const row = this._rowFor(path);
+            return row ? this._entryFromRow(row) : { path, isDir: false, name: baseName(path) };
+        });
+        if (!items.length) return;
+        this.clipboard = { items, cut: !!cut };
         this._refreshDecorations();
     }
 
+    /**
+     * Cola tudo que está no clipboard dentro de `targetDir`.
+     *
+     * Cada item é decidido por vez, e um conflito pergunta por vez, como no VS
+     * Code: são arquivos diferentes e a resposta certa para um não é a resposta
+     * certa para o outro. Cancelar num item para o resto, porque quem cancela
+     * está desistindo do gesto, não daquele arquivo.
+     *
+     * Tudo o que aconteceu entra na pilha como UM grupo: desfazer um colar de
+     * cinco arquivos tem que desfazer os cinco.
+     */
     async paste(targetDir) {
         const clip = this.clipboard;
         const root = this._root();
-        if (!clip || !targetDir || !root) return;
+        if (!clip?.items?.length || !targetDir || !root) return;
 
-        if (!(await electronAPI.fileExists(clip.path))) {
-            this.clipboard = null;
-            this._refreshDecorations();
-            showCardNotification(tr('fileTree.crud.srcGone', 'The copied item no longer exists.'), 'warning', 3000);
-            return;
+        // Lida uma vez e mantida em memória: depois de colar o primeiro item, o
+        // segundo precisa enxergar o nome que acabou de nascer, ou os dois
+        // disputariam o mesmo nome e o segundo sobrescreveria o primeiro.
+        const siblings = await this._siblingNames(targetDir);
+        const ops = [];
+        const destinos = [];
+        let sumiram = 0;
+
+        for (const item of clip.items) {
+            const r = await this._pasteOne(item, targetDir, clip.cut, siblings);
+            if (r.cancelado) break;
+            if (r.sumiu) { sumiram++; continue; }
+            if (r.op) ops.push(r.op);
+            if (r.dest) {
+                destinos.push(r.dest);
+                siblings.push(baseName(r.dest));
+                if (item.isDir) standardTreeRenderer._expanded.add(r.dest);
+            }
         }
-        // A folder cannot be pasted into itself or its own subtree.
-        if (clip.isDir && (normSlash(targetDir).toLowerCase() === normSlash(clip.path).toLowerCase()
-            || isUnder(targetDir, clip.path))) {
+
+        if (clip.cut) this.clipboard = null;
+        if (ops.length) this.history.registrar(Op.grupo(ops));
+        if (sumiram) {
+            showCardNotification(
+                tr('fileTree.crud.srcGone', 'The copied item no longer exists.'), 'warning', 3000,
+            );
+        }
+        await standardTreeRenderer.render();
+        if (destinos.length) this.selectMany(destinos);
+        this._refreshDecorations();
+    }
+
+    /**
+     * Um item do clipboard para dentro de `targetDir`.
+     *
+     * @returns {Promise<{ dest?: string, op?: object, cancelado?: boolean, sumiu?: boolean }>}
+     */
+    async _pasteOne(item, targetDir, cut, siblings) {
+        if (!(await electronAPI.fileExists(item.path))) return { sumiu: true };
+
+        // Uma pasta não entra dentro de si mesma nem da própria subárvore.
+        if (item.isDir && (normSlash(targetDir).toLowerCase() === normSlash(item.path).toLowerCase()
+            || isUnder(targetDir, item.path))) {
             showCardNotification(
                 tr('fileTree.crud.intoItself', 'Cannot paste a folder into itself.'), 'warning', 3000,
             );
-            return;
+            return {};
         }
 
-        const siblings = await this._siblingNames(targetDir);
-        const conflict = siblings.some((s) => s.toLowerCase() === clip.name.toLowerCase());
-        const sameDir = normSlash(parentDir(clip.path)).toLowerCase() === normSlash(targetDir).toLowerCase();
+        const conflict = siblings.some((s) => s.toLowerCase() === item.name.toLowerCase());
+        const sameDir = normSlash(parentDir(item.path)).toLowerCase() === normSlash(targetDir).toLowerCase();
 
-        let destName = clip.name;
+        let destName = item.name;
         let overwrite = false;
 
         if (conflict) {
-            if (!clip.cut && sameDir) {
+            if (!cut && sameDir) {
                 // VS Code: paste-in-place duplicates with the "copy" suffix.
-                destName = nextCopyName(clip.name, siblings);
-            } else if (clip.cut && sameDir) {
-                return; // moving onto itself — no-op
+                destName = nextCopyName(item.name, siblings);
+            } else if (cut && sameDir) {
+                return {}; // moving onto itself, no-op
             } else {
                 const buttons = [
                     { label: tr('dialog.common.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
                 ];
-                if (!clip.cut) {
+                if (!cut) {
                     buttons.push({ label: tr('fileTree.crud.keepBoth', 'Keep Both'), action: 'keep', type: 'primary' });
                 }
                 buttons.push({ label: tr('fileTree.crud.replace', 'Replace'), action: 'replace', type: 'danger' });
                 const action = await this._dialog({
                     title: tr('fileTree.crud.pasteTitle', 'Paste'),
                     message: tr('fileTree.crud.conflictPaste',
-                        '"{name}" already exists in the destination folder.', { name: clip.name }),
+                        '"{name}" already exists in the destination folder.', { name: item.name }),
                     variant: 'warning',
                     buttons,
                 });
-                if (action === 'keep') destName = nextCopyName(clip.name, siblings);
+                if (action === 'keep') destName = nextCopyName(item.name, siblings);
                 else if (action === 'replace') overwrite = true;
-                else return;
+                else return { cancelado: true };
             }
         }
 
         const dest = this._join(targetDir, destName);
-        if (clip.cut) {
-            const affected = this._affectedTabs(clip.path, clip.isDir);
+        if (cut) {
+            const affected = this._affectedTabs(item.path, item.isDir);
             const dirty = affected.filter((p) => TabManager.unsavedChanges?.has?.(p));
             for (const p of dirty) {
                 const ok = await TabManager.saveFile(p);
-                if (ok === false) return;
+                if (ok === false) return { cancelado: true };
             }
-            const res = await electronAPI.renamePath(clip.path, dest, { overwrite });
+            const res = await electronAPI.renamePath(item.path, dest, { overwrite });
             if (!res?.success) {
                 showCardNotification(
                     tr('fileTree.crud.errMove', 'Could not move: {error}', { error: res?.error || 'unknown' }),
                     'error', 4000,
                 );
-                return;
+                return {};
             }
-            await this._migrateOpenTabs(clip.path, dest, affected);
-            this._remapExpanded(clip.path, dest);
-            this.history.registrar(Op.move(clip.path, dest));
-            this.clipboard = null;
-        } else {
-            const res = await electronAPI.copyAnyPath(clip.path, dest, { overwrite });
-            if (!res?.success) {
-                showCardNotification(
-                    tr('fileTree.crud.errCopy', 'Could not copy: {error}', { error: res?.error || 'unknown' }),
-                    'error', 4000,
-                );
-                return;
-            }
-            // Sobrescrevendo nao da para desfazer: o que estava ali ja se foi.
-            if (!overwrite) this.history.registrar(Op.criado(dest));
+            await this._migrateOpenTabs(item.path, dest, affected);
+            this._remapExpanded(item.path, dest);
+            await this._spfRenomeou(item.path, dest);
+            return { dest, op: Op.move(item.path, dest) };
         }
 
-        if (clip.isDir) standardTreeRenderer._expanded.add(dest);
-        await standardTreeRenderer.render();
-        this.select(dest);
-        this._refreshDecorations();
+        const res = await electronAPI.copyAnyPath(item.path, dest, { overwrite });
+        if (!res?.success) {
+            showCardNotification(
+                tr('fileTree.crud.errCopy', 'Could not copy: {error}', { error: res?.error || 'unknown' }),
+                'error', 4000,
+            );
+            return {};
+        }
+        // Sobrescrevendo nao da para desfazer: o que estava ali ja se foi.
+        return { dest, op: overwrite ? null : Op.criado(dest) };
     }
 }
 
@@ -1099,4 +1457,4 @@ if (typeof window !== 'undefined') {
     window.standardTreeCrud = standardTreeCrud;
 }
 
-export { standardTreeCrud, StandardTreeCrud };
+export { standardTreeCrud };

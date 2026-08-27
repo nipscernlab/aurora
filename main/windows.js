@@ -16,6 +16,29 @@ const { stopAllToolchain } = require('./process_registry');
 const { loadPage } = require('./render_loader');
 
 /**
+ * How long after ready-to-show the splash waits for the renderer's own
+ * "editor is usable" signal before handing off anyway. Under the 15 s absolute
+ * safety net below; above the few seconds a cold Monaco boot really takes.
+ */
+const RENDERER_READY_GRACE_MS = 8000;
+
+/**
+ * Beat between the bar visually filling and the main window appearing.
+ *
+ * This used to be 2000 ms, and it was two seconds of nothing: `splash:filled`
+ * only fires once the bar has ALREADY reached 100% on screen, and it is only
+ * sent after `app:renderer-ready`, which the renderer emits after Monaco is
+ * usable. So the application was sitting fully loaded behind a splash reading
+ * "Ready — 100%", waiting on a timer, on every single launch.
+ *
+ * It is not zero either: the eye needs a moment to register that the bar
+ * completed, and cutting straight from a filling bar to a maximised IDE reads
+ * as a glitch rather than as an arrival. 650 ms is that moment and nothing
+ * more.
+ */
+const SPLASH_HOLD_MS = 650;
+
+/**
  * Whether Windows will accept a *custom* jumplist category right now.
  * `null` = not probed yet; cached for the rest of the process.
  * @type {boolean|null}
@@ -276,6 +299,38 @@ function createMainWindow(opts = {}) {
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
 
+  // Ctrl+W nao pode chegar ao acelerador nativo.
+  //
+  // Sem menu de aplicacao proprio, o Electron instala o menu padrao, e nele
+  // Ctrl+W e "fechar janela". No caminho comum isso nao aparece porque o
+  // atalho e tratado no renderer, que chama preventDefault e mata o
+  // acelerador junto. Mas a aba do Surfer e um <iframe> de outra origem: com o
+  // foco dentro dele, o keydown pertence ao documento do iframe, o ouvinte do
+  // renderer nunca roda, ninguem chama preventDefault, e o acelerador fecha a
+  // AURORA inteira em vez de fechar a aba.
+  //
+  // O `before-input-event` roda antes de o keydown ser despachado para a
+  // pagina e, segundo o contrato do Electron, o preventDefault dele impede
+  // TAMBEM os atalhos de menu. Entao aqui a tecla e sempre interceptada e
+  // sempre reenviada ao renderer, que continua sendo o unico dono do que
+  // Ctrl+W significa (o atalho e configuravel). Um caminho so, valha o foco
+  // onde valer: nada de tratar no renderer quando o foco esta no editor e
+  // aqui quando esta no iframe, que dobraria a acao no primeiro caso.
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    if (input.alt || !(input.control || input.meta)) return;
+    if (String(input.key || '').toLowerCase() !== 'w') return;
+    event.preventDefault();
+    if (mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('aurora:tecla', {
+      key: 'W',
+      ctrlKey: !!input.control,
+      metaKey: !!input.meta,
+      shiftKey: !!input.shift,
+      altKey: false,
+    });
+  });
+
   // Notify renderer of maximize/restore state so the [□] / [❐] icon updates.
   const sendWindowState = () => {
     if (mainWindow.isDestroyed() || !mainWindow.webContents) return;
@@ -390,7 +445,7 @@ function createMainWindow(opts = {}) {
  *   1. splash loads → create main window hidden (`deferShow`)
  *   2. main window's webContents events drive `splash:progress`
  *   3. renderer signals `app:renderer-ready` once Monaco/UI booted
- *   4. once the bar visually fills, coordinator waits 2s, then shows the
+ *   4. once the bar visually fills, coordinator holds SPLASH_HOLD_MS, then
  *      main window and closes the splash outright (no fade)
  *
  * A 15s safety cap forces the handoff if some milestone never fires.
@@ -449,7 +504,7 @@ function createSplashScreen() {
 
   // `handoff` only drives the bar to 100%, the main window must NOT
   // appear until the splash bar has *visually* filled. The splash
-  // reports back via `splash:filled`; only then do we wait 2s and reveal.
+  // reports back via `splash:filled`; only then do we hold the beat and reveal.
   const handoff = () => {
     if (handedOff) return;
     handedOff = true;
@@ -457,7 +512,7 @@ function createSplashScreen() {
   };
 
   ipcMain.once('splash:filled', () => {
-    setTimeout(reveal, 2000);
+    setTimeout(reveal, SPLASH_HOLD_MS);
   });
 
   // Renderer reports it finished booting (Monaco + UI). `.once` so a
@@ -479,9 +534,13 @@ function createSplashScreen() {
     wc.once('did-finish-load', () => progress(80, 'resources'));
     mainWindow.once('ready-to-show', () => {
       progress(90, 'editor');
-      // Give the renderer a moment to fire `app:renderer-ready`; if it
-      // doesn't (e.g. an early script error), hand off anyway.
-      setTimeout(handoff, 2200);
+      // `app:renderer-ready` now arrives only after EditorManager.ready, i.e.
+      // once Monaco is really usable, and on a cold machine that can take a
+      // few seconds past ready-to-show. This fallback exists for a renderer
+      // that never signals (an early script error); it must not fire on a
+      // healthy slow boot, or the window appears with the editor still
+      // loading, the "tab opens, editor does not" symptom.
+      setTimeout(handoff, RENDERER_READY_GRACE_MS);
     });
   });
 

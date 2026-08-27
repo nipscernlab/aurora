@@ -10,6 +10,7 @@ import { initClangFormat } from './clang_format_integration.js';
 import { initPythonFormat } from './python_format_integration.js';
 import { initSlang } from './slang_integration.js';
 import { initTreeSitter } from './treesitter_highlight.js';
+import { registrarSnippetsDirac } from './dirac_snippets.js';
 
 class EditorManager {
     static editors = new Map();
@@ -104,6 +105,18 @@ class EditorManager {
             theme: theme,
             model,
             automaticLayout: true,
+
+            // O balao de erro (hover) precisa poder sair do editor.
+            //
+            // Sem isto o Monaco desenha o balao DENTRO do proprio editor, que
+            // vive num contexto de empilhamento abaixo da barra de ferramentas
+            // e das abas: passar o mouse numa ondinha de erro na primeira linha
+            // mostrava o texto por baixo da toolbar, que e justamente onde ele
+            // aparece com mais frequencia. Com `fixedOverflowWidgets` o balao
+            // vai para uma camada fixa fora do editor, e o CSS
+            // (css/editor/editor.css, .monaco-editor .overflowingContentWidgets)
+            // a coloca acima da casca.
+            fixedOverflowWidgets: true,
 
             // SMOOTH CURSOR ANIMATION - Enhancement #2
             cursorSmoothCaretAnimation: 'on',
@@ -836,18 +849,35 @@ class EditorManager {
     }
 }
 
+// How long the editor boot may take before it is declared failed. Monaco's AMD
+// modules come from local disk, so on a healthy install this is a couple of
+// seconds even on a cold machine. Past this, nothing is still loading: the
+// loader failed (the 0.53.0 mode, see ARCHITECTURE section 8) or the bundle is
+// incomplete, and waiting longer only hides it.
+const MONACO_BOOT_DEADLINE_MS = 30000;
+
+/**
+ * Resolves once `window.monaco` exists, rejects on the deadline. This used to
+ * poll forever: a loader failure left this promise, and with it
+ * `EditorManager.ready`, unresolved, so every addTab blocked in its await,
+ * the tab appeared, the editor did not, and nothing was logged.
+ */
 async function ensureMonacoInitialized() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         if (window.monaco) {
             resolve();
-        } else {
-            const checkMonaco = setInterval(() => {
-                if (window.monaco) {
-                    clearInterval(checkMonaco);
-                    resolve();
-                }
-            }, 100);
+            return;
         }
+        const started = Date.now();
+        const checkMonaco = setInterval(() => {
+            if (window.monaco) {
+                clearInterval(checkMonaco);
+                resolve();
+            } else if (Date.now() - started > MONACO_BOOT_DEADLINE_MS) {
+                clearInterval(checkMonaco);
+                reject(new Error(`Monaco did not initialize within ${MONACO_BOOT_DEADLINE_MS / 1000}s`));
+            }
+        }, 100);
     });
 }
 
@@ -859,7 +889,7 @@ function initMonaco() {
     // load and the languages/theme register exactly once, and both awaiters
     // share the single resolution (P5).
     if (_monacoReady) return _monacoReady;
-    _monacoReady = new Promise((resolve) => {
+    _monacoReady = new Promise((resolve, reject) => {
         require(['vs/editor/editor.main'], function () {
             setupCMMLanguage();
             setupASMLanguage();
@@ -1024,6 +1054,12 @@ function initMonaco() {
             });
 
             resolve();
+        }, function (err) {
+            // The AMD loader reports a missing or broken module here. Without
+            // this errback the promise never settled and the editor boot hung
+            // in silence; now it fails loudly and EditorManager.ready still
+            // resolves (see the DOMContentLoaded handler at the bottom).
+            reject(err instanceof Error ? err : new Error(`Monaco AMD load failed: ${err && err.message ? err.message : err}`));
         });
     });
     return _monacoReady;
@@ -1516,6 +1552,11 @@ function setupCMMLanguage() {
     monaco.languages.register({ id: 'cmm' });
     monaco.languages.setMonarchTokensProvider('cmm', buildCMMTokenizer(cmmDefineConstants));
 
+    // Os simbolos da notacao de Dirac nao estao no teclado, e o compilador so
+    // aceita eles: digitar `ket` e aceitar a sugestao e o caminho. Ver
+    // js/editor/dirac_snippets.js.
+    registrarSnippetsDirac(monaco);
+
     // Keep the dynamic #define set in sync with the open .cmm buffers. A short
     // debounce coalesces bursts of keystrokes; refreshCMMDefines() itself is a
     // no-op unless the set of names changed.
@@ -1572,6 +1613,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         await initMonaco();
         await EditorManager.initialize();
+    } catch (err) {
+        // The editor will not come up this session. Say it where the user is
+        // looking, once, with the one thing they can do about it; the tabs
+        // they open will close themselves (createEditorInstance's guard).
+        console.error('[monaco] editor boot failed:', err);
+        const msg = window.t
+            ? window.t('editor.bootFailed', { error: err && err.message ? err.message : String(err) })
+            : `The code editor failed to start (${err && err.message ? err.message : err}). Restart SAPHO; if it happens again, reinstall it.`;
+        try { window.showNotification?.(msg, 'error', 0); } catch (_) { /* toast not up yet */ }
     } finally {
         _resolveEditorManagerReady();
     }

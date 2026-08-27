@@ -20,7 +20,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { abrirFormulario, diagnosticoEmTexto } from './bug_report_form.js';
 
-export const BUG_EMAIL = 'contact@nipscern.com';
+const BUG_EMAIL = 'contact@nipscern.com';
 
 /**
  * Provedores oferecidos. `url` recebe os campos já codificados.
@@ -29,7 +29,7 @@ export const BUG_EMAIL = 'contact@nipscern.com';
  * 8 mil caracteres e alguns provedores cortam antes, então o corpo é enxuto de
  * propósito e o usuário anexa o log se precisar.
  */
-export const PROVEDORES = [
+const PROVEDORES = [
   {
     id: 'gmail',
     nome: 'Gmail',
@@ -108,7 +108,7 @@ export const PROVEDORES = [
  * @param {{versao?: string, so?: string, electron?: string, chrome?: string,
  *          node?: string, projeto?: string, arquivo?: string, locale?: string}} d
  */
-export function montarCorpo(d = {}, texto = {}) {
+function montarCorpo(d = {}, texto = {}) {
   const val = (x) => (x === undefined || x === null || x === '' ? 'não informado' : String(x));
   // Quando o formulario ja recolheu o texto, ele vem preenchido; quando o
   // usuario chamou o e-mail direto, ficam os cabecalhos vazios para preencher.
@@ -147,7 +147,7 @@ export function montarCorpo(d = {}, texto = {}) {
 }
 
 /** Assunto padrão, com a versão para triagem. */
-export function montarAssunto(versao) {
+function montarAssunto(versao) {
   return `[AURORA ${versao || '?'}] Relato de problema`;
 }
 
@@ -156,7 +156,7 @@ export function montarAssunto(versao) {
  * @param {string} id
  * @param {{assunto: string, corpo: string, para?: string}} conteudo
  */
-export function urlDoProvedor(id, { assunto, corpo, para = BUG_EMAIL }) {
+function urlDoProvedor(id, { assunto, corpo, para = BUG_EMAIL }) {
   const p = PROVEDORES.find((x) => x.id === id);
   if (!p) return null;
   return p.url({
@@ -232,7 +232,7 @@ async function coletar() {
  * envio direto não está configurado. Recebe o texto para o e-mail não sair
  * vazio pedindo que a pessoa escreva tudo de novo.
  */
-export async function enviarPorEmail(texto = {}, diagDoMain = null) {
+async function enviarPorEmail(texto = {}, diagDoMain = null) {
   const dados = await coletar();
   if (diagDoMain) {
     // O diagnóstico do main é mais completo (log, memória, núcleos). Quando ele
@@ -263,7 +263,7 @@ export async function enviarPorEmail(texto = {}, diagDoMain = null) {
 }
 
 /** Ponto de entrada do botão: o formulário, com o e-mail como reserva. */
-export async function abrirRelatorio() {
+async function abrirRelatorio() {
   await abrirFormulario(enviarPorEmail);
 }
 

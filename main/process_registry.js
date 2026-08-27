@@ -268,6 +268,14 @@ async function runStopAllToolchain() {
   // 6) In-flight AI chat generations (gemini, etc.), abort the HTTP streams.
   try { require('./ai/chat').abortAll(); } catch (_) { /* not loaded */ }
 
+  // 7) Every live git (clone, push, fetch). simple-git spawns its own children
+  //    outside this registry, so they are stopped through its abort plugin;
+  //    without this a clone outlived the window that started it. Same for the
+  //    GitHub device-flow poll, which has no process but keeps hitting the API.
+  try { require('./ipc/git').abortAll(); } catch (_) { /* not loaded */ }
+  try { require('./ipc/github_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
+  try { require('./ipc/gitlab_auth').cancelarFluxo(); } catch (_) { /* not loaded */ }
+
   await Promise.all(tasks);
 
   state.currentVvpProcess = null;

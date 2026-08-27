@@ -21,6 +21,17 @@ const MAX_TERMINAL_ENTRIES = 5000;
 // grouped lines past this limit so one card can't grow without bound.
 const MAX_GROUPED_MESSAGES = 5000;
 
+/** 1234567 -> "1.2 MB": o pill do dump atualiza varias vezes por segundo. */
+function formatarBytes(n) {
+    if (!Number.isFinite(n) || n < 0) return '0 B';
+    if (n < 1024) return `${n} B`;
+    const kb = n / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(2)} GB`;
+}
+
 class TerminalManager {
     constructor() {
         this.terminals = {
@@ -317,6 +328,10 @@ class TerminalManager {
     appendToTerminal(terminalId, content, type = 'info', options = {}) {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
+
+        // Mid-clear: park it, clearTerminal replays it after the wipe.
+        const parked = this._clearingQueues?.get(terminalId);
+        if (parked) { parked.push([terminalId, content, type, options]); return; }
 
         let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
         if (!text.trim()) return;
@@ -846,7 +861,70 @@ class TerminalManager {
         });
     }
 
-createLogEntry(terminal, text, type, timestamp) {
+/**
+     * O tamanho do arquivo de onda, ao vivo, enquanto a simulacao roda.
+     *
+     * Pedido de 23/08/2026. O dump cresce fora da vista, e a unica noticia
+     * era o tamanho final; ver o numero subir e o que permite cancelar cedo
+     * uma simulacao que vai encher o disco, e e o que responde "esta fazendo
+     * alguma coisa?" numa simulacao longa. Um no' so, atualizado no lugar,
+     * mesma mecanica da barra de progresso.
+     */
+    renderDumpSize(terminalId, { name, path = '', bytes, done = false }) {
+        const terminal = this._resolveTerminal(terminalId);
+        if (!terminal) return;
+        this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
+        let el = this.updatableCards[terminalId].dumpSize;
+        if (!el || !el.isConnected) {
+            el = document.createElement('div');
+            el.className = 'dump-size';
+            el.innerHTML = '<i class="ph ph-wave-sine" aria-hidden="true"></i><span class="dump-size-text"></span>';
+            el._text = el.querySelector('.dump-size-text');
+            terminal.appendChild(el);
+            this.updatableCards[terminalId].dumpSize = el;
+        } else if (!done && terminal.lastElementChild !== el) {
+            // Cola embaixo, como a barra: linhas novas nao a empurram pro meio.
+            terminal.appendChild(el);
+        }
+        el._text.textContent = `${name} · ${formatarBytes(bytes)}`;
+        // O hover mostra ONDE o arquivo esta nascendo: o basename sozinho
+        // nao diz a pasta, e a extensao muda por corrida (.vcd no Icarus,
+        // .fst no cocotb e no Verilator conforme o modo). O balao decorado
+        // do app le data-tooltip; o observador dele inicializa o no' porque
+        // o atributo ja esta posto quando a insercao e processada.
+        if (path) el.dataset.tooltip = path;
+        // 'done' congela o numero final, e o pill FICA no terminal como
+        // registro da corrida, junto do resto do log: e assim que se compara
+        // o tamanho entre execucoes sem refazer nada. Ele so sai quando o
+        // terminal e limpo, como qualquer outra linha; a proxima corrida
+        // cria o seu proprio.
+        el.classList.toggle('done', !!done);
+        this.scrollToBottom(terminalId);
+    }
+
+    createLogEntry(terminal, text, type, timestamp) {
+        // A mesma linha, repetida logo em seguida, vira um contador na linha
+        // que ja esta na tela. E o caso do $fscanf com $fopen falhado: o vvp
+        // imprime o MESMO erro a cada ciclo de clock, milhares de vezes, e o
+        // terminal inundado foi lido como "a compilacao entrou em loop".
+        // Mil copias nao informam mais que uma com "x1000" do lado; e mil nos
+        // de DOM a mais por segundo e o que faz a interface engasgar.
+        // So a REPETICAO IMEDIATA agrupa: linhas intercaladas continuam
+        // aparecendo na ordem em que chegaram.
+        const anterior = this._ultimaLinha?.get(terminal.id);
+        if (anterior && anterior.text === text && anterior.type === type
+            && anterior.el.isConnected && anterior.el === terminal.lastElementChild) {
+            anterior.count++;
+            let chip = anterior.el.querySelector('.repeat-count');
+            if (!chip) {
+                chip = document.createElement('span');
+                chip.className = 'repeat-count';
+                anterior.el.appendChild(chip);
+            }
+            chip.textContent = `x${anterior.count}`;
+            return anterior.el;
+        }
+
         const logEntry = document.createElement('div');
         logEntry.classList.add('log-entry', type); // Sem animações extras aqui
 
@@ -883,6 +961,9 @@ createLogEntry(terminal, text, type, timestamp) {
         // end of each appendToTerminal batch handles counting from DOM
         // truth, including the grouped-message case where one card
         // contains several sub-messages of the same type.
+
+        if (!this._ultimaLinha) this._ultimaLinha = new Map();
+        this._ultimaLinha.set(terminal.id, { text, type, el: logEntry, count: 1 });
 
         // --- AQUI ESTÁ O TRUQUE DE REVELAÇÃO ---
         // Se o terminal estiver apagado (pós-clear), revelamos agora.
@@ -1450,6 +1531,12 @@ async clearTerminal(terminalId) {
         if (!terminal.childElementCount) return;
 
         // 1. Animate the existing entries out (fade + slide), then wipe.
+        // Anything appended during the animation would be wiped with the old
+        // entries before anyone saw it (it happened once, to the ASM preamble),
+        // so appends are parked and replayed after the wipe.
+        const parked = this._clearingQueues || (this._clearingQueues = new Map());
+        if (parked.has(terminalId)) return; // a clear is already in flight
+        parked.set(terminalId, []);
         terminal.classList.add('clearing');
         await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -1460,6 +1547,11 @@ async clearTerminal(terminalId) {
         terminal.innerHTML = '';
         terminal.classList.remove('clearing');
         this.recountMessages?.(terminalId);
+
+        // 3. Replay what arrived while the old entries were fading out.
+        const replay = parked.get(terminalId) || [];
+        parked.delete(terminalId);
+        for (const args of replay) this.appendToTerminal(...args);
     }
 
     /** Transient confirmation pill, fired by the manual clear button only. */

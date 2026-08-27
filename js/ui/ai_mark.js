@@ -61,14 +61,3 @@ export function aiMarkSvg(extraClass = '') {
   return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">`
     + `<path d="${BIG}"/><path d="${SMALL}"/></svg>`;
 }
-
-/**
- * O mesmo símbolo como nó do DOM, para quem monta a árvore por createElement.
- * @param {string} [extraClass]
- * @returns {SVGElement}
- */
-export function aiMarkElement(extraClass = '') {
-  const tpl = document.createElement('template');
-  tpl.innerHTML = aiMarkSvg(extraClass);
-  return tpl.content.firstElementChild;
-}

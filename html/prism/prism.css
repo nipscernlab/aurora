@@ -300,10 +300,10 @@ body {
 }
 
 .window-ctrl:hover               { background-color: var(--overlay-hover); color: var(--text); }
-.ctrl-close:hover                { background-color: #E25C5C; color: #fff; }
+.ctrl-close:hover                { background-color: #E25C5C; color: var(--text-on-accent); }
 .ctrl-close:hover > svg          { stroke-width: 1.2; }
 .window-ctrl:active              { background-color: var(--overlay-active); }
-.ctrl-close:active               { background-color: #C24A4A; color: #fff; }
+.ctrl-close:active               { background-color: #C24A4A; color: var(--text-on-accent); }
 .window-ctrl:focus-visible       { box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* Maximize / restore icon toggle */
@@ -448,7 +448,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   transition: fill 200ms ease, stroke 200ms ease;
 }
 
-.svg-content svg rect[fill="#ffffff"],
+.svg-content svg rect[fill="var(--text-on-accent)"],
 .svg-content svg rect:not([fill]) {
   fill: var(--bg) !important;
   stroke: var(--border-strong) !important;
@@ -527,14 +527,17 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
  * conferir no Verilog.
  *
  * Voltam ajustados ao tema, e nao como o netlistsvg os desenha. O retangulo
- * ficou sendo so a mascara que impede o fio de passar por tras dos digitos: a
- * borda em volta do numero desenhava uma caixinha que competia com as celulas
- * e nao dizia nada que o numero ja nao dissesse. O tamanho dele e medido no
- * texto, em prism.js. */
+ * que o netlistsvg poe atras do numero e REMOVIDO do documento em prism.js
+ * (_adjustBusLabels): ate 22/08/2026 ele era pintado com a cor do fundo para
+ * esconder o fio, e aparecia como uma caixa de outro tom por cima da grade de
+ * pontos e da vinheta. O fio nao passa mais por tras do numero porque e
+ * cortado em dois segmentos em volta da etiqueta (_cutWiresUnderLabels). A
+ * regra abaixo e so a rede para o instante entre o SVG entrar e o retangulo
+ * sair. */
 .svg-content svg [class*="busLabel_"] { display: inline; }
 
 .svg-content svg rect[class*="busLabel_"] {
-  fill: var(--bg) !important;
+  fill: none !important;
   stroke: none !important;
 }
 
@@ -733,6 +736,13 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   margin: var(--space-1) 0;
 }
 
+/* Entries that only make sense on a module cell (prism.js toggles `hidden`);
+   `display: flex` above would otherwise win over the hidden attribute. */
+.context-item[hidden],
+.context-separator[hidden] {
+  display: none;
+}
+
 /* ---------------------------------------------------------------------------
  *  Scrollbars
  * --------------------------------------------------------------------------- */
@@ -769,7 +779,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 .djs-paper { display: inline-block; background: transparent; }
 
 /* Keep the paper transparent so the single container surface shows through
- * (beats DigitalJS's own .joint-paper.joint-theme-default { #FFFFFF }). */
+ * (beats DigitalJS's own .joint-paper.joint-theme-default { var(--text-on-accent) }). */
 .djs-container .joint-paper,
 .djs-container .joint-paper.joint-theme-default { background: transparent !important; }
 
@@ -781,7 +791,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   font: 700 12px/1 'JetBrains Mono', ui-monospace, monospace;
   /* White glyph + dark halo → legible on ANY background (black box, white box,
    * the light surface, or a coloured lamp), so position offsets never hide it. */
-  color: #ffffff;
+  color: var(--text-on-accent);
   text-shadow: 0 0 2px #000, 0 0 3px #000, 0 0 4px #000;
   pointer-events: none;
   user-select: none;

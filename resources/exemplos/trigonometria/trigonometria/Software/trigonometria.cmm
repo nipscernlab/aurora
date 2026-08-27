@@ -1,0 +1,34 @@
+#PRNAME trigonometria
+#NUBITS 32
+#NDSTAC 8
+#SDEPTH 8
+#NUIOIN 1
+#NUIOOU 1
+#NBMANT 23
+#NBEXPO 8
+#NUGAIN 128
+// Trigonometria em ponto flutuante.
+//
+// O C+- traz seno, cosseno e arco-tangente como funcoes de verdade, e o
+// compilador as resolve por polinomio minimax, sem tabela e sem laco: o custo
+// nao depende do tamanho do argumento. E por isso que sin(100.0) sai daqui tao
+// rapido quanto sin(0.0), o que uma implementacao por reducao iterativa nao
+// consegue.
+//
+// Os valores saem multiplicados por mil porque `fout` trunca para inteiro, e
+// sem a escala todos apareceriam como 0 ou 1 na onda. Os comentarios de cada
+// linha trazem o valor esperado, entao da para conferir a saida sem calculadora.
+
+void main() {
+    float r;
+    while (1) {
+        r = sin(0.0)       * 1000.0;   fout(0, r);   // 0
+        r = sin(1.5707963) * 1000.0;   fout(0, r);   // sin(pi/2)=1
+        r = cos(0.0)       * 1000.0;   fout(0, r);   // cos(0)=1
+        r = sin(100.0)     * 1000.0;   fout(0, r);   // sin(100 rad) ~ -0.506  (O(1) reduction)
+        r = cos(3.1415927) * 1000.0;   fout(0, r);   // cos(pi)=-1
+        r = atan(1.0)      * 1000.0;   fout(0, r);   // pi/4 = 785
+        r = atan(2.0)      * 1000.0;   fout(0, r);   // 1107  (1/x branch)
+        r = atan(-1.0)     * 1000.0;   fout(0, r);   // -785  (sign)
+    }
+}

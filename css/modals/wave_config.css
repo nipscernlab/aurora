@@ -364,7 +364,7 @@
 }
 
 .wave-tree-find .find-toggle.active {
-    background: rgba(142, 131, 232, 0.18);
+    background: var(--accent-strong);
     border-color: var(--accent);
     color: var(--accent);
 }

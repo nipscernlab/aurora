@@ -1,0 +1,127 @@
+#PRNAME zerocross
+#NBMANT 23
+#NBEXPO 8
+#NUBITS 32
+#NDSTAC 5
+#SDEPTH 5
+#NUIOIN 2
+#NUIOOU 5
+
+float sinal_entrada;
+
+float x1, x1_n1, x1_n2;
+float x2, x2_n1, x2_n2;
+float x3, x3_n1, x3_n2;
+
+float y1, y1_n1, y1_n2;
+float y2, y2_n1, y2_n2;
+float y3, y3_n1, y3_n2;
+
+float amostra_anterior;
+//
+void main() 
+{
+    //if (in(0) == 0)
+    //{
+        
+        out(2,-126);
+        sinal_entrada    = 0.0;
+        amostra_anterior = 0.0;
+        
+        x1    = 0.0;
+        x1_n1 = 0.0;
+        x1_n2 = 0.0;
+        
+        x2    = 0.0;
+        x2_n1 = 0.0;
+        x2_n2 = 0.0;
+        
+        x3    = 0.0;
+        x3_n1 = 0.0;
+        x3_n2 = 0.0;
+        
+        y1    = 0.0;
+        y1_n1 = 0.0;
+        y1_n2 = 0.0;
+        
+        y2    = 0.0;
+        y2_n1 = 0.0;
+        y2_n2 = 0.0;
+        
+        y3    = 0.0;
+        y3_n1 = 0.0;
+        y3_n2 = 0.0;
+        
+        out(2,-127);
+        
+        return;
+        
+#PRACA
+        
+    //}
+    //else
+    //{
+        sinal_entrada = fin(1);
+        
+        if(sinal_entrada == 0)
+        {
+           sinal_entrada = 0.0000001;
+        }
+       
+       // Applying filter
+
+       // Section 1
+       
+       x1 = sinal_entrada*0.615089250452674;
+       
+       y1 = x1 - 1.976807847899757*x1_n1 + x1_n2 + 1.948321338555645*y1_n1 - 0.962586582007368*y1_n2;
+       
+       x1_n2 = x1_n1;
+       x1_n1 = x1;
+       
+       y1_n2 = y1_n1;
+       y1_n1 = y1;
+       out(3,y1);
+       
+       // Section 2
+       
+       x2 = y1*0.442537969917818;
+       
+       y2 = x2 - x2_n1*1.956939074607570 + x2_n2 + y2_n1*1.844400456753102 - y2_n2*0.863456551259050;
+       
+       x2_n2 = x2_n1;
+       x2_n1 = x2;
+       
+       y2_n2 = y2_n1;
+       y2_n1 = y2;
+       //out(2,y2);
+       
+       
+       
+       // Section 3
+       
+       x3 = y2*0.098185425944027;
+       
+       y3 = x3 - x3_n1*1.699499939983501 + x3_n2 + y3_n1*1.681701824664379 - y3_n2*0.711206551053305;
+       
+       x3_n2 = x3_n1;
+       x3_n1 = x3;
+       
+       y3_n2 = y3_n1;
+       y3_n1 = y3;
+       
+       out(4, y3);
+       
+       // Zero Crossing
+      if(y3<0.0000001)
+     {
+         if(amostra_anterior>0.0000001)
+         {
+             out(1, 1.0);
+             out(1,0.0);
+         }
+     } 
+     amostra_anterior = y3;
+    //}
+    out(0,1.0);
+}

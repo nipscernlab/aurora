@@ -28,15 +28,20 @@ collaboration with CERN. The project page is
   <img src="docs/media/hero.png" alt="AURORA with a SAPHO project open: the file tree, a C± processor in the editor, and the terminal" width="100%">
 </p>
 
-The screenshot is taken from the running application by
-[scripts/capture-media.js](scripts/capture-media.js), so it can be retaken
-whenever the interface changes. Demo recordings are still pending.
+The screenshot and the recordings below come from the running application,
+taken by [scripts/capture-media.js](scripts/capture-media.js) against a
+throwaway project it builds itself, so they can be retaken whenever the
+interface changes and none of them carries anyone's desktop.
 
 ## What it does
 
 The editor is Monaco, split into up to three panes. Panes share the underlying
 model, so an edit in one pane appears live in every other pane showing the same
 file.
+
+<p align="center">
+  <img src="docs/media/split-editor.gif" alt="Splitting the editor and opening the top-level Verilog in the second pane, beside the C± source" width="100%">
+</p>
 
 The compile buttons are deliberately self-contained. You never have to remember
 to compile before opening waveforms or the RTL viewer, because each button
@@ -45,6 +50,10 @@ runs C± and assembly and then Icarus Verilog over the top level. Wave adds the
 simulation and opens the viewer. PRISM adds Yosys. In a pure Verilog project the
 C± and assembly steps disappear on their own, without any conditional in the
 pipeline, because they iterate over a processor list that is simply empty.
+
+<p align="center">
+  <img src="docs/media/compile.gif" alt="One click compiling a C± processor: the terminals fill with the compiler and assembler output and the generated Verilog appears in the tree" width="100%">
+</p>
 
 Two independent choices sit behind the Wave button. You pick which simulator
 runs, Icarus Verilog by default or Verilator, which transpiles to C++ and is
@@ -60,6 +69,10 @@ scope is dumped, which matches what a plain `$dumpvars` would have given you.
 PRISM is the RTL viewer. It synthesises with Yosys and draws the schematic with
 netlistsvg, using per-module skins kept in the repository. It also has an
 interactive simulation mode built on DigitalJS.
+
+<p align="center">
+  <img src="docs/media/prism.gif" alt="The PRISM schematic of the synthesised top level, zoomed and panned" width="100%">
+</p>
 
 Aurora Intelligence is the assistant panel. It talks to models through two
 different paths: directly by API, for provider keys you supply, and through the
@@ -89,22 +102,72 @@ GUI is developed, and `nipscernlab/sapho` is what end users download.
 
 ## Building from source
 
-You need Windows 10 or 11, Git, and Node.js 22.22.1 or newer. That floor is not
-arbitrary: `lint-staged` sets it, and Electron, commitlint and the Claude Code
-CLI each demand something close behind. Older versions may appear to work and
-will emit engine warnings during install.
+You need Windows 10 or 11. Everything else the setup script installs for you.
+
+Clone the repository and run `setup.bat`. It can also be double-clicked from
+Explorer, and it runs fine inside the VS Code integrated terminal:
+
+```powershell
+git clone https://github.com/nipscernlab/aurora.git
+cd aurora
+.\setup.bat
+```
+
+### Where the clone must not live
+
+The first thing `setup.bat` does is refuse to run from the wrong place, because
+every problem in this list shows up long after the install, disguised as
+something else.
+
+**Cloud-synced folders are the important one.** OneDrive, Dropbox, Google Drive,
+iCloud Drive and Creative Cloud all break this project in three separate ways.
+With Files On-Demand, toolchain binaries and `node_modules` entries turn into
+cloud placeholders and fail to execute. The synchroniser holds files open, so
+extracting the toolchain fails part-way and leaves the install half-finished.
+And it rewrites files while the application is working, which AURORA sees as
+project changes and answers by re-reading git status and repainting the tree,
+over and over, for edits nobody made. Move the clone somewhere local, such as
+`C:\Dev\aurora`. The script stops with that instruction rather than letting you
+find out later.
+
+**Network shares (UNC paths) do not work either.** The bootstrap links
+`components/` into the Electron distribution with a directory junction, and
+junctions do not exist on a network share.
+
+**Removable drives formatted FAT32 or exFAT** fail for the same reason: no
+junctions.
+
+Two more the script warns about instead of blocking. A **very long path** leaves
+too little headroom under Windows' 260-character limit once `node_modules`
+nesting is added. And an **`&` anywhere in the path** breaks any script that
+does not quote it, which is why the packaging identity avoids it too.
+
+Finally, one that no script can detect: **antivirus software quarantining
+`components/`**. The toolchain is a few hundred megabytes of freshly extracted
+executables, which is exactly the shape real-time scanners act on. AURORA already
+watches for this and can repair itself, but if the bootstrap keeps failing on
+files that were there a moment ago, add an exclusion for the `components/`
+directory.
+
+The script checks and installs, in order: Git, Node.js LTS, and (after asking)
+VS Code, all through `winget`, which ships with Windows 10 and 11. It then runs
+`npm install` and the toolchain bootstrap, and offers to start the app. Every
+step detects what is already in place and skips it, so running it again is
+always safe, and it stops with a clear message on the first real failure.
+
+If you would rather do it by hand, the requirements are Git and Node.js 22.22.1
+or newer. That floor is not arbitrary: `lint-staged` sets it, and Electron,
+commitlint and the Claude Code CLI each demand something close behind. Older
+versions may appear to work and will emit engine warnings during install.
 
 ```powershell
 winget install --id OpenJS.NodeJS.LTS -e --source winget
 winget install --id Git.Git           -e --source winget
 ```
 
-Reopen PowerShell so the new executables are on your `PATH`, then clone and
-install:
+Reopen PowerShell so the new executables are on your `PATH`, then:
 
 ```powershell
-git clone https://github.com/nipscernlab/aurora.git
-cd aurora
 npm install
 npm start
 ```
@@ -128,6 +191,15 @@ node components/Scripts/download-toolchain.js --force
 
 If a download fails behind a corporate proxy, the script prints the URL it tried,
 so you can fetch the archive in a browser and extract it by hand.
+
+### Working in VS Code
+
+The repository carries its shared editor configuration in [.vscode/](.vscode/),
+so a fresh clone opens ready to work. `F5` runs the app (either plain or with
+renderer hot-reload), and the Command Palette's *Run Task* lists the setup, the
+two run modes, the tests and the component doctor. The settings file also keeps
+the downloaded toolchain out of VS Code's search index and file watcher, which
+otherwise spends memory and CPU tracking about a gigabyte of binaries.
 
 To produce an installer, `npm run build` runs the bootstrap again and then
 electron-builder, leaving the NSIS installer, its blockmap, and the updater
@@ -156,9 +228,10 @@ directly.
 
 Every push to `main` keeps a release pull request open, aggregating the
 conventional commits since the last release and preparing the version bump and
-changelog. Merging that pull request creates the tag and the GitHub release.
-Building and publishing the installer is a separate, manually triggered workflow,
-so cutting a version and shipping a binary stay independent.
+changelog. Merging that pull request creates the tag and the GitHub release, and
+the same workflow then builds the Windows installer and publishes it, so one
+merge takes a version from commit history to installed machines. The build can
+also be triggered by hand, which is how a failed publish is retried.
 
 Releases go to `nipscernlab/sapho`, not to this repository. The updater reads the
 same place, so the two never disagree.
@@ -230,11 +303,15 @@ AURORA is developed and maintained by NIPS-CERN, the research and development
 group of the Department of Electrical Engineering at the
 [Universidade Federal de Juiz de Fora](https://www.ufjf.br), Brazil.
 
-The group operates two laboratories, one at CERN in Geneva and one in the
-graduate programme building at UFJF, with students and researchers working at
+The group operates two laboratories, with students and researchers working at
 both. The department is a
 [member institution of the ATLAS Collaboration](https://atlaspo.cern.ch/public/institutions/),
 with system membership in the Tile Calorimeter and the Liquid-Argon Calorimeter.
+
+| | |
+|---|---|
+| **NIPS**, UFJF | Depto. de Engenharia Elétrica, PPEE<br>R. José Lourenço Kelmer, s/n<br>Juiz de Fora, MG 36036-900, Brasil |
+| **Route Salam**, CERN | Espl. des Particules 1<br>CH-1211 Genève 23, Suisse |
 
 | | |
 |---|---|

@@ -229,10 +229,8 @@ function isKnownPythonPath(/** @type {string} */ binaryPath) {
 }
 
 module.exports = {
-  EXPECTED_COCOTB_VERSION,
   getBundledPythonPath,
   getPythonStatus,
   isBundledPythonPath,
   isKnownPythonPath,
-  listPythonCandidatesSync,
 };

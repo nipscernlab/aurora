@@ -58,7 +58,7 @@ export function definirAviso(ligado) {
 }
 
 /** O erro tem cara de rede? Exportado porque é a regra que decide tudo aqui. */
-export function pareceErroDeRede(erro) {
+function pareceErroDeRede(erro) {
   if (!erro) return false;
   const t = String(erro.message || erro.code || erro).toLowerCase();
   return PADROES_DE_REDE.some((p) => t.includes(p));
@@ -122,7 +122,7 @@ async function confirmarQueda() {
  * @param {unknown} erro o erro recebido; só age se parecer de rede
  * @param {string} [origem] quem relatou, para o log
  */
-export async function reportarFalhaDeRede(erro, origem = '?') {
+async function reportarFalhaDeRede(erro, origem = '?') {
   if (!avisoLigado() || avisoNaTela || confirmando) return;
   if (!pareceErroDeRede(erro)) return;
   confirmando = true;
@@ -142,7 +142,7 @@ function aoFicarOffline() {
   mostrar();
 }
 
-export function initNetworkWatch() {
+function initNetworkWatch() {
   if (typeof window === 'undefined') return;
   // Só a transição interessa. Abrir o aplicativo já sem rede não é uma queda, e
   // avisar no arranque competiria com o que o usuário abriu a AURORA para fazer.

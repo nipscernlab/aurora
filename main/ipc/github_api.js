@@ -47,6 +47,9 @@ function mapRepo(r) {
     owner: dono ? dono.login : null,
     ownerType: dono ? dono.type : null, // 'User' | 'Organization'
     fork: !!r.fork,
+    // De qual forja veio. O painel lista GitHub e GitLab na mesma lista, e sem
+    // isto ele nao teria como dizer ao usuario de onde cada linha vem.
+    forge: 'github',
   };
 }
 
@@ -88,53 +91,12 @@ function erroDeCriacao(mensagem, nome) {
   return m;
 }
 
-/**
- * Intervalo inicial entre duas consultas do fluxo de dispositivo.
- *
- * O GitHub diz de quantos em quantos segundos consultar e responde `slow_down`
- * se a gente encostar no limite. O segundo a mais é folga deliberada: bater no
- * limite custa uma rodada inteira de espera, e um segundo a menos não encurta
- * nada perceptível para quem está digitando o código no navegador.
- *
- * @param {any} inicio resposta de /login/device/code
- */
-function intervaloInicialMs(inicio) {
-  const s = Number(inicio && inicio.interval);
-  return ((Number.isFinite(s) && s > 0 ? s : 5) + 1) * 1000;
-}
-
-/**
- * O que fazer com uma resposta de `/login/oauth/access_token`.
- *
- * Esta é a decisão que estava presa dentro de um laço com `sleep`, e por isso
- * inalcançável por teste. Ela tem cinco saídas e cada uma erra de um jeito
- * diferente se trocada: tratar `authorization_pending` como falha aborta o
- * fluxo enquanto o usuário ainda está digitando o código; tratar `slow_down`
- * como "continuar igual" faz o GitHub cortar; e tratar erro desconhecido como
- * "continuar" deixa o laço rodando até o prazo acabar sem dizer por quê.
- *
- * @param {any} tok resposta da API
- * @returns {{acao:'pronto', token:string}
- *          |{acao:'esperar'}
- *          |{acao:'desacelerar', acrescimoMs:number}
- *          |{acao:'falhar', mensagem:string}}
- */
-function decidirPolling(tok) {
-  if (tok && tok.access_token) return { acao: 'pronto', token: String(tok.access_token) };
-
-  const erro = tok && tok.error;
-  if (erro === 'authorization_pending') return { acao: 'esperar' };
-  if (erro === 'slow_down') {
-    const s = Number(tok && tok.interval);
-    return { acao: 'desacelerar', acrescimoMs: (Number.isFinite(s) && s > 0 ? s : 5) * 1000 };
-  }
-  if (erro === 'expired_token') return { acao: 'falhar', mensagem: 'The code expired — please try again.' };
-  if (erro === 'access_denied') return { acao: 'falhar', mensagem: 'Authorization was denied.' };
-  return { acao: 'falhar', mensagem: (tok && tok.error_description) || erro || 'OAuth failed.' };
-}
+// O fluxo de dispositivo e da RFC 8628, e nao do GitHub: o GitLab usa os
+// mesmos nomes de erro. As duas decisoes moram em oauth_device.js desde
+// 23/08/2026; ficam reexportadas aqui para nao quebrar quem importava daqui.
+const { intervaloInicialMs, decidirPolling } = require('./oauth_device');
 
 module.exports = {
-  NOME_REPO,
   nomeRepoValido,
   mapRepo,
   fimDaPaginacao,

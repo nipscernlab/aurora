@@ -13,7 +13,7 @@ export const meta = {
 const SHARED = `
 == PROJETO ==
 Voce esta documentando o NUCLEO da plataforma SAPHO ("Scalable-Architecture Processor for Hardware
-Optimization"), desenvolvida pelo laboratorio NIPSCERN na UFJF (Universidade Federal de Juiz de
+Optimization"), desenvolvida pelo laboratorio NIPS-CERN na UFJF (Universidade Federal de Juiz de
 Fora, Brasil). SAPHO = a suite que une AURORA + YANC + um toolchain bundle.
 
 - AURORA: a IDE desktop (Electron + Monaco) onde o usuario projeta soft-processors. REPO ATUAL/VIVO.
@@ -36,16 +36,16 @@ Para git/history use Bash (Git Bash; caminhos estilo /c/Users/chrys/...). Pode u
 
 == REGRA DE OURO: A FONTE DA VERDADE E O CODIGO-FONTE ==
 NAO confie na documentacao existente. Os arquivos .md (README.md, ARCHITECTURE.md, CHANGELOG.md,
-docs/ESTUDO_COMPLETO_AURORA.md, docs/aurora-intelligence-tools.md, docs/surfer-feasibility.md,
-docs/DESIGN.md, etc.) podem estar DESATUALIZADOS, ASPIRACIONAIS ou ERRADOS. Trate-os apenas como
+TODO.md, docs/aurora-intelligence-tools.md, etc.) podem estar DESATUALIZADOS, ASPIRACIONAIS ou
+ERRADOS. Trate-os apenas como
 PISTAS para localizar onde as coisas estao. VERIFIQUE cada afirmacao lendo o codigo real
 (.js, .ts, .v, .c, .l, .y, .h, .bat, .sh, .json, configs). Onde doc e codigo divergirem, O CODIGO
 VENCE. Nao copie prosa de documentacao. So afirme o que voce confirmou abrindo o arquivo. Cite os
 nomes de arquivo/simbolo que voce realmente abriu.
 
 == CORRECOES IMPORTANTES (do dono do projeto) ==
-- POLARIS esta DESCONTINUADO (projeto morto). NAO documente POLARIS. No maximo UMA frase de contexto
-  historico se for inevitavel.
+- NAO mencione POLARIS em lugar nenhum, nem como contexto historico. Se aparecer no codigo ou em
+  comentario, ignore.
 - Aurora Intelligence esta COMPLETAMENTE IMPLEMENTADO. Porem o provider e os modelos PROPRIOS do
   laboratorio ainda NAO foram treinados (e item de roadmap). Declare esse status com precisao.
 
@@ -102,8 +102,8 @@ const CHAPTERS = [
   {
     id: '01-contexto-visao-geral', file: '01-contexto-visao-geral.tex',
     title: 'Contexto e visão geral',
-    scope: `Apresente: (a) o laboratorio NIPSCERN e a UFJF (use o repo nipscernweb e o arquivo
-CITATION.cff do aurora como fontes; WebSearch APENAS para enriquecer contexto sobre NIPSCERN/UFJF e
+    scope: `Apresente: (a) o laboratorio NIPS-CERN e a UFJF (use o repo nipscernweb e o arquivo
+CITATION.cff do aurora como fontes; WebSearch APENAS para enriquecer contexto sobre NIPS-CERN/UFJF e
 sobre soft-processors em FPGA/arquitetura de computadores — inclua so fatos bem suportados, nao
 invente); (b) o que e a plataforma SAPHO e o significado da sigla (verifique as expansoes que
 aparecem no codigo/README — pode haver mais de uma); (c) o modelo conceitual SAPHO = AURORA (IDE) +
@@ -111,7 +111,7 @@ YANC (compiladores) + toolchain bundle, e os subsistemas PRISM (RTL) e Aurora In
 (d) o publico-alvo (pesquisa e ensino em arquitetura de computadores / projeto de soft-processors);
 (e) um panorama de ALTO NIVEL do fluxo (projeto -> C+- -> compilacao -> simulacao -> ondas/RTL),
 deixando o detalhe para os capitulos seguintes; (f) a convencao de nomes (AURORA, YANC, SAPHO, PRISM,
-Aurora Intelligence) e uma unica frase de que POLARIS foi um sucessor descontinuado. Termine com um
+Aurora Intelligence). Termine com um
 "mapa do documento" listando os 18 capitulos. Plataforma suportada hoje (verifique no codigo:
 electron-builder so faz target Windows/NSIS; YANC roda Win+Linux).`,
   },
@@ -331,14 +331,14 @@ happy-dom, husky, knip, commitlint, release-please). Confirme cada versao lendo 
 bloco "build"), aurora/vite.config.mjs, aurora/scripts/* (check-pinned-versions, dev.js, launch-
 electron.js, sync-sapho-rules.js), aurora/components/Scripts/* (os downloaders + copy-components),
 aurora/.github/workflows/* (ci.yml, release.yml, release-please.yml), aurora/build/* (installer.nsh),
-aurora/docs/CODE_SIGNING.md (pista). Cubra: o BOOTSTRAP (npm run bootstrap: check de versoes pinadas +
+aurora/TODO.md, secao 3 (pista: e la que vive o estado da assinatura de codigo). Cubra: o BOOTSTRAP (npm run bootstrap: check de versoes pinadas +
 9 downloaders + copy-components — o que cada downloader baixa e de onde); o build do renderer com Vite
 (vite.config: base ./ para file://, vendorizacao de Monaco/KaTeX/Phosphor em dist/vendor) e o tsc
 in-place; o electron-builder (config build: appId, target NSIS x64, asarUnpack, listas files/
 extraResources, fileAssociations .spf, protocolo sapho://); o instalador NSIS (installer.nsh); o
 auto-updater (electron-updater; feed apontando para o canal de release; latest.yml + blockmap); os
-workflows de CI e de release e o release-please; a assinatura de codigo (status segundo CODE_SIGNING.md
-e configs — descritivo); e o SPLIT INTENCIONAL de repos: aurora = desenvolvimento da IDE, sapho = canal
+workflows de CI e de release e o release-please; a assinatura de codigo (status segundo a secao 3 do TODO.md
+e as configs — descritivo); e o SPLIT INTENCIONAL de repos: aurora = desenvolvimento da IDE, sapho = canal
 de distribuicao estavel (o instalador sapho-aurora-Setup-vX.Y.Z.exe sai do repo sapho). Diagrama do
 fluxo de build.`,
   },

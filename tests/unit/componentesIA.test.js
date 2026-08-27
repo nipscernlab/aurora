@@ -82,6 +82,21 @@ describe('diagnosticar', () => {
     fs.mkdirSync(dir.replace(/@[^@]*$/, '@0.0.1'), { recursive: true });
     expect(ia.diagnosticar('claude').estado).toBe('ausente');
   });
+
+  it.skipIf(!downloader.isDownloadable('codex'))('desatualizado quando a versao antiga guarda o binario no caminho legado', () => {
+    // As releases ate a 6.4.0 baixaram o Codex com o binario em
+    // vendor/<triple>/codex/codex.exe; a 0.147.0 mudou para bin/. O cache
+    // dessas maquinas precisa ler como "outra versao instalada", e nao como
+    // ausente, senao o painel oferece download em vez de atualizacao com a
+    // versao antiga ainda ocupando o disco.
+    const { dir, entry } = downloader.installPaths('codex');
+    expect(entry.exeLegado?.length).toBeGreaterThan(0);
+    const antiga = dir.replace(/@[^@]*$/, '@0.146.0-win32-x64');
+    criarExe(antiga, entry.exeLegado[0]);
+    const d = ia.diagnosticar('codex');
+    expect(d.estado).toBe('desatualizado');
+    expect(d.versaoInstalada).toBe('0.146.0-win32-x64');
+  });
 });
 
 describe('listar', () => {

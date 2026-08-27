@@ -1,5 +1,5 @@
 /**
- * github_forget.js: o botão que apaga a conta GitHub desta máquina.
+ * github_forget.js: o botão que apaga as contas de forja desta máquina.
  *
  * A limpeza mesmo é do processo principal (main/ipc/github_forget.js), que é
  * quem alcança o Gerenciador de Credenciais do Windows. Aqui fica só a
@@ -19,21 +19,22 @@ import { showDialog } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
 
 const ROTULOS = {
-  'cofre-aurora': 'Acesso salvo pela AURORA',
+  'cofre-aurora': 'Acesso salvo pela AURORA (GitHub e GitLab)',
   'git-credential-reject': 'Credencial pedida ao git',
   'arquivo-git-credentials': 'Arquivo .git-credentials',
   'gerenciador-windows': 'Gerenciador de Credenciais do Windows',
 };
 
-export async function limparGitHub() {
+async function limparGitHub() {
   const escolha = await showDialog({
-    title: 'Sair do GitHub e limpar esta máquina',
+    title: 'Sair do GitHub e do GitLab e limpar esta máquina',
     message:
-      'Isto remove o acesso à sua conta GitHub deste computador, em quatro lugares: '
-      + 'o que a AURORA guardou, o que o git guardou pelo helper configurado, o arquivo '
-      + '.git-credentials e as entradas do GitHub no Gerenciador de Credenciais do Windows.\n\n'
-      + 'Depois disso, enviar para o GitHub vai pedir login de novo. Seu nome e e-mail de '
-      + 'autoria no git continuam configurados, porque não são credenciais.\n\n'
+      'Isto remove o acesso às suas contas GitHub e GitLab deste computador, em quatro '
+      + 'lugares: o que a AURORA guardou, o que o git guardou pelo helper configurado, o '
+      + 'arquivo .git-credentials e as entradas dessas forjas no Gerenciador de '
+      + 'Credenciais do Windows.\n\n'
+      + 'Depois disso, enviar para qualquer uma das duas vai pedir login de novo. Seu nome '
+      + 'e e-mail de autoria no git continuam configurados, porque não são credenciais.\n\n'
       + 'Não dá para desfazer.',
     variant: 'warning',
     buttons: [

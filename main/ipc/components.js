@@ -41,13 +41,20 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawn } = require('child_process');
 const { ipcMain, BrowserWindow, shell } = require('electron');
 const log = require('electron-log');
 
 const registro = require('../components/registry');
 const ia = require('../components/ia');
 const { componentsPath } = require('../paths');
+// Pelo registro, e nao pelo spawn puro: o filho fica visivel ao encerramento.
+// Antes, fechar a AURORA no meio do download do MSYS deixava um Node baixando
+// e extraindo dentro de components/ sem janela nenhuma, que e justamente o
+// que faz uma instalacao seguinte terminar pela metade. E o reap do arranque
+// nao o alcancava, porque casa por prefixo de caminho e o executavel deste
+// filho e o da instalacao, nao o de components/. Grupo SERVICE: o Cancelar
+// da compilacao nao tem nada a ver com um download.
+const { spawnTracked, GROUP } = require('../process_registry');
 
 /** Um download por vez. Dois puxando ao mesmo tempo só disputam a mesma banda. */
 let emAndamento = null;
@@ -98,7 +105,7 @@ function instalar(chave, janela, forcar = false) {
     // --force: o doctor re-baixa componente INCOMPLETO, cuja sentinela existe;
     // sem a flag o script veria a sentinela e sairia dizendo que esta tudo la.
     const argumentos = forcar ? [script, '--force'] : [script];
-    const filho = spawn(process.execPath, argumentos, {
+    const filho = spawnTracked(process.execPath, argumentos, {
       cwd: path.dirname(componentsPath),
       env: {
         ...process.env,
@@ -111,7 +118,7 @@ function instalar(chave, janela, forcar = false) {
         UV_THREADPOOL_SIZE: String(Math.min(16, Math.max(4, os.cpus().length))),
       },
       windowsHide: true,
-    });
+    }, GROUP.SERVICE);
 
     let ultimaLinha = '';
     const digerir = (buf) => {
@@ -359,11 +366,31 @@ async function doctor(janela) {
   return resultado;
 }
 
+/**
+ * A janela esta sendo dirigida por um teste?
+ *
+ * Serve para uma coisa so: nao deixar o aviso de boot, que e um modal, nascer
+ * por cima de quem esta clicando. Um modal nao pedido no boot rouba o ponteiro
+ * da suite e2e inteira, e o runner nunca tem componentes baixados, entao o
+ * aviso aparecia sempre e reprovava tudo.
+ *
+ * O marcador e o SAPHO_SKIP_SINGLE_INSTANCE que o proprio harness ja define em
+ * todo teste e2e (tests/e2e/*.js). Reaproveita-lo evita a armadilha de um flag
+ * novo que cada teste futuro teria que lembrar de setar, e cujo esquecimento
+ * apareceria como falha intermitente e confusa. AURORA_SEM_AVISO_DE_BOOT fica
+ * como desligamento explicito, para quem quiser o efeito sem mexer no lock.
+ */
+function sobAutomacao() {
+  return process.env.SAPHO_SKIP_SINGLE_INSTANCE === '1'
+    || process.env.AURORA_SEM_AVISO_DE_BOOT === '1';
+}
+
 function register() {
   ipcMain.handle('componentes:listar', () => ({
     componentes: [...registro.listar(), ...ia.listar()],
     baixando: emAndamento,
     pasta: componentsPath,
+    avisoDeBootPermitido: !sobAutomacao(),
   }));
 
   // `forcar` vem do botao Atualizar: o instalador ve a sentinela de uma
@@ -387,4 +414,6 @@ function register() {
   });
 }
 
-module.exports = { register, instalar, remover, doctor, decidirConserto, lerPercentual };
+module.exports = {
+  register, instalar, remover, doctor, decidirConserto, lerPercentual,
+};

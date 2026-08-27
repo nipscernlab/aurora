@@ -23,7 +23,7 @@ describe('SYSTEM_PROMPT', () => {
 
     it('preserves the core identity invariants', () => {
         expect(SYSTEM_PROMPT).toContain('AURORA INTELLIGENCE');
-        expect(SYSTEM_PROMPT).toContain('NIPSCERN');
+        expect(SYSTEM_PROMPT).toContain('NIPS-CERN');
         expect(SYSTEM_PROMPT).toContain('ATLAS');
         expect(SYSTEM_PROMPT).toContain('NEVER LHCb');
     });

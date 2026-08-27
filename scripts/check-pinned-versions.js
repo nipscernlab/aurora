@@ -191,3 +191,51 @@ if (lock && lock.packages) {
   }
   if (checked > 0) console.log(`  OK  cli manifest integrity matches package-lock.json (${checked} pkg)`);
 }
+
+// The manifest also says WHERE inside the package the binary and its ripgrep
+// live (`exe`, `rg`). Nothing above touches those paths: version and integrity
+// can both be right while the layout is stale, and that is exactly what
+// happened when @openai/codex 0.147.0 moved codex.exe from vendor/<triple>/codex/
+// to vendor/<triple>/bin/. The download passed, the integrity passed, and the
+// install failed afterwards on every machine, looking for a file upstream no
+// longer publishes. The same platform package is installed in node_modules on
+// Windows (it is an optional dep of the base package), so the layout can be
+// verified offline against the real tree. Skipped, with a note, where the
+// platform package is not installed (a non-Windows dev box).
+{
+  const layoutFailures = [];
+  let checked = 0;
+  for (const kind of ['claude', 'codex']) {
+    const cli = manifest.MANIFEST[kind];
+    if (!cli) continue;
+    for (const [pkey, entry] of Object.entries(cli.platforms)) {
+      const pkgDir = path.join(REPO_ROOT, 'node_modules', entry.pkg);
+      if (!fs.existsSync(path.join(pkgDir, 'package.json'))) {
+        console.log(`  · ${entry.pkg} (${pkey}) not installed here, layout not verified`);
+        continue;
+      }
+      checked++;
+      const exe = path.join(pkgDir, ...entry.exe.split('/'));
+      if (!fs.existsSync(exe)) {
+        layoutFailures.push(`${entry.pkg} (${pkey}): manifest exe "${entry.exe}" does not exist in the installed package`);
+      }
+      if (entry.rg) {
+        const rg = path.join(pkgDir, ...entry.rg.split('/'));
+        if (!fs.existsSync(rg) || !fs.statSync(rg).isDirectory()) {
+          layoutFailures.push(`${entry.pkg} (${pkey}): manifest rg dir "${entry.rg}" does not exist in the installed package`);
+        }
+      }
+    }
+  }
+  if (layoutFailures.length > 0) {
+    fail([
+      ...layoutFailures,
+      '',
+      'The package layout changed upstream. Look inside node_modules/<pkg> for the',
+      'binary and update `exe` / `rg` in main/ai/cli_manifest.js; if the old path',
+      'already shipped in a release, add it to `exeLegado` so installed caches',
+      'are still recognised as outdated rather than absent.',
+    ]);
+  }
+  if (checked > 0) console.log(`  OK  cli manifest exe/rg paths exist in the installed packages (${checked} pkg)`);
+}

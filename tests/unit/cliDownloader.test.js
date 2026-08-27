@@ -12,6 +12,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   entryFor, CLAUDE_VERSION, CODEX_VERSION,
@@ -19,6 +20,8 @@ import {
 import {
   installPaths, cachedLocation, isDownloadable, ensureCli, integrityMatches,
 } from '../../main/ai/cli_downloader.js';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 describe('cli_manifest', () => {
   it('pins the Claude win32-x64 platform package', () => {
@@ -45,6 +48,21 @@ describe('cli_manifest', () => {
     expect(e.exe).toContain('codex.exe');
     expect(e.rg).toContain('vendor');
   });
+
+  // The same platform package the manifest downloads is installed under
+  // node_modules on Windows (optional dep of @openai/codex), so the `exe`/`rg`
+  // paths can be checked against the real tree. This is the test that would
+  // have caught the 0.147.0 layout move before a user did. Skipped where the
+  // package is not installed (non-Windows dev box).
+  for (const kind of ['claude', 'codex']) {
+    const e = entryFor(kind, 'win32:x64');
+    const pkgDir = path.join(REPO_ROOT, 'node_modules', e.pkg);
+    const installed = fs.existsSync(path.join(pkgDir, 'package.json'));
+    it.runIf(installed)(`${kind}: manifest exe/rg paths exist in the installed platform package`, () => {
+      expect(fs.existsSync(path.join(pkgDir, ...e.exe.split('/'))), e.exe).toBe(true);
+      if (e.rg) expect(fs.statSync(path.join(pkgDir, ...e.rg.split('/'))).isDirectory(), e.rg).toBe(true);
+    });
+  }
 
   it('returns null for an unsupported platform or CLI', () => {
     expect(entryFor('claude', 'sunos:mips')).toBeNull();

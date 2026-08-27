@@ -1,7 +1,7 @@
 // aurora_settings.js
 import { electronAPI } from '../app/electron_api.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
-import { showDialog } from '../ui/dialog_manager.js';
+import { showCardNotification } from '../ui/notification.js';
 import { avisoLigado, definirAviso, CHAVE_AVISO } from '../ui/network_watch.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -524,9 +524,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('upd-check-now')?.addEventListener('click', () => {
             electronAPI.checkForUpdates?.();
-            // The check is asynchronous; re-read shortly after so the panel
-            // reflects the attempt rather than the pre-click state.
-            setTimeout(refreshDiagnostics, 1500);
+            // Re-read at once so the panel shows the attempt started. The
+            // OUTCOME arrives by event below, not by a timer: the old 1.5 s
+            // re-read left stale numbers on screen whenever the server took
+            // longer, and the button looked broken.
+            refreshDiagnostics();
+        });
+        // Every check ends in a notice (nothing new, failed) or in the update
+        // window taking over; either way the numbers changed, so refresh.
+        electronAPI.onUpdateNotice?.(() => refreshDiagnostics());
+        window.addEventListener('focus', () => {
+            if (modalOverlay.classList.contains('visible')) refreshDiagnostics();
         });
         document.getElementById('upd-open-log')?.addEventListener('click', () => {
             electronAPI.openUpdateLog?.();
@@ -545,45 +553,74 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Manual offline. Fica fora do esquema data-href acima porque openExternal
-    // recusa file:// de proposito: o destino e montado no processo principal,
-    // que nao recebe caminho nenhum daqui.
-    const offlineLink = modalOverlay.querySelector('#about-docs-offline');
-    if (offlineLink && electronAPI?.docsStatus) {
-        const meta = modalOverlay.querySelector('#about-docs-offline-meta');
+    /* ── O manual, na secao propria ──────────────────────────────────────────
+     *
+     * Isto vivia como dois links no meio da lista de Sobre, entre a licenca e o
+     * repositorio, e ninguem os achava. Agora e uma secao, com estado visivel e
+     * botoes que dizem o que fazem.
+     *
+     * A abertura fica fora do esquema `data-href` acima porque o `openExternal`
+     * recusa `file://` de proposito: o destino e montado no processo principal,
+     * que nao recebe caminho nenhum daqui.
+     */
+    const manual = {
+        titulo:    modalOverlay.querySelector('#manual-estado-titulo'),
+        meta:      modalOverlay.querySelector('#manual-estado-meta'),
+        naAurora:  modalOverlay.querySelector('#manual-abrir-aurora'),
+        noBrowser: modalOverlay.querySelector('#manual-abrir-navegador'),
+        atualizar: modalOverlay.querySelector('#manual-atualizar'),
+    };
 
-        electronAPI.docsStatus()
-            .then((s) => {
-                // Sem pacote instalado o item continua oculto, e sobra apenas o
-                // manual online, melhor do que um botao que nao faz nada.
-                if (!s?.hasOffline) return;
-                offlineLink.hidden = false;
-                if (meta) meta.textContent = s.version ? `versão ${s.version}` : 'no computador';
-            })
-            .catch(() => { /* mantem oculto */ });
+    /** Reflete o estado do manual nos rotulos e nos botoes. */
+    const pintarManual = (s) => {
+        if (!manual.titulo) return;
+        const tem = !!s?.hasOffline;
+        manual.titulo.removeAttribute('data-i18n');
+        manual.titulo.textContent = tem
+            ? tr('modal.settings.manualInstalled')
+            : tr('modal.settings.manualMissing');
+        if (manual.meta) {
+            manual.meta.textContent = tem && s.version
+                ? tr('modal.settings.manualVersion').replace('{v}', s.version)
+                : '';
+        }
+        // Sem pacote instalado os dois botoes de abrir somem, e sobra apenas o
+        // manual online logo abaixo, que e melhor do que um botao que nao faz
+        // nada.
+        if (manual.naAurora) manual.naAurora.hidden = !tem;
+        if (manual.noBrowser) manual.noBrowser.hidden = !tem;
+    };
 
-        offlineLink.addEventListener('click', async (e) => {
-            e.preventDefault();
-            // Quem tem navegador ganha abas, busca e favoritos de graca; quem
-            // nao tem, ou esta numa maquina com a associacao de .html removida,
-            // le na janela propria da AURORA. Como nao da para saber qual e o
-            // caso daqui, quem escolhe e o usuario.
-            const onde = await showDialog({
-                title: 'Abrir o manual',
-                message: 'No navegador voce ganha abas, busca e favoritos. '
-                    + 'Na AURORA o manual abre numa janela nossa, sem depender '
-                    + 'de navegador nenhum.',
-                variant: 'info',
-                buttons: [
-                    { label: 'Na AURORA',    action: 'aurora',  type: 'cancel' },
-                    { label: 'No navegador', action: 'browser', type: 'save' },
-                ],
-            });
-            // Fechar no X ou no Esc nao e escolha: nao abre nada.
-            if (onde !== 'aurora' && onde !== 'browser') return;
-            electronAPI.docsOpenOffline?.(onde);
-        });
+    if (manual.titulo && electronAPI?.docsStatus) {
+        electronAPI.docsStatus().then(pintarManual).catch(() => pintarManual(null));
     }
+
+    // Dois botoes em vez de uma pergunta. Antes o clique abria um dialogo
+    // perguntando onde abrir, o que e uma pergunta a mais para uma escolha que
+    // a pessoa ja sabe fazer olhando os dois botoes.
+    manual.naAurora?.addEventListener('click', () => electronAPI.docsOpenOffline?.('aurora'));
+    manual.noBrowser?.addEventListener('click', () => electronAPI.docsOpenOffline?.('browser'));
+
+    manual.atualizar?.addEventListener('click', async () => {
+        if (!electronAPI?.docsCheckUpdate) return;
+        const botao = manual.atualizar;
+        botao.disabled = true;
+        try {
+            const r = await electronAPI.docsCheckUpdate();
+            if (r?.updated) {
+                pintarManual({ hasOffline: true, version: r.version });
+                showCardNotification(
+                    tr('modal.settings.manualUpdated').replace('{v}', r.version || ''),
+                    'success', 6000);
+            } else {
+                showCardNotification(tr('modal.settings.manualUpToDate'), 'info', 4000);
+            }
+        } catch (_) {
+            showCardNotification(tr('modal.settings.manualUpdateFailed'), 'warning', 6000);
+        } finally {
+            botao.disabled = false;
+        }
+    });
 
     // Procura documentacao mais nova uma vez por sessao, quando o painel abre.
     // Nao roda na inicializacao para nao competir por rede com o que o usuario
@@ -596,12 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
             updateChecked = true;
             electronAPI.docsCheckUpdate()
                 .then((r) => {
-                    if (!r?.updated || !offlineLink) return;
                     // A copia trocou embaixo do painel ja aberto; reflete agora
                     // para o rotulo nao mentir a versao.
-                    offlineLink.hidden = false;
-                    const m = modalOverlay.querySelector('#about-docs-offline-meta');
-                    if (m && r.version) m.textContent = `versão ${r.version}`;
+                    if (r?.updated) pintarManual({ hasOffline: true, version: r.version });
                 })
                 .catch(() => { /* segue com o que ja tem */ });
         });

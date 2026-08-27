@@ -45,7 +45,9 @@ import { electronAPI } from '../app/electron_api.js';
 import { applyResolved } from './command_overrides.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
+import { lerProgresso } from '../terminal/progress_line.js';
 import { parseVcdHeaderFromContent } from '../wave/vcd_parser.js';
+import { nomesDeDumpEsperados, NOMES_DE_DUMP_COCOTB, dumpEstaFresco } from './dump_guard.js';
 import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
@@ -60,6 +62,10 @@ import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
 import { getSurferInTab } from '../wave/surfer_tab_preference.js';
+import {
+    verilatorTraceRules, defaultScopeRules, rulesFromDumpvars, contarEscopos,
+} from '../wave/verilator_trace_rules.js';
+import { extractFopenReads } from '../wave/fopen_paths.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
@@ -68,7 +74,7 @@ import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_vie
 import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
   validateWaveSelection, resolveWaveSelection,
-  resolveCocotbWaveSelection, parseProjectSources,
+  resolveCocotbWaveSelection, parseProjectSources, buildHierarchyFromFiles,
 } from './wave_signal_validator.js';
 import {
   cmmCompilation, asmCompilation, stageProcessorMemoryFiles,
@@ -89,7 +95,7 @@ import {
 import * as CommandSpec from './command_spec.js';
 import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
-  parseCocotbToplevelDirective,
+  decideCocotbDut,
   isVerilogLikeFile, assertPythonModuleName, safeNamePart,
 } from './compilation_helpers.js';
 import { COCOTB_RUNNER_SOURCE, COCOTB_TESTS_FAILED } from './cocotb_runner_source.js';
@@ -139,6 +145,94 @@ class CompilationModule {
                 });
             }
         }
+    }
+
+    /**
+     * A linha e um contador subindo? Entao ela move a barra e nao vai para o
+     * terminal.
+     *
+     * Um so ponto de decisao para todos os caminhos de saida (Icarus,
+     * Verilator, cocotb, teste de hardware). Antes cada um trazia o seu
+     * reconhecedor, entao um formato novo precisava ser ensinado quatro vezes,
+     * e na pratica era ensinado a um so: o resto continuava despejando uma
+     * linha por atualizacao no terminal.
+     *
+     * @param {string} terminalId
+     * @param {string} linha
+     * @param {string} rotuloPadrao  o que a barra mostra quando a linha nao se nomeia
+     * @returns {boolean} true quando a linha foi consumida pela barra
+     */
+    _consumirProgresso(terminalId, linha, rotuloPadrao) {
+        const p = lerProgresso(linha, { rotuloPadrao });
+        if (!p) return false;
+        this.terminalManager.renderHardwareProgress?.(terminalId, {
+            pct: p.pct,
+            cyc: p.cyc,
+            total: p.total,
+            reads: p.reads,
+            label: p.label,
+            done: p.done,
+        });
+        return true;
+    }
+
+    /**
+     * Um lembrete quando a simulacao comeca com o laptop na bateria.
+     *
+     * Na bateria o Windows corta o clock da CPU, e uma simulacao longa fica
+     * visivelmente mais lenta; quem nao sabe disso conclui que a AURORA e
+     * lenta. Uma linha de dica, no inicio, uma vez por corrida: sem alerta
+     * modal e sem mexer no plano de energia do sistema, que e escolha do
+     * dono da maquina. Num desktop o main responde false e nada aparece.
+     */
+    async _avisarSeNaBateria(terminalId) {
+        try {
+            if (typeof electronAPI.isOnBattery !== 'function') return;
+            if (await electronAPI.isOnBattery()) {
+                this.terminalManager.appendToTerminal(terminalId,
+                    tr('terminal.wave.onBattery'), 'tips');
+            }
+        } catch (_e) { /* dica e cortesia */ }
+    }
+
+    /**
+     * Vigia o tamanho do arquivo de onda enquanto a simulacao roda.
+     *
+     * Recebe os caminhos CANDIDATOS (o nome vem do $dumpfile do testbench, e
+     * a extensao varia por simulador), adota o primeiro que aparecer no disco
+     * e atualiza o pill do twave ate stop() ser chamado. Melhor esforco por
+     * inteiro: falha de stat nao para o vigia nem a simulacao.
+     *
+     * @param {string[]} candidatos caminhos absolutos possiveis do dump
+     * @returns {() => Promise<void>} stop: ultima leitura e marca 'done'
+     */
+    _vigiarTamanhoDoDump(candidatos) {
+        let alvo = null;
+        let vivo = true;
+        const medir = async (final = false) => {
+            try {
+                if (!alvo) {
+                    for (const c of candidatos) {
+                        if (await electronAPI.fileExists(c)) { alvo = c; break; }
+                    }
+                    if (!alvo) return;
+                }
+                const st = await electronAPI.getFileStats(alvo);
+                if (!vivo && !final) return; // stat resolveu depois do stop
+                this.terminalManager.renderDumpSize?.('twave', {
+                    name: alvo.split(/[\\/]/).pop(),
+                    path: alvo,
+                    bytes: st?.size ?? 0,
+                    done: final,
+                });
+            } catch (_e) { /* dump ainda nao existe, ou sumiu no meio */ }
+        };
+        const timer = setInterval(() => { if (vivo) medir(false); }, 700);
+        return async () => {
+            vivo = false;
+            clearInterval(timer);
+            await medir(true);
+        };
     }
 
     async initializeComponentsPath() {
@@ -697,6 +791,23 @@ async _prepareWaveBuildInputs(config, simTopModule, tempBaseDir) {
     const fileSet = new Set(config.synthesizableFiles);
     fileSet.add(tbPath);
 
+    // Os $fopen de leitura do testbench, conferidos ANTES de simular. Um
+    // `define apontando para a pasta antiga do projeto fez um $fopen devolver
+    // 0 e a simulacao rodar 90 segundos lendo entrada vazia, com o $fscanf
+    // reclamando a cada ciclo; o simulador nao tem como avisar antes, a
+    // AURORA tem. So caminhos que resolvem para literal entram (fopen_paths),
+    // porque um aviso errado ensina a ignorar o certo. Aviso, nunca bloqueio:
+    // o dono do testbench pode saber algo que nos nao sabemos.
+    try {
+        const fonteTb = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+        for (const { path: alvo } of extractFopenReads(fonteTb)) {
+            if (!(await electronAPI.fileExists(alvo))) {
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.fopenMissing', { path: alvo }), 'warning');
+            }
+        }
+    } catch (_e) { /* conferencia e cortesia; sem ela a simulacao segue igual */ }
+
     return { fileSet, instrumentedTbPath: tbPath, decision };
 }
 
@@ -831,6 +942,7 @@ async verilogSyntaxCheck() {
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
         this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('verilog', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -965,6 +1077,7 @@ async waveBuildVvp() {
         this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
         this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('verilog', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -1010,6 +1123,9 @@ async runGtkWave() {
         const tools = await resolveWaveToolchain(this.componentsPath);
         let simTopModule = this._waveDeriveSimTopModule(config);
         let vcdFile = null;
+        // Ancora do teste de frescor la embaixo: qualquer dump legitimo desta
+        // corrida tem mtime depois deste instante (folga em dumpEstaFresco).
+        const inicioDaSimulacao = Date.now();
 
         if (isPythonFile(config.testbenchFile)) {
             const cocotbCtx = await this._waveValidateCocotbConfig(config);
@@ -1066,6 +1182,11 @@ async runGtkWave() {
             // in the cwd (_waveSimCwd: the project folder).
             vcdFile = await this._waveResolveVcdFile(simTopModule, simDir);
         }
+        // Defesa 2 (dump_guard.js): o dump tem de ser DESTA corrida. Sem
+        // isto, um escritor que falhe sem exit code, ou um $dumpfile custom
+        // adotado pelo resolver, abre a onda da rodada ANTERIOR como se fosse
+        // nova, que foi exatamente o sintoma do laboratorio.
+        await this._waveExigirDumpNovo(vcdFile, inicioDaSimulacao);
         // Unified header capture, ONE extraction for all four wave paths
         // (iverilog, Verilator, cocotb+iverilog, cocotb+Verilator). Replaces the
         // old per-flow two-pass: the non-cocotb flows used to run a throwaway
@@ -1090,6 +1211,7 @@ async runGtkWave() {
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
         console.error(error);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -1122,40 +1244,20 @@ _waveDeriveSimTopModule(config) {
 }
 
 async _waveValidateCocotbConfig(config) {
-    if (!config.testbenchFile || !isPythonFile(config.testbenchFile)) {
-        throw new Error(tr('error.compilation.cocotbRequiresPythonTb'));
-    }
-
-    // The cocotb DUT, the Verilog module cocotb elaborates and binds `dut` to.
-    // It is NOT inherently the project top-level: a .py can unit-test any
-    // module. Resolution order:
-    //   1. an explicit `# aurora-toplevel: <module>` directive in the .py
-    //      (lets the test target any module; inert outside Aurora);
-    //   2. else the .spf top-level (with a warning, surfaced by the caller).
-    // The chosen module must still be among the compiled sources
-    // (_collectCocotbSources gathers synthesizableFiles + the .spf top-level +
-    // the bundled HDL), or the simulator won't find it.
+    // Quem e o DUT, e o motivo quando nao da: a regra vive em
+    // compilation_helpers.decideCocotbDut, com teste. Aqui fica a leitura do
+    // arquivo (que pode falhar, e ai a diretiva simplesmente nao existe) e a
+    // traducao do motivo. O modulo escolhido ainda precisa estar entre as
+    // fontes compiladas por _collectCocotbSources, ou o simulador nao acha.
     let pySource = '';
-    try {
-        pySource = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
-    } catch { /* unreadable here — fall back to the .spf top-level below */ }
-    const directiveTop = parseCocotbToplevelDirective(pySource);
-
-    let hdlTopModule;
-    let hdlTopFile;
-    let toplevelSource;
-    if (directiveTop) {
-        hdlTopModule = directiveTop;
-        hdlTopFile = config.topLevelFile || '';   // optional when the directive drives the DUT
-        toplevelSource = 'directive';
-    } else {
-        if (!config.topLevelFile || !/\.(v|sv)$/i.test(config.topLevelFile)) {
-            throw new Error(tr('error.compilation.cocotbRequiresTop'));
-        }
-        hdlTopModule = moduleStemFromPath(config.topLevelFile);
-        hdlTopFile = config.topLevelFile;
-        toplevelSource = 'spf';
+    if (config.testbenchFile) {
+        try {
+            pySource = await electronAPI.readFile(config.testbenchFile, { encoding: 'utf8' });
+        } catch { /* ilegivel aqui, cai no topo do .spf abaixo */ }
     }
+    const dut = decideCocotbDut(config, pySource);
+    if (!dut.ok) throw new Error(tr(`error.compilation.${dut.motivo}`));
+    const { hdlTopFile, hdlTopModule, toplevelSource } = dut;
 
     return {
         hdlTopFile,
@@ -1435,7 +1537,31 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     await this._stageProcessorMemoryFilesForCocotb(tools.tempBaseDir, buildDir);
 
     const sources = await this._collectCocotbSources(config);
-    await this._resolveCocotbWaveSelection(ctx, config, sources);
+    const selecao = await this._resolveCocotbWaveSelection(ctx, config, sources);
+    // Sob Verilator a selecao do picker vira regras de escopo num .vlt, como
+    // no fluxo nativo; aqui ele entra pelos argumentos de build, porque o
+    // runner do cocotb recusa um .vlt na lista de fontes. Sem selecao o dump
+    // fica como o cocotb faz nos dois simuladores: tudo a partir do topo.
+    const buildArgs = [...profile.buildArgs];
+    if (profile.sim === 'verilator' && wave && selecao.length > 0) {
+        try {
+            const arvore = await buildHierarchyFromFiles(sources, ctx.hdlTopModule);
+            const regras = verilatorTraceRules(arvore, selecao);
+            if (regras.length) {
+                const vltPath = await electronAPI.joinPath(buildDir, 'aurora_scopes.vlt');
+                await electronAPI.writeFile(vltPath, [
+                    '`verilator_config',
+                    '// Gerado pela AURORA a cada build: a selecao do picker por escopo.',
+                    ...regras,
+                    '',
+                ].join('\n'));
+                buildArgs.unshift(vltPath);
+                const { ligados, desligados } = contarEscopos(arvore, regras);
+                this.terminalManager.appendToTerminal('twave',
+                    tr('terminal.wave.verilatorScopeRules', { on: ligados, off: desligados }), 'info');
+            }
+        } catch (_e) { /* sem o .vlt o dump sai inteiro, como antes */ }
+    }
     const tbDir = await electronAPI.dirname(ctx.testbenchFile);
     const runnerScript = await this._writeCocotbRunnerScript(tools.tempBaseDir);
     const pythonPathSep = ';';
@@ -1450,7 +1576,7 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
         // e do HDL resolvem contra ela, e o dump cai la.
         AURORA_COCOTB_TEST_DIR: this.projectPath || tbDir,
         AURORA_COCOTB_PYTHONPATH: [tbDir, this.projectPath, buildDir].filter(Boolean).join(pythonPathSep),
-        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(profile.buildArgs),
+        AURORA_COCOTB_BUILD_ARGS_JSON: JSON.stringify(buildArgs),
         AURORA_COCOTB_TEST_ARGS_JSON: JSON.stringify([]),
         SIM: profile.sim,
         TOPLEVEL_LANG: 'verilog',
@@ -1482,40 +1608,45 @@ async _waveRunCocotbSimulation(ctx, tools, config, opts = {}) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningCocotb', {
         sim: profile.sim === 'verilator' ? 'Verilator' : 'Icarus',
     }), 'info');
+    await this._avisarSeNaBateria('twave');
     this.terminalManager.appendToTerminal('twave', CommandSpec.formatSpec(spec), 'info', { internal: true });
 
-    // cocotb testbenches log progress as "<name>: N/M samples processed (...)"
-    // via dut._log.info(...). Collapse that climbing counter into the single
-    // updatable hw-progress bar (same widget THTEST uses) instead of echoing
-    // every line raw. Matches regardless of the "<ns> INFO cocotb.<x> " prefix.
-    const COCOTB_PROG_RE = /(\w+):\s*(\d+)\s*\/\s*(\d+)\s+samples\s+processed/i;
+    // Um contador que sobe vira a barra, e nao uma linha por atualizacao. Os
+    // formatos reconhecidos moram no progress_line.js, junto com a regra de
+    // quando NAO engolir a linha; aqui so se decide o que fazer com o que ele
+    // devolve. Ver _consumirProgresso.
     let unsubscribe = null;
     if (typeof electronAPI.onExecSpecStream === 'function') {
         unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
-                const m = line.match(COCOTB_PROG_RE);
-                if (m) {
-                    const cyc = +m[2];
-                    const total = +m[3];
-                    this.terminalManager.renderHardwareProgress?.('twave', {
-                        pct: total ? Math.round((cyc / total) * 100) : 0,
-                        cyc, total, label: m[1], done: cyc >= total,
-                    });
-                    continue;   // consume — don't also echo the raw counter line
-                }
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
     }
 
+    // Mesma blindagem dos fluxos vvp/Verilator (defesa 1 de dump_guard.js).
+    // So no modo wave: o Fast Sim (wave=false) nao escreve dump nenhum.
+    if (wave) {
+        await this._waveExigirDumpGravavel(this.projectPath || tbDir, NOMES_DE_DUMP_COCOTB);
+    }
+
     let code;
+    // O runner do cocotb sob Verilator escreve dump.fst no test_dir (a pasta
+    // do projeto); sob Icarus o nome vem do runner tambem como dump.
+    const pararVigia = this._vigiarTamanhoDoDump([
+        await electronAPI.joinPath(this.projectPath || tbDir, 'dump.fst'),
+        await electronAPI.joinPath(buildDir, 'dump.fst'),
+        await electronAPI.joinPath(this.projectPath || tbDir, 'dump.vcd'),
+    ]);
     try {
         const result = await runSpecStreamed(spec, { consumeEphemeral: true });
         code = result.code;
     } finally {
         if (unsubscribe) unsubscribe();
+        await pararVigia();
     }
     // Two distinct outcomes, deliberately handled differently.
     //
@@ -1617,6 +1748,12 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         await this._stageTestbenchDataFiles(simCwd, config.testbenchFile);
     }
 
+    // Defesa 1 (dump_guard.js): dump da rodada anterior preso ou
+    // somente-leitura aborta AGORA, nomeando o arquivo e a correcao, em vez
+    // de gastar a simulacao para o vvp morrer com um "Unable to open"
+    // perdido no meio da saida.
+    await this._waveExigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
+
     const vvpFile = await electronAPI.joinPath(tools.tempBaseDir, `${simTopModule}.vvp`);
 
     // Single full simulation with vvp -fst → ${simTopModule}.vcd (FST binary
@@ -1626,6 +1763,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // where the +AURORA_HEADER_ONLY plusarg was a no-op and pass 1 ran the FULL
     // simulation twice.
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVvp'), 'info');
+    await this._avisarSeNaBateria('twave');
 
     // Stream sim output to twave live so $display lines from the
     // testbench show up as the simulation progresses. User $display
@@ -1650,6 +1788,10 @@ async _waveRunVvpSimulation(simTopModule, tools) {
     // Guard a ausencia de onExecSpecStream (degrada sem streaming ao vivo)
     //, consistente com os fluxos cocotb e Verilator, que ja checam.
     let unsubscribe = null;
+    // Uma explicacao SO por corrida: o vvp repete "invalid file descriptor"
+    // a cada ciclo de clock quando um $fopen falhou, e mil copias do erro nao
+    // dizem mais que uma. A primeira dispara a dica com a causa e o que fazer.
+    let avisouDescritor = false;
     if (typeof electronAPI.onExecSpecStream === 'function') {
         unsubscribe = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
@@ -1664,11 +1806,23 @@ async _waveRunVvpSimulation(simTopModule, tools) {
                 // of twave entirely avoids the verbose-mode toggle
                 // sync issue altogether.
                 if (isVvpNoise(line)) continue;
+                if (!avisouDescritor && /invalid file descriptor/i.test(line)) {
+                    avisouDescritor = true;
+                    this.terminalManager.appendToTerminal('twave',
+                        tr('terminal.wave.invalidFd'), 'warning');
+                }
+                // Um `$display` de contador escrito pelo aluno no testbench
+                // vira a barra em vez de mil linhas. Ver _consumirProgresso.
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
     }
     let code;
+    const pararVigia = this._vigiarTamanhoDoDump([
+        await electronAPI.joinPath(simCwd, `${simTopModule}.vcd`),
+        await electronAPI.joinPath(simCwd, `${simTopModule}.fst`),
+    ]);
     try {
         const vvpRunSpec = buildVvpRunSpec({
             vvpBin: tools.vvpBin,
@@ -1679,6 +1833,7 @@ async _waveRunVvpSimulation(simTopModule, tools) {
         code = r.code;
     } finally {
         if (unsubscribe) unsubscribe();
+        await pararVigia();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.vvpFailed', { code }));
@@ -1808,7 +1963,7 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
     // comentario acima nunca foi necessario: regra por modulo resolve.
     try {
         const vltPath = await electronAPI.joinPath(tempBaseDir, 'aurora_monitors.vlt');
-        await electronAPI.writeFile(vltPath, [
+        const linhas = [
             '`verilator_config',
             '// Gerado pela AURORA a cada build: expoe os monitores de pilha e',
             '// ULA para o $dumpvars do testbench instrumentado.',
@@ -1817,8 +1972,35 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
             'public_flat_rd -module "stack" -var "fl_full"',
             'public_flat_rd -module "ula" -var "delta_int"',
             'public_flat_rd -module "ula" -var "delta_float"',
-            '',
-        ].join('\n'));
+        ];
+        // O que o usuario pediu para gravar, como regras de escopo. O
+        // Verilator ignora os argumentos do $dumpvars e gravaria a hierarquia
+        // publica inteira; o .vlt e o unico lugar em que ele obedece, e a
+        // granularidade dele e o escopo. As mesmas tres origens do Icarus:
+        // a selecao do picker (Wave Configuration ou .gtkw ativo), os
+        // $dumpvars do proprio testbench (o gerado pelo yanc cita sinal por
+        // sinal), e o padrao $dumpvars(1, tb). Semantica provada em
+        // 22/08/2026, ver verilator_trace_rules.js.
+        const decisao = prep.decision || {};
+        const arvore = decisao.hierarchyTree;
+        let regras = [];
+        if (decisao.source === 'wc' || decisao.source === 'gtkw') {
+            regras = verilatorTraceRules(arvore, decisao.signalsToDump);
+        } else if (decisao.source === 'tb') {
+            const fonteTb = await electronAPI.readFile(prep.instrumentedTbPath, { encoding: 'utf8' });
+            regras = rulesFromDumpvars(arvore, fonteTb);
+        } else if (decisao.source === 'default') {
+            regras = defaultScopeRules(arvore);
+        }
+        if (regras.length) {
+            linhas.push('// O pedido do usuario por escopo: a ordem importa, a ultima regra vence.');
+            linhas.push(...regras);
+            const { ligados, desligados } = contarEscopos(arvore, regras);
+            this.terminalManager.appendToTerminal('twave',
+                tr('terminal.wave.verilatorScopeRules', { on: ligados, off: desligados }), 'info');
+        }
+        linhas.push('');
+        await electronAPI.writeFile(vltPath, linhas.join('\n'));
         buildSources.push(vltPath);
     } catch (_e) { /* sem .vlt os monitores so ficam de fora do FST Verilator */ }
     // Builder monta tokens individuais (sem aspas, sem shell). Executor
@@ -1850,7 +2032,11 @@ async _waveBuildVerilator(simTopModule, tempBaseDir, config, tools) {
         buildUnsub = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
-                if (line.trim()) this.terminalManager.appendToTerminal('twave', line, 'raw');
+                if (!line.trim()) continue;
+                // O make que o Verilator dispara conta em "[ 42%]". Uma barra
+                // subindo diz o mesmo que as dezenas de linhas, e diz melhor.
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progressBuild'))) continue;
+                this.terminalManager.appendToTerminal('twave', line, 'raw');
             }
         });
     }
@@ -1897,7 +2083,11 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         await this._stageTestbenchDataFiles(simCwd, config.testbenchFile);
     }
 
+    // Mesma blindagem do fluxo vvp (defesa 1 de dump_guard.js).
+    await this._waveExigirDumpGravavel(simCwd, nomesDeDumpEsperados(simTopModule));
+
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.runningVerilator'), 'plain');
+    await this._avisarSeNaBateria('twave');
 
     // Full sim. Stream output pro twave live (igual vvp).
     const isVvpNoise = (line) => {
@@ -1930,11 +2120,16 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
             for (const line of payload.data.split(/\r?\n/)) {
                 if (!line.trim()) continue;
                 if (isVvpNoise(line)) continue;
+                if (this._consumirProgresso('twave', line, tr('terminal.wave.progress'))) continue;
                 this.terminalManager.appendToTerminal('twave', line, isVerilatorReport(line) ? 'plain' : 'raw');
             }
         });
     }
     let code;
+    const pararVigia = this._vigiarTamanhoDoDump([
+        await electronAPI.joinPath(simCwd, `${simTopModule}.vcd`),
+        await electronAPI.joinPath(simCwd, `${simTopModule}.fst`),
+    ]);
     try {
         // PATH precisa incluir bundle mingw64+usr bin: o .exe gerado pelo
         // Verilator linka dinamicamente contra libstdc++-6.dll / libgcc /
@@ -1951,6 +2146,7 @@ async _waveRunVerilatorSimulation(simTopModule, tools, exePath) {
         code = r.code;
     } finally {
         if (unsubscribe) unsubscribe();
+        await pararVigia();
     }
     if (code !== 0) {
         throw new Error(tr('error.compilation.verilatorRunFailed', { code }));
@@ -2057,6 +2253,7 @@ async runFastSim() {
     } catch (error) {
         this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
         console.error(error);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -2252,15 +2449,14 @@ async verilatorProcessorRun() {
     });
     this.terminalManager.appendToTerminal(T, CommandSpec.formatSpec(runProcSpec), 'info', { internal: true });
 
-    // O harness imprime "@@AURORA_PROG <cyc> <nclk> <reads>" no stdout a
-    // cada ~1% dos clocks (com fflush). A gente consome essas linhas pra
-    // mover a barra ASCII inline e NAO as ecoa; o resto do stdout (relatorio
-    // do Verilator, etc) vai como plain (so no verbose).
-    // @@AURORA_PROG move a barra; @@AURORA_CHEGUEI <clock> sinaliza que o
-    // pino `cheguei` (#TOAQUI) encerrou a sim, guardamos o clock pra avisar
-    // o usuario. Ambos sao consumidos (nao ecoados); o resto do stdout vai
-    // como plain (so no verbose).
-    const PROG_RE = /^@@AURORA_PROG\s+(\d+)\s+(\d+)\s+(\d+)/;
+    // O harness imprime "@@AURORA_PROG <cyc> <nclk> <reads>" no stdout a cada
+    // ~1% dos clocks (com fflush). Essas linhas movem a barra e NAO sao
+    // ecoadas; o formato mora no progress_line.js, junto com os demais, e a
+    // barra e alimentada pelo mesmo _consumirProgresso dos outros caminhos.
+    // O @@AURORA_CHEGUEI <clock> nao e progresso e sim o fim: o pino `cheguei`
+    // (#TOAQUI) encerrou a simulacao, e guardamos o clock para avisar o
+    // usuario. Tambem e consumido; o resto do stdout vai como plain (so no
+    // verbose).
     const CHEGUEI_RE = /^@@AURORA_CHEGUEI\s+(\d+)/;
     const execLabel = tr('terminal.htest.exec');
     let chegueiClock = null;
@@ -2270,14 +2466,15 @@ async verilatorProcessorRun() {
         unsub = electronAPI.onExecSpecStream((payload) => {
             if (!payload || !payload.data) return;
             for (const line of payload.data.split(/\r?\n/)) {
-                const m = line.match(PROG_RE);
-                if (m) {
-                    const cyc = +m[1];
-                    const total = +m[2] || numClocks;
-                    const reads = +m[3];
-                    lastReads = reads;
-                    const pct = total ? Math.round((cyc / total) * 100) : 0;
-                    this.terminalManager.renderHardwareProgress?.(T, { pct, cyc, total, reads, label: execLabel });
+                const p = lerProgresso(line, { rotuloPadrao: execLabel });
+                if (p) {
+                    // O total do harness manda; numClocks e a reserva para o
+                    // caso de ele imprimir zero.
+                    if (p.reads != null) lastReads = p.reads;
+                    this.terminalManager.renderHardwareProgress?.(T, {
+                        pct: p.pct, cyc: p.cyc, total: p.total || numClocks,
+                        reads: p.reads, label: execLabel,
+                    });
                     continue;
                 }
                 const ch = line.match(CHEGUEI_RE);
@@ -2508,6 +2705,55 @@ async _waveResolveVcdFile(simTopModule, simDir) {
         `${detail}\n` +
         `Aurora looks for a .fst (or .vcd) named after the testbench module.`,
     );
+}
+
+/**
+ * Defesa 1 de dump_guard.js: cada nome em `nomes` que JA exista em `simDir`
+ * precisa aceitar abertura em escrita, o mesmo acesso que o simulador vai
+ * pedir ao sobrescrever. O veredito vem do IPC file:check-writable (um open
+ * 'r+' que nao altera nada). Medido no Windows real: viewer prendendo o
+ * arquivo devolve EBUSY; somente-leitura/politica devolve EPERM. Teste de
+ * ESCRITA de proposito, nunca de delecao: o GTKWave aberto bloqueia deletar
+ * mas nao sobrescrever, e um pre-delete acusaria erro num caso que simularia
+ * normalmente.
+ *
+ * Inputs:  simDir (cwd da simulacao), nomes (basenames de dump esperados)
+ * Throws:  quando um dump existente esta bloqueado para escrita; a mensagem
+ *          separa EBUSY (feche o viewer) do resto (destrave o arquivo).
+ *          Falha do proprio IPC nao bloqueia (fail-open): a defesa primaria
+ *          continua sendo o exit code do simulador.
+ */
+async _waveExigirDumpGravavel(simDir, nomes) {
+    if (typeof electronAPI.checkFileWritable !== 'function') return;
+    for (const nome of nomes) {
+        let veredito = null;
+        try {
+            const alvo = await electronAPI.joinPath(simDir, nome);
+            veredito = await electronAPI.checkFileWritable(alvo);
+        } catch (_) { continue; }
+        if (!veredito || !veredito.exists || veredito.writable) continue;
+        const chave = veredito.code === 'EBUSY'
+            ? 'error.compilation.dumpLockedBusy'
+            : 'error.compilation.dumpLockedDenied';
+        throw new Error(tr(chave, { file: nome, code: veredito.code || '?' }));
+    }
+}
+
+/**
+ * Defesa 2 de dump_guard.js: o dump resolvido precisa ser DESTA corrida.
+ * `inicioMs` vem de runGtkWave, capturado antes de qualquer build/sim; um
+ * mtime anterior a ele (com a folga de dumpEstaFresco) significa que o
+ * simulador NAO reescreveu o arquivo e o que esta ali e onda velha.
+ *
+ * Inputs:  vcdFile (path absoluto do dump resolvido), inicioMs (Date.now())
+ * Throws:  quando o dump e de uma corrida anterior. Stat quebrado nao
+ *          bloqueia (fail-open), mesmo racional da defesa 1.
+ */
+async _waveExigirDumpNovo(vcdFile, inicioMs) {
+    let stats = null;
+    try { stats = await electronAPI.getFileStats(vcdFile); } catch (_) { return; }
+    if (dumpEstaFresco(stats ? stats.mtime : NaN, inicioMs)) return;
+    throw new Error(tr('error.compilation.dumpStale', { file: basenameOfPath(vcdFile) }));
 }
 
 /**
@@ -2793,7 +3039,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  *
  * Surfer (https://surfer-project.org/) is a Rust/egui waveform viewer that
  * reads the same VCD/FST. Aurora treats it as an optional standalone
- * surfer-aurora.exe under components/Packages/surfer/ (the NIPSCERN fork
+ * surfer-aurora.exe under components/Packages/surfer/ (the NIPS-CERN fork
  * build, gitlab.com/nips-cern/surfer-aurora). It opens as an external
  * window on the VCD, loading the active Surfer layout when one is set: a
  * .surf.ron saved state (via -s) or a .sucl command file (via -c). If the

@@ -28,7 +28,7 @@ and shipped in the installer; they are not part of the source tree.
 |---|---|---|
 | Icarus Verilog (`iverilog`/`vvp`) | Verilog compilation + simulation | GNU GPL v2 |
 | GTKWave (nipscern fork) | Waveform viewer + `fst2vcd`/`vcd2fst` | GNU GPL v2 |
-| Surfer, fork NIPSCERN [`surfer-aurora`](https://gitlab.com/nips-cern/surfer-aurora), derivado de [surfer-project/surfer](https://gitlab.com/surfer-project/surfer) | Waveform viewer (Rust) | EUPL-1.2 (fork publico) |
+| Surfer, fork NIPS-CERN [`surfer-aurora`](https://gitlab.com/nips-cern/surfer-aurora), derivado de [surfer-project/surfer](https://gitlab.com/surfer-project/surfer) | Waveform viewer (Rust) | EUPL-1.2 (fork publico) |
 | Yosys (+ ABC) | RTL synthesis (PRISM) | ISC (Yosys) · MIT-style (ABC, UC Berkeley) |
 | Verilator | Fast Verilog simulation | LGPL-3.0 or Artistic-2.0 |
 | Python + cocotb | Cocotb test flow | PSF (Python) · BSD-3-Clause (cocotb) |
@@ -68,6 +68,21 @@ and shipped in the installer; they are not part of the source tree.
 | Metamorphous, by James Grieshaber (the "Dagr" wordmark) | SIL Open Font License 1.1 |
 | Noto Sans Runic, by Google (the Dagaz rune) | SIL Open Font License 1.1 |
 | Simple Icons (brand marks of the twelve mail providers offered) | CC0 1.0. The marks themselves belong to their services (Google, Microsoft, Proton AG, Yandex, Apple, Zoho, GMX, AOL, VK, Tuta, 37signals, Mozilla); they appear only to identify each service in the bug-report picker. |
+| Component brand marks shown in Settings, Components | Each mark belongs to its project and appears only to identify the component it names: MSYS2 (msys2/msys2.github.io, web/logo.svg), Verible (chipsalliance/verible, img/verible-logo.svg), LLVM, for clang-format (the wyvern, from devicons/devicon), slang (the favicon published at sv-lang.com). No mark was redrawn or altered. |
+
+## Data
+
+| Dataset | License |
+|---|---|
+| HYG Stellar Database (Hipparcos, Yale and Gliese combined), by David Nash, [astronexus.com/projects/hyg](https://astronexus.com/projects/hyg) | CC BY-SA 4.0 |
+
+The sky on the splash screen is this catalogue drawn as it is: 5,044 stars down
+to magnitude 6, each at its catalogued position, with its catalogued brightness
+and the colour its B-V index implies. It ships as `assets/data/hyg-mag6.bin`,
+30 KB, taken in the packed form d3-celestial distributes, cut to magnitude 6 and
+reduced to six bytes a star. Cutting and repacking makes it an adapted database,
+so that one file travels under CC BY-SA 4.0 rather than under the AURORA licence,
+and anything redistributing it carries the same terms forward.
 
 ---
 

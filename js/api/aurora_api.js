@@ -62,6 +62,7 @@ import {
 // Achatar a hierarquia mora ao lado de quem a constroi (buildHierarchyTree), e
 // nao aqui: e a operacao irma dela, e enterrada neste arquivo nao tinha teste.
 import { flattenSignalPaths } from '../wave/signal_parser.js';
+import { buildCustomGtkw } from '../wave/gtkw_custom.js';
 
 import { memorySlug } from '../ai/memory.js';
 
@@ -576,7 +577,18 @@ const terminalNs = {
     try {
       const res = await st.runCommand(command, { execute });
       if (!res?.ok) return err(res?.error || 'shell command failed');
-      return ok({ command: res.command, executed: res.executed, output: res.output ?? '' });
+      // `complete:false` means the capture hit its cap while the shell was
+      // still talking: the output is a prefix and the command may still be
+      // running. Say so explicitly, so the model never mistakes a truncated
+      // log for a finished one.
+      const complete = res.executed ? res.complete !== false : true;
+      return ok({
+        command: res.command,
+        executed: res.executed,
+        complete,
+        output: res.output ?? '',
+        ...(complete ? {} : { note: 'output truncated: the command was still producing output when the capture window closed and may still be running; check the TCMD terminal before assuming it finished' }),
+      });
     } catch (e) {
       return err(e?.message || 'shell command failed');
     }
@@ -2373,6 +2385,47 @@ const waveNs = {
   },
 
   /**
+   * Escreve um .gtkw com os sinais pedidos e registra para o testbench ativo.
+   *
+   * O irmao do `createSurferLayout`, do lado do GTKWave. Ate aqui dava para
+   * registrar um .gtkw que ja existisse no disco (`addGtkwFile`), nunca para
+   * criar um: quem quisesse um layout proprio tinha que abrir o GTKWave,
+   * montar a vista na mao e salvar. O layout AUTOMATICO continua sendo outra
+   * coisa, e continua sendo o padrao (ver ARCHITECTURE secao 9): este caminho
+   * e o do pedido explicito, quando ja se sabe quais sinais olhar.
+   *
+   * O formato fica no `gtkw_custom.js`, que e puro e testado; aqui so se
+   * resolve o caminho, escreve e registra.
+   *
+   * @param {{
+   *   name: string,
+   *   signals: Array<string|{path:string, radix?:string, group?:string}>,
+   *   setActive?: boolean,
+   * }} p
+   */
+  async createGtkwLayout({ name, signals, setActive = true } = {}) {
+    if (!name) return err('name required');
+    const projectPath = window.ProjectStore?.getProjectPath?.();
+    if (!projectPath) return err('No project open');
+
+    const { conteudo, sinais, ignorados } = buildCustomGtkw({ signals });
+    if (!sinais) {
+      return err('signals required — one signal path per entry, e.g. "tb.dut.acc"');
+    }
+
+    const base = String(name).replace(/[^\w.-]+/g, '_').replace(/\.gtkw$/i, '');
+    const alvo = await electronAPI.joinPath(projectPath, `${base}.gtkw`);
+    try { await electronAPI.writeFile(alvo, conteudo); }
+    catch (e) { return err(`Could not write ${alvo}: ${e?.message || e}`); }
+
+    // Por `waveNs`, e nao por `this`: o tool_runner chama os metodos de
+    // namespace como funcao solta, entao `this` chegaria indefinido.
+    const add = await waveNs.addGtkwFile({ filePath: alvo, setActive });
+    if (!add?.ok) return add;
+    return ok({ filePath: alvo, signals: sinais, ignored: ignorados, isActive: !!setActive });
+  },
+
+  /**
    * Mark one of the registered .gtkw files as active (the one that
    * GTKWave will open). Pass `null` / no path to revert to the default
    * (Aurora auto-generates a layout).
@@ -2860,6 +2913,98 @@ function readSettingsStore() {
   catch (_) { return {}; }
 }
 
+/* ============================================================
+ *  Projetos de exemplo
+ *
+ *  Os cinco projetos prontos que o botao da tela inicial cria. A IA precisa
+ *  deles por dois motivos. Primeiro, para responder "o que eu posso estudar
+ *  aqui?" sem inventar: a lista sai do catalogo, com o que cada um ensina e
+ *  qual processador traz. Segundo, para levar o aluno do assunto ate o codigo
+ *  rodando, que hoje exige achar um botao que ele talvez nao saiba que existe.
+ *
+ *  `install` NAO recebe caminho de proposito. Ela chama o mesmo canal do botao,
+ *  que abre o seletor de pasta do sistema, entao quem decide onde os arquivos
+ *  nascem continua sendo a pessoa. Uma ferramenta de IA que escrevesse cinco
+ *  projetos num caminho escolhido pelo modelo seria uma escrita em disco sem
+ *  dono, e o ganho de conveniencia nao paga isso.
+ * ========================================================== */
+const examplesNs = {
+  /**
+   * O catalogo dos exemplos: chave, nome, resumo, linguagem, e os
+   * processadores que cada um traz.
+   */
+  async list() {
+    try {
+      const r = await electronAPI.exemplosListar?.();
+      if (!r?.ok) return err(r?.erro || 'Could not read the example catalogue');
+      return ok({ examples: r.exemplos || [] });
+    } catch (e) { return err(e?.message || 'list examples failed'); }
+  },
+
+  /**
+   * Cria os cinco numa pasta que o usuario escolhe, e devolve o caminho do
+   * `.spf` de cada um, que e o que `project.openProject` precisa em seguida.
+   *
+   * Cancelar o seletor nao e erro: devolve `cancelled: true`.
+   */
+  async install() {
+    try {
+      const r = await electronAPI.exemplosInstalar?.();
+      if (!r?.ok) return err(r?.erro || 'Could not create the example projects');
+      if (r.cancelado) return ok({ cancelled: true, created: [], skipped: [] });
+      return ok({
+        cancelled: false,
+        folder: r.pasta,
+        created: r.criados || [],
+        skipped: r.pulados || [],
+      });
+    } catch (e) { return err(e?.message || 'install examples failed'); }
+  },
+};
+
+/* ============================================================
+ *  O manual do SAPHO
+ *
+ *  O manual responde boa parte do que um aluno pergunta, e ate agora a IA nao
+ *  sabia que ele existia. Despejar o conteudo no prompt nao e opcao: sao 1,2 MB
+ *  de texto, mais do que a janela de varios modelos e caro em todos. Entao ela
+ *  usa o mesmo caminho de uma pessoa, procurar e ler so a pagina que interessa.
+ *
+ *  Nenhuma das duas recebe pasta. O processo principal decide onde o manual
+ *  esta, entre a copia atualizada e a que veio no instalador, e o modelo
+ *  escolhe apenas o que procurar e qual pagina abrir.
+ * ========================================================== */
+const manualNs = {
+  /**
+   * Procura no manual e devolve as paginas mais proximas, com um trecho de
+   * cada uma. Acento na consulta e opcional.
+   */
+  async search(query, options) {
+    try {
+      const r = await electronAPI.docsBuscar?.(query, options || {});
+      if (!r?.ok) return err(r?.erro || 'Manual search failed');
+      return ok({ results: r.resultados || [], online: r.online });
+    } catch (e) { return err(e?.message || 'manual search failed'); }
+  },
+
+  /** O texto de uma pagina do manual, pelo caminho que a busca devolveu. */
+  async read(pagePath, options) {
+    try {
+      const r = await electronAPI.docsLer?.(pagePath, options || {});
+      if (!r?.ok) return err(r?.erro || 'Manual page not found');
+      return ok({ path: r.caminho, title: r.titulo, text: r.texto, truncated: r.truncado });
+    } catch (e) { return err(e?.message || 'manual read failed'); }
+  },
+
+  /** O manual esta instalado nesta maquina, e em que versao. */
+  async status() {
+    try {
+      const r = await electronAPI.docsStatus?.();
+      return ok(r || null);
+    } catch (e) { return err(e?.message || 'manual status failed'); }
+  },
+};
+
 const settingsNs = {
   /** Snapshot of every user-facing setting Aurora exposes. */
   async getAll() {
@@ -2989,6 +3134,7 @@ const NAMESPACES = Object.freeze({
     setActiveGtkwFile:  'Pick which registered .gtkw file GTKWave loads',
     removeGtkwFile:     'Drop a .gtkw file from the active testbench list',
     createSurferLayout: 'Write a .sucl Surfer layout and register it for the testbench',
+    createGtkwLayout: 'Write a .gtkw layout from a signal list and register it for the testbench',
     listSurferFiles:    'List Surfer layouts (.surf.ron/.sucl) registered for the active testbench',
     findSurferFiles:    'Find Surfer layout files (.surf.ron/.sucl) in the project by name',
     useSurferByName:    'Locate a Surfer layout by name and set it active for the testbench in one step',
@@ -3001,6 +3147,15 @@ const NAMESPACES = Object.freeze({
     setViewer:          'Switch the waveform viewer (gtkwave external window | surfer embedded)',
     getSurferMultiWindow: 'Whether Surfer keeps multiple windows open (false = single window, default)',
     setSurferMultiWindow: 'Enable/disable multiple Surfer windows to compare runs ({ enabled: boolean })',
+  },
+  examples: {
+    list:    'The five ready-made example projects: what each one teaches and which processor it carries',
+    install: 'Create all five in a folder the user picks, and return the .spf path of each',
+  },
+  manual: {
+    search: 'Search the offline SAPHO manual and get the closest pages with a snippet of each',
+    read:   'Read one page of the manual as plain text, by the path search returned',
+    status: 'Whether the manual is installed on this machine, and which version',
   },
   settings: {
     getAll: 'Snapshot of every user-facing IDE setting',
@@ -3070,6 +3225,8 @@ export function initAuroraAPI() {
     compile:  Object.freeze(compileNs),
     wave:     Object.freeze(waveNs),
     rules:    Object.freeze(rulesNs),
+    examples: Object.freeze(examplesNs),
+    manual:   Object.freeze(manualNs),
     settings: Object.freeze(settingsNs),
     ui:       Object.freeze(uiNs),
     ai:       Object.freeze(aiNs),

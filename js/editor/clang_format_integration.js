@@ -18,6 +18,14 @@ const CLANG_LANGS = ['c', 'cpp', 'cmm'];
 
 let initialized = false;
 
+/** The formatter was killed on its deadline: tell the user, do not pretend. */
+function avisarPrazo() {
+  const msg = window.t
+    ? window.t('editor.formatTimeout')
+    : 'Formatting gave up: clang-format did not finish in time. The file was left as it was.';
+  try { window.showNotification?.(msg, 'warning'); } catch (_) { /* ignore */ }
+}
+
 export function initClangFormat() {
   if (initialized) return;
   if (typeof window === 'undefined' || !window.clangFormatAPI) return;
@@ -32,11 +40,16 @@ export function initClangFormat() {
         async provideDocumentFormattingEdits(model) {
           const text = model.getValue();
           const filePath = model.uri.scheme === 'file' ? model.uri.fsPath : '';
-          const formatted = await window.clangFormatAPI.format(model.getLanguageId(), filePath, text);
-          if (typeof formatted !== 'string' || formatted === text) return [];
+          const r = await window.clangFormatAPI.format(model.getLanguageId(), filePath, text);
+          if (!r || !r.ok) {
+            // Giving up silently looked exactly like "already formatted".
+            if (r && r.reason === 'timeout') avisarPrazo();
+            return [];
+          }
+          if (typeof r.text !== 'string' || r.text === text) return [];
           // Single full-document replace, clang-format returns the whole
           // formatted buffer, not a diff.
-          return [{ range: model.getFullModelRange(), text: formatted }];
+          return [{ range: model.getFullModelRange(), text: r.text }];
         },
       });
     }

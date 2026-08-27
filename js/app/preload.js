@@ -24,6 +24,8 @@ const fileOperations = {
   copyFile:        (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
 
   getFileStats:    (p) => ipcRenderer.invoke('get-file-stats', p),
+  isOnBattery:     () => ipcRenderer.invoke('system:on-battery'),
+  openPowerSettings: () => ipcRenderer.invoke('system:open-power-settings'),
   getFileSizeLive: (p) => ipcRenderer.invoke('get-file-size-live', p),
   fileExists:      (p) => ipcRenderer.invoke('file-exists', p),
 
@@ -36,6 +38,8 @@ const fileOperations = {
 
   deleteFile:             (p) => ipcRenderer.invoke('delete-file', p),
   deleteFileOrDirectory:  (p) => ipcRenderer.invoke('file:delete', p),
+  // O dump da simulacao pode ser sobrescrito? (viewer/antivirus/readonly)
+  checkFileWritable:      (p) => ipcRenderer.invoke('file:check-writable', p),
 
   // Desfazer da arvore (js/tree/tree_history.js). O que a arvore remove vai
   // para uma area de espera em vez da Lixeira, porque de la da para voltar;
@@ -69,6 +73,10 @@ const fileOperations = {
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
   docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
+  // Procurar e ler o manual, para a Aurora Intelligence. Nenhuma das duas
+  // recebe pasta: quem resolve onde o manual esta e o processo principal.
+  docsBuscar: (consulta, opcoes) => ipcRenderer.invoke('docs:buscar', consulta, opcoes),
+  docsLer: (caminho, opcoes) => ipcRenderer.invoke('docs:ler', caminho, opcoes),
 
   // Sair do GitHub e apagar o que ficou na maquina (main/ipc/github_forget.js).
   // Nao devolve credencial nenhuma: so o relatorio do que foi removido.
@@ -91,6 +99,12 @@ const fileOperations = {
   componentesRemover:   (chave) => ipcRenderer.invoke('componentes:remover', chave),
   componentesInstalado: (chave) => ipcRenderer.invoke('componentes:instalado', chave),
   componentesAbrirPasta: () => ipcRenderer.invoke('componentes:abrirPasta'),
+
+  // Projetos de exemplo (main/exemplos/instalar.js). `instalar` NAO recebe
+  // caminho: quem pergunta onde e o processo principal, que e o dono do
+  // dialogo nativo, entao o botao da interface so precisa chamar.
+  exemplosListar: () => ipcRenderer.invoke('exemplos:listar'),
+  exemplosInstalar: () => ipcRenderer.invoke('exemplos:instalar'),
   // O doctor: limpa caches, diagnostica pelos arquivos-chave e re-baixa o que
   // estiver quebrado. Demorado quando conserta algo; o progresso chega pelo
   // mesmo canal componentes:progresso.
@@ -149,6 +163,20 @@ const projectOperations = {
 
   createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
   listRecentProjects: () => ipcRenderer.invoke('list-recent-projects'),
+  // Localizar recentes sumidos: uma varredura para varios alvos, resultados
+  // por evento (found / progress / done), cancelavel.
+  locateRecentsStart:  (targets) => ipcRenderer.invoke('recents:locate-start', targets),
+  locateRecentsCancel: () => ipcRenderer.invoke('recents:locate-cancel'),
+  onRecentsLocate: (cb) => {
+    const mk = (type) => (_e, data) => { try { cb({ type, ...data }); } catch (_) { /* ignore */ } };
+    const hs = [
+      ['recents:locate-found', mk('found')],
+      ['recents:locate-progress', mk('progress')],
+      ['recents:locate-done', mk('done')],
+    ];
+    for (const [ch, h] of hs) ipcRenderer.on(ch, h);
+    return () => { for (const [ch, h] of hs) ipcRenderer.removeListener(ch, h); };
+  },
 
   // Listeners
   onProcessorCreated:   (cb) => ipcRenderer.on('processor:created', (_, data) => cb(data)),
@@ -248,6 +276,15 @@ const uiOperations = {
   windowMaximizeToggle: () => ipcRenderer.send('window:maximize-toggle'),
   windowClose:          () => ipcRenderer.send('window:close'),
   windowGetState:       () => ipcRenderer.invoke('window:get-state'),
+  // Tecla interceptada no main antes de chegar a pagina (hoje so Ctrl+W, ver
+  // main/windows.js). Chega aqui como o atalho chegaria por keydown, para o
+  // shortcut_manager tratar pelo mesmo caminho, inclusive quando o foco esta
+  // num iframe que o documento principal nao enxerga.
+  onTecla: (cb) => {
+    const h = (_e, tecla) => cb(tecla);
+    ipcRenderer.on('aurora:tecla', h);
+    return () => ipcRenderer.removeListener('aurora:tecla', h);
+  },
   onWindowState: (cb) => {
     const handler = (_e, state) => cb(state);
     ipcRenderer.on('window-state', handler);
@@ -669,6 +706,22 @@ const gitOperations = {
   githubCreateRepo: (opts) => ipcRenderer.invoke('github:create-repo', opts),
   githubOauthConfigured: () => ipcRenderer.invoke('github:oauth-configured'),
   githubOauthLogin: () => ipcRenderer.invoke('github:oauth-login'),
+  githubOauthCancel: () => ipcRenderer.invoke('github:oauth-cancel'),
+  // GitLab: so token pessoal, e a instancia entra junto (o laboratorio tem
+  // grupo no gitlab.com, e uma universidade pode subir a propria).
+  gitlabListRepos:   () => ipcRenderer.invoke('gitlab:list-repos'),
+  gitlabStatus:      () => ipcRenderer.invoke('gitlab:status'),
+  gitlabConnect:     (opts) => ipcRenderer.invoke('gitlab:connect', opts),
+  gitlabDisconnect:  () => ipcRenderer.invoke('gitlab:disconnect'),
+  gitlabCreateRepo:  (opts) => ipcRenderer.invoke('gitlab:create-repo', opts),
+  gitlabOauthConfigured: () => ipcRenderer.invoke('gitlab:oauth-configured'),
+  gitlabOauthLogin:  (opts) => ipcRenderer.invoke('gitlab:oauth-login', opts),
+  gitlabOauthCancel: () => ipcRenderer.invoke('gitlab:oauth-cancel'),
+  onGitlabOauthCode: (cb) => {
+    const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
+    ipcRenderer.on('gitlab:oauth-code', h);
+    return () => ipcRenderer.removeListener('gitlab:oauth-code', h);
+  },
   onGithubOauthCode: (cb) => {
     const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
     ipcRenderer.on('github:oauth-code', h);

@@ -88,4 +88,4 @@ function buildPromptSuffix(attachments, opts = {}) {
   return out.join('');
 }
 
-module.exports = { writeTempImage, buildPromptSuffix, cleanupTempImages, ATT_DIR };
+module.exports = { buildPromptSuffix, cleanupTempImages, ATT_DIR };

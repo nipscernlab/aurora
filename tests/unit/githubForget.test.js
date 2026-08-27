@@ -12,9 +12,9 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { alvoEhDoGitHub, HOSTS } from '../../main/ipc/github_forget.js';
+import { alvoEhDeForja, HOSTS, HOSTS_GITLAB } from '../../main/ipc/github_forget.js';
 
-describe('alvoEhDoGitHub', () => {
+describe('alvoEhDeForja', () => {
     it('reconhece as formas que o Git Credential Manager cria', () => {
         for (const alvo of [
             'git:https://github.com',
@@ -23,18 +23,16 @@ describe('alvoEhDoGitHub', () => {
             'git:https://gist.github.com',
             'LegacyGeneric:target=git:https://github.com',
         ]) {
-            expect(alvoEhDoGitHub(alvo), alvo).toBe(true);
+            expect(alvoEhDeForja(alvo), alvo).toBe(true);
         }
     });
 
     it('nao confunde maiuscula com minuscula', () => {
-        expect(alvoEhDoGitHub('git:https://GitHub.com')).toBe(true);
+        expect(alvoEhDeForja('git:https://GitHub.com')).toBe(true);
     });
 
     it('NAO pega o que nao e do GitHub', () => {
         for (const alvo of [
-            'git:https://gitlab.com',
-            'gitlab.com',
             'git:https://bitbucket.org',
             'MicrosoftOffice16_Data:ADAL:x',
             'Domain:target=servidor.ufjf.br',
@@ -42,17 +40,29 @@ describe('alvoEhDoGitHub', () => {
             'notgithub.com',
             'meugithub.com',
         ]) {
-            expect(alvoEhDoGitHub(alvo), alvo).toBe(false);
+            expect(alvoEhDeForja(alvo), alvo).toBe(false);
         }
     });
 
     it('nao quebra com entrada vazia ou invalida', () => {
         for (const alvo of ['', null, undefined, 0, {}]) {
-            expect(alvoEhDoGitHub(alvo)).toBe(false);
+            expect(alvoEhDeForja(alvo)).toBe(false);
         }
+    });
+
+    it('desde 23/08/2026 pega tambem o GitLab, que virou forja conhecida', () => {
+        for (const alvo of ['gitlab.com', 'git:https://gitlab.com', 'https://GitLab.com']) {
+            expect(alvoEhDeForja(alvo), alvo).toBe(true);
+        }
+    });
+
+    it('o sufixo forjado nao passa nem para o GitLab', () => {
+        expect(alvoEhDeForja('git:https://gitlab.com.exemplo.net')).toBe(false);
+        expect(alvoEhDeForja('meugitlab.com')).toBe(false);
     });
 
     it('a lista de hosts e restrita, e nao um curinga', () => {
         expect(HOSTS.every((h) => h.endsWith('github.com'))).toBe(true);
+        expect(HOSTS_GITLAB).toEqual(['gitlab.com']);
     });
 });

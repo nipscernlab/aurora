@@ -18,8 +18,8 @@
  *
  * O QUE É APAGADO
  * ---------------
- *   1. O cofre da AURORA (`userData/aurora-github.json`), que guarda o token
- *      cifrado e o perfil.
+ *   1. Os cofres da AURORA (`userData/aurora-github.json` e
+ *      `aurora-gitlab.json`), que guardam o token cifrado e o perfil.
  *   2. A credencial do host, pelo protocolo do próprio git (`git credential
  *      reject`). É o caminho correto porque conversa com QUALQUER helper que a
  *      máquina tenha configurado, seja o manager, o store ou o cache, em vez de
@@ -31,10 +31,12 @@
  *
  * O QUE NÃO É APAGADO, E POR QUÊ
  * ------------------------------
- * Só entra o que é do GitHub. Um `cmdkey /delete` largo apagaria a credencial
- * do Office, da rede da universidade e do que mais estivesse ali, e uma
- * ferramenta de limpeza que leva junto o que não é dela é pior que não ter
- * ferramenta.
+ * Só entra o que é das forjas que a AURORA conhece: os hosts do GitHub, o
+ * gitlab.com, e a instância GitLab que o usuário conectou, quando é própria.
+ * A instância própria entra pelo que está guardado, nunca por curinga. Um
+ * `cmdkey /delete` largo apagaria a credencial do Office, da rede da
+ * universidade e do que mais estivesse ali, e uma ferramenta de limpeza que
+ * leva junto o que não é dela é pior que não ter ferramenta.
  *
  * `user.name` e `user.email` do git também ficam: são identidade de autoria, e
  * não credencial. Apagá-los não protege ninguém e quebraria o próximo commit.
@@ -57,9 +59,34 @@ const { app, ipcMain } = require('electron');
 const log = require('electron-log');
 
 const githubAuth = require('./github_auth');
+let gitlabAuth = null;
+try { gitlabAuth = require('./gitlab_auth'); } catch (_) { /* opcional */ }
 
 /** Hosts tratados como "do GitHub". */
 const HOSTS = ['github.com', 'gist.github.com', 'ssh.github.com'];
+
+/** Hosts do GitLab publico. A instancia propria entra por `hostsDeForja`. */
+const HOSTS_GITLAB = ['gitlab.com'];
+
+/**
+ * Todo host que a AURORA trata como forja, incluindo a instancia GitLab que o
+ * usuario conectou, quando ela nao e a publica.
+ *
+ * A instancia propria entra pelo que esta GUARDADO, e nunca por curinga: um
+ * padrao como "qualquer coisa terminada em gitlab" apagaria a credencial de um
+ * dominio de terceiro, e apagar o que nao e nosso e o unico erro aqui que nao
+ * da para desfazer.
+ */
+function hostsDeForja() {
+  const lista = [...HOSTS, ...HOSTS_GITLAB];
+  try {
+    const proprio = gitlabAuth && typeof gitlabAuth.getHost === 'function'
+      ? String(gitlabAuth.getHost() || '').toLowerCase().split(':')[0]
+      : '';
+    if (proprio && !lista.includes(proprio)) lista.push(proprio);
+  } catch (_) { /* sem conta GitLab, so os publicos */ }
+  return lista;
+}
 
 const TEMPO_LIMITE = 15000;
 
@@ -96,6 +123,10 @@ function rodar(cmd, args, entrada) {
 function apagarCofre() {
   try {
     githubAuth.disconnect();
+    // O cofre do GitLab sai junto: sao dois arquivos, mas uma promessa so.
+    // Deixar um deles para tras seria pior do que nao ter o botao, porque o
+    // usuario acreditaria que a maquina ficou limpa.
+    try { if (gitlabAuth) gitlabAuth.disconnect(); } catch (_) { /* pode nao existir */ }
     return { passo: 'cofre-aurora', ok: true, detalhe: 'token e perfil removidos' };
   } catch (e) {
     return { passo: 'cofre-aurora', ok: false, detalhe: e instanceof Error ? e.message : String(e) };
@@ -111,7 +142,7 @@ function apagarCofre() {
  */
 async function rejeitarNoGit() {
   const feitos = [];
-  for (const host of HOSTS) {
+  for (const host of hostsDeForja()) {
     const r = await rodar('git', ['credential', 'reject'], `protocol=https\nhost=${host}\n\n`);
     feitos.push({ host, ok: r.ok, erro: r.erro });
   }
@@ -154,12 +185,14 @@ function apagarArquivoDeCredenciais() {
  * Um alvo do Gerenciador de Credenciais é do GitHub?
  *
  * Extrai o HOST e compara por igualdade, em vez de procurar o texto dentro do
- * alvo. Comparar por substring parecia bastar e não bastava: um alvo forjado
+ * alvo. (Chamava-se `alvoEhDoGitHub` até 23/08/2026, quando o GitLab entrou:
+ * o nome passou a mentir sobre o que a função decide.) Comparar por substring
+ * parecia bastar e não bastava: um alvo forjado
  * como `git:https://github.com.exemplo.net` contém `//github.com` e passava,
  * então a limpeza apagaria a credencial de um domínio de terceiro. Apagar o que
  * não é nosso é o único erro aqui que não dá para desfazer.
  */
-function alvoEhDoGitHub(alvo) {
+function alvoEhDeForja(alvo) {
   const t = String(alvo == null ? '' : alvo).trim().toLowerCase();
   if (!t) return false;
 
@@ -172,7 +205,7 @@ function alvoEhDoGitHub(alvo) {
 
   // Corta porta, caminho e credencial embutida; sobra o host.
   const host = resto.split('/')[0].split('?')[0].split('@').pop().split(':')[0];
-  return HOSTS.includes(host);
+  return hostsDeForja().includes(host);
 }
 
 /**
@@ -193,7 +226,7 @@ async function limparGerenciadorDoWindows() {
   const alvos = [];
   for (const linha of lista.stdout.split(/\r?\n/)) {
     const m = linha.match(/^\s*(?:Destino|Target|Alvo)\s*:\s*(.+?)\s*$/i);
-    if (m && alvoEhDoGitHub(m[1])) alvos.push(m[1]);
+    if (m && alvoEhDeForja(m[1])) alvos.push(m[1]);
   }
   let removidos = 0;
   const falhas = [];
@@ -239,6 +272,7 @@ function identidadeQueFica() {
   return {
     nota: 'user.name e user.email do git nao sao credenciais e continuam configurados.',
     caminhoCofre: path.join(app.getPath('userData'), 'aurora-github.json'),
+    caminhoCofreGitlab: path.join(app.getPath('userData'), 'aurora-gitlab.json'),
   };
 }
 
@@ -323,6 +357,6 @@ function register() {
 }
 
 module.exports = {
-  register, esquecerTudo, alvoEhDoGitHub, HOSTS,
-  limparAoSair, definirLimparAoSair, decidirLimparAoSair, aoEncerrar,
+  register, alvoEhDeForja, HOSTS, HOSTS_GITLAB,
+  limparAoSair, decidirLimparAoSair, aoEncerrar,
 };

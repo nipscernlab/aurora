@@ -325,13 +325,16 @@ function bootstrapTreeEmptyStateWiring() {
             if (!window.currentProjectPath) renderTreeEmptyState();
         });
     } else if (!window.currentProjectPath && willAutoRestore) {
-        // Auto-restore safety net: if it never completes (e.g. the
-        // stored .spf was moved), the user shouldn't be stuck on a
-        // blank tree forever. After ~3s of no project, fall back to
-        // the empty card so they can manually create/open a project.
-        setTimeout(() => {
+        // Auto-restore in flight. When it settles without a project (the
+        // stored .spf was moved, or loading failed), fall back to the empty
+        // card so the user can create or open one. The signal is the
+        // initializer's own "restore settled" event, not a clock: the old
+        // three-second timer declared "no project" in the middle of loading a
+        // big project on a slow disk, which invited creating another one on
+        // top of it.
+        document.addEventListener('aurora:session-restore-settled', () => {
             if (!window.currentProjectPath) renderTreeEmptyState();
-        }, 3000);
+        }, { once: true });
     }
 }
 

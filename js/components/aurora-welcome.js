@@ -27,6 +27,8 @@ class AuroraWelcome extends LitElement {
   static properties = {
     projects: { attribute: false },
     missingCount: { attribute: false },
+    locatingCount: { attribute: false },
+    locateScanned: { attribute: false },
     version: { type: String },
     auroraBg: { attribute: false },
   };
@@ -35,12 +37,16 @@ class AuroraWelcome extends LitElement {
     super();
     this.projects = [];
     this.missingCount = 0;
+    this.locatingCount = 0;
+    this.locateScanned = 0;
     // Preenchida no connectedCallback pelo mesmo IPC que abastece o painel
     // Sobre. Ficou meses gravada aqui como texto e mentiu a versao a cada
     // release; vazia, o rodape simplesmente nao mostra numero ate a resposta
     // chegar, o que leva milissegundos.
     this.version = '';
     this._removing = new Set();
+    /** Um clique de cada vez, senao dois dialogos nativos abrem empilhados. */
+    this._baixandoExemplos = false;
     this._onLocale = () => this.requestUpdate();
     // Fundo aurora: desligado por padrao (ver defaultSettings em
     // js/processors/aurora_settings.js). O estado vive num atributo do <html>
@@ -73,6 +79,56 @@ class AuroraWelcome extends LitElement {
     window.removeEventListener('aurora:background-toggled', this._onBgToggle);
     if (this._procPopEl) { this._procPopEl.remove(); this._procPopEl = null; }
     super.disconnectedCallback();
+  }
+
+  /**
+   * Cria os projetos de exemplo onde o usuario escolher.
+   *
+   * O botao so pede o lugar: quem pergunta e o processo principal, que e o dono
+   * do dialogo nativo, e quem copia e escreve os `.spf` tambem. Aqui fica so o
+   * estado de "clicou e esta indo", para dois cliques seguidos nao dispararem
+   * dois dialogos, e o recado do que aconteceu.
+   */
+  async _baixarExemplos() {
+    if (this._baixandoExemplos) return;
+    this._baixandoExemplos = true;
+    this.requestUpdate();
+    try {
+      const r = await window.electronAPI?.exemplosInstalar?.();
+      if (!r || r.cancelado) return;
+      if (!r.ok) {
+        window.showNotification?.(
+          this._t('welcome.examplesFailed', 'Could not create the example projects.')
+          + (r.erro ? ` ${r.erro}` : ''), 'error', 8000);
+        return;
+      }
+      // Os cinco entram na lista de recentes daqui, alem da lista do processo
+      // principal (que alimenta a jumplist): sao duas listas, e esta e a que a
+      // tela inicial mostra. De tras para frente porque cada uma vai para o
+      // topo, entao o catalogo termina na ordem em que foi escrito.
+      for (const item of [...(r.criados || [])].reverse()) {
+        try { window.recentProjectsManager?.addProject?.(item.spf); }
+        catch (_) { /* decorar a lista nao pode derrubar a instalacao */ }
+      }
+
+      const criados = r.criados?.length || 0;
+      const pulados = r.pulados?.length || 0;
+      // O aviso conta os dois numeros. Uma segunda instalacao na mesma pasta
+      // cria zero e pula cinco, e sem o segundo numero a tela pareceria nao ter
+      // feito nada.
+      const corpo = criados
+        ? this._t('welcome.examplesDone', 'Example projects created in')
+          + ` ${r.pasta}` + (pulados ? ` (${pulados} ${this._t('welcome.examplesSkipped', 'already existed')})` : '')
+        : this._t('welcome.examplesAllSkipped', 'The examples were already in that folder.');
+      window.showNotification?.(corpo, criados ? 'success' : 'info', 9000);
+    } catch (e) {
+      window.showNotification?.(
+        this._t('welcome.examplesFailed', 'Could not create the example projects.')
+        + ` ${e?.message || e}`, 'error', 8000);
+    } finally {
+      this._baixandoExemplos = false;
+      this.requestUpdate();
+    }
   }
 
   /** Translate via the global i18n helper, falling back to the English string. */
@@ -292,6 +348,18 @@ class AuroraWelcome extends LitElement {
       transition: color 160ms ease, border-color 160ms ease;
     }
     .forget-missing:hover { color: var(--text); border-color: var(--text-dim); }
+    .forget-missing .ph { font-size: 11px; }
+    .locate-progress {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-muted); font-weight: 400;
+    }
+    .locate-spinner {
+      width: 11px; height: 11px; border-radius: 50%;
+      border: 2px solid var(--border); border-top-color: var(--aurora-mint);
+      animation: locate-spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    .locate-spinner.row { margin-right: 4px; align-self: center; }
+    @keyframes locate-spin { to { transform: rotate(360deg); } }
 
     .recent-list {
       display: grid;
@@ -354,6 +422,44 @@ class AuroraWelcome extends LitElement {
     }
     .project-item:hover .project-remove { opacity: 1; }
     .project-remove:hover { background: rgba(226, 108, 108, 0.10); color: var(--state-error); }
+    .project-locate:hover { background: var(--status-success-bg); color: var(--aurora-mint); }
+
+    .project-actions {
+      display: inline-flex; align-items: center; gap: 2px;
+      justify-self: end; flex-shrink: 0; position: relative;
+    }
+    /* Balao decorado dos botoes de acao, irmao visual do <aurora-tooltip>:
+       mesma superficie, borda e tipografia. Abre ABAIXO do botao, com seta
+       para cima, porque a primeira linha da lista fica rente ao topo do
+       contêiner rolavel e um balao para cima seria cortado. */
+    .project-actions [data-tip] { position: relative; }
+    .project-actions [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; top: calc(100% + 9px); right: -4px;
+      background: var(--surface-overlay, #161B28);
+      border: 1px solid var(--border-hairline, var(--border));
+      border-radius: var(--radius-md, 6px);
+      padding: var(--space-2, 8px) var(--space-3, 12px);
+      font-size: var(--text-xs, 11px); font-family: var(--font-sans);
+      color: var(--text-secondary); white-space: nowrap;
+      opacity: 0; transform: translateY(-2px); pointer-events: none;
+      transition: opacity 120ms ease 250ms, transform 120ms ease 250ms;
+      z-index: 5;
+    }
+    .project-actions [data-tip]::before {
+      content: ''; position: absolute; top: calc(100% + 3px); right: 4px;
+      border: 6px solid transparent;
+      border-bottom-color: var(--border-hairline, var(--border));
+      opacity: 0; pointer-events: none;
+      transition: opacity 120ms ease 250ms;
+      z-index: 6;
+    }
+    .project-actions [data-tip]:hover::after,
+    .project-actions [data-tip]:focus-visible::after,
+    .project-actions [data-tip]:hover::before,
+    .project-actions [data-tip]:focus-visible::before {
+      opacity: 1; transform: translateY(0);
+    }
 
     .empty-state { grid-column: 1 / -1; padding: var(--space-3) 0; color: var(--text-faint); }
     .empty-state p { margin: 0; font-size: var(--text-sm); color: var(--text-faint); font-style: italic; }
@@ -468,6 +574,12 @@ class AuroraWelcome extends LitElement {
                   <span>${this._t('welcome.openProject', 'Open Project')}<span class="link-dim">...</span></span>
                 </button>
               </li>
+              <li>
+                <button class="link" ?disabled=${this._baixandoExemplos} @click=${this._baixarExemplos}>
+                  <i class="ph ph-graduation-cap" aria-hidden="true"></i>
+                  <span>${this._t('welcome.examples', 'Example projects')}<span class="link-dim">...</span></span>
+                </button>
+              </li>
             </ul>
           </section>
 
@@ -475,12 +587,24 @@ class AuroraWelcome extends LitElement {
             <h2 class="section-title">
               <span>${this._t('welcome.sectionRecent', 'Recent')}</span>
               ${this.projects.length ? html`<span class="count">${this.projects.length}</span>` : ''}
+              ${this.missingCount && !this.locatingCount ? html`
+                <button
+                  class="forget-missing"
+                  title=${this._t('welcome.locateMissingTitle', 'Search this computer for the missing .spf files')}
+                  @click=${this._locateMissing}
+                ><i class="ph ph-magnifying-glass" aria-hidden="true"></i> ${this._t('welcome.locateMissing', 'Find missing')} (${this.missingCount})</button>` : ''}
               ${this.missingCount ? html`
                 <button
                   class="forget-missing"
                   title=${this._t('welcome.forgetMissingTitle', 'Remove the projects that no longer exist')}
                   @click=${this._forgetMissing}
                 >${this._t('welcome.forgetMissing', 'Forget missing')} (${this.missingCount})</button>` : ''}
+              ${this.locatingCount ? html`
+                <span class="locate-progress">
+                  <span class="locate-spinner" aria-hidden="true"></span>
+                  ${this._t('welcome.locating', 'Searching…')}${this.locateScanned ? ` ${this.locateScanned}` : ''}
+                  <button class="forget-missing" @click=${this._locateCancel}>${this._t('welcome.locateCancel', 'Cancel')}</button>
+                </span>` : ''}
             </h2>
             <div class="recent-list">${this._renderRecent()}</div>
           </section>
@@ -513,12 +637,22 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
       >
         <span class="project-name">${p.name}</span>
         <span class="project-path">${p.displayPath ?? p.path}</span>
-        <button
-          class="project-remove"
-          title="Remove from recent projects"
-          aria-label="Remove from recent projects"
-          @click=${(e) => this._remove(p.path, e)}
-        ><i class="ph ph-x" aria-hidden="true"></i></button>
+        <span class="project-actions">
+          ${p.missing && !p.locating ? html`
+          <button
+            class="project-remove project-locate"
+            data-tip=${this._t('welcome.locate', 'Find this project on disk')}
+            aria-label=${this._t('welcome.locate', 'Find this project on disk')}
+            @click=${(e) => this._locate(p.path, e)}
+          ><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>` : ''}
+          ${p.locating ? html`<span class="locate-spinner row" aria-hidden="true"></span>` : ''}
+          <button
+            class="project-remove"
+            data-tip=${this._t('welcome.removeRecent', 'Remove from recents')}
+            aria-label=${this._t('welcome.removeRecent', 'Remove from recents')}
+            @click=${(e) => this._remove(p.path, e)}
+          ><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
     `);
   }
@@ -529,12 +663,29 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
     this.dispatchEvent(new CustomEvent('recent-forget-missing', { bubbles: true, composed: true }));
   }
 
+  /** Localizar UM projeto sumido. A varredura de verdade vive no main. */
+  _locate(path, e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('project-locate', { detail: path, bubbles: true, composed: true }));
+  }
+
+  /** Localizar todos os ausentes de uma vez: quem perdeu um, perdeu varios. */
+  _locateMissing(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('recent-locate-missing', { bubbles: true, composed: true }));
+  }
+
+  _locateCancel(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('recent-locate-cancel', { bubbles: true, composed: true }));
+  }
+
   _delegate(id) {
     document.getElementById(id)?.click();
   }
 
   _open(path, e) {
-    if (e.target.closest('.project-remove')) return;
+    if (e.target.closest('.project-remove') || e.target.closest('.project-locate')) return;
     this.dispatchEvent(new CustomEvent('project-open', { detail: path, bubbles: true, composed: true }));
   }
 

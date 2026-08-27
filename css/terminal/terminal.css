@@ -94,7 +94,7 @@
  * rests visible and strengthens on hover. */
 .terminal-body {
   scrollbar-width: thin;
-  scrollbar-color: rgba(142, 131, 232, 0.42) transparent;
+  scrollbar-color: var(--accent-glow) transparent;
 }
 .terminal-body:hover {
   scrollbar-color: rgba(142, 131, 232, 0.72) transparent;
@@ -194,7 +194,7 @@
 .terminal-tabs .tab[data-terminal="tasm"] .glyph    { color: var(--color-asm); }
 .terminal-tabs .tab[data-terminal="tveri"] .glyph   { color: #E25C5C; }
 .terminal-tabs .tab[data-terminal="twave"] .glyph   { color: var(--color-wave); }
-.terminal-tabs .tab[data-terminal="thtest"] .glyph  { color: var(--aurora-mint, #4ec9b0); }
+.terminal-tabs .tab[data-terminal="thtest"] .glyph  { color: var(--aurora-mint); }
 
 .terminal-tabs .tab:hover {
   background-color: var(--overlay-hover);
@@ -351,6 +351,35 @@
 /* ---------------------------------------------------------------------------
  *  Log entries, compact rows with a semantic left stripe
  * ------------------------------------------------------------------------- */
+/* O tamanho do arquivo de onda, ao vivo. Um no' so, atualizado no lugar;
+   'done' congela o numero final como registro da corrida. */
+.dump-size {
+  display: flex; align-items: center; gap: var(--space-2);
+  margin: 4px 10px; padding: 3px 10px;
+  border-radius: 999px; width: fit-content;
+  background: var(--bg-elev-1, var(--bg-elev));
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono); font-size: var(--text-xs);
+}
+.dump-size i { color: var(--aurora-mint); font-size: 13px; }
+.dump-size.done { opacity: 0.75; }
+
+/* A mesma linha repetida em seguida vira este contador, em vez de mil nos de
+   DOM: e o caso do $fscanf com $fopen falhado, que imprime o MESMO erro a
+   cada ciclo de clock e fazia o terminal parecer um loop. */
+.log-entry .repeat-count {
+  margin-left: var(--space-2);
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+  white-space: nowrap;
+}
+
 .log-entry {
   margin: 0;
   padding: 5px 10px 5px 12px;
@@ -695,7 +724,7 @@
 #terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar { width: 8px; }
 #terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar-track { background: transparent; }
 #terminal-tcmd .tcmd-xterm .xterm-viewport::-webkit-scrollbar-thumb {
-  background: var(--border-strong, #3a3f55); border-radius: 4px;
+  background: var(--border-strong); border-radius: 4px;
 }
 
 /* ---------------------------------------------------------------------------
@@ -717,7 +746,7 @@
 }
 
 .hw-progress-line.done {
-  color: var(--aurora-mint, #4ec9b0);
+  color: var(--aurora-mint);
 }
 
 /* Clicavel: diretorio de saida na mensagem final do THTEST. Clicar abre a

@@ -44,10 +44,18 @@ on:
         description: 'Preflight only, build and publish nothing'
         type: boolean
         default: false
+      sign_only:
+        description: 'Build and sign, publish nothing'
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'Preflight only — verify publish access, build and publish nothing'
+        type: boolean
+        default: false
+      sign_only:
+        description: 'Build and SIGN, publish nothing — for exercising the SignPath test certificate'
         type: boolean
         default: false
 
@@ -128,8 +136,38 @@ jobs:
       # Read by the step-level `if`s that pick the signed or the unsigned path.
       # An unset secret expands to the empty string, which is the whole switch.
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      # A pergunta que decide os passos de assinatura la embaixo: esta execucao
+      # PODE assinar? Sao duas condicoes, credencial presente e um destino em
+      # que a assinatura seja aceitavel. Com a politica de teste so o ensaio
+      # assina, porque o instalador dele fica no anexo da execucao e nao chega a
+      # ninguem; uma execucao que publica sai sem assinatura.
+      SIGN: ${{ secrets.SIGNPATH_API_TOKEN != '' && (inputs.sign_only == true || vars.SIGNPATH_POLICY_SLUG != 'test-signing') }}
 
     steps:
+      # A pior confusao que este desenho permite e publicar para os alunos um
+      # instalador assinado com o certificado de TESTE. Esse certificado e
+      # autoassinado, e um instalador assinado com ele e PIOR do que um nao
+      # assinado: o Windows deixa de dizer apenas "publicador desconhecido" e
+      # passa a dizer que a cadeia termina numa raiz em que ele nao confia, que
+      # soa como adulteracao. E acontece por esquecimento, porque basta a
+      # variavel SIGNPATH_POLICY_SLUG ficar em `test-signing` depois de um
+      # ensaio. Quem impede e o `SIGN` do bloco env acima: numa execucao que
+      # publica com a politica de teste, os passos de assinatura ficam de fora.
+      #
+      # Ate 25/08/2026 isto era uma trava que derrubava o job, e o efeito real
+      # nao era o pretendido. Com o secret criado em 22/08 e a variavel ainda na
+      # politica de teste, QUALQUER release de verdade morria neste passo, e
+      # mesclar a PR de release deixaria a tag publicada sem instalador, que e o
+      # desfecho contra o qual este workflow inteiro foi desenhado. Assinatura
+      # nunca foi portao duro, ver a nota do bloco Signing mais abaixo, entao a
+      # politica de teste agora degrada para uma release sem assinatura, que e o
+      # que todas as versoes ate aqui foram.
+      - name: Announce the unsigned path
+        if: ${{ env.SIGNPATH_API_TOKEN != '' && env.SIGN != 'true' }}
+        shell: pwsh
+        run: |
+          Write-Host "::warning::SIGNPATH_POLICY_SLUG esta em 'test-signing' e esta execucao PUBLICA, entao o instalador sai SEM assinatura, como todos os anteriores. O certificado de teste e autoassinado e nao pode chegar a um aluno. Para publicar assinado, troque a variavel para a politica de producao; para ensaiar a assinatura, rode com sign_only marcado."
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -183,20 +221,29 @@ jobs:
         run: npm run build:renderer
 
       # ── Signing ───────────────────────────────────────────────────────────
-      # Two paths below, picked by whether SIGNPATH_API_TOKEN exists. Until that
-      # secret is created the first path runs and behaves exactly as before, so
-      # committing this changes nothing about today's releases.
+      # Two paths below, picked by `SIGN` (env block at the top of this job):
+      # credencial presente E um destino em que a assinatura seja aceitavel.
+      # Sem as duas, os tres passos ficam de fora e a release sai sem
+      # assinatura, que e o caminho de todas as versoes ate aqui.
       #
       # Signing is deliberately NOT a hard gate. SignPath disclaims availability
       # (ToS §9/§10) and can revoke a certificate, so a missing or dead
       # credential degrades to an unsigned build instead of blocking an urgent
       # fix. The unsigned install path in TODO.md section 2 stays valid forever.
       #
-      # Before creating the secret, check the action's own README for its input
-      # names, and set the three `vars` (SIGNPATH_ORG_ID, SIGNPATH_PROJECT_SLUG,
-      # SIGNPATH_POLICY_SLUG) from the SignPath panel. TODO.md section 3 lists
-      # what has to be decided there first, including that the free programme
-      # requires a human Approver per signing request.
+      # Os nomes dos inputs abaixo foram conferidos em 22/08/2026 contra o
+      # action.yml publicado da action (branch main): `api-token`,
+      # `organization-id`, `project-slug`, `signing-policy-slug`,
+      # `github-artifact-id`, `wait-for-completion`, `output-artifact-directory`
+      # e `wait-for-completion-timeout-in-seconds` existem e estao escritos
+      # assim. Ha um `artifact-configuration-slug` OPCIONAL, que so e preciso
+      # quando o projeto tem mais de uma Artifact Configuration; com uma so,
+      # deixar de fora e o correto.
+      #
+      # O secret e as tres `vars` (SIGNPATH_ORG_ID, SIGNPATH_PROJECT_SLUG,
+      # SIGNPATH_POLICY_SLUG) existem desde 22/08/2026. O que falta e o
+      # certificado de producao: enquanto a politica for `test-signing`, so o
+      # ensaio assina. TODO.md secao 3 acompanha isso.
       # Always `--publish never`. electron-builder's own GitHub publisher used to
       # do the upload, and it is the wrong tool for a CROSS-repo release: it
       # half-published 6.4.0, putting the 550 MB installer on the release and
@@ -215,7 +262,7 @@ jobs:
         run: npx electron-builder --win --x64 --publish never
 
       - name: Upload the unsigned installer for SignPath
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         id: upload-unsigned
         uses: actions/upload-artifact@v7
         with:
@@ -224,7 +271,7 @@ jobs:
           if-no-files-found: error
 
       - name: Sign with SignPath
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -234,14 +281,23 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: dist-signed
+          # Uma hora, e nao os 600 s padrao da action.
+          #
+          # O programa gratuito da Foundation exige um Approver HUMANO por
+          # requisicao de assinatura (ToS 2.3). Com o padrao, o passo desiste
+          # depois de dez minutos, e uma release feita fora do horario de quem
+          # aprova falharia sozinha, deixando a tag publicada sem instalador.
+          # Uma hora e folgado para alguem receber a notificacao e clicar, e
+          # nao custa nada quando a aprovacao e automatica.
+          wait-for-completion-timeout-in-seconds: '3600'
 
       # The signed .exe goes back where electron-builder left the unsigned one,
       # then latest.yml (sha512 + size) and the .blockmap are rebuilt from it.
       # Skipping the blockmap rebuild would not break the update, it would make
-      # every signed release a full ~500 MB download for the whole lab, and the
+      # every signed release a full ~140 MB download for the whole lab, and the
       # integrity gate below would then fail on the missing asset.
       - name: Swap in the signed installer and refresh the update manifest
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -253,11 +309,37 @@ jobs:
           Copy-Item $signed.FullName (Join-Path 'release' $signed.Name) -Force
           node scripts/patch-latest-yml.js release $signed.Name
 
+      # Ensaio da assinatura: construiu, assinou, e para aqui.
+      #
+      # O certificado de TESTE da SignPath e autoassinado, entao o instalador
+      # que ele produz NAO pode ir para o canal de distribuicao: um cliente que
+      # o baixasse veria um publicador em que a maquina dele nao confia, que e
+      # pior do que o nao assinado de hoje. O que se quer deste modo e provar o
+      # caminho, credencial, Artifact Configuration, politica e a troca do
+      # instalador com o manifesto refeito, sem tocar em ninguem la fora.
+      #
+      # O .exe assinado sai como anexo da execucao, para ser baixado e conferido
+      # com `signtool verify /pa` e com o `Get-AuthenticodeSignature` do
+      # PowerShell. Com o certificado de teste, os dois devem dizer que a
+      # assinatura existe e que a cadeia nao e confiavel; e esse o resultado
+      # certo, e nao um erro.
+      - name: Upload the signed installer for inspection (sign_only)
+        if: ${{ inputs.sign_only == true }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-installer
+          path: |
+            release/sapho-aurora-Setup-*.exe
+            release/sapho-aurora-Setup-*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
+
       # The single publish path, signed or not. Uploading all three assets in
       # one command is deliberate: the updater needs `latest.yml` to see the
       # release at all and the `.blockmap` to download only what changed, so
       # partial success is the failure mode worth designing against.
       - name: Publish to the distribution channel
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -297,6 +379,7 @@ jobs:
       # release. So we re-download what the release actually serves and compare
       # it against the bytes we just built, from the outside, as a client would.
       - name: Verify the published update feed
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -390,6 +473,7 @@ jobs:
       # changelog. Fetch the notes by tag instead, and let the payload be a
       # shortcut for the day the trigger does fire.
       - name: Mirror release notes to the distribution channel
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}

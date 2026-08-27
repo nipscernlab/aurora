@@ -25,7 +25,7 @@ export const LARGURA_VIRA_COLUNA = 780;
 let agendado = null;
 
 /** Decide entre faixa horizontal e coluna, pela largura do terminal. */
-export function ajustarOrientacao() {
+function ajustarOrientacao() {
   const term = document.querySelector('.terminal-container');
   if (!term) return false;
   const coluna = term.getBoundingClientRect().width < LARGURA_VIRA_COLUNA;
@@ -39,7 +39,7 @@ function agendar() {
   agendado = requestAnimationFrame(() => { agendado = null; ajustarOrientacao(); });
 }
 
-export function initTerminalTabOrientation() {
+function initTerminalTabOrientation() {
   const term = document.querySelector('.terminal-container');
   if (!term) return false;
 
@@ -65,7 +65,13 @@ function autoInstalar() {
   if (initTerminalTabOrientation()) return;
   let tentativas = 0;
   const timer = setInterval(() => {
-    if (initTerminalTabOrientation() || ++tentativas > 40) clearInterval(timer);
+    if (initTerminalTabOrientation()) { clearInterval(timer); return; }
+    if (++tentativas > 40) {
+      clearInterval(timer);
+      // Seis segundos sem barra de terminal e anomalia, nao layout sem
+      // terminal; fica a linha para haver por onde comecar.
+      console.warn('[tab_orientation] barra do terminal nao apareceu em 6 s; orientacao das abas desligada');
+    }
   }, 150);
 }
 

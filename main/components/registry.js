@@ -104,12 +104,16 @@ const VALIDADE_MS = 3000;
  *   chave: string, nome: string, resumo: string, sentinela: string,
  *   tamanhoMB: number, downloadMB: number, essencial: boolean,
  *   requerParaCompilar?: boolean, script: string|null, arquivosChave: string[],
+ *   icone: string,
  *   versao: string, carimbo: string,
  * }>}
  */
 const COMPONENTES = [
   {
     chave: 'msys',
+    // A marca do proprio MSYS2, que e a distribuicao empacotada aqui dentro.
+    // De msys2/msys2.github.io (web/logo.svg).
+    icone: 'msys2.svg',
     nome: 'MSYS Toolchain',
     resumo: 'A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.',
     sentinela: 'Packages/msys/mingw64/bin/verilator_bin.exe',
@@ -132,6 +136,7 @@ const COMPONENTES = [
   },
   {
     chave: 'yanc',
+    icone: 'yanc.svg',
     nome: 'YANC',
     resumo: 'O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.',
     sentinela: 'bin/cppcomp.exe',
@@ -159,6 +164,7 @@ const COMPONENTES = [
   },
   {
     chave: 'gtkwave',
+    icone: 'GTKWave_logo.svg',
     nome: 'GTKWave',
     resumo: 'O visualizador de formas de onda clássico, em janela própria.',
     sentinela: 'Packages/gtkwave-nipscern/gtkwave.exe',
@@ -172,6 +178,7 @@ const COMPONENTES = [
   },
   {
     chave: 'surfer',
+    icone: 'Surfer_logo.svg',
     nome: 'Surfer',
     resumo: 'O visualizador de formas de onda embutido, dentro da AURORA.',
     sentinela: 'Packages/surfer/surfer-aurora.exe',
@@ -185,6 +192,8 @@ const COMPONENTES = [
   },
   {
     chave: 'verible',
+    // De chipsalliance/verible (img/verible-logo.svg), o repositorio oficial.
+    icone: 'verible.svg',
     nome: 'Verible',
     resumo: 'Diagnósticos, formatação e navegação em Verilog, dentro do editor.',
     sentinela: 'Packages/verible/bin/verible-verilog-ls.exe',
@@ -198,6 +207,11 @@ const COMPONENTES = [
   },
   {
     chave: 'slang',
+    // A unica marca que o projeto publica e o favicon de 16x16 do sv-lang.com.
+    // Vai no tamanho nativo, e nao ampliado: ampliar 16px para 24 borra, e um
+    // icone borrado ao lado de vetores nitidos chama mais atencao que a falta
+    // dele. O quadro da coluna e que alinha, entao tamanho menor nao desalinha.
+    icone: 'slang.png',
     nome: 'slang',
     resumo: 'Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.',
     sentinela: 'Packages/slang-server/bin/slang-server.exe',
@@ -211,6 +225,9 @@ const COMPONENTES = [
   },
   {
     chave: 'clang-format',
+    // O clang-format e parte do LLVM, e o wyvern e a marca do projeto.
+    // De devicons/devicon (icons/llvm/llvm-original.svg).
+    icone: 'llvm.svg',
     nome: 'clang-format',
     resumo: 'Formatação de C, C++ e C± com Shift+Alt+F.',
     sentinela: 'Packages/clang-format/bin/clang-format.exe',
@@ -379,9 +396,7 @@ module.exports = {
   diagnosticar,
   diagnosticarTudo,
   versaoInstalada,
-  caminhoDaSentinela,
   invalidarCache,
   definirRaizParaTestes,
   mensagemDeAusencia,
-  VALIDADE_MS,
 };

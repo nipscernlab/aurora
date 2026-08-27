@@ -182,7 +182,7 @@
   flex-shrink: 0;
   position: relative;
   z-index: var(--z-1);            /* node sits above the trunk */
-  transition: color 140ms ease;
+  transition: color var(--motion-quick) ease;
 }
 
 /* Hide any legacy chevron <i> the renderer may still emit (we now render
@@ -324,7 +324,7 @@
   padding-left: 14px;
   overflow: hidden;
   transition: max-height 240ms var(--ease-out-quart),
-              opacity 140ms;
+              opacity var(--motion-quick);
 }
 
 /* Collapsed: `max-height:0; overflow:hidden` only CLIPS, the browser still

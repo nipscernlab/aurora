@@ -2,7 +2,7 @@
 \section{Aurora Intelligence (IA)}
 \label{sec:S09-aurora-intelligence}
 
-\tool{Aurora Intelligence} (feminino) e o assistente de IA da \tool{AURORA}: conversa sobre o projeto, \cmm{} e Verilog e \emph{age} sobre o ambiente por ferramentas curadas. Esta \textbf{totalmente implementado}; so o \emph{provider}/modelos \textbf{proprios do NIPSCERN ainda nao foram treinados} (roteiro). Ate la, opera contra provedores externos. Arquitetura Electron: o \emph{main} detem chaves, rede, subprocessos, MCP e disco; o \emph{renderer} detem o painel e executa cada \emph{tool} via \code{window.AuroraAPI}.
+\tool{Aurora Intelligence} (feminino) e o assistente de IA da \tool{AURORA}: conversa sobre o projeto, \cmm{} e Verilog e \emph{age} sobre o ambiente por ferramentas curadas. Esta \textbf{totalmente implementado}; so o \emph{provider}/modelos \textbf{proprios do NIPS-CERN ainda nao foram treinados} (roteiro). Ate la, opera contra provedores externos. Arquitetura Electron: o \emph{main} detem chaves, rede, subprocessos, MCP e disco; o \emph{renderer} detem o painel e executa cada \emph{tool} via \code{window.AuroraAPI}.
 
 \textbf{Dois transportes convergem nos mesmos eventos} \code{ai:chat-event} (\code{text-delta}, \code{tool-call}, \code{tool-result} e exatamente um fechamento: \code{finish}/\code{aborted}/\code{error}), tornando o laco do renderer transporte-agnostico.
 

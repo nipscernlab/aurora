@@ -216,6 +216,7 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
     } catch (error) {
         deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('cmm', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -344,6 +345,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
     } catch (error) {
         deps.terminalManager.appendToTerminal('tasm', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('asm', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }

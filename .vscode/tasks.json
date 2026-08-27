@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "AURORA: setup completo",
+      "detail": "Instala Node/Git se faltar, npm install e baixa a toolchain.",
+      "type": "shell",
+      "command": ".\setup.bat",
+      "problemMatcher": []
+    },
+    {
+      "label": "AURORA: iniciar",
+      "detail": "npm start (bootstrap + build + Electron).",
+      "type": "npm",
+      "script": "start",
+      "problemMatcher": []
+    },
+    {
+      "label": "AURORA: dev com hot-reload",
+      "detail": "npm run dev (Vite + Electron, HMR no renderer).",
+      "type": "npm",
+      "script": "dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "AURORA: testes",
+      "type": "npm",
+      "script": "test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "AURORA: verificar componentes",
+      "detail": "Doctor da toolchain: relata o que falta e oferece re-baixar.",
+      "type": "npm",
+      "script": "components:verify",
+      "problemMatcher": []
+    }
+  ]
+}

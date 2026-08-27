@@ -21,6 +21,7 @@ const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
 const { spawnTracked, GROUP } = require('../process_registry');
 const { loadPage } = require('../render_loader');
+const { isAutoName, cellLabel } = require('./prism_labels');
 
 // ---------- helpers ----------
 
@@ -155,12 +156,14 @@ async function createPrismWindow(compilationData = null) {
     }
 
     if (compilationData) {
-      // Tiny delay so the renderer has DOM ready before processing the payload.
-      setTimeout(() => {
-        if (state.prismWindow && !state.prismWindow.isDestroyed()) {
-          state.prismWindow.webContents.send('compilation-complete', compilationData);
-        }
-      }, 1000);
+      // loadPage resolved on did-finish-load, which comes after the
+      // DOMContentLoaded in which PRISMViewer registers its listener, so the
+      // payload can go now. The old one-second timer was a guess that cost a
+      // second on every open and, being push-only, would have lost the
+      // schematic without a trace had the listener ever come later.
+      if (state.prismWindow && !state.prismWindow.isDestroyed()) {
+        state.prismWindow.webContents.send('compilation-complete', compilationData);
+      }
     }
   } catch (error) {
     log.error('Failed to load prism/prism.html:', error);
@@ -537,12 +540,23 @@ function xmlAttrEscape(/** @type {any} */ s) {
 // output do netlistsvg e' previsivel (id="cell_..." sempre em <g>).
 function injectCellTypesIntoSvg(/** @type {any} */ svgString, /** @type {any} */ instanceTypeMap) {
   if (instanceTypeMap.size === 0) return svgString;
-  return svgString.replace(
+  const comTipos = svgString.replace(
     /<g\b([^>]*?)\sid="cell_([^"]+)"([^>]*?)(\/?>)/g,
     (/** @type {any} */ match, /** @type {any} */ before, /** @type {any} */ instName, /** @type {any} */ after, /** @type {any} */ close) => {
       const type = instanceTypeMap.get(instName);
       if (!type) return match;
       return `<g${before} id="cell_${instName}"${after} data-cell-type="${xmlAttrEscape(type)}"${close}`;
+    },
+  );
+  // O rotulo de cada celula e o nome da instancia. Quando o nome e do Yosys
+  // (`memrd$\mem$C:\...\processor.v:77$272`, `auto$proc_memwr.cc:45:...`), o
+  // que o aluno precisa ler e o que a celula faz, e isso o tipo diz: "mem
+  // read", "mem write". Ver prism_labels.js.
+  return comTipos.replace(
+    /(<text\b[^>]*\bclass="nodelabel cell_([^"]+)"[^>]*>)([^<]*)(<\/text>)/g,
+    (/** @type {any} */ match, /** @type {any} */ abre, /** @type {any} */ instName, /** @type {any} */ _texto, /** @type {any} */ fecha) => {
+      if (!isAutoName(instName)) return match;
+      return `${abre}${xmlAttrEscape(cellLabel(instName, instanceTypeMap.get(instName)))}${fecha}`;
     },
   );
 }

@@ -15,7 +15,7 @@ import yaml from 'js-yaml';
 //
 //   a stale sha512   -> every machine refuses the update ("checksum mismatch")
 //   a stale blockmap -> the delta assembles a file that fails its own hash
-//   a deleted blockmap -> a ~500 MB full download per machine, per release,
+//   a deleted blockmap -> a ~140 MB full download per machine, per release,
 //                         and the release workflow's integrity gate fails
 //                         because it requires that asset to exist.
 //

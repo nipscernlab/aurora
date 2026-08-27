@@ -1,0 +1,22 @@
+{
+  // F5 roda a AURORA a partir do VS Code. Os dois usam o terminal integrado,
+  // que e onde os scripts de launch ja tratam o ELECTRON_RUN_AS_NODE que o
+  // proprio VS Code exporta (ver scripts/launch-electron.js).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "AURORA: iniciar (npm start)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm start",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "AURORA: dev com hot-reload (npm run dev)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

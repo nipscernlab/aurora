@@ -48,7 +48,7 @@ export async function resolveWaveToolchain(componentsPath) {
         componentsPath, 'Packages', 'gtkwave-nipscern',
     );
     const fst2vcdBin = await electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
-    // Surfer (optional, opt-in viewer): the NIPSCERN fork build,
+    // Surfer (optional, opt-in viewer): the NIPS-CERN fork build,
     // surfer-aurora.exe, dropped under Packages/surfer/. Built from
     // gitlab.com/nips-cern/surfer-aurora (fork of surfer-project/surfer,
     // EUPL-1.2). NOT bundled by default, _waveLaunchSurfer degrades to GTKWave

@@ -88,4 +88,4 @@ function register() {
   ipcMain.handle('undo:drain', () => drain());
 }
 
-module.exports = { register, stage, restore, discard, drain, stagingRoot };
+module.exports = { register, stage, restore, discard, drain };

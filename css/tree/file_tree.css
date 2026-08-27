@@ -207,22 +207,22 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 /* badge colours */
 .git-deco.git-st-modified,
 .git-deco.git-st-conflict,
-.git-deco.git-st-dir       { color: var(--status-warning, #E8B86C); }
+.git-deco.git-st-dir       { color: var(--status-warning); }
 .git-deco.git-st-added,
-.git-deco.git-st-untracked { color: var(--status-success, #5DD4A8); }
-.git-deco.git-st-deleted   { color: var(--status-error, #E26C6C); }
+.git-deco.git-st-untracked { color: var(--status-success); }
+.git-deco.git-st-deleted   { color: var(--status-error); }
 .git-deco.git-st-renamed,
-.git-deco.git-st-copied    { color: var(--status-info, #5BB8E8); }
+.git-deco.git-st-copied    { color: var(--status-info); }
 
 /* filename tint (matches the badge); focus/hover still win for the open file */
 .file-item-name.git-st-modified, .verilog-file-name.git-st-modified,
-.file-item-name.git-st-conflict, .verilog-file-name.git-st-conflict { color: var(--status-warning, #E8B86C); }
+.file-item-name.git-st-conflict, .verilog-file-name.git-st-conflict { color: var(--status-warning); }
 .file-item-name.git-st-added, .verilog-file-name.git-st-added,
-.file-item-name.git-st-untracked, .verilog-file-name.git-st-untracked { color: var(--status-success, #5DD4A8); }
+.file-item-name.git-st-untracked, .verilog-file-name.git-st-untracked { color: var(--status-success); }
 .file-item-name.git-st-renamed, .verilog-file-name.git-st-renamed,
-.file-item-name.git-st-copied, .verilog-file-name.git-st-copied { color: var(--status-info, #5BB8E8); }
+.file-item-name.git-st-copied, .verilog-file-name.git-st-copied { color: var(--status-info); }
 .file-item-name.git-st-deleted, .verilog-file-name.git-st-deleted {
-  color: var(--status-error, #E26C6C);
+  color: var(--status-error);
   text-decoration: line-through;
   opacity: 0.85;
 }
@@ -241,7 +241,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   font-size: var(--text-xs);
   color: var(--text-muted);
   transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
-              color 140ms ease;
+              color var(--motion-quick) ease;
 }
 
 .folder-toggle-icon.collapsed { transform: rotate(-90deg); }

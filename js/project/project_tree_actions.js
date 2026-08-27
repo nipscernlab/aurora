@@ -537,16 +537,23 @@ async def basic_test(dut):
 
         const fileItem = document.querySelector(`.verilog-file-item[data-file-index="${index}"]`);
 
-        const doRemove = async () => {
-            await this._dropFileFromSpf(targetSpfPath, filePath);
-            this.showNotification(tr('notification.tree.removed', { name: fileName }), 'success', 2000);
-        };
-
+        // The animation is awaited and the write is awaited after it, so the
+        // caller only returns once the .spf changed. The old fire-and-forget
+        // timer was the one place where the screen could lie about the disk:
+        // closing the project inside those 300 ms left the row gone and the
+        // file still in the .spf, and any error inside the async callback was
+        // an unhandled rejection nobody saw.
         if (fileItem) {
             fileItem.classList.add('verilog-file-animate-out');
-            setTimeout(doRemove, 300);
-        } else {
-            await doRemove();
+            await new Promise((resolve) => setTimeout(resolve, 300));
+        }
+        try {
+            await this._dropFileFromSpf(targetSpfPath, filePath);
+            this.showNotification(tr('notification.tree.removed', { name: fileName }), 'success', 2000);
+        } catch (err) {
+            console.error('[tree] removeFile failed:', err);
+            fileItem?.classList.remove('verilog-file-animate-out');
+            this.showNotification(tr('notification.tree.removeFailed', { name: fileName, error: err?.message || String(err) }), 'error', 6000);
         }
     },
 

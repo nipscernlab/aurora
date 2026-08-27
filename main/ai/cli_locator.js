@@ -90,6 +90,17 @@ function downloadedLocation(kind) {
   catch (_) { return null; }
 }
 
+/**
+ * The manifest entry for this platform, or null. Same lazy-require discipline
+ * as above: the manifest is plain data, but keeping the require local means a
+ * broken manifest degrades to the PATH fallback instead of breaking the locator.
+ * @param {'claude'|'codex'} kind
+ */
+function manifestEntry(kind) {
+  try { return require('./cli_manifest').entryFor(kind); }
+  catch (_) { return null; }
+}
+
 // --- Claude Code -----------------------------------------------------------
 
 /** @type {{exe:string, viaShim:boolean}|null|undefined} */
@@ -167,17 +178,34 @@ function locateCodex() {
   const cached = downloadedLocation('codex');
   if (cached) { codexCache = { exe: cached.exe, rgDir: cached.rgDir, viaShim: false }; return codexCache; }
 
-  // 1. Bundled platform package: <pkg>/vendor/<triple>/codex/codex(.exe)
-  //    with ripgrep alongside at <pkg>/vendor/<triple>/path/.
+  // 1. Bundled platform package. The layout inside it is owned by the manifest
+  //    (cli_manifest.js, `exe` and `rg`, relative to the package root), which
+  //    is the same tree the on-demand download extracts. It used to be typed
+  //    a second time here, and when upstream moved the binary in 0.147.0
+  //    (vendor/<triple>/codex/ to bin/, path/ to codex-path/) only the manifest
+  //    was corrected: this copy kept the old layout, so a dev run reported
+  //    Codex absent with the binary sitting in node_modules. One owner now.
+  //    Platforms the manifest does not cover fall back to the layouts known
+  //    so far, newest first.
   const target = CODEX_TARGETS[/** @type {keyof typeof CODEX_TARGETS} */ (`${process.platform}:${process.arch}`)];
   if (target) {
     try {
       const pkgJsonPath = require.resolve(`${target.pkg}/package.json`);
-      const vendorRoot = path.join(path.dirname(pkgJsonPath), 'vendor', target.triple);
+      const pkgRoot = path.dirname(pkgJsonPath);
       const exeName = process.platform === 'win32' ? 'codex.exe' : 'codex';
-      const exe = toUnpacked(path.join(vendorRoot, 'codex', exeName));
-      const rgDir = toUnpacked(path.join(vendorRoot, 'path'));
-      if (fileExists(exe)) {
+      const vendor = path.join('vendor', target.triple);
+      /** @type {Array<{exe:string, rg:string|null}>} */
+      const layouts = [];
+      const entry = manifestEntry('codex');
+      if (entry) layouts.push({ exe: entry.exe, rg: entry.rg });
+      layouts.push(
+        { exe: path.join(vendor, 'bin', exeName), rg: path.join(vendor, 'codex-path') },
+        { exe: path.join(vendor, 'codex', exeName), rg: path.join(vendor, 'path') },
+      );
+      for (const layout of layouts) {
+        const exe = toUnpacked(path.join(pkgRoot, ...layout.exe.split(/[\\/]/)));
+        if (!fileExists(exe)) continue;
+        const rgDir = layout.rg ? toUnpacked(path.join(pkgRoot, ...layout.rg.split(/[\\/]/))) : null;
         codexCache = { exe, rgDir, viaShim: false };
         return codexCache;
       }
@@ -201,4 +229,4 @@ function invalidate() {
   codexCache = undefined;
 }
 
-module.exports = { locateClaude, locateCodex, toUnpacked, invalidate };
+module.exports = { locateClaude, locateCodex, invalidate };

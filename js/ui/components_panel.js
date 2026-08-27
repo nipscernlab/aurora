@@ -38,6 +38,22 @@ let baixando = null;
 const catalogo = new Map();
 
 /**
+ * As chaves marcadas, FORA do DOM.
+ *
+ * Antes a marcação vivia só nas caixas, e a lista se refaz inteira a cada
+ * ação: remover um componente apagava a seleção dos outros, que é uma perda
+ * silenciosa (a pessoa marca quatro, remove um quinto, e a fila zera sem
+ * ninguém dizer nada). Guardada aqui, ela sobrevive ao redesenho, e o
+ * redesenho apenas remarca o que continua fazendo sentido.
+ *
+ * A poda acontece em `desenhar`, e é o que mantém o conjunto honesto: sai da
+ * seleção o que não está mais na lista e o que deixou de ser baixável, que é o
+ * caso de quem acabou de instalar. O que falhou numa fila continua marcado de
+ * propósito, para a pessoa poder repetir sem remarcar tudo.
+ */
+const selecionados = new Set();
+
+/**
  * O ultimo progresso recebido, por chave.
  *
  * A lista se redesenha inteira ao trocar de aba, e o cartao novo nasce com a
@@ -50,13 +66,19 @@ const ultimoProgresso = new Map();
 
 /** Reservas em português para antes de as locales carregarem. */
 const RESERVA = {
+  'modal.settings.componentsUpdate': 'Atualizar',
+  'modal.settings.componentsUpdatesAvailable': '{n} com atualização disponível ({mb} de download).',
   'modal.settings.componentsInstalled': 'Instalado',
   'modal.settings.componentsMissing': 'Não instalado',
   'modal.settings.componentsOutdated': 'Atualização disponível',
-  'modal.settings.componentsUpdate': 'Atualizar',
-  'modal.settings.componentsUpdatesAvailable': '{n} com atualização disponível ({mb} de download).',
-  'modal.settings.componentsAlways': 'Sempre instalado',
+  'modal.settings.componentsAlways': 'Vem no instalador',
   'modal.settings.componentsNeededToCompile': 'Necessário para compilar',
+  'modal.settings.componentsSelectOne': 'Selecionar {nome} para baixar em lote',
+  'modal.settings.componentsQueueSummary': '{n} selecionados, {mb} no total.',
+  'modal.settings.componentsQueueGo': 'Baixar selecionados',
+  'modal.settings.componentsQueueClear': 'Limpar seleção',
+  'modal.settings.componentsQueueDone': '{n} componente(s) instalado(s).',
+  'modal.settings.componentsQueuePartial': '{ok} de {total} instalados. Não entraram: {lista}. Marque de novo para tentar só esses.',
   'modal.settings.componentsDownload': 'Baixar',
   'modal.settings.componentsRemove': 'Remover',
   'modal.settings.componentsAllInstalled': 'Tudo instalado.',
@@ -127,38 +149,120 @@ function elemento(html) {
 }
 
 function escapar(t) {
+  // As aspas tambem, porque o resultado entra em atributos (`src`, `data-*`)
+  // e nao so em texto: uma aspa no valor fecharia o atributo no meio.
   return String(t == null ? '' : t)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function tamanhoLegivel(mb) {
   return mb >= 1000 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`;
 }
 
+/**
+ * Acende ou apaga o ponto de aviso na engrenagem da toolbar.
+ *
+ * Existe porque o aviso de boot é um DIÁLOGO, e diálogo se fecha: quem clica
+ * "Agora não" fica com uma máquina que não compila e nenhum sinal na tela até
+ * o próximo boot. O ponto fica, e é o mesmo desenho do aviso do PyLibs ao
+ * lado, que o usuário já sabe ler.
+ *
+ * Só acende para o que impede de compilar (hoje o MSYS Toolchain e o YANC, os
+ * dois com `requerParaCompilar` em main/components/registry.js). Componente
+ * opcional ausente é escolha, não defeito, e um ponto permanente por causa
+ * dele seria um aviso que ninguém pode desligar.
+ */
+function marcarFaltaNaToolbar(lista) {
+  const falta = (lista || []).some((c) => c.requerParaCompilar && !c.instalado);
+  // Dois pontos, uma regra so. O da engrenagem leva a pessoa ate as
+  // Configuracoes; o da aba Components diz em qual das nove abas esta o
+  // problema, que o da engrenagem nao consegue dizer. Acender um sem o outro
+  // seria a mesma falha em duas versoes: um aviso que aponta para o lugar
+  // errado, ou um lugar sem aviso.
+  for (const id of ['settings-badge', 'settings-nav-badge-componentes']) {
+    const ponto = document.getElementById(id);
+    if (ponto) ponto.hidden = !falta;
+  }
+}
+
+/**
+ * O selo de estado de um componente. Sempre exatamente um, nunca dois.
+ *
+ * Os cinco estados que o painel conhece sao mutuamente exclusivos, e o selo
+ * diz QUAL DELES vale. Ele nao repete o botao: o botao diz o que voce pode
+ * FAZER ("Baixar"), o selo diz onde a coisa ESTA ("Nao instalado"). Sao
+ * respostas a perguntas diferentes, e por isso os dois cabem na mesma linha.
+ *
+ * A ordem importa e nao e alfabetica. `desatualizado` vem primeiro porque um
+ * componente desatualizado tambem esta instalado, e dizer "Instalado" nele
+ * esconderia justamente a novidade. `essencial` vem antes de `instalado` pelo
+ * mesmo motivo: dizer que o YANC esta instalado e verdade e e inutil, porque
+ * ele sempre esta; o que vale dizer e que ele veio no instalador e nao sai.
+ *
+ * Pura, exportada e testada (tests/unit/componentSelos.test.js), porque os
+ * estados que ela separa quase nunca aparecem juntos numa maquina so: numa
+ * maquina com tudo instalado a tela fica igual esteja a regra certa ou errada.
+ *
+ * @param {{essencial?:boolean, instalado?:boolean, estado?:string, requerParaCompilar?:boolean}} c
+ * @returns {Array<'desatualizado'|'essencial'|'instalado'|'urgente'|'ausente'>}
+ */
+export function selosDe(c) {
+  if (!c) return [];
+  if (c.estado === 'desatualizado') return ['desatualizado'];
+  if (c.essencial) return ['essencial'];
+  if (c.instalado) return ['instalado'];
+  return c.requerParaCompilar ? ['urgente'] : ['ausente'];
+}
+
+export function selecionavel(c) {
+  if (!c) return false;
+  if (c.estado === 'desatualizado') return true;
+  return !c.essencial && !c.instalado;
+}
+
+/**
+ * O que a fila responde no fim.
+ *
+ * Separado do laço de propósito: a mensagem é o único registro que sobra
+ * depois de uma fila longa, e é o que a pessoa lê para saber se pode fechar a
+ * janela. Uma fila de sete itens onde o quinto falhou não pode terminar com um
+ * "pronto" genérico.
+ *
+ * @param {Array<{nome:string, ok:boolean}>} resultados
+ * @returns {{tudoBem:boolean, instalados:number, total:number, falharam:string[]}}
+ */
+export function resumoDaFila(resultados) {
+  const lista = resultados || [];
+  const falharam = lista.filter((r) => !r.ok).map((r) => r.nome);
+  return {
+    tudoBem: falharam.length === 0,
+    instalados: lista.length - falharam.length,
+    total: lista.length,
+    falharam,
+  };
+}
+
+/** Texto de cada selo. */
+const TEXTO_DO_SELO = {
+  desatualizado: 'modal.settings.componentsOutdated',
+  essencial:     'modal.settings.componentsAlways',
+  instalado:     'modal.settings.componentsInstalled',
+  urgente:       'modal.settings.componentsNeededToCompile',
+  ausente:       'modal.settings.componentsMissing',
+};
+
+
+
 function cartao(c) {
-  const selos = [];
+  const selos = selosDe(c).map((tipo) => (
+    `<span class="componente-selo ${tipo}">${escapar(tr(TEXTO_DO_SELO[tipo]))}</span>`
+  ));
   // Instalado, inteiro, mas de outra versao: a sentinela esta la, e e por isso
   // que so o carimbo do instalador enxerga. E o unico estado em que o cartao
   // oferece baixar E remover ao mesmo tempo, porque a pessoa tem o componente
   // e a AURORA instalada espera outro.
   const desatualizado = c.estado === 'desatualizado';
-  if (desatualizado) {
-    selos.push(`<span class="componente-selo desatualizado">${escapar(tr('modal.settings.componentsOutdated'))}</span>`);
-  } else if (c.essencial) {
-    // Essencial vem no instalador e nao sai. Um cartao assim nao mostra estado
-    // de instalacao nem tamanho de download, porque nao ha decisao a tomar: a
-    // tela estava dizendo "sempre instalado" e oferecendo um download ao mesmo
-    // tempo, que e contraditorio e nao ajuda ninguem.
-    selos.push(`<span class="componente-selo essencial">${escapar(tr('modal.settings.componentsAlways'))}</span>`);
-  } else if (c.instalado) {
-    selos.push(`<span class="componente-selo instalado">${escapar(tr('modal.settings.componentsInstalled'))}</span>`);
-  } else {
-    selos.push(`<span class="componente-selo ausente">${escapar(tr('modal.settings.componentsMissing'))}</span>`);
-    // O que compila e nao esta aqui e assunto urgente, nao recurso a menos.
-    if (c.requerParaCompilar) {
-      selos.push(`<span class="componente-selo urgente">${escapar(tr('modal.settings.componentsNeededToCompile'))}</span>`);
-    }
-  }
 
   // Remover existe, mas com a cara de acao destrutiva (contorno vermelho, o
   // mesmo desenho do botao de limpar credenciais) e confirmacao que avisa o
@@ -185,8 +289,30 @@ function cartao(c) {
     ? tamanhoLegivel(c.tamanhoMB)
     : tr('modal.settings.componentsDownloadOf', { mb: tamanhoLegivel(c.downloadMB) });
 
+  // Coluna propria e de tamanho fixo para o icone. Todo componente declara
+  // a sua marca em assets/icons, e o teste de icones garante que o arquivo
+  // existe; nao ha reserva, porque um componente sem marca e um componente
+  // mal cadastrado, e o teste acusa antes de chegar ao painel. O que alinha a
+  // lista e o quadro, nao a arte. Sem `loading="lazy"`: sao nove imagens
+  // locais de poucos KB numa lista curta, e a lista e montada com o painel
+  // fechado, onde uma imagem preguicosa nao tem caixa e so e buscada ao abrir
+  // a aba, um quadro depois do texto. O que o lazy evitaria (banda em pagina
+  // longa) nao existe aqui.
+  const marca = `<img src="./assets/icons/${escapar(c.icone)}" alt="" decoding="async">`;
+
+  // A caixa de selecao so existe onde ha o que baixar. Num cartao ja em dia ela
+  // seria uma caixa que nao faz nada, e a pessoa marcaria esperando alguma
+  // coisa. O rotulo acessivel cita o nome, senao um leitor de tela anuncia sete
+  // caixas identicas.
+  const caixa = selecionavel(c)
+    ? `<input type="checkbox" class="componente-marcar" data-marcar="${escapar(c.chave)}"`
+      + `${selecionados.has(c.chave) ? ' checked' : ''}`
+      + ` aria-label="${escapar(tr('modal.settings.componentsSelectOne', { nome: nomeDe(c) }))}">`
+    : '';
+
   return elemento(`
     <div class="componente${c.requerParaCompilar && !c.instalado && !c.essencial ? ' componente-urgente' : ''}" data-chave="${escapar(c.chave)}">
+      <div class="componente-marca">${marca}</div>
       <div class="componente-texto">
         <div class="componente-titulo">
           <span class="componente-nome">${escapar(nomeDe(c))}</span>
@@ -199,7 +325,7 @@ function cartao(c) {
           <span class="componente-linha"></span>
         </div>
       </div>
-      <div class="componente-acao">${acao}</div>
+      <div class="componente-acao">${caixa}${acao}</div>
     </div>
   `);
 }
@@ -219,8 +345,23 @@ async function desenhar() {
   // O catalogo da ultima leitura fica guardado para os dialogos poderem citar
   // nome e tamanho de download sem outra ida ao main.
   lista.forEach((c) => catalogo.set(c.chave, c));
+
+  // A poda vem ANTES de desenhar, porque e o cartao que le a selecao para
+  // decidir se nasce marcado. Sai quem nao esta mais na lista e quem deixou de
+  // ser baixavel: instalou, entao nao ha o que baixar, e uma caixa marcada ali
+  // prometeria um download que nao existe.
+  for (const chave of [...selecionados]) {
+    const c = lista.find((x) => x.chave === chave);
+    if (!c || !selecionavel(c)) selecionados.delete(chave);
+  }
+
   caixa.innerHTML = '';
   lista.forEach((c) => caixa.appendChild(cartao(c)));
+
+  marcarFaltaNaToolbar(lista);
+  // A barra se refaz a partir do que sobrou da poda, e nao do DOM recem-criado:
+  // e assim que remover um componente deixa de apagar a selecao dos outros.
+  atualizarBarraDaFila();
 
   const ausentes = lista.filter((c) => !c.instalado && !c.essencial);
   const desatualizados = lista.filter((c) => c.estado === 'desatualizado');
@@ -277,6 +418,109 @@ function aplicarProgresso(d) {
   // extracao no fim do download nao reporta progresso, e zerar ali daria a
   // impressao de que tudo recomecou.
   if (linha) linha.textContent = d.linha || '';
+}
+
+/**
+ * Desmarca tudo, no conjunto e na tela.
+ *
+ * Exportada porque o conjunto vive no modulo e sobrevive a fechar e reabrir as
+ * Configuracoes, que e o comportamento certo para quem esta escolhendo o que
+ * baixar, e e o que torna o teste dependente da ordem se ele nao puder zerar.
+ * O botao "Limpar selecao" chama exatamente isto.
+ */
+export function limparSelecao() {
+  selecionados.clear();
+  document.querySelectorAll('.componente-marcar:checked').forEach((e) => { e.checked = false; });
+}
+
+/**
+ * As chaves marcadas agora, na ordem em que aparecem na lista.
+ *
+ * Quem manda e o conjunto, e nao as caixas: a lista pode estar sendo refeita
+ * no momento da pergunta, e ai o DOM ainda nao remarcou nada. A ordem, essa
+ * sim, vem da tela, porque a fila baixa de cima para baixo e e nessa ordem que
+ * a pessoa espera ver acontecer.
+ */
+function marcados() {
+  const naTela = [...document.querySelectorAll('.componente-marcar')]
+    .map((e) => e.getAttribute('data-marcar'))
+    .filter((k) => k && selecionados.has(k));
+  return naTela.length ? naTela : [...selecionados];
+}
+
+/**
+ * Mostra (ou esconde) a barra da fila conforme o que está marcado, com a conta
+ * do download somado. A soma é a informação que decide: baixar quatro coisas
+ * numa rede de laboratório é uma decisão diferente de baixar uma.
+ */
+function atualizarBarraDaFila() {
+  const barra = document.getElementById('componentes-fila');
+  if (!barra) return;
+  const chaves = marcados();
+  barra.hidden = chaves.length === 0;
+  const resumo = document.getElementById('componentes-fila-resumo');
+  if (!resumo) return;
+  const somaMB = chaves.reduce((s, k) => s + (catalogo.get(k)?.downloadMB || 0), 0);
+  resumo.textContent = tr('modal.settings.componentsQueueSummary', {
+    n: chaves.length, mb: tamanhoLegivel(somaMB),
+  });
+}
+
+/**
+ * Baixa a fila inteira, um de cada vez.
+ *
+ * UM DE CADA VEZ, e não em paralelo: são downloads de dezenas a centenas de
+ * megabytes que terminam extraindo milhares de arquivos, e o gargalo é a rede
+ * do laboratório e o disco, não a espera. Em paralelo, quatro barras andam
+ * juntas e todas terminam mais tarde do que teriam terminado em sequência.
+ *
+ * NÃO PARA NO PRIMEIRO ERRO. Quem marcou quatro componentes e foi tomar café
+ * espera encontrar o que deu para instalar, não a fila interrompida no
+ * segundo. O que falhou é dito no fim, pelo nome, para a pessoa saber o que
+ * repetir.
+ */
+async function baixarFila() {
+  if (baixando) {
+    showCardNotification(tr('modal.settings.componentsBusy'), 'info', 4000, 'Componentes');
+    return;
+  }
+  const chaves = marcados();
+  if (!chaves.length) return;
+
+  const botao = document.getElementById('componentes-fila-baixar');
+  if (botao) botao.disabled = true;
+
+  const resultados = [];
+  for (const chave of chaves) {
+    const c = catalogo.get(chave);
+    marcarBaixando(chave);
+    // `forcar` para quem está desatualizado: sem a flag o instalador vê a
+    // sentinela da versão antiga e sai dizendo que está tudo lá.
+    const r = await electronAPI.componentesInstalar(chave, { forcar: c?.estado === 'desatualizado' })
+      .catch((e) => ({ ok: false, erro: e?.message }));
+    baixando = null;
+    resultados.push({ nome: c ? nomeDe(c) : chave, ok: Boolean(r?.ok) });
+  }
+
+  if (botao) botao.disabled = false;
+
+  const resumo = resumoDaFila(resultados);
+  if (resumo.tudoBem) {
+    showCardNotification(
+      tr('modal.settings.componentsQueueDone', { n: resumo.instalados }),
+      'success', 6000, 'Componentes',
+    );
+  } else {
+    showCardNotification(
+      tr('modal.settings.componentsQueuePartial', {
+        ok: resumo.instalados, total: resumo.total, lista: resumo.falharam.join(', '),
+      }),
+      'error', 12000, 'Componentes',
+    );
+  }
+  // Redesenha depois da fila inteira, e não a cada item: cada `desenhar`
+  // refaz a lista e apagaria as marcas dos que ainda não foram baixados.
+  await desenhar();
 }
 
 async function instalar(chave, forcar = false) {
@@ -365,6 +609,15 @@ async function avisarSeNaoCompila() {
   try {
     const dados = await electronAPI.componentesListar?.();
     (dados?.componentes || []).forEach((c) => catalogo.set(c.chave, c));
+    // Sob automacao o aviso nao aparece. Ele e um modal, e um modal que nasce
+    // sozinho no boot rouba os cliques de quem estiver dirigindo a janela: foi
+    // exatamente assim que ele derrubou a suite e2e inteira, que roda num
+    // runner onde nenhum componente foi baixado. Quem decide e o main, que e
+    // quem enxerga o ambiente.
+    // O ponto acende ANTES do portao do aviso: quem esta sob automacao, ou
+    // quem ja disse "Agora nao" antes, continua precisando ver que falta algo.
+    marcarFaltaNaToolbar(dados?.componentes || []);
+    if (dados?.avisoDeBootPermitido === false) return;
     const falta = (dados?.componentes || [])
       .find((c) => c.requerParaCompilar && !c.instalado);
     if (!falta) return;
@@ -453,6 +706,19 @@ function ligar() {
   // Delegação: a lista se refaz inteira a cada mudança, e ouvintes presos a
   // cada botão morreriam junto com ela.
   caixa.addEventListener('click', (e) => {
+    // A caixa de selecao passa pelo mesmo ouvinte: a lista se refaz inteira a
+    // cada mudanca, e um ouvinte por caixa morreria junto com ela.
+    if (e.target instanceof Element && e.target.matches('[data-marcar]')) {
+      const chave = e.target.getAttribute('data-marcar');
+      // O DOM continua sendo quem recebe o clique, mas quem GUARDA e o
+      // conjunto, senao a proxima acao na lista apagaria a marcacao.
+      if (chave) {
+        if (e.target.checked) selecionados.add(chave);
+        else selecionados.delete(chave);
+      }
+      atualizarBarraDaFila();
+      return;
+    }
     const alvo = e.target instanceof Element ? e.target.closest('[data-instalar], [data-remover]') : null;
     if (!alvo) return;
     const paraInstalar = alvo.getAttribute('data-instalar');
@@ -460,6 +726,15 @@ function ligar() {
     const paraRemover = alvo.getAttribute('data-remover');
     if (paraRemover) remover(paraRemover);
   });
+
+  document.getElementById('componentes-fila-baixar')
+    ?.addEventListener('click', () => baixarFila());
+
+  document.getElementById('componentes-fila-limpar')
+    ?.addEventListener('click', () => {
+      limparSelecao();
+      atualizarBarraDaFila();
+    });
 
   document.getElementById('componentes-abrir-pasta')
     ?.addEventListener('click', () => electronAPI.componentesAbrirPasta?.());
@@ -485,4 +760,4 @@ if (typeof window !== 'undefined') {
 
 // `ligar` sai daqui para o teste poder prender os ouvintes DEPOIS de montar o
 // DOM: no aplicativo quem chama e o DOMContentLoaded acima, uma vez so.
-export { desenhar, ligar, tamanhoLegivel };
+export { desenhar, ligar };

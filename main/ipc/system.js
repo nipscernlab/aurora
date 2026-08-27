@@ -13,6 +13,33 @@ const { joinAppPath } = require('../utils');
 
 function register() {
   ipcMain.handle('get-components-path', () => componentsPath);
+
+  // A maquina esta na bateria? O powerMonitor responde direto e sem
+  // permissao especial; num desktop ele devolve false e o aviso nunca sai.
+  // Consultado no INICIO de cada simulacao, e nao vigiado com evento: a
+  // pergunta so importa naquele momento, e um vigia permanente seria um
+  // processo acordando a toa.
+  // A pagina de energia do proprio Windows: e la que o usuario escolhe modo
+  // de desempenho e tempos de tela/suspensao. A AURORA leva ate a porta e
+  // NAO mexe em nada, porque plano de energia e escolha do dono da maquina.
+  ipcMain.handle('system:open-power-settings', async () => {
+    try {
+      const { shell } = require('electron');
+      await shell.openExternal('ms-settings:powersleep');
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  ipcMain.handle('system:on-battery', () => {
+    try {
+      const { powerMonitor } = require('electron');
+      return typeof powerMonitor.isOnBatteryPower === 'function'
+        ? !!powerMonitor.isOnBatteryPower()
+        : false;
+    } catch (_e) { return false; }
+  });
   ipcMain.handle('toolchain:python-status', () => getPythonStatus());
 
   ipcMain.handle('path-dirname', (_event, p) => {

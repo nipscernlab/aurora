@@ -46,6 +46,8 @@ const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
+const { trackChild } = require('../process_registry');
+const { EXTRACT_MS } = require('./timeouts');
 
 // Sem logger aqui de proposito: este modulo e a camada de transporte e nao
 // conhece o contexto do que esta baixando. Quem chama (pylib_manager,
@@ -215,22 +217,39 @@ function extractArchive(archive, destDir, opts = {}) {
     const args = ['-xf', archive];
     if (opts.stripComponents) args.push(`--strip-components=${opts.stripComponents}`);
     args.push('-C', destDir);
-    execFile(tarBinary(), args, { windowsHide: true }, (err, _stdout, stderr) => {
-      if (err) reject(new Error(`falha ao extrair ${path.basename(archive)}: ${String(stderr || err.message).trim()}`));
+    // Com prazo e no registro de processos: um bsdtar encalhado num arquivo
+    // travado pelo antivirus pendurava a Promise para sempre, e fechar a
+    // AURORA o deixava vivo. O `timeout` do execFile mata o filho e devolve
+    // erro; o trackChild deixa o encerramento mata-lo antes disso.
+    trackChild(execFile(tarBinary(), args, { windowsHide: true, timeout: EXTRACT_MS }, (err, _stdout, stderr) => {
+      if (err) reject(new Error(`falha ao extrair ${path.basename(archive)}: ${descreverFalha(err, stderr)}`));
       else resolve();
-    });
+    }));
   });
 }
 
 /** Lista os caminhos dentro de um arquivo, sem extrair. */
 function listArchive(/** @type {string} */ archive) {
   return new Promise((resolve, reject) => {
-    execFile(tarBinary(), ['-tf', archive], { windowsHide: true, maxBuffer: 32 * 1024 * 1024 },
+    trackChild(execFile(tarBinary(), ['-tf', archive],
+      { windowsHide: true, maxBuffer: 32 * 1024 * 1024, timeout: EXTRACT_MS },
       (err, stdout, stderr) => {
-        if (err) { reject(new Error(`falha ao listar ${path.basename(archive)}: ${String(stderr || err.message).trim()}`)); return; }
+        if (err) { reject(new Error(`falha ao listar ${path.basename(archive)}: ${descreverFalha(err, stderr)}`)); return; }
         resolve(String(stdout).split(/\r?\n/).map((s) => s.trim()).filter(Boolean));
-      });
+      }));
   });
+}
+
+/**
+ * Um processo morto pelo prazo chega como erro com `killed` e sinal, sem
+ * stderr; a mensagem precisa dizer que foi o prazo, senao o log fala em
+ * SIGTERM e ninguem entende.
+ * @param {NodeJS.ErrnoException & {killed?: boolean}} err
+ * @param {string|Buffer} [stderr]
+ */
+function descreverFalha(err, stderr) {
+  if (err && err.killed) return `passou de ${Math.round(EXTRACT_MS / 60000)} min e foi encerrado`;
+  return String(stderr || err.message).trim();
 }
 
 /**
@@ -307,7 +326,5 @@ module.exports = {
   extractArchive,
   listArchive,
   getJson,
-  tarBinary,
   rmrf,
-  IDLE_TIMEOUT_MS,
 };

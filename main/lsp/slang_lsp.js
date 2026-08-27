@@ -41,6 +41,7 @@ const state = require('../state');
 const { componentsPath } = require('../paths');
 const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
+const { criarDisjuntor } = require('./disjuntor');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -261,6 +262,9 @@ function stop(clearDiag) {
   if (clearDiag) {
     for (const uri of openDocs.keys()) sendMain('slang:diagnostics', { uri, diagnostics: [] });
   }
+  // Servidor novo, contagem nova: as falhas eram daquele processo, e carrega-las
+  // adiante deixaria o proximo comecar ja calado.
+  disjuntorCompletar.zerar();
   const child = proc;
   handleProcessGone();
   if (child) { try { child.kill(); } catch { /* ignore */ } }
@@ -308,13 +312,42 @@ function didClose(/** @type {string} */ uri) {
   sendMain('slang:diagnostics', { uri, diagnostics: [] });
 }
 
+/**
+ * Disjuntor do completar codigo.
+ *
+ * O slang responde `bad allocation` quando o buffer esta no meio de uma edicao
+ * e o desenho ainda nao fecha. Como o editor pede sugestao a cada tecla, uma
+ * digitacao normal virava cinco, dez pedidos identicos, todos falhando: o log
+ * enchia de linhas iguais e o servidor refazia a elaboracao do projeto inteiro
+ * de graca. A falha e do servidor, escrita em C++, e nao ha o que corrigir
+ * daqui; o que da para corrigir e a insistencia.
+ *
+ * Depois de tres falhas seguidas ele para de perguntar por um minuto. Uma
+ * resposta boa fecha o disjuntor, entao o caso comum, que e o arquivo voltar a
+ * fechar assim que a pessoa termina de digitar, se resolve sozinho.
+ */
+const disjuntorCompletar = criarDisjuntor({
+  nome: 'slang completion',
+  aoAbrir: ({ falhas, motivo, pausaMs }) => {
+    log.warn(
+      `[slang-ls] completar codigo falhou ${falhas}x seguidas (${motivo}); `
+      + `pausando por ${Math.round(pausaMs / 1000)}s. As sugestoes do proprio editor continuam.`,
+    );
+  },
+  aoFechar: () => log.info('[slang-ls] completar codigo voltou a responder.'),
+});
+
 async function completion(/** @type {string} */ uri, /** @type {any} */ position) {
   if (!enabled) return null;
+  if (!disjuntorCompletar.podeTentar()) return null;
   if (!(await ensureReady())) return null;
   try {
-    return await request('textDocument/completion', { textDocument: { uri }, position });
+    const r = await request('textDocument/completion', { textDocument: { uri }, position });
+    disjuntorCompletar.registrarSucesso();
+    return r;
   } catch (e) {
-    log.warn('[slang-ls] completion failed:', e instanceof Error ? e.message : e);
+    // O aviso sai do disjuntor, uma vez por pausa, e nao a cada tecla.
+    disjuntorCompletar.registrarFalha(e);
     return null;
   }
 }

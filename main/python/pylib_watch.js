@@ -132,4 +132,4 @@ function stop() {
   if (timer) { clearInterval(timer); timer = null; }
 }
 
-module.exports = { start, stop, sweep, latest, SWEEP_MS };
+module.exports = { start, stop, sweep, latest };

@@ -71,6 +71,22 @@
   box-shadow: 0 0 0 2px var(--bg-elev);
 }
 
+/* O mesmo ponto, agora na aba Components da propria janela de Configuracoes.
+   `margin-left: auto` empurra para a direita do item sem precisar de posicao
+   absoluta: o item de nav ja e flex e ocupa a largura da coluna, entao o ponto
+   encosta na borda direita e acompanha o texto em qualquer idioma. Aqui ele
+   nao leva o anel de sombra do gemeo da toolbar: la o ponto pousa sobre um
+   icone e precisa se separar dele, e aqui pousa sobre o fundo liso da barra
+   lateral, onde o anel viraria uma auréola sem funcao. */
+.settings-nav-badge {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-warning);
+  flex: 0 0 auto;
+}
+
 /* aurora_settings.js uses .visible, map it to the standard show state */
 .modal-overlay.visible {
   opacity: 1;
@@ -1061,6 +1077,20 @@
   border-radius: var(--radius-lg);
 }
 
+/* A coluna da direita: caixa de selecao e botao, LADO A LADO.
+
+   Ela nao tinha regra nenhuma, entao era um bloco comum e os dois filhos
+   empilhavam: a caixa de 16px pousava em cima do botao, que descia junto e
+   desalinhava a linha inteira, com o cartao do meio parecendo quebrado. A
+   caixa vem antes no DOM porque marcar vem antes de baixar, e em linha ela cai
+   naturalmente a esquerda do botao. */
+.componente-acao {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
 .componente-marca {
   /* Sem moldura: so a marca. O alinhamento continua vindo da COLUNA, que tem
      largura fixa, e nao de um retangulo desenhado atras de cada logotipo. */
@@ -1077,11 +1107,18 @@
   /* contain, e nao cover: logotipo cortado e logotipo desrespeitado, e as
      proporcoes originais variam bastante entre as marcas (o do Verible e bem
      mais largo que alto, o do MSYS2 e quadrado). A caixa de 28 e o limite;
-     cada marca ocupa dentro dela o que a propria proporcao permitir. */
-  max-width: 28px;
-  max-height: 28px;
-  width: auto;
-  height: auto;
+     cada marca ocupa dentro dela o que a propria proporcao permitir.
+
+     A caixa e FIXA em 28, e nao um teto com `width: auto`. Com o teto, quem
+     mandava no tamanho era o atributo do proprio arquivo, e um deles discorda
+     dos outros: o `ai_codex.svg` declara `width="1em" height="1em"`, entao
+     desenhava com 16px, quase metade do vizinho, e a lista ficava com um
+     logotipo visivelmente menor sem motivo aparente. Os demais ou nao declaram
+     tamanho (e ai o teto e que mandava) ou declaram centenas de pixels (e o
+     teto cortava). Com a caixa fixa, o `object-fit: contain` continua
+     preservando a proporcao de cada marca, e o arquivo deixa de opinar. */
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
 

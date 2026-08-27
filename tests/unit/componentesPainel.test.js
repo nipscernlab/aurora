@@ -39,7 +39,7 @@ vi.mock('../../js/app/electron_api.js', () => ({ electronAPI }));
 vi.mock('../../js/ui/dialog_manager.js', () => ({ showDialog: vi.fn(async () => 'remover') }));
 vi.mock('../../js/ui/notification.js', () => ({ showCardNotification: vi.fn() }));
 
-const { desenhar, ligar } = await import('../../js/ui/components_panel.js');
+const { desenhar, ligar, limparSelecao } = await import('../../js/ui/components_panel.js');
 
 /** Um componente do catálogo, com o que o painel realmente lê. */
 function comp(over = {}) {
@@ -358,5 +358,75 @@ describe('o lugar do selo', () => {
     })]);
     expect(naLinhaDoNome('yanc')).toEqual(['Atualização disponível']);
     expect(botoes('yanc').map((b) => b.texto)).toEqual(['Atualizar']);
+  });
+});
+
+describe('a seleção sobrevive ao redesenho', () => {
+  // A seleção é de módulo e sobrevive a fechar e reabrir o painel, que é o
+  // comportamento certo e torna um teste dependente do anterior se ele não
+  // zerar. Descoberto aqui: o segundo caso via a marcação do primeiro.
+  beforeEach(() => limparSelecao());
+
+  const marcar = (chave) => {
+    const caixa = cartao(chave).querySelector('.componente-marcar');
+    caixa.click();
+    return caixa;
+  };
+  const marcada = (chave) => {
+    const caixa = cartao(chave)?.querySelector('.componente-marcar');
+    return caixa ? caixa.checked : null;
+  };
+
+  it('remover um componente não apaga a marcação dos outros', async () => {
+    // O caso real: a pessoa marca dois para baixar, lembra de remover um
+    // terceiro antes, e a lista se refaz inteira por causa da remoção. Antes
+    // disto a fila zerava sem ninguém avisar, e ela remarcaria os dois sem
+    // entender o que aconteceu.
+    const lista = [
+      comp({ chave: 'claude' }),
+      comp({ chave: 'codex' }),
+      comp({ chave: 'surfer', instalado: true, estado: 'ok' }),
+    ];
+    await pintar(lista);
+    marcar('claude');
+    marcar('codex');
+    expect([marcada('claude'), marcada('codex')]).toEqual([true, true]);
+
+    // A remoção do surfer devolve a lista com ele já ausente.
+    electronAPI.componentesListar.mockResolvedValue({
+      componentes: [comp({ chave: 'claude' }), comp({ chave: 'codex' }), comp({ chave: 'surfer' })],
+      baixando: null,
+    });
+    cartao('surfer').querySelector('[data-remover]').click();
+    await vi.waitFor(() => expect(electronAPI.componentesRemover).toHaveBeenCalledWith('surfer'));
+    await vi.waitFor(() => expect(cartao('surfer').querySelector('[data-instalar]')).toBeTruthy());
+
+    expect([marcada('claude'), marcada('codex')]).toEqual([true, true]);
+    // E o que foi removido NÃO entra na seleção sozinho: ele virou baixável
+    // agora, mas ninguém o marcou.
+    expect(marcada('surfer')).toBe(false);
+  });
+
+  it('o que acabou de instalar sai da seleção sozinho', async () => {
+    await pintar([comp({ chave: 'codex' })]);
+    marcar('codex');
+    expect(marcada('codex')).toBe(true);
+
+    // Instalado: some a caixa, porque não há mais o que baixar.
+    electronAPI.componentesListar.mockResolvedValue({
+      componentes: [comp({ chave: 'codex', instalado: true, estado: 'ok' })],
+      baixando: null,
+    });
+    await desenhar();
+    expect(marcada('codex')).toBe(null);
+
+    // E a prova de que a marcação saiu do conjunto, e não só da tela: se ele
+    // voltar a ser baixável, volta DESMARCADO.
+    electronAPI.componentesListar.mockResolvedValue({
+      componentes: [comp({ chave: 'codex' })],
+      baixando: null,
+    });
+    await desenhar();
+    expect(marcada('codex')).toBe(false);
   });
 });

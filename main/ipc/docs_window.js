@@ -66,11 +66,17 @@ function avisarEstado() {
 /**
  * Abre (ou traz para frente) a janela do manual.
  * @param {string} dir pasta do manual já resolvida pelo chamador
+ * @param {string} [relPage] página inicial, relativa e já validada (docs.js)
+ * @param {string} [hash] âncora sem o '#'
  * @returns {import('electron').BrowserWindow}
  */
-function open(dir) {
-  const indexPath = path.join(dir, 'index.html');
+function open(dir, relPage = 'index.html', hash = '') {
+  const indexPath = path.join(dir, relPage);
   if (win && !win.isDestroyed()) {
+    // Janela já aberta: navega para a página pedida em vez de só focar.
+    if (view) {
+      view.webContents.loadFile(indexPath, hash ? { hash } : undefined).catch(() => { /* pagina sumiu */ });
+    }
     win.show();
     win.focus();
     return win;
@@ -115,7 +121,7 @@ function open(dir) {
     },
   });
   win.contentView.addChildView(view);
-  view.webContents.loadFile(indexPath);
+  view.webContents.loadFile(indexPath, hash ? { hash } : undefined);
 
   // Link externo é assunto do navegador do sistema, não desta janela.
   view.webContents.setWindowOpenHandler(({ url }) => {

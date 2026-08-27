@@ -38,6 +38,22 @@ let baixando = null;
 const catalogo = new Map();
 
 /**
+ * As chaves marcadas, FORA do DOM.
+ *
+ * Antes a marcação vivia só nas caixas, e a lista se refaz inteira a cada
+ * ação: remover um componente apagava a seleção dos outros, que é uma perda
+ * silenciosa (a pessoa marca quatro, remove um quinto, e a fila zera sem
+ * ninguém dizer nada). Guardada aqui, ela sobrevive ao redesenho, e o
+ * redesenho apenas remarca o que continua fazendo sentido.
+ *
+ * A poda acontece em `desenhar`, e é o que mantém o conjunto honesto: sai da
+ * seleção o que não está mais na lista e o que deixou de ser baixável, que é o
+ * caso de quem acabou de instalar. O que falhou numa fila continua marcado de
+ * propósito, para a pessoa poder repetir sem remarcar tudo.
+ */
+const selecionados = new Set();
+
+/**
  * O ultimo progresso recebido, por chave.
  *
  * A lista se redesenha inteira ao trocar de aba, e o cartao novo nasce com a
@@ -290,6 +306,7 @@ function cartao(c) {
   // caixas identicas.
   const caixa = selecionavel(c)
     ? `<input type="checkbox" class="componente-marcar" data-marcar="${escapar(c.chave)}"`
+      + `${selecionados.has(c.chave) ? ' checked' : ''}`
       + ` aria-label="${escapar(tr('modal.settings.componentsSelectOne', { nome: nomeDe(c) }))}">`
     : '';
 
@@ -328,12 +345,22 @@ async function desenhar() {
   // O catalogo da ultima leitura fica guardado para os dialogos poderem citar
   // nome e tamanho de download sem outra ida ao main.
   lista.forEach((c) => catalogo.set(c.chave, c));
+
+  // A poda vem ANTES de desenhar, porque e o cartao que le a selecao para
+  // decidir se nasce marcado. Sai quem nao esta mais na lista e quem deixou de
+  // ser baixavel: instalou, entao nao ha o que baixar, e uma caixa marcada ali
+  // prometeria um download que nao existe.
+  for (const chave of [...selecionados]) {
+    const c = lista.find((x) => x.chave === chave);
+    if (!c || !selecionavel(c)) selecionados.delete(chave);
+  }
+
   caixa.innerHTML = '';
   lista.forEach((c) => caixa.appendChild(cartao(c)));
 
   marcarFaltaNaToolbar(lista);
-  // A lista acabou de ser refeita, entao nenhuma caixa esta marcada; a barra
-  // some junto, senao ficaria falando de uma selecao que nao existe mais.
+  // A barra se refaz a partir do que sobrou da poda, e nao do DOM recem-criado:
+  // e assim que remover um componente deixa de apagar a selecao dos outros.
   atualizarBarraDaFila();
 
   const ausentes = lista.filter((c) => !c.instalado && !c.essencial);
@@ -393,11 +420,32 @@ function aplicarProgresso(d) {
   if (linha) linha.textContent = d.linha || '';
 }
 
-/** As chaves marcadas agora, na ordem em que aparecem na lista. */
+/**
+ * Desmarca tudo, no conjunto e na tela.
+ *
+ * Exportada porque o conjunto vive no modulo e sobrevive a fechar e reabrir as
+ * Configuracoes, que e o comportamento certo para quem esta escolhendo o que
+ * baixar, e e o que torna o teste dependente da ordem se ele nao puder zerar.
+ * O botao "Limpar selecao" chama exatamente isto.
+ */
+export function limparSelecao() {
+  selecionados.clear();
+  document.querySelectorAll('.componente-marcar:checked').forEach((e) => { e.checked = false; });
+}
+
+/**
+ * As chaves marcadas agora, na ordem em que aparecem na lista.
+ *
+ * Quem manda e o conjunto, e nao as caixas: a lista pode estar sendo refeita
+ * no momento da pergunta, e ai o DOM ainda nao remarcou nada. A ordem, essa
+ * sim, vem da tela, porque a fila baixa de cima para baixo e e nessa ordem que
+ * a pessoa espera ver acontecer.
+ */
 function marcados() {
-  return [...document.querySelectorAll('.componente-marcar:checked')]
+  const naTela = [...document.querySelectorAll('.componente-marcar')]
     .map((e) => e.getAttribute('data-marcar'))
-    .filter(Boolean);
+    .filter((k) => k && selecionados.has(k));
+  return naTela.length ? naTela : [...selecionados];
 }
 
 /**
@@ -661,6 +709,13 @@ function ligar() {
     // A caixa de selecao passa pelo mesmo ouvinte: a lista se refaz inteira a
     // cada mudanca, e um ouvinte por caixa morreria junto com ela.
     if (e.target instanceof Element && e.target.matches('[data-marcar]')) {
+      const chave = e.target.getAttribute('data-marcar');
+      // O DOM continua sendo quem recebe o clique, mas quem GUARDA e o
+      // conjunto, senao a proxima acao na lista apagaria a marcacao.
+      if (chave) {
+        if (e.target.checked) selecionados.add(chave);
+        else selecionados.delete(chave);
+      }
       atualizarBarraDaFila();
       return;
     }
@@ -677,7 +732,7 @@ function ligar() {
 
   document.getElementById('componentes-fila-limpar')
     ?.addEventListener('click', () => {
-      document.querySelectorAll('.componente-marcar:checked').forEach((e) => { e.checked = false; });
+      limparSelecao();
       atualizarBarraDaFila();
     });
 

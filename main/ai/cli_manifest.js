@@ -34,7 +34,7 @@
 
 // Base versions, keep in lockstep with package.json dependencies.
 const CLAUDE_VERSION = '2.1.226'; // @anthropic-ai/claude-code
-const CODEX_VERSION = '0.147.0';  // @openai/codex
+const CODEX_VERSION = '0.149.1';  // @openai/codex
 
 const REGISTRY = 'https://registry.npmjs.org';
 
@@ -79,7 +79,7 @@ const MANIFEST = {
         pkg: '@openai/codex-win32-x64',
         version: `${CODEX_VERSION}-win32-x64`,
         tarball: `${REGISTRY}/@openai/codex/-/codex-${CODEX_VERSION}-win32-x64.tgz`,
-        integrity: 'sha512-oT7Ss5fAPf2fiWE9QNURqZcQGAAawSVxmIUdgPzckq4KFZAM+pRz9JbM4Rr498CjtbNgTOjWvDJ+DXvIBSfOPA==',
+        integrity: 'sha512-G3QXGAg7nyyhqOeooAMUekBCeHd8a1QByhKcVAFyzNBaI06t6Ft7nsF+1SzFS0spuIdU4YyMi5YD26ukADBQUQ==',
         // O layout do pacote mudou na 0.147.0: o binario saiu de
         // vendor/<triple>/codex/ para vendor/<triple>/bin/, e o ripgrep de
         // vendor/<triple>/path/ para vendor/<triple>/codex-path/. Conferido no

@@ -73,6 +73,9 @@ const fileOperations = {
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
   docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
+  // Ajuda contextual dos modais: abre o manual JA na pagina do assunto. O
+  // caminho e validado no main contra a pasta do manual; daqui so passa string.
+  docsOpenHelp:    (pagina) => ipcRenderer.invoke('docs:open-help', pagina),
   // Procurar e ler o manual, para a Aurora Intelligence. Nenhuma das duas
   // recebe pasta: quem resolve onde o manual esta e o processo principal.
   docsBuscar: (consulta, opcoes) => ipcRenderer.invoke('docs:buscar', consulta, opcoes),
@@ -225,6 +228,11 @@ const compilationOperations = {
   surferTabServe: (opts) => ipcRenderer.invoke('surfer-tab:serve', opts),
   surferTabStop: (tabId) => ipcRenderer.invoke('surfer-tab:stop', tabId),
   surferTabAvailable: () => ipcRenderer.invoke('surfer-tab:available'),
+  // O usuario salvou o estado DENTRO da aba do Surfer: o cliente WASM POSTa o
+  // .surf.ron no servidor local, o main grava no projeto e avisa por aqui, para
+  // o renderer registrar o layout como ativo e o proximo Wave abrir com ele.
+  onSurferTabStateSaved: (cb) =>
+    ipcRenderer.on('surfer-tab:state-saved', (_e, dados) => cb(dados)),
   writeSurferMappings: (mappings) => ipcRenderer.invoke('write-surfer-mappings', mappings),
   decodeComplex: (payload) => ipcRenderer.invoke('decode-complex', payload),
 };

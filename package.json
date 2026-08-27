@@ -273,7 +273,7 @@
     "@anthropic-ai/claude-code": "^2.1.241",
     "@lydell/node-pty": "^1.2.0-beta.15",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@openai/codex": "0.147.0",
+    "@openai/codex": "0.149.1",
     "@openai/codex-sdk": "^0.149.1",
     "@phosphor-icons/web": "^2.1.2",
     "@silimate/netlistsvg": "github:nipscernlab/netlistsvg-aurora#58a0703904a35841616db58716f40532b84fb018",

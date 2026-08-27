@@ -63,7 +63,7 @@
       "label": "Build Completo"
     },
     "settings": {
-      "tooltip": "Configurações do Aurora"
+      "tooltip": "Configurações da AURORA"
     },
     "git": {
       "tooltip": "Controle de Versão"
@@ -212,7 +212,8 @@
       "selectedCountOne": "1 sinal selecionado",
       "selectedCountOther": "{{count}} sinais selecionados",
       "cancel": "Cancelar",
-      "save": "Salvar"
+      "save": "Salvar",
+      "help": "Abrir o capítulo do manual sobre formas de onda"
     },
     "newProject": {
       "title": "Criar Novo Projeto",
@@ -241,10 +242,11 @@
       "inputPorts": "Portas de Entrada",
       "outputPorts": "Portas de Saída",
       "cancel": "Cancelar",
-      "generate": "Gerar Processador"
+      "generate": "Gerar Processador",
+      "help": "Abrir o capítulo do manual sobre criar um processador"
     },
     "settings": {
-      "title": "Configurações do Aurora",
+      "title": "Configurações da AURORA",
       "close": "Fechar configurações",
       "sectionGeneral": "Geral",
       "tooltips": "Habilitar Tooltips",
@@ -469,7 +471,7 @@
     },
     "dismissMissing": {
       "title": "Dispensar o aviso de arquivos faltantes?",
-      "message": "{{count}} arquivo(s) referenciado(s) por este projeto não existem mais no disco. Dispensar remove essas referências do projeto (o .spf), faça isso apenas se você apagou os arquivos de propósito. Os arquivos já não existem; isto só faz o Aurora parar de sinalizá-los. Esta ação não pode ser desfeita.",
+      "message": "{{count}} arquivo(s) referenciado(s) por este projeto não existem mais no disco. Dispensar remove essas referências do projeto (o .spf), faça isso apenas se você apagou os arquivos de propósito. Os arquivos já não existem; isto só faz a AURORA parar de sinalizá-los. Esta ação não pode ser desfeita.",
       "fallbackPrompt": "Remover as referências de arquivos faltantes deste projeto? Esta ação não pode ser desfeita.",
       "cancel": "Manter aviso",
       "confirm": "Remover referências"
@@ -647,7 +649,7 @@
       "sourceLabelWc": "da Configuração de Ondas ({{count}} sinal(is))",
       "sourceLabelTb": "testbench controla $dumpvars (escrito à mão, sem sobrescrita)",
       "sourceLabelDefault": "padrão ($dumpvars(1, <tb>), sinais no escopo do testbench)",
-      "overrideUserDumpvars": "Nota: $dumpfile/$dumpvars escrito à mão no testbench foi comentado, $dumpvars do Aurora assume.",
+      "overrideUserDumpvars": "Nota: $dumpfile/$dumpvars escrito à mão no testbench foi comentado, $dumpvars da AURORA assume.",
       "bannerSim": "Simulação & GTKWave",
       "buildingVvp": "Construindo VVP para simulação...",
       "runningVvp": "Executando simulação VVP...",
@@ -697,7 +699,8 @@
       "yosysRun": "Executando comando Yosys: {{cmd}}",
       "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}",
       "progress": "Simulação",
-      "progressBuild": "Compilação"
+      "progressBuild": "Compilação",
+      "surferTabStateSaved": "Estado salvo no projeto e registrado como layout ativo, o próximo Wave abre com ele."
     },
     "openComponents": "Abrir Componentes"
   },
@@ -867,7 +870,7 @@
   "ai": {
     "offline": {
       "title": "A Aurora Intelligence está offline",
-      "body": "Não foi possível alcançar o backend da IA. Reinicie o Aurora ou abra as Configurações para configurar um provedor."
+      "body": "Não foi possível alcançar o backend da IA. Reinicie a AURORA ou abra as Configurações para configurar um provedor."
     },
     "emptyHint": "Pergunte à Aurora Intelligence sobre o seu projeto, Verilog ou SAPHO/CMM",
     "show": "Mostrar a Aurora Intelligence",

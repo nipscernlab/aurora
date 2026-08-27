@@ -131,6 +131,12 @@ class WaveConfigManager {
     bindListeners() {
         this.elements.closeBtn?.addEventListener('click', () => this.close());
         this.elements.cancelBtn?.addEventListener('click', () => this.close());
+        // Ajuda contextual: o capítulo do manual sobre formas de onda. Sem a
+        // cópia offline instalada, cai para o manual online no navegador.
+        document.getElementById('waveConfigHelp')?.addEventListener('click', async () => {
+            const r = await window.electronAPI?.docsOpenHelp?.('verilog/ondas.html');
+            if (!r?.ok) window.electronAPI?.openExternal?.('https://www.nipscern.com/library/sapho/verilog/ondas.html');
+        });
         this.elements.saveBtn?.addEventListener('click', () => this.save());
         this.elements.selectDefaultBtn?.addEventListener('click', () => this.selectDefault());
         this.elements.selectAllBtn?.addEventListener('click', () => this.selectAll());

@@ -212,7 +212,8 @@
       "selectedCountOne": "1 signal selected",
       "selectedCountOther": "{{count}} signals selected",
       "cancel": "Cancel",
-      "save": "Save"
+      "save": "Save",
+      "help": "Open the manual chapter about waveforms"
     },
     "newProject": {
       "title": "Create New Project",
@@ -241,7 +242,8 @@
       "inputPorts": "Input Ports",
       "outputPorts": "Output Ports",
       "cancel": "Cancel",
-      "generate": "Generate Processor"
+      "generate": "Generate Processor",
+      "help": "Open the manual chapter about creating a processor"
     },
     "settings": {
       "title": "Aurora Settings",
@@ -697,7 +699,8 @@
       "yosysRun": "Running Yosys command: {{cmd}}",
       "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}",
       "progress": "Simulation",
-      "progressBuild": "Build"
+      "progressBuild": "Build",
+      "surferTabStateSaved": "State saved in the project and registered as the active layout; the next Wave opens with it."
     },
     "openComponents": "Open Components"
   },

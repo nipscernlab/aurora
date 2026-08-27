@@ -699,7 +699,8 @@
       "yosysRun": "Running Yosys command: {{cmd}}",
       "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}",
       "progress": "Simulation",
-      "progressBuild": "Build"
+      "progressBuild": "Build",
+      "surferTabStateSaved": "State saved in the project and registered as the active layout; the next Wave opens with it."
     },
     "openComponents": "Open Components"
   },

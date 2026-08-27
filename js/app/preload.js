@@ -228,6 +228,11 @@ const compilationOperations = {
   surferTabServe: (opts) => ipcRenderer.invoke('surfer-tab:serve', opts),
   surferTabStop: (tabId) => ipcRenderer.invoke('surfer-tab:stop', tabId),
   surferTabAvailable: () => ipcRenderer.invoke('surfer-tab:available'),
+  // O usuario salvou o estado DENTRO da aba do Surfer: o cliente WASM POSTa o
+  // .surf.ron no servidor local, o main grava no projeto e avisa por aqui, para
+  // o renderer registrar o layout como ativo e o proximo Wave abrir com ele.
+  onSurferTabStateSaved: (cb) =>
+    ipcRenderer.on('surfer-tab:state-saved', (_e, dados) => cb(dados)),
   writeSurferMappings: (mappings) => ipcRenderer.invoke('write-surfer-mappings', mappings),
   decodeComplex: (payload) => ipcRenderer.invoke('decode-complex', payload),
 };

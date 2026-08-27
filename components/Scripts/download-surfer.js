@@ -7,12 +7,12 @@
  * opt-in (toggle GTKWave<->Surfer); sem ele, o botao Wave cai pro GTKWave.
  *
  * Fork: gitlab.com/nips-cern/surfer-aurora (fork de surfer-project/surfer),
- * onde ficam as melhorias da NIPSCERN. Licenca EUPL-1.2 — atribuicao no
+ * onde ficam as melhorias da NIPS-CERN. Licenca EUPL-1.2, atribuicao no
  * LICENSE da raiz; spawn arm's-length (a AURORA so executa o .exe, nao linka)
  * nao contamina a AURORA. O fork fica PUBLICO por exigencia da EUPL.
  *
  * PUBLICACAO DO ARTEFATO: enquanto o CI do fork nao publicar o zip do binario
- * (PUBLISHED=false abaixo), este script NAO baixa nada — deliberadamente. Ele
+ * (PUBLISHED=false abaixo), este script NAO baixa nada, deliberadamente. Ele
  * jamais baixa o surfer.exe do upstream pra renomear como nosso, o que
  * mascararia as melhorias do fork por um binario sem elas. Ate la, o
  * surfer-aurora.exe e provido pelo build local (cargo build --release no fork
@@ -30,14 +30,15 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
 // Vira true quando o CI do fork (gitlab.com/nips-cern/surfer-aurora) publicar
 // um zip do binario Windows no registro de pacotes. Enquanto false, o
-// surfer-aurora.exe vem do build local — nunca do upstream (ver header).
+// surfer-aurora.exe vem do build local, nunca do upstream (ver header).
 const PUBLISHED = true;
 
 // O pacote publicado pelo CI do fork (.gitlab-ci-aurora.yml). `url` aponta pro
@@ -47,18 +48,36 @@ const PUBLISHED = true;
 // CI publica -> atualizar tag/filename/sha256/url aqui.
 /** @type {{ url: string, sha256: string, filename: string, tag: string } | null} */
 const FORK_ARTIFACT = PUBLISHED ? {
-    tag:      'v0.7.0-nips.7',
-    filename: 'surfer-aurora_win_v0.7.0-nips.7.zip',
-    sha256:   'f9c6cedbe00ebee349be8c21707c705e96a3e97f67150741e63e09134f512515',
-    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.7/surfer-aurora_win_v0.7.0-nips.7.zip',
+    tag:      'v0.7.0-nips.10',
+    filename: 'surfer-aurora_win_v0.7.0-nips.10.zip',
+    sha256:   '60fb1940082358e389c53d0a8eacad6c881b67e0d61c8ec0facebfdf69290a8d',
+    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.10/surfer-aurora_win_v0.7.0-nips.10.zip',
 } : null;
+
+// O bundle web (cliente WASM) do MESMO fork e da MESMA tag: e ele que roda
+// dentro da aba do editor (main/ipc/surfer_tab.js). Publicado pelo job
+// publish_wasm do .gitlab-ci.yml do fork. null enquanto a tag nova nao sai;
+// nesse meio-tempo o build local (trunk) prove components/Packages/surfer/web.
+/** @type {{ url: string, sha256: string, filename: string } | null} */
+const FORK_WEB_ARTIFACT = {
+    filename: 'surfer-aurora_web_v0.7.0-nips.10.zip',
+    sha256:   '159c6c1dc3d378d6474e7c86ea6d937f9d1c740006bc3af33304e1fd6727d092',
+    url:      'https://gitlab.com/api/v4/projects/84576006/packages/generic/surfer-aurora/v0.7.0-nips.10/surfer-aurora_web_v0.7.0-nips.10.zip',
+};
 
 const ROOT_DIR      = path.join(__dirname, '..', '..');
 const INSTALL_DIR   = path.join(ROOT_DIR, 'components', 'Packages', 'surfer');
 // O binario do fork. A AURORA resolve/allowlista EXATAMENTE este nome
-// (wave_toolchain.js, binary_allowlist.js) — manter em sync.
+// (wave_toolchain.js, binary_allowlist.js), manter em sync.
 const SENTINEL_FILE = path.join(INSTALL_DIR, 'surfer-aurora.exe');
+// A aba do Surfer exige web/index.html; sem ele o botao Wave continua
+// funcionando, so que em janela nativa (a preferencia degrada sozinha).
+const WEB_DIR       = path.join(INSTALL_DIR, 'web');
+const WEB_SENTINEL  = path.join(WEB_DIR, 'index.html');
 const TMP_ZIP       = FORK_ARTIFACT ? path.join(ROOT_DIR, FORK_ARTIFACT.filename) : '';
+// Carimbo da versao instalada; o catalogo do main le o mesmo arquivo. Foi a
+// falta dele que deixou o Surfer cinco versoes atras sem ninguem ver.
+const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -114,7 +133,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
             }).on('error', reject);
         }
 
-        // Resolve apenas depois que o stream e fechado — caso contrario
+        // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
         file.on('finish', () => file.close(resolve));
         file.on('error', reject);
@@ -122,18 +141,10 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    if (!fs.existsSync(zipPath)) {
-        throw new Error(`Zip file not found: ${zipPath}`);
-    }
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // PowerShell Expand-Archive (ships on every Win 10+).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit' }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado.
+    await extrairZip(zipPath, destDir, { log, tag: 'surfer' });
 }
 
 // Se o zip do fork trouxe o binario dentro de uma subpasta, sobe os arquivos
@@ -154,20 +165,54 @@ function flattenIfNested(/** @type {string} */ dir) {
     try { fs.rmdirSync(found); } catch { /* nao-vazia / em uso — ignora */ }
 }
 
+// Baixa e instala o bundle web (cliente WASM) quando o CI do fork o publica.
+// Falha aqui NUNCA derruba o bootstrap: sem web/ a aba degrada para a janela
+// nativa com aviso no terminal, que e um estado utilizavel.
+async function installWebBundle() {
+    if (!FORK_WEB_ARTIFACT) {
+        log('bundle web do Surfer ainda nao publicado pelo CI do fork — o modo aba fica indisponivel ate o build local:');
+        log('  1) cd surfer-aurora && trunk build --config=surfer/Trunk.toml index.html --release --public-url ./');
+        log('  2) copie surfer/dist/* -> components/Packages/surfer/web/');
+        return;
+    }
+    const tmp = path.join(ROOT_DIR, FORK_WEB_ARTIFACT.filename);
+    try {
+        await downloadFile(FORK_WEB_ARTIFACT.url, tmp);
+        await verifyChecksum(tmp, FORK_WEB_ARTIFACT.sha256, log);
+        await extractZip(tmp, WEB_DIR);
+        fs.unlinkSync(tmp);
+        if (!fs.existsSync(WEB_SENTINEL)) {
+            err(`web/index.html ausente apos extracao — o zip mudou de estrutura?`);
+            return;
+        }
+        log('bundle web do Surfer instalado (modo aba disponivel).');
+    } catch (e) {
+        err(e instanceof Error ? e.message : String(e));
+        err('Nao consegui instalar o bundle web; o Surfer segue disponivel em janela nativa.');
+    }
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 async function main() {
     const force = process.argv.includes('--force');
 
-    if (alreadyInstalled() && !force) {
-        log(`surfer-aurora already present — skipping.`);
+    const carimbo = decidir({
+        instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: FORK_ARTIFACT ? FORK_ARTIFACT.tag : '',
+    });
+    if (carimbo.pular && !force) {
+        if (!fs.existsSync(WEB_SENTINEL)) await installWebBundle();
+        else log(`surfer-aurora already present — skipping.`);
         return;
+    }
+    if (carimbo.motivo === 'outra-versao') {
+        log(`surfer-aurora ${carimbo.gravada} installed but ${FORK_ARTIFACT ? FORK_ARTIFACT.tag : '?'} is pinned — re-downloading.`);
     }
 
     // Ate o CI do fork publicar um artefato, NAO ha de onde baixar o binario
     // COM as melhorias do fork. Nao caimos pro upstream (isso instalaria um
     // Surfer sem as nossas mudancas, mascarado com o nosso nome). Instrui e sai
-    // limpo — o build local prove o surfer-aurora.exe nesse meio-tempo.
+    // limpo, o build local prove o surfer-aurora.exe nesse meio-tempo.
     if (!FORK_ARTIFACT) {
         log(`surfer-aurora nao encontrado e o CI do fork ainda nao publica binario.`);
         log(`Providencie o build local:`);
@@ -181,16 +226,20 @@ async function main() {
     try {
         await downloadFile(FORK_ARTIFACT.url, TMP_ZIP);
         await verifyChecksum(TMP_ZIP, FORK_ARTIFACT.sha256, log);
-        extractZip(TMP_ZIP, INSTALL_DIR);
+        await extractZip(TMP_ZIP, INSTALL_DIR);
         flattenIfNested(INSTALL_DIR);
         fs.unlinkSync(TMP_ZIP);
         log(`surfer-aurora installed successfully.`);
+        await installWebBundle();
 
         if (!alreadyInstalled()) {
             err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);
             err(`The ZIP may have a different internal structure.`);
             process.exit(1);
         }
+        // So depois de a sentinela confirmar. O bundle web nao entra na conta:
+        // sem ele o Surfer degrada para a janela nativa, que e um estado util.
+        escreverCarimbo(VERSION_STAMP, FORK_ARTIFACT.tag);
     } catch (e) {
         err(e instanceof Error ? e.message : String(e));
         err(`\nCould not download surfer-aurora automatically.`);
@@ -216,4 +265,5 @@ module.exports = {
     FORK_ARTIFACT,
     INSTALL_DIR,
     SENTINEL_FILE,
+    VERSION_STAMP,
 };

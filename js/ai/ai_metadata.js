@@ -1,4 +1,4 @@
-// ai_metadata.js — Aurora Intelligence provider/model/permission metadata +
+// ai_metadata.js: Aurora Intelligence provider/model/permission metadata +
 // pure formatters (extracted from ai_assistant_manager.js, A2 god-file
 // decomposition). Static config tables (PROVIDER_META, SUB_META, model/effort
 // lists, permission modes, token-window sizes) and stateless helpers
@@ -7,13 +7,13 @@
 
 export const PROVIDER_META = {
   // Subscription-backed: runs through the Claude Code / Claude Agent SDK,
-  // billed against the user's Pro/MAX plan — no per-token API key.
+  // billed against the user's Pro/MAX plan, no per-token API key.
   'claude-code': {
     label: 'Claude Code', icon: './assets/icons/ai_claude.svg',
     subscription: true, tagline: 'Pro / MAX plan — no API key',
   },
   // Subscription-backed: runs through the OpenAI Codex CLI, billed
-  // against the user's ChatGPT plan — no per-token API key.
+  // against the user's ChatGPT plan, no per-token API key.
   'chatgpt': {
     label: 'ChatGPT', icon: './assets/icons/ai_codex.svg',
     subscription: true, tagline: 'ChatGPT plan — no API key',
@@ -26,11 +26,11 @@ export const PROVIDER_META = {
   ollama:    { label: 'Ollama',   icon: './assets/icons/ai_ollama.svg'   },
 };
 
-// Synthetic provider entry for Claude Code — it is not returned by the
+// Synthetic provider entry for Claude Code, it is not returned by the
 // backend `listProviders()` (no API key), so the panel injects it.
 export const CLAUDE_CODE_PROVIDER = { name: 'claude-code', model: 'default', defaultModel: 'default' };
 
-// Claude Code model aliases + effort levels — surfaced as segmented
+// Claude Code model aliases + effort levels, surfaced as segmented
 // controls in the model popover. `effort: ''` means "let the CLI decide".
 //
 // ALIASES on purpose (not dated ids): the CLI resolves each alias to the
@@ -40,7 +40,7 @@ export const CLAUDE_CODE_PROVIDER = { name: 'claude-code', model: 'default', def
 //   fable   → Claude Fable 5 (frontier; pick explicitly, never a default)
 //   opus    → Opus 4.8 · sonnet → Sonnet 5 · haiku → Haiku 4.5
 //   opus[1m]→ Opus 4.8 with the 1M-token context window
-// (Sonnet 5 is already 1M-native on the Anthropic API — no suffix needed.)
+// (Sonnet 5 is already 1M-native on the Anthropic API, no suffix needed.)
 const CLAUDE_CODE_MODELS = [
   { id: 'default',  label: 'Default'   },
   { id: 'fable',    label: 'Fable 5'   },
@@ -49,7 +49,7 @@ const CLAUDE_CODE_MODELS = [
   { id: 'haiku',    label: 'Haiku'     },
   { id: 'opus[1m]', label: 'Opus 1M'   },
 ];
-// Effort levels — shared by BOTH CLI bridges. Verified current (07/2026):
+// Effort levels, shared by BOTH CLI bridges. Verified current (07/2026):
 // Claude Code `--effort low|medium|high|xhigh|max` (default high on
 // Fable 5 / Sonnet 5 / Opus 4.8); Codex `model_reasoning_effort` accepts
 // low|medium|high|xhigh (+ max on the GPT-5.6 family, its default lineup).
@@ -63,18 +63,18 @@ export const CLAUDE_CODE_EFFORT = [
   { id: 'max',    label: 'Max'   },
 ];
 
-// Synthetic provider entry for ChatGPT (Codex CLI) — like Claude Code it
+// Synthetic provider entry for ChatGPT (Codex CLI), like Claude Code it
 // is subscription-authed, so the backend `listProviders()` never returns
 // it and the panel injects it.
 export const CHATGPT_PROVIDER = { name: 'chatgpt', model: 'default', defaultModel: 'default' };
 
 // Codex model presets surfaced as a segmented control. Current lineup
-// (07/2026, learn.chatgpt.com/docs/models): the GPT-5.6 family — Sol
-// (complex work, the CLI default), Terra (balanced) and Luna (fast) — is
+// (07/2026, learn.chatgpt.com/docs/models): the GPT-5.6 family, Sol
+// (complex work, the CLI default), Terra (balanced) and Luna (fast), is
 // available on ChatGPT Plus AND Pro; Codex Spark (gpt-5.3-codex-spark,
 // real-time iteration) is Pro-only. gpt-5.2 / gpt-5.3-codex are deprecated
 // (and the OLD gpt-5 / gpt-5-codex ids are rejected outright on ChatGPT
-// auth). "default" omits `-m` and lets the signed-in plan pick — always
+// auth). "default" omits `-m` and lets the signed-in plan pick, always
 // safe; explicit picks that the plan doesn't cover fail with a friendly
 // "model not supported" turn error that names the fix.
 export const CHATGPT_MODELS = [
@@ -125,7 +125,7 @@ export function isSubProvider(name) {
 // treated as wedged and the UI self-heals back to idle. Generous so a slow
 // model or a long single tool never trips it falsely.
 //
-// HIERARCHY NOTE — these two renderer constants are the LAST resort and must
+// HIERARCHY NOTE, these two renderer constants are the LAST resort and must
 // out-wait the main-process table in main/ai/timeouts.js (renderer bundle
 // can't import that CJS module): STREAM_STALL_MS > CLI_INACTIVITY_MS (120s)
 // so main always reaps first; STREAM_STALL_HARD_MS > MCP_TOOL_CALL_MS (10min)
@@ -168,15 +168,109 @@ export const WINDOW_META = {
   weekly:           { label: 'This week',          icon: 'ph-calendar-dots'    },
 };
 
-/** Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp. */
-export function untilTime(unixSeconds) {
-  const ms = Number(unixSeconds) * 1000 - Date.now();
+/**
+ * Compact "in 2h 14m" / "in 3d" countdown from a unix-seconds timestamp.
+ * @param {number} unixSeconds
+ * @param {number} [agora] instante de referencia; existe para o teste nao
+ *        depender do relogio da maquina.
+ */
+export function untilTime(unixSeconds, agora = Date.now()) {
+  const ms = Number(unixSeconds) * 1000 - agora;
   if (!Number.isFinite(ms) || ms <= 0) return 'now';
   const m = Math.round(ms / 60000);
   if (m < 60)   return `in ${m}m`;
   const h = Math.floor(m / 60);
   if (h < 24)   return `in ${h}h ${m % 60}m`;
   return `in ${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+/**
+ * O rotulo do plano como o painel mostra: MAX, PRO, TEAM.
+ *
+ * O mesmo plano chega com nomes diferentes conforme o payload
+ * (`pro_max`, `claude_max`), e o que o usuario le tem que ser um so.
+ * Nome desconhecido sobe para maiuscula em vez de sumir: e melhor mostrar
+ * algo estranho que esconder o plano de quem paga por ele.
+ */
+export function formatPlanLabel(raw) {
+  if (!raw) return '';
+  const v = String(raw).toLowerCase().trim();
+  const conhecidos = {
+    pro: 'PRO',
+    max: 'MAX',
+    plus: 'PLUS',
+    free: 'FREE',
+    team: 'TEAM',
+    business: 'BUSINESS',
+    edu: 'EDU',
+    enterprise: 'ENTERPRISE',
+    // Alguns payloads do Claude usam subscriptionType: 'pro_max' / 'claude_max'.
+    pro_max: 'MAX',
+    claude_max: 'MAX',
+    claude_pro: 'PRO',
+  };
+  return conhecidos[v] || v.toUpperCase();
+}
+
+/**
+ * O painel de uso sem DOM: o relatorio cru do provedor virando as linhas
+ * que a barra desenha.
+ *
+ * Aqui ficam as regras que o desenho escondia e que nenhum teste alcancava.
+ * A utilizacao vem em 0 a 100 e e recortada nesse intervalo, porque um
+ * provedor que reporte 120 nao pode pintar uma barra maior que a pista. A
+ * cor vira alerta em 90 e atencao em 60. E `resetsAt` chega ora em
+ * segundos ora em milissegundos, o que so aparece na tela como uma
+ * contagem regressiva de mil anos quando se erra a unidade.
+ *
+ * Sem janela de limite reportada, sobra a linha da sessao, que e o unico
+ * numero que todo provedor sabe dar.
+ *
+ * @param {object} u relatorio de uso do provedor
+ * @param {object} [opcoes]
+ * @param {number} [opcoes.agora] instante de referencia, para o teste
+ * @returns {Array<{label: string, icon: string, valText: string, sev: string, pct: number}>}
+ */
+export function usageRows(u, { agora = Date.now() } = {}) {
+  const linhas = [];
+
+  // Sessao: o numero do proprio CLI, sem piso sintetico, para o contador
+  // nunca divergir do que o provedor cobrou.
+  const tokens = Number(u?.session?.tokens) || 0;
+  const custo = Number(u?.session?.costUsd) || 0;
+  linhas.push({
+    label: 'This session',
+    icon: 'ph-lightning',
+    valText: `${formatTokens(tokens)} tokens${custo > 0 ? ` · $${custo.toFixed(2)}` : ''}`,
+    sev: 'count',
+    pct: 0,
+  });
+
+  const janelas = Array.isArray(u?.windows) ? u.windows : [];
+  for (const w of janelas) {
+    const meta = WINDOW_META[w.rateLimitType] || { label: w.rateLimitType, icon: 'ph-clock' };
+    const util = Number(w.utilization);
+    const pct = Number.isFinite(util) ? Math.max(0, Math.min(100, util)) : null;
+    const sev = pct != null
+      ? (pct >= 90 ? 'high' : pct >= 60 ? 'mid' : 'ok')
+      : (w.status === 'rejected' ? 'high'
+        : (w.status && w.status !== 'allowed') ? 'mid' : 'ok');
+    const segundos = w.resetsAt
+      ? (Number(w.resetsAt) > 1e12 ? Number(w.resetsAt) / 1000 : Number(w.resetsAt))
+      : null;
+    const reset = segundos ? `resets ${untilTime(segundos, agora)}` : '';
+    linhas.push({
+      label: meta.label,
+      icon: meta.icon,
+      valText: pct != null
+        ? `${Math.round(pct)}%${reset ? ` · ${reset}` : ''}`
+        : (reset || w.status || ''),
+      sev,
+      // Sem numero, a barra ainda precisa de uma largura que combine com a cor.
+      pct: pct != null ? pct : (sev === 'high' ? 100 : sev === 'mid' ? 66 : 22),
+    });
+  }
+  return linhas;
 }
 
 /**
@@ -201,9 +295,9 @@ export function usageRowHTML(label, icon, valText, state, pct) {
  *  Tool permission modes
  *
  *  Persisted in localStorage; chosen from the chat's gear popover.
- *    ask    — every tool call needs an inline OK (read and write)
- *    writes — reads run freely, writes need an inline OK (default)
- *    allow  — nothing is prompted; the assistant is fully autonomous
+ *    ask   , every tool call needs an inline OK (read and write)
+ *    writes, reads run freely, writes need an inline OK (default)
+ *    allow , nothing is prompted; the assistant is fully autonomous
  * ========================================================== */
 
 export const PERMISSION_STORE_KEY = 'aurora-ai-permission';

@@ -1,5 +1,5 @@
 /**
- * testbench_instrumenter.ts — Decide whether to inject
+ * testbench_instrumenter.ts: Decide whether to inject
  * `$dumpfile` + `$dumpvars` into a Verilog-only testbench source, and
  * if so, build the instrumented text.
  *
@@ -9,19 +9,19 @@
  *
  * Intent:
  *   - User testbenches that already have $dumpfile or $dumpvars are
- *     left alone — the user knows what they want; don't second-guess.
+ *     left alone, the user knows what they want; don't second-guess.
  *   - Otherwise we inject one initial-block before the last
  *     `endmodule`. The argument list comes from `selectedSignals`:
- *       - non-empty → `$dumpvars(0, sig1, sig2, ...)` — exactly the
+ *       - non-empty → `$dumpvars(0, sig1, sig2, ...)`, exactly the
  *         signals the user picked in the Wave Configuration modal.
- *       - empty (default) → `$dumpvars(1, <tb>)` — signals at the
+ *       - empty (default) → `$dumpvars(1, <tb>)`, signals at the
  *         testbench-module scope only.
  *
- * Compilado por `tsc` (npm run build:ts) num testbench_instrumenter.js ao lado —
+ * Compilado por `tsc` (npm run build:ts) num testbench_instrumenter.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
-/** Why instrumentTestbenchSource did what it did — a caller-loggable diagnostic. */
+/** Why instrumentTestbenchSource did what it did, a caller-loggable diagnostic. */
 export type InstrumentReason =
     | 'user-defined'
     | 'malformed'
@@ -45,6 +45,14 @@ export interface InstrumentInput {
     /** Picker selection. */
     selectedSignals?: string[];
     /**
+     * Escopos de monitoramento do processador (core.sp/isp/ula), derivados da
+     * hierarquia dos fontes por deriveMonitorScopes. Ganham um $dumpvars(1,..)
+     * proprio: os flags de pilha e o erro da ULA moram fundo demais para o
+     * dump raso default e nao sao opcao do picker — sem isto os grupos
+     * Stack/ULA do layout automatico ficam vazios em silencio.
+     */
+    monitorScopes?: import('./signal_parser.js').MonitorMirror[];
+    /**
      * Se true, e o testbench tem $dumpfile/$dumpvars hand-written, NAO cede o
      * controle: comenta as linhas originais e injeta o $dumpvars do Aurora
      * baseado em selectedSignals. Usado quando o usuario customiza a Wave
@@ -55,7 +63,7 @@ export interface InstrumentInput {
 
 /**
  * Substitui qualquer chamada a $dumpfile(...) ou $dumpvars(...) por
- * um comentario — preserva a estrutura e o resto do testbench, so
+ * um comentario, preserva a estrutura e o resto do testbench, so
  * tira o efeito das chamadas. Lida com argumentos em multiplas
  * linhas via lazy match ate o `;`.
  */
@@ -69,7 +77,7 @@ export function commentOutDumpCalls(src: string): string {
 /**
  * Remove comentarios Verilog (linha-dupla-barra e bloco barra-asterisco)
  * de um source. Usado pra deteccoes que precisam ignorar codigo
- * comentado — ex: $dumpfile dentro de comentario NAO deve contar
+ * comentado, ex: $dumpfile dentro de comentario NAO deve contar
  * como "user-defined dump".
  *
  * Heuristica de strings: pula conteudo entre aspas duplas pra nao
@@ -83,7 +91,7 @@ export function stripVerilogComments(src: string): string {
         const c = src[i];
         const next = src[i + 1];
         if (c === '"') {
-            // String literal — passa direto ate a proxima aspa nao-escapada.
+            // String literal, passa direto ate a proxima aspa nao-escapada.
             out += c;
             i++;
             while (i < src.length && src[i] !== '"') {
@@ -123,13 +131,13 @@ export function hasUserDumpCalls(src: string): boolean {
 }
 
 /**
- * Indice do ULTIMO `endmodule` que e um TOKEN de verdade — fora de
+ * Indice do ULTIMO `endmodule` que e um TOKEN de verdade, fora de
  * comentario, fora de string, e delimitado por nao-identificadores (word
  * boundary). -1 se nao houver.
  *
  * Um lastIndexOf('endmodule') cru casaria a palavra dentro de um comentario
  * (`// fim do endmodule`), de uma string, ou de um identificador (`reg
- * endmodule_done;`) — e a injecao do $dumpfile/$dumpvars iria pro lugar
+ * endmodule_done;`), e a injecao do $dumpfile/$dumpvars iria pro lugar
  * errado, jogando codigo pra FORA do modulo e gerando um erro de compilacao
  * confuso. Espelha a maquina de estados de stripVerilogComments, mas em vez
  * de reescrever o texto devolve o indice no source ORIGINAL (os indices do
@@ -144,7 +152,7 @@ export function lastEndmoduleIndex(src: string): number {
         const c = src[i];
         const next = src[i + 1];
         if (c === '"') {
-            // String literal — pula ate a proxima aspa nao-escapada.
+            // String literal, pula ate a proxima aspa nao-escapada.
             i++;
             while (i < src.length && src[i] !== '"') {
                 i += (src[i] === '\\' && i + 1 < src.length) ? 2 : 1;
@@ -170,10 +178,10 @@ export function lastEndmoduleIndex(src: string): number {
 // NOTA (YANC v4.3): antes existia aqui um workaround
 // (stripVerilatorIncompatibleLines) que removia do _tb.v, na copia
 // Verilator-only, o handler de early-finish `if (proc.valr10 == N) $finish`
-// — Verilator otimizava o reg interno proc.valr10 fora e nao resolvia a
+//, Verilator otimizava o reg interno proc.valr10 fora e nao resolvia a
 // hierarchical reference. Com o yanc v4.3 o harness compila sob Verilator
 // via +define+YANC_TRACE (decls taggeadas /* verilator public_flat */),
-// proc.valr10 resolve e o $finish funciona. O strip foi removido — o
+// proc.valr10 resolve e o $finish funciona. O strip foi removido, o
 // Verilator usa o mesmo tb instrumentado que o iverilog.
 
 export function instrumentTestbenchSource({
@@ -181,6 +189,7 @@ export function instrumentTestbenchSource({
     tbModule,
     selectedSignals = [],
     overrideUserDumpvars = false,
+    monitorScopes = [],
 }: InstrumentInput): InstrumentResult {
     const hasUserDump = hasUserDumpCalls(originalContent);
 
@@ -191,7 +200,7 @@ export function instrumentTestbenchSource({
 
     const lastEndmodule = lastEndmoduleIndex(originalContent);
     if (lastEndmodule === -1) {
-        // Malformed testbench — bail and let iverilog produce its own
+        // Malformed testbench, bail and let iverilog produce its own
         // syntax error rather than us silently corrupting the file.
         return { needsWrite: false, content: originalContent, reason: 'malformed' };
     }
@@ -216,7 +225,7 @@ export function instrumentTestbenchSource({
 
     // Single full-run dump. We only register the dump target + scopes here;
     // the simulator writes the FST as it runs to its own $finish. There is NO
-    // header-only pass anymore — the VCD header (scopes/signals for the Wave
+    // header-only pass anymore, the VCD header (scopes/signals for the Wave
     // Config picker and the auto-gtkw) is pulled straight from the finished FST
     // by _extractFstHeaderVcd (streams fst2vcd, stops at $enddefinitions). So
     // the testbench no longer needs the +AURORA_HEADER_ONLY $finish gate, and
@@ -224,15 +233,36 @@ export function instrumentTestbenchSource({
     //
     // Sem flush periodico: o tb roda livre ate o $finish e o libfst/VCD
     // escreve em blocos grandes (mais rapido). Os $display do usuario
-    // saem em bloco quando a sim termina (sem o $fflush ao vivo) — trade
+    // saem em bloco quando a sim termina (sem o $fflush ao vivo), trade
     // deliberado por velocidade, junto com a remocao do overlay de progresso.
+    // Monitores do processador como ESPELHOS: variaveis declaradas AQUI no
+    // tb copiando (always @(*)) os sinais internos por referencia
+    // hierarquica. E o unico desenho que funciona nos dois simuladores sem
+    // custo: o Verilator ignora argumentos de $dumpvars e rastreia so a
+    // hierarquia visivel (o tb sempre e), e expor os modulos internos
+    // arrastava o array mem das pilhas (854 MB de FST no ensaio). O .vlt
+    // gerado pelo fluxo Verilator marca os alvos como public_flat_rd para
+    // as referencias resolverem; no Icarus referencias hierarquicas sao
+    // nativas.
+    const mirrorDecls = monitorScopes.map((mo) =>
+        mo.kind + ' ' + mo.mirror + '; always @ (*) ' + mo.mirror + ' = ' + mo.ref + ';');
+    const mirrorBlock = mirrorDecls.length > 0
+        ? '// --- AURORA MONITOR MIRRORS (stack/ULA) ---\n' + mirrorDecls.join('\n') + '\n'
+        : '';
+    // No modo picker o $dumpvars lista sinais explicitos e os espelhos
+    // precisam entrar na lista; no modo default (1, tb) ja estao cobertos,
+    // e a linha extra e inofensiva. Nomes locais do tb: sem hierarquia,
+    // sem risco de elaboracao.
+    const monitorLine = monitorScopes.length > 0
+        ? '    $dumpvars(0, ' + monitorScopes.map((mo) => mo.mirror).join(', ') + '); // SAPHO stack/ULA monitors\n'
+        : '';
     const injection = `
 // --- AURORA AUTO-INSTRUMENTATION ---
 // ${headerComment} ${note}
-initial begin
+${mirrorBlock}initial begin
     $dumpfile("${tbModule}.vcd");
     $dumpvars(${dumpvarsArgs});
-end
+${monitorLine}end
 // --------------------------------------------------
 `;
 

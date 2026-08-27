@@ -1,4 +1,4 @@
-// provider_view.js — pure provider/model view helpers for the AI assistant,
+// provider_view.js: pure provider/model view helpers for the AI assistant,
 // extracted from ai_assistant_manager.js (A2 god-file decomposition).
 //
 // Pure: no DOM, no instance state. The render* methods stay in the class (they
@@ -37,7 +37,7 @@ export function modelPresetsHtml(models, active) {
             m.id === active ? ' active' : ''}">${m.label}</button>`).join('');
 }
 
-// The model name to show in the "--- Modelo: ... ---" switch marker — faithful
+// The model name to show in the "--- Modelo: ... ---" switch marker, faithful
 // to what the user picked. For the subscription CLIs that's the chosen preset
 // label (Default / Sonnet / Opus / Haiku); for API providers it's the real
 // model id (lightly shortened), falling back to the provider default so the

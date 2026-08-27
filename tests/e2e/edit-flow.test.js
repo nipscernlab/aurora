@@ -13,7 +13,7 @@
 //   3. Clicking a .v opens it in Monaco
 //   4. Typing into Monaco actually updates the buffer
 //
-// If any of those break — regardless of which subsystem regressed — this
+// If any of those break, regardless of which subsystem regressed, this
 // test fails. That's the point of integration tests at this layer.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -159,7 +159,7 @@ describe('Aurora E2E — edit flow', () => {
     });
 
     // Wait for Monaco AMD to finish loading. The 3-arg form
-    // (fn, arg, options) is required — the 2-arg form (fn, options)
+    // (fn, arg, options) is required, the 2-arg form (fn, options)
     // is interpreted by Playwright as (fn, arg), so the timeout
     // option is silently dropped and the 30s default kicks in.
     await window.waitForFunction(
@@ -173,13 +173,13 @@ describe('Aurora E2E — edit flow', () => {
     // (lifecycle.js → state.fileToOpen → did-finish-load IPC →
     // ProjectManager.onSimulateOpenProject → loadProject) is the
     // intended path and works locally, but on the windows-latest CI
-    // runner it has historically lost the IPC message — the renderer
+    // runner it has historically lost the IPC message, the renderer
     // listener registers on DOMContentLoaded and the IPC fires on
     // did-finish-load, which on a slow CPU + slow disk can race in
     // either direction. Calling window.electronAPI.openProject(spf)
     // directly here seeds main state, then a manual refreshTree on
     // the project tree manager forces the renderer to discover the
-    // project path via get-current-project IPC and render — no more
+    // project path via get-current-project IPC and render, no more
     // dependency on the 100ms initializeTreeBasedOnMode timer that
     // can lose against slow CI.
     await window.evaluate(async (spfPath) => {
@@ -242,7 +242,7 @@ describe('Aurora E2E — edit flow', () => {
 
     // Tab + editor instance for this file should appear. 15s, not 5s:
     // opening a file (click -> openFile -> Monaco mounts the tab) can exceed
-    // 5s under CI load (the windows-2025 runners) — same de-flake as
+    // 5s under CI load (the windows-2025 runners), same de-flake as
     // split-pane.test.js. The other waits here are already 10-45s.
     await window.waitForSelector('.tab[data-path]', { timeout: 15_000 });
     await window.waitForFunction(() => {
@@ -257,7 +257,7 @@ describe('Aurora E2E — edit flow', () => {
     }, { timeout: 10_000 });
 
     // Move focus into Monaco. Clicking the visible editor's textarea is
-    // the most reliable way to do it — Monaco mounts a contenteditable
+    // the most reliable way to do it, Monaco mounts a contenteditable
     // .inputarea that accepts keyboard events.
     const inputArea = window.locator('.editor-instance:visible .inputarea').first();
     await inputArea.waitFor({ state: 'attached', timeout: 15_000 });
@@ -273,7 +273,7 @@ describe('Aurora E2E — edit flow', () => {
     await window.keyboard.press('Enter');
     await window.keyboard.type(marker);
 
-    // Read back from the shared model — the source of truth for the
+    // Read back from the shared model, the source of truth for the
     // buffer regardless of which pane (main or split) is focused.
     const value = await window.evaluate(() => {
       const activeTab = document.querySelector('.tab.active[data-path]');

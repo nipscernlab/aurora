@@ -75,7 +75,7 @@ describe('extractSignalRefs', () => {
 
     it('skips file/proc filter declarations (^N <path>, ^>N <path>)', () => {
         // Filter lines reference .txt/.exe paths on disk, not VCD
-        // signals — never validate them as signal refs.
+        // signals, never validate them as signal refs.
         const text = [
             '@2024',
             '^1 C:\\Temp\\ProcDTW\\trad_opcode.txt',

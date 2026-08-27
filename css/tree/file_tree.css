@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  file_tree.css — Explorer SAPHO v4 (VSCode-exact)
+ *  file_tree.css: Explorer SAPHO v4 (VSCode-exact)
  *
  *  Layout per row (single line, 22px):
  *
@@ -15,7 +15,7 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  View slots — physically separate subtrees inside #file-tree.
+ *  View slots, physically separate subtrees inside #file-tree.
  *  Only the one matching [data-active-view] on the parent is shown.
  *  Each slot is owned by exactly one renderer, so they can't collide.
  *  See js/tree/tree_view.js for the rationale (replacing the old
@@ -96,8 +96,8 @@
 #file-tree {
   flex: 1 1 0;
   /* Generous trailing space so there is always empty, right-clickable
-     area below the last row — even with many processors/files and the
-     list scrolled to the bottom — to reach the "New File" context menu
+     area below the last row, even with many processors/files and the
+     list scrolled to the bottom, to reach the "New File" context menu
      (VS Code does the same). */
   padding: 4px 0 56px;
   overflow-x: hidden;
@@ -109,7 +109,7 @@
 
 
 /* ===========================================================================
- *  Standard (folder) view — plain VSCode-style file/folder tree rooted at
+ *  Standard (folder) view, plain VSCode-style file/folder tree rooted at
  *  the .spf directory. Rendered by js/tree/standard_tree_render.js into the
  *  .tree-view-standard slot. Reintroduced 2026-06.
  *
@@ -157,13 +157,13 @@
 .file-item:hover {
   background-color: var(--overlay-hover);
   color: var(--text);
-  /* Neutral hover affordance: a faint 2px bar — deliberately NOT the accent
+  /* Neutral hover affordance: a faint 2px bar, deliberately NOT the accent
      colour, so hover never gets mistaken for the open-file state below. */
   box-shadow: inset 2px 0 0 var(--border);
 }
 
-/* The file currently open in Monaco — parity with the verilog tree. VS Code
-   "active editor" style: a NEUTRAL highlight (no accent — the accent is reserved
+/* The file currently open in Monaco, parity with the verilog tree. VS Code
+   "active editor" style: a NEUTRAL highlight (no accent, the accent is reserved
    for top-level/testbench, so the open file doesn't get confused with those).
    BRIGHT while an editor has focus, MUTED otherwise (the last open file keeps a
    faint highlight when focus is elsewhere, and brightens when refocused). */
@@ -183,7 +183,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 }
 
 /* ----------------------------------------------------------------------------
- *  Git status decorations (VS Code style) — painted by js/tree/git_decorations.js
+ *  Git status decorations (VS Code style), painted by js/tree/git_decorations.js
  *  on BOTH tree views (.file-item / .verilog-file-item). A coloured letter badge
  *  on the right of a changed file (M/A/?/D/R), a • dot on folders that contain
  *  changes, and a matching filename tint. Colours reuse the Source Control
@@ -207,28 +207,28 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 /* badge colours */
 .git-deco.git-st-modified,
 .git-deco.git-st-conflict,
-.git-deco.git-st-dir       { color: var(--status-warning, #E8B86C); }
+.git-deco.git-st-dir       { color: var(--status-warning); }
 .git-deco.git-st-added,
-.git-deco.git-st-untracked { color: var(--status-success, #5DD4A8); }
-.git-deco.git-st-deleted   { color: var(--status-error, #E26C6C); }
+.git-deco.git-st-untracked { color: var(--status-success); }
+.git-deco.git-st-deleted   { color: var(--status-error); }
 .git-deco.git-st-renamed,
-.git-deco.git-st-copied    { color: var(--status-info, #5BB8E8); }
+.git-deco.git-st-copied    { color: var(--status-info); }
 
 /* filename tint (matches the badge); focus/hover still win for the open file */
 .file-item-name.git-st-modified, .verilog-file-name.git-st-modified,
-.file-item-name.git-st-conflict, .verilog-file-name.git-st-conflict { color: var(--status-warning, #E8B86C); }
+.file-item-name.git-st-conflict, .verilog-file-name.git-st-conflict { color: var(--status-warning); }
 .file-item-name.git-st-added, .verilog-file-name.git-st-added,
-.file-item-name.git-st-untracked, .verilog-file-name.git-st-untracked { color: var(--status-success, #5DD4A8); }
+.file-item-name.git-st-untracked, .verilog-file-name.git-st-untracked { color: var(--status-success); }
 .file-item-name.git-st-renamed, .verilog-file-name.git-st-renamed,
-.file-item-name.git-st-copied, .verilog-file-name.git-st-copied { color: var(--status-info, #5BB8E8); }
+.file-item-name.git-st-copied, .verilog-file-name.git-st-copied { color: var(--status-info); }
 .file-item-name.git-st-deleted, .verilog-file-name.git-st-deleted {
-  color: var(--status-error, #E26C6C);
+  color: var(--status-error);
   text-decoration: line-through;
   opacity: 0.85;
 }
 
 /* ---------------------------------------------------------------------------
- *  Chevron / spacer — 16px wide so files align with folder names (VSCode).
+ *  Chevron / spacer, 16px wide so files align with folder names (VSCode).
  * ------------------------------------------------------------------------- */
 .folder-toggle-icon,
 .folder-toggle-spacer {
@@ -241,7 +241,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   font-size: var(--text-xs);
   color: var(--text-muted);
   transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
-              color 140ms ease;
+              color var(--motion-quick) ease;
 }
 
 .folder-toggle-icon.collapsed { transform: rotate(-90deg); }
@@ -249,10 +249,10 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 .file-tree-item:hover .folder-toggle-icon { color: var(--text-secondary); }
 
 /* ---------------------------------------------------------------------------
- *  File / folder icon — 16px, between chevron and name. Icons come from the
+ *  File / folder icon, 16px, between chevron and name. Icons come from the
  *  Material Icon Theme (js/tree/material_icons.js), painted as a background-
  *  image in THEIR OWN colours. Aurora's old per-extension / per-depth icon
- *  tinting was removed — the library provides the colour now. `color` is kept
+ *  tinting was removed, the library provides the colour now. `color` is kept
  *  only for the masked .aurora-icon-cmm glyph, which renders in currentColor.
  * ------------------------------------------------------------------------- */
 .file-item-icon {
@@ -271,7 +271,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 
 /* ---------------------------------------------------------------------------
  *  Git-ignored + untracked rows (matched by .gitignore, not tracked in Dagr)
- *  are dimmed — still visible, just clearly "not in version control". Painted
+ *  are dimmed, still visible, just clearly "not in version control". Painted
  *  by js/tree/git_decorations.js (.git-ignored-muted on the row).
  * ------------------------------------------------------------------------- */
 .file-item.git-ignored-muted { opacity: 0.45; }
@@ -289,7 +289,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 }
 
 /* ---------------------------------------------------------------------------
- *  Folder content container — children carry their own indent via --depth.
+ *  Folder content container, children carry their own indent via --depth.
  * ------------------------------------------------------------------------- */
 .folder-content {
   position: relative;
@@ -303,9 +303,9 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 
 /* Highlight breve quando uma pasta e revelada por um link externo (ex: o
    link do diretorio de saida no terminal THTEST). Pulsa o fundo accent e
-   desvanece — chama atencao sem ser permanente. */
+   desvanece, chama atencao sem ser permanente. */
 /* ---------------------------------------------------------------------------
- *  CRUD layer (standard_tree_crud.js) — selection, cut-pending, inline edit
+ *  CRUD layer (standard_tree_crud.js), selection, cut-pending, inline edit
  * ------------------------------------------------------------------------- */
 
 /* Row selected via click / kept as the keyboard target (F2, Del, Ctrl+C/X/V).
@@ -337,7 +337,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   pointer-events: none;
 }
 
-/* Entry sitting on the clipboard as a CUT — dimmed like VS Code. */
+/* Entry sitting on the clipboard as a CUT, dimmed like VS Code. */
 .file-item.cut-pending {
   opacity: 0.5;
 }
@@ -356,7 +356,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   display: none;
 }
 
-/* Inline create/rename editor — a .file-item lookalike hosting an input. */
+/* Inline create/rename editor, a .file-item lookalike hosting an input. */
 .tree-inline-edit .file-item {
   cursor: default;
 }
@@ -388,7 +388,7 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
   box-shadow: 0 0 0 1px var(--status-error-bg);
 }
 
-/* Validation bubble under the input — VS Code's red hint box. */
+/* Validation bubble under the input, VS Code's red hint box. */
 .tree-inline-error {
   margin: 2px var(--space-2) var(--space-1) calc(28px + var(--depth, 0) * 8px);
   padding: var(--space-1) var(--space-2);
@@ -416,13 +416,13 @@ body.editor-has-focus .file-item.editor-focused .file-item-name {
 /* ---------------------------------------------------------------------------
  *  Empty-state card
  *
- *  `.tree-empty-no-project` (full pane replacement) — shown inside the
+ *  `.tree-empty-no-project` (full pane replacement), shown inside the
  *  verilog view subcontainer when no project is open. Renders as a
  *  single tappable card, large enough to feel like a primary
  *  call-to-action without dominating the panel. Click goes through
  *  file_tree_manager.js (buildEmptyStateCard).
  *
- *  UNIFIED EMPTY STATE — one of four "nothing here" screens across the app
+ *  UNIFIED EMPTY STATE, one of four "nothing here" screens across the app
  *  (file tree, verilog tree, AI panel, welcome "no recent") deliberately kept
  *  visually consistent: centered column, large muted icon, title, muted body,
  *  generous padding. This one additionally wears card chrome (dashed border +

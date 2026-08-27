@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  styles.css  —  Aurora IDE shell
+ *  styles.css ,  Aurora IDE shell
  *
  *  Single source of truth for the application skeleton:
  *    body
@@ -13,7 +13,7 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  Body & shell — frameless window
+ *  Body & shell, frameless window
  * ------------------------------------------------------------------------- */
 body {
   margin: 0;
@@ -82,7 +82,7 @@ body.window-maximized {
 }
 
 /* ---------------------------------------------------------------------------
- *  Resizers — discrete, hit area generous
+ *  Resizers, discrete, hit area generous
  * ------------------------------------------------------------------------- */
 .resizer-vertical {
   position: absolute;
@@ -118,7 +118,7 @@ body.window-maximized {
 }
 
 /* The vertical (file-tree) resizer lights on direct interaction AND when the
-   corner handle is grabbed/dragged — so the file-tree↔terminal corner frames
+   corner handle is grabbed/dragged, so the file-tree↔terminal corner frames
    BOTH of its edges in purple, exactly like the AI↔terminal corner does. */
 .resizer-vertical:hover::after,
 body.resizing-vertical .resizer-vertical::after,
@@ -161,7 +161,7 @@ body.resizing-corner    .resizer-horizontal::after {
   box-shadow: 0 0 8px rgba(142, 131, 232, 0.55);
 }
 
-/* During drag — disable transitions on resizable containers */
+/* During drag, disable transitions on resizable containers */
 body.resizing-vertical,
 body.resizing-horizontal,
 body.resizing-corner {
@@ -206,7 +206,7 @@ body.resizing-corner .resizer-horizontal::after { height: 2px; }
  * ------------------------------------------------------------------------- */
 .context-menu {
   /* bg-elev-2 is opaque, so a backdrop blur resampled the screen on every
-     right-click for nothing visible — dropped (P8b). */
+     right-click for nothing visible, dropped (P8b). */
   background-color: var(--bg-elev-2);
   border: 1px solid var(--border);
   box-shadow: var(--elev-overlay), var(--shadow-inset-line);
@@ -214,7 +214,7 @@ body.resizing-corner .resizer-horizontal::after { height: 2px; }
   border-radius: var(--radius-md);
   z-index: var(--z-max);
   min-width: 180px;
-  animation: fadeInScale 140ms var(--ease-out-quart) both;
+  animation: fadeInScale var(--motion-quick) var(--ease-out-quart) both;
 }
 
 .context-menu-item {
@@ -294,7 +294,7 @@ button:disabled,
 }
 
 /* ---------------------------------------------------------------------------
- *  Focus ring — todo ele aqui, e só aqui.
+ *  Focus ring, todo ele aqui, e só aqui.
  *
  *  Eram duas regras, esta e uma universal no theme_variables.css, com cores e
  *  recuos diferentes. A universal ficou porque sem ela o Chromium desenha o

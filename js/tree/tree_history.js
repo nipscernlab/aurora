@@ -1,5 +1,5 @@
 /**
- * tree_history.js — a pilha de desfazer e refazer da árvore de arquivos.
+ * tree_history.js: a pilha de desfazer e refazer da árvore de arquivos.
  *
  * Ctrl+Z e Ctrl+Shift+Z valem para o que a árvore fez com os arquivos: criar,
  * renomear, mover, copiar e deletar. Só isso: o Ctrl+Z do editor continua sendo
@@ -15,6 +15,13 @@
  *             mover, arrastar e recortar-e-colar são todos isto.
  *   existence um caminho passou a existir, ou deixou de existir. Criar e colar
  *             são o primeiro caso; deletar é o segundo.
+ *
+ * E uma terceira que só embrulha as duas:
+ *
+ *   grupo     várias operações que o usuário fez num gesto só, com a seleção
+ *             múltipla. Desfazer um apagar de cinco arquivos tem que trazer os
+ *             cinco de volta; se cada um fosse uma entrada, o Ctrl+Z traria um
+ *             por vez e o usuário apertaria cinco vezes sem saber por quê.
  *
  * O `existence` só funciona porque deletar não vai direto para a Lixeira: passa
  * pela área de espera de main/ipc/tree_undo.js, de onde dá para voltar. O mesmo
@@ -66,6 +73,10 @@ export class TreeHistory {
 
     /** Uma operação saiu do alcance: o que ela segurava na espera vai embora. */
     _soltar(op) {
+        if (op?.kind === 'grupo') {
+            for (const membro of op.ops || []) this._soltar(membro);
+            return;
+        }
         if (op?.token) this.exec.descartar(op.token).catch(() => { /* best-effort */ });
     }
 
@@ -103,36 +114,64 @@ export class TreeHistory {
     async _executar(op, desfazendo) {
         this.aplicando = true;
         try {
-            if (op.kind === 'move') {
-                const de = desfazendo ? op.para : op.de;
-                const para = desfazendo ? op.de : op.para;
-                const ok = await this.exec.mover(de, para);
-                if (!ok) return { ok: false, erro: 'nao foi possivel mover de volta' };
-                return { ok: true, op, foco: para };
-            }
-
-            if (op.kind === 'existence') {
-                // `presente` descreve a operação original: o caminho passou a
-                // existir, ou deixou de existir. É constante, não muda de volta
-                // para volta. Só o token muda, porque ele é onde a coisa está
-                // agora. Inverter `presente` aqui foi um erro que fazia refazer
-                // uma criação guardar o arquivo de novo em vez de trazê-lo.
-                const deveExistir = desfazendo ? !op.presente : op.presente;
-                if (deveExistir) {
-                    if (!op.token) return { ok: false, erro: 'nada guardado para restaurar' };
-                    const ok = await this.exec.restaurar(op.token, op.caminho);
-                    if (!ok) return { ok: false, erro: 'nao foi possivel restaurar' };
-                    return { ok: true, op: { ...op, token: null }, foco: op.caminho };
+            if (op.kind === 'grupo') {
+                // Desfazer visita ao contrário: se o gesto criou uma pasta e
+                // depois moveu um arquivo para dentro dela, desfazer tem que
+                // tirar o arquivo antes de a pasta sumir.
+                const membros = desfazendo ? [...(op.ops || [])].reverse() : [...(op.ops || [])];
+                const feitos = [];
+                let foco;
+                for (const membro of membros) {
+                    const r = await this._executarUm(membro, desfazendo);
+                    // Melhor esforço, e por isso o grupo é reescrito com o que
+                    // de fato virou: um membro que falhou (arquivo travado,
+                    // espera perdida) continua onde estava, e mantê-lo no
+                    // grupo faria o refazer prometer desfazer algo que nunca
+                    // aconteceu.
+                    if (!r.ok) continue;
+                    feitos.push(r.op);
+                    foco = r.foco ?? foco;
                 }
-                const token = await this.exec.guardar(op.caminho);
-                if (!token) return { ok: false, erro: 'nao foi possivel remover' };
-                return { ok: true, op: { ...op, token }, foco: op.caminho };
+                if (!feitos.length) return { ok: false, erro: 'nenhuma operacao do grupo pode ser aplicada' };
+                // Na volta o grupo é lido de novo na ordem original.
+                const ops = desfazendo ? feitos.reverse() : feitos;
+                return { ok: true, op: { ...op, ops }, foco };
             }
-
-            return { ok: false, erro: `operacao desconhecida: ${op.kind}` };
+            return await this._executarUm(op, desfazendo);
         } finally {
             this.aplicando = false;
         }
+    }
+
+    /** Uma operação das duas formas básicas, sem tocar em `aplicando`. */
+    async _executarUm(op, desfazendo) {
+        if (op.kind === 'move') {
+            const de = desfazendo ? op.para : op.de;
+            const para = desfazendo ? op.de : op.para;
+            const ok = await this.exec.mover(de, para);
+            if (!ok) return { ok: false, erro: 'nao foi possivel mover de volta' };
+            return { ok: true, op, foco: para };
+        }
+
+        if (op.kind === 'existence') {
+            // `presente` descreve a operação original: o caminho passou a
+            // existir, ou deixou de existir. É constante, não muda de volta
+            // para volta. Só o token muda, porque ele é onde a coisa está
+            // agora. Inverter `presente` aqui foi um erro que fazia refazer
+            // uma criação guardar o arquivo de novo em vez de trazê-lo.
+            const deveExistir = desfazendo ? !op.presente : op.presente;
+            if (deveExistir) {
+                if (!op.token) return { ok: false, erro: 'nada guardado para restaurar' };
+                const ok = await this.exec.restaurar(op.token, op.caminho);
+                if (!ok) return { ok: false, erro: 'nao foi possivel restaurar' };
+                return { ok: true, op: { ...op, token: null }, foco: op.caminho };
+            }
+            const token = await this.exec.guardar(op.caminho);
+            if (!token) return { ok: false, erro: 'nao foi possivel remover' };
+            return { ok: true, op: { ...op, token }, foco: op.caminho };
+        }
+
+        return { ok: false, erro: `operacao desconhecida: ${op.kind}` };
     }
 
     /**
@@ -155,6 +194,15 @@ export const Op = {
     criado: (caminho) => ({ kind: 'existence', caminho, presente: true, token: null }),
     /** Deixou de existir, e `token` é onde está esperando. */
     removido: (caminho, token) => ({ kind: 'existence', caminho, presente: false, token }),
+    /**
+     * Um gesto só que produziu várias operações (seleção múltipla). Um grupo
+     * de um vira a própria operação, para a pilha não ganhar uma camada que
+     * não diz nada.
+     */
+    grupo: (ops) => {
+        const lista = (ops || []).filter(Boolean);
+        return lista.length === 1 ? lista[0] : { kind: 'grupo', ops: lista };
+    },
 };
 
 export { LIMITE };

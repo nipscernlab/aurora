@@ -1,14 +1,14 @@
 /**
- * command_palette.js — Aurora command palette (Ctrl+Shift+K / Ctrl+Shift+P).
+ * command_palette.js: Aurora command palette (Ctrl+Shift+K / Ctrl+Shift+P).
  *
  * A single, keyboard-first surface for the actions scattered across the toolbar
  * and menus. The VIEW is the <aurora-command-palette> Lit component (Shadow DOM
  * + semantic tokens); this module owns the registry (plain data), the fuzzy
- * scoring, the global open/nav keyboard handling, and the run logic — it drives
+ * scoring, the global open/nav keyboard handling, and the run logic, it drives
  * the component via .items/.selected/.open and reacts to its cmdk-* events.
  *
  * Commands prefer the public API (window.AuroraAPI / the file-tree view
- * controller) and otherwise click the existing toolbar button by id — so a
+ * controller) and otherwise click the existing toolbar button by id, so a
  * command does exactly what the button does (including being a no-op when the
  * button is disabled), with no duplicated logic.
  *

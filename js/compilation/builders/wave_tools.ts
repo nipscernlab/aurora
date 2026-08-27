@@ -1,5 +1,5 @@
 /**
- * builders/wave_tools.ts — CommandSpec builders for fst2vcd (used to
+ * builders/wave_tools.ts, CommandSpec builders for fst2vcd (used to
  * extract a parseable text-VCD header out of the Verilator pass-1 FST)
  * and GTKWave launch.
  *
@@ -7,9 +7,9 @@
  * exec'd-and-awaited. The renderer feeds the spec to the existing
  * `launch-gtkwave-only` IPC after rendering the args (the executor
  * doesn't support detached spawn). The override pipeline still runs
- * — only the actual spawn is different.
+ *, only the actual spawn is different.
  *
- * Compilado por `tsc` (npm run build:ts) num wave_tools.js ao lado — é esse .js que o
+ * Compilado por `tsc` (npm run build:ts) num wave_tools.js ao lado, é esse .js que o
  * runtime carrega; os imports usam a extensão `.js`.
  */
 

@@ -1,4 +1,4 @@
-// tab_utils.js — pure filename/string helpers for the tab manager (extracted
+// tab_utils.js: pure filename/string helpers for the tab manager (extracted
 // from tab_manager.js, A2 god-file decomposition). No TabManager state, no DOM:
 // basename/extension parsing, key normalization, name sanitizers, the C±
 // (.cmm) starter template, file-type/icon detection, and save-name
@@ -100,15 +100,15 @@ export function typeFromExtension(filePath) {
 }
 
 // ---------------------------------------------------------------------------
-// File-type detection + icon mapping — extracted from TabManager (these were
+// File-type detection + icon mapping, extracted from TabManager (these were
 // static methods + the imageExtensions/pdfExtensions sets). Pure: no
 // TabManager state, no DOM. TabManager keeps thin static delegators
 // (getFileIcon has external callers; isImageFile/isPdfFile/isBinaryFile are
 // called internally as this.X).
 
 // Image and PDF extensions
-export const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
-export const pdfExtensions = new Set(['pdf']);
+const imageExtensions = new Set(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'ico']);
+const pdfExtensions = new Set(['pdf']);
 
 // Utility method to check if file is an image
 export function isImageFile(filePath) {
@@ -131,7 +131,7 @@ export function isBinaryFile(filePath) {
     return isImageFile(filePath) || isPdfFile(filePath);
 }
 
-// getFileIcon — returns Phosphor classes (no FA dependency)
+// getFileIcon, returns Phosphor classes (no FA dependency)
 export function getFileIcon(filename) {
     const extension = filename.split('.').pop().toLowerCase();
 
@@ -143,7 +143,7 @@ export function getFileIcon(filename) {
     if (extension === 'pdf') return 'ph ph-file-pdf';
 
     const iconMap = {
-        // SAPHO/AURORA file types — distinctive icons per family so the
+        // SAPHO/AURORA file types, distinctive icons per family so the
         // hardware toolchain reads at a glance (Verilog = a chip, C± = a
         // custom C±-lettered document, assembly = binary, waves = waveform).
         'cmm':       'aurora-icon-cmm',
@@ -194,7 +194,7 @@ export function getFileIcon(filename) {
         'cpp':   'ph ph-file-cpp',
         'cc':    'ph ph-file-cpp',
         'cxx':   'ph ph-file-cpp',
-        // Phosphor has no ph-file-h — headers borrow the C/C++ document.
+        // Phosphor has no ph-file-h, headers borrow the C/C++ document.
         'h':     'ph ph-file-c',
         'hpp':   'ph ph-file-cpp',
         'hh':    'ph ph-file-cpp',
@@ -255,7 +255,7 @@ export function getFileIcon(filename) {
 }
 
 // ---------------------------------------------------------------------------
-// Save-name validation — extracted from TabManager (static, pure). Maps a
+// Save-name validation, extracted from TabManager (static, pure). Maps a
 // requested path to a default extension and validates the base name per
 // language (verilog/python/processor). No state, no DOM.
 

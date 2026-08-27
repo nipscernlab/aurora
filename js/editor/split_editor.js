@@ -1,5 +1,5 @@
 /**
- * split_editor.js — Split Monaco Editor Manager
+ * split_editor.js: Split Monaco Editor Manager
  * Supports up to 3 independent editor panes side-by-side.
  * Each pane has its own tab bar and Monaco instances.
  * Non-focused panes receive a subtle dim overlay.
@@ -79,7 +79,7 @@ class SplitPane {
         this.tabs       = new Map(); // filePath → { editor, editorDiv }
         this.activeFile = null;
         // Path of the current preview (italic) tab in THIS pane, or null.
-        // Each pane carries its own preview slot — opening a preview in
+        // Each pane carries its own preview slot, opening a preview in
         // the main pane doesn't displace the one in a split, and vice
         // versa. Mirrors TabManager.previewTab semantics.
         this.previewTab = null;
@@ -151,7 +151,7 @@ class SplitPane {
         // Opening a fresh preview into a pane that already has one: silently
         // discard the old preview before we add the new tab. The old preview's
         // editor is disposed via the same _closeFile path used by the close
-        // button — minus the unsaved-changes dialog, since a preview cannot
+        // button, minus the unsaved-changes dialog, since a preview cannot
         // be dirty (typing in it would have promoted it first).
         if (isPreview && this.previewTab && this.previewTab !== filePath) {
             await this._closePreviewSilently(this.previewTab);
@@ -180,9 +180,17 @@ class SplitPane {
             fontLigatures: true,
             fontSize: 12,
             minimap: { enabled: false },
-            scrollBeyondLastLine: false,
+            // Igual ao editor principal: rolar alem da ultima linha deixa o fim
+            // do arquivo subir ate o meio da tela em vez de ficar colado na
+            // borda de baixo. Os splits estavam sem isso e cada pane parava
+            // seco na ultima linha.
+            scrollBeyondLastLine: true,
             cursorSmoothCaretAnimation: 'on',
             cursorBlinking: 'smooth',
+            // Igual ao editor principal: o balao de erro sai do editor em vez
+            // de ficar preso sob a toolbar. Num pane estreito ele escapa
+            // tambem pela lateral, que e onde mais falta espaco.
+            fixedOverflowWidgets: true,
         });
 
         // Font ligatures per language (see monaco_editor.js): kill them in
@@ -196,7 +204,7 @@ class SplitPane {
         editor.onDidChangeModelLanguage(syncLigatures);
         syncLigatures();
 
-        // AI "ask about this" star — same selection widget the main pane uses.
+        // AI "ask about this" star, same selection widget the main pane uses.
         attachAiSelectionWidget(editor, { getFilePath: () => filePath });
 
         // Cursor in this editor → activate this pane's tab + take pane focus.
@@ -218,7 +226,7 @@ class SplitPane {
         // result is the same regardless of which pane fired the event.
         // VS Code parity: undoing all the way back to the saved state
         // clears the dot in every instance. Editing also auto-promotes a
-        // preview tab — typing means commitment, italics make no sense
+        // preview tab, typing means commitment, italics make no sense
         // on something the user is actively changing.
         editor.onDidChangeModelContent(() => {
             if (TabManager.isUntitledPath?.(filePath)) {
@@ -252,7 +260,7 @@ class SplitPane {
      * Plotly plot). Keyed by a SYNTHETIC path ("<source>::preview") so it stays
      * invisible to the dirty / save / instance-count machinery. The tab info
      * carries an editor STUB (layout/focus/dispose) so every existing pane method
-     * — tab switching, close, relayout — works unchanged with NO per-call guards;
+     *, tab switching, close, relayout, works unchanged with NO per-call guards;
      * the synthetic key flows harmlessly through SharedModelRegistry (all no-ops
      * on an unknown key), and createSplit refuses to split it (the stub has no
      * getValue). Markdown live-syncs to the source model while it stays open.
@@ -276,7 +284,7 @@ class SplitPane {
             iframe.className = 'md-preview-frame';
             // Served over aurora-preview:// (main/ipc/preview.js), NOT a blob URL.
             // A blob: document inherits the app's CSP, which blocked the CDN
-            // <script> every Plotly/Bokeh export needs — the pane just went white.
+            // <script> every Plotly/Bokeh export needs, the pane just went white.
             // A real scheme carries its own policy, resolves the page's relative
             // paths, and keeps it cross-origin to the renderer.
             iframe.src = opts.previewUrl;
@@ -358,7 +366,13 @@ class SplitPane {
             if (!ligar()) {
                 let tentativas = 0;
                 const t = setInterval(() => {
-                    if (ligar() || ++tentativas > 20) clearInterval(t);
+                    if (ligar()) { clearInterval(t); return; }
+                    if (++tentativas > 20) {
+                        clearInterval(t);
+                        // Desistir calado e o que deixa este tipo de falha sem
+                        // por onde comecar no dia em que acontecer.
+                        console.warn(`[split_editor] preview sem sincronia de rolagem: o editor de ${sourcePath} nao apareceu em 3 s`);
+                    }
                 }, 150);
             }
         }
@@ -447,7 +461,7 @@ class SplitPane {
             <button class="close-tab">×</button>
         `;
 
-        // Single click activates without promoting — VS Code parity. The
+        // Single click activates without promoting, VS Code parity. The
         // tab stays italic until the user double-clicks it or starts
         // editing the buffer.
         tab.addEventListener('click', (e) => {
@@ -464,7 +478,7 @@ class SplitPane {
         });
         tab.querySelector('.close-tab').addEventListener('click', (e) => {
             e.stopPropagation();
-            // Fire-and-forget — _closeFile is async because of the
+            // Fire-and-forget, _closeFile is async because of the
             // unsaved-changes prompt on the file's last instance.
             this._closeFile(filePath);
         });
@@ -491,7 +505,7 @@ class SplitPane {
         tab.draggable = true;
         tab.addEventListener('dragstart', (e) => {
             e.dataTransfer.effectAllowed = 'move';
-            // Custom MIME — see tab_drag.js for rationale (avoids Monaco
+            // Custom MIME, see tab_drag.js for rationale (avoids Monaco
             // pasting the file path on drop into the editor area).
             e.dataTransfer.setData('application/x-aurora-tab-path', filePath);
             SplitEditorManager._dragActive = true;
@@ -523,7 +537,7 @@ class SplitPane {
         }
 
         // Se esta pane esta focada, mudar activeFile muda o resultado
-        // de SplitEditorManager.getFocusedFile() — notifica consumers
+        // de SplitEditorManager.getFocusedFile(), notifica consumers
         // gated-por-extensao (ex: botão C± so em .cmm).
         const splitMgr = window.SplitEditorManager;
         if (splitMgr && splitMgr.focusedPane === this.paneIndex) {
@@ -542,7 +556,7 @@ class SplitPane {
         // does), closing here will dispose the shared model and DROP the
         // unsaved edits. In that case we run the same VS Code-style "save /
         // don't save / cancel" dialog the main pane uses. With other
-        // instances still alive, the model survives — close silently.
+        // instances still alive, the model survives, close silently.
         const isLastInstance = TabManager.getInstanceCount(filePath) <= 1;
         const isDirty = SharedModelRegistry.isDirty(filePath);
         if (isLastInstance && isDirty) {
@@ -636,13 +650,13 @@ const SplitEditorManager = {
     wrapper: null,
     mainShell: null,
     // The split control floats inside the focused pane's editor area rather
-    // than living in the top toolbar — one shared button, re-parented to
+    // than living in the top toolbar, one shared button, re-parented to
     // whichever instance currently has focus. Created lazily by _updateButton.
     splitFloatBtn: null,
-    // The markdown/HTML preview (magnifier) button — same floating pattern as
+    // The markdown/HTML preview (magnifier) button, same floating pattern as
     // splitFloatBtn, parked in the focused pane, shown only for .md/.html.
     lupaBtn: null,
-    // A varinha de formatar — mesmo padrão flutuante, à esquerda do split.
+    // A varinha de formatar, mesmo padrão flutuante, à esquerda do split.
     // Ela e a lupa nunca aparecem juntas (uma é para código, a outra para
     // markdown e HTML), então dividem a mesma vaga ao lado do split.
     formatBtn: null,
@@ -697,7 +711,7 @@ const SplitEditorManager = {
             this.moveFileToPane(filePath, 0);
         });
 
-        // The split button is no longer a fixed toolbar element — _updateButton
+        // The split button is no longer a fixed toolbar element, _updateButton
         // (called below + on every focus/tab change) creates the floating
         // in-pane button and keeps it parked in the focused instance.
 
@@ -716,7 +730,7 @@ const SplitEditorManager = {
         // on every activateTab AND on preview close (both the "switch to
         // another tab" and the "no tabs left → filePath:null" paths), so
         // listening here covers what a fragile monkey-patch of activateTab /
-        // _closePreviewSilently used to do — without reassigning their
+        // _closePreviewSilently used to do, without reassigning their
         // methods. (setFocus / createSplit / closePane call _updateButton
         // directly; this just adds the tab-side trigger.)
         document.addEventListener('aurora:editing-file-changed', () => this._updateButton());
@@ -728,7 +742,7 @@ const SplitEditorManager = {
 
     canSplit() {
         // Pane budget is 3 panes side-by-side. The main pane only counts
-        // when it actually has content — so after the user empties the main
+        // when it actually has content, so after the user empties the main
         // pane (it gets hidden), the freed slot lets them split again
         // instead of being stuck at "max panes reached" with a blank main.
         const mainCount = this._mainHasContent() ? 1 : 0;
@@ -765,7 +779,7 @@ const SplitEditorManager = {
      * paneIndex 0 is the main pane; >0 is a split. "Move" means: open it in
      * the target, then close it at the source. Because every pane shares the
      * file's model, opening in the target before closing the source keeps the
-     * instance count ≥ 1 throughout — the model (and any unsaved edits) is
+     * instance count ≥ 1 throughout, the model (and any unsaved edits) is
      * never disposed mid-move, and closeFile sees it's not the last instance
      * so it never prompts.
      */
@@ -816,7 +830,7 @@ const SplitEditorManager = {
         if (!this.canSplit()) return;
 
         // Resolve the source file + content from whichever pane currently has
-        // focus. We require an actual Monaco editor — splitting a binary
+        // focus. We require an actual Monaco editor, splitting a binary
         // viewer (image/PDF) or a tab whose editor hasn't been instantiated
         // yet would otherwise produce a blank pane.
         let filePath = null;
@@ -834,7 +848,7 @@ const SplitEditorManager = {
         }
 
         if (!filePath || !editor || typeof editor.getValue !== 'function') {
-            // No usable source — bail instead of opening an empty pane.
+            // No usable source, bail instead of opening an empty pane.
             // Re-sync the button so its tooltip reflects current state.
             this._updateButton();
             return;
@@ -875,7 +889,7 @@ const SplitEditorManager = {
      * Single source of truth for split layout. Responsibilities:
      *  1. Hide panes that have no tabs (main shell included).
      *  2. Tear down ALL existing resizers and rebuild fresh ones between
-     *     consecutive visible panes — this kills any orphan resizer left
+     *     consecutive visible panes, this kills any orphan resizer left
      *     behind when a middle pane was removed.
      *  3. Equalize visible panes via flex:1.
      *  4. Show the welcome overlay only when EVERY pane is empty;
@@ -899,7 +913,7 @@ const SplitEditorManager = {
         }
 
         // Empty split panes get hidden (they may still be in this.panes if a
-        // close hasn't fully propagated yet — defensive).
+        // close hasn't fully propagated yet, defensive).
         this.panes.forEach(p => {
             if (p.tabs.size === 0) {
                 p.element.style.display = 'none';
@@ -909,7 +923,7 @@ const SplitEditorManager = {
             }
         });
 
-        // Rebuild resizers from scratch — cheap and avoids orphan-pointer bugs.
+        // Rebuild resizers from scratch, cheap and avoids orphan-pointer bugs.
         this.resizers.forEach(r => r.destroy());
         this.resizers = [];
 
@@ -930,11 +944,11 @@ const SplitEditorManager = {
         // Welcome overlay: show whenever no pane has any tab open. This
         // mirrors the original (pre-split) behaviour where the welcome
         // screen is the empty-editor state, regardless of whether a project
-        // is loaded — closing the last file should always bring it back.
+        // is loaded, closing the last file should always bring it back.
         //
         // State model (editor.css): the overlay ALWAYS keeps `visible`;
         // `hidden` toggles the welcome off. We must NOT remove `visible`
-        // here — doing so left it in a `hidden`-without-`visible` limbo that
+        // here, doing so left it in a `hidden`-without-`visible` limbo that
         // showed neither the welcome nor an editor (the grey-screen bug).
         const overlay = document.getElementById('editor-overlay');
         if (overlay) {
@@ -945,7 +959,7 @@ const SplitEditorManager = {
         // If the focused pane is no longer visible (e.g. the main pane was
         // just emptied and hidden), hand focus to a visible pane. Otherwise
         // every remaining pane stays dimmed (focus points at a hidden pane)
-        // and canSplit() reads the wrong source — the "everything's buggy
+        // and canSplit() reads the wrong source, the "everything's buggy
         // after closing the original instance" state.
         const focusedVisible =
             (this.focusedPane === 0 && this.mainShell.style.display !== 'none' && mainHasContent) ||
@@ -962,7 +976,7 @@ const SplitEditorManager = {
         // Monaco needs an explicit layout() when its container's size or
         // visibility changes (display:none → block, flex resize). Without
         // this, panes that were just shown/resized render blank until the
-        // next user interaction — the "tabs ficam sem conteúdo" bug.
+        // next user interaction, the "tabs ficam sem conteúdo" bug.
         this._relayoutVisibleEditors();
     },
 
@@ -993,7 +1007,7 @@ const SplitEditorManager = {
         // button whenever focus moves.
         this._updateButton();
         // Foco entre panes muda qual arquivo TabManager.getEditingFilePath
-        // retorna — propaga pra botoes gated-por-extensao (ex: C± so em .cmm).
+        // retorna, propaga pra botoes gated-por-extensao (ex: C± so em .cmm).
         document.dispatchEvent(new CustomEvent('aurora:editing-file-changed', {
             detail: { filePath: this.getFocusedFile() },
         }));
@@ -1059,7 +1073,7 @@ const SplitEditorManager = {
         if (!host) { btn.remove(); return; }
         if (btn.parentElement !== host) host.appendChild(btn);
 
-        // Hide entirely when the focused pane holds no file — there is nothing
+        // Hide entirely when the focused pane holds no file, there is nothing
         // to split, and the welcome overlay owns the empty-editor state.
         const hasFile = this.focusedPane === 0
             ? TabManager.activeTab !== null
@@ -1074,7 +1088,7 @@ const SplitEditorManager = {
         // `data-tooltip` from `data-i18n-tooltip` on locale change. So we must
         // drive BOTH: the i18n key (so re-translation stays correct) and the
         // resolved `data-tooltip` text (so the change shows immediately).
-        // Setting `title` here would be dead — data-tooltip always wins.
+        // Setting `title` here would be dead, data-tooltip always wins.
         const key = canSplit
             ? 'toolbar.splitEditor.tooltipEnabled'
             : this.panes.length >= 2

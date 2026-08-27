@@ -1,5 +1,5 @@
 /**
- * Unit tests pra processor_list.js — o owner unico de
+ * Unit tests pra processor_list.js, o owner unico de
  * `window.availableProcessors`. Cada teste reseta o global fake
  * (`globalThis.window`) pra que estado leak entre testes nao
  * mascare um bug de side-effect.
@@ -128,7 +128,7 @@ describe('addAvailableProcessor', () => {
 
     it('substitui o array (nao muta in-place)', () => {
         // Importante porque alguns consumidores capturam o array por
-        // referencia em closures — se mutarmos in-place, eles veriam
+        // referencia em closures, se mutarmos in-place, eles veriam
         // updates "magicos". Substituir forca cada read fresco.
         const before = ['proc_a'];
         window.availableProcessors = before;

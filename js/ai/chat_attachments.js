@@ -1,4 +1,4 @@
-// chat_attachments.js — pure helpers for the AI composer's file/image
+// chat_attachments.js: pure helpers for the AI composer's file/image
 // attachments, extracted from ai_assistant_manager.js (A2 god-file decomposition).
 //
 // Pure: no DOM, no FileReader, no instance state. The class keeps the

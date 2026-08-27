@@ -1,4 +1,4 @@
-// chat_history.js — pure history helpers for the AI assistant, extracted from
+// chat_history.js: pure history helpers for the AI assistant, extracted from
 // ai_assistant_manager.js (A2 god-file decomposition).
 //
 // Pure: no DOM, no instance state, no IPC. The class keeps the orchestration
@@ -38,7 +38,7 @@ export function chatListHtml(chatList, currentChatId) {
 
 // Shape the in-memory messages for persistence. Tool entries keep their full
 // breadcrumb (so a re-opened chat replays every call); user/assistant entries
-// keep content + lightweight attachment metadata only — the payload (image
+// keep content + lightweight attachment metadata only, the payload (image
 // base64 / file text) is dropped for performance. Pure: returns a new array,
 // never mutates the input.
 export function serializeMessagesForStorage(messages) {

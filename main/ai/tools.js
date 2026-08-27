@@ -1,16 +1,16 @@
 // @ts-check
 /**
- * tools.js — the tool manifest Aurora Intelligence is allowed to call.
+ * tools.js: the tool manifest Aurora Intelligence is allowed to call.
  *
  * Each entry maps a function-calling tool to an `AuroraAPI` namespace
  * method in the renderer. The manifest is *pure data* (no closures) so
- * it can be shipped over IPC verbatim — the renderer's tool_runner
+ * it can be shipped over IPC verbatim, the renderer's tool_runner
  * pulls it and uses the same `api` / `argStyle` / `argNames` fields to
  * dispatch the call, which keeps a single source of truth.
  *
  * `access`:
- *   - 'read'  — pure inspection, runs without prompting.
- *   - 'write' — mutates the workspace; the renderer shows an
+ *   - 'read' , pure inspection, runs without prompting.
+ *   - 'write', mutates the workspace; the renderer shows an
  *               ask-before-write confirmation before executing.
  *
  * `argStyle` tells the renderer how to turn the JSON args object into
@@ -30,7 +30,7 @@
 try {
   ({ tool, jsonSchema } = require('ai'));
 } catch (_) {
-  // Silently ignored — provider.js logs the same failure once.
+  // Silently ignored, provider.js logs the same failure once.
 }
 
 /** @typedef {{ name:string, description:string, access:'read'|'write', api:[string,string], argStyle:'none'|'positional'|'object', argNames?:string[], inputSchema:object }} ToolDef */
@@ -772,6 +772,77 @@ const TOOL_MANIFEST = [
     inputSchema: { type: 'object', properties: {} },
   },
   {
+    name: 'search_manual',
+    description:
+      'Search the SAPHO manual that ships with AURORA and get the closest pages, each with a '
+      + 'title, a path and a snippet. The manual covers the C+- language, the compile flow, '
+      + 'waveforms, cocotb, PRISM and the IDE itself, in Portuguese. Prefer it over answering '
+      + 'from memory whenever the question is about how SAPHO or AURORA work, then read the page '
+      + 'with read_manual_page and answer from what it actually says. Accents in the query are '
+      + 'optional.',
+    access: 'read',
+    api: ['manual', 'search'],
+    argStyle: 'positional',
+    argNames: ['query', 'options'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words to look for. Every word must appear on the page.' },
+        options: {
+          type: 'object',
+          description: 'Optional. { limite: number } caps how many pages come back (default 5).',
+          properties: { limite: { type: 'number' } },
+        },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'read_manual_page',
+    description:
+      'Read one page of the SAPHO manual as plain text, by the path that search_manual returned '
+      + '(for example "avancado/dirac.html"). Long pages come back truncated, with truncated:true.',
+    access: 'read',
+    api: ['manual', 'read'],
+    argStyle: 'positional',
+    argNames: ['pagePath', 'options'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        pagePath: { type: 'string', description: 'Page path inside the manual, as returned by search_manual.' },
+        options: {
+          type: 'object',
+          description: 'Optional. { limite: number } caps how many characters come back.',
+          properties: { limite: { type: 'number' } },
+        },
+      },
+      required: ['pagePath'],
+    },
+  },
+  {
+    name: 'list_example_projects',
+    description:
+      'List the five ready-made example projects that ship with AURORA: key, name, what each one '
+      + 'teaches, the language, and which processors it carries. Use this to answer "what can I study '
+      + 'here?" or to pick a starting point for a beginner, instead of describing a project from memory.',
+    access: 'read',
+    api: ['examples', 'list'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'install_example_projects',
+    description:
+      'Create all five example projects on disk. The user picks the destination folder in a native '
+      + 'dialog, so this never writes to a path chosen by the model; if they cancel, the result is '
+      + '{ cancelled: true } and nothing was written. On success it returns the .spf path of each '
+      + 'project, which open_project then opens. Existing projects are never overwritten.',
+    access: 'write',
+    api: ['examples', 'install'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'backup_project',
     description: 'Create a timestamped backup (.zip) of the currently open SAPHO project. Returns the absolute path of the archive.',
     access: 'write',
@@ -1357,6 +1428,19 @@ const TOOL_MANIFEST = [
     },
   },
   {
+    name: 'get_run_status',
+    description:
+      'Check whether the last compilation or simulation is still running, finished, '
+      + 'or was CANCELLED by the user. Call this when a compile_* tool returned but no '
+      + 'result ever appeared in the terminal: a cancelled run is not a failure and not '
+      + 'a hang, so do not go looking for a bug that is not there. Returns '
+      + 'state: running | cancelled | idle.',
+    access: 'read',
+    api: ['compile', 'runStatus'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
     name: 'close_project',
     description:
       'Close the project currently open and return the IDE to its empty state. '
@@ -1366,6 +1450,53 @@ const TOOL_MANIFEST = [
     api: ['project', 'close'],
     argStyle: 'none',
     inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'create_gtkw_layout',
+    description:
+      'Create a GTKWave layout (.gtkw) from an explicit signal list, write it at the '
+      + 'project root and register it for the active testbench. This is the GTKWave '
+      + 'sibling of create_surfer_layout, and the counterpart of add_gtkw_file (which '
+      + 'only registers a file that already exists). Note the division of labour: when '
+      + 'no .gtkw is active, Aurora GENERATES a curated layout from the dump on every '
+      + 'run (processors grouped, colours, decoded Assembly/C+- traces). Prefer that '
+      + 'default; create a layout here when the user asked for specific signals in a '
+      + 'specific order. Signals must exist in the dump — check with list_wave_signals '
+      + 'first, since GTKWave silently omits a path it cannot find.',
+    access: 'write',
+    api: ['wave', 'createGtkwLayout'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Layout name, without extension. Becomes <name>.gtkw at the project root.' },
+        signals: {
+          type: 'array',
+          description: 'Signals top to bottom. Either a full path string, or an object for control over base and grouping.',
+          items: {
+            oneOf: [
+              { type: 'string', description: 'Full signal path, e.g. "tb.dut.acc".' },
+              {
+                type: 'object',
+                properties: {
+                  path: { type: 'string', description: 'Full signal path, e.g. "tb.dut.acc".' },
+                  // A lista tem que ser a mesma do RADIX_VALIDOS em
+                  // js/wave/gtkw_custom.js, que e quem de fato aceita ou
+                  // recusa. Copiada, e nao importada, porque este manifesto e
+                  // CommonJS no processo principal e aquele modulo e ESM do
+                  // renderer; o tool_manifest.test.js compara as duas.
+                  radix: { type: 'string', enum: ['bin', 'dec', 'signed', 'hex', 'real', 'ascii'], description: 'Display base. Default dec; use bin for single-bit signals and signed for two-complement buses.' },
+                  group: { type: 'string', description: 'Consecutive signals sharing this name land in one collapsible group.' },
+                },
+                required: ['path'],
+              },
+            ],
+          },
+        },
+        setActive: { type: 'boolean', description: 'true (default) makes it the layout GTKWave opens for this testbench.' },
+      },
+      required: ['name', 'signals'],
+    },
   },
   {
     name: 'create_surfer_layout',
@@ -1558,7 +1689,7 @@ const TOOL_MANIFEST = [
 /**
  * Build the Vercel-AI-SDK `tools` object. `runToolFn(name, args)` is
  * the bridge that ships the call to the renderer and resolves with the
- * AuroraAPI result — supplied by `chat.js`, bound to the right
+ * AuroraAPI result, supplied by `chat.js`, bound to the right
  * webContents.
  *
  * @param {(name:string, args:object) => Promise<unknown>} runToolFn

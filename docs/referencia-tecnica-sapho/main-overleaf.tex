@@ -50,7 +50,7 @@
 
 \hypersetup{
   pdftitle={SAPHO — Referência Técnica (compacta)},
-  pdfauthor={NIPSCERN / UFJF},
+  pdfauthor={NIPS-CERN / UFJF},
   colorlinks=true, linkcolor=auroraDeep, urlcolor=auroraTeal, citecolor=auroraDeep}
 
 % ---- colunas tabularx ----
@@ -113,7 +113,7 @@
 \title{SAPHO --- Referência Técnica Compacta\\[2pt]
 \normalsize\mdseries\color{auroraInk}A plataforma \textbf{AURORA} (IDE) + \textbf{YANC} (compiladores)
 para concepção de \textit{soft-processors}}
-\author{NIPSCERN --- Universidade Federal de Juiz de Fora (UFJF)}
+\author{NIPS-CERN --- Universidade Federal de Juiz de Fora (UFJF)}
 \date{Suíte 6.3.2 --- junho de 2026 \quad\textbar\quad documento construído a partir do estudo do código-fonte}
 
 \begin{document}
@@ -133,7 +133,7 @@ para concepção de \textit{soft-processors}}
 
 \tool{SAPHO} (\emph{Scalable-Architecture Processor for Hardware Optimization}) é a suíte
 integrada para concepção, compilação, simulação e visualização de
-\emph{soft-processors} mantida pelo \textbf{NIPSCERN}, núcleo de pesquisa da
+\emph{soft-processors} mantida pelo \textbf{NIPS-CERN}, núcleo de pesquisa da
 \textbf{Universidade Federal de Juiz de Fora (UFJF)}, em Minas Gerais. O
 laboratório colabora com o CERN no experimento ATLAS do LHC e emprega a
 plataforma no ensino (disciplina DLP --- Dispositivos Lógicos Programáveis). A
@@ -609,7 +609,7 @@ Botão \lstinline|prismcomp| (só com top-level). \lstinline|handlePrismStep| é
 \section{Aurora Intelligence (IA)}
 \label{sec:S09-aurora-intelligence}
 
-\tool{Aurora Intelligence} (feminino) e o assistente de IA da \tool{AURORA}: conversa sobre o projeto, \cmm{} e Verilog e \emph{age} sobre o ambiente por ferramentas curadas. Esta \textbf{totalmente implementado}; so o \emph{provider}/modelos \textbf{proprios do NIPSCERN ainda nao foram treinados} (roteiro). Ate la, opera contra provedores externos. Arquitetura Electron: o \emph{main} detem chaves, rede, subprocessos, MCP e disco; o \emph{renderer} detem o painel e executa cada \emph{tool} via \code{window.AuroraAPI}.
+\tool{Aurora Intelligence} (feminino) e o assistente de IA da \tool{AURORA}: conversa sobre o projeto, \cmm{} e Verilog e \emph{age} sobre o ambiente por ferramentas curadas. Esta \textbf{totalmente implementado}; so o \emph{provider}/modelos \textbf{proprios do NIPS-CERN ainda nao foram treinados} (roteiro). Ate la, opera contra provedores externos. Arquitetura Electron: o \emph{main} detem chaves, rede, subprocessos, MCP e disco; o \emph{renderer} detem o painel e executa cada \emph{tool} via \code{window.AuroraAPI}.
 
 \textbf{Dois transportes convergem nos mesmos eventos} \code{ai:chat-event} (\code{text-delta}, \code{tool-call}, \code{tool-result} e exatamente um fechamento: \code{finish}/\code{aborted}/\code{error}), tornando o laco do renderer transporte-agnostico.
 
@@ -711,7 +711,7 @@ Ferramentas que o SAPHO usa, orquestra ou empacota, com versão \emph{exata}
 verificada na fonte primária (\file{package.json}, \file{manifest.txt} do
 \repo{aurora-toolchain}, \file{components/Scripts/download-*.js},
 \file{main/ai/cli\_manifest.js}, \file{THIRD\_PARTY\_NOTICES.md}). A AURORA é MIT
-(\copyright{} 2024 NIPSCERN); cada componente mantém sua licença. GPL forte e o
+(\copyright{} 2024 NIPS-CERN); cada componente mantém sua licença. GPL forte e o
 Surfer (EUPL) são invocados como processos externos separados, sem \emph{link}.
 Quatro modos de chegada: npm \code{dependencies} (empacotados pelo
 \tool{electron-builder}); npm \code{devDependencies} (só build/CI); \emph{bootstrap}
@@ -865,7 +865,7 @@ O \file{vite.config.mjs} cobre só o \emph{renderer}; processo principal e \emph
 
 \subsection{CI, release e assinatura}
 \label{sec:S13-ci}
-\file{ci.yml} (push/PR em \texttt{main}, \texttt{windows-latest}): versões pinadas, ESLint, \emph{typecheck}, guarda de \texttt{.js} gerado, i18n, \emph{dead code}, testes unitários + e2e, \texttt{build:renderer} e \emph{smoke build} (\lstinline|--publish never|). \file{release.yml} (ao publicar \emph{release}): \texttt{bootstrap}, verificação \emph{alta} de \emph{sentinels}, \texttt{build:ts}/\texttt{build:renderer}, \lstinline|electron-builder --win --x64 --publish always|. \file{release-please.yml} (\lstinline|release-type: node|, \lstinline|include-v-in-tag|; manifesto em \texttt{6.3.2}) agrega \emph{Conventional Commits} num PR de \emph{release}. Assinatura de código: instalador e \emph{updater} \textbf{não assinados} atualmente; o \emph{runbook} (\file{docs/CODE_SIGNING.md}) propõe SignPath Foundation (OSS/MIT), \emph{gated} no \emph{secret} \texttt{SIGNPATH\_API\_TOKEN}, com re-\emph{hash} de \file{latest.yml} via \file{scripts/patch-latest-yml.js}.
+\file{ci.yml} (push/PR em \texttt{main}, \texttt{windows-latest}): versões pinadas, ESLint, \emph{typecheck}, guarda de \texttt{.js} gerado, i18n, \emph{dead code}, testes unitários + e2e, \texttt{build:renderer} e \emph{smoke build} (\lstinline|--publish never|). \file{release.yml} (ao publicar \emph{release}): \texttt{bootstrap}, verificação \emph{alta} de \emph{sentinels}, \texttt{build:ts}/\texttt{build:renderer}, \lstinline|electron-builder --win --x64 --publish always|. \file{release-please.yml} (\lstinline|release-type: node|, \lstinline|include-v-in-tag|; manifesto em \texttt{6.3.2}) agrega \emph{Conventional Commits} num PR de \emph{release}. Assinatura de código: o fluxo de \emph{release} assina pela SignPath Foundation (OSS/MIT), \emph{gated} no \emph{secret} \texttt{SIGNPATH\_API\_TOKEN} e na política apontada por \texttt{SIGNPATH\_POLICY\_SLUG}, com re-\emph{hash} de \file{latest.yml} via \file{scripts/patch-latest-yml.js} para o \emph{blockmap} continuar batendo com o binário assinado. Em agosto de 2026 a política em uso ainda é a de ensaio (\texttt{test-signing}), à espera do certificado de produção; o estado corrente e as pendências ficam na seção 3 do \file{TODO.md}.
 
 \subsection{Split de repositórios}
 \label{sec:S13-split}

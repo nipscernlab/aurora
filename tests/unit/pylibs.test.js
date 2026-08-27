@@ -8,7 +8,7 @@
  * O download real NAO e exercitado aqui (dependeria da rede e da PyPI estar de
  * pe); o que se testa e a logica que decide, anota e remove. `AURORA_PYLIBS_ROOT`
  * aponta a arvore inteira para um diretorio descartavel, entao nada toca o
- * components/ de verdade — mesmo recurso que o cliDownloader.test.js usa com
+ * components/ de verdade, mesmo recurso que o cliDownloader.test.js usa com
  * AURORA_CLI_CACHE.
  */
 
@@ -237,7 +237,7 @@ describe('integridade (o doutor)', () => {
     );
     expect(rec['plotly/__init__.py']).toEqual({ sha256: 'AbC-_9xY', size: 1234 });
     expect(rec['plotly/io/_html.py'].size).toBe(42);
-    // O RECORD nao pode conter o hash de si mesmo — vira entrada sem verificacao.
+    // O RECORD nao pode conter o hash de si mesmo, vira entrada sem verificacao.
     expect(rec['plotly-6.9.0.dist-info/RECORD']).toEqual({ sha256: null, size: null });
   });
 
@@ -276,7 +276,7 @@ describe('integridade (o doutor)', () => {
     expect(manager.doctor().ok).toBe(true);
     expect(manager.doctor({ deep: true }).ok).toBe(true);
 
-    // 1. Antivirus apaga um arquivo — a checagem rapida (so stat) ja pega.
+    // 1. Antivirus apaga um arquivo, a checagem rapida (so stat) ja pega.
     fs.rmSync(path.join(site, 'lib', 'a.py'));
     const afterDelete = manager.doctor();
     expect(afterDelete.ok).toBe(false);
@@ -523,7 +523,12 @@ describe('ligacao com o interpretador (.pth)', () => {
   });
 
   it('sem bundle do Python, falha limpo em vez de estourar', () => {
-    delete process.env.AURORA_BUNDLE_SITE;
+    // Aponta para um lugar que nao existe, em vez de apagar a variavel. Apagar
+    // funcionava so por acidente: a busca real quebrava fora do Electron e
+    // devolvia vazio. Desde que `main/paths.js` passou a resolver tambem fora
+    // do Electron, apagar a variavel faz a busca encontrar o bundle DE VERDADE
+    // desta maquina, e o teste deixa de testar o que diz testar.
+    process.env.AURORA_BUNDLE_SITE = path.join(tmp, 'bundle-que-nao-existe');
     fs.mkdirSync(path.join(tmp, 'site'), { recursive: true });
     const r = manager.ensureSitePth();
     expect(r.ok).toBe(false);

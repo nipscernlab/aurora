@@ -113,8 +113,10 @@ Every push to `main` keeps a release pull request open, aggregating the
 conventional commits since the last release and preparing the version bump and
 the changelog. Merging that pull request creates the tag and the GitHub release.
 
-Building and publishing the installer is a separate, manually triggered workflow,
-so cutting a version and shipping a binary stay independent. Releases publish to
+Building and publishing the installer follows from that same merge: the release
+workflow chains into the build, which produces the Windows installer and uploads
+it along with `latest.yml` and the blockmap. It can also be triggered by hand,
+which is how a failed publish is retried. Releases publish to
 `nipscernlab/sapho`, which is the distribution channel; this repository is where
 development happens. The updater reads the same place, so the two cannot
 disagree.
@@ -124,10 +126,15 @@ and only needs a new one when the bundled binaries actually change.
 
 ### Differential updates, and three ways to break them
 
-The installer is around 500 MB, almost all of it the bundled toolchain. That is a
-one-time cost per machine and not a per-update cost, because electron-updater
-fetches only the changed blocks. Three things make that work and each is easy to
-break by accident.
+The installer is around 140 MB, and it does not carry the toolchain. It was
+around 500 MB through 6.6.1; 6.7.0 halved it by moving the bundled binaries out,
+and 6.8.0 reached today's size by fixing three packaging mistakes that were
+inflating the asar. The toolchain now arrives on demand into
+`%LOCALAPPDATA%\SAPHO\components`, roughly a gigabyte that the installer never
+carries and that an update leaves untouched. Even the 140 MB is a one-time cost
+per machine rather than a per-update cost, because electron-updater fetches only
+the changed blocks. Three things make that work and each is easy to break by
+accident.
 
 The blockmap is already tuned, so do not try to improve the compression.
 electron-builder forces normal compression, non-solid, with a one-megabyte

@@ -1,5 +1,5 @@
-// chat_render.js — Aurora Intelligence chat text rendering (extracted from
-// ai_assistant_manager.js, A2 god-file decomposition). The full text→HTML
+// chat_render.js: Aurora Intelligence chat text rendering (extracted from
+// ai_assistant_manager.js: A2 god-file decomposition). The full text→HTML
 // pipeline, all pure/DOM-only (no instance state, no electronAPI/TabManager):
 //   • zero-dep syntax highlighter for fenced code blocks,
 //   • HTML escape + LaTeX→Unicode math (optional KaTeX) + inline Markdown,
@@ -9,7 +9,7 @@
 // linkifyFileRefs. Exports only the entry points the class calls.
 
 /* ============================================================
- *  Generic syntax highlighter — zero external dependencies.
+ *  Generic syntax highlighter, zero external dependencies.
  *  Covers C/C++/CMM, JS/TS, Python, Verilog, Bash, and more.
  * ========================================================== */
 
@@ -70,13 +70,13 @@ export function escapeHtml(s) {
 }
 
 // Sentinels for placeholder stashing. We use Unicode Private-Use Area
-// (U+E000..U+F8FF) — those code points carry no semantics, never
+// (U+E000..U+F8FF), those code points carry no semantics, never
 // appear in normal text, and are not control characters (so ESLint's
 // no-control-regex rule stays happy).
 const CODE_SENTINEL_OPEN  = '';
 const CODE_SENTINEL_CLOSE = '';
 
-// Extra PUA sentinels for math stashing — same trick as the code one
+// Extra PUA sentinels for math stashing, same trick as the code one
 // above, just a different code-point pair so they never collide.
 const MATH_SENTINEL_OPEN  = '';
 const MATH_SENTINEL_CLOSE = '';
@@ -117,7 +117,7 @@ function _renderMath(src, display) {
   // Prefer KaTeX when it's loaded (index.html bundles it locally): a real
   // LaTeX engine renders \underbrace, \text, matrices, nested sub/superscripts,
   // etc. that the Unicode subset below can't. KaTeX is XSS-safe by default
-  // (trust:false — no \href/\htmlData), and throwOnError:false renders any
+  // (trust:false, no \href/\htmlData), and throwOnError:false renders any
   // unparseable bit in red instead of throwing. Falls back to the subset when
   // KaTeX is absent (e.g. jsdom in unit tests).
   if (typeof window !== 'undefined' && window.katex) {
@@ -137,11 +137,11 @@ function _renderMath(src, display) {
   // innerHTML, so it MUST be escaped before any macro runs. renderInline()
   // stashes the raw `$…$`/`$$…$$` source to keep escapeHtml() from mangling
   // the LaTeX, which means the escaping has to happen HERE. escapeHtml only
-  // touches & < > " ' — it leaves \ { } ^ _ intact, so the macros below still
+  // touches & < > " ', it leaves \ { } ^ _ intact, so the macros below still
   // match. Without this, `$$<img src=x onerror=…>$$` is an XSS→RCE sink.
   let s = escapeHtml(raw);
   // Text-mode macros (\text, \mathrm, \operatorname, …) render their argument as
-  // ordinary text. Strip the macro, keep the content — and do this BEFORE the
+  // ordinary text. Strip the macro, keep the content, and do this BEFORE the
   // super/sub pass so a `^{\text{miss}}` no longer leaves nested braces that made
   // the script render literally (the reported bug). Twice handles one nest level.
   const _stripTextMacros = (str) => str.replace(
@@ -189,7 +189,7 @@ function renderInline(s) {
   const maths = [];
   // ChatGPT-style delimiters \[ … \] (display) and \( … \) (inline). Many models
   // emit these instead of $…$; without handling them the literal `\(x^2\)` was
-  // shown verbatim. Unambiguous, so no math-token gate — and stashed before
+  // shown verbatim. Unambiguous, so no math-token gate, and stashed before
   // escapeHtml (like the $ handlers) so the LaTeX source survives.
   s = s.replace(/\\\[([\s\S]+?)\\\]/g, (_, expr) => {
     maths.push({ expr, display: true });
@@ -288,7 +288,7 @@ export const TRUST_LINKS_KEY = 'aurora-ai-trust-external-links';
 
 // A standalone file token: optional drive (C:\) / ./ ../ root, any project
 // path segments, a basename with a dot-extension, and an optional :line.
-// Anchored — used to decide whether an inline `code` span is *entirely* a
+// Anchored, used to decide whether an inline `code` span is *entirely* a
 // file reference. The `:` in a `C:\` drive prefix is never the line colon.
 const AI_FILE_TOKEN_RE =
   /^(?:[A-Za-z]:[\\/]|\.{1,2}[\\/]|[\\/])?(?:[\w.-]+[\\/])*[\w.-]+\.[A-Za-z0-9]{1,12}(?::\d+)?$/;
@@ -331,8 +331,8 @@ function makeFileRefSpan(token) {
 }
 
 /**
- * Turn project-file references in a rendered message — `core.v`,
- * `my_proc.cmm:25`, `src/alu.sv:88` — into clickable `.ai-file-ref` spans.
+ * Turn project-file references in a rendered message, `core.v`,
+ * `my_proc.cmm:25`, `src/alu.sv:88`, into clickable `.ai-file-ref` spans.
  * Two passes: (1) inline `code` spans that are *entirely* a reference (the
  * form the model is told to emit), and (2) bare references in running prose.
  * Runs on the FINAL (committed / static) message DOM, never per streaming
@@ -341,7 +341,7 @@ function makeFileRefSpan(token) {
 export function linkifyFileRefs(root) {
   if (!root) return;
 
-  // Pass 1 — inline `code` spans like `my_proc.cmm:25` (skip fenced blocks
+  // Pass 1, inline `code` spans like `my_proc.cmm:25` (skip fenced blocks
   // and any code carrying child markup, e.g. syntax-highlighted snippets).
   root.querySelectorAll('code').forEach((codeEl) => {
     if (codeEl.closest('pre') || codeEl.querySelector('*')) return;
@@ -350,7 +350,7 @@ export function linkifyFileRefs(root) {
     codeEl.replaceWith(makeFileRefSpan(token));
   });
 
-  // Pass 2 — bare references in prose text nodes.
+  // Pass 2, bare references in prose text nodes.
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
     acceptNode(node) {
       for (let p = node.parentNode; p && p !== root; p = p.parentNode) {
@@ -463,7 +463,7 @@ export function renderMarkdown(md) {
     codeLang = '';
   };
 
-  // Table state — keeps two-row lookahead via index loop instead of for-of
+  // Table state, keeps two-row lookahead via index loop instead of for-of
   // so we can peek at lines[i+1] to detect the separator row.
   let i = 0;
   while (i < lines.length) {
@@ -494,7 +494,7 @@ export function renderMarkdown(md) {
       i++; continue;
     }
 
-    // GFM table — current line is a header row and next line is the
+    // GFM table, current line is a header row and next line is the
     // separator (|---|---|). We commit the whole table at once.
     if (line.includes('|') && i + 1 < lines.length
         && /^\s*\|?\s*:?-{2,}.*\|/.test(lines[i + 1])
@@ -545,7 +545,7 @@ export function renderMarkdown(md) {
       flushQuote();
     }
 
-    // Lists — track leading-space indent so nested lists nest properly.
+    // Lists, track leading-space indent so nested lists nest properly.
     const ulMatch = line.match(/^(\s*)[-*+]\s+(.*)$/);
     const olMatch = line.match(/^(\s*)(\d+)\.\s+(.*)$/);
     if (ulMatch || olMatch) {

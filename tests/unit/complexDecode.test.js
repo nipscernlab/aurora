@@ -99,7 +99,7 @@ describe('ComplexVcdScanner — extracao de valores distintos', () => {
         ].join('\n');
         const sc = new ComplexVcdScanner();
         sc.feed(real); sc.end();
-        // So o sinal complexo (id '$') vira valor — valr2/linetabs (id '"'/'#') sao ignorados.
+        // So o sinal complexo (id '$') vira valor, valr2/linetabs (id '"'/'#') sao ignorados.
         expect(sc.distinctValues().sort()).toEqual([A, B].sort());
     });
 });

@@ -24,6 +24,7 @@ import {
   envelopeErro,
   linhaDeArquivo,
   cabecalhoDeToken,
+  forjaDoRemoto,
   normalizarArquivos,
 } from '../../main/ipc/git_parse.js';
 
@@ -199,6 +200,12 @@ describe('cabecalhoDeToken', () => {
     }
   });
 
+  it('o GitLab usa oauth2, e trocar os dois de lugar devolveria 401', () => {
+    const c = cabecalhoDeToken('glpat_exemplo', 'gitlab');
+    const b64 = c[0].split('Basic ')[1];
+    expect(Buffer.from(b64, 'base64').toString()).toBe('oauth2:glpat_exemplo');
+  });
+
   it('o token vai como configuracao de uma so vez, nunca como escrita', () => {
     // A forma `http.extraHeader=...` e o que o simple-git passa por `-c`. Se um
     // dia isto virar `--add` ou `config`, o token do usuario acaba dentro do
@@ -206,6 +213,33 @@ describe('cabecalhoDeToken', () => {
     const c = cabecalhoDeToken('t');
     expect(c[0].startsWith('http.extraHeader=')).toBe(true);
     expect(c[0]).not.toContain('--add');
+  });
+});
+
+describe('forjaDoRemoto', () => {
+  it('reconhece o GitHub nas formas https e ssh', () => {
+    expect(forjaDoRemoto('https://github.com/nipscernlab/aurora.git')).toBe('github');
+    expect(forjaDoRemoto('git@github.com:nipscernlab/aurora.git')).toBe('github');
+    expect(forjaDoRemoto('ssh://git@ssh.github.com:443/n/a.git')).toBe('github');
+  });
+
+  it('reconhece o gitlab.com sem precisar de conta conectada', () => {
+    expect(forjaDoRemoto('https://gitlab.com/nips-cern/surfer.git')).toBe('gitlab');
+    expect(forjaDoRemoto('git@gitlab.com:nips-cern/surfer.git')).toBe('gitlab');
+  });
+
+  it('a instancia propria so conta se for a que o usuario conectou', () => {
+    expect(forjaDoRemoto('https://gitlab.ufjf.br/lab/p.git', 'gitlab.ufjf.br')).toBe('gitlab');
+    expect(forjaDoRemoto('https://gitlab.ufjf.br/lab/p.git', 'gitlab.com')).toBe(null);
+  });
+
+  it('remoto desconhecido nao recebe token, e o git usa o caminho de sempre', () => {
+    // Injetar o cabecalho de uma forja num remoto de outra e levar 401 num
+    // push que funcionaria sozinho pelo gerenciador de credenciais.
+    expect(forjaDoRemoto('https://bitbucket.org/x/y.git')).toBe(null);
+    expect(forjaDoRemoto('https://github.com.exemplo.net/x.git')).toBe(null);
+    expect(forjaDoRemoto('')).toBe(null);
+    expect(forjaDoRemoto(null)).toBe(null);
   });
 });
 

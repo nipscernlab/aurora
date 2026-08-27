@@ -1,0 +1,220 @@
+/*
+ * bug_report.css: o painel de relato de problema (js/ui/bug_report_form.js).
+ *
+ * CAMADA
+ * ------
+ * O painel abre a partir do Sobre, DENTRO das configurações, que ficam em
+ * --z-modal. Ele precisa cobrir quem o abriu, senão nasce atrás do próprio
+ * botão; e precisa ficar abaixo das notificações, que são a resposta dele.
+ *
+ * PESO DO CONSENTIMENTO
+ * ---------------------
+ * O bloco de consentimento não é aviso legal em letra miúda: é a frase que a
+ * pessoa precisa ler antes de decidir. Contraste de texto normal, escudo ao
+ * lado, e logo acima dos botões, no caminho do olhar de quem vai enviar.
+ */
+
+.bug-report-overlay {
+  position: fixed;
+  inset: 0;
+  /* Entre as configurações (--z-modal, 80) e as notificações (95). */
+  z-index: var(--z-tooltip);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px) saturate(130%);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.bug-report-overlay.visivel { opacity: 1; }
+
+.bug-report {
+  width: 100%;
+  max-width: 560px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--elev-overlay);
+  overflow: hidden;
+  transform: translateY(10px) scale(0.985);
+  transition: transform var(--transition-normal);
+}
+
+.bug-report-overlay.visivel .bug-report { transform: none; }
+
+/* ── Cabeçalho ─────────────────────────────────────────────────────────── */
+.bug-report-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elev-3);
+}
+
+.bug-report-emblema {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: var(--text-md);
+  flex-shrink: 0;
+}
+
+.bug-report-head h2 {
+  margin: 0;
+  flex: 1;
+  font-size: var(--text-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bug-report-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.bug-report-x:hover { color: var(--text); background: var(--bg-elev-2); }
+
+/* ── Corpo ─────────────────────────────────────────────────────────────── */
+.bug-report-corpo {
+  padding: var(--space-4) var(--space-5);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.bug-report-campo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bug-report-campo > span {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.bug-report-campo > span b { color: var(--accent); font-weight: 600; }
+
+.bug-report-campo textarea,
+.bug-report-campo input {
+  width: 100%;
+  resize: vertical;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--text-base);
+  line-height: 1.5;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.bug-report-campo textarea:focus,
+.bug-report-campo input:focus {
+  outline: none;
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.bug-report-campo textarea::placeholder,
+.bug-report-campo input::placeholder { color: var(--text-muted); }
+
+/* ── Diagnóstico ───────────────────────────────────────────────────────── */
+.bug-report-diag > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  padding: var(--space-1) 0;
+  user-select: none;
+}
+
+.bug-report-diag > summary::-webkit-details-marker { display: none; }
+
+.bug-report-diag > summary i {
+  font-size: var(--text-xs);
+  transition: transform var(--transition-fast);
+}
+
+.bug-report-diag[open] > summary i { transform: rotate(90deg); }
+
+.bug-report-diag > summary:hover { color: var(--text); }
+
+.bug-report-diag pre {
+  margin: var(--space-2) 0 0;
+  max-height: 200px;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bug-report-consentimento {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.bug-report-consentimento i {
+  color: var(--accent);
+  font-size: var(--text-md);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Rodapé ────────────────────────────────────────────────────────────── */
+.bug-report-pe {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-elev-3);
+}
+
+.bug-report-espaco { flex: 1; }

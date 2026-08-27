@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  layout.css  —  File tree container + status bar
+ *  layout.css ,  File tree container + status bar
  *
  *  The status bar lives at the BODY level (sibling of .app-shell) so it spans
  *  edge-to-edge horizontally and is never affected by any inner resizer.
@@ -8,7 +8,7 @@
  */
 
 /* ---------------------------------------------------------------------------
- *  Status Bar — independent footer
+ *  Status Bar, independent footer
  *
  *  HTML (index.html):
  *    <body>
@@ -40,7 +40,7 @@
   position: relative;
 }
 
-/* Aurora line above status bar — purely decorative */
+/* Aurora line above status bar, purely decorative */
 .status-bar::before {
   content: '';
   position: absolute;
@@ -51,7 +51,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(142, 131, 232, 0.18) 35%,
+    var(--accent-strong) 35%,
     rgba(95, 224, 176, 0.16) 65%,
     transparent 100%
   );
@@ -96,9 +96,21 @@
 .status-gh-avatar {
   width: 16px; height: 16px; border-radius: 50%;
   object-fit: cover; border: 1px solid var(--border);
-  background: var(--bg-elev, #1a1f2b);
+  background: var(--bg-elev);
 }
 .status-gh-login { font-size: var(--text-xs); }
+/* Uma ficha por forja, sempre as duas. A desconectada fica so com o icone,
+   apagado: some da atencao sem sumir da tela, para o aluno saber que existe. */
+.status-forge { display: inline-flex; align-items: center; gap: 4px; opacity: 0.45; }
+.status-forge.connected { opacity: 1; }
+
+/* Indicador de energia: o VERMELHO na bateria e o aviso inteiro, entao ele
+   nao depende de hover. Verde conectado e presenca discreta. */
+.status-power { cursor: pointer; }
+.status-power:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.status-power.on-battery i { color: var(--status-error); }
+.status-power.plugged i { color: var(--status-success); }
+.status-github { display: inline-flex; align-items: center; gap: var(--space-2); }
 
 .status-item i {
   font-size: var(--icon-xs);
@@ -156,7 +168,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Trilhos de borda — o caminho de volta de um painel colapsado.
+ *  Trilhos de borda, o caminho de volta de um painel colapsado.
  *
  *  O divisor de cada painel lateral mora DENTRO do painel, e os dois containers
  *  têm `overflow: hidden`. Com largura zero sobram 8 px agarráveis na árvore e
@@ -225,7 +237,7 @@ body.ai-collapsed  .edge-rail-right { display: flex; }
   font-size: var(--icon-sm);
   transition: color var(--transition-fast),
               background-color var(--transition-fast),
-              transform 80ms var(--ease-out-quart);
+              transform var(--motion-instant) var(--ease-out-quart);
 }
 
 .overlay-title span i,

@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * git_parse.js — a parte pura do main/ipc/git.js: o que ele faz com o texto que
+ * git_parse.js: a parte pura do main/ipc/git.js: o que ele faz com o texto que
  * o git devolve, o envelope que atravessa o IPC e o cabecalho de autenticacao.
  *
  * Extraido de main/ipc/git.js em 08/08/2026, sem mudanca de comportamento. O
@@ -144,10 +144,43 @@ function linhaDeArquivo(arquivo, numstat) {
  * @param {any} token
  * @returns {string[]}
  */
-function cabecalhoDeToken(token) {
+function cabecalhoDeToken(token, forja = 'github') {
   if (!token || typeof token !== 'string') return [];
-  const basico = Buffer.from(`x-access-token:${token}`).toString('base64');
+  // O usuario do Basic e convencao de cada forja: o GitHub aceita qualquer um
+  // e documenta `x-access-token`; o GitLab exige `oauth2` para token pessoal.
+  // Trocar os dois de lugar devolve 401 sem dizer por que.
+  const usuario = forja === 'gitlab' ? 'oauth2' : 'x-access-token';
+  const basico = Buffer.from(`${usuario}:${token}`).toString('base64');
   return [`http.extraHeader=Authorization: Basic ${basico}`];
+}
+
+/**
+ * De qual forja e este remoto.
+ *
+ * Existe porque a AURORA agora guarda token de duas, e o cabecalho de uma nao
+ * serve para a outra: mandar o token do GitHub para um remoto do GitLab e
+ * levar 401 num push que funcionaria sozinho pelo gerenciador de credenciais
+ * do sistema. Na duvida devolve null, que significa "nao injete nada" e deixa
+ * o caminho de sempre valer.
+ *
+ * @param {any} url endereco do remoto (`git remote get-url origin`)
+ * @param {string} [hostGitlab] a instancia conectada, ex: gitlab.exemplo.br
+ * @returns {'github'|'gitlab'|null}
+ */
+function forjaDoRemoto(url, hostGitlab = 'gitlab.com') {
+  const cru = String(url || '').trim();
+  if (!cru) return null;
+  // Formas reais: https://host/g/p.git, git@host:g/p.git, ssh://git@host/g/p.
+  const semEsquema = cru.replace(/^[a-z+]+:\/\//i, '');
+  const semUsuario = semEsquema.includes('@') ? semEsquema.split('@').slice(1).join('@') : semEsquema;
+  const host = semUsuario.split(/[/:]/)[0].toLowerCase();
+  if (!host) return null;
+  if (host === 'github.com' || host.endsWith('.github.com')) return 'github';
+  const alvo = String(hostGitlab || '').toLowerCase().split(':')[0];
+  if (host === 'gitlab.com' || host.endsWith('.gitlab.com')) return 'gitlab';
+  // Instancia propria: so conta se for exatamente a que o usuario conectou.
+  if (alvo && host === alvo) return 'gitlab';
+  return null;
 }
 
 /**
@@ -175,5 +208,6 @@ module.exports = {
   envelopeErro,
   linhaDeArquivo,
   cabecalhoDeToken,
+  forjaDoRemoto,
   normalizarArquivos,
 };

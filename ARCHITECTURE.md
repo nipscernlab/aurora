@@ -90,8 +90,19 @@ escritor canônico é o `ProjectTreeManager`, que chama `SpfStore.update(spfPath
 mutator)`, serializando leitura, mutação e escrita por caminho e preservando o
 `metadata`. Cada mutador toca só os campos que seu manager possui, e o resto vem
 dos padrões do `SpfStore`, de modo que campos desconhecidos que um escritor futuro
-acrescente sobrevivem ao ciclo. Se você adicionar um segundo escritor do lado do
-renderer, use `update()` e não escreva o arquivo direto. O processo principal
+acrescente sobrevivem ao ciclo. Se você adicionar um escritor novo do lado do
+renderer, use `update()` e não escreva o arquivo direto.
+
+O segundo escritor é o CRUD da visão Pastas
+([standard_tree_crud.js](js/tree/standard_tree_crud.js)), desde 23/08/2026. Ele
+escreve por um motivo estreito e só esse: quando a árvore renomeia, move ou
+apaga um arquivo que o `.spf` referencia, a referência tem que acompanhar no
+mesmo gesto, senão ela aponta para um caminho que não existe e o usuário só
+descobre dois passos depois, quando o arquivo some da visão Verilog ou a
+compilação reclama de um nome que ele acabou de mudar. As regras de reescrita
+são puras e vivem em [spf_paths.js](js/project/spf_paths.js); o CRUD só chama
+`SpfStore.update` com elas. Ele não classifica arquivo nem decide topo, que
+continua sendo do `ProjectTreeManager`. O processo principal
 também escreve o `.spf` em eventos de ciclo de vida, e a corrida teórica com o
 renderer é aceitável porque os dois são disparados por interação sequencial.
 
@@ -150,9 +161,24 @@ durante a janela de carga AMD produz "EditorManager has not been initialized",
 porque o container ainda é nulo.
 
 A promessa resolve mesmo quando a inicialização falha, porque o `finally` roda
-incondicionalmente. O `createEditorInstance` se defende disso buscando o
+incondicionalmente. Isso só é verdade porque a inicialização sempre termina: o
+`ensureMonacoInitialized` rejeita ao passar de `MONACO_BOOT_DEADLINE_MS`, e o
+`initMonaco` passa um errback ao carregador AMD, de modo que um módulo ausente
+ou quebrado vira rejeição em vez de espera infinita. Até 22/08/2026 não era
+assim: a sondagem de `window.monaco` não tinha teto e o `require` não tinha
+errback, então uma falha do carregador deixava a promessa sem resolver, todo
+`addTab` preso no `await`, e a aba aparecia sem editor, sem erro e sem log. Na
+falha, o manipulador de `DOMContentLoaded` registra o erro e avisa o usuário
+uma vez. O `createEditorInstance` se defende do resto buscando o
 `#monaco-editor` de novo no DOM e checando `window.monaco`; falhando os dois, ele
 registra e devolve indefinido, e o `addTab` fecha a aba.
+
+O sinal `app:renderer-ready`, que libera o splash, sai depois de
+`EditorManager.ready` e não antes: é ele que diz que o editor é usável. O
+`windows.js` mantém uma reserva de `RENDERER_READY_GRACE_MS` depois do
+`ready-to-show` para um renderer que nunca sinaliza, e ela precisa ser maior
+que um arranque frio do Monaco, senão a janela aparece com o editor ainda
+subindo.
 
 ## 8. Fragilidades conhecidas
 

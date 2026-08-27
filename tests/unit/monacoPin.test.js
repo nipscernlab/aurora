@@ -8,7 +8,7 @@
 //
 // The guard has one blind spot it cannot close itself: a ranged spec
 // (^0.52.2) opts OUT of strict checking, so relaxing the pin makes the
-// guard silently stop watching monaco — npm is then free to pull 0.53.
+// guard silently stop watching monaco, npm is then free to pull 0.53.
 // The package.json invariant test below is what closes that gap; the
 // end-to-end test confirms the guard is actually wired up and watching.
 //
@@ -36,7 +36,7 @@ describe('monaco-editor pin in package.json (§8)', () => {
         const spec = declaredSpec('monaco-editor');
         expect(spec).not.toBeNull();
         // A ranged spec (e.g. ^0.52.2) would let npm resolve 0.53+ AND drop
-        // monaco from the guard's strict check — the exact failure §8 forbids.
+        // monaco from the guard's strict check, the exact failure §8 forbids.
         expect(spec).toMatch(EXACT_SEMVER_RE);
         expect(spec).toBe('0.52.2');
     });
@@ -58,7 +58,7 @@ describe('check-pinned-versions.js guard (§8)', () => {
         try {
             stdout = execFileSync('node', [script], { cwd: REPO_ROOT, encoding: 'utf8' });
         } catch (err) {
-            // Non-zero exit means some pinned dep drifted — surface the guard's
+            // Non-zero exit means some pinned dep drifted, surface the guard's
             // own diagnostics so the failure is actionable.
             throw new Error(`guard exited non-zero:\n${err.stdout ?? ''}\n${err.stderr ?? ''}`, { cause: err });
         }

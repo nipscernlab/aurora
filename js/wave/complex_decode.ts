@@ -1,5 +1,5 @@
 /**
- * complex_decode.ts — pre-pass de decodificacao dos numeros complexos do SAPHO
+ * complex_decode.ts: pre-pass de decodificacao dos numeros complexos do SAPHO
  * pro Surfer.
  *
  * O Surfer nao tem o process-filter externo do GTKWave (`^>N <exe>`, que roda o
@@ -10,7 +10,7 @@
  * comp2gtkw.exe (binario canonico do GTKWave) e assamos um mapping
  * `bitpattern -> "re imi"` que o Surfer mostra direto.
  *
- * Encoding (comp2gtkw.c): os 16 primeiros bits sao auto-descritivos —
+ * Encoding (comp2gtkw.c): os 16 primeiros bits sao auto-descritivos:
  * bits[0:8]=nbm (largura da mantissa), bits[8:16]=nbe (largura do expoente);
  * depois `re` e `im`, cada um com nbits=nbm+nbe+1 bits (total 16+2*nbits).
  * Aqui so EXTRAIMOS o bitpattern; a aritmetica do decode roda no comp2gtkw.exe.
@@ -40,7 +40,7 @@ function zeroExtend(bits: string, width: number): string {
 /**
  * Scanner INCREMENTAL do stream de texto VCD do fst2vcd. Coleta o conjunto de
  * valores DISTINTOS (zero-extended a' largura do sinal) de TODOS os sinais
- * complexos — a uniao basta, ja' que o decode depende so do bitpattern, nao do
+ * complexos, a uniao basta, ja' que o decode depende so do bitpattern, nao do
  * sinal. Memoria limitada: so o buffer de linha + o Set de distintos (pequeno;
  * complexos sao variaveis de programa, mudam pouco). Cap defensivo via maxValues.
  */
@@ -102,7 +102,7 @@ export class ComplexVcdScanner {
 
 /**
  * Monta o mapping translator do Surfer pros complexos: header `Name=` (SEM
- * `Bits=` — a largura varia por formato de processador, e o match e' por valor)
+ * `Bits=`, a largura varia por formato de processador, e o match e' por valor)
  * + uma linha `0b<bits> <re imi>` por valor decodificado. Sem entradas decodadas
  * -> retorna null (nao criar mapping vazio, que o Surfer rejeita).
  */

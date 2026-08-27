@@ -16,9 +16,11 @@ const { stopAllToolchain, reapOrphans } = require('./process_registry');
 function register() {
   // Detect a .spf passed on the command line; the main window will pick it
   // up after did-finish-load.
-  state.fileToOpen = process.argv.find((arg) => arg.endsWith('.spf')) ?? null;
+  // .spf abre o projeto; .cmm e .v abrem soltos no editor (associacoes de
+  // arquivo do instalador). O renderer decide pelo sufixo.
+  state.fileToOpen = process.argv.find((arg) => /\.(spf|cmm|v)$/i.test(arg)) ?? null;
 
-  // Single-instance lock — pass any .spf the second instance had to the
+  // Single-instance lock, pass any .spf the second instance had to the
   // first, then quit the second instance. Tests run with their own
   // user-data-dir but Electron's lock is per app name, so a test instance
   // would still collide with a real Aurora the developer has open.
@@ -56,10 +58,16 @@ function register() {
     const { createMainWindow } = require('./windows');
     const newWin = createMainWindow();
 
-    const spfFile = commandLine.find((arg) => arg.endsWith('.spf'));
-    if (spfFile && newWin) {
+    const fileArg = commandLine.find((arg) => /\.(spf|cmm|v)$/i.test(arg));
+    if (fileArg && newWin) {
+      // Espera o load nos dois casos: mandar antes de o renderer registrar o
+      // listener e falar com ninguem.
       newWin.webContents.once('did-finish-load', () => {
-        newWin.webContents.send('open-spf-file', { filePaths: [spfFile] });
+        if (/\.spf$/i.test(fileArg)) {
+          newWin.webContents.send('open-spf-file', { filePaths: [fileArg] });
+        } else {
+          newWin.webContents.send('aurora:open-loose-file', { filePath: fileArg });
+        }
       });
     }
   });
@@ -77,7 +85,7 @@ function register() {
 
   // Cleanup em duas fases serializadas pra evitar EBUSY no rmdir de Temp:
   // file watchers do chokidar (ReadDirectoryChangesW no Windows) e vvp/
-  // gtkwave seguram handles em Temp/ — se a fase 2 (rm) rodar antes da
+  // gtkwave seguram handles em Temp/, se a fase 2 (rm) rodar antes da
   // fase 1 terminar, o Windows bloqueia o rmdir e a Temp/ acumula lixo
   // de runs anteriores. 5s de safety timeout por fase pra nao travar
   // quit em caso de hang.
@@ -99,6 +107,12 @@ function register() {
       if (typeof t.unref === 'function') t.unref();
     }
 
+    // Credenciais do GitHub, se o usuário pediu que saiam ao fechar. Vem antes
+    // da faxina de arquivos porque é a parte que protege alguém: um encerramento
+    // que trava depois disto ainda deixou a máquina limpa.
+    try { await require('./ipc/github_forget').aoEncerrar(); }
+    catch (e) { log.warn('[lifecycle] falha ao limpar credenciais ao sair:', e); }
+
     // O que a árvore removeu está esperando em userData para poder ser
     // desfeito. Fechando o aplicativo não há mais o que desfazer, então vai
     // para a Lixeira, que é onde o usuário espera encontrar. Best-effort: a
@@ -106,7 +120,7 @@ function register() {
     try { await require('./ipc/tree_undo').drain(); }
     catch (e) { log.warn('[lifecycle] falha ao esvaziar a espera do desfazer:', e); }
 
-    // Fase 1: solta tudo que pode segurar handle em Temp/ — watchers
+    // Fase 1: solta tudo que pode segurar handle em Temp/, watchers
     // (file + dir) e processos filhos (vvp.exe, gtkwave.exe).
     const releasePromises = [];
 
@@ -146,7 +160,7 @@ function register() {
     // cocotb) + the Verilator scratch-tree sweep + the AI agent CLIs + any
     // in-flight AI (gemini) stream. Centralised in process_registry so this
     // quit path and the main-window close path tear everything down the same
-    // way — releasing the Temp/ handles before the phase-2 rmdir below.
+    // way, releasing the Temp/ handles before the phase-2 rmdir below.
     releasePromises.push(stopAllToolchain());
 
     // Close the Aurora MCP bridge (the localhost HTTP server that hands

@@ -1,9 +1,9 @@
 /**
- * pylib_panel.js — o painel de bibliotecas Python da AURORA.
+ * pylib_panel.js: o painel de bibliotecas Python da AURORA.
  *
  * Estrutura, seguindo o git_panel: o markup vive no index.html, este módulo
  * preenche a lista a partir do catálogo e trata os cliques por delegação (um
- * listener no contêiner, não um por botão — a lista é redesenhada a cada
+ * listener no contêiner, não um por botão, a lista é redesenhada a cada
  * mudança de estado e handlers presos a nós antigos vazariam).
  *
  * Feedback ao usuário usa o que a AURORA já tem, sem inventar superfície nova:
@@ -12,7 +12,7 @@
  *   - conclusão e falha: `notify.*` (js/ui/notification.js), a superfície
  *     canônica de toast;
  *   - confirmação de desinstalar: `showDialog` (js/ui/dialog_manager.js), a
- *     outra superfície canônica — `confirm()` é proibido no projeto;
+ *     outra superfície canônica, `confirm()` é proibido no projeto;
  *   - a linha de status do rodapé conta o que está acontecendo agora.
  */
 
@@ -64,7 +64,7 @@ let health = null;
  *
  * Existe por causa do catalogo remoto: a lista pode citar um icone que so vai
  * existir numa AURORA futura, e um <use> apontando para simbolo inexistente nao
- * desenha nada nem reclama — vira um buraco silencioso na linha. Com o indice em
+ * desenha nada nem reclama, vira um buraco silencioso na linha. Com o indice em
  * maos, o desconhecido cai no generico.
  */
 let knownIcons = null;
@@ -167,7 +167,7 @@ function renderRuntime() {
        <span>${esc(tt('pylibs.verify.deep', 'Verificacao completa'))}</span>
      </button>`);
 
-  // Veredito do vigia. So aparece quando ha problema — quando esta tudo bem, a
+  // Veredito do vigia. So aparece quando ha problema, quando esta tudo bem, a
   // ausencia de aviso ja e a mensagem.
   if (health && !health.ok && health.issues?.length) {
     const lines = health.issues.map((i) => esc(i.message)).join('<br>');
@@ -181,7 +181,7 @@ function renderRuntime() {
     parts.push(`<span class="pylib-runtime-warn">
       <i class="ph ph-warning" aria-hidden="true"></i>
       <span>${esc(tt('pylibs.runtime.missing',
-        'O Python embarcado não foi encontrado. Rode `npm run bootstrap` para baixar a toolchain.'))}</span>
+        'O Python embarcado não foi encontrado. Abra Configurações, Componentes, e baixe a Cadeia de compilação.'))}</span>
     </span>`);
   }
 
@@ -195,9 +195,16 @@ function renderChips() {
   if (!el || !state) return;
   const cats = state.categories || {};
   const used = new Set(state.libraries.map((l) => l.category));
+  // "Instaladas" vem logo depois de "Todas" e leva a contagem junto. Com 29
+  // bibliotecas na lista, "quais eu tenho?" e a pergunta mais frequente, e ela
+  // so tinha resposta rolando tudo procurando a etiqueta verde. A contagem no
+  // proprio chip ja responde a metade dela sem nem clicar.
+  const quantasInstaladas = state.libraries.filter((l) => l.installed).length;
   const chips = [
     `<button class="pylib-chip ${filterCat === 'all' ? 'active' : ''}" data-cat="all">
        ${esc(tt('pylibs.filter.all', 'Todas'))}</button>`,
+    `<button class="pylib-chip ${filterCat === 'installed' ? 'active' : ''}" data-cat="installed">
+       ${esc(tt('pylibs.filter.installed', 'Instaladas'))} ${quantasInstaladas}</button>`,
   ];
   for (const [key, label] of Object.entries(cats)) {
     if (!used.has(key)) continue;
@@ -211,7 +218,10 @@ function visibleLibraries() {
   if (!state) return [];
   const q = filterText.trim().toLowerCase();
   return state.libraries.filter((lib) => {
-    if (filterCat !== 'all' && lib.category !== filterCat) return false;
+    // 'installed' nao e categoria do catalogo, e um recorte por estado, entao
+    // vem antes da comparacao por categoria.
+    if (filterCat === 'installed') { if (!lib.installed) return false; }
+    else if (filterCat !== 'all' && lib.category !== filterCat) return false;
     if (!q) return true;
     const hay = `${lib.id} ${lib.name} ${lib.summary?.[lang()] || ''}`.toLowerCase();
     return hay.includes(q);
@@ -243,6 +253,19 @@ function renderList() {
   for (const [id, p] of busy) paintProgress(id, p);
 }
 
+/**
+ * Abre ou fecha os detalhes de um cartão.
+ *
+ * A animação é toda do CSS (`.pylib-detalhe`, com grid-template-rows indo de
+ * 0fr a 1fr). Aqui só cai a classe e o estado acessível da seta, que precisa
+ * acompanhar: sem `aria-expanded` correto, um leitor de tela anuncia "recolhido"
+ * num cartão aberto.
+ */
+function alternarDetalhe(card) {
+  const aberto = card.classList.toggle('expanded');
+  card.querySelector('[data-action="toggle"]')?.setAttribute('aria-expanded', String(aberto));
+}
+
 function renderCard(lib) {
   const st = cardState(lib);
   const l = lang();
@@ -259,9 +282,15 @@ function renderCard(lib) {
     tags.push(`<span class="pylib-tag pylib-tag-compiled">${esc(tt('pylibs.tag.compiled', 'compilada'))}</span>`);
   }
 
+  // O tamanho SAI da meta e sobe para a linha do nome: é o único número que
+  // decide sem abrir nada ("cabe no meu tempo de rede?"). O resto da meta só
+  // interessa a quem já parou naquela biblioteca, e vive na expansão.
+  const tamanho = lib.downloadSize
+    ? `<span class="pylib-size">${esc(fmtSize(lib.downloadSize))}</span>`
+    : '';
+
   const meta = [];
   if (lib.license) meta.push(esc(lib.license));
-  if (lib.downloadSize) meta.push(esc(fmtSize(lib.downloadSize)));
   if (lib.wheels?.length > 1) {
     meta.push(esc(tt('pylibs.meta.deps', '{{n}} pacotes', { n: lib.wheels.length })));
   }
@@ -284,11 +313,14 @@ function renderCard(lib) {
           <span class="pylib-lib-name">${esc(lib.name)}</span>
           ${lib.version ? `<span class="pylib-version">${esc(lib.installedVersion || lib.version)}</span>` : ''}
           ${tags.join('')}
+          ${tamanho}
         </div>
-        <p class="pylib-summary">${esc(lib.summary?.[l] || '')}</p>
-        ${uses ? `<ul class="pylib-uses">${uses}</ul>` : ''}
-        ${meta.length ? `<div class="pylib-meta">${meta.join('<span>·</span>')}</div>` : ''}
-        ${why}
+        <div class="pylib-detalhe"><div class="pylib-detalhe-interno">
+          <p class="pylib-summary">${esc(lib.summary?.[l] || '')}</p>
+          ${uses ? `<ul class="pylib-uses">${uses}</ul>` : ''}
+          ${meta.length ? `<div class="pylib-meta">${meta.join('<span>·</span>')}</div>` : ''}
+          ${why}
+        </div></div>
       </div>
       <div class="pylib-actions">${renderActions(lib, st)}</div>
     </div>`;
@@ -302,6 +334,7 @@ function renderActions(lib, st) {
   }
 
   const detail = `<button class="pylib-btn pylib-btn-ghost pylib-btn-icon" data-action="toggle"
+      aria-expanded="false"
       title="${esc(tt('pylibs.action.details', 'Ver usos'))}">
       <i class="ph ph-caret-down" aria-hidden="true"></i></button>`;
 
@@ -405,7 +438,7 @@ async function doRepair(id, lib) {
 
 /**
  * Confirmação de remoção. `showConfirm` injeta a mensagem via innerHTML, então o
- * nome vai escapado — no caso de uma lib externa, ele veio da PyPI.
+ * nome vai escapado, no caso de uma lib externa, ele veio da PyPI.
  */
 function confirmRemoval(name) {
   return showConfirm(
@@ -530,7 +563,7 @@ function updateBadge() {
   const badge = $('pylib-badge');
   if (!badge) return;
   // O emblema acende por QUALQUER sinal de problema: o estado do catalogo, as
-  // externas, ou o veredito do vigia — que e o unico que chega sozinho, sem o
+  // externas, ou o veredito do vigia, que e o unico que chega sozinho, sem o
   // painel estar aberto.
   const broken = (state?.libraries || []).some((l) => l.broken)
     || externalList.some((x) => x.broken)
@@ -571,10 +604,15 @@ function wire() {
       await api().openHomepage(e.target.closest('[data-url]').dataset.url);
       return;
     }
-    if (action === 'toggle') { card.classList.toggle('expanded'); return; }
     if (action === 'install') { await doInstall(id, lib); return; }
     if (action === 'repair') { await doRepair(id, lib); return; }
-    if (action === 'uninstall') { await doUninstall(id, lib); }
+    if (action === 'uninstall') { await doUninstall(id, lib); return; }
+
+    // Abrir e fechar: a seta continua funcionando, mas o CARTAO INTEIRO virou
+    // alvo. A seta tem 28px de lado numa linha de 50; mirar nela para ler uma
+    // descricao e trabalho a toa, e ninguem descobre que ela existe sem tentar.
+    // Qualquer clique que nao tenha caido num controle (botao, link) alterna.
+    if (!action) alternarDetalhe(card);
   });
 
   $('pylib-external-check')?.addEventListener('click', checkExternal);
@@ -607,7 +645,7 @@ function wire() {
     renderRuntime();
   });
 
-  // O painel vive enquanto a janela viver, entao a inscricao nunca e desfeita —
+  // O painel vive enquanto a janela viver, entao a inscricao nunca e desfeita:
   // o retorno de onProgress (a funcao de desinscricao) e descartado de proposito.
   api()?.onProgress(onProgress);
 

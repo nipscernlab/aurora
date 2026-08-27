@@ -7,11 +7,11 @@ import { switchTerminal, smoothFollowToBottom } from './terminal.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
 // compile (Verilator/iverilog dumping thousands of lines) appends one node
-// per line with no upper bound — the DOM grows without limit, memory climbs,
+// per line with no upper bound, the DOM grows without limit, memory climbs,
 // and every recount / filter / scroll pass gets slower until the panel janks.
 // We keep the most-recent N entries and drop the oldest from the top. Counts
 // (recountMessages) run from DOM truth after trimming, so the badges reflect
-// the retained window — the right semantics for a live scrollback console.
+// the retained window, the right semantics for a live scrollback console.
 const MAX_TERMINAL_ENTRIES = 5000;
 
 // Companion cap for GROUPED cards: the per-terminal cap above counts
@@ -21,6 +21,17 @@ const MAX_TERMINAL_ENTRIES = 5000;
 // grouped lines past this limit so one card can't grow without bound.
 const MAX_GROUPED_MESSAGES = 5000;
 
+/** 1234567 -> "1.2 MB": o pill do dump atualiza varias vezes por segundo. */
+function formatarBytes(n) {
+    if (!Number.isFinite(n) || n < 0) return '0 B';
+    if (n < 1024) return `${n} B`;
+    const kb = n / 1024;
+    if (kb < 1024) return `${kb.toFixed(1)} KB`;
+    const mb = kb / 1024;
+    if (mb < 1024) return `${mb.toFixed(1)} MB`;
+    return `${(mb / 1024).toFixed(2)} GB`;
+}
+
 class TerminalManager {
     constructor() {
         this.terminals = {
@@ -28,7 +39,7 @@ class TerminalManager {
             tasm: document.querySelector('#terminal-tasm .terminal-body'),
             tveri: document.querySelector('#terminal-tveri .terminal-body'),
             twave: document.querySelector('#terminal-twave .terminal-body'),
-            // THTEST — Terminal Hardware Test: etapas + barra de progresso do
+            // THTEST, Terminal Hardware Test: etapas + barra de progresso do
             // botao Verilator (processador CMM). Ver renderHardwareProgress.
             thtest: document.querySelector('#terminal-thtest .terminal-body'),
             tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
@@ -211,7 +222,7 @@ class TerminalManager {
     /**
      * Bring `terminalId`'s tab to the front so the user always sees the
      * terminal that is actively receiving compiler output. Wired only into
-     * the streamed/executable output paths — those carry real command
+     * the streamed/executable output paths, those carry real command
      * output, so following them never yanks focus for a stray info/AI card.
      *
      * Fixes the "always one terminal ahead (empty)" complaint: a build runs
@@ -219,7 +230,7 @@ class TerminalManager {
      * used to sit on the destination tab while the work happened (invisibly)
      * in the earlier ones. Now the view tracks wherever output is landing.
      *
-     * No-op when that tab is already active (cheap guard — a streaming step
+     * No-op when that tab is already active (cheap guard, a streaming step
      * calls this once per line, so only the first line of a new terminal
      * actually moves the DOM).
      */
@@ -228,7 +239,7 @@ class TerminalManager {
         if (!tab || tab.classList.contains('active')) return;
         // Delegate to switchTerminal so the shared sliding indicator follows the
         // output as a compilation moves between phases. (This used to set the
-        // .active class directly, which left the accent bar behind — the
+        // .active class directly, which left the accent bar behind, the
         // "the purple bar should move during compilations too" report.)
         switchTerminal(`terminal-${terminalId}`);
     }
@@ -239,7 +250,7 @@ class TerminalManager {
      * capturado uma unica vez no construtor (document.querySelector); se o
      * singleton nasceu antes do DOM do terminal existir, a referencia ficava
      * nula PRA SEMPRE e toda escrita era engolida pelo `if (!terminal) return`
-     * — o sintoma "a IA compila mas o terminal (vazio) nunca recebe nada".
+     *, o sintoma "a IA compila mas o terminal (vazio) nunca recebe nada".
      * Re-consultar torna a escrita resiliente a ordem de init e a qualquer
      * reconstrucao do painel.
      */
@@ -307,7 +318,7 @@ class TerminalManager {
             this.createLogEntry(terminal, line, 'plain', timestamp);
         }
 
-        // See processExecutableOutput — recount per batch beats the
+        // See processExecutableOutput, recount per batch beats the
         // double-counting from interleaved increment sites. Coalesced: a
         // streaming compile calls this once per line, so the O(n) recount +
         // filter + scroll must batch to one pass per frame, not per line.
@@ -317,6 +328,10 @@ class TerminalManager {
     appendToTerminal(terminalId, content, type = 'info', options = {}) {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
+
+        // Mid-clear: park it, clearTerminal replays it after the wipe.
+        const parked = this._clearingQueues?.get(terminalId);
+        if (parked) { parked.push([terminalId, content, type, options]); return; }
 
         let text = (typeof content === 'string') ? content : (content.stdout || '') + (content.stderr || '');
         if (!text.trim()) return;
@@ -334,7 +349,7 @@ class TerminalManager {
         const lines = text.split('\n').filter(line => line.trim());
 
         lines.forEach(line => {
-            // 'raw' bypasses semantic detection entirely — caller wants
+            // 'raw' bypasses semantic detection entirely, caller wants
             // the line shown verbatim, no card, no coloring, no verbose
             // filter. Used for streamed compiler stdout where the IDE
             // is acting as a pass-through console.
@@ -347,7 +362,7 @@ class TerminalManager {
             const detectedType = this.detectMessageType(line);
 
             // Detected semantic type (from the text content itself) wins
-            // over the caller's intent — that's how compiler stdout gets
+            // over the caller's intent, that's how compiler stdout gets
             // categorized as error/warning when it carries a marker.
             // Else we trust the caller's `type`: info/warning/success/
             // error/tips are all real, user-facing categories that the
@@ -377,7 +392,7 @@ class TerminalManager {
 
     /**
      * Match a card against a filter category. The visible filter buttons
-     * are error / warning / success / tips — but the renderer actually
+     * are error / warning / success / tips, but the renderer actually
      * emits two flavours of the info-style card (`.tips` from
      * detectMessageType-classified compiler hints, `.info` from
      * `appendToTerminal(..., 'info')` Aurora wrapper notes). Both render
@@ -399,7 +414,7 @@ class TerminalManager {
 
         const cards = terminal.querySelectorAll('.log-entry');
         // "All four filters active" is semantically the same as "no
-        // filter" — every category is included. Treat it like the empty
+        // filter", every category is included. Treat it like the empty
         // set so the user gets the obvious "I clicked everything ON,
         // therefore I should see everything" behaviour instead of an
         // identity-but-confusing pass through the per-card check.
@@ -410,12 +425,12 @@ class TerminalManager {
             const hasLineLinks = card.querySelector('.line-link') !== null;
 
             // Verbose-off path. Plain (unclassified) cards stay hidden
-            // unless they carry a `line N` link — those are compile
+            // unless they carry a `line N` link, those are compile
             // diagnostics the user must always be able to click through
             // to, regardless of verbose mode. The previous version of
             // this branch let the line-link override bypass the TYPE
             // filter too, which made any error/warning containing a
-            // line number show up under every filter — exactly the
+            // line number show up under every filter, exactly the
             // "filter doesn't filter" symptom the user hit.
             if (!this.verboseMode && card.classList.contains('plain')) {
                 card.style.display = hasLineLinks ? '' : 'none';
@@ -459,7 +474,7 @@ class TerminalManager {
     }
 
     setupTerminalLogListener() {
-        // Module-level guard — every `new TerminalManager()` used to
+        // Module-level guard, every `new TerminalManager()` used to
         // register its own ipcRenderer.on('terminal-log', ...) callback,
         // and nothing ever removed them. Compilation_module / wave_config /
         // renderer all instantiate one (~3+ instances live at any time
@@ -468,7 +483,7 @@ class TerminalManager {
         // appeared 3+ times in tveri.
         //
         // The IPC payload includes the target terminal id, and
-        // appendToTerminal routes by id — so one listener serving all
+        // appendToTerminal routes by id, so one listener serving all
         // terminals is correct. Subsequent constructors no-op.
         if (TerminalManager.terminalLogListenerInitialized) return;
         electronAPI.onTerminalLog((event, terminal, message, type = 'info') => {
@@ -481,7 +496,7 @@ class TerminalManager {
         // Bind once. Every `new TerminalManager()` (one per compile, via
         // CompilationModule) targets the SAME shared terminal-tab DOM, so
         // without this guard each compile stacked another click listener on
-        // every tab — N compiles = the tab handler firing N+1 times.
+        // every tab, N compiles = the tab handler firing N+1 times.
         if (TerminalManager.terminalTabsInitialized) return;
         const tabs = document.querySelectorAll('.terminal-tabs .tab');
         tabs.forEach(tab => {
@@ -583,7 +598,7 @@ class TerminalManager {
             .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
             .replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // C-toolchain style: `<file>:<line>: ...` — iverilog / yosys /
+        // C-toolchain style: `<file>:<line>: ...`, iverilog / yosys /
         // gcc / appcomp diagnostics. The path is captured into data-file
         // so the click handler opens that file directly, instead of
         // falling back to the last compiled .cmm. The optional `[A-Za-z]:`
@@ -598,13 +613,25 @@ class TerminalManager {
                     `${match}</span>`;
             }
         );
-        // Aurora/yanc style: "linha N" / "line N" — no file prefix, click
+        // Aurora/yanc style: "linha N" / "line N", no file prefix, click
         // falls back to the last compiled .cmm via the compilation manager.
         out = out.replace(/\b(?:linha|line)\s+(\d+)/gi, (match, lineNumber) => {
             return `<span title="Opa. Bão?" class="line-link" data-line="${lineNumber}" ` +
                 `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
                 `${match}</span>`;
         });
+
+        // Componente ausente: a mensagem sozinha manda a pessoa navegar ate
+        // Configuracoes; um clique vale mais que a instrucao. O marcador cobre
+        // as duas linguas e as duas formas da frase (a do portao de execucao e
+        // a dos erros de toolchain).
+        const FALTA_COMPONENTE =
+            /não está instalad[ao] nesta máquina|not installed on this machine|Configurações, Componentes|Settings, Components/i;
+        if (FALTA_COMPONENTE.test(text)) {
+            const rotulo = (window.t && window.t('terminal.openComponents') !== 'terminal.openComponents')
+                ? window.t('terminal.openComponents') : 'Abrir Componentes';
+            out += ` <span class="componente-link" role="button" tabindex="0">${rotulo}</span>`;
+        }
         return out;
     }
 
@@ -624,7 +651,7 @@ class TerminalManager {
 
         this.addMessageToCard(card, text, type);
 
-        // Per-message increments are gone — the batch-level recount in
+        // Per-message increments are gone, the batch-level recount in
         // processExecutableOutput/processStreamedLine owns the count
         // now. Mixing increments with recounts caused +1 drift every
         // time the same Aurora wrapper line was both classified by
@@ -695,7 +722,7 @@ class TerminalManager {
      *
      * Previously this lived inline in addMessageToCard and was a no-op
      * for entries that went through createLogEntry (the createLogEntry
-     * path referenced `this.handleLineClick`, which was never defined —
+     * path referenced `this.handleLineClick`, which was never defined:
      * so any line-link inside a `plain`/`raw` card silently did nothing).
      * That hit English compiler output particularly hard: `detectMessageType`
      * only recognised Portuguese markers (`Erro`, `Atenção`, `Sucesso`) plus
@@ -706,6 +733,13 @@ class TerminalManager {
      */
     _attachLineLinkClicks(scopeEl) {
         if (!scopeEl) return;
+        // O link de componente ausente abre direto o painel de Componentes.
+        scopeEl.querySelectorAll('.componente-link').forEach((link) => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.auroraAbrirConfiguracoes?.('componentes');
+            });
+        });
         const lineLinks = scopeEl.querySelectorAll('.line-link');
         if (lineLinks.length === 0) return;
         lineLinks.forEach(link => {
@@ -728,7 +762,7 @@ class TerminalManager {
                         filePath = isAbs ? explicitFile :
                             (root ? `${root}\\${explicitFile.replace(/^[\\/]+/, '')}` : explicitFile);
                     } else {
-                        // Aurora/yanc "linha N" — cmmCompilation caches the
+                        // Aurora/yanc "linha N", cmmCompilation caches the
                         // .cmm it just ran against. Works regardless of
                         // verbose mode because it doesn't touch the DOM.
                         filePath =
@@ -827,7 +861,70 @@ class TerminalManager {
         });
     }
 
-createLogEntry(terminal, text, type, timestamp) {
+/**
+     * O tamanho do arquivo de onda, ao vivo, enquanto a simulacao roda.
+     *
+     * Pedido de 23/08/2026. O dump cresce fora da vista, e a unica noticia
+     * era o tamanho final; ver o numero subir e o que permite cancelar cedo
+     * uma simulacao que vai encher o disco, e e o que responde "esta fazendo
+     * alguma coisa?" numa simulacao longa. Um no' so, atualizado no lugar,
+     * mesma mecanica da barra de progresso.
+     */
+    renderDumpSize(terminalId, { name, path = '', bytes, done = false }) {
+        const terminal = this._resolveTerminal(terminalId);
+        if (!terminal) return;
+        this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
+        let el = this.updatableCards[terminalId].dumpSize;
+        if (!el || !el.isConnected) {
+            el = document.createElement('div');
+            el.className = 'dump-size';
+            el.innerHTML = '<i class="ph ph-wave-sine" aria-hidden="true"></i><span class="dump-size-text"></span>';
+            el._text = el.querySelector('.dump-size-text');
+            terminal.appendChild(el);
+            this.updatableCards[terminalId].dumpSize = el;
+        } else if (!done && terminal.lastElementChild !== el) {
+            // Cola embaixo, como a barra: linhas novas nao a empurram pro meio.
+            terminal.appendChild(el);
+        }
+        el._text.textContent = `${name} · ${formatarBytes(bytes)}`;
+        // O hover mostra ONDE o arquivo esta nascendo: o basename sozinho
+        // nao diz a pasta, e a extensao muda por corrida (.vcd no Icarus,
+        // .fst no cocotb e no Verilator conforme o modo). O balao decorado
+        // do app le data-tooltip; o observador dele inicializa o no' porque
+        // o atributo ja esta posto quando a insercao e processada.
+        if (path) el.dataset.tooltip = path;
+        // 'done' congela o numero final, e o pill FICA no terminal como
+        // registro da corrida, junto do resto do log: e assim que se compara
+        // o tamanho entre execucoes sem refazer nada. Ele so sai quando o
+        // terminal e limpo, como qualquer outra linha; a proxima corrida
+        // cria o seu proprio.
+        el.classList.toggle('done', !!done);
+        this.scrollToBottom(terminalId);
+    }
+
+    createLogEntry(terminal, text, type, timestamp) {
+        // A mesma linha, repetida logo em seguida, vira um contador na linha
+        // que ja esta na tela. E o caso do $fscanf com $fopen falhado: o vvp
+        // imprime o MESMO erro a cada ciclo de clock, milhares de vezes, e o
+        // terminal inundado foi lido como "a compilacao entrou em loop".
+        // Mil copias nao informam mais que uma com "x1000" do lado; e mil nos
+        // de DOM a mais por segundo e o que faz a interface engasgar.
+        // So a REPETICAO IMEDIATA agrupa: linhas intercaladas continuam
+        // aparecendo na ordem em que chegaram.
+        const anterior = this._ultimaLinha?.get(terminal.id);
+        if (anterior && anterior.text === text && anterior.type === type
+            && anterior.el.isConnected && anterior.el === terminal.lastElementChild) {
+            anterior.count++;
+            let chip = anterior.el.querySelector('.repeat-count');
+            if (!chip) {
+                chip = document.createElement('span');
+                chip.className = 'repeat-count';
+                anterior.el.appendChild(chip);
+            }
+            chip.textContent = `x${anterior.count}`;
+            return anterior.el;
+        }
+
         const logEntry = document.createElement('div');
         logEntry.classList.add('log-entry', type); // Sem animações extras aqui
 
@@ -860,10 +957,13 @@ createLogEntry(terminal, text, type, timestamp) {
         // nothing.
         this._attachLineLinkClicks(messageContent);
 
-        // No per-entry increment here either — recountMessages at the
+        // No per-entry increment here either, recountMessages at the
         // end of each appendToTerminal batch handles counting from DOM
         // truth, including the grouped-message case where one card
         // contains several sub-messages of the same type.
+
+        if (!this._ultimaLinha) this._ultimaLinha = new Map();
+        this._ultimaLinha.set(terminal.id, { text, type, el: logEntry, count: 1 });
 
         // --- AQUI ESTÁ O TRUQUE DE REVELAÇÃO ---
         // Se o terminal estiver apagado (pós-clear), revelamos agora.
@@ -884,7 +984,7 @@ createLogEntry(terminal, text, type, timestamp) {
     /**
      * Barra de progresso ASCII inline para o fluxo de hardware-test (THTEST).
      * UM unico elemento que se atualiza no lugar: criado na primeira chamada,
-     * mutado depois. NAO e um .log-entry — entao o filtro de verbose e os
+     * mutado depois. NAO e um .log-entry, entao o filtro de verbose e os
      * contadores o ignoram e ele fica sempre visivel. Movido pro fim do
      * terminal a cada update pra acompanhar a ultima saida streamada.
      *
@@ -902,7 +1002,7 @@ createLogEntry(terminal, text, type, timestamp) {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
-        // The hardware test runs in THTEST — pull focus there so its bar is seen.
+        // The hardware test runs in THTEST, pull focus there so its bar is seen.
         this.revealActiveOutputTerminal(terminalId);
 
         this.updatableCards[terminalId] = this.updatableCards[terminalId] || {};
@@ -934,7 +1034,7 @@ createLogEntry(terminal, text, type, timestamp) {
             terminal.appendChild(el);
             this.updatableCards[terminalId].hwProgress = el;
         } else {
-            // Re-anexar move o no pro fim — mantem a barra colada embaixo
+            // Re-anexar move o no pro fim, mantem a barra colada embaixo
             // mesmo se linhas plain (verbose) chegarem entre os updates.
             terminal.appendChild(el);
         }
@@ -949,7 +1049,7 @@ createLogEntry(terminal, text, type, timestamp) {
         el.classList.toggle('done', done);
 
         // Resolve the target as a FLOAT. Callers hand us a pre-rounded integer
-        // pct, but cyc/total carries the full precision — and rounding first is
+        // pct, but cyc/total carries the full precision, and rounding first is
         // itself a source of stepping (many updates land on the same integer,
         // then one jumps a whole point). Prefer the raw ratio when we have it.
         const exact = (p.total > 0 && p.cyc != null) ? (p.cyc / p.total) * 100 : (p.pct || 0);
@@ -959,7 +1059,7 @@ createLogEntry(terminal, text, type, timestamp) {
         // auto-hide hasn't fired yet, or the run failed and never retired it)?
         // Two tells: the card already finished and we're moving again, or the
         // target fell well below what's painted. Both are impossible within a
-        // run — progress there is monotonic — so either means "start over".
+        // run, progress there is monotonic, so either means "start over".
         // This matters because the rest of the card's state (the % floor, the
         // ETA baseline, the update-rate EMA) all assume a single run; carried
         // over, they would pin the bar at the old 100% and quote a nonsense ETA.
@@ -1035,7 +1135,7 @@ createLogEntry(terminal, text, type, timestamp) {
      *
      * Retargeting mid-flight is the point: each update rewrites the tween's
      * from/target/clock while the loop keeps running, so the fill bends toward
-     * the new value from wherever it currently sits — no restart, no snap. That
+     * the new value from wherever it currently sits, no restart, no snap. That
      * is why the loop reads `el._*` on every frame instead of closing over the
      * arguments, and why a live loop is reused (`if (el._raf) return`) instead
      * of being cancelled and replaced.
@@ -1071,7 +1171,7 @@ createLogEntry(terminal, text, type, timestamp) {
      * Called when the user cancels: the run is over, so a bar frozen mid-fill
      * (and its pending auto-hide) is a lie about work still happening.
      *
-     * Sweeps the DOM rather than trusting `updatableCards` alone — a new
+     * Sweeps the DOM rather than trusting `updatableCards` alone, a new
      * TerminalManager is built per compile, so the instance handling the cancel
      * is not necessarily the one that created the bar on screen.
      */
@@ -1104,7 +1204,7 @@ createLogEntry(terminal, text, type, timestamp) {
      * Log entry com um trecho clicavel (link de pasta). `message` e a string
      * ja traduzida; `folderPath` e a substring exata a virar link. Ao clicar,
      * a file tree alterna pra view de pastas e revela/expande a pasta-alvo
-     * (standardTreeRenderer.revealFolder). Construido com textContent — sem
+     * (standardTreeRenderer.revealFolder). Construido com textContent, sem
      * innerHTML, sem risco de injecao.
      *
      * @param {string} terminalId
@@ -1155,7 +1255,7 @@ createLogEntry(terminal, text, type, timestamp) {
     /**
      * Wires the "Export log" toolbar button to actually export the active
      * terminal's contents. Before this, the button existed in the DOM with
-     * a tooltip but no listener — clicking it did nothing. Now it builds a
+     * a tooltip but no listener, clicking it did nothing. Now it builds a
      * plain-text dump of every visible `.log-entry` (with timestamps and
      * grouped sub-messages flattened) and offers a Save dialog with a
      * timestamped default filename. A toast confirms success or surfaces
@@ -1168,7 +1268,7 @@ createLogEntry(terminal, text, type, timestamp) {
     }
 
     /**
-     * Format Date as `YYYY-MM-DD_HH-mm-ss` — filesystem-safe (no colons,
+     * Format Date as `YYYY-MM-DD_HH-mm-ss`, filesystem-safe (no colons,
      * no slashes) so it slots straight into a filename suffix.
      */
     _logTimestampForFilename(d = new Date()) {
@@ -1180,7 +1280,7 @@ createLogEntry(terminal, text, type, timestamp) {
     /**
      * Serialize ALL terminals' log entries to one plain-text file the
      * user picks via the Save dialog. The export covers every terminal
-     * (TCMM / TASM / TVERI / TWAVE / TCMD) — not just the focused one —
+     * (TCMM / TASM / TVERI / TWAVE / TCMD), not just the focused one:
      * because users usually file bug reports with the full context of
      * what each stage emitted, not "whatever happened to be selected".
      *
@@ -1273,7 +1373,7 @@ createLogEntry(terminal, text, type, timestamp) {
                 ],
             });
             if (!result || result.canceled || !result.filePath) {
-                // User dismissed the dialog — silent, not an error.
+                // User dismissed the dialog, silent, not an error.
                 return;
             }
 
@@ -1302,7 +1402,7 @@ createLogEntry(terminal, text, type, timestamp) {
         if (!clearButton) return;
         // Mode lives in state, not the icon class. The old code branched on
         // FontAwesome classes (fa-trash-can / fa-dumpster), but the button was
-        // migrated to Phosphor (ph-trash) — so neither branch ever matched and
+        // migrated to Phosphor (ph-trash), so neither branch ever matched and
         // clicking did nothing. Left-click clears; right-click toggles
         // current-tab ↔ all-terminals.
         if (this.clearMode === undefined) this.clearMode = 'current';
@@ -1339,7 +1439,7 @@ createLogEntry(terminal, text, type, timestamp) {
         // Bind once. The MutationObservers attach to the shared terminal
         // bodies and are never disconnected, so without this guard every
         // `new TerminalManager()` (one per compile) added another 5
-        // observers — after N compiles, each output line fired N×5
+        // observers, after N compiles, each output line fired N×5
         // scrollToBottom callbacks, progressively janking the terminal.
         if (TerminalManager.autoScrollInitialized) return;
         const config = {
@@ -1371,7 +1471,7 @@ createLogEntry(terminal, text, type, timestamp) {
     // Coalesce the post-append bookkeeping (trim + recount + filter + scroll)
     // into a single pass per animation frame per terminal. Streaming compiles
     // call processStreamedLine once per line; running these O(n) DOM walks per
-    // line is O(n²) over the build and forced a reflow each time — the terminal
+    // line is O(n²) over the build and forced a reflow each time, the terminal
     // freeze on large builds. The line's DOM is appended immediately (output
     // stays live); only the expensive bookkeeping is batched.
     _scheduleTerminalRefresh(terminalId) {
@@ -1395,7 +1495,7 @@ createLogEntry(terminal, text, type, timestamp) {
     // which is wasteful to do per frame while output streams. Coalesce them onto
     // a trailing timer: the badges/filter settle ~8×/s, and because a final
     // timer always fires after the last append the end state is exact. A type
-    // filter applied mid-stream lags new lines by <=120ms — an imperceptible
+    // filter applied mid-stream lags new lines by <=120ms, an imperceptible
     // settle, not a correctness loss.
     _scheduleCountRefresh(terminalId) {
         const timers = this._countTimers || (this._countTimers = new Map());
@@ -1431,6 +1531,12 @@ async clearTerminal(terminalId) {
         if (!terminal.childElementCount) return;
 
         // 1. Animate the existing entries out (fade + slide), then wipe.
+        // Anything appended during the animation would be wiped with the old
+        // entries before anyone saw it (it happened once, to the ASM preamble),
+        // so appends are parked and replayed after the wipe.
+        const parked = this._clearingQueues || (this._clearingQueues = new Map());
+        if (parked.has(terminalId)) return; // a clear is already in flight
+        parked.set(terminalId, []);
         terminal.classList.add('clearing');
         await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -1441,9 +1547,14 @@ async clearTerminal(terminalId) {
         terminal.innerHTML = '';
         terminal.classList.remove('clearing');
         this.recountMessages?.(terminalId);
+
+        // 3. Replay what arrived while the old entries were fading out.
+        const replay = parked.get(terminalId) || [];
+        parked.delete(terminalId);
+        for (const args of replay) this.appendToTerminal(...args);
     }
 
-    /** Transient confirmation pill — fired by the manual clear button only. */
+    /** Transient confirmation pill, fired by the manual clear button only. */
     _flashCleared(terminalId, message = 'Terminal cleared') {
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
@@ -1471,7 +1582,7 @@ async clearTerminal(terminalId) {
      * Used at the start of a new compilation so the user gets a fresh
      * slate WITHOUT erasing terminals belonging to unrelated steps
      * (e.g. running Wave shouldn't clear the tcmm log from a previous
-     * CMM compile). Sync because the caller is also sync — an async
+     * CMM compile). Sync because the caller is also sync, an async
      * fade would race against the first appendToTerminal of the new
      * run and erase its initial lines.
      */

@@ -1,4 +1,7 @@
 import { electronAPI } from '../app/electron_api.js';
+import { showAlert } from '../ui/dialog_manager.js';
+import { showCardNotification } from '../ui/notification.js';
+import { ProjectStore } from './project_store.js';
 import '../components/aurora-welcome.js';
 
 // ADDED: Export the class to make it importable
@@ -7,7 +10,13 @@ export class RecentProjectsManager {
     // openProject = injected function that actually opens a .spf in the IDE.
     // Kept under a distinct name so it does not shadow loadFromStorage().
     this.openProject = loadProjectCallback;
-    this.showErrorDialog = showErrorDialogCallback;
+    // O segundo parametro e opcional, e o unico chamador (renderer.js) nunca
+    // o passou: showErrorDialog ficava undefined e explodia com "is not a
+    // function" exatamente na hora de AVISAR o usuario, clicar num recente
+    // cuja pasta foi apagada. A reserva e o dialogo padrao do aplicativo.
+    this.showErrorDialog = typeof showErrorDialogCallback === 'function'
+      ? showErrorDialogCallback
+      : (title, message) => showAlert(message, 'warning', title);
 
     this.projects = [];
     this.maxProjects = 10;
@@ -23,11 +32,30 @@ export class RecentProjectsManager {
         const n = this.forgetMissing();
         if (n) this._enrichProcessors();
       });
+      // Localizar no disco: um projeto, ou todos os ausentes de uma vez. A
+      // varredura e uma so no main; pedir mais um projeto com ela viva so
+      // acrescenta alvo.
+      this.welcomeEl.addEventListener('project-locate', (e) => this.locate([e.detail]));
+      this.welcomeEl.addEventListener('recent-locate-missing', () => {
+        this.locate(this.projects.filter((p) => p._missing).map((p) => p.path));
+      });
+      this.welcomeEl.addEventListener('recent-locate-cancel', () => this.cancelLocate());
     }
 
     this.loadFromStorage();
     this.render();
     this._enrichProcessors(); // async: read each .spf's processor list for the hover preview
+
+    // A Welcome reaparece quando o projeto fecha, e a lista pode ter
+    // envelhecido desde o arranque (pendrive removido, pasta apagada com o
+    // app aberto). Conferir a existencia a cada volta e barato (um stat por
+    // entrada) e e o que mantem o risco de "clicar num morto" no minimo. A
+    // conferencia so MARCA; quem remove e sempre o usuario.
+    try {
+      ProjectStore.subscribe(() => {
+        if (!ProjectStore.getProjectPath()) this._checkExistence();
+      });
+    } catch (_) { /* sem store (teste isolado), a checagem do arranque vale */ }
     this._checkExistence();   // async: risca os que sumiram do disco
   }
 
@@ -68,6 +96,94 @@ export class RecentProjectsManager {
       catch (_) { p._missing = false; }
     }));
     this.render();
+  }
+
+  /**
+   * Procura no disco os .spf das entradas ausentes em `paths`.
+   *
+   * O trabalho e do main (recents:locate-*): la vive UMA varredura para
+   * varios alvos, porque quem perdeu uma pasta costuma ter perdido varias, e
+   * varrer o disco uma vez por projeto multiplicaria o custo. Aqui fica so o
+   * estado visual e a reacao aos eventos: achou -> regrava o caminho na
+   * entrada; terminou -> desmarca quem sobrou e avisa.
+   */
+  async locate(paths) {
+    const alvos = [];
+    for (const caminho of paths || []) {
+      const p = this.projects.find((x) => x.path === caminho);
+      if (!p || !p._missing || p._locating) continue;
+      p._locating = true;
+      alvos.push({ key: p.path, basename: p.path.split(/[\\/]/).pop() });
+    }
+    if (!alvos.length) return;
+    this._ensureLocateListener();
+    this.render();
+    try {
+      const r = await electronAPI.locateRecentsStart?.(alvos);
+      if (!r?.ok) throw new Error(r?.error || 'locate failed');
+    } catch (e) {
+      for (const a of alvos) {
+        const p = this.projects.find((x) => x.path === a.key);
+        if (p) p._locating = false;
+      }
+      this.render();
+      showCardNotification(String(e?.message || e), 'error', 4000);
+    }
+  }
+
+  cancelLocate() {
+    try { electronAPI.locateRecentsCancel?.(); } catch (_) { /* main ja foi */ }
+  }
+
+  _ensureLocateListener() {
+    if (this._locateUnsub) return;
+    this._locateUnsub = electronAPI.onRecentsLocate?.((ev) => {
+      if (ev.type === 'progress') {
+        this._locateScanned = ev.scanned;
+        if (this.welcomeEl) this.welcomeEl.locateScanned = ev.scanned;
+        return;
+      }
+      if (ev.type === 'found') {
+        const p = this.projects.find((x) => x.path === ev.key);
+        if (p) {
+          // O caminho novo substitui o antigo NA MESMA entrada: historico de
+          // abertura e nome ficam; so o endereco muda, que e o que mudou no
+          // disco.
+          p.path = ev.path;
+          p._missing = false;
+          p._locating = false;
+          p._procs = undefined;
+          this.saveProjects();
+          this.render();
+          this._enrichProcessors();
+          const tr = (k, fb, pr) => (window.t ? window.t(k, pr) : null) || fb;
+          showCardNotification(
+            tr('welcome.locateFound', 'Found: ' + ev.path, { path: ev.path }),
+            'success', 4000,
+          );
+        }
+        return;
+      }
+      if (ev.type === 'done') {
+        this._locateScanned = 0;
+        if (this.welcomeEl) this.welcomeEl.locateScanned = 0;
+        let sobraram = 0;
+        for (const chave of ev.remaining || []) {
+          const p = this.projects.find((x) => x.path === chave);
+          if (p && p._locating) { p._locating = false; sobraram++; }
+        }
+        // Cancelamento tambem desmarca quem ainda girava.
+        for (const p of this.projects) if (p._locating) { p._locating = false; }
+        this.render();
+        if (sobraram) {
+          const tr = (k, fb) => (window.t ? window.t(k) : null) || fb;
+          showCardNotification(
+            tr('welcome.locateNotFound', 'Some projects were not found on this machine.'),
+            'info', 5000,
+          );
+        }
+      }
+    });
   }
 
   /** Quantos estao ausentes agora. Zero esconde o botao de esquecer. */
@@ -156,22 +272,21 @@ export class RecentProjectsManager {
   }
 
   // Check if project file exists and remove if not
+  /**
+   * So responde SE o .spf existe; nunca mexe na lista. A versao antiga
+   * apagava a entrada aqui dentro, entao um clique em projeto de pendrive
+   * desconectado (ou uma sonda que falhou) custava o atalho inteiro.
+   * Ausencia se marca com o risco (_missing); apagar e gesto do usuario.
+   */
   async checkProjectExists(project) {
     try {
       // electronAPI expõe `fileExists` / `pathExists` (não `checkFileExists`).
       const probe = electronAPI?.fileExists ?? electronAPI?.pathExists;
-      if (probe) {
-        const exists = await probe(project.path);
-        if (!exists) {
-          this.removeProject(project.path);
-          return false;
-        }
-      }
+      if (probe) return !!(await probe(project.path));
       return true;
     } catch (error) {
       console.error('Error checking project existence:', error);
-      this.removeProject(project.path);
-      return false;
+      return true; // erro de sonda nao e prova de ausencia
     }
   }
 
@@ -180,8 +295,18 @@ export class RecentProjectsManager {
     try {
       const exists = await this.checkProjectExists(project);
       if (!exists) {
-        // MODIFIED: Use the injected function
-        this.showErrorDialog('Project Not Found', `The project file "${project.name}" could not be found and has been removed from recent projects.`);
+        // Riscar, nunca apagar: a entrada fica na lista com a lupa ao lado,
+        // que e o caminho para reencontrar um projeto so movido de pasta.
+        project._missing = true;
+        this.render();
+        const tr = (k, fb) => {
+          const v = window.t ? window.t(k) : null;
+          return (v && v !== k) ? v : fb;
+        };
+        this.showErrorDialog(
+          tr('welcome.clickMissingTitle', 'Project not found'),
+          tr('welcome.clickMissingMessage', 'The project file "{{name}}" was not found on disk. It stays struck through in the recents list; use the magnifier button to search this computer for it.').replace('{{name}}', project.name),
+        );
         return;
       }
 
@@ -198,9 +323,11 @@ export class RecentProjectsManager {
       console.log(`Opened recent project: ${project.name}`);
     } catch (error) {
       console.error('Error opening project:', error);
-      // MODIFIED: Use the injected function
       this.showErrorDialog('Error Opening Project', error.message);
-      this.removeProject(project.path);
+      // Falha de abertura tambem nao apaga a entrada: um erro transitorio
+      // (disco de rede, permissao) nao pode custar o atalho. Reavalia o
+      // risco na lista e a decisao fica com o usuario.
+      this._checkExistence();
     }
   }
 
@@ -223,7 +350,7 @@ export class RecentProjectsManager {
     }
   }
 
-  // A recent row was clicked in the <aurora-welcome> view — open that project.
+  // A recent row was clicked in the <aurora-welcome> view, open that project.
   // (The view escapes its own text bindings and animates the rows; this manager
   // keeps the data + the open/remove actions.)
   _handleOpenByPath(path) {
@@ -237,7 +364,7 @@ export class RecentProjectsManager {
   // form readable but doesn't have to be ultra-short.
   truncatePath(path) {
     if (!path) return '';
-    // Drop the .spf filename — VS Code shows the parent folder, not the file.
+    // Drop the .spf filename, VS Code shows the parent folder, not the file.
     let display = path.replace(/[\\/][^\\/]+\.spf$/i, '');
     // Collapse the user's home dir to ~ for compactness.
     const home = (typeof window !== 'undefined' && electronAPI?.homePath) || null;
@@ -258,8 +385,10 @@ export class RecentProjectsManager {
       displayPath: this.truncatePath(p.path),
       processors: p._procs || [],
       missing: !!p._missing,
+      locating: !!p._locating,
     }));
     this.welcomeEl.missingCount = this.countMissing();
+    this.welcomeEl.locatingCount = this.projects.filter((p) => p._locating).length;
   }
 
   // Other methods (clearAll, getProjects, etc.) remain the same...

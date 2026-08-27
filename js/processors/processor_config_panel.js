@@ -1,5 +1,5 @@
 /**
- * processor_config_panel.js — popover de configuracoes por processador.
+ * processor_config_panel.js: popover de configuracoes por processador.
  *
  * Ancora a partir do botao chevron `#procConfigToggle`, posicionado a
  * direita do C± na toolbar. Mostra clk, numClocks e showArrays do
@@ -7,7 +7,7 @@
  * bar usa pro indicador de processador ativo).
  *
  * Persistencia: campos sao gravados em `structure.processors[i]` do
- * .spf — clk/numClocks/showArrays vivem em cada entry do array (que
+ * .spf, clk/numClocks/showArrays vivem em cada entry do array (que
  * antes so tinha `name`). Defaults aplicados na leitura mantem
  * compatibilidade com .spf antigos.
  *
@@ -88,12 +88,12 @@ class ProcessorConfigPanel {
         });
 
         // Persiste em mudanca. `change` em number inputs dispara no
-        // blur — bom, evita salvar a cada keystroke.
+        // blur, bom, evita salvar a cada keystroke.
         this.clkInput?.addEventListener('change', () => this._save({ clk: this._numericValue(this.clkInput) }));
         this.numClocksInput?.addEventListener('change', () => this._save({ numClocks: this._numericValue(this.numClocksInput) }));
         this.showArraysInput?.addEventListener('change', () => this._save({ showArrays: !!this.showArraysInput.checked }));
 
-        // Sim-time readout updates live as the user types — `input` fires
+        // Sim-time readout updates live as the user types, `input` fires
         // on every keystroke (unlike `change` which waits for blur), so
         // the duration label tracks the values without writing the .spf
         // on every digit. Persistence still flows through `change`.
@@ -134,7 +134,7 @@ class ProcessorConfigPanel {
         this.anchor.disabled = !enabled;
         this.anchor.style.cursor = enabled ? 'pointer' : 'not-allowed';
         // Sem processador ativo, nao faz sentido manter o painel
-        // aberto — fecharia exibindo campos disabled com valores
+        // aberto, fecharia exibindo campos disabled com valores
         // stale.
         if (!enabled && this._isOpen) this._close();
 
@@ -168,7 +168,7 @@ class ProcessorConfigPanel {
      *   duration = numClocks * period = numClocks / clk   [µs]
      *
      * So at the defaults (clk=100 MHz, numClocks=2000) the testbench
-     * runs 20.00 µs of simulated time — same number Aurora bakes into
+     * runs 20.00 µs of simulated time, same number Aurora bakes into
      * the `#${proc_clk}*${numClocks}` $finish line of the testbench.
      */
     _updateSimTime() {
@@ -185,7 +185,7 @@ class ProcessorConfigPanel {
         }
         const us = numClocks / clk;
         // Once the duration crosses 2 000 000 µs (= 2 s of simulated
-        // time) decimal notation loses readability fast — by 1e7 it's a
+        // time) decimal notation loses readability fast, by 1e7 it's a
         // wall of zeros. Switch to scientific notation from there on and
         // *stay* there: even values that drop back below 2e6 mid-edit
         // would otherwise jitter between formats while the user types,
@@ -225,7 +225,7 @@ class ProcessorConfigPanel {
             await SpfStore.update(spfPath, (structure) => {
                 // Normaliza entries string-only (ex: .spf com schema
                 // antigo). Cada entry vira `{ name, clk, numClocks,
-                // showArrays }` — sem perder o `name`.
+                // showArrays }`, sem perder o `name`.
                 const procs = Array.isArray(structure.processors) ? structure.processors : [];
                 let touched = false;
                 structure.processors = procs.map((p) => {
@@ -239,7 +239,7 @@ class ProcessorConfigPanel {
                 });
                 if (!touched) {
                     // Edge: processador ativo nao existe no array. Nao
-                    // criamos do nada — algo upstream esta inconsistente,
+                    // criamos do nada, algo upstream esta inconsistente,
                     // melhor logar do que esconder.
                     console.warn('ProcessorConfigPanel: active processor not in .spf', this.activeProc);
                 }

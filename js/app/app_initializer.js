@@ -1,5 +1,5 @@
 /**
- * app_initializer.js — bootstrap do renderer.
+ * app_initializer.js: bootstrap do renderer.
  *
  * Responsabilidades:
  *   1. Restaurar a ultima sessao (auto-abre o ultimo projeto salvo em
@@ -13,10 +13,30 @@
 
 import { electronAPI } from './electron_api.js';
 import { showDialog } from '../ui/dialog_manager.js';
+import { showCardNotification } from '../ui/notification.js';
 import { projectManager } from '../project/project_manager.js';
 
-// i18n shim — fallback pra key path se i18n nao bootou ainda.
-const tr = (k, p) => (window.t ? window.t(k, p) : k);
+/**
+ * i18n com texto de reserva.
+ *
+ * Este arquivo roda cedo demais para confiar no i18n. Os locales sao carregados
+ * por `fetch`, e a restauracao da sessao acontece antes de aquilo terminar:
+ * `window.t` ja existe, nao encontra a chave e devolve a PROPRIA CHAVE. Foi
+ * assim que um aviso saiu na tela escrito "dialog.session.projectNotFoundToast".
+ *
+ * Passar a reserva junto resolve na raiz: se a traducao ainda nao chegou, sai o
+ * texto em portugues, que e melhor do que um identificador.
+ */
+const tr = (k, reserva, p) => {
+    const v = window.t ? window.t(k, p) : null;
+    return v && v !== k ? v : reserva;
+};
+
+/** Nome do projeto a partir do caminho do .spf, para a mensagem ser concreta. */
+function nomeDe(caminho) {
+    const base = String(caminho || '').split(/[\\/]/).pop() || '';
+    return base.replace(/\.spf$/i, '') || 'sem nome';
+}
 
 class AppInitializer {
     constructor() {
@@ -37,7 +57,14 @@ class AppInitializer {
         console.log('Initializing Aurora IDE...');
 
         try {
-            await this.restoreLastSession();
+            try {
+                await this.restoreLastSession();
+            } finally {
+                // The file tree waits on this to decide between "loading" and
+                // the no-project card. Fired whether the restore found a
+                // project, found none, or failed, so nobody waits on a clock.
+                document.dispatchEvent(new CustomEvent('aurora:session-restore-settled'));
+            }
             this.isInitialized = true;
             // Baseline de TTI (time-to-interactive): o overlay de jank (Dev) le este
             // mark via performance.getEntriesByName('aurora-interactive'); sem ele
@@ -47,9 +74,10 @@ class AppInitializer {
         } catch (error) {
             console.error('Failed to initialize Aurora IDE:', error);
             await showDialog({
-                title: tr('dialog.session.initErrorTitle'),
-                message: tr('dialog.session.initErrorMessage', { error: error.message }),
-                buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
+                title: tr('dialog.session.initErrorTitle', 'Erro de inicializacao'),
+                message: tr('dialog.session.initErrorMessage',
+                    `Falha ao inicializar a aplicacao: ${error.message}`, { error: error.message }),
+                buttons: [{ label: tr('dialog.common.ok', 'OK'), action: 'close', type: 'cancel' }]
             });
         }
     }
@@ -68,15 +96,21 @@ class AppInitializer {
             const exists = await electronAPI.fileExists(lastProjectPath);
 
             if (!exists) {
+                // O projeto sumiu do disco entre uma sessao e outra: apagado,
+                // movido, ou num drive que nao montou. Nao e erro do usuario e
+                // nao ha decisao a tomar, entao um dialogo modal na cara, antes
+                // mesmo de a janela assentar, so atrapalha. Um aviso no canto
+                // conta o que houve e a lista de recentes ja mostra o projeto
+                // riscado.
                 console.warn('Last project file not found');
                 localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
                 this._resetProjectNameLabel();
-
-                await showDialog({
-                    title: tr('dialog.session.projectNotFoundTitle'),
-                    message: tr('dialog.session.projectNotFoundMessage'),
-                    buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
-                });
+                showCardNotification(
+                    tr('dialog.session.projectNotFoundToast',
+                        `O projeto "${nomeDe(lastProjectPath)}" nao foi encontrado no disco `
+                        + 'e nao foi reaberto. Ele aparece riscado na lista de recentes.'),
+                    'warning', 10000,
+                );
                 return;
             }
 
@@ -87,15 +121,18 @@ class AppInitializer {
             console.log('Session restored successfully');
 
         } catch (error) {
+            // Mesmo criterio do caminho de cima: restaurar sessao e cortesia,
+            // e cortesia que falha nao pode custar um modal. O aviso carrega o
+            // motivo resumido; o log guarda o resto.
             console.error('Failed to restore session:', error);
             localStorage.removeItem(this.STORAGE_KEYS.LAST_PROJECT);
             this._resetProjectNameLabel();
-
-            await showDialog({
-                title: tr('dialog.session.restoreErrorTitle'),
-                message: tr('dialog.session.restoreErrorMessage', { error: error.message }),
-                buttons: [{ label: tr('dialog.common.ok'), action: 'close', type: 'cancel' }]
-            });
+            showCardNotification(
+                tr('dialog.session.restoreErrorToast',
+                    `Nao foi possivel reabrir "${nomeDe(lastProjectPath)}": ${error.message}`,
+                    { error: error.message }),
+                'warning', 10000,
+            );
         }
     }
 
@@ -108,10 +145,10 @@ class AppInitializer {
         const el = document.getElementById('current-spf-name');
         if (!el) return;
         // Re-instala o data-i18n pra que locale changes futuros
-        // re-traduzam — updateProjectNameUI o remove quando seta
+        // re-traduzam, updateProjectNameUI o remove quando seta
         // um nome de projeto real.
         el.setAttribute('data-i18n', 'fileTree.noProject');
-        el.textContent = window.t ? window.t('fileTree.noProject') : 'No project open';
+        el.textContent = tr('fileTree.noProject', 'Nenhum projeto aberto');
     }
 
     /**

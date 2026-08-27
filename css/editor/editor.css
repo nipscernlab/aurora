@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  editor.css  —  Editor area, welcome overlay, split panes, Monaco refinements
+ *  editor.css ,  Editor area, welcome overlay, split panes, Monaco refinements
  * =====================================================================================
  */
 
@@ -28,7 +28,7 @@
   z-index: var(--z-0);
 }
 
-/* AI edit flash — applied as a Monaco whole-line decoration on edited lines.
+/* AI edit flash, applied as a Monaco whole-line decoration on edited lines.
    A purple wash plus a bright glow bar down the left edge that fades, so the
    touched lines read as freshly conjured. */
 @keyframes ai-edit-flash {
@@ -41,7 +41,7 @@
   animation: ai-edit-flash 900ms ease-out forwards;
 }
 
-/* AI magic-wand sweep — overlaid on the editor container when the AI
+/* AI magic-wand sweep, overlaid on the editor container when the AI
    rewrites the entire file. A shimmer band rises from bottom to top,
    revealing the new content like a magic wand stroke. */
 @keyframes ai-wand-sweep {
@@ -74,7 +74,7 @@
 }
 
 /* ===================================================================================
- *  Welcome overlay — sibling of .editor-container + .terminal-container.
+ *  Welcome overlay, sibling of .editor-container + .terminal-container.
  *
  *  When .visible:
  *    - covers the entire vertical area
@@ -92,7 +92,7 @@
  * area and replace the editor / resizer / terminal.
  */
 /*
- * Default state: out of flow, transparent, hidden — so the editor and
+ * Default state: out of flow, transparent, hidden, so the editor and
  * terminal lay out as if it isn't there. The absolute positioning makes
  * the transition smooth (no reflow when toggling).
  */
@@ -113,7 +113,7 @@
  * (position: relative, flex: 1) so it sits above the editor area but does
  * NOT cover the terminal underneath. The previous `position: absolute;
  * inset: 0` rule made the welcome card paint over the whole vertical area
- * including the terminal — clicking compile from the welcome screen
+ * including the terminal, clicking compile from the welcome screen
  * showed no log because the terminal was painted under the overlay.
  */
 #editor-overlay.visible:not(.hidden) {
@@ -135,7 +135,7 @@
 /* While the welcome is actually showing, hide the editor area so
    nothing peeks through behind the welcome card. After
    SplitEditorManager initializes, .editor-container is wrapped inside
-   .split-editor-wrapper — target both so the rule survives either
+   .split-editor-wrapper, target both so the rule survives either
    layout.
 
    The terminal AND its horizontal resizer stay visible: the user
@@ -315,14 +315,14 @@
   padding: 16px 32px 48px;
 }
 
-/* Rendered HTML preview: the iframe must fill the pane — without an
+/* Rendered HTML preview: the iframe must fill the pane, without an
  * explicit size it collapses to the 300x150 browser default. */
 .md-preview-frame {
   display: block;
   width: 100%;
   height: 100%;
   border: 0;
-  background: #fff;
+  background: var(--text-on-accent);
 }
 
 .split-tab {
@@ -385,8 +385,25 @@
   background: var(--overlay-active);
 }
 
+/* Balao de erro, sugestao e dica de parametro: acima da casca.
+ *
+ * Com `fixedOverflowWidgets` (js/editor/monaco_editor.js) o Monaco tira esses
+ * baloes de dentro do editor e os desenha numa camada propria, presa ao corpo
+ * da pagina. Isso resolve o recorte, mas nao a ordem: a camada nasce com o
+ * z-index do Monaco, que perde para a barra de ferramentas (--z-30) e para as
+ * abas, e o texto do erro aparecia POR BAIXO delas justamente quando a ondinha
+ * estava nas primeiras linhas do arquivo.
+ *
+ * Fica abaixo de --z-modal (80), entao um dialogo aberto continua cobrindo o
+ * balao, que e a ordem certa: o dialogo tem o foco.
+ */
+.monaco-editor .overflowingContentWidgets,
+.monaco-editor .overflowingOverlayWidgets {
+  z-index: var(--z-50);
+}
+
 /* ===================================================================================
- *  Monaco refinements — clean scrollbar, hide ruler dots
+ *  Monaco refinements, clean scrollbar, hide ruler dots
  * =================================================================================== */
 .monaco-editor .find-widget {
   z-index: var(--z-50) !important;
@@ -484,7 +501,7 @@
   height: 22px;
   margin-top: -2px;
   /* A refined elevated control rather than a solid purple blob: dark squircle,
-     luminous border, accent sparkle — fills with the accent on hover. */
+     luminous border, accent sparkle, fills with the accent on hover. */
   border-radius: var(--radius-md);
   color: var(--accent-hover);
   background: var(--bg-elev-3);
@@ -500,7 +517,7 @@
 }
 .ai-selection-star:hover {
   opacity: 1;
-  color: #fff;
+  color: var(--text-on-accent);
   background: var(--accent);
   border-color: var(--accent);
   transform: scale(1.08);

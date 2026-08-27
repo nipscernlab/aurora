@@ -1,5 +1,5 @@
 /**
- * verilog_classifier.ts — heuristica synth-vs-testbench.
+ * verilog_classifier.ts: heuristica synth-vs-testbench.
  *
  * Decide se um arquivo Verilog/SystemVerilog e um testbench ou codigo
  * sintetizavel olhando so pro conteudo (+ um leve hint do nome do
@@ -8,7 +8,7 @@
  * marca persistida pelo usuario. Re-roda a cada load/refresh, entao
  * editar um .v e transforma-lo em testbench o reclassifica sozinho.
  *
- * Nao e um parser — e um scorer. Sinais "definitivos" (dump de VCD,
+ * Nao e um parser, e um scorer. Sinais "definitivos" (dump de VCD,
  * $finish/$stop, modulo sem portas) sozinhos ja passam o threshold;
  * sinais mais fracos (initial, $display, delays procedurais, nome
  * *_tb) somam. Limiar em TB_THRESHOLD.
@@ -18,7 +18,7 @@
  * iverilog le como design) e header files (.vh, sem module) caem
  * naturalmente aqui.
  *
- * Compilado por `tsc` (npm run build:ts) num verilog_classifier.js ao lado —
+ * Compilado por `tsc` (npm run build:ts) num verilog_classifier.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -79,7 +79,7 @@ function skipBalancedParens(code: string, i: number): number {
 }
 
 /**
- * True se o codigo declara pelo menos um modulo sem portas —
+ * True se o codigo declara pelo menos um modulo sem portas:
  * `module top;` ou `module top();` (param block `#(...)` opcional no
  * meio). Modulos sintetizaveis sempre tem portas; um modulo sem
  * portas e quase sempre o top de um testbench.
@@ -124,19 +124,19 @@ export function classifyVerilogContent(content: string, fileName = ''): VerilogC
     if (/\$dump(file|vars|on|off|all|limit|flush)\b/.test(code)) score += 3;
     // Terminacao de simulacao.
     if (/\$(finish|stop)\b/.test(code)) score += 3;
-    // Modulo sem portas — top de testbench.
+    // Modulo sem portas, top de testbench.
     if (hasPortlessModule(code)) score += 3;
 
     // --- Sinais fortes ---
     // Bloco initial. Codigo sintetizavel pode ter (init de reg em
-    // FPGA), entao sozinho (+2) nao classifica — precisa de companhia.
+    // FPGA), entao sozinho (+2) nao classifica, precisa de companhia.
     if (/\binitial\b/.test(code)) score += 2;
 
     // --- Sinais fracos ---
     // Tasks de I/O / introspeccao de tempo tipicas de testbench.
     if (/\$(display|write|monitor|strobe|time|realtime|random|sformatf?)\b/.test(code)) score += 1;
     // Delay procedural (#10, # 5). NAO casa `#(` de override de
-    // parametro em instanciacao — esse e comum em codigo sintetizavel.
+    // parametro em instanciacao, esse e comum em codigo sintetizavel.
     if (/#\s*\d/.test(code)) score += 1;
 
     // --- Hint do nome ---

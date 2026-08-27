@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * recents.js — tiny persistent store for "recently opened .spf files",
+ * recents.js: tiny persistent store for "recently opened .spf files",
  * driven by the project-open IPC and surfaced in the Windows jumplist.
  *
  * Why a dedicated store: localStorage in the renderer already tracks
@@ -12,7 +12,7 @@
  *   2. Wipe the "Electron" leftovers (we just don't include them).
  *   3. Re-render the jumplist whenever the list changes.
  *
- * Storage: a single JSON file in userData. Capped at 10 entries — more
+ * Storage: a single JSON file in userData. Capped at 10 entries, more
  * than Windows shows in the jumplist anyway. Each entry is the .spf
  * absolute path; the human-friendly name shown in the jumplist is
  * derived from the file name minus extension at render time so a
@@ -79,4 +79,4 @@ function prune() {
   return kept;
 }
 
-module.exports = { read, push, prune, MAX_RECENTS };
+module.exports = { read, push, prune };

@@ -1,5 +1,5 @@
 /**
- * compilation_flow.js — handlers dos botoes Verilog / Wave / PRISM /
+ * compilation_flow.js: handlers dos botoes Verilog / Wave / PRISM /
  * C± / ASM / Full Build.
  *
  * Filosofia (post-2026-05):
@@ -16,7 +16,7 @@
  *     Wave    =        cmm + asm + iverilog(-o vvp, tb)   + vvp + gtkwave
  *
  *   Loops cmm+asm sao sobre window.availableProcessors (no-op natural
- *   pra projetos verilog puro — array vazio = loop vazio). Nao ha
+ *   pra projetos verilog puro, array vazio = loop vazio). Nao ha
  *   branches `if (hasProcessor)` no pipeline.
  *
  * Pra entender o lado do CompilationModule (verilogSyntaxCheck,
@@ -89,11 +89,11 @@ const STEP_TERMINALS = Object.freeze({
     // Wave roda iverilog internamente, que loga em tveri (bannerSyntaxWc,
     // simTop, cmd echo, etc), entao tveri TAMBEM tem que ser limpo.
     // Sem isso, um erro vermelho deixado por um Verilog button anterior
-    // (ex: "noTopLevel") fica visivel quando o usuario clica Wave — e
+    // (ex: "noTopLevel") fica visivel quando o usuario clica Wave, e
     // ele pode achar que o erro veio do Wave.
     wave:    ['twave', 'tveri'],
     prism:   ['tveri'],
-    // Verilator processador CMM: loga no THTEST (Terminal Hardware Test) —
+    // Verilator processador CMM: loga no THTEST (Terminal Hardware Test):
     // etapas de pipeline + barra de progresso ASCII inline da execucao.
     'verilator-proc': ['thtest'],
     // Fast Sim (Verilator headless, sem onda): mesmo terminal do Wave.
@@ -133,13 +133,13 @@ function startCompilation(terminalsToClear) {
 
 function endCompilation() {
     /* Hook reservado pra futuras acoes pos-build (notificacao, badge,
-       etc). Hoje no-op — toolbar buttons ficam sempre habilitados. */
+       etc). Hoje no-op, toolbar buttons ficam sempre habilitados. */
 }
 
 /**
  * Terminal manager vivo. Este arquivo costumava escrever no global
  * `window.terminalManager`, que NAO existe mais (so window.globalTerminalManager
- * e setado, em renderer.js) — todo `window.terminalManager?.appendToTerminal?.`
+ * e setado, em renderer.js), todo `window.terminalManager?.appendToTerminal?.`
  * era engolido pelo `?.`, entao banners/avisos da compilacao (inclusive os
  * disparados pela Aurora Intelligence) nunca apareciam. Resolve o singleton
  * real sob demanda. initializeGlobalTerminalManager() e idempotente.
@@ -154,8 +154,8 @@ function getTM() {
 }
 
 // Ultimo processador que teve um .cmm em foco. A IA compila com o painel de
-// chat focado (nao um .cmm), entao getActiveProcessorName() — que e derivado
-// do foco — retorna null nesse instante. Guardamos o ultimo processador ativo
+// chat focado (nao um .cmm), entao getActiveProcessorName(), que e derivado
+// do foco, retorna null nesse instante. Guardamos o ultimo processador ativo
 // pra que um compile da IA mire o processador em que o usuario estava
 // trabalhando, em vez de no-op silencioso. Setado no listener de
 // aurora:editing-file-changed (toolbar setup) e consumido por handleCmmStep.
@@ -183,7 +183,7 @@ async function resolveFallbackCmmPath() {
         : `${window.currentProjectPath}/${proc}/Software/${proc}.cmm`;
 }
 
-// Step do run em andamento — usado por logFatalError pra reportar a
+// Step do run em andamento, usado por logFatalError pra reportar a
 // falha ao status bar com o tipo certo. Os passos cmm/asm/verilog/prism
 // ja chamam statusUpdater.compilationError por dentro; este fallback
 // cobre os que nao tocam o updater (verilator top-level/proc, wave).
@@ -196,7 +196,7 @@ function logFatalError(terminalId, error) {
     // `compilationCanceled` matters as much as the tagged error here. Only the
     // handful of `checkCancellation()` points between phases raise the tagged
     // error; a cancel that lands *inside* a running step kills the child, and
-    // the step then rejects with whatever the dying tool reported — "cocotb
+    // the step then rejects with whatever the dying tool reported, "cocotb
     // simulation failed with exit code 1". That is the kill, not a real fault,
     // so once the user has cancelled, every fatal is reported as the cancel.
     if (isCancellationError(error) || compilationCanceled) {
@@ -207,9 +207,20 @@ function logFatalError(terminalId, error) {
         );
         return;
     }
-    getTM()?.appendToTerminal?.(
-        terminalId, `Erro Fatal: ${error.message}`, 'error',
-    );
+    // O passo que falhou ja mostrou este mesmo texto ao usuario, e repeti-lo
+    // aqui era o "Erro: <msg>" seguido de "Erro Fatal: <msg>" que aparecia em
+    // TODA falha: a mesma frase, duas vezes, uma delas com um prefixo mais
+    // assustador. Quem falhou tem o contexto (o terminal certo, o passo certo),
+    // entao a mensagem e dele; aqui fica so o que ele nao cobre.
+    //
+    // A marca viaja no proprio erro, e nao num estado deste modulo, porque um
+    // passo pode ser chamado de mais de um lugar (botao, Full Build, API da
+    // Aurora Intelligence) e o erro atravessa todos eles.
+    if (!error?.jaNoTerminal) {
+        getTM()?.appendToTerminal?.(
+            terminalId, `Erro Fatal: ${error.message}`, 'error',
+        );
+    }
     // No-op se um passo interno ja mostrou o erro (isCompiling vira false).
     statusUpdater.compilationError(activeRunStep, error.message);
 }
@@ -252,7 +263,7 @@ function findProcessorForPath(filePath, projectPath, processors) {
  * Coleta a lista canonica de processadores conhecidos do projeto.
  * Le de window.availableProcessors (semeado pelo project_manager a
  * partir do .spf structure.processors). compiler.projectConfig.
- * processors aponta pra mesma fonte — usamos so essa via pra evitar
+ * processors aponta pra mesma fonte, usamos so essa via pra evitar
  * duplicacao.
  */
 function collectProcessors() {
@@ -270,7 +281,7 @@ function collectProcessors() {
 
 // Fallback per-processador quando o .spf nao tem config explicita
 // (entries antigas no schema string-only ou criadas antes do painel
-// de config sair). O painel grava no .spf — leitura aqui defaultar
+// de config sair). O painel grava no .spf, leitura aqui defaultar
 // pros mesmos valores que o painel mostra como placeholder garante
 // que rodar sem abrir o painel comporta-se como antes.
 const PROC_DEFAULTS = Object.freeze({
@@ -298,7 +309,7 @@ function readProcessorConfig(procEntry) {
  * Pre-flight comum aos botoes Verilog / Wave / PRISM: pra cada
  * processador conhecido, roda cmmCompilation + asmCompilation.
  * For-loop sobre array vazio (projeto sem processador) e no-op
- * natural — nao ha branch sobre "tem processador?".
+ * natural, nao ha branch sobre "tem processador?".
  *
  * Pulamos processadores cuja convencao <proj>/<proc>/Software/<proc>.cmm
  * nao existe em disco (sem .cmm, cmmcomp falharia).
@@ -309,7 +320,7 @@ async function precompileAllProcessors(compiler, terminalId) {
     // Prioriza as entries completas do .spf (com clk/numClocks/showArrays
     // setados pelo painel de config) sobre window.availableProcessors,
     // que so guarda nomes. Cai pro collectProcessors() so se o
-    // projectConfig do compiler nao tem entries — algo upstream estaria
+    // projectConfig do compiler nao tem entries, algo upstream estaria
     // errado, mas evita perder o pipeline.
     const fromSpf = Array.isArray(compiler.projectConfig?.processors)
         ? compiler.projectConfig.processors.filter((p) => p && (typeof p === 'string' ? p : p.name))
@@ -320,7 +331,7 @@ async function precompileAllProcessors(compiler, terminalId) {
 
     // componentsPath e populado pelo construtor sem await (background
     // promise). Garante que resolveu antes do primeiro ensureDirectories
-    // — que le this.componentsPath direto.
+    //, que le this.componentsPath direto.
     await compiler.initializeComponentsPath();
 
     const tm = getTM();
@@ -391,7 +402,7 @@ async function runProjectPipeline(compiler) {
  *                       Simulation/<proc>_tb.v
  *
  * Antes (pre-2026-05) este botao parava no passo 1. Foi unificado pra
- * deixar o fluxo "do .cmm ate o .v" num clique so — quem quer parar
+ * deixar o fluxo "do .cmm ate o .v" num clique so, quem quer parar
  * no .asm usa o botao ASM (que tambem aceita .asm em foco).
  *
  * Se o arquivo em foco nao for .cmm, no-op com mensagem.
@@ -450,11 +461,11 @@ async function handleCmmStep() {
 
         await compiler.ensureDirectories(overrideProcessor.name);
 
-        // Passo 1 — C± (cmmcomp)
+        // Passo 1, C± (cmmcomp)
         switchTerminal('terminal-tcmm');
         await compiler.cmmCompilation(overrideProcessor);
 
-        // Passo 2 — ASM (asmcomp). Foco vai pro tasm pra que o output
+        // Passo 2, ASM (asmcomp). Foco vai pro tasm pra que o output
         // do asmcomp apareca no terminal certo.
         switchTerminal('terminal-tasm');
         await compiler.asmCompilation(overrideProcessor, null);
@@ -502,7 +513,7 @@ async function precompileAsmOnly(compiler, terminalId) {
             cmmFile: cmmFileName,
         };
         await compiler.ensureDirectories(proc.name);
-        // NOTE: cmmCompilation deliberately skipped — the .asm on disk
+        // NOTE: cmmCompilation deliberately skipped, the .asm on disk
         // (whether canonical or routed via an `asm.-i` override) is the
         // input to asmcomp.
         await compiler.asmCompilation(overrideProcessor);
@@ -513,7 +524,7 @@ async function precompileAsmOnly(compiler, terminalId) {
 
 /**
  * Botao ASM (Aurora Intelligence): asmcomp + iverilog -tnull.
- * NAO roda cmmcomp — assim um .asm otimizado a mao sobrevive.
+ * NAO roda cmmcomp, assim um .asm otimizado a mao sobrevive.
  * Pareado com `compile_step('asm')` do AuroraAPI; nao tem botao na
  * toolbar pra evitar pegadinha pro usuario final (e read-and-act-only
  * desde a IA).
@@ -559,7 +570,7 @@ async function handleVerilogStep() {
 /**
  * Botao Wave: cmm + asm pra cada processador → runGtkWave (que
  * internamente faz iverilog -o vvp com testbench, roda vvp, abre
- * gtkwave). runGtkWave e self-contained — pre-compila o vvp.
+ * gtkwave). runGtkWave e self-contained, pre-compila o vvp.
  */
 async function handleWaveStep() {
     startCompilation(STEP_TERMINALS.wave);
@@ -590,7 +601,7 @@ async function handleVerilatorProcStep() {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
         // Instrumenta o .cmm do processador ATIVO com #TOAQUI (pino `cheguei`
-        // no fim do programa) — feito dentro do cmmCompilation, depois do
+        // no fim do programa), feito dentro do cmmCompilation, depois do
         // saveAllFiles. So o processador-alvo do botao e' tocado.
         compiler._chegueiInstrumentProc = getActiveProcessorName() || null;
         await precompileAllProcessors(compiler, 'tcmm');
@@ -611,7 +622,7 @@ async function handleVerilatorProcStep() {
 
 /**
  * Botao Fast Sim: roda o testbench do projeto via Verilator binario SEM
- * gerar onda nem abrir o GTKWave — so a velocidade. Verilator-only (o
+ * gerar onda nem abrir o GTKWave, so a velocidade. Verilator-only (o
  * botao so habilita com o toggle de simulador em Verilator). Pre-compila
  * cmm+asm caso o top-level instancie processadores SAPHO (no-op senao).
  */
@@ -632,8 +643,8 @@ async function handleFastSimStep() {
 }
 
 /**
- * Botao PRISM: cmm + asm + iverilog -tnull (top-level) — i.e., faz
- * tudo que o botao Verilog faz — e depois invoca yosys via IPC pra
+ * Botao PRISM: cmm + asm + iverilog -tnull (top-level), i.e., faz
+ * tudo que o botao Verilog faz, e depois invoca yosys via IPC pra
  * analise estrutural. PRISM e um superset do Verilog.
  */
 async function handlePrismStep() {
@@ -772,7 +783,7 @@ async function syncToolbarEnabledState() {
     // Wave por ser o par visual dele na toolbar). Cancelar esta ACIMA de todo o
     // fluxo SAPHO, nao so da simulacao: C±, ASM, Verilog e PRISM compilam sem
     // testbench nenhum, e com o botao desabilitado nao havia como matar um
-    // cmmcomp/yosys travado. Fica sempre habilitado — clicar com nada rodando
+    // cmmcomp/yosys travado. Fica sempre habilitado, clicar com nada rodando
     // ja responde "nada a cancelar" (cancelAll → nothingToCancel).
     setEnabled('cancel-everything', true);
     setEnabled('waveConfigBtn', hasTb);
@@ -786,7 +797,7 @@ if (typeof window !== 'undefined') {
 }
 
 // =====================================================================
-// Manager class — dispatcher publico
+// Manager class, dispatcher publico
 // =====================================================================
 
 class CompilationFlowManager {
@@ -806,7 +817,7 @@ class CompilationFlowManager {
         document.getElementById('allcomp')?.addEventListener('click',  () => window.AuroraAPI?.compile.compileAll());
         document.getElementById('cancel-everything')?.addEventListener('click', () => window.AuroraAPI?.compile.cancel());
 
-        // C± so faz sentido com .cmm em foco — atualiza disabled toda
+        // C± so faz sentido com .cmm em foco, atualiza disabled toda
         // vez que o arquivo em evidencia muda (TabManager.activateTab
         // / SplitEditorManager.setFocus disparam o evento). O botao
         // Verilator (processador) tambem depende do .cmm em foco (age sobre
@@ -821,7 +832,7 @@ class CompilationFlowManager {
         });
 
         // Fast Sim e Verilator-only, entao seu disabled depende do toggle de
-        // simulador — re-sincroniza quando o usuario (ou a IA) troca o engine.
+        // simulador, re-sincroniza quando o usuario (ou a IA) troca o engine.
         // O evento e dispatchado em window por simulator_toggle.js.
         window.addEventListener('aurora:wave-simulator-changed', () => {
             syncToolbarEnabledState();
@@ -842,7 +853,7 @@ class CompilationFlowManager {
      * Re-sincroniza os botoes apos um run/cancel. cmmcomp segue regra
      * propria (.cmm em foco); os demais seguem o estado do design
      * (top-level/testbench/processador) via syncToolbarEnabledState.
-     * allcomp (Full Build) fica escondido no DOM — mantido habilitado.
+     * allcomp (Full Build) fica escondido no DOM, mantido habilitado.
      */
     updateButtonStates() {
         const allcomp = document.getElementById('allcomp');
@@ -862,7 +873,7 @@ class CompilationFlowManager {
         } catch (error) {
             console.error('Compilation error:', error);
             // Without this, a Cancel during Full Build leaves no card in
-            // the terminal — the inner step that threw was past its own
+            // the terminal, the inner step that threw was past its own
             // try/catch by the time cancellation bubbled. Route through
             // logFatalError so cancellations render as the friendly
             // info card (and real errors as Erro Fatal).
@@ -883,7 +894,7 @@ class CompilationFlowManager {
         statusUpdater.beginRun(step);
         try {
             switch (step) {
-                // 'verilator' (top-level harness) intencionalmente fora —
+                // 'verilator' (top-level harness) intencionalmente fora:
                 // o botao foi removido da toolbar (commit 5121cc2) e
                 // handleVerilatorStep nao existe mais. 'verilator-proc'
                 // (Verilator no processador CMM) continua suportado.
@@ -908,15 +919,30 @@ class CompilationFlowManager {
         }
     }
 
+    /**
+     * Uma execucao esta em curso? `activeRunStep` ja guardava isso; faltava
+     * quem lesse de fora.
+     */
+    isRunning() { return activeRunStep !== null; }
+
+    /**
+     * A ultima execucao foi cancelada pelo usuario?
+     *
+     * A bandeira zera no inicio da proxima compilacao, entao ela responde
+     * sobre a ultima, que e exatamente a pergunta que a IA precisa fazer
+     * quando um resultado nao chegou.
+     */
+    wasCancelled() { return compilationCanceled; }
+
     cancelAll() {
         const tm = getTM();
         const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
         const activeTerminalId = activeId ? `terminal-${activeId}` : 'tcmm';
 
-        // Already cancelling — surface the same "ack" message instead of
+        // Already cancelling, surface the same "ack" message instead of
         // silently doing nothing on a second click. Without this, the user
         // clicks Cancel, nothing visible happens (the cancellation hasn't
-        // propagated yet), they click again — and the second click looks
+        // propagated yet), they click again, and the second click looks
         // like a dead button.
         if (compilationCanceled) {
             tm?.appendToTerminal?.(
@@ -941,6 +967,17 @@ class CompilationFlowManager {
         );
 
         statusUpdater.cancelRun();
+
+        // A IA precisa saber. Ela ja recebia o fim normal de uma compilacao,
+        // mas nao o cancelamento, entao um turno que pediu para compilar ficava
+        // esperando um resultado que nunca viria e concluia sozinho que algo
+        // travou. O evento sai daqui, do ponto onde o usuario cancela, e nao do
+        // compileNs.cancel, porque este e o caminho do BOTAO: cancelar pela
+        // ferramenta da IA ja passava por la, cancelar clicando nao passava.
+        try {
+            window.AuroraAPI?.events?.emit?.('compile:cancelled', { by: 'user' });
+        } catch (_) { /* a API pode nao ter subido ainda */ }
+
         electronAPI.cancelVvpProcess()
             .then((result) => {
                 // Main reports "no compilation process running" when the
@@ -961,4 +998,4 @@ class CompilationFlowManager {
 }
 
 const compilationFlowManager = new CompilationFlowManager();
-export { compilationFlowManager, checkCancellation };
+export { compilationFlowManager };

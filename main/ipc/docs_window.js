@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * docs_window.js — o manual do SAPHO dentro da AURORA, numa janela própria.
+ * docs_window.js: o manual do SAPHO dentro da AURORA, numa janela própria.
  *
  * Por que existe: quem tem internet abre o manual no navegador e ganha abas,
  * busca e favoritos de graça. Quem não tem, ou está numa máquina onde a

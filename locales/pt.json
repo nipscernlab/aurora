@@ -35,20 +35,20 @@
     },
     "simulatorSwitch": {
       "aria": "Motor de simulação",
-      "iverilog": "Simular com Icarus Verilog — simulações curtas",
-      "verilator": "Simular com Verilator — simulações longas"
+      "iverilog": "Simular com Icarus Verilog, simulações curtas",
+      "verilator": "Simular com Verilator, simulações longas"
     },
     "verilatorProc": {
       "tooltip": "Teste do processador sintetizado (somente I/O)"
     },
     "fastSim": {
-      "tooltip": "Execução rápida — sem onda (Verilator / cocotb)"
+      "tooltip": "Execução rápida, sem onda (Verilator / cocotb)"
     },
     "waveConfig": {
-      "tooltip": "Configuração de ondas — selecionar sinais para dump"
+      "tooltip": "Configuração de ondas, selecionar sinais para dump"
     },
     "gtkwPicker": {
-      "tooltip": "Arquivo de save GTKWave (.gtkw) ativo — usado ao abrir o GTKWave",
+      "tooltip": "Arquivo de save GTKWave (.gtkw) ativo, usado ao abrir o GTKWave",
       "default": "padrão",
       "add": "+ Adicionar arquivo .gtkw...",
       "noProject": "Nenhum projeto carregado",
@@ -70,7 +70,7 @@
     },
     "splitEditor": {
       "tooltipDisabled": "Abra um arquivo primeiro para habilitar a divisão",
-      "tooltipEnabled": "Dividir editor — abre o arquivo atual em um novo painel",
+      "tooltipEnabled": "Dividir editor, abre o arquivo atual em um novo painel",
       "tooltipMax": "Máximo de 3 painéis atingido"
     },
     "ai": {
@@ -83,7 +83,7 @@
       "files": "Arquivos",
       "hierarchy": "Hierarquia",
       "folders": "Pastas",
-      "cycleTooltip": "Visão da árvore: {{mode}} — clique para alternar",
+      "cycleTooltip": "Visão da árvore: {{mode}}, clique para alternar",
       "disabledTooltip": "Abra um projeto para navegar pelos arquivos"
     },
     "newVerilog": {
@@ -192,6 +192,7 @@
       "close": "Fechar Modal",
       "sectionSignals": "Sinais para Dump",
       "hint": "Selecione quais sinais serão escritos no VCD e mostrados no GTKWave ao clicar em Wave. Padrão (sem seleção): todos declarados no escopo do módulo testbench.",
+      "hintVerilator": "Verilator selecionado: ele grava por escopo, não por sinal. Todo sinal público de um módulo com ao menos um sinal selecionado entra no dump; módulos sem nada selecionado ficam fora. O escopo do testbench é sempre gravado.",
       "filterPlaceholder": "Filtrar sinais (Ctrl+F)",
       "filterAriaLabel": "Filtrar sinais",
       "filterCase": "Diferenciar maiúsc./minúsc.",
@@ -206,6 +207,7 @@
       "clear": "Limpar",
       "emptyState": "Nenhum sinal descoberto. Verifique se o projeto tem um arquivo top-level sintetizável (e idealmente um testbench).",
       "showProcessorOnly": "Mostrar apenas sinais do processador",
+      "surferInTab": "Surfer: abrir a onda como aba do editor",
       "surferMultiWindow": "Surfer: manter janelas abertas para comparar simulações (várias janelas)",
       "selectedCountOne": "1 sinal selecionado",
       "selectedCountOther": "{{count}} sinais selecionados",
@@ -265,6 +267,9 @@
       "shortcutInUse": "Este atalho já está em uso.",
       "reset": "Restaurar Padrões",
       "save": "Salvar Alterações",
+      "sectionComponents": "Componentes",
+      "componentsIntro": "O que compila e simula vem no instalador. O resto você baixa quando for usar, e pode remover para recuperar espaço.",
+      "componentsOpenFolder": "Abrir a pasta",
       "sectionAbout": "Sobre",
       "aboutTagline": "Processador de Arquitetura Escalável para Otimização de Hardware",
       "aboutVersion": "Versão",
@@ -314,13 +319,75 @@
       "aiRemoved": "Chave removida.",
       "aiTesting": "Testando conexão…",
       "aiEnterKey": "Insira uma chave primeiro.",
-      "aiTestOk": "Conectado — {{ms}} ms.",
+      "aiTestOk": "Conectado, {{ms}} ms.",
       "aiModel": "Modelo",
       "aiModelSet": "Modelo atualizado.",
       "auroraBg": "Aurora Boreal na tela de Boas-vindas",
       "auroraBgDescription": "Fundo animado de aurora atrás da tela de Boas-vindas. É desenhado na GPU em laço contínuo; vem desligado para poupar bateria e não pesar em máquina mais fraca.",
       "aboutLicense": "Licenca NIPS-CERN 1.1",
-      "aboutBugReport": "Relatar um problema"
+      "networkWarning": "Avisar quando a internet cair",
+      "networkWarningDescription": "Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede.",
+      "githubForget": "Sair do GitHub e do GitLab e limpar agora",
+      "githubForgetDescription": "Remove o acesso das duas contas salvo pela AURORA e também o que o git do Windows guardou, sem esperar você fechar.",
+      "githubForgetAction": "Limpar agora",
+      "githubForgetOnExit": "Limpar o acesso ao GitHub e ao GitLab ao fechar a AURORA",
+      "githubForgetOnExitDescription": "Em computador compartilhado, deixe ligado: ao fechar, as duas contas saem daqui e do git do Windows, sem depender de alguém lembrar.",
+      "componentsUpdate": "Atualizar",
+      "componentsUpdatesAvailable": "{n} com atualização disponível ({mb} de download).",
+      "componentsInstalled": "Instalado",
+      "componentsMissing": "Não instalado",
+      "componentsOutdated": "Atualização disponível",
+      "componentsAlways": "Vem no instalador",
+      "componentsNeededToCompile": "Necessário para compilar",
+      "componentsSelectOne": "Selecionar {nome} para baixar em lote",
+      "componentsQueueSummary": "{n} selecionados, {mb} no total.",
+      "componentsQueueGo": "Baixar selecionados",
+      "componentsQueueClear": "Limpar seleção",
+      "componentsQueueDone": "{n} componente(s) instalado(s).",
+      "componentsQueuePartial": "{ok} de {total} instalados. Não entraram: {lista}. Marque de novo para tentar só esses.",
+      "componentsDownload": "Baixar",
+      "componentsRemove": "Remover",
+      "componentsAllInstalled": "Tudo instalado.",
+      "componentsAvailable": "{n} disponíveis para baixar, {mb} no total.",
+      "componentsDownloadOf": "download de {mb}",
+      "componentsInstalledOk": "Componente instalado.",
+      "componentsInstallFailed": "Não foi possível baixar: {erro}",
+      "componentsRemoveTitle": "Remover {nome}",
+      "componentsRemoveBody": "Os arquivos de {nome} saem do disco, e o que depende dele para de funcionar. Para ter {nome} de volta é preciso baixar de novo ({mb} de download), e numa rede lenta isso custa tempo.\n\nSeus projetos não são tocados.",
+      "componentsRemoveConfirm": "Remover",
+      "componentsRemoved": "{nome} removido, {mb} livres.",
+      "componentsRemoveFailed": "Não foi possível remover: {erro}",
+      "componentsBusy": "Já há um download em andamento.",
+      "componentsMissingTitle": "Componente não instalado",
+      "componentsNotNow": "Agora não",
+      "componentsDownloadNow": "Baixar agora",
+      "componentsCancel": "Cancelar",
+      "componentsReadFailed": "Não foi possível ler os componentes: {erro}",
+      "componentsCompileMissing": "Esta máquina ainda não compila: falta baixar {nome} ({mb} de download). Sem ele, os botões de compilar e simular não funcionam. Você encontra tudo em Configurações, Componentes.",
+      "componentsCompileMissingTitle": "Cadeia de compilação ausente",
+      "bugReportRow": "Relatar um problema",
+      "bugReportRowDescription": "Descreva o que aconteceu e envie direto para o NIPS-CERN. A tela mostra tudo que vai junto antes de enviar.",
+      "bugReportAction": "Relatar",
+      "componentsDoctor": "Verificar e consertar",
+      "componentsDoctorTitle": "Verificar os componentes",
+      "componentsDoctorBody": "A AURORA vai limpar os caches de compilação, conferir os arquivos de cada componente e re-baixar o que estiver incompleto ou quebrado. Componente saudável não é tocado, e componente opcional que você nunca baixou continua de fora.\n\nSe algo estiver quebrado, o conserto pode ser um download grande.",
+      "componentsDoctorGo": "Verificar agora",
+      "componentsDoctorHealthy": "Tudo em ordem: caches limpos e todos os componentes íntegros.",
+      "componentsDoctorFixed": "Verificação concluída: {n} componente(s) consertado(s).",
+      "componentsDoctorFailed": "A verificação não conseguiu consertar: {lista}. Confira a internet e tente de novo.",
+      "componentsDoctorNoScripts": "A pasta de instaladores (components/Scripts) não está nesta máquina, e sem ela o doctor não consegue consertar nada. Reinstale o SAPHO pelo instalador do site.",
+      "sectionManual": "Manual",
+      "manualIntro": "O manual do SAPHO vem junto com a AURORA e abre sem internet. Ele se atualiza sozinho quando saem correções, sem esperar uma versão nova do programa.",
+      "manualChecking": "Verificando…",
+      "manualInstalled": "Neste computador",
+      "manualMissing": "Não está neste computador",
+      "manualVersion": "versão {v}",
+      "manualOpenHere": "Abrir na AURORA",
+      "manualOpenBrowser": "Abrir no navegador",
+      "manualCheckUpdate": "Procurar atualização",
+      "manualUpdated": "Manual atualizado para a versão {v}.",
+      "manualUpToDate": "O manual já está atualizado.",
+      "manualUpdateFailed": "Não foi possível alcançar o servidor da documentação. O manual deste computador continua funcionando."
     }
   },
   "shortcuts": {
@@ -371,7 +438,9 @@
       "projectNotFoundTitle": "Projeto Não Encontrado",
       "projectNotFoundMessage": "O projeto aberto anteriormente não pôde ser encontrado.",
       "restoreErrorTitle": "Erro ao Restaurar Sessão",
-      "restoreErrorMessage": "Não foi possível restaurar sua sessão anterior: {{error}}"
+      "restoreErrorMessage": "Não foi possível restaurar sua sessão anterior: {{error}}",
+      "projectNotFoundToast": "O último projeto não foi encontrado no disco e não foi reaberto. Ele aparece riscado na lista de recentes.",
+      "restoreErrorToast": "Não foi possível reabrir o último projeto: {{error}}"
     },
     "project": {
       "loadErrorTitle": "Erro ao Carregar Projeto",
@@ -400,7 +469,7 @@
     },
     "dismissMissing": {
       "title": "Dispensar o aviso de arquivos faltantes?",
-      "message": "{{count}} arquivo(s) referenciado(s) por este projeto não existem mais no disco. Dispensar remove essas referências do projeto (o .spf) — faça isso apenas se você apagou os arquivos de propósito. Os arquivos já não existem; isto só faz a AURORA parar de sinalizá-los. Esta ação não pode ser desfeita.",
+      "message": "{{count}} arquivo(s) referenciado(s) por este projeto não existem mais no disco. Dispensar remove essas referências do projeto (o .spf), faça isso apenas se você apagou os arquivos de propósito. Os arquivos já não existem; isto só faz a AURORA parar de sinalizá-los. Esta ação não pode ser desfeita.",
       "fallbackPrompt": "Remover as referências de arquivos faltantes deste projeto? Esta ação não pode ser desfeita.",
       "cancel": "Manter aviso",
       "confirm": "Remover referências"
@@ -431,14 +500,16 @@
     "success": "Compilação {{name}} bem-sucedida",
     "failed": "Compilação {{name}} falhou",
     "failedWithError": "Compilação {{name}} falhou: {{error}}",
-    "cancelRequested": "Cancelamento solicitado — encerrando processos em execução...",
+    "cancelRequested": "Cancelamento solicitado, encerrando processos em execução...",
     "cancelInProgress": "Cancelamento já em andamento, aguarde...",
     "cancelledByUser": "Compilação cancelada pelo usuário.",
-    "nothingToCancel": "Nada a cancelar — nenhuma compilação ou simulação está em execução.",
+    "nothingToCancel": "Nada a cancelar, nenhuma compilação ou simulação está em execução.",
     "cancelled": "Compilação cancelada"
   },
   "editor": {
-    "lineCol": "Ln {{line}}, Col {{col}}"
+    "lineCol": "Ln {{line}}, Col {{col}}",
+    "formatTimeout": "Formatar desistiu: o formatador não terminou a tempo. O arquivo ficou como estava.",
+    "bootFailed": "O editor de código não conseguiu iniciar ({{error}}). Reinicie o SAPHO; se repetir, reinstale."
   },
   "tabs": {
     "close": "Fechar",
@@ -461,8 +532,8 @@
   "notification": {
     "simulator": {
       "title": "Simulador alterado",
-      "iverilog": "Agora usando <strong>Icarus Verilog</strong> (vvp) — ideal para simulações curtas; expõe os sinais internos do processador.",
-      "verilator": "Agora usando <strong>Verilator</strong> — compila um binário nativo (~5–10× mais rápido em sims longas); apenas sinais de topo da testbench ficam visíveis."
+      "iverilog": "Agora usando <strong>Icarus Verilog</strong> (vvp), ideal para simulações curtas; expõe os sinais internos do processador.",
+      "verilator": "Agora usando <strong>Verilator</strong>, compila um binário nativo (~5–10× mais rápido em sims longas); apenas sinais de topo da testbench ficam visíveis."
     },
     "ai": {
       "fileNotFound": "Arquivo não encontrado no projeto: {{name}}",
@@ -472,7 +543,7 @@
     "tree": {
       "noFilesDropped": "Nenhum arquivo arrastado",
       "cannotGetPath": "Não foi possível obter o caminho de \"{{name}}\".",
-      "rejectedExt": "\"{{name}}\" foi rejeitado — apenas arquivos Verilog (.v, .sv, .vh) e testbenches cocotb (.py) pertencem à árvore.{{hint}}",
+      "rejectedExt": "\"{{name}}\" foi rejeitado, apenas arquivos Verilog (.v, .sv, .vh) e testbenches cocotb (.py) pertencem à árvore.{{hint}}",
       "gtkwHint": " Use o seletor de .gtkw da toolbar (+ Adicionar arquivo .gtkw...).",
       "fileNotExist": "Arquivo não existe: {{path}}",
       "errorValidating": "Erro ao validar \"{{name}}\"",
@@ -489,6 +560,7 @@
       "alreadyDeleted": "Arquivo \"{{name}}\" já havia sido excluído",
       "errorDeleting": "Erro ao excluir \"{{name}}\": {{error}}",
       "removed": "\"{{name}}\" removido",
+      "removeFailed": "Não foi possível remover \"{{name}}\" do projeto: {{error}}",
       "setAsTop": "\"{{name}}\" definido como Top Level",
       "topRemoved": "Top Level removido de \"{{name}}\"",
       "markedTb": "\"{{name}}\" marcado como Testbench",
@@ -516,7 +588,7 @@
     "veri": {
       "fileNotFound": "Arquivo não encontrado: {{path}}",
       "failedToOpen": "Falha ao abrir arquivo: {{message}}",
-      "hdlListWarn": "Aviso: não foi possível listar {{path}} — biblioteca SAPHO não incluída na hierarquia.",
+      "hdlListWarn": "Aviso: não foi possível listar {{path}}, biblioteca SAPHO não incluída na hierarquia.",
       "hierarchyGen": "Gerando hierarquia do projeto com Yosys...",
       "hierarchySuccess": "Hierarquia do projeto gerada com sucesso",
       "hierarchyError": "Erro ao gerar hierarquia do projeto: {{message}}",
@@ -545,15 +617,15 @@
       "noHierarchyData": "Sem dados de hierarquia. Compile o Verilog primeiro."
     },
     "htest": {
-      "start": "Teste de hardware: \"{{name}}\" — iniciando ({{clocks}} clocks)",
+      "start": "Teste de hardware: \"{{name}}\", iniciando ({{clocks}} clocks)",
       "genCpp": "Gerando o harness C++ de \"{{name}}\"...",
       "exec": "Executando",
       "reads": "leituras",
       "openFolder": "Abrir esta pasta na file tree (visão de pastas)",
-      "toaquiAdded": "Adicionei #TOAQUI antes do } que fecha o main() em {{file}} — o pino 'cheguei' agora pulsa no fim do programa, então a simulação encerra assim que o programa termina.",
-      "toaquiPresent": "{{file}} já tem um #TOAQUI — mantido como está.",
-      "toaquiNoMain": "Não encontrei o } que fecha o main() em {{file}} — #TOAQUI não adicionado; a simulação vai rodar o teto de clocks inteiro.",
-      "chegueiEnd": "Fim do programa alcançado no clock {{clock}} (pino cheguei) — simulação encerrada antes do teto."
+      "toaquiAdded": "Adicionei #TOAQUI antes do } que fecha o main() em {{file}}, o pino 'cheguei' agora pulsa no fim do programa, então a simulação encerra assim que o programa termina.",
+      "toaquiPresent": "{{file}} já tem um #TOAQUI, mantido como está.",
+      "toaquiNoMain": "Não encontrei o } que fecha o main() em {{file}}, #TOAQUI não adicionado; a simulação vai rodar o teto de clocks inteiro.",
+      "chegueiEnd": "Fim do programa alcançado no clock {{clock}} (pino cheguei), simulação encerrada antes do teto."
     },
     "cmd": {
       "placeholder": "Rode um comando (python, git, cd …) e tecle Enter"
@@ -567,35 +639,39 @@
       "gtkwStaleSignalMany": "{{count}} sinais referenciados por {{file}} não existem mais e foram omitidos do $dumpvars: {{preview}}{{more}}.",
       "gtkwReadError": "Não foi possível ler o .gtkw selecionado ({{file}}): {{message}}. Caindo para Configuração de Ondas / padrão.",
       "waveSource": "Fonte das ondas: {{label}}",
+      "verilatorScopeRules": "Verilator: dump limitado aos escopos selecionados ({{on}} mantidos, {{off}} desligados pelo .vlt)",
+      "fopenMissing": "O testbench abre {{path}} para leitura e esse arquivo não existe. O $fopen vai devolver 0 e a simulação lerá entrada vazia.",
+      "invalidFd": "O simulador está lendo ou escrevendo num arquivo que nunca abriu ($fopen devolveu 0). Confira os caminhos dos $fopen no testbench; esse erro se repete a cada ciclo de clock.",
+      "onBattery": "Este laptop está na bateria: o Windows reduz o clock da CPU e a simulação vai demorar mais. Conectar na tomada (e escolher um modo de energia de desempenho) acelera.",
       "sourceLabelGtkw": "do .gtkw selecionado ({{count}} sinal(is))",
       "sourceLabelWc": "da Configuração de Ondas ({{count}} sinal(is))",
       "sourceLabelTb": "testbench controla $dumpvars (escrito à mão, sem sobrescrita)",
-      "sourceLabelDefault": "padrão ($dumpvars(1, <tb>) — sinais no escopo do testbench)",
-      "overrideUserDumpvars": "Nota: $dumpfile/$dumpvars escrito à mão no testbench foi comentado — $dumpvars da AURORA assume.",
+      "sourceLabelDefault": "padrão ($dumpvars(1, <tb>), sinais no escopo do testbench)",
+      "overrideUserDumpvars": "Nota: $dumpfile/$dumpvars escrito à mão no testbench foi comentado, $dumpvars da AURORA assume.",
       "bannerSim": "Simulação & GTKWave",
       "buildingVvp": "Construindo VVP para simulação...",
       "runningVvp": "Executando simulação VVP...",
       "buildingVerilator": "Compilando design com Verilator (--binary --trace-fst)...",
       "runningVerilator": "Executando binário Verilator...",
-      "fastBanner": "Fast Sim — Verilator, sem onda.",
+      "fastBanner": "Fast Sim, Verilator, sem onda.",
       "fastBuilding": "Compilando com Verilator (sem trace)...",
       "fastDone": "Fast Sim concluído: {{name}}.",
       "verilatorSimulator": "Usando simulador: Verilator.",
       "iverilogSimulator": "Usando simulador: Icarus Verilog (vvp).",
       "cocotbSimulator": "Usando testbench: cocotb Python + {{sim}}.",
       "cocotbToplevelDirective": "DUT do cocotb via '# aurora-toplevel': {{module}}.",
-      "cocotbToplevelFallback": "Sem diretiva '# aurora-toplevel: <modulo>' em {{file}} — usando o top-level do projeto '{{module}}' como DUT do cocotb. Adicione esse comentario no .py para mirar um modulo especifico.",
+      "cocotbToplevelFallback": "Sem diretiva '# aurora-toplevel: <modulo>' em {{file}}, usando o top-level do projeto '{{module}}' como DUT do cocotb. Adicione esse comentario no .py para mirar um modulo especifico.",
       "runningCocotb": "Executando testbench cocotb com {{sim}}...",
-      "cocotbTestsFailed": "cocotb: um ou mais testes FALHARAM. A forma de onda vai abrir mesmo assim, para você inspecionar o que aconteceu — veja no log acima qual asserção falhou.",
+      "cocotbTestsFailed": "cocotb: um ou mais testes FALHARAM. A forma de onda vai abrir mesmo assim, para você inspecionar o que aconteceu, veja no log acima qual asserção falhou.",
       "cocotbVcd": "VCD do cocotb gerado: {{name}}",
       "procPicked": "Vários processadores ({{count}}); usando \"{{name}}\". Defina o top-level pra escolher outro.",
-      "procPorts": "Verilator (processador CMM) — descobrindo pinos de \"{{name}}\" (--json-only)",
-      "procNoPorts": "Aviso: o processador não declara portas de I/O — só vai dar clock (sem leitura/escrita de arquivo).",
+      "procPorts": "Verilator (processador CMM), descobrindo pinos de \"{{name}}\" (--json-only)",
+      "procNoPorts": "Aviso: o processador não declara portas de I/O, só vai dar clock (sem leitura/escrita de arquivo).",
       "procWiring": "Fiação de I/O → entradas: {{inputs}} | saídas: {{outputs}} | {{itr}}",
       "procBuilding": "Compilando o harness do processador (--cc --exe --build)...",
       "procRunning": "Rodando \"{{name}}\" por {{clocks}} clocks...",
       "procDone": "Concluído. Saídas escritas em {{dir}}: {{outputs}}",
-      "noMemFiles": "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador — rode C± pelo menos uma vez para cada processador antes de simular.",
+      "noMemFiles": "Aviso: nenhum pc_*_mem.txt encontrado em subdiretórios de {{path}}. Esses arquivos são gerados pelo compilador C± (cmmcomp) por processador, rode C± pelo menos uma vez para cada processador antes de simular.",
       "couldNotList": "Aviso: não foi possível listar {{path}} para preparar arquivos de memória do processador.",
       "copyMemFailed": "Aviso: falha ao copiar {{name}} de {{path}}",
       "couldNotStageTbFile": "Aviso: não foi possível preparar \"{{name}}\" referenciado pelo testbench ({{reason}}).",
@@ -603,9 +679,9 @@
       "usingGtkwFile": "Usando arquivo GTKWave save: {{name}}",
       "staleVcdSignalOne": "Nota: {{preview}} estava marcado na Configuração de Ondas mas não está no VCD gerado; omitido do layout .gtkw.",
       "staleVcdSignalMany": "Nota: {{count}} sinais marcados na Configuração de Ondas não estão no VCD gerado e foram omitidos do layout .gtkw: {{preview}}{{more}}.",
-      "verilatorNoProcSignals": "Verilator não expõe os sinais internos de monitoramento do processador {{proc}} (stack/ULA) — use Icarus Verilog para vê-los.",
+      "verilatorNoProcSignals": "Verilator não expõe os sinais internos de monitoramento do processador {{proc}} (stack/ULA), use Icarus Verilog para vê-los.",
       "autoGtkwLayout": "Layout GTKWave gerado automaticamente ({{detail}})",
-      "autoGtkwError": "Aviso: não foi possível gerar .gtkw automaticamente — {{message}}",
+      "autoGtkwError": "Aviso: não foi possível gerar .gtkw automaticamente, {{message}}",
       "headerFallback": "Nota: captura do header por streaming indisponível; convertendo a waveform inteira para ler o header (mais lento).",
       "parseSourcesNote": "Nota: não foi possível parsear as fontes do projeto ({{message}}); caindo para heurísticas baseadas em nome de escopo para detecção de processadores.",
       "gtkwStaleVcdOne": "Nota: {{preview}} é referenciado por {{file}} mas não está no VCD gerado; GTKWave mostrará um traço vazio.",
@@ -615,10 +691,15 @@
       "launched": "GTKWave aberto com sucesso",
       "surferLaunching": "Abrindo Surfer...",
       "surferLaunched": "Surfer aberto com sucesso",
+      "surferTabOpened": "Onda aberta na aba do Surfer",
+      "surferTabNoBundle": "O modo aba do Surfer precisa do componente web (Configurações, Componentes) — abrindo a janela nativa.",
       "hierarchyGen": "Gerando hierarquia com Yosys...",
       "yosysRun": "Executando comando Yosys: {{cmd}}",
-      "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}"
-    }
+      "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}",
+      "progress": "Simulação",
+      "progressBuild": "Compilação"
+    },
+    "openComponents": "Abrir Componentes"
   },
   "error": {
     "config": {
@@ -642,13 +723,16 @@
       "vvpNotGenerated": "Arquivo VVP não foi gerado",
       "vvpNotProduced": "Arquivo VVP não foi produzido pela compilação: {{path}}",
       "vvpFailed": "Simulação VVP falhou com código {{code}}",
+      "dumpLockedBusy": "O arquivo de onda {{file}} da simulação anterior está aberto em outro programa (código {{code}}), e o simulador não conseguiria reescrevê-lo. Feche o visualizador de ondas (GTKWave/Surfer) e simule de novo. Nada foi simulado.",
+      "dumpLockedDenied": "O arquivo de onda {{file}} da simulação anterior não pode ser sobrescrito (código {{code}}): está somente-leitura, ou o antivírus/política do administrador está bloqueando escrita em arquivos existentes na pasta do projeto. Remova o atributo somente-leitura, ou peça ao administrador do laboratório para liberar a escrita da toolchain SAPHO na pasta do projeto. Nada foi simulado.",
+      "dumpStale": "A simulação terminou, mas {{file}} não foi reescrito: ele ainda contém uma rodada ANTERIOR, então a Aurora não o abriu. Apague o arquivo e simule de novo; se repetir, o antivírus ou uma política de pasta está bloqueando em silêncio a escrita do simulador na pasta do projeto.",
       "gtkwaveFailed": "Falha ao abrir GTKWave: {{message}}",
       "pythonTbInVerilogMode": "Testbench Python selecionado. A simulacao Wave usa cocotb automaticamente; selecione um testbench Verilog para usar o fluxo VVP/Verilog.",
       "cocotbRequiresPythonTb": "O modo cocotb exige um testbench .py marcado como top-level de testbench.",
       "cocotbRequiresTop": "O modo cocotb exige um arquivo Verilog top-level sintetizavel marcado como top-level.",
-      "cocotbPythonMissing": "Runtime Python interno da AURORA nao foi encontrado. Execute npm run bootstrap ou reinstale a AURORA para restaurar components/Packages/msys.",
-      "cocotbPackageMissing": "Python foi encontrado em {{path}}, mas o pacote cocotb nao esta instalado no runtime usado. Execute npm run bootstrap para restaurar o Python interno da AURORA.",
-      "cocotbVersionMismatch": "O Python interno da AURORA encontrou cocotb {{found}}, mas a versao esperada e {{expected}}. Execute npm run bootstrap para restaurar a versao encapsulada.",
+      "cocotbPythonMissing": "O Python embarcado da AURORA não foi encontrado. Abra Configurações, Componentes, e baixe a Cadeia de compilação para restaurá-lo.",
+      "cocotbPackageMissing": "Python foi encontrado em {{path}}, mas o pacote cocotb não está instalado nesse runtime. Abra Configurações, Componentes, e baixe a Cadeia de compilação de novo para restaurar o Python interno.",
+      "cocotbVersionMismatch": "O Python interno encontrou cocotb {{found}}, mas a versão esperada é {{expected}}. Abra Configurações, Componentes, e baixe a Cadeia de compilação de novo para restaurar a versão encapsulada.",
       "cocotbFailed": "Simulacao cocotb falhou com codigo {{code}}.",
       "cocotbNoWave": "cocotb terminou, mas nenhum waveform .fst/.vcd foi encontrado em {{path}}.",
       "cocotbFst2vcdFailed": "fst2vcd falhou com codigo {{code}} ao converter o waveform do cocotb.",
@@ -666,8 +750,8 @@
       "procTbMissing": "Testbench do processador não encontrado: {{path}}. Rode C± primeiro para gerar o _tb.v."
     },
     "toolchain": {
-      "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nO bundle da toolchain não está instalado. Rode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-msys-v1.zip ~285 MB).",
-      "verilatorNotFound": "Bundle Verilator não encontrado:\n{{paths}}\n\nRode `npm run bootstrap` na raiz do projeto pra baixar e instalar (aurora-msys-v1.zip ~285 MB)."
+      "iverilogNotFound": "Binário Icarus Verilog não encontrado em:\n  {{path}}\n\nA Cadeia de compilação não está instalada nesta máquina.",
+      "verilatorNotFound": "Bundle Verilator não encontrado:\n{{paths}}\n\nA Cadeia de compilação não está instalada nesta máquina."
     },
     "user": {
       "cancelled": "Compilação cancelada pelo usuário"
@@ -722,6 +806,16 @@
       "generateProcessor": "Cria o processador com a configuração especificada."
     }
   },
+  "statusbar": {
+    "power": {
+      "onBattery": "Na bateria ({{level}}%): o Windows reduz o clock da CPU e a simulação fica mais lenta. Clique para detalhes.",
+      "plugged": "Na tomada ({{level}}%): desempenho completo disponível.",
+      "dialogTitle": "Energia e velocidade de simulação",
+      "dialogOnBattery": "Este laptop está na bateria. O Windows reduz o clock da CPU para economizar energia, então compilações e simulações demoram visivelmente mais, e uma corrida longa pode ser interrompida se a máquina suspender. Conectar na tomada devolve a velocidade completa; nas configurações de energia do Windows dá para escolher um modo de desempenho e manter a tela ligada em corridas longas. A AURORA já mantém a máquina acordada enquanto uma compilação roda.",
+      "dialogPlugged": "Esta máquina está na tomada, então a CPU roda na velocidade completa. Para simulações longas ainda dá para escolher um modo de desempenho nas configurações de energia do Windows. A AURORA já mantém a máquina acordada enquanto uma compilação roda.",
+      "openSettings": "Abrir configurações de energia do Windows"
+    }
+  },
   "welcome": {
     "tagline": "Processador de Arquitetura Escalável para Otimização de Hardware",
     "sectionStart": "Início",
@@ -730,8 +824,23 @@
     "sectionRecent": "Recentes",
     "noRecent": "Nenhum projeto recente",
     "forgetMissing": "Esquecer ausentes",
+    "locateMissing": "Localizar ausentes",
+    "locateMissingTitle": "Procura neste computador os arquivos .spf que sumiram",
+    "locate": "Localizar este projeto no disco",
+    "locating": "Procurando…",
+    "locateCancel": "Cancelar",
+    "locateFound": "Encontrado: {{path}}",
+    "locateNotFound": "Alguns projetos não foram encontrados nesta máquina.",
+    "clickMissingTitle": "Projeto não encontrado",
+    "clickMissingMessage": "O arquivo do projeto \"{{name}}\" não foi encontrado no disco. Ele fica riscado na lista de recentes; use a lupa para procurá-lo neste computador.",
+    "removeRecent": "Tirar dos recentes",
     "forgetMissingTitle": "Remove da lista os projetos que nao existem mais",
-    "missingHint": "Este projeto nao foi encontrado no disco."
+    "missingHint": "Este projeto nao foi encontrado no disco.",
+    "examples": "Projetos de exemplo",
+    "examplesDone": "Projetos de exemplo criados em",
+    "examplesSkipped": "já existiam",
+    "examplesAllSkipped": "Os exemplos já estavam nessa pasta.",
+    "examplesFailed": "Não foi possível criar os projetos de exemplo."
   },
   "terminalWelcome": {
     "tcmm": "Bem-vindo ao terminal TCMM!",
@@ -792,14 +901,16 @@
     "fetch": "Fetch",
     "refresh": "Atualizar",
     "publish": "Publicar",
-    "publishHead": "Sem remoto — publicar no GitHub",
+    "publishHead": "Sem remoto, publicar no GitHub",
     "repoNamePlaceholder": "nome do repositório",
     "private": "Privado",
     "public": "Público",
-    "tokenHint": "Para criar repositórios o token precisa ser CLÁSSICO com o escopo repo — github.com/settings/tokens/new",
+    "tokenHint": "Para criar repositórios o token precisa ser CLÁSSICO com o escopo repo, github.com/settings/tokens/new",
+    "tokenHintGitlab": "Para criar projetos o token do GitLab precisa do escopo api.",
     "connect": "Conectar",
     "disconnect": "Desconectar",
     "tokenPlaceholder": "Token clássico do GitHub (escopo repo)",
+    "tokenPlaceholderGitlab": "Token do GitLab (escopo api)",
     "clone": "Clonar",
     "cloneRepos": "Seus repositórios",
     "chooseLocation": "Escolher local",
@@ -808,7 +919,7 @@
     "newBranchPlaceholder": "novo branch",
     "create": "Criar",
     "branches": "Branches",
-    "treeClean": "Árvore de trabalho limpa — sem alterações.",
+    "treeClean": "Árvore de trabalho limpa, sem alterações.",
     "noChanges": "Nada para commitar.",
     "openProject": "Abra um projeto para usar o controle de versão.",
     "notRepo": "Este projeto ainda não é um repositório Git.",
@@ -824,8 +935,8 @@
     "invalidPath": "O caminho não pode conter espaços ou caracteres especiais.",
     "noTextDiff": "Sem diferenças textuais.",
     "noDiffYet": "Sem diferenças (um arquivo novo aparece depois do stage, ou é binário).",
-    "binaryNotShown": "Arquivo binário — diff não exibido.",
-    "largeDiff": "Alteração grande — diff oculto para manter a interface fluida.",
+    "binaryNotShown": "Arquivo binário, diff não exibido.",
+    "largeDiff": "Alteração grande, diff oculto para manter a interface fluida.",
     "showAnyway": "Mostrar a primeira parte",
     "switchBranch": "Trocar de branch",
     "dirtySwitchMsg": "Você tem alterações não commitadas que seriam sobrescritas. Guardar (stash) e trocar? Você pode restaurá-las depois pelo menu de branches.",
@@ -838,19 +949,22 @@
     "discarded": "Stash descartado",
     "stashDropConfirm": "Descartar as alterações guardadas? Isto não pode ser desfeito.",
     "noFileChanges": "Nenhuma alteração de arquivo neste commit.",
-    "diffTruncated": "Diff grande — mostrando apenas a primeira parte.",
+    "diffTruncated": "Diff grande, mostrando apenas a primeira parte.",
     "fileOne": "arquivo",
     "fileMany": "arquivos",
     "cancel": "Cancelar",
     "disconnectConfirm": "Desconectar sua conta do GitHub da Aurora? O token armazenado será removido do armazenamento seguro.",
+    "disconnectConfirmGitlab": "Desconectar sua conta do GitLab da Aurora? O token armazenado será removido do armazenamento seguro.",
     "you": "você",
     "cloning": "Clonando",
     "cloneDone": "Concluído",
     "cloneFailed": "Falha no clone",
     "howToToken": "Como obter um token do GitHub",
+    "howToTokenGitlab": "Como obter um token do GitLab",
+    "connectGitlab": "Conectar GitLab",
     "tokenStepOpen": "Abra <b>Settings → Developer settings → Personal access tokens → Tokens (classic)</b> e clique em <b>Generate new token (classic)</b>.",
     "tokenStepName": "Dê um nome (ex.: <b>AURORA</b>) e uma data de expiração.",
-    "tokenStepScope": "Marque o escopo <code>repo</code> — ele cobre clonar, pull, push, commit e criar repositórios.",
+    "tokenStepScope": "Marque o escopo <code>repo</code>, ele cobre clonar, pull, push, commit e criar repositórios.",
     "tokenStepOrg": "Para ver também repos de <b>organizações</b>, marque <code>read:org</code>.",
     "tokenStepCopy": "Gere, copie o token e cole no campo acima.",
     "tokenTableTitle": "Qual permissão cada recurso precisa",
@@ -863,11 +977,16 @@
     "featListRepos": "Listar seus repos",
     "featOrgRepos": "Repos de organização",
     "fineOrgGrant": "dar acesso à org + Metadata: Read",
-    "tokenFineNote": "Tokens fine-grained geralmente <b>não conseguem criar repositórios</b> — se o Publicar falhar, use um token <b>clássico</b> com <code>repo</code>.",
+    "tokenFineNote": "Tokens fine-grained geralmente <b>não conseguem criar repositórios</b>, se o Publicar falhar, use um token <b>clássico</b> com <code>repo</code>.",
     "openTokenPage": "Abrir a página de tokens do GitHub",
+    "glStepOpen": "Abra <b>Preferences → Access tokens</b> e clique em <b>Add new token</b>.",
+    "glStepName": "Dê um nome (por exemplo <b>AURORA</b>) e uma data de validade.",
+    "glStepScope": "Marque o escopo <code>api</code>, que cobre listar, clonar, enviar e criar projetos.",
+    "glStepCopy": "Crie, copie o token e cole no campo acima.",
+    "glStepHost": "Numa instância própria, digite o endereço dela no campo acima do token.",
     "cloned": "Projetos",
     "clonedTitle": "Projetos clonados",
-    "clonedEmpty": "Nenhum projeto clonado ainda — clone um repositório para vê-lo aqui.",
+    "clonedEmpty": "Nenhum projeto clonado ainda, clone um repositório para vê-lo aqui.",
     "actions": "Ações",
     "copyName": "Copiar nome do repo",
     "copyPath": "Copiar caminho do repo",
@@ -877,7 +996,7 @@
     "remove": "Remover",
     "copied": "Copiado para a área de transferência",
     "noGithubUrl": "Sem URL do GitHub para este projeto.",
-    "noSpfInClone": "Nenhum projeto SAPHO encontrado — abrindo a pasta.",
+    "noSpfInClone": "Nenhum projeto SAPHO encontrado, abrindo a pasta.",
     "removeClonedMsg": "Remover <strong>{name}</strong> da lista? Você também pode apagar a pasta do disco.",
     "removeFromList": "Remover da lista",
     "deleteFromDisk": "Apagar do disco",
@@ -895,14 +1014,18 @@
     "stagedWord": "em stage",
     "stashConflictMsg": "Suas alterações atuais conflitam com o stash, então ele não pode ser restaurado sem sobrescrevê-las. Descartar suas alterações atuais e restaurar a versão guardada? (O stash é mantido se ainda não der pra aplicar.)",
     "discardRestore": "Descartar atuais e restaurar",
-    "stashKept": "Stash mantido — resolva suas alterações e tente de novo.",
+    "stashKept": "Stash mantido, resolva suas alterações e tente de novo.",
     "openFailed": "Não foi possível abrir o projeto",
     "openFailedHint": "A pasta pode ter sido movida ou apagada. Remover da lista ou clonar de novo?",
     "cloneAgain": "Clonar de novo",
     "pickRepoToClone": "Escolha o repositório para clonar de novo.",
-    "signIn": "Entrar com GitHub",
+    "signIn": "Entrar",
+    "signInWith": "Entrar com {{name}}",
+    "signInAny": "Entrar no GitHub ou no GitLab",
+    "connectWith": "Conectar {{name}}",
     "useToken": "Usar um token",
     "oauthOpened": "Abrimos o GitHub no seu navegador. Digite este código:",
+    "oauthOpenedGitlab": "Abrimos o GitLab no seu navegador. Digite este código:",
     "oauthWaiting": "Aguardando autorização…",
     "signingIn": "Iniciando o login…",
     "tryAgain": "Tentar de novo",
@@ -933,13 +1056,14 @@
     "title": "Bibliotecas",
     "filter": {
       "placeholder": "Filtrar bibliotecas",
-      "all": "Todas"
+      "all": "Todas",
+      "installed": "Instaladas"
     },
     "empty": "Nenhuma biblioteca corresponde ao filtro.",
     "runtime": {
       "python": "Python embarcado",
       "abi": "ABI",
-      "missing": "O Python embarcado não foi encontrado. Rode `npm run bootstrap` para baixar a toolchain."
+      "missing": "O Python embarcado não foi encontrado. Abra Configurações, Componentes, e baixe a Cadeia de compilação."
     },
     "tag": {
       "installed": "instalada",
@@ -958,7 +1082,7 @@
       "site": "site do projeto"
     },
     "why": {
-      "compiled": "Esta biblioteca tem código compilado em C. O Python embarcado da AURORA é um build MinGW e não carrega esse formato — o import falha com \"DLL load failed\". Para usá-la, abra o terminal TCMD e rode com o seu próprio Python."
+      "compiled": "Esta biblioteca tem código compilado em C. O Python embarcado da AURORA é um build MinGW e não carrega esse formato, o import falha com \"DLL load failed\". Para usá-la, abra o terminal TCMD e rode com o seu próprio Python."
     },
     "phase": {
       "download": "baixando",
@@ -1004,5 +1128,54 @@
   },
   "common": {
     "cancel": "Cancelar"
+  },
+  "network": {
+    "offlineTitle": "Sem internet",
+    "offlineMessage": "A conexão com a internet caiu. Compilar e simular continuam funcionando, porque o toolchain é local; atualizações, manual online, IA e git ficam indisponíveis até a rede voltar."
+  },
+  "bugReport": {
+    "title": "Relatar um problema",
+    "close": "Fechar",
+    "whatHappened": "O que aconteceu",
+    "whatHappenedHint": "Ex.: ao compilar um .cmm com matriz, o terminal para em 40% e nada acontece.",
+    "expected": "O que você esperava",
+    "expectedHint": "Ex.: que a compilação terminasse e abrisse a forma de onda.",
+    "reproduce": "Como reproduzir",
+    "reproduceHint": "1. Abrir o projeto\n2. Clicar em Compilar\n3. Esperar",
+    "diagTitle": "Ver o diagnóstico que vai junto",
+    "consent": "Ao enviar, você concorda em compartilhar com o NIPS-CERN o texto que escreveu acima e o diagnóstico abaixo. Não coletamos o conteúdo dos seus arquivos, senhas ou credenciais, nem conversas com a Aurora Intelligence, e o seu nome de usuário é removido dos caminhos antes do envio. Ainda assim, algum trecho do log pode, indiretamente, identificar você ou a máquina. O NIPS-CERN trata esses dados conforme a LGPD (Lei 13.709/2018): eles servem apenas para investigar o problema relatado e são apagados a seu pedido. Se você informar um e-mail, ele é usado somente para falar com você sobre este relato.",
+    "sendEmail": "Enviar por e-mail",
+    "cancel": "Cancelar",
+    "send": "Enviar relato",
+    "sent": "Relato enviado. Obrigado: é assim que os problemas chegam até nós.",
+    "sentTitle": "Problema relatado",
+    "noEndpoint": "O envio direto ainda não está configurado nesta versão.",
+    "failed": "Não foi possível enviar ({erro}).",
+    "fallbackEmail": "{motivo} Abrindo o e-mail com o seu texto.",
+    "diagUnavailable": "(não foi possível reunir o diagnóstico)",
+    "email": "Seu e-mail (opcional)",
+    "emailHint": "Para avisarmos quando corrigirmos, ou pedirmos um detalhe.",
+    "tooMany": "Você já enviou alguns relatos seguidos. Aguarde {tempo} para enviar outro. O que você escreveu ficou salvo.",
+    "waitSeconds": "{n} segundos",
+    "waitOneMinute": "1 minuto",
+    "waitMinutes": "{n} minutos",
+    "waitOneSecond": "1 segundo"
+  },
+  "componentSummary": {
+    "msys": "A cadeia de compilação: Icarus Verilog, Verilator, Yosys e o Python embarcado.",
+    "yanc": "O compilador do SAPHO: cmmcomp, asmcomp, appcomp e comp2gtkw, que traduzem C± em processador.",
+    "gtkwave": "O visualizador de formas de onda clássico, em janela própria.",
+    "surfer": "O visualizador de formas de onda embutido, dentro da AURORA.",
+    "verible": "Diagnósticos, formatação e navegação em Verilog, dentro do editor.",
+    "slang": "Análise semântica de SystemVerilog, que enxerga o que a sintática não vê.",
+    "clang-format": "Formatação de C, C++ e C± com Shift+Alt+F.",
+    "claude": "O agente de programação da Anthropic, usado pela Aurora Intelligence no modo Claude Code.",
+    "codex": "O agente de programação da OpenAI, usado pela Aurora Intelligence no modo Codex."
+  },
+  "componentName": {
+    "msys": "MSYS Toolchain",
+    "yanc": "YANC",
+    "claude": "Claude Code",
+    "codex": "Codex"
   }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * gen-pylib-catalog.js — gera resources/pylib-catalog.json a partir da PyPI.
+ * gen-pylib-catalog.js: gera resources/pylib-catalog.json a partir da PyPI.
  *
  * O QUE E O CATALOGO
  * ------------------
@@ -443,7 +443,7 @@ const CURATED = [
            'Format simulation time and dump size in the log'],
     },
   },
-  // Fora da lista de proposito, com o motivo — para ninguem tentar de novo:
+  // Fora da lista de proposito, com o motivo, para ninguem tentar de novo:
   //  - hypothesis: desde a 6.x publica so wheel compilada (61 wheels, nenhuma
   //    pura). Era o candidato natural para teste baseado em propriedade.
   //  - bitstring: a propria e pura, mas depende de bitarray, que e em C.
@@ -464,7 +464,7 @@ const CURATED = [
  * citado na metodologia publicada do grupo. O artigo de integracao do cocotb
  * descreve o testbench da PMU (norma IEC/IEEE 60255-118-1) com gerador de
  * estimulos, modelo de referencia em dupla precisao, filtro FIR classe M e
- * analise estatistica de TVE, FE e ROCOF — tudo apoiado em NumPy, SciPy e
+ * analise estatistica de TVE, FE e ROCOF, tudo apoiado em NumPy, SciPy e
  * Matplotlib. O artigo da CNN do TileCal compara a saida do SAPHO com a
  * referencia em Python por erro medio absoluto e R^2, mesma dependencia.
  *

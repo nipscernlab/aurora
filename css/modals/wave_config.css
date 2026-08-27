@@ -1,7 +1,7 @@
 /*
- * wave_config.css — Wave Configuration modal.
+ * wave_config.css: Wave Configuration modal.
  *
- * Hierarchical signal picker for Verilog testbench → DUT → ... — user
+ * Hierarchical signal picker for Verilog testbench → DUT → ..., user
  * checks signals to dump to VCD. Layout: a flat list with indented
  * rows (CSS depth, not nested DOM containers) so collapse/expand and
  * checkbox propagation stay simple.
@@ -48,7 +48,7 @@
     margin-top: var(--space-2);
 }
 
-/* Checkbox "Show processor signals only" — fica como linha standalone
+/* Checkbox "Show processor signals only", fica como linha standalone
    logo abaixo da .wave-tree, alinhado a esquerda. Margem pequena pra
    manter "colado" na arvore (em vez de ir parar no rodape do modal). */
 .wave-tree-filter {
@@ -136,7 +136,7 @@
     visibility: hidden;
 }
 
-/* Modern custom checkbox — matches .form-checkbox in modal_config.css so
+/* Modern custom checkbox, matches .form-checkbox in modal_config.css so
    wave-config rows look at home inside Aurora's modal style language.
    Native indeterminate state is still honoured via .wave-tree-checkbox
    that JS sets `.indeterminate = true` on. */
@@ -188,7 +188,7 @@
     transform: rotate(45deg);
 }
 
-/* Indeterminate (mixed) — middle bar instead of checkmark, same accent
+/* Indeterminate (mixed), middle bar instead of checkmark, same accent
    fill so users still read it as "this branch has a selection". */
 .wave-tree-checkbox:indeterminate {
     background: var(--accent);
@@ -283,7 +283,7 @@
 }
 
 /* ============================================================
- *  Find widget — Monaco-style text filter above the tree.
+ *  Find widget, Monaco-style text filter above the tree.
  *  Layout: [icon] [input ........................] [count] [Aa] [.*] [×]
  *  Visually distinct row above .wave-tree-toolbar.
  * ============================================================ */
@@ -340,7 +340,7 @@
     color: var(--danger, #e76f51);
 }
 
-/* Aa / .* toggle buttons — compact, inline, with toggled state. */
+/* Aa / .* toggle buttons, compact, inline, with toggled state. */
 .wave-tree-find .find-toggle {
     background: transparent;
     border: 1px solid transparent;
@@ -364,7 +364,7 @@
 }
 
 .wave-tree-find .find-toggle.active {
-    background: rgba(142, 131, 232, 0.18);
+    background: var(--accent-strong);
     border-color: var(--accent);
     color: var(--accent);
 }
@@ -404,11 +404,18 @@
     padding: 0 1px;
 }
 
-/* Flat-list mode — when the find widget is active, the tree renders
+/* Flat-list mode, when the find widget is active, the tree renders
    as a flat list of signal rows. No module headers, no nested indent.
    The full dotted path lives in the row's data-tooltip (shown on hover
    by the Aurora tooltip system); the row itself displays only the bare
    signal name. */
 .wave-tree.flat-mode .wave-tree-row.signal-row {
     padding-left: var(--space-2);
+}
+
+/* O checkbox de multi-janela do Surfer fica inerte enquanto "abrir em aba"
+   esta marcado: multi-janela descreve o modo janela e nada mais. */
+.wave-tree-filter.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }

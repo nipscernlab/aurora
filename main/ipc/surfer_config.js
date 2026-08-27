@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * surfer_config.js — a parte pura do que a AURORA escreve na configuracao do
+ * surfer_config.js: a parte pura do que a AURORA escreve na configuracao do
  * Surfer: a geometria da janela, o conteudo do config.toml e a higienizacao do
  * nome de um mapping.
  *

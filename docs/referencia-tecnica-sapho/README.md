@@ -1,4 +1,4 @@
-# SAPHO — Referência Técnica
+# SAPHO, Referência Técnica
 
 Relatório técnico-descritivo do **núcleo da plataforma SAPHO** (a IDE **AURORA**, os compiladores
 **YANC**, o *toolchain bundle* e os subsistemas PRISM e Aurora Intelligence), construído a partir do
@@ -11,10 +11,10 @@ Relatório técnico-descritivo do **núcleo da plataforma SAPHO** (a IDE **AUROR
 
 ```
 referencia-tecnica-sapho/
-├── main.tex          # documento compacto e denso (classe article) — ESTE é o entregável
+├── main.tex          # documento compacto e denso (classe article), ESTE é o entregável
 ├── secoes/           # S01..S16 (15 seções destiladas + glossário/referências)
 ├── _lint.js          # checagem estrutural de LaTeX (sem compilar)
-└── _fonte/           # material extenso verificado (opcional — ver abaixo)
+└── _fonte/           # material extenso verificado (opcional, ver abaixo)
 ```
 
 Compilar (requer TeX Live 2021+ ou MiKTeX; todos os pacotes são padrão):
@@ -35,7 +35,7 @@ edição compacta foi destilada e fica guardada como material de apoio:
 
 ```
 _fonte/
-├── main.tex          # versão extensa (classe report) — compile aqui se quiser o documento completo
+├── main.tex          # versão extensa (classe report), compile aqui se quiser o documento completo
 ├── capitulos/        # 01..18
 ├── apendices/        # glossário e referências (versão longa)
 └── _build/           # scripts usados na geração (provenance)

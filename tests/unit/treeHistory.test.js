@@ -193,3 +193,66 @@ describe('a pilha nao grava a si mesma', () => {
         expect(h.podeRefazer()).toBe(true);
     });
 });
+
+describe('grupo: um gesto so, com varios arquivos', () => {
+    it('um grupo de um nao vira grupo, para a pilha nao ganhar camada a toa', () => {
+        const op = Op.grupo([Op.move('a', 'b')]);
+        expect(op.kind).toBe('move');
+    });
+
+    it('desfazer um apagar de tres traz os tres de volta, num Ctrl+Z so', async () => {
+        const { exec, log } = fakeExec();
+        const h = new TreeHistory(exec);
+        h.registrar(Op.grupo([
+            Op.removido('a', 't1'),
+            Op.removido('b', 't2'),
+            Op.removido('c', 't3'),
+        ]));
+
+        const r = await h.desfazer();
+        expect(r.ok).toBe(true);
+        expect(log.restaurados.map(([, c]) => c)).toEqual(['c', 'b', 'a']);
+        expect(h.podeDesfazer()).toBe(false);
+        expect(h.podeRefazer()).toBe(true);
+    });
+
+    it('desfazer visita ao contrario, para o filho sair antes de a pasta sumir', async () => {
+        const { exec, log } = fakeExec();
+        const h = new TreeHistory(exec);
+        h.registrar(Op.grupo([Op.move('a', 'x/a'), Op.move('b', 'x/b')]));
+
+        await h.desfazer();
+        expect(log.movidos).toEqual([['x/b', 'b'], ['x/a', 'a']]);
+
+        log.movidos.length = 0;
+        await h.refazer();
+        expect(log.movidos).toEqual([['a', 'x/a'], ['b', 'x/b']]);
+    });
+
+    it('o membro que falha sai do grupo, e o resto vale', async () => {
+        // Melhor esforco: manter no grupo um membro que nao virou faria o
+        // refazer prometer desfazer algo que nunca aconteceu.
+        const { log, exec } = fakeExec();
+        const h = new TreeHistory({
+            ...exec,
+            mover: async (de, para) => {
+                log.movidos.push([de, para]);
+                return de !== 'x/b'; // o segundo esta travado
+            },
+        });
+        h.registrar(Op.grupo([Op.move('a', 'x/a'), Op.move('b', 'x/b')]));
+
+        expect((await h.desfazer()).ok).toBe(true);
+        log.movidos.length = 0;
+        await h.refazer();
+        expect(log.movidos).toEqual([['a', 'x/a']]);
+    });
+
+    it('o grupo que sai do alcance devolve a Lixeira tudo que segurava', async () => {
+        const { exec, log } = fakeExec();
+        const h = new TreeHistory(exec);
+        h.registrar(Op.grupo([Op.removido('a', 't1'), Op.removido('b', 't2')]));
+        h.limpar();
+        expect(log.descartados.sort()).toEqual(['t1', 't2']);
+    });
+});

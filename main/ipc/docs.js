@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * docs.js — abre o manual do SAPHO e o mantém atualizado.
+ * docs.js: abre o manual do SAPHO e o mantém atualizado.
  *
  * A documentação vive em outro repositório (nipscernlab/docs_aurora), que a
  * publica em dois canais: o site em nipscern.com/library/sapho e um pacote .zip
@@ -18,7 +18,7 @@
  * ---------
  * O IPC `open-external` (main/ipc/files.js) recusa file:// de propósito: a URL
  * vem do renderer e pode ter origem, por exemplo, numa mensagem da IA. Este
- * módulo não afrouxa aquela guarda nem aceita caminho do renderer — ele monta o
+ * módulo não afrouxa aquela guarda nem aceita caminho do renderer, ele monta o
  * caminho a partir de constantes e só então entrega ao sistema.
  */
 
@@ -30,6 +30,8 @@ const https = require('https');
 const crypto = require('crypto');
 const { app, shell, ipcMain, BrowserWindow } = require('electron');
 const log = require('electron-log');
+
+const busca = require('../docs/busca');
 
 const ONLINE_URL = 'https://www.nipscern.com/library/sapho/';
 const MANIFEST_URL = 'https://nipscernlab.github.io/docs_aurora/docs-manifest.json';
@@ -48,7 +50,7 @@ function userDir() {
 
 /**
  * Remove um BOM inicial. JSON.parse o recusa, e ferramentas do Windows gravam
- * UTF-8 com BOM por padrão — como o manifesto vem da rede, toleramos aqui.
+ * UTF-8 com BOM por padrão, como o manifesto vem da rede, toleramos aqui.
  */
 function stripBom(/** @type {string} */ text) {
   return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
@@ -291,9 +293,38 @@ function register() {
    * da inicialização, para não competir com o que o usuário está esperando.
    */
   ipcMain.handle('docs:check-update', () => checkForUpdate());
+
+  /**
+   * Procurar e ler o manual, para a Aurora Intelligence.
+   *
+   * O caminho da pasta NAO vem do renderer: sai do `activeDir()` daqui, que ja
+   * decide entre a copia atualizada e a do instalador. O modelo escolhe o que
+   * procurar e qual pagina ler, nunca onde procurar.
+   */
+  ipcMain.handle('docs:buscar', (_e, consulta, opcoes) => {
+    try {
+      const dir = activeDir();
+      if (!dir) return { ok: false, erro: 'manual nao esta instalado nesta maquina' };
+      return { ok: true, resultados: busca.buscar(dir, consulta, opcoes || {}), online: ONLINE_URL };
+    } catch (e) {
+      log.warn('[docs] busca falhou:', e);
+      return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+  ipcMain.handle('docs:ler', (_e, caminho, opcoes) => {
+    try {
+      const dir = activeDir();
+      if (!dir) return { ok: false, erro: 'manual nao esta instalado nesta maquina' };
+      return busca.ler(dir, caminho, opcoes || {});
+    } catch (e) {
+      log.warn('[docs] leitura falhou:', e);
+      return { ok: false, erro: e instanceof Error ? e.message : String(e) };
+    }
+  });
 }
 
 // isNewer e stripBom sao exportados para teste. Sao puros e decidem se o manual
 // baixado substitui o que veio no instalador; errar ali serve documentacao velha
 // em silencio. Ver tests/unit/docsVersion.test.js.
-module.exports = { register, status, ONLINE_URL, isNewer, stripBom };
+module.exports = { register, status, isNewer, stripBom };

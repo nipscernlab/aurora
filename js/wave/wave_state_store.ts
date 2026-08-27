@@ -1,6 +1,6 @@
 import { electronAPI } from '../app/electron_api.js';
 /**
- * wave_state_store.ts — Per-testbench wave-flow state.
+ * wave_state_store.ts: Per-testbench wave-flow state.
  *
  * Cada testbench do projeto tem seu proprio escopo isolado pra:
  *   - lista de .gtkw registrados (com selecao ativa)
@@ -14,10 +14,10 @@ import { electronAPI } from '../app/electron_api.js';
  * `tbKey` = nome do .v sem extensao (e.g. `top_level_tb`). Vivem todos
  * juntos na pasta `testbench/` na raiz do projeto.
  *
- * API espelha `SpfStore` — `read` puro, `update` atomico via
+ * API espelha `SpfStore`, `read` puro, `update` atomico via
  * promise chain serializada per-(projectPath, tbKey).
  *
- * Compilado por `tsc` (npm run build:ts) num wave_state_store.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num wave_state_store.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -49,12 +49,12 @@ const DEFAULTS: WaveState = Object.freeze({
   tbModule: '',
   // Snapshot da 1a visita: o testbench original tinha $dumpfile/$dumpvars
   // hand-written? Determina se o Aurora deve instrumentar ou ceder o
-  // controle. NAO muda mais depois do registro inicial — se o usuario
+  // controle. NAO muda mais depois do registro inicial, se o usuario
   // edita o testbench, a re-instrumentacao do botao wave continua
   // baseada nessa decisao original.
   hadOriginalDumpvars: false,
   // .gtkw registrados via dropdown da toolbar (gtkw_picker). Um entry
-  // com `isActive: true` e o ativo — varredura pra extrair $dumpvars
+  // com `isActive: true` e o ativo, varredura pra extrair $dumpvars
   // sai dele.
   gtkwFiles: [],
   // Layouts do Surfer (.surf.ron state / .sucl comandos) registrados pelo
@@ -75,7 +75,7 @@ const DEFAULTS: WaveState = Object.freeze({
 });
 
 function safeKey(tbKey: string): string {
-  // Defensivo contra path traversal — keys vem do filename do .v, mas
+  // Defensivo contra path traversal, keys vem do filename do .v, mas
   // se algo escapar, nao queremos escrever fora do testbench/.
   return String(tbKey).replace(/[\\/]/g, '_').replace(/\.\./g, '_');
 }
@@ -120,7 +120,7 @@ export const WaveStore = {
 
   /**
    * Returns the state for a testbench, or null if unregistered (no
-   * file on disk). Read-only — does not touch the write chain.
+   * file on disk). Read-only, does not touch the write chain.
    *
    * @param tbKey  filename do .v sem extensao
    */
@@ -130,7 +130,7 @@ export const WaveStore = {
 
   /**
    * Returns the state for a testbench, applying DEFAULTS if it doesn't
-   * exist yet. Does NOT persist — useful para leitura defensiva.
+   * exist yet. Does NOT persist, useful para leitura defensiva.
    */
   async read(projectPath: string, tbKey: string): Promise<WaveState> {
     const state = await readRaw(projectPath, tbKey);
@@ -138,7 +138,7 @@ export const WaveStore = {
   },
 
   /**
-   * Registers a testbench if missing. Idempotent — re-registrar nao
+   * Registers a testbench if missing. Idempotent, re-registrar nao
    * sobrescreve hadOriginalDumpvars nem o resto do estado salvo.
    *
    * @param initial  campos pra setar quando o registro nao existir ainda
@@ -158,7 +158,7 @@ export const WaveStore = {
    * serializam; updates pra tbs distintos correm em paralelo.
    *
    * Se o arquivo nao existir, comeca a partir de DEFAULTS (cria o
-   * registro). Sempre escreve, mesmo se o mutator nao alterar nada —
+   * registro). Sempre escreve, mesmo se o mutator nao alterar nada:
    * comportamento previsivel pra callers.
    *
    * @returns o estado apos a escrita.

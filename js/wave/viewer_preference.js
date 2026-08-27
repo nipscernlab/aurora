@@ -1,9 +1,9 @@
 /**
- * viewer_preference.js — Qual visualizador de ondas o botao Wave abre.
+ * viewer_preference.js: Qual visualizador de ondas o botao Wave abre.
  *
  * Default: gtkwave (o fork nipscern bundlado; janela EXTERNA, monitorada por
  * poll). Alternativa: surfer (viewer moderno Rust→WASM, embutivel na IDE; lê o
- * mesmo VCD/FST). A escolha e do usuario, global, persistida em localStorage —
+ * mesmo VCD/FST). A escolha e do usuario, global, persistida em localStorage:
  * espelha simulator_preference.js exatamente.
  *
  * Quem le: js/compilation/compilation_module.js (branch no passo Wave).
@@ -16,7 +16,7 @@ const VALID = new Set(['gtkwave', 'surfer']);
 
 /**
  * Le a escolha atual. 'gtkwave' como fallback se nada salvo / valor invalido.
- * Nunca lanca — chamado em hot path (cada clique no Wave).
+ * Nunca lanca, chamado em hot path (cada clique no Wave).
  */
 export function getViewer() {
     try {

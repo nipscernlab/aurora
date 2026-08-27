@@ -1,24 +1,24 @@
 import { LitElement, html, css } from 'lit';
 
 /**
- * <aurora-statusbar> — the bottom status bar shell.
+ * <aurora-statusbar>, the bottom status bar shell.
  *
  * Wired live (Fase C) with the SAME thin-shell strategy as <aurora-tabs> /
  * <aurora-terminal>: the real status bar's zones + items live in light DOM
  * (index.html), and a top-level <slot> passes them through unchanged, so every
- * existing driver keeps working on them by id —
+ * existing driver keeps working on them by id:
  *   • status_bar.js  → top-level / testbench / processor / simulator engine,
  *   • zoom.js        → the zoom control,
  *   • the editor     → Ln/Col,
  *   • git_panel.js   → the GitHub / Source Control indicator,
  *   • the compilation status updater.
  * The host carries `class="status-bar"`, so the global grid + chrome CSS
- * (css/base/layout.css) styles it EXACTLY as before — zero visual change, and
+ * (css/base/layout.css) styles it EXACTLY as before, zero visual change, and
  * `document.querySelector('.status-bar')` (resize.js) still finds it.
  *
  * The property-driven layout below is the slot's FALLBACK content: it renders
  * only when nothing is slotted, which is how the Design Lab exercises the
- * component in every state. It is also the eventual target — once the drivers
+ * component in every state. It is also the eventual target, once the drivers
  * set these reactive properties instead of poking light-DOM, the slotted markup
  * can be dropped and this becomes the whole component.
  */
@@ -89,7 +89,7 @@ class AuroraStatusbar extends LitElement {
       color: var(--text-default);
     }
 
-    /* Status dot — glows with the state colour (light, not shadow). */
+    /* Status dot, glows with the state colour (light, not shadow). */
     .dot {
       width: 7px;
       height: 7px;
@@ -116,7 +116,7 @@ class AuroraStatusbar extends LitElement {
       --dot-color: var(--text-muted);
     }
 
-    /* Active-processor chip — marked with the aurora focus ray (DESIGN §5). */
+    /* Active-processor chip, marked with the aurora focus ray (DESIGN §5). */
     .chip {
       display: inline-flex;
       align-items: center;

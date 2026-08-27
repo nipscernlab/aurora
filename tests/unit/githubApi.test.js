@@ -9,7 +9,7 @@ const {
 
 // As decisoes do painel de git contra a API do GitHub (main/ipc/github_api.js).
 // Estavam presas dentro de github_auth.js, misturadas com https e safeStorage, e
-// a mais intricada delas vivia dentro de um laco com sleep — inalcancavel por
+// a mais intricada delas vivia dentro de um laco com sleep, inalcancavel por
 // teste sem servidor falso e sem esperar minutos.
 
 describe('nomeRepoValido', () => {
@@ -48,6 +48,9 @@ describe('mapRepo', () => {
       htmlUrl: 'https://github.com/nipscernlab/aurora',
       private: false, description: 'AURORA IDE', updatedAt: '2026-08-09T02:43:14Z',
       owner: 'nipscernlab', ownerType: 'Organization', fork: false,
+      // Desde 23/08/2026 o painel lista GitHub e GitLab juntos, e a linha
+      // precisa dizer de onde veio.
+      forge: 'github',
     });
   });
 
@@ -156,7 +159,7 @@ describe('decidirPolling', () => {
 
   it('falha com frase propria nos dois desfechos definitivos', () => {
     expect(decidirPolling({ error: 'expired_token' }))
-      .toEqual({ acao: 'falhar', mensagem: 'The code expired — please try again.' });
+      .toEqual({ acao: 'falhar', mensagem: 'The code expired, please try again.' });
     expect(decidirPolling({ error: 'access_denied' }))
       .toEqual({ acao: 'falhar', mensagem: 'Authorization was denied.' });
   });

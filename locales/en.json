@@ -35,20 +35,20 @@
     },
     "simulatorSwitch": {
       "aria": "Simulation engine",
-      "iverilog": "Simulate with Icarus Verilog — short simulations",
-      "verilator": "Simulate with Verilator — long simulations"
+      "iverilog": "Simulate with Icarus Verilog, short simulations",
+      "verilator": "Simulate with Verilator, long simulations"
     },
     "verilatorProc": {
       "tooltip": "Synthesized processor test (I/O only)"
     },
     "fastSim": {
-      "tooltip": "Fast run — no waveform (Verilator / cocotb)"
+      "tooltip": "Fast run, no waveform (Verilator / cocotb)"
     },
     "waveConfig": {
-      "tooltip": "Wave Configuration — pick signals to dump"
+      "tooltip": "Wave Configuration, pick signals to dump"
     },
     "gtkwPicker": {
-      "tooltip": "Active GTKWave save file (.gtkw) — used when launching GTKWave",
+      "tooltip": "Active GTKWave save file (.gtkw), used when launching GTKWave",
       "default": "default",
       "add": "+ Add .gtkw file...",
       "noProject": "No project loaded",
@@ -70,7 +70,7 @@
     },
     "splitEditor": {
       "tooltipDisabled": "Open a file first to enable split",
-      "tooltipEnabled": "Split editor — open current file in a new pane",
+      "tooltipEnabled": "Split editor, open current file in a new pane",
       "tooltipMax": "Maximum of 3 panes reached"
     },
     "ai": {
@@ -83,7 +83,7 @@
       "files": "Files",
       "hierarchy": "Hierarchy",
       "folders": "Folders",
-      "cycleTooltip": "File tree view: {{mode}} — click to switch",
+      "cycleTooltip": "File tree view: {{mode}}, click to switch",
       "disabledTooltip": "Open a project to browse files"
     },
     "newVerilog": {
@@ -192,6 +192,7 @@
       "close": "Close Modal",
       "sectionSignals": "Signals to Dump",
       "hint": "Pick which signals are dumped to the VCD and shown in GTKWave on Wave click. Default (no selection): everything declared at the testbench module scope.",
+      "hintVerilator": "Verilator is selected: it records by scope, not by signal. Every public signal of a module that has at least one selected signal is dumped; modules with nothing selected stay out of the dump. The testbench scope is always recorded.",
       "filterPlaceholder": "Filter signals (Ctrl+F)",
       "filterAriaLabel": "Filter signals",
       "filterCase": "Match case",
@@ -206,6 +207,7 @@
       "clear": "Clear",
       "emptyState": "No signals discovered. Make sure the project has a top-level synthesizable file (and ideally a testbench).",
       "showProcessorOnly": "Show processor signals only",
+      "surferInTab": "Surfer: open the wave as an editor tab",
       "surferMultiWindow": "Surfer: keep windows open to compare runs (multiple windows)",
       "selectedCountOne": "1 signal selected",
       "selectedCountOther": "{{count}} signals selected",
@@ -265,6 +267,9 @@
       "shortcutInUse": "This shortcut is already in use.",
       "reset": "Reset to Defaults",
       "save": "Save Changes",
+      "sectionComponents": "Components",
+      "componentsIntro": "What compiles and simulates ships with the installer. The rest you download when you need it, and can remove to reclaim space.",
+      "componentsOpenFolder": "Open the folder",
       "sectionAbout": "About",
       "aboutTagline": "Scalable-Architecture Processor for Hardware Optimization",
       "aboutVersion": "Version",
@@ -314,13 +319,75 @@
       "aiRemoved": "Key removed.",
       "aiTesting": "Testing connection…",
       "aiEnterKey": "Enter a key first.",
-      "aiTestOk": "Connected — {{ms}} ms.",
+      "aiTestOk": "Connected, {{ms}} ms.",
       "aiModel": "Model",
       "aiModelSet": "Model updated.",
       "auroraBg": "Aurora Borealis on the Welcome screen",
       "auroraBgDescription": "Animated aurora background behind the Welcome screen. It renders on the GPU in a continuous loop; off by default to save battery and to keep weaker machines responsive.",
       "aboutLicense": "NIPS-CERN License 1.1",
-      "aboutBugReport": "Report a problem"
+      "networkWarning": "Warn when the internet drops",
+      "networkWarningDescription": "Shows a corner notice on every connection drop. Compiling and simulating do not need the network.",
+      "githubForget": "Sign out of GitHub and clean now",
+      "githubForgetDescription": "Removes the access AURORA saved for both accounts and also what the Windows git kept, without waiting for you to close it.",
+      "githubForgetAction": "Clean now",
+      "githubForgetOnExit": "Clear GitHub and GitLab access when AURORA closes",
+      "githubForgetOnExitDescription": "On a shared computer, leave this on: closing signs both accounts out of here and of the Windows git, without anyone having to remember.",
+      "componentsUpdate": "Update",
+      "componentsUpdatesAvailable": "{n} with an update available ({mb} download).",
+      "componentsInstalled": "Installed",
+      "componentsMissing": "Not installed",
+      "componentsOutdated": "Update available",
+      "componentsAlways": "Included in the installer",
+      "componentsNeededToCompile": "Needed to compile",
+      "componentsSelectOne": "Select {nome} for batch download",
+      "componentsQueueSummary": "{n} selected, {mb} in total.",
+      "componentsQueueGo": "Download selected",
+      "componentsQueueClear": "Clear selection",
+      "componentsQueueDone": "{n} component(s) installed.",
+      "componentsQueuePartial": "{ok} of {total} installed. Left out: {lista}. Select those again to retry just them.",
+      "componentsDownload": "Download",
+      "componentsRemove": "Remove",
+      "componentsAllInstalled": "Everything installed.",
+      "componentsAvailable": "{n} available to download, {mb} in total.",
+      "componentsDownloadOf": "download of {mb}",
+      "componentsInstalledOk": "Component installed.",
+      "componentsInstallFailed": "Could not download: {erro}",
+      "componentsRemoveTitle": "Remove {nome}",
+      "componentsRemoveBody": "The files of {nome} leave the disk, and whatever depends on it stops working. Getting {nome} back means downloading it again ({mb}), and on a slow network that takes a while.\n\nYour projects are not touched.",
+      "componentsRemoveConfirm": "Remove",
+      "componentsRemoved": "{nome} removed, {mb} freed.",
+      "componentsRemoveFailed": "Could not remove: {erro}",
+      "componentsBusy": "A download is already in progress.",
+      "componentsMissingTitle": "Component not installed",
+      "componentsNotNow": "Not now",
+      "componentsDownloadNow": "Download now",
+      "componentsCancel": "Cancel",
+      "componentsReadFailed": "Could not read the components: {erro}",
+      "componentsCompileMissing": "This machine cannot compile yet: {nome} has not been downloaded ({mb}). Without it, the compile and simulate buttons will not work. Everything is in Settings, Components.",
+      "componentsCompileMissingTitle": "Compilation chain missing",
+      "bugReportRow": "Report a problem",
+      "bugReportRowDescription": "Describe what happened and send it straight to NIPS-CERN. The screen shows everything that goes along before you send.",
+      "bugReportAction": "Report",
+      "componentsDoctor": "Check and repair",
+      "componentsDoctorTitle": "Check the components",
+      "componentsDoctorBody": "AURORA will clear the build caches, check the files of every component and re-download whatever is incomplete or broken. Healthy components are not touched, and optional components you never downloaded stay out.\n\nIf something is broken, the repair may be a large download.",
+      "componentsDoctorGo": "Check now",
+      "componentsDoctorHealthy": "All good: caches cleared and every component intact.",
+      "componentsDoctorFixed": "Check finished: {n} component(s) repaired.",
+      "componentsDoctorFailed": "The check could not repair: {lista}. Check the internet and try again.",
+      "componentsDoctorNoScripts": "The installers folder (components/Scripts) is not on this machine, and without it the doctor cannot repair anything. Reinstall SAPHO from the website installer.",
+      "sectionManual": "Manual",
+      "manualIntro": "The SAPHO manual ships with AURORA and opens without internet. It updates itself when corrections are published, without waiting for a new version of the program.",
+      "manualChecking": "Checking…",
+      "manualInstalled": "On this computer",
+      "manualMissing": "Not installed on this computer",
+      "manualVersion": "version {v}",
+      "manualOpenHere": "Open in AURORA",
+      "manualOpenBrowser": "Open in the browser",
+      "manualCheckUpdate": "Check for updates",
+      "manualUpdated": "Manual updated to version {v}.",
+      "manualUpToDate": "The manual is already up to date.",
+      "manualUpdateFailed": "Could not reach the documentation server. The manual on this computer still works."
     }
   },
   "shortcuts": {
@@ -371,7 +438,9 @@
       "projectNotFoundTitle": "Project Not Found",
       "projectNotFoundMessage": "The previously opened project could not be found.",
       "restoreErrorTitle": "Error Restoring Session",
-      "restoreErrorMessage": "Could not restore your previous session: {{error}}"
+      "restoreErrorMessage": "Could not restore your previous session: {{error}}",
+      "projectNotFoundToast": "The last project was not found on disk and was not reopened. It shows struck through in the recent list.",
+      "restoreErrorToast": "Could not reopen the last project: {{error}}"
     },
     "project": {
       "loadErrorTitle": "Error Loading Project",
@@ -400,7 +469,7 @@
     },
     "dismissMissing": {
       "title": "Dismiss missing-files warning?",
-      "message": "{{count}} file(s) referenced by this project no longer exist on disk. Dismissing removes those references from the project (its .spf) — do this only if you deleted the files on purpose. The files are already gone; this just stops Aurora from flagging them. This cannot be undone.",
+      "message": "{{count}} file(s) referenced by this project no longer exist on disk. Dismissing removes those references from the project (its .spf), do this only if you deleted the files on purpose. The files are already gone; this just stops Aurora from flagging them. This cannot be undone.",
       "fallbackPrompt": "Remove the missing-file references from this project? This cannot be undone.",
       "cancel": "Keep warning",
       "confirm": "Remove references"
@@ -431,14 +500,16 @@
     "success": "{{name}} compilation successful",
     "failed": "{{name}} compilation failed",
     "failedWithError": "{{name}} compilation failed: {{error}}",
-    "cancelRequested": "Cancellation requested — stopping running processes...",
+    "cancelRequested": "Cancellation requested, stopping running processes...",
     "cancelInProgress": "Cancellation already in progress, please wait...",
     "cancelledByUser": "Compilation cancelled by user.",
-    "nothingToCancel": "Nothing to cancel — no compilation or simulation is running.",
+    "nothingToCancel": "Nothing to cancel, no compilation or simulation is running.",
     "cancelled": "Compilation cancelled"
   },
   "editor": {
-    "lineCol": "Ln {{line}}, Col {{col}}"
+    "lineCol": "Ln {{line}}, Col {{col}}",
+    "formatTimeout": "Formatting gave up: the formatter did not finish in time. The file was left as it was.",
+    "bootFailed": "The code editor failed to start ({{error}}). Restart SAPHO; if it happens again, reinstall it."
   },
   "tabs": {
     "close": "Close",
@@ -461,8 +532,8 @@
   "notification": {
     "simulator": {
       "title": "Simulator switched",
-      "iverilog": "Now using <strong>Icarus Verilog</strong> (vvp) — best for short sims; exposes the processor's internal signals.",
-      "verilator": "Now using <strong>Verilator</strong> — builds a native binary (~5–10× faster on long sims); only top-level testbench signals are visible."
+      "iverilog": "Now using <strong>Icarus Verilog</strong> (vvp), best for short sims; exposes the processor's internal signals.",
+      "verilator": "Now using <strong>Verilator</strong>, builds a native binary (~5–10× faster on long sims); only top-level testbench signals are visible."
     },
     "ai": {
       "fileNotFound": "File not found in project: {{name}}",
@@ -472,7 +543,7 @@
     "tree": {
       "noFilesDropped": "No files dropped",
       "cannotGetPath": "Cannot get path for \"{{name}}\".",
-      "rejectedExt": "\"{{name}}\" was rejected — only Verilog (.v, .sv, .vh) files and cocotb testbenches (.py) belong in the tree.{{hint}}",
+      "rejectedExt": "\"{{name}}\" was rejected, only Verilog (.v, .sv, .vh) files and cocotb testbenches (.py) belong in the tree.{{hint}}",
       "gtkwHint": " Use the toolbar's .gtkw picker (+ Add .gtkw file...) instead.",
       "fileNotExist": "File does not exist: {{path}}",
       "errorValidating": "Error validating \"{{name}}\"",
@@ -489,6 +560,7 @@
       "alreadyDeleted": "File \"{{name}}\" was already deleted",
       "errorDeleting": "Error deleting \"{{name}}\": {{error}}",
       "removed": "Removed \"{{name}}\"",
+      "removeFailed": "Could not remove \"{{name}}\" from the project: {{error}}",
       "setAsTop": "\"{{name}}\" set as Top Level",
       "topRemoved": "Top Level removed from \"{{name}}\"",
       "markedTb": "\"{{name}}\" marked as Testbench",
@@ -516,7 +588,7 @@
     "veri": {
       "fileNotFound": "File not found: {{path}}",
       "failedToOpen": "Failed to open file: {{message}}",
-      "hdlListWarn": "Warning: could not list {{path}} — SAPHO library not included in hierarchy.",
+      "hdlListWarn": "Warning: could not list {{path}}, SAPHO library not included in hierarchy.",
       "hierarchyGen": "Generating project hierarchy with Yosys...",
       "hierarchySuccess": "Project hierarchy generated successfully",
       "hierarchyError": "Project hierarchy generation error: {{message}}",
@@ -545,15 +617,15 @@
       "noHierarchyData": "No hierarchy data available. Please compile Verilog first."
     },
     "htest": {
-      "start": "Hardware test: \"{{name}}\" — starting ({{clocks}} clocks)",
+      "start": "Hardware test: \"{{name}}\", starting ({{clocks}} clocks)",
       "genCpp": "Generating the C++ harness for \"{{name}}\"...",
       "exec": "Running",
       "reads": "reads",
       "openFolder": "Open this folder in the file tree (folder view)",
-      "toaquiAdded": "Added #TOAQUI before main()'s closing brace in {{file}} — the 'cheguei' pin now pulses at program end, so the sim stops as soon as the program finishes.",
-      "toaquiPresent": "{{file}} already has a #TOAQUI — leaving it as is.",
-      "toaquiNoMain": "Could not find main()'s closing brace in {{file}} — #TOAQUI not added; the sim will run the full clock budget.",
-      "chegueiEnd": "Program end reached at clock {{clock}} (cheguei pin) — simulation stopped early."
+      "toaquiAdded": "Added #TOAQUI before main()'s closing brace in {{file}}, the 'cheguei' pin now pulses at program end, so the sim stops as soon as the program finishes.",
+      "toaquiPresent": "{{file}} already has a #TOAQUI, leaving it as is.",
+      "toaquiNoMain": "Could not find main()'s closing brace in {{file}}, #TOAQUI not added; the sim will run the full clock budget.",
+      "chegueiEnd": "Program end reached at clock {{clock}} (cheguei pin), simulation stopped early."
     },
     "cmd": {
       "placeholder": "Run a command (python, git, cd …) and press Enter"
@@ -567,35 +639,39 @@
       "gtkwStaleSignalMany": "{{count}} signals referenced by {{file}} no longer exist and were omitted from $dumpvars: {{preview}}{{more}}.",
       "gtkwReadError": "Could not read selected .gtkw ({{file}}): {{message}}. Falling back to Wave Configuration / default.",
       "waveSource": "Wave source: {{label}}",
+      "verilatorScopeRules": "Verilator: dump limited to the selected scopes ({{on}} kept, {{off}} turned off via .vlt)",
+      "fopenMissing": "The testbench opens {{path}} for reading and that file does not exist. $fopen will return 0 and the simulation will read empty input.",
+      "invalidFd": "The simulator is reading or writing through a file it never opened ($fopen returned 0). Check the $fopen paths in the testbench; this error repeats every clock cycle.",
+      "onBattery": "This laptop is running on battery: Windows lowers the CPU clock, so the simulation will take longer. Plugging in (and picking a performance power mode) speeds it up.",
       "sourceLabelGtkw": "from selected .gtkw ({{count}} signal(s))",
       "sourceLabelWc": "from Wave Configuration ({{count}} signal(s))",
       "sourceLabelTb": "testbench owns $dumpvars (hand-written, no override)",
-      "sourceLabelDefault": "default ($dumpvars(1, <tb>) — signals at testbench scope)",
-      "overrideUserDumpvars": "Note: testbench's hand-written $dumpfile/$dumpvars commented out — Aurora's $dumpvars takes over.",
+      "sourceLabelDefault": "default ($dumpvars(1, <tb>), signals at testbench scope)",
+      "overrideUserDumpvars": "Note: testbench's hand-written $dumpfile/$dumpvars commented out, Aurora's $dumpvars takes over.",
       "bannerSim": "Simulation & GTKWave",
       "buildingVvp": "Building VVP for simulation...",
       "runningVvp": "Running VVP simulation...",
       "buildingVerilator": "Building design with Verilator (--binary --trace-fst)...",
       "runningVerilator": "Running Verilator binary...",
-      "fastBanner": "Fast Sim — Verilator, no waveform.",
+      "fastBanner": "Fast Sim, Verilator, no waveform.",
       "fastBuilding": "Building with Verilator (no trace)...",
       "fastDone": "Fast Sim finished: {{name}}.",
       "verilatorSimulator": "Using simulator: Verilator.",
       "iverilogSimulator": "Using simulator: Icarus Verilog (vvp).",
       "cocotbSimulator": "Using testbench: cocotb Python + {{sim}}.",
       "cocotbToplevelDirective": "cocotb DUT from '# aurora-toplevel': {{module}}.",
-      "cocotbToplevelFallback": "No '# aurora-toplevel: <module>' directive in {{file}} — using the project top-level '{{module}}' as the cocotb DUT. Add that comment to the .py to target a specific module.",
+      "cocotbToplevelFallback": "No '# aurora-toplevel: <module>' directive in {{file}}, using the project top-level '{{module}}' as the cocotb DUT. Add that comment to the .py to target a specific module.",
       "runningCocotb": "Running cocotb testbench with {{sim}}...",
-      "cocotbTestsFailed": "cocotb: one or more tests FAILED. The waveform is still being opened so you can inspect what happened — see the test log above for the failing assertion.",
+      "cocotbTestsFailed": "cocotb: one or more tests FAILED. The waveform is still being opened so you can inspect what happened, see the test log above for the failing assertion.",
       "cocotbVcd": "cocotb VCD generated: {{name}}",
       "procPicked": "Multiple processors ({{count}}); using \"{{name}}\". Set the top-level to choose another.",
-      "procPorts": "Verilator (CMM processor) — discovering pins of \"{{name}}\" (--json-only)",
-      "procNoPorts": "Warning: the processor declares no I/O ports — it will only be clocked (no file read/write).",
+      "procPorts": "Verilator (CMM processor), discovering pins of \"{{name}}\" (--json-only)",
+      "procNoPorts": "Warning: the processor declares no I/O ports, it will only be clocked (no file read/write).",
       "procWiring": "I/O wiring → inputs: {{inputs}} | outputs: {{outputs}} | {{itr}}",
       "procBuilding": "Building the processor harness (--cc --exe --build)...",
       "procRunning": "Running \"{{name}}\" for {{clocks}} clocks...",
       "procDone": "Done. Outputs written to {{dir}}: {{outputs}}",
-      "noMemFiles": "Warning: no pc_*_mem.txt found in any subdirectory of {{path}}. These are generated by the C± compiler (cmmcomp) per processor — run C± at least once for each processor before simulating.",
+      "noMemFiles": "Warning: no pc_*_mem.txt found in any subdirectory of {{path}}. These are generated by the C± compiler (cmmcomp) per processor, run C± at least once for each processor before simulating.",
       "couldNotList": "Warning: could not list {{path}} to stage processor memory files.",
       "copyMemFailed": "Warning: failed to copy {{name}} from {{path}}",
       "couldNotStageTbFile": "Warning: could not stage \"{{name}}\" referenced by testbench ({{reason}}).",
@@ -603,9 +679,9 @@
       "usingGtkwFile": "Using GTKWave save file: {{name}}",
       "staleVcdSignalOne": "Note: {{preview}} was checked in Wave Configuration but is not in the generated VCD; omitted from the .gtkw layout.",
       "staleVcdSignalMany": "Note: {{count}} signals checked in Wave Configuration are not in the generated VCD and were omitted from the .gtkw layout: {{preview}}{{more}}.",
-      "verilatorNoProcSignals": "Verilator doesn't expose processor {{proc}}'s internal monitoring signals (stack/ULA) — switch to Icarus Verilog to see them.",
+      "verilatorNoProcSignals": "Verilator doesn't expose processor {{proc}}'s internal monitoring signals (stack/ULA), switch to Icarus Verilog to see them.",
       "autoGtkwLayout": "Auto-generated GTKWave layout ({{detail}})",
-      "autoGtkwError": "Warning: could not auto-generate .gtkw — {{message}}",
+      "autoGtkwError": "Warning: could not auto-generate .gtkw, {{message}}",
       "headerFallback": "Note: streaming header capture unavailable; converting the full waveform to read its header (slower).",
       "parseSourcesNote": "Note: could not parse project sources ({{message}}); falling back to scope-name heuristics for processor detection.",
       "gtkwStaleVcdOne": "Note: {{preview}} is referenced by {{file}} but is not in the generated VCD; GTKWave will show an empty trace for it.",
@@ -615,10 +691,15 @@
       "launched": "GTKWave launched successfully",
       "surferLaunching": "Launching Surfer...",
       "surferLaunched": "Surfer launched successfully",
+      "surferTabOpened": "Wave opened in the Surfer tab",
+      "surferTabNoBundle": "The Surfer tab mode needs the web component (Settings, Components) — opening the native window instead.",
       "hierarchyGen": "Generating hierarchy with Yosys...",
       "yosysRun": "Running Yosys command: {{cmd}}",
-      "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}"
-    }
+      "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}",
+      "progress": "Simulation",
+      "progressBuild": "Build"
+    },
+    "openComponents": "Open Components"
   },
   "error": {
     "config": {
@@ -642,13 +723,16 @@
       "vvpNotGenerated": "VVP file was not generated",
       "vvpNotProduced": "VVP file was not produced by compilation: {{path}}",
       "vvpFailed": "VVP simulation failed with exit code {{code}}",
+      "dumpLockedBusy": "The waveform file {{file}} from the previous run is held open by another program (code {{code}}), so the simulator would not be able to rewrite it. Close the wave viewer (GTKWave/Surfer) and run the simulation again. Nothing was simulated.",
+      "dumpLockedDenied": "The waveform file {{file}} from the previous run cannot be overwritten (code {{code}}): it is read-only, or the antivirus/administrator policy is blocking writes to existing files in the project folder. Remove the read-only attribute, or ask the lab administrator to allow the SAPHO toolchain to write in the project folder. Nothing was simulated.",
+      "dumpStale": "The simulation finished, but {{file}} was not rewritten: it still holds a PREVIOUS run, so Aurora did not open it. Delete the file and simulate again; if this repeats, the antivirus or a folder policy is silently blocking the simulator from writing in the project folder.",
       "gtkwaveFailed": "Failed to launch GTKWave: {{message}}",
       "pythonTbInVerilogMode": "Python testbench selected. Wave simulation uses cocotb automatically; select a Verilog testbench to use the VVP/Verilog flow.",
       "cocotbRequiresPythonTb": "cocotb mode requires a .py testbench marked as testbench top-level.",
       "cocotbRequiresTop": "cocotb mode requires a synthesizable Verilog top-level file marked as top-level.",
-      "cocotbPythonMissing": "Aurora's bundled Python runtime was not found. Run npm run bootstrap or reinstall Aurora to restore components/Packages/msys.",
-      "cocotbPackageMissing": "Python was found at {{path}}, but cocotb is not installed in that runtime. Run npm run bootstrap to restore Aurora's bundled Python.",
-      "cocotbVersionMismatch": "Aurora's bundled Python found cocotb {{found}}, but the expected version is {{expected}}. Run npm run bootstrap to restore the encapsulated version.",
+      "cocotbPythonMissing": "Aurora's bundled Python runtime was not found. Open Settings, Components, and download the Compilation chain to restore it.",
+      "cocotbPackageMissing": "Python was found at {{path}}, but cocotb is not installed in that runtime. Open Settings, Components, and download the Compilation chain again to restore the bundled Python.",
+      "cocotbVersionMismatch": "The bundled Python found cocotb {{found}}, but the expected version is {{expected}}. Open Settings, Components, and download the Compilation chain again to restore the encapsulated version.",
       "cocotbFailed": "cocotb simulation failed with exit code {{code}}.",
       "cocotbNoWave": "cocotb finished but no .fst/.vcd waveform was found in {{path}}.",
       "cocotbFst2vcdFailed": "fst2vcd failed with exit code {{code}} while converting the cocotb waveform.",
@@ -666,8 +750,8 @@
       "procTbMissing": "Processor testbench not found: {{path}}. Run C± first to generate the _tb.v."
     },
     "toolchain": {
-      "iverilogNotFound": "Icarus Verilog binary not found at:\n  {{path}}\n\nThe toolchain bundle is not installed. Run `npm run bootstrap` at the project root to download and install (aurora-msys-v1.zip ~285 MB).",
-      "verilatorNotFound": "Verilator bundle not found:\n{{paths}}\n\nRun `npm run bootstrap` at the project root to download and install (aurora-msys-v1.zip ~285 MB)."
+      "iverilogNotFound": "Icarus Verilog binary not found at:\n  {{path}}\n\nThe Compilation chain is not installed on this machine.",
+      "verilatorNotFound": "Verilator bundle not found:\n{{paths}}\n\nThe Compilation chain is not installed on this machine."
     },
     "user": {
       "cancelled": "Compilation canceled by user"
@@ -722,6 +806,16 @@
       "generateProcessor": "Create the processor with the specified configuration."
     }
   },
+  "statusbar": {
+    "power": {
+      "onBattery": "On battery ({{level}}%): Windows lowers the CPU clock and simulations run slower. Click for details.",
+      "plugged": "Plugged in ({{level}}%): full performance available.",
+      "dialogTitle": "Power and simulation speed",
+      "dialogOnBattery": "This laptop is running on battery. Windows lowers the CPU clock to save energy, so compilations and simulations take noticeably longer, and a long run may be interrupted if the machine sleeps. Plugging in restores full speed; in Windows power settings you can also pick a performance power mode and keep the screen on for long runs. The AURORA already keeps the machine awake while a compilation is running.",
+      "dialogPlugged": "This machine is plugged in, so the CPU runs at full speed. For long simulations you can still pick a performance power mode in Windows power settings. The AURORA already keeps the machine awake while a compilation is running.",
+      "openSettings": "Open Windows power settings"
+    }
+  },
   "welcome": {
     "tagline": "Scalable-Architecture Processor for Hardware Optimization",
     "sectionStart": "Start",
@@ -730,8 +824,23 @@
     "sectionRecent": "Recent",
     "noRecent": "No recent projects",
     "forgetMissing": "Forget missing",
+    "locateMissing": "Find missing",
+    "locateMissingTitle": "Search this computer for the missing .spf files",
+    "locate": "Find this project on disk",
+    "locating": "Searching…",
+    "locateCancel": "Cancel",
+    "locateFound": "Found: {{path}}",
+    "locateNotFound": "Some projects were not found on this machine.",
+    "clickMissingTitle": "Project not found",
+    "clickMissingMessage": "The project file \"{{name}}\" was not found on disk. It stays struck through in the recents list; use the magnifier button to search this computer for it.",
+    "removeRecent": "Remove from recents",
     "forgetMissingTitle": "Remove the projects that no longer exist",
-    "missingHint": "This project was not found on disk."
+    "missingHint": "This project was not found on disk.",
+    "examples": "Example projects",
+    "examplesDone": "Example projects created in",
+    "examplesSkipped": "already existed",
+    "examplesAllSkipped": "The examples were already in that folder.",
+    "examplesFailed": "Could not create the example projects."
   },
   "terminalWelcome": {
     "tcmm": "Welcome to the terminal TCMM!",
@@ -792,14 +901,16 @@
     "fetch": "Fetch",
     "refresh": "Refresh",
     "publish": "Publish",
-    "publishHead": "No remote — publish to GitHub",
+    "publishHead": "No remote, publish to GitHub",
     "repoNamePlaceholder": "repository name",
     "private": "Private",
     "public": "Public",
-    "tokenHint": "To create repositories the token must be CLASSIC with the repo scope — github.com/settings/tokens/new",
+    "tokenHint": "To create repositories the token must be CLASSIC with the repo scope, github.com/settings/tokens/new",
+    "tokenHintGitlab": "To create projects the GitLab token needs the api scope.",
     "connect": "Connect",
     "disconnect": "Disconnect",
     "tokenPlaceholder": "GitHub classic token (repo scope)",
+    "tokenPlaceholderGitlab": "GitLab token (api scope)",
     "clone": "Clone",
     "cloneRepos": "Your repositories",
     "chooseLocation": "Choose location",
@@ -808,7 +919,7 @@
     "newBranchPlaceholder": "new branch",
     "create": "Create",
     "branches": "Branches",
-    "treeClean": "Working tree clean — no changes.",
+    "treeClean": "Working tree clean, no changes.",
     "noChanges": "Nothing to commit.",
     "openProject": "Open a project to use version control.",
     "notRepo": "This project is not a Git repository yet.",
@@ -824,8 +935,8 @@
     "invalidPath": "The path can't contain spaces or special characters.",
     "noTextDiff": "No textual differences.",
     "noDiffYet": "No differences (a new file appears once staged, or it is binary).",
-    "binaryNotShown": "Binary file — diff not shown.",
-    "largeDiff": "Large change — diff hidden to keep the UI responsive.",
+    "binaryNotShown": "Binary file, diff not shown.",
+    "largeDiff": "Large change, diff hidden to keep the UI responsive.",
     "showAnyway": "Show first part anyway",
     "switchBranch": "Switch branch",
     "dirtySwitchMsg": "You have uncommitted changes that would be overwritten. Stash them and switch? You can restore them later from the branch menu.",
@@ -838,19 +949,22 @@
     "discarded": "Stash discarded",
     "stashDropConfirm": "Discard the stashed changes? This cannot be undone.",
     "noFileChanges": "No file changes in this commit.",
-    "diffTruncated": "Large diff — showing the first part only.",
+    "diffTruncated": "Large diff, showing the first part only.",
     "fileOne": "file",
     "fileMany": "files",
     "cancel": "Cancel",
     "disconnectConfirm": "Disconnect your GitHub account from Aurora? The stored token will be removed from secure storage.",
+    "disconnectConfirmGitlab": "Disconnect your GitLab account from Aurora? The stored token will be removed from secure storage.",
     "you": "you",
     "cloning": "Cloning",
     "cloneDone": "Done",
     "cloneFailed": "Clone failed",
     "howToToken": "How to get a GitHub token",
+    "howToTokenGitlab": "How to get a GitLab token",
+    "connectGitlab": "Connect GitLab",
     "tokenStepOpen": "Open <b>Settings → Developer settings → Personal access tokens → Tokens (classic)</b> and click <b>Generate new token (classic)</b>.",
     "tokenStepName": "Give it a name (e.g. <b>AURORA</b>) and an expiration date.",
-    "tokenStepScope": "Tick the <code>repo</code> scope — it covers clone, pull, push, commit and creating repositories.",
+    "tokenStepScope": "Tick the <code>repo</code> scope, it covers clone, pull, push, commit and creating repositories.",
     "tokenStepOrg": "To also see <b>organization</b> repos, tick <code>read:org</code>.",
     "tokenStepCopy": "Generate it, copy the token, and paste it in the field above.",
     "tokenTableTitle": "Which permission each feature needs",
@@ -863,11 +977,16 @@
     "featListRepos": "List your repos",
     "featOrgRepos": "Organization repos",
     "fineOrgGrant": "grant org access + Metadata: Read",
-    "tokenFineNote": "Fine-grained tokens often <b>cannot create repositories</b> — if Publish fails, use a <b>classic</b> token with <code>repo</code>.",
+    "tokenFineNote": "Fine-grained tokens often <b>cannot create repositories</b>, if Publish fails, use a <b>classic</b> token with <code>repo</code>.",
     "openTokenPage": "Open GitHub token page",
+    "glStepOpen": "Open <b>Preferences → Access tokens</b> and click <b>Add new token</b>.",
+    "glStepName": "Give it a name (e.g. <b>AURORA</b>) and an expiration date.",
+    "glStepScope": "Tick the <code>api</code> scope, it covers listing, cloning, pushing and creating projects.",
+    "glStepCopy": "Create it, copy the token, and paste it in the field above.",
+    "glStepHost": "On your own instance, type its address in the field above the token.",
     "cloned": "Projects",
     "clonedTitle": "Cloned projects",
-    "clonedEmpty": "No cloned projects yet — clone a repository to see it here.",
+    "clonedEmpty": "No cloned projects yet, clone a repository to see it here.",
     "actions": "Actions",
     "copyName": "Copy repo name",
     "copyPath": "Copy repo path",
@@ -877,7 +996,7 @@
     "remove": "Remove",
     "copied": "Copied to clipboard",
     "noGithubUrl": "No GitHub URL for this project.",
-    "noSpfInClone": "No SAPHO project found — opening the folder.",
+    "noSpfInClone": "No SAPHO project found, opening the folder.",
     "removeClonedMsg": "Remove <strong>{name}</strong> from the list? You can also delete its folder from disk.",
     "removeFromList": "Remove from list",
     "deleteFromDisk": "Delete from disk",
@@ -895,14 +1014,18 @@
     "stagedWord": "staged",
     "stashConflictMsg": "Your current changes conflict with the stash, so it can’t be restored without overwriting them. Discard your current changes and restore the stashed version? (The stash is kept if it still can’t apply.)",
     "discardRestore": "Discard current & restore",
-    "stashKept": "Stash kept — resolve your changes and try again.",
+    "stashKept": "Stash kept, resolve your changes and try again.",
     "openFailed": "Couldn’t open the project",
     "openFailedHint": "The folder may have been moved or deleted. Remove it from the list or clone it again?",
     "cloneAgain": "Clone again",
     "pickRepoToClone": "Pick the repository to clone again.",
-    "signIn": "Sign in with GitHub",
+    "signIn": "Sign in",
+    "signInWith": "Sign in with {{name}}",
+    "signInAny": "Sign in to GitHub or GitLab",
+    "connectWith": "Connect {{name}}",
     "useToken": "Use a token instead",
     "oauthOpened": "We opened GitHub in your browser. Enter this code:",
+    "oauthOpenedGitlab": "We opened GitLab in your browser. Enter this code:",
     "oauthWaiting": "Waiting for authorization…",
     "signingIn": "Starting sign-in…",
     "tryAgain": "Try again",
@@ -933,13 +1056,14 @@
     "title": "Libraries",
     "filter": {
       "placeholder": "Filter libraries",
-      "all": "All"
+      "all": "All",
+      "installed": "Installed"
     },
     "empty": "No library matches the filter.",
     "runtime": {
       "python": "Bundled Python",
       "abi": "ABI",
-      "missing": "The bundled Python was not found. Run `npm run bootstrap` to download the toolchain."
+      "missing": "The bundled Python was not found. Open Settings, Components, and download the Compilation chain."
     },
     "tag": {
       "installed": "installed",
@@ -958,7 +1082,7 @@
       "site": "project site"
     },
     "why": {
-      "compiled": "This library ships compiled C code. AURORA’s bundled Python is a MinGW build and cannot load that format — the import fails with \"DLL load failed\". To use it, open the TCMD terminal and run it with your own Python."
+      "compiled": "This library ships compiled C code. AURORA’s bundled Python is a MinGW build and cannot load that format, the import fails with \"DLL load failed\". To use it, open the TCMD terminal and run it with your own Python."
     },
     "phase": {
       "download": "downloading",
@@ -1004,5 +1128,54 @@
   },
   "common": {
     "cancel": "Cancel"
+  },
+  "network": {
+    "offlineTitle": "No internet",
+    "offlineMessage": "The internet connection dropped. Compiling and simulating still work, since the toolchain is local; updates, the online manual, AI and git stay unavailable until the network returns."
+  },
+  "bugReport": {
+    "title": "Report a problem",
+    "close": "Close",
+    "whatHappened": "What happened",
+    "whatHappenedHint": "E.g.: compiling a .cmm with a matrix, the terminal stops at 40% and nothing happens.",
+    "expected": "What you expected",
+    "expectedHint": "E.g.: the build would finish and open the waveform.",
+    "reproduce": "How to reproduce",
+    "reproduceHint": "1. Open the project\n2. Click Compile\n3. Wait",
+    "diagTitle": "See the diagnostics that go along",
+    "consent": "By sending, you agree to share with NIPS-CERN the text you wrote above and the diagnostics below. We do not collect the contents of your files, passwords or credentials, nor Aurora Intelligence conversations, and your username is removed from file paths before sending. Even so, some part of the log may still indirectly identify you or the machine. NIPS-CERN handles this data under the LGPD (Brazilian law 13.709/2018): it is used only to investigate the reported problem and is deleted at your request. If you provide an e-mail address, it is used only to contact you about this report.",
+    "sendEmail": "Send by e-mail",
+    "cancel": "Cancel",
+    "send": "Send report",
+    "sent": "Report sent. Thank you: this is how problems reach us.",
+    "sentTitle": "Problem reported",
+    "noEndpoint": "Direct sending is not configured in this build yet.",
+    "failed": "Could not send ({erro}).",
+    "fallbackEmail": "{motivo} Opening e-mail with your text.",
+    "diagUnavailable": "(diagnostics could not be gathered)",
+    "email": "Your e-mail (optional)",
+    "emailHint": "So we can tell you when it is fixed, or ask for a detail.",
+    "tooMany": "You have sent several reports in a row. Wait {tempo} before sending another. What you wrote has been saved.",
+    "waitSeconds": "{n} seconds",
+    "waitOneMinute": "1 minute",
+    "waitMinutes": "{n} minutes",
+    "waitOneSecond": "1 second"
+  },
+  "componentSummary": {
+    "msys": "The compilation chain: Icarus Verilog, Verilator, Yosys and the bundled Python.",
+    "yanc": "The SAPHO compiler: cmmcomp, asmcomp, appcomp and comp2gtkw, which turn C± into a processor.",
+    "gtkwave": "The classic waveform viewer, in its own window.",
+    "surfer": "The embedded waveform viewer, inside AURORA.",
+    "verible": "Verilog diagnostics, formatting and navigation, inside the editor.",
+    "slang": "SystemVerilog semantic analysis, which sees what syntax alone cannot.",
+    "clang-format": "C, C++ and C± formatting with Shift+Alt+F.",
+    "claude": "Anthropic's coding agent, used by Aurora Intelligence in Claude Code mode.",
+    "codex": "OpenAI's coding agent, used by Aurora Intelligence in Codex mode."
+  },
+  "componentName": {
+    "msys": "MSYS Toolchain",
+    "yanc": "YANC",
+    "claude": "Claude Code",
+    "codex": "Codex"
   }
 }

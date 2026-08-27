@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * grammars.js — serves tree-sitter WASM bytes to the renderer (O7).
+ * grammars.js: serves tree-sitter WASM bytes to the renderer (O7).
  *
  * The renderer's web-tree-sitter highlighter (js/editor/treesitter_highlight.js)
  * can't reliably fetch .wasm by URL under the sandboxed file:// renderer, so
@@ -10,7 +10,7 @@
  *
  * The artifacts live in components/Packages/tree-sitter/ (downloaded by
  * download-tree-sitter-grammars.js at bootstrap). Only a fixed set of logical
- * names maps to files here — the renderer can't ask for arbitrary paths.
+ * names maps to files here, the renderer can't ask for arbitrary paths.
  */
 
 'use strict';

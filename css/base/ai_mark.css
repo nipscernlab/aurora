@@ -1,0 +1,36 @@
+/*
+ * ai_mark.css: o símbolo da Aurora Intelligence.
+ *
+ * Duas estrelas de quatro pontas, uma grande e uma pequena — o glifo que hoje
+ * significa "IA" em qualquer interface. Antes disso o lugar era de um cérebro,
+ * que diz "inteligência" no sentido literal e nenhum leitor associa ao produto.
+ *
+ * É um SVG e não um ícone do Phosphor porque o Phosphor não tem esse desenho:
+ * `ph-sparkle` e `ph-star-four` são UMA estrela só, e o par é justamente o que
+ * caracteriza a marca. Como SVG inline ele também acompanha `currentColor` e o
+ * `font-size` de quem o contém, então entra em qualquer lugar onde havia um
+ * `<i class="ph …">` sem ajuste de CSS do outro lado.
+ *
+ * Uso:
+ *   <svg class="ai-mark" viewBox="0 0 24 24" aria-hidden="true"><use …/></svg>
+ * ou, mais simples, o helper aiMarkSvg() em js/ui/ai_mark.js.
+ */
+
+.ai-mark {
+  /* 1em nos dois eixos: herda o tamanho de quem contém, igual a uma fonte de
+     ícones. `block` evita a folga que o baseline de inline daria embaixo. */
+  width: 1em;
+  height: 1em;
+  display: block;
+  flex: none;
+  fill: currentColor;
+}
+
+/* Dentro de um botão/linha de texto o alinhamento vertical é o do irmão texto,
+   então ali ele volta a ser inline e senta no eixo central da linha. */
+button > .ai-mark,
+a > .ai-mark,
+label > .ai-mark {
+  display: inline-block;
+  vertical-align: -0.125em;
+}

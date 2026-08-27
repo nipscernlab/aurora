@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * gen-ai-tools-doc.js — gera docs/aurora-intelligence-tools.md a partir do
+ * gen-ai-tools-doc.js: gera docs/aurora-intelligence-tools.md a partir do
  * TOOL_MANIFEST em main/ai/tools.js.
  *
  * Por que gerar em vez de escrever. O documento escrito a mao ficou com 49

@@ -9,7 +9,7 @@ import { showDialog } from '../ui/dialog_manager.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { ProjectStore } from './project_store.js';
 
-// i18n shim — fallback pra key path se i18n nao bootou ainda.
+// i18n shim, fallback pra key path se i18n nao bootou ainda.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 function disableCompileButtons() {
@@ -57,7 +57,7 @@ function disableCompileButtons() {
 }
 
 function clearProjectInterface() {
-    // Wipe every view subcontainer through the controller — keeps the
+    // Wipe every view subcontainer through the controller, keeps the
     // separation invariant intact when the next project opens.
     window.treeView?.clearAll?.();
     window.treeView?.setActive?.('verilog');
@@ -137,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 clearProjectInterface();
 
-                // Clear the canonical project state — the store mirrors to
+                // Clear the canonical project state, the store mirrors to
                 // window.currentProjectPath / window.currentSpfPath for the
                 // legacy read sites.
                 ProjectStore.clearProject();

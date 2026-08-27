@@ -15,7 +15,7 @@ const { TOOL_MANIFEST } = pkg;
 //   'positional' → fn(args[argNames[0]], args[argNames[1]], …)
 //
 // So a positional def whose argNames don't line up with its own inputSchema
-// silently hands the API `undefined` — or, if it says 'object' by mistake, the
+// silently hands the API `undefined`, or, if it says 'object' by mistake, the
 // whole args object as the first parameter. Either way the tool fails at
 // runtime, on the user, on every call, with nothing catching it earlier: the
 // manifest and the API function are wired together by convention, not by types.
@@ -80,7 +80,7 @@ describe('TOOL_MANIFEST', () => {
         expect(dupes).toEqual([]);
     });
 
-    // The three memory tools, specifically — they are what this pass added.
+    // The three memory tools, specifically, they are what this pass added.
     it('wires the memory tools to the project namespace', () => {
         const by = (n) => TOOL_MANIFEST.find((d) => d.name === n);
         expect(by('remember')).toMatchObject({
@@ -186,6 +186,20 @@ describe('TOOL_MANIFEST', () => {
         )];
         const fantasmas = candidatos.filter((n) => verbo.test(n) && !nomes.has(n));
         expect(fantasmas).toEqual([]);
+    });
+
+    // A lista de bases do create_gtkw_layout e copiada no manifesto, porque
+    // ele e CommonJS no processo principal e o escritor e ESM do renderer.
+    // Copia sem catraca diverge: o modelo passaria uma base que o esquema
+    // aceita e o escritor troca por decimal em silencio, ou o esquema recusaria
+    // uma base que funciona.
+    it('the create_gtkw_layout radix list matches the writer that enforces it', async () => {
+        const { RADIX_VALIDOS } = await import('../../js/wave/gtkw_custom.js');
+        const def = TOOL_MANIFEST.find((d) => d.name === 'create_gtkw_layout');
+        expect(def).toMatchObject({ access: 'write', api: ['wave', 'createGtkwLayout'], argStyle: 'object' });
+        const objeto = def.inputSchema.properties.signals.items.oneOf
+            .find((v) => v.type === 'object');
+        expect([...objeto.properties.radix.enum].sort()).toEqual([...RADIX_VALIDOS].sort());
     });
 
     // A varinha e a IA compartilham um caminho só de formatação.

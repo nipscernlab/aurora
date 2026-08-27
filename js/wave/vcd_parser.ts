@@ -1,5 +1,5 @@
 /**
- * vcd_parser.ts — Pure VCD-header walker.
+ * vcd_parser.ts: Pure VCD-header walker.
  *
  * Used by the Wave-flow code (.gtkw generation, picker validation) to
  * inspect a VCD's `$scope` / `$var` declarations without touching the
@@ -18,11 +18,11 @@
  *   - `path` is the dotted hierarchical path from simulation root.
  *     Picker selections are stored in the same form, so matching is a
  *     plain Set lookup.
- *   - non-module scopes ($task / $function / etc.) are skipped — only
+ *   - non-module scopes ($task / $function / etc.) are skipped, only
  *     module scopes carry signals the picker / .gtkw care about. The
  *     placeholder pushed onto the stack keeps `$upscope` balanced.
  *
- * Compilado por `tsc` (npm run build:ts) num vcd_parser.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num vcd_parser.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -46,13 +46,13 @@ export function parseVcdScopes(vcdHeader: string): VcdScope[] {
     // Tokenise: keep `[a:b]` / `[N]` ranges as one token, everything
     // else whitespace-delimited.
     //
-    // Note `[^\]\s]+` (no whitespace inside brackets) — antes era
+    // Note `[^\]\s]+` (no whitespace inside brackets), antes era
     // `[^\]]+` que casava tudo ate o proximo `]`, inclusive `\r\n`
     // e centenas de outros tokens depois. Iverilog usa caracteres
     // ASCII printable (incluindo `[`) como signal IDs em $var, e
     // havia VCDs com `$var reg 1 [ out_en_sim_2 $end` onde o `[`
     // sozinho era o ID. O regex antigo ia ate o proximo `]` no
-    // file todo, consumindo \$scope/\$upscope/etc no caminho —
+    // file todo, consumindo \$scope/\$upscope/etc no caminho:
     // resultava em paths com `top_level_tb.top_level_tb` ou pior.
     const tokens = vcdHeader.match(/\[[^\]\s]+\]|\S+/g) || [];
 
@@ -60,7 +60,7 @@ export function parseVcdScopes(vcdHeader: string): VcdScope[] {
     const scopes: VcdScope[] = [];
     // Indexed by path. VCDs gerados por iverilog quando o testbench tem
     // varios `$dumpvars` espalhados (caso do asmcomp) reentram o mesmo
-    // escopo varias vezes — cada `$scope module X` reabre X em vez de
+    // escopo varias vezes, cada `$scope module X` reabre X em vez de
     // continuar acumulando. Sem deduplicar por path, terminamos com N
     // objetos VcdScope com `path === 'tb.proc'` cada um carregando UM
     // sinal, e consumers que fazem lookup-por-path so acham o primeiro.
@@ -104,7 +104,7 @@ export function parseVcdScopes(vcdHeader: string): VcdScope[] {
             i = skipToEnd(i);
             // Vars are attributed to the IMMEDIATE enclosing scope, not
             // the nearest module ancestor. A $var inside a $scope task
-            // (or function/fork) is dropped — it belongs to that
+            // (or function/fork) is dropped, it belongs to that
             // procedural construct, not to the module that contains the
             // task. The picker can't address task-locals anyway.
             const current = stack[stack.length - 1];

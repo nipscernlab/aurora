@@ -1,11 +1,11 @@
 // @ts-check
 /**
- * attachments.js — turn composer attachments (images + files) into a text suffix
+ * attachments.js: turn composer attachments (images + files) into a text suffix
  * for the subscription CLIs, which take a plain-text prompt only.
  *
  *  - Files: inlined as a fenced ``` block of their text.
  *  - Images: the CLI can't take image bytes inline. Claude Code, however, reads
- *    images NATIVELY with its Read tool — so when `imagesAsFiles` is set we write
+ *    images NATIVELY with its Read tool, so when `imagesAsFiles` is set we write
  *    each image to a temp file and reference its path. Providers without native
  *    image reading (Codex) get a one-line "can't view images" note instead.
  *
@@ -15,7 +15,7 @@
  * clear the directory at app start (cleanupTempImages(0), called from main.js)
  * and TTL-prune (>1h) on every write.
  *
- * The SDK transport (chat.js) does NOT use this — it sends real multimodal parts.
+ * The SDK transport (chat.js) does NOT use this, it sends real multimodal parts.
  */
 
 const path = require('path');
@@ -26,7 +26,7 @@ const ATT_DIR = path.join(os.tmpdir(), 'aurora-ai-attachments');
 
 /**
  * Best-effort prune of temp attachment files. Removes anything older than
- * `maxAgeMs`; pass 0 to clear the whole directory (safe at app start — no chat
+ * `maxAgeMs`; pass 0 to clear the whole directory (safe at app start, no chat
  * references old files then).
  * @param {number} [maxAgeMs]
  */
@@ -88,4 +88,4 @@ function buildPromptSuffix(attachments, opts = {}) {
   return out.join('');
 }
 
-module.exports = { writeTempImage, buildPromptSuffix, cleanupTempImages, ATT_DIR };
+module.exports = { buildPromptSuffix, cleanupTempImages, ATT_DIR };

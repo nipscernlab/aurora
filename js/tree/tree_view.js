@@ -1,13 +1,13 @@
 /**
- * tree_view.js — Single source of truth for which file-tree view is
+ * tree_view.js: Single source of truth for which file-tree view is
  * showing right now.
  *
  * Aurora has two ways to present the file tree:
- *   - 'verilog'   — verilog picker (synth/testbench rows w/ badges):
+ *   - 'verilog'  , verilog picker (synth/testbench rows w/ badges):
  *                   the project file view (also hosts the empty-state
  *                   cards when there is no project / no processors)
- *   - 'hierarchy' — module instance tree from Yosys
- *   - 'standard'  — plain folder/file tree rooted at the project (.spf)
+ *   - 'hierarchy', module instance tree from Yosys
+ *   - 'standard' , plain folder/file tree rooted at the project (.spf)
  *                   directory; lazy-reads children on expand
  *
  * 'standard' was removed in 2026-05 (fossil of the old IDE-mode toggle,
@@ -22,7 +22,7 @@
  *   - Deferred writes (setTimeout / await) escaped the top-of-function
  *     guard and stomped a view that took ownership in between.
  *   - Renderers left DOM artifacts of their view that the next view
- *     had to know how to clean — which only worked if every renderer
+ *     had to know how to clean, which only worked if every renderer
  *     was kept in sync with every other.
  *   - State spread across multiple flags (TreeViewState.isHierarchical,
  *     projectTreeManager.isTreeActive, mode radios) drifted
@@ -31,7 +31,7 @@
  * This controller replaces the lock pattern with three physically
  * separate DOM subtrees inside `#file-tree`, plus a single
  * `data-active-view` attribute that drives CSS visibility. Each
- * renderer writes into its OWN subtree only — they cannot collide.
+ * renderer writes into its OWN subtree only, they cannot collide.
  * Switching views is one attribute change; no DOM mutation needed.
  *
  *   <div id="file-tree" data-active-view="verilog">
@@ -92,7 +92,7 @@ class TreeViewController {
     /**
      * Switch which view is visible. CSS in css/tree/file_tree.css
      * keys off `[data-active-view]` to show/hide. Other views'
-     * subtrees stay in the DOM but are display:none — preserving
+     * subtrees stay in the DOM but are display:none, preserving
      * their state for cheap toggling without re-render.
      */
     setActive(viewName) {
@@ -112,7 +112,7 @@ class TreeViewController {
 
     /**
      * Wipe a single view's subtree. Used on close-project and when a
-     * renderer wants a clean slate (rare — most renderers should
+     * renderer wants a clean slate (rare, most renderers should
      * reconcile rather than wipe).
      */
     clear(viewName) {

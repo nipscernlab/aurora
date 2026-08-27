@@ -1,10 +1,10 @@
 import { electronAPI } from '../app/electron_api.js';
 /**
- * git_decorations.js — VSCode-style git status decorations on the file tree.
+ * git_decorations.js: VSCode-style git status decorations on the file tree.
  *
  * Paints a small coloured LETTER badge on each changed file row (M = modified,
  * amber; A/? = added/untracked, green; D = deleted, red; R = renamed, blue;
- * U/C = conflict) and a coloured DOT on folders that contain changes — across
+ * U/C = conflict) and a coloured DOT on folders that contain changes, across
  * BOTH file-tree views:
  *   - the "files" (verilog) view  → rows are `.verilog-file-item[data-file-path]`
  *   - the "folders" (standard) view → rows are `.file-tree-item[data-path]`
@@ -12,7 +12,7 @@ import { electronAPI } from '../app/electron_api.js';
  *
  * Driven by the LOCAL git status of the open project (window.gitAPI). It shows
  * NOTHING when the project isn't a git repo, so non-git SAPHO projects stay
- * clean — the decorations only appear for cloned/initialised repos.
+ * clean, the decorations only appear for cloned/initialised repos.
  *
  * Two clocks, kept apart:
  *   - refresh(): re-fetch git status, rebuild the path→letter map + the
@@ -37,7 +37,7 @@ const STATUS = {
   U: { cls: 'conflict',  label: 'conflito' },
 };
 
-/** Effective single-letter flag for a status file — prefer the working-tree
+/** Effective single-letter flag for a status file, prefer the working-tree
  *  char, else the index char (untracked is '?'). Mirrors git_panel's fileFlag
  *  so the tree and the Source Control panel always agree. */
 function letterOf(f) {
@@ -47,7 +47,7 @@ function letterOf(f) {
 }
 
 /**
- * Build the decoration maps from a git status file list — PURE (no DOM, no
+ * Build the decoration maps from a git status file list, PURE (no DOM, no
  * globals), so it's unit-testable. status paths are relative to the repo root
  * (== the open project root in our flow) and forward-slashed; we resolve each
  * to a normalised absolute path that matches the rows' data-path, and roll
@@ -77,7 +77,7 @@ function computeDecorations(files, rootPath) {
 }
 
 /**
- * Build the ignored-path matcher from git's ignored+untracked list — PURE, so
+ * Build the ignored-path matcher from git's ignored+untracked list, PURE, so
  * it's unit-testable. `paths` are repo-relative, forward-slashed; a fully-ignored
  * directory arrives as "<dir>/" (trailing slash). We resolve each to a normalised
  * absolute path (matching the rows' data-path) and split into exact files and
@@ -213,7 +213,7 @@ class GitDecorations {
       treeRoot.querySelectorAll('.verilog-file-item[data-file-path]').forEach((item) => {
         // Host the badge on the FULL-WIDTH row wrapper (not .verilog-file-info,
         // which stops short of the hover delete-button) so the badge sits flush
-        // at the row's right edge — same alignment as the folders view, and it
+        // at the row's right edge, same alignment as the folders view, and it
         // no longer shifts left when the hover actions appear.
         const host = item.querySelector('.verilog-file-content') || item;
         const nameEl = item.querySelector('.verilog-file-name');
@@ -266,4 +266,4 @@ if (typeof window !== 'undefined') {
   }
 }
 
-export { gitDecorations, GitDecorations, computeDecorations, letterOf, computeIgnored, isIgnoredPath };
+export { computeDecorations, letterOf, computeIgnored, isIgnoredPath };

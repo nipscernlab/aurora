@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * checksum.js — SHA-256 integrity check for bootstrap downloads.
+ * checksum.js: SHA-256 integrity check for bootstrap downloads.
  *
  * Each downloader pins an EXPECTED_SHA256 (or null). After the zip lands and
  * BEFORE it is extracted, verifyChecksum() either:

@@ -1,5 +1,5 @@
 /**
- * standard_tree_render.js — the 'standard' file-tree view: a plain
+ * standard_tree_render.js: the 'standard' file-tree view: a plain
  * folder/file hierarchy rooted at the project (.spf) directory.
  *
  * This is the third view in the toggle cycle (verilog flat files →
@@ -14,8 +14,8 @@
  * paths are remembered in a Set so a full re-render (refresh / view
  * re-entry) restores the open folders.
  *
- * Single file-open path — readFile → focused split pane or TabManager
- * preview, double-click promotes to a permanent tab — identical to the
+ * Single file-open path, readFile → focused split pane or TabManager
+ * preview, double-click promotes to a permanent tab, identical to the
  * verilog view (file_mode.openTreeFile). There is intentionally no
  * second handler here; the duplicate-handler bug that got the old
  * standard view deleted in 2026-05 does not come back.
@@ -44,7 +44,7 @@ function isIgnored(entry) {
         || name.endsWith('.spf');
 }
 
-// .cmm has no Material icon — it keeps Aurora's custom masked glyph
+// .cmm has no Material icon, it keeps Aurora's custom masked glyph
 // (.aurora-icon-cmm, currentColor) used across the tabs and verilog tree.
 function isCmm(name) {
     return String(name || '').toLowerCase().endsWith('.cmm');
@@ -63,7 +63,7 @@ function relTo(root, p) {
     return f;
 }
 
-// Directories first, then alphabetical — case-insensitive, the way a
+// Directories first, then alphabetical, case-insensitive, the way a
 // file explorer sorts.
 function sortEntries(entries) {
     return entries.slice().sort((a, b) => {
@@ -75,7 +75,7 @@ function sortEntries(entries) {
 
 class StandardTreeRenderer {
     constructor() {
-        // Paths the user has expanded — survives re-render so the tree
+        // Paths the user has expanded, survives re-render so the tree
         // doesn't collapse on refresh / view switch.
         this._expanded = new Set();
         // Guard against overlapping renders racing on the same container.
@@ -88,7 +88,7 @@ class StandardTreeRenderer {
         // Keep the open-in-editor file highlighted in the folder tree too
         // (parity with the verilog tree), updating as the active file changes.
         // The event is dispatched on `document` (and doesn't bubble to window),
-        // so we MUST listen on document — listening on window silently never
+        // so we MUST listen on document, listening on window silently never
         // fired, which is why the folder tree never showed the open file.
         document.addEventListener('aurora:editing-file-changed', () => this.refreshFocusHighlight());
 
@@ -125,7 +125,7 @@ class StandardTreeRenderer {
 
     /**
      * Collapse every folder. Clears the expanded set and flips the DOM
-     * (chevrons, folder icons, child boxes) without re-reading the disk —
+     * (chevrons, folder icons, child boxes) without re-reading the disk:
      * the already-rendered children stay in the DOM, just hidden.
      */
     collapseAll() {
@@ -190,6 +190,19 @@ class StandardTreeRenderer {
         return this._renderPromise;
     }
 
+    /**
+     * O elemento que de fato rola. Hoje é `.file-tree-actions`, mas procurar
+     * pelo `overflow-y` em vez de fixar a classe faz isto sobreviver a uma
+     * mudança de CSS em vez de virar um no-op silencioso.
+     */
+    _scroller(container) {
+        for (let el = container; el && el !== document.body; el = el.parentElement) {
+            const y = getComputedStyle(el).overflowY;
+            if (y === 'auto' || y === 'scroll') return el;
+        }
+        return null;
+    }
+
     async _doRender() {
         const container = treeView.getContainer('standard');
         if (!container) return;
@@ -210,10 +223,20 @@ class StandardTreeRenderer {
             // Drop expanded paths that no longer exist under the root so
             // the Set doesn't grow unbounded across project switches.
             this._pruneExpanded(root);
+            // Cada desenho reconstrói as linhas do zero, e com elas a altura
+            // rolável: sem guardar a posição, renomear um arquivo no fim de
+            // uma árvore grande jogava o usuário de volta ao topo, longe do
+            // que ele estava fazendo. Guardar antes de esvaziar, porque o
+            // container vazio tem rolagem zero.
+            const scroller = this._scroller(container);
+            const scrollTop = scroller ? scroller.scrollTop : 0;
             container.innerHTML = '';
             await this._renderLevel(entries, container, 0);
+            // Quem restaura é o mesmo elemento de onde veio; se a árvore
+            // encolheu, o navegador limita sozinho ao novo fim.
+            if (scroller && scrollTop) scroller.scrollTop = scrollTop;
             this.refreshFocusHighlight();
-            // Renders rebuild every row — let the CRUD layer re-apply its
+            // Renders rebuild every row, let the CRUD layer re-apply its
             // selection / cut-pending decorations on the fresh DOM.
             document.dispatchEvent(new CustomEvent('aurora:standard-tree-rendered'));
         } catch (err) {
@@ -326,7 +349,7 @@ class StandardTreeRenderer {
      * Rows are built into an off-DOM DocumentFragment and attached in ONE
      * appendChild, so the whole level (and any expanded subtree, which fills
      * the off-DOM child boxes first) costs a single reflow instead of one per
-     * row — that's the freeze on expanding a big folder / refreshing a deep
+     * row, that's the freeze on expanding a big folder / refreshing a deep
      * tree (P9). `container` is the live container only at the top of the call
      * chain; nested levels append into still-detached child boxes.
      */
@@ -364,7 +387,7 @@ class StandardTreeRenderer {
         const inner = document.createElement('div');
         inner.className = 'file-item-row';
 
-        // Chevron (folders) or invisible spacer (files) — same 16px width
+        // Chevron (folders) or invisible spacer (files), same 16px width
         // so names line up across types, VS Code style.
         if (entry.isDirectory) {
             const chevron = document.createElement('i');
@@ -377,7 +400,7 @@ class StandardTreeRenderer {
             inner.appendChild(spacer);
         }
 
-        // Icon — Material Icon Theme SVG in its OWN colours, painted as a
+        // Icon, Material Icon Theme SVG in its OWN colours, painted as a
         // background-image (no recolouring; the old per-ext/per-depth tinting
         // is gone). Folders get name-specific glyphs; .cmm keeps Aurora's
         // custom masked currentColor glyph (no Material equivalent).
@@ -410,7 +433,12 @@ class StandardTreeRenderer {
             wrapper.appendChild(childBox);
         }
 
-        row.addEventListener('click', () => {
+        row.addEventListener('click', (e) => {
+            // Ctrl e Shift são gestos de SELEÇÃO (standard_tree_crud cuida
+            // deles). Abrir o arquivo ou abrir a pasta no meio de uma seleção
+            // múltipla tiraria da tela justamente as linhas que o usuário está
+            // marcando, e o Ctrl+clique para desmarcar reabriria o arquivo.
+            if (e.ctrlKey || e.metaKey || e.shiftKey) return;
             if (entry.isDirectory) {
                 this._toggleFolder(entry, wrapper, level);
             } else {
@@ -487,4 +515,4 @@ if (typeof window !== 'undefined') {
     window.standardTreeRenderer = standardTreeRenderer;
 }
 
-export { standardTreeRenderer, StandardTreeRenderer };
+export { standardTreeRenderer };

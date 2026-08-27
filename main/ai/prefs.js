@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * prefs.js — non-secret Aurora Intelligence preferences.
+ * prefs.js: non-secret Aurora Intelligence preferences.
  *
  * Currently just the per-provider model override: a user whose plan
  * doesn't include our hard-coded default (or who simply wants a newer

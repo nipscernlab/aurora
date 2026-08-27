@@ -1,11 +1,11 @@
 // @ts-check
 /**
- * check-no-generated-js.js — CI guard for the .ts → .js in-place build.
+ * check-no-generated-js.js: CI guard for the .ts → .js in-place build.
  *
  * `tsc` emits each TypeScript module's .js next to its .ts (outDir "."). Those
  * .js are BUILD ARTEFACTS and are gitignored (B5) so the committed tree never
  * drifts from the source. This guard fails CI if any generated .js (a tracked
- * .js that has a tracked .ts sibling) sneaks back into git — which would
+ * .js that has a tracked .ts sibling) sneaks back into git, which would
  * re-introduce the exact .ts/.js desync B4/B5 closed.
  *
  * Pairs with `tsc --noEmit` in CI: that proves the .ts type-checks; this proves

@@ -10,7 +10,7 @@ import {
 
 // The decision half of the auto-updater (main/update_schedule.js). The
 // property that matters for a lab deployment is that EVERY outcome yields a
-// finite next attempt — a schedule that can return "never" is the silent
+// finite next attempt, a schedule that can return "never" is the silent
 // failure this module exists to prevent.
 
 describe('nextSilentCheckDelay', () => {
@@ -102,7 +102,7 @@ describe('schedule constants', () => {
 
   it('keeps the ladder shorter than the periodic cadence at every step', () => {
     // If a backoff step exceeded the success cadence, a failing machine would
-    // check LESS often than a healthy one — backwards.
+    // check LESS often than a healthy one, backwards.
     for (const step of SILENT_RETRY_SCHEDULE_MS) {
       expect(step).toBeLessThanOrEqual(PERIODIC_CHECK_MS);
     }

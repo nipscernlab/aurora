@@ -1,4 +1,4 @@
-// check-commit-ascii.js — mantem a mensagem de commit em ASCII.
+// check-commit-ascii.js: mantem a mensagem de commit em ASCII.
 //
 // O changelog das releases vinha com simbolo quebrado, e a origem nao era o
 // git: os bytes gravados estao certos, `e2 80 94` para o travessao. Quem

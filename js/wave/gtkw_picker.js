@@ -1,11 +1,11 @@
 /**
- * gtkw_picker.js — Toolbar dropdown for the active GTKWave save file.
+ * gtkw_picker.js: Toolbar dropdown for the active GTKWave save file.
  *
  * Companion to the WaveStore: cada testbench tem sua propria lista
  * `gtkwFiles[]` com um entry marcado `isActive: true`. O picker mostra
  * a lista do testbench ATUAL (definido por `testbenchFile` em
  * structure do .spf) e troca de lista automaticamente quando o
- * testbench muda — listas isoladas, tb A nao ve .gtkw de tb B.
+ * testbench muda, listas isoladas, tb A nao ve .gtkw de tb B.
  *
  * Operacoes:
  *   - Listar registrados, escolher o ativo (atualiza `isActive`).
@@ -65,7 +65,7 @@ class GtkwPickerManager {
         this.labelEl = this.button.querySelector('.gtkw-picker-label');
         // Track the menu's original home so we can put it back on close.
         // We move the menu to <body> while open because the toolbar zone
-        // uses `overflow: hidden` to keep its layout tidy — that clips
+        // uses `overflow: hidden` to keep its layout tidy, that clips
         // any absolutely-positioned descendant. A body-level portal
         // bypasses the clip entirely and stacks above Monaco/welcome.
         this._menuHome = this.menu.parentNode;
@@ -79,7 +79,7 @@ class GtkwPickerManager {
         // Outside click closes the menu. mousedown (capture) wins over
         // any internal listener that might stopPropagation. The menu
         // sits in <body> while open so `root.contains` would miss it
-        // — check both root AND menu.
+        //, check both root AND menu.
         document.addEventListener('mousedown', (e) => {
             if (!this._open) return;
             if (this.root.contains(e.target)) return;
@@ -101,7 +101,7 @@ class GtkwPickerManager {
         window.addEventListener('aurora:locale-changed', () => this.refresh());
 
         // Viewer change (GTKWave ↔ Surfer) swaps which list this picker
-        // shows — refresh so the menu + label track the active viewer.
+        // shows, refresh so the menu + label track the active viewer.
         window.addEventListener('aurora:wave-viewer-changed', () => this.refresh());
 
         this._initialized = true;
@@ -168,7 +168,7 @@ class GtkwPickerManager {
         if (!this.menu) return;
         this.menu.innerHTML = '';
 
-        // Default row — clears the active selection.
+        // Default row, clears the active selection.
         this.menu.appendChild(this._makeMenuRow({
             value: NONE_VALUE,
             label: tr('toolbar.gtkwPicker.default'),
@@ -188,7 +188,7 @@ class GtkwPickerManager {
             }));
         }
 
-        // + Add row — sentinel, opens dialog. Label tracks the viewer so it
+        // + Add row, sentinel, opens dialog. Label tracks the viewer so it
         // reads "Surfer layout" instead of ".gtkw" under Surfer.
         this.menu.appendChild(this._makeMenuRow({
             value: ADD_VALUE,
@@ -214,7 +214,7 @@ class GtkwPickerManager {
         row.appendChild(labelEl);
 
         if (removable) {
-            // The X is inside the row, hidden until hover — mirrors the
+            // The X is inside the row, hidden until hover, mirrors the
             // file tree's per-row delete affordance so the gesture is
             // familiar (and crucially, can't be triggered by mistake
             // while scanning the list).
@@ -296,11 +296,11 @@ class GtkwPickerManager {
         if (!projectPath) return;
         if (!this._currentTbKey) return;
 
-        // Dialog filtered by .gtkw only — "All Files" intentionally
+        // Dialog filtered by .gtkw only, "All Files" intentionally
         // not offered because the wave flow can't consume anything
         // else and would fail at simulation time with a less obvious
         // error.
-        // Dialog filtered to the active viewer's layout kind — "All Files"
+        // Dialog filtered to the active viewer's layout kind, "All Files"
         // intentionally not offered (the wave flow can't consume anything
         // else and would fail later with a less obvious error).
         const filters = this._isSurfer

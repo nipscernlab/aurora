@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   basenameOfPath, moduleStemFromPath, isPythonFile,
-  parseCocotbToplevelDirective, insertChegueiToaqui,
+  parseCocotbToplevelDirective, insertChegueiToaqui, decideCocotbDut,
   isVerilogLikeFile, assertPythonModuleName, safeNamePart,
 } from '../../js/compilation/compilation_helpers.ts';
 
@@ -105,5 +105,63 @@ describe('insertChegueiToaqui', () => {
   });
   it('is null-safe', () => {
     expect(insertChegueiToaqui(null)).toBe('');
+  });
+});
+
+// Quem e o DUT de uma corrida cocotb. A regra morava dentro de um metodo
+// async do compilation_module, entre uma leitura de disco e uma mensagem
+// traduzida, e por isso nenhum teste a alcancava.
+describe('decideCocotbDut', () => {
+  it('a diretiva do proprio .py escolhe o alvo, sem remarcar o topo do .spf', () => {
+    const r = decideCocotbDut(
+      { testbenchFile: 'C:/p/tb_soma.py', topLevelFile: 'C:/p/topo.v' },
+      '# aurora-toplevel: somador\nimport cocotb',
+    );
+    expect(r).toEqual({
+      ok: true,
+      hdlTopModule: 'somador',
+      hdlTopFile: 'C:/p/topo.v',
+      toplevelSource: 'directive',
+    });
+  });
+
+  it('com diretiva, o arquivo de topo e opcional', () => {
+    const r = decideCocotbDut({ testbenchFile: 'tb.py' }, '# aurora-toplevel = alu');
+    expect(r.ok && r.hdlTopFile).toBe('');
+    expect(r.ok && r.hdlTopModule).toBe('alu');
+  });
+
+  it('sem diretiva, o DUT e o topo do .spf', () => {
+    const r = decideCocotbDut({ testbenchFile: 'tb.py', topLevelFile: 'C:/p/processor.v' }, '');
+    expect(r).toEqual({
+      ok: true,
+      hdlTopModule: 'processor',
+      hdlTopFile: 'C:/p/processor.v',
+      toplevelSource: 'spf',
+    });
+  });
+
+  it('testbench que nao e Python nao e corrida cocotb', () => {
+    expect(decideCocotbDut({ testbenchFile: 'tb.v', topLevelFile: 't.v' }, ''))
+      .toEqual({ ok: false, motivo: 'cocotbRequiresPythonTb' });
+    expect(decideCocotbDut({ topLevelFile: 't.v' }, ''))
+      .toEqual({ ok: false, motivo: 'cocotbRequiresPythonTb' });
+  });
+
+  it('sem diretiva e sem topo Verilog, diz o motivo em vez de adivinhar', () => {
+    expect(decideCocotbDut({ testbenchFile: 'tb.py' }, ''))
+      .toEqual({ ok: false, motivo: 'cocotbRequiresTop' });
+    expect(decideCocotbDut({ testbenchFile: 'tb.py', topLevelFile: 'topo.cmm' }, ''))
+      .toEqual({ ok: false, motivo: 'cocotbRequiresTop' });
+  });
+
+  it('aceita .sv como topo', () => {
+    const r = decideCocotbDut({ testbenchFile: 'tb.py', topLevelFile: 'C:/p/topo.sv' }, '');
+    expect(r.ok && r.hdlTopModule).toBe('topo');
+  });
+
+  it('fonte ilegivel vira ausencia de diretiva, nao erro', () => {
+    const r = decideCocotbDut({ testbenchFile: 'tb.py', topLevelFile: 'C:/p/topo.v' }, '');
+    expect(r.ok && r.toplevelSource).toBe('spf');
   });
 });

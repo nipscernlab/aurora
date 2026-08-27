@@ -246,7 +246,7 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
     // arvore nem o painel de IA. Medido em 08/08/2026, colapsado o divisor de
     // cada painel fica com 8 px (arvore) e 3 px (IA) agarraveis colados na
     // borda da janela, porque ele mora DENTRO do painel e os dois containers
-    // tem `overflow: hidden` — e nenhum dos dois responde a clique, so a
+    // tem `overflow: hidden`, e nenhum dos dois responde a clique, so a
     // arrasto. Os trilhos existem fora dos paineis e por isso sobrevivem ao
     // colapso, que e a propriedade que o divisor do terminal sempre teve.
     //
@@ -259,7 +259,7 @@ describe('E2E — o painel de IA nunca cobre o terminal', () => {
       // responde "está colapsado?", e tem que ser ele: o painel de IA tem borda
       // esquerda de 1 px, então fechado mede 1 na caixa de borda e nunca 0.
       // `offsetWidth` responde "abriu pelo menos o mínimo?", e tem que ser ele
-      // porque PANE.MIN_AI é medida de caixa de borda — comparar o clientWidth
+      // porque PANE.MIN_AI é medida de caixa de borda, comparar o clientWidth
       // contra 320 reprovava por exatamente 1 px sempre que a janela fosse
       // estreita a ponto de o painel abrir colado no piso.
       const caixa = (sel) => {

@@ -1,9 +1,9 @@
 /**
- * viewer_toggle.js — Toolbar segmented switch choosing the waveform viewer
+ * viewer_toggle.js: Toolbar segmented switch choosing the waveform viewer
  * (GTKWave external window vs embedded Surfer). Mirrors simulator_toggle.js.
  *
  * Both viewers are shown side by side; the active one is highlighted. The
- * choice lives in viewer_preference.js (localStorage, global) —
+ * choice lives in viewer_preference.js (localStorage, global):
  * compilation_module reads getViewer() fresh on each Wave run. The same
  * preference is settable by Aurora Intelligence (AuroraAPI.wave.setViewer),
  * which dispatches the same event so this stays in sync.
@@ -13,7 +13,7 @@ import { showCardNotification } from '../ui/notification.js';
 
 let lastAnnounced = getViewer();
 
-/** Toast announcing the viewer change — fired for both toolbar and AI changes. */
+/** Toast announcing the viewer change, fired for both toolbar and AI changes. */
 function announceViewerChange(viewer) {
     if (viewer === lastAnnounced) return;
     lastAnnounced = viewer;

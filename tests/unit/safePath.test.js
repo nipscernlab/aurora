@@ -76,7 +76,7 @@ describe('safePath', () => {
       // safePath is *normalization*, not *confinement*. Traversal is
       // documented as a follow-up; here we just confirm resolve() removes
       // the literal `..` segments by collapsing them, so callers get a
-      // canonical absolute path. This is not a security property — a
+      // canonical absolute path. This is not a security property, a
       // future "must be inside projectPath" wrapper handles that.
       const result = safePath('a/b/../c.txt');
       expect(result.endsWith(path.join('a', 'c.txt'))).toBe(true);

@@ -1,8 +1,8 @@
 // Unit tests for the file-tree git status decoration logic
-// (js/tree/git_decorations.js — added with the VS Code-style tree decorations).
+// (js/tree/git_decorations.js, added with the VS Code-style tree decorations).
 //
 // Runs in the default node environment: computeDecorations + letterOf are PURE
-// (no DOM, no globals), so importing the module is side-effect-free — its
+// (no DOM, no globals), so importing the module is side-effect-free, its
 // renderer-only auto-start is guarded by `typeof window !== 'undefined'`, which
 // is false here.
 import { describe, it, expect } from 'vitest';

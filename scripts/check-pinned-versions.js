@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * check-pinned-versions.js — Guard against installed npm packages drifting
+ * check-pinned-versions.js: Guard against installed npm packages drifting
  * off their exact-pinned declared versions.
  *
  * The convention: a dependency in package.json with a bare semver
  * (no `^`, `~`, or other range modifier) is opted-in to strict checking.
- * Anything with a range stays unmanaged — npm is free to resolve it as
+ * Anything with a range stays unmanaged, npm is free to resolve it as
  * usual. To strictly pin a new package, drop its caret in package.json
  * and this script will start watching it on the next run.
  *
  * Background: monaco-editor 0.53.0 throws inside its own
  * monaco.contribution.js during init, blocking EditorManager.initialize()
- * and leaving the editor half-broken — cursor renders, typing is dead.
+ * and leaving the editor half-broken, cursor renders, typing is dead.
  * That class of upstream regression is what this guard exists to catch
  * before the user does. monaco-editor is the only one we know of today
  * (and the only one currently pinned), but the mechanism extends with
@@ -63,7 +63,7 @@ const allDeclared = {
 const pinned = Object.entries(allDeclared).filter(([, spec]) => EXACT_SEMVER_RE.test(spec));
 
 if (pinned.length === 0) {
-  // Not an error — just nothing to check. Surface it so the user can
+  // Not an error, just nothing to check. Surface it so the user can
   // see the script ran rather than silently no-opping.
   console.log('  · no exact-pinned dependencies in package.json (nothing to check)');
   process.exit(0);
@@ -104,12 +104,12 @@ for (const { name, version } of passed) {
 }
 
 // --- B12: on-demand AI CLI manifest must track the declared base versions ----
-// The Claude Code / Codex native binaries are no longer bundled — they're
+// The Claude Code / Codex native binaries are no longer bundled, they're
 // fetched at runtime from a pinned manifest (main/ai/cli_manifest.js). Its
 // versions MUST match the package.json dependency versions, or the app would
 // declare one version and download another (with a stale integrity hash).
 function baseVersion(spec) {
-  // The first plain semver in the spec — strips a leading range operator
+  // The first plain semver in the spec, strips a leading range operator
   // (^, ~, >=, …); the manifest tracks that floor version.
   const m = String(spec || '').match(/\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?/);
   return m ? m[0] : null;
@@ -153,7 +153,7 @@ for (const { label, manifestVer } of cliChecks) {
   console.log(`  OK  cli manifest ${label} ${manifestVer}`);
 }
 
-// Cross-check the manifest's integrity + tarball against package-lock.json — the
+// Cross-check the manifest's integrity + tarball against package-lock.json, the
 // authoritative, offline source npm rewrites on every dependency bump. Without
 // this, a maintainer could bump the version (which the check above rewards) but
 // forget to refresh the integrity hash; the build would ship green and EVERY
@@ -190,4 +190,52 @@ if (lock && lock.packages) {
     ]);
   }
   if (checked > 0) console.log(`  OK  cli manifest integrity matches package-lock.json (${checked} pkg)`);
+}
+
+// The manifest also says WHERE inside the package the binary and its ripgrep
+// live (`exe`, `rg`). Nothing above touches those paths: version and integrity
+// can both be right while the layout is stale, and that is exactly what
+// happened when @openai/codex 0.147.0 moved codex.exe from vendor/<triple>/codex/
+// to vendor/<triple>/bin/. The download passed, the integrity passed, and the
+// install failed afterwards on every machine, looking for a file upstream no
+// longer publishes. The same platform package is installed in node_modules on
+// Windows (it is an optional dep of the base package), so the layout can be
+// verified offline against the real tree. Skipped, with a note, where the
+// platform package is not installed (a non-Windows dev box).
+{
+  const layoutFailures = [];
+  let checked = 0;
+  for (const kind of ['claude', 'codex']) {
+    const cli = manifest.MANIFEST[kind];
+    if (!cli) continue;
+    for (const [pkey, entry] of Object.entries(cli.platforms)) {
+      const pkgDir = path.join(REPO_ROOT, 'node_modules', entry.pkg);
+      if (!fs.existsSync(path.join(pkgDir, 'package.json'))) {
+        console.log(`  · ${entry.pkg} (${pkey}) not installed here, layout not verified`);
+        continue;
+      }
+      checked++;
+      const exe = path.join(pkgDir, ...entry.exe.split('/'));
+      if (!fs.existsSync(exe)) {
+        layoutFailures.push(`${entry.pkg} (${pkey}): manifest exe "${entry.exe}" does not exist in the installed package`);
+      }
+      if (entry.rg) {
+        const rg = path.join(pkgDir, ...entry.rg.split('/'));
+        if (!fs.existsSync(rg) || !fs.statSync(rg).isDirectory()) {
+          layoutFailures.push(`${entry.pkg} (${pkey}): manifest rg dir "${entry.rg}" does not exist in the installed package`);
+        }
+      }
+    }
+  }
+  if (layoutFailures.length > 0) {
+    fail([
+      ...layoutFailures,
+      '',
+      'The package layout changed upstream. Look inside node_modules/<pkg> for the',
+      'binary and update `exe` / `rg` in main/ai/cli_manifest.js; if the old path',
+      'already shipped in a release, add it to `exeLegado` so installed caches',
+      'are still recognised as outdated rather than absent.',
+    ]);
+  }
+  if (checked > 0) console.log(`  OK  cli manifest exe/rg paths exist in the installed packages (${checked} pkg)`);
 }

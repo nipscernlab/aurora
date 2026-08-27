@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * tool_bridge.js — round-trips a tool call from the main process to the
+ * tool_bridge.js: round-trips a tool call from the main process to the
  * renderer that owns `window.AuroraAPI`, and back.
  *
  * The Vercel AI SDK invokes a tool's `execute()` inside the main
@@ -8,13 +8,13 @@
  * the terminals) only exists in the renderer. So `execute()` calls
  * `runTool()` here: we `webContents.send('ai:tool-exec', ...)`, the
  * renderer's tool_runner does the work (including any ask-before-write
- * confirmation), and replies on `ai:tool-result` — which lands in
+ * confirmation), and replies on `ai:tool-result`, which lands in
  * `resolveToolResult()` and settles the pending promise.
  *
  * Completion is event-driven, not clock-driven: a call settles when the
  * renderer actually replies on `ai:tool-result` (`resolveToolResult`), and
  * a renderer that dies mid-call (window closed, render process gone) settles
- * the call at once via webContents events — no waiting for a timer. The
+ * the call at once via webContents events, no waiting for a timer. The
  * timeout below is therefore a pure last-resort backstop for the one case
  * events can't catch: a renderer that is still ALIVE but wedged (a tool_runner
  * deadlock that never replies and never crashes). That's why it can be
@@ -25,16 +25,16 @@
 
 const log = require('electron-log');
 // Single source of truth for the three leashes below (and their relationship
-// to the CLIs' MCP ceiling) — see the hierarchy doc in timeouts.js.
+// to the CLIs' MCP ceiling), see the hierarchy doc in timeouts.js.
 const { TOOL_DEFAULT_MS, TOOL_SLOW_MS, TOOL_INTERACTIVE_MS } = require('./timeouts');
 
-/** requestId → { settle } — settle() clears the timer, detaches the death
+/** requestId → { settle }, settle() clears the timer, detaches the death
  *  listeners, removes the entry, and resolves the runTool promise exactly once. */
 const pending = new Map();
 let seq = 0;
 
 // Tools that block on a deliberate human answer (the inline question card)
-// need a far longer leash — 2 minutes routinely lapses while the user reads
+// need a far longer leash, 2 minutes routinely lapses while the user reads
 // the options and types, which is why ask_user_question "always failed".
 const INTERACTIVE_TOOLS = new Set(['ask_user_question']);
 
@@ -47,7 +47,7 @@ const SLOW_TOOLS = new Set(['rename_project', 'rename_processor']);
 
 /**
  * Dispatch `toolName(args)` to the renderer and resolve with whatever
- * the tool_runner reports. Never rejects — failures resolve as
+ * the tool_runner reports. Never rejects, failures resolve as
  * `{ ok:false, error }` so the AI SDK feeds the error back to the
  * model instead of aborting the stream.
  *
@@ -83,7 +83,7 @@ function runTool(webContents, toolName, args) {
       resolve(result);
     };
     // Event-driven failure: the renderer that owns this call vanished, so the
-    // reply will never come. Don't wait out the backstop — fail immediately.
+    // reply will never come. Don't wait out the backstop, fail immediately.
     const onGone = () => {
       log.warn(`[ai.tool_bridge] ${toolName} (${requestId}) renderer gone before reply`);
       settle({ ok: false, error: 'renderer closed before the tool finished' });

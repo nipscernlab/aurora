@@ -29,7 +29,7 @@ function norm(/** @type {any} */ p) {
  * Both cocotb flows (Icarus and Verilator) run on the ONE Python inside
  * the unified mingw bundle (components/Packages/msys/mingw64/bin/python.exe).
  * Its cocotb carries BOTH VPIs (libcocotbvpi_icarus.vpl + the static
- * libcocotbvpi_verilator.a) — built by the nipscernlab/aurora-toolchain
+ * libcocotbvpi_verilator.a), built by the nipscernlab/aurora-toolchain
  * repo. The old standalone Packages/python (native MSVC) runtime is gone.
  */
 function getBundledPythonPath() {
@@ -229,10 +229,8 @@ function isKnownPythonPath(/** @type {string} */ binaryPath) {
 }
 
 module.exports = {
-  EXPECTED_COCOTB_VERSION,
   getBundledPythonPath,
   getPythonStatus,
   isBundledPythonPath,
   isKnownPythonPath,
-  listPythonCandidatesSync,
 };

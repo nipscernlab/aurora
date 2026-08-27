@@ -3,6 +3,7 @@ import {
     parseVerilogModules,
     buildHierarchyTree,
     flattenSignalPaths,
+    deriveMonitorScopes
 } from '../../js/wave/signal_parser.ts';
 
 describe('parseVerilogModules', () => {
@@ -76,7 +77,7 @@ describe('parseVerilogModules', () => {
 
     it('extracts ANSI ports with shared kind keyword (input a, b)', () => {
         // Em `module my_add(input a, b, output c)`, a vírgula entre `a`
-        // e `b` separa NOMES, não declarações — ambos são input. Bug
+        // e `b` separa NOMES, não declarações, ambos são input. Bug
         // anterior: split simples por `,` deixava `b` órfão (sem kind)
         // e extractSignals ignorava. Range também deve propagar:
         // `input [3:0] a, b` → ambos 4 bits.
@@ -236,7 +237,7 @@ describe('buildHierarchyTree', () => {
         const tree = buildHierarchyTree(modules, 'host');
         // external_ip isn't declared anywhere, so the instance is dropped
         // (extractInstances filters by known names). The tree degrades to
-        // a leaf with no children. This is fine — the user can still
+        // a leaf with no children. This is fine, the user can still
         // pick host's own signals; the missing IP is a project setup
         // problem they'll see when iverilog complains.
         expect(tree.children).toEqual([]);
@@ -308,7 +309,7 @@ describe('buildHierarchyTree', () => {
     it('captura tipos non-synth: real (C± float), integer, time', () => {
         // O .v gerado pelo asmcomp declara C± float como `real foo = 0.0;`.
         // Antes, signal_parser nao reconhecia `real` como kind, entao
-        // essas vars sumiam do Wave Config picker — e por extensao do
+        // essas vars sumiam do Wave Config picker, e por extensao do
         // $dumpvars, VCD, e .gtkw final. Mesma coisa pra `integer` e
         // `time`.
         const files = [{
@@ -381,5 +382,90 @@ describe('flattenSignalPaths', () => {
         const r = flattenSignalPaths(no('tb', ['clk']), fora);
         expect(r).toBe(fora);
         expect(fora).toEqual(['ja.estava.aqui', 'tb.clk']);
+    });
+});
+
+// ─── deriveMonitorScopes ─────────────────────────────────────────────────────
+//
+// O contrato que importa proteger: TODO core na árvore rende exatamente os
+// três escopos de monitor (sp, isp, ula), enraizados no caminho da instância —
+// é o que o $dumpvars injetado usa, e um caminho errado aqui significa
+// simulação sem os flags de pilha e sem o erro da ULA, silenciosamente.
+
+describe('deriveMonitorScopes', () => {
+    it('acha o core fundo na hierarquia real (tb -> wrapper -> p_tipo -> core)', () => {
+        const files = [{
+            path: 'all.v',
+            content: `
+module stack(input clk); reg fl_full; reg [3:0] fl_max; reg [3:0] pointeri; endmodule
+module ula(input clk); real delta_int; real delta_float; endmodule
+module core(input clk); stack sp(clk); ula ula(clk); endmodule
+module cnn(input clk); core core(clk); endmodule
+module cnn_wrap(input clk); cnn p_cnn(clk); endmodule
+module tb; reg clk; cnn_wrap u_cnn(clk); endmodule
+`,
+        }];
+        const { modules } = parseVerilogModules(files);
+        const tree = buildHierarchyTree(modules, 'tb');
+        // Espelhos: ref RELATIVA ao tb (vira o lado direito do always no
+        // proprio tb) + nome deterministico + tipo da declaracao.
+        expect(deriveMonitorScopes(tree)).toEqual([
+            { ref: 'u_cnn.p_cnn.core.sp.pointeri', mirror: 'aurora_sp_pointeri__u_cnn_p_cnn_core', kind: 'integer' },
+            { ref: 'u_cnn.p_cnn.core.sp.fl_max', mirror: 'aurora_sp_fl_max__u_cnn_p_cnn_core', kind: 'integer' },
+            { ref: 'u_cnn.p_cnn.core.sp.fl_full', mirror: 'aurora_sp_fl_full__u_cnn_p_cnn_core', kind: 'reg' },
+            { ref: 'u_cnn.p_cnn.core.ula.delta_int', mirror: 'aurora_ula_delta_int__u_cnn_p_cnn_core', kind: 'real' },
+            { ref: 'u_cnn.p_cnn.core.ula.delta_float', mirror: 'aurora_ula_delta_float__u_cnn_p_cnn_core', kind: 'real' },
+        ]);
+    });
+
+    it('NUNCA fabrica escopo que o parser nao viu (isp em generate quebrou o Icarus)', () => {
+        // O caso real de 20/08: isp dentro de generate if(CAL) nao aparece no
+        // parse; um $dumpvars com core.isp inventado e erro de elaboracao no
+        // Icarus e derruba a compilacao inteira. So emite o que existe.
+        const files = [{
+            path: 'all.v',
+            content: `
+module stack(input clk); reg fl_full; reg [3:0] fl_max; reg [3:0] pointeri; endmodule
+module core(input clk); stack sp(clk); endmodule
+module tb; reg clk; core core(clk); endmodule
+`,
+        }];
+        const { modules } = parseVerilogModules(files);
+        const scopes = deriveMonitorScopes(buildHierarchyTree(modules, 'tb'));
+        expect(scopes.map((s) => s.ref)).toEqual(['core.sp.pointeri', 'core.sp.fl_max', 'core.sp.fl_full']);
+        const tudo = JSON.stringify(scopes);
+        expect(tudo).not.toContain('isp');
+        expect(tudo).not.toContain('ula');
+    });
+
+    it('multiplos processadores rendem monitores independentes', () => {
+        const files = [{
+            path: 'all.v',
+            content: `
+module stack(input clk); reg fl_full; reg [3:0] fl_max; reg [3:0] pointeri; endmodule
+module ula(input clk); real delta_int; real delta_float; endmodule
+module core(input clk); stack sp(clk); ula ula(clk); endmodule
+module proc(input clk); core core(clk); endmodule
+module tb; reg clk; proc p_a(clk); proc p_b(clk); endmodule
+`,
+        }];
+        const { modules } = parseVerilogModules(files);
+        const tree = buildHierarchyTree(modules, 'tb');
+        const scopes = deriveMonitorScopes(tree);
+        const refs = scopes.map((s) => s.ref);
+        expect(refs).toContain('p_a.core.sp.fl_full');
+        expect(refs).toContain('p_b.core.ula.delta_float');
+        expect(scopes).toHaveLength(10);
+        // Espelhos de procs diferentes nunca colidem em nome.
+        const mirrors = scopes.map((s) => s.mirror);
+        expect(new Set(mirrors).size).toBe(mirrors.length);
+        expect(JSON.stringify(scopes)).not.toContain('undefined');
+    });
+
+    it('sem processador, lista vazia; arvore ausente nao lanca', () => {
+        const files = [{ path: 'a.v', content: 'module tb; reg clk; endmodule' }];
+        const { modules } = parseVerilogModules(files);
+        expect(deriveMonitorScopes(buildHierarchyTree(modules, 'tb'))).toEqual([]);
+        expect(deriveMonitorScopes(null)).toEqual([]);
     });
 });

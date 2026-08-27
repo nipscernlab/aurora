@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * update_schedule.js — when the auto-updater should try again.
+ * update_schedule.js: when the auto-updater should try again.
  *
  * Pure decision logic, split out of [main/updater.js](updater.js) so it can be
  * unit-tested without an Electron main process. `updater.js` owns the timers,
@@ -11,7 +11,7 @@
  * machines and updated only over the network, so a single startup check that
  * silently loses to a late network, a proxy or a transient 5xx would strand
  * the whole fleet on an old version with nothing to show for it. Every outcome
- * therefore arms a next attempt — there is no path that stops the schedule
+ * therefore arms a next attempt, there is no path that stops the schedule
  * while the app is running.
  */
 
@@ -22,8 +22,8 @@ const STARTUP_CHECK_DELAY_MS = 6_000;
 
 /**
  * Backoff for a silent check that FAILED, indexed by how many consecutive
- * failures preceded it. Short at first — a boot-time network that is merely
- * late recovers within a minute — then long, so a genuinely offline machine
+ * failures preceded it. Short at first, a boot-time network that is merely
+ * late recovers within a minute, then long, so a genuinely offline machine
  * settles into hourly attempts instead of spinning. The last entry repeats
  * for every further failure.
  */

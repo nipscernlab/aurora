@@ -33,7 +33,7 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      width: 100vw; height: 100vh; overflow: hidden;
+      width: 100vw; overflow: hidden;
       background: transparent;
       font-family: var(--font-sans);
       color: var(--text);
@@ -42,8 +42,13 @@
     }
 
     /* ====== Card ====== */
+    /* A caixa ABRACA o conteudo; a janela e que se ajusta a ela (o script no
+       fim do arquivo mede e pede o redimensionamento ao main).
+       Antes era `position: fixed; inset: 0` numa janela de altura fixa, entao
+       os tres estados dividiam a mesma caixa alta: o de download, que tem tres
+       linhas, ficava com metade da janela vazia embaixo. */
     .window {
-      position: fixed; inset: 0;
+      position: relative;
       display: flex; flex-direction: column;
       border-radius: 16px; overflow: hidden;
       background:
@@ -105,11 +110,12 @@
 
     /* ====== Body ====== */
     .body {
-      flex: 1; min-height: 0;
       display: flex; flex-direction: column;
       padding: 8px 22px 22px;
     }
-    .state { display: none; flex: 1; min-height: 0; flex-direction: column; }
+    /* Sem `flex: 1`: esticar o estado para preencher a caixa e o que produzia o
+       vazio. Cada estado ocupa o que precisa. */
+    .state { display: none; flex-direction: column; }
     .state.active { display: flex; animation: fade 280ms ease both; }
 
     /* ---- cabecalho do estado ----
@@ -150,7 +156,9 @@
       content: ''; flex: 1; height: 1px; background: var(--border);
     }
     .changelog {
-      flex: 1; min-height: 0; overflow-y: auto;
+      /* Teto, e nao `flex: 1`: o changelog e a unica parte que pode crescer
+         sem limite, entao ele rola a partir daqui em vez de esticar a janela. */
+      max-height: 300px; overflow-y: auto;
       padding: 14px 16px;
       background: var(--bg-1); border: 1px solid var(--border);
       border-radius: 12px;
@@ -592,6 +600,17 @@
     // ============================================================
     const $ = (id) => document.getElementById(id);
 
+    // Todo link do changelog (o commit de cada item) abre no navegador. O
+    // main bloqueia a navegacao desta janela, entao sem este desvio o clique
+    // simplesmente nao faria nada; e antes do bloqueio ele fazia pior, trazia
+    // o github.com para dentro da janela transparente.
+    document.addEventListener('click', (e) => {
+      const a = e.target instanceof Element ? e.target.closest('a[href]') : null;
+      if (!a) return;
+      e.preventDefault();
+      window.updateAPI?.openExternal?.(a.getAttribute('href'));
+    });
+
     function applyLocale() {
       const T = UI[locale];
       document.documentElement.lang = locale;
@@ -618,6 +637,25 @@
         ? renderNotes(notes)
         : `<p style="color:var(--text-dim)">${UI[locale].noNotes}</p>`;
       $('changelog').scrollTop = 0;
+      // O changelog e a parte que mais muda de tamanho, entao a altura e
+      // recalculada depois de ele ser pintado, e nao so ao trocar de estado.
+      ajustarAltura();
+    }
+
+    /**
+     * Pede que a janela fique do tamanho do conteudo.
+     *
+     * Depois do proximo quadro, e nao no ato: a troca de estado acabou de mexer
+     * no DOM e a medida sairia do layout antigo. O `ceil` mais a margem cobrem o
+     * arredondamento do zoom da tela, que de outro modo cortaria um fio do
+     * ultimo pixel.
+     */
+    function ajustarAltura() {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const caixa = document.querySelector('.window');
+        if (!caixa) return;
+        window.updateAPI?.resizeToContent?.(Math.ceil(caixa.getBoundingClientRect().height) + 2);
+      }));
     }
 
     function showState(name) {
@@ -626,6 +664,7 @@
       });
       // trava o X durante o download
       $('close').classList.toggle('locked', name === 'downloading');
+      ajustarAltura();
     }
 
     function fmtEta(sec) {

@@ -4,7 +4,7 @@ import { electronAPI } from '../app/electron_api.js';
  *
  * These methods used to be static members of TabManager. They're factored
  * out here as a plain object that gets `Object.assign(TabManager, viewers)`
- * back into the class — `this` inside each method still resolves to
+ * back into the class, `this` inside each method still resolves to
  * TabManager when called as `TabManager.foo()`, so no signatures or
  * call-site behaviour change.
  *
@@ -72,7 +72,7 @@ export const tabViewers = {
 
         // Pan is applied via the transform itself (translate + scale), NOT via
         // container scroll. `transform: scale()` doesn't grow the scroll box, so
-        // a scroll-based pan can never reach the edges of a zoomed image — and
+        // a scroll-based pan can never reach the edges of a zoomed image, and
         // the flex-centering on the scroll container hides the top/left overflow
         // on top of that. Translating the image directly sidesteps both.
         let currentZoom = 1;
@@ -250,7 +250,7 @@ export const tabViewers = {
 
     // PDF state preservation across tab switches.
     //
-    // setupPdfStateTracking is best-effort — same-origin policy blocks
+    // setupPdfStateTracking is best-effort, same-origin policy blocks
     // contentWindow access for many configurations. We swallow the resulting
     // throws instead of crashing the tab.
     setupPdfStateTracking(filePath, iframe) {
@@ -275,7 +275,7 @@ export const tabViewers = {
             iframe.contentWindow.addEventListener('resize', saveState);
             // Clear any prior poll for this file (the iframe 'load' handler can
             // fire more than once) and track the new one so closeTab can stop
-            // it — an untracked setInterval here leaked one 2s timer per PDF
+            // it, an untracked setInterval here leaked one 2s timer per PDF
             // open, forever, holding the detached iframe alive.
             clearInterval(this.pdfStateIntervals.get(filePath));
             this.pdfStateIntervals.set(filePath, setInterval(saveState, 2000));
@@ -308,6 +308,44 @@ export const tabViewers = {
                 }
             }, 500);
         });
+    },
+
+    // -- Surfer viewer --------------------------------------------------------
+    //
+    // A onda numa aba: um iframe com o cliente WASM do Surfer, apontado para a
+    // URL aurora-surfer:// que o main montou (bundle web + load_url do servidor
+    // local daquela onda). Nao ha estado a salvar aqui: o proprio Surfer guarda
+    // sua visao enquanto o iframe viver, e o iframe vive enquanto a aba viver.
+    createSurferViewer(filePath, pageUrl) {
+        if (this.viewerInstances.has(filePath)) {
+            return this.viewerInstances.get(filePath);
+        }
+
+        const viewer = document.createElement('div');
+        viewer.className = 'surfer-viewer';
+        const iframe = document.createElement('iframe');
+        iframe.className = 'surfer-frame';
+        // aria-label e nao title: title vira tooltip nativo, e um "Surfer"
+        // pipocando a cada passada de mouse sobre a onda e ruido. O aria-label
+        // preserva o nome acessivel sem o balao.
+        iframe.setAttribute('aria-label', 'Surfer');
+        // Sem allow-same-origin nao ha fetch da propria origem (o .wasm e o
+        // load_url); o esquema aurora-surfer:// e outra origem, entao isso nao
+        // devolve ao conteudo o alcance do DOM do app.
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+        iframe.src = pageUrl;
+        viewer.appendChild(iframe);
+
+        this.viewerInstances.set(filePath, viewer);
+        return viewer;
+    },
+
+    // Recompilou a mesma onda: o servidor e outro (porta/token novos), entao o
+    // iframe recarrega na URL nova. A aba e o viewer continuam os mesmos.
+    refreshSurferViewer(filePath, pageUrl) {
+        const viewer = this.viewerInstances.get(filePath);
+        const iframe = viewer && viewer.querySelector('iframe.surfer-frame');
+        if (iframe) iframe.src = pageUrl;
     },
 
     savePdfViewerState(filePath) {

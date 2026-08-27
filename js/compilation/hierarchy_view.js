@@ -1,15 +1,15 @@
-// hierarchy_view.js — DOM renderer for the post-synthesis module hierarchy.
+// hierarchy_view.js: DOM renderer for the post-synthesis module hierarchy.
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #2). Consumes
 // the pure tree data model from hierarchy_parser.js and renders it into the
 // file-tree's 'hierarchy' sub-container, with expand/collapse + click-to-open
-// the module's source. Independent of CompilationModule instance state — the
+// the module's source. Independent of CompilationModule instance state, the
 // hierarchy data is passed in; everything else is globals (window.treeView /
 // window.TabManager / window.fileTreeViewController) + Monaco via the imported
 // TabManager/EditorManager.
 //
 // NB: the recursive child builder is `buildHierarchyChildren` (NOT
-// `buildHierarchyTree`) — `buildHierarchyTree` is a DIFFERENT function imported
+// `buildHierarchyTree`), `buildHierarchyTree` is a DIFFERENT function imported
 // from ../wave/signal_parser.js into compilation_module.js; the rename avoids
 // the name clash.
 

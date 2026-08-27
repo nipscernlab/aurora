@@ -1,11 +1,11 @@
 // @ts-check
 /**
- * audit.js — append-only activity log for Aurora Intelligence.
+ * audit.js: append-only activity log for Aurora Intelligence.
  *
  * Every tool call the assistant makes (and its outcome) is appended as
  * one JSON object per line to `userData/aurora-intelligence-log.jsonl`.
  * This gives the user a reviewable trail of what the AI did to their
- * workspace — useful both for trust ("what did it just change?") and
+ * workspace, useful both for trust ("what did it just change?") and
  * for debugging a misbehaving prompt.
  *
  * Best-effort: a failed append is logged and swallowed. The audit

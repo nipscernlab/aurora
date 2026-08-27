@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96px" height="96px" viewBox="0 0 1000 1000">
+  <defs>
+    <filter id="yglow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="17"/></filter>
+  </defs>
+  <g filter="url(#yglow)" opacity=".5">
+    <g fill="none" stroke="#22D3EE" stroke-width="54" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M250,258 L470,500 L250,742" opacity=".34"/>
+      <path d="M436,258 L656,500 L436,742" opacity=".64"/>
+      <path d="M622,258 L842,500 L622,742"/>
+    </g>
+  </g>
+  <g fill="none" stroke="#22D3EE" stroke-width="54" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M250,258 L470,500 L250,742" opacity=".34"/>
+    <path d="M436,258 L656,500 L436,742" opacity=".64"/>
+    <path d="M622,258 L842,500 L622,742"/>
+  </g>
+</svg>

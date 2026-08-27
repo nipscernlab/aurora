@@ -211,7 +211,7 @@ function register() {
       // ENOTEMPTY (lista do Node). Importante no Windows porque o
       // handle release de processos filhos (vvp.exe escrevendo
       // progress.txt, gtkwave segurando .fst) e do scanner de
-      // antivirus pode demorar uns ms apos o processo sair — sem
+      // antivirus pode demorar uns ms apos o processo sair, sem
       // retry, o primeiro unlink falha com EPERM. Funciona tanto pra
       // arquivo quanto pra diretorio (recursive flag so se aplica a
       // dir).
@@ -225,6 +225,28 @@ function register() {
     } catch (error) {
       log.error(`Error deleting ${filePath}:`, error);
       throw new Error(`Failed to delete: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
+    }
+  });
+
+  // O arquivo pode ser SOBRESCRITO por outro processo? A pergunta certa e
+  // "da para abrir em escrita", nao "da para deletar": o GTKWave segurando o
+  // .fst bloqueia a delecao mas NAO a sobreposicao (fopen no Windows abre com
+  // compartilhamento de leitura e escrita), entao um teste por delecao
+  // acusaria bloqueio num caso que funcionaria. O open 'r+' nao altera nem
+  // trunca nada; so pede o mesmo acesso que o simulador vai pedir.
+  // Respostas: { exists:false } quando nao ha arquivo (criar e outra
+  // operacao, com outras permissoes); { exists, writable, code } nos demais.
+  // EPERM = somente-leitura ou politica; EBUSY = preso por outro processo.
+  ipcMain.handle('file:check-writable', async (_event, filePath) => {
+    const normalizedPath = safePath(filePath, 'filePath');
+    try {
+      const handle = await fs.open(normalizedPath, 'r+');
+      await handle.close();
+      return { exists: true, writable: true };
+    } catch (error) {
+      const code = /** @type {NodeJS.ErrnoException} */ (error).code || null;
+      if (code === 'ENOENT') return { exists: false, writable: true };
+      return { exists: true, writable: false, code };
     }
   });
 
@@ -262,7 +284,7 @@ function register() {
     }
   });
 
-  // Move to the OS trash (Recycle Bin) — the default delete of the file-tree
+  // Move to the OS trash (Recycle Bin), the default delete of the file-tree
   // CRUD, mirroring VS Code. Falls back to the caller to decide on permanent
   // deletion when trashing fails (e.g. network drives without a recycle bin).
   ipcMain.handle('file:trash', async (_event, targetPath) => {
@@ -338,7 +360,7 @@ function register() {
   ipcMain.handle('dialog:openDirectory', async (_event, options = {}) => {
     // defaultPath is the directory the dialog opens at. Without it,
     // Windows falls back to the process's last-used directory, which
-    // ends up being the currently-open project folder — and the user
+    // ends up being the currently-open project folder, and the user
     // accidentally nests new projects inside existing ones. Renderer
     // passes the last "new project location" from localStorage; we
     // fall back to the user's Documents folder when there isn't one.
@@ -587,7 +609,7 @@ function register() {
     }
   });
 
-  // Live file size — bypassa o cache de metadata do diretorio do Windows
+  // Live file size, bypassa o cache de metadata do diretorio do Windows
   // abrindo um handle e usando fstat (GetFileInformationByHandle), que
   // reflete bytes ja escritos pelo writer mesmo sem close/flush dele.
   // Indispensavel pra observar arquivos ativos (ex: vvp escrevendo .fst
@@ -714,4 +736,4 @@ function register() {
   healthCheck.unref?.();
 }
 
-module.exports = { register, scanDirectory };
+module.exports = { register };

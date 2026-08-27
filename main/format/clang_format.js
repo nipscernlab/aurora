@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * clang_format.js — C/C++/CMM document formatter for the Monaco editor.
+ * clang_format.js: C/C++/CMM document formatter for the Monaco editor.
  *
  * clang-format isn't a language server: it's a one-shot CLI that reads a
  * buffer on stdin and writes the formatted buffer on stdout. So this module
- * is much thinner than the Verible LSP bridge — per Shift+Alt+F, the
+ * is much thinner than the Verible LSP bridge, per Shift+Alt+F, the
  * renderer (js/editor/clang_format_integration.js) sends the buffer here,
  * we spawn the bundled clang-format (components/Packages/clang-format/bin,
  * via download-clang-format.js), pipe the text through, and return the
@@ -56,16 +56,21 @@ function assumeFilenameFor(languageId, filePath) {
 }
 
 /**
+ * The result says WHY it failed, not just that it did: the renderer used to get
+ * `null` for "not installed", "timed out" and "syntax error" alike, and
+ * Shift+Alt+F on a big file simply did nothing, with no way to tell
+ * "already formatted" from "gave up". Same shape as python_format.js.
+ *
  * @param {{languageId?:string, filePath?:string, text?:string}} payload
- * @returns {Promise<string|null>} formatted text, or null on any failure
+ * @returns {Promise<{ok: true, text: string} | {ok: false, reason: 'not-installed'|'timeout'|'failed'}>}
  */
 function format({ languageId, filePath, text } = {}) {
-  if (typeof text !== 'string') return Promise.resolve(null);
-  if (!binInstalled()) return Promise.resolve(null);
+  if (typeof text !== 'string') return Promise.resolve(falha('failed'));
+  if (!binInstalled()) return Promise.resolve(falha('not-installed'));
 
   // Defense in depth: same allowlist gate the toolchain executor uses.
   const verdict = isAllowed(CF_BIN);
-  if (!verdict.ok) { log.warn('[clang-format]', verdict.error); return Promise.resolve(null); }
+  if (!verdict.ok) { log.warn('[clang-format]', verdict.error); return Promise.resolve(falha('failed')); }
 
   const assume = assumeFilenameFor(languageId || 'c', filePath || '');
   const args = [`-assume-filename=${assume}`, '-style=file', '-fallback-style=LLVM'];
@@ -76,47 +81,52 @@ function format({ languageId, filePath, text } = {}) {
       child = spawnTracked(CF_BIN, args, { windowsHide: true });
     } catch (e) {
       log.warn('[clang-format] spawn failed:', e instanceof Error ? e.message : e);
-      resolve(null);
+      resolve(falha('failed'));
       return;
     }
 
     let out = '';
     let errOut = '';
     let settled = false;
-    const done = (/** @type {string|null} */ value) => {
+    const done = (/** @type {{ok: true, text: string} | {ok: false, reason: 'not-installed'|'timeout'|'failed'}} */ value) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       resolve(value);
     };
     const timer = setTimeout(() => {
-      log.warn('[clang-format] timed out — killing');
+      log.warn(`[clang-format] passou de ${FORMAT_TIMEOUT_MS / 1000}s; encerrando`);
       try { child.kill(); } catch { /* ignore */ }
-      done(null);
+      done(falha('timeout'));
     }, FORMAT_TIMEOUT_MS);
 
     child.stdout.on('data', (d) => { out += d.toString('utf8'); });
     child.stderr.on('data', (d) => { errOut += d.toString('utf8'); });
     child.on('error', (e) => {
       log.warn('[clang-format] process error:', e instanceof Error ? e.message : e);
-      done(null);
+      done(falha('failed'));
     });
     child.on('close', (code) => {
-      if (code === 0 && out) done(out);
+      if (code === 0 && out) done({ ok: true, text: out });
       else {
         if (code !== 0) log.warn(`[clang-format] exit ${code}: ${errOut.slice(0, 500)}`);
-        done(null);
+        done(falha('failed'));
       }
     });
 
     // Feed the buffer on stdin. Guard against EPIPE if clang-format bailed
-    // before reading (e.g. bad args) — the 'error'/'close' path resolves it.
+    // before reading (e.g. bad args), the 'error'/'close' path resolves it.
     try {
       child.stdin.on('error', () => { /* EPIPE handled via close */ });
       child.stdin.write(text);
       child.stdin.end();
     } catch { /* settled by error/close */ }
   });
+}
+
+/** @param {'not-installed'|'timeout'|'failed'} reason @returns {{ok: false, reason: 'not-installed'|'timeout'|'failed'}} */
+function falha(reason) {
+  return { ok: false, reason };
 }
 
 function register() {

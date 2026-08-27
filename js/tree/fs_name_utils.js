@@ -1,6 +1,6 @@
 /**
- * fs_name_utils.js — pure name/path helpers for the file-tree CRUD
- * (standard_tree_crud.js). No DOM, no IPC — unit-tested in isolation.
+ * fs_name_utils.js: pure name/path helpers for the file-tree CRUD
+ * (standard_tree_crud.js). No DOM, no IPC, unit-tested in isolation.
  *
  * The validation rules mirror VS Code's Explorer:
  *   - empty name           → "must be provided"
@@ -87,7 +87,7 @@ export function validateEntryName(name, opts = {}) {
         if (err) return { ok: false, error: err };
     }
 
-    // Duplicate check — only meaningful for a single-segment name (nested
+    // Duplicate check, only meaningful for a single-segment name (nested
     // targets are existence-checked at commit time by the caller).
     if (!hasSep) {
         const lower = unified.toLowerCase();

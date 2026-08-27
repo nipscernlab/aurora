@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 
 /**
- * <aurora-tooltip> — the singleton floating tooltip (DESIGN §9).
+ * <aurora-tooltip>, the singleton floating tooltip (DESIGN §9).
  *
  * Just the visual surface: a box + a directional arrow, in Shadow DOM with the
  * semantic tokens. The controller (tooltip.js) still owns discovery
@@ -28,7 +28,7 @@ class AuroraTooltip extends LitElement {
       position: fixed;
       left: 0;
       top: 0;
-      /* Always above modals/popovers — a transient hint should never be
+      /* Always above modals/popovers, a transient hint should never be
          occluded. (The old .custom-tooltip raised z-index only when a modal was
          open via a sibling selector; the component just stays on top.) */
       z-index: var(--z-tooltip-top, 10001);
@@ -61,7 +61,7 @@ class AuroraTooltip extends LitElement {
       overflow-wrap: break-word;
     }
 
-    /* Arrow — a CSS triangle (::after = fill, ::before = 1px border edge),
+    /* Arrow, a CSS triangle (::after = fill, ::before = 1px border edge),
        positioned horizontally by the --arrow-x the controller sets. */
     :host::after,
     :host::before {

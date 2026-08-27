@@ -1,9 +1,9 @@
 import { electronAPI } from '../app/electron_api.js';
-// wave_toolchain.js — resolve bundled toolchain paths for the wave/sim flow.
+// wave_toolchain.js: resolve bundled toolchain paths for the wave/sim flow.
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #3). Pure IO
 // helpers: they join paths to bundled executables and probe the filesystem for
-// existence / wave artifacts. No DOM, no simulation state — the only coupling is
+// existence / wave artifacts. No DOM, no simulation state, the only coupling is
 // `electronAPI` (path join + fileExists + listFilesInDirectory) and the
 // i18n shim. componentsPath is passed in (was this.componentsPath) so these are
 // plain functions the wave pipeline calls.
@@ -11,9 +11,9 @@ import { electronAPI } from '../app/electron_api.js';
 // Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
 // `globalThis.window = { electronAPI: fake }` pattern (same as WaveStore /
-// SpfStore) — migrating these globals belongs to A3, not this extraction.
+// SpfStore), migrating these globals belongs to A3, not this extraction.
 
-// i18n shim — falls back to the key path if i18n didn't boot yet.
+// i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 /**
@@ -22,13 +22,13 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
  *
  * Inputs:  componentsPath
  * Returns: { tempBaseDir, gtkwaveBin, vvpBin, iverilogBin,
- *            iverilogBinDir, gtkwaveBinDir, fst2vcdBin, surferBin } — all absolute
+ *            iverilogBinDir, gtkwaveBinDir, fst2vcdBin, surferBin }, all absolute
  * Throws:  never (joinPath is total)
  * Side-effects: none
  *
  * The iverilog / gtkwaveBinDir / fst2vcd fields exist so the cocotb
  * (Python testbench) flow can find the Icarus binary, put it on PATH,
- * and convert the FST it produces — that path uses the base tools object
+ * and convert the FST it produces, that path uses the base tools object
  * directly (unlike Verilator, which merges in resolveVerilatorTools()).
  */
 export async function resolveWaveToolchain(componentsPath) {
@@ -48,10 +48,10 @@ export async function resolveWaveToolchain(componentsPath) {
         componentsPath, 'Packages', 'gtkwave-nipscern',
     );
     const fst2vcdBin = await electronAPI.joinPath(gtkwaveBinDir, 'fst2vcd.exe');
-    // Surfer (optional, opt-in viewer): the NIPSCERN fork build,
+    // Surfer (optional, opt-in viewer): the NIPS-CERN fork build,
     // surfer-aurora.exe, dropped under Packages/surfer/. Built from
     // gitlab.com/nips-cern/surfer-aurora (fork of surfer-project/surfer,
-    // EUPL-1.2). NOT bundled by default — _waveLaunchSurfer degrades to GTKWave
+    // EUPL-1.2). NOT bundled by default, _waveLaunchSurfer degrades to GTKWave
     // with a friendly message if it's absent, so resolving the path
     // unconditionally here is harmless.
     const surferBin = await electronAPI.joinPath(
@@ -126,12 +126,14 @@ export async function resolveVerilatorTools(componentsPath) {
 
     if (!await electronAPI.fileExists(verilatorScript)) {
         throw new Error(tr('error.toolchain.verilatorNotFound', {
-            paths: `  ${verilatorScript}\n  (bundle nao instalado — rode "npm run bootstrap" pra baixar)`,
+            paths: `  ${verilatorScript}`,
         }));
     }
     if (!await electronAPI.fileExists(perlExe)) {
+        // Perl ausente com o resto presente e bundle corrompido; a cura e a
+        // mesma da ausencia: baixar a Cadeia de compilacao de novo.
         throw new Error(tr('error.toolchain.verilatorNotFound', {
-            paths: `  ${perlExe}\n  (bundle corrompido — apague components/Packages/msys/ e rode "npm run bootstrap")`,
+            paths: `  ${perlExe}`,
         }));
     }
 

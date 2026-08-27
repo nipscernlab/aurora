@@ -1,5 +1,5 @@
 /**
- * gtkw_writer.ts — Helpers de inspeção/parsing de .gtkw.
+ * gtkw_writer.ts: Helpers de inspeção/parsing de .gtkw.
  *
  * O builder principal do .gtkw (header + secao top-level + secoes por
  * processador) vive em `gtkw_proc_writer.js` (`buildAuroraGtkw`).
@@ -7,10 +7,10 @@
  * Aqui resta `extractSignalRefs`: extrai os scope paths referenciados
  * por um .gtkw existente. Usado pra cross-checar um .gtkw user-curated
  * contra o VCD da simulacao atual (`_waveValidateUserGtkwAgainstVcd`)
- * — sinais referenciados pelo layout mas nao presentes no VCD geram
+ *, sinais referenciados pelo layout mas nao presentes no VCD geram
  * warning ao usuario.
  *
- * Compilado por `tsc` (npm run build:ts) num gtkw_writer.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num gtkw_writer.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -20,11 +20,11 @@
  * was saved).
  *
  * .gtkw is a line-oriented format with several decoration kinds:
- *   - `[*]` / `[dumpfile]` / `[savefile]` / `[timestart]` — headers
- *   - `@<hex>` — format codes (radix, color, etc.)
- *   - `-<name>` — group open marker
- *   - `[group_close]` / `[group_end]` — group close
- *   - `<dotted.path>[range]?` — actual signal reference
+ *   - `[*]` / `[dumpfile]` / `[savefile]` / `[timestart]`, headers
+ *   - `@<hex>`, format codes (radix, color, etc.)
+ *   - `-<name>`, group open marker
+ *   - `[group_close]` / `[group_end]`, group close
+ *   - `<dotted.path>[range]?`, actual signal reference
  *
  * The signal lines we care about are: starts with a letter or
  * underscore, contains at least one dot. Strip a trailing `[a:b]`
@@ -43,7 +43,7 @@ export function extractSignalRefs(gtkwContent: string): string[] {
         if (line.startsWith('[') || line.startsWith('@') || line.startsWith('-')
             || line.startsWith('*') || line.startsWith('#')
             || line.startsWith('^')) continue;
-        // Alias-prefixed signal: `+{alias} <path>` — strip the prefix
+        // Alias-prefixed signal: `+{alias} <path>`, strip the prefix
         // and keep the path. buildAuroraGtkw emits these for any
         // signal with a human-friendly label (Stack, ULA, typed vars).
         if (line.startsWith('+')) {

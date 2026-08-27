@@ -23,8 +23,9 @@ const PRISM_STRINGS = {
     recompile:   'Recompile',
     fitToScreen: 'Fit to Screen',
     resetZoom:   'Reset Zoom',
-    clickModule: 'Click to open · double-click for source: ',
+    clickModule: 'Click to open · Shift+click highlights connections · double-click for source: ',
     clickWire:   'Click to highlight connection',
+    highlightCell: 'Highlight connections',
     simulate:    'Simulate',
     schematic:   'Schematic',
     building:    'Building simulation…',
@@ -41,8 +42,9 @@ const PRISM_STRINGS = {
     recompile:   'Recompilar',
     fitToScreen: 'Ajustar à Tela',
     resetZoom:   'Resetar Zoom',
-    clickModule: 'Clique para abrir · duplo-clique p/ o código: ',
+    clickModule: 'Clique para abrir · Shift+clique destaca conexões · duplo-clique p/ o código: ',
     clickWire:   'Clique para destacar conexão',
+    highlightCell: 'Destacar conexões',
     simulate:    'Simular',
     schematic:   'Esquemático',
     building:    'Montando a simulação…',
@@ -286,8 +288,10 @@ class PRISMViewer {
 
       this._updateModuleInfo(moduleName, svgPath);
       this._updateBreadcrumbs();
-      this._setupSVGInteractions();
+      // Labels first: cutting a wire around a label replaces it by two
+      // segments, and the listeners below must land on the segments.
       this._adjustBusLabels();
+      this._setupSVGInteractions();
       this._hideStatus();
 
       // An SVG is now on screen — allow downloading it. Enabled on every
@@ -301,13 +305,103 @@ class PRISMViewer {
     }
   }
 
+  /**
+   * Ajusta as marcas de largura do barramento (o "/32/" em cima do fio).
+   *
+   * O netlistsvg desenha o numero dentro de um retangulo dimensionado por
+   * contagem de caracteres, e antes daqui saia um `dx` fixo por cima disso: o
+   * numero ficava empurrado para a direita e sobrava um vao a esquerda, dentro
+   * de uma caixa que nao era do tamanho de nada. O retangulo agora e so a
+   * mascara que impede o fio de cruzar os digitos, medida no proprio texto
+   * depois de ele existir na tela; a borda dele sai no CSS.
+   */
   _adjustBusLabels() {
+    const svg = this.svgContent.querySelector('svg');
+    if (!svg) return;
     const labels = this.svgContent.querySelectorAll('text[class*="busLabel_"]');
+    const caixas = [];
     labels.forEach((label) => {
-      label.setAttribute('dx', '5');
+      label.removeAttribute('dx');
       const rect = label.previousElementSibling;
-      if (rect && rect.tagName.toLowerCase() === 'rect') rect.setAttribute('width', '20');
+      if (!rect || rect.tagName.toLowerCase() !== 'rect') return;
+      let caixa;
+      // getBBox exige o elemento renderizado; num SVG ainda sem layout ele
+      // lanca, e ai a caixa fica como o netlistsvg a deixou.
+      try { caixa = label.getBBox(); } catch (_) { return; }
+      if (!caixa || !caixa.width) return;
+      const folga = 1;
+      caixas.push({
+        x: caixa.x - folga,
+        y: caixa.y - folga,
+        width: caixa.width + folga * 2,
+        height: caixa.height + folga * 2,
+      });
+      // O retangulo do netlistsvg sai do documento. Ele so existia para
+      // esconder o fio, e o corte abaixo faz isso na geometria; um elemento
+      // que nao precisa existir nao pode ser pintado por regra nenhuma.
+      rect.remove();
     });
+    this._cutWiresUnderLabels(svg, caixas);
+  }
+
+  /**
+   * O fio nao passa por tras do numero, e o fundo continua sendo o fundo.
+   *
+   * Duas versoes anteriores erraram de jeitos diferentes. A primeira pintava
+   * o retangulo da etiqueta com a cor do fundo; mas o canvas nao e uma cor, e
+   * a caixa solida aparecia por cima da grade de pontos e da vinheta. A
+   * segunda escondia o retangulo e cortava o fio com uma mascara do SVG; so
+   * que a mascara corta tambem o brilho do fio destacado, com borda reta, e
+   * a caixa voltava como um buraco retangular no meio do realce.
+   *
+   * Aqui o corte e na GEOMETRIA: cada <line> que cruza uma etiqueta vira
+   * dois segmentos, um que termina na borda de ca e outro que comeca na
+   * borda de la. Nao ha nada a pintar nem a mascarar, entao o brilho de
+   * cada ponta se desfaz sozinho, como o de qualquer ponta de fio. Os dois
+   * segmentos carregam o mesmo `data-cut-group`, e o preenchimento do
+   * realce (_findConnectedWires) atravessa o vao por ele, senao o destaque
+   * pararia na etiqueta. O netlistsvg desenha fio como <line>; um fio de
+   * outro tipo que cruze uma etiqueta fica como esta, que e raro e so
+   * custa o numero por cima da linha.
+   */
+  _cutWiresUnderLabels(svg, caixas) {
+    if (!caixas.length) return;
+    let grupo = 0;
+    const linhas = Array.from(svg.querySelectorAll('line')).filter((l) => !l.closest('g[data-cell-type]'));
+    for (const caixa of caixas) {
+      const x0 = caixa.x, x1 = caixa.x + caixa.width, y0 = caixa.y, y1 = caixa.y + caixa.height;
+      for (const linha of linhas) {
+        if (!linha.isConnected) continue;
+        const a = { x: +linha.getAttribute('x1'), y: +linha.getAttribute('y1') };
+        const b = { x: +linha.getAttribute('x2'), y: +linha.getAttribute('y2') };
+        let partes = null;
+        if (a.y === b.y && a.y >= y0 && a.y <= y1) {
+          // Horizontal: sobrevive o que fica fora de [x0, x1], em cada lado.
+          const esq = Math.min(a.x, b.x), dir = Math.max(a.x, b.x);
+          if (dir <= x0 || esq >= x1) continue;
+          partes = [];
+          if (esq < x0) partes.push([{ x: esq, y: a.y }, { x: x0, y: a.y }]);
+          if (dir > x1) partes.push([{ x: x1, y: a.y }, { x: dir, y: a.y }]);
+        } else if (a.x === b.x && a.x >= x0 && a.x <= x1) {
+          const topo = Math.min(a.y, b.y), base = Math.max(a.y, b.y);
+          if (base <= y0 || topo >= y1) continue;
+          partes = [];
+          if (topo < y0) partes.push([{ x: a.x, y: topo }, { x: a.x, y: y0 }]);
+          if (base > y1) partes.push([{ x: a.x, y: y1 }, { x: a.x, y: base }]);
+        }
+        if (!partes) continue;
+        const id = `cut-${++grupo}`;
+        for (const [p, q] of partes) {
+          const seg = /** @type {SVGLineElement} */ (linha.cloneNode(false));
+          seg.setAttribute('x1', String(p.x)); seg.setAttribute('y1', String(p.y));
+          seg.setAttribute('x2', String(q.x)); seg.setAttribute('y2', String(q.y));
+          seg.dataset.cutGroup = id;
+          linha.parentNode.insertBefore(seg, linha);
+          linhas.push(seg);
+        }
+        linha.remove();
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -444,9 +538,16 @@ class PRISMViewer {
       group.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
+        // Shift+click keeps the old "what does this cell connect to" gesture
+        // that used to live, by accident, on the cell body: the body is a
+        // <path>, and the generic wire listener caught it before the click
+        // reached this group, so the name opened the module and the rectangle
+        // highlighted. Now the whole cell opens, and the highlight has a
+        // gesture of its own (also in the context menu).
+        if (e.shiftKey) { clearTimeout(this._navTimer); this._highlightCellConnections(group); return; }
         // Single click navigates, but a double click on the SAME cell opens
         // its source. Defer navigation by one dblclick window so the dblclick
-        // handler below can cancel it — otherwise the first click of a
+        // handler below can cancel it, otherwise the first click of a
         // double-click would navigate away before the source ever opens.
         clearTimeout(this._navTimer);
         this._navTimer = setTimeout(() => this.navigateToModule(type), 250);
@@ -467,8 +568,11 @@ class PRISMViewer {
       });
     });
 
-    // Wire highlighting
+    // Wire highlighting. Anything drawn inside a clickable module cell (its
+    // body, pins, skin strokes) is part of the cell's click area and must let
+    // the click bubble up to the group above, so it gets no listener here.
     svg.querySelectorAll('path, line, polyline').forEach((wire) => {
+      if (wire.closest('g.module-clickable')) return;
       wire.style.cursor = 'pointer';
       wire.addEventListener('click', (e) => { e.stopPropagation(); this._highlightWireConnection(wire); });
       wire.addEventListener('mouseenter', (e) => { this._showTooltip(e, T.clickWire); });
@@ -500,6 +604,72 @@ class PRISMViewer {
     const pts = this._wireEndpoints(clicked);
     this._findConnectedWires(pts, svg).forEach((w) => this._applyHighlight(w));
     this._applyHighlight(clicked);
+  }
+
+  /**
+   * Highlight every wire that touches a module cell. The cell's own strokes
+   * (body, pins) give the starting points; the flood fill in
+   * _findConnectedWires does the rest, exactly as a click on a wire would.
+   * The cell's strokes are not themselves highlighted: the glow belongs to
+   * the connections, the cell already has its hover affordance.
+   */
+  _highlightCellConnections(group) {
+    const svg = this.svgContent.querySelector('svg');
+    if (!svg) return;
+    this._clearWireHighlights();
+    // netlistsvg puts every cell inside a <g transform="translate(...)">, so
+    // the cell's own strokes are in LOCAL coordinates and the wires in the
+    // SVG's; comparing the two raw only matched by coincidence (the clk pin
+    // and nothing else). The cell's box is converted to the SVG's space, and
+    // every wire that ENDS against that box is a seed; the usual flood fill
+    // then follows each seed to the far end of its net.
+    const box = this._rootBBox(group, svg);
+    if (!box) return;
+    const TOL = 5;
+    const touchesBox = (w) => {
+      const m = this._toRoot(w, svg);
+      return this._wireEndpoints(w).some((p) => {
+        const q = m ? new DOMPoint(p.x, p.y).matrixTransform(m) : p;
+        return q.x >= box.x - TOL && q.x <= box.x + box.width + TOL
+            && q.y >= box.y - TOL && q.y <= box.y + box.height + TOL;
+      });
+    };
+    const found = new Set();
+    svg.querySelectorAll('path, line, polyline').forEach((w) => {
+      if (group.contains(w) || !touchesBox(w)) return;
+      found.add(w);
+      this._findConnectedWires(this._wireEndpoints(w), svg).forEach((c) => {
+        if (!group.contains(c)) found.add(c);
+      });
+    });
+    found.forEach((w) => this._applyHighlight(w));
+  }
+
+  /** Matrix taking `el`'s local coordinates to the SVG root's, or null. */
+  _toRoot(el, svg) {
+    try {
+      const root = svg.getScreenCTM();
+      const own = el.getScreenCTM();
+      if (!root || !own) return null;
+      return root.inverse().multiply(own);
+    } catch (_) { return null; }
+  }
+
+  /** `group`'s bounding box in the SVG root's coordinates, or null. */
+  _rootBBox(group, svg) {
+    let local;
+    try { local = group.getBBox(); } catch (_) { return null; }
+    const m = this._toRoot(group, svg);
+    if (!m) return local;
+    const corners = [
+      [local.x, local.y], [local.x + local.width, local.y],
+      [local.x, local.y + local.height], [local.x + local.width, local.y + local.height],
+    ].map(([x, y]) => new DOMPoint(x, y).matrixTransform(m));
+    const xs = corners.map((p) => p.x);
+    const ys = corners.map((p) => p.y);
+    const x = Math.min(...xs);
+    const y = Math.min(...ys);
+    return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
   }
 
   _wireEndpoints(wire) {
@@ -537,9 +707,22 @@ class PRISMViewer {
         if (hits) {
           connected.add(w);
           checked.add(w);
-          wPts.forEach((p) => {
+          const pushPts = (pts) => pts.forEach((p) => {
             if (!toCheck.some((q) => Math.abs(q.x - p.x) <= TOL && Math.abs(q.y - p.y) <= TOL)) toCheck.push(p);
           });
+          pushPts(wPts);
+          // A wire cut around a bus label is two segments with a gap wider
+          // than TOL between them; the shared cut group carries the flood
+          // across the gap, so the highlight does not stop at the label.
+          const grupo = w.dataset && w.dataset.cutGroup;
+          if (grupo) {
+            svg.querySelectorAll(`[data-cut-group="${grupo}"]`).forEach((irmao) => {
+              if (checked.has(irmao)) return;
+              connected.add(irmao);
+              checked.add(irmao);
+              pushPts(this._wireEndpoints(irmao));
+            });
+          }
         }
       });
     }
@@ -821,12 +1004,20 @@ class PRISMViewer {
     // so the zoom/recompile menu is available everywhere on the canvas.
     e.preventDefault();
 
+    // Right-click on a module cell offers the cell's connection highlight, the
+    // same thing Shift+click does; elsewhere that entry stays hidden.
+    this._ctxCell = e.target.closest?.('g.module-clickable') || null;
+
     let menu = document.getElementById('contextMenu');
     if (!menu) {
       menu = document.createElement('div');
       menu.id = 'contextMenu';
       menu.className = 'context-menu';
       menu.innerHTML = `
+        <div class="context-item" data-action="highlight-cell">
+          <span>${T.highlightCell}</span><span class="shortcut">Shift+Click</span>
+        </div>
+        <div class="context-separator" data-for="highlight-cell"></div>
         <div class="context-item" data-action="fit">
           <span>${T.fitToScreen}</span><span class="shortcut">Ctrl+F</span>
         </div>
@@ -843,10 +1034,14 @@ class PRISMViewer {
         if (action === 'fit')       this.fitToScreen();
         if (action === 'reset')     this.resetView();
         if (action === 'recompile') this.recompile();
+        if (action === 'highlight-cell' && this._ctxCell) this._highlightCellConnections(this._ctxCell);
         menu.classList.remove('show');
       });
       document.body.appendChild(menu);
     }
+    const onCell = !!this._ctxCell;
+    menu.querySelector('[data-action="highlight-cell"]').hidden = !onCell;
+    menu.querySelector('[data-for="highlight-cell"]').hidden = !onCell;
 
     menu.style.left = e.pageX + 'px';
     menu.style.top  = e.pageY + 'px';

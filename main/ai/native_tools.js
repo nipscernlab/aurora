@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * native_tools.js — which of the CLI's BUILT-IN tools Aurora's assistant may use.
+ * native_tools.js: which of the CLI's BUILT-IN tools Aurora's assistant may use.
  *
  * Single source of truth for both Claude Code engines: claude_agent.js (Agent
  * SDK, `tools` option) and claude_code.js (legacy spawn, `--tools`). They used
- * to keep two hand-maintained copies — an array and a space-separated string —
+ * to keep two hand-maintained copies, an array and a space-separated string:
  * and they drifted: the SDK path quietly re-enabled AskUserQuestion on a false
  * premise and the question card silently stopped rendering. One list, two
  * consumers, no drift.
@@ -14,29 +14,29 @@
  * The old list named what to BLOCK (Bash, Edit, Write, …). That was written
  * when the CLI shipped a handful of tools, and it fails open by construction:
  * every tool the CLI adds later is enabled in Aurora automatically, silently,
- * on upgrade. It had already drifted badly — a probe against the live CLI found
+ * on upgrade. It had already drifted badly, a probe against the live CLI found
  * these on, none of them gated by Aurora's Allow/Deny card:
  *
- *   Task, Workflow      — spawn subagents; burn the user's subscription with no
+ *   Task, Workflow     , spawn subagents; burn the user's subscription with no
  *                         ceiling, and their inner steps are invisible to
  *                         Aurora's tool chips, so the panel shows a black box.
- *   Artifact            — PUBLISHES a local file as a page hosted on claude.ai.
+ *   Artifact           , PUBLISHES a local file as a page hosted on claude.ai.
  *                         Outward distribution, from an offline-first local IDE.
  *   Cron{Create,Delete,List}, ScheduleWakeup, RemoteTrigger
- *                       — schedule/launch work that runs with nobody watching.
+ *                      , schedule/launch work that runs with nobody watching.
  *   EnterWorktree, ExitWorktree
- *                       — create and switch git worktrees, moving the user's
+ *                      , create and switch git worktrees, moving the user's
  *                         files under the IDE with no card. Aurora has its own
  *                         git surface.
- *   PushNotification    — sends to the user's phone.
- *   SendMessage         — only addresses Task/Workflow subagents.
- *   Monitor             — its job is watching background Bash, which is off.
- *   ReportFindings      — renders into a host UI Aurora does not implement, so
+ *   PushNotification   , sends to the user's phone.
+ *   SendMessage        , only addresses Task/Workflow subagents.
+ *   Monitor            , its job is watching background Bash, which is off.
+ *   ReportFindings     , renders into a host UI Aurora does not implement, so
  *                         a review reported through it would vanish on the way.
- *   DesignSync          — undocumented in the SDK; nothing to do with SAPHO.
+ *   DesignSync         , undocumented in the SDK; nothing to do with SAPHO.
  *
  * Inverting it makes the failure mode "a new tool is unavailable until someone
- * adds it here", which is a bug report — not "a new tool is live in everyone's
+ * adds it here", which is a bug report, not "a new tool is live in everyone's
  * IDE", which is a surprise.
  *
  * MCP is unaffected: `tools` covers built-ins only, so every mcp__aurora__*
@@ -53,12 +53,12 @@ const NATIVE_TOOLS = [
   // Required, not optional: the image-attachment flow writes a temp file in
   // main and the model reads it back (see claude_code.js's tool notes).
   'Read',
-  // Read-only search, and scoped — the CLI can only reach cwd plus
+  // Read-only search, and scoped, the CLI can only reach cwd plus
   // additionalDirectories (the project, the attachment dir, the scratch cwd).
   'Glob',
   'Grep',
   // Read-only research. A hardware project lives on datasheets and standards
-  // (IEEE/IEC), and offline-first means the IDE must not REQUIRE the network —
+  // (IEEE/IEC), and offline-first means the IDE must not REQUIRE the network:
   // not that the assistant may never read it.
   'WebFetch',
   'WebSearch',

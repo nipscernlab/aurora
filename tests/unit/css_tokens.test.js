@@ -6,7 +6,7 @@ import path from 'path';
 //
 // `var(--nope)` with no fallback is invalid at computed-value time: the whole
 // declaration is dropped and the element silently renders unstyled. No build
-// error, no console warning, nothing — it just looks slightly wrong forever.
+// error, no console warning, nothing, it just looks slightly wrong forever.
 //
 // This is not hypothetical. `--bg-elev-1` was read in SEVEN places in the AI
 // panel and defined nowhere: the elevation scale is --bg / --bg-elev /
@@ -32,7 +32,7 @@ const files = cssFiles(CSS_DIR);
 const sources = files.map((f) => ({ file: path.relative(CSS_DIR, f), text: fs.readFileSync(f, 'utf-8') }));
 const all = sources.map((s) => s.text).join('\n');
 
-// `--x: value` — a definition.
+// `--x: value`, a definition.
 const defined = new Set([...all.matchAll(/(--[a-zA-Z0-9_-]+)\s*:/g)].map((m) => m[1]));
 
 describe('CSS custom properties', () => {
@@ -62,7 +62,7 @@ describe('CSS custom properties', () => {
         for (const t of ['--bg', '--bg-elev', '--bg-elev-2', '--bg-elev-3']) {
             expect(defined.has(t)).toBe(true);
         }
-        // If someone ever adds it for real, the orphan test above stops caring —
+        // If someone ever adds it for real, the orphan test above stops caring:
         // this is here so the rename is a deliberate act, not a typo that works.
         expect(defined.has('--bg-elev-1')).toBe(false);
     });

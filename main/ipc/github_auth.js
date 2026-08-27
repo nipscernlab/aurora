@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * github_auth.js — "connect your GitHub account" for the source-control panel.
+ * github_auth.js, "connect your GitHub account" for the source-control panel.
  *
  * The user pastes a GitHub Personal Access Token (classic or fine-grained with
  * `repo` scope). We validate it against the GitHub API, then store it encrypted
- * with Electron's `safeStorage` (DPAPI on Windows) — exactly like the AI API
+ * with Electron's `safeStorage` (DPAPI on Windows), exactly like the AI API
  * keys (main/ai/keystore.js). Plaintext never hits disk. The token is read
  * main-side only (git.js injects it for push/pull); the renderer can ask "who
  * is connected?" but never gets the bytes.
@@ -27,8 +27,24 @@ const {
   nomeRepoValido, mapRepo, fimDaPaginacao, erroDeCriacao,
   intervaloInicialMs, decidirPolling,
 } = require('./github_api');
+const { GITHUB_API_MS, GITHUB_AVATAR_MS } = require('../net/timeouts');
 
-// GitHub OAuth App (Device Flow). The Client ID is PUBLIC — it ships in the app
+/**
+ * Da prazo a uma requisicao. Sem isto, uma rede que aceita a conexao e nao
+ * responde, que e o portal cativo de laboratorio, deixava o handler IPC sem
+ * resolver e o painel girando para sempre. O destroy com erro faz o 'error'
+ * da requisicao disparar, e quem chamou recebe uma rejeicao normal.
+ * @param {import('http').ClientRequest} req
+ * @param {number} ms
+ * @param {string} rotulo para a mensagem de erro
+ */
+function comPrazo(req, ms, rotulo) {
+  req.setTimeout(ms, () => {
+    req.destroy(new Error(`GitHub nao respondeu em ${Math.round(ms / 1000)}s (${rotulo}).`));
+  });
+}
+
+// GitHub OAuth App (Device Flow). The Client ID is PUBLIC, it ships in the app
 // and the device flow needs NO client secret, so this is safe to commit. Fill it
 // in after registering the OAuth App at github.com/settings/developers with
 // "Enable Device Flow" ticked. Empty ⇒ the "Sign in with GitHub" button is
@@ -86,6 +102,7 @@ function apiGet(/** @type {string} */ apiPath, /** @type {string} */ token) {
       });
     });
     req.on('error', reject);
+    comPrazo(req, GITHUB_API_MS, `GET ${apiPath}`);
     req.end();
   });
 }
@@ -120,6 +137,7 @@ function apiPost(apiPath, token, payload) {
       });
     });
     req.on('error', reject);
+    comPrazo(req, GITHUB_API_MS, `POST ${apiPath}`);
     req.write(data);
     req.end();
   });
@@ -145,7 +163,7 @@ function fetchDataUrl(url, depth = 0) {
   return new Promise((resolve) => {
     if (depth > 3) return resolve(null);
     try {
-      https.get(url, { headers: { 'User-Agent': 'aurora-ide' } }, (res) => {
+      const req = https.get(url, { headers: { 'User-Agent': 'aurora-ide' } }, (res) => {
         const sc = res.statusCode || 0;
         if (sc >= 300 && sc < 400 && res.headers.location) {
           res.resume();
@@ -157,7 +175,10 @@ function fetchDataUrl(url, depth = 0) {
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => resolve(`data:${type};base64,${Buffer.concat(chunks).toString('base64')}`));
         res.on('error', () => resolve(null));
-      }).on('error', () => resolve(null));
+      });
+      req.on('error', () => resolve(null));
+      // Avatar e decoracao: sem resposta, segue sem ele em vez de segurar o login.
+      req.setTimeout(GITHUB_AVATAR_MS, () => req.destroy());
     } catch (_) { resolve(null); }
   });
 }
@@ -183,7 +204,7 @@ async function connect(token) {
     throw new Error('OS keychain encryption is not available on this system.');
   }
   const me = await apiGet('/user', token.trim());
-  // Bake the avatar into a data: URL up front — the renderer CSP blocks remote
+  // Bake the avatar into a data: URL up front, the renderer CSP blocks remote
   // images, and this also makes it work offline after connecting.
   const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
   // Keep the URL too: the CSP allows avatars.githubusercontent.com, so the panel
@@ -197,7 +218,7 @@ async function connect(token) {
 }
 
 /**
- * List EVERY repository the token can reach — the user's own, ones they
+ * List EVERY repository the token can reach, the user's own, ones they
  * collaborate on, AND organization repos (when the user is an org member and the
  * token was granted access to that org). That's the `affiliation` triad
  * GitHub recommends; `/user/repos` already spans owners, so no per-org calls are
@@ -270,12 +291,37 @@ function oauthPostJson(pathname, payload) {
       });
     });
     req.on('error', reject);
+    comPrazo(req, GITHUB_API_MS, `POST ${pathname}`);
     req.write(data);
     req.end();
   });
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+/**
+ * Sono que acorda antes da hora quando o sinal e abortado, para o laco do
+ * fluxo de dispositivo parar na hora em que o usuario desiste, e nao no
+ * proximo tique.
+ * @param {number} ms
+ * @param {AbortSignal} [signal]
+ */
+const sleep = (ms, signal) => new Promise((r) => {
+  const t = setTimeout(() => { signal?.removeEventListener('abort', acordar); r(); }, ms);
+  function acordar() { clearTimeout(t); r(); }
+  signal?.addEventListener('abort', acordar, { once: true });
+});
+
+/**
+ * O fluxo de dispositivo em andamento, se houver. Um so: comecar outro cancela
+ * o anterior, fechar a janela cancela, e o botao Cancelar do painel cancela.
+ * Sem isto, quem desistia deixava a AURORA batendo no GitHub a cada poucos
+ * segundos por um quarto de hora.
+ * @type {AbortController|null}
+ */
+let fluxoAtual = null;
+
+function cancelarFluxo() {
+  if (fluxoAtual) { fluxoAtual.abort(); fluxoAtual = null; }
+}
 
 /**
  * GitHub OAuth Device Flow: request a device/user code, show it to the user (the
@@ -297,36 +343,50 @@ async function deviceFlowLogin(sender) {
   } catch (_) { /* window gone */ }
   try { await shell.openExternal(start.verification_uri); } catch (_) { /* user can open it manually */ }
 
-  let intervalMs = intervaloInicialMs(start);
-  const deadline = Date.now() + ((start.expires_in || 900) * 1000);
-  while (Date.now() < deadline) {
-    await sleep(intervalMs);
-    const tok = await oauthPostJson('/login/oauth/access_token', {
-      client_id: OAUTH_CLIENT_ID,
-      device_code: start.device_code,
-      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-    });
-    // A decisao (o que a resposta significa) esta em github_api.js, com teste.
-    const passo = decidirPolling(tok);
-    if (passo.acao === 'esperar') continue;
-    if (passo.acao === 'desacelerar') { intervalMs += passo.acrescimoMs; continue; }
-    if (passo.acao === 'falhar') throw new Error(passo.mensagem);
+  cancelarFluxo();
+  const fluxo = new AbortController();
+  fluxoAtual = fluxo;
+  // A janela que pediu sumiu: nao ha mais quem receba o resultado.
+  const aoSumir = () => fluxo.abort();
+  try { sender && sender.once('destroyed', aoSumir); } catch (_) { /* sem sender */ }
 
-    const me = await apiGet('/user', passo.token);
-    const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
-    const user = { login: me.login, name: me.name || me.login, avatarDataUrl, avatarUrl: me.avatar_url };
-    writeVault({ token: safeStorage.encryptString(passo.token).toString('base64'), user });
-    return user;
+  try {
+    let intervalMs = intervaloInicialMs(start);
+    const deadline = Date.now() + ((start.expires_in || 900) * 1000);
+    while (Date.now() < deadline) {
+      await sleep(intervalMs, fluxo.signal);
+      if (fluxo.signal.aborted) throw new Error('Sign-in cancelled.');
+      const tok = await oauthPostJson('/login/oauth/access_token', {
+        client_id: OAUTH_CLIENT_ID,
+        device_code: start.device_code,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+      });
+      // A decisao (o que a resposta significa) esta em github_api.js, com teste.
+      const passo = decidirPolling(tok);
+      if (passo.acao === 'esperar') continue;
+      if (passo.acao === 'desacelerar') { intervalMs += passo.acrescimoMs; continue; }
+      if (passo.acao === 'falhar') throw new Error(passo.mensagem);
+
+      const me = await apiGet('/user', passo.token);
+      const avatarDataUrl = me.avatar_url ? await fetchDataUrl(me.avatar_url) : null;
+      const user = { login: me.login, name: me.name || me.login, avatarDataUrl, avatarUrl: me.avatar_url };
+      writeVault({ token: safeStorage.encryptString(passo.token).toString('base64'), user });
+      return user;
+    }
+    throw new Error('Timed out waiting for authorization.');
+  } finally {
+    try { sender && sender.removeListener('destroyed', aoSumir); } catch (_) { /* sem sender */ }
+    if (fluxoAtual === fluxo) fluxoAtual = null;
   }
-  throw new Error('Timed out waiting for authorization.');
 }
 
 function register() {
   ipcMain.handle('github:oauth-configured', () => ({ configured: !!OAUTH_CLIENT_ID }));
+  ipcMain.handle('github:oauth-cancel', () => { cancelarFluxo(); return { ok: true }; });
   ipcMain.handle('github:oauth-login', async (event) => {
     try {
       const user = await deviceFlowLogin(event.sender);
-      // The user just authorized in the BROWSER — pull Aurora back to the front
+      // The user just authorized in the BROWSER, pull Aurora back to the front
       // so they don't have to alt-tab. The alwaysOnTop toggle forces Windows to
       // raise the window even when it would otherwise deny a focus-steal.
       try {
@@ -380,4 +440,4 @@ function register() {
   log.info('[ipc.github_auth] handlers registered');
 }
 
-module.exports = { register, getToken, getUser, connect, disconnect, createRepo, listRepos };
+module.exports = { register, getToken, getUser, connect, disconnect, listRepos, cancelarFluxo };

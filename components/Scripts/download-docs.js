@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * download-docs.js — traz o manual do SAPHO para dentro do build.
+ * download-docs.js: traz o manual do SAPHO para dentro do build.
  *
  * A documentação é escrita e gerada em outro repositório
  * (nipscernlab/docs_aurora), que publica cada versão em dois lugares: o site em
@@ -9,13 +9,13 @@
  *
  * O manifesto é a fonte da verdade sobre qual é a versão corrente. Ele também é
  * copiado para resources/docs, porque o aplicativo o relê em execução para
- * decidir se existe versão mais nova — assim uma publicação da documentação
+ * decidir se existe versão mais nova, assim uma publicação da documentação
  * chega às instalações já feitas, sem esperar uma release da AURORA.
  *
  * A pasta resources/docs é gitignorada: o conteúdo vem da origem a cada
  * bootstrap, como a toolchain.
  *
- * Sai com 0 em qualquer falha, para nunca travar o bootstrap — sem o pacote, o
+ * Sai com 0 em qualquer falha, para nunca travar o bootstrap, sem o pacote, o
  * aplicativo simplesmente mostra apenas o botão da documentação online.
  *
  * Uso:  node components/Scripts/download-docs.js [--force]
@@ -27,7 +27,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
 
 const MANIFEST_URL = 'https://nipscernlab.github.io/docs_aurora/docs-manifest.json';
 
@@ -42,7 +42,7 @@ function err(/** @type {string} */ m) { console.error(`[docs] ERROR: ${m}`); }
 
 /**
  * Remove um BOM inicial. JSON.parse o recusa, e ferramentas do Windows gravam
- * UTF-8 com BOM por padrão — como o arquivo vem da rede, toleramos aqui.
+ * UTF-8 com BOM por padrão, como o arquivo vem da rede, toleramos aqui.
  */
 function stripBom(/** @type {string} */ text) {
   return text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
@@ -98,13 +98,9 @@ function sha256(/** @type {string} */ filePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
   fs.rmSync(destDir, { recursive: true, force: true });
-  fs.mkdirSync(destDir, { recursive: true });
-  execSync(
-    `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-    { stdio: 'inherit' },
-  );
+  await extrairZip(zipPath, destDir, { log, tag: 'docs' });
 }
 
 function installedVersion() {
@@ -139,7 +135,7 @@ async function main() {
       throw new Error(`SHA-256 nao confere: esperado ${manifest.sha256}, obtido ${got}`);
     }
 
-    extractZip(TMP_ZIP, DOCS_DIR);
+    await extractZip(TMP_ZIP, DOCS_DIR);
     fs.writeFileSync(MANIFEST_FILE, JSON.stringify(manifest, null, 2), 'utf8');
     fs.rmSync(TMP_ZIP, { force: true });
 

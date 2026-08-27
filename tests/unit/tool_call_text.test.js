@@ -34,7 +34,7 @@ describe('stripToolCallArtifacts', () => {
             .toBe('A normal answer with < and { but no tool calls.');
     });
     it('leaves a half-streamed (incomplete) tag intact', () => {
-        // No closing tag yet — must NOT be stripped, or partial tokens corrupt the buffer.
+        // No closing tag yet, must NOT be stripped, or partial tokens corrupt the buffer.
         expect(stripToolCallArtifacts('thinking <tool_call>partial'))
             .toBe('thinking <tool_call>partial');
     });

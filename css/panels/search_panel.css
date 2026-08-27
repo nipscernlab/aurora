@@ -1,4 +1,4 @@
-/* search_panel.css — the Find-in-Files modal (driven by js/search/search_panel.js). */
+/* search_panel.css, the Find-in-Files modal (driven by js/search/search_panel.js). */
 
 .search-panel {
   display: flex;
@@ -86,7 +86,7 @@
 }
 .search-summary[hidden] { display: none !important; }
 
-/* results list — grouped + scrollable */
+/* results list, grouped + scrollable */
 .search-results {
   display: flex;
   flex-direction: column;

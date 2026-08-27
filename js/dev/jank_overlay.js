@@ -1,5 +1,5 @@
 /**
- * jank_overlay.js — Development performance HUD (§4.4 / G7).
+ * jank_overlay.js: Development performance HUD (§4.4 / G7).
  *
  * Measures and displays in real-time:
  *  • FPS (instantaneous, last frame)
@@ -8,7 +8,7 @@
  *  • Longtask count (PerformanceObserver, tasks > 50ms)
  *  • TTI approximation (domInteractive from the navigation entry)
  *
- * Zero cost when inactive — rAF loop + PerformanceObserver only run while
+ * Zero cost when inactive, rAF loop + PerformanceObserver only run while
  * the overlay is visible. Toggle via Command Palette: "Toggle Jank Overlay".
  * Dynamic import in the command prevents any boot cost.
  */

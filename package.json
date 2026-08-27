@@ -2,8 +2,8 @@
   "name": "sapho",
   "productName": "SAPHO",
   "description": "Scalable-Architecture Processor for Hardware Optimization",
-  "author": "NIPSCERN",
-  "version": "6.4.2",
+  "author": "NIPS-CERN",
+  "version": "6.10.0",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
@@ -84,16 +84,35 @@
     "is how two copies drift apart and start contradicting each other.",
     "The three that ship are the ones a user needs to know what they received:",
     "the AURORA terms, the SAPHO annex (the Verilog under components/HDL rides",
-    "along in extraResources), and the third-party inventory."
+    "along in extraResources), and the third-party inventory.",
+    "nsis.license points at build/license.txt, which does NOT exist in the",
+    "repo: beforePack generates it (LICENSE + LICENSE-SAPHO.md, UTF-8 BOM) on",
+    "every build — see scripts/gen-installer-license.js for why. The licence",
+    "page keeps the installer per-user with no admin prompt (TODO.md sec. 2)."
   ],
   "build": {
     "appId": "com.nipscern.sapho",
     "productName": "SAPHO",
+    "beforePack": "./scripts/gen-installer-license.js",
     "fileAssociations": [
       {
         "ext": "spf",
         "name": "SAPHO Project File",
         "description": "SAPHO Project File",
+        "role": "Editor",
+        "icon": "./assets/icons/sapho_aurora_icon.ico"
+      },
+      {
+        "ext": "cmm",
+        "name": "C± Source File",
+        "description": "SAPHO C± Source File",
+        "role": "Editor",
+        "icon": "./assets/icons/sapho_aurora_icon.ico"
+      },
+      {
+        "ext": "v",
+        "name": "Verilog Source File",
+        "description": "Verilog Source File",
         "role": "Editor",
         "icon": "./assets/icons/sapho_aurora_icon.ico"
       }
@@ -115,6 +134,10 @@
         "publishAutoUpdate": true
       }
     ],
+    "electronLanguages": [
+      "en-US",
+      "pt-BR"
+    ],
     "win": {
       "target": [
         {
@@ -132,6 +155,7 @@
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
+      "license": "build/license.txt",
       "include": "build/installer.nsh"
     },
     "asarUnpack": [
@@ -140,6 +164,12 @@
     "files": [
       "**/*",
       "dist/**",
+      "!dist/win-unpacked/**",
+      "!dist/*.exe",
+      "!dist/*.yml",
+      "!dist/*.blockmap",
+      "!dist/resources/docs/**",
+      "!resources/docs/**",
       "!components/**",
       "!tests/**",
       "!docs/**",
@@ -154,9 +184,13 @@
       "!assets/fonts/*.otf",
       "!assets/fonts/*-LICENSE.txt",
       "!node_modules/material-icon-theme/**",
-      "!node_modules/monaco-editor/dev/**",
-      "!node_modules/monaco-editor/esm/**",
-      "!node_modules/monaco-editor/min-maps/**",
+      "!node_modules/monaco-editor/**",
+      "!node_modules/katex/**",
+      "!node_modules/@phosphor-icons/**",
+      "!node_modules/digitaljs/**",
+      "!node_modules/@joint/**",
+      "!node_modules/jquery/**",
+      "!node_modules/jquery-ui/**",
       "!node_modules/@types/**",
       "!node_modules/@anthropic-ai/claude-code/**",
       "!node_modules/@anthropic-ai/claude-code-*/**",
@@ -182,7 +216,13 @@
           "!Packages/iverilog/**",
           "!Packages/python/**",
           "!Packages/PRISM/**",
-          "!Packages/7-Zip/**"
+          "!Packages/7-Zip/**",
+          "!Packages/msys/**",
+          "!Packages/gtkwave-nipscern/**",
+          "!Packages/surfer/**",
+          "!Packages/verible/**",
+          "!Packages/slang-server/**",
+          "!Packages/clang-format/**"
         ]
       },
       {
@@ -191,7 +231,8 @@
       }
     ],
     "directories": {
-      "buildResources": "build"
+      "buildResources": "build",
+      "output": "release"
     }
   },
   "keywords": [
@@ -223,12 +264,12 @@
     "undici": "^6.28.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.36",
-    "@ai-sdk/deepseek": "^3.0.26",
-    "@ai-sdk/google": "^4.0.39",
-    "@ai-sdk/groq": "^4.0.26",
-    "@ai-sdk/openai": "^4.0.36",
-    "@anthropic-ai/claude-agent-sdk": "^0.3.226",
+    "@ai-sdk/anthropic": "^4.0.39",
+    "@ai-sdk/deepseek": "^3.0.28",
+    "@ai-sdk/google": "^4.0.44",
+    "@ai-sdk/groq": "^4.0.28",
+    "@ai-sdk/openai": "^4.0.42",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.233",
     "@anthropic-ai/claude-code": "^2.1.226",
     "@lydell/node-pty": "^1.2.0-beta.15",
     "@modelcontextprotocol/sdk": "^1.29.0",
@@ -239,7 +280,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
-    "ai": "^7.0.58",
+    "ai": "^7.0.66",
     "chokidar": "^5.0.0",
     "diff2html": "^3.4.56",
     "digitaljs": "^0.14.2",
@@ -258,19 +299,19 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.1",
+    "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.2.0",
     "@vitest/coverage-v8": "^4.1.10",
-    "electron": "^43.3.0",
+    "electron": "^43.4.0",
     "electron-builder": "^26.15.3",
     "eslint": "^10.8.1",
-    "globals": "^17.9.0",
+    "globals": "^17.11.0",
     "happy-dom": "^20.11.2",
     "husky": "^9.1.7",
     "js-yaml": "^4.3.1",
-    "knip": "6.32.0",
+    "knip": "6.32.2",
     "lint-staged": "^17.3.0",
     "playwright": "^1.62.1",
     "typescript": "^7.0.2",

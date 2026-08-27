@@ -1,5 +1,5 @@
 /**
- * <aurora-canvas> — the signature ambient aurora (TODO.md, design principles).
+ * <aurora-canvas>, the signature ambient aurora (TODO.md, design principles).
  *
  * Sky-spanning aurora-borealis curtains seen in perspective: a volumetric ray
  * march whose depth reads as 3D sheets receding into the night sky, coloured by
@@ -16,7 +16,7 @@
  *  - Full quality or nothing: the effect always renders at full resolution. The
  *    per-pixel march is heavy, so a capability gate watches the frame pacing and
  *    REMOVES the aurora on a GPU that can't sustain it (leaving just the SAPHO
- *    wordmark) — it never shows a downscaled/soft version. The loop is capped at
+ *    wordmark), it never shows a downscaled/soft version. The loop is capped at
  *    ~30fps (the drift is slow enough that this is imperceptible, not a quality
  *    change) and the rAF pauses off-screen / unfocused. Static CSS-gradient
  *    fallback on prefers-reduced-motion or missing WebGL.
@@ -39,7 +39,7 @@ uniform float uTime;
 uniform float uIntensity;
 
 // ============================================================================
-// Aurora borealis — sky-spanning perspective curtains. The volumetric march is
+// Aurora borealis, sky-spanning perspective curtains. The volumetric march is
 // nimitz's "Auroras" (XtGGRt, 2017): a layered ray-march whose DEPTH reads as a
 // 3D curtain receding into the sky. We colour it by march depth, stack a few
 // OVERLAPPING bands into one connected ribbon, add a lower vertical FILAMENT
@@ -63,11 +63,11 @@ float tri(in float x){ return clamp(abs(fract(x) - 0.5), 0.01, 0.49); }
 vec2 tri2(in vec2 p){ return vec2(tri(p.x) + tri(p.y), tri(p.y + tri(p.x))); }
 float hash21(in vec2 n){ return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453); }
 
-// 1-D value-noise fbm — smooth low-frequency detail for the filament striation.
+// 1-D value-noise fbm, smooth low-frequency detail for the filament striation.
 float vn1(float x){ float i = floor(x), f = fract(x); float u = f * f * (3.0 - 2.0 * f); return mix(hash21(vec2(i, 9.1)), hash21(vec2(i + 1.0, 9.1)), u); }
 float fbm1(float x){ float v = 0.0, a = 0.55; for (int i = 0; i < 4; i++){ v += a * vn1(x); x = x * 2.0 + 1.3; a *= 0.5; } return v; }
 
-// nimitz tri-noise — a continuous field whose gradient rotates over time, so the
+// nimitz tri-noise, a continuous field whose gradient rotates over time, so the
 // curtain shape morphs IN PLACE (no translation).
 float triNoise2d(in vec2 p, float spd, float time){
   float z  = 1.8;
@@ -89,7 +89,7 @@ float triNoise2d(in vec2 p, float spd, float time){
   return clamp(1.0 / pow(rz * 29.0, 1.3), 0.0, 0.55);
 }
 
-// Cheap RGB hue rotation about the luma axis (radians) — the slow colour sweep.
+// Cheap RGB hue rotation about the luma axis (radians), the slow colour sweep.
 vec3 hueShift(vec3 col, float a){
   const vec3 k = vec3(0.57735);
   float c = cos(a), s = sin(a);
@@ -205,10 +205,10 @@ class AuroraCanvas extends HTMLElement {
     this._last = 0;
     // Cap the ambient effect at ~30fps. The march is heavy per pixel and the
     // curtain morph is deliberately slow, so 30fps looks identical to 60/120
-    // while cutting shader invocations 2-4x — the biggest lever against the
+    // while cutting shader invocations 2-4x, the biggest lever against the
     // welcome-screen stall on integrated GPUs.
     this._minFrameMs = 1000 / 30;
-    // Capability gate — NEVER degrades quality. The shader runs at full quality
+    // Capability gate, NEVER degrades quality. The shader runs at full quality
     // or not at all. On hardware too weak to sustain it (integrated-only PCs,
     // where force_high_performance_gpu has no discrete GPU to switch to), watch
     // the achieved frame pacing and, if it can't keep up, REMOVE the aurora
@@ -397,7 +397,7 @@ class AuroraCanvas extends HTMLElement {
 
   // Capability gate: watch the achieved rendered-frame interval and, if this GPU
   // can't sustain the full-quality effect after a short warmup, remove it. Never
-  // downscales — full quality or none. Capable GPUs sit near the 33ms target and
+  // downscales, full quality or none. Capable GPUs sit near the 33ms target and
   // never trip the threshold.
   _sampleAndGate(now) {
     if (this._gated) return;

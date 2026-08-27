@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * cli_manifest.js — pinned download manifest for the on-demand AI CLIs (B12).
+ * cli_manifest.js: pinned download manifest for the on-demand AI CLIs (B12).
  *
  * Aurora used to BUNDLE the Claude Code and Codex native binaries inside the
  * installer (~460 MB unpacked between the two). They are now fetched on first
@@ -13,7 +13,7 @@
  *   - Claude:  @anthropic-ai/claude-code-win32-x64   → claude.exe at the root
  *   - Codex:   @openai/codex @ <ver>-win32-x64       → the alias target of the
  *              @openai/codex-win32-x64 optional dep; the native binary lives at
- *              vendor/<triple>/codex/codex.exe with bundled ripgrep alongside.
+ *              vendor/<triple>/bin/codex.exe with bundled ripgrep em codex-path/.
  *
  * Versions MUST track the base packages declared in package.json
  * (@anthropic-ai/claude-code, @openai/codex). scripts/check-pinned-versions.js
@@ -32,7 +32,7 @@
 
 'use strict';
 
-// Base versions — keep in lockstep with package.json dependencies.
+// Base versions, keep in lockstep with package.json dependencies.
 const CLAUDE_VERSION = '2.1.226'; // @anthropic-ai/claude-code
 const CODEX_VERSION = '0.147.0';  // @openai/codex
 
@@ -46,6 +46,11 @@ const REGISTRY = 'https://registry.npmjs.org';
  * @property {string} integrity  Subresource-Integrity string ("sha512-…").
  * @property {string} exe        Executable path inside the extracted root (POSIX-relative).
  * @property {string|null} rg    ripgrep dir inside the extracted root, or null.
+ * @property {string[]} [exeLegado]  Where `exe` lived in versions this AURORA
+ *   already shipped. A cache folder of an older version is only recognised as
+ *   "installed, but outdated" if the binary is found at one of these; without
+ *   the list an old download reads as absent, and the panel offers a fresh
+ *   download instead of an update while the old tree still sits on disk.
  */
 
 /** @type {Record<'claude'|'codex', {base:string, baseVersion:string, platforms:Record<string, PlatformEntry>}>} */
@@ -75,14 +80,23 @@ const MANIFEST = {
         version: `${CODEX_VERSION}-win32-x64`,
         tarball: `${REGISTRY}/@openai/codex/-/codex-${CODEX_VERSION}-win32-x64.tgz`,
         integrity: 'sha512-oT7Ss5fAPf2fiWE9QNURqZcQGAAawSVxmIUdgPzckq4KFZAM+pRz9JbM4Rr498CjtbNgTOjWvDJ+DXvIBSfOPA==',
-        exe: 'vendor/x86_64-pc-windows-msvc/codex/codex.exe',
-        rg: 'vendor/x86_64-pc-windows-msvc/path',
+        // O layout do pacote mudou na 0.147.0: o binario saiu de
+        // vendor/<triple>/codex/ para vendor/<triple>/bin/, e o ripgrep de
+        // vendor/<triple>/path/ para vendor/<triple>/codex-path/. Conferido no
+        // tarball publicado, nao so no cache local. Como os dois caminhos vem
+        // daqui, o download passava e a instalacao falhava depois, procurando
+        // um arquivo que o upstream nao publica mais.
+        exe: 'vendor/x86_64-pc-windows-msvc/bin/codex.exe',
+        rg: 'vendor/x86_64-pc-windows-msvc/codex-path',
+        // As releases ate a 6.4.0 fixavam o Codex em 0.131, 0.144 e 0.146,
+        // todos com o binario no caminho antigo. Ha maquinas com esse cache.
+        exeLegado: ['vendor/x86_64-pc-windows-msvc/codex/codex.exe'],
       },
     },
   },
 };
 
-/** `process.platform:process.arch` — the manifest's platform key. */
+/** `process.platform:process.arch`, the manifest's platform key. */
 function platformKey() {
   return `${process.platform}:${process.arch}`;
 }

@@ -1,12 +1,12 @@
 /**
- * gtkw_proc_writer.js — Build the default Aurora .gtkw layout.
+ * gtkw_proc_writer.js: Build the default Aurora .gtkw layout.
  *
  * O arquivo resultante tem duas zonas:
  *
  *   1. **Top-level**: todos os sinais do VCD que NAO estao dentro de
  *      uma instancia de processador SAPHO. Lista flat com formato
  *      default (hex/bin pelo GTKWave). Sao os sinais "glue logic" do
- *      design — clk global, FIFOs no top, módulos auxiliares, etc.
+ *      design, clk global, FIFOs no top, módulos auxiliares, etc.
  *
  *   2. **Per-processor sections**: pra cada instancia de processador
  *      SAPHO detectada, uma secao completa com cores/aliases/grupos.
@@ -38,7 +38,7 @@
  *      - Stack group (sp.pointeri, sp.fl_max, sp.fl_full, isp.*)
  *      - ULA group (delta_int, delta_float)
  *
- * Compilado por `tsc` (npm run build:ts) num gtkw_proc_writer.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num gtkw_proc_writer.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -94,6 +94,8 @@ interface BuildAuroraGtkwInput {
 }
 
 // Color codes used after [color] directives.
+import { monitorMirrorName } from './signal_parser.js';
+
 const COLOR_NORMAL = 0;
 // const COLOR_RED = 1;
 const COLOR_ORANGE = 2;
@@ -103,7 +105,7 @@ const COLOR_YELLOW = 3;
 const COLOR_INDIGO = 6;
 const COLOR_VIOLET = 7;
 
-// Trace-flag bits — subset of what GTKWave saves into the `@<hex>`
+// Trace-flag bits, subset of what GTKWave saves into the `@<hex>`
 // line that prefixes a trace. See analyzer.h in the gtkwave source
 // for the canonical list.
 const TR_HEX           = 0x00000002;
@@ -121,9 +123,9 @@ const TR_CLOSED        = 0x00400000;
 const TR_GRP_BEGIN     = 0x00800000;
 const TR_GRP_END       = 0x01000000;
 
-// Format presets — each value corresponds to a menu in GTKWave's
+// Format presets, each value corresponds to a menu in GTKWave's
 // Edit > Data Format submenu.
-// Format presets — calibrados a partir de um .gtkw gerado pelo proprio
+// Format presets, calibrados a partir de um .gtkw gerado pelo proprio
 // GTKWave (save manual), nao por adivinhacao. Algumas combinacoes
 // surpreendem:
 //   - "Signed Decimal" no save NAO tem TR_DEC: e so TR_SIGNED. O
@@ -156,7 +158,7 @@ const hex = (n: number): string => n.toString(16);
  *      `<instPath>.p_<procType>.core` em qualquer profundidade.
  *      procType vem do match, corePath aponta pra esse sub-escopo.
  *   2. Pattern atual SAPHO: o scope com valr2/linetabs ja e o core.
- *      O parent scope (wrapper) costuma ser `<procType>_inst` — strip
+ *      O parent scope (wrapper) costuma ser `<procType>_inst`, strip
  *      o suffix `_inst` pra ter o procType. corePath = instancePath.
  *   3. Ultimo recurso: instanceName sem `_inst`. Se nem isso, usa
  *      tal qual.
@@ -270,7 +272,7 @@ export function detectProcessors(scopes: ScopeLike[], scopeModules: Map<string, 
         // preferencia: `<inst>.p_<X>.core` no VCD se existir >
         // instancePath caso contrario. CRITICAL: mesmo quando procType
         // veio do source, corePath ainda deve preferir o sub-escopo
-        // `.p_<X>.core` se ele existe — Stack/ULA groups so vivem la.
+        // `.p_<X>.core` se ele existe, Stack/ULA groups so vivem la.
         let pCoreType: string | null = null;
         let pCorePath: string | null = null;
         for (const other of scopes) {
@@ -291,7 +293,7 @@ export function detectProcessors(scopes: ScopeLike[], scopeModules: Map<string, 
             if (mod) procType = mod;
         }
 
-        // (2) Pattern SAPHO `<inst>.p_<X>.core` — procType extraido
+        // (2) Pattern SAPHO `<inst>.p_<X>.core`, procType extraido
         // do nome do scope intermediario.
         if (!procType && pCoreType) {
             procType = pCoreType;
@@ -360,6 +362,19 @@ function findSignal(scopes: ScopeLike[], scopePath: string, name: string): Enric
     return { ...sig, fullName: `${scope.path}.${sig.name}` };
 }
 
+/**
+ * Um sinal de monitor (stack/ULA): primeiro no caminho interno real (era
+ * Icarus antiga / dumps completos), senao no ESPELHO aurora_* que a
+ * instrumentacao declara no escopo raiz — a unica forma que os dois
+ * simuladores de hoje enxergam (ver deriveMonitorScopes no signal_parser).
+ */
+function findMonitorSignal(scopes: ScopeLike[], corePath: string, inst: string, name: string): EnrichedSignal | null {
+    const direct = findSignal(scopes, corePath + '.' + inst, name);
+    if (direct) return direct;
+    const root = corePath.split('.')[0];
+    const rel = corePath.startsWith(root + '.') ? corePath.slice(root.length + 1) : corePath;
+    return findSignal(scopes, root, monitorMirrorName(rel, inst, name));
+}
 function rangeSuffix(sig: EnrichedSignal | null): string {
     return sig && sig.range ? `[${sig.range}]` : '';
 }
@@ -390,7 +405,7 @@ function emitGroupEnd(lines: string[], text: string): void {
  *   ^^N <path>               <- proc filter, inline declaration+use
  *   +{alias} signal.path
  *
- * Filter IDs sao alocados via filterCounter (passado por referencia) —
+ * Filter IDs sao alocados via filterCounter (passado por referencia):
  * cada novo `^N <path>` ou `^^N <path>` consome o proximo ID
  * sequencial. Declaração e uso acontecem na mesma linha; nao ha
  * "declarar no header + selecionar depois".
@@ -424,8 +439,8 @@ function emitSignal(lines: string[], sig: EnrichedSignal | null, formatFlag: num
         lines.push(`^${id} ${opts.fileFilterPath}`);
     }
     if (opts.procFilterPath) {
-        // Process filter (executavel — comp2gtkw.exe traduz binario bruto
-        // pro literal C±). Sintaxe `^>N <path>` — caret + maior-que.
+        // Process filter (executavel, comp2gtkw.exe traduz binario bruto
+        // pro literal C±). Sintaxe `^>N <path>`, caret + maior-que.
         // NAO confundir com `^^N <path>` (que e outra coisa); o file
         // filter (table .txt como trad_opcode.txt) usa `^N <path>` com
         // uma caret so.
@@ -449,17 +464,17 @@ function emitSignal(lines: string[], sig: EnrichedSignal | null, formatFlag: num
  * Format por sinal:
  *   - single-bit (sem range): FMT_BIN (`0` ou `1`)
  *   - multi-bit signed: FMT_SIGNED_DEC (declarado `reg signed [...]`
- *     ou `wire signed [...]` no source — detectado via signedSet)
+ *     ou `wire signed [...]` no source, detectado via signedSet)
  *   - multi-bit unsigned: FMT_DEC (qualquer outro barramento)
  *
- * Emite `@<flag>` so quando muda — flags persistem ate o proximo `@`
+ * Emite `@<flag>` so quando muda, flags persistem ate o proximo `@`
  * no .gtkw (GTKWave aplica em cascade).
  *
  * @param {string[]} processorInstancePaths  paths-raiz das instancias
  *   de processador (qualquer scope cujo path comeca com `<root>.` e
- *   "interno" e pulado aqui — sera emitido na secao do proc).
+ *   "interno" e pulado aqui, sera emitido na secao do proc).
  * @param {Set<string>} [signedSet]  full-paths de sinais declarados
- *   `signed` no source. Opcional — sem ele todo multi-bit vira DEC.
+ *   `signed` no source. Opcional, sem ele todo multi-bit vira DEC.
  */
 function emitTopLevelSection(lines: string[], scopes: ScopeLike[], processorInstancePaths: string[], filter: Set<string> | null, signedSet: Set<string> | null): void {
     const isInsideProcessor = (scopePath: string): boolean => processorInstancePaths.some(
@@ -510,7 +525,7 @@ function emitIoSection(lines: string[], scopes: ScopeLike[], instancePath: strin
     const outSigs = sigs.filter((s) => /^out_sig_?\d+$/.test(s.name))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
-    // Aliases gerados a partir da POSICAO no array sorted completo —
+    // Aliases gerados a partir da POSICAO no array sorted completo:
     // o filter (opcional) pula a emissao do sinal mas a numeracao
     // continua refletindo a hierarquia inteira, pra que "req_in 0"
     // seja sempre o mesmo signal independente de o usuario ter
@@ -529,12 +544,12 @@ function emitIoSection(lines: string[], scopes: ScopeLike[], instancePath: strin
 
 function emitInstructionsSection(lines: string[], scopes: ScopeLike[], instancePath: string, procName: string, paths: ProcPaths, counter: FilterCounter, _filter: Set<string> | null): void {
     // Os tracks de instrucao (Assembly/valr2 + C+-/linetabs) sao a assinatura
-    // curada do SAPHO e sao SEMPRE emitidos quando os sinais existem — NAO
+    // curada do SAPHO e sao SEMPRE emitidos quando os sinais existem, NAO
     // passam pelo filtro do picker (paridade com o Surfer: "sempre que ha
     // processadores eles aparecem"). Por isso `filter` e omitido do emitSignal.
     // O alias carrega o NOME DO PROCESSADOR (`procName`, ex.: "Assembly
     // (cnn_features)") pra distinguir as instrucoes de cada proc em designs
-    // multi-processador — paridade com o Surfer (buildInstructions).
+    // multi-processador, paridade com o Surfer (buildInstructions).
     emitComment(lines, 'Instructions *******');
     const valr2 = findSignal(scopes, instancePath, 'valr2');
     if (valr2) {
@@ -608,7 +623,7 @@ function emitArrayVars(lines: string[], scopes: ScopeLike[], instancePath: strin
     }
     for (const baseName of [...groups.keys()].sort()) {
         const items = (groups.get(baseName) ?? []).sort((a, b) => a.idx - b.idx);
-        // Sem ancora no inicio — mesmo motivo de findTypedVars.
+        // Sem ancora no inicio, mesmo motivo de findTypedVars.
         const m = baseName.match(/_f_(.*?)_v_(.*?)_e_/);
         const fn = m ? m[1] : '';
         const vr = m ? m[2] : baseName;
@@ -656,15 +671,15 @@ function emitFlagsSection(lines: string[], scopes: ScopeLike[], corePath: string
         { path: `${corePath}.isp`, name: 'fl_full',  fmt: FMT_BIN,           alias: 'Inst Stack Overflow' },
     ];
     const stackResolved = stackEntries
-        .map((e) => ({ ...e, sig: findSignal(scopes, e.path, e.name) }))
+        .map((e) => ({ ...e, sig: findMonitorSignal(scopes, corePath, e.path.endsWith('.isp') ? 'isp' : 'sp', e.name) }))
         .filter((e) => e.sig);
     // ULA: delta_int + delta_float renderizados como analog step + hex
     // (GTKWave default pra reals).
-    const deltaInt = findSignal(scopes, `${corePath}.ula`, 'delta_int');
-    const deltaFloat = findSignal(scopes, `${corePath}.ula`, 'delta_float');
+    const deltaInt = findMonitorSignal(scopes, corePath, 'ula', 'delta_int');
+    const deltaFloat = findMonitorSignal(scopes, corePath, 'ula', 'delta_float');
 
     // Nenhum sinal de Stack/ULA presente (ex: sob Verilator esses sinais
-    // internos do processador ficam fenced fora do trace) — pula a secao
+    // internos do processador ficam fenced fora do trace), pula a secao
     // inteira, sem emitir o comentario "Flags ***" orfao.
     if (stackResolved.length === 0 && !deltaInt && !deltaFloat) return;
 
@@ -691,7 +706,7 @@ function emitFlagsSection(lines: string[], scopes: ScopeLike[], corePath: string
  * "Data Stack Pointer") em vez dos nomes crus de hierarquia.
  *
  * Aceita scopes em qualquer fonte (VCD parser ou Verilog hierarchy
- * tree) — desde que cada scope tenha { path, signals: [{ name }] }
+ * tree), desde que cada scope tenha { path, signals: [{ name }] }
  * o helper produz o map.
  *
  * @param {Array<{ path: string, signals: Array<{ name: string }> }>} scopes
@@ -711,7 +726,7 @@ function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc
     const { instancePath, corePath } = proc;
     const sigs = listSignalsInScope(scopes, instancePath);
 
-    // I/O — alias posicional dentro da lista sorted naturalmente.
+    // I/O, alias posicional dentro da lista sorted naturalmente.
     const byPattern = (re: RegExp): EnrichedSignal[] => sigs.filter((s) => re.test(s.name))
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     const reqIns  = byPattern(/^req_in_sim_?\d+$/);
@@ -731,7 +746,7 @@ function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc
 
     // Typed scalar vars: me1 (int), me2 (float), comp_me3 (comp).
     const aliasFromVarName = (s: EnrichedSignal, label: string): string | null => {
-        // Sem ancora no inicio — prefix filter ja distinguiu o tipo,
+        // Sem ancora no inicio, prefix filter ja distinguiu o tipo,
         // e prefixos com underscore (comp_me3) nao batem em `[^_]+`.
         const m = s.name.match(/_f_(.*?)_v_(.*?)_e_$/);
         if (!m) return null;
@@ -803,12 +818,12 @@ function addProcessorAliases(map: Map<string, string>, scopes: ScopeLike[], proc
  * @param {string} input.gtkwPath     usado em [savefile]
  * @param {VcdScope[]} input.scopes   scope tree parseado do VCD
  * @param {string} [input.tbModule]   scope do testbench top. Kept na
- *      signature pra compat — clk/rst/itr vem do core de cada proc.
+ *      signature pra compat, clk/rst/itr vem do core de cada proc.
  * @param {string} [input.tempBaseDir]  raiz do Temp/. Resolve trad files
  *      em <tempBaseDir>/<procType>/trad_opcode.txt e trad_cmm.txt.
  * @param {string} [input.binDir]     dir do bin/ com comp2gtkw.exe
  *      (process filter pra comp_me3* vars e comp_arr_me3 arrays).
- * @param {string[]} [input.selectedSignals]  filter — quando setado,
+ * @param {string[]} [input.selectedSignals]  filter, quando setado,
  *      so emite sinais cujo full-path bate. Mantem decoracao
  *      (cor/alias) onde aplicavel.
  * @param {Map<string, {signals, instances}>} [input.modules]  output
@@ -834,8 +849,8 @@ export function buildAuroraGtkw({
     modules = null,
 }: BuildAuroraGtkwInput): { content: string | null; processorCount: number } {
     // Filter opcional: lista de full-paths (strings). Quando setado,
-    // o layout completo e percorrido — comentarios, grupos, cores,
-    // tradutores — mas apenas sinais cujo path bate ficam emitidos.
+    // o layout completo e percorrido, comentarios, grupos, cores,
+    // tradutores, mas apenas sinais cujo path bate ficam emitidos.
     // Aliases continuam refletindo a hierarquia inteira (positions
     // estaveis) mesmo que parte dos sinais nao apareca.
     const filter = (Array.isArray(selectedSignals) && selectedSignals.length > 0)
@@ -855,7 +870,7 @@ export function buildAuroraGtkw({
 
     // Header: GTKWave salva paths com BACKSLASH no Windows. Reusamos
     // as paths tal qual vieram (sem normalizar pra forward slash) pra
-    // espelhar o formato canonico — verificado contra .gtkw salvo pelo
+    // espelhar o formato canonico, verificado contra .gtkw salvo pelo
     // GTKWave em Windows.
     const lines = [
         '[*]',
@@ -914,7 +929,7 @@ export function buildAuroraGtkw({
         // clk/rst/itr do processador. Cada proc tem seu proprio par
         // logo abaixo do banner. Se o testbench compartilha esses
         // sinais entre varios processadores, eles aparecem repetidos
-        // — comportamento aceitavel, deixa claro a qual proc cada
+        //, comportamento aceitavel, deixa claro a qual proc cada
         // linha pertence.
         const procClk = findCoreOrTb(proc.corePath, 'clk');
         const procRst = findCoreOrTb(proc.corePath, 'rst');

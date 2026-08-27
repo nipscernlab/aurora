@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 // Os helpers extraidos tocam o filesystem so via window.electronAPI e o
 // WaveStore real; o beforeEach stuba um fake fresh per-test. parseVerilogModules
-// / validateSelection sao os modulos REAIS (ja testados a parte) — aqui exercito
+// / validateSelection sao os modulos REAIS (ja testados a parte), aqui exercito
 // o deps-threading, a precedencia de fonte e o seam do _validatedWaveSelection.
 import { WaveStore } from '../../js/wave/wave_state_store.ts';
 import {
@@ -27,7 +27,7 @@ const SYNTH = '/proj/counter.v';
 const TB = '/proj/tb_counter.v';
 
 /**
- * In-memory fake do window.electronAPI — cobre os handles que WaveStore +
+ * In-memory fake do window.electronAPI, cobre os handles que WaveStore +
  * os helpers tocam (joinPath, fileExists, readFile, writeFile, mkdir,
  * listFilesInDirectory). Mesmo padrao do waveStateStore.test.js.
  */

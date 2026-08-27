@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * gen-prism-skins.js — baseline PRISM skin generator + inventory.
+ * gen-prism-skins.js: baseline PRISM skin generator + inventory.
  *
  * PRISM (the RTL viewer) renders each Verilog cell through a netlistsvg skin.
  * A module WITHOUT a custom skin falls back to the plain `generic` box. This
  * script walks the SAPHO HDL (`components/HDL/*.v`), extracts every module's
  * REAL synthesised port list, and emits a clean baseline skin for each module
- * that doesn't already have a hand-crafted one — so the whole datapath gets a
+ * that doesn't already have a hand-crafted one, so the whole datapath gets a
  * proper labelled symbol with correctly-anchored ports. The visual design is
  * intentionally neutral (a rounded box, inputs left / outputs right): it is the
  * scaffold for the later by-hand redesign pass, not the final art.
  *
- * It also writes `assets/prism-skins/COMPONENTS.md` — the full inventory of
+ * It also writes `assets/prism-skins/COMPONENTS.md`, the full inventory of
  * every component PRISM can skin (netlistsvg primitives + SAPHO modules).
  *
  *   node scripts/gen-prism-skins.js          # generate + inventory
@@ -20,7 +20,7 @@
  * Idempotent: hand-crafted skins (and any baseline a human later redesigns and
  * removes the AUTO-GENERATED marker from) are never overwritten.
  *
- * KEY CORRECTNESS RULE — ports guarded by `\`ifdef YANC_SIM_VIS` (the
+ * KEY CORRECTNESS RULE, ports guarded by `\`ifdef YANC_SIM_VIS` (the
  * simulation-visibility taps like `sim`) are EXCLUDED: yosys reads the Verilog
  * without that define for PRISM, so those ports aren't in the netlist. Emitting
  * an anchor for them would make ELK abort with "Referenced shape does not
@@ -314,7 +314,7 @@ ${NETLISTSVG_PRIMITIVES.join(', ')}
 _Built-ins still WITHOUT a hand-made skin (candidates for the redesign):_
 _\`_AOI3_\`, \`_AOI4_\`, \`_OAI3_\`, \`_OAI4_\`, \`andnot\`, \`ornot\`, \`constant\`,_
 _\`pos\`, \`pow\`, \`tribuf\`, \`dlatch-bus\`, \`dlatchn\`, \`dlatchn-bus\`, \`dffn-bus\`._
-_(\`generic\`, \`join\`, \`split\`, \`inputExt\`, \`outputExt\` are netlistsvg-internal — leave them.)_
+_(\`generic\`, \`join\`, \`split\`, \`inputExt\`, \`outputExt\` are netlistsvg-internal, leave them.)_
 `;
   fs.writeFileSync(path.join(SKIN_DIR, 'COMPONENTS.md'), md);
 }

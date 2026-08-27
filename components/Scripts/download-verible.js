@@ -9,7 +9,7 @@
  * definicao/referencias direto no editor Monaco, falando JSON-RPC por
  * stdio com main/lsp/verible_lsp.js.
  *
- * So o LS e mantido — os outros ~10 executaveis do zip (lint/format/
+ * So o LS e mantido, os outros ~10 executaveis do zip (lint/format/
  * syntax standalone, kythe, etc.) nao sao usados pela AURORA, entao a
  * extracao poda tudo menos o LS pra manter o pacote enxuto (~3.5MB).
  *
@@ -17,13 +17,13 @@
  * estatico). Pinning: VERIBLE_TAG + EXPECTED_SHA256 abaixo. Pra subir,
  * atualizar a tag/URL e recomputar o SHA-256 do novo zip.
  *
- * Licenca Apache-2.0 — atribuicao no LICENSE da raiz; spawn arm's-length
+ * Licenca Apache-2.0, atribuicao no LICENSE da raiz; spawn arm's-length
  * (a AURORA so executa o LS, nao linka) nao contamina a AURORA.
  *
  * Roda no bootstrap, depois do download-surfer e antes do
  * copy-components. Best-effort: se falhar, sai com 0 (a AURORA ainda
  * compila/simula/edita; so o LSP de Verilog fica indisponivel ate o
- * setup — o editor cai pro highlight estatico do Monaco, sem erros).
+ * setup, o editor cai pro highlight estatico do Monaco, sem erros).
  *
  * Usage:  node components/Scripts/download-verible.js [--force]
  */
@@ -31,7 +31,8 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -53,6 +54,8 @@ const BIN_DIR       = path.join(INSTALL_DIR, 'bin');
 const SENTINEL_FILE = path.join(BIN_DIR, LS_EXE_NAME);
 const TMP_ZIP       = path.join(ROOT_DIR, VERIBLE_FILENAME);
 const TMP_EXTRACT   = path.join(INSTALL_DIR, '_extract');
+// Carimbo da versao instalada; o catalogo do main le o mesmo arquivo.
+const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -108,7 +111,7 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
             }).on('error', reject);
         }
 
-        // Resolve apenas depois que o stream e fechado — caso contrario
+        // Resolve apenas depois que o stream e fechado, caso contrario
         // o extract roda em cima de um arquivo ainda em escrita.
         file.on('finish', () => file.close(resolve));
         file.on('error', reject);
@@ -116,23 +119,15 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    if (!fs.existsSync(zipPath)) {
-        throw new Error(`Zip file not found: ${zipPath}`);
-    }
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // PowerShell Expand-Archive (ships on every Win 10+).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit' }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado.
+    await extrairZip(zipPath, destDir, { log, tag: 'verible' });
 }
 
 // O zip traz tudo numa subpasta `verible-<tag>-win64/`. Procura o
 // verible-verilog-ls.exe (1 nivel abaixo), move SO ele pra bin/, e
-// descarta o resto da extracao — a AURORA nao usa os outros binarios.
+// descarta o resto da extracao, a AURORA nao usa os outros binarios.
 function extractLsOnly() {
     let found = null;
     for (const entry of fs.readdirSync(TMP_EXTRACT, { withFileTypes: true })) {
@@ -163,12 +158,15 @@ function rmrf(/** @type {string} */ p) {
 async function main() {
     const force = process.argv.includes('--force');
 
-    if (alreadyInstalled() && !force) {
-        log(`verible-verilog-ls already present — skipping download.`);
+    const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: VERIBLE_TAG });
+    if (carimbo.pular && !force) {
+        log(`verible-verilog-ls ${VERIBLE_TAG} already present — skipping download.`);
         return;
     }
 
-    if (!alreadyInstalled()) {
+    if (carimbo.motivo === 'outra-versao') {
+        log(`verible-verilog-ls ${carimbo.gravada} installed but ${VERIBLE_TAG} is pinned — re-downloading.`);
+    } else if (!alreadyInstalled()) {
         log(`verible-verilog-ls not found in components/Packages/verible/bin/.`);
     }
 
@@ -176,7 +174,7 @@ async function main() {
         rmrf(TMP_EXTRACT);
         await downloadFile(DOWNLOAD_URL, TMP_ZIP);
         await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
-        extractZip(TMP_ZIP, TMP_EXTRACT);
+        await extractZip(TMP_ZIP, TMP_EXTRACT);
         extractLsOnly();
         rmrf(TMP_EXTRACT);
         fs.unlinkSync(TMP_ZIP);
@@ -187,6 +185,8 @@ async function main() {
             err(`The ZIP may have a different internal structure.`);
             process.exit(1);
         }
+        // So depois de a sentinela confirmar.
+        escreverCarimbo(VERSION_STAMP, VERIBLE_TAG);
     } catch (e) {
         rmrf(TMP_EXTRACT);
         try { if (fs.existsSync(TMP_ZIP)) fs.unlinkSync(TMP_ZIP); } catch { /* ignore */ }
@@ -197,7 +197,7 @@ async function main() {
         err(`Extract ${LS_EXE_NAME} into:  components/Packages/verible/bin/`);
         // Exit 0 pra nao bloquear npm start. Aurora ainda compila/simula/edita;
         // so o LSP de Verilog (diagnostico/format/outline/hover) que fica
-        // indisponivel ate o setup — o editor cai pro highlight estatico.
+        // indisponivel ate o setup, o editor cai pro highlight estatico.
         process.exit(0);
     }
 }
@@ -217,4 +217,5 @@ module.exports = {
     INSTALL_DIR,
     BIN_DIR,
     SENTINEL_FILE,
+    VERSION_STAMP,
 };

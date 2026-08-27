@@ -5,7 +5,7 @@ import {
 import * as T from '../../main/ai/timeouts.js';
 
 // Pure modules behind ESTUDO §18.5 items 4 (retry/backoff) and 5 (the single
-// timeout table). timeouts.js also self-checks its hierarchy at import time —
+// timeout table). timeouts.js also self-checks its hierarchy at import time:
 // merely importing it here fails the suite if an edit breaks the ordering.
 
 describe('isTransientAiError', () => {
@@ -26,7 +26,7 @@ describe('isTransientAiError', () => {
     expect(isTransientAiError(new Error('Invalid API key'))).toBe(false);
     expect(isTransientAiError('model claude-9 not found')).toBe(false);
     expect(isTransientAiError('The user denied this action.')).toBe(false);
-    // enumerated codes only — "512 ms" must not look like a 5xx
+    // enumerated codes only, "512 ms" must not look like a 5xx
     expect(isTransientAiError('operation took 512 ms')).toBe(false);
     expect(isTransientAiError('')).toBe(false);
     expect(isTransientAiError(null)).toBe(false);

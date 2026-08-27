@@ -15,7 +15,7 @@
         'saveFile': { ctrlKey: true, shiftKey: false, altKey: false, key: 'S' },
         'saveAllFiles': { ctrlKey: true, shiftKey: true, altKey: false, key: 'S' },
         // O11: liga/desliga a análise semântica do slang. Ctrl+Alt+S (S de
-        // slang/semântico) — inclui Ctrl pra disparar com o editor Monaco
+        // slang/semântico), inclui Ctrl pra disparar com o editor Monaco
         // focado; Ctrl+Shift+P é do command palette, não daqui.
         'toggleSlang': { ctrlKey: true, shiftKey: false, altKey: true, key: 'S' },
     };
@@ -25,7 +25,7 @@
     // Phase B: every shortcut routes through window.AuroraAPI so the same
     // entry point handles keyboard, toolbar clicks and AI tool calls.
     // The optional-chaining `?.` is for the boot window before
-    // initAuroraAPI() runs — the user can't fire a shortcut that early,
+    // initAuroraAPI() runs, the user can't fire a shortcut that early,
     // but the guard keeps the module test-safe.
     const actions = {
         newFile:      () => window.AuroraAPI?.editor.newFile(),
@@ -46,13 +46,13 @@
     }
 
     function handleKeyDown(e) {
-        // Auto-repeat (a held key) must NOT re-fire these actions — holding
+        // Auto-repeat (a held key) must NOT re-fire these actions, holding
         // Ctrl+W used to close every tab, one repeat at a time (and raced the
         // editor teardown into a null-layout crash). One press = one action.
         if (e.repeat) return;
         // Skip ONLY genuine text-entry contexts (a search box, a rename field,
         // the AI composer). Ctrl/Cmd-modified combos are IDE commands (close
-        // tab, save, new, reopen) — never typed text — so they must still fire
+        // tab, save, new, reopen), never typed text, so they must still fire
         // with the Monaco editor (a textarea) or a field focused. The
         // shortcut-recording field stops propagation in the capture phase, so
         // recording a new binding stays safe.
@@ -86,6 +86,15 @@
     
     // Adiciona o listener de evento principal
     document.addEventListener('keydown', handleKeyDown);
+
+    // Ctrl+W chega por aqui, e nao pelo keydown: o main intercepta a tecla
+    // antes de a pagina ve-la (main/windows.js), porque com o foco dentro do
+    // iframe do Surfer o keydown nunca alcancava este documento e o acelerador
+    // nativo fechava a janela inteira. O objeto tem a mesma forma que o
+    // handleKeyDown le; repeat e falso porque o main so reenvia keyDown.
+    window.electronAPI?.onTecla?.((tecla) => {
+        handleKeyDown({ ...tecla, repeat: false, preventDefault() {} });
+    });
 
     // Ouve por atualizações do modal de configurações
     window.addEventListener('aurora-shortcuts-updated', loadShortcuts);

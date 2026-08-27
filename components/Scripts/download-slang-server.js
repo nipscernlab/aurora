@@ -5,7 +5,7 @@
  * Baixa o build Windows do slang-server (LSP de SystemVerilog baseado na
  * lib slang, da Hudson River Trading) e extrai o slang-server.exe em
  * components/Packages/slang-server/bin/. E o motor do O11: analise
- * SEMANTICA (elaboracao completa) do design — pega erros que o lint
+ * SEMANTICA (elaboracao completa) do design, pega erros que o lint
  * sintatico do Verible (O2) nao ve (sinal nao declarado, tipo errado,
  * porta errada, etc.) e oferece autocompletar. O renderer
  * (js/editor/slang_integration.js) liga via JSON-RPC stdio
@@ -17,13 +17,13 @@
  * Pinning: SLANG_SERVER_TAG + EXPECTED_SHA256 abaixo. Pra subir, atualizar
  * a tag/URL e recomputar o SHA-256.
  *
- * Licenca MIT — atribuicao no LICENSE da raiz; spawn arm's-length (a
+ * Licenca MIT, atribuicao no LICENSE da raiz; spawn arm's-length (a
  * AURORA so executa o .exe, nao linka) nao contamina a AURORA.
  *
  * Roda no bootstrap, depois do download-clang-format e antes do
  * copy-components. Best-effort: se falhar, sai com 0 (a AURORA ainda
  * compila/edita; so a analise semantica slang fica indisponivel ate o
- * setup — o Verilog ainda tem o Verible, que e independente).
+ * setup, o Verilog ainda tem o Verible, que e independente).
  *
  * Usage:  node components/Scripts/download-slang-server.js [--force]
  */
@@ -31,7 +31,8 @@
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const { execSync } = require('child_process');
+const { extractZip: extrairZip } = require('./lib/extract');
+const { escreverCarimbo, decidir, NOME_PADRAO } = require('./lib/version_stamp');
 const { verifyChecksum } = require('./lib/checksum');
 
 // ── Configuration ────────────────────────────────────────────────────────────
@@ -52,6 +53,8 @@ const BIN_DIR       = path.join(INSTALL_DIR, 'bin');
 const SENTINEL_FILE = path.join(BIN_DIR, LS_EXE_NAME);
 const TMP_ZIP       = path.join(ROOT_DIR, SLANG_SERVER_FILENAME);
 const TMP_EXTRACT   = path.join(INSTALL_DIR, '_extract');
+// Carimbo da versao instalada; o catalogo do main le o mesmo arquivo.
+const VERSION_STAMP = path.join(INSTALL_DIR, NOME_PADRAO);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -113,18 +116,10 @@ function downloadFile(/** @type {string} */ url, /** @type {string} */ dest) {
     });
 }
 
-function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
-    if (!fs.existsSync(zipPath)) {
-        throw new Error(`Zip file not found: ${zipPath}`);
-    }
-    log(`Extracting ${path.basename(zipPath)} → ${destDir}`);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    // PowerShell Expand-Archive (ships on every Win 10+).
-    execSync(
-        `powershell -NoProfile -Command "$ErrorActionPreference='Stop'; Expand-Archive -LiteralPath '${zipPath}' -DestinationPath '${destDir}' -Force"`,
-        { stdio: 'inherit' }
-    );
+async function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir) {
+    // components/Scripts/lib/extract.js: paralelo, com CRC conferido, e com o
+    // Expand-Archive de antes como reserva se algo sair do esperado.
+    await extrairZip(zipPath, destDir, { log, tag: 'slang-server' });
 }
 
 // O zip traz slang-server.exe (+ README.txt) na raiz; pode (em outras
@@ -158,12 +153,15 @@ function rmrf(/** @type {string} */ p) {
 async function main() {
     const force = process.argv.includes('--force');
 
-    if (alreadyInstalled() && !force) {
-        log(`slang-server already present — skipping download.`);
+    const carimbo = decidir({ instalado: alreadyInstalled(), carimbo: VERSION_STAMP, tag: SLANG_SERVER_TAG });
+    if (carimbo.pular && !force) {
+        log(`slang-server ${SLANG_SERVER_TAG} already present — skipping download.`);
         return;
     }
 
-    if (!alreadyInstalled()) {
+    if (carimbo.motivo === 'outra-versao') {
+        log(`slang-server ${carimbo.gravada} installed but ${SLANG_SERVER_TAG} is pinned — re-downloading.`);
+    } else if (!alreadyInstalled()) {
         log(`slang-server not found in components/Packages/slang-server/bin/.`);
     }
 
@@ -171,7 +169,7 @@ async function main() {
         rmrf(TMP_EXTRACT);
         await downloadFile(DOWNLOAD_URL, TMP_ZIP);
         await verifyChecksum(TMP_ZIP, EXPECTED_SHA256, log);
-        extractZip(TMP_ZIP, TMP_EXTRACT);
+        await extractZip(TMP_ZIP, TMP_EXTRACT);
         extractExeOnly();
         rmrf(TMP_EXTRACT);
         fs.unlinkSync(TMP_ZIP);
@@ -181,6 +179,8 @@ async function main() {
             err(`Sentinel file not found after extraction: ${SENTINEL_FILE}`);
             process.exit(1);
         }
+        // So depois de a sentinela confirmar.
+        escreverCarimbo(VERSION_STAMP, SLANG_SERVER_TAG);
     } catch (e) {
         rmrf(TMP_EXTRACT);
         try { if (fs.existsSync(TMP_ZIP)) fs.unlinkSync(TMP_ZIP); } catch { /* ignore */ }
@@ -210,4 +210,5 @@ module.exports = {
     INSTALL_DIR,
     BIN_DIR,
     SENTINEL_FILE,
+    VERSION_STAMP,
 };

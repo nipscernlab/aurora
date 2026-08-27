@@ -1,4 +1,4 @@
-// processor_compiler.js — SAPHO processor compile steps (C±/.cmm → .asm → .v).
+// processor_compiler.js: SAPHO processor compile steps (C±/.cmm → .asm → .v).
 //
 // Extracted from compilation_module.js (A2 god-file decomposition #5, the last
 // one). These drive the per-processor toolchain: cmmcomp (.cmm → .asm), then
@@ -6,7 +6,7 @@
 // helpers that resolve which .cmm/testbench to use, instrument #TOAQUI, and
 // stage processor memory files into Temp/.
 //
-// They are NOT pure — they run external .exe via runSpec, save editor buffers,
+// They are NOT pure, they run external .exe via runSpec, save editor buffers,
 // drive the status bar, and stream to the terminal. Rather than capture instance
 // state, each takes a `deps` bag { projectPath, componentsPath, projectConfig,
 // terminalManager } (CompilationModule._instanceDeps()). CompilationModule keeps
@@ -19,13 +19,13 @@
 //     compile runs (so a click after a FAILED compile still resolves to the .cmm
 //     that failed). To preserve that exact timing, the caller passes a
 //     `setLastCompiledCmmPath` callback and cmmCompilation invokes it at the same
-//     point — the field is written inside the class, not here.
+//     point, the field is written inside the class, not here.
 //   - _chegueiInstrumentProc: set externally by compilation_flow.js to gate the
 //     #TOAQUI instrumentation. Passed in as `chegueiInstrumentProc`.
 //
 // Kept on `electronAPI` (live global) rather than the ../app/electron_api
 // re-export so the module stays unit-testable with the repo's
-// `globalThis.window = { electronAPI: fake }` pattern — migrating these globals
+// `globalThis.window = { electronAPI: fake }` pattern, migrating these globals
 // belongs to A3, not this extraction.
 
 import { electronAPI } from '../app/electron_api.js';
@@ -36,7 +36,7 @@ import { buildCmmSpec, buildAsmPreSpec, buildAsmSpec } from './builders/index.js
 import * as CommandSpec from './command_spec.js';
 import { moduleStemFromPath, insertChegueiToaqui } from './compilation_helpers.js';
 
-// i18n shim — falls back to the key path if i18n didn't boot yet.
+// i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 export async function getSelectedCmmFile(processor) {
@@ -79,7 +79,7 @@ export async function getTestbenchInfo(deps, processor, cmmBaseName) {
 }
 
 /**
- * Garante que o .cmm tenha #TOAQUI antes do `}` de main() — sem isso o
+ * Garante que o .cmm tenha #TOAQUI antes do `}` de main(), sem isso o
  * pino `cheguei` nao vira porta do <proc>.v e o harness do botao Verilator
  * nao consegue detectar o fim do programa. Idempotente: se ja houver
  * #TOAQUI em qualquer lugar do arquivo, nao mexe. Roda DEPOIS do
@@ -161,7 +161,7 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
 
         // Botao Verilator: instrumenta o .cmm do processador-alvo com
         // #TOAQUI (pino `cheguei` no fim do programa) ANTES do cmmcomp.exe
-        // ler o arquivo. Aqui — depois do saveAllFiles — pra que o save
+        // ler o arquivo. Aqui, depois do saveAllFiles, pra que o save
         // nao sobrescreva a instrumentacao com o buffer do editor. Idem-
         // potente: pula se ja houver #TOAQUI em qualquer lugar.
         if (chegueiInstrumentProc === name) {
@@ -177,7 +177,7 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
         // antes do cli_parse() ler o resto. Explicito pra que a UI mande,
         // ignorando qualquer env var preexistente do shell.
         //
-        // -A / --array liga o showArrays do .spf (campo per-processador) —
+        // -A / --array liga o showArrays do .spf (campo per-processador):
         // dump de arrays no waveform. Era -P no yanc v3.
         const lang = window.getYancLang?.() ?? 'pt';
         const cmmSpec = buildCmmSpec({
@@ -216,6 +216,7 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
     } catch (error) {
         deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('cmm', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -235,7 +236,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
     } = processor;
     await deps.terminalManager.clearTerminal('tasm');
 
-    // Mensagem opcional logada APOS o clear — usada pelo handler
+    // Mensagem opcional logada APOS o clear, usada pelo handler
     // do botao ASM pra avisar quando o C+- foi recompilado por
     // falta de cmm_log.txt. Antes do clear ela era apagada antes
     // do usuario ver.
@@ -288,7 +289,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
         }
 
         // asmcomp v4: named options -i -p -d -m -t -f -c (ASM/Sources/args.c).
-        // -f/-c TEM que ser inteiros — o yanc rejeita valor nao-numerico
+        // -f/-c TEM que ser inteiros, o yanc rejeita valor nao-numerico
         // e sai com usage. O -P (project mode = sem $finish no _tb.v) foi
         // removido no v4: o $finish agora e sempre emitido; multi-proc
         // workflows ignoram o _tb.v individual e usam um top-level proprio.
@@ -320,7 +321,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
 
         // Copia o testbench auto-gerado (asmcomp escreve em tempPath)
         // pra <proc>/Simulation/<base>_tb.v sempre que o processador
-        // usa o testbench "standard" — i.e., nao tem um testbench
+        // usa o testbench "standard", i.e., nao tem um testbench
         // customizado configurado. O testbench auto-gerado e
         // per-processador (Simulation/<base>_tb.v), distinto do
         // testbench-top que o .spf aponta, entao nao
@@ -344,12 +345,13 @@ export async function asmCompilation(deps, processor, preamble = null) {
     } catch (error) {
         deps.terminalManager.appendToTerminal('tasm', tr('terminal.common.error', { message: error.message }), 'error');
         statusUpdater.compilationError('asm', error.message);
+        error.jaNoTerminal = true;
         throw error;
     }
 }
 
 /**
- * Copia os pc_*_mem.txt (gerados por cmmcomp em Temp/<proc>/) pra destDir —
+ * Copia os pc_*_mem.txt (gerados por cmmcomp em Temp/<proc>/) pra destDir:
  * o CWD da simulacao, onde o $readmemb do <proc>.v procura. O fluxo Wave
  * passa a pasta do projeto (regra uniforme: simulacao roda na pasta do
  * .spf); o cocotb usa o default (raiz de tempBaseDir) e re-copia pro
@@ -359,7 +361,7 @@ export async function asmCompilation(deps, processor, preamble = null) {
  * @param {{ projectConfig: object, terminalManager: object }} deps
  */
 export async function stageProcessorMemoryFiles(deps, tempBaseDir, destDir = tempBaseDir) {
-    // Projeto sem processador no .spf nunca gera pc_*_mem.txt — o
+    // Projeto sem processador no .spf nunca gera pc_*_mem.txt, o
     // $readmemb que consome esses arquivos so existe dentro do .v do
     // processador SAPHO. Pular o staging inteiro (incluindo o warning
     // "no pc_*_mem.txt found") nesse caso: procurar arquivos de memoria

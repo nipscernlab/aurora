@@ -1,5 +1,5 @@
 /**
- * selection_validator.ts — Filter a saved Wave Configuration selection
+ * selection_validator.ts: Filter a saved Wave Configuration selection
  * against the current parsed Verilog hierarchy.
  *
  * The picker stores selections as dotted-path strings in the
@@ -7,7 +7,7 @@
  * the user later renames an instance, removes a signal, or edits the
  * testbench, the saved entries can dangle. Feeding dangling paths
  * verbatim to `$dumpvars(0, ...)` makes iverilog fail with a cryptic
- * elaboration error — the user just sees "exit code 2".
+ * elaboration error, the user just sees "exit code 2".
  *
  * This validator runs before the instrumenter / .gtkw writer and
  * splits the selection into:
@@ -19,7 +19,7 @@
  * Pure: takes the parsed tree (from signal_parser.buildHierarchyTree),
  * returns plain arrays. No IO, trivial to unit-test.
  *
- * Compilado por `tsc` (npm run build:ts) num selection_validator.js ao lado —
+ * Compilado por `tsc` (npm run build:ts) num selection_validator.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -52,7 +52,7 @@ function collectValidPaths(node: HierarchyNode | null): Set<string> {
  *
  * `hierarchyTree === null` = no hierarchy could be built (e.g. parse
  * failed, missing top module). In that case we conservatively keep the
- * selection as-is — better to let iverilog speak than to silently wipe
+ * selection as-is, better to let iverilog speak than to silently wipe
  * the user's choices.
  */
 export function validateSelection(

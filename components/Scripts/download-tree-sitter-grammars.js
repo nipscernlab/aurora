@@ -6,7 +6,7 @@
  * do editor e copia o runtime do web-tree-sitter pra um lugar unico
  * (components/Packages/tree-sitter/). O renderer
  * (js/editor/treesitter_highlight.js) carrega esses .wasm por BYTES via IPC
- * (main/treesitter/grammars.js) e gera semantic tokens no Monaco — highlight
+ * (main/treesitter/grammars.js) e gera semantic tokens no Monaco, highlight
  * preciso (nome de modulo, instancia, direcao de porta, tipo, macro…) bem
  * alem do Monarch. Aplica-se a Verilog/SystemVerilog, C e C++ (CMM/ASM nao
  * tem gramatica → seguem no Monarch).
@@ -15,7 +15,7 @@
  *   - SystemVerilog: gmlarumbe/tree-sitter-systemverilog (cobre .v e .sv)
  *   - C:  tree-sitter/tree-sitter-c
  *   - C++: tree-sitter/tree-sitter-cpp
- * web-tree-sitter.wasm (o runtime) vem do pacote npm web-tree-sitter — copiado
+ * web-tree-sitter.wasm (o runtime) vem do pacote npm web-tree-sitter, copiado
  * daqui pra casar exatamente com a versao do JS bundlado (sem skew).
  *
  * Pinning: TAG + EXPECTED_SHA256 por arquivo abaixo. Licencas: MIT

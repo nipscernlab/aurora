@@ -1,6 +1,6 @@
 import { electronAPI } from './electron_api.js';
 /**
- * error_boundary.js — the renderer's last line of defence.
+ * error_boundary.js: the renderer's last line of defence.
  *
  * Aurora's renderer is a graph of ES modules with an implicit load order
  * (ARCHITECTURE.md §1) and managers that do I/O in their constructors. Before
@@ -12,7 +12,7 @@ import { electronAPI } from './electron_api.js';
  * staring at a half-dead UI.
  *
  * Loaded FIRST among the module scripts so it is armed before the rest of the
- * graph evaluates. Intentionally dependency-free and defensive — it must never
+ * graph evaluates. Intentionally dependency-free and defensive, it must never
  * be the thing that throws.
  */
 
@@ -36,7 +36,7 @@ function forwardToMain(kind, message, stack) {
 }
 
 function showToastOnce(message) {
-  // Surface ONE unobtrusive toast — repeated errors shouldn't spam the user.
+  // Surface ONE unobtrusive toast, repeated errors shouldn't spam the user.
   if (_toastShown) return;
   _toastShown = true;
   try {
@@ -72,7 +72,7 @@ function handle(kind, err, stack) {
 /**
  * Monaco/VS Code routinely reject their in-flight async work (tokenization,
  * hovers, model/link resolution) with a benign "Canceled" CancellationError when
- * an editor or model is DISPOSED — e.g. when Aurora closes every tab and reopens
+ * an editor or model is DISPOSED, e.g. when Aurora closes every tab and reopens
  * the project during a rename. That is normal teardown, NOT a crash, so it must
  * not raise the error overlay (VS Code itself swallows these). Let it pass.
  */
@@ -84,6 +84,33 @@ function isBenignCancellation(err) {
     || message === 'Canceled' || message === 'Cancelled';
 }
 
+/**
+ * O sticky scroll do Monaco rejeita sozinho quando o arquivo encolhe.
+ *
+ * O widget que fixa o `module`/`always` no topo decide de forma assincrona qual
+ * linha grudar. Se o texto encolher entre a decisao e o desenho, ele pergunta
+ * pelo fim de uma linha que nao existe mais e o Monaco recusa com "Illegal
+ * value for lineNumber". Como o caminho e `async` e ninguem espera por ele, a
+ * rejeicao sobe sem dono e caia aqui, mostrando um "algo deu errado" para quem
+ * so estava apagando uma linha.
+ *
+ * E defeito do Monaco 0.52.2, que esta fixado por outro motivo (ver
+ * ARCHITECTURE secao 8), e nao ha o que corrigir do lado da AURORA: o widget e
+ * dele, o calculo e dele e o erro morre nele. O filtro e estreito de proposito,
+ * exige a mensagem exata E a assinatura do widget na pilha, para nao virar um
+ * tapete embaixo do qual um erro nosso de numero de linha se esconderia.
+ *
+ * O balao sai de cena; o console e o log continuam recebendo tudo, porque
+ * silenciar o aviso ao usuario nao e o mesmo que apagar o rastro.
+ */
+function isStickyScrollLineNumber(err) {
+  if (!err) return false;
+  const message = typeof err === 'string' ? err : (err && err.message);
+  if (message !== 'Illegal value for lineNumber') return false;
+  const stack = (err && err.stack) || '';
+  return stack.includes('StickyScroll') || stack.includes('_renderStickyScroll');
+}
+
 window.addEventListener('error', (event) => {
   const err = event.error || event.message;
   if (isBenignCancellation(err)) { try { event.preventDefault(); } catch { /* noop */ } return; }
@@ -93,5 +120,16 @@ window.addEventListener('error', (event) => {
 window.addEventListener('unhandledrejection', (event) => {
   const reason = event.reason;
   if (isBenignCancellation(reason)) { try { event.preventDefault(); } catch { /* noop */ } return; }
+  if (isStickyScrollLineNumber(reason)) {
+    // Sem o balao, mas com o rastro: o console e o main.log seguem recebendo.
+    console.warn(`${PREFIX} sticky scroll do Monaco rejeitou (defeito conhecido do 0.52.2):`, reason);
+    forwardToMain('monaco sticky scroll', describe(reason), reason && reason.stack);
+    try { event.preventDefault(); } catch { /* noop */ }
+    return;
+  }
   handle('unhandled promise rejection', reason, reason && reason.stack);
 });
+
+// Exportados para o teste alcancar as duas regras de filtragem. Elas decidem o
+// que o usuario ve, e uma regra larga demais esconderia defeito nosso.
+export { isBenignCancellation, isStickyScrollLineNumber };

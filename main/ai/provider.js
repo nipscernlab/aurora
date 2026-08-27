@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * provider.js — Vercel AI SDK plumbing for Aurora Intelligence.
+ * provider.js: Vercel AI SDK plumbing for Aurora Intelligence.
  *
  * Builds a Vercel AI SDK provider instance keyed on the user's stored
  * API key (via `keystore`), and exposes a thin `testConnection()`
@@ -13,7 +13,7 @@
  *
  * Models
  * ------
- * `DEFAULT_MODELS` is the fallback per provider — the smallest
+ * `DEFAULT_MODELS` is the fallback per provider, the smallest
  * tool-capable model that is reliably on the free/cheap tier. The user
  * can override it per provider in Settings → AI Assistant; that
  * override lives in `prefs` and `getModelFor()` resolves it.
@@ -21,7 +21,7 @@
  *   - openai     → gpt-4o-mini    (cheap, fast, tools)
  *   - anthropic  → claude-haiku-4-5
  *   - google     → gemini-2.5-flash  (gemini-2.0-flash is NOT on the
- *                  free tier — it returns HTTP 429 limit:0)
+ *                  free tier, it returns HTTP 429 limit:0)
  *   - deepseek   → deepseek-chat
  */
 
@@ -29,7 +29,7 @@
 
 const log = require('electron-log');
 
-// All AI SDK packages — including the base `ai` package — are loaded via
+// All AI SDK packages, including the base `ai` package, are loaded via
 // tryRequire so any module-level failure (missing package, mismatched
 // transitive dep like `zod/v4`, ESM/CJS interop bug) disables AI features
 // instead of crashing the main process during boot.
@@ -66,10 +66,10 @@ const DEFAULT_MODELS = Object.freeze({
   ollama:    'llama3.1:8b',
 });
 
-// G6 — model governance. Per-provider rename map: a retired/renamed model id →
+// G6, model governance. Per-provider rename map: a retired/renamed model id →
 // its current replacement, so an aged conversation or a stale prefs override
 // keeps working instead of dead-ending at runtime. Seed as providers retire ids
-// (an empty map per provider is fine — `resolveModelId` still handles the
+// (an empty map per provider is fine, `resolveModelId` still handles the
 // 'latest'/'default' aliases and the runtime fallback covers the rest).
 const MODEL_MIGRATIONS = Object.freeze({
   openai:    {},
@@ -169,7 +169,7 @@ function getModelFor(/** @type {string} */ provider) {
 
 /**
  * Make a minimal generateText call to verify the configured key works.
- * Designed to be cheap — small prompt, capped output — so a user can
+ * Designed to be cheap, small prompt, capped output, so a user can
  * click "Test connection" without worrying about token spend.
  *
  * Returns a structured result instead of throwing so the IPC handler
@@ -205,7 +205,7 @@ async function testConnection(providerName, modelId) {
   try {
     return await probe(model);
   } catch (e) {
-    // G6: a retired/invalid model id shouldn't dead-end the check — fall back
+    // G6: a retired/invalid model id shouldn't dead-end the check, fall back
     // to the provider default and report which model actually answered.
     const def = getDefaultModel(providerName);
     if (isModelUnavailableError(e) && def && def !== model) {
@@ -219,7 +219,7 @@ async function testConnection(providerName, modelId) {
 }
 
 /**
- * One-shot text generation (no tools, no streaming, no chat history) — for
+ * One-shot text generation (no tools, no streaming, no chat history), for
  * features that transform an input into an output in a single call, e.g. the
  * AI harness generator. Returns a structured result instead of throwing so the
  * IPC handler can pass it through. Only the Vercel-SDK API providers are

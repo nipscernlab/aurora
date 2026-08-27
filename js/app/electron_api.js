@@ -1,5 +1,5 @@
 /**
- * electron_api.js — importable, LIVE handle for the preload contextBridge global.
+ * electron_api.js: importable, LIVE handle for the preload contextBridge global.
  *
  * preload.js injects the IPC surface as `window.electronAPI`. Reaching for that
  * global from every renderer module ties the code to an implicit global;
@@ -12,7 +12,7 @@
  *      module graph has loaded (a snapshot captured `undefined` at import time);
  *   2. the bridge not existing yet / a non-window context (get returns undefined
  *      instead of throwing on property access).
- * Method calls forward transparently — including `this` — so `electronAPI.foo(x)`
+ * Method calls forward transparently, including `this`, so `electronAPI.foo(x)`
  * behaves exactly like `window.electronAPI.foo(x)`.
  *
  * Caveat: the Proxy itself is ALWAYS truthy, so prefer a property check

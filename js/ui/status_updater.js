@@ -15,7 +15,7 @@ function compName(type) {
 
 class StatusUpdater {
     constructor() {
-      // Antes: .status-item:nth-child(3) — seletor obsoleto, foi quebrado
+      // Antes: .status-item:nth-child(3), seletor obsoleto, foi quebrado
       // quando os status-items foram divididos em .status-zone-left /
       // -center / -right. Cada zone tem seus proprios filhos, entao
       // nenhum status-item e o "3o filho" mais. Resultado: this.statusItem
@@ -28,7 +28,7 @@ class StatusUpdater {
       // A "run" is a whole pipeline (one toolbar button = many steps:
       // e.g. Verilator = cmm+asm → json → build → run). While a run is
       // active we must NOT let a per-step success reset the bar back to
-      // "Start Compilation" — the next steps (and the heavy Verilator
+      // "Start Compilation", the next steps (and the heavy Verilator
       // build/run, which don't touch this updater at all) are still going.
       // beginRun/endRun bracket the pipeline; runActive gates the resets.
       this.runActive = false;
@@ -128,7 +128,7 @@ class StatusUpdater {
     // Show successful compilation
     compilationSuccess(type) {
       if (!this.statusItem || !this.isCompiling) return;
-      // Inside a multi-step run, a step finishing is not the end — keep the
+      // Inside a multi-step run, a step finishing is not the end, keep the
       // running state and let endRun decide. Only standalone steps reset.
       if (this.runActive) return;
       const name = compName(type);

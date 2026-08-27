@@ -1,5 +1,5 @@
 /**
- * api_core.js — o envelope de resposta e o barramento de eventos da AuroraAPI.
+ * api_core.js: o envelope de resposta e o barramento de eventos da AuroraAPI.
  *
  * Extraido de js/api/aurora_api.js em 08/08/2026, sem mudanca de comportamento.
  *

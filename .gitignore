@@ -12,7 +12,14 @@ pnpm-debug.log*
 .yarn/
 
 # --- Local user state ---
-.vscode/
+# .vscode: as configuracoes COMPARTILHADAS (tasks, launch, settings,
+# extensions) sao versionadas de proposito - fazem parte do setup de dev.
+# Qualquer outro arquivo local do editor continua fora.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 .claude/
 *.iml
@@ -97,6 +104,7 @@ js/project/spf_store.js
 js/project/verilog_classifier.js
 js/wave/complex_decode.js
 js/wave/event_markers.js
+js/wave/generate_blocks.js
 js/wave/gtkw_proc_writer.js
 js/wave/gtkw_writer.js
 js/wave/selection_validator.js
@@ -136,3 +144,13 @@ docs/**/*.xdv
 .env
 .env.*
 !.env.example
+
+# Gerado por scripts/gen-installer-license.js a cada build (beforePack)
+build/license.txt
+
+# Zips temporarios dos instaladores de componentes (components/Scripts/
+# download-*.js baixam para a raiz e apagam ao extrair; um download em
+# andamento nao pode entrar num commit).
+aurora-msys-*.zip
+aurora-*-nipscern*.zip
+surfer-aurora*.zip

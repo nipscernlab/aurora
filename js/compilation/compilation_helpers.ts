@@ -1,11 +1,11 @@
 /**
- * compilation_helpers.ts — funções PURAS de apoio à compilação, sem estado e
+ * compilation_helpers.ts: funções PURAS de apoio à compilação, sem estado e
  * sem dependência de `this`/DOM/electronAPI. Vivem fora da god class
  * CompilationModule pra (a) encolher o arquivo principal e (b) poderem ser
  * testadas isoladamente. Compartilhadas pelo compilation_module.js e por
  * qualquer mixin de etapa que venha a ser extraído dele.
  *
- * Compilado por `tsc` (npm run build:ts) num compilation_helpers.js ao lado —
+ * Compilado por `tsc` (npm run build:ts) num compilation_helpers.js ao lado:
  * é esse .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -24,7 +24,7 @@ export function isPythonFile(filePath: string): boolean {
 // Reads an optional `# aurora-toplevel: <module>` directive from a cocotb .py.
 // It tells Aurora which Verilog module is the DUT (cocotb's hdl_toplevel) so a
 // test can target ANY module without re-marking the project top-level in the
-// .spf. Crucially it's a plain COMMENT — pytest, a Makefile or bare cocotb
+// .spf. Crucially it's a plain COMMENT, pytest, a Makefile or bare cocotb
 // running the same .py outside Aurora ignore it entirely. Accepts ':' or '='
 // and is case-insensitive; the value must be a valid identifier. Returns the
 // module name, or null when the directive is absent.
@@ -35,7 +35,7 @@ export function parseCocotbToplevelDirective(pySource: string): string | null {
 
 // Insere a diretiva `#TOAQUI` logo antes do `}` que fecha a funcao main()
 // de um fonte C±. O #TOAQUI faz o compilador pulsar o pino `cheguei` no fim
-// do programa — usado pelo harness do botao Verilator pra encerrar a sim
+// do programa, usado pelo harness do botao Verilator pra encerrar a sim
 // assim que o programa termina. Acha o `}` casando chaves a partir de
 // `main(`, ignorando `//` e `/* */`. Retorna o texto original inalterado se
 // nao achar o main ou se as chaves nao fecharem (nao instrumenta as cegas).
@@ -78,6 +78,53 @@ export function assertPythonModuleName(filePath: string): string {
         throw new Error(`cocotb testbench file name must be a valid Python module name: ${basenameOfPath(filePath)}`);
     }
     return stem;
+}
+
+/**
+ * Quem e o DUT de uma corrida cocotb, e por que.
+ *
+ * O `dut` que o teste recebe NAO e necessariamente o topo do projeto: um
+ * .py pode exercitar qualquer modulo. A ordem de resolucao e a diretiva
+ * `# aurora-toplevel: <modulo>` dentro do proprio .py, que deixa o teste
+ * escolher o alvo sem remarcar o topo no .spf e que e comentario inerte
+ * fora da AURORA; sem ela, o topo do .spf, que precisa ser mesmo um fonte
+ * Verilog.
+ *
+ * Decide e devolve o motivo em vez de lancar texto traduzido: a mensagem
+ * na tela e do chamador, e assim a regra pode ser verificada sem i18n,
+ * sem DOM e sem disco.
+ *
+ * @param config topo e testbench como o .spf os descreve
+ * @param pySource fonte do testbench, ou vazio quando ilegivel
+ */
+export function decideCocotbDut(
+    config: { topLevelFile?: string; testbenchFile?: string },
+    pySource: string,
+): { ok: true; hdlTopModule: string; hdlTopFile: string; toplevelSource: 'directive' | 'spf' }
+ | { ok: false; motivo: 'cocotbRequiresPythonTb' | 'cocotbRequiresTop' } {
+    const tb = config?.testbenchFile || '';
+    if (!tb || !isPythonFile(tb)) return { ok: false, motivo: 'cocotbRequiresPythonTb' };
+
+    const daDiretiva = parseCocotbToplevelDirective(pySource);
+    if (daDiretiva) {
+        return {
+            ok: true,
+            hdlTopModule: daDiretiva,
+            // O arquivo do topo e opcional quando a diretiva manda: o modulo
+            // dela ja vem entre as fontes compiladas.
+            hdlTopFile: config.topLevelFile || '',
+            toplevelSource: 'directive',
+        };
+    }
+
+    const topo = config?.topLevelFile || '';
+    if (!topo || !/\.(v|sv)$/i.test(topo)) return { ok: false, motivo: 'cocotbRequiresTop' };
+    return {
+        ok: true,
+        hdlTopModule: moduleStemFromPath(topo),
+        hdlTopFile: topo,
+        toplevelSource: 'spf',
+    };
 }
 
 export function safeNamePart(name: string): string {

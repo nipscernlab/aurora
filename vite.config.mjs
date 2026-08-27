@@ -77,6 +77,12 @@ export default defineConfig({
   customLogger: logger,
   root: import.meta.dirname,
   base: './',
+  // O catálogo de estrelas da splash (assets/data/hyg-mag6.bin) é um binário
+  // empacotado à mão, e `.bin` não está entre as extensões que o Vite trata
+  // como asset por conta própria. Sem esta linha o import com `?inline` não
+  // vira data URL, e js/ui/sky.js cairia no campo aleatório em produção, sem
+  // erro visível: a splash abre por file://, onde fetch de caminho não passa.
+  assetsInclude: ['**/*.bin'],
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -148,7 +154,14 @@ export default defineConfig({
         //   • SAPHO rules: fetch('./resources/sapho_rules.json') (js/api/aurora_api.js)
         //   • icons: img.src = './assets/icons/<name>'  (AI providers etc.)
         { src: 'locales/**/*', dest: 'locales', rename: { stripBase: 1 } },
-        { src: 'resources/**/*', dest: 'resources', rename: { stripBase: 1 } },
+        // resources/docs fica de fora: a documentacao offline (39 MB) ja viaja
+        // como extraResources e e lida de process.resourcesPath/docs; copiada
+        // para dist/ ela so duplicava o peso dentro do asar.
+        // resources/exemplos fica de fora pelo mesmo motivo de resources/docs:
+        // quem le os projetos de exemplo e o processo PRINCIPAL, a partir da
+        // raiz da instalacao, e nao o renderer. Copia-los para dist/ poria uma
+        // segunda copia dentro do asar sem nenhum leitor.
+        { src: ['resources/**/*', '!resources/docs/**', '!resources/exemplos/**'], dest: 'resources', rename: { stripBase: 1 } },
         { src: 'assets/icons/**/*', dest: 'assets/icons', rename: { stripBase: 2 } },
       ],
     }),

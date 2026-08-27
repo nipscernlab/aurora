@@ -6,7 +6,7 @@
 // "Multiple identical-data renders are zero-mutation no-ops. Don't
 // replace this with destroy-and-rebuild."
 //
-// The mixin imports nothing external — it reads `this` (verilogFiles,
+// The mixin imports nothing external, it reads `this` (verilogFiles,
 // a couple of path helpers) and writes into the container handed back
 // by window.treeView.getContainer('verilog'). So we drive it with a
 // stub treeView pointing at a detached <div> and a hand-built `this`.

@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * cli_locator.js — locates the Claude Code and Codex CLI executables.
+ * cli_locator.js: locates the Claude Code and Codex CLI executables.
  *
  * The CLIs are resolved across three runtime layouts, in priority order:
  *
@@ -18,9 +18,9 @@
  *      cannot be launched from an asar archive, so electron-builder unpacks
  *      them into a sibling `app.asar.unpacked/` tree. `require.resolve` and
  *      `fs` see the in-asar path transparently, but `child_process.spawn` does
- *      NOT — it needs the real on-disk path. `toUnpacked()` performs that rewrite.
+ *      NOT, it needs the real on-disk path. `toUnpacked()` performs that rewrite.
  *
- *   3. A global install on PATH — last-resort fallback (covers a dev with their
+ *   3. A global install on PATH, last-resort fallback (covers a dev with their
  *      own `npm i -g` copy).
  *
  * Results are cached: resolution touches the filesystem and spawns `where`,
@@ -59,7 +59,7 @@ function onPath(/** @type {string} */ name) {
     const hits = out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     if (process.platform !== 'win32') return hits[0] || null;
     // On Windows `where` lists every match; a `.cmd`/`.exe` shim is
-    // spawnable, the bare POSIX shell-script shim is not — rank accordingly.
+    // spawnable, the bare POSIX shell-script shim is not, rank accordingly.
     const score = (/** @type {string} */ p) => {
       const l = p.toLowerCase();
       if (l.endsWith('.exe')) return 4;
@@ -90,6 +90,17 @@ function downloadedLocation(kind) {
   catch (_) { return null; }
 }
 
+/**
+ * The manifest entry for this platform, or null. Same lazy-require discipline
+ * as above: the manifest is plain data, but keeping the require local means a
+ * broken manifest degrades to the PATH fallback instead of breaking the locator.
+ * @param {'claude'|'codex'} kind
+ */
+function manifestEntry(kind) {
+  try { return require('./cli_manifest').entryFor(kind); }
+  catch (_) { return null; }
+}
+
 // --- Claude Code -----------------------------------------------------------
 
 /** @type {{exe:string, viaShim:boolean}|null|undefined} */
@@ -99,7 +110,7 @@ let claudeCache;
  * Locate the Claude Code CLI. Prefers the copy bundled with Aurora.
  *
  * @returns {{exe:string, viaShim:boolean}|null}
- *   `exe` — path to spawn. `viaShim` — true when it is a `.cmd`/`.bat`/`.ps1`
+ *   `exe`, path to spawn. `viaShim`, true when it is a `.cmd`/`.bat`/`.ps1`
  *   shim that must be launched through `cmd.exe` rather than directly.
  */
 function locateClaude() {
@@ -138,7 +149,7 @@ function locateClaude() {
 
 // --- Codex -----------------------------------------------------------------
 
-// platform:arch → { triple, pkg } — mirrors @openai/codex's own bin/codex.js
+// platform:arch → { triple, pkg }, mirrors @openai/codex's own bin/codex.js
 // launcher so we can resolve the native binary without going through it.
 const CODEX_TARGETS = {
   'linux:x64':    { triple: 'x86_64-unknown-linux-musl',  pkg: '@openai/codex-linux-x64' },
@@ -156,9 +167,9 @@ let codexCache;
  * Locate the Codex CLI. Prefers the bundled native binary.
  *
  * @returns {{exe:string, rgDir:string|null, viaShim:boolean}|null}
- *   `exe` — path to spawn. `rgDir` — directory holding Codex's bundled
+ *   `exe`, path to spawn. `rgDir`, directory holding Codex's bundled
  *   ripgrep, which must be prepended to PATH so Codex's file search works
- *   (null when resolved off PATH). `viaShim` — see locateClaude.
+ *   (null when resolved off PATH). `viaShim`, see locateClaude.
  */
 function locateCodex() {
   if (codexCache !== undefined) return codexCache;
@@ -167,17 +178,34 @@ function locateCodex() {
   const cached = downloadedLocation('codex');
   if (cached) { codexCache = { exe: cached.exe, rgDir: cached.rgDir, viaShim: false }; return codexCache; }
 
-  // 1. Bundled platform package: <pkg>/vendor/<triple>/codex/codex(.exe)
-  //    with ripgrep alongside at <pkg>/vendor/<triple>/path/.
+  // 1. Bundled platform package. The layout inside it is owned by the manifest
+  //    (cli_manifest.js, `exe` and `rg`, relative to the package root), which
+  //    is the same tree the on-demand download extracts. It used to be typed
+  //    a second time here, and when upstream moved the binary in 0.147.0
+  //    (vendor/<triple>/codex/ to bin/, path/ to codex-path/) only the manifest
+  //    was corrected: this copy kept the old layout, so a dev run reported
+  //    Codex absent with the binary sitting in node_modules. One owner now.
+  //    Platforms the manifest does not cover fall back to the layouts known
+  //    so far, newest first.
   const target = CODEX_TARGETS[/** @type {keyof typeof CODEX_TARGETS} */ (`${process.platform}:${process.arch}`)];
   if (target) {
     try {
       const pkgJsonPath = require.resolve(`${target.pkg}/package.json`);
-      const vendorRoot = path.join(path.dirname(pkgJsonPath), 'vendor', target.triple);
+      const pkgRoot = path.dirname(pkgJsonPath);
       const exeName = process.platform === 'win32' ? 'codex.exe' : 'codex';
-      const exe = toUnpacked(path.join(vendorRoot, 'codex', exeName));
-      const rgDir = toUnpacked(path.join(vendorRoot, 'path'));
-      if (fileExists(exe)) {
+      const vendor = path.join('vendor', target.triple);
+      /** @type {Array<{exe:string, rg:string|null}>} */
+      const layouts = [];
+      const entry = manifestEntry('codex');
+      if (entry) layouts.push({ exe: entry.exe, rg: entry.rg });
+      layouts.push(
+        { exe: path.join(vendor, 'bin', exeName), rg: path.join(vendor, 'codex-path') },
+        { exe: path.join(vendor, 'codex', exeName), rg: path.join(vendor, 'path') },
+      );
+      for (const layout of layouts) {
+        const exe = toUnpacked(path.join(pkgRoot, ...layout.exe.split(/[\\/]/)));
+        if (!fileExists(exe)) continue;
+        const rgDir = layout.rg ? toUnpacked(path.join(pkgRoot, ...layout.rg.split(/[\\/]/))) : null;
         codexCache = { exe, rgDir, viaShim: false };
         return codexCache;
       }
@@ -201,4 +229,4 @@ function invalidate() {
   codexCache = undefined;
 }
 
-module.exports = { locateClaude, locateCodex, toUnpacked, invalidate };
+module.exports = { locateClaude, locateCodex, invalidate };

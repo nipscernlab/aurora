@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function stripElectronNodeMode(env) {
-  // Make a clean copy without ELECTRON_RUN_AS_NODE — copy-the-rest pattern
+  // Make a clean copy without ELECTRON_RUN_AS_NODE, copy-the-rest pattern
   // because deleting from a process.env reference would mutate the live one.
   const out = {};
   for (const [k, v] of Object.entries(env)) {
@@ -38,7 +38,7 @@ function stripElectronNodeMode(env) {
 
 async function waitForMainWindow(app, timeoutMs = 20_000) {
   const deadline = Date.now() + timeoutMs;
-  // Poll app.windows() — splash closes once the main window mounts. The
+  // Poll app.windows(), splash closes once the main window mounts. The
   // main one is identified by index.html in its URL.
   while (Date.now() < deadline) {
     for (const w of app.windows()) {
@@ -56,7 +56,7 @@ const MONACO_FAILURE_MARKERS = [
   'EditorManager has not been initialized',
   'Property description must be an object',
   // monaco.contribution.js paths look like
-  // "node_modules/monaco-editor/.../monaco.contribution.js" — the
+  // "node_modules/monaco-editor/.../monaco.contribution.js", the
   // substring is unique enough to flag any error inside that module.
   'monaco.contribution.js',
 ];
@@ -85,12 +85,12 @@ describe('Aurora E2E — smoke', () => {
       args: ['.', `--user-data-dir=${userDataDir}`],
       cwd: REPO_ROOT,
       env: {
-        // Drop ELECTRON_RUN_AS_NODE if the dev's shell has it set —
+        // Drop ELECTRON_RUN_AS_NODE if the dev's shell has it set:
         // it forces Electron into Node-only mode (no GUI, no app
         // module) and makes every launch fail with "Process failed to
         // launch!" miles away from the actual cause.
         ...stripElectronNodeMode(process.env),
-        // Bypass main/lifecycle.js single-instance lock — Electron's lock
+        // Bypass main/lifecycle.js single-instance lock, Electron's lock
         // is per app name and would collide with any Aurora the dev has
         // open. The test gets its own user-data-dir so there's no real
         // conflict; the lock just thinks there is.
@@ -103,7 +103,7 @@ describe('Aurora E2E — smoke', () => {
 
     // Aurora boots a splash window that closes itself once the main
     // window is ready. firstWindow() can resolve to either, so wait
-    // for index.html specifically — splash loads splash.html.
+    // for index.html specifically, splash loads splash.html.
     window = await waitForMainWindow(app);
 
     window.on('pageerror', (err) => {
@@ -116,7 +116,7 @@ describe('Aurora E2E — smoke', () => {
     });
 
     // Wait for the renderer to mount its main container *and* for Monaco
-    // to actually attach. The two are decoupled — #monaco-editor is in
+    // to actually attach. The two are decoupled, #monaco-editor is in
     // the HTML from the start, but window.monaco only appears once the
     // AMD modules finish loading. Test against the latter.
     await window.waitForFunction(
@@ -149,7 +149,7 @@ describe('Aurora E2E — smoke', () => {
       MONACO_FAILURE_MARKERS.some((marker) => line.includes(marker))
     );
     if (hits.length > 0) {
-      // Surface the actual messages — much faster to triage than a bare
+      // Surface the actual messages, much faster to triage than a bare
       // expectation diff.
       throw new Error(
         `Monaco-init failure(s) detected:\n  ${hits.join('\n  ')}\n\n` +
@@ -163,7 +163,7 @@ describe('Aurora E2E — smoke', () => {
   it('reaches interactive within the startup budget', async () => {
     // The renderer marks performance.mark('aurora-interactive') at the end of
     // init (app_initializer.js). Its startTime is TTI relative to navigation.
-    // This is a regression GUARD, not a benchmark — the budget is deliberately
+    // This is a regression GUARD, not a benchmark, the budget is deliberately
     // generous so a cold CI runner doesn't flake; it only trips on gross
     // regressions (a blocking await or sync I/O added to the boot path).
     const STARTUP_BUDGET_MS = 30_000;

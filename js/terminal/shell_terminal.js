@@ -1,8 +1,8 @@
-// shell_terminal.js — the TCMD tab's real terminal (xterm.js + a PTY).
+// shell_terminal.js: the TCMD tab's real terminal (xterm.js + a PTY).
 //
 // The main process (main/ipc/shell.js) owns a pseudo-terminal; xterm renders it
 // and forwards keystrokes. Because it's a true PTY, we get inline editing, the
-// shell's own Tab autocomplete, colours and a cursor for free — this module only
+// shell's own Tab autocomplete, colours and a cursor for free, this module only
 // wires xterm to the IPC, keeps the PTY sized to the panel, and adds copy/paste,
 // clickable URLs and clickable Windows file paths. The session starts lazily the
 // first time the TCMD tab is opened.
@@ -154,7 +154,7 @@ class ShellTerminal {
    * "Open terminal here" (file-tree context menu): make sure the terminal
    * exists/started, focus it and `cd` the live shell into `dirPath`. The PTY
    * runs PowerShell on Windows (see main/ipc/shell.js), where `cd "path"`
-   * (Set-Location) already handles drive changes — no `/d` needed. Quotes in
+   * (Set-Location) already handles drive changes, no `/d` needed. Quotes in
    * the path are escaped PowerShell-style by doubling them.
    * The caller is responsible for making the TCMD tab visible (switchTerminal).
    */
@@ -169,9 +169,9 @@ class ShellTerminal {
   }
 
   /**
-   * Programmatic command entry — backs Aurora Intelligence's `run_in_terminal`
+   * Programmatic command entry, backs Aurora Intelligence's `run_in_terminal`
    * tool. Ensures the shell is live, then EITHER just types `command` (execute
-   * false — the user reviews and presses Enter themselves) OR runs it (execute
+   * false, the user reviews and presses Enter themselves) OR runs it (execute
    * true) and returns a best-effort snapshot of the output it produced. Output is
    * captured from the PTY stream and resolves once the stream goes idle for
    * `idleMs` (command finished) or `maxMs` elapses (safety cap so a long-running
@@ -182,7 +182,7 @@ class ShellTerminal {
    * @param {{execute?: boolean, idleMs?: number, maxMs?: number}} [opts]
    * @returns {Promise<{ok:boolean, executed?:boolean, command?:string, output?:string, error?:string}>}
    */
-  async runCommand(command, { execute = true, idleMs = 500, maxMs = 4000 } = {}) {
+  async runCommand(command, { execute = true, idleMs = 500, maxMs = 15000 } = {}) {
     const cmd = String(command ?? '');
     if (!cmd.trim()) return { ok: false, error: 'empty command' };
     this._ensureTerm();
@@ -202,19 +202,24 @@ class ShellTerminal {
       let idle = null;
       let hard = null;
       let unsub = null;
-      const finish = () => {
+      // `complete` tells the caller WHICH timer ended the capture. Idle means
+      // the shell went quiet, so the command most likely finished; the hard
+      // cap means it was still talking, so the output is a prefix and the
+      // command may still be running. Before this flag both looked identical
+      // (`ok: true`), and the AI took a truncated build log for a finished one.
+      const finish = (complete) => {
         if (idle) clearTimeout(idle);
         if (hard) clearTimeout(hard);
         try { unsub?.(); } catch (_) { /* already gone */ }
-        resolve({ ok: true, executed: true, command: cmd, output: stripAnsi(chunks.join('')) });
+        resolve({ ok: true, executed: true, complete, command: cmd, output: stripAnsi(chunks.join('')) });
       };
       unsub = electronAPI.onShellData(({ id, data }) => {
         if (id !== SESSION_ID) return;
         chunks.push(data);
         if (idle) clearTimeout(idle);
-        idle = setTimeout(finish, idleMs);   // idle stream ⇒ command likely done
+        idle = setTimeout(() => finish(true), idleMs);   // idle stream: command likely done
       });
-      hard = setTimeout(finish, maxMs);       // safety cap for long/interactive cmds
+      hard = setTimeout(() => finish(false), maxMs);       // cap for long/interactive cmds
       electronAPI.shellInput(SESSION_ID, cmd + '\r');
     });
   }
@@ -228,7 +233,7 @@ class ShellTerminal {
     // e.preventDefault() is REQUIRED on both: returning false only tells xterm
     // to skip the key, it does NOT stop the browser default. Without it the
     // native paste event still fires on xterm's hidden textarea and xterm
-    // forwards the clipboard to the PTY via onData — so Ctrl+V pasted TWICE
+    // forwards the clipboard to the PTY via onData, so Ctrl+V pasted TWICE
     // (and Ctrl+C ran the native copy in parallel with ours).
     this.term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true;
@@ -326,4 +331,3 @@ function initShellTerminal() {
 // Self-initialize on import (renderer.js pulls this in as a side-effect).
 initShellTerminal();
 
-export { ShellTerminal, initShellTerminal };

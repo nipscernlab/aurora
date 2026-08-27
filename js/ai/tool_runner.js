@@ -1,12 +1,12 @@
 /**
- * tool_runner.js — executes Aurora Intelligence tool calls in the renderer.
+ * tool_runner.js: executes Aurora Intelligence tool calls in the renderer.
  *
  * The AI SDK runs in the main process, but the workspace the assistant
  * acts on (Monaco, the file tree, the terminals) lives here. Main ships
  * each tool call over `ai:tool-exec`; this module:
  *
  *   1. looks the tool up in the manifest pulled from main,
- *   2. asks the chat panel to clear it — the panel applies the user's
+ *   2. asks the chat panel to clear it, the panel applies the user's
  *      permission mode (allow-all / ask-before-changes / ask-every-time)
  *      and shows an inline Allow/Deny card when needed,
  *   3. dispatches to the matching `window.AuroraAPI` method,
@@ -38,11 +38,11 @@ async function handleToolExec({ requestId, toolName, args }) {
     return;
   }
 
-  // Permission gate — the chat panel applies the user's permission
+  // Permission gate, the chat panel applies the user's permission
   // mode and, when needed, shows an inline Allow/Deny card.
   // EXCEPTION: ask_user_question IS itself a user-facing prompt; firing
   // a permission card before the question would be redundant noise
-  // ("Aurora wants to ask you something — Allow? — Yes — Here is the
+  // ("Aurora wants to ask you something, Allow?, Yes, Here is the
   // question…"). Treat it as pre-authorized.
   if (toolName !== 'ask_user_question') {
     let allowed = false;

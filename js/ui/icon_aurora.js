@@ -24,7 +24,7 @@
 
         auroraIcons.forEach(icon => {
             // Watermark/decorative icons (welcome screen, future hero images)
-            // get their display set by their own CSS — touching `display`
+            // get their display set by their own CSS, touching `display`
             // here would break absolute positioning. Settings/UI icons rely
             // on this module to reveal them on load.
             const isDecorative = icon.classList.contains('welcome-watermark')
@@ -129,7 +129,7 @@
     function init() {
         // Cache collections of DOM elements using classes. Welcome
         // screen watermark is included via `.welcome-watermark` so the
-        // chosen application icon also drives the splash background —
+        // chosen application icon also drives the splash background:
         // "changing the icon in settings actually changes it everywhere"
         // as the user expects, without forcing inline display on the
         // decorative variants (handled inside showIcons).
@@ -150,7 +150,7 @@
                 iconUploadInput.click();
                 return;
             }
-            // Reset button — wipe stored override and reload the bundled
+            // Reset button, wipe stored override and reload the bundled
             // default. Lives next to the change-icon-btn inside
             // .icon-actions; see index.html and aurora_settings.css.
             if (event.target.closest('.reset-icon-btn')) {

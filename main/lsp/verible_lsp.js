@@ -1,13 +1,13 @@
 // @ts-check
 /**
- * verible_lsp.js — minimal stdio Language Server bridge for Verilog (O2).
+ * verible_lsp.js: minimal stdio Language Server bridge for Verilog (O2).
  *
  * Spawns a single long-lived `verible-verilog-ls` (bundled in
  * components/Packages/verible/bin via download-verible.js) and speaks
  * Content-Length-framed JSON-RPC with it over stdio. Renderer-facing IPC
  * (`lsp:*`) lets the Monaco editor (js/editor/lsp_integration.js) get
  * live diagnostics, formatting, outline symbols, hover and
- * definition/references — the full set of capabilities Verible advertises.
+ * definition/references, the full set of capabilities Verible advertises.
  *
  * Why a hand-rolled bridge instead of monaco-languageclient: AURORA's IPC
  * is already hand-rolled (no vscode-jsonrpc/monaco-languageclient deps to
@@ -129,7 +129,7 @@ function handleMessage(/** @type {any} */ msg) {
     return;
   }
   // Server → client request (e.g. window/workDoneProgress/create). We don't
-  // implement these — reply with a null result so the server isn't left
+  // implement these, reply with a null result so the server isn't left
   // waiting. Notifications we don't care about (with no id) are ignored.
   if (msg.id !== undefined && msg.id !== null && typeof msg.method === 'string') {
     writeMessage({ jsonrpc: '2.0', id: msg.id, result: null });
@@ -251,7 +251,7 @@ async function didOpen(/** @type {string} */ uri, /** @type {string} */ text, /*
   const lang = languageId || 'verilog';
   if (!(await ensureReady())) return;
   if (openDocs.has(uri)) {
-    // Already open (e.g. renderer reload) — refresh the buffer instead of
+    // Already open (e.g. renderer reload), refresh the buffer instead of
     // re-opening, which some servers reject.
     return didChange(uri, text);
   }
@@ -264,7 +264,7 @@ async function didChange(/** @type {string} */ uri, /** @type {string} */ text) 
   if (!(await ensureReady())) return;
   const doc = openDocs.get(uri);
   if (!doc) {
-    // Server (re)started or change arrived before open — open it.
+    // Server (re)started or change arrived before open, open it.
     openDocs.set(uri, { version: 1, text, languageId: 'verilog' });
     notify('textDocument/didOpen', { textDocument: { uri, languageId: 'verilog', version: 1, text } });
     return;

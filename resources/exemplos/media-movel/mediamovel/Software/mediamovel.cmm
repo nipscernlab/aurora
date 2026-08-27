@@ -1,0 +1,38 @@
+// Media movel de quatro amostras.
+//
+// O programa mais curto que ainda exercita um caminho largo do compilador:
+// vetor indexado, leitura de porta de entrada, soma inteira, deslocamento e
+// escrita em porta de saida. E o exemplo do manual do SAPHO.
+//
+// As diretivas abaixo dimensionam o hardware que o compilador vai gerar. A
+// relacao NUBITS = NBMANT + NBEXPO + 1 e estrutural e vale aqui: 16 = 10+5+1.
+//
+// O laco infinito e proposital: um processador nao "termina", ele fica
+// respondendo a cada nova amostra enquanto houver clock.
+
+
+#PRNAME mediamovel
+#NUBITS 16
+#NDSTAC 4
+#SDEPTH 2
+#NUIOIN 1
+#NUIOOU 1
+#NBMANT 10
+#NBEXPO 5
+
+void main()
+{
+    int x[4];
+    int soma;
+
+    while (1)
+    {
+        x[3] = x[2];
+        x[2] = x[1];
+        x[1] = x[0];
+        x[0] = in(0);
+
+        soma = x[0] + x[1] + x[2] + x[3];
+        out(0, soma >> 2);
+    }
+}

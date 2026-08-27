@@ -42,7 +42,7 @@ let lastSurferChild = null;
 
 // Surfer has no "maximize" CLI flag and its state file carries no window
 // geometry, so to avoid a tiny top-left window we write a CENTERED, screen-
-// adaptive geometry into Surfer's (global) config — the only place it reads
+// adaptive geometry into Surfer's (global) config, the only place it reads
 // window size/pos (the cwd-local .surfer/ override is broken on Windows in
 // v0.7.0). We read the real primary-display work area (nothing hardcoded) and
 // size a centered ~85% rectangle; the user maximizes from there. A marker
@@ -62,7 +62,7 @@ function writeSurferCenteredWindowConfig() {
 }
 
 // Write the per-processor "mapping translator" files (Assembly/source-line
-// decode for valr2/linetabs) into Surfer's GLOBAL mappings dir — the only
+// decode for valr2/linetabs) into Surfer's GLOBAL mappings dir, the only
 // place Surfer reliably discovers them on Windows (the cwd-local .surfer/
 // walk-up is broken in v0.7.0). Surfer reads these at launch and uses the
 // `Name =` header as the translator name the .surf.ron references via
@@ -82,14 +82,14 @@ function writeSurferMappings(mappings) {
       try {
         // Atomic write: grava num .tmp e renomeia. O Surfer (processo separado)
         // escaneia esse dir no startup; o rename (atomico no mesmo FS) garante que
-        // ele nunca leia um mapping pela metade — half-write -> panic ao carregar.
+        // ele nunca leia um mapping pela metade, half-write -> panic ao carregar.
         const finalPath = path.join(dir, safe);
         const tmpPath = `${finalPath}.aurora.tmp`;
         fs.writeFileSync(tmpPath, m.content, 'utf8');
         fs.renameSync(tmpPath, finalPath);
         result.written++;
       } catch (e) {
-        // Per-mapping failure (permission/IO) — record so the renderer can warn
+        // Per-mapping failure (permission/IO), record so the renderer can warn
         // the user that those tracks open as raw decimal, instead of silent.
         result.failed.push({ name: m.name, error: e?.message || String(e) });
       }
@@ -103,7 +103,7 @@ function writeSurferMappings(mappings) {
 
 function register() {
   // NOTE: the legacy 'exec-command' handler (raw shell string from the
-  // renderer via child_process.exec) was removed — it was a command-injection
+  // renderer via child_process.exec) was removed, it was a command-injection
   // sink with no remaining callers. All toolchain execution now goes through
   // the structured-spec executor (main/compile/executor.js), which validates
   // against a binary allowlist and protected flags and spawns with shell:false.
@@ -140,18 +140,18 @@ function register() {
         }
 
         // GTKWave is launched detached and outlives the run; nothing in the
-        // renderer consumes its stdout/stderr, so ignore them outright — an
+        // renderer consumes its stdout/stderr, so ignore them outright, an
         // unread pipe buffer could otherwise eventually block the process.
         //
-        // windowsHide: false — quirk do gtkwave-nipscern (v0.1.1, GUI-subsystem):
+        // windowsHide: false, quirk do gtkwave-nipscern (v0.1.1, GUI-subsystem):
         // se spawnado com CREATE_NO_WINDOW (== windowsHide:true) E recebe um VCD
         // pra carregar, o processo sobe mas a janela top-level nao e criada
         // (parser do VCD parece precisar de console handle). Sem VCD ou sem
         // CREATE_NO_WINDOW, abre normal. Como o exe e GUI-subsystem, nao ha
-        // flash de console — windowsHide:false aqui e cosmeticamente equivalente
+        // flash de console, windowsHide:false aqui e cosmeticamente equivalente
         // a true, mas evita esse quirk.
         // spawnTracked the detached GTKWave so closing the main interface
-        // tears it down too — it's unref'd to outlive a single run, but must
+        // tears it down too, it's unref'd to outlive a single run, but must
         // not outlive the IDE itself.
         const gtkwaveProcess = spawnTracked(gtkwaveBin, args, {
           cwd: workingDir,
@@ -176,9 +176,9 @@ function register() {
     });
   });
 
-  // Surfer — the opt-in alternative viewer. Same detached-spawn contract as
+  // Surfer, the opt-in alternative viewer. Same detached-spawn contract as
   // launch-gtkwave-only, but pre-checks the binary with existsSync so a missing
-  // Surfer (the default — it isn't bundled) returns a clean not-found the
+  // Surfer (the default, it isn't bundled) returns a clean not-found the
   // renderer degrades on, instead of the false-success the GUI-subsystem
   // gtkwave path tolerates. Tracked via spawnTracked → torn down with the IDE.
   ipcMain.handle('launch-surfer', async (_event, options) => {
@@ -189,7 +189,7 @@ function register() {
     // rastreado (mesmo objeto ChildProcess, sem risco de PID reuse); janelas que
     // o usuario abriu por fora ficam intocadas. taskkill /F /T via killProcessSilently.
     // Pulado quando o usuario liga "varias janelas" (modal Wave Config) p/ comparar
-    // simulacoes lado a lado — ai cada launch deixa a janela anterior aberta.
+    // simulacoes lado a lado, ai cada launch deixa a janela anterior aberta.
     if (!options.multiWindow
         && lastSurferChild && lastSurferChild.exitCode === null && !lastSurferChild.killed && lastSurferChild.pid) {
       try { await killProcessSilently(lastSurferChild.pid); } catch { /* best-effort */ }
@@ -254,7 +254,7 @@ function register() {
   // Write the Surfer mapping translators (Assembly/source-line decode) the
   // auto-generated .surf.ron references. Called by the renderer right before a
   // Surfer launch so the files exist when Surfer scans its config/mappings dir
-  // at startup. Best-effort (never rejects) — degrades to raw decimal tracks.
+  // at startup. Best-effort (never rejects), degrades to raw decimal tracks.
   ipcMain.handle('write-surfer-mappings', (_event, mappings) => {
     const r = writeSurferMappings(mappings);
     return { success: r.failed.length === 0, written: r.written, failed: r.failed };
@@ -263,7 +263,7 @@ function register() {
   // Decode complex-number bit patterns via the canonical comp2gtkw.exe (same
   // binary GTKWave pipes to as a process filter). The renderer extracts the
   // DISTINCT complex values from the dump and sends them here; we feed them on
-  // stdin (one token per line — comp2gtkw reads whitespace-delimited tokens) and
+  // stdin (one token per line, comp2gtkw reads whitespace-delimited tokens) and
   // return the "re imi" strings in order, to bake into a Surfer mapping. This is
   // the pre-pass that gives Surfer (which has no external process filter) the
   // same complex decode GTKWave gets live. Best-effort: failure → no decode.
@@ -299,7 +299,7 @@ function register() {
   });
 
   // "Cancel everything". Delegates to the process registry, which sits above
-  // the SAPHO flow and tree-kills every live RUN/VIEWER child by PID — see
+  // the SAPHO flow and tree-kills every live RUN/VIEWER child by PID, see
   // stopToolchainRun(). This handler used to kill only `state.currentVvpProcess`
   // (a single slot, overwritten by each step) plus a name-sweep for vvp.exe and
   // gtkwave.exe, so cancelling during cmmcomp/asmcomp/yosys/Verilator-build hit
@@ -321,7 +321,7 @@ function register() {
 
   // Targeted stop: kill ONLY the currently parked streamed child (state.
   // currentVvpProcess) and nothing else. Unlike cancel-vvp-process this does
-  // NOT sweep-and-kill vvp.exe/gtkwave.exe by name — that broad sweep would
+  // NOT sweep-and-kill vvp.exe/gtkwave.exe by name, that broad sweep would
   // race with, and kill, a GTKWave that the wave flow launches moments later.
   // Used by _extractFstHeaderVcd to stop fst2vcd once the header is captured.
   ipcMain.handle('kill-current-spec-process', async () => {

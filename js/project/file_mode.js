@@ -1,21 +1,21 @@
 /**
- * file_mode.js — ProjectTreeManager (state + lifecycle + persistencia).
+ * file_mode.js: ProjectTreeManager (state + lifecycle + persistencia).
  *
- * Renderiza a file tree do projeto — a unica vista de arquivos que
+ * Renderiza a file tree do projeto, a unica vista de arquivos que
  * Aurora mostra hoje. Lista arquivos a partir do .spf
  * (structure.synthesizableFiles + testbenchFiles + per-processador
  * Software/Hardware/Simulation auto-descoberto).
  *
  * Pontos de entrada externos:
- *   refreshTree()   — UNICO entry point pra atualizar a tree. Faz
+ *   refreshTree()  , UNICO entry point pra atualizar a tree. Faz
  *                     setup idempotente (DOM cache wait, project path
  *                     discovery, isTreeActive flag, view switch) +
  *                     loadConfiguration + renderTree em loop, tudo
  *                     coalescido via _refreshPromise + pending flag.
- *   activateTree()  — alias historico pra refreshTree (compat com
+ *   activateTree() , alias historico pra refreshTree (compat com
  *                     projectManager.loadProject e
  *                     fileTreeManager.initializeTreeBasedOnMode).
- *   reset()         — limpa estado transiente; chamado por
+ *   reset()        , limpa estado transiente; chamado por
  *                     close_project pra que reabrir um projeto
  *                     dispare uma ativacao limpa.
  *
@@ -30,7 +30,7 @@
  *       drag/drop, import, create/delete, context menus, toggles
  *
  * Dentro dos mixins, `this` aponta pra instancia da classe
- * normalmente — todos os metodos podem usar fields/methods desta
+ * normalmente, todos os metodos podem usar fields/methods desta
  * file livremente.
  */
 
@@ -43,7 +43,7 @@ import { SpfStore } from './spf_store.js';
 // Single click on a file in the tree opens it as a VS Code-style preview
 // (italic tab; clicking another file replaces it). Double click pins it
 // as a permanent tab. The same `options.preview` flag flows through to
-// SplitPane.openFile so a focused split treats clicks identically — each
+// SplitPane.openFile so a focused split treats clicks identically, each
 // pane carries its own preview slot, decoupled from the main pane.
 async function openTreeFile(filePath, fileName, options, ctx) {
     try {
@@ -71,22 +71,22 @@ class ProjectTreeManager {
     constructor() {
         // File tree drag-and-drop accepts Verilog source and header
         // files only. .gtkw save files have a dedicated entry point
-        // — the toolbar's gtkw picker (+ Add .gtkw file...) — and
+        //, the toolbar's gtkw picker (+ Add .gtkw file...), and
         // don't belong in the same list as Verilog sources, so
         // dropping one here is rejected with the same notification a
         // .txt would get.
         this.ALLOWED_EXTENSIONS = ['.v', '.sv', '.vh', '.py'];
-        // Extensoes "software" — moram em <proc>/Software/, nao em
+        // Extensoes "software", moram em <proc>/Software/, nao em
         // Hardware/. Aparecem na arvore agrupadas com o processador,
         // mas nao recebem toggle synth/tb, delete, nem entram no
         // synthesizableFiles do .spf.
-        // .asm e GERADO (C± → ASM) e nao deve poluir a arvore — so o
+        // .asm e GERADO (C± → ASM) e nao deve poluir a arvore, so o
         // fonte .cmm aparece. (A compilacao le o .asm direto do disco,
         // independente da arvore.)
         this.SOFTWARE_EXTENSIONS = ['.cmm'];
 
         // State management. currentProjectPath is intentionally NOT
-        // cached here — vive em ProjectStore (single source of truth).
+        // cached here, vive em ProjectStore (single source of truth).
         // Caching it on the manager was the root cause of files-
         // disappearing on close+reopen, since close didn't reset it
         // and the early-return branch in activateTree used the stale
@@ -97,8 +97,8 @@ class ProjectTreeManager {
         // Monotonic counter bumped on every project switch (reset()).
         // Async loads (loadConfiguration) capture it on entry and bail if
         // it changed mid-flight. Without this, a loadConfiguration that
-        // started for project A — and is suspended on a disk-IO await when
-        // the user opens project B — would resume, repopulate verilogFiles
+        // started for project A, and is suspended on a disk-IO await when
+        // the user opens project B, would resume, repopulate verilogFiles
         // with A's files AND persist them into B's .spf (saveConfiguration
         // reads the *live* ProjectStore, which is already B). That's the
         // "project A's files show up as Imported in project B, even after
@@ -138,7 +138,7 @@ class ProjectTreeManager {
             }
             this.cacheElements();
             this.setupEventListeners();
-            // Estilos vivem em css/tree/verilog_tree.css — antes eram
+            // Estilos vivem em css/tree/verilog_tree.css, antes eram
             // injetados em runtime via injectStyles(), o que criava
             // uma terceira definicao de .confirm-modal brigando com a
             // canonica.
@@ -160,13 +160,13 @@ class ProjectTreeManager {
 
     setupEventListeners() {
         // Project Mode unico: file tree e sempre o verilog picker.
-        // Atalho do construtor pra primeira pintura — chamadas
+        // Atalho do construtor pra primeira pintura, chamadas
         // subsequentes vem via projectManager.loadProject e
         // fileTreeManager.initializeTreeBasedOnMode (coalescidas).
         this.activateTree();
 
         // Qualquer escritor do .spf (gtkw_picker, CLI tools, futuros
-        // fluxos) dispara este evento — re-le e re-renderiza pra nao
+        // fluxos) dispara este evento, re-le e re-renderiza pra nao
         // ficar stale.
         document.addEventListener('project-config-saved', () => {
             if (this.isTreeActive) {
@@ -181,7 +181,7 @@ class ProjectTreeManager {
         // deste evento pra atualizar a UI. Filtramos por spfPath pra
         // nao re-renderizar quando o write foi pra outro projeto
         // (importFiles, por exemplo, persiste no .spf original mesmo
-        // depois do usuario trocar de projeto — ali NAO queremos
+        // depois do usuario trocar de projeto, ali NAO queremos
         // refresh: o projeto ativo agora e outro).
         window.addEventListener('aurora:spf-changed', (event) => {
             const changed = event?.detail?.spfPath;
@@ -192,7 +192,7 @@ class ProjectTreeManager {
 
         // Editor save dispatched aurora:file-saved (tab_manager.js#saveFile).
         // Reclassifica + re-persiste so se o path salvo estiver tracked
-        // em verilogFiles — evita refresh storm em saves de arquivos fora
+        // em verilogFiles, evita refresh storm em saves de arquivos fora
         // do projeto Verilog (e.g. .json, .md). Path comparado via
         // _normalizePath pra cobrir Windows case/sep.
         window.addEventListener('aurora:file-saved', (event) => {
@@ -203,12 +203,23 @@ class ProjectTreeManager {
             if (tracked) this.refreshTree();
         });
 
+        // Arquivo NOVO. O ouvinte acima so reage ao que ja esta rastreado, o que
+        // por definicao nunca inclui o que acabou de nascer: um .v criado pela
+        // visao Pastas ficava fora da lista de fontes ate um refresh forte.
+        // Aqui a decisao e pela extensao, que e o que classifica um fonte.
+        window.addEventListener('aurora:file-created', (event) => {
+            const p = event?.detail?.path;
+            if (!p || !this.isTreeActive) return;
+            const ext = String(p).slice(String(p).lastIndexOf('.')).toLowerCase();
+            if (this.ALLOWED_EXTENSIONS.includes(ext)) this.refreshTree();
+        });
+
         // Highlight da row do arquivo em foco no Monaco. TabManager e
         // SplitEditorManager despacham este evento toda vez que o file
         // ativo muda (tab clicked, split pane focused, tab closed, etc).
         // refreshEditorFocusHighlight le TabManager.getEditingFilePath
         // que ja resolve "qual file e considerado em foco" entre main e
-        // split — single source of truth.
+        // split, single source of truth.
         document.addEventListener('aurora:editing-file-changed', () => {
             this.refreshEditorFocusHighlight?.();
         });
@@ -221,11 +232,11 @@ class ProjectTreeManager {
             // Este listener unico substitui o trio antigo per-row
             // (open file / toggle / delete). Lookup do file por path
             // a cada click significa que listeners sobrevivem a sort
-            // e updates in-place — nenhum indice capturado em closure
+            // e updates in-place, nenhum indice capturado em closure
             // pode targetar a row errada.
             this.elements.fileTree.addEventListener('click', async (e) => {
                 if (!this.isTreeActive) return;
-                // Missing-files notice "dismiss" button — confirm the
+                // Missing-files notice "dismiss" button, confirm the
                 // implications, then prune the dangling refs from the .spf.
                 if (e.target.closest('.verilog-missing-dismiss')) {
                     e.preventDefault();
@@ -260,7 +271,7 @@ class ProjectTreeManager {
             // Double-click → promote/open as permanent tab. The single-click
             // listener still fires first (it opens or activates the preview);
             // this one upgrades the same path to a permanent tab. We don't
-            // re-read the file here — the preview already created the tab.
+            // re-read the file here, the preview already created the tab.
             this.elements.fileTree.addEventListener('dblclick', async (e) => {
                 if (!this.isTreeActive) return;
                 const row = e.target.closest('.verilog-file-item');
@@ -276,9 +287,9 @@ class ProjectTreeManager {
 
         // Refresh-button click is owned by file_tree_manager.js (which routes to
         // the right renderer per active view). A second listener here fired
-        // refreshTree a second time on every click (P5) — removed.
+        // refreshTree a second time on every click (P5), removed.
 
-        // Criacao/delete de processadores no main process — o .spf ja
+        // Criacao/delete de processadores no main process, o .spf ja
         // foi reescrito quando esses eventos chegam aqui. Sem isso, a
         // tree fica stale (sem o separador do novo processador / sem
         // os .cmm e .asm que o template gera) ate proximo restart ou
@@ -287,11 +298,11 @@ class ProjectTreeManager {
         // _discoverProcessorFiles() varre as pastas <proj>/<proc>/{Hardware,
         // Software,Simulation}/ pra cada nome em window.availableProcessors.
         // Essa lista so e populada em projectManager.loadProject, entao
-        // precisamos sincroniza-la aqui antes de refreshTree() — senao
+        // precisamos sincroniza-la aqui antes de refreshTree(), senao
         // o varredor pula a pasta do processador recem-criado e os
         // arquivos do template nunca aparecem.
         electronAPI?.onProcessorCreated?.((data) => {
-            // addAvailableProcessor faz dedup case-insensitive — ver
+            // addAvailableProcessor faz dedup case-insensitive, ver
             // processor_list.js.
             addAvailableProcessor(data?.processorName);
             this.refreshTree();
@@ -311,7 +322,7 @@ class ProjectTreeManager {
 
     /**
      * Wire dos handlers de drag-and-drop. Os handlers em si vivem em
-     * ActionsMixin — aqui so attachamos os listeners.
+     * ActionsMixin, aqui so attachamos os listeners.
      */
     setupDragAndDrop() {
         const dropArea = this.elements.fileTree;
@@ -375,7 +386,7 @@ class ProjectTreeManager {
         if (!np.startsWith(projN)) return null;
         const rel = np.slice(projN.length).replace(/^\/+/, '');
         const segs = rel.split('/');
-        // Esperamos <proc>/{Hardware|Software|Simulation}/<arquivo> —
+        // Esperamos <proc>/{Hardware|Software|Simulation}/<arquivo>:
         // pelo menos 3 segs e o segundo precisa ser uma das tres
         // subpastas reconhecidas.
         if (segs.length < 3) return null;
@@ -393,7 +404,7 @@ class ProjectTreeManager {
      * Varre <projeto>/<proc>/{Hardware,Software,Simulation}/ pra cada
      * processador configurado e adiciona qualquer .v/.sv/.vh ainda
      * nao listado em this.verilogFiles como synth, e qualquer .cmm
-     * como software (nao persistido). Devolve quantos de cada —
+     * como software (nao persistido). Devolve quantos de cada:
      * caller usa pra decidir se vale chamar saveConfiguration().
      *
      * Nao-destrutivo: nao remove arquivos que sumiram do disco aqui
@@ -468,24 +479,24 @@ class ProjectTreeManager {
      * Substitui o antigo toggle manual: a categoria e sempre derivada
      * do conteudo, nunca de uma marca persistida pelo usuario.
      *
-     * Roda a cada load/refresh e em todo import — editar um .v e
+     * Roda a cada load/refresh e em todo import, editar um .v e
      * transforma-lo em testbench faz ele se reclassificar sozinho no
      * proximo refresh.
      *
-     * Arquivos software (.cmm/.asm) sao pulados — nao sao Verilog.
+     * Arquivos software (.cmm/.asm) sao pulados, nao sao Verilog.
      * Quando a categoria de um arquivo muda, sua marca isTopLevel e
      * limpa: um synth top nao e a mesma coisa que um testbench top.
      * Se o conteudo nao puder ser lido, a categoria atual e mantida
      * (ou 'synthesizable' como default seguro).
      *
-     * Devolve true se ALGUM arquivo mudou de categoria — o caller usa
+     * Devolve true se ALGUM arquivo mudou de categoria, o caller usa
      * pra decidir se precisa re-persistir o .spf.
      */
     async _classifyAll() {
         let changed = false;
         for (const file of this.verilogFiles) {
             if (file.isSoftware) continue;
-            // .py files (cocotb testbenches) sao sempre testbench — nao
+            // .py files (cocotb testbenches) sao sempre testbench, nao
             // ha conteudo Verilog pra classificar.
             if (this.getFileExtension(file.name || file.path || '') === '.py') {
                 if (file.category !== 'testbench') {
@@ -496,13 +507,13 @@ class ProjectTreeManager {
                 continue;
             }
             // isTopLevel is an explicit user choice (set via context menu or AI tool).
-            // Auto-classification must not override it — that would silently undo the
+            // Auto-classification must not override it, that would silently undo the
             // user's intent every time the tree refreshes. Category is locked to
             // whatever the user chose when they marked the file.
             if (file.isTopLevel) continue;
             // Classification is content-derived, so cache it by mtime: a refresh
             // that didn't touch the file reuses the result instead of re-reading
-            // the whole .v and re-running the regex (P3 — was N+1 full reads on
+            // the whole .v and re-running the regex (P3, was N+1 full reads on
             // every refresh). Only files whose mtime moved get read again.
             const cache = this._classifyCache || (this._classifyCache = new Map());
             let mtime = null;
@@ -526,13 +537,13 @@ class ProjectTreeManager {
                 if (mtime != null) cache.set(file.path, { mtime, category });
             }
             // Regra atual: reclassifica TODOS (inclusive isTopLevel). Se
-            // a categoria mudou — usuario editou o arquivo e a heuristica
-            // virou de synth pra testbench ou vice-versa — a marca de
+            // a categoria mudou, usuario editou o arquivo e a heuristica
+            // virou de synth pra testbench ou vice-versa, a marca de
             // top do escopo anterior nao se aplica mais (synth-top e
             // tb-top sao escopos distintos), entao limpa isTopLevel.
             // Se a categoria continua igual, mantem isTopLevel intacto.
             // (Regra antiga skipava isTopLevel inteiro, o que travava a
-            // categoria quando o conteudo mudava — Ctrl+S nao atualizava
+            // categoria quando o conteudo mudava, Ctrl+S nao atualizava
             // o estado.)
             if (file.category !== category) {
                 file.category = category;
@@ -562,7 +573,7 @@ class ProjectTreeManager {
         // Drop any rows/separators/notices the previous project rendered.
         // close_project.js clears the DOM via clearProjectInterface, but a
         // DIRECT project→project switch (open B while A is open, e.g. from the
-        // recents list / welcome screen) never goes through close — so without
+        // recents list / welcome screen) never goes through close, so without
         // this the previous project's imported files stayed painted until the
         // new tree finished loading (and lingered entirely if anything raced
         // the reconciler). Clearing here guarantees a clean slate the moment a
@@ -576,7 +587,7 @@ class ProjectTreeManager {
     }
 
     /**
-     * Alias historico — refreshTree() faz tudo agora (setup idempotente
+     * Alias historico, refreshTree() faz tudo agora (setup idempotente
      * + load + render). Mantido pra nao quebrar callers existentes
      * (projectManager.loadProject, fileTreeManager.initializeTreeBasedOnMode).
      */
@@ -597,7 +608,7 @@ class ProjectTreeManager {
      * true duas vezes e no-op; showFileMode reaplica o mesmo
      * data-active-view). Como activateTree e refreshTree tinham
      * locks SEPARADOS (_activatePromise vs _refreshPromise), eles
-     * podiam rodar loadConfiguration em paralelo — e o segundo
+     * podiam rodar loadConfiguration em paralelo, e o segundo
      * fazia `this.verilogFiles = []` em cima dos pushes do primeiro,
      * duplicando entries de software files. Consolidacao mata essa
      * classe de race.
@@ -617,7 +628,7 @@ class ProjectTreeManager {
             }
 
             // Descobre o project path se loadProject ainda nao rodou
-            // (raro — startup com restoreLastSession em voo). Skip
+            // (raro, startup com restoreLastSession em voo). Skip
             // depois que setProject foi chamado.
             if (!ProjectStore.hasProject()) {
                 try {
@@ -636,7 +647,7 @@ class ProjectTreeManager {
             }
 
             // Sem projeto, bail sem renderizar. Nao seta isTreeActive
-            // — proxima chamada (apos setProject) precisa fazer
+            //, proxima chamada (apos setProject) precisa fazer
             // setup full.
             if (!ProjectStore.hasProject()) {
                 console.log('No project yet, deferring refresh');
@@ -658,7 +669,7 @@ class ProjectTreeManager {
                 this.renderTree();
             } while (this._refreshPending);
 
-            // Switch a view visivel pra file mode — idempotente, mas so
+            // Switch a view visivel pra file mode, idempotente, mas so
             // tem efeito util na primeira ativacao. Via controller
             // (em vez de setActive direto) mantem _activeView dele em
             // sync, drives o label e direcao do toggle button.
@@ -690,7 +701,7 @@ class ProjectTreeManager {
      *   (file_tree_manager.js#onDirectoryChanged) ve o .spf mudar
      *   por um write anterior, dispara refreshTree, que chama
      *   loadConfiguration, que faz `this.verilogFiles = []` e recarrega
-     *   do estado OLD em disco — apagando a mudanca em memoria que
+     *   do estado OLD em disco, apagando a mudanca em memoria que
      *   o usuario acabou de fazer. O mutator entao escreve o array
      *   (still old-state) e a marca de testbench se perde silenciosamente.
      *
@@ -717,7 +728,7 @@ class ProjectTreeManager {
                 isTopLevel: f.isTopLevel || false,
             });
             // Software files (.cmm/.asm de <proc>/Software/) nao entram
-            // em synthesizableFiles nem testbenchFiles — sao codigo do
+            // em synthesizableFiles nem testbenchFiles, sao codigo do
             // processador, nao Verilog. Sao auto-redescobertos no
             // proximo load.
             const synthFiles = this.verilogFiles
@@ -744,10 +755,10 @@ class ProjectTreeManager {
 
             // O dropdown da .gtkw na toolbar mostra a lista do testbench
             // atual (per-tb). Marcar/trocar testbench muda esse contexto
-            // — refresh pra repopular sem precisar recarregar o projeto.
+            //, refresh pra repopular sem precisar recarregar o projeto.
             window.gtkwPickerManager?.refresh?.();
 
-            // Status bar (zona direita) reflete topLevelFile/testbenchFile —
+            // Status bar (zona direita) reflete topLevelFile/testbenchFile:
             // atualiza via aurora:spf-changed, disparado pelo SpfStore.update
             // acima quando o conteudo realmente mudou.
 
@@ -763,7 +774,7 @@ class ProjectTreeManager {
      *
      * Build da lista LOCALMENTE primeiro, only swap into
      * `this.verilogFiles` no fim. Duas razoes:
-     *   1. Atomicidade pra observers externos — saveConfiguration
+     *   1. Atomicidade pra observers externos, saveConfiguration
      *      tava racing contra um load in-progress que brevemente
      *      deixava verilogFiles=[].
      *   2. Se o load falha no meio (read error, parse error), o
@@ -781,7 +792,7 @@ class ProjectTreeManager {
             // Snapshot the project identity. Every disk-IO await below is a
             // chance for the user to switch projects; if that happens, this
             // load is stale and must NOT touch shared state (verilogFiles)
-            // or persist — the new project's own refresh will populate it.
+            // or persist, the new project's own refresh will populate it.
             const epoch = this._projectEpoch;
 
             const nextFiles = [];
@@ -862,8 +873,8 @@ class ProjectTreeManager {
             // projects meanwhile, reset() bumped the epoch. Bail BEFORE
             // assigning verilogFiles so the previous project's files never
             // land in the new project's tree (nor get persisted below). The
-            // new project's own refresh — already queued via refreshTree's
-            // _refreshPending loop — populates the tree correctly.
+            // new project's own refresh, already queued via refreshTree's
+            // _refreshPending loop, populates the tree correctly.
             if (epoch !== this._projectEpoch) {
                 console.log('loadConfiguration: project switched mid-load, discarding stale read of', spfPath);
                 return;
@@ -873,7 +884,7 @@ class ProjectTreeManager {
             // ANTES de atribuir. Bug historico em saveConfiguration pode
             // ter escrito o mesmo arquivo em synthesizableFiles e
             // testbenchFiles, ou um .cmm pode ter sido persistido em
-            // synthesizableFiles por engano — ambos causam rows
+            // synthesizableFiles por engano, ambos causam rows
             // duplicadas no DOM porque o reconciler do render usa
             // Map.set por path (sobrescreve, deixando a row "perdida"
             // orfa no DOM ate o proximo full clear).
@@ -894,7 +905,7 @@ class ProjectTreeManager {
             // Software/ de cada processador configurado. Hardware/
             // entra como synth e PRECISA ser persistido no .spf (e o
             // que o iverilog le). Software/ aparece na arvore mas nao
-            // e persistido — sao re-descobertos a cada load.
+            // e persistido, sao re-descobertos a cada load.
             //
             // Persistir tambem os de Software causaria loop: o save
             // mudaria o mtime do .spf, o file watcher dispararia
@@ -915,11 +926,11 @@ class ProjectTreeManager {
             this.sortFilesAlphabetically();
             // Re-persiste se: descobrimos arquivos novos no Hardware/,
             // a classificacao mudou, OU o dedup acima removeu entries
-            // (o .spf tinha duplicates — escrever a versao limpa agora
+            // (o .spf tinha duplicates, escrever a versao limpa agora
             // para que proximas loads nao precisem dedup'ar de novo).
             if (addedPersist > 0 || reclassified || dedupRemoved > 0) {
                 // _discoverProcessorFiles + _classifyAll just awaited disk
-                // IO — re-check the epoch before persisting, and write to
+                // IO, re-check the epoch before persisting, and write to
                 // the CAPTURED spfPath. This is the line that, pre-fix,
                 // wrote project A's files into project B's .spf.
                 if (epoch !== this._projectEpoch) {
@@ -949,11 +960,11 @@ class ProjectTreeManager {
 }
 
 // Mix render + actions no prototype. Ordem: render primeiro, actions
-// depois (caso uma key colida — nao deveria, mas a precedencia ficaria
+// depois (caso uma key colida, nao deveria, mas a precedencia ficaria
 // com actions, mais perto da intencao do usuario).
 Object.assign(ProjectTreeManager.prototype, RenderMixin, ActionsMixin);
 
-// Singleton — handlers bindados pra esta instancia sao referenciados
+// Singleton, handlers bindados pra esta instancia sao referenciados
 // pelo addEventListener; nao recriar.
 const projectTreeManager = new ProjectTreeManager();
 

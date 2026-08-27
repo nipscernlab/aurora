@@ -1,11 +1,93 @@
 /*
  * =====================================================================================
- *  aurora_settings.css  —  Specifics of the Aurora Settings modal.
+ *  aurora_settings.css ,  Specifics of the Aurora Settings modal.
  *  Base modal styles live in modal_config.css.
  * =====================================================================================
  */
 
-/* aurora_settings.js uses .visible — map it to the standard show state */
+/* A caixa de selecao do download em lote. Mora dentro da coluna de acao, a
+   esquerda do botao, porque e ali que a pessoa ja esta olhando quando decide
+   baixar. So existe em cartao que tem o que baixar (ver `selecionavel`).
+
+   `accent-color` sozinho nao resolvia: ele so pinta a caixa MARCADA, e a
+   desmarcada continuava sendo o quadrado branco de borda cinza que o Windows
+   desenha, o unico elemento claro numa tela escura. Com `appearance: none` a
+   caixa passa a ser nossa nos dois estados. */
+.componente-marcar {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev-2);
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.componente-marcar:hover { border-color: var(--accent); }
+
+.componente-marcar:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* O tique. Desenhado com dois lados de uma caixa girados 45 graus, e nao com
+   uma fonte de icones: a caixa e pequena demais para um glifo assentar bem, e
+   assim o tique acompanha qualquer tamanho que a caixa venha a ter. */
+.componente-marcar:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  margin-top: -2px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.componente-marcar:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Ponto de aviso no botão da toolbar quando falta um componente sem o qual a
+   máquina não compila. Gêmeo do .pylib-badge, e de propósito: são o mesmo tipo
+   de recado (algo está faltando aqui dentro) e o usuário já aprendeu a ler um
+   deles. O aviso de boot é um diálogo, e diálogo se fecha; este fica. */
+#aurora-settings { position: relative; }
+
+.settings-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-warning);
+  box-shadow: 0 0 0 2px var(--bg-elev);
+}
+
+/* O mesmo ponto, agora na aba Components da propria janela de Configuracoes.
+   `margin-left: auto` empurra para a direita do item sem precisar de posicao
+   absoluta: o item de nav ja e flex e ocupa a largura da coluna, entao o ponto
+   encosta na borda direita e acompanha o texto em qualquer idioma. Aqui ele
+   nao leva o anel de sombra do gemeo da toolbar: la o ponto pousa sobre um
+   icone e precisa se separar dele, e aqui pousa sobre o fundo liso da barra
+   lateral, onde o anel viraria uma auréola sem funcao. */
+.settings-nav-badge {
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-warning);
+  flex: 0 0 auto;
+}
+
+/* aurora_settings.js uses .visible, map it to the standard show state */
 .modal-overlay.visible {
   opacity: 1;
   visibility: visible;
@@ -84,7 +166,7 @@
   display: grid;
   grid-template-columns: 200px 1fr;
   /* A single explicit row that fills the body so the panes column
-     gets a *definite* height — without this the row collapses to its
+     gets a *definite* height, without this the row collapses to its
      content size and the overflow:auto below never has anything to
      scroll, leaving long panes (About) clipped. */
   grid-template-rows: 1fr;
@@ -144,7 +226,7 @@
 }
 
 /* Single highlight pill that GLIDES to the active section (positioned by
-   aurora_settings.js) — replaces the per-item accent bar so the highlight
+   aurora_settings.js), replaces the per-item accent bar so the highlight
    slides smoothly between sections, like the terminal tab indicator. */
 .settings-nav-indicator {
   position: absolute;
@@ -157,8 +239,8 @@
   opacity: 0;
   pointer-events: none;
   z-index: var(--z-0);
-  transition: transform 260ms var(--ease-aurora),
-              height 260ms var(--ease-aurora);
+  transition: transform var(--motion-flow) var(--ease-aurora),
+              height var(--motion-flow) var(--ease-aurora);
 }
 .settings-nav-indicator.visible { opacity: 1; }
 .settings-nav-indicator::before {
@@ -186,7 +268,7 @@
   padding: var(--space-5) var(--space-6);
   overflow-y: auto;
   background: var(--bg-elev);
-  /* See .settings-nav above — grid items default to min-height:auto,
+  /* See .settings-nav above, grid items default to min-height:auto,
      which would expand this column to fit the active pane and disable
      scrolling. Forcing 0 unlocks overflow. */
   min-height: 0;
@@ -291,7 +373,7 @@
   line-height: var(--leading-snug);
 }
 
-/* ---- Switch (already standardised elsewhere — keep the size consistent) -- */
+/* ---- Switch (already standardised elsewhere, keep the size consistent) -- */
 .settings-body .switch { flex-shrink: 0; }
 
 /* ---------------------------------------------------------------------------
@@ -342,7 +424,7 @@
 }
 
 /* ---------------------------------------------------------------------------
- *  Settings <select> — Language dropdown. Styled to match the toolbar
+ *  Settings <select>, Language dropdown. Styled to match the toolbar
  *  select so the locale chooser feels native to Aurora's chrome.
  * ------------------------------------------------------------------------- */
 .settings-select {
@@ -376,7 +458,7 @@
 .settings-select:focus-visible {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(142, 131, 232, 0.18);
+  box-shadow: 0 0 0 2px var(--accent-strong);
 }
 
 .settings-select option {
@@ -385,7 +467,7 @@
 }
 
 /* ============================================================================
- *  ABOUT pane — identity, credits, links, acknowledgements.
+ *  ABOUT pane, identity, credits, links, acknowledgements.
  *  Sits on the same .settings-card surface as the other panes so the
  *  visual rhythm (card spacing, label hierarchy) stays consistent.
  * ========================================================================= */
@@ -423,7 +505,7 @@
   font-size: var(--text-md);
   font-weight: var(--font-bold);
   background: linear-gradient(95deg,
-    #45E0A0 0%, #2FD9C3 35%, #4FC8F0 65%, #8E83E8 100%);
+    #45E0A0 0%, #2FD9C3 35%, #4FC8F0 65%, var(--accent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -542,7 +624,7 @@
   font-size: var(--text-xs);
   font-weight: var(--font-semibold);
   cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
+  transition: background var(--motion-quick) ease, border-color var(--motion-quick) ease;
 }
 
 .about-update-btn:hover {
@@ -733,7 +815,7 @@
 }
 
 /* ============================================================================
- *  AI Assistant pane — one BYOK key card per provider.
+ *  AI Assistant pane, one BYOK key card per provider.
  * ========================================================================= */
 .ai-provider-cards {
   display: flex;
@@ -943,7 +1025,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   padding: 5px 0;
-  border-bottom: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.05));
+  border-bottom: 1px solid var(--border-hairline);
   font-size: var(--text-sm);
 }
 .about-licenses li:last-child { border-bottom: none; }
@@ -955,3 +1037,329 @@
   white-space: nowrap;
 }
 .about-licenses-note { margin-top: var(--space-2); opacity: 0.8; }
+
+/* ==========================================================================
+ *  Componentes (aba Components, js/ui/components_panel.js)
+ *
+ *  Cada componente e uma linha com nome, selo de estado, tamanho e acao. O
+ *  selo carrega cor porque a pergunta que o usuario chega fazendo e sempre a
+ *  mesma, "isto esta aqui?", e ela precisa ser respondida antes da leitura.
+ * ========================================================================== */
+.settings-pane-intro {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-snug);
+}
+
+/* Container de consulta para a regra de largura estreita mais abaixo. O que
+   importa e a largura da LISTA, nao a da janela: o modal e min(880px, 92vw),
+   entao a viewport nao diz quanto sobrou para o cartao. */
+.componentes-lista {
+  display: grid;
+  gap: var(--space-2);
+  container-type: inline-size;
+  container-name: componentes;
+}
+
+.componente {
+  display: grid;
+  /* Marca, texto, acao. A coluna da marca e fixa, e e ela que faz a lista ler
+     como uma grade: o quadro tem sempre o mesmo tamanho, entao logotipo
+     colorido e glifo monocromatico ocupam exatamente o mesmo lugar e todos os
+     nomes comecam na mesma vertical. */
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+/* A coluna da direita: caixa de selecao e botao, LADO A LADO.
+
+   Ela nao tinha regra nenhuma, entao era um bloco comum e os dois filhos
+   empilhavam: a caixa de 16px pousava em cima do botao, que descia junto e
+   desalinhava a linha inteira, com o cartao do meio parecendo quebrado. A
+   caixa vem antes no DOM porque marcar vem antes de baixar, e em linha ela cai
+   naturalmente a esquerda do botao. */
+.componente-acao {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.componente-marca {
+  /* Sem moldura: so a marca. O alinhamento continua vindo da COLUNA, que tem
+     largura fixa, e nao de um retangulo desenhado atras de cada logotipo. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  align-self: start;
+}
+
+.componente-marca img {
+  /* contain, e nao cover: logotipo cortado e logotipo desrespeitado, e as
+     proporcoes originais variam bastante entre as marcas (o do Verible e bem
+     mais largo que alto, o do MSYS2 e quadrado). A caixa de 28 e o limite;
+     cada marca ocupa dentro dela o que a propria proporcao permitir.
+
+     A caixa e FIXA em 28, e nao um teto com `width: auto`. Com o teto, quem
+     mandava no tamanho era o atributo do proprio arquivo, e um deles discorda
+     dos outros: o `ai_codex.svg` declara `width="1em" height="1em"`, entao
+     desenhava com 16px, quase metade do vizinho, e a lista ficava com um
+     logotipo visivelmente menor sem motivo aparente. Os demais ou nao declaram
+     tamanho (e ai o teto e que mandava) ou declaram centenas de pixels (e o
+     teto cortava). Com a caixa fixa, o `object-fit: contain` continua
+     preservando a proporcao de cada marca, e o arquivo deixa de opinar. */
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.componente-marca i {
+  font-size: 22px;
+  color: var(--text-secondary);
+}
+
+/* Grid e nao flex por causa do alinhamento ENTRE cartoes. Em flex o selo
+   comecava logo depois do nome, e como "MSYS Toolchain" e "slang" tem larguras
+   bem diferentes, a coluna de selos saia serrilhada ao descer a lista. Com a
+   primeira faixa de largura fixa todos os selos comecam no mesmo x.
+   A faixa e uma variavel para quem traduzir nomes mais longos poder afrouxar
+   num lugar so; nomes maiores que ela quebram a linha em vez de empurrar o
+   selo, que e o que preserva o alinhamento. */
+.componente-titulo {
+  --componente-nome-col: 168px;
+  display: grid;
+  /* A faixa elastica e a DOS SELOS, nao a do tamanho. Com o tamanho em 1fr ele
+     era o primeiro a ser espremido e "Baixar 48 MB" quebrava em duas linhas no
+     unico cartao com dois selos. Em `auto` ele nunca encolhe, e quem cede
+     espaco sao os selos, que ja sabem se empilhar. */
+  grid-template-columns: var(--componente-nome-col) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Os selos vivem num invólucro proprio para ocuparem UMA celula do grid. Hoje
+   e no maximo UM (ver a regra em components_panel.js: so sobrevive o selo que
+   diz o que o resto do cartao nao diz), mas o involucro fica: solto, um selo
+   viraria coluna propria e desalinharia a linha inteira, e um segundo selo
+   futuro entra aqui sem mexer no grid. */
+.componente-selos {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+/* min-width: 0 deixa a faixa fixa valer mesmo com nome comprido: sem ele o
+   conteudo minimo empurra a coluna e o alinhamento se perde justamente no
+   cartao de nome maior. */
+.componente-nome {
+  font-size: var(--text-base);
+  color: var(--text);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* OS SELOS DE ESTADO.
+
+   Fundo tingido em vez de borda, e caixa normal em vez de caixa alta. A versao
+   com contorno e VERSALETE ESPACADO gritava: numa lista de nove linhas, nove
+   capsulas de borda viva competiam com os proprios nomes dos componentes, que
+   sao a informacao que a pessoa procura. Um fundo a 12% da cor da mesma
+   familia diz a mesma coisa em voz baixa, e continua legivel de longe porque a
+   cor faz o trabalho que o contorno fazia.
+
+   A cor e o unico eixo que separa os cinco: verde para o que esta pronto, azul
+   para o que tem novidade, roxo da marca para o que veio no instalador,
+   ambar para o que impede de compilar, e cinza para o que simplesmente nao
+   esta ali. Sao familias que o resto da AURORA ja usa com esses sentidos. */
+.componente-selo {
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  /* Um selo com o texto partido em duas linhas dentro da capsula parece
+     defeito, nao aperto. Preferimos que a LINHA quebre, nao a palavra. */
+  white-space: nowrap;
+}
+
+.componente-selo.instalado {
+  color: var(--status-success);
+  background: color-mix(in srgb, var(--status-success) 12%, transparent);
+}
+
+/* Instalado, inteiro, mas de outra versao: informacao, nao alarme. */
+.componente-selo.desatualizado {
+  color: var(--status-info);
+  background: color-mix(in srgb, var(--status-info) 14%, transparent);
+}
+
+/* Ausente e opcional: a mais discreta das cinco, porque nao e problema. E o
+   unico selo sem cor propria, e isso e o recado. */
+.componente-selo.ausente {
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+}
+
+.componente-selo.essencial {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* O que compila e nao esta na maquina nao e recurso a menos, e urgencia: e o
+   unico dos cinco que a pessoa precisa resolver hoje, e o unico com peso. */
+.componente-selo.urgente {
+  color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 16%, transparent);
+  font-weight: 600;
+}
+
+/* Abaixo desta largura nao cabem as tres faixas, e insistir nelas faz o selo
+   montar em cima do tamanho. O alinhamento entre cartoes so vale enquanto ha
+   espaco para ele; sem espaco, volta o empilhamento do flex, que degrada bem.
+   Acontece so em tela pequena, porque o modal tem 880px ate a viewport apertar.
+   O limiar foi calibrado com o cartao de duas colunas; a coluna da marca e o
+   espaco dela tiraram uns 56px do texto, e o limiar subiu junto, senao o selo
+   voltava a montar no tamanho numa faixa de largura que o ponto antigo nao via. */
+@container componentes (max-width: 620px) {
+  .componente-titulo {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .componente-tamanho {
+    justify-self: auto;
+    margin-left: auto;
+  }
+}
+
+.componente-urgente { border-color: var(--status-warning); }
+
+/* justify-self no lugar do antigo margin-left: auto, que era o empurrao certo
+   no flex e aqui seria redundante com a faixa 1fr. */
+.componente-tamanho {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.componente-resumo {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-snug);
+}
+
+.componente-progresso { margin-top: var(--space-3); }
+
+.componente-barra {
+  height: 3px;
+  background: var(--bg-elev-2);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.componente-barra span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width var(--transition-normal);
+}
+
+.componente-linha {
+  display: block;
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}
+
+.componentes-rodape {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.componentes-espaco { flex: 1; font-size: var(--text-xs); color: var(--text-muted); }
+
+.componentes-erro { font-size: var(--text-sm); color: var(--status-error); }
+
+/* A barra da fila. Fica ACIMA do rodapé e só aparece com algo marcado, então
+   ela empurra o rodapé para baixo quando surge; isso é deliberado, é o que
+   torna o aparecimento perceptível sem precisar de animação. */
+.componentes-fila {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.componentes-fila-resumo {
+  flex: 1;
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+/* ── Manual ─────────────────────────────────────────────────────────────────
+   O manual era dois links no meio da lista de Sobre e ninguem os achava. Como
+   secao propria ele segue o desenho da de componentes: um cartao que diz o
+   estado, e os botoes embaixo. */
+.manual-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.manual-estado {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.manual-estado > i {
+  font-size: 28px;
+  color: var(--text-secondary);
+  flex: none;
+}
+
+.manual-estado-texto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.manual-estado-titulo {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.manual-estado-meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Os botoes quebram a linha em vez de espremerem, porque o painel encolhe com
+   a viewport e "Procurar atualizacao" e um rotulo comprido. */
+.manual-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

@@ -1,5 +1,5 @@
 /**
- * preload.js — Electron context bridge para o renderer principal.
+ * preload.js: Electron context bridge para o renderer principal.
  *
  * Este arquivo expõe apenas as APIs IPC que o renderer realmente consome.
  * Funções não utilizadas foram removidas (auditoria automática contra
@@ -24,6 +24,8 @@ const fileOperations = {
   copyFile:        (src, dest) => ipcRenderer.invoke('copy-file', src, dest),
 
   getFileStats:    (p) => ipcRenderer.invoke('get-file-stats', p),
+  isOnBattery:     () => ipcRenderer.invoke('system:on-battery'),
+  openPowerSettings: () => ipcRenderer.invoke('system:open-power-settings'),
   getFileSizeLive: (p) => ipcRenderer.invoke('get-file-size-live', p),
   fileExists:      (p) => ipcRenderer.invoke('file-exists', p),
 
@@ -36,6 +38,8 @@ const fileOperations = {
 
   deleteFile:             (p) => ipcRenderer.invoke('delete-file', p),
   deleteFileOrDirectory:  (p) => ipcRenderer.invoke('file:delete', p),
+  // O dump da simulacao pode ser sobrescrito? (viewer/antivirus/readonly)
+  checkFileWritable:      (p) => ipcRenderer.invoke('file:check-writable', p),
 
   // Desfazer da arvore (js/tree/tree_history.js). O que a arvore remove vai
   // para uma area de espera em vez da Lixeira, porque de la da para voltar;
@@ -69,6 +73,48 @@ const fileOperations = {
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
   docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
+  // Procurar e ler o manual, para a Aurora Intelligence. Nenhuma das duas
+  // recebe pasta: quem resolve onde o manual esta e o processo principal.
+  docsBuscar: (consulta, opcoes) => ipcRenderer.invoke('docs:buscar', consulta, opcoes),
+  docsLer: (caminho, opcoes) => ipcRenderer.invoke('docs:ler', caminho, opcoes),
+
+  // Sair do GitHub e apagar o que ficou na maquina (main/ipc/github_forget.js).
+  // Nao devolve credencial nenhuma: so o relatorio do que foi removido.
+  githubForgetEverything: () => ipcRenderer.invoke('github:forget-everything'),
+  githubForgetScope:      () => ipcRenderer.invoke('github:forget-scope'),
+  githubForgetOnExitGet:  () => ipcRenderer.invoke('github:forget-on-exit-get'),
+  githubForgetOnExitSet:  (v) => ipcRenderer.invoke('github:forget-on-exit-set', v),
+
+  // Relato de problema (main/ipc/bug_report.js). `diagnostico` devolve o MESMO
+  // conjunto que o envio manda, para o painel poder mostrar antes de enviar.
+  bugReportDiagnostico: () => ipcRenderer.invoke('bugreport:diagnostico'),
+  bugReportEnviar:      (texto) => ipcRenderer.invoke('bugreport:enviar', texto),
+  bugReportDisponivel:  () => ipcRenderer.invoke('bugreport:disponivel'),
+
+  // Componentes baixaveis (main/ipc/components.js). O bloqueio de verdade fica
+  // no allowlist do main; estas chamadas sao para o painel e para a interface
+  // poder avisar antes de a pessoa clicar.
+  componentesListar:    () => ipcRenderer.invoke('componentes:listar'),
+  componentesInstalar:  (chave, opcoes) => ipcRenderer.invoke('componentes:instalar', chave, opcoes || {}),
+  componentesRemover:   (chave) => ipcRenderer.invoke('componentes:remover', chave),
+  componentesInstalado: (chave) => ipcRenderer.invoke('componentes:instalado', chave),
+  componentesAbrirPasta: () => ipcRenderer.invoke('componentes:abrirPasta'),
+
+  // Projetos de exemplo (main/exemplos/instalar.js). `instalar` NAO recebe
+  // caminho: quem pergunta onde e o processo principal, que e o dono do
+  // dialogo nativo, entao o botao da interface so precisa chamar.
+  exemplosListar: () => ipcRenderer.invoke('exemplos:listar'),
+  exemplosInstalar: () => ipcRenderer.invoke('exemplos:instalar'),
+  // O doctor: limpa caches, diagnostica pelos arquivos-chave e re-baixa o que
+  // estiver quebrado. Demorado quando conserta algo; o progresso chega pelo
+  // mesmo canal componentes:progresso.
+  componentesDoctor: () => ipcRenderer.invoke('componentes:doctor'),
+  onComponenteProgresso: (cb) =>
+    ipcRenderer.on('componentes:progresso', (_e, dados) => cb(dados)),
+  // Disparado pelo portao do main quando algo foi barrado por falta de
+  // componente, venha de onde vier: botao, API, IA ou servidor de linguagem.
+  onComponenteAusente: (cb) =>
+    ipcRenderer.on('componentes:ausente', (_e, dados) => cb(dados)),
 };
 
 /* ============================================================================
@@ -117,6 +163,20 @@ const projectOperations = {
 
   createBackup: (folderPath) => ipcRenderer.invoke('create-backup', folderPath),
   listRecentProjects: () => ipcRenderer.invoke('list-recent-projects'),
+  // Localizar recentes sumidos: uma varredura para varios alvos, resultados
+  // por evento (found / progress / done), cancelavel.
+  locateRecentsStart:  (targets) => ipcRenderer.invoke('recents:locate-start', targets),
+  locateRecentsCancel: () => ipcRenderer.invoke('recents:locate-cancel'),
+  onRecentsLocate: (cb) => {
+    const mk = (type) => (_e, data) => { try { cb({ type, ...data }); } catch (_) { /* ignore */ } };
+    const hs = [
+      ['recents:locate-found', mk('found')],
+      ['recents:locate-progress', mk('progress')],
+      ['recents:locate-done', mk('done')],
+    ];
+    for (const [ch, h] of hs) ipcRenderer.on(ch, h);
+    return () => { for (const [ch, h] of hs) ipcRenderer.removeListener(ch, h); };
+  },
 
   // Listeners
   onProcessorCreated:   (cb) => ipcRenderer.on('processor:created', (_, data) => cb(data)),
@@ -128,6 +188,9 @@ const projectOperations = {
   // cell do SVG. Aqui o renderer principal escuta, le, abre tab e pula
   // pra linha. Sempre callbacks com {filePath, line, column}.
   onOpenFileAt:         (cb) => ipcRenderer.on('aurora:open-file-at', (_, data) => cb(data)),
+  // Duplo clique num .cmm ou .v associado no Windows: o main manda o caminho
+  // para abrir solto no editor, sem projeto (main/windows.js e lifecycle.js).
+  onOpenLooseFile:      (cb) => ipcRenderer.on('aurora:open-loose-file', (_, data) => cb(data)),
 };
 
 /* ============================================================================
@@ -138,7 +201,7 @@ const compilationOperations = {
   // (js/compilation/command_spec.js + builders/*), the main process
   // validates {binary, args} against the toolchain allowlist and
   // spawns with shell:false. This is the path Aurora Intelligence's
-  // command-override system rides on — overrides mutate the spec
+  // command-override system rides on, overrides mutate the spec
   // before it crosses this IPC.
   execSpec: (payload) => ipcRenderer.invoke('exec-spec', payload),
   execSpecStreamed: (payload) => ipcRenderer.invoke('exec-spec-streamed', payload),
@@ -157,6 +220,11 @@ const compilationOperations = {
 
   launchGtkwaveOnly: (opts) => ipcRenderer.invoke('launch-gtkwave-only', opts),
   launchSurfer: (opts) => ipcRenderer.invoke('launch-surfer', opts),
+  // Surfer numa aba do editor (main/ipc/surfer_tab.js): sobe o servidor de
+  // onda headless e devolve a URL da pagina WASM que o iframe da aba carrega.
+  surferTabServe: (opts) => ipcRenderer.invoke('surfer-tab:serve', opts),
+  surferTabStop: (tabId) => ipcRenderer.invoke('surfer-tab:stop', tabId),
+  surferTabAvailable: () => ipcRenderer.invoke('surfer-tab:available'),
   writeSurferMappings: (mappings) => ipcRenderer.invoke('write-surfer-mappings', mappings),
   decodeComplex: (payload) => ipcRenderer.invoke('decode-complex', payload),
 };
@@ -187,7 +255,7 @@ const dialogOperations = {
   showSaveDialog:    (opts) => ipcRenderer.invoke('show-save-dialog', opts),
   selectDirectory:   (opts) => ipcRenderer.invoke('dialog:openDirectory', opts),
   // Forward the caller's options so per-call filters (e.g. .gtkw only)
-  // actually reach the main process — without this, the IPC handler
+  // actually reach the main process, without this, the IPC handler
   // falls back to its "All Files" default no matter what the renderer
   // asked for.
   showOpenDialogImport: (opts) => ipcRenderer.invoke('dialog:show-open-import', opts),
@@ -203,11 +271,20 @@ const uiOperations = {
   reloadApp: () => ipcRenderer.send('app:reload'),
   openDesignLab: () => ipcRenderer.invoke('open-design-lab'), // DESIGN §11 component gallery
 
-  // Custom title bar — frameless window controls
+  // Custom title bar, frameless window controls
   windowMinimize:       () => ipcRenderer.send('window:minimize'),
   windowMaximizeToggle: () => ipcRenderer.send('window:maximize-toggle'),
   windowClose:          () => ipcRenderer.send('window:close'),
   windowGetState:       () => ipcRenderer.invoke('window:get-state'),
+  // Tecla interceptada no main antes de chegar a pagina (hoje so Ctrl+W, ver
+  // main/windows.js). Chega aqui como o atalho chegaria por keydown, para o
+  // shortcut_manager tratar pelo mesmo caminho, inclusive quando o foco esta
+  // num iframe que o documento principal nao enxerga.
+  onTecla: (cb) => {
+    const h = (_e, tecla) => cb(tecla);
+    ipcRenderer.on('aurora:tecla', h);
+    return () => ipcRenderer.removeListener('aurora:tecla', h);
+  },
   onWindowState: (cb) => {
     const handler = (_e, state) => cb(state);
     ipcRenderer.on('window-state', handler);
@@ -226,7 +303,7 @@ const uiOperations = {
 const terminalOperations = {
   onTerminalLog: (cb) => ipcRenderer.on('terminal-log', cb),
 
-  // Embedded interactive shell (TCMD tab). Human-driven only — NOT wired to the
+  // Embedded interactive shell (TCMD tab). Human-driven only, NOT wired to the
   // AI tool bridge. start streams `shell:data` / `shell:exit`; input feeds stdin.
   shellStart: (opts) => ipcRenderer.invoke('shell:start', opts || {}),
   shellInput: (id, data) => ipcRenderer.invoke('shell:input', { id, data }),
@@ -257,7 +334,7 @@ const updateOperations = {
   getAppVersion:     () => ipcRenderer.invoke('get-app-version'),
 
   // Manual control for the in-app "Check for updates" affordance. The
-  // silent startup check still runs ~10 s after launch — these are for
+  // silent startup check still runs ~10 s after launch, these are for
   // explicit user-driven flows (e.g. settings panel, About dialog).
   checkForUpdates:  () => ipcRenderer.invoke('check-for-updates'),
   downloadUpdate:   () => ipcRenderer.invoke('download-update'),
@@ -291,7 +368,7 @@ const updateOperations = {
  *
  *  Separate contextBridge namespace so the chat surface stays out of
  *  `electronAPI`'s already-large grab bag. Plaintext API keys travel
- *  renderer → main only — there is intentionally no `getKey` channel,
+ *  renderer → main only, there is intentionally no `getKey` channel,
  *  since the keystore lives entirely in the main process and reading
  *  decrypted bytes from the renderer would defeat the whole point.
  * ========================================================================= */
@@ -318,7 +395,7 @@ const aiAPI = {
   /**
    * Run a minimal generateText() against the stored key for `provider`
    * (optionally overriding the default model). Returns a structured
-   * result — `{ ok, sample, latencyMs, usage }` on success, or
+   * result, `{ ok, sample, latencyMs, usage }` on success, or
    * `{ ok:false, error }` on any failure.
    */
   testConnection: (provider, modelId) =>
@@ -327,7 +404,7 @@ const aiAPI = {
   /**
    * One-shot generation (prompt -> text, no tools/streaming). Resolves with
    * `{ ok, text, usage, model }` or `{ ok:false, error }`. Only API providers
-   * (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama) — not the CLI bridges.
+   * (OpenAI/Anthropic/Google/DeepSeek/Groq/Ollama), not the CLI bridges.
    */
   generateOneshot: ({ provider, model, system, prompt, maxOutputTokens }) =>
     ipcRenderer.invoke('ai:generate-oneshot', { provider, model, system, prompt, maxOutputTokens }),
@@ -336,7 +413,7 @@ const aiAPI = {
    * Kick off a streaming chat. The renderer must subscribe to chat
    * events via `onChatEvent` *before* calling startChat so it doesn't
    * miss early text-delta packets. Returns immediately with the
-   * sessionId — the actual streaming work runs detached on main.
+   * sessionId, the actual streaming work runs detached on main.
    *
    * `conversationId`, `effort` and `permission` are only consumed by
    * the `claude-code` provider (the CLI bridge); API providers ignore
@@ -351,7 +428,7 @@ const aiAPI = {
   abortChat: (sessionId) => ipcRenderer.invoke('ai:chat-abort', { sessionId }),
 
   // Push a follow-up into a LIVE turn instead of queueing it in the renderer.
-  // Resolves { ok, data:{ accepted } } — accepted:false just means this runner
+  // Resolves { ok, data:{ accepted } }, accepted:false just means this runner
   // has no open input channel, so the caller should queue it as before.
   pushChatMessage: (sessionId, content) =>
     ipcRenderer.invoke('ai:chat-push', { sessionId, content }),
@@ -366,7 +443,7 @@ const aiAPI = {
   getClaudeCodeStatus: () => ipcRenderer.invoke('ai:claude-code-status'),
 
   /**
-   * Live subscription usage — accumulated session tokens/cost plus the
+   * Live subscription usage, accumulated session tokens/cost plus the
    * latest rate-limit windows reported by the CLI. Resolves with
    * `{ ok, usage: { plan, session, windows } }`.
    */
@@ -390,7 +467,7 @@ const aiAPI = {
   /**
    * Subscribe to chat events (text-delta, tool-call, tool-result,
    * finish, aborted, error). Events from *every* session are broadcast
-   * — filter by sessionId in your handler. Returns an unsubscribe fn.
+   *, filter by sessionId in your handler. Returns an unsubscribe fn.
    */
   onChatEvent: (callback) => {
     const handler = (_e, payload) => callback(payload);
@@ -400,7 +477,7 @@ const aiAPI = {
 
   /* ---- tool execution (renderer runs the AuroraAPI calls) ---- */
 
-  /** The tool manifest — names, descriptions, schemas, access level. */
+  /** The tool manifest, names, descriptions, schemas, access level. */
   getToolManifest: () => ipcRenderer.invoke('ai:get-tool-manifest'),
 
   /**
@@ -450,7 +527,7 @@ const aiAPI = {
 };
 
 /* ============================================================================
- *  SEARCH (find in files) — backed by main/ipc/search.js
+ *  SEARCH (find in files), backed by main/ipc/search.js
  * ========================================================================= */
 const searchOperations = {
   /**
@@ -462,13 +539,13 @@ const searchOperations = {
 };
 
 /* ============================================================================
- *  VERILOG LSP (window.lspAPI) — backed by main/lsp/verible_lsp.js
+ *  VERILOG LSP (window.lspAPI), backed by main/lsp/verible_lsp.js
  *
  *  Thin bridge to the bundled verible-verilog-ls. The renderer
  *  (js/editor/lsp_integration.js) drives the document lifecycle
  *  (open/change/close) and pulls on-demand features (format, symbols,
  *  hover, definition, references); diagnostics are pushed the other way
- *  via onDiagnostics. Every channel is best-effort — if Verible isn't
+ *  via onDiagnostics. Every channel is best-effort, if Verible isn't
  *  installed the main side no-ops and these resolve to null/undefined.
  * ========================================================================= */
 const lspOperations = {
@@ -491,13 +568,13 @@ const lspOperations = {
 };
 
 /* ============================================================================
- *  SLANG (window.slangAPI) — backed by main/lsp/slang_lsp.js
+ *  SLANG (window.slangAPI), backed by main/lsp/slang_lsp.js
  *
  *  SystemVerilog SEMANTIC language server (O11). The renderer
  *  (js/editor/slang_integration.js) drives the document lifecycle and
  *  pulls completion; semantic diagnostics are pushed back via
  *  onDiagnostics. setEnabled toggles the whole feature (it elaborates the
- *  project on every change). Best-effort — no-op when the binary is
+ *  project on every change). Best-effort, no-op when the binary is
  *  missing or the toggle is off. Complements Verible (window.lspAPI).
  * ========================================================================= */
 const slangOperations = {
@@ -516,12 +593,12 @@ const slangOperations = {
 };
 
 /* ============================================================================
- *  CLANG-FORMAT (window.clangFormatAPI) — backed by main/format/clang_format.js
+ *  CLANG-FORMAT (window.clangFormatAPI), backed by main/format/clang_format.js
  *
  *  One-shot C/C++/CMM document formatter (Shift+Alt+F). The renderer
  *  (js/editor/clang_format_integration.js) sends the buffer + languageId +
  *  filePath; main pipes it through the bundled clang-format and returns the
- *  formatted text. Best-effort — resolves null if clang-format isn't
+ *  formatted text. Best-effort, resolves null if clang-format isn't
  *  installed or errors, leaving the buffer untouched.
  * ========================================================================= */
 const clangFormatOperations = {
@@ -531,7 +608,7 @@ const clangFormatOperations = {
 };
 
 /* ============================================================================
- *  BLACK (window.pythonFormatAPI) — backed by main/format/python_format.js
+ *  BLACK (window.pythonFormatAPI), backed by main/format/python_format.js
  *
  *  Formatador de Python da varinha. Diferente do clang-format, aqui não há
  *  binário empacotado: main chama `python -m black -` no interpretador que o
@@ -546,11 +623,11 @@ const pythonFormatOperations = {
 };
 
 /* ============================================================================
- *  TREE-SITTER (window.treeSitterAPI) — backed by main/treesitter/grammars.js
+ *  TREE-SITTER (window.treeSitterAPI), backed by main/treesitter/grammars.js
  *
  *  Serves WASM bytes (web-tree-sitter runtime + grammar parsers) to the
  *  renderer's semantic highlighter (js/editor/treesitter_highlight.js),
- *  which feeds them into web-tree-sitter directly — no URL/fetch under the
+ *  which feeds them into web-tree-sitter directly, no URL/fetch under the
  *  sandboxed file:// renderer. Best-effort: if a grammar isn't installed,
  *  the editor keeps Monaco's Monarch highlighting.
  * ========================================================================= */
@@ -581,10 +658,10 @@ const utilityOperations = {
 };
 
 /* ============================================================================
- *  EXPOSE — bridge para o renderer
+ *  EXPOSE, bridge para o renderer
  * ========================================================================= */
 /* ============================================================================
- *  GIT / SOURCE CONTROL  (window.gitAPI) — backed by main/ipc/git.js (simple-git)
+ *  GIT / SOURCE CONTROL  (window.gitAPI), backed by main/ipc/git.js (simple-git)
  *  + main/ipc/github_auth.js (account connection). Enumerated channels only.
  * ========================================================================= */
 const gitOperations = {
@@ -629,6 +706,22 @@ const gitOperations = {
   githubCreateRepo: (opts) => ipcRenderer.invoke('github:create-repo', opts),
   githubOauthConfigured: () => ipcRenderer.invoke('github:oauth-configured'),
   githubOauthLogin: () => ipcRenderer.invoke('github:oauth-login'),
+  githubOauthCancel: () => ipcRenderer.invoke('github:oauth-cancel'),
+  // GitLab: so token pessoal, e a instancia entra junto (o laboratorio tem
+  // grupo no gitlab.com, e uma universidade pode subir a propria).
+  gitlabListRepos:   () => ipcRenderer.invoke('gitlab:list-repos'),
+  gitlabStatus:      () => ipcRenderer.invoke('gitlab:status'),
+  gitlabConnect:     (opts) => ipcRenderer.invoke('gitlab:connect', opts),
+  gitlabDisconnect:  () => ipcRenderer.invoke('gitlab:disconnect'),
+  gitlabCreateRepo:  (opts) => ipcRenderer.invoke('gitlab:create-repo', opts),
+  gitlabOauthConfigured: () => ipcRenderer.invoke('gitlab:oauth-configured'),
+  gitlabOauthLogin:  (opts) => ipcRenderer.invoke('gitlab:oauth-login', opts),
+  gitlabOauthCancel: () => ipcRenderer.invoke('gitlab:oauth-cancel'),
+  onGitlabOauthCode: (cb) => {
+    const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
+    ipcRenderer.on('gitlab:oauth-code', h);
+    return () => ipcRenderer.removeListener('gitlab:oauth-code', h);
+  },
   onGithubOauthCode: (cb) => {
     const h = (_e, data) => { try { cb(data); } catch (_) { /* ignore */ } };
     ipcRenderer.on('github:oauth-code', h);
@@ -637,8 +730,8 @@ const gitOperations = {
 };
 
 /* ============================================================================
- *  BIBLIOTECAS PYTHON  (window.pyLibsAPI) — main/ipc/pylibs.js
- *  Todo handler responde { ok, data } ou { ok:false, error } — o painel nunca
+ *  BIBLIOTECAS PYTHON  (window.pyLibsAPI), main/ipc/pylibs.js
+ *  Todo handler responde { ok, data } ou { ok:false, error }, o painel nunca
  *  precisa de try/catch por chamada.
  * ========================================================================= */
 const pyLibsOperations = {

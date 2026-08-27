@@ -1,5 +1,5 @@
 /**
- * active_processor.js — "qual processador esta ativo?"
+ * active_processor.js, "qual processador esta ativo?"
  *
  * Dominio, nao UI: o processador ATIVO e o cruzamento do arquivo em
  * foco no editor (.cmm) com a lista de processadores do projeto. A
@@ -7,14 +7,14 @@
  * alvo dos botoes C± / Verilator-processador) decide por ele.
  *
  * Antes a logica morava na status bar e os consumidores de dominio
- * (compilation_flow / compilation_module) importavam o widget de UI —
- * dependencia de cabeca pra baixo — alem de uma copia byte-a-byte do
+ * (compilation_flow / compilation_module) importavam o widget de UI:
+ * dependencia de cabeca pra baixo, alem de uma copia byte-a-byte do
  * matcher em processor_config_panel. Extraida pra ca em 2026-06.
  *
- * Donos consultados (sempre lazy, em call time — nada e cacheado aqui):
- *   - TabManager.getEditingFilePath() — arquivo em foco; ja resolve
+ * Donos consultados (sempre lazy, em call time, nada e cacheado aqui):
+ *   - TabManager.getEditingFilePath(), arquivo em foco; ja resolve
  *     main vs split pane (single source of truth do foco).
- *   - getAvailableProcessors() — lista sincrona de nomes, semeada do
+ *   - getAvailableProcessors(), lista sincrona de nomes, semeada do
  *     .spf (processor_list). Consumidores com uma lista mais fresca em
  *     maos (ex: status bar acabou de ler o .spf) podem passa-la.
  */
@@ -25,11 +25,11 @@ import { getAvailableProcessors } from './processor_list.js';
 /**
  * Determina o processador "ativo" a partir do .cmm em foco. Aceita
  * o caminho convencional `<projectDir>/<procName>/Software/<x>.cmm`
- * (prioriza o segmento de pasta — robusto a renames do .cmm) e cai
+ * (prioriza o segmento de pasta, robusto a renames do .cmm) e cai
  * pro basename como fallback. Retorna null se o arquivo em foco
  * nao for .cmm ou nao casar com nenhum processador.
  */
-export function matchProcessorFromPath(filePath, processors) {
+function matchProcessorFromPath(filePath, processors) {
     if (!filePath || !filePath.toLowerCase().endsWith('.cmm')) return null;
     const parts = filePath.split(/[\\/]/);
     const swIdx = parts.findIndex((p) => p.toLowerCase() === 'software');
@@ -43,7 +43,7 @@ export function matchProcessorFromPath(filePath, processors) {
 }
 
 /**
- * Nome do processador ATIVO — exatamente o que a status bar mostra.
+ * Nome do processador ATIVO, exatamente o que a status bar mostra.
  * Recalcula a cada chamada a partir do arquivo em foco atual
  * (sincrono). Retorna null quando nao ha processador ativo (nenhum
  * .cmm de processador em foco).

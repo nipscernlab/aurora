@@ -5,21 +5,21 @@ import { LitElement, html, css } from 'lit';
 const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.baseURI).href;
 
 /**
- * <aurora-modal> — the shared modal chrome (DESIGN §9), matching the app's modal
+ * <aurora-modal>, the shared modal chrome (DESIGN §9), matching the app's modal
  * look (was modal_config.css): a blurred scrim, a luminous-bordered glow panel,
  * a header with a close button, and a scale/opacity enter.
  *
  * Drop-in for the old `.modal-overlay` div: it shows/hides PURELY from the same
- * signals the existing code already toggles — `aria-hidden="false"`, the `.show`
+ * signals the existing code already toggles, `aria-hidden="false"`, the `.show`
  * class (modal_system / processor-hub / wave-config) or the `.visible` class
- * (aurora-settings) — so every existing controller keeps working untouched. The
+ * (aurora-settings), so every existing controller keeps working untouched. The
  * modal's CONTENT stays in the LIGHT DOM via slots, so every form id, handler and
  * data-i18n is preserved:
- *   • slot="title"   — the heading (icon + text)
- *   • slot="actions" — optional header buttons (e.g. a modal's own ✕, which may
+ *   • slot="title"  , the heading (icon + text)
+ *   • slot="actions", optional header buttons (e.g. a modal's own ✕, which may
  *                      run extra cleanup); set `noclose` to hide the built-in ✕
- *   • (default slot) — the body (e.g. <main class="modal-body">)
- *   • slot="footer"  — the action buttons
+ *   • (default slot), the body (e.g. <main class="modal-body">)
+ *   • slot="footer" , the action buttons
  * Its built-in backdrop + ✕ live in the shadow (the document-level backdrop
  * delegation can't reach them), so it emits `aurora-modal-close` for modal_system
  * to close it through the unified stack. Closed, the host is pointer-events:none.
@@ -51,7 +51,7 @@ class AuroraModal extends LitElement {
         !this.classList.contains('visible')) {
       this.setAttribute('aria-hidden', 'true');
     }
-    // P17 a11y: inert on the host when closed — prevents Tab + screen reader from
+    // P17 a11y: inert on the host when closed, prevents Tab + screen reader from
     // reaching slotted content inside a visually-hidden modal.
     this._syncInert();
     this._mutObs = new MutationObserver(() => this._syncInert());
@@ -61,7 +61,7 @@ class AuroraModal extends LitElement {
 
   // Esc closes the topmost open, dismissable modal. One shared capture-phase
   // listener handles every <aurora-modal> (Find in files, Source Control, …) so
-  // each panel doesn't have to wire its own — and so Esc works regardless of
+  // each panel doesn't have to wire its own, and so Esc works regardless of
   // where focus sits inside the modal.
   static _ensureGlobalKeydown() {
     if (AuroraModal._keydownBound) return;
@@ -93,7 +93,7 @@ class AuroraModal extends LitElement {
 
   // Focus trap (the partner to aria-modal): while open, make every OTHER
   // top-level element inert so Tab and screen readers can't reach the
-  // background, and move focus into the modal. Stacked modals nest correctly —
+  // background, and move focus into the modal. Stacked modals nest correctly:
   // each one inerts everything else, and closing the top restores the one
   // beneath. We only un-inert what WE set, so an already-closed sibling modal
   // (inert via P17) stays inert.
@@ -130,7 +130,7 @@ class AuroraModal extends LitElement {
   set open(v) {
     this.setAttribute('aria-hidden', v ? 'false' : 'true');
     // Focus management + the background inert run in _syncInert (fired by the
-    // MutationObserver) so they happen for EVERY open path — el.open, the .show
+    // MutationObserver) so they happen for EVERY open path, el.open, the .show
     // class (modal_system) and the .visible class (settings) alike.
   }
 
@@ -240,7 +240,7 @@ class AuroraModal extends LitElement {
     .close:hover { background: var(--overlay-hover); color: var(--text-bright); }
     .close:focus-visible { outline: 1px solid var(--accent); outline-offset: -1px; }
 
-    /* Passthrough flex column — the slotted body (e.g. .modal-body) keeps its own
+    /* Passthrough flex column, the slotted body (e.g. .modal-body) keeps its own
        padding + overflow, so we don't impose a second scroll region. */
     .body {
       flex: 1 1 auto;

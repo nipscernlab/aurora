@@ -3,10 +3,10 @@ name: Release
 # Builds the Windows installer and publishes it to the SAPHO distribution
 # channel. Two repos, two roles:
 #
-#   nipscernlab/aurora  — SOURCE. release-please keeps a release PR open here;
+#   nipscernlab/aurora , SOURCE. release-please keeps a release PR open here;
 #                         merging it tags the commit and publishes a GitHub
 #                         Release, which is what triggers this workflow.
-#   nipscernlab/sapho   — DISTRIBUTION. The installer, `latest.yml` and the
+#   nipscernlab/sapho  , DISTRIBUTION. The installer, `latest.yml` and the
 #                         `.blockmap` land here. `main/updater.js` and
 #                         `package.json#build.publish` both point at it, so
 #                         this is the feed every installed copy polls.
@@ -15,27 +15,51 @@ name: Release
 # scoped to `aurora` and gets `403 Resource not accessible by integration` when
 # electron-builder POSTs to /repos/nipscernlab/sapho/releases. That is exactly
 # how the 2026-05-19 run died, and why v6.3.2 had to be published by hand.
-# The publish therefore uses SAPHO_RELEASE_TOKEN — a fine-grained PAT with
-# `Contents: read and write` on nipscernlab/sapho — and the first step below
+# The publish therefore uses SAPHO_RELEASE_TOKEN, a fine-grained PAT with
+# `Contents: read and write` on nipscernlab/sapho, and the first step below
 # fails fast, in seconds, if that secret is missing or lacks write access.
 #
 # The build needs the bundled SAPHO toolchain under `components/`, which is NOT
-# committed to the source tree — `npm run bootstrap` downloads it: the unified
+# committed to the source tree, `npm run bootstrap` downloads it: the unified
 # mingw bundle (iverilog/yosys/verilator/python+cocotb) from the `msys-vN`
 # Release, plus the gtkwave-nipscern fork, the YANC compilers, and Surfer from
 # their own Releases. netlistsvg rides in via `npm ci` (in-process).
 
+# O gatilho `release: published` NAO basta, e descobrir isso custou uma release.
+# O release-please cria a Release com o GITHUB_TOKEN, e o GitHub deliberadamente
+# nao dispara workflow a partir de evento criado por aquele token, para evitar
+# recursao. Resultado: a Release aparecia e o instalador nunca era construido, e
+# as versoes anteriores acabaram publicadas a mao.
+#
+# Por isso o `workflow_call`: o proprio release-please.yml chama este workflow
+# quando acabou de criar uma Release. O gatilho `release` fica para o caso de
+# alguem criar a Release a mao pela interface do GitHub, e o dispatch fica para
+# o dry run.
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Preflight only, build and publish nothing'
+        type: boolean
+        default: false
+      sign_only:
+        description: 'Build and sign, publish nothing'
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'Preflight only — verify publish access, build and publish nothing'
         type: boolean
         default: false
+      sign_only:
+        description: 'Build and SIGN, publish nothing — for exercising the SignPath test certificate'
+        type: boolean
+        default: false
 
-# Never let two publishes race onto the same distribution channel — a partial
+# Never let two publishes race onto the same distribution channel, a partial
 # asset set on the release is what a client sees as a corrupt update.
 concurrency:
   group: release-sapho
@@ -55,6 +79,12 @@ jobs:
   preflight:
     name: Preflight — publish access
     runs-on: ubuntu-latest
+    # Somente a conta do dono publica. O bot cobre o caminho normal, em que a
+    # release e criada pelo release-please, ja gated pelo mesmo ator no outro
+    # workflow. Uma release criada a mao por outra conta para aqui, antes de
+    # gastar os ~20 min de build. O job `release` herda via needs: preflight
+    # pulado pula os dependentes.
+    if: github.actor == 'Chrysthofer' || github.actor == 'github-actions[bot]'
     permissions: {}
 
     steps:
@@ -106,8 +136,38 @@ jobs:
       # Read by the step-level `if`s that pick the signed or the unsigned path.
       # An unset secret expands to the empty string, which is the whole switch.
       SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      # A pergunta que decide os passos de assinatura la embaixo: esta execucao
+      # PODE assinar? Sao duas condicoes, credencial presente e um destino em
+      # que a assinatura seja aceitavel. Com a politica de teste so o ensaio
+      # assina, porque o instalador dele fica no anexo da execucao e nao chega a
+      # ninguem; uma execucao que publica sai sem assinatura.
+      SIGN: ${{ secrets.SIGNPATH_API_TOKEN != '' && (inputs.sign_only == true || vars.SIGNPATH_POLICY_SLUG != 'test-signing') }}
 
     steps:
+      # A pior confusao que este desenho permite e publicar para os alunos um
+      # instalador assinado com o certificado de TESTE. Esse certificado e
+      # autoassinado, e um instalador assinado com ele e PIOR do que um nao
+      # assinado: o Windows deixa de dizer apenas "publicador desconhecido" e
+      # passa a dizer que a cadeia termina numa raiz em que ele nao confia, que
+      # soa como adulteracao. E acontece por esquecimento, porque basta a
+      # variavel SIGNPATH_POLICY_SLUG ficar em `test-signing` depois de um
+      # ensaio. Quem impede e o `SIGN` do bloco env acima: numa execucao que
+      # publica com a politica de teste, os passos de assinatura ficam de fora.
+      #
+      # Ate 25/08/2026 isto era uma trava que derrubava o job, e o efeito real
+      # nao era o pretendido. Com o secret criado em 22/08 e a variavel ainda na
+      # politica de teste, QUALQUER release de verdade morria neste passo, e
+      # mesclar a PR de release deixaria a tag publicada sem instalador, que e o
+      # desfecho contra o qual este workflow inteiro foi desenhado. Assinatura
+      # nunca foi portao duro, ver a nota do bloco Signing mais abaixo, entao a
+      # politica de teste agora degrada para uma release sem assinatura, que e o
+      # que todas as versoes ate aqui foram.
+      - name: Announce the unsigned path
+        if: ${{ env.SIGNPATH_API_TOKEN != '' && env.SIGN != 'true' }}
+        shell: pwsh
+        run: |
+          Write-Host "::warning::SIGNPATH_POLICY_SLUG esta em 'test-signing' e esta execucao PUBLICA, entao o instalador sai SEM assinatura, como todos os anteriores. O certificado de teste e autoassinado e nao pode chegar a um aluno. Para publicar assinado, troque a variavel para a politica de producao; para ensaiar a assinatura, rode com sign_only marcado."
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -142,7 +202,7 @@ jobs:
       # The toolchain is on disk at this point and nowhere else in CI, so this
       # is the one opportunity to prove it actually works before we ship it.
       # Compiles a real C± processor, elaborates it, simulates it, and decodes
-      # the dump — using the same argument builders the app calls. A release
+      # the dump, using the same argument builders the app calls. A release
       # whose compiler pipeline is broken must never reach a lab machine.
       - name: Toolchain integration (C± -> Verilog -> simulation)
         run: npm run test:toolchain
@@ -155,32 +215,41 @@ jobs:
         run: npm run build:ts
 
       - name: Build renderer (Vite)
-        # Bundles the renderer into dist/. Same reason as above — without this the
+        # Bundles the renderer into dist/. Same reason as above, without this the
         # package would ship a stale/absent dist and fall back to the raw
         # index.html inside the asar.
         run: npm run build:renderer
 
       # ── Signing ───────────────────────────────────────────────────────────
-      # Two paths below, picked by whether SIGNPATH_API_TOKEN exists. Until that
-      # secret is created the first path runs and behaves exactly as before, so
-      # committing this changes nothing about today's releases.
+      # Two paths below, picked by `SIGN` (env block at the top of this job):
+      # credencial presente E um destino em que a assinatura seja aceitavel.
+      # Sem as duas, os tres passos ficam de fora e a release sai sem
+      # assinatura, que e o caminho de todas as versoes ate aqui.
       #
       # Signing is deliberately NOT a hard gate. SignPath disclaims availability
       # (ToS §9/§10) and can revoke a certificate, so a missing or dead
       # credential degrades to an unsigned build instead of blocking an urgent
       # fix. The unsigned install path in TODO.md section 2 stays valid forever.
       #
-      # Before creating the secret, check the action's own README for its input
-      # names, and set the three `vars` (SIGNPATH_ORG_ID, SIGNPATH_PROJECT_SLUG,
-      # SIGNPATH_POLICY_SLUG) from the SignPath panel. TODO.md section 3 lists
-      # what has to be decided there first, including that the free programme
-      # requires a human Approver per signing request.
+      # Os nomes dos inputs abaixo foram conferidos em 22/08/2026 contra o
+      # action.yml publicado da action (branch main): `api-token`,
+      # `organization-id`, `project-slug`, `signing-policy-slug`,
+      # `github-artifact-id`, `wait-for-completion`, `output-artifact-directory`
+      # e `wait-for-completion-timeout-in-seconds` existem e estao escritos
+      # assim. Ha um `artifact-configuration-slug` OPCIONAL, que so e preciso
+      # quando o projeto tem mais de uma Artifact Configuration; com uma so,
+      # deixar de fora e o correto.
+      #
+      # O secret e as tres `vars` (SIGNPATH_ORG_ID, SIGNPATH_PROJECT_SLUG,
+      # SIGNPATH_POLICY_SLUG) existem desde 22/08/2026. O que falta e o
+      # certificado de producao: enquanto a politica for `test-signing`, so o
+      # ensaio assina. TODO.md secao 3 acompanha isso.
       # Always `--publish never`. electron-builder's own GitHub publisher used to
       # do the upload, and it is the wrong tool for a CROSS-repo release: it
       # half-published 6.4.0, putting the 550 MB installer on the release and
       # then dying with "Published releases must have a valid tag" before
       # `latest.yml` and the `.blockmap` went up. An installer without
-      # `latest.yml` is worse than no release at all — every client polls that
+      # `latest.yml` is worse than no release at all, every client polls that
       # file, so the channel looks alive and updates nothing. It is very likely
       # the same reason v6.3.2 had to be published by hand.
       #
@@ -193,16 +262,16 @@ jobs:
         run: npx electron-builder --win --x64 --publish never
 
       - name: Upload the unsigned installer for SignPath
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         id: upload-unsigned
         uses: actions/upload-artifact@v7
         with:
           name: unsigned-installer
-          path: dist/sapho-aurora-Setup-*.exe
+          path: release/sapho-aurora-Setup-*.exe
           if-no-files-found: error
 
       - name: Sign with SignPath
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         uses: signpath/github-action-submit-signing-request@v2
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -212,14 +281,23 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: dist-signed
+          # Uma hora, e nao os 600 s padrao da action.
+          #
+          # O programa gratuito da Foundation exige um Approver HUMANO por
+          # requisicao de assinatura (ToS 2.3). Com o padrao, o passo desiste
+          # depois de dez minutos, e uma release feita fora do horario de quem
+          # aprova falharia sozinha, deixando a tag publicada sem instalador.
+          # Uma hora e folgado para alguem receber a notificacao e clicar, e
+          # nao custa nada quando a aprovacao e automatica.
+          wait-for-completion-timeout-in-seconds: '3600'
 
       # The signed .exe goes back where electron-builder left the unsigned one,
       # then latest.yml (sha512 + size) and the .blockmap are rebuilt from it.
       # Skipping the blockmap rebuild would not break the update, it would make
-      # every signed release a full ~500 MB download for the whole lab, and the
+      # every signed release a full ~140 MB download for the whole lab, and the
       # integrity gate below would then fail on the missing asset.
       - name: Swap in the signed installer and refresh the update manifest
-        if: ${{ env.SIGNPATH_API_TOKEN != '' }}
+        if: ${{ env.SIGN == 'true' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -228,14 +306,40 @@ jobs:
             Write-Host "::error::SignPath returned no .exe in dist-signed."
             exit 1
           }
-          Copy-Item $signed.FullName (Join-Path 'dist' $signed.Name) -Force
-          node scripts/patch-latest-yml.js dist $signed.Name
+          Copy-Item $signed.FullName (Join-Path 'release' $signed.Name) -Force
+          node scripts/patch-latest-yml.js release $signed.Name
+
+      # Ensaio da assinatura: construiu, assinou, e para aqui.
+      #
+      # O certificado de TESTE da SignPath e autoassinado, entao o instalador
+      # que ele produz NAO pode ir para o canal de distribuicao: um cliente que
+      # o baixasse veria um publicador em que a maquina dele nao confia, que e
+      # pior do que o nao assinado de hoje. O que se quer deste modo e provar o
+      # caminho, credencial, Artifact Configuration, politica e a troca do
+      # instalador com o manifesto refeito, sem tocar em ninguem la fora.
+      #
+      # O .exe assinado sai como anexo da execucao, para ser baixado e conferido
+      # com `signtool verify /pa` e com o `Get-AuthenticodeSignature` do
+      # PowerShell. Com o certificado de teste, os dois devem dizer que a
+      # assinatura existe e que a cadeia nao e confiavel; e esse o resultado
+      # certo, e nao um erro.
+      - name: Upload the signed installer for inspection (sign_only)
+        if: ${{ inputs.sign_only == true }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: signed-installer
+          path: |
+            release/sapho-aurora-Setup-*.exe
+            release/sapho-aurora-Setup-*.exe.blockmap
+            release/latest.yml
+          if-no-files-found: error
 
       # The single publish path, signed or not. Uploading all three assets in
       # one command is deliberate: the updater needs `latest.yml` to see the
       # release at all and the `.blockmap` to download only what changed, so
       # partial success is the failure mode worth designing against.
       - name: Publish to the distribution channel
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -246,9 +350,9 @@ jobs:
           $exe     = "sapho-aurora-Setup-v$version.exe"
 
           $assets = @(
-            (Join-Path 'dist' $exe),
-            (Join-Path 'dist' "$exe.blockmap"),
-            (Join-Path 'dist' 'latest.yml')
+            (Join-Path 'release' $exe),
+            (Join-Path 'release' "$exe.blockmap"),
+            (Join-Path 'release' 'latest.yml')
           )
           $absent = $assets | Where-Object { -not (Test-Path $_) }
           if ($absent) {
@@ -275,6 +379,7 @@ jobs:
       # release. So we re-download what the release actually serves and compare
       # it against the bytes we just built, from the outside, as a client would.
       - name: Verify the published update feed
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}
@@ -284,7 +389,7 @@ jobs:
           $tag     = "v$version"
           $exeName = "sapho-aurora-Setup-v$version.exe"
 
-          $localExe = Join-Path 'dist' $exeName
+          $localExe = Join-Path 'release' $exeName
           if (-not (Test-Path $localExe)) {
             Write-Host "::error::Local installer $localExe is missing — the build did not produce what we expect to publish."
             exit 1
@@ -302,7 +407,7 @@ jobs:
             -Uri "https://api.github.com/repos/$env:DIST_REPO/releases/tags/$tag"
 
           # 1. Every asset the updater needs must be on the release. The
-          #    .blockmap is what makes a delta download possible — without it
+          #    .blockmap is what makes a delta download possible, without it
           #    each client re-downloads the whole installer.
           foreach ($needed in @($exeName, "$exeName.blockmap", 'latest.yml')) {
             if (-not ($rel.assets | Where-Object { $_.name -eq $needed })) {
@@ -318,7 +423,7 @@ jobs:
           #    release assets as application/octet-stream, and for a non-text
           #    content type PowerShell hands back a byte[]. Regexing that
           #    stringifies the array to "118 101 114 …", every pattern misses,
-          #    and the step reports an empty feed and three mismatches — which
+          #    and the step reports an empty feed and three mismatches, which
           #    is what it did, against a latest.yml that was perfectly correct.
           $ymlUrl  = "https://github.com/$env:DIST_REPO/releases/download/$tag/latest.yml"
           $ymlFile = Join-Path $env:RUNNER_TEMP 'published-latest.yml'
@@ -353,14 +458,14 @@ jobs:
 
       # The release body lives on the `aurora` release (release-please writes the
       # changelog there). electron-builder creates the DIST_REPO release with an
-      # empty body, so the update window — which reads release notes from
-      # DIST_REPO via main/updater.js `fetchReleaseNotes` — would show a blank
+      # empty body, so the update window, which reads release notes from
+      # DIST_REPO via main/updater.js `fetchReleaseNotes`, would show a blank
       # changelog. Copy the notes across so users see what changed.
       #
       # This used to run only `if: github.event_name == 'release'`, reading the
       # body straight off the event payload, and that made it dead code. The
       # release is created by release-please using GITHUB_TOKEN, and GitHub does
-      # not fire workflow triggers for events raised with that token — it is how
+      # not fire workflow triggers for events raised with that token, it is how
       # it stops workflows from setting each other off in a loop. So `on:
       # release: published` never fires here, this workflow is always started by
       # hand (which is what the README describes), the event was never 'release',
@@ -368,6 +473,7 @@ jobs:
       # changelog. Fetch the notes by tag instead, and let the payload be a
       # shortcut for the day the trigger does fire.
       - name: Mirror release notes to the distribution channel
+        if: ${{ inputs.sign_only != true }}
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.SAPHO_RELEASE_TOKEN }}

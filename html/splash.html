@@ -62,63 +62,124 @@
         inset 0 1px 0 rgba(255,255,255,0.05);
     }
 
-    /* aurora SVG ribbons + starfield camadas de fundo */
-    .aurora-svg, #stars {
+    /* aurora + céu, as duas camadas de fundo */
+    #aurora, #stars {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       pointer-events: none;
     }
-    .aurora-svg { z-index: 0; }
-    #stars     { z-index: 1; }
 
-    /* vinheta superior/inferior */
+    /* A aurora fica ACIMA das estrelas, e não atrás: ela é emissão, o ar
+       acendendo entre nós e o céu, então as estrelas que caem atrás dela têm
+       mesmo que ficar mais fracas. O contrário, que era o arranjo das fitas em
+       SVG, punha o céu por cima da luz e entregava a ilusão. */
+    #stars  { z-index: 0; }
+    #aurora { z-index: 1; }
+
+    /* As estrelas rareiam para baixo, onde ficam o letreiro e a barra de
+       progresso. O campo antigo fazia isso sorteando y só nos 78% de cima; o
+       céu de verdade cobre a tela inteira, então quem afina é a máscara. */
+    /* O trecho cheio ia até 46% da altura, que era logo acima de onde as fitas
+       começavam. Com a aurora mais alta, a faixa entre 46% e 65% virou céu
+       aberto e as estrelas continuavam sendo apagadas ali por um motivo que
+       deixou de existir. O cheio vai até 56%; o fim da rampa não se mexeu,
+       porque quem manda nele é onde o letreiro começa (perto de 70%), e não
+       onde a aurora está. */
+    #stars {
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 56%, rgba(0,0,0,0.55) 68%, rgba(0,0,0,0.20) 79%, transparent 90%);
+      mask-image: linear-gradient(180deg, #000 0%, #000 56%, rgba(0,0,0,0.55) 68%, rgba(0,0,0,0.20) 79%, transparent 90%);
+    }
+
+    /* Vinheta superior/inferior. A de cima era 0,55 de preto e foi para 0,40:
+       ela foi calibrada quando as fitas viviam mais baixo, e depois que subiram
+       cerca de um décimo da altura eram as PONTAS DOS RAIOS que caíam dentro do
+       escurecimento mais forte. A de baixo fica como estava, porque o trabalho
+       dela é outro: assentar o letreiro e a barra sobre o céu. */
     .stage::after {
       content: ''; position: absolute; inset: 0; z-index: 2;
       pointer-events: none;
       background:
-        radial-gradient(ellipse 120% 55% at 50% 0%,   rgba(0,0,0,0.55) 0%, transparent 55%),
+        radial-gradient(ellipse 120% 55% at 50% 0%,   rgba(0,0,0,0.40) 0%, transparent 55%),
         radial-gradient(ellipse 120% 45% at 50% 100%, rgba(0,0,0,0.45) 0%, transparent 60%);
     }
 
     /* ============================================================
-       Conteúdo central
+       Conteúdo — o letreiro desceu para o canto
        ============================================================ */
+    /* Era tudo centralizado: ícone grande, letreiro e tagline empilhados no
+       meio, com o céu e a aurora servindo de fundo atrás deles. Agora o fundo é
+       a coisa mais bonita desta tela, então ele fica com os dois terços de cima
+       inteiros e o letreiro vira legenda no rodapé, alinhado à esquerda, na
+       mesma margem da barra de progresso. O ícone encolheu de 116 para 66 pelo
+       mesmo motivo: ele deixa de ser o assunto e passa a ser a assinatura. */
+    /* A margem esquerda é 36px, a MESMA do rodapé. Eram 38 aqui e 36 lá, e os
+       dois pixels de diferença puseram o ícone fora de prumo com a barra, que é
+       a linha vertical mais forte desta tela.
+
+       O respiro embaixo era de 8px, e com ele a tagline encostava na barra: a
+       frase em português corre quase toda a largura, então a barra logo abaixo
+       lia como sublinhado dela, e não como progresso. 22px separam os dois
+       blocos o bastante para cada um voltar a ser uma coisa. */
     .content {
       position: relative; z-index: 3;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 22px; padding: 40px;
-      text-align: center;
+      align-self: end;
+      display: flex; align-items: center;
+      gap: 18px;
+      padding: 0 36px 22px;
     }
 
     .mark {
       position: relative;
-      width: 116px; height: 116px;
+      flex: 0 0 auto;
+      width: 66px; height: 66px;
       display: flex; align-items: center; justify-content: center;
       animation: rise 700ms cubic-bezier(0.19,1,0.22,1) both;
     }
+    /* UM brilho, e na cor da própria marca.
+
+       Eram três, empilhados em verde, ciano e violeta, com raios de 14, 30 e
+       52px sobre um ícone de 66. O resultado era uma nuvem esverdeada do dobro
+       do tamanho do ícone, sem forma nenhuma e de cor que não era a dele: lia
+       como borrão, não como luz. A ideia por trás era boa (fazer a marca
+       pertencer à cena) e a execução era o erro: cor de cena em objeto de
+       marca não integra, briga.
+
+       O que integra é o contrário. O brilho sai na cor do PRÓPRIO ícone, curto
+       o bastante para acompanhar o contorno em vez de virar halo, e a sombra
+       escura logo abaixo é o que de fato separa a marca de um fundo aceso,
+       porque é o que um objeto real faz contra luz. */
     .mark img {
-      width: 116px; height: 116px;
+      width: 66px; height: 66px;
       filter:
-        drop-shadow(0 0 22px rgba(79,200,240,0.45))
-        drop-shadow(0 0 46px rgba(142,131,232,0.30));
+        drop-shadow(0 1px 3px rgba(4, 8, 16, 0.85))
+        drop-shadow(0 0 10px color-mix(in srgb, var(--violet) 38%, transparent));
     }
-    /* halo estático atrás do ícone */
-    .mark::before {
-      content: ''; position: absolute;
-      width: 150%; height: 150%;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(79,200,240,0.20) 0%, transparent 65%);
+    /* Sem halo atrás do ícone. Havia um círculo pulsante de 165% do tamanho
+       dele, e ele era o segundo problema: círculo não é a forma da marca, então
+       o que se via era um disco de luz com um desenho por cima. A marca já
+       tem gradiente próprio e já está sobre um céu que se move; mais uma coisa
+       respirando aqui é ruído competindo com a aurora, que é o assunto. */
+
+    /* Letreiro e tagline andam juntos, à direita do ícone.
+
+       A sombra existe por legibilidade, não por enfeite: a borda de baixo da
+       aurora desce até onde o letreiro está quando as fitas sorteiam uma fase
+       baixa, e aí o texto cinza cai sobre verde aceso. A sombra é escura e
+       larga o bastante para o texto sempre ter um degrau contra o céu, e fraca
+       o bastante para não virar contorno quando o fundo já está preto. */
+    .lockup {
+      display: flex; flex-direction: column; gap: 6px; min-width: 0;
+      text-shadow: 0 1px 12px rgba(4,8,16,0.75), 0 0 3px rgba(4,8,16,0.55);
     }
 
     .wordmark {
-      display: flex; align-items: baseline; justify-content: center;
-      gap: 14px;
+      display: flex; align-items: baseline;
+      gap: 11px;
       animation: rise 700ms 90ms cubic-bezier(0.19,1,0.22,1) both;
     }
     .wordmark .sapho {
-      font-size: 52px; font-weight: 800;
-      letter-spacing: 0.14em;
+      font-size: 40px; font-weight: 800;
+      letter-spacing: 0.10em;
       line-height: 1;
       background: linear-gradient(100deg,
         var(--green) 0%, var(--teal) 28%, var(--cyan) 52%,
@@ -129,19 +190,34 @@
       animation: shift 7s ease-in-out infinite;
     }
     .wordmark .amp {
-      font-size: 22px; font-weight: 600;
+      font-size: 17px; font-weight: 500;
       color: var(--text-dim);
     }
+    /* AURORA subiu de --text-secondary para --text. Metade do nome do produto
+       estava na cor de legenda, o que deixava "SAPHO" sozinho como marca e
+       "AURORA" como comentário sobre ele. No branco do texto os dois viram um
+       letreiro só, e a diferença de tamanho (40 contra 21) já dá a hierarquia
+       sem precisar apagar um deles. */
     .wordmark .aurora {
-      font-size: 26px; font-weight: 600;
-      letter-spacing: 0.30em;
-      color: var(--text-soft);
+      font-size: 21px; font-weight: 600;
+      letter-spacing: 0.26em;
+      color: var(--text);
     }
 
+    /* 9,5px com 0,22em de entreletra cabem numa linha só na largura que sobra ao
+       lado do ícone, nos dois idiomas. Era 11px com 0,30em, que quebrava a frase
+       em duas e deixava "HARDWARE" sozinha na segunda. */
+    /* A cor era --text-muted, a mais apagada da rampa. A 9,5px, em maiúsculas e
+       com 0,22em de entreletra, sobre um céu com estrelas, isso fica no piso da
+       legibilidade:
+       é a única frase da tela que explica o que o produto é, e era a mais
+       difícil de ler. --text-secondary a devolve sem competir com o letreiro,
+       que agora está em branco. */
     .tagline {
-      font-size: 11px; font-weight: 500;
-      letter-spacing: 0.30em; text-transform: uppercase;
-      color: var(--text-dim);
+      font-size: 9.5px; font-weight: 500;
+      letter-spacing: 0.22em; text-transform: uppercase;
+      color: var(--text-secondary);
+      white-space: nowrap;
       animation: rise 700ms 180ms cubic-bezier(0.19,1,0.22,1) both;
     }
 
@@ -203,64 +279,8 @@
 <body>
   <div class="stage">
 
-    <!-- ====== Aurora ribbons (SVG animado, inspirado no site NIPSCERN) ====== -->
-    <svg class="aurora-svg" xmlns="http://www.w3.org/2000/svg"
-         viewBox="0 0 720 480" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <linearGradient id="rb1" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"   stop-color="rgba(0,0,0,0)"/>
-          <stop offset="14%"  stop-color="rgba(69,224,160,0.55)"/>
-          <stop offset="38%"  stop-color="rgba(47,217,195,0.80)"/>
-          <stop offset="60%"  stop-color="rgba(79,200,240,0.72)"/>
-          <stop offset="82%"  stop-color="rgba(142,131,232,0.50)"/>
-          <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
-        </linearGradient>
-        <linearGradient id="rb2" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%"   stop-color="rgba(0,0,0,0)"/>
-          <stop offset="22%"  stop-color="rgba(47,217,195,0.40)"/>
-          <stop offset="50%"  stop-color="rgba(79,200,240,0.46)"/>
-          <stop offset="76%"  stop-color="rgba(188,138,230,0.34)"/>
-          <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
-        </linearGradient>
-        <linearGradient id="rays" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%"   stop-color="rgba(69,224,160,0.28)"/>
-          <stop offset="100%" stop-color="rgba(79,200,240,0)"/>
-        </linearGradient>
-        <filter id="bA" x="-5%" y="-220%" width="110%" height="540%"><feGaussianBlur stdDeviation="2 7"/></filter>
-        <filter id="bB" x="-5%" y="-160%" width="110%" height="420%"><feGaussianBlur stdDeviation="5 11"/></filter>
-        <filter id="bR" x="-5%" y="-10%"  width="110%" height="130%"><feGaussianBlur stdDeviation="9 18"/></filter>
-      </defs>
-
-      <!-- raios verticais sob a fita principal -->
-      <path fill="url(#rays)" filter="url(#bR)" opacity="0.7">
-        <animate attributeName="d" dur="20s" repeatCount="indefinite"
-          calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"
-          values="
-            M-90,96 C120,74 240,116 360,92 C480,68 600,104 810,86 L810,250 C600,266 480,236 360,256 C240,276 120,244 -90,262 Z;
-            M-90,118 C120,98 240,138 360,114 C480,90 600,126 810,108 L810,272 C600,288 480,258 360,278 C240,298 120,266 -90,284 Z;
-            M-90,96 C120,74 240,116 360,92 C480,68 600,104 810,86 L810,250 C600,266 480,236 360,256 C240,276 120,244 -90,262 Z"/>
-      </path>
-
-      <!-- fita principal -->
-      <path fill="url(#rb1)" filter="url(#bA)" opacity="0.95">
-        <animate attributeName="d" dur="20s" repeatCount="indefinite"
-          calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"
-          values="
-            M-90,94 C120,72 240,114 360,90 C480,66 600,102 810,84 L810,140 C600,156 480,126 360,146 C240,166 120,134 -90,152 Z;
-            M-90,116 C120,96 240,136 360,112 C480,88 600,124 810,106 L810,162 C600,178 480,148 360,168 C240,188 120,156 -90,174 Z;
-            M-90,94 C120,72 240,114 360,90 C480,66 600,102 810,84 L810,140 C600,156 480,126 360,146 C240,166 120,134 -90,152 Z"/>
-      </path>
-
-      <!-- fita secundária, mais baixa e suave -->
-      <path fill="url(#rb2)" filter="url(#bB)" opacity="0.6">
-        <animate attributeName="d" dur="27s" repeatCount="indefinite"
-          calcMode="spline" keySplines="0.45 0 0.55 1; 0.45 0 0.55 1"
-          values="
-            M-90,184 C120,168 240,196 360,176 C480,156 600,188 810,170 L810,214 C600,230 480,202 360,220 C240,238 120,214 -90,226 Z;
-            M-90,168 C120,186 240,170 360,190 C480,210 600,176 810,196 L810,200 C600,214 480,196 360,204 C240,214 120,202 -90,212 Z;
-            M-90,184 C120,168 240,196 360,176 C480,156 600,188 810,170 L810,214 C600,230 480,202 360,220 C240,238 120,214 -90,226 Z"/>
-      </path>
-    </svg>
+    <!-- ====== Aurora: colunas de emissao em canvas (js/ui/aurora.js) ====== -->
+    <canvas id="aurora"></canvas>
 
     <!-- ====== Starfield + estrelas cadentes ====== -->
     <canvas id="stars"></canvas>
@@ -270,12 +290,14 @@
       <div class="mark">
         <img src="../assets/icons/sapho_aurora_icon.svg" alt="SAPHO">
       </div>
-      <div class="wordmark">
-        <span class="sapho">SAPHO</span>
-        <span class="amp">&amp;</span>
-        <span class="aurora">AURORA</span>
+      <div class="lockup">
+        <div class="wordmark">
+          <span class="sapho">SAPHO</span>
+          <span class="amp">&amp;</span>
+          <span class="aurora">AURORA</span>
+        </div>
+        <p class="tagline" id="tagline">Scalable-Architecture Processor for Hardware Optimization</p>
       </div>
-      <p class="tagline" id="tagline">Scalable-Architecture Processor for Hardware Optimization</p>
     </div>
 
     <!-- ====== Rodapé com progresso real ====== -->
@@ -328,80 +350,13 @@
     })();
     const T = STRINGS[locale] || STRINGS.pt;
     document.getElementById('tagline').textContent = T.tagline;
-
-    // ============================================================
-    //  Starfield em canvas — cintilância + estrelas cadentes
-    //  (adaptado do site institucional NIPSCERN / projects/aurora)
-    // ============================================================
-    (function starfield() {
-      const canvas = document.getElementById('stars');
-      const ctx = canvas.getContext('2d');
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      let W = 0, H = 0, stars = [], shooting = null, shootIn = 2.5, last = 0;
-
-      function resize() {
-        W = canvas.clientWidth; H = canvas.clientHeight;
-        canvas.width = W * dpr; canvas.height = H * dpr;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        stars = [];
-        const n = Math.round(W * H / 4200);
-        for (let i = 0; i < n; i++) {
-          stars.push({
-            x: Math.random() * W,
-            y: Math.random() * H * 0.78,
-            r: 0.3 + Math.random() * 1.3,
-            base: 0.12 + Math.random() * 0.55,
-            freq: 0.3 + Math.random() * 1.2,
-            phase: Math.random() * Math.PI * 2,
-          });
-        }
-      }
-      function newShooter() {
-        return {
-          x: Math.random() * W * 0.65,
-          y: Math.random() * H * 0.32,
-          vx: 360 + Math.random() * 220,
-          vy: 150 + Math.random() * 120,
-          life: 1, tail: [],
-        };
-      }
-      function frame(ts) {
-        const dt = Math.min((ts - last) / 1000, 0.05); last = ts;
-        ctx.clearRect(0, 0, W, H);
-        for (const s of stars) {
-          let op = s.base + 0.30 * Math.sin(ts * 0.001 * s.freq * Math.PI * 2 + s.phase);
-          op = Math.max(0.04, Math.min(1, op));
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(214,234,255,' + op.toFixed(2) + ')';
-          ctx.fill();
-        }
-        shootIn -= dt;
-        if (shootIn <= 0 && !shooting) { shooting = newShooter(); shootIn = 6 + Math.random() * 9; }
-        if (shooting) {
-          shooting.x += shooting.vx * dt;
-          shooting.y += shooting.vy * dt;
-          shooting.life -= dt * 1.15;
-          shooting.tail.push({ x: shooting.x, y: shooting.y });
-          if (shooting.tail.length > 16) shooting.tail.shift();
-          ctx.lineCap = 'round';
-          for (let j = 1; j < shooting.tail.length; j++) {
-            const p0 = shooting.tail[j - 1], p1 = shooting.tail[j];
-            const a = (j / shooting.tail.length) * Math.max(0, shooting.life) * 0.8;
-            ctx.beginPath();
-            ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y);
-            ctx.strokeStyle = 'rgba(220,242,255,' + a.toFixed(2) + ')';
-            ctx.lineWidth = 1.5 * (j / shooting.tail.length);
-            ctx.stroke();
-          }
-          if (shooting.life <= 0 || shooting.x > W + 60 || shooting.y > H + 60) shooting = null;
-        }
-        requestAnimationFrame(frame);
-      }
-      resize();
-      window.addEventListener('resize', resize);
-      requestAnimationFrame(frame);
-    })();
+    /* A fase também, e não só a tagline. O rótulo inicial está cravado em
+       inglês no markup e só era traduzido quando o PRIMEIRO evento de progresso
+       chegava com uma fase conhecida — o que acontece uns instantes depois de a
+       janela aparecer. Numa máquina em português, a splash abria com
+       "Starting SAPHO" embaixo de uma tagline em português, e voltava ao normal
+       tão rápido que passava por defeito de renderização. */
+    document.getElementById('phase').textContent = T.boot;
 
     // ============================================================
     //  Progresso real — alimentado por main/windows.js via IPC.
@@ -443,6 +398,19 @@
         .then((v) => { if (v) versionEl.textContent = v.startsWith('v') ? v : 'v' + v; })
         .catch(() => {});
     }
+  </script>
+
+  <!-- O céu, do catálogo HYG, em módulo à parte.
+       Ele cresceu além do que cabe numa página, e o catálogo entra embutido no
+       bundle porque a splash abre por file://, onde fetch de caminho não passa.
+       js/ui/sky.js conta o resto. -->
+  <script type="module">
+    import { sky } from '../js/ui/sky.js';
+    import { aurora } from '../js/ui/aurora.js';
+    const ceu = document.getElementById('stars');
+    if (ceu) sky(ceu);
+    const luz = document.getElementById('aurora');
+    if (luz) aurora(luz);
   </script>
 </body>
 </html>

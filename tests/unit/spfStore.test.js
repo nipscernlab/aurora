@@ -1,5 +1,5 @@
 /**
- * Unit tests pra SpfStore — foco em garantias que outras camadas
+ * Unit tests pra SpfStore, foco em garantias que outras camadas
  * dependem mas nao testam: read coalescing (varias leituras no mesmo
  * tick batem disk uma vez) e a notificacao `aurora:spf-changed`
  * disparada por update().
@@ -38,7 +38,7 @@ function makeFakeElectronApi() {
 // `window` precisa existir antes do import do SpfStore (que faz
 // `if (typeof window !== 'undefined') window.SpfStore = ...`). Como
 // ja importamos no topo do arquivo, isso ja rodou contra um window
-// undefined. Tudo bem — os testes usam SpfStore via import direto,
+// undefined. Tudo bem, os testes usam SpfStore via import direto,
 // nao via window.SpfStore.
 
 beforeEach(() => {
@@ -88,7 +88,7 @@ describe('SpfStore read coalescing', () => {
             structure: { processors: [{ name: 'cpu' }] },
         }));
 
-        // 6 reads paralelos do mesmo path — o cenario que motivou a
+        // 6 reads paralelos do mesmo path, o cenario que motivou a
         // mudanca (status_bar + processor_config_panel + file_mode +
         // gtkw_picker + compilation_module + wave_config_manager
         // todos reagindo ao mesmo evento).
@@ -106,7 +106,7 @@ describe('SpfStore read coalescing', () => {
         for (const r of results) {
             expect(r.processors).toEqual([{ name: 'cpu' }]);
         }
-        // E so 1 readFile fisico — coalescing funcionou.
+        // E so 1 readFile fisico, coalescing funcionou.
         expect(window.electronAPI._counters.readFile).toBe(1);
         expect(window.electronAPI._counters.fileExists).toBe(1);
     });
@@ -156,7 +156,7 @@ describe('SpfStore.update dispatches aurora:spf-changed', () => {
     it('updates serializados disparam o evento uma vez cada', async () => {
         window.electronAPI._files.set('/proj/a.spf', JSON.stringify({ structure: {} }));
 
-        // Mutators usam paths absolutos (igual ao caller real — file
+        // Mutators usam paths absolutos (igual ao caller real, file
         // tree sempre tem caminho absoluto via electronAPI). SpfStore
         // grava como relativo no disco se estiver dentro do basePath
         // (= dirname do .spf), mas leitura retorna absoluto de novo.
@@ -204,7 +204,7 @@ describe('SpfStore.update dispatches aurora:spf-changed', () => {
         });
         expect(window._eventCount).toBe(1);
 
-        // Mesma push gera mesmo estado — sem dedup do caller, o
+        // Mesma push gera mesmo estado, sem dedup do caller, o
         // mutator empurra de novo. STRUCTURE muda (array tem 2
         // entries agora). Event dispara.
         // Cobre o caso onde queremos garantir que comparamos
@@ -304,7 +304,7 @@ describe('SpfStore path normalization (relative-on-disk, absolute-in-memory)', (
         }));
 
         // Ler + re-salvar (qualquer mutator que MUDE structure pra
-        // disparar write — push em array conta como mudanca).
+        // disparar write, push em array conta como mudanca).
         await SpfStore.update('/proj/teste.spf', (s) => {
             s.synthesizableFiles.push({ name: 'b.v', path: '/proj/teste/b.v' });
         });
@@ -317,7 +317,7 @@ describe('SpfStore path normalization (relative-on-disk, absolute-in-memory)', (
         // Path outside-basePath manteve absoluto.
         expect(onDisk.structure.synthesizableFiles[1].path).toBe('/other/lib.v');
 
-        // E read subsequente expande de volta pra absoluto — caller ve absoluto.
+        // E read subsequente expande de volta pra absoluto, caller ve absoluto.
         const sAfter = await SpfStore.read('/proj/teste.spf');
         expect(sAfter.topLevelFile).toBe('/proj/teste/top.v');
         expect(sAfter.synthesizableFiles[0].path).toBe('/proj/teste/a.v');

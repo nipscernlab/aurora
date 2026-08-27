@@ -1,15 +1,15 @@
 // @ts-check
 /**
- * shell.js — the embedded interactive shell behind the TCMD terminal tab.
+ * shell.js: the embedded interactive shell behind the TCMD terminal tab.
  *
- * Backed by a real pseudo-terminal (@lydell/node-pty — a ConPTY-only, prebuilt
+ * Backed by a real pseudo-terminal (@lydell/node-pty, a ConPTY-only, prebuilt
  * fork, so there is NO native compilation in dev or when packaging). A true PTY
  * gives the renderer's xterm.js everything a terminal has: inline editing, the
  * shell's own Tab autocomplete, colours, cursor, and resize. `cd`/env persist;
  * python detects a TTY and streams live (PYTHONUNBUFFERED is set as a belt).
  *
  * SECURITY: this runs ARBITRARY commands the human types, so it is a separate,
- * human-only channel — deliberately NOT the toolchain `exec-spec` path and NOT
+ * human-only channel, deliberately NOT the toolchain `exec-spec` path and NOT
  * reachable from the AI tool bridge / MCP. The AI never gets a handle to it.
  *
  * Lifecycle: one PTY per session id; killed (which tears down its child tree,
@@ -159,7 +159,7 @@ function register() {
     const s = sessions.get(String(payload.id || 'tcmd'));
     if (!s) return { ok: false };
     // Mesma regra do shell:start. Eram duas regras diferentes, e para cols=0
-    // uma dava 2 e a outra 80 — iniciar e redimensionar com o mesmo valor
+    // uma dava 2 e a outra 80, iniciar e redimensionar com o mesmo valor
     // produziam terminais diferentes.
     const { cols, rows } = clampGrid(payload);
     try { s.proc.resize(cols, rows); return { ok: true }; }
@@ -175,7 +175,7 @@ function register() {
   /**
    * Update the shell context the aurora prompt reads (currently the active
    * processor). Fire-and-forget from the renderer whenever the value changes;
-   * the running prompt re-reads the file on its next render — no terminal noise,
+   * the running prompt re-reads the file on its next render, no terminal noise,
    * no PTY writes. Payload: { processor? }.
    */
   ipcMain.handle('shell:context', (_event, payload = {}) => {

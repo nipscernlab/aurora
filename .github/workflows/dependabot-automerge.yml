@@ -6,7 +6,7 @@ name: Dependabot auto-merge
 # Why the trigger is `workflow_run` and not `pull_request_target`:
 # the previous version armed `gh pr merge --auto` as soon as the PR
 # opened. GitHub's auto-merge only waits when the branch has *required*
-# status checks, and `main` here is unprotected on purpose — the repo
+# status checks, and `main` here is unprotected on purpose, the repo
 # owner pushes to it directly. So "--auto" meant "merge right now", and
 # fs-extra 11.4.0 landed on main without a single check having run.
 # Worse, the merge commit itself never ran CI either: pushes made with
@@ -53,7 +53,7 @@ jobs:
           fi
 
           # Dependabot stamps machine-readable metadata into the commit
-          # message body — the same source dependabot/fetch-metadata
+          # message body, the same source dependabot/fetch-metadata
           # parses. That action only runs on pull_request events, so on
           # workflow_run we read the commit directly.
           msg=$(gh api "repos/$REPO/commits/$HEAD_SHA" --jq '.commit.message')

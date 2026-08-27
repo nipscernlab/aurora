@@ -1,5 +1,5 @@
 /**
- * @file Centralized confirm/alert dialog — one of TWO canonical UI surfaces.
+ * @file Centralized confirm/alert dialog, one of TWO canonical UI surfaces.
  *       Shape:
  *         await showDialog({
  *           title:   'Close Project',

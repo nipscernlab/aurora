@@ -1,7 +1,7 @@
 /**
  * Unit tests for the filename sanitizer used wherever module names or
  * project names get spliced into filesystem paths. The control-byte clause
- * is the security-critical bit — bytes \\x00..\\x1f can sneak in via
+ * is the security-critical bit, bytes \\x00..\\x1f can sneak in via
  * copy-paste and cause inconsistent behaviour downstream.
  */
 
@@ -39,7 +39,7 @@ describe('sanitizeFileName', () => {
     });
 
     it('replaces every byte in the \\x00..\\x1f range', () => {
-      // \x07 (BEL), \x0c (FF), \x1b (ESC), \x1f (US) — all should get replaced.
+      // \x07 (BEL), \x0c (FF), \x1b (ESC), \x1f (US), all should get replaced.
       const dirty = `a\x07b\x0cc\x1bd\x1fe`;
       expect(sanitizeFileName(dirty)).toBe('a_b_c_d_e');
     });
@@ -63,7 +63,7 @@ describe('sanitizeFileName', () => {
       // \\t and \\n are *both* in the 0x00..0x1f control-byte range, so they
       // hit the first replace (per-character) before the \\s+ collapsing pass
       // ever sees them. Result: one underscore per control byte, not a
-      // collapsed run. This is fine for filename safety — the goal is
+      // collapsed run. This is fine for filename safety, the goal is
       // strip-or-replace, not minify whitespace.
       expect(sanitizeFileName('foo\t\nbar')).toBe('foo__bar');
     });

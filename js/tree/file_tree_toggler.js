@@ -25,7 +25,7 @@ class FileTreeController {
     if (this.collapseButton) {
       this.collapseButton.addEventListener('click', () => this.toggleTree());
       this.updateCollapseButtonState();
-      // Tooltip text comes from window.t — re-apply on locale change.
+      // Tooltip text comes from window.t, re-apply on locale change.
       window.addEventListener('aurora:locale-changed', () => this.updateCollapseButtonState());
     }
 
@@ -85,7 +85,7 @@ class FileTreeController {
   /**
    * Smart collapse/expand-all toggle for the two views that have a
    * collapsible tree: the toplevel module hierarchy and the standard
-   * folder tree (the verilog picker is flat — no-op there). If anything
+   * folder tree (the verilog picker is flat, no-op there). If anything
    * is currently expanded we collapse everything; otherwise we expand
    * everything. The action is decided from live state each click, so it
    * always does the right thing regardless of manual node toggles.
@@ -155,7 +155,7 @@ class FileTreeController {
    */
   updateCollapseButtonState() {
     if (!this.collapseButton) return;
-    // VS Code-style "collapse all" glyph (square with a minus) — matches the
+    // VS Code-style "collapse all" glyph (square with a minus), matches the
     // Explorer's rightmost header action the users already know.
     const icon = this.collapseButton.querySelector('i');
     if (icon) icon.className = 'ph ph-minus-square';

@@ -1,8 +1,8 @@
 /**
- * ai_selection_widget.js — the "ask Aurora about this" star for Monaco.
+ * ai_selection_widget.js: the "ask Aurora about this" star for Monaco.
  *
  * Attaches a floating sparkle button to a Monaco editor that appears whenever
- * the user has a non-empty selection (in ANY pane — main or split). Clicking it
+ * the user has a non-empty selection (in ANY pane, main or split). Clicking it
  * opens a small menu of quick intents (Explain / Fix / Improve / Comment) plus
  * a free-form "Ask…". The chosen action is handed to
  * `window.AuroraAPI.ai.askAboutSelection(...)`, which opens the AI panel and
@@ -10,7 +10,7 @@
  * sends it straight away).
  *
  * Both editor factories call `attachAiSelectionWidget(editor, { getFilePath })`
- * once per instance — see monaco_editor.js (main pane) and split_editor.js.
+ * once per instance, see monaco_editor.js (main pane) and split_editor.js.
  */
 
 const WIDGET_ID = 'aurora.ai.selectionStar';
@@ -32,7 +32,7 @@ const MENU_ITEMS = [
  */
 export function attachAiSelectionWidget(editor, opts = {}) {
   if (!editor || !window.monaco) return;
-  // Editors are reused (idempotent createEditorInstance) — never double-attach.
+  // Editors are reused (idempotent createEditorInstance), never double-attach.
   if (editor.__auroraAiStarAttached) return;
   editor.__auroraAiStarAttached = true;
 
@@ -45,7 +45,7 @@ export function attachAiSelectionWidget(editor, opts = {}) {
   node.className = 'ai-selection-star';
   node.title = 'Ask Aurora Intelligence about this selection';
   node.setAttribute('role', 'button');
-  // A single Phosphor sparkle — centres cleanly in the button (the old custom
+  // A single Phosphor sparkle, centres cleanly in the button (the old custom
   // 3-star SVG sat off-centre because its glyphs weren't centred in the viewBox).
   node.innerHTML = '<i class="ph-bold ph-sparkle" aria-hidden="true"></i>';
   node.style.display = 'none';

@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * pylibs.js — IPC do painel de bibliotecas Python.
+ * pylibs.js: IPC do painel de bibliotecas Python.
  *
  * Canais enumerados, um por acao. O progresso volta pelo evento
  * `pylibs:progress`, no mesmo formato que o resto da AURORA ja usa para
@@ -8,7 +8,7 @@
  *
  *   { id, phase: 'download'|'verify'|'extract'|'done', pct, detail? }
  *
- * O evento vai para o webContents que PEDIU a operacao, nao em broadcast — duas
+ * O evento vai para o webContents que PEDIU a operacao, nao em broadcast, duas
  * janelas nao se confundem com o progresso uma da outra.
  */
 
@@ -82,7 +82,7 @@ function register() {
   ipcMain.handle('pylibs:refresh-catalog', (_event, force) =>
     guard(() => catalog.refresh({ force: !!force })));
 
-  // Diagnostico rapido (so stat) — e o que o painel pede ao abrir.
+  // Diagnostico rapido (so stat), e o que o painel pede ao abrir.
   ipcMain.handle('pylibs:doctor', () => guard(async () => watch.latest()));
 
   // Verificacao completa: le cada arquivo e compara o sha256 do RECORD da

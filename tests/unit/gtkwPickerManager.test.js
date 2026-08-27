@@ -19,7 +19,7 @@
 // monaco's AMD require fire as import side-effects), so any unit test of
 // it is coupled to unrelated boot code and would break for unrelated
 // reasons. Making it testable means extracting those import-time side
-// effects first — a refactor, tracked separately.
+// effects first, a refactor, tracked separately.
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { GtkwPickerManager } from '../../js/wave/gtkw_picker.js';
 import { WaveStore } from '../../js/wave/wave_state_store.js';
@@ -46,7 +46,7 @@ describe('GtkwPickerManager — pure constructor (§8: constructors do I/O)', ()
         const inst = new GtkwPickerManager();
 
         // The fragility class is a manager that reaches for #gtkwPicker in
-        // its constructor. This one must not — boot order can't break it.
+        // its constructor. This one must not, boot order can't break it.
         expect(spy).not.toHaveBeenCalled();
         expect(inst.root).toBeNull();
         expect(inst.button).toBeNull();
@@ -81,7 +81,7 @@ describe('GtkwPickerManager — idempotent initialize (§8: one listener, attach
         expect(inst._initialized).toBe(true);
 
         // initialize() runs refresh(), which disables the button with no
-        // project open — and a disabled button swallows clicks. Re-enable
+        // project open, and a disabled button swallows clicks. Re-enable
         // it so the click actually reaches the listener we're counting.
         const btn = document.getElementById('gtkwPickerButton');
         btn.disabled = false;

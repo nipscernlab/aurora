@@ -1,5 +1,5 @@
 /*
- * pylib_panel.css — o painel de bibliotecas Python.
+ * pylib_panel.css: o painel de bibliotecas Python.
  *
  * Só tokens semânticos do design system (css/base/semantic_tokens.css), como o
  * git_panel: nenhuma cor literal, para o painel acompanhar o tema sem retoque.
@@ -183,12 +183,18 @@
 
 .pylib-list { display: flex; flex-direction: column; gap: var(--space-2); }
 
+/* Colapsado o cartao e uma LINHA, entao o que manda na altura passou a ser o
+   icone e o respiro, e nao mais o texto. Por isso a coluna do icone caiu de 40
+   para 30 e o respiro vertical de --space-3 para --space-2: com a prosa fora,
+   os valores antigos deixavam cada linha com 74px de altura para mostrar um
+   nome e um botao. E `align-items: center`, e nao `start`, porque com uma linha
+   so nao ha o que alinhar pelo topo. Expandido, o cartao volta a respirar. */
 .pylib-card {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 30px 1fr auto;
   gap: var(--space-3);
-  align-items: start;
-  padding: var(--space-3);
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-hairline);
   border-radius: var(--radius-lg);
   background: var(--bg-elev);
@@ -196,6 +202,24 @@
 }
 
 .pylib-card:hover { border-color: var(--border-strong); background: var(--bg-elev-2); }
+
+/* O cartao inteiro abre e fecha, entao ele se anuncia como alvo. Os controles
+   dentro dele voltam ao cursor normal, senao um botao Instalar herdaria o
+   ponteiro de "isto abre" e prometeria a coisa errada. */
+.pylib-card { cursor: pointer; }
+.pylib-card button,
+.pylib-card a { cursor: default; }
+.pylib-card button:not(:disabled),
+.pylib-card a[href] { cursor: pointer; }
+
+/* A seta gira ao abrir: e o unico sinal de que o cartao esta aberto quando o
+   detalhe esta fora da area visivel. */
+.pylib-card [data-action="toggle"] i { transition: transform var(--motion-flow) var(--ease-out-quart); }
+.pylib-card.expanded [data-action="toggle"] i { transform: rotate(180deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pylib-card [data-action="toggle"] i { transition: none; }
+}
 
 .pylib-card[data-state='installed'] {
   border-color: color-mix(in srgb, var(--status-success) 35%, var(--border-hairline));
@@ -209,10 +233,17 @@
 .pylib-card[data-state='unavailable'] { opacity: 0.72; }
 
 .pylib-icon {
-  width: 32px;
-  height: 32px;
+  width: 26px;
+  height: 26px;
   color: var(--accent);
-  margin-top: 2px;
+}
+
+/* Expandido, o cartao volta ao alinhamento pelo topo e ao respiro maior: ali
+   ha varias linhas, e o icone ao lado do nome (nao no meio de um paragrafo) e
+   o que mantem a leitura. */
+.pylib-card.expanded {
+  align-items: start;
+  padding: var(--space-3);
 }
 
 .pylib-card[data-state='unavailable'] .pylib-icon { color: var(--text-faint); }
@@ -262,6 +293,50 @@
   color: var(--status-info);
 }
 
+/* O RESUMO SO APARECE EXPANDIDO, e essa e a mudanca que muda o painel.
+   Com 29 bibliotecas, cada cartao carregando duas linhas de prosa, a lista
+   media 3244px de altura e cabiam SEIS na tela: achar uma biblioteca era
+   rolar. Colapsada, a linha guarda o que decide (nome, versao, estado,
+   tamanho) e a prosa vai para a expansao que ja existia, junto dos usos. A
+   lista cai para perto de um terco e passam a caber umas quinze.
+
+   O resumo continua no DOM colapsado, e nao removido, porque e ele que o
+   filtro por texto pesquisa: escondido por CSS, a busca acha; ausente, nao. */
+/* O DETALHE ABRE ANIMADO, e por isso ele existe como involucro.
+   `display: none` para `block` nao tem meio-termo: o cartao dava um pulo e o
+   resto da lista saltava junto. `height: auto` tambem nao anima. O que anima e
+   uma grade de UMA linha indo de 0fr a 1fr, com o filho em overflow hidden: o
+   navegador interpola a fracao e a altura sai de graca, sem ninguem precisar
+   medir o conteudo em JavaScript nem cravar um max-height que mente quando a
+   descricao e maior do que o palpite. */
+.pylib-detalhe {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--motion-flow) var(--ease-out-quart);
+}
+
+.pylib-detalhe-interno {
+  overflow: hidden;
+  min-height: 0;   /* sem isto o filho da grade recusa encolher abaixo do conteudo */
+}
+
+.pylib-card.expanded .pylib-detalhe { grid-template-rows: 1fr; }
+
+/* O conteudo tambem esmaece, um pouco atras da altura: so a altura mexendo
+   parece uma persiana, e o texto aparecendo junto parece a linha respirando. */
+.pylib-detalhe-interno > * {
+  opacity: 0;
+  transition: opacity var(--motion-quick) var(--ease-out-quart);
+}
+.pylib-card.expanded .pylib-detalhe-interno > * { opacity: 1; }
+
+/* Quem pediu menos movimento troca a animacao por um corte seco, que e o
+   comportamento antigo, e nao fica sem o conteudo. */
+@media (prefers-reduced-motion: reduce) {
+  .pylib-detalhe,
+  .pylib-detalhe-interno > * { transition: none; }
+}
+
 .pylib-summary {
   margin: 4px 0 0;
   font-size: var(--text-xs);
@@ -272,10 +347,15 @@
 .pylib-uses {
   margin: var(--space-2) 0 0;
   padding-left: 16px;
-  display: none; /* revelado ao expandir */
 }
 
-.pylib-card.expanded .pylib-uses { display: block; }
+/* O tamanho na linha colapsada. Fica ao lado da versao, na mesma discricao. */
+.pylib-size {
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
 
 .pylib-uses li {
   font-size: var(--text-xs);
@@ -294,6 +374,11 @@
 
 .pylib-meta a { color: var(--text-muted); text-decoration: none; }
 .pylib-meta a:hover { color: var(--accent); text-decoration: underline; }
+
+/* Licenca, contagem de pacotes e link do site interessam a quem ja parou
+   naquela biblioteca, e nao a quem esta varrendo a lista; por isso vivem dentro
+   do `.pylib-detalhe`, que os recolhe junto com o resumo. Nao ha regra de
+   display aqui: quem esconde e o involucro. */
 
 /* Explicação de por que a biblioteca compilada não instala. */
 .pylib-why {
@@ -364,7 +449,7 @@
  * Enquanto instala, o botão vira um disco cujo preenchimento é um
  * `conic-gradient` guiado pela custom property --pct (0 a 100), escrita pelo JS
  * a cada evento de progresso. Como é a MESMA caixa do botão parado, nada no
- * layout se move quando o estado troca — só o conteúdo interno muda.
+ * layout se move quando o estado troca, só o conteúdo interno muda.
  */
 .pylib-btn[data-busy='1'] {
   position: relative;

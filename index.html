@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SAPHO</title>
-    <!-- Phosphor Icons (canonical, used everywhere visible) — bundled locally
+    <!-- Phosphor Icons (canonical, used everywhere visible), bundled locally
          (node_modules) instead of a render-blocking unpkg CDN fetch, so the
          first paint never waits on the network and icons work offline.
          These node_modules/ paths resolve as-is when the raw index.html is
@@ -12,7 +12,7 @@
          dev-served and built renderer (vite.config.mjs → rewriteVendorPaths). -->
     <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/regular/style.css">
     <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/bold/style.css">
-    <!-- KaTeX — real LaTeX rendering for the AI chat (bundled locally, offline). -->
+    <!-- KaTeX, real LaTeX rendering for the AI chat (bundled locally, offline). -->
     <link rel="stylesheet" href="node_modules/katex/dist/katex.min.css">
     <script defer src="node_modules/katex/dist/katex.min.js"></script>
     <link rel="stylesheet" href="./css/import.css">
@@ -49,13 +49,13 @@
 <body class="theme-dark">
 
 <!-- ============================================================
-     APP SHELL — toolbar + main pane stack on top, status bar below
+     APP SHELL, toolbar + main pane stack on top, status bar below
      ============================================================ -->
 <div class="app-shell">
 
   <!-- Toolbar = custom title bar (drag region + tools + traffic lights)
 
-       Layout: three zones — left / center / right — wrapping the groups
+       Layout: three zones, left / center / right, wrapping the groups
        below. The center zone (Processor Hub → gtkw picker) is anchored
        at the toolbar's visual midpoint via flex 1/auto/1 (same trick
        the status bar uses).
@@ -69,7 +69,7 @@
        Each cluster is wrapped in `.toolbar-group`; vertical hairlines
        between center groups use `.toolbar-separator`. -->
   <aurora-titlebar class="toolbar" id="custom-titlebar">
-    <!-- Tres zonas (left / center / right) com flex 1/auto/1 — o
+    <!-- Tres zonas (left / center / right) com flex 1/auto/1, o
          centro fica no meio absoluto da toolbar independente da largura
          dos lados. Mesmo padrao da status bar. Window-controls vivem
          dentro da zone-right pra ancorar no canto. -->
@@ -77,7 +77,7 @@
     <!-- Zone left: file / project actions -->
     <div class="toolbar-zone toolbar-zone-left">
       <!-- SAPHO mark: tiny brand icon anchored at the very left edge of the
-           toolbar, before the sidebar toggle. Pure decoration — sits inside
+           toolbar, before the sidebar toggle. Pure decoration, sits inside
            the drag region so it doesn't interrupt window dragging. -->
       <span class="toolbar-brand" aria-label="SAPHO">
         <img src="./assets/icons/sapho_aurora_icon.svg" alt="">
@@ -149,10 +149,10 @@
                one is highlighted, the inactive one dimmed. Click a segment to
                select it. Active highlight is synced by simulator_toggle.js. -->
           <div id="simulatorSwitch" class="simulator-switch" role="group" aria-label="Simulation engine" data-i18n-aria-label="toolbar.simulatorSwitch.aria">
-              <button type="button" class="sim-seg" data-sim="iverilog" aria-pressed="true" data-tooltip="Icarus Verilog — all signals visible" data-i18n-tooltip="toolbar.simulatorSwitch.iverilog">
+              <button type="button" class="sim-seg" data-sim="iverilog" aria-pressed="true" data-tooltip="Icarus Verilog, all signals visible" data-i18n-tooltip="toolbar.simulatorSwitch.iverilog">
                   <img src="assets/icons/Icarus_Verilog_logo.png" alt="Icarus Verilog" class="sim-seg-icon" aria-hidden="true">
               </button>
-              <button type="button" class="sim-seg" data-sim="verilator" aria-pressed="false" data-tooltip="Verilator — faster" data-i18n-tooltip="toolbar.simulatorSwitch.verilator">
+              <button type="button" class="sim-seg" data-sim="verilator" aria-pressed="false" data-tooltip="Verilator, faster" data-i18n-tooltip="toolbar.simulatorSwitch.verilator">
                   <img src="assets/icons/Verilator_logo.png" alt="Verilator" class="sim-seg-icon" aria-hidden="true">
               </button>
           </div>
@@ -177,10 +177,10 @@
           </button>
           <!-- Fast Sim: Verilator headless (sem onda). So habilita com o toggle
                de simulador em Verilator (compilation_flow.syncToolbarEnabledState). -->
-          <button id="fastsim" class="toolbar-button compile-btn" data-tool="verilator-fast" data-tooltip="Fast run — Verilator, no waveform" data-i18n-tooltip="toolbar.fastSim.tooltip">
+          <button id="fastsim" class="toolbar-button compile-btn" data-tool="verilator-fast" data-tooltip="Fast run, Verilator, no waveform" data-i18n-tooltip="toolbar.fastSim.tooltip">
               <span class="glyph glyph-fastsim" aria-hidden="true">
                 <svg viewBox="0 0 16 16">
-                  <!-- Double chevron ">>" — fast-forward: run quick, no waveform -->
+                  <!-- Double chevron ">>", fast-forward: run quick, no waveform -->
                   <path d="M2 4 L6.5 8 L2 12"/>
                   <path d="M8 4 L12.5 8 L8 12"/>
                 </svg>
@@ -189,10 +189,10 @@
           <button id="cancel-everything" class="toolbar-button btn-stop icon-only" data-tooltip="Cancel compilation" data-i18n-tooltip="toolbar.cancel.tooltip">
               <i class="ph ph-stop-circle"></i>
           </button>
-          <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration — pick signals to dump" data-i18n-tooltip="toolbar.waveConfig.tooltip">
+          <button id="waveConfigBtn" class="toolbar-button icon-only" data-tooltip="Wave Configuration, pick signals to dump" data-i18n-tooltip="toolbar.waveConfig.tooltip">
               <i class="ph ph-list-checks"></i>
           </button>
-          <div id="gtkwPicker" class="gtkw-picker" data-tooltip="Active GTKWave save file (.gtkw) — used when launching GTKWave" data-i18n-tooltip="toolbar.gtkwPicker.tooltip">
+          <div id="gtkwPicker" class="gtkw-picker" data-tooltip="Active GTKWave save file (.gtkw), used when launching GTKWave" data-i18n-tooltip="toolbar.gtkwPicker.tooltip">
             <button id="gtkwPickerButton" type="button" class="gtkw-picker-button">
               <span class="gtkw-picker-label" data-i18n="toolbar.gtkwPicker.default">default</span>
               <i class="ph ph-caret-down gtkw-picker-caret" aria-hidden="true"></i>
@@ -220,7 +220,7 @@
     </div>
 
     <!-- Zone right: Full Build + Settings + window controls.
-         Full Build e Settings ficam escondidos (display:none) hoje —
+         Full Build e Settings ficam escondidos (display:none) hoje -
          mantidos no DOM pra nao quebrar listeners legados.
          (#cancel-everything foi movido para a direita de #wavecomp.) -->
     <div class="toolbar-zone toolbar-zone-right">
@@ -232,7 +232,7 @@
               </button>
           </div>
 
-          <!-- Aurora locale toggle (PT/EN) lives in Aurora Settings now —
+          <!-- Aurora locale toggle (PT/EN) lives in Aurora Settings now -
                see the "Language" section in #settings-modal. It still
                controls both UI strings and the yanc -pt/-en flag. -->
           <!-- The split-editor control now floats inside the focused Monaco
@@ -253,13 +253,16 @@
           </button>
           <button id="aurora-settings" class="toolbar-button icon-only" data-tooltip="Aurora settings" data-i18n-tooltip="toolbar.settings.tooltip">
               <i class="ph ph-sliders-horizontal"></i>
+              <!-- Ponto de aviso quando falta um componente sem o qual a máquina
+                   não compila. Mesmo desenho do aviso do PyLibs, ao lado. -->
+              <span class="settings-badge" id="settings-badge" hidden></span>
           </button>
           <button id="aiButton" class="toolbar-button btn-ai icon-only" data-tooltip="AI assistant" data-i18n-tooltip="toolbar.ai.tooltip">
               <i class="ph ph-sparkle"></i>
           </button>
       </div>
 
-      <!-- Classic window controls (minimize / maximize-restore / close) — pinned right -->
+      <!-- Classic window controls (minimize / maximize-restore / close), pinned right -->
       <div class="window-controls" data-no-tooltip>
         <button class="window-ctrl ctrl-min" id="win-min" aria-label="Minimize" data-i18n-aria-label="windowControls.minimize" data-no-tooltip>
             <svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
@@ -308,7 +311,7 @@
           <div class="proc-config-sim-time" id="procConfigSimTimeRow">
               <span class="proc-config-sim-time-label">Estimated simulation time</span>
               <span class="proc-config-sim-time-readout">
-                  <span class="proc-config-sim-time-value" id="procConfigSimTime">—</span>
+                  <span class="proc-config-sim-time-value" id="procConfigSimTime">-</span>
                   <i class="ph ph-clock proc-config-sim-time-icon" aria-hidden="true"></i>
               </span>
           </div>
@@ -316,7 +319,7 @@
   </div>
 
   <!-- ============================================================
-       MAIN — file tree + editor/terminal stack
+       MAIN, file tree + editor/terminal stack
        ============================================================ -->
   <div class="main-container">
     <!-- Trilhos de borda. Um painel colapsado tem largura zero, e o divisor
@@ -341,7 +344,7 @@
               // Avoid the "No project open" flash on cold start when a project
               // is about to be auto-restored. This runs synchronously during
               // HTML parse (before first paint), so the user only sees the
-              // final state — either the loading placeholder or the eventual
+              // final state, either the loading placeholder or the eventual
               // project name. AppInitializer.restoreLastSession() will replace
               // this with the actual project name once the IPC roundtrip lands.
               (function () {
@@ -366,7 +369,7 @@
             <!-- Cycles the file-tree view: Files (flat) → Hierarchy (Yosys
                  modules) → Folders (.spf dir tree). Icon/label/tooltip are
                  set per active view in file_tree_view_controller.js (uses
-                 data-tooltip, Aurora's custom tooltip; no data-i18n-tooltip —
+                 data-tooltip, Aurora's custom tooltip; no data-i18n-tooltip -
                  the controller owns the text and re-applies it on
                  aurora:locale-changed). -->
             <button id="alternate-tree-toggle" class="tree-toggle-btn disabled" data-tooltip="Open a project to browse files" disabled>
@@ -556,14 +559,14 @@
 </div>
 
 <!-- ============================================================
-     STATUS BAR — independent footer, full width edge-to-edge
+     STATUS BAR, independent footer, full width edge-to-edge
      ============================================================ -->
 <aurora-statusbar class="status-bar">
     <div class="status-zone status-zone-left">
         <div class="status-item" id="ready">
             <span id="status-text" data-i18n="statusBar.notReady">Not Ready</span>
         </div>
-        <!-- Processador "ativo" — populado por status_bar.js a partir
+        <!-- Processador "ativo", populado por status_bar.js a partir
              do .cmm em foco no Monaco (TabManager.getEditingFilePath
              cruzado com structure.processors). Hidden quando o projeto
              nao tem processadores: nao faz sentido falar de "ativo / nao
@@ -609,11 +612,21 @@
             <i class="ph ph-text-align-left"></i>
             <span>Ln 3, Col 3</span>
         </div>
-        <!-- GitHub / Source Control indicator. Icon when disconnected; the user's
-             avatar once signed in. Click opens the Source Control panel. Populated
-             by js/git/git_panel.js (setGithubStatusBar). -->
+        <!-- Indicador de energia: verde conectado, vermelho na bateria, com a
+             porcentagem no balao. Escondido ate a Battery API responder (e some
+             de vez onde ela nao existe). Preenchido por js/ui/power_status.js;
+             o clique abre um dialogo com a explicacao e o caminho para as
+             configuracoes de energia do Windows. -->
+        <div class="status-item status-power" id="powerStatusItem" role="button" tabindex="0" hidden data-tooltip="Power">
+            <i class="ph ph-battery-charging"></i>
+        </div>
+        <!-- Indicador de controle de versao: uma ficha por forja, sempre as
+             duas. Icone apagado quando desconectada, foto e @usuario quando
+             conectada. Clicar abre o painel. Preenchido por
+             js/git/git_panel.js (setForgeStatusBar). -->
         <div class="status-item status-github" id="githubStatusItem" role="button" tabindex="0" data-tooltip="Source Control">
-            <i class="ph ph-github-logo"></i>
+            <span class="status-forge"><i class="ph ph-github-logo"></i></span>
+            <span class="status-forge"><i class="ph ph-gitlab-logo-simple"></i></span>
         </div>
     </div>
 </aurora-statusbar>
@@ -642,6 +655,11 @@
                 <p class="form-hint" data-i18n="modal.waveConfig.hint">
                     Pick which signals are dumped to the VCD and shown in GTKWave on Wave click.
                     Default (no selection): everything declared at the testbench module scope.
+                </p>
+                <p class="form-hint" id="waveConfigHintVerilator" hidden data-i18n="modal.waveConfig.hintVerilator">
+                    Verilator is selected: it records by scope, not by signal. Every public signal
+                    of a module that has at least one selected signal is dumped; modules with
+                    nothing selected stay out of the dump. The testbench scope is always recorded.
                 </p>
 
                 <div class="wave-tree-find" role="search">
@@ -714,6 +732,12 @@
                         <span data-i18n="modal.waveConfig.showProcessorOnly">Show processor signals only</span>
                     </label>
                     <label class="wave-tree-filter">
+                        <input type="checkbox" id="waveConfigSurferInTab" checked>
+                        <span data-i18n="modal.waveConfig.surferInTab">Surfer: open the wave as an editor tab</span>
+                    </label>
+                    <!-- So faz sentido no modo janela; o wave_config_manager
+                         desabilita este quando o de cima esta marcado. -->
+                    <label class="wave-tree-filter">
                         <input type="checkbox" id="waveConfigSurferMultiWindow">
                         <span data-i18n="modal.waveConfig.surferMultiWindow">Surfer: keep windows open to compare runs (multiple windows)</span>
                     </label>
@@ -782,15 +806,25 @@
     <span slot="title" class="modal-title dagr-title">
         <i class="ph ph-git-branch dagr-sc-icon" aria-hidden="true"></i>
         <span class="dagr-rune" aria-hidden="true">&#5854;</span>
-        <span class="dagr-name">Dagr</span>
+        <span class="dagr-name">Git-D</span>
         <span class="dagr-sub" data-i18n="modal.git.title">Source Control</span>
     </span>
     <main class="modal-body git-panel">
         <div class="dagr-watermark" aria-hidden="true">
             <span class="dagr-wm-rune">&#5854;</span>
-            <span class="dagr-wm-name">DAGR</span>
+            <span class="dagr-wm-name">GIT-D</span>
         </div>
-        <div class="git-account" id="git-account"></div>
+        <!-- As duas contas, lado a lado. Sao independentes e tem o MESMO
+             bloco: o laboratorio vive nas duas ao mesmo tempo (o codigo no
+             GitHub, o fork do Surfer no grupo nips-cern do GitLab), e a AURORA
+             nao prefere nenhuma. Quem decide se o cartao divide a linha ou fica
+             com ela inteira e o proprio conteudo, pelo CSS: entrar cabe em
+             meia largura, conta conectada e formulario de token nao.
+             Preenchidas pelo mesmo renderForgeAccount de js/git/git_panel.js. -->
+        <div class="git-accounts">
+            <div class="git-account" id="git-account"></div>
+            <div class="git-account git-account-gitlab" id="git-account-gitlab"></div>
+        </div>
         <div class="git-clone" id="git-clone" hidden>
             <input type="text" id="git-clone-url" class="git-pat-input" placeholder="https://github.com/owner/repo.git" spellcheck="false" />
             <button class="git-mini git-mini-primary" data-action="clone"><i class="ph ph-download-simple"></i> Clonar</button>
@@ -838,7 +872,7 @@
 </aurora-modal>
 
 <!-- ==========================================================================
-     Bibliotecas Python — o berço das libs que rodam no Python embarcado.
+     Bibliotecas Python, o berço das libs que rodam no Python embarcado.
      Controlado por js/python/pylib_panel.js; estilos em css/panels/pylib_panel.css.
      O conteúdo da lista é renderizado a partir de resources/pylib-catalog.json,
      então aqui ficam só o esqueleto e os pontos de ancoragem.
@@ -1023,7 +1057,7 @@
     </footer>
 </aurora-modal>
 
-<!-- Aurora Settings Modal — sidebar nav (left) + pane content (right).
+<!-- Aurora Settings Modal, sidebar nav (left) + pane content (right).
      Each .settings-nav-item maps 1:1 to a .settings-pane via data-pane.
      aurora_settings.js wires nav clicks to a setActivePane() call that
      toggles `.active` on both the button and the pane. The "Save"
@@ -1043,6 +1077,25 @@
                 <button class="settings-nav-item active" data-pane="general" role="tab" aria-selected="true">
                     <i class="ph ph-house" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionGeneral">General</span>
+                </button>
+                <!-- Componentes vem em segundo, logo depois de Geral, e nao no
+                     fim da lista. Todas as outras abas sao preferencia: mudam
+                     como a AURORA se parece ou se comporta, e quem nao as abre
+                     nunca fica sem nada. Esta e a unica onde algo pode estar
+                     QUEBRADO, e quem precisa dela e justamente quem esta com a
+                     maquina sem compilar, ou seja a pessoa com menos paciencia
+                     para varrer uma lista de nove itens. -->
+                <button class="settings-nav-item" data-pane="componentes" role="tab" aria-selected="false">
+                    <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionComponents">Components</span>
+                    <!-- Gemeo do ponto da engrenagem, e aceso pela MESMA regra
+                         (componente que impede de compilar e nao esta
+                         instalado). O da engrenagem diz que ha algo a resolver
+                         nas Configuracoes; dentro delas ele deixa de ajudar,
+                         porque a pessoa ja esta aqui e ainda precisa descobrir
+                         em qual das nove abas. Os dois apagam juntos, no mesmo
+                         desenho da lista, quando o componente entra. -->
+                    <span class="settings-nav-badge" id="settings-nav-badge-componentes" hidden></span>
                 </button>
                 <button class="settings-nav-item" data-pane="appearance" role="tab" aria-selected="false">
                     <i class="ph ph-palette" aria-hidden="true"></i>
@@ -1064,6 +1117,10 @@
                     <i class="ph ph-sparkle" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAI">AI Assistant</span>
                 </button>
+                <button class="settings-nav-item" data-pane="manual" role="tab" aria-selected="false">
+                    <i class="ph ph-book-open" aria-hidden="true"></i>
+                    <span data-i18n="modal.settings.sectionManual">Manual</span>
+                </button>
                 <button class="settings-nav-item" data-pane="about" role="tab" aria-selected="false">
                     <i class="ph ph-info" aria-hidden="true"></i>
                     <span data-i18n="modal.settings.sectionAbout">About</span>
@@ -1078,6 +1135,56 @@
                         <h3 data-i18n="modal.settings.sectionGeneral">General</h3>
                     </header>
                     <div class="settings-card">
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label data-i18n="modal.settings.bugReportRow">Relatar um problema</label>
+                                <p class="setting-description" data-i18n="modal.settings.bugReportRowDescription">
+                                    Descreva o que aconteceu e envie direto para o NIPS-CERN. A tela mostra tudo que vai junto antes de enviar.
+                                </p>
+                            </div>
+                            <button id="bug-report-btn" class="btn btn-secondary" type="button">
+                                <i class="ph ph-bug-beetle" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.bugReportAction">Relatar</span>
+                            </button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label for="github-forget-on-exit" data-i18n="modal.settings.githubForgetOnExit">Limpar o acesso ao GitHub e ao GitLab ao fechar a AURORA</label>
+                                <p class="setting-description" data-i18n="modal.settings.githubForgetOnExitDescription">
+                                    Em computador compartilhado, deixe ligado: ao fechar, as duas contas saem daqui e do git do Windows, sem depender de alguém lembrar.
+                                </p>
+                            </div>
+                            <!-- `checked` aqui espelha o padrao do main
+                                 (github_forget.js limparAoSair). O valor real
+                                 chega logo depois por IPC e sobrescreve; o
+                                 atributo evita o piscar de desligado para
+                                 ligado na abertura das Configuracoes. -->
+                            <label class="switch">
+                                <input type="checkbox" id="github-forget-on-exit" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label data-i18n="modal.settings.githubForget">Sair do GitHub e do GitLab e limpar agora</label>
+                                <p class="setting-description" data-i18n="modal.settings.githubForgetDescription">
+                                    Remove o acesso das duas contas salvo pela AURORA e também o que o git do Windows guardou, sem esperar você fechar.
+                                </p>
+                            </div>
+                            <button id="github-forget-btn" class="btn danger" type="button" data-i18n="modal.settings.githubForgetAction">Limpar agora</button>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label for="network-warning-toggle" data-i18n="modal.settings.networkWarning">Avisar quando a internet cair</label>
+                                <p class="setting-description" data-i18n="modal.settings.networkWarningDescription">
+                                    Mostra um aviso no canto da tela a cada queda de conexão. Compilar e simular não dependem de rede.
+                                </p>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="network-warning-toggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                         <div class="setting-row">
                             <div class="setting-row-text">
                                 <label for="tooltips-toggle" data-i18n="modal.settings.tooltips">Enable Tooltips</label>
@@ -1209,7 +1316,7 @@
                     </div>
                 </section>
 
-                <!-- AI Assistant — Aurora Intelligence BYOK key management.
+                <!-- AI Assistant, Aurora Intelligence BYOK key management.
                      One card per provider is generated by js/ai/ai_settings.js
                      into #ai-provider-cards; the user pastes their key in the
                      card for the provider they have access to. -->
@@ -1226,10 +1333,96 @@
                     <div id="ai-provider-cards" class="ai-provider-cards"></div>
                 </section>
 
-                <!-- About — version, credits, links, acknowledgements. The
+                <!-- Componentes. A lista e o estado vem do main a cada
+                     abertura (js/ui/components_panel.js): presenca se le do
+                     disco, nunca de um valor guardado, senao o que o usuario
+                     acabou de baixar continuaria invisivel. -->
+                <section class="settings-pane" data-pane="componentes" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionComponents">Components</h3>
+                    </header>
+                    <p class="settings-pane-intro" data-i18n="modal.settings.componentsIntro">
+                        O que compila e simula vem no instalador. O resto voce baixa quando for usar, e pode remover para recuperar espaco.
+                    </p>
+                    <div id="componentes-lista" class="componentes-lista"></div>
+                    <!-- Barra da fila. Só aparece com algo marcado: um botão
+                         permanente dizendo "Baixar 0 selecionados" é ruído em
+                         todas as aberturas para servir em poucas. -->
+                    <div class="componentes-fila" id="componentes-fila" hidden>
+                        <span id="componentes-fila-resumo" class="componentes-fila-resumo"></span>
+                        <button id="componentes-fila-limpar" class="btn btn-secondary" type="button">
+                            <span data-i18n="modal.settings.componentsQueueClear">Limpar seleção</span>
+                        </button>
+                        <button id="componentes-fila-baixar" class="btn btn-primary" type="button">
+                            <i class="ph ph-download-simple" aria-hidden="true"></i>
+                            <span data-i18n="modal.settings.componentsQueueGo">Baixar selecionados</span>
+                        </button>
+                    </div>
+                    <div class="componentes-rodape">
+                        <span id="componentes-espaco" class="componentes-espaco"></span>
+                        <button id="componentes-doctor" class="btn btn-secondary" type="button">
+                            <i class="ph ph-first-aid-kit" aria-hidden="true"></i>
+                            <span data-i18n="modal.settings.componentsDoctor">Verificar e consertar</span>
+                        </button>
+                        <button id="componentes-abrir-pasta" class="btn btn-secondary" type="button"><i class="ph ph-folder-open" aria-hidden="true"></i> <span data-i18n="modal.settings.componentsOpenFolder">Abrir a pasta</span></button>
+                    </div>
+                </section>
+
+                <!-- About, version, credits, links, acknowledgements. The
                      content is intentionally static (proper names, URLs,
                      org names) except for the labels and the version, which
                      aurora_settings.js fills in via getAppVersion(). -->
+                <!-- O manual tinha virado dois links escondidos no meio da lista
+                     de Sobre, ao lado da licenca e do repositorio, e ninguem os
+                     achava. Agora e secao propria, no mesmo desenho da de
+                     componentes: um cartao que diz o estado e botoes que fazem
+                     alguma coisa. -->
+                <section class="settings-pane" data-pane="manual" role="tabpanel" hidden>
+                    <header class="settings-pane-header">
+                        <i class="ph ph-book-open" aria-hidden="true"></i>
+                        <h3 data-i18n="modal.settings.sectionManual">Manual</h3>
+                    </header>
+                    <p class="settings-pane-intro" data-i18n="modal.settings.manualIntro">
+                        O manual do SAPHO vem junto com a AURORA e abre sem internet. Ele se atualiza sozinho quando saem correcoes, sem esperar uma versao nova do programa.
+                    </p>
+
+                    <div class="settings-card manual-card">
+                        <div class="manual-estado">
+                            <i class="ph ph-hard-drives" aria-hidden="true"></i>
+                            <div class="manual-estado-texto">
+                                <span class="manual-estado-titulo" id="manual-estado-titulo" data-i18n="modal.settings.manualChecking">Verificando…</span>
+                                <span class="manual-estado-meta" id="manual-estado-meta"></span>
+                            </div>
+                        </div>
+                        <div class="manual-acoes">
+                            <button id="manual-abrir-aurora" class="btn btn-primary" type="button" hidden>
+                                <i class="ph ph-book-open" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualOpenHere">Abrir na AURORA</span>
+                            </button>
+                            <button id="manual-abrir-navegador" class="btn btn-secondary" type="button" hidden>
+                                <i class="ph ph-arrow-square-out" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualOpenBrowser">Abrir no navegador</span>
+                            </button>
+                            <button id="manual-atualizar" class="btn btn-secondary" type="button">
+                                <i class="ph ph-arrows-clockwise" aria-hidden="true"></i>
+                                <span data-i18n="modal.settings.manualCheckUpdate">Procurar atualizacao</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="about-links">
+                        <a class="about-link" href="#" data-href="https://www.nipscern.com/library/sapho/">
+                            <i class="ph ph-globe" aria-hidden="true"></i>
+                            <span class="about-link-text">
+                                <span class="about-link-label" data-i18n="modal.settings.aboutDocsOnline">Manual online</span>
+                                <span class="about-link-url">nipscern.com/library/sapho</span>
+                            </span>
+                            <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
+                        </a>
+                    </div>
+                </section>
+
                 <section class="settings-pane" data-pane="about" role="tabpanel" hidden>
                     <header class="settings-pane-header">
                         <i class="ph ph-info" aria-hidden="true"></i>
@@ -1247,37 +1440,37 @@
                             <p class="about-tagline" data-i18n="modal.settings.aboutTagline">Scalable-Architecture Processor for Hardware Optimization</p>
                             <div class="about-version-badge">
                                 <span data-i18n="modal.settings.aboutVersion">Version</span>
-                                <strong id="about-version">—</strong>
+                                <strong id="about-version">-</strong>
                             </div>
                         </div>
                     </div>
 
                     <!-- Update-system health. Exists for remote diagnosis: when a
                          machine is not updating, the questions are always "is it even
-                         checking?", "against what?", "what failed?" — answering them
+                         checking?", "against what?", "what failed?", answering them
                          here beats walking to the machine and reading main.log. -->
                     <div class="settings-card">
                         <h4 class="about-card-title" data-i18n="modal.settings.aboutUpdates">Updates</h4>
                         <dl class="about-updates" id="about-updates">
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updStatus">Status</dt>
-                                <dd id="upd-status">—</dd>
+                                <dd id="upd-status">-</dd>
                             </div>
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updLastCheck">Last check</dt>
-                                <dd id="upd-last-check">—</dd>
+                                <dd id="upd-last-check">-</dd>
                             </div>
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updNextCheck">Next check</dt>
-                                <dd id="upd-next-check">—</dd>
+                                <dd id="upd-next-check">-</dd>
                             </div>
                             <div class="about-update-row">
                                 <dt data-i18n="modal.settings.updChannel">Channel</dt>
-                                <dd id="upd-channel">—</dd>
+                                <dd id="upd-channel">-</dd>
                             </div>
                             <div class="about-update-row about-update-error" id="upd-error-row" hidden>
                                 <dt data-i18n="modal.settings.updLastError">Last error</dt>
-                                <dd id="upd-last-error">—</dd>
+                                <dd id="upd-last-error">-</dd>
                             </div>
                         </dl>
                         <div class="about-update-actions">
@@ -1309,32 +1502,6 @@
                     <div class="settings-card">
                         <h4 class="about-card-title" data-i18n="modal.settings.aboutLinks">Links</h4>
                         <div class="about-links">
-                            <a class="about-link" href="#" data-href="https://www.nipscern.com/library/sapho/">
-                                <i class="ph ph-book-open" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOnline">Manual online</span>
-                                    <span class="about-link-url">nipscern.com/library/sapho</span>
-                                </span>
-                                <i class="ph ph-arrow-up-right about-link-go" aria-hidden="true"></i>
-                            </a>
-                            <!-- Sem documentação empacotada este item fica oculto; quem o
-                                 revela é aurora_settings.js, consultando docs:status. -->
-                            <a class="about-link" href="#" id="about-docs-offline" hidden>
-                                <i class="ph ph-hard-drives" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutDocsOffline">Manual offline</span>
-                                    <span class="about-link-url" id="about-docs-offline-meta">—</span>
-                                </span>
-                                <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
-                            </a>
-                            <a class="about-link" href="#" id="about-bug-report">
-                                <i class="ph ph-bug-beetle" aria-hidden="true"></i>
-                                <span class="about-link-text">
-                                    <span class="about-link-label" data-i18n="modal.settings.aboutBugReport">Relatar um problema</span>
-                                    <span class="about-link-url">abre o e-mail com o diagnostico pronto</span>
-                                </span>
-                                <i class="ph ph-arrow-square-out about-link-go" aria-hidden="true"></i>
-                            </a>
                             <a class="about-link" href="#" data-href="https://github.com/nipscernlab/aurora/blob/main/LICENSE">
                                 <i class="ph ph-scales" aria-hidden="true"></i>
                                 <span class="about-link-text">
@@ -1407,9 +1574,11 @@
                             <li><span class="about-lic-name">Phosphor Icons</span><span class="about-lic-tag">MIT</span></li>
                             <li><span class="about-lic-name">Lit</span><span class="about-lic-tag">BSD-3-Clause</span></li>
                             <li><span class="about-lic-name">Inter &middot; JetBrains Mono</span><span class="about-lic-tag">OFL-1.1</span></li>
-                            <li><span class="about-lic-name">Metamorphous (Dagr wordmark)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
+                            <li><span class="about-lic-name">Metamorphous (letreiro Git-D)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
                             <li><span class="about-lic-name">Simple Icons (marcas de e-mail)</span><span class="about-lic-tag">CC0 1.0</span></li>
+                            <li><span class="about-lic-name">Marcas dos componentes (MSYS2, Verible, LLVM, slang)</span><span class="about-lic-tag">dos respectivos projetos</span></li>
                             <li><span class="about-lic-name">Noto Sans Runic (Dagaz rune)</span><span class="about-lic-tag">SIL OFL 1.1</span></li>
+                            <li><span class="about-lic-name">HYG Stellar Database (o céu da splash)</span><span class="about-lic-tag">CC BY-SA 4.0</span></li>
                         </ul>
                         <p class="about-thanks-text about-licenses-note" data-i18n="modal.settings.aboutThirdPartyNote">Full notices ship in THIRD_PARTY_NOTICES.md.</p>
                     </div>
@@ -1547,12 +1716,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // relative path. Monaco builds its web-worker URL from this and loads it via
   // importScripts inside a worker; under file:// a relative 'vendor/vs' resolved
   // against the filesystem root (file:///vendor/vs/…workerMain.js) and failed to
-  // open files. document.baseURI anchors it to the real document location —
+  // open files. document.baseURI anchors it to the real document location:
   // correct in dev (http://localhost) and in the built/packaged app (file://).
   require.config({ paths: { vs: new URL('node_modules/monaco-editor/min/vs', document.baseURI).href } });
 </script>
 
-<!-- ES modules (defer by default, dependency-resolved — order-independent) -->
+<!-- ES modules (defer by default, dependency-resolved, order-independent) -->
 <!-- Error boundary first, so it is armed before the rest of the graph runs. -->
 <script src="./js/app/error_boundary.js" type="module"></script>
 <script src="./js/i18n/i18n.js" type="module"></script>

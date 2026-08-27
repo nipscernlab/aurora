@@ -8,7 +8,7 @@ const { joinAppPath } = require('../../main/utils.js');
 
 // A fronteira da janela do manual (main/ipc/docs_nav.js). Sem ela o
 // WebContentsView que carrega o manual navegaria para qualquer lugar, e a
-// janela viraria um navegador irrestrito com a barra da AURORA em volta — pior
+// janela viraria um navegador irrestrito com a barra da AURORA em volta, pior
 // que um navegador, porque parece nosso.
 //
 // Os caminhos sao montados com path.join para o teste dizer a mesma coisa nos
@@ -27,7 +27,7 @@ describe('dentroDaRaiz', () => {
   it('recusa a subida por .., inclusive quando ela volta para dentro', () => {
     expect(dentroDaRaiz(RAIZ, path.join(RAIZ, '..', 'segredo.txt'))).toBe(false);
     // Volta para dentro depois de subir: resolvido, continua dentro, e passar
-    // esta e o comportamento certo — o que importa e onde o caminho ATERRISSA.
+    // esta e o comportamento certo, o que importa e onde o caminho ATERRISSA.
     expect(dentroDaRaiz(RAIZ, path.join(RAIZ, '..', 'docs', 'index.html'))).toBe(true);
   });
 

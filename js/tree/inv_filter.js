@@ -1,9 +1,9 @@
 /**
- * inv_filter.js — `.inv` parser/matcher for the Folders (standard) file-tree.
+ * inv_filter.js, `.inv` parser/matcher for the Folders (standard) file-tree.
  *
  * `.inv` is a project-root file (gitignore-style syntax) listing folders/files
  * the user wants GONE from the Folders view while keeping them **tracked in
- * git**. It is NOT a .gitignore: nothing here touches git — the renderer simply
+ * git**. It is NOT a .gitignore: nothing here touches git, the renderer simply
  * drops matching entries before they reach the DOM (and never recurses into a
  * hidden folder), so they vanish from the tree but stay versioned.
  *

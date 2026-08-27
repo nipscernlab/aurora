@@ -44,7 +44,7 @@ describe('buildProjectContext', () => {
     });
 
     // The block is rebuilt every turn, so an empty one would be paid for on
-    // every turn of every project — it has to cost nothing on the common path.
+    // every turn of every project, it has to cost nothing on the common path.
     describe('project memory', () => {
         const mem = (n) => Array.from({ length: n }, (_, i) => ({ name: `m${i}`, content: `fact ${i}` }));
 
@@ -75,6 +75,42 @@ describe('buildProjectContext', () => {
             const ctx = buildProjectContext('C:/proj', null, mem(3));
             expect(ctx).not.toContain('not shown');
             expect(ctx).toContain('[m2]');
+        });
+    });
+
+    // Componentes ausentes. O bloqueio de verdade e do processo principal; este
+    // bloco existe para o modelo nao gastar um turno propondo o impossivel.
+    describe('missing components', () => {
+        const surfer = { nome: 'Surfer', resumo: 'onda embutida', instalado: false };
+        const gtk = { nome: 'GTKWave', resumo: 'onda em janela', instalado: true };
+
+        it('says nothing when everything is installed', () => {
+            expect(buildProjectContext('C:/proj', null, [], [gtk]))
+                .not.toContain('NOT INSTALLED');
+        });
+
+        it('says nothing when the list is missing entirely', () => {
+            // Ler os componentes pode falhar, e uma falha de leitura nao pode
+            // virar um aviso de que tudo esta ausente.
+            expect(buildProjectContext('C:/proj', null, [], undefined))
+                .not.toContain('NOT INSTALLED');
+        });
+
+        it('names only what is missing', () => {
+            const ctx = buildProjectContext('C:/proj', null, [], [surfer, gtk]);
+            expect(ctx).toContain('Surfer');
+            expect(ctx).not.toContain('GTKWave');
+        });
+
+        it('appears with no project open too', () => {
+            // Um componente ausente atrapalha igual, com projeto ou sem.
+            expect(buildProjectContext(null, null, [], [surfer])).toContain('Surfer');
+        });
+
+        it('tells the model where the user downloads it, and not to retry', () => {
+            const ctx = buildProjectContext('C:/proj', null, [], [surfer]);
+            expect(ctx).toContain('Components');
+            expect(ctx).toContain('Do not retry');
         });
     });
 });

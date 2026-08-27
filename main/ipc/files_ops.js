@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * files_ops.js — a parte pura do que o main/ipc/files.js faz com o disco e com
+ * files_ops.js: a parte pura do que o main/ipc/files.js faz com o disco e com
  * o sistema operacional: a decisao de renomear, a de sobrescrever, a ordem da
  * arvore, o comando que empacota o backup, o terminal nativo de cada
  * plataforma e a allowlist do open-external.

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 // e o beforeEach stuba um fake fresh per-test. Estado interno
 // (writeChainByKey) sobrevive entre testes mas cada teste usa
 // (projectPath, tbKey) distintos (ou await todas as promises antes da
-// proxima assertion) — sem risco de cross-test interference.
+// proxima assertion), sem risco de cross-test interference.
 import { WaveStore } from '../../js/wave/wave_state_store.ts';
 
 /**
@@ -80,7 +80,7 @@ describe('WaveStore.get / read', () => {
         expect(state.wcInitialized).toBe(false);
         expect(state.wcCustomized).toBe(false);
         expect(state.tbModule).toBe('tb_foo');
-        // Nao persistiu o read — get continua retornando null.
+        // Nao persistiu o read, get continua retornando null.
         expect(await WaveStore.get('/proj', 'tb_foo')).toBeNull();
     });
 });
@@ -154,12 +154,12 @@ describe('WaveStore.ensureRegistered', () => {
     });
 
     it('idempotente: re-chamar nao sobrescreve estado existente', async () => {
-        // 1a chamada — registra com hadOriginalDumpvars=true.
+        // 1a chamada, registra com hadOriginalDumpvars=true.
         await WaveStore.ensureRegistered('/proj', 'tb_x', {
             hadOriginalDumpvars: true,
             waveSignals: ['original'],
         });
-        // 2a chamada — tenta sobrescrever com defaults diferentes.
+        // 2a chamada, tenta sobrescrever com defaults diferentes.
         // Deve devolver o estado existente, NAO mexer em
         // hadOriginalDumpvars (motivo: e snapshot da 1a visita; mudar
         // depois confundiria a logica do botao wave).

@@ -2,7 +2,7 @@
 /**
  * IPC handlers for Aurora Intelligence.
  *
- * Surface (sub-step 4a — key management + connectivity check):
+ * Surface (sub-step 4a, key management + connectivity check):
  *
  *     ai:list-providers       → { providers: [{ name, defaultModel }] }
  *     ai:get-key-status       → { configured: { openai: bool, ... } }
@@ -14,7 +14,7 @@
  * `ai:chat-stream`, `ai:chat-abort`) land in sub-step 4b once the
  * provider plumbing has been proven end-to-end.
  *
- * Plaintext API keys never cross the IPC boundary on the way out — the
+ * Plaintext API keys never cross the IPC boundary on the way out, the
  * renderer can ask whether a key is configured but never read its
  * bytes. That's enforced by simply not exposing a `getKey` channel.
  */
@@ -57,13 +57,13 @@ function register() {
     providers: keystore.SUPPORTED_PROVIDERS.map((name) => ({
       name,
       defaultModel: provider.getDefaultModel(name),
-      // `model` is what a chat would actually use — the user's override
+      // `model` is what a chat would actually use, the user's override
       // if set, otherwise the default. The settings card shows this.
       model: provider.getModelFor(name),
     })),
   }));
 
-  // Booleans only — the renderer doesn't get to learn which keys
+  // Booleans only, the renderer doesn't get to learn which keys
   // actually decrypt cleanly, only that *something* is stored.
   ipcMain.handle('ai:get-key-status', () => {
     /** @type {Record<string, boolean>} */
@@ -122,7 +122,7 @@ function register() {
   // One-shot generation (prompt -> text, no tools/streaming). Used by the AI
   // harness generator. claude-code routes to the subscription CLI (print mode);
   // everything else goes through the Vercel-SDK API providers. (chatgpt/codex
-  // one-shot isn't wired yet — provider.generateOneshot returns a clear error.)
+  // one-shot isn't wired yet, provider.generateOneshot returns a clear error.)
   ipcMain.handle('ai:generate-oneshot', async (_event, payload) => {
     try {
       if (runnerDe(payload?.provider) === 'claude-code') {
@@ -212,7 +212,7 @@ function register() {
   // Audit-log entry the renderer fires every time a CommandSpec runs
   // through spec_runner with an active override. Separate from the
   // tool-call audit (which records "the AI called set_command_override")
-  // — this one records "an override actually fired on this step run".
+  //, this one records "an override actually fired on this step run".
   ipcMain.on('ai:audit-override-applied', (_event, payload) => {
     if (!payload || typeof payload !== 'object') return;
     audit.append({

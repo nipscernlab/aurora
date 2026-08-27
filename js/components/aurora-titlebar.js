@@ -1,5 +1,5 @@
 /**
- * <aurora-titlebar> — the window chrome, which in AURORA is the top toolbar
+ * <aurora-titlebar>, the window chrome, which in AURORA is the top toolbar
  * itself: the project title, the toolbar actions, the window drag region and
  * the minimize / maximize-restore / close controls.
  *
@@ -7,7 +7,7 @@
  * one uses NO Shadow DOM. The toolbar is the window's `-webkit-app-region: drag`
  * region with `no-drag` carve-outs on the buttons; keeping the children in light
  * DOM (no <slot>, no shadow boundary) guarantees Chromium's app-region
- * hit-testing keeps working EXACTLY as it did on the old <div> — both the
+ * hit-testing keeps working EXACTLY as it did on the old <div>, both the
  * window-drag and the clickable controls. The host carries
  * `class="toolbar" id="custom-titlebar"`, so all existing CSS and the inline
  * window-control driver (`getElementById('custom-titlebar')`) are untouched.

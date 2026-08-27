@@ -1,10 +1,10 @@
 /*
- * aurora_canvas.css — host + fallback for <aurora-canvas> (DESIGN §7).
+ * aurora_canvas.css: host + fallback for <aurora-canvas> (DESIGN §7).
  *
  * The element fills its positioned parent, sits behind content, and never
  * intercepts pointer events. When WebGL is unavailable or the user prefers
  * reduced motion, the JS sets data-fallback="static" and we paint a quiet,
- * non-animated aurora gradient instead — same identity, zero cost.
+ * non-animated aurora gradient instead, same identity, zero cost.
  */
 
 aurora-canvas {

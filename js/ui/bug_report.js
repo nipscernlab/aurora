@@ -1,5 +1,5 @@
 /**
- * bug_report.js — relatar um problema por e-mail, em um clique.
+ * bug_report.js: relatar um problema por e-mail, em um clique.
  *
  * O usuário escolhe o provedor e a AURORA abre a janela de composição dele no
  * navegador, já com destinatário, assunto e um corpo pronto em português,
@@ -18,8 +18,9 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { abrirFormulario, diagnosticoEmTexto } from './bug_report_form.js';
 
-export const BUG_EMAIL = 'contact@nipscern.com';
+const BUG_EMAIL = 'contact@nipscern.com';
 
 /**
  * Provedores oferecidos. `url` recebe os campos já codificados.
@@ -28,7 +29,7 @@ export const BUG_EMAIL = 'contact@nipscern.com';
  * 8 mil caracteres e alguns provedores cortam antes, então o corpo é enxuto de
  * propósito e o usuário anexa o log se precisar.
  */
-export const PROVEDORES = [
+const PROVEDORES = [
   {
     id: 'gmail',
     nome: 'Gmail',
@@ -107,21 +108,22 @@ export const PROVEDORES = [
  * @param {{versao?: string, so?: string, electron?: string, chrome?: string,
  *          node?: string, projeto?: string, arquivo?: string, locale?: string}} d
  */
-export function montarCorpo(d = {}) {
+function montarCorpo(d = {}, texto = {}) {
   const val = (x) => (x === undefined || x === null || x === '' ? 'não informado' : String(x));
+  // Quando o formulario ja recolheu o texto, ele vem preenchido; quando o
+  // usuario chamou o e-mail direto, ficam os cabecalhos vazios para preencher.
+  const ou = (v, vazio) => (String(v || '').trim() || vazio);
   return [
     'Descreva o problema abaixo. Quanto mais concreto, mais rápido de resolver.',
     '',
     'O QUE ACONTECEU',
-    '',
+    ou(texto.oQueAconteceu, ''),
     '',
     'O QUE VOCÊ ESPERAVA QUE ACONTECESSE',
-    '',
+    ou(texto.oQueEsperava, ''),
     '',
     'COMO REPRODUZIR, PASSO A PASSO',
-    '1. ',
-    '2. ',
-    '3. ',
+    ou(texto.comoReproduzir, '1. \n2. \n3. '),
     '',
     'Se puder, anexe o arquivo de log. Ele fica em:',
     '%APPDATA%\\SAPHO\\logs\\main.log',
@@ -135,11 +137,17 @@ export function montarCorpo(d = {}) {
     `Idioma: ${val(d.locale)}`,
     `Projeto aberto: ${val(d.projeto)}`,
     `Arquivo em foco: ${val(d.arquivo)}`,
+    // O recorte do terminal, quando houver, entra aqui também: os dois
+    // caminhos de envio precisam levar a mesma coisa, senão o relato que chega
+    // por e-mail vale menos do que o que chega pelo painel.
+    ...(String(texto.terminal || '').trim()
+      ? ['', 'TERMINAL (erros e o que estava em volta)', texto.terminal]
+      : []),
   ].join('\n');
 }
 
 /** Assunto padrão, com a versão para triagem. */
-export function montarAssunto(versao) {
+function montarAssunto(versao) {
   return `[AURORA ${versao || '?'}] Relato de problema`;
 }
 
@@ -148,7 +156,7 @@ export function montarAssunto(versao) {
  * @param {string} id
  * @param {{assunto: string, corpo: string, para?: string}} conteudo
  */
-export function urlDoProvedor(id, { assunto, corpo, para = BUG_EMAIL }) {
+function urlDoProvedor(id, { assunto, corpo, para = BUG_EMAIL }) {
   const p = PROVEDORES.find((x) => x.id === id);
   if (!p) return null;
   return p.url({
@@ -217,16 +225,27 @@ async function coletar() {
   return d;
 }
 
-/** Abre o seletor de provedor e manda para o navegador. */
-export async function abrirRelatorio() {
+/**
+ * Abre o webmail escolhido, com o texto do usuário já dentro.
+ *
+ * É o caminho de reserva do formulário, e também o caminho inteiro quando o
+ * envio direto não está configurado. Recebe o texto para o e-mail não sair
+ * vazio pedindo que a pessoa escreva tudo de novo.
+ */
+async function enviarPorEmail(texto = {}, diagDoMain = null) {
   const dados = await coletar();
+  if (diagDoMain) {
+    // O diagnóstico do main é mais completo (log, memória, núcleos). Quando ele
+    // veio, é ele que vale, para o e-mail levar o mesmo que a tela mostrou.
+    dados.diagCompleto = diagnosticoEmTexto(diagDoMain);
+  }
   const assunto = montarAssunto(dados.versao);
-  const corpo = montarCorpo(dados);
+  const corpo = montarCorpo(dados, texto);
 
   const escolha = await window.AuroraUI?.dialog?.({
-    title: 'Relatar um problema',
-    message: 'A AURORA abre a janela de composição do seu e-mail já preenchida, '
-      + 'com o diagnóstico incluído. Escolha por onde enviar.',
+    title: 'Enviar por e-mail',
+    message: 'A AURORA abre a janela de composição do seu e-mail já preenchida. '
+      + 'Escolha por onde enviar.',
     variant: 'info',
     buttons: PROVEDORES.map((p) => ({
       label: p.nome,
@@ -243,10 +262,18 @@ export async function abrirRelatorio() {
   catch (e) { window.showNotification?.(`Não foi possível abrir: ${e?.message || e}`, 'error'); }
 }
 
+/** Ponto de entrada do botão: o formulário, com o e-mail como reserva. */
+async function abrirRelatorio() {
+  await abrirFormulario(enviarPorEmail);
+}
+
 if (typeof window !== 'undefined') {
   window.auroraBugReport = abrirRelatorio;
   document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('about-bug-report')
+    // O botao vive em Geral, entre as outras acoes das configuracoes. Ficava
+    // no Sobre, no meio dos links de leitura, onde relatar parecia mais um
+    // documento para consultar do que algo para fazer.
+    document.getElementById('bug-report-btn')
       ?.addEventListener('click', (e) => { e.preventDefault(); abrirRelatorio(); });
   });
 }

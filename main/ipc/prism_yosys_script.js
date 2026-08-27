@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * prism_yosys_script.js — the Yosys script PRISM synthesises with.
+ * prism_yosys_script.js: the Yosys script PRISM synthesises with.
  *
  * Split out of prism.js so the toolchain integration test can run the SAME
  * script the viewer runs, instead of a copy that would silently drift from

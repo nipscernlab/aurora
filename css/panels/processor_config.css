@@ -1,6 +1,6 @@
 /*
  * =====================================================================================
- *  processor_config.css — popover de configuracoes do processador ativo
+ *  processor_config.css: popover de configuracoes do processador ativo
  *
  *  Anchored visualmente abaixo do botao chevron `#procConfigToggle` na
  *  toolbar; o left/top exato e setado em runtime por
@@ -111,7 +111,7 @@
     color: var(--text-disabled);
 }
 
-/* Gear icon stays still — when the panel is open the whole button is
+/* Gear icon stays still, when the panel is open the whole button is
    highlighted (accent fill) so the relationship between trigger and
    popover is obvious without animating the icon. Toggled by
    processor_config_panel.js via the .open class on the anchor button. */
@@ -127,7 +127,7 @@
     color: var(--accent-hover);
 }
 
-/* Estimated simulation time row — read-only readout under the inputs.
+/* Estimated simulation time row, read-only readout under the inputs.
    Aligns label/value across the panel width with a soft top divider. */
 .proc-config-sim-time {
     display: flex;

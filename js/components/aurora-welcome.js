@@ -8,25 +8,27 @@ const PHOSPHOR_HREF = new URL('vendor/phosphor/src/regular/style.css', document.
 const WATERMARK_SRC = new URL('assets/icons/sapho_aurora_icon.svg', document.baseURI).href;
 
 /**
- * <aurora-welcome> — the empty-project welcome screen (DESIGN §6/§9), the
+ * <aurora-welcome>, the empty-project welcome screen (DESIGN §6/§9), the
  * "Start + Recent" stage shown inside #editor-overlay when no project is open.
  *
  * View + chrome only. It does NOT own state:
  *   • the New / Open Project buttons delegate to the toolbar buttons
- *     (#newProjectBtn / #openProjectBtn), which carry the real handlers — so
+ *     (#newProjectBtn / #openProjectBtn), which carry the real handlers, so
  *     the welcome can't drift from the toolbar and needs no wiring of its own.
  *   • the Recent list is driven by RecentProjectsManager: it sets `.projects`
  *     (each { name, path, displayPath }) and listens for the events emitted here:
- *       project-open   (detail: path) — a row was clicked
- *       project-remove (detail: path) — the row's × was clicked
+ *       project-open   (detail: path), a row was clicked
+ *       project-remove (detail: path), the row's × was clicked
  * Strings come from window.t(); it re-renders on `aurora:locale-changed`.
  * #editor-overlay stays in the light DOM (TabManager toggles it, and a sibling
- * selector hides the editor behind it) — only its content moved into the shadow.
+ * selector hides the editor behind it), only its content moved into the shadow.
  */
 class AuroraWelcome extends LitElement {
   static properties = {
     projects: { attribute: false },
     missingCount: { attribute: false },
+    locatingCount: { attribute: false },
+    locateScanned: { attribute: false },
     version: { type: String },
     auroraBg: { attribute: false },
   };
@@ -35,8 +37,16 @@ class AuroraWelcome extends LitElement {
     super();
     this.projects = [];
     this.missingCount = 0;
-    this.version = 'v6.3.2';
+    this.locatingCount = 0;
+    this.locateScanned = 0;
+    // Preenchida no connectedCallback pelo mesmo IPC que abastece o painel
+    // Sobre. Ficou meses gravada aqui como texto e mentiu a versao a cada
+    // release; vazia, o rodape simplesmente nao mostra numero ate a resposta
+    // chegar, o que leva milissegundos.
+    this.version = '';
     this._removing = new Set();
+    /** Um clique de cada vez, senao dois dialogos nativos abrem empilhados. */
+    this._baixandoExemplos = false;
     this._onLocale = () => this.requestUpdate();
     // Fundo aurora: desligado por padrao (ver defaultSettings em
     // js/processors/aurora_settings.js). O estado vive num atributo do <html>
@@ -57,6 +67,11 @@ class AuroraWelcome extends LitElement {
     window.addEventListener('aurora:locale-changed', this._onLocale);
     window.addEventListener('aurora:background-toggled', this._onBgToggle);
     this.auroraBg = AuroraWelcome._bgEnabled();
+    if (!this.version) {
+      window.electronAPI?.getAppVersion?.()
+        .then((v) => { if (v) this.version = `v${String(v).replace(/^v/, '')}`; })
+        .catch(() => { /* sem IPC (design-lab), o rodape fica sem numero */ });
+    }
   }
 
   disconnectedCallback() {
@@ -64,6 +79,56 @@ class AuroraWelcome extends LitElement {
     window.removeEventListener('aurora:background-toggled', this._onBgToggle);
     if (this._procPopEl) { this._procPopEl.remove(); this._procPopEl = null; }
     super.disconnectedCallback();
+  }
+
+  /**
+   * Cria os projetos de exemplo onde o usuario escolher.
+   *
+   * O botao so pede o lugar: quem pergunta e o processo principal, que e o dono
+   * do dialogo nativo, e quem copia e escreve os `.spf` tambem. Aqui fica so o
+   * estado de "clicou e esta indo", para dois cliques seguidos nao dispararem
+   * dois dialogos, e o recado do que aconteceu.
+   */
+  async _baixarExemplos() {
+    if (this._baixandoExemplos) return;
+    this._baixandoExemplos = true;
+    this.requestUpdate();
+    try {
+      const r = await window.electronAPI?.exemplosInstalar?.();
+      if (!r || r.cancelado) return;
+      if (!r.ok) {
+        window.showNotification?.(
+          this._t('welcome.examplesFailed', 'Could not create the example projects.')
+          + (r.erro ? ` ${r.erro}` : ''), 'error', 8000);
+        return;
+      }
+      // Os cinco entram na lista de recentes daqui, alem da lista do processo
+      // principal (que alimenta a jumplist): sao duas listas, e esta e a que a
+      // tela inicial mostra. De tras para frente porque cada uma vai para o
+      // topo, entao o catalogo termina na ordem em que foi escrito.
+      for (const item of [...(r.criados || [])].reverse()) {
+        try { window.recentProjectsManager?.addProject?.(item.spf); }
+        catch (_) { /* decorar a lista nao pode derrubar a instalacao */ }
+      }
+
+      const criados = r.criados?.length || 0;
+      const pulados = r.pulados?.length || 0;
+      // O aviso conta os dois numeros. Uma segunda instalacao na mesma pasta
+      // cria zero e pula cinco, e sem o segundo numero a tela pareceria nao ter
+      // feito nada.
+      const corpo = criados
+        ? this._t('welcome.examplesDone', 'Example projects created in')
+          + ` ${r.pasta}` + (pulados ? ` (${pulados} ${this._t('welcome.examplesSkipped', 'already existed')})` : '')
+        : this._t('welcome.examplesAllSkipped', 'The examples were already in that folder.');
+      window.showNotification?.(corpo, criados ? 'success' : 'info', 9000);
+    } catch (e) {
+      window.showNotification?.(
+        this._t('welcome.examplesFailed', 'Could not create the example projects.')
+        + ` ${e?.message || e}`, 'error', 8000);
+    } finally {
+      this._baixandoExemplos = false;
+      this.requestUpdate();
+    }
   }
 
   /** Translate via the global i18n helper, falling back to the English string. */
@@ -87,7 +152,7 @@ class AuroraWelcome extends LitElement {
          icons) to the theme's light gray. The purple accents use --accent-hover and
          are untouched. */
       --text-faint: var(--text-secondary);
-      /* "cortina que clareia" — the aurora reveal (DESIGN §6). */
+      /* "cortina que clareia", the aurora reveal (DESIGN §6). */
       animation: welcomeFadeIn var(--motion-curtain, 480ms) var(--ease-reveal, ease) both;
     }
     @keyframes welcomeFadeIn {
@@ -100,7 +165,7 @@ class AuroraWelcome extends LitElement {
 
     /* Ambient aurora canvas, behind everything. aurora_canvas.css styles the host
        + upscales the half-res GL canvas, but those rules can't cross this shadow
-       boundary — so restate them here (without the fill rule the inner canvas
+       boundary, so restate them here (without the fill rule the inner canvas
        paints at its half-res buffer size, anchored top-left, "off-axis"). */
     .bg-canvas {
       position: absolute;
@@ -108,7 +173,7 @@ class AuroraWelcome extends LitElement {
       z-index: var(--z-0, 0);
       pointer-events: none;
       overflow: hidden;
-      /* Quiet static base the WebGL layer paints over — and the no-GL /
+      /* Quiet static base the WebGL layer paints over, and the no-GL /
          reduced-motion fallback look. */
       background:
         radial-gradient(120% 80% at 50% 108%,
@@ -145,7 +210,7 @@ class AuroraWelcome extends LitElement {
           rgba(10, 13, 20, 0.0) 80%);
     }
 
-    /* Watermark — large dimmed SAPHO logo as a brand backdrop, centred on both
+    /* Watermark, large dimmed SAPHO logo as a brand backdrop, centred on both
        axes so it stays balanced as the welcome area is resized. */
     .watermark {
       position: absolute;
@@ -176,7 +241,7 @@ class AuroraWelcome extends LitElement {
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 2px rgba(0, 0, 0, 0.65);
     }
 
-    /* Topbar — wordmark + tagline */
+    /* Topbar, wordmark + tagline */
     .topbar {
       display: flex;
       align-items: baseline;
@@ -283,6 +348,18 @@ class AuroraWelcome extends LitElement {
       transition: color 160ms ease, border-color 160ms ease;
     }
     .forget-missing:hover { color: var(--text); border-color: var(--text-dim); }
+    .forget-missing .ph { font-size: 11px; }
+    .locate-progress {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-muted); font-weight: 400;
+    }
+    .locate-spinner {
+      width: 11px; height: 11px; border-radius: 50%;
+      border: 2px solid var(--border); border-top-color: var(--aurora-mint);
+      animation: locate-spin 0.8s linear infinite; flex-shrink: 0;
+    }
+    .locate-spinner.row { margin-right: 4px; align-self: center; }
+    @keyframes locate-spin { to { transform: rotate(360deg); } }
 
     .recent-list {
       display: grid;
@@ -345,6 +422,44 @@ class AuroraWelcome extends LitElement {
     }
     .project-item:hover .project-remove { opacity: 1; }
     .project-remove:hover { background: rgba(226, 108, 108, 0.10); color: var(--state-error); }
+    .project-locate:hover { background: var(--status-success-bg); color: var(--aurora-mint); }
+
+    .project-actions {
+      display: inline-flex; align-items: center; gap: 2px;
+      justify-self: end; flex-shrink: 0; position: relative;
+    }
+    /* Balao decorado dos botoes de acao, irmao visual do <aurora-tooltip>:
+       mesma superficie, borda e tipografia. Abre ABAIXO do botao, com seta
+       para cima, porque a primeira linha da lista fica rente ao topo do
+       contêiner rolavel e um balao para cima seria cortado. */
+    .project-actions [data-tip] { position: relative; }
+    .project-actions [data-tip]::after {
+      content: attr(data-tip);
+      position: absolute; top: calc(100% + 9px); right: -4px;
+      background: var(--surface-overlay, #161B28);
+      border: 1px solid var(--border-hairline, var(--border));
+      border-radius: var(--radius-md, 6px);
+      padding: var(--space-2, 8px) var(--space-3, 12px);
+      font-size: var(--text-xs, 11px); font-family: var(--font-sans);
+      color: var(--text-secondary); white-space: nowrap;
+      opacity: 0; transform: translateY(-2px); pointer-events: none;
+      transition: opacity 120ms ease 250ms, transform 120ms ease 250ms;
+      z-index: 5;
+    }
+    .project-actions [data-tip]::before {
+      content: ''; position: absolute; top: calc(100% + 3px); right: 4px;
+      border: 6px solid transparent;
+      border-bottom-color: var(--border-hairline, var(--border));
+      opacity: 0; pointer-events: none;
+      transition: opacity 120ms ease 250ms;
+      z-index: 6;
+    }
+    .project-actions [data-tip]:hover::after,
+    .project-actions [data-tip]:focus-visible::after,
+    .project-actions [data-tip]:hover::before,
+    .project-actions [data-tip]:focus-visible::before {
+      opacity: 1; transform: translateY(0);
+    }
 
     .empty-state { grid-column: 1 / -1; padding: var(--space-3) 0; color: var(--text-faint); }
     .empty-state p { margin: 0; font-size: var(--text-sm); color: var(--text-faint); font-style: italic; }
@@ -379,7 +494,7 @@ class AuroraWelcome extends LitElement {
 
   /* Stylesheet for the body-level processor popover (see _onHover for why it
      can't live in this shadow root). Injected ONCE into document.head. Token-
-     based — no inline hex — so it tracks the theme and honours the design
+     based, no inline hex, so it tracks the theme and honours the design
      principles in TODO.md: elevation by light and luminous border, reveal not
      fly, and pills coloured as aurora bands from the 16 processor slots. */
   static procPopCSS = `
@@ -459,6 +574,12 @@ class AuroraWelcome extends LitElement {
                   <span>${this._t('welcome.openProject', 'Open Project')}<span class="link-dim">...</span></span>
                 </button>
               </li>
+              <li>
+                <button class="link" ?disabled=${this._baixandoExemplos} @click=${this._baixarExemplos}>
+                  <i class="ph ph-graduation-cap" aria-hidden="true"></i>
+                  <span>${this._t('welcome.examples', 'Example projects')}<span class="link-dim">...</span></span>
+                </button>
+              </li>
             </ul>
           </section>
 
@@ -466,12 +587,24 @@ class AuroraWelcome extends LitElement {
             <h2 class="section-title">
               <span>${this._t('welcome.sectionRecent', 'Recent')}</span>
               ${this.projects.length ? html`<span class="count">${this.projects.length}</span>` : ''}
+              ${this.missingCount && !this.locatingCount ? html`
+                <button
+                  class="forget-missing"
+                  title=${this._t('welcome.locateMissingTitle', 'Search this computer for the missing .spf files')}
+                  @click=${this._locateMissing}
+                ><i class="ph ph-magnifying-glass" aria-hidden="true"></i> ${this._t('welcome.locateMissing', 'Find missing')} (${this.missingCount})</button>` : ''}
               ${this.missingCount ? html`
                 <button
                   class="forget-missing"
                   title=${this._t('welcome.forgetMissingTitle', 'Remove the projects that no longer exist')}
                   @click=${this._forgetMissing}
                 >${this._t('welcome.forgetMissing', 'Forget missing')} (${this.missingCount})</button>` : ''}
+              ${this.locatingCount ? html`
+                <span class="locate-progress">
+                  <span class="locate-spinner" aria-hidden="true"></span>
+                  ${this._t('welcome.locating', 'Searching…')}${this.locateScanned ? ` ${this.locateScanned}` : ''}
+                  <button class="forget-missing" @click=${this._locateCancel}>${this._t('welcome.locateCancel', 'Cancel')}</button>
+                </span>` : ''}
             </h2>
             <div class="recent-list">${this._renderRecent()}</div>
           </section>
@@ -504,12 +637,22 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
       >
         <span class="project-name">${p.name}</span>
         <span class="project-path">${p.displayPath ?? p.path}</span>
-        <button
-          class="project-remove"
-          title="Remove from recent projects"
-          aria-label="Remove from recent projects"
-          @click=${(e) => this._remove(p.path, e)}
-        ><i class="ph ph-x" aria-hidden="true"></i></button>
+        <span class="project-actions">
+          ${p.missing && !p.locating ? html`
+          <button
+            class="project-remove project-locate"
+            data-tip=${this._t('welcome.locate', 'Find this project on disk')}
+            aria-label=${this._t('welcome.locate', 'Find this project on disk')}
+            @click=${(e) => this._locate(p.path, e)}
+          ><i class="ph ph-magnifying-glass" aria-hidden="true"></i></button>` : ''}
+          ${p.locating ? html`<span class="locate-spinner row" aria-hidden="true"></span>` : ''}
+          <button
+            class="project-remove"
+            data-tip=${this._t('welcome.removeRecent', 'Remove from recents')}
+            aria-label=${this._t('welcome.removeRecent', 'Remove from recents')}
+            @click=${(e) => this._remove(p.path, e)}
+          ><i class="ph ph-x" aria-hidden="true"></i></button>
+        </span>
       </div>
     `);
   }
@@ -520,12 +663,29 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
     this.dispatchEvent(new CustomEvent('recent-forget-missing', { bubbles: true, composed: true }));
   }
 
+  /** Localizar UM projeto sumido. A varredura de verdade vive no main. */
+  _locate(path, e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('project-locate', { detail: path, bubbles: true, composed: true }));
+  }
+
+  /** Localizar todos os ausentes de uma vez: quem perdeu um, perdeu varios. */
+  _locateMissing(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('recent-locate-missing', { bubbles: true, composed: true }));
+  }
+
+  _locateCancel(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('recent-locate-cancel', { bubbles: true, composed: true }));
+  }
+
   _delegate(id) {
     document.getElementById(id)?.click();
   }
 
   _open(path, e) {
-    if (e.target.closest('.project-remove')) return;
+    if (e.target.closest('.project-remove') || e.target.closest('.project-locate')) return;
     this.dispatchEvent(new CustomEvent('project-open', { detail: path, bubbles: true, composed: true }));
   }
 
@@ -543,7 +703,7 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
   // anchored to the right of the row and clamped to the viewport.
   // The processor preview lives at the document-body level (NOT in this shadow):
   // the welcome's :host carries a transform (from its fade-in animation's `both`
-  // fill), which makes :host a containing block for position:fixed — so a popover
+  // fill), which makes :host a containing block for position:fixed, so a popover
   // in the shadow is positioned relative to the (AI-panel-shrunk) welcome box, not
   // the viewport, and flies off-screen. A body-level fixed element is truly
   // viewport-relative.
@@ -574,7 +734,7 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
     const el = this._ensureProcPop();
     const label = esc(this._t('welcome.processors', 'Processors'));
     // Each pill is coloured by its slot in the 16-colour processor spectrum
-    // (positional, wrapping at 16) — a project's processors read as several
+    // (positional, wrapping at 16), a project's processors read as several
     // aurora bands rather than a flat list (DESIGN §2).
     el.innerHTML =
       `<div class="app-header">${label} · ${procs.length}</div>` +
@@ -593,7 +753,7 @@ ${this._t('welcome.missingHint', 'This project was not found on disk.')}` : p.pa
     if (left < 8) left = Math.min(r.right + 12, window.innerWidth - w - 8);
     el.style.left = `${Math.max(8, left)}px`;
     el.style.top = `${Math.max(8, Math.min(r.top, window.innerHeight - ph - 8))}px`;
-    // Reveal on the next frame — opacity + a 4px lift, never a fly-in (DESIGN §6).
+    // Reveal on the next frame, opacity + a 4px lift, never a fly-in (DESIGN §6).
     requestAnimationFrame(() => el.classList.add('visible'));
   }
 

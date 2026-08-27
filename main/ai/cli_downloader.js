@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * cli_downloader.js — fetches the Claude Code / Codex native CLIs on demand (B12).
+ * cli_downloader.js: fetches the Claude Code / Codex native CLIs on demand (B12).
  *
  * The subscription CLIs are no longer bundled in the installer (they were
  * ~460 MB). The first time a user actually runs a turn against Claude Code or
@@ -31,6 +31,8 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 
 const { entryFor, platformKey } = require('./cli_manifest');
+const { trackChild } = require('../process_registry');
+const { EXTRACT_MS } = require('../net/timeouts');
 
 let log;
 try { log = require('electron-log'); } catch (_) { log = console; }
@@ -74,7 +76,7 @@ function isDownloadable(/** @type {'claude'|'codex'} */ kind) {
 }
 
 /**
- * Sync cache lookup — the resolved binary shape (same as cli_locator) if the
+ * Sync cache lookup, the resolved binary shape (same as cli_locator) if the
  * CLI is already downloaded, else null.
  * @param {'claude'|'codex'} kind
  * @returns {{exe:string, rgDir:string|null, viaShim:boolean}|null}
@@ -151,7 +153,7 @@ function downloadToFile(url, dest, onChunk) {
       req.on('error', done);
       // Idle-timeout the socket. A connection that stalls mid-body (captive
       // portal, dropped link that emits no socket 'error') would otherwise leave
-      // the Promise unsettled forever — and a never-settled promise poisons the
+      // the Promise unsettled forever, and a never-settled promise poisons the
       // in-flight dedupe Map, blocking every retry until the app restarts.
       // Destroying with an error settles `done` (reject), which unlinks the
       // partial file and lets ensureCli's .finally clear the dedupe entry.
@@ -167,11 +169,20 @@ function downloadToFile(url, dest, onChunk) {
 /** Extract an npm .tgz into destDir, stripping the leading `package/` dir. */
 function extractTgz(/** @type {string} */ tgz, /** @type {string} */ destDir) {
   return new Promise((resolve, reject) => {
-    execFile('tar', ['-xzf', tgz, '--strip-components=1', '-C', destDir], { windowsHide: true },
+    // Bounded and registered: a tar wedged on a file the antivirus holds used
+    // to hang this promise for good (and the in-flight dedupe with it), and
+    // closing AURORA left the tar alive. See main/net/timeouts.js.
+    trackChild(execFile('tar', ['-xzf', tgz, '--strip-components=1', '-C', destDir],
+      { windowsHide: true, timeout: EXTRACT_MS },
       (err, _stdout, stderr) => {
-        if (err) reject(new Error(`tar extract failed: ${String(stderr || err.message).trim()}`));
-        else resolve(undefined);
-      });
+        if (err && /** @type {any} */ (err).killed) {
+          reject(new Error(`tar extract exceeded ${Math.round(EXTRACT_MS / 60000)} min and was stopped`));
+        } else if (err) {
+          reject(new Error(`tar extract failed: ${String(stderr || err.message).trim()}`));
+        } else {
+          resolve(undefined);
+        }
+      }));
   });
 }
 
@@ -182,7 +193,7 @@ function rmrf(/** @type {string} */ p) {
 /**
  * Best-effort sweep of stale version dirs for the same package after a fresh
  * install. The cache dir embeds the version (`<safe-pkg>@<version>`), so a
- * manifest bump orphans the old extracted tree (~70–240 MB). Never throws — a
+ * manifest bump orphans the old extracted tree (~70–240 MB). Never throws, a
  * locked old exe on Windows is fine to leave for the next run.
  */
 function pruneStaleVersions(/** @type {string} */ keepDir) {

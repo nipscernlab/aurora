@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * aurora_mcp_server.js — local HTTP MCP server that exposes Aurora's
+ * aurora_mcp_server.js: local HTTP MCP server that exposes Aurora's
  * tool manifest to the Claude Code CLI (and any other MCP-aware
  * subscription bridge).
  *
@@ -10,7 +10,7 @@
  * into the SDK so the model gets Aurora's function-calling surface
  * (compile_all, set_top_level, select_wave_signals, …). The Claude
  * Code subscription path (claude_code.js) instead spawns the `claude`
- * CLI in print mode — and that CLI only knows about its OWN built-in
+ * CLI in print mode, and that CLI only knows about its OWN built-in
  * tools (Read/Edit/Bash/…). Without a bridge, the model falls back to
  * shelling out (PowerShell → cmmcomp.exe / iverilog / gtkwave), which
  * defeats Aurora's compilation pipeline and ignores its terminals,
@@ -27,7 +27,7 @@
  * Transport
  * ---------
  * Streamable HTTP, stateless mode (`sessionIdGenerator: undefined`).
- * We spin up a fresh Server + transport per request — slightly more
+ * We spin up a fresh Server + transport per request, slightly more
  * allocation than a long-lived session would be, but the call rate
  * is human-driven (a handful per chat turn), so the overhead is
  * negligible, and stateless avoids tracking client sessions.
@@ -38,7 +38,7 @@
  * re-checked on every request so a browser fetch from a malicious
  * page (DNS rebinding) can't reach the server. On top of that (V7) a
  * 256-bit per-session token is required: it lives in the endpoint PATH
- * (`/mcp/<token>`) — and is also accepted as `Authorization: Bearer`.
+ * (`/mcp/<token>`), and is also accepted as `Authorization: Bearer`.
  * The path form works for ANY MCP client without custom-header support
  * (both the Claude Code and Codex CLIs just consume the URL we hand
  * them), while still defeating a DNS-rebinding web page, which can
@@ -153,7 +153,7 @@ function buildMcpServer() {
     try {
       // Same one-way trip the SDK chat loop uses: ask-before-write,
       // audit logging, and final AuroraAPI dispatch all live in the
-      // renderer's tool_runner — we just relay.
+      // renderer's tool_runner, we just relay.
       const result = await toolBridge.runTool(wc, name, args);
       const text = (() => { try { return JSON.stringify(result); } catch (_) { return String(result); } })();
       return {
@@ -277,7 +277,7 @@ function ensureStarted() {
         res.end('unauthorized');
         return;
       }
-      // SSE-back-channel (GET) is unsupported in stateless mode — and
+      // SSE-back-channel (GET) is unsupported in stateless mode, and
       // we don't push notifications anyway. Same for DELETE (session
       // termination). 405 with the Allow header is the polite reply.
       if (req.method && req.method !== 'POST') {

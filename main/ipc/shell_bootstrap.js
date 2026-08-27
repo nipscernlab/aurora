@@ -1,6 +1,6 @@
 // @ts-check
 /**
- * shell_bootstrap.js — o que o terminal TCMD monta ANTES de o PowerShell subir.
+ * shell_bootstrap.js: o que o terminal TCMD monta ANTES de o PowerShell subir.
  *
  * Isto saiu de dentro do `shell.js` porque é a parte que dá para provar sem
  * abrir um pseudo-terminal: montar texto de script, escapar aspas, codificar
@@ -58,7 +58,7 @@ function psQuote(s) {
  * padrão é `system`: o terminal começa sendo o shell que o usuário espera.
  *
  * @param {string} exe caminho do python.exe embarcado ('' se o bundle não existe)
- * @returns {string} vazio quando não há bundle — o chamador simplesmente não injeta nada
+ * @returns {string} vazio quando não há bundle, o chamador simplesmente não injeta nada
  */
 function pythonBridgeScript(exe) {
   if (!exe) return '';
@@ -69,7 +69,7 @@ function apython { & $env:AURORA_PYTHON_EXE @args }
 # 'function:python' SEM o prefixo global: e COM -Force. Medido na pratica:
 # 'Remove-Item function:global:python' nao remove nada (e Test-Path continua
 # dizendo que existe), o que fazia 'Use-Python system' anunciar a troca sem
-# efetua-la — o pior tipo de defeito, porque mente para o usuario.
+# efetua-la, o pior tipo de defeito, porque mente para o usuario.
 function Test-AuroraPythonActive {
   [bool](Get-Command python -CommandType Function -ErrorAction SilentlyContinue)
 }
@@ -153,7 +153,6 @@ module.exports = {
   promptBootstrapLine,
   encodeBootstrap,
   clampGrid,
-  MIN_GRID,
   DEFAULT_COLS,
   DEFAULT_ROWS,
 };

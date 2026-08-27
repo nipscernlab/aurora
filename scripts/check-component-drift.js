@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // @ts-check
 /**
- * check-component-drift.js — descobre quando um componente fixado ficou para
+ * check-component-drift.js: descobre quando um componente fixado ficou para
  * trás do que o upstream já publicou.
  *
  * POR QUE ISTO EXISTE
@@ -40,7 +40,7 @@
  * ONDE ELE RODA
  *
  * No `.github/workflows/component-drift.yml`, semanalmente e por acionamento
- * manual — de propósito FORA do CI de pull request. Uma release nova lá fora
+ * manual, de propósito FORA do CI de pull request. Uma release nova lá fora
  * não é defeito do código que está sendo revisado, e reprovar um PR por causa
  * dela treinaria todo mundo a ignorar o vermelho. O workflow mantém UMA issue
  * aberta, atualizada enquanto houver deriva e fechada sozinha quando não houver.
@@ -60,7 +60,7 @@ const REPO_ROOT = path.join(__dirname, '..');
 const SCRIPTS_DIR = path.join(REPO_ROOT, 'components', 'Scripts');
 
 /* ────────────────────────────────────────────────────────────────────────────
- * Núcleo puro. É o que o teste exercita — sem rede, sem disco.
+ * Núcleo puro. É o que o teste exercita, sem rede, sem disco.
  * ──────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -76,16 +76,16 @@ const SCRIPTS_DIR = path.join(REPO_ROOT, 'components', 'Scripts');
  * única informação de recência em que dá para confiar sem comparar versões.
  *
  * Os cinco estados:
- *   'bad-family' — a própria tag fixada não casa com a família declarada. É bug
+ *   'bad-family', a própria tag fixada não casa com a família declarada. É bug
  *                  de configuração deste arquivo, e precisa gritar em vez de
  *                  virar uma deriva falsa.
- *   'unknown'    — o upstream não devolveu nenhuma tag da família. Sem base de
+ *   'unknown'   , o upstream não devolveu nenhuma tag da família. Sem base de
  *                  comparação, e afirmar qualquer coisa seria invenção.
- *   'absent'     — a fixada não está entre as publicadas. Tag apagada, pacote
+ *   'absent'    , a fixada não está entre as publicadas. Tag apagada, pacote
  *                  despublicado, ou erro de digitação; em qualquer dos casos é
  *                  mais grave que estar atrás, porque o bootstrap vai falhar.
- *   'ok'         — a fixada é a mais nova da família.
- *   'behind'     — está atrás, e `behind` diz por quantas.
+ *   'ok'        , a fixada é a mais nova da família.
+ *   'behind'    , está atrás, e `behind` diz por quantas.
  *
  * @param {{ pinned: string, family: RegExp, published: Published[] }} input
  * @returns {{ status: DriftStatus, latest: string|null, latestDate: string|null, behind: number }}

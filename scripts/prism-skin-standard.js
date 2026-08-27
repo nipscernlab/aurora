@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * prism-skin-standard.js — the PRISM symbol STANDARD, made executable.
+ * prism-skin-standard.js: the PRISM symbol STANDARD, made executable.
  *
  * Parses every SAPHO HDL module (components/HDL/*.v) and renders each one to a
  * professional, consistent PRISM symbol, so the whole datapath looks like one
@@ -20,10 +20,10 @@
  *     dispersion mark, or the SAPHO "S" for the `processor` top cell.
  *  4. FLOW left→right. Data inputs west, result(s) east; CONTROL (clk/rst/op/en…)
  *     is drawn in violet so it's visually separate from data. `clk` gets an edge ▸.
- *  5. PORTS LABELLED at their anchor; pins are small squares (NOT circles — PRISM
+ *  5. PORTS LABELLED at their anchor; pins are small squares (NOT circles, PRISM
  *     CSS forces a stroke on every <circle>). Selectors group inputs by family.
  *  6. TYPOGRAPHY: one sans family for UI text, mono for port identifiers. (Always
- *     set font-family — bare text falls back to serif.)
+ *     set font-family, bare text falls back to serif.)
  *  7. THEME COLOUR via CSS vars + hex fallbacks. NO gradients / no root <defs>:
  *     PRISM merges only the <g s:type> block, so a root <defs> is dropped.
  *  8. CRISP GEOMETRY on an integer grid; 1.4px stroke; round joins.
@@ -339,7 +339,7 @@ function renderFIFO(mod, info) {
   });
 }
 
-/* ── ALU: the textbook function unit — flat top, tapered result edge, and a
+/* ── ALU: the textbook function unit, flat top, tapered result edge, and a
  *    V-notch bitten into the operand (west) side when there are ≥2 operands. ─ */
 function renderALU(mod, info) {
   P = [];

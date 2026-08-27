@@ -1,16 +1,16 @@
 import { electronAPI } from '../app/electron_api.js';
 /**
- * spf_store.ts — Single writer pra <project>.spf (renderer-side).
+ * spf_store.ts: Single writer pra <project>.spf (renderer-side).
  *
  * O .spf consolida todo o config canonico do projeto: lifecycle
  * metadata (escrito pelo main process em open/create-processor/
  * delete-processor) + structure (file lists, top-level, testbench
  * top, flags do iverilog). Pre-2026-05, parte disso vivia em
- * projectOriented.json — consolidado aqui pra ter um arquivo unico
+ * projectOriented.json: consolidado aqui pra ter um arquivo unico
  * de config per-project.
  *
  * Estado per-testbench (gtkwFiles, waveSignals, wcInitialized/
- * wcCustomized) continua fora — fica em <project>/testbench/
+ * wcCustomized) continua fora, fica em <project>/testbench/
  * <tbKey>.json via wave_state_store.js. Granularidade per-tb
  * justifica arquivo separado.
  *
@@ -20,10 +20,10 @@ import { electronAPI } from '../app/electron_api.js';
  *
  * API espelha o antigo ProjectConfigStore: `read` puro, `update`
  * atomico via promise chain serializada per-spfPath. O mutator
- * recebe so o `structure` — `metadata` e preservado e tem
+ * recebe so o `structure`, `metadata` e preservado e tem
  * `lastModified` carimbado a cada write.
  *
- * Compilado por `tsc` (npm run build:ts) num spf_store.js ao lado — é esse
+ * Compilado por `tsc` (npm run build:ts) num spf_store.js ao lado, é esse
  * .js que o runtime carrega; os imports usam a extensão `.js`.
  */
 
@@ -32,7 +32,7 @@ interface FileEntry {
   path?: string;
   [key: string]: unknown;
 }
-/** A processor entry — `{ name }`, params live in the .cmm. */
+/** A processor entry, `{ name }`, params live in the .cmm. */
 interface ProcessorEntry {
   name?: string;
   [key: string]: unknown;
@@ -49,7 +49,7 @@ export interface SpfStructure {
   // Unknown keys survive the round trip (defaults first, on-disk second).
   [key: string]: unknown;
 }
-/** The `metadata` half — written by the main process lifecycle. */
+/** The `metadata` half, written by the main process lifecycle. */
 interface SpfMetadata {
   projectName?: string;
   lastModified?: string;
@@ -67,7 +67,7 @@ export interface SpfDocument {
 // ----------------------------------------------------------------------------
 // O .spf grava paths RELATIVOS ao basePath quando o arquivo esta dentro do
 // projeto, e ABSOLUTOS quando esta fora. Tudo que e exposto pra fora do
-// SpfStore (via read/update mutator) e SEMPRE absoluto — caller nao precisa
+// SpfStore (via read/update mutator) e SEMPRE absoluto, caller nao precisa
 // saber dessa normalizacao. Backward-compat: .spf antigos com paths absolutos
 // continuam lendo (isAbsolutePath bypassa o resolve); o primeiro save migra
 // pros relativos automaticamente.
@@ -82,7 +82,7 @@ function isAbsolutePath(p: unknown): boolean {
     return /^([a-zA-Z]:[\\/]|[\\/]{2}|\/)/.test(p);
 }
 
-/** dirname local — split em \ ou /, sem IPC. */
+/** dirname local, split em \ ou /, sem IPC. */
 function localDirname(p: unknown): string {
     if (typeof p !== 'string') return '';
     const i = Math.max(p.lastIndexOf('\\'), p.lastIndexOf('/'));
@@ -163,7 +163,7 @@ const writeChainByPath = new Map<string, Promise<unknown>>();
 // readFile independente. Map e limpa quando a promise settled, entao
 // o proximo tick le do disco de novo (sem cache atravessando ticks,
 // nada de mtime stale). Soluciona o cenario "evento dispara 6
-// consumidores que cada um chama SpfStore.read" — varia de 6 disk
+// consumidores que cada um chama SpfStore.read", varia de 6 disk
 // reads pra 1.
 const inFlightReads = new Map<string, Promise<SpfDocument>>();
 
@@ -174,14 +174,14 @@ const STRUCTURE_DEFAULTS: SpfStructure = Object.freeze({
   // Subpastas registradas pela UI (criadas via "New Folder" no tree).
   folders: [],
   // Processadores SAPHO conhecidos do projeto. Cada entry e `{ name }`
-  // — os parametros (nBits/nbMantissa/etc) ficam no .cmm do processador,
+  //, os parametros (nBits/nbMantissa/etc) ficam no .cmm do processador,
   // que e a fonte canonica pro pipeline. `exists` pode ser anexado
   // dinamicamente no main em open-spf-project mas nao tem leitor.
   processors: [],
-  // Top do design — `-s` do iverilog no botao Verilog/PRISM
+  // Top do design, `-s` do iverilog no botao Verilog/PRISM
   // (modo check). Marcado via context menu na file tree.
   topLevelFile: '',
-  // Testbench-topo — `-s` do botao Wave (modo simulacao).
+  // Testbench-topo, `-s` do botao Wave (modo simulacao).
   testbenchFile: '',
   // Arquivos .v sinteticaveis (inclui os .v dos processadores).
   // Populados pela auto-descoberta + drag-and-drop no file tree.
@@ -190,7 +190,7 @@ const STRUCTURE_DEFAULTS: SpfStructure = Object.freeze({
   testbenchFiles: [],
 });
 
-// Strip // and /* */ comments that sit OUTSIDE of strings — leaves string
+// Strip // and /* */ comments that sit OUTSIDE of strings, leaves string
 // contents (including URLs with //) untouched.
 function stripJsonComments(s: string): string {
   let out = '';
@@ -221,7 +221,7 @@ function stripJsonComments(s: string): string {
  * trailing commas or stray comments (hand-edits, other tools, partial writes).
  * Strict JSON first; on failure, one lenient pass (BOM + comments + trailing
  * commas) so a RECOVERABLE file isn't silently reset to defaults. Still throws
- * if genuinely unparseable — the caller logs + falls back.
+ * if genuinely unparseable, the caller logs + falls back.
  */
 function parseSpfTolerant(content: string): any {
   try {
@@ -245,12 +245,12 @@ async function readRawUncached(spfPath: string): Promise<SpfDocument> {
   try {
     const content = await electronAPI.readFile(spfPath);
     const parsed = parseSpfTolerant(content);
-    // Defaults first, on-disk values second — unknown keys
+    // Defaults first, on-disk values second, unknown keys
     // sobrevivem ao round trip.
     const structure: SpfStructure = { ...STRUCTURE_DEFAULTS, ...(parsed.structure ?? {}) };
     // Paths no disco podem ser relativos (formato novo) ou absolutos
     // (formato antigo / fora do basePath). Expande pra absoluto antes
-    // de devolver — caller sempre trabalha com absoluto.
+    // de devolver, caller sempre trabalha com absoluto.
     expandStructurePaths(structure, resolveBaseDir(structure, spfPath));
     return {
       metadata: parsed.metadata ?? {},
@@ -267,7 +267,7 @@ async function readRawUncached(spfPath: string): Promise<SpfDocument> {
 
 function readRaw(spfPath: string): Promise<SpfDocument> {
   // Coalesce reads em vooo: o segundo caller no mesmo tick recebe
-  // exatamente a mesma promise — sem fanout de readFile/JSON.parse.
+  // exatamente a mesma promise, sem fanout de readFile/JSON.parse.
   // Ver comentario no `inFlightReads` la em cima.
   const inFlight = inFlightReads.get(spfPath);
   if (inFlight) return inFlight;
@@ -289,7 +289,7 @@ export const SpfStore = {
 
   /**
    * Read structure do .spf (ou STRUCTURE_DEFAULTS se missing/
-   * unparseable). Read-only — nao afeta o write queue.
+   * unparseable). Read-only, nao afeta o write queue.
    */
   async read(spfPath: string): Promise<SpfStructure> {
     const doc = await readRaw(spfPath);
@@ -320,9 +320,9 @@ export const SpfStore = {
       // serializa, entao pular o coalescing aqui nao introduz race.
       const doc = await readRawUncached(spfPath);
       // Snapshot do structure ANTES do mutator pra comparacao
-      // pos-write. Sem isso, qualquer chamada de update — mesmo
+      // pos-write. Sem isso, qualquer chamada de update, mesmo
       // no-op (ex: saveConfiguration interno depois de um load que
-      // nao reclassificou nada) — dispararia aurora:spf-changed e
+      // nao reclassificou nada), dispararia aurora:spf-changed e
       // causaria loop de refresh. Comparamos so o structure;
       // metadata.lastModified muda em toda escrita e nao queremos
       // que isso conte como mudanca semantica.
@@ -331,7 +331,7 @@ export const SpfStore = {
       const afterStruct = JSON.stringify(doc.structure);
       // Grava paths relativos quando estao dentro do basePath; absolutos
       // ficam absolutos. Caller continua trabalhando com absoluto no
-      // doc.structure em memoria — so o que vai pro disco e normalizado.
+      // doc.structure em memoria, so o que vai pro disco e normalizado.
       const stored = contractStructurePaths(doc.structure, resolveBaseDir(doc.structure, spfPath));
       const updated: SpfDocument = {
         metadata: { ...doc.metadata, lastModified: new Date().toISOString() },
@@ -339,7 +339,7 @@ export const SpfStore = {
       };
       await writeRaw(spfPath, updated);
       // Notifica subscribers (status_bar, processor_config_panel,
-      // file_mode, etc) que o .spf mudou — hook unificado pra que
+      // file_mode, etc) que o .spf mudou, hook unificado pra que
       // futuro codigo nao precise escutar N eventos IPC diferentes
       // pra detectar "o spf foi reescrito". SO dispara quando o
       // structure realmente mudou: mutators no-op nao geram

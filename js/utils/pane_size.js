@@ -1,5 +1,5 @@
 /**
- * pane_size.js — a regra de tamanho dos painéis redimensionáveis, no
+ * pane_size.js: a regra de tamanho dos painéis redimensionáveis, no
  * comportamento do VS Code.
  *
  * O que o VS Code faz, e que a AURORA não fazia: arrastando, o painel encolhe

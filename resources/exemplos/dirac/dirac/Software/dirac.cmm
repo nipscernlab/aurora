@@ -1,0 +1,46 @@
+#PRNAME dirac
+#NUBITS 23
+#NDSTAC 10
+#SDEPTH 10
+#NUIOIN 1
+#NUIOOU 1
+#NBMANT 16
+#NBEXPO 6
+#NUGAIN 128
+
+// Notacao de Dirac: algebra linear escrita como na fisica.
+//
+// Esta e a marca do C+-. Onde outra linguagem pediria dois lacos aninhados
+// para multiplicar matriz por vetor, aqui se escreve a operacao do jeito que
+// ela aparece no quadro, e o compilador gera o laco.
+//
+//   a # |B|a>       a recebe B vezes a          (matriz por vetor)
+//   a # 2.0|b>      a recebe duas vezes b       (escalar por vetor)
+//   A # |a><b|      A recebe a vezes b^T        (produto externo)
+//   a # 0.001|in(0)>  a recebe a entrada escalada
+//
+// As duas primeiras linhas do main preparam A e B como matrizes identidade, e
+// os vetores a e b como vetores nulos: `|I|` e `|0>` sao as formas de
+// declaracao. Sem isso a memoria comecaria com lixo.
+
+float A[4][4];
+float B[4][4];
+float a[4];
+float b[4];
+
+void main()
+{
+    A # 1.0|I|;
+    B # 1.0|I|;
+    a # |0⟩;
+    b # |0⟩;
+
+    while (1)
+    {
+        a # |B|a⟩;           // exec_Mv:    a = B * a
+        a # 2.0|b⟩;          // exec_cv:    a = 2.0 * b
+        A # |a⟩⟨b|;          // exec_vvt:   A = a * b^T
+        a # 0.001|in(0)⟩;    // exec_cvin:  a = 0.001 * input(0)
+        out(0, 1);
+    }
+}

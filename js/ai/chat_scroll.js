@@ -1,4 +1,4 @@
-// chat_scroll.js — pure scroll math for the AI chat viewport, extracted from
+// chat_scroll.js: pure scroll math for the AI chat viewport, extracted from
 // ai_assistant_manager.js (A2 god-file decomposition).
 //
 // No DOM mutation, no instance state: the AIAssistantManager keeps the scroll

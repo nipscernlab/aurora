@@ -94,7 +94,7 @@ describe('filterGtkWaveOutput', () => {
   });
 
   it('keeps lines that merely *contain* a noise prefix as a substring', () => {
-    // Filter is .startsWith-based, not includes-based — so "look at GTKWave"
+    // Filter is .startsWith-based, not includes-based, so "look at GTKWave"
     // (where the prefix is mid-line) is intentionally preserved.
     expect(filterGtkWaveOutput('look at GTKWave Analyzer details')).toBe(
       'look at GTKWave Analyzer details',

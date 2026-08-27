@@ -1,5 +1,5 @@
 /**
- * shared_models.js — Reference-counted Monaco model registry.
+ * shared_models.js: Reference-counted Monaco model registry.
  *
  * Splitting the editor used to clone the file's text into a brand-new model
  * per pane, which meant edits never propagated and only the main pane's tab
@@ -8,7 +8,7 @@
  * stay in sync, and the dirty/save flow works no matter which pane the user
  * is typing in.
  *
- * We can't let Monaco own model lifetime here — it auto-disposes a model
+ * We can't let Monaco own model lifetime here, it auto-disposes a model
  * when the editor that *created* it is disposed, which would yank the model
  * out from under the other panes. So the rule is:
  *
@@ -29,7 +29,7 @@ function uriFor(filePath) {
 export const SharedModelRegistry = {
   /**
    * Get (or create) the shared model for `filePath`. If the model already
-   * exists, `content` is ignored — the existing in-memory text is the
+   * exists, `content` is ignored, the existing in-memory text is the
    * source of truth (so a second pane opening the file sees the user's
    * unsaved edits, not the on-disk content).
    *
@@ -53,7 +53,7 @@ export const SharedModelRegistry = {
       // Snapshot the model's alternative version at acquire time. This
       // is what every pane (main + splits) compares against to decide
       // whether the buffer is dirty. Monaco bumps altVersionId on every
-      // edit and rolls it BACK on undo — so undoing all the way to the
+      // edit and rolls it BACK on undo, so undoing all the way to the
       // saved state correctly clears the dirty marker, exactly like VS Code.
       entry = {
         model,
@@ -79,7 +79,7 @@ export const SharedModelRegistry = {
       try {
         entry.model.dispose();
       } catch (_) {
-        // Already disposed — fine.
+        // Already disposed, fine.
       }
       entries.delete(filePath);
     }

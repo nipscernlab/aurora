@@ -1,10 +1,10 @@
 // @ts-check
 /**
- * codex_cli.js — OpenAI Codex CLI bridge for Aurora Intelligence.
+ * codex_cli.js: OpenAI Codex CLI bridge for Aurora Intelligence.
  *
  * The "ChatGPT" provider in the AI panel. It is the OpenAI counterpart of
  * `claude_code.js`: instead of a metered API key it drives the user's
- * ChatGPT subscription (Plus / Pro / Business / Edu / Enterprise — and the
+ * ChatGPT subscription (Plus / Pro / Business / Edu / Enterprise, and the
  * limited free tier) by shelling out to the locally-bundled `codex` CLI in
  * its non-interactive mode:
  *
@@ -22,16 +22,16 @@
  * Aurora's tools reach Codex through the same local MCP server the Claude
  * Code bridge uses (`aurora_mcp_server.js`); Codex sees them as
  * `mcp__aurora__<tool>`. Unlike the Claude Code CLI, Codex has no
- * `--disallowed-tools` switch — its shell tool is intrinsic. Worse: in
+ * `--disallowed-tools` switch, its shell tool is intrinsic. Worse: in
  * non-interactive `exec` mode every MCP tool call is auto-DECLINED ("user
  * cancelled MCP tool call") unless approvals are fully bypassed. Empirically
  * (`approval_policy=never`, `mcp_servers.*.auto_approved`, persistent
- * registration — all tried) the ONLY thing that lets MCP tools run is the
+ * registration, all tried) the ONLY thing that lets MCP tools run is the
  * bypass flag, which also disables Codex's sandbox. So a hard read-only
  * sandbox is not achievable alongside MCP here; instead the system-prompt
  * rules below steer Codex firmly onto `mcp__aurora__*` and away from the
  * shell. This is a softer guarantee than the Claude Code bridge's hard
- * Bash block — a known, accepted limitation of the Codex integration.
+ * Bash block, a known, accepted limitation of the Codex integration.
  *
  * The stream-json events Codex emits (thread/turn/item model) are
  * translated into the SAME `ai:chat-event` packets `chat.js` and
@@ -53,7 +53,7 @@ const { locateCodex } = cliLocator;
 const cliDownloader = require('./cli_downloader');
 const attachments = require('./attachments');
 const { CLI_INACTIVITY_MS, MCP_TOOL_CALL_MS } = require('./timeouts');
-// Codex SDK engine (ESTUDO §18.5 step 3) — preferred transport; this module's
+// Codex SDK engine (ESTUDO §18.5 step 3), preferred transport; this module's
 // spawn path below remains as the automatic fallback (and the shim-binary path).
 const codexAgent = require('./codex_agent');
 
@@ -90,7 +90,7 @@ function readCredentials() {
 /**
  * Best-effort ChatGPT plan extraction from the OAuth id_token. The token is
  * a JWT; its payload carries a `chatgpt_plan_type` claim ("plus", "pro",
- * "free", …). Decoding is read-only base64 — no verification, purely to
+ * "free", …). Decoding is read-only base64, no verification, purely to
  * label the panel's status row. Any failure just yields null.
  */
 function planFromIdToken(/** @type {any} */ creds) {
@@ -118,7 +118,7 @@ function execFileText(/** @type {string} */ bin, /** @type {string[]} */ args, t
 }
 
 /**
- * Probe the local Codex install + subscription login. Cheap — reads the
+ * Probe the local Codex install + subscription login. Cheap, reads the
  * credentials file rather than spending tokens on a ping.
  *
  * @returns {Promise<{installed:boolean, path?:string, version?:string,
@@ -127,7 +127,7 @@ function execFileText(/** @type {string} */ bin, /** @type {string[]} */ args, t
 async function detect() {
   const bin = resolveBinary();
   if (!bin) {
-    // Not on disk yet — report whether it can be fetched on demand (B12) and
+    // Not on disk yet, report whether it can be fetched on demand (B12) and
     // whether ChatGPT is already signed in (creds are independent of the binary).
     const creds = readCredentials();
     return {
@@ -224,7 +224,7 @@ function sendEvent(/** @type {any} */ webContents, /** @type {string} */ session
   }
 }
 
-/** A neutral scratch directory for the CLI's working dir — deliberately NOT the
+/** A neutral scratch directory for the CLI's working dir, deliberately NOT the
  *  project folder. On Windows a process whose cwd is a folder LOCKS it, so with
  *  the project as cwd a `rename_project` couldn't complete until the turn ended
  *  (the "rename only applies after I finish" bug). Codex reaches the project via
@@ -266,7 +266,7 @@ async function start(payload, webContents) {
     throw new Error('messages must be a non-empty array');
   }
 
-  // Sign-in first — the ChatGPT OAuth tokens are independent of the binary, so
+  // Sign-in first, the ChatGPT OAuth tokens are independent of the binary, so
   // there's no point downloading the CLI only to bounce off a missing login.
   if (!readCredentials()) {
     sendEvent(webContents, sessionId, 'error', {
@@ -277,7 +277,7 @@ async function start(payload, webContents) {
 
   let bin = resolveBinary();
   if (!bin) {
-    // B12: the installer no longer bundles the CLI — fetch it on first use.
+    // B12: the installer no longer bundles the CLI, fetch it on first use.
     if (!cliDownloader.isDownloadable('codex')) {
       sendEvent(webContents, sessionId, 'error', {
         message: 'Codex CLI not found. Reinstall Aurora, or run `npm i -g @openai/codex`.',
@@ -319,7 +319,7 @@ async function start(payload, webContents) {
     log.info('[ai.codex] Codex SDK unavailable — using legacy CLI spawn');
   } catch (e) {
     // tryStart reports its own TURN errors as chat-events; reaching here
-    // means the engine wiring itself blew up — surface it rather than
+    // means the engine wiring itself blew up, surface it rather than
     // double-running the turn through the legacy path.
     sendEvent(webContents, sessionId, 'error', {
       message: `Codex engine error: ${e instanceof Error ? e.message : e}`,
@@ -367,7 +367,7 @@ async function start(payload, webContents) {
   const model = modelFlag(modelId);
   if (model) args.push('-m', model);
 
-  // Reasoning effort — `-c` config overrides are accepted by BOTH `exec`
+  // Reasoning effort, `-c` config overrides are accepted by BOTH `exec`
   // and `exec resume` (unlike `-m`/`-C`), so this is resume-safe. Values
   // low|medium|high|xhigh are valid across the lineup; `max` is first-class
   // on the GPT-5.6 family (the current default lineup). Empty = omit and
@@ -377,7 +377,7 @@ async function start(payload, webContents) {
     args.push('-c', `model_reasoning_effort="${effort}"`);
   }
 
-  // Aurora tool bridge — register the MCP server so Codex gets the
+  // Aurora tool bridge, register the MCP server so Codex gets the
   // mcp__aurora__* tools. If it fails to come up the turn still runs;
   // Codex just won't have Aurora's tools (degraded, shell-only).
   let mcpReady = false;
@@ -387,7 +387,7 @@ async function start(payload, webContents) {
     // MCP tool-call read timeout (Codex's counterpart of Claude Code's
     // MCP_TOOL_TIMEOUT). Codex defaults `tool_timeout_sec` to 120, then
     // reports `tool call failed … Caused by: timed out awaiting tools/call
-    // after 120s` and marks the tool FAILED — even when Aurora finished the
+    // after 120s` and marks the tool FAILED, even when Aurora finished the
     // work. rename_project / rename_processor (release watchers → move folder
     // → rewrite .spf → reopen) can outrun 120s on a large project, so the
     // rename really lands but Codex sees a failure. tool_bridge already awaits
@@ -584,7 +584,7 @@ async function start(payload, webContents) {
             "the GPT-5.6 presets — Sol / Terra / Luna (Plus and Pro). " +
             "Spark requires ChatGPT Pro.";
         }
-        // A failed resume usually means the thread is gone — drop the
+        // A failed resume usually means the thread is gone, drop the
         // mapping so the next turn starts fresh.
         if (resumeId && conversationId) convThreads.delete(conversationId);
         sendEvent(webContents, sessionId, 'error', { message: String(msg) });
@@ -601,7 +601,7 @@ async function start(payload, webContents) {
 
       default:
         // thread.started handled above; turn.started, item.updated,
-        // reasoning items, etc. — ignored.
+        // reasoning items, etc., ignored.
         break;
     }
   };
@@ -651,7 +651,7 @@ async function start(payload, webContents) {
   });
 }
 
-/** Stop one session handle — SDK turns expose stop() (AbortController);
+/** Stop one session handle, SDK turns expose stop() (AbortController);
  *  legacy spawns expose proc (tree-killed via taskkill on Windows). */
 function stopSession(/** @type {any} */ s) {
   if (!s) return false;
@@ -677,7 +677,7 @@ function abort(/** @type {string} */ sessionId) {
 }
 
 /** Kill every in-flight session. Called on app quit so Codex CLI
- *  subprocesses (and their children, via taskkill /T) aren't orphaned —
+ *  subprocesses (and their children, via taskkill /T) aren't orphaned:
  *  abort() only ever fired for a single renderer-requested session. */
 function killAll() {
   for (const [, s] of sessions) stopSession(s);

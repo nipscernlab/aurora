@@ -153,6 +153,59 @@ function getTM() {
         : null;
 }
 
+/**
+ * Confere, ANTES de começar, que os componentes sem os quais nada compila
+ * estão na máquina. Escreve no terminal do passo e devolve false para o
+ * chamador parar.
+ *
+ * POR QUE NO TERMINAL, E NÃO SÓ NO DIÁLOGO
+ * ----------------------------------------
+ * O aviso já existia como diálogo, disparado lá do fundo, quando o portão de
+ * execução (main/compile/binary_allowlist.js) recusa um binário. Mas isso
+ * acontece DEPOIS de a compilação começar, e o diálogo se fecha: quem clicou
+ * "Agora não" ficava com um terminal em silêncio e nenhum registro do porquê.
+ * O terminal é onde a pessoa está olhando quando aperta Compilar, e o que fica
+ * escrito lá continua lá depois.
+ *
+ * POR QUE ANTES, E NÃO DEPOIS DE FALHAR
+ * -------------------------------------
+ * Sem a checagem prévia, a compilação arranca, roda o que consegue e morre no
+ * meio com o erro do binário que faltou, deixando artefato pela metade. Uma
+ * pergunta ao main custa milissegundos e troca isso por uma frase que diz o
+ * nome do componente e o tamanho do download.
+ *
+ * FALHA ABERTA de propósito: se a consulta ao main der erro, a compilação
+ * SEGUE. Este é um aviso melhor, não uma segunda tranca; a tranca de verdade
+ * continua sendo o allowlist do processo principal, que ninguém contorna.
+ *
+ * @param {string} terminalId terminal do passo, para a mensagem aparecer onde a pessoa olha
+ * @returns {Promise<boolean>} false quando falta componente e a compilação não deve começar
+ */
+export async function exigirComponentesDeCompilacao(terminalId) {
+    let dados;
+    try {
+        dados = await electronAPI.componentesListar?.();
+    } catch (_) {
+        return true;   // falha aberta: ver o cabeçalho
+    }
+    const faltando = (dados?.componentes || []).filter((c) => c.requerParaCompilar && !c.instalado);
+    if (!faltando.length) return true;
+
+    const tm = getTM();
+    for (const c of faltando) {
+        const mb = c.downloadMB >= 1000
+            ? `${(c.downloadMB / 1024).toFixed(1)} GB`
+            : `${c.downloadMB} MB`;
+        tm?.appendToTerminal?.(
+            terminalId,
+            tr('terminal.compile.componentMissing', { nome: c.nome, mb }),
+            'error',
+        );
+    }
+    tm?.appendToTerminal?.(terminalId, tr('terminal.compile.componentWhere'), 'tips');
+    return false;
+}
+
 // Ultimo processador que teve um .cmm em foco. A IA compila com o painel de
 // chat focado (nao um .cmm), entao getActiveProcessorName(), que e derivado
 // do foco, retorna null nesse instante. Guardamos o ultimo processador ativo
@@ -428,6 +481,7 @@ async function handleCmmStep() {
     }
 
     startCompilation(STEP_TERMINALS.cmm);
+    if (!await exigirComponentesDeCompilacao('tcmm')) { endCompilation(); return; }
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
@@ -531,6 +585,7 @@ async function precompileAsmOnly(compiler, terminalId) {
  */
 async function handleAsmStep() {
     startCompilation(STEP_TERMINALS.asm);
+    if (!await exigirComponentesDeCompilacao('tasm')) { endCompilation(); return; }
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
@@ -553,6 +608,7 @@ async function handleAsmStep() {
  */
 async function handleVerilogStep() {
     startCompilation(STEP_TERMINALS.verilog);
+    if (!await exigirComponentesDeCompilacao('tveri')) { endCompilation(); return; }
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
@@ -574,6 +630,7 @@ async function handleVerilogStep() {
  */
 async function handleWaveStep() {
     startCompilation(STEP_TERMINALS.wave);
+    if (!await exigirComponentesDeCompilacao('twave')) { endCompilation(); return; }
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
@@ -597,6 +654,7 @@ async function handleWaveStep() {
  */
 async function handleVerilatorProcStep() {
     startCompilation(STEP_TERMINALS['verilator-proc']);
+    if (!await exigirComponentesDeCompilacao('tveri')) { endCompilation(); return; }
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
@@ -628,6 +686,7 @@ async function handleVerilatorProcStep() {
  */
 async function handleFastSimStep() {
     startCompilation(STEP_TERMINALS['verilator-fast']);
+    if (!await exigirComponentesDeCompilacao('twave')) { endCompilation(); return; }
     try {
         const compiler = new CompilationModule(window.currentProjectPath);
         await compiler.loadConfig();
@@ -649,6 +708,7 @@ async function handleFastSimStep() {
  */
 async function handlePrismStep() {
     startCompilation(STEP_TERMINALS.prism);
+    if (!await exigirComponentesDeCompilacao('tveri')) { endCompilation(); return; }
     try {
         const projectPath = window.currentProjectPath
             || await electronAPI.dirname(window.currentOpenProjectPath);

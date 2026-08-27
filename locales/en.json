@@ -702,7 +702,11 @@
       "progressBuild": "Build",
       "surferTabStateSaved": "State saved in the project and registered as the active layout; the next Wave opens with it."
     },
-    "openComponents": "Open Components"
+    "openComponents": "Open Components",
+    "compile": {
+      "componentMissing": "{{nome}} is missing on this machine, and compilation cannot run without it. It is a {{mb}} download.",
+      "componentWhere": "Download it in Settings, Components. The dot on the gear stays lit while it is missing."
+    }
   },
   "error": {
     "config": {

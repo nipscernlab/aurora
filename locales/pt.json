@@ -702,7 +702,11 @@
       "progressBuild": "Compilação",
       "surferTabStateSaved": "Estado salvo no projeto e registrado como layout ativo, o próximo Wave abre com ele."
     },
-    "openComponents": "Abrir Componentes"
+    "openComponents": "Abrir Componentes",
+    "compile": {
+      "componentMissing": "Falta {{nome}} nesta máquina, e sem ele a compilação não roda. São {{mb}} de download.",
+      "componentWhere": "Baixe em Configurações, Componentes. O ponto de aviso na engrenagem acende enquanto faltar."
+    }
   },
   "error": {
     "config": {

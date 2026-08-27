@@ -100,6 +100,43 @@ import {
 } from './compilation_helpers.js';
 import { COCOTB_RUNNER_SOURCE, COCOTB_TESTS_FAILED } from './cocotb_runner_source.js';
 
+// ─── Estado salvo dentro da aba do Surfer ───────────────────────────────────
+// tabId → { projectPath, tbKey, name }. Preenchido a cada abertura de aba;
+// quando o main avisa que um POST de estado foi gravado, este ouvinte registra
+// o arquivo no WaveStore como o layout ATIVO daquele testbench, e o próximo
+// Wave já abre com ele.
+//
+// O ouvinte é único e mora no import do módulo, e não numa instância: a aba do
+// Surfer sobrevive a recompilações (o tabId é estável por onda), então um
+// ouvinte por instância acumularia um por compilação e o mesmo salvamento
+// seria registrado várias vezes.
+const surferTabSaveCtx = new Map();
+if (typeof window !== 'undefined' && electronAPI.onSurferTabStateSaved) {
+    electronAPI.onSurferTabStateSaved(async ({ tabId, path: savedPath }) => {
+        const ctx = surferTabSaveCtx.get(tabId);
+        if (!ctx) return;
+        try {
+            await WaveStore.update(ctx.projectPath, ctx.tbKey, (cfg) => {
+                const files = Array.isArray(cfg.surferFiles) ? cfg.surferFiles : [];
+                let entry = files.find((f) => f?.path === savedPath);
+                if (!entry) {
+                    entry = { name: ctx.name, path: savedPath, isActive: false };
+                    files.push(entry);
+                }
+                for (const f of files) f.isActive = (f === entry);
+                cfg.surferFiles = files;
+            });
+            window._latestCompilationModule?.terminalManager?.appendToTerminal(
+                'twave', tr('terminal.wave.surferTabStateSaved'), 'success');
+        } catch (e) {
+            // O arquivo ESTA salvo; o que falhou foi anotá-lo no projeto. Dizer
+            // as duas coisas evita a pessoa salvar de novo achando que perdeu.
+            window._latestCompilationModule?.terminalManager?.appendToTerminal(
+                'twave', `Estado salvo em ${savedPath}, mas o registro no projeto falhou: ${e?.message || e}`, 'error');
+        }
+    });
+}
+
 // i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
@@ -3123,6 +3160,19 @@ async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools) {
 
     // Um id estavel por onda: recompilar reusa a aba e o main troca o servidor.
     const tabId = 'wave:' + vcdFile;
+
+    // Onde o "salvar" de dentro da aba grava: um arquivo fixo por testbench em
+    // testbench/, o mesmo diretório do estado do Wave Config. Salvar de novo
+    // sobrescreve, que é o que se espera de um salvar.
+    const tbKey = (this.projectConfig.testbenchFile || '')
+        .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
+    let stateSavePath = null;
+    if (tbKey && this.projectPath) {
+        const stateName = `${tbKey}.tab.surf.ron`;
+        stateSavePath = await electronAPI.joinPath(this.projectPath, 'testbench', stateName);
+        surferTabSaveCtx.set(tabId, { projectPath: this.projectPath, tbKey, name: stateName });
+    }
+
     const result = await electronAPI.surferTabServe({
         surferBin: tools.surferBin,
         waveFile: vcdFile,
@@ -3130,6 +3180,7 @@ async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools) {
         suclFile: isSucl ? surferLayoutFile : null,
         stateFile: !isSucl ? surferLayoutFile : null,
         mappings: this._surferTabMappings || [],
+        stateSavePath,
     });
     if (!result?.success) {
         this.terminalManager.appendToTerminal('twave',

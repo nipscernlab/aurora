@@ -52,7 +52,7 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const crypto = require('crypto');
-const { ipcMain } = require('electron');
+const { ipcMain, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
 const { componentsPath } = require('../paths');
@@ -135,6 +135,14 @@ const layouts = new Map();
  */
 const inlineDocs = new Map();
 
+/**
+ * Alvos de salvamento de estado: saveId → { path, tabId }. O cliente WASM
+ * POSTa o .surf.ron aqui (comando state_save_url_set do fork) e o main grava
+ * no projeto e avisa o renderer, que registra o layout como ativo.
+ * @type {Map<string, { path: string, tabId: string }>}
+ */
+const saveTargets = new Map();
+
 /** Origem do servidor local (http://127.0.0.1:porta), '' enquanto nao subiu.
  * O Server em si nao precisa de referencia: vive ate o processo main morrer,
  * e derrubar a IDE derruba a porta junto. */
@@ -198,6 +206,46 @@ function ensureHttpServer() {
         if (p.startsWith('/srv/')) {
           const [id, ...rest] = p.slice('/srv/'.length).split('/');
           serveProxy(id, rest.length ? `/${rest.join('/')}` : '', res);
+          return;
+        }
+        if (p.startsWith('/savestate/') && req.method === 'POST') {
+          const id = p.slice('/savestate/'.length).split('/')[0];
+          const target = saveTargets.get(id);
+          if (!target) { res.writeHead(404); res.end('Unknown save target'); return; }
+          const chunks = [];
+          let size = 0;
+          req.on('data', (c) => {
+            size += c.length;
+            // Um estado real tem dezenas de KB; 64 MB e um teto de sanidade
+            // contra um cliente quebrado, nao um limite de uso.
+            if (size > 64 * 1024 * 1024) { req.destroy(); return; }
+            chunks.push(c);
+          });
+          req.on('end', () => {
+            const body = Buffer.concat(chunks);
+            // Escrita atomica (tmp + rename): o proximo launch pode ler este
+            // arquivo a qualquer momento e nunca pode ver um estado partido.
+            const tmp = `${target.path}.aurora.tmp`;
+            fs.promises.writeFile(tmp, body)
+              .then(() => fs.promises.rename(tmp, target.path))
+              .then(() => {
+                res.writeHead(200); res.end('ok');
+                for (const win of BrowserWindow.getAllWindows()) {
+                  try {
+                    if (!win.isDestroyed()) {
+                      win.webContents.send('surfer-tab:state-saved', {
+                        tabId: target.tabId, path: target.path,
+                      });
+                    }
+                  } catch (_) { /* janela fechando */ }
+                }
+              })
+              .catch((e) => {
+                log.warn('[surfer-tab] falha gravando estado:', e?.message || e);
+                res.writeHead(500); res.end('write failed');
+              });
+          });
+          req.on('error', () => { try { res.writeHead(500); res.end(); } catch (_) { /* ja fechou */ } });
           return;
         }
         if (p.startsWith('/doc/')) {
@@ -307,6 +355,7 @@ async function stopServer(tabId) {
   if (!entry) return;
   servers.delete(tabId);
   proxies.delete(entry.proxyId);
+  if (entry.saveId) saveTargets.delete(entry.saveId);
   const { child } = entry;
   if (child && child.exitCode === null && !child.killed && child.pid) {
     try { await killProcessSilently(child.pid); } catch (_) { /* best-effort */ }
@@ -320,7 +369,7 @@ function register() {
    * { success, pageUrl?, message? }
    */
   ipcMain.handle('surfer-tab:serve', async (_e, options) => {
-    const { surferBin, waveFile, tabId, suclFile, stateFile, mappings } = options || {};
+    const { surferBin, waveFile, tabId, suclFile, stateFile, mappings, stateSavePath } = options || {};
     if (!surferBin || !waveFile || !tabId) {
       return { success: false, message: 'surfer-tab:serve requires { surferBin, waveFile, tabId }' };
     }
@@ -384,6 +433,13 @@ function register() {
       // batch, so roda depois de a onda carregar, que e o que o rebind dos
       // itens exige). Tudo na mesma origem, entao nenhum fetch e cortado.
       const startup = [];
+      if (typeof stateSavePath === 'string' && stateSavePath) {
+        const saveId = crypto.randomBytes(8).toString('hex');
+        saveTargets.set(saveId, { path: stateSavePath, tabId });
+        const entry = servers.get(tabId);
+        if (entry) entry.saveId = saveId;
+        startup.push(`state_save_url_set ${base}/savestate/${saveId}`);
+      }
       for (const m of Array.isArray(mappings) ? mappings : []) {
         if (!m || typeof m.name !== 'string' || typeof m.content !== 'string') continue;
         const docId = crypto.randomBytes(8).toString('hex');

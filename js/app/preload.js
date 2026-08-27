@@ -73,6 +73,9 @@ const fileOperations = {
   docsStatus:      () => ipcRenderer.invoke('docs:status'),
   docsOpenOffline: (onde) => ipcRenderer.invoke('docs:open-offline', onde),
   docsCheckUpdate: () => ipcRenderer.invoke('docs:check-update'),
+  // Ajuda contextual dos modais: abre o manual JA na pagina do assunto. O
+  // caminho e validado no main contra a pasta do manual; daqui so passa string.
+  docsOpenHelp:    (pagina) => ipcRenderer.invoke('docs:open-help', pagina),
   // Procurar e ler o manual, para a Aurora Intelligence. Nenhuma das duas
   // recebe pasta: quem resolve onde o manual esta e o processo principal.
   docsBuscar: (consulta, opcoes) => ipcRenderer.invoke('docs:buscar', consulta, opcoes),

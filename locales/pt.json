@@ -212,7 +212,8 @@
       "selectedCountOne": "1 sinal selecionado",
       "selectedCountOther": "{{count}} sinais selecionados",
       "cancel": "Cancelar",
-      "save": "Salvar"
+      "save": "Salvar",
+      "help": "Abrir o capítulo do manual sobre formas de onda"
     },
     "newProject": {
       "title": "Criar Novo Projeto",
@@ -241,7 +242,8 @@
       "inputPorts": "Portas de Entrada",
       "outputPorts": "Portas de Saída",
       "cancel": "Cancelar",
-      "generate": "Gerar Processador"
+      "generate": "Gerar Processador",
+      "help": "Abrir o capítulo do manual sobre criar um processador"
     },
     "settings": {
       "title": "Configurações da AURORA",

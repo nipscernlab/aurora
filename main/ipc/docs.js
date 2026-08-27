@@ -32,6 +32,9 @@ const { app, shell, ipcMain, BrowserWindow } = require('electron');
 const log = require('electron-log');
 
 const busca = require('../docs/busca');
+// O guarda de caminho da janela do manual. Reaproveitado pelo openHelp: duas
+// checagens diferentes para a mesma fronteira divergem com o tempo.
+const { dentroDaRaiz } = require('./docs_nav');
 
 const ONLINE_URL = 'https://www.nipscern.com/library/sapho/';
 const MANIFEST_URL = 'https://nipscernlab.github.io/docs_aurora/docs-manifest.json';
@@ -281,6 +284,43 @@ function extractZip(/** @type {string} */ zipPath, /** @type {string} */ destDir
 
 /* ------------------------------------------------------------------------ */
 
+/**
+ * Abre o manual numa página específica: é o que os botões de ajuda dos modais
+ * chamam, para levar direto ao capítulo do assunto em vez de despejar a pessoa
+ * no índice e deixá-la procurar.
+ *
+ * A validação de caminho NÃO é opcional aqui, e não é a mesma do `docs:ler`. A
+ * página vem do renderer, e sem checagem um `../../` sairia da pasta do manual
+ * e abriria qualquer arquivo do disco dentro de uma janela com a cara da
+ * AURORA. `dentroDaRaiz` (main/ipc/docs_nav.js) é o mesmo guarda que a
+ * navegação por links da janela já usa; reaproveitá-lo é deliberado, porque
+ * duas checagens diferentes para a mesma fronteira divergem com o tempo.
+ *
+ * A âncora é separada do caminho de propósito: ela nunca toca o sistema de
+ * arquivos, então não precisa passar pelo guarda, e misturá-la ao caminho faria
+ * o `#secao` virar parte do nome do arquivo.
+ *
+ * @param {string} pagina caminho relativo dentro do manual, ex: 'verilog/ondas.html'
+ * @returns {{ok: true} | {ok: false, motivo: string}}
+ */
+function openHelp(pagina) {
+  const dir = activeDir();
+  if (!dir) return { ok: false, motivo: 'manual-ausente' };
+  if (typeof pagina !== 'string' || !pagina.trim()) return { ok: false, motivo: 'pagina-invalida' };
+
+  const [rel, ancoraDaPagina = ''] = pagina.split('#');
+  const alvo = path.join(dir, rel);
+  if (!dentroDaRaiz(dir, alvo) || !fs.existsSync(alvo)) return { ok: false, motivo: 'pagina-invalida' };
+
+  try {
+    require('./docs_window').open(dir, rel, ancoraDaPagina);
+    return { ok: true };
+  } catch (e) {
+    log.error('[docs] falha ao abrir a ajuda:', e instanceof Error ? e.message : e);
+    return { ok: false, motivo: 'abrir-falhou' };
+  }
+}
+
 function register() {
   /** O renderer usa isto para decidir se mostra o botão da versão offline. */
   ipcMain.handle('docs:status', () => status());
@@ -311,6 +351,11 @@ function register() {
       return { ok: false, erro: e instanceof Error ? e.message : String(e) };
     }
   });
+
+  // Ajuda contextual dos modais. Devolve {ok:false} em vez de lancar quando o
+  // manual nao esta instalado, porque quem chama tem um plano B: abrir a mesma
+  // pagina do manual publico no navegador.
+  ipcMain.handle('docs:open-help', (_e, pagina) => openHelp(pagina));
 
   ipcMain.handle('docs:ler', (_e, caminho, opcoes) => {
     try {

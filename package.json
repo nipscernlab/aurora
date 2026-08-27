@@ -291,7 +291,7 @@
     "jquery-ui": "^1.14.2",
     "katex": "^0.18.4",
     "lit": "^3.3.3",
-    "material-icon-theme": "^5.37.0",
+    "material-icon-theme": "^5.38.1",
     "monaco-editor": "0.52.2",
     "simple-git": "^3.36.0",
     "web-tree-sitter": "0.26.13",

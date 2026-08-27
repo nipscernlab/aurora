@@ -15,10 +15,50 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-// Every <script src="…/foo.js"> in index.html is a renderer entry.
-function rendererEntriesFromIndexHtml() {
-  const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-  return [...html.matchAll(/src="\.?\/?([^"]+\.js)"/g)].map((m) => m[1]);
+// Toda página HTML do projeto, e todo módulo que ela carrega.
+//
+// Isto varre AS PÁGINAS, e não só o index.html, porque as secundárias também
+// têm entradas próprias: prism.html, design-lab.html e splash.html. As duas
+// primeiras estavam listadas à mão aqui embaixo; a splash não estava, e o
+// resultado foi o CI vermelho por mais de um dia acusando `js/ui/aurora.js` e
+// `js/ui/sky.js` como arquivos mortos. Eles não estão mortos: são o céu e a
+// aurora da tela de abertura, e a splash é a única página que os importa.
+//
+// E varre os DOIS jeitos de carregar, porque as páginas não são uniformes: o
+// index.html usa 39 `<script src>`, a splash usa `import` dentro de um
+// `<script type="module">` inline, e knip não enxerga import dentro de HTML.
+// Cobrir só um dos dois deixaria a mesma armadilha montada para a próxima
+// página.
+//
+// Caminho é resolvido a partir da pasta da própria página, senão o `src="prism.js"`
+// do html/prism/prism.html apontaria para a raiz do repositório.
+function entradasDasPaginas() {
+  const paginas = [];
+  (function varrer(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) varrer(p);
+      else if (e.name.endsWith('.html')) paginas.push(p);
+    }
+  })(path.join(__dirname, 'html'));
+  paginas.push(path.join(__dirname, 'index.html'));
+
+  const entradas = new Set();
+  for (const pagina of paginas) {
+    const html = fs.readFileSync(pagina, 'utf8');
+    const refs = [
+      ...[...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]),
+      ...[...html.matchAll(/from\s+['"]([^'"]+)['"]/g)].map((m) => m[1]),
+    ];
+    for (const ref of refs) {
+      if (!/\.(js|mjs)$/.test(ref)) continue;       // ignora ?inline, css, url externa
+      if (/^https?:/.test(ref)) continue;
+      const abs = path.resolve(path.dirname(pagina), ref);
+      const rel = path.relative(__dirname, abs).split(path.sep).join('/');
+      if (!rel.startsWith('..') && !rel.startsWith('node_modules/')) entradas.add(rel);
+    }
+  }
+  return [...entradas];
 }
 
 /** @type {import('knip').KnipConfig} */
@@ -26,11 +66,11 @@ module.exports = {
   entry: [
     'main.js',                 // Electron main process (package.json "main")
     'js/app/preload*.js',      // 4 contextBridge preloads, loaded by path
-    'html/prism/prism.js',     // PRISM window renderer (<script> in prism.html)
-    'js/components/design-lab.js', // Design Lab page entry (imports every Lit component)
     'scripts/*.js',            // npm-run build/release/bootstrap helpers
     'components/Scripts/*.js', // toolchain download/copy (npm run bootstrap)
-    ...rendererEntriesFromIndexHtml(),
+    // prism.js e design-lab.js estavam aqui à mão e saíram: entradasDasPaginas
+    // acha os dois lendo as páginas que os carregam, junto com todo o resto.
+    ...entradasDasPaginas(),
   ],
   // Analyse only our own source. components/Packages is the downloaded
   // third-party toolchain; node_modules is excluded by knip's defaults.

@@ -485,7 +485,12 @@ na máquina do ensaio, com o app de verdade.
       `createAnthropic`, `createGoogleGenerativeAI`, `createDeepSeek` e
       `createGroq`, carregados por `tryRequire` em
       [main/ai/provider.js](main/ai/provider.js).
-- [ ] PyLibs: instalar e remover uma biblioteca de verdade no Python empacotado.
+- [x] ~~PyLibs: instalar e remover uma biblioteca de verdade no Python
+      empacotado.~~ Feito em 28/08/2026, com a AURORA de pé e rede de verdade:
+      pyuvm 4.0.1 (wheel pura de 68 KB) instalada pela mesma API que o botão
+      chama, o python embarcado importou e respondeu a versão, a remoção tirou
+      os 30 arquivos sem deixar sobra, e o painel voltou a "não instalado" sem
+      acusar quebra. Catálogo veio do remoto (`catalogSource: remote`).
 - [ ] Painel Git (Dagr): clone, commit, push e uma resolução de conflito.
 - [ ] GTKWave e Surfer: está provado que os executáveis sobem e que os arquivos
       de configuração (`.gtkw`, `.surf.ron`) são gerados certos, mas não que o

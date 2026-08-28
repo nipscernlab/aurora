@@ -500,10 +500,19 @@ na máquina do ensaio, com o app de verdade.
       o marcador de tamanho do dump, que também só se confirmam usando: um
       recente movido de pasta reencontrado pela lupa, o ícone vermelho num
       laptop desligado da tomada, e o marcador subindo numa simulação longa.
-- [ ] Anel de foco no Monaco: a sonda anterior varreu o foco sem arquivo aberto
-      no editor, então não há medida de lá. Abrir um `.v` de verdade pelo
-      harness e varrer com o Monaco montado. O corpo do terminal e a lista de
-      mensagens do chat já foram medidos e corrigidos.
+- [x] ~~Anel de foco no Monaco.~~ Varrido em 28/08/2026, com o aplicativo de
+      pé, um `.v` aberto e oitenta paradas de Tab de teclado de verdade (só o
+      teclado põe `:focus-visible`). Nenhum elemento focável ficou sem anel, e
+      o `inputarea` do Monaco não ganha anel espúrio por cima do cursor, que
+      eram os dois riscos. A varredura achou cinco anéis CORTADOS, todos de
+      controle colado numa borda que recorta (os três botões da janela, a aba
+      do editor e o trilho da direita): para esses o anel virou interno
+      (`outline-offset: -2px`), na mesma seção única de foco do styles.css, e
+      a re-varredura fechou em zero. Vale saber para a próxima sonda com o
+      app de pé: com a tela bloqueada o detector de oclusão do Windows pausa
+      o rAF mesmo em janela visível e focada; destrava com
+      `--disable-features=CalculateNativeWinOcclusion` mais janela com
+      opacidade 0,99, que vira layered window e sai da detecção.
 
 ---
 
@@ -592,22 +601,29 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       cofre, e a função de casar alvo virou `alvoEhDeForja`, porque o nome
       antigo passou a mentir sobre o que ela decide.
 
-- [ ] **P6, o que sobrou de performance.** Restam as transições de largura da
-      árvore (`.file-tree-container`) e do painel de IA
-      (`.ai-assistant-container`), e só na abertura e no fechamento pelo botão;
-      o arranque, que animava a largura salva a partir de zero e gastava 220 ou
-      240 ms de relayout de Monaco em toda abertura, já foi corrigido em 10/08.
-      O custo do que sobrou não é mensurável pelo harness: numa janela que o
-      compositor considera não visível, como a que o Playwright sobe, o
-      Chromium pausa a animação e o `requestAnimationFrame` não dispara, então
-      a sonda devolve zero amostras. Medir exige o aplicativo aberto de
-      verdade, com projeto carregado e arquivos no editor. Sem essa medida,
-      trocar por `transform` é mudança estrutural apostada num ganho que
-      ninguém viu: exige invólucro de largura fixa em volta dos dois painéis e
-      muda o comportamento, porque hoje o editor cresce junto com o colapso e
-      com `translateX` ele passaria a saltar no fim. O `.ai-usage-fill` fica
-      como está, por decisão registrada: animar largura ali não relayouta
-      editor nenhum e `scaleX` distorceria as pontas arredondadas da barra.
+- [x] ~~**P6, o que sobrou de performance.**~~ Medido em 28/08/2026, com o
+      aplicativo aberto de verdade, projeto carregado e arquivo no Monaco, que
+      era o que faltava. Doze ciclos de abrir e fechar por cenário, métricas do
+      protocolo do Chrome lidas antes e depois, e a distribuição dos intervalos
+      de rAF durante a janela da animação, num monitor de ~165 Hz (quadro de
+      6,1 ms).
+
+      O custo existe e é o previsto: animar a largura do painel de IA custa
+      ~195 ms de thread principal por ação (task 5,41 s contra 0,70 s sem
+      transição, ~120 relayouts por ação contra ~4), e a árvore dá no mesmo
+      (4,81 s contra 0,96 s). Mas o que chega ao olho é pouco: no painel de IA
+      o p95 do intervalo de quadro vai de 6,2 ms para 12,1 ms (cai de 165 para
+      ~80 fps durante os 240 ms da animação) com pior quadro de 24 ms; na
+      árvore o p95 nem se move (6,2 ms) e o pior quadro é 18 ms. A 60 Hz, que
+      é o LABEL, isso é no máximo um quadro perdido por abertura.
+
+      DECISÃO: fica como está. Trocar por `transform` exigiria invólucro de
+      largura fixa nos dois painéis e mudaria o comportamento (o editor
+      saltaria no fim em vez de crescer junto), para eliminar um quadro
+      perdido ocasional. O `.ai-usage-fill` também fica, pela decisão já
+      registrada. Se um dia a animação incomodar numa máquina fraca, o dado
+      para reavaliar está aqui.
+
 - [ ] **God files.** `js/ui/ai_assistant_manager.js` (3533 linhas) e
       `js/compilation/compilation_module.js` (3125) são cada um uma classe só,
       com zero funções em nível de módulo, então não há núcleo puro para

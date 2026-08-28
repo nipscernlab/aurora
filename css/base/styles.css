@@ -317,6 +317,24 @@ select:focus-visible,
   border-radius: var(--radius-sm);
 }
 
+/* Controle colado numa borda que recorta desenha o anel PARA DENTRO.
+ *
+ * A varredura de 28/08/2026, com o aplicativo de pé e um .v aberto no Monaco,
+ * achou cinco aneis saindo cortados: os tres botoes da janela e a aba do
+ * editor, presos em zonas com overflow escondido, e o trilho da direita,
+ * recortado pelo main-container. O anel de 2px para fora nao tem onde
+ * existir ali, e anel pela metade parece defeito de desenho, nao foco. Para
+ * esses, o anel vira interno, inteiro e visivel; a cor e a mesma da regra
+ * geral, entao continua lendo como o mesmo foco. */
+#win-min:focus-visible,
+#win-max:focus-visible,
+#win-close:focus-visible,
+#railRight:focus-visible,
+#railLeft:focus-visible,
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
 /* Região que só rola não desenha anel.
  *
  * O Chromium torna toda região rolável alcançável pelo teclado, mesmo sem

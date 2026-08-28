@@ -680,11 +680,26 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       NaN. O teste de dump velho passava verde sem a defesa ter rodado uma vez.
       Falso tem que copiar a FORMA do canal real, não a conveniência do teste.
 
+      Em 28/08/2026 entrou a rede do lado do `ai_assistant_manager`, e a
+      suposição de que ela dependia de provedor real caiu na medição: o painel
+      constrói o próprio DOM e o mundo entra por `window.aiAPI`, catorze
+      métodos, então um falso com a FORMA do canal real (startChat devolve
+      `{ok}` e o trabalho chega por pacote no onChatEvent) dirige o turno
+      inteiro. O mapa também corrigiu o alvo: `initialize` "alcança" 103 dos
+      116 métodos, mas é alcance de registrar handler; o que um teste dirige é
+      o turno, e o cacho do `_dispatchTurn` responde por 1109 linhas.
+      [tests/unit/aiTurnFlow.test.js](tests/unit/aiTurnFlow.test.js) trava o
+      payload do startChat, o filtro por sessão, a ordem prosa-ferramenta-prosa
+      como é gravada, a higiene dos anexos, as duas filas de follow-up, a
+      parada, o cão de guarda e o limite da corrente autônoma; treze casos em
+      ~2 s. No primeiro arremesso a rede pegou um defeito real: o `finish` com
+      `more` encerrava o turno antes de olhar o flag, zerava a sessão e a
+      resposta do follow-up era descartada inteira (commit `0a44ae22`).
+
       O que falta: o E2E de janela real para o que o espião não alcança, que são
       os botões do `compilation_flow.js` e o projeto aberto pelo
-      `projectManager.loadProject`; e a mesma rede do lado do
-      `ai_assistant_manager`, que depende de provedor real e por isso ficou para
-      depois.
+      `projectManager.loadProject`; e então, com as duas redes no lugar, mover
+      código por dentro.
 - [x] ~~**CRUD da árvore de arquivos**~~, lacunas fechadas em 23/08/2026.
       Seleção múltipla com Ctrl e Shift: a regra de qual clique produz qual
       conjunto é pura (`js/tree/tree_selection.js`), a âncora do Shift é o

@@ -774,32 +774,18 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       cinco contra o `components/HDL` de verdade, e a suíte de toolchain
       inteira segue verde, incluindo a elaboração no Icarus.
 
-- [ ] **Salvar estado do Surfer de dentro da aba.** O que existe está no ramo
-      `wip/surfer-savestate` (ponta em 390e88dd; a nota citava 0fc1ba71, que não
-      existe no repositório, provavelmente porque o commit foi refeito ao tirar
-      dele o `generate_blocks.js`), no GitHub. O fork já tem o
-      comando `state_save_url_set` publicado na nips.10, e a ideia é: o save do
-      cliente WASM POSTa o .surf.ron para o servidor local, que grava em
-      testbench/<tb>.tab.surf.ron e registra como layout ativo no WaveStore.
-      São 12 arquivos, 355 linhas, com testes.
+- [x] ~~**Salvar estado do Surfer de dentro da aba.**~~ Feito pelo PR #103
+      (`53cbc8e1`, 27/08/2026), que trouxe do ramo `wip/surfer-savestate` só o
+      que a main não tinha: o save do cliente WASM POSTa o .surf.ron para o
+      servidor local, o main grava em `testbench/<tb>.tab.surf.ron` e o
+      renderer registra o layout como ativo no WaveStore. O restante do ramo
+      era a versão de agosto dos monitores de pilha e ULA, que a main já
+      abandonou por medição (854 MB de FST), e ficou de fora de propósito; o
+      ramo em `390e88dd` vira histórico e não deve ser rebaseado nem mergeado.
 
-      DUAS RESSALVAS que a versão anterior desta nota escondia, e que custaram
-      uma ida e volta entre máquinas.
-
-      Não é "implementação completa": o próprio nome do stash de onde ela veio
-      dizia "em revisão após regressões". Não mergeie sem testar.
-
-      E não é "só retomar". O ramo está na BASE ORIGINAL (b9896738, 20/08), com
-      118 commits de main em cima e todos os 12 arquivos alterados nesse
-      intervalo; o patch não aplica direto, 8 dos 12 conflitam. A base original
-      é de propósito: é dela que o `git rebase` consegue mostrar conflito por
-      conflito, em vez de recusar o arquivo inteiro. O caminho é
-      `git rebase main wip/surfer-savestate`, resolver, testar, e só então
-      trazer um item por vez com teste do usuário entre eles.
-
-      Lição para o próximo trabalho parado: stash é LOCAL e não vai no push.
-      Trabalho que precisa sobreviver a uma troca de máquina vira ramo, não
-      stash.
+      A lição que a nota antiga carregava continua valendo: stash é LOCAL e
+      não vai no push. Trabalho que precisa sobreviver a uma troca de máquina
+      vira ramo, não stash.
 
 - [x] ~~**Seleção do picker sob Verilator não limita o dump.**~~ Descoberto em
       20/08, fechado em 22/08 em todos os casos. O Verilator ignora os

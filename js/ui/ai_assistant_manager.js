@@ -2166,18 +2166,32 @@ class AIAssistantManager {
       case 'finish':
         this._clearCliDownload();
         this.showThinking(false);
-        this.commitTurn();
-        this.applyUsage(ev.usage);
         // `more` = a follow-up the user pushed mid-turn is already queued inside
         // the CLI and answers next, in this same session. Seal this segment but
         // stay streaming: ending the turn here would drain the renderer queue on
         // top of the CLI's own, double-dispatching, and would flip the composer
         // back to Send while the model is still working.
+        //
+        // SELAR, e nao encerrar. Este ramo chamava `commitTurn()` antes de
+        // olhar o `more`, e o commitTurn passa por `resetTurnState()`, que
+        // ZERA o `currentSessionId`. Como o `handleChatEvent` descarta todo
+        // pacote cuja sessao nao bate, a resposta do follow-up chegava e era
+        // jogada fora inteira: o painel ficava nos pontinhos ate o cao de
+        // guarda matar o turno tres minutos depois. Era exatamente o que o
+        // comentario do `_startNextSegment` dizia estar evitando, e nao
+        // evitava, porque quem zerava vinha ANTES dele. O reset tambem
+        // auto-nega os cartoes de confirmacao e cancela as perguntas abertas,
+        // que no meio da sessao sao legitimos.
         if (ev.more) {
+          this._sealTurnText();
+          this.persistCurrentChat();
+          this.applyUsage(ev.usage);
           this._startNextSegment();
           this.showThinking(true);
           break;
         }
+        this.commitTurn();
+        this.applyUsage(ev.usage);
         this.setStreaming(false);
         // Pull the CLI's authoritative usage snapshot at the END of every
         // turn (not just when the model popover happens to be open) so the
@@ -2371,7 +2385,14 @@ class AIAssistantManager {
     return html;
   }
 
-  commitTurn() {
+  /**
+   * Seal what the turn produced: reveal the last segment, store it, tidy the
+   * DOM. Everything commitTurn does EXCEPT the turn-ending teardown.
+   *
+   * It is separate because the `more` path needs exactly this half and must
+   * NOT get the other one. See handleChatEvent's `finish` case.
+   */
+  _sealTurnText() {
     // Collapse the final tool batch so a finished turn reads clean.
     this._closeToolGroup();
     // Reveal the final segment in full (markdown + syntax highlight + fade
@@ -2406,7 +2427,10 @@ class AIAssistantManager {
     // content, so a stray empty segment never lingers as the faint pair of
     // top/bottom-border hairlines between real answers.
     this._pruneEmptyBubbles();
+  }
 
+  commitTurn() {
+    this._sealTurnText();
     this.resetTurnState();
     // Auto-save the conversation after every turn.
     this.persistCurrentChat();

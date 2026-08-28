@@ -1038,8 +1038,11 @@ Pós-release, com a regra de sempre: medir antes de mexer.
 
 ## 5b. Painel de bibliotecas Python e instalação de componentes
 
-Três pedidos que vieram juntos do uso, 26/08. Estão aqui como pendência, sem
-implementação ainda.
+Três pedidos que vieram juntos do uso, 26/08. Os três foram feitos no mesmo
+dia, e a fila de download em lote do painel de Componentes já saiu daqui pela
+regra de riscar e apagar; os dois abaixo ficam por pouco tempo, porque o que
+eles registram é a REGRA de desenho que veio junto e que ainda não está escrita
+em outro lugar.
 
 - [x] ~~Refazer os selos do painel de Componentes.~~ Feito em 26/08/2026. Dos
       cinco selos sobraram dois, pela regra de que um selo só existe se disser o

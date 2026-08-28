@@ -104,6 +104,28 @@ function tiraDeRaio(altura, tom) {
   return c;
 }
 
+/* A mesma tira do raio, com a base dissolvida: a metade de baixo desbota ate
+   zero em vez de terminar no corte do perfil. E a segunda metade do conserto
+   do horizonte (a primeira e o `sobe`): o corte abrupto embaixo e correto na
+   coluna FORTE, porque e o nitrogenio marcando onde os eletrons param, mas a
+   coluna fraca com o mesmo corte nao aparece sozinha e aparece em conjunto,
+   como uma silhueta continua de serra costurada pelas bordas de milhares de
+   colunas tenues. Fraca, a cortina de verdade nao tem borda: dissolve no ar.
+   A escolha entre as duas tiras e por coluna, com ruido no limiar, senao a
+   fronteira forte/fraca viraria ela mesma uma linha visivel. */
+function tiraDifusa(altura, tom) {
+  const c = tiraDeRaio(altura, tom);
+  const g = c.getContext('2d');
+  g.globalCompositeOperation = 'destination-out';
+  const grad = g.createLinearGradient(0, altura, 0, altura * 0.52);
+  grad.addColorStop(0.00, 'rgba(0,0,0,0.96)');
+  grad.addColorStop(0.55, 'rgba(0,0,0,0.55)');
+  grad.addColorStop(1.00, 'rgba(0,0,0,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 1, altura);
+  return c;
+}
+
 /* O debrum, em tira propria e por um motivo de desenho: quando o rosa morava
    dentro da rampa do corpo ele saia em TODA coluna, e o resultado era um traco
    continuo costurando a base de ponta a ponta, como se alguem tivesse
@@ -167,6 +189,24 @@ function tiraDeDebrum(altura, cor) {
  * uma cortina acende e esmaece enquanto a vizinha faz o contrario. Amplitude
  * baixa de proposito. O que se quer e que a luz pareca viva, nao que a tela
  * pisque enquanto alguem espera a IDE abrir.
+ *
+ * `sobe` e a LARGURA da fita variando ao longo dela: onde a cortina esta
+ * fraca, a borda de baixo sobe ate esta fracao da altura do raio, com o topo
+ * parado, entao a fita emagrece em vez de flutuar. E o conserto do horizonte:
+ * a borda de baixo era uma curva continua da primeira a ultima coluna, nitida
+ * ate onde a cortina quase nao brilhava, e brilho em cima de uma linha lisa e
+ * silhueta de serra. Com a borda recuando junto com o brilho, o olho nao tem
+ * mais uma linha para seguir nos trechos fracos, e nos fortes ela continua
+ * cravada, que e onde o debrum rosa mora e onde a nitidez e fisica (o
+ * nitrogenio marca onde os eletrons param). Maior nas fitas de tras, porque
+ * sao as longas e quase planas que mais liam como encosta.
+ *
+ * `borda` e quanto a fita tem DIREITO a borda cravada embaixo: 1 nas da
+ * frente, onde o corte e o nitrogenio e a nitidez e fisica, caindo a zero na
+ * do fundo. A dissolucao por coluna (tiraDifusa) escolhia so pelo relevo
+ * local, e as fitas de tras, tenues da primeira a ultima coluna pela propria
+ * alfa, ficavam com a borda cravada em tres quartos da tela: era a silhueta
+ * que sobrava. Fita tenue nao ganha borda em lugar nenhum.
  */
 const FITAS = [
   {
@@ -179,7 +219,7 @@ const FITAS = [
     trecho: [-0.24, 1.10], afina: 0.34,
     base: 0.50, inclina: -0.04, onda: [[0.040, 0.55, 0.038], [0.016, 1.35, -0.062]],
     freq: 22, deriva: 0.0025, corrida: 0.52, ondaCorrida: 4,
-    pulso: 0.08, velPulso: 0.17,
+    pulso: 0.08, velPulso: 0.17, sobe: 0.30, borda: 0.0,
     altura: 0.34, alfa: 0.13, largura: 4, contraste: 0.92,
     debrum: null,
     tom: [
@@ -194,7 +234,7 @@ const FITAS = [
     trecho: [-0.18, 0.92], afina: 0.30,
     base: 0.465, inclina: 0.07, onda: [[0.055, 0.75, 0.055], [0.022, 1.9, 0.085]],
     freq: 34, deriva: 0.004, corrida: 0.78, ondaCorrida: 5,
-    pulso: 0.10, velPulso: 0.29,
+    pulso: 0.10, velPulso: 0.29, sobe: 0.24, borda: 0.55,
     altura: 0.42, alfa: 0.20, largura: 2, contraste: 1.12,
     debrum: null,
     tom: [
@@ -210,7 +250,7 @@ const FITAS = [
     trecho: [0.06, 1.14], afina: 0.24,
     base: 0.405, inclina: -0.11, onda: [[0.085, 0.62, -0.075], [0.030, 1.55, 0.11]],
     freq: 52, deriva: -0.006, corrida: 1.15, ondaCorrida: 7,
-    pulso: 0.13, velPulso: 0.22,
+    pulso: 0.13, velPulso: 0.22, sobe: 0.16, borda: 1.0,
     altura: 0.60, alfa: 0.40, largura: 1, contraste: 1.30,
     debrum: 'rgba(238,96,178,',
     tom: [
@@ -227,7 +267,7 @@ const FITAS = [
     trecho: [-0.10, 0.62], afina: 0.28,
     base: 0.36, inclina: 0.09, onda: [[0.065, 0.9, 0.10], [0.026, 2.3, -0.13]],
     freq: 68, deriva: 0.009, corrida: 1.50, ondaCorrida: 9,
-    pulso: 0.11, velPulso: 0.35,
+    pulso: 0.11, velPulso: 0.35, sobe: 0.20, borda: 1.0,
     altura: 0.50, alfa: 0.26, largura: 1, contraste: 1.45,
     debrum: 'rgba(246,108,192,',
     tom: [
@@ -247,7 +287,7 @@ const FITAS = [
     trecho: [0.44, 1.06], afina: 0.32,
     base: 0.345, inclina: -0.06, onda: [[0.052, 1.15, -0.115], [0.020, 2.7, 0.145]],
     freq: 84, deriva: -0.011, corrida: 1.85, ondaCorrida: 11,
-    pulso: 0.14, velPulso: 0.41,
+    pulso: 0.14, velPulso: 0.41, sobe: 0.16, borda: 1.0,
     altura: 0.46, alfa: 0.22, largura: 2, contraste: 1.55,
     debrum: 'rgba(240,120,200,',
     tom: [
@@ -286,7 +326,7 @@ export function aurora(canvas) {
   const bctx = buf.getContext('2d');
 
   let W = 0, H = 0, bw = 0, bh = 0;
-  let tiras = [], debruns = [];
+  let tiras = [], difusas = [], debruns = [];
 
   function medir() {
     const r = canvas.getBoundingClientRect();
@@ -300,6 +340,7 @@ export function aurora(canvas) {
     bh = Math.max(48, Math.round(H * ESCALA));
     buf.width = bw; buf.height = bh;
     tiras = FITAS.map((f) => tiraDeRaio(Math.max(8, Math.round(bh * f.altura)), f.tom));
+    difusas = FITAS.map((f) => tiraDifusa(Math.max(8, Math.round(bh * f.altura)), f.tom));
     debruns = FITAS.map((f) => (f.debrum ? tiraDeDebrum(Math.max(4, Math.round(bh * 0.075)), f.debrum) : null));
     return true;
   }
@@ -371,25 +412,47 @@ export function aurora(canvas) {
            colunas vizinhas discordam demais e a fita vira grafico de barras. */
         const alt = tira.height * (0.34 + 0.95 * fbm(u * f.freq * 0.16 - desl * 0.6, f.semente + 97));
 
+        /* A largura da fita variando (`sobe`, ver o bloco das FITAS): onde a
+           cortina esta fraca, a borda de baixo recua para cima com o topo
+           parado, e a fita emagrece. Preso ao `env` de proposito, porque e ele
+           que ja diz onde a fita esta fraca; o ruido por coluna so esfarela a
+           borda recuada, para o recuo suave nao desenhar uma SEGUNDA curva
+           lisa no lugar da primeira. */
+        const magra = 1 - suave(0.48, 0.78, env);
+        const recuo = alt * f.sobe * magra *
+          (0.5 + 1.0 * noise1(u * f.freq * 0.6 + desl, f.semente + 211));
+        const fundo = base - recuo;
+
+        /* A coluna fraca troca de tira e dissolve por baixo, em vez de
+           terminar num corte que, repetido em milhares de colunas tenues,
+           costura a silhueta. Limiar com ruido por coluna, para a fronteira
+           entre as duas tiras nao virar ela mesma uma linha. */
+        const semBorda = (1 - f.borda) + magra > 0.42 + 0.32 *
+          (noise1(u * f.freq * 0.8 + desl * 1.2, f.semente + 251) - 0.5);
+        const fonte = semBorda ? difusas[k] : tira;
+
         bctx.globalAlpha = forca * f.alfa;
-        bctx.drawImage(tira, 0, 0, 1, tira.height, x - passo * 0.4, base - alt, passo * 1.5, alt);
+        bctx.drawImage(fonte, 0, 0, 1, fonte.height, x - passo * 0.4, base - alt, passo * 1.5, Math.max(2, alt - recuo));
 
         /* O filete: onde a coluna ja esta forte, um nucleo mais estreito e mais
            claro por dentro dela, que e o fio nitido no meio do brilho difuso.
-           Sai de graca, porque e a mesma tira em menos largura. */
+           Sai de graca, porque e a mesma tira em menos largura. Forca alta
+           implica env alto, entao o recuo aqui e quase sempre zero; entra na
+           conta mesmo assim para o fio nunca vazar por baixo da borda. */
         if (forca > 0.62) {
           bctx.globalAlpha = (forca - 0.62) * 1.3 * f.alfa;
-          bctx.drawImage(tira, 0, 0, 1, tira.height, x + passo * 0.2, base - alt * 0.96, passo * 0.6, alt * 0.96);
+          bctx.drawImage(tira, 0, 0, 1, tira.height, x + passo * 0.2, base - alt * 0.96, passo * 0.6, Math.max(2, alt * 0.96 - recuo));
         }
 
         /* O debrum, so onde a precipitacao e forte E o ruido rapido deixa. O
            limiar sozinho nao basta: trechos inteiros cruzam junto e o rosa
-           volta a ser um traco continuo. */
+           volta a ser um traco continuo. Ancorado em `fundo`, nao em `base`:
+           o nitrogenio marca onde os eletrons param, e a borda agora e essa. */
         if (deb && forca > 0.46) {
           const mancha = noise1(u * f.freq * 0.55 + desl * 1.4, f.semente + 173);
           if (mancha > 0.44) {
             bctx.globalAlpha = Math.min(0.6, (forca - 0.46) * 1.7 * (mancha - 0.44) * 2.6);
-            bctx.drawImage(deb, 0, 0, 1, deb.height, x - passo * 0.4, base - deb.height, passo * 1.5, deb.height);
+            bctx.drawImage(deb, 0, 0, 1, deb.height, x - passo * 0.4, fundo - deb.height, passo * 1.5, deb.height);
           }
         }
       }

@@ -985,36 +985,29 @@ Pós-release, com a regra de sempre: medir antes de mexer.
       questão no `hudson-trading/slang-server`, com o `.v` gerado em anexo.
 
 - [ ] **A aurora da splash, o que sobrou.** A sessão de 26/08 foi aprovada pelo
-      Chrysthofer olhando a tela em movimento, então o grosso saiu. Ficam aqui
-      só as pontas, todas de acabamento.
+      Chrysthofer olhando a tela em movimento, e a de 28/08 fechou a borda:
+      ficam só as ideias não tentadas.
 
-      O que a sessão de 26/08 resolveu: o cintilar lateral, que levava 112 s
-      para atravessar a tela numa splash que vive 9 s e portanto nunca tinha
-      sido visto por ninguém; a respiração lenta de brilho por fita; as fitas
-      subindo cerca de um décimo da altura; duas camadas novas de profundidade;
-      máscara do céu e vinheta superior recalibradas para a aurora mais alta; e
-      o custo medido de ponta a ponta (ver a nota em "Notas que evitam
-      retrabalho").
+      O horizonte foi atacado em 28/08/2026, com capturas de semente fixa antes
+      e depois. O diagnóstico que as capturas deram: mesmo a coluna tênue
+      terminava num corte definido, e milhares de cortes tênues alinhados
+      costuravam uma silhueta de serra, pior nas fitas de trás, que são fracas
+      da primeira à última coluna pela própria alfa. Três mudanças em
+      `js/ui/aurora.js`, todas parametrizadas no vetor `FITAS`: `sobe`, a
+      largura da fita variando ao longo dela (a borda recua onde a cortina é
+      fraca, com o topo parado); a `tiraDifusa`, que dissolve a base da coluna
+      fraca em vez de cortá-la; e `borda`, o direito por fita à borda cravada,
+      1 nas da frente, zero na do fundo. A primeira tentativa, só com recuo
+      grande acoplado ao `env`, PIOROU o quadro (baías escuras lisas, mais
+      serra ainda) e ficou de lição: mover a linha não resolve, o que resolve
+      é a linha deixar de existir onde a fita é fraca. Conferido em duas
+      sementes e dois instantes; a suíte segue verde e o custo por quadro não
+      muda (a tira difusa substitui a normal, não soma).
 
-      O item de CUSTO da lista antiga está respondido e não precisa da obra que
-      ele propunha. A regressão de quadros por segundo que ele descrevia não
-      reaparece: o intervalo entre quadros fica preso no vsync em 16,7 ms com
-      três ou com cinco fitas, e o tempo até a IDE aparecer não mudou (8,9 a
-      9,1 s contra 9,4 s). Borrar o buffer pequeno em vez da tela cheia, ou
-      empilhar um canvas com `filter` de CSS, continuam sendo as saídas certas
-      SE um dia o custo apertar, mas hoje não aperta e mexer nisso é otimizar
-      no escuro.
-
-      O que de fato falta:
-
-      1. A borda de baixo ainda lê como horizonte em alguns quadros, que é a
-         armadilha registrada no cabeçalho do módulo. Foi observada de novo em
-         26/08 e não piorou nem melhorou. Ajudaria variar a LARGURA da fita ao
-         longo dela, e não só a altura dos raios.
-      2. Ideias não tentadas: perspectiva, com os raios convergindo para um
-         ponto de fuga, que é o que dá a coroa quando a aurora passa pelo
-         zênite; uma surge ocasional, o clarão que percorre a fita; e variação
-         de temperatura de cor ao longo do comprimento.
+      Ideias não tentadas, de acabamento fino: perspectiva, com os raios
+      convergindo para um ponto de fuga, que é o que dá a coroa quando a
+      aurora passa pelo zênite; uma surge ocasional, o clarão que percorre a
+      fita; e variação de temperatura de cor ao longo do comprimento.
 
       Onde mexer: os parâmetros ficam todos no vetor `FITAS`, um objeto por
       fita, e cada campo tem comentário dizendo o que move. Para comparar

@@ -563,3 +563,26 @@
   color: var(--accent);
 }
 .ai-selection-menu-item:hover i { color: var(--accent-hover); }
+
+/* ---------------------------------------------------------------------------
+ *  Notacao de Dirac no .cmm: a barra alinhada com o angulo
+ * ------------------------------------------------------------------------- */
+
+/* `|v⟩` nasce torto porque os dois simbolos vem de fontes diferentes: a
+   JetBrains Mono e vendorizada so nos subsets latin e latin-ext, e ⟨ ⟩ estao
+   fora deles, entao o angulo cai numa fonte de recurso. Medido dentro da
+   AURORA: a 12px a barra ocupa de -10 a +2 em torno da linha de base e o
+   angulo de -9 a +3; a 14px, -12..+2 contra -10..+3. A barra fica ACIMA, e
+   desce 0.09em para encontrar o angulo, que da 1.1px a 12px e 1.3px a 14px,
+   contra 1 e 1.5 medidos.
+
+   `position: relative` e nao `transform`: a caixa inline nao aceita transform
+   sem virar inline-block, e virar inline-block quebraria a grade monoespacada
+   do editor. O deslocamento relativo nao tira a barra do fluxo.
+
+   Quem decide QUAIS barras recebem isto e o decorateVerticalBar: so em .cmm, e
+   so nas linhas que tem angulo. Em Verilog a mesma barra e o operador OR. */
+.vertical-bar-lower {
+  position: relative;
+  top: 0.09em;
+}

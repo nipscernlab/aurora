@@ -1427,9 +1427,45 @@ temática quando for pego.
 
 ### 9.3 PRISM e visual
 
-- [ ] **Pinos menores**, e **cinza claro preenchido** para eles.
-- [ ] **No `.cmm`, o `|` sobe para alinhar com a seta** no Monaco.
-- [ ] **Remover o marker do Surfer.**
+- [x] ~~**Pinos menores**, e **cinza claro preenchido** para eles.~~ Feito em
+      29/08/2026. O pino era um quadrado de 2.6 pintado com a cor da família,
+      e com isso disputava atenção com o fio, o rótulo e o corpo do chip num
+      desenho cujo assunto é o caminho do dado. Agora é 2.0 no cinza do
+      rótulo de porta (`--prism-port-label`), que é o que ele é: a marca de
+      ONDE o fio encosta. A cor da família não se perdeu, continua no
+      cabeçalho do grupo e no colchete que o abraça; o controle continua
+      violeta no rótulo e no triângulo do clk. Regerar as 58 skins também
+      corrigiu 5 que estavam desatualizadas em relação ao gerador, entre elas
+      o `io_ctrl`, a que faltava a âncora do `rst`.
+- [x] ~~**No `.cmm`, o `|` alinha com a seta** no Monaco.~~ Feito em
+      29/08/2026, e a medição inverteu o item: a barra estava ACIMA do ângulo,
+      então ela desce, não sobe. A causa é que os dois símbolos vêm de fontes
+      diferentes: a JetBrains Mono é vendorizada só nos subsets latin e
+      latin-ext, e ⟨ ⟩ (U+27E8/27E9) estão fora deles, então o ângulo cai
+      numa fonte de recurso. Medido dentro da AURORA com as fontes reais
+      carregadas: a 12px a barra ocupa de -10 a +2 em torno da linha de base e
+      o ângulo de -9 a +3; a 14px, -12..+2 contra -10..+3. Desce 0.09em, por
+      `position: relative` e não `transform`, que exigiria inline-block e
+      quebraria a grade monoespaçada.
+
+      No caminho apareceu um defeito maior que o item: a decoração marcava
+      TODA barra de TODO arquivo, e em Verilog a barra é o operador OR. Com o
+      CSS ausente isso não aparecia, mas escrever o CSS teria entortado um
+      código inteiro para endireitar outro. Agora só em `.cmm`, e só nas
+      linhas que têm ângulo.
+- [x] ~~**Remover o marker do Surfer.**~~ Feito em 29/08/2026. A AURORA
+      cravava dois marcadores de latência (primeiro `req_in_sim_*` e primeiro
+      `out_en_sim_*`) e abria a janela de delta a cada simulação com I/O.
+      Saiu a injeção inteira: o pré-passe que streamava o `fst2vcd` só para
+      achar os tempos, o método que o chamava e o `js/wave/event_markers.ts`,
+      que não tinha outro consumidor. Cada simulação com I/O deixa de pagar
+      esse stream.
+
+      O que FICOU: o escritor de save-state continua sabendo emitir marcador,
+      com os testes que o cobrem. Ali mora conhecimento caro sobre o RON do
+      Surfer, que um marcador são DUAS metades e emitir só uma não produz
+      metade do efeito, e sim efeito nenhum. Apagar isso junto seria jogar
+      fora a descoberta, não o comportamento pedido.
 - [ ] **Evoluir o Simular para além das primitivas.**
 - [ ] **PRISM faz parte da AURORA**, e clicar num componente abre a
       representação interna dele no PRISM.

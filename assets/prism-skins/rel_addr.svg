@@ -13,20 +13,20 @@
     <line x1="10" y1="53" x2="139" y2="53" stroke="var(--aurora-violet, #8E83E8)" stroke-width="0.7" opacity="0.35"/>
 
     <!-- inputs (west) -->
-    <rect x="-1.3" y="64.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="65.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="68.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">use_oft</text>
     <g s:x="0" s:y="66" s:pid="use_oft"/>
-    <rect x="-1.3" y="73.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="74.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="77.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fft</text>
     <g s:x="0" s:y="75" s:pid="fft"/>
-    <rect x="-1.3" y="82.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="83.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="86.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">offset</text>
     <g s:x="0" s:y="84" s:pid="offset"/>
-    <rect x="-1.3" y="91.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="92.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="95.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">addr</text>
     <g s:x="0" s:y="93" s:pid="addr"/>
     <!-- outputs (east) -->
-    <rect x="148.7" y="64.7" width="2.6" height="2.6" rx="0.8" fill="var(--prism-module-stroke, #5FE0B0)"/>
+    <rect x="149.0" y="65.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="143" y="68.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: end; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">out</text>
     <g s:x="150" s:y="66" s:pid="out"/>
   </g>

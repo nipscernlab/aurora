@@ -13,154 +13,154 @@
     <line x1="11" y1="53" x2="114" y2="53" stroke="var(--aurora-pink, #E68FB8)" stroke-width="0.7" opacity="0.35"/>
 
     <line x1="57" y1="0" x2="57" y2="12" stroke="var(--accent, #8E83E8)" stroke-width="1.4"/>
-    <rect x="55.7" y="-1.3" width="2.6" height="2.6" rx="0.8" fill="var(--accent, #8E83E8)"/>
+    <rect x="56.0" y="-1.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="62" y="6" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 6px; font-weight: 700; fill: var(--accent, #8E83E8);">op[…]</text>
     <g s:x="57" s:y="0" s:pid="op"/>
 
     <text x="12" y="68" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--aurora-cyan, #5BB8E8);">OPERANDS</text>
     <path d="M 6,72.5 L 2.5,72.5 L 2.5,86.5 L 6,86.5" fill="none" stroke="var(--aurora-cyan, #5BB8E8)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="74.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-cyan, #5BB8E8)"/>
+    <rect x="-1.0" y="75.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="78.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">in1</text>
     <g s:x="0" s:y="76" s:pid="in1"/>
-    <rect x="-1.3" y="81.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-cyan, #5BB8E8)"/>
+    <rect x="-1.0" y="82.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="85.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">in2</text>
     <g s:x="0" s:y="83" s:pid="in2"/>
     <text x="12" y="99" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--aurora-mint, #5FE0B0);">ARITHMETIC · BINARY</text>
     <path d="M 6,103.5 L 2.5,103.5 L 2.5,145.5 L 6,145.5" fill="none" stroke="var(--aurora-mint, #5FE0B0)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="105.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="106.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="109.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">add</text>
     <g s:x="0" s:y="107" s:pid="add"/>
-    <rect x="-1.3" y="112.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="113.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="116.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">mlt</text>
     <g s:x="0" s:y="114" s:pid="mlt"/>
-    <rect x="-1.3" y="119.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="120.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="123.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">div</text>
     <g s:x="0" s:y="121" s:pid="div"/>
-    <rect x="-1.3" y="126.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="127.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="130.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">mod</text>
     <g s:x="0" s:y="128" s:pid="mod"/>
-    <rect x="-1.3" y="133.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="134.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="137.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">sgn</text>
     <g s:x="0" s:y="135" s:pid="sgn"/>
-    <rect x="-1.3" y="140.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="141.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="144.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fsgn</text>
     <g s:x="0" s:y="142" s:pid="fsgn"/>
     <text x="12" y="158" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--aurora-mint, #5FE0B0);">ARITHMETIC · UNARY</text>
     <path d="M 6,162.5 L 2.5,162.5 L 2.5,274.5 L 6,274.5" fill="none" stroke="var(--aurora-mint, #5FE0B0)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="164.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="165.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="168.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">neg</text>
     <g s:x="0" s:y="166" s:pid="neg"/>
-    <rect x="-1.3" y="171.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="172.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="175.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">negm</text>
     <g s:x="0" s:y="173" s:pid="negm"/>
-    <rect x="-1.3" y="178.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="179.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="182.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fneg</text>
     <g s:x="0" s:y="180" s:pid="fneg"/>
-    <rect x="-1.3" y="185.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="186.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="189.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fnegm</text>
     <g s:x="0" s:y="187" s:pid="fnegm"/>
-    <rect x="-1.3" y="192.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="193.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="196.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">abs</text>
     <g s:x="0" s:y="194" s:pid="abs"/>
-    <rect x="-1.3" y="199.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="200.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="203.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">absm</text>
     <g s:x="0" s:y="201" s:pid="absm"/>
-    <rect x="-1.3" y="206.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="207.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="210.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fabs</text>
     <g s:x="0" s:y="208" s:pid="fabs"/>
-    <rect x="-1.3" y="213.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="214.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="217.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fabsm</text>
     <g s:x="0" s:y="215" s:pid="fabsm"/>
-    <rect x="-1.3" y="220.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="221.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="224.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">pst</text>
     <g s:x="0" s:y="222" s:pid="pst"/>
-    <rect x="-1.3" y="227.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="228.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="231.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">pstm</text>
     <g s:x="0" s:y="229" s:pid="pstm"/>
-    <rect x="-1.3" y="234.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="235.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="238.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fpst</text>
     <g s:x="0" s:y="236" s:pid="fpst"/>
-    <rect x="-1.3" y="241.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="242.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="245.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fpstm</text>
     <g s:x="0" s:y="243" s:pid="fpstm"/>
-    <rect x="-1.3" y="248.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="249.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="252.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">nrm</text>
     <g s:x="0" s:y="250" s:pid="nrm"/>
-    <rect x="-1.3" y="255.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="256.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="259.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">nrmm</text>
     <g s:x="0" s:y="257" s:pid="nrmm"/>
-    <rect x="-1.3" y="262.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="263.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="266.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">f2i</text>
     <g s:x="0" s:y="264" s:pid="f2i"/>
-    <rect x="-1.3" y="269.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="270.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="273.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">f2im</text>
     <g s:x="0" s:y="271" s:pid="f2im"/>
     <text x="12" y="287" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--aurora-violet, #8E83E8);">LOGIC</text>
     <path d="M 6,291.5 L 2.5,291.5 L 2.5,326.5 L 6,326.5" fill="none" stroke="var(--aurora-violet, #8E83E8)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="293.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="294.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="297.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">ann</text>
     <g s:x="0" s:y="295" s:pid="ann"/>
-    <rect x="-1.3" y="300.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="301.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="304.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">orr</text>
     <g s:x="0" s:y="302" s:pid="orr"/>
-    <rect x="-1.3" y="307.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="308.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="311.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">cor</text>
     <g s:x="0" s:y="309" s:pid="cor"/>
-    <rect x="-1.3" y="314.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="315.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="318.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">inv</text>
     <g s:x="0" s:y="316" s:pid="inv"/>
-    <rect x="-1.3" y="321.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-violet, #8E83E8)"/>
+    <rect x="-1.0" y="322.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="325.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">invm</text>
     <g s:x="0" s:y="323" s:pid="invm"/>
     <text x="12" y="339" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--aurora-purple, #B98AE0);">CONDITIONAL</text>
     <path d="M 6,343.5 L 2.5,343.5 L 2.5,371.5 L 6,371.5" fill="none" stroke="var(--aurora-purple, #B98AE0)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="345.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-purple, #B98AE0)"/>
+    <rect x="-1.0" y="346.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="349.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">lan</text>
     <g s:x="0" s:y="347" s:pid="lan"/>
-    <rect x="-1.3" y="352.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-purple, #B98AE0)"/>
+    <rect x="-1.0" y="353.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="356.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">lor</text>
     <g s:x="0" s:y="354" s:pid="lor"/>
-    <rect x="-1.3" y="359.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-purple, #B98AE0)"/>
+    <rect x="-1.0" y="360.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="363.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">lin</text>
     <g s:x="0" s:y="361" s:pid="lin"/>
-    <rect x="-1.3" y="366.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-purple, #B98AE0)"/>
+    <rect x="-1.0" y="367.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="370.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">linm</text>
     <g s:x="0" s:y="368" s:pid="linm"/>
     <text x="12" y="384" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--aurora-teal, #4FD3C2);">COMPARISON</text>
     <path d="M 6,388.5 L 2.5,388.5 L 2.5,423.5 L 6,423.5" fill="none" stroke="var(--aurora-teal, #4FD3C2)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="390.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-teal, #4FD3C2)"/>
+    <rect x="-1.0" y="391.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="394.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">les</text>
     <g s:x="0" s:y="392" s:pid="les"/>
-    <rect x="-1.3" y="397.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-teal, #4FD3C2)"/>
+    <rect x="-1.0" y="398.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="401.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fles</text>
     <g s:x="0" s:y="399" s:pid="fles"/>
-    <rect x="-1.3" y="404.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-teal, #4FD3C2)"/>
+    <rect x="-1.0" y="405.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="408.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">gre</text>
     <g s:x="0" s:y="406" s:pid="gre"/>
-    <rect x="-1.3" y="411.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-teal, #4FD3C2)"/>
+    <rect x="-1.0" y="412.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="415.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">fgre</text>
     <g s:x="0" s:y="413" s:pid="fgre"/>
-    <rect x="-1.3" y="418.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-teal, #4FD3C2)"/>
+    <rect x="-1.0" y="419.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="422.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">equ</text>
     <g s:x="0" s:y="420" s:pid="equ"/>
     <text x="12" y="436" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--aurora-pink, #E68FB8);">SHIFT</text>
     <path d="M 6,440.5 L 2.5,440.5 L 2.5,461.5 L 6,461.5" fill="none" stroke="var(--aurora-pink, #E68FB8)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="442.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-pink, #E68FB8)"/>
+    <rect x="-1.0" y="443.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="446.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">shl</text>
     <g s:x="0" s:y="444" s:pid="shl"/>
-    <rect x="-1.3" y="449.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-pink, #E68FB8)"/>
+    <rect x="-1.0" y="450.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="453.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">shr</text>
     <g s:x="0" s:y="451" s:pid="shr"/>
-    <rect x="-1.3" y="456.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-pink, #E68FB8)"/>
+    <rect x="-1.0" y="457.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="460.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">srs</text>
     <g s:x="0" s:y="458" s:pid="srs"/>
     <text x="12" y="474" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: var(--status-warning, #E8B86C);">NORMALIZE</text>
     <path d="M 6,478.5 L 2.5,478.5 L 2.5,485.5 L 6,485.5" fill="none" stroke="var(--status-warning, #E8B86C)" stroke-width="0.8" opacity="0.5"/>
-    <rect x="-1.3" y="480.7" width="2.6" height="2.6" rx="0.8" fill="var(--status-warning, #E8B86C)"/>
+    <rect x="-1.0" y="481.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="12" y="484.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">smx</text>
     <g s:x="0" s:y="482" s:pid="smx"/>
 
-    <rect x="168.7" y="256.7" width="2.6" height="2.6" rx="0.8" fill="var(--prism-module-stroke, #5FE0B0)"/>
+    <rect x="169.0" y="257.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="163" y="255" class="$cell_id" s:attribute="" style="font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; text-anchor: end; font-size: 6.5px; font-weight: 700; fill: var(--prism-module-glyph, #EAF2EE);">out</text>
     <g s:x="170" s:y="258" s:pid="out"/>
   </g>

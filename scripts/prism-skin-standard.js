@@ -20,8 +20,10 @@
  *     dispersion mark, or the SAPHO "S" for the `processor` top cell.
  *  4. FLOW left→right. Data inputs west, result(s) east; CONTROL (clk/rst/op/en…)
  *     is drawn in violet so it's visually separate from data. `clk` gets an edge ▸.
- *  5. PORTS LABELLED at their anchor; pins are small squares (NOT circles, PRISM
- *     CSS forces a stroke on every <circle>). Selectors group inputs by family.
+ *  5. PORTS LABELLED at their anchor; pins are small light-grey squares (NOT
+ *     circles, PRISM CSS forces a stroke on every <circle>), the same grey as
+ *     the port label: a pin marks WHERE the wire lands, it is not a signal in
+ *     itself. Selectors group inputs by family, in the group header and bracket.
  *  6. TYPOGRAPHY: one sans family for UI text, mono for port identifiers. (Always
  *     set font-family, bare text falls back to serif.)
  *  7. THEME COLOUR via CSS vars + hex fallbacks. NO gradients / no root <defs>:
@@ -50,6 +52,7 @@ const C = {
   label:   'var(--prism-port-label, #AEB6C4)',
   caption: 'var(--text-secondary, #9CA1AE)',
   control: 'var(--accent, #8E83E8)',
+  pin:     'var(--prism-port-label, #AEB6C4)',
 };
 
 // Per-class accent (header rule, subtitle, data-pin colour).
@@ -200,7 +203,19 @@ function roundRect(x, y, w, h, r) {
     `V ${y + r} A ${r},${r} 0 0 1 ${x + r},${y} Z`;
 }
 
-const pin = (x, y, col) => `    <rect x="${(x - 1.3).toFixed(1)}" y="${(y - 1.3).toFixed(1)}" width="2.6" height="2.6" rx="0.8" fill="${col}"/>`;
+/**
+ * O pino de uma porta.
+ *
+ * Cinza claro e do tamanho de um ponto de ancoragem, porque e o que ele e: a
+ * marca de ONDE o fio encosta. Ele carregava a cor da familia, e com isso
+ * competia com o fio, com o rotulo e com o proprio corpo do chip pela atencao,
+ * num desenho onde o que importa e o caminho do dado. A cor da familia nao se
+ * perdeu: continua no cabecalho do grupo e no colchete que o abraca, que sao
+ * onde ela agrupa de verdade; o controle continua violeta no rotulo e no
+ * triangulo do clk.
+ */
+const PIN = 2.0;
+const pin = (x, y) => `    <rect x="${(x - PIN / 2).toFixed(1)}" y="${(y - PIN / 2).toFixed(1)}" width="${PIN}" height="${PIN}" rx="0.6" fill="${C.pin}"/>`;
 const anchor = (x, y, name) => `    <g s:x="${x}" s:y="${y}" s:pid="${name}"/>`;
 
 function header(x, w, title, subtitle, accent) {
@@ -223,7 +238,7 @@ const clkTri = (x, y) =>
 // One west input row: pin + (edge ▸ for clk) + mono label + anchor.
 function inputRow(p, x, y, accent) {
   const isC = CONTROL.has(p.name);
-  push(pin(x, y, isC ? C.control : accent));
+  push(pin(x, y));
   if (p.name === 'clk') push(clkTri(x, y));
   push(`    <text x="${x + (p.name === 'clk' ? 9 : 7)}" y="${(y + 2.1).toFixed(1)}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: start; font-size: 5.5px; fill: ${isC ? C.control : C.label};">${esc(p.name)}</text>`);
   push(anchor(x, y, p.name));
@@ -231,7 +246,7 @@ function inputRow(p, x, y, accent) {
 
 // One east output row: pin + right-aligned mono label + anchor.
 function outputRow(p, xRight, y) {
-  push(pin(xRight, y, C.stroke));
+  push(pin(xRight, y));
   push(`    <text x="${xRight - 7}" y="${(y + 2.1).toFixed(1)}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: end; font-size: 5.5px; fill: ${C.label};">${esc(p.name)}</text>`);
   push(anchor(xRight, y, p.name));
 }
@@ -464,7 +479,7 @@ function renderSelector(mod, info) {
   // select (north)
   if (selPort) {
     push(`    <line x1="${opX}" y1="0" x2="${opX}" y2="${TOP - 6}" stroke="${C.control}" stroke-width="1.4"/>`);
-    push(pin(opX, 0, C.control));
+    push(pin(opX, 0));
     push(`    <text x="${opX + 5}" y="6" class="$cell_id" s:attribute="" style="font-family: ${FONT}; text-anchor: start; font-size: 6px; font-weight: 700; fill: ${C.control};">${esc(selPort.name)}${selPort.bus ? '[…]' : ''}</text>`);
     push(anchor(opX, 0, selPort.name));
   }
@@ -474,7 +489,7 @@ function renderSelector(mod, info) {
     push(`    <text x="12" y="${h.hy + 4}" class="$cell_id" s:attribute="" style="font-family: ${FONT}; text-anchor: start; font-size: 5.5px; font-weight: 700; letter-spacing: 0.9px; fill: ${FAMILY[h.family]};">${esc(h.label)}</text>`);
     push(`    <path d="M 6,${h.y0} L 2.5,${h.y0} L 2.5,${h.y1} L 6,${h.y1}" fill="none" stroke="${FAMILY[h.family]}" stroke-width="0.8" opacity="0.5"/>`);
     for (const r of rows.filter((x) => x.y >= h.y0 && x.y <= h.y1)) {
-      push(pin(0, r.y, FAMILY[h.family]));
+      push(pin(0, r.y));
       push(`    <text x="12" y="${r.y + 2.1}" class="$cell_id" s:attribute="" style="font-family: ${MONO}; text-anchor: start; font-size: 5.5px; fill: ${C.label};">${esc(r.name)}</text>`);
       push(anchor(0, r.y, r.name));
     }
@@ -482,7 +497,7 @@ function renderSelector(mod, info) {
   push('');
   // result (east)
   if (outPort) {
-    push(pin(bodyW, cy, C.stroke));
+    push(pin(bodyW, cy));
     push(`    <text x="${bodyW - 7}" y="${cy - 3}" class="$cell_id" s:attribute="" style="font-family: ${FONT}; text-anchor: end; font-size: 6.5px; font-weight: 700; fill: ${C.glyph};">${esc(outPort.name)}</text>`);
     push(anchor(bodyW, cy, outPort.name));
   }

@@ -13,20 +13,20 @@
     <line x1="10" y1="53" x2="118" y2="53" stroke="var(--aurora-mint, #5FE0B0)" stroke-width="0.7" opacity="0.35"/>
 
     <!-- operands / control (west) -->
-    <rect x="-1.3" y="64.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="65.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="68.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">A</text>
     <g s:x="0" s:y="66" s:pid="A"/>
-    <rect x="-1.3" y="73.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="74.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="77.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">B</text>
     <g s:x="0" s:y="75" s:pid="B"/>
-    <rect x="-1.3" y="90.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="91.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="94.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">in1</text>
     <g s:x="0" s:y="92" s:pid="in1"/>
-    <rect x="-1.3" y="99.7" width="2.6" height="2.6" rx="0.8" fill="var(--aurora-mint, #5FE0B0)"/>
+    <rect x="-1.0" y="100.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="7" y="103.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: start; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">in2</text>
     <g s:x="0" s:y="101" s:pid="in2"/>
     <!-- result (east) -->
-    <rect x="148.7" y="86.7" width="2.6" height="2.6" rx="0.8" fill="var(--prism-module-stroke, #5FE0B0)"/>
+    <rect x="149.0" y="87.0" width="2" height="2" rx="0.6" fill="var(--prism-port-label, #AEB6C4)"/>
     <text x="143" y="90.1" class="$cell_id" s:attribute="" style="font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', ui-monospace, monospace; text-anchor: end; font-size: 5.5px; fill: var(--prism-port-label, #AEB6C4);">out</text>
     <g s:x="150" s:y="88" s:pid="out"/>
   </g>

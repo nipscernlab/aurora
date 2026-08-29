@@ -387,25 +387,47 @@ class EditorManager {
         }
     }
 
+    /**
+     * Alinha a barra da notacao de Dirac com o angulo que a fecha.
+     *
+     * `|v⟩` sai torto porque os dois simbolos vem de fontes DIFERENTES: a
+     * JetBrains Mono e vendorizada so nos subsets latin e latin-ext, e ⟨ ⟩
+     * (U+27E8 e U+27E9) estao fora deles, entao o angulo cai numa fonte de
+     * recurso enquanto a barra vem da fonte do editor. Medido dentro da AURORA,
+     * com as fontes de verdade carregadas: a 12px a barra ocupa de -10 a +2 em
+     * torno da linha de base e o angulo de -9 a +3, a mesma altura deslocada de
+     * 1px; a 14px, -12..+2 contra -10..+3. A barra esta ACIMA nos dois casos, e
+     * por isso ela DESCE para encontrar o angulo, ao contrario do que a leitura
+     * a olho nu sugeria.
+     *
+     * So em .cmm, e so nas linhas que tem angulo. A versao anterior decorava
+     * TODA barra de TODO arquivo, e em Verilog a barra e o operador OR: mexer
+     * nela seria entortar um codigo inteiro para endireitar outro. Numa linha
+     * sem angulo nao ha notacao de Dirac para alinhar.
+     */
     static decorateVerticalBar(editor) {
         const model = editor.getModel();
         if (!model) return;
 
         try {
-            // Scan only the visible lines, not the whole model (P11): '|' is
-            // everywhere in Verilog (OR), so a full-model scan applied hundreds
-            // of decorations on every pass. Re-run on scroll/layout.
+            if (model.getLanguageId() !== 'cmm') { this._limparBarras(editor); return; }
+            // Scan only the visible lines, not the whole model (P11). Re-run on
+            // scroll/layout.
             const ranges = editor.getVisibleRanges();
             if (!ranges.length) return;
-            const matches = model.findMatches('\\|', ranges, false, false, null, true);
-
-            // Create inline decorations for each occurrence
-            const newDecorations = matches.map(m => ({
-                range: m.range,
-                options: {
-                    inlineClassName: 'vertical-bar-lower'
+            const newDecorations = [];
+            for (const r of ranges) {
+                for (let ln = r.startLineNumber; ln <= r.endLineNumber; ln++) {
+                    const texto = model.getLineContent(ln);
+                    if (!texto.includes('⟨') && !texto.includes('⟩')) continue;
+                    for (let i = texto.indexOf('|'); i >= 0; i = texto.indexOf('|', i + 1)) {
+                        newDecorations.push({
+                            range: new monaco.Range(ln, i + 1, ln, i + 2),
+                            options: { inlineClassName: 'vertical-bar-lower' },
+                        });
+                    }
                 }
-            }));
+            }
 
             // Get or create decoration collection for this editor
             const editorId = this.getEditorId(editor);
@@ -422,6 +444,15 @@ class EditorManager {
         } catch (error) {
             console.error('Error decorating vertical bars:', error);
         }
+    }
+
+    /** Tira as barras decoradas de um editor que deixou de ser .cmm. */
+    static _limparBarras(editor) {
+        const editorId = this.getEditorId(editor);
+        const antigas = this.decorationCollections.get(editorId)?.verticalBar || [];
+        if (!antigas.length) return;
+        editor.deltaDecorations(antigas, []);
+        this.decorationCollections.get(editorId).verticalBar = [];
     }
 
     static getEditorId(editor) {

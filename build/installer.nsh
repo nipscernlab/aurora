@@ -32,5 +32,26 @@
   ${IfNot} ${isUpdated}
     RMDir /r "$LOCALAPPDATA\SAPHO\components"
     RMDir "$LOCALAPPDATA\SAPHO"
+
+    ; E leva o cache do atualizador junto, pelo mesmo motivo e com a mesma
+    ; distincao.
+    ;
+    ; Ele sobrevivia ao desinstalador, e o sintoma era desconcertante: quem
+    ; desinstalava e instalava de novo via o download terminar instantaneo, e
+    ; ficava sem saber se tinha baixado alguma coisa. Nao e ilusao, o
+    ; electron-updater valida o arquivo em cache e o reaproveita de proposito;
+    ; o que estava errado e ele continuar ali depois de a aplicacao ter sido
+    ; removida, ocupando centenas de megabytes num perfil que nao tem mais
+    ; SAPHO nenhum.
+    ;
+    ; O nome da pasta vem do campo `name` do package.json, e nao do
+    ; productName: e por isso que ele e `sapho-updater` e nao `SAPHO-updater`.
+    ; Renomear o `name` move esta pasta e quebra a linha abaixo junto com a
+    ; base do delta (ARCHITECTURE.md secao 11).
+    ;
+    ; Dentro de ${IfNot} ${isUpdated} porque numa ATUALIZACAO este cache e
+    ; exatamente o que faz o proximo download ser incremental: apaga-lo ali
+    ; custaria o instalador inteiro a cada versao, para o laboratorio todo.
+    RMDir /r "$LOCALAPPDATA\sapho-updater"
   ${EndIf}
 !macroend

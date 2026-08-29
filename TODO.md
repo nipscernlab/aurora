@@ -1279,7 +1279,11 @@ temática quando for pego.
       De brinde, o texto que não é link passou a ser escapado. Ele ia cru para
       o `innerHTML` e vem de arquivo do usuário; bastava um nome com `<` para
       injetar marcação.
-- [ ] **Debug mode linha a linha.**
+- [ ] **Debug mode linha a linha.** ADIADO em 29/08/2026, com o motivo: não é
+      trabalho de IDE, é trabalho de compilador. Parar o processador a cada
+      linha do `.cmm` exige mapa de linha para endereço de instrução, e quem
+      pode emitir isso é o yanc, não a AURORA. Fica na mesma prateleira dos
+      processadores em C++, que dependem do mesmo repositório.
 - [ ] **Cada compilação com o seu log**, incluindo resolver a concorrência de
       terminal entre PRISM e Build, que hoje disputam a mesma saída.
 - [ ] **Mostrar como marcar o toplevel**, que hoje é conhecimento tribal.

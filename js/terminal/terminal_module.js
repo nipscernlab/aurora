@@ -4,6 +4,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
 import { switchTerminal, smoothFollowToBottom } from './terminal.js';
+import { comLinks } from './error_locations.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
 // compile (Verilator/iverilog dumping thousands of lines) appends one node
@@ -594,31 +595,22 @@ class TerminalManager {
     }
 
     makeLineNumbersClickable(text) {
-        const encAttr = (s) => String(s)
-            .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
-            .replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-        // C-toolchain style: `<file>:<line>: ...`, iverilog / yosys /
-        // gcc / appcomp diagnostics. The path is captured into data-file
-        // so the click handler opens that file directly, instead of
-        // falling back to the last compiled .cmm. The optional `[A-Za-z]:`
-        // prefix handles Windows drive letters (e.g. `C:\foo\bar.v:15:`)
-        // without the path's own colon truncating the match.
-        let out = text.replace(
-            /((?:[A-Za-z]:)?[^\s:]+?\.(?:v|sv|vh|cmm|asm|h|c)):(\d+)(?=[:\s,]|$)/gi,
-            (match, filePath, lineNumber) => {
-                return `<span title="Abrir ${encAttr(filePath)}:${lineNumber}" class="line-link" ` +
-                    `data-line="${lineNumber}" data-file="${encAttr(filePath)}" ` +
-                    `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
-                    `${match}</span>`;
-            }
-        );
-        // Aurora/yanc style: "linha N" / "line N", no file prefix, click
-        // falls back to the last compiled .cmm via the compilation manager.
-        out = out.replace(/\b(?:linha|line)\s+(\d+)/gi, (match, lineNumber) => {
-            return `<span title="Opa. Bão?" class="line-link" data-line="${lineNumber}" ` +
-                `style="cursor: pointer; text-decoration: none; filter: brightness(1.4);">` +
-                `${match}</span>`;
+        // O reconhecimento mora em js/terminal/error_locations.js, POR
+        // FERRAMENTA, porque cada uma imprime de um jeito e as diferencas nao
+        // sao cosmeticas: o Icarus nao da coluna, o Verilator da e ainda mistura
+        // as barras do caminho, o yanc nao diz o arquivo, e o cocotb usa o
+        // formato do Python. Ali tambem estao as duas armadilhas do Windows, a
+        // letra de unidade e o espaco no caminho, e os testes usam a saida real
+        // das ferramentas.
+        //
+        // O texto que NAO e link passa a ser escapado aqui, o que antes nao
+        // acontecia: a saida ia crua para o innerHTML, e ela vem de arquivo do
+        // usuario, que pode ter qualquer coisa no nome.
+        let out = comLinks(text, {
+            titulo: (loc) => (loc.arquivo
+                ? `Abrir ${loc.arquivo}:${loc.linha}${loc.coluna ? ':' + loc.coluna : ''}`
+                : `Abrir a linha ${loc.linha}`),
         });
 
         // Componente ausente: a mensagem sozinha manda a pessoa navegar ate
@@ -746,6 +738,10 @@ class TerminalManager {
             link.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const lineNumber = parseInt(link.getAttribute('data-line'));
+                // A coluna so existe onde a ferramenta a imprime (Verilator,
+                // slang, gcc). Sem ela o cursor pousa no comeco da linha, que e
+                // o comportamento de sempre.
+                const columnNumber = parseInt(link.getAttribute('data-col')) || 1;
                 const explicitFile = link.getAttribute('data-file');
                 console.log(`Clicked on line ${lineNumber}${explicitFile ? ` (file: ${explicitFile})` : ''}`);
 
@@ -819,7 +815,7 @@ class TerminalManager {
                     }
 
                     setTimeout(() => {
-                        this.goToLine(lineNumber);
+                        this.goToLine(lineNumber, columnNumber);
                     }, 100);
 
                 } catch (error) {
@@ -829,7 +825,16 @@ class TerminalManager {
         });
     }
 
-    goToLine(lineNumber) {
+    /**
+     * Leva o editor ativo ate a linha, e ate a coluna quando a ferramenta
+     * disse qual e.
+     *
+     * A selecao continua sendo a LINHA inteira, mesmo com coluna: quem clicou
+     * num erro quer ver o trecho, e destacar um caractere so deixa a origem do
+     * erro tao dificil de achar quanto estava no terminal. A coluna vai para o
+     * CURSOR, que e onde ela ajuda, porque e dali que a edicao comeca.
+     */
+    goToLine(lineNumber, columnNumber = 1) {
         const activeEditor = EditorManager.activeEditor;
         if (!activeEditor) {
             console.warn('No active editor found');
@@ -844,10 +849,15 @@ class TerminalManager {
 
         const totalLines = model.getLineCount();
         const targetLine = Math.max(1, Math.min(lineNumber, totalLines));
+        // A coluna vem de outra ferramenta e pode passar do fim da linha (uma
+        // aba conta como um caractere para o compilador e como varios para o
+        // editor); o Monaco reclama de posicao invalida em vez de corrigir.
+        const maxColumn = model.getLineMaxColumn(targetLine);
+        const targetColumn = Math.max(1, Math.min(columnNumber || 1, maxColumn));
 
         activeEditor.setPosition({
             lineNumber: targetLine,
-            column: 1
+            column: targetColumn,
         });
 
         activeEditor.revealLineInCenter(targetLine);
@@ -857,7 +867,7 @@ class TerminalManager {
             startLineNumber: targetLine,
             startColumn: 1,
             endLineNumber: targetLine,
-            endColumn: model.getLineMaxColumn(targetLine)
+            endColumn: maxColumn
         });
     }
 

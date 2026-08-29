@@ -1252,14 +1252,33 @@ temática quando for pego.
 
 ### 9.1 Compilação e editor
 
-- [ ] **Clicar na linha de erro e saltar para o código.** O pedido mais
-      detalhado do dia. Hoje o terminal despeja o texto cru do Icarus, do
-      Verilator e das demais, e achar o erro é trabalho manual. O
-      reconhecimento de `arquivo:linha:coluna` tem que ser POR FERRAMENTA, e
-      não uma expressão regular só: cada uma imprime de um jeito, e uma
-      heurística única erra em silêncio no caso mais comum, que é caminho com
-      espaço ou com `:` de unidade no Windows. O alvo é a linha do terminal
-      virar link que abre o arquivo no Monaco na posição certa.
+- [x] ~~**Clicar na linha de erro e saltar para o código.**~~ Feito em
+      29/08/2026, e metade dele já existia: o terminal tinha o link de
+      `<arquivo>:<linha>` e o de "linha N" do yanc. O que faltava e entrou:
+
+      O reconhecimento saiu de duas expressões regulares soltas dentro do
+      terminal e virou [js/terminal/error_locations.js](js/terminal/error_locations.js),
+      POR FERRAMENTA. Os formatos foram MEDIDOS, rodando as ferramentas contra
+      um arquivo quebrado de propósito: o Icarus dá `caminho:linha` e nenhuma
+      coluna; o Verilator dá `%Error: caminho:linha:coluna` e imprime o caminho
+      com as duas barras misturadas; o yanc não diz o arquivo, e as seis formas
+      da mensagem dele, nas duas línguas, saíram da árvore do compilador; o
+      cocotb usa o traceback do Python, com o caminho entre aspas.
+
+      A COLUNA passou a existir. O `goToLine` fixava `column: 1`, então a
+      coluna do Verilator era lida e jogada fora. Agora ela vai para o cursor e
+      a seleção continua sendo a linha inteira, porque destacar um caractere só
+      deixa o erro tão difícil de achar quanto estava no terminal.
+
+      As duas armadilhas de caminho do Windows viraram teste: a letra de
+      unidade, que corta o caminho no primeiro dois-pontos, e o espaço, que uma
+      regra permissiva demais transforma em frase inteira. A saída são três
+      contextos: ancorado no início da linha o caminho pode ter espaço, no meio
+      da frase não pode, e entre aspas pode.
+
+      De brinde, o texto que não é link passou a ser escapado. Ele ia cru para
+      o `innerHTML` e vem de arquivo do usuário; bastava um nome com `<` para
+      injetar marcação.
 - [ ] **Debug mode linha a linha.**
 - [ ] **Cada compilação com o seu log**, incluindo resolver a concorrência de
       terminal entre PRISM e Build, que hoje disputam a mesma saída.

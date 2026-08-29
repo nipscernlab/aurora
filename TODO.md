@@ -1647,6 +1647,18 @@ formalmente, não consertado.
   sobre caminho fundo. Se o relato voltar depois disso, pedir duas informacoes
   antes de investigar de novo: quanto tempo ate aparecer, e qual processo
   cresce no Gerenciador de Tarefas (principal, renderer ou GPU).
+- O botão Wave compila o PROJETO INTEIRO e vai até a simulação; ele não é só a
+  etapa de onda. Medido no registro de execuções de 29/08/2026, num projeto com
+  dois processadores: `cmm`, `asm-pre` e `asm` para cada um, depois
+  `verilator-build` (8,9 s de perl), `iverilog-check`, `verilator-run` (22,9 s)
+  e `fst2vcd`, num total de 33 s. Quem procurar no histórico por uma execução
+  chamada `all` não vai achar: `all` é o Full Build, que está escondido no DOM.
+- `fst2vcd` sair com código 1 é ESPERADO quando o dump é um VCD de texto, e não
+  um FST, que é o caso sob Verilator. Ele faz uma checagem de assinatura e
+  recusa a entrada; o cabeçalho já foi capturado pelo fluxo antes disso, e o
+  `.header.vcd` fica no disco do mesmo jeito. Visto no registro de 29/08 com
+  code=1 e o arquivo gravado ao lado. Não é defeito, e código de saída sozinho
+  não é veredito.
 - Sonda de interface pelo Playwright, duas armadilhas que fazem o teste acusar
   fiação quebrada onde não há. O `electronAPI` do renderer vem por
   contextBridge e é CONGELADO: trocar um método dele pela sonda falha calado, e

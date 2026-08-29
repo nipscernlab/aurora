@@ -98,6 +98,11 @@ const fileOperations = {
   // no allowlist do main; estas chamadas sao para o painel e para a interface
   // poder avisar antes de a pessoa clicar.
   componentesListar:    () => ipcRenderer.invoke('componentes:listar'),
+
+  // Registro de execucoes de compilacao. Grava em <projeto>/.aurora/execucoes.
+  runLogGravar: (projeto, exec) => ipcRenderer.invoke('runlog:gravar', projeto, exec),
+  runLogListar: (projeto) => ipcRenderer.invoke('runlog:listar', projeto),
+  runLogLer: (projeto, id) => ipcRenderer.invoke('runlog:ler', projeto, id),
   componentesInstalar:  (chave, opcoes) => ipcRenderer.invoke('componentes:instalar', chave, opcoes || {}),
   componentesRemover:   (chave) => ipcRenderer.invoke('componentes:remover', chave),
   componentesInstalado: (chave) => ipcRenderer.invoke('componentes:instalado', chave),

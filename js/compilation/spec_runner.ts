@@ -45,6 +45,47 @@ let terminalHook: TerminalHook | null = null;
 export function setAuditHook(fn: unknown): void { auditHook = typeof fn === 'function' ? fn as AuditHook : null; }
 export function setTerminalHook(fn: unknown): void { terminalHook = typeof fn === 'function' ? fn as TerminalHook : null; }
 
+/** O que o observador recebe por ferramenta executada. */
+export interface RunObservation {
+  step: string;
+  binary: string;
+  args: string[];
+  cwd: string | null;
+  code: number | null;
+  ms: number;
+}
+type RunObserver = (obs: RunObservation) => void;
+
+/**
+ * Observador de TODA execucao, e nao so das que levaram override.
+ *
+ * O `auditHook` acima parece servir para isto e nao serve: ele so dispara
+ * quando ha override da IA, porque nasceu para auditar exatamente isso. O
+ * registro de execucao precisa da ferramenta que rodou mesmo quando nada foi
+ * sobrescrito, que e o caso normal.
+ *
+ * Fica aqui porque este modulo e o unico ponto de passagem de todo comando da
+ * toolchain; qualquer outro lugar veria uma parte.
+ */
+let runObserver: RunObserver | null = null;
+export function setRunObserver(fn: unknown): void { runObserver = typeof fn === 'function' ? fn as RunObserver : null; }
+
+function observar(spec: CommandSpecType, resultado: ExecSpecResult, inicio: number): ExecSpecResult {
+  if (runObserver) {
+    try {
+      runObserver({
+        step: spec.step,
+        binary: spec.binary,
+        args: Array.isArray(spec.args) ? spec.args.slice() : [],
+        cwd: spec.cwd ?? null,
+        code: resultado && typeof resultado.code === 'number' ? resultado.code : null,
+        ms: Math.round(performance.now() - inicio),
+      });
+    } catch { /* o registro nunca pode derrubar a compilacao */ }
+  }
+  return resultado;
+}
+
 function logOverride(
   spec: CommandSpecType,
   baseSpec: CommandSpecType,
@@ -104,10 +145,11 @@ export async function runSpec(baseSpec: CommandSpecType, options: { consumeEphem
 
   logOverride(appliedSpec, baseSpec, override, sources, terminalForStep(baseSpec.step));
 
-  return electronAPI.execSpec({
+  const inicio = performance.now();
+  return observar(appliedSpec, await electronAPI.execSpec({
     spec: appliedSpec,
     baseSpec, // main re-runs protected-flag check
-  });
+  }), inicio);
 }
 
 /**
@@ -125,10 +167,11 @@ export async function runSpecStreamed(baseSpec: CommandSpecType, options: { cons
 
   logOverride(appliedSpec, baseSpec, override, sources, terminalForStep(baseSpec.step));
 
-  return electronAPI.execSpecStreamed({
+  const inicio = performance.now();
+  return observar(appliedSpec, await electronAPI.execSpecStreamed({
     spec: appliedSpec,
     baseSpec,
-  });
+  }), inicio);
 }
 
 /** Result of {@link resolveSpec}, an override-applied spec without running it. */

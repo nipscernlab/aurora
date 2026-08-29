@@ -98,6 +98,7 @@ const pylibsIpc = require('./main/ipc/pylibs');
 const docsIpc = require('./main/ipc/docs');
 const docsWindowIpc = require('./main/ipc/docs_window');
 const treeUndoIpc = require('./main/ipc/tree_undo');
+const runLogIpc = require('./main/ipc/run_log');
 const pylibWatch = require('./main/python/pylib_watch');
 
 // Scheme privileges are read once, at Chromium startup — this MUST stay above
@@ -138,6 +139,7 @@ if (acquiredLock) {
   docsIpc.register();
   docsWindowIpc.register();
   treeUndoIpc.register();
+  runLogIpc.register();
   // Vigia das bibliotecas Python: ronda periodica + ao recuperar o foco.
   // Verificar so no boot nao bastaria — a corrupcao acontece com o app aberto.
   pylibWatch.start();

@@ -29,6 +29,9 @@ import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
+import { getViewer } from '../wave/viewer_preference.js';
+import { setRunObserver } from './spec_runner.js';
+import { abrirExecucao, anotarPasso, fecharExecucao } from './run_log.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
@@ -99,6 +102,76 @@ const STEP_TERMINALS = Object.freeze({
     // Fast Sim (Verilator headless, sem onda): mesmo terminal do Wave.
     'verilator-fast': ['twave'],
 });
+/* =====================================================================
+ *  Registro de execucoes
+ * ===================================================================== */
+
+/**
+ * Envolve uma execucao de compilacao para que ela deixe rastro.
+ *
+ * O problema que isto resolve esta no cabecalho de js/compilation/run_log.js:
+ * nao da para saber de antemao o que o usuario vai compilar, entao o que se
+ * grava e o CLIQUE e o que ele acionou, e nao um formato por tipo de
+ * compilacao. Aqui e o unico lugar que sabe as duas pontas, porque e daqui que
+ * sai cada botao.
+ *
+ * O observador do spec_runner e quem enche a lista de passos: ele dispara em
+ * TODA ferramenta que roda, sem que cada handler precise se lembrar de anotar.
+ * Ele e desligado no fim, senao a execucao seguinte anotaria na anterior.
+ *
+ * Nada aqui pode derrubar uma compilacao: gravar o registro e melhor esforco.
+ */
+async function comRegistro(pedido, corpo) {
+    const projeto = window.currentProjectPath || null;
+    const exec = abrirExecucao({ pedido, projeto, config: await retratoDoProjeto() });
+    setRunObserver((obs) => anotarPasso(exec, obs));
+    try {
+        const r = await corpo();
+        fecharExecucao(exec, { ok: true });
+        return r;
+    } catch (erro) {
+        fecharExecucao(exec, {
+            ok: false,
+            erro: erro && erro.message ? erro.message : String(erro),
+            cancelada: compilationCanceled,
+        });
+        throw erro;
+    } finally {
+        setRunObserver(null);
+        try {
+            if (projeto) await electronAPI?.runLogGravar?.(projeto, exec);
+        } catch (e) {
+            console.warn('[run-log] nao consegui gravar a execucao:', e);
+        }
+    }
+}
+
+/**
+ * O retrato do projeto no momento do clique.
+ *
+ * Le do .spf, que e a fonte da verdade sobre topo de sintese e de simulacao, e
+ * junta as duas preferencias que trocam a ferramenta usada. Falha em silencio:
+ * uma execucao sem retrato ainda vale mais do que execucao nenhuma.
+ */
+async function retratoDoProjeto() {
+    try {
+        const spfPath = window.currentSpfPath || window.ProjectStore?.getSpfPath?.();
+        const s = spfPath && window.SpfStore ? await window.SpfStore.read(spfPath) : null;
+        return {
+            topLevelFile: s?.topLevelFile || null,
+            testbenchFile: s?.testbenchFile || null,
+            synthesizableFiles: (s?.synthesizableFiles || []).map((f) => (typeof f === 'string' ? f : f?.path)).filter(Boolean),
+            simulador: getSimulator(),
+            visualizador: getViewer(),
+            processadores: Array.isArray(window.availableProcessors)
+                ? window.availableProcessors.map((x) => (typeof x === 'string' ? x : x?.name)).filter(Boolean)
+                : [],
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
 const ALL_TERMINALS = Object.freeze(['tcmm', 'tasm', 'tveri', 'twave']);
 
 // Map per-step → terminal pra mensagens de erro fatal.
@@ -927,9 +1000,11 @@ class CompilationFlowManager {
         activeRunStep = 'all';
         statusUpdater.beginRun('all');
         try {
-            const compiler = new CompilationModule(window.currentProjectPath);
-            await compiler.loadConfig();
-            await runProjectPipeline(compiler);
+            await comRegistro('all', async () => {
+                const compiler = new CompilationModule(window.currentProjectPath);
+                await compiler.loadConfig();
+                await runProjectPipeline(compiler);
+            });
         } catch (error) {
             console.error('Compilation error:', error);
             // Without this, a Cancel during Full Build leaves no card in
@@ -953,29 +1028,34 @@ class CompilationFlowManager {
         activeRunStep = step;
         statusUpdater.beginRun(step);
         try {
-            switch (step) {
-                // 'verilator' (top-level harness) intencionalmente fora:
-                // o botao foi removido da toolbar (commit 5121cc2) e
-                // handleVerilatorStep nao existe mais. 'verilator-proc'
-                // (Verilator no processador CMM) continua suportado.
-                case 'cmm':       await handleCmmStep(); break;
-                case 'asm':       await handleAsmStep(); break;
-                case 'verilog':   await handleVerilogStep(); break;
-                case 'wave':      await handleWaveStep(); break;
-                case 'prism':     await handlePrismStep(); break;
-                case 'verilator-proc': await handleVerilatorProcStep(); break;
-                case 'verilator-fast': await handleFastSimStep(); break;
-                default:
-                    console.warn(`Passo desconhecido: ${step}`);
-                    logFatalError(
-                        ERROR_TERMINAL[step] || 'tcmm',
-                        new Error(`Unknown compilation step: ${step}`),
-                    );
-            }
+            await comRegistro(step, () => this._despacharPasso(step));
         } finally {
             // endRun e no-op se um passo ja reportou erro (runActive=false).
             statusUpdater.endRun(step);
             activeRunStep = null;
+        }
+    }
+
+    /** O despacho em si, separado para o registro poder envolve-lo. */
+    async _despacharPasso(step) {
+        switch (step) {
+            // 'verilator' (top-level harness) intencionalmente fora:
+            // o botao foi removido da toolbar (commit 5121cc2) e
+            // handleVerilatorStep nao existe mais. 'verilator-proc'
+            // (Verilator no processador CMM) continua suportado.
+            case 'cmm':       await handleCmmStep(); break;
+            case 'asm':       await handleAsmStep(); break;
+            case 'verilog':   await handleVerilogStep(); break;
+            case 'wave':      await handleWaveStep(); break;
+            case 'prism':     await handlePrismStep(); break;
+            case 'verilator-proc': await handleVerilatorProcStep(); break;
+            case 'verilator-fast': await handleFastSimStep(); break;
+            default:
+                console.warn(`Passo desconhecido: ${step}`);
+                logFatalError(
+                    ERROR_TERMINAL[step] || 'tcmm',
+                    new Error(`Unknown compilation step: ${step}`),
+                );
         }
     }
 

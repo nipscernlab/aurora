@@ -1291,9 +1291,39 @@ temática quando for pego.
       `main/ipc/prism.js` foi inteira para o terminal novo, e o mapa de passo
       para terminal do `compilation_flow` acompanhou. Conferido na AURORA de
       pé: as sete abas aparecem na ordem e o painel troca ao clicar.
-- [ ] **Cada compilação com o seu log.** A parte do terminal saiu (acima); o
-      registro em disco continua aberto, com o desenho decidido em 29/08 e
-      escrito abaixo, na seção 9.7.
+- [x] ~~**Cada compilação com o seu log.**~~ Gravação feita em 29/08/2026.
+
+      O problema, que é o que decidiu o desenho: não dá para saber de antemão o
+      que o usuário vai compilar, então não dá para escolher um formato por
+      tipo de compilação. A saída foi inverter a unidade. O que se grava não é
+      "a compilação", é uma EXECUÇÃO: um clique abre uma, e ela guarda o que de
+      fato aconteceu, sejam quatro ferramentas ou uma. Só o C± vira uma
+      execução de um passo; o full build vira uma de vários, e nenhum dos dois
+      precisou ser previsto.
+
+      O que transforma isso no histórico coerente que foi pedido é o RETRATO
+      que vai junto: topo de síntese, topo de simulação, as fontes, o simulador
+      e o visualizador escolhidos, e os processadores. Com ele, "o que
+      aconteceu nesta compilação" tem resposta, e "por que ontem deu diferente"
+      vira comparar dois retratos em vez de lembrar. O retrato guarda só o que
+      muda o resultado, de propósito: um que guardasse tudo não se compara com
+      outro.
+
+      As peças: [js/compilation/run_log.js](js/compilation/run_log.js) monta,
+      fecha e poda (puro, com teste); `setRunObserver` no `spec_runner` avisa
+      cada ferramenta que roda, e ele existe porque o `auditHook` que parecia
+      servir só dispara quando há override da IA;
+      [main/ipc/run_log.js](main/ipc/run_log.js) grava em
+      `<projeto>/.aurora/execucoes/<id>.json`, monta o nome do arquivo ele
+      mesmo (id vindo do renderer passa por filtro, senão um `..` escreveria
+      fora da pasta) e mantém as 50 mais novas.
+
+      Dentro do projeto, e não no perfil: copiar o projeto leva o histórico
+      junto, apagar o projeto apaga o histórico junto.
+
+      O que FALTA é a tela: hoje o histórico existe em disco e ninguém o lê
+      pela interface. Uma lista com as últimas execuções e o detalhe de uma
+      delas é o próximo passo, e é pequeno agora que os dados estão gravados.
 - [x] ~~**O top level tem que se distinguir do testbench.**~~ Feito em
       29/08/2026. Os dois topos e os arquivos comuns saíam com o mesmo ícone, e
       a única diferença era a cor da linha; cor sozinha não diz QUAL é a

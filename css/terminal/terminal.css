@@ -195,9 +195,14 @@
    que vir de largura e altura; o `font-size` que dimensiona os outros glifos
    nao alcanca um <img>. */
 .terminal-tabs .tab .glyph-tprism {
-  width: var(--icon-sm);
-  height: var(--icon-sm);
+  /* Maior que os outros glifos de propósito. Eles são traço puro e ocupam a
+     caixa inteira; a marca do PRISM é um desenho com ar em volta e um triângulo
+     claro no meio, então na mesma medida ela lê menor que as vizinhas. 18px
+     iguala o que se VÊ, que é o que importa numa fileira de ícones. */
+  width: 18px;
+  height: 18px;
   object-fit: contain;
+  opacity: 1;
 }
 
 /* Semantic color when not active, match the toolbar compile glyphs. */

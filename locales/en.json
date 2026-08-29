@@ -730,7 +730,9 @@
     "compile": {
       "componentMissing": "{{nome}} is missing on this machine, and compilation cannot run without it. It is a {{mb}} download.",
       "componentWhere": "Download it in Settings, Components. The dot on the gear stays lit while it is missing."
-    }
+    },
+    "cleared": "Terminal cleared",
+    "allCleared": "Terminals cleared"
   },
   "error": {
     "config": {

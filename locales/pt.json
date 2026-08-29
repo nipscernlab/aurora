@@ -730,7 +730,9 @@
     "compile": {
       "componentMissing": "Falta {{nome}} nesta máquina, e sem ele a compilação não roda. São {{mb}} de download.",
       "componentWhere": "Baixe em Configurações, Componentes. O ponto de aviso na engrenagem acende enquanto faltar."
-    }
+    },
+    "cleared": "Terminal limpo",
+    "allCleared": "Terminais limpos"
   },
   "error": {
     "config": {

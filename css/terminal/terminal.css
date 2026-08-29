@@ -315,6 +315,7 @@
  *  Content + Body
  * ------------------------------------------------------------------------- */
 .terminal-content {
+  position: relative;
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -576,11 +577,17 @@
   to { opacity: 0; transform: translateX(-10px); }
 }
 .terminal-cleared-pill {
+  /* Sobreposicao no conteiner do terminal, para valer tambem no TCMD, cujo
+     conteudo e um xterm e nao um corpo de cartoes. */
+  position: absolute;
+  top: calc(var(--space-3) + 28px);
+  left: 50%;
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   width: max-content;
-  margin: var(--space-3) auto;
+  margin: 0;
   padding: 5px 12px 5px 10px;
   border-radius: var(--radius-full);
   background: var(--bg-elev-2);
@@ -589,10 +596,11 @@
   font-size: var(--text-xs);
   box-shadow: 0 4px 16px -4px var(--accent-glow);
   opacity: 0;
-  transform: translateY(-4px) scale(0.96);
+  transform: translate(-50%, -6px) scale(0.96);
   transition: opacity var(--transition-fast), transform var(--transition-fast);
+  pointer-events: none;
 }
-.terminal-cleared-pill.visible { opacity: 1; transform: translateY(0) scale(1); }
+.terminal-cleared-pill.visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
 .terminal-cleared-pill .ph { color: var(--status-success); font-size: var(--icon-base); }
 
 /* Inside grouped cards */

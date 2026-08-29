@@ -1428,14 +1428,19 @@ class TerminalManager {
             const activeTab = document.querySelector('.terminal-tabs .tab.active');
             const terminalId = activeTab?.getAttribute('data-terminal')
                 || Object.keys(this.terminals)[0];
+            const tr = (k, alt) => { const t = window.t ? window.t(k) : k; return t === k ? alt : t; };
             if (this.clearMode === 'all') {
                 await this.clearAllTerminals();
-                if (terminalId) this._flashCleared(terminalId, 'Terminals cleared');
+                // A pilula em TODOS, e nao so no ativo: quem troca de aba logo
+                // depois ve que aquele tambem foi limpo.
+                for (const id of new Set([...Object.keys(this.terminals), 'tcmd'])) {
+                    this._flashCleared(id, tr('terminal.allCleared', 'Terminals cleared'));
+                }
                 return;
             }
             if (terminalId) {
                 await this.clearTerminal(terminalId);
-                this._flashCleared(terminalId, 'Terminal cleared');
+                this._flashCleared(terminalId, tr('terminal.cleared', 'Terminal cleared'));
             }
         };
 
@@ -1598,15 +1603,20 @@ async clearTerminal(terminalId) {
 
     /** Transient confirmation pill, fired by the manual clear button only. */
     _flashCleared(terminalId, message = 'Terminal cleared') {
-        const terminal = this._resolveTerminal(terminalId);
-        if (!terminal) return;
-        terminal.querySelector(':scope > .terminal-cleared-pill')?.remove();
+        // A pilula mora no CONTEINER do terminal (#terminal-<id>), como uma
+        // sobreposicao, e nao no corpo: o TCMD nao tem corpo, tem um xterm, e
+        // era por isso que ele nunca ganhava a confirmacao.
+        const caixa = document.getElementById(`terminal-${terminalId}`);
+        if (!caixa) return;
+        caixa.querySelector(':scope > .terminal-cleared-pill')?.remove();
         const pill = document.createElement('div');
         pill.className = 'terminal-cleared-pill';
         pill.innerHTML = '<i class="ph ph-check-circle"></i><span></span>';
         pill.querySelector('span').textContent = message;
-        terminal.appendChild(pill);
-        requestAnimationFrame(() => pill.classList.add('visible'));
+        caixa.appendChild(pill);
+        // Temporizador, e nao rAF: numa janela ao fundo o Electron segura o
+        // frame e a pilula nascia e morria invisivel (medido no TCMD).
+        setTimeout(() => pill.classList.add('visible'), 20);
         setTimeout(() => {
             pill.classList.remove('visible');
             setTimeout(() => pill.remove(), 250);

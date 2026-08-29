@@ -53,6 +53,7 @@
 @import url("./panels/ai_assistant.css");
 @import url("./panels/git_panel.css");
 @import url("./panels/search_panel.css");
+@import url("./panels/run_history.css");
 @import url("./panels/pylib_panel.css");
 
 /* 8. feedback */

@@ -524,6 +524,12 @@
                 </div>
 
                 <div class="terminal-tabs-actions">
+                  <!-- Ao lado de Exportar log, e nao na toolbar de cima: e a mesma
+                       familia de gesto (olhar para tras no que a compilacao fez), e
+                       a barra do terminal e onde a pessoa esta quando compila. -->
+                  <button id="run-history" class="toolbar-button icon-only" data-tooltip="Compilation history" data-i18n-tooltip="runHistory.tooltip">
+                      <i class="ph ph-clock-counter-clockwise"></i>
+                  </button>
                   <button id="export-log" class="toolbar-button icon-only" data-tooltip="Export log">
                       <i class="ph ph-export"></i>
                   </button>
@@ -986,6 +992,26 @@
         </div>
         <div class="search-summary" id="search-summary" hidden></div>
         <div class="search-results" id="search-results"></div>
+    </main>
+</aurora-modal>
+
+<!-- Historico de execucoes: o que cada clique de compilar fez, e em que estado
+     o projeto estava. Os dados vem de <projeto>/.aurora/execucoes, gravados
+     pelo compilation_flow; a tela so le. js/compilation/run_history.js. -->
+<aurora-modal id="runHistoryModal" style="--aurora-modal-width: min(820px, 95vw);">
+    <span slot="title" class="modal-title">
+        <i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i>
+        <span data-i18n="runHistory.title">Compilation history</span>
+    </span>
+    <button slot="actions" id="runHistoryHelp" class="modal-close-btn" aria-label="Help" data-i18n-aria-label="modal.help" data-i18n-tooltip="modal.help">
+        <i class="ph ph-question" aria-hidden="true"></i>
+    </button>
+    <button slot="actions" id="runHistoryClose" class="modal-close-btn" aria-label="Close" data-i18n-aria-label="runHistory.close">
+        <i class="ph ph-x" aria-hidden="true"></i>
+    </button>
+    <main class="modal-body run-history">
+        <div class="run-history-list" id="run-history-list"></div>
+        <div class="run-history-detail" id="run-history-detail" hidden></div>
     </main>
 </aurora-modal>
 
@@ -1777,6 +1803,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/git/git_panel.js" type="module"></script>
 <script src="./js/python/pylib_panel.js" type="module"></script>
 <script src="./js/search/search_panel.js" type="module"></script>
+<script src="./js/compilation/run_history.js" type="module"></script>
 <script src="./js/ui/new_project_modal.js" type="module"></script>
 <script src="./js/project/recent_projects.js" type="module"></script>
 <script src="./js/utils/resize.js" type="module"></script>

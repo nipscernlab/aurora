@@ -762,9 +762,25 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
-  background: #eef1f6;          /* soft light surface (DigitalJS cells are dark-on-light) */
+  /* O mesmo chao do esquematico: era uma superficie clara, "porque as celulas
+     do DigitalJS sao escuras sobre claro", e isso deixou de valer quando as
+     celulas vestiram o tema da casa (ver TEMA DA SIMULACAO, abaixo). */
+  background: var(--bg);
+  isolation: isolate;
   cursor: grab;
   touch-action: none;
+}
+/* A malha de pontos do esquematico, para o papel da simulacao ser o mesmo
+   papel e nao um segundo cenario. */
+.djs-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(circle, var(--accent) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.12;
 }
 .djs-container.panning { cursor: grabbing; }
 
@@ -869,10 +885,15 @@ body.sim-montando::after {
 /* Texto: tudo claro; o valor numerico em mono, como no resto do PRISM. */
 .djs-container .joint-element text,
 .djs-container .joint-element tspan { fill: var(--text) !important; }
+/* O DigitalJS escreve tudo a 16px, que a uma celula de 30px e uma parede: a
+   largura do barramento tapava o fio, e o D e o Q do flip-flop caiam um sobre
+   o outro. Escala de esquematico: o valor e o que se le, o resto e legenda. */
 .djs-container .joint-element text.iolabel,
-.djs-container .joint-element text.bit,
-.djs-container .joint-element text.joint-port-label { fill: var(--text-secondary) !important; }
-.djs-container .joint-element text.value { font-family: var(--font-mono) !important; }
+.djs-container .joint-element text.joint-port-label { fill: var(--text-secondary) !important; font-size: 9px !important; }
+.djs-container .joint-element text.bit { fill: var(--text-muted) !important; font-size: 7px !important; font-weight: 400 !important; }
+.djs-container .joint-element text.label { fill: var(--text-secondary) !important; font-size: 9px !important; }
+.djs-container .joint-element text.oper { font-size: 14px !important; }
+.djs-container .joint-element text.value { font-size: 12px !important; font-weight: 600 !important; }
 
 /* Fios e portas: a cor do sinal, na paleta da casa. */
 .djs-container path.connection[stroke="#03c03c"],

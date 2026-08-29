@@ -1291,8 +1291,13 @@ temática quando for pego.
 
 ### 9.2 Updater, três defeitos concretos
 
-- [ ] **O cache de download sobrevive ao desinstalador**, então reinstalar
-      baixa instantâneo e a pessoa desconfia que não baixou nada.
+- [x] ~~**O cache de download sobrevive ao desinstalador.**~~ Fechado em
+      29/08/2026 no `customUnInstall` de [build/installer.nsh](build/installer.nsh):
+      ele passou a apagar `%LOCALAPPDATA%\sapho-updater` junto com os
+      componentes. Continua DENTRO do `IfNot isUpdated`, porque numa
+      atualização esse cache é o que torna o download incremental; apagá-lo ali
+      custaria o instalador inteiro a cada versão, para o laboratório todo. O
+      nome da pasta vem do campo `name` do package.json, não do productName.
 - [ ] **Baixar pela tela de aviso inicial não muda o botão Baixar** do painel
       de Configurações: os dois falam do mesmo download e discordam na tela.
 - [ ] **"Instalar depois" tem que instalar na PRÓXIMA ABERTURA**, e não ao

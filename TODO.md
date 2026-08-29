@@ -1500,9 +1500,37 @@ temática quando for pego.
       Surfer, que um marcador são DUAS metades e emitir só uma não produz
       metade do efeito, e sim efeito nenhum. Apagar isso junto seria jogar
       fora a descoberta, não o comportamento pedido.
-- [ ] **Evoluir o Simular para além das primitivas.**
-- [ ] **PRISM faz parte da AURORA**, e clicar num componente abre a
-      representação interna dele no PRISM.
+- [x] ~~**Evoluir o Simular para além das primitivas.**~~ Feito em 29/08/2026
+      na parte que estava quebrada. O Simular sintetizava SEMPRE o topo do
+      projeto, e o topo de um projeto SAPHO é o processador inteiro, com
+      memórias: o yosys estourava os 45 s e quem só queria cutucar a `ula`
+      lia "design too large". Agora o alvo é o módulo QUE ESTÁ NA TELA, a
+      mesma pergunta do esquemático; medido fora da AURORA, a `ula` sintetiza
+      em 92 ms e converte em 10 ms, com `op`, `in1` e `in2` como entradas
+      clicáveis. O DigitalJS já fazia o resto: clicar numa entrada troca 0 e
+      1 e os dígitos sobre as caixas acompanham. Quando não cabe (tempo ou
+      células) a falha volta CLASSIFICADA do main e a página escreve o aviso
+      no idioma da pessoa, com o nome do módulo, os números e a saída: abrir
+      um submódulo menor e simular aquele. Provado na AURORA de pé com o
+      `contador`: simMode ligado, papel desenhado, dígito do `clk` presente.
+      O que fica para depois é o que o DigitalJS não dá: estímulos por
+      arquivo e comparar com a onda.
+- [x] ~~**PRISM faz parte da AURORA**, e clicar num componente abre a
+      representação interna dele no PRISM.~~ Feito em 29/08/2026, do mesmo
+      jeito que o Surfer: dentro ou fora, e quem escolhe é o usuário, por um
+      interruptor de dois segmentos ao lado do botão PRISM (`prism_mode.js`,
+      preferido em localStorage). Na aba, a página do PRISM entra num
+      `<webview>`, e não num iframe, porque precisa do preload dela (yosys,
+      SVG por IPC) e iframe não recebe preload; o `WebContentsView`
+      receberia, mas flutua por cima de todo o HTML, modais inclusive. O
+      `webviewTag` da janela principal voltou a ligar por essa razão só, com
+      um guarda `will-attach-webview` que só deixa anexar a página do PRISM
+      com o preload do PRISM: provado na AURORA de pé com um `<webview>` de
+      `example.com`, que não anexou. O resultado da compilação vai pelo
+      mesmo canal que a janela ouve, então a página não sabe onde está,
+      exceto pelo `embedded=1` que tira os controles de janela. Clicar num
+      componente já abria o desenho interno dele; agora isso acontece dentro
+      do editor.
 
 ### 9.4 Distribuição e institucional
 
@@ -1540,7 +1568,21 @@ temática quando for pego.
 
 ### 9.5 Aurora Intelligence
 
-- [ ] **API Tutorial usando o Manual do SAPHO como prompt injection.**
+- [x] ~~**API Tutorial usando o Manual do SAPHO como prompt injection.**~~
+      Feito em 29/08/2026. Botão de capelo no cabeçalho da Aurora
+      Intelligence abre uma conversa nova com um bloco de tutorial no system
+      prompt e a primeira mensagem já enviada: a assistente vira instrutora
+      da API da AURORA, um passo por vez, executando as ferramentas de
+      verdade e citando o capítulo do manual. O bloco traz o manifesto das
+      ferramentas, gerado do código (`docs/aurora-intelligence-tools.md`), e
+      as páginas do manual INSTALADO que a busca devolve para cinco temas,
+      lidas em tempo de execução e limitadas em tamanho. Nada do manual foi
+      copiado para a AURORA: ele é mantido no repositório próprio e chega
+      pronto, e o tutorial lê o que estiver instalado (sem manual, ensina só
+      pelo manifesto e avisa). Conferido na AURORA de pé o caminho do manual:
+      busca e leitura devolvem `caminho`, `titulo` e `texto`. A conversa em si
+      precisa de um provedor de IA, então o primeiro tutorial de verdade é
+      medição de quem tem chave.
 
 ### 9.6 Relógios externos, conferidos em 29/08/2026
 

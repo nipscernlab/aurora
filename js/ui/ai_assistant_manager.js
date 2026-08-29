@@ -24,6 +24,9 @@ import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis, semAni
 import { resolvePaneSize, maxLateralWidth, PANE } from '../utils/pane_size.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { SYSTEM_PROMPT } from '../ai/system_prompt.js';
+import { lerPaginasDoManual, montarBlocoTutorial, aberturaDoTutorial } from '../ai/api_tutorial.js';
+
+const tr = (k, p) => (window.t ? window.t(k, p) : k);
 import { isAtBottom, easeInOutCubic, smoothScrollDuration } from '../ai/chat_scroll.js';
 import { formatAttachmentSize, composerChipHtml, bubbleChipHtml } from '../ai/chat_attachments.js';
 import { mayHaveToolArtifacts, stripToolCallArtifacts } from '../ai/tool_call_text.js';
@@ -325,6 +328,9 @@ class AIAssistantManager {
           <button class="ai-hbtn" id="ai-history-btn" title="Chat history" aria-label="Chat history">
             <i class="ph ph-clock-counter-clockwise"></i>
           </button>
+          <button class="ai-hbtn" id="ai-tutorial-btn" title="API tutorial" aria-label="API tutorial" data-i18n-title="ai.tutorial.button" data-i18n-aria-label="ai.tutorial.button">
+            <i class="ph ph-graduation-cap"></i>
+          </button>
           <button class="ai-hbtn" id="ai-clear-btn" title="New chat" aria-label="New chat">
             <i class="ph ph-note-pencil"></i>
           </button>
@@ -505,6 +511,7 @@ class AIAssistantManager {
     this._messageQueue = [];
     this.stopBtn       = this.container.querySelector('#ai-stop-btn');
     this.clearBtn      = this.container.querySelector('#ai-clear-btn');
+    this.tutorialBtn   = this.container.querySelector('#ai-tutorial-btn');
     this.tokenCounter  = this.container.querySelector('#ai-token-counter');
 
     // Model / provider chip + popover.
@@ -665,6 +672,7 @@ class AIAssistantManager {
     });
     this.stopBtn.addEventListener('click', () => this.stop());
     this.clearBtn.addEventListener('click', () => this.newChat());
+    this.tutorialBtn?.addEventListener('click', () => this.startTutorial());
 
     // Enter sends, Shift+Enter inserts a newline.
     // Enter is NOT gated on _isStreaming: send() itself decides between
@@ -1886,7 +1894,10 @@ class AIAssistantManager {
       console.warn('[ai] could not read components:', e);  // never block a turn over this
     }
     const systemPrompt = SYSTEM_PROMPT
-      + buildProjectContext(projectPath, spfPath, memories, componentes);
+      + buildProjectContext(projectPath, spfPath, memories, componentes)
+      // So na conversa de tutorial; newChat limpa. Vai por ultimo para o
+      // contexto do projeto continuar onde o resto do codigo espera.
+      + (this.tutorialBlock || '');
 
     try {
       const r = await window.aiAPI.startChat({
@@ -3003,6 +3014,7 @@ class AIAssistantManager {
     if (this.currentSessionId) return;        // never switch mid-stream
     await this.persistCurrentChat();
     this.messages = [];
+    this.tutorialBlock = '';
     this.messagesEl.innerHTML = '';
     this._lastMsgRole = null;
     if (this.chatEmptyHint) {
@@ -3022,6 +3034,31 @@ class AIAssistantManager {
     this.currentChatTitle = '';
     this.currentChatCreatedAt = 0;
     this.refreshChatList();
+  }
+
+  /**
+   * O tutorial guiado da API (ver js/ai/api_tutorial.js).
+   *
+   * Uma conversa nova, com o bloco do tutorial no system prompt e a primeira
+   * mensagem ja enviada: a pessoa clica e a instrutora comeca. O bloco morre
+   * com a conversa (newChat o limpa), e uma conversa de tutorial reaberta do
+   * historico segue pelo que ja foi dito, sem o bloco.
+   */
+  async startTutorial() {
+    if (this.currentSessionId) {
+      showCardNotification(tr('ai.tutorial.busy'), 'warning', 4000, 'Aurora Intelligence');
+      return;
+    }
+    if (!window.aiAPI || !this.currentProvider) {
+      showCardNotification(tr('ai.tutorial.noProvider'), 'warning', 5000, 'Aurora Intelligence');
+      return;
+    }
+    await this.newChat();
+    const locale = (localStorage.getItem('aurora-locale') === 'en') ? 'en' : 'pt';
+    const manual = await lerPaginasDoManual(window.electronAPI);
+    this.tutorialBlock = montarBlocoTutorial(locale, manual);
+    this.inputEl.value = aberturaDoTutorial(locale);
+    await this.send();
   }
 
   /* ---------------- chat history ---------------- */

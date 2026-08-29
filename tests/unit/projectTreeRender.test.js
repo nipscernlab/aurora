@@ -222,3 +222,38 @@ describe('RenderMixin.renderTree — missing-files notice', () => {
         expect(container.querySelector('.verilog-missing-notice')).toBeNull();
     });
 });
+
+describe('RenderMixin.getFileIcon — os dois topos', () => {
+    // A pergunta que a arvore precisa responder de relance e onde a sintese
+    // comeca e onde a simulacao comeca. Antes disto os dois topos e os arquivos
+    // comuns saiam com o mesmo icone, e a unica diferenca era a cor da linha:
+    // cor sozinha nao diz QUAL e a diferenca.
+    it('o topo de sintese ganha a coroa', () => {
+        expect(mgr.getFileIcon(f('/proj/top.v', { isTopLevel: true })))
+            .toBe('ph ph-crown-simple');
+    });
+
+    it('o topo de testbench ganha o banquinho', () => {
+        expect(mgr.getFileIcon(f('/proj/tb.v', { isTopLevel: true, category: 'testbench' })))
+            .toBe('ph ph-stool');
+    });
+
+    it('arquivo comum continua com o icone da extensao', () => {
+        // Marcar todo `.v` com simbolo especial devolveria o problema.
+        expect(mgr.getFileIcon(f('/proj/ula.v'))).not.toBe('ph ph-crown-simple');
+        expect(mgr.getFileIcon(f('/proj/tb2.v', { category: 'testbench' }))).not.toBe('ph ph-stool');
+    });
+
+    it('a linha da arvore desenha o icone escolhido', () => {
+        mgr.verilogFiles = [
+            f('/proj/top.v', { isTopLevel: true }),
+            f('/proj/tb.v', { isTopLevel: true, category: 'testbench' }),
+        ];
+        mgr.renderTree();
+        const linhas = rowMap(container);
+        expect(linhas.get('/proj/top.v').querySelector('.verilog-file-icon').className)
+            .toContain('ph-crown-simple');
+        expect(linhas.get('/proj/tb.v').querySelector('.verilog-file-icon').className)
+            .toContain('ph-stool');
+    });
+});

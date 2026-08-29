@@ -43,6 +43,9 @@ class TerminalManager {
             // THTEST, Terminal Hardware Test: etapas + barra de progresso do
             // botao Verilator (processador CMM). Ver renderHardwareProgress.
             thtest: document.querySelector('#terminal-thtest .terminal-body'),
+            // TPRISM: sintese do esquematico. Saia no TVERI e disputava a
+            // tela com o Build; ver o comentario da aba no index.html.
+            tprism: document.querySelector('#terminal-tprism .terminal-body'),
             tcmd: document.querySelector('#terminal-tcmd .terminal-body'),
         };
 

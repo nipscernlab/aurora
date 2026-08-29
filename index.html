@@ -501,6 +501,22 @@
                       </span>
                       THTEST
                   </button>
+                  <!-- PRISM tem terminal proprio desde 29/08/2026. Ele
+                       escrevia no TVERI, e as duas coisas mais compridas do
+                       aplicativo disputavam a mesma tela: o Build despejando o
+                       iverilog enquanto o Yosys despejava a sintese do
+                       esquematico, intercalados, sem dizer de quem era cada
+                       linha. Aba propria e o mesmo remedio que os outros seis
+                       terminais ja usam. -->
+                  <button class="tab" data-terminal="tprism" data-tooltip="PRISM terminal" data-i18n-tooltip="toolbar.termTab.prism">
+                      <span class="glyph glyph-tprism" aria-hidden="true">
+                        <svg viewBox="0 0 16 16">
+                          <path d="M8 2 L14 12.5 L2 12.5 Z"/>
+                          <path d="M2 8.5 H5.5 M10.5 8.5 H14"/>
+                        </svg>
+                      </span>
+                      TPRISM
+                  </button>
                   <button class="tab" data-terminal="tcmd" data-tooltip="Shell terminal (PowerShell)" data-i18n-tooltip="toolbar.termTab.cmd">
                       <span class="glyph glyph-tcmd" aria-hidden="true">
                         <svg viewBox="0 0 16 16">
@@ -540,6 +556,10 @@
             <div class="terminal-content hidden" id="terminal-thtest">
                 <div class="terminal-header">THTEST Terminal</div>
                 <div class="terminal-body" data-i18n="terminalWelcome.thtest">Welcome to the terminal THTEST!</div>
+            </div>
+            <div class="terminal-content hidden" id="terminal-tprism">
+                <div class="terminal-header">TPRISM Terminal</div>
+                <div class="terminal-body" data-i18n="terminalWelcome.tprism">Welcome to the terminal TPRISM!</div>
             </div>
             <div class="terminal-content hidden" id="terminal-tcmd">
                 <div class="terminal-header">TCMD Terminal</div>

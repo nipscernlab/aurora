@@ -92,7 +92,7 @@ const STEP_TERMINALS = Object.freeze({
     // (ex: "noTopLevel") fica visivel quando o usuario clica Wave, e
     // ele pode achar que o erro veio do Wave.
     wave:    ['twave', 'tveri'],
-    prism:   ['tveri'],
+    prism:   ['tprism'],
     // Verilator processador CMM: loga no THTEST (Terminal Hardware Test):
     // etapas de pipeline + barra de progresso ASCII inline da execucao.
     'verilator-proc': ['thtest'],
@@ -107,7 +107,7 @@ const ERROR_TERMINAL = Object.freeze({
     asm:     'tasm',
     verilog: 'tveri',
     wave:    'twave',
-    prism:   'tveri',
+    prism:   'tprism',
     'verilator-proc': 'thtest',
     'verilator-fast': 'twave',
 });

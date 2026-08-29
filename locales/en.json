@@ -101,6 +101,7 @@
       "veri": "Verilog terminal",
       "wave": "Wave terminal",
       "thtest": "Hardware test terminal",
+      "prism": "PRISM terminal (schematic synthesis)",
       "cmd": "Shell terminal (PowerShell)"
     },
     "pylibs": {
@@ -854,7 +855,8 @@
     "tasm": "Welcome to the terminal TASM!",
     "tveri": "Welcome to the terminal TVERI!",
     "twave": "Welcome to the terminal TWAVE!",
-    "thtest": "Welcome to the terminal THTEST (Hardware Test)!"
+    "thtest": "Welcome to the terminal THTEST (Hardware Test)!",
+    "tprism": "Welcome to the terminal TPRISM (schematic synthesis)!"
   },
   "locale": {
     "compilerMessages": {

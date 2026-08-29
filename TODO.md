@@ -1284,9 +1284,25 @@ temática quando for pego.
       linha do `.cmm` exige mapa de linha para endereço de instrução, e quem
       pode emitir isso é o yanc, não a AURORA. Fica na mesma prateleira dos
       processadores em C++, que dependem do mesmo repositório.
-- [ ] **Cada compilação com o seu log**, incluindo resolver a concorrência de
-      terminal entre PRISM e Build, que hoje disputam a mesma saída.
-- [ ] **Mostrar como marcar o toplevel**, que hoje é conhecimento tribal.
+- [x] ~~**A concorrência de terminal entre PRISM e Build.**~~ Fechada em
+      29/08/2026: o PRISM ganhou a sétima aba, `tprism`. Ele escrevia no
+      `tveri`, e as duas coisas mais compridas do aplicativo intercalavam
+      linhas na mesma tela sem dizer de quem era cada uma. A saída do
+      `main/ipc/prism.js` foi inteira para o terminal novo, e o mapa de passo
+      para terminal do `compilation_flow` acompanhou. Conferido na AURORA de
+      pé: as sete abas aparecem na ordem e o painel troca ao clicar.
+- [ ] **Cada compilação com o seu log.** A parte do terminal saiu (acima); o
+      registro em disco continua aberto, com o desenho decidido em 29/08 e
+      escrito abaixo, na seção 9.7.
+- [x] ~~**O top level tem que se distinguir do testbench.**~~ Feito em
+      29/08/2026. Os dois topos e os arquivos comuns saíam com o mesmo ícone, e
+      a única diferença era a cor da linha; cor sozinha não diz QUAL é a
+      diferença. Agora o topo de síntese leva a coroa (`ph-crown-simple`) e o
+      topo de testbench leva o banquinho (`ph-stool`), os dois do Phosphor, que
+      já é a família da casa e viaja no instalador. Arquivo comum continua com
+      o ícone da extensão, senão volta a não distinguir nada.
+- [ ] **Mostrar como marcar o toplevel**, que hoje é conhecimento tribal. O
+      ícone acima diz QUAL arquivo é o topo; falta dizer COMO se marca um.
 - [ ] **Atalhos de teclado para todas as funções.**
 
 ### 9.2 Updater, três defeitos concretos
@@ -1577,6 +1593,13 @@ formalmente, não consertado.
   sobre caminho fundo. Se o relato voltar depois disso, pedir duas informacoes
   antes de investigar de novo: quanto tempo ate aparecer, e qual processo
   cresce no Gerenciador de Tarefas (principal, renderer ou GPU).
+- Subir a AURORA com Playwright FORA da suíte e2e exige duas coisas que a
+  suíte já faz e que ninguém lembra ao escrever um script avulso:
+  `SAPHO_SKIP_SINGLE_INSTANCE: '1'` no env e um `--user-data-dir` próprio. Sem
+  eles a segunda instância encontra o bloqueio de instância única e sai calada,
+  e o Playwright reporta "Target page, context or browser has been closed", que
+  parece defeito no aplicativo e não é. Custou três tentativas em 29/08/2026,
+  com o `npm run test:e2e` passando ao lado o tempo todo, que era a pista.
 - PRISM, a grade dentro dos cartões de memória é símbolo da família (linhas por
   colunas = células armazenadas), gerada por `scripts/prism-skin-standard.js`
   com opacidade 0,16 a 0,22. Decidido em 22/08 manter; se incomodar, ajustar

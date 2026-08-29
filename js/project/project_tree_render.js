@@ -440,6 +440,28 @@ export const RenderMixin = {
     getFileIcon(file) {
         const fileObj = (typeof file === 'string') ? { name: file } : (file || {});
         const name = fileObj.name || '';
+
+        // Os DOIS topos, cada um com o seu icone.
+        //
+        // O comentario da linha que chama isto ja dizia que o icone "depende de
+        // isTopLevel + category", e ele nao dependia: os dois topos e os
+        // arquivos comuns saiam todos como `ph-cpu`, e a unica diferenca era a
+        // cor da linha. Cor sozinha nao diz QUAL e a diferenca, e a pergunta
+        // que a arvore precisa responder de relance e outra: onde a sintese
+        // comeca, e onde a simulacao comeca.
+        //
+        // A coroa e o topo da hierarquia, que e literalmente o que o top level
+        // e. O banquinho e a bancada de teste, que e o que "testbench" quer
+        // dizer antes de virar jargao. Os dois vem do Phosphor, que ja e a
+        // familia de icones da casa e viaja dentro do instalador; nenhum
+        // desenho novo entra so por causa disto.
+        //
+        // Arquivo comum continua com o icone da extensao: marcar todo `.v` com
+        // simbolo especial devolveria o problema, que e nao distinguir nada.
+        if (fileObj.isTopLevel) {
+            return fileObj.category === 'testbench' ? 'ph ph-stool' : 'ph ph-crown-simple';
+        }
+
         const fromTabs = window.TabManager?.getFileIcon?.(name);
         if (fromTabs) return fromTabs;
 

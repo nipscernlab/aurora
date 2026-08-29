@@ -314,8 +314,8 @@ async function runYosysCompilationWithPaths(
     // 'tips' (azul), mesmo tipo usado pela compilacao do botao Verilog
     // para a linha contextual "Top-level". Mantem a UX consistente entre
     // os dois fluxos (PRISM e iverilog).
-    state.mainWindow.webContents.send('terminal-log', 'tveri', `Top-level: ${topLevelModule}.v`, 'tips');
-    state.mainWindow.webContents.send('terminal-log', 'tveri', 'Running Yosys synthesis...', 'info');
+    state.mainWindow.webContents.send('terminal-log', 'tprism', `Top-level: ${topLevelModule}.v`, 'tips');
+    state.mainWindow.webContents.send('terminal-log', 'tprism', 'Running Yosys synthesis...', 'info');
   }
 
   // PRISM yosys pode receber overrides da AI via compilationPaths.yosysOverride.
@@ -357,7 +357,7 @@ async function runYosysCompilationWithPaths(
     yosysProcess.on('close', async (code) => {
       if (code !== 0) {
         if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-          state.mainWindow.webContents.send('terminal-log', 'tveri', `Yosys error: ${stderr}`, 'error');
+          state.mainWindow.webContents.send('terminal-log', 'tprism', `Yosys error: ${stderr}`, 'error');
         }
         reject(new Error(`Yosys exited with code ${code}`));
       } else if (await fse.pathExists(hierarchyJsonPath)) {
@@ -647,7 +647,7 @@ async function generateModuleSVGWithPaths(/** @type {any} */ moduleName, /** @ty
 async function performPrismCompilationWithPaths(/** @type {any} */ compilationPaths) {
   try {
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tveri', 'Starting PRISM compilation process', 'info');
+      state.mainWindow.webContents.send('terminal-log', 'tprism', 'Starting PRISM compilation process', 'info');
     }
 
     const tempDir = compilationPaths.tempPath;
@@ -673,7 +673,7 @@ async function performPrismCompilationWithPaths(/** @type {any} */ compilationPa
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
       state.mainWindow.webContents.send(
         'terminal-log',
-        'tveri',
+        'tprism',
         'PRISM compilation completed successfully',
         'success',
       );
@@ -689,7 +689,7 @@ async function performPrismCompilationWithPaths(/** @type {any} */ compilationPa
   } catch (error) {
     log.error('PRISM compilation error:', error);
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tveri', `Compilation failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+      state.mainWindow.webContents.send('terminal-log', 'tprism', `Compilation failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
     }
     return { success: false, message: error instanceof Error ? error.message : String(error) };
   }
@@ -766,7 +766,7 @@ async function buildDigitalJSCircuit(
   // (which phase, yosys, convert, or the renderer, is the bottleneck).
   const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
     if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-      state.mainWindow.webContents.send('terminal-log', 'tveri', m, t);
+      state.mainWindow.webContents.send('terminal-log', 'tprism', m, t);
     }
   };
   const t0 = Date.now();
@@ -988,7 +988,7 @@ function register() {
       if (!topLevelModule) throw new Error('No top-level module set in the .spf');
 
       if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-        state.mainWindow.webContents.send('terminal-log', 'tveri', 'Building DigitalJS simulation…', 'info');
+        state.mainWindow.webContents.send('terminal-log', 'tprism', 'Building DigitalJS simulation…', 'info');
       }
       const circuit = await buildDigitalJSCircuit(compilationPaths, topLevelModule, tempDir);
       return { ok: true, circuit, topLevelModule };

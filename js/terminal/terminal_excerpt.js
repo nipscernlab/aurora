@@ -140,7 +140,7 @@ export function recortar(linhas) {
  * O id fica no contêiner (`#terminal-tveri`) e o conteúdo no `.terminal-body`
  * de dentro, então o nome vem de um e as linhas do outro.
  */
-const TERMINAIS = ['tcmm', 'tasm', 'tveri', 'twave', 'thtest', 'tcmd'];
+const TERMINAIS = ['tcmm', 'tasm', 'tveri', 'twave', 'thtest', 'tprism', 'tcmd'];
 
 /** O recorte como texto, pronto para o relato. */
 export function recorteEmTexto() {

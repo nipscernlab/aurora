@@ -1321,9 +1321,24 @@ temática quando for pego.
       Dentro do projeto, e não no perfil: copiar o projeto leva o histórico
       junto, apagar o projeto apaga o histórico junto.
 
-      O que FALTA é a tela: hoje o histórico existe em disco e ninguém o lê
-      pela interface. Uma lista com as últimas execuções e o detalhe de uma
-      delas é o próximo passo, e é pequeno agora que os dados estão gravados.
+      A tela entrou em 29/08/2026, em
+      [js/compilation/run_history.js](js/compilation/run_history.js). O botão
+      fica na barra do terminal, ao lado de Exportar log: é a mesma família de
+      gesto, olhar para trás no que a compilação fez, e a barra do terminal é
+      onde a pessoa está quando compila. Lista com uma linha por clique
+      (pedido, quando, duração, passos, desfecho) e um detalhe que mostra o
+      RETRATO antes da cadeia, porque a pergunta da tela é "em que estado o
+      projeto estava", não "o que aconteceu", que o terminal já responde.
+
+      Duas coisas que a verificação com o projeto real ensinou. O `t()` da
+      casa interpola `{{chave}}`, e o painel de componentes tem um `tr`
+      próprio que interpola `{chave}`; copiei o segundo e a lista saiu com
+      "{n} passos" cru. E a catraca `hiddenRespeitado` pegou o `display: flex`
+      do detalhe vencendo o `hidden`: sem a regra `[hidden] { display: none }`
+      a lista continuaria na tela debaixo do detalhe.
+
+      Conferido com o sapho_cnn aberto de verdade: as quatro execuções
+      listadas, retrato e cadeia certos, passos sobrepostos marcados.
 - [x] ~~**O top level tem que se distinguir do testbench.**~~ Feito em
       29/08/2026. Os dois topos e os arquivos comuns saíam com o mesmo ícone, e
       a única diferença era a cor da linha; cor sozinha não diz QUAL é a
@@ -1659,6 +1674,15 @@ formalmente, não consertado.
   `.header.vcd` fica no disco do mesmo jeito. Visto no registro de 29/08 com
   code=1 e o arquivo gravado ao lado. Não é defeito, e código de saída sozinho
   não é veredito.
+- Há DUAS sintaxes de interpolação convivendo: o `t()` global de
+  `js/i18n/i18n.js` expande `{{chave}}`, e o painel de componentes tem um `tr`
+  próprio que expande `{chave}`. Copiar o formato de um arquivo vizinho sem
+  olhar qual `t` ele usa produz texto com a chave crua na tela, e não dá erro
+  em lugar nenhum: custou uma rodada em 29/08/2026. Módulo novo usa o global.
+- Editar o TODO.md por script Node com `replace` de string multilinha FALHA
+  calado, porque o arquivo está em CRLF e a cadeia de busca escrita no script
+  vem em LF. Três vezes em 29/08/2026 o commit saiu sem a nota. Editar o TODO
+  com a ferramenta de edição direta, nunca por script.
 - Sonda de interface pelo Playwright, duas armadilhas que fazem o teste acusar
   fiação quebrada onde não há. O `electronAPI` do renderer vem por
   contextBridge e é CONGELADO: trocar um método dele pela sonda falha calado, e

@@ -58,7 +58,7 @@ import {
 } from '../wave/testbench_instrumenter.js';
 import { WaveStore } from '../wave/wave_state_store.js';
 import { getSimulator } from '../wave/simulator_preference.js';
-import { getViewer } from '../wave/viewer_preference.js';
+import { getViewer, getSurferMode } from '../wave/viewer_preference.js';
 import { getSurferMultiWindow } from '../wave/surfer_window_preference.js';
 import { getSurferInTab } from '../wave/surfer_tab_preference.js';
 import {
@@ -3148,6 +3148,12 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
  * Returns: Promise<boolean>
  */
 async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools) {
+    // A escolha das Configuracoes vem antes da disponibilidade: quem pediu a
+    // janela nativa recebe a janela nativa, mesmo com o bundle web presente.
+    if (getSurferMode() === 'window') {
+        this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferWindowByChoice'), 'tips');
+        return false;
+    }
     const available = await electronAPI.surferTabAvailable?.();
     if (!available) {
         this.terminalManager.appendToTerminal('twave',

@@ -4,6 +4,8 @@ import { setTooltipsEnabled } from '../ui/tooltip.js';
 import { showCardNotification } from '../ui/notification.js';
 import { avisoLigado, definirAviso, CHAVE_AVISO } from '../ui/network_watch.js';
 import { PADROES, ROTULOS, textoDoAtalho } from '../utils/shortcut_table.js';
+import { getPrismMode, setPrismMode } from '../prism/prism_mode.js';
+import { getSurferMode, setSurferMode } from '../wave/viewer_preference.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const settingsButton = document.getElementById('aurora-settings');
@@ -133,6 +135,20 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('aurora:trust-external-links-changed', (e) => {
         if (trustLinksToggle) trustLinksToggle.checked = !!e.detail?.value;
     });
+
+    // ---- Onde o PRISM e o Surfer abrem: janela propria ou aba do editor ----
+    // Duas preferencias irmas, lado a lado, com a mesma mecanica. Gravam na
+    // hora, sem Salvar: sao lidas no proximo clique de PRISM ou de Wave.
+    const prismSel = document.getElementById('prism-mode-select');
+    const surferSel = document.getElementById('surfer-mode-select');
+    if (prismSel) {
+        prismSel.value = getPrismMode();
+        prismSel.addEventListener('change', () => { prismSel.value = setPrismMode(prismSel.value); });
+    }
+    if (surferSel) {
+        surferSel.value = getSurferMode();
+        surferSel.addEventListener('change', () => { surferSel.value = setSurferMode(surferSel.value); });
+    }
 
     // ---- Shortcuts UI / gravação ----
     const formatShortcutText = (atalho) => textoDoAtalho(atalho) || tr('shortcuts.notSet');

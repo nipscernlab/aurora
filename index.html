@@ -135,16 +135,6 @@
                 </svg>
               </span>
           </button>
-          <!-- Onde o PRISM abre: janela propria ou aba do editor. O mesmo gesto do
-               interruptor GTKWave/Surfer; a preferencia mora em js/prism/prism_mode.js. -->
-          <div id="prismModeSwitch" class="simulator-switch" role="group" aria-label="PRISM placement">
-              <button type="button" class="prism-mode-seg sim-seg" data-prism-mode="window" aria-pressed="true" data-tooltip="PRISM in its own window" data-i18n-tooltip="toolbar.prismMode.window">
-                  <i class="ph ph-app-window sim-seg-icon" aria-hidden="true"></i>
-              </button>
-              <button type="button" class="prism-mode-seg sim-seg" data-prism-mode="tab" aria-pressed="false" data-tooltip="PRISM in an editor tab" data-i18n-tooltip="toolbar.prismMode.tab">
-                  <i class="ph ph-browser sim-seg-icon" aria-hidden="true"></i>
-              </button>
-          </div>
           <button id="prismcomp" class="toolbar-button compile-btn prism-btn" data-tool="prism" data-tooltip="Open PRISM" data-i18n-tooltip="toolbar.prism.tooltip">
               <img src="./assets/icons/aurora_prism.svg" alt="">
               <span>PRISM</span>
@@ -1269,6 +1259,30 @@
                         </div>
                         <div class="setting-row">
                             <div class="setting-row-text">
+                                <label for="prism-mode-select" data-i18n="modal.settings.prismMode">Where PRISM opens</label>
+                                <p class="setting-description" data-i18n="modal.settings.prismModeDescription">
+                                    In its own window, or in a tab of the editor next to the code.
+                                </p>
+                            </div>
+                            <select id="prism-mode-select" class="settings-select">
+                                <option value="window" data-i18n="modal.settings.placementWindow">Own window</option>
+                                <option value="tab" data-i18n="modal.settings.placementTab">Editor tab</option>
+                            </select>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-row-text">
+                                <label for="surfer-mode-select" data-i18n="modal.settings.surferMode">Where Surfer opens</label>
+                                <p class="setting-description" data-i18n="modal.settings.surferModeDescription">
+                                    Applies when the waveform viewer is Surfer. GTKWave is always its own window.
+                                </p>
+                            </div>
+                            <select id="surfer-mode-select" class="settings-select">
+                                <option value="window" data-i18n="modal.settings.placementWindow">Own window</option>
+                                <option value="tab" data-i18n="modal.settings.placementTab">Editor tab</option>
+                            </select>
+                        </div>
+                        <div class="setting-row">
+                            <div class="setting-row-text">
                                 <label for="trust-links-toggle" data-i18n="modal.settings.trustLinks">Trust external links</label>
                                 <p class="setting-description" data-i18n="modal.settings.trustLinksDescription">
                                     Open links from the AI chat in your browser without a confirmation prompt.
@@ -1829,7 +1843,6 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/wave/wave_config_manager.js" type="module"></script>
 <script src="./js/wave/simulator_toggle.js" type="module"></script>
 <script src="./js/wave/viewer_toggle.js" type="module"></script>
-<script src="./js/prism/prism_mode.js" type="module"></script>
 <script src="./js/wave/gtkw_picker.js" type="module"></script>
 <script src="./js/app/app_initializer.js" type="module"></script>
 </body>

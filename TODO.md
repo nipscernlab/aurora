@@ -1556,9 +1556,10 @@ temática quando for pego.
       DigitalJS, usam o mesmo chevron da casa.
 - [x] ~~**PRISM faz parte da AURORA**, e clicar num componente abre a
       representação interna dele no PRISM.~~ Feito em 29/08/2026, do mesmo
-      jeito que o Surfer: dentro ou fora, e quem escolhe é o usuário, por um
-      interruptor de dois segmentos ao lado do botão PRISM (`prism_mode.js`,
-      preferido em localStorage). Na aba, a página do PRISM entra num
+      jeito que o Surfer: dentro ou fora, e quem escolhe é o usuário, nas
+      Configurações ("Onde o PRISM abre" ao lado de "Onde o Surfer abre", que
+      entrou junto; o interruptor que nasceu na toolbar saiu de lá no mesmo
+      dia, porque preferência que se muda uma vez não é botão de barra). Na aba, a página do PRISM entra num
       `<webview>`, e não num iframe, porque precisa do preload dela (yosys,
       SVG por IPC) e iframe não recebe preload; o `WebContentsView`
       receberia, mas flutua por cima de todo o HTML, modais inclusive. O

@@ -109,12 +109,6 @@
     },
     "format": {
       "tooltip": "Format this file"
-    },
-    "prismMode": {
-      "window": "PRISM in its own window",
-      "tab": "PRISM in an editor tab",
-      "nowWindow": "PRISM: in its own window",
-      "nowTab": "PRISM: in an editor tab"
     }
   },
   "windowControls": {
@@ -397,7 +391,13 @@
       "manualCheckUpdate": "Check for updates",
       "manualUpdated": "Manual updated to version {v}.",
       "manualUpToDate": "The manual is already up to date.",
-      "manualUpdateFailed": "Could not reach the documentation server. The manual on this computer still works."
+      "manualUpdateFailed": "Could not reach the documentation server. The manual on this computer still works.",
+      "prismMode": "Where PRISM opens",
+      "prismModeDescription": "In its own window, or in an editor tab next to the code.",
+      "surferMode": "Where Surfer opens",
+      "surferModeDescription": "Applies when the waveform viewer is Surfer. GTKWave is always its own window.",
+      "placementWindow": "Own window",
+      "placementTab": "Editor tab"
     }
   },
   "shortcuts": {
@@ -723,7 +723,8 @@
       "hierarchyForTop": "Hierarchy generated successfully for top-level module: {{name}}",
       "progress": "Simulation",
       "progressBuild": "Build",
-      "surferTabStateSaved": "State saved in the project and registered as the active layout; the next Wave opens with it."
+      "surferTabStateSaved": "State saved in the project and registered as the active layout; the next Wave opens with it.",
+      "surferWindowByChoice": "Surfer in its own window, as chosen in Settings."
     },
     "openComponents": "Open Components",
     "compile": {

@@ -109,12 +109,6 @@
     },
     "format": {
       "tooltip": "Formatar este arquivo"
-    },
-    "prismMode": {
-      "window": "PRISM em janela própria",
-      "tab": "PRISM numa aba do editor",
-      "nowWindow": "PRISM: em janela própria",
-      "nowTab": "PRISM: numa aba do editor"
     }
   },
   "windowControls": {
@@ -397,7 +391,13 @@
       "manualCheckUpdate": "Procurar atualização",
       "manualUpdated": "Manual atualizado para a versão {v}.",
       "manualUpToDate": "O manual já está atualizado.",
-      "manualUpdateFailed": "Não foi possível alcançar o servidor da documentação. O manual deste computador continua funcionando."
+      "manualUpdateFailed": "Não foi possível alcançar o servidor da documentação. O manual deste computador continua funcionando.",
+      "prismMode": "Onde o PRISM abre",
+      "prismModeDescription": "Em janela própria, ou numa aba do editor ao lado do código.",
+      "surferMode": "Onde o Surfer abre",
+      "surferModeDescription": "Vale quando o visualizador de ondas é o Surfer. O GTKWave é sempre janela própria.",
+      "placementWindow": "Janela própria",
+      "placementTab": "Aba do editor"
     }
   },
   "shortcuts": {
@@ -723,7 +723,8 @@
       "hierarchyForTop": "Hierarquia gerada com sucesso para o módulo top-level: {{name}}",
       "progress": "Simulação",
       "progressBuild": "Compilação",
-      "surferTabStateSaved": "Estado salvo no projeto e registrado como layout ativo, o próximo Wave abre com ele."
+      "surferTabStateSaved": "Estado salvo no projeto e registrado como layout ativo, o próximo Wave abre com ele.",
+      "surferWindowByChoice": "Surfer em janela própria, como escolhido nas Configurações."
     },
     "openComponents": "Abrir Componentes",
     "compile": {

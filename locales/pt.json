@@ -185,6 +185,7 @@
     }
   },
   "modal": {
+    "help": "Abrir o manual neste assunto",
     "git": {
       "title": "Controle de Versão"
     },

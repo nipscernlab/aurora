@@ -1370,6 +1370,30 @@ temática quando for pego.
 - [ ] **Enviar ao programa de desenvolvedor da Microsoft** (relacionado ao 2.6).
 - [ ] **Patente.**
 
+- [x] ~~**Botão de ajuda em todo modal, caindo no capítulo certo do manual.**~~
+      Feito em 29/08/2026. Existia em dois modais, o de ondas e o de criar
+      processador, cada um com a sua cópia do mesmo par de linhas. Agora são
+      sete, e a decisão de para onde cada um cai mora numa tabela só, em
+      [js/ui/help_link.js](js/ui/help_link.js): espalhar o recurso sem espalhar
+      essa decisão era o ponto, senão em pouco tempo haveria sete versões da
+      regra de "sem cópia offline, abre no navegador".
+
+      O símbolo é o mesmo em todos, `ph-question`, no canto das ações ao lado
+      do X, porque metade do valor da ideia é o que se aprende num modal valer
+      em todos.
+
+      As páginas foram conferidas contra `resources/docs` antes de entrar: o
+      `diaadia/apoio.html` é literalmente "Controle de versão, Python,
+      componentes e configurações", e por isso atende Git, PyLibs e
+      Configurações. Botão que leva a página inexistente seria pior do que não
+      ter botão.
+
+      Conferido na AURORA de pé: os sete existem, todos com o mesmo símbolo, e
+      o clique abre a janela do manual. Duas armadilhas de sonda no caminho,
+      ambas anotadas nas notas que evitam retrabalho: o `electronAPI` do
+      renderer é congelado pelo contextBridge, e clicar com `force` num botão
+      dentro de modal fechado acerta outro elemento.
+
 ### 9.5 Aurora Intelligence
 
 - [ ] **API Tutorial usando o Manual do SAPHO como prompt injection.**
@@ -1593,6 +1617,14 @@ formalmente, não consertado.
   sobre caminho fundo. Se o relato voltar depois disso, pedir duas informacoes
   antes de investigar de novo: quanto tempo ate aparecer, e qual processo
   cresce no Gerenciador de Tarefas (principal, renderer ou GPU).
+- Sonda de interface pelo Playwright, duas armadilhas que fazem o teste acusar
+  fiação quebrada onde não há. O `electronAPI` do renderer vem por
+  contextBridge e é CONGELADO: trocar um método dele pela sonda falha calado, e
+  a sonda mede sempre `null`. Espionar do lado do processo principal
+  (`app.evaluate`, onde o `shell` não é congelado) funciona. E clicar com
+  `{ force: true }` num botão dentro de um modal FECHADO acerta outro elemento,
+  porque o botão tem caixa zero; abrir o modal antes é o que faz o clique
+  valer. As duas custaram uma investigação cada em 29/08/2026.
 - Subir a AURORA com Playwright FORA da suíte e2e exige duas coisas que a
   suíte já faz e que ninguém lembra ao escrever um script avulso:
   `SAPHO_SKIP_SINGLE_INSTANCE: '1'` no env e um `--user-data-dir` próprio. Sem

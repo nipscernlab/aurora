@@ -185,6 +185,7 @@
     }
   },
   "modal": {
+    "help": "Open the manual on this topic",
     "git": {
       "title": "Source Control"
     },

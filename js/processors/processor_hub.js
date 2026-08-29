@@ -183,12 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('cancelProcessorHub')?.addEventListener('click', closeProcessorHubModal);
     document.getElementById('closeProcessorHub')?.addEventListener('click', closeProcessorHubModal);
 
-    // Ajuda contextual: o capítulo do manual sobre criar um processador. Sem a
-    // cópia offline instalada, cai para o manual online no navegador.
-    document.getElementById('processorHubHelp')?.addEventListener('click', async () => {
-        const r = await window.electronAPI?.docsOpenHelp?.('sapho/tutorial-filtro.html');
-        if (!r?.ok) window.electronAPI?.openExternal?.('https://www.nipscern.com/library/sapho/sapho/tutorial-filtro.html');
-    });
+    // A ajuda contextual deste modal mora na tabela de js/ui/help_link.js.
 
 
     // --- 8. Submit Handler ---

@@ -40,6 +40,7 @@ import { SplitEditorManager } from '../editor/split_editor.js';
 import { initAuroraAPI } from '../api/aurora_api.js';
 import { initToolRunner } from '../ai/tool_runner.js';
 import { initAiSettings } from '../ai/ai_settings.js';
+import { ligarAjudasDaJanela } from '../ui/help_link.js';
 
 // Non-module callers (shortcut_manager.js, status_bar.js) reach into
 // TabManager via window. Expor aqui satisfaz esses lookups que
@@ -60,6 +61,10 @@ window.initializeGlobalTerminalManager = function() {
 
 // --- Initialization on DOM Ready ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Os botoes de ajuda dos modais, todos de uma vez. Sao estaticos no
+    // index.html, entao ligar aqui vale para os sete; a tabela de qual cai em
+    // qual capitulo mora em js/ui/help_link.js.
+    ligarAjudasDaJanela();
     // Initialize core components first
     TabManager.initialize();
     fileTreeManager.initialize();

@@ -131,12 +131,10 @@ class WaveConfigManager {
     bindListeners() {
         this.elements.closeBtn?.addEventListener('click', () => this.close());
         this.elements.cancelBtn?.addEventListener('click', () => this.close());
-        // Ajuda contextual: o capítulo do manual sobre formas de onda. Sem a
-        // cópia offline instalada, cai para o manual online no navegador.
-        document.getElementById('waveConfigHelp')?.addEventListener('click', async () => {
-            const r = await window.electronAPI?.docsOpenHelp?.('verilog/ondas.html');
-            if (!r?.ok) window.electronAPI?.openExternal?.('https://www.nipscern.com/library/sapho/verilog/ondas.html');
-        });
+        // A ajuda contextual deste modal mora na tabela de js/ui/help_link.js,
+        // junto com a dos outros seis: o botao e o simbolo sao os mesmos em
+        // todos, e ter a decisao de para onde cair espalhada por painel era o
+        // comeco de sete versoes diferentes dela.
         this.elements.saveBtn?.addEventListener('click', () => this.save());
         this.elements.selectDefaultBtn?.addEventListener('click', () => this.selectDefault());
         this.elements.selectAllBtn?.addEventListener('click', () => this.selectAll());

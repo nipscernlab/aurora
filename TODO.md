@@ -1540,6 +1540,13 @@ temática quando for pego.
       fios no monitor, e nenhum checkbox cru no painel. Dois defeitos no
       caminho: a tabela de cores do wavecanvas é congelada (deriva-se, não
       se atribui), e o `celltype` cru do yosys ia para cima das caixas.
+      A composição dos painéis veio numa passada à parte, medida no DOM porque
+      a sessão perdeu a leitura de imagens: o CSS do DigitalJS dá 100% à
+      célula do nome e 0 px à do canvas, então a onda existia (26% dos pixels
+      pintados) e não aparecia; a linha virou flex com nome, onda, base,
+      gatilho e remover. A saída de 1 bit mostra check verde em 1, x vermelho
+      em 0 e traço cinza em indefinido, e o painel ganhou os títulos Entradas
+      e Saídas, que o DigitalJS não separa (pendura tudo na mesma div).
 - [x] ~~**PRISM faz parte da AURORA**, e clicar num componente abre a
       representação interna dele no PRISM.~~ Feito em 29/08/2026, do mesmo
       jeito que o Surfer: dentro ou fora, e quem escolhe é o usuário, por um

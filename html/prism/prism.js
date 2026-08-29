@@ -34,6 +34,8 @@ const PRISM_STRINGS = {
     simRun: 'Run', simPause: 'Pause', simStep: 'Tick', simNext: 'Next event', simFast: 'Fast',
     simPeriod: 'Half period (ticks)', simIo: 'Inputs and outputs', simMonitor: 'Waveforms',
     simTicks: 'tick', simNoClock: 'No clock in this module: use Tick to advance.',
+    simInputs: 'Inputs', simOutputs: 'Outputs', simTrigger: 'trigger', simRemove: 'Remove from the monitor',
+    simMonitorHint: 'Hover a wire and press its monitor button to add it here.',
     simTimeout:  'Synthesizing {m} took longer than {s} s.',
     simHint:     'Open a smaller submodule in the schematic and simulate that one.',
   },
@@ -59,6 +61,8 @@ const PRISM_STRINGS = {
     simRun: 'Rodar', simPause: 'Pausar', simStep: 'Tick', simNext: 'Próximo evento', simFast: 'Rápido',
     simPeriod: 'Meio período (ticks)', simIo: 'Entradas e saídas', simMonitor: 'Formas de onda',
     simTicks: 'tick', simNoClock: 'Este módulo não tem relógio: avance com Tick.',
+    simInputs: 'Entradas', simOutputs: 'Saídas', simTrigger: 'gatilho', simRemove: 'Tirar do monitor',
+    simMonitorHint: 'Passe o mouse num fio e use o botão de monitor dele para trazê-lo para cá.',
     simTimeout:  'Sintetizar {m} passou de {s} s.',
     simHint:     'Abra um submódulo menor no esquemático e simule aquele.',
   },
@@ -1330,10 +1334,36 @@ class PRISMViewer {
       colMarkup: '<div class="sim-io-col"></div>',
       labelMarkup: '<label class="sim-io-nome"></label>',
       buttonMarkup: '<label class="sim-switch"><input type="checkbox"><span class="sim-switch-track" aria-hidden="true"></span></label>',
-      lampMarkup: '<span class="sim-led"><input type="checkbox"><span class="sim-led-dot" aria-hidden="true"></span></span>',
+      // A saida de 1 bit: um check verde quando esta em 1, um x vermelho em 0
+      // e um traco cinza quando indefinida. E o que se le de longe, e nao
+      // pede legenda: e o mesmo par de icones que a barra de status usa para
+      // topo e testbench.
+      lampMarkup: '<span class="sim-led"><input type="checkbox"><i class="ph ph-check-circle sim-led-on" aria-hidden="true"></i><i class="ph ph-x-circle sim-led-off" aria-hidden="true"></i><i class="ph ph-minus-circle sim-led-x" aria-hidden="true"></i></span>',
       inputMarkup: '<input type="text" class="sim-num" spellcheck="false">',
     });
+    this._separarEntradasDeSaidas(painel);
     this._simBar?.querySelector('#simIo')?.classList.add('active');
+  }
+
+  /**
+   * O IOPanelView do DigitalJS pendura entradas e saidas na MESMA div, uma
+   * atras da outra, sem titulo. Aqui entra um titulo antes da primeira linha
+   * de cada grupo; a saida se reconhece pelo controle desabilitado (LED ou
+   * campo so de leitura), que e o unico sinal que a marcacao deixa.
+   */
+  _separarEntradasDeSaidas(painel) {
+    const linhas = [...painel.querySelectorAll('.sim-io-row')];
+    let grupo = null;
+    for (const linha of linhas) {
+      const saida = !!linha.querySelector('.sim-led, input:disabled');
+      const g = saida ? 'saidas' : 'entradas';
+      if (g === grupo) continue;
+      grupo = g;
+      const h = document.createElement('div');
+      h.className = 'sim-io-grupo';
+      h.textContent = saida ? T.simOutputs : T.simInputs;
+      linha.before(h);
+    }
   }
 
   _alternarMonitor() {
@@ -1354,9 +1384,14 @@ class PRISMViewer {
     this._monitorView = new this._djs.MonitorView({
       model: this._monitor,
       el: painel.querySelector('.sim-monitor-corpo'),
-      removeButtonMarkup: '<button type="button" name="remove" class="sim-x" title="remove"><i class="ph ph-x" aria-hidden="true"></i></button>',
-      bitTriggerMarkup: '<select name="trigger" class="sim-sel" title="Trigger"><option value="none"></option><option value="rising">&#8593;</option><option value="falling">&#8595;</option><option value="risefall">&#8597;</option><option value="undef">x</option></select>',
+      removeButtonMarkup: `<button type="button" name="remove" class="sim-x" title="${T.simRemove}"><i class="ph ph-x" aria-hidden="true"></i></button>`,
+      bitTriggerMarkup: `<select name="trigger" class="sim-sel" title="${T.simTrigger}"><option value="none">&#8212;</option><option value="rising">&#8593;</option><option value="falling">&#8595;</option><option value="risefall">&#8597;</option><option value="undef">x</option></select>`,
+      busTriggerMarkup: `<input type="text" name="trigger" class="sim-num sim-trig" title="${T.simTrigger}" placeholder="${T.simTrigger}" pattern="[0-9a-fx]*" spellcheck="false">`,
     });
+    const dica = document.createElement('p');
+    dica.className = 'sim-monitor-dica';
+    dica.textContent = T.simMonitorHint;
+    painel.querySelector('.sim-monitor-corpo').after(dica);
     // O canvas nao le CSS: as cores do wavecanvas (salmao, cinza, verde, azul
     // e texto preto) entram como valores, lidos dos tokens da casa. As linhas
     // por fio herdam destas por prototipo, entao basta trocar aqui, antes das

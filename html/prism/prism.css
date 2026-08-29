@@ -1063,18 +1063,24 @@ body.sim-montando::after {
 .sim-switch input:checked + .sim-switch-track::after { transform: translateX(16px); background: var(--aurora-mint); }
 .sim-switch input:focus-visible + .sim-switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* O LED da saida de 1 bit: apagado, aceso, ou indefinido (meio tom). */
-.sim-led { display: inline-flex; align-items: center; }
+/* A saida de 1 bit: check verde em 1, x vermelho em 0, traco cinza em
+   indefinido. Um icone por estado; so o do estado atual aparece. */
+.sim-led { position: relative; display: inline-flex; align-items: center; font-size: 16px; line-height: 1; }
 .sim-led input { position: absolute; opacity: 0; width: 0; height: 0; }
-.sim-led-dot {
-  width: 12px; height: 12px;
-  border-radius: 50%;
-  background: var(--bg);
-  border: 1px solid var(--border-strong);
-  transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+.sim-led i { display: none; }
+.sim-led input:checked ~ .sim-led-on { display: inline; color: var(--status-success); }
+.sim-led input:not(:checked):not(:indeterminate) ~ .sim-led-off { display: inline; color: var(--status-error); }
+.sim-led input:indeterminate ~ .sim-led-x { display: inline; color: var(--text-muted); }
+
+.sim-io-grupo {
+  margin: 10px 0 4px;
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
-.sim-led input:checked + .sim-led-dot { background: var(--aurora-mint); border-color: var(--aurora-mint); box-shadow: 0 0 8px color-mix(in srgb, var(--aurora-mint) 70%, transparent); }
-.sim-led input:indeterminate + .sim-led-dot { background: color-mix(in srgb, var(--text-muted) 50%, transparent); border-style: dashed; }
+.sim-io-grupo:first-child { margin-top: 2px; }
 
 .sim-num, .sim-sel, .sim-io-corpo select {
   min-width: 0;
@@ -1090,16 +1096,44 @@ body.sim-montando::after {
 .sim-x { display: inline-flex; padding: 2px 4px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; }
 .sim-x:hover { color: var(--status-error); }
 
-.sim-monitor { left: 12px; right: 12px; bottom: 12px; height: 200px; }
-.sim-monitor-corpo { padding: 4px 8px; }
-.sim-monitor-corpo table { width: 100%; border-collapse: collapse; }
-.sim-monitor-corpo td { padding: 2px 4px; vertical-align: middle; }
-.sim-monitor-corpo td:first-child { font-family: var(--font-mono); color: var(--text-secondary); white-space: nowrap; }
-.sim-monitor-corpo canvas { display: block; width: 100%; }
-.sim-monitor-corpo button, .sim-monitor-corpo select, .sim-monitor-corpo input {
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+.sim-monitor { left: 12px; right: 12px; bottom: 12px; height: 220px; display: flex; flex-direction: column; }
+.sim-monitor-corpo { flex: 1; min-height: 0; overflow: auto; padding: 6px 10px; }
+.sim-monitor-dica { margin: 0; padding: 4px 12px 8px; font-size: 10px; color: var(--text-muted); }
+
+/* Cada fio e uma linha: nome, a onda ocupando tudo que sobra, e os controles
+   (base, gatilho, tirar) no fim. O DigitalJS monta <tr> com o nome em 100% e
+   a onda por ultimo, com 0 px; a linha vira flex e a ordem e a de leitura. */
+.sim-monitor-corpo table.monitor { width: 100%; border-collapse: collapse; }
+.sim-monitor-corpo table.monitor tr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border-hairline);
   font-size: var(--text-xs);
 }
+.sim-monitor-corpo table.monitor tr:last-child { border-bottom: none; }
+.sim-monitor-corpo table.monitor td { padding: 0; margin: 0; }
+.sim-monitor-corpo table.monitor td.name {
+  order: 0;
+  width: 128px !important;
+  flex: none;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sim-monitor-corpo table.monitor td:nth-child(5) { order: 1; flex: 1; min-width: 0; }
+.sim-monitor-corpo table.monitor td:nth-child(2) { order: 2; flex: none; }
+.sim-monitor-corpo table.monitor td:nth-child(3) { order: 3; flex: none; }
+.sim-monitor-corpo table.monitor td:nth-child(4) { order: 4; flex: none; }
+.sim-monitor-corpo canvas.wavecanvas {
+  display: block;
+  width: 100%;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+}
+.sim-monitor-corpo select[name=trigger], .sim-monitor-corpo input[name=trigger] { width: 64px !important; }
+.sim-monitor-corpo select[name=base] { width: 56px; }

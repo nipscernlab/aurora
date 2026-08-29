@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PRISM symbol: inputExt, a porta de entrada do modulo (clk, req_in, in_sim...).
+     Substitui a de fabrica do netlistsvg, que era 30x20 e vazada: no desenho
+     ela e o pino por onde o sinal ENTRA, e um pino nao precisa ser maior do que
+     o rotulo em cima dele. Menor e preenchida no cinza do rotulo de porta, o
+     mesmo cinza do quadradinho de porta das skins do SAPHO: marca ONDE, nao O QUE.
+     O `s:pid="Y"` e o nome que o netlistsvg da a saida deste pseudo-cell. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="https://github.com/nturley/netlistsvg">
+  <g s:type="inputExt" transform="translate(0, 0)" s:width="20" s:height="12">
+    <s:alias val="$_inputExt_"/>
+    <text x="10" y="-3" class="nodelabel $cell_id" s:attribute="ref" style="font-size: 6.5px;">input</text>
+    <path d="M0,0 L0,12 L13,12 L20,6 L13,0 Z" class="$cell_id" style="fill: var(--prism-port-label, #AEB6C4); stroke: none;"/>
+    <g s:x="20" s:y="6" s:pid="Y"/>
+  </g>
+</svg>

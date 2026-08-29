@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PRISM symbol: outputExt, a porta de saida do modulo (req_out, out_sim...).
+     O espelho da inputExt, pelas mesmas razoes: menor e preenchida no cinza do
+     rotulo de porta. O `s:pid="A"` e o nome que o netlistsvg da a entrada deste
+     pseudo-cell. -->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="https://github.com/nturley/netlistsvg">
+  <g s:type="outputExt" transform="translate(0, 0)" s:width="20" s:height="12">
+    <s:alias val="$_outputExt_"/>
+    <text x="10" y="-3" class="nodelabel $cell_id" s:attribute="ref" style="font-size: 6.5px;">output</text>
+    <path d="M20,0 L20,12 L7,12 L0,6 L7,0 Z" class="$cell_id" style="fill: var(--prism-port-label, #AEB6C4); stroke: none;"/>
+    <g s:x="0" s:y="6" s:pid="A"/>
+  </g>
+</svg>

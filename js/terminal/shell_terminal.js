@@ -302,6 +302,17 @@ class ShellTerminal {
 
   clear() { this.term?.clear(); }
 
+  /**
+   * O botao de limpar da barra de terminais, para o TCMD: limpa o que o xterm
+   * guarda e manda `cls` ao shell, que redesenha o prompt limpo. Os dois,
+   * porque so o `cls` deixa a rolagem do xterm com o historico, e so o
+   * clear() deixa o shell achando que a tela continua cheia.
+   */
+  limpar() {
+    this.term?.clear();
+    this._send('cls' + String.fromCharCode(13));
+  }
+
   dispose() {
     this._unsub.forEach((fn) => { try { fn?.(); } catch (_) { /* noop */ } });
     this._unsub = [];

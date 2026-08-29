@@ -1534,6 +1534,9 @@ class TerminalManager {
     }
 
 async clearTerminal(terminalId) {
+        // O TCMD e um shell de verdade dentro de um xterm: limpar o DOM dele
+        // mataria o terminal. Ele limpa como um shell limpa.
+        if (terminalId === 'tcmd') { window.shellTerminal?.limpar?.(); return; }
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
 
@@ -1541,7 +1544,7 @@ async clearTerminal(terminalId) {
         // start of compilation phases, so a pill would flash whenever new output
         // begins. The confirmation pill is fired ONLY by the manual clear button
         // (handleClearClick → _flashCleared).
-        if (!terminal.childElementCount) return;
+        if (!this._temSaida(terminal)) return;
 
         // 1. Animate the existing entries out (fade + slide), then wipe.
         // Anything appended during the animation would be wiped with the old
@@ -1558,6 +1561,7 @@ async clearTerminal(terminalId) {
         this.updatableCards[terminalId] = {};
         this.messageCounts[terminalId] = { error: 0, warning: 0, success: 0, tips: 0 };
         terminal.innerHTML = '';
+        this._porBoasVindas(terminal, terminalId);
         terminal.classList.remove('clearing');
         this.recountMessages?.(terminalId);
 
@@ -1565,6 +1569,31 @@ async clearTerminal(terminalId) {
         const replay = parked.get(terminalId) || [];
         parked.delete(terminalId);
         for (const args of replay) this.appendToTerminal(...args);
+    }
+
+    /** Ha saida no terminal, alem da boas-vindas? */
+    _temSaida(terminal) {
+        return !!terminal.querySelector(':scope > :not(.terminal-welcome)');
+    }
+
+    /**
+     * A boas-vindas de volta depois de uma limpeza.
+     *
+     * Um terminal limpo nao fica vazio: volta ao estado de recem-aberto, com o
+     * "Bem-vindo ao terminal X", que o CSS esconde assim que a primeira saida
+     * chega (`.terminal-welcome:not(:only-child)`). O span leva o data-i18n,
+     * e nao o corpo do terminal: com o atributo no corpo, a troca de idioma
+     * reescrevia o corpo inteiro e apagava as saidas.
+     */
+    _porBoasVindas(terminal, terminalId) {
+        if (terminal.querySelector(':scope > .terminal-welcome')) return;
+        const chave = `terminalWelcome.${terminalId}`;
+        const span = document.createElement('span');
+        span.className = 'terminal-welcome';
+        span.setAttribute('data-i18n', chave);
+        const t = window.t ? window.t(chave) : chave;
+        span.textContent = t === chave ? `Welcome to the terminal ${String(terminalId).toUpperCase()}!` : t;
+        terminal.prepend(span);
     }
 
     /** Transient confirmation pill, fired by the manual clear button only. */
@@ -1600,10 +1629,12 @@ async clearTerminal(terminalId) {
      * run and erase its initial lines.
      */
     clearTerminalImmediate(terminalId) {
+        if (terminalId === 'tcmd') { window.shellTerminal?.limpar?.(); return; }
         const terminal = this._resolveTerminal(terminalId);
         if (!terminal) return;
         terminal.classList.remove('faded-out');
         terminal.innerHTML = '';
+        this._porBoasVindas(terminal, terminalId);
         this.currentSessionCards[terminalId] = {};
         this.updatableCards[terminalId] = {};
         this.messageCounts[terminalId] = {

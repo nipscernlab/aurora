@@ -906,3 +906,14 @@
 }
 
 .componente-link:hover { background: var(--accent-strong); }
+
+/* A boas-vindas de um terminal recem-aberto ou recem-limpo. Some assim que a
+   primeira saida chega, sem ninguem precisar apaga-la. */
+.terminal-body > .terminal-welcome {
+  display: block;
+  color: var(--text-muted);
+  padding: var(--space-2) 0;
+}
+/* A pilula de confirmacao da limpeza nao conta como saida: sem esta excecao a
+   boas-vindas ficava escondida durante o segundo em que a pilula aparece. */
+.terminal-body:has(> :not(.terminal-welcome):not(.terminal-cleared-pill)) > .terminal-welcome { display: none; }

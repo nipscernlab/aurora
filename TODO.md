@@ -1636,6 +1636,17 @@ temática quando for pego.
 
 ---
 
+- [x] ~~**O Clear vale para todos os terminais e devolve a boas-vindas.**~~
+      29/08/2026. Limpar apagava o corpo inteiro e o terminal ficava vazio;
+      no TCMD, que é um xterm com PowerShell dentro, apagar o corpo mataria o
+      terminal. Agora a boas-vindas é um `<span>` dentro do corpo, escondido
+      por CSS (`:has`) assim que há qualquer saída e recriado após cada
+      limpeza; o TCMD limpa como um shell limpa, `term.clear()` mais `cls`. De
+      quebra, o `data-i18n` saiu do corpo do terminal e foi para o span: no
+      corpo, a troca de idioma reescrevia o corpo inteiro e apagava as saídas.
+      Medido: saída esconde a boas-vindas, limpar a traz de volta visível,
+      zero cartões, xterm do TCMD vivo depois do Clear.
+
 ### 9.7 Aurora Intelligence, o que há de novo em IA aplicado (29/08/2026)
 
 - [x] ~~**Claude Code 2.1.251, Agent SDK 0.3.251, Codex 0.151.0.**~~ O download

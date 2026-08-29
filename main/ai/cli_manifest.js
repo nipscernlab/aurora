@@ -33,8 +33,8 @@
 'use strict';
 
 // Base versions, keep in lockstep with package.json dependencies.
-const CLAUDE_VERSION = '2.1.241'; // @anthropic-ai/claude-code
-const CODEX_VERSION = '0.149.1';  // @openai/codex
+const CLAUDE_VERSION = '2.1.251'; // @anthropic-ai/claude-code
+const CODEX_VERSION = '0.151.0';  // @openai/codex
 
 const REGISTRY = 'https://registry.npmjs.org';
 
@@ -63,7 +63,7 @@ const MANIFEST = {
         pkg: '@anthropic-ai/claude-code-win32-x64',
         version: CLAUDE_VERSION,
         tarball: `${REGISTRY}/@anthropic-ai/claude-code-win32-x64/-/claude-code-win32-x64-${CLAUDE_VERSION}.tgz`,
-        integrity: 'sha512-/03kEFXQChkZ4OKU7fas0vByBOFgqUWXvsTNTK19ANS+yGYXVjaH5IYIrQFiXRrvbzVgwgZDwQb93FckZIcPqg==',
+        integrity: 'sha512-fVXAvS2lCMJWD/lcyzzai5pcDQnlldGl8pwyGQ2vBxcuF8LS/7nVDqLOqTZsoAJ+VDKnlkPlPOJytDQEhTHHMQ==',
         exe: 'claude.exe',
         rg: null,
       },
@@ -79,7 +79,7 @@ const MANIFEST = {
         pkg: '@openai/codex-win32-x64',
         version: `${CODEX_VERSION}-win32-x64`,
         tarball: `${REGISTRY}/@openai/codex/-/codex-${CODEX_VERSION}-win32-x64.tgz`,
-        integrity: 'sha512-G3QXGAg7nyyhqOeooAMUekBCeHd8a1QByhKcVAFyzNBaI06t6Ft7nsF+1SzFS0spuIdU4YyMi5YD26ukADBQUQ==',
+        integrity: 'sha512-sLT7xvID3jhU6tkzcwRPnMEclKRwUPbpo0mtfxIF9KpdZH3VJV7sM2/kXWXyvUM7Zt/YeyOaeATTEysbRz8Yog==',
         // O layout do pacote mudou na 0.147.0: o binario saiu de
         // vendor/<triple>/codex/ para vendor/<triple>/bin/, e o ripgrep de
         // vendor/<triple>/path/ para vendor/<triple>/codex-path/. Conferido no

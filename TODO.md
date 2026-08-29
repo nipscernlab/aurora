@@ -1547,6 +1547,13 @@ temática quando for pego.
       gatilho e remover. A saída de 1 bit mostra check verde em 1, x vermelho
       em 0 e traço cinza em indefinido, e o painel ganhou os títulos Entradas
       e Saídas, que o DigitalJS não separa (pendura tudo na mesma div).
+      Depois do uso: a roda do mouse sobre um painel era zoom no papel por
+      baixo (agora é rolagem do painel); o `interval` do motor só é lido ao
+      religar o timer, então o controle de velocidade da barra (ms por tick)
+      pára e religa quando está rodando, medido: 100 ms deram 7 ticks em
+      700 ms contra 72; o check e o x viraram distintivos com fundo tingido;
+      e todas as listas suspensas do PRISM, inclusive a do balão de base do
+      DigitalJS, usam o mesmo chevron da casa.
 - [x] ~~**PRISM faz parte da AURORA**, e clicar num componente abre a
       representação interna dele no PRISM.~~ Feito em 29/08/2026, do mesmo
       jeito que o Surfer: dentro ou fora, e quem escolhe é o usuário, por um

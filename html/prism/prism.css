@@ -962,6 +962,8 @@ body.sim-montando::after {
   display: flex;
   align-items: center;
   gap: var(--space-1);
+  flex-wrap: wrap;
+  max-width: calc(100% - 24px);
   padding: 4px 6px;
   background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
   border: 1px solid var(--border);
@@ -986,7 +988,7 @@ body.sim-montando::after {
 .sim-btn i { font-size: 14px; }
 .sim-btn:hover { background: var(--accent-soft); color: var(--accent-hover); }
 .sim-btn.active { color: var(--aurora-mint); border-color: color-mix(in srgb, var(--aurora-mint) 35%, transparent); }
-.sim-ticks { padding: 0 8px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }
+.sim-ticks { padding: 0 14px 0 10px; min-width: 96px; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }
 .sim-period { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; }
 .sim-period input {
   width: 64px;
@@ -1022,8 +1024,8 @@ body.sim-montando::after {
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-hairline);
 }
-.sim-io { top: 12px; right: 12px; width: 260px; max-height: calc(100% - 24px); }
-.sim-io-corpo { padding: 8px 12px; }
+.sim-io { top: 12px; right: 12px; width: 280px; max-height: calc(100% - 172px); scrollbar-gutter: stable; }
+.sim-io-corpo { padding: 8px 18px 10px 12px; }
 .sim-io-corpo form > div { margin-bottom: 8px; }
 .sim-io-corpo form > div > div { display: grid; grid-template-columns: 90px minmax(0, 1fr) 56px; gap: 6px; align-items: center; margin: 3px 0; }
 .sim-io-corpo label { font-family: var(--font-mono); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1065,12 +1067,21 @@ body.sim-montando::after {
 
 /* A saida de 1 bit: check verde em 1, x vermelho em 0, traco cinza em
    indefinido. Um icone por estado; so o do estado atual aparece. */
-.sim-led { position: relative; display: inline-flex; align-items: center; font-size: 16px; line-height: 1; }
+.sim-led { position: relative; display: inline-flex; align-items: center; }
 .sim-led input { position: absolute; opacity: 0; width: 0; height: 0; }
-.sim-led i { display: none; }
-.sim-led input:checked ~ .sim-led-on { display: inline; color: var(--status-success); }
-.sim-led input:not(:checked):not(:indeterminate) ~ .sim-led-off { display: inline; color: var(--status-error); }
-.sim-led input:indeterminate ~ .sim-led-x { display: inline; color: var(--text-muted); }
+.sim-led i {
+  display: none;
+  width: 22px; height: 22px;
+  align-items: center; justify-content: center;
+  border-radius: 50%;
+  font-size: 15px;
+  line-height: 1;
+  border: 1px solid transparent;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+.sim-led input:checked ~ .sim-led-on { display: inline-flex; color: var(--status-success); background: color-mix(in srgb, var(--status-success) 16%, transparent); border-color: color-mix(in srgb, var(--status-success) 45%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--status-success) 35%, transparent); }
+.sim-led input:not(:checked):not(:indeterminate) ~ .sim-led-off { display: inline-flex; color: var(--status-error); background: color-mix(in srgb, var(--status-error) 14%, transparent); border-color: color-mix(in srgb, var(--status-error) 40%, transparent); }
+.sim-led input:indeterminate ~ .sim-led-x { display: inline-flex; color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 14%, transparent); border-color: var(--border); }
 
 .sim-io-grupo {
   margin: 10px 0 4px;
@@ -1137,3 +1148,32 @@ body.sim-montando::after {
 }
 .sim-monitor-corpo select[name=trigger], .sim-monitor-corpo input[name=trigger] { width: 64px !important; }
 .sim-monitor-corpo select[name=base] { width: 56px; }
+
+/* Um so estilo de lista suspensa no PRISM: as do painel, as do monitor, a do
+   balao de base do DigitalJS. Chevron da casa no lugar do nativo. */
+.djs-container select,
+.sim-panel select,
+.sim-bar select,
+.djs-container foreignObject select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: var(--bg) !important;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%239CA1AE' stroke-width='1.5' stroke-linecap='round'/></svg>") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 6px center !important;
+  padding: 2px 20px 2px 8px !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-mono) !important;
+  font-size: var(--text-xs) !important;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.djs-container select:focus-visible, .sim-panel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.djs-container select option, .sim-panel select option { background: var(--bg-elev-2); color: var(--text); }
+
+/* O controle de velocidade: um trilho curto e o valor ao lado. */
+.sim-speed { display: inline-flex; align-items: center; gap: 6px; padding: 0 4px; }
+.sim-speed input[type="range"] { width: 90px; accent-color: var(--aurora-mint); }
+.sim-speed span { min-width: 44px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }

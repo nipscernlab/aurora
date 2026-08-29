@@ -35,6 +35,7 @@ const PRISM_STRINGS = {
     simPeriod: 'Half period (ticks)', simIo: 'Inputs and outputs', simMonitor: 'Waveforms',
     simTicks: 'tick', simNoClock: 'No clock in this module: use Tick to advance.',
     simInputs: 'Inputs', simOutputs: 'Outputs', simTrigger: 'trigger', simRemove: 'Remove from the monitor',
+    simSpeed: 'Speed: milliseconds per tick (higher is slower)',
     simMonitorHint: 'Hover a wire and press its monitor button to add it here.',
     simTimeout:  'Synthesizing {m} took longer than {s} s.',
     simHint:     'Open a smaller submodule in the schematic and simulate that one.',
@@ -62,6 +63,7 @@ const PRISM_STRINGS = {
     simPeriod: 'Meio período (ticks)', simIo: 'Entradas e saídas', simMonitor: 'Formas de onda',
     simTicks: 'tick', simNoClock: 'Este módulo não tem relógio: avance com Tick.',
     simInputs: 'Entradas', simOutputs: 'Saídas', simTrigger: 'gatilho', simRemove: 'Tirar do monitor',
+    simSpeed: 'Velocidade: milissegundos por tick (maior é mais lento)',
     simMonitorHint: 'Passe o mouse num fio e use o botão de monitor dele para trazê-lo para cá.',
     simTimeout:  'Sintetizar {m} passou de {s} s.',
     simHint:     'Abra um submódulo menor no esquemático e simule aquele.',
@@ -198,6 +200,9 @@ class PRISMViewer {
     // DigitalJS sim: wheel-zoom (same feel as the schematic) on the paper.
     this.djsContainer?.addEventListener('wheel', (e) => {
       if (!this.simMode) return;
+      // Sobre um painel ou a barra, a roda e do painel (rolagem), nao do papel:
+      // sem isto rolar o monitor dava zoom no circuito por baixo.
+      if (e.target instanceof Element && e.target.closest('.sim-panel, .sim-bar')) return;
       e.preventDefault();
       this._paperZoom(Math.exp(-e.deltaY * 0.0016), e.clientX, e.clientY);
     }, { passive: false });
@@ -1276,6 +1281,7 @@ class PRISMViewer {
       ${btn('simFast', 'ph-lightning', T.simFast)}
       <span class="sim-ticks"><span id="simTick">0</span> ${T.simTicks}</span>
       <label class="sim-period" title="${T.simPeriod}"><i class="ph ph-clock" aria-hidden="true"></i><input id="simPeriod" type="number" min="1" max="100000" step="1"></label>
+      <label class="sim-speed" title="${T.simSpeed}"><i class="ph ph-gauge" aria-hidden="true"></i><input id="simSpeed" type="range" min="1" max="300" step="1"><span id="simSpeedMs"></span></label>
       <span class="sim-sep" aria-hidden="true"></span>
       ${btn('simIo', 'ph-sliders-horizontal', T.simIo)}
       ${btn('simMonitor', 'ph-waveform', T.simMonitor)}`;
@@ -1290,6 +1296,22 @@ class PRISMViewer {
     periodo.addEventListener('change', () => {
       const n = Math.max(1, Math.floor(Number(periodo.value) || 1));
       for (const r of relogios()) r.set('propagation', n);
+    });
+
+    // A velocidade e o intervalo do motor, em ms por tick: 10 ms de fabrica
+    // sao 100 ticks por segundo, e com meio periodo de 50 o relogio bate a
+    // 1 Hz, rapido demais para acompanhar um contador a olho. O controle
+    // muda o intervalo ao vivo; o motor reinicia o timer se estiver rodando.
+    const vel = barra.querySelector('#simSpeed');
+    const velMs = barra.querySelector('#simSpeedMs');
+    const pintarVel = () => { velMs.textContent = `${c.interval} ms`; };
+    vel.value = String(c.interval || 10);
+    pintarVel();
+    vel.addEventListener('input', () => {
+      c.interval = Math.max(1, Number(vel.value) || 10);
+      pintarVel();
+      // O motor so le o intervalo ao (re)ligar o timer.
+      if (c.running) { c.stop(); c.start(); }
     });
 
     const run = barra.querySelector('#simRun');

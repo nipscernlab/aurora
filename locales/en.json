@@ -485,6 +485,8 @@
     "noActiveProcessor": "No active processor",
     "startCompilation": "Start Compilation",
     "noTopLevel": "No top-level",
+    "howTopLevel": "Right-click a Verilog file in the project tree and choose \"Set as Top Level\".",
+    "howTestbench": "Right-click a .v or .py file in the project tree and choose \"Mark as Testbench\".",
     "noTestbench": "No testbench",
     "noTopLevelOrTestbench": "No top-level or testbench yet",
     "simulatorEngineTooltip": "Simulation engine"
@@ -714,8 +716,8 @@
     "config": {
       "noCmm": "No C± file selected. Please select one to compile.",
       "noSynth": "No synthesizable files found. Please add Verilog files in Project Settings.",
-      "noTopLevel": "No top-level module selected. Please mark a file as top-level.",
-      "noTestbench": "No testbench configured. Add a Verilog (.v) or cocotb Python (.py) testbench in Project Settings and mark it as top-level to run simulation.",
+      "noTopLevel": "No top-level module selected. Right-click a Verilog file in the project tree and choose \"Set as Top Level\".",
+      "noTestbench": "No testbench configured. Right-click a Verilog (.v) or cocotb Python (.py) file in the project tree and choose \"Mark as Testbench\".",
       "noProject": "Open a project first.",
       "noProjectBase": "Project base path could not be determined.",
       "notLoaded": "Project configuration not loaded."

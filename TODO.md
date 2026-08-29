@@ -1346,8 +1346,20 @@ temática quando for pego.
       topo de testbench leva o banquinho (`ph-stool`), os dois do Phosphor, que
       já é a família da casa e viaja no instalador. Arquivo comum continua com
       o ícone da extensão, senão volta a não distinguir nada.
-- [ ] **Mostrar como marcar o toplevel**, que hoje é conhecimento tribal. O
-      ícone acima diz QUAL arquivo é o topo; falta dizer COMO se marca um.
+- [x] ~~**Mostrar como marcar o toplevel.**~~ Feito em 29/08/2026. O gesto
+      já existia (botão direito no arquivo, "Definir como Top Level") e era
+      conhecimento tribal porque a AURORA falava da AUSÊNCIA de topo em três
+      lugares sem dizer em nenhum como resolver: a barra de status ("Sem
+      top-level"), o cartão de erro do terminal ("marque um arquivo como
+      top-level", sem dizer onde) e o botão de sintetizar desabilitado, que só
+      trocava o cursor. Os três passaram a dizer a MESMA frase, com o gesto:
+      o erro cita o botão direito e o nome do item do menu; o slot da barra
+      ganhou `title` com a receita, inclusive o slot combinado que aparece
+      no projeto recém-aberto, que é onde a pessoa mais precisa dela; e o
+      botão cinza ganhou tooltip com o motivo e a receita, restaurando o
+      tooltip original ao reabrir. O testbench recebeu o mesmo tratamento,
+      porque o buraco era idêntico. Conferido na AURORA de pé com um projeto
+      sem topo: os três textos saem certos.
 - [ ] **Atalhos de teclado para todas as funções.**
 
 ### 9.2 Updater, três defeitos concretos

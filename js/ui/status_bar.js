@@ -131,13 +131,19 @@ class StatusBarManager {
 
     _renderDesign(topPath, tbPath) {
         const bothEmpty = !topPath && !tbPath;
+        const tr = (k) => (window.t ? window.t(k) : k);
         this._toggle(this.emptyEl, bothEmpty);
         this._toggle(this.topEl, !bothEmpty);
         this._toggle(this.tbEl, !bothEmpty);
+        // O projeto recem-aberto cai AQUI, e nao nos dois slots: e o estado em
+        // que a pessoa mais precisa da receita, e era o unico dos tres avisos
+        // sem ela. As duas dicas juntas, porque as duas marcacoes faltam.
+        if (bothEmpty && this.emptyEl) {
+            this.emptyEl.title = tr('statusBar.howTopLevel') + ' ' + tr('statusBar.howTestbench');
+        }
         if (!bothEmpty) {
-            const tr = (k) => (window.t ? window.t(k) : k);
-            this._setSlot(this.topEl, topPath, tr('statusBar.noTopLevel'),  /\.v$/i);
-            this._setSlot(this.tbEl,  tbPath,  tr('statusBar.noTestbench'), /\.v$/i);
+            this._setSlot(this.topEl, topPath, tr('statusBar.noTopLevel'),  /\.v$/i, tr('statusBar.howTopLevel'));
+            this._setSlot(this.tbEl,  tbPath,  tr('statusBar.noTestbench'), /\.v$/i, tr('statusBar.howTestbench'));
         }
         this._renderSimulatorEngine(tbPath);
     }
@@ -204,7 +210,14 @@ class StatusBarManager {
         el.classList.toggle('hidden', !visible);
     }
 
-    _setSlot(el, filePath, missingLabel, stripExtRegex) {
+    /**
+     * @param {string} [howToFix] o gesto que resolve a ausencia, mostrado no
+     *   title do slot vazio. "Sem top-level" sozinho e um diagnostico sem
+     *   receita: a pessoa le, concorda, e continua sem saber que a marcacao
+     *   fica no botao direito da arvore. Com o caminho cheio, o title mostra
+     *   o caminho inteiro do arquivo, que e a informacao util naquele estado.
+     */
+    _setSlot(el, filePath, missingLabel, stripExtRegex, howToFix = '') {
         if (!el) return;
         const icon = el.querySelector('i');
         const text = el.querySelector('span');
@@ -213,9 +226,11 @@ class StatusBarManager {
             const name = filePath.split(/[\\/]/).pop().replace(stripExtRegex, '');
             icon.className = 'ph ph-check-circle status-icon-success';
             text.textContent = name;
+            el.title = filePath;
         } else {
             icon.className = 'ph ph-x status-icon-error';
             text.textContent = missingLabel;
+            el.title = howToFix;
         }
     }
 }

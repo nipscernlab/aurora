@@ -485,6 +485,8 @@
     "noActiveProcessor": "Nenhum processador ativo",
     "startCompilation": "Iniciar Compilação",
     "noTopLevel": "Sem top-level",
+    "howTopLevel": "Clique com o botão direito num arquivo Verilog na árvore do projeto e escolha \"Definir como Top Level\".",
+    "howTestbench": "Clique com o botão direito num arquivo .v ou .py na árvore do projeto e escolha \"Marcar como Testbench\".",
     "noTestbench": "Sem testbench",
     "noTopLevelOrTestbench": "Sem top-level ou testbench ainda",
     "simulatorEngineTooltip": "Motor de simulação"
@@ -714,8 +716,8 @@
     "config": {
       "noCmm": "Nenhum arquivo C± selecionado. Selecione um para compilar.",
       "noSynth": "Nenhum arquivo sintetizável encontrado. Adicione arquivos Verilog em Configurações do Projeto.",
-      "noTopLevel": "Nenhum módulo top-level selecionado. Marque um arquivo como top-level.",
-      "noTestbench": "Nenhum testbench configurado. Adicione um testbench Verilog (.v) ou cocotb Python (.py) em Configuracoes do Projeto e marque como top-level para rodar simulacao.",
+      "noTopLevel": "Nenhum módulo top-level selecionado. Clique com o botão direito num arquivo Verilog na árvore do projeto e escolha \"Definir como Top Level\".",
+      "noTestbench": "Nenhum testbench configurado. Clique com o botão direito num arquivo Verilog (.v) ou cocotb Python (.py) na árvore do projeto e escolha \"Marcar como Testbench\".",
       "noProject": "Abra um projeto primeiro.",
       "noProjectBase": "Não foi possível determinar o caminho base do projeto.",
       "notLoaded": "Configuração do projeto não carregada."

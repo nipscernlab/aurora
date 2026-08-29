@@ -887,11 +887,24 @@ if (typeof window !== 'undefined') {
  * em aurora:spf-changed, open/close de projeto e criar/deletar processador.
  */
 async function syncToolbarEnabledState() {
-    const setEnabled = (id, on) => {
+    // Botao desabilitado com o MOTIVO no tooltip. Antes ele so trocava o
+    // cursor, e um botao cinza sem explicacao e a pior das tres formas de
+    // falar de uma coisa que falta: o terminal explica quando se clica, a
+    // barra de status explica no title, e o botao, que e onde a pessoa esta
+    // olhando, ficava mudo. O tooltip original volta quando ele reabre; o
+    // atributo `data-i18n-tooltip` e a fonte dele, e e por isso que o valor de
+    // reposicao vem de la e nao de um texto guardado.
+    const setEnabled = (id, on, why = '') => {
         const btn = document.getElementById(id);
         if (!btn) return;
         btn.disabled = !on;
         btn.style.cursor = on ? 'pointer' : 'not-allowed';
+        if (!on && why) {
+            btn.setAttribute('data-tooltip', why);
+        } else if (on && btn.dataset.i18nTooltip && window.t) {
+            const original = window.t(btn.dataset.i18nTooltip);
+            if (original && original !== btn.dataset.i18nTooltip) btn.setAttribute('data-tooltip', original);
+        }
     };
 
     let hasTop = false;
@@ -915,10 +928,12 @@ async function syncToolbarEnabledState() {
     // divergem.
     const hasActiveProc = !!getActiveProcessorName();
 
-    setEnabled('vericomp', hasTop);
-    setEnabled('prismcomp', hasTop);
+    const semTopo = tr('statusBar.noTopLevel') + '. ' + tr('statusBar.howTopLevel');
+    const semTb = tr('statusBar.noTestbench') + '. ' + tr('statusBar.howTestbench');
+    setEnabled('vericomp', hasTop, semTopo);
+    setEnabled('prismcomp', hasTop, semTopo);
     setEnabled('verilatorproc', hasActiveProc);
-    setEnabled('wavecomp', hasTb);
+    setEnabled('wavecomp', hasTb, semTb);
     // Fast Sim (headless, sem onda) tem dois caminhos:
     //  - testbench .v  -> Verilator binario, exige o toggle em Verilator
     //    (iverilog nao tem caminho binario headless);
@@ -932,7 +947,7 @@ async function syncToolbarEnabledState() {
     // cmmcomp/yosys travado. Fica sempre habilitado, clicar com nada rodando
     // ja responde "nada a cancelar" (cancelAll → nothingToCancel).
     setEnabled('cancel-everything', true);
-    setEnabled('waveConfigBtn', hasTb);
+    setEnabled('waveConfigBtn', hasTb, semTb);
     // A lista .gtkw gerencia seu proprio disabled (gtkw_picker.refresh le
     // o testbench); so pedimos pra re-sincronizar.
     window.gtkwPickerManager?.refresh?.();

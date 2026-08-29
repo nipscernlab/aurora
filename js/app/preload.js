@@ -247,6 +247,8 @@ const compilationOperations = {
  * ========================================================================= */
 const prismOperations = {
   prismCompileWithPaths: (paths) => ipcRenderer.invoke('prism-compile-with-paths', paths),
+  // A pagina e o preload do <webview> da aba do PRISM (ver prism_mode.js).
+  prismTabPage: () => ipcRenderer.invoke('prism-tab:page'),
   prismRecompile:        (paths) => ipcRenderer.invoke('prism-recompile', paths),
   getPrismCompilationPaths: () => ipcRenderer.invoke('get-prism-compilation-paths'),
 

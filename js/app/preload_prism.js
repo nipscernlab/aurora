@@ -28,9 +28,10 @@ try {
     prismRecompile: (compilationPaths) =>
       ipcRenderer.invoke('prism-recompile', compilationPaths),
 
-    // O9, build the DigitalJS interactive-simulation circuit for the current top.
-    buildDigitalJS: (compilationPaths) =>
-      ipcRenderer.invoke('prism:build-digitaljs', compilationPaths),
+    // O circuito interativo (DigitalJS) do modulo que esta NA TELA, e nao do
+    // topo do projeto: e o que faz a simulacao caber onde o esquematico cabe.
+    buildDigitalJS: (compilationPaths, moduleName) =>
+      ipcRenderer.invoke('prism:build-digitaljs', compilationPaths, moduleName),
 
     onTerminalLog: (callback) => ipcRenderer.on('terminal-log', callback),
     removeTerminalLog: (callback) => ipcRenderer.removeListener('terminal-log', callback),

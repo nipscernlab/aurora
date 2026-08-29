@@ -54,4 +54,26 @@ function loadPage(win, relPath) {
   return win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(errHtml));
 }
 
-module.exports = { loadPage };
+/**
+ * A URL que loadPage carregaria, para quem carrega por atributo e nao por
+ * chamada: o <webview> da aba do PRISM recebe `src`, nao um `loadFile`. A
+ * escolha dev/dist e a MESMA de loadPage, por construcao; duas regras aqui
+ * seriam duas chances de a aba e a janela abrirem paginas diferentes.
+ *
+ * @param {string} relPath
+ * @returns {{ ok: true, url: string } | { ok: false, error: string }}
+ */
+function pageUrl(relPath) {
+  const segments = relPath.split('/');
+  const devUrl = process.env.AURORA_RENDERER_URL;
+  if (devUrl && !app.isPackaged) {
+    return { ok: true, url: `${new URL(devUrl).origin}/${relPath}` };
+  }
+  const distPage = path.join(app.getAppPath(), 'dist', ...segments);
+  if (fs.existsSync(distPage)) {
+    return { ok: true, url: require('url').pathToFileURL(distPage).href };
+  }
+  return { ok: false, error: `Renderer bundle not found: ${distPage}. Build it with npm run build:renderer` };
+}
+
+module.exports = { loadPage, pageUrl };

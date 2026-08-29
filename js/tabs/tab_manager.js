@@ -55,6 +55,10 @@ export class TabManager {
     // o servidor. Registrado por openSurferWave ANTES do addTab, porque o
     // roteamento (isSurferView) e consultado dentro do proprio addTab.
     static surferViews = new Map();
+    // A aba do PRISM: uma so, na chave PRISM_TAB. Guarda o ultimo resultado
+    // de compilacao para entregar a pagina quando o <webview> ficar pronto, e
+    // de novo a cada recompilacao vinda da toolbar.
+    static prismViews = new Map();
     static pdfViewerStates = new Map();
     static untitledCounter = 0;
     static untitledDocuments = new Map();
@@ -534,6 +538,15 @@ async def basic_test(dut):
         return this.surferViews.has(filePath);
     }
 
+    static isPrismView(filePath) {
+        return this.prismViews.has(filePath);
+    }
+
+    /** Aba do PRISM ou do Surfer: paginas dentro do editor, sem texto por tras. */
+    static isEmbeddedView(filePath) {
+        return this.isSurferView(filePath) || this.isPrismView(filePath);
+    }
+
     static isBinaryFile(filePath) {
         return isBinaryFile(filePath);
     }
@@ -685,8 +698,9 @@ async def basic_test(dut):
         html += `<span class="context-path-filename">${fileName}</span>`;
 
         // Add file type indicator for binary files
-        if (this.isBinaryFile(filePath) || this.isSurferView(filePath)) {
+        if (this.isBinaryFile(filePath) || this.isEmbeddedView(filePath)) {
             const fileType = this.isSurferView(filePath) ? 'Wave'
+                : this.isPrismView(filePath) ? 'RTL'
                 : this.isImageFile(filePath) ? 'Image' : 'PDF';
             html += `<span class="file-type-indicator">${fileType}</span>`;
         }
@@ -812,6 +826,96 @@ async def basic_test(dut):
         this.addTab(wavePath);
     }
 
+    /** A chave da aba do PRISM. So existe uma: o PRISM mostra UM projeto. */
+    static PRISM_TAB = 'prism://PRISM';
+
+    /**
+     * Abre (ou reusa) a aba do PRISM com o resultado de uma compilacao.
+     *
+     * O main ja sintetizou e desenhou; aqui e so gerencia de aba e entrega do
+     * resultado a pagina. Reuso e o caso comum: recompilar com a aba aberta
+     * manda o resultado novo para o mesmo <webview>, que redesenha, e a aba
+     * so volta para a frente.
+     *
+     * @param {object} result o que prism-compile-with-paths devolveu
+     */
+    static openPrismTab(result) {
+        const key = this.PRISM_TAB;
+        if (this.prismViews.has(key)) {
+            this.prismViews.set(key, { result });
+            this.refreshPrismViewer(key, result);
+            this.activateTab(key);
+            return;
+        }
+        // Registrado ANTES do addTab: o roteamento (isPrismView) e consultado
+        // dentro dele para pular editor de texto e file watcher.
+        this.prismViews.set(key, { result });
+        this.addTab(key);
+    }
+
+    /**
+     * A pagina do PRISM dentro do editor.
+     *
+     * Um <webview>, e nao um iframe: a pagina precisa do preload dela (yosys,
+     * leitura de SVG por IPC), e iframe nao recebe preload. A URL e o preload
+     * vem do main pela MESMA regra da janela, e o main so deixa anexar esse
+     * par (will-attach-webview). O resultado da compilacao vai pelo canal
+     * compilation-complete, o mesmo que a janela ouve, entao a pagina nao sabe
+     * se esta numa aba ou numa janela, exceto pelo `embedded=1` que esconde os
+     * controles de janela.
+     */
+    static createPrismViewer(filePath) {
+        const viewer = document.createElement('div');
+        viewer.className = 'prism-viewer';
+        viewer.dataset.filePath = filePath;
+        this.viewerInstances.set(filePath, viewer);
+
+        const avisar = (msg) => {
+            viewer.innerHTML = '';
+            const p = document.createElement('p');
+            p.className = 'prism-viewer-erro';
+            p.textContent = msg;
+            viewer.appendChild(p);
+        };
+
+        (async () => {
+            let pagina;
+            try {
+                pagina = await window.electronAPI?.prismTabPage?.();
+            } catch (e) {
+                avisar(`PRISM: ${e?.message || e}`);
+                return;
+            }
+            if (!pagina?.ok) {
+                avisar(`PRISM: ${pagina?.error || 'prism-tab:page respondeu sem URL nem erro'}`);
+                return;
+            }
+            const wv = document.createElement('webview');
+            wv.className = 'prism-frame';
+            wv.setAttribute('preload', pagina.preload);
+            wv.setAttribute('webpreferences', 'contextIsolation=yes,sandbox=yes,nodeIntegration=no');
+            wv.setAttribute('aria-label', 'PRISM');
+            wv.setAttribute('src', pagina.url);
+            wv.addEventListener('dom-ready', () => {
+                const entry = this.prismViews.get(filePath);
+                if (entry?.result) {
+                    try { wv.send('compilation-complete', entry.result); } catch (e) { avisar(`PRISM: ${e?.message || e}`); }
+                }
+            });
+            viewer.appendChild(wv);
+        })();
+
+        return viewer;
+    }
+
+    /** Entrega um resultado novo a aba ja aberta. */
+    static refreshPrismViewer(filePath, result) {
+        const viewer = this.viewerInstances.get(filePath);
+        const wv = viewer && viewer.querySelector('webview.prism-frame');
+        if (!wv) return;
+        try { wv.send('compilation-complete', result); } catch (_) { /* a pagina ainda nao subiu; dom-ready entrega */ }
+    }
+
     // Enhanced addTab method with binary file support
     // options: { preview: false } , preview=true opens as italic preview tab (VS Code style)
     static addTab(filePath, content = null, options = {}) {
@@ -859,7 +963,7 @@ async def basic_test(dut):
 
         // Add binary file indicator. A aba do Surfer entra pelo mesmo
         // caminho das binarias: nada de editor de texto para uma onda.
-        const isBinary = this.isBinaryFile(filePath) || this.isSurferView(filePath);
+        const isBinary = this.isBinaryFile(filePath) || this.isEmbeddedView(filePath);
         if (isBinary) {
             tab.classList.add('binary-file');
         }
@@ -929,7 +1033,7 @@ async def basic_test(dut):
         // A onda do Surfer fica de fora: recompilar REESCREVE o arquivo, e o
         // fluxo de re-serve (openSurferWave) ja recarrega o iframe; o dialogo
         // de "mudou no disco" so atrapalharia.
-        if (!this.isSurferView(filePath)) this.startWatchingFile(filePath);
+        if (!this.isEmbeddedView(filePath)) this.startWatchingFile(filePath);
         if (this.tabs.size === 0) {
             this.startPeriodicFileCheck();
         }
@@ -1032,7 +1136,7 @@ async def basic_test(dut):
             this.hideOverlay();
 
             // Handle binary files
-            if (this.isBinaryFile(filePath) || this.isSurferView(filePath)) {
+            if (this.isBinaryFile(filePath) || this.isEmbeddedView(filePath)) {
                 // Save the OUTGOING tab's PDF state before switching away.
                 if (previousTab && previousTab !== filePath && this.isPdfFile(previousTab)) {
                     this.savePdfViewerState(previousTab);
@@ -1046,7 +1150,7 @@ async def basic_test(dut):
                 });
 
                 // Hide all viewers first
-                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer');
+                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer, .prism-viewer');
                 allViewers.forEach(viewer => {
                     viewer.style.display = 'none';
                 });
@@ -1056,6 +1160,8 @@ async def basic_test(dut):
                 if (!viewer) {
                     if (this.isSurferView(filePath)) {
                         viewer = this.createSurferViewer(filePath, this.surferViews.get(filePath).pageUrl);
+                    } else if (this.isPrismView(filePath)) {
+                        viewer = this.createPrismViewer(filePath);
                     } else if (this.isImageFile(filePath)) {
                         viewer = this.createImageViewer(filePath, editorContainer);
                     } else if (this.isPdfFile(filePath)) {
@@ -1080,7 +1186,7 @@ async def basic_test(dut):
 
             } else {
                 // Hide all viewers for text files
-                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer');
+                const allViewers = editorContainer.querySelectorAll('.image-viewer, .pdf-viewer, .surfer-viewer, .prism-viewer');
                 allViewers.forEach(viewer => {
                     viewer.style.display = 'none';
                 });
@@ -1335,6 +1441,8 @@ async def basic_test(dut):
                 this.surferViews.delete(filePath);
                 try { window.electronAPI?.surferTabStop?.(tabId); } catch (_) { /* best-effort */ }
             }
+            // A aba do PRISM nao tem processo por tras: fechar e so esquecer.
+            this.prismViews.delete(filePath);
             // Clean up viewer instance
             if (this.viewerInstances.has(filePath)) {
                 const viewer = this.viewerInstances.get(filePath);

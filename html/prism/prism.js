@@ -30,6 +30,9 @@ const PRISM_STRINGS = {
     schematic:   'Schematic',
     building:    'Building simulation…',
     simError:    'Could not build the simulation',
+    simTooLarge: '{m} is too large to simulate interactively ({n} cells, the limit is {l}).',
+    simTimeout:  'Synthesizing {m} took longer than {s} s.',
+    simHint:     'Open a smaller submodule in the schematic and simulate that one.',
   },
   pt: {
     title:       'Visualizador RTL PRISM',
@@ -49,6 +52,9 @@ const PRISM_STRINGS = {
     schematic:   'Esquemático',
     building:    'Montando a simulação…',
     simError:    'Não foi possível montar a simulação',
+    simTooLarge: '{m} é grande demais para simular ao vivo ({n} células, o limite é {l}).',
+    simTimeout:  'Sintetizar {m} passou de {s} s.',
+    simHint:     'Abra um submódulo menor no esquemático e simule aquele.',
   },
 };
 
@@ -105,6 +111,13 @@ class PRISMViewer {
     this.navigationHistory = [];
     this.forwardHistory = [];
     this.currentModule = null;
+    // Dentro de uma aba do editor (embedded=1) nao ha janela para minimizar
+    // nem fechar: os controles saem, e o resto da barra fica igual.
+    this.embedded = new URLSearchParams(window.location.search).get('embedded') === '1';
+    if (this.embedded) {
+      document.body.classList.add('embedded');
+      document.querySelector('.window-controls')?.remove();
+    }
     this.tempDir = null;
     this._lastTouchPoint = null;
     this._lastTouchDist = null;
@@ -491,8 +504,12 @@ class PRISMViewer {
     try {
       const paths = await window.electronAPI.getPrismCompilationPaths();
       if (!paths) throw new Error('Failed to acquire compilation paths');
+      // Na aba nao ha janela do PRISM para o main avisar: o resultado volta
+      // por aqui e a propria pagina o aplica.
+      paths.prismMode = this.embedded ? 'tab' : 'window';
       const result = await window.electronAPI.prismRecompile(paths);
       if (!result.success) this._showStatus(`Compilation Error: ${result.message}`, true);
+      else if (this.embedded) this._onCompilationComplete(result);
     } catch (err) {
       this._showStatus(`Compilation Failed: ${err.message}`, true);
     }
@@ -1100,13 +1117,15 @@ class PRISMViewer {
       let res;
       try {
         const paths = await window.electronAPI.getPrismCompilationPaths();
-        res = await window.electronAPI.buildDigitalJS(paths);
+        // O modulo que esta na tela, e nao o topo do projeto: a simulacao
+        // responde a mesma pergunta que o esquematico, "este modulo aqui".
+        res = await window.electronAPI.buildDigitalJS(paths, this.currentModule);
       } catch (err) {
         this._showSimError(`${T.simError}: ${err?.message || err}`);
         return;
       }
       if (!res || !res.ok || !res.circuit) {
-        this._showSimError(res?.message ? `${T.simError}: ${res.message}` : T.simError);
+        this._showSimError(this._simFailureText(res));
         return;
       }
 
@@ -1188,6 +1207,26 @@ class PRISMViewer {
   _setSimToggleLabel(text) {
     const label = document.getElementById('t-simulate');
     if (label) label.textContent = text;
+  }
+
+  /**
+   * O aviso de uma simulacao que nao coube, no idioma da pessoa.
+   *
+   * O main classifica a falha (too-large, timeout) e manda os numeros; quem
+   * escreve a frase e esta janela, que sabe o idioma. Nos dois casos a saida e
+   * a mesma, abrir um submodulo menor e simular aquele, e por isso a dica vai
+   * junto: um aviso que so diz "grande demais" deixa a pessoa parada.
+   */
+  _simFailureText(res) {
+    const r = res || {};
+    const enche = (tpl) => String(tpl)
+      .replace('{m}', r.module || this.currentModule || '?')
+      .replace('{n}', String(r.cells ?? '?'))
+      .replace('{l}', String(r.limit ?? '?'))
+      .replace('{s}', String(r.seconds ?? '?'));
+    if (r.reason === 'too-large') return `${enche(T.simTooLarge)} ${T.simHint}`;
+    if (r.reason === 'timeout') return `${enche(T.simTimeout)} ${T.simHint}`;
+    return r.message ? `${T.simError}: ${r.message}` : T.simError;
   }
 
   /** Show a sim-mode error and auto-clear it so the schematic stays usable. */

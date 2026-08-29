@@ -109,6 +109,12 @@
     },
     "format": {
       "tooltip": "Formatar este arquivo"
+    },
+    "prismMode": {
+      "window": "PRISM em janela própria",
+      "tab": "PRISM numa aba do editor",
+      "nowWindow": "PRISM: em janela própria",
+      "nowTab": "PRISM: numa aba do editor"
     }
   },
   "windowControls": {
@@ -907,7 +913,12 @@
     "switchModel": "Trocar de modelo ou provedor",
     "stop": "Parar geração",
     "send": "Enviar (Enter)",
-    "resetModel": "Restaurar o modelo padrão"
+    "resetModel": "Restaurar o modelo padrão",
+    "tutorial": {
+      "button": "Tutorial guiado da API da AURORA",
+      "busy": "Espere a resposta atual terminar para começar o tutorial.",
+      "noProvider": "Configure um provedor de IA nas Configurações para começar o tutorial."
+    }
   },
   "git": {
     "title": "Controle de Versão",

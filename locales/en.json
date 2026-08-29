@@ -109,6 +109,12 @@
     },
     "format": {
       "tooltip": "Format this file"
+    },
+    "prismMode": {
+      "window": "PRISM in its own window",
+      "tab": "PRISM in an editor tab",
+      "nowWindow": "PRISM: in its own window",
+      "nowTab": "PRISM: in an editor tab"
     }
   },
   "windowControls": {
@@ -907,7 +913,12 @@
     "switchModel": "Switch model or provider",
     "stop": "Stop generation",
     "send": "Send (Enter)",
-    "resetModel": "Reset to default model"
+    "resetModel": "Reset to default model",
+    "tutorial": {
+      "button": "Guided tutorial of the AURORA API",
+      "busy": "Wait for the current reply to finish before starting the tutorial.",
+      "noProvider": "Set up an AI provider in Settings to start the tutorial."
+    }
   },
   "git": {
     "title": "Source Control",

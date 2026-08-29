@@ -274,9 +274,13 @@ function createMainWindow(opts = {}) {
       sandbox: true,
       nodeIntegration: false,
       nodeIntegrationInSubFrames: false,
-      // The AI assistant no longer uses a <webview> sub-frame (it talks to
-      // providers over IPC), so the tag is disabled to shrink attack surface.
-      webviewTag: false,
+      // O <webview> existe por UMA razao: o PRISM numa aba. A pagina do PRISM
+      // precisa do preload dela (IPC do yosys, leitura de SVG), e um iframe
+      // nao recebe preload; um WebContentsView receberia, mas flutua por cima
+      // de todo o HTML, inclusive modais e paleta. O guarda will-attach-webview
+      // logo abaixo so deixa anexar a pagina do PRISM com o preload do PRISM,
+      // que e o que mantem a superficie do tamanho de antes.
+      webviewTag: true,
       preload: path.join(app.getAppPath(), 'js', 'app', 'preload.js'),
       enableWebSQL: false,
       allowRunningInsecureContent: false,
@@ -287,6 +291,27 @@ function createMainWindow(opts = {}) {
   });
 
   state.mainWindow = mainWindow;
+
+  // So a pagina do PRISM, so com o preload do PRISM, e sempre isolada. Qualquer
+  // outro <webview> que apareca no renderer e barrado aqui, antes de existir.
+  const prismPreload = path.join(app.getAppPath(), 'js', 'app', 'preload_prism.js');
+  mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
+    const src = String(params.src || '');
+    const preload = String(webPreferences.preload || params.preload || '');
+    const paginaCerta = /\/html\/prism\/prism\.html(\?|#|$)/.test(src);
+    const preloadCerto = preload.replace(/^file:\/\/\/?/, '').replace(/\//g, path.sep).toLowerCase()
+      === prismPreload.toLowerCase();
+    if (!paginaCerta || !preloadCerto) {
+      log.warn(`[webview] anexo barrado: src=${src} preload=${preload}`);
+      event.preventDefault();
+      return;
+    }
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+    webPreferences.nodeIntegration = false;
+    webPreferences.nodeIntegrationInSubFrames = false;
+    webPreferences.preload = prismPreload;
+  });
 
   loadPage(mainWindow, 'index.html');
 

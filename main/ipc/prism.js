@@ -20,7 +20,7 @@ const state = require('../state');
 const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
 const { spawnTracked, GROUP } = require('../process_registry');
-const { loadPage } = require('../render_loader');
+const { loadPage, pageUrl } = require('../render_loader');
 const { isAutoName, cellLabel } = require('./prism_labels');
 
 // ---------- helpers ----------
@@ -750,6 +750,14 @@ async function collectSynthFiles(/** @type {any} */ compilationPaths) {
   return [...fileSet];
 }
 
+// Os dois tetos da simulacao interativa. O de tempo segura um yosys que nao
+// termina; o de celulas segura o conversor, que roda SINCRONO no processo
+// principal, e o desenho no navegador, que empaca passado uns milhares de
+// celulas. Quem bate num deles recebe o nome do modulo e os numeros, e a saida
+// e abrir um submodulo no esquematico e simular aquele.
+const YOSYS_TIMEOUT_MS = 45000;
+const MAX_CELLS = 3000;
+
 // Synthesize the design with a digitaljs-friendly yosys script, then convert
 // the JSON with yosys2digitaljs into the DigitalJS circuit format. We run
 // AURORA's own (allowlisted) yosys and feed its JSON to the converter's pure
@@ -805,8 +813,10 @@ write_json "${jsonPath}"
     // endless "Building simulation…" spinner.
     const timer = setTimeout(() => {
       try { proc.kill(); } catch (_) { /* already gone */ }
-      finish(new Error('Yosys synthesis timed out (45s) — the design is likely too large/complex for interactive simulation. Use the schematic view.'));
-    }, 45000);
+      const e = /** @type {any} */ (new Error(`Yosys synthesis of ${topLevelModule} timed out (${YOSYS_TIMEOUT_MS / 1000}s)`));
+      e.reason = 'timeout'; e.module = topLevelModule; e.seconds = YOSYS_TIMEOUT_MS / 1000;
+      finish(e);
+    }, YOSYS_TIMEOUT_MS);
     proc.stderr.on('data', (d) => (stderr += d.toString()));
     proc.on('error', (e) => finish(e instanceof Error ? e : new Error(String(e))));
     proc.on('close', (/** @type {number} */ code) => {
@@ -824,10 +834,10 @@ write_json "${jsonPath}"
   // on an endless spinner (the static PRISM schematic already handles big RTL).
   const cellCount = Object.values(yosysJson.modules || {}).reduce(
     (/** @type {number} */ n, /** @type {any} */ m) => n + Object.keys((m && m.cells) || {}).length, 0);
-  const MAX_CELLS = 3000;
   if (cellCount > MAX_CELLS) {
-    throw new Error(`Design too large for interactive simulation (${cellCount} cells, limit ${MAX_CELLS}). ` +
-      'DigitalJS is best for small modules — use the schematic view for large designs.');
+    const e = /** @type {any} */ (new Error(`${topLevelModule} is too large for interactive simulation (${cellCount} cells, limit ${MAX_CELLS})`));
+    e.reason = 'too-large'; e.module = topLevelModule; e.cells = cellCount; e.limit = MAX_CELLS;
+    throw e;
   }
   tlog(`DigitalJS: netlist ${cellCount} cells — converting…`);
 
@@ -867,6 +877,9 @@ function register() {
     try {
       const result = await performPrismCompilationWithPaths(compilationPaths);
       if (!result.success) return result;
+      // Na aba, quem mostra e o renderer: ele cria o <webview> e entrega o
+      // resultado a pagina. A janela so existe no modo janela.
+      if (compilationPaths && compilationPaths.prismMode === 'tab') return result;
       await createPrismWindow(result);
       return result;
     } catch (error) {
@@ -875,6 +888,15 @@ function register() {
     }
   });
 
+  // O que o <webview> da aba precisa para nascer: a URL da pagina, resolvida
+  // pela MESMA regra da janela (dev ou dist), e o preload do PRISM. O guarda
+  // will-attach-webview em windows.js confere os dois antes de anexar.
+  ipcMain.handle('prism-tab:page', () => {
+    const pagina = pageUrl('html/prism/prism.html');
+    if (!pagina.ok) return { ok: false, error: pagina.error };
+    const preload = require('url').pathToFileURL(path.join(app.getAppPath(), 'js', 'app', 'preload_prism.js')).href;
+    return { ok: true, url: `${pagina.url}?embedded=1`, preload };
+  });
   ipcMain.handle('generate-svg-from-module', async (_event, moduleName, tempDir) => {
     try {
       const cleanName = sanitizeFileName(moduleName);
@@ -963,9 +985,10 @@ function register() {
           });
         }
         state.prismWindow.focus();
-      } else {
+      } else if (!(compilationPaths && compilationPaths.prismMode === 'tab')) {
         await createPrismWindow(compilationResult);
       }
+      // No modo aba a propria pagina aplica o resultado que recebe de volta.
       return compilationResult;
     } catch (error) {
       log.error('PRISM recompilation error:', error);
@@ -973,9 +996,17 @@ function register() {
     }
   });
 
-  // O9: build the DigitalJS interactive-simulation circuit for the current
-  // top-level. Same paths/top as the schematic flow, different yosys script.
-  ipcMain.handle('prism:build-digitaljs', async (_event, compilationPaths) => {
+  // O circuito interativo (DigitalJS) do modulo que esta NA TELA.
+  //
+  // Sintetizava sempre o topo do projeto, e o topo de um projeto SAPHO e o
+  // processador inteiro, com memorias: o yosys estourava os 45 s e a pessoa
+  // que so queria cutucar a ula lia "design too large". A pergunta da
+  // simulacao e a mesma do esquematico, "este modulo aqui", entao o alvo passa
+  // a ser o modulo aberto; o topo so entra quando e ele que esta na tela.
+  //
+  // A falha volta CLASSIFICADA (reason, e os numeros que a explicam), alem da
+  // mensagem: e o renderer, que sabe o idioma da pessoa, quem escreve o aviso.
+  ipcMain.handle('prism:build-digitaljs', async (_event, compilationPaths, moduleName) => {
     try {
       if (!compilationPaths) throw new Error('Compilation paths are required.');
       const tempDir = compilationPaths.tempPath;
@@ -985,16 +1016,30 @@ function register() {
       if (!spfPath || !(await fse.pathExists(spfPath))) throw new Error('.spf not found');
       const spfData = await fse.readJson(spfPath);
       const topLevelModule = path.basename(spfData?.structure?.topLevelFile || '', '.v');
-      if (!topLevelModule) throw new Error('No top-level module set in the .spf');
+
+      // O nome vem do renderer ja limpo (cleanModuleName); so um identificador
+      // Verilog passa, porque ele entra num script do yosys.
+      const pedido = typeof moduleName === 'string' ? moduleName.trim() : '';
+      const alvo = /^[A-Za-z_][A-Za-z0-9_]*$/.test(pedido) ? pedido : topLevelModule;
+      if (!alvo) throw new Error('No module to simulate: nothing is open in PRISM and the .spf has no top-level');
 
       if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-        state.mainWindow.webContents.send('terminal-log', 'tprism', 'Building DigitalJS simulation…', 'info');
+        state.mainWindow.webContents.send('terminal-log', 'tprism', `Building DigitalJS simulation of ${alvo}…`, 'info');
       }
-      const circuit = await buildDigitalJSCircuit(compilationPaths, topLevelModule, tempDir);
-      return { ok: true, circuit, topLevelModule };
+      const circuit = await buildDigitalJSCircuit(compilationPaths, alvo, tempDir);
+      return { ok: true, circuit, topLevelModule: alvo };
     } catch (error) {
       log.error('DigitalJS build error:', error);
-      return { ok: false, message: error instanceof Error ? error.message : String(error) };
+      const e = /** @type {any} */ (error);
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : String(error),
+        reason: e && e.reason ? e.reason : 'error',
+        module: e && e.module ? e.module : undefined,
+        cells: e && typeof e.cells === 'number' ? e.cells : undefined,
+        limit: e && typeof e.limit === 'number' ? e.limit : undefined,
+        seconds: e && typeof e.seconds === 'number' ? e.seconds : undefined,
+      };
     }
   });
 }

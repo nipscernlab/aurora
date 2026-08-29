@@ -24,6 +24,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { getPrismMode } from '../prism/prism_mode.js';
 import { resolveOverride } from './command_overrides.js';
 import { CompilationModule } from './compilation_module.js';
 import { toForwardSlashes } from '../utils/path_utils.js';
@@ -861,6 +862,8 @@ async function handlePrismStep() {
 
         const result = await electronAPI.prismCompileWithPaths(paths);
         if (!result.success) throw new Error(result.message);
+        // Na aba, o main devolve o desenho e quem abre e o editor.
+        if (paths.prismMode === 'tab') window.TabManager?.openPrismTab?.(result);
     } catch (error) {
         console.error('Erro no trigger PRISM:', error);
         logFatalError('tveri', error);
@@ -883,6 +886,8 @@ async function buildPrismCompilationPaths(projectPath) {
         tempPath:                  toForwardSlashes(await join(rawComponentsPath, 'Temp', 'PRISM')),
         yosysPath:                 toForwardSlashes(await join(rawComponentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe')),
         spfPath:                   toForwardSlashes(window.currentSpfPath || ''),
+        // Onde o PRISM abre, lido na hora do clique (ver prism_mode.js).
+        prismMode:                 getPrismMode(),
         topLevelPath:              toForwardSlashes(await join(projectPath, 'TopLevel')),
     };
 }

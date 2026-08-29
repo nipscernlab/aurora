@@ -817,3 +817,7 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Dentro de uma aba do editor a barra nao arrasta janela nenhuma: sem isto o
+   clique nela tentaria mover a janela principal a partir de um filho. */
+body.embedded .prism-toolbar { -webkit-app-region: no-drag; }

@@ -1111,6 +1111,10 @@ class PRISMViewer {
     if (this._simBusy || this.simMode || !window.electronAPI?.buildDigitalJS) return;
     this._simBusy = true;
     if (this.simToggle) this.simToggle.disabled = true;
+    // Veu de pagina inteira enquanto monta: o esquematico continuava clicavel
+    // por baixo do aviso, e um clique num modulo trocava o desenho no meio da
+    // montagem, deixando a simulacao de um modulo sobre o esquematico de outro.
+    document.body.classList.add('sim-montando');
     this._showStatus(T.building, false);
 
     try {
@@ -1172,6 +1176,7 @@ class PRISMViewer {
       this._hideStatus();
     } finally {
       this._simBusy = false;
+      document.body.classList.remove('sim-montando');
       if (this.simToggle) this.simToggle.disabled = false;
     }
   }

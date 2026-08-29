@@ -1242,6 +1242,74 @@ Escopo do SAPHO seguinte. Prioridade muda conforme a necessidade da disciplina.
 
 ---
 
+## 9. Entrada de 29/08/2026, dos quadros SAPHO e AURORA
+
+Os dois quadros do GitHub foram lidos e consolidados aqui, porque backlog em
+dois lugares vira backlog em lugar nenhum. O que já estava feito saiu na
+conferência e está anotado como tal; o que sobrou está abaixo, ainda sem a
+prosa que os itens das seções anteriores têm. Cada um migra para a seção
+temática quando for pego.
+
+### 9.1 Compilação e editor
+
+- [ ] **Clicar na linha de erro e saltar para o código.** O pedido mais
+      detalhado do dia. Hoje o terminal despeja o texto cru do Icarus, do
+      Verilator e das demais, e achar o erro é trabalho manual. O
+      reconhecimento de `arquivo:linha:coluna` tem que ser POR FERRAMENTA, e
+      não uma expressão regular só: cada uma imprime de um jeito, e uma
+      heurística única erra em silêncio no caso mais comum, que é caminho com
+      espaço ou com `:` de unidade no Windows. O alvo é a linha do terminal
+      virar link que abre o arquivo no Monaco na posição certa.
+- [ ] **Debug mode linha a linha.**
+- [ ] **Cada compilação com o seu log**, incluindo resolver a concorrência de
+      terminal entre PRISM e Build, que hoje disputam a mesma saída.
+- [ ] **Mostrar como marcar o toplevel**, que hoje é conhecimento tribal.
+- [ ] **Atalhos de teclado para todas as funções.**
+
+### 9.2 Updater, três defeitos concretos
+
+- [ ] **O cache de download sobrevive ao desinstalador**, então reinstalar
+      baixa instantâneo e a pessoa desconfia que não baixou nada.
+- [ ] **Baixar pela tela de aviso inicial não muda o botão Baixar** do painel
+      de Configurações: os dois falam do mesmo download e discordam na tela.
+- [ ] **"Instalar depois" tem que instalar na PRÓXIMA ABERTURA**, e não ao
+      fechar. Ao fechar, desligar o PC no meio corrompe o download.
+
+### 9.3 PRISM e visual
+
+- [ ] **Pinos menores**, e **cinza claro preenchido** para eles.
+- [ ] **No `.cmm`, o `|` sobe para alinhar com a seta** no Monaco.
+- [ ] **Remover o marker do Surfer.**
+- [ ] **Evoluir o Simular para além das primitivas.**
+- [ ] **PRISM faz parte da AURORA**, e clicar num componente abre a
+      representação interna dele no PRISM.
+
+### 9.4 Distribuição e institucional
+
+- [ ] **Atualizar todas as máquinas do LABEL** e **conferir o auto-updater lá
+      dentro** (o ensaio viu só o caminho feliz; a seção 1 tem o roteiro).
+- [ ] **Garantir que só a conta do dono gere releases.** Conferido em
+      26/08/2026: os dois workflows travam pelo ator, mas o ruleset de tag que
+      os comentários citam NÃO existe no GitHub. Hoje quem segura é o código.
+- [ ] **Enviar ao programa de desenvolvedor da Microsoft** (relacionado ao 2.6).
+- [ ] **Patente.**
+
+### 9.5 Aurora Intelligence
+
+- [ ] **API Tutorial usando o Manual do SAPHO como prompt injection.**
+
+### 9.6 Relógios externos, conferidos em 29/08/2026
+
+- [ ] **PR #94 parado.** Hoje é `chore(main): release 6.11.0`, aberto e sem
+      review desde 27/08 19h13. Enquanto ele não for mesclado, não sai release.
+- [x] ~~**CI quebrado na main.**~~ Resolvido: a execução de 27/08 19h13 passou
+      em CI, CodeQL e Release Please. Atenção a uma pegadinha achada na mesma
+      conferência: os sete commits de 28/08 estavam COMMITADOS E NÃO ENVIADOS,
+      e por isso não existe execução de CI para eles. "CI verde" só quer dizer
+      alguma coisa depois do push.
+
+---
+
 ## Princípios de desenho
 
 Resumo do manifesto de interface, mantido aqui porque comentários no CSS e no

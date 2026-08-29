@@ -1339,6 +1339,23 @@ temática quando for pego.
 
       Conferido com o sapho_cnn aberto de verdade: as quatro execuções
       listadas, retrato e cadeia certos, passos sobrepostos marcados.
+
+      A tela passou a mudar AO VIVO em 29/08/2026. Antes ela só lia o disco, e
+      o disco só recebe a execução no fim: quem abrisse durante uma compilação
+      via a lista de ontem, parada, enquanto a de agora rodava atrás dela. O
+      `compilation_flow` passou a guardar as execuções abertas e a disparar
+      `aurora:run-log-changed` ao abrir uma, a cada ferramenta que roda e ao
+      gravar; a execução viva aparece no topo da lista, marcada, com os passos
+      e o tempo crescendo. Ela sai das abertas só DEPOIS de gravar, senão a
+      linha sumiria por um instante antes de voltar gravada.
+
+      A medição mudou o desenho. A primeira versão coalescia os avisos pelo FIM
+      de uma janela de 250 ms, e na AURORA de pé a linha viva nunca apareceu: a
+      execução abria e fechava dentro da janela. Pintar na ENTRADA e só esperar
+      depois resolveu, e a mesma sonda passou a ver a linha. No caminho
+      apareceu um segundo defeito: um pedido de redesenho que chegasse durante
+      a leitura anterior era descartado em vez de refeito, o que deixaria a
+      lista parada num estado velho.
 - [x] ~~**O top level tem que se distinguir do testbench.**~~ Feito em
       29/08/2026. Os dois topos e os arquivos comuns saíam com o mesmo ícone, e
       a única diferença era a cor da linha; cor sozinha não diz QUAL é a

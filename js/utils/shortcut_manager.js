@@ -2,45 +2,23 @@
  * Aurora Shortcut Manager
  * Handles global keyboard shortcuts based on user configuration.
  */
+import { PADROES, executarAcao } from './shortcut_table.js';
+
 (() => {
     const SHORTCUTS_STORAGE_KEY = 'aurora-shortcuts';
 
-    // Shortcuts pra 'compileAll' (Ctrl+Shift+B) e 'openSettings'
-    // (Ctrl+Shift+C) sairam quando os botoes correspondentes (allcomp,
-    // settings) viraram dead UI.
-    const defaultShortcuts = {
-        'newFile': { ctrlKey: true, shiftKey: false, altKey: false, key: 'N' },
-        'closeTab': { ctrlKey: true, shiftKey: false, altKey: false, key: 'W' },
-        'reopenTab': { ctrlKey: true, shiftKey: true, altKey: false, key: 'T' },
-        'saveFile': { ctrlKey: true, shiftKey: false, altKey: false, key: 'S' },
-        'saveAllFiles': { ctrlKey: true, shiftKey: true, altKey: false, key: 'S' },
-        // O11: liga/desliga a análise semântica do slang. Ctrl+Alt+S (S de
-        // slang/semântico), inclui Ctrl pra disparar com o editor Monaco
-        // focado; Ctrl+Shift+P é do command palette, não daqui.
-        'toggleSlang': { ctrlKey: true, shiftKey: false, altKey: true, key: 'S' },
-    };
-
     let activeShortcuts = {};
 
-    // Phase B: every shortcut routes through window.AuroraAPI so the same
-    // entry point handles keyboard, toolbar clicks and AI tool calls.
-    // The optional-chaining `?.` is for the boot window before
-    // initAuroraAPI() runs, the user can't fire a shortcut that early,
-    // but the guard keeps the module test-safe.
-    const actions = {
-        newFile:      () => window.AuroraAPI?.editor.newFile(),
-        closeTab:     () => window.AuroraAPI?.editor.closeTab(),
-        reopenTab:    () => window.AuroraAPI?.editor.reopenLastTab(),
-        saveFile:     () => window.AuroraAPI?.editor.save(),
-        saveAllFiles: () => window.AuroraAPI?.editor.saveAll(),
-        toggleSlang:  () => window.AuroraSlang?.toggle?.(),
-    };
-    
+    // Toda acao passa pela API publica ou clica o botao que ja existe, e as
+    // duas coisas moram na tabela: o gestor aqui so casa tecla com acao. Antes
+    // havia uma copia das acoes aqui e outra lista de padroes na tela de
+    // configuracoes, e as duas discordavam.
+
     function loadShortcuts() {
         const stored = localStorage.getItem(SHORTCUTS_STORAGE_KEY);
         const parsed = stored ? JSON.parse(stored) : {};
         activeShortcuts = {
-            ...JSON.parse(JSON.stringify(defaultShortcuts)),
+            ...JSON.parse(JSON.stringify(PADROES)),
             ...parsed,
         };
     }
@@ -56,7 +34,12 @@
         // with the Monaco editor (a textarea) or a field focused. The
         // shortcut-recording field stops propagation in the capture phase, so
         // recording a new binding stays safe.
-        if (!e.ctrlKey && !e.metaKey) {
+        // As teclas de funcao passam SEMPRE. As acoes de compilacao moram nelas
+        // justamente porque precisam disparar com o cursor dentro do editor, e
+        // o Monaco e um textarea: sem esta excecao o F5 morreria no guarda de
+        // baixo, que existe para nao roubar texto digitado. F-tecla nao e texto.
+        const teclaDeFuncao = /^F([1-9]|1[0-2])$/.test(e.key || '');
+        if (!e.ctrlKey && !e.metaKey && !teclaDeFuncao) {
             const activeEl = document.activeElement;
             if (activeEl && (['INPUT', 'TEXTAREA', 'SELECT'].includes(activeEl.tagName) || activeEl.isContentEditable)) {
                 return;
@@ -73,9 +56,7 @@
 
             if (match) {
                 e.preventDefault();
-                if (actions[actionName]) {
-                    actions[actionName]();
-                }
+                executarAcao(actionName);
                 break; // Impede que múltiplos atalhos com a mesma combinação sejam acionados
             }
         }

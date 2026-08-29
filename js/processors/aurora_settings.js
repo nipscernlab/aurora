@@ -3,6 +3,7 @@ import { electronAPI } from '../app/electron_api.js';
 import { setTooltipsEnabled } from '../ui/tooltip.js';
 import { showCardNotification } from '../ui/notification.js';
 import { avisoLigado, definirAviso, CHAVE_AVISO } from '../ui/network_watch.js';
+import { PADROES, ROTULOS, textoDoAtalho } from '../utils/shortcut_table.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const settingsButton = document.getElementById('aurora-settings');
@@ -27,26 +28,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // i18n note: labels resolved at render time via SHORTCUT_LABEL_KEYS,
     // not stored here, so locale switches update the UI without touching
     // localStorage-persisted shortcuts.
-    const defaultShortcuts = {
-        'newFile':      { ctrlKey: true,  shiftKey: false, altKey: false, key: 'N' },
-        'compileAll':   { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'B' },
-        'closeTab':     { ctrlKey: true,  shiftKey: false, altKey: false, key: 'W' },
-        'reopenTab':    { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'T' },
-        'saveFile':     { ctrlKey: true,  shiftKey: false, altKey: false, key: 'S' },
-        'saveAllFiles': { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'S' },
-        'openSettings': { ctrlKey: true,  shiftKey: true,  altKey: false, key: 'C' }
-    };
-
-    const SHORTCUT_LABEL_KEYS = {
-        'newFile':      'shortcuts.newFile',
-        'compileAll':   'shortcuts.compileAll',
-        'closeTab':     'shortcuts.closeTab',
-        'reopenTab':    'shortcuts.reopenTab',
-        'saveFile':     'shortcuts.saveFile',
-        'saveAllFiles': 'shortcuts.saveAllFiles',
-        'openSettings': 'shortcuts.openSettings'
-    };
-
     const tr = (key) => (window.t ? window.t(key) : key);
 
     const defaultSettings = {
@@ -154,15 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ---- Shortcuts UI / gravação ----
-    const formatShortcutText = ({ ctrlKey, shiftKey, altKey, key }) => {
-        if (!key) return tr('shortcuts.notSet');
-        const parts = [];
-        if (ctrlKey) parts.push('Ctrl');
-        if (shiftKey) parts.push('Shift');
-        if (altKey) parts.push('Alt');
-        parts.push(key.length === 1 ? key.toUpperCase() : key);
-        return parts.join(' + ');
-    };
+    const formatShortcutText = (atalho) => textoDoAtalho(atalho) || tr('shortcuts.notSet');
 
     const renderShortcuts = () => {
         if (!shortcutList) return;
@@ -170,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const action in currentShortcuts) {
             const item = document.createElement('div');
             item.className = 'shortcut-item';
-            const labelKey = SHORTCUT_LABEL_KEYS[action] || action;
+            const labelKey = ROTULOS[action] || action;
             item.innerHTML = `
                 <span class="action">${tr(labelKey)}</span>
                 <div class="shortcut-input" data-action="${action}" tabindex="0">${formatShortcutText(currentShortcuts[action])}</div>
@@ -333,7 +306,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Modal open/close and persistence ----
     const openModal = () => {
         currentShortcuts = {
-            ...JSON.parse(JSON.stringify(defaultShortcuts)),
+            ...JSON.parse(JSON.stringify(PADROES)),
             ...(JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) || {}),
         };
         loadSettings();
@@ -388,7 +361,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { detail: { value: trustLinksSnapshot === '1' } }));
         }
         currentShortcuts = {
-            ...JSON.parse(JSON.stringify(defaultShortcuts)),
+            ...JSON.parse(JSON.stringify(PADROES)),
             ...(JSON.parse(localStorage.getItem(SHORTCUTS_STORAGE_KEY)) || {}),
         };
         loadSettings();
@@ -416,7 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (resetButton) {
         resetButton.addEventListener('click', () => {
-            currentShortcuts = JSON.parse(JSON.stringify(defaultShortcuts));
+            currentShortcuts = JSON.parse(JSON.stringify(PADROES));
             currentSettings = { ...defaultSettings };
             loadSettings();
             renderShortcuts();

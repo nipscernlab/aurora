@@ -403,7 +403,20 @@
     "reopenTab": "Reopen Last Closed Tab",
     "saveFile": "Save Current File",
     "saveAllFiles": "Save All Files",
-    "openSettings": "Open Settings / Project"
+    "openSettings": "Open Settings",
+    "newProject": "New Project",
+    "openProject": "Open Project",
+    "backupProject": "Backup Project",
+    "compileCmm": "Compile C±",
+    "compileVerilog": "Synthesize Verilog",
+    "compileWave": "Simulate with waveform",
+    "compileFast": "Fast simulation (Verilator)",
+    "openPrism": "Open PRISM",
+    "cancelCompilation": "Cancel compilation",
+    "runHistory": "Compilation history",
+    "clearTerminal": "Clear terminal",
+    "processorHub": "Processor hub",
+    "toggleSlang": "Toggle semantic analysis (slang)"
   },
   "dialog": {
     "common": {

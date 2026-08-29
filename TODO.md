@@ -1377,7 +1377,33 @@ temática quando for pego.
       tooltip original ao reabrir. O testbench recebeu o mesmo tratamento,
       porque o buraco era idêntico. Conferido na AURORA de pé com um projeto
       sem topo: os três textos saem certos.
-- [ ] **Atalhos de teclado para todas as funções.**
+- [x] ~~**Atalhos de teclado para todas as funções.**~~ Feito em 29/08/2026.
+      Eram 6 atalhos, e são 20: as cinco ações de arquivo, três de projeto,
+      sete de compilação mais histórico e limpar terminal, e três de
+      ferramentas. O que a paleta de comandos não cobre com tecla própria ela
+      continua cobrindo pelo nome, e agora cada linha dela MOSTRA a tecla, que
+      é o que faz alguém parar de precisar da paleta para aquela função.
+
+      Antes disso havia um defeito de fundo: DUAS listas de atalhos gravando
+      na mesma chave do localStorage e discordando. A tela de configurações
+      oferecia `compileAll` e `openSettings`, que não existiam no gestor e
+      portanto não faziam nada, e escondia `toggleSlang`, que funcionava. Quem
+      regravasse um dos dois primeiros gravava um atalho morto sem ter como
+      descobrir por quê. Agora há uma tabela só,
+      [js/utils/shortcut_table.js](js/utils/shortcut_table.js), com a ação, a
+      tecla, o rótulo e o que ela faz; o gestor lê para ouvir, a tela para
+      mostrar, a paleta para exibir a tecla, e um teste garante que toda ação
+      tem rótulo nos dois idiomas e que nenhuma combinação serve a duas ações.
+
+      Duas decisões que a máquina impôs. Compilar mora em F5..F10 porque um
+      atalho sem Ctrl é engolido em campo de texto e o Monaco é um campo de
+      texto: sem a exceção para tecla de função, F5 morreria no guarda que
+      existe para não roubar texto digitado. E o Hub nasceu em Ctrl+Shift+J,
+      que é o console do DevTools no Chromium e o Electron herda; foi para
+      Ctrl+Alt+P. Conferido com a AURORA de pé: F5 dispara com o foco dentro
+      de um campo de texto, os botões desabilitados continuam não fazendo nada
+      (o atalho faz o que o botão faz), a tela lista os 20 e a paleta mostra a
+      tecla em cada linha que tem uma.
 
 ### 9.2 Updater, três defeitos concretos
 

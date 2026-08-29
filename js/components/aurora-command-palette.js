@@ -179,6 +179,23 @@ class AuroraCommandPalette extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    /* O atalho do comando, quando ele tem um. A paleta e onde se procura uma
+       funcao pelo nome; mostrar a tecla aqui e o que faz alguem parar de
+       precisar da paleta para aquela funcao. Empurrado para a direita, discreto:
+       quem esta lendo a lista procura o NOME, e a tecla e para a proxima vez. */
+    .item-atalho {
+      margin-left: auto;
+      flex-shrink: 0;
+      font-family: var(--font-mono, ui-monospace, monospace);
+      font-size: var(--text-xs, 11px);
+      color: var(--text-muted);
+      background: var(--overlay-hover, rgba(255, 255, 255, 0.06));
+      border: 1px solid var(--border-hairline, rgba(255, 255, 255, 0.08));
+      border-radius: var(--radius-sm, 5px);
+      padding: 1px 6px;
+      white-space: nowrap;
+    }
+    .item.selected .item-atalho { color: var(--text-secondary); }
     .item.selected {
       background: var(--accent-soft);
       color: var(--text-bright);
@@ -248,6 +265,7 @@ class AuroraCommandPalette extends LitElement {
         >
           <i class="${cmd.icon} item-icon" aria-hidden="true"></i>
           <span class="item-title">${cmd.title}</span>
+          ${cmd.atalho ? html`<kbd class="item-atalho">${cmd.atalho}</kbd>` : ''}
         </div>
       `);
     });

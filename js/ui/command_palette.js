@@ -19,6 +19,20 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import '../components/aurora-command-palette.js';
+import { PADROES, textoDoAtalho } from '../utils/shortcut_table.js';
+
+/**
+ * A tecla de cada comando, lida da MESMA tabela que o gestor de atalhos usa e
+ * respeitando o que a pessoa regravou. Mostrar a tecla aqui e o que faz alguem
+ * parar de precisar da paleta para aquela funcao: a paleta ensina o atalho e
+ * depois sai do caminho.
+ */
+function atalhoDe(acao) {
+  if (!acao) return '';
+  let gravados = {};
+  try { gravados = JSON.parse(localStorage.getItem('aurora-shortcuts') || '{}'); } catch (_) { /* sem nada gravado */ }
+  return textoDoAtalho(gravados[acao] || PADROES[acao]);
+}
 
 /** Click a toolbar button by id if it exists and isn't disabled. */
 function clickById(id) {
@@ -36,33 +50,33 @@ function clickFirst(ids) {
 // Command registry. group orders the list; keywords widen fuzzy matches.
 const COMMANDS = [
   // Compilation
-  { id: 'compile.cmm',     group: 'Compile', icon: 'ph ph-play-circle',   title: 'Compile C±',                    keywords: 'cmm build asm assemble', run: () => clickById('cmmcomp') },
-  { id: 'compile.verilog', group: 'Compile', icon: 'ph ph-cpu',           title: 'Synthesize Verilog',            keywords: 'veri synth hardware',    run: () => clickById('vericomp') },
-  { id: 'compile.wave',    group: 'Compile', icon: 'ph ph-waveform',      title: 'Analyse Verilog (waveform)',    keywords: 'wave gtkwave simulate',  run: () => clickById('wavecomp') },
-  { id: 'compile.fast',    group: 'Compile', icon: 'ph ph-lightning',     title: 'Fast run (Verilator)',          keywords: 'fast verilator simulate no waveform', run: () => clickById('fastsim') },
+  { id: 'compile.cmm', acao: 'compileCmm',     group: 'Compile', icon: 'ph ph-play-circle',   title: 'Compile C±',                    keywords: 'cmm build asm assemble', run: () => clickById('cmmcomp') },
+  { id: 'compile.verilog', acao: 'compileVerilog', group: 'Compile', icon: 'ph ph-cpu',           title: 'Synthesize Verilog',            keywords: 'veri synth hardware',    run: () => clickById('vericomp') },
+  { id: 'compile.wave', acao: 'compileWave',    group: 'Compile', icon: 'ph ph-waveform',      title: 'Analyse Verilog (waveform)',    keywords: 'wave gtkwave simulate',  run: () => clickById('wavecomp') },
+  { id: 'compile.fast', acao: 'compileFast',    group: 'Compile', icon: 'ph ph-lightning',     title: 'Fast run (Verilator)',          keywords: 'fast verilator simulate no waveform', run: () => clickById('fastsim') },
   { id: 'compile.proc',    group: 'Compile', icon: 'ph ph-circuitry',     title: 'Synthesized processor test',    keywords: 'verilator proc io',      run: () => clickById('verilatorproc') },
-  { id: 'compile.all',     group: 'Compile', icon: 'ph ph-hammer',        title: 'Full build',                    keywords: 'all everything build run', run: () => clickById('allcomp') },
-  { id: 'compile.prism',   group: 'Compile', icon: 'ph ph-graph',         title: 'Open PRISM',                    keywords: 'prism netlist schematic diagram', run: () => clickById('prismcomp') },
-  { id: 'compile.cancel',  group: 'Compile', icon: 'ph ph-x-circle',      title: 'Cancel compilation',            keywords: 'stop abort kill',        run: () => clickById('cancel-everything') },
+  { id: 'compile.all', acao: 'compileAll',     group: 'Compile', icon: 'ph ph-hammer',        title: 'Full build',                    keywords: 'all everything build run', run: () => clickById('allcomp') },
+  { id: 'compile.prism', acao: 'openPrism',   group: 'Compile', icon: 'ph ph-graph',         title: 'Open PRISM',                    keywords: 'prism netlist schematic diagram', run: () => clickById('prismcomp') },
+  { id: 'compile.cancel', acao: 'cancelCompilation',  group: 'Compile', icon: 'ph ph-x-circle',      title: 'Cancel compilation',            keywords: 'stop abort kill',        run: () => clickById('cancel-everything') },
 
   // Project
-  { id: 'project.new',     group: 'Project', icon: 'ph ph-folder-simple-plus', title: 'New Project…',            keywords: 'create',                 run: () => clickFirst(['newProjectBtn', 'newProjectBtnWelcome']) },
-  { id: 'project.open',    group: 'Project', icon: 'ph ph-folder-open',   title: 'Open Project…',                 keywords: 'load',                   run: () => clickFirst(['openProjectBtn', 'openProjectBtnWelcome']) },
-  { id: 'project.newFile', group: 'Project', icon: 'ph ph-file-plus',     title: 'New File',                      keywords: 'create add',             run: () => clickById('new-file') },
-  { id: 'project.backup',  group: 'Project', icon: 'ph ph-archive',       title: 'Backup Project',                keywords: 'save zip export',        run: () => clickById('backup-project') },
+  { id: 'project.new', acao: 'newProject',     group: 'Project', icon: 'ph ph-folder-simple-plus', title: 'New Project…',            keywords: 'create',                 run: () => clickFirst(['newProjectBtn', 'newProjectBtnWelcome']) },
+  { id: 'project.open', acao: 'openProject',    group: 'Project', icon: 'ph ph-folder-open',   title: 'Open Project…',                 keywords: 'load',                   run: () => clickFirst(['openProjectBtn', 'openProjectBtnWelcome']) },
+  { id: 'project.newFile', acao: 'newFile', group: 'Project', icon: 'ph ph-file-plus',     title: 'New File',                      keywords: 'create add',             run: () => clickById('new-file') },
+  { id: 'project.backup', acao: 'backupProject',  group: 'Project', icon: 'ph ph-archive',       title: 'Backup Project',                keywords: 'save zip export',        run: () => clickById('backup-project') },
 
   // View
   { id: 'view.files',      group: 'View',    icon: 'ph ph-list-bullets',  title: 'Show Files tree',               keywords: 'verilog picker sidebar', run: () => window.fileTreeViewController?.showFileMode?.() },
   { id: 'view.hierarchy',  group: 'View',    icon: 'ph ph-tree-structure', title: 'Show Hierarchy tree',          keywords: 'modules netlist sidebar', run: () => window.fileTreeViewController?.showHierarchyMode?.() },
   { id: 'view.folders',    group: 'View',    icon: 'ph ph-folders',       title: 'Show Folders tree',             keywords: 'filesystem standard explorer sidebar', run: () => window.fileTreeViewController?.showStandardMode?.() },
-  { id: 'view.clearTerm',  group: 'View',    icon: 'ph ph-broom',         title: 'Clear terminal',                keywords: 'clean console output',   run: () => clickById('clear-terminal') },
+  { id: 'view.clearTerm', acao: 'clearTerminal',  group: 'View',    icon: 'ph ph-broom',         title: 'Clear terminal',                keywords: 'clean console output',   run: () => clickById('clear-terminal') },
 
   // Tools
-  { id: 'tools.hub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
+  { id: 'tools.hub', acao: 'processorHub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },
   { id: 'tools.procCfg',   group: 'Tools',   icon: 'ph ph-gear-six',      title: 'Processor simulation settings', keywords: 'clock clocks config',    run: () => clickById('procConfigToggle') },
-  { id: 'tools.settings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
+  { id: 'tools.settings', acao: 'openSettings',  group: 'Tools',   icon: 'ph ph-gear',          title: 'Aurora settings',               keywords: 'preferences options config', run: () => clickById('aurora-settings') },
   { id: 'tools.designLab', group: 'Tools',   icon: 'ph ph-flask',         title: 'Open Design Lab',               keywords: 'components gallery design lab dev showcase lit', run: () => electronAPI?.openDesignLab?.() },
-  { id: 'tools.slang',     group: 'Tools',   icon: 'ph ph-brackets-angle', title: 'Toggle slang — SystemVerilog semantic analysis (Ctrl+Alt+S)', keywords: 'slang systemverilog verilog semantic lsp lint diagnostics elaboration toggle ctrl alt s', run: () => window.AuroraSlang?.toggle?.() },
+  { id: 'tools.slang', acao: 'toggleSlang',     group: 'Tools',   icon: 'ph ph-brackets-angle', title: 'Toggle slang — SystemVerilog semantic analysis (Ctrl+Alt+S)', keywords: 'slang systemverilog verilog semantic lsp lint diagnostics elaboration toggle ctrl alt s', run: () => window.AuroraSlang?.toggle?.() },
 
   // Dev
   { id: 'dev.jankOverlay', group: 'Dev',   icon: 'ph ph-chart-line',    title: 'Toggle Jank Overlay',           keywords: 'performance fps jank perf debug dev p99 rAF TTI', run: () => import('../dev/jank_overlay.js').then(m => m.toggleJankOverlay()) },
@@ -151,7 +165,7 @@ class CommandPalette {
   /** Push the current filtered list + selection to the view. */
   _sync() {
     if (!this._el) return;
-    this._el.items = this._items.map((s) => s.cmd);
+    this._el.items = this._items.map((s) => ({ ...s.cmd, atalho: atalhoDe(s.cmd.acao) }));
     this._el.selected = this._sel;
   }
 

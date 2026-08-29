@@ -104,3 +104,36 @@ describe('o nome do arquivo e a poda', () => {
         expect(podar(['leiame.txt', 'a.json'], 0)).toEqual(['a.json']);
     });
 });
+
+describe('duas execucoes ao mesmo tempo', () => {
+    // Isto NAO e hipotese: na primeira compilacao de verdade o usuario clicou no
+    // PRISM enquanto a onda rodava, e a versao anterior, com um observador so,
+    // deu 0,32 s de ferramentas gravadas numa execucao de 41,2 s. O que se perde
+    // quando duas correm juntas nao pode ser o registro inteiro.
+    it('cada uma continua anotando o que chega, e o passo ambiguo sai marcado', () => {
+        const onda = abrirExecucao({ pedido: 'wave', agora: 0 });
+        anotarPasso(onda, { step: 'cmm', binary: 'cmmcomp.exe', code: 0, ms: 90 });
+
+        const prism = abrirExecucao({ pedido: 'prism', agora: 5000 });
+        // Daqui para a frente ha duas no ar: as duas recebem, e as duas marcam.
+        for (const e of [onda, prism]) {
+            anotarPasso(e, { step: 'yosys-hierarchy', binary: 'yosys.exe', code: 0, ms: 400 }, { concorrente: true });
+        }
+        fecharExecucao(prism, { ok: true, agora: 8000 });
+
+        // A onda continua viva e volta a anotar sozinha, sem marca.
+        anotarPasso(onda, { step: 'wave', binary: 'verilator_bin.exe', code: 0, ms: 30000 });
+        fecharExecucao(onda, { ok: true, agora: 41000 });
+
+        expect(onda.passos.map((p) => p.ferramenta))
+            .toEqual(['cmmcomp.exe', 'yosys.exe', 'verilator_bin.exe']);
+        expect(onda.passos.map((p) => !!p.concorrente)).toEqual([false, true, false]);
+        expect(prism.passos[0].concorrente).toBe(true);
+    });
+
+    it('sem concorrencia, o passo nao carrega marca nenhuma', () => {
+        const e = abrirExecucao({ pedido: 'cmm' });
+        anotarPasso(e, { step: 'cmm', binary: 'cmmcomp.exe', code: 0, ms: 1 });
+        expect('concorrente' in e.passos[0]).toBe(false);
+    });
+});

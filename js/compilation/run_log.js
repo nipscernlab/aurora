@@ -75,16 +75,26 @@ export function retrato(config) {
   };
 }
 
-/** Anota uma ferramenta que rodou. */
-export function anotarPasso(exec, obs) {
+/**
+ * Anota uma ferramenta que rodou.
+ *
+ * `concorrente` marca o passo que aconteceu com MAIS DE UMA execucao no ar. Com
+ * duas abertas ao mesmo tempo, e o caso comum e clicar no PRISM enquanto a onda
+ * roda, nao da para saber qual delas causou cada ferramenta; as duas recebem o
+ * aviso. Marcar e melhor do que escolher uma e mentir, e melhor do que perder o
+ * passo, que foi o que a primeira versao fez.
+ */
+export function anotarPasso(exec, obs, { concorrente = false } = {}) {
   if (!exec || !obs) return exec;
-  exec.passos.push({
+  const passo = {
     step: obs.step || null,
     ferramenta: nomeDoBinario(obs.binary),
     args: Array.isArray(obs.args) ? obs.args : [],
     code: typeof obs.code === 'number' ? obs.code : null,
     ms: typeof obs.ms === 'number' ? obs.ms : null,
-  });
+  };
+  if (concorrente) passo.concorrente = true;
+  exec.passos.push(passo);
   return exec;
 }
 

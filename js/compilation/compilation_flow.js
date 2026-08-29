@@ -30,7 +30,7 @@ import { toForwardSlashes } from '../utils/path_utils.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
-import { setRunObserver } from './spec_runner.js';
+import { addRunObserver } from './spec_runner.js';
 import { abrirExecucao, anotarPasso, fecharExecucao } from './run_log.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
@@ -121,10 +121,22 @@ const STEP_TERMINALS = Object.freeze({
  *
  * Nada aqui pode derrubar uma compilacao: gravar o registro e melhor esforco.
  */
+let execucoesAtivas = 0;
+
 async function comRegistro(pedido, corpo) {
     const projeto = window.currentProjectPath || null;
     const exec = abrirExecucao({ pedido, projeto, config: await retratoDoProjeto() });
-    setRunObserver((obs) => anotarPasso(exec, obs));
+    execucoesAtivas += 1;
+    // Cada execucao tem a SUA inscricao, e cancela so a dela. A primeira versao
+    // guardava um observador unico e a primeira compilacao de verdade mostrou o
+    // custo: o PRISM foi clicado no meio de uma onda, substituiu o observador ao
+    // comecar e o zerou ao terminar, e a onda perdeu 36 dos seus 41 segundos.
+    //
+    // Com duas execucoes no ar, as DUAS recebem tudo, e nao ha como saber daqui
+    // qual delas causou cada ferramenta. Em vez de escolher uma e mentir, o
+    // passo sai marcado como concorrente, e quem ler sabe que aquele trecho do
+    // registro e ambiguo.
+    const cancelar = addRunObserver((obs) => anotarPasso(exec, obs, { concorrente: execucoesAtivas > 1 }));
     try {
         const r = await corpo();
         fecharExecucao(exec, { ok: true });
@@ -137,7 +149,8 @@ async function comRegistro(pedido, corpo) {
         });
         throw erro;
     } finally {
-        setRunObserver(null);
+        cancelar();
+        execucoesAtivas -= 1;
         try {
             if (projeto) await electronAPI?.runLogGravar?.(projeto, exec);
         } catch (e) {

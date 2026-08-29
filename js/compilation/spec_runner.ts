@@ -57,7 +57,7 @@ export interface RunObservation {
 type RunObserver = (obs: RunObservation) => void;
 
 /**
- * Observador de TODA execucao, e nao so das que levaram override.
+ * Observadores de TODA execucao, e nao so das que levaram override.
  *
  * O `auditHook` acima parece servir para isto e nao serve: ele so dispara
  * quando ha override da IA, porque nasceu para auditar exatamente isso. O
@@ -66,12 +66,30 @@ type RunObserver = (obs: RunObservation) => void;
  *
  * Fica aqui porque este modulo e o unico ponto de passagem de todo comando da
  * toolchain; qualquer outro lugar veria uma parte.
+ *
+ * E um CONJUNTO, e nao um so, por uma razao medida em campo: a primeira versao
+ * guardava um observador unico, e na primeira compilacao de verdade o usuario
+ * clicou no PRISM enquanto a onda ainda rodava. O registro do PRISM substituiu
+ * o da onda ao comecar e o zerou ao terminar, entao a onda perdeu 36 dos seus
+ * 41 segundos: ficaram gravados 0,32 s de ferramentas numa execucao de 41,2 s.
+ * Execucoes sobrepostas sao normais aqui, e cada uma precisa continuar ouvindo
+ * a sua.
  */
-let runObserver: RunObserver | null = null;
-export function setRunObserver(fn: unknown): void { runObserver = typeof fn === 'function' ? fn as RunObserver : null; }
+const runObservers = new Set<RunObserver>();
+
+/**
+ * Registra um observador e devolve como cancelar.
+ * @returns a funcao que remove ESTE observador, e so ele.
+ */
+export function addRunObserver(fn: unknown): () => void {
+  if (typeof fn !== 'function') return () => {};
+  const obs = fn as RunObserver;
+  runObservers.add(obs);
+  return () => { runObservers.delete(obs); };
+}
 
 function observar(spec: CommandSpecType, resultado: ExecSpecResult, inicio: number): ExecSpecResult {
-  if (runObserver) {
+  for (const runObserver of [...runObservers]) {
     try {
       runObserver({
         step: spec.step,

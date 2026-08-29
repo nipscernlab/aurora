@@ -1576,9 +1576,28 @@ temática quando for pego.
 
 - [ ] **Atualizar todas as máquinas do LABEL** e **conferir o auto-updater lá
       dentro** (o ensaio viu só o caminho feliz; a seção 1 tem o roteiro).
-- [ ] **Garantir que só a conta do dono gere releases.** Conferido em
-      26/08/2026: os dois workflows travam pelo ator, mas o ruleset de tag que
-      os comentários citam NÃO existe no GitHub. Hoje quem segura é o código.
+- [x] ~~**Garantir que só a conta do dono gere releases.**~~ Feito em 29/08/2026,
+      e o buraco era maior do que a tag: a permissão padrão da organização era
+      `admin`, então todo membro era admin em todo repositório, podia apagar
+      qualquer um e passar por cima de qualquer regra. Agora o padrão é
+      `write` (branch, commit e PR, sem apagar nem mudar regra), admin só os
+      donos da organização (você e o Luciano), e a Roberta, que era admin
+      direta na aurora e na nipscernweb, passou a write. Em cada repositório
+      ativo e público da organização, fora HITS e YANC, duas regras: a `main`
+      só recebe merge por pull request, sem push forçado nem apagar (a aurora
+      exige o CI verde), e as tags `v*` só admin muda ou apaga. Na `sapho`,
+      canal de release, criar tag também é só admin, e a publicação usa o
+      PAT do dono. Na `aurora` criar tag ficou livre de propósito: o
+      release-please cria a tag com o GITHUB_TOKEN, que não é admin, e o
+      GitHub só aceita o app como exceção em regra de organização, que exige
+      o escopo `admin:org` no `gh` (concede-se com `gh auth refresh -s
+      admin:org`, se um dia quiser fechar isso também); uma tag criada por
+      um membro não publica nada, porque o release.yml só roda para o dono ou
+      para o bot. Ficaram sem regra os dois repositórios privados
+      (sapho-relatos, teste-python): ruleset em privado exige plano pago; o
+      padrão `write` da organização os cobre do mesmo jeito. A opção
+      `members_can_delete_repositories` não aceitou mudança pela API, mas
+      com ninguém admin ela não tem efeito.
 - [ ] **Enviar ao programa de desenvolvedor da Microsoft** (relacionado ao 2.6).
 - [ ] **Patente.**
 

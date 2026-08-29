@@ -42,6 +42,7 @@ try {
 
 const provider = require('./provider');
 const tools = require('./tools');
+const promptCache = require('./prompt_cache');
 const toolBridge = require('./tool_bridge');
 const audit = require('./audit');
 const { STREAM_IDLE_MS } = require('./timeouts');
@@ -132,6 +133,7 @@ async function start(payload, webContents) {
     modelId,
     messages,
     system,
+    effort,
   } = payload || {};
 
   // Expand any composer attachments (images / files) into SDK multimodal content.
@@ -179,41 +181,30 @@ async function start(payload, webContents) {
       return result;
     });
 
-    // Anthropic prompt caching
-    // -------------------------
-    // Aurora's system prompt is large (SAPHO knowledge base) and ~the
-    // same every turn. Without caching, each follow-up turn pays the
-    // full input-token cost again. Anthropic's ephemeral cache TTL is
-    // 5 minutes, well within typical chat cadence, and cuts repeat
-    // input tokens by ~90%. We only attach `cacheControl` for the
-    // Anthropic provider; other SDKs ignore it.
-    const useAnthropicCache = providerName === 'anthropic' && system && system.length > 1024;
-    let systemArg;
-    /** @type {any} */
-    let messagesArg = sdkMessages;
-    if (useAnthropicCache) {
-      systemArg = undefined;
-      messagesArg = [
-        {
-          role: 'system',
-          content: [
-            {
-              type: 'text',
-              text: system,
-              providerOptions: { anthropic: { cacheControl: { type: 'ephemeral' } } },
-            },
-          ],
-        },
-        ...sdkMessages,
-      ];
-    } else if (system) {
-      systemArg = system;
-    }
+    // Cache de prompt da Anthropic: system prompt e ferramentas por 1 hora, a
+    // ultima mensagem do usuario por 5 minutos. O porque e as contas estao em
+    // prompt_cache.js; aqui so se monta o pedido. As ferramentas ja vem com a
+    // marca da ultima (tools.buildTools).
+    const { instructionsArg, messagesArg, comCache } = promptCache.montarComCache({
+      providerName, system, messages: sdkMessages,
+    });
+    if (comCache) log.info(`[ai.chat] prompt cache armado para ${modelKey} (system 1h, ferramentas 1h, conversa 5m)`);
+
+    // Esforco de raciocinio no caminho de API. O controle da tela ja existia
+    // para as CLIs de assinatura; a API da Anthropic aceita o mesmo `effort`
+    // nas familias que o suportam, e nas outras o parametro seria um 400.
+    const providerOptions = provider.efeitoSuportado(providerName, modelKey) && effort
+      ? { anthropic: { effort } }
+      : undefined;
+    if (providerOptions) log.info(`[ai.chat] effort=${effort} para ${modelKey}`);
 
     const result = streamText({
       model,
       messages: messagesArg,
-      ...(systemArg ? { system: systemArg } : {}),
+      // `instructions` e o nome no AI SDK 7; `system` ficou como apelido
+      // depreciado e nao aceita a mensagem marcada para cache.
+      ...(instructionsArg ? { instructions: instructionsArg } : {}),
+      ...(providerOptions ? { providerOptions } : {}),
       tools: aiTools,
       stopWhen: stepCountIs(MAX_STEPS),
       abortSignal: abort.signal,
@@ -437,7 +428,13 @@ async function start(payload, webContents) {
     // The turn still finishes, but its cost vanishes from the usage bar; say so
     // in the log, otherwise the gap is invisible.
     if (usage == null) log.warn(`[ai.chat] usage for session ${sessionId} did not arrive in time; turn accounted as unknown`);
-
+    // O que o cache rendeu vai junto do usage: e o unico jeito de a pessoa ver
+    // que o turno custou um decimo, e de nos vermos que a marca pegou.
+    if (usage) {
+      const cache = promptCache.leituraDoCache(usage);
+      usage = { ...usage, cacheAurora: cache };
+      if (cache.lidos || cache.escritos) log.info(`[ai.chat] cache: ${cache.lidos} lidos, ${cache.escritos} escritos, ${cache.entrada} de entrada`);
+    }
     sendEvent(webContents, sessionId, 'finish', { text: stripToolXml(fullText), usage });
   } catch (e) {
     if (stalled) {

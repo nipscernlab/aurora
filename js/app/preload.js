@@ -390,6 +390,7 @@ const updateOperations = {
 const aiAPI = {
   /** List of supported providers + their default model IDs. */
   listProviders: () => ipcRenderer.invoke('ai:list-providers'),
+  modelPresets: () => ipcRenderer.invoke('ai:model-presets'),
 
   /** Snapshot of which providers currently have a key configured. */
   getKeyStatus: () => ipcRenderer.invoke('ai:get-key-status'),

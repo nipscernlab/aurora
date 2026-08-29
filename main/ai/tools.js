@@ -22,6 +22,8 @@
 
 'use strict';
 
+const promptCache = require('./prompt_cache');
+
 // `ai` is loaded defensively so a broken install does not crash the main
 // process at module load. buildTools (which is the only function that
 // actually uses these) checks for null before doing anything.
@@ -1698,13 +1700,18 @@ function buildTools(runToolFn) {
   if (!tool || !jsonSchema) return {};
   /** @type {Record<string, any>} */
   const tools = {};
-  for (const def of TOOL_MANIFEST) {
+  // A ULTIMA ferramenta leva a marca de cache: para a Anthropic ela fecha o
+  // prefixo de todas as anteriores, uns 14,7 mil tokens que antes eram
+  // cobrados inteiros a cada turno. Os outros provedores ignoram a marca.
+  const ultima = TOOL_MANIFEST.length - 1;
+  TOOL_MANIFEST.forEach((def, i) => {
     tools[def.name] = tool({
       description: def.description,
       inputSchema: jsonSchema(def.inputSchema),
       execute: async (/** @type {any} */ args) => runToolFn(def.name, args || {}),
+      ...(i === ultima ? { providerOptions: promptCache.marcaDaUltimaFerramenta() } : {}),
     });
-  }
+  });
   return tools;
 }
 

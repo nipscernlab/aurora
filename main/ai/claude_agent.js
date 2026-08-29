@@ -200,6 +200,12 @@ async function tryStart(p, webContents, host) {
   // ---- env / dirs ------------------------------------------------------------
   // Subscription billing only: never let the CLI fall back to a metered key.
   const env = { ...process.env };
+  // O Opus 5 delega a subagentes com gosto, e cada subagente e uma conta a
+  // parte na assinatura da pessoa. Um nivel de profundidade e quatro ao mesmo
+  // tempo cobrem o que a AURORA pede (explorar, revisar) sem virar arvore.
+  // Documentado em code.claude.com/docs/en/agent-sdk/subagents.
+  if (!env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH) env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH = '1';
+  if (!env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS) env.CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS = '4';
   delete env.ANTHROPIC_API_KEY;
   delete env.ANTHROPIC_AUTH_TOKEN;
   if (!env.MCP_TOOL_TIMEOUT) env.MCP_TOOL_TIMEOUT = String(MCP_TOOL_CALL_MS); // see legacy note

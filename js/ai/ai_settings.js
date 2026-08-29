@@ -56,6 +56,23 @@ const PROVIDER_META = {
 const tr = (key, params) => (window.t ? window.t(key, params) : key);
 
 /** Map a card's data-provider id back to its DOM card. */
+/**
+ * As opcoes da lista de modelos de um provedor, vindas do main
+ * (aiAPI.modelPresets). Sem resposta ainda, lista vazia: o campo continua
+ * livre, e a lista se enche quando o main responder (ver preencherPresets).
+ */
+let PRESETS = {};
+function presetsHtml(provider) {
+  const lista = PRESETS[provider] || [];
+  return lista.map((m) => `<option value="${m.id}">${m.nota ? m.nota : ''}</option>`).join('');
+}
+async function carregarPresets() {
+  try {
+    const r = await window.aiAPI?.modelPresets?.();
+    if (r && r.ok && r.presets) PRESETS = r.presets;
+  } catch (_) { /* a lista e sugestao; sem ela o campo segue livre */ }
+}
+
 function cardFor(provider) {
   return document.querySelector(`.ai-provider-card[data-provider="${provider}"]`);
 }
@@ -126,9 +143,9 @@ function buildCard(provider, model, defaultModel) {
       <label class="ai-pc-modellabel"></label>
       <input type="text" class="ai-pc-model-input" spellcheck="false"
              autocomplete="off" placeholder="${defaultModel || ''}"
-             ${isLocal ? `list="${dlId}"` : ''}>
-      ${isLocal ? `<datalist id="${dlId}"></datalist>
-      <button class="btn btn-secondary ai-pc-detect"></button>` : ''}
+             list="${dlId}">
+      <datalist id="${dlId}">${presetsHtml(provider)}</datalist>
+      ${isLocal ? `<button class="btn btn-secondary ai-pc-detect"></button>` : ''}
     </div>
     <div class="ai-pc-keyrow">
       <input type="${isLocal ? 'text' : 'password'}" class="ai-pc-input"
@@ -153,6 +170,9 @@ function buildCard(provider, model, defaultModel) {
   const removeBtn  = card.querySelector('.ai-pc-remove');
   const detectBtn  = card.querySelector('.ai-pc-detect');
   const datalist   = card.querySelector('datalist');
+  // O provedor local preenche a lista pelo Detect; os outros ja nascem com os
+  // presets da casa (main/ai/provider.js, MODEL_PRESETS), que sao sugestao e
+  // nao cerco: qualquer id digitado continua valendo.
 
   // i18n: bind via data-i18n + a real English fallback (NOT the raw key). These
   // cards are built imperatively, possibly BEFORE the locale catalog finishes
@@ -299,6 +319,7 @@ async function refreshStatuses() {
  * just-hidden) Settings modal markup.
  */
 export async function initAiSettings() {
+  await carregarPresets();
   const host = document.getElementById('ai-provider-cards');
   if (!host || !window.aiAPI) return;
 

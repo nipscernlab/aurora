@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveModelId, isModelUnavailableError, getDefaultModel, DEFAULT_MODELS,
+  efeitoSuportado, MODEL_PRESETS,
 } from '../../main/ai/provider.js';
 
 describe('resolveModelId', () => {
@@ -56,5 +57,42 @@ describe('isModelUnavailableError', () => {
     expect(isModelUnavailableError({ message: 'rate limit exceeded' })).toBe(false);
     expect(isModelUnavailableError({ message: 'invalid api key' })).toBe(false);
     expect(isModelUnavailableError({ statusCode: 500, message: 'internal server error' })).toBe(false);
+  });
+});
+
+// 29/08/2026: a familia 5 e o parametro effort da API da Anthropic.
+describe('migracoes da Anthropic', () => {
+  it('modelos aposentados vao para o mais novo da familia', () => {
+    expect(resolveModelId('anthropic', 'claude-opus-4-1')).toBe('claude-opus-5');
+    expect(resolveModelId('anthropic', 'claude-sonnet-4-20250514')).toBe('claude-sonnet-5');
+    expect(resolveModelId('anthropic', 'claude-3-5-haiku-latest')).toBe('claude-haiku-4-5');
+  });
+  it('os atuais passam intocados', () => {
+    for (const id of ['claude-sonnet-5', 'claude-opus-5', 'claude-fable-5', 'claude-haiku-4-5-20251001']) {
+      expect(resolveModelId('anthropic', id)).toBe(id);
+    }
+  });
+});
+
+describe('efeitoSuportado', () => {
+  it('so a Anthropic, e so nas familias que aceitam effort', () => {
+    expect(efeitoSuportado('anthropic', 'claude-sonnet-5')).toBe(true);
+    expect(efeitoSuportado('anthropic', 'claude-opus-5')).toBe(true);
+    expect(efeitoSuportado('anthropic', 'claude-fable-5')).toBe(true);
+    expect(efeitoSuportado('anthropic', 'claude-opus-4-8')).toBe(true);
+    expect(efeitoSuportado('anthropic', 'claude-sonnet-4-6')).toBe(true);
+    expect(efeitoSuportado('anthropic', 'claude-haiku-4-5-20251001')).toBe(false);
+    expect(efeitoSuportado('anthropic', 'claude-sonnet-4-5')).toBe(false);
+    expect(efeitoSuportado('openai', 'gpt-5.6-sol')).toBe(false);
+    expect(efeitoSuportado('anthropic', '')).toBe(false);
+  });
+});
+
+describe('MODEL_PRESETS', () => {
+  it('a Anthropic recomenda o Sonnet 5 primeiro e todo preset resolve para si mesmo', () => {
+    expect(MODEL_PRESETS.anthropic[0].id).toBe('claude-sonnet-5');
+    for (const [prov, lista] of Object.entries(MODEL_PRESETS)) {
+      for (const m of lista) expect(resolveModelId(prov, m.id)).toBe(m.id);
+    }
   });
 });

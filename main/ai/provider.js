@@ -73,12 +73,58 @@ const DEFAULT_MODELS = Object.freeze({
 // 'latest'/'default' aliases and the runtime fallback covers the rest).
 const MODEL_MIGRATIONS = Object.freeze({
   openai:    {},
-  anthropic: {},
+  // Aposentados na API de primeira parte (tabela de precos de 29/08/2026):
+  // Opus 4 e 4.1 (que custavam 15/75) vao para o Opus 5 (5/25), Sonnet 4 para
+  // o Sonnet 5, Haiku 3.5 para o Haiku 4.5. Sempre para o mais novo da familia,
+  // que e mais barato ou igual e nao e o que vai aposentar em seguida.
+  anthropic: {
+    'claude-opus-4-1': 'claude-opus-5',
+    'claude-opus-4-1-20250805': 'claude-opus-5',
+    'claude-opus-4-0': 'claude-opus-5',
+    'claude-opus-4-20250514': 'claude-opus-5',
+    'claude-sonnet-4-0': 'claude-sonnet-5',
+    'claude-sonnet-4-20250514': 'claude-sonnet-5',
+    'claude-3-5-haiku-latest': 'claude-haiku-4-5',
+    'claude-3-5-haiku-20241022': 'claude-haiku-4-5',
+  },
   google:    {},
   deepseek:  {},
   groq:      {},
   ollama:    {},
 });
+
+/**
+ * Os modelos que a tela oferece por provedor, do recomendado para baixo. E uma
+ * lista de sugestao (datalist), nao um cerco: quem digitar outro id continua
+ * podendo. Familia 5 da Anthropic conferida na tabela de precos de 29/08/2026;
+ * Sonnet 5 a 2/10 por MTok virou preco padrao, e e o primeiro a testar.
+ */
+const MODEL_PRESETS = Object.freeze({
+  anthropic: [
+    { id: 'claude-sonnet-5',           nota: 'recomendado: codigo, ferramentas, 1M de contexto, 2/10 USD por MTok' },
+    { id: 'claude-opus-5',             nota: 'o mais forte para problemas dificeis, 5/25' },
+    { id: 'claude-haiku-4-5-20251001', nota: 'o mais barato, 1/5' },
+    { id: 'claude-fable-5',            nota: 'escrita longa e estilo, 10/50' },
+  ],
+  openai:   [{ id: 'gpt-4o-mini', nota: 'barato, com ferramentas' }],
+  google:   [{ id: 'gemini-2.5-flash', nota: 'rapido, com ferramentas' }],
+  deepseek: [{ id: 'deepseek-chat', nota: '' }],
+  groq:     [{ id: 'llama-3.3-70b-versatile', nota: '' }],
+  ollama:   [],
+});
+
+/**
+ * Se o par provedor/modelo aceita o parametro `effort` da API da Anthropic.
+ * Conferido na documentacao do provedor do AI SDK e na tabela de modelos de
+ * 29/08/2026: familia 5 inteira e Opus 4.6 a 4.8 e Sonnet 4.6. Nas outras o
+ * parametro e recusado com 400, entao fora da lista ele nem vai.
+ * @param {string} provider
+ * @param {string|null|undefined} modelId
+ */
+function efeitoSuportado(provider, modelId) {
+  if (provider !== 'anthropic' || !modelId) return false;
+  return /^claude-(fable-5|opus-5|sonnet-5|opus-4-[678]|sonnet-4-6)(-|$)/.test(String(modelId));
+}
 
 /**
  * Resolve a requested model id to one we should actually call:
@@ -275,6 +321,8 @@ async function generateOneshot({ provider: name, model, system, prompt, maxOutpu
 }
 
 module.exports = {
+  MODEL_PRESETS,
+  efeitoSuportado,
   DEFAULT_MODELS,
   getProvider,
   getDefaultModel,

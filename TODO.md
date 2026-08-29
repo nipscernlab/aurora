@@ -1635,6 +1635,46 @@ temática quando for pego.
 
 ---
 
+### 9.7 Aurora Intelligence, o que há de novo em IA aplicado (29/08/2026)
+
+- [x] ~~**Claude Code 2.1.251, Agent SDK 0.3.251, Codex 0.151.0.**~~ O download
+      medido cai de 99 MB para 93 MB e o disco de 337 MB para 217 MB (o "75 MB"
+      do boletim é o instalador nativo, não o pacote npm). Traz a correção do
+      Opus 5 com esforço xhigh/max e a das ferramentas de arquivo por symlink.
+- [x] ~~**Cache de prompt de verdade.**~~ Medido: system prompt de 8,6 mil
+      tokens e 112 ferramentas de 14,7 mil, reenviados inteiros a cada turno;
+      só o system era marcado, por 5 minutos. Agora três marcas: última
+      ferramenta (1 h), system (1 h) e última mensagem do usuário (5 min, a
+      móvel). `main/ai/prompt_cache.js`, puro e testado. O double check contra
+      o provedor real com fetch falso (`anthropicRequestShape.test.js`) pegou
+      um defeito antigo: o AI SDK 7 recusa `role: 'system'` dentro de
+      `messages` (InvalidPromptError), que era como o cache antigo era marcado,
+      então o caminho de API da Anthropic com o system grande estourava antes
+      de enviar. O lugar é `instructions`.
+- [x] ~~**Esforço no caminho de API da Anthropic.**~~ O controle da tela só
+      valia para as CLIs; agora aparece para a Anthropic e vai como `effort`
+      nas famílias que aceitam (5 inteira, Opus 4.6 a 4.8, Sonnet 4.6),
+      `efeitoSuportado` testado.
+- [x] ~~**Família 5 na governança de modelos.**~~ Migrações dos aposentados
+      (Opus 4/4.1 para Opus 5, Sonnet 4 para Sonnet 5, Haiku 3.5 para 4.5) e
+      presets por provedor no campo de modelo das Configurações, Sonnet 5
+      primeiro (2/10 USD por MTok virou preço padrão). O padrão continua Haiku
+      4.5: trocar é decisão de custo de quem tem chave.
+- [x] ~~**Tetos de subagentes no Claude Code.**~~ Profundidade 1 e quatro
+      simultâneos, porque o Opus 5 delega com gosto e cada subagente é conta
+      na assinatura.
+- [x] ~~**O cache visível.**~~ O `usage` leva o que foi lido e escrito no
+      cache e o contador de tokens diz quanto da conversa veio a um décimo.
+- [ ] **Do boletim, o que não se aplica ou ficou:** `promptCacheTtl` do
+      Claude Code vale só para chave de API ou nuvem, e os usuários da AURORA
+      entram por assinatura; `--restricted` já é o que `native_tools.js` faz
+      por allowlist; memória de subagente em `.claude/agent-memory/`
+      duplicaria a memória de projeto que a AURORA já tem em `.aurora/memory`;
+      o relato de bug redigido pela IA (SendFeedback) é ideia boa para o
+      formulário da AURORA e fica para uma próxima.
+
+---
+
 ## Princípios de desenho
 
 Nenhuma API responde de forma incompleta. Ou foi chamada errado, e diz onde;

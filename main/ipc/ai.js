@@ -98,6 +98,9 @@ function register() {
 
   // Persist (or, with an empty value, clear) the model override for a
   // provider. Returns the effective model so the renderer can re-sync.
+  // Os modelos sugeridos por provedor, para a lista do campo de modelo.
+  ipcMain.handle('ai:model-presets', () => ({ ok: true, presets: provider.MODEL_PRESETS }));
+
   ipcMain.handle('ai:set-model', (_event, payload) => {
     const { provider: name, model } = payload || {};
     try {

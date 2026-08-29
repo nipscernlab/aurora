@@ -883,11 +883,15 @@ class AIAssistantManager {
     // Effort shows for any bridge with hasEffort, Claude Code (--effort)
     // and Codex (-c model_reasoning_effort) share the same segmented control.
     const sm = SUB_META[this.currentProvider];
+    // A API da Anthropic aceita o mesmo esforco que as CLIs, entao o controle
+    // aparece para ela tambem (o main so o envia aos modelos que o suportam).
+    const temEsforco = (sm && sm.hasEffort) || this.currentProvider === 'anthropic';
     if (this.effortSection) {
-      this.effortSection.classList.toggle('hidden', !(sm && sm.hasEffort));
+      this.effortSection.classList.toggle('hidden', !temEsforco);
     }
 
     this.renderModelControls();
+    if (temEsforco && !isSub) this.renderEffort();
     if (isSub) {
       if (sm && sm.hasEffort) this.renderEffort();
       this.refreshSubStatus();
@@ -1909,7 +1913,7 @@ class AIAssistantManager {
         system: systemPrompt,
         // Shared effort selection, sent to any bridge that declares
         // hasEffort (Claude Code --effort; Codex -c model_reasoning_effort).
-        effort: SUB_META[this.currentProvider]?.hasEffort ? this.claudeCodeEffort : undefined,
+        effort: (SUB_META[this.currentProvider]?.hasEffort || this.currentProvider === 'anthropic') ? this.claudeCodeEffort : undefined,
         permission: this.permissionMode,
       });
       if (r && r.ok === false) this.failTurn(motivoDe(r, 'Failed to start chat'));
@@ -2901,14 +2905,24 @@ class AIAssistantManager {
        (usage.outputTokens ?? usage.completionTokens ?? 0));
     if (total > 0) {
       this.cumulativeTokens += total;
-      this.updateTokenCounter();
     }
+    // O que veio do cache custou um decimo: contado a parte, para o titulo do
+    // contador dizer quanto da conversa foi de graca.
+    const cache = usage.cacheAurora;
+    if (cache && (cache.lidos || cache.escritos)) {
+      this.cacheLidos = (this.cacheLidos || 0) + (cache.lidos || 0);
+      this.cacheEscritos = (this.cacheEscritos || 0) + (cache.escritos || 0);
+    }
+    if (total > 0 || cache) this.updateTokenCounter();
   }
 
   /** Refresh the compact composer token pill and (if open) the usage bars. */
   updateTokenCounter() {
     this.tokenCounter.textContent = formatTokens(this.cumulativeTokens);
-    this.tokenCounter.title = `${this.cumulativeTokens.toLocaleString()} tokens this conversation`;
+    const doCache = this.cacheLidos
+      ? ` (${this.cacheLidos.toLocaleString()} read from the prompt cache at a tenth of the price)`
+      : '';
+    this.tokenCounter.title = `${this.cumulativeTokens.toLocaleString()} tokens this conversation${doCache}`;
     // Refresh the usage section live for any subscription provider whose
     // popover is open, the per-turn `applyUsage()` may have ticked the
     // CLI-reported session counter forward.
@@ -3022,6 +3036,8 @@ class AIAssistantManager {
       this.chatEmptyHint.classList.remove('hidden');
     }
     this.cumulativeTokens = 0;
+    this.cacheLidos = 0;
+    this.cacheEscritos = 0;
     this.updateTokenCounter();
     this.runningChips = [];
     this._toolGroup = null;

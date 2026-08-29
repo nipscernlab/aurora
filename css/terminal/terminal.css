@@ -189,6 +189,17 @@
   height: 14px;
 }
 
+/* O PRISM usa a MESMA marca do botao da toolbar, e nao um glifo redesenhado:
+   a aba e o botao falam da mesma coisa, e duas versoes do mesmo simbolo sao o
+   comeco de duas identidades. Como aqui e imagem e nao traco, o tamanho tem
+   que vir de largura e altura; o `font-size` que dimensiona os outros glifos
+   nao alcanca um <img>. */
+.terminal-tabs .tab .glyph-tprism {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  object-fit: contain;
+}
+
 /* Semantic color when not active, match the toolbar compile glyphs. */
 .terminal-tabs .tab[data-terminal="tcmm"] .glyph    { color: var(--color-cmm); }
 .terminal-tabs .tab[data-terminal="tasm"] .glyph    { color: var(--color-asm); }

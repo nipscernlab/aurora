@@ -31,7 +31,7 @@ import { TabManager } from '../tabs/tab_manager.js';
 import { getSimulator } from '../wave/simulator_preference.js';
 import { getViewer } from '../wave/viewer_preference.js';
 import { addRunObserver } from './spec_runner.js';
-import { abrirExecucao, anotarPasso, fecharExecucao } from './run_log.js';
+import { abrirExecucao, anotarPasso, fecharExecucao, resumo } from './run_log.js';
 import { switchTerminal } from '../terminal/terminal.js';
 import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
@@ -123,10 +123,41 @@ const STEP_TERMINALS = Object.freeze({
  */
 let execucoesAtivas = 0;
 
+/**
+ * As execucoes que ainda nao terminaram.
+ *
+ * A tela do historico lia so o disco, e o disco so recebe a execucao no fim:
+ * quem abrisse a tela durante uma compilacao via a lista de ontem, parada,
+ * enquanto a compilacao de agora rodava atras dela. Guardar as abertas aqui e
+ * o que permite a tela mostrar a linha viva; ela sai daqui e vira linha
+ * gravada quando o arquivo e escrito, sem a tela precisar saber da troca.
+ */
+const execAbertas = new Set();
+
+/**
+ * Avisa quem mostra o registro que ele mudou.
+ *
+ * Evento no window, e nao uma chamada direta a tela: o compilation_flow nao
+ * deve saber que existe uma tela de historico, e no dia em que houver duas
+ * coisas interessadas, nada muda aqui.
+ */
+function avisarRegistro() {
+    try {
+        window.dispatchEvent(new CustomEvent('aurora:run-log-changed'));
+    } catch (_) { /* sem window, num teste: o registro segue valendo */ }
+}
+
+/** O que esta rodando agora, no formato que a listagem do disco devolve. */
+export function execucoesAbertas(agora = Date.now()) {
+    return [...execAbertas].map((e) => resumo(e, agora)).sort((a, b) => b.inicio - a.inicio);
+}
+
 async function comRegistro(pedido, corpo) {
     const projeto = window.currentProjectPath || null;
     const exec = abrirExecucao({ pedido, projeto, config: await retratoDoProjeto() });
     execucoesAtivas += 1;
+    execAbertas.add(exec);
+    avisarRegistro();
     // Cada execucao tem a SUA inscricao, e cancela so a dela. A primeira versao
     // guardava um observador unico e a primeira compilacao de verdade mostrou o
     // custo: o PRISM foi clicado no meio de uma onda, substituiu o observador ao
@@ -136,7 +167,12 @@ async function comRegistro(pedido, corpo) {
     // qual delas causou cada ferramenta. Em vez de escolher uma e mentir, o
     // passo sai marcado como concorrente, e quem ler sabe que aquele trecho do
     // registro e ambiguo.
-    const cancelar = addRunObserver((obs) => anotarPasso(exec, obs, { concorrente: execucoesAtivas > 1 }));
+    // Avisa a cada ferramenta que roda, e nao so no fim: numa compilacao
+    // inteira sao minutos, e uma tela que so acorda no fim nao esta ao vivo.
+    const cancelar = addRunObserver((obs) => {
+        anotarPasso(exec, obs, { concorrente: execucoesAtivas > 1 });
+        avisarRegistro();
+    });
     try {
         const r = await corpo();
         fecharExecucao(exec, { ok: true });
@@ -155,6 +191,12 @@ async function comRegistro(pedido, corpo) {
             if (projeto) await electronAPI?.runLogGravar?.(projeto, exec);
         } catch (e) {
             console.warn('[run-log] nao consegui gravar a execucao:', e);
+        } finally {
+            // So sai das abertas DEPOIS de gravar: tirar antes abriria uma
+            // janela em que a execucao nao esta nem aqui nem no disco, e a
+            // linha sumiria da tela por um instante antes de voltar gravada.
+            execAbertas.delete(exec);
+            avisarRegistro();
         }
     }
 }

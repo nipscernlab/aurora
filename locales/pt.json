@@ -1062,6 +1062,7 @@
     "ok": "OK",
     "failed": "Falhou",
     "cancelled": "Cancelada",
+    "running": "Em andamento",
     "stateTitle": "Estado do projeto na hora",
     "chainTitle": "O que rodou",
     "noSteps": "Nenhuma ferramenta rodou: o pedido foi recusado antes da primeira.",

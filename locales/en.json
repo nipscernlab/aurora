@@ -1062,6 +1062,7 @@
     "ok": "OK",
     "failed": "Failed",
     "cancelled": "Cancelled",
+    "running": "Running",
     "stateTitle": "Project state at the time",
     "chainTitle": "What ran",
     "noSteps": "No tool ran: the request was refused before the first one.",

@@ -89,6 +89,36 @@
 .run-history-marca.erro      { background: var(--status-error); }
 .run-history-marca.cancelada { background: var(--text-muted); }
 
+/* A execucao que ainda roda: a mesma marca, pulsando. O pulso e o unico
+   movimento da lista, entao ele nao compete com nada, e diz sem texto o que a
+   ultima coluna repete com texto.
+
+   1.4s cravado, e nao um token: a escala de duracoes vai de 420ms (--dur-
+   curtain, transicao de tela) direto para 18s (--dur-ambient, a deriva do
+   fundo), porque ela mede TRANSICOES, e o periodo de uma batida repetida e
+   outro eixo. No meio dessa lacuna, 420ms pisca e 18s parece parado. */
+.run-history-marca.andando {
+  background: var(--status-warning);
+  animation: run-history-pulso 1.4s ease-in-out infinite;
+}
+
+/* Quem pediu menos movimento nao quer um ponto pulsando na tela; a cor sozinha
+   ja diz que aquela linha e a que roda. */
+@media (prefers-reduced-motion: reduce) {
+  .run-history-marca.andando { animation: none; }
+}
+@keyframes run-history-pulso {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
+
+/* A linha viva nao e clicavel, entao nao finge que e: sem cursor de mao e sem
+   realce ao passar o mouse. O fundo levissimo e o que a separa das gravadas. */
+.run-history-item.andando {
+  cursor: default;
+  background: color-mix(in srgb, var(--status-warning) 6%, transparent);
+}
+
 .run-history-pedido {
   font-weight: var(--font-medium);
   overflow: hidden;
@@ -128,6 +158,7 @@
 .run-history-desfecho.ok        { background: color-mix(in srgb, var(--status-success) 14%, transparent); color: var(--status-success); }
 .run-history-desfecho.erro      { background: color-mix(in srgb, var(--status-error) 14%, transparent);   color: var(--status-error); }
 .run-history-desfecho.cancelada { background: color-mix(in srgb, var(--text-muted) 18%, transparent);     color: var(--text-secondary); }
+.run-history-desfecho.andando   { background: color-mix(in srgb, var(--status-warning) 14%, transparent); color: var(--status-warning); }
 
 /* ---- detalhe ------------------------------------------------------------- */
 

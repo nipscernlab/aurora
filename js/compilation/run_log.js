@@ -129,3 +129,31 @@ export function podar(nomes, limite = 50) {
   const ordenados = (nomes || []).filter((n) => /\.json$/i.test(n)).sort();
   return ordenados.length <= limite ? [] : ordenados.slice(0, ordenados.length - limite);
 }
+
+/**
+ * O resumo de uma execucao, no MESMO formato que a listagem do disco devolve.
+ *
+ * Existe por causa da tela ao vivo: a execucao em andamento ainda nao tem
+ * arquivo, porque so se grava no fim, e mesmo assim precisa aparecer na lista
+ * ao lado das que ja terminaram. Se a linha viva tivesse um formato proprio, a
+ * tela teria dois desenhos de linha e duas chances de divergirem; com o mesmo
+ * formato, ela tem um so e a linha viva simplesmente vira a linha gravada
+ * quando a execucao acaba.
+ *
+ * `ms` de quem ainda roda e o tempo ATE AGORA, e nao nulo: numa execucao longa
+ * o que a pessoa quer saber e ha quanto tempo aquilo esta rodando.
+ */
+export function resumo(exec, agora = Date.now()) {
+  if (!exec) return null;
+  const terminou = typeof exec.fim === 'number';
+  return {
+    id: exec.id,
+    pedido: exec.pedido,
+    inicio: exec.inicio,
+    ms: terminou ? (exec.ms ?? exec.fim - exec.inicio) : Math.max(0, agora - exec.inicio),
+    ok: exec.ok,
+    cancelada: !!exec.cancelada,
+    passos: Array.isArray(exec.passos) ? exec.passos.length : 0,
+    andando: !terminou,
+  };
+}

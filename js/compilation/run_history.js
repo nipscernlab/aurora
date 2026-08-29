@@ -17,6 +17,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { execucoesAbertas } from './compilation_flow.js';
 import { abrirAjuda } from '../ui/help_link.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -24,6 +25,7 @@ const $ = (id) => document.getElementById(id);
 
 let modal = null;
 let carregando = false;
+let redesenhar = false;
 
 /**
  * Nome legivel de uma ferramenta pelo `step` que o builder deu a ela. Os que
@@ -88,6 +90,7 @@ function base(caminho) {
 }
 
 function desfecho(e) {
+  if (e.andando) return { classe: 'andando', texto: tr('runHistory.running') };
   if (e.cancelada) return { classe: 'cancelada', texto: tr('runHistory.cancelled') };
   if (e.ok) return { classe: 'ok', texto: tr('runHistory.ok') };
   return { classe: 'erro', texto: tr('runHistory.failed') };
@@ -103,11 +106,19 @@ async function desenharLista() {
     lista.innerHTML = `<p class="run-history-vazio">${escapar(tr('runHistory.noProject'))}</p>`;
     return;
   }
-  if (carregando) return;
+  // Um pedido que chega no meio da leitura anterior era descartado, e como o
+  // aviso nao se repete a lista podia ficar parada num estado velho. Agora ele
+  // fica marcado e a leitura se refaz ao terminar.
+  if (carregando) { redesenhar = true; return; }
   carregando = true;
   try {
     const r = await electronAPI.runLogListar?.(projeto);
-    const execucoes = r?.execucoes || [];
+    // As vivas na frente, e sem a gravada de mesmo id: durante o instante entre
+    // gravar e sair das abertas a execucao existe nos dois lugares, e sem esse
+    // filtro ela apareceria duas vezes na lista.
+    const vivas = execucoesAbertas();
+    const ids = new Set(vivas.map((e) => e.id));
+    const execucoes = vivas.concat((r?.execucoes || []).filter((e) => !ids.has(e.id)));
     if (!execucoes.length) {
       lista.innerHTML = `<p class="run-history-vazio">${escapar(tr('runHistory.empty'))}</p>`;
       return;
@@ -122,19 +133,25 @@ async function desenharLista() {
       </div>`;
     lista.innerHTML = cabecalho + execucoes.map((e) => {
       const d = desfecho(e);
-      return `<button class="run-history-item" data-id="${escapar(e.id)}">
+      // A execucao viva sai como div, e nao botao: o detalhe le o arquivo, que
+      // so existe no fim. Um botao que nao abre nada seria pior do que uma
+      // linha que nao parece clicavel.
+      const tag = e.andando ? 'div' : 'button';
+      const attrs = e.andando ? 'class="run-history-item andando"' : `class="run-history-item" data-id="${escapar(e.id)}"`;
+      return `<${tag} ${attrs}>
         <span class="run-history-marca ${d.classe}" aria-hidden="true"></span>
         <span class="run-history-pedido">${escapar(nomeDoPedido(e.pedido))}</span>
         <span class="run-history-quando">${escapar(quando(e.inicio))}</span>
         <span class="run-history-duracao">${escapar(duracao(e.ms))}</span>
         <span class="run-history-passos">${escapar(String(e.passos))}</span>
         <span class="run-history-desfecho ${d.classe}">${escapar(d.texto)}</span>
-      </button>`;
+      </${tag}>`;
     }).join('');
   } catch (err) {
     lista.innerHTML = `<p class="run-history-vazio">${escapar(tr('runHistory.readFailed', { erro: err?.message || err }))}</p>`;
   } finally {
     carregando = false;
+    if (redesenhar) { redesenhar = false; desenharLista(); }
   }
 }
 
@@ -212,6 +229,40 @@ function voltarParaLista() {
 
 /* --------------------------------------------------------------- abre/fecha */
 
+/** Se a lista esta visivel agora: modal aberto e detalhe fechado. */
+function listaVisivel() {
+  return !!modal && modal.classList.contains('show') && $('run-history-list')?.hidden === false;
+}
+
+/**
+ * Redesenha por causa de um aviso do compilation_flow.
+ *
+ * Coalescido porque o aviso vem a cada ferramenta que roda, e cada redesenho
+ * custa uma leitura da pasta; sem isso uma compilacao inteira dispararia uma
+ * rajada de listagens de disco por segundo. E so quando a lista esta na tela:
+ * redesenhar o que ninguem ve e trabalho jogado fora, e ao abrir a tela ela
+ * desenha do zero de qualquer jeito.
+ *
+ * Mas o PRIMEIRO aviso pinta na hora, e nao no fim da janela. Coalescer pelo
+ * fim atrasava justamente o aviso que importa, o de que uma execucao COMECOU:
+ * medindo, uma execucao curta abria e fechava dentro dos 250 ms e a linha viva
+ * nunca chegava a ser desenhada. Pintar na entrada e esperar depois da o
+ * melhor dos dois: resposta imediata, e uma listagem por janela na rajada.
+ */
+let pendente = null;
+let repetir = false;
+function aoMudarRegistro() {
+  if (!listaVisivel()) return;
+  if (pendente) { repetir = true; return; }
+  desenharLista();
+  pendente = setTimeout(() => {
+    pendente = null;
+    // Redesenha uma vez pelo que chegou durante a janela, senao a lista
+    // pararia no estado do primeiro aviso da rajada.
+    if (repetir) { repetir = false; aoMudarRegistro(); }
+  }, 250);
+}
+
 function abrir() {
   modal = modal || $('runHistoryModal');
   if (!modal) return;
@@ -223,6 +274,8 @@ function abrir() {
 
 function fechar() {
   if (!modal) return;
+  if (pendente) { clearTimeout(pendente); pendente = null; }
+  repetir = false;
   modal.classList.remove('show');
   modal.setAttribute('aria-hidden', 'true');
 }
@@ -233,6 +286,9 @@ function ligar() {
   $('run-history')?.addEventListener('click', abrir);
   $('runHistoryHelp')?.addEventListener('click', () => abrirAjuda('sapho/compilacao.html'));
   modal.addEventListener('aurora-modal-close', fechar);
+  // O compilation_flow avisa ao abrir uma execucao, a cada ferramenta que roda
+  // e ao gravar. E o que faz a tela mudar sozinha em vez de so na abertura.
+  window.addEventListener('aurora:run-log-changed', aoMudarRegistro);
 
   // A lista se refaz inteira a cada abertura, entao os ouvintes moram no
   // container, nao nas linhas.

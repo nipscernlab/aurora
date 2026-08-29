@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-    abrirExecucao, anotarPasso, fecharExecucao, idDe, podar, retrato, FORMATO,
+    abrirExecucao, anotarPasso, fecharExecucao, idDe, podar, resumo, retrato, FORMATO,
 } from '../../js/compilation/run_log.js';
 
 // O registro existe porque nao da para saber de antemao o que o usuario vai
@@ -136,4 +136,28 @@ describe('duas execucoes ao mesmo tempo', () => {
         anotarPasso(e, { step: 'cmm', binary: 'cmmcomp.exe', code: 0, ms: 1 });
         expect('concorrente' in e.passos[0]).toBe(false);
     });
+});
+
+describe('resumo', () => {
+  it('da a execucao viva o mesmo formato da gravada, marcada como andando', () => {
+    const exec = abrirExecucao({ pedido: 'wave', agora: 1000 });
+    anotarPasso(exec, { step: 'cmm', binary: 'C:/c/yanc.exe', code: 0, ms: 12 });
+    const r = resumo(exec, 5000);
+    expect(r.andando).toBe(true);
+    expect(r.passos).toBe(1);
+    // O tempo ate agora, e nao nulo: numa execucao longa e o que se quer ler.
+    expect(r.ms).toBe(4000);
+    expect(Object.keys(r).sort()).toEqual(
+      ['andando', 'cancelada', 'id', 'inicio', 'ms', 'ok', 'passos', 'pedido'],
+    );
+  });
+
+  it('para de andar quando a execucao fecha, e passa a usar a duracao real', () => {
+    const exec = abrirExecucao({ pedido: 'cmm', agora: 1000 });
+    fecharExecucao(exec, { ok: true, agora: 3000 });
+    const r = resumo(exec, 999999);
+    expect(r.andando).toBe(false);
+    expect(r.ms).toBe(2000);
+    expect(r.ok).toBe(true);
+  });
 });

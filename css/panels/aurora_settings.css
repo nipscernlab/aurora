@@ -1110,7 +1110,15 @@
      como uma grade: o quadro tem sempre o mesmo tamanho, entao logotipo
      colorido e glifo monocromatico ocupam exatamente o mesmo lugar e todos os
      nomes comecam na mesma vertical. */
-  grid-template-columns: 40px 1fr auto;
+  /* A coluna da acao e FIXA, e nao `auto`, e isso foi medido antes de
+     decidir: com `auto`, "Remover" sozinho, "Baixar" sozinho e "Baixar" com a
+     caixa de selecao dao tres larguras, a coluna do meio encolhe ou cresce
+     para compensar, e a grade do titulo (nome, selo, tamanho), que mora
+     dentro dela, muda de largura cartao a cartao. Na tela: o tamanho de um
+     cartao terminava 116px a esquerda do tamanho do vizinho. Com 176px, que
+     e o caso mais largo (caixa + Baixar) com folga, a coluna do meio e a
+     mesma em todos os cartoes e tudo dentro dela fica embaixo de tudo. */
+  grid-template-columns: 40px minmax(0, 1fr) 176px;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
@@ -1188,21 +1196,26 @@
    cartoes se mantem porque o que o garantia era a largura fixa do nome, que
    continua aqui, e o tamanho encostado a direita, que continua com margin
    automatica. */
+/* Grade de tres colunas, nome | selo | tamanho, e nao um flex com quebra. O
+   flex ja tinha a coluna do nome fixa, mas o selo e o tamanho continuavam
+   caindo onde sobrasse: o selo do "Claude Code" nao ficava embaixo do selo do
+   "Surfer", e o tamanho de cada cartao encostava numa vertical diferente. Com
+   a grade, as tres colunas sao as mesmas em todos os cartoes, e o tamanho
+   alinha a direita como numero. A variavel do nome fica, e continua sendo o
+   que os cartoes usam para se alinhar entre si. */
 .componente-titulo {
   --componente-nome-col: 168px;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: var(--componente-nome-col) minmax(0, 1fr) 64px;
   align-items: center;
   gap: var(--space-2);
 }
 
-/* O nome nao encolhe: e ele que alinha os cartoes entre si. Nome maior quebra
-   em duas linhas dentro da propria faixa, em vez de empurrar o selo. */
-.componente-nome { flex: 0 0 var(--componente-nome-col); }
-
-/* Os selos sao a parte elastica, e `min-width: 0` e o que os deixa ceder: sem
-   ele o conteudo `nowrap` define um minimo intransponivel e o transbordo volta. */
-.componente-selos { flex: 1 1 auto; min-width: 0; }
+/* Na grade, o nome ja tem a coluna dele e os selos a faixa elastica; as duas
+   regras de flex que faziam isso antes sairam. O `min-width: 0` dos selos
+   fica na propria regra abaixo, porque sem ele o conteudo `nowrap` define um
+   minimo intransponivel e o transbordo volta. */
+.componente-selos { min-width: 0; }
 
 /* Os selos vivem num invólucro proprio para ocuparem UMA celula do grid. Hoje
    e no maximo UM (ver a regra em components_panel.js: so sobrevive o selo que
@@ -1287,9 +1300,13 @@
 /* justify-self no lugar do antigo margin-left: auto, que era o empurrao certo
    no flex e aqui seria redundante com a faixa 1fr. */
 .componente-tamanho {
-  margin-left: auto;
+  /* A coluna e fixa e o texto encosta a direita dela: numero se compara pela
+     ponta, e por isso os tamanhos de todos os cartoes terminam na mesma
+     vertical. */
+  text-align: right;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
 

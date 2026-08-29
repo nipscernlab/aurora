@@ -112,14 +112,22 @@ async function desenharLista() {
       lista.innerHTML = `<p class="run-history-vazio">${escapar(tr('runHistory.empty'))}</p>`;
       return;
     }
-    lista.innerHTML = execucoes.map((e) => {
+    const cabecalho = `<div class="run-history-cabecalho" aria-hidden="true">
+        <span></span>
+        <span>${escapar(tr('runHistory.colRequest'))}</span>
+        <span class="run-history-quando">${escapar(tr('runHistory.colWhen'))}</span>
+        <span class="run-history-duracao">${escapar(tr('runHistory.colDuration'))}</span>
+        <span class="run-history-passos">${escapar(tr('runHistory.colSteps'))}</span>
+        <span class="run-history-desfecho">${escapar(tr('runHistory.colOutcome'))}</span>
+      </div>`;
+    lista.innerHTML = cabecalho + execucoes.map((e) => {
       const d = desfecho(e);
       return `<button class="run-history-item" data-id="${escapar(e.id)}">
         <span class="run-history-marca ${d.classe}" aria-hidden="true"></span>
         <span class="run-history-pedido">${escapar(nomeDoPedido(e.pedido))}</span>
         <span class="run-history-quando">${escapar(quando(e.inicio))}</span>
         <span class="run-history-duracao">${escapar(duracao(e.ms))}</span>
-        <span class="run-history-passos">${escapar(tr('runHistory.stepsCount', { n: e.passos }))}</span>
+        <span class="run-history-passos">${escapar(String(e.passos))}</span>
         <span class="run-history-desfecho ${d.classe}">${escapar(d.texto)}</span>
       </button>`;
     }).join('');
@@ -161,8 +169,11 @@ async function mostrarDetalhe(id) {
       <span class="run-history-passo-nome">${escapar(nomeDoPasso(p.step))}</span>
       <span class="run-history-passo-ferramenta">${escapar(p.ferramenta || '')}</span>
       <span class="run-history-passo-ms">${escapar(duracao(p.ms))}</span>
-      ${falhou ? `<span class="run-history-passo-code">${escapar(tr('runHistory.exitCode', { code: p.code }))}</span>` : ''}
-      ${p.concorrente ? `<span class="run-history-passo-conc" title="${escapar(tr('runHistory.concurrentHint'))}">${escapar(tr('runHistory.concurrent'))}</span>` : ''}
+      <span class="run-history-passo-obs">${
+        falhou ? `<span class="run-history-passo-code">${escapar(tr('runHistory.exitCode', { code: p.code }))}</span>`
+        : p.concorrente ? `<span class="run-history-passo-conc" title="${escapar(tr('runHistory.concurrentHint'))}">${escapar(tr('runHistory.concurrent'))}</span>`
+        : ''
+      }</span>
     </li>`;
   }).join('');
 
@@ -220,7 +231,6 @@ function ligar() {
   modal = $('runHistoryModal');
   if (!modal) return;
   $('run-history')?.addEventListener('click', abrir);
-  $('runHistoryClose')?.addEventListener('click', fechar);
   $('runHistoryHelp')?.addEventListener('click', () => abrirAjuda('sapho/compilacao.html'));
   modal.addEventListener('aurora-modal-close', fechar);
 

@@ -177,17 +177,32 @@
       gap: 11px;
       animation: rise 700ms 90ms cubic-bezier(0.19,1,0.22,1) both;
     }
+    /* O letreiro lia como apagado, e a causa foi MEDIDA antes de mexer, com
+       tres experimentos na mesma regua (luminancia media dos pixels do texto,
+       de 0 a 255, numa captura da splash construida):
+
+         gradiente da aurora, como estava ............ media 68, zero pixels claros
+         o mesmo gradiente ancorado no branco ........ media 80, zero pixels claros
+         o mesmo texto em cor SOLIDA (--text) ........ media 215, 90% de pixels claros
+         o AURORA ao lado, que le bem ................ media 197
+
+       Ou seja, trocar as cores nao resolvia (68 para 80), e o texto solido com
+       a MESMA cor de base chega a 215. O defeito e o mecanismo: um gradiente
+       recortado pelo texto (`background-clip: text` com preenchimento
+       transparente) perde mais da metade da luz nas bordas antialiasadas de
+       cada letra, e num letreiro de 40px as bordas sao uma fracao grande do
+       que se ve.
+
+       Entao o letreiro passa a ser texto solido, na mesma cor do AURORA, e a
+       cor da aurora entra por cima como reflexo: um brilho colorido que se
+       move, feito com text-shadow, que nao recorta nada. A marca continua
+       tendo movimento e cor; o que muda e que agora ela e legivel primeiro. */
     .wordmark .sapho {
       font-size: 40px; font-weight: 800;
       letter-spacing: 0.10em;
       line-height: 1;
-      background: linear-gradient(100deg,
-        var(--green) 0%, var(--teal) 28%, var(--cyan) 52%,
-        var(--violet) 78%, var(--purple) 100%);
-      background-size: 220% 100%;
-      -webkit-background-clip: text; background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: shift 7s ease-in-out infinite;
+      color: var(--text);
+      animation: reflexo 7s ease-in-out infinite;
     }
     .wordmark .amp {
       font-size: 17px; font-weight: 500;
@@ -271,7 +286,16 @@
        Animações
        ============================================================ */
     @keyframes rise   { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes shift  { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+    /* O reflexo da aurora no letreiro: a cor do brilho passeia pelas cinco da
+       marca, na ordem em que aparecem no ceu, verde embaixo e violeta em cima.
+       E brilho difuso, nao contorno: 18px de raio e alfa baixo, para pintar o
+       ar em volta das letras sem tocar na leitura delas. */
+    @keyframes reflexo {
+      0%, 100% { text-shadow: 0 0 18px color-mix(in srgb, var(--green)  55%, transparent); }
+      30%      { text-shadow: 0 0 18px color-mix(in srgb, var(--cyan)   55%, transparent); }
+      60%      { text-shadow: 0 0 18px color-mix(in srgb, var(--violet) 55%, transparent); }
+      80%      { text-shadow: 0 0 18px color-mix(in srgb, var(--purple) 55%, transparent); }
+    }
     @keyframes blink  { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.7); } }
     @keyframes sheen  { 0% { transform: translateX(-100%); } 60%,100% { transform: translateX(100%); } }
   </style>

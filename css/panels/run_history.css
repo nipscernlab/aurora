@@ -1,6 +1,11 @@
 /* run_history.css, o historico de execucoes (js/compilation/run_history.js).
-   Mesma gramatica visual do painel de busca: lista de linhas clicaveis, um
-   detalhe que toma o lugar da lista, e tokens em tudo. */
+
+   A REGRA DE ALINHAMENTO, que vale para toda lista da AURORA e nao so para
+   esta: cada coluna tem largura fixa ou proporcional declarada no grid, e o
+   conteudo se ajusta a coluna, nunca o contrario. Uma lista onde cada linha
+   decide a largura das proprias celulas e uma lista onde nada fica embaixo de
+   nada, e o olho perde a referencia a cada linha. Os numeros usam fonte mono
+   com digitos tabulares e alinham a direita, que e como numero se compara. */
 
 .run-history {
   display: flex;
@@ -15,30 +20,49 @@
 .run-history-vazio {
   color: var(--text-muted);
   font-size: var(--text-sm);
-  padding: var(--space-4) 0;
+  padding: var(--space-6) var(--space-4);
   text-align: center;
 }
 
 /* ---- lista --------------------------------------------------------------- */
 
+/* As colunas, declaradas UMA vez e partilhadas pelo cabecalho e pelas linhas:
+   marca | pedido | quando | duracao | passos | desfecho. Cabecalho e linhas
+   com o mesmo template e o que garante que o titulo fique em cima da coluna
+   dele. */
 .run-history-list {
+  --colunas: 10px minmax(0, 1fr) 84px 72px 72px 84px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: 2px;
 }
 /* `display` de autor vence o `[hidden]` do navegador: sem esta linha a lista
    continuaria na tela debaixo do detalhe, e o JavaScript que a esconde
    pareceria nao ter feito nada. */
 .run-history-list[hidden] { display: none; }
 
+.run-history-cabecalho,
 .run-history-item {
   display: grid;
-  /* marca, pedido, quando, duracao, passos, desfecho */
-  grid-template-columns: 8px minmax(0, 1fr) auto auto auto auto;
+  grid-template-columns: var(--colunas);
   align-items: center;
   gap: var(--space-3);
-  width: 100%;
   padding: var(--space-2) var(--space-3);
+}
+
+.run-history-cabecalho {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-wide, 0.04em);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-hairline);
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.run-history-item {
+  width: 100%;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -49,43 +73,68 @@
   cursor: pointer;
   transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
-.run-history-item:hover { background: var(--overlay-hover); }
+.run-history-item:hover { background: var(--overlay-hover); border-color: var(--border-hairline); }
 .run-history-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* A marca de desfecho: um ponto, na cor de estado da casa. A cor volta a
+   aparecer no texto do desfecho, na ultima coluna, entao a linha diz o mesmo
+   duas vezes, de dois jeitos, e ninguem precisa ler a legenda. */
 .run-history-marca {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  flex: 0 0 auto;
+  justify-self: center;
 }
 .run-history-marca.ok        { background: var(--status-success); }
 .run-history-marca.erro      { background: var(--status-error); }
 .run-history-marca.cancelada { background: var(--text-muted); }
 
-.run-history-pedido { font-weight: var(--font-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-history-pedido {
+  font-weight: var(--font-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Numeros e datas: mono, tabular, a direita. */
 .run-history-quando,
 .run-history-duracao,
 .run-history-passos {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
+.run-history-cabecalho > span { text-align: inherit; }
+.run-history-cabecalho .run-history-quando,
+.run-history-cabecalho .run-history-duracao,
+.run-history-cabecalho .run-history-passos,
+.run-history-cabecalho .run-history-desfecho { text-align: right; font-family: var(--font-sans); color: var(--text-muted); }
+
+/* O desfecho e um selo, na gramatica dos selos do painel de componentes:
+   fundo na cor de estado a 12%, texto na cor cheia. */
 .run-history-desfecho {
-  font-size: var(--text-xs);
+  justify-self: end;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: var(--font-medium);
+  letter-spacing: var(--tracking-wide, 0.04em);
+  text-transform: uppercase;
   white-space: nowrap;
 }
-.run-history-desfecho.ok        { color: var(--status-success); }
-.run-history-desfecho.erro      { color: var(--status-error); }
-.run-history-desfecho.cancelada { color: var(--text-muted); }
+.run-history-desfecho.ok        { background: color-mix(in srgb, var(--status-success) 14%, transparent); color: var(--status-success); }
+.run-history-desfecho.erro      { background: color-mix(in srgb, var(--status-error) 14%, transparent);   color: var(--status-error); }
+.run-history-desfecho.cancelada { background: color-mix(in srgb, var(--text-muted) 18%, transparent);     color: var(--text-secondary); }
 
 /* ---- detalhe ------------------------------------------------------------- */
 
 .run-history-detail {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
 }
 .run-history-detail[hidden] { display: none; }
 
@@ -95,6 +144,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
+  margin-left: calc(var(--space-2) * -1);
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
@@ -106,17 +156,27 @@
 .run-history-voltar:hover { background: var(--overlay-hover); color: var(--text); }
 .run-history-voltar:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* O cabecalho do detalhe e a MESMA linha da lista, com o mesmo template, para
+   a pessoa reconhecer de onde veio; so troca o botao por um bloco e o nome
+   cresce um degrau. */
 .run-history-cabeca {
-  display: flex;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) 84px 72px 84px;
   align-items: center;
   gap: var(--space-3);
-  font-size: var(--text-sm);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
 }
+.run-history-cabeca strong { font-size: var(--text-base); font-weight: var(--font-semibold); }
 
 .run-history-erro {
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-left: 3px solid var(--status-error);
+  background: var(--status-error-bg);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -125,7 +185,7 @@
 }
 
 .run-history-secao {
-  margin: var(--space-2) 0 0;
+  margin: 0;
   color: var(--text-muted);
   font-size: var(--text-xs);
   font-weight: var(--font-medium);
@@ -133,45 +193,67 @@
   text-transform: uppercase;
 }
 
+/* O retrato: rotulo numa coluna de largura fixa, valor na outra. Rotulo
+   alinhado a direita encostando no valor, que e como uma ficha se le: o olho
+   desce pela junta e nao pelo comeco de cada rotulo. */
 .run-history-retrato {
   display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
+  grid-template-columns: 148px minmax(0, 1fr);
   gap: var(--space-1) var(--space-4);
   margin: 0;
+  padding: var(--space-3);
+  background: var(--bg-elev);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
 }
-.run-history-retrato dt { color: var(--text-muted); }
-.run-history-retrato dd { margin: 0; color: var(--text); word-break: break-word; }
+.run-history-retrato dt { color: var(--text-muted); text-align: right; }
+.run-history-retrato dd { margin: 0; color: var(--text); font-family: var(--font-mono); font-size: var(--text-xs); word-break: break-word; line-height: 1.6; }
 
+/* A cadeia: nome | ferramenta | duracao | observacao. Mesma disciplina da
+   lista; a duracao a direita e o que deixa ver de relance onde o tempo foi. */
 .run-history-cadeia {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 .run-history-passo {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+  grid-template-columns: minmax(0, 1fr) 160px 72px 96px;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-3);
   font-size: var(--text-sm);
 }
+.run-history-passo + .run-history-passo { border-top: 1px solid var(--border-hairline); }
 .run-history-passo:nth-child(odd) { background: var(--overlay-hover); }
+
+.run-history-passo-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .run-history-passo-ferramenta,
 .run-history-passo-ms {
-  color: var(--text-muted);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.run-history-passo-code { color: var(--status-error); font-size: var(--text-xs); white-space: nowrap; }
+.run-history-passo-ms { text-align: right; }
+
+/* A quarta coluna guarda a observacao, que e uma de duas: codigo de saida
+   diferente de zero, ou a marca de sobreposicao. As duas vivem na mesma
+   celula porque nunca precisam aparecer juntas com destaque igual, e uma
+   celula vazia mantem a grade. */
+.run-history-passo-obs { justify-self: end; font-size: var(--text-xs); white-space: nowrap; }
+.run-history-passo-code { color: var(--status-error); }
 .run-history-passo.falhou .run-history-passo-nome { color: var(--status-error); }
 /* O passo ambiguo (duas execucoes no ar) nao ganha cor de erro: ele nao errou,
    so nao se sabe de quem foi. Fica mais apagado, com o aviso no proprio texto. */
-.run-history-passo-conc { color: var(--text-muted); font-size: var(--text-xs); font-style: italic; white-space: nowrap; }
-.run-history-passo.concorrente .run-history-passo-nome { color: var(--text-secondary); }
+.run-history-passo-conc { color: var(--text-muted); font-style: italic; }
+.run-history-passo.concorrente .run-history-passo-nome,
+.run-history-passo.concorrente .run-history-passo-ferramenta,
+.run-history-passo.concorrente .run-history-passo-ms { color: var(--text-muted); }

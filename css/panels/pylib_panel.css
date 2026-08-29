@@ -206,7 +206,13 @@
    so nao ha o que alinhar pelo topo. Expandido, o cartao volta a respirar. */
 .pylib-card {
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  /* Acao com largura FIXA pelo mesmo motivo do painel de componentes: com
+     `auto`, o cartao instalavel (105px de botao) e o instalado (117px) davam
+     duas larguras para a coluna do meio, e a grade do nome, versao, selo e
+     tamanho deslocava 11px entre uma linha e a vizinha. 124px cobre o caso
+     mais largo medido, e a partir dai toda coluna interna e a mesma em todas
+     as 29 linhas. */
+  grid-template-columns: 30px minmax(0, 1fr) 124px;
   gap: var(--space-3);
   align-items: center;
   padding: var(--space-2) var(--space-3);
@@ -265,12 +271,25 @@
 
 .pylib-info { min-width: 0; }
 
+/* A linha do nome e uma GRADE de colunas fixas, e nao um flex que empilha o
+   que couber. Antes, versao, selo e tamanho encostavam no fim de cada nome, e
+   como os nomes tem larguras muito diferentes (NumPy, matplotlib), cada linha
+   punha esses tres numa posicao, e nada ficava embaixo de nada. Com a grade,
+   a versao de todas as bibliotecas comeca na mesma vertical, o selo tambem, e
+   o tamanho fica encostado a direita, alinhado como numero. O nome fica com o
+   que sobra e recebe reticencias, em vez de empurrar o resto. */
 .pylib-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px 96px 64px;
+  align-items: center;
+  gap: var(--space-3);
 }
+.pylib-lib-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pylib-head .pylib-size { text-align: right; font-variant-numeric: tabular-nums; }
+/* O selo ocupa a coluna dele mesmo quando nao existe: e o vazio que segura a
+   coluna do tamanho no lugar. */
+.pylib-head .pylib-tag { justify-self: start; }
+.pylib-head .pylib-vazio { display: block; }
 
 .pylib-lib-name {
   font-size: var(--text-sm);

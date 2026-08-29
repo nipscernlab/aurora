@@ -285,10 +285,6 @@ function renderCard(lib) {
   // O tamanho SAI da meta e sobe para a linha do nome: é o único número que
   // decide sem abrir nada ("cabe no meu tempo de rede?"). O resto da meta só
   // interessa a quem já parou naquela biblioteca, e vive na expansão.
-  const tamanho = lib.downloadSize
-    ? `<span class="pylib-size">${esc(fmtSize(lib.downloadSize))}</span>`
-    : '';
-
   const meta = [];
   if (lib.license) meta.push(esc(lib.license));
   if (lib.wheels?.length > 1) {
@@ -311,9 +307,9 @@ function renderCard(lib) {
       <div class="pylib-info">
         <div class="pylib-head">
           <span class="pylib-lib-name">${esc(lib.name)}</span>
-          ${lib.version ? `<span class="pylib-version">${esc(lib.installedVersion || lib.version)}</span>` : ''}
-          ${tags.join('')}
-          ${tamanho}
+          <span class="pylib-version">${lib.version ? esc(lib.installedVersion || lib.version) : ''}</span>
+          ${tags.length ? tags[0] : '<span class="pylib-vazio"></span>'}
+          <span class="pylib-size">${lib.downloadSize ? esc(fmtSize(lib.downloadSize)) : ''}</span>
         </div>
         <div class="pylib-detalhe"><div class="pylib-detalhe-interno">
           <p class="pylib-summary">${esc(lib.summary?.[l] || '')}</p>

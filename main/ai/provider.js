@@ -19,7 +19,7 @@
  * override lives in `prefs` and `getModelFor()` resolves it.
  *
  *   - openai     → gpt-4o-mini    (cheap, fast, tools)
- *   - anthropic  → claude-haiku-4-5
+ *   - anthropic  → claude-sonnet-5
  *   - google     → gemini-2.5-flash  (gemini-2.0-flash is NOT on the
  *                  free tier, it returns HTTP 429 limit:0)
  *   - deepseek   → deepseek-chat
@@ -59,7 +59,11 @@ const prefs = require('./prefs');
 
 const DEFAULT_MODELS = Object.freeze({
   openai:    'gpt-4o-mini',
-  anthropic: 'claude-haiku-4-5-20251001',
+  // Sonnet 5 em vez do Haiku 4.5 desde 29/08/2026, por decisao de quem paga:
+  // 2/10 USD por MTok virou preco padrao, e com o cache de prompt armado
+  // (system e ferramentas a um decimo) a diferenca por turno e pequena para o
+  // que se ganha em codigo e ferramentas. 1M de contexto nativo.
+  anthropic: 'claude-sonnet-5',
   google:    'gemini-2.5-flash',
   deepseek:  'deepseek-chat',
   groq:      'llama-3.3-70b-versatile',

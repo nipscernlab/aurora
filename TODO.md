@@ -1658,8 +1658,8 @@ temática quando for pego.
 - [x] ~~**Família 5 na governança de modelos.**~~ Migrações dos aposentados
       (Opus 4/4.1 para Opus 5, Sonnet 4 para Sonnet 5, Haiku 3.5 para 4.5) e
       presets por provedor no campo de modelo das Configurações, Sonnet 5
-      primeiro (2/10 USD por MTok virou preço padrão). O padrão continua Haiku
-      4.5: trocar é decisão de custo de quem tem chave.
+      primeiro (2/10 USD por MTok virou preço padrão). E o padrão da Anthropic
+      passou a ser o Sonnet 5, decisão de quem paga, tomada em 29/08/2026.
 - [x] ~~**Tetos de subagentes no Claude Code.**~~ Profundidade 1 e quatro
       simultâneos, porque o Opus 5 delega com gosto e cada subagente é conta
       na assinatura.

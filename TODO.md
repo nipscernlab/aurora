@@ -1513,6 +1513,18 @@ temática quando for pego.
       no idioma da pessoa, com o nome do módulo, os números e a saída: abrir
       um submódulo menor e simular aquele. Provado na AURORA de pé com o
       `contador`: simMode ligado, papel desenhado, dígito do `clk` presente.
+      Três coisas que o uso real ensinou no mesmo dia. O PRISM guarda o nome
+      CRU do yosys, e para módulo parametrizado é `$paramodase\K=V`:
+      mandar isso ao `hierarchy -top` não acha nada, e a primeira versão caía
+      no topo do projeto em silêncio; agora `prism_sim_target.js` vira o nome
+      em módulo mais `-chparam`, testado contra nomes reais. O Voltar morria
+      quando o SVG de um módulo já visitado sumia do Temp; agora reconstrói o
+      desenho e, sem o JSON, recompila e volta a ele, medido apagando o
+      arquivo por fora. E o DigitalJS vestiu o tema da casa: ele põe as cores
+      como atributos do SVG, então o caminho foi seletor de atributo por valor
+      (`[stroke="#03c03c"]` é o fio em 1), com a semântica preservada e só a
+      paleta trocada. Tudo que falha na página do PRISM passa a ir ao terminal
+      PRISM da AURORA pelo canal `prism:log`.
       O que fica para depois é o que o DigitalJS não dá: estímulos por
       arquivo e comparar com a onda.
 - [x] ~~**PRISM faz parte da AURORA**, e clicar num componente abre a

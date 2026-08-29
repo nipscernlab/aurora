@@ -285,7 +285,7 @@ class PRISMViewer {
   // -------------------------------------------------------------------------
   //  SVG loading
   // -------------------------------------------------------------------------
-  async _loadSVG(svgPath, moduleName) {
+  async _loadSVG(svgPath, moduleName, { retomando = false } = {}) {
     try {
       this._showStatus(`Loading ${moduleName}…`, false);
 
@@ -313,9 +313,49 @@ class PRISMViewer {
 
       setTimeout(() => this.fitToScreen(), 100);
     } catch (err) {
+      // O SVG de um modulo ja visitado pode ter sumido do Temp (outra
+      // compilacao limpou a pasta, por exemplo). O Voltar nao pode morrer por
+      // isso: o modulo e reconstruivel, entao reconstroi, e se nem o JSON do
+      // modulo existe mais, recompila o projeto e volta a ele. Uma tentativa
+      // so, para um erro persistente nao virar laco.
+      const sumiu = /ENOENT|no such file/i.test(String(err && err.message));
+      if (sumiu && !retomando && this.tempDir) {
+        this._log(`${moduleName}: the drawing was gone from Temp, rebuilding it`, 'warning');
+        const r = await this._reconstruirModulo(moduleName);
+        if (r && r.svgPath) {
+          const entrada = this.navigationHistory.find((h) => h.module === moduleName);
+          if (entrada) entrada.svgPath = r.svgPath;
+          return this._loadSVG(r.svgPath, moduleName, { retomando: true });
+        }
+      }
       console.error('[PRISM] Failed to load SVG:', err);
       this._showStatus(`Failed to load SVG: ${err.message}`, true);
+      this._log(`failed to load the drawing of ${moduleName}: ${err.message}`, 'error');
     }
+  }
+
+  /** Regenera o SVG de um modulo; sem o JSON dele, recompila antes. */
+  async _reconstruirModulo(moduleName) {
+    try {
+      let r = await window.electronAPI.generateSVGFromModule(moduleName, this.tempDir);
+      if (r && r.success) return r;
+      this._log(`${moduleName}: module JSON is gone too, recompiling the project`, 'warning');
+      const paths = await window.electronAPI.getPrismCompilationPaths();
+      paths.prismMode = this.embedded ? 'tab' : 'window';
+      const c = await window.electronAPI.prismRecompile(paths);
+      if (!c || !c.success) { this._log(`recompile failed: ${c && c.message ? c.message : 'no reason given'}`, 'error'); return null; }
+      this.tempDir = c.tempDir || this.tempDir;
+      r = await window.electronAPI.generateSVGFromModule(moduleName, this.tempDir);
+      return r && r.success ? r : null;
+    } catch (e) {
+      this._log(`could not rebuild ${moduleName}: ${e && e.message ? e.message : e}`, 'error');
+      return null;
+    }
+  }
+
+  /** Manda uma linha ao terminal PRISM da AURORA. Nunca lanca. */
+  _log(message, type = 'info') {
+    try { window.electronAPI.logToTerminal?.(message, type); } catch (_) { /* sem ponte */ }
   }
 
   /**
@@ -1236,6 +1276,7 @@ class PRISMViewer {
 
   /** Show a sim-mode error and auto-clear it so the schematic stays usable. */
   _showSimError(msg) {
+    this._log(msg, 'error');
     this._showStatus(msg, true);
     clearTimeout(this._simErrTimer);
     this._simErrTimer = setTimeout(() => this._hideStatus(), 7000);

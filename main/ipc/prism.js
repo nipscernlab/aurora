@@ -22,6 +22,7 @@ const { sanitizeFileName } = require('../utils');
 const { spawnTracked, GROUP } = require('../process_registry');
 const { loadPage, pageUrl } = require('../render_loader');
 const { isAutoName, cellLabel } = require('./prism_labels');
+const { alvoDaSimulacao } = require('./prism_sim_target');
 
 // ---------- helpers ----------
 
@@ -766,6 +767,7 @@ async function buildDigitalJSCircuit(
   /** @type {any} */ compilationPaths,
   /** @type {string} */ topLevelModule,
   /** @type {string} */ tempDir,
+  /** @type {Array<[string, string]>} */ chparams = [],
 ) {
   const fileList = await collectSynthFiles(compilationPaths);
   if (fileList.length === 0) throw new Error('No Verilog files found for the simulation');
@@ -783,9 +785,12 @@ async function buildDigitalJSCircuit(
   const readCommands = fileList.map((f) => `read_verilog "${f}"`).join('\n');
   // Word-level synthesis the yosys2digitaljs converter expects (no abc/techmap,
   // so $add/$mux/$dff stay as DigitalJS cells rather than being mapped to gates).
+  // Os parametros do modulo, como ele esta instanciado no projeto: sem eles a
+  // ula_fdiv simularia com os padroes do Verilog, que nao sao os do processador.
+  const chparam = chparams.map(([k, v]) => ` -chparam ${k} ${v}`).join('');
   const script = `
 ${readCommands}
-hierarchy -top ${topLevelModule}
+hierarchy -top ${topLevelModule}${chparam}
 proc
 opt_clean
 memory -nomap
@@ -891,6 +896,18 @@ function register() {
   // O que o <webview> da aba precisa para nascer: a URL da pagina, resolvida
   // pela MESMA regra da janela (dev ou dist), e o preload do PRISM. O guarda
   // will-attach-webview em windows.js confere os dois antes de anexar.
+  // A pagina do PRISM nao tem terminal: o que falha nela (SVG que sumiu,
+  // simulacao que nao coube) chega aqui e vai para o terminal PRISM da AURORA,
+  // que e onde a pessoa procura o motivo.
+  ipcMain.handle('prism:log', (_event, message, type) => {
+    const tipo = ['info', 'warning', 'error', 'success', 'tips'].includes(type) ? type : 'info';
+    if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+      state.mainWindow.webContents.send('terminal-log', 'tprism', `PRISM: ${String(message).slice(0, 2000)}`, tipo);
+      return { ok: true };
+    }
+    return { ok: false, error: 'main window not available' };
+  });
+
   ipcMain.handle('prism-tab:page', () => {
     const pagina = pageUrl('html/prism/prism.html');
     if (!pagina.ok) return { ok: false, error: pagina.error };
@@ -1017,19 +1034,33 @@ function register() {
       const spfData = await fse.readJson(spfPath);
       const topLevelModule = path.basename(spfData?.structure?.topLevelFile || '', '.v');
 
-      // O nome vem do renderer ja limpo (cleanModuleName); so um identificador
-      // Verilog passa, porque ele entra num script do yosys.
+      // O nome vem CRU do renderer, como o yosys o escreveu: para um modulo
+      // parametrizado e `$paramod\base\K=V`, e prism_sim_target o transforma
+      // em modulo mais -chparam. So um identificador Verilog entra no script.
       const pedido = typeof moduleName === 'string' ? moduleName.trim() : '';
-      const alvo = /^[A-Za-z_][A-Za-z0-9_]*$/.test(pedido) ? pedido : topLevelModule;
+      const alvoInfo = alvoDaSimulacao(pedido);
+      const alvo = /^[A-Za-z_][A-Za-z0-9_]*$/.test(alvoInfo.modulo) ? alvoInfo.modulo : topLevelModule;
       if (!alvo) throw new Error('No module to simulate: nothing is open in PRISM and the .spf has no top-level');
 
-      if (state.mainWindow && !state.mainWindow.isDestroyed()) {
-        state.mainWindow.webContents.send('terminal-log', 'tprism', `Building DigitalJS simulation of ${alvo}…`, 'info');
+      const tlog = (/** @type {string} */ m, /** @type {string} */ t = 'info') => {
+        if (state.mainWindow && !state.mainWindow.isDestroyed()) state.mainWindow.webContents.send('terminal-log', 'tprism', m, t);
+      };
+      const params = alvoInfo.chparams.map(([k, v]) => `${k}=${v}`).join(', ');
+      tlog(`DigitalJS: simulating ${alvo}${params ? ` (${params})` : ''}…`);
+      if (alvoInfo.parametrosPerdidos) {
+        tlog(`DigitalJS: the yosys name "${pedido}" does not carry the parameters; ${alvo} is simulated with the Verilog defaults.`, 'warning');
       }
-      const circuit = await buildDigitalJSCircuit(compilationPaths, alvo, tempDir);
+      const circuit = await buildDigitalJSCircuit(compilationPaths, alvo, tempDir, alvoInfo.chparams);
       return { ok: true, circuit, topLevelModule: alvo };
     } catch (error) {
       log.error('DigitalJS build error:', error);
+      // O erro vai ao terminal da AURORA, e nao so ao log: e la que a pessoa
+      // olha quando algo falha, e "timed out" enterrado num arquivo de log
+      // nao ajuda ninguem na hora.
+      if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+        state.mainWindow.webContents.send('terminal-log', 'tprism',
+          `DigitalJS: ${error instanceof Error ? error.message : String(error)}`, 'error');
+      }
       const e = /** @type {any} */ (error);
       return {
         ok: false,

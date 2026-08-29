@@ -33,6 +33,9 @@ try {
     buildDigitalJS: (compilationPaths, moduleName) =>
       ipcRenderer.invoke('prism:build-digitaljs', compilationPaths, moduleName),
 
+    // O que falha nesta pagina vai para o terminal PRISM da AURORA.
+    logToTerminal: (message, type) => ipcRenderer.invoke('prism:log', message, type),
+
     onTerminalLog: (callback) => ipcRenderer.on('terminal-log', callback),
     removeTerminalLog: (callback) => ipcRenderer.removeListener('terminal-log', callback),
 

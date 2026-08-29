@@ -834,3 +834,75 @@ body.sim-montando::after {
   background: color-mix(in srgb, var(--bg) 45%, transparent);
   cursor: wait;
 }
+
+/* ---------------------------------------------------------------------------
+ *  TEMA DA SIMULACAO (DigitalJS)
+ *
+ *  O DigitalJS desenha com o tema de fabrica: papel claro, corpo branco com
+ *  traco preto, fio salmao/verde, balao branco. No meio da AURORA isso parece
+ *  outra aplicacao. Ele poe as cores como ATRIBUTOS do SVG, nao como classes,
+ *  entao o caminho e o seletor de atributo: `[stroke="#fc7c68"]` e o fio em 0,
+ *  `[stroke="#03c03c"]` o fio em 1, `[stroke="#999"]` o indefinido. Os valores
+ *  vem do bundle do digitaljs e do DOM medido; mudar de versao pode mudar a
+ *  paleta, e ai estas regras so deixam de pegar, sem quebrar nada.
+ *
+ *  A semantica fica: 1 aceso na cor viva da casa, 0 numa cor mais fria, e
+ *  indefinido apagado. So a paleta troca.
+ * --------------------------------------------------------------------------- */
+.djs-container {
+  --sim-alto:  var(--aurora-mint);
+  --sim-baixo: var(--aurora-pink);
+  --sim-indef: var(--text-muted);
+  --sim-corpo: var(--prism-card, var(--bg-elev-2));
+  --sim-traco: var(--prism-module-stroke);
+}
+
+/* Corpos: a mesma carta escura das celulas do esquematico. */
+.djs-container .joint-element .body,
+.djs-container .joint-element rect.btnface {
+  fill: var(--sim-corpo) !important;
+  stroke: var(--sim-traco) !important;
+  stroke-width: 1.4px !important;
+}
+.djs-container .joint-element path.decor { stroke: var(--text) !important; }
+
+/* Texto: tudo claro; o valor numerico em mono, como no resto do PRISM. */
+.djs-container .joint-element text,
+.djs-container .joint-element tspan { fill: var(--text) !important; }
+.djs-container .joint-element text.iolabel,
+.djs-container .joint-element text.bit,
+.djs-container .joint-element text.joint-port-label { fill: var(--text-secondary) !important; }
+.djs-container .joint-element text.value { font-family: var(--font-mono) !important; }
+
+/* Fios e portas: a cor do sinal, na paleta da casa. */
+.djs-container path.connection[stroke="#03c03c"],
+.djs-container circle.port[stroke="#03c03c"] { stroke: var(--sim-alto) !important; }
+.djs-container path.connection[stroke="#fc7c68"],
+.djs-container circle.port[stroke="#fc7c68"] { stroke: var(--sim-baixo) !important; }
+.djs-container path.connection[stroke="#999"],
+.djs-container circle.port[stroke="#999"],
+.djs-container path.connection[stroke="#AAAAAA"],
+.djs-container circle.port[stroke="#AAAAAA"] { stroke: var(--sim-indef) !important; }
+.djs-container circle.port { fill: var(--sim-corpo) !important; stroke-opacity: 1 !important; r: 4; }
+.djs-container line.wire { stroke: var(--prism-wire) !important; }
+/* A trilha de clique do fio (o primeiro path do link) nao e vermelha. */
+.djs-container .joint-link > path[stroke="red"] { stroke: transparent !important; }
+.djs-container .joint-link:hover > path[stroke="red"] { stroke: var(--accent-hover) !important; stroke-opacity: 0.35; }
+
+/* O balao de valor (hex, dec, oct, bin) e o seletor de base. */
+.djs-container .tooltip body,
+.djs-container foreignObject body {
+  background: var(--bg-elev-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.djs-container foreignObject select,
+.djs-container foreignObject input {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm);
+}

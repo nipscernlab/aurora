@@ -86,6 +86,9 @@ export const tabWatchers = {
         try {
             if (!this.tabs.has(filePath)) return;
             if (this.isUntitledPath?.(filePath)) return;
+            // A aba do PRISM (prism://PRISM) e a do Surfer nao sao arquivos: a
+            // ronda dava stat em "prism:\PRISM" e enchia o log de ENOENT.
+            if (this.isEmbeddedView?.(filePath)) return;
 
             const stats = await electronAPI.getFileStats(filePath);
             const lastKnownTime = this.lastModifiedTimes.get(filePath);
@@ -132,6 +135,7 @@ export const tabWatchers = {
 
     async startWatchingFile(filePath) {
         if (this.isUntitledPath?.(filePath)) return;
+        if (this.isEmbeddedView?.(filePath)) return;
         if (this.fileWatchers.has(filePath)) return;
 
         try {

@@ -854,9 +854,59 @@ write_json "${jsonPath}"
   const circuit = yosys2digitaljs(yosysJson, {});
   stripYosysLabels(circuit);
   limparNomesDeSubcircuitos(circuit);
+  trocarClockPorRelogio(circuit);
+  const zerados = zerarRegistradores(circuit);
+  if (zerados) tlog(`DigitalJS: ${zerados} register(s) start at 0, as after power-on; a reset in the design still applies.`, 'tips');
   tlog(`DigitalJS: converted to ${Object.keys(circuit.devices || {}).length} devices ` +
     `in ${((Date.now() - tConv) / 1000).toFixed(1)}s — rendering in PRISM…`, 'success');
   return circuit;
+}
+
+// Os registradores nascem em zero.
+//
+// O DigitalJS comeca todo flip-flop em x, e x mais um e x: um contador sem
+// reset nunca sai do indefinido, e a pessoa ve o relogio bater e nada mudar.
+// Silicio de verdade liga com algum valor, e zero e o que todo reset do SAPHO
+// poe. O `initial` e do proprio DigitalJS; so entra onde nao ha um definido.
+// Vale para os subcircuitos tambem, que e onde os registradores moram.
+function zerarRegistradores(/** @type {any} */ circuit) {
+  let n = 0;
+  const zera = (/** @type {any} */ devs) => {
+    if (!devs) return;
+    for (const d of Object.values(devs)) {
+      const dev = /** @type {any} */ (d);
+      if (!dev || dev.type !== 'Dff') continue;
+      const bits = Number(dev.bits) || 1;
+      if (typeof dev.initial === 'string' && !/x/i.test(dev.initial)) continue;
+      dev.initial = '0'.repeat(bits);
+      n++;
+    }
+  };
+  zera(circuit && circuit.devices);
+  for (const sub of Object.values((circuit && circuit.subcircuits) || {})) zera(/** @type {any} */ (sub).devices);
+  return n;
+}
+
+// A entrada de relogio vira um relogio de verdade.
+//
+// O yosys2digitaljs entrega toda porta de entrada como Input, um botao que a
+// pessoa clica para trocar 0 e 1. Para o clk isso significa clicar duas vezes
+// por ciclo, e um contador de 4 bits pede 32 cliques para dar a volta. O
+// DigitalJS tem o dispositivo Clock, que oscila sozinho com meio periodo de
+// `propagation` ticks; a entrada que se chama clk ou clock, de 1 bit, vira
+// ele. So no topo: um clk de subcircuito vem de fora, pelo fio.
+function trocarClockPorRelogio(/** @type {any} */ circuit) {
+  const devs = circuit && circuit.devices;
+  if (!devs) return;
+  for (const d of Object.values(devs)) {
+    const dev = /** @type {any} */ (d);
+    if (!dev || dev.type !== 'Input' || (dev.bits && dev.bits !== 1)) continue;
+    const nome = String(dev.net || dev.label || '');
+    if (!/^(clk|clock)$/i.test(nome)) continue;
+    dev.type = 'Clock';
+    dev.propagation = 50;
+    delete dev.bits;
+  }
 }
 
 // O nome de um subcircuito e a chave de `subcircuits` e o `celltype` de cada

@@ -1525,8 +1525,21 @@ temática quando for pego.
       (`[stroke="#03c03c"]` é o fio em 1), com a semântica preservada e só a
       paleta trocada. Tudo que falha na página do PRISM passa a ir ao terminal
       PRISM da AURORA pelo canal `prism:log`.
-      O que fica para depois é o que o DigitalJS não dá: estímulos por
-      arquivo e comparar com a onda.
+      Mais tarde no mesmo dia o Simular passou a fazer jus ao nome, extraindo
+      o que o DigitalJS já dava e o PRISM não expunha. A entrada `clk` vira
+      um dispositivo Clock que oscila sozinho; os registradores nascem em zero
+      (o DigitalJS começa tudo em x, e x mais um é x para sempre); uma barra
+      sobre o papel traz Rodar/Pausar, Tick, Próximo evento, Rápido, o
+      contador de ticks e o meio período do relógio; e dois painéis: entradas
+      e saídas em formulário (IOPanelView, com interruptor, LED e campo mono
+      da casa em vez do checkbox de fábrica) e o monitor de formas de onda
+      (Monitor + MonitorView, relógio e saídas já dentro, e o botão do fio
+      acrescenta outros). Provado com um projeto de teste com relógio, reset,
+      enable, quatro portas, somador, comparador, mux e contador: cada saída
+      conferida contra o valor esperado, o contador zerando e contando, 10
+      fios no monitor, e nenhum checkbox cru no painel. Dois defeitos no
+      caminho: a tabela de cores do wavecanvas é congelada (deriva-se, não
+      se atribui), e o `celltype` cru do yosys ia para cima das caixas.
 - [x] ~~**PRISM faz parte da AURORA**, e clicar num componente abre a
       representação interna dele no PRISM.~~ Feito em 29/08/2026, do mesmo
       jeito que o Surfer: dentro ou fora, e quem escolhe é o usuário, por um

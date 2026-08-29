@@ -31,6 +31,9 @@ const PRISM_STRINGS = {
     building:    'Building simulation…',
     simError:    'Could not build the simulation',
     simTooLarge: '{m} is too large to simulate interactively ({n} cells, the limit is {l}).',
+    simRun: 'Run', simPause: 'Pause', simStep: 'Tick', simNext: 'Next event', simFast: 'Fast',
+    simPeriod: 'Half period (ticks)', simIo: 'Inputs and outputs', simMonitor: 'Waveforms',
+    simTicks: 'tick', simNoClock: 'No clock in this module: use Tick to advance.',
     simTimeout:  'Synthesizing {m} took longer than {s} s.',
     simHint:     'Open a smaller submodule in the schematic and simulate that one.',
   },
@@ -53,6 +56,9 @@ const PRISM_STRINGS = {
     building:    'Montando a simulação…',
     simError:    'Não foi possível montar a simulação',
     simTooLarge: '{m} é grande demais para simular ao vivo ({n} células, o limite é {l}).',
+    simRun: 'Rodar', simPause: 'Pausar', simStep: 'Tick', simNext: 'Próximo evento', simFast: 'Rápido',
+    simPeriod: 'Meio período (ticks)', simIo: 'Entradas e saídas', simMonitor: 'Formas de onda',
+    simTicks: 'tick', simNoClock: 'Este módulo não tem relógio: avance com Tick.',
     simTimeout:  'Sintetizar {m} passou de {s} s.',
     simHint:     'Abra um submódulo menor no esquemático e simule aquele.',
   },
@@ -1135,7 +1141,11 @@ class PRISMViewer {
       // $.widget / $.fn.dialog exist before digitaljs's bundled dialog.js runs —
       // otherwise it throws "e.widget is not a function".
       await import('jquery-ui/dist/jquery-ui.js');
-      this._Circuit = (await import('digitaljs')).Circuit;
+      const djs = await import('digitaljs');
+      this._Circuit = djs.Circuit;
+      // O resto do que o DigitalJS oferece e que o Simular passa a usar: o
+      // painel de entradas e saidas e o monitor de formas de onda.
+      this._djs = { Monitor: djs.Monitor, MonitorView: djs.MonitorView, IOPanelView: djs.IOPanelView };
     }
     return this._Circuit;
   }
@@ -1205,6 +1215,7 @@ class PRISMViewer {
         // ar que ele nao da; os fios saem das portas e se refazem sozinhos.
         this._paper.once('render:done', () => { this._expandirLayout(1.6, 1.35); this._fitPaper(); this._buildValueOverlays(); });
         setTimeout(() => { this._fitPaper(); this._buildValueOverlays(); }, 150);
+        this._montarBarraDaSimulacao();
       } catch (err) {
         console.error('[PRISM] DigitalJS render failed:', err);
         this._destroyCircuit();
@@ -1234,9 +1245,154 @@ class PRISMViewer {
     this._setSimToggleLabel(T.simulate);
   }
 
+  /**
+   * A barra da simulacao: o que faz o Simular fazer jus ao nome.
+   *
+   * O DigitalJS ja tinha tudo isto e o PRISM nao expunha nada: o circuito
+   * rodava sozinho, sem pausa, sem passo, sem relogio, sem ver o sinal no
+   * tempo. A barra fica em cima do papel, como os controles de zoom: Rodar e
+   * Pausar, um tick, o proximo evento, o modo rapido, o contador de ticks e o
+   * meio periodo do relogio. Ao lado, dois paineis que se abrem: entradas e
+   * saidas em formulario (IOPanelView), para digitar um valor de 32 bits em vez
+   * de clicar bit a bit, e o monitor (Monitor + MonitorView), que desenha os
+   * fios escolhidos no tempo; o botao de monitor que aparece ao passar o mouse
+   * num fio o acrescenta la, e as saidas e o relogio entram por padrao.
+   */
+  _montarBarraDaSimulacao() {
+    if (!this.circuit || !this.djsContainer) return;
+    this._desmontarBarraDaSimulacao();
+    const c = this.circuit;
+    const barra = document.createElement('div');
+    barra.className = 'sim-bar';
+    const btn = (id, icone, rotulo, titulo) => `<button class="sim-btn" id="${id}" title="${titulo || rotulo}"><i class="ph ${icone}" aria-hidden="true"></i><span>${rotulo}</span></button>`;
+    barra.innerHTML = `
+      ${btn('simRun', 'ph-pause', T.simPause)}
+      ${btn('simStep', 'ph-skip-forward', T.simStep)}
+      ${btn('simNext', 'ph-fast-forward', T.simNext)}
+      ${btn('simFast', 'ph-lightning', T.simFast)}
+      <span class="sim-ticks"><span id="simTick">0</span> ${T.simTicks}</span>
+      <label class="sim-period" title="${T.simPeriod}"><i class="ph ph-clock" aria-hidden="true"></i><input id="simPeriod" type="number" min="1" max="100000" step="1"></label>
+      <span class="sim-sep" aria-hidden="true"></span>
+      ${btn('simIo', 'ph-sliders-horizontal', T.simIo)}
+      ${btn('simMonitor', 'ph-waveform', T.simMonitor)}`;
+    this.djsContainer.appendChild(barra);
+    this._simBar = barra;
+
+    const relogios = () => c._graph.getElements().filter((el) => el.get('type') === 'Clock');
+    const periodo = barra.querySelector('#simPeriod');
+    const rel = relogios();
+    if (rel.length) periodo.value = rel[0].get('propagation') || 50;
+    else { periodo.parentElement.hidden = true; this._log(T.simNoClock, 'tips'); }
+    periodo.addEventListener('change', () => {
+      const n = Math.max(1, Math.floor(Number(periodo.value) || 1));
+      for (const r of relogios()) r.set('propagation', n);
+    });
+
+    const run = barra.querySelector('#simRun');
+    const pintarRun = () => {
+      const rodando = !!c.running;
+      run.innerHTML = `<i class="ph ${rodando ? 'ph-pause' : 'ph-play'}" aria-hidden="true"></i><span>${rodando ? T.simPause : T.simRun}</span>`;
+      run.classList.toggle('active', rodando);
+    };
+    run.addEventListener('click', () => { if (c.running) c.stop(); else c.start(); pintarRun(); });
+    barra.querySelector('#simStep').addEventListener('click', () => { if (c.running) c.stop(); c.updateGates(); pintarRun(); });
+    barra.querySelector('#simNext').addEventListener('click', () => { if (c.running) c.stop(); c.updateGatesNext(); pintarRun(); });
+    barra.querySelector('#simFast').addEventListener('click', () => { if (c.running) c.stop(); else c.startFast(); pintarRun(); });
+    const tick = barra.querySelector('#simTick');
+    c.on('postUpdateGates', (t) => { tick.textContent = String(t); });
+    c.on('changeRunning', pintarRun);
+    pintarRun();
+
+    barra.querySelector('#simIo').addEventListener('click', () => this._alternarPainelIo());
+    barra.querySelector('#simMonitor').addEventListener('click', () => this._alternarMonitor());
+  }
+
+  _alternarPainelIo() {
+    if (this._ioPanel) {
+      this._ioView?.shutdown?.();
+      this._ioPanel.remove();
+      this._ioPanel = null; this._ioView = null;
+      this._simBar?.querySelector('#simIo')?.classList.remove('active');
+      return;
+    }
+    const painel = document.createElement('div');
+    painel.className = 'sim-panel sim-io';
+    painel.innerHTML = `<h4>${T.simIo}</h4><div class="sim-io-corpo"></div>`;
+    this.djsContainer.appendChild(painel);
+    this._ioPanel = painel;
+    // Marcacao da casa em vez dos <input type=checkbox> de fabrica: um
+    // interruptor para a entrada de 1 bit, um LED para a saida de 1 bit, e um
+    // campo mono para os barramentos. O IOPanelView aceita cada pedaco.
+    this._ioView = new this._djs.IOPanelView({
+      model: this.circuit,
+      el: painel.querySelector('.sim-io-corpo'),
+      rowMarkup: '<div class="sim-io-row"></div>',
+      colMarkup: '<div class="sim-io-col"></div>',
+      labelMarkup: '<label class="sim-io-nome"></label>',
+      buttonMarkup: '<label class="sim-switch"><input type="checkbox"><span class="sim-switch-track" aria-hidden="true"></span></label>',
+      lampMarkup: '<span class="sim-led"><input type="checkbox"><span class="sim-led-dot" aria-hidden="true"></span></span>',
+      inputMarkup: '<input type="text" class="sim-num" spellcheck="false">',
+    });
+    this._simBar?.querySelector('#simIo')?.classList.add('active');
+  }
+
+  _alternarMonitor() {
+    if (this._monitorPanel) {
+      this._monitorView?.shutdown?.();
+      this._monitorPanel.remove();
+      this._monitorPanel = null; this._monitorView = null; this._monitor = null;
+      this._simBar?.querySelector('#simMonitor')?.classList.remove('active');
+      return;
+    }
+    const painel = document.createElement('div');
+    painel.className = 'sim-panel sim-monitor';
+    painel.innerHTML = `<h4>${T.simMonitor}</h4><div class="sim-monitor-corpo"></div>`;
+    this.djsContainer.appendChild(painel);
+    this._monitorPanel = painel;
+    this._monitor = new this._djs.Monitor(this.circuit);
+    this._monitor.attachTo(this._paper);
+    this._monitorView = new this._djs.MonitorView({
+      model: this._monitor,
+      el: painel.querySelector('.sim-monitor-corpo'),
+      removeButtonMarkup: '<button type="button" name="remove" class="sim-x" title="remove"><i class="ph ph-x" aria-hidden="true"></i></button>',
+      bitTriggerMarkup: '<select name="trigger" class="sim-sel" title="Trigger"><option value="none"></option><option value="rising">&#8593;</option><option value="falling">&#8595;</option><option value="risefall">&#8597;</option><option value="undef">x</option></select>',
+    });
+    // O canvas nao le CSS: as cores do wavecanvas (salmao, cinza, verde, azul
+    // e texto preto) entram como valores, lidos dos tokens da casa. As linhas
+    // por fio herdam destas por prototipo, entao basta trocar aqui, antes das
+    // primeiras linhas.
+    const cor = (v, alt) => (getComputedStyle(document.documentElement).getPropertyValue(v).trim() || alt);
+    // Os padroes do wavecanvas sao congelados, entao nao se atribui em cima:
+    // deriva-se um objeto novo, e as linhas por fio derivam deste.
+    const props = {
+      bitColors: [cor('--aurora-pink', '#E68FB8'), cor('--text-muted', '#6b7280'), cor('--aurora-mint', '#5FE0B0'), cor('--accent', '#8E83E8')],
+      gridColor: cor('--border', '#2a2f3d'),
+      textColor: cor('--text', '#E8ECF3'),
+      font: `10px ${cor('--font-mono', 'monospace')}`,
+    };
+    const desc = {};
+    for (const [k, v] of Object.entries(props)) desc[k] = { value: v, writable: true, enumerable: true, configurable: true };
+    this._monitorView._settings = Object.create(this._monitorView._settings, desc);
+    // O que se quer ver sem pedir: o relogio e as saidas.
+    const graph = this.circuit._graph;
+    for (const link of graph.getLinks()) {
+      const src = link.getSourceElement();
+      const dst = link.getTargetElement();
+      if ((src && src.get('type') === 'Clock') || (dst && dst.get('type') === 'Output')) this._monitor.addWire(link);
+    }
+    this._simBar?.querySelector('#simMonitor')?.classList.add('active');
+  }
+
+  _desmontarBarraDaSimulacao() {
+    if (this._ioPanel) this._alternarPainelIo();
+    if (this._monitorPanel) this._alternarMonitor();
+    if (this._simBar) { this._simBar.remove(); this._simBar = null; }
+  }
+
   /** Stop + dispose the live circuit (best-effort) and clear its host. */
   _destroyCircuit() {
     this._layoutExpandido = false;
+    this._desmontarBarraDaSimulacao();
     if (this.circuit) {
       try { this.circuit.stop?.(); } catch (_) { /* best-effort */ }
       try { this.circuit.shutdown?.(); } catch (_) { /* best-effort */ }
@@ -1357,9 +1513,9 @@ class PRISMViewer {
     const digit = (/** @type {any} */ sig) => (!sig ? 'x' : sig.isHigh ? '1' : sig.isLow ? '0' : 'x');
     for (const cell of graph.getElements()) {
       const type = cell.get('type');
-      if ((type !== 'Input' && type !== 'Output') || cell.get('bits') !== 1) continue;
-      const sigKey = type === 'Input' ? 'outputSignals' : 'inputSignals';
-      const port = type === 'Input' ? 'out' : 'in';
+      if ((type !== 'Input' && type !== 'Output' && type !== 'Clock') || (type !== 'Clock' && cell.get('bits') !== 1)) continue;
+      const sigKey = type === 'Output' ? 'inputSignals' : 'outputSignals';
+      const port = type === 'Output' ? 'in' : 'out';
       const el = document.createElement('div');
       el.className = 'djs-valnum';
       this.djsWrapper.appendChild(el);

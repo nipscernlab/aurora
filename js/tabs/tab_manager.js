@@ -973,11 +973,19 @@ async def basic_test(dut):
         // preso em EN apos o toggle pra PT.
         const closeTitle = window.t ? window.t('tabs.close') : 'Close';
         const displayName = this.getDisplayName(filePath);
+        // As abas do Surfer e do PRISM levam o logo da ferramenta, e nao o
+        // icone generico de arquivo: o que esta aberto ali e a ferramenta, e
+        // o logo e o mesmo que a toolbar ja usa para ela.
+        const logo = this.isPrismView(filePath) ? './assets/icons/aurora_prism.svg'
+            : this.isSurferView(filePath) ? './assets/icons/Surfer_logo.svg' : null;
+        const icone = logo ? `<img class="tab-logo" src="${logo}" alt="">`
+            : `<i class="${this.getFileIcon(displayName)}"></i>`;
         tab.innerHTML = `
-      <i class="${this.getFileIcon(displayName)}"></i>
+      ${icone}
       <span class="tab-name">${displayName}</span>
       <button class="close-tab" title="${closeTitle}" data-i18n-title="tabs.close">×</button>
     `;
+        if (this.isPrismView(filePath)) tab.setAttribute('title', 'PRISM');
 
         // Mark as preview if needed
         if (isPreview) {

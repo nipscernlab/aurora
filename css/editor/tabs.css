@@ -143,6 +143,15 @@
   white-space: nowrap;
 }
 
+/* O logo de ferramenta (Surfer, PRISM) no lugar do icone de arquivo: o mesmo
+   tamanho do icone, para a aba nao mudar de altura nem de ritmo. */
+.tab > img.tab-logo {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
 .tab > i:first-of-type {
   font-size: var(--icon-sm);
   flex-shrink: 0;

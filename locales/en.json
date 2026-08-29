@@ -918,6 +918,11 @@
       "button": "Guided tutorial of the AURORA API",
       "busy": "Wait for the current reply to finish before starting the tutorial.",
       "noProvider": "Set up an AI provider in Settings to start the tutorial."
+    },
+    "queue": {
+      "waiting": "Queued: sends after the current reply",
+      "sendNow": "Send now (interrupts the current reply)",
+      "cancel": "Remove from the queue"
     }
   },
   "git": {

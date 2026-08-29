@@ -963,6 +963,21 @@ body.ai-assistant-open {
   transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 .ai-queued-remove:hover { background: var(--bg-elev-3); color: var(--text); }
+/* Enviar agora: interrompe a resposta e poe a mensagem na conversa. Mesmo
+   formato do X, na cor de acao para se distinguir dele. */
+.ai-queued-now {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.ai-queued-now:hover { background: var(--accent-soft); color: var(--accent-hover); }
 
 .ai-att-chip {
   display: inline-flex;

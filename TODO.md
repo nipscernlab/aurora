@@ -1665,6 +1665,18 @@ temática quando for pego.
       na assinatura.
 - [x] ~~**O cache visível.**~~ O `usage` leva o que foi lido e escrito no
       cache e o contador de tokens diz quanto da conversa veio a um décimo.
+- [x] ~~**O texto flui de novo, e a fila tem enviar agora.**~~ 29/08/2026. O
+      renderer acumulava o segmento em silêncio e revelava tudo no fim, por
+      um motivo real (re-renderizar markdown por token tremia e o código só
+      ganhava realce no fim), mas ver a resposta aparecer inteira do nada era
+      pior. Agora renderiza por frame com a máquina de escrever que já existia,
+      e deixa realce e links para a passada final; um temporizador de 40 ms
+      cobre o `requestAnimationFrame`, que o Electron estrangula em janela ao
+      fundo (medido: o texto parava em 10 de 66 caracteres). A mensagem
+      enviada durante uma resposta continua na fila, e cada item ganhou o
+      botão de enviar agora, que interrompe a resposta (ela fica no histórico
+      até onde chegou) e põe a mensagem na conversa; com o Agent SDK ela já
+      entrava viva na sessão.
 - [ ] **Do boletim, o que não se aplica ou ficou:** `promptCacheTtl` do
       Claude Code vale só para chave de API ou nuvem, e os usuários da AURORA
       entram por assinatura; `--restricted` já é o que `native_tools.js` faz

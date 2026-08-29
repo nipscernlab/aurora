@@ -1596,11 +1596,53 @@ class AIAssistantManager {
     // follow-up queue, which dispatches when the current turn ends.
     if (this._isStreaming) {
       if (await this._tryPushLive(text, atts)) return;
+      // Sem canal vivo (todo runner menos o Agent SDK) a mensagem espera na
+      // fila, que anda quando a resposta acaba. Cada item da fila tem um botao
+      // de enviar agora, que interrompe a resposta em curso (ela fica no
+      // historico ate onde chegou) e poe a mensagem na conversa na hora.
       (this._messageQueue || (this._messageQueue = [])).push({ text, atts });
       this._renderQueue();
       return;
     }
     await this._submitUserMessage(text, atts);
+  }
+
+  /** Tira um item da fila e o envia agora, interrompendo a resposta em curso. */
+  async _enviarDaFilaAgora(i) {
+    const item = this._messageQueue && this._messageQueue.splice(i, 1)[0];
+    this._renderQueue();
+    if (!item) return;
+    if (this._isStreaming && !(await this._interromperParaFalar())) {
+      // Nao fechou: devolve ao inicio da fila em vez de perder a mensagem.
+      this._messageQueue.unshift(item);
+      this._renderQueue();
+      return;
+    }
+    await this._submitUserMessage(item.text, item.atts || []);
+  }
+
+  /**
+   * Interrompe a resposta em curso e espera o turno fechar, para a proxima
+   * mensagem do usuario entrar em ordem. Devolve false se o turno nao fechou
+   * em tempo (runner travado): quem chama cai na fila.
+   */
+  async _interromperParaFalar() {
+    const sid = this.currentSessionId;
+    if (!sid) return true;
+    try { await window.aiAPI.abortChat(sid); } catch (_) { /* o 'aborted' fecha do lado de la */ }
+    const limite = Date.now() + 3000;
+    while (this._isStreaming && this.currentSessionId === sid && Date.now() < limite) {
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    if (this._isStreaming && this.currentSessionId === sid) {
+      // O runner nao respondeu ao abort: forca o fechamento, como o stop() faz.
+      this.showThinking(false);
+      this._closeToolGroup();
+      this.commitTurn();
+      this.resetTurnState();
+      this.setStreaming(false);
+    }
+    return !this._isStreaming;
   }
 
   /** Reveal the bottom aurora glow on the user's first message of the session,
@@ -1688,10 +1730,13 @@ class AIAssistantManager {
     this.queueEl.hidden = q.length === 0;
     this.queueEl.innerHTML = q.map((m, i) => {
       const preview = (m.text || (m.atts && m.atts.length ? `${m.atts.length} attachment(s)` : '')).slice(0, 80);
-      return `<span class="ai-queued-chip" title="Queued — sends after the current reply">` +
+      const agora = tr('ai.queue.sendNow');
+      return `<span class="ai-queued-chip" title="${this._escAtt(tr('ai.queue.waiting'))}">` +
         `<i class="ph ph-clock" aria-hidden="true"></i>` +
         `<span class="ai-queued-text">${this._escAtt(preview)}</span>` +
-        `<button class="ai-queued-remove" data-i="${i}" type="button" aria-label="Cancel queued message">` +
+        `<button class="ai-queued-now" data-i="${i}" type="button" title="${this._escAtt(agora)}" aria-label="${this._escAtt(agora)}">` +
+        `<i class="ph ph-paper-plane-right" aria-hidden="true"></i></button>` +
+        `<button class="ai-queued-remove" data-i="${i}" type="button" aria-label="${this._escAtt(tr('ai.queue.cancel'))}">` +
         `<i class="ph ph-x" aria-hidden="true"></i></button></span>`;
     }).join('');
     this.queueEl.querySelectorAll('.ai-queued-remove').forEach((btn) => {
@@ -1699,6 +1744,9 @@ class AIAssistantManager {
         this._messageQueue.splice(parseInt(btn.dataset.i, 10), 1);
         this._renderQueue();
       });
+    });
+    this.queueEl.querySelectorAll('.ai-queued-now').forEach((btn) => {
+      btn.addEventListener('click', () => this._enviarDaFilaAgora(parseInt(btn.dataset.i, 10)));
     });
   }
 
@@ -2235,14 +2283,18 @@ class AIAssistantManager {
     if (!delta) return;
     // Text resuming after a run of tools closes that batch (tidy summary).
     this._closeToolGroup();
-    // Wait-then-reveal: accumulate the segment silently with the thinking
-    // indicator up. The segment is rendered ONCE, with syntax highlight and a
-    // quick fade-in cascade, when it completes (at a tool call or at finish).
-    // Re-rendering markdown per token looked janky and left code blocks
-    // unhighlighted until the very end.
+    // O texto flui conforme chega. Houve uma epoca de "acumula e revela no
+    // fim", porque re-renderizar markdown a cada token tremia e o codigo so
+    // ganhava realce no final. O que resolve as duas coisas nao e represar a
+    // resposta, e sim renderizar POR FRAME (um rAF junta os tokens do frame),
+    // com a maquina de escrever suavizando os blocos grandes das CLIs, e
+    // deixar o realce de codigo e os links para a passada final, em
+    // _revealSegment. Ver uma resposta aparecer inteira do nada era pior do
+    // que qualquer tremor.
     this.segmentBuffer += delta;
     this.turnText += delta;
-    this.showThinking(true);
+    if (!this._revealLength) this.showThinking(true);
+    this._scheduleStreamRender();
   }
 
   /**
@@ -2252,6 +2304,10 @@ class AIAssistantManager {
    * user waits with the thinking dots and then the answer flows in cleanly.
    */
   _revealSegment() {
+    // A passada final do segmento: cancela o frame pendente, renderiza o texto
+    // inteiro sem a maquina de escrever, e so agora faz o que custa caro e
+    // nao pode ser feito por frame: realce de codigo e links de arquivo.
+    this._cancelarFrameDoStream();
     const buf = this.segmentBuffer || '';
     const displayText = (mayHaveToolArtifacts(buf) ? stripToolCallArtifacts(buf) : buf).trim();
 
@@ -2261,10 +2317,12 @@ class AIAssistantManager {
         this.currentAssistantContentEl.closest('.ai-message')?.remove();
         this.currentAssistantContentEl = null;
       }
+      this._revealLength = 0;
       return;
     }
 
     this.showThinking(false);
+    const nadaMostrado = !this.currentAssistantContentEl || !(this._revealLength > 0);
     if (!this.currentAssistantContentEl) {
       const bubble = this.appendBubble('assistant', '');
       this.currentAssistantContentEl = bubble.querySelector('.ai-msg-content');
@@ -2272,7 +2330,10 @@ class AIAssistantManager {
     this.currentAssistantContentEl.innerHTML = renderMarkdown(displayText);
     highlightCodeBlocks(this.currentAssistantContentEl);
     linkifyFileRefs(this.currentAssistantContentEl);
-    this._applyRevealCascade(this.currentAssistantContentEl);
+    // A cascata so quando o texto NAO estava na tela (segmento que chegou
+    // inteiro de uma vez); animar de novo o que ja se leu e tremor.
+    if (nadaMostrado) this._applyRevealCascade(this.currentAssistantContentEl);
+    this._revealLength = 0;
     this.scrollToBottom();
   }
 
@@ -2289,10 +2350,21 @@ class AIAssistantManager {
   /** Queue a streaming re-render on the next frame (idempotent per frame). */
   _scheduleStreamRender() {
     if (this._streamRenderRaf) return;
-    this._streamRenderRaf = requestAnimationFrame(() => {
-      this._streamRenderRaf = null;
+    // rAF junta os tokens de um frame, mas numa janela ao fundo o Electron o
+    // estrangula (medido: o texto parava em 10 de 66 caracteres); um
+    // temporizador curto e a alternativa, e o primeiro dos dois que disparar
+    // cancela o outro.
+    const rodar = () => {
+      this._cancelarFrameDoStream();
       this._renderStreamingBubble();
-    });
+    };
+    this._streamRenderRaf = requestAnimationFrame(rodar);
+    this._streamRenderTimer = setTimeout(rodar, 40);
+  }
+
+  _cancelarFrameDoStream() {
+    if (this._streamRenderRaf) { cancelAnimationFrame(this._streamRenderRaf); this._streamRenderRaf = null; }
+    if (this._streamRenderTimer) { clearTimeout(this._streamRenderTimer); this._streamRenderTimer = null; }
   }
 
   /** Render the accumulated stream buffer with the fade-reveal suffix. */
@@ -2413,10 +2485,7 @@ class AIAssistantManager {
     this._closeToolGroup();
     // Reveal the final segment in full (markdown + syntax highlight + fade
     // cascade). Any in-flight stream-render frame is cancelled first.
-    if (this._streamRenderRaf) {
-      cancelAnimationFrame(this._streamRenderRaf);
-      this._streamRenderRaf = null;
-    }
+    this._cancelarFrameDoStream();
     this._revealSegment();
     // Persist only the FINAL segment (text produced after the last tool call);
     // any earlier segments were already stored at their tool-call boundaries
@@ -2510,10 +2579,7 @@ class AIAssistantManager {
    * what draws the next assistant bubble.
    */
   _startNextSegment() {
-    if (this._streamRenderRaf) {
-      cancelAnimationFrame(this._streamRenderRaf);
-      this._streamRenderRaf = null;
-    }
+    this._cancelarFrameDoStream();
     this.currentAssistantContentEl = null;   // next delta opens a fresh bubble
     this.segmentBuffer = '';
     this.turnText = '';
@@ -2530,10 +2596,7 @@ class AIAssistantManager {
     // watchdog, failTurn), so a download interrupted by Stop/stall can't leave
     // an orphaned "Downloading…" row behind.
     this._clearCliDownload();
-    if (this._streamRenderRaf) {
-      cancelAnimationFrame(this._streamRenderRaf);
-      this._streamRenderRaf = null;
-    }
+    this._cancelarFrameDoStream();
     this.currentAssistantContentEl = null;
     this.segmentBuffer = '';
     this.turnText = '';

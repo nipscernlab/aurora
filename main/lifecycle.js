@@ -201,15 +201,14 @@ function register() {
     //
     // Depois da faxina, matamos o processo em vez de torcer para ele morrer.
     //
-    // Com uma excecao que nao pode ser esquecida: se ha atualizacao baixada,
-    // quem a instala e o electron-updater, no caminho normal de quit, e
-    // app.exit() pula justamente os eventos que ele escuta. Nesse caso saimos
-    // do caminho e deixamos o encerramento seguir sozinho, senao a promessa de
-    // atualizar sem visita presencial morre aqui.
-    if (state.updateDownloaded) {
-      log.info('[lifecycle] atualizacao pendente: saida normal, quem instala e o updater.');
-      return;
-    }
+    // Havia aqui uma excecao para a atualizacao baixada: sair pelo caminho
+    // normal, sem `app.exit()`, para o electron-updater instalar no quit. Ela
+    // caiu em 29/08/2026 junto com o `autoInstallOnAppQuit`, e o motivo esta no
+    // comentario dele: instalar no fechamento e instalar no exato momento em
+    // que a pessoa desliga o computador, e um NSIS interrompido deixa a pasta
+    // pela metade. A instalacao agora acontece na ABERTURA seguinte
+    // (`aplicarAtualizacaoPendente`), entao nada precisa sobreviver ao quit e a
+    // faxina pode terminar como termina em qualquer outro encerramento.
     log.info('[lifecycle] faxina concluida, encerrando o processo.');
     app.exit(0);
   });

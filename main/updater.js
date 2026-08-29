@@ -58,6 +58,7 @@ const {
 
 const REPO_OWNER = 'nipscernlab';
 const REPO_NAME = 'sapho';
+const { decidirPendente } = require('./pending_update');
 
 autoUpdater.logger = log;
 
@@ -65,15 +66,29 @@ autoUpdater.logger = log;
 // network is shared, so nothing is fetched until someone clicks Download.
 autoUpdater.autoDownload = false;
 
-// But once it IS downloaded, applying it at quit is not a second decision:
-// the user already consented by starting the download. This used to be false,
-// which meant closing the app without clicking "Restart & Install" threw the
-// finished download away and started over on the next launch. In a teaching
-// lab, where closing the app at the end of class is the normal way to leave,
-// that was the common path: the update was fetched over and over and never
-// applied. NSIS runs the per-user install silently and without elevation, so
-// there is nothing to prompt for at quit.
-autoUpdater.autoInstallOnAppQuit = true;
+// Aplicar no QUIT, nao. Aplicar na PROXIMA ABERTURA.
+//
+// A historia deste valor tem tres andares, e o comentario guarda os tres para
+// ninguem desfazer o de cima achando que esta consertando o de baixo.
+//
+// Era `false`, e fechar a aplicacao sem clicar "Reiniciar e instalar" jogava
+// fora o download inteiro. Numa sala de aula, onde fechar no fim da aula e a
+// forma normal de sair, esse era o caminho comum: baixava toda semana e nunca
+// instalava.
+//
+// Virou `true`, e resolveu aquilo. Mas trocou o problema por um pior: o
+// instalador passou a rodar exatamente no momento em que a pessoa esta indo
+// embora, e no laboratorio "fechar a AURORA" e "desligar o computador pelo
+// botao" acontecem com segundos de diferenca. Um NSIS interrompido no meio
+// deixa a pasta de instalacao pela metade, e a maquina volta sem SAPHO.
+//
+// Agora e `false` de novo, com a peca que faltava nas duas vezes anteriores:
+// `aplicarAtualizacaoPendente()`, chamada no arranque. O download continua
+// sendo guardado (o cache do electron-updater sobrevive ao fechamento), e a
+// instalacao acontece quando a pessoa ABRE a aplicacao, que e quando ela esta
+// sentada na frente da maquina esperando o programa subir, e nao quando esta
+// de pe indo para a porta.
+autoUpdater.autoInstallOnAppQuit = false;
 
 // Last "available" payload, kept so we can re-send it once the update
 // window's renderer has finished loading (the event can fire before the
@@ -392,6 +407,12 @@ function setupAutoUpdaterEvents() {
   autoUpdater.on('update-downloaded', (info) => {
     state.downloadInProgress = false;
     state.updateDownloaded = true;
+    // O registro que faz a instalacao acontecer na PROXIMA abertura. Ele e o
+    // que sobrevive ao fechamento: o arquivo baixado ja fica no cache do
+    // electron-updater, mas o processo seguinte nao tem como saber que ele
+    // esta la sem perguntar a rede, e sem este registro nao teria motivo para
+    // perguntar.
+    marcarPendente(info.version);
     log.info(`Update ${info.version} downloaded — ready to install`);
     sendToUpdateWindow('update:state', {
       state: 'downloaded',
@@ -550,6 +571,97 @@ function checkForUpdates(interactive = false) {
 
 function versionStorePath() {
   return path.join(app.getPath('userData'), 'aurora-version.json');
+}
+
+/* ============================================================
+ *  Atualizacao pendente: baixada numa sessao, instalada na abertura seguinte
+ * ========================================================== */
+
+function pendingStorePath() {
+  return path.join(app.getPath('userData'), 'aurora-pending-update.json');
+}
+
+/** Grava que ha uma atualizacao baixada esperando a proxima abertura. */
+function marcarPendente(versao) {
+  try {
+    fs.mkdirSync(path.dirname(pendingStorePath()), { recursive: true });
+    fs.writeFileSync(pendingStorePath(), JSON.stringify({ versao, em: Date.now() }, null, 2));
+  } catch (e) {
+    // Sem o registro a atualizacao nao se aplica sozinha na abertura seguinte,
+    // mas continua baixada e a verificacao silenciosa a reencontra. Falhar
+    // aqui nao pode derrubar o download que acabou de dar certo.
+    log.warn('pending store write failed:', e);
+  }
+}
+
+function lerPendente() {
+  try {
+    return JSON.parse(fs.readFileSync(pendingStorePath(), 'utf8'));
+  } catch (e) {
+    if (e && e.code !== 'ENOENT') log.warn('pending store read failed:', e);
+    return null;
+  }
+}
+
+function limparPendente() {
+  try {
+    fs.unlinkSync(pendingStorePath());
+  } catch (e) {
+    if (e && e.code !== 'ENOENT') log.warn('pending store clear failed:', e);
+  }
+}
+
+/**
+ * Instala no arranque a atualizacao que foi baixada antes, se houver.
+ *
+ * Chamada cedo, pelo main.js, e o par do `autoInstallOnAppQuit = false`.
+ *
+ * POR QUE ELA PRECISA FALAR COM A REDE. O arquivo ja esta no cache, mas o
+ * `quitAndInstall` do electron-updater exige o estado interno que so o
+ * `downloadUpdate` monta (`downloadedUpdateHelper.file`), e num processo
+ * recem-nascido esse estado nao existe: chamar direto responde "No update
+ * filepath provided". O caminho pelo `checkForUpdates` seguido de
+ * `downloadUpdate` reconstroi esse estado e NAO rebaixa nada, porque o proprio
+ * downloadUpdate valida o arquivo em cache e o reaproveita. O que vai para a
+ * rede e so o metadado, alguns kilobytes.
+ *
+ * Maquina sem rede na hora do boot simplesmente abre normal, e tenta de novo
+ * na proxima. Por isso o prazo curto: o arranque nao pode ficar refem disto.
+ *
+ * @returns {Promise<boolean>} true se a instalacao foi disparada (e o processo
+ *   esta saindo), false se nao havia o que fazer.
+ */
+async function aplicarAtualizacaoPendente({ prazoMs = 12000 } = {}) {
+  const decisao = decidirPendente(lerPendente(), app.getVersion());
+  if (decisao === 'limpar') { limparPendente(); return false; }
+  if (decisao !== 'instalar') return false;
+
+  log.info('[updater] atualizacao pendente encontrada; aplicando antes de abrir.');
+  try {
+    const instalou = await Promise.race([
+      new Promise((resolve) => {
+        autoUpdater.once('update-downloaded', () => {
+          // Limpa ANTES de instalar: se a instalacao falhar, o proximo boot
+          // abre normal em vez de tentar para sempre. A verificacao silenciosa
+          // reencontra a atualizacao e o usuario decide de novo.
+          limparPendente();
+          setImmediate(() => autoUpdater.quitAndInstall(true, true));
+          resolve(true);
+        });
+        autoUpdater.once('update-not-available', () => resolve(false));
+        autoUpdater.once('error', () => resolve(false));
+        autoUpdater.checkForUpdates()
+          .then((r) => (r && r.updateInfo ? autoUpdater.downloadUpdate() : null))
+          .catch(() => resolve(false));
+      }),
+      new Promise((resolve) => setTimeout(() => resolve(false), prazoMs)),
+    ]);
+    if (!instalou) log.info('[updater] pendente nao aplicada agora; segue o arranque.');
+    return instalou;
+  } catch (e) {
+    log.warn('[updater] falha ao aplicar a pendente:', e);
+    return false;
+  }
 }
 
 /** @type {{justUpdated:boolean, previousVersion:string|null, currentVersion:string}|null} */
@@ -764,4 +876,5 @@ module.exports = {
   initializeUpdateSystem,
   registerIpc,
   checkForUpdates,
+  aplicarAtualizacaoPendente,
 };

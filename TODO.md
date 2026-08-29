@@ -1298,10 +1298,42 @@ temática quando for pego.
       atualização esse cache é o que torna o download incremental; apagá-lo ali
       custaria o instalador inteiro a cada versão, para o laboratório todo. O
       nome da pasta vem do campo `name` do package.json, não do productName.
-- [ ] **Baixar pela tela de aviso inicial não muda o botão Baixar** do painel
-      de Configurações: os dois falam do mesmo download e discordam na tela.
-- [ ] **"Instalar depois" tem que instalar na PRÓXIMA ABERTURA**, e não ao
-      fechar. Ao fechar, desligar o PC no meio corrompe o download.
+- [x] ~~**Baixar pela tela de aviso inicial não muda o botão Baixar.**~~
+      Fechado em 29/08/2026, e a causa era uma CORRIDA, não um estado que
+      faltava. O aviso de boot abre o painel e só então manda instalar; abrir o
+      painel dispara um `desenhar` que ninguém espera, e quando ele volta do
+      main traz uma resposta pedida ANTES de o download começar. Ele então
+      refazia a lista inteira por cima da marcação e devolvia o botão
+      habilitado. O redesenho passou a perguntar ao estado LOCAL (`baixando`)
+      antes do que veio do main, o que resolve independentemente da ordem em
+      que as duas coisas terminem. O teste reproduz a corrida na ordem real, e
+      foi conferido nos dois sentidos: falha sem a correção, passa com ela.
+- [x] ~~**"Instalar depois" instala na PRÓXIMA ABERTURA.**~~ Feito em
+      29/08/2026. O `autoInstallOnAppQuit` voltou a `false`, agora com a peça
+      que faltava das duas vezes anteriores: `aplicarAtualizacaoPendente()`,
+      chamada no arranque antes de qualquer janela.
+
+      O comentário do updater guarda os três andares dessa história, para
+      ninguém desfazer o de cima achando que conserta o de baixo: era `false` e
+      o download era jogado fora ao fechar; virou `true` e passou a instalar
+      exatamente quando a pessoa desliga a máquina; agora é `false` com a
+      instalação na abertura.
+
+      Um detalhe que decidiu o desenho: o `quitAndInstall` exige o estado
+      interno que só o `downloadUpdate` monta, e num processo recém-nascido ele
+      não existe (responde "No update filepath provided"). Por isso o arranque
+      faz check e depois downloadUpdate, que NÃO rebaixa nada, porque valida o
+      arquivo em cache e o reaproveita; o que vai à rede são alguns kilobytes
+      de metadado. Máquina sem rede abre normal e tenta na próxima.
+
+      A decisão em si ficou em [main/pending_update.js](main/pending_update.js),
+      fora do Electron e com teste: instalar; limpar quando a versão pendente
+      já é a que está rodando, senão o arranque tentaria para sempre; e limpar
+      registro velho, porque o cache pode ter sumido do disco.
+
+      Caiu junto o desvio do `lifecycle` que existia só para o updater instalar
+      no quit. O `npm run test:e2e` do smoke passou depois da mudança, que é o
+      que prova que o arranque continua abrindo.
 
 ### 9.3 PRISM e visual
 

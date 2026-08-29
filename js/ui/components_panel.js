@@ -381,9 +381,23 @@ async function desenhar() {
   // Um download já em curso quando o painel abriu continua sendo um download:
   // o painel precisa mostrá-lo, e não oferecer um segundo. O último progresso
   // volta para a barra, senão sair e voltar de aba a zeraria.
-  if (dados?.baixando) {
-    marcarBaixando(dados.baixando);
-    const p = ultimoProgresso.get(dados.baixando);
+  //
+  // O estado LOCAL vem primeiro, e não é preciosismo: é o que conserta o
+  // defeito relatado, de clicar em "Baixar agora" no aviso de boot e encontrar
+  // o botão Baixar do painel como se nada estivesse acontecendo.
+  //
+  // A causa é uma corrida com dois relógios. O aviso de boot abre o painel e
+  // só então manda instalar, e abrir o painel dispara um `desenhar` que NÃO é
+  // esperado: quando ele volta do main, o download já começou aqui, mas a
+  // resposta que ele traz foi pedida antes, com `baixando` ainda nulo. Ele
+  // então refazia a lista inteira por cima da marcação e devolvia o botão
+  // habilitado. Perguntar ao `baixando` daqui resolve independentemente da
+  // ordem em que as duas coisas terminem, que é o único jeito de uma corrida
+  // deixar de ser um sorteio.
+  const emCurso = baixando || dados?.baixando;
+  if (emCurso) {
+    marcarBaixando(emCurso);
+    const p = ultimoProgresso.get(emCurso);
     if (p) aplicarProgresso(p);
   }
 }

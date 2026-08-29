@@ -430,3 +430,39 @@ describe('a seleção sobrevive ao redesenho', () => {
     expect(marcada('codex')).toBe(false);
   });
 });
+
+describe('o download comecado de fora do painel', () => {
+  // O caso relatado: clicar em "Baixar agora" no aviso de boot e encontrar o
+  // botao Baixar do painel como se nada estivesse acontecendo.
+  //
+  // A causa e uma corrida com dois relogios, e o teste a reproduz na ordem em
+  // que ela acontece de verdade: o aviso ABRE o painel (o que dispara um
+  // `desenhar` que ninguem espera) e so entao manda instalar. O `desenhar` em
+  // voo volta do main com uma resposta pedida ANTES de o download comecar, e
+  // refaz a lista por cima da marcacao.
+  it('a lista redesenhada no meio do caminho continua mostrando o download', async () => {
+    await pintar([comp({ chave: 'codex' })]);
+
+    // O `desenhar` disparado por abrir o painel: a resposta dele diz que nao
+    // ha download nenhum, porque foi pedida antes de o download comecar.
+    electronAPI.componentesListar.mockResolvedValue({
+      componentes: [comp({ chave: 'codex' })], baixando: null,
+    });
+    const redesenhoEmVoo = desenhar();
+
+    // E o download comeca enquanto aquele redesenho ainda esta no ar.
+    let terminar;
+    electronAPI.componentesInstalar.mockReturnValue(new Promise((r) => { terminar = r; }));
+    const instalacao = cartao('codex').querySelector('[data-instalar]');
+    instalacao.click();
+
+    await redesenhoEmVoo;
+
+    // O botao tem de estar desabilitado e a barra visivel, mesmo o redesenho
+    // tendo terminado depois e com dados de antes.
+    expect(cartao('codex').querySelector('[data-instalar]').disabled).toBe(true);
+    expect(cartao('codex').querySelector('.componente-progresso').hasAttribute('hidden')).toBe(false);
+
+    terminar({ ok: true });
+  });
+});

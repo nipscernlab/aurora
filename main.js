@@ -145,7 +145,19 @@ if (acquiredLock) {
   // calls `getAppVersion()` before the autoUpdater itself is initialized.
   updater.registerIpc();
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    // ANTES de qualquer janela: se uma atualizacao foi baixada numa sessao
+    // anterior, ela se instala agora e o processo sai. E o par do
+    // `autoInstallOnAppQuit = false` do updater, e a razao esta la: instalar no
+    // fechamento e instalar no momento em que a pessoa desliga a maquina.
+    //
+    // Aqui, e nao depois da splash, porque o que se ganha e justamente nao
+    // mostrar uma janela que vai morrer em seguida. Se nao houver pendente, ou
+    // se a rede nao responder no prazo curto, a funcao devolve falso na hora e
+    // o arranque segue como sempre.
+    const { isDev } = require('./main/paths');
+    if (!isDev && await updater.aplicarAtualizacaoPendente()) return;
+
     // MSYS tools (bash/make under the Verilator build, and cocotb) resolve
     // `/tmp` to <msysRoot>/tmp. A packaged build — or a freshly-copied
     // components/ tree — may not carry that empty directory, so bash warns

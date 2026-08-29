@@ -31,6 +31,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showDialog } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
+import { motivoDe } from '../app/api_reply.js';
 
 let baixando = null;
 
@@ -548,7 +549,7 @@ async function instalar(chave, forcar = false) {
   baixando = null;
 
   if (r?.ok) showCardNotification(tr('modal.settings.componentsInstalledOk'), 'success', 5000, 'Componentes');
-  else showCardNotification(tr('modal.settings.componentsInstallFailed', { erro: r?.erro || '?' }),
+  else showCardNotification(tr('modal.settings.componentsInstallFailed', { erro: motivoDe(r, '?') }),
     'error', 9000, 'Componentes');
   await desenhar();
 }
@@ -583,7 +584,7 @@ async function remover(chave) {
       tr('modal.settings.componentsRemoved', { nome, mb: tamanhoLegivel(r.liberadoMB || 0) }),
       'success', 5000, 'Componentes');
   } else {
-    showCardNotification(tr('modal.settings.componentsRemoveFailed', { erro: r?.erro || '?' }),
+    showCardNotification(tr('modal.settings.componentsRemoveFailed', { erro: motivoDe(r, '?') }),
       'error', 8000, 'Componentes');
   }
   await desenhar();

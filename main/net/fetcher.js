@@ -308,7 +308,9 @@ function getJson(url, opts = {}) {
         res.on('error', done);
       });
       req.on('error', done);
-      req.setTimeout(timeoutMs, () => req.destroy(new Error('requisicao JSON expirou')));
+      // A mensagem leva a URL e o prazo: "expirou" sozinho nao diz o que se
+      // esperava nem de quem, e e o que o painel mostra ao usuario.
+      req.setTimeout(timeoutMs, () => req.destroy(new Error(`${u} nao respondeu em ${Math.round(timeoutMs / 1000)} s`)));
     }
 
     request(url);

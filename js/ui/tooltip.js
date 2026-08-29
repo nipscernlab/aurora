@@ -294,6 +294,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // Re-initialize tooltips when new elements are added to the DOM
     const observer = new MutationObserver((mutations) => {
         let shouldReinitialize = false;
+
+        // O balao de um elemento que SAIU do DOM tem que sair junto. O
+        // mouseleave nunca dispara para um no removido, e o click que fecha
+        // a aba e engolido antes de chegar ao window, entao o "Close" ficava
+        // aceso no canto depois de a aba ja ter sumido.
+        if (activeElement && !activeElement.isConnected) {
+            tooltip.classList.remove('visible');
+            activeElement = null;
+            if (tooltipTimeout) { clearTimeout(tooltipTimeout); tooltipTimeout = null; }
+        }
         
         mutations.forEach((mutation) => {
             if (mutation.type === 'childList') {

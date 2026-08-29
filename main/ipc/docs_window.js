@@ -158,24 +158,31 @@ function open(dir, relPage = 'index.html', hash = '') {
 }
 
 function register() {
+  // As duas respondem {ok, error}, e nunca um `false` mudo: quem chama tem
+  // que saber se a janela nao existe, se a acao e desconhecida, ou se ela
+  // nao se aplica agora (voltar sem historico atras).
   ipcMain.handle('docs-window:nav', (_e, acao) => {
-    if (!view) return false;
+    if (!view) return { ok: false, error: 'a janela do manual nao esta aberta' };
     const wc = view.webContents;
-    if (acao === 'back' && wc.navigationHistory.canGoBack()) wc.navigationHistory.goBack();
-    else if (acao === 'forward' && wc.navigationHistory.canGoForward()) wc.navigationHistory.goForward();
-    else if (acao === 'reload') wc.reload();
+    if (acao === 'back') {
+      if (!wc.navigationHistory.canGoBack()) return { ok: false, error: 'nao ha pagina anterior' };
+      wc.navigationHistory.goBack();
+    } else if (acao === 'forward') {
+      if (!wc.navigationHistory.canGoForward()) return { ok: false, error: 'nao ha pagina seguinte' };
+      wc.navigationHistory.goForward();
+    } else if (acao === 'reload') wc.reload();
     else if (acao === 'home') wc.loadFile(path.join(raizDocs, 'index.html'));
-    else return false;
-    return true;
+    else return { ok: false, error: `acao de navegacao desconhecida: "${acao}" (esperava back, forward, reload ou home)` };
+    return { ok: true };
   });
 
   ipcMain.handle('docs-window:control', (_e, acao) => {
-    if (!win || win.isDestroyed()) return false;
+    if (!win || win.isDestroyed()) return { ok: false, error: 'a janela do manual nao esta aberta' };
     if (acao === 'minimize') win.minimize();
     else if (acao === 'maximize') { win.isMaximized() ? win.unmaximize() : win.maximize(); }
     else if (acao === 'close') win.close();
-    else return false;
-    return true;
+    else return { ok: false, error: `acao de janela desconhecida: "${acao}" (esperava minimize, maximize ou close)` };
+    return { ok: true };
   });
 
   /** A barra pede o estado assim que carrega, para não nascer com os botões errados. */

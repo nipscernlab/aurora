@@ -563,7 +563,10 @@ async function resolveExternal(name) {
     if (msg.includes('HTTP 404')) {
       return { ok: false, reason: 'not-found', message: `"${clean}" nao existe na PyPI.` };
     }
-    return { ok: false, reason: 'network', message: msg };
+    // O erro de rede sai inteiro (URL, prazo ou codigo HTTP, que o fetcher ja
+    // poe) e com o que fazer: sem isso a pessoa le "expirou" e fica sem saber
+    // se a culpa e da PyPI, da conexao ou do nome digitado.
+    return { ok: false, reason: 'network', message: `Nao consegui consultar a PyPI: ${msg}. Confira a conexao e tente de novo.` };
   }
 
   const version = meta.info?.version || '';

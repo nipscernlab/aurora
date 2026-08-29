@@ -18,6 +18,7 @@
 
 import { notify } from '../ui/notification.js';
 import { showConfirm } from '../ui/dialog_manager.js';
+import { motivoDe } from '../app/api_reply.js';
 
 const $ = (id) => document.getElementById(id);
 const api = () => window.pyLibsAPI;
@@ -114,7 +115,7 @@ async function refresh() {
   await loadIconIndex();
   const res = await api().state();
   if (!res?.ok) {
-    setStatus(res?.error || 'Falha ao ler o catálogo.', 'error');
+    setStatus(motivoDe(res, 'Falha ao ler o catálogo.'), 'error');
     return;
   }
   state = res.data;
@@ -416,8 +417,8 @@ async function doInstall(id, lib) {
     notify.success(tt('pylibs.toast.installed', '{{name}} instalada.', { name: lib.name }));
     setStatus('', '');
   } else {
-    notify.error(res?.error || 'Falha na instalação.');
-    setStatus(res?.error || '', 'error');
+    notify.error(motivoDe(res, 'Falha na instalação.'));
+    setStatus(motivoDe(res, ''), 'error');
   }
   await refresh();
 }
@@ -427,7 +428,7 @@ async function doRepair(id, lib) {
   const res = await api().repair(id);
   busy.delete(id);
   if (res?.ok) notify.success(tt('pylibs.toast.repaired', '{{name}} reparada.', { name: lib.name }));
-  else notify.error(res?.error || 'Falha no reparo.');
+  else notify.error(motivoDe(res, 'Falha no reparo.'));
   setStatus('', '');
   await refresh();
 }
@@ -460,7 +461,7 @@ async function doUninstall(id, lib) {
     notify.success(tt('pylibs.toast.uninstalled', '{{name}} removida ({{n}} arquivos).',
       { name: lib.name, n: d.removed ?? 0 }));
   } else {
-    notify.error(res?.error || 'Falha ao desinstalar.');
+    notify.error(motivoDe(res, 'Falha ao desinstalar.'));
   }
   await refresh();
 }
@@ -480,7 +481,7 @@ async function checkExternal() {
   const res = await api().resolveExternal(name);
   if (!res?.ok) {
     out.dataset.kind = 'err';
-    out.textContent = res?.error || 'Falha na consulta.';
+    out.textContent = motivoDe(res, 'Falha na consulta.');
     return;
   }
 
@@ -524,7 +525,7 @@ async function installExternal(name) {
     const input = $('pylib-external-name');
     if (input) input.value = '';
   } else {
-    notify.error(res?.error || 'Falha na instalação.');
+    notify.error(motivoDe(res, 'Falha na instalação.'));
   }
   setStatus('', '');
   await refresh();
@@ -628,7 +629,7 @@ function wire() {
     const res = await api().uninstall(btn.dataset.id);
     if (res?.ok) notify.success(tt('pylibs.toast.uninstalled', '{{name}} removida ({{n}} arquivos).',
       { name: btn.dataset.name, n: res.data?.removed ?? 0 }));
-    else notify.error(res?.error || 'Falha ao desinstalar.');
+    else notify.error(motivoDe(res, 'Falha ao desinstalar.'));
     await refresh();
   });
 
@@ -671,7 +672,7 @@ function wire() {
       if (health.ok) notify.success(tt('pylibs.verify.clean', 'Todas as bibliotecas estao integras.'));
       else notify.error(tt('pylibs.verify.dirty', '{{n}} biblioteca(s) com problema.', { n: health.issues.length }));
     } else {
-      notify.error(res?.error || 'Falha na verificacao.');
+      notify.error(motivoDe(res, 'Falha na verificacao.'));
     }
     setStatus('', '');
   });

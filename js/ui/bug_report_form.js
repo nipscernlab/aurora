@@ -31,6 +31,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { showCardNotification } from './notification.js';
 import { recorteEmTexto } from '../terminal/terminal_excerpt.js';
+import { motivoDe } from '../app/api_reply.js';
 
 const CHAVE_RASCUNHO = 'aurora-bugreport-rascunho';
 
@@ -296,7 +297,7 @@ export async function abrirFormulario(porEmail) {
   // texto que a pessoa escreveu não pode se perder por causa disso.
   const motivo = r?.erro === 'sem-endpoint'
     ? tr('bugReport.noEndpoint')
-    : tr('bugReport.failed', { erro: r?.erro || '?' });
+    : tr('bugReport.failed', { erro: motivoDe(r, '?') });
   showCardNotification(
     tr('bugReport.fallbackEmail', { motivo }), 'warning', 8000, tr('bugReport.title'));
   await porEmail?.(texto, diag);

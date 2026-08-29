@@ -15,6 +15,7 @@
  */
 
 import { electronAPI } from '../app/electron_api.js';
+import { motivoDe } from '../app/api_reply.js';
 import { showConfirm } from './dialog_manager.js';
 import { showCardNotification } from './notification.js';
 import { aiMarkSvg } from './ai_mark.js';
@@ -1900,7 +1901,7 @@ class AIAssistantManager {
         effort: SUB_META[this.currentProvider]?.hasEffort ? this.claudeCodeEffort : undefined,
         permission: this.permissionMode,
       });
-      if (r && r.ok === false) this.failTurn(r.error || 'Failed to start chat');
+      if (r && r.ok === false) this.failTurn(motivoDe(r, 'Failed to start chat'));
     } catch (e) {
       this.failTurn(e?.message || String(e));
     }
@@ -2013,7 +2014,7 @@ class AIAssistantManager {
         if (t && t.ok && t.data) terminals = JSON.stringify(t.data).slice(0, 4000);
       } catch (_) { /* terminals are best-effort context */ }
       this._renderBgTask(taskId, `${label} ${okJob ? 'finished' : 'failed'}`, okJob ? 'done' : 'failed');
-      const status = okJob ? 'completed' : `failed: ${res?.error?.message || res?.error || 'unknown error'}`;
+      const status = okJob ? 'completed' : `failed: ${res?.error?.message || motivoDe(res, 'unknown error')}`;
       this.autoContinue(
         `[AUTONOMOUS BACKGROUND TASK] "${label}" (${taskId}) ${status}.\n\n` +
         (note ? `Original intent: ${note}\n\n` : '') +

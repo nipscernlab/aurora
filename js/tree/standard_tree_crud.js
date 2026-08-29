@@ -71,6 +71,7 @@ import { nextSelection, pruneSelection, topMostPaths } from './tree_selection.js
 import { SpfStore } from '../project/spf_store.js';
 import { renomearNoSpf, removerDoSpf, reporNoSpf, processadorEm } from '../project/spf_paths.js';
 import { EditorManager } from '../editor/monaco_editor.js';
+import { motivoDe } from '../app/api_reply.js';
 
 // i18n with English fallback (same pattern as file_tree_toggler.js), the
 // menu works before locales load and the keys are optional.
@@ -227,7 +228,7 @@ class StandardTreeCrud {
         const r = qual === 'desfazer' ? await h.desfazer() : await h.refazer();
         if (!r.ok) {
             showCardNotification(
-                tr('fileTree.crud.undoFailed', 'Could not undo: {error}', { error: r.erro || 'unknown' }),
+                tr('fileTree.crud.undoFailed', 'Could not undo: {error}', { error: motivoDe(r, 'unknown') }),
                 'error', 4000,
             );
             return;
@@ -1066,7 +1067,7 @@ class StandardTreeCrud {
         }
         if (!res?.success) {
             showCardNotification(
-                tr('fileTree.crud.errRename', 'Could not rename: {error}', { error: res?.error || 'unknown' }),
+                tr('fileTree.crud.errRename', 'Could not rename: {error}', { error: motivoDe(res, 'unknown') }),
                 'error', 4000,
             );
             return;
@@ -1278,7 +1279,7 @@ class StandardTreeCrud {
                     title: tr('fileTree.crud.deleteTitle', 'Delete'),
                     message: tr('fileTree.crud.trashFailed',
                         'Could not stage the deletion ({error}). Delete permanently instead?',
-                        { error: res?.error || 'unknown' }),
+                        { error: motivoDe(res, 'unknown') }),
                     variant: 'warning',
                     buttons: [
                         { label: tr('dialog.common.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
@@ -1427,7 +1428,7 @@ class StandardTreeCrud {
             const res = await electronAPI.renamePath(item.path, dest, { overwrite });
             if (!res?.success) {
                 showCardNotification(
-                    tr('fileTree.crud.errMove', 'Could not move: {error}', { error: res?.error || 'unknown' }),
+                    tr('fileTree.crud.errMove', 'Could not move: {error}', { error: motivoDe(res, 'unknown') }),
                     'error', 4000,
                 );
                 return {};
@@ -1441,7 +1442,7 @@ class StandardTreeCrud {
         const res = await electronAPI.copyAnyPath(item.path, dest, { overwrite });
         if (!res?.success) {
             showCardNotification(
-                tr('fileTree.crud.errCopy', 'Could not copy: {error}', { error: res?.error || 'unknown' }),
+                tr('fileTree.crud.errCopy', 'Could not copy: {error}', { error: motivoDe(res, 'unknown') }),
                 'error', 4000,
             );
             return {};

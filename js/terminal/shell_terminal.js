@@ -12,6 +12,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { electronAPI } from '../app/electron_api.js';
+import { motivoDe } from '../app/api_reply.js';
 
 const SESSION_ID = 'tcmd';
 // Windows-style absolute paths: `C:\...` or UNC `\\host\...`, stopping at
@@ -132,7 +133,7 @@ class ShellTerminal {
         const res = await electronAPI.shellStart({ id: SESSION_ID, cwd, cols, rows });
         if (!res?.ok) {
           this._startPromise = null;
-          this.term?.write(`\x1b[31m[não foi possível iniciar o shell] ${res?.error || ''}\x1b[0m\r\n`);
+          this.term?.write(`\x1b[31m[não foi possível iniciar o shell] ${motivoDe(res, '')}\x1b[0m\r\n`);
           return false;
         }
         return true;

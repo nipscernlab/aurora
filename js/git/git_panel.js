@@ -6,6 +6,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { html as renderDiff } from 'diff2html';
 import 'diff2html/bundles/css/diff2html.min.css';
+import { motivoDe } from '../app/api_reply.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
@@ -744,7 +745,7 @@ async function oauthLoginGitlab() {
   if (seq !== oauthGitlabSeq) return;   // cancelado ou superado
   const box = $('git-gitlab-oauth-code');
   if (box) { box.hidden = true; box.innerHTML = ''; }
-  if (!r || !r.ok) { setStatus(r?.error || 'sign-in failed', 'error'); return; }
+  if (!r || !r.ok) { setStatus(motivoDe(r, 'sign-in failed'), 'error'); return; }
   setStatus(`@${r.user.login}`, 'ok');
   await renderAccount();
   refresh();
@@ -1089,7 +1090,7 @@ async function showCommitDiff(hash) {
     + `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
   let r;
   try { r = await api().commitFiles(withDir({ hash })); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
-  if (!r || !r.ok) { body.innerHTML = commitDetailHtml(commit, hash) + `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
+  if (!r || !r.ok) { body.innerHTML = commitDetailHtml(commit, hash) + `<div class="git-diff-empty">${esc(motivoDe(r, ''))}</div>`; return; }
   const files = Array.isArray(r.files) ? r.files : [];
   if (!files.length) { body.innerHTML = commitDetailHtml(commit, hash) + `<div class="git-diff-empty">${esc(tt('git.noFileChanges', 'No file changes in this commit.'))}</div>`; return; }
   const head = `<div class="git-fd-summary">${files.length} ${esc(files.length === 1 ? tt('git.fileOne', 'file') : tt('git.fileMany', 'files'))}</div>`;
@@ -1104,7 +1105,7 @@ async function loadFileDiffInto(body, hash, file) {
   body.innerHTML = `<div class="git-diff-loading"><span class="git-spinner"></span> ${esc(tt('git.loading', 'Loading…'))}</div>`;
   let r;
   try { r = await api().show(withDir({ hash, file })); } catch (e) { r = { ok: false, error: e?.message || String(e) }; }
-  if (!r || !r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(r?.error || '')}</div>`; return; }
+  if (!r || !r.ok) { body.innerHTML = `<div class="git-diff-empty">${esc(motivoDe(r, ''))}</div>`; return; }
   body.dataset.loaded = '1';
   requestAnimationFrame(() => { body.innerHTML = diffHtml(r.diff || '', r.truncated); });
 }
@@ -1728,7 +1729,7 @@ async function runClonedAction(action, idx) {
       if (item.url) { try { electronAPI?.openExternal?.(item.url); } catch (_) { /* ignore */ } }
       else flash(tt('git.noGithubUrl', 'No GitHub URL for this project.'), 'error');
       return undefined;
-    case 'open-cmd': try { const r = await electronAPI?.openTerminal?.(item.path); if (r && r.success === false) flash(r.error || 'Failed', 'error'); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
+    case 'open-cmd': try { const r = await electronAPI?.openTerminal?.(item.path); if (r && r.success === false) flash(motivoDe(r, 'Failed'), 'error'); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
     case 'show-explorer': try { await electronAPI?.openFolder?.(item.path); } catch (e) { flash(e?.message || String(e), 'error'); } return undefined;
     case 'remove': return removeClonedProject(idx);
     default: return undefined;

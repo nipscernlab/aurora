@@ -3,6 +3,7 @@ import { showAlert } from '../ui/dialog_manager.js';
 import { showCardNotification } from '../ui/notification.js';
 import { ProjectStore } from './project_store.js';
 import '../components/aurora-welcome.js';
+import { motivoDe } from '../app/api_reply.js';
 
 // ADDED: Export the class to make it importable
 export class RecentProjectsManager {
@@ -120,7 +121,7 @@ export class RecentProjectsManager {
     this.render();
     try {
       const r = await electronAPI.locateRecentsStart?.(alvos);
-      if (!r?.ok) throw new Error(r?.error || 'locate failed');
+      if (!r?.ok) throw new Error(motivoDe(r, 'locate failed'));
     } catch (e) {
       for (const a of alvos) {
         const p = this.projects.find((x) => x.path === a.key);

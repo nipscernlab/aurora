@@ -1,4 +1,5 @@
 import { electronAPI } from '../app/electron_api.js';
+import { motivoDe } from '../app/api_reply.js';
 // search_panel.js, "Find in Files" panel (VS Code's Search), driven by
 // electronAPI.searchInProject (main/ipc/search.js). Results are grouped
 // by file: a collapsible file header + match rows. Clicking a row opens the
@@ -89,7 +90,7 @@ async function runSearch() {
 
   if (!res || !res.ok) {
     lastResults = [];
-    wrap.innerHTML = `<div class="search-error"><i class="ph ph-warning-circle"></i> ${esc(res?.error || tt('search.failed', 'Search failed.'))}</div>`;
+    wrap.innerHTML = `<div class="search-error"><i class="ph ph-warning-circle"></i> ${esc(motivoDe(res, tt('search.failed', 'Search failed.')))}</div>`;
     if (summary) { summary.hidden = true; summary.textContent = ''; }
     return;
   }

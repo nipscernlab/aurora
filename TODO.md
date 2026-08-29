@@ -1463,6 +1463,14 @@ temática quando for pego.
       violeta no rótulo e no triângulo do clk. Regerar as 58 skins também
       corrigiu 5 que estavam desatualizadas em relação ao gerador, entre elas
       o `io_ctrl`, a que faltava a âncora do `rst`.
+
+      Só que esse não era o pino do pedido. O usuário mostrou: o pino é a
+      seta de porta do módulo, a casinha deitada que o netlistsvg desenha em
+      `clk`, `req_in`, `req_out`, e que era 30x20 e vazada. Entrou uma skin
+      própria para `inputExt` e `outputExt` em `assets/prism-skins`, 20x12,
+      preenchida no cinza do rótulo de porta; o merge de skins substitui o
+      bloco de fábrica pelo `s:type`. Conferido desenhando a `ula` fora da
+      AURORA com o mesmo yosys, o mesmo netlistsvg e o mesmo CSS.
 - [x] ~~**No `.cmm`, o `|` alinha com a seta** no Monaco.~~ Feito em
       29/08/2026, e a medição inverteu o item: a barra estava ACIMA do ângulo,
       então ela desce, não sobe. A causa é que os dois símbolos vêm de fontes
@@ -1547,6 +1555,15 @@ temática quando for pego.
 ---
 
 ## Princípios de desenho
+
+Nenhuma API responde de forma incompleta. Ou foi chamada errado, e diz onde;
+ou falhou, e diz o erro; ou deu certo, e devolve o resultado. Do lado de quem
+lê, `motivoDe(res, operacao)` em [js/app/api_reply.js](js/app/api_reply.js)
+garante que a tela nunca mostra um "Falhou." seco: sem motivo na resposta, a
+mensagem diz que a API respondeu sem dizer o erro e mostra o que chegou. Do
+lado de quem responde, `{ ok: false }` mudo e `return false` são proibidos em
+handler de IPC (29/08/2026: `shell:input`, `shell:resize`, `docs-window:*`
+eram os últimos), e um timeout diz a URL e o prazo, não só "expirou".
 
 Resumo do manifesto de interface, mantido aqui porque comentários no CSS e no
 JS o citam por seção. É proposta com histórico, não descrição do que está na

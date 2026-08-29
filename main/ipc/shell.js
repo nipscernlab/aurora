@@ -148,22 +148,24 @@ function register() {
 
   /** Feed the user's keystrokes to the PTY. Payload: { id?, data }. */
   ipcMain.handle('shell:input', (_event, payload = {}) => {
-    const s = sessions.get(String(payload.id || 'tcmd'));
-    if (!s) return { ok: false };
+    const id = String(payload.id || 'tcmd');
+    const s = sessions.get(id);
+    if (!s) return { ok: false, error: `nao ha sessao de shell "${id}" (ela fechou ou nunca foi iniciada)` };
     try { s.proc.write(String(payload.data ?? '')); return { ok: true }; }
     catch (err) { return { ok: false, error: String(err instanceof Error ? err.message : err) }; }
   });
 
   /** Resize the PTY to match xterm's grid. Payload: { id?, cols, rows }. */
   ipcMain.handle('shell:resize', (_event, payload = {}) => {
-    const s = sessions.get(String(payload.id || 'tcmd'));
-    if (!s) return { ok: false };
+    const id = String(payload.id || 'tcmd');
+    const s = sessions.get(id);
+    if (!s) return { ok: false, error: `nao ha sessao de shell "${id}" (ela fechou ou nunca foi iniciada)` };
     // Mesma regra do shell:start. Eram duas regras diferentes, e para cols=0
     // uma dava 2 e a outra 80, iniciar e redimensionar com o mesmo valor
     // produziam terminais diferentes.
     const { cols, rows } = clampGrid(payload);
     try { s.proc.resize(cols, rows); return { ok: true }; }
-    catch (_) { return { ok: false }; }
+    catch (err) { return { ok: false, error: `resize para ${cols}x${rows} falhou: ${err instanceof Error ? err.message : String(err)}` }; }
   });
 
   /** Explicitly kill a session. Payload: { id? }. */

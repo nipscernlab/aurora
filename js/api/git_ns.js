@@ -1,3 +1,4 @@
+import { motivoDe } from '../app/api_reply.js';
 /**
  * git_ns.js: the `AuroraAPI.git` namespace (G1): version control over the open
  * project's local git repo, exposed to Aurora Intelligence as the git_* tools.
@@ -29,7 +30,7 @@ async function gitCall(method, arg, { needRepo = true } = {}) {
   let r;
   try { r = (arg === undefined) ? await fn() : await fn(arg); }
   catch (e) { return err(e?.message || `git ${method} failed`); }
-  if (r && r.ok === false) return err(r.error || `git ${method} failed`);
+  if (r && r.ok === false) return err(motivoDe(r, `git ${method} failed`));
   if (needRepo && r && r.isRepo === false) return err('The open project is not a git repository.');
   return r;
 }

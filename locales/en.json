@@ -1250,5 +1250,8 @@
     "yanc": "YANC",
     "claude": "Claude Code",
     "codex": "Codex"
+  },
+  "api": {
+    "semMotivo": "the API replied without saying what went wrong (reply: {{resposta}})"
   }
 }

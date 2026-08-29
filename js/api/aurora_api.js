@@ -70,6 +70,7 @@ import { memorySlug } from '../ai/memory.js';
 // importa nada, porque importar ESTE arquivo inicializa a IDE inteira e por
 // isso nenhum teste alcancava o nucleo. Ver js/api/api_core.js.
 import { ok, err, on, off, emit, WINDOW_EVENT_BRIDGE } from './api_core.js';
+import { motivoDe } from '../app/api_reply.js';
 
 
 
@@ -576,7 +577,7 @@ const terminalNs = {
     try { switchTerminal('terminal-tcmd'); } catch (_) { /* best-effort */ }
     try {
       const res = await st.runCommand(command, { execute });
-      if (!res?.ok) return err(res?.error || 'shell command failed');
+      if (!res?.ok) return err(motivoDe(res, 'shell command failed'));
       // `complete:false` means the capture hit its cap while the shell was
       // still talking: the output is a prefix and the command may still be
       // running. Say so explicitly, so the model never mistakes a truncated
@@ -704,7 +705,7 @@ async function _runRenameJob(job) {
     // Fold the main-process step timeline into the job's.
     if (Array.isArray(r?.steps)) for (const s of r.steps) job.steps.push({ ...s });
     if (!r || r.success === false) {
-      const reason = r?.error || 'the on-disk rename failed';
+      const reason = motivoDe(r, 'the on-disk rename failed');
       _renameStep(job, 'disk-rename', false, reason);
       job.status = 'failed';
       job.result = { ok: false, failedStep: r?.failedStep || 'disk-rename', reason };
@@ -1554,7 +1555,7 @@ const projectNs = {
     }
     try {
       const r = await electronAPI.deleteProcessor(processorName);
-      if (r && r.success === false) return err(r.error || 'deleteProcessor failed');
+      if (r && r.success === false) return err(motivoDe(r, 'deleteProcessor failed'));
       await refreshTree();
       emit('project:processor-deleted', { processorName });
       return ok({ processorName });
@@ -1608,7 +1609,7 @@ const projectNs = {
     let r;
     try { r = await electronAPI.renameProcessor(oldNm, newNm); }
     catch (e) { return err(e?.message || 'renameProcessor failed'); }
-    if (r && r.success === false) return err(r.error || 'renameProcessor failed');
+    if (r && r.success === false) return err(motivoDe(r, 'renameProcessor failed'));
 
     const realOld = r?.oldName || oldNm;
     const realNew = r?.newName || newNm;
@@ -2936,7 +2937,7 @@ const examplesNs = {
   async list() {
     try {
       const r = await electronAPI.exemplosListar?.();
-      if (!r?.ok) return err(r?.erro || 'Could not read the example catalogue');
+      if (!r?.ok) return err(motivoDe(r, 'Could not read the example catalogue'));
       return ok({ examples: r.exemplos || [] });
     } catch (e) { return err(e?.message || 'list examples failed'); }
   },
@@ -2950,7 +2951,7 @@ const examplesNs = {
   async install() {
     try {
       const r = await electronAPI.exemplosInstalar?.();
-      if (!r?.ok) return err(r?.erro || 'Could not create the example projects');
+      if (!r?.ok) return err(motivoDe(r, 'Could not create the example projects'));
       if (r.cancelado) return ok({ cancelled: true, created: [], skipped: [] });
       return ok({
         cancelled: false,
@@ -2982,7 +2983,7 @@ const manualNs = {
   async search(query, options) {
     try {
       const r = await electronAPI.docsBuscar?.(query, options || {});
-      if (!r?.ok) return err(r?.erro || 'Manual search failed');
+      if (!r?.ok) return err(motivoDe(r, 'Manual search failed'));
       return ok({ results: r.resultados || [], online: r.online });
     } catch (e) { return err(e?.message || 'manual search failed'); }
   },
@@ -2991,7 +2992,7 @@ const manualNs = {
   async read(pagePath, options) {
     try {
       const r = await electronAPI.docsLer?.(pagePath, options || {});
-      if (!r?.ok) return err(r?.erro || 'Manual page not found');
+      if (!r?.ok) return err(motivoDe(r, 'Manual page not found'));
       return ok({ path: r.caminho, title: r.titulo, text: r.texto, truncated: r.truncado });
     } catch (e) { return err(e?.message || 'manual read failed'); }
   },

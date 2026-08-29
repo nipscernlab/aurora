@@ -1199,7 +1199,11 @@ class PRISMViewer {
           this.djsContainer.classList.add('panning');
         });
         // Center + fit, and lay the 0/1 digits, once the (async) layout lands.
-        this._paper.once('render:done', () => { this._fitPaper(); this._buildValueOverlays(); });
+        // O dagre do DigitalJS tem espacamento fixo (nodeSep 20, rankSep 110)
+        // e nao aceita opcao: num modulo com dez portas por lado os rotulos
+        // caem uns sobre os outros. Expandir as posicoes DEPOIS do layout da o
+        // ar que ele nao da; os fios saem das portas e se refazem sozinhos.
+        this._paper.once('render:done', () => { this._expandirLayout(1.6, 1.35); this._fitPaper(); this._buildValueOverlays(); });
         setTimeout(() => { this._fitPaper(); this._buildValueOverlays(); }, 150);
       } catch (err) {
         console.error('[PRISM] DigitalJS render failed:', err);
@@ -1232,6 +1236,7 @@ class PRISMViewer {
 
   /** Stop + dispose the live circuit (best-effort) and clear its host. */
   _destroyCircuit() {
+    this._layoutExpandido = false;
     if (this.circuit) {
       try { this.circuit.stop?.(); } catch (_) { /* best-effort */ }
       try { this.circuit.shutdown?.(); } catch (_) { /* best-effort */ }
@@ -1292,6 +1297,22 @@ class PRISMViewer {
       this.djsWrapper.style.transform =
         `translate(${this._paperTx}px, ${this._paperTy}px) scale(${this._paperScale})`;
     }
+  }
+
+  /** Afasta os elementos entre si, mantendo a forma do layout. Uma vez so. */
+  _expandirLayout(fx, fy) {
+    if (!this._paper || this._layoutExpandido) return;
+    this._layoutExpandido = true;
+    const graph = this._paper.model;
+    for (const el of graph.getElements()) {
+      const p = el.position();
+      el.position(p.x * fx, p.y * fy);
+    }
+    for (const l of graph.getLinks()) {
+      const vs = l.vertices ? l.vertices() : [];
+      if (vs && vs.length) l.vertices(vs.map((v) => ({ x: v.x * fx, y: v.y * fy })));
+    }
+    try { this._paper.fitToContent({ padding: 40, allowNewOrigin: 'any' }); } catch (_) { /* versao sem fitToContent */ }
   }
 
   /** Center + fit the circuit in the viewport. */

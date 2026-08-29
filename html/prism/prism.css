@@ -927,3 +927,26 @@ body.sim-montando::after {
   border: 1px solid var(--border) !important;
   border-radius: var(--radius-sm);
 }
+
+/* O balao de valor do fio (hex, dec, oct, bin) NAO mora dentro do papel: o
+   DigitalJS o pendura direto no body, e por isso a regra do papel nao o
+   alcancava e ele continuava branco. Regra global, mesma carta escura. */
+.wire_hover {
+  background: var(--bg-elev-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm);
+  padding: 6px 8px !important;
+  font-family: var(--font-mono);
+  font-size: 11px !important;
+  line-height: 1.5;
+  box-shadow: var(--shadow-md);
+}
+/* Os dialogos do jquery-ui que o DigitalJS abre (memoria, FSM). */
+.ui-dialog, .ui-widget-content, .ui-widget-header {
+  background: var(--bg-elev-2) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+/* Nome do fio: legenda, nao titulo. */
+.djs-container .joint-link text { font-size: 9px !important; fill: var(--text-secondary) !important; }

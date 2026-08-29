@@ -853,9 +853,45 @@ write_json "${jsonPath}"
   const { yosys2digitaljs } = require('yosys2digitaljs/core');
   const circuit = yosys2digitaljs(yosysJson, {});
   stripYosysLabels(circuit);
+  limparNomesDeSubcircuitos(circuit);
   tlog(`DigitalJS: converted to ${Object.keys(circuit.devices || {}).length} devices ` +
     `in ${((Date.now() - tConv) / 1000).toFixed(1)}s — rendering in PRISM…`, 'success');
   return circuit;
+}
+
+// O nome de um subcircuito e a chave de `subcircuits` e o `celltype` de cada
+// instancia, e o DigitalJS escreve o celltype em cima da caixa. Para um modulo
+// parametrizado o yosys entrega `$paramod$<hash>\mem_data`, que na tela e uma
+// linha de 60 caracteres de lixo sobre o desenho. Aqui a chave e o celltype
+// viram o nome limpo (cleanModuleName, o mesmo do esquematico); dois modulos
+// diferentes que limpem para o mesmo nome ganham sufixo, para nao se fundirem.
+function limparNomesDeSubcircuitos(/** @type {any} */ circuit) {
+  const subs = circuit && circuit.subcircuits;
+  if (!subs) return;
+  /** @type {Map<string, string>} */
+  const mapa = new Map();
+  const usados = new Set();
+  for (const cru of Object.keys(subs)) {
+    let limpo = cleanModuleName(cru) || cru;
+    let n = 2;
+    while (usados.has(limpo)) limpo = `${cleanModuleName(cru) || cru}#${n++}`;
+    usados.add(limpo);
+    mapa.set(cru, limpo);
+  }
+  const trocaTipos = (/** @type {any} */ devs) => {
+    if (!devs) return;
+    for (const d of Object.values(devs)) {
+      const dev = /** @type {any} */ (d);
+      if (dev && typeof dev.celltype === 'string' && mapa.has(dev.celltype)) dev.celltype = mapa.get(dev.celltype);
+    }
+  };
+  trocaTipos(circuit.devices);
+  const novos = /** @type {any} */ ({});
+  for (const [cru, sub] of Object.entries(subs)) {
+    trocaTipos(/** @type {any} */ (sub).devices);
+    novos[/** @type {string} */ (mapa.get(cru))] = sub;
+  }
+  circuit.subcircuits = novos;
 }
 
 // yosys names internal cells "$xor$<src>:<line>$n", pure clutter next to the

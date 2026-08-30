@@ -39,6 +39,14 @@ import { moduleStemFromPath, insertChegueiToaqui } from './compilation_helpers.j
 // i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
+// O usuario ja mandou parar? Depois de um Cancelar, o .exe morto reporta a
+// morte como falha propria ("code 1") e o catch carimbava isso em vermelho no
+// terminal. Nao e defeito do programa, e o kill. Mesma bandeira que o
+// compilation_flow expoe (window.isCompilationCanceled); ver o gemeo em
+// compilation_module.js.
+const canceladoPeloUsuario = () =>
+    (typeof window !== 'undefined' && !!window.isCompilationCanceled?.());
+
 export async function getSelectedCmmFile(processor) {
     if (!processor.cmmFile) {
         throw new Error(tr('error.config.noCmm'));
@@ -214,9 +222,11 @@ export async function cmmCompilation(deps, processor, chegueiInstrumentProc, set
         statusUpdater.compilationSuccess('cmm');
         return asmPath;
     } catch (error) {
-        deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
+        if (!canceladoPeloUsuario()) {
+            deps.terminalManager.appendToTerminal('tcmm', tr('terminal.common.error', { message: error.message }), 'error');
+            error.jaNoTerminal = true;
+        }
         statusUpdater.compilationError('cmm', error.message);
-        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -343,9 +353,11 @@ export async function asmCompilation(deps, processor, preamble = null) {
 
         statusUpdater.compilationSuccess('asm');
     } catch (error) {
-        deps.terminalManager.appendToTerminal('tasm', tr('terminal.common.error', { message: error.message }), 'error');
+        if (!canceladoPeloUsuario()) {
+            deps.terminalManager.appendToTerminal('tasm', tr('terminal.common.error', { message: error.message }), 'error');
+            error.jaNoTerminal = true;
+        }
         statusUpdater.compilationError('asm', error.message);
-        error.jaNoTerminal = true;
         throw error;
     }
 }

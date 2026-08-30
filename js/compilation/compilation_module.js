@@ -139,6 +139,22 @@ if (typeof window !== 'undefined' && electronAPI.onSurferTabStateSaved) {
 // i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
+/**
+ * O usuario ja mandou parar?
+ *
+ * Depois de um Cancelar, a ferramenta que morreu ainda reporta a morte como
+ * falha propria ("Verilator failed with exit code 1"), e cada catch daqui
+ * carimbava isso no terminal em vermelho. Nao e um defeito do design: e o
+ * kill. Quem pediu para parar recebia um cartao de erro dizendo que o
+ * Verilator falhou, e ficava sem saber se quebrou alguma coisa.
+ *
+ * Mesma bandeira que o compilation_flow expoe pra barra de progresso se calar
+ * (renderHardwareProgress), pelo mesmo motivo: e o rastro do que ja estava em
+ * voo quando o kill chegou. Zera no inicio da proxima compilacao.
+ */
+const canceladoPeloUsuario = () =>
+    (typeof window !== 'undefined' && !!window.isCompilationCanceled?.());
+
 class CompilationModule {
     constructor(projectPath) {
         this.projectPath = projectPath;
@@ -975,10 +991,12 @@ async verilogSyntaxCheck() {
         await this.generateProjectHierarchy();
 
     } catch (error) {
-        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
-        this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
+        if (!canceladoPeloUsuario()) {
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
+            error.jaNoTerminal = true;
+        }
         statusUpdater.compilationError('verilog', error.message);
-        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -1110,10 +1128,12 @@ async waveBuildVvp() {
         statusUpdater.compilationSuccess('verilog');
 
     } catch (error) {
-        this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
-        this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
+        if (!canceladoPeloUsuario()) {
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.bannerFailed'), 'error');
+            this.terminalManager.appendToTerminal('tveri', tr('terminal.common.error', { message: error.message }), 'error');
+            error.jaNoTerminal = true;
+        }
         statusUpdater.compilationError('verilog', error.message);
-        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -1245,9 +1265,11 @@ async runGtkWave() {
             await this._waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools);
         }
     } catch (error) {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
+        if (!canceladoPeloUsuario()) {
+            this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
+            error.jaNoTerminal = true;
+        }
         console.error(error);
-        error.jaNoTerminal = true;
         throw error;
     }
 }
@@ -2287,9 +2309,11 @@ async runFastSim() {
             await this._runFastVerilator(config);
         }
     } catch (error) {
-        this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
+        if (!canceladoPeloUsuario()) {
+            this.terminalManager.appendToTerminal('twave', tr('terminal.common.error', { message: error.message }), 'error');
+            error.jaNoTerminal = true;
+        }
         console.error(error);
-        error.jaNoTerminal = true;
         throw error;
     }
 }

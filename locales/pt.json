@@ -525,6 +525,7 @@
     "success": "Compilação {{name}} bem-sucedida",
     "failed": "Compilação {{name}} falhou",
     "failedWithError": "Compilação {{name}} falhou: {{error}}",
+    "alreadyRunning": "Já há uma compilação em andamento. Espere ela terminar ou clique em Cancelar.",
     "cancelRequested": "Cancelamento solicitado, encerrando processos em execução...",
     "cancelInProgress": "Cancelamento já em andamento, aguarde...",
     "cancelledByUser": "Compilação cancelada pelo usuário.",

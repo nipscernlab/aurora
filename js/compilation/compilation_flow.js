@@ -45,6 +45,13 @@ const tr = (k, p) => (window.t ? window.t(k, p) : k);
 
 let compilationCanceled = false;
 
+// O cartao "Compilacao cancelada pelo usuario" pertence ao CANCELAMENTO, nao a
+// cada caminho que morreu por causa dele. Um clique em Cancelar mata o que
+// estiver rodando, e cada caminho morto chega ao logFatalError com o seu
+// proprio erro; sem esta marca, um unico clique escrevia o mesmo cartao uma vez
+// por caminho. Zera junto com a bandeira, no inicio da proxima compilacao.
+let cancelCardShown = false;
+
 const CANCELLED_TOKEN = Symbol.for('aurora.cancelled');
 
 function makeCancellationError() {
@@ -254,6 +261,7 @@ const ERROR_TERMINAL = Object.freeze({
  */
 function startCompilation(terminalsToClear) {
     compilationCanceled = false;
+    cancelCardShown = false;
     const tm = window.initializeGlobalTerminalManager();
     if (tm && Array.isArray(terminalsToClear)) {
         for (const id of terminalsToClear) tm.clearTerminalImmediate?.(id);
@@ -382,6 +390,8 @@ function logFatalError(terminalId, error) {
     // simulation failed with exit code 1". That is the kill, not a real fault,
     // so once the user has cancelled, every fatal is reported as the cancel.
     if (isCancellationError(error) || compilationCanceled) {
+        if (cancelCardShown) return;
+        cancelCardShown = true;
         getTM()?.appendToTerminal?.(
             terminalId,
             tr('compilation.cancelledByUser'),
@@ -1070,7 +1080,34 @@ class CompilationFlowManager {
         syncCmmcompEnabled();
     }
 
+    /**
+     * Recusa uma execucao quando ja ha uma em curso, e diz por que.
+     *
+     * Os botoes da toolbar ficam habilitados o tempo todo (e' de proposito:
+     * Cancelar precisa estar sempre ao alcance), entao um segundo clique em
+     * Wave enquanto o Verilator ainda constroi disparava um SEGUNDO pipeline
+     * completo. Os dois compilam no MESMO obj_dir, se atropelam, e um Cancelar
+     * depois disso matava os dois: dois caminhos morrendo, cada um escrevendo
+     * o seu par "Erro ... / compilacao cancelada" no terminal. Era a origem
+     * das mensagens repetidas.
+     *
+     * O estado ja existia (`activeRunStep`, que a IA le por isRunning);
+     * faltava alguem barrar a porta com ele.
+     */
+    _recusarSeJaRodando() {
+        if (activeRunStep === null) return false;
+        const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
+        getTM()?.appendToTerminal?.(
+            activeId || ERROR_TERMINAL[activeRunStep] || 'tcmm',
+            tr('compilation.alreadyRunning'),
+            'tips',
+        );
+        return true;
+    }
+
+    /** @returns {Promise<boolean>} false = recusada por ja haver outra em curso. */
     async runAll() {
+        if (this._recusarSeJaRodando()) return false;
         startCompilation(ALL_TERMINALS);
         activeRunStep = 'all';
         statusUpdater.beginRun('all');
@@ -1087,16 +1124,23 @@ class CompilationFlowManager {
             // try/catch by the time cancellation bubbled. Route through
             // logFatalError so cancellations render as the friendly
             // info card (and real errors as Erro Fatal).
+            // `data-terminal` ja e' o id nu que o TerminalManager indexa
+            // ("twave"); prefixar "terminal-" aqui procurava por
+            // #terminal-terminal-twave, nao achava nada, e o cartao era
+            // engolido em silencio pelo appendToTerminal.
             const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
-            logFatalError(activeId ? `terminal-${activeId}` : 'twave', error);
+            logFatalError(activeId || 'twave', error);
         } finally {
             statusUpdater.endRun('all');
             activeRunStep = null;
             endCompilation();
         }
+        return true;
     }
 
+    /** @returns {Promise<boolean>} false = recusada por ja haver outra em curso. */
     async runSingleStep(step) {
+        if (this._recusarSeJaRodando()) return false;
         // beginRun mantem a barra em "executando" durante todo o pipeline
         // do botao (varios passos), impedindo que um sucesso de passo
         // intermediario a reset pra "Iniciar Compilacao". endRun fecha.
@@ -1109,6 +1153,7 @@ class CompilationFlowManager {
             statusUpdater.endRun(step);
             activeRunStep = null;
         }
+        return true;
     }
 
     /** O despacho em si, separado para o registro poder envolve-lo. */
@@ -1152,7 +1197,11 @@ class CompilationFlowManager {
     cancelAll() {
         const tm = getTM();
         const activeId = document.querySelector('.tab.active')?.dataset?.terminal;
-        const activeTerminalId = activeId ? `terminal-${activeId}` : 'tcmm';
+        // Id nu, igual ao que o TerminalManager indexa. Ver a nota em runAll:
+        // com o prefixo "terminal-", TODO cartao daqui (o "cancelamento
+        // solicitado", o "nada a cancelar") caia num terminal inexistente e
+        // sumia, que era o motivo de clicar em Cancelar nao dar sinal nenhum.
+        const activeTerminalId = activeId || 'tcmm';
 
         // Already cancelling, surface the same "ack" message instead of
         // silently doing nothing on a second click. Without this, the user
@@ -1203,6 +1252,7 @@ class CompilationFlowManager {
                 // cancelAll and the next build would otherwise still throw.)
                 if (result && result.success === false) {
                     compilationCanceled = false;
+                    cancelCardShown = false;
                     tm?.appendToTerminal?.(
                         activeTerminalId, tr('compilation.nothingToCancel'), 'tips',
                     );

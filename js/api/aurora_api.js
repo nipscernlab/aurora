@@ -1914,13 +1914,23 @@ const projectNs = {
  *  compile, pipeline triggers (the same ones the toolbar uses)
  * ========================================================== */
 
+const ERRO_JA_RODANDO =
+  'a compilation is already running; wait for it to finish or cancel it first';
+
 const compileNs = {
   /** Run the full project pipeline (cmm → verilog → wave → prism). */
   async compileAll() {
     const cf = window.compilationFlowManager;
     if (!cf) return err('compilation flow not initialised');
     emit('compile:started', { scope: 'all' });
-    try { await cf.runAll(); return ok(); }
+    // Uma execucao de cada vez. Quem chega em cima de outra recebe a recusa,
+    // e nao um ok mentiroso que a faria esperar por um resultado que nunca
+    // vem. O aviso no terminal sai de dentro do runAll, que e' por onde o
+    // botao da toolbar tambem passa.
+    try {
+      if (await cf.runAll() === false) return err(ERRO_JA_RODANDO);
+      return ok();
+    }
     catch (e) { return err(e?.message || 'compileAll failed'); }
   },
 
@@ -1939,7 +1949,10 @@ const compileNs = {
       return err(`unknown compile step: ${step}`);
     }
     emit('compile:started', { scope: step });
-    try { await cf.runSingleStep(step); return ok({ step }); }
+    try {
+      if (await cf.runSingleStep(step) === false) return err(ERRO_JA_RODANDO);
+      return ok({ step });
+    }
     catch (e) { return err(e?.message || 'compileStep failed'); }
   },
 

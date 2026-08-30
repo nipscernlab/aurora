@@ -238,6 +238,7 @@ beforeEach(() => {
 afterEach(() => {
     delete window.electronAPI;
     delete window._latestCompilationModule;
+    delete window.isCompilationCanceled;
     vi.clearAllMocks();
 });
 
@@ -348,5 +349,39 @@ describe('as recusas que protegem o usuario', () => {
         await expect(mod.runGtkWave()).rejects.toThrow('error.toolchain.iverilogNotFound');
 
         expect(passos).toHaveLength(0);
+    });
+});
+
+describe('depois de um Cancelar, a morte da ferramenta nao vira cartao de erro', () => {
+    // Quem clica em Cancelar recebia, em vermelho, "Erro: <ferramenta> failed
+    // with exit code 1". Nao e defeito do design: e o kill. O cartao dizia que
+    // alguma coisa quebrou justamente para quem tinha acabado de mandar parar.
+    const matarFerramenta = () => {
+        const morta = async () => ({ success: false, code: 1, exitCode: 1, stdout: '', stderr: '' });
+        runSpec.mockImplementation(morta);
+        runSpecStreamed.mockImplementation(morta);
+    };
+
+    it('cala o cartao quando o usuario ja mandou parar', async () => {
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        matarFerramenta();
+        // A mesma bandeira que o compilation_flow expoe para a barra de
+        // progresso se calar; aqui ela cala o cartao vermelho.
+        window.isCompilationCanceled = () => true;
+
+        await expect(mod.runGtkWave()).rejects.toThrow();
+
+        expect(houveErro()).toBe(false);
+    });
+
+    it('mas o cartao continua saindo quando a falha e de verdade', async () => {
+        const mod = await novoModulo(CONFIG_PADRAO);
+        ligarExecutor(api);
+        matarFerramenta();
+
+        await expect(mod.runGtkWave()).rejects.toThrow();
+
+        expect(houveErro()).toBe(true);
     });
 });

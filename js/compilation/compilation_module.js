@@ -52,6 +52,7 @@ import { SpfStore } from '../project/spf_store.js';
 import { extractSignalRefs } from '../wave/gtkw_writer.js';
 import { buildAuroraGtkw, detectProcessors, resolveScopeModules } from '../wave/gtkw_proc_writer.js';
 import { buildSurferLayout } from '../wave/surfer_layout_writer.js';
+import { montarLayoutDaOndaDoPrism } from '../wave/prism_wave_layout.js';
 import { hasComplexSignals, ComplexVcdScanner, buildComplexMapping } from '../wave/complex_decode.js';
 import {
   instrumentTestbenchSource, commentOutDumpCalls,
@@ -3162,29 +3163,68 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools, opts = {}) {
  * Abre no visualizador de ondas um .vcd que NAO veio do passo Wave: hoje, o
  * que a simulacao do PRISM grava com os sinais do monitor. A partir do arquivo
  * pronto o caminho e o mesmo do botao Wave (GTKWave ou Surfer, aba ou janela,
- * conforme a preferencia), so que sem layout: nao ha testbench por tras nem
- * selecao no Wave Config para curar. Pelo mesmo motivo a aba do Surfer abre
- * sem o "salvar estado" do testbench: um estado salvo daqui nao e o do
- * testbench e nao pode tomar o lugar dele.
+ * conforme a preferencia). O layout e o do proprio monitor: os sinais que
+ * estavam nele, na base em que ele os mostrava, agrupados por papel, escrito
+ * ao lado do .vcd no formato de cada visualizador (js/wave/prism_wave_layout).
+ * Nao ha testbench por tras, e por isso a aba do Surfer abre sem o "salvar
+ * estado" do testbench: um estado salvo daqui nao e o do testbench e nao
+ * pode tomar o lugar dele.
  *
- * Inputs: vcdFile (absoluto), rotulo (o modulo simulado, para o terminal)
+ * Inputs: vcdFile (absoluto), rotulo (o modulo simulado), sinais (o retrato
+ *         do monitor: nome, caminho, bits, base, papel)
  * Returns: Promise<void>. Nunca lanca: o erro vai para o terminal Wave.
  */
-async abrirOndaExterna(vcdFile, rotulo) {
+async abrirOndaExterna(vcdFile, rotulo, sinais = []) {
     try {
         await this.initializeComponentsPath();
         const tools = await resolveWaveToolchain(this.componentsPath);
         this.terminalManager.appendToTerminal('twave',
             tr('terminal.wave.prismWave', { module: rotulo || basenameOfPath(vcdFile) }), 'info');
+        const layout = await this._layoutDaOndaDoPrism(vcdFile, rotulo, sinais);
         if (getViewer() === 'surfer') {
-            await this._waveLaunchSurfer(vcdFile, null, tools, { semEstado: true });
+            await this._waveLaunchSurfer(vcdFile, layout.surfer, tools, { semEstado: true });
         } else {
-            await this._waveLaunchGtkwave(vcdFile, null, tools);
+            await this._waveLaunchGtkwave(vcdFile, layout.gtkw, tools);
         }
     } catch (error) {
         this.terminalManager.appendToTerminal('twave',
             tr('terminal.common.error', { message: error?.message || String(error) }), 'error');
     }
+}
+
+/**
+ * Grava ao lado do .vcd o layout da onda do PRISM nos dois formatos, e devolve
+ * os caminhos. Nunca lanca: sem layout a onda abre crua, com o motivo no
+ * terminal, que e o que era ate aqui.
+ *
+ * Inputs: vcdFile (absoluto), modulo, sinais (ver abrirOndaExterna)
+ * Returns: Promise<{ surfer: string|null, gtkw: string|null }>
+ */
+async _layoutDaOndaDoPrism(vcdFile, modulo, sinais) {
+    const saida = { surfer: null, gtkw: null };
+    let layout;
+    try {
+        layout = montarLayoutDaOndaDoPrism({ modulo, vcdPath: vcdFile, sinais });
+    } catch (e) {
+        this.terminalManager.appendToTerminal('twave',
+            `PRISM: could not build the wave layout (${e?.message || e}); opening the raw wave.`, 'tips');
+        return saida;
+    }
+    if (!layout.quantidade) return saida;
+    const semExtensao = vcdFile.replace(/\.vcd$/i, '');
+    const gravar = async (caminho, conteudo, chave) => {
+        if (!conteudo) return;
+        try {
+            await electronAPI.writeFile(caminho, conteudo);
+            saida[chave] = caminho;
+        } catch (e) {
+            this.terminalManager.appendToTerminal('twave',
+                `PRISM: could not write ${basenameOfPath(caminho)} (${e?.message || e}); opening the raw wave.`, 'tips');
+        }
+    };
+    await gravar(`${semExtensao}.surf.ron`, layout.surfer, 'surfer');
+    await gravar(`${semExtensao}.gtkw`, layout.gtkw, 'gtkw');
+    return saida;
 }
 
 /**

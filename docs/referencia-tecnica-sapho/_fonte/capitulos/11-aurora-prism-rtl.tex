@@ -159,7 +159,7 @@ genérico, para que esse renderer nunca alcance um canal IPC arbitrário.
 \lstinline|prismCompileWithPaths(paths)| & \lstinline|prism-compile-with-paths| \\
 \lstinline|prismRecompile(paths)| & \lstinline|prism-recompile| \\
 \lstinline|buildDigitalJS(paths, module)| & \lstinline|prism:build-digitaljs| (O9) \\
-\lstinline|exportWave(payload)| & \lstinline|prism:export-wave| (grava o \lstinline|.vcd| do monitor no Temp do PRISM e manda a janela principal abri-lo, via \lstinline|aurora:open-wave|) \\
+\lstinline|exportWave(payload)| & \lstinline|prism:export-wave| (grava o \lstinline|.vcd| do monitor no Temp do PRISM e manda a janela principal abri-lo, via \lstinline|aurora:open-wave|; o renderer escreve ao lado o layout, \lstinline|.surf.ron| e \lstinline|.gtkw|, por \file{js/wave/prism\_wave\_layout.js}, para a onda abrir ja montada) \\
 \lstinline|onPrismCommand| / \lstinline|replyPrismCommand| & escuta \lstinline|prism:command| e responde em \lstinline|prism:command-result|: e por este par que a \lstinline|AuroraAPI.prism| opera a simulacao de fora da pagina \\
 \lstinline|generateSVGFromModule(name, dir)| & \lstinline|generate-svg-from-module| \\
 \lstinline|openSourceFile({filePath,line,column})| & \lstinline|prism:open-source-file| \\

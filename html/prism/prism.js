@@ -2040,14 +2040,27 @@ class PRISMViewer {
       return { ok: false, error: 'the waveform monitor is not open' };
     }
     const sinais = [];
+    const linhas = this._monitorPanel ? [...this._monitorPanel.querySelectorAll('table.monitor tr')] : [];
     for (const { wire, waveform } of this._monitor._wires.values()) {
       const src = wire.get('source') || {};
       const cel = wire.getSourceElement();
+      const dst = wire.getTargetElement();
       const nome = wire.get('netname') || `${src.port || 'out'}_${(cel && (cel.get('label') || cel.get('id'))) || 'fio'}`;
+      const caminho = wire.getWirePath() || [];
+      const bits = wire.get('bits') || 1;
+      // O papel do fio no modulo e a base em que o monitor o mostrava: e com
+      // isso que o visualizador abre a onda ja montada, em vez de vazia.
+      const tipoSrc = cel && cel.get('type');
+      const tipoDst = dst && dst.get('type');
+      const papel = tipoSrc === 'Clock' ? 'clock' : tipoSrc === 'Input' ? 'input' : tipoDst === 'Output' ? 'output' : 'internal';
+      const linha = wire.get('netname') ? linhas.find((l) => l.dataset.nome === [...caminho, wire.get('netname')].join('.')) : null;
+      const base = bits > 1 ? (linha?.querySelector('select[name=base]')?.value || 'hex') : 'bin';
       sinais.push({
         nome,
-        caminho: wire.getWirePath() || [],
-        bits: wire.get('bits'),
+        caminho,
+        bits,
+        base,
+        papel,
         mudancas: (waveform && waveform._data ? waveform._data : []).map(([t, v]) => [t, v.toBin()]),
       });
     }

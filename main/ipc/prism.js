@@ -1191,7 +1191,18 @@ function register() {
       if (!state.mainWindow || state.mainWindow.isDestroyed()) {
         return { ok: false, vcdPath, error: 'main window not available' };
       }
-      state.mainWindow.webContents.send('aurora:open-wave', { vcdPath, modulo });
+      // O retrato dos sinais vai junto, sem as mudancas: e com ele que o
+      // renderer monta o layout para a onda abrir ja no lugar.
+      const sinais = (payload && Array.isArray(payload.sinais) ? payload.sinais : [])
+        .filter((s) => s && typeof s.nome === 'string')
+        .map((s) => ({
+          nome: s.nome,
+          caminho: Array.isArray(s.caminho) ? s.caminho.map(String) : [],
+          bits: Number(s.bits) || 1,
+          base: typeof s.base === 'string' ? s.base : null,
+          papel: typeof s.papel === 'string' ? s.papel : null,
+        }));
+      state.mainWindow.webContents.send('aurora:open-wave', { vcdPath, modulo, sinais });
       if (state.mainWindow.isMinimized()) state.mainWindow.restore();
       state.mainWindow.focus();
       return { ok: true, vcdPath };

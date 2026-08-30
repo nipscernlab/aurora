@@ -718,6 +718,7 @@
       "surferLaunching": "Launching Surfer...",
       "surferLaunched": "Surfer launched successfully",
       "surferTabOpened": "Wave opened in the Surfer tab",
+      "prismWave": "Opening the PRISM simulation wave of {{module}}...",
       "surferTabNoBundle": "The Surfer tab mode needs the web component (Settings, Components) — opening the native window instead.",
       "hierarchyGen": "Generating hierarchy with Yosys...",
       "yosysRun": "Running Yosys command: {{cmd}}",

@@ -33,6 +33,10 @@ try {
     buildDigitalJS: (compilationPaths, moduleName) =>
       ipcRenderer.invoke('prism:build-digitaljs', compilationPaths, moduleName),
 
+    // A onda do monitor da simulacao vira um .vcd no Temp do PRISM, e a
+    // janela principal a abre no visualizador de ondas (main/ipc/prism.js).
+    exportWave: (payload) => ipcRenderer.invoke('prism:export-wave', payload),
+
     // O que falha nesta pagina vai para o terminal PRISM da AURORA.
     logToTerminal: (message, type) => ipcRenderer.invoke('prism:log', message, type),
 

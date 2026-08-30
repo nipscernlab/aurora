@@ -23,6 +23,7 @@ const { spawnTracked, GROUP } = require('../process_registry');
 const { loadPage, pageUrl } = require('../render_loader');
 const { isAutoName, cellLabel } = require('./prism_labels');
 const { alvoDaSimulacao } = require('./prism_sim_target');
+const { vcdDaSimulacao } = require('./prism_vcd');
 
 // ---------- helpers ----------
 
@@ -1096,6 +1097,41 @@ function register() {
     } catch (error) {
       log.error('PRISM recompilation error:', error);
       return { success: false, message: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
+  // A onda da simulacao vai para o visualizador de ondas da casa.
+  //
+  // O monitor do PRISM manda um retrato plano dos fios que ele acompanha
+  // (nome, caminho, bits e as mudancas no tempo); aqui isso vira um .vcd na
+  // pasta temporaria do PRISM, ao lado dos desenhos, e a janela principal
+  // recebe o pedido de abrir esse arquivo pelo mesmo caminho do botao Wave,
+  // GTKWave ou Surfer conforme a preferencia. O nome do arquivo sai do modulo
+  // que esta na tela, passado pelo mesmo filtro dos outros arquivos do Temp;
+  // nada do que o renderer manda vira caminho.
+  ipcMain.handle('prism:export-wave', async (_event, payload) => {
+    try {
+      const cru = payload && typeof payload.modulo === 'string' ? payload.modulo : '';
+      const modulo = cleanModuleName(cru) || 'simulacao';
+      const texto = vcdDaSimulacao({
+        modulo,
+        presente: payload ? payload.presente : 0,
+        sinais: payload && Array.isArray(payload.sinais) ? payload.sinais : [],
+      });
+      const dir = path.join(componentsPath, 'Temp', 'PRISM');
+      await fse.ensureDir(dir);
+      const vcdPath = path.join(dir, `${sanitizeFileName(modulo) || 'simulacao'}.sim.vcd`);
+      await fse.writeFile(vcdPath, texto, 'utf8');
+      if (!state.mainWindow || state.mainWindow.isDestroyed()) {
+        return { ok: false, vcdPath, error: 'main window not available' };
+      }
+      state.mainWindow.webContents.send('aurora:open-wave', { vcdPath, modulo });
+      if (state.mainWindow.isMinimized()) state.mainWindow.restore();
+      state.mainWindow.focus();
+      return { ok: true, vcdPath };
+    } catch (error) {
+      log.error('PRISM wave export failed:', error);
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 

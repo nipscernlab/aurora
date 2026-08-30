@@ -158,7 +158,8 @@ genérico, para que esse renderer nunca alcance um canal IPC arbitrário.
 \lstinline|getPrismCompilationPaths()| & \lstinline|get-prism-compilation-paths| \\
 \lstinline|prismCompileWithPaths(paths)| & \lstinline|prism-compile-with-paths| \\
 \lstinline|prismRecompile(paths)| & \lstinline|prism-recompile| \\
-\lstinline|buildDigitalJS(paths)| & \lstinline|prism:build-digitaljs| (O9) \\
+\lstinline|buildDigitalJS(paths, module)| & \lstinline|prism:build-digitaljs| (O9) \\
+\lstinline|exportWave(payload)| & \lstinline|prism:export-wave| (grava o \lstinline|.vcd| do monitor no Temp do PRISM e manda a janela principal abri-lo, via \lstinline|aurora:open-wave|) \\
 \lstinline|generateSVGFromModule(name, dir)| & \lstinline|generate-svg-from-module| \\
 \lstinline|openSourceFile({filePath,line,column})| & \lstinline|prism:open-source-file| \\
 \lstinline|onCompilationComplete(cb)| & escuta \lstinline|compilation-complete| \\

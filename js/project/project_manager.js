@@ -469,6 +469,17 @@ class ProjectManager {
                 console.error('Failed to open file at line from Prism:', e);
             }
         });
+
+        // A simulacao do PRISM gravou um .vcd com os sinais do monitor e pede
+        // para abri-lo no visualizador de ondas da casa: GTKWave ou Surfer,
+        // aba ou janela, conforme a preferencia, o mesmo caminho do botao Wave.
+        electronAPI.onOpenWave?.(async ({ vcdPath, modulo }) => {
+            try {
+                await window.compilationModule?.abrirOndaExterna(vcdPath, modulo);
+            } catch (e) {
+                console.error('Failed to open the PRISM simulation wave:', e);
+            }
+        });
     }
 
     // Método público para ser chamado pelo renderer.js (New Project)

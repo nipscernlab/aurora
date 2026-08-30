@@ -793,6 +793,10 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   will-change: transform;
 }
 .djs-paper { display: inline-block; background: transparent; }
+/* Um nivel da simulacao: o papel de um modulo dentro do wrapper. So o de cima
+   aparece; os de baixo esperam escondidos, com tudo o que tinham. */
+.djs-nivel { position: relative; display: inline-block; }
+.djs-nivel[hidden] { display: none; }
 
 /* Keep the paper transparent so the single container surface shows through
  * (beats DigitalJS's own .joint-paper.joint-theme-default { var(--text-on-accent) }). */
@@ -919,6 +923,12 @@ body.sim-montando::after {
 .djs-container circle.port[stroke="#AAAAAA"] { stroke: var(--sim-indef) !important; }
 .djs-container circle.port { fill: var(--sim-corpo) !important; stroke-opacity: 1 !important; r: 4; }
 .djs-container line.wire { stroke: var(--prism-wire) !important; }
+/* Ao passar o mouse num fio o DigitalJS oferece dois botoes: o de monitor,
+   que traz o fio para as formas de onda, e um x que APAGA o fio do circuito.
+   Apagar fio e para quem desenha circuito no editor deles; aqui o circuito
+   veio da sintese e nao se edita, e um x vermelho sobre um fio so convidava
+   ao clique errado. Fica o de monitor. */
+.djs-container .joint-tool[data-tool-name="remove"] { display: none !important; }
 /* A trilha de clique do fio (o primeiro path do link) nao e vermelha. */
 .djs-container .joint-link > path[stroke="red"] { stroke: transparent !important; }
 .djs-container .joint-link:hover > path[stroke="red"] { stroke: var(--accent-hover) !important; stroke-opacity: 0.35; }
@@ -1026,6 +1036,31 @@ body.sim-montando::after {
 }
 .sim-campo select { width: 100px; }
 .sim-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
+
+/* O aviso debaixo da barra: quem parou a simulacao, a onda gravada, o que
+   nao deu. Some sozinho. */
+.sim-aviso {
+  position: absolute;
+  top: 60px;
+  left: 12px;
+  z-index: 12;
+  max-width: calc(100% - 24px);
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--aurora-mint) 40%, transparent);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(12px);
+  overflow-wrap: anywhere;
+}
+.sim-aviso.erro { border-color: color-mix(in srgb, var(--status-error) 45%, transparent); color: var(--status-error); }
+.sim-aviso[hidden] { display: none; }
+
+/* A faixa de bits ao lado do nome, [7:0], como se le em Verilog. */
+.sim-io-bits, .sim-mon-bits { margin-left: 5px; color: var(--text-muted); font-size: 10px; flex: none; }
 
 .sim-panel {
   position: absolute;
@@ -1212,12 +1247,54 @@ body.sim-montando::after {
   order: 0;
   width: var(--mon-nome) !important;
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--font-mono);
   color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
+.sim-mon-nome { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* O valor do sinal no tick do cursor, colado a direita do nome. */
+.sim-mon-valor {
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+  font-size: 10px;
+  flex: none;
+}
+.sim-mon-valor:empty { display: none; }
+
+/* O cursor de tempo: uma linha vertical por cima de todas as ondas, na
+   posicao do tick escolhido; a lista e o seu chao. */
+.sim-monitor-lista { position: relative; }
+.sim-cursor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  pointer-events: none;
+  z-index: 2;
+}
+.sim-cursor[hidden] { display: none; }
+.sim-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 3px 2px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text);
+}
+.sim-chip[hidden] { display: none; }
+.sim-chip .sim-x { padding: 0 3px; }
 .sim-monitor-corpo table.monitor td:nth-child(5) { order: 1; flex: 1; min-width: 0; }
 .sim-monitor-corpo table.monitor td:nth-child(2) { order: 2; flex: none; width: var(--mon-base); }
 .sim-monitor-corpo table.monitor td:nth-child(3) { order: 3; flex: none; width: var(--mon-parar); }

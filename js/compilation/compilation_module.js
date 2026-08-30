@@ -3114,7 +3114,7 @@ async _waveLaunchGtkwave(vcdFile, gtkwSaveFile, tools) {
  * Side-effects: spawns surfer-aurora.exe (stored on this.surferProcess), or calls
  *               _waveLaunchGtkwave as a fallback.
  */
-async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
+async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools, opts = {}) {
     this.terminalManager.appendToTerminal('twave', tr('terminal.wave.surferLaunching'), 'info');
 
     // Preferencia "Surfer em aba" (default): a onda abre dentro do editor, via
@@ -3123,7 +3123,7 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
     // janela nativa logo abaixo, que e o caminho de sempre — o botao Wave
     // nunca fica sem resposta.
     if (getSurferInTab()) {
-        const opened = await this._waveOpenSurferTab(vcdFile, surferLayoutFile, tools);
+        const opened = await this._waveOpenSurferTab(vcdFile, surferLayoutFile, tools, opts);
         if (opened) return;
     }
     // Load the active layout after the positional VCD: .surf.ron (saved
@@ -3159,6 +3159,35 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
 }
 
 /**
+ * Abre no visualizador de ondas um .vcd que NAO veio do passo Wave: hoje, o
+ * que a simulacao do PRISM grava com os sinais do monitor. A partir do arquivo
+ * pronto o caminho e o mesmo do botao Wave (GTKWave ou Surfer, aba ou janela,
+ * conforme a preferencia), so que sem layout: nao ha testbench por tras nem
+ * selecao no Wave Config para curar. Pelo mesmo motivo a aba do Surfer abre
+ * sem o "salvar estado" do testbench: um estado salvo daqui nao e o do
+ * testbench e nao pode tomar o lugar dele.
+ *
+ * Inputs: vcdFile (absoluto), rotulo (o modulo simulado, para o terminal)
+ * Returns: Promise<void>. Nunca lanca: o erro vai para o terminal Wave.
+ */
+async abrirOndaExterna(vcdFile, rotulo) {
+    try {
+        await this.initializeComponentsPath();
+        const tools = await resolveWaveToolchain(this.componentsPath);
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.wave.prismWave', { module: rotulo || basenameOfPath(vcdFile) }), 'info');
+        if (getViewer() === 'surfer') {
+            await this._waveLaunchSurfer(vcdFile, null, tools, { semEstado: true });
+        } else {
+            await this._waveLaunchGtkwave(vcdFile, null, tools);
+        }
+    } catch (error) {
+        this.terminalManager.appendToTerminal('twave',
+            tr('terminal.common.error', { message: error?.message || String(error) }), 'error');
+    }
+}
+
+/**
  * Open the wave as an editor tab (Surfer WASM client + local headless server).
  *
  * Returns true when the tab is up; false means "use the native window path",
@@ -3171,7 +3200,7 @@ async _waveLaunchSurfer(vcdFile, surferLayoutFile, tools) {
  * Inputs: vcdFile (absolute), surferLayoutFile (.surf.ron/.sucl or null), tools
  * Returns: Promise<boolean>
  */
-async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools) {
+async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools, opts = {}) {
     // A escolha das Configuracoes vem antes da disponibilidade: quem pediu a
     // janela nativa recebe a janela nativa, mesmo com o bundle web presente.
     if (getSurferMode() === 'window') {
@@ -3196,7 +3225,7 @@ async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools) {
     const tbKey = (this.projectConfig.testbenchFile || '')
         .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
     let stateSavePath = null;
-    if (tbKey && this.projectPath) {
+    if (tbKey && this.projectPath && !opts.semEstado) {
         const stateName = `${tbKey}.tab.surf.ron`;
         stateSavePath = await electronAPI.joinPath(this.projectPath, 'testbench', stateName);
         surferTabSaveCtx.set(tabId, { projectPath: this.projectPath, tbKey, name: stateName });

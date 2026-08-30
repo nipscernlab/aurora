@@ -32,11 +32,22 @@ const PRISM_STRINGS = {
     simError:    'Could not build the simulation',
     simTooLarge: '{m} is too large to simulate interactively ({n} cells, the limit is {l}).',
     simRun: 'Run', simPause: 'Pause', simStep: 'Tick', simNext: 'Next event', simFast: 'Fast',
-    simRunTip: 'Runs the simulation at the chosen speed',
-    simPauseTip: 'Stops the simulation; the state stays where it is',
-    simStepTip: 'Advances one tick and stops',
-    simNextTip: 'Advances to the next signal change and stops',
+    simRunTip: 'Runs the simulation at the chosen speed (Space)',
+    simPauseTip: 'Stops the simulation; the state stays where it is (Space)',
+    simStepTip: 'Advances one tick and stops (Right arrow)',
+    simNextTip: 'Advances to the next signal change and stops (Shift+Right arrow)',
     simFastTip: 'Runs with no wait between ticks, as fast as it goes',
+    simReset: 'Restart',
+    simResetTip: 'Back to tick zero with the registers at their initial value; the switches stay as they are',
+    simRestarted: 'Simulation restarted from tick zero.',
+    simExport: 'Open in WAVE',
+    simExportTip: 'Writes a .vcd with these signals and opens it in the wave viewer',
+    simExportEmpty: 'Nothing to export: add a signal to the monitor first.',
+    simExported: 'Wave written to {f}; the viewer is opening.',
+    simExportError: 'Could not write the wave',
+    simStoppedAt: 'Stopped at tick {t}: {s} = {v}',
+    simCursorTip: 'Values at this tick; click a wave to move it, Escape clears it',
+    simCursorClear: 'Clear the cursor',
     simIo: 'Inputs and outputs', simMonitor: 'Waveforms',
     simIoTip: 'Panel to read and change this module’s ports',
     simMonitorTip: 'Monitor of the chosen signals over time',
@@ -50,7 +61,7 @@ const PRISM_STRINGS = {
     simStopAtTip: 'Stops the simulation when this signal reaches the value',
     simLive: 'Live', simLiveTip: 'Follows the present; drag the wave to look back',
     simZoomIn: 'Closer in time', simZoomOut: 'Further out in time',
-    simMonitorHint: 'Hover a wire and press its monitor button to add it here.',
+    simMonitorHint: 'Hover a wire and press its monitor button to add it here. Click a wave to read every signal at that tick.',
     simTimeout:  'Synthesizing {m} took longer than {s} s.',
     simHint:     'Open a smaller submodule in the schematic and simulate that one.',
   },
@@ -74,11 +85,22 @@ const PRISM_STRINGS = {
     simError:    'Não foi possível montar a simulação',
     simTooLarge: '{m} é grande demais para simular ao vivo ({n} células, o limite é {l}).',
     simRun: 'Rodar', simPause: 'Pausar', simStep: 'Tick', simNext: 'Próximo evento', simFast: 'Rápido',
-    simRunTip: 'Roda a simulação na velocidade escolhida',
-    simPauseTip: 'Para a simulação; o estado fica onde está',
-    simStepTip: 'Avança um tick e para',
-    simNextTip: 'Avança até a próxima mudança de sinal e para',
+    simRunTip: 'Roda a simulação na velocidade escolhida (Espaço)',
+    simPauseTip: 'Para a simulação; o estado fica onde está (Espaço)',
+    simStepTip: 'Avança um tick e para (seta para a direita)',
+    simNextTip: 'Avança até a próxima mudança de sinal e para (Shift+seta para a direita)',
     simFastTip: 'Roda sem espera entre os ticks, o mais rápido que der',
+    simReset: 'Reiniciar',
+    simResetTip: 'Volta ao tick zero com os registradores no valor inicial; as chaves ficam como estão',
+    simRestarted: 'Simulação reiniciada do tick zero.',
+    simExport: 'Abrir no WAVE',
+    simExportTip: 'Grava um .vcd com estes sinais e abre no visualizador de ondas',
+    simExportEmpty: 'Nada para exportar: traga um sinal para o monitor antes.',
+    simExported: 'Onda gravada em {f}; o visualizador está abrindo.',
+    simExportError: 'Não foi possível gravar a onda',
+    simStoppedAt: 'Parou no tick {t}: {s} = {v}',
+    simCursorTip: 'Valores neste tick; clique numa onda para movê-lo, Esc tira',
+    simCursorClear: 'Tirar o cursor',
     simIo: 'Entradas e saídas', simMonitor: 'Formas de onda',
     simIoTip: 'Painel para ler e mudar as portas deste módulo',
     simMonitorTip: 'Monitor dos sinais escolhidos ao longo do tempo',
@@ -92,7 +114,7 @@ const PRISM_STRINGS = {
     simStopAtTip: 'Para a simulação quando este sinal chegar ao valor',
     simLive: 'Ao vivo', simLiveTip: 'Acompanha o presente; arraste a onda para olhar para trás',
     simZoomIn: 'Mais perto no tempo', simZoomOut: 'Mais longe no tempo',
-    simMonitorHint: 'Passe o mouse num fio e use o botão de monitor dele para trazê-lo para cá.',
+    simMonitorHint: 'Passe o mouse num fio e use o botão de monitor dele para trazê-lo para cá. Clique numa onda para ler todos os sinais naquele tick.',
     simTimeout:  'Sintetizar {m} passou de {s} s.',
     simHint:     'Abra um submódulo menor no esquemático e simule aquele.',
   },
@@ -176,6 +198,13 @@ class PRISMViewer {
     this._paperTx = 0;
     this._paperTy = 0;
     this._paperPan = null;
+    // A pilha de niveis da simulacao: o topo e, abaixo dele, cada submodulo
+    // que a pessoa abriu pela lupa; so o ultimo fica visivel.
+    this._simPilha = [];
+    this._simDados = null;    // o circuito como veio do main, para o Reiniciar
+    this._simChave = null;    // projeto + modulo: a chave das escolhas guardadas
+    this._escolhas = null;    // o que a pessoa escolheu nesta simulacao (ver _guardarEscolhas)
+    this._cursorTick = null;  // o tick do cursor do monitor, ou null
 
     this._initElements();
     this._setupListeners();
@@ -563,6 +592,12 @@ class PRISMViewer {
   }
 
   navigateBack() {
+    // Na simulacao, Voltar sobe um nivel de submodulo; o historico do
+    // esquematico fica onde esta, esperando a volta.
+    if (this.simMode) {
+      if (this._simPilha.length > 1) this._voltarNivel(this._simPilha.length - 2);
+      return;
+    }
     if (this.navigationHistory.length <= 1) return;
     this.forwardHistory.push(this.navigationHistory.pop());
     const prev = this.navigationHistory[this.navigationHistory.length - 1];
@@ -572,7 +607,7 @@ class PRISMViewer {
 
   // Re-enter a module the user backed out of (mouse forward / X2 button).
   navigateForward() {
-    if (this.forwardHistory.length === 0) return;
+    if (this.simMode || this.forwardHistory.length === 0) return;
     const next = this.forwardHistory.pop();
     this.navigationHistory.push(next);
     this._loadSVG(next.svgPath, next.module);
@@ -1038,6 +1073,7 @@ class PRISMViewer {
   }
 
   _updateBreadcrumbs() {
+    if (this.simMode && this._simPilha.length) { this._migalhasDaSimulacao(); return; }
     this.breadcrumbsEl.innerHTML = '';
     this.navigationHistory.forEach((item, i) => {
       if (i > 0) {
@@ -1088,6 +1124,7 @@ class PRISMViewer {
       }
     }
     if (!this.simMode && e.key === 'Escape' && !this.backBtn.disabled) this.navigateBack();
+    if (this.simMode && !e.ctrlKey && !e.metaKey && !e.altKey && this._atalhoDaSimulacao(e)) return;
     if (e.key === 'F11') {
       e.preventDefault();
       document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
@@ -1184,6 +1221,7 @@ class PRISMViewer {
       // painel de entradas e saidas e o monitor de formas de onda.
       this._djs = { Monitor: djs.Monitor, MonitorView: djs.MonitorView, IOPanelView: djs.IOPanelView };
       this._pintarMuxes(djs.cells);
+      this._pintarBaloesDeFio(djs.cells);
     }
     return this._Circuit;
   }
@@ -1207,8 +1245,9 @@ class PRISMViewer {
 
     try {
       let res;
+      let paths = null;
       try {
-        const paths = await window.electronAPI.getPrismCompilationPaths();
+        paths = await window.electronAPI.getPrismCompilationPaths();
         // O modulo que esta na tela, e nao o topo do projeto: a simulacao
         // responde a mesma pergunta que o esquematico, "este modulo aqui".
         res = await window.electronAPI.buildDigitalJS(paths, this.currentModule);
@@ -1221,39 +1260,15 @@ class PRISMViewer {
         return;
       }
 
-      // Fresh paper host inside a transformed wrapper (pan/zoom layer).
-      this._destroyCircuit();
-      const wrapper = document.createElement('div');
-      wrapper.className = 'djs-wrapper';
-      const paperHost = document.createElement('div');
-      paperHost.className = 'djs-paper';
-      wrapper.appendChild(paperHost);
-      this.djsContainer.appendChild(wrapper);
-      this.djsWrapper = wrapper;
-      this.paperHost = paperHost;
-      this._paperScale = 1; this._paperTx = 0; this._paperTy = 0;
-
       try {
-        const Circuit = await this._loadDigitalJS();
-        // Synchronous browser engine (default) + dagre layout → NO Web Worker,
-        // so it renders under file:// without elkjs's worker.
-        this.circuit = new Circuit(res.circuit, { layoutEngine: 'dagre' });
-        this._paper = this.circuit.displayOn(paperHost);
-        this.circuit.start();
-        // Pan by dragging blank space (gates stay draggable via JointJS).
-        this._paper.on('blank:pointerdown', (/** @type {any} */ evt) => {
-          const oe = (evt && evt.originalEvent) || evt || {};
-          this._paperPan = { x: oe.clientX, y: oe.clientY, tx: this._paperTx, ty: this._paperTy };
-          this.djsContainer.classList.add('panning');
-        });
-        // Center + fit, and lay the 0/1 digits, once the (async) layout lands.
-        // O dagre do DigitalJS tem espacamento fixo (nodeSep 20, rankSep 110)
-        // e nao aceita opcao: num modulo com dez portas por lado os rotulos
-        // caem uns sobre os outros. Expandir as posicoes DEPOIS do layout da o
-        // ar que ele nao da; os fios saem das portas e se refazem sozinhos.
-        this._paper.once('render:done', () => { this._expandirLayout(1.6, 1.35); this._fitPaper(); this._buildValueOverlays(); });
-        setTimeout(() => { this._fitPaper(); this._buildValueOverlays(); }, 150);
-        this._montarBarraDaSimulacao();
+        await this._loadDigitalJS();
+        this._simDados = res.circuit;
+        // As escolhas (sinais no monitor, base, velocidade) sao por projeto e
+        // modulo: trocar de modulo troca de conjunto.
+        const chave = `prism-sim:${(paths && paths.projectPath) || ''}:${this.currentModule || res.topLevelModule || ''}`;
+        if (chave !== this._simChave) { this._simChave = chave; this._escolhas = null; }
+        this._simNome = this.currentModule || res.topLevelModule || 'top';
+        this._montarSimulacao(res.circuit);
       } catch (err) {
         console.error('[PRISM] DigitalJS render failed:', err);
         this._destroyCircuit();
@@ -1267,6 +1282,9 @@ class PRISMViewer {
       this.simToggle?.classList.add('active');
       this._setSimToggleLabel(T.schematic);
       this._hideStatus();
+      this._restaurarEscolhas();
+      this._updateBreadcrumbs();
+      this.backBtn.disabled = true;
     } finally {
       this._simBusy = false;
       document.body.classList.remove('sim-montando');
@@ -1276,11 +1294,249 @@ class PRISMViewer {
 
   exitSimMode() {
     this._destroyCircuit();
+    this._guardarEscolhas(true);
     this.simMode = false;
     this.djsContainer.style.display = 'none';
     this.svgContainer.style.display = '';
     this.simToggle?.classList.remove('active');
     this._setSimToggleLabel(T.simulate);
+    this._updateBreadcrumbs();
+    this.backBtn.disabled = this.navigationHistory.length <= 1;
+  }
+
+  // -------------------------------------------------------------------------
+  //  Montagem, niveis e reinicio
+  // -------------------------------------------------------------------------
+
+  /**
+   * Monta o circuito vivo a partir do JSON do DigitalJS: o papel do topo, a
+   * barra e os ganchos. E o miolo do Simular e tambem o do Reiniciar, que
+   * passa por aqui de novo com o mesmo desenho.
+   */
+  _montarSimulacao(data) {
+    this._destroyCircuit();
+    // Fresh wrapper: the pan/zoom layer every level's paper lives in.
+    const wrapper = document.createElement('div');
+    wrapper.className = 'djs-wrapper';
+    this.djsContainer.appendChild(wrapper);
+    this.djsWrapper = wrapper;
+    this._paperScale = 1; this._paperTx = 0; this._paperTy = 0;
+    // Synchronous browser engine (default) + dagre layout: no Web Worker, so
+    // it renders under file:// without elkjs's worker.
+    this.circuit = new this._Circuit(data, { layoutEngine: 'dagre' });
+    this._ligarGatilhos();
+    this._abrirNivel(this.circuit._graph, this._simNome || this.currentModule || 'top');
+    this.circuit.start();
+    this._montarBarraDaSimulacao();
+  }
+
+  /**
+   * Abre um nivel da simulacao: o topo, ou um submodulo por dentro.
+   *
+   * Cada nivel e um papel do JointJS sobre o grafo daquele modulo, numa caixa
+   * propria dentro do wrapper (que e quem carrega o pan e o zoom). Os niveis
+   * de baixo ficam escondidos, nao destruidos: voltar a eles e so mostrar de
+   * novo, com as posicoes e os valores que ja tinham. O motor simula tudo o
+   * tempo todo, de qualquer nivel; o que muda e o que se ve.
+   *
+   * O DigitalJS abriria o submodulo num dialogo flutuante por cima do topo.
+   * Aqui ele abre NO LUGAR, com migalhas, como no esquematico: o ouvinte da
+   * biblioteca sai e o nosso entra no mesmo evento, o da lupa da caixa.
+   */
+  _abrirNivel(graph, nome, modelo = null) {
+    const el = document.createElement('div');
+    el.className = 'djs-nivel';
+    const host = document.createElement('div');
+    host.className = 'djs-paper';
+    el.appendChild(host);
+    this.djsWrapper.appendChild(el);
+    for (const n of this._simPilha) n.el.hidden = true;
+    // Um grafo que ja vem com posicoes (o Reiniciar, ou um nivel que a pessoa
+    // ja tinha aberto) nao passa pelo layout de novo, e por isso tambem nao
+    // pela expansao: ela ja esta nas posicoes.
+    const jaPosicionado = !!graph.get('laid_out');
+    // O mesmo que displayOn faz para o topo, so que para qualquer grafo.
+    const paper = this.circuit._makePaper(host, graph);
+    this.circuit.stopListening(paper, 'open:subcircuit');
+    paper.on('open:subcircuit', (m) => this._entrarNoSubcircuito(m));
+    // Pan by dragging blank space (gates stay draggable via JointJS).
+    paper.on('blank:pointerdown', (/** @type {any} */ evt) => {
+      const oe = (evt && evt.originalEvent) || evt || {};
+      this._paperPan = { x: oe.clientX, y: oe.clientY, tx: this._paperTx, ty: this._paperTy };
+      this.djsContainer.classList.add('panning');
+    });
+    const nivel = { el, host, paper, graph, nome, modelo, sobreposicoes: [] };
+    this._simPilha.push(nivel);
+    this._paper = paper;
+    this.paperHost = host;
+    // Center + fit, and lay the 0/1 digits, once the (async) layout lands.
+    // O dagre do DigitalJS tem espacamento fixo (nodeSep 20, rankSep 110)
+    // e nao aceita opcao: num modulo com dez portas por lado os rotulos
+    // caem uns sobre os outros. Expandir as posicoes DEPOIS do layout da o
+    // ar que ele nao da; os fios saem das portas e se refazem sozinhos.
+    paper.once('render:done', () => {
+      if (!jaPosicionado) this._expandirLayout(nivel, 1.6, 1.35);
+      this._fitPaper();
+      this._buildValueOverlays(nivel);
+    });
+    setTimeout(() => {
+      if (this._simPilha.includes(nivel)) { this._fitPaper(); this._buildValueOverlays(nivel); }
+    }, 150);
+    return nivel;
+  }
+
+  _entrarNoSubcircuito(modelo) {
+    const graph = modelo && modelo.get('graph');
+    if (!graph || !this.circuit) return;
+    const rotulo = modelo.get('label');
+    const nome = `${modelo.get('celltype') || ''}${rotulo ? ` ${rotulo}` : ''}`.trim() || '?';
+    this._porCursor(null);
+    this._abrirNivel(graph, nome, modelo);
+    this._updateBreadcrumbs();
+    this.backBtn.disabled = false;
+  }
+
+  /** Volta ao nivel de indice `ate`, fechando os que estao acima dele. */
+  _voltarNivel(ate) {
+    while (this._simPilha.length - 1 > Math.max(0, ate)) {
+      const n = this._simPilha.pop();
+      try { n.paper.remove?.(); } catch (_) { /* best-effort */ }
+      n.el.remove();
+    }
+    const topo = this._simPilha[this._simPilha.length - 1];
+    if (!topo) return;
+    topo.el.hidden = false;
+    this._paper = topo.paper;
+    this.paperHost = topo.host;
+    this._fitPaper();
+    this._updateBreadcrumbs();
+    this.backBtn.disabled = this._simPilha.length <= 1;
+  }
+
+  /** As migalhas da simulacao: o topo e os submodulos abertos por dentro. */
+  _migalhasDaSimulacao() {
+    this.breadcrumbsEl.innerHTML = '';
+    this._simPilha.forEach((n, i) => {
+      if (i > 0) {
+        const sep = document.createElement('span');
+        sep.className = 'breadcrumb-separator';
+        sep.textContent = '›';
+        this.breadcrumbsEl.appendChild(sep);
+      }
+      const bc = document.createElement('span');
+      const ultimo = i === this._simPilha.length - 1;
+      bc.className = `breadcrumb-item${ultimo ? ' active' : ''}`;
+      bc.textContent = n.nome;
+      if (!ultimo) bc.addEventListener('click', () => this._voltarNivel(i));
+      this.breadcrumbsEl.appendChild(bc);
+    });
+  }
+
+  /**
+   * Reinicia sem recompilar: o mesmo desenho, do tick zero.
+   *
+   * O DigitalJS nao tem "voltar ao inicio"; o que ha e montar o circuito de
+   * novo. Ate aqui isso pedia sair do Simular e entrar outra vez, e a entrada
+   * roda o yosys: segundos de espera para voltar a um estado que ja se tinha.
+   * O circuito e serializado com as posicoes (o que a pessoa arrastou fica) e
+   * montado de novo; os registradores voltam ao valor inicial, o contador de
+   * ticks a zero. As chaves ficam como estao: e um religar, e numa bancada as
+   * chaves nao se mexem sozinhas quando se religa. O monitor e os paineis
+   * voltam pelas escolhas guardadas.
+   */
+  _reiniciarSimulacao() {
+    const c = this.circuit;
+    if (!c || this._simBusy) return;
+    let dados = null;
+    try {
+      dados = c.toJSON(true);
+    } catch (err) {
+      console.warn('[PRISM] toJSON failed, restarting from the original circuit:', err);
+      dados = this._simDados;
+    }
+    if (!dados) return;
+    const entradas = [];
+    for (const cell of c.getInputCells()) {
+      if (cell.get('type') !== 'Input') continue;
+      entradas.push([cell.get('id'), (cell.get('outputSignals') || {}).out]);
+    }
+    this._guardarEscolhas(true);
+    this._porCursor(null);
+    this._montarSimulacao(dados);
+    const g = this.circuit._graph;
+    for (const [id, sig] of entradas) {
+      const cell = g.getCell(id);
+      if (!cell || !sig || typeof cell.setInput !== 'function') continue;
+      try { cell.setInput(sig); } catch (_) { /* largura diferente: fica o padrao */ }
+    }
+    this._restaurarEscolhas();
+    this._updateBreadcrumbs();
+    this.backBtn.disabled = true;
+    this._log(T.simRestarted, 'tips');
+  }
+
+  /**
+   * Quem para a simulacao diz por que.
+   *
+   * O "parar em" do monitor registra no motor um gatilho que para a simulacao
+   * quando o sinal chega ao valor; o motor para e mais nada acontece na tela,
+   * e a pessoa fica sem saber se foi o gatilho ou um clique. O unico ponto por
+   * onde todo gatilho passa e o monitorWire do circuito; embrulhado aqui, o
+   * disparo escreve na barra qual sinal parou a simulacao, em que tick e com
+   * que valor.
+   */
+  _ligarGatilhos() {
+    const c = this.circuit;
+    if (!c || c._prismGatilhos) return;
+    const original = c.monitorWire.bind(c);
+    c.monitorWire = (wire, callback, options = {}) => {
+      if (!options || !options.stopOnTrigger) return original(wire, callback, options);
+      return original(wire, (tick, sig) => {
+        const r = callback(tick, sig);
+        if (r) this._avisarParada(wire, tick, sig);
+        return r;
+      }, options);
+    };
+    c._prismGatilhos = true;
+  }
+
+  _avisarParada(wire, tick, sig) {
+    const d = this.circuit && this.circuit._display3vl;
+    if (!d) return;
+    const nome = wire.get('netname') || T.simSignal;
+    const v = wire.get('bits') > 1 ? d.show('hex', sig) : d.show('bin', sig);
+    this._avisar(T.simStoppedAt.replace('{t}', String(tick)).replace('{s}', nome).replace('{v}', v));
+  }
+
+  /** Um aviso curto debaixo da barra, que some sozinho; vai ao terminal tambem. */
+  _avisar(texto, erro = false) {
+    this._log(texto, erro ? 'error' : 'tips');
+    const el = this._simAviso;
+    if (!el) return;
+    el.textContent = texto;
+    el.classList.toggle('erro', !!erro);
+    el.hidden = false;
+    clearTimeout(this._avisoTimer);
+    this._avisoTimer = setTimeout(() => { el.hidden = true; }, 7000);
+  }
+
+  /**
+   * Os atalhos do Simular: espaco roda e pausa, a seta para a direita avanca
+   * um tick, com Shift avanca ate o proximo evento, e Esc tira o cursor do
+   * monitor ou sobe um nivel. Nada disto vale enquanto se digita num campo,
+   * e um botao com foco fica com o seu proprio espaco.
+   */
+  _atalhoDaSimulacao(e) {
+    const alvo = e.target instanceof Element ? e.target : null;
+    if (alvo && alvo.closest('input, select, textarea, [contenteditable="true"], button')) return false;
+    const clicar = (id) => { const b = this._simBar && this._simBar.querySelector(id); if (b) b.click(); };
+    if (e.key === ' ') { e.preventDefault(); clicar('#simRun'); return true; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); clicar(e.shiftKey ? '#simNext' : '#simStep'); return true; }
+    if (e.key === 'Escape') {
+      if (this._cursorTick != null) { this._porCursor(null); return true; }
+      if (this._simPilha.length > 1) { this._voltarNivel(this._simPilha.length - 2); return true; }
+    }
+    return false;
   }
 
   /**
@@ -1321,6 +1577,7 @@ class PRISMViewer {
       ${btn('simStep', 'ph-skip-forward', T.simStep, T.simStepTip)}
       ${btn('simNext', 'ph-fast-forward', T.simNext, T.simNextTip)}
       ${btn('simFast', 'ph-lightning', T.simFast, T.simFastTip)}
+      ${btn('simReset', 'ph-arrow-counter-clockwise', T.simReset, T.simResetTip)}
       <span class="sim-sep" aria-hidden="true"></span>
       <span class="sim-ticks" title="${T.simTicksTip}"><span id="simTick">0</span> <span id="simTickUnit">${T.simTicks}</span></span>
       <span class="sim-sep" aria-hidden="true"></span>
@@ -1331,6 +1588,14 @@ class PRISMViewer {
       ${btn('simMonitor', 'ph-waveform', T.simMonitor, T.simMonitorTip)}`;
     this.djsContainer.appendChild(barra);
     this._simBar = barra;
+    // Um botao clicado nao guarda o foco: senao o espaco, que e o atalho de
+    // rodar e pausar, apertaria de novo o ultimo botao clicado.
+    barra.addEventListener('mousedown', (e) => { if (e.target instanceof Element && e.target.closest('button')) e.preventDefault(); });
+    const aviso = document.createElement('div');
+    aviso.className = 'sim-aviso';
+    aviso.hidden = true;
+    this.djsContainer.appendChild(aviso);
+    this._simAviso = aviso;
 
     const relogios = () => c._graph.getElements().filter((el) => el.get('type') === 'Clock');
     const periodo = barra.querySelector('#simPeriod');
@@ -1340,6 +1605,7 @@ class PRISMViewer {
     periodo.addEventListener('change', () => {
       const n = Math.max(1, Math.floor(Number(periodo.value) || 1));
       for (const r of relogios()) r.set('propagation', n);
+      this._escolha('period', n);
     });
 
     // A velocidade escrita em ticks por segundo; o motor guarda o inverso, o
@@ -1355,6 +1621,7 @@ class PRISMViewer {
       c.interval = Math.max(1, Number(vel.value) || 10);
       // O motor so le o intervalo ao (re)ligar o timer.
       if (c.running) { c.stop(); c.start(); }
+      this._escolha('speed', c.interval);
     });
 
     const run = barra.querySelector('#simRun');
@@ -1377,6 +1644,7 @@ class PRISMViewer {
     c.on('changeRunning', pintarRun);
     pintarRun();
 
+    barra.querySelector('#simReset').addEventListener('click', () => this._reiniciarSimulacao());
     barra.querySelector('#simIo').addEventListener('click', () => this._alternarPainelIo());
     barra.querySelector('#simMonitor').addEventListener('click', () => this._alternarMonitor());
   }
@@ -1387,6 +1655,7 @@ class PRISMViewer {
       this._ioPanel.remove();
       this._ioPanel = null; this._ioView = null;
       this._simBar?.querySelector('#simIo')?.classList.remove('active');
+      if (!this._desmontando) this._escolha('io', false);
       return;
     }
     const painel = document.createElement('div');
@@ -1413,29 +1682,42 @@ class PRISMViewer {
       inputMarkup: '<input type="text" class="sim-num" spellcheck="false">',
       baseSelectorMarkup: (d, bits, base) => this._marcacaoDeBase(d, bits, base),
     });
-    this._separarEntradasDeSaidas(painel);
+    this._organizarPainelIo(painel);
     this._simBar?.querySelector('#simIo')?.classList.add('active');
+    this._escolha('io', true);
   }
 
   /**
    * O IOPanelView do DigitalJS pendura entradas e saidas na MESMA div, uma
-   * atras da outra, sem titulo. Aqui entra um titulo antes da primeira linha
-   * de cada grupo; a saida se reconhece pelo controle desabilitado (LED ou
-   * campo so de leitura), que e o unico sinal que a marcacao deixa.
+   * atras da outra, sem titulo e sem largura. Aqui entra um titulo antes da
+   * primeira linha de cada grupo, e cada barramento ganha a faixa de bits ao
+   * lado do nome, [7:0], como se le em Verilog: sem ela "valor" nao dizia
+   * quantos digitos cabem no campo. As linhas saem na ordem em que o painel
+   * as monta, entradas e depois saidas, que e a ordem das celulas.
    */
-  _separarEntradasDeSaidas(painel) {
+  _organizarPainelIo(painel) {
     const linhas = [...painel.querySelectorAll('.sim-io-row')];
+    const celulas = [...this.circuit.getInputCells(), ...this.circuit.getOutputCells()];
     let grupo = null;
-    for (const linha of linhas) {
-      const saida = !!linha.querySelector('.sim-led, input:disabled');
+    linhas.forEach((linha, i) => {
+      const celula = celulas[i];
+      const saida = celula ? !!celula.isOutput : !!linha.querySelector('.sim-led, input:disabled');
       const g = saida ? 'saidas' : 'entradas';
-      if (g === grupo) continue;
-      grupo = g;
-      const h = document.createElement('div');
-      h.className = 'sim-io-grupo';
-      h.textContent = saida ? T.simOutputs : T.simInputs;
-      linha.before(h);
-    }
+      if (g !== grupo) {
+        grupo = g;
+        const h = document.createElement('div');
+        h.className = 'sim-io-grupo';
+        h.textContent = saida ? T.simOutputs : T.simInputs;
+        linha.before(h);
+      }
+      const bits = celula && celula.get('bits');
+      if (bits > 1) {
+        const b = document.createElement('span');
+        b.className = 'sim-io-bits';
+        b.textContent = `[${bits - 1}:0]`;
+        linha.querySelector('.sim-io-nome')?.appendChild(b);
+      }
+    });
   }
 
   /**
@@ -1463,10 +1745,16 @@ class PRISMViewer {
    */
   _alternarMonitor() {
     if (this._monitorPanel) {
+      // O que esta no monitor fica guardado antes de ele ir embora: e o que o
+      // Reiniciar e a proxima entrada devolvem.
+      if (!this._escolhas) this._escolhas = this._lerEscolhas();
+      this._escolhas.wires = this._sinaisDoMonitor();
       this._monitorView?.shutdown?.();
       this._monitorPanel.remove();
       this._monitorPanel = null; this._monitorView = null; this._monitor = null;
+      this._cursorLinha = null; this._cursorTick = null;
       this._simBar?.querySelector('#simMonitor')?.classList.remove('active');
+      if (!this._desmontando) this._escolha('monitor', false);
       return;
     }
     const painel = document.createElement('div');
@@ -1479,6 +1767,8 @@ class PRISMViewer {
       <div class="sim-panel-cab">
         <h4>${T.simMonitor}</h4>
         <div class="sim-panel-acoes">
+          ${mini('simMonExport', 'ph-arrow-square-out', T.simExportTip, T.simExport)}
+          <span class="sim-chip" id="simMonCursor" hidden title="${T.simCursorTip}"><span class="sim-chip-txt"></span><button type="button" class="sim-x" id="simMonCursorX" title="${T.simCursorClear}" aria-label="${T.simCursorClear}"><i class="ph ph-x" aria-hidden="true"></i></button></span>
           ${mini('simMonLive', 'ph-broadcast', T.simLiveTip, T.simLive)}
           ${mini('simMonOut', 'ph-magnifying-glass-minus', T.simZoomOut)}
           ${mini('simMonIn', 'ph-magnifying-glass-plus', T.simZoomIn)}
@@ -1493,7 +1783,9 @@ class PRISMViewer {
     this.djsContainer.appendChild(painel);
     this._monitorPanel = painel;
     this._monitor = new this._djs.Monitor(this.circuit);
-    this._monitor.attachTo(this._paper);
+    // Os papeis que ja existem (o topo e os submodulos abertos); os que vierem
+    // depois o monitor pega sozinho, pelo new:paper.
+    for (const n of this._simPilha) this._monitor.attachTo(n.paper);
     this._monitorView = new this._djs.MonitorView({
       model: this._monitor,
       el: painel.querySelector('.sim-monitor-lista'),
@@ -1504,6 +1796,11 @@ class PRISMViewer {
     });
     this._monitorView.autoredraw = true;
     this._ligarControlesDoMonitor(painel);
+    this._decorarLinhasDoMonitor();
+    this._ligarCursorDoMonitor(painel);
+    // Base e gatilho mudados a mao entram nas escolhas guardadas.
+    painel.addEventListener('input', () => this._guardarEscolhas());
+    painel.addEventListener('change', () => this._guardarEscolhas());
     const dica = document.createElement('p');
     dica.className = 'sim-monitor-dica';
     dica.textContent = T.simMonitorHint;
@@ -1528,14 +1825,22 @@ class PRISMViewer {
     const desc = {};
     for (const [k, v] of Object.entries(props)) desc[k] = { value: v, writable: true, enumerable: true, configurable: true };
     this._monitorView._settings = Object.create(this._monitorView._settings, desc);
-    // O que se quer ver sem pedir: o relogio e as saidas.
-    const graph = this.circuit._graph;
-    for (const link of graph.getLinks()) {
-      const src = link.getSourceElement();
-      const dst = link.getTargetElement();
-      if ((src && src.get('type') === 'Clock') || (dst && dst.get('type') === 'Output')) this._monitor.addWire(link);
+    // O que a pessoa tinha no monitor da ultima vez, com base e gatilho; na
+    // primeira vez, o que se quer ver sem pedir: o relogio e as saidas.
+    const salvos = this._escolhas && Array.isArray(this._escolhas.wires) ? this._escolhas.wires : null;
+    if (salvos) {
+      this._monitor.loadWiresDesc(salvos.map((w) => ({ name: w.name, path: w.path, bits: w.bits })));
+      this._aplicarBasesEGatilhos(salvos);
+    } else {
+      const graph = this.circuit._graph;
+      for (const link of graph.getLinks()) {
+        const src = link.getSourceElement();
+        const dst = link.getTargetElement();
+        if ((src && src.get('type') === 'Clock') || (dst && dst.get('type') === 'Output')) this._monitor.addWire(link);
+      }
     }
     this._simBar?.querySelector('#simMonitor')?.classList.add('active');
+    this._escolha('monitor', true);
   }
 
   /**
@@ -1568,28 +1873,318 @@ class PRISMViewer {
     };
     painel.querySelector('#simMonIn').addEventListener('click', () => distancia(2));
     painel.querySelector('#simMonOut').addEventListener('click', () => distancia(0.5));
+    painel.querySelector('#simMonExport').addEventListener('click', () => this._exportarOnda());
+    // Como na barra: o botao clicado nao fica com o foco, e o espaco continua
+    // sendo o atalho de rodar e pausar.
+    painel.addEventListener('mousedown', (e) => { if (e.target instanceof Element && e.target.closest('.sim-panel-acoes button')) e.preventDefault(); });
+  }
+
+  /**
+   * O cursor de tempo do monitor: um clique numa onda marca um tick, e cada
+   * linha passa a mostrar o valor que o sinal tinha ali. E a leitura que o
+   * desenho sozinho nao da: o valor de um barramento so aparece quando o
+   * trecho e largo o bastante para o texto caber.
+   */
+  _ligarCursorDoMonitor(painel) {
+    const lista = painel.querySelector('.sim-monitor-lista');
+    if (!lista) return;
+    const linha = document.createElement('div');
+    linha.className = 'sim-cursor';
+    linha.hidden = true;
+    lista.appendChild(linha);
+    this._cursorLinha = linha;
+    lista.addEventListener('click', (e) => {
+      const canvas = e.target instanceof Element ? e.target.closest('canvas.wavecanvas') : null;
+      const v = this._monitorView;
+      if (!canvas || !v) return;
+      const x = e.clientX - canvas.getBoundingClientRect().left;
+      this._porCursor(Math.max(0, Math.round(v.start + x / v.pixelsPerTick)));
+    });
+    painel.querySelector('#simMonCursorX')?.addEventListener('click', () => this._porCursor(null));
+    // A janela de tempo anda (ao vivo, arraste, zoom) e o cursor anda junto.
+    this._monitorView.on('change', () => this._pintarCursor());
+    this._monitor.on('add remove', () => setTimeout(() => this._pintarCursor(), 0));
+  }
+
+  _porCursor(tick) {
+    this._cursorTick = tick == null ? null : tick;
+    this._pintarCursor();
+  }
+
+  _pintarCursor() {
+    const painel = this._monitorPanel;
+    const v = this._monitorView;
+    const linha = this._cursorLinha;
+    if (!painel || !v || !linha) return;
+    const chip = painel.querySelector('#simMonCursor');
+    const linhas = painel.querySelectorAll('table.monitor tr');
+    const t = this._cursorTick;
+    if (t == null) {
+      linha.hidden = true;
+      if (chip) chip.hidden = true;
+      linhas.forEach((tr) => { const s = tr.querySelector('.sim-mon-valor'); if (s) s.textContent = ''; });
+      return;
+    }
+    if (chip) {
+      chip.hidden = false;
+      const txt = chip.querySelector('.sim-chip-txt');
+      if (txt) txt.textContent = `${T.simTick} ${t}`;
+    }
+    // A posicao vem por retangulos, e nao por offsetLeft: o canvas mora numa
+    // celula de tabela, e offsetLeft de quem esta numa celula conta a partir
+    // da celula, nao da lista.
+    const canvas = painel.querySelector('canvas.wavecanvas');
+    const lista = linha.parentElement;
+    if (canvas && lista) {
+      const rc = canvas.getBoundingClientRect();
+      const rl = lista.getBoundingClientRect();
+      const x = rc.left - rl.left + (t - v.start) * v.pixelsPerTick;
+      const dentro = x >= rc.left - rl.left && x <= rc.right - rl.left;
+      linha.hidden = !dentro;
+      linha.style.left = `${x}px`;
+    } else {
+      linha.hidden = true;
+    }
+    const d = this.circuit && this.circuit._display3vl;
+    linhas.forEach((tr) => {
+      let s = tr.querySelector('.sim-mon-valor');
+      if (!s) {
+        s = document.createElement('span');
+        s.className = 'sim-mon-valor';
+        tr.querySelector('td.name')?.appendChild(s);
+      }
+      const w = this._monitor && this._monitor._wires.get(tr.getAttribute('wireid') || '');
+      const sig = w ? this._valorNoTick(w.waveform, t) : null;
+      const base = tr.querySelector('select[name=base]')?.value || 'hex';
+      // Antes da primeira amostra o sinal ainda nao estava no monitor: nao e
+      // x, e "nao se sabe", e o sinal de interrogacao diz isso.
+      s.textContent = sig && d ? d.show(w.wire.get('bits') > 1 ? base : 'bin', sig) : '?';
+    });
+  }
+
+  /** O valor que a onda tinha no tick: a ultima mudanca ate ali, ou null antes da primeira. */
+  _valorNoTick(waveform, tick) {
+    const dados = waveform && waveform._data;
+    if (!dados || !dados.length || tick < dados[0][0]) return null;
+    let lo = 0;
+    let hi = dados.length - 1;
+    while (lo < hi) {
+      const meio = (lo + hi + 1) >> 1;
+      if (dados[meio][0] <= tick) lo = meio; else hi = meio - 1;
+    }
+    return dados[lo][1];
+  }
+
+  /**
+   * Cada linha nova do monitor ganha o nome num span proprio (para o
+   * reticencias continuar valendo ao lado do valor do cursor), a faixa de
+   * bits quando e barramento, e o nome cru guardado na linha, que e a chave
+   * pela qual as escolhas guardadas se reencontram com ela.
+   */
+  _decorarLinhasDoMonitor() {
+    this._monitor.on('add', (wire) => {
+      const tr = this._monitorPanel && this._monitorPanel.querySelector('table.monitor tr:last-child');
+      const td = tr && tr.querySelector('td.name');
+      if (!td || td.dataset.pronto) return;
+      td.dataset.pronto = '1';
+      const nome = td.textContent || '';
+      tr.dataset.nome = nome;
+      td.textContent = '';
+      const n = document.createElement('span');
+      n.className = 'sim-mon-nome';
+      n.textContent = nome;
+      n.title = nome;
+      td.appendChild(n);
+      const bits = wire.get('bits');
+      if (bits > 1) {
+        const b = document.createElement('span');
+        b.className = 'sim-mon-bits';
+        b.textContent = `[${bits - 1}:0]`;
+        td.appendChild(b);
+      }
+    });
+  }
+
+  /**
+   * A onda do monitor vai para o visualizador de ondas da casa.
+   *
+   * O monitor guarda cada fio como uma lista de [tick, valor]; isso e um VCD
+   * preso numa faixa de 30 px. Aqui vira um retrato plano (nome, caminho de
+   * submodulos, bits, mudancas em binario) que o main escreve como .vcd no
+   * Temp do PRISM e manda a janela principal abrir, GTKWave ou Surfer
+   * conforme a preferencia: a simulacao interativa passa a ter cursor,
+   * medida e zoom de verdade.
+   */
+  async _exportarOnda() {
+    if (!this._monitor || !this.circuit || !window.electronAPI?.exportWave) return;
+    const sinais = [];
+    for (const { wire, waveform } of this._monitor._wires.values()) {
+      const src = wire.get('source') || {};
+      const cel = wire.getSourceElement();
+      const nome = wire.get('netname') || `${src.port || 'out'}_${(cel && (cel.get('label') || cel.get('id'))) || 'fio'}`;
+      sinais.push({
+        nome,
+        caminho: wire.getWirePath() || [],
+        bits: wire.get('bits'),
+        mudancas: (waveform && waveform._data ? waveform._data : []).map(([t, v]) => [t, v.toBin()]),
+      });
+    }
+    if (!sinais.length) { this._avisar(T.simExportEmpty, true); return; }
+    let r;
+    try {
+      r = await window.electronAPI.exportWave({ modulo: this.currentModule || 'simulacao', presente: this.circuit.tick, sinais });
+    } catch (err) {
+      r = { ok: false, error: err && err.message ? err.message : String(err) };
+    }
+    if (!r || !r.ok) { this._avisar(`${T.simExportError}${r && r.error ? `: ${r.error}` : ''}`, true); return; }
+    this._avisar(T.simExported.replace('{f}', r.vcdPath || ''));
+  }
+
+  // -------------------------------------------------------------------------
+  //  As escolhas da pessoa, guardadas por projeto e modulo
+  // -------------------------------------------------------------------------
+
+  /**
+   * O que a pessoa escolheu nesta simulacao: os sinais do monitor (com base e
+   * gatilho), a velocidade, o meio periodo e quais paineis estao abertos.
+   * Sem isto cada entrada no Simular, e cada Reiniciar, comecava do zero, e
+   * montar o monitor de novo era a primeira coisa a fazer toda vez. Fica no
+   * localStorage, por projeto e modulo; a gravacao espera um pouco, porque
+   * uma troca de base ou um arraste disparam varias vezes seguidas.
+   */
+  _guardarEscolhas(agora = false) {
+    if (!this._simChave) return;
+    if (!this._escolhas) this._escolhas = this._lerEscolhas();
+    if (this._monitor && this._monitorPanel) this._escolhas.wires = this._sinaisDoMonitor();
+    clearTimeout(this._escolhasTimer);
+    const gravar = () => {
+      try { localStorage.setItem(this._simChave, JSON.stringify(this._escolhas)); } catch (_) { /* sem espaco, ou modo privado */ }
+    };
+    if (agora) gravar(); else this._escolhasTimer = setTimeout(gravar, 250);
+  }
+
+  /** Muda uma escolha e guarda. */
+  _escolha(chave, valor) {
+    if (!this._escolhas) this._escolhas = this._lerEscolhas();
+    this._escolhas[chave] = valor;
+    this._guardarEscolhas();
+  }
+
+  _escolhasPadrao() {
+    return { speed: null, period: null, io: false, monitor: false, wires: null };
+  }
+
+  _lerEscolhas() {
+    try {
+      const cru = this._simChave && localStorage.getItem(this._simChave);
+      const lido = cru ? JSON.parse(cru) : null;
+      return lido && typeof lido === 'object' ? { ...this._escolhasPadrao(), ...lido } : this._escolhasPadrao();
+    } catch (_) {
+      return this._escolhasPadrao();
+    }
+  }
+
+  /**
+   * Os fios do monitor como se guardam: nome, caminho, bits, base e gatilho,
+   * linha a linha. Um fio sem nome de rede nao tem como ser reencontrado num
+   * circuito montado de novo, e fica de fora; e o que o proprio DigitalJS
+   * faz ao salvar.
+   */
+  _sinaisDoMonitor() {
+    if (!this._monitor || !this._monitorPanel) return this._escolhas ? this._escolhas.wires : null;
+    const porNome = new Map();
+    for (const w of this._monitor.getWiresDesc()) {
+      if (!Array.isArray(w.path)) continue;
+      porNome.set([...w.path, w.name].join('.'), w);
+    }
+    const lista = [];
+    for (const tr of this._monitorPanel.querySelectorAll('table.monitor tr')) {
+      const w = porNome.get(tr.dataset.nome || '');
+      if (!w) continue;
+      const base = tr.querySelector('select[name=base]')?.value || null;
+      const gatilho = tr.querySelector('[name=trigger]')?.value || '';
+      lista.push({ name: w.name, path: w.path, bits: w.bits, base, trigger: gatilho });
+    }
+    return lista;
+  }
+
+  /** Devolve a cada linha do monitor a base e o gatilho que ela tinha. */
+  _aplicarBasesEGatilhos(salvos) {
+    const porNome = new Map(salvos.map((w) => [[...(w.path || []), w.name].join('.'), w]));
+    for (const tr of this._monitorPanel.querySelectorAll('table.monitor tr')) {
+      const w = porNome.get(tr.dataset.nome || '');
+      if (!w) continue;
+      const base = tr.querySelector('select[name=base]');
+      if (base && w.base && [...base.options].some((o) => o.value === w.base)) {
+        base.value = w.base;
+        base.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      const g = tr.querySelector('[name=trigger]');
+      if (g && w.trigger && w.trigger !== 'none') {
+        g.value = w.trigger;
+        g.dispatchEvent(new Event(g.tagName === 'SELECT' ? 'input' : 'change', { bubbles: true }));
+      }
+    }
+  }
+
+  /** Aplica as escolhas guardadas ao circuito recem-montado. */
+  _restaurarEscolhas() {
+    const c = this.circuit;
+    if (!c) return;
+    if (!this._escolhas) this._escolhas = this._lerEscolhas();
+    const e = this._escolhas;
+    const barra = this._simBar;
+    if (e.speed && barra) {
+      const vel = barra.querySelector('#simSpeed');
+      const n = Number(e.speed);
+      if (vel && [...vel.options].some((o) => Number(o.value) === n)) {
+        vel.value = String(n);
+        c.interval = n;
+        if (c.running) { c.stop(); c.start(); }
+      }
+    }
+    if (e.period && barra) {
+      const p = barra.querySelector('#simPeriod');
+      const n = Math.max(1, Math.floor(Number(e.period) || 0));
+      if (p && n) {
+        p.value = String(n);
+        for (const r of c._graph.getElements()) if (r.get('type') === 'Clock') r.set('propagation', n);
+      }
+    }
+    if (e.io && !this._ioPanel) this._alternarPainelIo();
+    if (e.monitor && !this._monitorPanel) this._alternarMonitor();
   }
 
   _desmontarBarraDaSimulacao() {
-    if (this._ioPanel) this._alternarPainelIo();
-    if (this._monitorPanel) this._alternarMonitor();
+    // Fechar os paineis por aqui nao e escolha da pessoa: as escolhas ficam.
+    this._desmontando = true;
+    try {
+      if (this._ioPanel) this._alternarPainelIo();
+      if (this._monitorPanel) this._alternarMonitor();
+    } finally {
+      this._desmontando = false;
+    }
     if (this._simBar) { this._simBar.remove(); this._simBar = null; }
+    if (this._simAviso) { this._simAviso.remove(); this._simAviso = null; }
+    clearTimeout(this._avisoTimer);
   }
 
   /** Stop + dispose the live circuit (best-effort) and clear its host. */
   _destroyCircuit() {
-    this._layoutExpandido = false;
     this._desmontarBarraDaSimulacao();
+    this._cursorTick = null;
+    // Dispose every level's JointJS paper view (shutdown() doesn't): drops
+    // its DOM + Backbone listeners so repeated enter/exit cycles don't leak.
+    while (this._simPilha.length) {
+      const n = this._simPilha.pop();
+      try { n.paper.remove?.(); } catch (_) { /* best-effort */ }
+      n.el.remove();
+    }
+    this._paper = null;
     if (this.circuit) {
       try { this.circuit.stop?.(); } catch (_) { /* best-effort */ }
       try { this.circuit.shutdown?.(); } catch (_) { /* best-effort */ }
       this.circuit = null;
-    }
-    // Dispose the JointJS paper view (shutdown() doesn't): drops its DOM +
-    // Backbone listeners so repeated enter/exit cycles don't leak views.
-    if (this._paper) {
-      try { this._paper.remove?.(); } catch (_) { /* best-effort */ }
-      this._paper = null;
     }
     this.djsWrapper = null;
     this.paperHost = null;
@@ -1642,11 +2237,11 @@ class PRISMViewer {
     }
   }
 
-  /** Afasta os elementos entre si, mantendo a forma do layout. Uma vez so. */
-  _expandirLayout(fx, fy) {
-    if (!this._paper || this._layoutExpandido) return;
-    this._layoutExpandido = true;
-    const graph = this._paper.model;
+  /** Afasta os elementos entre si, mantendo a forma do layout. Uma vez por grafo. */
+  _expandirLayout(nivel, fx, fy) {
+    const graph = nivel && nivel.graph;
+    if (!graph || graph.get('prismExpandido')) return;
+    graph.set('prismExpandido', true);
     for (const el of graph.getElements()) {
       const p = el.position();
       el.position(p.x * fx, p.y * fy);
@@ -1655,7 +2250,7 @@ class PRISMViewer {
       const vs = l.vertices ? l.vertices() : [];
       if (vs && vs.length) l.vertices(vs.map((v) => ({ x: v.x * fx, y: v.y * fy })));
     }
-    try { this._paper.fitToContent({ padding: 40, allowNewOrigin: 'any' }); } catch (_) { /* versao sem fitToContent */ }
+    try { nivel.paper.fitToContent({ padding: 40, allowNewOrigin: 'any' }); } catch (_) { /* versao sem fitToContent */ }
   }
 
   /** Center + fit the circuit in the viewport. */
@@ -1727,10 +2322,17 @@ class PRISMViewer {
    * overlays live inside .djs-wrapper, so they pan/zoom with the circuit, and
    * update on every signal change (e.g. when the user clicks an input).
    */
-  _buildValueOverlays() {
-    if (!this._paper || !this.djsWrapper) return;
-    this.djsWrapper.querySelectorAll('.djs-valnum').forEach((e) => e.remove());
-    const graph = this._paper.model;
+  _buildValueOverlays(nivel) {
+    if (!nivel || !nivel.paper || !nivel.el.isConnected) return;
+    // Montar de novo tira os ouvintes da vez anterior: sem isto cada montagem
+    // (o render:done e a folga de 150 ms) deixava um par a mais por celula.
+    for (const s of nivel.sobreposicoes) {
+      s.cell.off(s.evento, s.update);
+      s.cell.off('change:position change:size', s.place);
+    }
+    nivel.sobreposicoes = [];
+    nivel.el.querySelectorAll('.djs-valnum').forEach((e) => e.remove());
+    const graph = nivel.paper.model;
     const digit = (/** @type {any} */ sig) => (!sig ? 'x' : sig.isHigh ? '1' : sig.isLow ? '0' : 'x');
     for (const cell of graph.getElements()) {
       const type = cell.get('type');
@@ -1739,14 +2341,14 @@ class PRISMViewer {
       const port = type === 'Output' ? 'in' : 'out';
       const el = document.createElement('div');
       el.className = 'djs-valnum';
-      this.djsWrapper.appendChild(el);
+      nivel.el.appendChild(el);
       const place = () => {
         const b = cell.getBBox();
         // Map model coords → paper pixels so we account for the paper's own
         // origin/scale (digitaljs fitToContent moves it); the overlay lives in
-        // .djs-wrapper alongside the paper, so our pan/zoom transform applies to
-        // both equally and they stay aligned.
-        const p = this._paper.localToPaperPoint(b.x + b.width / 2, b.y + b.height / 2);
+        // the level's box alongside its paper, so our pan/zoom transform
+        // applies to both equally and they stay aligned.
+        const p = nivel.paper.localToPaperPoint(b.x + b.width / 2, b.y + b.height / 2);
         el.style.left = `${p.x}px`;
         el.style.top = `${p.y}px`;
       };
@@ -1756,9 +2358,46 @@ class PRISMViewer {
         el.dataset.v = d;
       };
       place(); update();
-      cell.on(`change:${sigKey}`, update);
+      const evento = `change:${sigKey}`;
+      cell.on(evento, update);
       cell.on('change:position change:size', place);
+      nivel.sobreposicoes.push({ cell, evento, update, place });
     }
+  }
+
+  /**
+   * O balao de valor do fio, para todo fio.
+   *
+   * O DigitalJS mostra hex, dec, oct e bin ao passar o mouse num barramento, e
+   * nada num fio de 1 bit, que so tem a cor. A cor diz 0, 1 ou x para quem
+   * decorou a legenda; o balao diz em letra, e diz de QUAL fio, que o de
+   * fabrica tambem nao dizia: num emaranhado de dez fios, o valor sem o nome
+   * e meio caminho.
+   */
+  _pintarBaloesDeFio(cells) {
+    const Vista = cells && cells.WireView;
+    const $ = window.jQuery;
+    if (!Vista || !$ || Vista.prototype._prismBalao) return;
+    const escapar = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    Vista.prototype._addTooltip = function (pos) {
+      if (this.wire_hover) return;
+      this.wire_hover = $('<div class="wire_hover">').css('left', pos.x).css('top', pos.y).appendTo($(document.body));
+      this._generateTextForTooltip();
+      this.listenTo(this.model, 'change:signal', this._generateTextForTooltip);
+    };
+    Vista.prototype._generateTextForTooltip = function () {
+      if (!this.wire_hover) return;
+      const sig = this.model.get('signal');
+      const d = this.model.graph._display3vl;
+      const bits = this.model.get('bits');
+      const nome = this.model.get('netname');
+      const linhas = [];
+      if (nome) linhas.push(`<b>${escapar(nome)}</b>${bits > 1 ? ` [${bits - 1}:0]` : ''}`);
+      if (bits > 1) linhas.push(`hex ${d.show('hex', sig)}`, `dec ${d.show('dec', sig)}`, `bin ${d.show('bin', sig)}`);
+      else linhas.push(d.show('bin', sig));
+      this.wire_hover.html(linhas.join('<br>'));
+    };
+    Vista.prototype._prismBalao = true;
   }
 }
 

@@ -196,6 +196,10 @@ const projectOperations = {
   // cell do SVG. Aqui o renderer principal escuta, le, abre tab e pula
   // pra linha. Sempre callbacks com {filePath, line, column}.
   onOpenFileAt:         (cb) => ipcRenderer.on('aurora:open-file-at', (_, data) => cb(data)),
+  // A simulacao do PRISM gravou um .vcd com os sinais do monitor e pede para
+  // abri-lo no visualizador de ondas, pelo mesmo caminho do botao Wave.
+  // Callback com {vcdPath, modulo}.
+  onOpenWave:           (cb) => ipcRenderer.on('aurora:open-wave', (_, data) => cb(data)),
   // Duplo clique num .cmm ou .v associado no Windows: o main manda o caminho
   // para abrir solto no editor, sem projeto (main/windows.js e lifecycle.js).
   onOpenLooseFile:      (cb) => ipcRenderer.on('aurora:open-loose-file', (_, data) => cb(data)),

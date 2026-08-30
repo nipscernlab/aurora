@@ -930,6 +930,7 @@
     },
     "queue": {
       "waiting": "Queued: sends after the current reply",
+      "live": "Delivered: she takes it when she finishes the current reply",
       "sendNow": "Send now (interrupts the current reply)",
       "cancel": "Remove from the queue"
     }

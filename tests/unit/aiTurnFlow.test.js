@@ -284,9 +284,33 @@ describe('as duas filas de follow-up', () => {
 
     expect(api.chamadas.push).toEqual([{ sid: sessao(0), texto: 'segunda' }]);
     expect(api.startChat).toHaveBeenCalledTimes(1);
-    expect(painel.queueEl.querySelectorAll('.ai-queued-chip')).toHaveLength(0);
-    // Esta na transcricao do CLI, entao esta na nossa tambem, em ordem.
+    // A mensagem foi ENTREGUE a sessao, mas quem decide quando aceita-la e a
+    // assistente: ate la ela e uma ficha em espera, e nao um balao. Poe-la na
+    // conversa aqui era o defeito relatado em 30/08/2026: o balao ia para o
+    // fim enquanto o texto continuava entrando na bolha de cima, e a resposta
+    // parecia cortada no meio.
+    expect(painel.queueEl.querySelectorAll('.ai-queued-live')).toHaveLength(1);
+    expect(painel.messages.map((m) => m.content)).toEqual(['primeira']);
+
+    // O main avisa no momento em que ela pega a mensagem; so entao ela entra.
+    emitir({ type: 'follow-up-taken', content: 'segunda' });
+    expect(painel.queueEl.querySelectorAll('.ai-queued-live')).toHaveLength(0);
     expect(painel.messages.map((m) => m.content)).toEqual(['primeira', 'segunda']);
+  });
+
+  it('o turno que morre devolve a mensagem entregue para a fila, em vez de perde-la', async () => {
+    api.pushChatMessage = vi.fn(async () => ({ ok: true, data: { accepted: true } }));
+    await abrirPainel();
+    await mandar('primeira');
+    await mandar('segunda');
+    expect(painel.queueEl.querySelectorAll('.ai-queued-live')).toHaveLength(1);
+
+    // A sessao caiu antes de ela aceitar a mensagem. O texto da pessoa nao
+    // pode sumir com a sessao: volta para a fila deste lado, e o proximo
+    // turno o leva.
+    emitir({ type: 'error', message: 'a sessao caiu' });
+    expect(painel.queueEl.querySelectorAll('.ai-queued-live')).toHaveLength(0);
+    expect(painel._messageQueue.map((m) => m.text)).toEqual(['segunda']);
   });
 
   it('o finish com `more` sela o segmento sem encerrar o turno, e a resposta seguinte chega', async () => {
@@ -306,16 +330,21 @@ describe('as duas filas de follow-up', () => {
     expect(api.startChat).toHaveBeenCalledTimes(1);
     // A sessao continua a mesma, senao os pacotes seguintes seriam descartados.
     expect(painel.currentSessionId).toBe(sessao(0));
-    // O que ja tinha sido dito ficou gravado. A ordem e a da TELA, e nao a
-    // logica: a entrega ao vivo poe a mensagem da pessoa na hora em que ela
-    // foi aceita, e a prosa anterior so e selada no fim do segmento, entao a
-    // resposta da primeira aparece depois da segunda pergunta. Nos dois
-    // lugares igual, que e o que faz uma conversa reaberta reproduzir o que
-    // se viu ao vivo.
+    // O que ja tinha sido dito ficou gravado, e na ORDEM em que aconteceu: a
+    // resposta da primeira pergunta vem antes da segunda pergunta, porque a
+    // segunda so entra na conversa quando a assistente a aceita. Antes ela
+    // entrava no instante em que era digitada, e ficava ANTES da resposta que
+    // nem tinha interrompido, na tela e no historico.
     expect(painel.messages.map((m) => m.content))
-      .toEqual(['primeira', 'segunda', 'Resposta da primeira.']);
+      .toEqual(['primeira', 'Resposta da primeira.']);
     expect(bolhas().map((b) => b.texto))
-      .toEqual(['primeira', 'segunda', 'Resposta da primeira.']);
+      .toEqual(['primeira', 'Resposta da primeira.']);
+
+    emitir({ type: 'follow-up-taken', content: 'segunda' });
+    expect(painel.messages.map((m) => m.content))
+      .toEqual(['primeira', 'Resposta da primeira.', 'segunda']);
+    expect(bolhas().map((b) => b.texto))
+      .toEqual(['primeira', 'Resposta da primeira.', 'segunda']);
 
     emitir({ type: 'text-delta', delta: 'Resposta da segunda.' });
     emitir({ type: 'finish' });

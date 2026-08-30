@@ -427,6 +427,12 @@ async function tryStart(p, webContents, host) {
       if (!awaitingResult && followUps.length) {
         const content = /** @type {string} */ (followUps.shift());
         awaitingResult = true;
+        // O momento em que a assistente ACEITA a mensagem, e nao o momento em
+        // que a pessoa a escreveu. O renderer segura o balao ate aqui: antes
+        // ele o punha na conversa na hora, e o texto que ainda estava sendo
+        // escrito continuava crescendo ACIMA dele, o que se le como resposta
+        // cortada no meio.
+        sendEvent(webContents, sessionId, 'follow-up-taken', { content });
         yield {
           type: 'user',
           message: { role: 'user', content },

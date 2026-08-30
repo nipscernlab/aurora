@@ -1703,13 +1703,50 @@ class AIAssistantManager {
       return false;
     }
     if (!accepted) return false;
-    // It is in the CLI's transcript now, so it belongs in ours too, in order,
-    // as a normal message. The model answers it in a later segment of this same
-    // turn, which is why no queued chip is rendered for it.
-    this.messages.push({ role: 'user', content: text });
-    this.appendBubble('user', text);
-    this.scrollToBottom();
+    // A mensagem esta com a sessao, mas a assistente ainda esta escrevendo a
+    // resposta anterior: quem decide QUANDO aceita-la e ela, e o main avisa no
+    // momento em que isso acontece (`follow-up-taken`). Ate la a mensagem
+    // aparece como ficha em espera, e nao como balao na conversa.
+    //
+    // Punha-la na conversa aqui era o defeito: o balao ia para o fim enquanto
+    // o texto continuava entrando na bolha de cima, entao a resposta parecia
+    // cortada no meio, e no historico a pergunta ficava ANTES da resposta que
+    // ela nem tinha interrompido.
+    (this._liveQueue || (this._liveQueue = [])).push(text);
+    this._renderQueue();
     return true;
+  }
+
+  /**
+   * A assistente aceitou a mensagem que esperava: agora ela entra na conversa,
+   * no lugar certo da ordem, e a ficha de espera sai.
+   */
+  _followUpTaken(content) {
+    const texto = typeof content === 'string' ? content : '';
+    if (this._liveQueue && this._liveQueue.length) {
+      const i = this._liveQueue.indexOf(texto);
+      this._liveQueue.splice(i >= 0 ? i : 0, 1);
+      this._renderQueue();
+    }
+    if (!texto) return;
+    this.messages.push({ role: 'user', content: texto });
+    this.appendBubble('user', texto);
+    this.scrollToBottom();
+  }
+
+  /**
+   * O turno morreu (abortado ou com erro) e havia mensagem entregue a sessao
+   * que ela nunca chegou a aceitar. Ela volta para a fila deste lado, para o
+   * proximo turno leva-la: perder uma mensagem que a pessoa escreveu porque a
+   * sessao caiu seria o pior desfecho dos tres.
+   */
+  _devolverVivasAFila() {
+    const vivas = this._liveQueue || [];
+    if (!vivas.length) return;
+    this._liveQueue = [];
+    const fila = this._messageQueue || (this._messageQueue = []);
+    fila.unshift(...vivas.map((text) => ({ text, atts: [] })));
+    this._renderQueue();
   }
 
   /** Dispatch the next queued user follow-up, if any. Returns true if it did
@@ -1723,12 +1760,27 @@ class AIAssistantManager {
     return true;
   }
 
-  /** Render the queued-follow-up chips above the composer (each cancellable). */
+  /**
+   * As fichas de espera acima do compositor.
+   *
+   * Sao duas esperas diferentes, e a diferenca importa para quem olha. As do
+   * `_liveQueue` ja foram entregues a sessao e so aguardam a assistente
+   * termina o que esta dizendo: nao ha o que cancelar nem o que apressar, e
+   * elas viram balao sozinhas quando ela as aceita. As do `_messageQueue`
+   * esperam do lado de ca, porque este motor nao tem canal aberto, e essas
+   * sim se cancelam e se apressam.
+   */
   _renderQueue() {
     if (!this.queueEl) return;
+    const vivas = this._liveQueue || [];
     const q = this._messageQueue || [];
-    this.queueEl.hidden = q.length === 0;
-    this.queueEl.innerHTML = q.map((m, i) => {
+    this.queueEl.hidden = vivas.length === 0 && q.length === 0;
+    const fichasVivas = vivas.map((texto) => (
+      `<span class="ai-queued-chip ai-queued-live" title="${this._escAtt(tr('ai.queue.live'))}">` +
+      `<i class="ph ph-hourglass-medium" aria-hidden="true"></i>` +
+      `<span class="ai-queued-text">${this._escAtt(String(texto).slice(0, 80))}</span></span>`
+    )).join('');
+    this.queueEl.innerHTML = fichasVivas + q.map((m, i) => {
       const preview = (m.text || (m.atts && m.atts.length ? `${m.atts.length} attachment(s)` : '')).slice(0, 80);
       const agora = tr('ai.queue.sendNow');
       return `<span class="ai-queued-chip" title="${this._escAtt(tr('ai.queue.waiting'))}">` +
@@ -2118,8 +2170,11 @@ class AIAssistantManager {
   async stop() {
     if (!this.currentSessionId || !window.aiAPI) return;
     // An explicit stop cancels pending follow-ups too, otherwise the queue
-    // would auto-drain (dispatch the next) the moment the abort lands.
+    // would auto-drain (dispatch the next) the moment the abort lands. Vale
+    // para as duas esperas: quem manda parar nao quer que a proxima saia
+    // sozinha logo em seguida.
     this._messageQueue = [];
+    this._liveQueue = [];
     this._renderQueue();
     const sid = this.currentSessionId;
     try { await window.aiAPI.abortChat(sid); }
@@ -2263,16 +2318,23 @@ class AIAssistantManager {
         // time the user looks, this is what fixes "usage never updates".
         if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
+      case 'follow-up-taken':
+        // A assistente terminou o que estava dizendo e pegou a mensagem que
+        // esperava: agora ela entra na conversa, depois da resposta anterior.
+        this._followUpTaken(ev.content);
+        break;
       case 'aborted':
         this._clearCliDownload();
         this.showThinking(false);
         this.commitTurn();
         this.setStreaming(false);
+        this._devolverVivasAFila();
         if (isSubProvider(this.currentProvider)) this.refreshSubUsage();
         break;
       case 'error':
         this._clearCliDownload();
         this.failTurn(ev.message || 'Unknown error');
+        this._devolverVivasAFila();
         break;
     }
   }
@@ -2994,12 +3056,21 @@ class AIAssistantManager {
     }
   }
 
-  /** Grow the textarea to fit its content (up to ~10 lines, then scroll). */
+  /**
+   * Grow the textarea to fit its content (up to ~10 lines, then scroll).
+   *
+   * Com o campo VAZIO o `scrollHeight` nao mede o conteudo, mede o texto da
+   * dica: numa coluna estreita "Pergunte a Aurora Intelligence..." quebra em
+   * duas linhas e a caixa nascia com o dobro da altura (46 px em vez de 29,
+   * medido). Como a linha do compositor alinha por baixo, a dica flutuava 26
+   * px acima do clipe, do seletor de modelo e do botao, e nada parecia
+   * alinhado. Vazio e uma linha: zero deixa o `min-height` do CSS decidir.
+   */
   autoGrowInput() {
     const el = this.inputEl;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+    el.style.height = (el.value ? Math.min(el.scrollHeight, 200) : 0) + 'px';
   }
 
   setStreaming(streaming) {

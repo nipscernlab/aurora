@@ -954,6 +954,14 @@ body.ai-assistant-open {
   font-size: var(--text-xs);
 }
 .ai-queued-chip > i { color: var(--text-muted); font-size: var(--icon-xs); flex-shrink: 0; }
+/* Ja entregue a sessao, esperando a assistente aceitar. Sem botoes: nao ha o
+   que cancelar nem o que apressar, ela vira balao sozinha. A borda inteira, e
+   nao tracejada, e o que separa "esta com ela" de "esta aqui na fila". */
+.ai-queued-live {
+  border-style: solid;
+  border-color: var(--accent-border, var(--border));
+  padding-right: 9px;
+}
 .ai-queued-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .ai-queued-remove {
   display: inline-flex; align-items: center; justify-content: center;
@@ -1164,10 +1172,27 @@ body.ai-assistant-open {
   min-height: 28px;
 }
 
-.ai-input::placeholder { color: var(--text-muted); }
+/* A dica numa linha so. O painel e estreito e "Pergunte a Aurora
+   Intelligence..." nao cabe: quebrando, ela media duas linhas e levava a
+   caixa junto (46 px em vez de 29, medido), e depois de a caixa passar a ter
+   uma linha ela aparecia cortada no meio da palavra. Com nowrap o Chromium
+   corta com reticencias, que e o que se espera de um rotulo que nao cabe. */
+.ai-input::placeholder {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
+/* O contador na MESMA faixa dos botoes: a linha do compositor alinha por
+   baixo, e um `align-self: center` deixava so este item no meio da altura,
+   9 px acima do centro de todo o resto. Uma caixa de 28 px com o numero
+   centrado dentro poe o texto na linha do clipe e do seletor de modelo. */
 .ai-token-counter {
-  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  flex-shrink: 0;
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
   color: var(--text-muted);

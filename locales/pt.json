@@ -930,6 +930,7 @@
     },
     "queue": {
       "waiting": "Na fila: sai quando a resposta atual terminar",
+      "live": "Entregue: ela aceita quando terminar a resposta atual",
       "sendNow": "Enviar agora (interrompe a resposta atual)",
       "cancel": "Tirar da fila"
     }

@@ -47,3 +47,9 @@ Cada conversa é salva localmente, e o histórico reabre conversas antigas com o
 \section{Para que ela é boa no fluxo SAPHO}
 
 Alguns usos que rendem bem: perguntar por que um \cmm{} não compila, já que ela lê o terminal, conhece as mensagens do YANC e propõe a correção; estimar quanto hardware custa uma função, consultando a referência de \textit{opcodes} e o \textit{assembly} gerado; pedir um \textit{testbench} cocotb que compare o processador com um modelo NumPy; ou simplesmente pedir que selecione os sinais das portas e abra as formas de onda.
+
+\section{A simulação que ela consegue ler}
+
+O GTKWave e o Surfer são janelas externas, e a assistente não enxerga dentro delas: a onda de uma simulação comum é uma figura para você olhar, não um dado que ela possa consultar. A exceção é o modo simulação do PRISM (Seção~\ref{cap:prism}), que roda dentro da própria AURORA. Por ele a assistente liga o circuito de um módulo, escreve nas entradas, avança um número exato de \textit{ticks} ou até um sinal chegar a um valor, e lê o que cada porta e cada fio interno valem naquele instante. É a diferença entre responder o que o Verilog parece fazer e responder o que o circuito fez.
+
+Na prática isso permite pedir coisas como verificar se um contador conta mesmo, se o \textit{reset} zera o registrador, ou qual saída um módulo dá para uma certa entrada, e receber a resposta com os números observados. Ela pode ainda trazer sinais internos para o monitor, parar a simulação quando um deles atingir um valor, entrar num submódulo e, no fim, gravar tudo num \file{.vcd} e abrir no seu visualizador de ondas. Os limites são os do próprio modo: lógica apenas, sem tempo, e módulos pequenos. Um processador SAPHO inteiro executando o programa continua sendo trabalho do \textit{testbench}.

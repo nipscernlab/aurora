@@ -254,6 +254,11 @@ const prismOperations = {
   // A pagina e o preload do <webview> da aba do PRISM (ver prism_mode.js).
   prismTabPage: () => ipcRenderer.invoke('prism-tab:page'),
   prismRecompile:        (paths) => ipcRenderer.invoke('prism-recompile', paths),
+
+  // Operar a simulacao interativa do PRISM (o modo Simular) de fora da pagina
+  // dela: o main acha a pagina, esteja ela numa janela ou na aba, entrega o
+  // comando e devolve a resposta. Quem usa e AuroraAPI.prism.
+  prismCommand: (cmd) => ipcRenderer.invoke('prism:command', cmd),
   getPrismCompilationPaths: () => ipcRenderer.invoke('get-prism-compilation-paths'),
 
   generateSVGFromModule: (moduleName, tempDir) =>

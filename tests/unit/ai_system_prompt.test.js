@@ -27,6 +27,17 @@ describe('SYSTEM_PROMPT', () => {
         expect(SYSTEM_PROMPT).toContain('ATLAS');
         expect(SYSTEM_PROMPT).toContain('NEVER LHCb');
     });
+
+    // Ter a ferramenta e saber que ela existe sao coisas diferentes: o modelo
+    // so ve este texto. Sem a secao do Simular ele conhece o PRISM como
+    // desenho, e responde "nao consigo ver a onda" a uma pergunta que agora
+    // tem resposta, com as doze ferramentas paradas no manifesto.
+    it('teaches the PRISM simulation, the only simulation whose values it can read', () => {
+        expect(SYSTEM_PROMPT).toContain('PRISM SIMULATE');
+        for (const t of ['prism_sim_status', 'prism_sim_enter', 'prism_sim_set_input', 'prism_sim_run_until']) {
+            expect(SYSTEM_PROMPT, `o prompt precisa citar ${t}`).toContain(t);
+        }
+    });
 });
 
 // O inventario do toolchain envelhece calado. O prompt dizia YANC v5.2 durante

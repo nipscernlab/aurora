@@ -728,10 +728,12 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   gap: var(--space-2);
 }
 
+/* O logo manda e a palavra acompanha: o desenho e que identifica o PRISM na
+   barra, e a palavra ao lado dele e legenda. Cabe nos 40 px da barra. */
 .prism-btn img,
 #prismcomp img {
-  width: 30px;
-  height: 30px;
+  width: 36px;
+  height: 36px;
   filter: drop-shadow(0 0 5px var(--accent-glow));
   transition: filter var(--transition-fast),
               transform 200ms var(--ease-out-quart);
@@ -749,8 +751,8 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: var(--font-medium);
-  letter-spacing: 0.02em;
-  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  font-size: 10px;
 }
 
 /* Active state, accent indicator at the bottom */

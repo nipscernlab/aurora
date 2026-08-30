@@ -962,9 +962,75 @@ function stripYosysLabels(/** @type {any} */ circuit) {
   }
 }
 
+// ---------- Comandos da AuroraAPI para a pagina do PRISM ----------
+
+/**
+ * Onde o PRISM esta agora: a janela propria, ou o <webview> da aba. A pagina e
+ * a mesma nos dois casos, e quem chama nao precisa saber em qual deles caiu.
+ */
+function superficieDoPrism() {
+  if (state.prismWindow && !state.prismWindow.isDestroyed()) return state.prismWindow.webContents;
+  if (state.prismTabContents && !state.prismTabContents.isDestroyed()) return state.prismTabContents;
+  return null;
+}
+
+/** id → resolve. Um comando em voo espera a resposta da pagina por este id. */
+const comandosPendentes = new Map();
+let seqComando = 0;
+
+/**
+ * Manda um comando a pagina do PRISM e espera a resposta dela.
+ *
+ * O invoke so vai do renderer para o main, e aqui a chamada nasce do lado de
+ * ca, entao sao dois canais: `prism:command` leva o pedido com um id e
+ * `prism:command-result` traz a resposta com o mesmo id. O prazo e generoso
+ * porque um dos comandos (entrar na simulacao) roda o yosys, e um so: uma
+ * pagina que morra no meio resolve na hora, pelo evento, sem esperar relogio.
+ */
+function comandarPrism(cmd) {
+  return new Promise((resolve) => {
+    const alvo = superficieDoPrism();
+    if (!alvo) {
+      resolve({ ok: false, error: 'PRISM is not open: run the prism compile step first' });
+      return;
+    }
+    const id = `prism-cmd-${Date.now()}-${++seqComando}`;
+    let pronto = false;
+    const encerrar = (r) => {
+      if (pronto) return;
+      pronto = true;
+      clearTimeout(prazo);
+      comandosPendentes.delete(id);
+      try { alvo.removeListener('destroyed', morreu); } catch (_) { /* ja foi */ }
+      resolve(r);
+    };
+    const morreu = () => encerrar({ ok: false, error: 'the PRISM page was closed while the command was running' });
+    const prazo = setTimeout(() => encerrar({ ok: false, error: 'the PRISM page did not answer in time' }), 120000);
+    comandosPendentes.set(id, encerrar);
+    alvo.once('destroyed', morreu);
+    try {
+      alvo.send('prism:command', id, cmd);
+    } catch (e) {
+      encerrar({ ok: false, error: e instanceof Error ? e.message : String(e) });
+    }
+  });
+}
+
 // ---------- IPC ----------
 
 function register() {
+  ipcMain.on('prism:command-result', (_event, id, result) => {
+    const encerrar = comandosPendentes.get(id);
+    if (encerrar) encerrar(result);
+  });
+
+  // A AuroraAPI (e por ela a Aurora Intelligence) operando o Simular. O
+  // conteudo do comando e conferido do outro lado, na pagina, que e quem sabe
+  // o que existe no circuito; aqui so se garante que ha para quem mandar.
+  ipcMain.handle('prism:command', async (_event, cmd) => {
+    if (!cmd || typeof cmd !== 'object') return { ok: false, error: 'prism:command requires a command object' };
+    return comandarPrism(cmd);
+  });
   ipcMain.handle('prism-compile-with-paths', async (_event, compilationPaths) => {
     try {
       const result = await performPrismCompilationWithPaths(compilationPaths);

@@ -17,6 +17,7 @@
  * @property {BrowserWindow | null} splashWindow
  * @property {BrowserWindow | null} updateWindow
  * @property {BrowserWindow | null} prismWindow
+ * @property {import('electron').WebContents | null} prismTabContents - O <webview> do PRISM quando ele abre numa aba do editor, para os comandos da AuroraAPI acharem a pagina nos dois modos.
  * @property {boolean} isQuitting
  * @property {boolean} downloadInProgress
  * @property {boolean} updateCheckInProgress
@@ -43,6 +44,7 @@ const state = {
   splashWindow: null,
   updateWindow: null,
   prismWindow: null,
+  prismTabContents: null,
 
   // Updater
   isQuitting: false,

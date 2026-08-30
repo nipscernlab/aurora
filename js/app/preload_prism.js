@@ -37,6 +37,13 @@ try {
     // janela principal a abre no visualizador de ondas (main/ipc/prism.js).
     exportWave: (payload) => ipcRenderer.invoke('prism:export-wave', payload),
 
+    // A AuroraAPI opera o Simular daqui de fora: o main entrega o comando com
+    // um id, a pagina responde por esse id. Sao dois canais e nao um invoke
+    // porque a chamada nasce do OUTRO lado, no main, e o invoke so vai do
+    // renderer para la.
+    onPrismCommand: (callback) => ipcRenderer.on('prism:command', (_e, id, cmd) => callback(id, cmd)),
+    replyPrismCommand: (id, result) => ipcRenderer.send('prism:command-result', id, result),
+
     // O que falha nesta pagina vai para o terminal PRISM da AURORA.
     logToTerminal: (message, type) => ipcRenderer.invoke('prism:log', message, type),
 

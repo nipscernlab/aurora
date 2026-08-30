@@ -96,6 +96,33 @@ describe('TOOL_MANIFEST', () => {
         });
     });
 
+    // O Simular do PRISM e a UNICA simulacao cujos valores a assistente le: o
+    // GTKWave e o Surfer sao janelas externas. Se estas ferramentas sumirem do
+    // manifesto, ela volta a responder "nao consigo ver a onda" a uma pergunta
+    // que tem resposta, e nada mais quebra para avisar.
+    it('wires the PRISM simulation tools to the prism namespace', () => {
+        const by = (n) => TOOL_MANIFEST.find((d) => d.name === n);
+        expect(by('prism_sim_status')).toMatchObject({
+            access: 'read', api: ['prism', 'simStatus'], argStyle: 'none',
+        });
+        expect(by('prism_sim_enter')).toMatchObject({
+            access: 'write', api: ['prism', 'simEnter'], argStyle: 'none',
+        });
+        expect(by('prism_sim_run_until')).toMatchObject({
+            access: 'write', api: ['prism', 'simRunUntil'], argStyle: 'object',
+        });
+        expect(by('prism_sim_set_input')).toMatchObject({
+            access: 'write', api: ['prism', 'simSetInput'], argStyle: 'object',
+        });
+        // O conjunto inteiro, para uma remocao silenciosa aparecer aqui.
+        const nomes = TOOL_MANIFEST.filter((d) => d.api[0] === 'prism').map((d) => d.name).sort();
+        expect(nomes).toEqual([
+            'prism_sim_control', 'prism_sim_enter', 'prism_sim_exit', 'prism_sim_export_wave',
+            'prism_sim_level', 'prism_sim_list_wires', 'prism_sim_monitor', 'prism_sim_run_until',
+            'prism_sim_set_half_period', 'prism_sim_set_input', 'prism_sim_set_speed', 'prism_sim_status',
+        ]);
+    });
+
     // O comentário no topo deste arquivo diz que o manifesto e a função da API
     // são ligados por convenção, e não por tipos. Este é o teste dessa
     // convenção: um `api: [ns, fn]` que não existe do outro lado vira uma

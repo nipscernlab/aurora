@@ -313,6 +313,16 @@ function createMainWindow(opts = {}) {
     webPreferences.preload = prismPreload;
   });
 
+  // A pagina do PRISM na aba tem webContents proprio, e do renderer principal
+  // nao da para alcanca-lo por IPC. Guardado aqui, os comandos da AuroraAPI
+  // (main/ipc/prism.js) acham a pagina nos dois modos, aba e janela.
+  mainWindow.webContents.on('did-attach-webview', (_event, contents) => {
+    state.prismTabContents = contents;
+    contents.once('destroyed', () => {
+      if (state.prismTabContents === contents) state.prismTabContents = null;
+    });
+  });
+
   loadPage(mainWindow, 'index.html');
 
   // Navigation lockdown. Aurora is a single-page file:// shell: the top frame

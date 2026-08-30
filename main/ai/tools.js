@@ -1393,6 +1393,216 @@ const TOOL_MANIFEST = [
       required: ['file'],
     },
   },
+  /* ---- PRISM interactive simulation (the "Simulate" mode) ---- */
+  // Estas doze sao a unica forma pela qual voce LE uma simulacao. GTKWave e
+  // Surfer sao janelas externas: a onda deles e uma figura para o humano. Aqui
+  // o circuito responde em JSON, entao poe entrada, anda ticks e le sinal e um
+  // laco que se fecha sem a pessoa no meio.
+  {
+    name: 'prism_sim_status',
+    description:
+      'State of the PRISM interactive simulation (the "Simulate" mode of the RTL viewer, powered ' +
+      'by DigitalJS): which module is loaded, the tick count, whether it is running, the speed and ' +
+      'clock half period, the hierarchy levels open, and EVERY input, output and monitored signal ' +
+      'with its current value. Answers even when PRISM is closed or showing the static schematic ' +
+      '(look at "modo" and "simulando"), so call it first to find out what you are looking at. ' +
+      'This is the one way you can READ simulated values — GTKWave and Surfer are external windows ' +
+      'whose waveforms you cannot see.',
+    access: 'read',
+    api: ['prism', 'simStatus'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'prism_sim_enter',
+    description:
+      'Enter Simulate mode in PRISM for the module currently on its screen, turning the static ' +
+      'schematic into a live circuit you can poke. Requires PRISM to be open — run ' +
+      'compile_step({step:"prism"}) first. It synthesises the module with Yosys, so it takes ' +
+      'seconds; the module must be small (about 3000 cells), and a module too large is refused ' +
+      'with the reason. If the simulation is already up this just returns the state.',
+    access: 'write',
+    api: ['prism', 'simEnter'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'prism_sim_exit',
+    description:
+      'Leave the PRISM simulation and go back to the static schematic. The circuit is torn down, ' +
+      'so the tick count and any values you set are lost; what the user chose (monitored signals, ' +
+      'speed, open panels) is remembered and comes back on the next prism_sim_enter.',
+    access: 'write',
+    api: ['prism', 'simExit'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'prism_sim_control',
+    description:
+      'Drive the simulation clock: "run" starts it at the chosen speed, "pause" stops it where it ' +
+      'is, "tick" advances exactly one tick, "next" jumps to the next signal change, "fast" runs ' +
+      'with no wait between ticks, "reset" goes back to tick zero with the registers at their ' +
+      'initial value (no recompile, and the input switches keep their values). For observing a ' +
+      'circuit prefer prism_sim_run_until, which advances a known amount and reports what happened.',
+    access: 'write',
+    api: ['prism', 'simControl'],
+    argStyle: 'positional',
+    argNames: ['action'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['run', 'pause', 'tick', 'next', 'fast', 'reset'], description: 'What to do with the clock: run, pause, tick, next, fast or reset.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'prism_sim_set_speed',
+    description:
+      'Set how fast the PRISM simulation runs, in ticks per second, while it is in "run" mode. ' +
+      'The bar offers 1, 2, 5, 10, 20, 50 and 100 tick/s and the nearest one is applied — the ' +
+      'answer reports what actually took effect. This is only pacing for a human watching; it ' +
+      'does not change the circuit or the tick count.',
+    access: 'write',
+    api: ['prism', 'simSetSpeed'],
+    argStyle: 'positional',
+    argNames: ['ticksPerSecond'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ticksPerSecond: { type: 'number', description: 'Ticks per second while running, e.g. 10. Snapped to the nearest offered speed.' },
+      },
+      required: ['ticksPerSecond'],
+    },
+  },
+  {
+    name: 'prism_sim_set_half_period',
+    description:
+      'Set the clock half period of the simulated module, in ticks: the clock flips every N ticks, ' +
+      'so a full cycle is 2N. Lower it to make a counter advance in fewer ticks. Fails when the ' +
+      'module has no clock input (then advance it with prism_sim_control "tick").',
+    access: 'write',
+    api: ['prism', 'simSetHalfPeriod'],
+    argStyle: 'positional',
+    argNames: ['ticks'],
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ticks: { type: 'number', description: 'Half period in ticks, an integer of 1 or more (the full clock cycle is twice this).' },
+      },
+      required: ['ticks'],
+    },
+  },
+  {
+    name: 'prism_sim_set_input',
+    description:
+      'Write a value into one input port of the simulated module — the equivalent of flipping a ' +
+      'switch or typing in the Inputs and outputs panel. A one-bit input takes "0" or "1"; a bus ' +
+      'takes the value in the base you name (hex by default, e.g. "ff"). Call prism_sim_status ' +
+      'for the port names and widths. The clock is not an input here: it toggles on its own, use ' +
+      'prism_sim_set_half_period.',
+    access: 'write',
+    api: ['prism', 'simSetInput'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name:  { type: 'string', description: 'Port name exactly as prism_sim_status reports it (e.g. "enable", "valor").' },
+        value: { type: 'string', description: 'The value to write: "0"/"1" for one bit, or digits in the chosen base for a bus (e.g. "ff").' },
+        base:  { type: 'string', description: 'Base the value is written in: hex (default for buses), dec, bin or oct.' },
+      },
+      required: ['name', 'value'],
+    },
+  },
+  {
+    name: 'prism_sim_list_wires',
+    description:
+      'List the named wires of the level currently visible in the simulation, with their width, ' +
+      'current value and whether they are already in the waveform monitor. These are the names ' +
+      'prism_sim_monitor and prism_sim_run_until accept — internal nets, not just the module ports.',
+    access: 'read',
+    api: ['prism', 'simListWires'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'prism_sim_monitor',
+    description:
+      'Manage the waveform monitor of the simulation: "add" or "remove" a wire by name, "base" ' +
+      'changes how a bus value is read (hex/dec/bin), "trigger" sets the stop-at that pauses the ' +
+      'simulation when the signal reaches a value (a bus takes the value; a one-bit wire takes ' +
+      'rising, falling, risefall, undef, or none to clear), and "clear" empties the monitor. ' +
+      'Monitored signals are the ones prism_sim_export_wave writes to the .vcd.',
+    access: 'write',
+    api: ['prism', 'simMonitor'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['add', 'remove', 'base', 'trigger', 'clear'], description: 'What to do: add, remove, base, trigger or clear.' },
+        signal: { type: 'string', description: 'Wire name, as prism_sim_list_wires reports it. Not needed for "clear".' },
+        base:   { type: 'string', description: 'For action "base": hex, dec, bin or oct.' },
+        value:  { type: 'string', description: 'For action "trigger": the bus value to stop at, or rising | falling | risefall | undef | none for a one-bit wire.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
+    name: 'prism_sim_run_until',
+    description:
+      'Advance the simulation a known amount and report what happened — the workhorse for actually ' +
+      'TESTING a circuit. Either pass ticks (advance exactly that many) or signal plus value (run ' +
+      'until that wire or output reaches the value), or both, whichever comes first. Stepping is ' +
+      'exact and does not depend on wall-clock speed. The answer carries the reason it stopped ' +
+      '("ticks", "valor" or "tempo"), the tick it stopped at, and the full state with every port ' +
+      'and monitored signal value at that moment. Typical loop: prism_sim_set_input, then this, ' +
+      'then read the outputs in the answer.',
+    access: 'write',
+    api: ['prism', 'simRunUntil'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        ticks:     { type: 'number', description: 'How many ticks to advance, an integer of 1 or more.' },
+        signal:    { type: 'string', description: 'Wire or output name to watch; stops as soon as it equals value.' },
+        value:     { type: 'string', description: 'The value of signal to stop at, in the chosen base.' },
+        base:      { type: 'string', description: 'Base value is written in: hex (default for buses), dec, bin or oct.' },
+        timeoutMs: { type: 'number', description: 'Give up after this many milliseconds (default 10000, maximum 60000).' },
+      },
+    },
+  },
+  {
+    name: 'prism_sim_export_wave',
+    description:
+      'Write the signals currently in the simulation monitor to a .vcd file and open it in the ' +
+      'waveform viewer the user prefers (GTKWave or Surfer). Use it to hand the user a waveform ' +
+      'they can measure with a cursor after you have driven the circuit. The answer carries the ' +
+      '.vcd path and the signal names written.',
+    access: 'write',
+    api: ['prism', 'simExportWave'],
+    argStyle: 'none',
+    inputSchema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'prism_sim_level',
+    description:
+      'Walk the module hierarchy inside the simulation: "enter" opens a submodule by its instance ' +
+      'or type name (the magnifier on its box), "back" goes up one level, "top" returns to the ' +
+      'module the simulation started from. The whole circuit keeps simulating at every level; ' +
+      'entering only changes which one you see and which wires prism_sim_list_wires reports.',
+    access: 'write',
+    api: ['prism', 'simLevel'],
+    argStyle: 'object',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['enter', 'back', 'top'], description: 'enter a submodule, go back one level, or return to the top.' },
+        name:   { type: 'string', description: 'For action "enter": the submodule instance or type name shown on its box.' },
+      },
+      required: ['action'],
+    },
+  },
   {
     name: 'open_file',
     description: 'Open a project file in the editor. Set inNewSplit:true to open it in a new split pane.',

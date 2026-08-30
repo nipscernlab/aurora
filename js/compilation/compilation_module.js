@@ -3222,7 +3222,12 @@ async _waveOpenSurferTab(vcdFile, surferLayoutFile, tools, opts = {}) {
     // Onde o "salvar" de dentro da aba grava: um arquivo fixo por testbench em
     // testbench/, o mesmo diretório do estado do Wave Config. Salvar de novo
     // sobrescreve, que é o que se espera de um salvar.
-    const tbKey = (this.projectConfig.testbenchFile || '')
+    //
+    // A onda pode nao vir do passo Wave: a da simulacao do PRISM chega aqui
+    // sem que nenhuma compilacao tenha rodado nesta sessao, e ai
+    // `projectConfig` ainda e nulo. Sem testbench nao ha estado a salvar, que
+    // e o mesmo caso do `semEstado` logo abaixo.
+    const tbKey = (this.projectConfig?.testbenchFile || '')
         .split(/[\\/]/).pop().replace(/\.[^.]+$/i, '');
     let stateSavePath = null;
     if (tbKey && this.projectPath && !opts.semEstado) {

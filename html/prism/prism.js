@@ -279,6 +279,15 @@ class PRISMViewer {
       window.electronAPI.onCompilationComplete(this._onCompilationComplete.bind(this));
     }
 
+    // A AuroraAPI (e por ela a Aurora Intelligence) opera o Simular daqui de
+    // fora: o main entrega o comando, esta pagina o executa e responde.
+    window.electronAPI?.onPrismCommand?.((id, cmd) => {
+      Promise.resolve()
+        .then(() => this._comandoDaApi(cmd))
+        .then((r) => window.electronAPI.replyPrismCommand(id, r))
+        .catch((e) => window.electronAPI.replyPrismCommand(id, { ok: false, error: e?.message || String(e) }));
+    });
+
     // Window controls
     document.getElementById('win-min')?.addEventListener('click', () => window.electronAPI?.windowMinimize?.());
     document.getElementById('win-max')?.addEventListener('click', () => window.electronAPI?.windowMaximizeToggle?.());
@@ -1832,11 +1841,22 @@ class PRISMViewer {
       this._monitor.loadWiresDesc(salvos.map((w) => ({ name: w.name, path: w.path, bits: w.bits })));
       this._aplicarBasesEGatilhos(salvos);
     } else {
+      // Um mesmo net que se divide em dois destinos sao dois links, e o
+      // monitor os aceitaria como duas linhas iguais: o relogio que alimenta
+      // dois flip-flops aparecia duas vezes, com o mesmo nome e a mesma onda.
+      // Uma linha por nome.
       const graph = this.circuit._graph;
+      const vistos = new Set();
       for (const link of graph.getLinks()) {
         const src = link.getSourceElement();
         const dst = link.getTargetElement();
-        if ((src && src.get('type') === 'Clock') || (dst && dst.get('type') === 'Output')) this._monitor.addWire(link);
+        if (!((src && src.get('type') === 'Clock') || (dst && dst.get('type') === 'Output'))) continue;
+        const nome = link.get('netname');
+        if (nome) {
+          if (vistos.has(nome)) continue;
+          vistos.add(nome);
+        }
+        this._monitor.addWire(link);
       }
     }
     this._simBar?.querySelector('#simMonitor')?.classList.add('active');
@@ -2016,7 +2036,9 @@ class PRISMViewer {
    * medida e zoom de verdade.
    */
   async _exportarOnda() {
-    if (!this._monitor || !this.circuit || !window.electronAPI?.exportWave) return;
+    if (!this._monitor || !this.circuit || !window.electronAPI?.exportWave) {
+      return { ok: false, error: 'the waveform monitor is not open' };
+    }
     const sinais = [];
     for (const { wire, waveform } of this._monitor._wires.values()) {
       const src = wire.get('source') || {};
@@ -2029,15 +2051,20 @@ class PRISMViewer {
         mudancas: (waveform && waveform._data ? waveform._data : []).map(([t, v]) => [t, v.toBin()]),
       });
     }
-    if (!sinais.length) { this._avisar(T.simExportEmpty, true); return; }
+    if (!sinais.length) { this._avisar(T.simExportEmpty, true); return { ok: false, error: T.simExportEmpty }; }
     let r;
     try {
       r = await window.electronAPI.exportWave({ modulo: this.currentModule || 'simulacao', presente: this.circuit.tick, sinais });
     } catch (err) {
       r = { ok: false, error: err && err.message ? err.message : String(err) };
     }
-    if (!r || !r.ok) { this._avisar(`${T.simExportError}${r && r.error ? `: ${r.error}` : ''}`, true); return; }
+    if (!r || !r.ok) {
+      const erro = `${T.simExportError}${r && r.error ? `: ${r.error}` : ''}`;
+      this._avisar(erro, true);
+      return { ok: false, error: erro };
+    }
     this._avisar(T.simExported.replace('{f}', r.vcdPath || ''));
+    return { ok: true, data: { vcdPath: r.vcdPath, sinais: sinais.map((s) => s.nome) } };
   }
 
   // -------------------------------------------------------------------------
@@ -2223,6 +2250,355 @@ class PRISMViewer {
     this._showStatus(msg, true);
     clearTimeout(this._simErrTimer);
     this._simErrTimer = setTimeout(() => this._hideStatus(), 7000);
+  }
+
+  // -------------------------------------------------------------------------
+  //  A simulacao pela AuroraAPI
+  //
+  //  Tudo o que a barra e os dois paineis fazem com o mouse tem aqui um nome
+  //  e uma resposta em JSON, para a AuroraAPI, e por ela a Aurora
+  //  Intelligence, operar o Simular sem depender de pixel nenhum. O ganho nao
+  //  e conveniencia: ate aqui a assistente nao tinha como LER um valor de
+  //  simulacao. O GTKWave e uma janela externa, o Surfer tambem; a onda era
+  //  sempre uma figura para o humano olhar. Este e o primeiro caminho pelo
+  //  qual ela observa o circuito rodando, e por isso o `correrAte` existe:
+  //  avancar um numero exato de ticks, ou ate um sinal valer o que se espera,
+  //  e ler o que deu, que e o laco de um teste.
+  //
+  //  Cada comando devolve { ok, data } ou { ok:false, error }, a mesma forma
+  //  da AuroraAPI, para atravessar o IPC sem traducao.
+  // -------------------------------------------------------------------------
+
+  async _comandoDaApi(cmd) {
+    const c = cmd && typeof cmd === 'object' ? cmd : {};
+    const op = String(c.op || '');
+    const bom = (data) => ({ ok: true, data });
+    const ruim = (error) => ({ ok: false, error });
+    // O estado e o unico comando que responde com a simulacao fechada: e por
+    // ele que quem chama descobre que precisa abrir.
+    if (op === 'status') return bom(this._estadoDaSimulacao());
+    if (op === 'enter') {
+      if (this.simMode) return bom(this._estadoDaSimulacao());
+      if (!window.electronAPI?.buildDigitalJS) return ruim('this PRISM window cannot build a simulation');
+      await this.enterSimMode();
+      if (!this.simMode) return ruim('the simulation could not be built; the PRISM terminal has the reason');
+      return bom(this._estadoDaSimulacao());
+    }
+    if (op === 'exit') {
+      if (this.simMode) this.exitSimMode();
+      return bom(this._estadoDaSimulacao());
+    }
+    if (!this.simMode || !this.circuit) {
+      return ruim('the simulation is not running: call it with op "enter" first');
+    }
+    const circuito = this.circuit;
+    switch (op) {
+      case 'control': {
+        const acao = String(c.acao || '');
+        const acoes = {
+          run:   () => { if (!circuito.running) circuito.start(); },
+          pause: () => { if (circuito.running) circuito.stop(); },
+          tick:  () => { if (circuito.running) circuito.stop(); circuito.updateGates(); },
+          next:  () => { if (circuito.running) circuito.stop(); circuito.updateGatesNext(); },
+          fast:  () => { if (circuito.running) circuito.stop(); circuito.startFast(); },
+          reset: () => this._reiniciarSimulacao(),
+        };
+        if (!acoes[acao]) return ruim(`unknown action "${acao}": use run, pause, tick, next, fast or reset`);
+        acoes[acao]();
+        return bom(this._estadoDaSimulacao());
+      }
+      case 'speed': {
+        const tps = Number(c.ticksPorSegundo);
+        if (!Number.isFinite(tps) || tps <= 0) return ruim('ticksPorSegundo must be a positive number');
+        const sel = this._simBar?.querySelector('#simSpeed');
+        const opcoes = sel ? [...sel.options].map((o) => Number(o.value)) : [];
+        const ms = Math.max(1, Math.round(1000 / tps));
+        // A barra so tem as velocidades da lista: escolhe-se a mais proxima,
+        // e o que a resposta diz e a que passou a valer, nao a pedida.
+        const perto = opcoes.length ? opcoes.reduce((a, b) => (Math.abs(b - ms) < Math.abs(a - ms) ? b : a)) : ms;
+        circuito.interval = perto;
+        if (sel) sel.value = String(perto);
+        if (circuito.running) { circuito.stop(); circuito.start(); }
+        this._escolha('speed', perto);
+        return bom(this._estadoDaSimulacao());
+      }
+      case 'period': {
+        const n = Math.floor(Number(c.ticks));
+        if (!Number.isFinite(n) || n < 1) return ruim('ticks must be an integer of 1 or more');
+        const relogios = circuito._graph.getElements().filter((el) => el.get('type') === 'Clock');
+        if (!relogios.length) return ruim('this module has no clock: advance it with control tick');
+        for (const r of relogios) r.set('propagation', n);
+        const p = this._simBar?.querySelector('#simPeriod');
+        if (p) p.value = String(n);
+        this._escolha('period', n);
+        return bom(this._estadoDaSimulacao());
+      }
+      case 'input': {
+        const r = this._escreverEntrada(String(c.nome || ''), c.valor, c.base);
+        return r.ok ? bom(this._estadoDaSimulacao()) : r;
+      }
+      case 'wires':
+        return bom({ fios: this._fiosVisiveis() });
+      case 'monitor':
+        return this._comandoDoMonitor(c);
+      case 'runUntil':
+        return this._correrAte(c);
+      case 'export': {
+        if (!this._monitorPanel) this._alternarMonitor();
+        const r = await this._exportarOnda();
+        return r;
+      }
+      case 'level': {
+        const acao = String(c.acao || 'back');
+        if (acao === 'top') this._voltarNivel(0);
+        else if (acao === 'back') this._voltarNivel(this._simPilha.length - 2);
+        else if (acao === 'enter') {
+          const alvo = String(c.nome || '');
+          const cel = this._paper.model.getElements().find((el) => el.get('type') === 'Subcircuit'
+            && (el.get('label') === alvo || el.get('celltype') === alvo));
+          if (!cel) {
+            const nomes = this._paper.model.getElements().filter((el) => el.get('type') === 'Subcircuit')
+              .map((el) => el.get('label') || el.get('celltype'));
+            return ruim(`no submodule "${alvo}" at this level${nomes.length ? `; there is ${nomes.join(', ')}` : ' (this level has none)'}`);
+          }
+          this._entrarNoSubcircuito(cel);
+        } else return ruim(`unknown action "${acao}": use enter, back or top`);
+        return bom(this._estadoDaSimulacao());
+      }
+      default:
+        return ruim(`unknown op "${op}"`);
+    }
+  }
+
+  /** O retrato da simulacao: o que a barra, os paineis e as migalhas mostram. */
+  _estadoDaSimulacao() {
+    const c = this.circuit;
+    const base = {
+      modulo: this.currentModule || null,
+      modo: this.simMode ? 'simulacao' : 'esquematico',
+      simulando: !!(this.simMode && c),
+    };
+    if (!this.simMode || !c) return base;
+    const d = c._display3vl;
+    const mostrar = (sig, bits) => (sig ? d.show(bits > 1 ? 'hex' : 'bin', sig) : 'x');
+    const porta = (cel, entrada) => ({
+      nome: cel.get('net') || cel.get('label'),
+      bits: cel.get('bits') || 1,
+      valor: mostrar(entrada ? (cel.get('outputSignals') || {}).out : cel.getOutput(), cel.get('bits') || 1),
+    });
+    const relogio = c._graph.getElements().find((el) => el.get('type') === 'Clock');
+    return {
+      ...base,
+      tick: c.tick,
+      rodando: !!c.running,
+      ticksPorSegundo: Math.round(1000 / (c.interval || 10)),
+      meioPeriodo: relogio ? relogio.get('propagation') : null,
+      niveis: this._simPilha.map((n) => n.nome),
+      entradas: c.getInputCells().map((cel) => porta(cel, true)),
+      saidas: c.getOutputCells().map((cel) => porta(cel, false)),
+      monitor: this._sinaisMonitorados(),
+      paineis: { entradasSaidas: !!this._ioPanel, formasDeOnda: !!this._monitorPanel },
+    };
+  }
+
+  /** Os fios do nivel visivel que se pode levar ao monitor, com o valor de agora. */
+  _fiosVisiveis() {
+    if (!this._paper) return [];
+    const d = this.circuit._display3vl;
+    const monitorados = new Set(this._monitor ? this._monitor.getWires().map((w) => w.get('netname')) : []);
+    const vistos = new Set();
+    const fios = [];
+    for (const link of this._paper.model.getLinks()) {
+      const nome = link.get('netname');
+      if (!nome || vistos.has(nome)) continue;
+      vistos.add(nome);
+      const bits = link.get('bits') || 1;
+      fios.push({
+        nome,
+        bits,
+        valor: d.show(bits > 1 ? 'hex' : 'bin', link.get('signal')),
+        monitorado: monitorados.has(nome),
+      });
+    }
+    return fios;
+  }
+
+  /** As linhas do monitor: nome, bits, base, gatilho e valor de agora. */
+  _sinaisMonitorados() {
+    if (!this._monitor) return [];
+    const d = this.circuit._display3vl;
+    const linhas = this._monitorPanel
+      ? [...this._monitorPanel.querySelectorAll('table.monitor tr')]
+      : [];
+    return this._monitor.getWires().map((wire) => {
+      const nome = wire.get('netname') || '';
+      const tr = linhas.find((l) => l.dataset.nome === nome);
+      const bits = wire.get('bits') || 1;
+      // Na base da linha, e nao sempre em hex: dizer "base dec" e mostrar o
+      // valor em hexadecimal e pior do que nao dizer base nenhuma.
+      const base = bits > 1 ? (tr?.querySelector('select[name=base]')?.value || 'hex') : 'bin';
+      return {
+        nome,
+        bits,
+        base,
+        pararEm: tr?.querySelector('[name=trigger]')?.value || null,
+        valor: d.show(base, wire.get('signal')),
+      };
+    });
+  }
+
+  /** A celula de entrada com este nome, no nivel do topo. */
+  _acharEntrada(nome) {
+    return this.circuit.getInputCells().find((cel) => (cel.get('net') || cel.get('label')) === nome) || null;
+  }
+
+  /**
+   * Escreve numa entrada. Um bit aceita 0 e 1; um barramento aceita o valor na
+   * base pedida (hex de fabrica, como o painel). O relogio nao se escreve: ele
+   * bate sozinho, e mexer nele a mao so confundiria a onda.
+   */
+  _escreverEntrada(nome, valor, base) {
+    const cel = this._acharEntrada(nome);
+    if (!cel) {
+      // O relogio nao esta entre as entradas: ele nao e um botao, e um
+      // oscilador. Dizer isso vale mais do que "nao existe".
+      const ehRelogio = this.circuit._graph.getElements()
+        .some((el) => el.get('type') === 'Clock' && (el.get('net') || el.get('label')) === nome);
+      if (ehRelogio) return { ok: false, error: `"${nome}" is the clock: it toggles on its own, set its half period with op "period"` };
+      const nomes = this.circuit.getInputCells().map((e) => e.get('net') || e.get('label'));
+      return { ok: false, error: `no input named "${nome}"; this module has ${nomes.join(', ') || 'none'}` };
+    }
+    const bits = cel.get('bits') || 1;
+    const b = String(base || (bits > 1 ? 'hex' : 'bin'));
+    const d = this.circuit._display3vl;
+    const texto = String(valor == null ? '' : valor).trim();
+    if (!d.validate(b, texto, bits)) return { ok: false, error: `"${texto}" is not a valid ${b} value for ${nome} (${bits} bits)` };
+    cel.setInput(d.read(b, texto, bits));
+    return { ok: true };
+  }
+
+  /** Um fio pelo nome, entre os do nivel visivel. */
+  _acharFio(nome) {
+    if (!this._paper) return null;
+    return this._paper.model.getLinks().find((l) => l.get('netname') === nome) || null;
+  }
+
+  _comandoDoMonitor(c) {
+    const acao = String(c.acao || '');
+    if (acao === 'clear') {
+      if (this._monitor) for (const w of this._monitor.getWires()) this._monitor.removeWire(w);
+      this._guardarEscolhas();
+      return { ok: true, data: { monitor: this._sinaisMonitorados() } };
+    }
+    if (!this._monitorPanel) this._alternarMonitor();
+    const nome = String(c.sinal || '');
+    if (acao === 'add') {
+      const fio = this._acharFio(nome);
+      if (!fio) return { ok: false, error: `no wire named "${nome}" at this level; call op "wires" for the list` };
+      this._monitor.addWire(fio);
+      this._guardarEscolhas();
+      return { ok: true, data: { monitor: this._sinaisMonitorados() } };
+    }
+    const wire = this._monitor.getWires().find((w) => w.get('netname') === nome);
+    if (!wire) return { ok: false, error: `"${nome}" is not in the monitor` };
+    if (acao === 'remove') {
+      this._monitor.removeWire(wire);
+      this._guardarEscolhas();
+      return { ok: true, data: { monitor: this._sinaisMonitorados() } };
+    }
+    // Base e "parar em" moram nos controles da linha; mexer neles pelo mesmo
+    // caminho do mouse (o evento que o MonitorView escuta) evita um segundo
+    // caminho de verdade dentro da biblioteca.
+    const tr = [...this._monitorPanel.querySelectorAll('table.monitor tr')].find((l) => l.dataset.nome === nome);
+    if (!tr) return { ok: false, error: `"${nome}" has no row in the monitor` };
+    if (acao === 'base') {
+      const sel = tr.querySelector('select[name=base]');
+      const b = String(c.base || '');
+      if (!sel) return { ok: false, error: `"${nome}" is one bit: it has no base` };
+      if (![...sel.options].some((o) => o.value === b)) {
+        return { ok: false, error: `unknown base "${b}"; use ${[...sel.options].map((o) => o.value).join(', ')}` };
+      }
+      sel.value = b;
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+      this._guardarEscolhas();
+      return { ok: true, data: { monitor: this._sinaisMonitorados() } };
+    }
+    if (acao === 'trigger') {
+      const campo = tr.querySelector('[name=trigger]');
+      if (!campo) return { ok: false, error: `"${nome}" has no stop-at control` };
+      const v = c.valor == null ? '' : String(c.valor);
+      if (campo.tagName === 'SELECT' && v && ![...campo.options].some((o) => o.value === v)) {
+        return { ok: false, error: `unknown stop-at "${v}"; use ${[...campo.options].map((o) => o.value).join(', ')}` };
+      }
+      campo.value = v;
+      campo.dispatchEvent(new Event(campo.tagName === 'SELECT' ? 'input' : 'change', { bubbles: true }));
+      this._guardarEscolhas();
+      return { ok: true, data: { monitor: this._sinaisMonitorados() } };
+    }
+    return { ok: false, error: `unknown action "${acao}": use add, remove, base, trigger or clear` };
+  }
+
+  /**
+   * Avanca a simulacao um numero exato de ticks, ou ate um sinal valer o que
+   * se espera, e responde com onde parou e o que os sinais valem ali.
+   *
+   * O passo e dado a mao (updateGates avanca um tick e confere os gatilhos),
+   * e nao pelo motor de relogio: assim o tick de parada e exato, o resultado
+   * nao depende de quantos milissegundos passaram, e a resposta chega quando
+   * a conta termina. Em blocos, cedendo o fio entre eles, para a janela nao
+   * congelar num laco de cem mil ticks.
+   */
+  async _correrAte(c) {
+    const circuito = this.circuit;
+    const ticks = c.ticks == null ? null : Math.floor(Number(c.ticks));
+    const nome = c.sinal == null ? '' : String(c.sinal);
+    if (ticks != null && (!Number.isFinite(ticks) || ticks < 1)) return { ok: false, error: 'ticks must be an integer of 1 or more' };
+    if (ticks == null && !nome) return { ok: false, error: 'say how far to run: ticks, or sinal plus valor' };
+    const limiteMs = Math.min(60000, Math.max(100, Number(c.limiteMs) || 10000));
+    const tetoTicks = ticks == null ? 1000000 : ticks;
+
+    let casou = () => false;
+    if (nome) {
+      const d = circuito._display3vl;
+      const fio = this._acharFio(nome);
+      const saida = fio ? null : circuito.getOutputCells().find((cel) => (cel.get('net') || cel.get('label')) === nome);
+      if (!fio && !saida) return { ok: false, error: `no wire or output named "${nome}"; call op "wires" for the list` };
+      const bits = (fio ? fio.get('bits') : saida.get('bits')) || 1;
+      const ler = () => (fio ? fio.get('signal') : saida.getOutput());
+      if (c.valor == null) return { ok: false, error: `pass valor: which value of "${nome}" to stop at` };
+      const base = String(c.base || (bits > 1 ? 'hex' : 'bin'));
+      const texto = String(c.valor).trim();
+      if (!d.validate(base, texto, bits)) return { ok: false, error: `"${texto}" is not a valid ${base} value for ${nome} (${bits} bits)` };
+      const alvo = d.read(base, texto, bits);
+      casou = () => { const s = ler(); return !!s && s.eq(alvo); };
+    }
+
+    if (circuito.running) circuito.stop();
+    const inicio = Date.now();
+    const tickInicial = circuito.tick;
+    let motivo = 'ticks';
+    if (casou()) motivo = 'valor';
+    while (motivo === 'ticks' && circuito.tick - tickInicial < tetoTicks) {
+      for (let i = 0; i < 200 && circuito.tick - tickInicial < tetoTicks; i++) {
+        circuito.updateGates();
+        // Um "parar em" do monitor tambem para aqui: quem pediu um valor e a
+        // pessoa, e a corrida da API nao passa por cima dele.
+        if (casou()) { motivo = 'valor'; break; }
+      }
+      if (motivo !== 'ticks') break;
+      if (Date.now() - inicio > limiteMs) { motivo = 'tempo'; break; }
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    if (nome && motivo === 'ticks' && ticks == null) motivo = 'tempo';
+    return {
+      ok: true,
+      data: {
+        motivo,
+        tick: circuito.tick,
+        ticksAndados: circuito.tick - tickInicial,
+        ...this._estadoDaSimulacao(),
+      },
+    };
   }
 
   // -------------------------------------------------------------------------

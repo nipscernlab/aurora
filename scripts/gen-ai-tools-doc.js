@@ -33,6 +33,7 @@ const NAMESPACES = {
   editor: 'Editor',
   compile: 'Compilacao e simulacao',
   wave: 'Formas de onda',
+  prism: 'Simulacao interativa do PRISM',
   terminal: 'Terminais',
   settings: 'Configuracoes',
   rules: 'Regras da linguagem',

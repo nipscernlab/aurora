@@ -882,6 +882,19 @@ body.sim-montando::after {
 }
 .djs-container .joint-element path.decor { stroke: var(--text) !important; }
 
+/* A marca da entrada do multiplexador (ver _pintarMuxes): check verde na que
+   esta valendo, x vermelho nas outras. Traco redondo e mais grosso que o
+   risco de fabrica, para ler no zoom em que o esquematico costuma ficar. */
+.djs-container .joint-element path.decor.prism-mux-sim,
+.djs-container .joint-element path.decor.prism-mux-nao {
+  fill: none !important;
+  stroke-width: 2px !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.djs-container .joint-element path.decor.prism-mux-sim { stroke: var(--aurora-mint) !important; }
+.djs-container .joint-element path.decor.prism-mux-nao { stroke: var(--status-error) !important; opacity: 0.85; }
+
 /* Texto: tudo claro; o valor numerico em mono, como no resto do PRISM. */
 .djs-container .joint-element text,
 .djs-container .joint-element tspan { fill: var(--text) !important; }
@@ -988,10 +1001,21 @@ body.sim-montando::after {
 .sim-btn i { font-size: 14px; }
 .sim-btn:hover { background: var(--accent-soft); color: var(--accent-hover); }
 .sim-btn.active { color: var(--aurora-mint); border-color: color-mix(in srgb, var(--aurora-mint) 35%, transparent); }
-.sim-ticks { padding: 0 14px 0 10px; min-width: 96px; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }
-.sim-period { display: inline-flex; align-items: center; gap: 4px; padding: 0 4px; }
-.sim-period input {
-  width: 64px;
+.sim-ticks { padding: 0 6px; min-width: 84px; text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }
+.sim-ticks span + span { color: var(--text-muted); }
+
+/* Campo com o nome escrito ao lado, e nao so um icone: um numero solto ao lado
+   de um relogio nao diz se e periodo, frequencia ou atraso. */
+.sim-campo { display: inline-flex; align-items: center; gap: 6px; padding: 0 2px; }
+.sim-campo-nome {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.sim-campo input {
+  width: 58px;
   padding: 2px 6px;
   background: var(--bg);
   color: var(--text);
@@ -1000,6 +1024,7 @@ body.sim-montando::after {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 }
+.sim-campo select { width: 100px; }
 .sim-sep { width: 1px; height: 18px; background: var(--border); margin: 0 4px; }
 
 .sim-panel {
@@ -1024,24 +1049,41 @@ body.sim-montando::after {
   color: var(--text-muted);
   border-bottom: 1px solid var(--border-hairline);
 }
-.sim-io { top: 12px; right: 12px; width: 280px; max-height: calc(100% - 172px); scrollbar-gutter: stable; }
-.sim-io-corpo { padding: 8px 18px 10px 12px; }
-.sim-io-corpo form > div { margin-bottom: 8px; }
-.sim-io-corpo form > div > div { display: grid; grid-template-columns: 90px minmax(0, 1fr) 56px; gap: 6px; align-items: center; margin: 3px 0; }
-.sim-io-corpo label { font-family: var(--font-mono); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sim-io-corpo input[type="text"], .sim-io-corpo select {
-  width: 100%;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 2px 6px;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
+/* Cabecalho com acoes a direita (o monitor tem; o de E/S nao). O traco passa a
+   ser do cabecalho inteiro, para nao cortar so debaixo do titulo. */
+.sim-panel-cab { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-hairline); }
+.sim-panel-cab h4 { flex: 1; min-width: 0; border-bottom: none; }
+.sim-panel-acoes { display: flex; align-items: center; gap: 2px; padding-right: 6px; }
+.sim-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
 }
-.sim-io-row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; align-items: center; margin: 5px 0; }
-.sim-io-col { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sim-mini i { font-size: 13px; }
+.sim-mini:hover { background: var(--accent-soft); color: var(--accent-hover); }
+.sim-mini.active { color: var(--aurora-mint); border-color: color-mix(in srgb, var(--aurora-mint) 35%, transparent); }
+
+.sim-io { top: 12px; right: 12px; width: 300px; max-height: calc(100% - 172px); scrollbar-gutter: stable; }
+.sim-io-corpo { padding: 8px 12px 10px 12px; }
+.sim-io-corpo form > div { margin-bottom: 8px; }
+.sim-io-corpo label { font-family: var(--font-mono); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Nome, valor e base em tres colunas fixas, iguais em todas as linhas. O
+   IOPanelView poe valor e base dentro de uma casca (o "col"), entao ela some da
+   grade com display:contents e os dois caem cada um na sua coluna: sem isso os
+   dois brigavam por uma coluna so e o "hex" saia cortado debaixo da seta. */
+.sim-io-row { display: grid; grid-template-columns: 88px minmax(0, 1fr) 66px; gap: 8px; align-items: center; margin: 5px 0; }
+.sim-io-col { display: contents; }
 .sim-io-nome { font-family: var(--font-mono); color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sim-io-corpo .sim-num { width: 100%; }
+.sim-io-corpo select[name="base"] { width: 100%; }
 
 /* O interruptor da entrada de 1 bit: trilho e botao, aceso na cor viva. */
 .sim-switch { position: relative; display: inline-block; width: 34px; height: 18px; cursor: pointer; }
@@ -1065,23 +1107,28 @@ body.sim-montando::after {
 .sim-switch input:checked + .sim-switch-track::after { transform: translateX(16px); background: var(--aurora-mint); }
 .sim-switch input:focus-visible + .sim-switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-/* A saida de 1 bit: check verde em 1, x vermelho em 0, traco cinza em
-   indefinido. Um icone por estado; so o do estado atual aparece. */
+/* A saida de 1 bit: a lampada mostra o digito que o sinal vale, aceso em 1,
+   apagado em 0, x quando indefinido. Um digito por estado; so o do estado
+   atual aparece. Era um check verde e um x vermelho, que num sinal chamado
+   "estouro" se liam como erro e nao como zero, e tinham cara de botao. */
 .sim-led { position: relative; display: inline-flex; align-items: center; }
 .sim-led input { position: absolute; opacity: 0; width: 0; height: 0; }
-.sim-led i {
+.sim-led span {
   display: none;
   width: 22px; height: 22px;
   align-items: center; justify-content: center;
   border-radius: 50%;
-  font-size: 15px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   line-height: 1;
-  border: 1px solid transparent;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
   transition: background-color var(--transition-fast), color var(--transition-fast);
 }
-.sim-led input:checked ~ .sim-led-on { display: inline-flex; color: var(--status-success); background: color-mix(in srgb, var(--status-success) 16%, transparent); border-color: color-mix(in srgb, var(--status-success) 45%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--status-success) 35%, transparent); }
-.sim-led input:not(:checked):not(:indeterminate) ~ .sim-led-off { display: inline-flex; color: var(--status-error); background: color-mix(in srgb, var(--status-error) 14%, transparent); border-color: color-mix(in srgb, var(--status-error) 40%, transparent); }
-.sim-led input:indeterminate ~ .sim-led-x { display: inline-flex; color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 14%, transparent); border-color: var(--border); }
+.sim-led input:checked ~ .sim-led-on { display: inline-flex; color: var(--aurora-mint); background: color-mix(in srgb, var(--aurora-mint) 18%, transparent); border-color: color-mix(in srgb, var(--aurora-mint) 55%, transparent); box-shadow: 0 0 10px color-mix(in srgb, var(--aurora-mint) 30%, transparent); }
+.sim-led input:not(:checked):not(:indeterminate) ~ .sim-led-off { display: inline-flex; color: var(--status-error); background: color-mix(in srgb, var(--status-error) 12%, transparent); border-color: color-mix(in srgb, var(--status-error) 40%, transparent); }
+.sim-led input:indeterminate ~ .sim-led-x { display: inline-flex; border-style: dashed; }
 
 .sim-io-grupo {
   margin: 10px 0 4px;
@@ -1107,18 +1154,54 @@ body.sim-montando::after {
 .sim-x { display: inline-flex; padding: 2px 4px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; }
 .sim-x:hover { color: var(--status-error); }
 
-.sim-monitor { left: 12px; right: 12px; bottom: 12px; height: 220px; display: flex; flex-direction: column; }
-.sim-monitor-corpo { flex: 1; min-height: 0; overflow: auto; padding: 6px 10px; }
+/* As colunas do monitor moram aqui porque duas coisas precisam concordar: o
+   cabecalho e as linhas que o DigitalJS monta. A soma (colunas + os quatro
+   vaos) e 300 px de proposito: e quanto o MonitorView desconta da largura para
+   dimensionar o canvas da onda. Fora disso o desenho sai esticado, porque o
+   bitmap tem uma largura e a caixa tem outra. */
+.sim-monitor {
+  left: 12px; right: 12px; bottom: 12px; height: 220px;
+  display: flex; flex-direction: column;
+  --mon-vao: 8px;
+  --mon-nome: 110px;
+  --mon-base: 62px;
+  --mon-parar: 72px;
+  --mon-tirar: 24px;
+}
+.sim-monitor-corpo { flex: 1; min-height: 0; overflow: auto; padding: 0 10px 6px; }
 .sim-monitor-dica { margin: 0; padding: 4px 12px 8px; font-size: 10px; color: var(--text-muted); }
 
+/* O cabecalho das colunas. Fica grudado no topo ao rolar, e dentro do mesmo
+   corpo que rola: assim continua alinhado quando a barra de rolagem aparece. */
+.sim-monitor-cab {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--mon-vao);
+  padding: 6px 0 4px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border-hairline);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.sim-monitor-cab span:nth-child(1) { width: var(--mon-nome); flex: none; }
+.sim-monitor-cab span:nth-child(2) { flex: 1; min-width: 0; }
+.sim-monitor-cab span:nth-child(3) { width: var(--mon-base); flex: none; }
+.sim-monitor-cab span:nth-child(4) { width: var(--mon-parar); flex: none; }
+.sim-monitor-cab span:nth-child(5) { width: var(--mon-tirar); flex: none; }
+
 /* Cada fio e uma linha: nome, a onda ocupando tudo que sobra, e os controles
-   (base, gatilho, tirar) no fim. O DigitalJS monta <tr> com o nome em 100% e
+   (base, parar em, tirar) no fim. O DigitalJS monta <tr> com o nome em 100% e
    a onda por ultimo, com 0 px; a linha vira flex e a ordem e a de leitura. */
 .sim-monitor-corpo table.monitor { width: 100%; border-collapse: collapse; }
 .sim-monitor-corpo table.monitor tr {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--mon-vao);
   padding: 3px 0;
   border-bottom: 1px solid var(--border-hairline);
   font-size: var(--text-xs);
@@ -1127,7 +1210,7 @@ body.sim-montando::after {
 .sim-monitor-corpo table.monitor td { padding: 0; margin: 0; }
 .sim-monitor-corpo table.monitor td.name {
   order: 0;
-  width: 128px !important;
+  width: var(--mon-nome) !important;
   flex: none;
   font-family: var(--font-mono);
   color: var(--text-secondary);
@@ -1136,18 +1219,20 @@ body.sim-montando::after {
   white-space: nowrap;
 }
 .sim-monitor-corpo table.monitor td:nth-child(5) { order: 1; flex: 1; min-width: 0; }
-.sim-monitor-corpo table.monitor td:nth-child(2) { order: 2; flex: none; }
-.sim-monitor-corpo table.monitor td:nth-child(3) { order: 3; flex: none; }
-.sim-monitor-corpo table.monitor td:nth-child(4) { order: 4; flex: none; }
+.sim-monitor-corpo table.monitor td:nth-child(2) { order: 2; flex: none; width: var(--mon-base); }
+.sim-monitor-corpo table.monitor td:nth-child(3) { order: 3; flex: none; width: var(--mon-parar); }
+.sim-monitor-corpo table.monitor td:nth-child(4) { order: 4; flex: none; width: var(--mon-tirar); text-align: center; }
 .sim-monitor-corpo canvas.wavecanvas {
   display: block;
   width: 100%;
   height: 30px;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--bg) 60%, transparent);
+  cursor: grab;
 }
-.sim-monitor-corpo select[name=trigger], .sim-monitor-corpo input[name=trigger] { width: 64px !important; }
-.sim-monitor-corpo select[name=base] { width: 56px; }
+.sim-monitor-corpo canvas.wavecanvas:active { cursor: grabbing; }
+.sim-monitor-corpo select[name=trigger], .sim-monitor-corpo input[name=trigger] { width: 100% !important; }
+.sim-monitor-corpo select[name=base] { width: 100%; }
 
 /* Um so estilo de lista suspensa no PRISM: as do painel, as do monitor, a do
    balao de base do DigitalJS. Chevron da casa no lugar do nativo. */
@@ -1172,8 +1257,3 @@ body.sim-montando::after {
 }
 .djs-container select:focus-visible, .sim-panel select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .djs-container select option, .sim-panel select option { background: var(--bg-elev-2); color: var(--text); }
-
-/* O controle de velocidade: um trilho curto e o valor ao lado. */
-.sim-speed { display: inline-flex; align-items: center; gap: 6px; padding: 0 4px; }
-.sim-speed input[type="range"] { width: 90px; accent-color: var(--aurora-mint); }
-.sim-speed span { min-width: 44px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); }

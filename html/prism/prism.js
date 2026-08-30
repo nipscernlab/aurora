@@ -32,10 +32,24 @@ const PRISM_STRINGS = {
     simError:    'Could not build the simulation',
     simTooLarge: '{m} is too large to simulate interactively ({n} cells, the limit is {l}).',
     simRun: 'Run', simPause: 'Pause', simStep: 'Tick', simNext: 'Next event', simFast: 'Fast',
-    simPeriod: 'Half period (ticks)', simIo: 'Inputs and outputs', simMonitor: 'Waveforms',
-    simTicks: 'tick', simNoClock: 'No clock in this module: use Tick to advance.',
-    simInputs: 'Inputs', simOutputs: 'Outputs', simTrigger: 'trigger', simRemove: 'Remove from the monitor',
-    simSpeed: 'Speed: milliseconds per tick (higher is slower)',
+    simRunTip: 'Runs the simulation at the chosen speed',
+    simPauseTip: 'Stops the simulation; the state stays where it is',
+    simStepTip: 'Advances one tick and stops',
+    simNextTip: 'Advances to the next signal change and stops',
+    simFastTip: 'Runs with no wait between ticks, as fast as it goes',
+    simIo: 'Inputs and outputs', simMonitor: 'Waveforms',
+    simIoTip: 'Panel to read and change this module’s ports',
+    simMonitorTip: 'Monitor of the chosen signals over time',
+    simTick: 'tick', simTicks: 'ticks', simTicksTip: 'Ticks since the simulation started',
+    simNoClock: 'No clock in this module: use Tick to advance.',
+    simPeriodLabel: 'half period', simPeriod: 'Clock half period, in ticks',
+    simSpeedLabel: 'speed', simSpeedUnit: 'tick/s', simSpeed: 'Ticks per second while it runs',
+    simInputs: 'Inputs', simOutputs: 'Outputs', simRemove: 'Remove from the monitor',
+    simSignal: 'signal', simBase: 'base', simBaseTip: 'Base the value is read in',
+    simStopAt: 'stop at', simValue: 'value',
+    simStopAtTip: 'Stops the simulation when this signal reaches the value',
+    simLive: 'Live', simLiveTip: 'Follows the present; drag the wave to look back',
+    simZoomIn: 'Closer in time', simZoomOut: 'Further out in time',
     simMonitorHint: 'Hover a wire and press its monitor button to add it here.',
     simTimeout:  'Synthesizing {m} took longer than {s} s.',
     simHint:     'Open a smaller submodule in the schematic and simulate that one.',
@@ -60,10 +74,24 @@ const PRISM_STRINGS = {
     simError:    'Não foi possível montar a simulação',
     simTooLarge: '{m} é grande demais para simular ao vivo ({n} células, o limite é {l}).',
     simRun: 'Rodar', simPause: 'Pausar', simStep: 'Tick', simNext: 'Próximo evento', simFast: 'Rápido',
-    simPeriod: 'Meio período (ticks)', simIo: 'Entradas e saídas', simMonitor: 'Formas de onda',
-    simTicks: 'tick', simNoClock: 'Este módulo não tem relógio: avance com Tick.',
-    simInputs: 'Entradas', simOutputs: 'Saídas', simTrigger: 'gatilho', simRemove: 'Tirar do monitor',
-    simSpeed: 'Velocidade: milissegundos por tick (maior é mais lento)',
+    simRunTip: 'Roda a simulação na velocidade escolhida',
+    simPauseTip: 'Para a simulação; o estado fica onde está',
+    simStepTip: 'Avança um tick e para',
+    simNextTip: 'Avança até a próxima mudança de sinal e para',
+    simFastTip: 'Roda sem espera entre os ticks, o mais rápido que der',
+    simIo: 'Entradas e saídas', simMonitor: 'Formas de onda',
+    simIoTip: 'Painel para ler e mudar as portas deste módulo',
+    simMonitorTip: 'Monitor dos sinais escolhidos ao longo do tempo',
+    simTick: 'tick', simTicks: 'ticks', simTicksTip: 'Ticks desde o começo da simulação',
+    simNoClock: 'Este módulo não tem relógio: avance com Tick.',
+    simPeriodLabel: 'meio período', simPeriod: 'Meio período do relógio, em ticks',
+    simSpeedLabel: 'velocidade', simSpeedUnit: 'tick/s', simSpeed: 'Ticks por segundo enquanto roda',
+    simInputs: 'Entradas', simOutputs: 'Saídas', simRemove: 'Tirar do monitor',
+    simSignal: 'sinal', simBase: 'base', simBaseTip: 'Base em que o valor é lido',
+    simStopAt: 'parar em', simValue: 'valor',
+    simStopAtTip: 'Para a simulação quando este sinal chegar ao valor',
+    simLive: 'Ao vivo', simLiveTip: 'Acompanha o presente; arraste a onda para olhar para trás',
+    simZoomIn: 'Mais perto no tempo', simZoomOut: 'Mais longe no tempo',
     simMonitorHint: 'Passe o mouse num fio e use o botão de monitor dele para trazê-lo para cá.',
     simTimeout:  'Sintetizar {m} passou de {s} s.',
     simHint:     'Abra um submódulo menor no esquemático e simule aquele.',
@@ -1155,6 +1183,7 @@ class PRISMViewer {
       // O resto do que o DigitalJS oferece e que o Simular passa a usar: o
       // painel de entradas e saidas e o monitor de formas de onda.
       this._djs = { Monitor: djs.Monitor, MonitorView: djs.MonitorView, IOPanelView: djs.IOPanelView };
+      this._pintarMuxes(djs.cells);
     }
     return this._Circuit;
   }
@@ -1259,13 +1288,22 @@ class PRISMViewer {
    *
    * O DigitalJS ja tinha tudo isto e o PRISM nao expunha nada: o circuito
    * rodava sozinho, sem pausa, sem passo, sem relogio, sem ver o sinal no
-   * tempo. A barra fica em cima do papel, como os controles de zoom: Rodar e
-   * Pausar, um tick, o proximo evento, o modo rapido, o contador de ticks e o
-   * meio periodo do relogio. Ao lado, dois paineis que se abrem: entradas e
-   * saidas em formulario (IOPanelView), para digitar um valor de 32 bits em vez
-   * de clicar bit a bit, e o monitor (Monitor + MonitorView), que desenha os
-   * fios escolhidos no tempo; o botao de monitor que aparece ao passar o mouse
-   * num fio o acrescenta la, e as saidas e o relogio entram por padrao.
+   * tempo. A barra fica em cima do papel, como os controles de zoom, em quatro
+   * grupos separados por um traco: o que roda (Rodar/Pausar, um tick, o proximo
+   * evento, o modo rapido), o que se le (o contador de ticks), o que se regula
+   * (meio periodo do relogio e velocidade) e o que se abre (os dois paineis).
+   *
+   * Cada campo leva o nome escrito ao lado, e nao so um icone com dica: um
+   * numero solto ao lado de um relogio nao diz se e periodo, frequencia ou
+   * atraso. A velocidade vira uma lista de ticks por segundo, que e a unidade
+   * que a pessoa enxerga; o milissegundo por tick, que crescia para a esquerda,
+   * era um numero ao contrario do que se quer dizer.
+   *
+   * Os dois paineis que se abrem: entradas e saidas em formulario
+   * (IOPanelView), para digitar um valor de 32 bits em vez de clicar bit a bit,
+   * e o monitor (Monitor + MonitorView), que desenha os fios escolhidos no
+   * tempo; o botao de monitor que aparece ao passar o mouse num fio o
+   * acrescenta la, e as saidas e o relogio entram por padrao.
    */
   _montarBarraDaSimulacao() {
     if (!this.circuit || !this.djsContainer) return;
@@ -1274,17 +1312,23 @@ class PRISMViewer {
     const barra = document.createElement('div');
     barra.className = 'sim-bar';
     const btn = (id, icone, rotulo, titulo) => `<button class="sim-btn" id="${id}" title="${titulo || rotulo}"><i class="ph ${icone}" aria-hidden="true"></i><span>${rotulo}</span></button>`;
+    // Ticks por segundo; o motor conta em milissegundos por tick, entao o valor
+    // da opcao ja vai no que ele espera.
+    const velocidades = [1, 2, 5, 10, 20, 50, 100]
+      .map((tps) => `<option value="${Math.round(1000 / tps)}">${tps} ${T.simSpeedUnit}</option>`).join('');
     barra.innerHTML = `
-      ${btn('simRun', 'ph-pause', T.simPause)}
-      ${btn('simStep', 'ph-skip-forward', T.simStep)}
-      ${btn('simNext', 'ph-fast-forward', T.simNext)}
-      ${btn('simFast', 'ph-lightning', T.simFast)}
-      <span class="sim-ticks"><span id="simTick">0</span> ${T.simTicks}</span>
-      <label class="sim-period" title="${T.simPeriod}"><i class="ph ph-clock" aria-hidden="true"></i><input id="simPeriod" type="number" min="1" max="100000" step="1"></label>
-      <label class="sim-speed" title="${T.simSpeed}"><i class="ph ph-gauge" aria-hidden="true"></i><input id="simSpeed" type="range" min="1" max="300" step="1"><span id="simSpeedMs"></span></label>
+      ${btn('simRun', 'ph-pause', T.simPause, T.simPauseTip)}
+      ${btn('simStep', 'ph-skip-forward', T.simStep, T.simStepTip)}
+      ${btn('simNext', 'ph-fast-forward', T.simNext, T.simNextTip)}
+      ${btn('simFast', 'ph-lightning', T.simFast, T.simFastTip)}
       <span class="sim-sep" aria-hidden="true"></span>
-      ${btn('simIo', 'ph-sliders-horizontal', T.simIo)}
-      ${btn('simMonitor', 'ph-waveform', T.simMonitor)}`;
+      <span class="sim-ticks" title="${T.simTicksTip}"><span id="simTick">0</span> <span id="simTickUnit">${T.simTicks}</span></span>
+      <span class="sim-sep" aria-hidden="true"></span>
+      <label class="sim-campo sim-period" title="${T.simPeriod}"><span class="sim-campo-nome">${T.simPeriodLabel}</span><input id="simPeriod" type="number" min="1" max="100000" step="1"></label>
+      <label class="sim-campo sim-speed" title="${T.simSpeed}"><span class="sim-campo-nome">${T.simSpeedLabel}</span><select id="simSpeed">${velocidades}</select></label>
+      <span class="sim-sep" aria-hidden="true"></span>
+      ${btn('simIo', 'ph-sliders-horizontal', T.simIo, T.simIoTip)}
+      ${btn('simMonitor', 'ph-waveform', T.simMonitor, T.simMonitorTip)}`;
     this.djsContainer.appendChild(barra);
     this._simBar = barra;
 
@@ -1298,18 +1342,17 @@ class PRISMViewer {
       for (const r of relogios()) r.set('propagation', n);
     });
 
-    // A velocidade e o intervalo do motor, em ms por tick: 10 ms de fabrica
-    // sao 100 ticks por segundo, e com meio periodo de 50 o relogio bate a
-    // 1 Hz, rapido demais para acompanhar um contador a olho. O controle
-    // muda o intervalo ao vivo; o motor reinicia o timer se estiver rodando.
+    // A velocidade escrita em ticks por segundo; o motor guarda o inverso, o
+    // intervalo em ms por tick. O valor que ele ja tem raramente cai numa das
+    // opcoes, entao a lista comeca na mais proxima e o motor passa a valer
+    // aquela, para o que esta escrito ser o que acontece.
     const vel = barra.querySelector('#simSpeed');
-    const velMs = barra.querySelector('#simSpeedMs');
-    const pintarVel = () => { velMs.textContent = `${c.interval} ms`; };
-    vel.value = String(c.interval || 10);
-    pintarVel();
-    vel.addEventListener('input', () => {
+    const opcoes = [...vel.options].map((o) => Number(o.value));
+    const perto = opcoes.reduce((a, b) => (Math.abs(b - c.interval) < Math.abs(a - c.interval) ? b : a));
+    vel.value = String(perto);
+    c.interval = perto;
+    vel.addEventListener('change', () => {
       c.interval = Math.max(1, Number(vel.value) || 10);
-      pintarVel();
       // O motor so le o intervalo ao (re)ligar o timer.
       if (c.running) { c.stop(); c.start(); }
     });
@@ -1318,6 +1361,7 @@ class PRISMViewer {
     const pintarRun = () => {
       const rodando = !!c.running;
       run.innerHTML = `<i class="ph ${rodando ? 'ph-pause' : 'ph-play'}" aria-hidden="true"></i><span>${rodando ? T.simPause : T.simRun}</span>`;
+      run.title = rodando ? T.simPauseTip : T.simRunTip;
       run.classList.toggle('active', rodando);
     };
     run.addEventListener('click', () => { if (c.running) c.stop(); else c.start(); pintarRun(); });
@@ -1325,7 +1369,11 @@ class PRISMViewer {
     barra.querySelector('#simNext').addEventListener('click', () => { if (c.running) c.stop(); c.updateGatesNext(); pintarRun(); });
     barra.querySelector('#simFast').addEventListener('click', () => { if (c.running) c.stop(); else c.startFast(); pintarRun(); });
     const tick = barra.querySelector('#simTick');
-    c.on('postUpdateGates', (t) => { tick.textContent = String(t); });
+    const tickUnidade = barra.querySelector('#simTickUnit');
+    c.on('postUpdateGates', (t) => {
+      tick.textContent = String(t);
+      tickUnidade.textContent = t === 1 ? T.simTick : T.simTicks;
+    });
     c.on('changeRunning', pintarRun);
     pintarRun();
 
@@ -1347,8 +1395,8 @@ class PRISMViewer {
     this.djsContainer.appendChild(painel);
     this._ioPanel = painel;
     // Marcacao da casa em vez dos <input type=checkbox> de fabrica: um
-    // interruptor para a entrada de 1 bit, um LED para a saida de 1 bit, e um
-    // campo mono para os barramentos. O IOPanelView aceita cada pedaco.
+    // interruptor para a entrada de 1 bit, uma lampada para a saida de 1 bit, e
+    // um campo mono para os barramentos. O IOPanelView aceita cada pedaco.
     this._ioView = new this._djs.IOPanelView({
       model: this.circuit,
       el: painel.querySelector('.sim-io-corpo'),
@@ -1356,12 +1404,14 @@ class PRISMViewer {
       colMarkup: '<div class="sim-io-col"></div>',
       labelMarkup: '<label class="sim-io-nome"></label>',
       buttonMarkup: '<label class="sim-switch"><input type="checkbox"><span class="sim-switch-track" aria-hidden="true"></span></label>',
-      // A saida de 1 bit: um check verde quando esta em 1, um x vermelho em 0
-      // e um traco cinza quando indefinida. E o que se le de longe, e nao
-      // pede legenda: e o mesmo par de icones que a barra de status usa para
-      // topo e testbench.
-      lampMarkup: '<span class="sim-led"><input type="checkbox"><i class="ph ph-check-circle sim-led-on" aria-hidden="true"></i><i class="ph ph-x-circle sim-led-off" aria-hidden="true"></i><i class="ph ph-minus-circle sim-led-x" aria-hidden="true"></i></span>',
+      // A saida de 1 bit mostra o digito que ela vale: 1 aceso, 0 apagado, x
+      // quando indefinida. Antes era um check verde e um x vermelho, e um x
+      // vermelho num sinal chamado "estouro" se le como erro, nao como zero,
+      // alem de ter cara de botao que se pode apertar. O digito diz o valor e
+      // e o mesmo que aparece sobre a porta no desenho.
+      lampMarkup: '<span class="sim-led"><input type="checkbox"><span class="sim-led-on" aria-hidden="true">1</span><span class="sim-led-off" aria-hidden="true">0</span><span class="sim-led-x" aria-hidden="true">x</span></span>',
       inputMarkup: '<input type="text" class="sim-num" spellcheck="false">',
+      baseSelectorMarkup: (d, bits, base) => this._marcacaoDeBase(d, bits, base),
     });
     this._separarEntradasDeSaidas(painel);
     this._simBar?.querySelector('#simIo')?.classList.add('active');
@@ -1388,6 +1438,29 @@ class PRISMViewer {
     }
   }
 
+  /**
+   * A lista de base (hex, dec, bin) que os dois paineis usam. A de fabrica vem
+   * sem nome e sem dica, e um "hex" solto ao lado do valor nao diz que ali se
+   * escolhe COMO ler o numero, e nao o que ele vale.
+   */
+  _marcacaoDeBase(display3vl, bits, base) {
+    const opcoes = display3vl.usableDisplays('read', bits)
+      .map((n) => `<option value="${n}"${n === base ? ' selected' : ''}>${n}</option>`).join('');
+    return `<select name="base" class="sim-sel" title="${T.simBaseTip}">${opcoes}</select>`;
+  }
+
+  /**
+   * O monitor: uma linha por fio, com o nome, a onda, e tres controles no fim.
+   *
+   * Os tres controles nao diziam o que faziam. Agora a lista tem cabecalho
+   * (sinal, base, parar em) e o painel ganhou o que faltava para a onda ser
+   * navegavel: aproximar e afastar no tempo, e o "ao vivo". Este ultimo nao era
+   * so falta de rotulo e sim de caminho de volta: arrastar a onda para olhar o
+   * passado desliga o acompanhamento dentro do DigitalJS, e nao havia nada na
+   * tela que o religasse. O autoredraw entra pelo mesmo motivo: sem ele,
+   * arrastar, aproximar ou trocar a base com a simulacao parada nao redesenhava
+   * nada, e o controle parecia quebrado.
+   */
   _alternarMonitor() {
     if (this._monitorPanel) {
       this._monitorView?.shutdown?.();
@@ -1398,18 +1471,39 @@ class PRISMViewer {
     }
     const painel = document.createElement('div');
     painel.className = 'sim-panel sim-monitor';
-    painel.innerHTML = `<h4>${T.simMonitor}</h4><div class="sim-monitor-corpo"></div>`;
+    const mini = (id, icone, titulo, rotulo) => `<button type="button" class="sim-mini" id="${id}" title="${titulo}" aria-label="${titulo}"><i class="ph ${icone}" aria-hidden="true"></i>${rotulo ? `<span>${rotulo}</span>` : ''}</button>`;
+    // O cabecalho da lista mora DENTRO do corpo que rola, e nao acima dele: e a
+    // unica forma de continuar alinhado com as colunas quando aparece a barra
+    // de rolagem. O MonitorView so limpa a lista, entao o cabecalho sobrevive.
+    painel.innerHTML = `
+      <div class="sim-panel-cab">
+        <h4>${T.simMonitor}</h4>
+        <div class="sim-panel-acoes">
+          ${mini('simMonLive', 'ph-broadcast', T.simLiveTip, T.simLive)}
+          ${mini('simMonOut', 'ph-magnifying-glass-minus', T.simZoomOut)}
+          ${mini('simMonIn', 'ph-magnifying-glass-plus', T.simZoomIn)}
+        </div>
+      </div>
+      <div class="sim-monitor-corpo">
+        <div class="sim-monitor-cab" aria-hidden="true">
+          <span>${T.simSignal}</span><span></span><span>${T.simBase}</span><span>${T.simStopAt}</span><span></span>
+        </div>
+        <div class="sim-monitor-lista"></div>
+      </div>`;
     this.djsContainer.appendChild(painel);
     this._monitorPanel = painel;
     this._monitor = new this._djs.Monitor(this.circuit);
     this._monitor.attachTo(this._paper);
     this._monitorView = new this._djs.MonitorView({
       model: this._monitor,
-      el: painel.querySelector('.sim-monitor-corpo'),
-      removeButtonMarkup: `<button type="button" name="remove" class="sim-x" title="${T.simRemove}"><i class="ph ph-x" aria-hidden="true"></i></button>`,
-      bitTriggerMarkup: `<select name="trigger" class="sim-sel" title="${T.simTrigger}"><option value="none">&#8212;</option><option value="rising">&#8593;</option><option value="falling">&#8595;</option><option value="risefall">&#8597;</option><option value="undef">x</option></select>`,
-      busTriggerMarkup: `<input type="text" name="trigger" class="sim-num sim-trig" title="${T.simTrigger}" placeholder="${T.simTrigger}" pattern="[0-9a-fx]*" spellcheck="false">`,
+      el: painel.querySelector('.sim-monitor-lista'),
+      baseSelectorMarkup: (d, bits, base) => this._marcacaoDeBase(d, bits, base),
+      removeButtonMarkup: `<button type="button" name="remove" class="sim-x" title="${T.simRemove}" aria-label="${T.simRemove}"><i class="ph ph-x" aria-hidden="true"></i></button>`,
+      bitTriggerMarkup: `<select name="trigger" class="sim-sel" title="${T.simStopAtTip}"><option value="none">&#8212;</option><option value="rising">&#8593;</option><option value="falling">&#8595;</option><option value="risefall">&#8597;</option><option value="undef">x</option></select>`,
+      busTriggerMarkup: `<input type="text" name="trigger" class="sim-num sim-trig" title="${T.simStopAtTip}" placeholder="${T.simValue}" pattern="[0-9a-fx]*" spellcheck="false">`,
     });
+    this._monitorView.autoredraw = true;
+    this._ligarControlesDoMonitor(painel);
     const dica = document.createElement('p');
     dica.className = 'sim-monitor-dica';
     dica.textContent = T.simMonitorHint;
@@ -1426,6 +1520,10 @@ class PRISMViewer {
       gridColor: cor('--border', '#2a2f3d'),
       textColor: cor('--text', '#E8ECF3'),
       font: `10px ${cor('--font-mono', 'monospace')}`,
+      // A grade de fabrica quer uma linha a cada 10 px, o que na escala em que
+      // a onda cabe na tela vira um hachurado que come o sinal. Uma linha a
+      // cada 40 px e referencia; menos que isso e textura.
+      gridMinDist: 40,
     };
     const desc = {};
     for (const [k, v] of Object.entries(props)) desc[k] = { value: v, writable: true, enumerable: true, configurable: true };
@@ -1438,6 +1536,38 @@ class PRISMViewer {
       if ((src && src.get('type') === 'Clock') || (dst && dst.get('type') === 'Output')) this._monitor.addWire(link);
     }
     this._simBar?.querySelector('#simMonitor')?.classList.add('active');
+  }
+
+  /**
+   * Os controles do cabecalho do monitor: acompanhar o presente e a distancia
+   * no tempo. Os dois mexem na janela de desenho do MonitorView (start e
+   * pixelsPerTick), que ate aqui so respondia ao arrastar e a roda do mouse,
+   * dois gestos que ninguem descobre sozinho.
+   */
+  _ligarControlesDoMonitor(painel) {
+    const v = this._monitorView;
+    if (!v) return;
+    const aoVivo = painel.querySelector('#simMonLive');
+    const pintarAoVivo = () => aoVivo.classList.toggle('active', !!v.live);
+    aoVivo.addEventListener('click', () => {
+      if (v.live) { v.live = false; return; }
+      // Voltar ao vivo e voltar ao presente: o DigitalJS so recoloca a janela
+      // no fim no proximo tick, e com a simulacao parada esse tick nao vem.
+      v.live = true;
+      v.start = (this.circuit?.tick || 0) - v.width / v.pixelsPerTick;
+    });
+    v.on('change:live', pintarAoVivo);
+    pintarAoVivo();
+    // O presente fica preso na direita: aproximar a partir do meio faria a
+    // onda escorregar para fora da janela.
+    const distancia = (f) => {
+      const alvo = Math.min(40, Math.max(0.25, v.pixelsPerTick * f));
+      const fim = v.live ? (this.circuit?.tick || 0) : v.start + v.width / v.pixelsPerTick;
+      v.pixelsPerTick = alvo;
+      v.start = fim - v.width / alvo;
+    };
+    painel.querySelector('#simMonIn').addEventListener('click', () => distancia(2));
+    painel.querySelector('#simMonOut').addEventListener('click', () => distancia(0.5));
   }
 
   _desmontarBarraDaSimulacao() {
@@ -1555,6 +1685,40 @@ class PRISMViewer {
     this._paperTy = oy - (oy - this._paperTy) * (next / cur);
     this._paperScale = next;
     this._applyPaperTransform();
+  }
+
+  /**
+   * A marca da entrada escolhida do multiplexador: check verde de um lado, x
+   * vermelho do outro.
+   *
+   * O DigitalJS marca a entrada que esta valendo com um risco preto de tres
+   * pontos, do tamanho de um til, e ESCONDE o das outras. Fica um sinal fraco,
+   * na cor do texto, e quem olha nao sabe se a outra entrada esta descartada ou
+   * se aquela marca nem existe naquele mux. Aqui a escolhida ganha um check
+   * verde e as demais um x vermelho: as duas metades da resposta ficam na tela
+   * ao mesmo tempo, que e o que se le de longe.
+   *
+   * A troca e no proprio _updateMux da biblioteca, o unico ponto que sabe qual
+   * entrada esta valendo e que roda a cada mudanca de sinal. Um no injetado no
+   * DOM depois do desenho sumiria no proximo redesenho de portas.
+   */
+  _pintarMuxes(cells) {
+    const Vista = cells && cells.GenMuxView;
+    if (!Vista || Vista.prototype._prismDecor) return;
+    const CHECK = 'M0.5 0.5 L4 4.5 L10 -5';
+    const XIS = 'M1.5 -4 L8.5 3 M8.5 -4 L1.5 3';
+    Vista.prototype._updateMux = function (data) {
+      const escolhida = this.model.muxInput(data.sel);
+      for (const num of this.ins.keys()) {
+        const marca = this.$(`[port=in${num}] path.decor`);
+        // Solto de proposito, como na biblioteca: muxInput devolve string.
+        const vale = escolhida == num;
+        marca.attr('d', vale ? CHECK : XIS);
+        marca.attr('class', `decor ${vale ? 'prism-mux-sim' : 'prism-mux-nao'}`);
+        marca.css('visibility', 'visible');
+      }
+    };
+    Vista.prototype._prismDecor = true;
   }
 
   /**

@@ -242,6 +242,10 @@ const compilationOperations = {
   // o renderer registrar o layout como ativo e o proximo Wave abrir com ele.
   onSurferTabStateSaved: (cb) =>
     ipcRenderer.on('surfer-tab:state-saved', (_e, dados) => cb(dados)),
+  // O cliente WASM da aba buscou a onda: os bytes chegaram e o desenho vem a
+  // seguir. E o que tira o indicador de carregamento da aba.
+  onSurferTabWaveServed: (cb) =>
+    ipcRenderer.on('surfer-tab:wave-served', (_e, dados) => cb(dados)),
   writeSurferMappings: (mappings) => ipcRenderer.invoke('write-surfer-mappings', mappings),
   decodeComplex: (payload) => ipcRenderer.invoke('decode-complex', payload),
 };

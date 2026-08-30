@@ -15,6 +15,45 @@ import { electronAPI } from '../app/electron_api.js';
  *     to thread a context object through every callsite.
  */
 
+/* ── O veu de carregamento da onda numa aba ────────────────────────────────
+ *
+ * O `tabId` que o main usa para uma onda e `wave:<caminho do arquivo>`, e o
+ * viewer e guardado pelo caminho: e por essa igualdade que o aviso do main
+ * encontra a aba certa. O ouvinte e UM so, no modulo, e nao um por aba: o
+ * `ipcRenderer.on` do preload nao devolve como cancelar, e um por aba se
+ * acumularia a cada onda aberta.
+ *
+ * O prazo de socorro existe porque o veu cobre a aba: se o aviso nunca vier
+ * (servidor que morreu, cliente que buscou a onda por outro caminho), a
+ * pessoa nao pode ficar sem enxergar o Surfer por causa do indicador.
+ */
+const veusDaOnda = new Map();
+const PRAZO_DO_VEU = 90000;
+
+function tirarVeuDaOnda(filePath) {
+    const veu = veusDaOnda.get(filePath);
+    if (!veu) return;
+    veusDaOnda.delete(filePath);
+    clearTimeout(veu.prazo);
+    veu.el.remove();
+}
+
+function montarVeuDaOnda(viewer, filePath) {
+    tirarVeuDaOnda(filePath);
+    const el = document.createElement('div');
+    el.className = 'surfer-carregando';
+    el.innerHTML = '<div class="surfer-carregando-giro animate-spin" aria-hidden="true"></div>'
+        + `<p>${window.t ? window.t('tabs.waveLoading') : 'Loading the waveform…'}</p>`;
+    viewer.appendChild(el);
+    veusDaOnda.set(filePath, { el, prazo: setTimeout(() => tirarVeuDaOnda(filePath), PRAZO_DO_VEU) });
+}
+
+if (typeof window !== 'undefined' && electronAPI.onSurferTabWaveServed) {
+    electronAPI.onSurferTabWaveServed(({ tabId }) => {
+        if (typeof tabId === 'string' && tabId.startsWith('wave:')) tirarVeuDaOnda(tabId.slice(5));
+    });
+}
+
 // Decode whatever shape electronAPI.readFileBuffer returns into a
 // fresh ArrayBuffer suitable for Blob construction.
 function bufferToArrayBuffer(buffer) {
@@ -316,6 +355,13 @@ export const tabViewers = {
     // URL aurora-surfer:// que o main montou (bundle web + load_url do servidor
     // local daquela onda). Nao ha estado a salvar aqui: o proprio Surfer guarda
     // sua visao enquanto o iframe viver, e o iframe vive enquanto a aba viver.
+    //
+    // O veu de carregamento existe porque o caminho tem uma espera longa e
+    // muda: o WASM sobe, busca a onda e so entao desenha. Ate aqui a aba
+    // mostrava a tela de boas-vindas do Surfer ("Space: show command prompt")
+    // por todo esse tempo, e quem olhava concluia que nao tinha funcionado. O
+    // veu sai quando o main avisa que os bytes da onda foram servidos, que e o
+    // unico sinal honesto que se tem de fora do WASM.
     createSurferViewer(filePath, pageUrl) {
         if (this.viewerInstances.has(filePath)) {
             return this.viewerInstances.get(filePath);
@@ -323,6 +369,7 @@ export const tabViewers = {
 
         const viewer = document.createElement('div');
         viewer.className = 'surfer-viewer';
+        montarVeuDaOnda(viewer, filePath);
         const iframe = document.createElement('iframe');
         iframe.className = 'surfer-frame';
         // aria-label e nao title: title vira tooltip nativo, e um "Surfer"
@@ -345,7 +392,10 @@ export const tabViewers = {
     refreshSurferViewer(filePath, pageUrl) {
         const viewer = this.viewerInstances.get(filePath);
         const iframe = viewer && viewer.querySelector('iframe.surfer-frame');
-        if (iframe) iframe.src = pageUrl;
+        if (!iframe) return;
+        // A onda vai ser lida de novo, entao o veu volta com ela.
+        montarVeuDaOnda(viewer, filePath);
+        iframe.src = pageUrl;
     },
 
     savePdfViewerState(filePath) {

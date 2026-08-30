@@ -312,6 +312,18 @@ class PRISMViewer {
     // Document-level: clear wire highlights on click outside SVG
     document.addEventListener('click', this._onDocumentClick.bind(this));
 
+    // A rede de seguranca do balao.
+    //
+    // O balao da celula so sumia pelo `mouseleave` dela, e esse evento nao
+    // acontece quando o elemento que estava sob o ponteiro DESAPARECE: trocar
+    // de modulo troca o SVG inteiro, entrar no Simular esconde o container, e
+    // o balao ficava pendurado na tela por cima do que viesse depois, ate uma
+    // recompilacao. Aqui ele some tambem ao sair da area do desenho e ao a
+    // janela perder o foco, que sao os dois casos que o `mouseleave` da celula
+    // nao cobre por si.
+    this.svgContainer.addEventListener('mouseleave', () => this._hideTooltip());
+    window.addEventListener('blur', () => this._hideTooltip());
+
     // Mouse side buttons walk the module click history like a browser:
     // X1 (button 3) = back, X2 (button 4) = forward. preventDefault on mousedown
     // suppresses Chromium's own page back/forward for these buttons.
@@ -373,6 +385,9 @@ class PRISMViewer {
       const svgText = await window.electronAPI.readFile(svgPath);
       if (!svgText || !svgText.includes('<svg')) throw new Error('Invalid SVG content');
 
+      // O balao pertence ao desenho que sai: a celula sob o ponteiro esta
+      // prestes a deixar de existir, e com ela o `mouseleave` que o fecharia.
+      this._hideTooltip();
       // Fade-in
       this.svgContent.classList.remove('fade-enter', 'fade-enter-active');
       this.svgContent.classList.add('fade-enter');
@@ -1286,6 +1301,8 @@ class PRISMViewer {
       }
 
       this.simMode = true;
+      // O esquematico some, e o balao dele nao pode ficar por cima do circuito.
+      this._hideTooltip();
       this.svgContainer.style.display = 'none';
       this.djsContainer.style.display = 'block';
       this.simToggle?.classList.add('active');
@@ -1304,6 +1321,7 @@ class PRISMViewer {
   exitSimMode() {
     this._destroyCircuit();
     this._guardarEscolhas(true);
+    this._hideTooltip();
     this.simMode = false;
     this.djsContainer.style.display = 'none';
     this.svgContainer.style.display = '';
@@ -1399,6 +1417,7 @@ class PRISMViewer {
     if (!graph || !this.circuit) return;
     const rotulo = modelo.get('label');
     const nome = `${modelo.get('celltype') || ''}${rotulo ? ` ${rotulo}` : ''}`.trim() || '?';
+    this._hideTooltip();
     this._porCursor(null);
     this._abrirNivel(graph, nome, modelo);
     this._updateBreadcrumbs();
@@ -1407,6 +1426,7 @@ class PRISMViewer {
 
   /** Volta ao nivel de indice `ate`, fechando os que estao acima dele. */
   _voltarNivel(ate) {
+    this._hideTooltip();
     while (this._simPilha.length - 1 > Math.max(0, ate)) {
       const n = this._simPilha.pop();
       try { n.paper.remove?.(); } catch (_) { /* best-effort */ }

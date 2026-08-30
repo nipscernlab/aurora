@@ -536,6 +536,13 @@
                   <button id="reload-everything-terminal" class="toolbar-button icon-only" data-tooltip="Reload application">
                       <i class="ph ph-arrow-clockwise"></i>
                   </button>
+                  <!-- Recolher e reabrir o painel. Existe porque o arrasto do
+                       divisor podia recolher o terminal e nao havia gesto
+                       nenhum de volta: a faixa de abas ficava no rodape e o
+                       painel não abria mais. -->
+                  <button id="toggle-terminal" class="toolbar-button icon-only" data-tooltip="Show or hide the terminal panel" data-i18n-tooltip="toolbar.termPanel.toggle">
+                      <i class="ph ph-caret-down"></i>
+                  </button>
                 </div>
             </div>
             <div class="terminal-content" id="terminal-tcmm">

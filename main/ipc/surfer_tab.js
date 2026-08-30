@@ -116,10 +116,16 @@ const MIME = {
 const servers = new Map();
 
 /**
- * Alvos do proxy: proxyId → base do surver (http://127.0.0.1:porta/token).
- * @type {Map<string, string>}
+ * Alvos do proxy: proxyId → { base do surver, aba a que ele pertence }.
+ * A aba entra aqui para o primeiro pedido da onda poder avisar o renderer de
+ * que os bytes chegaram, que e o unico sinal honesto de "esta carregando" que
+ * temos de fora do WASM do Surfer.
+ * @type {Map<string, { base: string, tabId: string }>}
  */
 const proxies = new Map();
+
+/** Abas que ja avisaram que a onda foi servida, para avisar uma vez so. */
+const ondasServidas = new Set();
 
 /**
  * Layouts expostos: layoutId → caminho absoluto (.sucl ou .surf.ron).
@@ -177,8 +183,9 @@ function serveWebFile(rel, res) {
  * porta, so o resto do caminho depois do id.
  */
 function serveProxy(proxyId, rest, res) {
-  const base = proxies.get(proxyId);
-  if (!base) { res.writeHead(404); res.end('Unknown proxy'); return; }
+  const alvo = proxies.get(proxyId);
+  if (!alvo) { res.writeHead(404); res.end('Unknown proxy'); return; }
+  const { base, tabId } = alvo;
   const upstream = `${base}${rest}`;
   http.get(upstream, (up) => {
     // Os headers do surver passam adiante: o cliente identifica um surver
@@ -187,6 +194,19 @@ function serveProxy(proxyId, rest, res) {
     const headers = { ...up.headers, 'content-security-policy': SURFER_CSP };
     delete headers['access-control-allow-origin']; // mesma origem, sem CORS
     res.writeHead(up.statusCode || 502, headers);
+    // O cliente WASM buscou a onda por aqui: quando a resposta termina, os
+    // bytes estao com ele e o que falta e so o desenho. E a deixa para a aba
+    // tirar o indicador de carregamento. Uma vez por aba; o cliente pede o
+    // arquivo em pedacos e um aviso por pedaco seria ruido.
+    res.on('finish', () => {
+      if (!tabId || ondasServidas.has(tabId)) return;
+      ondasServidas.add(tabId);
+      for (const win of BrowserWindow.getAllWindows()) {
+        try {
+          if (!win.isDestroyed()) win.webContents.send('surfer-tab:wave-served', { tabId });
+        } catch (_) { /* janela fechando */ }
+      }
+    });
     up.pipe(res);
   }).on('error', (e) => {
     log.warn('[surfer-tab] proxy falhou:', e?.message || e);
@@ -355,6 +375,7 @@ async function stopServer(tabId) {
   if (!entry) return;
   servers.delete(tabId);
   proxies.delete(entry.proxyId);
+  ondasServidas.delete(tabId);
   if (entry.saveId) saveTargets.delete(entry.saveId);
   const { child } = entry;
   if (child && child.exitCode === null && !child.killed && child.pid) {
@@ -410,7 +431,10 @@ function register() {
       });
       const proxyId = crypto.randomBytes(8).toString('hex');
       servers.set(tabId, { child, proxyId });
-      proxies.set(proxyId, `http://127.0.0.1:${port}/${token}`);
+      proxies.set(proxyId, { base: `http://127.0.0.1:${port}/${token}`, tabId });
+      // Servidor novo, onda por carregar de novo: o aviso de "chegou" vale
+      // outra vez, senao recompilar deixaria a aba com o indicador preso.
+      ondasServidas.delete(tabId);
 
       // Prazo proporcional ao dump: o parse do FST cresce com o arquivo, e 30 s
       // fixos derrubavam um servidor que ainda estava subindo num dump grande.

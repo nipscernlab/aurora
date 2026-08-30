@@ -104,6 +104,9 @@
       "prism": "Terminal do PRISM (sintese do esquematico)",
       "cmd": "Terminal de shell (PowerShell)"
     },
+    "termPanel": {
+      "toggle": "Mostra ou esconde o painel de terminais"
+    },
     "pylibs": {
       "tooltip": "Bibliotecas Python"
     },
@@ -538,6 +541,7 @@
     "bootFailed": "O editor de código não conseguiu iniciar ({{error}}). Reinicie o SAPHO; se repetir, reinstale."
   },
   "tabs": {
+    "waveLoading": "Carregando a forma de onda…",
     "close": "Fechar",
     "formatting": "Formatando código...",
     "formatter": "Formatador de Código"
@@ -717,7 +721,7 @@
       "launched": "GTKWave aberto com sucesso",
       "surferLaunching": "Abrindo Surfer...",
       "surferLaunched": "Surfer aberto com sucesso",
-      "surferTabOpened": "Onda aberta na aba do Surfer",
+      "surferTabOpened": "Onda aberta na aba do Surfer; a leitura do arquivo leva alguns segundos.",
       "prismWave": "Abrindo a onda da simulação do PRISM de {{module}}...",
       "surferTabNoBundle": "O modo aba do Surfer precisa do componente web (Configurações, Componentes) — abrindo a janela nativa.",
       "hierarchyGen": "Gerando hierarquia com Yosys...",

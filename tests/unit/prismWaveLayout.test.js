@@ -24,7 +24,11 @@ describe('montarLayoutDaOndaDoPrism', () => {
         // `manual_name` e None, entao a ancora no comeco da linha e o que separa.
         const ordem = [...surfer.matchAll(/^\s+name: (?:Some\("([^"]+)"\)|"([^"]+)")/gm)].map((m) => m[1] || m[2]);
         expect(ordem).toEqual(['Clock', 'clk', 'Inputs', 'enable', 'valor', 'Outputs', 'conta', 'Internal', 'y']);
-        // No .gtkw os grupos sao recolhiveis, e os sinais levam a faixa de bits.
+        // No .gtkw os grupos abrem EXPANDIDOS (@800200, sem o TR_CLOSED): com
+        // eles recolhidos a onda abria mostrando so os rotulos, e parecia que
+        // a exportacao tinha falhado.
+        expect(gtkw).toContain('@800200');
+        expect(gtkw).not.toContain('@c00200');
         expect(gtkw).toContain('-Clock');
         expect(gtkw).toContain('contador.clk');
         expect(gtkw).toContain('-Inputs');

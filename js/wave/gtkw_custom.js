@@ -35,10 +35,21 @@ const FLAGS = Object.freeze({
   ascii: 0x21,    // TR_RJUSTIFY | TR_ASCII
 });
 
-/** Linha de comentario, e abertura/fechamento de grupo recolhivel. */
+/**
+ * Linha de comentario, e abertura/fechamento de grupo recolhivel.
+ *
+ * O bit 0x400000 do GTKWave e TR_CLOSED, e um grupo que o carrega abre
+ * FECHADO: na tela sobra o rotulo do grupo e nenhuma onda, o que se le como
+ * exportacao que falhou. O layout automatico (gtkw_proc_writer) abre fechado
+ * de proposito, porque um processador traz dezenas de sinais por grupo; aqui,
+ * onde alguem PEDIU exatamente estes sinais, o padrao e aberto. Os dois pares
+ * ficam a mao, e quem chama escolhe.
+ */
 const FLAG_COMMENT = 0x200;
-const FLAG_GROUP_BEGIN = 0xC00200;
-const FLAG_GROUP_END = 0x1401200;
+const GRUPO = Object.freeze({
+  aberto: { inicio: 0x800200, fim: 0x1000200 },
+  fechado: { inicio: 0xC00200, fim: 0x1401200 },
+});
 
 /** Os nomes de base aceitos em `radix`. */
 export const RADIX_VALIDOS = Object.freeze(Object.keys(FLAGS));
@@ -72,10 +83,12 @@ function normalizar(entrada) {
  *   dumpPath?: string|null,
  *   savePath?: string|null,
  *   title?: string|null,
+ *   groupsOpen?: boolean,
  * }} entrada
  * @returns {{ conteudo: string, sinais: number, ignorados: string[] }}
  */
-export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, title = null } = {}) {
+export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, title = null, groupsOpen = true } = {}) {
+  const grupo = groupsOpen ? GRUPO.aberto : GRUPO.fechado;
   const lista = Array.isArray(signals) ? signals : [];
   const ignorados = [];
   const limpos = [];
@@ -107,9 +120,9 @@ export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, tit
   let grupoAberto = null;
   const fecharGrupo = () => {
     if (grupoAberto === null) return;
-    linhas.push(`@${hex(FLAG_GROUP_END)}`);
+    linhas.push(`@${hex(grupo.fim)}`);
     linhas.push(`-${grupoAberto}`);
-    flagAtual = FLAG_GROUP_END;
+    flagAtual = grupo.fim;
     grupoAberto = null;
   };
 
@@ -119,10 +132,10 @@ export function buildCustomGtkw({ signals, dumpPath = null, savePath = null, tit
     if (s.group !== grupoAberto) {
       fecharGrupo();
       if (s.group) {
-        linhas.push(`@${hex(FLAG_GROUP_BEGIN)}`);
+        linhas.push(`@${hex(grupo.inicio)}`);
         linhas.push(`-${s.group}`);
         grupoAberto = s.group;
-        flagAtual = FLAG_GROUP_BEGIN;
+        flagAtual = grupo.inicio;
       }
     }
     const flag = FLAGS[s.radix];

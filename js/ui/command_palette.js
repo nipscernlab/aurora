@@ -70,6 +70,9 @@ const COMMANDS = [
   { id: 'view.hierarchy',  group: 'View',    icon: 'ph ph-tree-structure', title: 'Show Hierarchy tree',          keywords: 'modules netlist sidebar', run: () => window.fileTreeViewController?.showHierarchyMode?.() },
   { id: 'view.folders',    group: 'View',    icon: 'ph ph-folders',       title: 'Show Folders tree',             keywords: 'filesystem standard explorer sidebar', run: () => window.fileTreeViewController?.showStandardMode?.() },
   { id: 'view.clearTerm', acao: 'clearTerminal',  group: 'View',    icon: 'ph ph-broom',         title: 'Clear terminal',                keywords: 'clean console output',   run: () => clickById('clear-terminal') },
+  // O painel recolhido nao tinha caminho de volta, e a paleta so oferecia
+  // limpar o terminal, que exige um painel aberto para servir de alguma coisa.
+  { id: 'view.toggleTerm', group: 'View',   icon: 'ph ph-caret-up-down', title: 'Toggle terminal panel',         keywords: 'terminal panel show hide collapse expand open console', run: () => window.toggleTerminal?.() },
 
   // Tools
   { id: 'tools.hub', acao: 'processorHub',       group: 'Tools',   icon: 'ph ph-graph',         title: 'Processor Hub',                 keywords: 'generate processor create', run: () => clickById('processorHub') },

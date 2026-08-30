@@ -67,10 +67,26 @@ describe('buildCustomGtkw', () => {
       ],
     });
     const linhas = conteudo.split('\n');
-    expect(linhas).toContain('@c00200');
+    expect(linhas).toContain('@800200');
     expect(linhas).toContain('-DUT');
     // O fechamento existe e vem depois do ultimo sinal do grupo.
-    expect(linhas.indexOf('@1401200')).toBeGreaterThan(linhas.indexOf('tb.dut.y'));
+    expect(linhas.indexOf('@1000200')).toBeGreaterThan(linhas.indexOf('tb.dut.y'));
+  });
+
+  // O bit 0x400000 e o TR_CLOSED do GTKWave, e um grupo que o carrega abre
+  // RECOLHIDO: na tela sobra o rotulo e nenhuma onda. Foi o que aconteceu com
+  // a onda exportada do PRISM, que parecia ter falhado. Quem pede sinais por
+  // nome quer ve-los, entao o padrao aqui e aberto; o recolhido continua
+  // alcancavel para uma lista longa.
+  it('o padrao e grupo ABERTO, e groupsOpen:false devolve o recolhido', () => {
+    const sinais = [{ path: 'tb.dut.x', group: 'DUT' }];
+    const aberto = buildCustomGtkw({ signals: sinais }).conteudo.split('\n');
+    expect(aberto).toContain('@800200');
+    expect(aberto).not.toContain('@c00200');
+
+    const fechado = buildCustomGtkw({ signals: sinais, groupsOpen: false }).conteudo.split('\n');
+    expect(fechado).toContain('@c00200');
+    expect(fechado).toContain('@1401200');
   });
 
   it('base desconhecida cai em decimal em vez de escrever flag invalida', () => {

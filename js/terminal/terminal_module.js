@@ -505,6 +505,10 @@ class TerminalManager {
         const tabs = document.querySelectorAll('.terminal-tabs .tab');
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
+                // Com o painel recolhido, a faixa de abas e a unica coisa na
+                // tela, e clicar numa aba era trocar de conteudo invisivel.
+                // Agora o clique reabre: e o gesto que a pessoa tenta primeiro.
+                window.abrirTerminal?.();
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
 

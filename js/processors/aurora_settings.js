@@ -560,14 +560,34 @@ document.addEventListener('DOMContentLoaded', () => {
         atualizar: modalOverlay.querySelector('#manual-atualizar'),
     };
 
-    /** Reflete o estado do manual nos rotulos e nos botoes. */
+    // O ultimo estado que o main respondeu, para repintar quando o idioma
+    // chegar ou trocar. Sem isto o cartao ficava com o que tivesse sido
+    // escrito na primeira pintura, que podia ser a chave crua.
+    let estadoManual = null;
+
+    /**
+     * Reflete o estado do manual nos rotulos e nos botoes.
+     *
+     * Duas coisas aqui existem por causa de uma corrida. O `docsStatus()`
+     * responde antes de o dicionario do idioma estar carregado, e o `tr` de
+     * cima devolve a PROPRIA CHAVE quando nao ha traducao ainda; era assim que
+     * o cartao mostrava "modal.settings.manualInstalled" na tela. Antes ainda
+     * se tirava o `data-i18n` do titulo, o que impedia o repintar automatico
+     * de alcanca-lo quando o idioma finalmente chegava.
+     *
+     * Agora o titulo CARREGA o data-i18n da chave que vale agora, entao o
+     * aplicador do i18n o repinta sozinho, e o estado fica guardado para o
+     * ouvinte de `aurora:locale-changed` repintar a linha da versao, que tem
+     * interpolacao e nao cabe num data-i18n. Os dois caminhos, em qualquer
+     * ordem de carregamento.
+     */
     const pintarManual = (s) => {
         if (!manual.titulo) return;
+        estadoManual = s;
         const tem = !!s?.hasOffline;
-        manual.titulo.removeAttribute('data-i18n');
-        manual.titulo.textContent = tem
-            ? tr('modal.settings.manualInstalled')
-            : tr('modal.settings.manualMissing');
+        const chave = tem ? 'modal.settings.manualInstalled' : 'modal.settings.manualMissing';
+        manual.titulo.setAttribute('data-i18n', chave);
+        manual.titulo.textContent = tr(chave);
         if (manual.meta) {
             manual.meta.textContent = tem && s.version
                 ? tr('modal.settings.manualVersion').replace('{v}', s.version)
@@ -583,6 +603,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (manual.titulo && electronAPI?.docsStatus) {
         electronAPI.docsStatus().then(pintarManual).catch(() => pintarManual(null));
     }
+
+    // O i18n dispara este evento tambem quando o catalogo termina de carregar,
+    // e nao so na troca de idioma: e por ele que a primeira pintura, feita
+    // antes do dicionario, se conserta sozinha.
+    window.addEventListener('aurora:locale-changed', () => {
+        if (manual.titulo) pintarManual(estadoManual);
+    });
 
     // Dois botoes em vez de uma pergunta. Antes o clique abria um dialogo
     // perguntando onde abrir, o que e uma pergunta a mais para uma escolha que

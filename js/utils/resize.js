@@ -26,6 +26,11 @@ const COLLAPSED_THRESHOLD  = 24;
 const DEFAULT_OPEN_WIDTH   = 260;
 const MAX_FILE_TREE_RATIO  = 0.5;
 
+// Altura com que o terminal reabre quando nao ha nenhuma guardada. Casa com o
+// `height` de `.terminal-container` no `css/terminal/terminal.css`, que e o
+// tamanho com que ele nasce numa instalacao nova.
+const DEFAULT_TERMINAL_HEIGHT = 240;
+
 // Altura do `.resizer-horizontal`, que fica entre o editor e o terminal e
 // portanto sai do que sobra para os dois. Casa com o `height` dele no
 // `css/base/styles.css`.
@@ -185,8 +190,53 @@ function toggleSidebar() {
   }
 }
 
+/**
+ * O terminal recolhido nao tinha volta.
+ *
+ * A arvore tem tres caminhos de volta (o trilho da esquerda, o botao da
+ * toolbar, o duplo clique no divisor), e o terminal nao tinha nenhum: clicar
+ * numa aba so trocava de conteudo, o divisor horizontal nao escutava duplo
+ * clique, e nao havia botao nem comando na paleta. Quem arrastasse o divisor
+ * ate o fim ficava com a faixa de abas no rodape e sem gesto nenhum para
+ * reabrir, ate reiniciar a AURORA.
+ *
+ * Recolhido aqui e "nao mostra conteudo": tanto a altura zero do arrasto que
+ * passou do limiar quanto o piso de MIN_TERMINAL, em que so a faixa de abas
+ * aparece. Os dois estados sao o mesmo para quem olha, entao sao o mesmo para
+ * quem reabre.
+ */
+function terminalRecolhido() {
+  return !terminalContainer || terminalContainer.offsetHeight <= PANE.MIN_TERMINAL;
+}
+
+/** Devolve o terminal a altura guardada, ou a padrao. Nao fecha nada. */
+function abrirTerminal() {
+  if (!terminalContainer || !terminalRecolhido()) return;
+  const salva = parseInt(localStorage.getItem(STORAGE_TERM_H), 10);
+  const bruto = (!isNaN(salva) && salva >= PANE.MIN_TERMINAL) ? salva : DEFAULT_TERMINAL_HEIGHT;
+  // Pelo mesmo teto do arrasto: a altura guardada pode ter vindo de uma janela
+  // maior, e devolver o terminal maior do que a faixa comeria o editor.
+  terminalContainer.style.height = constrainTerminalHeight(bruto) + 'px';
+}
+
+/** Recolhe o terminal, guardando antes a altura para a volta. */
+function fecharTerminal() {
+  if (!terminalContainer || terminalRecolhido()) return;
+  persistTerminalHeight(terminalContainer.offsetHeight);
+  terminalContainer.style.height = '0px';
+}
+
+function toggleTerminal() {
+  if (terminalRecolhido()) abrirTerminal(); else fecharTerminal();
+}
+
 if (typeof window !== 'undefined') {
   window.toggleSidebar = toggleSidebar;
+  // Consumidos pela barra de abas do terminal (o botao e o clique numa aba) e
+  // pela paleta de comandos, que sao os caminhos de volta que faltavam.
+  window.toggleTerminal = toggleTerminal;
+  window.abrirTerminal = abrirTerminal;
+  window.terminalRecolhido = terminalRecolhido;
 }
 
 // ── Vertical (file tree width) ────────────────────────────────────────────
@@ -270,6 +320,10 @@ function setupHorizontalResizer() {
     document.removeEventListener('mouseup', onUp);
     if (raf) cancelAnimationFrame(raf);
   }
+
+  // O mesmo gesto do divisor da arvore, no outro eixo. Era a assimetria que
+  // fazia procurar por um duplo clique que so existia de um lado.
+  horizontalResizer.addEventListener('dblclick', () => toggleTerminal());
 }
 
 // ── Corner handle (both axes simultaneously) ─────────────────────────────
@@ -417,6 +471,23 @@ function initPanelSizes() {
 // ferramentas. Uma copia da logica de reabrir aqui seria a terceira.
 const railLeft = document.querySelector('.edge-rail-left');
 if (railLeft) railLeft.addEventListener('click', () => toggleSidebar());
+
+// O botao de recolher e reabrir o terminal, na propria faixa de abas, que e a
+// unica coisa que sobra na tela quando o painel esta recolhido. A seta aponta
+// para onde o clique leva, e quem a vira e um observador de tamanho: o arrasto
+// do divisor tambem recolhe, e o botao tem de concordar com o que se ve.
+const botaoTerminal = document.getElementById('toggle-terminal');
+if (botaoTerminal && terminalContainer) {
+  const pintarBotaoTerminal = () => {
+    const icone = botaoTerminal.querySelector('i');
+    if (icone) icone.className = terminalRecolhido() ? 'ph ph-caret-up' : 'ph ph-caret-down';
+  };
+  botaoTerminal.addEventListener('click', () => toggleTerminal());
+  if (typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(pintarBotaoTerminal).observe(terminalContainer);
+  }
+  pintarBotaoTerminal();
+}
 
 if (verticalResizer && fileTreeContainer)   setupVerticalResizer();
 if (horizontalResizer && terminalContainer) setupHorizontalResizer();

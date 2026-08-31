@@ -413,6 +413,18 @@ function logFatalError(terminalId, error) {
             terminalId, `Erro Fatal: ${error.message}`, 'error',
         );
     }
+    // O capitulo que explica este caso, quando o erro vem marcado por comAjuda
+    // (js/ui/help_link.js). Vai numa linha propria e nao dentro da mensagem: o
+    // error.message tambem chega a barra de status, e um marcador cru la seria
+    // um defeito visivel. Sai mesmo quando o passo ja imprimiu o erro, porque a
+    // oferta do manual e o que este trecho acrescenta.
+    if (error?.ajuda) {
+        getTM()?.appendToTerminal?.(
+            terminalId,
+            `${tr('terminal.helpLine')} [[ajuda:${error.ajuda}]]`,
+            'tips',
+        );
+    }
     // No-op se um passo interno ja mostrou o erro (isCompiling vira false).
     statusUpdater.compilationError(activeRunStep, error.message);
 }

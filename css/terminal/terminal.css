@@ -925,3 +925,28 @@
 /* A pilula de confirmacao da limpeza nao conta como saida: sem esta excecao a
    boas-vindas ficava escondida durante o segundo em que a pilula aparece. */
 .terminal-body:has(> :not(.terminal-welcome):not(.terminal-cleared-pill)) > .terminal-welcome { display: none; }
+
+/* O capitulo do manual, ao lado de um erro que ele explica. Mesma forma da
+   pilula de "Abrir Componentes", em tom mais discreto: as duas podem aparecer
+   na mesma linha, e a que faz alguma coisa na maquina vem primeiro e mais
+   forte que a que so abre uma leitura. */
+.manual-link {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.manual-link:hover {
+  background: var(--overlay-hover);
+  color: var(--text);
+}

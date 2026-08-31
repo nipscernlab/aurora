@@ -18,7 +18,6 @@
 
 import { electronAPI } from '../app/electron_api.js';
 import { execucoesAbertas } from './compilation_flow.js';
-import { abrirAjuda } from '../ui/help_link.js';
 
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
 const $ = (id) => document.getElementById(id);
@@ -284,7 +283,10 @@ function ligar() {
   modal = $('runHistoryModal');
   if (!modal) return;
   $('run-history')?.addEventListener('click', abrir);
-  $('runHistoryHelp')?.addEventListener('click', () => abrirAjuda('sapho/compilacao.html'));
+  // O `?` do cabecalho NAO se liga aqui: ele esta na tabela unica de
+  // js/ui/help_link.js, com os outros. Ligado a parte, como estava, ele nao
+  // aparecia para quem auditava a tabela e podia apontar para uma pagina morta
+  // sem ninguem notar.
   modal.addEventListener('aurora-modal-close', fechar);
   // O compilation_flow avisa ao abrir uma execucao, a cada ferramenta que roda
   // e ao gravar. E o que faz a tela mudar sozinha em vez de so na abertura.

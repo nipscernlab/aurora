@@ -1428,3 +1428,35 @@
   flex-wrap: wrap;
   gap: var(--space-3);
 }
+
+/* O "?" das secoes. O botao do proprio modal cai em "Configuracoes", que serve
+   a quem abriu as Configuracoes sem saber o que procurar; este cai na secao da
+   aba aberta, que e o que serve a quem ja escolheu o assunto. Fica na ponta
+   direita do cabecalho da aba, longe do X do modal, para os dois nao lerem
+   como o mesmo botao repetido. */
+.settings-pane-help {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast),
+              color var(--transition-fast),
+              transform var(--dur-instant) var(--ease-out-quart);
+}
+
+.settings-pane-help:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+}
+
+.settings-pane-help:active { transform: scale(0.92); }

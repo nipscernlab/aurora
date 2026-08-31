@@ -400,7 +400,10 @@
       "surferMode": "Where Surfer opens",
       "surferModeDescription": "Applies when the waveform viewer is Surfer. GTKWave is always its own window.",
       "placementWindow": "Own window",
-      "placementTab": "Editor tab"
+      "placementTab": "Editor tab",
+      "componentsHelp": "Open the manual chapter about components",
+      "shortcutsHelp": "Open the manual chapter about keyboard shortcuts",
+      "aiHelp": "Open the manual chapter about setting up Aurora Intelligence"
     }
   },
   "shortcuts": {
@@ -738,7 +741,9 @@
       "componentWhere": "Download it in Settings, Components. The dot on the gear stays lit while it is missing."
     },
     "cleared": "Terminal cleared",
-    "allCleared": "Terminals cleared"
+    "allCleared": "Terminals cleared",
+    "openManual": "Open the manual",
+    "helpLine": "The manual covers this case."
   },
   "error": {
     "config": {
@@ -933,7 +938,8 @@
       "live": "Delivered: she takes it when she finishes the current reply",
       "sendNow": "Send now (interrupts the current reply)",
       "cancel": "Remove from the queue"
-    }
+    },
+    "help": "Open the manual chapter about Aurora Intelligence"
   },
   "git": {
     "title": "Source Control",
@@ -1279,5 +1285,8 @@
   },
   "api": {
     "semMotivo": "the API replied without saying what went wrong (reply: {{resposta}})"
+  },
+  "procConfig": {
+    "help": "Open the manual chapter about the ways to run"
   }
 }

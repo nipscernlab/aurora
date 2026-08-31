@@ -299,6 +299,12 @@
   <div id="procConfigPanel" class="proc-config-panel hidden" role="dialog" aria-labelledby="procConfigPanelTitle">
       <div class="proc-config-panel-header">
           <span id="procConfigPanelTitle">No active processor</span>
+          <!-- Mesma ideia dos modais: o "?" leva ao capitulo do assunto. Aqui
+               ele nao tem X ao lado (o popover fecha ao clicar fora), entao
+               fica sozinho na ponta direita do cabecalho. -->
+          <button id="procConfigHelp" class="proc-config-panel-help" type="button" aria-label="Help" data-i18n-aria-label="procConfig.help" data-i18n-tooltip="procConfig.help">
+              <i class="ph ph-question" aria-hidden="true"></i>
+          </button>
       </div>
       <div class="proc-config-panel-body">
           <label class="proc-config-field">
@@ -1400,6 +1406,9 @@
                     <header class="settings-pane-header">
                         <i class="ph ph-keyboard" aria-hidden="true"></i>
                         <h3 data-i18n="modal.settings.sectionShortcuts">Keyboard Shortcuts</h3>
+                        <button id="settingsShortcutsHelp" class="settings-pane-help" type="button" aria-label="Help" data-i18n-aria-label="modal.settings.shortcutsHelp" data-i18n-tooltip="modal.settings.shortcutsHelp">
+                            <i class="ph ph-question" aria-hidden="true"></i>
+                        </button>
                     </header>
                     <div class="settings-card">
                         <p class="settings-card-hint" data-i18n="modal.settings.shortcutsHint">
@@ -1420,6 +1429,9 @@
                     <header class="settings-pane-header">
                         <i class="ph ph-sparkle" aria-hidden="true"></i>
                         <h3 data-i18n="modal.settings.sectionAI">AI Assistant</h3>
+                        <button id="settingsAiHelp" class="settings-pane-help" type="button" aria-label="Help" data-i18n-aria-label="modal.settings.aiHelp" data-i18n-tooltip="modal.settings.aiHelp">
+                            <i class="ph ph-question" aria-hidden="true"></i>
+                        </button>
                     </header>
                     <div class="settings-card">
                         <p class="settings-card-hint" data-i18n="modal.settings.aiIntro">
@@ -1437,6 +1449,9 @@
                     <header class="settings-pane-header">
                         <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
                         <h3 data-i18n="modal.settings.sectionComponents">Components</h3>
+                        <button id="settingsComponentsHelp" class="settings-pane-help" type="button" aria-label="Help" data-i18n-aria-label="modal.settings.componentsHelp" data-i18n-tooltip="modal.settings.componentsHelp">
+                            <i class="ph ph-question" aria-hidden="true"></i>
+                        </button>
                     </header>
                     <p class="settings-pane-intro" data-i18n="modal.settings.componentsIntro">
                         O que compila e simula vem no instalador. O resto voce baixa quando for usar, e pode remover para recuperar espaco.

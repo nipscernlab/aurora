@@ -5,6 +5,7 @@ import { EditorManager } from '../editor/monaco_editor.js';
 import { showCardNotification } from '../ui/notification.js';
 import { switchTerminal, smoothFollowToBottom } from './terminal.js';
 import { comLinks } from './error_locations.js';
+import { abrirAjudaDe, AJUDAS } from '../ui/help_link.js';
 
 // Hard cap on retained `.log-entry` nodes per terminal body. A streaming
 // compile (Verilator/iverilog dumping thousands of lines) appends one node
@@ -603,6 +604,16 @@ class TerminalManager {
 
     makeLineNumbersClickable(text) {
 
+        // Ajuda contextual. Quem escreve a linha marca o capitulo com
+        // `[[ajuda:chave]]` no fim, e a chave e resolvida na tabela unica de
+        // js/ui/help_link.js. O marcador sai do texto AQUI, antes de qualquer
+        // escape ou reconhecimento de link, entao ele nunca chega a tela.
+        let chaveDeAjuda = null;
+        text = String(text).replace(/\s*\[\[ajuda:([A-Za-z]+)\]\]\s*$/, (_, k) => {
+            chaveDeAjuda = k;
+            return '';
+        });
+
         // O reconhecimento mora em js/terminal/error_locations.js, POR
         // FERRAMENTA, porque cada uma imprime de um jeito e as diferencas nao
         // sao cosmeticas: o Icarus nao da coluna, o Verilator da e ainda mistura
@@ -630,6 +641,15 @@ class TerminalManager {
             const rotulo = (window.t && window.t('terminal.openComponents') !== 'terminal.openComponents')
                 ? window.t('terminal.openComponents') : 'Abrir Componentes';
             out += ` <span class="componente-link" role="button" tabindex="0">${rotulo}</span>`;
+        }
+
+        // O capitulo do manual, na mesma pilula do "Abrir Componentes": um
+        // erro que a documentacao ja explica vale mais com um clique do que
+        // com a instrucao de ir procurar.
+        if (chaveDeAjuda && AJUDAS[chaveDeAjuda]) {
+            const manual = (window.t && window.t('terminal.openManual') !== 'terminal.openManual')
+                ? window.t('terminal.openManual') : 'Abrir o manual';
+            out += ` <span class="manual-link" role="button" tabindex="0" data-ajuda="${chaveDeAjuda}">${manual}</span>`;
         }
         return out;
     }
@@ -737,6 +757,12 @@ class TerminalManager {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 window.auroraAbrirConfiguracoes?.('componentes');
+            });
+        });
+        scopeEl.querySelectorAll('.manual-link').forEach((link) => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                abrirAjudaDe(link.getAttribute('data-ajuda'));
             });
         });
         const lineLinks = scopeEl.querySelectorAll('.line-link');

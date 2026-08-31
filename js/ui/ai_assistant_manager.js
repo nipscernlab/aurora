@@ -17,6 +17,7 @@
 import { electronAPI } from '../app/electron_api.js';
 import { motivoDe } from '../app/api_reply.js';
 import { showConfirm } from './dialog_manager.js';
+import { abrirAjudaDe } from './help_link.js';
 import { showCardNotification } from './notification.js';
 import { aiMarkSvg } from './ai_mark.js';
 import { constrainTerminalHeight, persistTerminalHeight, faixaDosPaineis, semAnimar } from '../utils/resize.js';
@@ -334,6 +335,12 @@ class AIAssistantManager {
           <button class="ai-hbtn" id="ai-clear-btn" title="New chat" aria-label="New chat">
             <i class="ph ph-note-pencil"></i>
           </button>
+          <!-- O mesmo "?" dos modais, ao lado do X: o capitulo do manual sobre
+               a Aurora Intelligence. O destino mora na tabela de
+               js/ui/help_link.js, com os outros. -->
+          <button class="ai-hbtn" id="ai-help-btn" title="Open the manual" aria-label="Open the manual" data-i18n-title="ai.help" data-i18n-aria-label="ai.help">
+            <i class="ph ph-question"></i>
+          </button>
           <span class="ai-hbtn-sep"></span>
           <button class="ai-hbtn ai-hbtn-close" id="ai-close-btn" aria-label="Close AI Assistant" title="Close">
             <i class="ph ph-x"></i>
@@ -565,6 +572,8 @@ class AIAssistantManager {
 
   attachListeners() {
     this.container.querySelector('.ai-hbtn-close').addEventListener('click', () => this.toggle());
+    this.container.querySelector('#ai-help-btn')
+      ?.addEventListener('click', () => abrirAjudaDe('aiPanelHelp'));
 
     // Model / provider popover, opened from the composer chip.
     this.modelChip.addEventListener('click', (e) => {

@@ -15,7 +15,14 @@
  *
  *       Allowed `type` values: cancel | save | dont-save | danger
  *       Allowed `variant` values: info | warning | error | success
+ *
+ *       `ajuda` (opcional) e uma chave da tabela de js/ui/help_link.js: o
+ *       dialogo ganha o mesmo `?` dos modais, no canto do cabecalho. Ele NAO
+ *       fecha o dialogo, de proposito: um aviso de componente ausente oferece
+ *       o download ali mesmo, e ler o capitulo nao pode custar a escolha.
  */
+
+import { abrirAjudaDe } from './help_link.js';
 
 const VARIANT_ICONS = {
     info:    'ph ph-info',
@@ -29,7 +36,7 @@ function inferVariant(buttons) {
     return 'info';
 }
 
-export function showDialog({ title, message, buttons, variant }) {
+export function showDialog({ title, message, buttons, variant, ajuda }) {
     return new Promise((resolve) => {
         // Replace any existing dialog
         document.querySelectorAll('.confirm-modal').forEach(el => el.remove());
@@ -58,11 +65,17 @@ export function showDialog({ title, message, buttons, variant }) {
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
         modal.dataset.variant = v;
+        const tr = (k) => (window.t ? window.t(k) : k);
+        const ajudaHTML = ajuda
+            ? `<button type="button" class="confirm-modal-help" data-ajuda="${ajuda}" aria-label="${tr('modal.help')}" title="${tr('modal.help')}"><i class="ph ph-question" aria-hidden="true"></i></button>`
+            : '';
+
         modal.innerHTML = `
             <div class="confirm-modal-content" role="document">
                 <header class="confirm-modal-header">
                     <span class="confirm-modal-icon" aria-hidden="true"><i class="${iconClass}"></i></span>
                     <h3 class="confirm-modal-title">${title || ''}</h3>
+                    ${ajudaHTML}
                 </header>
                 <div class="confirm-modal-message">${message || ''}</div>
                 <footer class="confirm-modal-actions">${buttonsHTML}</footer>
@@ -91,6 +104,11 @@ export function showDialog({ title, message, buttons, variant }) {
         };
 
         modal.addEventListener('click', (e) => {
+            const ajudaBtn = e.target.closest('button[data-ajuda]');
+            if (ajudaBtn) {
+                abrirAjudaDe(ajudaBtn.getAttribute('data-ajuda'));
+                return;
+            }
             const btn = e.target.closest('button[data-action]');
             if (btn) {
                 cleanup(btn.getAttribute('data-action'));

@@ -604,6 +604,10 @@ async function aoSerBarrado({ chave, mensagem }) {
     title: tr('modal.settings.componentsMissingTitle'),
     message: mensagem,
     variant: 'warning',
+    // O capitulo da cadeia de compilacao, para quem quer entender o que e a
+    // peca que falta antes de aceitar um download. Abrir o manual nao fecha o
+    // dialogo, entao a oferta de baixar continua na tela.
+    ajuda: 'componenteAusenteHelp',
     buttons: [
       { label: tr('modal.settings.componentsNotNow'), action: 'cancel', type: 'cancel' },
       { label: tr('modal.settings.componentsDownloadNow'), action: 'baixar', type: 'primary' },

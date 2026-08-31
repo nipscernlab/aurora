@@ -38,6 +38,9 @@
 }
 
 .proc-config-panel-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     padding: var(--space-2) var(--space-3);
     border-bottom: 1px solid var(--border-subtle);
     font-size: var(--text-xs);
@@ -163,4 +166,30 @@
 .proc-config-sim-time.disabled .proc-config-sim-time-value,
 .proc-config-sim-time.disabled .proc-config-sim-time-icon {
     color: var(--text-disabled);
+}
+
+/* O "?" do popover: mesma ideia do dos modais, sem X ao lado porque o popover
+   fecha ao clicar fora. */
+.proc-config-panel-help {
+    margin-left: auto;
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+    padding: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--transition-fast),
+                color var(--transition-fast);
+}
+
+.proc-config-panel-help:hover {
+    background-color: var(--overlay-hover);
+    color: var(--text);
 }

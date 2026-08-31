@@ -237,3 +237,29 @@
 .inline-notification {
   display: none !important;
 }
+
+/* O "?" do dialogo. Mesmo simbolo dos modais, no mesmo canto: o dialogo nao tem
+   X, entao ele fica sozinho na ponta direita do cabecalho. Clicar nao fecha
+   nada, e por isso ele nao carrega data-action. */
+.confirm-modal-help {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--text-md);
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.confirm-modal-help:hover {
+  background-color: var(--overlay-hover);
+  color: var(--text);
+}

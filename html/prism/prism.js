@@ -8,6 +8,14 @@
 // demand, and we can expose the global `jQuery` that jquery-ui needs BEFORE
 // digitaljs evaluates. The sync browser engine + dagre layout avoid any Worker.
 
+// O botao de ajuda da barra vem da MESMA tabela de capitulos que os botoes da
+// janela principal (js/ui/help_link.js). Esta pagina roda numa janela propria,
+// com preload proprio, entao o que faltava era o canal: preload_prism.js expoe
+// docsOpenHelp/openExternal, os mesmos dois de la. Duplicar a tabela aqui era o
+// jeito facil e o errado: os destinos passariam a divergir na primeira vez que
+// alguem mexesse num so dos lados.
+import { abrirAjudaDe } from '../../js/ui/help_link.js';
+
 // ---------------------------------------------------------------------------
 //  i18n — locale-aware string lookup (no access to the main Aurora i18n layer)
 // ---------------------------------------------------------------------------
@@ -28,6 +36,8 @@ const PRISM_STRINGS = {
     highlightCell: 'Highlight connections',
     simulate:    'Simulate',
     schematic:   'Schematic',
+    help:        'Open the manual chapter about PRISM',
+    helpSim:     'Open the manual chapter about the interactive simulation',
     building:    'Building simulation…',
     simError:    'Could not build the simulation',
     simTooLarge: '{m} is too large to simulate interactively ({n} cells, the limit is {l}).',
@@ -81,6 +91,8 @@ const PRISM_STRINGS = {
     highlightCell: 'Destacar conexões',
     simulate:    'Simular',
     schematic:   'Esquemático',
+    help:        'Abrir o capítulo do manual sobre o PRISM',
+    helpSim:     'Abrir o capítulo do manual sobre a simulação interativa',
     building:    'Montando a simulação…',
     simError:    'Não foi possível montar a simulação',
     simTooLarge: '{m} é grande demais para simular ao vivo ({n} células, o limite é {l}).',
@@ -227,6 +239,7 @@ class PRISMViewer {
     this.resetZoomBtn    = document.getElementById('resetZoomBtn');
     this.tooltip         = document.getElementById('tooltip');
     this.simToggle       = document.getElementById('simToggle');
+    this.helpBtn         = document.getElementById('helpBtn');
     this.djsContainer    = document.getElementById('djsContainer');
   }
 
@@ -253,6 +266,12 @@ class PRISMViewer {
     this.zoomOutBtn.addEventListener('click',  () => (this.simMode ? this._paperZoom(0.8)  : this._zoomButton(0.8)));
     this.resetZoomBtn.addEventListener('click',() => (this.simMode ? this._fitPaper() : this.resetView()));
     this.simToggle?.addEventListener('click',  () => this.toggleSimMode());
+    // Um botao, dois capitulos: o esquematico e a simulacao sao duas telas
+    // diferentes dentro da mesma janela, e mandar quem esta simulando para o
+    // topo do capitulo do esquematico e a mesma perda de tempo que este
+    // recurso existe para evitar.
+    this.helpBtn?.addEventListener('click',    () => abrirAjudaDe(this.simMode ? 'prismSimHelp' : 'prismHelp'));
+    this._atualizarAjudaDaBarra();
 
     // DigitalJS sim: wheel-zoom (same feel as the schematic) on the paper.
     this.djsContainer?.addEventListener('wheel', (e) => {
@@ -2255,6 +2274,16 @@ class PRISMViewer {
   _setSimToggleLabel(text) {
     const label = document.getElementById('t-simulate');
     if (label) label.textContent = text;
+    // O "?" acompanha o modo: a tela mudou, o capitulo tambem.
+    this._atualizarAjudaDaBarra();
+  }
+
+  /** O balao do "?" diz para qual dos dois capitulos ele vai agora. */
+  _atualizarAjudaDaBarra() {
+    if (!this.helpBtn) return;
+    const texto = this.simMode ? T.helpSim : T.help;
+    this.helpBtn.title = texto;
+    this.helpBtn.setAttribute('aria-label', texto);
   }
 
   /**

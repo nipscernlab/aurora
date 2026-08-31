@@ -42,6 +42,7 @@
  *      ARCHITECTURE.md §9 pro racional.
  */
 import { electronAPI } from '../app/electron_api.js';
+import { comAjuda } from '../ui/help_link.js';
 import { applyResolved } from './command_overrides.js';
 import { TabManager } from '../tabs/tab_manager.js';
 import { TerminalManager } from '../terminal/terminal_module.js';
@@ -528,7 +529,7 @@ validateForVerilog() {
     }
     const shape = this._buildConfigShape();
     if (!shape.topLevelFile) {
-        throw new Error(tr('error.config.noTopLevel'));
+        throw comAjuda(new Error(tr('error.config.noTopLevel')), 'semTopLevelHelp');
     }
     return shape;
 }
@@ -2796,7 +2797,10 @@ async _waveExigirDumpGravavel(simDir, nomes) {
         const chave = veredito.code === 'EBUSY'
             ? 'error.compilation.dumpLockedBusy'
             : 'error.compilation.dumpLockedDenied';
-        throw new Error(tr(chave, { file: nome, code: veredito.code || '?' }));
+        throw comAjuda(
+            new Error(tr(chave, { file: nome, code: veredito.code || '?' })),
+            'dumpBloqueadoHelp',
+        );
     }
 }
 
@@ -2814,7 +2818,10 @@ async _waveExigirDumpNovo(vcdFile, inicioMs) {
     let stats = null;
     try { stats = await electronAPI.getFileStats(vcdFile); } catch (_) { return; }
     if (dumpEstaFresco(stats ? stats.mtime : NaN, inicioMs)) return;
-    throw new Error(tr('error.compilation.dumpStale', { file: basenameOfPath(vcdFile) }));
+    throw comAjuda(
+        new Error(tr('error.compilation.dumpStale', { file: basenameOfPath(vcdFile) })),
+        'dumpBloqueadoHelp',
+    );
 }
 
 /**

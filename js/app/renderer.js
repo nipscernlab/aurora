@@ -61,9 +61,9 @@ window.initializeGlobalTerminalManager = function() {
 
 // --- Initialization on DOM Ready ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Os botoes de ajuda dos modais, todos de uma vez. Sao estaticos no
-    // index.html, entao ligar aqui vale para os sete; a tabela de qual cai em
-    // qual capitulo mora em js/ui/help_link.js.
+    // Os botoes de ajuda, todos de uma vez. Sao estaticos no index.html, entao
+    // ligar aqui vale para os doze; a tabela de qual cai em qual capitulo mora
+    // em js/ui/help_link.js.
     ligarAjudasDaJanela();
     // Initialize core components first
     TabManager.initialize();

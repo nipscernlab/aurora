@@ -44,6 +44,13 @@ try {
     onPrismCommand: (callback) => ipcRenderer.on('prism:command', (_e, id, cmd) => callback(id, cmd)),
     replyPrismCommand: (id, result) => ipcRenderer.send('prism:command-result', id, result),
 
+    // O botao de ajuda da barra. Sao os MESMOS dois canais que a janela
+    // principal usa (js/app/preload.js), porque quem decide o destino e o
+    // abrirAjuda de js/ui/help_link.js, que esta pagina importa: a tabela de
+    // capitulos continua existindo num lugar so.
+    docsOpenHelp: (pagina) => ipcRenderer.invoke('docs:open-help', pagina),
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
+
     // O que falha nesta pagina vai para o terminal PRISM da AURORA.
     logToTerminal: (message, type) => ipcRenderer.invoke('prism:log', message, type),
 

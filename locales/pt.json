@@ -400,7 +400,10 @@
       "surferMode": "Onde o Surfer abre",
       "surferModeDescription": "Vale quando o visualizador de ondas é o Surfer. O GTKWave é sempre janela própria.",
       "placementWindow": "Janela própria",
-      "placementTab": "Aba do editor"
+      "placementTab": "Aba do editor",
+      "componentsHelp": "Abrir o capítulo do manual sobre componentes",
+      "shortcutsHelp": "Abrir o capítulo do manual sobre atalhos de teclado",
+      "aiHelp": "Abrir o capítulo do manual sobre configurar a Aurora Intelligence"
     }
   },
   "shortcuts": {
@@ -738,7 +741,9 @@
       "componentWhere": "Baixe em Configurações, Componentes. O ponto de aviso na engrenagem acende enquanto faltar."
     },
     "cleared": "Terminal limpo",
-    "allCleared": "Terminais limpos"
+    "allCleared": "Terminais limpos",
+    "openManual": "Abrir o manual",
+    "helpLine": "O manual explica este caso."
   },
   "error": {
     "config": {
@@ -933,7 +938,8 @@
       "live": "Entregue: ela aceita quando terminar a resposta atual",
       "sendNow": "Enviar agora (interrompe a resposta atual)",
       "cancel": "Tirar da fila"
-    }
+    },
+    "help": "Abrir o capítulo do manual sobre a Aurora Intelligence"
   },
   "git": {
     "title": "Controle de Versão",
@@ -1279,5 +1285,8 @@
   },
   "api": {
     "semMotivo": "a API respondeu sem dizer o erro (resposta: {{resposta}})"
+  },
+  "procConfig": {
+    "help": "Abrir o capítulo do manual sobre os jeitos de rodar"
   }
 }

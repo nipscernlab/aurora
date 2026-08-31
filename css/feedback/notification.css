@@ -150,6 +150,12 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  /* Os botoes tem `white-space: nowrap`, entao um rotulo longo nao encolhe: a
+     fileira do dialogo de energia pedia 344 px num rodape de 327 e o botao
+     saia 17 px para FORA da caixa, por cima do que estivesse atras. Quebrando,
+     ele desce para a linha seguinte em vez de escapar. Vale para qualquer
+     idioma: o mesmo rotulo em ingles cabia, e em portugues nao. */
+  flex-wrap: wrap;
   gap: var(--space-2);
   padding: 0;
   border-top: none;

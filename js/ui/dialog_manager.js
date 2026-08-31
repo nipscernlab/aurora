@@ -38,8 +38,14 @@ export function showDialog({ title, message, buttons, variant }) {
         const iconClass = VARIANT_ICONS[v] || VARIANT_ICONS.info;
 
         const buttonsHTML = (buttons || []).map(btn => {
-            const safeType = ['cancel', 'save', 'dont-save', 'danger'].includes(btn.type)
-                ? btn.type : 'cancel';
+            // `primary` e o nome que oito lugares do codigo escrevem para a
+            // acao principal, e ele nao estava na lista: caia no `cancel`, e o
+            // botao que a pessoa deve apertar ficava com a cara do que ela
+            // deve ignorar. Pior, o Enter procura `.save`/`.danger` e nao
+            // achava nada. Aqui os dois nomes valem a mesma coisa.
+            const pedido = btn.type === 'primary' ? 'save' : btn.type;
+            const safeType = ['cancel', 'save', 'dont-save', 'danger'].includes(pedido)
+                ? pedido : 'cancel';
             // `iconHtml` e opcional e vem de quem chama (hoje so o relatorio de
             // problema, que mostra a marca de cada provedor de e-mail).
             const icone = btn.iconHtml ? `${btn.iconHtml}` : '';

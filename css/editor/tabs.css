@@ -143,13 +143,19 @@
   white-space: nowrap;
 }
 
-/* O logo de ferramenta (Surfer, PRISM) no lugar do icone de arquivo: o mesmo
-   tamanho do icone, para a aba nao mudar de altura nem de ritmo. */
+/* O logo de ferramenta (Surfer, PRISM) no lugar do icone de arquivo: o desenho
+   e que identifica a ferramenta na aba, entao ele vem maior que o icone de
+   arquivo e o nome ao lado encolhe para legenda. Ainda cabe na altura da aba. */
 .tab > img.tab-logo {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   object-fit: contain;
+}
+
+.tab:has(> img.tab-logo) .tab-name {
+  font-size: var(--text-xs);
+  letter-spacing: 0.02em;
 }
 
 .tab > i:first-of-type {

@@ -732,8 +732,8 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
    barra, e a palavra ao lado dele e legenda. Cabe nos 40 px da barra. */
 .prism-btn img,
 #prismcomp img {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   filter: drop-shadow(0 0 5px var(--accent-glow));
   transition: filter var(--transition-fast),
               transform 200ms var(--ease-out-quart);

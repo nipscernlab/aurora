@@ -4,6 +4,13 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.11.1](https://github.com/nipscernlab/aurora/compare/v6.11.0...v6.11.1) (2026-08-31)
+
+
+### Chores
+
+* a 6.11.1 sai so para o instalador trazer o manual 6.11.0.5 ([ae983e7](https://github.com/nipscernlab/aurora/commit/ae983e762860d184fc45bce28d0c6ede3da8419f))
+
 ## [6.11.0](https://github.com/nipscernlab/aurora/compare/v6.10.0...v6.11.0) (2026-08-31)
 
 

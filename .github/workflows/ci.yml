@@ -68,6 +68,19 @@ jobs:
           Get-ChildItem -Path js,main -Recurse -Filter *.js |
             ForEach-Object { node --check $_.FullName }
 
+      # O manual do SAPHO, so ele, antes dos testes. A tabela de ajuda dos
+      # modais (js/ui/help_link.js) e conferida contra esta copia: pagina e
+      # ancora, uma por uma. Sem este passo o teste se abstem, porque
+      # resources/docs e gitignorado e vem do bootstrap, e a conferencia que
+      # mais importa e justamente a da CI, onde ninguem esta olhando.
+      #
+      # Nao e o `npm run bootstrap` inteiro: aquilo baixa a toolchain de
+      # centenas de MB, que este job nao usa. O script sai com 0 em qualquer
+      # falha de rede, de proposito, e nesse caso o teste avisa que se absteve
+      # em vez de derrubar a CI por um servidor fora do ar.
+      - name: Manual do SAPHO (para a conferencia da tabela de ajuda)
+        run: node components/Scripts/download-docs.js
+
       - name: Unit tests (with coverage)
         run: npm run test:coverage
 

@@ -109,6 +109,26 @@
    (behind the rows, above the modal background) instead of sinking out of view.
    pointer-events:none so it never eats a click; overflow:hidden clips the
    oversized glyphs to the panel. */
+/* O texto de apoio do Git, um degrau acima.
+ *
+ * A escala de texto da casa tem quatro paradas (semantic_tokens.css), do mais
+ * apagado ao mais claro: faint, muted, secondary e o texto normal. O painel
+ * usa `--text-muted` em setenta lugares, e no fundo do modal aquele cinza fica
+ * apagado demais para se ler de relance: nome de ramo, contagem de arquivo,
+ * data de commit, tudo o que se le de canto de olho.
+ *
+ * Aqui o muted do Git passa a ser o secondary, mais claro e mais vivo, SEM
+ * inventar cor nenhuma: e a mesma escala, um degrau acima, e por isso o resto
+ * da AURORA continua exatamente como estava. O `--text-faint` fica onde
+ * estava de proposito: quem o usa e placeholder, botao desabilitado e icone
+ * de estado vazio, que devem mesmo recuar.
+ *
+ * Vale para os dois menus que o painel pendura no body (o de ramos e o de
+ * repositorio clonado), que ficam fora do modal e herdariam o valor global. */
+#gitModal,
+.git-branch-menu,
+.git-ctx-menu { --text-muted: var(--text-secondary); }
+
 .git-panel { position: relative; isolation: isolate; }
 .dagr-watermark {
   position: absolute;

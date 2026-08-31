@@ -241,7 +241,12 @@
           <button id="gitButton" class="toolbar-button icon-only" data-tooltip="Source Control" data-i18n-tooltip="toolbar.git.tooltip">
               <i class="ph ph-git-branch"></i>
               <span class="git-badge" id="git-badge" hidden></span>
-              <!-- Small avatar dot (bottom-right) when signed in to GitHub. -->
+              <!-- As fotos das contas, no canto de baixo do botao. Com as duas
+                   forjas conectadas sao dois circulos: o de tras (GitLab)
+                   aparece como meia-lua atras do da frente (GitHub). Com uma
+                   conta so, so o da frente, inteiro. A de tras vem ANTES no
+                   DOM, que e o que a deixa por baixo sem z-index. -->
+              <span class="git-avatar-badge git-avatar-atras" id="git-avatar-badge-back" hidden></span>
               <span class="git-avatar-badge" id="git-avatar-badge" hidden></span>
           </button>
           <button id="pylibsButton" class="toolbar-button icon-only" data-tooltip="Python libraries" data-i18n-tooltip="toolbar.pylibs.tooltip">

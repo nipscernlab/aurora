@@ -1213,6 +1213,16 @@
 }
 .git-avatar-badge[hidden] { display: none !important; }
 
+/* A segunda conta, atras da primeira. Deslocada para a esquerda o bastante
+   para sobrar uma meia-lua, e nao mais: o que identifica a foto de perfil e a
+   metade de cima, entao a fatia visivel tem de ser vertical. Quem separa uma
+   da outra e a borda da da frente, na cor da barra, mais a sombra dela: sem
+   isso as duas fotos viram uma mancha so quando tem cor parecida. */
+.git-avatar-atras {
+  right: 4px;
+  box-shadow: none;
+}
+
 /* =============================================================================
  * 18. MOTION, GPU-composited reveals + reduced-motion guard
  * ========================================================================== */

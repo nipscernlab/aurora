@@ -148,15 +148,22 @@ async function updateBadge() {
  * @param {any} gl estado do GitLab
  */
 function setForgeStatusBar(gh, gl) {
-  // O pontinho no botao da barra de ferramentas so sinaliza "tem conta": a
-  // primeira que estiver conectada serve, porque ali cabe uma foto so.
-  const badge = $('git-avatar-badge');
-  if (badge) {
-    const conectado = [gh, gl].find((s) => s && s.connected && s.user);
-    const src = conectado && (conectado.user.avatarDataUrl || conectado.user.avatarUrl);
-    if (src) { badge.style.backgroundImage = `url("${src}")`; badge.hidden = false; }
-    else { badge.style.backgroundImage = ''; badge.hidden = true; }
-  }
+  // As fotos no botao da barra de ferramentas. Com as duas contas sao dois
+  // circulos, o do GitLab atras aparecendo como meia-lua; com uma conta so,
+  // a foto dela inteira, sem circulo vazio ao lado. A ordem nao e hierarquia,
+  // e so uma escolha fixa: a de tras precisa ser sempre a mesma, senao a
+  // marca do botao mudaria de cara a cada login.
+  const foto = (s) => (s && s.connected && s.user
+    ? (s.user.avatarDataUrl || s.user.avatarUrl) || null : null);
+  const daFrente = foto(gh) || foto(gl);
+  const deTras = (foto(gh) && foto(gl)) ? foto(gl) : null;
+  const pintarFoto = (el, src) => {
+    if (!el) return;
+    if (src) { el.style.backgroundImage = `url("${src}")`; el.hidden = false; }
+    else { el.style.backgroundImage = ''; el.hidden = true; }
+  };
+  pintarFoto($('git-avatar-badge'), daFrente);
+  pintarFoto($('git-avatar-badge-back'), deTras);
   const item = $('githubStatusItem');
   if (!item) return;
 

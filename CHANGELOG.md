@@ -4,6 +4,104 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.11.0](https://github.com/nipscernlab/aurora/compare/v6.10.0...v6.11.0) (2026-08-31)
+
+
+### Features
+
+* **ajuda:** o "?" cai na secao do assunto, e chega a dez telas que nao tinham ([f0f9dc5](https://github.com/nipscernlab/aurora/commit/f0f9dc5d04df09ced526f17ef3ed711431fefbd2))
+* **ajuda:** o botao que abre o manual no capitulo certo passa a sete modais ([ae31e39](https://github.com/nipscernlab/aurora/commit/ae31e39f90ec966e106b80d42f3926005885299b))
+* **arvore,terminal:** os dois topos ganham icone, e o PRISM ganha terminal ([791cadc](https://github.com/nipscernlab/aurora/commit/791cadc5f02ebb40a9764b4880c72bfeb99aa309))
+* **atalhos:** uma tabela so, e o teclado alcanca o que antes so o mouse alcancava ([c195130](https://github.com/nipscernlab/aurora/commit/c19513034c7e4256d8d8fa6c83abeeeca944f80e))
+* **compilacao:** a tela do historico de execucoes, na barra do terminal ([23a06f2](https://github.com/nipscernlab/aurora/commit/23a06f240039370cd4ff8fa636f423a2b21fcb86))
+* **compilacao:** cada clique deixa uma execucao gravada, com o retrato do projeto ([d5f1e2f](https://github.com/nipscernlab/aurora/commit/d5f1e2f0299172aab31110532733f3c5d76c8f24))
+* **componentes:** a aba sobe para o segundo lugar, e a engrenagem avisa quando falta o essencial ([8f88481](https://github.com/nipscernlab/aurora/commit/8f8848133cd84c4a3ca6f5fce495806cded4e201))
+* **componentes:** baixar varios de uma vez, em fila que nao para no primeiro erro ([eeb5792](https://github.com/nipscernlab/aurora/commit/eeb579273b0d7cfd7de13d5a0432e589e04ea063))
+* **componentes:** de cinco selos sobram dois, e os dois dizem algo que o cartao nao dizia ([54d6239](https://github.com/nipscernlab/aurora/commit/54d62390595da5234422558c9d41355e29c1004a))
+* **config:** onde o PRISM e o Surfer abrem vira preferencia nas Configuracoes ([46958a3](https://github.com/nipscernlab/aurora/commit/46958a3509e9ca6f532d85397611ff14f1b9c4d5))
+* **docs:** manual pesquisavel pela IA e ajuda contextual nos modais ([#79](https://github.com/nipscernlab/aurora/issues/79)) ([1e0ed4d](https://github.com/nipscernlab/aurora/commit/1e0ed4dd795c80647e1c6d5f2c2e7b8337f86c4c))
+* **git:** as duas contas no botao, uma atras da outra em meia-lua ([695865e](https://github.com/nipscernlab/aurora/commit/695865ea471938c31ea03d3678e61ec01e459661))
+* **historico:** a tela de compilacoes muda enquanto a compilacao acontece ([ab432c0](https://github.com/nipscernlab/aurora/commit/ab432c0ddda9ea5a659c739158fd06839cc8719d))
+* **ia:** a assistente conhece o Simular do PRISM e o opera inteiro pela API ([9335b5b](https://github.com/nipscernlab/aurora/commit/9335b5b428c0846f63eea5fce95ee0b16bc19240))
+* **ia:** cache de prompt de verdade, esforco na API da Anthropic e a familia 5 ([1fe3947](https://github.com/nipscernlab/aurora/commit/1fe394761182515271e38e4fe8e89e87cf7dc051))
+* **ia:** o texto da resposta flui de novo, e a fila ganha um enviar agora ([6f2ddd9](https://github.com/nipscernlab/aurora/commit/6f2ddd9bf033c20900e7166c8ff0231362203a21))
+* **ia:** Sonnet 5 passa a ser o modelo padrao da Anthropic ([dfa4db1](https://github.com/nipscernlab/aurora/commit/dfa4db18b9a75cc1efcb309769d8e4b0165e977c))
+* **ia:** tutorial guiado da API, com o manual instalado por tras ([809e4c1](https://github.com/nipscernlab/aurora/commit/809e4c111e8e9683db7483bfa767dc07f23ea35b))
+* **paineis:** o cartao do PyLibs abre no clique e com animacao, e as tags do Components voltam ([f6dd4fc](https://github.com/nipscernlab/aurora/commit/f6dd4fc023e487df9b414e3bbb7454d9b3ef333d))
+* **prism:** a onda exportada abre no visualizador ja montada ([ee4b8ec](https://github.com/nipscernlab/aurora/commit/ee4b8ec52c23e46497e62da9b2ea8beb219d4ab5))
+* **prism:** o pino vira marca de encosto, a barra do Dirac encontra o angulo, e o Surfer para de ganhar marcador ([fab5dcd](https://github.com/nipscernlab/aurora/commit/fab5dcd034e6abbba6fb91e0f321dfec5dadbff4))
+* **prism:** o Simular faz jus ao nome: relogio, passo, painel de E/S e formas de onda ([21da0cb](https://github.com/nipscernlab/aurora/commit/21da0cba5f858c152dee9b2aaa625fc70c7e0ebd))
+* **prism:** o Simular ganha reinicio, submodulos, cursor, gatilho que avisa, VCD e memoria ([6023de7](https://github.com/nipscernlab/aurora/commit/6023de7addc5d936324945e6ab26f10b5bd73da4))
+* **prism:** simula o modulo que esta na tela, e abre dentro do editor se a pessoa quiser ([3df16b7](https://github.com/nipscernlab/aurora/commit/3df16b7fe6935c7623385fe8d9987d3d1e5764d3))
+* **pylibs:** a lista cabe na tela, com a prosa indo para a expansao que ja existia ([e99ec87](https://github.com/nipscernlab/aurora/commit/e99ec8725bef7072f355ade852c416998b9f3ff3))
+* **splash:** a aurora sobe e ganha profundidade, e o cintilar passa a ser visto ([2457b0d](https://github.com/nipscernlab/aurora/commit/2457b0dbe41e9f284a9d98ed59502f2d573f85d0))
+* **splash:** a aurora vira emissao em colunas, e o letreiro desce para o canto ([0f791fe](https://github.com/nipscernlab/aurora/commit/0f791fe4695f60ce2217916da47a8b318aafb7b3))
+* **splash:** a aurora vira fitas com curva propria, e ganha escada de brilho ([fbdf435](https://github.com/nipscernlab/aurora/commit/fbdf43506bbdc5c771d7945b5b84bb1c64c0e2f3))
+* **splash:** a borda fraca da aurora dissolve em vez de desenhar serra ([8f0ce43](https://github.com/nipscernlab/aurora/commit/8f0ce434ae0ddf3ec0722c961a9bb2c038d028c5))
+* **splash:** o ceu da splash e o de verdade, do catalogo HYG ([809ae84](https://github.com/nipscernlab/aurora/commit/809ae843177f539ccd416e4ba780dec1b342c83f))
+* **surfer:** salvar o estado de dentro da aba grava no projeto e vira o layout ativo ([#103](https://github.com/nipscernlab/aurora/issues/103)) ([53cbc8e](https://github.com/nipscernlab/aurora/commit/53cbc8e1c13238cb52e132a2ff4f6ded6ad9d2d1))
+* **terminal:** a linha de erro leva ao codigo, com o formato de cada ferramenta ([9347989](https://github.com/nipscernlab/aurora/commit/93479894d03412162d3c289b7bf77494c3de9cb8))
+* **topo:** onde a AURORA diz que falta o topo, ela passa a dizer como marcar ([0ea1f30](https://github.com/nipscernlab/aurora/commit/0ea1f30762d5d5eb029263b275d5f1c0dad8279c))
+
+
+### Bug Fixes
+
+* **abas:** a ronda de mudanca externa pula as abas embutidas ([81b97c1](https://github.com/nipscernlab/aurora/commit/81b97c13eddc5dead6e794d86ae1790672c0c4be))
+* **abas:** Surfer e PRISM levam o logo da ferramenta, e nao o icone de arquivo ([8b8097f](https://github.com/nipscernlab/aurora/commit/8b8097fab9bfdff3acd29db670a491f0794e07f1))
+* **api:** nenhuma resposta incompleta, do lado de quem responde e de quem le ([32e275b](https://github.com/nipscernlab/aurora/commit/32e275b4b15800beff0117e32105e55c84defee1))
+* cinco defeitos da sessao de uso de 30/08 ([0f29097](https://github.com/nipscernlab/aurora/commit/0f29097a38243b89de2ab9c4a67cd31a269cc726))
+* **ci:** o knip passa a ler TODAS as paginas, e nao so o index.html ([bbfd528](https://github.com/nipscernlab/aurora/commit/bbfd5286b2cbc12d308fe8791b6288cfc5413dcc))
+* **compilacao:** cancelar escreve um aviso so, e nao um erro por caminho morto ([b1c8e76](https://github.com/nipscernlab/aurora/commit/b1c8e76d987ca588db7b3e5b69e92223ea876c7e))
+* **compilacao:** duas execucoes ao mesmo tempo param de se apagar ([dee9dbc](https://github.com/nipscernlab/aurora/commit/dee9dbcd3e1dae3310ec02ce2d7feb8cd95906e8))
+* **componentes:** a caixa de selecao ganha o tema escuro, e o selo do essencial para de gritar ([c256066](https://github.com/nipscernlab/aurora/commit/c2560668cf34c178f3d4cb31b6aeaa657e28c207))
+* **componentes:** a caixa de selecao sai de cima do botao, e o aviso chega na aba ([a74b1a3](https://github.com/nipscernlab/aurora/commit/a74b1a30f1d9bee63cea01bbd4f501b6aba21458))
+* **componentes:** a selecao sobrevive a remover outro componente ([e84cf7b](https://github.com/nipscernlab/aurora/commit/e84cf7b41cbd2fe5252462e87a7a335b9c8a827d))
+* **componentes:** o selo para de montar em cima do tamanho, e a compilacao avisa no terminal ([0bf31c1](https://github.com/nipscernlab/aurora/commit/0bf31c1179d5b5a68d88dba71c2d0d8d5cd8beb8))
+* **dialogo:** o Fechar deixa de sair da caixa, e a acao principal volta a parecer principal ([7f4d15c](https://github.com/nipscernlab/aurora/commit/7f4d15c7c804d8738e0c70e656b52c8ddf02f94d))
+* **foco:** anel interno onde a borda recorta, e as duas medidas que faltavam ([8ede916](https://github.com/nipscernlab/aurora/commit/8ede9162417d55e18b4ebc18c38f3151d90b254c))
+* **i18n:** NIPS-CERN com hifen e artigo feminino para a AURORA ([#80](https://github.com/nipscernlab/aurora/issues/80)) ([f4ea752](https://github.com/nipscernlab/aurora/commit/f4ea752d4bcf0731f66391b7f993d2e6180c624d))
+* **ia:** a mensagem no meio do turno espera a assistente, e o compositor alinha ([1c5cad2](https://github.com/nipscernlab/aurora/commit/1c5cad2ab542f8924590e261d23ef5b683da75b0))
+* **instalador:** o cache do atualizador sai junto na desinstalacao ([84f79a7](https://github.com/nipscernlab/aurora/commit/84f79a73c4a522a3a54b36323fd2980c46771864))
+* **paineis:** as listas alinham por coluna, o letreiro fica legivel, e o X duplo sai ([3867f94](https://github.com/nipscernlab/aurora/commit/3867f94f6c822f79571744506e285bbf525eadb8))
+* **prism:** a roda fica no painel, a velocidade desacelera de verdade, e uma so lista suspensa ([cb718f8](https://github.com/nipscernlab/aurora/commit/cb718f838e703674aa7f9f3103a442a05d5fee10))
+* **prism:** a simulacao acha o modulo parametrizado, o Voltar sobrevive ao Temp, e os erros vao ao terminal ([ef45283](https://github.com/nipscernlab/aurora/commit/ef45283f132756b6881452b1bddebe681b84e365))
+* **prism:** a simulacao no mesmo papel do esquematico, com texto em escala de celula ([7b8b203](https://github.com/nipscernlab/aurora/commit/7b8b203cc23bbe38e51ba75060c3ba448ff2ac6e))
+* **prism:** o monitor mostra a onda, e a saida de 1 bit e um check ou um x ([1d1b35a](https://github.com/nipscernlab/aurora/commit/1d1b35a7a5af0c84d4368a14087cac7a57b41374))
+* **prism:** o pino do pedido era a seta de porta, e agora ela e pequena e cinza ([2f34820](https://github.com/nipscernlab/aurora/commit/2f34820dffaa80126029b7ce64cb318fe0a45890))
+* **prism:** os controles da simulacao dizem o que fazem ([94380b3](https://github.com/nipscernlab/aurora/commit/94380b3a7032b691f29ce1707ed1cbc1f47acb75))
+* **prism:** veu de pagina inteira enquanto a simulacao monta ([58c2e68](https://github.com/nipscernlab/aurora/commit/58c2e68887de28d245419b2cb101028d1c64244b))
+* **splash:** um brilho no icone, na cor dele, no lugar de tres na cor da cena ([2b1f9f1](https://github.com/nipscernlab/aurora/commit/2b1f9f16d81552c2ee8dea01a0cd501cb0142b7d))
+* **terminal:** a aba do PRISM usa a marca do botao, e nao um glifo redesenhado ([daaf4fa](https://github.com/nipscernlab/aurora/commit/daaf4fa740dc5ee968a2b322326aa36d70514d4a))
+* **terminal:** a confirmacao de limpeza aparece no TCMD e no PRISM, e em todos no modo todos ([f2737a3](https://github.com/nipscernlab/aurora/commit/f2737a3a1a086cf885639ca586e98aca4ea77f86))
+* **terminal:** o Clear vale para todos os terminais e devolve a boas-vindas ([1c2e322](https://github.com/nipscernlab/aurora/commit/1c2e322590ba8f35bbc77bd5e345fa569a0d50ed))
+* **toolbar:** o interruptor do PRISM entrou duas vezes no index.html ([3364e80](https://github.com/nipscernlab/aurora/commit/3364e80707dbefc664565de28d878dd613e721de))
+* **ui:** o que o codigo esconde some de verdade, e Relatar sai para a barra lateral ([fb55ac0](https://github.com/nipscernlab/aurora/commit/fb55ac0ea8b0e5e29be423a36949b86871cee58a))
+* **updater:** a instalacao sai do fechamento e vai para a abertura seguinte ([1004579](https://github.com/nipscernlab/aurora/commit/100457960899b5debc79c1c6285a33d7080945f1))
+
+
+### Documentation
+
+* o instalador tem 140 MB, e nao carrega mais a toolchain ([7263df2](https://github.com/nipscernlab/aurora/commit/7263df285c36e238927c4a7f30fe70ecfe55950f))
+* **todo:** a organizacao fechou: padrao write, main so por PR, tags so do dono ([1089585](https://github.com/nipscernlab/aurora/commit/108958561f29fd89e8685d265cb11718c146cadd))
+* **todo:** a rede do painel de IA existe, e a suposicao do provedor real caiu ([8d4a28d](https://github.com/nipscernlab/aurora/commit/8d4a28d8596d8448664bf125e88bd8a1e4a4ea8f))
+* **todo:** a tela do historico ficou ao vivo, e a janela de 250 ms escondia a linha ([7f16b1c](https://github.com/nipscernlab/aurora/commit/7f16b1c52f67546f6e4430ac277d6a5fff00b704))
+* **todo:** a tela do historico riscada, e duas armadilhas de ferramenta ([f978c96](https://github.com/nipscernlab/aurora/commit/f978c96a8bfc1512d791982786c67b3facc5662b))
+* **todo:** duas licoes que o primeiro registro de execucao ensinou ([2c98d2d](https://github.com/nipscernlab/aurora/commit/2c98d2d77d7703be9914a870354f7eabf9d451eb))
+* **todo:** o LABEL atualizou sozinho, e os tres caminhos de execucao estao provados ([fb9f5eb](https://github.com/nipscernlab/aurora/commit/fb9f5eb33ef63db60b0eb6abb10483ddc2c415fb))
+* **todo:** o PyLibs instalou e removeu de verdade, com a AURORA de pe ([1b56b7d](https://github.com/nipscernlab/aurora/commit/1b56b7d45bf6c3dedbb7802eacec8183bd52f29c))
+* **todo:** o save-state do Surfer esta na main, e o ramo vira historico ([17f198c](https://github.com/nipscernlab/aurora/commit/17f198cebf757b514ed10e3a33ef2737b193a34c))
+* **todo:** o save-state do Surfer vira ramo, e a nota para de esconder duas ressalvas ([fd587f5](https://github.com/nipscernlab/aurora/commit/fd587f5fb9ae4f7045f8f2b96c0915d911ab8096))
+* **todo:** os dois quadros viram uma lista so, com o que ja estava feito riscado ([d699661](https://github.com/nipscernlab/aurora/commit/d69966124fad8e7114fedf72b5a1696ffad28953))
+* **todo:** os tres pedidos de 26/08 sairam, e a nota deles para de dizer o contrario ([569a25e](https://github.com/nipscernlab/aurora/commit/569a25e60f0a729da9432274bc7beae9a21bb5ef))
+* **todo:** registro do fork do surfer limpo, e o recorte veio do que cada release fixa ([b75123a](https://github.com/nipscernlab/aurora/commit/b75123a9d2877b5d6ca2307f29b1ceb15ea4915a))
+* **todo:** risca o cache do atualizador, que saiu no commit anterior ([19cc799](https://github.com/nipscernlab/aurora/commit/19cc7995a5fd83266637d117c7faebeef9df1711))
+* **todo:** selos do painel de Componentes, e a aurora da splash sai do meio do caminho ([1176bcd](https://github.com/nipscernlab/aurora/commit/1176bcdeefaba8873f77867379e2a6dc04be3cf8))
+
+
+### Build
+
+* **deps:** bump katex from 0.18.3 to 0.18.4 ([#86](https://github.com/nipscernlab/aurora/issues/86)) ([3d8e47a](https://github.com/nipscernlab/aurora/commit/3d8e47abff0ea111f9f1c8538e29c6c537b03c13))
+
 ## [6.10.0](https://github.com/nipscernlab/aurora/compare/v6.9.0...v6.10.0) (2026-08-26)
 
 

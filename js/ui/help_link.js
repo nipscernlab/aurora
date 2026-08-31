@@ -82,7 +82,7 @@ export function ligarAjuda(id, pagina) {
  * Onde cada botao de ajuda cai.
  *
  * As paginas E as ancoras foram conferidas contra `resources/docs` na versao
- * 6.11.0.3 do manual, que e a que vem no instalador. O `diaadia/apoio.html` e
+ * 6.11.0.4 do manual, que e a que vem no instalador. O `diaadia/apoio.html` e
  * literalmente "Controle de versao, Python, componentes e configuracoes": ele
  * atende quatro telas, e cada uma cai na SUA secao, porque abrir os quatro no
  * topo do mesmo capitulo obrigava a pessoa a procurar o assunto de novo (o pior

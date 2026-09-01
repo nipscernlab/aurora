@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.12.0](https://github.com/nipscernlab/aurora/compare/v6.11.1...v6.12.0) (2026-09-01)
+
+
+### Features
+
+* **wave:** apontar uma pasta lista todos os layouts, com um icone por extensao ([ef0bc14](https://github.com/nipscernlab/aurora/commit/ef0bc14220548f14bdc27fa3ed07903d76e9306e))
+
+
+### Bug Fixes
+
+* **deps:** devolve ao lock as entradas do [@emnapi](https://github.com/emnapi), sem elas o npm ci recusa ([a0273cd](https://github.com/nipscernlab/aurora/commit/a0273cd1c6ea3897073a0f3e0ba48395fcf9b2d0))
+* **editor:** o slang perde o modulo do testbench, e nao havia como marcar testbench ([dc4657c](https://github.com/nipscernlab/aurora/commit/dc4657ca547d5088c8829f90845e17d0cde89914))
+
 ## [6.11.1](https://github.com/nipscernlab/aurora/compare/v6.11.0...v6.11.1) (2026-08-31)
 
 

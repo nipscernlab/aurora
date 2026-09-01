@@ -8,9 +8,13 @@
  *   - Context menu de area vazia: "New Verilog File"
  *   - Delete inline via botao da row
  *
- * A categoria synth-vs-testbench NAO e editada aqui, e derivada do
- * conteudo do arquivo por [verilog_classifier.js](verilog_classifier.js),
- * via this._classifyAll() (definido em file_mode.js).
+ * A categoria synth-vs-testbench e adivinhada do conteudo por
+ * [verilog_classifier.js](verilog_classifier.js), via this._classifyAll()
+ * (definido em file_mode.js). O context menu daqui e o desempate: marcar
+ * top level ou testbench move o arquivo para a lista correspondente do .spf,
+ * e a partir dai a heuristica nao mexe mais nele (o _classifyAll pula quem
+ * tem isTopLevel). Sem esse desempate, um arquivo lido errado ficava lido
+ * errado para sempre.
  *
  * Mixed in via Object.assign(ProjectTreeManager.prototype, ActionsMixin)
  * em file_mode.js. Cada metodo usa `this` da classe, com acesso a:
@@ -290,6 +294,10 @@ export const ActionsMixin = {
             '# AURORA / SAPHO',
             'Temp/',
             'Backup/',
+            // Config do slang-server, escrita pela AURORA quando o projeto
+            // aponta para fontes fora da pasta dele. Sao caminhos absolutos
+            // desta maquina, nao servem para mais ninguem.
+            '.slang/',
             '',
             '# Simulation / build artifacts',
             '*.vcd',
@@ -778,27 +786,32 @@ async def basic_test(dut):
 
         let menuItems = '';
 
-        if (canBeTestbench) {
-            if (file.category === 'testbench') {
-                // Testbench file, only the testbench-top toggle is relevant.
-                menuItems += `
-                    <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
-                        <i class="ph ph-flask"></i>
-                        <span>${isTbTop ? tr('contextMenu.unmarkTestbench') : tr('contextMenu.markTestbench')}</span>
-                    </div>
-                    <div class="context-menu-divider"></div>
-                `;
-            } else if (isVerilog) {
-                // Synthesizable file, only the top-level toggle is relevant.
-                menuItems += `
-                    <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
-                        <i class="ph ph-flag"></i>
-                        <span>${isSynthTop ? tr('contextMenu.removeTopLevel') : tr('contextMenu.setTopLevel')}</span>
-                    </div>
-                    <div class="context-menu-divider"></div>
-                `;
-            }
+        // Os dois marcadores aparecem juntos em todo .v/.sv, independente da
+        // categoria que a heuristica deu ao arquivo. Mostrar so o marcador da
+        // categoria adivinhada e o que tornava impossivel corrigir a adivinhacao:
+        // um testbench que a heuristica leu como sintetizavel (porque a pessoa
+        // ainda nao escreveu o $dumpvars, ou o arquivo nao se chama *_tb) so
+        // oferecia "definir como top level", e nao havia gesto nenhum para
+        // dizer que aquilo era o testbench. Escolher um move o arquivo para a
+        // lista certa do .spf, entao o menu tambem e por onde se conserta a
+        // classificacao. Arquivo .py e sempre testbench, nao tem a outra opcao.
+        if (isVerilog) {
+            menuItems += `
+                <div class="context-menu-item" data-action="${isSynthTop ? 'remove-top-level' : 'set-top-level'}">
+                    <i class="ph ph-flag"></i>
+                    <span>${isSynthTop ? tr('contextMenu.removeTopLevel') : tr('contextMenu.setTopLevel')}</span>
+                </div>
+            `;
         }
+        if (canBeTestbench) {
+            menuItems += `
+                <div class="context-menu-item" data-action="${isTbTop ? 'remove-testbench' : 'set-testbench'}">
+                    <i class="ph ph-flask"></i>
+                    <span>${isTbTop ? tr('contextMenu.unmarkTestbench') : tr('contextMenu.markTestbench')}</span>
+                </div>
+            `;
+        }
+        if (menuItems) menuItems += '<div class="context-menu-divider"></div>';
 
         // "Remove from tree" is handled by the × button on each row.
         menu.innerHTML = `

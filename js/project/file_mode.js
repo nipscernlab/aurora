@@ -536,15 +536,13 @@ class ProjectTreeManager {
                 category = classifyVerilogContent(content, file.name);
                 if (mtime != null) cache.set(file.path, { mtime, category });
             }
-            // Regra atual: reclassifica TODOS (inclusive isTopLevel). Se
-            // a categoria mudou, usuario editou o arquivo e a heuristica
-            // virou de synth pra testbench ou vice-versa, a marca de
-            // top do escopo anterior nao se aplica mais (synth-top e
-            // tb-top sao escopos distintos), entao limpa isTopLevel.
-            // Se a categoria continua igual, mantem isTopLevel intacto.
-            // (Regra antiga skipava isTopLevel inteiro, o que travava a
-            // categoria quando o conteudo mudava, Ctrl+S nao atualizava
-            // o estado.)
+            // Chega aqui so quem nao tem marca do usuario (o `continue`
+            // acima ja tirou esses de cena). Se a categoria mudou, o
+            // arquivo foi editado e a heuristica virou de synth pra
+            // testbench ou vice-versa; a marca de top do escopo anterior
+            // nao se aplica mais (synth-top e tb-top sao escopos
+            // distintos), entao limpa isTopLevel. Categoria igual mantem
+            // isTopLevel intacto.
             if (file.category !== category) {
                 file.category = category;
                 file.isTopLevel = false;

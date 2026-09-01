@@ -48,9 +48,14 @@
       "tooltip": "Configuração de ondas, selecionar sinais para dump"
     },
     "gtkwPicker": {
-      "tooltip": "Arquivo de save GTKWave (.gtkw) ativo, usado ao abrir o GTKWave",
+      "tooltip": "Layout de ondas ativo (.gtkw do GTKWave, .surf.ron ou .sucl do Surfer), usado ao abrir o visualizador",
       "default": "padrão",
       "add": "+ Adicionar arquivo .gtkw...",
+      "addSurfer": "+ Adicionar layout do Surfer...",
+      "addFolder": "+ Listar de uma pasta...",
+      "folderTitle": "Layouts de onda",
+      "folderEmpty": "Nenhum .gtkw, .surf.ron ou .sucl em \"{{name}}\"",
+      "folderAdded": "{{found}} layout(s) em \"{{name}}\", {{count}} novo(s) na lista",
       "noProject": "Nenhum projeto carregado",
       "noTestbench": "Nenhum testbench selecionado",
       "removeTooltip": "Remover da lista"

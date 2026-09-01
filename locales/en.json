@@ -48,9 +48,14 @@
       "tooltip": "Wave Configuration, pick signals to dump"
     },
     "gtkwPicker": {
-      "tooltip": "Active GTKWave save file (.gtkw), used when launching GTKWave",
+      "tooltip": "Active wave layout (.gtkw for GTKWave, .surf.ron or .sucl for Surfer), used when launching the viewer",
       "default": "default",
       "add": "+ Add .gtkw file...",
+      "addSurfer": "+ Add Surfer layout...",
+      "addFolder": "+ List from a folder...",
+      "folderTitle": "Wave layouts",
+      "folderEmpty": "No .gtkw, .surf.ron or .sucl in \"{{name}}\"",
+      "folderAdded": "{{found}} layout(s) in \"{{name}}\", {{count}} new in the list",
       "noProject": "No project loaded",
       "noTestbench": "No testbench selected",
       "removeTooltip": "Remove from list"

@@ -565,6 +565,32 @@ body.window-maximized .ctrl-max .ctrl-icon-restore { display: block; }
   margin-top: 4px;
 }
 
+/* Sao duas linhas de acrescentar (arquivo e pasta), e elas formam um bloco
+   so: a linha divisoria separa o bloco da lista, nao uma da outra. */
+.gtkw-picker-row.adder + .gtkw-picker-row.adder {
+  border-top: none;
+  margin-top: 0;
+}
+
+/* Um icone por extensao (.gtkw, .surf.ron, .sucl). Desde que as listas dos
+   dois visualizadores passaram a conviver no mesmo menu, e o icone que diz
+   qual linha e de qual programa; sem ele as duas ficam indistinguiveis. */
+.gtkw-picker-row-icon {
+  flex: 0 0 auto;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.gtkw-picker-row:hover .gtkw-picker-row-icon,
+.gtkw-picker-row.active .gtkw-picker-row-icon {
+  color: inherit;
+}
+
+.gtkw-picker-row.adder .gtkw-picker-row-icon {
+  color: inherit;
+}
+
 .gtkw-picker-row-label {
   flex: 1 1 auto;
   overflow: hidden;

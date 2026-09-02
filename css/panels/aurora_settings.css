@@ -1134,11 +1134,27 @@
    desalinhava a linha inteira, com o cartao do meio parecendo quebrado. A
    caixa vem antes no DOM porque marcar vem antes de baixar, e em linha ela cai
    naturalmente a esquerda do botao. */
+/* `flex-wrap`, e nao uma coluna mais larga. A coluna e fixa em 176px e isso
+   cobria os casos de um botao so, mas o cartao "atualizacao disponivel" traz
+   TRES filhos, caixa + Atualizar + Remover, que medem 210px em ingles e mais
+   em portugues. Sem quebra, o flex nao encolhe botao com `white-space: nowrap`
+   e o excedente vazava para FORA da coluna, pela esquerda (o alinhamento e a
+   direita): a caixa de selecao pousava 18px por cima do texto do tamanho do
+   download, que e o borrao que aparecia sobre o "of 90 MB" dos cartoes do
+   Claude Code e do Codex.
+   Com a quebra, quem nao cabe desce uma linha e o cartao cresce em ALTURA, que
+   e a dimensao que sobra; alargar a coluna resolveria estes dois cartoes e
+   custaria 56px de largura da descricao em todos os outros sete, alem de ser
+   outro numero magico a errar quando um botao ou uma traducao mudar de
+   tamanho. O `row-gap` menor que o `column-gap` mantem os dois botoes
+   empilhados lendo como um par. */
 .componente-acao {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-3);
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
 }
 
 .componente-marca {

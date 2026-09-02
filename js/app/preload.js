@@ -402,6 +402,11 @@ const updateOperations = {
   },
   getUpdateState:   () => ipcRenderer.invoke('updates:state'),
   openUpdateWindow: () => ipcRenderer.invoke('updates:open-window'),
+
+  // Smart App Control em modo de bloqueio barra os binarios sem assinatura
+  // da cadeia de simulacao; o renderer pergunta no boot e avisa antes de o
+  // aluno tropecar num "spawn UNKNOWN" (relato #6 do sapho-relatos).
+  getSacStatus: () => ipcRenderer.invoke('sac:estado'),
 };
 
 /* ============================================================================

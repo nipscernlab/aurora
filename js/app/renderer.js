@@ -205,6 +205,19 @@ window.onload = () => {
         }, 2800);
     }).catch(() => { /* IPC failure here shouldn't break boot */ });
 
+    // Smart App Control em modo de bloqueio: avisa toda abertura, de
+    // proposito, porque enquanto ele bloqueia a simulacao esta quebrada de
+    // verdade (spawn UNKNOWN no vvp/gtkwave) e um aviso que se cala ensina a
+    // esquecer o problema. O atraso deixa a janela assentar primeiro.
+    electronAPI?.getSacStatus?.().then((r) => {
+        if (!r || r.estado !== 'ligado') return;
+        setTimeout(() => {
+            const title = window.t ? window.t('sac.title') : 'Simulation blocked by Windows';
+            const body = window.t ? window.t('sac.body') : '';
+            window.showNotification?.(body, 'error', 15000, title);
+        }, 4500);
+    }).catch(() => { /* cortesia; nao pode quebrar o boot */ });
+
     // Avisos do verificador de atualizacao. O "Verificar agora" das
     // configuracoes respondia com dialog do sistema, que e modal e trava tudo
     // ate o usuario clicar; agora responde no mesmo lugar em que o aplicativo

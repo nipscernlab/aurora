@@ -146,6 +146,9 @@ if (acquiredLock) {
   // Updater IPC must be registered at boot, not lazily — the splash window
   // calls `getAppVersion()` before the autoUpdater itself is initialized.
   updater.registerIpc();
+  // Smart App Control: o renderer pergunta no boot e avisa se a maquina esta
+  // em modo de bloqueio, onde a toolchain sem assinatura nao roda (relato #6).
+  require('./main/sac_status').register();
 
   app.whenReady().then(async () => {
     // ANTES de qualquer janela: se uma atualizacao foi baixada numa sessao

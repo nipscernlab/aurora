@@ -912,6 +912,10 @@
       "en": "Compiler messages: English"
     }
   },
+  "sac": {
+    "title": "Simulation blocked by Windows",
+    "body": "Smart App Control is on and blocks the unsigned simulation tools (Icarus, GTKWave), so compiling will fail with spawn UNKNOWN. Turn it off in Windows Security, App and browser control."
+  },
   "updates": {
     "upToDateTitle": "SAPHO updated",
     "upToDateBody": "Now running version {{version}}.",

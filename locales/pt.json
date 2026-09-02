@@ -912,6 +912,10 @@
       "en": "Mensagens do compilador: Inglês"
     }
   },
+  "sac": {
+    "title": "Simulação bloqueada pelo Windows",
+    "body": "O Smart App Control está ativo e bloqueia os programas sem assinatura da cadeia de simulação (Icarus, GTKWave); compilar vai falhar com spawn UNKNOWN. Desligue-o em Segurança do Windows, Controle de aplicativos e navegador."
+  },
   "updates": {
     "upToDateTitle": "SAPHO atualizado",
     "upToDateBody": "Agora rodando a versão {{version}}.",

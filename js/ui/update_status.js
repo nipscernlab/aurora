@@ -83,6 +83,13 @@ class UpdateStatus {
     this.item.addEventListener('focus', () => this.mostrarPainel());
     this.item.addEventListener('blur', () => this.esconderPainel());
 
+    // O painel e fixed, ancorado nas coordenadas de quando abriu: mudar o
+    // tamanho da janela com ele aberto (maximizar, arrastar borda) o deixava
+    // solto no lugar velho. Fechar e o comportamento certo de um painel de
+    // hover; quem quiser de volta passa o mouse de novo.
+    window.addEventListener('resize', () => this.esconderPainel(true));
+    this.onEsc = (e) => { if (e.key === 'Escape') this.esconderPainel(true); };
+
     // O main acende (ou promove para "baixada") a qualquer momento.
     electronAPI.onUpdateAvailable?.((resumo) => {
       if (resumo && resumo.state) this.estado = resumo;
@@ -190,6 +197,7 @@ class UpdateStatus {
     const r = this.item.getBoundingClientRect();
     p.style.right = Math.max(6, Math.round(window.innerWidth - r.right)) + 'px';
     p.style.bottom = Math.round(window.innerHeight - r.top + 6) + 'px';
+    if (p.hidden) document.addEventListener('keydown', this.onEsc);
     p.hidden = false;
   }
 
@@ -197,14 +205,20 @@ class UpdateStatus {
     if (this.hideTimer) clearTimeout(this.hideTimer);
     if (agora) {
       this.hideTimer = null;
-      if (this.panel) this.panel.hidden = true;
+      if (this.panel && !this.panel.hidden) {
+        this.panel.hidden = true;
+        document.removeEventListener('keydown', this.onEsc);
+      }
       return;
     }
     // O vao entre o botao e o painel: um respiro antes de fechar, senao o
     // mouse nunca chega nos atalhos.
     this.hideTimer = setTimeout(() => {
       this.hideTimer = null;
-      if (this.panel) this.panel.hidden = true;
+      if (this.panel && !this.panel.hidden) {
+        this.panel.hidden = true;
+        document.removeEventListener('keydown', this.onEsc);
+      }
     }, 160);
   }
 

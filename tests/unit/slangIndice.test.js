@@ -29,11 +29,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const state = require('../../main/state.js');
-const { componentsPath } = require('../../main/paths.js');
 const { extraSourceDirs, indexExtraDirs, syncSlangConfig } = require('../../main/lsp/slang_lsp.js');
-
-/** A biblioteca HDL do SAPHO, que o indice precisa ver em todo projeto. */
-const HDL = path.join(componentsPath, 'HDL');
 
 let raiz;
 let projeto;
@@ -111,13 +107,23 @@ describe('quais pastas o indice precisa alem da raiz', () => {
 });
 
 describe('a biblioteca HDL do SAPHO', () => {
+  // A biblioteca de verdade mora em components/HDL, que vem com a toolchain
+  // BAIXADA: o runner do CI nao a tem, e um teste que dependesse dela estar
+  // no disco passaria numa maquina e quebraria na outra (quebrou). Cada teste
+  // cria a sua em pasta temporaria e a injeta pelo parametro.
+  let hdl;
+  beforeEach(() => {
+    hdl = path.join(raiz, 'toolchain', 'HDL');
+    fs.mkdirSync(hdl, { recursive: true });
+  });
+
   it('entra no indice mesmo quando o projeto nao importa nada de fora', () => {
     escreverSpf({
       synthesizableFiles: [{ path: 'mediamovel.v' }],
       testbenchFiles: [{ path: 'mediamovel_tb.v' }],
     });
     // Sem ela, instanciar `processor` no top level vira `unknown module`.
-    expect(indexExtraDirs(projeto)).toEqual([HDL]);
+    expect(indexExtraDirs(projeto, hdl)).toEqual([hdl]);
   });
 
   it('vem junto com as pastas que o .spf importa de fora', () => {
@@ -125,14 +131,24 @@ describe('a biblioteca HDL do SAPHO', () => {
     escreverSpf({
       synthesizableFiles: [{ path: path.join(fora, 'fifo.v') }],
     });
-    expect(indexExtraDirs(projeto)).toEqual([HDL, fora]);
+    expect(indexExtraDirs(projeto, hdl)).toEqual([hdl, fora]);
   });
 
   it('nao aparece duas vezes quando o .spf ja importa um .v de dentro dela', () => {
     escreverSpf({
-      synthesizableFiles: [{ path: path.join(HDL, 'myFIFO.v') }],
+      synthesizableFiles: [{ path: path.join(hdl, 'myFIFO.v') }],
     });
-    expect(indexExtraDirs(projeto)).toEqual([HDL]);
+    expect(indexExtraDirs(projeto, hdl)).toEqual([hdl]);
+  });
+
+  it('e ignorada quando a toolchain nao foi baixada', () => {
+    // O caso do runner do CI: a pasta nao existe, o indice segue so com o
+    // que o .spf importa, e nada quebra.
+    const fora = path.join(raiz, 'biblioteca');
+    escreverSpf({
+      synthesizableFiles: [{ path: path.join(fora, 'fifo.v') }],
+    });
+    expect(indexExtraDirs(projeto, path.join(raiz, 'nao-existe', 'HDL'))).toEqual([fora]);
   });
 });
 

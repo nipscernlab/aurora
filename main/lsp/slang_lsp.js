@@ -190,19 +190,24 @@ function extraSourceDirs(/** @type {string} */ projectDir) {
  * senao toda instanciacao do processador aparece sublinhada. A cadeia de
  * compilacao e baixada, e nao instalada junto: se a pasta nao existe, nao ha o
  * que indexar e seguimos sem ela.
+ *
+ * `hdlDir` e parametro com default, e nao constante lida direto, porque o
+ * teste roda em maquina que pode nao ter a toolchain baixada (o runner do CI
+ * nao tem): ele prova os dois lados com uma pasta temporaria, sem depender do
+ * estado do disco de quem roda.
  */
-function libraryDirs(/** @type {string} */ projectDir) {
+function libraryDirs(/** @type {string} */ projectDir, hdlDir = HDL_LIB_DIR) {
   try {
-    if (!fs.existsSync(HDL_LIB_DIR)) return [];
+    if (!fs.existsSync(hdlDir)) return [];
   } catch { return []; }
-  if (projectDir && dentroDe(HDL_LIB_DIR, projectDir)) return [];
-  return [HDL_LIB_DIR];
+  if (projectDir && dentroDe(hdlDir, projectDir)) return [];
+  return [hdlDir];
 }
 
 /** Tudo que o indice precisa ver alem da raiz: a biblioteca e o que o .spf importa de fora. */
-function indexExtraDirs(/** @type {string} */ projectDir) {
+function indexExtraDirs(/** @type {string} */ projectDir, hdlDir = HDL_LIB_DIR) {
   const dirs = new Map();
-  for (const dir of [...libraryDirs(projectDir), ...extraSourceDirs(projectDir)]) {
+  for (const dir of [...libraryDirs(projectDir, hdlDir), ...extraSourceDirs(projectDir)]) {
     if (!dirs.has(chave(dir))) dirs.set(chave(dir), dir);
   }
   return [...dirs.values()];

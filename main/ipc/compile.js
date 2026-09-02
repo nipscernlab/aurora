@@ -30,6 +30,7 @@ const {
   killProcessSilently,
 } = require('../utils');
 const { spawnTracked, stopToolchainRun, GROUP } = require('../process_registry');
+const { mensagemDeErroDeSpawn } = require('../compile/spawn_hint');
 const { isAllowed } = require('../compile/binary_allowlist');
 
 // A ultima instancia do Surfer que a AURORA abriu. Fechamos ela antes de abrir
@@ -164,14 +165,14 @@ function register() {
         // An 'error' EventEmitter with no listener would throw; keep one so a
         // spawn failure (e.g. ENOENT) is reported instead of crashing main.
         gtkwaveProcess.on('error', (error) => {
-          resolve({ success: false, message: `GTKWave error: ${error.message}` });
+          resolve({ success: false, message: `GTKWave error: ${mensagemDeErroDeSpawn(error, gtkwaveBin)}` });
         });
 
         const gtkwavePid = gtkwaveProcess.pid;
         gtkwaveProcess.unref();
         resolve({ success: true, gtkwavePid, message: 'GTKWave launched successfully' });
       } catch (error) {
-        resolve({ success: false, message: `Failed to launch GTKWave: ${error.message}` });
+        resolve({ success: false, message: `Failed to launch GTKWave: ${mensagemDeErroDeSpawn(error, options && options.gtkwaveBin)}` });
       }
     });
   });
@@ -236,7 +237,7 @@ function register() {
         surferProcess.on('error', (error) => {
           if (settled) return;
           settled = true;
-          resolve({ success: false, message: `Surfer error: ${error.message}` });
+          resolve({ success: false, message: `Surfer error: ${mensagemDeErroDeSpawn(error, surferBin)}` });
         });
 
         const surferPid = surferProcess.pid;
@@ -246,7 +247,7 @@ function register() {
           resolve({ success: true, surferPid, message: 'Surfer launched successfully' });
         }
       } catch (error) {
-        resolve({ success: false, message: `Failed to launch Surfer: ${error.message}` });
+        resolve({ success: false, message: `Failed to launch Surfer: ${mensagemDeErroDeSpawn(error, surferBin)}` });
       }
     });
   });

@@ -35,6 +35,7 @@ const log = require('electron-log');
 
 const state = require('../state');
 const { spawnTracked, GROUP } = require('../process_registry');
+const { mensagemDeErroDeSpawn } = require('./spawn_hint');
 
 /**
  * Impede a tela (e com ela a suspensao) de apagar enquanto um passo LONGO da
@@ -264,7 +265,10 @@ function register() {
       });
       child.on('error', (err) => {
         releaseSlot();
-        resolve({ code: -1, stdout, stderr: stderr + (err?.message || String(err)), error: err?.message || String(err) });
+        // "spawn UNKNOWN" seco ja mandou aluno reinstalar componente atras de
+        // componente (relato #6); o helper nomeia o bloqueio do Windows.
+        const msg = mensagemDeErroDeSpawn(err, spec.binary);
+        resolve({ code: -1, stdout, stderr: stderr + msg, error: msg });
       });
     });
   });
@@ -325,7 +329,7 @@ function register() {
         state.currentVvpProcess = null;
         state.vvpProcessPid = null;
         soltar();
-        resolve({ code: -1, error: err?.message || String(err) });
+        resolve({ code: -1, error: mensagemDeErroDeSpawn(err, spec.binary) });
       });
     });
   });

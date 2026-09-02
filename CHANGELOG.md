@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.13.0](https://github.com/nipscernlab/aurora/compare/v6.12.0...v6.13.0) (2026-09-02)
+
+
+### Features
+
+* **update:** atualizar vira escolha do usuario, com botao fixo na status bar ([206d58a](https://github.com/nipscernlab/aurora/commit/206d58a8afd40fa1be067fa7fb6ce34c4ee35c0f))
+* **update:** estrelas roxas cintilando no fundo do botao aceso ([2f91eef](https://github.com/nipscernlab/aurora/commit/2f91eefb7051b33aefbc8dbbbbb6441a67323bde))
+* **update:** painel de hover no botao, e a zona direita agrupada por assunto ([af3dbe0](https://github.com/nipscernlab/aurora/commit/af3dbe048cef66463a5b2270855033aa517efe34))
+
+
+### Bug Fixes
+
+* **editor:** a biblioteca HDL do SAPHO entra no indice do slang ([4164712](https://github.com/nipscernlab/aurora/commit/416471219474a6fc49953a680a1fcc98fb0e021a))
+
 ## [6.12.0](https://github.com/nipscernlab/aurora/compare/v6.11.1...v6.12.0) (2026-09-01)
 
 

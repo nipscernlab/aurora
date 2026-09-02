@@ -43,6 +43,13 @@
  * pastas de fora indexar. O arquivo e do slang, nao nosso: se ja existir sem
  * a nossa marca, e do usuario e nao encostamos nele.
  *
+ * A terceira e a biblioteca do proprio SAPHO. O `processor`, o `core`, a `ula`,
+ * o `addr_dec` e o `myFIFO` moram em `components/HDL`, que nao e copiada para
+ * dentro do projeto: a compilacao resolve esses modulos com `-y`, e o indice,
+ * que so varre a raiz, nunca os via. O resultado era o mais comum de todos, um
+ * `unknown module 'processor'` na instanciacao do proprio processador. Essa
+ * pasta entra agora na mesma lista das pastas de fora, pelo mesmo caminho.
+ *
  * The transport mirrors verible_lsp.js on purpose; slang's extras live
  * here (workspace rootUri, server→client request replies, enable/disable,
  * project-change restart, completion) so the live-validated O2 bridge is
@@ -68,6 +75,9 @@ const { criarDisjuntor } = require('./disjuntor');
 
 const LS_BIN = path.join(componentsPath, 'Packages', 'slang-server', 'bin', 'slang-server.exe');
 const REQUEST_TIMEOUT_MS = 20000; // elaboration can be heavier than a lint
+
+/** A biblioteca HDL do SAPHO, que a compilacao passa ao iverilog como `-y`. */
+const HDL_LIB_DIR = path.join(componentsPath, 'HDL');
 
 /** Extensoes que o indice do slang cobre (as mesmas do glob default dele). */
 const WATCHED_EXTS = new Set(['.v', '.sv', '.vh', '.svh']);
@@ -169,6 +179,33 @@ function extraSourceDirs(/** @type {string} */ projectDir) {
     }
   }
   return [...dirs.values()].sort();
+}
+
+/**
+ * A biblioteca HDL do SAPHO, quando instalada e fora da pasta do projeto.
+ *
+ * Ela nunca e copiada para o projeto: a compilacao acha `processor`, `core`,
+ * `ula`, `addr_dec` e `myFIFO` porque o iverilog recebe `-y components/HDL`.
+ * O indice do slang nao tem esse `-y`, entao a pasta precisa ser dita aqui,
+ * senao toda instanciacao do processador aparece sublinhada. A cadeia de
+ * compilacao e baixada, e nao instalada junto: se a pasta nao existe, nao ha o
+ * que indexar e seguimos sem ela.
+ */
+function libraryDirs(/** @type {string} */ projectDir) {
+  try {
+    if (!fs.existsSync(HDL_LIB_DIR)) return [];
+  } catch { return []; }
+  if (projectDir && dentroDe(HDL_LIB_DIR, projectDir)) return [];
+  return [HDL_LIB_DIR];
+}
+
+/** Tudo que o indice precisa ver alem da raiz: a biblioteca e o que o .spf importa de fora. */
+function indexExtraDirs(/** @type {string} */ projectDir) {
+  const dirs = new Map();
+  for (const dir of [...libraryDirs(projectDir), ...extraSourceDirs(projectDir)]) {
+    if (!dirs.has(chave(dir))) dirs.set(chave(dir), dir);
+  }
+  return [...dirs.values()];
 }
 
 /** Onde o slang procura a config local do workspace, e a nossa marca de posse. */
@@ -299,7 +336,7 @@ function flushFileChanges() {
   const spf = state.currentOpenProjectPath;
   if (spf && lote.some(([p]) => chave(p) === chave(spf))) {
     const dir = projectDirNow();
-    const assinatura = dir ? extraSourceDirs(dir).join('|') : '';
+    const assinatura = dir ? indexExtraDirs(dir).join('|') : '';
     if (assinatura !== extraDirsSignature) {
       log.info('[slang-ls] pastas de fonte mudaram no .spf, reiniciando o indice');
       restart();
@@ -457,7 +494,7 @@ function doStart() {
     const rootUri = dir ? pathToFileURL(dir).toString() : null;
 
     // Antes de subir: a config do indice so e lida no boot do servidor.
-    const extraDirs = dir ? extraSourceDirs(dir) : [];
+    const extraDirs = dir ? indexExtraDirs(dir) : [];
     extraDirsSignature = extraDirs.join('|');
     if (dir) syncSlangConfig(dir, extraDirs);
 
@@ -665,7 +702,8 @@ function register() {
   ipcMain.handle('slang:completion', (_e, { uri, position } = {}) => completion(uri, position));
 }
 
-// extraSourceDirs/syncSlangConfig saem daqui para o teste: sao as duas pecas
-// que decidem o que entra no indice, e errar nelas devolve o `unknown module`
-// sem barulho nenhum.
-module.exports = { register, extraSourceDirs, syncSlangConfig };
+// As pecas que decidem o que entra no indice saem daqui para o teste: errar
+// numa delas devolve o `unknown module` sem barulho nenhum. extraSourceDirs le
+// o .spf, indexExtraDirs junta a biblioteca HDL a essa leitura, e syncSlangConfig
+// escreve o resultado onde o slang le.
+module.exports = { register, extraSourceDirs, indexExtraDirs, syncSlangConfig };

@@ -7,10 +7,16 @@
  * caminho e nao copia o arquivo. O testbench que instancia esse modulo passa a
  * mostrar erro num projeto que compila.
  *
- * Aqui se prova as duas pecas que corrigem isso. `extraSourceDirs` decide quais
- * pastas de fora precisam entrar, lendo o .spf; `syncSlangConfig` escreve (ou
- * apaga) o `.slang/local/server.json` que as declara. A regra que mais importa e
- * a ultima: o arquivo e do slang, e um `server.json` escrito pelo usuario nao
+ * O mesmo vale, e com mais frequencia, para a biblioteca do proprio SAPHO: o
+ * `processor` mora em components/HDL, pasta que nao e copiada para o projeto, e
+ * era ela que fazia o editor sublinhar a instanciacao do processador no top
+ * level de um projeto que compila.
+ *
+ * Aqui se prova as tres pecas que corrigem isso. `extraSourceDirs` decide quais
+ * pastas de fora precisam entrar, lendo o .spf; `indexExtraDirs` junta a
+ * biblioteca a essa leitura; `syncSlangConfig` escreve (ou apaga) o
+ * `.slang/local/server.json` que as declara. A regra que mais importa e a
+ * ultima: o arquivo e do slang, e um `server.json` escrito pelo usuario nao
  * pode ser sobrescrito por nos.
  */
 
@@ -23,7 +29,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const state = require('../../main/state.js');
-const { extraSourceDirs, syncSlangConfig } = require('../../main/lsp/slang_lsp.js');
+const { componentsPath } = require('../../main/paths.js');
+const { extraSourceDirs, indexExtraDirs, syncSlangConfig } = require('../../main/lsp/slang_lsp.js');
+
+/** A biblioteca HDL do SAPHO, que o indice precisa ver em todo projeto. */
+const HDL = path.join(componentsPath, 'HDL');
 
 let raiz;
 let projeto;
@@ -97,6 +107,32 @@ describe('quais pastas o indice precisa alem da raiz', () => {
 
     state.currentOpenProjectPath = path.join(projeto, 'nao-existe.spf');
     expect(extraSourceDirs(projeto)).toEqual([]);
+  });
+});
+
+describe('a biblioteca HDL do SAPHO', () => {
+  it('entra no indice mesmo quando o projeto nao importa nada de fora', () => {
+    escreverSpf({
+      synthesizableFiles: [{ path: 'mediamovel.v' }],
+      testbenchFiles: [{ path: 'mediamovel_tb.v' }],
+    });
+    // Sem ela, instanciar `processor` no top level vira `unknown module`.
+    expect(indexExtraDirs(projeto)).toEqual([HDL]);
+  });
+
+  it('vem junto com as pastas que o .spf importa de fora', () => {
+    const fora = path.join(raiz, 'biblioteca');
+    escreverSpf({
+      synthesizableFiles: [{ path: path.join(fora, 'fifo.v') }],
+    });
+    expect(indexExtraDirs(projeto)).toEqual([HDL, fora]);
+  });
+
+  it('nao aparece duas vezes quando o .spf ja importa um .v de dentro dela', () => {
+    escreverSpf({
+      synthesizableFiles: [{ path: path.join(HDL, 'myFIFO.v') }],
+    });
+    expect(indexExtraDirs(projeto)).toEqual([HDL]);
   });
 });
 

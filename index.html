@@ -667,6 +667,15 @@
             <span class="status-forge"><i class="ph ph-github-logo"></i></span>
             <span class="status-forge"><i class="ph ph-gitlab-logo-simple"></i></span>
         </div>
+        <!-- Botao fixo de atualizacao. Em repouso e um icone discreto cujo
+             clique verifica na hora; quando o main acha uma versao nova ele
+             acende em roxo claro, chamativo de proposito, e o clique abre a
+             janela de atualizacao. Nada abre sozinho: quem decide quando
+             atualizar e o usuario. Preenchido por js/ui/update_status.js. -->
+        <div class="status-item status-update" id="updateStatusItem" role="button" tabindex="0" data-tooltip="Check for updates now" data-i18n-tooltip="statusBar.updateCheckTooltip">
+            <i class="ph ph-arrows-clockwise"></i>
+            <span id="updateStatusLabel" hidden></span>
+        </div>
     </div>
 </aurora-statusbar>
 
@@ -1848,6 +1857,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <script src="./js/ui/modal_system.js" type="module"></script>
 <script src="./js/processors/processor_config_panel.js" type="module"></script>
 <script src="./js/ui/status_bar.js" type="module"></script>
+<script src="./js/ui/update_status.js" type="module"></script>
 <script src="./js/ui/icon_aurora.js" type="module"></script>
 <script src="./js/ui/command_palette.js" type="module"></script>
 <script src="./js/git/git_panel.js" type="module"></script>

@@ -519,7 +519,11 @@
     "howTestbench": "Clique com o botão direito num arquivo .v ou .py na árvore do projeto e escolha \"Marcar como Testbench\".",
     "noTestbench": "Sem testbench",
     "noTopLevelOrTestbench": "Sem top-level ou testbench ainda",
-    "simulatorEngineTooltip": "Motor de simulação"
+    "simulatorEngineTooltip": "Motor de simulação",
+    "updateCheckTooltip": "Verificar atualizações agora",
+    "updateAvailable": "v{{version}} disponível",
+    "updateReady": "Reiniciar para atualizar",
+    "updateTooltip": "Abrir a janela de atualização"
   },
   "compilation": {
     "type": {
@@ -906,10 +910,10 @@
     }
   },
   "updates": {
-    "upToDateTitle": "Tudo atualizado",
-    "upToDateBody": "O SAPHO foi atualizado para a versão <strong>{{version}}</strong>.",
-    "noUpdateTitle": "O SAPHO está atualizado",
-    "noUpdateBody": "Você está na versão mais recente ({{version}}).",
+    "upToDateTitle": "SAPHO atualizado",
+    "upToDateBody": "Agora rodando a versão {{version}}.",
+    "noUpdateTitle": "Nada novo",
+    "noUpdateBody": "A versão {{version}} é a mais recente.",
     "checkFailedTitle": "Não foi possível verificar atualizações",
     "devDisabledTitle": "Verificação de atualização desligada",
     "devDisabledBody": "Atualizações ficam desligadas rodando a partir do código."

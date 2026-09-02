@@ -519,7 +519,11 @@
     "howTestbench": "Right-click a .v or .py file in the project tree and choose \"Mark as Testbench\".",
     "noTestbench": "No testbench",
     "noTopLevelOrTestbench": "No top-level or testbench yet",
-    "simulatorEngineTooltip": "Simulation engine"
+    "simulatorEngineTooltip": "Simulation engine",
+    "updateCheckTooltip": "Check for updates now",
+    "updateAvailable": "v{{version}} available",
+    "updateReady": "Restart to update",
+    "updateTooltip": "Open the update window"
   },
   "compilation": {
     "type": {
@@ -906,10 +910,10 @@
     }
   },
   "updates": {
-    "upToDateTitle": "You're up to date",
-    "upToDateBody": "SAPHO has been updated to version <strong>{{version}}</strong>.",
-    "noUpdateTitle": "SAPHO is up to date",
-    "noUpdateBody": "You are running the latest version ({{version}}).",
+    "upToDateTitle": "SAPHO updated",
+    "upToDateBody": "Now running version {{version}}.",
+    "noUpdateTitle": "Nothing new",
+    "noUpdateBody": "Version {{version}} is the latest.",
     "checkFailedTitle": "Could not check for updates",
     "devDisabledTitle": "Update checks are off",
     "devDisabledBody": "Updates are disabled when running from source."

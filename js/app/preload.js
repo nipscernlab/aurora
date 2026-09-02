@@ -389,6 +389,19 @@ const updateOperations = {
   // without opening main.log by hand.
   getUpdateDiagnostics: () => ipcRenderer.invoke('updates:diagnostics'),
   openUpdateLog:        () => ipcRenderer.invoke('updates:open-log'),
+
+  // O botao fixo de atualizacao na status bar. 'updates:available' acende o
+  // botao quando o main encontra uma versao nova ou termina de baixa-la;
+  // getUpdateState responde no boot do renderer o que ja esta pendente; e
+  // openUpdateWindow abre a janela de atualizacao, que dali em diante segue
+  // por conta propria.
+  onUpdateAvailable: (cb) => {
+    const h = (_e, payload) => cb(payload);
+    ipcRenderer.on('updates:available', h);
+    return () => ipcRenderer.removeListener('updates:available', h);
+  },
+  getUpdateState:   () => ipcRenderer.invoke('updates:state'),
+  openUpdateWindow: () => ipcRenderer.invoke('updates:open-window'),
 };
 
 /* ============================================================================

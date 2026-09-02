@@ -4,11 +4,13 @@
  * Flow (production only, skipped in dev):
  *   1. ~6 s after the main window appears, silently check GitHub
  *      releases of nipscernlab/sapho.
- *   2. On `update-available`, open the custom update window
- *      (html/update-notification.html) showing the bilingual
- *      changelog and a Download choice, never a native dialog. The same rule
- *      now covers the short notices ("up to date", "check failed"): a modal
- *      dialog freezes the whole interface until someone clicks.
+ *   2. On `update-available`, light the update item in the main window's
+ *      status bar ('updates:available'). Nothing opens by itself: the user
+ *      clicks the item when they want, and that opens the update window
+ *      (html/update-notification.html) with the bilingual changelog and a
+ *      Download choice, never a native dialog. The same rule covers the
+ *      short notices ("up to date", "check failed"): a modal dialog freezes
+ *      the whole interface until someone clicks.
  *   3. The user starts the download; `download-progress` drives a
  *      real progress bar in that same window.
  *   4. On `update-downloaded`, the window switches to the
@@ -323,6 +325,32 @@ function presentUpdateWindow() {
   }
 }
 
+/**
+ * O resumo que acende o botao de atualizacao da status bar.
+ *
+ * A janela de atualizacao nao abre mais sozinha: achar uma versao nova, ou
+ * terminar de baixa-la, avisa a janela principal, o botao fica roxo, e quem
+ * abre a janela e o usuario, pelo clique, na hora que quiser.
+ */
+function resumoParaBotao() {
+  if (!pendingPayload) return { state: 'none', newVersion: '', sizeMB: '' };
+  return {
+    state: pendingPayload.state,
+    newVersion: pendingPayload.newVersion || '',
+    sizeMB: pendingPayload.sizeMB || '',
+  };
+}
+
+function avisarBotaoDeUpdate() {
+  const w = state.mainWindow;
+  if (!w || w.isDestroyed()) return;
+  try {
+    w.webContents.send('updates:available', resumoParaBotao());
+  } catch (e) {
+    log.warn('[updater] nao consegui acender o botao de update:', e);
+  }
+}
+
 /* ============================================================
  *  autoUpdater events
  * ========================================================== */
@@ -372,7 +400,11 @@ function setupAutoUpdaterEvents() {
       sizeMB,
     };
 
-    presentUpdateWindow();
+    // Nada abre sozinho: o botao da status bar acende e espera o clique. Se
+    // a janela de atualizacao ja estiver aberta (verificacao manual com ela
+    // na tela), ela recebe o estado novo direto.
+    avisarBotaoDeUpdate();
+    sendToUpdateWindow('update:state', pendingPayload);
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -414,11 +446,15 @@ function setupAutoUpdaterEvents() {
     // perguntar.
     marcarPendente(info.version);
     log.info(`Update ${info.version} downloaded — ready to install`);
-    sendToUpdateWindow('update:state', {
+    // O payload pendente vira "downloaded": reabrir a janela depois cai
+    // direto no estado de reiniciar, e o botao da status bar troca de texto.
+    pendingPayload = {
       state: 'downloaded',
       currentVersion: app.getVersion(),
       newVersion: info.version,
-    });
+    };
+    sendToUpdateWindow('update:state', pendingPayload);
+    avisarBotaoDeUpdate();
   });
 
   autoUpdater.on('error', (error) => {
@@ -777,6 +813,16 @@ function registerIpc() {
 
   ipcMain.handle('quit-and-install', () => {
     setImmediate(() => autoUpdater.quitAndInstall(false, true));
+    return { ok: true };
+  });
+
+  // O botao fixo da status bar. O estado responde o que ja esta pendente,
+  // o renderer pergunta no boot para um reload nao apagar o botao, e o open
+  // abre a janela de atualizacao com esse pendente.
+  ipcMain.handle('updates:state', () => resumoParaBotao());
+  ipcMain.handle('updates:open-window', () => {
+    if (!pendingPayload) return { ok: false };
+    presentUpdateWindow();
     return { ok: true };
   });
 

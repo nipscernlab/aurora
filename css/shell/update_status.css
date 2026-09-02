@@ -1,0 +1,44 @@
+/*
+ * =====================================================================================
+ *  update_status.css , o botao fixo de atualizacao na status bar
+ *  Base de .status-bar / .status-item em layout.css; quem dirige as classes
+ *  e js/ui/update_status.js.
+ * =====================================================================================
+ */
+
+.status-update { cursor: pointer; }
+.status-update:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* Verificacao manual em andamento: o icone gira ate o main responder. */
+.status-update.checking i { animation: updateSpin 1.4s linear infinite; }
+
+/* Update encontrado. O roxo claro e deliberado: este e o unico item da
+   status bar com cor propria permanente, para incomodar ate ser clicado.
+   O pulso e lento, presenca e nao pisca-pisca. */
+.status-update.has-update {
+  color: var(--aurora-purple);
+  background-color: rgba(185, 138, 224, 0.10);
+  font-weight: var(--font-medium);
+  animation: updateBreathe 2.8s ease-in-out infinite;
+}
+
+.status-update.has-update i { color: var(--aurora-purple); }
+
+.status-update.has-update:hover {
+  color: var(--aurora-purple);
+  background-color: rgba(185, 138, 224, 0.20);
+}
+
+@keyframes updateSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes updateBreathe {
+  0%, 100% { box-shadow: inset 0 -2px 0 rgba(185, 138, 224, 0.85); }
+  50%      { box-shadow: inset 0 -2px 0 rgba(185, 138, 224, 0.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-update.has-update { animation: none; box-shadow: inset 0 -2px 0 rgba(185, 138, 224, 0.85); }
+}

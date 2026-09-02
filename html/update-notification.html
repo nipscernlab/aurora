@@ -9,23 +9,16 @@
   <link rel="stylesheet" href="../css/base/brand_tokens.css">
   <style>
     :root {
-      /* Surfaces, text, accents and the error colour all come from
-         brand_tokens.css. This window used to carry its own night sky, a
-         shade lighter than the app's, plus its own text ramp and its own
-         pink for failure — three private palettes in a window whose whole job
-         is to look like the application that opened it. The names below are
-         local aliases so the rules keep reading the way they did. */
+      /* Superficies, texto e acentos vem de brand_tokens.css; os nomes abaixo
+         sao apelidos locais para as regras ficarem legiveis. */
       --bg-0:      var(--bg);
       --bg-1:      var(--bg-elev);
       --bg-2:      var(--bg-elev-2);
       --bg-3:      var(--bg-elev-3);
       --text-soft: var(--text-secondary);
       --text-dim:  var(--text-muted);
-      --green:     var(--aurora-mint);
       --teal:      var(--aurora-teal);
       --cyan:      var(--aurora-cyan);
-      --violet:    var(--aurora-violet);
-      --purple:    var(--aurora-purple);
       --danger:    var(--status-error);
       --border:    rgba(142,131,232,0.16);
       --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
@@ -41,26 +34,32 @@
       user-select: none; -webkit-user-select: none;
     }
 
-    /* ====== Card ====== */
-    /* A caixa ABRACA o conteudo; a janela e que se ajusta a ela (o script no
-       fim do arquivo mede e pede o redimensionamento ao main).
-       Antes era `position: fixed; inset: 0` numa janela de altura fixa, entao
-       os tres estados dividiam a mesma caixa alta: o de download, que tem tres
-       linhas, ficava com metade da janela vazia embaixo. */
+    /* ====== Caixa ======
+       A caixa abraca o conteudo; a janela e que se ajusta a ela (o script no
+       fim do arquivo mede e pede o redimensionamento ao main). */
     .window {
       position: relative;
       display: flex; flex-direction: column;
-      border-radius: 16px; overflow: hidden;
-      background:
-        radial-gradient(ellipse 90% 50% at 50% 0%, #15233D 0%, transparent 60%),
-        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+      border-radius: 14px; overflow: hidden;
+      background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
       box-shadow:
         0 36px 80px rgba(0,0,0,0.7),
         inset 0 0 0 1px var(--border),
         inset 0 1px 0 rgba(255,255,255,0.05);
-      animation: pop 320ms cubic-bezier(0.34,1.4,0.64,1) both;
     }
     .window.shake { animation: shake 360ms ease; }
+
+    /* O ceu da splash, o mesmo catalogo e o mesmo modulo. Fica atras de tudo
+       e rareia para baixo, onde mora o texto; o degrade da caixa continua
+       sendo o fundo de verdade, o canvas so poe as estrelas nele. */
+    #stars {
+      position: absolute; inset: 0; z-index: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 22%, rgba(0,0,0,0.35) 45%, transparent 66%);
+      mask-image: linear-gradient(180deg, #000 0%, #000 22%, rgba(0,0,0,0.35) 45%, transparent 66%);
+    }
+    .topbar, .body { position: relative; z-index: 1; }
 
     /* ====== Topbar ====== */
     .topbar {
@@ -71,84 +70,61 @@
     }
     .topbar .brand {
       display: flex; align-items: center; gap: 9px;
-      font-weight: 700; font-size: 13px; letter-spacing: 0.10em;
+      font-weight: 600; font-size: 12.5px; letter-spacing: 0.08em;
+      color: var(--text-soft);
     }
-    .topbar .brand img { width: 22px; height: 22px; }
-    .topbar .brand .amp { color: var(--text-dim); font-weight: 500; }
-    .topbar .brand .aurora { color: var(--text-soft); font-weight: 600; }
+    .topbar .brand img { width: 20px; height: 20px; }
     .topbar .spacer { flex: 1; }
 
-    /* segmented EN/PT */
-    .lang {
-      -webkit-app-region: no-drag;
-      display: inline-flex; padding: 2px;
-      background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: 8px;
-    }
+    /* EN/PT sem moldura: dois rotulos, o ativo aceso. */
+    .lang { -webkit-app-region: no-drag; display: inline-flex; gap: 2px; }
     .lang button {
       font-family: var(--font-sans);
-      font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
-      padding: 4px 9px; border: 0; border-radius: 6px;
+      font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em;
+      padding: 4px 7px; border: 0; border-radius: 6px;
       background: transparent; color: var(--text-dim);
-      cursor: pointer; transition: all 160ms ease;
+      cursor: pointer; transition: color 160ms ease, background 160ms ease;
     }
-    .lang button.active {
-      background: linear-gradient(135deg, var(--teal), var(--cyan));
-      color: #04121C;
-    }
+    .lang button:hover { color: var(--text-soft); }
+    .lang button.active { color: var(--text); background: rgba(255,255,255,0.07); }
+
     .close {
       -webkit-app-region: no-drag;
       width: 26px; height: 26px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: 7px; color: var(--text-soft);
+      background: transparent; border: 0; border-radius: 7px;
+      color: var(--text-dim);
       cursor: pointer; transition: all 160ms ease;
     }
-    .close:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
+    .close:hover { background: rgba(255,255,255,0.08); color: var(--text); }
     .close.locked { opacity: 0.35; pointer-events: none; }
     .close svg { width: 13px; height: 13px; }
 
-    /* ====== Body ====== */
+    /* ====== Corpo ====== */
     .body {
       display: flex; flex-direction: column;
-      padding: 8px 22px 22px;
+      padding: 18px 24px 22px;
     }
-    /* Sem `flex: 1`: esticar o estado para preencher a caixa e o que produzia o
-       vazio. Cada estado ocupa o que precisa. */
     .state { display: none; flex-direction: column; }
-    .state.active { display: flex; animation: fade 280ms ease both; }
+    .state.active { display: flex; animation: fade 240ms ease both; }
 
-    /* ---- cabecalho do estado ----
-       Sem o icone de 72px que ficava aqui: a barra de titulo, dois centimetros
-       acima, ja traz a mesma marca. Repetir logotipo em cada estado empurra o
-       conteudo para baixo e faz a janela parecer um anuncio do proprio
-       aplicativo, quando o que interessa e o que mudou e o botao. */
-    .hero { text-align: center; flex-shrink: 0; padding: 2px 0 12px; }
-    .hero h1 {
-      font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+    /* Cabecalho de estado: titulo a esquerda e a linha de versao em mono
+       logo abaixo, sem badge, sem seta colorida, sem gradiente no numero. */
+    .head { flex-shrink: 0; padding-bottom: 14px; }
+    .head h1 {
+      font-size: 16px; font-weight: 650; letter-spacing: -0.01em;
     }
-
-    .vbadge {
-      display: inline-flex; align-items: center; gap: 9px;
-      margin-top: 12px; padding: 6px 14px;
-      background: var(--bg-2); border: 1px solid var(--border);
-      border-radius: 999px;
-      font-family: var(--font-mono); font-size: 12px;
+    .head .vline {
+      margin-top: 6px;
+      font-family: var(--font-mono); font-size: 11.5px;
+      color: var(--text-dim);
     }
-    .vbadge .from { color: var(--text-dim); }
-    .vbadge .arrow { color: var(--teal); }
-    .vbadge .to {
-      font-weight: 600;
-      background: linear-gradient(90deg, var(--green), var(--cyan));
-      -webkit-background-clip: text; background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-    .vbadge .size { color: var(--text-dim); font-size: 10.5px; }
+    .head .vline .to { color: var(--text-soft); }
 
     /* ---- changelog ---- */
     .changelog-label {
       display: flex; align-items: center; gap: 7px;
-      font-size: 10.5px; font-weight: 700; letter-spacing: 0.14em;
+      font-size: 10.5px; font-weight: 600; letter-spacing: 0.10em;
       text-transform: uppercase; color: var(--text-dim);
       margin-bottom: 8px; flex-shrink: 0;
     }
@@ -156,21 +132,18 @@
       content: ''; flex: 1; height: 1px; background: var(--border);
     }
     .changelog {
-      /* Teto, e nao `flex: 1`: o changelog e a unica parte que pode crescer
-         sem limite, entao ele rola a partir daqui em vez de esticar a janela. */
+      /* Teto, e nao flex: o changelog e a unica parte que pode crescer sem
+         limite, entao ele rola a partir daqui em vez de esticar a janela. */
       max-height: 300px; overflow-y: auto;
-      padding: 14px 16px;
-      background: var(--bg-1); border: 1px solid var(--border);
-      border-radius: 12px;
+      padding: 2px 2px 2px 0;
       font-size: 12.5px; line-height: 1.62; color: var(--text-soft);
     }
     .changelog::-webkit-scrollbar { width: 8px; }
     .changelog::-webkit-scrollbar-thumb {
       background: var(--bg-3); border-radius: 4px;
-      border: 2px solid var(--bg-1);
     }
     .changelog h2 {
-      font-size: 13px; font-weight: 700; color: var(--text);
+      font-size: 12.5px; font-weight: 650; color: var(--text);
       margin: 14px 0 6px;
     }
     .changelog h2:first-child { margin-top: 0; }
@@ -179,11 +152,11 @@
       margin: 12px 0 5px;
     }
     .changelog ul { list-style: none; margin: 6px 0; }
-    .changelog li { position: relative; padding-left: 16px; margin: 4px 0; }
+    .changelog li { position: relative; padding-left: 14px; margin: 4px 0; }
     .changelog li::before {
-      content: ''; position: absolute; left: 2px; top: 8px;
-      width: 5px; height: 5px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--green), var(--cyan));
+      content: ''; position: absolute; left: 1px; top: 8px;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--text-dim);
     }
     .changelog p { margin: 6px 0; }
     .changelog strong { color: var(--text); font-weight: 600; }
@@ -195,97 +168,70 @@
     .changelog a { color: var(--cyan); text-decoration: none; }
     .changelog hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
 
-    /* ---- actions ---- */
+    /* Falha de verificacao ou de download, depois de esgotadas as
+       tentativas. Uma linha de texto, sem caixa vermelha. */
+    .notice {
+      margin-bottom: 12px;
+      font-size: 12px; line-height: 1.5; color: var(--danger);
+    }
+    .notice[hidden] { display: none; }
+
+    /* ---- acoes ---- */
     .actions {
       display: flex; gap: 10px; margin-top: 16px; flex-shrink: 0;
+      justify-content: flex-end;
     }
     .btn {
       -webkit-app-region: no-drag;
-      flex: 1; padding: 12px 16px;
-      font-family: var(--font-sans); font-size: 13px; font-weight: 600;
-      border: 1px solid var(--border); border-radius: 10px;
+      padding: 9px 18px;
+      font-family: var(--font-sans); font-size: 12.5px; font-weight: 600;
+      border: 1px solid transparent; border-radius: 9px;
       cursor: pointer; transition: all 160ms ease;
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
     }
-    .btn svg { width: 15px; height: 15px; }
-    .btn.ghost { background: var(--bg-2); color: var(--text-soft); }
-    .btn.ghost:hover { background: var(--bg-3); color: var(--text); }
-    /* Uma cor, nao tres. O gradiente de menta a azul com brilho por baixo
-       chamava mais atencao que o changelog, e a decisao aqui e ler e clicar,
-       nao admirar o botao. */
-    .btn.primary {
-      flex: 1.6;
-      background: var(--teal);
-      color: var(--bg); border-color: transparent;
-    }
+    .btn.ghost { background: transparent; border-color: var(--border); color: var(--text-soft); }
+    .btn.ghost:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+    .btn.primary { background: var(--teal); color: var(--bg); }
     .btn.primary:hover { filter: brightness(1.08); }
-    .btn.primary:active { transform: translateY(0); }
 
-    /* ---- downloading ---- */
-    .dl { flex: 1; display: flex; flex-direction: column; justify-content: center; }
-    /* O numero era 52px em gradiente de tres cores, e o que ele informava cabe
-       ao lado da barra: a barra ja mostra a proporcao, que e a pergunta real de
-       quem espera. */
-    .dl .dl-head {
-      display: flex; align-items: baseline; justify-content: space-between;
-      margin-bottom: 8px;
-    }
-    .dl .pct {
-      font-family: var(--font-mono); font-size: 15px; font-weight: 600;
-      color: var(--text); font-variant-numeric: tabular-nums;
-    }
-    .dl .dl-sub { font-size: 12px; color: var(--text-soft); }
+    /* ---- download ---- */
+    .dl { display: flex; flex-direction: column; }
     .track {
-      height: 6px;
-      background: var(--bg-2);
+      height: 3px; margin-top: 4px;
+      background: var(--bg-3);
       border-radius: 999px;
       overflow: hidden;
-      border: 1px solid var(--border);
     }
     .fill {
-      height: 100%;
-      width: 0%;
+      height: 100%; width: 0%;
       border-radius: 999px;
-      background: linear-gradient(90deg, var(--green), var(--cyan));
+      background: var(--teal);
       transition: width 320ms cubic-bezier(0.4, 0, 0.2, 1);
     }
-    /* Eram tres cartoes com moldura e rotulo em versalete para tres numeros
-       curtos. Viraram uma linha: mesma informacao, sem tres caixas para o olho
-       percorrer. */
-    .stats {
-      display: flex; gap: 8px; margin-top: 10px;
+    /* Uma linha de leitura, nao tres cartoes: proporcao, ritmo e estimativa. */
+    .dl-line {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-top: 9px;
       font-family: var(--font-mono); font-size: 11.5px;
       color: var(--text-soft); font-variant-numeric: tabular-nums;
     }
-    .stats .sep { color: var(--text-dim); }
-    /* Auto-retry notice — only visible while a dropped download is being
-       resumed, so it reads as a transient state rather than a failure. */
+    .dl-line .pct { color: var(--text); font-weight: 600; font-size: 13px; }
+    /* Aviso de reconexao, visivel so enquanto o main tenta de novo sozinho.
+       Sem ele a barra congela sem explicacao. */
     .retry-note {
-      margin-top: 14px; padding: 9px 12px; border-radius: 9px;
-      background: var(--bg-1); border: 1px solid var(--border);
-      font-size: 11.5px; color: var(--text-soft); text-align: center;
+      margin-top: 12px;
+      font-size: 11.5px; color: var(--text-soft);
       font-variant-numeric: tabular-nums;
     }
     .retry-note[hidden] { display: none; }
 
-    /* ---- done ---- */
-    .done { flex: 1; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 4px; }
-    .check {
-      width: 76px; height: 76px; margin-bottom: 14px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--green), var(--teal));
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 12px 30px rgba(69,224,160,0.35);
-      animation: checkpop 520ms cubic-bezier(0.34,1.56,0.64,1) both;
+    /* ---- pronto ---- */
+    .done p {
+      font-size: 12.5px; line-height: 1.62; color: var(--text-soft);
+      max-width: 400px;
     }
-    .check svg { width: 38px; height: 38px; color: #04121C; }
 
-    @keyframes pop   { from { opacity: 0; transform: scale(0.95) translateY(-12px); }
-                       to   { opacity: 1; transform: scale(1) translateY(0); } }
     @keyframes fade  { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes checkpop { from { opacity: 0; transform: scale(0); }
-                          to   { opacity: 1; transform: scale(1); } }
     @keyframes shake {
       0%,100% { transform: translateX(0); }
       20%,60% { transform: translateX(-7px); }
@@ -295,102 +241,87 @@
 </head>
 <body>
   <div class="window" id="window">
+    <canvas id="stars"></canvas>
 
     <!-- ====== Topbar ====== -->
     <div class="topbar">
       <div class="brand">
         <img src="../assets/icons/sapho_aurora_icon.svg" alt="">
         <span>SAPHO</span>
-        <span class="amp">&amp;</span>
-        <span class="aurora">AURORA</span>
       </div>
       <div class="spacer"></div>
       <div class="lang">
         <button id="lang-en" data-lang="en">EN</button>
         <button id="lang-pt" data-lang="pt">PT</button>
       </div>
-      <div class="close" id="close" title="Later">
+      <button class="close" id="close" title="Later">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
              stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </div>
+      </button>
     </div>
 
     <div class="body">
 
-      <!-- ============ STATE: AVAILABLE ============ -->
+      <!-- ============ ESTADO: DISPONIVEL ============ -->
       <div class="state active" id="state-available">
-        <div class="hero">
-          <h1 id="t-av-title">A new version is available</h1>
-          <div class="vbadge">
-            <span class="from" id="v-from">v0.0.0</span>
-            <span class="arrow">→</span>
+        <div class="head">
+          <h1 id="t-av-title">A new version is ready</h1>
+          <div class="vline">
+            <span id="v-from">v0.0.0</span>
+            <span>&rarr;</span>
             <span class="to" id="v-to">v0.0.0</span>
-            <span class="size" id="v-size"></span>
+            <span id="v-size"></span>
           </div>
         </div>
 
-        <div class="changelog-label" id="t-whatsnew">What's new</div>
+        <p class="notice" id="err-note" hidden></p>
+
+        <div class="changelog-label" id="t-whatsnew">What changed</div>
         <div class="changelog" id="changelog"></div>
 
         <div class="actions">
           <button class="btn ghost" id="btn-later">
-            <span id="t-later">Later</span>
+            <span id="t-later">Not now</span>
           </button>
           <button class="btn primary" id="btn-download">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
-            <span id="t-download">Download &amp; Install</span>
+            <span id="t-download">Download</span>
           </button>
         </div>
       </div>
 
-      <!-- ============ STATE: DOWNLOADING ============ -->
+      <!-- ============ ESTADO: BAIXANDO ============ -->
       <div class="state" id="state-downloading">
-        <div class="hero" style="padding-bottom:6px">
-          <h1 id="t-dl-title">Downloading update</h1>
-          <p id="t-dl-sub" style="font-size:12px;color:var(--text-soft)">Please keep this window open</p>
+        <div class="head">
+          <h1 id="t-dl-title">Downloading</h1>
+          <div class="vline"><span class="to" id="dl-version">v0.0.0</span></div>
         </div>
         <div class="dl">
-          <div class="dl-head">
-            <span class="dl-sub" id="dl-version">v0.0.0</span>
+          <div class="track"><div class="fill" id="dl-fill"></div></div>
+          <div class="dl-line">
+            <span id="dl-transferred">0 / 0 MB</span>
+            <span id="dl-speed"></span>
+            <span id="dl-eta"></span>
             <span class="pct" id="dl-pct">0%</span>
           </div>
-          <div class="track"><div class="fill" id="dl-fill"></div></div>
-          <div class="stats">
-            <span id="dl-transferred">0 / 0 MB</span>
-            <span class="sep">|</span>
-            <span id="dl-speed">0 MB/s</span>
-            <span class="sep">|</span>
-            <span id="dl-eta">-</span>
-          </div>
-          <!-- Auto-retry notice. Hidden until a download actually drops; the
-               progress bar would otherwise just freeze with no explanation. -->
           <div class="retry-note" id="dl-retry" hidden></div>
         </div>
       </div>
 
-      <!-- ============ STATE: DOWNLOADED ============ -->
+      <!-- ============ ESTADO: PRONTO ============ -->
       <div class="state" id="state-done">
+        <div class="head">
+          <h1 id="t-dn-title">Downloaded</h1>
+          <div class="vline"><span class="to" id="dn-version">v0.0.0</span></div>
+        </div>
         <div class="done">
-          <div class="check">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"
-                 stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-          </div>
-          <h1 id="t-dn-title" style="font-size:19px;font-weight:800">Update ready to install</h1>
-          <p id="t-dn-sub" style="font-size:12.5px;color:var(--text-soft);text-align:center;max-width:340px">
-            SAPHO will restart and reopen on the new version.
-          </p>
+          <p id="t-dn-sub">Restart now to open on the new version, or keep working: it installs by itself the next time SAPHO opens.</p>
         </div>
         <div class="actions">
           <button class="btn ghost" id="btn-later2">
-            <span id="t-later2">Install later</span>
+            <span id="t-later2">Keep working</span>
           </button>
           <button class="btn primary" id="btn-install">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-                 stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 12a9 9 0 1 0 3-6.7M3 4v4h4"/></svg>
-            <span id="t-install">Restart &amp; Install</span>
+            <span id="t-install">Restart now</span>
           </button>
         </div>
       </div>
@@ -404,32 +335,34 @@
     // ============================================================
     const UI = {
       en: {
-        avTitle: 'A new version is available',
-        whatsNew: "What's new",
-        later: 'Later', download: 'Download & Install',
-        dlTitle: 'Downloading update', dlSub: 'Please keep this window open',
-        dnTitle: 'Update ready to install',
-        dnSub: 'SAPHO will restart and reopen on the new version.',
-        later2: 'Install later', install: 'Restart & Install',
-        calc: 'Calculating…', noNotes: 'No release notes provided for this version.',
+        avTitle: (v) => `Version ${v} is ready`,
+        whatsNew: 'What changed',
+        later: 'Not now', download: 'Download',
+        dlTitle: 'Downloading',
+        dnTitle: 'Downloaded',
+        dnSub: 'Restart now to open on the new version, or keep working: it installs by itself the next time SAPHO opens.',
+        later2: 'Keep working', install: 'Restart now',
+        calc: 'estimating', noNotes: 'No release notes for this version.',
+        eta: (t) => `${t} left`,
         secs: (s) => `${s}s`, mins: (m) => `${m} min`,
         retrying: (a, of, s) =>
-          `Connection lost — retrying in ${s}s (attempt ${a} of ${of})`,
-        resuming: 'Reconnecting…',
+          `The connection dropped. Trying again in ${s}s, attempt ${a} of ${of}.`,
+        resuming: 'Reconnecting',
       },
       pt: {
-        avTitle: 'Uma nova versão está disponível',
-        whatsNew: 'Novidades',
-        later: 'Depois', download: 'Baixar e Instalar',
-        dlTitle: 'Baixando atualização', dlSub: 'Mantenha esta janela aberta',
-        dnTitle: 'Atualização pronta para instalar',
-        dnSub: 'O SAPHO será reiniciado e reaberto na nova versão.',
-        later2: 'Instalar depois', install: 'Reiniciar e Instalar',
-        calc: 'Calculando…', noNotes: 'Nenhuma nota de versão informada para esta versão.',
+        avTitle: (v) => `A versão ${v} está pronta`,
+        whatsNew: 'O que mudou',
+        later: 'Agora não', download: 'Baixar',
+        dlTitle: 'Baixando',
+        dnTitle: 'Baixada',
+        dnSub: 'Reinicie agora para abrir na versão nova, ou continue trabalhando: ela se instala sozinha na próxima vez que o SAPHO abrir.',
+        later2: 'Continuar trabalhando', install: 'Reiniciar agora',
+        calc: 'estimando', noNotes: 'Sem notas de versão para esta versão.',
+        eta: (t) => `falta ${t}`,
         secs: (s) => `${s}s`, mins: (m) => `${m} min`,
         retrying: (a, of, s) =>
-          `Conexão caiu — nova tentativa em ${s}s (tentativa ${a} de ${of})`,
-        resuming: 'Reconectando…',
+          `A conexão caiu. Tentando de novo em ${s}s, tentativa ${a} de ${of}.`,
+        resuming: 'Reconectando',
       },
     };
 
@@ -614,16 +547,15 @@
     function applyLocale() {
       const T = UI[locale];
       document.documentElement.lang = locale;
-      $('t-av-title').textContent     = T.avTitle;
+      $('t-av-title').textContent = T.avTitle(payload ? 'v' + payload.newVersion : '');
       $('t-whatsnew').firstChild.textContent = T.whatsNew + ' ';
-      $('t-later').textContent        = T.later;
-      $('t-download').textContent     = T.download;
-      $('t-dl-title').textContent     = T.dlTitle;
-      $('t-dl-sub').textContent       = T.dlSub;
-      $('t-dn-title').textContent     = T.dnTitle;
-      $('t-dn-sub').textContent       = T.dnSub;
-      $('t-later2').textContent       = T.later2;
-      $('t-install').textContent      = T.install;
+      $('t-later').textContent    = T.later;
+      $('t-download').textContent = T.download;
+      $('t-dl-title').textContent = T.dlTitle;
+      $('t-dn-title').textContent = T.dnTitle;
+      $('t-dn-sub').textContent   = T.dnSub;
+      $('t-later2').textContent   = T.later2;
+      $('t-install').textContent  = T.install;
       $('lang-en').classList.toggle('active', locale === 'en');
       $('lang-pt').classList.toggle('active', locale === 'pt');
       renderChangelog();
@@ -670,13 +602,13 @@
     function fmtEta(sec) {
       const T = UI[locale];
       if (sec == null || !isFinite(sec) || sec <= 0) return T.calc;
-      if (sec < 60) return T.secs(Math.ceil(sec));
-      return T.mins(Math.ceil(sec / 60));
+      if (sec < 60) return T.eta(T.secs(Math.ceil(sec)));
+      return T.eta(T.mins(Math.ceil(sec / 60)));
     }
 
-    // ---- retry notice -------------------------------------------------
-    // Main retries a dropped download on its own; without this the window
-    // would sit on a motionless progress bar and look hung.
+    // ---- aviso de reconexao --------------------------------------------
+    // O main tenta de novo sozinho quando o download cai; sem isto a janela
+    // ficaria numa barra imovel, parecendo travada.
     let retryTimer = null;
 
     function clearRetryNotice() {
@@ -703,9 +635,10 @@
         if (left <= 0) { clearInterval(retryTimer); retryTimer = null; }
         paint();
       }, 1000);
-      // The speed/ETA readings are stale the moment the transfer stops.
-      $('dl-speed').textContent = '—';
-      $('dl-eta').textContent   = '—';
+      // Velocidade e estimativa ficam velhas no instante em que a
+      // transferencia para.
+      $('dl-speed').textContent = '';
+      $('dl-eta').textContent   = '';
     }
 
     // ============================================================
@@ -719,8 +652,10 @@
           $('v-to').textContent   = 'v' + data.newVersion;
           $('v-size').textContent = data.sizeMB ? `· ${data.sizeMB} MB` : '';
           $('dl-version').textContent = 'v' + data.newVersion;
+          $('dn-version').textContent = 'v' + data.newVersion;
           showState('available');
         } else if (data.state === 'downloaded') {
+          $('dn-version').textContent = 'v' + data.newVersion;
           showState('done');
         }
         applyLocale();
@@ -728,7 +663,7 @@
 
       window.updateAPI.onProgress((p) => {
         showState('downloading');
-        // Bytes are flowing again — clear any retry countdown still on screen.
+        // Bytes correndo de novo: some o aviso de reconexao que sobrou.
         clearRetryNotice();
         $('dl-pct').textContent  = Math.round(p.percent) + '%';
         $('dl-fill').style.width = p.percent + '%';
@@ -737,8 +672,8 @@
         $('dl-eta').textContent   = fmtEta(p.etaSec);
       });
 
-      // The download dropped and main is about to retry. Count down so the
-      // frozen progress bar reads as "recovering", not "hung".
+      // O download caiu e o main vai tentar de novo. A contagem faz a barra
+      // parada ler como recuperacao, e nao como travamento.
       window.updateAPI.onRetrying((r) => {
         showState('downloading');
         startRetryCountdown(r.attempt, r.ofAttempts, r.inSeconds);
@@ -746,8 +681,9 @@
 
       window.updateAPI.onError((e) => {
         clearRetryNotice();
-        $('changelog').innerHTML =
-          `<p style="color:var(--danger)"><strong>${e.message || 'Update error'}</strong></p>`;
+        const nota = $('err-note');
+        nota.textContent = e.message || 'Update error';
+        nota.hidden = false;
         showState('available');
       });
 
@@ -768,13 +704,26 @@
       try { localStorage.setItem('aurora-locale', locale); } catch (_) {}
     }
 
-    $('btn-download').onclick = () => { window.updateAPI?.download(); showState('downloading'); };
+    $('btn-download').onclick = () => {
+      $('err-note').hidden = true;
+      window.updateAPI?.download();
+      showState('downloading');
+    };
     $('btn-install').onclick  = () => window.updateAPI?.install();
     $('btn-later').onclick    = () => window.updateAPI?.dismiss();
     $('btn-later2').onclick   = () => window.updateAPI?.dismiss();
     $('close').onclick        = () => window.updateAPI?.dismiss();
 
     applyLocale();
+  </script>
+
+  <!-- O ceu, do catalogo HYG, o mesmo modulo da splash. O catalogo entra
+       embutido no bundle porque esta janela tambem abre por file://, onde
+       fetch de caminho nao passa; js/ui/sky.js conta o resto. -->
+  <script type="module">
+    import { sky } from '../js/ui/sky.js';
+    const ceu = document.getElementById('stars');
+    if (ceu) sky(ceu);
   </script>
 </body>
 </html>

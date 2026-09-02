@@ -246,7 +246,14 @@ function fileRow(f) {
 function renderChanges(st) {
   const wrap = $('git-changes');
   if (!wrap) return;
-  lastFileIndex = -1; // list re-rendered → drop the range anchor
+  // A selecao e a ancora sobrevivem ao redesenho, guardadas por CAMINHO. Esta
+  // lista e refeita a cada mudanca no disco (o observador dispara ao gravar
+  // qualquer coisa em .aurora/, o que acontece a todo momento), e antes cada
+  // redesenho apagava o que a pessoa tinha juntado com ctrl e shift: ela
+  // marcava cinco, clicava com o botao direito e o menu oferecia um.
+  const marcadosAntes = new Set(selectedFiles());
+  const ancoraAntes = changeRows()[lastFileIndex]?.dataset.file;
+  lastFileIndex = -1;
   const files = st.files || [];
   const count = $('git-tab-count');
   if (count) { count.textContent = String(files.length); count.hidden = !files.length; }
@@ -261,9 +268,14 @@ function renderChanges(st) {
     <div class="git-section-head git-changes-head">
       <button class="git-file-check master ${allStaged ? 'on' : (stagedCount ? 'partial' : '')}" data-action="${allStaged ? 'unstage-all' : 'stage-all'}" title="${allStaged ? esc(tt('git.unstageAll', 'Unstage all')) : esc(tt('git.stageAll', 'Stage all'))}"><i class="ph ${masterIcon}"></i></button>
       <span>${esc(tt('git.changes', 'Changes'))} · ${files.length}</span>
+      <span class="git-changes-sel" hidden></span>
       <span class="git-changes-staged">${stagedCount}/${files.length} ${esc(tt('git.stagedWord', 'staged'))}</span>
     </div>
     <ul class="git-file-list">${files.map(fileRow).join('')}</ul>`;
+  const rows = changeRows();
+  rows.forEach((r) => r.classList.toggle('selected', marcadosAntes.has(r.dataset.file)));
+  lastFileIndex = rows.findIndex((r) => r.dataset.file === ancoraAntes);
+  syncSelectionHint();
 }
 
 // --- changes-list interactions (no full reload) ----------------------------
@@ -275,6 +287,18 @@ function changeRows() { return Array.from(document.querySelectorAll('#git-change
 function selectedFiles() {
   return changeRows().filter((r) => r.classList.contains('selected'))
     .map((r) => r.dataset.file).filter(Boolean);
+}
+// "N selecionados" no cabecalho, so a partir de dois. Um selecionado e o
+// normal de clicar numa linha e nao precisa de aviso; dois ou mais e uma
+// selecao que o botao direito e o descarte vao usar, e sem o numero a pessoa
+// nao tem como saber que ela existe, porque o realce das linhas e discreto e
+// as caixas de stage ao lado parecem ser "a selecao".
+function syncSelectionHint() {
+  const el = document.querySelector('#git-changes .git-changes-sel');
+  if (!el) return;
+  const n = selectedFiles().length;
+  el.hidden = n < 2;
+  el.textContent = n < 2 ? '' : tt('git.selectedCount', '{n} selected', { n });
 }
 // Click a file → show its diff + select it. Shift-click → select the whole range
 // from the anchor (GitHub-Desktop / file-manager style). Ctrl/Cmd-click → add or
@@ -292,7 +316,7 @@ function handleFileClick(li, shift, toggle) {
     lastFileIndex = idx;
     // Desmarcar nao troca o diff aberto: a linha saiu da selecao, nao virou o
     // novo foco, e trocar o painel da direita aqui pareceria clique errado.
-    if (!agoraMarcada) return undefined;
+    if (!agoraMarcada) { syncSelectionHint(); return undefined; }
   } else if (shift && lastFileIndex >= 0 && lastFileIndex < rows.length) {
     const a = Math.min(lastFileIndex, idx); const b = Math.max(lastFileIndex, idx);
     rows.forEach((r, i) => r.classList.toggle('selected', i >= a && i <= b));
@@ -301,6 +325,7 @@ function handleFileClick(li, shift, toggle) {
     li.classList.add('selected');
     lastFileIndex = idx;
   }
+  syncSelectionHint();
   return showDiff(li.dataset.file, li.dataset.staged === 'true');
 }
 // Reflect a staged flag on one row WITHOUT re-rendering the list.

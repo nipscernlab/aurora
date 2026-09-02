@@ -1019,6 +1019,7 @@
     "restore": "Restore",
     "restored": "Changes restored",
     "discard": "Discard",
+    "selectedCount": "{{n}} selected",
     "discardTitle": "Discard changes",
     "discardChanges": "Discard changes",
     "discardChangesN": "Discard changes in {{n}} files",

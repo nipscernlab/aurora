@@ -765,6 +765,10 @@
 .git-changes-head > span { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: var(--tracking-wide, 0.05em); font-weight: var(--font-semibold); color: var(--text-muted); }
 .git-changes-head .git-file-check.master { margin-left: -2px; }
 .git-changes-staged { margin-left: auto; font-size: var(--text-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; text-transform: none; letter-spacing: 0; }
+.git-changes-sel { margin-left: auto; margin-right: var(--space-3); font-size: var(--text-2xs); color: var(--accent); font-weight: 600; letter-spacing: var(--tracking-wide, 0.04em); text-transform: uppercase; }
+.git-changes-sel[hidden] { display: none; }
+/* Com o contador visivel, so ELE empurra para a direita; dois `auto` dividiriam a folga e o contador cairia no meio. */
+.git-changes-sel:not([hidden]) + .git-changes-staged { margin-left: 0; }
 .git-file-stats { flex-shrink: 0; display: inline-flex; gap: 6px; font-family: var(--font-mono); font-size: 10px; }
 
 /* empty / clean states */

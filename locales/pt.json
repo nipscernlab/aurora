@@ -1019,6 +1019,7 @@
     "restore": "Restaurar",
     "restored": "Alterações restauradas",
     "discard": "Descartar",
+    "selectedCount": "{{n}} selecionados",
     "discardTitle": "Descartar alterações",
     "discardChanges": "Descartar alterações",
     "discardChangesN": "Descartar alterações de {{n}} arquivos",

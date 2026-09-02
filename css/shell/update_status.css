@@ -2,8 +2,8 @@
  * =====================================================================================
  *  update_status.css , o botao fixo de atualizacao na status bar
  *  Base de .status-bar / .status-item em layout.css; quem dirige as classes
- *  e js/ui/update_status.js, inclusive o painel de hover (.update-panel),
- *  que e criado por ele e ancorado acima do botao.
+ *  e js/ui/update_status.js, inclusive o painel de hover (.update-panel) e o
+ *  ceu de estrelas do botao aceso (.update-stars), criados por ele.
  * =====================================================================================
  */
 
@@ -15,12 +15,16 @@
 
 /* Update encontrado. O roxo claro e deliberado: este e o unico item da
    status bar com cor propria permanente, para incomodar ate ser clicado.
-   O pulso e lento, presenca e nao pisca-pisca. */
+   O movimento fica todo com as estrelas do fundo, que cintilam em senoide
+   lenta; o sublinhado e presenca fixa, e nao pisca-pisca. */
 .status-update.has-update {
   color: var(--aurora-purple);
   background-color: rgba(185, 138, 224, 0.10);
   font-weight: var(--font-medium);
-  animation: updateBreathe 2.8s ease-in-out infinite;
+  box-shadow: inset 0 -2px 0 rgba(185, 138, 224, 0.7);
+  /* Contexto de empilhamento proprio: poe o canvas de estrelas (z -1) acima
+     do fundo do botao e abaixo do icone e do texto. */
+  z-index: 0;
 }
 
 .status-update.has-update i { color: var(--aurora-purple); }
@@ -28,6 +32,14 @@
 .status-update.has-update:hover {
   color: var(--aurora-purple);
   background-color: rgba(185, 138, 224, 0.20);
+}
+
+/* O ceu do botao: canvas atras do conteudo, so enquanto aceso. */
+.update-stars {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* ---- painel de hover ----
@@ -91,13 +103,4 @@
 @keyframes updateSpin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
-}
-
-@keyframes updateBreathe {
-  0%, 100% { box-shadow: inset 0 -2px 0 rgba(185, 138, 224, 0.85); }
-  50%      { box-shadow: inset 0 -2px 0 rgba(185, 138, 224, 0.25); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .status-update.has-update { animation: none; box-shadow: inset 0 -2px 0 rgba(185, 138, 224, 0.85); }
 }

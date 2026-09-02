@@ -17,6 +17,12 @@
  * site do NIPSCERN. O painel substitui o tooltip nesse estado; em repouso o
  * tooltip comum continua valendo.
  *
+ * O fundo do botao aceso ganha um ceu proprio: meia duzia de estrelas
+ * roxas cintilando em senoide lenta, cada uma com fase e periodo seus.
+ * E o unico movimento do botao (o sublinhado e fixo), e o laco de desenho
+ * so roda enquanto ha update, a aba esta visivel e a pessoa nao pediu
+ * reducao de movimento; fora disso o ceu fica parado ou nem existe.
+ *
  * Tres estados, dirigidos pelo main (resumoParaBotao em main/updater.js):
  *   none        icone apagado, tooltip de verificar agora;
  *   available   roxo, "v1.2.3 disponivel", o clique abre a janela;
@@ -31,6 +37,16 @@ import { electronAPI } from '../app/electron_api.js';
 function tr(key, params) { return window.t ? window.t(key, params) : key; }
 
 const SITE_URL = 'https://www.nipscern.com/';
+
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Tons do ceu do botao: o roxo da marca, o violeta primario e um lavanda
+   quase branco para as estrelas mais vivas. */
+const STAR_COLORS = [
+  [185, 138, 224],
+  [142, 131, 232],
+  [230, 217, 245],
+];
 
 // O icone do site, o mesmo icon_home_nipscern.svg do nipscernweb, recolorido
 // para currentColor (assets/icons/nipscern_site.svg guarda a copia). Inline
@@ -50,6 +66,10 @@ class UpdateStatus {
     this.checkTimer = null;
     this.panel = null;
     this.hideTimer = null;
+    this.ceu = null;        // canvas das estrelas, so enquanto aceso
+    this.estrelas = [];
+    this.raf = 0;
+    this.ro = null;         // o rotulo muda de largura; o ceu acompanha
 
     this.item.addEventListener('click', () => this.clique());
     this.item.addEventListener('keydown', (e) => {
@@ -190,9 +210,87 @@ class UpdateStatus {
 
   // ---- pintura ---------------------------------------------------------
 
+  // ---- o ceu do botao --------------------------------------------------
+
+  ligarCeu() {
+    if (this.ceu) return;
+    const c = document.createElement('canvas');
+    c.className = 'update-stars';
+    this.item.insertBefore(c, this.item.firstChild);
+    this.ceu = c;
+    this.semear();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.ro = new ResizeObserver(() => { this.semear(); if (REDUCED) this.desenhar(0); });
+      this.ro.observe(this.item);
+    }
+    if (REDUCED) { this.desenhar(0); return; } // um quadro, parado
+    const passo = (ts) => {
+      if (!this.ceu) return;
+      if (!document.hidden) this.desenhar(ts / 1000);
+      this.raf = requestAnimationFrame(passo);
+    };
+    this.raf = requestAnimationFrame(passo);
+  }
+
+  desligarCeu() {
+    if (this.raf) { cancelAnimationFrame(this.raf); this.raf = 0; }
+    if (this.ro) { this.ro.disconnect(); this.ro = null; }
+    if (this.ceu) { this.ceu.remove(); this.ceu = null; }
+    this.estrelas = [];
+  }
+
+  /** Sorteia o campo para a largura atual do botao. */
+  semear() {
+    if (!this.ceu) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = this.item.clientWidth;
+    const h = this.item.clientHeight;
+    this.ceu.width = Math.max(1, Math.round(w * dpr));
+    this.ceu.height = Math.max(1, Math.round(h * dpr));
+    const n = Math.max(6, Math.round(w / 16));
+    this.estrelas = Array.from({ length: n }, () => ({
+      x: Math.random(),
+      y: 0.12 + Math.random() * 0.76,
+      r: 0.5 + Math.random() * 0.9,
+      // Periodos de 3 a 6 s: cintilo que se percebe, sem estroboscopio.
+      w: (Math.PI * 2) / (3 + Math.random() * 3),
+      ph: Math.random() * Math.PI * 2,
+      base: 0.25 + Math.random() * 0.5,
+      cor: STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)],
+    }));
+  }
+
+  desenhar(t) {
+    const c = this.ceu;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const w = c.width / dpr;
+    const h = c.height / dpr;
+    ctx.clearRect(0, 0, w, h);
+    for (const e of this.estrelas) {
+      // Senoide pura entre 25% e 100% do brilho base: suave nos dois extremos.
+      const nivel = REDUCED ? 0.6 : 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(e.w * t + e.ph));
+      const a = e.base * nivel;
+      const [r, g, b] = e.cor;
+      ctx.beginPath();
+      // O halo e a propria sombra do arco: barato e ja da o brilho macio.
+      ctx.shadowColor = 'rgba(' + r + ',' + g + ',' + b + ',' + (a * 0.8).toFixed(3) + ')';
+      ctx.shadowBlur = e.r * 3;
+      ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + a.toFixed(3) + ')';
+      ctx.arc(e.x * w, e.y * h, e.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  // ---- pintura ---------------------------------------------------------
+
   pintar() {
     const aceso = this.temUpdate();
     this.item.classList.toggle('has-update', aceso);
+    if (aceso) this.ligarCeu(); else this.desligarCeu();
     if (!aceso) this.esconderPainel(true);
 
     if (this.label) {

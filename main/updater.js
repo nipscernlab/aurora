@@ -334,10 +334,15 @@ function presentUpdateWindow() {
  */
 function resumoParaBotao() {
   if (!pendingPayload) return { state: 'none', newVersion: '', sizeMB: '' };
+  const nova = pendingPayload.newVersion || '';
   return {
     state: pendingPayload.state,
-    newVersion: pendingPayload.newVersion || '',
+    newVersion: nova,
+    currentVersion: app.getVersion(),
     sizeMB: pendingPayload.sizeMB || '',
+    // O painel de hover do botao linka a release publicada; a tag segue a
+    // convencao include-v-in-tag do canal de distribuicao.
+    releaseUrl: nova ? `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/tag/v${nova}` : '',
   };
 }
 

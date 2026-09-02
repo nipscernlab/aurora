@@ -523,7 +523,10 @@
     "updateCheckTooltip": "Check for updates now",
     "updateAvailable": "v{{version}} available",
     "updateReady": "Restart to update",
-    "updateTooltip": "Open the update window"
+    "updateTooltip": "Open the update window",
+    "updatePanelChangelog": "What changed",
+    "updatePanelChangelogTip": "Open the release on GitHub",
+    "updatePanelSiteTip": "Open the NIPSCERN website"
   },
   "compilation": {
     "type": {

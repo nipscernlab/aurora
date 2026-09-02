@@ -647,6 +647,7 @@
             <i class="ph ph-x status-icon-error"></i>
             <span data-i18n="statusBar.noTopLevelOrTestbench">No top-level or testbench yet</span>
         </div>
+        <span class="status-sep" aria-hidden="true"></span>
         <div class="status-item" id="editorStatus">
             <i class="ph ph-text-align-left"></i>
             <span>Ln 3, Col 3</span>
@@ -656,9 +657,7 @@
              de vez onde ela nao existe). Preenchido por js/ui/power_status.js;
              o clique abre um dialogo com a explicacao e o caminho para as
              configuracoes de energia do Windows. -->
-        <div class="status-item status-power" id="powerStatusItem" role="button" tabindex="0" hidden data-tooltip="Power">
-            <i class="ph ph-battery-charging"></i>
-        </div>
+        <span class="status-sep" aria-hidden="true"></span>
         <!-- Indicador de controle de versao: uma ficha por forja, sempre as
              duas. Icone apagado quando desconectada, foto e @usuario quando
              conectada. Clicar abre o painel. Preenchido por
@@ -667,11 +666,16 @@
             <span class="status-forge"><i class="ph ph-github-logo"></i></span>
             <span class="status-forge"><i class="ph ph-gitlab-logo-simple"></i></span>
         </div>
+        <span class="status-sep" aria-hidden="true"></span>
+        <div class="status-item status-power" id="powerStatusItem" role="button" tabindex="0" hidden data-tooltip="Power">
+            <i class="ph ph-battery-charging"></i>
+        </div>
         <!-- Botao fixo de atualizacao. Em repouso e um icone discreto cujo
              clique verifica na hora; quando o main acha uma versao nova ele
              acende em roxo claro, chamativo de proposito, e o clique abre a
              janela de atualizacao. Nada abre sozinho: quem decide quando
              atualizar e o usuario. Preenchido por js/ui/update_status.js. -->
+        <span class="status-sep" aria-hidden="true"></span>
         <div class="status-item status-update" id="updateStatusItem" role="button" tabindex="0" data-tooltip="Check for updates now" data-i18n-tooltip="statusBar.updateCheckTooltip">
             <i class="ph ph-arrows-clockwise"></i>
             <span id="updateStatusLabel" hidden></span>

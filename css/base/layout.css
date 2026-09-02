@@ -127,6 +127,19 @@
   letter-spacing: var(--tracking-tight);
 }
 
+/* Separador fino entre os grupos da zona direita: projeto, editor, contas,
+   maquina e atualizacao. Sem ele a fileira lia como icones aleatorios (zoom,
+   bateria, avatares, setas emendados), que foi a queixa que motivou o
+   agrupamento. */
+.status-sep {
+  width: 1px;
+  height: 14px;
+  align-self: center;
+  background: var(--border);
+  margin: 0 var(--space-1);
+  flex-shrink: 0;
+}
+
 #statusUpdater { cursor: pointer; }
 #statusUpdater:hover {
   color: var(--accent-hover);

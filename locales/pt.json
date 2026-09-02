@@ -523,7 +523,10 @@
     "updateCheckTooltip": "Verificar atualizações agora",
     "updateAvailable": "v{{version}} disponível",
     "updateReady": "Reiniciar para atualizar",
-    "updateTooltip": "Abrir a janela de atualização"
+    "updateTooltip": "Abrir a janela de atualização",
+    "updatePanelChangelog": "O que mudou",
+    "updatePanelChangelogTip": "Abrir a release no GitHub",
+    "updatePanelSiteTip": "Abrir o site do NIPSCERN"
   },
   "compilation": {
     "type": {

@@ -2,7 +2,8 @@
  * =====================================================================================
  *  update_status.css , o botao fixo de atualizacao na status bar
  *  Base de .status-bar / .status-item em layout.css; quem dirige as classes
- *  e js/ui/update_status.js.
+ *  e js/ui/update_status.js, inclusive o painel de hover (.update-panel),
+ *  que e criado por ele e ancorado acima do botao.
  * =====================================================================================
  */
 
@@ -28,6 +29,64 @@
   color: var(--aurora-purple);
   background-color: rgba(185, 138, 224, 0.20);
 }
+
+/* ---- painel de hover ----
+   Versao atual, versao nova e dois atalhos: a release no GitHub (o que
+   mudou) e o site do NIPSCERN. So existe com o botao aceso. */
+.update-panel {
+  position: fixed;
+  z-index: var(--z-tooltip);
+  min-width: 230px;
+  padding: 12px 14px;
+  background: var(--bg-elev-2, var(--bg-elev));
+  border: 1px solid rgba(185, 138, 224, 0.28);
+  border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  font-family: var(--font-sans);
+}
+
+.update-panel[hidden] { display: none; }
+
+.update-panel .up-versions {
+  display: flex; align-items: baseline; gap: 7px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+.update-panel .up-arrow { color: var(--aurora-purple); }
+.update-panel .up-to { color: var(--text); font-weight: 600; }
+.update-panel .up-size { color: var(--text-muted); margin-left: auto; }
+
+.update-panel .up-links {
+  display: flex; gap: 8px; margin-top: 11px;
+}
+
+.update-panel .up-link {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 7px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast),
+              background-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.update-panel .up-link:hover {
+  color: var(--text);
+  border-color: rgba(185, 138, 224, 0.45);
+  background-color: rgba(185, 138, 224, 0.08);
+}
+
+.update-panel .up-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.update-panel .up-link i { font-size: var(--icon-sm, 15px); }
+.update-panel .up-link svg { width: 15px; height: 15px; flex-shrink: 0; }
 
 @keyframes updateSpin {
   from { transform: rotate(0deg); }

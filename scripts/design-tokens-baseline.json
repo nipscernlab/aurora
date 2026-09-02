@@ -63,6 +63,10 @@
     "hex": 6,
     "duration": 7
   },
+  "css/shell/update_status.css": {
+    "hex": 0,
+    "duration": 1
+  },
   "css/terminal/terminal.css": {
     "hex": 5,
     "duration": 9
@@ -89,6 +93,6 @@
   },
   "html/update-notification.html": {
     "hex": 4,
-    "duration": 8
+    "duration": 7
   }
 }

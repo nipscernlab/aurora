@@ -10,7 +10,10 @@
 .status-update { cursor: pointer; }
 .status-update:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
-/* Verificacao manual em andamento: o icone gira ate o main responder. */
+/* Verificacao manual em andamento: o icone gira ate o main responder.
+   O 1.4s e cravado de proposito: e a MESMA cadencia do spinner de compilacao
+   (status_updater.css), para as duas rodinhas da barra girarem iguais, e a
+   escala de movimento nao tem token entre 420ms e 18s. */
 .status-update.checking i { animation: updateSpin 1.4s linear infinite; }
 
 /* Update encontrado. O roxo claro e deliberado: este e o unico item da

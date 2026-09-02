@@ -1109,6 +1109,19 @@
 .git-ctx-item.danger:hover i { color: var(--status-error); }
 .git-ctx-sep { height: 1px; margin: 4px 0; background: var(--border-hairline); }
 
+/* A lista de caminhos no dialogo de descartar em lote (git_panel.js,
+   listaDoDialogo). Mono e tabular porque sao caminhos, e a pessoa confere
+   pela ponta; a altura maxima com rolagem e a rede para o caso de os 10
+   caminhos mostrados serem todos longos e quebrarem em duas linhas. */
+.git-discard-list {
+  margin: var(--space-3) 0 0; padding: 0 0 0 var(--space-4);
+  max-height: 200px; overflow-y: auto;
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--text);
+  line-height: var(--leading-snug, 1.4);
+}
+.git-discard-list li { margin: 2px 0; overflow-wrap: anywhere; }
+.git-discard-more { color: var(--text-muted); font-family: var(--font-sans); }
+
 /* =============================================================================
  * 14. TOKEN HELP + OAUTH device flow
  * ========================================================================== */

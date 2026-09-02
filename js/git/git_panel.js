@@ -81,6 +81,7 @@ function close() {
   browseDir = null; browseName = null;
   document.body.classList.remove('git-browse');
   closeBranchMenu();
+  closeFileMenu();
 }
 const isOpen = () => modal && modal.classList.contains('show');
 
@@ -268,12 +269,31 @@ function renderChanges(st) {
 // --- changes-list interactions (no full reload) ----------------------------
 let lastFileIndex = -1; // anchor for shift-click range selection
 function changeRows() { return Array.from(document.querySelectorAll('#git-changes .git-file')); }
+// Os caminhos das linhas marcadas, na ordem em que aparecem na lista (e nao na
+// ordem em que foram clicadas: para descartar ou preparar tanto faz, e a ordem
+// da lista e a que o dialogo de confirmacao precisa mostrar).
+function selectedFiles() {
+  return changeRows().filter((r) => r.classList.contains('selected'))
+    .map((r) => r.dataset.file).filter(Boolean);
+}
 // Click a file → show its diff + select it. Shift-click → select the whole range
-// from the anchor (GitHub-Desktop / file-manager style).
-function handleFileClick(li, shift) {
+// from the anchor (GitHub-Desktop / file-manager style). Ctrl/Cmd-click → add or
+// remove UMA linha da selecao, sem mexer nas outras: e o que permite juntar
+// arquivos salteados, em qualquer ordem, coisa que a faixa do shift nao faz.
+function handleFileClick(li, shift, toggle) {
   const rows = changeRows();
   const idx = rows.indexOf(li);
-  if (shift && lastFileIndex >= 0 && lastFileIndex < rows.length) {
+  if (toggle) {
+    const agoraMarcada = !li.classList.contains('selected');
+    li.classList.toggle('selected', agoraMarcada);
+    // A ancora anda junto com o ultimo clique, entao um shift depois de dois
+    // ctrl estende a faixa a partir de onde a pessoa parou, e nao de onde ela
+    // comecou ha tres cliques.
+    lastFileIndex = idx;
+    // Desmarcar nao troca o diff aberto: a linha saiu da selecao, nao virou o
+    // novo foco, e trocar o painel da direita aqui pareceria clique errado.
+    if (!agoraMarcada) return undefined;
+  } else if (shift && lastFileIndex >= 0 && lastFileIndex < rows.length) {
     const a = Math.min(lastFileIndex, idx); const b = Math.max(lastFileIndex, idx);
     rows.forEach((r, i) => r.classList.toggle('selected', i >= a && i <= b));
   } else {
@@ -334,6 +354,57 @@ async function toggleStage(checkBtn) {
     refreshChangesOnly(); // reconcile on failure
   }
 }
+// --- menu de contexto da lista de alteracoes -------------------------------
+//
+// O botao de descartar da linha atinge um arquivo por vez e so aparece no
+// hover, entao desfazer sete arquivos eram sete confirmacoes. O menu do botao
+// direito age sobre A SELECAO, que e onde o ctrl e o shift ja deixaram a
+// pessoa juntar os arquivos que quiser, em qualquer ordem.
+//
+// Portal em <body>, e nao filho da linha, pelo mesmo motivo do menu de ramos
+// mais acima: a lista rola e tem `overflow`, e um menu ancorado dentro dela
+// seria cortado na borda ou rolaria junto.
+let fileMenuEl = null;
+function closeFileMenu() {
+  if (!fileMenuEl) return;
+  fileMenuEl.remove(); fileMenuEl = null;
+  document.removeEventListener('mousedown', onFileMenuAway, true);
+  document.removeEventListener('keydown', onFileMenuKey, true);
+}
+function onFileMenuAway(e) { if (fileMenuEl && !fileMenuEl.contains(e.target)) closeFileMenu(); }
+function onFileMenuKey(e) { if (e.key === 'Escape') { e.stopPropagation(); closeFileMenu(); } }
+function openFileMenu(x, y) {
+  closeFileMenu();
+  const alvos = selectedFiles();
+  if (!alvos.length) return;
+  const rotulo = alvos.length === 1
+    ? tt('git.discardChanges', 'Discard changes')
+    : tt('git.discardChangesN', 'Discard changes in {n} files', { n: alvos.length });
+  fileMenuEl = document.createElement('div');
+  fileMenuEl.className = 'git-ctx-menu';
+  fileMenuEl.innerHTML = `<button class="git-ctx-item danger" data-file-do="discard">`
+    + `<i class="ph ph-arrow-counter-clockwise"></i> ${esc(rotulo)}</button>`;
+  document.body.appendChild(fileMenuEl);
+  const r = fileMenuEl.getBoundingClientRect();
+  fileMenuEl.style.left = `${Math.max(8, Math.min(x, window.innerWidth - r.width - 8))}px`;
+  fileMenuEl.style.top = `${Math.max(8, Math.min(y, window.innerHeight - r.height - 8))}px`;
+  fileMenuEl.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-file-do]');
+    if (!b) return;
+    e.stopPropagation();
+    closeFileMenu();
+    // `alvos` foi capturado quando o menu abriu, e nao relido agora: entre
+    // abrir e clicar, uma atualizacao da lista (salvar um arquivo dispara uma)
+    // pode ter refeito as linhas e perdido a marcacao, e o menu descartaria
+    // menos do que prometia no proprio rotulo.
+    if (b.dataset.fileDo === 'discard') discard(alvos);
+  });
+  setTimeout(() => {
+    document.addEventListener('mousedown', onFileMenuAway, true);
+    document.addEventListener('keydown', onFileMenuKey, true);
+  }, 0);
+}
+
 // Re-render ONLY the changes list (status), preserving the open diff/account:
 // used for live updates when files change on disk (e.g. editing .gitignore makes
 // ignored files drop out of Changes) without the jarring full refresh.
@@ -1166,7 +1237,7 @@ async function onClick(e) {
       case 'toggle-stage': return toggleStage(actEl);
       case 'stage-all':  return run(tt('git.stageAll', 'Stage all'), async () => { await api().stageAll(); refresh(); });
       case 'unstage-all':return run(tt('git.unstageAll', 'Unstage all'), async () => { const st = await api().status(); await api().unstage(st.files.map((f) => f.path)); refresh(); });
-      case 'discard':    return discard(file);
+      case 'discard':    return discard(alvosDoDescarte(actEl, file));
       case 'undo':       return undoLast();
       case 'toggle-amend': {
         amendOn = !amendOn;
@@ -1257,7 +1328,7 @@ async function onClick(e) {
     }
   }
   const row = e.target.closest('.git-file');
-  if (row) return handleFileClick(row, e.shiftKey);
+  if (row) return handleFileClick(row, e.shiftKey, e.ctrlKey || e.metaKey);
   const commit = e.target.closest('.git-commit');
   if (commit && commit.dataset.hash) {
     document.querySelectorAll('.git-commit.selected').forEach((n) => n.classList.remove('selected'));
@@ -1271,15 +1342,64 @@ async function onClick(e) {
   return undefined;
 }
 
-async function discard(file) {
+// Quem o botao de descartar da propria linha deve atingir. Mesma regra do
+// stage: com uma selecao de varios ativa E a linha clicada dentro dela, o
+// clique vale para a selecao inteira; fora dela, so para a linha. Sem essa
+// regra o botao da linha e a acao do menu de contexto diriam coisas
+// diferentes sobre a mesma selecao.
+function alvosDoDescarte(actEl, file) {
+  const li = actEl.closest('.git-file');
+  const marcados = selectedFiles();
+  if (li && marcados.length > 1 && li.classList.contains('selected')) return marcados;
+  return file ? [file] : [];
+}
+
+// Ate 10 caminhos aparecem por extenso no dialogo. Descartar nao tem desfazer,
+// e "descartar 12 arquivos?" nao da a quem le como conferir se a selecao e
+// mesmo a que ele fez; a lista da. O corte em 10 existe porque um dialogo com
+// 300 linhas deixa de caber e o botao de cancelar sai da tela.
+const DESCARTE_MOSTRA = 10;
+function listaDoDialogo(files) {
+  const mostrados = files.slice(0, DESCARTE_MOSTRA);
+  const resto = files.length - mostrados.length;
+  const itens = mostrados.map((f) => `<li>${esc(f)}</li>`).join('');
+  const mais = resto > 0
+    ? `<li class="git-discard-more">${esc(tt('git.discardMore', '+{n} more', { n: resto }))}</li>`
+    : '';
+  return `<ul class="git-discard-list">${itens}${mais}</ul>`;
+}
+
+async function discard(files) {
+  const lista = (Array.isArray(files) ? files : [files]).filter(Boolean);
+  if (!lista.length) return;
+  const message = lista.length === 1
+    ? tt('git.discardOneMsg', 'Discard the changes in <strong>{file}</strong>? This cannot be undone.', { file: esc(lista[0]) })
+    : tt('git.discardManyMsg', 'Discard the changes in these <strong>{n} files</strong>? This cannot be undone.', { n: lista.length }) + listaDoDialogo(lista);
   const action = await window.AuroraUI?.dialog?.({
-    title: 'Descartar alterações',
-    message: `Descartar as alterações de <strong>${esc(file)}</strong>? Isto não pode ser desfeito.`,
+    title: tt('git.discardTitle', 'Discard changes'),
+    message,
     variant: 'warning',
-    buttons: [{ label: 'Cancelar', action: 'cancel', type: 'cancel' }, { label: 'Descartar', action: 'confirm', type: 'danger' }],
+    buttons: [
+      { label: tt('git.cancel', 'Cancel'), action: 'cancel', type: 'cancel' },
+      { label: tt('git.discard', 'Discard'), action: 'confirm', type: 'danger' },
+    ],
   });
   if (action !== 'confirm') return;
-  await run('Discard', async () => { const r = await api().discard(file); if (!r.ok) throw new Error(r.error); refresh(); });
+  await run(tt('git.discard', 'Discard'), async () => {
+    const r = await api().discard(lista);
+    if (!r.ok) throw new Error(r.error);
+    refresh();
+    // Arquivo novo nunca commitado nao tem versao para voltar, entao o main
+    // devolve o nome dele em vez de apagar o arquivo. Silenciar isso seria o
+    // pior dos mundos: a pessoa marcou 12, viu "pronto" e encontraria 3 ainda
+    // na lista sem saber por que.
+    // Devolvido, e nao passado ao `flash`: o `run` escreve o proprio rotulo na
+    // barra de estado quando a acao termina, e sobrescreveria o aviso.
+    const ignorados = Array.isArray(r.ignorados) ? r.ignorados : [];
+    return ignorados.length
+      ? tt('git.discardSkipped', '{n} new file(s) kept — they have no committed version to go back to.', { n: ignorados.length })
+      : undefined;
+  });
 }
 
 // Turn an opened folder into a git repo WITH its files: init, stage everything,
@@ -1917,9 +2037,19 @@ function init() {
     // Right-click a cloned project → the same context menu as the ⋮ button.
     modal.addEventListener('contextmenu', (e) => {
       const item = e.target.closest('.git-cloned-item');
-      if (!item) return;
+      if (item) {
+        e.preventDefault();
+        openClonedMenu(e.clientX, e.clientY, Number(item.dataset.clonedIndex));
+        return;
+      }
+      const row = e.target.closest('#git-changes .git-file');
+      if (!row) return;
       e.preventDefault();
-      openClonedMenu(e.clientX, e.clientY, Number(item.dataset.clonedIndex));
+      // Botao direito FORA da selecao a substitui pela linha clicada, como em
+      // qualquer gerenciador de arquivos; dentro dela, preserva a selecao,
+      // que e o caso que este menu existe para atender.
+      if (!row.classList.contains('selected')) handleFileClick(row, false, false);
+      openFileMenu(e.clientX, e.clientY);
     });
   }
   $('git-commit-btn')?.addEventListener('click', doCommit);

@@ -350,10 +350,30 @@ function register() {
 
   // Discard working-tree changes for tracked files (checkout). Untracked files
   // are left alone here (deleting them is a separate, more dangerous op).
+  //
+  // Um `checkout` so com a lista inteira era suficiente enquanto o painel
+  // descartava UM arquivo por vez. Com a selecao em lote deixou de ser: basta
+  // um arquivo novo (nunca commitado) no meio da selecao para o git abortar a
+  // chamada inteira com "pathspec ... did not match any file(s) known to git",
+  // e nenhum dos outros ser descartado. O caminho rapido continua sendo uma
+  // chamada so; quando ela falha, refazemos arquivo a arquivo para que o que
+  // da para descartar seja descartado e o resto volte NOMEADO para o painel,
+  // que e quem sabe explicar a diferenca a quem clicou.
   ipcMain.handle('git:discard', safe(async (/** @type {string[]|string} */ files) => {
     const git = gitForProject();
-    await git.checkout(['--', ...normalizarArquivos(files)]);
-    return {};
+    const alvos = normalizarArquivos(files);
+    if (!alvos.length) return { descartados: [], ignorados: [] };
+    try {
+      await git.checkout(['--', ...alvos]);
+      return { descartados: alvos, ignorados: [] };
+    } catch (_) {
+      const descartados = []; const ignorados = [];
+      for (const alvo of alvos) {
+        try { await git.checkout(['--', alvo]); descartados.push(alvo); }
+        catch (_e) { ignorados.push(alvo); }
+      }
+      return { descartados, ignorados };
+    }
   }));
 
   ipcMain.handle('git:commit', safe(async (/** @type {{message:string, amend?:boolean}} */ opts) => {

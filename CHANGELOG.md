@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is
 loosely based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project loosely follows [Semantic Versioning](https://semver.org).
 
+## [6.14.0](https://github.com/nipscernlab/aurora/compare/v6.13.0...v6.14.0) (2026-09-02)
+
+
+### Features
+
+* **compile:** aviso proativo quando o Smart App Control bloqueia a toolchain ([1c8d079](https://github.com/nipscernlab/aurora/commit/1c8d0792830a7c259db645eac9cb3226d22a71d8))
+
+
+### Bug Fixes
+
+* **compile:** spawn barrado pelo Windows agora diz o que houve no terminal ([5bd9c58](https://github.com/nipscernlab/aurora/commit/5bd9c58817b273279b04ef725f7f4f9d2066040f))
+* **update:** o painel de hover ficava solto ao redimensionar a janela ([b134fb7](https://github.com/nipscernlab/aurora/commit/b134fb728fc97c6b5866aca5d4cad11687807749))
+
 ## [6.13.0](https://github.com/nipscernlab/aurora/compare/v6.12.0...v6.13.0) (2026-09-02)
 
 

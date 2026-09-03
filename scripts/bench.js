@@ -57,7 +57,13 @@ function argumentos(argv) {
   const opts = { runs: 3, nota: '', seco: false, compilar: false, out: CSV_PADRAO };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--runs') opts.runs = Math.max(1, parseInt(argv[++i], 10) || 3);
+    if (a === '--runs') {
+      // NaN cai no padrao 3; numero valido (0 incluido) e recortado para >= 1.
+      // O `|| 3` de antes tratava 0 como NaN e devolvia 3 onde o contrato
+      // (e o teste) dizem 1.
+      const n = parseInt(argv[++i], 10);
+      opts.runs = Number.isNaN(n) ? 3 : Math.max(1, n);
+    }
     else if (a === '--nota') opts.nota = String(argv[++i] || '');
     else if (a === '--seco') opts.seco = true;
     else if (a === '--compilar') opts.compilar = true;

@@ -41,6 +41,20 @@
   visibility: visible;
 }
 
+/* O painel de um modal aberto sai da regiao de arrasto da janela. A barra de
+   ferramentas e a barra de titulo (drag) e vira duas linhas em janela estreita;
+   um modal alto comeca perto do topo e o cabecalho dele caia dentro da faixa,
+   onde o sistema transforma o clique em arrasto antes de o Chromium o ver.
+   Mesmo recorte do <aurora-modal>, para os modais legados. */
+.modal-overlay[aria-hidden="false"] .modal-container,
+.modal-overlay.show .modal-container,
+.modal-overlay.visible .modal-container,
+.modal-overlay[aria-hidden="false"] .modal-content,
+.modal-overlay.show .modal-content,
+.modal-overlay.visible .modal-content {
+  -webkit-app-region: no-drag;
+}
+
 /* ---------------------------------------------------------------------------
  *  Container
  * ------------------------------------------------------------------------- */

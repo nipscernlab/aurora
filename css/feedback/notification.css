@@ -88,6 +88,10 @@
 .confirm-modal.show .confirm-modal-content {
   transform: scale(1) translateY(0);
   opacity: 1;
+  /* Fora da regiao de arrasto da janela enquanto aberto, como o <aurora-modal>:
+     a barra de ferramentas (drag) dobra em janela estreita e engoliria o
+     clique num dialogo que encoste nela. */
+  -webkit-app-region: no-drag;
 }
 
 .confirm-modal-header {

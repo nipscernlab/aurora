@@ -193,7 +193,19 @@ class AuroraModal extends LitElement {
     }
     :host([aria-hidden='false']) .panel,
     :host(.show) .panel,
-    :host(.visible) .panel { transform: scale(1) translateY(0); opacity: 1; }
+    :host(.visible) .panel {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+      /* Recorta o painel da regiao de arrasto da janela. A barra de
+         ferramentas e a barra de titulo (-webkit-app-region: drag), e numa
+         janela estreita ela vira duas linhas, 86 px: o cabecalho de um modal
+         alto, que comeca perto do topo, cai dentro dela e o "?" e o "x"
+         param de responder, porque o sistema resolve o arrasto ANTES de o
+         clique chegar ao Chromium; z-index nao ajuda. O no-drag vence o drag
+         em qualquer sobreposicao. So com o modal aberto: fechado, o painel
+         ainda tem caixa (visibility: hidden) e recortaria a barra a toa. */
+      -webkit-app-region: no-drag;
+    }
     .panel.size-small  { max-width: 360px; }
     .panel.size-medium { max-width: 540px; }
     .panel.size-large  { max-width: 640px; }

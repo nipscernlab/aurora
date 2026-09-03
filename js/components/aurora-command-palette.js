@@ -67,6 +67,14 @@ class AuroraCommandPalette extends LitElement {
       transition: opacity var(--motion-quick, 140ms) var(--ease-out-quart, ease);
     }
 
+    /* Aberta, a paleta sai da regiao de arrasto da janela: ela nasce a 14vh do
+       topo, e numa janela baixa e estreita isso cai dentro da barra de
+       ferramentas em duas linhas (drag), onde o clique vira arrasto antes de
+       chegar ao Chromium. Mesmo recorte do aurora-modal. */
+    :host([open]) .panel {
+      -webkit-app-region: no-drag;
+    }
+
     /* Same surface as the app's modals (modal_config.css): luminous border +
        aurora glow ring, no flat top bar. */
     .panel {

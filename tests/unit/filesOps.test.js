@@ -320,3 +320,18 @@ describe('ausenciaEsperada', () => {
     expect(ausenciaEsperada(undefined)).toBe(false);
   });
 });
+
+// ── Entradas ocultas na arvore ──────────────────────────────────────────────
+import { entradaOcultaNaArvore } from '../../main/ipc/files_ops.js';
+
+describe('entradaOcultaNaArvore', () => {
+  it('esconde a pasta de config do slang, que e do servidor e nao do usuario', () => {
+    expect(entradaOcultaNaArvore('.slang')).toBe(true);
+  });
+
+  it('nao esconde por regra geral de ponto: .git, .vscode e .gitignore continuam', () => {
+    for (const n of ['.git', '.vscode', '.gitignore', 'src', 'proc1', '']) {
+      expect(entradaOcultaNaArvore(n)).toBe(false);
+    }
+  });
+});

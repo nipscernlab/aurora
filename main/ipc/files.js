@@ -31,6 +31,7 @@ const {
   pastaInicialDoDialogo,
   acharWatcher,
   ausenciaEsperada,
+  entradaOcultaNaArvore,
 } = require('./files_ops');
 
 // Recursively scan a directory and return a tree of {name, path, type, children?}.
@@ -61,6 +62,7 @@ async function scanDirectory(/** @type {string} */ dirPath) {
 
       for (const item of items) {
         if (item.isSymbolicLink()) continue;
+        if (entradaOcultaNaArvore(item.name)) continue;
 
         const fullPath = path.join(currentPath, item.name);
         const relativePath = path.relative(dirPath, fullPath);

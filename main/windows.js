@@ -408,10 +408,13 @@ function createMainWindow(opts = {}) {
   // is the correct anti-orphan signal precisely because it is about OWNERSHIP, not
   // elapsed time, a long-but-healthy agentic turn (big refactor, slow compiles)
   // keeps running untouched as long as its panel is alive.
+  // So as sessoes DESTA janela: o killAll sem filtro derrubava a IA de todas
+  // as janelas quando qualquer uma recarregava.
   const reapAbandonedAi = (why) => {
-    try { require('./ai/claude_code').killAll(); } catch (_) { /* not loaded */ }
-    try { require('./ai/codex_cli').killAll(); } catch (_) { /* not loaded */ }
-    log.info(`[windows] reaped abandoned AI turns (${why})`);
+    const dono = mainWindow.webContents.id;
+    try { require('./ai/claude_code').killAll(dono); } catch (_) { /* not loaded */ }
+    try { require('./ai/codex_cli').killAll(dono); } catch (_) { /* not loaded */ }
+    log.info(`[windows] reaped abandoned AI turns of window ${dono} (${why})`);
   };
   mainWindow.webContents.on('did-start-navigation', (_e, _url, isInPlace, isMainFrame) => {
     // Only a real top-level document load wipes the renderer's JS state; skip

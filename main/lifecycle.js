@@ -93,7 +93,18 @@ function register() {
   // fase 1 terminar, o Windows bloqueia o rmdir e a Temp/ acumula lixo
   // de runs anteriores. 5s de safety timeout por fase pra nao travar
   // quit em caso de hang.
-  app.on('before-quit', async () => {
+  // O Electron NAO espera promessa devolvida por handler de evento: sem o
+  // preventDefault, a saida seguia em paralelo com a faxina, e apagar as
+  // credenciais ou esvaziar a espera do desfazer podiam ficar pela metade,
+  // com o processo morrendo antes do await voltar. Agora a primeira passagem
+  // segura a saida, faz a faxina e encerra com app.exit(0) (ou o watchdog de
+  // dez segundos encerra por ela). Um segundo app.quit() no meio, vindo de
+  // outra janela fechando ou do updater, nao reinicia a faxina.
+  let faxinaEmCurso = false;
+  app.on('before-quit', async (event) => {
+    event.preventDefault();
+    if (faxinaEmCurso) return;
+    faxinaEmCurso = true;
     state.isQuitting = true;
 
     // Rede de seguranca da saida. Um filho que ignora o taskkill, um rm que
@@ -195,13 +206,13 @@ function register() {
     }
 
     // ── Saida garantida ───────────────────────────────────────────────────
-    // O Electron NAO espera promessa devolvida por handler de evento, entao
-    // tudo acima corre em paralelo com o encerramento. Quando um filho demora
-    // a morrer, o processo do SAPHO pode ficar de pe sem janela nenhuma: ele
-    // segura o bloqueio de instancia unica, e a partir dai um duplo clique no
-    // atalho nao abre nada, porque a segunda instancia encontra o bloqueio e
-    // sai calada. E o mesmo processo pendurado que faz o instalador nao
-    // conseguir substituir arquivo em uso e terminar deixando a pasta vazia.
+    // Com o preventDefault la em cima, a saida so acontece por aqui (ou pelo
+    // watchdog). Quando um filho demora a morrer, o processo do SAPHO pode
+    // ficar de pe sem janela nenhuma: ele segura o bloqueio de instancia
+    // unica, e a partir dai um duplo clique no atalho nao abre nada, porque a
+    // segunda instancia encontra o bloqueio e sai calada. E o mesmo processo
+    // pendurado que faz o instalador nao conseguir substituir arquivo em uso e
+    // terminar deixando a pasta vazia.
     //
     // Depois da faxina, matamos o processo em vez de torcer para ele morrer.
     //

@@ -44,6 +44,19 @@ function filterGtkWaveOutput(/** @type {string} */ output) {
 }
 
 function killProcessSilently(/** @type {number} */ pid, timeout = 5000) {
+  // Fora do Windows nao existe taskkill: o execFile falhava com ENOENT, a
+  // promessa resolvia false e quem chamava esvaziava o registro como se
+  // tivesse matado. SIGKILL no grupo (filho criado com detached tem o proprio
+  // grupo) e, falhando, no proprio pid; ESRCH significa que ja nao existe, que
+  // e o resultado que se queria.
+  if (process.platform !== 'win32') {
+    const tentar = (/** @type {number} */ alvo) => {
+      try { process.kill(alvo, 'SIGKILL'); return true; } catch (e) {
+        return /** @type {NodeJS.ErrnoException} */ (e).code === 'ESRCH';
+      }
+    };
+    return Promise.resolve(tentar(-pid) || tentar(pid));
+  }
   return new Promise((resolve) => {
     const killProcess = execFile('taskkill', ['/F', '/T', '/PID', String(pid)], { windowsHide: true, timeout });
 

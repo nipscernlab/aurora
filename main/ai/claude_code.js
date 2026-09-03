@@ -377,7 +377,13 @@ async function start(payload, webContents) {
         workspaceDir,
       },
     );
-    if (handled) return;
+    if (handled) {
+      // O dono da sessao e a janela que a pediu: e por ele que o reaper de
+      // reload (windows.js) decide o que matar sem derrubar a IA das outras.
+      const s = sessions.get(sessionId);
+      if (s) s.owner = webContents?.id ?? null;
+      return;
+    }
     log.info('[ai.claude-code] Agent SDK unavailable — using legacy CLI spawn');
   } catch (e) {
     // tryStart reports its own TURN errors as chat-events; reaching here
@@ -605,7 +611,7 @@ async function start(payload, webContents) {
   // because it "took too long". The inactivity reaper above only fires on pure
   // silence with no tool in flight (a genuinely wedged CLI), which is a liveness
   // signal, not a deadline.
-  sessions.set(sessionId, { proc, markAborted: () => { aborted = true; } });
+  sessions.set(sessionId, { proc, owner: webContents?.id ?? null, markAborted: () => { aborted = true; } });
 
   try { proc.stdin.write(prompt); proc.stdin.end(); }
   catch (_) { /* the CLI may have exited already; close path handles it */ }
@@ -818,12 +824,20 @@ function pushUserMessage(sessionId, content) {
   }
 }
 
-/** Kill every in-flight session. Called on app quit so Claude Code CLI
- *  subprocesses (and their children, via taskkill /T) aren't orphaned:
- *  abort() only ever fired for a single renderer-requested session. */
-function killAll() {
-  for (const [, s] of sessions) stopSession(s);
-  sessions.clear();
+/**
+ * Kill in-flight sessions. Sem argumento, TODAS (saida do app), so Claude Code
+ * CLI subprocesses (and their children, via taskkill /T) aren't orphaned. Com
+ * `ownerId` (id do webContents), so as daquela janela: o reaper de reload em
+ * windows.js chamava sem filtro, e um Ctrl+R em qualquer janela matava as
+ * CLIs de IA de todas.
+ * @param {number} [ownerId]
+ */
+function killAll(ownerId) {
+  for (const [id, s] of sessions) {
+    if (ownerId != null && s.owner !== ownerId) continue;
+    stopSession(s);
+    sessions.delete(id);
+  }
 }
 
 /** Drop the cached CLI-side session for a conversation (e.g. on "new chat"). */

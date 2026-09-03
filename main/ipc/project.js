@@ -25,6 +25,7 @@ const {
   parseSpfTolerant, remapProcessorPath, deepRemapPaths,
   spfDaJanela, registrarSpfDaJanela,
 } = require('./project_paths');
+const { entradaOcultaNaArvore } = require('./files_ops');
 
 // ---- ProjectFile schema ----
 
@@ -322,11 +323,13 @@ function register() {
       await escreverSpf(spfPath, projectData);
 
       const files = await fse.readdir(projectData.structure.basePath, { withFileTypes: true });
-      const fileList = files.map((file) => ({
-        name: file.name,
-        isDirectory: file.isDirectory(),
-        path: path.join(projectData.structure.basePath, file.name),
-      }));
+      const fileList = files
+        .filter((file) => !entradaOcultaNaArvore(file.name))
+        .map((file) => ({
+          name: file.name,
+          isDirectory: file.isDirectory(),
+          path: path.join(projectData.structure.basePath, file.name),
+        }));
 
       // Prefer the window that actually sent the request. During a startup
       // auto-open the main window isn't focused yet, the splash is still on

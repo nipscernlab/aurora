@@ -315,7 +315,12 @@ async function start(payload, webContents) {
         addTokens: (t) => { sessionTokens += t; },
       },
     );
-    if (handled) return;
+    if (handled) {
+      // Dono = janela que pediu, para o reaper de reload matar so as dela.
+      const s = sessions.get(sessionId);
+      if (s) s.owner = webContents?.id ?? null;
+      return;
+    }
     log.info('[ai.codex] Codex SDK unavailable — using legacy CLI spawn');
   } catch (e) {
     // tryStart reports its own TURN errors as chat-events; reaching here
@@ -471,7 +476,7 @@ async function start(payload, webContents) {
     inactivityTimer = t;
   };
 
-  sessions.set(sessionId, { proc, markAborted: () => { aborted = true; } });
+  sessions.set(sessionId, { proc, owner: webContents?.id ?? null, markAborted: () => { aborted = true; } });
 
   try { proc.stdin.write(prompt); proc.stdin.end(); }
   catch (_) { /* the CLI may have exited already; close path handles it */ }
@@ -676,12 +681,20 @@ function abort(/** @type {string} */ sessionId) {
   return stopSession(sessions.get(sessionId));
 }
 
-/** Kill every in-flight session. Called on app quit so Codex CLI
- *  subprocesses (and their children, via taskkill /T) aren't orphaned:
- *  abort() only ever fired for a single renderer-requested session. */
-function killAll() {
-  for (const [, s] of sessions) stopSession(s);
-  sessions.clear();
+/**
+ * Kill in-flight sessions. Sem argumento, TODAS (saida do app), so Codex CLI
+ * subprocesses (and their children, via taskkill /T) aren't orphaned. Com
+ * `ownerId` (id do webContents), so as daquela janela: o reaper de reload em
+ * windows.js chamava sem filtro, e um Ctrl+R em qualquer janela matava as
+ * CLIs de IA de todas.
+ * @param {number} [ownerId]
+ */
+function killAll(ownerId) {
+  for (const [id, s] of sessions) {
+    if (ownerId != null && s.owner !== ownerId) continue;
+    stopSession(s);
+    sessions.delete(id);
+  }
 }
 
 /** Drop the cached CLI-side thread for a conversation (e.g. on "new chat"). */

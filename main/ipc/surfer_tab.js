@@ -110,8 +110,22 @@ const MIME = {
 };
 
 /**
- * Surfers headless vivos: tabId → { child, proxyId }.
- * @type {Map<string, { child: import('child_process').ChildProcess, proxyId: string }>}
+ * O que um serve registrou nos mapas globais, para o stop revogar TUDO junto.
+ * `docIds` e `layoutIds` existem porque inlineDocs e layouts cresciam a cada
+ * serve e nunca encolhiam: recompilar com a aba aberta acumulava texto na
+ * memoria do main ate a IDE fechar.
+ * @typedef {{
+ *   child: import('child_process').ChildProcess,
+ *   proxyId: string,
+ *   docIds: string[],
+ *   layoutIds: string[],
+ *   saveId: string | null,
+ * }} ServidorDaAba
+ */
+
+/**
+ * Surfers headless vivos: tabId → ServidorDaAba.
+ * @type {Map<string, ServidorDaAba>}
  */
 const servers = new Map();
 
@@ -377,6 +391,8 @@ async function stopServer(tabId) {
   proxies.delete(entry.proxyId);
   ondasServidas.delete(tabId);
   if (entry.saveId) saveTargets.delete(entry.saveId);
+  for (const id of entry.docIds || []) inlineDocs.delete(id);
+  for (const id of entry.layoutIds || []) layouts.delete(id);
   const { child } = entry;
   if (child && child.exitCode === null && !child.killed && child.pid) {
     try { await killProcessSilently(child.pid); } catch (_) { /* best-effort */ }
@@ -430,7 +446,9 @@ function register() {
         windowsHide: true,
       });
       const proxyId = crypto.randomBytes(8).toString('hex');
-      servers.set(tabId, { child, proxyId });
+      /** @type {ServidorDaAba} */
+      const entrada = { child, proxyId, docIds: [], layoutIds: [], saveId: null };
+      servers.set(tabId, entrada);
       proxies.set(proxyId, { base: `http://127.0.0.1:${port}/${token}`, tabId });
       // Servidor novo, onda por carregar de novo: o aviso de "chegou" vale
       // outra vez, senao recompilar deixaria a aba com o indicador preso.
@@ -460,23 +478,25 @@ function register() {
       if (typeof stateSavePath === 'string' && stateSavePath) {
         const saveId = crypto.randomBytes(8).toString('hex');
         saveTargets.set(saveId, { path: stateSavePath, tabId });
-        const entry = servers.get(tabId);
-        if (entry) entry.saveId = saveId;
+        entrada.saveId = saveId;
         startup.push(`state_save_url_set ${base}/savestate/${saveId}`);
       }
       for (const m of Array.isArray(mappings) ? mappings : []) {
         if (!m || typeof m.name !== 'string' || typeof m.content !== 'string') continue;
         const docId = crypto.randomBytes(8).toString('hex');
         inlineDocs.set(docId, m.content);
+        entrada.docIds.push(docId);
         startup.push(`load_mapping_translator_from_url ${base}/doc/${docId}/${encodeURIComponent(m.name)}`);
       }
       if (suclFile && fs.existsSync(suclFile)) {
         const layoutId = crypto.randomBytes(8).toString('hex');
         layouts.set(layoutId, suclFile);
+        entrada.layoutIds.push(layoutId);
         startup.push(`run_command_file_from_url ${base}/layout/${layoutId}`);
       } else if (stateFile && fs.existsSync(stateFile)) {
         const layoutId = crypto.randomBytes(8).toString('hex');
         layouts.set(layoutId, stateFile);
+        entrada.layoutIds.push(layoutId);
         startup.push(`load_state_from_url ${base}/layout/${layoutId}`);
       }
       if (startup.length === 1) {
@@ -484,6 +504,7 @@ function register() {
       } else if (startup.length > 1) {
         const cmdId = crypto.randomBytes(8).toString('hex');
         inlineDocs.set(cmdId, `${startup.join('\n')}\n`);
+        entrada.docIds.push(cmdId);
         params.set('startup_commands', `run_command_file_from_url ${base}/doc/${cmdId}/startup.sucl`);
       }
       // O #dev desliga o service worker do bundle (o index.html do trunk so

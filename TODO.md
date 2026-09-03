@@ -1735,54 +1735,174 @@ por eles.
 
 O único item corrigido na hora foi o `unknown module` do processador ainda não
 compilado, que virou informação azul em slang_lsp.js
-(suavizarProcessadorNaoCompilado). Tudo abaixo está pendente. A ordem dentro de
+(suavizarProcessadorNaoCompilado). Abaixo, [x] riscado é o que foi feito
+depois, com a nota do como; [ ] é o que falta. A ordem dentro de
 cada bloco é a da gravidade, e a referência é por arquivo e símbolo, nunca por
 linha, porque linha apodrece.
 
 ### Segurança
 
-- main.js, bloco da CSP: o `unsafe-inline` saiu de script-src em 03/09/2026
-  (todos os `<script>` inline e o único `onclick=` viraram arquivos), então
-  HTML injetado no renderer não executa mais script. Sobra o `unsafe-eval`,
-  exigido pelo loader AMD do Monaco 0.52 (`new Function`); ele só sai com o
-  Monaco em ESM dentro do bundle do Vite, que é mudança de build e não de
-  política. Enquanto ficar, a ponte expondo `shell:start`/`shell:input` é o
-  que um `eval` alcançável compraria.
-- main/compile/binary_allowlist.js: a lista inclui perl, python, g++ e make com
+- [x] ~~main/ipc/files.js, `file:delete`, `write-file`, `file:rename`,
+  `file:copy-any`, `delete-file`: aceitam caminho absoluto arbitrário;
+  `safePath` (main/utils.js) só rejeita vazio e byte nulo. As ferramentas
+  `delete_file` e afins da IA chegam aqui, e a única barreira é o modal
+  ask-before-write, que depende de a pessoa ler o caminho. Confinar escrita e
+  remoção às raízes conhecidas (projeto aberto, components/Temp, userData) por
+  prefixo após `path.resolve`.~~ Feito em 03/09/2026: a regra mora em
+  `main/ipc/fs_guard.js` (com teste) e vale para escrever, apagar, renomear
+  (os dois lados), copiar-para, mkdir e backup. Raízes: projeto da JANELA que
+  pediu, components/Temp, userData e a temp do sistema. O arquivo avulso
+  continua funcionando pela única via que prova intenção do usuário: caminho
+  saído de diálogo do main (abrir, salvar, importar), associação de arquivo do
+  Windows e arrastar-e-soltar (a concessão nasce no preload, e File sintético
+  do renderer não tem caminho). A recusa diz o que fazer, porque chega à IA.
+- [x] ~~package.json, bloco `build.win`: não há `publisherName`, e o NsisUpdater do
+  electron-updater pula a verificação de assinatura quando ele falta
+  (`verifySignature` retorna sem checar). O instalador baixado roda sem conferir
+  o Authenticode; só o HTTPS e a conta do GitHub protegem. Declarar o nome exato
+  do certificado do SignPath, alinhado à política de assinatura da release.~~
+  Feito em 03/09/2026, no `release.yml` e NÃO no package.json, de propósito:
+  gravado estaticamente, a próxima release (ainda sem assinatura) faria o
+  updater de quem a instalasse exigir Authenticode de todas as seguintes, e o
+  laboratório pararia de atualizar. O `-c.win.publisherName="SignPath
+  Foundation"` entra só na execução que assina; a partir da primeira release
+  assinada não há volta silenciosa para instalador sem assinatura. Conferir o
+  CN exato faz parte do 3.8.
+- [x] ~~main/state.js, `currentOpenProjectPath`: global único, mas cada janela
+  principal abre seu projeto. `delete-processor`, `rename-processor`,
+  `search:in-project` e `trigger-file-tree-refresh` resolvem contra o último
+  projeto aberto, não o da janela que pediu; apagar um processador na janela A
+  pode remover a pasta do projeto da janela B. Indexar por `event.sender.id`.~~
+  Feito em 03/09/2026: `spfDaJanela`/`registrarSpfDaJanela` em
+  `main/ipc/project_paths.js` (com teste) indexam o .spf pelo id do
+  webContents; os quatro handlers, mais `rename-project`, `project:close` e os
+  de consulta, usam a janela que pediu. O global sobrevive como reserva de quem
+  não tem janela no contexto (LSP, IA, PRISM). `git.js` continua no global
+  (todos os handlers afunilam em `projectDir()` sem evento); fica para quando
+  o painel git for revisado.
+- [x] ~~main.js, bloco da CSP: a política existe e cobre file:// e dev server, mas
+  script-src leva `unsafe-inline` e `unsafe-eval` (Monaco 0.52), então qualquer
+  injeção de HTML no renderer executa. Ponte expõe `shell:start` e `shell:input`.~~
+  O `unsafe-inline` saiu de script-src em 03/09/2026: os oito `<script>`
+  inline (index, splash, atualização, docs-browser) e o único `onclick=`
+  viraram arquivos, com os clássicos copiados pelo `viteStaticCopy` e o
+  caminho do `vs` do Monaco viajando num `data-vs` que o rewrite do Vite ainda
+  alcança. HTML injetado no renderer não executa mais script.
+  - [ ] Sobra o `unsafe-eval`, exigido pelo loader AMD do Monaco 0.52
+    (`new Function`); só sai com o Monaco em ESM dentro do bundle do Vite, que
+    é mudança de build e não de política. Enquanto ficar, a ponte expondo
+    `shell:start`/`shell:input` é o que um `eval` alcançável compraria.
+- [x] ~~Nenhuma sessão tem `setPermissionRequestHandler`; pedidos de permissão do
+  iframe aurora-preview (que roda HTML arbitrário) são concedidos por padrão.~~
+  Feito em 03/09/2026: negado por padrão na sessão, com log; só a escrita
+  saneada no clipboard passa.
+- [x] ~~main/ipc/preview.js: a raiz servida é a pasta inteira do arquivo visualizado,
+  com `connect-src https:`; um .html na home entrega a árvore toda, inclusive
+  .ssh. Arquivo na raiz da unidade também quebra a checagem (`C:\\`).~~ Feito
+  em 03/09/2026: home e raiz de unidade servem só o próprio documento
+  (`regrasDePreview`), vizinho oculto (.ssh, .git, .env) nunca é servido, e o
+  teste de raiz passou para o `dentroDe` do fs_guard, que conserta o 403 geral
+  do arquivo em `C:\`.
+- [x] ~~main/compile/binary_allowlist.js: a lista inclui perl, python, g++ e make com
   `args` livres, então `perl -e` ou `python -c` executam qualquer coisa; a
   documentação apresenta o allowlist como fronteira de confiança, e ele só
   impede a troca de binário. Documentar a limitação real ou restringir a forma
-  dos argumentos dos interpretadores.
+  dos argumentos dos interpretadores.~~ Feito em
+  03/09/2026, pelas duas pontas: `main/compile/interpreter_guard.js` (com
+  teste) recusa, no prefixo de opções de perl e python, `-e`/`-E`/`-c`/`-m` e
+  o programa por stdin, colados ou não, pulando o valor de `-I`/`-X`/`-W`
+  para o `-e` não se esconder atrás de um falso script; o que vem depois do
+  script é do script (o verilator usa `-E`). O executor chama o guarda logo
+  após o allowlist, e o cabeçalho do allowlist passou a dizer o que ele
+  garante e o que não garante (g++ e make ficam livres, presos ao cwd).
+- [x] ~~npm audit: fast-uri (alto; o override `^3.1.5` ainda cai na faixa vulnerável)
+  e qs via express do SDK do MCP (moderado). `npm audit fix` resolve os dois.~~
+  Feito em 03/09/2026 por `overrides` (a política do package.json prefere isso
+  ao `npm audit fix`): fast-uri ^3.1.6, qs ^6.16.0, e junto @xmldom/xmldom
+  ^0.8.15 e @humanfs/node ^0.16.8. Zero vulnerabilidades, nenhum major trocado.
+- [x] ~~CI: actions fixadas por tag major (@v7), não por SHA. Sem
+  `pull_request_target`, permissões enxutas, segredos só na release.~~ Feito em
+  03/09/2026: os seis workflows apontam commit exato, com a versão no
+  comentário.
 
 ### Lógica
 
-- main/lifecycle.js, `before-quit`: async sem `preventDefault`, então apagar
-  credenciais ao sair e esvaziar a espera do desfazer podem ficar pela metade.
-- main/python/pylib_manager.js, `_install`: duas instalações concorrentes (ou
-  install e uninstall) sobrepõem o manifesto e uma biblioteca fica órfã.
-- main/lsp/verible_lsp.js e slang_lsp.js, `start`: binário que morre na hora
-  respawna a cada tecla, sem backoff; o disjuntor só protege o completion.
-- main/windows.js, `reapAbandonedAi`: reload em qualquer janela mata as CLIs de
-  IA de todas.
-- main/utils.js, `killProcessSilently`: fora do win32 não mata nada e o registro
-  é esvaziado como se tivesse matado; ou se assume Windows-only ou se completa.
-- Boot emite "Duplicate definition of module vs/editor/editor.main"; só há uma
+- [x] ~~main/lifecycle.js, `before-quit`: async sem `preventDefault`, então apagar
+  credenciais ao sair e esvaziar a espera do desfazer podem ficar pela metade.~~ Feito em
+  03/09/2026: a primeira passagem chama `preventDefault`, faz a faxina e
+  encerra com `app.exit(0)` (ou o watchdog de dez segundos encerra por ela);
+  um segundo `app.quit()` no meio não reinicia a faxina.
+- [x] ~~main/python/pylib_manager.js, `_install`: duas instalações concorrentes (ou
+  install e uninstall) sobrepõem o manifesto e uma biblioteca fica órfã.~~ Feito em
+  03/09/2026: o manifesto era lido no início (antes dos downloads) e escrito no
+  fim, e essa cópia velha sobrescrevia o que outra operação tivesse gravado no
+  meio. O commit agora relê, altera e grava sem `await` entre os três passos,
+  que é atômico no thread único do JS; `uninstall` já era síncrono e o
+  `installExternal` já relia no commit.
+- [x] ~~main/lsp/verible_lsp.js e slang_lsp.js, `start`: binário que morre na hora
+  respawna a cada tecla, sem backoff; o disjuntor só protege o completion.~~ Feito em
+  03/09/2026: um segundo disjuntor (o mesmo `disjuntor.js`) cobre o spawn nas
+  duas pontes: três mortes seguidas nos primeiros dez segundos abrem por um
+  minuto, `start()` recusa enquanto aberto e o editor segue sem o servidor;
+  dez segundos de pé fecham. Religar o slang pelo painel zera a pausa.
+- [x] ~~main/ipc/files.js, `watch-directory` e `watch-file`: indexados só pelo
+  caminho e presos ao primeiro `sender`; segunda janela nunca recebe eventos, e
+  quando a primeira fecha o `send` num webContents destruído vira exceção.~~
+  Feito em 03/09/2026: cada watcher tem um conjunto de assinantes; eventos vão
+  a todos os vivos, os mortos são podados a cada envio, o stop de um só fecha o
+  watcher quando ele era o último, o reinício pós-erro preserva os assinantes
+  e o health check recolhe watcher sem leitor.
+- [x] ~~main/windows.js, `reapAbandonedAi`: reload em qualquer janela mata as CLIs de
+  IA de todas.~~ Feito em
+  03/09/2026: cada sessão das CLIs (spawn legado e engines SDK) carrega o id do
+  webContents dono, e `killAll(ownerId)` mata só as daquela janela; a saída do
+  app continua chamando sem filtro.
+- [x] ~~main/utils.js, `killProcessSilently`: fora do win32 não mata nada e o registro
+  é esvaziado como se tivesse matado; ou se assume Windows-only ou se completa.~~ Feito em
+  03/09/2026: fora do Windows manda SIGKILL ao grupo e, falhando, ao pid;
+  ESRCH conta como "já não existe", que é o resultado pedido.
+- [x] ~~Boot emite "Duplicate definition of module vs/editor/editor.main"; só há uma
   referência ao editor.main no bundle, então algum UMD está chamando o `define`
-  do loader AMD do Monaco.
-- A pasta `.slang` que slang_lsp.js cria dentro do projeto aparece na árvore de
-  pastas do usuário.
+  do loader AMD do Monaco.~~ Era o KaTeX,
+  achado em 03/09/2026: UMD com `defer` no head, executava DEPOIS do loader.js
+  (clássico, no corpo), via `define.amd` e registrava-se como módulo AMD
+  anônimo em vez de criar `window.katex`; o loader atribuía esse define ao
+  próximo módulo carregado, o editor.main, daí a duplicata. Efeito colateral
+  até então invisível: `window.katex` nunca existia e o chat caía sempre no
+  subconjunto Unicode. A tag passou para antes do loader, sem `defer`.
+- [x] ~~A pasta `.slang` que slang_lsp.js cria dentro do projeto aparece na árvore de
+  pastas do usuário.~~ Feito em
+  03/09/2026: `entradaOcultaNaArvore` (files_ops, com teste) esconde só ela, na
+  varredura da árvore e na lista do `project:open`; `.git` e `.vscode` seguem
+  visíveis de propósito.
 
 ### Desempenho
 
-- main/ipc/search.js, `search:in-project`: varredura síncrona no main, regex do
-  usuário direto em `new RegExp`; um padrão ruim congela todas as janelas.
-- main/python/pylib_watch.js, `sweep`: `statSync` em milhares de arquivos no
+- [x] ~~main/ipc/search.js, `search:in-project`: varredura síncrona no main, regex do
+  usuário direto em `new RegExp`; um padrão ruim congela todas as janelas.~~ Feito em
+  03/09/2026: a varredura saiu para `search_core.js` e roda num worker thread
+  por busca (`search_worker.js`), com prazo de 30 s que ENCERRA o worker, que é
+  a única forma de interromper um RegExp que não volta. O código do worker vai
+  como texto (`eval: true`), porque um worker tem carregador próprio e não tem
+  garantia de ler dentro do app.asar. Padrão inválido é recusado no main, sem
+  subir worker. Teste cobre núcleo e worker.
+- [x] ~~main/python/pylib_watch.js, `sweep`: `statSync` em milhares de arquivos no
   instante em que a janela recupera o foco; `getState` repete a varredura a
-  cada abertura do painel.
-- main/lsp/slang_lsp.js e verible_lsp.js: `stdoutBuf = Buffer.concat` a cada
-  chunk, custo quadrático em resposta grande.
-- main/ipc/surfer_tab.js: `inlineDocs` e `layouts` crescem a cada `serve` e
-  `stopServer` não os limpa.
+  cada abertura do painel.~~ Feito em
+  03/09/2026: o vigia usa `doctorAsync` (stats em lotes de 64 com
+  `fs.promises`, o event loop respira entre eles), a ronda do foco espera 1,5 s
+  para a janela assentar e não se acumula, e `getState`/`listExternal`
+  respondem `broken` pela sentinela (poucos stats) em vez da verificação
+  completa, que continua chegando ao painel por `pylibs:health`.
+- [x] ~~main/lsp/slang_lsp.js e verible_lsp.js: `stdoutBuf = Buffer.concat` a cada
+  chunk, custo quadrático em resposta grande.~~ Feito em
+  03/09/2026: `main/lsp/frame_reader.js` (com teste) acumula os pedaços numa
+  lista e só consolida uma vez por quadro, quando o corpo está completo;
+  linear no tamanho da resposta. As duas pontes usam o mesmo leitor.
+- [x] ~~main/ipc/surfer_tab.js: `inlineDocs` e `layouts` crescem a cada `serve` e
+  `stopServer` não os limpa.~~ Feito em
+  03/09/2026: cada serve anota os ids que registrou e o stop os revoga junto
+  com o proxy e o alvo de salvamento.
 
 ### Verificado e sem problema
 

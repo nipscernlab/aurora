@@ -231,8 +231,25 @@ function ausenciaEsperada(erro) {
   return !!erro && erro.code === 'ENOENT';
 }
 
+/**
+ * Entradas de diretorio que a arvore de arquivos NAO mostra.
+ *
+ * `.slang` e a pasta que o slang_lsp.js cria dentro do projeto para a config
+ * do indice (`.slang/local/server.json`); e do servidor de linguagem, nao do
+ * usuario, e aparecia na arvore como se fosse parte do projeto. A lista e
+ * deliberadamente curta: `.git` continua visivel, porque ha quem abra o
+ * `.gitignore` e os hooks pela arvore, e esconder pasta do usuario por regra
+ * geral de "comeca com ponto" tiraria tambem `.vscode` e afins.
+ *
+ * @param {string} name nome da entrada (sem caminho).
+ */
+function entradaOcultaNaArvore(name) {
+  return String(name || '') === '.slang';
+}
+
 module.exports = {
   compararEntradas,
+  entradaOcultaNaArvore,
   planoDeRenomear,
   aspasPowerShell,
   comandoCompactar,

@@ -14,7 +14,6 @@
     <link rel="stylesheet" href="node_modules/@phosphor-icons/web/src/bold/style.css">
     <!-- KaTeX, real LaTeX rendering for the AI chat (bundled locally, offline). -->
     <link rel="stylesheet" href="node_modules/katex/dist/katex.min.css">
-    <script defer src="node_modules/katex/dist/katex.min.js"></script>
     <link rel="stylesheet" href="./css/import.css">
     <!-- Inline SVG sprite for compile glyphs (replaces FontAwesome) -->
     <style>
@@ -1703,6 +1702,17 @@
 <!-- Fiacao do cromo (barra de titulo, realces de boas-vindas), em modulo
      externo: a CSP do app nao tem 'unsafe-inline' em script-src. -->
 <script src="./js/app/chrome_wiring.js" type="module"></script>
+
+<!-- KaTeX ANTES do loader do Monaco, e sem defer, de proposito. O KaTeX e um
+     UMD: se encontra um `define.amd` global, registra-se como modulo AMD
+     anonimo em vez de criar window.katex. Com `defer` no <head> ele rodava
+     DEPOIS do loader.js (classico, no corpo), entao caia no ramo AMD: o
+     define anonimo ficava na fila do loader e era atribuido ao proximo modulo
+     carregado, o editor.main, que dai acusava "Duplicate definition of module
+     vs/editor/editor.main" no boot; e window.katex nunca existia, entao o
+     chat_render caia sempre no subconjunto Unicode. Aqui o define ainda nao
+     existe e o KaTeX vira global, como o chat_render espera. -->
+<script src="node_modules/katex/dist/katex.min.js"></script>
 
 <!-- Monaco's AMD loader. The ONLY script that must run before the ES
      modules below: it installs a global require() that monaco_editor.js

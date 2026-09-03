@@ -1741,9 +1741,13 @@ linha, porque linha apodrece.
 
 ### Segurança
 
-- main.js, bloco da CSP: a política existe e cobre file:// e dev server, mas
-  script-src leva `unsafe-inline` e `unsafe-eval` (Monaco 0.52), então qualquer
-  injeção de HTML no renderer executa. Ponte expõe `shell:start` e `shell:input`.
+- main.js, bloco da CSP: o `unsafe-inline` saiu de script-src em 03/09/2026
+  (todos os `<script>` inline e o único `onclick=` viraram arquivos), então
+  HTML injetado no renderer não executa mais script. Sobra o `unsafe-eval`,
+  exigido pelo loader AMD do Monaco 0.52 (`new Function`); ele só sai com o
+  Monaco em ESM dentro do bundle do Vite, que é mudança de build e não de
+  política. Enquanto ficar, a ponte expondo `shell:start`/`shell:input` é o
+  que um `eval` alcançável compraria.
 - main/compile/binary_allowlist.js: a lista inclui perl, python, g++ e make com
   `args` livres, então `perl -e` ou `python -c` executam qualquer coisa; a
   documentação apresenta o allowlist como fronteira de confiança, e ele só

@@ -83,7 +83,7 @@
         <img src="./assets/icons/sapho_aurora_icon.svg" alt="">
       </span>
       <div class="toolbar-group">
-          <button id="sidebarMenu" class="toolbar-button icon-only" onclick="toggleSidebar()" data-tooltip="Toggle sidebar" data-i18n-tooltip="toolbar.sidebar.tooltip">
+          <button id="sidebarMenu" class="toolbar-button icon-only" data-tooltip="Toggle sidebar" data-i18n-tooltip="toolbar.sidebar.tooltip">
               <i class="ph ph-sidebar-simple"></i>
           </button>
           <button id="newProjectBtn" class="toolbar-button">
@@ -351,29 +351,11 @@
         <div class="file-tree-header">
             <span class="file-tree-label" data-i18n="fileTree.label">FILE TREE</span>
             <span id="current-spf-name" data-i18n="fileTree.noProject">No project open</span>
-            <script>
-              // Avoid the "No project open" flash on cold start when a project
-              // is about to be auto-restored. This runs synchronously during
-              // HTML parse (before first paint), so the user only sees the
-              // final state, either the loading placeholder or the eventual
-              // project name. AppInitializer.restoreLastSession() will replace
-              // this with the actual project name once the IPC roundtrip lands.
-              (function () {
-                try {
-                  if (localStorage.getItem('aurora-last-project-path')) {
-                    var el = document.getElementById('current-spf-name');
-                    if (el) {
-                      // Pre-i18n: window.t nao existe ainda. Setamos
-                      // o fallback EN no textContent e marcamos a
-                      // chave; applyDOM no fim do boot do i18n
-                      // sobrescreve com a traducao correta.
-                      el.textContent = 'Loading…';
-                      el.setAttribute('data-i18n', 'fileTree.loading');
-                    }
-                  }
-                } catch (_) { /* localStorage unavailable */ }
-              })();
-            </script>
+            <!-- Classico e NESTA posicao de proposito: roda durante o parse,
+                 antes do primeiro paint, para o "No project open" nao piscar
+                 quando um projeto vai ser restaurado. Externo porque a CSP do
+                 app nao tem 'unsafe-inline' em script-src. -->
+            <script src="./js/app/early_project_name.js"></script>
         </div>
 
         <div class="overlay-title">
@@ -1718,132 +1700,17 @@
         </footer>
 </aurora-modal>
 
-<!-- Inline scripts (modal wiring + interactions) -->
-<script>
-// The New Project / Processor Hub modal opener + trigger wiring moved to
-// js/ui/modal_system.js (one unified modal system). See it for openModal,
-// the capture-phase triggers, the cancel/confirm close wiring, and the
-// window.__modalHelpers shim.
-
-document.getElementById('reload-everything-terminal')?.addEventListener('click', () => {
-    if (window.electronAPI?.reloadApp) window.electronAPI.reloadApp();
-});
-
-function activateButton(buttonId) {
-    const button = document.getElementById(buttonId);
-    if (button) {
-        button.click();
-    } else if (buttonId === 'open-folder-button') {
-        document.querySelector('#open-folder-button')?.click();
-    }
-}
-
-function activateTerminal(terminalId) {
-    const terminal = document.querySelector(`[data-terminal="${terminalId}"]`);
-    if (terminal) terminal.click();
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const buttons = ['newProjectBtn', 'newProjectBtnWelcome', 'processorHub', 'openProjectBtn', 'openProjectBtnWelcome', 'allcomp', 'cancel-everything', 'clear-terminal', 'aiButton', 'sidebarMenu'];
-    buttons.forEach(id => {
-        const button = document.getElementById(id);
-        if (button) button.classList.add('button-highlight');
-    });
-    document.getElementById('open-folder-button')?.classList.add('button-highlight');
-
-    const terminals = ['tcmm', 'tasm', 'tveri', 'twave'];
-    terminals.forEach(id => {
-        const terminal = document.querySelector(`[data-terminal="${id}"]`);
-        if (terminal) terminal.classList.add('button-highlight');
-    });
-
-    document.querySelectorAll('.keyword').forEach(keyword => {
-        keyword.addEventListener('mouseover', function() {
-            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
-            if (!m) return;
-            const button = document.getElementById(m[1]) || document.querySelector(`#${m[1]}`);
-            button?.classList.add('button-highlight-active');
-        });
-        keyword.addEventListener('mouseout', function() {
-            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
-            if (!m) return;
-            const button = document.getElementById(m[1]) || document.querySelector(`#${m[1]}`);
-            button?.classList.remove('button-highlight-active');
-        });
-    });
-
-    document.querySelectorAll('.terminal-keyword').forEach(keyword => {
-        keyword.addEventListener('mouseover', function() {
-            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
-            if (!m) return;
-            document.querySelector(`[data-terminal="${m[1]}"]`)?.classList.add('button-highlight-active');
-        });
-        keyword.addEventListener('mouseout', function() {
-            const m = this.getAttribute('onclick')?.match(/'([^']+)'/);
-            if (!m) return;
-            document.querySelector(`[data-terminal="${m[1]}"]`)?.classList.remove('button-highlight-active');
-        });
-    });
-});
-
-function openAuroraAboutModal() {
-    document.getElementById("auroraAboutModal")?.classList.remove("aurora-about-hidden");
-}
-
-function closeAuroraAboutModal() {
-    document.getElementById("auroraAboutModal")?.classList.add("aurora-about-hidden");
-}
-
-/* ----------------------------------------------------------------------
- *  Custom title bar wiring
- *  - traffic-light buttons: minimize / maximize-toggle / close via IPC
- *  - double-click on toolbar drag area: maximize-toggle
- *  - listen to window state to swap the [□] / [❐] glyph
- * ---------------------------------------------------------------------- */
-document.addEventListener('DOMContentLoaded', () => {
-    const api = window.electronAPI;
-    if (!api) return;
-
-    document.getElementById('win-min')?.addEventListener('click', () => api.windowMinimize?.());
-    document.getElementById('win-max')?.addEventListener('click', () => api.windowMaximizeToggle?.());
-    document.getElementById('win-close')?.addEventListener('click', () => api.windowClose?.());
-
-    const titlebar = document.getElementById('custom-titlebar');
-    if (titlebar) {
-        titlebar.addEventListener('dblclick', (e) => {
-            // Only trigger when the dblclick happened on the drag region itself,
-            // not on a nested button/select/etc.
-            if (e.target.closest('button, input, select, textarea, label, .glyph, .window-dot')) return;
-            api.windowMaximizeToggle?.();
-        });
-    }
-
-    function applyMaximizedClass(state) {
-        document.body.classList.toggle('window-maximized', !!state?.isMaximized);
-        document.body.classList.toggle('window-fullscreen', !!state?.isFullScreen);
-    }
-
-    if (api.windowGetState) {
-        api.windowGetState().then(applyMaximizedClass).catch(() => {});
-    }
-    api.onWindowState?.(applyMaximizedClass);
-});
-</script>
+<!-- Fiacao do cromo (barra de titulo, realces de boas-vindas), em modulo
+     externo: a CSP do app nao tem 'unsafe-inline' em script-src. -->
+<script src="./js/app/chrome_wiring.js" type="module"></script>
 
 <!-- Monaco's AMD loader. The ONLY script that must run before the ES
      modules below: it installs a global require() that monaco_editor.js
      depends on. Everything else is a module whose order is resolved by
      its import graph, not by tag position. -->
 <script src="node_modules/monaco-editor/min/vs/loader.js"></script>
-<script>
-  // Anchor the `vs` base to an ABSOLUTE URL (via document.baseURI), not a bare
-  // relative path. Monaco builds its web-worker URL from this and loads it via
-  // importScripts inside a worker; under file:// a relative 'vendor/vs' resolved
-  // against the filesystem root (file:///vendor/vs/…workerMain.js) and failed to
-  // open files. document.baseURI anchors it to the real document location:
-  // correct in dev (http://localhost) and in the built/packaged app (file://).
-  require.config({ paths: { vs: new URL('node_modules/monaco-editor/min/vs', document.baseURI).href } });
-</script>
+<script src="./js/app/monaco_amd_config.js"
+        data-vs="node_modules/monaco-editor/min/vs"></script>
 
 <!-- ES modules (defer by default, dependency-resolved, order-independent) -->
 <!-- Error boundary first, so it is armed before the rest of the graph runs. -->

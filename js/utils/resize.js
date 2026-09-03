@@ -165,8 +165,9 @@ function applyFileTreeWidth(w) {
   document.body.classList.toggle('tree-collapsed', colapsada);
 }
 
-// Public toggle for the sidebar, exposed on window so the toolbar button
-// `<button id="sidebarMenu" onclick="toggleSidebar()">` can reach it.
+// Public toggle for the sidebar. O botao da barra de ferramentas
+// (#sidebarMenu) e o trilho da esquerda ligam por addEventListener abaixo; o
+// onclick= inline saiu do index.html junto com o 'unsafe-inline' da CSP.
 function toggleSidebar() {
   if (!fileTreeContainer) return;
   const isHidden = fileTreeContainer.classList.contains('is-collapsed') ||
@@ -471,6 +472,10 @@ function initPanelSizes() {
 // ferramentas. Uma copia da logica de reabrir aqui seria a terceira.
 const railLeft = document.querySelector('.edge-rail-left');
 if (railLeft) railLeft.addEventListener('click', () => toggleSidebar());
+
+// O botao da barra de ferramentas, que era um onclick= inline no index.html.
+const botaoSidebar = document.getElementById('sidebarMenu');
+if (botaoSidebar) botaoSidebar.addEventListener('click', () => toggleSidebar());
 
 // O botao de recolher e reabrir o terminal, na propria faixa de abas, que e a
 // unica coisa que sobra na tela quando o painel esta recolhido. A seta aponta

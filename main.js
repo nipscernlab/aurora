@@ -211,9 +211,16 @@ if (acquiredLock) {
     // Delivered as a response header on the default session so it covers BOTH the
     // packaged file:// load and the dev server. Every token is load-bearing:
     //   unsafe-eval  → Monaco 0.52's AMD loader (new Function); the renderer has none.
-    //   unsafe-inline→ index.html inline <script> blocks + the onclick at :82, and
-    //                  Monaco/Lit/KaTeX runtime-generated styles + style= attrs
-    //                  (a nonce can't authorize on*= handlers or generated styles).
+    //                  So sai com o Monaco em ESM/bundle proprio; ate la, e o
+    //                  unico resquicio de execucao dinamica na politica.
+    //   unsafe-inline (SO em style-src) → Monaco/Lit/KaTeX runtime-generated
+    //                  styles + style= attrs. Em script-src ele CAIU em
+    //                  03/09/2026: todos os <script> inline e o unico onclick=
+    //                  viraram arquivos (js/app/early_project_name.js,
+    //                  chrome_wiring.js, monaco_amd_config.js e os *_boot/
+    //                  *_sky de html/), entao HTML injetado no renderer deixa
+    //                  de executar script — que era o risco que a auditoria da
+    //                  secao 10 apontou, com a ponte expondo shell:start.
     //   blob:(script/worker) → Monaco's blob web-worker under the file:// opaque origin.
     //   data: → base64 chat-image attachments + two CSS svg backgrounds.
     //   file:(font) → the packaged file:// woff2 (opaque origin doesn't match 'self').
@@ -230,7 +237,7 @@ if (acquiredLock) {
       }
       const csp = [
         "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
+        "script-src 'self' 'unsafe-eval' blob:",
         "style-src 'self' 'unsafe-inline' data:",
         "img-src 'self' data: blob: https://avatars.githubusercontent.com",
         "media-src 'self'",

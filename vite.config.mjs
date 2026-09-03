@@ -163,6 +163,18 @@ export default defineConfig({
         // segunda copia dentro do asar sem nenhum leitor.
         { src: ['resources/**/*', '!resources/docs/**', '!resources/exemplos/**'], dest: 'resources', rename: { stripBase: 1 } },
         { src: 'assets/icons/**/*', dest: 'assets/icons', rename: { stripBase: 2 } },
+
+        // Scripts CLASSICOS que eram inline e sairam do HTML quando a CSP do
+        // app perdeu o 'unsafe-inline' de script-src. O Vite nao analisa
+        // <script> sem type="module" (aviso esperado, ver ESPERADOS), entao
+        // eles nao entram no grafo e precisam ser copiados para os caminhos
+        // relativos que as paginas referenciam. Os pares em module
+        // (splash_sky, update_sky, chrome_wiring, docs-browser-ui) NAO entram
+        // aqui: esses o Vite resolve e embute sozinho.
+        { src: 'js/app/early_project_name.js', dest: 'js/app', rename: { stripBase: 2 } },
+        { src: 'js/app/monaco_amd_config.js', dest: 'js/app', rename: { stripBase: 2 } },
+        { src: 'html/splash_boot.js', dest: 'html', rename: { stripBase: 1 } },
+        { src: 'html/update_boot.js', dest: 'html', rename: { stripBase: 1 } },
       ],
     }),
   ],

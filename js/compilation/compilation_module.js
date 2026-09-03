@@ -448,8 +448,13 @@ async loadConfig() {
 
     async ensureDirectories(name) {
         try {
-            const componentsDir = await electronAPI.joinPath('components');
-            await electronAPI.mkdir(componentsDir);
+            // Havia aqui um `mkdir(joinPath('components'))`: o canal join-path
+            // resolve 'components' contra o diretorio de instalacao, que e o
+            // lugar ANTIGO da toolchain (ela mora em %LOCALAPPDATA%\SAPHO desde
+            // que passou a ser baixada; em dev caia em Documents\components). A
+            // linha so criava uma pasta vazia fora do lugar a cada compilacao,
+            // e o guarda de escrita do main passou a recusa-la. A pasta que
+            // importa e a Temp sob this.componentsPath, logo abaixo.
             const tempBaseDir = await electronAPI.joinPath(this.componentsPath, 'Temp');
             await electronAPI.mkdir(tempBaseDir);
             const tempProcessorDir = await electronAPI.joinPath(this.componentsPath, 'Temp', name);

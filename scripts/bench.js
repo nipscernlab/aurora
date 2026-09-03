@@ -155,6 +155,12 @@ async function medirUmaVez(electron, opts) {
     } catch { m.diag_ms = NaN; } // slang ausente ou projeto sem diagnostico
 
     if (opts.compilar) {
+      // O botao C+- so habilita com um .cmm em foco (syncCmmcompEnabled), e o
+      // passo anterior deixou o top level .v aberto: sem voltar ao .cmm o
+      // click esperava um botao desabilitado ate o timeout, e cmm_ms nunca
+      // foi medido.
+      await page.locator('.file-item, .verilog-file-item').filter({ hasText: 'mediamovel.cmm' }).first().click();
+      await page.waitForFunction(() => { const b = document.getElementById('cmmcomp'); return !!b && !b.disabled; }, null, { timeout: 15000 });
       const t4 = Date.now();
       await page.click('#cmmcomp');
       try {

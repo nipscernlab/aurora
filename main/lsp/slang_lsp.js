@@ -78,6 +78,7 @@ const { componentsPath } = require('../paths');
 const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
 const { criarDisjuntor } = require('./disjuntor');
+const { criarLeitorDeQuadros } = require('./frame_reader');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -109,7 +110,38 @@ let nextId = 1;
 const pending = new Map();
 /** @type {Map<string, {version:number, text:string, languageId:string}>} */
 const openDocs = new Map();
-let stdoutBuf = Buffer.alloc(0);
+/**
+ * Leitor dos quadros Content-Length do stdout, linear no tamanho da resposta.
+ * Substitui o `stdoutBuf = Buffer.concat(...)` por pedaco, que era quadratico
+ * numa publicacao grande de diagnosticos. handleMessage e declarada abaixo;
+ * o callback so roda quando um quadro chega, com ela ja definida.
+ */
+const leitor = criarLeitorDeQuadros(
+  (msg) => {
+    try { handleMessage(msg); } catch (e) {
+      log.warn('[slang-ls] message handler error:', e instanceof Error ? e.message : e);
+    }
+  },
+  (e) => log.warn('[slang-ls] quadro com JSON invalido:', e instanceof Error ? e.message : e),
+);
+/**
+ * Disjuntor do SPAWN. Um binario que morre na hora (DLL faltando, antivirus
+ * segurando o .exe) era relancado a cada tecla digitada, porque cada didChange
+ * chama ensureReady e o startPromise e limpo na falha. Tres mortes seguidas
+ * abrem o disjuntor por um minuto; um servidor que fica de pe por dez segundos
+ * fecha. O disjuntor do completar, mais abaixo, protege outra coisa (a
+ * elaboracao que falha com o servidor VIVO).
+ */
+const disjuntorSpawn = criarDisjuntor({
+  nome: 'slang spawn',
+  aoAbrir: ({ falhas, motivo, pausaMs }) => {
+    log.warn(`[slang-ls] o servidor morreu ${falhas}x seguidas ao subir (${motivo}); `
+      + `pausando as tentativas por ${Math.round(pausaMs / 1000)}s.`);
+  },
+  aoFechar: () => log.info('[slang-ls] o servidor voltou a ficar de pe.'),
+});
+/** Um servidor que sobrevive a isto depois de pronto conta como sucesso do spawn. */
+const SPAWN_ESTAVEL_MS = 10000;
 /** Project dir the live server was started for (null = none / not started). */
 let currentProjectDir = null;
 /** @type {import('chokidar').FSWatcher | null} */
@@ -540,23 +572,7 @@ function handleMessage(/** @type {any} */ msg) {
 }
 
 function onStdout(/** @type {Buffer} */ chunk) {
-  stdoutBuf = Buffer.concat([stdoutBuf, chunk]);
-  for (;;) {
-    const sep = stdoutBuf.indexOf('\r\n\r\n');
-    if (sep < 0) break;
-    const header = stdoutBuf.slice(0, sep).toString('ascii');
-    const m = /content-length:\s*(\d+)/i.exec(header);
-    if (!m) { stdoutBuf = stdoutBuf.slice(sep + 4); continue; }
-    const len = parseInt(m[1], 10);
-    if (stdoutBuf.length < sep + 4 + len) break;
-    const body = stdoutBuf.slice(sep + 4, sep + 4 + len).toString('utf8');
-    stdoutBuf = stdoutBuf.slice(sep + 4 + len);
-    let msg;
-    try { msg = JSON.parse(body); } catch { continue; }
-    try { handleMessage(msg); } catch (e) {
-      log.warn('[slang-ls] message handler error:', e instanceof Error ? e.message : e);
-    }
-  }
+  leitor.push(chunk);
 }
 
 /** Reset live-process state and reject anything in flight. Keeps openDocs. */
@@ -564,7 +580,7 @@ function handleProcessGone() {
   ready = false;
   proc = null;
   startPromise = null;
-  stdoutBuf = Buffer.alloc(0);
+  leitor.reset();
   currentProjectDir = null;
   stopWatcher();
   for (const [, entry] of pending) {
@@ -592,14 +608,22 @@ function doStart() {
     let child;
     try {
       child = spawnTracked(LS_BIN, [], { windowsHide: true, cwd: dir || componentsPath });
-    } catch (e) { reject(e); return; }
+    } catch (e) { disjuntorSpawn.registrarFalha(e); reject(e); return; }
     proc = child;
     currentProjectDir = dir;
+    const nasceu = Date.now();
+    // Sucesso do spawn so depois de o servidor ficar de pe um tempo: morrer
+    // logo depois do initialize conta como morte ao subir.
+    const estavel = setTimeout(() => {
+      if (proc === child && ready) disjuntorSpawn.registrarSucesso();
+    }, SPAWN_ESTAVEL_MS);
+    estavel.unref?.();
 
     child.stdout.on('data', onStdout);
     child.stderr.on('data', () => { /* slang logs banners/info to stderr */ });
     child.on('error', (err) => {
       log.error('[slang-ls] process error:', err);
+      disjuntorSpawn.registrarFalha(err);
       if (!initSettled) { initSettled = true; reject(err); }
       // So o filho VIVO derruba o estado: depois de um restart, o exit do
       // antigo chegava tarde, zerava proc, rejeitava o initialize do novo e
@@ -608,6 +632,13 @@ function doStart() {
     });
     child.on('exit', (code, sig) => {
       log.info(`[slang-ls] exited (code=${code} sig=${sig})`);
+      clearTimeout(estavel);
+      // Morreu cedo (antes do initialize ou logo depois): e o caso do backoff.
+      // Um stop() nosso tambem passa por aqui, mas ele so acontece com o
+      // servidor vivo e estavel, ou quando ja se contou a falha.
+      if (proc === child && Date.now() - nasceu < SPAWN_ESTAVEL_MS) {
+        disjuntorSpawn.registrarFalha(new Error(`slang-server exited early (code ${code})`));
+      }
       if (!initSettled) { initSettled = true; reject(new Error(`slang-server exited (code ${code})`)); }
       if (proc === child) handleProcessGone();
     });
@@ -656,6 +687,12 @@ function doStart() {
 function start() {
   if (ready) return Promise.resolve();
   if (startPromise) return startPromise;
+  // Disjuntor aberto: nao sobe de novo agora. ensureReady devolve false e o
+  // editor segue sem o slang ate a pausa acabar, em vez de relancar um
+  // binario que morre na hora a cada tecla.
+  if (!disjuntorSpawn.podeTentar()) {
+    return Promise.reject(new Error('slang-server: em pausa depois de falhas seguidas ao subir'));
+  }
   startPromise = doStart();
   startPromise.catch(() => {}).then(() => { if (!ready) startPromise = null; });
   return startPromise;
@@ -779,6 +816,9 @@ function setEnabled(/** @type {boolean} */ on) {
   on = !!on;
   if (on === enabled) return { enabled };
   enabled = on;
+  // Religar e gesto explicito: a pessoa quer tentar de novo agora, entao a
+  // pausa do spawn nao vale para este pedido.
+  if (on) disjuntorSpawn.zerar();
   if (!on) stop(true); // disabling → kill + clear slang markers
   // enabling → lazy start on the next didOpen (the renderer re-opens its models)
   return { enabled };

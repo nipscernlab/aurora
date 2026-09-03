@@ -33,6 +33,8 @@ const state = require('../state');
 const { componentsPath } = require('../paths');
 const { spawnTracked } = require('../process_registry');
 const { isAllowed } = require('../compile/binary_allowlist');
+const { criarDisjuntor } = require('./disjuntor');
+const { criarLeitorDeQuadros } = require('./frame_reader');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -64,7 +66,34 @@ const pending = new Map();
  * @type {Map<string, {version:number, text:string, languageId:string}>}
  */
 const openDocs = new Map();
-let stdoutBuf = Buffer.alloc(0);
+/**
+ * Leitor dos quadros Content-Length, linear no tamanho da resposta; substitui
+ * o `Buffer.concat` por pedaco, quadratico. handleMessage e declarada abaixo
+ * e so e chamada quando um quadro chega.
+ */
+const leitor = criarLeitorDeQuadros(
+  (msg) => {
+    try { handleMessage(msg); } catch (e) {
+      log.warn('[verible-ls] message handler error:', e instanceof Error ? e.message : e);
+    }
+  },
+  (e) => log.warn('[verible-ls] quadro com JSON invalido:', e instanceof Error ? e.message : e),
+);
+/**
+ * Disjuntor do spawn: um binario que morre na hora era relancado a cada tecla
+ * (cada didChange chama ensureReady, e o startPromise e limpo na falha). Tres
+ * mortes seguidas pausam as tentativas por um minuto; dez segundos de pe
+ * fecham o disjuntor. Mesmo desenho do slang_lsp.js.
+ */
+const disjuntorSpawn = criarDisjuntor({
+  nome: 'verible spawn',
+  aoAbrir: ({ falhas, motivo, pausaMs }) => {
+    log.warn(`[verible-ls] o servidor morreu ${falhas}x seguidas ao subir (${motivo}); `
+      + `pausando as tentativas por ${Math.round(pausaMs / 1000)}s.`);
+  },
+  aoFechar: () => log.info('[verible-ls] o servidor voltou a ficar de pe.'),
+});
+const SPAWN_ESTAVEL_MS = 10000;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -137,24 +166,7 @@ function handleMessage(/** @type {any} */ msg) {
 }
 
 function onStdout(/** @type {Buffer} */ chunk) {
-  stdoutBuf = Buffer.concat([stdoutBuf, chunk]);
-  // Drain every complete Content-Length frame currently buffered.
-  for (;;) {
-    const sep = stdoutBuf.indexOf('\r\n\r\n');
-    if (sep < 0) break;
-    const header = stdoutBuf.slice(0, sep).toString('ascii');
-    const m = /content-length:\s*(\d+)/i.exec(header);
-    if (!m) { stdoutBuf = stdoutBuf.slice(sep + 4); continue; }
-    const len = parseInt(m[1], 10);
-    if (stdoutBuf.length < sep + 4 + len) break; // body not fully arrived yet
-    const body = stdoutBuf.slice(sep + 4, sep + 4 + len).toString('utf8');
-    stdoutBuf = stdoutBuf.slice(sep + 4 + len);
-    let msg;
-    try { msg = JSON.parse(body); } catch { continue; }
-    try { handleMessage(msg); } catch (e) {
-      log.warn('[verible-ls] message handler error:', e instanceof Error ? e.message : e);
-    }
-  }
+  leitor.push(chunk);
 }
 
 /** Tear down all live-process state and reject anything in flight. */
@@ -162,7 +174,7 @@ function handleProcessGone() {
   ready = false;
   proc = null;
   startPromise = null;
-  stdoutBuf = Buffer.alloc(0);
+  leitor.reset();
   for (const [, entry] of pending) {
     clearTimeout(entry.timer);
     try { entry.reject(new Error('verible-verilog-ls stopped')); } catch { /* ignore */ }
@@ -184,18 +196,28 @@ function doStart() {
     let child;
     try {
       child = spawnTracked(LS_BIN, LS_ARGS, { windowsHide: true });
-    } catch (e) { reject(e); return; }
+    } catch (e) { disjuntorSpawn.registrarFalha(e); reject(e); return; }
     proc = child;
+    const nasceu = Date.now();
+    const estavel = setTimeout(() => {
+      if (proc === child && ready) disjuntorSpawn.registrarSucesso();
+    }, SPAWN_ESTAVEL_MS);
+    estavel.unref?.();
 
     child.stdout.on('data', onStdout);
     child.stderr.on('data', () => { /* startup banner + noise */ });
     child.on('error', (err) => {
       log.error('[verible-ls] process error:', err);
+      disjuntorSpawn.registrarFalha(err);
       if (!initSettled) { initSettled = true; reject(err); }
       handleProcessGone();
     });
     child.on('exit', (code, sig) => {
       log.info(`[verible-ls] exited (code=${code} sig=${sig})`);
+      clearTimeout(estavel);
+      if (Date.now() - nasceu < SPAWN_ESTAVEL_MS) {
+        disjuntorSpawn.registrarFalha(new Error(`verible-verilog-ls exited early (code ${code})`));
+      }
       if (!initSettled) { initSettled = true; reject(new Error(`verible-verilog-ls exited (code ${code})`)); }
       handleProcessGone();
     });
@@ -232,6 +254,11 @@ function doStart() {
 function start() {
   if (ready) return Promise.resolve();
   if (startPromise) return startPromise;
+  // Disjuntor aberto: sem nova tentativa ate a pausa acabar; o editor segue
+  // sem o Verible em vez de relancar um binario que morre a cada tecla.
+  if (!disjuntorSpawn.podeTentar()) {
+    return Promise.reject(new Error('verible-verilog-ls: em pausa depois de falhas seguidas ao subir'));
+  }
   startPromise = doStart();
   // If the start fails, clear the memo so a later call retries from scratch.
   startPromise.catch(() => {}).then(() => { if (!ready) startPromise = null; });

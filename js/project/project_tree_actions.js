@@ -378,7 +378,10 @@ export const ActionsMixin = {
             }
             const finalFileName = basenameOf(finalPath);
 
-            await electronAPI.writeFile(finalPath, '// New Verilog file\n');
+            // Vazio de proposito: o "// New Verilog file" virou a dica de
+            // arquivo vazio do editor (js/editor/empty_placeholder.js), que
+            // aparece enquanto nao ha texto e nunca entra no arquivo.
+            await electronAPI.writeFile(finalPath, '');
 
             // Append-com-dedup atomico no .spf capturado. Arquivo novo
             // / vazio cai como 'synthesizable' (default seguro;

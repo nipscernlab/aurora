@@ -21,7 +21,7 @@ const { componentsPath } = require('../paths');
 const { sanitizeFileName } = require('../utils');
 const { spawnTracked, GROUP } = require('../process_registry');
 const { loadPage, pageUrl } = require('../render_loader');
-const { isAutoName, cellLabel } = require('./prism_labels');
+const { cellLabel, deveTrocarRotulo } = require('./prism_labels');
 const { alvoDaSimulacao } = require('./prism_sim_target');
 const { vcdDaSimulacao } = require('./prism_vcd');
 const { isAllowed } = require('../compile/binary_allowlist');
@@ -618,11 +618,14 @@ function injectCellTypesIntoSvg(/** @type {any} */ svgString, /** @type {any} */
   // O rotulo de cada celula e o nome da instancia. Quando o nome e do Yosys
   // (`memrd$\mem$C:\...\processor.v:77$272`, `auto$proc_memwr.cc:45:...`), o
   // que o aluno precisa ler e o que a celula faz, e isso o tipo diz: "mem
-  // read", "mem write". Ver prism_labels.js.
+  // read", "mem write". Ver prism_labels.js. SO o texto que e o proprio nome
+  // e trocado: o "+" de um somador tambem e um <text class="nodelabel cell_x">
+  // (a skin desenha o operador assim), e troca-lo escrevia "add" por cima do
+  // desenho. Foi assim que os simbolos +, −, ×, ÷ sumiram do PRISM.
   return comTipos.replace(
     /(<text\b[^>]*\bclass="nodelabel cell_([^"]+)"[^>]*>)([^<]*)(<\/text>)/g,
-    (/** @type {any} */ match, /** @type {any} */ abre, /** @type {any} */ instName, /** @type {any} */ _texto, /** @type {any} */ fecha) => {
-      if (!isAutoName(instName)) return match;
+    (/** @type {any} */ match, /** @type {any} */ abre, /** @type {any} */ instName, /** @type {any} */ texto, /** @type {any} */ fecha) => {
+      if (!deveTrocarRotulo(instName, texto)) return match;
       return `${abre}${xmlAttrEscape(cellLabel(instName, instanceTypeMap.get(instName)))}${fecha}`;
     },
   );

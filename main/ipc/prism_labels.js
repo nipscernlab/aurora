@@ -57,4 +57,24 @@ function cellLabel(instName, type) {
   return NOMES.get(base) || base;
 }
 
-module.exports = { isAutoName, cellLabel };
+/**
+ * O texto de um `<text class="nodelabel cell_x">` deve ser trocado pelo rotulo?
+ *
+ * So quando ele e o proprio nome automatico do Yosys, que e o rotulo de
+ * referencia que o netlistsvg escreve a partir de `s:attribute="ref"`. As
+ * skins aritmeticas e logicas (assets/prism-skins) desenham o OPERADOR num
+ * `<text>` com a mesma classe: "+", "−", "×", "÷", "%", "&", "≥1", "<<". A
+ * troca cega apagava o desenho e escrevia "add", "sub", "mul", "div" no
+ * lugar, que foi como os simbolos do PRISM sumiram. O nome de referencia
+ * carrega o `$` do Yosys; um glifo nunca.
+ *
+ * @param {string} instName nome da instancia no SVG
+ * @param {unknown} textoAtual o que o `<text>` tem hoje
+ */
+function deveTrocarRotulo(instName, textoAtual) {
+  if (!isAutoName(instName)) return false;
+  const t = String(textoAtual == null ? '' : textoAtual).trim();
+  return t === '' || t.includes('$');
+}
+
+module.exports = { isAutoName, cellLabel, deveTrocarRotulo };

@@ -586,3 +586,17 @@
   position: relative;
   top: 0.09em;
 }
+
+/* A dica de arquivo vazio ("// New Verilog file", js/editor/empty_placeholder.js).
+   E um content widget do Monaco na linha 1, coluna 1: com a cara de um
+   comentario apagado, porque e o que ela promete ser, e sem receber clique,
+   para o clique cair no editor, dar foco e a dica sumir, que e a regra. */
+.monaco-editor .aurora-empty-placeholder {
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-style: italic;
+  opacity: 0.75;
+  white-space: pre;
+  pointer-events: none;
+  user-select: none;
+}

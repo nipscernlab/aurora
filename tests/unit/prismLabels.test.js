@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { isAutoName, cellLabel } = require('../../main/ipc/prism_labels.js');
+const { isAutoName, cellLabel, deveTrocarRotulo } = require('../../main/ipc/prism_labels.js');
 
 describe('prism_labels', () => {
   it('nome do usuario fica como esta', () => {
@@ -32,5 +32,29 @@ describe('prism_labels', () => {
 
   it('sem tipo, nome automatico vira vazio em vez de lixo', () => {
     expect(cellLabel('$auto$x$1', undefined)).toBe('');
+  });
+});
+
+// O que decide se um <text> do SVG e rotulo de referencia (troca) ou desenho
+// da skin (fica). Errar aqui apaga o "+" do somador e escreve "add" no lugar,
+// que foi exatamente o sumico dos simbolos do PRISM.
+describe('deveTrocarRotulo', () => {
+  const auto = '$add$C:\\proj\\top.v:12$45';
+
+  it('o rotulo de referencia (o proprio nome automatico) e trocado', () => {
+    expect(deveTrocarRotulo(auto, auto)).toBe(true);
+    expect(deveTrocarRotulo('auto$proc_memwr.cc:45:proc_memwr$1163', 'auto$proc_memwr.cc:45:proc_memwr$1163')).toBe(true);
+    expect(deveTrocarRotulo(auto, '')).toBe(true);
+  });
+
+  it('o glifo da skin fica: +, −, ×, ÷, &, ≥1, <<', () => {
+    for (const glifo of ['+', '−', '×', '÷', '%', '&', '≥1', '=1', '<<', '>>>', '<', '≠']) {
+      expect(deveTrocarRotulo(auto, glifo)).toBe(false);
+    }
+  });
+
+  it('celula com nome dado pelo usuario nunca e tocada, seja qual for o texto', () => {
+    expect(deveTrocarRotulo('somador', 'somador')).toBe(false);
+    expect(deveTrocarRotulo('somador', '+')).toBe(false);
   });
 });

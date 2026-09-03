@@ -11,6 +11,7 @@ import { initPythonFormat } from './python_format_integration.js';
 import { initSlang } from './slang_integration.js';
 import { initTreeSitter } from './treesitter_highlight.js';
 import { registrarSnippetsDirac } from './dirac_snippets.js';
+import { installEmptyPlaceholder } from './empty_placeholder.js';
 
 class EditorManager {
     static editors = new Map();
@@ -308,6 +309,9 @@ class EditorManager {
         editor.onDidBlurEditorWidget(() => {
             document.dispatchEvent(new CustomEvent('aurora-editor-focusstate', { detail: { focused: false } }));
         });
+
+        // A dica "// New Verilog file" de arquivo vazio (ver empty_placeholder.js).
+        installEmptyPlaceholder(editor, filePath);
 
         this.decorateVerticalBar(editor);
         this.setupResponsiveObserver();

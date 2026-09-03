@@ -11,6 +11,7 @@ import { TabManager, showUnsavedChangesDialog } from '../tabs/tab_manager.js';
 import { EditorManager } from './monaco_editor.js';
 import { SharedModelRegistry } from './shared_models.js';
 import { attachAiSelectionWidget } from './ai_selection_widget.js';
+import { installEmptyPlaceholder } from './empty_placeholder.js';
 import { renderMarkdown, highlightCodeBlocks, linkifyFileRefs } from '../ai/chat_render.js';
 
 const MIN_PANE_WIDTH = 120;
@@ -218,6 +219,9 @@ class SplitPane {
         editor.onDidBlurEditorWidget(() => {
             document.dispatchEvent(new CustomEvent('aurora-editor-focusstate', { detail: { focused: false } }));
         });
+
+        // A mesma dica de arquivo vazio do editor principal.
+        installEmptyPlaceholder(editor, filePath);
 
         // Mirror typing into the dirty marker. The shared model already
         // notifies every editor's listeners on change; we go through

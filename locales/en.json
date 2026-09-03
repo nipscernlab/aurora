@@ -628,7 +628,8 @@
       "executingPrep": "Executing ASM Preprocessor: {{cmd}}",
       "executingComp": "Executing ASM Compiler: {{cmd}}",
       "copyingTb": "Copying testbench from \"{{src}}\" to \"{{dst}}\"",
-      "tbUpdated": "Testbench updated in project folder."
+      "tbUpdated": "Testbench updated in project folder.",
+      "verilogStats": "Generated Verilog: {{file}} with {{modules}} module(s), {{ports}} ports ({{inputs}} inputs, {{outputs}} outputs) and {{instances}} instance(s): {{instanceList}}"
     },
     "veri": {
       "fileNotFound": "File not found: {{path}}",
@@ -636,6 +637,16 @@
       "hdlListWarn": "Warning: could not list {{path}}, SAPHO library not included in hierarchy.",
       "hierarchyGen": "Generating project hierarchy with Yosys...",
       "hierarchySuccess": "Project hierarchy generated successfully",
+      "designStats": "Elaborated by Yosys from {{top}}: {{modules}} module(s) ({{moduleList}}), {{instances}} instance(s), top with {{ports}} ports ({{inputs}} inputs, {{outputs}} outputs), {{cells}} cell(s): {{families}}",
+      "families": {
+        "registers": "registers",
+        "memories": "memories",
+        "muxes": "muxes",
+        "arithmetic": "arithmetic",
+        "comparators": "comparators",
+        "shifts": "shifters",
+        "logic": "logic"
+      },
       "hierarchyError": "Project hierarchy generation error: {{message}}",
       "multipleTops": "Warning: {{count}} {{category}} files are marked as top-level. Using \"{{picked}}\"; ignoring {{ignored}}. Set exactly one top-level per category in Project Settings to silence this warning.",
       "bannerSyntaxWc": "Verilog Syntax Check (Wave Configuration)",

@@ -35,6 +35,7 @@ import { runSpec } from './spec_runner.js';
 import { buildCmmSpec, buildAsmPreSpec, buildAsmSpec } from './builders/index.js';
 import * as CommandSpec from './command_spec.js';
 import { moduleStemFromPath, insertChegueiToaqui } from './compilation_helpers.js';
+import { analisarVerilog, totaisDoVerilog } from './verilog_stats.js';
 
 // i18n shim, falls back to the key path if i18n didn't boot yet.
 const tr = (k, p) => (window.t ? window.t(k, p) : k);
@@ -350,6 +351,30 @@ export async function asmCompilation(deps, processor, preamble = null) {
             await electronAPI.copyFile(sourceTestbench, destinationTestbench);
             deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.tbUpdated'), 'tips');
         }
+
+        // O que o asmcomp acabou de gerar, lido do proprio arquivo: modulos,
+        // portas e instancias do <proc>.v. E o resumo que o terminal mostra
+        // do hardware gerado; sem ele a compilacao terminava sem dizer o que
+        // tinha produzido. Leitura de cortesia: falhando, a compilacao ja
+        // deu certo e segue.
+        try {
+            const hardwareVerilog = await electronAPI.joinPath(projectPath, 'Hardware', `${name}.v`);
+            const fonte = await electronAPI.readFile(hardwareVerilog, { encoding: 'utf8' });
+            const analise = analisarVerilog(fonte);
+            const t = totaisDoVerilog(analise);
+            const instancias = analise.modules
+                .flatMap((m) => m.instances.map((i) => `${i.module} ${i.name}`))
+                .join(', ');
+            deps.terminalManager.appendToTerminal('tasm', tr('terminal.asm.verilogStats', {
+                file: `${name}.v`,
+                modules: t.modules,
+                ports: t.ports,
+                inputs: t.inputs,
+                outputs: t.outputs,
+                instances: t.instances,
+                instanceList: instancias || '-',
+            }), 'tips');
+        } catch (_e) { /* o resumo e cortesia; o .v foi gerado do mesmo jeito */ }
 
         statusUpdater.compilationSuccess('asm');
     } catch (error) {

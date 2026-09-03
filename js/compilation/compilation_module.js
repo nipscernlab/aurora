@@ -71,6 +71,7 @@ import { getActiveProcessorName } from '../project/active_processor.js';
 import { statusUpdater } from '../ui/status_updater.js';
 import { runSpec, runSpecStreamed } from './spec_runner.js';
 import { parseYosysHierarchy } from './hierarchy_parser.js';
+import { resumirHierarquiaYosys } from './verilog_stats.js';
 import { renderHierarchy, refreshHierarchyFocusHighlight } from './hierarchy_view.js';
 import { resolveWaveToolchain, findWaveCandidateInDir, resolveVerilatorTools } from './wave_toolchain.js';
 import {
@@ -406,6 +407,31 @@ async generateProjectHierarchy() {
             this.hierarchyData = parseYosysHierarchy(hierarchyJson, designTopModule);
             window.fileTreeViewController?.setHierarchyData?.(this.hierarchyData);
             this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchySuccess'), 'success');
+
+            // O que a elaboracao do Yosys encontrou, lido do mesmo JSON que
+            // acabou de montar a arvore: modulos alcancados a partir do top,
+            // instancias, portas do top e celulas por familia. Numero da
+            // compilacao, nao de leitura de texto.
+            try {
+                const r = resumirHierarquiaYosys(hierarchyJson, designTopModule);
+                if (r.encontrouTop) {
+                    const familias = Object.entries(r.families)
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([f, n]) => `${n} ${tr(`terminal.veri.families.${f}`)}`)
+                        .join(', ');
+                    this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.designStats', {
+                        top: r.top,
+                        modules: r.modules,
+                        moduleList: r.moduleNames.join(', '),
+                        instances: r.instances,
+                        ports: r.topPorts.total,
+                        inputs: r.topPorts.inputs,
+                        outputs: r.topPorts.outputs,
+                        cells: r.cells,
+                        families: familias || '-',
+                    }), 'tips');
+                }
+            } catch (_e) { /* resumo de cortesia; a hierarquia ja esta na arvore */ }
             return true;
         } catch (error) {
             this.terminalManager.appendToTerminal('tveri', tr('terminal.veri.hierarchyError', { message: error.message }), 'warning');

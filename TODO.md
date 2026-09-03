@@ -1741,13 +1741,6 @@ linha, porque linha apodrece.
 
 ### Segurança
 
-- main/ipc/files.js, `file:delete`, `write-file`, `file:rename`,
-  `file:copy-any`, `delete-file`: aceitam caminho absoluto arbitrário;
-  `safePath` (main/utils.js) só rejeita vazio e byte nulo. As ferramentas
-  `delete_file` e afins da IA chegam aqui, e a única barreira é o modal
-  ask-before-write, que depende de a pessoa ler o caminho. Confinar escrita e
-  remoção às raízes conhecidas (projeto aberto, components/Temp, userData) por
-  prefixo após `path.resolve`.
 - main.js, bloco da CSP: a política existe e cobre file:// e dev server, mas
   script-src leva `unsafe-inline` e `unsafe-eval` (Monaco 0.52), então qualquer
   injeção de HTML no renderer executa. Ponte expõe `shell:start` e `shell:input`.

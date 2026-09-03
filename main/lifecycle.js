@@ -19,6 +19,9 @@ function register() {
   // .spf abre o projeto; .cmm e .v abrem soltos no editor (associacoes de
   // arquivo do instalador). O renderer decide pelo sufixo.
   state.fileToOpen = process.argv.find((arg) => /\.(spf|cmm|v)$/i.test(arg)) ?? null;
+  // Arquivo aberto pela associacao do Windows e gesto do usuario: salvar de
+  // volta e legitimo mesmo fora do projeto (guarda de escrita, fs_guard.js).
+  if (state.fileToOpen) state.grantedWritePaths.add(path.resolve(state.fileToOpen));
 
   // Single-instance lock, pass any .spf the second instance had to the
   // first, then quit the second instance. Tests run with their own
@@ -59,6 +62,7 @@ function register() {
     const newWin = createMainWindow();
 
     const fileArg = commandLine.find((arg) => /\.(spf|cmm|v)$/i.test(arg));
+    if (fileArg) state.grantedWritePaths.add(path.resolve(fileArg));
     if (fileArg && newWin) {
       // Espera o load nos dois casos: mandar antes de o renderer registrar o
       // listener e falar com ninguem.

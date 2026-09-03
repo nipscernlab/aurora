@@ -36,6 +36,8 @@
  * @property {Map<string, unknown>} fileStatsCache
  * @property {Map<string, { id: string, watcher: import('chokidar').FSWatcher, path: string, senders: Set<import('electron').WebContents> }>} activeDirectoryWatchers
  * @property {Map<string, unknown>} directoryStatsCache
+ * @property {Set<string>} grantedWritePaths - Arquivos avulsos que o usuário escolheu por dialogo do main (abrir/salvar/importar) ou associação de arquivo; a escrita neles é permitida mesmo fora do projeto. Ver main/ipc/fs_guard.js.
+ * @property {Set<string>} grantedWriteRoots - Pastas escolhidas pelo usuário (local de projeto novo); escrita liberada na subárvore.
  */
 
 /** @type {AppState} */
@@ -77,6 +79,10 @@ const state = {
   fileStatsCache: new Map(),
   activeDirectoryWatchers: new Map(),
   directoryStatsCache: new Map(),
+
+  // Concessoes de escrita fora das raizes fixas (fs_guard.js)
+  grantedWritePaths: new Set(),
+  grantedWriteRoots: new Set(),
 };
 
 module.exports = state;

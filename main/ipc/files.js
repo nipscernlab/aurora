@@ -14,9 +14,12 @@ const chokidar = require('chokidar');
 const log = require('electron-log');
 const { execFile } = require('child_process');
 
+const os = require('os');
 const state = require('../state');
 const { debounce, safePath, formatTimestamp } = require('../utils');
 const { spfDaJanela } = require('./project_paths');
+const { escritaPermitida } = require('./fs_guard');
+const { componentsPath } = require('../paths');
 const {
   compararEntradas,
   planoDeRenomear,
@@ -90,6 +93,52 @@ async function scanDirectory(/** @type {string} */ dirPath) {
   return buildTree(dirPath, true, 0);
 }
 
+// ── Guarda de escrita ───────────────────────────────────────────────────────
+// Escrita e remocao confinadas as areas graváveis; a regra mora em
+// fs_guard.js e o contexto (que depende da janela e das concessoes) e montado
+// aqui. Leitura nao passa por isto, de proposito.
+
+/** Concede escrita a UM arquivo que o usuario escolheu por dialogo do main. */
+function concederEscrita(/** @type {unknown} */ p) {
+  if (typeof p === 'string' && p) state.grantedWritePaths.add(path.resolve(p));
+}
+
+/** Concede escrita a uma PASTA que o usuario escolheu (local de projeto novo). */
+function concederRaizDeEscrita(/** @type {unknown} */ p) {
+  if (typeof p === 'string' && p) state.grantedWriteRoots.add(path.resolve(p));
+}
+
+/**
+ * Lanca quando `alvo` esta fora das areas graváveis. O rotulo entra na
+ * mensagem para o erro dizer qual operacao foi recusada; a mensagem diz o que
+ * fazer, porque ela chega ate a IA e ate a tela.
+ * @param {any} event
+ * @param {string} alvo caminho ja resolvido pelo safePath.
+ * @param {string} rotulo
+ */
+function exigirEscritaPermitida(event, alvo, rotulo) {
+  const spf = spfDaJanela(event);
+  const permitido = escritaPermitida(alvo, {
+    raizes: [
+      spf ? path.dirname(spf) : null,
+      path.join(componentsPath, 'Temp'),
+      app.getPath('userData'),
+      os.tmpdir(),
+    ],
+    arquivos: state.grantedWritePaths,
+    raizesConcedidas: state.grantedWriteRoots,
+  });
+  if (!permitido) {
+    log.warn(`[files] ${rotulo} recusado fora das areas gravaveis: ${alvo}`);
+    throw new Error(
+      `${rotulo} refused: "${alvo}" is outside the writable areas `
+      + '(open project, components/Temp, app data, or a path the user picked in a dialog). '
+      + 'Open or save the file through a dialog first.',
+    );
+  }
+  return alvo;
+}
+
 /** O handler de watch-file, guardado para o reinicio chamar sem passar pelo IPC. */
 /** @type {(event: any, filePath: string) => Promise<any>} */
 let watchFileImpl = async () => null;
@@ -126,6 +175,10 @@ async function restartWatcher(/** @type {string} */ filePath, /** @type {any} */
 }
 
 function register() {
+  // Concessao vinda do preload: um File de arrastar-e-soltar com caminho real
+  // (File sintetico do renderer nao tem caminho). So arquivo, nunca subarvore.
+  ipcMain.on('fs:arquivo-do-usuario', (_event, p) => concederEscrita(p));
+
   // ---------- file ops ----------
 
   ipcMain.handle('read-file', async (_event, filePath) => {
@@ -154,8 +207,8 @@ function register() {
     }
   });
 
-  ipcMain.handle('write-file', async (_event, filePath, content) => {
-    filePath = safePath(filePath, 'filePath');
+  ipcMain.handle('write-file', async (event, filePath, content) => {
+    filePath = exigirEscritaPermitida(event, safePath(filePath, 'filePath'), 'write-file');
     try {
       const dir = path.dirname(filePath);
       await fse.ensureDir(dir);
@@ -185,12 +238,12 @@ function register() {
     }
   });
 
-  ipcMain.handle('mkdir', (_event, dirPath) =>
-    fs.mkdir(safePath(dirPath, 'dirPath'), { recursive: true }),
+  ipcMain.handle('mkdir', (event, dirPath) =>
+    fs.mkdir(exigirEscritaPermitida(event, safePath(dirPath, 'dirPath'), 'mkdir'), { recursive: true }),
   );
 
-  ipcMain.handle('create-directory', async (_event, dirPath) => {
-    dirPath = safePath(dirPath, 'dirPath');
+  ipcMain.handle('create-directory', async (event, dirPath) => {
+    dirPath = exigirEscritaPermitida(event, safePath(dirPath, 'dirPath'), 'create-directory');
     try {
       await fse.ensureDir(dirPath);
       return { success: true };
@@ -200,12 +253,13 @@ function register() {
     }
   });
 
-  ipcMain.handle('copy-file', (_event, src, dest) =>
-    fs.copyFile(safePath(src, 'src'), safePath(dest, 'dest')),
+  // So o destino passa pelo guarda: a origem e leitura.
+  ipcMain.handle('copy-file', (event, src, dest) =>
+    fs.copyFile(safePath(src, 'src'), exigirEscritaPermitida(event, safePath(dest, 'dest'), 'copy-file')),
   );
 
-  ipcMain.handle('delete-file', async (_event, filePath) => {
-    filePath = safePath(filePath, 'filePath');
+  ipcMain.handle('delete-file', async (event, filePath) => {
+    filePath = exigirEscritaPermitida(event, safePath(filePath, 'filePath'), 'delete-file');
     try {
       await fs.unlink(filePath);
       return { success: true };
@@ -215,9 +269,9 @@ function register() {
     }
   });
 
-  ipcMain.handle('file:delete', async (_event, filePath) => {
+  ipcMain.handle('file:delete', async (event, filePath) => {
     try {
-      const normalizedPath = safePath(filePath, 'filePath');
+      const normalizedPath = exigirEscritaPermitida(event, safePath(filePath, 'filePath'), 'file:delete');
       let stats;
       try {
         stats = await fs.stat(normalizedPath);
@@ -279,9 +333,11 @@ function register() {
   // the user (replace / keep both / cancel) instead of silently clobbering.
   // Windows case-only renames (README.md → readme.md) are the same path for
   // fs.stat, so they go through a two-step rename via a temp name.
-  ipcMain.handle('file:rename', async (_event, oldPath, newPath, opts = {}) => {
-    oldPath = safePath(oldPath, 'oldPath');
-    newPath = safePath(newPath, 'newPath');
+  ipcMain.handle('file:rename', async (event, oldPath, newPath, opts = {}) => {
+    // Os DOIS lados passam pelo guarda: renomear remove a origem e cria o
+    // destino, entao qualquer um deles fora das areas gravaveis e recusado.
+    oldPath = exigirEscritaPermitida(event, safePath(oldPath, 'oldPath'), 'file:rename');
+    newPath = exigirEscritaPermitida(event, safePath(newPath, 'newPath'), 'file:rename');
     const overwrite = !!(opts && opts.overwrite);
     try {
       const plano = planoDeRenomear(oldPath, newPath, overwrite);
@@ -309,8 +365,8 @@ function register() {
   // Move to the OS trash (Recycle Bin), the default delete of the file-tree
   // CRUD, mirroring VS Code. Falls back to the caller to decide on permanent
   // deletion when trashing fails (e.g. network drives without a recycle bin).
-  ipcMain.handle('file:trash', async (_event, targetPath) => {
-    targetPath = safePath(targetPath, 'targetPath');
+  ipcMain.handle('file:trash', async (event, targetPath) => {
+    targetPath = exigirEscritaPermitida(event, safePath(targetPath, 'targetPath'), 'file:trash');
     try {
       await shell.trashItem(targetPath);
       return { success: true };
@@ -322,9 +378,9 @@ function register() {
 
   // Copy a file OR a whole directory (fse.copy is recursive). Same EEXIST
   // contract as file:rename so paste conflicts surface as a user decision.
-  ipcMain.handle('file:copy-any', async (_event, src, dest, opts = {}) => {
+  ipcMain.handle('file:copy-any', async (event, src, dest, opts = {}) => {
     src = safePath(src, 'src');
-    dest = safePath(dest, 'dest');
+    dest = exigirEscritaPermitida(event, safePath(dest, 'dest'), 'file:copy-any');
     const overwrite = !!(opts && opts.overwrite);
     try {
       if (!overwrite) {
@@ -372,11 +428,17 @@ function register() {
 
   // ---------- dialogs ----------
 
+  // Os dialogos sao os pontos de CONCESSAO do guarda de escrita: o caminho
+  // que sai deles foi escolhido pelo usuario numa janela do sistema, fora do
+  // alcance do renderer, entao ele e a prova de intencao que autoriza salvar
+  // um arquivo avulso fora do projeto.
   ipcMain.handle('dialog:showOpen', async () => {
-    return dialog.showOpenDialog({
+    const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: [{ name: 'Sapho Project Files', extensions: ['spf'] }],
     });
+    if (!result.canceled) (result.filePaths || []).forEach(concederEscrita);
+    return result;
   });
 
   ipcMain.handle('dialog:openDirectory', async (_event, options = {}) => {
@@ -391,7 +453,11 @@ function register() {
       properties: ['openDirectory', 'createDirectory'],
       defaultPath,
     });
-    return result.canceled ? null : result.filePaths[0];
+    if (result.canceled) return null;
+    // Pasta escolhida para criar projeto: a subarvore fica gravavel, porque o
+    // projeto novo escreve la antes de o .spf existir e ser aberto.
+    concederRaizDeEscrita(result.filePaths[0]);
+    return result.filePaths[0];
   });
 
   ipcMain.handle('dialog:show-open-import', async (_event, options = {}) => {
@@ -402,9 +468,12 @@ function register() {
       };
       // Pass the main window as parent only if it exists; the no-parent
       // overload is fine and avoids passing `null` (undefined behavior).
-      return await (state.mainWindow
+      const result = await (state.mainWindow
         ? dialog.showOpenDialog(state.mainWindow, opts)
         : dialog.showOpenDialog(opts));
+      // Arquivo avulso aberto por dialogo: salvar de volta e legitimo.
+      if (!result.canceled) (result.filePaths || []).forEach(concederEscrita);
+      return result;
     } catch (err) {
       log.error('dialog:show-open-import failed:', err);
       return { canceled: true, filePaths: [] };
@@ -413,9 +482,12 @@ function register() {
 
   ipcMain.handle('show-save-dialog', async (_event, options) => {
     const focused = BrowserWindow.getFocusedWindow();
-    return focused
+    const result = await (focused
       ? dialog.showSaveDialog(focused, options)
-      : dialog.showSaveDialog(options);
+      : dialog.showSaveDialog(options));
+    // Salvar-como fora do projeto: o destino escolhido fica gravavel.
+    if (!result.canceled) concederEscrita(result.filePath);
+    return result;
   });
 
   // ---------- shell ----------
@@ -476,8 +548,10 @@ function register() {
 
   // ---------- backups ----------
 
-  ipcMain.handle('create-backup', async (_event, folderPath) => {
-    folderPath = safePath(folderPath, 'folderPath');
+  ipcMain.handle('create-backup', async (event, folderPath) => {
+    // O zip e a pasta de preparo nascem DENTRO de folderPath, entao o guarda
+    // na raiz cobre tudo que este handler escreve.
+    folderPath = exigirEscritaPermitida(event, safePath(folderPath, 'folderPath'), 'create-backup');
 
     // Nomes, filtro e linha de comando em files_ops, com teste em cima. O zip
     // sai pelo Compress-Archive do PowerShell, que vem em toda instalacao do

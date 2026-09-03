@@ -693,10 +693,15 @@ const utilityOperations = {
    */
   getPathForFile: (file) => {
     try {
-      if (webUtils && typeof webUtils.getPathForFile === 'function') {
-        return webUtils.getPathForFile(file);
-      }
-      return file?.path || '';
+      const p = (webUtils && typeof webUtils.getPathForFile === 'function')
+        ? webUtils.getPathForFile(file)
+        : (file?.path || '');
+      // Arquivo ARRASTADO para dentro do app e gesto do usuario, e a prova e
+      // inforjavel daqui: um File sintetizado pelo renderer nao tem caminho
+      // (getPathForFile devolve ''). Concede escrita aquele arquivo no guarda
+      // do main (fs_guard.js), para o Ctrl+S de um avulso arrastado salvar.
+      if (p) ipcRenderer.send('fs:arquivo-do-usuario', p);
+      return p;
     } catch (err) {
       console.error('getPathForFile failed:', err);
       return '';

@@ -203,11 +203,16 @@ function readRecordFor(/** @type {string[]} */ entries) {
   }
 }
 
+/** sha256 de um buffer no formato base64url sem padding, como o RECORD usa. */
+function hashDeBuffer(/** @type {Buffer} */ buf) {
+  const h = crypto.createHash('sha256');
+  h.update(buf);
+  return h.digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 /** sha256 de um arquivo no formato base64url sem padding, como o RECORD usa. */
 function fileHash(/** @type {string} */ abs) {
-  const h = crypto.createHash('sha256');
-  h.update(fs.readFileSync(abs));
-  return h.digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return hashDeBuffer(fs.readFileSync(abs));
 }
 
 /**
@@ -271,6 +276,77 @@ function verifyFiles(rec, opts = {}) {
   };
 }
 
+/**
+ * A mesma verificacao, sem bloquear o thread principal.
+ *
+ * O `verifyFiles` sincrono faz `statSync` em cada arquivo de cada biblioteca,
+ * e o vigia (pylib_watch.js) o chamava no instante em que a janela recuperava
+ * o foco: milhares de stats seguidos no thread do main, bem quando a interface
+ * precisa responder. Aqui os stats saem em lotes com `fs.promises`, entao o
+ * event loop respira entre um lote e outro. O resultado tem a mesma forma.
+ *
+ * @param {any} rec entrada do manifesto
+ * @param {{deep?: boolean, maxReport?: number}} [opts]
+ */
+async function verifyFilesAsync(rec, opts = {}) {
+  const site = pylibSite();
+  const deep = !!opts.deep;
+  const maxReport = opts.maxReport ?? 20;
+  const hashes = rec.hashes || {};
+  const files = rec.files || [];
+  /** @type {Array<{file:string, problem:string}>} */
+  const problems = [];
+  const LOTE = 64;
+
+  for (let i = 0; i < files.length && problems.length < maxReport; i += LOTE) {
+    const lote = files.slice(i, i + LOTE);
+    const stats = await Promise.all(
+      lote.map((rel) => fs.promises.stat(path.join(site, rel)).catch(() => null)),
+    );
+    for (let k = 0; k < lote.length && problems.length < maxReport; k++) {
+      const rel = lote[k];
+      const st = stats[k];
+      if (!st) { problems.push({ file: rel, problem: 'missing' }); continue; }
+      const expected = hashes[rel];
+      if (!expected) continue;
+      if (expected.size != null && st.size !== expected.size) {
+        problems.push({ file: rel, problem: 'size' });
+        continue;
+      }
+      if (deep && expected.sha256) {
+        try {
+          const buf = await fs.promises.readFile(path.join(site, rel));
+          if (hashDeBuffer(buf) !== expected.sha256) problems.push({ file: rel, problem: 'corrupt' });
+        } catch (_) {
+          problems.push({ file: rel, problem: 'unreadable' });
+        }
+      }
+    }
+  }
+
+  return {
+    ok: problems.length === 0,
+    problems,
+    missing: problems.filter((p) => p.problem === 'missing').map((p) => p.file),
+  };
+}
+
+/**
+ * Faltou alguma sentinela da biblioteca? Sao poucos `stat` (o RECORD e o
+ * `__init__` do pacote de topo), por isso serve para o painel abrir e para o
+ * instante antes de simular, onde a verificacao completa nao cabe.
+ * @param {any} rec entrada do manifesto
+ * @param {string} site pylibSite()
+ */
+function sentinelasFaltando(rec, site) {
+  const files = (/** @type {any} */ (rec)).files || [];
+  const sentinels = files.filter((f) => /\.dist-info\/RECORD$/.test(f) || /^[^/]+\/__init__\.py$/.test(f));
+  for (const rel of sentinels.slice(0, 4)) {
+    if (!fs.existsSync(path.join(site, rel))) return true;
+  }
+  return false;
+}
+
 /* ── Ligacao com o interpretador ──────────────────────────────────────────── */
 
 /**
@@ -323,6 +399,7 @@ function getState() {
   const pythonPath = bundledPython();
   const pythonPresent = !!pythonPath && fs.existsSync(pythonPath);
 
+  const site = pylibSite();
   const libraries = catalog.libraries.map((lib) => {
     const rec = manifest.installed[lib.id] || null;
     return {
@@ -331,8 +408,11 @@ function getState() {
       installedVersion: rec ? rec.version : null,
       installedAt: rec ? rec.installedAt : null,
       // `broken` = manifesto diz instalado mas os arquivos sumiram. E o que o
-      // botao Reparar existe para resolver.
-      broken: rec ? !verifyFiles(rec).ok : false,
+      // botao Reparar existe para resolver. Pela sentinela, e nao pela
+      // verificacao completa: o painel pede este estado a cada abertura, e a
+      // completa (milhares de stats) ja roda no vigia e chega por
+      // `pylibs:health`.
+      broken: rec ? sentinelasFaltando(rec, site) : false,
     };
   });
 
@@ -381,8 +461,11 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
   }
 
   const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => {};
-  const manifest = readManifest();
-  if (manifest.installed[id] && !opts.force) {
+  // Leitura de ENTRADA, so para o atalho "ja esta". O manifesto e relido no
+  // commit, la embaixo: entre aqui e la ha downloads, e uma segunda
+  // instalacao (ou uma desinstalacao) que terminasse no meio era sobrescrita
+  // por esta copia velha, deixando a biblioteca dela orfa no disco.
+  if (readManifest().installed[id] && !opts.force) {
     onProgress({ id, phase: 'done', pct: 100 });
     return { id, alreadyInstalled: true };
   }
@@ -448,7 +531,11 @@ async function _install(/** @type {string} */ id, /** @type {any} */ opts) {
       try { fs.unlinkSync(whl); } catch (_) { /* best-effort */ }
     }
 
-    // 4. anotar. Sem isso, desinstalar viraria adivinhacao.
+    // 4. anotar. Sem isso, desinstalar viraria adivinhacao. Ler-modificar-
+    //    escrever SEM await no meio: e o que torna o commit atomico frente a
+    //    outra instalacao ou a uma desinstalacao concorrente (o JS e um so
+    //    thread, e uninstall e sincrono).
+    const manifest = readManifest();
     manifest.schemaVersion = MANIFEST_VERSION;
     manifest.abiTag = loadCatalog().python?.abiTag || null;
     manifest.installed[id] = {
@@ -685,7 +772,7 @@ function listExternal() {
       name: (/** @type {any} */ (rec)).name,
       version: (/** @type {any} */ (rec)).version,
       installedAt: (/** @type {any} */ (rec)).installedAt,
-      broken: !verifyFiles(rec).ok,
+      broken: sentinelasFaltando(rec, pylibSite()),
     }));
 }
 
@@ -699,6 +786,36 @@ function listExternal() {
 function doctor(opts = {}) {
   const deep = !!opts.deep;
   const manifest = readManifest();
+  /** @type {Map<string, ReturnType<typeof verifyFiles>>} */
+  const checks = new Map();
+  for (const [id, rec] of Object.entries(manifest.installed)) checks.set(id, verifyFiles(rec, { deep }));
+  return diagnosticoDe(manifest, checks, deep);
+}
+
+/**
+ * O mesmo diagnostico, com a verificacao assincrona: e o que o vigia usa, para
+ * a ronda de milhares de stats nao segurar o thread principal.
+ * @param {{deep?: boolean}} [opts]
+ */
+async function doctorAsync(opts = {}) {
+  const deep = !!opts.deep;
+  const manifest = readManifest();
+  /** @type {Map<string, Awaited<ReturnType<typeof verifyFilesAsync>>>} */
+  const checks = new Map();
+  for (const [id, rec] of Object.entries(manifest.installed)) {
+    checks.set(id, await verifyFilesAsync(rec, { deep }));
+  }
+  return diagnosticoDe(manifest, checks, deep);
+}
+
+/**
+ * Monta o veredito a partir das verificacoes por biblioteca. Comum ao doctor
+ * sincrono e ao assincrono, para os dois dizerem exatamente a mesma coisa.
+ * @param {any} manifest
+ * @param {Map<string, {ok: boolean, problems: Array<{file: string, problem: string}>}>} checks
+ * @param {boolean} deep
+ */
+function diagnosticoDe(manifest, checks, deep) {
   const catalog = loadCatalog();
   const expectedAbi = catalog.python?.abiTag || null;
   const issues = [];
@@ -712,8 +829,7 @@ function doctor(opts = {}) {
     });
   }
 
-  for (const [id, rec] of Object.entries(manifest.installed)) {
-    const check = verifyFiles(rec, { deep });
+  for (const [id, check] of checks) {
     if (check.ok) continue;
 
     // Separa por CAUSA, porque a acao do usuario e a mesma (Reparar) mas o que
@@ -763,14 +879,10 @@ function sentinelCheck() {
   const site = pylibSite();
   const broken = [];
 
+  // O RECORD e o __init__ do pacote de topo: se um dos dois sumiu, a
+  // biblioteca nao importa mais.
   for (const [id, rec] of Object.entries(manifest.installed)) {
-    const files = (/** @type {any} */ (rec)).files || [];
-    // O RECORD e o __init__ do pacote de topo: se um dos dois sumiu, a
-    // biblioteca nao importa mais.
-    const sentinels = files.filter((f) => /\.dist-info\/RECORD$/.test(f) || /^[^/]+\/__init__\.py$/.test(f));
-    for (const rel of sentinels.slice(0, 4)) {
-      if (!fs.existsSync(path.join(site, rel))) { broken.push(id); break; }
-    }
+    if (sentinelasFaltando(rec, site)) broken.push(id);
   }
 
   return { ok: broken.length === 0, broken };
@@ -787,6 +899,7 @@ module.exports = {
   installExternal,
   listExternal,
   doctor,
+  doctorAsync,
   sentinelCheck,
   ensureSitePth,
   removeSitePth,

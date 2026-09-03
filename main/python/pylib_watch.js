@@ -51,11 +51,24 @@ const SWEEP_MS = 20 * 60 * 1000;
 /** Depois de voltar o foco, so revarre se a ultima checagem ja tiver esta idade. */
 const FOCUS_MIN_AGE_MS = 5 * 60 * 1000;
 
+/**
+ * Quanto esperar depois do foco antes de varrer. No instante do foco a janela
+ * esta repintando e respondendo ao clique que a trouxe; milhares de stats ali
+ * eram exatamente o que a auditoria apontou. Um segundo e meio depois, a tela
+ * ja assentou e a varredura (agora assincrona) passa despercebida.
+ */
+const FOCUS_DELAY_MS = 1500;
+
 /** @type {NodeJS.Timeout|null} */
 let timer = null;
+/** @type {NodeJS.Timeout|null} */
+let focoAgendado = null;
 let lastCheck = 0;
 /** Resultado mais recente, servido ao painel sem refazer o trabalho. */
 let lastResult = null;
+/** A ronda em curso, para duas chamadas seguidas nao varrerem duas vezes. */
+/** @type {Promise<any> | null} */
+let emCurso = null;
 
 /** Manda o veredito para todas as janelas abertas. */
 function broadcast(/** @type {any} */ result) {
@@ -68,27 +81,36 @@ function broadcast(/** @type {any} */ result) {
 
 /**
  * Uma ronda. Nunca lanca: um problema no proprio vigia nao pode derrubar o app
- * nem virar um dialogo no meio do trabalho de alguem.
+ * nem virar um dialogo no meio do trabalho de alguem. Assincrona: a
+ * verificacao sai em lotes de `fs.promises.stat` e o thread principal respira
+ * entre eles; uma ronda pedida com outra em curso recebe a mesma promessa.
  * @param {{reason?: string, deep?: boolean, silent?: boolean}} [opts]
+ * @returns {Promise<any>}
  */
 function sweep(opts = {}) {
-  try {
-    const result = pylibs.doctor({ deep: !!opts.deep });
-    lastCheck = Date.now();
-    lastResult = { ...result, reason: opts.reason || 'sweep' };
+  if (emCurso) return emCurso;
+  emCurso = (async () => {
+    try {
+      const result = await pylibs.doctorAsync({ deep: !!opts.deep });
+      lastCheck = Date.now();
+      lastResult = { ...result, reason: opts.reason || 'sweep' };
 
-    if (!result.ok) {
-      log.warn(`[pylibs] verificacao (${opts.reason || 'sweep'}): ${result.issues.length} problema(s)`);
-      for (const i of result.issues) log.warn(`[pylibs]   ${i.message}`);
+      if (!result.ok) {
+        log.warn(`[pylibs] verificacao (${opts.reason || 'sweep'}): ${result.issues.length} problema(s)`);
+        for (const i of result.issues) log.warn(`[pylibs]   ${i.message}`);
+      }
+      // O renderer recebe SEMPRE, inclusive quando esta tudo bem: e assim que o
+      // painel apaga um aviso antigo depois de um reparo.
+      if (!opts.silent) broadcast(lastResult);
+      return lastResult;
+    } catch (e) {
+      log.error('[pylibs] vigia falhou:', e);
+      return null;
+    } finally {
+      emCurso = null;
     }
-    // O renderer recebe SEMPRE, inclusive quando esta tudo bem: e assim que o
-    // painel apaga um aviso antigo depois de um reparo.
-    if (!opts.silent) broadcast(lastResult);
-    return lastResult;
-  } catch (e) {
-    log.error('[pylibs] vigia falhou:', e);
-    return null;
-  }
+  })();
+  return emCurso;
 }
 
 /** O ultimo veredito, ou uma ronda nova se ainda nao houver nenhum. */
@@ -122,14 +144,21 @@ function start() {
   timer.unref?.(); // nunca segurar o processo vivo por causa do vigia
 
   // Voltar o foco depois de um tempo fora e o momento em que a varredura do
-  // antivirus costuma ter passado.
+  // antivirus costuma ter passado. Nao NO foco: um pouco depois, com a janela
+  // ja assentada (FOCUS_DELAY_MS), e uma vez so por retorno.
   app.on('browser-window-focus', () => {
-    if (Date.now() - lastCheck > FOCUS_MIN_AGE_MS) sweep({ reason: 'focus' });
+    if (focoAgendado || Date.now() - lastCheck <= FOCUS_MIN_AGE_MS) return;
+    focoAgendado = setTimeout(() => {
+      focoAgendado = null;
+      sweep({ reason: 'focus' });
+    }, FOCUS_DELAY_MS);
+    focoAgendado.unref?.();
   });
 }
 
 function stop() {
   if (timer) { clearInterval(timer); timer = null; }
+  if (focoAgendado) { clearTimeout(focoAgendado); focoAgendado = null; }
 }
 
 module.exports = { start, stop, sweep, latest };

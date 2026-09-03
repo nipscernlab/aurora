@@ -117,6 +117,37 @@ function status() {
   };
 }
 
+/**
+ * A URL e uma pagina do manual offline (da copia do instalador ou da baixada)?
+ *
+ * O main.js pergunta isto para NAO carimbar a politica de seguranca do
+ * aplicativo nas paginas do manual. A politica sem 'unsafe-inline' (03/09/2026)
+ * bloqueava o <script> inline com que o tema Furo define `data-theme` no body
+ * antes da primeira pintura: sem ele, num Windows escuro o Furo escurecia a
+ * pagina por `body:not([data-theme=light])` e o CSS do manual, que so conhece
+ * `auto` e `dark`, deixava cartoes, admonicoes e a marca da barra lateral nas
+ * cores claras, ilegiveis sobre o fundo escuro. O manual e HTML estatico
+ * nosso, numa view sem preload e sem ponte; ele fica como sempre esteve, sem
+ * a politica do aplicativo.
+ * @param {string} url
+ */
+function isDocsUrl(url) {
+  if (typeof url !== 'string' || !url.startsWith('file:')) return false;
+  let alvo;
+  try {
+    alvo = path.resolve(decodeURIComponent(new URL(url).pathname.replace(/^\/([A-Za-z]:)/, '$1')));
+  } catch (_) {
+    return false;
+  }
+  const chave = (/** @type {string} */ p) => (process.platform === 'win32' ? p.toLowerCase() : p);
+  for (const raiz of [bundledDir(), userDir()]) {
+    const r = chave(path.resolve(raiz));
+    const a = chave(alvo);
+    if (a === r || a.startsWith(r + path.sep)) return true;
+  }
+  return false;
+}
+
 /* ---------------------------------------------------------------------------
  *  Abertura
  * ------------------------------------------------------------------------ */
@@ -372,4 +403,4 @@ function register() {
 // isNewer e stripBom sao exportados para teste. Sao puros e decidem se o manual
 // baixado substitui o que veio no instalador; errar ali serve documentacao velha
 // em silencio. Ver tests/unit/docsVersion.test.js.
-module.exports = { register, status, isNewer, stripBom };
+module.exports = { register, status, isNewer, stripBom, isDocsUrl };

@@ -264,6 +264,10 @@ if (acquiredLock) {
         // framing it at all. It sends its own CSP; leave the response alone.
         if (previewIpc.isPreviewUrl(details.url)) return callback({});
         if (surferTabIpc.isSurferTabUrl(details.url)) return callback({});
+        // O manual offline (Sphinx/Furo) define o tema num <script> inline e
+        // e HTML estatico nosso numa view sem ponte: fica sem a politica do
+        // app, como sempre esteve. Ver docs.isDocsUrl.
+        if (docsIpc.isDocsUrl(details.url)) return callback({});
         const headers = { ...details.responseHeaders };
         // Replace (don't append): drop any CSP a dev server set so ours is authoritative.
         for (const k of Object.keys(headers)) {

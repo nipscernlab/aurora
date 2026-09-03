@@ -1,0 +1,2 @@
+data,commit,versao,runs,boot_ms,projeto_ms,editor_ms,diag_ms,heap_mb,nos_dom,ws_mb,dist_kb,cmm_ms,nota
+2026-09-03 10:41,15d8ede4+,6.14.0,3,6329,106,1727,206,48,1695,723,5244,,"primeira medicao, apos os lotes da auditoria de 02/09"

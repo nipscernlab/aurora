@@ -551,7 +551,7 @@ async function openInEditor(page, fileName) {
 
 // Exportado para o arnes de verificacao exercitar a montagem do GIF sem abrir
 // a aplicacao: e a unica parte que depende de ferramenta externa.
-module.exports = { gravarGif, temFfmpeg, tomadasPedidas };
+module.exports = { gravarGif, temFfmpeg, tomadasPedidas, writeProject };
 
 if (require.main === module) {
   main().catch((err) => {

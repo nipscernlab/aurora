@@ -1741,22 +1741,6 @@ linha, porque linha apodrece.
 
 ### Segurança
 
-- main/ipc/prism.js, handlers `prism-compile-with-paths`,
-  `generate-svg-from-module` e `prism:build-digitaljs`: `compilationPaths`
-  (yosysPath, tempPath, hdlPath) e `yosysOverride` (prependArgs, appendArgs,
-  envSet) chegam do renderer e vão direto ao spawn, sem o `isAllowed` de
-  binary_allowlist.js que todo outro ponto de spawn usa, e sem o filtro de env
-  do executor. Um renderer comprometido executa qualquer binário com argumentos
-  e ambiente escolhidos, e escreve os .ys, .json e .svg em qualquer pasta.
-  Derivar os caminhos de `componentsPath` no main (como
-  `get-prism-compilation-paths` já faz), gatear o spawn com `isAllowed` e passar
-  o override por `protectedFlags.check('prism-yosys')`.
-- main/ipc/prism_sim_target.js (`alvoDaSimulacao`) e main/ipc/prism_yosys_script.js:
-  a chave de cada `-chparam`, o `topLevelModule` (basename do topLevelFile do
-  .spf) e os caminhos de `read_verilog` entram no script do Yosys sem escape. O
-  Yosys executa linha iniciada por `!` como shell, então um nome com quebra de
-  linha vira comando; basta um .spf clonado. Validar os três com o mesmo regex
-  de identificador Verilog que o handler de simulação já aplica ao módulo.
 - main/ipc/project.js, `delete-processor` e `rename-processor`:
   `processorName` do renderer e `currentName` lido do .spf entram em
   `path.join(projectDir, nome)` sem validação antes do `fse.remove` recursivo e
@@ -1812,9 +1796,6 @@ linha, porque linha apodrece.
   do antigo zera `proc`, rejeita o `initialize` do novo e fecha o watcher
   recém-criado; acontece a cada troca de projeto. Nos handlers `exit`/`error`,
   retornar cedo se `proc !== child`.
-- main/ipc/prism.js, `prism:build-digitaljs`: só stderr tem listener; stdout
-  não é drenado. Passou de 64 KB, o Yosys bloqueia até o timer de 45 s matá-lo e
-  o usuário lê "timed out". O fluxo do esquemático já drena com no-op.
 - main/compile/executor.js, handler `exec-spec`: chama `segurarTela()` e nunca
   `soltarTela()`; depois da primeira compilação o powerSaveBlocker fica ativo
   até fechar a AURORA e a tela do laptop não apaga mais.
@@ -1832,8 +1813,6 @@ linha, porque linha apodrece.
   compilação, apaga o .vvp ou o obj_dir em uso.
 - main/python/pylib_manager.js, `_install`: duas instalações concorrentes (ou
   install e uninstall) sobrepõem o manifesto e uma biblioteca fica órfã.
-- main/ipc/prism.js, `yosysOverride`: ignora `protectedFlags.check`; um
-  `removeArgs: ['-s']` deixa o Yosys lendo stdin nunca fechado e o botão preso.
 - main/lsp/verible_lsp.js e slang_lsp.js, `start`: binário que morre na hora
   respawna a cada tecla, sem backoff; o disjuntor só protege o completion.
 - main/ipc/compile.js, `check-process-running`: casa o PID como substring da

@@ -24,6 +24,64 @@ const { loadPage, pageUrl } = require('../render_loader');
 const { isAutoName, cellLabel } = require('./prism_labels');
 const { alvoDaSimulacao } = require('./prism_sim_target');
 const { vcdDaSimulacao } = require('./prism_vcd');
+const { isAllowed } = require('../compile/binary_allowlist');
+const protectedFlags = require('../compile/protected_flags');
+const { validarIdentificadorVerilog, caminhoParaScript } = require('./prism_yosys_script');
+
+// Onde a sintese do PRISM escreve e qual yosys ela roda. Sao os UNICOS
+// caminhos que os handlers aceitam: o renderer manda os seus, por historico,
+// mas eles nao viram caminho aqui (ver caminhosConfiaveis).
+const PRISM_TEMP_DIR = path.join(componentsPath, 'Temp', 'PRISM');
+const YOSYS_EXE = path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe');
+
+/**
+ * Os caminhos da sintese, derivados aqui e nao aceitos de volta.
+ *
+ * O renderer monta o mesmo objeto (compilation_flow.buildPrismCompilationPaths)
+ * e o manda em `prism-compile-with-paths`, `prism-recompile` e
+ * `prism:build-digitaljs`; a pagina do PRISM, que e um <webview>, o devolve
+ * tambem. Um renderer comprometido escolhia com isso o binario a executar
+ * (`yosysPath`), o ambiente dele (`yosysOverride.envSet`) e a pasta onde os
+ * .ys, .json e .svg sao gravados (`tempPath`). Agora tudo o que vira caminho
+ * sai de `componentsPath` e do .spf aberto, como `get-prism-compilation-paths`
+ * sempre fez; do que chega so sobrevivem `prismMode`, que decide onde o PRISM
+ * abre, e `yosysOverride`, que ainda passa pelo `protectedFlags` e pelo filtro
+ * de ambiente antes do spawn.
+ */
+function caminhosConfiaveis(/** @type {any} */ recebido) {
+  const spfPath = state.currentOpenProjectPath;
+  const projectPath = spfPath ? path.dirname(spfPath) : null;
+  if (!projectPath) throw new Error('No project path available');
+  const ov = recebido && recebido.yosysOverride && typeof recebido.yosysOverride === 'object'
+    ? recebido.yosysOverride
+    : undefined;
+  return {
+    projectPath,
+    componentsPath,
+    hdlPath: path.join(componentsPath, 'HDL'),
+    tempPath: PRISM_TEMP_DIR,
+    yosysPath: YOSYS_EXE,
+    spfPath,
+    topLevelPath: path.join(projectPath, 'TopLevel'),
+    prismMode: recebido && recebido.prismMode === 'tab' ? 'tab' : undefined,
+    yosysOverride: ov,
+  };
+}
+
+/**
+ * So chaves de ambiente validas com valor string sem byte nulo, a mesma regra
+ * do buildChildEnv do executor; o resto do override e descartado em silencio,
+ * como la.
+ */
+function envSeguro(/** @type {any} */ envSet) {
+  /** @type {Record<string, string>} */
+  const out = {};
+  if (!envSet || typeof envSet !== 'object') return out;
+  for (const [k, v] of Object.entries(envSet)) {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && typeof v === 'string' && !v.includes('\0')) out[k] = v;
+  }
+  return out;
+}
 
 // ---------- helpers ----------
 
@@ -216,6 +274,8 @@ async function runYosysCompilationWithPaths(
   const hierarchyJsonPath = path.join(tempDir, 'hierarchy.json');
   const hdlPath = compilationPaths.hdlPath;
   const yosysExe = compilationPaths.yosysPath;
+  const gate = isAllowed(yosysExe);
+  if (!gate.ok) throw new Error(`Yosys binary refused: ${gate.error}`);
 
   // Coleta unificada:
   //   1. components/HDL/*.v , biblioteca SAPHO (processor, addr_dec,
@@ -337,8 +397,13 @@ async function runYosysCompilationWithPaths(
     if (Array.isArray(ov.prependArgs)) finalArgs = ov.prependArgs.concat(finalArgs);
     if (Array.isArray(ov.appendArgs))  finalArgs = finalArgs.concat(ov.appendArgs);
   }
-  const childEnv = { ...process.env };
-  if (ov?.envSet && typeof ov.envSet === 'object') Object.assign(childEnv, ov.envSet);
+  // A mesma regra dos outros passos (executor.js): o -s do script e protegido,
+  // senao um removeArgs deixava o yosys lendo um stdin que nunca fecha, e o
+  // ambiente so recebe chave valida com valor string.
+  const guarda = protectedFlags.check('prism-yosys', { args: overrideArgs }, { args: finalArgs });
+  if (!guarda.ok) throw new Error(guarda.error);
+  finalArgs = finalArgs.map((a) => String(a));
+  const childEnv = { ...process.env, ...envSeguro(ov?.envSet) };
   if (Array.isArray(ov?.envUnset)) for (const k of ov.envUnset) delete childEnv[k];
 
   return new Promise((resolve, reject) => {
@@ -661,7 +726,8 @@ async function performPrismCompilationWithPaths(/** @type {any} */ compilationPa
       throw new Error('.spf not found');
     }
     const spfData = await fse.readJson(spfPath);
-    const topLevelModule = path.basename(spfData?.structure?.topLevelFile || '', '.v');
+    const topLevelModule = validarIdentificadorVerilog(
+      path.basename(spfData?.structure?.topLevelFile || '', '.v'), 'top-level module');
 
     const hierarchyJsonPath = await runYosysCompilationWithPaths(
       compilationPaths,
@@ -772,6 +838,9 @@ async function buildDigitalJSCircuit(
 ) {
   const fileList = await collectSynthFiles(compilationPaths);
   if (fileList.length === 0) throw new Error('No Verilog files found for the simulation');
+  const top = validarIdentificadorVerilog(topLevelModule, 'module');
+  const gate = isAllowed(compilationPaths.yosysPath);
+  if (!gate.ok) throw new Error(`Yosys binary refused: ${gate.error}`);
 
   // Per-phase progress to the terminal so a slow/stuck build is diagnosable
   // (which phase, yosys, convert, or the renderer, is the bottleneck).
@@ -783,15 +852,15 @@ async function buildDigitalJSCircuit(
   const t0 = Date.now();
 
   const jsonPath = path.join(tempDir, 'digitaljs.json');
-  const readCommands = fileList.map((f) => `read_verilog "${f}"`).join('\n');
+  const readCommands = fileList.map((f) => `read_verilog "${caminhoParaScript(f)}"`).join('\n');
   // Word-level synthesis the yosys2digitaljs converter expects (no abc/techmap,
   // so $add/$mux/$dff stay as DigitalJS cells rather than being mapped to gates).
   // Os parametros do modulo, como ele esta instanciado no projeto: sem eles a
   // ula_fdiv simularia com os padroes do Verilog, que nao sao os do processador.
-  const chparam = chparams.map(([k, v]) => ` -chparam ${k} ${v}`).join('');
+  const chparam = chparams.map(([k, v]) => ` -chparam ${validarIdentificadorVerilog(k, 'parameter')} ${v}`).join('');
   const script = `
 ${readCommands}
-hierarchy -top ${topLevelModule}${chparam}
+hierarchy -top ${top}${chparam}
 proc
 opt_clean
 memory -nomap
@@ -823,6 +892,9 @@ write_json "${jsonPath}"
       e.reason = 'timeout'; e.module = topLevelModule; e.seconds = YOSYS_TIMEOUT_MS / 1000;
       finish(e);
     }, YOSYS_TIMEOUT_MS);
+    // Drena stdout: o Yosys escreve o log inteiro nele e, com o pipe cheio,
+    // parava ate o timer matar, e a pessoa lia "timed out" num design pequeno.
+    proc.stdout.on('data', () => {});
     proc.stderr.on('data', (d) => (stderr += d.toString()));
     proc.on('error', (e) => finish(e instanceof Error ? e : new Error(String(e))));
     proc.on('close', (/** @type {number} */ code) => {
@@ -1033,6 +1105,7 @@ function register() {
   });
   ipcMain.handle('prism-compile-with-paths', async (_event, compilationPaths) => {
     try {
+      compilationPaths = caminhosConfiaveis(compilationPaths);
       const result = await performPrismCompilationWithPaths(compilationPaths);
       if (!result.success) return result;
       // Na aba, quem mostra e o renderer: ele cria o <webview> e entrega o
@@ -1067,8 +1140,11 @@ function register() {
     const preload = require('url').pathToFileURL(path.join(app.getAppPath(), 'js', 'app', 'preload_prism.js')).href;
     return { ok: true, url: `${pagina.url}?embedded=1`, preload };
   });
-  ipcMain.handle('generate-svg-from-module', async (_event, moduleName, tempDir) => {
+  ipcMain.handle('generate-svg-from-module', async (_event, moduleName, _tempDir) => {
     try {
+      // A pasta e sempre a do PRISM em components/Temp; o que a pagina manda
+      // como tempDir nao vira caminho.
+      const tempDir = PRISM_TEMP_DIR;
       const cleanName = sanitizeFileName(moduleName);
       const moduleJsonPath = path.join(tempDir, `${cleanName}.json`);
       if (!(await fse.pathExists(moduleJsonPath))) {
@@ -1085,23 +1161,9 @@ function register() {
 
   ipcMain.handle('get-prism-compilation-paths', async () => {
     try {
-      // A4: project dir derived from the open .spf (single source of truth).
-      const projectPath = state.currentOpenProjectPath
-        ? path.dirname(state.currentOpenProjectPath)
-        : null;
-      if (!projectPath) throw new Error('No project path available');
-
-      return {
-        projectPath,
-        componentsPath,
-        hdlPath: path.join(componentsPath, 'HDL'),
-        tempPath: path.join(componentsPath, 'Temp', 'PRISM'),
-        yosysPath: path.join(componentsPath, 'Packages', 'msys', 'mingw64', 'bin', 'yosys.exe'),
-        // netlistsvg agora vem do node_modules (@silimate/netlistsvg) e
-        // roda in-process, nao precisa mais expor binario pro renderer.
-        spfPath: state.currentOpenProjectPath || '',
-        topLevelPath: path.join(projectPath, 'TopLevel'),
-      };
+      // A4: tudo deriva do .spf aberto (fonte unica), pela mesma funcao que os
+      // handlers de sintese usam para ignorar o que o renderer manda de volta.
+      return caminhosConfiaveis(null);
     } catch (error) {
       log.error('Failed to get compilation paths:', error);
       throw error;
@@ -1140,6 +1202,7 @@ function register() {
   ipcMain.handle('prism-recompile', async (_event, compilationPaths) => {
     try {
       if (!compilationPaths) throw new Error('Compilation paths are required for re-compilation.');
+      compilationPaths = caminhosConfiaveis(compilationPaths);
 
       const compilationResult = await performPrismCompilationWithPaths(compilationPaths);
       if (!compilationResult.success) throw new Error(compilationResult.message);
@@ -1225,6 +1288,7 @@ function register() {
   ipcMain.handle('prism:build-digitaljs', async (_event, compilationPaths, moduleName) => {
     try {
       if (!compilationPaths) throw new Error('Compilation paths are required.');
+      compilationPaths = caminhosConfiaveis(compilationPaths);
       const tempDir = compilationPaths.tempPath;
       await fse.ensureDir(tempDir);
 

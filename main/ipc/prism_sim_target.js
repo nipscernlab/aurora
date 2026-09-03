@@ -63,9 +63,13 @@ function alvoDaSimulacao(nomeCru) {
   for (const p of partes) {
     const i = p.indexOf('=');
     if (i <= 0) { perdidos = true; continue; }
+    // A chave entra no script do Yosys como esta, e uma linha comecada por `!`
+    // la e comando de shell: so identificador Verilog puro passa.
+    const chave = p.slice(0, i);
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(chave)) { perdidos = true; continue; }
     const v = valorDeParametro(p.slice(i + 1));
     if (v === null) { perdidos = true; continue; }
-    chparams.push([p.slice(0, i), v]);
+    chparams.push([chave, v]);
   }
   return { modulo, chparams, parametrosPerdidos: perdidos };
 }

@@ -37,3 +37,22 @@ describe('alvoDaSimulacao', () => {
         expect(valorDeParametro("s4'1x01")).toBeNull();
     });
 });
+
+describe('alvoDaSimulacao recusa chave de parametro que nao e identificador', () => {
+    // A chave entra no script do Yosys como esta, e uma linha comecada por `!`
+    // la e comando de shell. Um nome forjado com quebra de linha na chave era o
+    // caminho para isso; a chave hostil cai, as boas ficam, e o aviso de
+    // parametros perdidos sobe para a pessoa saber que a simulacao nao e fiel.
+    it('descarta a chave hostil, mantem as boas e marca como perdido', () => {
+        const r = alvoDaSimulacao("$paramod\\ula\\K\n!calc.exe=s32'00000000000000000000000000000101\\NUBITS=s32'00000000000000000000000000100000");
+        expect(r.modulo).toBe('ula');
+        expect(r.chparams).toEqual([['NUBITS', '32']]);
+        expect(r.parametrosPerdidos).toBe(true);
+    });
+
+    it('chave com espaco ou ponto tambem nao entra', () => {
+        const r = alvoDaSimulacao("$paramod\\ula\\A B=s32'00000000000000000000000000000001\\c.d=s32'00000000000000000000000000000001");
+        expect(r.chparams).toEqual([]);
+        expect(r.parametrosPerdidos).toBe(true);
+    });
+});

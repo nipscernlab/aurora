@@ -1718,6 +1718,174 @@ temática quando for pego.
 
 ---
 
+## 10. Auditoria de 02/09/2026
+
+Revisão do repositório inteiro atrás de vulnerabilidades, lógica ruim e
+desempenho, feita em 02/09/2026 sobre a main em dd60a3f2. Dois revisores
+cobriram por leitura completa o processo principal (Electron, IPC, preload) e a
+cadeia de compilação, PRISM e LSP; o restante foi coberto por leitura dirigida e
+por uma sonda Playwright que subiu a AURORA num perfil descartável, exercitou
+nove painéis, quinze ciclos de abrir e fechar painel e vinte de aba, e colheu
+console, pageerror e log do main. Nessa sonda não houve pageerror nem
+crescimento de nós do DOM ou de modelos do Monaco. ESLint, tsc e os 1710 testes
+unitários passam. Ficaram com cobertura só pontual: o renderer de abas, árvore e
+editor (tab_manager, file_mode, project_manager, standard_tree_crud), os módulos
+de onda e o miolo de compilation_module.js. Uma segunda rodada deveria começar
+por eles.
+
+O único item corrigido na hora foi o `unknown module` do processador ainda não
+compilado, que virou informação azul em slang_lsp.js
+(suavizarProcessadorNaoCompilado). Tudo abaixo está pendente. A ordem dentro de
+cada bloco é a da gravidade, e a referência é por arquivo e símbolo, nunca por
+linha, porque linha apodrece.
+
+### Segurança
+
+- main/ipc/prism.js, handlers `prism-compile-with-paths`,
+  `generate-svg-from-module` e `prism:build-digitaljs`: `compilationPaths`
+  (yosysPath, tempPath, hdlPath) e `yosysOverride` (prependArgs, appendArgs,
+  envSet) chegam do renderer e vão direto ao spawn, sem o `isAllowed` de
+  binary_allowlist.js que todo outro ponto de spawn usa, e sem o filtro de env
+  do executor. Um renderer comprometido executa qualquer binário com argumentos
+  e ambiente escolhidos, e escreve os .ys, .json e .svg em qualquer pasta.
+  Derivar os caminhos de `componentsPath` no main (como
+  `get-prism-compilation-paths` já faz), gatear o spawn com `isAllowed` e passar
+  o override por `protectedFlags.check('prism-yosys')`.
+- main/ipc/prism_sim_target.js (`alvoDaSimulacao`) e main/ipc/prism_yosys_script.js:
+  a chave de cada `-chparam`, o `topLevelModule` (basename do topLevelFile do
+  .spf) e os caminhos de `read_verilog` entram no script do Yosys sem escape. O
+  Yosys executa linha iniciada por `!` como shell, então um nome com quebra de
+  linha vira comando; basta um .spf clonado. Validar os três com o mesmo regex
+  de identificador Verilog que o handler de simulação já aplica ao módulo.
+- main/ipc/project.js, `delete-processor` e `rename-processor`:
+  `processorName` do renderer e `currentName` lido do .spf entram em
+  `path.join(projectDir, nome)` sem validação antes do `fse.remove` recursivo e
+  do rename. Um nome `..` apaga a pasta pai do projeto. A ferramenta
+  `delete_processor` da IA chega aqui. Aplicar a allowlist que `create` já usa
+  e exigir que o resolvido seja filho direto de `projectDir`.
+- main/ipc/files.js, `file:delete`, `write-file`, `file:rename`,
+  `file:copy-any`, `delete-file`: aceitam caminho absoluto arbitrário;
+  `safePath` (main/utils.js) só rejeita vazio e byte nulo. As ferramentas
+  `delete_file` e afins da IA chegam aqui, e a única barreira é o modal
+  ask-before-write, que depende de a pessoa ler o caminho. Confinar escrita e
+  remoção às raízes conhecidas (projeto aberto, components/Temp, userData) por
+  prefixo após `path.resolve`.
+- package.json, bloco `build.win`: não há `publisherName`, e o NsisUpdater do
+  electron-updater pula a verificação de assinatura quando ele falta
+  (`verifySignature` retorna sem checar). O instalador baixado roda sem conferir
+  o Authenticode; só o HTTPS e a conta do GitHub protegem. Declarar o nome exato
+  do certificado do SignPath, alinhado à política de assinatura da release.
+- main/state.js, `currentOpenProjectPath`: global único, mas cada janela
+  principal abre seu projeto. `delete-processor`, `rename-processor`,
+  `search:in-project` e `trigger-file-tree-refresh` resolvem contra o último
+  projeto aberto, não o da janela que pediu; apagar um processador na janela A
+  pode remover a pasta do projeto da janela B. Indexar por `event.sender.id`.
+- main/ipc/files.js, `folder:open`: `shell.openPath` sem `safePath` nem exigir
+  diretório; um caminho para .exe, .bat ou .lnk executa em vez de abrir.
+- main.js, bloco da CSP: a política existe e cobre file:// e dev server, mas
+  script-src leva `unsafe-inline` e `unsafe-eval` (Monaco 0.52), então qualquer
+  injeção de HTML no renderer executa. Ponte expõe `shell:start` e `shell:input`.
+- main/windows.js, `will-attach-webview`: compara só o sufixo
+  `/html/prism/prism.html`, sem origem; uma URL https com esse sufixo recebe o
+  preload do PRISM. Comparar com a URL absoluta de render_loader.js.
+- Nenhuma sessão tem `setPermissionRequestHandler`; pedidos de permissão do
+  iframe aurora-preview (que roda HTML arbitrário) são concedidos por padrão.
+- main/ipc/preview.js: a raiz servida é a pasta inteira do arquivo visualizado,
+  com `connect-src https:`; um .html na home entrega a árvore toda, inclusive
+  .ssh. Arquivo na raiz da unidade também quebra a checagem (`C:\\`).
+- main/compile/binary_allowlist.js: a lista inclui perl, python, g++ e make com
+  `args` livres, então `perl -e` ou `python -c` executam qualquer coisa; a
+  documentação apresenta o allowlist como fronteira de confiança, e ele só
+  impede a troca de binário. Documentar a limitação real ou restringir a forma
+  dos argumentos dos interpretadores.
+- main/ipc/surfer_config.js, `safeMappingName`: deixa `..` passar, ao contrário
+  do que o comentário afirma; grava lixo em config/. Rejeitar nomes só de pontos.
+- npm audit: fast-uri (alto; o override `^3.1.5` ainda cai na faixa vulnerável)
+  e qs via express do SDK do MCP (moderado). `npm audit fix` resolve os dois.
+- CI: actions fixadas por tag major (@v7), não por SHA. Sem
+  `pull_request_target`, permissões enxutas, segredos só na release.
+
+### Lógica
+
+- main/lsp/slang_lsp.js, `stop`, `restart` e `maybeRestartForProject`: o
+  servidor novo sobe antes do `exit` do antigo chegar, e o `handleProcessGone`
+  do antigo zera `proc`, rejeita o `initialize` do novo e fecha o watcher
+  recém-criado; acontece a cada troca de projeto. Nos handlers `exit`/`error`,
+  retornar cedo se `proc !== child`.
+- main/ipc/prism.js, `prism:build-digitaljs`: só stderr tem listener; stdout
+  não é drenado. Passou de 64 KB, o Yosys bloqueia até o timer de 45 s matá-lo e
+  o usuário lê "timed out". O fluxo do esquemático já drena com no-op.
+- main/compile/executor.js, handler `exec-spec`: chama `segurarTela()` e nunca
+  `soltarTela()`; depois da primeira compilação o powerSaveBlocker fica ativo
+  até fechar a AURORA e a tela do laptop não apaga mais.
+- main/lifecycle.js, `before-quit`: async sem `preventDefault`, então apagar
+  credenciais ao sair e esvaziar a espera do desfazer podem ficar pela metade.
+- main/ipc/files.js, `restartWatcher`: usa `ipcMain.emit` num canal registrado
+  com `handle`, que não dispara; após um erro do chokidar o watcher morre e o
+  editor deixa de ver alterações externas em silêncio.
+- main/ipc/project.js: o main reescreve o .spf com `writeFile` direto, sem
+  tmp+rename, enquanto o renderer também escreve pelo SpfStore; uma escrita
+  entre a leitura e a gravação se perde, e uma queda deixa JSON truncado que
+  `parseSpfTolerant` não recupera.
+- main/ipc/components.js, doctor: `clearTempFolderSync` apaga components/Temp
+  inteiro sem consultar `state.childProcesses`; disparado durante uma
+  compilação, apaga o .vvp ou o obj_dir em uso.
+- main/python/pylib_manager.js, `_install`: duas instalações concorrentes (ou
+  install e uninstall) sobrepõem o manifesto e uma biblioteca fica órfã.
+- main/ipc/prism.js, `yosysOverride`: ignora `protectedFlags.check`; um
+  `removeArgs: ['-s']` deixa o Yosys lendo stdin nunca fechado e o botão preso.
+- main/lsp/verible_lsp.js e slang_lsp.js, `start`: binário que morre na hora
+  respawna a cada tecla, sem backoff; o disjuntor só protege o completion.
+- main/ipc/compile.js, `check-process-running`: casa o PID como substring da
+  saída do tasklist; PID 12 dá positivo em qualquer linha com 1234.
+- main/ipc/files.js, `watch-directory` e `watch-file`: indexados só pelo
+  caminho e presos ao primeiro `sender`; segunda janela nunca recebe eventos, e
+  quando a primeira fecha o `send` num webContents destruído vira exceção.
+- main/windows.js, `reapAbandonedAi`: reload em qualquer janela mata as CLIs de
+  IA de todas.
+- main/ipc/bug_report.js, `anonimizar`: substitui o nome de usuário sem
+  fronteira de palavra; usuário "ana" corrompe "Hardware" e "Backup" no log.
+- main/ipc/project.js: notificações `project:processors` vão para a janela
+  focada em vez de `event.sender`.
+- main/utils.js, `killProcessSilently`: fora do win32 não mata nada e o registro
+  é esvaziado como se tivesse matado; ou se assume Windows-only ou se completa.
+- js/ui/sky.js, `loadCatalogue`: achado da sonda. A CSP do main.js não tem
+  `data:` em connect-src, então o `fetch` do catálogo embutido de estrelas é
+  bloqueado e a splash cai sempre no campo aleatório, o caso que o comentário do
+  módulo dizia querer evitar. Decodificar a data URL com `atob` em vez de
+  `fetch` resolve sem afrouxar a CSP.
+- Boot emite "Duplicate definition of module vs/editor/editor.main"; só há uma
+  referência ao editor.main no bundle, então algum UMD está chamando o `define`
+  do loader AMD do Monaco.
+- A pasta `.slang` que slang_lsp.js cria dentro do projeto aparece na árvore de
+  pastas do usuário.
+
+### Desempenho
+
+- main/ipc/search.js, `search:in-project`: varredura síncrona no main, regex do
+  usuário direto em `new RegExp`; um padrão ruim congela todas as janelas.
+- main/python/pylib_watch.js, `sweep`: `statSync` em milhares de arquivos no
+  instante em que a janela recupera o foco; `getState` repete a varredura a
+  cada abertura do painel.
+- main/lsp/slang_lsp.js e verible_lsp.js: `stdoutBuf = Buffer.concat` a cada
+  chunk, custo quadrático em resposta grande.
+- main/compile/executor.js, one-shot: `stdout += chunk` sem teto.
+- main/ipc/surfer_tab.js: `inlineDocs` e `layouts` crescem a cada `serve` e
+  `stopServer` não os limpa.
+
+### Verificado e sem problema
+
+Escape de HTML no painel git (branches, mensagens), no terminal (`comLinks`) e
+no chat da IA; sanitizador das release notes em update-notification.html; chaves
+de API com safeStorage e recusa de texto puro; CLIs de IA baixadas com sha512
+conferido e `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` retiradas do ambiente do filho;
+extração de zip com defesa contra `..` e caminhos absolutos; downloaders da
+toolchain com checksum; git via simple-git com arrays e `--`; todas as
+BrowserWindows com contextIsolation, sandbox e sem nodeIntegration; nenhum
+preload expõe ipcRenderer cru; open-external só http, https e mailto.
+
+---
+
 ## Princípios de desenho
 
 Nenhuma API responde de forma incompleta. Ou foi chamada errado, e diz onde;

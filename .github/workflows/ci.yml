@@ -13,7 +13,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Node 22, nao 20: o piso real do projeto e 22.22.1, imposto pelo
       # lint-staged 17. Antes disso o electron 43 pede 22.12, o commitlint 21
@@ -21,7 +21,7 @@ jobs:
       # cuspindo EBADENGINE em quatro pacotes e testava numa versao que o
       # projeto nao suporta. O piso esta declarado em package.json engines.
       - name: Setup Node.js 22
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -87,7 +87,7 @@ jobs:
       - name: Upload coverage to Codecov
         # Uses the repo's CODECOV_TOKEN secret (GitHub → Settings → Secrets and
         # variables → Actions). Never fails CI, coverage is informational here.
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info

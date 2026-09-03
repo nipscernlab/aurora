@@ -1748,11 +1748,6 @@ linha, porque linha apodrece.
   ask-before-write, que depende de a pessoa ler o caminho. Confinar escrita e
   remoção às raízes conhecidas (projeto aberto, components/Temp, userData) por
   prefixo após `path.resolve`.
-- package.json, bloco `build.win`: não há `publisherName`, e o NsisUpdater do
-  electron-updater pula a verificação de assinatura quando ele falta
-  (`verifySignature` retorna sem checar). O instalador baixado roda sem conferir
-  o Authenticode; só o HTTPS e a conta do GitHub protegem. Declarar o nome exato
-  do certificado do SignPath, alinhado à política de assinatura da release.
 - main/state.js, `currentOpenProjectPath`: global único, mas cada janela
   principal abre seu projeto. `delete-processor`, `rename-processor`,
   `search:in-project` e `trigger-file-tree-refresh` resolvem contra o último
@@ -1771,10 +1766,6 @@ linha, porque linha apodrece.
   documentação apresenta o allowlist como fronteira de confiança, e ele só
   impede a troca de binário. Documentar a limitação real ou restringir a forma
   dos argumentos dos interpretadores.
-- npm audit: fast-uri (alto; o override `^3.1.5` ainda cai na faixa vulnerável)
-  e qs via express do SDK do MCP (moderado). `npm audit fix` resolve os dois.
-- CI: actions fixadas por tag major (@v7), não por SHA. Sem
-  `pull_request_target`, permissões enxutas, segredos só na release.
 
 ### Lógica
 

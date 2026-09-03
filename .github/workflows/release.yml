@@ -169,12 +169,12 @@ jobs:
           Write-Host "::warning::SIGNPATH_POLICY_SLUG esta em 'test-signing' e esta execucao PUBLICA, entao o instalador sai SEM assinatura, como todos os anteriores. O certificado de teste e autoassinado e nao pode chegar a um aluno. Para publicar assinado, troque a variavel para a politica de producao; para ensaiar a assinatura, rode com sign_only marcado."
 
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Mesma versao do ci.yml. O piso do projeto e 22.22.1 (lint-staged 17);
       # ver a nota la e o engines do package.json.
       - name: Setup Node.js 22
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22'
           cache: 'npm'
@@ -258,13 +258,29 @@ jobs:
       # publish policy, so only the upload is ours to do. Doing it explicitly
       # below also means the signed and unsigned paths publish through the same
       # step, instead of two publishers that can disagree.
+      # `publisherName` entra SO no caminho que assina, e por que nao no
+      # package.json: o NsisUpdater verifica o Authenticode do instalador
+      # baixado apenas quando o app INSTALADO carrega um publisherName no seu
+      # app-update.yml. Gravado estaticamente, a proxima release (ainda sem
+      # assinatura) exigiria assinatura de todas as seguintes e o laboratorio
+      # inteiro pararia de atualizar. Embutido so na release assinada, quem
+      # instala uma versao assinada passa a recusar instalador cuja cadeia nao
+      # feche com "SignPath Foundation", que e o CN dos certificados deles, e
+      # quem esta numa versao nao assinada segue atualizando como hoje. Efeito
+      # colateral desejado: depois da primeira release assinada nao ha volta
+      # silenciosa para release sem assinatura. Conferir o CN exato no primeiro
+      # release de producao faz parte do 3.8 do TODO.
       - name: Build installer
-        run: npx electron-builder --win --x64 --publish never
+        shell: pwsh
+        run: |
+          $extra = @()
+          if ($env:SIGN -eq 'true') { $extra += '-c.win.publisherName=SignPath Foundation' }
+          npx electron-builder --win --x64 --publish never @extra
 
       - name: Upload the unsigned installer for SignPath
         if: ${{ env.SIGN == 'true' }}
         id: upload-unsigned
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: unsigned-installer
           path: release/sapho-aurora-Setup-*.exe
@@ -272,7 +288,7 @@ jobs:
 
       - name: Sign with SignPath
         if: ${{ env.SIGN == 'true' }}
-        uses: signpath/github-action-submit-signing-request@v2
+        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627 # v2.3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORG_ID }}
@@ -325,7 +341,7 @@ jobs:
       # certo, e nao um erro.
       - name: Upload the signed installer for inspection (sign_only)
         if: ${{ inputs.sign_only == true }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: signed-installer
           path: |

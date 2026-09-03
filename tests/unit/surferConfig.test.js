@@ -123,3 +123,20 @@ describe('podeSobrescreverConfig', () => {
     expect(podeSobrescreverConfig(semMarcador)).toBe(false);
   });
 });
+
+describe('safeMappingName recusa nome feito so de pontos', () => {
+  // `..` passa pelo filtro de caracteres (ponto e permitido) e sobe um nivel:
+  // o .tmp ia parar em config/ e o rename falhava, deixando lixo la. Um nome
+  // que vira vazio e recusado por quem chama, como qualquer outro sem letra.
+  it('devolve vazio para .. e para .', () => {
+    expect(safeMappingName('..')).toBe('');
+    expect(safeMappingName('.')).toBe('');
+    expect(safeMappingName('...')).toBe('');
+  });
+
+  it('mas deixa passar nome com ponto no meio ou na ponta', () => {
+    expect(safeMappingName('a.b')).toBe('a.b');
+    expect(safeMappingName('.hidden')).toBe('.hidden');
+    expect(safeMappingName('x..')).toBe('x..');
+  });
+});

@@ -248,17 +248,28 @@ function register() {
 
       // Only clear the shared slot if it still points at *this* child:
       // a faster sequential step could already have claimed it.
+      let soltouTela = false;
       const releaseSlot = () => {
+        // Solta a tela uma vez so: sem isto o passo one-shot segurava o
+        // powerSaveBlocker para sempre e a tela do laptop nunca mais apagava.
+        if (!soltouTela) { soltouTela = true; soltarTela(); }
         if (state.currentVvpProcess === child) {
           state.currentVvpProcess = null;
           state.vvpProcessPid = null;
         }
       };
 
+      // Teto na acumulacao: um simulador em loop de $display crescia a memoria
+      // do main sem limite ate o cancelamento. Passado o teto, fica a cauda.
+      const TETO_SAIDA = 8 * 1024 * 1024;
+      const acumular = (/** @type {string} */ atual, /** @type {Buffer} */ d) => {
+        const s = atual + d.toString();
+        return s.length > TETO_SAIDA ? `[saida truncada]\n${s.slice(-TETO_SAIDA)}` : s;
+      };
       let stdout = '';
       let stderr = '';
-      child.stdout?.on('data', (d) => (stdout += d.toString()));
-      child.stderr?.on('data', (d) => (stderr += d.toString()));
+      child.stdout?.on('data', (d) => (stdout = acumular(stdout, d)));
+      child.stderr?.on('data', (d) => (stderr = acumular(stderr, d)));
       child.on('close', (code) => {
         releaseSlot();
         resolve({ code, stdout, stderr, pid: child.pid });
@@ -311,12 +322,13 @@ function register() {
       state.vvpProcessPid = child.pid ?? null;
       boostPriority(child.pid);
 
-      child.stdout?.on('data', (data) => {
-        event.sender.send('exec-spec-stream', { type: 'stdout', data: data.toString() });
-      });
-      child.stderr?.on('data', (data) => {
-        event.sender.send('exec-spec-stream', { type: 'stderr', data: data.toString() });
-      });
+      // A janela pode fechar com o filho vivo; um send em webContents destruido
+      // lanca dentro do listener do stream, que e excecao solta no main.
+      const mandar = (/** @type {string} */ type, /** @type {Buffer} */ data) => {
+        if (!event.sender.isDestroyed()) event.sender.send('exec-spec-stream', { type, data: data.toString() });
+      };
+      child.stdout?.on('data', (data) => mandar('stdout', data));
+      child.stderr?.on('data', (data) => mandar('stderr', data));
       let soltou = false;
       const soltar = () => { if (!soltou) { soltou = true; soltarTela(); } };
       child.on('close', (code) => {

@@ -601,12 +601,15 @@ function doStart() {
     child.on('error', (err) => {
       log.error('[slang-ls] process error:', err);
       if (!initSettled) { initSettled = true; reject(err); }
-      handleProcessGone();
+      // So o filho VIVO derruba o estado: depois de um restart, o exit do
+      // antigo chegava tarde, zerava proc, rejeitava o initialize do novo e
+      // fechava o watcher recem-criado; o servidor novo ficava orfao.
+      if (proc === child) handleProcessGone();
     });
     child.on('exit', (code, sig) => {
       log.info(`[slang-ls] exited (code=${code} sig=${sig})`);
       if (!initSettled) { initSettled = true; reject(new Error(`slang-server exited (code ${code})`)); }
-      handleProcessGone();
+      if (proc === child) handleProcessGone();
     });
 
     request('initialize', {

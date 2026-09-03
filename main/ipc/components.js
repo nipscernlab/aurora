@@ -327,6 +327,13 @@ async function doctor(janela) {
   // 1. Caches. O components/Temp guarda artefatos de compilacao; zip parcial
   // e resto de download que morreu no meio.
   try {
+    // Com compilacao viva o Temp esta em uso (.vvp, obj_dir do Verilator,
+    // PRISM): apagar agora derruba a etapa com erro de arquivo inexistente.
+    // Os servicos (LSPs) nao contam, so o grupo RUN.
+    const { childProcesses } = require('../state');
+    const { GROUP } = require('../process_registry');
+    const compilando = [...childProcesses].some((c) => /** @type {any} */ (c).__auroraGroup === GROUP.RUN);
+    if (compilando) throw new Error('compilacao em andamento; o cache de Temp fica para a proxima');
     require('../temp_gc').clearTempFolderSync(componentsPath);
     for (const arquivo of fs.readdirSync(path.dirname(componentsPath))) {
       if (/^(aurora-|surfer-aurora).*\.zip$/i.test(arquivo)) {

@@ -80,7 +80,10 @@ function podeSobrescreverConfig(conteudoAtual) {
  */
 function safeMappingName(name) {
   if (typeof name !== 'string') return '';
-  return name.replace(/[^A-Za-z0-9_.-]/g, '_');
+  const limpo = name.replace(/[^A-Za-z0-9_.-]/g, '_');
+  // So pontos passariam pelo filtro acima, e `..` sobe um nivel: o .tmp ia
+  // parar em config/ e o rename falhava, deixando lixo la.
+  return /^\.+$/.test(limpo) ? '' : limpo;
 }
 
 module.exports = {

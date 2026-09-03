@@ -1741,12 +1741,6 @@ linha, porque linha apodrece.
 
 ### Segurança
 
-- main/ipc/project.js, `delete-processor` e `rename-processor`:
-  `processorName` do renderer e `currentName` lido do .spf entram em
-  `path.join(projectDir, nome)` sem validação antes do `fse.remove` recursivo e
-  do rename. Um nome `..` apaga a pasta pai do projeto. A ferramenta
-  `delete_processor` da IA chega aqui. Aplicar a allowlist que `create` já usa
-  e exigir que o resolvido seja filho direto de `projectDir`.
 - main/ipc/files.js, `file:delete`, `write-file`, `file:rename`,
   `file:copy-any`, `delete-file`: aceitam caminho absoluto arbitrário;
   `safePath` (main/utils.js) só rejeita vazio e byte nulo. As ferramentas
@@ -1764,14 +1758,9 @@ linha, porque linha apodrece.
   `search:in-project` e `trigger-file-tree-refresh` resolvem contra o último
   projeto aberto, não o da janela que pediu; apagar um processador na janela A
   pode remover a pasta do projeto da janela B. Indexar por `event.sender.id`.
-- main/ipc/files.js, `folder:open`: `shell.openPath` sem `safePath` nem exigir
-  diretório; um caminho para .exe, .bat ou .lnk executa em vez de abrir.
 - main.js, bloco da CSP: a política existe e cobre file:// e dev server, mas
   script-src leva `unsafe-inline` e `unsafe-eval` (Monaco 0.52), então qualquer
   injeção de HTML no renderer executa. Ponte expõe `shell:start` e `shell:input`.
-- main/windows.js, `will-attach-webview`: compara só o sufixo
-  `/html/prism/prism.html`, sem origem; uma URL https com esse sufixo recebe o
-  preload do PRISM. Comparar com a URL absoluta de render_loader.js.
 - Nenhuma sessão tem `setPermissionRequestHandler`; pedidos de permissão do
   iframe aurora-preview (que roda HTML arbitrário) são concedidos por padrão.
 - main/ipc/preview.js: a raiz servida é a pasta inteira do arquivo visualizado,
@@ -1782,8 +1771,6 @@ linha, porque linha apodrece.
   documentação apresenta o allowlist como fronteira de confiança, e ele só
   impede a troca de binário. Documentar a limitação real ou restringir a forma
   dos argumentos dos interpretadores.
-- main/ipc/surfer_config.js, `safeMappingName`: deixa `..` passar, ao contrário
-  do que o comentário afirma; grava lixo em config/. Rejeitar nomes só de pontos.
 - npm audit: fast-uri (alto; o override `^3.1.5` ainda cai na faixa vulnerável)
   e qs via express do SDK do MCP (moderado). `npm audit fix` resolve os dois.
 - CI: actions fixadas por tag major (@v7), não por SHA. Sem
@@ -1791,48 +1778,19 @@ linha, porque linha apodrece.
 
 ### Lógica
 
-- main/lsp/slang_lsp.js, `stop`, `restart` e `maybeRestartForProject`: o
-  servidor novo sobe antes do `exit` do antigo chegar, e o `handleProcessGone`
-  do antigo zera `proc`, rejeita o `initialize` do novo e fecha o watcher
-  recém-criado; acontece a cada troca de projeto. Nos handlers `exit`/`error`,
-  retornar cedo se `proc !== child`.
-- main/compile/executor.js, handler `exec-spec`: chama `segurarTela()` e nunca
-  `soltarTela()`; depois da primeira compilação o powerSaveBlocker fica ativo
-  até fechar a AURORA e a tela do laptop não apaga mais.
 - main/lifecycle.js, `before-quit`: async sem `preventDefault`, então apagar
   credenciais ao sair e esvaziar a espera do desfazer podem ficar pela metade.
-- main/ipc/files.js, `restartWatcher`: usa `ipcMain.emit` num canal registrado
-  com `handle`, que não dispara; após um erro do chokidar o watcher morre e o
-  editor deixa de ver alterações externas em silêncio.
-- main/ipc/project.js: o main reescreve o .spf com `writeFile` direto, sem
-  tmp+rename, enquanto o renderer também escreve pelo SpfStore; uma escrita
-  entre a leitura e a gravação se perde, e uma queda deixa JSON truncado que
-  `parseSpfTolerant` não recupera.
-- main/ipc/components.js, doctor: `clearTempFolderSync` apaga components/Temp
-  inteiro sem consultar `state.childProcesses`; disparado durante uma
-  compilação, apaga o .vvp ou o obj_dir em uso.
 - main/python/pylib_manager.js, `_install`: duas instalações concorrentes (ou
   install e uninstall) sobrepõem o manifesto e uma biblioteca fica órfã.
 - main/lsp/verible_lsp.js e slang_lsp.js, `start`: binário que morre na hora
   respawna a cada tecla, sem backoff; o disjuntor só protege o completion.
-- main/ipc/compile.js, `check-process-running`: casa o PID como substring da
-  saída do tasklist; PID 12 dá positivo em qualquer linha com 1234.
 - main/ipc/files.js, `watch-directory` e `watch-file`: indexados só pelo
   caminho e presos ao primeiro `sender`; segunda janela nunca recebe eventos, e
   quando a primeira fecha o `send` num webContents destruído vira exceção.
 - main/windows.js, `reapAbandonedAi`: reload em qualquer janela mata as CLIs de
   IA de todas.
-- main/ipc/bug_report.js, `anonimizar`: substitui o nome de usuário sem
-  fronteira de palavra; usuário "ana" corrompe "Hardware" e "Backup" no log.
-- main/ipc/project.js: notificações `project:processors` vão para a janela
-  focada em vez de `event.sender`.
 - main/utils.js, `killProcessSilently`: fora do win32 não mata nada e o registro
   é esvaziado como se tivesse matado; ou se assume Windows-only ou se completa.
-- js/ui/sky.js, `loadCatalogue`: achado da sonda. A CSP do main.js não tem
-  `data:` em connect-src, então o `fetch` do catálogo embutido de estrelas é
-  bloqueado e a splash cai sempre no campo aleatório, o caso que o comentário do
-  módulo dizia querer evitar. Decodificar a data URL com `atob` em vez de
-  `fetch` resolve sem afrouxar a CSP.
 - Boot emite "Duplicate definition of module vs/editor/editor.main"; só há uma
   referência ao editor.main no bundle, então algum UMD está chamando o `define`
   do loader AMD do Monaco.
@@ -1848,7 +1806,6 @@ linha, porque linha apodrece.
   cada abertura do painel.
 - main/lsp/slang_lsp.js e verible_lsp.js: `stdoutBuf = Buffer.concat` a cada
   chunk, custo quadrático em resposta grande.
-- main/compile/executor.js, one-shot: `stdout += chunk` sem teto.
 - main/ipc/surfer_tab.js: `inlineDocs` e `layouts` crescem a cada `serve` e
   `stopServer` não os limpa.
 

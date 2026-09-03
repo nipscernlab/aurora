@@ -138,6 +138,26 @@ async function moveWithRetry(/** @type {any} */ from, /** @type {any} */ to, opt
   throw lastErr;
 }
 
+/**
+ * Grava o .spf inteiro de forma atomica: escreve num .tmp ao lado e renomeia
+ * por cima. Uma queda no meio do writeFile deixava JSON truncado, que o
+ * parseSpfTolerant nao recupera, e o projeto nao reabria. O rename e atomico
+ * no NTFS; se falhar (antivirus segurando o arquivo), cai para a escrita
+ * direta, que e o comportamento antigo, e o .tmp e recolhido.
+ */
+async function escreverSpf(/** @type {string} */ spfPath, /** @type {any} */ dados) {
+  const json = JSON.stringify(dados, null, 2);
+  const tmp = `${spfPath}.tmp`;
+  try {
+    await fse.writeFile(tmp, json, 'utf8');
+    await fse.rename(tmp, spfPath);
+  } catch (e) {
+    log.warn('[spf] escrita atomica falhou, gravando direto:', e instanceof Error ? e.message : e);
+    try { await fse.remove(tmp); } catch { /* melhor esforco */ }
+    await fse.writeFile(spfPath, json, 'utf8');
+  }
+}
+
 function register() {
   // ---- project lifecycle ----
 
@@ -162,7 +182,7 @@ function register() {
     try {
       await fse.mkdir(projectPath, { recursive: true });
       const projectFile = new ProjectFile(projectPath);
-      await fse.writeFile(spfPath, JSON.stringify(projectFile.toJSON(), null, 2));
+      await escreverSpf(spfPath, projectFile.toJSON());
 
       const projectExists = await fse.pathExists(projectPath);
       const spfExists = await fse.pathExists(spfPath);
@@ -294,7 +314,7 @@ function register() {
 
       if (!projectData.structure.folders) projectData.structure.folders = [];
 
-      await fse.writeFile(spfPath, JSON.stringify(projectData, null, 2));
+      await escreverSpf(spfPath, projectData);
 
       const files = await fse.readdir(projectData.structure.basePath, { withFileTypes: true });
       const fileList = files.map((file) => ({
@@ -446,7 +466,7 @@ void main()
           });
         }
 
-        await fse.writeFile(spfPath, JSON.stringify(spfData, null, 2));
+        await escreverSpf(spfPath, spfData);
 
         if (state.mainWindow) {
           // Channel `processor:created`, preload.js (onProcessorCreated)
@@ -566,7 +586,7 @@ void main()
     }
   });
 
-  ipcMain.handle('delete-processor', async (_event, processorName) => {
+  ipcMain.handle('delete-processor', async (event, processorName) => {
     try {
       if (!state.currentOpenProjectPath) throw new Error('No open project');
 
@@ -574,19 +594,26 @@ void main()
       const projectData = parseSpfTolerant(spfData);
       const projectDir = projectData.structure.basePath;
 
-      const processorDir = path.join(projectDir, processorName);
+      // O nome vem do renderer (e da IA, via delete_processor): so a mesma
+      // allowlist do create entra no path.join, senao `..` apaga a pasta pai.
+      const nome = String(processorName || '').trim();
+      if (!/^[A-Za-z0-9_-]+$/.test(nome)) {
+        throw new Error('Processor name may contain only letters, numbers, underscore or hyphen');
+      }
+      const processorDir = path.join(projectDir, nome);
       if (await fse.pathExists(processorDir)) await fse.remove(processorDir);
 
       if (projectData.structure.processors) {
         projectData.structure.processors = projectData.structure.processors.filter(
-          (/** @type {any} */ processor) => processor.name !== processorName,
+          (/** @type {any} */ processor) => processor.name !== nome,
         );
-        await fse.writeFile(state.currentOpenProjectPath, JSON.stringify(projectData, null, 2));
+        await escreverSpf(state.currentOpenProjectPath, projectData);
       }
 
-      const focusedWindow = BrowserWindow.getFocusedWindow();
-      if (focusedWindow) {
-        focusedWindow.webContents.send('project:processors', {
+      // Para a janela que pediu, nao para a que tem foco: com o PRISM ou o
+      // manual na frente, a lista ficava velha na janela certa.
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('project:processors', {
           processors: projectData.structure.processors.map((/** @type {any} */ p) => p.name),
           projectPath: projectData.structure.basePath,
         });
@@ -615,7 +642,7 @@ void main()
    * Custom user toplevels / testbenches that live at the project root are
    * intentionally left alone, the user renames those explicitly.
    */
-  ipcMain.handle('rename-processor', async (_event, oldName, newName) => {
+  ipcMain.handle('rename-processor', async (event, oldName, newName) => {
     try {
       if (!state.currentOpenProjectPath) throw new Error('No open project');
 
@@ -638,6 +665,11 @@ void main()
 
       // Canonical current casing (the .spf entry, not what the caller typed).
       const currentName = nameOf(procs[idx]);
+      // O nome atual vem do .spf, que pode ter sido clonado: um `../x` la
+      // dentro moveria uma pasta de fora do projeto. Mesma allowlist do novo.
+      if (!/^[A-Za-z0-9_-]+$/.test(String(currentName || ''))) {
+        throw new Error(`Processor "${currentName}" has a folder name the project cannot handle`);
+      }
       const caseOnly = currentName.toLowerCase() === newNm.toLowerCase();
 
       if (!caseOnly) {
@@ -725,15 +757,16 @@ void main()
       }
 
       if (spfData.metadata) spfData.metadata.lastModified = new Date().toISOString();
-      await fse.writeFile(state.currentOpenProjectPath, JSON.stringify(spfData, null, 2));
+      await escreverSpf(state.currentOpenProjectPath, spfData);
 
-      const focusedWindow = BrowserWindow.getFocusedWindow();
-      if (focusedWindow) {
-        focusedWindow.webContents.send('project:processors', {
+      // Para a janela que pediu, nao para a que tem foco: com o PRISM ou o
+      // manual na frente, a lista ficava velha na janela certa.
+      if (!event.sender.isDestroyed()) {
+        event.sender.send('project:processors', {
           processors: spfData.structure.processors.map((/** @type {any} */ p) => p.name),
           projectPath: projectDir,
         });
-        focusedWindow.webContents.send('processor:renamed', {
+        event.sender.send('processor:renamed', {
           oldName: currentName, newName: newNm, projectPath: projectDir, oldDir, newDir,
         });
       }
@@ -851,7 +884,7 @@ void main()
       // safe: remapRootPath only rewrites strings that sit under oldRoot.
       deepRemapPaths(spfData, oldRoot, movedRoot);
 
-      await fse.writeFile(newSpfPath, JSON.stringify(spfData, null, 2));
+      await escreverSpf(newSpfPath, spfData);
       mark('rewrite-spf');
 
       // 5. Re-sync main-process state + recents/jumplist to the new path.

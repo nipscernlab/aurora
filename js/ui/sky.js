@@ -24,8 +24,9 @@
  * Chromium recusa fetch nesse esquema. Como este modulo tem um fallback para o
  * campo aleatorio, buscar por caminho falharia calado e a splash continuaria
  * mostrando os pontos antigos, com todo mundo achando que o ceu tinha entrado.
- * O `?inline` do Vite resolve o import para uma data URL, que fetch aceita sob
- * file://, e sao 40 KB no bundle da splash.
+ * O `?inline` do Vite resolve o import para uma data URL de 40 KB no bundle da
+ * splash, decodificada com atob e nao com fetch: a CSP da aplicacao nao abre
+ * connect-src para data:, e um fetch dela era recusado em silencio.
  *
  * E nao ha IntersectionObserver. No site ele existe porque o heroi sai da tela
  * quando se rola a pagina; a splash nao rola, dura poucos segundos e fecha
@@ -38,6 +39,17 @@ import { decodeCatalogue, toVec } from './sky_catalogue.js';
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 async function loadCatalogue() {
+  // A data URL e decodificada aqui, sem fetch. A CSP da aplicacao (main.js)
+  // nao abre connect-src para data:, entao o fetch dela era recusado em
+  // silencio e a splash caia SEMPRE no campo aleatorio, exatamente o caso
+  // que o fallback existia para nao esconder. A sonda de 02/09/2026 pegou.
+  const m = /^data:[^;,]*;base64,(.*)$/s.exec(HYG_URL);
+  if (m) {
+    const bin = atob(m[1]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return decodeCatalogue(bytes.buffer);
+  }
   const res = await fetch(HYG_URL);
   if (!res.ok) throw new Error('catalogue ' + res.status);
   return decodeCatalogue(await res.arrayBuffer());

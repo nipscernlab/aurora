@@ -115,9 +115,15 @@ function register() {
     const pidInt = Number.parseInt(pid, 10);
     if (!Number.isFinite(pidInt)) return false;
     return new Promise((resolve) => {
-      execFile('tasklist', ['/FI', `PID eq ${pidInt}`], (error, stdout) => {
-        if (error) resolve(false);
-        else resolve(stdout.includes(String(pidInt)));
+      // CSV sem cabecalho e o PID (segunda coluna) comparado inteiro: o
+      // `includes` casava 12 com 1234 e com a coluna de memoria de qualquer linha.
+      execFile('tasklist', ['/FI', `PID eq ${pidInt}`, '/FO', 'CSV', '/NH'], (error, stdout) => {
+        if (error) { resolve(false); return; }
+        const vivo = String(stdout).split(/\r?\n/).some((linha) => {
+          const colunas = linha.split('","');
+          return colunas.length > 1 && colunas[1] === String(pidInt);
+        });
+        resolve(vivo);
       });
     });
   });

@@ -13,7 +13,7 @@ const log = require('electron-log');
 const state = require('./state');
 const recents = require('./recents');
 const { stopAllToolchain } = require('./process_registry');
-const { loadPage } = require('./render_loader');
+const { loadPage, pageUrl } = require('./render_loader');
 
 /**
  * How long after ready-to-show the splash waits for the renderer's own
@@ -298,7 +298,10 @@ function createMainWindow(opts = {}) {
   mainWindow.webContents.on('will-attach-webview', (event, webPreferences, params) => {
     const src = String(params.src || '');
     const preload = String(webPreferences.preload || params.preload || '');
-    const paginaCerta = /\/html\/prism\/prism\.html(\?|#|$)/.test(src);
+    // A URL inteira, pela mesma regra dev/dist da janela: so o sufixo deixava
+    // qualquer https://x/html/prism/prism.html receber o preload do PRISM.
+    const esperado = pageUrl('html/prism/prism.html');
+    const paginaCerta = esperado.ok && src.split(/[?#]/)[0].toLowerCase() === esperado.url.toLowerCase();
     const preloadCerto = preload.replace(/^file:\/\/\/?/, '').replace(/\//g, path.sep).toLowerCase()
       === prismPreload.toLowerCase();
     if (!paginaCerta || !preloadCerto) {

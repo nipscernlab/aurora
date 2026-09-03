@@ -85,7 +85,10 @@ function anonimizar(texto) {
     if (!nome || nome.length < 2) continue;
     // Escapa o nome para uso literal em regex (pontos, hifens etc.).
     const literal = nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    saida = saida.replace(new RegExp(literal, 'gi'), '<usuario>');
+    // So como segmento inteiro, entre separador de caminho, aspas, espaco ou
+    // borda: sem a fronteira, um usuario "ana" virava "<usuario>" dentro de
+    // Hardware e Backup, e o log do relato chegava corrompido.
+    saida = saida.replace(new RegExp(`(^|[\\\\/\\s"'])${literal}(?=[\\\\/\\s"']|$)`, 'gi'), '$1<usuario>');
   }
   return saida;
 }

@@ -89,6 +89,10 @@ async function scanDirectory(/** @type {string} */ dirPath) {
   return buildTree(dirPath, true, 0);
 }
 
+/** O handler de watch-file, guardado para o reinicio chamar sem passar pelo IPC. */
+/** @type {(event: any, filePath: string) => Promise<any>} */
+let watchFileImpl = async () => null;
+
 // Restart a file watcher in place. Used when chokidar errors out.
 async function restartWatcher(/** @type {string} */ filePath, /** @type {any} */ event) {
   const existingWatcher = state.activeWatchers.get(filePath);
@@ -100,7 +104,10 @@ async function restartWatcher(/** @type {string} */ filePath, /** @type {any} */
     }
     state.activeWatchers.delete(filePath);
   }
-  return ipcMain.emit('watch-file', event, filePath);
+  // Chamada direta: ipcMain.emit so alcanca listeners de `on`, nunca de
+  // `handle`, entao o reinicio depois de um erro do chokidar nunca acontecia
+  // e o editor deixava de ver alteracao externa em silencio.
+  return watchFileImpl(event, filePath);
 }
 
 function register() {
@@ -417,7 +424,12 @@ function register() {
 
   ipcMain.handle('folder:open', async (_event, folderPath) => {
     try {
-      await shell.openPath(folderPath);
+      // openPath EXECUTA pela associacao do Windows: um .exe, .bat ou .lnk no
+      // lugar da pasta rodaria. So diretorio passa.
+      const alvo = safePath(folderPath, 'folderPath');
+      const st = await fs.stat(alvo);
+      if (!st.isDirectory()) throw new Error('Not a folder');
+      await shell.openPath(alvo);
       return { success: true };
     } catch (error) {
       log.error('Error opening folder:', error);
@@ -629,7 +641,7 @@ function register() {
     }
   });
 
-  ipcMain.handle('watch-file', async (event, filePath) => {
+  watchFileImpl = async (event, filePath) => {
     try {
       const existing = state.activeWatchers.get(filePath);
       if (existing) {
@@ -681,7 +693,8 @@ function register() {
     } catch (error) {
       throw new Error(`Failed to start file watcher: ${error instanceof Error ? error.message : String(error)}`, { cause: error });
     }
-  });
+  };
+  ipcMain.handle('watch-file', (event, filePath) => watchFileImpl(event, filePath));
 
   ipcMain.handle('stop-watching-file', async (_event, watcherIdOrPath) => {
     try {

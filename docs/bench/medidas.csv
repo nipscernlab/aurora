@@ -1,2 +1,6 @@
 data,commit,versao,runs,boot_ms,projeto_ms,editor_ms,diag_ms,heap_mb,nos_dom,ws_mb,dist_kb,cmm_ms,nota
 2026-09-03 10:41,15d8ede4+,6.14.0,3,6329,106,1727,206,48,1695,723,5244,,"primeira medicao, apos os lotes da auditoria de 02/09"
+2026-09-03 14:45,7e48e3f2,6.14.0,3,7847,162,2108,959,69,1694,802,5245,,"secao 10 fechada: csp sem inline, katex antes do loader, busca em worker"
+2026-09-03 14:46,7e48e3f2+,6.14.0,3,8582,190,2083,617,69,1694,807,5245,,repeticao com a maquina ociosa; mesma arvore da linha anterior
+2026-09-03 14:49,7e48e3f2+,6.14.0,3,8765,193,1976,392,69,1694,809,5245,,EXPERIMENTO: mesma arvore sem a tag do katex
+2026-09-03 14:55,7e48e3f2+,6.14.0,3,8919,183,2159,505,69,1695,806,5243,,"CONTROLE: codigo de 0af1a89c (base) medido agora, na mesma maquina"

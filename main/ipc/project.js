@@ -21,7 +21,10 @@ const state = require('../state');
 // em 08/08/2026 para ficarem testaveis: sao puras, mas este modulo carrega o
 // Electron no topo e nenhum teste as alcancava. Ver main/ipc/project_paths.js.
 // remapRootPath nao entra aqui: quem o usa e o deepRemapPaths, que foi junto.
-const { parseSpfTolerant, remapProcessorPath, deepRemapPaths } = require('./project_paths');
+const {
+  parseSpfTolerant, remapProcessorPath, deepRemapPaths,
+  spfDaJanela, registrarSpfDaJanela,
+} = require('./project_paths');
 
 // ---- ProjectFile schema ----
 
@@ -246,7 +249,9 @@ function register() {
       // A4: the open .spf in state is the SINGLE source of truth for "which
       // project is open". The project DIRECTORY is derived from it on demand
       // (path.dirname), no duplicated global.currentProject* to keep in sync.
-      state.currentOpenProjectPath = spfPath;
+      // Indexado tambem pela janela que abriu (event.sender), porque cada
+      // janela principal tem o seu projeto; ver project_paths.spfDaJanela.
+      registrarSpfDaJanela(event, spfPath);
 
       // Track in our own recents store + refresh the Windows jumplist.
       // We don't use Windows' shell-managed `frequent`/`recent` lists
@@ -351,23 +356,24 @@ function register() {
     }
   });
 
-  ipcMain.handle('project:close', async () => {
+  ipcMain.handle('project:close', async (event) => {
     try {
-      if (!state.currentOpenProjectPath) {
+      if (!spfDaJanela(event)) {
         return { success: true, message: 'No project to close' };
       }
 
-      state.currentOpenProjectPath = null;
+      registrarSpfDaJanela(event, null);
 
-      const focusedWindow = BrowserWindow.getFocusedWindow();
-      if (focusedWindow && !focusedWindow.isDestroyed()) {
+      // Para a janela que pediu, nao para a que tem foco: fechar projeto com
+      // outra janela em primeiro plano limpava a arvore errada.
+      if (!event.sender.isDestroyed()) {
         const notifications = [
           { channel: 'project:processorHubState', data: { enabled: false } },
           { channel: 'project:processors', data: { processors: [], projectPath: null } },
           { channel: 'project:fileTree', data: { files: [], projectPath: null } },
           { channel: 'project:closed', data: { success: true } },
         ];
-        notifications.forEach(({ channel, data }) => focusedWindow.webContents.send(channel, data));
+        notifications.forEach(({ channel, data }) => event.sender.send(channel, data));
       }
 
       return { success: true };
@@ -377,15 +383,16 @@ function register() {
     }
   });
 
-  ipcMain.handle('get-current-project', async () => {
-    if (!state.currentOpenProjectPath) return { projectOpen: false };
+  ipcMain.handle('get-current-project', async (event) => {
+    const spfPath = spfDaJanela(event);
+    if (!spfPath) return { projectOpen: false };
     try {
-      const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
+      const spfData = await fse.readFile(spfPath, 'utf8');
       const projectData = parseSpfTolerant(spfData);
       return {
         projectOpen: true,
         projectPath: projectData.structure.basePath,
-        spfPath: state.currentOpenProjectPath,
+        spfPath,
         processors: projectData.structure.processors.map((/** @type {any} */ p) => p.name),
       };
     } catch (error) {
@@ -489,7 +496,7 @@ void main()
     }
   });
 
-  ipcMain.handle('get-available-processors', async (_event, projectPath) => {
+  ipcMain.handle('get-available-processors', async (event, projectPath) => {
     // Parse #DIRECTIVE value lines from a .cmm file header.
     async function parseCmmHeader(/** @type {any} */ projectDir, /** @type {any} */ procName) {
       const cmmPath = path.join(projectDir, procName, 'Software', `${procName}.cmm`);
@@ -528,8 +535,9 @@ void main()
 
     try {
       // Prefer the currently open project, most reliable source of truth.
-      if (state.currentOpenProjectPath && (await fse.pathExists(state.currentOpenProjectPath))) {
-        const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
+      const spfAberto = spfDaJanela(event);
+      if (spfAberto && (await fse.pathExists(spfAberto))) {
+        const spfData = await fse.readFile(spfAberto, 'utf8');
         const projectData = parseSpfTolerant(spfData);
         if (projectData.structure && projectData.structure.processors) {
           return enrichProcessors(
@@ -588,9 +596,12 @@ void main()
 
   ipcMain.handle('delete-processor', async (event, processorName) => {
     try {
-      if (!state.currentOpenProjectPath) throw new Error('No open project');
+      // Pela janela que pediu: contra o global, apagar um processador na
+      // janela A removia a pasta do projeto aberto na janela B.
+      const spfPath = spfDaJanela(event);
+      if (!spfPath) throw new Error('No open project');
 
-      const spfData = await fse.readFile(state.currentOpenProjectPath, 'utf8');
+      const spfData = await fse.readFile(spfPath, 'utf8');
       const projectData = parseSpfTolerant(spfData);
       const projectDir = projectData.structure.basePath;
 
@@ -607,7 +618,7 @@ void main()
         projectData.structure.processors = projectData.structure.processors.filter(
           (/** @type {any} */ processor) => processor.name !== nome,
         );
-        await escreverSpf(state.currentOpenProjectPath, projectData);
+        await escreverSpf(spfPath, projectData);
       }
 
       // Para a janela que pediu, nao para a que tem foco: com o PRISM ou o
@@ -644,7 +655,9 @@ void main()
    */
   ipcMain.handle('rename-processor', async (event, oldName, newName) => {
     try {
-      if (!state.currentOpenProjectPath) throw new Error('No open project');
+      // Mesma regra do delete-processor: o projeto e o da janela que pediu.
+      const spfPath = spfDaJanela(event);
+      if (!spfPath) throw new Error('No open project');
 
       const oldNm = String(oldName || '').trim();
       const newNm = String(newName || '').trim();
@@ -654,7 +667,7 @@ void main()
         throw new Error('Processor name may contain only letters, numbers, underscore or hyphen');
       }
 
-      const spfData = parseSpfTolerant(await fse.readFile(state.currentOpenProjectPath, 'utf8'));
+      const spfData = parseSpfTolerant(await fse.readFile(spfPath, 'utf8'));
       const projectDir = spfData.structure.basePath;
       const procs = Array.isArray(spfData.structure.processors)
         ? spfData.structure.processors : [];
@@ -757,7 +770,7 @@ void main()
       }
 
       if (spfData.metadata) spfData.metadata.lastModified = new Date().toISOString();
-      await escreverSpf(state.currentOpenProjectPath, spfData);
+      await escreverSpf(spfPath, spfData);
 
       // Para a janela que pediu, nao para a que tem foco: com o PRISM ou o
       // manual na frente, a lista ficava velha na janela certa.
@@ -795,7 +808,7 @@ void main()
    *, their #PRNAME directives and per-processor names are unaffected by a
    * project rename (use rename_processor for those).
    */
-  ipcMain.handle('rename-project', async (_event, newName) => {
+  ipcMain.handle('rename-project', async (event, newName) => {
     // Track each phase so the renderer (and the AI, via get_rename_status)
     // gets step-by-step completion feedback and, on failure, the exact step
     // it died on. We return a STRUCTURED verdict instead of throwing so the
@@ -805,7 +818,8 @@ void main()
     let failedStep = 'validate';
     const mark = (step) => { steps.push({ step, ok: true, ms: Date.now() - t0, where: 'main' }); };
     try {
-      if (!state.currentOpenProjectPath) throw new Error('No open project');
+      const spfAberto = spfDaJanela(event);
+      if (!spfAberto) throw new Error('No open project');
 
       const newNm = String(newName || '').trim();
       if (!newNm) throw new Error('New project name is required');
@@ -813,7 +827,7 @@ void main()
         throw new Error('Project name may contain only letters, numbers, underscore or hyphen');
       }
 
-      const oldSpfPath = state.currentOpenProjectPath;
+      const oldSpfPath = spfAberto;
       const oldRoot = path.dirname(oldSpfPath);
       const parent = path.dirname(oldRoot);
       const oldFolderName = path.basename(oldRoot);
@@ -889,7 +903,7 @@ void main()
 
       // 5. Re-sync main-process state + recents/jumplist to the new path.
       failedStep = 'resync';
-      state.currentOpenProjectPath = newSpfPath;
+      registrarSpfDaJanela(event, newSpfPath);
       try {
         if (process.platform === 'win32') {
           if (typeof app.addRecentDocument === 'function') app.addRecentDocument(newSpfPath);

@@ -15,11 +15,16 @@
 const path = require('path');
 const fs = require('fs');
 
-const state = require('../state');
+const { spfDaJanela } = require('./project_paths');
 
-/** The open project's directory, or null when no project is open. */
-function projectDir() {
-  return state.currentOpenProjectPath ? path.dirname(state.currentOpenProjectPath) : null;
+/**
+ * The open project's directory, or null when no project is open. O da JANELA
+ * que pediu: contra o global, a busca da janela A varria o projeto da B.
+ * @param {any} event
+ */
+function projectDir(event) {
+  const spf = spfDaJanela(event);
+  return spf ? path.dirname(spf) : null;
 }
 
 // ── walk limits ─────────────────────────────────────────────────────────────
@@ -137,13 +142,13 @@ function walk(dir, rootDir, depth, re, results, budget) {
 function register() {
   const { ipcMain } = require('electron');
 
-  ipcMain.handle('search:in-project', async (_e, payload) => {
+  ipcMain.handle('search:in-project', async (event, payload) => {
     const { query, caseSensitive, wholeWord, regex } = payload || {};
     if (!query || typeof query !== 'string') {
       return { ok: true, results: [], total: 0, truncated: false };
     }
 
-    const rootDir = projectDir();
+    const rootDir = projectDir(event);
     if (!rootDir || !fs.existsSync(rootDir)) {
       return { ok: false, error: 'No project open' };
     }

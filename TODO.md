@@ -1748,11 +1748,6 @@ linha, porque linha apodrece.
   ask-before-write, que depende de a pessoa ler o caminho. Confinar escrita e
   remoção às raízes conhecidas (projeto aberto, components/Temp, userData) por
   prefixo após `path.resolve`.
-- main/state.js, `currentOpenProjectPath`: global único, mas cada janela
-  principal abre seu projeto. `delete-processor`, `rename-processor`,
-  `search:in-project` e `trigger-file-tree-refresh` resolvem contra o último
-  projeto aberto, não o da janela que pediu; apagar um processador na janela A
-  pode remover a pasta do projeto da janela B. Indexar por `event.sender.id`.
 - main.js, bloco da CSP: a política existe e cobre file:// e dev server, mas
   script-src leva `unsafe-inline` e `unsafe-eval` (Monaco 0.52), então qualquer
   injeção de HTML no renderer executa. Ponte expõe `shell:start` e `shell:input`.
@@ -1775,9 +1770,6 @@ linha, porque linha apodrece.
   install e uninstall) sobrepõem o manifesto e uma biblioteca fica órfã.
 - main/lsp/verible_lsp.js e slang_lsp.js, `start`: binário que morre na hora
   respawna a cada tecla, sem backoff; o disjuntor só protege o completion.
-- main/ipc/files.js, `watch-directory` e `watch-file`: indexados só pelo
-  caminho e presos ao primeiro `sender`; segunda janela nunca recebe eventos, e
-  quando a primeira fecha o `send` num webContents destruído vira exceção.
 - main/windows.js, `reapAbandonedAi`: reload em qualquer janela mata as CLIs de
   IA de todas.
 - main/utils.js, `killProcessSilently`: fora do win32 não mata nada e o registro

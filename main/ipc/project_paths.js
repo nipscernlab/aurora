@@ -135,4 +135,52 @@ function deepRemapPaths(obj, oldRoot, newRoot) {
   }
 }
 
-module.exports = { parseSpfTolerant, remapProcessorPath, remapRootPath, deepRemapPaths };
+// ── Projeto por janela ──────────────────────────────────────────────────────
+// O estado tinha um so `currentOpenProjectPath`, mas cada janela principal
+// abre o proprio projeto. Handlers que resolviam contra o global operavam no
+// ULTIMO projeto aberto, nao no da janela que pediu: apagar um processador na
+// janela A podia remover a pasta do projeto da janela B. As duas funcoes
+// abaixo indexam pelo id do webContents; o global continua atualizado como "o
+// mais recente" para quem nao tem janela no contexto (LSP, IA, PRISM).
+
+const state = require('../state');
+
+/**
+ * O `.spf` aberto NA JANELA que fez o pedido, ou o global como reserva
+ * (arranque, chamadas fora de janela).
+ * @param {{ sender?: { id?: number } } | null} [event]
+ * @returns {string | null}
+ */
+function spfDaJanela(event) {
+  const id = event?.sender?.id;
+  if (id != null && state.projectPathsBySender.has(id)) {
+    return state.projectPathsBySender.get(id) || null;
+  }
+  return state.currentOpenProjectPath;
+}
+
+/**
+ * Registra o `.spf` aberto pela janela do `event` (null = fechou o projeto).
+ * Mantem o global em dia e limpa a entrada quando o webContents morre.
+ * @param {{ sender?: any } | null} event
+ * @param {string | null} spfPath
+ */
+function registrarSpfDaJanela(event, spfPath) {
+  state.currentOpenProjectPath = spfPath;
+  const sender = event?.sender;
+  const id = sender?.id;
+  if (id == null) return;
+  if (!spfPath) {
+    state.projectPathsBySender.delete(id);
+    return;
+  }
+  if (!state.projectPathsBySender.has(id) && typeof sender.once === 'function') {
+    sender.once('destroyed', () => state.projectPathsBySender.delete(id));
+  }
+  state.projectPathsBySender.set(id, spfPath);
+}
+
+module.exports = {
+  parseSpfTolerant, remapProcessorPath, remapRootPath, deepRemapPaths,
+  spfDaJanela, registrarSpfDaJanela,
+};

@@ -169,3 +169,67 @@ describe('deepRemapPaths', () => {
     expect(() => deepRemapPaths({ n: 1, b: true, z: null }, velho, novo)).not.toThrow();
   });
 });
+
+// ── Projeto por janela ──────────────────────────────────────────────────────
+// O estado tinha um so currentOpenProjectPath e cada janela abre o proprio
+// projeto: apagar um processador na janela A podia remover a pasta do projeto
+// da janela B. Estes testes travam a regra de resolucao por event.sender.id,
+// atravessando so a API publica (o objeto de estado interno e detalhe).
+
+import { spfDaJanela, registrarSpfDaJanela } from '../../main/ipc/project_paths.js';
+
+function fakeSender(id) {
+  const listeners = {};
+  return {
+    id,
+    destroyed: false,
+    isDestroyed() { return this.destroyed; },
+    once(ev, fn) { listeners[ev] = fn; },
+    destruir() { this.destroyed = true; listeners.destroyed?.(); },
+  };
+}
+
+describe('spfDaJanela / registrarSpfDaJanela', () => {
+  // Sem reset externo: cada teste fecha o que abriu via registrar(_, null),
+  // e os ids de sender nao se repetem entre testes.
+  it('cada janela ve o proprio projeto, nao o ultimo aberto', () => {
+    const a = fakeSender(1);
+    const b = fakeSender(2);
+    registrarSpfDaJanela({ sender: a }, '/proj/A/A.spf');
+    registrarSpfDaJanela({ sender: b }, '/proj/B/B.spf');
+    expect(spfDaJanela({ sender: a })).toBe('/proj/A/A.spf');
+    expect(spfDaJanela({ sender: b })).toBe('/proj/B/B.spf');
+    // Quem nao tem janela registrada cai no global, que e o mais recente.
+    expect(spfDaJanela(null)).toBe('/proj/B/B.spf');
+    expect(spfDaJanela({ sender: fakeSender(90) })).toBe('/proj/B/B.spf');
+    registrarSpfDaJanela({ sender: a }, null);
+    registrarSpfDaJanela({ sender: b }, null);
+  });
+
+  it('fechar o projeto tira a entrada da janela e zera o global', () => {
+    const a = fakeSender(3);
+    registrarSpfDaJanela({ sender: a }, '/proj/A/A.spf');
+    registrarSpfDaJanela({ sender: a }, null);
+    expect(spfDaJanela({ sender: a })).toBe(null);
+    expect(spfDaJanela(null)).toBe(null);
+  });
+
+  it('a entrada morre junto com o webContents', () => {
+    const a = fakeSender(4);
+    const b = fakeSender(5);
+    registrarSpfDaJanela({ sender: a }, '/proj/A/A.spf');
+    registrarSpfDaJanela({ sender: b }, '/proj/B/B.spf');
+    a.destruir();
+    // Sem entrada propria, a consulta da janela morta cai no global.
+    expect(spfDaJanela({ sender: a })).toBe('/proj/B/B.spf');
+    registrarSpfDaJanela({ sender: b }, null);
+  });
+
+  it('reabrir na mesma janela troca o caminho', () => {
+    const a = fakeSender(6);
+    registrarSpfDaJanela({ sender: a }, '/proj/A/A.spf');
+    registrarSpfDaJanela({ sender: a }, '/proj/C/C.spf');
+    expect(spfDaJanela({ sender: a })).toBe('/proj/C/C.spf');
+    registrarSpfDaJanela({ sender: a }, null);
+  });
+});

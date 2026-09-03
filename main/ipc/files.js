@@ -16,6 +16,7 @@ const { execFile } = require('child_process');
 
 const state = require('../state');
 const { debounce, safePath, formatTimestamp } = require('../utils');
+const { spfDaJanela } = require('./project_paths');
 const {
   compararEntradas,
   planoDeRenomear,
@@ -96,7 +97,10 @@ let watchFileImpl = async () => null;
 // Restart a file watcher in place. Used when chokidar errors out.
 async function restartWatcher(/** @type {string} */ filePath, /** @type {any} */ event) {
   const existingWatcher = state.activeWatchers.get(filePath);
+  /** @type {Set<any> | null} */
+  let sendersAntigos = null;
   if (existingWatcher) {
+    sendersAntigos = existingWatcher.senders;
     try {
       await existingWatcher.watcher.close();
     } catch (closeError) {
@@ -107,7 +111,18 @@ async function restartWatcher(/** @type {string} */ filePath, /** @type {any} */
   // Chamada direta: ipcMain.emit so alcanca listeners de `on`, nunca de
   // `handle`, entao o reinicio depois de um erro do chokidar nunca acontecia
   // e o editor deixava de ver alteracao externa em silencio.
-  return watchFileImpl(event, filePath);
+  const id = await watchFileImpl(event, filePath);
+  // O reinicio preserva TODOS os assinantes do watcher que caiu, nao so o do
+  // event capturado, senao a outra janela perdia os eventos em silencio.
+  if (sendersAntigos) {
+    const novo = state.activeWatchers.get(filePath);
+    if (novo) {
+      for (const wc of sendersAntigos) {
+        if (wc && !wc.isDestroyed()) novo.senders.add(wc);
+      }
+    }
+  }
+  return id;
 }
 
 function register() {
@@ -522,17 +537,40 @@ function register() {
 
   // ---------- watchers (file + directory) ----------
 
+  // Watchers indexados pelo caminho, mas com um CONJUNTO de assinantes: dois
+  // eram os defeitos de prende-los ao primeiro `event.sender`. A segunda
+  // janela que assistia ao mesmo diretorio recebia o id e nunca um evento; e
+  // quando a primeira fechava, o send num webContents destruido virava
+  // excecao no meio do handler do chokidar. `assinantesVivos` poda os mortos
+  // a cada envio, e o stop de um assinante so fecha o watcher quando ele era
+  // o ultimo.
+  const assinantesVivos = (/** @type {{ senders: Set<any> }} */ info) => {
+    for (const wc of [...info.senders]) {
+      if (!wc || wc.isDestroyed()) info.senders.delete(wc);
+    }
+    return [...info.senders];
+  };
+
   ipcMain.handle('watch-directory', async (event, directoryPath) => {
     try {
       const existing = state.activeDirectoryWatchers.get(directoryPath);
       if (existing) {
+        existing.senders.add(event.sender);
         return existing.id;
       }
 
+      const watcherId = `dir_watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      /** @type {{ id: string, watcher: import('chokidar').FSWatcher, path: string, senders: Set<any> }} */
+      const info = { id: watcherId, watcher: /** @type {any} */ (null), path: directoryPath, senders: new Set([event.sender]) };
+
       const debouncedChangeHandler = debounce(async () => {
         try {
+          const vivos = assinantesVivos(info);
+          if (!vivos.length) return;
           const files = await scanDirectory(directoryPath);
-          event.sender.send('directory-changed', directoryPath, files);
+          for (const wc of vivos) {
+            if (!wc.isDestroyed()) wc.send('directory-changed', directoryPath, files);
+          }
         } catch (error) {
           log.error(`Error getting directory structure: ${error instanceof Error ? error.message : String(error)}`);
         }
@@ -547,8 +585,7 @@ function register() {
         atomic: true,
         awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 50 },
       });
-
-      const watcherId = `dir_watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      info.watcher = watcher;
 
       watcher.on('add', () => debouncedChangeHandler());
       watcher.on('unlink', () => debouncedChangeHandler());
@@ -558,14 +595,12 @@ function register() {
       watcher.on('error', (error) => {
         log.error(`Directory watcher error for ${directoryPath}:`, error);
         const message = error instanceof Error ? error.message : String(error);
-        event.sender.send('directory-watcher-error', directoryPath, message);
+        for (const wc of assinantesVivos(info)) {
+          if (!wc.isDestroyed()) wc.send('directory-watcher-error', directoryPath, message);
+        }
       });
 
-      state.activeDirectoryWatchers.set(directoryPath, {
-        id: watcherId,
-        watcher,
-        path: directoryPath,
-      });
+      state.activeDirectoryWatchers.set(directoryPath, info);
 
       return watcherId;
     } catch (error) {
@@ -573,12 +608,13 @@ function register() {
     }
   });
 
-  ipcMain.handle('trigger-file-tree-refresh', async () => {
+  ipcMain.handle('trigger-file-tree-refresh', async (event) => {
     try {
-      // A4: project dir derived from the open .spf (single source of truth).
-      const projectPath = state.currentOpenProjectPath
-        ? path.dirname(state.currentOpenProjectPath)
-        : null;
+      // A4: project dir derived from the open .spf (single source of truth),
+      // o da JANELA que pediu: contra o global, o refresh devolvia a arvore
+      // do ultimo projeto aberto em qualquer janela.
+      const spf = spfDaJanela(event);
+      const projectPath = spf ? path.dirname(spf) : null;
       if (!projectPath) throw new Error('No project path available for refresh');
 
       const files = await scanDirectory(projectPath);
@@ -589,10 +625,13 @@ function register() {
     }
   });
 
-  ipcMain.handle('stop-watching-directory', async (_event, directoryPath) => {
+  ipcMain.handle('stop-watching-directory', async (event, directoryPath) => {
     try {
       const watcherInfo = state.activeDirectoryWatchers.get(directoryPath);
       if (watcherInfo) {
+        // So o assinante que pediu sai; o watcher fecha com o ultimo.
+        watcherInfo.senders.delete(event.sender);
+        if (assinantesVivos(watcherInfo).length > 0) return true;
         await watcherInfo.watcher.close();
         state.activeDirectoryWatchers.delete(directoryPath);
         state.directoryStatsCache.delete(directoryPath);
@@ -645,11 +684,25 @@ function register() {
     try {
       const existing = state.activeWatchers.get(filePath);
       if (existing) {
+        existing.senders.add(event.sender);
         return existing.id;
       }
 
+      const watcherId = `watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      /** @type {{ id: string, watcher: import('chokidar').FSWatcher, filePath: string, lastCheck: number, senders: Set<any> }} */
+      const info = {
+        id: watcherId,
+        watcher: /** @type {any} */ (null),
+        filePath,
+        lastCheck: Date.now(),
+        senders: new Set([event.sender]),
+      };
+
       const debouncedChangeHandler = debounce((/** @type {string} */ eventType) => {
-        if (eventType === 'change') event.sender.send('file-changed', filePath);
+        if (eventType !== 'change') return;
+        for (const wc of assinantesVivos(info)) {
+          if (!wc.isDestroyed()) wc.send('file-changed', filePath);
+        }
       }, 150);
 
       const watcher = chokidar.watch(filePath, {
@@ -662,8 +715,7 @@ function register() {
         depth: 0,
         ignored: /[\\/]\./,
       });
-
-      const watcherId = `watcher_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      info.watcher = watcher;
 
       watcher.on('change', () => debouncedChangeHandler('change'));
 
@@ -675,19 +727,16 @@ function register() {
           } catch (restartError) {
             log.error(`Failed to restart watcher for ${filePath}:`, restartError);
             const message = error instanceof Error ? error.message : String(error);
-            event.sender.send('file-watcher-error', filePath, message);
+            for (const wc of assinantesVivos(info)) {
+              if (!wc.isDestroyed()) wc.send('file-watcher-error', filePath, message);
+            }
           }
         }, 1000);
       });
 
       watcher.on('ready', () => log.debug(`File watcher ready for: ${filePath}`));
 
-      state.activeWatchers.set(filePath, {
-        id: watcherId,
-        watcher,
-        filePath,
-        lastCheck: Date.now(),
-      });
+      state.activeWatchers.set(filePath, info);
 
       return watcherId;
     } catch (error) {
@@ -696,10 +745,13 @@ function register() {
   };
   ipcMain.handle('watch-file', (event, filePath) => watchFileImpl(event, filePath));
 
-  ipcMain.handle('stop-watching-file', async (_event, watcherIdOrPath) => {
+  ipcMain.handle('stop-watching-file', async (event, watcherIdOrPath) => {
     try {
       const watcherInfo = acharWatcher(state.activeWatchers, watcherIdOrPath);
       if (watcherInfo) {
+        // Mesma regra do diretorio: sai o assinante, fecha so com o ultimo.
+        watcherInfo.senders.delete(event.sender);
+        if (assinantesVivos(watcherInfo).length > 0) return true;
         await watcherInfo.watcher.close();
         state.activeWatchers.delete(watcherInfo.filePath);
         state.fileStatsCache.delete(watcherInfo.filePath);
@@ -719,6 +771,14 @@ function register() {
   const healthCheck = setInterval(async () => {
     if (!state.activeWatchers.size && !state.activeDirectoryWatchers.size) return;
     for (const [filePath, watcherInfo] of state.activeWatchers.entries()) {
+      // Sem assinante vivo (janelas fechadas sem stop explicito), o watcher e
+      // handle aberto sem leitor: fecha aqui.
+      if (assinantesVivos(watcherInfo).length === 0) {
+        try { await watcherInfo.watcher.close(); } catch (_) { /* melhor esforco */ }
+        state.activeWatchers.delete(filePath);
+        state.fileStatsCache.delete(filePath);
+        continue;
+      }
       try {
         await fs.access(filePath);
         watcherInfo.lastCheck = Date.now();
@@ -733,6 +793,12 @@ function register() {
       }
     }
     for (const [directoryPath, watcherInfo] of state.activeDirectoryWatchers.entries()) {
+      if (assinantesVivos(watcherInfo).length === 0) {
+        try { await watcherInfo.watcher.close(); } catch (_) { /* melhor esforco */ }
+        state.activeDirectoryWatchers.delete(directoryPath);
+        state.directoryStatsCache.delete(directoryPath);
+        continue;
+      }
       try {
         await fs.access(directoryPath);
       } catch {

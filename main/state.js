@@ -26,14 +26,15 @@
  * @property {unknown} updateInfo - electron-updater's UpdateInfo; opaque here.
  * @property {boolean} updateSystemInitialized
  * @property {string | null} currentOpenProjectPath
+ * @property {Map<number, string>} projectPathsBySender - .spf aberto POR JANELA, chaveado pelo id do webContents. O global acima continua existindo como "o último aberto" para quem não tem janela no contexto (LSP, IA); handlers de IPC usam spfDaJanela(event) em main/ipc/project_paths.js, senão apagar um processador na janela A remove pasta do projeto da janela B.
  * @property {string | null} fileToOpen
  * @property {ChildProcess | ChildProcessIO | null} currentVvpProcess
  * @property {number | null} vvpProcessPid
  * @property {Set<ChildProcess | ChildProcessIO>} currentGtkwaveProcesses
  * @property {Set<ChildProcess | ChildProcessIO>} childProcesses - Every live toolchain child (compilers, simulators, yosys, gtkwave, cocotb). Tree-killed on window close / quit.
- * @property {Map<string, { id: string, watcher: import('chokidar').FSWatcher, filePath: string, lastCheck: number }>} activeWatchers
+ * @property {Map<string, { id: string, watcher: import('chokidar').FSWatcher, filePath: string, lastCheck: number, senders: Set<import('electron').WebContents> }>} activeWatchers
  * @property {Map<string, unknown>} fileStatsCache
- * @property {Map<string, { id: string, watcher: import('chokidar').FSWatcher, path: string }>} activeDirectoryWatchers
+ * @property {Map<string, { id: string, watcher: import('chokidar').FSWatcher, path: string, senders: Set<import('electron').WebContents> }>} activeDirectoryWatchers
  * @property {Map<string, unknown>} directoryStatsCache
  */
 
@@ -60,6 +61,7 @@ const state = {
 
   // Project
   currentOpenProjectPath: null,
+  projectPathsBySender: new Map(),
   fileToOpen: null,
 
   // Simulation processes

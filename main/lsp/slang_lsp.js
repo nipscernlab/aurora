@@ -50,6 +50,14 @@
  * `unknown module 'processor'` na instanciacao do proprio processador. Essa
  * pasta entra agora na mesma lista das pastas de fora, pelo mesmo caminho.
  *
+ * A quarta e o processador que ainda nao foi compilado. O top level instancia
+ * o modulo do processador declarado no .spf, mas o Hardware/<proc>.v so nasce
+ * quando o C± compila, e ate la o slang acusa `unknown module` em vermelho num
+ * arquivo que esta certo: falta um passo, nao um modulo. Esse diagnostico, e
+ * so ele, desce para informacao com o texto dizendo qual passo falta
+ * ([suavizarProcessadorNaoCompilado](#)); assim que o .v aparece, o watcher
+ * acima avisa o indice e o aviso some sozinho.
+ *
  * The transport mirrors verible_lsp.js on purpose; slang's extras live
  * here (workspace rootUri, server→client request replies, enable/disable,
  * project-change restart, completion) so the live-validated O2 bridge is
@@ -179,6 +187,77 @@ function extraSourceDirs(/** @type {string} */ projectDir) {
     }
   }
   return [...dirs.values()].sort();
+}
+
+// ── Processador declarado e ainda nao compilado ──────────────────────────────
+
+/** O texto do slang para modulo desconhecido; o nome vem entre aspas simples. */
+const RE_UNKNOWN_MODULE = /unknown module '([^']+)'/;
+
+/**
+ * Os processadores do .spf cujo Verilog ainda nao existe no disco.
+ *
+ * O `Hardware/<nome>.v` e gerado pela compilacao do C± (compilation_module.js
+ * grava em `${hardwarePath}/${nome}.v`), entao entre criar o processador e
+ * compilar pela primeira vez o top level instancia um modulo que o indice nao
+ * tem como conhecer. Devolve nome → caminho esperado do .v, so para os que
+ * faltam. Le o .spf direto, como extraSourceDirs: o renderer e o dono da
+ * escrita, aqui e so leitura.
+ */
+function processadoresSemHardware(/** @type {string | null} */ projectDir) {
+  /** @type {Map<string, string>} */
+  const faltam = new Map();
+  const spf = state.currentOpenProjectPath;
+  if (!spf || !projectDir) return faltam;
+  let doc;
+  try {
+    doc = JSON.parse(fs.readFileSync(spf, 'utf8'));
+  } catch {
+    return faltam; // .spf ausente ou meio-escrito: nada a rebaixar
+  }
+  const structure = doc && doc.structure;
+  const procs = structure && Array.isArray(structure.processors) ? structure.processors : [];
+  const base = structure && typeof structure.basePath === 'string' && structure.basePath
+    ? structure.basePath
+    : projectDir;
+  for (const p of procs) {
+    const nome = p && typeof p.name === 'string' ? p.name.trim() : '';
+    if (!nome) continue;
+    const hw = p && typeof p.hardwarePath === 'string' && p.hardwarePath
+      ? path.resolve(base, p.hardwarePath)
+      : path.join(base, nome, 'Hardware');
+    const alvo = path.join(hw, `${nome}.v`);
+    let existe = false;
+    try { existe = fs.existsSync(alvo); } catch { existe = false; }
+    if (!existe) faltam.set(nome, alvo);
+  }
+  return faltam;
+}
+
+/**
+ * Rebaixa o `unknown module` de um processador ainda nao compilado.
+ *
+ * Erro e para arquivo errado; aqui o arquivo esta certo e falta um passo, entao
+ * o diagnostico desce para informacao (severidade 3 do LSP, sublinhado azul no
+ * Monaco) e o texto passa a dizer o passo. Os outros diagnosticos saem como
+ * chegaram, inclusive um `unknown module` de nome que o .spf nao declara: esse
+ * continua sendo erro de verdade. Funcao pura, para o teste.
+ */
+function suavizarProcessadorNaoCompilado(/** @type {any[]} */ diagnostics, /** @type {Map<string, string>} */ semHardware) {
+  if (!semHardware || semHardware.size === 0) return diagnostics;
+  return diagnostics.map((d) => {
+    const msg = d && typeof d.message === 'string' ? d.message : '';
+    const m = RE_UNKNOWN_MODULE.exec(msg);
+    if (!m) return d;
+    const nome = m[1];
+    const alvo = semHardware.get(nome);
+    if (!alvo) return d;
+    return {
+      ...d,
+      severity: 3,
+      message: `'${nome}' é o processador do projeto e ainda não foi compilado: compile o C± para gerar ${alvo}. Até lá o slang não conhece o módulo.`,
+    };
+  });
 }
 
 /**
@@ -434,9 +513,15 @@ function handleMessage(/** @type {any} */ msg) {
   // Server → client notification.
   if (typeof msg.method === 'string' && (msg.id === undefined || msg.id === null)) {
     if (msg.method === 'textDocument/publishDiagnostics' && msg.params) {
+      const diagnostics = Array.isArray(msg.params.diagnostics) ? msg.params.diagnostics : [];
+      // O .spf so e lido quando ha um `unknown module` para julgar: no caso
+      // comum (nenhum) a publicacao nao toca no disco.
+      const temDesconhecido = diagnostics.some((d) => d && typeof d.message === 'string' && RE_UNKNOWN_MODULE.test(d.message));
       sendMain('slang:diagnostics', {
         uri: msg.params.uri,
-        diagnostics: Array.isArray(msg.params.diagnostics) ? msg.params.diagnostics : [],
+        diagnostics: temDesconhecido
+          ? suavizarProcessadorNaoCompilado(diagnostics, processadoresSemHardware(projectDirNow()))
+          : diagnostics,
       });
     }
     // Other notifications (window/logMessage, $/progress, telemetry, …) ignored.
@@ -710,5 +795,14 @@ function register() {
 // As pecas que decidem o que entra no indice saem daqui para o teste: errar
 // numa delas devolve o `unknown module` sem barulho nenhum. extraSourceDirs le
 // o .spf, indexExtraDirs junta a biblioteca HDL a essa leitura, e syncSlangConfig
-// escreve o resultado onde o slang le.
-module.exports = { register, extraSourceDirs, indexExtraDirs, syncSlangConfig };
+// escreve o resultado onde o slang le. processadoresSemHardware e
+// suavizarProcessadorNaoCompilado cuidam do unico `unknown module` legitimo, o
+// do processador que o C± ainda nao gerou.
+module.exports = {
+  register,
+  extraSourceDirs,
+  indexExtraDirs,
+  syncSlangConfig,
+  processadoresSemHardware,
+  suavizarProcessadorNaoCompilado,
+};

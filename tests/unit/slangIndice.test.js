@@ -18,6 +18,12 @@
  * `.slang/local/server.json` que as declara. A regra que mais importa e a
  * ultima: o arquivo e do slang, e um `server.json` escrito pelo usuario nao
  * pode ser sobrescrito por nos.
+ *
+ * E ha um `unknown module` que nenhuma pasta resolve: o do processador que o
+ * .spf declara e o C± ainda nao compilou, porque o Hardware/<nome>.v so existe
+ * depois da primeira compilacao. `processadoresSemHardware` acha esses e
+ * `suavizarProcessadorNaoCompilado` troca o erro por uma informacao que diz o
+ * passo que falta, sem tocar em nenhum outro diagnostico.
  */
 
 import fs from 'node:fs';
@@ -29,7 +35,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 const require = createRequire(import.meta.url);
 const state = require('../../main/state.js');
-const { extraSourceDirs, indexExtraDirs, syncSlangConfig } = require('../../main/lsp/slang_lsp.js');
+const {
+  extraSourceDirs,
+  indexExtraDirs,
+  syncSlangConfig,
+  processadoresSemHardware,
+  suavizarProcessadorNaoCompilado,
+} = require('../../main/lsp/slang_lsp.js');
 
 let raiz;
 let projeto;
@@ -200,5 +212,70 @@ describe('a config que declara essas pastas', () => {
 
     const cfg = JSON.parse(fs.readFileSync(configDe(projeto), 'utf8'));
     expect(cfg.index[0].dirs).toEqual([projeto, um, dois]);
+  });
+});
+
+describe('o processador declarado e ainda nao compilado', () => {
+  const diag = (message, extra = {}) => ({
+    range: { start: { line: 9, character: 2 }, end: { line: 9, character: 12 } },
+    severity: 1,
+    message,
+    ...extra,
+  });
+
+  it('lista so os processadores cujo Hardware/<nome>.v nao existe', () => {
+    escreverSpf({
+      processors: [
+        { name: 'mediamovel', hardwarePath: path.join(projeto, 'mediamovel', 'Hardware') },
+        { name: 'filtro', hardwarePath: path.join(projeto, 'filtro', 'Hardware') },
+      ],
+    });
+    fs.mkdirSync(path.join(projeto, 'filtro', 'Hardware'), { recursive: true });
+    fs.writeFileSync(path.join(projeto, 'filtro', 'Hardware', 'filtro.v'), 'module filtro; endmodule\n');
+    const faltam = processadoresSemHardware(projeto);
+    expect([...faltam.keys()]).toEqual(['mediamovel']);
+    expect(faltam.get('mediamovel')).toBe(path.join(projeto, 'mediamovel', 'Hardware', 'mediamovel.v'));
+  });
+
+  it('aceita hardwarePath relativo e assume <nome>/Hardware quando ele falta', () => {
+    escreverSpf({ processors: [{ name: 'a', hardwarePath: path.join('a', 'Hardware') }, { name: 'b' }] });
+    const faltam = processadoresSemHardware(projeto);
+    expect(faltam.get('a')).toBe(path.join(projeto, 'a', 'Hardware', 'a.v'));
+    expect(faltam.get('b')).toBe(path.join(projeto, 'b', 'Hardware', 'b.v'));
+  });
+
+  it('nao quebra sem projeto aberto nem com .spf meio escrito', () => {
+    expect(processadoresSemHardware(null).size).toBe(0);
+    const spf = path.join(projeto, 'proj.spf');
+    fs.writeFileSync(spf, '{"structure": {"processors": [');
+    state.currentOpenProjectPath = spf;
+    expect(processadoresSemHardware(projeto).size).toBe(0);
+  });
+
+  it('rebaixa o unknown module do processador para informacao e diz o passo que falta', () => {
+    const alvo = path.join(projeto, 'mediamovel', 'Hardware', 'mediamovel.v');
+    const saida = suavizarProcessadorNaoCompilado(
+      [diag("unknown module 'mediamovel'", { code: 'UnknownModule' })],
+      new Map([['mediamovel', alvo]]),
+    );
+    expect(saida).toHaveLength(1);
+    expect(saida[0].severity).toBe(3);
+    expect(saida[0].message).toContain("'mediamovel'");
+    expect(saida[0].message).toContain(alvo);
+    expect(saida[0].range).toEqual(diag('').range);
+  });
+
+  it('deixa como esta o unknown module de um nome que o .spf nao declara, e todo o resto', () => {
+    const outros = [
+      diag("unknown module 'fifo'"),
+      diag('undriven net', { severity: 2 }),
+    ];
+    const saida = suavizarProcessadorNaoCompilado(outros, new Map([['mediamovel', 'x']]));
+    expect(saida).toEqual(outros);
+  });
+
+  it('nao toca em nada quando todos os processadores ja tem Verilog', () => {
+    const d = [diag("unknown module 'mediamovel'")];
+    expect(suavizarProcessadorNaoCompilado(d, new Map())).toBe(d);
   });
 });
